@@ -1,0 +1,48 @@
+@page "/license"
+@using Orbit.Core
+@using Orbit.Web.Services
+@inject LicenseText LicenseText
+@inject Translations T
+
+@* The licence, on Orbit's own pages. Deliberately has no [Authorize]: what somebody may do with this
+   software is a question they are entitled to an answer to before they have an account, and the footer
+   that links here is on the sign-in page too.
+
+   The words are the repository's own LICENSE file, served beside the app - see LicenseText. Shown
+   rather than linked to GitHub: a licence that can only be read on somebody else's site is one this
+   deployment cannot promise is still there. *@
+<PageTitle>@T["Orbit — Licence"]</PageTitle>
+
+<div class="page-header">
+    <div>
+        <h1>@T["Licence"]</h1>
+        <p class="page-subtitle">@OrbitRelease.Copyright</p>
+    </div>
+</div>
+
+<div class="card">
+    @if (_isLoading)
+    {
+        <p>@T["Loading…"]</p>
+    }
+    else if (_text is null)
+    {
+        <p class="error">@T["The licence couldn't be read from this Orbit."]</p>
+    }
+    else
+    {
+        @* Pre-formatted, because that is what the file is: its line breaks are part of the text. *@
+        <pre class="license-text">@_text</pre>
+    }
+</div>
+
+@code {
+    private bool _isLoading = true;
+    private string? _text;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _text = await LicenseText.ReadAsync();
+        _isLoading = false;
+    }
+}

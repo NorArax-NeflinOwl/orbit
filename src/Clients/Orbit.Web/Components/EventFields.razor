@@ -8,238 +8,272 @@
    in different words is how the two drift apart, and an entry saved from a form missing half the event
    is how a field goes quietly missing.
 
-   The title is not here. The editor has a title box; an entry's own words are its event's title. *@
+   The title is not here. The editor has a title box; an entry's own words are its event's title.
+
+   Laid out in sections - when, where, what it is, being told about it, who is coming - rather than as
+   one column of eighteen fields. The order is the one Google Calendar uses, because that is the form
+   most people already know: the day it happens is the first question an event answers, and the colour
+   and the priority are the last. *@
 <div class="event-fields">
     @* The event's own fields lock together; the guest list below does not. Somebody given "can share"
        and nothing else may invite people to an event they are not allowed to edit. *@
     <fieldset disabled="@IsReadOnly">
-    <div class="field">
-        <label for="@($"{IdPrefix}Description")">@T["Description"]</label>
-        @* Its own row and full width, because a description is prose - see .event-fields-description. *@
-        <textarea id="@($"{IdPrefix}Description")" class="event-fields-description" rows="2"
-                  placeholder="@(T["What this is about"])" value="@Model.Description"
-                  @oninput="args => Model.Description = args.Value?.ToString() ?? string.Empty"></textarea>
-    </div>
 
-    <div class="field-row">
-        <label>@T["Color"]<input type="color" @bind="Model.Color" /></label>
-        <label for="@($"{IdPrefix}Priority")">@T["Priority"]</label>
-        <select id="@($"{IdPrefix}Priority")" @bind="Model.Priority">
-            <option value="High">@T["High"]</option>
-            <option value="Normal">@T["Normal"]</option>
-            <option value="Low">@T["Low"]</option>
-        </select>
-    </div>
+    @* When it is. First, and on its own, because it is the question an event exists to answer - and
+       because the two answers above it used to be a checkbox floating between a colour picker and a
+       date. *@
+    <section class="event-section">
+        <h3 class="event-section-heading">@T["When"]</h3>
 
-    @* Above the two time rows, because it decides what those rows show. *@
-    <div class="field field-checkbox">
-        <label><InputCheckbox @bind-Value="Model.IsAllDay" />@T["All-day event"]</label>
-    </div>
-
-    <div class="field">
-        <label>@T["Start"]</label>
-        <div class="field-row">
-            <DateField @bind-Value="Model.StartDate" @bind-Value:after="Model.OnStartChanged" AriaLabel="@(T["Start"])" />
-            @if (!Model.IsAllDay)
-            {
-                <TimeField @bind-Value="Model.StartTime" @bind-Value:after="Model.OnStartChanged" AriaLabel="@(T["Start"])" />
-            }
+        @* Above the two time rows, because it decides what those rows show. *@
+        <div class="field field-checkbox">
+            <label><InputCheckbox @bind-Value="Model.IsAllDay" />@T["All-day event"]</label>
         </div>
-    </div>
 
-    <div class="field">
-        <label>@T["End"]</label>
-        <div class="field-row">
-            <DateField @bind-Value="Model.EndDate" @bind-Value:after="Model.OnEndChanged" AriaLabel="@(T["End"])" />
-            @if (!Model.IsAllDay)
-            {
-                <TimeField @bind-Value="Model.EndTime" @bind-Value:after="Model.OnEndChanged" AriaLabel="@(T["End"])" />
-            }
+        <div class="field">
+            <label>@T["Start"]</label>
+            <div class="field-row">
+                <DateField @bind-Value="Model.StartDate" @bind-Value:after="Model.OnStartChanged" AriaLabel="@(T["Start"])" />
+                @if (!Model.IsAllDay)
+                {
+                    <TimeField @bind-Value="Model.StartTime" @bind-Value:after="Model.OnStartChanged" AriaLabel="@(T["Start"])" />
+                }
+            </div>
         </div>
-    </div>
 
-    <div class="field field-checkbox">
-        <label><InputCheckbox @bind-Value="Model.IsRecurring" />@T["Recurring event"]</label>
-    </div>
+        <div class="field">
+            <label>@T["End"]</label>
+            <div class="field-row">
+                <DateField @bind-Value="Model.EndDate" @bind-Value:after="Model.OnEndChanged" AriaLabel="@(T["End"])" />
+                @if (!Model.IsAllDay)
+                {
+                    <TimeField @bind-Value="Model.EndTime" @bind-Value:after="Model.OnEndChanged" AriaLabel="@(T["End"])" />
+                }
+            </div>
+        </div>
 
-    @* The rule's four boxes appear only once something says it repeats: asking how often a one-off
-       happens is a question with no answer. *@
-    @if (Model.IsRecurring)
-    {
-        <div class="field-row">
-            <label for="@($"{IdPrefix}Frequency")">@T["Frequency"]</label>
-            <select id="@($"{IdPrefix}Frequency")" @bind="Model.RecurrenceFrequency">
-                <option value="Daily">@T["Daily"]</option>
-                <option value="Weekly">@T["Weekly"]</option>
-                <option value="Monthly">@T["Monthly"]</option>
-                <option value="Yearly">@T["Yearly"]</option>
-            </select>
-            <label for="@($"{IdPrefix}Every")">@T["Every"]</label>
-            <input id="@($"{IdPrefix}Every")" type="number" min="1" class="event-fields-number"
-                   value="@Model.RecurrenceIntervalCount"
-                   @onchange="args => Model.RecurrenceIntervalCount = ReadCount(args.Value, atLeast: 1) ?? 1" />
+        <div class="field field-checkbox">
+            <label><InputCheckbox @bind-Value="Model.IsRecurring" />@T["Recurring event"]</label>
         </div>
-        <div class="field-row">
-            <label>@T["Repeat until (optional)"]
-                <DateField @bind-Value="Model.RecurrenceUntil" AriaLabel="@(T["Repeat until (optional)"])" />
-            </label>
-            @* The other way of saying when to stop. Both may be given; whichever comes first wins - see
-               CalendarEventOccurrenceGenerator. *@
-            <label for="@($"{IdPrefix}RepeatCount")">@T["Repeat how many times"]</label>
-            <input id="@($"{IdPrefix}RepeatCount")" type="number" min="1" class="event-fields-number"
-                   placeholder="@(T["no limit"])" value="@Model.RecurrenceCount"
-                   @onchange="args => Model.RecurrenceCount = ReadCount(args.Value, atLeast: 1)" />
-        </div>
-    }
 
-    <div class="field">
-        <label for="@($"{IdPrefix}Location")">@T["Location"]</label>
-        <div class="field-row">
-            <input id="@($"{IdPrefix}Location")" type="text" class="event-fields-location"
-                   placeholder="@(T["Where this happens"])" value="@Model.LocationAddress"
-                   @oninput="args => Model.LocationAddress = args.Value?.ToString() ?? string.Empty" />
-            @* Typing an address is one way; pointing at it is the other, and the one that works when
-               nobody knows what the street is called. *@
-            <button type="button" class="icon-btn" title="@(T["Pick on map"])" aria-label="@(T["Pick on map"])"
-                    @onclick="OnMapRequested">
-                <svg viewBox="0 0 20 20" width="18" height="18" aria-hidden="true" fill="none"
-                     stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
-                    <path d="M10 17s5-4.6 5-8a5 5 0 1 0-10 0c0 3.4 5 8 5 8Z" />
-                    <circle cx="10" cy="9" r="1.8" />
-                </svg>
-            </button>
-        </div>
-        @* Which of these is true depends on whether a pin was ever confirmed, and the difference
-           matters: only a pinned place has coordinates, so saying so is what stops a typed name
-           quietly meaning less than it looks. *@
-        @if (Model.LocationLatitude is not null)
+        @* The rule's four boxes appear only once something says it repeats: asking how often a one-off
+           happens is a question with no answer. *@
+        @if (Model.IsRecurring)
         {
             <div class="field-row">
-                <small>@T["The name is yours to write - the pin keeps its exact position either way."]</small>
-                @* Somewhere that turned out to be somewhere else has to be removable, name and pin
-                   together - clearing only the words would leave the event pinned to the old place. *@
-                <button type="button" class="btn-secondary" @onclick="ClearLocation">@T["Remove location"]</button>
+                <label for="@($"{IdPrefix}Frequency")">@T["Frequency"]</label>
+                <select id="@($"{IdPrefix}Frequency")" @bind="Model.RecurrenceFrequency">
+                    <option value="Daily">@T["Daily"]</option>
+                    <option value="Weekly">@T["Weekly"]</option>
+                    <option value="Monthly">@T["Monthly"]</option>
+                    <option value="Yearly">@T["Yearly"]</option>
+                </select>
+                <label for="@($"{IdPrefix}Every")">@T["Every"]</label>
+                <input id="@($"{IdPrefix}Every")" type="number" min="1" class="event-fields-number"
+                       value="@Model.RecurrenceIntervalCount"
+                       @onchange="args => Model.RecurrenceIntervalCount = ReadCount(args.Value, atLeast: 1) ?? 1" />
+            </div>
+            <div class="field-row">
+                <label>@T["Repeat until (optional)"]
+                    <DateField @bind-Value="Model.RecurrenceUntil" AriaLabel="@(T["Repeat until (optional)"])" />
+                </label>
+                @* The other way of saying when to stop. Both may be given; whichever comes first wins - see
+                   CalendarEventOccurrenceGenerator. *@
+                <label for="@($"{IdPrefix}RepeatCount")">@T["Repeat how many times"]</label>
+                <input id="@($"{IdPrefix}RepeatCount")" type="number" min="1" class="event-fields-number"
+                       placeholder="@(T["no limit"])" value="@Model.RecurrenceCount"
+                       @onchange="args => Model.RecurrenceCount = ReadCount(args.Value, atLeast: 1)" />
             </div>
         }
-        else if (Model.LocationAddress.Trim().Length > 0)
-        {
-            <small>@T["Point at this place on the map so the calendar knows where it is - a name on its own stays as words."]</small>
-        }
-    </div>
+    </section>
 
-    <div class="field">
-        <label>@T["Reminders"]</label>
-        @if (Model.Reminders.Count == 0)
-        {
-            <p class="empty-hint">@T["No reminders."]</p>
-        }
-        else
-        {
-            @foreach (var row in Model.Reminders)
+    <section class="event-section">
+        <h3 class="event-section-heading">@T["Where"]</h3>
+
+        <div class="field">
+            <label for="@($"{IdPrefix}Location")">@T["Location"]</label>
+            <div class="field-row">
+                <input id="@($"{IdPrefix}Location")" type="text" class="event-fields-location"
+                       placeholder="@(T["Where this happens"])" value="@Model.LocationAddress"
+                       @oninput="args => Model.LocationAddress = args.Value?.ToString() ?? string.Empty" />
+                @* Typing an address is one way; pointing at it is the other, and the one that works when
+                   nobody knows what the street is called. *@
+                <button type="button" class="icon-btn" title="@(T["Pick on map"])" aria-label="@(T["Pick on map"])"
+                        @onclick="OnMapRequested">
+                    <svg viewBox="0 0 20 20" width="18" height="18" aria-hidden="true" fill="none"
+                         stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M10 17s5-4.6 5-8a5 5 0 1 0-10 0c0 3.4 5 8 5 8Z" />
+                        <circle cx="10" cy="9" r="1.8" />
+                    </svg>
+                </button>
+            </div>
+            @* Which of these is true depends on whether a pin was ever confirmed, and the difference
+               matters: only a pinned place has coordinates, so saying so is what stops a typed name
+               quietly meaning less than it looks. *@
+            @if (Model.LocationLatitude is not null)
             {
-                <div class="field-row reminder-row">
-                    <select @bind="row.PresetSelection" aria-label="@(T["Reminders"])">
-                        @foreach (var preset in ReminderRow.Presets)
-                        {
-                            <option value="@preset.Minutes">@T[preset.Label]</option>
-                        }
-                        <option value="custom">@T["Custom"]</option>
-                    </select>
-                    @if (row.IsCustom)
-                    {
-                        <input type="number" min="1" class="event-fields-number" value="@row.CustomAmount"
-                               aria-label="@(T["Custom"])"
-                               @onchange="args => SetCustomAmount(row, args.Value)" />
-                        <select @bind="row.CustomUnit" @bind:after="row.RecomputeFromCustom">
-                            <option value="minutes">@T["minutes"]</option>
-                            <option value="hours">@T["hours"]</option>
-                            <option value="days">@T["days"]</option>
-                            <option value="weeks">@T["weeks"]</option>
-                        </select>
-                        <span>@T["before"]</span>
-                    }
-                    <button type="button" class="icon-btn" title="@(T["Remove"])" aria-label="@(T["Remove"])"
-                            @onclick="() => Model.Reminders.Remove(row)">✕</button>
+                <div class="field-row">
+                    <small>@T["The name is yours to write - the pin keeps its exact position either way."]</small>
+                    @* Somewhere that turned out to be somewhere else has to be removable, name and pin
+                       together - clearing only the words would leave the event pinned to the old place. *@
+                    <button type="button" class="btn-secondary" @onclick="ClearLocation">@T["Remove location"]</button>
                 </div>
             }
-        }
-        <button type="button" class="btn-secondary" @onclick="AddReminder">@T["Add reminder"]</button>
-    </div>
-
-    <div class="field-row">
-        <label for="@($"{IdPrefix}ReminderChannel")">@T["Notification channel"]</label>
-        <select id="@($"{IdPrefix}ReminderChannel")" @bind="Model.ReminderNotificationChannel">
-            @foreach (var option in NotificationChannelOption.All)
+            else if (Model.LocationAddress.Trim().Length > 0)
             {
-                <option value="@option.Value" disabled="@option.IsDisabledBy(NotificationSettings)">@T[option.Label]</option>
+                <small>@T["Point at this place on the map so the calendar knows where it is - a name on its own stays as words."]</small>
             }
-        </select>
-        @* A different question from the ones above: those say it is coming, this says it has begun. *@
-        <label class="field-checkbox">
-            <InputCheckbox @bind-Value="Model.NotifyAtStart" />@T["Also when it starts"]
-        </label>
-    </div>
+        </div>
+    </section>
+
+    @* What it is, as opposed to when and where: the words, and the two answers that decide how it is
+       drawn and sorted. *@
+    <section class="event-section">
+        <h3 class="event-section-heading">@T["Details"]</h3>
+
+        <div class="field">
+            <label for="@($"{IdPrefix}Description")">@T["Description"]</label>
+            @* Its own row and full width, because a description is prose - see .event-fields-description. *@
+            <textarea id="@($"{IdPrefix}Description")" class="event-fields-description" rows="2"
+                      placeholder="@(T["What this is about"])" value="@Model.Description"
+                      @oninput="args => Model.Description = args.Value?.ToString() ?? string.Empty"></textarea>
+        </div>
+
+        <div class="field-row">
+            <label>@T["Color"]<input type="color" @bind="Model.Color" /></label>
+            <label for="@($"{IdPrefix}Priority")">@T["Priority"]</label>
+            <select id="@($"{IdPrefix}Priority")" @bind="Model.Priority">
+                <option value="High">@T["High"]</option>
+                <option value="Normal">@T["Normal"]</option>
+                <option value="Low">@T["Low"]</option>
+            </select>
+        </div>
+    </section>
+
+    @* Everything about being told, in one place: how long before, on which channel, and whether the
+       start itself is worth a word. The channel used to sit under the reminders with nothing saying it
+       was theirs. *@
+    <section class="event-section">
+        <h3 class="event-section-heading">@T["Reminders"]</h3>
+
+        <div class="field">
+            @if (Model.Reminders.Count == 0)
+            {
+                <p class="empty-hint">@T["No reminders."]</p>
+            }
+            else
+            {
+                @foreach (var row in Model.Reminders)
+                {
+                    <div class="field-row reminder-row">
+                        <select @bind="row.PresetSelection" aria-label="@(T["Reminders"])">
+                            @foreach (var preset in ReminderRow.Presets)
+                            {
+                                <option value="@preset.Minutes">@T[preset.Label]</option>
+                            }
+                            <option value="custom">@T["Custom"]</option>
+                        </select>
+                        @if (row.IsCustom)
+                        {
+                            <input type="number" min="1" class="event-fields-number" value="@row.CustomAmount"
+                                   aria-label="@(T["Custom"])"
+                                   @onchange="args => SetCustomAmount(row, args.Value)" />
+                            <select @bind="row.CustomUnit" @bind:after="row.RecomputeFromCustom">
+                                <option value="minutes">@T["minutes"]</option>
+                                <option value="hours">@T["hours"]</option>
+                                <option value="days">@T["days"]</option>
+                                <option value="weeks">@T["weeks"]</option>
+                            </select>
+                            <span>@T["before"]</span>
+                        }
+                        <button type="button" class="icon-btn" title="@(T["Remove"])" aria-label="@(T["Remove"])"
+                                @onclick="() => Model.Reminders.Remove(row)">✕</button>
+                    </div>
+                }
+            }
+            <button type="button" class="btn-secondary" @onclick="AddReminder">@T["Add reminder"]</button>
+        </div>
+
+        <div class="field-row">
+            <label for="@($"{IdPrefix}ReminderChannel")">@T["Notification channel"]</label>
+            <select id="@($"{IdPrefix}ReminderChannel")" @bind="Model.ReminderNotificationChannel">
+                @foreach (var option in NotificationChannelOption.All)
+                {
+                    <option value="@option.Value" disabled="@option.IsDisabledBy(NotificationSettings)">@T[option.Label]</option>
+                }
+            </select>
+            @* A different question from the ones above: those say it is coming, this says it has begun. *@
+            <label class="field-checkbox">
+                <InputCheckbox @bind-Value="Model.NotifyAtStart" />@T["Also when it starts"]
+            </label>
+        </div>
+    </section>
 
     </fieldset>
 
-    @* Guests are only offered where they can actually be invited - see CanInviteGuests. *@
+    @* Guests are only offered where they can actually be invited - see CanInviteGuests. Outside the
+       fieldset above, and so last: sharing and editing are separate permissions, and somebody with only
+       the first still invites people to an event they may not change. *@
     @if (CanInviteGuests)
     {
-        <div class="field">
-            <label>@T["Add a guest from contacts"]</label>
-            @if (Contacts.Count == 0)
-            {
-                <p class="empty-hint">@T["No contacts. A contact will appear here once you start a chat with someone."]</p>
-            }
-            else
-            {
-                <div class="field-row">
-                    <select id="guestContactSelect" @bind="_chosenContactUserId" aria-label="@(T["Add a guest from contacts"])">
-                        <option value="">@T["-- select a contact --"]</option>
-                        @foreach (var contact in Contacts)
-                        {
-                            <option value="@contact.UserId">@contact.DisplayName (@contact.Email)</option>
-                        }
-                    </select>
-                    <select id="guestAccessLevelSelect" @bind="_chosenAccessLevel" aria-label="@(T["Permission"])">
-                        <option value="ReadOnly">@T["Read-only"]</option>
-                        <option value="Share">@T["Can share"]</option>
-                        @if (CanGrantEditOnly)
-                        {
-                            <option value="EditOnly">@T["Can edit, but not share editing"]</option>
-                        }
-                        @if (CanGrantCanEdit)
-                        {
-                            <option value="CanEdit">@T["Can edit"]</option>
-                        }
-                    </select>
-                    <button type="button" id="addGuestFromContactButton" class="btn-secondary"
-                            @onclick="AddChosenGuestAsync">@T["Add"]</button>
-                </div>
-            }
-        </div>
+        <section class="event-section">
+            <h3 class="event-section-heading">@T["Guests"]</h3>
 
-        <div class="field">
-            <label>@T["Guests"]</label>
-            @if (Model.GuestUserIds.Count == 0)
-            {
-                <p class="empty-hint">@T["No guests."]</p>
-            }
-            else
-            {
-                <ul id="guestList" class="event-fields-guests">
-                    @foreach (var guestUserId in Model.GuestUserIds)
-                    {
-                        <li>
-                            <span>@GuestName(guestUserId)</span>
-                            <span class="event-fields-guest-access">@T[AccessLabelFor(guestUserId)]</span>
-                            <button type="button" class="icon-btn" title="@(T["Remove"])" aria-label="@(T["Remove"])"
-                                    @onclick="() => RemoveGuestAsync(guestUserId)">✕</button>
-                        </li>
-                    }
-                </ul>
-            }
-        </div>
+            <div class="field">
+                <label>@T["Add a guest from contacts"]</label>
+                @if (Contacts.Count == 0)
+                {
+                    <p class="empty-hint">@T["No contacts. A contact will appear here once you start a chat with someone."]</p>
+                }
+                else
+                {
+                    <div class="field-row">
+                        <select id="guestContactSelect" @bind="_chosenContactUserId" aria-label="@(T["Add a guest from contacts"])">
+                            <option value="">@T["-- select a contact --"]</option>
+                            @foreach (var contact in Contacts)
+                            {
+                                <option value="@contact.UserId">@contact.DisplayName (@contact.Email)</option>
+                            }
+                        </select>
+                        <select id="guestAccessLevelSelect" @bind="_chosenAccessLevel" aria-label="@(T["Permission"])">
+                            <option value="ReadOnly">@T["Read-only"]</option>
+                            <option value="Share">@T["Can share"]</option>
+                            @if (CanGrantEditOnly)
+                            {
+                                <option value="EditOnly">@T["Can edit, but not share editing"]</option>
+                            }
+                            @if (CanGrantCanEdit)
+                            {
+                                <option value="CanEdit">@T["Can edit"]</option>
+                            }
+                        </select>
+                        <button type="button" id="addGuestFromContactButton" class="btn-secondary"
+                                @onclick="AddChosenGuestAsync">@T["Add"]</button>
+                    </div>
+                }
+            </div>
+
+            <div class="field">
+                @if (Model.GuestUserIds.Count == 0)
+                {
+                    <p class="empty-hint">@T["No guests."]</p>
+                }
+                else
+                {
+                    <ul id="guestList" class="event-fields-guests">
+                        @foreach (var guestUserId in Model.GuestUserIds)
+                        {
+                            <li>
+                                <span>@GuestName(guestUserId)</span>
+                                <span class="event-fields-guest-access">@T[AccessLabelFor(guestUserId)]</span>
+                                <button type="button" class="icon-btn" title="@(T["Remove"])" aria-label="@(T["Remove"])"
+                                        @onclick="() => RemoveGuestAsync(guestUserId)">✕</button>
+                            </li>
+                        }
+                    </ul>
+                }
+            </div>
+        </section>
     }
 </div>
 

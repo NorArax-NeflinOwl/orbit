@@ -34,8 +34,14 @@
             <span class="item-card-action" title="@(T["Something happened here"])"
                   aria-label="@(T["Something happened here"])"></span>
         }
+        @* The name is the card's control, and it reaches beyond itself: an overlay stretched across the
+           whole card (see .item-card-name::after) makes a press anywhere on it open the thing, so nobody
+           has to aim at the words. The buttons around it - the handle, the pin, the collapse, the menu -
+           and the body sit above that overlay and keep their own presses. *@
         <button type="button" class="item-card-name" @onclick="OnNameSelected" disabled="@(!OnNameSelected.HasDelegate)">
-            @Name
+            @* The name's own span, because the two lines it is cut off after need overflow:hidden, and
+               that would clip the overlay along with the third line. *@
+            <span class="item-card-name-text">@Name</span>
         </button>
         @if (OnCollapseToggled.HasDelegate)
         {
@@ -85,9 +91,9 @@
     }
 
     @* What the card says about itself rather than about its subject - when it last changed, how many
-       things are on it. At the foot and centred: it used to sit at the end of the tag row, where a
-       card with no tags left it floating against the right margin looking like something that had
-       lost its line. *@
+       things are on it. At the foot, and starting where the name and the body start: it used to sit at
+       the end of the tag row, where a card with no tags left it floating against the right margin
+       looking like something that had lost its line. *@
     @if (Extras is not null)
     {
         <div class="item-card-footer">@Extras</div>
@@ -128,7 +134,7 @@
 
     /// <summary>
     /// What the card says about itself: when it last changed, how many things are on it. Rendered in a
-    /// footer of its own, centred, below everything else.
+    /// footer of its own below everything else, aligned with the name above it.
     /// </summary>
     [Parameter] public RenderFragment? Extras { get; set; }
 

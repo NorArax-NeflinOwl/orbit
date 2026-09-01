@@ -38,9 +38,10 @@
 
 <div class="options-page">
     @* Four tabs rather than nine sections stacked on one page: the page had grown to where finding
-       the password field meant scrolling past every notification switch. *@
+       the password field meant scrolling past every notification switch. Debugger is offered only to an
+       account that has unlocked it - see ApplicationPermission.Debug. *@
     <div class="options-tabs" role="tablist">
-        @foreach (var tab in Enum.GetValues<OptionsTab>())
+        @foreach (var tab in Enum.GetValues<OptionsTab>().Where(IsOffered))
         {
             <button type="button" class="options-tab @(_activeTab == tab ? "active" : "")" role="tab"
                     aria-selected="@(_activeTab == tab)" @onclick="() => _activeTab = tab">
@@ -65,9 +66,13 @@
                         <input id="userNameInput" @bind="_profileForm.UserName" />
                     </div>
                     <div class="field">
+                        @* The badge is about the address in the box, not about the account: typing a new
+                           one and saving leaves the account on its old address until the code is
+                           confirmed, and a "Verified" badge beside the new address said the opposite of
+                           what had happened. *@
                         <label for="emailInput">
                             @T["Email address"]
-                            @if (_account?.IsEmailVerified == true)
+                            @if (IsTheShownAddressVerified)
                             {
                                 <span class="verified-badge">@T["Verified"]</span>
                             }
@@ -90,6 +95,11 @@
                     }
                 </div>
 
+                @* Only while there is something to confirm. An account whose address is verified and
+                   unchanged has nothing to do here, and a code box standing open invites typing into it
+                   for no reason. *@
+                @if (!IsTheShownAddressVerified || _emailForm.IsCodePending)
+                {
                 <div class="options-row options-row-stacked">
                     <div>
                         <div class="options-row-title">@T["Email verification"]</div>
@@ -118,24 +128,42 @@
                         <p class="@(_emailFailed ? "error" : "info")">@_emailMessage</p>
                     }
                 </div>
+                }
 
                 <div class="options-row options-row-stacked">
                     <div>
                         <div class="options-row-title">
                             @T["Google extras"]
-                            @if (_account is not null && GoogleIntegrationAccess.Qualifies(_account))
+                            @if (_account is null || !GoogleIntegrationAccess.Qualifies(_account))
+                            {
+                                <span class="unverified-badge">@T["Not available yet"]</span>
+                            }
+                            else if (DevicePreferences.AllowGoogleExtras)
                             {
                                 <span class="verified-badge">@T["On"]</span>
                             }
                             else
                             {
-                                <span class="unverified-badge">@T["Not available yet"]</span>
+                                <span class="unverified-badge">@T["Off"]</span>
                             }
                         </div>
                         <div class="options-row-desc">
                             @T["Adds links that open Google Calendar or Google Maps with the details filled in. Orbit never writes to your calendar."]
                         </div>
                     </div>
+                    @* Offered only where the account qualifies: a switch for something that is not
+                       available yet would turn nothing off. Kept on this device, like the location
+                       switch - it is about what this browser puts in front of whoever is at it, and
+                       turning it off leaves the Google account below connected. *@
+                    @if (_account is not null && GoogleIntegrationAccess.Qualifies(_account))
+                    {
+                        <div class="options-row-desc">@T["Kept on this device."]</div>
+                        <button type="button" class="switch @(DevicePreferences.AllowGoogleExtras ? "on" : "")" role="switch"
+                                aria-checked="@DevicePreferences.AllowGoogleExtras" aria-label="@(T["Google extras"])"
+                                @onclick="ToggleGoogleExtrasAsync">
+                            <span class="switch-knob"></span>
+                        </button>
+                    }
                 </div>
 
                 <div class="options-row options-row-stacked">
@@ -207,11 +235,24 @@
                     <div>
                         <div class="options-row-title">@T["Export"]</div>
                         <div class="options-row-desc">
-                            @T["Downloads everything in your account as one file. Things shared with you are left out, and a private item travels sealed."]
+                            @T["Downloads what you tick below as one file. Things shared with you are left out, and a private item travels sealed."]
                         </div>
                     </div>
-                    <button type="button" class="btn-secondary" disabled="@_isExporting" @onclick="ExportAsync">
-                        @(_isExporting ? T["Preparing…"] : T["Export everything"])
+                    @* What goes in the file. All four to begin with, which is what this used to do
+                       without asking - somebody exporting their notes to read elsewhere had no way of
+                       leaving three years of stock counts out of it. *@
+                    <div class="export-choices">
+                        @foreach (var part in Enum.GetValues<ExportPart>())
+                        {
+                            <label class="field-checkbox">
+                                <input type="checkbox" checked="@_exportChoice.Includes(part)"
+                                       @onchange="args => _exportChoice.Set(part, (bool)args.Value!)" />@DescribeExportPart(part)
+                            </label>
+                        }
+                    </div>
+                    <button type="button" class="btn-secondary" disabled="@(_isExporting || _exportChoice.IsEmpty)"
+                            @onclick="ExportAsync">
+                        @(_isExporting ? T["Preparing…"] : T["Export"])
                     </button>
                 </div>
                 <div class="options-row options-row-stacked">
@@ -616,6 +657,13 @@
 
     private OptionsTab _activeTab = OptionsTab.Account;
 
+    /// <summary>
+    /// Whether this account is offered a tab at all. Only Debugger is ever withheld, and only because
+    /// what it shows is Orbit's own internals - see ApplicationPermission.Debug.
+    /// </summary>
+    private bool IsOffered(OptionsTab tab)
+        => tab != OptionsTab.Debug || Permissions.Has(ApplicationPermission.Debug);
+
     private bool HasEverythingUnlocked => Enum.GetValues<ApplicationPermission>().All(Permissions.Has);
 
     /// <summary>What the reader has typed into the unlock field, and how the last attempt went.</summary>
@@ -637,6 +685,7 @@
         ApplicationPermission.Contacts => T["Contacts"],
         ApplicationPermission.Chat => T["Chat"],
         ApplicationPermission.Location => T["Location"],
+        ApplicationPermission.Debug => T["Debugger"],
         _ => T["Sharing"]
     };
 
@@ -645,6 +694,7 @@
         ApplicationPermission.Contacts => T["Finding other people, and being found by them. Everything below needs this first."],
         ApplicationPermission.Chat => T["Conversations, with one person or with several."],
         ApplicationPermission.Location => T["Recording where you are. Sharing it, or seeing somebody else's, also needs contacts."],
+        ApplicationPermission.Debug => T["What Orbit reports about itself - the Debugger settings, the captured log, and the detail behind an error."],
         _ => T["Handing a note, task list, event or storage to somebody else."]
     };
 
@@ -700,6 +750,16 @@
 
     private Task ToggleAllowLocationAsync() => DevicePreferences.SetAllowLocationAsync(!DevicePreferences.AllowLocation);
 
+    /// <summary>
+    /// Turns the Google links on or off for this browser. The cached answer is forgotten with it, so a
+    /// page opened next reads the switch rather than what it was told before it was flipped.
+    /// </summary>
+    private async Task ToggleGoogleExtrasAsync()
+    {
+        await DevicePreferences.SetAllowGoogleExtrasAsync(!DevicePreferences.AllowGoogleExtras);
+        GoogleIntegrationAccess.Forget();
+    }
+
     private Task OnDiagnosticsModeChangedAsync(ChangeEventArgs args)
         => Enum.TryParse<DiagnosticsMode>(args.Value?.ToString(), out var mode)
             ? DevicePreferences.SetDiagnosticsModeAsync(mode)
@@ -721,6 +781,9 @@
     /// <summary>An export of a whole account is not large by file standards, but a hand-made file could be - this is where a nonsense one stops.</summary>
     private const long MaximumImportSizeBytes = 32 * 1024 * 1024;
 
+    /// <summary>What the next export will contain - see ExportChoice.</summary>
+    private readonly ExportChoice _exportChoice = new();
+
     private bool _isExporting;
     private bool _isImporting;
     private string? _transferMessage;
@@ -738,13 +801,18 @@
         _transferErrorMessage = null;
         try
         {
-            var archive = await TransferApiClient.ExportAsync();
-            if (archive is null)
+            var everything = await TransferApiClient.ExportAsync();
+            if (everything is null)
             {
                 _transferErrorMessage = T["Couldn't build the export. Try again."];
                 return;
             }
 
+            // Narrowed here rather than by the server: the export is one query over an account, and
+            // asking it four different ways would be four endpoints answering the same question. What
+            // the file contains is what somebody ticked; the archive's shape is unchanged, so a file
+            // holding only notes still imports like any other.
+            var archive = _exportChoice.Narrow(everything);
             var json = JsonSerializer.Serialize(archive, new JsonSerializerOptions { WriteIndented = true });
             await using var downloadModule = await JSRuntime.InvokeAsync<IJSObjectReference>("import", "./js/fileDownload.js");
             await downloadModule.InvokeVoidAsync(
@@ -828,6 +896,16 @@
     /// <summary>Where a code requested right now would go: the address being edited, or the account's own if that box was cleared.</summary>
     private string VerificationTargetAddress
         => _profileForm.EmailAddress.Trim() is { Length: > 0 } typedAddress ? typedAddress : _account?.Email ?? string.Empty;
+
+    /// <summary>
+    /// Whether the address currently in the box is the confirmed one. Asked about the box rather than
+    /// about the account, because the two part company the moment somebody types a new address: the
+    /// account keeps its old one until a code sent to the new one comes back, and a "Verified" badge
+    /// beside the address they just typed said something that was not true of it.
+    /// </summary>
+    private bool IsTheShownAddressVerified
+        => _account is { IsEmailVerified: true }
+            && string.Equals(_profileForm.EmailAddress.Trim(), _account.Email, StringComparison.OrdinalIgnoreCase);
     private readonly PasswordFormModel _passwordForm = new();
 
     private bool _isSavingProfile;
@@ -854,6 +932,10 @@
 
     protected override async Task OnInitializedAsync()
     {
+        // Waited for rather than raced: the tab bar decides once whether to offer Debugger, and deciding
+        // before the first read landed would hide it from an account that has unlocked it - see
+        // UserPermissionState.EnsureLoadedAsync.
+        await Permissions.EnsureLoadedAsync();
         await LoadAccountAsync();
         ThemeService.Changed += OnThemeChanged;
         AccentColorService.Changed += OnThemeChanged;
@@ -1300,6 +1382,63 @@
     private sealed class DeleteAccountFormModel
     {
         public string Password { get; set; } = string.Empty;
+    }
+
+    /// <summary>The four things an account holds, as the export offers them - see OrbitArchive.</summary>
+    private enum ExportPart
+    {
+        Notes,
+        TaskLists,
+        CalendarEvents,
+        Warehouses
+    }
+
+    private string DescribeExportPart(ExportPart part) => part switch
+    {
+        ExportPart.Notes => T["Notes"],
+        ExportPart.TaskLists => T["Task lists"],
+        ExportPart.CalendarEvents => T["Calendar events"],
+        _ => T["Storages"]
+    };
+
+    /// <summary>
+    /// Which parts of the account the next export will carry. Everything to begin with, because that is
+    /// what an export meant before there was anything to choose, and it is what somebody who does not
+    /// read this row expects to get.
+    /// </summary>
+    private sealed class ExportChoice
+    {
+        private readonly HashSet<ExportPart> _chosen = [.. Enum.GetValues<ExportPart>()];
+
+        public bool Includes(ExportPart part) => _chosen.Contains(part);
+
+        /// <summary>Nothing ticked is not an export of nothing - it is a button with no reason to be pressed.</summary>
+        public bool IsEmpty => _chosen.Count == 0;
+
+        public void Set(ExportPart part, bool included)
+        {
+            if (included)
+            {
+                _chosen.Add(part);
+            }
+            else
+            {
+                _chosen.Remove(part);
+            }
+        }
+
+        /// <summary>
+        /// The archive with the unticked parts emptied. Emptied rather than left out: the file's shape
+        /// is what an importer reads, and one missing a list is a file an older Orbit would refuse.
+        /// </summary>
+        public OrbitArchive Narrow(OrbitArchive archive)
+            => archive with
+            {
+                Notes = Includes(ExportPart.Notes) ? archive.Notes : [],
+                TaskLists = Includes(ExportPart.TaskLists) ? archive.TaskLists : [],
+                CalendarEvents = Includes(ExportPart.CalendarEvents) ? archive.CalendarEvents : [],
+                Warehouses = Includes(ExportPart.Warehouses) ? archive.Warehouses : []
+            };
     }
 
     private sealed class EmailFormModel

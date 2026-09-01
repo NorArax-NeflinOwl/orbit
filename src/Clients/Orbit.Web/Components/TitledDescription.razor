@@ -6,16 +6,16 @@
    Two boxes stacked with two labels made the description look like a setting somebody had to decide
    about. It is not - it is the rest of the sentence the title starts, and most lists never need one.
    So: one block, the title drawn as a heading, the description as ordinary text under it, and no
-   second label. The note editor arrived at the same shape from the other direction - see
-   .note-editor-titled in app.css. *@
+   second label. The note editor arrived at the same shape from the other direction, and the two are
+   now drawn as the same field - see .note-editor-content and .titled-description in app.css. *@
 <div class="titled-description">
     <input id="@TitleId" class="titled-description-title" type="text" value="@Title"
            placeholder="@TitlePlaceholder" aria-label="@TitleLabel"
            @oninput="args => TitleChanged.InvokeAsync(args.Value?.ToString() ?? string.Empty)" />
     @* Grows with what is written rather than scrolling inside four lines: somebody typing the third
-       sentence should be able to see the first two. *@
+       sentence should be able to see the first two. No placeholder: the note's one field asks nothing
+       either, and "what is this for?" was a question under a heading most lists never answer. *@
     <textarea class="titled-description-body" rows="1" value="@Description"
-              placeholder="@(DescriptionPlaceholder ?? T["What is this for? (optional)"])"
               aria-label="@(T["Description"])"
               @oninput="args => DescriptionChanged.InvokeAsync(args.Value?.ToString() ?? string.Empty)"></textarea>
     @Suggestions
@@ -37,8 +37,6 @@
     [Parameter, EditorRequired] public string TitleLabel { get; set; } = string.Empty;
 
     [Parameter] public string? TitlePlaceholder { get; set; }
-
-    [Parameter] public string? DescriptionPlaceholder { get; set; }
 
     /// <summary>For a page that puts something under the pair - the name suggestions, so far.</summary>
     [Parameter] public RenderFragment? Suggestions { get; set; }

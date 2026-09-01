@@ -130,16 +130,18 @@ public sealed class GroupConversationPagesTests : OrbitTestContext
         Assert.Contains("Leave group", cut.Markup);
     }
 
+    /// <summary>
+    /// The roster's own heading and nothing else. The Back button that used to sit beside it did what
+    /// the browser's own does, and every page here had grown one.
+    /// </summary>
     [Fact]
-    public void The_members_page_leads_back_to_the_conversation()
+    public void The_members_page_carries_no_control_but_its_own()
     {
         RegisterChatApi(ownRole: "Member");
-        var navigationManager = Services.GetRequiredService<NavigationManager>();
+
         var cut = RenderMembers();
 
-        cut.FindAll(".page-header-actions button").First(button => button.TextContent.Contains("Back to chat")).Click();
-
-        Assert.EndsWith($"/chat/groups/{GroupId}", navigationManager.Uri);
+        Assert.Empty(cut.FindAll(".page-header-actions"));
     }
 
     [Fact]
@@ -162,6 +164,23 @@ public sealed class GroupConversationPagesTests : OrbitTestContext
         var cut = RenderMembers();
 
         Assert.Contains("no longer one you're in", cut.Markup);
+    }
+
+    /// <summary>
+    /// The roster is reached by the line that counts it. A button beside the page's name said the same
+    /// thing twice, and the count is the half somebody is already reading when they want to know who
+    /// is in it.
+    /// </summary>
+    [Fact]
+    public void The_member_count_is_the_way_to_the_roster()
+    {
+        RegisterChatApi(ownRole: "Member");
+        var navigationManager = Services.GetRequiredService<NavigationManager>();
+        var cut = RenderComponent<GroupInfo>(parameters => parameters.Add(page => page.GroupId, GroupId));
+
+        cut.Find(".row-meta-opens").Click();
+
+        Assert.EndsWith($"/chat/groups/{GroupId}/members", navigationManager.Uri);
     }
 
     private IRenderedComponent<GroupMembers> RenderMembers()

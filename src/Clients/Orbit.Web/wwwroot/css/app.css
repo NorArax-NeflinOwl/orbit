@@ -836,24 +836,28 @@ input.note-editor-title {
    everything else, gated on NotificationSettings.AllowMobileBanner. */
 .notification-banner {
     position: fixed;
-    top: 12px;
+    top: 16px;
     left: 50%;
     transform: translateX(-50%);
     z-index: 1000;
     display: flex;
     align-items: center;
-    gap: 8px;
-    max-width: min(90vw, 420px);
+    gap: 12px;
+    max-width: min(94vw, 620px);
     background: var(--bg-elevated);
-    border: 1px solid var(--border);
-    border-radius: 999px;
-    box-shadow: 0 8px 24px oklch(20% 0.02 60 / 0.2);
-    padding: 8px 16px;
-    font-size: 13px;
+    border: 2px solid var(--accent);
+    border-radius: 14px;
+    /* Two shadows: the ordinary one that lifts it off the page, and a halo in the accent that is the
+       part somebody notices from the corner of their eye. */
+    box-shadow: 0 10px 28px oklch(20% 0.02 60 / 0.25), 0 0 20px -2px var(--accent);
+    padding: 14px 22px;
+    font-size: 15px;
 }
 
 .notification-banner strong {
     color: var(--text-primary);
+    font-family: var(--font-display);
+    font-size: 15.5px;
     flex: 0 0 auto;
 }
 
@@ -862,6 +866,18 @@ input.note-editor-title {
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+}
+
+/* The licence, as the file writes it - see Pages/License.razor. Its own line breaks are kept, and a
+   line too long for the screen wraps rather than pushing the page sideways. */
+.license-text {
+    margin: 0;
+    font-family: inherit;
+    font-size: 13.5px;
+    line-height: 1.6;
+    color: var(--text-secondary);
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
 }
 
 /* A note's preview line: one line, clipped rather than wrapped, so every card in the list is the same
@@ -1377,6 +1393,24 @@ input.note-editor-title {
     color: var(--text-tertiary);
     flex: 0 0 auto;
     white-space: nowrap;
+}
+
+/* A row's own value, when reading it is also the way to what it counts - the group's member count, so
+   far. Drawn as the text it already was rather than as a button, because the row is a list of facts and
+   one of them turning into a control would read as a mistake; the accent and the underline on hover are
+   what say it can be pressed. */
+.row-meta-opens {
+    padding: 0;
+    background: transparent;
+    border: none;
+    font: inherit;
+    font-size: 12px;
+    color: var(--accent);
+    cursor: pointer;
+}
+
+.row-meta-opens:hover {
+    text-decoration: underline;
 }
 
 .avatar-sm {
@@ -3773,16 +3807,30 @@ input.note-editor-title {
     color: var(--text-primary);
 }
 
-/* Options is four tabs rather than nine stacked sections - see Pages/Options.razor. */
-.options-tabs {
+/* The tab bar, wherever a page has one - Options' four groups, Contacts' four lists. Written once for
+   both, because two rules had drifted into two different-looking bars for the same control: pills on
+   Contacts, an underline on Options. */
+.options-tabs,
+.contacts-tabs {
     display: flex;
     gap: 4px;
     border-bottom: 1px solid var(--border);
     margin-bottom: 24px;
     overflow-x: auto;
+    scrollbar-width: none;
 }
 
-.options-tab {
+.options-tabs::-webkit-scrollbar,
+.contacts-tabs::-webkit-scrollbar {
+    display: none;
+}
+
+.options-tab,
+.contacts-tab {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    flex: 0 0 auto;
     padding: 10px 16px;
     border: 0;
     border-bottom: 2px solid transparent;
@@ -3795,13 +3843,23 @@ input.note-editor-title {
     cursor: pointer;
 }
 
-.options-tab:hover {
+.options-tab:hover,
+.contacts-tab:hover {
     color: var(--text-primary);
 }
 
-.options-tab.active {
+.options-tab.active,
+.contacts-tab.chosen {
     color: var(--accent);
     border-bottom-color: var(--accent);
+}
+
+/* What the next export will carry - see Options.razor. A column, because the four are ticked
+   independently and a row of them wrapped at every width into something that read as two rows. */
+.export-choices {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
 }
 
 .permissions-table {
@@ -3991,6 +4049,12 @@ input.note-editor-title {
     width: 48px;
     height: 48px;
     font-size: 17px;
+}
+
+/* Pushed to the far edge of the row the name is in, which is where the app puts a row's one action -
+   see .item-card-menu. */
+.contact-info-open-chat {
+    margin-left: auto;
 }
 
 .contact-info-name {
@@ -4248,6 +4312,7 @@ input.note-editor-title {
    fixed. One row per card, full width: a grid of small tiles reads as a wall, and the thing people
    actually scan is the column of names down the left. */
 .item-card {
+    position: relative;
     display: flex;
     flex-direction: column;
     gap: 8px;
@@ -4259,7 +4324,7 @@ input.note-editor-title {
 
 .item-card-head {
     display: flex;
-    align-items: flex-start;
+    align-items: center;
     gap: 6px;
 }
 
@@ -4278,6 +4343,19 @@ input.note-editor-title {
     flex: 0 0 auto;
 }
 
+/* Above the name's overlay, so each keeps the press meant for it. The body is here too: where it opens
+   something it has its own handler, and where it holds controls of its own - a share panel, a row that
+   is itself a link - those are what a press there is for. */
+.item-card-handle,
+.item-card-pin,
+.item-card-action,
+.item-card-collapse,
+.item-card-menu,
+.item-card-body {
+    position: relative;
+    z-index: 1;
+}
+
 /* Something happened on this card that the reader has not seen. Deliberately small and deliberately
    not a number: how many is the notifications panel's job, and a count here would be a second, and
    sometimes disagreeing, answer to it. */
@@ -4285,7 +4363,6 @@ input.note-editor-title {
     flex: 0 0 auto;
     width: 8px;
     height: 8px;
-    margin-top: 7px;
     border-radius: 50%;
     background: var(--accent);
 }
@@ -4304,17 +4381,37 @@ input.note-editor-title {
     color: var(--text-primary);
     text-align: left;
     cursor: pointer;
+}
+
+/* What makes the whole card the target rather than the word: an overlay over the card, belonging to
+   the one control that already had a name and a keyboard - so there is still exactly one button here,
+   and pressing the empty half of a row does what pressing the title does. Everything with a press of
+   its own is lifted above it - see .item-card-handle and the rule beside it. */
+.item-card-name::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: 12px;
+}
+
+.item-card-name:disabled {
+    cursor: default;
+}
+
+/* No overlay where the name is not a control: a card nobody can open must not look pressable. */
+.item-card-name:disabled::after {
+    display: none;
+}
+
+.item-card-name-text {
     /* Two lines, then cut off. A name is allowed to be long - people write sentences into them - but
-       a card that grows to five lines stops being scannable, which is the only thing this list is for. */
+       a card that grows to five lines stops being scannable, which is the only thing this list is for.
+       On its own element because the clip would otherwise take the overlay above with it. */
     display: -webkit-box;
     -webkit-line-clamp: 2;
     -webkit-box-orient: vertical;
     overflow: hidden;
     overflow-wrap: anywhere;
-}
-
-.item-card-name:disabled {
-    cursor: default;
 }
 
 .item-card-meta {
@@ -4332,12 +4429,13 @@ input.note-editor-title {
     min-width: 0;
 }
 
-/* The card's own footnote - when it last changed, how much is on it. Centred, and separated from the
-   body by a hairline so it reads as being about the card rather than as one more line of it. */
+/* The card's own footnote - when it last changed, how much is on it. Aligned with the name and the
+   body above it rather than centred, and separated from them by a hairline so it reads as being about
+   the card rather than as one more line of it. */
 .item-card-footer {
     display: flex;
     align-items: center;
-    justify-content: center;
+    justify-content: flex-start;
     gap: 10px;
     padding-top: 8px;
     border-top: 1px solid var(--border);
@@ -4381,8 +4479,17 @@ input.note-editor-title {
     margin: 0;
 }
 
+/* The one control that makes another of whatever the page lists. Outlined in the accent - the same
+   edge a pinned card carries - because as a bare glyph it disappeared into the heading beside it. */
 .page-add {
     flex: 0 0 auto;
+    border: 1px solid var(--accent);
+    color: var(--accent);
+}
+
+.page-add:hover {
+    background: var(--accent-subtle);
+    color: var(--accent);
 }
 
 /* A pinned card, marked by its edge rather than by moving it somewhere else - it has already moved to
@@ -4545,38 +4652,6 @@ span.calendar-task-chip {
     min-width: 0;
 }
 
-.contacts-tabs {
-    display: flex;
-    gap: 4px;
-    margin-bottom: 16px;
-    overflow-x: auto;
-    scrollbar-width: none;
-}
-
-.contacts-tabs::-webkit-scrollbar {
-    display: none;
-}
-
-.contacts-tab {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    flex: 0 0 auto;
-    padding: 8px 14px;
-    background: transparent;
-    border: 1px solid var(--border);
-    border-radius: 999px;
-    color: var(--text-secondary);
-    font-size: 13.5px;
-    cursor: pointer;
-}
-
-.contacts-tab.chosen {
-    background: var(--accent-subtle);
-    border-color: var(--accent);
-    color: var(--accent);
-}
-
 .contacts-tab-count {
     font-variant-numeric: tabular-nums;
     opacity: 0.8;
@@ -4668,19 +4743,23 @@ textarea.editor-item-main {
 
 /* A title and what it is for, written as one thing - see TitledDescription.razor. One outline around
    the pair, and none of its own around either box, so it reads as a single field rather than as a
-   field and a setting under it. */
+   field and a setting under it. Drawn as the note editor's one field is (see .note-editor-content):
+   the two ask the same thing, and a list's name should not look like a different kind of box from a
+   note's. */
 .titled-description {
     display: flex;
     flex-direction: column;
     gap: 2px;
-    padding: 10px 12px;
-    background: var(--surface);
+    padding: 14px;
+    background: var(--bg-elevated);
     border: 1px solid var(--border);
-    border-radius: 10px;
+    border-radius: 8px;
 }
 
 .titled-description:focus-within {
     border-color: var(--accent);
+    outline: 2px solid var(--accent-subtle);
+    outline-offset: -1px;
 }
 
 .titled-description-title,
@@ -4724,6 +4803,32 @@ textarea.editor-item-main {
     border: none;
     margin: 0;
     padding: 0;
+}
+
+/* One question at a time: when it is, where, what it is, being told about it, who is coming. A hairline
+   between them rather than a box around each - the sections are one form read top to bottom, not five
+   cards. The first has no rule above it, because there is nothing above it to be separated from. */
+.event-section + .event-section,
+.event-fields > .event-section {
+    margin-top: 18px;
+    padding-top: 16px;
+    border-top: 1px solid var(--border);
+}
+
+.event-fields > fieldset > .event-section:first-child {
+    margin-top: 0;
+    padding-top: 0;
+    border-top: none;
+}
+
+.event-section-heading {
+    margin: 0 0 10px;
+    font-family: var(--font-display);
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--text-tertiary);
 }
 
 /* A description is prose, so it gets the whole row and grows with what is written. */

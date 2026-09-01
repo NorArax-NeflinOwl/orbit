@@ -204,9 +204,10 @@
             </svg>
             <span>@OrbitRelease.Copyright</span>
             <span class="app-footer-separator">·</span>
-            @* Pressed, it grows the rest of the hash - while debugging. A released build says the
-               number and nothing more, so there is nothing to press and it is drawn as the text it is
-               rather than as a button that would do nothing. See OrbitVersion. *@
+            @* Pressed, it grows the rest of the hash. A build carrying no commit - a local `docker
+               compose build`, which nothing numbered - says the number and nothing more, so there is
+               nothing to press and it is drawn as the text it is rather than as a button that would do
+               nothing. See OrbitVersion. *@
             @if (_version.CanShowTheWholeCommit)
             {
                 <button type="button" class="app-footer-version" title="@(T["Show the whole commit"])"
@@ -228,7 +229,10 @@
                 <span>@T.Format("api {0}", ServerVersionText(server))</span>
             }
             <span class="app-footer-separator">·</span>
-            <a href="@OrbitRelease.LicenseUrl" target="_blank" rel="noopener">@T[OrbitRelease.LicenseName]</a>
+            @* Orbit's own page rather than the file on GitHub: the licence is part of what this
+               deployment says about itself, and a reader should not have to leave it to read it -
+               see Pages/License.razor. *@
+            <a href="/license">@T[OrbitRelease.LicenseName]</a>
         </footer>
     </main>
 </div>
@@ -249,7 +253,7 @@
     /// <summary>
     /// The server's version as the footer says it. It follows the same expand as the client's, because
     /// pressing one and having the other stay short would read as a bug rather than as two facts.
-    /// A released server sends no hash at all, so there is simply nothing to grow.
+    /// A server built without a commit stamped on it sends no hash, so there is simply nothing to grow.
     /// </summary>
     private string ServerVersionText(ServerVersionDto server)
     {
@@ -916,18 +920,22 @@
     /// <summary>
     /// Reads this browser's own captured Warning+/Error client-side log (see clientLogging.js's
     /// appendLog, mirrored here by PersistentLoggerProvider) - purely local per-device diagnostics, never
-    /// sent to the server, unlike the push/chat entries in _recentEntries above. Gated on both the
-    /// server's environment flag and the reader asking for them - either through this account's
+    /// sent to the server, unlike the push/chat entries in _recentEntries above. Gated on three things:
+    /// this account having unlocked the Debugger at all (see ApplicationPermission.Debug), the server's
+    /// environment flag, and the reader asking for them - either through this account's
     /// ShowExceptionDetails preference or by putting this browser in Debug mode (see
-    /// DevicePreferences.DiagnosticsMode). The server's flag stays the outer gate whichever way they
-    /// asked, so a Production deployment never shows this section regardless of what anyone has set.
+    /// DevicePreferences.DiagnosticsMode). The permission and the server's flag stay the outer gates
+    /// whichever way they asked, so a Production deployment never shows this section regardless of what
+    /// anyone has set, and neither does an account that was never given the Debugger.
     /// </summary>
     private async Task LoadClientExceptionEntriesAsync()
     {
         var exceptionDetailsAllowedByServer = await ClientFlagsApiClient.GetExceptionDetailsAllowedAsync();
         var readerAskedForThem = _notificationSettings.ShowExceptionDetails
             || DevicePreferences.DiagnosticsMode == DiagnosticsMode.Debug;
-        _showExceptionsSection = exceptionDetailsAllowedByServer && readerAskedForThem;
+        _showExceptionsSection = Permissions.Has(ApplicationPermission.Debug)
+            && exceptionDetailsAllowedByServer
+            && readerAskedForThem;
         if (!_showExceptionsSection)
         {
             _clientExceptionEntries = [];

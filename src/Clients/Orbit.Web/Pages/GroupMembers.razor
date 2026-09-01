@@ -25,9 +25,6 @@
             <p class="page-subtitle">@_group.Name</p>
         }
     </div>
-    <div class="page-header-actions">
-        <button type="button" class="btn-secondary" @onclick="GoToChat">@T["Back to chat"]</button>
-    </div>
 </div>
 
 @if (!Permissions.Has(ApplicationPermission.Chat))
@@ -160,8 +157,6 @@ else if (_errorMessage is not null)
             _errorMessage = T["Couldn't load your groups. Check your connection and try again."];
         }
     }
-
-    private void GoToChat() => NavigationManager.NavigateTo($"/chat/groups/{GroupId}");
 
     private async Task AddMemberAsync()
     {

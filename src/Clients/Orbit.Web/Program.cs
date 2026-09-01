@@ -99,6 +99,9 @@ builder.Services.AddHttpClient<PublicShareApiClient>(httpClient => httpClient.Ba
     .AddHttpMessageHandler<AuthorizationMessageHandler>();
 builder.Services.AddHttpClient<TransferApiClient>(httpClient => httpClient.BaseAddress = new Uri(apiBaseAddress))
     .AddHttpMessageHandler<AuthorizationMessageHandler>();
+// The only client pointed at this app's own files rather than at the API, and the only one with no
+// token handler: the licence is a static file served beside index.html - see LicenseText.
+builder.Services.AddHttpClient<LicenseText>(httpClient => httpClient.BaseAddress = browserOrigin);
 builder.Services.AddScoped<OwnEncryptionKeyProvider>();
 builder.Services.AddScoped<EncryptedChatMessageSender>();
 builder.Services.AddScoped<EncryptedChatMessageReader>();
@@ -133,6 +136,7 @@ builder.Services.AddScoped<UserPermissionState>();
 builder.Services.AddScoped<ChecklistViewPreference>();
 builder.Services.AddScoped<TaskListArrangement>();
 builder.Services.AddScoped<PanelPreferences>();
+builder.Services.AddScoped<CalendarListOrder>();
 // Singleton rather than scoped: PersistentLoggerProvider is registered as a singleton and reads the log
 // level from this on every line it considers.
 builder.Services.AddSingleton<DevicePreferences>();

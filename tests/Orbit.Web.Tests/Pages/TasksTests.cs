@@ -65,6 +65,20 @@ public sealed class TasksTests : OrbitTestContext
         Assert.Contains("Bathroom", cut.Markup);
     }
 
+    /// <summary>
+    /// A stray closing brace had ended up in the card's body markup, where Razor rendered it as the
+    /// literal text it is - so every expanded card finished with a "}" nobody put there.
+    /// </summary>
+    [Fact]
+    public void An_expanded_card_ends_with_its_list_and_nothing_after_it()
+    {
+        RegisterTasksApiClient([TaskList("Kitchen", Item("Paint walls"))]);
+
+        var cut = RenderComponent<Web.Pages.Tasks>();
+
+        Assert.DoesNotContain("}", cut.Find(".item-card-body").TextContent);
+    }
+
     [Fact]
     public void A_card_shows_how_far_through_its_list_you_are()
     {

@@ -138,7 +138,7 @@ else
                         @* What the row reports rather than what it sets: when this is due, if anything,
                            and what kind of entry it is. Everything editable now waits behind the toggle,
                            so a list of thirty items is thirty readable lines instead of a wall of boxes. *@
-                        @if (WhenItIsDue(item) is { } due)
+                        @if (item.Kind == nameof(TaskItemKind.Checklist) && WhenItIsDue(item) is { } due)
                         {
                             <span class="row-meta">@due</span>
                         }
@@ -158,23 +158,33 @@ else
                 @if (IsExpanded(item))
                 {
                     <div class="editor-item-details">
-                        @* Four fields every entry has, whatever it is: what it is, when it is due, where
-                           it could go instead, and the way to take it off the list. Everything after them
-                           depends on the type - see TaskItemKind. *@
+                        @* Two fields every entry has, whatever it is: what it is, and where it could go
+                           instead. Everything after them depends on the type - see TaskItemKind. *@
                         <label>@T["Type"]<select @bind="item.Kind">
                                 <option value="@nameof(TaskItemKind.Checklist)">@T["Checklist"]</option>
                                 <option value="@nameof(TaskItemKind.Calendar)">@T["Calendar"]</option>
                                 <option value="@nameof(TaskItemKind.Inventory)">@T["Inventory"]</option>
                             </select>
                         </label>
-                        <label>@T["Due date"]<DateField @bind-Value="item.DueDate" AriaLabel="@(T["Due date"])" />
-                        </label>
-                        <label>@T["Due time"]<TimeField @bind-Value="item.DueTime" AriaLabel="@(T["Due time"])" />
-                        </label>
-                        @if (item.Id is { } persistedItemId && _moveTargetTaskLists.Count > 0)
+                        @* A day to be done by is a checklist entry's question and nobody else's: an
+                           appointment already says when it is, in the event's own start and end below,
+                           and a restock errand is about an amount rather than a date. Asking all three
+                           for it left two answers about when a Calendar entry happens. *@
+                        @if (item.Kind == nameof(TaskItemKind.Checklist))
                         {
-                            <label>@T["Move to list"]<select @onchange="@(changeArgs => MoveItemAsync(item, persistedItemId, changeArgs.Value))" disabled="@_isMovingItem">
-                                    <option value="">@T["Move to…"]</option>
+                            <label>@T["Due date"]<DateField @bind-Value="item.DueDate" AriaLabel="@(T["Due date"])" />
+                            </label>
+                            <label>@T["Due time"]<TimeField @bind-Value="item.DueTime" AriaLabel="@(T["Due time"])" />
+                            </label>
+                        }
+                        @* Offered for every saved entry, including one this account has nowhere to move -
+                           the control saying so is an answer, where leaving it out looked like a setting
+                           that had gone missing. *@
+                        @if (item.Id is { } persistedItemId)
+                        {
+                            <label>@T["Move to list"]<select @onchange="@(changeArgs => MoveItemAsync(item, persistedItemId, changeArgs.Value))"
+                                                             disabled="@(_isMovingItem || _moveTargetTaskLists.Count == 0)">
+                                    <option value="">@(_moveTargetTaskLists.Count == 0 ? T["No other list yet"] : T["Move to…"])</option>
                                     @foreach (var targetTaskList in _moveTargetTaskLists)
                                     {
                                         <option value="@targetTaskList.Id">@Written(targetTaskList.Title)</option>
@@ -218,8 +228,35 @@ else
                            another tab and finding it again. Saved back with the list - see SaveAsync. *@
                         @if (item.Kind == nameof(TaskItemKind.Inventory))
                         {
-                            @if (InventoryFieldsFor(item) is { } product)
+                            @* Which shelf, and which product on it. Asked here rather than only where a
+                               restock list is generated: an errand somebody typed by hand had no way of
+                               saying what it was about, so the fields below never appeared for it. *@
+                            <label>@T["Warehouse"]
+                                <select value="@(_shelves.ChosenWarehouseIdFor(item)?.ToString() ?? string.Empty)"
+                                        @onchange="args => ChooseTheWarehouseAsync(item, args.Value)">
+                                    <option value="">@T["-- select a warehouse --"]</option>
+                                    @foreach (var warehouse in _shelves.Warehouses)
+                                    {
+                                        <option value="@warehouse.Id">@warehouse.Name</option>
+                                    }
+                                </select>
+                            </label>
+                            @if (_shelves.ChosenWarehouseIdFor(item) is { } shelfWarehouseId)
                             {
+                                <label>@T["Product"]
+                                    <select value="@(item.LinkedInventoryItemId?.ToString() ?? string.Empty)"
+                                            @onchange="args => ChooseTheProduct(item, shelfWarehouseId, args.Value)">
+                                        <option value="">@T["-- select a product --"]</option>
+                                        @foreach (var onTheShelf in _shelves.ShelfOf(shelfWarehouseId))
+                                        {
+                                            <option value="@onTheShelf.Id">@onTheShelf.Name</option>
+                                        }
+                                    </select>
+                                </label>
+                            }
+                            @if (_shelves.FieldsFor(item) is { } product)
+                            {
+                                <span class="field-break"></span>
                                 <InventoryFields Model="product.Product" NotificationSettings="_notificationSettings"
                                                  ShowNameAndAmounts="true" />
                                 <span class="field-break"></span>
@@ -228,7 +265,7 @@ else
                             else
                             {
                                 <span class="field-break"></span>
-                                <small>@T["This entry isn't tied to a product yet, so there is nothing to edit here."]</small>
+                                <small>@T["Name the product this errand is about and its shelf opens here."]</small>
                             }
                         }
                         else if (item.Kind == nameof(TaskItemKind.Checklist))
@@ -686,7 +723,7 @@ else
             return;
         }
 
-        await LoadInventoryFieldsAsync();
+        await LoadTheShelvesAsync();
         ReadTheEventsBack();
         OpenTheRequestedItem();
         _isLoading = false;
@@ -745,24 +782,28 @@ else
 
     private void ToggleExpanded(TaskItemFormModel item) => _expandedItem = IsExpanded(item) ? null : item;
 
-    /// <summary>
-    /// <summary>
-    /// The shelf item behind each inventory errand on this list, keyed by the entry's id, while somebody
-    /// is editing it. Loaded once when the editor opens: an entry names its product, and the point of
-    /// naming it is being able to correct it from here.
-    /// </summary>
-    private readonly Dictionary<Guid, InventoryFieldsFormModel> _inventoryFieldsByTaskItemId = [];
-
-    private InventoryFieldsFormModel? InventoryFieldsFor(TaskItemFormModel item)
-        => item.Id is { } itemId ? _inventoryFieldsByTaskItemId.GetValueOrDefault(itemId) : null;
+    /// <summary>The shelf side of this list's inventory errands while it is being edited - see ShelfPicker.</summary>
+    private readonly ShelfPicker _shelves = new();
 
     /// <summary>
-    /// Reads the shelf items this list's errands are about. Best effort: an editor that would not open
-    /// because a warehouse could not be reached is worse than one whose inventory fields are missing.
+    /// Reads the warehouses an errand could be about, and the shelf item each errand on this list
+    /// already names. Best effort throughout: an editor that would not open because a warehouse could
+    /// not be reached is worse than one whose inventory fields are missing.
     /// </summary>
-    private async Task LoadInventoryFieldsAsync()
+    private async Task LoadTheShelvesAsync()
     {
-        _inventoryFieldsByTaskItemId.Clear();
+        _shelves.Clear();
+        try
+        {
+            // Read whether or not this list has an errand on it: an entry becomes one by having its
+            // type changed here, and the picker has to have somewhere to point at when it does.
+            _shelves.SetWarehouses(await InventoryApiClient.GetWarehousesAsync());
+        }
+        catch (Exception exception) when (exception is HttpRequestException or JsonException)
+        {
+            Logger.LogWarning(exception, "Couldn't load the warehouses a task entry could be about");
+        }
+
         if (Id is not { } taskListId)
         {
             return;
@@ -770,17 +811,18 @@ else
 
         try
         {
-            var references = await TasksApiClient.GetInventoryReferencesAsync(taskListId);
-            foreach (var byWarehouse in references.GroupBy(reference => reference.WarehouseId))
+            foreach (var reference in await TasksApiClient.GetInventoryReferencesAsync(taskListId))
             {
-                var shelf = await InventoryApiClient.GetInventoryItemsAsync(byWarehouse.Key) ?? [];
-                foreach (var reference in byWarehouse)
+                if (_formModel.Items.FirstOrDefault(candidate => candidate.Id == reference.TaskItemId) is not { } item)
                 {
-                    if (shelf.FirstOrDefault(product => product.Id == reference.InventoryItemId) is { } product)
-                    {
-                        _inventoryFieldsByTaskItemId[reference.TaskItemId] =
-                            InventoryFieldsFormModel.From(product, byWarehouse.Key, reference.WarehouseName);
-                    }
+                    continue;
+                }
+
+                await LoadTheShelfAsync(reference.WarehouseId);
+                if (_shelves.ShelfOf(reference.WarehouseId)
+                        .FirstOrDefault(product => product.Id == reference.InventoryItemId) is { } onTheShelf)
+                {
+                    _shelves.ChooseProduct(item, reference.WarehouseId, onTheShelf, reference.WarehouseName);
                 }
             }
         }
@@ -790,6 +832,60 @@ else
             // something unreadable - is worse than one whose inventory fields are missing.
             Logger.LogWarning(exception, "Couldn't load the shelf items behind task list {TaskListId}", taskListId);
         }
+    }
+
+    /// <summary>Reads one warehouse's shelf, once. Already-read shelves are left alone.</summary>
+    private async Task LoadTheShelfAsync(Guid warehouseId)
+    {
+        if (_shelves.HasShelf(warehouseId))
+        {
+            return;
+        }
+
+        try
+        {
+            _shelves.RememberShelf(warehouseId, await InventoryApiClient.GetInventoryItemsAsync(warehouseId) ?? []);
+        }
+        catch (Exception exception) when (exception is HttpRequestException or JsonException)
+        {
+            Logger.LogWarning(exception, "Couldn't read what is on the shelf in warehouse {WarehouseId}", warehouseId);
+            _shelves.RememberShelf(warehouseId, []);
+        }
+    }
+
+    /// <summary>
+    /// Points an errand at a shelf. The product goes with it: what was chosen on one shelf is not on
+    /// another, and leaving it behind would tie the errand to something the picker no longer offers.
+    /// </summary>
+    private async Task ChooseTheWarehouseAsync(TaskItemFormModel item, object? value)
+    {
+        item.LinkedInventoryItemId = null;
+        if (!Guid.TryParse(value?.ToString(), out var warehouseId))
+        {
+            _shelves.ChooseWarehouse(item, null);
+            return;
+        }
+
+        _shelves.ChooseWarehouse(item, warehouseId);
+        await LoadTheShelfAsync(warehouseId);
+    }
+
+    /// <summary>
+    /// Ties the errand to one product, which is what makes its shelf fields appear - and what a save
+    /// writes back. Clearing the box unties it again rather than leaving the last choice standing.
+    /// </summary>
+    private void ChooseTheProduct(TaskItemFormModel item, Guid warehouseId, object? value)
+    {
+        if (!Guid.TryParse(value?.ToString(), out var productId)
+            || _shelves.ShelfOf(warehouseId).FirstOrDefault(product => product.Id == productId) is not { } chosen)
+        {
+            item.LinkedInventoryItemId = null;
+            _shelves.ForgetProduct(item);
+            return;
+        }
+
+        item.LinkedInventoryItemId = productId;
+        _shelves.ChooseProduct(item, warehouseId, chosen, _shelves.NameOf(warehouseId));
     }
 
     /// <summary>
@@ -945,12 +1041,12 @@ else
     /// </summary>
     private async Task SaveTheShelfAsync()
     {
-        if (_inventoryFieldsByTaskItemId.Count == 0)
+        if (_shelves.Fields.Count == 0)
         {
             return;
         }
 
-        foreach (var byWarehouse in _inventoryFieldsByTaskItemId.Values.GroupBy(product => product.WarehouseId))
+        foreach (var byWarehouse in _shelves.Fields.GroupBy(product => product.WarehouseId))
         {
             try
             {
@@ -998,6 +1094,83 @@ else
     {
         public static InventoryFieldsFormModel From(InventoryItemDto product, Guid warehouseId, string warehouseName)
             => new(warehouseId, warehouseName, InventoryItemFormModel.FromDto(product));
+    }
+
+    /// <summary>
+    /// The shelf side of this list's inventory errands: which warehouses there are, what is on the ones
+    /// that have been opened, and which product each errand names. One object rather than four
+    /// dictionaries on the page, because the four only mean anything together - a warehouse chosen
+    /// decides which products are offered, and a product chosen decides which fields appear.
+    ///
+    /// Keyed by the entry rather than by its id: an entry added in this sitting has no id yet, and
+    /// naming what it is about is exactly what such an entry needs to be able to do.
+    ///
+    /// State only. The requests belong to the page, which is where a failed one is reported.
+    /// </summary>
+    private sealed class ShelfPicker
+    {
+        private readonly Dictionary<Guid, IReadOnlyList<InventoryItemDto>> _shelfByWarehouseId = [];
+        private readonly Dictionary<TaskItemFormModel, Guid> _chosenWarehouseByItem = [];
+        private readonly Dictionary<TaskItemFormModel, InventoryFieldsFormModel> _fieldsByItem = [];
+
+        /// <summary>Every warehouse an errand could be about. Empty until they have been read.</summary>
+        public IReadOnlyList<WarehouseDto> Warehouses { get; private set; } = [];
+
+        /// <summary>What each errand on this list is about, for the save that writes the shelves back.</summary>
+        public IReadOnlyCollection<InventoryFieldsFormModel> Fields => _fieldsByItem.Values;
+
+        public InventoryFieldsFormModel? FieldsFor(TaskItemFormModel item) => _fieldsByItem.GetValueOrDefault(item);
+
+        /// <summary>
+        /// The shelf this entry's picker is showing: the one its product is on, or the one somebody has
+        /// just chosen and not yet picked a product from.
+        /// </summary>
+        public Guid? ChosenWarehouseIdFor(TaskItemFormModel item)
+            => _fieldsByItem.TryGetValue(item, out var fields) ? fields.WarehouseId
+                : _chosenWarehouseByItem.TryGetValue(item, out var chosen) ? chosen
+                : null;
+
+        public IReadOnlyList<InventoryItemDto> ShelfOf(Guid warehouseId)
+            => _shelfByWarehouseId.GetValueOrDefault(warehouseId, []);
+
+        public bool HasShelf(Guid warehouseId) => _shelfByWarehouseId.ContainsKey(warehouseId);
+
+        public string NameOf(Guid warehouseId)
+            => Warehouses.FirstOrDefault(warehouse => warehouse.Id == warehouseId)?.Name ?? string.Empty;
+
+        public void SetWarehouses(IReadOnlyList<WarehouseDto> warehouses) => Warehouses = warehouses;
+
+        public void RememberShelf(Guid warehouseId, IReadOnlyList<InventoryItemDto> shelf)
+            => _shelfByWarehouseId[warehouseId] = shelf;
+
+        public void ChooseWarehouse(TaskItemFormModel item, Guid? warehouseId)
+        {
+            ForgetProduct(item);
+            if (warehouseId is { } chosen)
+            {
+                _chosenWarehouseByItem[item] = chosen;
+            }
+            else
+            {
+                _chosenWarehouseByItem.Remove(item);
+            }
+        }
+
+        public void ChooseProduct(
+            TaskItemFormModel item, Guid warehouseId, InventoryItemDto product, string warehouseName)
+        {
+            _chosenWarehouseByItem[item] = warehouseId;
+            _fieldsByItem[item] = InventoryFieldsFormModel.From(product, warehouseId, warehouseName);
+        }
+
+        public void ForgetProduct(TaskItemFormModel item) => _fieldsByItem.Remove(item);
+
+        public void Clear()
+        {
+            _shelfByWarehouseId.Clear();
+            _chosenWarehouseByItem.Clear();
+            _fieldsByItem.Clear();
+        }
     }
 
     /// <summary>
@@ -1561,9 +1734,10 @@ else
         }
 
         /// <summary>
-        /// The shelf item an inventory errand is about. Nothing on this screen sets it - it is made
-        /// when the errand is - but it has to be carried, because a save replaces the list wholesale.
-        /// Leaving it out cut every restock errand loose from its product on any save of the list.
+        /// The shelf item an inventory errand is about, set by the picker beside the entry or carried
+        /// over from the errand a restock list generated. Carried on every save either way, because a
+        /// save replaces the list wholesale - leaving it out cut every restock errand loose from its
+        /// product. See ShelfPicker.
         /// </summary>
         public Guid? LinkedInventoryItemId { get; set; }
 

@@ -80,7 +80,7 @@ public sealed class ContactsArchiveTests : OrbitTestContext
 
         var cut = RenderComponent<Web.Pages.Contacts>();
         cut.Find(".person-row .overflow-menu-trigger").Click();
-        cut.FindAll(".avatar-dropdown-item").Single(item => item.TextContent.Contains("Put away")).Click();
+        cut.FindAll(".avatar-dropdown-item").Single(item => item.TextContent.Contains("Archive")).Click();
 
         Assert.Contains(_requestedPaths, path => path.EndsWith("/archived", StringComparison.Ordinal));
     }

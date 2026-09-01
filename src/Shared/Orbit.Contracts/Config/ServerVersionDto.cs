@@ -10,8 +10,9 @@ namespace Orbit.Contracts.Config;
 /// exists. A client that shows only its own version answers "which Orbit is this" with half the truth.
 /// </summary>
 /// <param name="CommitHash">
-/// Empty from a released server. Which commit it was cut from is detail about the inside of the
-/// deployment, and a released one has no reason to hand that to whoever asks - the same rule the clients
-/// apply to their own version.
+/// Which commit the server was cut from, or empty when the build carries none - a local `docker compose
+/// build`, say, which nothing numbered. Sent whatever configuration the server was built in, the same
+/// rule the clients apply to their own version: it is the thing a bug report against this deployment
+/// needs in order to be answerable.
 /// </param>
 public sealed record ServerVersionDto(string Version, string CommitHash);

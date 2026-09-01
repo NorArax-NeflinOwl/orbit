@@ -213,7 +213,7 @@ else
                     <span class="check-row-text">@Written(entry.Item.Description)</span>
                     @* Which list it came from, since the headings are gone in this view. *@
                     <span class="row-meta">@Written(entry.Section.TaskList.Title)</span>
-                    @if (entry.Item.DueDateUtc is { } flatDueDate)
+                    @if (IsAChecklistEntry(entry.Item) && entry.Item.DueDateUtc is { } flatDueDate)
                     {
                         <span class="row-meta">@T.Format("due {0}", flatDueDate.LocalDateTime.ToString("dd.MM.yyyy HH:mm"))</span>
                     }
@@ -278,7 +278,10 @@ else
                                waiting. *@
                             <span class="row-meta">@T.Format("follows {0}", LinkedTaskListTitles(item))</span>
                         }
-                        else if (item.DueDateUtc is { } dueDate)
+                        @* A day to be done by belongs to a checklist entry - an appointment says when
+                           it is in the calendar, and a restock errand is about an amount. Same rule as
+                           the editor, which only asks a checklist entry for one. *@
+                        else if (IsAChecklistEntry(item) && item.DueDateUtc is { } dueDate)
                         {
                             <span class="row-meta">@T.Format("due {0}", dueDate.LocalDateTime.ToString("dd.MM.yyyy HH:mm"))</span>
                         }
@@ -612,6 +615,10 @@ else
     /// </summary>
     private void GoToEditItem(Guid taskListId, Guid itemId)
         => NavigationManager.NavigateTo($"/tasks/{taskListId}/edit?item={itemId}");
+
+    /// <summary>Whether this entry is ordinary work rather than an appointment or a restock errand.</summary>
+    private static bool IsAChecklistEntry(TaskItemDto item)
+        => item.Kind == nameof(Orbit.Core.Tasks.TaskItemKind.Checklist);
 
     /// <summary>A name Orbit wrote itself, in the reader's language - see OrbitWrittenNames.</summary>
     private string Written(string name) => OrbitWrittenNames.Translate(key => T[key], name);

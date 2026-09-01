@@ -1,9 +1,10 @@
 namespace Orbit.Core.Permissions;
 
 /// <summary>
-/// A part of Orbit that has to be unlocked before an account can use it at all. Each one gates a set of
+/// A part of Orbit that has to be unlocked before an account can use it at all. Most gate a set of
 /// endpoints (see PermissionPolicies in Orbit.Api) rather than a single feature flag in the client - the
-/// client only hides what it already knows is refused.
+/// client only hides what it already knows is refused. <see cref="Debug"/> is the exception, and says so
+/// where it is declared.
 ///
 /// <see cref="Contacts"/> is the one the others rest on, because it is the one about other people
 /// existing at all - see PermissionPrerequisites.
@@ -28,5 +29,16 @@ public enum ApplicationPermission
     /// they can reach anyone - but sharing a position, or seeing one somebody shared, is about other
     /// people and needs <see cref="Contacts"/> as well.
     /// </summary>
-    Location
+    Location,
+
+    /// <summary>
+    /// What Orbit reports about itself: the Debugger settings, the captured client log, and the detail
+    /// behind an error rather than "something went wrong".
+    ///
+    /// The one permission with no endpoints behind it, because there are none to gate - every part of it
+    /// happens in the client and on the reader's own device. It is a permission rather than a setting
+    /// because it is the same kind of decision as the others: whoever runs this Orbit decides which
+    /// accounts see its internals, and an unlock code is how that decision is handed out.
+    /// </summary>
+    Debug
 }

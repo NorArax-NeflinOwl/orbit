@@ -66,3 +66,8 @@ node_modules/
 
 # Test run artefacts (.trx and friends) - written by `dotnet test --logger trx`, never source.
 TestResults/
+
+# The web client serves the repository's LICENSE so the footer can link to it on this site rather than
+# on GitHub. It is copied in at build time (see Orbit.Web.csproj) rather than committed twice - a second
+# copy is a second thing to keep in step, and this one would go stale silently.
+src/Clients/Orbit.Web/wwwroot/LICENSE.txt

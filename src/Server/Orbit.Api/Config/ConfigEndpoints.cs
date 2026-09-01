@@ -38,10 +38,7 @@ public static class ConfigEndpoints
         app.MapGet("/api/config/version", () =>
         {
             var version = OrbitVersion.ReadFrom(typeof(ConfigEndpoints).Assembly);
-            // The hash is left out of a released server's answer rather than being sent and hidden by
-            // whoever asked: what is not sent cannot be read off the wire.
-            return Results.Ok(new ServerVersionDto(
-                version.Version, version.ShowsTheCommit ? version.CommitHash : string.Empty));
+            return Results.Ok(new ServerVersionDto(version.Version, version.CommitHash));
         });
 
         // Deliberately unauthenticated, like the endpoint above: a build too old to sign in still has to
