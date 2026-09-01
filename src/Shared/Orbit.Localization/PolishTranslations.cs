@@ -72,6 +72,10 @@ public static class PolishTranslations
         ["What"] = "Co",
         ["{0} of what this needs is short."] = "Brakuje pozycji: {0}.",
         ["Everything this list needs is on the shelf."] = "Wszystko, czego ta lista potrzebuje, jest na stanie.",
+        ["That storage is already measured against another list."] =
+            "Ten magazyn jest już mierzony względem innej listy.",
+        ["Couldn't measure this list against that storage. Try again."] =
+            "Nie udało się zmierzyć tej listy względem tego magazynu. Spróbuj ponownie.",
         ["Not measured against a warehouse"] = "Bez porównania z magazynem",
         ["Can this be done?"] = "Czy da się to wykonać?",
         ["Nothing due in this period."] = "Nic z terminem w tym okresie.",
@@ -93,11 +97,9 @@ public static class PolishTranslations
         ["years"] = "lat",
         ["\"{0}\" is reminded daily, so it needs a time to be reminded at."] = "„{0}” ma przypomnienie dzienne, więc potrzebuje godziny.",
         ["On the shelf in {0}. Saving this list saves the change there too."] = "Na półce w: {0}. Zapis tej listy zapisuje też tę zmianę.",
+        ["What this entry names becomes a product when a storage is made from this list."] =
+            "To, co ta pozycja nazywa, stanie się produktem, gdy z tej listy powstanie magazyn.",
         ["This entry isn't tied to a product yet, so there is nothing to edit here."] = "Ta pozycja nie jest jeszcze powiązana z produktem, więc nie ma tu czego edytować.",
-        ["Name the product this errand is about and its shelf opens here."] = "Wskaż produkt, którego dotyczy ta pozycja, a jego półka otworzy się tutaj.",
-        ["Product"] = "Produkt",
-        ["-- select a warehouse --"] = "— wybierz magazyn —",
-        ["-- select a product --"] = "— wybierz produkt —",
         ["No other list yet"] = "Nie ma jeszcze innej listy",
         ["The list was saved, but the shelf couldn't be updated. Open the warehouse and check it."] = "Lista została zapisana, ale nie udało się zaktualizować magazynu. Otwórz magazyn i sprawdź.",
         ["Pick a point on the map, or type what to call this place"] = "Wskaż punkt na mapie albo wpisz, jak nazwać to miejsce",

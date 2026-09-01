@@ -111,11 +111,13 @@ public sealed class TaskEditorItemFormTests : OrbitTestContext
     }
 
     /// <summary>
-    /// A restock errand typed by hand has nothing to say what it is about, and until it does the shelf
-    /// fields have nothing to edit. The picker is how it says so - see TaskEditor's ShelfPicker.
+    /// An entry of this kind names something the work needs, and naming it is the whole of it: the shelf
+    /// is built from these names rather than picked from an existing one - see
+    /// GenerateWarehouseFromTaskListCommandHandler. A picker for an existing product had the
+    /// relationship backwards.
     /// </summary>
     [Fact]
-    public void An_inventory_entry_is_asked_which_product_on_which_shelf()
+    public void An_inventory_entry_names_a_thing_rather_than_pointing_at_one()
     {
         RegisterApiClients(AnItem(kind: nameof(TaskItemKind.Inventory)));
         var cut = Render();
@@ -123,7 +125,8 @@ public sealed class TaskEditorItemFormTests : OrbitTestContext
         ExpandTheOnlyItem(cut);
 
         var details = cut.Find(".editor-item-details").TextContent;
-        Assert.Contains("Warehouse", details);
+        Assert.DoesNotContain("Warehouse", details);
+        Assert.Contains("becomes a product", details);
     }
 
     /// <summary>
