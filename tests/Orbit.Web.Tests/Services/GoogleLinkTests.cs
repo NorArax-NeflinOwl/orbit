@@ -36,11 +36,19 @@ public sealed class GoogleLinkTests
         Assert.Contains("dates=20260901T080000Z/20260901T090000Z", link);
     }
 
+    /// <summary>
+    /// An all-day event is stored as the instant local midnight began - see
+    /// EventFormModel.ToDateTimeOffset - so these build theirs the same way rather than from a time of
+    /// day, which is what a real one looks like and the only shape the bug below shows up in.
+    /// </summary>
+    private static DateTimeOffset LocalMidnightOn(int day)
+        => new(new DateTime(2026, 9, day, 0, 0, 0, DateTimeKind.Local));
+
     [Fact]
     public void An_all_day_event_uses_dates_and_an_exclusive_end()
     {
         var link = GoogleCalendarEventLink.ForEvent(
-            "Holiday", TenAm, TenAm.AddHours(8), isAllDay: true);
+            "Holiday", LocalMidnightOn(1), LocalMidnightOn(1), isAllDay: true);
 
         // Google reads the end of an all-day range as exclusive, so a single day is written as 1st/2nd -
         // passing the same date twice would produce an event of no length.
@@ -51,9 +59,37 @@ public sealed class GoogleLinkTests
     public void An_all_day_event_spanning_days_keeps_its_own_end()
     {
         var link = GoogleCalendarEventLink.ForEvent(
-            "Trip", TenAm, TenAm.AddDays(3), isAllDay: true);
+            "Trip", LocalMidnightOn(1), LocalMidnightOn(4), isAllDay: true);
 
         Assert.Contains("dates=20260901/20260904", link);
+    }
+
+    /// <summary>
+    /// The day is the reader's, not UTC's. Local midnight anywhere east of Greenwich is the previous day
+    /// in UTC, so reading the day off the UTC instant handed Google a holiday on the 14th as the 13th -
+    /// and an all-day event has no time for Google to correct it by.
+    /// </summary>
+    [Fact]
+    public void An_all_day_event_falls_on_the_day_the_reader_chose()
+    {
+        var link = GoogleCalendarEventLink.ForEvent(
+            "Holiday", LocalMidnightOn(14), LocalMidnightOn(14), isAllDay: true);
+
+        Assert.Contains("dates=20260914/20260915", link);
+    }
+
+    /// <summary>
+    /// A timed event has no such problem and must not be "fixed" into one: it travels as an instant, and
+    /// the Z is what tells Google which one - so the same local midnight stays an instant here.
+    /// </summary>
+    [Fact]
+    public void A_timed_event_still_travels_as_an_instant()
+    {
+        var midnight = LocalMidnightOn(14);
+
+        var link = GoogleCalendarEventLink.ForEvent("Dentist", midnight, midnight.AddHours(1));
+
+        Assert.Contains($"dates={midnight.UtcDateTime:yyyyMMdd'T'HHmmss}Z/", link);
     }
 
     [Fact]
