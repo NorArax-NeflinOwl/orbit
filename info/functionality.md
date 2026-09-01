@@ -1900,6 +1900,10 @@ unset, which is the ordinary state for a local stack. Without it, Android 12 and
 a browser and the reader has to allow the app by hand under Settings > Apps > Orbit > Open by default -
 the app half is complete either way, and was checked on an emulator with the domain approved.
 
+The fingerprint to set it to is the release keystore's, printed by the command the keystore's own notes
+already document for the Maps key, reading `SHA256` where that one reads `SHA1`. It is not a secret:
+Android hands it to every device that installs the app.
+
 Following a link, like following a notification, waits for an account: the app holds the destination
 and opens it once somebody is signed in, rather than showing a stranger's shared item over a signed-out
 app. Signing in now goes on to whatever was waiting instead of always landing on the dashboard.
