@@ -13,6 +13,7 @@ public sealed partial class SignInViewModel : ObservableObject
     private readonly AuthenticationClient _authenticationClient;
     private readonly GoogleSignIn _googleSignIn;
     private readonly SignInCompletion _completion;
+    private readonly NotificationOpener _notificationOpener;
     private readonly Translations _translations;
     private readonly IScreenNavigator _navigator;
 
@@ -37,11 +38,12 @@ public sealed partial class SignInViewModel : ObservableObject
 
     public SignInViewModel(
         AuthenticationClient authenticationClient, GoogleSignIn googleSignIn, SignInCompletion completion,
-        Translations translations, IScreenNavigator navigator)
+        NotificationOpener notificationOpener, Translations translations, IScreenNavigator navigator)
     {
         _authenticationClient = authenticationClient;
         _googleSignIn = googleSignIn;
         _completion = completion;
+        _notificationOpener = notificationOpener;
         _translations = translations;
         _navigator = navigator;
     }
@@ -129,8 +131,17 @@ public sealed partial class SignInViewModel : ObservableObject
     private async Task FinishSignInAsync(string? password, CancellationToken cancellationToken)
     {
         await _completion.CompleteAsync(password, cancellationToken);
-
         Password = string.Empty;
+
+        // What they were trying to reach when the app asked them to sign in first - a tapped
+        // notification, or a link Android handed to Orbit. Held rather than followed until now, because
+        // there was no account to open it in; taken here rather than only at a cold start, which is the
+        // one place that used to look - see PendingNotificationTap and StartupViewModel.
+        if (await _notificationOpener.FollowTapThatLaunchedTheAppAsync(cancellationToken))
+        {
+            return;
+        }
+
         _navigator.ShowDashboard();
     }
 

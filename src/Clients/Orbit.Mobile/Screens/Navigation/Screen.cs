@@ -40,6 +40,9 @@ public enum Screen
     ChatKeyGate,
     Map,
     Notifications,
+
+    /// <summary>Something somebody sent a link to, read without being in the account - see SharedLinkViewModel.</summary>
+    SharedLink,
     Account,
     Update,
     Diagnostics

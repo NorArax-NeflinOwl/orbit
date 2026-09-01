@@ -111,6 +111,12 @@ public sealed class NotificationOpener
                 _navigator.ShowCopyReview();
                 return NotificationOpenOutcome.Opened;
 
+            // Nothing is looked up first: what is behind a public link may belong to a stranger and be
+            // in no account on this phone, so the screen is what asks - see SharedLinkViewModel.
+            case NotificationTarget.SharedLink when destination.Token.Length > 0:
+                _navigator.ShowSharedLink(destination.Token);
+                return NotificationOpenOutcome.Opened;
+
             default:
                 return NotificationOpenOutcome.NowhereToGo;
         }

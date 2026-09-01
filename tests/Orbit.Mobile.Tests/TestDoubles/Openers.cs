@@ -38,6 +38,14 @@ internal static class Openers
             TimeProvider.System, new SyncGate(), NullLogger<TaskListSynchronizer>.Instance);
 
     public static NotificationOpener AgainstNobody(LocalStore localStore, IScreenNavigator navigator)
+        => AgainstNobody(localStore, navigator, new PendingNotificationTap());
+
+    /// <summary>
+    /// The same, with the holder handed in - for a test about what happens to a tap that was waiting,
+    /// which has to be able to record one.
+    /// </summary>
+    public static NotificationOpener AgainstNobody(
+        LocalStore localStore, IScreenNavigator navigator, PendingNotificationTap pendingTap)
     {
         var nobody = StubHttpMessageHandler.Unreachable().ToHttpClient();
         var clock = TimeProvider.System;
@@ -58,6 +66,6 @@ internal static class Openers
             chat,
             new ChatSynchronizer(chat, chatClient, usersClient, sender, NullLogger<ChatSynchronizer>.Instance),
             usersClient, TaskListsIn(localStore), NoTaskListServer(localStore),
-            new PendingNotificationTap(), navigator);
+            pendingTap, navigator);
     }
 }

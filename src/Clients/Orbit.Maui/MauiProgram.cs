@@ -317,6 +317,8 @@ public static class MauiProgram
 		services.AddTransient<RegisterViewModel>();
 		services.AddTransient<PasswordResetPage>();
 		services.AddTransient<PasswordResetViewModel>();
+		services.AddTransient<Orbit.Maui.Features.Sharing.SharedLinkPage>();
+		services.AddTransient<Orbit.Mobile.Screens.Sharing.SharedLinkViewModel>();
 		services.AddTransient<AccountPage>();
 		services.AddTransient<AccountViewModel>();
 		services.AddTransient<ChatKeyGatePage>();

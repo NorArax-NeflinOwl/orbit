@@ -42,6 +42,7 @@ public sealed class UpNavigation
         [Screen.ChatKeyGate] = Screen.Dashboard,
         [Screen.Map] = Screen.Dashboard,
         [Screen.Notifications] = Screen.Dashboard,
+        [Screen.SharedLink] = Screen.Dashboard,
         [Screen.Account] = Screen.Dashboard,
         [Screen.Update] = Screen.Dashboard,
         [Screen.Diagnostics] = Screen.Account

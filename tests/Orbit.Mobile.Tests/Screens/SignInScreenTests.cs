@@ -2,6 +2,7 @@ using System.Net;
 using System.Net.Http.Json;
 using Microsoft.Extensions.Logging.Abstractions;
 using Orbit.Contracts.Config;
+using Orbit.Contracts.Users;
 using Orbit.Mobile.Api;
 using Orbit.Mobile.Authentication;
 using Orbit.Mobile.Crypto;
@@ -79,6 +80,39 @@ public sealed class SignInScreenTests
         Assert.True(screen.HasError);
     }
 
+    /// <summary>
+    /// Where somebody lands when they were sent to the sign-in screen on their way somewhere else - a
+    /// tapped notification, or a link Android handed to Orbit. The destination was held rather than
+    /// followed, because there was no account to open it in, and only a cold start used to take it: a
+    /// tap that arrived at the sign-in screen was quietly lost.
+    /// </summary>
+    [Fact]
+    public async Task Signing_in_goes_on_to_wherever_the_reader_was_heading()
+    {
+        using var context = new ScreenContext();
+        var screen = context.Open();
+        context.PendingTap.Record("/calendar");
+
+        screen.EmailOrUserName = "someone@orbit.example";
+        screen.Password = "a-password";
+        await screen.SignInCommand.ExecuteAsync(null);
+
+        Assert.Equal("ShowCalendar", context.Navigator.LastDestination);
+    }
+
+    [Fact]
+    public async Task Signing_in_with_nothing_waiting_opens_the_dashboard()
+    {
+        using var context = new ScreenContext();
+        var screen = context.Open();
+
+        screen.EmailOrUserName = "someone@orbit.example";
+        screen.Password = "a-password";
+        await screen.SignInCommand.ExecuteAsync(null);
+
+        Assert.Equal("ShowDashboard", context.Navigator.LastDestination);
+    }
+
     private sealed class ScreenContext : IDisposable
     {
         private const string AndroidClientIdInUse = "181624005200-example.apps.googleusercontent.com";
@@ -99,6 +133,9 @@ public sealed class SignInScreenTests
         public bool OrbitAcceptsTheToken { get; init; } = true;
 
         public RecordingScreenNavigator Navigator { get; } = new();
+
+        /// <summary>What platform code wrote down before there was an account to open it in.</summary>
+        public PendingNotificationTap PendingTap { get; } = new();
 
         public IReadOnlyList<RecordedRequest> OrbitRequests => _orbit.ReceivedRequests;
 
@@ -125,6 +162,7 @@ public sealed class SignInScreenTests
                     new PushRegistration(
                         new FixedDevicePushNotifications(), new NotificationsClient(_notifications.ToHttpClient()),
                         NullLogger<PushRegistration>.Instance)),
+                Openers.AgainstNobody(_localStore, Navigator, PendingTap),
                 new Translations(new InMemoryLanguageStore()),
                 Navigator);
         }
@@ -141,8 +179,21 @@ public sealed class SignInScreenTests
                 };
             }
 
-            return new HttpResponseMessage(
-                OrbitAcceptsTheToken ? HttpStatusCode.OK : HttpStatusCode.Unauthorized);
+            if (!OrbitAcceptsTheToken)
+            {
+                return new HttpResponseMessage(HttpStatusCode.Unauthorized);
+            }
+
+            // A sign-in that is accepted answers with a session, whichever way it was made. Without a
+            // body the client has nothing to store, which is a failure of this double rather than of
+            // the screen - see AuthenticationClient.
+            return request.RequestUri.AbsolutePath.Contains("/auth/")
+                ? new HttpResponseMessage(HttpStatusCode.OK)
+                {
+                    Content = JsonContent.Create(new AuthResponse(
+                        "access", "refresh", Guid.NewGuid(), "someone@orbit.example", "Someone"))
+                }
+                : new HttpResponseMessage(HttpStatusCode.OK);
         }
 
         public void Dispose()

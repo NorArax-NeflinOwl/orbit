@@ -1868,6 +1868,32 @@ never be talked out of via a stored per-account preference. Options.razor's own 
 (the "Show exceptions" switch) is likewise only rendered at all when the server reports it's not running
 in Production.
 
+### A link opened on a phone
+
+A public link is an ordinary web address (`https://<host>/s/<token>`), and on a phone with Orbit
+installed Android hands it to the app instead of a browser: the app declares an intent filter for that
+path on the deployment's own host, and the same screen the browser would have shown appears inside
+Orbit - what was shared, who shared it, and one button to keep a read-only copy. It is the same
+destination pipeline a tapped notification travels (`NotificationDestination`), so there is one way into
+the app from outside it rather than two.
+
+The host is fixed when the app is built, from the deployment address it is already given
+(`OrbitShareLinkHost`, defaulting to the host of `OrbitApiBaseAddress`) - an intent filter is an
+attribute and takes compile-time constants, and a filter with no host would offer Orbit for every link
+on the phone. A build told no address gets a name that can never resolve.
+
+**Two halves are needed for a link to route on its own.** The app declares the filter with
+`autoVerify`; the deployment has to serve `https://<host>/.well-known/assetlinks.json` naming the app's
+package and the certificate the installed build was signed with. `orbit-web` writes that file at
+startup from `ANDROID_APP_SHA256` (see `write-android-app-links.sh`) and writes nothing when it is
+unset, which is the ordinary state for a local stack. Without it, Android 12 and later open the link in
+a browser and the reader has to allow the app by hand under Settings > Apps > Orbit > Open by default -
+the app half is complete either way, and was checked on an emulator with the domain approved.
+
+Following a link, like following a notification, waits for an account: the app holds the destination
+and opens it once somebody is signed in, rather than showing a stranger's shared item over a signed-out
+app. Signing in now goes on to whatever was waiting instead of always landing on the dashboard.
+
 ## The home screen widget (Android)
 
 A 3 × 2 widget showing the day and the few things still ahead in it: today's appointments that have

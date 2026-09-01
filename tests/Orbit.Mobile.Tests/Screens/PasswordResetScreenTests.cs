@@ -85,7 +85,7 @@ public sealed class PasswordResetScreenTests
         await screen.SetPasswordCommand.ExecuteAsync(null);
 
         var confirmation = Assert.Single(
-            context.Handler.ReceivedRequests.Where(request => request.Uri!.AbsolutePath.EndsWith("/confirm")));
+            context.Handler.ReceivedRequests, request => request.Uri!.AbsolutePath.EndsWith("/confirm"));
         Assert.Contains("a-new-password", confirmation.Body);
         Assert.True(screen.IsDone);
     }
