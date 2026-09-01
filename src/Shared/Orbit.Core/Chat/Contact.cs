@@ -13,6 +13,13 @@ public sealed class Contact
     public DateTimeOffset CreatedAtUtc { get; private set; }
     public DateTimeOffset LastMessageAtUtc { get; private set; }
 
+    /// <summary>
+    /// Whether this conversation has been put away by the person whose list it is on. One direction
+    /// only: a Contact row already belongs to one owner, so archiving is theirs and says nothing to
+    /// the other party - who has their own row and their own answer.
+    /// </summary>
+    public bool IsArchived { get; private set; }
+
     private Contact(Guid id, Guid ownerUserId, Guid contactUserId, DateTimeOffset createdAtUtc, DateTimeOffset lastMessageAtUtc)
     {
         Id = id;
@@ -29,11 +36,18 @@ public sealed class Contact
     /// Rebuilds a contact from already-persisted values, bypassing creation rules.
     /// </summary>
     public static Contact FromPersistence(
-        Guid id, Guid ownerUserId, Guid contactUserId, DateTimeOffset createdAtUtc, DateTimeOffset lastMessageAtUtc)
-        => new(id, ownerUserId, contactUserId, createdAtUtc, lastMessageAtUtc);
+        Guid id, Guid ownerUserId, Guid contactUserId, DateTimeOffset createdAtUtc, DateTimeOffset lastMessageAtUtc,
+        bool isArchived = false)
+        => new(id, ownerUserId, contactUserId, createdAtUtc, lastMessageAtUtc) { IsArchived = isArchived };
 
     public void UpdateLastMessageAt(DateTimeOffset lastMessageAtUtc)
     {
         LastMessageAtUtc = lastMessageAtUtc;
     }
+
+    /// <summary>
+    /// Puts the conversation away, or brings it back. Archiving is not deleting: every message stays,
+    /// and the row moves to a list of its own rather than off the account.
+    /// </summary>
+    public void SetArchived(bool isArchived) => IsArchived = isArchived;
 }

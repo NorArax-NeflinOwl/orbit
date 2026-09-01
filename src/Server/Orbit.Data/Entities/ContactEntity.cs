@@ -12,4 +12,7 @@ public sealed class ContactEntity
     public Guid ContactUserId { get; set; }
     public DateTimeOffset CreatedAtUtc { get; set; }
     public DateTimeOffset LastMessageAtUtc { get; set; }
+
+    /// <summary>Put away by the owner of this row - see Orbit.Core.Chat.Contact.IsArchived.</summary>
+    public bool IsArchived { get; set; }
 }

@@ -95,7 +95,7 @@ public sealed class WarehouseRepository : IWarehouseRepository
             entity.Id, entity.UserId, entity.Name, entity.IsPrivate,
             ToEncryptedPayload(entity.EncryptedCiphertext, entity.EncryptedNonce),
             entity.CreatedAtUtc, entity.UpdatedAtUtc,
-            entity.LockedByUserId, entity.LockedByUserName, entity.LockExpiresAtUtc);
+            entity.LockedByUserId, entity.LockedByUserName, entity.LockExpiresAtUtc, entity.Description);
 
     private static WarehouseEntity ToEntity(Warehouse warehouse)
         => new()
@@ -103,6 +103,7 @@ public sealed class WarehouseRepository : IWarehouseRepository
             Id = warehouse.Id,
             UserId = warehouse.UserId,
             Name = warehouse.Name,
+            Description = warehouse.Description,
             IsPrivate = warehouse.IsPrivate,
             EncryptedCiphertext = warehouse.EncryptedContent?.Ciphertext,
             EncryptedNonce = warehouse.EncryptedContent?.Nonce,

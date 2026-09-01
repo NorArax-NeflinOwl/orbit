@@ -25,6 +25,15 @@ public sealed class Warehouse
     public string Name { get; private set; }
 
     /// <summary>
+    /// What this warehouse is, under its name - the second and further lines of the one field the
+    /// editor offers, the way a note is written. Empty for one nobody described.
+    ///
+    /// Not sealed with the rest when the warehouse is private: it travels in the same encrypted
+    /// payload as the name and the items do, so there is nothing readable left behind here either.
+    /// </summary>
+    public string Description { get; private set; } = string.Empty;
+
+    /// <summary>
     /// Marks a warehouse only its owner can read. Its name and every item in it are sealed in the
     /// browser before they get here, so no item rows exist server-side at all - which is also why a
     /// private warehouse raises no restock tasks and no expiry reminders: both are worked out from item
@@ -78,23 +87,42 @@ public sealed class Warehouse
         LockExpiresAtUtc = lockExpiresAtUtc;
     }
 
-    public static Warehouse Create(Guid userId, string name, bool isPrivate = false, EncryptedPayload? encryptedContent = null)
+    public static Warehouse Create(
+        Guid userId, string name, bool isPrivate = false, EncryptedPayload? encryptedContent = null,
+        string description = "")
     {
         StoredTextLimits.OrRefuse(name, StoredTextLimits.Title, "warehouse's name");
+        StoredTextLimits.OrRefuse(description, StoredTextLimits.EventDescription, "warehouse's description");
         EnsureSealedWhenPrivate(isPrivate, encryptedContent);
         var now = DateTimeOffset.UtcNow;
-        return new Warehouse(
-            Guid.NewGuid(), userId, name, isPrivate, encryptedContent, now, now,
-            lockedByUserId: null, lockedByUserName: null, lockExpiresAtUtc: null);
+        return Described(
+            new Warehouse(
+                Guid.NewGuid(), userId, name, isPrivate, encryptedContent, now, now,
+                lockedByUserId: null, lockedByUserName: null, lockExpiresAtUtc: null),
+            description);
     }
 
     /// <summary>Rebuilds a warehouse from already-persisted values, bypassing creation rules.</summary>
     public static Warehouse FromPersistence(
         Guid id, Guid userId, string name, bool isPrivate, EncryptedPayload? encryptedContent,
         DateTimeOffset createdAtUtc, DateTimeOffset updatedAtUtc,
-        Guid? lockedByUserId, string? lockedByUserName, DateTimeOffset? lockExpiresAtUtc)
-        => new(id, userId, name, isPrivate, encryptedContent, createdAtUtc, updatedAtUtc,
-            lockedByUserId, lockedByUserName, lockExpiresAtUtc);
+        Guid? lockedByUserId, string? lockedByUserName, DateTimeOffset? lockExpiresAtUtc,
+        string description = "")
+        => Described(
+            new(id, userId, name, isPrivate, encryptedContent, createdAtUtc, updatedAtUtc,
+                lockedByUserId, lockedByUserName, lockExpiresAtUtc),
+            description);
+
+    /// <summary>
+    /// Puts a stored description back on a rebuilt warehouse. A separate step because the constructor
+    /// is shared with Create, which validates what it is given - and a row already in the database has
+    /// been through that once already.
+    /// </summary>
+    private static Warehouse Described(Warehouse warehouse, string description)
+    {
+        warehouse.Description = description;
+        return warehouse;
+    }
 
     /// <summary>
     /// Stamps how the current caller relates to this warehouse - see the class comment. Called exactly
@@ -115,9 +143,11 @@ public sealed class Warehouse
     /// <see cref="IsLockedByAnotherUser"/> is false - see UpdateWarehouseCommandHandler. Kept out of this
     /// method so a locked/read-only warehouse fails with a specific EditOutcome instead of an exception.
     /// </summary>
-    public void Update(string name, bool isPrivate, EncryptedPayload? encryptedContent)
+    public void Update(string name, bool isPrivate, EncryptedPayload? encryptedContent, string description = "")
     {
         StoredTextLimits.OrRefuse(name, StoredTextLimits.Title, "warehouse's name");
+        StoredTextLimits.OrRefuse(description, StoredTextLimits.EventDescription, "warehouse's description");
+        Description = description;
         EnsureSealedWhenPrivate(isPrivate, encryptedContent);
         (Name, IsPrivate, EncryptedContent) = ReadableOrSealed(name, isPrivate, encryptedContent);
         UpdatedAtUtc = DateTimeOffset.UtcNow;

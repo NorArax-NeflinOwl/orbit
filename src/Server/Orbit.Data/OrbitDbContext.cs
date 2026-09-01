@@ -94,6 +94,10 @@ public sealed class OrbitDbContext : DbContext
         {
             entity.HasKey(task => task.Id);
             entity.Property(task => task.Title).IsRequired().HasMaxLength(StoredTextLimits.Title);
+            // Defaulted rather than nullable: every reader treats "no description" as an empty string,
+            // and a column that can also be null would give them a second way to spell the same thing.
+            entity.Property(task => task.Description).IsRequired()
+                .HasMaxLength(StoredTextLimits.EventDescription).HasDefaultValue(string.Empty);
             // Matches UserEntity.UserName's max length, since this is always copied from there.
             entity.Property(task => task.LockedByUserName).HasMaxLength(64);
             // Every task list query is scoped to a single user's task lists; this is the index that
@@ -383,6 +387,8 @@ public sealed class OrbitDbContext : DbContext
         {
             entity.HasKey(warehouse => warehouse.Id);
             entity.Property(warehouse => warehouse.Name).IsRequired().HasMaxLength(StoredTextLimits.Title);
+            entity.Property(warehouse => warehouse.Description).IsRequired()
+                .HasMaxLength(StoredTextLimits.EventDescription).HasDefaultValue(string.Empty);
             // Matches UserEntity.UserName's max length, since this is always copied from there.
             entity.Property(warehouse => warehouse.LockedByUserName).HasMaxLength(64);
             // Listing a user's own warehouses is the most common warehouse query.

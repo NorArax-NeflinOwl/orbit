@@ -15,6 +15,9 @@ public sealed class InventoryItemEntity
     public decimal Quantity { get; set; }
     public decimal? MinimumQuantity { get; set; }
 
+    /// <summary>Looked at every round rather than only when low - see InventoryItem.IsCheckedRegularly.</summary>
+    public bool IsCheckedRegularly { get; set; }
+
     /// <summary>Serialized <see cref="Orbit.Core.Inventory.InventoryUnit"/> - "Piece", "Kilogram", "Litre" and so on.</summary>
     public string Unit { get; set; } = "Piece";
 

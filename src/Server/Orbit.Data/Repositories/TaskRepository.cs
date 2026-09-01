@@ -99,6 +99,7 @@ public sealed class TaskRepository : ITaskRepository
     {
         var entity = await _dbContext.Tasks.FirstAsync(task => task.Id == taskList.Id, cancellationToken);
         entity.Title = taskList.Title;
+        entity.Description = taskList.Description;
         entity.IsCompleted = taskList.IsCompleted;
         entity.IsGroup = taskList.IsGroup;
         entity.Priority = taskList.Priority.ToString();
@@ -166,7 +167,7 @@ public sealed class TaskRepository : ITaskRepository
             entity.LockedByUserName,
             entity.LockExpiresAtUtc,
             Enum.TryParse<ItemPriority>(entity.Priority, out var priority) ? priority : ItemPriority.Normal,
-            entity.IsPinned, entity.LinkedWarehouseId);
+            entity.IsPinned, entity.LinkedWarehouseId, entity.Description);
 
     private static TaskItem ToItemDomain(TaskItemEntity entity)
         => TaskItem.FromPersistence(
@@ -188,6 +189,7 @@ public sealed class TaskRepository : ITaskRepository
             Id = taskList.Id,
             UserId = taskList.UserId,
             Title = taskList.Title,
+            Description = taskList.Description,
             IsCompleted = taskList.IsCompleted,
             IsGroup = taskList.IsGroup,
             Priority = taskList.Priority.ToString(),

@@ -78,7 +78,8 @@ public sealed class ChatGroupRepository : IChatGroupRepository
             entity.Id, entity.Name, entity.CreatedByUserId, entity.CreatedAtUtc, entity.LastMessageAtUtc,
             entity.Members
                 .Select(member => new ChatGroupMembership(
-                    member.GroupId, member.UserId, Enum.Parse<ChatGroupRole>(member.Role, ignoreCase: true), member.JoinedAtUtc))
+                    member.GroupId, member.UserId, Enum.Parse<ChatGroupRole>(member.Role, ignoreCase: true),
+                    member.JoinedAtUtc, member.IsArchived))
                 .ToList());
 
     private static ChatGroupEntity ToEntity(ChatGroup group)
@@ -99,6 +100,7 @@ public sealed class ChatGroupRepository : IChatGroupRepository
             GroupId = membership.GroupId,
             UserId = membership.UserId,
             Role = membership.Role.ToString(),
-            JoinedAtUtc = membership.JoinedAtUtc
+            JoinedAtUtc = membership.JoinedAtUtc,
+            IsArchived = membership.IsArchived
         };
 }

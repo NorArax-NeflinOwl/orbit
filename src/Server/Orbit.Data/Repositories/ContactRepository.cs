@@ -47,7 +47,9 @@ public sealed class ContactRepository : IContactRepository
     }
 
     private static Contact ToDomain(ContactEntity entity)
-        => Contact.FromPersistence(entity.Id, entity.OwnerUserId, entity.ContactUserId, entity.CreatedAtUtc, entity.LastMessageAtUtc);
+        => Contact.FromPersistence(
+            entity.Id, entity.OwnerUserId, entity.ContactUserId, entity.CreatedAtUtc, entity.LastMessageAtUtc,
+            entity.IsArchived);
 
     private static ContactEntity ToEntity(Contact contact)
         => new()
@@ -56,6 +58,7 @@ public sealed class ContactRepository : IContactRepository
             OwnerUserId = contact.OwnerUserId,
             ContactUserId = contact.ContactUserId,
             CreatedAtUtc = contact.CreatedAtUtc,
-            LastMessageAtUtc = contact.LastMessageAtUtc
+            LastMessageAtUtc = contact.LastMessageAtUtc,
+            IsArchived = contact.IsArchived
         };
 }
