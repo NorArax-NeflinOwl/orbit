@@ -4593,6 +4593,16 @@ input.note-editor-title {
     border-radius: 12px;
 }
 
+/* The generic button hover further up paints a background behind any plain <button>, and the name is
+   one - so the title carried a rounded highlight of its own. It was always there and became constant
+   once the name's overlay made the whole card hover it: the pointer anywhere on a card lit up its
+   title, which reads as the words being the target when the point of the overlay is that they are not.
+   The card answers instead - see below. */
+.item-card-name:hover {
+    background: transparent;
+    color: var(--text-primary);
+}
+
 .item-card-name:disabled {
     cursor: default;
 }
@@ -4689,6 +4699,14 @@ input.note-editor-title {
 .page-add:hover {
     background: var(--accent-subtle);
     color: var(--accent);
+}
+
+/* The whole card lights up rather than the words in it, which is what the overlay makes true anyway:
+   a press anywhere on it opens the same thing. Written against the name being hovered rather than the
+   card, so a card nobody can open stays as flat as it is unpressable - and where :has is not
+   understood nothing lights up, which is the state this replaces. */
+.item-card:has(.item-card-name:not(:disabled):hover) {
+    background: var(--bg-subtle);
 }
 
 /* A pinned card, marked by its edge rather than by moving it somewhere else - it has already moved to
