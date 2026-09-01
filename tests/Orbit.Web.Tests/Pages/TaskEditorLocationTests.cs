@@ -88,7 +88,7 @@ public sealed class TaskEditorLocationTests : OrbitTestContext
         ExpandTheOnlyItem(cut);
 
         cut.Find(".editor-item-details select").Change(nameof(Orbit.Core.Tasks.TaskItemKind.Checklist));
-        cut.FindAll("button").First(button => button.TextContent.Contains("Save")).Click();
+        ClickButtonSaying(cut, "Save");
 
         // Orbit cannot settle this on its own: deleting the event would throw away something that may
         // since have been edited in the calendar, and keeping it leaves an appointment nothing points
@@ -167,7 +167,16 @@ public sealed class TaskEditorLocationTests : OrbitTestContext
         => [.. cut.FindAll("button").Where(button => button.GetAttribute("aria-label") == "Pick on map")];
 
     private static void ClickButtonSaying(IRenderedComponent<TaskEditor> cut, string label)
-        => cut.FindAll("button").First(button => button.TextContent.Contains(label, StringComparison.Ordinal)).Click();
+        => ButtonSaying(cut, label).Click();
+
+    /// <summary>
+    /// A button by what it says - its words, or the name it carries for a screen reader, since an
+    /// editor's Save and Cancel are icons now (see EditorActions.razor).
+    /// </summary>
+    private static AngleSharp.Dom.IElement ButtonSaying(IRenderedFragment cut, string label)
+        => cut.FindAll("button").First(button =>
+            button.TextContent.Contains(label, StringComparison.Ordinal)
+                || string.Equals(button.GetAttribute("aria-label"), label, StringComparison.Ordinal));
 
     private static AngleSharp.Dom.IElement LocationBoxOf(IRenderedComponent<TaskEditor> cut)
         => cut.Find(".event-fields-location");

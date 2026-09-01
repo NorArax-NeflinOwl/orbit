@@ -30,6 +30,8 @@ else
                 <p class="shared-note-banner">@T["Shared by"]@Space<strong>@_sharedByUserName</strong> - @SharedAccessDescription.</p>
             }
         </div>
+        <EditorActions OnSave="SaveAsync" OnCancel="GoToWarehouses"
+                       SaveDisabled="@(_isReadOnly || _lockedByUserName is not null || _isSaving)" />
     </div>
 
     @if (_lockedByUserName is not null)
@@ -200,10 +202,6 @@ else
             {
                 <p class="error">@_saveErrorMessage</p>
             }
-            <div class="form-actions">
-                <button type="button" class="btn-primary" @onclick="SaveAsync">@T["Save"]</button>
-                <button type="button" class="btn-secondary" @onclick="GoToWarehouses">@T["Cancel"]</button>
-            </div>
         </fieldset>
     </EditForm>
 

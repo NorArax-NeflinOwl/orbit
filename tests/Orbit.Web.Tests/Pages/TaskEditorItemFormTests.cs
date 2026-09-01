@@ -325,7 +325,16 @@ public sealed class TaskEditorItemFormTests : OrbitTestContext
     private static void ExpandTheOnlyItem(IRenderedFragment cut) => cut.Find(".editor-item-toggle").Click();
 
     private static void ClickButtonSaying(IRenderedFragment cut, string label)
-        => cut.FindAll("button").First(button => button.TextContent.Contains(label)).Click();
+        => ButtonSaying(cut, label).Click();
+
+    /// <summary>
+    /// A button by what it says - its words, or the name it carries for a screen reader, since an
+    /// editor's Save and Cancel are icons now (see EditorActions.razor).
+    /// </summary>
+    private static AngleSharp.Dom.IElement ButtonSaying(IRenderedFragment cut, string label)
+        => cut.FindAll("button").First(button =>
+            button.TextContent.Contains(label, StringComparison.Ordinal)
+                || string.Equals(button.GetAttribute("aria-label"), label, StringComparison.Ordinal));
 
     private static TaskItemDto AnItem(
         string kind = nameof(TaskItemKind.Checklist), DateTimeOffset? dueDateUtc = null, bool remindDaily = false,

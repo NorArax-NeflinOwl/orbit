@@ -111,7 +111,7 @@ All required and optional settings in one place. Every `az containerapp secret s
 |---|---|---|
 | `Jwt__SigningKey` | **Required.** Crashes startup if missing/short - see [Program.cs](../src/Server/Orbit.Api/Program.cs). | Container App secret, ≥32 chars, e.g. `openssl rand -base64 48`. |
 | `ConnectionStrings__Orbit` | **Required.** Throws on startup if unset - see [OrbitDataServiceCollectionExtensions.cs](../src/Server/Orbit.Data/OrbitDataServiceCollectionExtensions.cs). | Container App secret. PostgreSQL connection string from step 1. |
-| `APPLICATIONINSIGHTS_CONNECTION_STRING` | Optional - traces. A malformed value (not empty - see [gotcha](#a-malformed-app-insights-string-crashes-startup-same-as-missing-jwt)) crashes startup the same as a missing JWT key. | Container App secret. From the `appinsights-orbit` resource. |
+| `APPLICATIONINSIGHTS_CONNECTION_STRING` | Optional - traces *and* log lines; unset, both go to the OTLP endpoint instead. A malformed value (not empty - see [gotcha](#a-malformed-app-insights-string-crashes-startup-same-as-missing-jwt)) crashes startup the same as a missing JWT key. | Container App secret. From the `appinsights-orbit` resource. |
 | `Vapid__PublicKeyBase64Url` / `Vapid__PrivateKeyBase64Url` / `Vapid__Subject` | Optional - push notifications. Missing means the "enable push notifications" toggle silently never turns on, no visible error. | Public key/subject as plain env vars, private key as a secret. `npx web-push generate-vapid-keys`. |
 | `Smtp__Host` / `Smtp__Port` / `Smtp__UserName` / `Smtp__Password` / `Smtp__FromAddress` | Optional - all outgoing email: calendar reminders, email verification codes, password reset codes. | `Smtp__Password` as a secret, rest as plain env vars. |
 | `GoogleAuth__ClientId` | Optional - "sign in with Google". Missing means the Google button never renders, no visible error. Public by design, so a plain env var. | The OAuth web client in Google Cloud Console → Credentials; the production `orbit-web` URL must be in its Authorized JavaScript origins. |
@@ -308,6 +308,31 @@ address, since the page is where a new build comes from:
     https://orbitdownloads.blob.core.windows.net/apps/orbit-android.apk
 
 The blob name never changes, so neither setting has to be touched again when a newer build is released.
+
+### 8. Where the "Debug logs" entry leads
+
+The avatar menu offers a link to this deployment's logs, for an account holding the **Debug**
+permission. Locally that is the Aspire dashboard the compose stack runs; on Azure there is no Aspire
+dashboard - `orbit-api` sends its OpenTelemetry traces straight to Application Insights instead (see
+`APPLICATIONINSIGHTS_CONNECTION_STRING` above). So the address here is a portal one:
+
+```bash
+# Whichever of the two is meant to be read - the App Insights resource, or the container's own log
+# stream, which is where Serilog's console output goes.
+az containerapp update -n orbit-web -g Orbit \
+  --set-env-vars DIAGNOSTICS_DASHBOARD_URL="https://portal.azure.com/#@<tenant>/resource$(az monitor app-insights component show --app appinsights-orbit -g Orbit --query id -o tsv)/logs"
+```
+
+Unset, the menu offers nothing rather than a dead link - see
+[write-diagnostics-dashboard.sh](../src/Clients/Orbit.Web/write-diagnostics-dashboard.sh), which
+writes it into the client's `appsettings.json` when the container starts. It is a link rather than a
+credential: it lands in a file every visitor can download, and following it still needs a portal
+sign-in with rights to that resource.
+
+Both halves are there: traces under Application Insights' own transaction search, and Serilog's log
+lines as traces alongside them (see the `WriteTo.ApplicationInsights` sink in
+[Program.cs](../src/Server/Orbit.Api/Program.cs)). The Container App's log stream shows the same lines
+live while a container is running; App Insights is what still has them tomorrow.
 
 ## Verifying a deploy
 

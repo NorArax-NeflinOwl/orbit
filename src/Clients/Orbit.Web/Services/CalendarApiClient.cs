@@ -185,7 +185,11 @@ public sealed class CalendarApiClient
     public async Task<bool?> GetCalendarEventShareStatusAsync(Guid shareId, CancellationToken cancellationToken = default)
     {
         var response = await _httpClient.GetAsync($"api/calendar-events/shares/{shareId}/status", cancellationToken);
-        if (response.StatusCode == HttpStatusCode.NotFound)
+        // Refused reads the same as absent from here: an account that has not unlocked sharing cannot
+        // be told whether an offer was taken, and "no such offer" is the honest answer to give it. This
+        // is asked in passing while a conversation is opened - see Chat - and left throwing, one 403
+        // took the whole conversation down.
+        if (response.StatusCode is HttpStatusCode.NotFound or HttpStatusCode.Forbidden)
         {
             return null;
         }

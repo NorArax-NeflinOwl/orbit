@@ -265,6 +265,15 @@ textarea {
     gap: 6px;
 }
 
+/* A control with the sentence that explains it underneath rather than beside it - the button leads and
+   keeps its own width instead of stretching across the row. */
+.field-with-note {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 6px;
+}
+
 .field > label {
     font-size: 12.5px;
     font-weight: 600;
@@ -3344,15 +3353,23 @@ input.note-editor-title {
     overflow-y: auto;
 }
 
+/* The name of the page and the menu of what can be done to a recording, at opposite edges of one row. */
+.map-panel-head-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+}
+
 /* What the page is called. */
 .map-panel-head h1 {
     font-size: 26px;
     margin: 0;
 }
 
-/* The one control that is about the page rather than about a row in it, on a line of its own under the
-   name - see MapPage.razor. Beside the name it shared a row with a description that changes length,
-   which put it a different distance from the heading at every width. */
+/* Starting a recording, on a line of its own under the name - see MapPage.razor. Beside the name it
+   shared a row with a description that changes length, which put it a different distance from the
+   heading at every width. */
 .map-panel-actions {
     display: flex;
     align-items: center;
@@ -4730,6 +4747,25 @@ input.note-editor-title {
     border: none;
     margin: 0;
     padding: 0;
+}
+
+/* An editor's own two actions - see EditorActions.razor. Twice the size of an ordinary icon button and
+   drawn with an edge like .page-add's: these are what the page is for, and at 30px without one they
+   read as an afterthought next to the form they act on. */
+.icon-btn.page-action {
+    width: 60px;
+    height: 60px;
+    border-radius: 12px;
+    border: 1px solid var(--border);
+}
+
+.icon-btn.page-action.page-action-primary {
+    border-color: var(--accent);
+}
+
+/* Nothing to save yet, so the edge stops claiming there is. */
+.icon-btn.page-action.page-action-primary:disabled {
+    border-color: var(--border);
 }
 
 /* The affirmative one of the two actions in a page heading, so Save reads as the one to press. */

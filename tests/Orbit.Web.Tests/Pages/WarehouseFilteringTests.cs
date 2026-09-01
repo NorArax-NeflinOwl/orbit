@@ -406,7 +406,16 @@ public sealed class WarehouseFilteringTests : OrbitTestContext
         => RenderComponent<WarehouseEditor>(parameters => parameters.Add(editor => editor.WarehouseId, WarehouseId));
 
     private static void ClickButtonSaying(IRenderedComponent<WarehouseEditor> cut, string label)
-        => cut.FindAll("button").First(button => button.TextContent.Contains(label, StringComparison.Ordinal)).Click();
+        => ButtonSaying(cut, label).Click();
+
+    /// <summary>
+    /// A button by what it says - its words, or the name it carries for a screen reader, since an
+    /// editor's Save and Cancel are icons now (see EditorActions.razor).
+    /// </summary>
+    private static AngleSharp.Dom.IElement ButtonSaying(IRenderedFragment cut, string label)
+        => cut.FindAll("button").First(button =>
+            button.TextContent.Contains(label, StringComparison.Ordinal)
+                || string.Equals(button.GetAttribute("aria-label"), label, StringComparison.Ordinal));
 
     private static void ChooseProductType(IRenderedComponent<WarehouseEditor> cut, string productType)
         => cut.FindAll(".inventory-filters select").First().Change(productType);

@@ -74,4 +74,9 @@ RUN chmod +x /docker-entrypoint.d/10-generate-certificate.sh
 COPY src/Clients/Orbit.Web/write-android-app-links.sh /docker-entrypoint.d/20-write-android-app-links.sh
 RUN chmod +x /docker-entrypoint.d/20-write-android-app-links.sh
 
+# Where this deployment's logs are read, if it publishes them anywhere - see the script for why this
+# is answered at startup rather than baked into the image.
+COPY src/Clients/Orbit.Web/write-diagnostics-dashboard.sh /docker-entrypoint.d/30-write-diagnostics-dashboard.sh
+RUN chmod +x /docker-entrypoint.d/30-write-diagnostics-dashboard.sh
+
 EXPOSE 80 443

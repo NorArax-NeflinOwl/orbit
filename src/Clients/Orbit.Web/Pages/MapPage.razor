@@ -37,30 +37,28 @@ else
 <div class="map-page">
     <div class="map-panel">
         <div class="map-panel-head">
-            <h1>@T["Map"]</h1>
+            <div class="map-panel-head-row">
+                <h1>@T["Map"]</h1>
+                @* Everything that can only be done to a recording that already exists, at the far edge
+                   of the name's own row - the same place every other page keeps its menu. Offered
+                   rather than hidden while there is nothing to update or stop: what the page can do is
+                   then the same list every time, and greyed says why one of them cannot be pressed. *@
+                <OverflowMenu>
+                    <button type="button" class="avatar-dropdown-item" disabled="@(_isBusy || _location is null)"
+                            @onclick="RecordCurrentLocationAsync">@T["Update to where I am now"]</button>
+                    <button type="button" class="avatar-dropdown-item" disabled="@(_isBusy || _location is null)"
+                            @onclick="ClearLocationAsync">@T["Stop recording"]</button>
+                </OverflowMenu>
+            </div>
             <p class="page-subtitle">@T["Where you are, who you are sharing it with, and who is sharing theirs."]</p>
         </div>
 
-        @* Under the name rather than beside it, and directly above whatever the page says back - what
-           was pressed and what came of it then read as one thing instead of as opposite corners.
-
-           Recording is a state rather than two buttons: it is either on or it is not, and the menu says
-           which by offering the other one. *@
+        @* The one thing this page is opened to do, as a button rather than an entry in a menu, and
+           directly above whatever the page says back - what was pressed and what came of it then read
+           as one thing instead of as opposite corners. *@
         <div class="map-panel-actions">
-            <OverflowMenu>
-                @if (_location is null)
-                {
-                    <button type="button" class="avatar-dropdown-item" disabled="@_isBusy"
-                            @onclick="RecordCurrentLocationAsync">@T["Start recording"]</button>
-                }
-                else
-                {
-                    <button type="button" class="avatar-dropdown-item" disabled="@_isBusy"
-                            @onclick="RecordCurrentLocationAsync">@T["Update to where I am now"]</button>
-                    <button type="button" class="avatar-dropdown-item" disabled="@_isBusy"
-                            @onclick="ClearLocationAsync">@T["Stop recording"]</button>
-                }
-            </OverflowMenu>
+            <button type="button" class="btn-primary" disabled="@(_isBusy || _location is not null)"
+                    @onclick="RecordCurrentLocationAsync">@T["Start recording"]</button>
         </div>
 
         @if (_message is not null)
@@ -638,6 +636,12 @@ else
         catch (JSDisconnectedException)
         {
             // The circuit is already gone, so there is no map left to tear down.
+        }
+        catch (ObjectDisposedException)
+        {
+            // The page was left while this was still running - DisposeAsync got to the module first.
+            // Both mean the same thing here, and taking the renderer down over a map that is already
+            // gone is worse than either.
         }
     }
 

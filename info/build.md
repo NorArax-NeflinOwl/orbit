@@ -76,7 +76,7 @@ notifications" sections).
 | `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT` | No | Generate a key pair with `npx web-push generate-vapid-keys` (needs Node.js/npm). `VAPID_SUBJECT` is a `mailto:` address or HTTPS URL identifying you to push services. Leave blank to skip push delivery. |
 | `WEB_CLIENT_LAN_ORIGIN` | No | Only needed if you call `Orbit.Api` directly from a different origin than `orbit-web`'s own (e.g. a `dotnet run` dev server) - see `docker-compose.yml`'s `WebClientOrigins` comment. |
 | `TLS_CERTIFICATE_HOSTNAME` | No | Set to this machine's LAN IP (e.g. `192.168.1.50`) only if you need to reach Orbit.Web from another device on your network - see `README.md`'s "Accessing Orbit.Web from another device on your network" section. Leave unset to use `localhost`. |
-| `APPLICATIONINSIGHTS_CONNECTION_STRING` | No | Only used when deploying to Azure Container Apps. Leave unset for local development - traces go to the local Aspire dashboard instead. |
+| `APPLICATIONINSIGHTS_CONNECTION_STRING` | No | Only used when deploying to Azure Container Apps. Leave unset for local development - traces and log lines go to the local Aspire dashboard instead. |
 
 ## 4. Build and start the stack
 

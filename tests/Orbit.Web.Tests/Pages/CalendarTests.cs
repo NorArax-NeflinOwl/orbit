@@ -2,6 +2,7 @@ using System.Net;
 using System.Net.Http.Json;
 using AngleSharp.Dom;
 using Bunit;
+using Microsoft.AspNetCore.Components;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -245,6 +246,94 @@ public sealed class CalendarTests : OrbitTestContext
         Assert.Contains("This month", cut.Markup);
         Assert.DoesNotContain("Two months on", cut.Markup);
     }
+
+    /// <summary>
+    /// An entry tied to an event is that event. Listing both put the same appointment on the page twice,
+    /// one card under the other - the grids have always dropped one, and the list beside them had not.
+    /// </summary>
+    [Fact]
+    public void An_entry_that_is_an_event_is_listed_once()
+    {
+        var midMonth = new DateTime(DateTime.Today.Year, DateTime.Today.Month, 15, 10, 0, 0);
+        var calendarEvent = CreateTimedEvent(midMonth, midMonth.AddHours(1), "Dentist");
+        RegisterCalendarApiClient([calendarEvent]);
+        RegisterTasksApiClient([TaskListWithAnEntryFor(calendarEvent.Id, midMonth, "Dentist")]);
+
+        var cut = RenderComponent<Calendar>();
+
+        Assert.Equal(["Dentist"], ListedNames(cut));
+    }
+
+    /// <summary>
+    /// And the card that survives says which list it came from. The entry carried that and the event did
+    /// not, so folding the two into one card would otherwise have lost it.
+    /// </summary>
+    [Fact]
+    public void The_one_card_says_which_list_the_appointment_is_on()
+    {
+        var midMonth = new DateTime(DateTime.Today.Year, DateTime.Today.Month, 15, 10, 0, 0);
+        var calendarEvent = CreateTimedEvent(midMonth, midMonth.AddHours(1), "Dentist");
+        RegisterCalendarApiClient([calendarEvent]);
+        RegisterTasksApiClient([TaskListWithAnEntryFor(calendarEvent.Id, midMonth, "Dentist")]);
+
+        var cut = RenderComponent<Calendar>();
+
+        Assert.Contains("Errands", cut.Find(".item-card-meta").TextContent);
+    }
+
+    /// <summary>
+    /// An appointment a list made opens as that entry rather than as the event: the list is where it is
+    /// worked from, and the full event form is a different thing from looking at what is coming. Which
+    /// is the entry's own summary, because an appointment has a place - see GoToDueTask and HasPlace.
+    /// </summary>
+    [Fact]
+    public void An_appointment_a_list_made_opens_as_the_entry_behind_it()
+    {
+        var midMonth = new DateTime(DateTime.Today.Year, DateTime.Today.Month, 15, 10, 0, 0);
+        var calendarEvent = CreateTimedEvent(midMonth, midMonth.AddHours(1), "Dentist");
+        var taskList = TaskListWithAnEntryFor(calendarEvent.Id, midMonth, "Dentist");
+        RegisterCalendarApiClient([calendarEvent]);
+        RegisterTasksApiClient([taskList]);
+        var navigationManager = Services.GetRequiredService<NavigationManager>();
+        var cut = RenderComponent<Calendar>();
+
+        cut.Find(".item-card-name").Click();
+
+        Assert.EndsWith($"/tasks/{taskList.Id}/items/{taskList.Items[0].Id}", navigationManager.Uri);
+        Assert.DoesNotContain("/calendar/", navigationManager.Uri);
+    }
+
+    /// <summary>An event nothing made still opens as itself.</summary>
+    [Fact]
+    public void An_event_of_its_own_still_opens_as_the_event()
+    {
+        var midMonth = new DateTime(DateTime.Today.Year, DateTime.Today.Month, 15, 10, 0, 0);
+        var calendarEvent = CreateTimedEvent(midMonth, midMonth.AddHours(1), "Dentist");
+        RegisterCalendarApiClient([calendarEvent]);
+        RegisterTasksApiClient([]);
+        var navigationManager = Services.GetRequiredService<NavigationManager>();
+        var cut = RenderComponent<Calendar>();
+
+        cut.Find(".item-card-name").Click();
+
+        Assert.EndsWith($"/calendar/{calendarEvent.Id}", navigationManager.Uri);
+    }
+
+    /// <summary>
+    /// An appointment on a list carries no due date of its own - the event says when it is - so it is
+    /// not among the due tasks at all, and the link has to be read off the lists themselves.
+    /// </summary>
+    private static TaskDto TaskListWithAnEntryFor(Guid calendarEventId, DateTime when, string description)
+        => new(
+            Guid.NewGuid(), "Errands",
+            [new TaskItemDto(
+                Guid.NewGuid(), description, DueDateUtc: null, IsCompleted: false, LinkedTaskListId: null,
+                OverdueNotificationChannel: "None", RemindDaily: false, DailyReminderNotificationChannel: "Push",
+                DailyReminderTimeOfDay: default, Kind: "Calendar", Location: "",
+                LinkedCalendarEventId: calendarEventId)],
+            IsCompleted: false, IsGroup: false, IsPrivate: false, EncryptedContent: null,
+            DateTimeOffset.UtcNow, DateTimeOffset.UtcNow, IsShared: false, SharedByUserName: null,
+            AccessLevel: "CanEdit", OriginalOwnerUserId: null);
 
     /// <summary>
     /// The list's default, and the reason it exists: what is coming, soonest first. The two orders

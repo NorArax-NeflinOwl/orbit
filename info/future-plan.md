@@ -117,6 +117,9 @@ event deleted on one side. One-way is the sensible first step.
 does: retries, backoff, and somewhere for the user to see that a sync did not go through.
 
 None of this is required for what Orbit does today, which is why it is here rather than in the code.
+The task-by-task version of it - what maps onto what, which of Orbit's expectations the API narrows
+rather than meets, and what has to be decided before any of it starts - is in
+[google-calendar-api-plan.md](google-calendar-api-plan.md).
 
 ## Known scope cuts and rough edges
 
@@ -414,6 +417,26 @@ Everything else on the pass - the top bar, the shared card and its footer, the c
 inventory lists, the contacts tabs, the chat menus - is built and needs no schema change.
 
 ## Smaller identified follow-ups
+
+- **The light editing view needs redesigning.** Orbit has two depths for the same thing: a shallow view
+  for reading and ticking, and a full form for changing what it is. Which objects have the shallow one,
+  and what it currently is:
+
+  | Object | Shallow view | Full form |
+  | --- | --- | --- |
+  | Task list | `/tasks/{id}` - the checklist: tick items, see the tree of lists it stands for, measure it against a storage | `/tasks/{id}/edit` |
+  | Task entry | `/tasks/{listId}/items/{itemId}` - `TaskItemSummary`: when, where, and a map, for an entry with a place | the entry's own row in the list's editor |
+  | Note | none of its own - the card's body opens the editor itself, which is the only view a note has | `/notes/{id}` |
+  | Calendar event | none of its own - the card unfolds in place on the calendar to show when, where, who is coming | `/calendar/{id}` |
+  | Storage | none of its own - the card unfolds only to reveal the share panel | `/inventory/{id}` |
+  | Contact / group | `/contacts/{userId}`, `/chat/groups/{id}/info` - read-only cards about who somebody is | no form; membership is edited on the roster |
+
+  Two things are wrong with that. It is uneven: a task list and a task entry have a real shallow view,
+  a note and an event have nothing between a card and a whole form, and a storage has neither. And it is
+  inconsistent about what a card's body does - `OnBodySelected` opens the *full* editor for a note and
+  the *shallow* view for an entry, which is the same gesture meaning two different things. Worth settling
+  what the shallow view is for across all of them before adding a sixth answer.
+
 
 - ~~**Reordering by hand needs a mouse.**~~ Done: each handle now carries a pair of move-up/move-down
   buttons (`ReorderControls`, `RowArrangement.Move`), which a keyboard can use as well - a handle you can

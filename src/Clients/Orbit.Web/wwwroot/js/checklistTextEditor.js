@@ -301,6 +301,14 @@ function repairLineDom(line) {
 }
 
 function closestLine(node, container) {
+    // A selection can have no anchor at all - nothing focused, or focus taken by something outside this
+    // editor while a key is on its way. Every path that asks which line the caret is in comes through
+    // here, so this is where "nowhere" is answered rather than thrown: reading nodeType off null was an
+    // uncaught TypeError, and an uncaught one in a keydown handler takes the page with it.
+    if (!node) {
+        return null;
+    }
+
     let element = node.nodeType === Node.TEXT_NODE ? node.parentElement : node;
     while (element && element !== container) {
         if (element.classList && element.classList.contains('note-line')) {
