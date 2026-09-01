@@ -220,41 +220,8 @@ else
                         {
                             @if (InventoryFieldsFor(item) is { } product)
                             {
-                                <label>@T["Item name"]<InputText @bind-Value="product.Name" placeholder="@(T["Item name"])" />
-                                </label>
-                                <label title="@(T["How much of it there is"])">@T["Amount"]
-                                    <InputNumber TValue="decimal" @bind-Value="product.Quantity" step="0.01" />
-                                </label>
-                                <label title="@(T["Restock once the amount drops below this"])">@T["Min"]
-                                    <InputNumber TValue="decimal?" @bind-Value="product.MinimumQuantity" step="0.01" />
-                                </label>
-                                <label title="@(T["What this is counted in"])">@T["Unit"]
-                                    <select @bind="product.Unit" aria-label="@(T["Unit"])">
-                                        @foreach (var option in InventoryUnitOption.All)
-                                        {
-                                            <option value="@option.Value" title="@T[option.Name]">@T[option.ShortName]</option>
-                                        }
-                                    </select>
-                                </label>
-                                <label>@T["Product type"]<InputText @bind-Value="product.ProductType" placeholder="@(T["Product type"])" />
-                                </label>
-                                <label>@T["Category"]<InputText @bind-Value="product.Category" placeholder="@(T["Category"])" />
-                                </label>
-                                <label>@T["Expires in"]<ExpiresInField Value="product.ExpiryDate"
-                                                                      ValueChanged="expiresOn => product.ExpiryDate = expiresOn" />
-                                </label>
-                                @* Asked for every round, whatever the count says - see
-                                   InventoryItem.BelongsOnTheRestockList. *@
-                                <label class="field-checkbox" title="@(T["Always on the restock list, however much there is"])">
-                                    <InputCheckbox @bind-Value="product.IsCheckedRegularly" />@T["Check every round"]
-                                </label>
-                                <label>@T["Expiry notification"]<select @bind="product.ExpiryNotificationChannel">
-                                        @foreach (var option in NotificationChannelOption.All)
-                                        {
-                                            <option value="@option.Value" disabled="@option.IsDisabledBy(_notificationSettings)">@T[option.Label]</option>
-                                        }
-                                    </select>
-                                </label>
+                                <InventoryFields Model="product.Product" NotificationSettings="_notificationSettings"
+                                                 ShowNameAndAmounts="true" />
                                 <span class="field-break"></span>
                                 <small>@T.Format("On the shelf in {0}. Saving this list saves the change there too.", product.WarehouseName)</small>
                             }
@@ -944,10 +911,15 @@ else
                     continue;
                 }
 
-                var edited = byWarehouse.ToDictionary(product => product.Id);
+                // Every product reached from an errand is one already on the shelf, so it has an id;
+                // the shared model allows none because the warehouse editor can add a row that has
+                // not been saved yet.
+                var edited = byWarehouse
+                    .Where(entry => entry.Product.Id is not null)
+                    .ToDictionary(entry => entry.Product.Id!.Value);
                 var items = shelf
                     .Select(product => edited.TryGetValue(product.Id, out var changed)
-                        ? changed.ToDto()
+                        ? changed.Product.ToDto()
                         : new WarehouseItemDto(
                             product.Id, product.Name, product.ProductType, product.Category, product.Quantity,
                             product.MinimumQuantity, product.Unit, product.ExpiryDate, product.ExpiryNotificationChannel))
@@ -965,45 +937,17 @@ else
         }
     }
 
-    /// <summary>One shelf item while it is being edited from a task list, plus where it lives.</summary>
-    private sealed class InventoryFieldsFormModel
+    /// <summary>
+    /// One shelf item while it is being edited from a task list, and which warehouse it belongs to.
+    /// The item itself is the model the warehouse editor uses, so both screens offer the same fields -
+    /// see InventoryFields.razor.
+    /// </summary>
+    /// <param name="WarehouseName">Shown to say where the change will land, and nothing else.</param>
+    private sealed record InventoryFieldsFormModel(
+        Guid WarehouseId, string WarehouseName, InventoryItemFormModel Product)
     {
-        public Guid Id { get; init; }
-        public Guid WarehouseId { get; init; }
-        public string WarehouseName { get; init; } = string.Empty;
-        public string Name { get; set; } = string.Empty;
-        public string ProductType { get; set; } = string.Empty;
-        public string Category { get; set; } = string.Empty;
-        public decimal Quantity { get; set; }
-        public decimal? MinimumQuantity { get; set; }
-        public string Unit { get; set; } = InventoryUnitOption.Default.Value;
-        public DateTimeOffset? ExpiryDate { get; set; }
-        public string ExpiryNotificationChannel { get; set; } = NotificationChannelOption.All[0].Value;
-
-        /// <summary>Asked for every round - see InventoryItem.BelongsOnTheRestockList.</summary>
-        public bool IsCheckedRegularly { get; set; }
-
         public static InventoryFieldsFormModel From(InventoryItemDto product, Guid warehouseId, string warehouseName)
-            => new()
-            {
-                Id = product.Id,
-                WarehouseId = warehouseId,
-                WarehouseName = warehouseName,
-                Name = product.Name,
-                ProductType = product.ProductType,
-                Category = product.Category,
-                Quantity = product.Quantity,
-                MinimumQuantity = product.MinimumQuantity,
-                Unit = InventoryUnitOption.For(product.Unit).Value,
-                ExpiryDate = product.ExpiryDate,
-                ExpiryNotificationChannel = product.ExpiryNotificationChannel,
-                IsCheckedRegularly = product.IsCheckedRegularly
-            };
-
-        public WarehouseItemDto ToDto()
-            => new(
-                Id, Name, ProductType, Category, Quantity, MinimumQuantity, Unit, ExpiryDate,
-                ExpiryNotificationChannel, IsCheckedRegularly);
+            => new(warehouseId, warehouseName, InventoryItemFormModel.FromDto(product));
     }
 
     /// <summary>

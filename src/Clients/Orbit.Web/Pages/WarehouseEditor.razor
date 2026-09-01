@@ -182,36 +182,7 @@ else
                         @if (IsExpanded(item))
                         {
                             <div class="editor-item-details">
-                                <label title="@(T["What this is counted in"])">@T["Unit"]
-                                    <select class="editor-item-unit" @bind="item.Unit" aria-label="@(T["Unit"])">
-                                        @foreach (var option in InventoryUnitOption.All)
-                                        {
-                                            <option value="@option.Value" title="@T[option.Name]">@T[option.ShortName]</option>
-                                        }
-                                    </select>
-                                </label>
-                                <label>@T["Product type"]<InputText placeholder="@(T["Product type"])" @bind-Value="item.ProductType" />
-                                </label>
-                                <label>@T["Category"]<InputText placeholder="@(T["Category"])" @bind-Value="item.Category" />
-                                </label>
-                                @* How long it keeps rather than the day it stops keeping - see
-                                   ExpiresInField. A date is still what gets stored; nobody stocking a
-                                   shelf knows the 14th, they know "a fortnight". *@
-                                <label>@T["Expires in"]<ExpiresInField Value="ToExpiryOffset(item.ExpiryDate)"
-                                                                      ValueChanged="expiresOn => item.ExpiryDate = ToExpiryDate(expiresOn)" />
-                                </label>
-                                @* Asked for every round, whatever the count says - see
-                                   InventoryItem.BelongsOnTheRestockList. *@
-                                <label class="field-checkbox" title="@(T["Always on the restock list, however much there is"])">
-                                    <InputCheckbox @bind-Value="item.IsCheckedRegularly" />@T["Check every round"]
-                                </label>
-                                <label>@T["Expiry notification"]<select @bind="item.ExpiryNotificationChannel">
-                                        @foreach (var option in NotificationChannelOption.All)
-                                        {
-                                            <option value="@option.Value" disabled="@option.IsDisabledBy(_notificationSettings)">@T[option.Label]</option>
-                                        }
-                                    </select>
-                                </label>
+                                <InventoryFields Model="item" NotificationSettings="_notificationSettings" />
                                 @* Taking a row off the shelf is not something to have one click away from
                                    the amount somebody came to correct. Behind the toggle, at the end,
                                    where it is found on purpose rather than by accident. *@
@@ -329,12 +300,12 @@ else
     /// Which item currently has its extra fields open, if any - one at a time, mirroring TaskEditor:
     /// folding them away only helps while the list stays short.
     /// </summary>
-    private WarehouseItemFormModel? _expandedItem;
+    private InventoryItemFormModel? _expandedItem;
     private bool _isSaving;
     private WarehouseFormModel _formModel = new();
 
     /// <summary>The row being dragged to a new place on the shelf, while one is - see RowArrangement.</summary>
-    private readonly RowArrangement<WarehouseItemFormModel> _itemOrder = new();
+    private readonly RowArrangement<InventoryItemFormModel> _itemOrder = new();
 
     /// <summary>What the reader has narrowed the shelf down to. Never touches what is saved - see ItemFilter.</summary>
     private readonly ItemFilter _filter = new();
@@ -488,7 +459,7 @@ else
     /// The rows on screen. Only ever a view: <see cref="WarehouseFormModel.Items"/> stays the list that
     /// is saved, so narrowing the shelf cannot delete what it hides.
     /// </summary>
-    private IReadOnlyList<WarehouseItemFormModel> VisibleItems
+    private IReadOnlyList<InventoryItemFormModel> VisibleItems
         => [.. _formModel.Items.Where(_filter.Matches)];
 
     /// <summary>The types actually on this shelf - a filter offering one nothing is filed under is a dead end.</summary>
@@ -496,7 +467,7 @@ else
 
     private IReadOnlyList<string> CategoriesOnTheShelf => DistinctValues(item => item.Category);
 
-    private IReadOnlyList<string> DistinctValues(Func<WarehouseItemFormModel, string> of)
+    private IReadOnlyList<string> DistinctValues(Func<InventoryItemFormModel, string> of)
         => [.. _formModel.Items
             .Select(item => of(item).Trim())
             .Where(value => value.Length > 0)
@@ -533,7 +504,7 @@ else
             Name = string.Empty;
         }
 
-        public bool Matches(WarehouseItemFormModel item)
+        public bool Matches(InventoryItemFormModel item)
             => Matches(ProductType, item.ProductType)
                 && Matches(Category, item.Category)
                 && Contains(Name, item.Name);
@@ -551,7 +522,7 @@ else
         // A row added while the shelf is narrowed would be filed under nothing and hidden the moment it
         // appeared, so the filter steps aside for it.
         _filter.Clear();
-        var item = new WarehouseItemFormModel();
+        var item = new InventoryItemFormModel();
         _formModel.Items.Add(item);
         _expandedItem = item;
         _isWaitingToFocusTheNewItem = true;
@@ -590,12 +561,11 @@ else
     /// item flagged with nothing having been raised for it, which reads as the app disagreeing with
     /// itself.
     /// </summary>
-    private static bool NeedsRestocking(WarehouseItemFormModel item)
-        => item.MinimumQuantity is { } minimum && item.Quantity < minimum;
+    private static bool NeedsRestocking(InventoryItemFormModel item) => item.IsBelowMinimum;
 
-    private bool IsExpanded(WarehouseItemFormModel item) => ReferenceEquals(_expandedItem, item);
+    private bool IsExpanded(InventoryItemFormModel item) => ReferenceEquals(_expandedItem, item);
 
-    private void ToggleExpanded(WarehouseItemFormModel item) => _expandedItem = IsExpanded(item) ? null : item;
+    private void ToggleExpanded(InventoryItemFormModel item) => _expandedItem = IsExpanded(item) ? null : item;
 
     /// <summary>
     /// Where an item was dropped is where it belongs: the shelf is saved in the order it is written in
@@ -606,18 +576,18 @@ else
     /// The same move a drag makes, one row at a time - what a keyboard can ask for, and a finger, which
     /// raises no drag events at all. The list itself is what gets saved, so nothing else has to happen.
     /// </summary>
-    private void MoveItem(WarehouseItemFormModel item, int offset)
-        => RowArrangement<WarehouseItemFormModel>.Move(_formModel.Items, item, offset);
+    private void MoveItem(InventoryItemFormModel item, int offset)
+        => RowArrangement<InventoryItemFormModel>.Move(_formModel.Items, item, offset);
 
-    private bool CanMoveItem(WarehouseItemFormModel item, int offset)
-        => RowArrangement<WarehouseItemFormModel>.CanMove(_formModel.Items, item, offset);
-    private void DropItemOn(WarehouseItemFormModel target)
+    private bool CanMoveItem(InventoryItemFormModel item, int offset)
+        => RowArrangement<InventoryItemFormModel>.CanMove(_formModel.Items, item, offset);
+    private void DropItemOn(InventoryItemFormModel target)
     {
         _itemOrder.DropOn(_formModel.Items, target);
         _itemOrder.Finish();
     }
 
-    private void RemoveItem(WarehouseItemFormModel item)
+    private void RemoveItem(InventoryItemFormModel item)
     {
         if (IsExpanded(item))
         {
@@ -745,7 +715,7 @@ else
         /// <summary>What this warehouse is for, written under its name. Usually empty.</summary>
         public string Description { get; set; } = string.Empty;
 
-        public List<WarehouseItemFormModel> Items { get; set; } = [];
+        public List<InventoryItemFormModel> Items { get; set; } = [];
 
         /// <summary>Encrypt this warehouse so only its owner can read it - see PrivateContentSealer.</summary>
         public bool IsPrivate { get; set; }
@@ -756,70 +726,11 @@ else
                 Name = warehouse.Name,
                 Description = warehouse.Description,
                 IsPrivate = warehouse.IsPrivate,
-                Items = items
-                    .Select(item => new WarehouseItemFormModel
-                    {
-                        Id = item.Id,
-                        Name = item.Name,
-                        ProductType = item.ProductType,
-                        Category = item.Category,
-                        Quantity = item.Quantity,
-                        MinimumQuantity = item.MinimumQuantity,
-                        // Read through the option list rather than taken as it comes: a private warehouse
-                        // sealed before units existed has none, and the picker would then show pieces
-                        // while the row held nothing - see InventoryUnitOption.For.
-                        Unit = InventoryUnitOption.For(item.Unit).Value,
-                        ExpiryDate = item.ExpiryDate is { } expiryDate ? DateOnly.FromDateTime(expiryDate.LocalDateTime) : null,
-                        ExpiryNotificationChannel = item.ExpiryNotificationChannel,
-                        IsCheckedRegularly = item.IsCheckedRegularly
-                    })
-                    .ToList()
+                Items = [.. items.Select(InventoryItemFormModel.FromDto)]
             };
 
         public SaveWarehouseRequest ToRequest()
-            => new(
-                Name,
-                Items
-                    .Select(item => new WarehouseItemDto(
-                        item.Id, item.Name, item.ProductType, item.Category, item.Quantity, item.MinimumQuantity,
-                        item.Unit, ToExpiryDateUtc(item), item.ExpiryNotificationChannel, item.IsCheckedRegularly))
-                    .ToList(),
-                IsPrivate,
-                Description: Description);
-
-        /// <summary>
-        /// Npgsql only accepts a DateTimeOffset with Offset=0 for a "timestamp with time zone" column, so
-        /// the picked local date is converted to its equivalent UTC instant rather than just re-labeled.
-        /// </summary>
-        private static DateTimeOffset? ToExpiryDateUtc(WarehouseItemFormModel item)
-        {
-            if (item.ExpiryDate is not { } expiryDate)
-            {
-                return null;
-            }
-
-            var localMidnight = expiryDate.ToDateTime(TimeOnly.MinValue);
-            return new DateTimeOffset(localMidnight, TimeZoneInfo.Local.GetUtcOffset(localMidnight)).ToUniversalTime();
-        }
+            => new(Name, [.. Items.Select(item => item.ToDto())], IsPrivate, Description: Description);
     }
 
-    /// <summary>One editable row. Id is null for a row the user just added - see WarehouseItemDto.</summary>
-    private sealed class WarehouseItemFormModel
-    {
-        public Guid? Id { get; set; }
-        public string Name { get; set; } = string.Empty;
-        public string ProductType { get; set; } = string.Empty;
-        public string Category { get; set; } = string.Empty;
-        public decimal Quantity { get; set; }
-        public decimal? MinimumQuantity { get; set; }
-
-        /// <summary>What the two amounts above are counted in - see InventoryUnitOption.</summary>
-        public string Unit { get; set; } = InventoryUnitOption.Default.Value;
-
-        public DateOnly? ExpiryDate { get; set; }
-        public string ExpiryNotificationChannel { get; set; } = "Push";
-
-        /// <summary>Asked for every round - see InventoryItem.BelongsOnTheRestockList.</summary>
-        public bool IsCheckedRegularly { get; set; }
-    }
 }
