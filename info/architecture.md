@@ -147,15 +147,23 @@ that broke `azure/login`'s OIDC federation the one time it was tried.
 
 ## Continuous integration
 
-`.github/workflows/main_orbit.yml` runs on every push to `main` (and can be triggered manually). Its
+`.github/workflows/main_orbit.yml` runs on every push to `main` and on every pull request into it (and
+can be triggered manually). Its
 `test` job restores, builds (`Release` configuration), and runs the full test suite
 (`dotnet test Orbit.sln`) on `ubuntu-latest` with .NET SDK 10, then runs
 `ci/verify-browser-crypto.mjs` — the one part of the client no .NET test can reach, since
 `wwwroot/js/e2eeChat.js` is Web Crypto and IndexedDB and bUnit executes neither. Every later job
 depends on this one, so a failure here stops the deploy before an image is built.
 
-It deliberately does **not** run on pull requests: the workflow's own header explains the trade, which
-is billed runner minutes against a branch being unchecked until it lands. Production is still covered,
-because the deploy job needs this one. Running the suite before opening a pull request is therefore on
-whoever opens it — see
+**The pull request trigger was removed once and put back.** It went because every minute is billed on a
+private repository and a day of ordinary work exhausted the allowance, stopping Actions outright; it
+came back because a branch unchecked until it lands stopped being theoretical - `main` sat red for a day
+with nobody told. What made it affordable is that a run now costs a fraction of what it did: the
+`android` job looks before it builds and does nothing when nothing it builds from changed, a pull
+request run is cancelled by the next push to the same branch, and documentation-only branches are
+skipped outright.
+
+The `deploy` job stays out of it either way — guarded on the event as well as gated on the suite, so a
+branch stops at the tests rather than deploying itself. Running the suite locally before opening a pull
+request is still worth doing; it is no longer the only check a branch gets — see
 [Testing and Running Locally](testing-and-running-locally.md#automated-test-coverage).
