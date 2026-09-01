@@ -18,7 +18,13 @@ public static class OrbitRelease
     /// </summary>
     public const int Year = 2026;
 
-    public const string Author = "Patryk Pudwel";
+    /// <summary>
+    /// Who the copyright line names. The application's own name for now, standing in for the company's
+    /// - a footer is a statement about who publishes this, and a person's name in that place says
+    /// something narrower than what is meant. The LICENSE file still names the copyright holder, which
+    /// is a legal question rather than a question about a footer.
+    /// </summary>
+    public const string PublishedBy = "Orbit";
 
     /// <summary>What the LICENSE file at the root of the repository says, in three words.</summary>
     public const string LicenseName = "All Rights Reserved";
@@ -27,5 +33,5 @@ public static class OrbitRelease
     public const string LicenseUrl = "https://github.com/NorArax-NeflinOwl/orbit/blob/main/LICENSE";
 
     /// <summary>The copyright line itself, assembled once so both clients say it identically.</summary>
-    public static string Copyright => $"© {Year} {Author}";
+    public static string Copyright => $"© {Year} {PublishedBy}";
 }
