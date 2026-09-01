@@ -18,6 +18,7 @@
         <x:String x:Key="CalendarIcon">M5,4 H15 A2.5,2.5 0 0 1 17.5,6.5 V15 A2.5,2.5 0 0 1 15,17.5 H5 A2.5,2.5 0 0 1 2.5,15 V6.5 A2.5,2.5 0 0 1 5,4 Z M2.5,8 H17.5 M6.5,2 V5.5 M13.5,2 V5.5</x:String>
         <x:String x:Key="InventoryIcon">M3,6.2 L10,2.8 L17,6.2 V13.8 L10,17.2 L3,13.8 Z M3,6.2 L10,9.6 M10,9.6 L17,6.2 M10,9.6 V17.2</x:String>
         <x:String x:Key="MapIcon">M10,17.5 C10,17.5 15.5,12.5 15.5,8.5 A5.5,5.5 0 1 0 4.5,8.5 C4.5,12.5 10,17.5 10,17.5 Z M8,8.5 A2,2 0 1 1 12,8.5 A2,2 0 1 1 8,8.5 Z</x:String>
+        <x:String x:Key="NotificationsIcon">M10,2.5 C7.5,2.5 6,4.5 6,7 V10 L4.5,12.5 H15.5 L14,10 V7 C14,4.5 12.5,2.5 10,2.5 Z M8.3,15.5 A1.8,1.8 0 0 0 11.7,15.5</x:String>
         <x:String x:Key="ContactsIcon">M4,6.5 A3,3 0 1 1 10,6.5 A3,3 0 1 1 4,6.5 Z M1.5,17 C1.5,14 4,12 7,12 C10,12 12.5,14 12.5,17 M12.7,7.5 A2.3,2.3 0 1 1 17.3,7.5 A2.3,2.3 0 1 1 12.7,7.5 Z M13.7,12.2 C16.1,12.5 17.8,14.2 17.8,16.8</x:String>
     </ContentView.Resources>
 
@@ -52,7 +53,7 @@
         </Grid>
     </Border>
 
-    <Grid Grid.Row="0" ColumnDefinitions="Auto,*,Auto" Padding="12,10" ColumnSpacing="6"
+    <Grid Grid.Row="0" ColumnDefinitions="Auto,*,Auto,Auto" Padding="12,10" ColumnSpacing="6"
           BackgroundColor="{AppThemeBinding Light={StaticResource SurfaceLight}, Dark={StaticResource SurfaceDark}}">
 
         <!-- The logo is the way back to the dashboard, exactly as it is on the web at this width. -->
@@ -100,8 +101,30 @@
             </HorizontalStackLayout>
         </ScrollView>
 
-        <!-- Initials rather than a picture: Orbit has no avatars to show, and the web does the same. -->
+        <!-- Its own button beside the avatar rather than a badge on it, which is where Orbit.Web moved
+             it: a count on a face says "you", not "unread", and reaching it meant opening a menu first -
+             two steps for the one thing people check most. -->
         <Grid Grid.Column="2" WidthRequest="44" HeightRequest="44" VerticalOptions="Center">
+            <Path Data="{StaticResource NotificationsIcon}" Style="{StaticResource NavigationBarIconPath}"
+                  InputTransparent="True" HorizontalOptions="Center" VerticalOptions="Center" />
+
+            <Border IsVisible="{Binding HasUnread}" StrokeThickness="0"
+                    BackgroundColor="{AppThemeBinding Light={StaticResource DangerLight}, Dark={StaticResource DangerDark}}"
+                    HeightRequest="18" MinimumWidthRequest="18" Padding="4,0"
+                    HorizontalOptions="End" VerticalOptions="Start">
+                <Border.StrokeShape>
+                    <RoundRectangle CornerRadius="9" />
+                </Border.StrokeShape>
+                <Label Text="{Binding UnreadLabel}" TextColor="{AppThemeBinding Light={StaticResource White}, Dark={StaticResource PrimaryDarkText}}"
+                       FontSize="10" FontAttributes="Bold" HorizontalOptions="Center" VerticalOptions="Center" />
+            </Border>
+
+            <Button Command="{Binding GoToNotificationsCommand}" BackgroundColor="Transparent"
+                    SemanticProperties.Description="{controls:Translate 'Notifications'}" />
+        </Grid>
+
+        <!-- Initials rather than a picture: Orbit has no avatars to show, and the web does the same. -->
+        <Grid Grid.Column="3" WidthRequest="44" HeightRequest="44" VerticalOptions="Center">
 
             <Border StrokeThickness="0" BackgroundColor="{DynamicResource Accent}"
                     HeightRequest="34" WidthRequest="34" HorizontalOptions="Center" VerticalOptions="Center">
@@ -109,16 +132,6 @@
                     <RoundRectangle CornerRadius="17" />
                 </Border.StrokeShape>
                 <Label Text="{Binding Initials}" TextColor="{AppThemeBinding Light={StaticResource White}, Dark={StaticResource PrimaryDarkText}}" FontSize="13" FontAttributes="Bold"
-                       HorizontalOptions="Center" VerticalOptions="Center" />
-            </Border>
-
-            <Border IsVisible="{Binding HasUnread}" StrokeThickness="0" BackgroundColor="{AppThemeBinding Light={StaticResource DangerLight}, Dark={StaticResource DangerDark}}"
-                    HeightRequest="18" MinimumWidthRequest="18" Padding="4,0"
-                    HorizontalOptions="Start" VerticalOptions="Start">
-                <Border.StrokeShape>
-                    <RoundRectangle CornerRadius="9" />
-                </Border.StrokeShape>
-                <Label Text="{Binding UnreadLabel}" TextColor="{AppThemeBinding Light={StaticResource White}, Dark={StaticResource PrimaryDarkText}}" FontSize="10" FontAttributes="Bold"
                        HorizontalOptions="Center" VerticalOptions="Center" />
             </Border>
 

@@ -1940,6 +1940,15 @@ never be talked out of via a stored per-account preference. Options.razor's own 
 (the "Show exceptions" switch) is likewise only rendered at all when the server reports it's not running
 in Production.
 
+### The bell, and what it counts
+
+Notifications are their own button in the bar on both clients as of 2026-09-01, left of the avatar and
+carrying the unread count - 0 draws nothing, 1 to 9 draw themselves, anything above draws "9+". It was
+a badge on the avatar before, and a menu entry behind it: **a count on a face says "you", not "unread"**,
+and reaching the panel meant opening a menu first, which is two steps for the one thing people check
+most. What is left in the avatar menu are the places somebody goes once - status, the language, the
+app's own settings, signing out.
+
 ### A link opened on a phone
 
 A public link is an ordinary web address (`https://<host>/s/<token>`), and on a phone with Orbit
