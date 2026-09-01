@@ -180,19 +180,6 @@
         </label>
     </div>
 
-    @if (ShowCreationNotification)
-    {
-        <div class="field-row">
-            <label for="@($"{IdPrefix}CreationChannel")">@T["Notification when the event is created"]</label>
-            <select id="@($"{IdPrefix}CreationChannel")" @bind="Model.CreationNotificationChannel">
-                @foreach (var option in NotificationChannelOption.All)
-                {
-                    <option value="@option.Value" disabled="@option.IsDisabledBy(NotificationSettings)">@T[option.Label]</option>
-                }
-            </select>
-        </div>
-    }
-
     </fieldset>
 
     @* Guests are only offered where they can actually be invited - see CanInviteGuests. *@
@@ -305,12 +292,6 @@
     [Parameter] public EventCallback<(Guid UserId, string AccessLevel)> OnGuestAdded { get; set; }
 
     [Parameter] public EventCallback<Guid> OnGuestRemoved { get; set; }
-
-    /// <summary>
-    /// Whether to offer the "tell me it was created" channel. Only the calendar's own editor does: an
-    /// entry on a task list is saved with the list, and announcing that is announcing a save.
-    /// </summary>
-    [Parameter] public bool ShowCreationNotification { get; set; }
 
     /// <summary>
     /// Prefix for the ids that tie a label to its box. Two of these can be on one page - a task list

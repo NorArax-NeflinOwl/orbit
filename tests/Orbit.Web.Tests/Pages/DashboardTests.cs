@@ -593,8 +593,7 @@ public sealed class DashboardTests : OrbitTestContext
             Guid.NewGuid(),
             new CalendarEventDetailsDto(
                 title, Description: null, Location: null, Color: null, startUtc, startUtc.AddHours(lengthHours),
-                IsAllDay: false, Recurrence: recurrence, Guests: [], ReminderMinutesBeforeStart: [],
-                CreationNotificationChannel: "None", ReminderNotificationChannel: "None", Priority: priority),
+                IsAllDay: false, Recurrence: recurrence, Guests: [], ReminderMinutesBeforeStart: [], ReminderNotificationChannel: "None", Priority: priority),
             DateTimeOffset.UtcNow, DateTimeOffset.UtcNow,
             IsShared: false, SharedByUserName: null, AccessLevel: "CanEdit", OriginalOwnerUserId: null);
 
@@ -751,7 +750,7 @@ public sealed class DashboardTests : OrbitTestContext
             new CalendarEventDetailsDto(
                 title, null, null, "#ffffff",
                 DateTimeOffset.UtcNow.AddDays(1), DateTimeOffset.UtcNow.AddDays(1).AddHours(1),
-                IsAllDay: false, null, [], [], "None", "None", Priority: priority),
+                IsAllDay: false, null, [], [], "None", Priority: priority),
             DateTimeOffset.UtcNow, DateTimeOffset.UtcNow,
             IsShared: false, SharedByUserName: null, AccessLevel: "CanEdit", OriginalOwnerUserId: null);
 }

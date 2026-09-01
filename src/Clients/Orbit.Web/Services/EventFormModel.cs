@@ -43,12 +43,6 @@ public sealed class EventFormModel
     public List<ReminderRow> Reminders { get; set; } = [];
 
     /// <summary>
-    /// Confirming something the reader just did themselves is noise, so this stays off unless asked
-    /// for - unlike the reminder below, which is about a moment they are not present for.
-    /// </summary>
-    public string CreationNotificationChannel { get; set; } = "None";
-
-    /// <summary>
     /// Push by default, matching a task's overdue reminder and an inventory item's expiry. A new event
     /// used to arrive with no reminder and no channel, so an event created without opening either
     /// dropdown could never notify anyone - which reads, fairly, as reminders being broken.
@@ -139,7 +133,6 @@ public sealed class EventFormModel
             RecurrenceCount = details.Recurrence?.OccurrenceCount,
             GuestUserIds = [.. details.Guests],
             Reminders = [.. details.ReminderMinutesBeforeStart.Select(ReminderRow.FromMinutes)],
-            CreationNotificationChannel = details.CreationNotificationChannel,
             ReminderNotificationChannel = details.ReminderNotificationChannel,
             NotifyAtStart = details.NotifyAtStart,
             Priority = details.Priority
@@ -168,7 +161,6 @@ public sealed class EventFormModel
                 : null,
             GuestUserIds,
             [.. Reminders.Select(row => row.MinutesBeforeStart).Distinct().Order()],
-            CreationNotificationChannel,
             ReminderNotificationChannel,
             Priority,
             NotifyAtStart);

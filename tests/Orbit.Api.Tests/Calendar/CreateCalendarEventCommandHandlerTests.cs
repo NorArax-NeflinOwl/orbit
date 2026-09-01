@@ -13,8 +13,7 @@ namespace Orbit.Api.Tests.Calendar;
 public sealed class CreateCalendarEventCommandHandlerTests
 {
     private static readonly CalendarEventDetails DefaultDetails = new(
-        "Title", null, null, null, DateTimeOffset.UtcNow, DateTimeOffset.UtcNow.AddHours(1), false, null, [], [],
-        CreationNotificationChannel: NotificationChannel.None, ReminderNotificationChannel: NotificationChannel.None);
+        "Title", null, null, null, DateTimeOffset.UtcNow, DateTimeOffset.UtcNow.AddHours(1), false, null, [], [], ReminderNotificationChannel: NotificationChannel.None);
 
     [Fact]
     public async Task HandleAsync_creates_a_calendar_event_owned_by_the_requesting_user()
@@ -87,69 +86,11 @@ public sealed class CreateCalendarEventCommandHandlerTests
         Assert.Equal("A location's longitude must be between -180 and 180 degrees.", exception.Message);
     }
 
-    [Fact]
-    public async Task HandleAsync_emails_the_owner_when_notify_on_creation_is_enabled()
-    {
-        var userRepository = new InMemoryUserRepository();
-        var owner = User.FromPersistence(Guid.NewGuid(), "owner@example.com", "owner", "Owner", "hash", DateTimeOffset.UtcNow, null);
-        await userRepository.AddAsync(owner, CancellationToken.None);
-        var emailSender = new RecordingEmailSender();
-        var handler = CreateHandler(new InMemoryCalendarEventRepository(), userRepository, emailSender);
-        var details = DefaultDetails with { Title = "Team sync", CreationNotificationChannel = NotificationChannel.Email };
-
-        await handler.HandleAsync(new CreateCalendarEventCommand(owner.Id, details), CancellationToken.None);
-
-        var sentEmail = Assert.Single(emailSender.SentEmails);
-        Assert.Equal(owner.Email, sentEmail.ToEmailAddress);
-        Assert.Contains("Team sync", sentEmail.Subject);
-    }
-
-    [Fact]
-    public async Task HandleAsync_does_not_email_the_owner_when_notify_on_creation_is_disabled()
-    {
-        var userRepository = new InMemoryUserRepository();
-        var owner = User.FromPersistence(Guid.NewGuid(), "owner@example.com", "owner", "Owner", "hash", DateTimeOffset.UtcNow, null);
-        await userRepository.AddAsync(owner, CancellationToken.None);
-        var emailSender = new RecordingEmailSender();
-        var handler = CreateHandler(new InMemoryCalendarEventRepository(), userRepository, emailSender);
-        var details = DefaultDetails with { CreationNotificationChannel = NotificationChannel.None };
-
-        await handler.HandleAsync(new CreateCalendarEventCommand(owner.Id, details), CancellationToken.None);
-
-        Assert.Empty(emailSender.SentEmails);
-    }
-
-    [Fact]
-    public async Task HandleAsync_still_creates_the_event_when_sending_the_creation_email_fails()
-    {
-        var repository = new InMemoryCalendarEventRepository();
-        var userRepository = new InMemoryUserRepository();
-        var owner = User.FromPersistence(Guid.NewGuid(), "owner@example.com", "owner", "Owner", "hash", DateTimeOffset.UtcNow, null);
-        await userRepository.AddAsync(owner, CancellationToken.None);
-        var handler = CreateHandler(repository, userRepository, new ThrowingEmailSender());
-        var details = DefaultDetails with { Title = "Team sync", CreationNotificationChannel = NotificationChannel.Email };
-
-        var eventId = await handler.HandleAsync(new CreateCalendarEventCommand(owner.Id, details), CancellationToken.None);
-
-        var stored = await repository.GetByIdAsync(owner.Id, eventId, CancellationToken.None);
-        Assert.NotNull(stored);
-    }
-
-    private static CreateCalendarEventCommandHandler CreateHandler(
-        InMemoryCalendarEventRepository repository, InMemoryUserRepository? userRepository = null, IEmailSender? emailSender = null)
-        => new(
-            repository,
-            userRepository ?? new InMemoryUserRepository(),
-            emailSender ?? new RecordingEmailSender(),
-            new PushNotificationDispatcher(new InMemoryPushSubscriptionRepository(), [new RecordingPushNotificationSender()],
-                NullLogger<PushNotificationDispatcher>.Instance),
-            new NotificationRecorder(new InMemoryNotificationSettingsRepository(), new InMemoryNotificationEntryRepository(), new SilentLiveUpdatePublisher()),
-            NullLogger<CreateCalendarEventCommandHandler>.Instance);
-
-    /// <summary>Simulates a transient SMTP failure to verify creation stays successful despite it.</summary>
-    private sealed class ThrowingEmailSender : IEmailSender
-    {
-        public Task SendAsync(string toEmailAddress, string subject, string body, CancellationToken cancellationToken)
-            => throw new InvalidOperationException("SMTP server unreachable.");
-    }
+    /// <summary>
+    /// The three tests about emailing and pushing "you made an event" went with the feature: an event
+    /// no longer announces itself to the person who just made it. What is said when something is saved
+    /// is said to somebody else - see ShareCalendarEventCommandHandlerTests.
+    /// </summary>
+    private static CreateCalendarEventCommandHandler CreateHandler(InMemoryCalendarEventRepository repository)
+        => new(repository);
 }

@@ -39,9 +39,9 @@ internal static class CalendarEventEntityMapper
             recurrence,
             JsonSerializer.Deserialize<List<Guid>>(entity.GuestsJson) ?? [],
             JsonSerializer.Deserialize<List<int>>(entity.RemindersJson) ?? [],
-            Enum.Parse<NotificationChannel>(entity.CreationNotificationChannel),
             Enum.Parse<NotificationChannel>(entity.ReminderNotificationChannel),
-            Enum.TryParse<ItemPriority>(entity.Priority, out var priority) ? priority : ItemPriority.Normal);
+            Enum.TryParse<ItemPriority>(entity.Priority, out var priority) ? priority : ItemPriority.Normal,
+            entity.NotifyAtStart);
 
         return CalendarEvent.FromPersistence(
             entity.Id, entity.UserId, details, entity.CreatedAtUtc, entity.UpdatedAtUtc,
@@ -70,7 +70,6 @@ internal static class CalendarEventEntityMapper
             RecurrenceOccurrenceCount = details.Recurrence?.OccurrenceCount,
             GuestsJson = JsonSerializer.Serialize(details.Guests),
             RemindersJson = JsonSerializer.Serialize(details.ReminderMinutesBeforeStart),
-            CreationNotificationChannel = details.CreationNotificationChannel.ToString(),
             ReminderNotificationChannel = details.ReminderNotificationChannel.ToString(),
             NotifyAtStart = details.NotifyAtStart,
             Priority = details.Priority.ToString(),

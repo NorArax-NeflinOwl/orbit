@@ -151,7 +151,6 @@ public sealed class OrbitDbContext : DbContext
             entity.Property(calendarEvent => calendarEvent.LocationAddress).HasMaxLength(StoredTextLimits.Address);
             entity.Property(calendarEvent => calendarEvent.Color).HasMaxLength(StoredTextLimits.Color);
             entity.Property(calendarEvent => calendarEvent.RecurrenceFrequency).HasMaxLength(20);
-            entity.Property(calendarEvent => calendarEvent.CreationNotificationChannel).HasMaxLength(20);
             entity.Property(calendarEvent => calendarEvent.ReminderNotificationChannel).HasMaxLength(20);
             // Matches UserEntity.UserName's max length, since this is always copied from there.
             entity.Property(calendarEvent => calendarEvent.LockedByUserName).HasMaxLength(64);

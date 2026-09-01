@@ -127,7 +127,8 @@ public sealed class ImportArchiveCommandHandler : IRequestHandler<ImportArchiveC
                 Recurrence: null,
                 Guests: [],
                 archived.ReminderMinutesBeforeStart,
-                ParseChannel(archived.CreationNotificationChannel),
+                // The file's creation channel is read past: an event no longer tells its owner it was
+                // made, so importing one must not either.
                 ParseChannel(archived.ReminderNotificationChannel));
 
             await _calendarEventRepository.AddAsync(CalendarEvent.Create(userId, details), cancellationToken);

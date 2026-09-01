@@ -166,11 +166,8 @@ public sealed partial class CalendarEventDetailViewModel : ObservableObject
     [ObservableProperty]
     private ReminderChoice? _reminderToAdd;
 
-    /// <summary>How it is announced - when it is made, and as it approaches. Both are Orbit.Web's.</summary>
+    /// <summary>How it is announced as it approaches. The same choices Orbit.Web offers.</summary>
     public IReadOnlyList<NotificationChannelChoice> Channels { get; private set; } = [];
-
-    [ObservableProperty]
-    private NotificationChannelChoice? _creationChannel;
 
     [ObservableProperty]
     private NotificationChannelChoice? _reminderChannel;
@@ -502,7 +499,6 @@ public sealed partial class CalendarEventDetailViewModel : ObservableObject
             Guests = [.. Guests.Select(guest => guest.UserId)],
             Color = _colour,
             ReminderMinutesBeforeStart = [.. Reminders.Select(reminder => reminder.MinutesBefore)],
-            CreationNotificationChannel = CreationChannel?.Value ?? current.CreationNotificationChannel,
             ReminderNotificationChannel = ReminderChannel?.Value ?? current.ReminderNotificationChannel,
             StartUtc = ChosenStartUtc,
             EndUtc = ChosenEndUtc,
@@ -600,7 +596,6 @@ public sealed partial class CalendarEventDetailViewModel : ObservableObject
             Reminders.Add(new ReminderRow(minutes, ReminderChoice.Describe(minutes, _translations)));
         }
 
-        CreationChannel = NotificationChannelChoice.For(Channels, calendarEvent.Details.CreationNotificationChannel);
         ReminderChannel = NotificationChannelChoice.For(Channels, calendarEvent.Details.ReminderNotificationChannel);
 
         IsRecurring = calendarEvent.Details.Recurrence is not null;

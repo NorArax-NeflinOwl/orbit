@@ -179,7 +179,6 @@ public sealed partial class TaskItemEventForm : ObservableObject
             ChosenRecurrence is { } recurrence ? new RecurrenceDto(recurrence.Value, 1, null) : null,
             Guests: [],
             ChosenReminder is { } reminder ? [reminder.MinutesBefore] : [],
-            CreationNotificationChannel: "None",
             ReminderNotificationChannel: "Push");
 
     /// <summary>
@@ -201,9 +200,8 @@ public sealed partial class TaskItemEventForm : ObservableObject
             ChosenRecurrence is { } recurrence ? new RecurrenceRequest(recurrence.Value, 1, null) : null,
             Guests: [],
             ChosenReminder is { } reminder ? [reminder.MinutesBefore] : [],
-            CreationNotificationChannel: "None",
             // Nobody is told an entry became an appointment, but the appointment itself still reminds -
-            // the same two channels Orbit.Web sets from its task editor.
+            // the same channel Orbit.Web sets from its task editor.
             ReminderNotificationChannel: "Push");
 
     /// <summary>

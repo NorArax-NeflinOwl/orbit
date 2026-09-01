@@ -13,10 +13,6 @@ namespace Orbit.Core.Calendar;
 /// from the user's current profile when displayed (see GetCalendarEventByIdQueryHandler's callers), the
 /// same way ContactSummary resolves a contact's profile rather than caching it.
 /// </param>
-/// <param name="CreationNotificationChannel">
-/// Which channel(s), if any, get the "event created" notification sent once, immediately, when the
-/// event is first saved - see EventCreationEmailContent/EventCreationPushContent.
-/// </param>
 /// <param name="ReminderNotificationChannel">
 /// Which channel(s), if any, get the "event is approaching" notification sent as each entry in
 /// <paramref name="ReminderMinutesBeforeStart"/> comes due - see
@@ -35,7 +31,6 @@ public sealed record CalendarEventDetails(
     EventRecurrence? Recurrence,
     IReadOnlyList<Guid> Guests,
     IReadOnlyList<int> ReminderMinutesBeforeStart,
-    NotificationChannel CreationNotificationChannel,
     NotificationChannel ReminderNotificationChannel,
     /// <summary>How much this event matters - see ItemPriority. Defaulted, so every existing caller reads as Normal.</summary>
     ItemPriority Priority = ItemPriority.Normal,

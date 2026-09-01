@@ -229,7 +229,7 @@ public sealed class ArchiveRoundTripTests
         {
             var details = new CalendarEventDetails(
                 title, "Bring the paperwork", null, null, DateTimeOffset.UtcNow, DateTimeOffset.UtcNow.AddHours(1),
-                false, null, [], [15], NotificationChannel.None, NotificationChannel.None);
+                false, null, [], [15], NotificationChannel.None);
             await _calendarEventRepository.AddAsync(CalendarEvent.Create(UserId, details), CancellationToken.None);
         }
 

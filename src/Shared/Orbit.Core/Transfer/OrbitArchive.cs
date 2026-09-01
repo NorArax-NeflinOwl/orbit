@@ -64,6 +64,11 @@ public sealed record ArchivedTaskItem(
             : LinkedTaskListTitle is { } single ? [single] : [];
 }
 
+/// <param name="CreationNotificationChannel">
+/// No longer used: an event no longer announces itself to its own owner. Kept on the record so a file
+/// written before it went away still reads, and written back out as "None" so one written now still
+/// opens in an older Orbit.
+/// </param>
 public sealed record ArchivedCalendarEvent(
     string Title, string? Description, string? Color, DateTimeOffset StartUtc, DateTimeOffset EndUtc, bool IsAllDay,
     ArchivedEventLocation? Location, IReadOnlyList<int> ReminderMinutesBeforeStart,

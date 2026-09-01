@@ -45,12 +45,6 @@ public sealed class CalendarEventEntity
     public string RemindersJson { get; set; } = "[]";
 
     /// <summary>
-    /// One of "None", "Email", "Push", "Both" - which channel(s) get notified immediately when the
-    /// event is first created (see Orbit.Core.Notifications.NotificationChannel).
-    /// </summary>
-    public string CreationNotificationChannel { get; set; } = "None";
-
-    /// <summary>
     /// One of "None", "Email", "Push", "Both" - which channel(s) get notified as the reminder lead
     /// times configured via <see cref="RemindersJson"/> come due. Kept separate from
     /// <see cref="RemindersJson"/> itself, so an owner can keep configured lead times without clearing

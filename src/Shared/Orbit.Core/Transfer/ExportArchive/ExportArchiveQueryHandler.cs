@@ -121,7 +121,8 @@ public sealed class ExportArchiveQueryHandler : IRequestHandler<ExportArchiveQue
             details.Title, details.Description, details.Color, details.StartUtc, details.EndUtc, details.IsAllDay,
             details.Location is { } location ? new ArchivedEventLocation(location.Address ?? string.Empty, location.Latitude, location.Longitude) : null,
             details.ReminderMinutesBeforeStart,
-            details.CreationNotificationChannel.ToString(),
+            // Nothing announces an event to its own owner any more - see ArchivedCalendarEvent.
+            CreationNotificationChannel: nameof(Orbit.Core.Notifications.NotificationChannel.None),
             details.ReminderNotificationChannel.ToString());
     }
 

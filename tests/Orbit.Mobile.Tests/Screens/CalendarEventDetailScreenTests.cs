@@ -482,7 +482,7 @@ public sealed class CalendarEventDetailScreenTests
             return _events.CreateAsync(
                 new CalendarEventDetailsDto(
                     "Standup", null, null, null, start, end, isAllDay, recurrence, guests ?? [],
-                    reminderMinutes ?? [], "None", "None", priority));
+                    reminderMinutes ?? [], "None", priority));
         }
 
         /// <summary>One contact this phone knows, which is what makes somebody invitable.</summary>

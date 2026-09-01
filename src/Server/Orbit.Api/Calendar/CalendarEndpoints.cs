@@ -148,7 +148,6 @@ public static class CalendarEndpoints
             ToDomainRecurrence(request.Recurrence),
             request.Guests,
             request.ReminderMinutesBeforeStart,
-            RequestEnum.Parse<NotificationChannel>(request.CreationNotificationChannel, "creationNotificationChannel"),
             RequestEnum.Parse<NotificationChannel>(request.ReminderNotificationChannel, "reminderNotificationChannel"),
             RequestEnum.Parse<ItemPriority>(request.Priority, "priority"),
             request.NotifyAtStart);
@@ -179,7 +178,6 @@ public static class CalendarEndpoints
             ToRecurrenceDto(details.Recurrence),
             details.Guests,
             details.ReminderMinutesBeforeStart,
-            details.CreationNotificationChannel.ToString(),
             details.ReminderNotificationChannel.ToString(),
             details.Priority.ToString(),
             details.NotifyAtStart);

@@ -211,7 +211,7 @@ public sealed class CalendarEventSynchronizer
                 ? new RecurrenceRequest(recurrence.Frequency, recurrence.IntervalCount, recurrence.UntilUtc?.ToUniversalTime())
                 : null,
             details.Guests, details.ReminderMinutesBeforeStart,
-            details.CreationNotificationChannel, details.ReminderNotificationChannel,
+            details.ReminderNotificationChannel,
             // Carried rather than left to the contract's default, which is "Normal": a save writes the
             // whole event, so an event marked High in a browser came back Normal the first time anybody
             // touched it from a phone. The same mistake notes had - see NoteSynchronizer.
