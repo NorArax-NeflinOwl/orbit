@@ -128,7 +128,13 @@ function onKeyDown(event, container, dotNetHelper) {
 
 function handleEnter(container) {
     const selection = window.getSelection();
-    const line = selection && selection.anchorNode ? closestLine(selection.anchorNode, container) : null;
+    let line = selection && selection.anchorNode ? closestLine(selection.anchorNode, container) : null;
+    // A click in the blank space under the writing - most of a new note - leaves the caret on the
+    // container rather than inside a line, and Enter then did nothing at all: the default was already
+    // prevented, and there was no line to split. The last line is where such a click means, which is
+    // also what insertChecklistItem falls back to. splitAtCaret treats a caret outside the line as its
+    // end, so this starts a fresh line under the writing rather than cutting one in half.
+    line ??= container.lastElementChild;
     if (!line) {
         return;
     }
