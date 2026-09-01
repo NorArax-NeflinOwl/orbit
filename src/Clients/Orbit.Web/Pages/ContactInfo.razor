@@ -22,38 +22,27 @@
         <h1>@(_displayName.Length > 0 ? _displayName : T["Contact"])</h1>
         <p class="page-subtitle">@T["Who this is, and how to reach them."]</p>
     </div>
-    <div class="page-header-actions">
-        <button type="button" class="btn-secondary" @onclick="GoToContacts">@T["Back to Contacts"]</button>
-        @* Offered while there is a conversation to open - which there still is when the profile behind
-           it cannot be read, and is not when this is a stranger's id that resolves to nothing. *@
-        @if (Permissions.Has(ApplicationPermission.Chat) && (_contact is not null || _errorMessage is null))
-        {
-            <button type="button" class="btn-primary" @onclick="GoToChat">@T["Open chat"]</button>
-        }
-    </div>
 </div>
 
-@if (_errorMessage is not null)
-{
-    <p class="error">@_errorMessage</p>
-    @* An account that has not unlocked Contacts is unfindable on purpose, and Orbit answers a search
-       for it exactly as it answers a search for nobody - saying "found, but hidden" would be finding
-       them. So this page genuinely cannot tell the two apart, and says so rather than picking one.
-
-       It can tell whether there is a conversation, though, and that is the part worth knowing: the
-       messages are not going anywhere. Without this the page said only "can't reach that account right
-       now", which reads as a fault Orbit is having rather than as somebody having closed a door. *@
-    @if (_contact is not null)
-    {
-        <p>@T["Your conversation with them is not affected - everything in it is still there, and still readable."]</p>
-    }
-}
-else if (_isLoading)
+@if (_isLoading)
 {
     <p>@T["Loading…"]</p>
 }
 else
 {
+    @* An account that has not unlocked Contacts is unfindable on purpose, and Orbit answers a search
+       for it exactly as it answers a search for nobody - saying "found, but hidden" would be finding
+       them. So this page genuinely cannot tell the two apart, and says so rather than picking one. *@
+    @if (_errorMessage is not null)
+    {
+        <p class="error">@_errorMessage</p>
+    }
+
+    @* Drawn for the profile itself, and for a contact whose profile can no longer be read: a
+       conversation outlives the profile behind it, and the row is what carries the way into it. There
+       is nothing to draw only for a stranger's id that resolves to neither. *@
+    @if (_errorMessage is null || _contact is not null)
+    {
     <div class="card contact-info-card">
         <div class="contact-info-identity">
             <span class="avatar-sm contact-info-avatar" style="background:@AvatarHelper.AvatarColor(UserId)">
@@ -67,9 +56,31 @@ else
                 <div class="contact-info-name">@_displayName</div>
                 <div class="contact-info-login">@_userName</div>
             </div>
+            @* The one thing there is to do with a person, at the end of the row their name is in. A
+               word in the corner of the page said the same thing further from what it was about, and
+               shared that corner with a Back button doing the browser's job. *@
+            @if (Permissions.Has(ApplicationPermission.Chat) && (_contact is not null || _errorMessage is null))
+            {
+                <button type="button" class="icon-btn contact-info-open-chat" title="@(T["Open chat"])"
+                        aria-label="@(T["Open chat"])" @onclick="GoToChat">
+                    <svg viewBox="0 0 20 20" width="18" height="18" aria-hidden="true" fill="none"
+                         stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M4 4h12v9H8l-4 3.5V4Z" />
+                    </svg>
+                </button>
+            }
         </div>
 
-        @if (_contact is { } contact)
+        @* Everything a profile says about somebody. Left out when the profile is the thing that could
+           not be read - the row above is then the whole card. *@
+        @if (_errorMessage is not null)
+        {
+            @* The part worth knowing: the messages are not going anywhere. Without it the page said
+               only "can't reach that account right now", which reads as a fault Orbit is having rather
+               than as somebody having closed a door. *@
+            <p>@T["Your conversation with them is not affected - everything in it is still there, and still readable."]</p>
+        }
+        else if (_contact is { } contact)
         {
             <div class="list-row">
                 <span class="row-title">@T["Email address"]</span>
@@ -100,11 +111,12 @@ else
             <p class="empty-hint">@T["No conversation with them yet."]</p>
         }
 
-        @if (!_hasEncryptionKey)
+        @if (_errorMessage is null && !_hasEncryptionKey)
         {
             <p class="empty-hint">@T.Format("{0} hasn't set up encryption yet - they need to log in in their own browser first before you can message them.", _displayName)</p>
         }
     </div>
+    }
 }
 
 @code {
@@ -174,8 +186,6 @@ else
             Orbit.Core.Users.PresenceStatus.DoNotDisturb => "Do not disturb",
             _ => "Offline"
         };
-
-    private void GoToContacts() => NavigationManager.NavigateTo("/contacts");
 
     private void GoToChat() => NavigationManager.NavigateTo($"/chat/{UserId}");
 }

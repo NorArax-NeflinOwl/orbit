@@ -92,13 +92,20 @@ builder.Services.AddHttpClient<PushNotificationApiClient>(httpClient => httpClie
     .AddHttpMessageHandler<AuthorizationMessageHandler>();
 builder.Services.AddHttpClient<NotificationsApiClient>(httpClient => httpClient.BaseAddress = new Uri(apiBaseAddress))
     .AddHttpMessageHandler<AuthorizationMessageHandler>();
-builder.Services.AddHttpClient<ClientFlagsApiClient>(httpClient => httpClient.BaseAddress = new Uri(apiBaseAddress));
+// Carries the token, unlike the unauthenticated calls it also makes: the server decides how much of its
+// own version to answer with from what the caller is allowed to see - see ConfigEndpoints. Without a
+// token the same endpoints still answer, which is what keeps the sign-in page able to read them.
+builder.Services.AddHttpClient<ClientFlagsApiClient>(httpClient => httpClient.BaseAddress = new Uri(apiBaseAddress))
+    .AddHttpMessageHandler<AuthorizationMessageHandler>();
 // Carries the token handler like the rest: making and revoking a link needs the owner's session, and
 // the reader's half of this client works with or without one.
 builder.Services.AddHttpClient<PublicShareApiClient>(httpClient => httpClient.BaseAddress = new Uri(apiBaseAddress))
     .AddHttpMessageHandler<AuthorizationMessageHandler>();
 builder.Services.AddHttpClient<TransferApiClient>(httpClient => httpClient.BaseAddress = new Uri(apiBaseAddress))
     .AddHttpMessageHandler<AuthorizationMessageHandler>();
+// The only client pointed at this app's own files rather than at the API, and the only one with no
+// token handler: the licence is a static file served beside index.html - see LicenseText.
+builder.Services.AddHttpClient<LicenseText>(httpClient => httpClient.BaseAddress = browserOrigin);
 builder.Services.AddScoped<OwnEncryptionKeyProvider>();
 builder.Services.AddScoped<EncryptedChatMessageSender>();
 builder.Services.AddScoped<EncryptedChatMessageReader>();
@@ -133,6 +140,7 @@ builder.Services.AddScoped<UserPermissionState>();
 builder.Services.AddScoped<ChecklistViewPreference>();
 builder.Services.AddScoped<TaskListArrangement>();
 builder.Services.AddScoped<PanelPreferences>();
+builder.Services.AddScoped<CalendarListOrder>();
 // Singleton rather than scoped: PersistentLoggerProvider is registered as a singleton and reads the log
 // level from this on every line it considers.
 builder.Services.AddSingleton<DevicePreferences>();
@@ -148,6 +156,10 @@ builder.Services.AddScoped<ClientExceptionLog>();
 builder.Services.AddSingleton(new MobileAppDownloads(
     builder.Configuration["MobileDownloads:Android"] ?? string.Empty,
     builder.Configuration["MobileDownloads:Ios"] ?? string.Empty));
+
+// Where this deployment's logs are read, if it publishes them anywhere - see DiagnosticsDashboard.
+builder.Services.AddSingleton(new DiagnosticsDashboard(
+    builder.Configuration["DiagnosticsDashboardUrl"] ?? string.Empty));
 
 // A third-party host, not Orbit.Api - deliberately not given AuthorizationMessageHandler, so Orbit's
 // own bearer token is never sent to it (see GeocodingApiClient's class comment).

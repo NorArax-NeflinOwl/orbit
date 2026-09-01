@@ -9,7 +9,10 @@ WORKDIR /src
 # Inherited by every project below, so a property added to it applies here as well as locally. Copied
 # rather than left out: without it a build in this image quietly ignores whatever it says, and the
 # difference only shows up as "works on my machine".
-COPY Directory.Build.props version.props ./
+#
+# LICENSE comes along because the client serves it: the footer's licence link opens it on this site
+# rather than on GitHub, and the file is linked into wwwroot from here - see Orbit.Web.csproj.
+COPY Directory.Build.props version.props LICENSE ./
 
 COPY src/Shared/Orbit.Contracts/Orbit.Contracts.csproj src/Shared/Orbit.Contracts/
 COPY src/Shared/Orbit.Core/Orbit.Core.csproj src/Shared/Orbit.Core/

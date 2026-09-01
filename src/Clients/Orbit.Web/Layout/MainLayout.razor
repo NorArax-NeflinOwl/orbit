@@ -25,6 +25,7 @@
 @inject UserPermissionState Permissions
 @inject Translations T
 @inject NavigationManager NavigationManager
+@inject DiagnosticsDashboard DiagnosticsDashboard
 @inject IJSRuntime JSRuntime
 @inject ILogger<MainLayout> Logger
 
@@ -69,23 +70,23 @@
                         <span class="label">@T["Inventory"]</span>
                         @RenderSectionBadge("/inventory")
                     </NavLink>
-                    @* Hidden rather than shown-and-refused: the API turns these away without the matching
+                    @* Either kind of conversation is reached from here, so one of the two is enough.
+                       Hidden rather than shown-and-refused: the API turns these away without the matching
                        permission (see PermissionPolicies in Orbit.Api), so offering the link would only
-                       promise a page that cannot load. Unlocked under Options, Debug. *@
-                    @if (Permissions.Has(ApplicationPermission.Location))
-                    {
-                    <NavLink class="nav-item" href="/map" title="@(T["Map"])">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M10 17.5s5.5-5 5.5-9a5.5 5.5 0 1 0-11 0c0 4 5.5 9 5.5 9Z" /><circle cx="10" cy="8.5" r="2" /></svg>
-                        <span class="label">@T["Map"]</span>
-                    </NavLink>
-                    }
-                    @* Either kind of conversation is reached from here, so one of the two is enough. *@
+                       promise a page that cannot load. Unlocked under Options, Permissions. *@
                     @if (Permissions.Has(ApplicationPermission.Contacts))
                     {
                     <NavLink class="nav-item" href="/contacts" title="@(T["Contacts"])">
                         <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="7" cy="6.5" r="3" /><path d="M1.5 17c0-3 2.5-5 5.5-5s5.5 2 5.5 5" /><circle cx="15" cy="7.5" r="2.3" /><path d="M13.7 12.2c2.4.3 4.1 2 4.1 4.6" /></svg>
                         <span class="label">@T["Contacts"]</span>
                         @RenderSectionBadge("/chat")
+                    </NavLink>
+                    }
+                    @if (Permissions.Has(ApplicationPermission.Location))
+                    {
+                    <NavLink class="nav-item" href="/map" title="@(T["Map"])">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M10 17.5s5.5-5 5.5-9a5.5 5.5 0 1 0-11 0c0 4 5.5 9 5.5 9Z" /><circle cx="10" cy="8.5" r="2" /></svg>
+                        <span class="label">@T["Map"]</span>
                     </NavLink>
                     }
 
@@ -146,13 +147,30 @@
                                 <p class="availability-error">@_availabilityErrorMessage</p>
                             }
                             <div class="avatar-dropdown-divider"></div>
-                            @* Status, Get the app, Options, Log out. Notifications used to be here and
-                               is now a button of its own in the bar; these two are places you go once
-                               to set something up, which is exactly what this menu is for. *@
+                            @* Status, Get the app, the log dashboard, Options, Log out. Notifications
+                               used to be here and is now a button of its own in the bar; these are
+                               places you go once to set something up or to look Orbit over, which is
+                               exactly what this menu is for. *@
                             <a class="avatar-dropdown-item" href="/download">
                                 <PhoneIcon Size="16" />
                                 @T["Get the app"]
                             </a>
+                            @* Where this deployment's logs and traces are read - see DiagnosticsDashboard.
+                               Only for an account that has been given Orbit's own internals, and only
+                               where a deployment has said there is one to open. Leaves Orbit, so it
+                               opens in a tab of its own like every other outward link. *@
+                            @if (DiagnosticsDashboard.HasUrl && Permissions.Has(ApplicationPermission.Debug))
+                            {
+                                <a class="avatar-dropdown-item" href="@DiagnosticsDashboard.Url" target="_blank" rel="noopener">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 20 20" fill="none"
+                                         stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+                                        <path d="M4 3.5h9l3 3v10a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1v-12a1 1 0 0 1 1-1Z" />
+                                        <path d="M13 3.5v3h3" />
+                                        <path d="M6 11.5l2 2 4-4.5" />
+                                    </svg>
+                                    @T["Debug logs"]
+                                </a>
+                            }
                             <a class="avatar-dropdown-item" href="/options">
                                 <GearIcon Size="16" />
                                 @T["Options"]
@@ -204,19 +222,20 @@
             </svg>
             <span>@OrbitRelease.Copyright</span>
             <span class="app-footer-separator">·</span>
-            @* Pressed, it grows the rest of the hash - while debugging. A released build says the
-               number and nothing more, so there is nothing to press and it is drawn as the text it is
-               rather than as a button that would do nothing. See OrbitVersion. *@
-            @if (_version.CanShowTheWholeCommit)
+            @* Pressed, it grows the rest of the hash. There is nothing to press for a reader who is not
+               shown the commit at all, or for a build carrying none - a local `docker compose build`,
+               which nothing numbered - and it is then drawn as the text it is rather than as a button
+               that would do nothing. See OrbitVersion. *@
+            @if (ShownVersion.CanShowTheWholeCommit)
             {
                 <button type="button" class="app-footer-version" title="@(T["Show the whole commit"])"
                         @onclick="() => _isVersionExpanded = !_isVersionExpanded">
-                    @(_isVersionExpanded ? _version.Full : _version.Short)
+                    @(_isVersionExpanded ? ShownVersion.Full : ShownVersion.Short)
                 </button>
             }
             else
             {
-                <span>@_version.Short</span>
+                <span>@ShownVersion.Short</span>
             }
             @* The server's own build, beside the client's. The two can differ - the pipeline rolls each
                app back on its own, and a browser can be holding a cached client - so showing only one
@@ -228,7 +247,10 @@
                 <span>@T.Format("api {0}", ServerVersionText(server))</span>
             }
             <span class="app-footer-separator">·</span>
-            <a href="@OrbitRelease.LicenseUrl" target="_blank" rel="noopener">@T[OrbitRelease.LicenseName]</a>
+            @* Orbit's own page rather than the file on GitHub: the licence is part of what this
+               deployment says about itself, and a reader should not have to leave it to read it -
+               see Pages/License.razor. *@
+            <a href="/license">@T[OrbitRelease.LicenseName]</a>
         </footer>
     </main>
 </div>
@@ -240,6 +262,15 @@
     /// </summary>
     private static readonly OrbitVersion _version = OrbitVersion.ReadFrom(typeof(MainLayout).Assembly);
 
+    /// <summary>
+    /// This build as the footer says it. Which commit it came from is detail about Orbit's own inside,
+    /// so it is said to the accounts that have been given Orbit's inside and to nobody else - see
+    /// ApplicationPermission.Debug. The server applies the same rule to its own version, and there by
+    /// leaving the hash out of the answer rather than sending it to be hidden.
+    /// </summary>
+    private OrbitVersion ShownVersion
+        => Permissions.Has(ApplicationPermission.Debug) ? _version : _version.WithoutTheCommit();
+
     /// <summary>Whether the footer is showing the whole commit hash rather than the first seven of it.</summary>
     private bool _isVersionExpanded;
 
@@ -249,11 +280,14 @@
     /// <summary>
     /// The server's version as the footer says it. It follows the same expand as the client's, because
     /// pressing one and having the other stay short would read as a bug rather than as two facts.
-    /// A released server sends no hash at all, so there is simply nothing to grow.
+    ///
+    /// A server that will not show this reader its commit sends no hash, so there is usually nothing to
+    /// grow - and the permission is checked here as well, so an older server that still sends one to
+    /// everybody does not get to say more than this client would.
     /// </summary>
     private string ServerVersionText(ServerVersionDto server)
     {
-        if (server.CommitHash.Length == 0)
+        if (server.CommitHash.Length == 0 || !Permissions.Has(ApplicationPermission.Debug))
         {
             return $"ver:{server.Version}";
         }
@@ -573,6 +607,10 @@
 
         await Presence.StartAsync();
         await Permissions.RefreshAsync();
+        // Asked again now that there is somebody to ask as: how much of its version the server answers
+        // with depends on what this account may see - see ConfigEndpoints.
+        ClientFlagsApiClient.ForgetTheServerVersion();
+        _serverVersion = await ClientFlagsApiClient.GetServerVersionAsync();
     }
 
     /// <summary>
@@ -916,18 +954,22 @@
     /// <summary>
     /// Reads this browser's own captured Warning+/Error client-side log (see clientLogging.js's
     /// appendLog, mirrored here by PersistentLoggerProvider) - purely local per-device diagnostics, never
-    /// sent to the server, unlike the push/chat entries in _recentEntries above. Gated on both the
-    /// server's environment flag and the reader asking for them - either through this account's
+    /// sent to the server, unlike the push/chat entries in _recentEntries above. Gated on three things:
+    /// this account having unlocked the Debugger at all (see ApplicationPermission.Debug), the server's
+    /// environment flag, and the reader asking for them - either through this account's
     /// ShowExceptionDetails preference or by putting this browser in Debug mode (see
-    /// DevicePreferences.DiagnosticsMode). The server's flag stays the outer gate whichever way they
-    /// asked, so a Production deployment never shows this section regardless of what anyone has set.
+    /// DevicePreferences.DiagnosticsMode). The permission and the server's flag stay the outer gates
+    /// whichever way they asked, so a Production deployment never shows this section regardless of what
+    /// anyone has set, and neither does an account that was never given the Debugger.
     /// </summary>
     private async Task LoadClientExceptionEntriesAsync()
     {
         var exceptionDetailsAllowedByServer = await ClientFlagsApiClient.GetExceptionDetailsAllowedAsync();
         var readerAskedForThem = _notificationSettings.ShowExceptionDetails
             || DevicePreferences.DiagnosticsMode == DiagnosticsMode.Debug;
-        _showExceptionsSection = exceptionDetailsAllowedByServer && readerAskedForThem;
+        _showExceptionsSection = Permissions.Has(ApplicationPermission.Debug)
+            && exceptionDetailsAllowedByServer
+            && readerAskedForThem;
         if (!_showExceptionsSection)
         {
             _clientExceptionEntries = [];

@@ -10,6 +10,7 @@
 @inject ChatApiClient ChatApiClient
 @inject TasksApiClient TasksApiClient
 @inject PanelPreferences Panels
+@inject CalendarListOrder ListOrder
 @inject UsersApiClient UsersApiClient
 @inject NavigationManager NavigationManager
 @inject GoogleIntegrationAccess GoogleIntegrationAccess
@@ -27,6 +28,22 @@
                  stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M10 4v12M4 10h12" /></svg>
         </button>
         <h1>@T["Calendar"]</h1>
+    </div>
+    <div class="page-header-actions">
+        @* The order the list beside the grid comes in. Behind the menu rather than in a control across
+           the top, the same as every other list in the app - it is something a reader sets once and
+           then reads by. Stays open while they try one order and then another. *@
+        <OverflowMenu StaysOpen="true">
+            <span class="overflow-menu-heading">@T["Sort"]</span>
+            @foreach (var sortOrder in Enum.GetValues<CalendarListSortOrder>())
+            {
+                <button type="button" class="avatar-dropdown-item @(sortOrder == ListOrder.SortOrder ? "chosen" : "")"
+                        @onclick="() => SetSortOrderAsync(sortOrder)">
+                    <span class="card-filter-mark">@(sortOrder == ListOrder.SortOrder ? "✓" : "")</span>
+                    @DescribeSortOrder(sortOrder)
+                </button>
+            }
+        </OverflowMenu>
     </div>
 </div>
 
@@ -246,8 +263,10 @@
     protected override async Task OnInitializedAsync()
     {
         Logger.LogInformation("Calendar page opened, loading events");
-        // Before the first render, so the panels come back open rather than opening a moment later.
+        // Before the first render, so the panels come back open rather than opening a moment later, and
+        // the list is in the order it was left in rather than jumping into it.
         await Panels.InitializeAsync();
+        await ListOrder.InitializeAsync();
         try
         {
             _events = await CalendarApiClient.GetCalendarEventsAsync();
@@ -547,12 +566,43 @@
     /// reader interleave them by eye, which is the one thing a calendar is meant to have done already.
     /// </summary>
     private IReadOnlyList<ListedThing> ListedThings
-        => [.. _listedEvents.Select(calendarEvent => new ListedThing(calendarEvent.Details.StartUtc, calendarEvent, null))
-            .Concat(_listedDueTasks.Select(dueTask => new ListedThing(dueTask.DueDateUtc, null, dueTask)))
-            .OrderBy(thing => thing.At)];
+        => [.. InOrder(
+            _listedEvents
+                .Select(calendarEvent => new ListedThing(
+                    calendarEvent.Details.StartUtc, calendarEvent.Details.Title, calendarEvent, null))
+                .Concat(_listedDueTasks.Select(dueTask => new ListedThing(
+                    dueTask.DueDateUtc, Written(dueTask.Description), null, dueTask))))];
 
-    /// <summary>One row of the list: an event or a deadline, and when it is, which is what orders them.</summary>
-    private sealed record ListedThing(DateTimeOffset At, CalendarEventDto? Event, DueTaskDto? DueTask);
+    /// <summary>
+    /// Whichever order the reader chose. When is the fallback within the other two as well: two things
+    /// that sort the same by kind or by name are still most usefully read soonest first.
+    /// </summary>
+    private IEnumerable<ListedThing> InOrder(IEnumerable<ListedThing> things) => ListOrder.SortOrder switch
+    {
+        CalendarListSortOrder.Type => things
+            .OrderBy(thing => thing.Event is null)
+            .ThenBy(thing => thing.At),
+        CalendarListSortOrder.Alphabetical => things
+            .OrderBy(thing => thing.Name, StringComparer.CurrentCultureIgnoreCase)
+            .ThenBy(thing => thing.At),
+        _ => things.OrderBy(thing => thing.At)
+    };
+
+    private string DescribeSortOrder(CalendarListSortOrder sortOrder) => sortOrder switch
+    {
+        CalendarListSortOrder.Type => T["By type"],
+        CalendarListSortOrder.Alphabetical => T["Alphabetical"],
+        _ => T["By when"]
+    };
+
+    private async Task SetSortOrderAsync(CalendarListSortOrder sortOrder)
+    {
+        Logger.LogInformation("User sorted the calendar list by {SortOrder}", sortOrder);
+        await ListOrder.SetSortOrderAsync(sortOrder);
+    }
+
+    /// <summary>One row of the list: an event or a deadline, when it is, and what it is called.</summary>
+    private sealed record ListedThing(DateTimeOffset At, string Name, CalendarEventDto? Event, DueTaskDto? DueTask);
 
     /// <summary>
     /// Whether to offer the Google links at all - see GoogleIntegrationAccess for who qualifies and why.

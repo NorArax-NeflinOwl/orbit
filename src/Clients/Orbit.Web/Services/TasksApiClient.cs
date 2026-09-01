@@ -292,6 +292,32 @@ public sealed class TasksApiClient
         }
     }
 
+    /// <summary>
+    /// Puts an event on a task list as an entry that points at it. One request rather than a whole-list
+    /// save, so nothing else on the list is at risk - see LinkCalendarEventToTaskListCommand.
+    /// </summary>
+    public async Task<EditOutcome> LinkCalendarEventAsync(
+        Guid taskListId, Guid calendarEventId, CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            var response = await _httpClient.PostAsJsonAsync(
+                $"api/tasks/{taskListId}/items/calendar-event", new LinkCalendarEventRequest(calendarEventId), cancellationToken);
+            var outcome = await ToEditOutcomeAsync(response, cancellationToken);
+            if (outcome.Kind == EditOutcomeKind.Success)
+            {
+                _logger.LogActionCompleted(ClientActionCategory.Edit, "Link a calendar event to a task list");
+            }
+
+            return outcome;
+        }
+        catch (Exception exception)
+        {
+            _logger.LogActionFailed(ClientActionCategory.Edit, "Link a calendar event to a task list", exception);
+            throw;
+        }
+    }
+
     /// <summary>Mirrors NotesApiClient.AcquireNoteLockAsync - see its comment.</summary>
     public async Task<EditOutcome> AcquireTaskListLockAsync(Guid id, CancellationToken cancellationToken = default)
     {

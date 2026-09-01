@@ -19,10 +19,6 @@
         <h1>@(_group?.Name ?? T["Group chat"])</h1>
         <p class="page-subtitle">@T["Chats with more than one other person, encrypted the same way one-to-one chats are."]</p>
     </div>
-    <div class="page-header-actions">
-        <button type="button" class="btn-secondary" @onclick="GoToChat">@T["Back to chat"]</button>
-        <button type="button" class="btn-primary" @onclick="GoToMembers">@T["Members"]</button>
-    </div>
 </div>
 
 @if (!Permissions.Has(ApplicationPermission.Chat))
@@ -42,7 +38,12 @@ else if (_group is { } group)
         </div>
         <div class="list-row">
             <span class="row-title">@T["Members"]</span>
-            <span class="row-meta">@T.Format("{0} members", group.Members.Count)</span>
+            @* The count is the way in to the roster. A button beside the page's name said the same
+               thing twice - once as a number and once as a word - and the number is the half somebody
+               is already reading when they want to know who is in it. *@
+            <button type="button" class="row-meta row-meta-opens" @onclick="GoToMembers">
+                @T.Format("{0} members", group.Members.Count)
+            </button>
         </div>
         <div class="list-row">
             <span class="row-title">@T["Started"]</span>
@@ -89,8 +90,6 @@ else if (_group is { } group)
             _errorMessage = T["Couldn't load your groups. Check your connection and try again."];
         }
     }
-
-    private void GoToChat() => NavigationManager.NavigateTo($"/chat/groups/{GroupId}");
 
     private void GoToMembers() => NavigationManager.NavigateTo($"/chat/groups/{GroupId}/members");
 }

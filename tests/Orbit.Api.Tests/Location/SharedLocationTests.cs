@@ -4,6 +4,7 @@ using Orbit.Core.Location;
 using Orbit.Core.Notifications;
 using Orbit.Core.Location.GetSharedLocations;
 using Orbit.Core.Location.ShareLocation;
+using Orbit.Core.Location.StopReceivingLocation;
 using Orbit.Core.Location.StopSharingLocation;
 using Xunit;
 
@@ -11,7 +12,8 @@ namespace Orbit.Api.Tests.Location;
 
 /// <summary>
 /// Covers what sharing a position promises: it reaches only the person it was shared with, the database
-/// keeps one point rather than a trail, and stopping removes it rather than letting it go stale.
+/// keeps one point rather than a trail, and stopping - from either end of it - removes it rather than
+/// letting it go stale.
 /// </summary>
 public sealed class SharedLocationTests
 {
@@ -126,6 +128,47 @@ public sealed class SharedLocationTests
         Assert.Single(await context.SharedWithAsync(context.OtherUserId));
     }
 
+    /// <summary>
+    /// The other end of the same row. A share is an arrangement between two people, and only one of them
+    /// could end it - which left a reader with somebody's live position on their map and nothing to do
+    /// about it but ask them to stop.
+    /// </summary>
+    [Fact]
+    public async Task The_person_shared_with_can_end_it_too()
+    {
+        var context = new SharedLocationTestContext();
+        await context.ShareAsync(context.SharerId, context.FriendId, "point-one", isContinuous: true);
+
+        await context.StopReceivingAsync(context.FriendId, context.SharerId);
+
+        // Deleted rather than hidden from one side: the position is gone from the database, so it is
+        // gone for the sharer as well.
+        Assert.Empty(await context.SharedWithAsync(context.FriendId));
+        Assert.Empty(await context.SharedByAsync(context.SharerId));
+    }
+
+    [Fact]
+    public async Task Refusing_a_share_leaves_that_persons_other_shares_alone()
+    {
+        var context = new SharedLocationTestContext();
+        await context.ShareAsync(context.SharerId, context.FriendId, "for-friend", isContinuous: true);
+        await context.ShareAsync(context.SharerId, context.OtherUserId, "for-other", isContinuous: true);
+
+        await context.StopReceivingAsync(context.FriendId, context.SharerId);
+
+        // One reader refusing what they are being sent says nothing about anybody else's copy of it.
+        Assert.Single(await context.SharedWithAsync(context.OtherUserId));
+    }
+
+    [Fact]
+    public async Task Refusing_something_nobody_is_sharing_is_not_an_error()
+    {
+        var context = new SharedLocationTestContext();
+
+        // The end state asked for is "I can't see them", which is already true.
+        Assert.True(await context.StopReceivingAsync(context.FriendId, context.SharerId));
+    }
+
     [Fact]
     public async Task Sharing_a_position_tells_the_person_it_was_shared_with()
     {
@@ -212,6 +255,10 @@ public sealed class SharedLocationTests
         public Task<bool> StopSharingAsync(Guid sharerId, Guid? recipientUserId)
             => new StopSharingLocationCommandHandler(_sharedLocationRepository)
                 .HandleAsync(new StopSharingLocationCommand(sharerId, recipientUserId), CancellationToken.None);
+
+        public Task<bool> StopReceivingAsync(Guid recipientId, Guid sharerId)
+            => new StopReceivingLocationCommandHandler(_sharedLocationRepository)
+                .HandleAsync(new StopReceivingLocationCommand(recipientId, sharerId), CancellationToken.None);
 
         public Task<IReadOnlyList<SharedLocation>> SharedWithAsync(Guid recipientId)
             => new GetSharedLocationsQueryHandler(_sharedLocationRepository)

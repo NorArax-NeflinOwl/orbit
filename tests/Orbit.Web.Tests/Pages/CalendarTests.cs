@@ -35,6 +35,8 @@ public sealed class CalendarTests : OrbitTestContext
         // Nothing stored, so both side panels start closed - which is what these tests assume, and what
         // a browser that has never had them opened gets.
         Services.AddSingleton(new PanelPreferences(new StubJSRuntime()));
+        // Storage starts empty, so the list comes back in the order it has always been in - by when.
+        Services.AddSingleton(new CalendarListOrder(new StubJSRuntime()));
     }
 
     [Fact]
@@ -203,6 +205,9 @@ public sealed class CalendarTests : OrbitTestContext
         });
         Services.AddSingleton(new GoogleIntegrationAccess(
             new UsersApiClient(new HttpClient(handler) { BaseAddress = new Uri("https://example.test/") }),
+            // Never initialised, so the extras are on - which leaves the account above as the only
+            // thing deciding, and it is the thing these tests are pointed at.
+            new DevicePreferences(new StubJSRuntime()),
             NullLogger<GoogleIntegrationAccess>.Instance));
     }
 
@@ -240,6 +245,60 @@ public sealed class CalendarTests : OrbitTestContext
         Assert.Contains("This month", cut.Markup);
         Assert.DoesNotContain("Two months on", cut.Markup);
     }
+
+    /// <summary>
+    /// The list's default, and the reason it exists: what is coming, soonest first. The two orders
+    /// below are for a reader looking for one thing rather than reading the period.
+    /// </summary>
+    [Fact]
+    public void The_list_comes_in_the_order_things_happen()
+    {
+        var midMonth = new DateTime(DateTime.Today.Year, DateTime.Today.Month, 15, 10, 0, 0);
+        RegisterCalendarApiClient([
+            CreateTimedEvent(midMonth.AddDays(2), midMonth.AddDays(2).AddHours(1), "Beta"),
+            CreateTimedEvent(midMonth, midMonth.AddHours(1), "Zulu")]);
+        RegisterTasksApiClient([]);
+
+        var cut = RenderComponent<Calendar>();
+
+        Assert.Equal(["Zulu", "Beta"], ListedNames(cut));
+    }
+
+    [Fact]
+    public void Sorting_by_type_puts_the_events_before_the_deadlines()
+    {
+        var midMonth = new DateTime(DateTime.Today.Year, DateTime.Today.Month, 15, 10, 0, 0);
+        // The deadline is first by when, so only the order asked for can put the event in front of it.
+        RegisterCalendarApiClient([CreateTimedEvent(midMonth.AddDays(1), midMonth.AddDays(1).AddHours(1), "An event")]);
+        RegisterTasksApiClient([CreateTaskListWithDueItem(midMonth, "A deadline")]);
+        var cut = RenderComponent<Calendar>();
+
+        SortBy(cut, "By type");
+
+        Assert.Equal(["An event", "A deadline"], ListedNames(cut));
+    }
+
+    [Fact]
+    public void Sorting_alphabetically_orders_by_name_whatever_kind_of_thing_it_is()
+    {
+        var midMonth = new DateTime(DateTime.Today.Year, DateTime.Today.Month, 15, 10, 0, 0);
+        RegisterCalendarApiClient([CreateTimedEvent(midMonth, midMonth.AddHours(1), "Zulu")]);
+        RegisterTasksApiClient([CreateTaskListWithDueItem(midMonth.AddDays(1), "Alpha")]);
+        var cut = RenderComponent<Calendar>();
+
+        SortBy(cut, "Alphabetical");
+
+        Assert.Equal(["Alpha", "Zulu"], ListedNames(cut));
+    }
+
+    private static void SortBy(IRenderedFragment cut, string label)
+    {
+        cut.Find(".calendar-event-list-panel .overflow-menu-trigger, .page-header-actions .overflow-menu-trigger").Click();
+        cut.FindAll(".avatar-dropdown-item").First(item => item.TextContent.Contains(label)).Click();
+    }
+
+    private static string[] ListedNames(IRenderedFragment cut)
+        => [.. cut.FindAll(".item-card-name-text").Select(name => name.TextContent.Trim())];
 
     [Fact]
     public void The_year_view_lists_the_year_rather_than_the_month()

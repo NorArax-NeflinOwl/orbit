@@ -111,7 +111,7 @@ else
                 @foreach (var group in ArrangedGroups)
                 {
                     <PersonRow Id="group.Id" Name="@group.Name"
-                               Subtitle="@T.Format("{0} in it", group.Members.Count)"
+                               Subtitle="@T.Format("{0} members", group.Members.Count)"
                                OnSelected="() => OpenGroup(group.Id)">
                         <Pin>
                             <PinButton IsPinned="Pins.IsPinned(group.Id)"
@@ -121,7 +121,7 @@ else
                             <OverflowMenu>
                                 <button type="button" class="avatar-dropdown-item" @onclick="() => OpenGroup(group.Id)">@T["Info"]</button>
                                 <button type="button" class="avatar-dropdown-item"
-                                        @onclick="() => SetGroupArchivedAsync(group.Id, true)">@T["Put away"]</button>
+                                        @onclick="() => SetGroupArchivedAsync(group.Id, true)">@T["Archive"]</button>
                             </OverflowMenu>
                         </Menu>
                     </PersonRow>
@@ -156,7 +156,7 @@ else
                 @foreach (var group in ArchivedGroups)
                 {
                     <PersonRow Id="group.Id" Name="@group.Name"
-                               Subtitle="@T.Format("{0} in it", group.Members.Count)"
+                               Subtitle="@T.Format("{0} members", group.Members.Count)"
                                OnSelected="() => OpenGroup(group.Id)">
                         <Menu>
                             <OverflowMenu>
@@ -193,7 +193,7 @@ else
                             <OverflowMenu>
                                 <button type="button" class="avatar-dropdown-item" @onclick="() => OpenContactInfo(contact.UserId)">@T["Info"]</button>
                                 <button type="button" class="avatar-dropdown-item"
-                                        @onclick="() => SetContactArchivedAsync(contact.UserId, true)">@T["Put away"]</button>
+                                        @onclick="() => SetContactArchivedAsync(contact.UserId, true)">@T["Archive"]</button>
                             </OverflowMenu>
                         </Menu>
                     </PersonRow>

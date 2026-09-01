@@ -11,6 +11,7 @@ using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.JSInterop;
 using Orbit.Contracts.Chat;
 using Orbit.Contracts.Notifications;
+using Orbit.Contracts.Tasks;
 using Orbit.Contracts.Users;
 using Orbit.Web.Pages;
 using Orbit.Web.Services;
@@ -32,7 +33,34 @@ public sealed class CalendarEventEditorTests : OrbitTestContext
     {
         Services.AddSingleton(typeof(ILogger<>), typeof(NullLogger<>));
         RegisterGoogleIntegrationAccess();
-        Services.AddSingleton(new CalendarApiClient(new HttpClient { BaseAddress = new Uri("https://example.test/") }));
+        // One transport for the two clients that write: creating the event answers with an id, and
+        // putting it on a list is recorded so a test can say which list it went on. Which lists exist
+        // is a field, because most of these tests want none and the picker then does not render.
+        var writes = new HttpClient(new StubHttpMessageHandler(request =>
+        {
+            var path = request.RequestUri!.AbsolutePath;
+            if (path.EndsWith("/items/calendar-event", StringComparison.Ordinal))
+            {
+                _linkedToPath = path;
+                _linkedEventId = ReadTheLinkedEventId(request);
+                return new HttpResponseMessage(HttpStatusCode.NoContent);
+            }
+
+            if (path.EndsWith("/api/calendar-events", StringComparison.Ordinal))
+            {
+                return JsonResponse(SavedEventId);
+            }
+
+            return new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StringContent(_taskListsJson, Encoding.UTF8, "application/json")
+            };
+        }))
+        {
+            BaseAddress = new Uri("https://example.test/")
+        };
+        Services.AddSingleton(new CalendarApiClient(writes));
+        Services.AddSingleton(new TasksApiClient(writes));
         Services.AddSingleton(new GeocodingApiClient(new HttpClient { BaseAddress = new Uri("https://example.test/") }));
         // CalendarEventEditor.razor fetches notification settings on init - a real (if unreachable)
         // HttpClient like CalendarApiClient/GeocodingApiClient above use would work too (the call is
@@ -187,6 +215,76 @@ public sealed class CalendarEventEditorTests : OrbitTestContext
         Assert.False(checkbox.HasAttribute("checked"));
     }
 
+    /// <summary>The id a created event comes back with, so a test can say the link points at that event.</summary>
+    private static readonly Guid SavedEventId = Guid.NewGuid();
+
+    /// <summary>What the picker is offered. Empty for every test that is not about it.</summary>
+    private string _taskListsJson = "[]";
+
+    /// <summary>Where the event was put, and which event it was - null until something puts it somewhere.</summary>
+    private string? _linkedToPath;
+    private Guid? _linkedEventId;
+
+    private static Guid ReadTheLinkedEventId(HttpRequestMessage request)
+    {
+        var body = request.Content!.ReadAsStringAsync().GetAwaiter().GetResult();
+        return JsonSerializer.Deserialize<LinkCalendarEventRequest>(
+            body, new JsonSerializerOptions { PropertyNameCaseInsensitive = true })!.CalendarEventId;
+    }
+
+    /// <summary>
+    /// A list the picker can offer: not private, and not held through a read-only share - the two the
+    /// editor narrows by, because either would be refused by the server.
+    /// </summary>
+    private static string OneTaskListCalled(Guid id, string title)
+        => "[{\"id\":\"" + id + "\",\"title\":\"" + title + "\",\"items\":[],\"isCompleted\":false,"
+            + "\"isGroup\":false,\"isPrivate\":false,\"encryptedContent\":null,"
+            + "\"createdAtUtc\":\"2026-08-01T10:00:00+00:00\",\"updatedAtUtc\":\"2026-08-01T10:00:00+00:00\","
+            + "\"isShared\":false,\"sharedByUserName\":null,\"accessLevel\":\"CanEdit\","
+            + "\"originalOwnerUserId\":null,\"description\":\"\"}]";
+
+    /// <summary>
+    /// An event can be put on a task list from here, which gives the list an entry pointing at the
+    /// event rather than a copy of it - see LinkCalendarEventToTaskListCommand.
+    /// </summary>
+    [Fact]
+    public void An_event_can_be_put_on_a_task_list_as_it_is_saved()
+    {
+        var taskListId = Guid.NewGuid();
+        _taskListsJson = OneTaskListCalled(taskListId, "Errands");
+        RegisterChatApiClient([]);
+        var cut = RenderComponent<CalendarEventEditor>();
+
+        cut.Find("#linkToTaskListSelect").Change(taskListId.ToString());
+        cut.Find("button[type=submit]").Click();
+
+        Assert.Equal($"/api/tasks/{taskListId}/items/calendar-event", _linkedToPath);
+        Assert.Equal(SavedEventId, _linkedEventId);
+    }
+
+    [Fact]
+    public void An_event_saved_without_choosing_a_list_is_put_on_none()
+    {
+        _taskListsJson = OneTaskListCalled(Guid.NewGuid(), "Errands");
+        RegisterChatApiClient([]);
+        var cut = RenderComponent<CalendarEventEditor>();
+
+        cut.Find("button[type=submit]").Click();
+
+        Assert.Null(_linkedToPath);
+    }
+
+    /// <summary>An account with no lists is offered no picker, rather than an empty one.</summary>
+    [Fact]
+    public void With_no_lists_there_is_nothing_to_link_to()
+    {
+        RegisterChatApiClient([]);
+
+        var cut = RenderComponent<CalendarEventEditor>();
+
+        Assert.Empty(cut.FindAll("#linkToTaskListSelect"));
+    }
+
     private void RegisterChatApiClient(IReadOnlyList<ContactDto> contacts)
     {
         var httpClient = new HttpClient(new StubHttpMessageHandler(_ => JsonResponse(contacts))) { BaseAddress = new Uri("https://example.test/") };
@@ -213,6 +311,9 @@ public sealed class CalendarEventEditorTests : OrbitTestContext
         });
         Services.AddSingleton(new GoogleIntegrationAccess(
             new UsersApiClient(new HttpClient(handler) { BaseAddress = new Uri("https://example.test/") }),
+            // Never initialised, so the extras are on - which leaves the account above as the only
+            // thing deciding, and it is the thing these tests are pointed at.
+            new DevicePreferences(new StubJSRuntime()),
             NullLogger<GoogleIntegrationAccess>.Instance));
     }
 

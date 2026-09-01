@@ -23,6 +23,31 @@ public sealed class DevicePreferencesTests
         Assert.False(preferences.AllowLocation);
     }
 
+    /// <summary>
+    /// The other way round from the location: the Google links are shortcuts an account that qualifies
+    /// for them was not asked anything to get, so they are there until somebody says otherwise.
+    /// </summary>
+    [Fact]
+    public async Task The_Google_extras_are_on_until_someone_turns_them_off()
+    {
+        var preferences = new DevicePreferences(new RecordingJSRuntime());
+
+        await preferences.InitializeAsync();
+
+        Assert.True(preferences.AllowGoogleExtras);
+    }
+
+    [Fact]
+    public async Task The_Google_extras_stay_off_once_they_have_been_turned_off()
+    {
+        var jsRuntime = new RecordingJSRuntime { Stored = { ["orbit-allow-google-extras"] = "false" } };
+        var preferences = new DevicePreferences(jsRuntime);
+
+        await preferences.InitializeAsync();
+
+        Assert.False(preferences.AllowGoogleExtras);
+    }
+
     [Fact]
     public async Task The_log_keeps_warnings_and_worse_by_default()
     {

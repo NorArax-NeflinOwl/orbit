@@ -262,6 +262,9 @@ public sealed class TaskListChecklistTests : OrbitTestContext
         });
         Services.AddSingleton(new GoogleIntegrationAccess(
             new UsersApiClient(new HttpClient(handler) { BaseAddress = new Uri("https://example.test/") }),
+            // Never initialised, so the extras are on - which leaves the account above as the only
+            // thing deciding, and it is the thing these tests are pointed at.
+            new DevicePreferences(new StubJSRuntime()),
             NullLogger<GoogleIntegrationAccess>.Instance));
     }
 

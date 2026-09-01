@@ -101,6 +101,7 @@ using Orbit.Core.Tasks.DeleteTaskList;
 using Orbit.Core.Tasks.GetTaskListById;
 using Orbit.Core.Tasks.GetTaskListShareStatus;
 using Orbit.Core.Tasks.GetTaskLists;
+using Orbit.Core.Tasks.LinkCalendarEventToTaskList;
 using Orbit.Core.Tasks.MoveTaskItem;
 using Orbit.Core.Tasks.OverdueNotifications;
 using Orbit.Core.Tasks.ReleaseTaskListLock;
@@ -120,6 +121,7 @@ using Orbit.Core.Users;
 using Orbit.Core.Users.SetPresence;
 using Orbit.Core.Users.SaveOwnLocation;
 using Orbit.Core.Location.GetSharedLocations;
+using Orbit.Core.Location.StopReceivingLocation;
 using Orbit.Core.Location.StopSharingLocation;
 using Orbit.Core.Location.ShareLocation;
 using Orbit.Core.Location;
@@ -177,6 +179,7 @@ public static class OrbitCoreServiceCollectionExtensions
         services.AddScoped<IRequestHandler<CreateTaskListCommand, Guid>, CreateTaskListCommandHandler>();
         services.AddScoped<IRequestHandler<UpdateTaskListCommand, EditOutcome>, UpdateTaskListCommandHandler>();
         services.AddScoped<IRequestHandler<MoveTaskItemCommand, EditOutcome>, MoveTaskItemCommandHandler>();
+        services.AddScoped<IRequestHandler<LinkCalendarEventToTaskListCommand, EditOutcome>, LinkCalendarEventToTaskListCommandHandler>();
         services.AddScoped<IRequestHandler<DeleteTaskListCommand, bool>, DeleteTaskListCommandHandler>();
         services.AddScoped<IRequestHandler<GetTaskListsQuery, IReadOnlyList<TaskList>>, GetTaskListsQueryHandler>();
         services.AddScoped<IRequestHandler<GetTaskListByIdQuery, TaskList?>, GetTaskListByIdQueryHandler>();
@@ -259,6 +262,7 @@ public static class OrbitCoreServiceCollectionExtensions
         // Sharing a position with one contact, encrypted for them - see SharedLocation.
         services.AddScoped<IRequestHandler<ShareLocationCommand, bool>, ShareLocationCommandHandler>();
         services.AddScoped<IRequestHandler<StopSharingLocationCommand, bool>, StopSharingLocationCommandHandler>();
+        services.AddScoped<IRequestHandler<StopReceivingLocationCommand, bool>, StopReceivingLocationCommandHandler>();
         services.AddScoped<IRequestHandler<GetSharedLocationsQuery, IReadOnlyList<SharedLocation>>, GetSharedLocationsQueryHandler>();
         services.AddScoped<IRequestHandler<GetOwnLocationSharesQuery, IReadOnlyList<SharedLocation>>, GetOwnLocationSharesQueryHandler>();
 

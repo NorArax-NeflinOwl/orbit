@@ -188,7 +188,10 @@ else
                         {
                             <span class="row-meta">@T["follows another list"]</span>
                         }
-                        else if (item.DueDateUtc is { } dueDate)
+                        @* A day to be done by belongs to a checklist entry - an appointment says when it
+                           is in the calendar, and a restock errand is about an amount. Same rule as the
+                           editor, which only asks a checklist entry for one. *@
+                        else if (IsAChecklistEntry(item) && item.DueDateUtc is { } dueDate)
                         {
                             <span class="row-meta">@dueDate.LocalDateTime.ToString("dd.MM.yyyy HH:mm")</span>
                         }
@@ -223,8 +226,6 @@ else
                 {
                     <p class="empty-hint">@T["No items on this list."]</p>
                 }
-                }
-
                     </Body>
                 </ItemCard>
             </div>
@@ -572,6 +573,9 @@ else
         => (_taskLists ?? []).FirstOrDefault(candidate => candidate.Id == linkedTaskListId);
 
     /// <summary>A name Orbit wrote itself, in the reader's language - see OrbitWrittenNames.</summary>
+    /// <summary>Whether this entry is ordinary work rather than an appointment or a restock errand.</summary>
+    private static bool IsAChecklistEntry(TaskItemDto item) => item.Kind == nameof(TaskItemKind.Checklist);
+
     private string Written(string name) => OrbitWrittenNames.Translate(key => T[key], name);
 
     private static string CompletionSummary(TaskDto taskList)

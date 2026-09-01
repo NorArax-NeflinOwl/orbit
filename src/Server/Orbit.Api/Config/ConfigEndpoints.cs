@@ -1,7 +1,10 @@
+using System.Security.Claims;
 using Microsoft.Extensions.Options;
+using Microsoft.IdentityModel.JsonWebTokens;
 using Orbit.Contracts.Config;
 using Orbit.Core;
 using Orbit.Core.Mobile;
+using Orbit.Core.Permissions;
 using Orbit.GoogleIntegration;
 
 namespace Orbit.Api.Config;
@@ -35,13 +38,18 @@ public static class ConfigEndpoints
         //
         // Unauthenticated like the rest of this group: it is the answer to "what am I talking to", which
         // is exactly the question somebody has when they cannot sign in.
-        app.MapGet("/api/config/version", () =>
+        app.MapGet("/api/config/version", async (
+            ClaimsPrincipal user, IUserPermissionRepository userPermissionRepository, CancellationToken cancellationToken) =>
         {
             var version = OrbitVersion.ReadFrom(typeof(ConfigEndpoints).Assembly);
-            // The hash is left out of a released server's answer rather than being sent and hidden by
-            // whoever asked: what is not sent cannot be read off the wire.
+            // The hash is left out of the answer rather than sent and hidden by whoever asked: what is
+            // not sent cannot be read off the wire. The number still goes to everybody, which is what
+            // keeps this endpoint open - see below.
             return Results.Ok(new ServerVersionDto(
-                version.Version, version.ShowsTheCommit ? version.CommitHash : string.Empty));
+                version.Version,
+                await MaySeeTheCommitAsync(user, userPermissionRepository, cancellationToken)
+                    ? version.CommitHash
+                    : string.Empty));
         });
 
         // Deliberately unauthenticated, like the endpoint above: a build too old to sign in still has to
@@ -62,6 +70,28 @@ public static class ConfigEndpoints
                 NullWhenEmpty(platformSettings.LatestVersion),
                 NullWhenEmpty(platformSettings.UpdateUrl)));
         });
+    }
+
+    /// <summary>
+    /// Whether this caller is one of the accounts shown Orbit's own internals - see
+    /// <see cref="ApplicationPermission.Debug"/>. Read from what the account holds rather than from the
+    /// token, so a permission taken away takes effect on the next request.
+    ///
+    /// Anonymous callers are not, and the endpoint stays open to them anyway: which build a server is
+    /// running is the answer to "what am I talking to", and a client too old to sign in still has to be
+    /// able to read it. The number answers that; the commit is the extra detail that does not.
+    /// </summary>
+    private static async Task<bool> MaySeeTheCommitAsync(
+        ClaimsPrincipal user, IUserPermissionRepository userPermissionRepository, CancellationToken cancellationToken)
+    {
+        if (user.FindFirstValue(JwtRegisteredClaimNames.Sub) is not { } subject
+            || !Guid.TryParse(subject, out var userId))
+        {
+            return false;
+        }
+
+        var granted = await userPermissionRepository.GetForUserAsync(userId, cancellationToken);
+        return ApplicationPermission.Debug.IsEffective(granted);
     }
 
     private static string? NullWhenEmpty(string value) => string.IsNullOrWhiteSpace(value) ? null : value;

@@ -63,7 +63,7 @@ public sealed class TaskEditorItemFormTests : OrbitTestContext
     }
 
     [Fact]
-    public void Opening_an_entry_offers_the_four_fields_every_entry_has()
+    public void Opening_a_checklist_entry_offers_the_fields_a_day_of_work_needs()
     {
         RegisterApiClients(AnItem());
         var cut = Render();
@@ -75,6 +75,69 @@ public sealed class TaskEditorItemFormTests : OrbitTestContext
         Assert.Contains("Due date", details);
         Assert.Contains("Due time", details);
         Assert.Contains("Remove", details);
+    }
+
+    /// <summary>
+    /// An appointment already says when it is, in the event's own start and end. Asking it for a due
+    /// date as well left two answers to one question, and nothing saying which the calendar reads.
+    /// </summary>
+    [Theory]
+    [InlineData(nameof(TaskItemKind.Calendar))]
+    [InlineData(nameof(TaskItemKind.Inventory))]
+    public void Only_a_checklist_entry_is_asked_when_it_is_due(string kind)
+    {
+        RegisterApiClients(AnItem(kind: kind));
+        var cut = Render();
+
+        ExpandTheOnlyItem(cut);
+
+        var details = cut.Find(".editor-item-details").TextContent;
+        Assert.DoesNotContain("Due date", details);
+        Assert.DoesNotContain("Due time", details);
+    }
+
+    /// <summary>And it is not reported on the row either - see Tasks.razor, which follows the same rule.</summary>
+    [Fact]
+    public void A_dated_appointment_does_not_report_its_due_date_on_the_row()
+    {
+        RegisterApiClients(AnItem(
+            kind: nameof(TaskItemKind.Calendar),
+            dueDateUtc: new DateTimeOffset(2026, 9, 14, 10, 0, 0, TimeSpan.Zero)));
+
+        var cut = Render();
+
+        Assert.DoesNotContain("14.09.2026", cut.Find(".editor-item-summary").TextContent);
+    }
+
+    /// <summary>
+    /// A restock errand typed by hand has nothing to say what it is about, and until it does the shelf
+    /// fields have nothing to edit. The picker is how it says so - see TaskEditor's ShelfPicker.
+    /// </summary>
+    [Fact]
+    public void An_inventory_entry_is_asked_which_product_on_which_shelf()
+    {
+        RegisterApiClients(AnItem(kind: nameof(TaskItemKind.Inventory)));
+        var cut = Render();
+
+        ExpandTheOnlyItem(cut);
+
+        var details = cut.Find(".editor-item-details").TextContent;
+        Assert.Contains("Warehouse", details);
+    }
+
+    /// <summary>
+    /// Offered for every saved entry, saying so when there is nowhere to move it. Left out entirely, it
+    /// read as a setting that had gone missing rather than as an answer.
+    /// </summary>
+    [Fact]
+    public void A_saved_entry_is_always_offered_somewhere_to_move_to()
+    {
+        RegisterApiClients(AnItem());
+        var cut = Render();
+
+        ExpandTheOnlyItem(cut);
+
+        Assert.Contains("Move to list", cut.Find(".editor-item-details").TextContent);
     }
 
     [Fact]
