@@ -704,10 +704,15 @@ least from being started early.
 developer account (§12), and Android carried phases 2 to 7. Phase 6's "done when" is met on Android —
 the map renders, a position is recorded and reverse-geocoded, and it can be shared and stopped — with
 the Google Maps key being deployment configuration rather than code (see `secrets/README.md`). Phase 7
-is met on Android too, including a real push arriving in the tray; what is left of it there is a push
-that arrives while the app is in front of somebody, which today shows nothing.
+is met on Android too: a real push arrives in the tray, and one that arrives while the app is in front
+of somebody now shows as a banner in the app rather than nothing at all.
 
-Phase 8 has not started, and most of §9 is iOS-only, so it is blocked on the same thing iOS is.
+Phase 8 is met on Android: every control on both heads names itself to a screen reader, both are
+localised through the same `Orbit.Localization` the web client uses, and the home screen widget is
+built and driven on a device — the day, what is still ahead in it, and a tap that lands on the right
+screen (see [Functionality](functionality.md#the-home-screen-widget-android)). The rest of the phase —
+Live Activities, the Dynamic Island, the Action Button — is iOS-only, as is most of §9, so it is
+blocked on the same thing iOS is.
 
 ## 11. Risks
 

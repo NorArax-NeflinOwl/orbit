@@ -12,8 +12,11 @@ public enum ShelfCorrectionOutcome
     /// <summary>The warehouse is not on this phone, so there was nothing to correct.</summary>
     NotFound,
 
-    /// <summary>Somebody else can change that warehouse and there is no connection to check with.</summary>
-    RefusedWhileOffline
+    /// <summary>
+    /// The warehouse cannot be written to: somebody else can change it and there is no connection to
+    /// check with, or it was shared without editing - see LocalWriteOutcome.
+    /// </summary>
+    Refused
 }
 
 /// <summary>
@@ -70,9 +73,9 @@ public sealed class ShelfCorrection
                 warehouse.IsPrivate),
             cancellationToken);
 
-        if (outcome is LocalWriteOutcome.RefusedWhileOffline)
+        if (outcome.WasRefused())
         {
-            return ShelfCorrectionOutcome.RefusedWhileOffline;
+            return ShelfCorrectionOutcome.Refused;
         }
 
         // Pushed here rather than left for whenever somebody next opens the warehouse: the correction is

@@ -13,6 +13,9 @@ public enum Screen
     Startup,
     SignIn,
     Register,
+
+    /// <summary>Getting back in without the password - see PasswordResetViewModel.</summary>
+    PasswordReset,
     Dashboard,
     Notes,
     Note,
@@ -37,6 +40,9 @@ public enum Screen
     ChatKeyGate,
     Map,
     Notifications,
+
+    /// <summary>Something somebody sent a link to, read without being in the account - see SharedLinkViewModel.</summary>
+    SharedLink,
     Account,
     Update,
     Diagnostics

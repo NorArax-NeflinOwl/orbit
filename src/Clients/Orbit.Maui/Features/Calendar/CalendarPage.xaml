@@ -165,8 +165,12 @@
         </Grid>
 
         <Grid Grid.Row="2" ColumnDefinitions="*,*" ColumnSpacing="8">
-            <DatePicker Grid.Column="0" Date="{Binding NewEventDate}" Format="{controls:DatePattern}" />
-            <TimePicker Grid.Column="1" Time="{Binding NewEventTime}" Format="{controls:TimePattern}" />
+            <!-- When the event above starts. Named, because the two sit under the box it is
+                     typed into rather than under headings of their own. -->
+            <DatePicker Grid.Column="0" Date="{Binding NewEventDate}" Format="{controls:DatePattern}"
+                        SemanticProperties.Description="{controls:Translate 'Starts'}" />
+            <TimePicker Grid.Column="1" Time="{Binding NewEventTime}" Format="{controls:TimePattern}"
+                        SemanticProperties.Description="{controls:Translate 'Starts'}" />
         </Grid>
 
         <!-- The chosen day on the clock, under the grid that chose it. Orbit.Web swaps its grid for this

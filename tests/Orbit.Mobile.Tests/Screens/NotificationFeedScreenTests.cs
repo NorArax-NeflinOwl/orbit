@@ -226,7 +226,9 @@ public sealed class NotificationFeedScreenTests
                 encryptionKeyProvider, new SyncGate(), NullLogger<EncryptedChatMessageSender>.Instance);
             _synchronizer = new ChatSynchronizer(
                 repository, chatClient, usersClient, sender, NullLogger<ChatSynchronizer>.Instance);
-            _opener = new NotificationOpener(repository, _synchronizer, usersClient, new PendingNotificationTap(), Navigator);
+            _opener = new NotificationOpener(
+                repository, _synchronizer, usersClient, Openers.TaskListsIn(_localStore), Openers.NoTaskListServer(_localStore),
+                new PendingNotificationTap(), Navigator);
         }
 
         public FakeNotificationServer Server { get; } = new();

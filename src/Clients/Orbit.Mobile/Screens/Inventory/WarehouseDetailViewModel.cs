@@ -343,11 +343,9 @@ public sealed partial class WarehouseDetailViewModel : ObservableObject
     private async Task DeleteAsync(CancellationToken cancellationToken)
     {
         var outcome = await _warehouses.DeleteAsync(_localId, cancellationToken);
-        if (outcome is LocalWriteOutcome.RefusedWhileOffline)
+        if (outcome.WasRefused())
         {
-            Status = _translations[
-                "Somebody else can change this warehouse, and Orbit can't be reached to check. "
-                + "It stays read-only until you're back online."];
+            Status = outcome.Explain(RefusalMessage, _translations);
             return;
         }
 
@@ -357,6 +355,11 @@ public sealed partial class WarehouseDetailViewModel : ObservableObject
 
     [RelayCommand]
     private void GoBack() => _navigator.ShowInventory();
+
+    /// <summary>The dictionary key, not the text itself - see <see cref="Translations"/>.</summary>
+    private const string RefusalMessage =
+        "Somebody else can change this warehouse, and Orbit can't be reached to check. "
+        + "It stays read-only until you're back online.";
 
     private async Task SaveAsync(IReadOnlyList<WarehouseItemDto> items, CancellationToken cancellationToken)
     {
@@ -374,11 +377,9 @@ public sealed partial class WarehouseDetailViewModel : ObservableObject
             return;
         }
 
-        if (outcome is LocalWriteOutcome.RefusedWhileOffline)
+        if (outcome.WasRefused())
         {
-            Status = _translations[
-                "Somebody else can change this warehouse, and Orbit can't be reached to check. "
-                + "It stays read-only until you're back online."];
+            Status = outcome.Explain(RefusalMessage, _translations);
             return;
         }
 
@@ -436,8 +437,11 @@ public sealed partial class WarehouseDetailViewModel : ObservableObject
             // Said in the same words the row on the list before it used - being told it cannot be
             // changed, without being told why, leaves a screen that simply looks broken.
             ReadOnlyReason = OfflineEditExplanation.For(
-                OfflineEditPolicy.Evaluate(warehouse, _networkStatus), hasUnsentChanges: false, _translations);
-            IsCopyOffered = IsReadOnly && warehouse.CopyOfLocalId is null;
+                warehouse, OfflineEditPolicy.Evaluate(warehouse, _networkStatus), hasUnsentChanges: false,
+                _translations);
+            // <inheritdoc cref="Tasks.TaskListDetailViewModel"/> - a copy is for editing offline what
+            // could be edited online.
+            IsCopyOffered = IsReadOnly && warehouse.CopyOfLocalId is null && SharedItemAccess.AllowsEditing(warehouse);
         }
 
         if (!IsReadOnly && warehouse.ServerId is { } lockedServerId)

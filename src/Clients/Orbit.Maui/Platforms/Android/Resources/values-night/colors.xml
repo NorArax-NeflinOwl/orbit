@@ -6,4 +6,8 @@
     <color name="colorPrimaryDark">#1C1C1E</color>
     <!-- The dark half of the default accent - see values/colors.xml. -->
     <color name="colorAccent">#A79DF8</color>
+    <!-- The dark half of the widget's colours - see values/colors.xml. -->
+    <color name="orbitWidgetBackground">#1C1C1E</color>
+    <color name="orbitWidgetText">#FFFFFF</color>
+    <color name="orbitWidgetSubtleText">#A0A0A5</color>
 </resources>

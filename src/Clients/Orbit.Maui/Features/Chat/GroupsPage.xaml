@@ -73,7 +73,10 @@
                 <CollectionView.ItemTemplate>
                     <DataTemplate x:DataType="screens:SelectableContact">
                         <Grid ColumnDefinitions="Auto,*" Padding="0,8" ColumnSpacing="8">
-                            <CheckBox Grid.Column="0" IsChecked="{Binding IsSelected}" />
+                            <!-- Named after the person it is beside, not after the section: every row would
+                                 otherwise announce the same thing. -->
+                            <CheckBox Grid.Column="0" IsChecked="{Binding IsSelected}"
+                                      SemanticProperties.Description="{Binding DisplayName}" />
                             <Label Grid.Column="1" Text="{Binding DisplayName}" VerticalOptions="Center" />
                         </Grid>
                     </DataTemplate>

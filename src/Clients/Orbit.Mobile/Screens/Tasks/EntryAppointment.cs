@@ -178,7 +178,7 @@ public sealed class EntryAppointment
         var details = editor.Event.ToDetails(edited.Description, place);
         if (await _events.FindPendingForAsync(taskListLocalId, edited.Description, cancellationToken) is { } waiting)
         {
-            return await _events.UpdateAsync(waiting.LocalId, details, cancellationToken) is LocalWriteOutcome.RefusedWhileOffline
+            return (await _events.UpdateAsync(waiting.LocalId, details, cancellationToken)).WasRefused()
                 ? new AppointmentResult(null, AppointmentOutcome.Refused)
                 : new AppointmentResult(edited, AppointmentOutcome.QueuedOnThisPhone, LostThePlace(place));
         }

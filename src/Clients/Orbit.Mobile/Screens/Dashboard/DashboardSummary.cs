@@ -104,8 +104,6 @@ public interface IDashboardPinStore
     void Write(IReadOnlySet<DashboardCardKind> pinned);
 }
 
-/// <summary>
-
 /// <summary>What one card is showing of what it could show - the same set Orbit.Web offers.</summary>
 public enum DashboardCardFilter
 {
@@ -120,6 +118,8 @@ public enum DashboardCardFilter
 
 /// <summary>One choice in a card's filter menu, with the chosen one marked.</summary>
 public sealed record DashboardFilterChoice(DashboardCardKind Kind, DashboardCardFilter Filter, string Name, bool IsChosen);
+
+/// <summary>
 /// One line of the "Show on the dashboard" menu: a part of the dashboard and whether it is being shown.
 /// Every kind is listed, including the ones with nothing in them today - a card put away has to stay
 /// reachable, or there would be no way to bring it back.
