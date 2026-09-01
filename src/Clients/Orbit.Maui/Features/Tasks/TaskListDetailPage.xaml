@@ -18,32 +18,26 @@
 
         <!-- The list's own name, and the things it can do that are not "tick something off" - the two
              Orbit.Web keeps in its overflow menu. -->
-        <VerticalStackLayout Grid.Row="0" Spacing="6">
-        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="4">
-            <Entry Grid.Column="0" Text="{Binding Title}" FontSize="20" FontAttributes="Bold"
-                   IsReadOnly="{Binding IsReadOnly}" Placeholder="{controls:Translate 'Untitled'}"
-                   ReturnType="Done" ReturnCommand="{Binding SaveListCommand}" />
-            <Button Grid.Column="1" Text="⋯" SemanticProperties.Description="{controls:Translate 'More'}" FontSize="18" WidthRequest="44" Padding="0"
-                    BackgroundColor="Transparent" IsVisible="{Binding StockCheck.IsOffered}"
-                    TextColor="{AppThemeBinding Light={StaticResource SubtleTextLight}, Dark={StaticResource SubtleTextDark}}"
-                    Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=ShowListMenuCommand, x:DataType=tasks:TaskListDetailPage}" />
-        </Grid>
+        <controls:TitledDescription Grid.Row="0"
+                                    Title="{Binding Title, Mode=TwoWay}" TitleLabel="{controls:Translate 'Title'}"
+                                    TitlePlaceholder="{controls:Translate 'Untitled'}"
+                                    SaveTitleCommand="{Binding SaveListCommand}"
+                                    Description="{Binding Description, Mode=TwoWay}"
+                                    CommitDescriptionCommand="{Binding CommitDescriptionCommand}"
+                                    IsReadOnly="{Binding IsReadOnly}"
+                                    ShowsDescription="{Binding IsNotPrivate}">
+            <controls:TitledDescription.Suggestions>
+                <controls:NameSuggestionChips BindingContext="{Binding TitleSuggestions}" />
+            </controls:TitledDescription.Suggestions>
 
-            <!-- Titles already in use, offered as this one is typed - its own strip, because the box
-                 below is a different field and is on screen at the same time. -->
-            <controls:NameSuggestionChips BindingContext="{Binding TitleSuggestions}" />
-
-            <!-- What the list is for, under its name and with no label of its own: it is the rest of the
-                 sentence the title starts, which is how Orbit.Web draws the pair - see its
-                 TitledDescription. Absent on a private list, which the server keeps none for. -->
-            <!-- Saved when the reader moves away from it, and only if it changed: an editor has no
-                 "done" key to press, so without this the first thing typed here was lost on leaving. -->
-            <Editor Text="{Binding Description}" IsReadOnly="{Binding IsReadOnly}" AutoSize="TextChanges"
-                    IsVisible="{Binding IsNotPrivate}" FontSize="14" MinimumHeightRequest="0"
-                    Placeholder="{controls:Translate 'What is it for?'}"
-                    Unfocused="OnDescriptionUnfocused"
-                    SemanticProperties.Description="{controls:Translate 'Description'}" />
-        </VerticalStackLayout>
+            <controls:TitledDescription.Menu>
+                <Button Text="⋯" SemanticProperties.Description="{controls:Translate 'More'}" FontSize="18"
+                        WidthRequest="44" Padding="0" BackgroundColor="Transparent"
+                        IsVisible="{Binding StockCheck.IsOffered}"
+                        TextColor="{AppThemeBinding Light={StaticResource SubtleTextLight}, Dark={StaticResource SubtleTextDark}}"
+                        Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=ShowListMenuCommand, x:DataType=tasks:TaskListDetailPage}" />
+            </controls:TitledDescription.Menu>
+        </controls:TitledDescription>
 
         <VerticalStackLayout Grid.Row="1" Spacing="4">
             <Label Text="{Binding Status}" IsVisible="{Binding HasStatus}"

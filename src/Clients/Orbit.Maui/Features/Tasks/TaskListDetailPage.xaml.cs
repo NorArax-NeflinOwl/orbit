@@ -69,13 +69,6 @@ public partial class TaskListDetailPage : ContentPage
 		}
 	}
 
-	/// <summary>
-	/// Leaving the description box is what stands for finishing it: there is no return key on an editor,
-	/// and everything else on this screen saves as it is chosen.
-	/// </summary>
-	private void OnDescriptionUnfocused(object? sender, FocusEventArgs e)
-		=> _viewModel.CommitDescriptionCommand.Execute(null);
-
 	protected override void OnAppearing()
 	{
 		base.OnAppearing();
