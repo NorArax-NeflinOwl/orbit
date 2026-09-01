@@ -400,7 +400,7 @@ else
         => (_taskLists ?? [])
             .SelectMany(taskList => taskList.Items.Select(item => (taskList, item)))
             .Where(pair => !pair.item.IsCompleted
-                && pair.item.LinkedTaskListId is null
+                && pair.item.AllLinkedTaskListIds.Count == 0
                 && pair.item.DueDateUtc is { } dueDate && dueDate >= nowUtc)
             .Select(pair => new UpcomingEntry(
                 pair.item.DueDateUtc!.Value,

@@ -166,7 +166,9 @@ public sealed class ImportArchiveCommandHandler : IRequestHandler<ImportArchiveC
             item.Description,
             item.DueDateUtc,
             item.IsCompleted,
-            item.LinkedTaskListTitle is { } title && createdIdsByTitle.TryGetValue(title, out var linkedId) ? linkedId : null,
+            [.. item.AllLinkedTaskListTitles
+                .Select(title => createdIdsByTitle.TryGetValue(title, out var linkedId) ? linkedId : (Guid?)null)
+                .OfType<Guid>()],
             ParseChannel(item.OverdueNotificationChannel),
             item.RemindDaily,
             ParseChannel(item.DailyReminderNotificationChannel),

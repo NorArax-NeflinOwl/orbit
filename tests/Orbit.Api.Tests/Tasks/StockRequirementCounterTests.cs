@@ -79,7 +79,7 @@ public sealed class StockRequirementCounterTests
     public void A_row_that_only_points_at_another_list_is_not_work()
     {
         // That row is how a group list is held together - it is not a thing to fetch off a shelf.
-        var link = TaskItem.Create("Kitchen done", dueDateUtc: null, isCompleted: false, linkedTaskListId: Guid.NewGuid());
+        var link = TaskItem.Create("Kitchen done", dueDateUtc: null, isCompleted: false, linkedTaskListIds: [Guid.NewGuid()]);
 
         var check = StockRequirementCounter.Count([link, Work("Screw")], [Stock("Screw", 5)], Now);
 

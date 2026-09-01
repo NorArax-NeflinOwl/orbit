@@ -89,7 +89,7 @@ public sealed class ReconcileTaskListWithStockCommandHandler : IRequestHandler<R
 
         var alreadyAskedFor = tree
             .SelectMany(list => list.Items)
-            .Where(item => item.LinkedTaskListId is null)
+            .Where(item => !item.IsALinkToOtherLists)
             .Select(item => Normalize(item.Description))
             .ToHashSet();
 
@@ -125,7 +125,7 @@ public sealed class ReconcileTaskListWithStockCommandHandler : IRequestHandler<R
         var crossedOff = 0;
         foreach (var item in taskList.Items)
         {
-            if (item.LinkedTaskListId is not null || IsNotDueYet(item, nowUtc))
+            if (item.IsALinkToOtherLists || IsNotDueYet(item, nowUtc))
             {
                 continue;
             }

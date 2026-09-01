@@ -25,7 +25,7 @@ public sealed class LinkedTaskCompletionResolverTests
     {
         var userId = Guid.NewGuid();
         var linkedList = TaskList.Create(userId, "Linked list", [TaskItem.Create("Not done", null, false)]);
-        var mainList = TaskList.Create(userId, "Main list", [TaskItem.Create("Depends on linked list", null, false, linkedList.Id)]);
+        var mainList = TaskList.Create(userId, "Main list", [TaskItem.Create("Depends on linked list", null, false, [linkedList.Id])]);
 
         var resolved = _resolver.ResolveAll([mainList, linkedList]);
 
@@ -39,7 +39,7 @@ public sealed class LinkedTaskCompletionResolverTests
     {
         var userId = Guid.NewGuid();
         var linkedList = TaskList.Create(userId, "Linked list", [TaskItem.Create("Done", null, true)]);
-        var mainList = TaskList.Create(userId, "Main list", [TaskItem.Create("Depends on linked list", null, false, linkedList.Id)]);
+        var mainList = TaskList.Create(userId, "Main list", [TaskItem.Create("Depends on linked list", null, false, [linkedList.Id])]);
 
         var resolved = _resolver.ResolveAll([mainList, linkedList]);
 
@@ -53,8 +53,8 @@ public sealed class LinkedTaskCompletionResolverTests
     {
         var userId = Guid.NewGuid();
         var listC = TaskList.Create(userId, "List C", [TaskItem.Create("Plain item", null, true)]);
-        var listB = TaskList.Create(userId, "List B", [TaskItem.Create("Depends on C", null, false, listC.Id)]);
-        var listA = TaskList.Create(userId, "List A", [TaskItem.Create("Depends on B", null, false, listB.Id)]);
+        var listB = TaskList.Create(userId, "List B", [TaskItem.Create("Depends on C", null, false, [listC.Id])]);
+        var listA = TaskList.Create(userId, "List A", [TaskItem.Create("Depends on B", null, false, [listB.Id])]);
 
         var resolved = _resolver.ResolveAll([listA, listB, listC]);
 
@@ -74,9 +74,9 @@ public sealed class LinkedTaskCompletionResolverTests
         // TaskListLinkValidator is what normally prevents this from ever being saved - this constructs
         // the scenario directly to confirm the resolver itself has a defensive backstop.
         var listX = TaskList.FromPersistence(
-            listXId, userId, "X", [TaskItem.Create("Depends on Y", null, false, listYId)], isGroup: false, isPrivate: false, encryptedContent: null, now, now, null, null, null, ItemPriority.Normal, isPinned: false);
+            listXId, userId, "X", [TaskItem.Create("Depends on Y", null, false, [listYId])], isGroup: false, isPrivate: false, encryptedContent: null, now, now, null, null, null, ItemPriority.Normal, isPinned: false);
         var listY = TaskList.FromPersistence(
-            listYId, userId, "Y", [TaskItem.Create("Depends on X", null, false, listXId)], isGroup: false, isPrivate: false, encryptedContent: null, now, now, null, null, null, ItemPriority.Normal, isPinned: false);
+            listYId, userId, "Y", [TaskItem.Create("Depends on X", null, false, [listXId])], isGroup: false, isPrivate: false, encryptedContent: null, now, now, null, null, null, ItemPriority.Normal, isPinned: false);
 
         var resolved = _resolver.ResolveAll([listX, listY]);
 

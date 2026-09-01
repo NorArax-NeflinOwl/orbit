@@ -45,7 +45,7 @@ public sealed class GetTaskListsQueryHandlerTests
         var userId = Guid.NewGuid();
         var linkedList = TaskList.Create(userId, "Linked list", [TaskItem.Create("Done", null, true)]);
         await repository.AddAsync(linkedList, CancellationToken.None);
-        var mainList = TaskList.Create(userId, "Main list", [TaskItem.Create("Depends on linked list", null, false, linkedList.Id)]);
+        var mainList = TaskList.Create(userId, "Main list", [TaskItem.Create("Depends on linked list", null, false, [linkedList.Id])]);
         await repository.AddAsync(mainList, CancellationToken.None);
         var handler = CreateHandler(repository);
 

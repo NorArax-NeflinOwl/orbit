@@ -43,9 +43,26 @@ public sealed record ArchivedTaskList(
 /// A title rather than an id: ids are not carried, and a link is only meaningful if the list it points
 /// at came along in the same file. Resolved back on import, and dropped if it doesn't resolve.
 /// </param>
+/// <param name="LinkedTaskListTitle">
+/// The first list this entry stands for, by title. Kept so an archive written by this version still
+/// imports into an older one, and so an archive written by an older one still reads here - a file is
+/// read long after it is written, which is the whole point of having one.
+/// </param>
+/// <param name="LinkedTaskListTitles">
+/// Every list it stands for. Defaulted, and last: an archive written before entries could name more
+/// than one says nothing here, and the single title above is then the whole answer.
+/// </param>
 public sealed record ArchivedTaskItem(
     string Description, DateTimeOffset? DueDateUtc, bool IsCompleted, string? LinkedTaskListTitle,
-    string OverdueNotificationChannel, bool RemindDaily, string DailyReminderNotificationChannel, TimeOnly DailyReminderTimeOfDay);
+    string OverdueNotificationChannel, bool RemindDaily, string DailyReminderNotificationChannel,
+    TimeOnly DailyReminderTimeOfDay, IReadOnlyList<string>? LinkedTaskListTitles = null)
+{
+    /// <summary>Both shapes read as one, newest first - see the two parameters above.</summary>
+    public IReadOnlyList<string> AllLinkedTaskListTitles
+        => LinkedTaskListTitles is { Count: > 0 } titles
+            ? titles
+            : LinkedTaskListTitle is { } single ? [single] : [];
+}
 
 public sealed record ArchivedCalendarEvent(
     string Title, string? Description, string? Color, DateTimeOffset StartUtc, DateTimeOffset EndUtc, bool IsAllDay,

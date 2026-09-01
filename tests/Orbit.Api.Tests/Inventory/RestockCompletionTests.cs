@@ -116,7 +116,7 @@ public sealed class RestockCompletionTests
         var taskList = await TaskListAsync(taskListId);
         var withoutLinks = taskList.Items
             .Select(item => TaskItem.FromPersistence(
-                item.Id, item.Description, item.DueDateUtc, isCompleted: true, item.LinkedTaskListId,
+                item.Id, item.Description, item.DueDateUtc, isCompleted: true, item.LinkedTaskListIds,
                 item.OverdueNotificationChannel, item.RemindDaily, item.DailyReminderNotificationChannel,
                 item.DailyReminderTimeOfDay))
             .ToList();
@@ -183,7 +183,7 @@ public sealed class RestockCompletionTests
         var taskList = await _context.TaskRepository.GetByIdAsync(_userId, taskListId, CancellationToken.None);
         var ticked = taskList!.Items
             .Select(item => TaskItem.FromPersistence(
-                item.Id, item.Description, item.DueDateUtc, isCompleted: true, item.LinkedTaskListId,
+                item.Id, item.Description, item.DueDateUtc, isCompleted: true, item.LinkedTaskListIds,
                 item.OverdueNotificationChannel, item.RemindDaily, item.DailyReminderNotificationChannel,
                 item.DailyReminderTimeOfDay))
             .ToList();
@@ -221,7 +221,7 @@ public sealed class RestockCompletionTests
         var taskList = await _context.TaskRepository.GetByIdAsync(_userId, taskListId, CancellationToken.None);
         var ticked = taskList!.Items
             .Select(item => TaskItem.FromPersistence(
-                item.Id, item.Description, item.DueDateUtc, isCompleted: true, item.LinkedTaskListId,
+                item.Id, item.Description, item.DueDateUtc, isCompleted: true, item.LinkedTaskListIds,
                 item.OverdueNotificationChannel, item.RemindDaily, item.DailyReminderNotificationChannel,
                 item.DailyReminderTimeOfDay))
             .ToList();

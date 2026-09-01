@@ -405,6 +405,17 @@ input.note-editor-title {
     min-height: 100vh;
 }
 
+/* Every page's content sits inside this, and it needs room on both sides: with only the narrow-screen
+   rule below, a wide window drew cards flush against the glass on the left and the right. The width is
+   capped as well - a dashboard stretched across a very wide monitor puts its three columns so far
+   apart that reading across a row becomes a head movement. */
+.main-content {
+    width: 100%;
+    max-width: 1600px;
+    margin: 0 auto;
+    padding: 24px 32px 40px 32px;
+}
+
 .topbar {
     display: flex;
     align-items: center;
@@ -1209,8 +1220,13 @@ input.note-editor-title {
 }
 
 /* Pinned cards come first. Done with grid order rather than by reordering the markup, so the cards stay
-   where they are written and a pin only changes where they land. */
-.card-pinned {
+   where they are written and a pin only changes where they land. Scoped to this grid: the lists that
+   also mark a pinned card are already sorted pinned-first by the page that builds them.
+
+   It reads .item-card-pinned because that is what the shared card carries - the old .card-pinned this
+   rule named stopped existing when the dashboard moved onto ItemCard, and the pin quietly stopped
+   moving anything. */
+.card-grid > .item-card-pinned {
     order: -1;
 }
 
@@ -4750,4 +4766,27 @@ textarea.editor-item-main {
 .event-fields-guest-access {
     color: var(--text-secondary);
     font-size: 12.5px;
+}
+
+/* The lists one entry stands for, each with a way to take it off again. A row of chips rather than a
+   multi-select: what matters is reading which lists these are, and a multi-select shows that only
+   while it is open. */
+.linked-list-chips {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+.linked-list-chips li {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 3px 4px 3px 10px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    font-size: 13px;
 }

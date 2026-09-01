@@ -20,7 +20,7 @@ public sealed class TaskRepository : ITaskRepository
     {
         var query = _dbContext.Tasks
             .AsNoTracking()
-            .Include(task => task.Items)
+            .Include(task => task.Items).ThenInclude(item => item.LinkedTaskLists)
             .Where(task => task.UserId == userId);
 
         // Narrowed in the database when the caller only wants what changed. A client catching up asks
@@ -42,7 +42,7 @@ public sealed class TaskRepository : ITaskRepository
     {
         var entity = await _dbContext.Tasks
             .AsNoTracking()
-            .Include(task => task.Items)
+            .Include(task => task.Items).ThenInclude(item => item.LinkedTaskLists)
             .FirstOrDefaultAsync(task => task.Id == id && task.UserId == userId, cancellationToken);
 
         return entity is null ? null : ToDomain(entity);
@@ -58,7 +58,7 @@ public sealed class TaskRepository : ITaskRepository
 
         var entities = await _dbContext.Tasks
             .AsNoTracking()
-            .Include(task => task.Items)
+            .Include(task => task.Items).ThenInclude(item => item.LinkedTaskLists)
             .Where(task => task.UserId == userId
                 && task.Id != exceptListId
                 && task.Items.Any(item => itemIds.Contains(item.Id)))
@@ -175,7 +175,7 @@ public sealed class TaskRepository : ITaskRepository
             entity.Description,
             entity.DueDateUtc,
             entity.IsCompleted,
-            entity.LinkedTaskListId,
+            [.. entity.LinkedTaskLists.OrderBy(link => link.Position).Select(link => link.LinkedTaskListId)],
             Enum.Parse<NotificationChannel>(entity.OverdueNotificationChannel, ignoreCase: true),
             entity.RemindDaily,
             Enum.Parse<NotificationChannel>(entity.DailyReminderNotificationChannel, ignoreCase: true),
@@ -215,7 +215,13 @@ public sealed class TaskRepository : ITaskRepository
             Description = item.Description,
             DueDateUtc = item.DueDateUtc,
             IsCompleted = item.IsCompleted,
-            LinkedTaskListId = item.LinkedTaskListId,
+            LinkedTaskLists = [.. item.LinkedTaskListIds.Select((linkedId, linkPosition) =>
+                new TaskItemTaskListLinkEntity
+                {
+                    TaskItemId = item.Id,
+                    LinkedTaskListId = linkedId,
+                    Position = linkPosition
+                })],
             OverdueNotificationChannel = item.OverdueNotificationChannel.ToString(),
             RemindDaily = item.RemindDaily,
             DailyReminderNotificationChannel = item.DailyReminderNotificationChannel.ToString(),

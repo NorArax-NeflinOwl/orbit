@@ -20,6 +20,10 @@ public sealed record TaskItemRequest(
     Guid? Id,
     DateTimeOffset? DueDateUtc,
     bool IsCompleted,
+    /// <summary>
+    /// The first list this entry stands for, or null. The old shape, kept because a client that has not
+    /// learned about the new one still reads and writes this - see <see cref="LinkedTaskListIds"/>.
+    /// </summary>
     Guid? LinkedTaskListId,
     string OverdueNotificationChannel,
     bool RemindDaily,
@@ -32,8 +36,19 @@ public sealed record TaskItemRequest(
     /// The shelf item an Inventory entry is an errand about - see Orbit.Core.Tasks.TaskItem.LinkedInventoryItemId.
     /// Null for every other kind.
     /// </summary>
-    Guid? LinkedInventoryItemId = null)
+    Guid? LinkedInventoryItemId = null,
+    /// <summary>
+    /// Every list this entry stands for. <b>Null means "not provided"</b>, and the single field above is
+    /// then the whole answer - which is what an older client sends. An empty list means "none", and
+    /// clears the links.
+    /// </summary>
+    IReadOnlyList<Guid>? LinkedTaskListIds = null)
 {
+    /// <summary>Whichever shape the sender used, read as one - see <see cref="LinkedTaskListIds"/>.</summary>
+    public IReadOnlyList<Guid> AllLinkedTaskListIds
+        => LinkedTaskListIds ?? (LinkedTaskListId is { } single ? [single] : []);
+
+
     /// <summary>
     /// An entry as it already is, ready to be sent back unchanged.
     ///
@@ -58,5 +73,6 @@ public sealed record TaskItemRequest(
             item.Kind,
             item.Location,
             item.LinkedCalendarEventId,
-            item.LinkedInventoryItemId);
+            item.LinkedInventoryItemId,
+            item.AllLinkedTaskListIds);
 }

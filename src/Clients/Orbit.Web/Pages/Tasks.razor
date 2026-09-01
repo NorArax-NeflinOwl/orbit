@@ -184,7 +184,7 @@ else
                     <div class="list-row task-preview-row @(item.IsCompleted ? "completed" : "")">
                         <span class="task-preview-mark">@(item.IsCompleted ? "✓" : "")</span>
                         <span class="row-title">@Written(item.Description)</span>
-                        @if (item.LinkedTaskListId is not null)
+                        @if (item.AllLinkedTaskListIds.Count > 0)
                         {
                             <span class="row-meta">@T["follows another list"]</span>
                         }
@@ -196,7 +196,7 @@ else
 
                     @* What a row that only points at another list actually stands for. Without it a
                        group list's card is a stack of titles, which says nothing about the work. *@
-                    @if (item.LinkedTaskListId is { } linkedTaskListId)
+                    @foreach (var linkedTaskListId in item.AllLinkedTaskListIds)
                     {
                         @foreach (var linkedItem in LinkedItems(linkedTaskListId))
                         {
@@ -379,21 +379,26 @@ else
     {
         foreach (var item in taskList.Items.Where(item => !item.IsCompleted))
         {
-            if (item.LinkedTaskListId is not { } linkedTaskListId)
+            if (item.AllLinkedTaskListIds.Count == 0)
             {
                 return new ThingLeftToDo(item.Description, OnList: null);
             }
 
-            // A member list this reader cannot see, or one not loaded: the row's own name is that list's
-            // title, which still says more than nothing.
-            if (LinkedTaskList(linkedTaskListId) is not { } linkedTaskList)
+            // An entry standing for several lists is looked through in order, so what comes back is the
+            // first outstanding thing on the first list that still has one.
+            foreach (var linkedTaskListId in item.AllLinkedTaskListIds)
             {
-                return new ThingLeftToDo(item.Description, OnList: null);
-            }
+                // A member list this reader cannot see, or one not loaded: the row's own name is that
+                // list's title, which still says more than nothing.
+                if (LinkedTaskList(linkedTaskListId) is not { } linkedTaskList)
+                {
+                    return new ThingLeftToDo(item.Description, OnList: null);
+                }
 
-            if (linkedTaskList.Items.FirstOrDefault(linked => !linked.IsCompleted) is { } linkedItem)
-            {
-                return new ThingLeftToDo(linkedItem.Description, linkedTaskList.Title);
+                if (linkedTaskList.Items.FirstOrDefault(linked => !linked.IsCompleted) is { } linkedItem)
+                {
+                    return new ThingLeftToDo(linkedItem.Description, linkedTaskList.Title);
+                }
             }
         }
 

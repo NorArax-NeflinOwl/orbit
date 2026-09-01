@@ -20,10 +20,10 @@ public sealed class TaskItemEntity
     public bool IsCompleted { get; set; }
 
     /// <summary>
-    /// Id of another <see cref="TaskEntity"/> this entry references instead of being independently
-    /// completable - see <see cref="Orbit.Core.Tasks.LinkedTaskCompletionResolver"/>.
+    /// The lists this entry references instead of being independently completable - see
+    /// <see cref="Orbit.Core.Tasks.LinkedTaskCompletionResolver"/>. Empty for an ordinary entry.
     /// </summary>
-    public Guid? LinkedTaskListId { get; set; }
+    public List<TaskItemTaskListLinkEntity> LinkedTaskLists { get; set; } = [];
 
     /// <summary>What this entry is, stored by name like every other enum here - see Orbit.Core.Tasks.TaskItemKind.</summary>
     public string Kind { get; set; } = nameof(Orbit.Core.Tasks.TaskItemKind.Checklist);

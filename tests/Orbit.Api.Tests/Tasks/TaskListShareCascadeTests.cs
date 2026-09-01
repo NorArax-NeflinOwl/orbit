@@ -188,7 +188,7 @@ public sealed class TaskListShareCascadeTests
         public async Task<TaskList> AddGroupListAsync(string title, Guid memberId)
         {
             var taskList = TaskList.Create(
-                OwnerId, title, [TaskItem.Create(title, null, false, memberId)], isGroup: true);
+                OwnerId, title, [TaskItem.Create(title, null, false, [memberId])], isGroup: true);
             await _taskRepository.AddAsync(taskList, CancellationToken.None);
             return taskList;
         }
@@ -196,7 +196,7 @@ public sealed class TaskListShareCascadeTests
         public async Task AddLinkAsync(TaskList group, Guid memberId)
         {
             group.Update(
-                group.Title, [.. group.Items, TaskItem.Create("Also", null, false, memberId)],
+                group.Title, [.. group.Items, TaskItem.Create("Also", null, false, [memberId])],
                 group.IsGroup, group.IsPrivate, group.EncryptedContent, group.Priority);
             await _taskRepository.UpdateAsync(group, CancellationToken.None);
         }

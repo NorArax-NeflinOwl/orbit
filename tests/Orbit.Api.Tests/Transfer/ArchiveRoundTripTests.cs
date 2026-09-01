@@ -95,7 +95,7 @@ public sealed class ArchiveRoundTripTests
         var imported = await destination.OwnTaskListsAsync();
         var weekend = imported.Single(taskList => taskList.Title == "Weekend");
         var groceries = imported.Single(taskList => taskList.Title == "Groceries");
-        Assert.Equal(groceries.Id, Assert.Single(weekend.Items).LinkedTaskListId);
+        Assert.Equal([groceries.Id], Assert.Single(weekend.Items).LinkedTaskListIds);
     }
 
     [Fact]
@@ -109,7 +109,9 @@ public sealed class ArchiveRoundTripTests
         await destination.ImportAsync(archive);
 
         var weekend = Assert.Single(await destination.OwnTaskListsAsync());
-        Assert.Null(Assert.Single(weekend.Items).LinkedTaskListId);
+        // No links at all, rather than a link to nothing: an entry now names a list of them, and
+        // "stands for nothing" is an empty list.
+        Assert.Empty(Assert.Single(weekend.Items).LinkedTaskListIds);
     }
 
     [Fact]
@@ -218,7 +220,7 @@ public sealed class ArchiveRoundTripTests
             var taskList = TaskList.Create(
                 UserId, title,
                 [TaskItem.Create(
-                    "Follows another list", null, false, linkedTaskListId, NotificationChannel.None, false,
+                    "Follows another list", null, false, [linkedTaskListId], NotificationChannel.None, false,
                     NotificationChannel.None, new TimeOnly(9, 0))]);
             await _taskRepository.AddAsync(taskList, CancellationToken.None);
         }

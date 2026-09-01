@@ -5,10 +5,10 @@ namespace Orbit.Core.Tasks;
 
 /// <summary>
 /// A single checklist entry within a <see cref="TaskList"/>, with its own due date and completion
-/// state - or, if <see cref="LinkedTaskListId"/> is set, a reference to another of the user's task
-/// lists instead of an independently completable entry (see <see cref="LinkedTaskCompletionResolver"/>
-/// for how its completion is derived, and <see cref="TaskListLinkValidator"/> for how the link itself
-/// is validated).
+/// state - or, if <see cref="LinkedTaskListIds"/> holds anything, a reference to other task lists of
+/// the same user instead of an independently completable entry (see
+/// <see cref="LinkedTaskCompletionResolver"/> for how its completion is derived, and
+/// <see cref="TaskListLinkValidator"/> for how the links themselves are validated).
 /// </summary>
 public sealed class TaskItem
 {
@@ -16,7 +16,23 @@ public sealed class TaskItem
     public string Description { get; private set; }
     public DateTimeOffset? DueDateUtc { get; private set; }
     public bool IsCompleted { get; private set; }
-    public Guid? LinkedTaskListId { get; private set; }
+
+    /// <summary>
+    /// The other task lists this entry stands for, in the order somebody put them in. Empty for an
+    /// ordinary entry, which is the usual case.
+    ///
+    /// Several rather than one because a step is often more than one list - "the flat is ready" means
+    /// the kitchen and the bathroom and the hall - and writing that as three entries saying the same
+    /// thing loses that they are one step. It is done when every list it names is done: any other rule
+    /// would let the entry read as finished while work it stands for is still outstanding.
+    /// </summary>
+    public IReadOnlyList<Guid> LinkedTaskListIds { get; private set; }
+
+    /// <summary>
+    /// Whether this entry is a pointer at other lists rather than work of its own. What separates the
+    /// two everywhere: a link is not counted as work, not ticked by hand, and not reopened.
+    /// </summary>
+    public bool IsALinkToOtherLists => LinkedTaskListIds.Count > 0;
 
     /// <summary>What this entry is, and so what else it carries - see <see cref="TaskItemKind"/>.</summary>
     public TaskItemKind Kind { get; private set; }
@@ -69,7 +85,7 @@ public sealed class TaskItem
     public TimeOnly DailyReminderTimeOfDay { get; private set; }
 
     private TaskItem(
-        Guid id, string description, DateTimeOffset? dueDateUtc, bool isCompleted, Guid? linkedTaskListId,
+        Guid id, string description, DateTimeOffset? dueDateUtc, bool isCompleted, IReadOnlyList<Guid>? linkedTaskListIds,
         NotificationChannel overdueNotificationChannel, bool remindDaily, NotificationChannel dailyReminderNotificationChannel,
         TimeOnly dailyReminderTimeOfDay, TaskItemKind kind, string location, Guid? linkedCalendarEventId,
         Guid? linkedInventoryItemId)
@@ -78,7 +94,9 @@ public sealed class TaskItem
         Description = description;
         DueDateUtc = dueDateUtc;
         IsCompleted = isCompleted;
-        LinkedTaskListId = linkedTaskListId;
+        // Distinct and in order: naming the same list twice is one link written twice, not two steps,
+        // and it would make the entry look like it stands for more work than it does.
+        LinkedTaskListIds = linkedTaskListIds is null ? [] : [.. linkedTaskListIds.Distinct()];
         OverdueNotificationChannel = overdueNotificationChannel;
         RemindDaily = remindDaily;
         DailyReminderNotificationChannel = dailyReminderNotificationChannel;
@@ -107,7 +125,7 @@ public sealed class TaskItem
     /// </summary>
     public void Reopen()
     {
-        if (LinkedTaskListId is null)
+        if (!IsALinkToOtherLists)
         {
             IsCompleted = false;
         }
@@ -122,19 +140,19 @@ public sealed class TaskItem
     /// </summary>
     public void Complete()
     {
-        if (LinkedTaskListId is null)
+        if (!IsALinkToOtherLists)
         {
             IsCompleted = true;
         }
     }
 
     /// <summary>
-    /// A linked item's completion can't be set directly - it always follows the list it links to (see
+    /// A linked item's completion can't be set directly - it always follows the lists it links to (see
     /// <see cref="LinkedTaskCompletionResolver"/>) - so <paramref name="isCompleted"/> is ignored in
-    /// favor of "not completed" whenever <paramref name="linkedTaskListId"/> is set.
+    /// favor of "not completed" whenever <paramref name="linkedTaskListIds"/> holds anything.
     /// </summary>
     public static TaskItem Create(
-        string description, DateTimeOffset? dueDateUtc, bool isCompleted, Guid? linkedTaskListId = null,
+        string description, DateTimeOffset? dueDateUtc, bool isCompleted, IReadOnlyList<Guid>? linkedTaskListIds = null,
         NotificationChannel overdueNotificationChannel = NotificationChannel.Push, bool remindDaily = false,
         NotificationChannel dailyReminderNotificationChannel = NotificationChannel.Push, TimeOnly dailyReminderTimeOfDay = default,
         TaskItemKind kind = TaskItemKind.Checklist, string location = "", Guid? linkedCalendarEventId = null,
@@ -147,7 +165,8 @@ public sealed class TaskItem
         StoredTextLimits.OrRefuse(location, StoredTextLimits.Address, "place's address");
 
         return new TaskItem(
-            Guid.NewGuid(), description, dueDateUtc, linkedTaskListId is null && isCompleted, linkedTaskListId,
+            Guid.NewGuid(), description, dueDateUtc,
+            (linkedTaskListIds is null || linkedTaskListIds.Count == 0) && isCompleted, linkedTaskListIds,
             overdueNotificationChannel, remindDaily, dailyReminderNotificationChannel, dailyReminderTimeOfDay,
             kind, location, linkedCalendarEventId, linkedInventoryItemId);
     }
@@ -159,7 +178,7 @@ public sealed class TaskItem
     /// </summary>
     public TaskItem WithNewId()
         => new(
-            Guid.NewGuid(), Description, DueDateUtc, IsCompleted, LinkedTaskListId,
+            Guid.NewGuid(), Description, DueDateUtc, IsCompleted, LinkedTaskListIds,
             OverdueNotificationChannel, RemindDaily, DailyReminderNotificationChannel, DailyReminderTimeOfDay,
             Kind, Location, LinkedCalendarEventId, LinkedInventoryItemId);
 
@@ -169,12 +188,12 @@ public sealed class TaskItem
     /// apply a freshly resolved completion value to a linked entry.
     /// </summary>
     public static TaskItem FromPersistence(
-        Guid id, string description, DateTimeOffset? dueDateUtc, bool isCompleted, Guid? linkedTaskListId,
+        Guid id, string description, DateTimeOffset? dueDateUtc, bool isCompleted, IReadOnlyList<Guid>? linkedTaskListIds,
         NotificationChannel overdueNotificationChannel, bool remindDaily, NotificationChannel dailyReminderNotificationChannel,
         TimeOnly dailyReminderTimeOfDay, TaskItemKind kind = TaskItemKind.Checklist, string location = "",
         Guid? linkedCalendarEventId = null, Guid? linkedInventoryItemId = null)
         => new(
-            id, description, dueDateUtc, isCompleted, linkedTaskListId,
+            id, description, dueDateUtc, isCompleted, linkedTaskListIds,
             overdueNotificationChannel, remindDaily, dailyReminderNotificationChannel, dailyReminderTimeOfDay,
             kind, location, linkedCalendarEventId, linkedInventoryItemId);
 }

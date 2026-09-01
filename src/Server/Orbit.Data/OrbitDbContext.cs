@@ -124,6 +124,23 @@ public sealed class OrbitDbContext : DbContext
                 .HasDefaultValue(nameof(Orbit.Core.Tasks.TaskItemKind.Checklist));
             // Matches CalendarEventEntity.LocationAddress, since it holds the same sort of thing.
             entity.Property(item => item.Location).IsRequired().HasMaxLength(StoredTextLimits.Address).HasDefaultValue(string.Empty);
+
+            // The lists this entry stands for. Owned by the entry and deleted with it, like the entries
+            // themselves are owned by their list.
+            entity.HasMany(item => item.LinkedTaskLists)
+                .WithOne()
+                .HasForeignKey(link => link.TaskItemId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<TaskItemTaskListLinkEntity>(entity =>
+        {
+            entity.HasKey(link => new { link.TaskItemId, link.LinkedTaskListId });
+
+            // No foreign key to the list being pointed at. A link to a list that has since been deleted
+            // reads as "not completed" rather than as a failure (see LinkedTaskCompletionResolver), and
+            // a constraint here would instead refuse the delete or silently take the entry with it.
+            entity.HasIndex(link => link.LinkedTaskListId);
         });
 
         modelBuilder.Entity<CalendarEventEntity>(entity =>

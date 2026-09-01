@@ -271,9 +271,12 @@ else
                                 }
                             </span>
                         }
-                        @if (item.LinkedTaskListId is { } linkedTaskListId)
+                        @if (item.AllLinkedTaskListIds.Count > 0)
                         {
-                            <span class="row-meta">@T.Format("follows {0}", LinkedTaskListTitle(linkedTaskListId))</span>
+                            @* Every list it stands for, named: "follows Kitchen, Bathroom" says what
+                               the row is waiting on, where "follows another list" says only that it is
+                               waiting. *@
+                            <span class="row-meta">@T.Format("follows {0}", LinkedTaskListTitles(item))</span>
                         }
                         else if (item.DueDateUtc is { } dueDate)
                         {
@@ -346,7 +349,7 @@ else
     /// </summary>
     private IReadOnlyList<FlatChecklistEntry> _flatItems =>
         [.. _sections.SelectMany(section => section.TaskList.Items
-            .Where(item => item.LinkedTaskListId is null)
+            .Where(item => item.AllLinkedTaskListIds.Count == 0)
             .Select(item => new FlatChecklistEntry(section, item)))];
 
     /// <summary>
@@ -432,7 +435,7 @@ else
             return;
         }
 
-        foreach (var memberId in taskList.Items.Select(item => item.LinkedTaskListId).OfType<Guid>())
+        foreach (var memberId in taskList.Items.SelectMany(item => item.AllLinkedTaskListIds))
         {
             if (_allTaskLists.FirstOrDefault(candidate => candidate.Id == memberId) is { } member)
             {
@@ -447,7 +450,14 @@ else
     /// checkbox that can be seen but not moved.
     /// </summary>
     private static bool IsItemLocked(ChecklistSection section, TaskItemDto item)
-        => item.LinkedTaskListId is not null || section.TaskList.AccessLevel != nameof(ShareAccessLevel.CanEdit);
+        => item.AllLinkedTaskListIds.Count > 0 || section.TaskList.AccessLevel != nameof(ShareAccessLevel.CanEdit);
+
+    /// <summary>
+    /// The lists an entry stands for, named and joined - an entry naming three of them is one step, and
+    /// saying so takes naming all three.
+    /// </summary>
+    private string LinkedTaskListTitles(TaskItemDto item)
+        => string.Join(", ", item.AllLinkedTaskListIds.Select(LinkedTaskListTitle));
 
     private string LinkedTaskListTitle(Guid linkedTaskListId)
         => _allTaskLists.FirstOrDefault(candidate => candidate.Id == linkedTaskListId) is { } linked

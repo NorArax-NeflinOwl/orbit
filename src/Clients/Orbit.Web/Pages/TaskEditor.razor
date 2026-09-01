@@ -114,7 +114,7 @@ else
                 <ReorderControls OnDragStart="() => _itemOrder.Start(item)" OnDragEnd="_itemOrder.Finish"
                                  OnMoveUp="() => MoveItem(item, -1)" OnMoveDown="() => MoveItem(item, 1)"
                                  CanMoveUp="CanMoveItem(item, -1)" CanMoveDown="CanMoveItem(item, 1)" />
-                    @if (string.IsNullOrEmpty(item.LinkedTaskListId))
+                    @if (!item.IsALinkToOtherLists)
                     {
                         <InputCheckbox @bind-Value="item.IsCompleted" title="@(T["Completed"])" />
                     }
@@ -233,14 +233,35 @@ else
                         }
                         else if (item.Kind == nameof(TaskItemKind.Checklist))
                         {
-                            <label>@T["Link to list"]<select @bind="item.LinkedTaskListId">
-                                    <option value="">@T["None"]</option>
-                                    @foreach (var linkableTaskList in _linkableTaskLists)
+                            @* An entry can stand for several lists - "the flat is ready" is the kitchen
+                               and the bathroom and the hall. Written as one step rather than three
+                               entries saying the same thing, and done only when all of them are. *@
+                            <span class="field-break"></span>
+                            <label>@T["Stands for these lists"]
+                                <select value="" @onchange="args => LinkToTheList(item, args.Value)"
+                                        aria-label="@(T["Stands for these lists"])">
+                                    <option value="">@(item.IsALinkToOtherLists ? T["Add another…"] : T["None"])</option>
+                                    @foreach (var linkableTaskList in LinkableListsFor(item))
                                     {
                                         <option value="@linkableTaskList.Id">@Written(linkableTaskList.Title)</option>
                                     }
                                 </select>
                             </label>
+                            @if (item.IsALinkToOtherLists)
+                            {
+                                <span class="field-break"></span>
+                                <ul class="linked-list-chips">
+                                    @foreach (var linkedId in item.LinkedTaskListIds)
+                                    {
+                                        <li>
+                                            <span>@Written(TitleOfTaskList(linkedId))</span>
+                                            <button type="button" class="icon-btn" title="@(T["Remove"])"
+                                                    aria-label="@(T["Remove"])"
+                                                    @onclick="() => UnlinkFromTheList(item, linkedId)">✕</button>
+                                        </li>
+                                    }
+                                </ul>
+                            }
                             <label>@T["Overdue notification"]<select @bind="item.OverdueNotificationChannel">
                                     @foreach (var option in NotificationChannelOption.All)
                                     {
@@ -266,10 +287,10 @@ else
                                 <label>@T["Daily reminder time"]<TimeField @bind-Value="item.DailyReminderTimeOfDay" AriaLabel="@(T["Daily reminder time"])" />
                                 </label>
                             }
-                            @if (!string.IsNullOrEmpty(item.LinkedTaskListId))
+                            @if (item.IsALinkToOtherLists)
                             {
                                 <span class="field-break"></span>
-                                <small>@T["Completion follows the linked list, so it can't be ticked by hand."]</small>
+                                <small>@T["Completion follows the linked lists, so it can't be ticked by hand."]</small>
                             }
                         }
                         @if (_moveErrorMessage is not null && item.Id is { } movedItemId && _moveErrorMessageForItemId == movedItemId)
@@ -478,6 +499,35 @@ else
     /// <summary>The lists an item may link to - see TaskListLinkCycle for what is left out and why.</summary>
     private IReadOnlyList<TaskDto> _linkableTaskLists = [];
 
+    /// <summary>
+    /// The lists this entry could still be pointed at: every linkable one it does not already name.
+    /// Offering a list it already stands for would be offering to say the same thing twice.
+    /// </summary>
+    private IReadOnlyList<TaskDto> LinkableListsFor(TaskItemFormModel item)
+        => [.. _linkableTaskLists.Where(candidate => !item.LinkedTaskListIds.Contains(candidate.Id))];
+
+    private static void LinkToTheList(TaskItemFormModel item, object? chosenValue)
+    {
+        if (Guid.TryParse(chosenValue?.ToString(), out var taskListId) && !item.LinkedTaskListIds.Contains(taskListId))
+        {
+            item.LinkedTaskListIds.Add(taskListId);
+        }
+    }
+
+    private static void UnlinkFromTheList(TaskItemFormModel item, Guid taskListId)
+        => item.LinkedTaskListIds.Remove(taskListId);
+
+    /// <summary>
+    /// What a linked list is called. A list this reader can no longer see - shared and then unshared,
+    /// say - is named by its id rather than left blank: a row saying nothing looks like a bug, and the
+    /// id is at least something to recognise it by after a save fails.
+    /// </summary>
+    private string TitleOfTaskList(Guid taskListId)
+        => _linkableTaskLists.FirstOrDefault(candidate => candidate.Id == taskListId)?.Title
+            ?? _moveTargetTaskLists.FirstOrDefault(candidate => candidate.Id == taskListId)?.Title
+            ?? taskListId.ToString();
+
+
     /// <summary>The lists a row may be moved to, which is any but this one.</summary>
     private IReadOnlyList<TaskDto> _moveTargetTaskLists = [];
     private bool _isShared;
@@ -584,7 +634,7 @@ else
                                 Location = item.Location,
                                 LinkedInventoryItemId = item.LinkedInventoryItemId,
                                 LinkedCalendarEventId = item.LinkedCalendarEventId?.ToString() ?? string.Empty,
-                                LinkedTaskListId = item.LinkedTaskListId?.ToString() ?? string.Empty,
+                                LinkedTaskListIds = [.. item.AllLinkedTaskListIds],
                                 OverdueNotificationChannel = item.OverdueNotificationChannel,
                                 RemindDaily = item.RemindDaily,
                                 DailyReminderNotificationChannel = item.DailyReminderNotificationChannel,
@@ -1242,7 +1292,9 @@ else
                 item.Id,
                 ToDueDateUtc(item),
                 item.IsCompleted,
-                ToLinkedTaskListId(item),
+                // The old single field goes out empty: this client speaks the new one, and sending both
+                // would make the server pick between two answers.
+                LinkedTaskListId: null,
                 item.OverdueNotificationChannel,
                 item.RemindDaily,
                 item.DailyReminderNotificationChannel,
@@ -1250,7 +1302,8 @@ else
                 item.Kind,
                 item.Location,
                 ToLinkedCalendarEventId(item),
-                item.LinkedInventoryItemId))
+                item.LinkedInventoryItemId,
+                item.LinkedTaskListIds))
             .ToList();
 
         // Blocks the button for the duration of the save (see the button above), so a second click or a
@@ -1466,9 +1519,6 @@ else
             ? new DateTimeOffset(dueDate.ToDateTime(item.DueTime ?? TimeOnly.MinValue, DateTimeKind.Local)).ToUniversalTime()
             : null;
 
-    private static Guid? ToLinkedTaskListId(TaskItemFormModel item)
-        => string.IsNullOrEmpty(item.LinkedTaskListId) ? null : Guid.Parse(item.LinkedTaskListId);
-
     private sealed class TaskListFormModel
     {
         public string Title { get; set; } = string.Empty;
@@ -1537,7 +1587,14 @@ else
         /// <summary>The calendar event this entry is the same appointment as. Empty for none.</summary>
         public string LinkedCalendarEventId { get; set; } = string.Empty;
 
-        public string LinkedTaskListId { get; set; } = string.Empty;
+        /// <summary>
+        /// The lists this entry stands for, in the order somebody added them. Empty for ordinary work.
+        /// Several because a step is often more than one list - see TaskItem.LinkedTaskListIds.
+        /// </summary>
+        public List<Guid> LinkedTaskListIds { get; set; } = [];
+
+        /// <summary>Whether this entry points at other lists rather than being work of its own.</summary>
+        public bool IsALinkToOtherLists => LinkedTaskListIds.Count > 0;
         /// <summary>
         /// The banner by default - which is not silence: every notification is written into the in-app
         /// feed whatever the channel says (see NotificationRecorder). A new entry therefore says

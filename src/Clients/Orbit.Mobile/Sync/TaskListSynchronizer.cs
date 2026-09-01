@@ -227,7 +227,10 @@ public sealed class TaskListSynchronizer
     private static IReadOnlyList<TaskItemRequest> ToRequests(IReadOnlyList<TaskItemDto> items)
         => items.Select(item => new TaskItemRequest(
             item.Description, item.Id == Guid.Empty ? null : item.Id, item.DueDateUtc, item.IsCompleted,
-            item.LinkedTaskListId, item.OverdueNotificationChannel, item.RemindDaily,
+            // The new field, always: the old single one carries only the first list, so a save from
+            // this phone would quietly drop the rest of an entry standing for several.
+            LinkedTaskListId: null, item.OverdueNotificationChannel, item.RemindDaily,
             item.DailyReminderNotificationChannel, item.DailyReminderTimeOfDay,
-            item.Kind, item.Location, item.LinkedCalendarEventId, item.LinkedInventoryItemId)).ToList();
+            item.Kind, item.Location, item.LinkedCalendarEventId, item.LinkedInventoryItemId,
+            item.AllLinkedTaskListIds)).ToList();
 }

@@ -275,7 +275,7 @@ public static class TaskEndpoints
         if (item.Id is not { } existingId)
         {
             return TaskItem.Create(
-                item.Description, item.DueDateUtc, item.IsCompleted, item.LinkedTaskListId,
+                item.Description, item.DueDateUtc, item.IsCompleted, item.AllLinkedTaskListIds,
                 overdueChannel, item.RemindDaily, dailyChannel, item.DailyReminderTimeOfDay,
                 kind, item.Location, item.LinkedCalendarEventId, item.LinkedInventoryItemId);
         }
@@ -284,7 +284,7 @@ public static class TaskEndpoints
         // value sent for it is ignored rather than briefly believed - see LinkedTaskCompletionResolver.
         return TaskItem.FromPersistence(
             existingId, item.Description, item.DueDateUtc,
-            item.LinkedTaskListId is null && item.IsCompleted, item.LinkedTaskListId,
+            item.AllLinkedTaskListIds.Count == 0 && item.IsCompleted, item.AllLinkedTaskListIds,
             overdueChannel, item.RemindDaily, dailyChannel, item.DailyReminderTimeOfDay,
             kind, item.Location, item.LinkedCalendarEventId, item.LinkedInventoryItemId);
     }
@@ -319,7 +319,10 @@ public static class TaskEndpoints
                     item.Description,
                     item.DueDateUtc,
                     item.IsCompleted,
-                    item.LinkedTaskListId,
+                    // The first one repeated on its own, for a client that only knows the old field.
+                    // Written out rather than FirstOrDefault, which gives the all-zero Guid for an
+                    // entry that links to nothing - a link to a list nobody has.
+                    item.LinkedTaskListIds.Count > 0 ? item.LinkedTaskListIds[0] : null,
                     item.OverdueNotificationChannel.ToString(),
                     item.RemindDaily,
                     item.DailyReminderNotificationChannel.ToString(),
@@ -327,7 +330,8 @@ public static class TaskEndpoints
                     item.Kind.ToString(),
                     item.Location,
                     item.LinkedCalendarEventId,
-                    item.LinkedInventoryItemId))
+                    item.LinkedInventoryItemId,
+                    item.LinkedTaskListIds))
                 .ToList(),
             taskList.IsCompleted,
             taskList.IsGroup,

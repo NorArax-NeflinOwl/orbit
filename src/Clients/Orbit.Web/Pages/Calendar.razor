@@ -137,7 +137,6 @@
             </div>
         }
     </div>
-    }
 
     <div class="calendar-visualization-panel">
         <div class="calendar-visualization-toolbar">
@@ -398,7 +397,7 @@
     private Guid? Gatherer(Guid taskListId)
         => _taskLists
             .FirstOrDefault(candidate => candidate.IsGroup
-                && candidate.Items.Any(item => item.LinkedTaskListId == taskListId))
+                && candidate.Items.Any(item => item.AllLinkedTaskListIds.Contains(taskListId)))
             ?.Id;
 
     /// <summary>

@@ -264,13 +264,17 @@ internal sealed class FakeTasksServer : HttpMessageHandler
     /// </summary>
     private static IReadOnlyList<TaskItemDto> ToDtos(IReadOnlyList<TaskItemRequest> items)
         => items.Select(item => new TaskItemDto(
-            item.Id ?? Guid.NewGuid(), item.Description, item.DueDateUtc, item.IsCompleted, item.LinkedTaskListId,
+            item.Id ?? Guid.NewGuid(), item.Description, item.DueDateUtc, item.IsCompleted,
+            // Whichever shape the client sent, answered in both - what the real endpoint does, so a
+            // client reading only the old field still works against this fake. See TaskEndpoints.ToDto.
+            item.AllLinkedTaskListIds.Count > 0 ? item.AllLinkedTaskListIds[0] : null,
             item.OverdueNotificationChannel, item.RemindDaily, item.DailyReminderNotificationChannel,
             item.DailyReminderTimeOfDay, item.Kind, item.Location, item.LinkedCalendarEventId,
             // Kept only for an Inventory entry, which is TaskItem's own rule - a fake that kept it for
             // every kind would let a client sending the wrong kind pass, and the real server would cut
             // the errand loose from its product.
-            item.Kind == nameof(TaskItemKind.Inventory) ? item.LinkedInventoryItemId : null)).ToList();
+            item.Kind == nameof(TaskItemKind.Inventory) ? item.LinkedInventoryItemId : null,
+            item.AllLinkedTaskListIds)).ToList();
 
     private static Guid ReadId(string path) => Guid.Parse(path.Split('/')[^1]);
 
