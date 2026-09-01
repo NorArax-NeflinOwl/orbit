@@ -8,7 +8,7 @@ namespace Orbit.Mobile.Tests.TestDoubles;
 /// </summary>
 internal sealed class FixedPlacePicker : IPlacePicker
 {
-    public PickedPlace Result { get; set; } = PickedPlace.Chosen("12 Mill Lane");
+    public PickedPlace Result { get; set; } = PickedPlace.Chosen("12 Mill Lane", 52.23, 21.01);
 
     /// <summary>What the box held when the map was opened, so a test can check it opens where it should.</summary>
     public string? StartedAt { get; private set; }

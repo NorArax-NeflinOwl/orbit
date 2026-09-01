@@ -29,6 +29,9 @@ public partial class PlacePickerPage : ContentPage
 	/// <summary>What the last tap turned out to be, and what Use would write back.</summary>
 	private string _address = string.Empty;
 
+	/// <summary>Where the pin is, which the event needs - an address alone cannot be put on a map.</summary>
+	private SensorLocation? _pin;
+
 	public PlacePickerPage(Translations translations, PlaceSearch placeSearch)
 	{
 		InitializeComponent();
@@ -159,6 +162,7 @@ public partial class PlacePickerPage : ContentPage
 			Type = PinType.Place
 		});
 
+		_pin = location;
 		PlaceLabel.IsVisible = true;
 		PlaceLabel.Text = _translations["Looking that place up…"];
 		UseButton.IsEnabled = false;
@@ -199,7 +203,10 @@ public partial class PlacePickerPage : ContentPage
 
 	private async void OnUseClicked(object? sender, EventArgs e)
 	{
-		_answer.TrySetResult(PickedPlace.Chosen(_address));
+		if (_pin is { } pin)
+		{
+			_answer.TrySetResult(PickedPlace.Chosen(_address, pin.Latitude, pin.Longitude));
+		}
 		await Navigation.PopModalAsync();
 	}
 

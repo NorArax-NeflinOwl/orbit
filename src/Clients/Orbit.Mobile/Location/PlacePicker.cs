@@ -17,11 +17,18 @@ public enum PickedPlaceOutcome
 /// What the pin turned out to be, in words. Empty for a pin nowhere in particular: a point in a field
 /// has coordinates and no address, and the reader is told so rather than handed an empty box.
 /// </param>
-public sealed record PickedPlace(PickedPlaceOutcome Outcome, string Address = "")
+/// <param name="Latitude">
+/// Where the pin actually was. Carried as well as the address because a calendar event stores a point
+/// first - see EventLocationDto - and an address alone cannot be put on a map. Null when nothing was
+/// picked.
+/// </param>
+public sealed record PickedPlace(
+    PickedPlaceOutcome Outcome, string Address = "", double? Latitude = null, double? Longitude = null)
 {
     public static PickedPlace Cancelled { get; } = new(PickedPlaceOutcome.Cancelled);
 
-    public static PickedPlace Chosen(string address) => new(PickedPlaceOutcome.Chosen, address);
+    public static PickedPlace Chosen(string address, double latitude, double longitude)
+        => new(PickedPlaceOutcome.Chosen, address, latitude, longitude);
 }
 
 /// <summary>

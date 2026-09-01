@@ -9,56 +9,55 @@ namespace Orbit.Mobile.Tests.Tasks;
 /// <summary>
 /// What a phone does to an appointment's place when it saves one.
 ///
-/// Nothing on this screen can set a place - there is no map here - so the only question is whether it
-/// leaves the one that is already there alone. It did not: every field of the event was read back so
-/// that saving put the two in step, except this one, and saving therefore wrote a blank over a place
-/// somebody had set on the web. Nobody touched the location; they changed the colour and pressed save.
+/// The worry these started with: every field of the event was read back so that saving put the two in
+/// step, except this one, so saving wrote a blank over a place somebody had set in the browser. Nobody
+/// touched the location; they changed the colour and pressed save.
+///
+/// The answer moved a level up. The place is not kept inside the form any more - it is carried by the
+/// editor, filled from the event when the entry opens - so it makes the whole round trip rather than
+/// only surviving. These check both halves of that: untouched it comes back, and emptied it goes.
 /// </summary>
 public sealed class TaskItemEventFormPlaceTests
 {
     private static readonly EventLocationDto Somewhere = new("Przychodnia, Długa 4", 52.23, 21.01);
 
     [Fact]
-    public void An_events_place_survives_being_saved_from_a_phone()
+    public void An_events_place_is_sent_back_when_the_editor_still_holds_it()
     {
         var form = TaskItemEventForm.For(AnEventAt(Somewhere), AnyLanguage());
 
-        var saved = form.ToRequest("Dentist");
+        var saved = form.ToRequest("Dentist", new EventPlace("Przychodnia, Długa 4", 52.23, 21.01));
 
         Assert.NotNull(saved.Location);
         Assert.Equal("Przychodnia, Długa 4", saved.Location.Address);
         Assert.Equal(52.23, saved.Location.Latitude, precision: 2);
-        Assert.Equal(21.01, saved.Location.Longitude, precision: 2);
     }
 
-    /// <summary>The same, on the copy this phone keeps for itself - the two must not disagree.</summary>
+    /// <summary>
+    /// And emptying the box removes it, which is what emptying a box means. Holding the old place
+    /// regardless would make a place impossible to take off an appointment from a phone.
+    /// </summary>
     [Fact]
-    public void The_copy_kept_on_the_phone_carries_the_place_too()
+    public void Emptying_the_box_takes_the_place_off()
     {
         var form = TaskItemEventForm.For(AnEventAt(Somewhere), AnyLanguage());
 
-        Assert.Equal(Somewhere, form.ToDetails("Dentist").Location);
+        Assert.Null(form.ToRequest("Dentist", EventPlace.Nowhere).Location);
     }
 
-    /// <summary>An event that never had a place still has none, rather than one at Null Island.</summary>
+    /// <summary>A name with no point behind it cannot be stored - an event holds a point first.</summary>
     [Fact]
-    public void An_event_with_no_place_still_has_none()
+    public void A_name_with_nowhere_behind_it_is_not_a_place()
     {
-        var form = TaskItemEventForm.For(AnEventAt(null), AnyLanguage());
-
-        Assert.Null(form.ToRequest("Dentist").Location);
+        Assert.False(new EventPlace("somewhere nobody can find").CanBeSaved);
+        Assert.Null(new EventPlace("somewhere nobody can find").ToRequest());
     }
-
-    /// <summary>A brand new appointment has nothing to preserve.</summary>
-    [Fact]
-    public void A_new_appointment_starts_with_no_place()
-        => Assert.Null(TaskItemEventForm.For(null, AnyLanguage()).ToRequest("Dentist").Location);
-
-    private static Translations AnyLanguage() => new(new InMemoryLanguageStore());
 
     private static CalendarEventDetailsDto AnEventAt(EventLocationDto? location)
         => new(
             "Dentist", null, location, null,
-            DateTimeOffset.Now.AddDays(1), DateTimeOffset.Now.AddDays(1).AddHours(1),
-            IsAllDay: false, null, [], [], "None", "Push");
+            DateTimeOffset.Parse("2026-09-03T14:30:00Z"), DateTimeOffset.Parse("2026-09-03T15:00:00Z"),
+            false, null, [], [], "None", "Push");
+
+    private static Translations AnyLanguage() => new(new InMemoryLanguageStore());
 }
