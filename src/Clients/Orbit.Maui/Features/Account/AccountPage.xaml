@@ -52,7 +52,8 @@
                 <Label Text="{controls:Translate 'Choose how Orbit looks on this device.'}" FontSize="12"
                        LineBreakMode="WordWrap" Style="{StaticResource SubtleLabel}" />
                 <Picker ItemsSource="{Binding Themes}" SelectedItem="{Binding ChosenThemeOption}"
-                        ItemDisplayBinding="{Binding Name, x:DataType=screens:ThemeChoice}" />
+                        ItemDisplayBinding="{Binding Name, x:DataType=screens:ThemeChoice}"
+                        SemanticProperties.Description="{controls:Translate 'Appearance'}" />
 
                 <!-- The colour Orbit highlights things in, as swatches rather than a list of names:
                      what the reader is choosing is how it looks, and eight words would say less than
@@ -102,7 +103,8 @@
                             <Label Text="{controls:Translate 'Off means nothing is recorded or sent at all.'}"
                                    FontSize="12" LineBreakMode="WordWrap" Style="{StaticResource SubtleLabel}" />
                         </VerticalStackLayout>
-                        <Switch Grid.Column="1" IsToggled="{Binding AllowNotifications}" VerticalOptions="Center" />
+                        <Switch Grid.Column="1" IsToggled="{Binding AllowNotifications}" VerticalOptions="Center"
+                                SemanticProperties.Description="{controls:Translate 'Notify me'}" />
                     </Grid>
 
                     <!-- Hidden rather than disabled: with the master switch off these do nothing at all,
@@ -110,12 +112,14 @@
                     <VerticalStackLayout Spacing="14" IsVisible="{Binding CanChooseChannels}">
                         <Grid ColumnDefinitions="*,Auto">
                             <Label Grid.Column="0" Text="{controls:Translate 'Push to this phone'}" VerticalOptions="Center" />
-                            <Switch Grid.Column="1" IsToggled="{Binding AllowPush}" VerticalOptions="Center" />
+                            <Switch Grid.Column="1" IsToggled="{Binding AllowPush}" VerticalOptions="Center"
+                                    SemanticProperties.Description="{controls:Translate 'Push to this phone'}" />
                         </Grid>
 
                         <Grid ColumnDefinitions="*,Auto">
                             <Label Grid.Column="0" Text="{controls:Translate 'Email'}" VerticalOptions="Center" />
-                            <Switch Grid.Column="1" IsToggled="{Binding AllowEmail}" VerticalOptions="Center" />
+                            <Switch Grid.Column="1" IsToggled="{Binding AllowEmail}" VerticalOptions="Center"
+                                    SemanticProperties.Description="{controls:Translate 'Email'}" />
                         </Grid>
 
                         <Grid ColumnDefinitions="*,Auto">
@@ -124,7 +128,8 @@
                                 <Label Text="{controls:Translate 'It always appears in your notifications. This also pushes or emails.'}"
                                        FontSize="12" LineBreakMode="WordWrap" Style="{StaticResource SubtleLabel}" />
                             </VerticalStackLayout>
-                            <Switch Grid.Column="1" IsToggled="{Binding AllowShareNotifications}" VerticalOptions="Center" />
+                            <Switch Grid.Column="1" IsToggled="{Binding AllowShareNotifications}" VerticalOptions="Center"
+                                    SemanticProperties.Description="{controls:Translate 'When something is shared with me'}" />
                         </Grid>
                     </VerticalStackLayout>
 

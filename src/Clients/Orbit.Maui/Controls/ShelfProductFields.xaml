@@ -30,7 +30,8 @@
                    Keyboard="Numeric" />
             <Picker Grid.Column="2" Title="{controls:Translate 'Unit'}" WidthRequest="96"
                     ItemsSource="{Binding Units}" SelectedItem="{Binding ChosenUnit}"
-                    ItemDisplayBinding="{Binding ShortName, x:DataType=screens:InventoryUnitChoice}" />
+                    ItemDisplayBinding="{Binding ShortName, x:DataType=screens:InventoryUnitChoice}"
+                    SemanticProperties.Description="{controls:Translate 'Unit'}" />
         </Grid>
 
         <!-- How long it keeps, rather than the day it stops keeping. A date is still what gets
@@ -45,7 +46,7 @@
             <Picker Grid.Column="1" ItemsSource="{Binding ExpiryUnits}"
                     SelectedItem="{Binding ChosenExpiryUnit}"
                     ItemDisplayBinding="{Binding Name, x:DataType=screens:ExpiryUnitChoice}"
-                    SemanticProperties.Description="{controls:Translate 'Expires in'}" />
+                    SemanticProperties.Description="{controls:Translate 'Unit'}" />
         </Grid>
         <!-- Said quietly: somebody who set "2 weeks" is owed the answer to "when exactly". -->
         <Label Text="{Binding ExpiresOn}" IsVisible="{Binding HasExpiryDate}" FontSize="12"
@@ -55,7 +56,8 @@
                Style="{StaticResource SubtleLabel}" />
         <Picker ItemsSource="{Binding Channels}"
                 SelectedItem="{Binding ChosenExpiryNotificationChannel}"
-                ItemDisplayBinding="{Binding Name, x:DataType=common:NotificationChannelChoice}" />
+                ItemDisplayBinding="{Binding Name, x:DataType=common:NotificationChannelChoice}"
+                SemanticProperties.Description="{controls:Translate 'Expiry notification'}" />
     </VerticalStackLayout>
 
 </ContentView>
