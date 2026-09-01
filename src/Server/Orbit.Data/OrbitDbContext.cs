@@ -174,7 +174,7 @@ public sealed class OrbitDbContext : DbContext
         {
             entity.HasKey(user => user.Id);
             entity.Property(user => user.Email).IsRequired().HasMaxLength(320);
-            entity.Property(user => user.UserName).IsRequired().HasMaxLength(64);
+            entity.Property(user => user.UserName).IsRequired().HasMaxLength(StoredTextLimits.UserName);
             entity.Property(user => user.DisplayName).IsRequired().HasMaxLength(StoredTextLimits.DisplayName);
             // Nullable: a Google account has no password until it sets one.
             entity.Property(user => user.GoogleSubjectId).HasMaxLength(64);

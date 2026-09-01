@@ -1,3 +1,6 @@
+using Orbit.Api.Tests.TestDoubles;
+using Orbit.Core.Users.UpdateProfile;
+using Orbit.Core.Users;
 using Orbit.Core;
 using Orbit.Core.Abstractions;
 using Orbit.Core.Calendar;
@@ -121,4 +124,26 @@ public sealed class StoredTextLimitsTests
             DateTimeOffset.UtcNow, DateTimeOffset.UtcNow.AddHours(1),
             IsAllDay: false, Recurrence: null, Guests: [], ReminderMinutesBeforeStart: [],
             NotificationChannel.None, NotificationChannel.None);
+
+    /// <summary>
+    /// The two an account is known by. Missed on the first pass at this - the probe that found the rest
+    /// asked the wrong endpoint and got a 405, which reads like "refused" and is not.
+    /// </summary>
+    [Theory]
+    [InlineData("display name")]
+    [InlineData("login")]
+    public async Task What_an_account_is_called_is_refused_when_it_would_not_fit(string tooLongOne)
+    {
+        var users = new InMemoryUserRepository();
+        var user = User.Create("someone@example.test", "someone", "Someone", "hash");
+        await users.AddAsync(user, CancellationToken.None);
+        var handler = new UpdateProfileCommandHandler(users);
+
+        await Assert.ThrowsAsync<InvalidRequestException>(() => handler.HandleAsync(
+            new UpdateProfileCommand(
+                user.Id,
+                tooLongOne == "display name" ? TooLongFor(StoredTextLimits.DisplayName) : "Someone",
+                tooLongOne == "login" ? TooLongFor(StoredTextLimits.UserName) : "someone"),
+            CancellationToken.None));
+    }
 }

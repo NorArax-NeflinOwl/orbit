@@ -20,6 +20,9 @@ public static class StoredTextLimits
     /// <summary>What somebody chose to be called - the same length as anything else with a name.</summary>
     public const int DisplayName = 200;
 
+    /// <summary>The login somebody is found by. Short on purpose: it is typed by other people.</summary>
+    public const int UserName = 64;
+
     /// <summary>One line of work on a task list.</summary>
     public const int TaskDescription = 500;
 
