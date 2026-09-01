@@ -14,6 +14,9 @@ using Orbit.Core.Tasks;
 using Orbit.Web.Pages;
 using Orbit.Web.Services;
 using Orbit.Web.Tests.TestDoubles;
+using System.Text.Json;
+using Orbit.Contracts.Notes;
+using Orbit.Web.Components;
 using Xunit;
 
 namespace Orbit.Web.Tests.Pages;
@@ -227,8 +230,7 @@ public sealed class TaskEditorItemFormTests : OrbitTestContext
 
         var cut = Render();
 
-        Assert.Equal("Errands", cut.Find(".titled-description-title").GetAttribute("value"));
-        Assert.Equal("Things to pick up on the way home", cut.Find(".titled-description-body").GetAttribute("value"));
+        Assert.Equal(["Errands", "Things to pick up on the way home"], WhatTheFieldHolds(cut));
     }
 
     /// <summary>
@@ -241,7 +243,7 @@ public sealed class TaskEditorItemFormTests : OrbitTestContext
         RegisterApiClients(AnItem());
         var cut = Render();
 
-        cut.Find(".titled-description-body").Input("Only what the shop is out of");
+        WriteIntoTheField(cut, "Errands", "Only what the shop is out of");
         ClickButtonSaying(cut, "Save");
 
         Assert.NotNull(_lastSavedJson);
@@ -297,6 +299,24 @@ public sealed class TaskEditorItemFormTests : OrbitTestContext
             .QuerySelectorAll("option")
             .Select(option => option.GetAttribute("value"));
         Assert.DoesNotContain(chosen, offeredAfterwards);
+    }
+
+    /// <summary>
+    /// The name and what is under it, as the one field they are written in holds them - see
+    /// TitledDescription. Read through the surface rather than off the DOM: it is contenteditable driven
+    /// from JS, which a test renderer has none of.
+    /// </summary>
+    private static string[] WhatTheFieldHolds(IRenderedFragment cut)
+        => [.. cut.FindComponent<ChecklistTextEditor>().Instance.Lines.Select(line => line.Text)];
+
+    /// <summary>What that field reports after somebody types into it, called the way its own JS calls it.</summary>
+    private static void WriteIntoTheField(IRenderedFragment cut, params string[] lines)
+    {
+        var editor = cut.FindComponent<ChecklistTextEditor>().Instance;
+        var written = lines.Select(line => new NoteContentLineDto(line, IsChecklistItem: false, IsChecked: false));
+        cut.InvokeAsync(() => editor.OnLinesChangedFromJs(
+            JsonSerializer.Serialize(written, new JsonSerializerOptions(JsonSerializerDefaults.Web))))
+            .GetAwaiter().GetResult();
     }
 
     private IRenderedComponent<TaskEditor> Render()

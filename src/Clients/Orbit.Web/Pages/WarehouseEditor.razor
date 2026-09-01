@@ -47,11 +47,10 @@ else
             <div class="field">
                 @* Typed rather than committed on leaving the field: the suggestions underneath have to
                    keep up with what is being written. *@
-                <TitledDescription TitleId="warehouseNameInput"
-                                   Title="@_formModel.Name" TitleChanged="value => _formModel.Name = value"
+                <TitledDescription Title="@_formModel.Name" TitleChanged="value => _formModel.Name = value"
                                    Description="@_formModel.Description"
                                    DescriptionChanged="value => _formModel.Description = value"
-                                   TitleLabel="@(T["Name"])" TitlePlaceholder="@(T["Name"])">
+                                   TitleLabel="@(T["Name"])">
                     <Suggestions>
                         <NameSuggestions Kind="NameSuggestionKind.WarehouseName" Value="_formModel.Name"
                                          OnChosen="chosen => _formModel.Name = chosen" />

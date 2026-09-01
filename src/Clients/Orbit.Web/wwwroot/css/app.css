@@ -4958,58 +4958,20 @@ textarea.editor-item-main {
     line-height: 1.4;
 }
 
-/* A title and what it is for, written as one thing - see TitledDescription.razor. One outline around
-   the pair, and none of its own around either box, so it reads as a single field rather than as a
-   field and a setting under it. Drawn as the note editor's one field is (see .note-editor-content):
-   the two ask the same thing, and a list's name should not look like a different kind of box from a
-   note's. */
-.titled-description {
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
-    padding: 14px;
-    background: var(--bg-elevated);
-    border: 1px solid var(--border);
-    border-radius: 8px;
-}
-
-.titled-description:focus-within {
-    border-color: var(--accent);
-    outline: 2px solid var(--accent-subtle);
-    outline-offset: -1px;
-}
-
-.titled-description-title,
-.titled-description-body {
-    width: 100%;
-    padding: 0;
-    background: transparent;
-    border: none;
-    color: var(--text-primary);
-    font-family: inherit;
-}
-
-.titled-description-title:focus,
-.titled-description-body:focus {
-    outline: none;
-}
-
-.titled-description-title {
-    font-family: var(--font-display);
-    font-size: 20px;
-    font-weight: 600;
-    letter-spacing: -0.01em;
-}
-
-/* Grows with what is written. The rows="1" in the markup is the floor for browsers without
-   field-sizing, where it would otherwise open as an empty four-line box under a one-line title. */
-.titled-description-body {
-    field-sizing: content;
-    min-height: 1.5em;
+/* A title and what it is for, written as one thing - see TitledDescription.razor. It is the note
+   editor's own surface (.note-editor-content, .note-editor-titled), so the first line is drawn as a
+   heading and everything under it as ordinary text; all this adds is a height. A note is a page to
+   write on and opens 420px tall, which is not what a list's name needs - this grows from two lines
+   instead, and keeps a ceiling so a long description cannot push the form it heads off the screen. */
+.titled-description-editor {
+    min-height: 4.5em;
     max-height: 40vh;
-    resize: none;
+}
+
+/* The description, which is everything after the first line - quieter than the heading above it, the
+   way it reads in a note. */
+.titled-description-editor .note-line + .note-line {
     font-size: 14px;
-    line-height: 1.5;
     color: var(--text-secondary);
 }
 
