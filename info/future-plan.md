@@ -24,8 +24,10 @@ rather than a pointer at one, and the build refuses to finish on a warning. What
   head; iOS has not been run since phase 1, and desktop has not been started at all.
 
   What is left of it: the iOS head beyond phase 1 (deferred — no Apple developer account or signing
-  key, which also blocks push there), a push that arrives while the app is in front of somebody, and
-  phase 8 — widgets, Live Activities, accessibility. Push to an Android phone is delivered as of
+  key, which also blocks push there) and phase 8 — widgets, Live Activities, accessibility. A push
+  arriving while the app is in front of somebody now shows a banner on the navigation bar, which is
+  where the browser shows its own; it honours `AllowMobileBanner` and the two settings that pace it,
+  all three of which existed for this and had no reader on the phone. Push to an Android phone is delivered as of
   2026-08-31 and no longer on this list. Remaining design decisions are in
   [§12](orbit-maui-plan.md#12-open-questions); the local database staying unencrypted and iOS being
   deferred are both settled there.
