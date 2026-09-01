@@ -63,3 +63,6 @@ AndroidManifestOverlay.xml
 # Playwright, installed with `npm install --no-save` by CI and by anyone running
 # ci/verify-browser-crypto.mjs locally. Nothing here is committed - there is no package.json.
 node_modules/
+
+# Test run artefacts (.trx and friends) - written by `dotnet test --logger trx`, never source.
+TestResults/
