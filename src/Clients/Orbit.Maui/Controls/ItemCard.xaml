@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<ContentView
+    x:Class="Orbit.Maui.Controls.ItemCard"
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml">
+
+    <!-- One card, used by every list that shows things - notes, task lists, events, warehouses. The
+         shape is fixed so that a reader who learns it once knows where to look on every screen: the name
+         is always in the same place, the menu is always in the same corner, and what a card carries
+         beyond that is what differs between them.
+
+             [pin][action][name .....................................][menu]
+             [tags .................................................]
+             [body, or what is on it]
+             [.........................extras.......................]
+
+         Everything except the name is optional and is left out rather than drawn empty. The same
+         anatomy Orbit.Web settled on - see its Components/ItemCard.razor. -->
+    <Border StrokeThickness="1" Padding="14,12" Margin="0,4"
+            Stroke="{AppThemeBinding Light={StaticResource CardStrokeLight}, Dark={StaticResource CardStrokeDark}}"
+            BackgroundColor="{AppThemeBinding Light={StaticResource SurfaceLight}, Dark={StaticResource SurfaceDark}}">
+        <Border.StrokeShape>
+            <RoundRectangle CornerRadius="12" />
+        </Border.StrokeShape>
+
+        <VerticalStackLayout Spacing="6">
+
+            <!-- No column spacing: the two marks before the name are optional, and a column that is
+                 empty must cost nothing at all - spacing kept for a pin nobody can see pushed every
+                 name in the list to the right of it. They carry their own margins instead. -->
+            <Grid ColumnDefinitions="Auto,*,Auto">
+                <HorizontalStackLayout Grid.Column="0" Spacing="6" VerticalOptions="Center">
+                    <ContentView x:Name="PinHost" VerticalOptions="Center" />
+
+                    <!-- Something happened here that the reader has not seen. Before the name because
+                         that is where the eye already is reading down a list, and it is about this card
+                         rather than about the page. -->
+                    <Ellipse x:Name="ActionMark" WidthRequest="8" HeightRequest="8" IsVisible="False"
+                             VerticalOptions="Center" Margin="0,0,2,0"
+                             Fill="{AppThemeBinding Light={StaticResource DangerLight}, Dark={StaticResource DangerDark}}" />
+                </HorizontalStackLayout>
+
+                <Label x:Name="NameLabel" Grid.Column="1" FontSize="17" FontAttributes="Bold"
+                       VerticalOptions="Center" LineBreakMode="TailTruncation" />
+
+                <ContentView x:Name="MenuHost" Grid.Column="2" VerticalOptions="Center" />
+            </Grid>
+
+            <ContentView x:Name="TagsHost" />
+            <ContentView x:Name="BodyHost" />
+            <ContentView x:Name="ExtrasHost" />
+
+            <!-- The whole card opens what it names, rather than only the words: on a card this size the
+                 block is the target, and asking somebody to hit a word is the difference between one tap
+                 and three. Over everything, so the pin and the menu keep their own presses - they are
+                 declared after it in the visual tree and take the press first. -->
+            <Button x:Name="OpenButton" BackgroundColor="Transparent" IsVisible="False" />
+        </VerticalStackLayout>
+    </Border>
+
+</ContentView>
