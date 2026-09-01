@@ -362,6 +362,16 @@ public static class PolishTranslations
         ["How the daily reminder arrives"] = "Jak przychodzi codzienne przypomnienie",
         // What the banner offers when a notification arrives with the app in front - see ForegroundNotices.
         ["Dismiss"] = "Odrzuć",
+        // ---- What a list or a warehouse is for, under its name - see TaskListDetailViewModel. ----
+        ["What is it for?"] = "Do czego to jest?",
+        // ---- Putting a conversation away, emptying it, and leaving a group - see ContactsViewModel. ----
+        ["Show what is put away"] = "Pokaż odłożone",
+        ["Orbit has no such conversation any more."] = "Orbit nie ma już takiej rozmowy.",
+        ["Orbit has no such group any more."] = "Orbit nie ma już takiej grupy.",
+        ["Everything in this conversation goes, on your side only. This cannot be undone."] =
+            "Cała ta rozmowa zniknie, tylko po Twojej stronie. Tego nie da się cofnąć.",
+        ["You stop receiving what is posted, and the group sees you go."] =
+            "Przestaniesz dostawać to, co tam trafia, a grupa zobaczy, że wychodzisz.",
         // ---- Shared without permission to edit - see SharedItemAccess. ----
         ["Shared with you to read. Ask whoever shared it if you need to change it."] =
             "Udostępnione Ci do odczytu. Poproś osobę, która udostępniła, jeśli musisz to zmienić.",

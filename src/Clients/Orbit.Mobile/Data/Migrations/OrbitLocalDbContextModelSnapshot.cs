@@ -90,6 +90,9 @@ namespace Orbit.Mobile.Data.Migrations
                     b.Property<long>("CreatedAtUtc")
                         .HasColumnType("INTEGER");
 
+                    b.Property<bool>("IsArchived")
+                        .HasColumnType("INTEGER");
+
                     b.Property<string>("Members")
                         .IsRequired()
                         .HasColumnType("TEXT");
@@ -163,6 +166,9 @@ namespace Orbit.Mobile.Data.Migrations
                     b.Property<string>("DisplayName")
                         .IsRequired()
                         .HasColumnType("TEXT");
+
+                    b.Property<bool>("IsArchived")
+                        .HasColumnType("INTEGER");
 
                     b.Property<bool>("IsPendingApprovalFromOtherParty")
                         .HasColumnType("INTEGER");
@@ -370,6 +376,10 @@ namespace Orbit.Mobile.Data.Migrations
                     b.Property<long>("CreatedAtUtc")
                         .HasColumnType("INTEGER");
 
+                    b.Property<string>("Description")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
                     b.Property<string>("EncryptedCiphertext")
                         .HasColumnType("TEXT");
 
@@ -466,6 +476,10 @@ namespace Orbit.Mobile.Data.Migrations
 
                     b.Property<long>("CreatedAtUtc")
                         .HasColumnType("INTEGER");
+
+                    b.Property<string>("Description")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
 
                     b.Property<string>("EncryptedCiphertext")
                         .HasColumnType("TEXT");

@@ -89,6 +89,7 @@ public sealed class ChatSynchronizer
                     Id = group.Id,
                     Name = group.Name,
                     OwnRole = group.OwnRole,
+                    IsArchived = group.IsArchived,
                     CreatedAtUtc = group.CreatedAtUtc,
                     Members = group.Members
                         .Select(member => new LocalChatGroupMember(

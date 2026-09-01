@@ -53,6 +53,19 @@ public sealed partial class WarehouseDetailViewModel : ObservableObject
     [ObservableProperty]
     private string _name = string.Empty;
 
+    /// <inheritdoc cref="Tasks.TaskListDetailViewModel.Description"/>
+    [ObservableProperty]
+    private string _description = string.Empty;
+
+    /// <inheritdoc cref="Tasks.TaskListDetailViewModel._savedDescription"/>
+    private string _savedDescription = string.Empty;
+
+    /// <summary>
+    /// Whether a description is worth offering at all: a private warehouse keeps none, because a
+    /// description stored in the clear would say in the open what the name is sealed to hide.
+    /// </summary>
+    public bool IsNotPrivate => !IsPrivate;
+
     [ObservableProperty]
     private string _newItemName = string.Empty;
 
@@ -105,8 +118,23 @@ public sealed partial class WarehouseDetailViewModel : ObservableObject
     private bool _isShowingWhatIsStored;
 
     /// <summary>Saved as soon as it is switched, the way ticking an entry on a list is.</summary>
+    /// <inheritdoc cref="Tasks.TaskListDetailViewModel.CommitDescriptionAsync"/>
+    [RelayCommand]
+    private Task CommitDescriptionAsync(CancellationToken cancellationToken)
+    {
+        if (Description == _savedDescription)
+        {
+            return Task.CompletedTask;
+        }
+
+        _savedDescription = Description;
+        return RenameCommand.ExecuteAsync(null);
+    }
+
     partial void OnIsPrivateChanged(bool value)
     {
+        OnPropertyChanged(nameof(IsNotPrivate));
+
         if (!_isShowingWhatIsStored && !IsReadOnly)
         {
             RenameCommand.Execute(null);
@@ -367,7 +395,7 @@ public sealed partial class WarehouseDetailViewModel : ObservableObject
         try
         {
             outcome = await _warehouses.UpdateAsync(
-                _localId, new WarehouseContent(Name, items, IsPrivate), cancellationToken);
+                _localId, new WarehouseContent(Name, items, IsPrivate, Description), cancellationToken);
         }
         catch (EncryptionKeyLockedException)
         {
@@ -396,6 +424,8 @@ public sealed partial class WarehouseDetailViewModel : ObservableObject
         }
 
         Name = warehouse.Name;
+        Description = warehouse.Description;
+        _savedDescription = warehouse.Description;
         // Taken as already looked up, so opening a warehouse does not offer completions of its own name
         // and warn that it duplicates itself - see NameSuggestions.StartsAt.
         _warehouseNameSuggestions.StartsAt(warehouse.Name);

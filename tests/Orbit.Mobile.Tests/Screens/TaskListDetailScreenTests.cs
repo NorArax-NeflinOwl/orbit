@@ -30,6 +30,18 @@ namespace Orbit.Mobile.Tests.Screens;
 /// </summary>
 public sealed class TaskListDetailScreenTests
 {
+    private static IEnumerable<string> Descriptions(TaskListDetailViewModel screen)
+        => screen.Items.Select(item => item.Description);
+
+    private static async Task AddAsync(TaskListDetailViewModel screen, params string[] descriptions)
+    {
+        foreach (var description in descriptions)
+        {
+            screen.NewItemDescription = description;
+            await screen.AddItemCommand.ExecuteAsync(null);
+        }
+    }
+
     [Fact]
     public async Task Ticking_an_entry_just_added_keeps_the_id_the_server_gave_it()
     {
@@ -49,6 +61,97 @@ public sealed class TaskListDetailScreenTests
         var entry = Assert.Single(context.Server.TaskLists.Single().Items);
         Assert.Equal(entryId, entry.Id);
         Assert.True(entry.IsCompleted);
+    }
+
+    /// <summary>
+    /// The three orders Orbit.Web reads a checklist in. Alphabetical is by what each entry says, which
+    /// is how a shopping list gets read off in a shop.
+    /// </summary>
+    [Fact]
+    public async Task The_entries_are_read_in_the_chosen_order()
+    {
+        using var context = new ScreenContext();
+        var screen = context.OpenTaskList("Groceries");
+        await AddAsync(screen, "Milk", "Apples", "Bread");
+        await screen.ToggleItemCommand.ExecuteAsync(screen.Items.Single(item => item.Description == "Apples"));
+
+        Assert.Equal(["Milk", "Apples", "Bread"], Descriptions(screen));
+
+        screen.ItemOrder = ChecklistOrder.Alphabetical;
+        Assert.Equal(["Apples", "Bread", "Milk"], Descriptions(screen));
+
+        // What is left to do first, then what is done, each alphabetically.
+        screen.ItemOrder = ChecklistOrder.UndoneFirst;
+        Assert.Equal(["Bread", "Milk", "Apples"], Descriptions(screen));
+
+        screen.ItemOrder = ChecklistOrder.AsArranged;
+        Assert.Equal(["Milk", "Apples", "Bread"], Descriptions(screen));
+    }
+
+    /// <summary>
+    /// The order is how one person reads one list, so what is saved goes back arranged as it was - a
+    /// sort that reached the save would rewrite everybody else's copy of the list.
+    /// </summary>
+    [Fact]
+    public async Task Reading_it_in_another_order_does_not_rearrange_the_list()
+    {
+        using var context = new ScreenContext();
+        var screen = context.OpenTaskList("Groceries");
+        await AddAsync(screen, "Milk", "Apples");
+
+        screen.ItemOrder = ChecklistOrder.Alphabetical;
+        await screen.SaveListCommand.ExecuteAsync(null);
+
+        Assert.Equal(
+            ["Milk", "Apples"],
+            context.Server.TaskLists.Single().Items.Select(item => item.Description));
+    }
+
+    /// <summary>
+    /// Moving an entry is only offered in the arranged order: anywhere else "up" would move it in an
+    /// arrangement nobody can see, and the entry would stay exactly where it is on screen.
+    /// </summary>
+    [Fact]
+    public void Rearranging_is_offered_only_while_the_list_is_read_as_arranged()
+    {
+        using var context = new ScreenContext();
+        var screen = context.OpenTaskList("Groceries");
+
+        Assert.True(screen.CanBeRearranged);
+
+        screen.ItemOrder = ChecklistOrder.Alphabetical;
+
+        Assert.False(screen.CanBeRearranged);
+    }
+
+    [Fact]
+    public async Task The_chosen_order_is_remembered_for_that_list()
+    {
+        using var context = new ScreenContext();
+        var screen = context.OpenTaskList("Groceries");
+        await AddAsync(screen, "Milk");
+
+        screen.ItemOrder = ChecklistOrder.UndoneFirst;
+
+        Assert.Equal(ChecklistOrder.UndoneFirst, context.Reading.Read(context.OpenedListId).Order);
+    }
+
+    /// <summary>
+    /// Two parts of this screen write the one record. Each has to read it first, or folding the panel
+    /// would put the entries back in the order nobody asked for - see ChecklistReading.
+    /// </summary>
+    [Fact]
+    public void Folding_the_stock_check_leaves_the_chosen_order_alone()
+    {
+        using var context = new ScreenContext();
+        var screen = context.OpenTaskList("Groceries");
+        screen.ItemOrder = ChecklistOrder.Alphabetical;
+
+        screen.StockCheck.ToggleFoldCommand.Execute(null);
+
+        var reading = context.Reading.Read(context.OpenedListId);
+        Assert.Equal(ChecklistOrder.Alphabetical, reading.Order);
+        Assert.True(reading.IsStockCheckFolded);
     }
 
     /// <summary>
@@ -87,6 +190,63 @@ public sealed class TaskListDetailScreenTests
         await WaitUntil(() => screen.TitleSuggestions.Names.Count > 0);
         Assert.Equal(["Groceries, weekly"], screen.TitleSuggestions.Names);
         Assert.Equal(nameof(NameSuggestionKind.TaskListTitle), context.SuggestionsServer.LastKind);
+    }
+
+    /// <summary>
+    /// What the list is for, under its name - the field Orbit.Web gained on 2026-09-01 and the phone
+    /// had nowhere to put. It is sent on every save rather than left unsaid: null means "not provided"
+    /// on the way in, so a description cleared here would have come back at the next pull.
+    /// </summary>
+    [Fact]
+    public async Task A_list_can_say_what_it_is_for()
+    {
+        using var context = new ScreenContext();
+        var screen = context.OpenTaskList("Groceries");
+
+        screen.Description = "The weekly shop, and nothing else.";
+        // What leaving the box does, which is the only thing that saves it - an editor has no return key.
+        await screen.CommitDescriptionCommand.ExecuteAsync(null);
+
+        Assert.Equal("The weekly shop, and nothing else.", context.Server.TaskLists.Single().Description);
+
+        screen.Description = string.Empty;
+        await screen.CommitDescriptionCommand.ExecuteAsync(null);
+
+        Assert.Empty(context.Server.TaskLists.Single().Description);
+    }
+
+    /// <summary>
+    /// Leaving the box is what saves it, and only when something changed: a description is typed into an
+    /// editor, which has no return key to press, and the first one written here was lost on the way out.
+    /// </summary>
+    [Fact]
+    public async Task Leaving_the_description_alone_saves_nothing()
+    {
+        using var context = new ScreenContext();
+        var screen = context.OpenTaskList("Groceries");
+        var savesBefore = context.Server.ReceivedRequests.Count;
+
+        await screen.CommitDescriptionCommand.ExecuteAsync(null);
+
+        Assert.Equal(savesBefore, context.Server.ReceivedRequests.Count);
+    }
+
+    /// <summary>
+    /// A private list keeps none: its title is sealed, and a description stored in the clear beside it
+    /// would say in the open what the sealing is for. The server blanks it as well - this only agrees.
+    /// </summary>
+    [Fact]
+    public async Task A_private_list_is_not_asked_what_it_is_for()
+    {
+        using var context = new ScreenContext(PrivateContent.HoldingAKeyFor(Owner));
+        var screen = context.OpenTaskList("Doctor");
+
+        screen.Description = "Prescriptions";
+        screen.IsPrivate = true;
+        await screen.SaveListCommand.ExecuteAsync(null);
+
+        Assert.False(screen.IsNotPrivate);
+        Assert.Empty(context.Server.TaskLists.Single().Description);
     }
 
     /// <summary>
@@ -820,19 +980,60 @@ public sealed class TaskListDetailScreenTests
         await screen.LoadCommand.ExecuteAsync(null);
 
         screen.EditItemCommand.Execute(screen.Items.Single());
+        // Choosing from the picker adds a list rather than replacing what is there, and the picker
+        // clears itself: it says what to add next, not what the entry already stands for.
         screen.BeingEdited!.ChosenLinkedTaskList =
             screen.BeingEdited.LinkableTaskLists.Single(choice => choice.Name == "Shopping");
+        Assert.Null(screen.BeingEdited.ChosenLinkedTaskList);
         await screen.SaveItemCommand.ExecuteAsync(null);
         await context.SynchroniseAsync();
 
         var shopping = context.Server.TaskLists.Single(list => list.Title == "Shopping");
         var thisWeek = context.Server.TaskLists.Single(list => list.Title == "This week");
-        Assert.Equal(shopping.Id, Assert.Single(thisWeek.Items).LinkedTaskListId);
+        Assert.Equal([shopping.Id], Assert.Single(thisWeek.Items).AllLinkedTaskListIds);
     }
 
     /// <summary>
-    /// And can stop standing for it. Pointing at nothing is what most entries do, so the picker offers
-    /// it rather than making "linked" a one-way door.
+    /// One entry, several lists - what the web gained on 2026-09-01. The phone carried them from the
+    /// first sync but showed one and would have sent one back, so the second list was lost to whichever
+    /// phone touched the entry next.
+    /// </summary>
+    [Fact]
+    public async Task An_entry_can_stand_for_several_lists()
+    {
+        using var context = new ScreenContext();
+        context.OpenTaskList("Shopping");
+        context.OpenTaskList("Chemist");
+        var screen = context.OpenTaskList("This week");
+        screen.NewItemDescription = "The errands";
+        await screen.AddItemCommand.ExecuteAsync(null);
+        await context.SynchroniseAsync();
+        await screen.LoadCommand.ExecuteAsync(null);
+
+        screen.EditItemCommand.Execute(screen.Items.Single());
+        var editor = screen.BeingEdited!;
+        editor.ChosenLinkedTaskList = editor.LinkableTaskLists.Single(choice => choice.Name == "Shopping");
+        editor.ChosenLinkedTaskList = editor.LinkableTaskLists.Single(choice => choice.Name == "Chemist");
+
+        Assert.Equal(["Shopping", "Chemist"], editor.LinkedTaskLists.Select(linked => linked.Name));
+        // And what it already stands for is not offered again.
+        Assert.DoesNotContain(editor.LinkableTaskListsLeft, choice => choice.Name == "Shopping");
+
+        await screen.SaveItemCommand.ExecuteAsync(null);
+        await context.SynchroniseAsync();
+
+        var thisWeek = context.Server.TaskLists.Single(list => list.Title == "This week");
+        Assert.Equal(2, Assert.Single(thisWeek.Items).AllLinkedTaskListIds.Count);
+
+        // And they are still both there when the entry is opened again.
+        await screen.LoadCommand.ExecuteAsync(null);
+        screen.EditItemCommand.Execute(screen.Items.Single());
+        Assert.Equal(["Shopping", "Chemist"], screen.BeingEdited!.LinkedTaskLists.Select(linked => linked.Name));
+    }
+
+    /// <summary>
+    /// And can stop standing for it - one list at a time, since it may stand for several. Taking the
+    /// last one off leaves an ordinary entry, which is what most of them are.
     /// </summary>
     [Fact]
     public async Task An_entry_can_stop_standing_for_a_list()
@@ -852,15 +1053,16 @@ public sealed class TaskListDetailScreenTests
 
         await screen.LoadCommand.ExecuteAsync(null);
         screen.EditItemCommand.Execute(screen.Items.Single());
-        Assert.Equal("Shopping", screen.BeingEdited!.ChosenLinkedTaskList?.Name);
+        var linked = Assert.Single(screen.BeingEdited!.LinkedTaskLists);
+        Assert.Equal("Shopping", linked.Name);
 
-        screen.BeingEdited.ChosenLinkedTaskList =
-            screen.BeingEdited.LinkableTaskLists.Single(choice => choice.ServerId is null);
+        screen.BeingEdited.UnlinkCommand.Execute(linked);
+        Assert.False(screen.BeingEdited.IsALinkToOtherLists);
         await screen.SaveItemCommand.ExecuteAsync(null);
         await context.SynchroniseAsync();
 
         var thisWeek = context.Server.TaskLists.Single(list => list.Title == "This week");
-        Assert.Null(Assert.Single(thisWeek.Items).LinkedTaskListId);
+        Assert.Empty(Assert.Single(thisWeek.Items).AllLinkedTaskListIds);
     }
 
     /// <summary>One list is nothing to point at, so the picker is not offered at all.</summary>
@@ -1356,6 +1558,9 @@ public sealed class TaskListDetailScreenTests
         private readonly LocalStore _localStore = new();
         /// <summary>The list OpenTaskList last made, so a helper can reach it behind the screen.</summary>
         private Guid _openedListId;
+
+        /// <summary>Which list is open, for a test that asks what was remembered about it.</summary>
+        public Guid OpenedListId => _openedListId;
         private readonly FakeTimeProvider _clock = new(DateTimeOffset.Parse("2026-08-26T10:00:00Z"));
         private readonly LocalTaskListRepository _taskLists;
 
@@ -1374,7 +1579,7 @@ public sealed class TaskListDetailScreenTests
                 NullLogger<WarehouseSynchronizer>.Instance);
             StockCheck = new StockCheckPanel(
                 new TasksClient(Server.ToHttpClient()), new InventoryClient(Warehouses.ToHttpClient()),
-                Shelves, new Translations(new InMemoryLanguageStore()), Connections.Online);
+                Shelves, new Translations(new InMemoryLanguageStore()), Connections.Online, Reading);
             CalendarEvents = new LocalCalendarEventRepository(_localStore, _clock, FixedNetworkStatus.Online);
             Synchronizer = new TaskListSynchronizer(
                 _localStore, new TasksClient(Server.ToHttpClient()), _clock, new SyncGate(),
@@ -1497,6 +1702,12 @@ public sealed class TaskListDetailScreenTests
         /// </summary>
         public PlaceSearch Places { get; } = new(StubHttpMessageHandler.Unreachable().ToHttpClient());
 
+        /// <summary>
+        /// How this reader reads this list - shared with the stock check panel, as it is on the device,
+        /// so a test can check the two do not write over each other.
+        /// </summary>
+        public InMemoryChecklistReadingStore Reading { get; } = new();
+
         public TaskListDetailViewModel OpenTaskList(string title)
         {
             var created = _taskLists.CreateAsync(title, []).GetAwaiter().GetResult();
@@ -1510,7 +1721,7 @@ public sealed class TaskListDetailScreenTests
                     CalendarEvents, new CalendarClient(CalendarServer.ToHttpClient()), Network, Places),
                 new ShelfCorrection(Shelves, ShelfSynchronizer, new InventoryClient(Warehouses.ToHttpClient())),
                 PlacePicker, _privateContent,
-                Suggestions.Offering(SuggestionsServer), Suggestions.Offering(SuggestionsServer));
+                Suggestions.Offering(SuggestionsServer), Suggestions.Offering(SuggestionsServer), Reading);
             screen.Open(created.LocalId);
             screen.LoadCommand.ExecuteAsync(null).GetAwaiter().GetResult();
             _openedListId = created.LocalId;

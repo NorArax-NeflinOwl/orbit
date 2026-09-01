@@ -40,6 +40,7 @@ public sealed partial class TaskListDetailViewModel : ObservableObject
     private readonly IPlacePicker _placePicker;
     private readonly TaskListSynchronizer _synchronizer;
     private readonly TasksClient _tasksClient;
+    private readonly IChecklistReadingStore _reading;
     private readonly EditLock _editLock;
     private readonly Translations _translations;
     private readonly TimeProvider _timeProvider;
@@ -63,6 +64,37 @@ public sealed partial class TaskListDetailViewModel : ObservableObject
 
     [ObservableProperty]
     private string _title = string.Empty;
+
+    /// <summary>
+    /// What the list is about, under its title - the same field Orbit.Web draws as one control with the
+    /// title above it. Empty for a private list, where the server keeps none.
+    /// </summary>
+    [ObservableProperty]
+    private string _description = string.Empty;
+
+    /// <summary>What the description was when it was last shown or saved - see CommitDescription.</summary>
+    private string _savedDescription = string.Empty;
+
+    /// <summary>
+    /// What order the entries are read in. The list itself is unchanged by it - this is how one person
+    /// reads one list on one device, remembered for it - so what is saved always goes back in the order
+    /// the list was arranged in. See ChecklistReading.
+    /// </summary>
+    [ObservableProperty]
+    private ChecklistOrder _itemOrder;
+
+    /// <summary>
+    /// Whether moving an entry up or down means anything. It does not while the list is being read in
+    /// some other order: "up" would move it in an arrangement nobody can see, and the entry would stay
+    /// exactly where it is on screen.
+    /// </summary>
+    public bool CanBeRearranged => ItemOrder == ChecklistOrder.AsArranged;
+
+    /// <summary>
+    /// Whether a description is worth offering at all: a private list keeps none, because a
+    /// description stored in the clear would say in the open what the name is sealed to hide.
+    /// </summary>
+    public bool IsNotPrivate => !IsPrivate;
 
     [ObservableProperty]
     private string _newItemDescription = string.Empty;
@@ -98,8 +130,9 @@ public sealed partial class TaskListDetailViewModel : ObservableObject
         INetworkStatus networkStatus, StockCheckPanel stockCheck,
         EntryAppointment appointments, ShelfCorrection shelfCorrection, IPlacePicker placePicker,
         PrivateContentSealer privateContent, NameSuggestions nameSuggestions,
-        NameSuggestions titleSuggestions)
+        NameSuggestions titleSuggestions, IChecklistReadingStore reading)
     {
+        _reading = reading;
         _taskLists = taskLists;
         _entryAppointment = appointments;
         _shelfCorrection = shelfCorrection;
@@ -746,7 +779,8 @@ public sealed partial class TaskListDetailViewModel : ObservableObject
         try
         {
             outcome = await _taskLists.UpdateAsync(
-                _localId, new TaskListContent(Title, items, IsGroup, _priority, IsPrivate), cancellationToken);
+                _localId, new TaskListContent(Title, items, IsGroup, _priority, IsPrivate, Description),
+                cancellationToken);
         }
         catch (EncryptionKeyLockedException)
         {
@@ -775,6 +809,8 @@ public sealed partial class TaskListDetailViewModel : ObservableObject
         }
 
         Title = taskList.Title;
+        Description = taskList.Description;
+        _savedDescription = taskList.Description;
         // Taken as already looked up, so opening a list does not offer completions of its own title and
         // warn that it duplicates itself - see NameSuggestions.StartsAt.
         _titleSuggestions.StartsAt(taskList.Title);
@@ -837,15 +873,55 @@ public sealed partial class TaskListDetailViewModel : ObservableObject
             ShowWhoElseIsEditing();
         }
 
+        // What was chosen for this list before anything is drawn from it, and without saving it back -
+        // this is what was already chosen, not somebody choosing it again.
+        _isShowingWhatIsStored = true;
+        ItemOrder = _reading.Read(_localId).Order;
+        _isShowingWhatIsStored = false;
+
+        ShowItemsInChosenOrder(taskList.Items);
+
+        await StockCheck.ShowAsync(taskList, cancellationToken);
+    }
+
+    /// <summary>
+    /// The entries as this reader asked for them. Alphabetical is by what each entry says, which is how
+    /// a shopping list gets read off in a shop; as arranged is the order the list was written in, which
+    /// is what moving entries about sets. The same three orders Orbit.Web reads a checklist in.
+    /// </summary>
+    private void ShowItemsInChosenOrder(IReadOnlyList<TaskItemDto> items)
+    {
+        var inOrder = ItemOrder switch
+        {
+            ChecklistOrder.Alphabetical =>
+                items.OrderBy(item => item.Description, StringComparer.CurrentCultureIgnoreCase),
+            ChecklistOrder.UndoneFirst => items
+                .OrderBy(item => item.IsCompleted)
+                .ThenBy(item => item.Description, StringComparer.CurrentCultureIgnoreCase),
+            _ => items.AsEnumerable()
+        };
+
         Items.Clear();
-        foreach (var item in taskList.Items)
+        foreach (var item in inOrder)
         {
             Items.Add(TaskItemRow.From(
                 item, _translations, _timeProvider.GetUtcNow(), ReferencesFor(item),
                 _appointmentsWaitingToBeNamed.ContainsKey(item.Description)));
         }
+    }
 
-        await StockCheck.ShowAsync(taskList, cancellationToken);
+    partial void OnItemOrderChanged(ChecklistOrder value)
+    {
+        OnPropertyChanged(nameof(CanBeRearranged));
+        ShowItemsInChosenOrder(_items);
+
+        if (_isShowingWhatIsStored || _localId == Guid.Empty)
+        {
+            return;
+        }
+
+        // Read first: the stock check panel writes the same record - see ChecklistReading.
+        _reading.Write(_localId, _reading.Read(_localId) with { Order = value });
     }
 
     private async Task SynchroniseAsync(CancellationToken cancellationToken)
@@ -903,8 +979,27 @@ public sealed partial class TaskListDetailViewModel : ObservableObject
     }
 
     /// <inheritdoc cref="OnIsGroupChanged"/>
+    /// <summary>
+    /// Saves the description once the reader has finished with it, and only if it changed. A box with no
+    /// "done" key of its own is left by moving away from it, and the first thing typed here was lost
+    /// exactly that way: everything else on this screen saves as it is chosen, and this saved on nothing.
+    /// </summary>
+    [RelayCommand]
+    private Task CommitDescriptionAsync(CancellationToken cancellationToken)
+    {
+        if (Description == _savedDescription)
+        {
+            return Task.CompletedTask;
+        }
+
+        _savedDescription = Description;
+        return SaveListCommand.ExecuteAsync(null);
+    }
+
     partial void OnIsPrivateChanged(bool value)
     {
+        OnPropertyChanged(nameof(IsNotPrivate));
+
         if (!_isShowingWhatIsStored)
         {
             SaveListCommand.Execute(null);

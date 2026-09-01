@@ -26,6 +26,7 @@ public partial class TaskListDetailPage : ContentPage
 		ShowItemMenuCommand = new Command<TaskItemRow>(item => _ = ShowItemMenuAsync(item));
 		ShowListMenuCommand = new Command(() => _ = ShowListMenuAsync());
 		ChooseWarehouseCommand = new Command(() => _ = ChooseWarehouseAsync());
+		ChooseStockOrderCommand = new Command(() => _ = ChooseStockOrderAsync());
 
 		InitializeComponent();
 		BindingContext = viewModel;
@@ -39,6 +40,28 @@ public partial class TaskListDetailPage : ContentPage
 
 	/// <summary>Which shelf this list's work is measured against - see StockCheckPanel.</summary>
 	public ICommand ChooseWarehouseCommand { get; }
+
+	/// <summary>What order that panel lists what the work needs in - the same four Orbit.Web offers.</summary>
+	public ICommand ChooseStockOrderCommand { get; }
+
+	private async Task ChooseStockOrderAsync()
+	{
+		var names = new Dictionary<string, StockCheckOrder>
+		{
+			[MarkStock(_translations["In list order"], StockCheckOrder.AsCounted)] = StockCheckOrder.AsCounted,
+			[MarkStock(_translations["A to Z"], StockCheckOrder.Alphabetical)] = StockCheckOrder.Alphabetical,
+			[MarkStock(_translations["Z to A"], StockCheckOrder.ReverseAlphabetical)] = StockCheckOrder.ReverseAlphabetical,
+			[MarkStock(_translations["Short first"], StockCheckOrder.ShortFirst)] = StockCheckOrder.ShortFirst
+		};
+
+		var chosen = await DisplayActionSheet(
+			_translations["Sort"], _translations["Cancel"], destruction: null, [.. names.Keys]);
+
+		if (chosen is not null && names.TryGetValue(chosen, out var order))
+		{
+			_viewModel.StockCheck.Order = order;
+		}
+	}
 
 	private async Task ChooseWarehouseAsync()
 	{
@@ -54,12 +77,32 @@ public partial class TaskListDetailPage : ContentPage
 
 	private async Task ShowListMenuAsync()
 	{
+		// What order to read the entries in, then what to do to the list - one menu holding both, as
+		// Orbit.Web's checklist keeps them. The order in force is marked, because a menu of three with
+		// no answer among them leaves the reader guessing what they are looking at.
+		var orders = new Dictionary<string, ChecklistOrder>
+		{
+			[Mark(_translations["In list order"], ChecklistOrder.AsArranged)] = ChecklistOrder.AsArranged,
+			[Mark(_translations["A to Z"], ChecklistOrder.Alphabetical)] = ChecklistOrder.Alphabetical,
+			[Mark(_translations["Left to do first"], ChecklistOrder.UndoneFirst)] = ChecklistOrder.UndoneFirst
+		};
+
+		// The two that price a list against a shelf are only worth offering where there is a shelf to
+		// price it against - the panel below appears by the same rule.
 		var generate = _translations["Generate inventory"];
 		var refresh = _translations["Refresh the restock list"];
-		var chosen = await DisplayActionSheet(
-			_translations["List options"], _translations["Cancel"], destruction: null, generate, refresh);
+		string[] choices = _viewModel.StockCheck.IsOffered
+			? [.. orders.Keys, generate, refresh]
+			: [.. orders.Keys];
 
-		if (chosen == generate)
+		var chosen = await DisplayActionSheet(
+			_translations["List options"], _translations["Cancel"], destruction: null, choices);
+
+		if (chosen is not null && orders.TryGetValue(chosen, out var order))
+		{
+			_viewModel.ItemOrder = order;
+		}
+		else if (chosen == generate)
 		{
 			_viewModel.StockCheck.GenerateInventoryCommand.Execute(null);
 		}
@@ -68,6 +111,12 @@ public partial class TaskListDetailPage : ContentPage
 			_viewModel.StockCheck.RefreshFromTheWarehouseCommand.Execute(null);
 		}
 	}
+
+	private string MarkStock(string name, StockCheckOrder order)
+		=> _viewModel.StockCheck.Order == order ? $"{name} ✓" : name;
+
+	private string Mark(string name, ChecklistOrder order)
+		=> _viewModel.ItemOrder == order ? $"{name} ✓" : name;
 
 	protected override void OnAppearing()
 	{
@@ -133,9 +182,14 @@ public partial class TaskListDetailPage : ContentPage
 		var remove = _translations["Delete item"];
 		var moveUp = _translations["Move up"];
 		var moveDown = _translations["Move down"];
+		// Moving an entry is only offered while the list is being read in the order it was arranged in:
+		// anywhere else "up" would move it in an arrangement nobody can see, and the entry would stay
+		// exactly where it is on screen.
+		string[] choices = _viewModel.CanBeRearranged
+			? [_translations["Edit"], moveUp, moveDown]
+			: [_translations["Edit"]];
 		var chosen = await DisplayActionSheet(
-			_translations["Item options"], _translations["Cancel"], remove,
-			_translations["Edit"], moveUp, moveDown);
+			_translations["Item options"], _translations["Cancel"], remove, choices);
 
 		if (chosen == remove)
 		{

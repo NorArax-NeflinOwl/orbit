@@ -663,8 +663,12 @@ list back.
 The domain type behind this is named `TaskList`, not `Task`: `Orbit.Core.Tasks.Task` would collide with
 `System.Threading.Tasks.Task`, which every async method in the codebase returns.
 
-An item can instead reference another of the user's task lists via `linkedTaskListId`, rather than
-being independently completable. A linked item's `isCompleted` is entirely derived — it follows the
+An item can instead reference other task lists of the user's - `linkedTaskListIds`, with
+`linkedTaskListId` repeating the first of them for a client that has not learned about the plural yet -
+rather than being independently completable. **The phone offers all of them as of 2026-09-01**: the
+picker says what to add next rather than what is already there, each list it stands for is listed with a
+way off, and a save sends the whole set. It carried them from the first sync but showed only the first,
+so the rest were lost to whichever phone touched the entry next. A linked item's `isCompleted` is entirely derived — it follows the
 referenced list's own completion (true only once every item on that list is checked off) and is
 resolved live on every read (`LinkedTaskCompletionResolver`), the same "never trust the persisted
 completion column, always recompute it" approach `TaskList.IsCompleted` already uses, extended
@@ -887,6 +891,16 @@ All of it lives behind the screen's three-dot menu, along with Edit and the two 
 none of it is what somebody came to this screen to do. The menu stays open while the settings are being
 tried and closes behind the entries that act.
 
+**The phone offers the same three orders**, behind the list's own three-dot menu, with the one in force
+marked - a menu of three with no answer among them leaves the reader guessing what they are looking at.
+The menu is offered on every list, not only on the ones priced against a shelf: a single long list is
+exactly where reading it off alphabetically helps. Moving an entry up or down disappears from its menu
+while the list is read in any other order, since "up" would move it in an arrangement nobody can see.
+The order is kept per list on the device (`ChecklistReading`, the phone's preferences, the same category
+as the dashboard's pins) and never reaches what is saved: what goes back to the server is always the list
+as it was arranged. Flattening a tree is still the browser's alone - see
+[the follow-ups](future-plan.md#smaller-identified-follow-ups).
+
 ### Arranging a list by hand
 
 In the deep editor each item carries a drag handle, and dropping one where another sits puts it there.
@@ -920,6 +934,11 @@ names already waiting are left alone. The panel carries a menu of its own: wheth
 all, and what order it lists things in - its own order, A to Z, Z to A, or shortfalls first, which is
 the only part of the table anybody has to act on. Both are remembered as they are set rather than
 waiting for "Save view", since a panel somebody puts away every visit has already been answered about.
+
+**The phone folds the same panel and offers the same four orders**: its heading and its chevron both put
+it away, and its own menu holds the orders. The warehouse it is measured against stays at the card's foot
+rather than inside the fold - it is how the panel gets linked in the first place, so unreachable while
+folded would mean unreachable before it has anything to fold.
 
 `POST /api/tasks/{id}/stock-check/reconciliation` is the other half, and what "recalculate against the
 inventory" does. It runs in both directions. What the warehouse already covers is crossed off - counted
@@ -1716,6 +1735,12 @@ The change is announced to that account's **other devices** only (see
 [Live updates](#live-updates)): a conversation put away on a phone should not still be in the way on
 the laptop, and nobody else's screen changed.
 
+**The phone offers all three as of 2026-09-01.** Each list - people, groups - carries its own switch to
+what has been put away, shown only once something is there, and each row's menu offers putting it away,
+bringing it back, and the thing that is not reversible: emptying a conversation, or leaving a group,
+each behind a question first. Emptying also drops what the phone had cached, because a pull only ever
+adds and the server has nothing left to send that would take those words away.
+
 ## Saying nothing about a field
 
 Descriptions on a task list and a warehouse, and a shelf item's regular-check flag, are all optional on
@@ -1929,6 +1954,15 @@ environment-driven flag, the same shape as the existing VAPID public-key endpoin
 never be talked out of via a stored per-account preference. Options.razor's own "Diagnostics" section
 (the "Show exceptions" switch) is likewise only rendered at all when the server reports it's not running
 in Production.
+
+### The bell, and what it counts
+
+Notifications are their own button in the bar on both clients as of 2026-09-01, left of the avatar and
+carrying the unread count - 0 draws nothing, 1 to 9 draw themselves, anything above draws "9+". It was
+a badge on the avatar before, and a menu entry behind it: **a count on a face says "you", not "unread"**,
+and reaching the panel meant opening a menu first, which is two steps for the one thing people check
+most. What is left in the avatar menu are the places somebody goes once - status, the language, the
+app's own settings, signing out.
 
 ### A link opened on a phone
 

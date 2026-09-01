@@ -45,26 +45,33 @@
 
                 <CollectionView.ItemTemplate>
                     <DataTemplate x:DataType="screens:WarehouseRow">
-                        <VerticalStackLayout Padding="0,12" Spacing="2">
-                            <!-- Two rows with the same name are otherwise indistinguishable, and the
-                                 reader has no way of telling which one they wrote in. -->
-                            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="6">
-                                <Label Grid.Column="0" Text="{Binding DisplayName}" FontSize="17" FontAttributes="Bold"
-                                       LineBreakMode="TailTruncation" VerticalOptions="Center" />
-                                <Label Grid.Column="1" Text="{controls:Translate 'copy'}" IsVisible="{Binding IsCopy}"
-                                          FontSize="11" VerticalOptions="Center" Style="{StaticResource SubtleLabel}" />
-                            </Grid>
-                            <!-- A hidden row keeps its place - a warehouse vanishing would look like it
-                                 had been deleted - but says nothing about itself until unlocked. -->
-                            <Button Text="{controls:Translate 'Unlock'}" IsVisible="{Binding IsHidden}" FontSize="12" Padding="12,2"
-                                    HorizontalOptions="Start" Style="{StaticResource LinkButton}"
-                                    Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=ViewModel.UnlockPrivateCommand, x:DataType=inventory:InventoryPage}" />
-                            <Label Text="{Binding Contents}" IsVisible="{Binding CanBeOpened}" FontSize="12" TextColor="{AppThemeBinding Light={StaticResource SubtleTextLight}, Dark={StaticResource SubtleTextDark}}" />
-                            <Label Text="{Binding Status}" IsVisible="{Binding HasStatus}"
-                                   FontSize="12" TextColor="{DynamicResource Accent}" />
-                            <BoxView HeightRequest="1" Margin="0,12,0,0"
-                                     Color="{AppThemeBinding Light={StaticResource CardStrokeLight}, Dark={StaticResource CardStrokeDark}}" />
-                        </VerticalStackLayout>
+                        <!-- The same card every list of things is drawn with - see ItemCard. -->
+                        <controls:ItemCard Name="{Binding DisplayName}">
+                            <controls:ItemCard.Tags>
+                                <!-- Two cards with the same name are otherwise indistinguishable, and
+                                     the reader has no way of telling which one they wrote in. -->
+                                <Label Text="{controls:Translate 'copy'}" IsVisible="{Binding IsCopy}"
+                                       FontSize="11" Style="{StaticResource SubtleLabel}" />
+                            </controls:ItemCard.Tags>
+
+                            <controls:ItemCard.Body>
+                                <VerticalStackLayout Spacing="2">
+                                    <!-- A hidden card keeps its place - a warehouse vanishing would look
+                                         like it had been deleted - but says nothing until unlocked. -->
+                                    <Button Text="{controls:Translate 'Unlock'}" IsVisible="{Binding IsHidden}"
+                                            FontSize="12" Padding="12,2" HorizontalOptions="Start"
+                                            Style="{StaticResource LinkButton}"
+                                            Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=ViewModel.UnlockPrivateCommand, x:DataType=inventory:InventoryPage}" />
+                                    <Label Text="{Binding Contents}" IsVisible="{Binding CanBeOpened}" FontSize="12"
+                                           Style="{StaticResource SubtleLabel}" />
+                                </VerticalStackLayout>
+                            </controls:ItemCard.Body>
+
+                            <controls:ItemCard.Extras>
+                                <Label Text="{Binding Status}" IsVisible="{Binding HasStatus}" FontSize="12"
+                                       LineBreakMode="WordWrap" TextColor="{DynamicResource Accent}" />
+                            </controls:ItemCard.Extras>
+                        </controls:ItemCard>
                     </DataTemplate>
                 </CollectionView.ItemTemplate>
 

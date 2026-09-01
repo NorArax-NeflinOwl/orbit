@@ -69,6 +69,21 @@ public sealed partial class ContactsViewModel : ObservableObject
 
     public ObservableCollection<LocalContact> Contacts { get; } = [];
 
+    /// <summary>
+    /// Whether the list is showing what has been put away rather than what is current. A switch rather
+    /// than a fourth tab as the browser has: this screen is one list, and what it holds is the question
+    /// the switch answers.
+    /// </summary>
+    [ObservableProperty]
+    private bool _isShowingArchive;
+
+    /// <summary>
+    /// Whether the archive is worth offering at all. An empty one is a place that answers "nothing" to
+    /// somebody who had to go there to find out - the same rule Orbit.Web's Contacts applies to its tab.
+    /// </summary>
+    [ObservableProperty]
+    private bool _hasArchive;
+
     public bool HasMessage => Message.Length > 0;
 
     /// <summary>
@@ -178,14 +193,96 @@ public sealed partial class ContactsViewModel : ObservableObject
     private async Task ShowCachedContactsAsync(CancellationToken cancellationToken)
     {
         var contacts = await _chatRepository.GetContactsAsync(cancellationToken);
+        HasArchive = contacts.Any(contact => contact.IsArchived);
+
+        // Nothing to come back to, so the switch goes with it rather than leaving the reader in an empty
+        // list they have to find their own way out of.
+        if (!HasArchive)
+        {
+            IsShowingArchive = false;
+        }
+
         Contacts.Clear();
-        foreach (var contact in contacts)
+        foreach (var contact in contacts.Where(contact => contact.IsArchived == IsShowingArchive))
         {
             Contacts.Add(contact);
         }
 
-        Message = Contacts.Count == 0 ? _translations["No conversations yet."] : string.Empty;
+        Message = Contacts.Count == 0
+            ? IsShowingArchive ? _translations["Nothing put away."] : _translations["No conversations yet."]
+            : string.Empty;
     }
+
+    /// <summary>
+    /// Puts a conversation away on this reader's list, or brings it back. One-sided: nobody else is
+    /// told, and their own list is untouched - see ChatClient.SetConversationArchivedAsync.
+    /// </summary>
+    [RelayCommand]
+    private async Task SetArchivedAsync(LocalContact? contact, CancellationToken cancellationToken)
+    {
+        if (contact is null)
+        {
+            return;
+        }
+
+        try
+        {
+            if (!await _chatClient.SetConversationArchivedAsync(contact.UserId, !contact.IsArchived, cancellationToken))
+            {
+                Message = _translations["Orbit has no such conversation any more."];
+                return;
+            }
+        }
+        catch (Exception exception) when (exception is HttpRequestException or OperationCanceledException)
+        {
+            Message = contact.IsArchived
+                ? _translations["Could not put that back. Check your connection and try again."]
+                : _translations["Could not put that away. Check your connection and try again."];
+            return;
+        }
+
+        await RefreshFromTheServerAsync(cancellationToken);
+    }
+
+    /// <summary>
+    /// Empties a conversation on this reader's side. The other party keeps theirs - the server records
+    /// where this reader's history begins rather than deleting anybody's messages - and this phone
+    /// drops what it had cached, or the words would still be here afterwards.
+    /// </summary>
+    [RelayCommand]
+    private async Task ClearHistoryAsync(LocalContact? contact, CancellationToken cancellationToken)
+    {
+        if (contact is null)
+        {
+            return;
+        }
+
+        try
+        {
+            if (!await _chatClient.ClearConversationHistoryAsync(contact.UserId, cancellationToken))
+            {
+                Message = _translations["Orbit has no such conversation any more."];
+                return;
+            }
+        }
+        catch (Exception exception) when (exception is HttpRequestException or OperationCanceledException)
+        {
+            Message = _translations["Could not delete that chat history. Check your connection and try again."];
+            return;
+        }
+
+        await _chatRepository.DeleteConversationAsync(contact.UserId, cancellationToken);
+        await RefreshFromTheServerAsync(cancellationToken);
+    }
+
+    /// <summary>Pulls the list again and shows it, so a change made here is read back rather than guessed at.</summary>
+    private async Task RefreshFromTheServerAsync(CancellationToken cancellationToken)
+    {
+        await _synchronizer.SynchroniseContactsAsync(cancellationToken);
+        await ShowCachedContactsAsync(cancellationToken);
+    }
+
+    partial void OnIsShowingArchiveChanged(bool value) => LoadCommand.Execute(null);
 
     [RelayCommand]
     private void OpenConversation(LocalContact? contact)

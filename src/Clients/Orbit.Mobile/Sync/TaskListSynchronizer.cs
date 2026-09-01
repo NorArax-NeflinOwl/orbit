@@ -98,7 +98,7 @@ public sealed class TaskListSynchronizer
             // A private list's title and entries are in EncryptedContent and its readable fields are
             // empty, which is how the row is already stored - see LocalTaskListRepository.
             new CreateTaskRequest(taskList.Title, ToRequests(taskList.Items), taskList.IsGroup, taskList.IsPrivate,
-                taskList.EncryptedContent, taskList.Priority),
+                taskList.EncryptedContent, taskList.Priority, taskList.Description),
             cancellationToken);
         taskList.LastSyncedAtUtc = _timeProvider.GetUtcNow();
         return SendResult.Sent;
@@ -114,8 +114,10 @@ public sealed class TaskListSynchronizer
 
         var outcome = await _tasksClient.UpdateAsync(
             serverId,
+            // Said rather than left out: null would mean "not provided" and keep whatever is stored, so
+            // a description cleared on this phone would come back at the next pull - see CreateTaskRequest.
             new UpdateTaskRequest(taskList.Title, ToRequests(taskList.Items), taskList.IsGroup, taskList.IsPrivate,
-                taskList.EncryptedContent, taskList.Priority),
+                taskList.EncryptedContent, taskList.Priority, taskList.Description),
             cancellationToken);
 
         if (outcome is not WriteOutcome.Applied)
@@ -186,6 +188,7 @@ public sealed class TaskListSynchronizer
     private void CopyInto(LocalTaskList taskList, TaskDto incoming)
     {
         taskList.Title = incoming.Title;
+        taskList.Description = incoming.Description;
         taskList.Items = incoming.Items;
         taskList.IsCompleted = incoming.IsCompleted;
         taskList.IsGroup = incoming.IsGroup;

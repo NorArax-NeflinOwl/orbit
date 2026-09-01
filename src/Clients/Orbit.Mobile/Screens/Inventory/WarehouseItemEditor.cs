@@ -120,6 +120,14 @@ public sealed partial class WarehouseItemEditor : ObservableObject
     [ObservableProperty]
     private string _expiryNotificationChannel = nameof(NotificationChannel.Push);
 
+    /// <summary>
+    /// Whether the restock list asks for this every round, however much there is - see
+    /// Orbit.Core.Inventory.InventoryItem.BelongsOnTheRestockList. A different question from the
+    /// minimum above it: that one asks when there is too little, this one asks always.
+    /// </summary>
+    [ObservableProperty]
+    private bool _isCheckedRegularly;
+
     private WarehouseItemEditor(Guid? id) => _id = id;
 
     /// <summary>
@@ -167,7 +175,10 @@ public sealed partial class WarehouseItemEditor : ObservableObject
             ExpiresIn = ExpiryPeriod.For(item.ExpiryDate, DateTime.Today).Amount.ToString(
                 System.Globalization.CultureInfo.InvariantCulture),
             _displayCulture = translations.DisplayCulture,
-            ExpiryNotificationChannel = item.ExpiryNotificationChannel
+            ExpiryNotificationChannel = item.ExpiryNotificationChannel,
+            // False for an item read from a server that says nothing about it, which is what an older
+            // one does - see WarehouseItemDto.
+            IsCheckedRegularly = item.IsCheckedRegularly ?? false
         };
 
     public bool CanSave => Name.Trim().Length > 0 && ParseQuantity() is not null;
@@ -190,7 +201,10 @@ public sealed partial class WarehouseItemEditor : ObservableObject
             // Converted rather than sent with the local offset the picker works in - see the same line
             // in TaskItemEditor for what a non-zero offset costs on the way to Postgres.
             ExpiryDate?.ToUniversalTime(),
-            ExpiryNotificationChannel);
+            ExpiryNotificationChannel,
+            // Always set on the way out, never left as null: null means "not provided" and would keep
+            // whatever is stored, so a reader turning this off here would have been ignored.
+            IsCheckedRegularly);
 
     private int ParseExpiresIn()
         => int.TryParse(ExpiresIn.Trim(), out var amount) && amount > 0 ? amount : 1;

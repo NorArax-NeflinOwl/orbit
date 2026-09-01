@@ -17,15 +17,18 @@
 
     <Grid Grid.Row="1" RowDefinitions="Auto,Auto,Auto,*,Auto,Auto" Padding="20" RowSpacing="10">
 
-        <VerticalStackLayout Grid.Row="0" Spacing="6">
-            <Entry Text="{Binding Name}" FontSize="20" FontAttributes="Bold"
-                   IsReadOnly="{Binding IsReadOnly}" Placeholder="{controls:Translate 'Untitled'}"
-                   ReturnType="Done" ReturnCommand="{Binding RenameCommand}" />
-
-            <!-- Warehouse names already in use, offered as this one is typed - its own strip, because
-                 the box below is a different field and is on screen at the same time. -->
-            <controls:NameSuggestionChips BindingContext="{Binding WarehouseNameSuggestions}" />
-        </VerticalStackLayout>
+        <controls:TitledDescription Grid.Row="0"
+                                    Title="{Binding Name, Mode=TwoWay}" TitleLabel="{controls:Translate 'Name'}"
+                                    TitlePlaceholder="{controls:Translate 'Untitled'}"
+                                    SaveTitleCommand="{Binding RenameCommand}"
+                                    Description="{Binding Description, Mode=TwoWay}"
+                                    CommitDescriptionCommand="{Binding CommitDescriptionCommand}"
+                                    IsReadOnly="{Binding IsReadOnly}"
+                                    ShowsDescription="{Binding IsNotPrivate}">
+            <controls:TitledDescription.Suggestions>
+                <controls:NameSuggestionChips BindingContext="{Binding WarehouseNameSuggestions}" />
+            </controls:TitledDescription.Suggestions>
+        </controls:TitledDescription>
 
         <VerticalStackLayout Grid.Row="1" Spacing="4">
             <Label Text="{Binding Status}" IsVisible="{Binding HasStatus}"

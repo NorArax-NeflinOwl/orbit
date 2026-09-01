@@ -171,6 +171,37 @@ internal sealed class FakeChatServer : HttpMessageHandler
                 : Json(Contacts);
         }
 
+        // api/chat/conversations/{otherUserId}/archived - one-sided, and told to nobody.
+        if (segments[^1] == "archived" && segments[2] == "conversations")
+        {
+            var otherUserId = Guid.Parse(segments[^2]);
+            if (Contacts.All(contact => contact.UserId != otherUserId))
+            {
+                return new HttpResponseMessage(HttpStatusCode.NotFound);
+            }
+
+            var asked = JsonSerializer.Deserialize<SetArchivedRequest>(
+                await request.Content!.ReadAsStringAsync(cancellationToken), _json)!;
+
+            Archive(otherUserId, asked.IsArchived);
+            return new HttpResponseMessage(HttpStatusCode.NoContent);
+        }
+
+        // api/chat/conversations/{otherUserId}/messages - emptied on the caller's side only, which for
+        // this fake is the only side there is.
+        if (segments.Length == 5 && segments[2] == "conversations" && segments[4] == "messages"
+            && request.Method == HttpMethod.Delete)
+        {
+            var otherUserId = Guid.Parse(segments[3]);
+            if (Contacts.All(contact => contact.UserId != otherUserId))
+            {
+                return new HttpResponseMessage(HttpStatusCode.NotFound);
+            }
+
+            _messages.RemoveAll(message => message.SenderUserId == otherUserId || message.RecipientUserId == otherUserId);
+            return new HttpResponseMessage(HttpStatusCode.NoContent);
+        }
+
         if (segments[^1] == "approve")
         {
             var otherUserId = Guid.Parse(segments[^2]);
@@ -216,6 +247,18 @@ internal sealed class FakeChatServer : HttpMessageHandler
         return Json(messages.ToList());
     }
 
+    /// <summary>Puts one contact away, or brings it back, as the server records it against this reader.</summary>
+    private void Archive(Guid otherUserId, bool isArchived)
+    {
+        for (var index = 0; index < Contacts.Count; index++)
+        {
+            if (Contacts[index].UserId == otherUserId)
+            {
+                Contacts[index] = Contacts[index] with { IsArchived = isArchived };
+            }
+        }
+    }
+
     /// <summary>Which groups the caller said they had read - one entry per time they said it.</summary>
     public List<Guid> GroupsMarkedRead { get; } = [];
 
@@ -230,7 +273,9 @@ internal sealed class FakeChatServer : HttpMessageHandler
         {
             return request.Method == HttpMethod.Post
                 ? await CreateGroupAsync(request, cancellationToken)
-                : Json(Groups);
+                // The caller's groups, as the endpoint answers: one they have left is no longer theirs,
+                // and a fake that listed it anyway would have called leaving a no-op.
+                : Json(Groups.Where(group => group.Members.Any(member => member.UserId == CallerUserId)).ToList());
         }
 
         var groupId = Guid.Parse(segments[3]);
@@ -254,6 +299,28 @@ internal sealed class FakeChatServer : HttpMessageHandler
 
             HistoryHandedOver.Add(handedOver);
             return Json(handedOver.Copies.Count);
+        }
+
+        // api/chat/groups/{id}/archived - on this member's own membership, so it says nothing about
+        // anybody else's list and needs no rank.
+        if (segments.Length == 5 && segments[4] == "archived")
+        {
+            var asked = JsonSerializer.Deserialize<SetArchivedRequest>(
+                await request.Content!.ReadAsStringAsync(cancellationToken), _json)!;
+
+            Groups[Groups.IndexOf(group)] = group with { IsArchived = asked.IsArchived };
+            return new HttpResponseMessage(HttpStatusCode.NoContent);
+        }
+
+        // api/chat/groups/{id}/membership - leaving, which the rest of the group sees.
+        if (segments.Length == 5 && segments[4] == "membership" && request.Method == HttpMethod.Delete)
+        {
+            Groups[Groups.IndexOf(group)] = group with
+            {
+                Members = [.. group.Members.Where(member => member.UserId != CallerUserId)]
+            };
+
+            return new HttpResponseMessage(HttpStatusCode.NoContent);
         }
 
         // api/chat/groups/{id}/read

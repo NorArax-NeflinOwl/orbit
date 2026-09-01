@@ -38,6 +38,12 @@ public sealed class LocalContact
 
     public DateTimeOffset LastMessageAtUtc { get; set; }
 
+    /// <summary>
+    /// Put away by this reader, and by nobody else - see ContactDto.IsArchived. One-sided on purpose:
+    /// the other party's list has its own row and its own answer.
+    /// </summary>
+    public bool IsArchived { get; set; }
+
     /// <summary>A chat request this user sent that the signed-in user hasn't approved yet.</summary>
     public bool RequiresApprovalFromCurrentUser { get; set; }
 

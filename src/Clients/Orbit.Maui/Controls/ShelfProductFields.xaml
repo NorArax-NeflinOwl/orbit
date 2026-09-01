@@ -58,6 +58,18 @@
                 SelectedItem="{Binding ChosenExpiryNotificationChannel}"
                 ItemDisplayBinding="{Binding Name, x:DataType=common:NotificationChannelChoice}"
                 SemanticProperties.Description="{controls:Translate 'Expiry notification'}" />
+
+        <!-- A different question from the minimum above: that one asks when there is too little, this
+             one asks every round however much there is - see InventoryItem.BelongsOnTheRestockList. -->
+        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+            <VerticalStackLayout Grid.Column="0">
+                <Label Text="{controls:Translate 'Check every round'}" />
+                <Label Text="{controls:Translate 'Always on the restock list, however much there is'}"
+                       FontSize="12" LineBreakMode="WordWrap" Style="{StaticResource SubtleLabel}" />
+            </VerticalStackLayout>
+            <Switch Grid.Column="1" IsToggled="{Binding IsCheckedRegularly}" VerticalOptions="Center"
+                    SemanticProperties.Description="{controls:Translate 'Check every round'}" />
+        </Grid>
     </VerticalStackLayout>
 
 </ContentView>

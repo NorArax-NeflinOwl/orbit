@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<ContentView
+    x:Class="Orbit.Maui.Controls.TitledDescription"
+    x:Name="Root"
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    xmlns:controls="clr-namespace:Orbit.Maui.Controls">
+
+    <!-- What a list or a warehouse is called, and what it is for, written as one thing.
+
+         Two boxes with two labels made the description look like a setting somebody had to decide
+         about. It is not - it is the rest of the sentence the title starts, and most lists never need
+         one. So: the title as a heading, the description as ordinary text under it, and no second
+         label. The same field Orbit.Web arrived at - see its TitledDescription.razor. -->
+    <VerticalStackLayout Spacing="6">
+
+        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="4">
+            <Entry x:Name="TitleEntry" Grid.Column="0" FontSize="20" FontAttributes="Bold" ReturnType="Done"
+                   Text="{Binding Title, Source={x:Reference Root}, Mode=TwoWay, x:DataType=controls:TitledDescription}"
+                   IsReadOnly="{Binding IsReadOnly, Source={x:Reference Root}, x:DataType=controls:TitledDescription}"
+                   Placeholder="{Binding TitlePlaceholder, Source={x:Reference Root}, x:DataType=controls:TitledDescription}"
+                   ReturnCommand="{Binding SaveTitleCommand, Source={x:Reference Root}, x:DataType=controls:TitledDescription}" />
+
+            <ContentView x:Name="MenuHost" Grid.Column="1" IsVisible="False" VerticalOptions="Center" />
+        </Grid>
+
+        <!-- Names already in use, offered as this one is typed - its own strip, because the box below is
+             a different field and is on screen at the same time. -->
+        <ContentView x:Name="SuggestionsHost" IsVisible="False" />
+
+        <!-- Grows with what is written rather than scrolling inside four lines: somebody typing the
+             third sentence should be able to see the first two. -->
+        <Editor x:Name="DescriptionEditor" AutoSize="TextChanges" FontSize="14" MinimumHeightRequest="0"
+                Text="{Binding Description, Source={x:Reference Root}, Mode=TwoWay, x:DataType=controls:TitledDescription}"
+                IsReadOnly="{Binding IsReadOnly, Source={x:Reference Root}, x:DataType=controls:TitledDescription}"
+                IsVisible="{Binding ShowsDescription, Source={x:Reference Root}, x:DataType=controls:TitledDescription}"
+                Placeholder="{controls:Translate 'What is it for?'}"
+                SemanticProperties.Description="{controls:Translate 'Description'}" />
+
+    </VerticalStackLayout>
+
+</ContentView>

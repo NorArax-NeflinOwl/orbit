@@ -96,87 +96,101 @@
 
                 <CollectionView.ItemTemplate>
                     <DataTemplate x:DataType="screens:TaskListRow">
-                        <VerticalStackLayout Padding="0,12" Spacing="2">
-                            <!-- Tight column spacing, and each of the small buttons only as wide as its glyph: six things
-                                 beside a title is what a phone has room for only if none of them takes more
-                                 than it needs. -->
-                            <Grid ColumnDefinitions="*,Auto,Auto,Auto,Auto,Auto" ColumnSpacing="4">
-                                <!-- Two rows with the same title are otherwise indistinguishable, and the
-                                     reader has no way of telling which one they wrote in. -->
-                                <Grid Grid.Column="0" ColumnDefinitions="*,Auto" ColumnSpacing="6">
-                                    <Label Grid.Column="0" Text="{Binding DisplayTitle}" FontSize="17" FontAttributes="Bold"
-                                           LineBreakMode="TailTruncation" VerticalOptions="Center" />
-                                    <Label Grid.Column="1" Text="{controls:Translate 'copy'}" IsVisible="{Binding IsCopy}"
-                                          FontSize="11" VerticalOptions="Center" Style="{StaticResource SubtleLabel}" />
-                                </Grid>
-                                <!-- Only where it says something: a badge on every list, most of them
-                                     Normal, would mark nothing out - see PriorityChoice.IsWorthSaying. -->
-                                <Border Grid.Column="1" Style="{StaticResource FilterChip}" Padding="6,3"
-                                        IsVisible="{Binding HasPriorityBadge}" VerticalOptions="Center">
-                                    <Label Text="{Binding Priority}" Style="{StaticResource FilterChipLabel}" />
-                                </Border>
-                                <!-- Where the list stands, in the same words as the chips above it. -->
-                                <Border Grid.Column="2" Style="{StaticResource FilterChip}" Padding="6,3"
-                                        IsVisible="{Binding HasBadges}" VerticalOptions="Center">
-                                    <Label Text="{Binding State}" Style="{StaticResource FilterChipLabel}" />
-                                </Border>
-                                <controls:PinButton Grid.Column="3" IsPinned="{Binding IsPinned}" IsVisible="{Binding HasBadges}"
-                                                    Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=ViewModel.TogglePinCommand, x:DataType=tasks:TasksPage}"
-                                                    CommandParameter="{Binding .}" />
-                                <!-- Only where the reader is sorting by the order they put the cards in:
-                                     moving one under any other order would be undone by the sort. The web
-                                     drags them, which is not a gesture a thumb can aim in a scrolling list. -->
-                                <HorizontalStackLayout Grid.Column="4" Spacing="0" VerticalOptions="Center"
+                        <!-- The same card every list of things is drawn with - see ItemCard. -->
+                        <controls:ItemCard Name="{Binding DisplayTitle}">
+                            <!-- Only where the reader is sorting by the order they put the cards in:
+                                 moving one under any other order would be undone by the sort. The web
+                                 drags them, which is not a gesture a thumb can aim in a scrolling list. -->
+                            <controls:ItemCard.Handle>
+                                <HorizontalStackLayout Spacing="0" VerticalOptions="Center"
                                                        IsVisible="{Binding CanBeArranged}">
-                                    <Button Text="↑" SemanticProperties.Description="{controls:Translate 'Move up'}" FontSize="12" Padding="2,0" WidthRequest="44"
+                                    <Button Text="↑" SemanticProperties.Description="{controls:Translate 'Move up'}"
+                                            FontSize="12" Padding="2,0" WidthRequest="32"
                                             Style="{StaticResource LinkButton}"
                                             Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=ViewModel.MoveListUpCommand, x:DataType=tasks:TasksPage}"
                                             CommandParameter="{Binding .}" />
-                                    <Button Text="↓" SemanticProperties.Description="{controls:Translate 'Move down'}" FontSize="12" Padding="2,0" WidthRequest="44"
+                                    <Button Text="↓" SemanticProperties.Description="{controls:Translate 'Move down'}"
+                                            FontSize="12" Padding="2,0" WidthRequest="32"
                                             Style="{StaticResource LinkButton}"
                                             Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=ViewModel.MoveListDownCommand, x:DataType=tasks:TasksPage}"
                                             CommandParameter="{Binding .}" />
                                 </HorizontalStackLayout>
-                                <!-- Folded down to its heading, not filtered away: a list nobody is working
-                                     on this week is still one they want to see is there. Orbit.Web folds
-                                     the same card with the same chevron. -->
-                                <Button Grid.Column="5" Text="{Binding FoldGlyph}" SemanticProperties.Description="{Binding FoldDescription}" FontSize="12" Padding="2,0"
-                                        WidthRequest="44" VerticalOptions="Center" IsVisible="{Binding HasBadges}"
-                                        Style="{StaticResource LinkButton}"
+                            </controls:ItemCard.Handle>
+
+                            <controls:ItemCard.Pin>
+                                <controls:PinButton IsPinned="{Binding IsPinned}" IsVisible="{Binding HasBadges}"
+                                                    Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=ViewModel.TogglePinCommand, x:DataType=tasks:TasksPage}"
+                                                    CommandParameter="{Binding .}" />
+                            </controls:ItemCard.Pin>
+
+                            <!-- Folded down to its heading, not filtered away: a list nobody is working
+                                 on this week is still one they want to see is there. Orbit.Web folds
+                                 the same card with the same chevron. -->
+                            <controls:ItemCard.Collapse>
+                                <Button Text="{Binding FoldGlyph}" SemanticProperties.Description="{Binding FoldDescription}"
+                                        FontSize="12" Padding="2,0" WidthRequest="44" VerticalOptions="Center"
+                                        IsVisible="{Binding HasBadges}" Style="{StaticResource LinkButton}"
                                         Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=ViewModel.ToggleCollapsedCommand, x:DataType=tasks:TasksPage}"
                                         CommandParameter="{Binding .}" />
-                            </Grid>
-                            <!-- A hidden row keeps its place - a list vanishing would look like it had
-                                 been deleted - but says nothing about itself until unlocked. -->
-                            <Button Text="{controls:Translate 'Unlock'}" IsVisible="{Binding IsHidden}" FontSize="12" Padding="12,2"
-                                    HorizontalOptions="Start" Style="{StaticResource LinkButton}"
-                                    Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=ViewModel.UnlockPrivateCommand, x:DataType=tasks:TasksPage}" />
+                            </controls:ItemCard.Collapse>
 
-                            <!-- Everything but the heading and its buttons, so folding the card is one
-                                 IsVisible rather than one on each line. -->
-                            <VerticalStackLayout Spacing="2" IsVisible="{Binding IsExpanded}">
-                                <Label Text="{Binding Progress}" FontSize="12" TextColor="{AppThemeBinding Light={StaticResource SubtleTextLight}, Dark={StaticResource SubtleTextDark}}" />
+                            <controls:ItemCard.Tags>
+                                <HorizontalStackLayout Spacing="6">
+                                    <!-- Two cards with the same title are otherwise indistinguishable. -->
+                                    <Label Text="{controls:Translate 'copy'}" IsVisible="{Binding IsCopy}"
+                                           FontSize="11" VerticalOptions="Center" Style="{StaticResource SubtleLabel}" />
+                                    <!-- Only where it says something: a badge on every list, most of them
+                                         Normal, would mark nothing out - see PriorityChoice.IsWorthSaying. -->
+                                    <Border Style="{StaticResource FilterChip}" Padding="6,3"
+                                            IsVisible="{Binding HasPriorityBadge}" VerticalOptions="Center">
+                                        <Label Text="{Binding Priority}" Style="{StaticResource FilterChipLabel}" />
+                                    </Border>
+                                    <!-- Where the list stands, in the same words as the chips above it. -->
+                                    <Border Style="{StaticResource FilterChip}" Padding="6,3"
+                                            IsVisible="{Binding HasBadges}" VerticalOptions="Center">
+                                        <Label Text="{Binding State}" Style="{StaticResource FilterChipLabel}" />
+                                    </Border>
+                                </HorizontalStackLayout>
+                            </controls:ItemCard.Tags>
 
-                                <!-- One line, and the one worth having: what is still to be done on this
-                                     list. A row that only points at another list is not work itself, so what
-                                     it stands for is looked up there and that list is named beside it. -->
-                                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8" IsVisible="{Binding HasNextThing}"
-                                      Margin="0,4,0,0">
-                                    <Label Grid.Column="0" Text="{Binding NextThing}" FontSize="13"
-                                           LineBreakMode="TailTruncation" />
-                                    <Label Grid.Column="1" Text="{Binding NextThingOnList}" FontSize="11"
-                                           IsVisible="{Binding IsNextThingOnAnotherList}" VerticalOptions="Center"
-                                           Style="{StaticResource SubtleLabel}" />
-                                </Grid>
-                                <Label Text="{controls:Translate 'Nothing left to do.'}" FontSize="13" Margin="0,4,0,0"
-                                       IsVisible="{Binding HasNothingLeftToDo}" Style="{StaticResource SubtleLabel}" />
+                            <controls:ItemCard.Body>
+                                <VerticalStackLayout Spacing="2">
+                                    <!-- A hidden card keeps its place - a list vanishing would look like
+                                         it had been deleted - but says nothing until unlocked. -->
+                                    <Button Text="{controls:Translate 'Unlock'}" IsVisible="{Binding IsHidden}"
+                                            FontSize="12" Padding="12,2" HorizontalOptions="Start"
+                                            Style="{StaticResource LinkButton}"
+                                            Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=ViewModel.UnlockPrivateCommand, x:DataType=tasks:TasksPage}" />
+
+                                    <!-- Everything but the heading and its buttons, so folding the card
+                                         is one IsVisible rather than one on each line. -->
+                                    <VerticalStackLayout Spacing="2" IsVisible="{Binding IsExpanded}">
+                                        <Label Text="{Binding Progress}" FontSize="12" Style="{StaticResource SubtleLabel}" />
+
+                                        <!-- One line, and the one worth having: what is still to be done
+                                             on this list. A row that only points at another list is not
+                                             work itself, so what it stands for is looked up there and
+                                             that list is named beside it. -->
+                                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8" IsVisible="{Binding HasNextThing}"
+                                              Margin="0,4,0,0">
+                                            <Label Grid.Column="0" Text="{Binding NextThing}" FontSize="13"
+                                                   LineBreakMode="TailTruncation" />
+                                            <Label Grid.Column="1" Text="{Binding NextThingOnList}" FontSize="11"
+                                                   IsVisible="{Binding IsNextThingOnAnotherList}" VerticalOptions="Center"
+                                                   Style="{StaticResource SubtleLabel}" />
+                                        </Grid>
+                                        <Label Text="{controls:Translate 'Nothing left to do.'}" FontSize="13" Margin="0,4,0,0"
+                                               IsVisible="{Binding HasNothingLeftToDo}" Style="{StaticResource SubtleLabel}" />
+                                    </VerticalStackLayout>
+                                </VerticalStackLayout>
+                            </controls:ItemCard.Body>
+
+                            <controls:ItemCard.Extras>
                                 <!-- Why a list is waiting, or why it cannot be edited right now. -->
-                                <Label Text="{Binding Status}" IsVisible="{Binding HasStatus}"
-                                       FontSize="12" TextColor="{DynamicResource Accent}" />
-                            </VerticalStackLayout>
-                            <BoxView HeightRequest="1" Margin="0,12,0,0"
-                                     Color="{AppThemeBinding Light={StaticResource CardStrokeLight}, Dark={StaticResource CardStrokeDark}}" />
-                        </VerticalStackLayout>
+                                <Label Text="{Binding Status}" IsVisible="{Binding HasStatus}" FontSize="12"
+                                       LineBreakMode="WordWrap" TextColor="{DynamicResource Accent}" />
+                            </controls:ItemCard.Extras>
+                        </controls:ItemCard>
                     </DataTemplate>
                 </CollectionView.ItemTemplate>
 

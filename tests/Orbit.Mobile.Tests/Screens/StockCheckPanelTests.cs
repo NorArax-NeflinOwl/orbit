@@ -60,6 +60,86 @@ public sealed class StockCheckPanelTests
         Assert.False(panel.Requirements[1].IsShort);
     }
 
+    /// <summary>
+    /// The panel asks about a shelf, which is not what somebody working through the list is looking at -
+    /// so it can be put away, and stays away for this list on this device. Orbit.Web folds it the same way.
+    /// </summary>
+    [Fact]
+    public async Task Folding_it_away_is_remembered_for_that_list()
+    {
+        using var context = new PanelContext();
+        var panel = await context.ShowAsync(isGroup: true);
+
+        panel.ToggleFoldCommand.Execute(null);
+
+        Assert.True(panel.IsFolded);
+        Assert.False(panel.IsNotFolded);
+        Assert.True((await context.ShowAsync(isGroup: true)).IsFolded);
+    }
+
+    /// <summary>Opening a list nobody has folded shows the panel: it is only away once put away.</summary>
+    [Fact]
+    public async Task It_opens_unfolded()
+    {
+        using var context = new PanelContext();
+
+        Assert.False((await context.ShowAsync(isGroup: true)).IsFolded);
+    }
+
+    [Theory]
+    [InlineData(StockCheckOrder.AsCounted, new[] { "Flour", "Salt", "Butter" })]
+    [InlineData(StockCheckOrder.Alphabetical, new[] { "Butter", "Flour", "Salt" })]
+    [InlineData(StockCheckOrder.ReverseAlphabetical, new[] { "Salt", "Flour", "Butter" })]
+    // Shortfalls first, and within them the order the work asks for them in.
+    [InlineData(StockCheckOrder.ShortFirst, new[] { "Flour", "Butter", "Salt" })]
+    public async Task The_rows_are_read_in_the_chosen_order(StockCheckOrder order, string[] expected)
+    {
+        using var context = new PanelContext();
+        var warehouse = await context.AddWarehouseAsync("Kitchen");
+        context.Server.StockCheck = new TaskListStockCheckDto(
+            false,
+            [
+                new StockRequirementDto("Flour", 3, 1, 2),
+                new StockRequirementDto("Salt", 1, 1, 0),
+                new StockRequirementDto("Butter", 2, 0, 2)
+            ]);
+        var panel = await context.ShowAsync(isGroup: true, linkedWarehouseId: warehouse);
+
+        panel.Order = order;
+
+        Assert.Equal(expected, panel.Requirements.Select(requirement => requirement.Name));
+    }
+
+    /// <summary>
+    /// Sorted from the order the work was counted in rather than from what is on screen, so going
+    /// through the orders and back leaves the rows where they started.
+    /// </summary>
+    [Fact]
+    public async Task Going_back_to_the_list_order_gives_the_list_order()
+    {
+        using var context = new PanelContext();
+        var warehouse = await context.AddWarehouseAsync("Kitchen");
+        context.Server.StockCheck = new TaskListStockCheckDto(
+            false, [new StockRequirementDto("Flour", 3, 1, 2), new StockRequirementDto("Butter", 2, 2, 0)]);
+        var panel = await context.ShowAsync(isGroup: true, linkedWarehouseId: warehouse);
+
+        panel.Order = StockCheckOrder.Alphabetical;
+        panel.Order = StockCheckOrder.AsCounted;
+
+        Assert.Equal(["Flour", "Butter"], panel.Requirements.Select(requirement => requirement.Name));
+    }
+
+    [Fact]
+    public async Task The_chosen_order_is_remembered_for_that_list()
+    {
+        using var context = new PanelContext();
+        var panel = await context.ShowAsync(isGroup: true);
+
+        panel.Order = StockCheckOrder.ShortFirst;
+
+        Assert.Equal(StockCheckOrder.ShortFirst, (await context.ShowAsync(isGroup: true)).Order);
+    }
+
     [Fact]
     public async Task When_the_shelf_covers_it_there_is_nothing_to_raise()
     {
@@ -244,15 +324,24 @@ public sealed class StockCheckPanelTests
             return stored.ServerId.Value;
         }
 
+        /// <summary>How this reader reads this list, kept across the panels one test opens.</summary>
+        public InMemoryChecklistReadingStore Reading { get; } = new();
+
+        /// <summary>
+        /// The same list every time, so a test can close a panel and open another one on it and see what
+        /// was remembered about it - see the folding.
+        /// </summary>
+        private readonly Guid _taskListLocalId = Guid.NewGuid();
+
         public async Task<StockCheckPanel> ShowAsync(bool isGroup, Guid? linkedWarehouseId = null)
         {
             var panel = new StockCheckPanel(
                 new TasksClient(Server.ToHttpClient()), new InventoryClient(Warehouses.ToHttpClient()), _warehouses,
-                new Translations(new InMemoryLanguageStore()), Connections.Online);
+                new Translations(new InMemoryLanguageStore()), Connections.Online, Reading);
 
             await panel.ShowAsync(new LocalTaskList
             {
-                LocalId = Guid.NewGuid(),
+                LocalId = _taskListLocalId,
                 ServerId = Guid.NewGuid(),
                 IsGroup = isGroup,
                 LinkedWarehouseId = linkedWarehouseId

@@ -126,12 +126,18 @@ internal sealed class FakeCalendarServer : HttpMessageHandler
             details.Title, details.Description,
             details.Location is { } location ? new EventLocationDto(location.Address, location.Latitude, location.Longitude) : null,
             details.Color, details.StartUtc, details.EndUtc, details.IsAllDay,
-            details.Recurrence is { } recurrence ? new RecurrenceDto(recurrence.Frequency, recurrence.IntervalCount, recurrence.UntilUtc) : null,
+            details.Recurrence is { } recurrence
+                ? new RecurrenceDto(
+                    recurrence.Frequency, recurrence.IntervalCount, recurrence.UntilUtc, recurrence.OccurrenceCount)
+                : null,
             details.Guests, details.ReminderMinutesBeforeStart,
             details.ReminderNotificationChannel,
             // Dropping this made a client that sent no priority look exactly like one that did - the
             // fourth fake in this suite to hide a real bug that way. See FakeNotesServer.
-            details.Priority);
+            details.Priority,
+            // And the fifth: the phone really was dropping this one on every save, and a fake that
+            // dropped it too would have called that correct.
+            details.NotifyAtStart);
 
     private static Guid ReadId(string path) => Guid.Parse(path.Split('/')[^1]);
 

@@ -208,12 +208,18 @@ public sealed class CalendarEventSynchronizer
             details.Location is { } location ? new EventLocationRequest(location.Address, location.Latitude, location.Longitude) : null,
             details.Color, details.StartUtc.ToUniversalTime(), details.EndUtc.ToUniversalTime(), details.IsAllDay,
             details.Recurrence is { } recurrence
-                ? new RecurrenceRequest(recurrence.Frequency, recurrence.IntervalCount, recurrence.UntilUtc?.ToUniversalTime())
+                ? new RecurrenceRequest(
+                    recurrence.Frequency, recurrence.IntervalCount, recurrence.UntilUtc?.ToUniversalTime(),
+                    // The second way a rule can stop. Left out, a repeat set to end after five times in
+                    // a browser became one that never ends, the first time the phone saved it.
+                    recurrence.OccurrenceCount)
                 : null,
             details.Guests, details.ReminderMinutesBeforeStart,
             details.ReminderNotificationChannel,
             // Carried rather than left to the contract's default, which is "Normal": a save writes the
             // whole event, so an event marked High in a browser came back Normal the first time anybody
             // touched it from a phone. The same mistake notes had - see NoteSynchronizer.
-            details.Priority);
+            details.Priority,
+            // And the same again for what an event says as it begins.
+            details.NotifyAtStart);
 }
