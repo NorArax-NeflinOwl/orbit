@@ -86,12 +86,17 @@ else
     <div class="card-grid">
         @foreach (var taskList in VisibleTaskLists)
         {
-            <div class="card task-list-card @(_cardOrder.IsDragging(taskList) ? "dragging" : "")" @key="taskList.Id"
+            <div @key="taskList.Id" class="@(_cardOrder.IsDragging(taskList) ? "dragging" : "")"
                  @ondragover:preventDefault="true" @ondrop="() => DropCardOnAsync(taskList)">
-                <div class="card-header">
-                    <span class="card-title">
-                        @* Only where dragging means something: in every other order the cards are
-                           arranged by an answer, and moving one by hand would not survive a redraw. *@
+                <ItemCard Name="@Written(taskList.Title)"
+                          OnNameSelected="() => GoToChecklist(taskList.Id)"
+                          HasUnseenAction="@(UnreadCountFor(taskList) > 0)"
+                          IsCollapsed="Arrangement.IsCollapsed(taskList.Id)"
+                          OnCollapseToggled="() => ToggleCollapsedAsync(taskList)"
+                          ExtraClass="@(taskList.IsPinned ? "item-card-pinned" : null)">
+                    @* Only where dragging means something: in every other order the cards are
+                       arranged by an answer, and moving one by hand would not survive a redraw. *@
+                    <Handle>
                         @if (Arrangement.SortOrder == TaskListSortOrder.Manual)
                         {
                             <ReorderControls OnDragStart="() => _cardOrder.Start(taskList)" OnDragEnd="_cardOrder.Finish"
@@ -99,25 +104,23 @@ else
                                              OnMoveDown="() => MoveCardAsync(taskList, 1)"
                                              CanMoveUp="CanMoveCard(taskList, -1)" CanMoveDown="CanMoveCard(taskList, 1)" />
                         }
-                        @* Before the name, so a page of cards answers "which list was that reminder
-                           about?" at a glance rather than by opening them one at a time. Goes out when
-                           the list is opened - see NotificationFeedState.UnreadUrlsSettledBy. *@
-                        @if (UnreadCountFor(taskList) is > 0 and var unread)
+                    </Handle>
+                    @* Only for a list you own: pinning moves the card on its owner's page, so a
+                       recipient pinning a shared list would be rearranging someone else's. *@
+                    <Pin>
+                        @if (!taskList.IsShared)
                         {
-                            <span class="task-card-notification" title="@T.Format("{0} new", unread)"
-                                  aria-label="@T.Format("{0} new", unread)">
-                                <svg width="14" height="14" viewBox="0 0 20 20" fill="none" stroke="currentColor"
-                                     stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                                    <path d="M10 2.5c-2.5 0-4 2-4 4.5v3l-1.5 2.5h11L14 10V7c0-2.5-1.5-4.5-4-4.5Z" />
-                                    <path d="M8.3 15.5a1.8 1.8 0 0 0 3.4 0" />
-                                </svg>
-                            </span>
+                            <PinButton IsPinned="taskList.IsPinned" OnPinnedChanged="_ => TogglePinnedAsync(taskList)" />
                         }
-                        @* The name is the way into the list, the same way a dashboard card's heading is
-                           the way to its page. It opens the checklist rather than the deep editor:
-                           reading and ticking is what somebody clicking a list's name is after. *@
-                        <button type="button" class="card-title-button" title="@(T["Open checklist"])"
-                                @onclick="() => GoToChecklist(taskList.Id)">@Written(taskList.Title)</button>
+                    </Pin>
+                    <Menu>
+                        <OverflowMenu>
+                            <button type="button" class="avatar-dropdown-item" @onclick="() => GoToChecklist(taskList.Id)">@T["Open checklist"]</button>
+                            <button type="button" class="avatar-dropdown-item" @onclick="() => GoToEditTaskList(taskList.Id)">@T["Edit"]</button>
+                            <button type="button" class="avatar-dropdown-item" @onclick="() => DeleteTaskListAsync(taskList)">@T["Delete"]</button>
+                        </OverflowMenu>
+                    </Menu>
+                    <Tags>
                         @if (taskList.IsGroup)
                         {
                             <span class="card-badge">@T["Group"]</span>
@@ -131,34 +134,18 @@ else
                             <span class="card-badge card-badge-priority-@taskList.Priority.ToLowerInvariant()">@DescribePriority(ParsePriority(taskList))</span>
                         }
                         <span class="card-badge card-badge-status-@taskList.Status.ToLowerInvariant()">@DescribeStatus(ParseStatus(taskList))</span>
+                        @* Kept as a tag as well as an outline: the pin control is only offered on a
+                           list you own, so on a shared one the tag is the only thing that says so. *@
                         @if (taskList.IsPinned)
                         {
                             <span class="card-badge card-badge-pinned">@T["Pinned"]</span>
                         }
-                    </span>
-                    <span class="card-header-end">
+                    </Tags>
+                    @* How far along, always at the end of the tag row - see ItemCard. *@
+                    <Extras>
                         <span class="card-count">@CompletionSummary(taskList)</span>
-                        @* Only for a list you own: pinning moves the card on its owner's page, so a
-                           recipient pinning a shared list would be rearranging someone else's. *@
-                        @if (!taskList.IsShared)
-                        {
-                            <PinButton IsPinned="taskList.IsPinned" OnPinnedChanged="_ => TogglePinnedAsync(taskList)" />
-                        }
-                        @* Folds the card down to its heading, one line of what is on it, and its buttons -
-                           for a page of lists where only some are this week's work. *@
-                        <button type="button" class="icon-btn"
-                                title="@(Arrangement.IsCollapsed(taskList.Id) ? T["Expand"] : T["Minimise"])"
-                                aria-label="@(Arrangement.IsCollapsed(taskList.Id) ? T["Expand"] : T["Minimise"])"
-                                aria-expanded="@(Arrangement.IsCollapsed(taskList.Id) ? "false" : "true")"
-                                @onclick="() => ToggleCollapsedAsync(taskList)">
-                            <svg width="16" height="16" viewBox="0 0 20 20" fill="none" stroke="currentColor"
-                                 stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                                <path d="@(Arrangement.IsCollapsed(taskList.Id) ? "M4.5 7.5 10 13l5.5-5.5" : "M4.5 12.5 10 7l5.5 5.5")" />
-                            </svg>
-                        </button>
-                    </span>
-                </div>
-
+                    </Extras>
+                    <CollapsedBody>
                 @if (Arrangement.IsCollapsed(taskList.Id))
                 {
                     @* One line, and the one worth having: what is still to be done on this list. A folded
@@ -184,8 +171,8 @@ else
                         </div>
                     }
                 }
-                else
-                {
+                    </CollapsedBody>
+                    <Body>
                 @* A preview rather than the whole list: enough to recognise what is on it, with the
                    checklist view one click away for working through it. *@
                 @foreach (var item in taskList.Items.Take(RowsToShow(taskList.Items.Count, PreviewLimitFor(taskList))))
@@ -234,11 +221,8 @@ else
                 }
                 }
 
-                <div class="card-actions">
-                    <button type="button" class="btn-primary" @onclick="() => GoToChecklist(taskList.Id)">@T["Open checklist"]</button>
-                    <button type="button" class="btn-secondary" @onclick="() => GoToEditTaskList(taskList.Id)">@T["Edit"]</button>
-                    <button type="button" class="btn-secondary" @onclick="() => DeleteTaskListAsync(taskList)">@T["Delete"]</button>
-                </div>
+                    </Body>
+                </ItemCard>
             </div>
         }
     </div>

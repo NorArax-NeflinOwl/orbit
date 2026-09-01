@@ -38,8 +38,9 @@
         @if (OnCollapseToggled.HasDelegate)
         {
             <button type="button" class="icon-btn item-card-collapse"
-                    title="@(IsCollapsed ? T["Expand"] : T["Collapse"])"
+                    title="@(IsCollapsed ? T["Expand"] : T["Minimise"])"
                     aria-expanded="@((!IsCollapsed).ToString().ToLowerInvariant())"
+                    aria-label="@(IsCollapsed ? T["Expand"] : T["Minimise"])"
                     @onclick="OnCollapseToggled" @onclick:stopPropagation="true">
                 <svg viewBox="0 0 20 20" width="16" height="16" aria-hidden="true" fill="none"
                      stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
@@ -64,6 +65,14 @@
                 <span class="item-card-extras">@Extras</span>
             }
         </div>
+    }
+
+    @* Folded, a card can still say one line about itself - "not this week" is not the same as "forget
+       what this is". Callers that have nothing worth saying there pass nothing and the card ends at
+       its heading. *@
+    @if (IsCollapsed && CollapsedBody is not null)
+    {
+        <div class="item-card-body">@CollapsedBody</div>
     }
 
     @if (Body is not null && !IsCollapsed)
@@ -117,6 +126,12 @@
 
     /// <summary>A description, or the list of what is on this card.</summary>
     [Parameter] public RenderFragment? Body { get; set; }
+
+    /// <summary>
+    /// The one line worth keeping while the body is folded away - what is still to be done, say.
+    /// Optional: a folded card with nothing to add ends at its heading.
+    /// </summary>
+    [Parameter] public RenderFragment? CollapsedBody { get; set; }
 
     /// <summary>Opening the light editor. Without one the body is shown but is not a control.</summary>
     [Parameter] public EventCallback OnBodySelected { get; set; }
