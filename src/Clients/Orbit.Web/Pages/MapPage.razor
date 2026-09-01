@@ -170,9 +170,9 @@ else
         }
     </div>
 
+    @* The shape the place picker already had, opened out to fill the page: what is being looked for
+       across the top, the map under it, and what to do about the pin along the bottom. *@
     <div class="map-canvas">
-        @* Across the top of the map rather than in the panel: it is about what the map is showing, and
-           the answer appears on the map underneath it. *@
         <div class="map-search">
             <input class="map-search-box" @bind="_searchText" @bind:event="oninput"
                    @onkeydown="OnSearchKeyDownAsync" placeholder="@(T["Search for a place"])"
@@ -180,6 +180,28 @@ else
             <button type="button" class="btn-secondary" disabled="@(_isSearching || _searchText.Trim().Length == 0)"
                     @onclick="SearchAsync">@T["Search"]</button>
         </div>
+
+        @if (_isSearching)
+        {
+            <p class="map-canvas-note">@T["Searching…"]</p>
+        }
+        else if (_hasSearched && _matches.Count == 0)
+        {
+            <p class="map-canvas-note">@T["Nothing found for that. Try fewer words."]</p>
+        }
+        else if (_matches.Count > 1)
+        {
+            @* The pin is already on the best match, because that is what somebody searching expects to
+               see. The rest are offered here rather than guessed between: street names repeat, and
+               "Długa 4" is a real address in a dozen towns. *@
+            <div class="map-canvas-matches">
+                @foreach (var match in _matches.Skip(1))
+                {
+                    <button type="button" class="avatar-dropdown-item map-overlay-match"
+                            @onclick="() => PinTheMatchAsync(match)">@match.Name</button>
+                }
+            </div>
+        }
 
         <div class="location-map-frame map-canvas-frame">
             <div id="@MapElementId" class="location-map"></div>
@@ -191,41 +213,19 @@ else
                 <span class="map-fullscreen-enter" title="@(T["Full screen"])" aria-label="@(T["Full screen"])">⤢</span>
                 <span class="map-fullscreen-exit" title="@(T["Leave full screen"])" aria-label="@(T["Leave full screen"])">✕</span>
             </button>
-
-            @if (_isSearching)
-            {
-                <p class="map-canvas-note">@T["Searching…"]</p>
-            }
-            else if (_hasSearched && _matches.Count == 0)
-            {
-                <p class="map-canvas-note">@T["Nothing found for that. Try fewer words."]</p>
-            }
-            else if (_matches.Count > 1)
-            {
-                @* The pin is already on the best match, because that is what somebody searching expects
-                   to see. The rest are offered underneath rather than guessed between: street names
-                   repeat, and "Długa 4" is a real address in a dozen towns. *@
-                <div class="map-canvas-matches">
-                    @foreach (var match in _matches.Skip(1))
-                    {
-                        <button type="button" class="avatar-dropdown-item map-overlay-match"
-                                @onclick="() => PinTheMatchAsync(match)">@match.Name</button>
-                    }
-                </div>
-            }
-
-            @* In the corner of the map, about the pin the search just dropped. Asked rather than done:
-               a place somebody looked up is not yet a place they meant to put in their calendar. *@
-            @if (_foundPlace is { } found)
-            {
-                <div class="map-create-event">
-                    <span class="map-create-event-place">@found.Name</span>
-                    <span class="map-create-event-question">@T["Make an event here?"]</span>
-                    <button type="button" class="btn-primary" @onclick="CreateAnEventHere">@T["Create"]</button>
-                    <button type="button" class="btn-secondary" @onclick="ForgetTheFoundPlace">@T["Cancel"]</button>
-                </div>
-            }
         </div>
+
+        @* Along the foot of the map, about the pin the search just dropped. Asked rather than done: a
+           place somebody looked up is not yet a place they meant to put in their calendar. *@
+        @if (_foundPlace is { } found)
+        {
+            <div class="map-create-event">
+                <span class="map-create-event-place">@found.Name</span>
+                <span class="map-create-event-question">@T["Make an event here?"]</span>
+                <button type="button" class="btn-primary" @onclick="CreateAnEventHere">@T["Create"]</button>
+                <button type="button" class="btn-secondary" @onclick="ForgetTheFoundPlace">@T["Cancel"]</button>
+            </div>
+        }
     </div>
 </div>
 }

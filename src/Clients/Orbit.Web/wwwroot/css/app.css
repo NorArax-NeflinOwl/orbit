@@ -3330,7 +3330,9 @@ input.note-editor-title {
     display: flex;
     flex-direction: column;
     gap: 14px;
-    flex: 0 0 320px;
+    /* A quarter of the page, three quarters to the map. The map is what the page is for, and the panel
+       is a column of names and one picker - it does not grow into more room than that. */
+    flex: 0 0 25%;
     min-width: 0;
     overflow-y: auto;
 }
@@ -3441,21 +3443,10 @@ input.note-editor-title {
     min-height: 0;
 }
 
-/* Over the map, out of the way of Leaflet's own controls in the top left and of the fullscreen button
-   in the top right. */
-.map-canvas-note,
-.map-canvas-matches {
-    position: absolute;
-    top: 10px;
-    left: 50px;
-    z-index: 1001;
-    max-width: min(60%, 380px);
+/* Between the search and the map, which is where the place picker this shape came from already put
+   them - a line about the search belongs under it, not floating over the answer. */
+.map-canvas-note {
     margin: 0;
-    padding: 8px 12px;
-    background: var(--bg-elevated);
-    border: 1px solid var(--border);
-    border-radius: 10px;
-    box-shadow: 0 4px 14px oklch(20% 0.02 60 / 0.2);
     font-size: 13px;
     color: var(--text-secondary);
 }
@@ -3464,30 +3455,22 @@ input.note-editor-title {
     display: flex;
     flex-direction: column;
     gap: 2px;
-    max-height: 40%;
+    max-height: 22vh;
     overflow-y: auto;
-    padding: 6px;
 }
 
-/* The question about the pin the search dropped, in the corner of the map it is on. */
+/* Along the foot of the map, about the pin on it. The address takes the row and the question and its
+   two answers sit at the end, so the buttons are in the same place whatever the place is called. */
 .map-create-event {
-    position: absolute;
-    right: 10px;
-    bottom: 22px;
-    z-index: 1001;
     display: flex;
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 6px;
-    max-width: min(80%, 320px);
-    padding: 12px 14px;
-    background: var(--bg-elevated);
-    border: 1px solid var(--accent);
-    border-radius: 12px;
-    box-shadow: 0 8px 22px oklch(20% 0.02 60 / 0.25);
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 10px;
 }
 
 .map-create-event-place {
+    flex: 1 1 12rem;
+    min-width: 0;
     font-size: 13px;
     color: var(--text-secondary);
     overflow-wrap: anywhere;
@@ -3527,6 +3510,17 @@ input.note-editor-title {
     .map-canvas-frame {
         flex: 0 0 auto;
         aspect-ratio: 1 / 1;
+    }
+}
+
+/* On a phone there is no map at all - the same width at which the bar drops its wordmark. A map is the
+   one thing on this page that needs room to be worth anything: at this width it is a postage stamp
+   somebody has to pinch at, and it pushes the lists it is supposed to illustrate off the screen. The
+   search goes with it, because what a search answers with is a pin on that map. Everything the page is
+   for - who is sharing, with whom, and how - is in the panel, and the panel is the whole page here. */
+@media (max-width: 680px) {
+    .map-canvas {
+        display: none;
     }
 }
 
