@@ -151,7 +151,8 @@ public sealed class WarehouseDetailScreenTests
         var screen = await context.OpenAsync(warehouse.LocalId);
 
         screen.Description = "Dry goods, and the freezer in the garage.";
-        await screen.RenameCommand.ExecuteAsync(null);
+        // <inheritdoc cref="TaskListDetailScreenTests" /> - leaving the box is what saves it.
+        await screen.CommitDescriptionCommand.ExecuteAsync(null);
 
         Assert.Equal("Dry goods, and the freezer in the garage.", context.Stored().Description);
     }

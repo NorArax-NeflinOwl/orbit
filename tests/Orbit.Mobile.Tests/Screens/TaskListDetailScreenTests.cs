@@ -101,14 +101,31 @@ public sealed class TaskListDetailScreenTests
         var screen = context.OpenTaskList("Groceries");
 
         screen.Description = "The weekly shop, and nothing else.";
-        await screen.SaveListCommand.ExecuteAsync(null);
+        // What leaving the box does, which is the only thing that saves it - an editor has no return key.
+        await screen.CommitDescriptionCommand.ExecuteAsync(null);
 
         Assert.Equal("The weekly shop, and nothing else.", context.Server.TaskLists.Single().Description);
 
         screen.Description = string.Empty;
-        await screen.SaveListCommand.ExecuteAsync(null);
+        await screen.CommitDescriptionCommand.ExecuteAsync(null);
 
         Assert.Empty(context.Server.TaskLists.Single().Description);
+    }
+
+    /// <summary>
+    /// Leaving the box is what saves it, and only when something changed: a description is typed into an
+    /// editor, which has no return key to press, and the first one written here was lost on the way out.
+    /// </summary>
+    [Fact]
+    public async Task Leaving_the_description_alone_saves_nothing()
+    {
+        using var context = new ScreenContext();
+        var screen = context.OpenTaskList("Groceries");
+        var savesBefore = context.Server.ReceivedRequests.Count;
+
+        await screen.CommitDescriptionCommand.ExecuteAsync(null);
+
+        Assert.Equal(savesBefore, context.Server.ReceivedRequests.Count);
     }
 
     /// <summary>

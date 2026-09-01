@@ -71,6 +71,9 @@ public sealed partial class TaskListDetailViewModel : ObservableObject
     [ObservableProperty]
     private string _description = string.Empty;
 
+    /// <summary>What the description was when it was last shown or saved - see CommitDescription.</summary>
+    private string _savedDescription = string.Empty;
+
     /// <summary>
     /// Whether a description is worth offering at all: a private list keeps none, because a
     /// description stored in the clear would say in the open what the name is sealed to hide.
@@ -790,6 +793,7 @@ public sealed partial class TaskListDetailViewModel : ObservableObject
 
         Title = taskList.Title;
         Description = taskList.Description;
+        _savedDescription = taskList.Description;
         // Taken as already looked up, so opening a list does not offer completions of its own title and
         // warn that it duplicates itself - see NameSuggestions.StartsAt.
         _titleSuggestions.StartsAt(taskList.Title);
@@ -918,6 +922,23 @@ public sealed partial class TaskListDetailViewModel : ObservableObject
     }
 
     /// <inheritdoc cref="OnIsGroupChanged"/>
+    /// <summary>
+    /// Saves the description once the reader has finished with it, and only if it changed. A box with no
+    /// "done" key of its own is left by moving away from it, and the first thing typed here was lost
+    /// exactly that way: everything else on this screen saves as it is chosen, and this saved on nothing.
+    /// </summary>
+    [RelayCommand]
+    private Task CommitDescriptionAsync(CancellationToken cancellationToken)
+    {
+        if (Description == _savedDescription)
+        {
+            return Task.CompletedTask;
+        }
+
+        _savedDescription = Description;
+        return SaveListCommand.ExecuteAsync(null);
+    }
+
     partial void OnIsPrivateChanged(bool value)
     {
         OnPropertyChanged(nameof(IsNotPrivate));

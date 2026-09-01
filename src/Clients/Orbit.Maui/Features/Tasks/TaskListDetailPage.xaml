@@ -36,9 +36,12 @@
             <!-- What the list is for, under its name and with no label of its own: it is the rest of the
                  sentence the title starts, which is how Orbit.Web draws the pair - see its
                  TitledDescription. Absent on a private list, which the server keeps none for. -->
+            <!-- Saved when the reader moves away from it, and only if it changed: an editor has no
+                 "done" key to press, so without this the first thing typed here was lost on leaving. -->
             <Editor Text="{Binding Description}" IsReadOnly="{Binding IsReadOnly}" AutoSize="TextChanges"
                     IsVisible="{Binding IsNotPrivate}" FontSize="14" MinimumHeightRequest="0"
                     Placeholder="{controls:Translate 'What is it for?'}"
+                    Unfocused="OnDescriptionUnfocused"
                     SemanticProperties.Description="{controls:Translate 'Description'}" />
         </VerticalStackLayout>
 

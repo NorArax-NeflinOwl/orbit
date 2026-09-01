@@ -57,6 +57,9 @@ public sealed partial class WarehouseDetailViewModel : ObservableObject
     [ObservableProperty]
     private string _description = string.Empty;
 
+    /// <inheritdoc cref="Tasks.TaskListDetailViewModel._savedDescription"/>
+    private string _savedDescription = string.Empty;
+
     /// <summary>
     /// Whether a description is worth offering at all: a private warehouse keeps none, because a
     /// description stored in the clear would say in the open what the name is sealed to hide.
@@ -115,6 +118,19 @@ public sealed partial class WarehouseDetailViewModel : ObservableObject
     private bool _isShowingWhatIsStored;
 
     /// <summary>Saved as soon as it is switched, the way ticking an entry on a list is.</summary>
+    /// <inheritdoc cref="Tasks.TaskListDetailViewModel.CommitDescriptionAsync"/>
+    [RelayCommand]
+    private Task CommitDescriptionAsync(CancellationToken cancellationToken)
+    {
+        if (Description == _savedDescription)
+        {
+            return Task.CompletedTask;
+        }
+
+        _savedDescription = Description;
+        return RenameCommand.ExecuteAsync(null);
+    }
+
     partial void OnIsPrivateChanged(bool value)
     {
         OnPropertyChanged(nameof(IsNotPrivate));
@@ -409,6 +425,7 @@ public sealed partial class WarehouseDetailViewModel : ObservableObject
 
         Name = warehouse.Name;
         Description = warehouse.Description;
+        _savedDescription = warehouse.Description;
         // Taken as already looked up, so opening a warehouse does not offer completions of its own name
         // and warn that it duplicates itself - see NameSuggestions.StartsAt.
         _warehouseNameSuggestions.StartsAt(warehouse.Name);

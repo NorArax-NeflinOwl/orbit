@@ -27,9 +27,12 @@
             <controls:NameSuggestionChips BindingContext="{Binding WarehouseNameSuggestions}" />
 
             <!-- What this holds, under its name - see the same field on TaskListDetailPage. -->
+            <!-- Saved when the reader moves away from it, and only if it changed: an editor has no
+                 "done" key to press, so without this the first thing typed here was lost on leaving. -->
             <Editor Text="{Binding Description}" IsReadOnly="{Binding IsReadOnly}" AutoSize="TextChanges"
                     IsVisible="{Binding IsNotPrivate}" FontSize="14" MinimumHeightRequest="0"
                     Placeholder="{controls:Translate 'What is it for?'}"
+                    Unfocused="OnDescriptionUnfocused"
                     SemanticProperties.Description="{controls:Translate 'Description'}" />
         </VerticalStackLayout>
 
