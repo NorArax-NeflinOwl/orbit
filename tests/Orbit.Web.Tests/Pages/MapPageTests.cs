@@ -43,6 +43,27 @@ public sealed class MapPageTests : OrbitTestContext
         Assert.Empty(cut.FindAll(".map-page"));
     }
 
+    /// <summary>
+    /// Recording is one button on the page and two entries in the menu, and the two are about a
+    /// recording that exists - so with nothing recorded they are offered and greyed rather than absent,
+    /// which is what makes the menu the same list every time.
+    /// </summary>
+    [Fact]
+    public void Nothing_recorded_yet_leaves_only_starting_it_pressable()
+    {
+        GrantLocations();
+        var cut = RenderComponent<MapPage>();
+
+        Assert.False(ButtonSaying(cut, "Start recording").HasAttribute("disabled"));
+
+        cut.Find(".overflow-menu-trigger").Click();
+        Assert.True(ButtonSaying(cut, "Update to where I am now").HasAttribute("disabled"));
+        Assert.True(ButtonSaying(cut, "Stop recording").HasAttribute("disabled"));
+    }
+
+    private static AngleSharp.Dom.IElement ButtonSaying(IRenderedFragment cut, string label)
+        => cut.FindAll("button").First(button => button.TextContent.Contains(label, StringComparison.Ordinal));
+
     [Fact]
     public void Searching_pins_what_it_found_and_asks_what_to_make_of_it()
     {
