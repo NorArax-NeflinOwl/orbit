@@ -39,7 +39,7 @@ public sealed class EventReminderScheduler
                     continue;
                 }
 
-                foreach (var minutesBeforeStart in calendarEvent.Details.ReminderMinutesBeforeStart)
+                foreach (var minutesBeforeStart in calendarEvent.Details.ReminderLeadTimesMinutes)
                 {
                     if (dueReminders.Count >= maxResults)
                     {
@@ -79,7 +79,7 @@ public sealed class EventReminderScheduler
             return [calendarEvent.Details.StartUtc];
         }
 
-        var leadTimesMinutes = calendarEvent.Details.ReminderMinutesBeforeStart;
+        var leadTimesMinutes = calendarEvent.Details.ReminderLeadTimesMinutes;
         var windowStart = nowUtc - lookBackWindow + TimeSpan.FromMinutes(leadTimesMinutes.Min());
         var windowEndExclusive = nowUtc + TimeSpan.FromMinutes(leadTimesMinutes.Max()) + TimeSpan.FromTicks(1);
         return CalendarEventOccurrenceGenerator.GenerateOccurrenceStarts(calendarEvent.Details.StartUtc, recurrence, windowStart, windowEndExclusive);

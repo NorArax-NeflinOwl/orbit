@@ -260,13 +260,61 @@ public sealed class EventReminderSchedulerTests
     }
 
     private static CalendarEvent CreateEventStartingIn(
-        DateTimeOffset now, TimeSpan leadTime, IReadOnlyList<int> reminderMinutesBeforeStart, bool notifyBeforeStart = true)
+        DateTimeOffset now, TimeSpan leadTime, IReadOnlyList<int> reminderMinutesBeforeStart,
+        bool notifyBeforeStart = true, bool notifyAtStart = false)
     {
         var startUtc = now.Add(leadTime);
         var details = new CalendarEventDetails(
             "Title", null, null, null, startUtc, startUtc.AddHours(1), false, null, [], reminderMinutesBeforeStart,
             CreationNotificationChannel: NotificationChannel.None,
-            ReminderNotificationChannel: notifyBeforeStart ? NotificationChannel.Email : NotificationChannel.None);
+            ReminderNotificationChannel: notifyBeforeStart ? NotificationChannel.Email : NotificationChannel.None,
+            NotifyAtStart: notifyAtStart);
         return CalendarEvent.Create(Guid.NewGuid(), details);
+    }
+
+    /// <summary>
+    /// A notification at the moment the event begins is a reminder zero minutes before it, so it goes
+    /// through the same due-time rule and the same already-sent record as any other. The event below
+    /// has no lead times at all, which is the case that has to work: asking only to be told when it
+    /// starts is a perfectly ordinary thing to ask for.
+    /// </summary>
+    [Fact]
+    public async Task FindDueRemindersAsync_says_something_at_the_moment_an_event_begins()
+    {
+        var now = DateTimeOffset.UtcNow;
+        var calendarEvent = CreateEventStartingIn(now, TimeSpan.Zero, [], notifyAtStart: true);
+        var repository = new InMemoryEventReminderRepository([calendarEvent]);
+        var scheduler = new EventReminderScheduler(repository);
+
+        var dueReminders = await scheduler.FindDueRemindersAsync(now, LookBackWindow, CancellationToken.None);
+
+        var dueReminder = Assert.Single(dueReminders);
+        Assert.Equal(0, dueReminder.MinutesBeforeStart);
+    }
+
+    [Fact]
+    public async Task FindDueRemindersAsync_says_nothing_at_the_start_of_an_event_that_did_not_ask()
+    {
+        var now = DateTimeOffset.UtcNow;
+        var calendarEvent = CreateEventStartingIn(now, TimeSpan.Zero, [], notifyAtStart: false);
+        var repository = new InMemoryEventReminderRepository([calendarEvent]);
+        var scheduler = new EventReminderScheduler(repository);
+
+        Assert.Empty(await scheduler.FindDueRemindersAsync(now, LookBackWindow, CancellationToken.None));
+    }
+
+    [Fact]
+    public async Task FindDueRemindersAsync_still_reminds_beforehand_when_it_also_says_something_at_the_start()
+    {
+        var now = DateTimeOffset.UtcNow;
+        var calendarEvent = CreateEventStartingIn(now, TimeSpan.FromMinutes(10), [10], notifyAtStart: true);
+        var repository = new InMemoryEventReminderRepository([calendarEvent]);
+        var scheduler = new EventReminderScheduler(repository);
+
+        var dueReminders = await scheduler.FindDueRemindersAsync(now, LookBackWindow, CancellationToken.None);
+
+        // Ten minutes before is due now; the one at the start is not, and comes ten minutes later.
+        var dueReminder = Assert.Single(dueReminders);
+        Assert.Equal(10, dueReminder.MinutesBeforeStart);
     }
 }

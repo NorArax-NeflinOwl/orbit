@@ -17,4 +17,9 @@ public sealed record CalendarEventDetailsDto(
     string CreationNotificationChannel,
     string ReminderNotificationChannel,
     /// <summary>ItemPriority by name - "Low", "Normal" or "High".</summary>
-    string Priority = "Normal");
+    string Priority = "Normal",
+    /// <summary>
+    /// Say something when the event begins, as well as beforehand - see
+    /// Orbit.Core.Calendar.CalendarEventDetails.NotifyAtStart.
+    /// </summary>
+    bool NotifyAtStart = false);

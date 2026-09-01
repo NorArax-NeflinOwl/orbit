@@ -15,16 +15,24 @@ public static class CalendarEventOccurrenceGenerator
 
     /// <summary>
     /// Yields every occurrence start before windowEndExclusive, honoring recurrence.UntilUtc as a
-    /// calendar-date cutoff (not a raw instant - see the comment below). A few occurrences before
-    /// windowStart may also come back (see FastForwardToWindow) - callers are expected to filter further
-    /// themselves, as EventReminderScheduler already does with its own due-time check.
+    /// calendar-date cutoff (not a raw instant - see the comment below) and recurrence.OccurrenceCount
+    /// as a total. A few occurrences before windowStart may also come back (see FastForwardToWindow) -
+    /// callers are expected to filter further themselves, as EventReminderScheduler already does with
+    /// its own due-time check.
     /// </summary>
     public static IEnumerable<DateTimeOffset> GenerateOccurrenceStarts(
         DateTimeOffset firstOccurrenceStart, EventRecurrence recurrence, DateTimeOffset windowStart, DateTimeOffset windowEndExclusive)
     {
-        var occurrenceStart = FastForwardToWindow(firstOccurrenceStart, recurrence, windowStart);
+        var occurrenceStart = FastForwardToWindow(firstOccurrenceStart, recurrence, windowStart, out var alreadyPassed);
         for (var iteration = 0; iteration < MaxOccurrencesPerExpansion && occurrenceStart < windowEndExclusive; iteration++)
         {
+            // Counted from the first occurrence rather than from the window, so a window in the middle
+            // of a series still knows how many came before it - see the skip count below.
+            if (recurrence.OccurrenceCount is { } total && alreadyPassed + iteration >= total)
+            {
+                yield break;
+            }
+
             // Compared as calendar dates (in each timestamp's own local offset), not raw instants: UntilUtc
             // is a date the user picked to stop repeating on, so an occurrence later that same day must
             // still count as within range.
@@ -44,16 +52,23 @@ public static class CalendarEventOccurrenceGenerator
     /// one step at a time just to reach a window far in its future - Monthly steps are already sparse
     /// enough that this isn't needed there.
     /// </summary>
-    private static DateTimeOffset FastForwardToWindow(DateTimeOffset firstOccurrenceStart, EventRecurrence recurrence, DateTimeOffset windowStart)
+    /// <param name="alreadyPassed">
+    /// How many occurrences were skipped over, so a count limit can be applied to the series as a whole
+    /// rather than to the part of it this window happens to see.
+    /// </param>
+    private static DateTimeOffset FastForwardToWindow(
+        DateTimeOffset firstOccurrenceStart, EventRecurrence recurrence, DateTimeOffset windowStart, out long alreadyPassed)
     {
-        if (firstOccurrenceStart >= windowStart || recurrence.Frequency == RecurrenceFrequency.Monthly)
+        alreadyPassed = 0;
+        if (firstOccurrenceStart >= windowStart
+            || recurrence.Frequency is RecurrenceFrequency.Monthly or RecurrenceFrequency.Yearly)
         {
             return firstOccurrenceStart;
         }
 
         var stepDays = Math.Max(recurrence.IntervalCount, 1) * (recurrence.Frequency == RecurrenceFrequency.Weekly ? 7 : 1);
-        var stepsToSkip = Math.Max(0, (long)((windowStart - firstOccurrenceStart).TotalDays / stepDays));
-        return firstOccurrenceStart.AddDays(stepsToSkip * stepDays);
+        alreadyPassed = Math.Max(0, (long)((windowStart - firstOccurrenceStart).TotalDays / stepDays));
+        return firstOccurrenceStart.AddDays(alreadyPassed * stepDays);
     }
 
     /// <summary>Interval count is clamped to at least 1 so a corrupt/zero value can never stall the occurrence generator in place.</summary>
@@ -65,6 +80,7 @@ public static class CalendarEventOccurrenceGenerator
             RecurrenceFrequency.Daily => occurrenceStart.AddDays(intervalCount),
             RecurrenceFrequency.Weekly => occurrenceStart.AddDays(intervalCount * 7),
             RecurrenceFrequency.Monthly => occurrenceStart.AddMonths(intervalCount),
+            RecurrenceFrequency.Yearly => occurrenceStart.AddYears(intervalCount),
             _ => occurrenceStart.AddDays(intervalCount)
         };
     }

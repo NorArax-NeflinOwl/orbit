@@ -20,7 +20,9 @@ internal sealed class InMemoryEventReminderRepository : IEventReminderRepository
 
     public Task<IReadOnlyList<CalendarEvent>> GetAllWithRemindersConfiguredAsync(CancellationToken cancellationToken)
         => Task.FromResult<IReadOnlyList<CalendarEvent>>(_calendarEvents
-            .Where(calendarEvent => calendarEvent.Details.ReminderMinutesBeforeStart.Count > 0
+            // Mirrors EventReminderRepository's SQL prefilter, NotifyAtStart included: an event asking
+            // only to be announced when it begins has no lead times of its own.
+            .Where(calendarEvent => calendarEvent.Details.ReminderLeadTimesMinutes.Count > 0
                 && calendarEvent.Details.ReminderNotificationChannel != NotificationChannel.None)
             .ToList());
 

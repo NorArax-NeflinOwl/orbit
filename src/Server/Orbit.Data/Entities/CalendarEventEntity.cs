@@ -27,10 +27,16 @@ public sealed class CalendarEventEntity
     public DateTimeOffset EndUtc { get; set; }
     public bool IsAllDay { get; set; }
 
-    /// <summary>One of "Daily", "Weekly", "Monthly", or null for a non-repeating event.</summary>
+    /// <summary>One of "Daily", "Weekly", "Monthly", "Yearly", or null for a non-repeating event.</summary>
     public string? RecurrenceFrequency { get; set; }
     public int? RecurrenceIntervalCount { get; set; }
     public DateTimeOffset? RecurrenceUntilUtc { get; set; }
+
+    /// <summary>
+    /// How many occurrences in total, counting the first; null for no limit of this kind - see
+    /// Orbit.Core.Calendar.EventRecurrence.OccurrenceCount.
+    /// </summary>
+    public int? RecurrenceOccurrenceCount { get; set; }
 
     /// <summary>JSON-encoded list of guest email addresses - SQLite has no native array column type.</summary>
     public string GuestsJson { get; set; } = "[]";
@@ -51,6 +57,13 @@ public sealed class CalendarEventEntity
     /// them while temporarily silencing "approaching event" notifications.
     /// </summary>
     public string ReminderNotificationChannel { get; set; } = "None";
+
+    /// <summary>
+    /// Whether to say something when the event begins, as well as beforehand - see
+    /// Orbit.Core.Calendar.CalendarEventDetails.NotifyAtStart. Sent on ReminderNotificationChannel,
+    /// since it answers the same question about the same event.
+    /// </summary>
+    public bool NotifyAtStart { get; set; }
 
     /// <summary>Stored by name, like every other enum here - see Orbit.Core.Abstractions.ItemPriority.</summary>
     public string Priority { get; set; } = nameof(Orbit.Core.Abstractions.ItemPriority.Normal);
