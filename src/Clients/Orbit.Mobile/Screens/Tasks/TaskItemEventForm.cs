@@ -10,6 +10,13 @@ namespace Orbit.Mobile.Screens.Tasks;
 /// without a point cannot be stored on an event (see EventLocationDto), and a point with no name still
 /// can.
 ///
+/// The place travels through the editor rather than being kept inside this form. An earlier fix held
+/// whatever place the event already had and handed it back untouched, which stopped a save from a phone
+/// erasing one set in the browser - the right worry, and the wrong place to answer it. The box on the
+/// entry is now filled from the event when it opens, so the place makes the whole round trip: it comes
+/// back if nobody touches it, changes if somebody changes it, and goes if somebody empties the box.
+/// Held inside the form it could only ever do the first.
+///
 /// Its own small type rather than three loose values threaded through two shapes: the name and the pair
 /// of coordinates only ever travel together, and the rule about what makes a saveable place belongs
 /// with them.
