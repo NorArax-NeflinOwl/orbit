@@ -120,7 +120,9 @@ public sealed class NotificationWordingTests
                 new NotificationRecorder(settingsRepository, entryRepository, new SilentLiveUpdatePublisher()),
                 new PushNotificationDispatcher(
                     new InMemoryPushSubscriptionRepository(), [], NullLogger<PushNotificationDispatcher>.Instance),
-                userRepository);
+                userRepository,
+                new RecordingEmailSender(),
+                NullLogger<SharedItemNotifier>.Instance);
 
             var recipientId = Guid.NewGuid();
             notifier.NotifyAsync(recipientId, sharer.Id, kind, "Shopping", CancellationToken.None)
