@@ -13,7 +13,7 @@
    would leave whatever was typed sitting there, since nothing changed as far as the diff is concerned. *@
 <input @key="_revision" type="text" class="time-field" inputmode="numeric" maxlength="5"
        placeholder="@Placeholder" aria-label="@AriaLabel" title="@AriaLabel"
-       value="@_text" @onchange="OnChangedAsync" />
+       value="@_text" @oninput="OnTyping" @onchange="OnChangedAsync" />
 
 @code {
     [Parameter] public TimeOnly? Value { get; set; }
@@ -48,6 +48,29 @@
             _text = incoming;
             _revision++;
         }
+    }
+
+    /// <summary>
+    /// Writes the colon in as the digits arrive, so a time reads as a time while it is being typed
+    /// rather than only after leaving the box.
+    ///
+    /// Deliberately without the key that redraws the box elsewhere in this component: bumping it
+    /// replaces the element, which takes the caret and the focus with it. Patching the value in place
+    /// leaves both, and the caret lands at the end - which is where it belongs while somebody is typing
+    /// forwards, and the only case a four-digit box has.
+    /// </summary>
+    private void OnTyping(ChangeEventArgs args)
+        => _text = WithTheColonIn(args.Value?.ToString() ?? string.Empty);
+
+    /// <summary>
+    /// The digits, punctuated. The colon appears only once there is something after it: written as soon
+    /// as the second digit lands, a backspace would put it straight back and the box could not be
+    /// cleared past it.
+    /// </summary>
+    private static string WithTheColonIn(string typed)
+    {
+        var digits = new string([.. typed.Where(char.IsAsciiDigit).Take(4)]);
+        return digits.Length > 2 ? $"{digits[..2]}:{digits[2..]}" : digits;
     }
 
     private async Task OnChangedAsync(ChangeEventArgs args)

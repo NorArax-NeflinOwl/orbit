@@ -4994,6 +4994,18 @@ textarea.editor-item-main {
     padding: 0;
 }
 
+/* Room between the rows. They sat directly on top of one another, so a label read as belonging to the
+   box above it as easily as to the one below - which on a form of eighteen fields is most of them. The
+   sections carry their own separation (see .event-section), so this is only what is inside one. */
+.event-section > .field + .field,
+.event-section > .field + .field-row,
+.event-section > .field-row + .field,
+.event-section > .field-row + .field-row,
+.event-section > .field + .error,
+.event-section > .field-row + .error {
+    margin-top: 12px;
+}
+
 /* One question at a time: when it is, where, what it is, being told about it, who is coming. A hairline
    between them rather than a box around each - the sections are one form read top to bottom, not five
    cards. The first has no rule above it, because there is nothing above it to be separated from. */

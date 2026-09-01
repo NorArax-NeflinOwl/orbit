@@ -107,6 +107,22 @@ public sealed class EventFormModel
         }
     }
 
+    /// <summary>
+    /// Whether the end has been put before the start. Asked while the form is being filled in rather
+    /// than only when it is saved: moving the start drags the end along (see OnStartChanged), but an end
+    /// edited directly is left where somebody put it, and finding out on Save that it was impossible is
+    /// finding out too late.
+    /// </summary>
+    public bool EndsBeforeItStarts
+        => StartInstant is { } start && EndInstant is { } end && end < start;
+
+    /// <summary>
+    /// Whether a repeat is told to stop before the first occurrence has even happened, which would make
+    /// the rule describe nothing at all.
+    /// </summary>
+    public bool StopsRepeatingBeforeItStarts
+        => IsRecurring && StartDate is { } start && RecurrenceUntil is { } until && until < start;
+
     private DateTime? StartInstant
         => StartDate is { } date ? date.ToDateTime(IsAllDay ? TimeOnly.MinValue : StartTime ?? TimeOnly.MinValue) : null;
 
