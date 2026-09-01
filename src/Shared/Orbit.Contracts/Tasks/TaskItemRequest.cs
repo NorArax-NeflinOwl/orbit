@@ -32,4 +32,31 @@ public sealed record TaskItemRequest(
     /// The shelf item an Inventory entry is an errand about - see Orbit.Core.Tasks.TaskItem.LinkedInventoryItemId.
     /// Null for every other kind.
     /// </summary>
-    Guid? LinkedInventoryItemId = null);
+    Guid? LinkedInventoryItemId = null)
+{
+    /// <summary>
+    /// An entry as it already is, ready to be sent back unchanged.
+    ///
+    /// Here rather than written out at each call site, because the endpoint replaces a list wholesale:
+    /// every field has to ride along, and a caller that lists them by hand quietly drops whichever ones
+    /// were added after it was written. Four of them had been - Kind, Location and the two links - so
+    /// ticking a box on a checklist turned that list's inventory errands and appointments into plain
+    /// lines and cut them loose from the shelf item and the event they were about. One mapping means a
+    /// field added later is carried by everyone who saves a list.
+    /// </summary>
+    public static TaskItemRequest From(TaskItemDto item)
+        => new(
+            item.Description,
+            item.Id,
+            item.DueDateUtc,
+            item.IsCompleted,
+            item.LinkedTaskListId,
+            item.OverdueNotificationChannel,
+            item.RemindDaily,
+            item.DailyReminderNotificationChannel,
+            item.DailyReminderTimeOfDay,
+            item.Kind,
+            item.Location,
+            item.LinkedCalendarEventId,
+            item.LinkedInventoryItemId);
+}

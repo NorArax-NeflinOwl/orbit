@@ -1134,6 +1134,21 @@ input.note-editor-title {
 }
 
 @media (max-width: 680px) {
+    /* Icons only. Six labelled destinations do not fit beside an avatar on a phone, and what happened
+       instead was worse than crowding: the row scrolled sideways, so the first entry sat half off the
+       left edge and the wordmark was cut to "shboard". An icon each fits, and the title attribute
+       still names them. */
+    .nav-item .label {
+        display: none;
+    }
+
+    /* The logo is already the way back to the dashboard, and it is the leftmost thing in the bar - so
+       a Dashboard entry beside it is the same destination twice, spending one of the few slots a phone
+       has on a duplicate. */
+    .nav-item-dashboard {
+        display: none;
+    }
+
     /* The bar is the same shape here as anywhere else now - only tighter, and without the wordmark,
        which is the first thing to go when the row has to hold six destinations and an avatar. */
     .topbar {
@@ -3063,9 +3078,19 @@ input.note-editor-title {
         flex-wrap: wrap;
     }
 
+    /* Stays on the first line with the checkbox and the name. It used to be given the full width,
+       which put the one control that opens the entry on a line of its own underneath - so the row
+       read as two rows, and the button looked like it belonged to whatever came next. The badges
+       inside it may still wrap; the button is what has to stay put. */
     .editor-item-summary > .editor-item-aside {
-        width: 100%;
-        justify-content: space-between;
+        margin-left: auto;
+        flex-wrap: wrap;
+        justify-content: flex-end;
+    }
+
+    /* Free to shrink, so the aside beside it always has somewhere to sit. */
+    .editor-item-summary > .editor-item-main {
+        flex: 1 1 8rem;
     }
 }
 
@@ -4464,4 +4489,18 @@ span.calendar-task-chip {
     overflow: hidden;
     overflow-wrap: anywhere;
     line-height: 1.25;
+}
+
+/* When something last changed, sitting with the tags rather than against the right margin - see
+   Notes.razor. Quieter than a tag, because it is context rather than a label. */
+.item-card-when {
+    color: var(--text-secondary);
+    font-size: 12.5px;
+}
+
+/* A card that stands for something with a colour of its own - see ItemCard's AccentColour. The edge
+   carries it, which is legible at a glance down a list; a dot beside the name was one more thing in a
+   row that already holds tags. */
+.item-card-accented {
+    border-left: 4px solid var(--item-card-accent, var(--accent));
 }

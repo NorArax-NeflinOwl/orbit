@@ -35,6 +35,7 @@ public sealed class TaskEditorCalendarLocationTests : OrbitTestContext
 
     private readonly List<CreateCalendarEventRequest> _created = [];
     private readonly List<UpdateCalendarEventRequest> _updated = [];
+    private readonly List<UpdateTaskRequest> _savedLists = [];
 
     public TaskEditorCalendarLocationTests()
     {
@@ -188,6 +189,14 @@ public sealed class TaskEditorCalendarLocationTests : OrbitTestContext
             {
                 var body = request.Content!.ReadAsStringAsync().GetAwaiter().GetResult();
                 _updated.Add(JsonSerializer.Deserialize<UpdateCalendarEventRequest>(
+                    body, new JsonSerializerOptions(JsonSerializerDefaults.Web))!);
+                return new HttpResponseMessage(HttpStatusCode.NoContent);
+            }
+
+            if (request.Method == HttpMethod.Put && path == $"/api/tasks/{TaskListId}")
+            {
+                var body = request.Content!.ReadAsStringAsync().GetAwaiter().GetResult();
+                _savedLists.Add(JsonSerializer.Deserialize<UpdateTaskRequest>(
                     body, new JsonSerializerOptions(JsonSerializerDefaults.Web))!);
                 return new HttpResponseMessage(HttpStatusCode.NoContent);
             }
@@ -395,4 +404,30 @@ public sealed class TaskEditorCalendarLocationTests : OrbitTestContext
 
     private static string SelectedOptionIn(AngleSharp.Dom.IElement entry)
         => entry.QuerySelector("option[selected]")?.GetAttribute("value") ?? "";
+
+    /// <summary>
+    /// A restock errand knows which product it is about, and saving the list must not forget it.
+    ///
+    /// Nothing on this screen sets the link - it is made when the errand is - so it was simply not
+    /// carried, and the endpoint replaces a list wholesale. Every save from the deep editor therefore
+    /// cut every inventory errand loose from its shelf item, which is what the restock list recognises
+    /// them by.
+    /// </summary>
+    [Fact]
+    public void Saving_a_list_keeps_an_errand_tied_to_the_shelf_item_it_is_about()
+    {
+        var shelfItemId = Guid.NewGuid();
+        RegisterApiClients(Item("Restock: Parówki") with
+        {
+            Kind = "Inventory",
+            LinkedInventoryItemId = shelfItemId
+        });
+        var cut = Render();
+
+        Save(cut);
+
+        var saved = Assert.Single(_savedLists).Items.Single();
+        Assert.Equal("Inventory", saved.Kind);
+        Assert.Equal(shelfItemId, saved.LinkedInventoryItemId);
+    }
 }

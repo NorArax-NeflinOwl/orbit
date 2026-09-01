@@ -24,6 +24,14 @@
 <div class="page-header">
     <div class="page-heading">
         <h1>@(IsNewNote ? T["New note"] : T["Edit note"])</h1>
+        @if (!HasSomethingToSave && !_isLoading)
+        {
+            <span class="form-hint">@T["Write something in it."]</span>
+        }
+    </div>
+    @* At the far edge rather than beside the name: on a phone the two sat wherever the title happened
+       to end, which moves as the title changes, and the thumb reaching them is on the right. *@
+    <div class="page-header-actions">
         @if (!_isLoading && !_isSharedReadOnly && _lockedByUserName is null)
         {
             <button type="button" class="icon-btn page-action-primary" title="@(T["Save"])" aria-label="@(T["Save"])"
@@ -36,10 +44,6 @@
                 <svg viewBox="0 0 20 20" width="18" height="18" aria-hidden="true" fill="none"
                      stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="m5 5 10 10M15 5 5 15" /></svg>
             </button>
-        }
-        @if (!HasSomethingToSave && !_isLoading)
-        {
-            <span class="form-hint">@T["Write something in it."]</span>
         }
     </div>
 </div>

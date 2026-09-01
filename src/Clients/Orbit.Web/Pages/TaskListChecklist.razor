@@ -622,17 +622,13 @@ else
         }
 
         var toggledIndex = taskList.Items.ToList().IndexOf(item);
+        // Everything as it already is, with one item's completion changed - see TaskItemRequest.From on
+        // why the fields are not listed here.
         var items = taskList.Items
-            .Select((existingItem, index) => new TaskItemRequest(
-                existingItem.Description,
-                existingItem.Id,
-                existingItem.DueDateUtc,
-                index == toggledIndex ? isCompleted : existingItem.IsCompleted,
-                existingItem.LinkedTaskListId,
-                existingItem.OverdueNotificationChannel,
-                existingItem.RemindDaily,
-                existingItem.DailyReminderNotificationChannel,
-                existingItem.DailyReminderTimeOfDay))
+            .Select((existingItem, index) => TaskItemRequest.From(existingItem) with
+            {
+                IsCompleted = index == toggledIndex ? isCompleted : existingItem.IsCompleted
+            })
             .ToList();
 
         try

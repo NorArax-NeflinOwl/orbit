@@ -127,6 +127,41 @@ public sealed class TaskListChecklistTests : OrbitTestContext
         Assert.True(cut.Find(".check-row input[type=checkbox]").HasAttribute("disabled"));
     }
 
+    /// <summary>
+    /// Ticking a box must not change what the other entries *are*.
+    ///
+    /// The endpoint replaces the list wholesale, so every field of every item has to ride along - and
+    /// four of them did not. Kind, Location and the two links fell back to their defaults, so ticking
+    /// anything on a list turned its inventory errands and its appointments into plain checklist lines
+    /// and cut them loose from the shelf item and the event they were about. On the Restock supplies
+    /// list that is what made entries disappear as soon as they were ticked: the link the restock
+    /// reconciliation recognises them by was gone.
+    /// </summary>
+    [Fact]
+    public void Ticking_an_item_leaves_the_other_entries_as_the_kind_of_thing_they_were()
+    {
+        var shelfItemId = Guid.NewGuid();
+        var eventId = Guid.NewGuid();
+        var taskList = TaskList(
+            "Zakupy",
+            Item("Buy milk"),
+            Item("Restock: Parówki", kind: "Inventory") with { LinkedInventoryItemId = shelfItemId },
+            Item("Dentist", kind: "Calendar") with { Location = "Długa 4", LinkedCalendarEventId = eventId });
+        RegisterTasksApiClient([taskList]);
+        var cut = RenderComponent<TaskListChecklist>(parameters => parameters.Add(page => page.Id, taskList.Id));
+
+        cut.FindAll(".check-row input[type=checkbox]").ToArray()[0].Change(true);
+
+        var update = _requests.Single(request => request.Method == HttpMethod.Put);
+        var items = JsonDocument.Parse(_requestBodies[_requests.IndexOf(update)]).RootElement.GetProperty("items");
+
+        Assert.Equal("Inventory", items[1].GetProperty("kind").GetString());
+        Assert.Equal(shelfItemId, items[1].GetProperty("linkedInventoryItemId").GetGuid());
+        Assert.Equal("Calendar", items[2].GetProperty("kind").GetString());
+        Assert.Equal("Długa 4", items[2].GetProperty("location").GetString());
+        Assert.Equal(eventId, items[2].GetProperty("linkedCalendarEventId").GetGuid());
+    }
+
     [Fact]
     public void Ticking_an_item_saves_the_whole_list_back_with_only_that_item_changed()
     {

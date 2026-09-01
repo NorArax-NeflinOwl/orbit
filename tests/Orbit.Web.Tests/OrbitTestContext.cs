@@ -24,6 +24,11 @@ public abstract class OrbitTestContext : TestContext
         // Empty, which is what every page sees unless the map sent somebody to it - the same reason
         // Translations is here. A test about the handover puts a place in it first.
         Services.AddSingleton(new ChosenPlace());
+        // Every overflow menu asks JS to place it inside the viewport when it opens - see
+        // OverflowMenu and menuAnchor.js. There is no layout to measure here, so it answers and does
+        // nothing; without it any test that opens a menu fails on the interop call rather than on
+        // whatever it was about.
+        JSInterop.SetupModule("./js/menuAnchor.js").SetupVoid("anchorToTrigger", _ => true).SetVoidResult();
     }
 
     /// <summary>

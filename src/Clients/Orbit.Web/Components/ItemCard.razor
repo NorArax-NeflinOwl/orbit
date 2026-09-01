@@ -13,7 +13,8 @@
    Everything except the name is optional, and each part is left out rather than rendered empty: a
    handle appears only where the order can actually be changed, a collapse button only where there is
    a list underneath to fold away. *@
-<article class="item-card @(IsCollapsed ? "item-card-collapsed" : "") @ExtraClass">
+<article class="item-card @(IsCollapsed ? "item-card-collapsed" : "") @(AccentColour is null ? null : "item-card-accented") @ExtraClass"
+         style="@(AccentColour is null ? null : $"--item-card-accent:{AccentColour};")">
     <div class="item-card-head">
         @if (Handle is not null)
         {
@@ -135,6 +136,13 @@
 
     /// <summary>Opening the light editor. Without one the body is shown but is not a control.</summary>
     [Parameter] public EventCallback OnBodySelected { get; set; }
+
+    /// <summary>
+    /// A colour this card is about - an event's own, say. Painted along its edge rather than shown as
+    /// a dot beside the name: a dot is one more thing in a row already holding tags, and the point of
+    /// the colour is to be findable without reading, which an edge does and a dot does not.
+    /// </summary>
+    [Parameter] public string? AccentColour { get; set; }
 
     /// <summary>Anything the caller needs to hang its own rules on - a pinned card's outline, say.</summary>
     [Parameter] public string? ExtraClass { get; set; }

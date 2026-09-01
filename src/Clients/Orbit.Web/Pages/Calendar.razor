@@ -52,14 +52,13 @@
                     {
                         <ItemCard Name="@calendarEvent.Details.Title"
                         OnNameSelected="() => GoToEditEvent(calendarEvent.Id)"
+                        OnBodySelected="() => GoToEditEvent(calendarEvent.Id)"
+                        AccentColour="@(string.IsNullOrWhiteSpace(calendarEvent.Details.Color) ? null : calendarEvent.Details.Color)"
                         IsCollapsed="@(!IsEventExpanded(calendarEvent.Id))"
                         OnCollapseToggled="@(HasDetails(calendarEvent.Details) ? EventCallback.Factory.Create(this, () => ToggleEventExpanded(calendarEvent.Id)) : default)">
                         <Tags>
                             @* Which kind of thing this is, now that both kinds share one list. *@
                             <span class="card-badge card-badge-event">@T["Event"]</span>
-                            @* The event's own colour, which is how a busy list is read at a glance
-                               before any of it is read properly. *@
-                            <span class="stat-dot" style="background:@(string.IsNullOrWhiteSpace(calendarEvent.Details.Color) ? "var(--accent)" : calendarEvent.Details.Color)"></span>
                             @if (calendarEvent.IsShared)
                             {
                                 <span class="card-badge">@T.Format("Shared by {0}", calendarEvent.SharedByUserName)</span>
@@ -114,7 +113,17 @@
                     {
                         <ItemCard Name="@Written(dueTask.Description)"
                                   OnNameSelected="() => GoToDueTask(dueTask)"
+                                  OnBodySelected="() => GoToDueTask(dueTask)"
                                   ExtraClass="@(dueTask.IsCompleted ? "item-card-done" : null)">
+                            @* The same two actions an event carries. A deadline is a thing on this list
+                               like any other, and having to go and find the list it lives on to change
+                               or drop it was the one row here that answered differently. *@
+                            <Menu>
+                                <OverflowMenu>
+                                    <button type="button" class="avatar-dropdown-item" @onclick="() => GoToDueTask(dueTask)">@T["Edit"]</button>
+                                    <button type="button" class="avatar-dropdown-item" @onclick="() => DeleteDueTaskAsync(dueTask)">@T["Delete"]</button>
+                                </OverflowMenu>
+                            </Menu>
                             <Tags>
                                 <span class="card-badge card-badge-task">@T["Task"]</span>
                                 <span class="card-badge">@Written(dueTask.TaskListTitle)</span>
@@ -391,6 +400,56 @@
             .FirstOrDefault(candidate => candidate.IsGroup
                 && candidate.Items.Any(item => item.LinkedTaskListId == taskListId))
             ?.Id;
+
+    /// <summary>
+    /// Removes one deadline from the list it lives on. There is no endpoint for a single entry - a list
+    /// is saved whole - so this sends the list back without it, carrying every other entry through
+    /// TaskItemRequest.From so that nothing else on it is quietly changed by the trip.
+    /// </summary>
+    private async Task DeleteDueTaskAsync(DueTaskDto dueTask)
+    {
+        Logger.LogInformation("User clicked 'Delete' for task item {TaskItemId} from the calendar", dueTask.TaskItemId);
+        if (_taskLists.FirstOrDefault(list => list.Id == dueTask.TaskListId) is not { } taskList)
+        {
+            return;
+        }
+
+        if (!await JSRuntime.InvokeAsync<bool>("confirm", T.Format("Delete \"{0}\"?", dueTask.Description)))
+        {
+            return;
+        }
+
+        var items = taskList.Items
+            .Where(item => item.Id != dueTask.TaskItemId)
+            .Select(TaskItemRequest.From)
+            .ToList();
+
+        try
+        {
+            await TasksApiClient.UpdateTaskListAsync(
+                taskList.Id, new UpdateTaskRequest(taskList.Title, items, taskList.IsGroup, taskList.IsPrivate));
+        }
+        catch (HttpRequestException exception) when (exception.StatusCode == HttpStatusCode.Unauthorized)
+        {
+            NavigationManager.NavigateTo("/login");
+            return;
+        }
+        catch (HttpRequestException exception)
+        {
+            Logger.LogError(exception, "Failed to delete task item {TaskItemId}", dueTask.TaskItemId);
+            return;
+        }
+
+        // Dropped from what is already loaded rather than fetched again, the way deleting an event
+        // does: nothing else about the period changed, and a reload here would cost a round trip to
+        // learn what this method already knows.
+        _taskLists = _taskLists
+            .Select(list => list.Id == taskList.Id
+                ? list with { Items = [.. list.Items.Where(item => item.Id != dueTask.TaskItemId)] }
+                : list)
+            .ToList();
+        _dueTasks = _dueTasks?.Where(due => due.TaskItemId != dueTask.TaskItemId).ToList();
+    }
 
     private async Task DeleteEventAsync(CalendarEventDto calendarEvent)
     {

@@ -639,6 +639,7 @@ else
                                 IsCompleted = item.IsCompleted,
                                 Kind = item.Kind,
                                 Location = item.Location,
+                                LinkedInventoryItemId = item.LinkedInventoryItemId,
                                 LinkedCalendarEventId = item.LinkedCalendarEventId?.ToString() ?? string.Empty,
                                 LinkedTaskListId = item.LinkedTaskListId?.ToString() ?? string.Empty,
                                 OverdueNotificationChannel = item.OverdueNotificationChannel,
@@ -1315,7 +1316,8 @@ else
                 item.DailyReminderTimeOfDay ?? default,
                 item.Kind,
                 item.Location,
-                ToLinkedCalendarEventId(item)))
+                ToLinkedCalendarEventId(item),
+                item.LinkedInventoryItemId))
             .ToList();
 
         // Blocks the button for the duration of the save (see the button above), so a second click or a
@@ -1561,6 +1563,13 @@ else
 
         /// <summary>Where a calendar entry happens. Held even while the kind or the event link say otherwise, so switching back and forth in one sitting doesn't lose what was typed - the server drops it on save.</summary>
         public string Location { get; set; } = string.Empty;
+
+        /// <summary>
+        /// The shelf item an inventory errand is about. Nothing on this screen sets it - it is made
+        /// when the errand is - but it has to be carried, because a save replaces the list wholesale.
+        /// Leaving it out cut every restock errand loose from its product on any save of the list.
+        /// </summary>
+        public Guid? LinkedInventoryItemId { get; set; }
 
         /// <summary>
         /// Where <see cref="Location"/> actually is, once somebody has said so on the map. Null until
