@@ -151,20 +151,6 @@ public partial class ItemCard : ContentView
 	private static void Fill(BindableObject bindable, string host, object? content)
 	{
 		var card = (ItemCard)bindable;
-		var slot = (ContentView)card.FindByName(host);
-		slot.Content = content as View;
-
-		// Left out rather than drawn empty, and that has to follow what is in it rather than only
-		// whether anything is: a card is handed a pin that hides itself on somebody else's note, and a
-		// slot holding a hidden thing still took its column - which pushed every name in the list to
-		// the right of a pin nobody could see.
-		if (content is View view)
-		{
-			slot.SetBinding(IsVisibleProperty, static (View held) => held.IsVisible, source: view);
-			return;
-		}
-
-		slot.RemoveBinding(IsVisibleProperty);
-		slot.IsVisible = false;
+		Slot.Fill((ContentView)card.FindByName(host), content);
 	}
 }

@@ -232,7 +232,7 @@ public sealed partial class NavigationBarViewModel : ObservableObject
     {
         _presence.MarkActive();
         DisplayName = (await _sessionStore.GetAsync())?.DisplayName ?? string.Empty;
-        Initials = InitialsOf(DisplayName);
+        Initials = Avatar.InitialsOf(DisplayName);
 
         // Shared with whatever screen is behind the bar, so the two cannot disagree and only one
         // request is made between them.
@@ -576,28 +576,6 @@ public sealed partial class NavigationBarViewModel : ObservableObject
     {
         IsMenuOpen = false;
         show();
-    }
-
-    /// <summary>
-    /// Two initials at most, worked out the way Orbit.Web works them out - see its AvatarHelper. The same
-    /// person has to read the same on both, and the avatar is on every screen, so a rule of its own here
-    /// showed up everywhere: a one-word name came out a single letter on the phone and two letters in the
-    /// browser, and a three-word name took a different second letter.
-    ///
-    /// The one deliberate difference is an empty name, which the web renders as "?" and this leaves
-    /// blank: an avatar reading "?" looks like a fault rather than an unnamed account.
-    /// </summary>
-    private static string InitialsOf(string? displayName)
-    {
-        var words = (displayName ?? string.Empty)
-            .Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
-
-        return words switch
-        {
-            [] => string.Empty,
-            [var only] => (only.Length >= 2 ? only[..2] : only[..1]).ToUpperInvariant(),
-            [var first, var second, ..] => $"{first[..1]}{second[..1]}".ToUpperInvariant()
-        };
     }
 
     /// <summary>

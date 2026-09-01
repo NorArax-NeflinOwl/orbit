@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<ContentView
+    x:Class="Orbit.Maui.Controls.PersonRow"
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    xmlns:shapes="clr-namespace:Microsoft.Maui.Controls.Shapes;assembly=Microsoft.Maui.Controls">
+
+    <!-- One row for a person or a group, used by every list that shows either. Its own shape rather
+         than ItemCard's, because these lists lead with a face and live or die on density: a card's
+         anatomy has nowhere to put an avatar, and giving each conversation a tag row would make a
+         picker into a page. The same shape Orbit.Web settled on - see its PersonRow.razor.
+
+             [pin][action][avatar with status][name ...................][menu]
+
+         A group has no status on its avatar - a group is not somewhere anybody is or is not. -->
+    <Grid ColumnDefinitions="Auto,Auto,*,Auto" Padding="0,6">
+
+        <!-- No column spacing: what comes before the face is optional, and an empty column must cost
+             nothing at all. They carry their own margins instead. -->
+        <HorizontalStackLayout Grid.Column="0" Spacing="6" VerticalOptions="Center">
+            <ContentView x:Name="PinHost" IsVisible="False" VerticalOptions="Center" />
+
+            <!-- Something happened here that this reader has not seen. Before the face rather than on
+                 it: a mark drawn on an avatar reads as being about the person, not about what is
+                 waiting. -->
+            <Ellipse x:Name="ActionMark" WidthRequest="8" HeightRequest="8" IsVisible="False"
+                     VerticalOptions="Center" Margin="0,0,6,0" Fill="{DynamicResource Accent}" />
+        </HorizontalStackLayout>
+
+        <Grid Grid.Column="1" WidthRequest="40" HeightRequest="40" VerticalOptions="Center" Margin="0,0,10,0">
+            <!-- Initials rather than a picture: Orbit has no avatars to show, and the web does the
+                 same. The circle is this person's colour and stays theirs - see Avatar. -->
+            <Border x:Name="AvatarCircle" StrokeThickness="0" HeightRequest="36" WidthRequest="36"
+                    HorizontalOptions="Center" VerticalOptions="Center">
+                <Border.StrokeShape>
+                    <shapes:RoundRectangle CornerRadius="18" />
+                </Border.StrokeShape>
+                <Label x:Name="InitialsLabel" FontSize="13" FontAttributes="Bold" TextColor="{StaticResource White}"
+                       HorizontalOptions="Center" VerticalOptions="Center" />
+            </Border>
+
+            <Border x:Name="PresenceDot" HeightRequest="13" WidthRequest="13" StrokeThickness="2" IsVisible="False"
+                    Stroke="{AppThemeBinding Light={StaticResource SurfaceLight}, Dark={StaticResource SurfaceDark}}"
+                    HorizontalOptions="End" VerticalOptions="End">
+                <Border.StrokeShape>
+                    <shapes:RoundRectangle CornerRadius="7" />
+                </Border.StrokeShape>
+            </Border>
+        </Grid>
+
+        <VerticalStackLayout Grid.Column="2" Spacing="1" VerticalOptions="Center">
+            <Label x:Name="NameLabel" FontSize="16" FontAttributes="Bold" LineBreakMode="TailTruncation" />
+            <Label x:Name="SubtitleLabel" FontSize="12" IsVisible="False" LineBreakMode="TailTruncation"
+                   TextColor="{AppThemeBinding Light={StaticResource SubtleTextLight}, Dark={StaticResource SubtleTextDark}}" />
+        </VerticalStackLayout>
+
+        <ContentView x:Name="MenuHost" Grid.Column="3" IsVisible="False" VerticalOptions="Center" />
+    </Grid>
+
+</ContentView>

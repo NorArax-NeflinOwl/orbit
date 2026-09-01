@@ -75,16 +75,28 @@
 
                 <CollectionView.ItemTemplate>
                     <DataTemplate x:DataType="data:LocalContact">
-                        <VerticalStackLayout Padding="0,12" Spacing="2">
-                            <!-- The same dot as on the avatar, and the same colours mean the same
-                                 things - see PresenceColorConverter. -->
-                            <HorizontalStackLayout Spacing="8">
-                                <Ellipse WidthRequest="9" HeightRequest="9" VerticalOptions="Center"
-                                         Fill="{Binding PresenceStatus, Converter={StaticResource PresenceColor}}" />
-                                <Label Text="{Binding DisplayName}" FontSize="17" FontAttributes="Bold" />
-                            </HorizontalStackLayout>
-                            <Label Text="{Binding UserName, StringFormat='@{0}'}" FontSize="12"
-                                   TextColor="{AppThemeBinding Light={StaticResource SubtleTextLight}, Dark={StaticResource SubtleTextDark}}" />
+                        <VerticalStackLayout Padding="0,6" Spacing="2">
+                            <!-- The same row every list of people is drawn with - see PersonRow. -->
+                            <controls:PersonRow Id="{Binding UserId}" Name="{Binding DisplayName}"
+                                                Subtitle="{Binding UserName, StringFormat='@{0}'}"
+                                                Status="{Binding PresenceStatus}"
+                                                HasUnseenAction="{Binding RequiresApprovalFromCurrentUser}">
+                                <controls:PersonRow.Menu>
+                                    <!-- Putting one away, bringing it back, and emptying it - the three
+                                         the browser keeps behind a row's own menu. Its own button rather
+                                         than a swipe: a swipe is undiscoverable and this list is also
+                                         read by somebody who cannot see it. -->
+                                    <Button Text="⋯" SemanticProperties.Description="{controls:Translate 'More'}"
+                                            FontSize="18" WidthRequest="44" Padding="0"
+                                            BackgroundColor="Transparent"
+                                            TextColor="{AppThemeBinding Light={StaticResource SubtleTextLight}, Dark={StaticResource SubtleTextDark}}"
+                                            Command="{Binding ShowContactMenuCommand, Source={RelativeSource AncestorType={x:Type ContentPage}}, x:DataType=chat:ContactsPage}"
+                                            CommandParameter="{Binding .}" />
+                                </controls:PersonRow.Menu>
+                            </controls:PersonRow>
+
+                            <!-- Under the row rather than in it: what is waiting on an answer is about
+                                 this conversation's state, not about who the person is. -->
                             <Label Text="{controls:Translate 'Waiting for them to accept your request'}"
                                    IsVisible="{Binding IsPendingApprovalFromOtherParty}"
                                    FontSize="12" TextColor="{DynamicResource Accent}" />
@@ -99,18 +111,6 @@
                                     HorizontalOptions="Start" Padding="16,4" FontSize="13"
                                     Command="{Binding ViewModel.AcceptCommand, Source={RelativeSource AncestorType={x:Type ContentPage}}, x:DataType=chat:ContactsPage}"
                                     CommandParameter="{Binding .}" />
-                            <!-- Putting one away, bringing it back, and emptying it - the three the
-                                 browser keeps behind a row's own menu. Its own button rather than a
-                                 swipe: a swipe is undiscoverable and this list is also read by
-                                 somebody who cannot see it. -->
-                            <Button Text="⋯" SemanticProperties.Description="{controls:Translate 'More'}"
-                                    HorizontalOptions="Start" FontSize="18" WidthRequest="44" Padding="0"
-                                    BackgroundColor="Transparent"
-                                    TextColor="{AppThemeBinding Light={StaticResource SubtleTextLight}, Dark={StaticResource SubtleTextDark}}"
-                                    Command="{Binding ShowContactMenuCommand, Source={RelativeSource AncestorType={x:Type ContentPage}}, x:DataType=chat:ContactsPage}"
-                                    CommandParameter="{Binding .}" />
-                            <BoxView HeightRequest="1" Margin="0,12,0,0"
-                                     Color="{AppThemeBinding Light={StaticResource CardStrokeLight}, Dark={StaticResource CardStrokeDark}}" />
                         </VerticalStackLayout>
                     </DataTemplate>
                 </CollectionView.ItemTemplate>
