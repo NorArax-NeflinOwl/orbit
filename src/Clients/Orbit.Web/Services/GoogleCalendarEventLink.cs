@@ -26,8 +26,19 @@ public static class GoogleCalendarEventLink
         string title, DateTimeOffset startUtc, DateTimeOffset endUtc, bool isAllDay = false,
         string? description = null, string? location = null, RecurrenceDto? recurrence = null)
     {
+        // Which day an all-day event falls on is read in the reader's own zone, not in UTC. An all-day
+        // event is stored as the instant local midnight began (see EventFormModel.ToDateTimeOffset), so
+        // anywhere east of Greenwich that instant belongs to the previous UTC day - and a holiday on the
+        // 14th was handed to Google as the 13th. A timed event has no such problem: it goes as an
+        // instant, and the Z tells Google exactly which one.
+        //
+        // The day after the last one, always. Orbit's own end date is the last day the event covers -
+        // that is what the calendar draws, see CalendarGridBuilder.OccursOnDate, which includes it - and
+        // Google's is the first day it does not. A trip from the 14th to the 16th is three days in the
+        // grid and has to be three in the link: 14th to the 17th. Passing a multi-day end through
+        // unchanged, as this did, made every such event a day short of what the grid showed.
         var dates = isAllDay
-            ? $"{FormatDate(startUtc)}/{FormatDate(endUtc.Date > startUtc.Date ? endUtc : endUtc.AddDays(1))}"
+            ? $"{FormatDate(startUtc)}/{FormatDate(endUtc.AddDays(1))}"
             : $"{FormatInstant(startUtc)}/{FormatInstant(endUtc)}";
 
         var url = $"{TemplateUrl}&text={Encode(title)}&dates={dates}";
@@ -123,8 +134,13 @@ public static class GoogleCalendarEventLink
     private static string FormatInstant(DateTimeOffset instant)
         => instant.ToUniversalTime().ToString("yyyyMMdd'T'HHmmss'Z'", CultureInfo.InvariantCulture);
 
+    /// <summary>
+    /// The day an instant falls on where the reader is. Google's date-only form carries no zone, so what
+    /// it means is "this calendar day" - and the day has to be the one the reader picked rather than the
+    /// one the instant lands on in UTC.
+    /// </summary>
     private static string FormatDate(DateTimeOffset instant)
-        => instant.ToUniversalTime().ToString("yyyyMMdd", CultureInfo.InvariantCulture);
+        => instant.ToLocalTime().ToString("yyyyMMdd", CultureInfo.InvariantCulture);
 
     private static string Encode(string value) => HttpUtility.UrlEncode(value);
 }
