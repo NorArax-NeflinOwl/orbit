@@ -140,6 +140,52 @@ public sealed class WarehouseDetailScreenTests
     }
 
     /// <summary>
+    /// A different question from the minimum: that one asks when there is too little of something, this
+    /// one asks for it every round however much there is - see InventoryItem.BelongsOnTheRestockList.
+    /// Added to the web on 2026-09-01; the phone could neither see nor set it.
+    /// </summary>
+    [Fact]
+    public async Task An_item_can_be_asked_for_every_round()
+    {
+        using var context = new ScreenContext();
+        var warehouse = await context.AddWarehouseAsync(
+            new WarehouseItemDto(Guid.NewGuid(), "Coffee", "Piece", "General", 1, null, nameof(InventoryUnit.Piece), null, "None"));
+        var screen = await context.OpenAsync(warehouse.LocalId);
+
+        screen.EditItemCommand.Execute(screen.Items[0]);
+        Assert.False(screen.BeingEdited!.IsCheckedRegularly);
+
+        screen.BeingEdited.IsCheckedRegularly = true;
+        await screen.SaveItemCommand.ExecuteAsync(null);
+
+        Assert.True(Assert.Single(screen.Items).Item.IsCheckedRegularly);
+    }
+
+    /// <summary>
+    /// Null on the way in means "not provided" and keeps what is stored, so a save from a screen that
+    /// says nothing cannot turn the flag off. The phone therefore always says which it is - otherwise
+    /// somebody switching it off here would have been ignored.
+    /// </summary>
+    [Fact]
+    public async Task Turning_it_off_is_said_rather_than_left_unsaid()
+    {
+        using var context = new ScreenContext();
+        var warehouse = await context.AddWarehouseAsync(
+            new WarehouseItemDto(
+                Guid.NewGuid(), "Coffee", "Piece", "General", 1, null, nameof(InventoryUnit.Piece), null, "None",
+                IsCheckedRegularly: true));
+        var screen = await context.OpenAsync(warehouse.LocalId);
+
+        screen.EditItemCommand.Execute(screen.Items[0]);
+        Assert.True(screen.BeingEdited!.IsCheckedRegularly);
+
+        screen.BeingEdited.IsCheckedRegularly = false;
+        await screen.SaveItemCommand.ExecuteAsync(null);
+
+        Assert.False(Assert.Single(screen.Items).Item.IsCheckedRegularly);
+    }
+
+    /// <summary>
     /// An amount of "2" says nothing about whether that is two bottles or two litres, which is why
     /// Orbit.Web writes the unit beside it. Pieces are left off: "2" of a thing already means two of
     /// them.

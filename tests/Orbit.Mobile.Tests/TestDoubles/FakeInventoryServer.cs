@@ -41,12 +41,12 @@ internal sealed class FakeInventoryServer : HttpMessageHandler
         return warehouse;
     }
 
-    public void AddItem(Guid warehouseId, string name, decimal quantity)
+    public void AddItem(Guid warehouseId, string name, decimal quantity, bool isCheckedRegularly = false)
     {
         var now = _timeProvider.GetUtcNow();
         _items[warehouseId].Add(new InventoryItemDto(
             Guid.NewGuid(), name, "Piece", "General", quantity, null, nameof(InventoryUnit.Piece), null, "None",
-            false, false, now, now));
+            false, false, now, now, isCheckedRegularly));
     }
 
     protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
@@ -160,10 +160,20 @@ internal sealed class FakeInventoryServer : HttpMessageHandler
         _items[id] = body.Items.Select(item => new InventoryItemDto(
             item.Id ?? Guid.NewGuid(), item.Name, item.ProductType, item.Category, item.Quantity,
             item.MinimumQuantity, item.Unit, item.ExpiryDate, item.ExpiryNotificationChannel,
-            false, false, now, now)).ToList();
+            false, false, now, now,
+            // As the server does: null on the way in means "not provided" and keeps what was stored -
+            // see WarehouseItemDto. A fake that read it as false would have called a client that says
+            // nothing a client that turns it off.
+            item.IsCheckedRegularly ?? Stored(id, item.Id))).ToList();
 
         return new HttpResponseMessage(HttpStatusCode.NoContent);
     }
+
+    /// <summary>What this item was last stored as, for a save that says nothing about the flag.</summary>
+    private bool Stored(Guid warehouseId, Guid? itemId)
+        => itemId is { } id
+            && _items.TryGetValue(warehouseId, out var items)
+            && items.FirstOrDefault(item => item.Id == id) is { IsCheckedRegularly: true };
 
     private HttpResponseMessage Delete(string path)
     {

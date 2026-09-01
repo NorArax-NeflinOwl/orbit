@@ -83,6 +83,30 @@ public sealed class WarehouseSyncTests
         Assert.Equal(5, onServer.Quantity);
     }
 
+    /// <summary>
+    /// The other thing a save must not cut loose. An item asked for every round is on the restock list
+    /// whatever its count says, and the phone's save writes the whole list - so a save that said nothing
+    /// about the flag would have been read as saying nothing at all, and the item would have gone on
+    /// being asked for while nobody could turn it off from here.
+    /// </summary>
+    [Fact]
+    public async Task An_item_asked_for_every_round_stays_that_way_across_a_save()
+    {
+        using var context = new WarehouseContext();
+        var remote = context.Server.AddWarehouse("Pantry");
+        context.Server.AddItem(remote.Id, "Flour", 2, isCheckedRegularly: true);
+        await context.SynchroniseAsync();
+
+        var stored = (await context.Warehouses.GetAllAsync()).Single();
+        Assert.True(stored.Items.Single().IsCheckedRegularly);
+
+        await context.Warehouses.UpdateAsync(
+            stored.LocalId, new WarehouseContent("Pantry", [stored.Items.Single() with { Quantity = 5 }]));
+        await context.SynchroniseAsync();
+
+        Assert.True(Assert.Single(context.Server.ItemsIn(remote.Id)).IsCheckedRegularly);
+    }
+
     [Fact]
     public async Task Saving_without_an_item_removes_it_because_a_save_is_the_whole_list()
     {

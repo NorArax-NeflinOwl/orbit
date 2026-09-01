@@ -218,5 +218,8 @@ public sealed class WarehouseSynchronizer
     private static IReadOnlyList<WarehouseItemDto> ToItems(IReadOnlyList<InventoryItemDto> items)
         => items.Select(item => new WarehouseItemDto(
             item.Id, item.Name, item.ProductType, item.Category, item.Quantity, item.MinimumQuantity,
-            item.Unit, item.ExpiryDate?.ToUniversalTime(), item.ExpiryNotificationChannel)).ToList();
+            item.Unit, item.ExpiryDate?.ToUniversalTime(), item.ExpiryNotificationChannel,
+            // Carried rather than left to mean "not provided": the read shape always says what it is,
+            // and a save that says nothing cannot turn it off.
+            item.IsCheckedRegularly)).ToList();
 }
