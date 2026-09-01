@@ -70,34 +70,29 @@
                         {
                             @* One row per event: colour, title, when. Location, repeats and guests
                                open underneath, so a busy day stays a list rather than a wall. *@
-                            <div class="editor-item">
-                                <div class="editor-item-summary">
+                            <ItemCard Name="@calendarEvent.Details.Title"
+                                      OnNameSelected="() => GoToEditEvent(calendarEvent.Id)"
+                                      IsCollapsed="@(!IsEventExpanded(calendarEvent.Id))"
+                                      OnCollapseToggled="@(HasDetails(calendarEvent.Details) ? EventCallback.Factory.Create(this, () => ToggleEventExpanded(calendarEvent.Id)) : default)">
+                                <Tags>
+                                    @* The event's own colour, which is how a busy list is read at a
+                                       glance before any of it is read properly. *@
                                     <span class="stat-dot" style="background:@(string.IsNullOrWhiteSpace(calendarEvent.Details.Color) ? "var(--accent)" : calendarEvent.Details.Color)"></span>
-                                    <span class="editor-item-main">
-                                        <span class="event-title">@calendarEvent.Details.Title</span>
-                                        @if (calendarEvent.IsShared)
-                                        {
-                                            <span class="card-badge">@T.Format("Shared by {0}", calendarEvent.SharedByUserName)</span>
-                                        }
-                                        <span class="row-meta event-when">@FormatTimeRange(calendarEvent.Details)</span>
-                                    </span>
-                                    <span class="editor-item-aside">
-                                        @if (HasDetails(calendarEvent.Details))
-                                        {
-                                            <button type="button" class="editor-item-toggle @(IsEventExpanded(calendarEvent.Id) ? "open" : "")"
-                                                    title="@(IsEventExpanded(calendarEvent.Id) ? T["Hide details"] : T["Show details"])"
-                                                    aria-expanded="@(IsEventExpanded(calendarEvent.Id) ? "true" : "false")"
-                                                    @onclick="() => ToggleEventExpanded(calendarEvent.Id)">
-                                                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7.5 4.5 13 10l-5.5 5.5" /></svg>
-                                            </button>
-                                        }
-                                        <button type="button" class="btn-secondary" @onclick="() => GoToEditEvent(calendarEvent.Id)">@(calendarEvent.IsShared ? T["View"] : "Edit")</button>
-                                        <button type="button" class="btn-secondary" @onclick="() => DeleteEventAsync(calendarEvent)">@T["Delete"]</button>
-                                    </span>
-                                </div>
-
-                                @if (IsEventExpanded(calendarEvent.Id))
-                                {
+                                    @if (calendarEvent.IsShared)
+                                    {
+                                        <span class="card-badge">@T.Format("Shared by {0}", calendarEvent.SharedByUserName)</span>
+                                    }
+                                </Tags>
+                                <Extras>
+                                    <span class="event-when">@FormatTimeRange(calendarEvent.Details)</span>
+                                </Extras>
+                                <Menu>
+                                    <OverflowMenu>
+                                        <button type="button" class="avatar-dropdown-item" @onclick="() => GoToEditEvent(calendarEvent.Id)">@(calendarEvent.IsShared ? T["View"] : T["Edit"])</button>
+                                        <button type="button" class="avatar-dropdown-item" @onclick="() => DeleteEventAsync(calendarEvent)">@T["Delete"]</button>
+                                    </OverflowMenu>
+                                </Menu>
+                                <Body>
                                     <div class="editor-item-details">
                                         @if (calendarEvent.Details.Location is { } location)
                                         {
@@ -130,8 +125,8 @@
                                             <span><strong>@T["Guests:"]</strong> @string.Join(", ", calendarEvent.Details.Guests.Select(GetGuestDisplayName))</span>
                                         }
                                     </div>
-                                }
-                            </div>
+                                </Body>
+                            </ItemCard>
                         }
                     </div>
                 }

@@ -263,7 +263,7 @@ public sealed class DashboardTests : OrbitTestContext
 
         var cut = RenderComponent<Dashboard>();
 
-        Assert.DoesNotContain(cut.FindAll("div.card"), card => card.QuerySelector(".card-title")!.TextContent == "Recent chats");
+        Assert.DoesNotContain(cut.FindAll(".item-card"), card => card.QuerySelector(".item-card-name")!.TextContent == "Recent chats");
         Assert.Contains("Anna Kowalska", FindColumn(cut, "Contacts").TextContent);
     }
 
@@ -277,7 +277,7 @@ public sealed class DashboardTests : OrbitTestContext
         MenuEntries(cut).Single(entry => entry.TextContent.Contains("Recent chats"))
             .QuerySelector("input")!.Change(false);
 
-        Assert.DoesNotContain(cut.FindAll("div.card"), card => card.QuerySelector(".card-title")!.TextContent == "Recent chats");
+        Assert.DoesNotContain(cut.FindAll(".item-card"), card => card.QuerySelector(".item-card-name")!.TextContent == "Recent chats");
     }
 
     [Fact]
@@ -318,7 +318,7 @@ public sealed class DashboardTests : OrbitTestContext
 
         var cut = RenderComponent<Dashboard>();
 
-        Assert.Empty(cut.FindAll("div.card"));
+        Assert.Empty(cut.FindAll(".item-card"));
         Assert.Contains("Everything here is hidden", cut.Markup);
     }
 
@@ -446,7 +446,7 @@ public sealed class DashboardTests : OrbitTestContext
             unread);
 
     private static IElement FindColumn(IRenderedComponent<Dashboard> cut, string heading)
-        => cut.FindAll("div.card").Single(column => column.QuerySelector(".card-title")!.TextContent == heading);
+        => cut.FindAll(".item-card").Single(column => column.QuerySelector(".item-card-name")!.TextContent == heading);
 
     /// <summary>
     /// The dashboard asks this client for two different things - contacts and groups - so the stub has
@@ -639,7 +639,7 @@ public sealed class DashboardTests : OrbitTestContext
 
         var cut = RenderComponent<Dashboard>();
 
-        Assert.DoesNotContain(cut.FindAll("div.card"), card => card.QuerySelector(".card-title")!.TextContent == "Upcoming");
+        Assert.DoesNotContain(cut.FindAll(".item-card"), card => card.QuerySelector(".item-card-name")!.TextContent == "Upcoming");
     }
 
     [Fact]
@@ -729,7 +729,7 @@ public sealed class DashboardTests : OrbitTestContext
 
         var cut = RenderComponent<Dashboard>();
 
-        Assert.DoesNotContain(cut.FindAll("div.card"), card => card.QuerySelector(".card-title")!.TextContent == "Upcoming");
+        Assert.DoesNotContain(cut.FindAll(".item-card"), card => card.QuerySelector(".item-card-name")!.TextContent == "Upcoming");
     }
 
     /// <summary>Notes kept its card when filtered to nothing, but rendered a silent void; now it says why.</summary>
