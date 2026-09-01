@@ -70,7 +70,7 @@ else
        who am I talking to, which groups am I in - and a page that shows all three at once makes the
        reader scroll past two of them to reach the one they came for. *@
     <div class="contacts-tabs" role="tablist">
-        @foreach (var tab in Enum.GetValues<ContactsTab>())
+        @foreach (var tab in Enum.GetValues<ContactsTab>().Where(IsWorthShowing))
         {
             <button type="button" role="tab" class="contacts-tab @(_tab == tab ? "chosen" : "")"
                     aria-selected="@((_tab == tab).ToString().ToLowerInvariant())"
@@ -218,6 +218,13 @@ else
     }
 
     private ContactsTab _tab = ContactsTab.Chats;
+
+    /// <summary>
+    /// Archive is not offered until there is something in it: an empty archive is a tab that answers
+    /// "nothing", and the reader has to open it to find that out. The other three are always there,
+    /// because they are where somebody starts.
+    /// </summary>
+    private bool IsWorthShowing(ContactsTab tab) => tab != ContactsTab.Archive || ArchivedCount > 0;
 
     private string NameOf(ContactsTab tab) => tab switch
     {

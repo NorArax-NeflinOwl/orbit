@@ -20,7 +20,8 @@ namespace Orbit.Web.Tests.Pages;
 /// <summary>
 /// What an entry's form offers, which now depends on what the entry is. The row itself reports - what it
 /// says, when it is due, what kind it is - and everything editable waits behind the toggle, because a
-/// list of thirty items was thirty rows of boxes.
+/// list of thirty items was thirty rows of boxes. The list's own title and description are here too:
+/// they sit at the top of the same form.
 /// </summary>
 public sealed class TaskEditorItemFormTests : OrbitTestContext
 {
@@ -127,6 +128,34 @@ public sealed class TaskEditorItemFormTests : OrbitTestContext
         Assert.NotNull(_lastSavedJson);
     }
 
+    [Fact]
+    public void What_the_list_is_for_is_shown_under_its_title()
+    {
+        RegisterApiClients(AnItem());
+
+        var cut = Render();
+
+        Assert.Equal("Errands", cut.Find(".titled-description-title").GetAttribute("value"));
+        Assert.Equal("Things to pick up on the way home", cut.Find(".titled-description-body").GetAttribute("value"));
+    }
+
+    /// <summary>
+    /// A field the form shows but does not send back looks saved and is gone on the next load. The save
+    /// builds a fresh request object, which is exactly where this app has lost fields before.
+    /// </summary>
+    [Fact]
+    public void And_goes_back_with_the_save()
+    {
+        RegisterApiClients(AnItem());
+        var cut = Render();
+
+        cut.Find(".titled-description-body").Input("Only what the shop is out of");
+        ClickButtonSaying(cut, "Save");
+
+        Assert.NotNull(_lastSavedJson);
+        Assert.Contains("Only what the shop is out of", _lastSavedJson);
+    }
+
     private IRenderedComponent<TaskEditor> Render()
         => RenderComponent<TaskEditor>(parameters => parameters.Add(editor => editor.Id, TaskListId));
 
@@ -150,7 +179,8 @@ public sealed class TaskEditorItemFormTests : OrbitTestContext
         var taskList = new TaskDto(
             TaskListId, "Errands", [item], IsCompleted: false, IsGroup: false, IsPrivate: false,
             EncryptedContent: null, DateTimeOffset.UtcNow, DateTimeOffset.UtcNow,
-            IsShared: false, SharedByUserName: null, AccessLevel: "CanEdit", OriginalOwnerUserId: null);
+            IsShared: false, SharedByUserName: null, AccessLevel: "CanEdit", OriginalOwnerUserId: null,
+            Description: "Things to pick up on the way home");
 
         var httpClient = new HttpClient(new StubHttpMessageHandler(request =>
         {

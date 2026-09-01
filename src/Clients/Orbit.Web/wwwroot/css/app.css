@@ -4649,3 +4649,54 @@ textarea.editor-item-main {
     font: inherit;
     line-height: 1.4;
 }
+
+/* A title and what it is for, written as one thing - see TitledDescription.razor. One outline around
+   the pair, and none of its own around either box, so it reads as a single field rather than as a
+   field and a setting under it. */
+.titled-description {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding: 10px 12px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+}
+
+.titled-description:focus-within {
+    border-color: var(--accent);
+}
+
+.titled-description-title,
+.titled-description-body {
+    width: 100%;
+    padding: 0;
+    background: transparent;
+    border: none;
+    color: var(--text-primary);
+    font-family: inherit;
+}
+
+.titled-description-title:focus,
+.titled-description-body:focus {
+    outline: none;
+}
+
+.titled-description-title {
+    font-family: var(--font-display);
+    font-size: 20px;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+}
+
+/* Grows with what is written. The rows="1" in the markup is the floor for browsers without
+   field-sizing, where it would otherwise open as an empty four-line box under a one-line title. */
+.titled-description-body {
+    field-sizing: content;
+    min-height: 1.5em;
+    max-height: 40vh;
+    resize: none;
+    font-size: 14px;
+    line-height: 1.5;
+    color: var(--text-secondary);
+}

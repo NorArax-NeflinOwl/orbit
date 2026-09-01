@@ -63,16 +63,14 @@ public sealed class ContactsArchiveTests : OrbitTestContext
     }
 
     [Fact]
-    public void Nothing_put_away_leaves_the_tab_without_a_count()
+    public void An_empty_archive_is_not_offered_at_all()
     {
         Register(contacts: [Contact("Bartek", isArchived: false)]);
 
         var cut = RenderComponent<Web.Pages.Contacts>();
 
-        // A nought beside the tab reads as something to go and look at. Only Archive's own count is
-        // checked here - the other tabs are somebody's day and count from nought all the same.
-        var archiveTab = cut.FindAll(".contacts-tab").Single(tab => tab.TextContent.Contains("Archive"));
-        Assert.Empty(archiveTab.QuerySelectorAll(".contacts-tab-count"));
+        // A tab whose answer is "nothing" still has to be opened to say so.
+        Assert.DoesNotContain(cut.FindAll(".contacts-tab"), tab => tab.TextContent.Contains("Archive"));
     }
 
     [Fact]

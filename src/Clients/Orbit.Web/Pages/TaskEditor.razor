@@ -88,13 +88,17 @@ else
     <EditForm Model="_formModel" OnValidSubmit="AddItem" class="editor-form">
     <fieldset disabled="@(_isSharedReadOnly || _lockedByUserName is not null || _isSaving)">
         <div class="field">
-            <label>@T["Title"]</label>
-            @* oninput as well as the default onchange, so the suggestions below see the title as it is
-               being typed rather than only once the field is left. *@
-            <InputText @bind-Value="_formModel.Title"
-                       @oninput="args => _formModel.Title = args.Value?.ToString() ?? string.Empty" />
-            <NameSuggestions Kind="NameSuggestionKind.TaskListTitle" Value="_formModel.Title"
-                             OnChosen="chosen => _formModel.Title = chosen" />
+            @* Typed rather than committed on leaving the field, so the suggestions underneath keep up
+               with what is being written. *@
+            <TitledDescription Title="@_formModel.Title" TitleChanged="value => _formModel.Title = value"
+                               Description="@_formModel.Description"
+                               DescriptionChanged="value => _formModel.Description = value"
+                               TitleLabel="@(T["Title"])" TitlePlaceholder="@(T["Title"])">
+                <Suggestions>
+                    <NameSuggestions Kind="NameSuggestionKind.TaskListTitle" Value="_formModel.Title"
+                                     OnChosen="chosen => _formModel.Title = chosen" />
+                </Suggestions>
+            </TitledDescription>
         </div>
 
         <h2>@T["Items"]</h2>
@@ -635,6 +639,7 @@ else
                     _formModel = new TaskListFormModel
                     {
                         Title = taskList.Title,
+                        Description = taskList.Description,
                         IsGroup = taskList.IsGroup,
                         IsPrivate = taskList.IsPrivate,
                         Priority = taskList.Priority,
@@ -1345,14 +1350,14 @@ else
             {
                 var newTaskListId = await TasksApiClient.CreateTaskListAsync(new CreateTaskRequest(
                     _formModel.Title, items, _formModel.IsGroup, _formModel.IsPrivate,
-                    Priority: _formModel.Priority));
+                    Priority: _formModel.Priority, Description: _formModel.Description));
                 Logger.LogInformation("Task list {TaskListId} created", newTaskListId);
             }
             else
             {
                 var outcome = await TasksApiClient.UpdateTaskListAsync(Id!.Value, new UpdateTaskRequest(
                     _formModel.Title, items, _formModel.IsGroup, _formModel.IsPrivate,
-                    Priority: _formModel.Priority));
+                    Priority: _formModel.Priority, Description: _formModel.Description));
                 if (outcome.Kind == EditOutcomeKind.Locked)
                 {
                     _lockedByUserName = outcome.LockedByUserName;
@@ -1554,6 +1559,10 @@ else
     private sealed class TaskListFormModel
     {
         public string Title { get; set; } = string.Empty;
+
+        /// <summary>What this list is for, written under its title. Usually empty.</summary>
+        public string Description { get; set; } = string.Empty;
+
         public bool IsGroup { get; set; }
 
         /// <summary>One of "Low", "Normal", "High" - kept as the wire's own string so the form binds straight to it.</summary>
