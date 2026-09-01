@@ -87,9 +87,46 @@ public sealed class OrbitVersionTests
     {
         // "1.0.0" is what the SDK writes when nothing was passed. Showing it would put a version this
         // repository has never shipped into the footer somebody pastes into a bug report.
-        Assert.Equal(OrbitVersion.Unknown, Read("1.0.0"));
-        Assert.Equal(OrbitVersion.Unknown, Read(""));
-        Assert.Equal(OrbitVersion.Unknown, Read(null));
+        Assert.Equal("0.0.0-dev", Read("1.0.0").Version);
+        Assert.Equal("0.0.0-dev", Read("").Version);
+        Assert.Equal("0.0.0-dev", Read(null).Version);
+    }
+
+    /// <summary>
+    /// An unnumbered build still knows which commit it is, and while debugging that is the whole point
+    /// of the line: nobody is comparing "0.0.0-dev" against anything, they are asking which code is
+    /// running. The SDK stamps the real HEAD next to its own "1.0.0" default, and this used to be
+    /// thrown away with the number - so a Debug build showed no hash at all and the footer was not
+    /// pressable, which is exactly the case the hash exists for.
+    /// </summary>
+    [Fact]
+    public void A_build_nobody_numbered_still_says_which_commit_it_is()
+    {
+        var version = Read("1.0.0+86ba7a930dee2c50d3b2af03477e778354314c58");
+
+        Assert.Equal("0.0.0-dev", version.Version);
+        Assert.Equal("86ba7a930dee2c50d3b2af03477e778354314c58", version.CommitHash);
+    }
+
+    /// <summary>And it is pressable, because there is more of the hash to reveal.</summary>
+    [Fact]
+    public void An_unnumbered_debug_build_shows_the_hash_and_can_be_opened()
+    {
+        var version = Read("1.0.0+86ba7a930dee2c50d3b2af03477e778354314c58") with { ShowsTheCommit = true };
+
+        Assert.Equal("ver:0.0.0-dev+gitHash:86ba7a9", version.Short);
+        Assert.Equal("ver:0.0.0-dev+gitHash:86ba7a930dee2c50d3b2af03477e778354314c58", version.Full);
+        Assert.True(version.CanShowTheWholeCommit);
+    }
+
+    /// <summary>Released, it still says nothing about the commit - the number alone, and not pressable.</summary>
+    [Fact]
+    public void An_unnumbered_released_build_still_says_nothing_about_the_commit()
+    {
+        var version = Read("1.0.0+86ba7a930dee2c50d3b2af03477e778354314c58") with { ShowsTheCommit = false };
+
+        Assert.Equal("ver:0.0.0-dev", version.Short);
+        Assert.False(version.CanShowTheWholeCommit);
     }
 
     [Fact]

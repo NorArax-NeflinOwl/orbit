@@ -1298,6 +1298,12 @@ runtime (`OrbitVersion`), each client reading **its own** assembly. A build nobo
 `dotnet run`, a local `docker compose build` - says `0.0.0-dev` rather than inventing a number that looks
 real, because this is the string somebody pastes into a bug report.
 
+**An unstamped build still knows which commit it is.** The SDK writes its own `1.0.0` default next to
+the real `HEAD`, so a local build reads as `0.0.0-dev` and keeps the hash. That matters because the
+hash is the whole point of the line while debugging: nobody compares `0.0.0-dev` against anything,
+they are asking which code is running. Discarding the commit along with the number left a Debug build
+showing no hash and a footer that could not be opened - the one case the hash exists for.
+
 The Android release carries it twice over: `-p:InformationalVersion` for the About row, and the file name
 itself - **`orbit-android-0_1_32v.apk`**, so a download says which build it is without anybody opening
 it. It is also published under the fixed `orbit-android.apk` the download page links to, so that one
