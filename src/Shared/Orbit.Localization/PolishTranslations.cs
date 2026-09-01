@@ -324,7 +324,6 @@ public static class PolishTranslations
         // What a share's second picker is called, so a screen reader does not read both as "Share with".
         ["What they may do"] = "Co mogą robić",
         ["How the daily reminder arrives"] = "Jak przychodzi codzienne przypomnienie",
-        ["How the daily reminder arrives"] = "Jak przychodzi codzienne przypomnienie",
         // What the banner offers when a notification arrives with the app in front - see ForegroundNotices.
         ["Dismiss"] = "Odrzuć",
         ["Saved, but that place could not be found - use your location to keep a point for it."] =
