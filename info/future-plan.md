@@ -357,6 +357,29 @@ of that change rather than missed.
 Scaling `orbit-api` past one replica needs a backplane before any of this survives it - see
 [Azure setup](azure-setup.md#5-confirm-ingress).
 
+## The calendar that shrinks as you scroll - Android, not the web
+
+Decided 2026-09-01, while the web calendar was being reshaped. **The web keeps what it has**: side by
+side on a wide screen, and stacked - calendar above, list below - once there is no room for that. It
+does not shrink as the page scrolls, and it is not meant to.
+
+**The phone should.** On Android the calendar stays pinned while the list under it is read, and
+minimises to a single row as soon as the reader scrolls past it:
+
+| view | what is left when it is minimised |
+|---|---|
+| Day | one hour row |
+| Month | one week row |
+| Year | the month's name, and nothing else |
+
+Why there and not here: a phone has one column and a thumb, so the calendar is either taking the
+screen or getting out of the way, and the row that survives is the one the reader is standing on.
+A desktop window has room for both at once, so nothing has to move - and a grid that resized itself
+while somebody scrolled a list beside it would be motion answering a question nobody asked.
+
+Not attempted on the web deliberately. It is scroll-and-viewport behaviour, which no test in this
+project can cover, and the web has no problem for it to solve.
+
 ## Smaller identified follow-ups
 
 - ~~**Reordering by hand needs a mouse.**~~ Done: each handle now carries a pair of move-up/move-down

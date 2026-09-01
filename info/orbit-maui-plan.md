@@ -830,3 +830,34 @@ were built and driven on Android.
 The machine moved. Early phases were written on Windows, which can build the Android head and not the
 iOS one; the work is now on a Mac, which can build both — so what still blocks iOS is the Apple
 developer account and signing key of §12, and no longer the hardware.
+
+## 14. Where the phone is meant to differ from the web
+
+Most of the time the web client is the answer and the phone follows it — see
+[Orbit.Web is the model](../CLAUDE.md) in spirit, and the parity notes above. These are the places
+where following it would be the wrong call.
+
+### 14.1 The calendar shrinks as you scroll
+
+Decided 2026-09-01, while the web calendar was being reshaped, and **the web deliberately does not do
+this**: there it sits side by side with the list on a wide screen, stacks above it under 900px, and
+stays put.
+
+On the phone it should stay pinned while the list beneath it is read, and minimise to a single row as
+soon as the reader scrolls past it:
+
+| view | what is left when minimised |
+|---|---|
+| Day | one hour row |
+| Month | one week row |
+| Year | the month's name, and nothing else |
+
+A phone has one column and a thumb, so the calendar is either taking the screen or getting out of the
+way, and the row worth keeping is the one the reader is standing on. A desktop window fits both at
+once, so nothing has to move — and a grid resizing itself while somebody scrolls a list beside it is
+motion answering a question nobody asked.
+
+The web's own calendar was rebuilt at the same time and the rest of that work **does** apply here: one
+list rather than two, each row tagged as an event or a task, a date said once when something starts and
+ends on the same day, and no times on a month cell. See
+[Functionality — the calendar](functionality.md).
