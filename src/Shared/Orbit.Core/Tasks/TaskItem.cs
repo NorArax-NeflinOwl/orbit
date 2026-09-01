@@ -1,3 +1,4 @@
+using Orbit.Core;
 using Orbit.Core.Notifications;
 
 namespace Orbit.Core.Tasks;
@@ -138,10 +139,18 @@ public sealed class TaskItem
         NotificationChannel dailyReminderNotificationChannel = NotificationChannel.Push, TimeOnly dailyReminderTimeOfDay = default,
         TaskItemKind kind = TaskItemKind.Checklist, string location = "", Guid? linkedCalendarEventId = null,
         Guid? linkedInventoryItemId = null)
-        => new(
+    {
+        // Here rather than in the constructor, which FromPersistence also uses: a row already stored
+        // fits by definition, and rejecting one on the way back out would make an old entry unreadable
+        // rather than telling anybody anything.
+        StoredTextLimits.OrRefuse(description, StoredTextLimits.TaskDescription, "line of work");
+        StoredTextLimits.OrRefuse(location, StoredTextLimits.Address, "place's address");
+
+        return new TaskItem(
             Guid.NewGuid(), description, dueDateUtc, linkedTaskListId is null && isCompleted, linkedTaskListId,
             overdueNotificationChannel, remindDaily, dailyReminderNotificationChannel, dailyReminderTimeOfDay,
             kind, location, linkedCalendarEventId, linkedInventoryItemId);
+    }
 
     /// <summary>
     /// The same entry under a new name. Used when two clients hand over the same id and neither may keep

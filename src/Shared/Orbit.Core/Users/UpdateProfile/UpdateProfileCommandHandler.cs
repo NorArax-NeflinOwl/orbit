@@ -1,3 +1,4 @@
+using Orbit.Core;
 using Orbit.Core.Abstractions;
 
 namespace Orbit.Core.Users.UpdateProfile;
@@ -27,8 +28,9 @@ public sealed class UpdateProfileCommandHandler : IRequestHandler<UpdateProfileC
             return UpdateProfileResult.UserNameTaken;
         }
 
-        user.ChangeUserName(userName);
-        user.ChangeDisplayName(request.DisplayName.Trim());
+        user.ChangeUserName(StoredTextLimits.OrRefuse(userName, StoredTextLimits.UserName, "login"));
+        user.ChangeDisplayName(
+            StoredTextLimits.OrRefuse(request.DisplayName.Trim(), StoredTextLimits.DisplayName, "display name"));
         await _userRepository.UpdateAsync(user, cancellationToken);
         return UpdateProfileResult.Success;
     }

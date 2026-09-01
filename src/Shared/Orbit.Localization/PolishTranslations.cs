@@ -16,6 +16,7 @@ public static class PolishTranslations
     public static readonly IReadOnlyDictionary<string, string> ByEnglish = new Dictionary<string, string>(StringComparer.Ordinal)
     {
         // ---- Navigation and the app shell ----
+        ["Nothing here matches the filter. Change it above to see the rest."] = "Nic tutaj nie pasuje do filtra. Zmień go powyżej, aby zobaczyć resztę.",
         ["Dashboard"] = "Pulpit",
         ["Notes"] = "Notatki",
         ["Tasks"] = "Zadania",

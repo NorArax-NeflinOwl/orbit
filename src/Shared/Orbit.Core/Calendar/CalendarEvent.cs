@@ -1,3 +1,4 @@
+using Orbit.Core;
 using Orbit.Core.Abstractions;
 
 namespace Orbit.Core.Calendar;
@@ -58,6 +59,7 @@ public sealed class CalendarEvent
     public static CalendarEvent Create(Guid userId, CalendarEventDetails details)
     {
         ValidateTimeRange(details);
+        ValidateTheWords(details);
         ValidateLocation(details);
         var now = DateTimeOffset.UtcNow;
         return new CalendarEvent(Guid.NewGuid(), userId, details, now, now, lockedByUserId: null, lockedByUserName: null, lockExpiresAtUtc: null);
@@ -87,6 +89,7 @@ public sealed class CalendarEvent
     public void Update(CalendarEventDetails details)
     {
         ValidateTimeRange(details);
+        ValidateTheWords(details);
         ValidateLocation(details);
         Details = details;
         UpdatedAtUtc = DateTimeOffset.UtcNow;
@@ -114,6 +117,19 @@ public sealed class CalendarEvent
         LockedByUserId = null;
         LockedByUserName = null;
         LockExpiresAtUtc = null;
+    }
+
+    /// <summary>
+    /// What an event's words may be. Beside the time range because they are the same kind of rule -
+    /// something the caller got wrong and can be told about - and because both have to run on creating
+    /// an event and on changing one.
+    /// </summary>
+    private static void ValidateTheWords(CalendarEventDetails details)
+    {
+        StoredTextLimits.OrRefuse(details.Title, StoredTextLimits.Title, "event's title");
+        StoredTextLimits.OrRefuseIfPresent(details.Description, StoredTextLimits.EventDescription, "event's description");
+        StoredTextLimits.OrRefuseIfPresent(details.Color, StoredTextLimits.Color, "colour");
+        StoredTextLimits.OrRefuseIfPresent(details.Location?.Address, StoredTextLimits.Address, "place's address");
     }
 
     private static void ValidateTimeRange(CalendarEventDetails details)
