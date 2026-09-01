@@ -25,6 +25,9 @@ public sealed class TaskItemEntity
     /// </summary>
     public List<TaskItemTaskListLinkEntity> LinkedTaskLists { get; set; } = [];
 
+    /// <summary>What this entry is filed under - see Orbit.Core.Tasks.TaskItem.Categories. Empty for one nobody has filed.</summary>
+    public List<TaskItemCategoryEntity> Categories { get; set; } = [];
+
     /// <summary>What this entry is, stored by name like every other enum here - see Orbit.Core.Tasks.TaskItemKind.</summary>
     public string Kind { get; set; } = nameof(Orbit.Core.Tasks.TaskItemKind.Checklist);
 

@@ -42,11 +42,20 @@ public sealed record TaskItemRequest(
     /// then the whole answer - which is what an older client sends. An empty list means "none", and
     /// clears the links.
     /// </summary>
-    IReadOnlyList<Guid>? LinkedTaskListIds = null)
+    IReadOnlyList<Guid>? LinkedTaskListIds = null,
+    /// <summary>
+    /// What this entry is about, in the reader's own words, and as many as apply - see
+    /// Orbit.Core.Tasks.TaskItem.Categories. Null means "not provided", which is what a client written
+    /// before categories existed sends; an empty list means "none", and clears them.
+    /// </summary>
+    IReadOnlyList<string>? Categories = null)
 {
     /// <summary>Whichever shape the sender used, read as one - see <see cref="LinkedTaskListIds"/>.</summary>
     public IReadOnlyList<Guid> AllLinkedTaskListIds
         => LinkedTaskListIds ?? (LinkedTaskListId is { } single ? [single] : []);
+
+    /// <summary>The categories as something to read without a null check - see <see cref="Categories"/>.</summary>
+    public IReadOnlyList<string> AllCategories => Categories ?? [];
 
 
     /// <summary>
@@ -74,5 +83,6 @@ public sealed record TaskItemRequest(
             item.Location,
             item.LinkedCalendarEventId,
             item.LinkedInventoryItemId,
-            item.AllLinkedTaskListIds);
+            item.AllLinkedTaskListIds,
+            item.AllCategories);
 }

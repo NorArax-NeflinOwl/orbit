@@ -289,7 +289,7 @@ public static class TaskEndpoints
             return TaskItem.Create(
                 item.Description, item.DueDateUtc, item.IsCompleted, item.AllLinkedTaskListIds,
                 overdueChannel, item.RemindDaily, dailyChannel, item.DailyReminderTimeOfDay,
-                kind, item.Location, item.LinkedCalendarEventId, item.LinkedInventoryItemId);
+                kind, item.Location, item.LinkedCalendarEventId, item.LinkedInventoryItemId, item.AllCategories);
         }
 
         // Same override Create applies: a linked entry's completion follows the list it links to, so a
@@ -298,7 +298,7 @@ public static class TaskEndpoints
             existingId, item.Description, item.DueDateUtc,
             item.AllLinkedTaskListIds.Count == 0 && item.IsCompleted, item.AllLinkedTaskListIds,
             overdueChannel, item.RemindDaily, dailyChannel, item.DailyReminderTimeOfDay,
-            kind, item.Location, item.LinkedCalendarEventId, item.LinkedInventoryItemId);
+            kind, item.Location, item.LinkedCalendarEventId, item.LinkedInventoryItemId, item.AllCategories);
     }
 
 
@@ -343,7 +343,8 @@ public static class TaskEndpoints
                     item.Location,
                     item.LinkedCalendarEventId,
                     item.LinkedInventoryItemId,
-                    item.LinkedTaskListIds))
+                    item.LinkedTaskListIds,
+                    item.Categories))
                 .ToList(),
             taskList.IsCompleted,
             taskList.IsGroup,

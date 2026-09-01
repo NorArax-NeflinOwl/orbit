@@ -65,6 +65,17 @@ public sealed class TaskItem
     public Guid? LinkedInventoryItemId { get; private set; }
 
     /// <summary>
+    /// What this entry is about, in the reader's own words - "shopping", "car", "the flat". Free text
+    /// rather than a fixed list, the way a shelf item's category is (see InventoryItem.Category), but
+    /// several of them: one errand is often two subjects at once, and being made to pick the single
+    /// truest one is how a category stops being written at all.
+    ///
+    /// Kept for every kind of entry, checklist and appointment alike - what something is about does not
+    /// depend on whether it also has a time.
+    /// </summary>
+    public IReadOnlyList<string> Categories { get; private set; }
+
+    /// <summary>
     /// Which channel(s), if any, notify the owner once this item becomes overdue - see
     /// <see cref="Orbit.Core.Tasks.OverdueNotifications.OverdueTaskNotificationScheduler"/>.
     /// </summary>
@@ -88,7 +99,7 @@ public sealed class TaskItem
         Guid id, string description, DateTimeOffset? dueDateUtc, bool isCompleted, IReadOnlyList<Guid>? linkedTaskListIds,
         NotificationChannel overdueNotificationChannel, bool remindDaily, NotificationChannel dailyReminderNotificationChannel,
         TimeOnly dailyReminderTimeOfDay, TaskItemKind kind, string location, Guid? linkedCalendarEventId,
-        Guid? linkedInventoryItemId)
+        Guid? linkedInventoryItemId, IReadOnlyList<string>? categories)
     {
         Id = id;
         Description = description;
@@ -105,7 +116,22 @@ public sealed class TaskItem
         LinkedCalendarEventId = kind == TaskItemKind.Calendar ? linkedCalendarEventId : null;
         LinkedInventoryItemId = kind == TaskItemKind.Inventory ? linkedInventoryItemId : null;
         Location = WhereItHappens(kind, location, LinkedCalendarEventId);
+        Categories = TidyCategories(categories);
     }
+
+    /// <summary>
+    /// What is worth storing of what was typed: blanks dropped, edges trimmed, and the same word said
+    /// twice kept once - written in the order they were given, because that is the order the reader
+    /// thinks of them in. "Shopping" and "shopping" are one category: a filter that told them apart
+    /// would quietly hide half of what it was asked for.
+    /// </summary>
+    private static IReadOnlyList<string> TidyCategories(IReadOnlyList<string>? categories)
+        => categories is null
+            ? []
+            : [.. categories
+                .Select(category => category.Trim())
+                .Where(category => category.Length > 0)
+                .Distinct(StringComparer.CurrentCultureIgnoreCase)];
 
     /// <summary>
     /// The place an entry keeps for itself. Only a calendar entry has one at all, and one tied to an
@@ -156,19 +182,23 @@ public sealed class TaskItem
         NotificationChannel overdueNotificationChannel = NotificationChannel.Push, bool remindDaily = false,
         NotificationChannel dailyReminderNotificationChannel = NotificationChannel.Push, TimeOnly dailyReminderTimeOfDay = default,
         TaskItemKind kind = TaskItemKind.Checklist, string location = "", Guid? linkedCalendarEventId = null,
-        Guid? linkedInventoryItemId = null)
+        Guid? linkedInventoryItemId = null, IReadOnlyList<string>? categories = null)
     {
         // Here rather than in the constructor, which FromPersistence also uses: a row already stored
         // fits by definition, and rejecting one on the way back out would make an old entry unreadable
         // rather than telling anybody anything.
         StoredTextLimits.OrRefuse(description, StoredTextLimits.TaskDescription, "task entry");
         StoredTextLimits.OrRefuse(location, StoredTextLimits.Address, "place's address");
+        foreach (var category in categories ?? [])
+        {
+            StoredTextLimits.OrRefuse(category, StoredTextLimits.Category, "task entry's category");
+        }
 
         return new TaskItem(
             Guid.NewGuid(), description, dueDateUtc,
             (linkedTaskListIds is null || linkedTaskListIds.Count == 0) && isCompleted, linkedTaskListIds,
             overdueNotificationChannel, remindDaily, dailyReminderNotificationChannel, dailyReminderTimeOfDay,
-            kind, location, linkedCalendarEventId, linkedInventoryItemId);
+            kind, location, linkedCalendarEventId, linkedInventoryItemId, categories);
     }
 
     /// <summary>
@@ -180,7 +210,7 @@ public sealed class TaskItem
         => new(
             Guid.NewGuid(), Description, DueDateUtc, IsCompleted, LinkedTaskListIds,
             OverdueNotificationChannel, RemindDaily, DailyReminderNotificationChannel, DailyReminderTimeOfDay,
-            Kind, Location, LinkedCalendarEventId, LinkedInventoryItemId);
+            Kind, Location, LinkedCalendarEventId, LinkedInventoryItemId, Categories);
 
     /// <summary>
     /// Rebuilds a checklist entry from already-known values, bypassing the completion override above -
@@ -191,9 +221,10 @@ public sealed class TaskItem
         Guid id, string description, DateTimeOffset? dueDateUtc, bool isCompleted, IReadOnlyList<Guid>? linkedTaskListIds,
         NotificationChannel overdueNotificationChannel, bool remindDaily, NotificationChannel dailyReminderNotificationChannel,
         TimeOnly dailyReminderTimeOfDay, TaskItemKind kind = TaskItemKind.Checklist, string location = "",
-        Guid? linkedCalendarEventId = null, Guid? linkedInventoryItemId = null)
+        Guid? linkedCalendarEventId = null, Guid? linkedInventoryItemId = null,
+        IReadOnlyList<string>? categories = null)
         => new(
             id, description, dueDateUtc, isCompleted, linkedTaskListIds,
             overdueNotificationChannel, remindDaily, dailyReminderNotificationChannel, dailyReminderTimeOfDay,
-            kind, location, linkedCalendarEventId, linkedInventoryItemId);
+            kind, location, linkedCalendarEventId, linkedInventoryItemId, categories);
 }

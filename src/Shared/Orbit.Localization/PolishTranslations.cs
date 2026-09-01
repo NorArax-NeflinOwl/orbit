@@ -587,6 +587,8 @@ public static class PolishTranslations
         ["Warehouse name"] = "Nazwa magazynu",
         ["Product type"] = "Rodzaj produktu",
         ["Category"] = "Kategoria",
+        ["Categories"] = "Kategorie",
+        ["Separate them with commas"] = "Oddziel je przecinkami",
         ["Expires"] = "Termin ważności",
         ["Private - encrypted, and only you can read it"] = "Prywatne — zaszyfrowane, czyta to tylko Ty",
         ["There is less of this than the minimum you set"] = "Zostało tego mniej niż ustawione minimum",

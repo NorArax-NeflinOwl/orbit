@@ -21,6 +21,7 @@ public sealed class TaskRepository : ITaskRepository
         var query = _dbContext.Tasks
             .AsNoTracking()
             .Include(task => task.Items).ThenInclude(item => item.LinkedTaskLists)
+            .Include(task => task.Items).ThenInclude(item => item.Categories)
             .Where(task => task.UserId == userId);
 
         // Narrowed in the database when the caller only wants what changed. A client catching up asks
@@ -43,6 +44,7 @@ public sealed class TaskRepository : ITaskRepository
         var entity = await _dbContext.Tasks
             .AsNoTracking()
             .Include(task => task.Items).ThenInclude(item => item.LinkedTaskLists)
+            .Include(task => task.Items).ThenInclude(item => item.Categories)
             .FirstOrDefaultAsync(task => task.Id == id && task.UserId == userId, cancellationToken);
 
         return entity is null ? null : ToDomain(entity);
@@ -59,6 +61,7 @@ public sealed class TaskRepository : ITaskRepository
         var entities = await _dbContext.Tasks
             .AsNoTracking()
             .Include(task => task.Items).ThenInclude(item => item.LinkedTaskLists)
+            .Include(task => task.Items).ThenInclude(item => item.Categories)
             .Where(task => task.UserId == userId
                 && task.Id != exceptListId
                 && task.Items.Any(item => itemIds.Contains(item.Id)))
@@ -181,7 +184,8 @@ public sealed class TaskRepository : ITaskRepository
             Enum.Parse<NotificationChannel>(entity.DailyReminderNotificationChannel, ignoreCase: true),
             TimeOnly.FromTimeSpan(TimeSpan.FromMinutes(entity.DailyReminderTimeOfDayMinutes)),
             Enum.TryParse<TaskItemKind>(entity.Kind, out var kind) ? kind : TaskItemKind.Checklist,
-            entity.Location, entity.LinkedCalendarEventId, entity.LinkedInventoryItemId);
+            entity.Location, entity.LinkedCalendarEventId, entity.LinkedInventoryItemId,
+            [.. entity.Categories.OrderBy(category => category.Position).Select(category => category.Category)]);
 
     private static TaskEntity ToEntity(TaskList taskList)
         => new()
@@ -229,6 +233,13 @@ public sealed class TaskRepository : ITaskRepository
             Kind = item.Kind.ToString(),
             Location = item.Location,
             LinkedCalendarEventId = item.LinkedCalendarEventId,
-            LinkedInventoryItemId = item.LinkedInventoryItemId
+            LinkedInventoryItemId = item.LinkedInventoryItemId,
+            Categories = [.. item.Categories.Select((category, categoryPosition) =>
+                new TaskItemCategoryEntity
+                {
+                    TaskItemId = item.Id,
+                    Category = category,
+                    Position = categoryPosition
+                })]
         };
 }
