@@ -24,7 +24,10 @@ rather than a pointer at one, and the build refuses to finish on a warning. What
   head; iOS has not been run since phase 1, and desktop has not been started at all.
 
   What is left of it: the iOS head beyond phase 1 (deferred — no Apple developer account or signing
-  key, which also blocks push there) and phase 8 — widgets, Live Activities, accessibility. A push
+  key, which also blocks push there) and phase 8 — widgets and Live Activities. Phase 8's accessibility
+  half is done for the controls that had nothing to announce: every switch, picker, date or time picker
+  and checkbox on the phone now names itself to a screen reader, and a test fails on one that does not.
+  A push
   arriving while the app is in front of somebody now shows a banner on the navigation bar, which is
   where the browser shows its own; it honours `AllowMobileBanner` and the two settings that pace it,
   all three of which existed for this and had no reader on the phone. Push to an Android phone is delivered as of
