@@ -215,19 +215,39 @@ else
             </button>
         </div>
 
-        @* Along the foot of the map, about the pin the search just dropped. Asked rather than done: a
-           place somebody looked up is not yet a place they meant to put in their calendar. *@
+        @* Along the foot of the map, about the pin the search just dropped. Confirming it is not the
+           same as knowing what to do with it - see the question that follows. *@
         @if (_foundPlace is { } found)
         {
             <div class="map-create-event">
                 <span class="map-create-event-place">@found.Name</span>
-                <span class="map-create-event-question">@T["Make an event here?"]</span>
-                <button type="button" class="btn-primary" @onclick="CreateAnEventHere">@T["Create"]</button>
+                <span class="map-create-event-question">@T["Use this place?"]</span>
+                <button type="button" class="btn-primary" @onclick="UseTheFoundPlace">@T["Yes, use it"]</button>
                 <button type="button" class="btn-secondary" @onclick="ForgetTheFoundPlace">@T["Cancel"]</button>
             </div>
         }
     </div>
 </div>
+}
+
+@* Asked rather than guessed: an appointment and an errand at the same address are different things, and
+   only the person who pointed at it knows which they meant. Over the map, because the map is the page
+   and the question is about the pin on it. *@
+@if (_placeToPlanFor is { } chosen)
+{
+    <div class="map-overlay" @onclick="ForgetTheChosenPlace">
+        <div class="map-overlay-panel" @onclick:stopPropagation="true">
+            <div class="map-overlay-header">
+                <h2>@T["What happens here?"]</h2>
+            </div>
+            <p class="map-overlay-hint">@chosen.Address</p>
+            <div class="map-overlay-confirm">
+                <button type="button" class="btn-primary" @onclick="PlanAnEventHere">@T["An event in the calendar"]</button>
+                <button type="button" class="btn-secondary" @onclick="PlanATaskHere">@T["A task list starting here"]</button>
+                <button type="button" class="btn-secondary" @onclick="ForgetTheChosenPlace">@T["Cancel"]</button>
+            </div>
+        </div>
+    </div>
 }
 
 @code {
@@ -295,26 +315,50 @@ else
     private async Task ForgetTheFoundPlace()
     {
         _foundPlace = null;
+        _placeToPlanFor = null;
         _matches = [];
         _hasSearched = false;
         await RedrawAsync();
     }
 
+    /// <summary>The confirmed pin, while the question about what to make of it is still on screen.</summary>
+    private PickedPlace? _placeToPlanFor;
+
     /// <summary>
-    /// Hands the pinned place to the calendar's own editor, which is what turns it into an event - a
-    /// place on its own is not an appointment, and only the person who pinned it knows when it is.
-    /// The place travels in ChosenPlace rather than in the address bar - see that class.
+    /// Confirms the pin and asks what it is for. The two are separate steps because they are separate
+    /// questions - "is this the place" is answered by looking at the map, and "what happens here" is not.
     /// </summary>
-    private void CreateAnEventHere()
+    private void UseTheFoundPlace()
     {
-        if (_foundPlace is not { } found)
+        if (_foundPlace is { } found)
+        {
+            _placeToPlanFor = new PickedPlace(found.Name, found.Latitude, found.Longitude);
+        }
+    }
+
+    private void ForgetTheChosenPlace() => _placeToPlanFor = null;
+
+    private void PlanAnEventHere() => HandOverThePlaceTo("/calendar/new");
+
+    private void PlanATaskHere() => HandOverThePlaceTo("/tasks/new");
+
+    /// <summary>
+    /// Hands the place to the editor that makes something of it - neither an event nor a list is
+    /// something this page can write, because only the person who pinned it knows when it is or what is
+    /// on it. The place travels in ChosenPlace rather than in the address bar - see that class. Cleared
+    /// from here as it goes, so backing out of the form and coming back does not find it waiting.
+    /// </summary>
+    private void HandOverThePlaceTo(string url)
+    {
+        if (_placeToPlanFor is not { } place)
         {
             return;
         }
 
-        ChosenPlace.Hold(new PickedPlace(found.Name, found.Latitude, found.Longitude));
+        ChosenPlace.Hold(place);
+        _placeToPlanFor = null;
         _foundPlace = null;
-        NavigationManager.NavigateTo("/calendar/new");
+        NavigationManager.NavigateTo(url);
     }
 
     private const string MapElementId = "recordedLocationMap";

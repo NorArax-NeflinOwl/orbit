@@ -3532,6 +3532,11 @@ input.note-editor-title {
     aspect-ratio: 1 / 1;
     border-radius: 10px;
     overflow: hidden;
+    /* A stacking context of its own. Leaflet layers its panes and controls from 400 to 1000 and its
+       container makes no context to hold them in, so without this they compete with the page itself -
+       and painted over the question the map page asks about a pin, which sits at 60 like every other
+       overlay in the app. Everything inside still stacks as Leaflet means it to. */
+    z-index: 0;
 }
 
 .location-map {

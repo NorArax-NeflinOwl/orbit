@@ -16,6 +16,7 @@ using Orbit.Core.Tasks.DeleteTaskList;
 using Orbit.Core.Tasks.GetTaskListById;
 using Orbit.Core.Tasks.GetTaskListShareStatus;
 using Orbit.Core.Tasks.GetTaskLists;
+using Orbit.Core.Tasks.LinkCalendarEventToTaskList;
 using Orbit.Core.Tasks.MoveTaskItem;
 using Orbit.Core.Tasks.ReleaseTaskListLock;
 using Orbit.Core.Tasks.LinkTaskListToWarehouse;
@@ -198,6 +199,17 @@ public static class TaskEndpoints
         {
             var outcome = await dispatcher.SendAsync(
                 new MoveTaskItemCommand(GetUserId(user), id, itemId, request.TargetTaskListId), cancellationToken);
+            return ToApiResult(outcome);
+        });
+
+        // Puts an existing event on this list as an entry pointing at it. Its own endpoint rather than a
+        // whole-list save: a client that had to read the list, add a row and send it all back would
+        // overwrite whatever changed in between - see the command.
+        tasks.MapPost("/{id:guid}/items/calendar-event", async (
+            Guid id, LinkCalendarEventRequest request, ClaimsPrincipal user, IDispatcher dispatcher, CancellationToken cancellationToken) =>
+        {
+            var outcome = await dispatcher.SendAsync(
+                new LinkCalendarEventToTaskListCommand(GetUserId(user), id, request.CalendarEventId), cancellationToken);
             return ToApiResult(outcome);
         });
 

@@ -7,9 +7,11 @@
 @using Orbit.Contracts.Calendar
 @using Orbit.Contracts.Chat
 @using Orbit.Contracts.Notifications
+@using Orbit.Contracts.Tasks
 @using Orbit.Core.Abstractions
 @using Orbit.Web.Services
 @inject CalendarApiClient CalendarApiClient
+@inject TasksApiClient TasksApiClient
 @inject ChatApiClient ChatApiClient
 @inject NotificationsApiClient NotificationsApiClient
 @inject UsersApiClient UsersApiClient
@@ -64,6 +66,27 @@ else
                  GuestDisplayName="GetGuestDisplayName" GuestAccessLabel="GetGuestAccessLabel"
                  OnGuestAdded="OnGuestAdded" OnGuestRemoved="OnGuestRemoved" />
 
+    @* Which task list this appointment should also show up on. The list gets an entry that points at
+       this event rather than a copy of it, so the two can never come to disagree about when it is or
+       where - see LinkCalendarEventToTaskListCommand. Written back on Save, because an entry pointing
+       at an event that was never saved would point at nothing. *@
+    @if (_linkableTaskLists.Count > 0)
+    {
+        <fieldset disabled="@IsLockedForEditing">
+            <div class="field">
+                <label for="linkToTaskListSelect">@T["Link to list"]</label>
+                <select id="linkToTaskListSelect" @bind="_linkToTaskListId">
+                    <option value="">@T["No list"]</option>
+                    @foreach (var taskList in _linkableTaskLists)
+                    {
+                        <option value="@taskList.Id">@Written(taskList.Title)</option>
+                    }
+                </select>
+                <small>@T["The list gets an entry pointing at this event, not a copy of it."]</small>
+            </div>
+        </fieldset>
+    }
+
     <div class="form-actions">
         <button type="submit" class="btn-primary" disabled="@_isSaving">@T["Save"]</button>
         <button type="button" class="btn-secondary" @onclick="CancelAsync">@T["Cancel"]</button>
@@ -115,6 +138,21 @@ else
     public Guid? Id { get; set; }
 
     private bool IsNewEvent => Id is null;
+
+    /// <summary>
+    /// The lists this event could be put on. Narrowed to the ones an entry can actually be added to: a
+    /// private list keeps its entries sealed where only its owner's browser can reach them, and a list
+    /// held through a read-only share is not this reader's to add to. Left out of the picker rather
+    /// than offered and then refused, which is how every other rule the server enforces is handled on
+    /// this side.
+    /// </summary>
+    private IReadOnlyList<TaskDto> _linkableTaskLists = [];
+
+    /// <summary>Which of them was chosen, if any. Acted on by the save - see LinkToTheTaskListAsync.</summary>
+    private string _linkToTaskListId = string.Empty;
+
+    /// <summary>A name Orbit wrote itself, in the reader's language - see OrbitWrittenNames.</summary>
+    private string Written(string name) => OrbitWrittenNames.Translate(key => T[key], name);
 
     private string GoogleCalendarLinkFor(CalendarEventDetailsDto details)
         => GoogleCalendarEventLink.ForEvent(
@@ -222,6 +260,17 @@ else
             catch (HttpRequestException exception)
             {
                 Logger.LogWarning(exception, "Failed to load notification settings");
+            }
+
+            // Best-effort: an event can be saved without being put on a list, so a tasks call that fails
+            // costs the picker and nothing else.
+            try
+            {
+                _linkableTaskLists = [.. (await TasksApiClient.GetTaskListsAsync()).Where(CanTakeAnEntry)];
+            }
+            catch (HttpRequestException exception)
+            {
+                Logger.LogWarning(exception, "Failed to load the task lists this event could be put on");
             }
 
             // A place chosen on the map, if this editor was opened from there. Taken rather than read,
@@ -366,6 +415,38 @@ else
         _isMapVisible = false;
     }
 
+    private static bool CanTakeAnEntry(TaskDto taskList)
+        => !taskList.IsPrivate && (!taskList.IsShared || SharedItemAccess.For(true, taskList.AccessLevel).CanEdit);
+
+    /// <summary>
+    /// Puts the saved event on the chosen list. One request that appends one entry - the list is not
+    /// read and written back, so nothing else on it is at risk - see LinkCalendarEventToTaskListCommand.
+    ///
+    /// Returns what went wrong, or null. Runs after the event is saved, so a failure here leaves the
+    /// event itself saved: the reader is told which half did not happen rather than being sent away
+    /// believing both did.
+    /// </summary>
+    private async Task<string?> LinkToTheTaskListAsync(Guid taskListId, Guid eventId)
+    {
+        try
+        {
+            var outcome = await TasksApiClient.LinkCalendarEventAsync(taskListId, eventId);
+            return outcome.Kind switch
+            {
+                EditOutcomeKind.Success => null,
+                EditOutcomeKind.Locked => T.Format(
+                    "The event is saved, but {0} is editing that list - put it on the list again in a moment.",
+                    outcome.LockedByUserName),
+                _ => T["The event is saved, but it couldn't be put on that list."]
+            };
+        }
+        catch (HttpRequestException exception)
+        {
+            Logger.LogError(exception, "Failed to put calendar event {EventId} on task list {TaskListId}", eventId, taskListId);
+            return T["The event is saved, but it couldn't be put on that list."];
+        }
+    }
+
     private async Task SaveAsync()
     {
         Logger.LogInformation(
@@ -442,6 +523,17 @@ else
                 Logger.LogError(exception, "Failed to {Mode} calendar event {EventId}", IsNewEvent ? "create" : "update", Id);
                 _errorMessage = T["Failed to save the event. Try again."];
                 return;
+            }
+
+            if (Guid.TryParse(_linkToTaskListId, out var taskListId))
+            {
+                _errorMessage = await LinkToTheTaskListAsync(taskListId, eventId);
+                if (_errorMessage is not null)
+                {
+                    // The event is saved by now; only the list did not get it. Staying here is what
+                    // lets somebody try that half again rather than wonder which half happened.
+                    return;
+                }
             }
 
             if (_shareRecipients.Count > 0)

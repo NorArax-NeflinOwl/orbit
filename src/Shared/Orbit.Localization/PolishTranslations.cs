@@ -554,6 +554,13 @@ public static class PolishTranslations
         ["Guests"] = "Goście",
         ["Directions"] = "Wyznacz trasę",
         ["Open in Google Maps"] = "Otwórz w Mapach Google",
+        ["No list"] = "Żadna lista",
+        ["The list gets an entry pointing at this event, not a copy of it."] =
+            "Lista dostaje pozycję wskazującą to wydarzenie, a nie jego kopię.",
+        ["The event is saved, but it couldn't be put on that list."] =
+            "Wydarzenie zapisane, ale nie udało się dodać go do tej listy.",
+        ["The event is saved, but {0} is editing that list - put it on the list again in a moment."] =
+            "Wydarzenie zapisane, ale {0} edytuje tę listę — dodaj je do niej za chwilę.",
         ["Add to Google Calendar"] = "Dodaj do Kalendarza Google",
         ["The event's end can't be before its start."] = "Koniec wydarzenia nie może być przed jego początkiem.",
 
@@ -613,7 +620,9 @@ public static class PolishTranslations
         ["Stop receiving"] = "Przestań odbierać",
         ["Search for a place"] = "Szukaj miejsca",
         ["Nothing found for that. Try fewer words."] = "Nic nie znaleziono. Spróbuj krótszej frazy.",
-        ["Make an event here?"] = "Utworzyć tu wydarzenie?",
+        ["What happens here?"] = "Co się tu dzieje?",
+        ["An event in the calendar"] = "Wydarzenie w kalendarzu",
+        ["A task list starting here"] = "Lista zadań zaczynająca się tutaj",
         ["Orbit isn't allowed to use your location. Turn it on in Options first."] =
             "Orbit nie ma zgody na korzystanie z Twojego położenia. Włącz ją najpierw w Opcjach.",
 

@@ -101,6 +101,7 @@ using Orbit.Core.Tasks.DeleteTaskList;
 using Orbit.Core.Tasks.GetTaskListById;
 using Orbit.Core.Tasks.GetTaskListShareStatus;
 using Orbit.Core.Tasks.GetTaskLists;
+using Orbit.Core.Tasks.LinkCalendarEventToTaskList;
 using Orbit.Core.Tasks.MoveTaskItem;
 using Orbit.Core.Tasks.OverdueNotifications;
 using Orbit.Core.Tasks.ReleaseTaskListLock;
@@ -178,6 +179,7 @@ public static class OrbitCoreServiceCollectionExtensions
         services.AddScoped<IRequestHandler<CreateTaskListCommand, Guid>, CreateTaskListCommandHandler>();
         services.AddScoped<IRequestHandler<UpdateTaskListCommand, EditOutcome>, UpdateTaskListCommandHandler>();
         services.AddScoped<IRequestHandler<MoveTaskItemCommand, EditOutcome>, MoveTaskItemCommandHandler>();
+        services.AddScoped<IRequestHandler<LinkCalendarEventToTaskListCommand, EditOutcome>, LinkCalendarEventToTaskListCommandHandler>();
         services.AddScoped<IRequestHandler<DeleteTaskListCommand, bool>, DeleteTaskListCommandHandler>();
         services.AddScoped<IRequestHandler<GetTaskListsQuery, IReadOnlyList<TaskList>>, GetTaskListsQueryHandler>();
         services.AddScoped<IRequestHandler<GetTaskListByIdQuery, TaskList?>, GetTaskListByIdQueryHandler>();

@@ -83,21 +83,43 @@ public sealed class MapPageTests : OrbitTestContext
     }
 
     /// <summary>
-    /// A place is not an appointment: Create hands the pin to the calendar's own editor rather than
-    /// writing an event nobody has said when is - see ChosenPlace.
+    /// Confirming the pin and saying what it is for are separate questions - "is this the place" is
+    /// answered by looking at the map, and "what happens here" is not.
     /// </summary>
     [Fact]
-    public void Create_hands_the_pin_to_the_calendar()
+    public void Confirming_the_pin_asks_what_happens_there()
+    {
+        GrantLocations();
+        var cut = RenderComponent<MapPage>();
+        Search(cut, "Długa 4");
+
+        UseThePlace(cut);
+
+        var asked = cut.Find(".map-overlay-panel").TextContent;
+        Assert.Contains("What happens here?", asked);
+        Assert.Contains("An event in the calendar", asked);
+        Assert.Contains("A task list starting here", asked);
+    }
+
+    /// <summary>
+    /// A place is not an appointment: the answer hands the pin to the editor that makes something of it
+    /// rather than writing an event nobody has said when is - see ChosenPlace.
+    /// </summary>
+    [Theory]
+    [InlineData("An event in the calendar", "/calendar/new")]
+    [InlineData("A task list starting here", "/tasks/new")]
+    public void The_answer_hands_the_pin_to_the_editor_that_makes_it(string answer, string url)
     {
         GrantLocations();
         var navigationManager = Services.GetRequiredService<NavigationManager>();
         var chosenPlace = Services.GetRequiredService<ChosenPlace>();
         var cut = RenderComponent<MapPage>();
         Search(cut, "Długa 4");
+        UseThePlace(cut);
 
-        cut.FindAll(".map-create-event button").First(button => button.TextContent.Contains("Create")).Click();
+        cut.FindAll(".map-overlay-confirm button").First(button => button.TextContent.Contains(answer)).Click();
 
-        Assert.EndsWith("/calendar/new", navigationManager.Uri);
+        Assert.EndsWith(url, navigationManager.Uri);
         var handedOver = chosenPlace.Take();
         Assert.NotNull(handedOver);
         Assert.Equal("Długa 4, Warszawa", handedOver.Address);
@@ -115,6 +137,9 @@ public sealed class MapPageTests : OrbitTestContext
 
         Assert.Empty(cut.FindAll(".map-create-event"));
     }
+
+    private static void UseThePlace(IRenderedFragment cut)
+        => cut.FindAll(".map-create-event button").First(button => button.TextContent.Contains("Yes, use it")).Click();
 
     /// <summary>
     /// A share ends from the row it is on, rather than from behind the menu that says how it is made -
