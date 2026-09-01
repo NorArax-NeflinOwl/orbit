@@ -538,6 +538,33 @@ follows: a position is not something to be able to push at a stranger who never 
 The Map page shows the viewer's own position and everyone sharing with them on **one** map, framed to fit
 them all.
 
+### Planning something at a place
+
+The map is where people already go to point at somewhere, so it is also where pointing at somewhere and
+making something of it belongs. **Plan something here** opens the same `LocationPickerOverlay` the task
+editor uses - a pin, or an address search - and confirming one asks a single question: is this an event,
+or a task list?
+
+The question is asked rather than guessed. An appointment and an errand at the same address are
+different things, and only the person pointing at it knows which they meant. Answering takes them to the
+form they chose with the place already filled in:
+
+- **An event in the calendar** opens `/calendar/new` with the address and its pin set.
+- **A task list starting here** opens `/tasks/new` with one entry already standing at that place - a
+  calendar entry, because it is the only kind that has anywhere to be, and open, because an entry whose
+  place is filled in and whose day is not is not finished.
+
+Either way the **pin** travels, not only the address: the calendar keeps places as coordinates with a
+label (see [`EventLocation`](#the-place-is-stored-once)), so an address on its own could not be shown on
+a map or turned into a Google Maps link.
+
+The place travels in a scoped `ChosenPlace` rather than in the address bar. `/calendar/new?lat=52.2&lon=21.0`
+would write where somebody is going into their browser history and into anything that later reads a URL,
+and a place is exactly the kind of thing that should not be sitting in a link somebody might paste.
+Nothing about it needs to survive a reload - it is a handover between two screens, a second apart - and
+it is **taken** rather than read, so coming back to a new event or a new list later starts empty instead
+of at somewhere the reader looked at once and has no memory of choosing.
+
 ## Handing something off to Google
 
 An account that has **confirmed its email address or connected Google** is offered links that carry
@@ -658,8 +685,27 @@ and reverse-geocodes it into an address. Over the page because a map needs room 
 none. Nothing is written back until the pin is confirmed: the overlay asks "Use this place?" with the
 address it found, and only a yes replaces what the box held — a stray click on a map must not silently
 rewrite an address somebody typed. The map opens where the box already points, when that address can be
-found (`GeocodingApiClient.FindPlaceAsync`). Only the address is stored; the item keeps no coordinates,
-which is why the pin has to become words before it is worth anything.
+found (`GeocodingApiClient.FindPlaceAsync`).
+
+**A confirmed pin keeps its position, not only its name.** The overlay hands back a `PickedPlace` -
+where it is as well as what it is called - and the editor keeps both. The words are still the reader's
+to choose (confirming a pin fills an empty box and leaves a name they wrote alone), but the position is
+what the calendar needs: a `EventLocation` is coordinates with an optional label, so an address on its
+own cannot be shown on a map or turned into a Google Maps link.
+
+This used to be the other way round - the overlay reverse-geocoded the pin and then discarded where it
+was - and the consequences reached further than the pin. A calendar entry's event was created with no
+place at all, and worse, an entry that *already had* an event sent "no place" back on every save, so
+editing a task list's colour or its day erased a location somebody had set in the calendar. The web
+editor now reads the linked event's location into the form along with every other field it already read
+back, and the phone - which has no map to offer and so cannot set a place - carries the one it loaded
+through untouched rather than writing a blank over it (`TaskItemEventForm.PlaceItAlreadyHad`).
+
+**A name nobody pointed at stays a name.** Typing "the back entrance" and never opening the map leaves
+the entry with a label and the event with no place, and the editor says so under the box rather than
+letting it go nowhere quietly. Orbit does not look coordinates up for it: `SearchPlacesAsync` exists
+precisely because "Długa 4" is a real address in a dozen towns, and silently taking the first match
+would put the appointment in the wrong one. The calendar's own event editor refuses in the same way.
 
 **A place can be named as well as pointed at.** The overlay carries an address search
 (`GeocodingApiClient.SearchPlacesAsync`), which is the way that works when somebody knows the address
