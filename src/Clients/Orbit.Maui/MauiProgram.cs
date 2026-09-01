@@ -174,6 +174,9 @@ public static class MauiProgram
 		// this account may hand something off to Google, and neither should cost its own round trip.
 		services.AddSingleton<Orbit.Mobile.Google.GoogleIntegrationAccess>();
 		// One heartbeat for the app, started and stopped with the window - see PresenceReporter.
+		// One banner for the app, so a push arriving while somebody is looking at it is not silently
+		// dropped - see ForegroundNotices.
+		services.AddSingleton<ForegroundNotices>();
 		services.AddSingleton<PresenceReporter>();
 		// One gate for the whole app: unlocking private things on one screen unlocks them everywhere,
 		// and putting the phone down locks them everywhere.
