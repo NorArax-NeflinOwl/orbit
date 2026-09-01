@@ -17,6 +17,10 @@ using Xunit;
 
 namespace Orbit.Web.Tests.Pages;
 
+// The two tests that pressed "Show event list" and "Show task list" lived here. Both lists are one
+// list now and it is always on, so there is nothing to reveal - see Calendar.razor. What they were
+// really guarding, that the list is scoped to the period on screen, is still covered by the two
+// tests further down that check the month and the year.
 public sealed class CalendarTests : OrbitTestContext
 {
     public CalendarTests()
@@ -69,39 +73,10 @@ public sealed class CalendarTests : OrbitTestContext
         Assert.Equal(12, cut.FindAll(".calendar-year-grid-month").Count);
     }
 
-    [Fact]
-    public void The_event_list_starts_hidden_and_the_toggle_button_reveals_it()
-    {
-        RegisterCalendarApiClient([]);
-        var cut = RenderComponent<Calendar>();
-        Assert.Empty(cut.FindAll(".calendar-event-list-panel"));
-        Assert.Equal("false", FindButtonByTitle(cut, "Show event list").GetAttribute("aria-pressed"));
 
-        FindButtonByTitle(cut, "Show event list").Click();
-
-        Assert.NotEmpty(cut.FindAll(".calendar-event-list-panel"));
-        Assert.Contains(cut.FindAll("button"), button => button.GetAttribute("title") == "Hide event list");
-        // The visualization panel keeps rendering alongside the revealed list.
-        Assert.NotEmpty(cut.FindAll(".calendar-visualization-panel"));
-    }
 
     [Fact]
-    public void The_due_task_list_starts_hidden_and_the_toggle_button_reveals_it()
-    {
-        RegisterCalendarApiClient([]);
-        var cut = RenderComponent<Calendar>();
-
-        Assert.DoesNotContain("Tasks with a due date", cut.Markup);
-        Assert.Equal("false", FindButtonByTitle(cut, "Show task list").GetAttribute("aria-pressed"));
-
-        FindButtonByTitle(cut, "Show task list").Click();
-
-        Assert.Contains("Tasks with a due date", cut.Markup);
-        Assert.NotEmpty(cut.FindAll(".calendar-event-list-panel"));
-    }
-
-    [Fact]
-    public void Todays_timed_event_shows_up_as_a_chip_with_its_start_time_in_the_month_view()
+    public void Todays_timed_event_shows_up_as_a_chip_named_but_not_timed_in_the_month_view()
     {
         var todayNoon = DateTime.SpecifyKind(DateTime.Today.AddHours(14).AddMinutes(30), DateTimeKind.Local);
         var calendarEvent = CreateTimedEvent(todayNoon, todayNoon.AddHours(1), "Team meeting");
@@ -109,9 +84,29 @@ public sealed class CalendarTests : OrbitTestContext
 
         var cut = RenderComponent<Calendar>();
 
-        var chipText = cut.Find(".calendar-event-chip").TextContent;
-        Assert.Contains("14:30", chipText);
-        Assert.Contains("Team meeting", chipText);
+        var chip = cut.Find(".calendar-event-chip");
+        Assert.Contains("Team meeting", chip.TextContent);
+        // No clock on a month cell: seven of these across a screen leaves a chip about as wide as
+        // "00:00", so the time was spending the room the name needed. The day view reads times.
+        Assert.DoesNotContain("14:30", chip.TextContent);
+    }
+
+    /// <summary>
+    /// A long name is cut to its first two words. One word is often the least useful part of a name -
+    /// "Ginekolog:" on its own says less than "Ginekolog: wizyta" - and the whole of it stays on the
+    /// chip's title for anyone hovering.
+    /// </summary>
+    [Fact]
+    public void A_long_name_is_shortened_to_two_words_on_a_month_cell()
+    {
+        var todayNoon = DateTime.SpecifyKind(DateTime.Today.AddHours(14).AddMinutes(30), DateTimeKind.Local);
+        RegisterCalendarApiClient([CreateTimedEvent(todayNoon, todayNoon.AddHours(1), "Ginekolog: wizyta kontrolna")]);
+
+        var cut = RenderComponent<Calendar>();
+
+        var chip = cut.Find(".calendar-event-chip");
+        Assert.Contains("Ginekolog: wizyta…", chip.TextContent);
+        Assert.Equal("Ginekolog: wizyta kontrolna", chip.GetAttribute("title"));
     }
 
     [Fact]
@@ -124,9 +119,9 @@ public sealed class CalendarTests : OrbitTestContext
 
         var cut = RenderComponent<Calendar>();
 
-        var chipText = cut.Find(".calendar-task-chip").TextContent;
-        Assert.Contains("09:00", chipText);
-        Assert.Contains("Send the report", chipText);
+        var chip = cut.Find(".calendar-task-chip");
+        Assert.Contains("Send the…", chip.TextContent);
+        Assert.DoesNotContain("09:00", chip.TextContent);
     }
 
     [Fact]
@@ -242,8 +237,6 @@ public sealed class CalendarTests : OrbitTestContext
         RegisterTasksApiClient([]);
         var cut = RenderComponent<Calendar>();
 
-        FindButtonByTitle(cut, "Show event list").Click();
-
         Assert.Contains("This month", cut.Markup);
         Assert.DoesNotContain("Two months on", cut.Markup);
     }
@@ -261,7 +254,6 @@ public sealed class CalendarTests : OrbitTestContext
         RegisterTasksApiClient([]);
         var cut = RenderComponent<Calendar>();
 
-        FindButtonByTitle(cut, "Show event list").Click();
         FindViewSwitchButton(cut, "Year").Click();
 
         Assert.Contains("This month", cut.Markup);

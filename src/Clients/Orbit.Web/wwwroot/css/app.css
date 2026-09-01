@@ -2446,10 +2446,14 @@ input.note-editor-title {
 }
 
 /* CalendarMonthGrid.razor: the weekday header row and the 7-column week rows below it. */
+/* minmax(0, 1fr), not 1fr. A plain 1fr never shrinks a column below its content's minimum width, so
+   one long event name stretched its own weekday and squeezed the other six - the columns visibly
+   stopped lining up with the weekday header above them. Zero as the minimum lets a cell be narrower
+   than what is in it, and the chips below clip instead of pushing. */
 .calendar-month-grid-weekday-row,
 .calendar-month-grid-week {
     display: grid;
-    grid-template-columns: repeat(7, 1fr);
+    grid-template-columns: repeat(7, minmax(0, 1fr));
 }
 
 .calendar-month-grid-weekday {
@@ -2460,6 +2464,9 @@ input.note-editor-title {
 }
 
 .calendar-month-grid-day {
+    /* Same reason as the columns above: without this a cell takes its content's width as a floor. */
+    min-width: 0;
+    overflow: hidden;
     background: var(--bg-elevated);
     border: 1px solid var(--border);
     color: var(--text-primary);
@@ -4397,4 +4404,64 @@ input.note-editor-title {
 
 .check-row-text:hover {
     text-decoration: underline;
+}
+
+/* A month cell's chips are labels inside a clickable cell, not controls of their own - see
+   CalendarMonthGrid. They still have to lay out like the buttons they replaced. */
+span.calendar-event-chip,
+span.calendar-task-chip {
+    cursor: inherit;
+    pointer-events: none;
+}
+
+/* Which kind of thing a row on the calendar's list is. Both kinds share one list now, so the tag is
+   what tells them apart - the colour alone belongs to the event, not to the distinction. */
+.card-badge-event {
+    background: var(--accent-subtle);
+    color: var(--accent);
+}
+
+.card-badge-task {
+    background: var(--bg-subtle);
+    color: var(--task);
+}
+
+/* A deadline already ticked off. Still listed - it happened in this period - but not competing with
+   what has not. */
+.item-card-done .item-card-name {
+    color: var(--text-secondary);
+    text-decoration: line-through;
+}
+
+/* Calendar on top, list under it, once there is no room for them side by side. The list is what gets
+   read; the grid is what gets glanced at, and a glance belongs above the reading. */
+@media (max-width: 900px) {
+    .calendar-layout {
+        flex-direction: column-reverse;
+    }
+
+    .calendar-event-list-panel {
+        flex: 1 1 auto;
+    }
+}
+
+/* A deadline is an instant, so its block is drawn at a nominal fifteen minutes - which on a day-long
+   timeline is a strip too short to read a name in. It is allowed to be taller than its slot: the
+   height says when, and the room says what, and the name is the part somebody is actually reading. */
+.calendar-task-block {
+    min-height: 2.75rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.05rem;
+}
+
+.calendar-task-block .calendar-event-block-title {
+    /* Two lines, then cut. Enough for the list's name and the errand on it; past that the day view
+       stops being a timeline and becomes a wall of text. */
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    overflow-wrap: anywhere;
+    line-height: 1.25;
 }
