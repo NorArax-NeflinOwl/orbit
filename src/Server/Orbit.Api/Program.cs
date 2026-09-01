@@ -35,6 +35,7 @@ using OpenTelemetry.Resources;
 using OpenTelemetry.Trace;
 using Serilog;
 using Serilog.Events;
+using Serilog.Sinks.ApplicationInsights.TelemetryConverters;
 using Serilog.Sinks.OpenTelemetry;
 using Azure.Monitor.OpenTelemetry.Exporter;
 
@@ -53,7 +54,7 @@ const string serviceName = "Orbit.Api";
 var isDevelopment = string.Equals(
     Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT"), "Development", StringComparison.OrdinalIgnoreCase);
 
-Log.Logger = new LoggerConfiguration()
+var loggerConfiguration = new LoggerConfiguration()
     .MinimumLevel.Is(isDevelopment ? LogEventLevel.Debug : LogEventLevel.Information)
     // EF Core narrates each query in around ten lines - creating a command, opening a connection,
     // executing, disposing the reader, closing again - and prints the SQL twice, once before and once
@@ -76,8 +77,25 @@ Log.Logger = new LoggerConfiguration()
     // by day keeps any one file openable, and 14 files is more history than anyone reads locally.
     .WriteTo.File(
         "logs/orbit-api-.log", rollingInterval: RollingInterval.Day,
-        fileSizeLimitBytes: 50 * 1024 * 1024, rollOnFileSizeLimit: true, retainedFileCountLimit: 14)
-    .WriteTo.OpenTelemetry(options =>
+        fileSizeLimitBytes: 50 * 1024 * 1024, rollOnFileSizeLimit: true, retainedFileCountLimit: 14);
+
+// Where the log lines go beyond this machine, and the same either/or the traces make below: a
+// deployment with Application Insights sends them there, everything else sends them to whatever is
+// listening on the OTLP endpoint - locally, the Aspire dashboard.
+//
+// Application Insights does not read OTLP, so on Azure the OTLP sink was writing into a port nothing
+// answered on: the traces arrived and the words written alongside them did not, leaving the container's
+// console - which goes away with the container - as the only place a log line could be read.
+if (!string.IsNullOrEmpty(applicationInsightsConnectionString))
+{
+    // Traces, not events: a log line is a sentence about something that happened, which is what App
+    // Insights calls a trace. TelemetryConverter.Events would file each one as a custom event, which is
+    // for things being counted rather than things being read.
+    loggerConfiguration.WriteTo.ApplicationInsights(applicationInsightsConnectionString, TelemetryConverter.Traces);
+}
+else
+{
+    loggerConfiguration.WriteTo.OpenTelemetry(options =>
     {
         options.Endpoint = otlpEndpoint;
         options.Protocol = OtlpProtocol.Grpc;
@@ -85,8 +103,10 @@ Log.Logger = new LoggerConfiguration()
         {
             ["service.name"] = serviceName
         };
-    })
-    .CreateLogger();
+    });
+}
+
+Log.Logger = loggerConfiguration.CreateLogger();
 
 try
 {
