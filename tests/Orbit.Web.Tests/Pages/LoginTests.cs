@@ -97,6 +97,32 @@ public sealed class LoginTests : OrbitTestContext
         Assert.EndsWith("/", navigationManager.Uri);
     }
 
+    /// <summary>
+    /// A password manager fills a field without anybody typing in it, and several of them never raise
+    /// "change" when they do. Bound on that event alone, the box looked filled while the model behind it
+    /// stayed empty - and Orbit sent an empty password to a real account, which the server answers
+    /// exactly as it answers a wrong one. Said as an "input" here, which is what a fill actually raises.
+    /// </summary>
+    [Fact]
+    public void A_password_filled_rather_than_typed_is_the_one_that_gets_sent()
+    {
+        string? sentBody = null;
+        RegisterAuthApiClient(request =>
+        {
+            sentBody = request.Content?.ReadAsStringAsync().GetAwaiter().GetResult();
+            return JsonResponse(CreateAuthResponse("user@example.com", "User"));
+        });
+
+        var cut = RenderComponent<Login>();
+        cut.Find("#emailOrUserName").Input("user@example.com");
+        cut.Find("#password").Input("correct-password");
+        cut.Find("form").Submit();
+
+        Assert.NotNull(sentBody);
+        Assert.Contains("correct-password", sentBody);
+        Assert.Contains("user@example.com", sentBody);
+    }
+
     [Fact]
     public void A_refusal_with_no_reason_still_says_something_went_wrong()
     {
