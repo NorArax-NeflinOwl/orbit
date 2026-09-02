@@ -115,12 +115,18 @@ public sealed class EntryAppointment
                 return new AppointmentResult(edited, AppointmentOutcome.Reached, LostThePlace(place));
             }
 
+            var created = await _calendarClient.CreateAsync(
+                new CreateCalendarEventRequest(details), cancellationToken);
+
+            // Refused rather than unreachable: keeping it on this phone would queue a change the server
+            // has already answered about, so the entry is left without an appointment and says so.
+            if (created is not { Outcome: WriteOutcome.Applied, ServerId: { } createdId })
+            {
+                return new AppointmentResult(null, AppointmentOutcome.Refused, LostThePlace(place));
+            }
+
             return new AppointmentResult(
-                edited with
-                {
-                    LinkedCalendarEventId = await _calendarClient.CreateAsync(
-                        new CreateCalendarEventRequest(details), cancellationToken)
-                },
+                edited with { LinkedCalendarEventId = createdId },
                 AppointmentOutcome.Reached,
                 LostThePlace(place));
         }

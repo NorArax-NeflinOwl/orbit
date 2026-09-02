@@ -497,6 +497,24 @@ public sealed class CalendarScreenTests
     }
 
     /// <summary>
+    /// An event added from the box under the grid has to reach the server. It did not: the call that
+    /// built it was positional, a priority was added to the shape beside two optional fields, and the
+    /// notification channel's "None" slid into it - which the server refuses. Everything added here sat
+    /// in the outbox behind a 400 that only the server's own log said out loud.
+    /// </summary>
+    [Fact]
+    public async Task An_event_added_from_the_calendar_reaches_the_server()
+    {
+        using var context = new ScreenContext();
+        var screen = await context.OpenAsync();
+
+        screen.NewEventTitle = "Dentist";
+        await screen.AddEventCommand.ExecuteAsync(null);
+
+        Assert.Contains(context.EventsOnTheServer, stored => stored.Details.Title == "Dentist");
+    }
+
+    /// <summary>
     /// The calendar gets out of the way as the list under it is read, and what survives is the week the
     /// reader is standing on - see MinimisedCalendar, and info/future-plan.md for why this is an Android
     /// job rather than a web one. A phone has one column and a thumb.
@@ -650,6 +668,9 @@ public sealed class CalendarScreenTests
 
         public RecordingScreenNavigator Navigator { get; } = new();
 
+        /// <summary>What the fake server holds - for a test about whether a save actually arrived.</summary>
+        public IReadOnlyCollection<CalendarEventDto> EventsOnTheServer => _server.Events;
+
         /// <summary>A task entry falling due, which the calendar shows beside the events.</summary>
         /// <param name="tiedTo">The event this entry is the same appointment as, when it is one.</param>
         /// <param name="at">Where it happens, for an entry carrying an address of its own.</param>
@@ -678,7 +699,7 @@ public sealed class CalendarScreenTests
             var start = new DateTimeOffset(localStart, TimeZoneInfo.Local.GetUtcOffset(localStart)).ToUniversalTime();
             var created = await _events.CreateAsync(
                 new CalendarEventDetailsDto(
-                    title, null, null, null, start, start.AddHours(1), false, repeating, [], [], "None", "None"));
+                    title, null, null, null, start, start.AddHours(1), false, repeating, [], [], ReminderNotificationChannel: "None"));
 
             await using var dbContext = _localStore.CreateDbContext();
             var stored = dbContext.CalendarEvents.Single(candidate => candidate.LocalId == created.LocalId);

@@ -2,6 +2,7 @@ using System.Collections.ObjectModel;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Orbit.Contracts.Calendar;
+using Orbit.Core.Notifications;
 using Orbit.Mobile.Data;
 using Orbit.Mobile.Localization;
 using Orbit.Mobile.Sync;
@@ -316,8 +317,14 @@ public sealed partial class CalendarViewModel : ObservableObject
         var localStart = new DateTimeOffset(NewEventDate.Date + NewEventTime, TimeZoneInfo.Local.GetUtcOffset(NewEventDate));
         var start = localStart.ToUniversalTime();
         await _events.CreateAsync(
+            // Named from the reminder channel on: the last two of these are optional and grew a third
+            // beside them, and a positional call quietly handed "None" to the priority - which the
+            // server refuses, so every event added here stuck in the outbox saying "couldn't sync".
             new CalendarEventDetailsDto(
-                NewEventTitle.Trim(), null, null, null, start, start.AddHours(1), false, null, [], [], "None", "None"),
+                NewEventTitle.Trim(), Description: null, Location: null, Color: null, StartUtc: start,
+                EndUtc: start.AddHours(1), IsAllDay: false, Recurrence: null, Guests: [],
+                ReminderMinutesBeforeStart: [],
+                ReminderNotificationChannel: nameof(NotificationChannel.None)),
             cancellationToken);
 
         NewEventTitle = string.Empty;

@@ -98,8 +98,20 @@ public sealed class CalendarEventSynchronizer
             return SendResult.Abandoned;
         }
 
-        calendarEvent.ServerId = await _calendarClient.CreateAsync(
+        var created = await _calendarClient.CreateAsync(
             new CreateCalendarEventRequest(ToRequest(calendarEvent.Details)), cancellationToken);
+
+        if (created is not { Outcome: WriteOutcome.Applied, ServerId: { } serverId })
+        {
+            // Nothing more to try: the server has answered about this event and will answer the same
+            // way tomorrow. Dropped and said out loud rather than queued for ever - see OutboxReplay.
+            _logger.LogInformation(
+                "The server refused a queued event: {Outcome}", created.Outcome);
+
+            return SendResult.Refused;
+        }
+
+        calendarEvent.ServerId = serverId;
         calendarEvent.LastSyncedAtUtc = _timeProvider.GetUtcNow();
         return SendResult.Sent;
     }

@@ -128,6 +128,15 @@ since the entry's own words are the name - and saving the entry puts it there, s
 already holds that name. It is the last of the browser's 2026-09-02 item form that the phone was
 missing.
 
+An event added from the calendar's own box never reached the server, and nothing on the phone said why.
+The call that built it was positional, a priority had been added to the shape beside two optional
+fields, and the notification channel's "None" slid into it - which the server refuses. Worse than the
+typo: a refused **create** threw, and the exception was not one the outbox retries, so it escaped the
+replay altogether and left every queued change behind it stuck, showing as "Couldn't sync" with nothing
+to act on. A create now answers like every other write - dropped, and written into the feed as work
+given up on - and the fake calendar server refuses a priority it does not know, so the next one fails a
+test rather than a device.
+
 Three things found by driving the app on a device. A password is asked for twice where it is being set -
 making an account, and changing one - as the browser has always asked, because a box nobody can read
 back is one nobody can check. The keyboard no longer hides the field being typed into: the window

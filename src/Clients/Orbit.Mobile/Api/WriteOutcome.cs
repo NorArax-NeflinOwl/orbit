@@ -34,3 +34,9 @@ public enum WriteOutcome
     /// </summary>
     Rejected
 }
+
+/// <summary>
+/// What became of a create: what the server did with it, and the id it minted where it took it.
+/// </summary>
+/// <param name="ServerId">Null unless the outcome is <see cref="WriteOutcome.Applied"/>.</param>
+public sealed record CalendarEventCreation(WriteOutcome Outcome, Guid? ServerId);

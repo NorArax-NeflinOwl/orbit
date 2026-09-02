@@ -878,7 +878,7 @@ public sealed class DashboardScreenTests
 
         public async Task AddEventAsync(string title, DateTimeOffset startUtc, string? colour = null)
             => await _calendarEvents.CreateAsync(new CalendarEventDetailsDto(
-                title, null, null, colour, startUtc, startUtc.AddHours(1), false, null, [], [], "None", "None"));
+                title, null, null, colour, startUtc, startUtc.AddHours(1), false, null, [], [], ReminderNotificationChannel: "None"));
 
         /// <summary>
         /// Put on the server as well as in the local store, because the dashboard now synchronises on
