@@ -47,7 +47,8 @@
             <p class="map-overlay-hint">@T["Nothing found for that. Try fewer words, or point at it on the map."]</p>
         }
 
-        <p class="map-overlay-hint">@T["Click the map to drop a pin."]</p>
+        @* Says what a press does, which is ask rather than move: the pin follows the answer. *@
+        <p class="map-overlay-hint">@T["Click the map to pick a place - it asks before the pin moves."]</p>
         <div id="@MapElementId" class="map-overlay-map"></div>
 
         @if (_pickedAddress is not null)
@@ -126,7 +127,11 @@
         }
     }
 
-    /// <summary>Called from mapPicker.js when the reader clicks a point on the map.</summary>
+    /// <summary>
+    /// Called from mapPicker.js when the reader presses a point on the map. Nothing moves on the map:
+    /// the press puts the place and the question below it, and the pin follows the answer - see the
+    /// click handler there for why a press must not move anything by itself.
+    /// </summary>
     [JSInvokable]
     public async Task OnMapLocationPicked(double latitude, double longitude)
     {

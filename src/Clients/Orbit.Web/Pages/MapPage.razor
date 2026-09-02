@@ -224,6 +224,20 @@ else
             </button>
         </div>
 
+        @* A press on the map, waiting to be allowed. Above the bar about the pin itself, because it is
+           about what would replace it - and nothing on the map has moved: see OnMapPressed. *@
+        @if (_pressedPlace is { } pressed)
+        {
+            <div class="map-create-event map-press-asks">
+                <span class="map-create-event-place">@pressed.Name</span>
+                <span class="map-create-event-question">
+                    @(_foundPlace is null ? T["Put a pin here?"] : T["Move the pin here?"])
+                </span>
+                <button type="button" class="btn-primary" @onclick="PinThePlacePressedAsync">@T["Yes"]</button>
+                <button type="button" class="btn-secondary" @onclick="ForgetThePlacePressed">@T["No"]</button>
+            </div>
+        }
+
         @* Along the foot of the map, about the pin the search just dropped. Confirming it is not the
            same as knowing what to do with it - see the question that follows. *@
         @if (_foundPlace is { } found)
@@ -326,20 +340,46 @@ else
     [JSInvokable]
     public async Task OnMapPressed(double latitude, double longitude)
     {
-        // What was searched for is no longer what is pinned, so the other matches go with it: leaving
-        // them offered would list answers to a question nobody is asking any more.
-        _matches = [];
-        _hasSearched = false;
-        _placeToPlanFor = null;
-        _foundPlace = new FoundPlace(T["Looking up where that is…"], latitude, longitude);
+        // Nothing on the map moves yet. A press is easy to make by accident - a map is dragged and
+        // zoomed by pressing it - so what a press produces is a question, and the pin somebody already
+        // has stays where it is until that question is answered.
+        _pressedPlace = new FoundPlace(T["Looking up where that is…"], latitude, longitude);
         StateHasChanged();
 
         var address = await GeocodingApiClient.ReverseGeocodeAsync(latitude, longitude);
-        _foundPlace = new FoundPlace(
+        // Answered while the lookup was running: the reader has moved on, and the answer is about a
+        // question that is no longer on screen.
+        if (_pressedPlace is null)
+        {
+            return;
+        }
+
+        _pressedPlace = new FoundPlace(
             address is { Length: > 0 } ? address : DescribeCoordinates(latitude, longitude), latitude, longitude);
-        await RedrawAsync();
         StateHasChanged();
     }
+
+    /// <summary>Where the reader pressed, while the question about it is on screen - see OnMapPressed.</summary>
+    private FoundPlace? _pressedPlace;
+
+    /// <summary>"Yes" - the pin goes there, and what was searched for is no longer what is pinned.</summary>
+    private async Task PinThePlacePressedAsync()
+    {
+        if (_pressedPlace is not { } pressed)
+        {
+            return;
+        }
+
+        _matches = [];
+        _hasSearched = false;
+        _placeToPlanFor = null;
+        _foundPlace = pressed;
+        _pressedPlace = null;
+        await RedrawAsync();
+    }
+
+    /// <summary>"No" - the question goes, and the map is exactly as it was.</summary>
+    private void ForgetThePlacePressed() => _pressedPlace = null;
 
     /// <summary>A place with no name of its own, said as the numbers it is - see OnMapPressed.</summary>
     private static string DescribeCoordinates(double latitude, double longitude)

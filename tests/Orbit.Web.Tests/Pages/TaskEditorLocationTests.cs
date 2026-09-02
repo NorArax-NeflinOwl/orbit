@@ -118,7 +118,7 @@ public sealed class TaskEditorLocationTests : OrbitTestContext
         OpenTheMap(cut);
 
         Assert.Single(cut.FindAll(".map-overlay"));
-        Assert.Contains("Click the map to drop a pin.", cut.Markup);
+        Assert.Contains("Click the map to pick a place", cut.Markup);
     }
 
     [Fact]
