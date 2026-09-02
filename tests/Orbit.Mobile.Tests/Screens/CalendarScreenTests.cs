@@ -136,6 +136,9 @@ public sealed class CalendarScreenTests
         await context.AddEventAsync(
             "Standup", new DateTime(2026, 8, 3, 9, 0, 0), Weekly());
         var screen = await context.OpenAsync();
+        // Counting the ones already past, which the list leaves out by default - this is about the rule
+        // being walked, not about what a reader is shown of it.
+        screen.ShowsEverything = true;
 
         // Five Mondays in August 2026, counting the one it starts on.
         Assert.Equal(5, Events(screen).Count(row => row.Title == "Standup"));
@@ -143,6 +146,30 @@ public sealed class CalendarScreenTests
         {
             Assert.True(screen.Days.Single(day => day.Date == new DateTime(2026, 8, monday)).HasEvents);
         }
+    }
+
+    /// <summary>
+    /// What a calendar is read for is what is coming, so the list leaves out what is over: a deadline
+    /// already ticked off, an appointment that has already ended. The grid beside it still draws them,
+    /// and the sheet that says how to read the list also says how much of it to read. Orbit.Web's
+    /// calendar draws the same line.
+    /// </summary>
+    [Fact]
+    public async Task What_is_over_is_left_off_the_list_until_it_is_asked_for()
+    {
+        using var context = new ScreenContext();
+        // The clock says the fifteenth: the first has been and gone, the twentieth has not.
+        await context.AddEventAsync("Over and done with", new DateTime(2026, 8, 1, 9, 0, 0));
+        await context.AddEventAsync("Still coming", new DateTime(2026, 8, 20, 9, 0, 0));
+        var screen = await context.OpenAsync();
+
+        Assert.Equal(["Still coming"], Events(screen).Select(row => row.Title));
+        // And the grid says the first still had something on it.
+        Assert.True(screen.Days.Single(day => day.Date == new DateTime(2026, 8, 1)).HasEvents);
+
+        screen.ShowsEverything = true;
+
+        Assert.Equal(["Over and done with", "Still coming"], Events(screen).Select(row => row.Title));
     }
 
     /// <summary>
@@ -157,6 +184,7 @@ public sealed class CalendarScreenTests
             "Standup", new DateTime(2026, 8, 3, 9, 0, 0),
             Weekly(until: new DateTime(2026, 8, 17)));
         var screen = await context.OpenAsync();
+        screen.ShowsEverything = true;
 
         Assert.Equal(3, Events(screen).Count(row => row.Title == "Standup"));
         Assert.False(screen.Days.Single(day => day.Date == new DateTime(2026, 8, 24)).HasEvents);

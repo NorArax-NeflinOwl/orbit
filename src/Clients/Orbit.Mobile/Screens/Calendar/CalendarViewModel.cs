@@ -49,6 +49,7 @@ public sealed partial class CalendarViewModel : ObservableObject
         _events = events;
         _listOrder = listOrder;
         _sortOrder = listOrder.Read();
+        _showsEverything = listOrder.ReadShowsEverything();
         _taskLists = taskLists;
         _synchronizer = synchronizer;
         _networkStatus = networkStatus;
@@ -77,6 +78,13 @@ public sealed partial class CalendarViewModel : ObservableObject
     /// <summary>What order that list is read in, kept on this device - see ICalendarListOrderStore.</summary>
     [ObservableProperty]
     private CalendarListSortOrder _sortOrder;
+
+    /// <summary>
+    /// Whether the list still shows what is over - see CalendarListEntry.IsOver. Off by default, and
+    /// remembered by this phone the way the order is.
+    /// </summary>
+    [ObservableProperty]
+    private bool _showsEverything;
 
     /// <summary>The month grid - six weeks of seven days, whatever month it is. See CalendarMonth.</summary>
     public ObservableCollection<CalendarDay> Days { get; } = [];
@@ -364,8 +372,14 @@ public sealed partial class CalendarViewModel : ObservableObject
 
     private void ShowInChosenOrder()
     {
+        // What is over is left out unless it was asked for - see ShowsEverything. The grids beside the
+        // list still draw everything: a day with something in it should say so whether or not it has
+        // been, and a month drawn with holes in it would be a month that had not happened.
+        var nowUtc = _timeProvider.GetUtcNow();
+        var worthShowing = ShowsEverything ? _listed : _listed.Where(entry => !entry.IsOver(nowUtc));
+
         Listed.Clear();
-        foreach (var entry in CalendarListEntry.InOrder(_listed, SortOrder))
+        foreach (var entry in CalendarListEntry.InOrder(worthShowing, SortOrder))
         {
             Listed.Add(entry);
         }
@@ -374,6 +388,12 @@ public sealed partial class CalendarViewModel : ObservableObject
     partial void OnSortOrderChanged(CalendarListSortOrder value)
     {
         _listOrder.Write(value);
+        ShowInChosenOrder();
+    }
+
+    partial void OnShowsEverythingChanged(bool value)
+    {
+        _listOrder.WriteShowsEverything(value);
         ShowInChosenOrder();
     }
 

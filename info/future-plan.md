@@ -479,10 +479,10 @@ inventory lists, the contacts tabs, the chat menus - is built and needs no schem
 
 - **The phone has not caught up with the browser's last few passes.** The Google link and the
   verified-address filter are done - see `Orbit.Mobile/Google/GoogleCalendarEventLink.cs`, now the same
-  builder as the browser's with tests on both sides. What is still only the browser's: the calendar's
-  list leaves out what is over until asked, and none of the shallow views exists there - a task entry's
-  own page, an appointment's, a note read with its checklist tickable, and a shelf counted up and down
-  in place. None of it is broken, and all of it is the phone answering a question differently from the
+  builder as the browser's with tests on both sides - and so is the calendar's list leaving out what is
+  over. What is still only the browser's: none of the shallow views exists there - a task entry's own
+  page, an appointment's, a note read with its checklist tickable, and a shelf counted up and down in
+  place. None of it is broken, and all of it is the phone answering a question differently from the
   browser.
 
 - **The phone cannot flatten a tree of lists.** The browser's checklist reads a group list either as the

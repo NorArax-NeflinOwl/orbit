@@ -29,6 +29,15 @@ public interface ICalendarListOrderStore
     CalendarListSortOrder Read();
 
     void Write(CalendarListSortOrder sortOrder);
+
+    /// <summary>
+    /// Whether the list still shows what is over - a deadline already ticked off, an appointment that
+    /// has already ended. False by default, as in the browser: what a calendar is read for is what is
+    /// coming, and by the twentieth of a month a month of finished work is what stands in front of it.
+    /// </summary>
+    bool ReadShowsEverything();
+
+    void WriteShowsEverything(bool showsEverything);
 }
 
 /// <summary>
@@ -61,6 +70,15 @@ public sealed record CalendarListEntry
     public bool IsEvent => Event is not null;
 
     public bool IsDeadline => Deadline is not null;
+
+    /// <summary>
+    /// Whether this is done with: a deadline somebody has ticked off, or an appointment that has already
+    /// ended. A deadline that has passed and is still not ticked is <b>not</b> - it is the one thing on
+    /// the list that most needs saying, and hiding it would hide the work. The browser draws the same
+    /// line - see Orbit.Web's Calendar.razor.
+    /// </summary>
+    public bool IsOver(DateTimeOffset nowUtc)
+        => Deadline?.IsCompleted ?? Event?.EndUtc < nowUtc;
 
     /// <summary>When it happens, as the row says it - both kinds have one, which is why they share a list.</summary>
     public string When => Event?.When ?? Deadline?.When ?? string.Empty;
