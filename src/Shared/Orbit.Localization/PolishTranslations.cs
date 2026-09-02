@@ -83,6 +83,10 @@ public static class PolishTranslations
         ["This list already has a storage."] = "Ta lista ma już magazyn.",
         ["Goes on the shelf in {0} when this list is saved, named after this entry."] =
             "Trafi na półkę w: {0} przy zapisie tej listy, pod nazwą tej pozycji.",
+        // The phone saves one entry at a time, so its moment is the entry's save rather than the list's.
+        ["Goes on the shelf in {0} when this entry is saved, named after this entry."] =
+            "Trafi na półkę w: {0} przy zapisie tej pozycji, pod nazwą tej pozycji.",
+        ["This errand's product needs an amount."] = "Produkt tego sprawunku potrzebuje ilości.",
         ["Can this be done?"] = "Czy da się to wykonać?",
         ["Nothing due in this period."] = "Nic z terminem w tym okresie.",
         ["Nothing in this period."] = "Nic w tym okresie.",

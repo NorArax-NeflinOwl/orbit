@@ -13,10 +13,14 @@
          opens the product it is about - see TaskItemShelfProduct. One form means a correction made from
          either place asks the same questions and applies the same rules. -->
     <VerticalStackLayout Spacing="10">
-        <Entry Placeholder="{controls:Translate 'Item name'}" Text="{Binding Name}" />
+        <!-- Left out where the product is being described by a task entry: the entry's own words are
+             its name, and two boxes for one name are two answers to the same question. See
+             TaskItemShelfProduct.ForSomethingNotOnTheShelfYet. -->
+        <Entry Placeholder="{controls:Translate 'Item name'}" Text="{Binding Name}"
+               IsVisible="{Binding ShowsName}" />
         <!-- Products this account already has, offered as the name is typed. The field the
              suggestions exist for: the same thing gets typed twenty ways onto one shelf. -->
-        <controls:NameSuggestionChips BindingContext="{Binding Suggestions}" />
+        <controls:NameSuggestionChips BindingContext="{Binding Suggestions}" IsVisible="{Binding ShowsName}" />
         <Entry Placeholder="{controls:Translate 'Product type'}" Text="{Binding ProductType}" />
         <Entry Placeholder="{controls:Translate 'Category'}" Text="{Binding Category}" />
 

@@ -26,4 +26,20 @@ public sealed record TaskItemShelfProduct(
         // No name suggestions here, and Orbit.Web offers none on this form either: the box is a
         // correction to a product that already exists, not somewhere a new name is being invented.
         => new(warehouseLocalId, warehouseName, WarehouseItemEditor.For(product, translations));
+
+    /// <summary>
+    /// A product this shelf has not got yet, described by an entry on a list measured against it. No id:
+    /// it is put there by the save, and it is named after the entry's own words - which is what the
+    /// stock check matches the two by, so the form asks everything except the name.
+    ///
+    /// The defaults are the ones generating a storage from a list already uses, and the same two
+    /// Orbit.Web's form starts on: one of the thing wanted, none of it there yet, counted in pieces.
+    /// Two ways onto one shelf should not disagree about what an entry asking for something means.
+    /// </summary>
+    public static TaskItemShelfProduct ForSomethingNotOnTheShelfYet(
+        Guid warehouseLocalId, string warehouseName, Translations translations)
+        => new(
+            warehouseLocalId,
+            warehouseName,
+            WarehouseItemEditor.ForSomethingNotOnTheShelfYet(translations));
 }

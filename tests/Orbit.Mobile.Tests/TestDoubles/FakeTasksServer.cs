@@ -142,10 +142,19 @@ internal sealed class FakeTasksServer : HttpMessageHandler
                 : new HttpResponseMessage(HttpStatusCode.NotFound);
         }
 
+        // api/tasks/{id}/warehouse
         if (path.EndsWith("/warehouse", StringComparison.Ordinal))
         {
             var body = await ReadAsync<LinkTaskItemToWarehouseBody>(request, cancellationToken);
             LinkedWarehouseId = body?.WarehouseId;
+            // Kept on the list itself as well, because that is where a pull reads it from: a phone told
+            // which shelf a list is measured against only learns it by asking for the list again.
+            var taskListId = Guid.Parse(path.Split('/')[^2]);
+            if (_taskLists.TryGetValue(taskListId, out var taskList))
+            {
+                _taskLists[taskListId] = taskList with { LinkedWarehouseId = body?.WarehouseId };
+            }
+
             return new HttpResponseMessage(HttpStatusCode.NoContent);
         }
 

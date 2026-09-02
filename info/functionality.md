@@ -1078,6 +1078,15 @@ generation above follows and the same one the check matches by, so the two canno
 which product an errand is about. Saving the list puts it on the shelf; a shelf already holding
 something by that name is what the entry was asking for, so nothing is added twice.
 
+**The phone describes one the same way, one entry at a time.** An Inventory entry on a list measured
+against a storage opens the product's fields with no name box (`ShelfProductFor`,
+`WarehouseItemEditor.ForSomethingNotOnTheShelfYet`), says above them which shelf it will go on, and
+saving the entry puts it there - a shelf already holding something by that name is what the entry was
+asking for, so nothing is added twice (`ShelfCorrection.ApplyAsync`). The same fields correct a product
+the entry is already linked to, which is all the phone could do before: the difference is whether the
+form is filling in something that has an id yet, and the entry's own words are the name either way. It
+happens on the entry's save rather than the list's, because that is the moment this screen has.
+
 Which storage a list is measured against is set in its editor, under **About this list**, for any list
 rather than only a group one - an entry describing a product has to be able to say which shelf it goes
 on. The picker leaves out storages another list already measures (one list per storage, see

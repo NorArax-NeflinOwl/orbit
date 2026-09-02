@@ -122,6 +122,12 @@ shelf and rebuilds that warehouse's restock list; it also says which shelf it is
 list is asking for the same product, both as something to tap. Unlike the calendar half this one works
 offline, because the product already exists and is only being corrected.
 
+That errand no longer has to be about something the shelf already holds. On a list measured against a
+storage, an Inventory entry describes a product **for** that shelf - the same fields with no name box,
+since the entry's own words are the name - and saving the entry puts it there, skipping a shelf that
+already holds that name. It is the last of the browser's 2026-09-02 item form that the phone was
+missing.
+
 Being offline no longer only refuses. Anything shared that cannot be edited without a connection - see
 [the conflict policy](orbit-maui-plan.md#54-pushing-changes-and-conflicts-built-for-notes) - now offers
 a copy to write in instead, for all four kinds: notes, task lists, appointments and warehouses. The copy

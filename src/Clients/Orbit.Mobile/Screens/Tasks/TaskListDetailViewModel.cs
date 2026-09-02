@@ -445,8 +445,9 @@ public sealed partial class TaskListDetailViewModel : ObservableObject
 
     private async Task ShowWhatItsErrandsAreAboutAsync(CancellationToken cancellationToken)
     {
+        var shelves = await _shelfCorrection.ShelvesAsync(cancellationToken);
         var byProductId = new Dictionary<Guid, ShelfProductLocation>();
-        foreach (var warehouse in await _shelfCorrection.ShelvesAsync(cancellationToken))
+        foreach (var warehouse in shelves)
         {
             // A product still waiting to be pushed has no id yet, so nothing can be pointing at it.
             foreach (var product in warehouse.Items.Where(product => product.Id is not null))
@@ -456,6 +457,9 @@ public sealed partial class TaskListDetailViewModel : ObservableObject
         }
 
         _shelfProducts = byProductId;
+        _theListsOwnShelf = _linkedWarehouseId is { } warehouseId
+            ? shelves.FirstOrDefault(warehouse => warehouse.ServerId == warehouseId)
+            : null;
     }
 
     /// <summary>
@@ -463,9 +467,29 @@ public sealed partial class TaskListDetailViewModel : ObservableObject
     /// warehouse somebody stopped sharing, or one not synced yet. The entry still opens either way.
     /// </summary>
     private TaskItemShelfProduct? ShelfProductFor(TaskItemDto item)
-        => item.LinkedInventoryItemId is { } productId && _shelfProducts.TryGetValue(productId, out var found)
-            ? TaskItemShelfProduct.For(found.WarehouseLocalId, found.WarehouseName, found.Product, _translations)
+    {
+        if (item.LinkedInventoryItemId is { } productId && _shelfProducts.TryGetValue(productId, out var found))
+        {
+            return TaskItemShelfProduct.For(
+                found.WarehouseLocalId, found.WarehouseName, found.Product, _translations);
+        }
+
+        // Nothing on the shelf answers to this entry yet, and the list says which shelf it is measured
+        // against - so the entry describes something to put there rather than showing an empty form.
+        // Orbit.Web's editor offers the same two cases through the same fields.
+        return item.Kind == nameof(TaskItemKind.Inventory) && _theListsOwnShelf is { } shelf
+            ? TaskItemShelfProduct.ForSomethingNotOnTheShelfYet(shelf.LocalId, shelf.Name, _translations)
             : null;
+    }
+
+    /// <summary>
+    /// The warehouse this list is measured against, as this phone holds it. Null when the list names
+    /// none, or names one this phone has not got - there is nothing to put a product on either way.
+    /// </summary>
+    private LocalWarehouse? _theListsOwnShelf;
+
+    /// <summary>The server's id for that warehouse, as the list carries it.</summary>
+    private Guid? _linkedWarehouseId;
 
     /// <summary>
     /// Every list other than this one that is asking for the same product, by that product's id. Worked
@@ -654,6 +678,14 @@ public sealed partial class TaskListDetailViewModel : ObservableObject
         }
 
         var shelf = editor.IsShelfEntry ? editor.Shelf : null;
+        if (shelf is { Product.IsSomethingNew: true })
+        {
+            // The entry's own words are the product's name - the form asks everything except that, and
+            // this is where the two are put together. Taken from what is being saved rather than from
+            // what was opened, so renaming the entry in the same sitting names the product.
+            shelf.Product.Name = edited.Description;
+        }
+
         BeingEdited = null;
         await SaveAsync([.. _items.Select(item => item.Id == edited.Id ? edited : item)], cancellationToken);
 
@@ -903,6 +935,9 @@ public sealed partial class TaskListDetailViewModel : ObservableObject
         }
 
         _items = taskList.Items;
+        // Which shelf this list is measured against, so an inventory entry on it knows where a product
+        // it describes would go - see ShelfProductFor.
+        _linkedWarehouseId = taskList.LinkedWarehouseId;
         _isShowingWhatIsStored = true;
         IsGroup = taskList.IsGroup;
         IsPrivate = taskList.IsPrivate;

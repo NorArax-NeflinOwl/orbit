@@ -101,8 +101,19 @@ public sealed partial class TaskItemEditor : ObservableObject
     public string WhereTheProductLives
         => Shelf is null
             ? string.Empty
-            : _translations.Format(
-                "On the shelf in {0}. Saving this list saves the change there too.", Shelf.WarehouseName);
+            : Shelf.Product.IsSomethingNew
+                ? _translations.Format(
+                    "Goes on the shelf in {0} when this entry is saved, named after this entry.",
+                    Shelf.WarehouseName)
+                : _translations.Format(
+                    "On the shelf in {0}. Saving this list saves the change there too.", Shelf.WarehouseName);
+
+    /// <summary>
+    /// Whether the form is describing something to put on the shelf rather than correcting what is
+    /// already there. The name box is left out for it: the entry's own words are the product's name,
+    /// and two boxes for one name is two answers to the same question.
+    /// </summary>
+    public bool IsDescribingSomethingNew => Shelf is { Product.IsSomethingNew: true };
 
     /// <summary>
     /// An Inventory entry with nothing behind it - one whose warehouse is gone, or not synced yet. Said
@@ -331,7 +342,10 @@ public sealed partial class TaskItemEditor : ObservableObject
             ? _translations["A daily reminder needs a time to arrive at."]
             : IsCalendarEntry ? Event.WhatIsMissing
             : IsShelfEntry && !Shelf!.Product.CanSave
-                ? _translations["This errand's product needs a name and an amount."]
+                // A product being described has no name box to fill in - only the amount can be missing.
+                ? _translations[IsDescribingSomethingNew
+                    ? "This errand's product needs an amount."
+                    : "This errand's product needs a name and an amount."]
                 : null;
 
     public bool HasSomethingMissing => WhatIsMissing is not null;
