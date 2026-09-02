@@ -60,6 +60,10 @@ annual third-party security assessment, and this one does not. Google's console 
 requirements for the scopes actually selected, and that checklist is the authority; what follows is what
 to have ready before opening it.
 
+**Status, 2 September 2026: waiting on the domain, on purpose.** A domain has to be bought, a production
+environment of its own carved out in Azure, and DNS pointed at it before any of this can be submitted -
+see [future-plan.md](future-plan.md#what-real-google-calendar-sync-would-take).
+
 **The prerequisite that is not in Google's console at all: a domain.** Verification asks for authorised
 domains that the applicant owns and has verified in Google Search Console, and for a privacy policy and
 terms of service hosted on one of them. Orbit is served from

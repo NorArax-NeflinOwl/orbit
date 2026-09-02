@@ -4587,15 +4587,44 @@ input.note-editor-title {
     z-index: 1;
 }
 
-/* Something happened on this card that the reader has not seen. Deliberately small and deliberately
-   not a number: how many is the notifications panel's job, and a count here would be a second, and
-   sometimes disagreeing, answer to it. */
+/* Something happened on this card that the reader has not seen. Deliberately not a number: how many is
+   the notifications panel's job, and a count here would be a second, and sometimes disagreeing, answer
+   to it.
+
+   The colour is the notification badge's, not the accent's: it is the same news arriving in a second
+   place, and a blue dot in an app whose accent is blue said "here is a card" rather than "look at this
+   one". */
 .item-card-action {
     flex: 0 0 auto;
-    width: 8px;
-    height: 8px;
+    width: 9px;
+    height: 9px;
     border-radius: 50%;
-    background: var(--accent);
+    background: var(--danger);
+}
+
+/* And the card itself says it, because a dot nine pixels across is easy to miss on a page of cards. The
+   edge is coloured whether or not anything moves; the pulse is what catches an eye that was elsewhere. */
+.item-card-unseen {
+    border-color: var(--danger);
+    animation: card-with-news 2.4s ease-in-out infinite;
+}
+
+@keyframes card-with-news {
+    0%, 100% {
+        box-shadow: 0 0 0 0 color-mix(in oklch, var(--danger) 0%, transparent);
+    }
+
+    50% {
+        box-shadow: 0 0 0 4px color-mix(in oklch, var(--danger) 22%, transparent);
+    }
+}
+
+/* An edge that never stops moving is exactly what somebody turns this setting on to be rid of. The
+   colour stays - it is what says which card, and it says it without moving. */
+@media (prefers-reduced-motion: reduce) {
+    .item-card-unseen {
+        animation: none;
+    }
 }
 
 /* Takes the room left over, which is what pushes the collapse and menu buttons to the far edge and

@@ -465,6 +465,12 @@ public sealed class TasksTests : OrbitTestContext
         // A page of cards should answer "which list was that reminder about?" without opening any.
         var flagged = Assert.Single(cut.FindAll(".item-card"), card => card.QuerySelector(".item-card-action") is not null);
         Assert.Contains("Garden", flagged.QuerySelector(".item-card-name")!.TextContent);
+        // And says it on its own edge as well as with the dot: nine pixels is easy to miss on a page of
+        // cards, and this is the one worth stopping at.
+        Assert.Contains("item-card-unseen", flagged.ClassName);
+        Assert.DoesNotContain(
+            "item-card-unseen",
+            Assert.Single(cut.FindAll(".item-card"), card => card.QuerySelector(".item-card-action") is null).ClassName);
     }
 
     private static NotificationEntryDto Notification(string url)
