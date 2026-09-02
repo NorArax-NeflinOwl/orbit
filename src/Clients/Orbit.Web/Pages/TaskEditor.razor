@@ -82,7 +82,8 @@ else
             <TitledDescription Title="@_formModel.Title" TitleChanged="value => _formModel.Title = value"
                                Description="@_formModel.Description"
                                DescriptionChanged="value => _formModel.Description = value"
-                               TitleLabel="@(T["Title"])">
+                               TitleLabel="@(T["Title"])"
+                               IsReadOnly="@(_isSharedReadOnly || _lockedByUserName is not null)">
                 <Suggestions>
                     <NameSuggestions Kind="NameSuggestionKind.TaskListTitle" Value="_formModel.Title"
                                      OnChosen="chosen => _formModel.Title = chosen" />
@@ -388,12 +389,17 @@ else
                 <select id="taskListWarehouseSelect" value="@(_linkedWarehouseId?.ToString() ?? string.Empty)"
                         disabled="@_isWorkingOnInventory" @onchange="OnWarehouseChangedAsync">
                     <option value="">@T["Not measured against a warehouse"]</option>
-                    @* One list per storage: a shelf measured against two has two answers to "is there
-                       enough", and each check would report a shortfall the other had accounted for. The
-                       ones already spoken for are left out rather than offered and then refused. *@
-                    @foreach (var warehouse in _warehouses.Where(candidate => !_warehousesTakenByAnotherList.Contains(candidate.Id)))
+                    @* Every storage, including the ones other lists already measure: a store serves as
+                       many jobs as it holds things for. What that costs is said under the picker rather
+                       than hidden by leaving them out - the shelf is split between the lists asking for
+                       it, and each is told its own share. *@
+                    @foreach (var warehouse in _warehouses)
                     {
-                        <option value="@warehouse.Id">@warehouse.Name</option>
+                        <option value="@warehouse.Id">
+                            @(_warehousesMeasuredByAnotherList.Contains(warehouse.Id)
+                                ? T.Format("{0} (shared with another list)", warehouse.Name)
+                                : warehouse.Name)
+                        </option>
                     }
                 </select>
                 <small>@T["An inventory entry then describes a product to put on that shelf."]</small>
@@ -745,7 +751,7 @@ else
                     _linkedWarehouseId = taskList.LinkedWarehouseId;
                     _linkedWarehouseName = await NameOfTheLinkedWarehouseAsync();
                     await LoadTheWarehousesAsync();
-                    _warehousesTakenByAnotherList =
+                    _warehousesMeasuredByAnotherList =
                     [
                         .. allTaskLists
                             .Where(other => other.Id != taskListId && other.LinkedWarehouseId is not null)
@@ -890,8 +896,11 @@ else
     /// <summary>Every storage this account has, for the picker - see the "About this list" section.</summary>
     private IReadOnlyList<WarehouseDto> _warehouses = [];
 
-    /// <summary>The ones some other list already measures, which this one may not take - see the picker.</summary>
-    private HashSet<Guid> _warehousesTakenByAnotherList = [];
+    /// <summary>
+    /// The ones some other list already measures. Still on offer - a store may serve several lists -
+    /// and named as shared in the picker, because what it costs is that the shelf is split between them.
+    /// </summary>
+    private HashSet<Guid> _warehousesMeasuredByAnotherList = [];
 
     /// <summary>
     /// Measures this list against a storage, or against none. Saved on the spot rather than with the

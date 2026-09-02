@@ -132,6 +132,14 @@ public sealed class WarehouseDescriptionTests : OrbitTestContext
                 return new HttpResponseMessage(HttpStatusCode.OK) { Content = JsonContent.Create(items ?? []) };
             }
 
+            // Which lists are measured against this warehouse, and what the other warehouses are called
+            // - none of these tests are about either, and the editor draws its checklist empty rather
+            // than failing to open.
+            if (path is "/api/tasks" or "/api/warehouses")
+            {
+                return new HttpResponseMessage(HttpStatusCode.OK) { Content = JsonContent.Create(Array.Empty<object>()) };
+            }
+
             if (path.EndsWith("/lock", StringComparison.Ordinal) || path.StartsWith("/api/share-links", StringComparison.Ordinal))
             {
                 return new HttpResponseMessage(HttpStatusCode.NoContent);
@@ -148,6 +156,8 @@ public sealed class WarehouseDescriptionTests : OrbitTestContext
 
         var httpClient = new HttpClient(handler) { BaseAddress = new Uri("https://example.test/") };
         Services.AddSingleton(new InventoryApiClient(httpClient));
+        // The editor also asks which lists are measured against this warehouse - see its checklist.
+        Services.AddSingleton(new TasksApiClient(httpClient));
         Services.AddSingleton(new NotificationsApiClient(httpClient));
         Services.AddSingleton(new PublicShareApiClient(httpClient));
     }

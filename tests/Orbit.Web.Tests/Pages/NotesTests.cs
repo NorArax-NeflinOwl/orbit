@@ -131,6 +131,43 @@ public sealed class NotesTests : OrbitTestContext
         Assert.EndsWith($"/notes/{note.Id}/edit", navigationManager.Uri);
     }
 
+    /// <summary>
+    /// A sealed note's card opens it too. Its body is empty here - the server holds no readable line of
+    /// it - but the empty box still sits over the card, so a press there used to land on nothing at all
+    /// and the card read as broken. The light view opens it: the client unseals it there.
+    /// </summary>
+    [Fact]
+    public void A_private_notes_card_opens_it_as_any_other_does()
+    {
+        var note = Note("Shopping") with { IsPrivate = true };
+        RegisterNotesApiClient([note]);
+        var navigationManager = Services.GetRequiredService<NavigationManager>();
+        var cut = RenderComponent<Web.Pages.Notes>();
+
+        cut.Find(".item-card-body").Click();
+
+        Assert.EndsWith($"/notes/{note.Id}", navigationManager.Uri);
+    }
+
+    /// <summary>
+    /// The menu is named for what the press will do. A note shared read-only opens in the form to be
+    /// looked at, and the list called that "Edit" while the note's own page called it "View" - two
+    /// different things said about one note.
+    /// </summary>
+    [Fact]
+    public void A_note_this_reader_cannot_change_offers_to_be_viewed()
+    {
+        RegisterNotesApiClient([
+            Note("Theirs") with { IsShared = true, SharedByUserName = "Anna", AccessLevel = "ReadOnly" }]);
+        var cut = RenderComponent<Web.Pages.Notes>();
+
+        OpenTheCardMenu(cut);
+
+        var offered = cut.FindAll(".avatar-dropdown-item").Select(entry => entry.TextContent.Trim()).ToList();
+        Assert.Contains("View", offered);
+        Assert.DoesNotContain("Edit", offered);
+    }
+
     [Fact]
     public void Adding_a_note_opens_a_blank_one()
     {

@@ -121,12 +121,17 @@ else
                 <select class="options-select" value="@_linkedWarehouseId" @onchange="OnWarehouseChangedAsync"
                         @onclick:stopPropagation="true">
                     <option value="">@T["Not measured against a warehouse"]</option>
-                    @* One list per warehouse: a shelf measured against two has two answers to "is there
-                       enough", and each check would report a shortfall the other had accounted for. The
-                       ones already spoken for are left out rather than offered and then refused. *@
-                    @foreach (var warehouse in _warehouses.Where(CanBeMeasuredAgainst))
+                    @* Every storage, the ones other lists already measure included: a store serves as
+                       many jobs as it holds things for, and the shelf is split between the lists asking
+                       for it - see StockRequirementCounter. Which of them are shared is said in the
+                       option itself rather than by leaving it out. *@
+                    @foreach (var warehouse in _warehouses)
                     {
-                        <option value="@warehouse.Id">@warehouse.Name</option>
+                        <option value="@warehouse.Id">
+                            @(_warehousesMeasuredByAnotherList.Contains(warehouse.Id)
+                                ? T.Format("{0} (shared with another list)", warehouse.Name)
+                                : warehouse.Name)
+                        </option>
                     }
                 </select>
                 @if (_warehouseMessage is not null)
@@ -826,9 +831,9 @@ else
         {
             _warehouses = await InventoryApiClient.GetWarehousesAsync();
             _linkedWarehouseId = _sections[0].TaskList.LinkedWarehouseId?.ToString() ?? string.Empty;
-            // Which shelves some other list already measures, so the picker does not offer one the
-            // server would turn away - see LinkTaskListToWarehouseCommandHandler.
-            _warehousesTakenByAnotherList =
+            // Which shelves some other list already measures, so the picker can say which of them would
+            // be shared - see LinkTaskListToWarehouseCommandHandler, which allows the sharing.
+            _warehousesMeasuredByAnotherList =
             [
                 .. (await TasksApiClient.GetTaskListsAsync())
                     .Where(taskList => taskList.Id != Id && taskList.LinkedWarehouseId is not null)
@@ -844,14 +849,14 @@ else
         }
     }
 
-    /// <summary>Every warehouse some other list of this account's already measures - see the picker.</summary>
-    private HashSet<Guid> _warehousesTakenByAnotherList = [];
+    /// <summary>
+    /// Every warehouse some other list of this account's already measures. Still on offer, and named as
+    /// shared in the picker - see the option there.
+    /// </summary>
+    private HashSet<Guid> _warehousesMeasuredByAnotherList = [];
 
     /// <summary>What the picker says back when a choice did not take. Null while nothing needs saying.</summary>
     private string? _warehouseMessage;
-
-    private bool CanBeMeasuredAgainst(WarehouseDto warehouse)
-        => !_warehousesTakenByAnotherList.Contains(warehouse.Id);
 
     private async Task OnWarehouseChangedAsync(ChangeEventArgs args)
     {

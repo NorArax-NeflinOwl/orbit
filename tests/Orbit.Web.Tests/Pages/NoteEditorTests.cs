@@ -169,6 +169,39 @@ public sealed class NoteEditorTests : OrbitTestContext
     }
 
     /// <summary>
+    /// A note held read-only cannot be typed into. The disabled fieldset around the form does not say
+    /// so on its own: it disables form controls, and the writing surface is a contenteditable div,
+    /// which is not one - so the note took every keystroke with Save greyed out beside it.
+    /// </summary>
+    [Fact]
+    public void A_note_shared_read_only_cannot_be_written_in()
+    {
+        var note = Note("Shopping") with
+        {
+            IsShared = true, SharedByUserName = "anna", AccessLevel = "ReadOnly"
+        };
+        RegisterApiClients(note);
+
+        var cut = RenderComponent<NoteEditor>(parameters => parameters.Add(editor => editor.Id, note.Id));
+
+        var surface = cut.Find(".note-editor-content");
+        Assert.Equal("false", surface.GetAttribute("contenteditable"));
+        Assert.Contains("note-editor-content-readonly", surface.ClassName);
+    }
+
+    /// <summary>And neither can one somebody else is holding - the same surface, the same rule.</summary>
+    [Fact]
+    public void A_note_someone_else_is_editing_cannot_be_written_in()
+    {
+        var note = Note("Shopping");
+        RegisterApiClients(note, lockedByUserName: "anna");
+
+        var cut = RenderComponent<NoteEditor>(parameters => parameters.Add(editor => editor.Id, note.Id));
+
+        Assert.Equal("false", cut.Find(".note-editor-content").GetAttribute("contenteditable"));
+    }
+
+    /// <summary>
     /// Said in the panel that stays in view rather than above a form that scrolls away, and beside the
     /// Save it explains: "why is Save greyed" is asked with the thumb on Save. The panel is drawn for a
     /// note nobody can write to as well - one that vanished took the reason with it.

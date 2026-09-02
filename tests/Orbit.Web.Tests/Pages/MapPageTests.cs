@@ -160,11 +160,12 @@ public sealed class MapPageTests : OrbitTestContext
     }
 
     /// <summary>
-    /// The other way to pin a place: pressing the map itself. Same pin and same question as a search -
-    /// what the press is for is decided afterwards, because a press says where and not what.
+    /// The other way to pin a place: pressing the map itself. A map is dragged and zoomed by pressing
+    /// it, so a press is easy to make by accident - it asks before anything moves, and only the answer
+    /// puts a pin down.
     /// </summary>
     [Fact]
-    public async Task Pressing_the_map_pins_the_place_pressed_and_asks_what_to_make_of_it()
+    public async Task Pressing_the_map_asks_before_it_pins_anything()
     {
         GrantLocations();
         var cut = RenderComponent<MapPage>();
@@ -172,9 +173,39 @@ public sealed class MapPageTests : OrbitTestContext
 
         await cut.InvokeAsync(() => cut.Instance.OnMapPressed(54.354, 18.656));
 
-        Assert.Contains("Wały Piastowskie 1, Gdańsk", cut.Find(".map-create-event").TextContent);
-        Assert.Empty(cut.FindAll(".map-canvas-note"));
+        var asked = cut.Find(".map-press-asks").TextContent;
+        Assert.Contains("Wały Piastowskie 1, Gdańsk", asked);
+        Assert.Contains("Put a pin here?", asked);
+        // Nothing is pinned yet, so there is nothing to be asked what to make of.
+        Assert.Empty(cut.FindAll(".map-create-event:not(.map-press-asks)"));
+
+        YesTo(cut, ".map-press-asks");
+
+        Assert.Contains("Wały Piastowskie 1, Gdańsk", cut.Find(".map-create-event:not(.map-press-asks)").TextContent);
     }
+
+    /// <summary>
+    /// "No" leaves the map exactly as it was - which is the whole point of asking. A pin somebody has
+    /// already placed survives a stray press on the way to dragging the map.
+    /// </summary>
+    [Fact]
+    public async Task A_press_that_is_refused_leaves_the_pin_where_it_was()
+    {
+        GrantLocations();
+        var cut = RenderComponent<MapPage>();
+        Search(cut, "Długa 4");
+
+        await cut.InvokeAsync(() => cut.Instance.OnMapPressed(54.354, 18.656));
+        Assert.Contains("Move the pin here?", cut.Find(".map-press-asks").TextContent);
+
+        cut.FindAll(".map-press-asks button").First(button => button.TextContent.Contains("No")).Click();
+
+        Assert.Empty(cut.FindAll(".map-press-asks"));
+        Assert.Contains("Długa 4, Warszawa", cut.Find(".map-create-event").TextContent);
+    }
+
+    private static void YesTo(IRenderedFragment cut, string selector)
+        => cut.FindAll($"{selector} button").First(button => button.TextContent.Trim() == "Yes").Click();
 
     /// <summary>
     /// A field, or the sea. Somebody who pressed there meant that spot whether or not it has a street,
@@ -189,7 +220,7 @@ public sealed class MapPageTests : OrbitTestContext
 
         await cut.InvokeAsync(() => cut.Instance.OnMapPressed(54.354, 18.656));
 
-        Assert.Contains("54.354, 18.656", cut.Find(".map-create-event").TextContent);
+        Assert.Contains("54.354, 18.656", cut.Find(".map-press-asks").TextContent);
     }
 
     /// <summary>A pressed place travels to the editor exactly as a searched one does - see ChosenPlace.</summary>
@@ -200,6 +231,7 @@ public sealed class MapPageTests : OrbitTestContext
         var chosenPlace = Services.GetRequiredService<ChosenPlace>();
         var cut = RenderComponent<MapPage>();
         await cut.InvokeAsync(() => cut.Instance.OnMapPressed(54.354, 18.656));
+        YesTo(cut, ".map-press-asks");
 
         UseThePlace(cut);
         cut.FindAll(".map-overlay-confirm button")

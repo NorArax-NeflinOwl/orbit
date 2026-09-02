@@ -8,7 +8,12 @@
 @implements IAsyncDisposable
 @inject IJSRuntime JSRuntime
 
-<div @ref="_containerRef" class="@CssClass" contenteditable="true" @attributes="AdditionalAttributes"></div>
+@* A surface nobody may write to must not take writing. A disabled <fieldset> around this does nothing:
+   it disables form controls, and a contenteditable div is not one - which is how a note held read-only,
+   or one somebody else was editing, could be typed into with Save greyed out beside it. The tick boxes
+   in it are real <input>s and are stopped by the stylesheet - see .note-editor-content-readonly. *@
+<div @ref="_containerRef" class="@CssClass @(IsReadOnly ? "note-editor-content-readonly" : null)"
+     contenteditable="@(IsReadOnly ? "false" : "true")" @attributes="AdditionalAttributes"></div>
 
 @code {
     [Parameter]
@@ -19,6 +24,13 @@
 
     [Parameter]
     public string? CssClass { get; set; }
+
+    /// <summary>
+    /// Whether this surface may be written to. False by default: most of the places it appears are
+    /// forms somebody opened to write in.
+    /// </summary>
+    [Parameter]
+    public bool IsReadOnly { get; set; }
 
     [Parameter(CaptureUnmatchedValues = true)]
     public IReadOnlyDictionary<string, object>? AdditionalAttributes { get; set; }

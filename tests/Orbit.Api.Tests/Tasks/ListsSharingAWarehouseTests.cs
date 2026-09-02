@@ -7,10 +7,12 @@ using Xunit;
 namespace Orbit.Api.Tests.Tasks;
 
 /// <summary>
-/// A shelf is measured against one list. Two would give it two answers to "is there enough", and each
-/// list's stock check would report a shortfall the other had already accounted for.
+/// Several lists may be measured against one shelf. That used to be refused - two lists asking the same
+/// shelf "is there enough" each got the whole shelf for an answer - and what answers it now is the
+/// counting: the shelf is split between everything asking for it, which is held in
+/// StockCheckSharedWarehouseTests. What this file holds is that the linking itself is allowed.
 /// </summary>
-public sealed class OneListPerWarehouseTests
+public sealed class ListsSharingAWarehouseTests
 {
     [Fact]
     public async Task A_list_can_be_measured_against_a_warehouse_nobody_has_taken()
@@ -23,8 +25,12 @@ public sealed class OneListPerWarehouseTests
         Assert.Equal(warehouse.Id, (await context.ReadAsync(list.Id))!.LinkedWarehouseId);
     }
 
+    /// <summary>
+    /// A second list may measure the same shelf, and the first keeps it: one store serves several jobs,
+    /// which is what a pantry is. What stops them double-counting is the stock check, not this.
+    /// </summary>
     [Fact]
-    public async Task A_warehouse_another_list_already_measures_is_refused()
+    public async Task A_warehouse_another_list_already_measures_may_be_shared()
     {
         var context = new LinkingContext();
         var warehouse = await context.AWarehouseAsync();
@@ -32,10 +38,20 @@ public sealed class OneListPerWarehouseTests
         var second = await context.AListAsync();
         await context.LinkAsync(first.Id, warehouse.Id);
 
-        Assert.False(await context.LinkAsync(second.Id, warehouse.Id));
-        // Refused rather than taken from the list that had it.
-        Assert.Null((await context.ReadAsync(second.Id))!.LinkedWarehouseId);
+        Assert.True(await context.LinkAsync(second.Id, warehouse.Id));
+        Assert.Equal(warehouse.Id, (await context.ReadAsync(second.Id))!.LinkedWarehouseId);
         Assert.Equal(warehouse.Id, (await context.ReadAsync(first.Id))!.LinkedWarehouseId);
+    }
+
+    /// <summary>A warehouse this account cannot read is still refused - that gate has not moved.</summary>
+    [Fact]
+    public async Task A_warehouse_that_is_not_there_is_refused()
+    {
+        var context = new LinkingContext();
+        var list = await context.AListAsync();
+
+        Assert.False(await context.LinkAsync(list.Id, Guid.NewGuid()));
+        Assert.Null((await context.ReadAsync(list.Id))!.LinkedWarehouseId);
     }
 
     /// <summary>Pointing the same list at it again is the state the caller is asking for, not a clash.</summary>
@@ -50,18 +66,18 @@ public sealed class OneListPerWarehouseTests
         Assert.True(await context.LinkAsync(list.Id, warehouse.Id));
     }
 
+    /// <summary>A list can stop being measured against anything, which is what unlinking is for.</summary>
     [Fact]
-    public async Task Letting_a_warehouse_go_frees_it_for_another_list()
+    public async Task A_list_can_let_its_warehouse_go()
     {
         var context = new LinkingContext();
         var warehouse = await context.AWarehouseAsync();
-        var first = await context.AListAsync();
-        var second = await context.AListAsync();
-        await context.LinkAsync(first.Id, warehouse.Id);
+        var list = await context.AListAsync();
+        await context.LinkAsync(list.Id, warehouse.Id);
 
-        await context.LinkAsync(first.Id, warehouseId: null);
+        Assert.True(await context.LinkAsync(list.Id, warehouseId: null));
 
-        Assert.True(await context.LinkAsync(second.Id, warehouse.Id));
+        Assert.Null((await context.ReadAsync(list.Id))!.LinkedWarehouseId);
     }
 
     [Fact]

@@ -1127,10 +1127,13 @@ happens on the entry's save rather than the list's, because that is the moment t
 
 Which storage a list is measured against is set in its editor, under **About this list**, for any list
 rather than only a group one - an entry describing a product has to be able to say which shelf it goes
-on. The picker leaves out storages another list already measures (one list per storage, see
-`LinkTaskListToWarehouseCommandHandler`), and "Generate inventory" is refused to a list that already has
-one: it would build a second and quietly move the list onto it, leaving the first with nothing pointing
-at it.
+on. The picker offers every storage, the ones other lists already measure included - a store serves as many
+jobs as it holds things for - and marks those as shared. A shelf several lists ask for is split between
+them in proportion to what each asks for, so each list is told its own share rather than being told the
+last bag is theirs (see `StockRequirementCounter.ShareOfTheShelf`). The tie can be made from either end:
+a warehouse's editor carries a checklist of the lists measured against it. "Generate inventory" is still
+refused to a list that already has one: it would build a second and quietly move the list onto it,
+leaving the first with nothing pointing at it.
 
 `POST /api/tasks/{id}/inventory` goes the other way: it builds the shelf the work needs - one entry per
 distinct thing, **each carrying how many the job needs as its minimum**, and starting with whatever the
