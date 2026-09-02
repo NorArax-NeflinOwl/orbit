@@ -187,6 +187,10 @@ public static class MauiProgram
 		services.AddSingleton<IDevicePushNotifications, PhonePushNotifications>();
 		services.AddSingleton<IPresenceStore, PreferencesPresenceStore>();
 		services.AddSingleton<IDashboardPinStore, PreferencesDashboardPinStore>();
+		services.AddSingleton<IConversationPinStore, PreferencesConversationPinStore>();
+		// One per app rather than one per screen: the contact list and the group list read the same
+		// pins, and two copies would disagree the moment one of them wrote.
+		services.AddSingleton<ConversationPins>();
 		services.AddSingleton<IDashboardCardPreferenceStore, PreferencesDashboardCardPreferenceStore>();
 		services.AddSingleton<IChecklistReadingStore, PreferencesChecklistReadingStore>();
 		services.AddSingleton<ICalendarListOrderStore, PreferencesCalendarListOrderStore>();

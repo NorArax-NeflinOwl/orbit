@@ -25,6 +25,7 @@ public sealed partial class ContactsViewModel : ObservableObject
     private readonly OwnEncryptionKeyProvider _encryptionKeyProvider;
     private readonly Translations _translations;
     private readonly UserPermissions _permissions;
+    private readonly ConversationPins _pins;
     private readonly IScreenNavigator _navigator;
 
     [ObservableProperty]
@@ -44,8 +45,9 @@ public sealed partial class ContactsViewModel : ObservableObject
         ChatRepository chatRepository, ChatClient chatClient, UsersClient usersClient,
         ChatSynchronizer synchronizer, OwnEncryptionKeyProvider encryptionKeyProvider,
         Translations translations, UserPermissions permissions, IScreenNavigator navigator,
-        ConnectionRequirement connection)
+        ConnectionRequirement connection, ConversationPins pins)
     {
+        _pins = pins;
         _chatRepository = chatRepository;
         _chatClient = chatClient;
         _usersClient = usersClient;
@@ -203,14 +205,39 @@ public sealed partial class ContactsViewModel : ObservableObject
         }
 
         Contacts.Clear();
-        foreach (var contact in contacts.Where(contact => contact.IsArchived == IsShowingArchive))
+        foreach (var contact in InReadingOrder(contacts.Where(contact => contact.IsArchived == IsShowingArchive)))
         {
+            contact.IsPinned = _pins.IsPinned(contact.UserId);
             Contacts.Add(contact);
         }
 
         Message = Contacts.Count == 0
             ? IsShowingArchive ? _translations["Nothing put away."] : _translations["No conversations yet."]
             : string.Empty;
+    }
+
+    /// <summary>
+    /// Pinned first, and the archive left as it is: putting something away is the opposite of keeping
+    /// it at the top of the day, so the two lists do not both answer to the pins - the same line
+    /// Orbit.Web draws.
+    /// </summary>
+    private IEnumerable<LocalContact> InReadingOrder(IEnumerable<LocalContact> contacts)
+        => IsShowingArchive ? contacts : _pins.PinnedFirst(contacts, contact => contact.UserId);
+
+    /// <summary>
+    /// Keeps this conversation at the top of the list, or lets it back into the order it was in. On
+    /// this device only - see ConversationPins.
+    /// </summary>
+    [RelayCommand]
+    private Task TogglePinAsync(LocalContact? contact, CancellationToken cancellationToken)
+    {
+        if (contact is null)
+        {
+            return Task.CompletedTask;
+        }
+
+        _pins.Toggle(contact.UserId);
+        return ShowCachedContactsAsync(cancellationToken);
     }
 
     /// <summary>

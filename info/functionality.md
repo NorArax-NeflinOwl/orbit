@@ -1902,6 +1902,15 @@ bringing it back, and the thing that is not reversible: emptying a conversation,
 each behind a question first. Emptying also drops what the phone had cached, because a pull only ever
 adds and the server has nothing left to send that would take those words away.
 
+**And the other half of arranging a list: pinning.** A conversation kept at the top stays there whatever
+the last message said, on the device that pinned it and nowhere else - the browser has kept its own
+since it had a list to keep, and the phone had no way to. People and groups share one set of pins
+(`ConversationPins`, `IConversationPinStore`): an id means one conversation whichever kind it is. Pinned
+rows are lifted rather than taken out, so unpinning finds the row back where the sort would have put it,
+and the archive is left in the order it has - keeping something at the top of the day is the opposite of
+what putting it away said. The row says it is pinned in a word as well as a mark, since a mark is
+nothing to somebody who cannot see it.
+
 ## Saying nothing about a field
 
 Descriptions on a task list and a warehouse, and a shelf item's regular-check flag, are all optional on

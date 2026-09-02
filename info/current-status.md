@@ -128,6 +128,10 @@ since the entry's own words are the name - and saving the entry puts it there, s
 already holds that name. It is the last of the browser's 2026-09-02 item form that the phone was
 missing.
 
+Conversations can be pinned here now, as they always could in the browser: people and groups out of one
+set, kept on the device that pinned them, lifted to the top of the list without being taken out of its
+order and without touching the archive.
+
 On Android the calendar now gets out of the way as the list under it is read: it minimises to the week
 the reader is standing on, the month they are reading in the year view, or one hour of the day, and
 comes back whole at the top of the list. Decided for the phone and not for the browser - a desktop

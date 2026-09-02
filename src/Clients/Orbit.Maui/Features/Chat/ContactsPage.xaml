@@ -88,6 +88,13 @@
                                                 Subtitle="{Binding UserName, StringFormat='@{0}'}"
                                                 Status="{Binding PresenceStatus}"
                                                 HasUnseenAction="{Binding RequiresApprovalFromCurrentUser}">
+                                <!-- Kept at the top of the list, and said on the row so it is clear why
+                                     it is up there. The slot PersonRow keeps for it, in the place the
+                                     browser puts its own pin. -->
+                                <controls:PersonRow.Pin>
+                                    <Label Text="📌" FontSize="11" IsVisible="{Binding IsPinned}"
+                                           SemanticProperties.Description="{controls:Translate 'Pinned'}" />
+                                </controls:PersonRow.Pin>
                                 <controls:PersonRow.Menu>
                                     <!-- Putting one away, bringing it back, and emptying it - the three
                                          the browser keeps behind a row's own menu. Its own button rather

@@ -48,14 +48,23 @@ public partial class ContactsPage : ContentPage
 		}
 
 		var info = _translations["Info"];
+		var pin = contact.IsPinned ? _translations["Unpin"] : _translations["Pin"];
 		var putAway = contact.IsArchived ? _translations["Put back"] : _translations["Archive"];
 		// Offered only where somebody has already decided they are done with the conversation, which is
 		// the one place Orbit.Web offers it too.
 		var clear = _translations["Delete chat history"];
-		string[] choices = contact.IsArchived ? [info, putAway, clear] : [info, putAway];
+		// Not offered on something put away: pinning keeps a conversation at the top of the day, which
+		// is the opposite of what archiving said - see ContactsViewModel.InReadingOrder.
+		string[] choices = contact.IsArchived ? [info, putAway, clear] : [info, pin, putAway];
 
 		var chosen = await DisplayActionSheet(
 			contact.DisplayName, _translations["Cancel"], destruction: null, choices);
+
+		if (chosen == pin)
+		{
+			_viewModel.TogglePinCommand.Execute(contact);
+			return;
+		}
 
 		if (chosen == info)
 		{
