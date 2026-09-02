@@ -294,8 +294,18 @@ public sealed partial class TaskListDetailViewModel : ObservableObject
             BeingEdited = TaskItemEditor.For(
                 row.Item, _translations, AppointmentFor(row.Item), LinkTargets, _nameSuggestions,
                 ShelfProductFor(row.Item));
-            MoveTarget = null;
-            OnPropertyChanged(nameof(CanMoveItem));
+
+            // Where the entry can go depends on what it stands for, and that changes while the form is
+            // open - see MoveTargetsForTheEntry.
+            BeingEdited.PropertyChanged += (_, changed) =>
+            {
+                if (changed.PropertyName == nameof(TaskItemEditor.LinkableTaskListsLeft))
+                {
+                    SayWhereTheEntryCanGo();
+                }
+            };
+
+            SayWhereTheEntryCanGo();
         }
     }
 
@@ -310,13 +320,6 @@ public sealed partial class TaskListDetailViewModel : ObservableObject
     public ObservableCollection<TaskListChoice> LinkTargets { get; } = [];
 
     /// <summary>
-    /// Choosing one moves the entry there and then, rather than waiting for this form's Save. The move
-    /// is not part of the entry - it is a change to two lists - and Orbit.Web's editor does the same.
-    /// </summary>
-    [ObservableProperty]
-    private TaskListChoice? _moveTarget;
-
-    /// <summary>
     /// Moving is a change to two lists, which only the server can make - so it is offered only for an
     /// entry the server already knows about, and only while there is somebody to ask.
     ///
@@ -329,7 +332,7 @@ public sealed partial class TaskListDetailViewModel : ObservableObject
     public bool CanMoveItem
         => CanEdit
             && _networkStatus.IsOnline
-            && MoveTargets.Count > 0
+            && MoveTargetsForTheEntry.Count > 0
             && !_isWaitingToBePushed
             && BeingEdited?.ToDto().Id is { } itemId && itemId != Guid.Empty;
 
@@ -364,14 +367,48 @@ public sealed partial class TaskListDetailViewModel : ObservableObject
         await SynchroniseAsync(cancellationToken);
         await ShowStoredListAsync(cancellationToken);
 
-        Status = outcome is WriteOutcome.Applied
-            ? _translations.Format("Moved to {0}.", target.Name)
-            : _translations["Couldn't move it. Try again."];
+        Status = outcome switch
+        {
+            WriteOutcome.Applied => _translations.Format("Moved to {0}.", target.Name),
+            // A rule about the entry itself, so trying again would only fail again - say so rather than
+            // asking for another go. See WriteOutcome.Rejected.
+            WriteOutcome.Rejected => _translations["That move isn't allowed."],
+            _ => _translations["Couldn't move it. Try again."]
+        };
     }
+
+    /// <summary>
+    /// The lists this screen's entries stand for, by the server id they name - so an entry that points
+    /// at one can offer the way into it. Read from this phone's own copy, like everything else a row
+    /// points at.
+    /// </summary>
+    private IReadOnlyDictionary<Guid, LocalTaskList> _linkedTaskLists = new Dictionary<Guid, LocalTaskList>();
+
+    private void SayWhereTheEntryCanGo()
+    {
+        OnPropertyChanged(nameof(MoveTargetsForTheEntry));
+        OnPropertyChanged(nameof(CanMoveItem));
+    }
+
+    /// <summary>
+    /// Where the entry being edited could actually go: any other list, except one it already stands for.
+    /// An entry cannot link to the list it belongs to, and the server refuses such a move outright - so
+    /// it is left out rather than offered and then rejected, the way the linking picker already leaves
+    /// out what the entry stands for. Orbit.Web's editor draws the same distinction.
+    /// </summary>
+    public IReadOnlyList<TaskListChoice> MoveTargetsForTheEntry
+        => BeingEdited is not { LinkedTaskLists.Count: > 0 } editor
+            ? [.. MoveTargets]
+            : [.. MoveTargets.Where(target =>
+                editor.LinkedTaskLists.All(linked => linked.ServerId != target.ServerId))];
 
     private async Task ShowWhereItCanGoAsync(CancellationToken cancellationToken)
     {
         var others = await _taskLists.GetAllAsync(cancellationToken);
+
+        _linkedTaskLists = others
+            .Where(list => list.ServerId is not null)
+            .ToDictionary(list => list.ServerId!.Value);
 
         MoveTargets.Clear();
 
@@ -430,8 +467,9 @@ public sealed partial class TaskListDetailViewModel : ObservableObject
 
     private async Task ShowWhatItsErrandsAreAboutAsync(CancellationToken cancellationToken)
     {
+        var shelves = await _shelfCorrection.ShelvesAsync(cancellationToken);
         var byProductId = new Dictionary<Guid, ShelfProductLocation>();
-        foreach (var warehouse in await _shelfCorrection.ShelvesAsync(cancellationToken))
+        foreach (var warehouse in shelves)
         {
             // A product still waiting to be pushed has no id yet, so nothing can be pointing at it.
             foreach (var product in warehouse.Items.Where(product => product.Id is not null))
@@ -441,6 +479,9 @@ public sealed partial class TaskListDetailViewModel : ObservableObject
         }
 
         _shelfProducts = byProductId;
+        _theListsOwnShelf = _linkedWarehouseId is { } warehouseId
+            ? shelves.FirstOrDefault(warehouse => warehouse.ServerId == warehouseId)
+            : null;
     }
 
     /// <summary>
@@ -448,9 +489,29 @@ public sealed partial class TaskListDetailViewModel : ObservableObject
     /// warehouse somebody stopped sharing, or one not synced yet. The entry still opens either way.
     /// </summary>
     private TaskItemShelfProduct? ShelfProductFor(TaskItemDto item)
-        => item.LinkedInventoryItemId is { } productId && _shelfProducts.TryGetValue(productId, out var found)
-            ? TaskItemShelfProduct.For(found.WarehouseLocalId, found.WarehouseName, found.Product, _translations)
+    {
+        if (item.LinkedInventoryItemId is { } productId && _shelfProducts.TryGetValue(productId, out var found))
+        {
+            return TaskItemShelfProduct.For(
+                found.WarehouseLocalId, found.WarehouseName, found.Product, _translations);
+        }
+
+        // Nothing on the shelf answers to this entry yet, and the list says which shelf it is measured
+        // against - so the entry describes something to put there rather than showing an empty form.
+        // Orbit.Web's editor offers the same two cases through the same fields.
+        return item.Kind == nameof(TaskItemKind.Inventory) && _theListsOwnShelf is { } shelf
+            ? TaskItemShelfProduct.ForSomethingNotOnTheShelfYet(shelf.LocalId, shelf.Name, _translations)
             : null;
+    }
+
+    /// <summary>
+    /// The warehouse this list is measured against, as this phone holds it. Null when the list names
+    /// none, or names one this phone has not got - there is nothing to put a product on either way.
+    /// </summary>
+    private LocalWarehouse? _theListsOwnShelf;
+
+    /// <summary>The server's id for that warehouse, as the list carries it.</summary>
+    private Guid? _linkedWarehouseId;
 
     /// <summary>
     /// Every list other than this one that is asking for the same product, by that product's id. Worked
@@ -495,6 +556,21 @@ public sealed partial class TaskListDetailViewModel : ObservableObject
     /// </summary>
     private IReadOnlyList<TaskItemReference> ReferencesFor(TaskItemDto item)
     {
+        // An entry that stands for other lists is a way into them, and was a dead end here: a group
+        // list is nothing but such entries, so its screen offered no way to the work it gathers. The
+        // browser draws the whole tree as stacked cards; a phone has room for one list at a time, so
+        // this says which lists the entry stands for and lets the reader walk into each.
+        if (item.AllLinkedTaskListIds.Count > 0)
+        {
+            return [.. item.AllLinkedTaskListIds
+                // A list this reader cannot see, or one this phone has not pulled yet: there is nothing
+                // to open, and a chip that leads nowhere is worse than no chip.
+                .Select(linkedId => _linkedTaskLists.GetValueOrDefault(linkedId))
+                .Where(linked => linked is not null)
+                .Select(linked => new TaskItemReference(
+                    _translations.Written(linked!.Title), linked.LocalId, TaskItemReferenceTarget.TaskList))];
+        }
+
         if (item.Kind != nameof(TaskItemKind.Inventory) || item.LinkedInventoryItemId is not { } productId)
         {
             return [];
@@ -506,7 +582,8 @@ public sealed partial class TaskListDetailViewModel : ObservableObject
             references.Add(new(
                 _translations.Format("in {0}", shelf.WarehouseName),
                 shelf.WarehouseLocalId,
-                TaskItemReferenceTarget.Warehouse));
+                TaskItemReferenceTarget.Warehouse,
+                productId));
         }
 
         if (_alsoAskedForBy.TryGetValue(productId, out var elsewhere))
@@ -528,7 +605,7 @@ public sealed partial class TaskListDetailViewModel : ObservableObject
 
         if (reference.Target == TaskItemReferenceTarget.Warehouse)
         {
-            _navigator.ShowWarehouse(reference.LocalId);
+            _navigator.ShowWarehouse(reference.LocalId, reference.ProductId);
             return;
         }
 
@@ -624,6 +701,14 @@ public sealed partial class TaskListDetailViewModel : ObservableObject
         }
 
         var shelf = editor.IsShelfEntry ? editor.Shelf : null;
+        if (shelf is { Product.IsSomethingNew: true })
+        {
+            // The entry's own words are the product's name - the form asks everything except that, and
+            // this is where the two are put together. Taken from what is being saved rather than from
+            // what was opened, so renaming the entry in the same sitting names the product.
+            shelf.Product.Name = edited.Description;
+        }
+
         BeingEdited = null;
         await SaveAsync([.. _items.Select(item => item.Id == edited.Id ? edited : item)], cancellationToken);
 
@@ -913,6 +998,9 @@ public sealed partial class TaskListDetailViewModel : ObservableObject
         }
 
         _items = taskList.Items;
+        // Which shelf this list is measured against, so an inventory entry on it knows where a product
+        // it describes would go - see ShelfProductFor.
+        _linkedWarehouseId = taskList.LinkedWarehouseId;
         _isShowingWhatIsStored = true;
         IsGroup = taskList.IsGroup;
         IsPrivate = taskList.IsPrivate;
@@ -1112,14 +1200,8 @@ public sealed partial class TaskListDetailViewModel : ObservableObject
         OnPropertyChanged(nameof(IsEditingItem));
         OnPropertyChanged(nameof(IsShowingList));
         OnPropertyChanged(nameof(CanMoveItem));
-    }
-
-    partial void OnMoveTargetChanged(TaskListChoice? value)
-    {
-        if (value is not null)
-        {
-            MoveItemCommand.Execute(value);
-        }
+        // What the entry stands for decides where it can go - see MoveTargetsForTheEntry.
+        OnPropertyChanged(nameof(MoveTargetsForTheEntry));
     }
 
     partial void OnRestockTickBeingAskedChanged(TaskItemRow? value)

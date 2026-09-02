@@ -83,6 +83,11 @@ public static class PolishTranslations
         ["This list already has a storage."] = "Ta lista ma już magazyn.",
         ["Goes on the shelf in {0} when this list is saved, named after this entry."] =
             "Trafi na półkę w: {0} przy zapisie tej listy, pod nazwą tej pozycji.",
+        // The phone saves one entry at a time, so its moment is the entry's save rather than the list's.
+        ["Goes on the shelf in {0} when this entry is saved, named after this entry."] =
+            "Trafi na półkę w: {0} przy zapisie tej pozycji, pod nazwą tej pozycji.",
+        ["This errand's product needs an amount."] = "Produkt tego sprawunku potrzebuje ilości.",
+        ["{0}, what you were sent here for"] = "{0} - to, po co tu przyszedłeś",
         ["Can this be done?"] = "Czy da się to wykonać?",
         ["Nothing due in this period."] = "Nic z terminem w tym okresie.",
         ["Nothing in this period."] = "Nic w tym okresie.",
@@ -433,16 +438,16 @@ public static class PolishTranslations
         // What the phone tells itself, in the notification feed - see LocalNotification.IsRaisedHere.
         // One whole sentence per kind, because Polish declines what was refused or copied.
         ["A change couldn't be saved"] = "Nie udało się zapisać zmiany",
-        ["Orbit kept refusing a change to a note, so it is no longer waiting to be sent."] =
-            "Orbit uporczywie odrzucał zmianę w notatce, więc nie czeka już na wysłanie.",
-        ["Orbit kept refusing a change to a task list, so it is no longer waiting to be sent."] =
-            "Orbit uporczywie odrzucał zmianę na liście zadań, więc nie czeka już na wysłanie.",
-        ["Orbit kept refusing a change to an appointment, so it is no longer waiting to be sent."] =
-            "Orbit uporczywie odrzucał zmianę w spotkaniu, więc nie czeka już na wysłanie.",
-        ["Orbit kept refusing a change to a warehouse, so it is no longer waiting to be sent."] =
-            "Orbit uporczywie odrzucał zmianę w magazynie, więc nie czeka już na wysłanie.",
-        ["Orbit kept refusing a change, so it is no longer waiting to be sent."] =
-            "Orbit uporczywie odrzucał zmianę, więc nie czeka już na wysłanie.",
+        ["Orbit couldn't save a change to a note, so it is no longer waiting to be sent."] =
+            "Orbitowi nie udało się zapisać zmiany w notatce, więc nie czeka już na wysłanie.",
+        ["Orbit couldn't save a change to a task list, so it is no longer waiting to be sent."] =
+            "Orbitowi nie udało się zapisać zmiany na liście zadań, więc nie czeka już na wysłanie.",
+        ["Orbit couldn't save a change to an appointment, so it is no longer waiting to be sent."] =
+            "Orbitowi nie udało się zapisać zmiany w spotkaniu, więc nie czeka już na wysłanie.",
+        ["Orbit couldn't save a change to a warehouse, so it is no longer waiting to be sent."] =
+            "Orbitowi nie udało się zapisać zmiany w magazynie, więc nie czeka już na wysłanie.",
+        ["Orbit couldn't save a change, so it is no longer waiting to be sent."] =
+            "Orbitowi nie udało się zapisać zmiany, więc nie czeka już na wysłanie.",
         ["A copy is waiting to be reviewed"] = "Kopia czeka na przejrzenie",
         ["You wrote in a copy of the note “{0}” while you were offline."] =
             "Bez połączenia pisałeś w kopii notatki „{0}”.",
@@ -1390,6 +1395,7 @@ public static class PolishTranslations
         ["Everything Orbit has told you, newest first."] = "Wszystko, co Orbit Ci powiedział, od najnowszych.",
         ["Moved to {0}."] = "Przeniesiono do: {0}.",
         ["Couldn't move it. Try again."] = "Nie udało się przenieść. Spróbuj ponownie.",
+        ["That move isn't allowed."] = "Takie przeniesienie nie jest dozwolone.",
         ["Shared with you - read-only until you're back online"] =
             "Udostępnione Tobie — tylko do odczytu, dopóki nie wrócisz online",
         ["Shared with others - read-only until you're back online"] =

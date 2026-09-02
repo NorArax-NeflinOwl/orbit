@@ -121,6 +121,9 @@ public sealed class OrbitLocalDbContext : DbContext
             warehouse.Property(entity => entity.Items)
                 .HasConversion(WarehouseItemsConverter)
                 .Metadata.SetValueComparer(WarehouseItemsComparer);
+            warehouse.Property(entity => entity.ItemArrivals)
+                .HasConversion(ArrivalsConverter)
+                .Metadata.SetValueComparer(ArrivalsComparer);
             warehouse.Property(entity => entity.CopyBaseLines)
                 .HasConversion(LinesConverter)
                 .Metadata.SetValueComparer(LinesComparer);
@@ -226,6 +229,25 @@ public sealed class OrbitLocalDbContext : DbContext
     private static readonly ValueConverter<IReadOnlyList<WarehouseItemDto>, string> WarehouseItemsConverter = new(
         items => JsonSerializer.Serialize(items, LocalStoreSerializerContext.Default.IReadOnlyListWarehouseItemDto),
         stored => ReadList(stored, LocalStoreSerializerContext.Default.IReadOnlyListWarehouseItemDto));
+
+    /// <summary>When each batch arrived, in one column beside the items - see LocalWarehouse.ItemArrivals.</summary>
+    private static readonly ValueConverter<IReadOnlyDictionary<Guid, DateTimeOffset>, string> ArrivalsConverter = new(
+        arrivals => JsonSerializer.Serialize(
+            arrivals, LocalStoreSerializerContext.Default.IReadOnlyDictionaryGuidDateTimeOffset),
+        stored => ReadArrivals(stored));
+
+    private static readonly ValueComparer<IReadOnlyDictionary<Guid, DateTimeOffset>> ArrivalsComparer = new(
+        (left, right) => left!.Count == right!.Count && !left.Except(right).Any(),
+        arrivals => arrivals.Aggregate(0, (hash, arrival) => HashCode.Combine(hash, arrival.GetHashCode())),
+        arrivals => arrivals.ToDictionary(arrival => arrival.Key, arrival => arrival.Value));
+
+    /// <inheritdoc cref="ReadList"/>
+    private static IReadOnlyDictionary<Guid, DateTimeOffset> ReadArrivals(string stored)
+        => stored.Length == 0
+            ? new Dictionary<Guid, DateTimeOffset>()
+            : JsonSerializer.Deserialize(
+                stored, LocalStoreSerializerContext.Default.IReadOnlyDictionaryGuidDateTimeOffset)
+                ?? new Dictionary<Guid, DateTimeOffset>();
 
     /// <summary>Without this an edited item list is compared by reference and saved unchanged.</summary>
     private static readonly ValueComparer<IReadOnlyList<WarehouseItemDto>> WarehouseItemsComparer = new(

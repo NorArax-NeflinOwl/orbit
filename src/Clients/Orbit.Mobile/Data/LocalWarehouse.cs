@@ -27,6 +27,18 @@ public sealed class LocalWarehouse : ISharedState, ICopyableForEditing
 
     public IReadOnlyList<WarehouseItemDto> Items { get; set; } = [];
 
+    /// <summary>
+    /// When each batch on this shelf arrived, by its id. Kept beside the items rather than on them: the
+    /// item shape is what a save sends back, and the server decides when something arrived - a phone
+    /// returning its own answer to that would be returning a guess.
+    ///
+    /// A row this phone added and has not synced yet is missing from here, and says nothing about when
+    /// it arrived, which is honest: nothing has accepted it yet. Two rows of one name are two
+    /// deliveries, and this is the only thing that tells them apart - see WarehouseItemRow.
+    /// </summary>
+    public IReadOnlyDictionary<Guid, DateTimeOffset> ItemArrivals { get; set; }
+        = new Dictionary<Guid, DateTimeOffset>();
+
     public bool IsPrivate { get; set; }
 
     /// <inheritdoc cref="LocalNote.EncryptedCiphertext"/>

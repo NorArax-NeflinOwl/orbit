@@ -101,8 +101,19 @@ public sealed partial class TaskItemEditor : ObservableObject
     public string WhereTheProductLives
         => Shelf is null
             ? string.Empty
-            : _translations.Format(
-                "On the shelf in {0}. Saving this list saves the change there too.", Shelf.WarehouseName);
+            : Shelf.Product.IsSomethingNew
+                ? _translations.Format(
+                    "Goes on the shelf in {0} when this entry is saved, named after this entry.",
+                    Shelf.WarehouseName)
+                : _translations.Format(
+                    "On the shelf in {0}. Saving this list saves the change there too.", Shelf.WarehouseName);
+
+    /// <summary>
+    /// Whether the form is describing something to put on the shelf rather than correcting what is
+    /// already there. The name box is left out for it: the entry's own words are the product's name,
+    /// and two boxes for one name is two answers to the same question.
+    /// </summary>
+    public bool IsDescribingSomethingNew => Shelf is { Product.IsSomethingNew: true };
 
     /// <summary>
     /// An Inventory entry with nothing behind it - one whose warehouse is gone, or not synced yet. Said
@@ -120,13 +131,6 @@ public sealed partial class TaskItemEditor : ObservableObject
     /// </summary>
     public IReadOnlyList<TaskListChoice> LinkableTaskLists { get; private init; } = [];
 
-    /// <summary>
-    /// The picker's own value: what to add next, or the "none" choice. Choosing a list adds it to
-    /// <see cref="LinkedTaskLists"/> rather than replacing what is there - one entry often stands for
-    /// several lists, which is what the web gained on 2026-09-01 and the phone could only carry.
-    /// </summary>
-    [ObservableProperty]
-    private TaskListChoice? _chosenLinkedTaskList;
 
     /// <summary>
     /// Every list this entry stands for, in the order they were added. An entry that points somewhere is
@@ -146,18 +150,24 @@ public sealed partial class TaskItemEditor : ObservableObject
     public bool CanBeLinked => LinkableTaskLists.Count > 1;
 
     /// <summary>
-    /// Adds the list the picker names, and then clears the picker: it says what to add next rather than
-    /// what is already there, so leaving a chosen list in it would read as a fourth entry in the row.
+    /// Makes the entry stand for one more list. Adding rather than replacing: one entry often stands for
+    /// several, which is what the web gained on 2026-09-01 and the phone could only carry.
+    ///
+    /// A command rather than the picker's own bound value. Choosing a list changes what the picker
+    /// offers and what it has selected, and doing either from inside the picker's own change - which a
+    /// bound property does - hung the app on Android: the dialog stopped answering and the screen was
+    /// reported as not responding. The head now says "this was chosen" and settles the picker itself,
+    /// after its selection has finished - see TaskListDetailPage.OnLinkedTaskListPicked.
     /// </summary>
-    partial void OnChosenLinkedTaskListChanged(TaskListChoice? value)
+    [RelayCommand]
+    private void LinkTo(TaskListChoice? chosen)
     {
-        if (value?.ServerId is null || LinkedTaskLists.Any(linked => linked.ServerId == value.ServerId))
+        if (chosen?.ServerId is null || LinkedTaskLists.Any(linked => linked.ServerId == chosen.ServerId))
         {
             return;
         }
 
-        LinkedTaskLists.Add(value);
-        ChosenLinkedTaskList = null;
+        LinkedTaskLists.Add(chosen);
         SayWhatItStandsFor();
     }
 
@@ -217,7 +227,8 @@ public sealed partial class TaskItemEditor : ObservableObject
 
     /// <summary>
     /// What the entry is about, as many as apply, on one line and separated by commas - the same box
-    /// the browser offers and the same rule behind it, see CategoryText.
+    /// the browser offers and the same rule behind it, see CategoryText. The tasks screen looks for an
+    /// entry among every list by these.
     /// </summary>
     [ObservableProperty]
     private string _categories = string.Empty;
@@ -331,7 +342,10 @@ public sealed partial class TaskItemEditor : ObservableObject
             ? _translations["A daily reminder needs a time to arrive at."]
             : IsCalendarEntry ? Event.WhatIsMissing
             : IsShelfEntry && !Shelf!.Product.CanSave
-                ? _translations["This errand's product needs a name and an amount."]
+                // A product being described has no name box to fill in - only the amount can be missing.
+                ? _translations[IsDescribingSomethingNew
+                    ? "This errand's product needs an amount."
+                    : "This errand's product needs a name and an amount."]
                 : null;
 
     public bool HasSomethingMissing => WhatIsMissing is not null;

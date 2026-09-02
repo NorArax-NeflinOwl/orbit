@@ -137,6 +137,23 @@ public sealed partial class WarehouseItemEditor : ObservableObject
     /// </summary>
     public NameSuggestions? Suggestions { get; private init; }
 
+    /// <summary>
+    /// A product being put on a shelf by something else - a task entry describing it - which names it
+    /// and so needs no name box. The two amounts are the ones generating a warehouse from a list uses:
+    /// one of the thing wanted, none of it there yet, counted in pieces.
+    /// </summary>
+    public static WarehouseItemEditor ForSomethingNotOnTheShelfYet(Translations translations)
+    {
+        var editor = For(
+            new WarehouseItemDto(
+                null, string.Empty, string.Empty, string.Empty, Quantity: 0, MinimumQuantity: 1,
+                Unit: "pcs", ExpiryDate: null, ExpiryNotificationChannel: "None"),
+            translations);
+
+        editor.ShowsName = false;
+        return editor;
+    }
+
     public static WarehouseItemEditor For(
         WarehouseItemDto item, Translations translations, NameSuggestions? suggestions = null)
     {
@@ -181,12 +198,26 @@ public sealed partial class WarehouseItemEditor : ObservableObject
             IsCheckedRegularly = item.IsCheckedRegularly ?? false
         };
 
-    public bool CanSave => Name.Trim().Length > 0 && ParseQuantity() is not null;
+    // A product named by the task entry describing it has nothing in its name box - there is no box -
+    // and is named when the entry is saved. See ShowsName.
+    public bool CanSave => (Name.Trim().Length > 0 || !ShowsName) && ParseQuantity() is not null;
 
     /// <summary>
     /// The item as the API takes it. The id travels through unchanged - a new one has none until the
     /// push comes back with it, and inventing one here would cut loose whatever pointed at the old.
     /// </summary>
+    /// <summary>
+    /// Whether this is a product being put on a shelf rather than one already there. The id is what
+    /// says so: the server mints it, so a product that has one has been saved at least once.
+    /// </summary>
+    public bool IsSomethingNew => _id is null;
+
+    /// <summary>
+    /// Whether the form asks for the name at all. It does everywhere but on a product a task entry is
+    /// describing, where the entry's own words are the name - see TaskItemShelfProduct.
+    /// </summary>
+    public bool ShowsName { get; private set; } = true;
+
     public WarehouseItemDto ToDto()
         => new(
             _id,

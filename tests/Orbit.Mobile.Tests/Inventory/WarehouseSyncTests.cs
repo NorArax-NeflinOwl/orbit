@@ -84,6 +84,33 @@ public sealed class WarehouseSyncTests
     }
 
     /// <summary>
+    /// A row is a batch rather than a product: two rows of one name are two deliveries of it, and when
+    /// each arrived is the only thing that tells them apart. The save shape carries no such date - the
+    /// server decides it - so the phone keeps it beside the items, and a save must not lose it.
+    /// </summary>
+    [Fact]
+    public async Task A_shelf_remembers_when_each_batch_arrived()
+    {
+        using var context = new WarehouseContext();
+        var remote = context.Server.AddWarehouse("Pantry");
+        context.Server.AddItem(remote.Id, "Flour", 2);
+        var delivered = context.Clock.GetUtcNow();
+        await context.SynchroniseAsync();
+
+        var stored = (await context.Warehouses.GetAllAsync()).Single();
+        Assert.Equal(delivered, stored.ItemArrivals[stored.Items.Single().Id!.Value]);
+
+        context.Clock.Advance(TimeSpan.FromDays(3));
+        await context.Warehouses.UpdateAsync(
+            stored.LocalId, new WarehouseContent("Pantry", [stored.Items.Single() with { Quantity = 5 }]));
+        await context.SynchroniseAsync();
+
+        // Counting what is there is not a new delivery: an edited row still arrived when it arrived.
+        var afterEditing = (await context.Warehouses.GetAllAsync()).Single();
+        Assert.Equal(delivered, afterEditing.ItemArrivals[afterEditing.Items.Single().Id!.Value]);
+    }
+
+    /// <summary>
     /// The other thing a save must not cut loose. An item asked for every round is on the restock list
     /// whatever its count says, and the phone's save writes the whole list - so a save that said nothing
     /// about the flag would have been read as saying nothing at all, and the item would have gone on

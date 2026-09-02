@@ -48,6 +48,14 @@ public sealed record TaskItemRow(
 
     public bool IsCompleted => Item.IsCompleted;
 
+    /// <summary>
+    /// What the entry is filed under, on the row itself: the page filters by these, and a filter whose
+    /// subject is invisible on what it returns leaves the reader to take the screen's word for it.
+    /// </summary>
+    public IReadOnlyList<string> Categories => Item.AllCategories;
+
+    public bool HasCategories => Categories.Count > 0;
+
     public string CompletionMark => IsCompleted ? "✓" : "○";
 
     public bool HasDetail => Detail.Length > 0;

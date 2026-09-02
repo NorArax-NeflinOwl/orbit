@@ -56,6 +56,11 @@
                              carries no presence dot: a group is not somewhere anybody is or is not. -->
                         <controls:PersonRow Id="{Binding Id}" Name="{Binding Name}"
                                             Subtitle="{Binding Members.Count, Converter={StaticResource GroupSize}}">
+                            <!-- <inheritdoc cref="ContactsPage" /> - the same mark, in the same slot. -->
+                            <controls:PersonRow.Pin>
+                                <Label Text="📌" FontSize="11" IsVisible="{Binding IsPinned}"
+                                       SemanticProperties.Description="{controls:Translate 'Pinned'}" />
+                            </controls:PersonRow.Pin>
                             <controls:PersonRow.Menu>
                                 <!-- Putting a group away, bringing it back, and leaving it - see
                                      ContactsPage for why this is a button rather than a swipe. -->

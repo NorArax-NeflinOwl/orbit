@@ -54,6 +54,95 @@ public sealed class ContactsScreenTests
     }
 
     /// <summary>
+    /// Keeping a conversation at the top of the list, which the browser has and the phone did not: a
+    /// list sorted by when somebody last wrote buries the people you talk to most the moment a stranger
+    /// writes. Kept on this device only - pinning is one reader's answer about their own screen.
+    /// </summary>
+    [Fact]
+    public async Task A_pinned_conversation_is_kept_at_the_top()
+    {
+        using var context = new ContactsContext();
+        var older = context.Server.AddContact(Guid.NewGuid(), "a-key");
+        context.MoveOn(TimeSpan.FromHours(1));
+        context.Server.AddContact(Guid.NewGuid(), "another-key");
+        var screen = context.OpenContacts();
+        await screen.LoadCommand.ExecuteAsync(null);
+
+        Assert.NotEqual(older.UserId, screen.Contacts[0].UserId);
+
+        await screen.TogglePinCommand.ExecuteAsync(
+            screen.Contacts.Single(contact => contact.UserId == older.UserId));
+
+        Assert.Equal(older.UserId, screen.Contacts[0].UserId);
+        Assert.True(screen.Contacts[0].IsPinned);
+    }
+
+    /// <summary>And lets it back into the order it was in, rather than to some place of its own.</summary>
+    [Fact]
+    public async Task Unpinning_puts_a_conversation_back_where_it_was()
+    {
+        using var context = new ContactsContext();
+        var older = context.Server.AddContact(Guid.NewGuid(), "a-key");
+        context.MoveOn(TimeSpan.FromHours(1));
+        var newer = context.Server.AddContact(Guid.NewGuid(), "another-key");
+        var screen = context.OpenContacts();
+        await screen.LoadCommand.ExecuteAsync(null);
+
+        var pinned = screen.Contacts.Single(contact => contact.UserId == older.UserId);
+        await screen.TogglePinCommand.ExecuteAsync(pinned);
+        await screen.TogglePinCommand.ExecuteAsync(
+            screen.Contacts.Single(contact => contact.UserId == older.UserId));
+
+        Assert.Equal(newer.UserId, screen.Contacts[0].UserId);
+        Assert.All(screen.Contacts, contact => Assert.False(contact.IsPinned));
+    }
+
+    /// <summary>
+    /// The archive is left in the order it has. Pinning says "keep this at the top of my day", which is
+    /// the opposite of what putting something away said - the same line Orbit.Web draws.
+    /// </summary>
+    [Fact]
+    public async Task What_has_been_put_away_is_not_lifted_by_a_pin()
+    {
+        using var context = new ContactsContext();
+        var older = context.Server.AddContact(Guid.NewGuid(), "a-key");
+        context.MoveOn(TimeSpan.FromHours(1));
+        var newer = context.Server.AddContact(Guid.NewGuid(), "another-key");
+        var screen = context.OpenContacts();
+        await screen.LoadCommand.ExecuteAsync(null);
+        await screen.TogglePinCommand.ExecuteAsync(
+            screen.Contacts.Single(contact => contact.UserId == older.UserId));
+
+        foreach (var contact in screen.Contacts.ToList())
+        {
+            await screen.SetArchivedCommand.ExecuteAsync(contact);
+        }
+
+        screen.IsShowingArchive = true;
+        await screen.LoadCommand.ExecuteAsync(null);
+
+        Assert.Equal(newer.UserId, screen.Contacts[0].UserId);
+    }
+
+    /// <summary>A group is pinned the same way, out of the same set - see ConversationPins.</summary>
+    [Fact]
+    public async Task A_group_can_be_pinned_too()
+    {
+        using var context = new ContactsContext();
+        context.Server.AddGroup("Weekend trip");
+        context.MoveOn(TimeSpan.FromHours(1));
+        var later = context.Server.AddGroup("Book club");
+        var screen = context.OpenGroups();
+        await screen.LoadCommand.ExecuteAsync(null);
+
+        await screen.TogglePinCommand.ExecuteAsync(
+            screen.Groups.Single(group => group.Id == later.Id));
+
+        Assert.Equal(later.Id, screen.Groups[0].Id);
+        Assert.True(screen.Groups[0].IsPinned);
+    }
+
+    /// <summary>
     /// Emptying a conversation is the reader's own side only - the server records where their history
     /// begins rather than deleting anybody's messages. This phone has to drop what it cached as well,
     /// or the words would still be here: a pull only ever adds.
@@ -322,6 +411,15 @@ public sealed class ContactsScreenTests
         public ChatRepository Repository { get; }
         public RecordingScreenNavigator Navigator { get; } = new();
 
+        /// <summary>Moves the fake clock on, so two conversations do not share a "last message" moment.</summary>
+        public void MoveOn(TimeSpan by) => _clock.Advance(by);
+
+        /// <summary>
+        /// What this reader keeps at the top, shared by the two lists as it is on the device - see
+        /// ConversationPins.
+        /// </summary>
+        public ConversationPins Pins { get; } = new(new InMemoryConversationPinStore());
+
         /// <summary>Taking up an offer to share something - see SharedItemAcceptance.</summary>
         public SharedItemAcceptance Acceptance => new(
             new NotesClient(_shareServer.ToHttpClient()), new TasksClient(_shareServer.ToHttpClient()),
@@ -355,7 +453,8 @@ public sealed class ContactsScreenTests
         {
             var screen = new GroupsViewModel(
                 Repository, _chatClient, _synchronizer, _encryptionKeyProvider,
-                new Translations(new InMemoryLanguageStore()), UnlockedPermissions.For(_localStore), Navigator);
+                new Translations(new InMemoryLanguageStore()), UnlockedPermissions.For(_localStore), Navigator,
+                Pins);
             screen.LoadCommand.ExecuteAsync(null).GetAwaiter().GetResult();
             return screen;
         }
@@ -365,7 +464,7 @@ public sealed class ContactsScreenTests
             var screen = new ContactsViewModel(
                 Repository, _chatClient, UsersClient, _synchronizer, _encryptionKeyProvider,
                 new Translations(new InMemoryLanguageStore()), UnlockedPermissions.For(_localStore), Navigator,
-                Connections.Online);
+                Connections.Online, Pins);
             screen.LoadCommand.ExecuteAsync(null).GetAwaiter().GetResult();
             return screen;
         }

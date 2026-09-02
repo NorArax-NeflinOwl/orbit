@@ -101,6 +101,14 @@ from the one `MainLayout` is actually subscribed to — the notification would f
 `IHttpClientFactory` mutates a handler's `InnerHandler` while assembling each client's pipeline and
 rejects reusing one instance across more than one.
 
+**The phone is under the same rule, and broke it in its own way.** `TokenRefreshService` there was
+registered with `AddHttpClient<TokenRefreshService>`, which registers the type as **transient** - so
+every synchronizer held its own, and the single-flight guard inside it (one in-flight redemption shared
+by every caller) guarded nothing across them. Two of them meeting an expired access token at the same
+moment each redeemed the same single-use refresh token, and the loser's rejection signed the reader out
+mid-use. It shows up in the server's log as a refresh answering 200 and another answering 401 a second
+later. The client is now registered as a singleton over a named `HttpClient`.
+
 `/api/auth/register`, `/api/auth/login`, `/api/auth/refresh`, and `/api/auth/logout` are all rate
 limited to 5 requests per minute per client IP address (no queueing — an excess request gets an
 immediate 429), as brute-force protection for login attempts in particular.
@@ -702,6 +710,9 @@ it is the one thing on the page that most needs saying, and hiding it would hide
 The grid never hides anything. A day with something in it should say so whether or not it has been, and
 a month drawn with holes in it would be a month that had not happened.
 
+**The phone draws the same line**, from the same menu the order is chosen in and kept beside it on the
+device (`CalendarListReading`). Its grid keeps everything too.
+
 **Show → "Everything, including what is over"** in the page's menu puts them back, and is remembered by
 the device the way the list's order is (`CalendarListOrder`, localStorage - it describes one page for
 one reader on one screen).
@@ -910,9 +921,22 @@ checklist says it too, since that is where the work is actually done.
 disagree about what "shopping, Shopping" means).
 
 A save that says nothing about categories leaves them alone. That is what lets a client written before
-they existed — the phone's sync, an older tab — go on saving lists without unfiling every entry on them,
-the same rule a list's description already follows
-(`UpdateTaskListCommand.EntriesKeepingTheirCategories`).
+they existed — an older tab — go on saving lists without unfiling every entry on them, the same rule a
+list's description already follows (`UpdateTaskListCommand.EntriesKeepingTheirCategories`).
+
+**On the phone, an entry that stands for other lists is the way into them.** The browser stacks the
+whole tree as cards on one page; a phone has room for one list at a time, so the entry carries a chip
+per list it stands for and each one opens that list - the same chips an inventory errand uses to reach
+its shelf. A group list is nothing but such entries, and its screen used to be a dead end: the work it
+gathers was one tap away in the browser and unreachable here. A list this phone does not hold offers no
+chip, because a chip that leads nowhere is worse than none.
+
+**The phone files entries the same way and looks for them the same way.** The entry's form carries the
+same comma-separated box, each row on a list shows what it is filed under, and the tasks screen carries
+the search and the category chips above its status chips - narrowing to the lists that still hold a
+match, with the card saying what matched rather than what is next. Its sync sends the categories on
+every save rather than leaving them out: "not provided" is what an older client says, and a phone that
+said it could never clear a category somebody had removed.
 
 ### Two editing levels
 
@@ -1077,6 +1101,29 @@ everything except the name, because the entry's own words are the name. That is 
 generation above follows and the same one the check matches by, so the two cannot come to disagree about
 which product an errand is about. Saving the list puts it on the shelf; a shelf already holding
 something by that name is what the entry was asking for, so nothing is added twice.
+
+**And says when each batch arrived**, which is the fourth thing a shelf answers and the one the phone
+left out. The date comes down with the items and is kept beside them (`LocalWarehouse.ItemArrivals`)
+rather than on them: the item shape is what a save sends back, and when something arrived is the
+server's answer rather than the phone's. A row this phone has queued and nothing has accepted yet says
+nothing about it.
+
+**The phone's shelf opens on the row somebody was sent to.** A warehouse reached from an errand naming
+it, or from the search across every shelf, marks that product and scrolls to it - the accent bar and
+tint the browser gives the row its `?highlight=` names (`WarehouseItemRow.IsPointedAt`,
+`IScreenNavigator.ShowWarehouse`). The row says so in words as well, because a colour is nothing to
+somebody who cannot see it. The mark is not lifted to the top and does not outlive the screen: a shelf
+read in one order should not rearrange itself around where somebody came from, and narrowing the shelf
+and clearing the filter again finds the row still marked.
+
+**The phone describes one the same way, one entry at a time.** An Inventory entry on a list measured
+against a storage opens the product's fields with no name box (`ShelfProductFor`,
+`WarehouseItemEditor.ForSomethingNotOnTheShelfYet`), says above them which shelf it will go on, and
+saving the entry puts it there - a shelf already holding something by that name is what the entry was
+asking for, so nothing is added twice (`ShelfCorrection.ApplyAsync`). The same fields correct a product
+the entry is already linked to, which is all the phone could do before: the difference is whether the
+form is filling in something that has an id yet, and the entry's own words are the name either way. It
+happens on the entry's save rather than the list's, because that is the moment this screen has.
 
 Which storage a list is measured against is set in its editor, under **About this list**, for any list
 rather than only a group one - an entry describing a product has to be able to say which shelf it goes
@@ -1434,12 +1481,14 @@ The footer says `ver:0.1.17+gitHash:51536f3`, and pressing it grows the rest of 
 is what anybody reads, the whole one is what a `git checkout` takes, and asking for it should not mean
 going somewhere else. The phone's **About** row says the same thing and behaves the same way when tapped.
 
-**The hash is only there while debugging.** A released build says `ver:0.1.17` and stops: nothing to
-press, and nothing that looks pressable. The number is what somebody reporting a problem needs and what
-the update gate compares; which commit it was cut from is a question for whoever has the repository, and
-a released build has no reason to volunteer detail about its own insides. The rule lives in one place
-(`OrbitVersion.IsADebugBuild`) and travels as a value, so both answers can be tested rather than only
-whichever one the test run happened to compile.
+**The hash goes to the accounts holding `Debug`, and to nobody else.** Every build reads its own commit
+off itself whatever configuration it was made in - a deployed footer that cannot answer "which code is
+this" is a footer with no reason to carry a hash at all - and the *showing* is what is gated. Somebody
+without the permission sees `ver:0.1.17` and nothing to press: the number is what a bug report needs and
+what the update gate compares, while which commit it was cut from is detail about Orbit's own insides.
+All three ends apply the one rule: the server leaves the hash out of its answer rather than sending it
+to be hidden (`ConfigEndpoints`), the browser's footer drops it with `OrbitVersion.WithoutTheCommit()`,
+and the phone's About row does the same - it was the half still showing it to everybody.
 
 **Both versions are shown, the client's and the server's**, because they can differ:
 
@@ -1876,6 +1925,15 @@ what has been put away, shown only once something is there, and each row's menu 
 bringing it back, and the thing that is not reversible: emptying a conversation, or leaving a group,
 each behind a question first. Emptying also drops what the phone had cached, because a pull only ever
 adds and the server has nothing left to send that would take those words away.
+
+**And the other half of arranging a list: pinning.** A conversation kept at the top stays there whatever
+the last message said, on the device that pinned it and nowhere else - the browser has kept its own
+since it had a list to keep, and the phone had no way to. People and groups share one set of pins
+(`ConversationPins`, `IConversationPinStore`): an id means one conversation whichever kind it is. Pinned
+rows are lifted rather than taken out, so unpinning finds the row back where the sort would have put it,
+and the archive is left in the order it has - keeping something at the top of the day is the opposite of
+what putting it away said. The row says it is pinned in a word as well as a mark, since a mark is
+nothing to somebody who cannot see it.
 
 ## Saying nothing about a field
 

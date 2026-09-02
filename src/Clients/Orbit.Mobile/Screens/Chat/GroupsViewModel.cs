@@ -27,6 +27,7 @@ public sealed partial class GroupsViewModel : ObservableObject
     private readonly OwnEncryptionKeyProvider _encryptionKeyProvider;
     private readonly Translations _translations;
     private readonly UserPermissions _permissions;
+    private readonly ConversationPins _pins;
     private readonly IScreenNavigator _navigator;
 
     [ObservableProperty]
@@ -44,8 +45,9 @@ public sealed partial class GroupsViewModel : ObservableObject
     public GroupsViewModel(
         ChatRepository chatRepository, ChatClient chatClient, ChatSynchronizer synchronizer,
         OwnEncryptionKeyProvider encryptionKeyProvider, Translations translations, UserPermissions permissions,
-        IScreenNavigator navigator)
+        IScreenNavigator navigator, ConversationPins pins)
     {
+        _pins = pins;
         _chatRepository = chatRepository;
         _chatClient = chatClient;
         _synchronizer = synchronizer;
@@ -216,14 +218,32 @@ public sealed partial class GroupsViewModel : ObservableObject
         }
 
         Groups.Clear();
-        foreach (var group in groups.Where(group => group.IsArchived == IsShowingArchive))
+        foreach (var group in InReadingOrder(groups.Where(group => group.IsArchived == IsShowingArchive)))
         {
+            group.IsPinned = _pins.IsPinned(group.Id);
             Groups.Add(group);
         }
 
         Message = Groups.Count == 0
             ? IsShowingArchive ? _translations["Nothing put away."] : _translations["No groups yet."]
             : string.Empty;
+    }
+
+    /// <inheritdoc cref="ContactsViewModel.InReadingOrder"/>
+    private IEnumerable<LocalChatGroup> InReadingOrder(IEnumerable<LocalChatGroup> groups)
+        => IsShowingArchive ? groups : _pins.PinnedFirst(groups, group => group.Id);
+
+    /// <inheritdoc cref="ContactsViewModel.TogglePinAsync"/>
+    [RelayCommand]
+    private Task TogglePinAsync(LocalChatGroup? group, CancellationToken cancellationToken)
+    {
+        if (group is null)
+        {
+            return Task.CompletedTask;
+        }
+
+        _pins.Toggle(group.Id);
+        return ShowCachedGroupsAsync(cancellationToken);
     }
 
     /// <summary>

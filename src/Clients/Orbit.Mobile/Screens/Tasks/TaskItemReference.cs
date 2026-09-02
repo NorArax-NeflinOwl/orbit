@@ -21,4 +21,10 @@ public enum TaskItemReferenceTarget
 /// </summary>
 /// <param name="Label">Already in the reader's language - "in Kitchen", "also on Weekend".</param>
 /// <param name="LocalId">This phone's id for what to open, which is what the navigator takes.</param>
-public sealed record TaskItemReference(string Label, Guid LocalId, TaskItemReferenceTarget Target);
+/// <param name="ProductId">
+/// Which product on that shelf this errand is about, so the shelf opens on it rather than on sixty rows
+/// with no sign of which one was meant. Null for a reference to another list, which points at the list
+/// itself.
+/// </param>
+public sealed record TaskItemReference(
+    string Label, Guid LocalId, TaskItemReferenceTarget Target, Guid? ProductId = null);

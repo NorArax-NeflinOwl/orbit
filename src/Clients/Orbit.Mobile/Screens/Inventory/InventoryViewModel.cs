@@ -96,7 +96,9 @@ public sealed partial class InventoryViewModel : ObservableObject
     {
         if (match is not null)
         {
-            _navigator.ShowWarehouse(match.WarehouseLocalId);
+            // Opened on the thing that was found: a search across every shelf that landed somebody on a
+            // shelf and left them looking for it again would have answered half the question.
+            _navigator.ShowWarehouse(match.WarehouseLocalId, match.Item.Item.Id);
         }
     }
 

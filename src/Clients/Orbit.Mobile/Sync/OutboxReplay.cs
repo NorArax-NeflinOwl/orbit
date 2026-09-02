@@ -129,15 +129,19 @@ public static class OutboxReplay
     /// One whole sentence per kind rather than a noun dropped into a shared one. Polish declines what
     /// was refused, so "zmiany w notatce" and "…w liście zadań" cannot come from the same template -
     /// the same reason the server writes its share notifications out one by one.
+    ///
+    /// Said as "couldn't save" rather than "kept refusing": a change is dropped either after five
+    /// answered failures or on the first answer that will never change (see WriteOutcome.Refused), and
+    /// "kept refusing" is untrue of the second - which is the commoner of the two.
     /// </summary>
     private static string DroppedDescription(string entityType)
         => entityType switch
         {
-            SyncEntityType.Note => "Orbit kept refusing a change to a note, so it is no longer waiting to be sent.",
-            SyncEntityType.TaskList => "Orbit kept refusing a change to a task list, so it is no longer waiting to be sent.",
-            SyncEntityType.CalendarEvent => "Orbit kept refusing a change to an appointment, so it is no longer waiting to be sent.",
-            SyncEntityType.Warehouse => "Orbit kept refusing a change to a warehouse, so it is no longer waiting to be sent.",
-            _ => "Orbit kept refusing a change, so it is no longer waiting to be sent."
+            SyncEntityType.Note => "Orbit couldn't save a change to a note, so it is no longer waiting to be sent.",
+            SyncEntityType.TaskList => "Orbit couldn't save a change to a task list, so it is no longer waiting to be sent.",
+            SyncEntityType.CalendarEvent => "Orbit couldn't save a change to an appointment, so it is no longer waiting to be sent.",
+            SyncEntityType.Warehouse => "Orbit couldn't save a change to a warehouse, so it is no longer waiting to be sent.",
+            _ => "Orbit couldn't save a change, so it is no longer waiting to be sent."
         };
 
     /// <summary>Returns 1 when the change was given up on rather than kept for another attempt.</summary>

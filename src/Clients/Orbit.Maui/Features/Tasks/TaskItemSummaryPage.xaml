@@ -4,6 +4,7 @@
     xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
     xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
     xmlns:controls="clr-namespace:Orbit.Maui.Controls"
+    xmlns:calendar="clr-namespace:Orbit.Mobile.Screens.Calendar;assembly=Orbit.Mobile"
     xmlns:screens="clr-namespace:Orbit.Mobile.Screens.Tasks;assembly=Orbit.Mobile"
     xmlns:maps="clr-namespace:Microsoft.Maui.Controls.Maps;assembly=Microsoft.Maui.Controls.Maps"
     x:DataType="screens:TaskItemSummaryViewModel"

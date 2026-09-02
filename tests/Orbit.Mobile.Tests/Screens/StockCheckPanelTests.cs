@@ -16,13 +16,29 @@ namespace Orbit.Mobile.Tests.Screens;
 /// </summary>
 public sealed class StockCheckPanelTests
 {
+    /// <summary>
+    /// Any list can ask, not only a group one: a list holding errands about stock is asking the
+    /// question whether or not it gathers other lists. Orbit.Web widened the same rule.
+    /// </summary>
     [Fact]
-    public async Task It_is_only_offered_for_a_group_list()
+    public async Task It_is_offered_whether_or_not_the_list_gathers_others()
     {
         using var context = new PanelContext();
 
-        Assert.False((await context.ShowAsync(isGroup: false)).IsOffered);
+        Assert.True((await context.ShowAsync(isGroup: false)).IsOffered);
         Assert.True((await context.ShowAsync(isGroup: true)).IsOffered);
+    }
+
+    /// <summary>
+    /// A list the server has never seen cannot ask: the count is worked out there, against an id this
+    /// phone has not got yet.
+    /// </summary>
+    [Fact]
+    public async Task A_list_the_server_has_not_seen_cannot_ask()
+    {
+        using var context = new PanelContext();
+
+        Assert.False((await context.ShowAsync(isGroup: true, hasReachedTheServer: false)).IsOffered);
     }
 
     /// <summary>
@@ -333,7 +349,8 @@ public sealed class StockCheckPanelTests
         /// </summary>
         private readonly Guid _taskListLocalId = Guid.NewGuid();
 
-        public async Task<StockCheckPanel> ShowAsync(bool isGroup, Guid? linkedWarehouseId = null)
+        public async Task<StockCheckPanel> ShowAsync(
+            bool isGroup, Guid? linkedWarehouseId = null, bool hasReachedTheServer = true)
         {
             var panel = new StockCheckPanel(
                 new TasksClient(Server.ToHttpClient()), new InventoryClient(Warehouses.ToHttpClient()), _warehouses,
@@ -342,7 +359,7 @@ public sealed class StockCheckPanelTests
             await panel.ShowAsync(new LocalTaskList
             {
                 LocalId = _taskListLocalId,
-                ServerId = Guid.NewGuid(),
+                ServerId = hasReachedTheServer ? Guid.NewGuid() : null,
                 IsGroup = isGroup,
                 LinkedWarehouseId = linkedWarehouseId
             });

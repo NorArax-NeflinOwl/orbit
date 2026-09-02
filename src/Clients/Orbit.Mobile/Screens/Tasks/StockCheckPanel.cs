@@ -60,8 +60,14 @@ public sealed partial class StockCheckPanel : ObservableObject
     }
 
     /// <summary>
-    /// Only a group list gathers enough work to be worth counting, which is the rule Orbit.Web applies
-    /// too - see StockRequirementCounter.
+    /// Whether this list is asking the question at all. Any list, not only a group one: it was
+    /// group-only on the grounds that a single list's items are the work in front of you rather than a
+    /// bill of materials gathered from several places - but a list holding errands about stock is
+    /// asking it whether or not it gathers other lists, and on a plain list the picker was simply
+    /// absent and the count unread. Orbit.Web widened the same rule for the same reason.
+    ///
+    /// A list the server has never seen still cannot ask: the count is worked out there, against an id
+    /// this phone has not got yet.
     /// </summary>
     [ObservableProperty]
     private bool _isOffered;
@@ -119,7 +125,7 @@ public sealed partial class StockCheckPanel : ObservableObject
 
     public async Task ShowAsync(LocalTaskList taskList, CancellationToken cancellationToken = default)
     {
-        IsOffered = taskList.IsGroup;
+        IsOffered = taskList.ServerId is not null;
         _taskListServerId = taskList.ServerId;
         _taskListLocalId = taskList.LocalId;
         Message = string.Empty;

@@ -83,6 +83,31 @@ public partial class CalendarPage : ContentPage
 	private void OnTheDayChanged(object? sender, NotifyCollectionChangedEventArgs eventArgs) => DrawTheDay();
 
 	/// <summary>
+	/// The calendar gets out of the way as the list under it is read, and comes back when the reader
+	/// returns to the top - see MinimisedCalendar for what is left of it. The offset rather than the
+	/// first visible item: an item is a whole event row, and the grid should start standing aside as
+	/// soon as the list moves at all.
+	/// </summary>
+	private void OnListScrolled(object? sender, ItemsViewScrolledEventArgs eventArgs)
+	{
+		var minimised = eventArgs.VerticalOffset > ScrollBeforeMinimising;
+		if (minimised == _viewModel.IsMinimised)
+		{
+			return;
+		}
+
+		_viewModel.IsMinimised = minimised;
+		DrawTheDay();
+	}
+
+	/// <summary>
+	/// How far the list travels before the calendar stands aside. Enough that a thumb resting on the
+	/// list does not flip it back and forth, and little enough that it is out of the way by the time
+	/// anybody is reading.
+	/// </summary>
+	private const double ScrollBeforeMinimising = 24;
+
+	/// <summary>
 	/// Draws the chosen day: an hour rule behind, and every block where its placement says. Built here
 	/// rather than bound, for the reason MapPage gives about its pins - where a block goes is a
 	/// measurement, and keeping that out of the view model is what leaves the placement testable. What
@@ -99,15 +124,25 @@ public partial class CalendarPage : ContentPage
 			AllDayRow.Children.Add(Chip(block));
 		}
 
-		var (firstHour, lastHour) = CalendarDayTimeline.HoursWorthDrawing(_viewModel.DayBlocks);
+		var (firstHour, lastHour) = _viewModel.HoursOnShow;
 		DayClock.HeightRequest = (lastHour - firstHour + 1) * HourHeight;
+		// Minimised, the clock is one hour tall and a two-hour meeting would be drawn straight through
+		// the list beneath it.
+		DayClock.IsClippedToBounds = true;
 
 		DrawTheHours(firstHour, lastHour);
-		foreach (var block in _viewModel.DayBlocks)
+		foreach (var block in _viewModel.DayBlocks.Where(block => IsWithin(block, firstHour, lastHour)))
 		{
 			DayBlocks.Children.Add(Block(block, firstHour));
 		}
 	}
+
+	/// <summary>
+	/// Whether any of this block falls in the hours being drawn. Everything, until the calendar is
+	/// minimised to one hour - what does not reach that hour has nowhere to go.
+	/// </summary>
+	private static bool IsWithin(DayBlock block, int firstHour, int lastHour)
+		=> block.StartMinute < (lastHour + 1) * 60 && block.StartMinute + block.Minutes > firstHour * 60;
 
 	/// <summary>
 	/// A label and a line on every hour, so a block has something to be read against. Drawn before the

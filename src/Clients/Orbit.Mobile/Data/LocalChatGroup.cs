@@ -1,3 +1,5 @@
+using System.ComponentModel.DataAnnotations.Schema;
+
 namespace Orbit.Mobile.Data;
 
 /// <summary>
@@ -15,6 +17,10 @@ public sealed class LocalChatGroup
 
     /// <inheritdoc cref="LocalContact.IsArchived"/>
     public bool IsArchived { get; set; }
+
+    /// <inheritdoc cref="LocalContact.IsPinned"/>
+    [NotMapped]
+    public bool IsPinned { get; set; }
 
     public DateTimeOffset CreatedAtUtc { get; set; }
 

@@ -84,6 +84,24 @@ public sealed class InventorySearchTests
     }
 
     /// <summary>
+    /// And on the thing that was found, not just on the shelf holding it: a search across every
+    /// warehouse that leaves somebody looking for it again has answered half the question.
+    /// </summary>
+    [Fact]
+    public async Task Opening_a_result_lands_on_the_thing_that_was_found()
+    {
+        using var context = new ScreenContext();
+        var paste = Item("Flour paste");
+        await context.AddWarehouseAsync("Workshop", Item("Sugar"), paste);
+        var screen = await context.OpenInventoryAsync();
+        screen.SearchedItemName = "paste";
+
+        screen.OpenMatchCommand.Execute(Assert.Single(screen.ItemMatches));
+
+        Assert.Equal(paste.Id, context.Navigator.LastPointedAtProductId);
+    }
+
+    /// <summary>
     /// A sealed warehouse is counted rather than skipped. Its items never came down to this phone, so a
     /// search that stayed quiet about it would answer "it is nowhere" when the truth is "I could not look
     /// there" - the one answer a search must never give by accident.

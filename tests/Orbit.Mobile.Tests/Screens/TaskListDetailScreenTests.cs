@@ -64,6 +64,49 @@ public sealed class TaskListDetailScreenTests
     }
 
     /// <summary>
+    /// What an entry is about, typed as one line of words - the same box a shelf item's category is
+    /// typed in, holding as many as apply. The tasks page finds an entry among every list by these.
+    /// </summary>
+    [Fact]
+    public async Task An_entry_can_be_filed_under_what_it_is_about()
+    {
+        using var context = new ScreenContext();
+        var screen = context.OpenTaskList("Errands");
+        await AddAsync(screen, "Renew the car insurance");
+
+        screen.EditItemCommand.Execute(screen.Items[0]);
+        screen.BeingEdited!.Categories = "car, money ,car";
+        await screen.SaveItemCommand.ExecuteAsync(null);
+
+        // Tidied on the way in, as the domain tidies it: trimmed, and the same word twice is one word.
+        Assert.Equal(["car", "money"], Assert.Single(screen.Items).Item.AllCategories);
+
+        // And sent, rather than left for the server to keep whatever it already had: a client that says
+        // nothing about them cannot clear them.
+        var sent = Assert.Single(Assert.Single(context.Server.TaskLists).Items);
+        Assert.Equal(["car", "money"], sent.AllCategories);
+    }
+
+    /// <summary>Clearing the box clears them, which "not provided" would not do.</summary>
+    [Fact]
+    public async Task Clearing_what_it_is_filed_under_clears_it_everywhere()
+    {
+        using var context = new ScreenContext();
+        var screen = context.OpenTaskList("Errands");
+        await AddAsync(screen, "Renew the car insurance");
+        screen.EditItemCommand.Execute(screen.Items[0]);
+        screen.BeingEdited!.Categories = "car";
+        await screen.SaveItemCommand.ExecuteAsync(null);
+
+        screen.EditItemCommand.Execute(screen.Items[0]);
+        screen.BeingEdited!.Categories = string.Empty;
+        await screen.SaveItemCommand.ExecuteAsync(null);
+
+        Assert.Empty(Assert.Single(screen.Items).Item.AllCategories);
+        Assert.Empty(Assert.Single(Assert.Single(context.Server.TaskLists).Items).AllCategories);
+    }
+
+    /// <summary>
     /// The three orders Orbit.Web reads a checklist in. Alphabetical is by what each entry says, which
     /// is how a shopping list gets read off in a shop.
     /// </summary>
@@ -243,7 +286,9 @@ public sealed class TaskListDetailScreenTests
 
         screen.Description = "Prescriptions";
         screen.IsPrivate = true;
-        await screen.SaveListCommand.ExecuteAsync(null);
+        // Waits on the save the switch started rather than starting a second: two saves race,
+        // and the first can outlive the test - which brought the whole run down.
+        await screen.SaveListCommand.ExecutionTask!;
 
         Assert.False(screen.IsNotPrivate);
         Assert.Empty(context.Server.TaskLists.Single().Description);
@@ -613,6 +658,64 @@ public sealed class TaskListDetailScreenTests
     }
 
     /// <summary>
+    /// A list measured against a shelf can say what it needs before that shelf holds it: the entry is
+    /// the description, and saving puts the product there. Until now the phone could only correct
+    /// something already on the shelf, so anything new had to be typed into the warehouse first.
+    /// </summary>
+    [Fact]
+    public async Task An_errand_for_something_not_on_the_shelf_yet_puts_it_there()
+    {
+        using var context = new ScreenContext();
+        var screen = context.OpenTaskList("Saturday");
+        var shelfLocalId = await context.MeasureAgainstAnEmptyShelfAsync(screen, "Kitchen");
+        await context.AddErrandForSomethingNotOnTheShelfAsync(screen, "Coffee");
+
+        screen.EditItemCommand.Execute(screen.Items[0]);
+        var editor = screen.BeingEdited!;
+        Assert.True(editor.IsDescribingSomethingNew);
+        // The entry names it, so the form does not ask - see WarehouseItemEditor.ShowsName.
+        Assert.False(editor.Shelf!.Product.ShowsName);
+        Assert.Contains("Kitchen", editor.WhereTheProductLives);
+
+        editor.Shelf.Product.Quantity = "0";
+        editor.Shelf.Product.MinimumQuantity = "2";
+        await screen.SaveItemCommand.ExecuteAsync(null);
+
+        var stored = await context.Shelves.FindAsync(shelfLocalId);
+        var product = Assert.Single(stored!.Items);
+        Assert.Equal("Coffee", product.Name);
+        Assert.Equal(2, product.MinimumQuantity);
+    }
+
+    /// <summary>
+    /// The stock check matches an errand to a product by name, so a second row of the same name would be
+    /// two answers to "is there enough". The shelf already holding it is what the entry was asking for.
+    /// Orbit.Web's own save skips it the same way.
+    /// </summary>
+    [Fact]
+    public async Task An_errand_does_not_put_a_second_product_of_the_same_name_on_the_shelf()
+    {
+        using var context = new ScreenContext();
+        var screen = context.OpenTaskList("Saturday");
+        var shelfLocalId = await context.MeasureAgainstAnEmptyShelfAsync(screen, "Kitchen");
+        await context.Shelves.UpdateAsync(
+            shelfLocalId,
+            new WarehouseContent(
+                "Kitchen",
+                [new WarehouseItemDto(
+                    Guid.NewGuid(), "coffee", "", "", 5, null, nameof(InventoryUnit.Piece), null, "None")]));
+        await context.AddErrandForSomethingNotOnTheShelfAsync(screen, "Coffee");
+
+        screen.EditItemCommand.Execute(screen.Items[0]);
+        screen.BeingEdited!.Shelf!.Product.Quantity = "0";
+        await screen.SaveItemCommand.ExecuteAsync(null);
+
+        var stored = await context.Shelves.FindAsync(shelfLocalId);
+        var product = Assert.Single(stored!.Items);
+        Assert.Equal(5, product.Quantity);
+    }
+
+    /// <summary>
     /// An inventory errand says which shelf it is about, and tapping that opens the warehouse - the
     /// reason to show it at all is to be able to go and look. Orbit.Web asks its server for this; a
     /// phone works it out from what it already holds, so it still says so with no connection.
@@ -631,6 +734,9 @@ public sealed class TaskListDetailScreenTests
         screen.OpenReferenceCommand.Execute(reference);
 
         Assert.Equal(shelf.WarehouseLocalId, context.Navigator.LastWarehouseId);
+        // And on the product itself: a shelf of sixty rows with no sign of which one the errand meant
+        // sends somebody looking for it a second time.
+        Assert.Equal(shelf.ProductId, context.Navigator.LastPointedAtProductId);
     }
 
     /// <summary>
@@ -982,15 +1088,117 @@ public sealed class TaskListDetailScreenTests
         screen.EditItemCommand.Execute(screen.Items.Single());
         // Choosing from the picker adds a list rather than replacing what is there, and the picker
         // clears itself: it says what to add next, not what the entry already stands for.
-        screen.BeingEdited!.ChosenLinkedTaskList =
-            screen.BeingEdited.LinkableTaskLists.Single(choice => choice.Name == "Shopping");
-        Assert.Null(screen.BeingEdited.ChosenLinkedTaskList);
+        screen.BeingEdited!.LinkToCommand.Execute(
+            screen.BeingEdited.LinkableTaskLists.Single(choice => choice.Name == "Shopping"));
+        // The picker goes on offering what to add next: what the entry already stands for is off it.
+        Assert.DoesNotContain(
+            screen.BeingEdited.LinkableTaskListsLeft, choice => choice.Name == "Shopping");
         await screen.SaveItemCommand.ExecuteAsync(null);
         await context.SynchroniseAsync();
 
         var shopping = context.Server.TaskLists.Single(list => list.Title == "Shopping");
         var thisWeek = context.Server.TaskLists.Single(list => list.Title == "This week");
         Assert.Equal([shopping.Id], Assert.Single(thisWeek.Items).AllLinkedTaskListIds);
+    }
+
+    /// <summary>
+    /// The bug this stands for: moving an entry onto a list it already stands for took the whole app
+    /// down. The server refuses it - an entry cannot link to the list it belongs to - as a 400 with a
+    /// message, and the phone turned every unexpected status into an exception nothing caught.
+    /// </summary>
+    [Fact]
+    public async Task A_move_the_server_refuses_is_said_rather_than_thrown()
+    {
+        using var context = new ScreenContext();
+        var later = context.OpenTaskList("Later");
+        var screen = context.OpenTaskList("Today");
+        await AddAsync(screen, "Call the plumber");
+        await context.SynchroniseAsync();
+        await screen.LoadCommand.ExecuteAsync(null);
+        screen.EditItemCommand.Execute(screen.Items.Single());
+        context.Server.RefusesTheNextMove = true;
+
+        await screen.MoveItemCommand.ExecuteAsync(
+            screen.MoveTargets.Single(target => target.Name == "Later"));
+
+        // Said, and said as something that will not come right by trying again.
+        Assert.Contains("isn't allowed", screen.Status);
+        Assert.Single(screen.Items);
+    }
+
+    /// <summary>
+    /// An entry cannot link to the list it belongs to, so a list it already stands for is not somewhere
+    /// it can be moved - the server refuses that move outright. Left out of the picker rather than
+    /// offered and then rejected, which is what Orbit.Web's editor does too.
+    /// </summary>
+    [Fact]
+    public async Task A_list_the_entry_stands_for_is_not_offered_as_somewhere_to_move_it()
+    {
+        using var context = new ScreenContext();
+        context.OpenTaskList("Shopping");
+        context.OpenTaskList("Later");
+        var screen = context.OpenTaskList("Today");
+        await AddAsync(screen, "The shopping");
+        await context.SynchroniseAsync();
+        await screen.LoadCommand.ExecuteAsync(null);
+
+        screen.EditItemCommand.Execute(screen.Items.Single());
+        Assert.Equal(
+            ["Later", "Shopping"],
+            screen.MoveTargetsForTheEntry.Select(target => target.Name).Order());
+
+        screen.BeingEdited!.LinkToCommand.Execute(
+            screen.BeingEdited.LinkableTaskLists.Single(choice => choice.Name == "Shopping"));
+
+        Assert.Equal(["Later"], screen.MoveTargetsForTheEntry.Select(target => target.Name));
+    }
+
+    /// <summary>
+    /// A group list is nothing but entries standing for other lists, and this screen offered no way
+    /// into any of them: the work it gathers was one tap away in the browser and unreachable here.
+    /// The browser stacks the whole tree as cards; a phone has room for one list at a time, so the
+    /// entry says which lists it stands for and each opens.
+    /// </summary>
+    [Fact]
+    public async Task An_entry_standing_for_a_list_is_the_way_into_it()
+    {
+        using var context = new ScreenContext();
+        var shopping = context.OpenTaskList("Shopping");
+        var screen = context.OpenTaskList("This week");
+        await AddAsync(screen, "The shopping");
+        await context.SynchroniseAsync();
+        await screen.LoadCommand.ExecuteAsync(null);
+        screen.EditItemCommand.Execute(screen.Items.Single());
+        screen.BeingEdited!.LinkToCommand.Execute(
+            screen.BeingEdited.LinkableTaskLists.Single(choice => choice.Name == "Shopping"));
+        await screen.SaveItemCommand.ExecuteAsync(null);
+        await context.SynchroniseAsync();
+        await screen.LoadCommand.ExecuteAsync(null);
+
+        var reference = Assert.Single(Assert.Single(screen.Items).References);
+        Assert.Equal("Shopping", reference.Label);
+
+        screen.OpenReferenceCommand.Execute(reference);
+
+        Assert.Equal("ShowTaskList", context.Navigator.LastDestination);
+        Assert.Equal(context.OpenedListIdOf("Shopping"), context.Navigator.LastTaskListId);
+    }
+
+    /// <summary>A list this phone has not got is no way in at all, so no chip is offered for it.</summary>
+    [Fact]
+    public async Task A_list_this_phone_has_not_got_offers_nothing_to_open()
+    {
+        using var context = new ScreenContext();
+        var screen = context.OpenTaskList("This week");
+        await AddAsync(screen, "The shopping");
+        await context.SynchroniseAsync();
+        await screen.LoadCommand.ExecuteAsync(null);
+
+        // An entry pointing at a list nobody here holds - shared and then unshared, or not pulled yet.
+        await context.PointAtAListNobodyHoldsAsync(screen);
+        await screen.LoadCommand.ExecuteAsync(null);
+
+        Assert.Empty(Assert.Single(screen.Items).References);
     }
 
     /// <summary>
@@ -1012,8 +1220,8 @@ public sealed class TaskListDetailScreenTests
 
         screen.EditItemCommand.Execute(screen.Items.Single());
         var editor = screen.BeingEdited!;
-        editor.ChosenLinkedTaskList = editor.LinkableTaskLists.Single(choice => choice.Name == "Shopping");
-        editor.ChosenLinkedTaskList = editor.LinkableTaskLists.Single(choice => choice.Name == "Chemist");
+        editor.LinkToCommand.Execute(editor.LinkableTaskLists.Single(choice => choice.Name == "Shopping"));
+        editor.LinkToCommand.Execute(editor.LinkableTaskLists.Single(choice => choice.Name == "Chemist"));
 
         Assert.Equal(["Shopping", "Chemist"], editor.LinkedTaskLists.Select(linked => linked.Name));
         // And what it already stands for is not offered again.
@@ -1048,8 +1256,8 @@ public sealed class TaskListDetailScreenTests
         await screen.LoadCommand.ExecuteAsync(null);
 
         screen.EditItemCommand.Execute(screen.Items.Single());
-        screen.BeingEdited!.ChosenLinkedTaskList =
-            screen.BeingEdited.LinkableTaskLists.Single(choice => choice.Name == "Shopping");
+        screen.BeingEdited!.LinkToCommand.Execute(
+            screen.BeingEdited.LinkableTaskLists.Single(choice => choice.Name == "Shopping"));
         await screen.SaveItemCommand.ExecuteAsync(null);
 
         await screen.ToggleItemCommand.ExecuteAsync(screen.Items.Single());
@@ -1080,8 +1288,8 @@ public sealed class TaskListDetailScreenTests
         await screen.LoadCommand.ExecuteAsync(null);
 
         screen.EditItemCommand.Execute(screen.Items.Single());
-        screen.BeingEdited!.ChosenLinkedTaskList =
-            screen.BeingEdited.LinkableTaskLists.Single(choice => choice.Name == "Shopping");
+        screen.BeingEdited!.LinkToCommand.Execute(
+            screen.BeingEdited.LinkableTaskLists.Single(choice => choice.Name == "Shopping"));
         await screen.SaveItemCommand.ExecuteAsync(null);
         await screen.ToggleItemCommand.ExecuteAsync(screen.Items.Single());
 
@@ -1108,8 +1316,8 @@ public sealed class TaskListDetailScreenTests
         await screen.LoadCommand.ExecuteAsync(null);
 
         screen.EditItemCommand.Execute(screen.Items.Single());
-        screen.BeingEdited!.ChosenLinkedTaskList =
-            screen.BeingEdited.LinkableTaskLists.Single(choice => choice.Name == "Shopping");
+        screen.BeingEdited!.LinkToCommand.Execute(
+            screen.BeingEdited.LinkableTaskLists.Single(choice => choice.Name == "Shopping"));
         await screen.SaveItemCommand.ExecuteAsync(null);
 
         await screen.LoadCommand.ExecuteAsync(null);
@@ -1447,7 +1655,9 @@ public sealed class TaskListDetailScreenTests
         var screen = context.OpenTaskList("Bank paperwork");
 
         screen.IsPrivate = true;
-        await screen.SaveListCommand.ExecuteAsync(null);
+        // Waits on the save the switch started rather than starting a second: two saves race,
+        // and the first can outlive the test - which brought the whole run down.
+        await screen.SaveListCommand.ExecutionTask!;
 
         var stored = context.Stored();
         Assert.True(stored.IsPrivate);
@@ -1465,7 +1675,9 @@ public sealed class TaskListDetailScreenTests
         await screen.AddItemCommand.ExecuteAsync(null);
 
         screen.IsPrivate = true;
-        await screen.SaveListCommand.ExecuteAsync(null);
+        // Waits on the save the switch started rather than starting a second: two saves race,
+        // and the first can outlive the test - which brought the whole run down.
+        await screen.SaveListCommand.ExecutionTask!;
         await screen.LoadCommand.ExecuteAsync(null);
 
         Assert.False(screen.IsReadOnly);
@@ -1489,7 +1701,9 @@ public sealed class TaskListDetailScreenTests
         await screen.AddItemCommand.ExecuteAsync(null);
 
         screen.IsPrivate = true;
-        await screen.SaveListCommand.ExecuteAsync(null);
+        // Waits on the save the switch started rather than starting a second: two saves race,
+        // and the first can outlive the test - which brought the whole run down.
+        await screen.SaveListCommand.ExecutionTask!;
         await screen.LoadCommand.ExecuteAsync(null);
 
         var ids = screen.Items.Select(item => item.Id).ToList();
@@ -1504,7 +1718,9 @@ public sealed class TaskListDetailScreenTests
         var screen = context.OpenTaskList("Bank paperwork");
 
         screen.IsPrivate = true;
-        await screen.SaveListCommand.ExecuteAsync(null);
+        // Waits on the save the switch started rather than starting a second: two saves race,
+        // and the first can outlive the test - which brought the whole run down.
+        await screen.SaveListCommand.ExecutionTask!;
 
         Assert.False(screen.Share.CanShare);
     }
@@ -1517,7 +1733,9 @@ public sealed class TaskListDetailScreenTests
         var screen = context.OpenTaskList("Bank paperwork");
 
         screen.IsPrivate = true;
-        await screen.SaveListCommand.ExecuteAsync(null);
+        // Waits on the save the switch started rather than starting a second: two saves race,
+        // and the first can outlive the test - which brought the whole run down.
+        await screen.SaveListCommand.ExecutionTask!;
 
         Assert.Contains(nameof(IScreenNavigator.ShowChatKeyGate), context.Navigator.Destinations);
         Assert.False(context.Stored().IsPrivate);
@@ -1622,6 +1840,26 @@ public sealed class TaskListDetailScreenTests
 
         /// <summary>Which list is open, for a test that asks what was remembered about it.</summary>
         public Guid OpenedListId => _openedListId;
+
+        /// <summary>This phone's id for a list a test opened earlier, for asserting where a tap led.</summary>
+        public Guid OpenedListIdOf(string title)
+            => _taskLists.GetAllAsync().GetAwaiter().GetResult().Single(list => list.Title == title).LocalId;
+
+        /// <summary>
+        /// Makes the open list's entry stand for a list this phone does not hold - what a share taken
+        /// back leaves behind.
+        /// </summary>
+        public async Task PointAtAListNobodyHoldsAsync(TaskListDetailViewModel screen)
+        {
+            var stored = await _taskLists.FindAsync(_openedListId);
+            await _taskLists.UpdateAsync(
+                _openedListId,
+                new TaskListContent(
+                    stored!.Title,
+                    [.. stored.Items.Select(item => item with { LinkedTaskListIds = [Guid.NewGuid()] })],
+                    stored.IsGroup,
+                    stored.Priority));
+        }
         private readonly FakeTimeProvider _clock = new(DateTimeOffset.Parse("2026-08-26T10:00:00Z"));
         private readonly LocalTaskListRepository _taskLists;
 
@@ -1793,6 +2031,51 @@ public sealed class TaskListDetailScreenTests
         /// An appointment this phone already holds, as one an entry can carry the id of - which is what
         /// the entry's form is filled from when it is opened again.
         /// </summary>
+        /// <summary>
+        /// An empty shelf this list is measured against, as the stock check leaves things: the warehouse
+        /// is pushed up so it has a server id, and the list is pointed at that id the way a pull would
+        /// point it. Written to the store directly because the link is made on the server and comes back
+        /// down - there is no local write for it.
+        /// </summary>
+        public async Task<Guid> MeasureAgainstAnEmptyShelfAsync(TaskListDetailViewModel screen, string warehouseName)
+        {
+            var warehouse = await Shelves.CreateAsync(warehouseName);
+            await ShelfSynchronizer.SynchroniseAsync();
+            await Synchronizer.SynchroniseAsync(CancellationToken.None);
+
+            Guid warehouseServerId;
+            await using (var dbContext = _localStore.CreateDbContext())
+            {
+                warehouseServerId = dbContext.Warehouses
+                    .Single(candidate => candidate.LocalId == warehouse.LocalId).ServerId!.Value;
+            }
+
+            // Through the server rather than into the row, because that is where the link lives - a
+            // phone learns which shelf a list is measured against by pulling the list back down.
+            await new TasksClient(Server.ToHttpClient()).LinkWarehouseAsync(
+                Stored().ServerId!.Value, warehouseServerId);
+            await screen.LoadCommand.ExecuteAsync(null);
+            return warehouse.LocalId;
+        }
+
+        /// <summary>An entry standing for an errand about nothing on the shelf yet.</summary>
+        public async Task AddErrandForSomethingNotOnTheShelfAsync(
+            TaskListDetailViewModel screen, string description)
+        {
+            screen.NewItemDescription = description;
+            await screen.AddItemCommand.ExecuteAsync(null);
+
+            var stored = await _taskLists.FindAsync(_openedListId);
+            await _taskLists.UpdateAsync(
+                _openedListId,
+                new TaskListContent(
+                    stored!.Title,
+                    [.. stored.Items.Select(item => item with { Kind = nameof(TaskItemKind.Inventory) })],
+                    stored.IsGroup, stored.Priority, stored.IsPrivate));
+
+            await screen.LoadCommand.ExecuteAsync(null);
+        }
+
         /// <summary>One product on one shelf, as this phone holds it.</summary>
         public async Task<(Guid WarehouseLocalId, Guid ProductId)> AddShelfProductAsync(
             string warehouseName, string productName, decimal quantity)

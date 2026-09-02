@@ -205,6 +205,7 @@
              calendar draws them together for the same reason - see CalendarListEntry. -->
         <RefreshView Grid.Row="4" IsRefreshing="{Binding IsRefreshing}" Command="{Binding LoadCommand}">
             <CollectionView ItemsSource="{Binding Listed}"
+                            Scrolled="OnListScrolled"
                             SelectionMode="Single"
                             SelectionChangedCommand="{Binding OpenListedCommand}"
                             SelectionChangedCommandParameter="{Binding SelectedItem, Source={RelativeSource Self}, x:DataType=CollectionView}">

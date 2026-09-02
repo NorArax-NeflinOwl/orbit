@@ -98,9 +98,16 @@ public sealed class TasksClient : ILockableItems
         switch (response.StatusCode)
         {
             case HttpStatusCode.Conflict:
+            // Not this reader's to change - a share that was read-only, or has become so. Answered
+            // rather than thrown for the reason WriteOutcome.Refused gives.
+            case HttpStatusCode.Forbidden:
                 return WriteOutcome.Refused;
             case HttpStatusCode.NotFound:
                 return WriteOutcome.Gone;
+            // A rule about the thing itself - see WriteOutcome.Rejected for why this is an answer rather
+            // than an exception.
+            case HttpStatusCode.BadRequest:
+                return WriteOutcome.Rejected;
             default:
                 response.EnsureSuccessStatusCode();
                 return WriteOutcome.Applied;

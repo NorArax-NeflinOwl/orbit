@@ -80,6 +80,17 @@ public sealed record TaskListRow(
     public bool CanBeMoved { get; init; }
 
     /// <summary>
+    /// The entry that answered what the reader is looking for, where they are looking for one - see
+    /// TaskItemFilter. Empty otherwise, and the card then says what is next as usual.
+    /// </summary>
+    public string Matched { get; init; } = string.Empty;
+
+    /// <summary>What the card says under its heading: what answered, or what is next.</summary>
+    public string NextOrMatched => Matched.Length > 0 ? Matched : NextThing;
+
+    public bool HasNextOrMatched => NextOrMatched.Length > 0;
+
+    /// <summary>
     /// Whether this card is folded down to its heading. Folded rather than filtered away: a list
     /// somebody is not working on this week is still one they want to see is there.
     /// </summary>

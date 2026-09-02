@@ -14,10 +14,18 @@ namespace Orbit.Mobile.Screens.Inventory;
 /// "2" of a thing already means two of them; the same rule the server follows when it names a restock
 /// errand (see RestockTaskNaming).
 /// </param>
+/// <param name="IsPointedAt">
+/// Whether this is the row the shelf was opened for - see IScreenNavigator.ShowWarehouse. Marked rather
+/// than lifted to the top: a shelf read in one order should not rearrange itself around where somebody
+/// came from.
+/// </param>
 public sealed record WarehouseItemRow(
-    WarehouseItemDto Item, string Detail, string Amount, bool IsRunningLow, string Expiry)
+    WarehouseItemDto Item, string Detail, string Amount, bool IsRunningLow, string Expiry,
+    bool IsPointedAt = false)
 {
-    public static WarehouseItemRow From(WarehouseItemDto item, Translations translations)
+    public static WarehouseItemRow From(
+        WarehouseItemDto item, Translations translations, Guid? pointedAtProductId = null,
+        DateTimeOffset? arrivedAtUtc = null)
         => new(
             item,
             Describe(item, translations),
@@ -26,11 +34,36 @@ public sealed record WarehouseItemRow(
             item.MinimumQuantity is { } minimum && item.Quantity < minimum,
             item.ExpiryDate is { } expiry
                 ? translations.Format("Expires {0}", expiry.LocalDateTime.ToString("d", translations.DisplayCulture))
-                : string.Empty);
+                : string.Empty,
+            IsPointedAt: pointedAtProductId is { } pointedAt && item.Id == pointedAt)
+        {
+            NameForAReader = pointedAtProductId is { } wanted && item.Id == wanted
+                ? translations.Format("{0}, what you were sent here for", item.Name)
+                : item.Name,
+            Arrived = arrivedAtUtc is { } arrived
+                ? translations.Format(
+                    "added {0}", arrived.LocalDateTime.ToString("d", translations.DisplayCulture))
+                : string.Empty
+        };
 
     public string Name => Item.Name;
 
+    /// <summary>
+    /// What a screen reader says for this row. The mark on a pointed-at row is a colour and a bar, and
+    /// a colour is nothing to somebody who cannot see it - so the row says so in words as well.
+    /// </summary>
+    public string NameForAReader { get; private init; } = string.Empty;
+
     public bool HasExpiry => Expiry.Length > 0;
+
+    /// <summary>
+    /// When this batch arrived, in the reader's language, or nothing for one no server has accepted yet.
+    /// A row is a batch rather than a product - two rows of one name are two deliveries of it - and this
+    /// is what tells them apart. Orbit.Web's shelf says it in the same words.
+    /// </summary>
+    public string Arrived { get; private init; } = string.Empty;
+
+    public bool HasArrived => Arrived.Length > 0;
 
     private static string Describe(WarehouseItemDto item, Translations translations)
     {

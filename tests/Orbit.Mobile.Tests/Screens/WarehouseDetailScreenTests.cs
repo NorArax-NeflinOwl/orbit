@@ -24,6 +24,100 @@ namespace Orbit.Mobile.Tests.Screens;
 /// </summary>
 public sealed class WarehouseDetailScreenTests
 {
+    /// <summary>
+    /// A row is a batch rather than a product: two rows of one name are two deliveries of it, and when
+    /// each arrived is what tells them apart. The browser's shelf says it; the phone showed three of the
+    /// four things a shelf answers and left this one out.
+    /// </summary>
+    [Fact]
+    public async Task A_row_says_when_its_batch_arrived()
+    {
+        using var context = new ScreenContext();
+        var warehouse = await context.PullWarehouseAsync("Pantry", "Flour");
+
+        var screen = await context.OpenAsync(warehouse.LocalId);
+
+        var row = Assert.Single(screen.Items);
+        Assert.True(row.HasArrived);
+        Assert.Contains("27", row.Arrived);
+    }
+
+    /// <summary>
+    /// And says nothing about it for a row this phone queued and no server has accepted: nothing has
+    /// taken delivery of it, so a date here would be the phone answering a question it was not asked.
+    /// </summary>
+    [Fact]
+    public async Task A_row_no_server_has_taken_yet_says_nothing_about_arriving()
+    {
+        using var context = new ScreenContext();
+        var warehouse = await context.AddWarehouseAsync("Pantry");
+        var screen = await context.OpenAsync(warehouse.LocalId);
+
+        screen.NewItemName = "Flour";
+        await screen.AddItemCommand.ExecuteAsync(null);
+
+        Assert.False(Assert.Single(screen.Items).HasArrived);
+    }
+
+    /// <summary>
+    /// A shelf opened from somewhere that meant one product - an errand naming it, or a search that
+    /// found it - marks that row. Sixty rows and no sign of which one was meant is half an answer, and
+    /// Orbit.Web's own shelf marks the row its ?highlight= names.
+    /// </summary>
+    [Fact]
+    public async Task A_shelf_opened_for_one_product_marks_that_row()
+    {
+        using var context = new ScreenContext();
+        var flour = Guid.NewGuid();
+        var warehouse = await context.AddWarehouseAsync(
+            new WarehouseItemDto(Guid.NewGuid(), "Coffee", "", "", 2, null, nameof(InventoryUnit.Piece), null, "None"),
+            new WarehouseItemDto(flour, "Flour", "", "", 1, null, nameof(InventoryUnit.Kilogram), null, "None"));
+
+        var screen = await context.OpenAsync(warehouse.LocalId, flour);
+
+        var marked = Assert.Single(screen.Items, row => row.IsPointedAt);
+        Assert.Equal("Flour", marked.Name);
+        Assert.Equal(marked, screen.PointedAtRow);
+        // A colour says nothing to somebody who cannot see it, so the row says it in words as well.
+        Assert.NotEqual(marked.Name, marked.NameForAReader);
+    }
+
+    /// <summary>A shelf opened for its own sake marks nothing - there is nothing it was opened about.</summary>
+    [Fact]
+    public async Task A_shelf_opened_for_its_own_sake_marks_nothing()
+    {
+        using var context = new ScreenContext();
+        var warehouse = await context.AddWarehouseAsync(
+            new WarehouseItemDto(Guid.NewGuid(), "Coffee", "", "", 2, null, nameof(InventoryUnit.Piece), null, "None"));
+
+        var screen = await context.OpenAsync(warehouse.LocalId);
+
+        Assert.All(screen.Items, row => Assert.False(row.IsPointedAt));
+        Assert.Null(screen.PointedAtRow);
+    }
+
+    /// <summary>
+    /// The mark outlives a filter, the way the browser's ?highlight= outlives one: narrowing the shelf
+    /// and widening it again should find the row still marked, not quietly forgotten.
+    /// </summary>
+    [Fact]
+    public async Task Narrowing_the_shelf_and_widening_it_again_keeps_the_mark()
+    {
+        using var context = new ScreenContext();
+        var flour = Guid.NewGuid();
+        var warehouse = await context.AddWarehouseAsync(
+            new WarehouseItemDto(Guid.NewGuid(), "Coffee", "", "", 2, null, nameof(InventoryUnit.Piece), null, "None"),
+            new WarehouseItemDto(flour, "Flour", "", "", 1, null, nameof(InventoryUnit.Kilogram), null, "None"));
+        var screen = await context.OpenAsync(warehouse.LocalId, flour);
+
+        screen.SearchedName = "coffee";
+        Assert.Null(screen.PointedAtRow);
+
+        screen.SearchedName = string.Empty;
+
+        Assert.Equal("Flour", screen.PointedAtRow?.Name);
+    }
+
     [Fact]
     public async Task An_items_kind_and_minimum_are_shown()
     {
@@ -730,6 +824,22 @@ public sealed class WarehouseDetailScreenTests
             => _warehouses.CreateAsync(name);
 
         /// <summary>
+        /// A shelf as it comes down from a server, which is the only way a batch's arrival is known -
+        /// see LocalWarehouse.ItemArrivals.
+        /// </summary>
+        public async Task<LocalWarehouse> PullWarehouseAsync(string name, params string[] productNames)
+        {
+            var remote = Server.AddWarehouse(name);
+            foreach (var productName in productNames)
+            {
+                Server.AddItem(remote.Id, productName, quantity: 1);
+            }
+
+            await _synchronizer.SynchroniseAsync(CancellationToken.None);
+            return (await _warehouses.GetAllAsync()).Single(warehouse => warehouse.ServerId == remote.Id);
+        }
+
+        /// <summary>
         /// The one row as it really sits in the database, rather than as a read hands it back opened.
         /// </summary>
         public LocalWarehouse Stored()
@@ -765,7 +875,10 @@ public sealed class WarehouseDetailScreenTests
         /// <summary>Whether the phone has a connection, which is what the offline refusal turns on.</summary>
         public FixedNetworkStatus Network { get; } = FixedNetworkStatus.Online;
 
-        public async Task<WarehouseDetailViewModel> OpenAsync(Guid localId)
+        public Task<WarehouseDetailViewModel> OpenAsync(Guid localId) => OpenAsync(localId, null);
+
+        /// <param name="productId">Which row the shelf was opened for - see IScreenNavigator.ShowWarehouse.</param>
+        public async Task<WarehouseDetailViewModel> OpenAsync(Guid localId, Guid? productId)
         {
             var screen = new WarehouseDetailViewModel(
                 _warehouses, _synchronizer, new Translations(new InMemoryLanguageStore()),
@@ -777,7 +890,7 @@ public sealed class WarehouseDetailScreenTests
                     new InventoryClient(Server.ToHttpClient()), new Translations(new InMemoryLanguageStore()),
                     new ConnectionRequirement(Network, new Translations(new InMemoryLanguageStore()))));
 
-            screen.Open(localId);
+            screen.Open(localId, productId);
             await screen.LoadCommand.ExecuteAsync(null);
             return screen;
         }

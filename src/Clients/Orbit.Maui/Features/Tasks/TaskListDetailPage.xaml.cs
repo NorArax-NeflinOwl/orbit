@@ -126,12 +126,49 @@ public partial class TaskListDetailPage : ContentPage
 	}
 
 	/// <summary>
+	/// Takes what the picker was pointed at and lets go of it again, so it goes on saying what to add
+	/// next rather than what the entry already stands for.
+	///
+	/// Both happen after the picker's own selection has finished rather than during it: adding a list
+	/// changes what the picker offers, and changing a picker's source or its selection from inside its
+	/// own change hung the app on Android - the dialog stopped answering and the screen was reported as
+	/// not responding.
+	/// </summary>
+	private void OnLinkedTaskListPicked(object? sender, EventArgs eventArgs)
+	{
+		if (sender is not Picker picker || picker.SelectedItem is not TaskListChoice chosen)
+		{
+			return;
+		}
+
+		Dispatcher.Dispatch(() =>
+		{
+			_viewModel.BeingEdited?.LinkToCommand.Execute(chosen);
+			picker.SelectedIndex = -1;
+		});
+	}
+
+	/// <summary>
 	/// Choosing a list moves the entry, which closes the editor the picker lives in - and iOS leaves its
 	/// wheel on screen when the view under it disappears. Dismissing it first is the view's own business.
+	///
+	/// The move itself happens after the picker's own selection has finished, for the reason the link
+	/// picker beside it does the same: closing the editor and rebuilding what the picker offers from
+	/// inside its own change is what hung the app on Android.
 	/// </summary>
 	private void OnMoveTargetChosen(object? sender, EventArgs eventArgs)
 	{
-		(sender as Picker)?.Unfocus();
+		if (sender is not Picker picker || picker.SelectedItem is not TaskListChoice chosen)
+		{
+			return;
+		}
+
+		picker.Unfocus();
+		Dispatcher.Dispatch(() =>
+		{
+			picker.SelectedIndex = -1;
+			_viewModel.MoveItemCommand.Execute(chosen);
+		});
 	}
 
 	/// <summary>Lets go of the edit lock as the screen leaves - see EditLock.</summary>

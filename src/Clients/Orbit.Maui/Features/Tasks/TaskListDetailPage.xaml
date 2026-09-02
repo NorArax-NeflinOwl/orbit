@@ -96,6 +96,20 @@
                                     CommandParameter="{Binding .}" />
                             </VerticalStackLayout.GestureRecognizers>
                             <Label Text="{Binding Description}" LineBreakMode="WordWrap" />
+
+                            <!-- What it is filed under, under what it says: the tasks page narrows by
+                                 these, and a row that does not carry them leaves the reader to take
+                                 that page's word for why it is still on screen. -->
+                            <HorizontalStackLayout Spacing="6" IsVisible="{Binding HasCategories}"
+                                                   BindableLayout.ItemsSource="{Binding Categories}">
+                                <BindableLayout.ItemTemplate>
+                                    <DataTemplate x:DataType="x:String">
+                                        <Border Style="{StaticResource FilterChip}" Padding="6,2">
+                                            <Label Text="{Binding .}" Style="{StaticResource FilterChipLabel}" />
+                                        </Border>
+                                    </DataTemplate>
+                                </BindableLayout.ItemTemplate>
+                            </HorizontalStackLayout>
                             <Label Text="{Binding Detail}" IsVisible="{Binding HasDetail}" FontSize="11"
                                    LineBreakMode="WordWrap" Style="{StaticResource SubtleLabel}">
                                 <Label.Triggers>
@@ -157,7 +171,8 @@
 
                 <!-- What the entry is about, as many as apply, on one line - the same box the browser
                      offers and the same rule behind it, see CategoryText. Kept for every kind: an
-                     appointment is about something the same way an errand is. -->
+                     appointment is about something the same way an errand is, and the tasks screen
+                     looks for an entry among every list by these. -->
                 <Entry Placeholder="{controls:Translate 'Categories, separated by commas'}"
                        Text="{Binding Categories}"
                        SemanticProperties.Description="{controls:Translate 'Categories'}" />
@@ -285,9 +300,9 @@
                 <Label Text="{controls:Translate 'Link to list'}" FontSize="12" Style="{StaticResource SubtleLabel}" />
                 <!-- The picker says what to add next rather than what is already there: one entry may
                      stand for several lists, and choosing adds one and clears the picker. -->
-                <Picker ItemsSource="{Binding BeingEdited.LinkableTaskListsLeft}"
-                        SelectedItem="{Binding BeingEdited.ChosenLinkedTaskList}"
+                <Picker x:Name="LinkedTaskListPicker" ItemsSource="{Binding BeingEdited.LinkableTaskListsLeft}"
                         ItemDisplayBinding="{Binding Name, x:DataType=screens:TaskListChoice}"
+                        SelectedIndexChanged="OnLinkedTaskListPicked"
                         SemanticProperties.Description="{controls:Translate 'Link to list'}" />
 
                 <!-- What it stands for now, each with a way off. Orbit.Web draws the same pair. -->
@@ -314,8 +329,8 @@
                  the entry: choosing a list does it there and then, and this form's Save is not involved. -->
             <VerticalStackLayout Spacing="4" IsVisible="{Binding CanMoveItem}">
                 <Label Text="{controls:Translate 'Move to list'}" FontSize="12" Style="{StaticResource SubtleLabel}" />
-                <Picker Title="{controls:Translate 'Move to…'}" ItemsSource="{Binding MoveTargets}"
-                        SelectedItem="{Binding MoveTarget}" SelectedIndexChanged="OnMoveTargetChosen"
+                <Picker Title="{controls:Translate 'Move to…'}" ItemsSource="{Binding MoveTargetsForTheEntry}"
+                        SelectedIndexChanged="OnMoveTargetChosen"
                         ItemDisplayBinding="{Binding Name, x:DataType=screens:TaskListChoice}"
                         SemanticProperties.Description="{controls:Translate 'Move to list'}" />
             </VerticalStackLayout>

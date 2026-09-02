@@ -20,24 +20,28 @@ public enum CalendarListSortOrder
 }
 
 /// <summary>
-/// How this reader wants the calendar's list ordered. Kept on the device rather than on the account, as
-/// Orbit.Web keeps it in the browser: it describes one page for one reader on one screen and says
-/// nothing about what is on it.
+/// How this reader wants the calendar's list read: in what order, and whether it also holds what is
+/// already over. Kept on the device rather than on the account, as Orbit.Web keeps it in the browser:
+/// it describes one page for one reader on one screen and says nothing about what is on it.
 /// </summary>
+/// <param name="ShowsEverything">
+/// Whether the list also holds what is over - see CalendarListEntry.IsOver. Off by default: a calendar
+/// is read for what is coming, and a week of finished errands pushes that below the fold. The grid
+/// never hides anything either way, since a day with something in it should say so whether or not it
+/// has been.
+/// </param>
+public sealed record CalendarListReading(
+    CalendarListSortOrder SortOrder = CalendarListSortOrder.When, bool ShowsEverything = false)
+{
+    public static readonly CalendarListReading Default = new();
+}
+
+/// <inheritdoc cref="CalendarListReading"/>
 public interface ICalendarListOrderStore
 {
-    CalendarListSortOrder Read();
+    CalendarListReading Read();
 
-    void Write(CalendarListSortOrder sortOrder);
-
-    /// <summary>
-    /// Whether the list still shows what is over - a deadline already ticked off, an appointment that
-    /// has already ended. False by default, as in the browser: what a calendar is read for is what is
-    /// coming, and by the twentieth of a month a month of finished work is what stands in front of it.
-    /// </summary>
-    bool ReadShowsEverything();
-
-    void WriteShowsEverything(bool showsEverything);
+    void Write(CalendarListReading reading);
 }
 
 /// <summary>
@@ -71,15 +75,6 @@ public sealed record CalendarListEntry
 
     public bool IsDeadline => Deadline is not null;
 
-    /// <summary>
-    /// Whether this is done with: a deadline somebody has ticked off, or an appointment that has already
-    /// ended. A deadline that has passed and is still not ticked is <b>not</b> - it is the one thing on
-    /// the list that most needs saying, and hiding it would hide the work. The browser draws the same
-    /// line - see Orbit.Web's Calendar.razor.
-    /// </summary>
-    public bool IsOver(DateTimeOffset nowUtc)
-        => Deadline?.IsCompleted ?? Event?.EndUtc < nowUtc;
-
     /// <summary>When it happens, as the row says it - both kinds have one, which is why they share a list.</summary>
     public string When => Event?.When ?? Deadline?.When ?? string.Empty;
 
@@ -101,6 +96,15 @@ public sealed record CalendarListEntry
     /// empty one. False for an appointment, which is not something to tick.
     /// </summary>
     public bool IsDone => Deadline?.IsCompleted ?? false;
+
+    /// <summary>
+    /// Whether this is behind the reader rather than ahead of them: an appointment that has ended, or a
+    /// deadline that has been ticked off. A deadline that has passed and is still not done is <b>not</b>
+    /// over - it is the one thing on this page that most needs saying, and hiding it would hide the
+    /// work. The same line Orbit.Web draws over the same list.
+    /// </summary>
+    public bool IsOver(DateTimeOffset nowUtc)
+        => Event is { } calendarEvent ? calendarEvent.EndUtc < nowUtc : IsDone;
 
     public static CalendarListEntry For(CalendarEventRow calendarEvent)
         => new(calendarEvent.StartUtc, calendarEvent.Title, calendarEvent, null);

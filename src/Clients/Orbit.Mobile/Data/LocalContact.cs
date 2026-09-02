@@ -1,3 +1,5 @@
+using System.ComponentModel.DataAnnotations.Schema;
+
 namespace Orbit.Mobile.Data;
 
 /// <summary>
@@ -57,6 +59,14 @@ public sealed class LocalContact
     /// the other party's list has its own row and its own answer.
     /// </summary>
     public bool IsArchived { get; set; }
+
+    /// <summary>
+    /// Kept at the top of this reader's list, on this device only - see ConversationPins. Not stored
+    /// with the row: pinning is one person's answer about one screen, and the server has no business
+    /// knowing it.
+    /// </summary>
+    [NotMapped]
+    public bool IsPinned { get; set; }
 
     /// <summary>A chat request this user sent that the signed-in user hasn't approved yet.</summary>
     public bool RequiresApprovalFromCurrentUser { get; set; }

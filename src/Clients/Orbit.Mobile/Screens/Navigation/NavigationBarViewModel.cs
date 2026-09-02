@@ -200,6 +200,11 @@ public sealed partial class NavigationBarViewModel : ObservableObject
         CanUseLocation = _permissions.Has(ApplicationPermission.Location);
         CanUseConversations = _permissions.Has(ApplicationPermission.Chat)
             || _permissions.Has(ApplicationPermission.Contacts);
+
+        // The About row says a different thing to an account holding Debug - see Shown.
+        OnPropertyChanged(nameof(AboutVersion));
+        OnPropertyChanged(nameof(CanShowTheWholeCommit));
+        ShowTheWholeCommitCommand.NotifyCanExecuteChanged();
     }
 
     /// <summary>
@@ -491,13 +496,23 @@ public sealed partial class NavigationBarViewModel : ObservableObject
     [ObservableProperty]
     private bool _isWholeCommitShown;
 
-    public string AboutVersion => IsWholeCommitShown ? Build.Full : Build.Short;
+    /// <summary>
+    /// What this build says about itself. The commit is detail about Orbit's own inside, so it goes to
+    /// the accounts holding Debug and to nobody else - the rule both other ends already apply: the
+    /// server leaves it out of its answer, and the browser's footer drops it with WithoutTheCommit.
+    /// The number itself stays: it answers "which Orbit is this", which is everybody's question.
+    /// </summary>
+    private OrbitVersion Shown => _permissions.Has(ApplicationPermission.Debug)
+        ? Build
+        : Build.WithoutTheCommit();
+
+    public string AboutVersion => IsWholeCommitShown ? Shown.Full : Shown.Short;
 
     /// <summary>
-    /// Whether tapping the version does anything. False in a released build, where the commit is not
-    /// part of what the app says about itself - see OrbitVersion.
+    /// Whether tapping the version does anything. False for a build carrying no commit, and for a
+    /// reader who is not shown one - the row would otherwise look pressable and do nothing.
     /// </summary>
-    public bool CanShowTheWholeCommit => Build.CanShowTheWholeCommit;
+    public bool CanShowTheWholeCommit => Shown.CanShowTheWholeCommit;
 
     /// <summary>
     /// Tapping the version grows the rest of the hash while debugging. The short form is what anybody

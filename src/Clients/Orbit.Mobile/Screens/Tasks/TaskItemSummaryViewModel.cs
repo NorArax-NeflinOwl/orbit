@@ -1,8 +1,10 @@
+using System.Collections.ObjectModel;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Orbit.Mobile.Data;
 using Orbit.Mobile.Localization;
 using Orbit.Mobile.Location;
+using Orbit.Mobile.Screens.Calendar;
 using Orbit.Mobile.Screens.Location;
 
 namespace Orbit.Mobile.Screens.Tasks;
@@ -20,10 +22,10 @@ public sealed partial class TaskItemSummaryViewModel : ObservableObject
 {
     private readonly LocalTaskListRepository _taskLists;
     private readonly LocalCalendarEventRepository _calendarEvents;
+    private readonly ChatRepository _contacts;
     private readonly PlaceSearch _places;
     private readonly Translations _translations;
     private readonly IScreenNavigator _navigator;
-    private readonly ChatRepository _contacts;
 
     private Guid _taskListLocalId;
     private Guid _itemId;
@@ -34,10 +36,10 @@ public sealed partial class TaskItemSummaryViewModel : ObservableObject
     {
         _taskLists = taskLists;
         _calendarEvents = calendarEvents;
+        _contacts = contacts;
         _places = places;
         _translations = translations;
         _navigator = navigator;
-        _contacts = contacts;
     }
 
     /// <summary>What the entry says, which is the screen's own title.</summary>

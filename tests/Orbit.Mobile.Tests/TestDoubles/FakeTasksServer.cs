@@ -142,10 +142,19 @@ internal sealed class FakeTasksServer : HttpMessageHandler
                 : new HttpResponseMessage(HttpStatusCode.NotFound);
         }
 
+        // api/tasks/{id}/warehouse
         if (path.EndsWith("/warehouse", StringComparison.Ordinal))
         {
             var body = await ReadAsync<LinkTaskItemToWarehouseBody>(request, cancellationToken);
             LinkedWarehouseId = body?.WarehouseId;
+            // Kept on the list itself as well, because that is where a pull reads it from: a phone told
+            // which shelf a list is measured against only learns it by asking for the list again.
+            var taskListId = Guid.Parse(path.Split('/')[^2]);
+            if (_taskLists.TryGetValue(taskListId, out var taskList))
+            {
+                _taskLists[taskListId] = taskList with { LinkedWarehouseId = body?.WarehouseId };
+            }
+
             return new HttpResponseMessage(HttpStatusCode.NoContent);
         }
 
@@ -170,9 +179,26 @@ internal sealed class FakeTasksServer : HttpMessageHandler
     /// As MoveTaskItemCommandHandler does it: the entry leaves one list and arrives in the other, and
     /// both lists count as changed so a delta pull brings them both back.
     /// </summary>
+    /// <summary>
+    /// Answers the next move the way the real server answers one it will not make: 400 with a message
+    /// (see "Refusing a request"). An entry cannot link to the list it belongs to, and there is no
+    /// reason for this fake to work out which moves those are - what matters is that the client is
+    /// handed a refusal rather than an exception.
+    /// </summary>
+    public bool RefusesTheNextMove { get; set; }
+
     private async Task<HttpResponseMessage> MoveItemAsync(
         HttpRequestMessage request, Guid sourceId, Guid itemId, CancellationToken cancellationToken)
     {
+        if (RefusesTheNextMove)
+        {
+            RefusesTheNextMove = false;
+            return new HttpResponseMessage(HttpStatusCode.BadRequest)
+            {
+                Content = JsonContent.Create(new { message = "A task list item can't link to the list it belongs to." })
+            };
+        }
+
         var body = await ReadAsync<MoveTaskItemRequest>(request, cancellationToken);
         if (!_taskLists.TryGetValue(sourceId, out var source)
             || !_taskLists.TryGetValue(body!.TargetTaskListId, out var target)
@@ -270,7 +296,10 @@ internal sealed class FakeTasksServer : HttpMessageHandler
             // every kind would let a client sending the wrong kind pass, and the real server would cut
             // the errand loose from its product.
             item.Kind == nameof(TaskItemKind.Inventory) ? item.LinkedInventoryItemId : null,
-            item.AllLinkedTaskListIds)).ToList();
+            item.AllLinkedTaskListIds,
+            // Answered as sent. A fake that dropped them would let a client that never sends them pass,
+            // and the reader would find their entries unfiled the next time the list was pulled.
+            item.AllCategories)).ToList();
 
     private static Guid ReadId(string path) => Guid.Parse(path.Split('/')[^1]);
 

@@ -38,11 +38,20 @@ public partial class GroupsPage : ContentPage
 		}
 
 		var putAway = group.IsArchived ? _translations["Put back"] : _translations["Archive"];
+		var pin = group.IsPinned ? _translations["Unpin"] : _translations["Pin"];
 		var leave = _translations["Leave group"];
 
 		// Leaving is marked as the destructive one: putting a group away changes nothing for anybody
-		// else, and leaving is seen by the whole group.
-		var chosen = await DisplayActionSheet(group.Name, _translations["Cancel"], leave, putAway);
+		// else, and leaving is seen by the whole group. Pinning is not offered on something put away -
+		// see ContactsPage.
+		string[] choices = group.IsArchived ? [putAway] : [pin, putAway];
+		var chosen = await DisplayActionSheet(group.Name, _translations["Cancel"], leave, choices);
+
+		if (chosen == pin)
+		{
+			_viewModel.TogglePinCommand.Execute(group);
+			return;
+		}
 
 		if (chosen == putAway)
 		{

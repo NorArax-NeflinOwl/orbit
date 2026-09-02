@@ -16,14 +16,16 @@ public sealed class PreferencesCalendarListOrderStore : ICalendarListOrderStore
 	public PreferencesCalendarListOrderStore(IPreferences preferences) => _preferences = preferences;
 
 	/// <summary>An order written by a build that offered a different set reads as the default.</summary>
-	public CalendarListSortOrder Read()
-		=> Enum.TryParse<CalendarListSortOrder>(_preferences.Get<string?>(SortOrderKey, null), out var stored)
-			? stored
-			: CalendarListSortOrder.When;
+	public CalendarListReading Read()
+		=> new(
+			Enum.TryParse<CalendarListSortOrder>(_preferences.Get<string?>(SortOrderKey, null), out var stored)
+				? stored
+				: CalendarListSortOrder.When,
+			_preferences.Get(ShowsEverythingKey, false));
 
-	public void Write(CalendarListSortOrder sortOrder) => _preferences.Set(SortOrderKey, sortOrder.ToString());
-
-	public bool ReadShowsEverything() => _preferences.Get(ShowsEverythingKey, false);
-
-	public void WriteShowsEverything(bool showsEverything) => _preferences.Set(ShowsEverythingKey, showsEverything);
+	public void Write(CalendarListReading reading)
+	{
+		_preferences.Set(SortOrderKey, reading.SortOrder.ToString());
+		_preferences.Set(ShowsEverythingKey, reading.ShowsEverything);
+	}
 }

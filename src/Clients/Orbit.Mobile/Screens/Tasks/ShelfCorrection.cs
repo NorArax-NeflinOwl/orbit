@@ -1,3 +1,4 @@
+using Orbit.Contracts.Inventory;
 using Orbit.Mobile.Api;
 using Orbit.Mobile.Data;
 using Orbit.Mobile.Sync;
@@ -67,10 +68,7 @@ public sealed class ShelfCorrection
         var corrected = shelf.Product.ToDto();
         var outcome = await _warehouses.UpdateAsync(
             shelf.WarehouseLocalId,
-            new WarehouseContent(
-                warehouse.Name,
-                [.. warehouse.Items.Select(product => product.Id == corrected.Id ? corrected : product)],
-                warehouse.IsPrivate),
+            new WarehouseContent(warehouse.Name, ShelfWith(warehouse, corrected), warehouse.IsPrivate),
             cancellationToken);
 
         if (outcome.WasRefused())
@@ -84,6 +82,27 @@ public sealed class ShelfCorrection
         await _synchronizer.SynchroniseAsync(cancellationToken);
         await RebuildTheRestockListAsync(warehouse.ServerId, cancellationToken);
         return ShelfCorrectionOutcome.Applied;
+    }
+
+    /// <summary>
+    /// The shelf with this product on it: the one it corrects replaced, or the product added where it
+    /// has no id yet.
+    ///
+    /// A shelf already holding something by that name is what the entry was asking for, so nothing is
+    /// added for it - the stock check matches an errand to a product by name, and two rows of one name
+    /// would be two answers to "is there enough". The same rule Orbit.Web's own save applies.
+    /// </summary>
+    private static IReadOnlyList<WarehouseItemDto> ShelfWith(LocalWarehouse warehouse, WarehouseItemDto product)
+    {
+        if (product.Id is { } productId)
+        {
+            return [.. warehouse.Items.Select(stored => stored.Id == productId ? product : stored)];
+        }
+
+        var alreadyThere = warehouse.Items.Any(stored =>
+            string.Equals(stored.Name.Trim(), product.Name.Trim(), StringComparison.CurrentCultureIgnoreCase));
+
+        return alreadyThere ? warehouse.Items : [.. warehouse.Items, product];
     }
 
     /// <summary>
