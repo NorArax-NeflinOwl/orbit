@@ -40,8 +40,7 @@ public sealed class TaskItemOrderTests : IDisposable
         var withOneTicked = reread!.Items
             .Select(item => TaskItem.FromPersistence(
                 item.Id, item.Description, item.DueDateUtc, item.Description == "C", item.LinkedTaskListIds,
-                item.OverdueNotificationChannel, item.RemindDaily, item.DailyReminderNotificationChannel,
-                item.DailyReminderTimeOfDay))
+                item.Reminders))
             .ToList();
         reread.Update(
             reread.Title, withOneTicked, reread.IsGroup, reread.IsPrivate, reread.EncryptedContent, reread.Priority);

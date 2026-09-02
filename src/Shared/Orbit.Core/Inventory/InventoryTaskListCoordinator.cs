@@ -76,8 +76,7 @@ public sealed class InventoryTaskListCoordinator
         var settings = await _managedTaskListRepository.GetSettingsAsync(warehouseId, cancellationToken);
         var reminderItem = TaskItem.Create(
             UpdateStockReminderDescription, dueDateUtc: null, isCompleted: false,
-            remindDaily: true, dailyReminderNotificationChannel: NotificationChannel.Push,
-            dailyReminderTimeOfDay: settings.RefreshTimeOfDay);
+            reminders: TaskItemReminders.Default with { Daily = true, DailyTimeOfDay = settings.RefreshTimeOfDay });
         // Pinned from the moment it exists: this is the one list Orbit maintains rather than the reader,
         // and it is only useful if it is where they will see it.
         var taskList = TaskList.Create(ownerUserId, title, [reminderItem], isPinned: true);

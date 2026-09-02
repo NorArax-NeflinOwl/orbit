@@ -198,9 +198,8 @@ public sealed class RestockListRefresh
 
             items[index] = TaskItem.FromPersistence(
                 item.Id, item.Description, item.DueDateUtc, item.IsCompleted, item.LinkedTaskListIds,
-                item.OverdueNotificationChannel, item.RemindDaily, item.DailyReminderNotificationChannel,
-                settings.RefreshTimeOfDay, item.Kind, item.Location, item.LinkedCalendarEventId,
-                item.LinkedInventoryItemId);
+                item.Reminders with { DailyTimeOfDay = settings.RefreshTimeOfDay },
+                item.Kind, item.Location, item.LinkedCalendarEventId, item.LinkedInventoryItemId);
         }
     }
 }

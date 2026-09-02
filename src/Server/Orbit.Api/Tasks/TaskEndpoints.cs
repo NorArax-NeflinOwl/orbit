@@ -292,16 +292,18 @@ public static class TaskEndpoints
 
     private static TaskItem ToDomainItem(TaskItemRequest item)
     {
-        var overdueChannel = RequestEnum.Parse<NotificationChannel>(item.OverdueNotificationChannel, "overdueNotificationChannel");
-        var dailyChannel = RequestEnum.Parse<NotificationChannel>(item.DailyReminderNotificationChannel, "dailyReminderNotificationChannel");
+        var reminders = new TaskItemReminders(
+            RequestEnum.Parse<NotificationChannel>(item.OverdueNotificationChannel, "overdueNotificationChannel"),
+            item.RemindDaily,
+            RequestEnum.Parse<NotificationChannel>(item.DailyReminderNotificationChannel, "dailyReminderNotificationChannel"),
+            item.DailyReminderTimeOfDay);
         var kind = RequestEnum.Parse<TaskItemKind>(item.Kind, "kind");
 
         if (item.Id is not { } existingId)
         {
             return TaskItem.Create(
                 item.Description, item.DueDateUtc, item.IsCompleted, item.AllLinkedTaskListIds,
-                overdueChannel, item.RemindDaily, dailyChannel, item.DailyReminderTimeOfDay,
-                kind, item.Location, item.LinkedCalendarEventId, item.LinkedInventoryItemId, item.AllCategories);
+                reminders, kind, item.Location, item.LinkedCalendarEventId, item.LinkedInventoryItemId, item.AllCategories);
         }
 
         // Same override Create applies: a linked entry's completion follows the list it links to, so a
@@ -309,8 +311,7 @@ public static class TaskEndpoints
         return TaskItem.FromPersistence(
             existingId, item.Description, item.DueDateUtc,
             item.AllLinkedTaskListIds.Count == 0 && item.IsCompleted, item.AllLinkedTaskListIds,
-            overdueChannel, item.RemindDaily, dailyChannel, item.DailyReminderTimeOfDay,
-            kind, item.Location, item.LinkedCalendarEventId, item.LinkedInventoryItemId, item.AllCategories);
+            reminders, kind, item.Location, item.LinkedCalendarEventId, item.LinkedInventoryItemId, item.AllCategories);
     }
 
 

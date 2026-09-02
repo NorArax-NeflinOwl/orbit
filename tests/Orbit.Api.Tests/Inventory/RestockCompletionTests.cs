@@ -117,8 +117,7 @@ public sealed class RestockCompletionTests
         var withoutLinks = taskList.Items
             .Select(item => TaskItem.FromPersistence(
                 item.Id, item.Description, item.DueDateUtc, isCompleted: true, item.LinkedTaskListIds,
-                item.OverdueNotificationChannel, item.RemindDaily, item.DailyReminderNotificationChannel,
-                item.DailyReminderTimeOfDay))
+                item.Reminders))
             .ToList();
         taskList.Update(taskList.Title, withoutLinks, taskList.IsGroup, taskList.IsPrivate, taskList.EncryptedContent, taskList.Priority);
         await _context.TaskRepository.UpdateAsync(taskList, CancellationToken.None);
@@ -184,8 +183,7 @@ public sealed class RestockCompletionTests
         var ticked = taskList!.Items
             .Select(item => TaskItem.FromPersistence(
                 item.Id, item.Description, item.DueDateUtc, isCompleted: true, item.LinkedTaskListIds,
-                item.OverdueNotificationChannel, item.RemindDaily, item.DailyReminderNotificationChannel,
-                item.DailyReminderTimeOfDay))
+                item.Reminders))
             .ToList();
 
         var outcome = await new UpdateTaskListCommandHandler(
@@ -222,8 +220,7 @@ public sealed class RestockCompletionTests
         var ticked = taskList!.Items
             .Select(item => TaskItem.FromPersistence(
                 item.Id, item.Description, item.DueDateUtc, isCompleted: true, item.LinkedTaskListIds,
-                item.OverdueNotificationChannel, item.RemindDaily, item.DailyReminderNotificationChannel,
-                item.DailyReminderTimeOfDay))
+                item.Reminders))
             .ToList();
         taskList.Update(taskList.Title, ticked, taskList.IsGroup, taskList.IsPrivate, taskList.EncryptedContent, taskList.Priority);
         await _context.TaskRepository.UpdateAsync(taskList, CancellationToken.None);

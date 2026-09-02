@@ -198,6 +198,10 @@ public sealed class ArchiveRoundTripTests
         await Assert.ThrowsAsync<InvalidRequestException>(() => context.ImportAsync(archive));
     }
 
+    /// <summary>What these lists say when they are late, and when they say it daily - the same for all of them.</summary>
+    private static readonly TaskItemReminders NineOClock =
+        new(NotificationChannel.None, Daily: false, NotificationChannel.None, new TimeOnly(9, 0));
+
     private sealed class ArchiveTestContext
     {
         private readonly InMemoryNoteRepository _noteRepository = new();
@@ -238,8 +242,7 @@ public sealed class ArchiveRoundTripTests
             var taskList = TaskList.Create(
                 UserId, title,
                 [TaskItem.Create(
-                    "Follows another list", null, false, [linkedTaskListId], NotificationChannel.None, false,
-                    NotificationChannel.None, new TimeOnly(9, 0))]);
+                    "Follows another list", null, false, [linkedTaskListId], NineOClock)]);
             await _taskRepository.AddAsync(taskList, CancellationToken.None);
         }
 
@@ -290,7 +293,6 @@ public sealed class ArchiveRoundTripTests
 
         private static TaskItem Item(string description, IReadOnlyList<string>? categories = null)
             => TaskItem.Create(
-                description, null, false, null, NotificationChannel.None, false, NotificationChannel.None, new TimeOnly(9, 0),
-                categories: categories);
+                description, null, false, null, NineOClock, categories: categories);
     }
 }

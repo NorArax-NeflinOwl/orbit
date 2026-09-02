@@ -200,10 +200,11 @@ public sealed class TaskRepository : ITaskRepository
             entity.DueDateUtc,
             entity.IsCompleted,
             [.. entity.LinkedTaskLists.OrderBy(link => link.Position).Select(link => link.LinkedTaskListId)],
-            Enum.Parse<NotificationChannel>(entity.OverdueNotificationChannel, ignoreCase: true),
-            entity.RemindDaily,
-            Enum.Parse<NotificationChannel>(entity.DailyReminderNotificationChannel, ignoreCase: true),
-            TimeOnly.FromTimeSpan(TimeSpan.FromMinutes(entity.DailyReminderTimeOfDayMinutes)),
+            new TaskItemReminders(
+                Enum.Parse<NotificationChannel>(entity.OverdueNotificationChannel, ignoreCase: true),
+                entity.RemindDaily,
+                Enum.Parse<NotificationChannel>(entity.DailyReminderNotificationChannel, ignoreCase: true),
+                TimeOnly.FromTimeSpan(TimeSpan.FromMinutes(entity.DailyReminderTimeOfDayMinutes))),
             Enum.TryParse<TaskItemKind>(entity.Kind, out var kind) ? kind : TaskItemKind.Checklist,
             entity.Location, entity.LinkedCalendarEventId, entity.LinkedInventoryItemId,
             [.. entity.Categories.OrderBy(category => category.Position).Select(category => category.Category)]);

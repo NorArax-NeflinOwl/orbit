@@ -55,7 +55,7 @@ public sealed class UpdateTaskListCommandHandlerTests
 
         // The same entry, ticked off, and carrying no categories - which is what an older client sends.
         var incoming = TaskItem.FromPersistence(
-            stored.Id, "Buy milk", null, true, null, NotificationChannel.Push, false, NotificationChannel.Push, default);
+            stored.Id, "Buy milk", null, true, null, TaskItemReminders.Default);
 
         await handler.HandleAsync(
             new UpdateTaskListCommand(
@@ -79,7 +79,7 @@ public sealed class UpdateTaskListCommandHandlerTests
         await repository.AddAsync(taskList, CancellationToken.None);
 
         var incoming = TaskItem.FromPersistence(
-            stored.Id, "Buy milk", null, false, null, NotificationChannel.Push, false, NotificationChannel.Push, default);
+            stored.Id, "Buy milk", null, false, null, TaskItemReminders.Default);
 
         await handler.HandleAsync(
             new UpdateTaskListCommand(

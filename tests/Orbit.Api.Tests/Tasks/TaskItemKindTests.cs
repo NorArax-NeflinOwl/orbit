@@ -66,8 +66,9 @@ public sealed class TaskItemKindTests
 
         var entry = TaskItem.FromPersistence(
             Guid.NewGuid(), "Dentist", dueDateUtc: null, isCompleted: false, linkedTaskListIds: null,
-            Orbit.Core.Notifications.NotificationChannel.None, remindDaily: false,
-            Orbit.Core.Notifications.NotificationChannel.None, dailyReminderTimeOfDay: default,
+            new TaskItemReminders(
+                Orbit.Core.Notifications.NotificationChannel.None, Daily: false,
+                Orbit.Core.Notifications.NotificationChannel.None, default),
             TaskItemKind.Calendar, location: "", linkedCalendarEventId: eventId);
 
         Assert.Equal(TaskItemKind.Calendar, entry.Kind);

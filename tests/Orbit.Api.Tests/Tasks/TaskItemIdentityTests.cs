@@ -99,8 +99,7 @@ public sealed class TaskItemIdentityTests
     private static TaskItem ItemNamed(Guid id, string description)
         => TaskItem.FromPersistence(
             id, description, dueDateUtc: null, isCompleted: false, linkedTaskListIds: null,
-            Orbit.Core.Notifications.NotificationChannel.Push, remindDaily: false,
-            Orbit.Core.Notifications.NotificationChannel.Push, dailyReminderTimeOfDay: default);
+            TaskItemReminders.Default);
 
     private static TaskList ListHolding(params TaskItem[] items)
         => TaskList.Create(Guid.NewGuid(), "Weekend", items);

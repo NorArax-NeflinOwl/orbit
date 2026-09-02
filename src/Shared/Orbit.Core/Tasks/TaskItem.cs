@@ -75,30 +75,29 @@ public sealed class TaskItem
     /// </summary>
     public IReadOnlyList<string> Categories { get; private set; }
 
-    /// <summary>
-    /// Which channel(s), if any, notify the owner once this item becomes overdue - see
-    /// <see cref="Orbit.Core.Tasks.OverdueNotifications.OverdueTaskNotificationScheduler"/>.
-    /// </summary>
-    public NotificationChannel OverdueNotificationChannel { get; private set; }
+    /// <summary>When this entry speaks up and where - see <see cref="TaskItemReminders"/>.</summary>
+    public TaskItemReminders Reminders { get; private set; }
 
-    /// <summary>
-    /// When set, this item is reminded about once a day (at <see cref="DailyReminderTimeOfDay"/>, on
-    /// <see cref="DailyReminderNotificationChannel"/>) until the user turns it back off - and comes back
-    /// as something still to do each time, so finishing it today does not end it. See
-    /// <see cref="Orbit.Core.Tasks.DailyReminders.DailyTaskReminderScheduler"/>.
-    /// </summary>
-    public bool RemindDaily { get; private set; }
+    // The four settings above, each still readable on its own. Everything that acts on them - the two
+    // schedulers, the repository, the endpoints - asks one question at a time, and making forty read
+    // sites say "Reminders." would be a wider change than the one this grouping is for, which is the
+    // pile of parameters every way of making an entry had to carry.
 
-    /// <summary>Which channel(s) the daily reminder above goes out on.</summary>
-    public NotificationChannel DailyReminderNotificationChannel { get; private set; }
+    /// <inheritdoc cref="TaskItemReminders.WhenOverdue"/>
+    public NotificationChannel OverdueNotificationChannel => Reminders.WhenOverdue;
 
-    /// <summary>Local time of day the daily reminder above is sent at. Defaults to midnight.</summary>
-    public TimeOnly DailyReminderTimeOfDay { get; private set; }
+    /// <inheritdoc cref="TaskItemReminders.Daily"/>
+    public bool RemindDaily => Reminders.Daily;
+
+    /// <inheritdoc cref="TaskItemReminders.DailyChannel"/>
+    public NotificationChannel DailyReminderNotificationChannel => Reminders.DailyChannel;
+
+    /// <inheritdoc cref="TaskItemReminders.DailyTimeOfDay"/>
+    public TimeOnly DailyReminderTimeOfDay => Reminders.DailyTimeOfDay;
 
     private TaskItem(
         Guid id, string description, DateTimeOffset? dueDateUtc, bool isCompleted, IReadOnlyList<Guid>? linkedTaskListIds,
-        NotificationChannel overdueNotificationChannel, bool remindDaily, NotificationChannel dailyReminderNotificationChannel,
-        TimeOnly dailyReminderTimeOfDay, TaskItemKind kind, string location, Guid? linkedCalendarEventId,
+        TaskItemReminders? reminders, TaskItemKind kind, string location, Guid? linkedCalendarEventId,
         Guid? linkedInventoryItemId, IReadOnlyList<string>? categories)
     {
         Id = id;
@@ -108,10 +107,7 @@ public sealed class TaskItem
         // Distinct and in order: naming the same list twice is one link written twice, not two steps,
         // and it would make the entry look like it stands for more work than it does.
         LinkedTaskListIds = linkedTaskListIds is null ? [] : [.. linkedTaskListIds.Distinct()];
-        OverdueNotificationChannel = overdueNotificationChannel;
-        RemindDaily = remindDaily;
-        DailyReminderNotificationChannel = dailyReminderNotificationChannel;
-        DailyReminderTimeOfDay = dailyReminderTimeOfDay;
+        Reminders = reminders ?? TaskItemReminders.Default;
         Kind = kind;
         LinkedCalendarEventId = kind == TaskItemKind.Calendar ? linkedCalendarEventId : null;
         LinkedInventoryItemId = kind == TaskItemKind.Inventory ? linkedInventoryItemId : null;
@@ -185,8 +181,7 @@ public sealed class TaskItem
     /// </summary>
     public static TaskItem Create(
         string description, DateTimeOffset? dueDateUtc, bool isCompleted, IReadOnlyList<Guid>? linkedTaskListIds = null,
-        NotificationChannel overdueNotificationChannel = NotificationChannel.Push, bool remindDaily = false,
-        NotificationChannel dailyReminderNotificationChannel = NotificationChannel.Push, TimeOnly dailyReminderTimeOfDay = default,
+        TaskItemReminders? reminders = null,
         TaskItemKind kind = TaskItemKind.Checklist, string location = "", Guid? linkedCalendarEventId = null,
         Guid? linkedInventoryItemId = null, IReadOnlyList<string>? categories = null)
     {
@@ -203,8 +198,7 @@ public sealed class TaskItem
         return new TaskItem(
             Guid.NewGuid(), description, dueDateUtc,
             (linkedTaskListIds is null || linkedTaskListIds.Count == 0) && isCompleted, linkedTaskListIds,
-            overdueNotificationChannel, remindDaily, dailyReminderNotificationChannel, dailyReminderTimeOfDay,
-            kind, location, linkedCalendarEventId, linkedInventoryItemId, categories);
+            reminders, kind, location, linkedCalendarEventId, linkedInventoryItemId, categories);
     }
 
     /// <summary>
@@ -215,8 +209,7 @@ public sealed class TaskItem
     public TaskItem WithNewId()
         => new(
             Guid.NewGuid(), Description, DueDateUtc, IsCompleted, LinkedTaskListIds,
-            OverdueNotificationChannel, RemindDaily, DailyReminderNotificationChannel, DailyReminderTimeOfDay,
-            Kind, Location, LinkedCalendarEventId, LinkedInventoryItemId, Categories);
+            Reminders, Kind, Location, LinkedCalendarEventId, LinkedInventoryItemId, Categories);
 
     /// <summary>
     /// Rebuilds a checklist entry from already-known values, bypassing the completion override above -
@@ -225,12 +218,10 @@ public sealed class TaskItem
     /// </summary>
     public static TaskItem FromPersistence(
         Guid id, string description, DateTimeOffset? dueDateUtc, bool isCompleted, IReadOnlyList<Guid>? linkedTaskListIds,
-        NotificationChannel overdueNotificationChannel, bool remindDaily, NotificationChannel dailyReminderNotificationChannel,
-        TimeOnly dailyReminderTimeOfDay, TaskItemKind kind = TaskItemKind.Checklist, string location = "",
+        TaskItemReminders? reminders, TaskItemKind kind = TaskItemKind.Checklist, string location = "",
         Guid? linkedCalendarEventId = null, Guid? linkedInventoryItemId = null,
         IReadOnlyList<string>? categories = null)
         => new(
             id, description, dueDateUtc, isCompleted, linkedTaskListIds,
-            overdueNotificationChannel, remindDaily, dailyReminderNotificationChannel, dailyReminderTimeOfDay,
-            kind, location, linkedCalendarEventId, linkedInventoryItemId, categories);
+            reminders, kind, location, linkedCalendarEventId, linkedInventoryItemId, categories);
 }
