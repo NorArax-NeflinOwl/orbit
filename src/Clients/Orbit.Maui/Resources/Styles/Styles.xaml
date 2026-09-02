@@ -342,10 +342,13 @@
                             <Setter Property="ThumbColor" Value="{AppThemeBinding Light={StaticResource Gray300}, Dark={StaticResource Gray600}}" />
                         </VisualState.Setters>
                     </VisualState>
+                    <!-- The track carries the accent, not the thumb. Android paints a switch's thumb
+                         from the Material theme whatever ThumbColor says - so a pale track with an
+                         accent thumb came out pale with a grey knob, which does not read as "on". The
+                         track is what the browser fills in too. -->
                     <VisualState x:Name="On">
                         <VisualState.Setters>
-                            <Setter Property="OnColor" Value="{DynamicResource AccentSubtle}" />
-                            <Setter Property="ThumbColor" Value="{DynamicResource Accent}" />
+                            <Setter Property="OnColor" Value="{DynamicResource Accent}" />
                         </VisualState.Setters>
                     </VisualState>
                     <VisualState x:Name="Off">
