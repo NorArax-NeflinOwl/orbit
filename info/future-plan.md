@@ -482,6 +482,12 @@ inventory lists, the contacts tabs, the chat menus - is built and needs no schem
   panel's folding and its four orders - but has no flat view, and its checklist draws one list at a time
   rather than the tree. Worth doing after the tree itself is drawn there; flattening a view that does not
   nest would change nothing.
+- **A switch's thumb cannot be coloured on Android.** Orbit's style asks for an accent thumb; Android
+  paints it from the Material theme instead, and saying it again through `SwitchHandler.Mapper` does not
+  change that (tried on a device: the track follows the accent, the thumb stays grey). The accent now
+  goes on the track, which is where it lands and where the browser fills its own toggles in. Worth
+  revisiting only if MAUI's Android switch handler grows a thumb tint that sticks.
+
 - **A permanent, bind-mounted TLS certificate setup for local development.** The mkcert-based option
   in [`info/instructions.md`](instructions.md) currently requires copying certificate files into the
   running `orbit-web` container by hand after every `docker compose down -v`. Switching the
