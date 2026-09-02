@@ -22,7 +22,7 @@ public sealed class ReleaseTaskListLockCommandHandler : IRequestHandler<ReleaseT
         }
 
         taskList.ReleaseLock(request.UserId);
-        await _taskRepository.UpdateAsync(taskList, cancellationToken);
+        await _taskRepository.UpdateLockAsync(taskList, cancellationToken);
         return true;
     }
 }
