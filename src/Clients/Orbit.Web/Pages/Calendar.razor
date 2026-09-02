@@ -43,6 +43,17 @@
                     @DescribeSortOrder(sortOrder)
                 </button>
             }
+
+            @* What a calendar is read for is what is coming, so the list leaves out what is over: a task
+               already ticked off, an event that has already ended. The grid beside it still draws them -
+               a day with something in it should say so whether or not it has been - and this is how the
+               list is asked for them too. *@
+            <span class="overflow-menu-heading">@T["Show"]</span>
+            <button type="button" class="avatar-dropdown-item @(ListOrder.ShowsEverything ? "chosen" : "")"
+                    @onclick="ToggleShowsEverythingAsync">
+                <span class="card-filter-mark">@(ListOrder.ShowsEverything ? "✓" : "")</span>
+                @T["Everything, including what is over"]
+            </button>
         </OverflowMenu>
     </div>
 </div>
@@ -242,9 +253,13 @@
             var (from, toExclusive) = _viewState.ListedPeriod();
             // An event that starts before the period and runs into it belongs to it as much as one that
             // starts inside it.
+            var nowUtc = DateTimeOffset.UtcNow;
             return [.. (_events ?? [])
                 .Where(calendarEvent => DateOnly.FromDateTime(calendarEvent.Details.StartUtc.LocalDateTime) < toExclusive
                     && DateOnly.FromDateTime(calendarEvent.Details.EndUtc.LocalDateTime) >= from)
+                // An event that has already ended is over. Left out unless the reader asked for
+                // everything - see CalendarListOrder.ShowsEverything.
+                .Where(calendarEvent => ListOrder.ShowsEverything || calendarEvent.Details.EndUtc >= nowUtc)
                 .OrderBy(calendarEvent => calendarEvent.Details.StartUtc)];
         }
     }
@@ -263,6 +278,9 @@
                 .Where(dueTask => DateOnly.FromDateTime(dueTask.DueDateUtc.LocalDateTime) is var due
                     && due >= from && due < toExclusive)
                 .Where(dueTask => dueTask.LinkedCalendarEventId is not { } eventId || !listedEventIds.Contains(eventId))
+                // Done is done. A deadline that has passed and is still not ticked off stays: it is the
+                // one thing on this page that most needs saying, and hiding it would hide the work.
+                .Where(dueTask => ListOrder.ShowsEverything || !dueTask.IsCompleted)
                 .OrderBy(dueTask => dueTask.DueDateUtc)];
         }
     }
@@ -642,6 +660,8 @@
         CalendarListSortOrder.Alphabetical => T["Alphabetical"],
         _ => T["By when"]
     };
+
+    private Task ToggleShowsEverythingAsync() => ListOrder.ShowEverythingAsync(!ListOrder.ShowsEverything);
 
     private async Task SetSortOrderAsync(CalendarListSortOrder sortOrder)
     {

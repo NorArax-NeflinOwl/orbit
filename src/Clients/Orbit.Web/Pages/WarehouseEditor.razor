@@ -1,4 +1,6 @@
-@page "/inventory/{WarehouseId:guid}"
+@* One click further in than the shelf itself, the way a task list's editor is - see
+   WarehouseSummary.razor, which is what opening a warehouse lands on. *@
+@page "/inventory/{WarehouseId:guid}/edit"
 @attribute [Authorize]
 @implements IAsyncDisposable
 @using Orbit.Contracts.Inventory

@@ -77,6 +77,12 @@ public static class PolishTranslations
         ["Couldn't measure this list against that storage. Try again."] =
             "Nie udało się zmierzyć tej listy względem tego magazynu. Spróbuj ponownie.",
         ["Not measured against a warehouse"] = "Bez porównania z magazynem",
+        ["Storage this list is measured against"] = "Magazyn, względem którego mierzona jest ta lista",
+        ["An inventory entry then describes a product to put on that shelf."] =
+            "Pozycja typu inwentarz opisuje wtedy produkt, który ma trafić na tę półkę.",
+        ["This list already has a storage."] = "Ta lista ma już magazyn.",
+        ["Goes on the shelf in {0} when this list is saved, named after this entry."] =
+            "Trafi na półkę w: {0} przy zapisie tej listy, pod nazwą tej pozycji.",
         ["Can this be done?"] = "Czy da się to wykonać?",
         ["Nothing due in this period."] = "Nic z terminem w tym okresie.",
         ["Nothing in this period."] = "Nic w tym okresie.",
@@ -97,8 +103,8 @@ public static class PolishTranslations
         ["years"] = "lat",
         ["\"{0}\" is reminded daily, so it needs a time to be reminded at."] = "„{0}” ma przypomnienie dzienne, więc potrzebuje godziny.",
         ["On the shelf in {0}. Saving this list saves the change there too."] = "Na półce w: {0}. Zapis tej listy zapisuje też tę zmianę.",
-        ["What this entry names becomes a product when a storage is made from this list."] =
-            "To, co ta pozycja nazywa, stanie się produktem, gdy z tej listy powstanie magazyn.",
+        ["Naming it is the whole of it: \"Generate inventory\" in the menu above makes one product per distinct name, counted in pieces, and the same name twice asks for two of it."] =
+            "Nazwanie to całość tej pozycji: „Wygeneruj magazyn” w menu powyżej tworzy jeden produkt na każdą odrębną nazwę, liczony w sztukach, a ta sama nazwa dwa razy oznacza prośbę o dwie sztuki.",
         ["This entry isn't tied to a product yet, so there is nothing to edit here."] = "Ta pozycja nie jest jeszcze powiązana z produktem, więc nie ma tu czego edytować.",
         ["No other list yet"] = "Nie ma jeszcze innej listy",
         ["The list was saved, but the shelf couldn't be updated. Open the warehouse and check it."] = "Lista została zapisana, ale nie udało się zaktualizować magazynu. Otwórz magazyn i sprawdź.",
@@ -454,6 +460,7 @@ public static class PolishTranslations
         ["No items on this list."] = "Ta lista jest pusta.",
         ["Open checklist"] = "Otwórz listę",
         ["Sort"] = "Sortuj",
+        ["Everything, including what is over"] = "Wszystko, łącznie z tym, co minęło",
         // The calendar's list beside the grid - see CalendarListSortOrder.
         ["By when"] = "Po dacie",
         ["By type"] = "Po typie",
@@ -1135,6 +1142,14 @@ public static class PolishTranslations
         ["The map can't be shown in this build."] = "Ta wersja aplikacji nie potrafi pokazać mapy.",
         ["Unreadable - encrypted with an older key"] = "Nieczytelne — zaszyfrowane starszym kluczem",
         ["another list"] = "inną listą",
+        ["This is done when {0} is."] = "To jest zrobione, gdy zrobione jest: {0}.",
+        ["Yes"] = "Tak",
+        ["That warehouse no longer exists."] = "Tego magazynu już nie ma.",
+        ["Nothing on this shelf yet."] = "Na tej półce nic jeszcze nie ma.",
+        ["added {0}"] = "dodano {0}",
+        ["best before {0}"] = "najlepiej spożyć przed {0}",
+        ["keeps"] = "nie psuje się",
+        ["No"] = "Nie",
         ["another user"] = "inny użytkownik",
         ["This login is already taken."] = "Ten login jest już zajęty.",
         ["An account with this email address already exists."] = "Konto z tym adresem e-mail już istnieje.",

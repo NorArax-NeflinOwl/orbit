@@ -6,12 +6,17 @@
    which edits the same product from the other side. Two forms asking different things about one thing
    is how an errand came to be able to set fields the warehouse could not, and the other way round.
 
-   The name and the two amounts are optional here because the two screens put them in different places:
-   the warehouse keeps them on the row, where a full shelf is read at a glance, while an errand has no
-   row of its own to keep them on. *@
-@if (ShowNameAndAmounts)
+   The name and the two amounts are optional here, and optional separately, because the three screens
+   put them in different places: the warehouse keeps them on the row, where a full shelf is read at a
+   glance; an errand about a product already on a shelf has no row of its own to keep them on; and an
+   entry describing a product that does not exist yet is its own name, so asking for one again would be
+   asking the same question twice - see TaskEditor.razor. *@
+@if (ShowsName)
 {
     <label>@T["Item name"]<InputText @bind-Value="Model.Name" placeholder="@(T["Item name"])" /></label>
+}
+@if (ShowsAmounts)
+{
     <label title="@(T["How much of it there is"])">@T["Amount"]
         <InputNumber TValue="decimal" @bind-Value="Model.Quantity" step="0.01" />
     </label>
@@ -55,8 +60,11 @@
         = new(true, true, true, true, ShowExceptionDetails: false, BannerVisibleSeconds: 5, BannerMinimumGapSeconds: 5);
 
     /// <summary>
-    /// Whether this screen needs the name and the two amounts drawn here. False where the row above
-    /// already carries them - see the comment on the markup.
+    /// Whether this screen needs the product's name drawn here. False where something above already
+    /// says it - see the comment on the markup.
     /// </summary>
-    [Parameter] public bool ShowNameAndAmounts { get; set; }
+    [Parameter] public bool ShowsName { get; set; }
+
+    /// <summary>Whether it needs how much there is and how little is too little. See the markup.</summary>
+    [Parameter] public bool ShowsAmounts { get; set; }
 }

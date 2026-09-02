@@ -49,7 +49,13 @@
             @if (!IsNewTaskList && Id is { } menuTaskListId)
             {
                 <OverflowMenu>
-                    <button type="button" class="avatar-dropdown-item" disabled="@_isWorkingOnInventory"
+                    @* A list already measured against a storage has nowhere to put a second one: this
+                       would build it and quietly move the list onto it, leaving the first behind with
+                       nothing pointing at it. What such a list wants instead is a product on the shelf
+                       it already has - which is what an inventory entry offers there. *@
+                    <button type="button" class="avatar-dropdown-item"
+                            disabled="@(_isWorkingOnInventory || _linkedWarehouseId is not null)"
+                            title="@(_linkedWarehouseId is null ? null : T["This list already has a storage."])"
                             @onclick="() => GenerateInventoryAsync(menuTaskListId)">
                         @T["Generate inventory"]
                     </button>
@@ -264,21 +270,32 @@ else
                                A picker for an existing product used to sit here. It had the relationship
                                backwards: a list of work describes what it needs, and the warehouse comes
                                from it, not the other way round. *@
-                            @if (_shelves.FieldsFor(item) is { } product)
+                            @if (ShelfFieldsFor(item) is { } product)
                             {
-                                @* Except where a restock list made this errand, which is the one case an
-                                   entry already stands for a product on a shelf. Correcting the amount
-                                   here saves it there - see SaveAsync. *@
+                                @* Two cases, one form. A restock list's errand already stands for a
+                                   product on a shelf, and correcting it here saves it there. An entry
+                                   somebody writes on a list that is measured against a storage
+                                   describes a product to put on it - the entry's own words are its
+                                   name, so the form asks everything except that. Both save with the
+                                   list; see SaveTheShelfAsync. *@
                                 <span class="field-break"></span>
                                 <InventoryFields Model="product.Product" NotificationSettings="_notificationSettings"
-                                                 ShowNameAndAmounts="true" />
+                                                 ShowsName="@(product.Product.Id is not null)" ShowsAmounts="true" />
                                 <span class="field-break"></span>
-                                <small>@T.Format("On the shelf in {0}. Saving this list saves the change there too.", product.WarehouseName)</small>
+                                <small>
+                                    @(product.Product.Id is null
+                                        ? T.Format("Goes on the shelf in {0} when this list is saved, named after this entry.", product.WarehouseName)
+                                        : T.Format("On the shelf in {0}. Saving this list saves the change there too.", product.WarehouseName))
+                                </small>
                             }
                             else
                             {
                                 <span class="field-break"></span>
-                                <small>@T["What this entry names becomes a product when a storage is made from this list."]</small>
+                                @* Only for a list with no storage behind it: there is nothing to put a
+                                   product on yet, and this is where one comes from. Says the rule as
+                                   well as the fact - nobody could guess either half of it from a form
+                                   with nothing on it. *@
+                                <small>@T["Naming it is the whole of it: \"Generate inventory\" in the menu above makes one product per distinct name, counted in pieces, and the same name twice asks for two of it."]</small>
                             }
                         }
                         else if (item.Kind == nameof(TaskItemKind.Checklist))
@@ -393,6 +410,29 @@ else
                 @T["A group list's checklist also shows every list it gathers, so the whole group fits on one screen."]
             </small>
         </div>
+
+        @* Which storage this list is measured against. Here rather than only on the checklist, and for
+           any list rather than only a group: an entry of the inventory kind describes a product, and
+           the only way to say which shelf it goes on is to say which shelf this list is about. A list
+           that has never been saved has nothing to link yet - the same rule the menu above follows. *@
+        @if (!IsNewTaskList)
+        {
+            <div class="field">
+                <label for="taskListWarehouseSelect">@T["Storage this list is measured against"]</label>
+                <select id="taskListWarehouseSelect" value="@(_linkedWarehouseId?.ToString() ?? string.Empty)"
+                        disabled="@_isWorkingOnInventory" @onchange="OnWarehouseChangedAsync">
+                    <option value="">@T["Not measured against a warehouse"]</option>
+                    @* One list per storage: a shelf measured against two has two answers to "is there
+                       enough", and each check would report a shortfall the other had accounted for. The
+                       ones already spoken for are left out rather than offered and then refused. *@
+                    @foreach (var warehouse in _warehouses.Where(candidate => !_warehousesTakenByAnotherList.Contains(candidate.Id)))
+                    {
+                        <option value="@warehouse.Id">@warehouse.Name</option>
+                    }
+                </select>
+                <small>@T["An inventory entry then describes a product to put on that shelf."]</small>
+            </div>
+        }
 
         <div class="field">
             <label for="taskListPrioritySelect">@T["Priority"]</label>
@@ -689,6 +729,14 @@ else
                 if (taskList is not null)
                 {
                     _linkedWarehouseId = taskList.LinkedWarehouseId;
+                    _linkedWarehouseName = await NameOfTheLinkedWarehouseAsync();
+                    await LoadTheWarehousesAsync();
+                    _warehousesTakenByAnotherList =
+                    [
+                        .. allTaskLists
+                            .Where(other => other.Id != taskListId && other.LinkedWarehouseId is not null)
+                            .Select(other => other.LinkedWarehouseId!.Value)
+                    ];
                     _formModel = new TaskListFormModel
                     {
                         Title = taskList.Title,
@@ -821,6 +869,80 @@ else
 
     /// <summary>The shelf side of this list's inventory errands while it is being edited - see ShelfPicker.</summary>
     private readonly ShelfPicker _shelves = new();
+
+    /// <summary>What the storage this list is measured against is called, for the line under the form.</summary>
+    private string _linkedWarehouseName = string.Empty;
+
+    /// <summary>Every storage this account has, for the picker - see the "About this list" section.</summary>
+    private IReadOnlyList<WarehouseDto> _warehouses = [];
+
+    /// <summary>The ones some other list already measures, which this one may not take - see the picker.</summary>
+    private HashSet<Guid> _warehousesTakenByAnotherList = [];
+
+    /// <summary>
+    /// Measures this list against a storage, or against none. Saved on the spot rather than with the
+    /// list: it is a relationship between two things rather than a field of one, and the entries below
+    /// need to know the answer before they can describe a product to put on it.
+    /// </summary>
+    private async Task OnWarehouseChangedAsync(ChangeEventArgs args)
+    {
+        var chosen = Guid.TryParse(args.Value?.ToString(), out var parsed) ? parsed : (Guid?)null;
+        if (Id is not { } taskListId)
+        {
+            return;
+        }
+
+        _isWorkingOnInventory = true;
+        _inventoryMessage = null;
+        try
+        {
+            if (!await TasksApiClient.LinkWarehouseAsync(taskListId, chosen))
+            {
+                // The picker leaves out what is already spoken for, so this is a shelf that was taken
+                // between the page loading and the choice being made. Said out loud rather than left as
+                // a select that snaps back for no visible reason.
+                _inventoryMessage = T["That storage is already measured against another list."];
+                return;
+            }
+
+            _linkedWarehouseId = chosen;
+            _linkedWarehouseName = await NameOfTheLinkedWarehouseAsync();
+        }
+        catch (HttpRequestException exception)
+        {
+            Logger.LogWarning(exception, "Couldn't measure task list {TaskListId} against a storage", taskListId);
+            _inventoryMessage = T["Something went wrong. Try again."];
+        }
+        finally
+        {
+            _isWorkingOnInventory = false;
+        }
+    }
+
+    /// <summary>
+    /// The product an inventory entry is about, when there is one to show. Two ways there can be:
+    /// a restock errand already stands for something on a shelf, and an entry on a list that is
+    /// measured against a storage describes something to put on it.
+    ///
+    /// The second is built here, the first time it is asked for, rather than when the entry is made:
+    /// an entry becomes an inventory one by a dropdown that can be changed at any time, and building
+    /// it on the way past is what keeps "what kind is this" and "what does it need" in step without a
+    /// handler watching for the change.
+    /// </summary>
+    private InventoryFieldsFormModel? ShelfFieldsFor(TaskItemFormModel item)
+    {
+        if (_shelves.FieldsFor(item) is { } known)
+        {
+            return known;
+        }
+
+        if (item.Kind != nameof(TaskItemKind.Inventory) || _linkedWarehouseId is not { } warehouseId)
+        {
+            return null;
+        }
+
+        return _shelves.DescribeNewProduct(item, warehouseId, _linkedWarehouseName);
+    }
 
     /// <summary>
     /// Reads the warehouses an errand could be about, and the shelf item each errand on this list
@@ -1030,6 +1152,45 @@ else
     /// Runs after the list itself is saved. If it fails, the list is still saved: the shelf is a second
     /// thing this screen touches, not the thing it is for.
     /// </summary>
+    /// <summary>
+    /// What the storage this list is measured against is called. Best effort like everything else the
+    /// editor reads about the shelf: a name that could not be read costs the sentence under the form
+    /// and nothing else.
+    /// </summary>
+    /// <summary>
+    /// Every storage this account has, for the picker. Best effort: a list can be written and saved
+    /// without one, so a warehouses call that fails costs the picker and nothing else.
+    /// </summary>
+    private async Task LoadTheWarehousesAsync()
+    {
+        try
+        {
+            _warehouses = await InventoryApiClient.GetWarehousesAsync();
+        }
+        catch (HttpRequestException exception)
+        {
+            Logger.LogWarning(exception, "Couldn't read the storages this list could be measured against");
+        }
+    }
+
+    private async Task<string> NameOfTheLinkedWarehouseAsync()
+    {
+        if (_linkedWarehouseId is not { } warehouseId)
+        {
+            return string.Empty;
+        }
+
+        try
+        {
+            return (await InventoryApiClient.GetWarehouseByIdAsync(warehouseId))?.Name ?? string.Empty;
+        }
+        catch (HttpRequestException exception)
+        {
+            Logger.LogWarning(exception, "Couldn't read the name of warehouse {WarehouseId}", warehouseId);
+            return string.Empty;
+        }
+    }
+
     private async Task SaveTheShelfAsync()
     {
         if (_shelves.Fields.Count == 0)
@@ -1048,9 +1209,10 @@ else
                     continue;
                 }
 
-                // Every product reached from an errand is one already on the shelf, so it has an id;
-                // the shared model allows none because the warehouse editor can add a row that has
-                // not been saved yet.
+                // A product reached from a restock errand is already on the shelf and has an id. One
+                // an entry describes on a list measured against this storage has none yet - it is
+                // being put there by this save, and its name is the entry's own words, which is what
+                // the stock check matches the two by.
                 var edited = byWarehouse
                     .Where(entry => entry.Product.Id is not null)
                     .ToDictionary(entry => entry.Product.Id!.Value);
@@ -1061,6 +1223,23 @@ else
                             product.Id, product.Name, product.ProductType, product.Category, product.Quantity,
                             product.MinimumQuantity, product.Unit, product.ExpiryDate, product.ExpiryNotificationChannel))
                     .ToList();
+
+                var alreadyThere = shelf.Select(product => product.Name.Trim()).ToHashSet(StringComparer.CurrentCultureIgnoreCase);
+                foreach (var (entry, fields) in _shelves.NewProductsIn(byWarehouse.Key))
+                {
+                    var name = entry.Description.Trim();
+                    // Nothing to add for an entry that has stopped being an inventory one - its fields
+                    // stay behind so switching back and forth does not lose what was typed - nor for one
+                    // nobody has named yet, nor twice: a shelf already holding the thing is what the
+                    // entry was asking for.
+                    if (entry.Kind != nameof(TaskItemKind.Inventory) || name.Length == 0 || !alreadyThere.Add(name))
+                    {
+                        continue;
+                    }
+
+                    fields.Product.Name = name;
+                    items.Add(fields.Product.ToDto());
+                }
 
                 await InventoryApiClient.UpdateWarehouseAsync(
                     byWarehouse.Key, new SaveWarehouseRequest(warehouse.Name, items, warehouse.IsPrivate));
@@ -1119,6 +1298,33 @@ else
         public void ChooseProduct(
             TaskItemFormModel item, Guid warehouseId, InventoryItemDto product, string warehouseName)
             => _fieldsByItem[item] = InventoryFieldsFormModel.From(product, warehouseId, warehouseName);
+
+        /// <summary>
+        /// Fields for a product this entry describes and the shelf does not hold yet. No id, because
+        /// there is nothing there to have one - saving the list is what puts it on the shelf, under the
+        /// entry's own name (see TaskEditor.SaveTheShelfAsync). Remembered against the entry like any
+        /// other, so what is typed survives a redraw.
+        /// </summary>
+        public InventoryFieldsFormModel DescribeNewProduct(
+            TaskItemFormModel item, Guid warehouseId, string warehouseName)
+        {
+            // Starts where generating a storage from a list would put it: one of the thing wanted, none
+            // of it there yet, counted in pieces. An entry asking for something is asking for one of it
+            // until it says otherwise - see GenerateWarehouseFromTaskListCommandHandler, where the same
+            // entry written twice asks for two. The unit is the model's own default and is named here
+            // only because the two answers have to be the same answer.
+            var fields = new InventoryFieldsFormModel(
+                warehouseId, warehouseName,
+                new InventoryItemFormModel { MinimumQuantity = 1, Unit = InventoryUnitOption.Default.Value });
+            _fieldsByItem[item] = fields;
+            return fields;
+        }
+
+        /// <summary>The entries on one storage that describe something not on its shelf yet, with their fields.</summary>
+        public IEnumerable<(TaskItemFormModel Entry, InventoryFieldsFormModel Fields)> NewProductsIn(Guid warehouseId)
+            => _fieldsByItem
+                .Where(pair => pair.Value.WarehouseId == warehouseId && pair.Value.Product.Id is null)
+                .Select(pair => (pair.Key, pair.Value));
 
         public void Clear()
         {
