@@ -1032,6 +1032,67 @@ public sealed class TaskListDetailScreenTests
     }
 
     /// <summary>
+    /// An entry standing for another list is done when that list is, so its box cannot be ticked here.
+    /// The press is taken rather than refused: it names the list and offers to go there, which is the
+    /// question Orbit.Web asks under the same row. Pressed and silently ignored, the phone looked broken.
+    /// </summary>
+    [Fact]
+    public async Task Ticking_an_entry_that_stands_for_a_list_asks_about_that_list_instead()
+    {
+        using var context = new ScreenContext();
+        context.OpenTaskList("Shopping");
+        var screen = context.OpenTaskList("This week");
+        screen.NewItemDescription = "The shopping";
+        await screen.AddItemCommand.ExecuteAsync(null);
+        await context.SynchroniseAsync();
+        await screen.LoadCommand.ExecuteAsync(null);
+
+        screen.EditItemCommand.Execute(screen.Items.Single());
+        screen.BeingEdited!.ChosenLinkedTaskList =
+            screen.BeingEdited.LinkableTaskLists.Single(choice => choice.Name == "Shopping");
+        await screen.SaveItemCommand.ExecuteAsync(null);
+
+        await screen.ToggleItemCommand.ExecuteAsync(screen.Items.Single());
+
+        Assert.True(screen.IsAskingAboutTheListsBehind);
+        Assert.Contains("Shopping", screen.ListsBehindTheEntryQuestion);
+        // Nothing was ticked: the answer is on the other list.
+        Assert.False(screen.Items.Single().IsCompleted);
+
+        var shopping = Assert.Single(screen.ListsBehindTheEntry);
+        Assert.Equal("Shopping", shopping.Label);
+        screen.OpenTheListBehindCommand.Execute(shopping);
+
+        Assert.False(screen.IsAskingAboutTheListsBehind);
+        Assert.Equal(shopping.LocalId, context.Navigator.LastTaskListId);
+    }
+
+    /// <summary>"No" leaves both the entry and the question where they were.</summary>
+    [Fact]
+    public async Task The_question_can_be_left_alone()
+    {
+        using var context = new ScreenContext();
+        context.OpenTaskList("Shopping");
+        var screen = context.OpenTaskList("This week");
+        screen.NewItemDescription = "The shopping";
+        await screen.AddItemCommand.ExecuteAsync(null);
+        await context.SynchroniseAsync();
+        await screen.LoadCommand.ExecuteAsync(null);
+
+        screen.EditItemCommand.Execute(screen.Items.Single());
+        screen.BeingEdited!.ChosenLinkedTaskList =
+            screen.BeingEdited.LinkableTaskLists.Single(choice => choice.Name == "Shopping");
+        await screen.SaveItemCommand.ExecuteAsync(null);
+        await screen.ToggleItemCommand.ExecuteAsync(screen.Items.Single());
+
+        screen.LeaveTheListBehindCommand.Execute(null);
+
+        Assert.False(screen.IsAskingAboutTheListsBehind);
+        Assert.False(screen.Items.Single().IsCompleted);
+        Assert.Null(context.Navigator.LastTaskListId);
+    }
+
+    /// <summary>
     /// And can stop standing for it - one list at a time, since it may stand for several. Taking the
     /// last one off leaves an ordinary entry, which is what most of them are.
     /// </summary>

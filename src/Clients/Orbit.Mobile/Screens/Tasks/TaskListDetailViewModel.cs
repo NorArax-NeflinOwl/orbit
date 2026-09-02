@@ -123,6 +123,26 @@ public sealed partial class TaskListDetailViewModel : ObservableObject
 
     public bool IsAskingToFinishRestocking => RestockTickBeingAsked is not null;
 
+    /// <summary>
+    /// The entry whose tick raised the question of the lists it stands for, or null when nothing is
+    /// being asked - see <see cref="AskAboutTheListsBehind"/>.
+    /// </summary>
+    [ObservableProperty]
+    private TaskItemRow? _linkedTickBeingAsked;
+
+    public bool IsAskingAboutTheListsBehind => LinkedTickBeingAsked is not null;
+
+    /// <summary>
+    /// The lists the entry being asked about stands for and this phone can open, in the order it names
+    /// them. A list this phone has not got is named in the question and left out of these: it is
+    /// somewhere to go only if there is somewhere to go.
+    /// </summary>
+    public ObservableCollection<TaskItemReference> ListsBehindTheEntry { get; } = [];
+
+    /// <summary>What the question says: every list this entry is waiting on, named.</summary>
+    [ObservableProperty]
+    private string _listsBehindTheEntryQuestion = string.Empty;
+
     public TaskListDetailViewModel(
         LocalTaskListRepository taskLists, TaskListSynchronizer synchronizer, Translations translations,
         TimeProvider timeProvider, SharePanel share, IScreenNavigator navigator,
@@ -360,12 +380,26 @@ public sealed partial class TaskListDetailViewModel : ObservableObject
         LinkTargets.Clear();
         LinkTargets.Add(TaskListChoice.NoList(_translations));
 
+        // By the id an entry names a list with, so a row standing for one can say which and open it.
+        var byServerId = new Dictionary<Guid, TaskItemReference>();
         foreach (var other in others.Where(list => list.LocalId != _localId && list.ServerId is not null))
         {
             MoveTargets.Add(new TaskListChoice(other.ServerId!.Value, other.Title));
             LinkTargets.Add(new TaskListChoice(other.ServerId!.Value, other.Title));
+            byServerId[other.ServerId!.Value] = new(
+                other.Title, other.LocalId, TaskItemReferenceTarget.TaskList);
         }
+
+        _listsByServerId = byServerId;
     }
+
+    /// <summary>
+    /// The lists this phone holds, by the id entries point at them with. Read with the list for the
+    /// reason the move targets are: an entry standing for another list has to be able to name it the
+    /// moment somebody presses its box, not after a round trip.
+    /// </summary>
+    private IReadOnlyDictionary<Guid, TaskItemReference> _listsByServerId =
+        new Dictionary<Guid, TaskItemReference>();
 
     /// <summary>
     /// Read with the list rather than when an entry is opened, for the reason Orbit.Web's editor gives:
@@ -648,6 +682,12 @@ public sealed partial class TaskListDetailViewModel : ObservableObject
             return Task.CompletedTask;
         }
 
+        if (row.Item.AllLinkedTaskListIds.Count > 0)
+        {
+            AskAboutTheListsBehind(row);
+            return Task.CompletedTask;
+        }
+
         if (!row.IsCompleted && ClosesARestockRound(row))
         {
             RestockTickBeingAsked = row;
@@ -656,6 +696,50 @@ public sealed partial class TaskListDetailViewModel : ObservableObject
 
         return TickAsync(row, cancellationToken);
     }
+
+    /// <summary>
+    /// Answers a press on an entry that cannot be ticked here, by saying where the answer actually is:
+    /// an entry standing for other lists is done when they are (see LinkedTaskCompletionResolver), so
+    /// the press is taken, the lists are named, and going to one is offered. Orbit.Web asks the same
+    /// question under the row it was asked about.
+    /// </summary>
+    private void AskAboutTheListsBehind(TaskItemRow row)
+    {
+        ListsBehindTheEntry.Clear();
+        var names = new List<string>();
+        foreach (var linkedTaskListId in row.Item.AllLinkedTaskListIds)
+        {
+            // A list this phone has not synced, or one somebody stopped sharing: named as "another
+            // list" the way Orbit.Web names it, and not offered as somewhere to go - there is nothing
+            // here to open.
+            if (_listsByServerId.TryGetValue(linkedTaskListId, out var linked))
+            {
+                ListsBehindTheEntry.Add(linked);
+                names.Add(linked.Label);
+                continue;
+            }
+
+            names.Add(_translations["another list"]);
+        }
+
+        ListsBehindTheEntryQuestion = _translations.Format("This is done when {0} is.", string.Join(", ", names));
+        LinkedTickBeingAsked = row;
+    }
+
+    /// <summary>"Yes" - the list the entry is waiting on, which is where the tick belongs.</summary>
+    [RelayCommand]
+    private void OpenTheListBehind(TaskItemReference? linked)
+    {
+        LinkedTickBeingAsked = null;
+        if (linked is not null)
+        {
+            _navigator.ShowTaskList(linked.LocalId);
+        }
+    }
+
+    /// <summary>"No" - the question dropped, and the entry left as it was.</summary>
+    [RelayCommand]
+    private void LeaveTheListBehind() => LinkedTickBeingAsked = null;
 
     private bool ClosesARestockRound(TaskItemRow row)
         => row.Description == RestockTaskNaming.UpdateStockReminderDescription
@@ -1040,6 +1124,9 @@ public sealed partial class TaskListDetailViewModel : ObservableObject
 
     partial void OnRestockTickBeingAskedChanged(TaskItemRow? value)
         => OnPropertyChanged(nameof(IsAskingToFinishRestocking));
+
+    partial void OnLinkedTickBeingAskedChanged(TaskItemRow? value)
+        => OnPropertyChanged(nameof(IsAskingAboutTheListsBehind));
 
     partial void OnStatusChanged(string value) => OnPropertyChanged(nameof(HasStatus));
 
