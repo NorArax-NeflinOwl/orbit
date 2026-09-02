@@ -493,6 +493,7 @@ public static class PolishTranslations
         ["Searching…"] = "Szukam…",
         ["Nothing found for that. Try fewer words, or point at it on the map."] = "Nic nie znaleziono. Spróbuj krócej albo wskaż miejsce na mapie.",
         ["Click the map to drop a pin."] = "Kliknij mapę, aby postawić pinezkę.",
+        ["Looking up where that is…"] = "Sprawdzam, co tam jest…",
         // The phone's own wording for the same map: nobody clicks a phone.
         ["Tap the map to drop a pin."] = "Dotknij mapy, aby postawić pinezkę.",
         ["Use this place?"] = "Użyć tego miejsca?",

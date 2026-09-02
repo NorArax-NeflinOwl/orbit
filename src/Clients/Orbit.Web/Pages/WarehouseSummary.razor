@@ -19,6 +19,11 @@
    the check that measures work against a shelf adds them up by name - see StockRequirementCounter. *@
 <PageTitle>@(_warehouse is null ? T["Warehouse"] : _warehouse.Name)</PageTitle>
 
+@* Two panels: what is on the shelf on the left, which scrolls, and the panel on the right, which does
+   not - see EditorRail. On a narrow screen the right one becomes a bar along the foot of the window. *@
+<div class="editor-page">
+<div class="editor-page-body">
+
 <div class="page-header">
     <div class="page-heading">
         <h1>@(_warehouse?.Name ?? T["Warehouse"])</h1>
@@ -27,24 +32,7 @@
             <p class="page-subtitle">@described.Description</p>
         }
     </div>
-    @* The same two actions every editor in Orbit carries, and everything else behind the menu beside
-       them - see EditorActions. This page changes what is on a shelf now, so it needs a save. *@
-    @if (_warehouse is not null)
-    {
-        <EditorActions OnSave="SaveAsync" OnCancel="GoToWarehouses" SaveDisabled="@(!_hasChanges || _isSaving)">
-            <OverflowMenu>
-                <button type="button" class="avatar-dropdown-item" @onclick="GoToWarehouses">@T["All warehouses"]</button>
-                <button type="button" class="avatar-dropdown-item" @onclick="GoToEditor">@T["Edit"]</button>
-                <button type="button" class="avatar-dropdown-item" @onclick="DeleteAsync">@T["Delete"]</button>
-            </OverflowMenu>
-        </EditorActions>
-    }
 </div>
-
-@if (_message is not null)
-{
-    <p class="error">@_message</p>
-}
 
 @if (_isLoading)
 {
@@ -90,6 +78,32 @@ else
         }
     </div>
 }
+
+</div>
+@* The same two actions every editor in Orbit carries, and everything else behind the menu beside them
+   - see EditorRail. This page changes what is on a shelf now, so it needs a save. *@
+@if (_warehouse is not null)
+{
+    <EditorRail OnSave="SaveAsync" OnCancel="GoToWarehouses" SaveDisabled="@(!_hasChanges || _isSaving)">
+        @* Beside the button that failed: a save that did not happen and a shelf somebody else is
+           holding are both answers to "why has Save done nothing", and a long shelf is read by
+           scrolling - an answer at the top of it is an answer nobody scrolls back to. *@
+        <Extras>
+            @if (_message is not null)
+            {
+                <p class="error">@_message</p>
+            }
+        </Extras>
+        <ChildContent>
+            <OverflowMenu>
+                <button type="button" class="avatar-dropdown-item" @onclick="GoToWarehouses">@T["All warehouses"]</button>
+                <button type="button" class="avatar-dropdown-item" @onclick="GoToEditor">@T["Edit"]</button>
+                <button type="button" class="avatar-dropdown-item" @onclick="DeleteAsync">@T["Delete"]</button>
+            </OverflowMenu>
+        </ChildContent>
+    </EditorRail>
+}
+</div>
 
 @code {
     [Parameter] public Guid WarehouseId { get; set; }

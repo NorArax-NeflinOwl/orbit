@@ -427,6 +427,22 @@ input.note-editor-title {
     max-width: 1280px;
     margin: 0 auto;
     padding: 24px 32px 40px 32px;
+    /* Fills whatever the bar above it leaves, and lays its two children out down the page, so that the
+       footer can be told to take the space nobody else wanted - see .app-footer. */
+    flex: 1 0 auto;
+    display: flex;
+    flex-direction: column;
+}
+
+/* The page itself, between the bar and the footer. A box of its own rather than the page's markup
+   sitting directly in the flex column: as flex items, every top-level element of every page would stop
+   collapsing its margins against its neighbours, which is a different amount of white space on every
+   screen in Orbit for the sake of one rule about the footer. */
+.main-content-page {
+    flex: 1 0 auto;
+    /* Air between the last thing on the page and the footer's hairline, which the footer itself can no
+       longer hold as a margin. */
+    padding-bottom: 40px;
 }
 
 /* Except the map, which is the one page whose content is the width it is given - see MapPage.razor,
@@ -1822,13 +1838,19 @@ input.note-editor-title {
 /* Which build this is, when it was made, and under what licence. Quiet on purpose: it is a thing to
    look up once, not a thing to read, so it sits at the very end of the content in the smallest type the
    palette still keeps legible. */
+/* Under the page, and never higher than the bottom of the window: a short page would otherwise leave it
+   floating halfway up with empty space beneath it, which reads as the page having failed to load the
+   rest. `margin-top: auto` takes whatever height is going spare, so on a page that scrolls the footer
+   simply follows the last thing on it. */
 .app-footer {
     display: flex;
     flex-wrap: wrap;
     align-items: center;
     justify-content: center;
     gap: 6px;
-    margin-top: 40px;
+    /* The gap above it used to be a margin, which `auto` has taken over; the same distance is now the
+       page box's own bottom padding - see .main-content-page. */
+    margin-top: auto;
     padding: 16px 0 8px;
     border-top: 1px solid var(--border);
     color: var(--text-tertiary);
@@ -4728,12 +4750,17 @@ input.note-editor-title {
 
 /* The card's own footnote - when it last changed, how much is on it. Aligned with the name and the
    body above it rather than centred, and separated from them by a hairline so it reads as being about
-   the card rather than as one more line of it. */
+   the card rather than as one more line of it.
+
+   Pushed to the card's own bottom edge rather than left to sit under whatever the body happens to end
+   at: cards in a row are all as tall as the tallest of them, so without this each footnote floated at a
+   different height and the row read as ragged. Now the hairline is the foot of every card in the row. */
 .item-card-footer {
     display: flex;
     align-items: center;
     justify-content: flex-start;
     gap: 10px;
+    margin-top: auto;
     padding-top: 8px;
     border-top: 1px solid var(--border);
     color: var(--text-secondary);
@@ -4915,7 +4942,150 @@ input.note-editor-title {
     padding: 0;
 }
 
-/* An editor's own two actions - see EditorActions.razor. Twice the size of an ordinary icon button and
+/* An editing screen: what is being filled in on the left, and the panel that does not move on the
+   right. The left column scrolls with the page, so the right one is sticky rather than fixed - it
+   belongs to the page it is acting on, and stops at that page's end rather than hanging over the
+   footer. */
+.editor-page {
+    display: flex;
+    align-items: flex-start;
+    gap: 20px;
+}
+
+.editor-page-body {
+    /* min-width, because a flex item's floor is the width of its widest content and a long line inside
+       a form would otherwise push the panel off the screen instead of wrapping. */
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+.editor-rail {
+    display: flex;
+    /* Reversed, so the panel reads from the page's edge inwards: the menu at the top, then Cancel, then
+       Save, and whatever this page keeps in view under them. The markup keeps Save first because that
+       is the order a keyboard should meet them in and the order the bar uses on a narrow screen - the
+       column is the one place the two disagree, so it is the column that is turned round. */
+    flex-direction: column-reverse;
+    align-items: center;
+    gap: 10px;
+    flex: 0 0 auto;
+    position: sticky;
+    /* The bar along the top, plus the air the page starts with: a number rather than a measurement for
+       the reason the map page gives about its own chrome - the bar's height is fixed. */
+    top: 76px;
+    padding: 10px;
+    background: var(--bg-elevated);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+}
+
+/* Whatever this page keeps in view whatever the form is scrolled to. Under the buttons on a wide
+   screen, and folded away behind the arrow on a narrow one.
+
+   Given a width of its own because the panel takes its width from what is in it: a sentence saying who
+   is holding this list would otherwise stretch the panel across a third of the page and squeeze the
+   form it belongs to. Wide enough for a sentence to wrap into a few lines, and no wider. */
+.editor-rail-extras {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    width: 220px;
+    max-width: 100%;
+    font-size: 12.5px;
+}
+
+/* The two things a page keeps up here today - see EditorRail. Smaller and tighter than the same notice
+   in the middle of a page: this is a note in the margin, not the thing being read. */
+.editor-rail-extras .lock-banner {
+    padding: 6px 8px;
+    margin: 0;
+}
+
+.editor-rail-extras .error {
+    margin: 0;
+}
+
+/* Turned round with the panel around it, so the three read menu, Cancel, Save downwards - see
+   .editor-rail. */
+.editor-rail-actions {
+    display: flex;
+    flex-direction: column-reverse;
+    align-items: center;
+    gap: 10px;
+}
+
+/* Only ever pressed where the panel is a bar - on a wide screen the extras are simply there, and an
+   arrow that folds away something already in view is a control that undoes itself. */
+.editor-rail-toggle {
+    display: none;
+}
+
+/* No room for a column beside the form, so the panel becomes a bar along the foot of the window: the
+   arrow that opens the rest of it at one end, the three actions at the other. Fixed rather than sticky,
+   because the point of it on a phone is to be under the thumb wherever the form has been scrolled to. */
+@media (max-width: 680px) {
+    .editor-page {
+        display: block;
+    }
+
+    .editor-rail {
+        position: fixed;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        /* Undoes the offset it sticks to on a wide screen: kept, it would hold the bar's top there and
+           stretch it over the whole page. */
+        top: auto;
+        flex-direction: row;
+        flex-wrap: wrap;
+        align-items: center;
+        justify-content: space-between;
+        padding: 8px 12px;
+        border-radius: 0;
+        border-left: 0;
+        border-right: 0;
+        border-bottom: 0;
+        /* Over the page it sits on, and under the menus that hang off the bar at the top. */
+        z-index: 20;
+    }
+
+    .editor-rail-toggle {
+        display: inline-flex;
+        order: 2;
+    }
+
+    .editor-rail-actions {
+        flex-direction: row;
+        order: 3;
+        margin-left: auto;
+    }
+
+    /* On its own line above the buttons rather than beside them, and only once the arrow has been
+       pressed: a bar tall enough to hold fields as well would be most of a phone. */
+    .editor-rail-extras {
+        order: 1;
+        width: auto;
+        flex-basis: 100%;
+        display: none;
+    }
+
+    .editor-rail-open .editor-rail-extras {
+        display: flex;
+    }
+
+    /* Room under the last thing on the page for the bar to sit over nothing. */
+    .main-content-page {
+        padding-bottom: 96px;
+    }
+
+    /* Half the size, because a bar that is 60px tall on a phone is a bar and a half. */
+    .icon-btn.page-action {
+        width: 44px;
+        height: 44px;
+    }
+}
+
+/* An editor's own two actions - see EditorRail.razor. Twice the size of an ordinary icon button and
    drawn with an edge like .page-add's: these are what the page is for, and at 30px without one they
    read as an afterthought next to the form they act on. */
 .icon-btn.page-action {

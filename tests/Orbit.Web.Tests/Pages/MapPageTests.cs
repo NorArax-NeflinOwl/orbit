@@ -159,6 +159,58 @@ public sealed class MapPageTests : OrbitTestContext
         Assert.Empty(cut.FindAll(".map-create-event"));
     }
 
+    /// <summary>
+    /// The other way to pin a place: pressing the map itself. Same pin and same question as a search -
+    /// what the press is for is decided afterwards, because a press says where and not what.
+    /// </summary>
+    [Fact]
+    public async Task Pressing_the_map_pins_the_place_pressed_and_asks_what_to_make_of_it()
+    {
+        GrantLocations();
+        var cut = RenderComponent<MapPage>();
+        Assert.Contains("Click the map to drop a pin.", cut.Find(".map-canvas-note").TextContent);
+
+        await cut.InvokeAsync(() => cut.Instance.OnMapPressed(54.354, 18.656));
+
+        Assert.Contains("Wały Piastowskie 1, Gdańsk", cut.Find(".map-create-event").TextContent);
+        Assert.Empty(cut.FindAll(".map-canvas-note"));
+    }
+
+    /// <summary>
+    /// A field, or the sea. Somebody who pressed there meant that spot whether or not it has a street,
+    /// so it is pinned and named by its numbers rather than refused.
+    /// </summary>
+    [Fact]
+    public async Task A_place_with_no_address_is_pinned_by_its_coordinates()
+    {
+        GrantLocations();
+        _reverseGeocodedAddress = null;
+        var cut = RenderComponent<MapPage>();
+
+        await cut.InvokeAsync(() => cut.Instance.OnMapPressed(54.354, 18.656));
+
+        Assert.Contains("54.354, 18.656", cut.Find(".map-create-event").TextContent);
+    }
+
+    /// <summary>A pressed place travels to the editor exactly as a searched one does - see ChosenPlace.</summary>
+    [Fact]
+    public async Task A_pressed_place_reaches_the_editor_that_makes_something_of_it()
+    {
+        GrantLocations();
+        var chosenPlace = Services.GetRequiredService<ChosenPlace>();
+        var cut = RenderComponent<MapPage>();
+        await cut.InvokeAsync(() => cut.Instance.OnMapPressed(54.354, 18.656));
+
+        UseThePlace(cut);
+        cut.FindAll(".map-overlay-confirm button")
+            .First(button => button.TextContent.Contains("An event in the calendar")).Click();
+
+        var handedOver = chosenPlace.Take();
+        Assert.NotNull(handedOver);
+        Assert.Equal("Wały Piastowskie 1, Gdańsk", handedOver.Address);
+        Assert.Equal(54.354, handedOver.Latitude);
+    }
+
     private static void UseThePlace(IRenderedFragment cut)
         => cut.FindAll(".map-create-event button").First(button => button.TextContent.Contains("Yes, use it")).Click();
 
@@ -198,6 +250,9 @@ public sealed class MapPageTests : OrbitTestContext
 
     private string _grantedPermissionsJson = "{\"granted\":[]}";
 
+    /// <summary>What Nominatim says is at the point pressed, or null for a spot it knows nothing about.</summary>
+    private string? _reverseGeocodedAddress = "Wały Piastowskie 1, Gdańsk";
+
     /// <summary>Whoever this reader is sharing with in a given test - nobody, unless the test says so.</summary>
     private static readonly Guid FriendUserId = Guid.NewGuid();
     private string _ownSharesJson = "[]";
@@ -224,6 +279,15 @@ public sealed class MapPageTests : OrbitTestContext
             if (path.EndsWith("/permissions", StringComparison.Ordinal))
             {
                 return Text(_grantedPermissionsJson);
+            }
+
+            // The other direction: what is at a point somebody pressed. Answers with a street unless the
+            // test has said this spot has none - see _reverseGeocodedAddress.
+            if (path.EndsWith("/reverse", StringComparison.Ordinal))
+            {
+                return Text(_reverseGeocodedAddress is null
+                    ? "{}"
+                    : "{\"display_name\":\"" + _reverseGeocodedAddress + "\"}");
             }
 
             // Nominatim, which the page reaches through its own client - the query decides the answer so

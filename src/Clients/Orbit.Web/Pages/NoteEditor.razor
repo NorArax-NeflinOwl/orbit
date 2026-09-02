@@ -23,6 +23,11 @@
    from the top down and the form has no fixed height, so the buttons used to be wherever the writing
    happened to end - which on a long note is off the screen. Icons, because two words there would
    compete with the one thing the page is called. *@
+@* Two panels: the form on the left, which scrolls, and the panel on the right, which does not - see
+   EditorRail. On a narrow screen the right one becomes a bar along the foot of the window. *@
+<div class="editor-page">
+<div class="editor-page-body">
+
 <div class="page-header">
     <div class="page-heading">
         <h1>@(IsNewNote ? T["New note"] : T["Edit note"])</h1>
@@ -31,10 +36,6 @@
             <span class="form-hint">@T["Write something in it."]</span>
         }
     </div>
-    @if (!_isLoading && !_isSharedReadOnly && _lockedByUserName is null)
-    {
-        <EditorActions OnSave="SaveAsync" OnCancel="CancelAsync" SaveDisabled="@(!HasSomethingToSave || _isSaving)" />
-    }
 </div>
 
 @if (_isLoading)
@@ -55,13 +56,6 @@ else
         }
     }
 
-    @if (_lockedByUserName is not null)
-    {
-        <p class="lock-banner">
-            @T.Format("{0} is currently editing this note - you can't edit it right now.", _lockedByUserName)
-        </p>
-    }
-
     <EditForm Model="_formModel" OnValidSubmit="SaveAsync" class="editor-form note-editor-form">
         <fieldset disabled="@(_isSharedReadOnly || _lockedByUserName is not null || _isSaving)">
             @* One field for the whole note. The first line is its title and is drawn as one - a
@@ -75,10 +69,6 @@ else
                 <ChecklistTextEditor @ref="_checklistEditorRef" CssClass="note-editor-content note-editor-titled" @bind-Lines="_formModel.Lines" />
             </div>
 
-            @if (_saveErrorMessage is not null)
-            {
-                <p class="error">@_saveErrorMessage</p>
-            }
         </fieldset>
     </EditForm>
 
@@ -161,6 +151,33 @@ else
         }
     }
 }
+
+</div>
+@* Drawn for a note nobody can write to as well, with Save greyed - the same rule the other editors
+   follow. It is where the reason lives: a panel that vanished along with the form's buttons took the
+   sentence saying why they were gone with it. *@
+@if (!_isLoading)
+{
+    <EditorRail OnSave="SaveAsync" OnCancel="CancelAsync"
+                SaveDisabled="@(_isSharedReadOnly || _lockedByUserName is not null || !HasSomethingToSave || _isSaving)">
+        @* Beside the button that failed rather than at the end of a form that is taller than the
+           screen: a save that did not happen and a note somebody else is holding are both answers to
+           "why has Save done nothing", and an answer nobody scrolls to is not one. *@
+        <Extras>
+            @if (_lockedByUserName is not null)
+            {
+                <p class="lock-banner">
+                    @T.Format("{0} is currently editing this note - you can't edit it right now.", _lockedByUserName)
+                </p>
+            }
+            @if (_saveErrorMessage is not null)
+            {
+                <p class="error">@_saveErrorMessage</p>
+            }
+        </Extras>
+    </EditorRail>
+}
+</div>
 
 @code {
     [Parameter]

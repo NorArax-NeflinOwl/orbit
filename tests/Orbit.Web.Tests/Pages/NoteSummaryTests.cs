@@ -82,10 +82,24 @@ public sealed class NoteSummaryTests : OrbitTestContext
         var navigationManager = Services.GetRequiredService<NavigationManager>();
         var cut = RenderComponent<NoteSummary>(parameters => parameters.Add(page => page.Id, NoteId));
 
-        cut.Find(".page-header-actions .overflow-menu-trigger").Click();
+        cut.Find(".editor-rail .overflow-menu-trigger").Click();
         cut.FindAll(".avatar-dropdown-item").First(entry => entry.TextContent.Trim() == "Edit").Click();
 
         Assert.EndsWith($"/notes/{NoteId}/edit", navigationManager.Uri);
+    }
+
+    /// <summary>
+    /// The two panels an editing screen is made of: what is read and filled in on the left, and the
+    /// actions on the right, outside the box that scrolls. The pair used to sit in the page's heading,
+    /// which scrolled away with it - see EditorRail.
+    /// </summary>
+    [Fact]
+    public void The_actions_sit_outside_what_scrolls()
+    {
+        var cut = RenderComponent<NoteSummary>(parameters => parameters.Add(page => page.Id, NoteId));
+
+        Assert.NotEmpty(cut.FindAll(".editor-page > .editor-rail"));
+        Assert.Empty(cut.FindAll(".editor-page-body .editor-rail"));
     }
 
     /// <summary>Somebody else's note, held read-only: it can be read here and not ticked.</summary>

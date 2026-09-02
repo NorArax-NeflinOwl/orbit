@@ -168,6 +168,11 @@ public sealed class NoteEditorTests : OrbitTestContext
         Assert.Empty(cut.FindAll("input[type=checkbox]"));
     }
 
+    /// <summary>
+    /// Said in the panel that stays in view rather than above a form that scrolls away, and beside the
+    /// Save it explains: "why is Save greyed" is asked with the thumb on Save. The panel is drawn for a
+    /// note nobody can write to as well - one that vanished took the reason with it.
+    /// </summary>
     [Fact]
     public void A_note_someone_else_is_editing_says_so_and_locks_the_form()
     {
@@ -176,8 +181,9 @@ public sealed class NoteEditorTests : OrbitTestContext
 
         var cut = RenderComponent<NoteEditor>(parameters => parameters.Add(editor => editor.Id, note.Id));
 
-        Assert.Contains("anna", cut.Find(".lock-banner").TextContent);
+        Assert.Contains("anna", cut.Find(".editor-rail-extras .lock-banner").TextContent);
         Assert.True(cut.Find("fieldset").HasAttribute("disabled"));
+        Assert.True(cut.Find(".page-action-primary").HasAttribute("disabled"));
     }
 
     [Fact]
