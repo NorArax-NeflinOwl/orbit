@@ -477,13 +477,17 @@ inventory lists, the contacts tabs, the chat menus - is built and needs no schem
   specific. It used to say "Orbit can't reach that account right now" to both, which read as a fault
   Orbit was having.
 
-- **The phone has not caught up with the browser's last few passes.** The Google link and the
-  verified-address filter are done - see `Orbit.Mobile/Google/GoogleCalendarEventLink.cs`, now the same
-  builder as the browser's with tests on both sides - and so is the calendar's list leaving out what is
-  over. What is still only the browser's: none of the shallow views exists there - a task entry's own
-  page, an appointment's, a note read with its checklist tickable, and a shelf counted up and down in
-  place. None of it is broken, and all of it is the phone answering a question differently from the
-  browser.
+- ~~**The phone has not caught up with the browser's last few passes.**~~ Done. The Google link and the
+  verified-address filter are the same builder as the browser's with tests on both sides
+  (`Orbit.Mobile/Google/GoogleCalendarEventLink.cs`); the calendar's list leaves out what is over; a task
+  entry's own screen now says what the appointment is about and who is coming, above the map, as the
+  browser's page does; and a press on an entry that stands for another list names that list and offers to
+  open it rather than ticking off something the server will only overwrite.
+
+  What is left is a difference in shape rather than a gap: the browser split each object into a page that
+  reads and a form one press further in, where the phone keeps one screen that does both - a note's lines
+  are ticked where they are written, and a shelf is counted up and down on the same screen that edits it.
+  That is the right answer for a phone, so it is recorded here rather than queued.
 
 - **The phone cannot flatten a tree of lists.** The browser's checklist reads a group list either as the
   stack of cards it is or as one run of items labelled with the list each came from, and remembers which
