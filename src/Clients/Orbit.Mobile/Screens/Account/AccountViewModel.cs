@@ -113,6 +113,9 @@ public sealed partial class AccountViewModel : ObservableObject
         _accountClient = accountClient;
         _encryptionKeyProvider = encryptionKeyProvider;
         Connection = connection;
+        // The button answers to both of them: something to export, and a connection to ask for it over.
+        Export.PropertyChanged += (_, _) => OnPropertyChanged(nameof(CanExport));
+        connection.PropertyChanged += (_, _) => OnPropertyChanged(nameof(CanExport));
         _sessionStore = sessionStore;
         _translations = translations;
         _usersClient = usersClient;
@@ -189,21 +192,41 @@ public sealed partial class AccountViewModel : ObservableObject
     /// </summary>
     public event EventHandler<(string FileName, string Json)>? ExportReady;
 
+    /// <summary>
+    /// What the next export will carry - all four parts unless the reader says otherwise, the same four
+    /// the browser offers. See ExportChoice.
+    /// </summary>
+    public ExportChoice Export { get; } = new();
+
+    /// <summary>
+    /// Whether there is an export to build: something chosen, and a connection to ask for it over -
+    /// the archive is the server's answer rather than something this phone can assemble.
+    /// </summary>
+    public bool CanExport => Connection.IsMet && !Export.IsEmpty;
+
     [RelayCommand]
     private async Task ExportAsync(CancellationToken cancellationToken)
     {
         IsTransferring = true;
         try
         {
-            var json = await _transfer.ExportAsync(cancellationToken);
-            if (json is null)
+            var everything = await _transfer.ExportAsync(cancellationToken);
+            if (everything is null)
             {
                 TransferMessage = _translations["Couldn't build the export. Try again."];
                 return;
             }
 
-            TransferMessage = string.Empty;
-            ExportReady?.Invoke(this, ($"orbit-export-{DateTimeOffset.Now:yyyy-MM-dd}.json", json));
+            var archive = Export.Narrow(everything);
+            // Said rather than left to the file: what was asked for and what came back are two different
+            // things, and a file nobody opens is where that difference would otherwise be found.
+            TransferMessage = _translations.Format(
+                "Exported {0} notes, {1} task lists, {2} events and {3} storages.",
+                archive.Notes.Count, archive.TaskLists.Count, archive.CalendarEvents.Count,
+                archive.Warehouses.Count);
+
+            ExportReady?.Invoke(
+                this, ($"orbit-export-{DateTimeOffset.Now:yyyy-MM-dd}.json", _transfer.Write(archive)));
         }
         catch (Exception exception) when (exception is HttpRequestException or OperationCanceledException)
         {

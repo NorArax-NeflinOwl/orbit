@@ -4,6 +4,8 @@ using Orbit.Mobile.Crypto;
 using Orbit.Mobile.Data;
 using Orbit.Mobile.Localization;
 using System.Text;
+using System.Text.Json;
+using Orbit.Core.Transfer;
 using Orbit.Mobile.Screens.Account;
 using Orbit.Mobile.Screens.Notifications;
 using Orbit.Mobile.Tests.TestDoubles;
@@ -154,6 +156,60 @@ public sealed class AccountScreenTests
         Assert.StartsWith("orbit-export-", offered!.Value.FileName);
         Assert.EndsWith(".json", offered.Value.FileName);
         Assert.Contains("\"version\"", offered.Value.Json, StringComparison.OrdinalIgnoreCase);
+    }
+
+    /// <summary>One of each, so a test about what a file carries has something to find in it.</summary>
+    private static ArchivedNote ANote() => new("Shopping", [], IsPrivate: false, EncryptedContent: null);
+
+    private static ArchivedTaskList ATaskList()
+        => new("This week", [], IsGroup: false, IsPrivate: false, EncryptedContent: null, Priority: "Normal");
+
+    /// <summary>
+    /// What goes in the file is the reader's to choose, as it is in the browser: somebody moving their
+    /// notes to another account has no reason to carry three years of shopping lists with them. The
+    /// parts left out are emptied rather than dropped - a file missing a list is one an older Orbit
+    /// would refuse to read.
+    /// </summary>
+    [Fact]
+    public async Task An_export_carries_only_what_was_chosen()
+    {
+        using var context = new ScreenContext();
+        context.Transfer.Archive = context.Transfer.Archive with
+        {
+            Notes = [ANote()],
+            TaskLists = [ATaskList()]
+        };
+
+        var screen = context.Open();
+        screen.Export.IncludesTaskLists = false;
+        (string FileName, string Json)? offered = null;
+        screen.ExportReady += (_, export) => offered = export;
+
+        await screen.ExportCommand.ExecuteAsync(null);
+
+        var written = JsonSerializer.Deserialize<OrbitArchive>(
+            offered!.Value.Json, new JsonSerializerOptions { PropertyNameCaseInsensitive = true })!;
+        Assert.Single(written.Notes);
+        Assert.Empty(written.TaskLists);
+        // The version is still there: what was left out is emptied, not taken out of the file's shape.
+        Assert.Equal(OrbitArchive.CurrentVersion, written.Version);
+    }
+
+    /// <summary>Nothing chosen is not an export of nothing - the button has no reason to be pressed.</summary>
+    [Fact]
+    public void An_export_of_nothing_is_not_offered()
+    {
+        using var context = new ScreenContext();
+        var screen = context.Open();
+
+        Assert.True(screen.CanExport);
+
+        screen.Export.IncludesNotes = false;
+        screen.Export.IncludesTaskLists = false;
+        screen.Export.IncludesCalendarEvents = false;
+        screen.Export.IncludesWarehouses = false;
+
+        Assert.False(screen.CanExport);
     }
 
     [Fact]
