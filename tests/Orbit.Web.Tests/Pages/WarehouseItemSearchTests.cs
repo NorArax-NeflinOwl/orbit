@@ -231,6 +231,8 @@ public sealed class WarehouseItemSearchTests : OrbitTestContext
             BaseAddress = new Uri("https://example.test/")
         };
         Services.AddSingleton(new InventoryApiClient(httpClient));
+        // The editor also asks which lists are measured against this warehouse - see its checklist.
+        Services.AddSingleton(new TasksApiClient(httpClient));
         Services.AddSingleton(new ChatApiClient(httpClient));
     }
 

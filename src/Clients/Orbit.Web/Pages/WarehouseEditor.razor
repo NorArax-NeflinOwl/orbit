@@ -4,12 +4,14 @@
 @attribute [Authorize]
 @implements IAsyncDisposable
 @using Orbit.Contracts.Inventory
+@using Orbit.Contracts.Tasks
 @using Orbit.Contracts.Notifications
 @using Orbit.Core.Abstractions
 @using Orbit.Core.Inventory
 @using Orbit.Core.Suggestions
 @using Orbit.Web.Services
 @inject InventoryApiClient InventoryApiClient
+@inject TasksApiClient TasksApiClient
 @inject NotificationsApiClient NotificationsApiClient
 @inject NavigationManager NavigationManager
 @inject ILogger<WarehouseEditor> Logger
@@ -224,6 +226,45 @@ else
         <ShareLinkButton ItemType="Warehouse" ItemId="WarehouseId" />
     }
 
+    @* Which lists are measured against this shelf. The same tie a task list's own editor offers from
+       its end - said from here as well because a store is opened as often as a list is, and somebody
+       standing in the pantry is thinking about which jobs it serves rather than the other way round.
+
+       Several lists may share it. What that costs is said above the boxes rather than discovered later:
+       the shelf is split between everything asking for it, so a second list asking for the same flour
+       leaves both of them short. *@
+    <h2>@T["Lists measured against this warehouse"]</h2>
+    <div class="card">
+        @if (_taskLists.Count == 0)
+        {
+            <p class="empty-hint">@T["No task lists yet."]</p>
+        }
+        else
+        {
+            <p class="field-hint">@T["A shelf several lists ask for is split between them, so each is told its own share."]</p>
+            @foreach (var taskList in _taskLists)
+            {
+                <label class="check-row">
+                    <input type="checkbox" checked="@(taskList.LinkedWarehouseId == WarehouseId)"
+                           disabled="@(_isReadOnly || _isLinkingTaskLists)"
+                           aria-label="@T.Format("Measure {0} against this warehouse", taskList.Title)"
+                           @onchange="args => MeasureAsync(taskList, (bool)args.Value!)" />
+                    <span class="check-row-text">@taskList.Title</span>
+                    @* A list already measured against another store: ticking it here moves it, so which
+                       store it would leave is named rather than left to be noticed afterwards. *@
+                    @if (taskList.LinkedWarehouseId is { } elsewhere && elsewhere != WarehouseId)
+                    {
+                        <span class="row-meta">@T.Format("now measured against {0}", NameOfWarehouse(elsewhere))</span>
+                    }
+                </label>
+            }
+        }
+        @if (_linkingMessage is not null)
+        {
+            <p class="error">@_linkingMessage</p>
+        }
+    </div>
+
     @* At the very bottom, because it is about the list this warehouse keeps rather than about the shelf
        somebody came here to edit - see RestockListSettings. *@
     <h2>@T["Restock list"]</h2>
@@ -387,8 +428,73 @@ else
         }
 
         await LoadRestockSettingsAsync();
+        await LoadTaskListsAsync();
         _isLoading = false;
     }
+
+    /// <summary>
+    /// Every list of this account's, and every warehouse, so the boxes can be ticked and a list already
+    /// measured against another store can say which. Best effort, like the settings above: a warehouse
+    /// that opens without the tie is more use than one that will not open.
+    /// </summary>
+    private async Task LoadTaskListsAsync()
+    {
+        try
+        {
+            _taskLists = await TasksApiClient.GetTaskListsAsync();
+            _warehouseNames = (await InventoryApiClient.GetWarehousesAsync() ?? [])
+                .ToDictionary(warehouse => warehouse.Id, warehouse => warehouse.Name);
+        }
+        catch (HttpRequestException exception)
+        {
+            Logger.LogWarning(exception, "Couldn't read which lists are measured against warehouse {WarehouseId}", WarehouseId);
+        }
+    }
+
+    /// <summary>
+    /// Ties a list to this warehouse, or lets it go. One list at a time and written straight away: a
+    /// tick here is the whole decision, and holding it until Save would put it behind a button that is
+    /// about the shelf rather than about this.
+    /// </summary>
+    private async Task MeasureAsync(TaskDto taskList, bool isMeasured)
+    {
+        _isLinkingTaskLists = true;
+        _linkingMessage = null;
+        try
+        {
+            if (!await TasksApiClient.LinkWarehouseAsync(taskList.Id, isMeasured ? WarehouseId : null))
+            {
+                _linkingMessage = T.Format("Couldn't measure \"{0}\" against this warehouse. Try again.", taskList.Title);
+                return;
+            }
+
+            await LoadTaskListsAsync();
+        }
+        catch (HttpRequestException exception)
+        {
+            Logger.LogWarning(exception, "Couldn't tie task list {TaskListId} to warehouse {WarehouseId}", taskList.Id, WarehouseId);
+            _linkingMessage = T.Format("Couldn't measure \"{0}\" against this warehouse. Try again.", taskList.Title);
+        }
+        finally
+        {
+            _isLinkingTaskLists = false;
+        }
+    }
+
+    /// <summary>What another store is called, or its id where this browser has not got it.</summary>
+    private string NameOfWarehouse(Guid warehouseId)
+        => _warehouseNames.TryGetValue(warehouseId, out var name) ? name : warehouseId.ToString();
+
+    /// <summary>Every list of this account's, with the warehouse each is measured against.</summary>
+    private IReadOnlyList<TaskDto> _taskLists = [];
+
+    /// <summary>What each warehouse is called, so a list measured elsewhere can name where.</summary>
+    private IReadOnlyDictionary<Guid, string> _warehouseNames = new Dictionary<Guid, string>();
+
+    private bool _isLinkingTaskLists;
+
+    /// <summary>What went wrong with a tick, said beside the boxes it was made in.</summary>
+    private string? _linkingMessage;
 
     /// <summary>
     /// Best effort, like the notification settings above: the form at the bottom falling back to the

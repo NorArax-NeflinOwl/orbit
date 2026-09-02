@@ -5,6 +5,10 @@ namespace Orbit.Core.Tasks.StockCheck;
 /// many are on the shelf, and the difference when the shelf falls short.
 /// </summary>
 /// <param name="Name">The entry's description, which is what is matched against a warehouse item's name.</param>
+/// <param name="Available">
+/// How many of them are this list's. That is everything on the shelf where this is the only list asking
+/// for it, and a share of the shelf where it is not - see StockRequirementCounter.ShareOfTheShelf.
+/// </param>
 /// <param name="Done">
 /// How many of these the work has already ticked off. Not part of whether the job can be started - that
 /// is Required against Available - but it is what a shelf built from this list starts with, since a
