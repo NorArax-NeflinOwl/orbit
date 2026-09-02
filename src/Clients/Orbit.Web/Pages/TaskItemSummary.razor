@@ -2,11 +2,14 @@
 @attribute [Authorize]
 @implements IAsyncDisposable
 @using Orbit.Contracts.Calendar
+@using Orbit.Contracts.Chat
 @using Orbit.Contracts.Tasks
 @using Orbit.Core.Tasks
 @using Orbit.Web.Services
 @inject TasksApiClient TasksApiClient
 @inject CalendarApiClient CalendarApiClient
+@inject ChatApiClient ChatApiClient
+@inject UsersApiClient UsersApiClient
 @inject GeocodingApiClient GeocodingApiClient
 @inject NavigationManager NavigationManager
 @inject IJSRuntime JSRuntime
@@ -51,6 +54,23 @@ else
             <span class="row-title">@T["Where"]</span>
             <span class="row-meta">@(_place.Length > 0 ? _place : T["No place set"])</span>
         </div>
+        @* What the appointment says about itself, and who is coming. Both live on the event rather than
+           on the entry - an entry that is an appointment keeps neither - so both appear only where
+           there is one. Above the map, because they are what the thing is; the map is where it is. *@
+        @if (_event?.Details.Description is { Length: > 0 } description)
+        {
+            <div class="list-row">
+                <span class="row-title">@T["Description"]</span>
+                <span class="row-meta">@description</span>
+            </div>
+        }
+        @if (_event is { Details.Guests.Count: > 0 } withGuests)
+        {
+            <div class="list-row">
+                <span class="row-title">@T["Guests:"]</span>
+                <span class="row-meta">@string.Join(", ", withGuests.Details.Guests.Select(NameOfTheGuest))</span>
+            </div>
+        }
         @if (_item.IsCompleted)
         {
             <div class="list-row">
@@ -130,7 +150,13 @@ else
             return;
         }
 
-        if (_item.LinkedCalendarEventId is { } eventId && await LoadEventAsync(eventId) is { Details.Location: { } location })
+        _event = _item.LinkedCalendarEventId is { } eventId ? await LoadEventAsync(eventId) : null;
+        if (_event is { Details.Guests.Count: > 0 })
+        {
+            await NameTheGuestsAsync();
+        }
+
+        if (_event is { Details.Location: { } location })
         {
             _place = location.Address ?? string.Empty;
             _pin = new GeocodedPlace(location.Latitude, location.Longitude);
@@ -142,6 +168,52 @@ else
         }
 
         _isWaitingToDrawTheMap = _pin is not null;
+    }
+
+    /// <summary>The appointment this entry is, when it is one. Null for an entry that is only a deadline.</summary>
+    private CalendarEventDto? _event;
+
+    /// <summary>What each guest is called, by user id - see NameTheGuestsAsync.</summary>
+    private readonly Dictionary<Guid, string> _guestNames = [];
+
+    /// <summary>
+    /// What to call a guest: their login. Falls back to the id, which is not useful to read but is
+    /// honest about what is known - the alternative is a blank where a person should be.
+    /// </summary>
+    private string NameOfTheGuest(Guid guestUserId)
+        => _guestNames.TryGetValue(guestUserId, out var name) ? name : guestUserId.ToString();
+
+    /// <summary>
+    /// Names the people coming: from this account's contacts first, since most guests are, and from the
+    /// user itself for anyone else. Best effort throughout - a name that cannot be read leaves the id,
+    /// and this page is about when and where rather than about who.
+    /// </summary>
+    private async Task NameTheGuestsAsync()
+    {
+        if (_event is null)
+        {
+            return;
+        }
+
+        try
+        {
+            foreach (var contact in await ChatApiClient.GetContactsAsync())
+            {
+                _guestNames[contact.UserId] = contact.UserName;
+            }
+
+            foreach (var guestUserId in _event.Details.Guests.Where(guest => !_guestNames.ContainsKey(guest)))
+            {
+                if (await UsersApiClient.GetUserAsync(guestUserId) is { } user)
+                {
+                    _guestNames[guestUserId] = user.UserName;
+                }
+            }
+        }
+        catch (HttpRequestException exception)
+        {
+            Logger.LogWarning(exception, "Couldn't read who is coming to the appointment behind a task entry");
+        }
     }
 
     /// <summary>Best-effort: a calendar that will not load leaves the entry's own words standing rather than taking the page down.</summary>

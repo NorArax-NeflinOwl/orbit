@@ -8,6 +8,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Orbit.Contracts.Chat;
+using Orbit.Contracts.Inventory;
 using Orbit.Contracts.Notifications;
 using Orbit.Contracts.Tasks;
 using Orbit.Core.Tasks;
@@ -33,6 +34,9 @@ public sealed class TaskEditorItemFormTests : OrbitTestContext
 
     /// <summary>One of the other lists this account has, with an id a test can name.</summary>
     private static readonly Guid OtherTaskListId = Guid.NewGuid();
+
+    /// <summary>The storage this list is measured against, for a test that wants one. Null for most.</summary>
+    private WarehouseDto? _linkedWarehouse;
     private static readonly Guid ItemId = Guid.NewGuid();
 
     public TaskEditorItemFormTests()
@@ -132,7 +136,8 @@ public sealed class TaskEditorItemFormTests : OrbitTestContext
 
         var details = cut.Find(".editor-item-details").TextContent;
         Assert.DoesNotContain("Warehouse", details);
-        Assert.Contains("becomes a product", details);
+        // And says where the product does come from, since a form with nothing on it explains nothing.
+        Assert.Contains("one product per distinct name", details);
     }
 
     /// <summary>
@@ -253,6 +258,36 @@ public sealed class TaskEditorItemFormTests : OrbitTestContext
         ExpandTheOnlyItem(cut);
 
         Assert.Equal("shopping, car", cut.Find("input[list=taskItemCategories]").GetAttribute("value"));
+    }
+
+    /// <summary>
+    /// A list measured against a storage can put something on it: the entry describes a product, and
+    /// its own words are that product's name - so the form asks everything except the name. Without
+    /// this, such a list could only be told to generate a second storage it was not allowed to have.
+    /// </summary>
+    [Fact]
+    public void An_inventory_entry_on_a_measured_list_describes_a_product_for_that_shelf()
+    {
+        _linkedWarehouse = new WarehouseDto(
+            Guid.NewGuid(), "Pantry", DateTimeOffset.UtcNow, DateTimeOffset.UtcNow,
+            IsShared: false, SharedByUserName: null, AccessLevel: "CanEdit", LockedByUserName: null,
+            OriginalOwnerUserId: null);
+        RegisterApiClients(AnItem(kind: nameof(TaskItemKind.Inventory)));
+        var cut = Render();
+
+        ExpandTheOnlyItem(cut);
+
+        var details = cut.Find(".editor-item-details").TextContent;
+        // The amounts are asked for, the name is not - the entry above is the name.
+        Assert.Contains("Amount", details);
+        Assert.DoesNotContain("Item name", details);
+        Assert.Contains("Pantry", details);
+
+        // And it starts where generating a storage from a list would have put it: one of the thing
+        // wanted, none of it there yet, counted in pieces.
+        var amounts = cut.FindAll(".editor-item-details input[type=number]").ToList();
+        Assert.Equal("1", amounts[1].GetAttribute("value"));
+        Assert.Equal("Piece", cut.Find(".editor-item-unit").GetAttribute("value"));
     }
 
     /// <summary>
@@ -402,7 +437,8 @@ public sealed class TaskEditorItemFormTests : OrbitTestContext
             TaskListId, "Errands", [item], IsCompleted: false, IsGroup: false, IsPrivate: false,
             EncryptedContent: null, DateTimeOffset.UtcNow, DateTimeOffset.UtcNow,
             IsShared: false, SharedByUserName: null, AccessLevel: "CanEdit", OriginalOwnerUserId: null,
-            Description: "Things to pick up on the way home");
+            Description: "Things to pick up on the way home",
+            LinkedWarehouseId: _linkedWarehouse?.Id);
 
         var httpClient = new HttpClient(new StubHttpMessageHandler(request =>
         {
@@ -446,6 +482,19 @@ public sealed class TaskEditorItemFormTests : OrbitTestContext
             if (path.StartsWith("/api/share-links", StringComparison.Ordinal) || path.EndsWith("/lock", StringComparison.Ordinal))
             {
                 return new HttpResponseMessage(HttpStatusCode.NoContent);
+            }
+
+            // No storages, so the picker under "About this list" has nothing to offer. Answered
+            // explicitly because the fallback below hands back task lists, and a warehouse and a task
+            // list are close enough in shape to be read as one another.
+            if (path.EndsWith("/api/warehouses", StringComparison.Ordinal))
+            {
+                return JsonOf(_linkedWarehouse is null ? Array.Empty<WarehouseDto>() : [_linkedWarehouse]);
+            }
+
+            if (_linkedWarehouse is { } storage && path.EndsWith($"/api/warehouses/{storage.Id}", StringComparison.Ordinal))
+            {
+                return JsonOf(storage);
             }
 
             // Two other lists as well, so the "stands for these lists" picker has something to offer -

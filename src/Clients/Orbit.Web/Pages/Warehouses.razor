@@ -112,6 +112,10 @@ else
                     </Handle>
                     <Menu>
                         <OverflowMenu>
+                            @* The card opens the shelf to be read; changing what is on it is a named
+                               press, the same as a task list's. *@
+                            <button type="button" class="avatar-dropdown-item"
+                                    @onclick="() => EditWarehouse(warehouse.Id)">@T["Edit"]</button>
                             @if (CanShare(warehouse))
                             {
                                 <button type="button" class="avatar-dropdown-item" @onclick="() => ToggleSharePanel(warehouse.Id)">@T["Share"]</button>
@@ -329,6 +333,8 @@ else
     }
 
     private void OpenWarehouse(Guid warehouseId) => NavigationManager.NavigateTo($"/inventory/{warehouseId}");
+
+    private void EditWarehouse(Guid warehouseId) => NavigationManager.NavigateTo($"/inventory/{warehouseId}/edit");
 
     /// <summary>
     /// Answers "which warehouse is this in". Read here rather than asked of the server, because a

@@ -656,6 +656,32 @@ wrong (and each pinned by a test):
   possibly another city days ago.
 - Every link opens with `target="_blank" rel="noopener"`.
 
+### A shelf, read rather than edited
+
+`/inventory/{id}` is what opening a warehouse lands on: one row per batch, saying what it is, how much
+there is, when it arrived and how long it keeps. A row is a batch rather than a product - two rows can
+carry the same name, which is what two deliveries of one thing are, and the check that measures work
+against a shelf adds them up by name (`StockRequirementCounter`). A row an errand pointed at is marked,
+the way the editor already marked one.
+
+Changing what is on the shelf is a named press from there (`/inventory/{id}/edit`), and from the card's
+own menu - the same two depths a task list has, for the same reason: opening a warehouse to see what is
+in it is a different thing from opening it to change it, and a page of editable fields is the wrong
+answer to "what have we got".
+
+### What the calendar's list leaves out
+
+The list beside the grid answers "what is coming", so it leaves out what is over: a deadline already
+ticked off, and an event that has already ended. An overdue deadline that is still not done **stays** -
+it is the one thing on the page that most needs saying, and hiding it would hide the work.
+
+The grid never hides anything. A day with something in it should say so whether or not it has been, and
+a month drawn with holes in it would be a month that had not happened.
+
+**Show → "Everything, including what is over"** in the page's menu puts them back, and is remembered by
+the device the way the list's order is (`CalendarListOrder`, localStorage - it describes one page for
+one reader on one screen).
+
 ## Refusing a request
 
 Anything that refuses what a caller asked for — domain validation (an event ending before it starts, a
@@ -1015,6 +1041,25 @@ a list and its warehouse back into step in both directions at once - crossing of
 and writing onto the list whatever the shelf held that no list mentioned. Nothing called it any more:
 the web now recalculates by reading, and the phone by the same two presses. It was deleted rather than
 left reachable, since an endpoint nothing asks for is an endpoint nobody notices going wrong.
+
+Two things are defaulted rather than asked for, and the same way in both directions: the unit is
+**pieces**, and **how many times a name is written is how little is too little** - one entry asks for one
+of the thing, the same entry twice asks for two. Nothing on a task entry says an amount, so repetition is
+what says it, and pieces is what something nobody counted otherwise is counted in.
+
+**An entry on a list that already has a storage describes a product for that shelf.** It shows the
+product's fields - how much, how little is too little, the unit, what it is, how long it keeps - and
+everything except the name, because the entry's own words are the name. That is the same rule the
+generation above follows and the same one the check matches by, so the two cannot come to disagree about
+which product an errand is about. Saving the list puts it on the shelf; a shelf already holding
+something by that name is what the entry was asking for, so nothing is added twice.
+
+Which storage a list is measured against is set in its editor, under **About this list**, for any list
+rather than only a group one - an entry describing a product has to be able to say which shelf it goes
+on. The picker leaves out storages another list already measures (one list per storage, see
+`LinkTaskListToWarehouseCommandHandler`), and "Generate inventory" is refused to a list that already has
+one: it would build a second and quietly move the list onto it, leaving the first with nothing pointing
+at it.
 
 `POST /api/tasks/{id}/inventory` goes the other way: it builds the shelf the work needs - one entry per
 distinct thing, **each carrying how many the job needs as its minimum**, and starting with whatever the

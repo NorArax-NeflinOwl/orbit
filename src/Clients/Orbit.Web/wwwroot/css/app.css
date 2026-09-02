@@ -4598,6 +4598,22 @@ input.note-editor-title {
     z-index: 1;
 }
 
+/* And the menu above the body, which comes after it in the card. Both were on the same layer, so the
+   later one won and the rows showed through the open dropdown - a menu with a list read through it. The
+   dropdown's own z-index could not save it: it is inside the stacking context this rule makes, and a
+   child cannot climb out of one. */
+.item-card-menu {
+    z-index: 2;
+}
+
+/* And the whole card above its neighbours while one of its menus is open. A dropdown is wider than the
+   corner it hangs from and reaches over whatever is beside it; cards are siblings in a grid, so without
+   this the card drawn after this one would paint over the menu the same way its own body did. Only
+   while there is a menu open, so nothing else about the page moves. */
+.item-card:has(.overflow-menu-dropdown) {
+    z-index: 3;
+}
+
 /* Something happened on this card that the reader has not seen. Deliberately not a number: how many is
    the notifications panel's job, and a count here would be a second, and sometimes disagreeing, answer
    to it.
@@ -4782,6 +4798,24 @@ input.note-editor-title {
     font-size: 13px;
     color: var(--text-secondary);
     white-space: nowrap;
+}
+
+/* One batch on a shelf, read rather than edited - see WarehouseSummary.razor. The amount is pushed away
+   from the name so a column of them lines up, which is what makes a shelf readable at a glance. */
+.shelf-batch-amount {
+    margin-left: auto;
+}
+
+/* What a box that cannot be ticked here says back - see TaskListChecklist. Indented to where the row's
+   words start, so it reads as an answer to that line rather than as a line of its own. */
+.check-row-asks {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+    padding: 4px 0 8px 30px;
+    font-size: 13px;
+    color: var(--text-secondary);
 }
 
 /* A list of cards. Its own rule rather than reusing .card-grid, which lays tiles out in columns. */

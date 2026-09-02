@@ -255,9 +255,15 @@ else
                 @foreach (var item in ItemsToShow(section.TaskList))
                 {
                     <div class="check-row @(item.IsCompleted ? "completed" : "") @(Highlight == item.Id ? "highlighted" : "")">
+                        @* An entry standing for other lists is not ticked here - it is done when they
+                           are. Pressed rather than refused: the box takes the press, says which list
+                           the answer is on, and offers to go there. Prevented rather than disabled,
+                           because a disabled box takes no press at all and had nothing to say. *@
                         <input type="checkbox" checked="@item.IsCompleted"
                                aria-label="@T.Format("Done: {0}", Written(item.Description))"
                                disabled="@IsItemLocked(section, item)"
+                               @onclick="() => AskAboutTheListsBehind(item)"
+                               @onclick:preventDefault="item.AllLinkedTaskListIds.Count > 0"
                                @onchange="args => ToggleItemAsync(section.TaskList, item, (bool)args.Value!)" />
                         @* Opens the entry to be worked on rather than ticking it off. Ticking is the
                            checkbox's job, and it was doing both: the row was a <label>, so reading a
@@ -303,6 +309,25 @@ else
                             <span class="row-meta">@T.Format("due {0}", dueDate.LocalDateTime.ToString("dd.MM.yyyy HH:mm"))</span>
                         }
                     </div>
+                    @if (_askedAbout == item.Id)
+                    {
+                        @* Under the row rather than in a dialog over the page: it is about this line,
+                           and a reader who meant to tick something else should be able to see which
+                           one they pressed. *@
+                        <div class="check-row-asks">
+                            <span>@T.Format("This is done when {0} is.", LinkedTaskListTitles(item))</span>
+                            @foreach (var linkedTaskListId in item.AllLinkedTaskListIds)
+                            {
+                                <button type="button" class="btn-secondary"
+                                        @onclick="() => GoToLinkedList(linkedTaskListId)">
+                                    @(item.AllLinkedTaskListIds.Count == 1
+                                        ? T["Yes"]
+                                        : LinkedTaskListTitle(linkedTaskListId))
+                                </button>
+                            }
+                            <button type="button" class="btn-secondary" @onclick="() => _askedAbout = null">@T["No"]</button>
+                        </div>
+                    }
                 }
             }
         </div>
@@ -465,12 +490,29 @@ else
     }
 
     /// <summary>
-    /// A linked item's completion mirrors the list it points at rather than being set by hand (see
-    /// LinkedTaskCompletionResolver), and a read-only share grants no writes at all - both render as a
-    /// checkbox that can be seen but not moved.
+    /// A read-only share grants no writes at all, so its boxes are shown and cannot be moved. An entry
+    /// standing for other lists is not disabled: its completion still mirrors the lists it points at
+    /// (see LinkedTaskCompletionResolver), but the press is worth taking - see AskAboutTheListsBehind.
     /// </summary>
     private static bool IsItemLocked(ChecklistSection section, TaskItemDto item)
-        => item.AllLinkedTaskListIds.Count > 0 || section.TaskList.AccessLevel != nameof(ShareAccessLevel.CanEdit);
+        => section.TaskList.AccessLevel != nameof(ShareAccessLevel.CanEdit);
+
+    /// <summary>The entry whose lists are being offered right now, if any - see the prompt under the row.</summary>
+    private Guid? _askedAbout;
+
+    /// <summary>
+    /// Answers a press on a box that cannot be ticked here, by saying where the answer actually is. An
+    /// ordinary entry says nothing: it was ticked, which is answer enough.
+    /// </summary>
+    private void AskAboutTheListsBehind(TaskItemDto item)
+        => _askedAbout = item.AllLinkedTaskListIds.Count > 0 ? item.Id : null;
+
+    private void GoToLinkedList(Guid linkedTaskListId)
+    {
+        _askedAbout = null;
+        Logger.LogInformation("User opened linked task list {LinkedTaskListId} from a checklist", linkedTaskListId);
+        NavigationManager.NavigateTo($"/tasks/{linkedTaskListId}");
+    }
 
     /// <summary>
     /// The lists an entry stands for, named and joined - an entry naming three of them is one step, and
@@ -765,12 +807,17 @@ else
 
     /// <summary>
     /// Reads the warehouses to choose from and, when one is already chosen, what the work costs against
-    /// it. Only for a group list: a single list's items are the work in front of you, not a bill of
-    /// materials gathered from several places.
+    /// it.
+    ///
+    /// For any list, not only a group one. It was group-only on the grounds that a single list's items
+    /// are the work in front of you rather than a bill of materials - but the panel above only appears
+    /// where a list actually holds inventory entries, and on a plain list holding some this left the
+    /// picker with nothing in it and the count unread. A list with errands about stock is asking the
+    /// question whether or not it gathers other lists.
     /// </summary>
     private async Task LoadStockCheckAsync()
     {
-        if (_sections.Count == 0 || !_sections[0].TaskList.IsGroup)
+        if (_sections.Count == 0)
         {
             return;
         }

@@ -1,0 +1,118 @@
+@page "/inventory/{WarehouseId:guid}"
+@attribute [Authorize]
+@using Orbit.Contracts.Inventory
+@using Orbit.Web.Services
+@inject InventoryApiClient InventoryApiClient
+@inject NavigationManager NavigationManager
+@inject ILogger<WarehouseSummary> Logger
+@inject Translations T
+
+@* One shelf, read rather than edited: what is on it, how much, when it arrived and how long it keeps.
+   The same depth a task entry's own page has - see TaskItemSummary - and for the same reason: opening a
+   warehouse to look at it is a different thing from opening it to change it, and a page of editable
+   fields is the wrong answer to "what have we got".
+
+   A row is a batch. Two rows can carry the same name, and that is what two deliveries of one thing are;
+   the check that measures work against a shelf adds them up by name - see StockRequirementCounter. *@
+<PageTitle>@(_warehouse is null ? T["Warehouse"] : _warehouse.Name)</PageTitle>
+
+<div class="page-header">
+    <div class="page-heading">
+        <h1>@(_warehouse?.Name ?? T["Warehouse"])</h1>
+        @if (_warehouse is { Description.Length: > 0 } described)
+        {
+            <p class="page-subtitle">@described.Description</p>
+        }
+    </div>
+    <div class="page-header-actions">
+        <button type="button" class="btn-secondary" @onclick="GoToWarehouses">@T["All warehouses"]</button>
+        @if (_warehouse is not null)
+        {
+            <button type="button" class="btn-primary" @onclick="GoToEditor">@T["Edit"]</button>
+        }
+    </div>
+</div>
+
+@if (_isLoading)
+{
+    <p>@T["Loading…"]</p>
+}
+else if (_warehouse is null)
+{
+    <p>@T["That warehouse no longer exists."]</p>
+}
+else
+{
+    <div class="card">
+        @if (_shelf.Count == 0)
+        {
+            <p class="checklist-empty">@T["Nothing on this shelf yet."]</p>
+        }
+        @foreach (var batch in _shelf)
+        {
+            <div class="list-row shelf-batch @(Highlight == batch.Id ? "highlighted" : "")">
+                <span class="row-title">@batch.Name</span>
+                <span class="row-meta shelf-batch-amount">@Amount(batch)</span>
+                @* When it arrived, and how long it keeps. A shelf answers "have we got any" with the
+                   first and "is it still good" with the second, and neither is worth opening an editor
+                   to read. *@
+                <span class="row-meta">@T.Format("added {0}", batch.CreatedAtUtc.LocalDateTime.ToString("dd.MM.yyyy"))</span>
+                <span class="row-meta">
+                    @(batch.ExpiryDate is { } expires
+                        ? T.Format("best before {0}", expires.LocalDateTime.ToString("dd.MM.yyyy"))
+                        : T["keeps"])
+                </span>
+            </div>
+        }
+    </div>
+}
+
+@code {
+    [Parameter] public Guid WarehouseId { get; set; }
+
+    /// <summary>
+    /// Which row was pointed at, when this page was opened from somewhere that meant one - a task
+    /// entry's errand names the product it is about. Mirrors WarehouseEditor's parameter of the same
+    /// name, so a link written for one still lands on the other.
+    /// </summary>
+    [Parameter, SupplyParameterFromQuery(Name = "highlight")]
+    public Guid? Highlight { get; set; }
+
+    private WarehouseDto? _warehouse;
+    private IReadOnlyList<InventoryItemDto> _shelf = [];
+    private bool _isLoading = true;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        _isLoading = true;
+        try
+        {
+            _warehouse = await InventoryApiClient.GetWarehouseByIdAsync(WarehouseId);
+            _shelf = _warehouse is null
+                ? []
+                : await InventoryApiClient.GetInventoryItemsAsync(WarehouseId) ?? [];
+        }
+        catch (HttpRequestException exception)
+        {
+            // A shelf that will not load leaves the page saying so rather than half-drawn.
+            Logger.LogWarning(exception, "Couldn't read warehouse {WarehouseId}", WarehouseId);
+            _warehouse = null;
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+
+    /// <summary>How much there is, in what it is counted in - "3 pcs", "1.5 kg".</summary>
+    private string Amount(InventoryItemDto batch)
+        => $"{batch.Quantity:0.##} {T[InventoryUnitOption.For(batch.Unit).ShortName]}";
+
+    private void GoToWarehouses() => NavigationManager.NavigateTo("/inventory");
+
+    private void GoToEditor()
+    {
+        Logger.LogInformation("User opened the editor for warehouse {WarehouseId}", WarehouseId);
+        NavigationManager.NavigateTo($"/inventory/{WarehouseId}/edit");
+    }
+}
