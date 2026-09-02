@@ -482,11 +482,6 @@ inventory lists, the contacts tabs, the chat menus - is built and needs no schem
   panel's folding and its four orders - but has no flat view, and its checklist draws one list at a time
   rather than the tree. Worth doing after the tree itself is drawn there; flattening a view that does not
   nest would change nothing.
-- **A stale comment in `Orbit.Web/Layout/MainLayout.razor`.** The class comment near the bottom of the
-  file points at `OnLogoClickAsync` for how the logo becomes a Dashboard shortcut at the narrow
-  breakpoint. There is no such method any more - the logo is a plain link to `/` - so the comment sends a
-  reader looking for code that is not there. One line, for whoever is next in that file.
-
 - **A permanent, bind-mounted TLS certificate setup for local development.** The mkcert-based option
   in [`info/instructions.md`](instructions.md) currently requires copying certificate files into the
   running `orbit-web` container by hand after every `docker compose down -v`. Switching the
