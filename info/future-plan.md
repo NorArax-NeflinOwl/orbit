@@ -482,6 +482,16 @@ inventory lists, the contacts tabs, the chat menus - is built and needs no schem
   panel's folding and its four orders - but has no flat view, and its checklist draws one list at a time
   rather than the tree. Worth doing after the tree itself is drawn there; flattening a view that does not
   nest would change nothing.
+- **The phone cannot describe a product it does not have yet.** The browser's item form gained this on
+  2026-09-02: an Inventory entry on a list measured against a storage describes a product *for that
+  shelf* - the amounts, the unit, what it is, how long it keeps, and no name box, because the entry's
+  own words are the name - and saving the list puts it there. The phone offers those fields only for an
+  entry already linked to a product (`ShelfProductFor`, `ShelfCorrection.ApplyAsync`, which replaces a
+  product by id). Adding one means deciding what the entry links to before the server has minted an id:
+  the browser matches an existing shelf item by name and leaves the rest to the save, and the phone
+  would have to do the same rather than invent an id - the link is what ties an errand to its product,
+  and a wrong one cuts them apart.
+
 - **A switch's thumb cannot be coloured on Android.** Orbit's style asks for an accent thumb; Android
   paints it from the Material theme instead, and saying it again through `SwitchHandler.Mapper` does not
   change that (tried on a device: the track follows the accent, the thumb stays grey). The accent now
