@@ -98,6 +98,18 @@ so "just today" no longer means finding today in a month grid. The names Orbit w
 read in the reader's language here now, as they always were in the browser: a restock list on a Polish
 screen said "Restock supplies - Kuchnia" until this.
 
+Five more the browser had and the phone did not. **Who somebody is**: the same card the browser opens
+at `/contacts/{id}` - name, login, address, where they are, when they last wrote, and whether they have
+set up encryption yet - reached from the contact row's menu, from beside somebody just found by search,
+and from the conversation's own header, and answered from what the phone already holds so it reads with
+no connection. **One calendar list**: appointments and deadlines together rather than stacked in two,
+each saying which kind it is, read by when, by type or by name. **What an entry is about**: the same
+comma-separated categories box, shown on every row, with a search across the entries on every list and
+a chip per category above the status chips. **A way into what a group gathers**: an entry standing for
+other lists carries a chip per list, and each one opens it - the browser stacks the whole tree, and a
+phone has room for one list at a time. And **how one checklist is read**: its three orders, the stock
+panel folded away or open, and that panel's own four orders, each kept for that list on that device.
+
 The browser's rebuilt item controls are all here now: the expiry asked as a length, the daily
 reminder's missing hour, and the Inventory kind, which round-trips rather than silently rewriting to
 Checklist and cutting a restock errand loose from its product. So are the two entries that carry
