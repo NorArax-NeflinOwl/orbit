@@ -3,8 +3,8 @@ using Orbit.Mobile.Screens.Calendar;
 namespace Orbit.Maui.Platform;
 
 /// <summary>
-/// Keeps what order the calendar's list is read in on the device, beside the dashboard's pins and for
-/// the same reason - see <see cref="ICalendarListOrderStore"/>.
+/// Keeps what order the calendar's list is read in, and whether it still shows what is over, on the
+/// device - beside the dashboard's pins and for the same reason, see <see cref="ICalendarListOrderStore"/>.
 /// </summary>
 public sealed class PreferencesCalendarListOrderStore : ICalendarListOrderStore
 {

@@ -10,4 +10,11 @@ internal sealed class InMemoryCalendarListOrderStore : ICalendarListOrderStore
     public CalendarListReading Read() => _reading;
 
     public void Write(CalendarListReading reading) => _reading = reading;
+
+    /// <summary>What a test can set beforehand, and read back to see what the screen wrote.</summary>
+    public bool ShowsEverything
+    {
+        get => _reading.ShowsEverything;
+        set => _reading = _reading with { ShowsEverything = value };
+    }
 }

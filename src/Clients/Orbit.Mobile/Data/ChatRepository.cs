@@ -46,6 +46,7 @@ public sealed class ChatRepository
             UserName = contact.UserName,
             DisplayName = contact.DisplayName,
             Email = contact.Email,
+            HasGoogleVerifiedEmail = contact.HasGoogleVerifiedEmail,
             PublicKeyBase64 = contact.PublicKeyBase64,
             LastMessageAtUtc = contact.LastMessageAtUtc,
             RequiresApprovalFromCurrentUser = contact.RequiresApprovalFromCurrentUser,

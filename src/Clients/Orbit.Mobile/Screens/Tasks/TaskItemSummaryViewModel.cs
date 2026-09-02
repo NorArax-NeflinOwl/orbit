@@ -46,6 +46,21 @@ public sealed partial class TaskItemSummaryViewModel : ObservableObject
     [ObservableProperty]
     private string _description = string.Empty;
 
+    /// <summary>
+    /// What the appointment says about itself, and who is coming. Both live on the event rather than on
+    /// the entry - an entry that is an appointment keeps neither - so both are empty for an entry that
+    /// is only a deadline. The browser shows the same two lines above the same map.
+    /// </summary>
+    [ObservableProperty]
+    private string _appointmentDescription = string.Empty;
+
+    [ObservableProperty]
+    private string _guests = string.Empty;
+
+    public bool HasAppointmentDescription => AppointmentDescription.Length > 0;
+
+    public bool HasGuests => Guests.Length > 0;
+
     /// <summary>The list it sits on, so an entry read away from its list still says where it came from.</summary>
     [ObservableProperty]
     private string _taskListTitle = string.Empty;
@@ -56,21 +71,6 @@ public sealed partial class TaskItemSummaryViewModel : ObservableObject
 
     [ObservableProperty]
     private string _where = string.Empty;
-
-    /// <summary>
-    /// What the appointment is about, in its own words. On the event rather than on the entry - an
-    /// entry that is an appointment keeps neither this nor its guests - so it is here only where there
-    /// is an event to read it from, which is what Orbit.Web's own summary says too.
-    /// </summary>
-    [ObservableProperty]
-    private string _aboutTheAppointment = string.Empty;
-
-    public bool HasAboutTheAppointment => AboutTheAppointment.Length > 0;
-
-    /// <summary>Who is coming, named from this phone's contacts - see ShowTheAppointmentAsync.</summary>
-    public ObservableCollection<GuestRow> Guests { get; } = [];
-
-    public bool HasGuests => Guests.Count > 0;
 
     [ObservableProperty]
     private bool _isCompleted;
@@ -111,45 +111,7 @@ public sealed partial class TaskItemSummaryViewModel : ObservableObject
             ? due.LocalDateTime.ToString("g", _translations.DisplayCulture)
             : _translations["No date set"];
 
-        await ShowTheAppointmentAsync(item, cancellationToken);
         await ShowWhereItIsAsync(item, cancellationToken);
-    }
-
-    /// <summary>
-    /// What the appointment says about itself, for an entry that is one. Both halves live on the event:
-    /// somebody reading the errand on its own should still be able to see what it is about and who else
-    /// is coming, without opening the calendar.
-    /// </summary>
-    private async Task ShowTheAppointmentAsync(
-        Orbit.Contracts.Tasks.TaskItemDto item, CancellationToken cancellationToken)
-    {
-        AboutTheAppointment = string.Empty;
-        Guests.Clear();
-
-        if (item.LinkedCalendarEventId is not { } eventId
-            || await FindEventAsync(eventId, cancellationToken) is not { } calendarEvent)
-        {
-            OnPropertyChanged(nameof(HasAboutTheAppointment));
-            OnPropertyChanged(nameof(HasGuests));
-            return;
-        }
-
-        AboutTheAppointment = calendarEvent.Details.Description ?? string.Empty;
-
-        var contacts = await _contacts.GetContactsAsync(cancellationToken);
-        foreach (var guestUserId in calendarEvent.Details.Guests)
-        {
-            // Somebody invited from another device need not be a contact of this phone's; their id is
-            // still the truth about who is coming, so they are listed rather than dropped - the same
-            // answer the event's own screen gives.
-            Guests.Add(new GuestRow(
-                guestUserId,
-                contacts.FirstOrDefault(contact => contact.UserId == guestUserId)?.DisplayName
-                    ?? _translations["Somebody else"]));
-        }
-
-        OnPropertyChanged(nameof(HasAboutTheAppointment));
-        OnPropertyChanged(nameof(HasGuests));
     }
 
     /// <summary>
@@ -161,9 +123,19 @@ public sealed partial class TaskItemSummaryViewModel : ObservableObject
     private async Task ShowWhereItIsAsync(Orbit.Contracts.Tasks.TaskItemDto item, CancellationToken cancellationToken)
     {
         Pin = null;
+        AppointmentDescription = string.Empty;
+        Guests = string.Empty;
 
-        if (item.LinkedCalendarEventId is { } eventId
-            && await FindEventAsync(eventId, cancellationToken) is { Details.Location: { } location })
+        var appointment = item.LinkedCalendarEventId is { } linkedEventId
+            ? await FindEventAsync(linkedEventId, cancellationToken)
+            : null;
+        if (appointment is not null)
+        {
+            AppointmentDescription = appointment.Details.Description ?? string.Empty;
+            Guests = await NameTheGuestsAsync(appointment.Details.Guests, cancellationToken);
+        }
+
+        if (appointment is { Details.Location: { } location })
         {
             Where = location.Address ?? string.Empty;
             Pin = new MapPoint(Description, location.Address, location.Latitude, location.Longitude, IsMine: false);
@@ -189,6 +161,31 @@ public sealed partial class TaskItemSummaryViewModel : ObservableObject
     private async Task<LocalCalendarEvent?> FindEventAsync(Guid serverId, CancellationToken cancellationToken)
         => (await _calendarEvents.GetAllAsync(cancellationToken))
             .FirstOrDefault(calendarEvent => calendarEvent.ServerId == serverId);
+
+    /// <summary>
+    /// Who is coming, named from this phone's contacts. Somebody invited from another device need not be
+    /// one, and is named as "somebody else" rather than dropped: the count is the truth about how many
+    /// are coming even when the names are not all known here.
+    /// </summary>
+    private async Task<string> NameTheGuestsAsync(
+        IReadOnlyList<Guid> guests, CancellationToken cancellationToken)
+    {
+        if (guests.Count == 0)
+        {
+            return string.Empty;
+        }
+
+        var contacts = await _contacts.GetContactsAsync(cancellationToken);
+        return string.Join(
+            ", ",
+            guests.Select(guestUserId =>
+                contacts.FirstOrDefault(contact => contact.UserId == guestUserId)?.DisplayName
+                    ?? _translations["Somebody else"]));
+    }
+
+    partial void OnAppointmentDescriptionChanged(string value) => OnPropertyChanged(nameof(HasAppointmentDescription));
+
+    partial void OnGuestsChanged(string value) => OnPropertyChanged(nameof(HasGuests));
 
     /// <summary>The list this entry is on, which is where it can be ticked off.</summary>
     [RelayCommand]

@@ -81,8 +81,8 @@ public sealed partial class CalendarViewModel : ObservableObject
     private CalendarListSortOrder _sortOrder;
 
     /// <summary>
-    /// Whether the list also holds what is already over - see CalendarListEntry.IsOver. Kept beside the
-    /// order, because both describe how this one reader reads this one page.
+    /// Whether the list also holds what is already over - see CalendarListEntry.IsOver. Off by default,
+    /// and kept beside the order, because both describe how this one reader reads this one page.
     /// </summary>
     [ObservableProperty]
     private bool _showsEverything;
@@ -419,12 +419,11 @@ public sealed partial class CalendarViewModel : ObservableObject
 
     private void ShowInChosenOrder()
     {
-        // What a calendar is read for is what is coming, so what is over is left off unless it was
-        // asked for. The grid beside the list still draws it - see CalendarListEntry.IsOver.
+        // What is over is left out unless it was asked for - see ShowsEverything. The grids beside the
+        // list still draw everything: a day with something in it should say so whether or not it has
+        // been, and a month drawn with holes in it would be a month that had not happened.
         var nowUtc = _timeProvider.GetUtcNow();
-        var worthShowing = ShowsEverything
-            ? _listed
-            : [.. _listed.Where(entry => !entry.IsOver(nowUtc))];
+        var worthShowing = ShowsEverything ? _listed : _listed.Where(entry => !entry.IsOver(nowUtc));
 
         Listed.Clear();
         foreach (var entry in CalendarListEntry.InOrder(worthShowing, SortOrder))
@@ -445,7 +444,9 @@ public sealed partial class CalendarViewModel : ObservableObject
         ShowInChosenOrder();
     }
 
+    /// <summary>Both halves of how this page is read, written together - see CalendarListReading.</summary>
     private void Remember() => _listOrder.Write(new CalendarListReading(SortOrder, ShowsEverything));
+
 
     /// <summary>
     /// A repeating event as every day it lands on - see <see cref="CalendarOccurrences"/>.

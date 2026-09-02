@@ -19,33 +19,29 @@
 
             <!-- When and where, the two things this screen exists to answer, as Orbit.Web lays them
                  out on the same page. -->
-            <Grid ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto" ColumnSpacing="16" RowSpacing="8">
+            <Grid ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto,Auto,Auto" ColumnSpacing="16" RowSpacing="8">
                 <Label Grid.Row="0" Grid.Column="0" Text="{controls:Translate 'When'}"
                        Style="{StaticResource SubtleLabel}" FontSize="13" />
                 <Label Grid.Row="0" Grid.Column="1" Text="{Binding When}" LineBreakMode="WordWrap" />
                 <Label Grid.Row="1" Grid.Column="0" Text="{controls:Translate 'Where'}"
                        Style="{StaticResource SubtleLabel}" FontSize="13" />
                 <Label Grid.Row="1" Grid.Column="1" Text="{Binding Where}" LineBreakMode="WordWrap" />
+
+                <!-- What the appointment says about itself, and who is coming. Both live on the event
+                     rather than on the entry, so both are absent for an entry that is only a deadline -
+                     which is why each row hides itself rather than standing empty. Above the map, as in
+                     the browser: they are what the thing is, and the map is where it is. -->
+                <Label Grid.Row="2" Grid.Column="0" Text="{controls:Translate 'Description'}"
+                       IsVisible="{Binding HasAppointmentDescription}"
+                       Style="{StaticResource SubtleLabel}" FontSize="13" />
+                <Label Grid.Row="2" Grid.Column="1" Text="{Binding AppointmentDescription}"
+                       IsVisible="{Binding HasAppointmentDescription}" LineBreakMode="WordWrap" />
+                <Label Grid.Row="3" Grid.Column="0" Text="{controls:Translate 'Guests:'}"
+                       IsVisible="{Binding HasGuests}"
+                       Style="{StaticResource SubtleLabel}" FontSize="13" />
+                <Label Grid.Row="3" Grid.Column="1" Text="{Binding Guests}"
+                       IsVisible="{Binding HasGuests}" LineBreakMode="WordWrap" />
             </Grid>
-
-            <!-- What the appointment says about itself, for an entry that is one. Both live on the
-                 event, so both appear only where there is one - see ShowTheAppointmentAsync, and
-                 Orbit.Web's own summary, which says the same two things in the same place. -->
-            <VerticalStackLayout Spacing="4" IsVisible="{Binding HasAboutTheAppointment}">
-                <Label Text="{controls:Translate 'Description'}" Style="{StaticResource SubtleLabel}" FontSize="13" />
-                <Label Text="{Binding AboutTheAppointment}" LineBreakMode="WordWrap" />
-            </VerticalStackLayout>
-
-            <VerticalStackLayout Spacing="4" IsVisible="{Binding HasGuests}">
-                <Label Text="{controls:Translate 'Guests'}" Style="{StaticResource SubtleLabel}" FontSize="13" />
-                <VerticalStackLayout Spacing="2" BindableLayout.ItemsSource="{Binding Guests}">
-                    <BindableLayout.ItemTemplate>
-                        <DataTemplate x:DataType="calendar:GuestRow">
-                            <Label Text="{Binding Name}" LineBreakMode="TailTruncation" />
-                        </DataTemplate>
-                    </BindableLayout.ItemTemplate>
-                </VerticalStackLayout>
-            </VerticalStackLayout>
 
             <Label Text="{controls:Translate 'Already done.'}" IsVisible="{Binding IsCompleted}"
                    FontSize="12" Style="{StaticResource SubtleLabel}" />

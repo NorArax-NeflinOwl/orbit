@@ -43,6 +43,13 @@ public sealed class LocalContact
     /// </summary>
     public string Email { get; set; } = string.Empty;
 
+    /// <summary>
+    /// Whether that address is one Google itself has verified, which it is for an account signed in with
+    /// Google - see ContactDto.HasGoogleVerifiedEmail. Cached with the row for the same reason the
+    /// address is: what it guards is a link built on this phone, offline as often as not.
+    /// </summary>
+    public bool HasGoogleVerifiedEmail { get; set; }
+
     public string? PublicKeyBase64 { get; set; }
 
     public DateTimeOffset LastMessageAtUtc { get; set; }

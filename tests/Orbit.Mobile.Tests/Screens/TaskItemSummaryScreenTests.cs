@@ -1,5 +1,6 @@
 using Microsoft.Extensions.Time.Testing;
 using Orbit.Contracts.Calendar;
+using Orbit.Contracts.Chat;
 using Orbit.Contracts.Tasks;
 using Orbit.Mobile.Data;
 using Orbit.Mobile.Localization;
@@ -101,38 +102,38 @@ public sealed class TaskItemSummaryScreenTests
     }
 
     /// <summary>
-    /// An entry that is an appointment says what the appointment is about and who is coming. Both live
-    /// on the event - an entry that is one keeps neither - so somebody reading the errand on its own
-    /// would otherwise have to open the calendar to find out. The browser's own summary says the same
-    /// two things.
+    /// What the appointment says about itself and who is coming, shown above the map as the browser
+    /// shows them. Both live on the event, so an entry that is only a deadline has neither - which is
+    /// why each of the two rows hides itself rather than standing empty.
     /// </summary>
     [Fact]
     public async Task An_entry_tied_to_an_event_says_what_it_is_about_and_who_is_coming()
     {
         using var context = new ScreenContext();
-        var guest = await context.AddContactAsync("Ada Lovelace");
+        var anna = Guid.NewGuid();
+        await context.AddContactAsync(anna, "Anna");
         var eventId = await context.AddEventAsync(
             "Dentist", "Wały Piastowskie 1, Gdańsk", 54.3540, 18.6560,
-            about: "Bring the X-rays", guests: [guest, Guid.NewGuid()]);
+            description: "Bring the x-rays", guests: [anna]);
         var opened = await context.AddEntryAsync("Dentist", tiedTo: eventId);
 
         var screen = await context.OpenAsync(opened);
 
-        Assert.Equal("Bring the X-rays", screen.AboutTheAppointment);
-        // Somebody invited from another device is still coming, so they are listed rather than dropped.
-        Assert.Equal(["Ada Lovelace", "Somebody else"], screen.Guests.Select(guest => guest.Name));
+        Assert.Equal("Bring the x-rays", screen.AppointmentDescription);
+        Assert.True(screen.HasAppointmentDescription);
+        Assert.Equal("Anna", screen.Guests);
+        Assert.True(screen.HasGuests);
     }
 
-    /// <summary>An entry that is not an appointment has neither, and says neither.</summary>
     [Fact]
-    public async Task An_entry_with_no_event_says_nothing_about_one()
+    public async Task An_entry_that_is_only_a_deadline_says_neither()
     {
         using var context = new ScreenContext();
-        var opened = await context.AddEntryAsync("Buy milk");
+        var opened = await context.AddEntryAsync("Collect the parcel");
 
         var screen = await context.OpenAsync(opened);
 
-        Assert.False(screen.HasAboutTheAppointment);
+        Assert.False(screen.HasAppointmentDescription);
         Assert.False(screen.HasGuests);
     }
 
@@ -240,11 +241,11 @@ public sealed class TaskItemSummaryScreenTests
         /// </summary>
         public async Task<Guid> AddEventAsync(
             string title, string address, double latitude, double longitude,
-            string? about = null, IReadOnlyList<Guid>? guests = null)
+            string? description = null, IReadOnlyList<Guid>? guests = null)
         {
             var start = _clock.GetUtcNow();
             var created = await _events.CreateAsync(new CalendarEventDetailsDto(
-                title, about, new EventLocationDto(address, latitude, longitude), null,
+                title, description, new EventLocationDto(address, latitude, longitude), null,
                 start, start.AddHours(1), false, null, guests ?? [], [], "None", "None"));
 
             await using var dbContext = _localStore.CreateDbContext();
@@ -254,33 +255,23 @@ public sealed class TaskItemSummaryScreenTests
             return stored.ServerId.Value;
         }
 
-        /// <summary>Who this phone knows, which is how an appointment's guests are named.</summary>
-        public ChatRepository Contacts => new(_localStore, _clock);
-
-        /// <summary>Somebody this phone has spoken to, as the chat sync would have left them.</summary>
-        public async Task<Guid> AddContactAsync(string displayName)
-        {
-            var userId = Guid.NewGuid();
-            await Contacts.StoreContactsAsync([
-                new Orbit.Contracts.Chat.ContactDto(
-                    userId, displayName.ToLowerInvariant(), displayName, $"{userId:N}@orbit.example", "a-key",
-                    _clock.GetUtcNow(), false, false)
-            ]);
-
-            return userId;
-        }
-
         public async Task<TaskItemSummaryViewModel> OpenAsync((Guid TaskListLocalId, Guid ItemId) opened)
         {
             _nominatim = StubHttpMessageHandler.RespondingWith(Places);
             var screen = new TaskItemSummaryViewModel(
                 _taskLists, _events, new PlaceSearch(_nominatim.ToHttpClient()),
-                new Translations(new InMemoryLanguageStore()), Navigator, Contacts);
+                new Translations(new InMemoryLanguageStore()), Navigator,
+                new ChatRepository(_localStore, _clock));
 
             screen.Open(opened.TaskListLocalId, opened.ItemId);
             await screen.LoadCommand.ExecuteAsync(null);
             return screen;
         }
+
+        /// <summary>Somebody this account has in its contacts, so a guest can be named rather than counted.</summary>
+        public async Task AddContactAsync(Guid userId, string displayName)
+            => await new ChatRepository(_localStore, _clock).StoreContactsAsync(
+                [new ContactDto(userId, displayName, displayName, $"{displayName}@example.com", "public-key", _clock.GetUtcNow(), RequiresApprovalFromCurrentUser: false, IsPendingApprovalFromOtherParty: false)]);
 
         public void Dispose()
         {

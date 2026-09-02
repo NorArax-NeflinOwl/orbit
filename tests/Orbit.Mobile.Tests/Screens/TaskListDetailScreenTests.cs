@@ -1184,33 +1184,6 @@ public sealed class TaskListDetailScreenTests
         Assert.Equal(context.OpenedListIdOf("Shopping"), context.Navigator.LastTaskListId);
     }
 
-    /// <summary>
-    /// An entry standing for other lists is not ticked here - it is done when they are, and the server
-    /// recomputes it from them whatever the phone says. The press used to do nothing and say nothing,
-    /// which reads as a tick that did not register. The browser answers the same press the same way.
-    /// </summary>
-    [Fact]
-    public async Task Ticking_an_entry_that_stands_for_a_list_says_where_the_answer_is()
-    {
-        using var context = new ScreenContext();
-        context.OpenTaskList("Shopping");
-        var screen = context.OpenTaskList("This week");
-        await AddAsync(screen, "The shopping");
-        await context.SynchroniseAsync();
-        await screen.LoadCommand.ExecuteAsync(null);
-        screen.EditItemCommand.Execute(screen.Items.Single());
-        screen.BeingEdited!.LinkToCommand.Execute(
-            screen.BeingEdited.LinkableTaskLists.Single(choice => choice.Name == "Shopping"));
-        await screen.SaveItemCommand.ExecuteAsync(null);
-        await context.SynchroniseAsync();
-        await screen.LoadCommand.ExecuteAsync(null);
-
-        await screen.ToggleItemCommand.ExecuteAsync(screen.Items.Single());
-
-        Assert.Contains("Shopping", screen.Status);
-        Assert.False(Assert.Single(screen.Items).IsCompleted);
-    }
-
     /// <summary>A list this phone has not got is no way in at all, so no chip is offered for it.</summary>
     [Fact]
     public async Task A_list_this_phone_has_not_got_offers_nothing_to_open()
@@ -1264,6 +1237,67 @@ public sealed class TaskListDetailScreenTests
         await screen.LoadCommand.ExecuteAsync(null);
         screen.EditItemCommand.Execute(screen.Items.Single());
         Assert.Equal(["Shopping", "Chemist"], screen.BeingEdited!.LinkedTaskLists.Select(linked => linked.Name));
+    }
+
+    /// <summary>
+    /// An entry standing for another list is done when that list is, so its box cannot be ticked here.
+    /// The press is taken rather than refused: it names the list and offers to go there, which is the
+    /// question Orbit.Web asks under the same row. Pressed and silently ignored, the phone looked broken.
+    /// </summary>
+    [Fact]
+    public async Task Ticking_an_entry_that_stands_for_a_list_asks_about_that_list_instead()
+    {
+        using var context = new ScreenContext();
+        context.OpenTaskList("Shopping");
+        var screen = context.OpenTaskList("This week");
+        screen.NewItemDescription = "The shopping";
+        await screen.AddItemCommand.ExecuteAsync(null);
+        await context.SynchroniseAsync();
+        await screen.LoadCommand.ExecuteAsync(null);
+
+        screen.EditItemCommand.Execute(screen.Items.Single());
+        screen.BeingEdited!.LinkToCommand.Execute(
+            screen.BeingEdited.LinkableTaskLists.Single(choice => choice.Name == "Shopping"));
+        await screen.SaveItemCommand.ExecuteAsync(null);
+
+        await screen.ToggleItemCommand.ExecuteAsync(screen.Items.Single());
+
+        Assert.True(screen.IsAskingAboutTheListsBehind);
+        Assert.Contains("Shopping", screen.ListsBehindTheEntryQuestion);
+        // Nothing was ticked: the answer is on the other list.
+        Assert.False(screen.Items.Single().IsCompleted);
+
+        var shopping = Assert.Single(screen.ListsBehindTheEntry);
+        Assert.Equal("Shopping", shopping.Label);
+        screen.OpenTheListBehindCommand.Execute(shopping);
+
+        Assert.False(screen.IsAskingAboutTheListsBehind);
+        Assert.Equal(shopping.LocalId, context.Navigator.LastTaskListId);
+    }
+
+    /// <summary>"No" leaves both the entry and the question where they were.</summary>
+    [Fact]
+    public async Task The_question_can_be_left_alone()
+    {
+        using var context = new ScreenContext();
+        context.OpenTaskList("Shopping");
+        var screen = context.OpenTaskList("This week");
+        screen.NewItemDescription = "The shopping";
+        await screen.AddItemCommand.ExecuteAsync(null);
+        await context.SynchroniseAsync();
+        await screen.LoadCommand.ExecuteAsync(null);
+
+        screen.EditItemCommand.Execute(screen.Items.Single());
+        screen.BeingEdited!.LinkToCommand.Execute(
+            screen.BeingEdited.LinkableTaskLists.Single(choice => choice.Name == "Shopping"));
+        await screen.SaveItemCommand.ExecuteAsync(null);
+        await screen.ToggleItemCommand.ExecuteAsync(screen.Items.Single());
+
+        screen.LeaveTheListBehindCommand.Execute(null);
+
+        Assert.False(screen.IsAskingAboutTheListsBehind);
+        Assert.False(screen.Items.Single().IsCompleted);
+        Assert.Null(context.Navigator.LastTaskListId);
     }
 
     /// <summary>

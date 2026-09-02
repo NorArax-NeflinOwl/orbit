@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Orbit.Mobile.Data;
 
@@ -10,9 +11,11 @@ using Orbit.Mobile.Data;
 namespace Orbit.Mobile.Data.Migrations
 {
     [DbContext(typeof(OrbitLocalDbContext))]
-    partial class OrbitLocalDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260902113959_SayWhenGoogleKnowsAnAddress")]
+    partial class SayWhenGoogleKnowsAnAddress
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder.HasAnnotation("ProductVersion", "10.0.10");
@@ -505,10 +508,6 @@ namespace Orbit.Mobile.Data.Migrations
 
                     b.Property<bool>("IsSharedWithOthers")
                         .HasColumnType("INTEGER");
-
-                    b.Property<string>("ItemArrivals")
-                        .IsRequired()
-                        .HasColumnType("TEXT");
 
                     b.Property<string>("Items")
                         .IsRequired()

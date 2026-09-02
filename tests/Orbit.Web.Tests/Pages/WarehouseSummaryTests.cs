@@ -79,15 +79,50 @@ public sealed class WarehouseSummaryTests : OrbitTestContext
         Assert.Contains("Flour", marked.TextContent);
     }
 
+    /// <summary>The fields behind the shelf are one press further in, and behind the menu beside Save.</summary>
     [Fact]
     public void Changing_what_is_on_the_shelf_is_a_named_press()
     {
         var navigationManager = Services.GetRequiredService<NavigationManager>();
         var cut = RenderComponent<WarehouseSummary>(parameters => parameters.Add(page => page.WarehouseId, WarehouseId));
 
-        cut.FindAll("button").First(button => button.TextContent.Trim() == "Edit").Click();
+        cut.Find(".page-header-actions .overflow-menu-trigger").Click();
+        cut.FindAll(".avatar-dropdown-item").First(entry => entry.TextContent.Trim() == "Edit").Click();
 
         Assert.EndsWith($"/inventory/{WarehouseId}/edit", navigationManager.Uri);
+    }
+
+    /// <summary>
+    /// The two things somebody standing in front of a shelf does. Counted here rather than typed in an
+    /// editor, and saved with one press - until then nothing has been written, which is what makes the
+    /// pair safe to lean on.
+    /// </summary>
+    [Fact]
+    public void One_off_the_shelf_and_one_back_on_it_are_a_press_each()
+    {
+        _shelf = [Batch(FirstBatchId, "Flour", 1, DateTime.Today, expires: null)];
+        var cut = RenderComponent<WarehouseSummary>(parameters => parameters.Add(page => page.WarehouseId, WarehouseId));
+
+        var save = cut.FindAll("button").First(button => button.GetAttribute("aria-label") == "Save");
+        Assert.True(save.HasAttribute("disabled"));
+
+        cut.FindAll(".shelf-batch-count button").First(button => button.TextContent.Contains('+')).Click();
+
+        Assert.Contains("2", cut.Find(".shelf-batch-amount").TextContent);
+        Assert.False(
+            cut.FindAll("button").First(button => button.GetAttribute("aria-label") == "Save").HasAttribute("disabled"));
+    }
+
+    /// <summary>A shelf holding minus one of something is a number nobody can act on.</summary>
+    [Fact]
+    public void Nothing_on_the_shelf_cannot_be_counted_down_further()
+    {
+        _shelf = [Batch(FirstBatchId, "Flour", 0, DateTime.Today, expires: null)];
+
+        var cut = RenderComponent<WarehouseSummary>(parameters => parameters.Add(page => page.WarehouseId, WarehouseId));
+
+        var fewer = cut.FindAll(".shelf-batch-count button").First(button => button.TextContent.Contains('−'));
+        Assert.True(fewer.HasAttribute("disabled"));
     }
 
     private static InventoryItemDto Batch(Guid id, string name, decimal quantity, DateTime added, DateTime? expires)

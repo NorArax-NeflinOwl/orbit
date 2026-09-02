@@ -55,4 +55,13 @@ public sealed record ReminderRow(int MinutesBefore, string Name);
 /// needs, and it comes from this phone's contacts - which is why an invitation made elsewhere can turn
 /// up with a name this phone does not know.
 /// </summary>
-public sealed record GuestRow(Guid UserId, string Name);
+/// <param name="EmailAddress">
+/// How Google would reach them, and empty for somebody this phone has no contact row for. Only carried
+/// so an event handed to Google can invite the people coming - see GoogleCalendarEventLink.
+/// </param>
+/// <param name="HasGoogleVerifiedEmail">
+/// Whether that address is one Google itself has verified. An address it does not know is an invitation
+/// that bounces, so the link leaves it out - see ContactDto.HasGoogleVerifiedEmail.
+/// </param>
+public sealed record GuestRow(
+    Guid UserId, string Name, string EmailAddress = "", bool HasGoogleVerifiedEmail = false);
