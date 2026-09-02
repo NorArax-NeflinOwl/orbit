@@ -68,8 +68,7 @@ public sealed class LinkCalendarEventToTaskListCommandHandler
             calendarEvent.Details.Title,
             dueDateUtc: null,
             isCompleted: false,
-            kind: TaskItemKind.Calendar,
-            linkedCalendarEventId: calendarEvent.Id);
+            subject: new TaskItemSubject(TaskItemKind.Calendar, linkedCalendarEventId: calendarEvent.Id));
 
         // Everything else about the list is kept: putting an appointment on it says nothing about what
         // the list is called or how much it matters.

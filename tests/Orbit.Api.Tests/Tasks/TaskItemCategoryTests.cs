@@ -65,7 +65,7 @@ public sealed class TaskItemCategoryTests
     public void An_appointment_is_filed_the_same_way_an_errand_is()
     {
         var appointment = TaskItem.Create(
-            "Dentist", dueDateUtc: null, isCompleted: false, kind: TaskItemKind.Calendar, categories: ["health"]);
+            "Dentist", dueDateUtc: null, isCompleted: false, subject: new TaskItemSubject(TaskItemKind.Calendar), categories: ["health"]);
 
         Assert.Equal(["health"], appointment.Categories);
     }

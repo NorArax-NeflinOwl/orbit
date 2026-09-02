@@ -153,7 +153,8 @@ public sealed class RestockListRefresh
 
             var errand = TaskItem.Create(
                 RestockTaskNaming.EntryFor(product.Name, product.MinimumQuantity, product.Unit),
-                dueDateUtc: null, isCompleted: false, kind: TaskItemKind.Inventory, linkedInventoryItemId: product.Id);
+                dueDateUtc: null, isCompleted: false,
+                subject: new TaskItemSubject(TaskItemKind.Inventory, linkedInventoryItemId: product.Id));
             added.Add(errand);
 
             product.SetPendingRestockTask(taskListId, errand.Id);
@@ -199,7 +200,7 @@ public sealed class RestockListRefresh
             items[index] = TaskItem.FromPersistence(
                 item.Id, item.Description, item.DueDateUtc, item.IsCompleted, item.LinkedTaskListIds,
                 item.Reminders with { DailyTimeOfDay = settings.RefreshTimeOfDay },
-                item.Kind, item.Location, item.LinkedCalendarEventId, item.LinkedInventoryItemId);
+                item.Subject);
         }
     }
 }

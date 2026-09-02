@@ -297,13 +297,15 @@ public static class TaskEndpoints
             item.RemindDaily,
             RequestEnum.Parse<NotificationChannel>(item.DailyReminderNotificationChannel, "dailyReminderNotificationChannel"),
             item.DailyReminderTimeOfDay);
-        var kind = RequestEnum.Parse<TaskItemKind>(item.Kind, "kind");
+        var subject = new TaskItemSubject(
+            RequestEnum.Parse<TaskItemKind>(item.Kind, "kind"),
+            item.Location, item.LinkedCalendarEventId, item.LinkedInventoryItemId);
 
         if (item.Id is not { } existingId)
         {
             return TaskItem.Create(
                 item.Description, item.DueDateUtc, item.IsCompleted, item.AllLinkedTaskListIds,
-                reminders, kind, item.Location, item.LinkedCalendarEventId, item.LinkedInventoryItemId, item.AllCategories);
+                reminders, subject, item.AllCategories);
         }
 
         // Same override Create applies: a linked entry's completion follows the list it links to, so a
@@ -311,7 +313,7 @@ public static class TaskEndpoints
         return TaskItem.FromPersistence(
             existingId, item.Description, item.DueDateUtc,
             item.AllLinkedTaskListIds.Count == 0 && item.IsCompleted, item.AllLinkedTaskListIds,
-            reminders, kind, item.Location, item.LinkedCalendarEventId, item.LinkedInventoryItemId, item.AllCategories);
+            reminders, subject, item.AllCategories);
     }
 
 

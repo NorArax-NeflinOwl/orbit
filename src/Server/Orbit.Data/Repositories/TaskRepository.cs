@@ -205,8 +205,9 @@ public sealed class TaskRepository : ITaskRepository
                 entity.RemindDaily,
                 Enum.Parse<NotificationChannel>(entity.DailyReminderNotificationChannel, ignoreCase: true),
                 TimeOnly.FromTimeSpan(TimeSpan.FromMinutes(entity.DailyReminderTimeOfDayMinutes))),
-            Enum.TryParse<TaskItemKind>(entity.Kind, out var kind) ? kind : TaskItemKind.Checklist,
-            entity.Location, entity.LinkedCalendarEventId, entity.LinkedInventoryItemId,
+            new TaskItemSubject(
+                Enum.TryParse<TaskItemKind>(entity.Kind, out var kind) ? kind : TaskItemKind.Checklist,
+                entity.Location, entity.LinkedCalendarEventId, entity.LinkedInventoryItemId),
             [.. entity.Categories.OrderBy(category => category.Position).Select(category => category.Category)]);
 
     private static TaskEntity ToEntity(TaskList taskList)
