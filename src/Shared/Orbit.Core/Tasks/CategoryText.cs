@@ -1,12 +1,14 @@
-namespace Orbit.Web.Services;
+namespace Orbit.Core.Tasks;
 
 /// <summary>
 /// Categories as one line of text - "shopping, car" - which is how they are typed and read on a form.
-/// A shelf item's category is a single box (see InventoryFields), and a task entry's is the same box
-/// holding as many as apply, rather than a control of its own to learn.
+/// A shelf item's category is a single box, and a task entry's is the same box holding as many as
+/// apply, rather than a control of its own to learn.
 ///
-/// The same tidying the domain applies on the way in (see Orbit.Core.Tasks.TaskItem.Categories), done
-/// here as well so what the reader sees after typing is what will actually be stored.
+/// The same tidying <see cref="TaskItem.Categories"/> applies on the way in, done here as well so what
+/// the reader sees after typing is what will actually be stored. Here rather than in a client, because
+/// both of them have this box and one rule is what stops the browser and the phone disagreeing about
+/// what "shopping, Shopping" means.
 /// </summary>
 public static class CategoryText
 {

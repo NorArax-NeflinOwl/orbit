@@ -215,6 +215,13 @@ public sealed partial class TaskItemEditor : ObservableObject
     [ObservableProperty]
     private string _description = string.Empty;
 
+    /// <summary>
+    /// What the entry is about, as many as apply, on one line and separated by commas - the same box
+    /// the browser offers and the same rule behind it, see CategoryText.
+    /// </summary>
+    [ObservableProperty]
+    private string _categories = string.Empty;
+
     [ObservableProperty]
     private bool _hasDueDate;
 
@@ -282,6 +289,7 @@ public sealed partial class TaskItemEditor : ObservableObject
             LocationLatitude = linkedEvent?.Location?.Latitude,
             LocationLongitude = linkedEvent?.Location?.Longitude,
             Description = item.Description,
+            Categories = CategoryText.Join(item.AllCategories),
             HasDueDate = item.DueDateUtc is not null,
             DueDate = item.DueDateUtc?.LocalDateTime.Date ?? DateTime.Today,
             OverdueNotificationChannel = item.OverdueNotificationChannel,
@@ -354,6 +362,7 @@ public sealed partial class TaskItemEditor : ObservableObject
             LinkedTaskListId = null,
             LinkedTaskListIds = [.. LinkedTaskLists.Select(linked => linked.ServerId!.Value)],
             Description = Description.Trim(),
+            Categories = CategoryText.Split(Categories),
             // Converted rather than sent with the local offset the picker works in: Npgsql refuses a
             // DateTimeOffset with a non-zero offset for a "timestamp with time zone" column outright,
             // so a due date set here answered 500 and the queued save was given up on after five

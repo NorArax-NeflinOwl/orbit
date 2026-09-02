@@ -155,6 +155,13 @@
                 <!-- Errands this account has already written, offered as this one is typed. -->
                 <controls:NameSuggestionChips BindingContext="{Binding Suggestions}" />
 
+                <!-- What the entry is about, as many as apply, on one line - the same box the browser
+                     offers and the same rule behind it, see CategoryText. Kept for every kind: an
+                     appointment is about something the same way an errand is. -->
+                <Entry Placeholder="{controls:Translate 'Categories, separated by commas'}"
+                       Text="{Binding Categories}"
+                       SemanticProperties.Description="{controls:Translate 'Categories'}" />
+
                 <!-- What this entry is. On the entry rather than on the list, because a day's plan holds
                      two errands and an appointment - see TaskItemKind. -->
                 <Label Text="{controls:Translate 'Type'}" FontSize="12" Style="{StaticResource SubtleLabel}" />

@@ -14,7 +14,7 @@
    Everything except the name is optional, and each part is left out rather than rendered empty: a
    handle appears only where the order can actually be changed, a collapse button only where there is
    a list underneath to fold away. *@
-<article class="item-card @(IsCollapsed ? "item-card-collapsed" : "") @(AccentColour is null ? null : "item-card-accented") @ExtraClass"
+<article class="item-card @(IsCollapsed ? "item-card-collapsed" : "") @(AccentColour is null ? null : "item-card-accented") @(HasUnseenAction ? "item-card-unseen" : null) @ExtraClass"
          style="@(AccentColour is null ? null : $"--item-card-accent:{AccentColour};")">
     <div class="item-card-head">
         @if (Handle is not null)
@@ -26,9 +26,9 @@
             <span class="item-card-pin">@Pin</span>
         }
         @* Something happened here that the reader has not seen. Between the pin and the name because
-           that is where the eye already is when it reads down a list of names, and it is about this
-           one card rather than about the page. It goes out when the notifications are read or when
-           the card itself is opened - see HasUnseenAction. *@
+           that is where the eye already is when it reads down a list of names. The card's edge says it
+           too - see .item-card-unseen. It goes out when the notifications are read or when the card
+           itself is opened - see HasUnseenAction. *@
         @if (HasUnseenAction)
         {
             <span class="item-card-action" title="@(T["Something happened here"])"
@@ -114,9 +114,11 @@
     [Parameter] public RenderFragment? Pin { get; set; }
 
     /// <summary>
-    /// Whether something has happened here that this reader has not seen yet. Shown as a dot between
-    /// the pin and the name; the caller clears it when the notifications are read or when the card is
-    /// opened, because both of those are the reader having seen it.
+    /// Whether something has happened here that this reader has not seen yet. Shown twice: as a dot
+    /// between the pin and the name, in the colour the notification badge on the bar uses, and as the
+    /// card's own edge, which pulses. A dot eight pixels across is easy to miss on a page of cards, and
+    /// this is the one card on it worth stopping at. The caller clears it when the notifications are
+    /// read or when the card is opened, because both of those are the reader having seen it.
     /// </summary>
     [Parameter] public bool HasUnseenAction { get; set; }
 
