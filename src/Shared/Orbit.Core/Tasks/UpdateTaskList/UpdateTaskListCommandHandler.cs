@@ -53,6 +53,8 @@ public sealed class UpdateTaskListCommandHandler : IRequestHandler<UpdateTaskLis
             await _taskRepository.GetHoldingItemsAsync(
                 taskList.UserId, request.Id, [.. request.Items.Select(item => item.Id)], cancellationToken));
 
+        KeepTheCategoriesOfEntriesThatSaidNothing(identity.Items, taskList, request.EntriesKeepingTheirCategories);
+
         // A caller that said nothing about the description keeps the one that is stored. That is what
         // lets a client which has not learned about the field - the phone, an older tab - go on saving
         // lists without erasing what was written somewhere else.
@@ -78,5 +80,29 @@ public sealed class UpdateTaskListCommandHandler : IRequestHandler<UpdateTaskLis
         await _restockCompletion.TopUpFinishedAsync(request.Id, cancellationToken);
 
         return EditOutcome.Success;
+    }
+
+    /// <summary>
+    /// An entry whose categories were not sent keeps the ones it already has. The wire cannot tell
+    /// "nothing to say" from "none at all" once it has become a TaskItem, so which entries meant which
+    /// is decided where the request is read and travels on the command - see
+    /// UpdateTaskListCommand.EntriesKeepingTheirCategories.
+    /// </summary>
+    private static void KeepTheCategoriesOfEntriesThatSaidNothing(
+        IReadOnlyList<TaskItem> incoming, TaskList stored, IReadOnlySet<Guid>? entriesKeepingTheirCategories)
+    {
+        if (entriesKeepingTheirCategories is not { Count: > 0 })
+        {
+            return;
+        }
+
+        var storedById = stored.Items.ToDictionary(item => item.Id);
+        foreach (var item in incoming.Where(item => entriesKeepingTheirCategories.Contains(item.Id)))
+        {
+            if (storedById.TryGetValue(item.Id, out var storedItem))
+            {
+                item.KeepCategoriesOf(storedItem);
+            }
+        }
     }
 }

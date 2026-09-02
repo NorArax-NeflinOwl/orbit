@@ -173,6 +173,12 @@ public sealed class TaskItem
     }
 
     /// <summary>
+    /// Keeps what this entry is already filed under, for a caller that said nothing about it - see
+    /// UpdateTaskListCommand.EntriesKeepingTheirCategories.
+    /// </summary>
+    public void KeepCategoriesOf(TaskItem stored) => Categories = stored.Categories;
+
+    /// <summary>
     /// A linked item's completion can't be set directly - it always follows the lists it links to (see
     /// <see cref="LinkedTaskCompletionResolver"/>) - so <paramref name="isCompleted"/> is ignored in
     /// favor of "not completed" whenever <paramref name="linkedTaskListIds"/> holds anything.

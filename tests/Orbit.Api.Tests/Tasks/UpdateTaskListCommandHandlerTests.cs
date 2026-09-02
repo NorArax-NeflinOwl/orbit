@@ -1,6 +1,7 @@
 using Orbit.Api.Tests.TestDoubles;
 using Orbit.Core.Inventory;
 using Orbit.Core.Abstractions;
+using Orbit.Core.Notifications;
 using Orbit.Core.Tasks;
 using Orbit.Core.Tasks.UpdateTaskList;
 using Xunit;
@@ -35,6 +36,58 @@ public sealed class UpdateTaskListCommandHandlerTests
         var stored = await repository.GetByIdAsync(userId, taskList.Id, CancellationToken.None);
         Assert.Equal("New title", stored!.Title);
         Assert.Equal("New item", Assert.Single(stored.Items).Description);
+    }
+
+    /// <summary>
+    /// A save from a client that knows nothing about categories - the phone, an older tab - is a save
+    /// about something else, and must not unfile every entry on the list on its way past. The same rule
+    /// the description already follows.
+    /// </summary>
+    [Fact]
+    public async Task An_entry_that_says_nothing_about_its_categories_keeps_them()
+    {
+        var repository = new InMemoryTaskRepository();
+        var handler = CreateHandler(repository);
+        var userId = Guid.NewGuid();
+        var stored = TaskItem.Create("Buy milk", null, false, categories: ["shopping"]);
+        var taskList = TaskList.Create(userId, "Errands", [stored]);
+        await repository.AddAsync(taskList, CancellationToken.None);
+
+        // The same entry, ticked off, and carrying no categories - which is what an older client sends.
+        var incoming = TaskItem.FromPersistence(
+            stored.Id, "Buy milk", null, true, null, NotificationChannel.Push, false, NotificationChannel.Push, default);
+
+        await handler.HandleAsync(
+            new UpdateTaskListCommand(
+                userId, taskList.Id, "Errands", [incoming], IsGroup: false, IsPrivate: false, EncryptedContent: null,
+                EntriesKeepingTheirCategories: new HashSet<Guid> { stored.Id }),
+            CancellationToken.None);
+
+        var saved = await repository.GetByIdAsync(userId, taskList.Id, CancellationToken.None);
+        Assert.Equal(["shopping"], Assert.Single(saved!.Items).Categories);
+    }
+
+    /// <summary>An entry that sent an empty list means "none", and is not in the set above.</summary>
+    [Fact]
+    public async Task An_entry_sent_with_no_categories_at_all_is_unfiled()
+    {
+        var repository = new InMemoryTaskRepository();
+        var handler = CreateHandler(repository);
+        var userId = Guid.NewGuid();
+        var stored = TaskItem.Create("Buy milk", null, false, categories: ["shopping"]);
+        var taskList = TaskList.Create(userId, "Errands", [stored]);
+        await repository.AddAsync(taskList, CancellationToken.None);
+
+        var incoming = TaskItem.FromPersistence(
+            stored.Id, "Buy milk", null, false, null, NotificationChannel.Push, false, NotificationChannel.Push, default);
+
+        await handler.HandleAsync(
+            new UpdateTaskListCommand(
+                userId, taskList.Id, "Errands", [incoming], IsGroup: false, IsPrivate: false, EncryptedContent: null),
+            CancellationToken.None);
+
+        var saved = await repository.GetByIdAsync(userId, taskList.Id, CancellationToken.None);
+        Assert.Empty(Assert.Single(saved!.Items).Categories);
     }
 
     [Fact]
