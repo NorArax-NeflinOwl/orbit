@@ -15,6 +15,14 @@ public interface INoteRepository
     Task AddAsync(Note note, CancellationToken cancellationToken);
 
     Task UpdateAsync(Note note, CancellationToken cancellationToken);
+    /// <summary>
+    /// Writes only who holds the edit lock and until when. Holding a note open is not a change to it,
+    /// and <see cref="UpdateAsync"/> writes the whole row - so a heartbeat every twenty seconds rewrote
+    /// the note's entire text to say somebody still had the page open. Mirrors
+    /// Orbit.Core.Tasks.ITaskRepository.UpdateLockAsync, which was written after that cost a production
+    /// 500 on the task list's own lock.
+    /// </summary>
+    Task UpdateLockAsync(Note note, CancellationToken cancellationToken);
 
     Task DeleteAsync(Guid userId, Guid id, CancellationToken cancellationToken);
 }

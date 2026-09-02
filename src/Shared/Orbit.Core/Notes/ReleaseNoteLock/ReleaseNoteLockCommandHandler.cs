@@ -23,7 +23,7 @@ public sealed class ReleaseNoteLockCommandHandler : IRequestHandler<ReleaseNoteL
         }
 
         note.ReleaseLock(request.UserId);
-        await _noteRepository.UpdateAsync(note, cancellationToken);
+        await _noteRepository.UpdateLockAsync(note, cancellationToken);
         return true;
     }
 }

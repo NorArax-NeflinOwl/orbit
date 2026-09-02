@@ -30,6 +30,19 @@ internal sealed class InMemoryWarehouseRepository : IWarehouseRepository
 
     public Task UpdateAsync(Warehouse warehouse, CancellationToken cancellationToken) => Task.CompletedTask;
 
+    /// <summary>
+    /// Counted rather than performed - the real one writes three columns and leaves the rest of the row
+    /// alone, and what a test can check here is that a lock took this path.
+    /// </summary>
+    public Task UpdateLockAsync(Warehouse warehouse, CancellationToken cancellationToken)
+    {
+        LockSaves++;
+        return Task.CompletedTask;
+    }
+
+    /// <summary>How many times a lock was saved on its own - see UpdateLockAsync.</summary>
+    public int LockSaves { get; private set; }
+
     public Task DeleteAsync(Guid userId, Guid id, CancellationToken cancellationToken)
     {
         _warehouses.RemoveAll(warehouse => warehouse.Id == id && warehouse.UserId == userId);
