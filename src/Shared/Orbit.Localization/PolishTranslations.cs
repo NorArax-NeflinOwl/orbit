@@ -427,16 +427,16 @@ public static class PolishTranslations
         // What the phone tells itself, in the notification feed - see LocalNotification.IsRaisedHere.
         // One whole sentence per kind, because Polish declines what was refused or copied.
         ["A change couldn't be saved"] = "Nie udało się zapisać zmiany",
-        ["Orbit kept refusing a change to a note, so it is no longer waiting to be sent."] =
-            "Orbit uporczywie odrzucał zmianę w notatce, więc nie czeka już na wysłanie.",
-        ["Orbit kept refusing a change to a task list, so it is no longer waiting to be sent."] =
-            "Orbit uporczywie odrzucał zmianę na liście zadań, więc nie czeka już na wysłanie.",
-        ["Orbit kept refusing a change to an appointment, so it is no longer waiting to be sent."] =
-            "Orbit uporczywie odrzucał zmianę w spotkaniu, więc nie czeka już na wysłanie.",
-        ["Orbit kept refusing a change to a warehouse, so it is no longer waiting to be sent."] =
-            "Orbit uporczywie odrzucał zmianę w magazynie, więc nie czeka już na wysłanie.",
-        ["Orbit kept refusing a change, so it is no longer waiting to be sent."] =
-            "Orbit uporczywie odrzucał zmianę, więc nie czeka już na wysłanie.",
+        ["Orbit couldn't save a change to a note, so it is no longer waiting to be sent."] =
+            "Orbitowi nie udało się zapisać zmiany w notatce, więc nie czeka już na wysłanie.",
+        ["Orbit couldn't save a change to a task list, so it is no longer waiting to be sent."] =
+            "Orbitowi nie udało się zapisać zmiany na liście zadań, więc nie czeka już na wysłanie.",
+        ["Orbit couldn't save a change to an appointment, so it is no longer waiting to be sent."] =
+            "Orbitowi nie udało się zapisać zmiany w spotkaniu, więc nie czeka już na wysłanie.",
+        ["Orbit couldn't save a change to a warehouse, so it is no longer waiting to be sent."] =
+            "Orbitowi nie udało się zapisać zmiany w magazynie, więc nie czeka już na wysłanie.",
+        ["Orbit couldn't save a change, so it is no longer waiting to be sent."] =
+            "Orbitowi nie udało się zapisać zmiany, więc nie czeka już na wysłanie.",
         ["A copy is waiting to be reviewed"] = "Kopia czeka na przejrzenie",
         ["You wrote in a copy of the note “{0}” while you were offline."] =
             "Bez połączenia pisałeś w kopii notatki „{0}”.",
