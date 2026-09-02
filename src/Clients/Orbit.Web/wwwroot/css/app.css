@@ -4800,6 +4800,18 @@ input.note-editor-title {
     white-space: nowrap;
 }
 
+/* A line of a note being read rather than written - see NoteSummary.razor. Plain text, because that is
+   what it is; an empty line keeps its height so the shape somebody wrote survives being read back. */
+.note-summary-line {
+    margin: 0;
+    padding: 2px 0;
+    white-space: pre-wrap;
+}
+
+.note-summary-break {
+    min-height: 10px;
+}
+
 /* Taking one off the shelf and putting one back, at the start of the row - see WarehouseSummary.razor.
    Small and side by side, so the pair reads as one control rather than as two more things on the row. */
 .shelf-batch-count {

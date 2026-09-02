@@ -435,17 +435,16 @@ inventory lists, the contacts tabs, the chat menus - is built and needs no schem
 
 ## Smaller identified follow-ups
 
-- **Two of the six objects still have no shallow view.** Orbit has two depths for the same thing: a
-  shallow view for reading and doing, and a full form for changing what it is. The task list, the task
-  entry and the storage now have both, and the pattern they settled on is the same one each time - land
-  on what the thing is, with the fields a named press further in. A note and a calendar event still have
-  only the form. Which objects have which:
+- **Done, kept here as the map of it.** Orbit has two depths for the same thing: a shallow view for
+  reading and doing, and a full form for changing what it is. Every object that can have both now does,
+  and the pattern is the same one each time - land on what the thing is, with the fields a named press
+  further in, and whatever light doing belongs to that thing offered where it is read. Which is which:
 
   | Object | Shallow view | Full form |
   | --- | --- | --- |
   | Task list | `/tasks/{id}` - the checklist: tick items, see the tree of lists it stands for, measure it against a storage | `/tasks/{id}/edit` |
   | Task entry | `/tasks/{listId}/items/{itemId}` - `TaskItemSummary`: when, where, what the appointment is about, who is coming, and a map | the entry's own row in the list's editor |
-  | Note | none of its own - the card's body opens the editor itself, which is the only view a note has | `/notes/{id}` |
+  | Note | `/notes/{id}` - `NoteSummary`: the note read, with the checklist lines in it tickable | `/notes/{id}/edit` |
   | Calendar event | `/calendar/{id}` - `CalendarEventSummary`: when, where, what it is about, who is coming, its reminders, and the place on a map | `/calendar/{id}/edit` |
   | Storage | `/inventory/{id}` - the shelf read rather than edited, one row per batch: what it is, how much, when it arrived, how long it keeps | `/inventory/{id}/edit` |
   | Contact / group | `/contacts/{userId}`, `/chat/groups/{id}/info` - read-only cards about who somebody is | no form; membership is edited on the roster |

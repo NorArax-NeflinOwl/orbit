@@ -656,6 +656,24 @@ wrong (and each pinned by a test):
   possibly another city days ago.
 - Every link opens with `target="_blank" rel="noopener"`.
 
+### Two depths, everywhere
+
+Every object that can have both now has both: land on what the thing is, with the fields one named press
+further in, and whatever light doing belongs to it offered where it is read.
+
+| Object | Read | Change |
+| --- | --- | --- |
+| Task list | `/tasks/{id}` - tick items, see the tree it stands for, measure it against a storage | `/tasks/{id}/edit` |
+| Task entry | `/tasks/{listId}/items/{itemId}` - when, where, what the appointment is about, who is coming, and a map | its own row in the list's editor |
+| Note | `/notes/{id}` - the note read, with the checklist lines in it tickable | `/notes/{id}/edit` |
+| Calendar event | `/calendar/{id}` - when, where, what it is about, who is coming, its reminders, and a map | `/calendar/{id}/edit` |
+| Storage | `/inventory/{id}` - one row per batch, counted up and down in place | `/inventory/{id}/edit` |
+
+What "light doing" means differs by object and is the point of the split: a list is ticked, a note's
+checklist lines are ticked, a shelf is counted up and down. An appointment has none - there is nothing
+about it to do without changing what it is - so its page has no Save, which is honest rather than
+missing. Nothing is written until Save on any of them: these are pages people scroll through.
+
 ### A shelf, read rather than edited
 
 `/inventory/{id}` is what opening a warehouse lands on: one row per batch, saying what it is, how much

@@ -1,5 +1,7 @@
 @page "/notes/new"
-@page "/notes/{Id:guid}"
+@* One press further in than the note itself, the way a task list's editor is - see NoteSummary.razor,
+   which is what opening a note lands on. *@
+@page "/notes/{Id:guid}/edit"
 @attribute [Authorize]
 @implements IAsyncDisposable
 @using System.Text.Json
