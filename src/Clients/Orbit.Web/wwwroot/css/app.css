@@ -4800,6 +4800,18 @@ input.note-editor-title {
     white-space: nowrap;
 }
 
+/* What a box that cannot be ticked here says back - see TaskListChecklist. Indented to where the row's
+   words start, so it reads as an answer to that line rather than as a line of its own. */
+.check-row-asks {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+    padding: 4px 0 8px 30px;
+    font-size: 13px;
+    color: var(--text-secondary);
+}
+
 /* A list of cards. Its own rule rather than reusing .card-grid, which lays tiles out in columns. */
 .item-card-list {
     display: flex;

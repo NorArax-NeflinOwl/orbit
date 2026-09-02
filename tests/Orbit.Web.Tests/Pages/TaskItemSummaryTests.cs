@@ -6,6 +6,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Orbit.Contracts.Calendar;
+using Orbit.Contracts.Chat;
 using Orbit.Contracts.Tasks;
 using Orbit.Web.Pages;
 using Orbit.Web.Services;
@@ -23,6 +24,9 @@ public sealed class TaskItemSummaryTests : OrbitTestContext
 {
     private static readonly Guid TaskListId = Guid.NewGuid();
     private static readonly Guid ItemId = Guid.NewGuid();
+
+    /// <summary>Who this account knows, for naming the guests on an appointment.</summary>
+    private readonly List<ContactDto> _contacts = [];
 
     public TaskItemSummaryTests()
     {
@@ -98,6 +102,34 @@ public sealed class TaskItemSummaryTests : OrbitTestContext
         Assert.Contains("no longer exists", cut.Markup);
     }
 
+    /// <summary>
+    /// What the appointment says about itself and who is coming, above the map: both live on the event
+    /// rather than on the entry, and the entry's own page is where somebody looks before setting off.
+    /// </summary>
+    [Fact]
+    public void An_appointment_says_what_it_is_about_and_who_is_coming()
+    {
+        var guestId = Guid.NewGuid();
+        var eventId = Guid.NewGuid();
+        _contacts.Add(new ContactDto(
+            guestId, "anna", "Anna Kowalska", "anna@example.com", "public-key", DateTimeOffset.UtcNow,
+            RequiresApprovalFromCurrentUser: false, IsPendingApprovalFromOtherParty: false));
+        var calendarEvent = CalendarEvent(eventId, "Rynek Główny 1") with
+        {
+            Details = CalendarEvent(eventId, "Rynek Główny 1").Details with
+            {
+                Description = "Bring the x-rays",
+                Guests = [guestId]
+            }
+        };
+        RegisterClients(Item("Dentist", DateTimeOffset.UtcNow, "", eventId), calendarEvent);
+
+        var cut = Render();
+
+        Assert.Contains("Bring the x-rays", cut.Markup);
+        Assert.Contains("anna", cut.Markup);
+    }
+
     private static TaskItemDto Item(
         string description, DateTimeOffset dueDateUtc, string location, Guid? linkedCalendarEventId = null)
         => new(
@@ -127,13 +159,19 @@ public sealed class TaskItemSummaryTests : OrbitTestContext
             {
                 Content = request.RequestUri!.AbsolutePath.Contains("/calendar", StringComparison.Ordinal)
                     ? JsonContent.Create(calendarEvent)
-                    : JsonContent.Create(taskList)
+                    : request.RequestUri!.AbsolutePath.EndsWith("/chat/contacts", StringComparison.Ordinal)
+                        ? JsonContent.Create(_contacts)
+                        : JsonContent.Create(taskList)
             }))
         {
             BaseAddress = new Uri("https://example.test/")
         };
         Services.AddSingleton(new TasksApiClient(httpClient));
         Services.AddSingleton(new CalendarApiClient(httpClient));
+        // Who is coming, when an appointment has guests. The same transport: it answers contacts with
+        // the list below and anything else with the task list, which no assertion here reads.
+        Services.AddSingleton(new ChatApiClient(httpClient));
+        Services.AddSingleton(new UsersApiClient(httpClient));
         // Nominatim is a third party and is never called in a test: an address that resolves to nothing
         // is exactly the "words but no pin" case, which is what these assertions are about.
         Services.AddSingleton(new GeocodingApiClient(

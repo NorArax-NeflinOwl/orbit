@@ -2,6 +2,7 @@ using System.Net;
 using System.Text.Json;
 using System.Net.Http.Json;
 using Bunit;
+using Microsoft.AspNetCore.Components;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -117,20 +118,31 @@ public sealed class TaskListChecklistTests : OrbitTestContext
         Assert.DoesNotContain("Paint walls", cut.Markup);
     }
 
+    /// <summary>
+    /// Its completion is derived from the list it points at (see LinkedTaskCompletionResolver), so
+    /// setting it here would be a change the next reload silently undoes. The press is still worth
+    /// taking: it says where the answer is, and offers to go there.
+    /// </summary>
     [Fact]
-    public void An_item_that_follows_another_list_cannot_be_ticked_by_hand()
+    public void Ticking_an_item_that_follows_another_list_offers_that_list_instead()
     {
         var kitchen = TaskList("Kitchen", Item("Paint walls"));
         var group = TaskList("Renovation", Item("Kitchen done", linkedTaskListId: kitchen.Id)) with { IsGroup = true };
         RegisterTasksApiClient([group, kitchen]);
+        var navigationManager = Services.GetRequiredService<NavigationManager>();
 
         var cut = RenderComponent<TaskListChecklist>(parameters => parameters.Add(page => page.Id, group.Id));
-
-        // Its completion is derived from the linked list (see LinkedTaskCompletionResolver), so setting
-        // it here would be a change the next reload silently undoes.
-        var linkedCheckbox = cut.FindAll(".check-row input[type=checkbox]").ToArray()[0];
-        Assert.True(linkedCheckbox.HasAttribute("disabled"));
         Assert.Contains("follows Kitchen", cut.Markup);
+
+        cut.FindAll(".check-row input[type=checkbox]").First().Click();
+
+        Assert.Contains("This is done when Kitchen is.", cut.Markup);
+        // And nothing was saved: the box says the same thing it did before.
+        Assert.DoesNotContain(_requests, request => request.Method == HttpMethod.Put);
+
+        cut.FindAll(".check-row-asks button").First(button => button.TextContent.Trim() == "Yes").Click();
+
+        Assert.EndsWith($"/tasks/{kitchen.Id}", navigationManager.Uri);
     }
 
     [Fact]
