@@ -386,10 +386,14 @@
         NavigationManager.NavigateTo("/calendar/new");
     }
 
+    /// <summary>
+    /// The form, which is a named press - pressing the card itself lands on what the appointment is,
+    /// see CalendarEventDestination.
+    /// </summary>
     private void GoToEditEvent(Guid eventId)
     {
         Logger.LogInformation("User clicked 'Edit' for calendar event {EventId}", eventId);
-        NavigationManager.NavigateTo($"/calendar/{eventId}");
+        NavigationManager.NavigateTo($"/calendar/{eventId}/edit");
     }
 
     /// <summary>

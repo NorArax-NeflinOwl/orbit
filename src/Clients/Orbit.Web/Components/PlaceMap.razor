@@ -1,0 +1,79 @@
+@implements IAsyncDisposable
+@inject IJSRuntime JSRuntime
+@inject ILogger<PlaceMap> Logger
+
+@* One point on a map, drawn where a page has somewhere to show and nothing to ask about it - a task
+   entry's own page and an event's, both of which are read rather than filled in. The picker on the
+   editors is a different control: it takes a pin as well as showing one (see LocationPickerOverlay).
+
+   Its own component because two pages drew the same twenty lines of interop, and the second copy is
+   where the first one's teardown gets forgotten. *@
+<div id="@ElementId" class="task-item-map"></div>
+
+@code {
+    /// <summary>Where the pin goes.</summary>
+    [Parameter, EditorRequired] public double Latitude { get; set; }
+
+    /// <inheritdoc cref="Latitude"/>
+    [Parameter, EditorRequired] public double Longitude { get; set; }
+
+    /// <summary>What to call the pin - the address as somebody wrote it.</summary>
+    [Parameter] public string Label { get; set; } = string.Empty;
+
+    /// <summary>
+    /// The element the map is drawn into. Given by the page rather than made up here: Leaflet works on
+    /// an element by id, and two maps on one screen would otherwise be one map drawn twice.
+    /// </summary>
+    [Parameter] public string ElementId { get; set; } = "placeMap";
+
+    private IJSObjectReference? _mapModule;
+
+    /// <summary>What has already been drawn, so a re-render does not redraw the same pin.</summary>
+    private (double Latitude, double Longitude, string Label)? _drawn;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (_drawn == (Latitude, Longitude, Label))
+        {
+            return;
+        }
+
+        _drawn = (Latitude, Longitude, Label);
+        try
+        {
+            _mapModule ??= await JSRuntime.InvokeAsync<IJSObjectReference>("import", "./js/locationMap.js");
+            await _mapModule.InvokeVoidAsync("showLocation", ElementId, Latitude, Longitude, Label);
+        }
+        catch (JSException exception)
+        {
+            // The words are still on the page above; only the picture is missing.
+            Logger.LogWarning(exception, "Failed to draw the map for {ElementId}", ElementId);
+        }
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        if (_mapModule is null)
+        {
+            return;
+        }
+
+        try
+        {
+            await _mapModule.InvokeVoidAsync("dispose", ElementId);
+            await _mapModule.DisposeAsync();
+        }
+        catch (JSDisconnectedException)
+        {
+            // The circuit is already gone, which is one of the ways this page ends.
+        }
+        catch (JSException exception)
+        {
+            Logger.LogWarning(exception, "Failed to tear down the map for {ElementId}", ElementId);
+        }
+        catch (ObjectDisposedException)
+        {
+            // The runtime went first. Nothing left to tear down.
+        }
+    }
+}
