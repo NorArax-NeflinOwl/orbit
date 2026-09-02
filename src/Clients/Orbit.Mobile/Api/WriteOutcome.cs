@@ -16,5 +16,16 @@ public enum WriteOutcome
     Refused,
 
     /// <summary>It is gone server-side. Nothing queued against it can ever succeed.</summary>
-    Gone
+    Gone,
+
+    /// <summary>
+    /// The server says this cannot be done at all - a rule about the thing itself rather than about who
+    /// holds it, answered as 400 with a message (see "Refusing a request"). Trying again changes
+    /// nothing, which is what separates it from <see cref="Refused"/>.
+    ///
+    /// Mapped rather than thrown because a refusal by design is the API working: an unhandled
+    /// HttpRequestException out of a screen's command takes the whole app down, which is what moving an
+    /// entry onto a list it already stands for did.
+    /// </summary>
+    Rejected
 }

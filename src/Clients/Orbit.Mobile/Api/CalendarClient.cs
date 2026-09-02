@@ -78,6 +78,9 @@ public sealed class CalendarClient : ILockableItems
                 return WriteOutcome.Refused;
             case HttpStatusCode.NotFound:
                 return WriteOutcome.Gone;
+            // A rule about the thing itself - see WriteOutcome.Rejected.
+            case HttpStatusCode.BadRequest:
+                return WriteOutcome.Rejected;
             default:
                 response.EnsureSuccessStatusCode();
                 return WriteOutcome.Applied;

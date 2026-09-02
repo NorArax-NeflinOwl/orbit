@@ -1360,6 +1360,7 @@ public static class PolishTranslations
         ["Everything Orbit has told you, newest first."] = "Wszystko, co Orbit Ci powiedział, od najnowszych.",
         ["Moved to {0}."] = "Przeniesiono do: {0}.",
         ["Couldn't move it. Try again."] = "Nie udało się przenieść. Spróbuj ponownie.",
+        ["That move isn't allowed."] = "Takie przeniesienie nie jest dozwolone.",
         ["Shared with you - read-only until you're back online"] =
             "Udostępnione Tobie — tylko do odczytu, dopóki nie wrócisz online",
         ["Shared with others - read-only until you're back online"] =

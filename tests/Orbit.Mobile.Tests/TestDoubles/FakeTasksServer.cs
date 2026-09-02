@@ -170,9 +170,26 @@ internal sealed class FakeTasksServer : HttpMessageHandler
     /// As MoveTaskItemCommandHandler does it: the entry leaves one list and arrives in the other, and
     /// both lists count as changed so a delta pull brings them both back.
     /// </summary>
+    /// <summary>
+    /// Answers the next move the way the real server answers one it will not make: 400 with a message
+    /// (see "Refusing a request"). An entry cannot link to the list it belongs to, and there is no
+    /// reason for this fake to work out which moves those are - what matters is that the client is
+    /// handed a refusal rather than an exception.
+    /// </summary>
+    public bool RefusesTheNextMove { get; set; }
+
     private async Task<HttpResponseMessage> MoveItemAsync(
         HttpRequestMessage request, Guid sourceId, Guid itemId, CancellationToken cancellationToken)
     {
+        if (RefusesTheNextMove)
+        {
+            RefusesTheNextMove = false;
+            return new HttpResponseMessage(HttpStatusCode.BadRequest)
+            {
+                Content = JsonContent.Create(new { message = "A task list item can't link to the list it belongs to." })
+            };
+        }
+
         var body = await ReadAsync<MoveTaskItemRequest>(request, cancellationToken);
         if (!_taskLists.TryGetValue(sourceId, out var source)
             || !_taskLists.TryGetValue(body!.TargetTaskListId, out var target)

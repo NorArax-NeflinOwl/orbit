@@ -101,6 +101,10 @@ public sealed class TasksClient : ILockableItems
                 return WriteOutcome.Refused;
             case HttpStatusCode.NotFound:
                 return WriteOutcome.Gone;
+            // A rule about the thing itself - see WriteOutcome.Rejected for why this is an answer rather
+            // than an exception.
+            case HttpStatusCode.BadRequest:
+                return WriteOutcome.Rejected;
             default:
                 response.EnsureSuccessStatusCode();
                 return WriteOutcome.Applied;
