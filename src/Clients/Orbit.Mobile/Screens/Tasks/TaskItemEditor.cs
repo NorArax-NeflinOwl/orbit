@@ -215,6 +215,13 @@ public sealed partial class TaskItemEditor : ObservableObject
     [ObservableProperty]
     private string _description = string.Empty;
 
+    /// <summary>
+    /// What the entry is about, in the reader's own words and as many as apply, typed as one line -
+    /// see CategoryText. The page that looks for an entry among every list looks by these.
+    /// </summary>
+    [ObservableProperty]
+    private string _categories = string.Empty;
+
     [ObservableProperty]
     private bool _hasDueDate;
 
@@ -282,6 +289,7 @@ public sealed partial class TaskItemEditor : ObservableObject
             LocationLatitude = linkedEvent?.Location?.Latitude,
             LocationLongitude = linkedEvent?.Location?.Longitude,
             Description = item.Description,
+            Categories = CategoryText.Join(item.AllCategories),
             HasDueDate = item.DueDateUtc is not null,
             DueDate = item.DueDateUtc?.LocalDateTime.Date ?? DateTime.Today,
             OverdueNotificationChannel = item.OverdueNotificationChannel,
@@ -354,6 +362,9 @@ public sealed partial class TaskItemEditor : ObservableObject
             LinkedTaskListId = null,
             LinkedTaskListIds = [.. LinkedTaskLists.Select(linked => linked.ServerId!.Value)],
             Description = Description.Trim(),
+            // Sent as a list rather than left out: null means "not provided" on the wire, so an entry
+            // whose categories were cleared here would come back with them still on it.
+            Categories = [.. CategoryText.Split(Categories)],
             // Converted rather than sent with the local offset the picker works in: Npgsql refuses a
             // DateTimeOffset with a non-zero offset for a "timestamp with time zone" column outright,
             // so a due date set here answered 500 and the queued save was given up on after five

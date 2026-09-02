@@ -282,7 +282,10 @@ internal sealed class FakeTasksServer : HttpMessageHandler
             // every kind would let a client sending the wrong kind pass, and the real server would cut
             // the errand loose from its product.
             item.Kind == nameof(TaskItemKind.Inventory) ? item.LinkedInventoryItemId : null,
-            item.AllLinkedTaskListIds)).ToList();
+            item.AllLinkedTaskListIds,
+            // Answered as sent. A fake that dropped them would let a client that never sends them pass,
+            // and the reader would find their entries unfiled the next time the list was pulled.
+            item.AllCategories)).ToList();
 
     private static Guid ReadId(string path) => Guid.Parse(path.Split('/')[^1]);
 

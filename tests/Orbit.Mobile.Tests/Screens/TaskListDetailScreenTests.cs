@@ -64,6 +64,49 @@ public sealed class TaskListDetailScreenTests
     }
 
     /// <summary>
+    /// What an entry is about, typed as one line of words - the same box a shelf item's category is
+    /// typed in, holding as many as apply. The tasks page finds an entry among every list by these.
+    /// </summary>
+    [Fact]
+    public async Task An_entry_can_be_filed_under_what_it_is_about()
+    {
+        using var context = new ScreenContext();
+        var screen = context.OpenTaskList("Errands");
+        await AddAsync(screen, "Renew the car insurance");
+
+        screen.EditItemCommand.Execute(screen.Items[0]);
+        screen.BeingEdited!.Categories = "car, money ,car";
+        await screen.SaveItemCommand.ExecuteAsync(null);
+
+        // Tidied on the way in, as the domain tidies it: trimmed, and the same word twice is one word.
+        Assert.Equal(["car", "money"], Assert.Single(screen.Items).Item.AllCategories);
+
+        // And sent, rather than left for the server to keep whatever it already had: a client that says
+        // nothing about them cannot clear them.
+        var sent = Assert.Single(Assert.Single(context.Server.TaskLists).Items);
+        Assert.Equal(["car", "money"], sent.AllCategories);
+    }
+
+    /// <summary>Clearing the box clears them, which "not provided" would not do.</summary>
+    [Fact]
+    public async Task Clearing_what_it_is_filed_under_clears_it_everywhere()
+    {
+        using var context = new ScreenContext();
+        var screen = context.OpenTaskList("Errands");
+        await AddAsync(screen, "Renew the car insurance");
+        screen.EditItemCommand.Execute(screen.Items[0]);
+        screen.BeingEdited!.Categories = "car";
+        await screen.SaveItemCommand.ExecuteAsync(null);
+
+        screen.EditItemCommand.Execute(screen.Items[0]);
+        screen.BeingEdited!.Categories = string.Empty;
+        await screen.SaveItemCommand.ExecuteAsync(null);
+
+        Assert.Empty(Assert.Single(screen.Items).Item.AllCategories);
+        Assert.Empty(Assert.Single(Assert.Single(context.Server.TaskLists).Items).AllCategories);
+    }
+
+    /// <summary>
     /// The three orders Orbit.Web reads a checklist in. Alphabetical is by what each entry says, which
     /// is how a shopping list gets read off in a shop.
     /// </summary>

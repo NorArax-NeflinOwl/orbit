@@ -855,9 +855,15 @@ card then previews **what matched** rather than its first few rows, and every ro
 under with the chosen category marked — a list shown for a match nobody can see reads as a bug.
 
 A save that says nothing about categories leaves them alone. That is what lets a client written before
-they existed — the phone's sync, an older tab — go on saving lists without unfiling every entry on them,
-the same rule a list's description already follows
-(`UpdateTaskListCommand.EntriesKeepingTheirCategories`).
+they existed — an older tab — go on saving lists without unfiling every entry on them, the same rule a
+list's description already follows (`UpdateTaskListCommand.EntriesKeepingTheirCategories`).
+
+**The phone files entries the same way and looks for them the same way.** The entry's form carries the
+same comma-separated box, each row on a list shows what it is filed under, and the tasks screen carries
+the search and the category chips above its status chips - narrowing to the lists that still hold a
+match, with the card saying what matched rather than what is next. Its sync sends the categories on
+every save rather than leaving them out: "not provided" is what an older client says, and a phone that
+said it could never clear a category somebody had removed.
 
 ### Two editing levels
 

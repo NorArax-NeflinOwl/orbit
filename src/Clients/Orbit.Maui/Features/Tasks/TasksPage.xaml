@@ -15,7 +15,7 @@
     <Grid RowDefinitions="Auto,*,Auto">
 
 
-    <Grid Grid.Row="1" RowDefinitions="Auto,Auto,Auto,Auto,*,Auto" Padding="20" RowSpacing="10">
+    <Grid Grid.Row="1" RowDefinitions="Auto,Auto,Auto,Auto,Auto,*" Padding="20" RowSpacing="10">
 
 
         <controls:PageHeader Grid.Row="0" Title="{controls:Translate 'Tasks'}">
@@ -24,9 +24,72 @@
             </controls:PageHeader.Subtitle>
         </controls:PageHeader>
 
+        <!-- What the reader is looking for, above the chips that say which lists are on offer at all: a
+             word from an entry, and the categories entries are filed under. Both narrow to lists that
+             still hold something worth reading, and the cards then say what matched rather than what is
+             next - a list shown for a match nobody can see reads as a bug. -->
+        <VerticalStackLayout Grid.Row="1" Spacing="8">
+            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                <Entry Grid.Column="0" Placeholder="{controls:Translate 'Find an entry on any list'}"
+                       Text="{Binding ItemSearch}" ClearButtonVisibility="WhileEditing" ReturnType="Search" />
+                <Button Grid.Column="1" Text="{controls:Translate 'Clear'}" IsVisible="{Binding IsLookingForAnEntry}"
+                        FontSize="12" Padding="8,4" Style="{StaticResource LinkButton}"
+                        Command="{Binding ClearItemFilterCommand}" />
+            </Grid>
+
+            <ScrollView Orientation="Horizontal" HorizontalScrollBarVisibility="Never"
+                        IsVisible="{Binding HasCategories}">
+                <HorizontalStackLayout Spacing="6" BindableLayout.ItemsSource="{Binding Categories}">
+                    <BindableLayout.ItemTemplate>
+                        <DataTemplate x:DataType="screens:TaskCategoryChoice">
+                            <Grid>
+                                <Border Style="{StaticResource FilterChip}">
+                                    <Border.Triggers>
+                                        <DataTrigger TargetType="Border" Binding="{Binding IsChosen}" Value="True">
+                                            <Setter Property="BackgroundColor" Value="{DynamicResource Accent}" />
+                                            <Setter Property="Stroke" Value="{DynamicResource Accent}" />
+                                        </DataTrigger>
+                                    </Border.Triggers>
+
+                                    <Label Style="{StaticResource FilterChipLabel}">
+                                        <Label.FormattedText>
+                                            <FormattedString>
+                                                <Span Text="{Binding Name}" />
+                                                <Span Text=" " />
+                                                <Span Text="{Binding Count}" />
+                                            </FormattedString>
+                                        </Label.FormattedText>
+                                        <Label.Triggers>
+                                            <DataTrigger TargetType="Label" Binding="{Binding IsChosen}" Value="True">
+                                                <Setter Property="TextColor" Value="{DynamicResource AccentOn}" />
+                                            </DataTrigger>
+                                        </Label.Triggers>
+                                    </Label>
+                                </Border>
+                                <!-- The tap is a Button over the chip - see the status chips below for why. -->
+                                <Button BackgroundColor="Transparent"
+                                        Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=ViewModel.ToggleCategoryCommand, x:DataType=tasks:TasksPage}"
+                                        CommandParameter="{Binding .}"
+                                        SemanticProperties.Description="{Binding Name}" />
+                            </Grid>
+                        </DataTemplate>
+                    </BindableLayout.ItemTemplate>
+                </HorizontalStackLayout>
+            </ScrollView>
+
+            <!-- Only worth asking once two are chosen: with one, "any of them" and "all of them" are the
+                 same question. -->
+            <Grid ColumnDefinitions="*,Auto" IsVisible="{Binding IsCategoryRuleWorthAsking}">
+                <Label Grid.Column="0" Text="{controls:Translate 'Entries in every chosen category'}"
+                       FontSize="12" VerticalOptions="Center" LineBreakMode="WordWrap" />
+                <Switch Grid.Column="1" IsToggled="{Binding MatchesEveryCategory}" VerticalOptions="Center"
+                        SemanticProperties.Description="{controls:Translate 'Entries in every chosen category'}" />
+            </Grid>
+        </VerticalStackLayout>
+
         <!-- Chips and a stepping button rather than a dropdown: the web has room for a select, a phone
              has a thumb. Each chip carries what it would leave, which is what makes it worth tapping. -->
-        <Grid Grid.Row="1" ColumnDefinitions="*,Auto" ColumnSpacing="8">
+        <Grid Grid.Row="2" ColumnDefinitions="*,Auto" ColumnSpacing="8">
             <!-- Scrolls sideways: five filters do not fit across a phone. A filled pill half off the
                  edge reads as "there is more this way", which the old text-only chips did not - they
                  just looked like a word had been cut in half. -->
@@ -75,23 +138,26 @@
         <!-- The one thing this screen has to say for itself, which today is only about pinning. It was
              set and never shown, so pinning with no connection did nothing and said nothing - see
              TasksViewModel.HasMessage. -->
-        <Label Grid.Row="2" Text="{Binding Message}" IsVisible="{Binding HasMessage}" FontSize="12"
+        <Label Grid.Row="3" Text="{Binding Message}" IsVisible="{Binding HasMessage}" FontSize="12"
                LineBreakMode="WordWrap" TextColor="{DynamicResource Accent}" />
 
-        <Grid Grid.Row="3" ColumnDefinitions="*,Auto" ColumnSpacing="8">
+        <Grid Grid.Row="4" ColumnDefinitions="*,Auto" ColumnSpacing="8">
             <Entry Grid.Column="0" Placeholder="{controls:Translate 'New list'}" Text="{Binding NewListTitle}"
                    ReturnType="Done" ReturnCommand="{Binding AddListCommand}" />
             <Button Grid.Column="1" Text="{controls:Translate 'Add'}" Command="{Binding AddListCommand}" />
         </Grid>
 
-        <RefreshView Grid.Row="4" IsRefreshing="{Binding IsRefreshing}" Command="{Binding LoadCommand}">
+        <RefreshView Grid.Row="5" IsRefreshing="{Binding IsRefreshing}" Command="{Binding LoadCommand}">
             <CollectionView ItemsSource="{Binding TaskLists}"
                             SelectionMode="Single"
                             SelectionChangedCommand="{Binding OpenListCommand}"
                             SelectionChangedCommandParameter="{Binding SelectedItem, Source={RelativeSource Self}, x:DataType=CollectionView}">
 
                 <CollectionView.EmptyView>
-                    <Label Text="{controls:Translate 'No task lists yet.'}" Padding="24" HorizontalTextAlignment="Center" />
+                    <!-- Which of the two emptied the screen, since they say different things about what
+                         to do next - see TasksViewModel.NothingHereMessage. -->
+                    <Label Text="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=ViewModel.NothingHereMessage, x:DataType=tasks:TasksPage}"
+                           Padding="24" HorizontalTextAlignment="Center" LineBreakMode="WordWrap" />
                 </CollectionView.EmptyView>
 
                 <CollectionView.ItemTemplate>
@@ -171,9 +237,9 @@
                                              on this list. A row that only points at another list is not
                                              work itself, so what it stands for is looked up there and
                                              that list is named beside it. -->
-                                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8" IsVisible="{Binding HasNextThing}"
+                                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8" IsVisible="{Binding HasNextOrMatched}"
                                               Margin="0,4,0,0">
-                                            <Label Grid.Column="0" Text="{Binding NextThing}" FontSize="13"
+                                            <Label Grid.Column="0" Text="{Binding NextOrMatched}" FontSize="13"
                                                    LineBreakMode="TailTruncation" />
                                             <Label Grid.Column="1" Text="{Binding NextThingOnList}" FontSize="11"
                                                    IsVisible="{Binding IsNextThingOnAnotherList}" VerticalOptions="Center"

@@ -235,5 +235,8 @@ public sealed class TaskListSynchronizer
             LinkedTaskListId: null, item.OverdueNotificationChannel, item.RemindDaily,
             item.DailyReminderNotificationChannel, item.DailyReminderTimeOfDay,
             item.Kind, item.Location, item.LinkedCalendarEventId, item.LinkedInventoryItemId,
-            item.AllLinkedTaskListIds)).ToList();
+            item.AllLinkedTaskListIds,
+            // Always sent, for the same reason: null means "not provided" on the wire, and an entry
+            // whose categories were cleared on this phone would come back with them still on it.
+            item.AllCategories)).ToList();
 }

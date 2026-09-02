@@ -96,6 +96,20 @@
                                     CommandParameter="{Binding .}" />
                             </VerticalStackLayout.GestureRecognizers>
                             <Label Text="{Binding Description}" LineBreakMode="WordWrap" />
+
+                            <!-- What it is filed under, under what it says: the tasks page narrows by
+                                 these, and a row that does not carry them leaves the reader to take
+                                 that page's word for why it is still on screen. -->
+                            <HorizontalStackLayout Spacing="6" IsVisible="{Binding HasCategories}"
+                                                   BindableLayout.ItemsSource="{Binding Categories}">
+                                <BindableLayout.ItemTemplate>
+                                    <DataTemplate x:DataType="x:String">
+                                        <Border Style="{StaticResource FilterChip}" Padding="6,2">
+                                            <Label Text="{Binding .}" Style="{StaticResource FilterChipLabel}" />
+                                        </Border>
+                                    </DataTemplate>
+                                </BindableLayout.ItemTemplate>
+                            </HorizontalStackLayout>
                             <Label Text="{Binding Detail}" IsVisible="{Binding HasDetail}" FontSize="11"
                                    LineBreakMode="WordWrap" Style="{StaticResource SubtleLabel}">
                                 <Label.Triggers>
@@ -154,6 +168,12 @@
                 <Entry Placeholder="{controls:Translate 'Checklist item'}" Text="{Binding Description}" />
                 <!-- Errands this account has already written, offered as this one is typed. -->
                 <controls:NameSuggestionChips BindingContext="{Binding Suggestions}" />
+
+                <!-- What the entry is about, whatever kind it is - a shelf item's category box, holding
+                     as many as apply rather than making somebody pick the truest one. The page that
+                     looks for an entry among every list looks by these. -->
+                <Entry Placeholder="{controls:Translate 'Separate them with commas'}" Text="{Binding Categories}"
+                       SemanticProperties.Description="{controls:Translate 'Categories'}" />
 
                 <!-- What this entry is. On the entry rather than on the list, because a day's plan holds
                      two errands and an appointment - see TaskItemKind. -->
