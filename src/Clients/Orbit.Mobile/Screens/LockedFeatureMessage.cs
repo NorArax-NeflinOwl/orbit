@@ -21,6 +21,8 @@ public static class LockedFeatureMessage
             => translations["Conversations, with one person or with several."],
         ApplicationPermission.Location
             => translations["Recording where you are. Sharing it, or seeing somebody else's, also needs contacts."],
+        ApplicationPermission.Debug
+            => translations["What Orbit reports about itself - the Debugger settings, the captured log, and the detail behind an error."],
         _ => translations["Handing a note, task list, event or storage to somebody else."]
     };
 
@@ -30,6 +32,9 @@ public static class LockedFeatureMessage
         ApplicationPermission.Contacts => translations["Contacts"],
         ApplicationPermission.Chat => translations["Chat"],
         ApplicationPermission.Location => translations["Location"],
+        // Named for what it opens rather than for the enum: the permission is Debug, what a reader is
+        // offered is the Debugger, and the browser's Options says the same word.
+        ApplicationPermission.Debug => translations["Debugger"],
         _ => translations["Sharing"]
     };
 }

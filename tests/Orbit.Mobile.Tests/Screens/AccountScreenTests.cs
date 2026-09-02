@@ -192,6 +192,27 @@ public sealed class AccountScreenTests
     }
 
     /// <summary>
+    /// Every permission is named and explained, and the Debugger is the one that was not: it fell
+    /// through to Sharing's words, so the row for it said somebody could hand a note to somebody else.
+    /// </summary>
+    [Fact]
+    public async Task Every_permission_is_named_for_what_it_opens()
+    {
+        using var context = new ScreenContext();
+        var screen = context.Open();
+
+        await screen.LoadCommand.ExecuteAsync(null);
+
+        Assert.Contains(screen.Permissions, permission => permission.Name == "Debugger");
+        Assert.Equal(
+            Enum.GetValues<ApplicationPermission>().Length,
+            screen.Permissions.Select(permission => permission.Name).Distinct().Count());
+        Assert.Equal(
+            Enum.GetValues<ApplicationPermission>().Length,
+            screen.Permissions.Select(permission => permission.Explanation).Distinct().Count());
+    }
+
+    /// <summary>
     /// The section answers to the permission as well as to the tab, so an account that never held it
     /// reads nothing even if something else puts the screen on that tab.
     /// </summary>
