@@ -664,10 +664,16 @@ carry the same name, which is what two deliveries of one thing are, and the chec
 against a shelf adds them up by name (`StockRequirementCounter`). A row an errand pointed at is marked,
 the way the editor already marked one.
 
-Changing what is on the shelf is a named press from there (`/inventory/{id}/edit`), and from the card's
-own menu - the same two depths a task list has, for the same reason: opening a warehouse to see what is
-in it is a different thing from opening it to change it, and a page of editable fields is the wrong
-answer to "what have we got".
+Each row also carries the two things somebody standing in front of a shelf actually does: **one off, one
+back on**, before the name, where the eye starts. Nothing is written until Save - the same tick and cross
+every editor in Orbit carries - and saving refreshes the restock list, because a count that has just
+crossed a minimum either raises an errand or settles one. Counting below nothing is refused rather than
+stored: minus one of something is a number nobody can act on.
+
+Everything else is behind the menu beside them: all warehouses, the editor, and deleting. Changing the
+fields themselves is a named press further in (`/inventory/{id}/edit`) - the same two depths a task list
+has, for the same reason: opening a warehouse to see what is in it is a different thing from opening it
+to change it, and a page of editable fields is the wrong answer to "what have we got".
 
 ### What the calendar's list leaves out
 

@@ -4800,6 +4800,28 @@ input.note-editor-title {
     white-space: nowrap;
 }
 
+/* Taking one off the shelf and putting one back, at the start of the row - see WarehouseSummary.razor.
+   Small and side by side, so the pair reads as one control rather than as two more things on the row. */
+.shelf-batch-count {
+    display: flex;
+    gap: 2px;
+    flex: 0 0 auto;
+}
+
+.shelf-batch-count .icon-btn {
+    width: 24px;
+    height: 24px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    font-size: 14px;
+    line-height: 1;
+}
+
+.shelf-batch-count .icon-btn:disabled {
+    opacity: 0.4;
+    cursor: default;
+}
+
 /* One batch on a shelf, read rather than edited - see WarehouseSummary.razor. The amount is pushed away
    from the name so a column of them lines up, which is what makes a shelf readable at a glance. */
 .shelf-batch-amount {
