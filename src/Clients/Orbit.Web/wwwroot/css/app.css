@@ -347,6 +347,13 @@ input.note-editor-title {
     padding: 12px 14px;
 }
 
+/* A note nobody may write to. contenteditable="false" stops the typing; the tick boxes in it are real
+   <input>s, which a non-editable surface does not disable, so they are stopped here. Text stays
+   selectable on purpose - a note that can be read should be one that can be copied. */
+.note-editor-content-readonly .note-line-checkbox {
+    pointer-events: none;
+}
+
 /* ChecklistTextEditor.razor - a contenteditable surface styled to look exactly like the plain
    textarea it replaces (same box/font/spacing as every other .field control), so the only visible
    difference from a normal text field is that some lines carry a real checkbox - see

@@ -50,7 +50,8 @@ else
                 <TitledDescription Title="@_formModel.Name" TitleChanged="value => _formModel.Name = value"
                                    Description="@_formModel.Description"
                                    DescriptionChanged="value => _formModel.Description = value"
-                                   TitleLabel="@(T["Name"])">
+                                   TitleLabel="@(T["Name"])"
+                                   IsReadOnly="@(_isReadOnly || _lockedByUserName is not null)">
                     <Suggestions>
                         <NameSuggestions Kind="NameSuggestionKind.WarehouseName" Value="_formModel.Name"
                                          OnChosen="chosen => _formModel.Name = chosen" />

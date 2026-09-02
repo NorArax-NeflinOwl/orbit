@@ -15,7 +15,8 @@
    never comes up here: nothing offers the button that makes a checkbox line. *@
 <div class="titled-description">
     <ChecklistTextEditor CssClass="note-editor-content note-editor-titled titled-description-editor"
-                         Lines="Lines" LinesChanged="OnLinesChangedAsync" aria-label="@TitleLabel" />
+                         Lines="Lines" LinesChanged="OnLinesChangedAsync" IsReadOnly="IsReadOnly"
+                         aria-label="@TitleLabel" />
     @Suggestions
 </div>
 
@@ -34,6 +35,12 @@
     /// headings.
     /// </summary>
     [Parameter, EditorRequired] public string TitleLabel { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Whether the name and description may be changed. The fieldset a page wraps this in cannot say so
+    /// on its own - see ChecklistTextEditor, which is the surface underneath.
+    /// </summary>
+    [Parameter] public bool IsReadOnly { get; set; }
 
     /// <summary>For a page that puts something under the field - the name suggestions, so far.</summary>
     [Parameter] public RenderFragment? Suggestions { get; set; }
