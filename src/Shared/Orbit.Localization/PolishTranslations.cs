@@ -589,6 +589,7 @@ public static class PolishTranslations
         ["Category"] = "Kategoria",
         ["Categories"] = "Kategorie",
         ["Separate them with commas"] = "Oddziel je przecinkami",
+        ["Categories, separated by commas"] = "Kategorie, oddzielone przecinkami",
         ["Find an entry on any list"] = "Znajdź element na dowolnej liście",
         ["Entries in every chosen category"] = "Elementy w każdej wybranej kategorii",
         ["Nothing on any list matches that."] = "Nic na żadnej liście tego nie pasuje.",

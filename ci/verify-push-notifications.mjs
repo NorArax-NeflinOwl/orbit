@@ -90,84 +90,134 @@ await page.goto(`${origin}/`);
 
 const registrationId = await registerTheWorker(page, notified);
 
-/// Delivers one push and hands back the notifications the worker showed for it.
-async function pushAndRead(cdp, data) {
-    await page.evaluate(async () => {
+/// What the worker is currently showing, in the shape the checks assert on.
+async function notificationsNow() {
+    return page.evaluate(async () => {
         const registration = await navigator.serviceWorker.ready;
-        for (const notification of await registration.getNotifications()) {
-            notification.close();
-        }
+        return (await registration.getNotifications()).map((notification) => ({
+            title: notification.title,
+            body: notification.body,
+            data: notification.data,
+        }));
     });
+}
 
-    await cdp.send("ServiceWorker.deliverPushMessage", { origin, registrationId, data });
-
-    // The worker shows the notification inside event.waitUntil, so it is not there the instant the
-    // call returns. Polled rather than slept on: a fixed wait is either flaky or slow.
-    for (let attempt = 0; attempt < 50; attempt++) {
-        const shown = await page.evaluate(async () => {
-            const registration = await navigator.serviceWorker.ready;
-            return (await registration.getNotifications()).map((notification) => ({
-                title: notification.title,
-                body: notification.body,
-                data: notification.data,
-            }));
-        });
-
-        if (shown.length > 0) {
+/// Polls until `answer` is happy with what is showing, or the budget runs out. Returns whatever was
+/// showing at the end either way, so a failure can say what was there rather than only that nothing
+/// was.
+async function waitForNotifications(answer) {
+    let shown = [];
+    for (let attempt = 0; attempt < 40; attempt++) {
+        shown = await notificationsNow();
+        if (answer(shown)) {
             return shown;
         }
 
         await new Promise((wait) => setTimeout(wait, 100));
     }
 
-    return [];
+    return shown;
+}
+
+/// Delivers one push and hands back the notification the worker showed for it.
+///
+/// `wanted` is what this particular push should produce. Waited for by name rather than by "anything at
+/// all": two pushes in a row can produce notifications that look alike - a malformed payload and a
+/// data-less one both fall back to "Orbit" - and a platform still finishing with the previous one would
+/// otherwise answer the next check with it. Clearing is waited for by the same rule, so a push is never
+/// delivered into a screen still holding what the check before it showed.
+///
+/// Delivered more than once if nothing comes of it, because the delivery is the part of this that is
+/// not Orbit's. ServiceWorker.deliverPushMessage hands the message to a worker the browser may have
+/// stopped, and about a third of the time on a cold registration it is accepted and simply never
+/// arrives - measured, not guessed: a page that shows a notification of its own in the same breath
+/// still shows it, so the platform is willing and the message is what went missing. Retried rather than
+/// waited out, since waiting longer does not deliver it. A worker that genuinely shows nothing still
+/// shows nothing after three of these, which is what the checks are here to catch.
+async function pushAndRead(cdp, data, wanted) {
+    for (let delivery = 0; delivery < 3; delivery++) {
+        await page.evaluate(async () => {
+            const registration = await navigator.serviceWorker.ready;
+            for (const notification of await registration.getNotifications()) {
+                notification.close();
+            }
+        });
+        await waitForNotifications((shown) => shown.length === 0);
+
+        // Chromium stops an idle worker after about thirty seconds, and a real push wakes it - this is
+        // the one part of the chain the harness stands in for.
+        try {
+            await cdp.send("ServiceWorker.startWorker", { scopeURL: `${origin}/` });
+        } catch {
+            // Already running, which is the ordinary case and not something to report.
+        }
+
+        await cdp.send("ServiceWorker.deliverPushMessage", { origin, registrationId, data });
+
+        // The worker shows the notification inside event.waitUntil, so it is not there the instant the
+        // call returns. Polled rather than slept on: a fixed wait is either flaky or slow.
+        const shown = await waitForNotifications((notifications) => notifications.some(wanted));
+        if (shown.some(wanted)) {
+            return shown;
+        }
+    }
+
+    return notificationsNow();
 }
 
 const cdp = await notified.newCDPSession(page);
 await cdp.send("ServiceWorker.enable");
 
 await check("a push is shown, with what it said", async () => {
-    const [shown] = await pushAndRead(cdp, JSON.stringify({
-        title: "New message", body: "Ala wrote to you", url: "/chat/abc",
-    }));
+    const shown = await pushAndRead(
+        cdp,
+        JSON.stringify({ title: "New message", body: "Ala wrote to you", url: "/chat/abc" }),
+        (notification) => notification.title === "New message");
 
-    if (!shown) {
+    const [message] = shown;
+    if (!message) {
         return "the worker showed nothing at all";
     }
 
-    return (shown.title === "New message" && shown.body === "Ala wrote to you" && shown.data?.url === "/chat/abc")
+    return (message.body === "Ala wrote to you" && message.data?.url === "/chat/abc")
         || `showed ${JSON.stringify(shown)}`;
 });
 
 await check("a push carrying nothing still says something", async () => {
     // Some push services deliver a data-less "wake up and check" ping. Showing nothing would be a
     // notification the user was told about by their phone and cannot find.
-    const [shown] = await pushAndRead(cdp, "");
-    if (!shown) {
-        return "a data-less push showed nothing";
+    const shown = await pushAndRead(cdp, "", (notification) => notification.title === "Orbit");
+    const [ping] = shown;
+    if (!ping) {
+        return `a data-less push showed nothing (${JSON.stringify(shown)})`;
     }
 
-    return (shown.title === "Orbit" && shown.data?.url === "/") || `showed ${JSON.stringify(shown)}`;
+    return ping.data?.url === "/" || `showed ${JSON.stringify(shown)}`;
 });
 
 await check("a push that is not JSON does not take the worker down", async () => {
-    const [shown] = await pushAndRead(cdp, "this is not json");
-    if (!shown) {
+    const shown = await pushAndRead(cdp, "this is not json", (notification) => notification.title === "Orbit");
+    if (shown.length === 0) {
         return "a malformed push showed nothing";
     }
 
-    return shown.title === "Orbit" || `showed ${JSON.stringify(shown)}`;
+    return shown.some((notification) => notification.title === "Orbit") || `showed ${JSON.stringify(shown)}`;
 });
 
 await check("a push with no url still leads somewhere", async () => {
-    const [shown] = await pushAndRead(cdp, JSON.stringify({ title: "Overdue task", body: "Buy milk" }));
-    if (!shown) {
-        return "the worker showed nothing";
+    const shown = await pushAndRead(
+        cdp,
+        JSON.stringify({ title: "Overdue task", body: "Buy milk" }),
+        (notification) => notification.title === "Overdue task");
+
+    const [overdue] = shown;
+    if (!overdue) {
+        return `the worker showed nothing (${JSON.stringify(shown)})`;
     }
 
     // Clicking it navigates to data.url, so an absent one has to become the app's own root rather
     // than undefined - see service-worker.js's notificationclick.
-    return shown.data?.url === "/" || `data.url was ${JSON.stringify(shown.data)}`;
+    return overdue.data?.url === "/" || `data.url was ${JSON.stringify(overdue.data)}`;
 });
 
 // ---- pushNotifications.js --------------------------------------------------------------------------

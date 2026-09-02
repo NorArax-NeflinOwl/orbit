@@ -852,7 +852,12 @@ category both set means both must hold (`TaskItemFilter`).
 
 What they narrow is which lists are worth showing: a list stays if one entry on it still matches. The
 card then previews **what matched** rather than its first few rows, and every row says what it is filed
-under with the chosen category marked — a list shown for a match nobody can see reads as a bug.
+under with the chosen category marked — a list shown for a match nobody can see reads as a bug. The
+checklist says it too, since that is where the work is actually done.
+
+**The phone files an entry the same way**: the same box on its item form, and the same rule behind both
+(`CategoryText`, which lives in Orbit.Core precisely so the browser and the phone cannot come to
+disagree about what "shopping, Shopping" means).
 
 A save that says nothing about categories leaves them alone. That is what lets a client written before
 they existed — an older tab — go on saving lists without unfiling every entry on them, the same rule a

@@ -80,6 +80,23 @@ rather than a pointer at one, and the build refuses to finish on a warning. What
 
 ## What real Google Calendar sync would take
 
+**Waiting on infrastructure, deliberately, as of 2 September 2026.** Google's review of a sensitive scope
+asks for authorised domains the applicant owns, and for a privacy policy and terms of service hosted on
+one of them. Orbit is served from a hostname Microsoft owns
+(`orbit-web.…azurecontainerapps.io`), which cannot be verified as Orbit's, so nothing here can start
+until three things happen in this order:
+
+1. a domain is bought;
+2. a **production environment of its own** is carved out in Azure, separate from what is running now;
+3. DNS points the domain at it, and the OAuth client's authorised origins and redirect URIs are
+   re-issued against that name.
+
+Only then is there anything to submit. The order matters and none of it is code: the review is measured
+in weeks *after* the domain exists, so buying it is what actually starts the clock. Everything in
+[google-calendar-api-plan.md](google-calendar-api-plan.md) - what maps onto what, which of Orbit's
+expectations the API narrows rather than meets, and the task-by-task breakdown - stands as written and is
+ready to start the day that infrastructure is there.
+
 Orbit currently hands events to Google as **links** (see
 [Functionality](functionality.md#handing-something-off-to-google)). That needs nothing beyond the sign-in
 client id, works immediately, and keeps the user in control - but it is one-way and one-shot: Orbit
@@ -465,11 +482,6 @@ inventory lists, the contacts tabs, the chat menus - is built and needs no schem
   panel's folding and its four orders - but has no flat view, and its checklist draws one list at a time
   rather than the tree. Worth doing after the tree itself is drawn there; flattening a view that does not
   nest would change nothing.
-- **A stale comment in `Orbit.Web/Layout/MainLayout.razor`.** The class comment near the bottom of the
-  file points at `OnLogoClickAsync` for how the logo becomes a Dashboard shortcut at the narrow
-  breakpoint. There is no such method any more - the logo is a plain link to `/` - so the comment sends a
-  reader looking for code that is not there. One line, for whoever is next in that file.
-
 - **A permanent, bind-mounted TLS certificate setup for local development.** The mkcert-based option
   in [`info/instructions.md`](instructions.md) currently requires copying certificate files into the
   running `orbit-web` container by hand after every `docker compose down -v`. Switching the

@@ -169,10 +169,12 @@
                 <!-- Errands this account has already written, offered as this one is typed. -->
                 <controls:NameSuggestionChips BindingContext="{Binding Suggestions}" />
 
-                <!-- What the entry is about, whatever kind it is - a shelf item's category box, holding
-                     as many as apply rather than making somebody pick the truest one. The page that
-                     looks for an entry among every list looks by these. -->
-                <Entry Placeholder="{controls:Translate 'Separate them with commas'}" Text="{Binding Categories}"
+                <!-- What the entry is about, as many as apply, on one line - the same box the browser
+                     offers and the same rule behind it, see CategoryText. Kept for every kind: an
+                     appointment is about something the same way an errand is, and the tasks screen
+                     looks for an entry among every list by these. -->
+                <Entry Placeholder="{controls:Translate 'Categories, separated by commas'}"
+                       Text="{Binding Categories}"
                        SemanticProperties.Description="{controls:Translate 'Categories'}" />
 
                 <!-- What this entry is. On the entry rather than on the list, because a day's plan holds

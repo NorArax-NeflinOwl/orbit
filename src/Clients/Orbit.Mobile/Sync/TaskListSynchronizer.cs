@@ -226,6 +226,11 @@ public sealed class TaskListSynchronizer
     /// Inventory entry and drops it otherwise, so a push that carried neither the link nor the kind cut
     /// a restock errand loose from the product it was about - on any save of any list holding one,
     /// without the reader touching the errand at all.
+    ///
+    /// The categories travel for the same reason. The server does keep them when a request says nothing
+    /// at all about them (see UpdateTaskListCommand.EntriesKeepingTheirCategories), which is what let
+    /// older builds of this app go on saving without unfiling everything - but this one can set them, so
+    /// it has to say what they are.
     /// </summary>
     private static IReadOnlyList<TaskItemRequest> ToRequests(IReadOnlyList<TaskItemDto> items)
         => items.Select(item => new TaskItemRequest(
@@ -235,8 +240,5 @@ public sealed class TaskListSynchronizer
             LinkedTaskListId: null, item.OverdueNotificationChannel, item.RemindDaily,
             item.DailyReminderNotificationChannel, item.DailyReminderTimeOfDay,
             item.Kind, item.Location, item.LinkedCalendarEventId, item.LinkedInventoryItemId,
-            item.AllLinkedTaskListIds,
-            // Always sent, for the same reason: null means "not provided" on the wire, and an entry
-            // whose categories were cleared on this phone would come back with them still on it.
-            item.AllCategories)).ToList();
+            item.AllLinkedTaskListIds, item.AllCategories)).ToList();
 }

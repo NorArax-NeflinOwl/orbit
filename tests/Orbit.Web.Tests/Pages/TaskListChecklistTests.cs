@@ -39,6 +39,23 @@ public sealed class TaskListChecklistTests : OrbitTestContext
         RegisterInventoryApiClient();
     }
 
+    /// <summary>
+    /// The same marks the cards on /tasks carry. Somebody working through a list should see what an
+    /// entry is about where the work is actually done, not only on the page they came from.
+    /// </summary>
+    [Fact]
+    public void A_row_says_what_it_is_filed_under()
+    {
+        var taskList = TaskList("Errands", Item("Buy milk") with { Categories = ["shopping", "weekly"] });
+        RegisterTasksApiClient([taskList]);
+
+        var cut = RenderComponent<TaskListChecklist>(parameters => parameters.Add(page => page.Id, taskList.Id));
+
+        Assert.Equal(
+            ["shopping", "weekly"],
+            cut.FindAll(".check-row .row-category").Select(category => category.TextContent.Trim()));
+    }
+
     [Fact]
     public void Every_item_on_the_list_is_rendered_as_a_tickable_row()
     {
