@@ -220,6 +220,22 @@
                 <Button Text="{controls:Translate 'Confirm new address'}" Command="{Binding ConfirmEmailChangeCommand}" />
             </VerticalStackLayout>
 
+            <!-- What this phone hands to Google, which is a different question from what the account is
+                 connected to: turning these off leaves a connected account connected. Offered only
+                 where the account may use them at all - see GoogleIntegrationAccess. -->
+            <VerticalStackLayout Spacing="4" IsVisible="{Binding CanChooseGoogleExtras}">
+                <Grid ColumnDefinitions="*,Auto">
+                    <Label Grid.Column="0" Text="{controls:Translate 'Google extras'}"
+                           Style="{StaticResource FieldLabel}" VerticalOptions="Center" />
+                    <Switch Grid.Column="1" IsToggled="{Binding AllowsGoogleExtras}"
+                            SemanticProperties.Description="{controls:Translate 'Google extras'}" />
+                </Grid>
+                <Label Text="{controls:Translate 'Adds links that open Google Calendar or Google Maps with the details filled in. Orbit never writes to your calendar.'}"
+                       FontSize="12" LineBreakMode="WordWrap" Style="{StaticResource SubtleLabel}" />
+                <Label Text="{controls:Translate 'Kept on this device.'}"
+                       FontSize="12" Style="{StaticResource SubtleLabel}" />
+            </VerticalStackLayout>
+
             <!-- Directly above the password form, as Orbit.Web has it: the warning below says "set one
                  below before disconnecting", and that has to be true of this screen too. Absent where
                  the deployment has no Google client id for this app - see GoogleAccountLink. -->

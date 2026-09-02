@@ -6,6 +6,7 @@ using Orbit.Maui.Features.Account;
 using Orbit.Mobile.Screens.Account;
 using Orbit.Mobile.Screens.Authentication;
 using Orbit.Mobile.Screens.Calendar;
+using Orbit.Mobile.Google;
 using Orbit.Mobile.Screens.Chat;
 using Orbit.Mobile.Screens.Inventory;
 using Orbit.Mobile.Screens.Location;
@@ -172,6 +173,8 @@ public static class MauiProgram
 		services.AddSingleton<UserPermissions>();
 		// One answer for the app, like the permissions above: the map and the calendar both ask whether
 		// this account may hand something off to Google, and neither should cost its own round trip.
+		services.AddSingleton<IGoogleExtrasStore, PreferencesGoogleExtrasStore>();
+		services.AddSingleton<Orbit.Mobile.Google.GoogleExtras>();
 		services.AddSingleton<Orbit.Mobile.Google.GoogleIntegrationAccess>();
 		// One heartbeat for the app, started and stopped with the window - see PresenceReporter.
 		// One banner for the app, so a push arriving while somebody is looking at it is not silently

@@ -2,6 +2,7 @@ using Orbit.Mobile.Api;
 using Orbit.Mobile.Authentication;
 using Orbit.Mobile.Crypto;
 using Orbit.Mobile.Data;
+using Orbit.Mobile.Google;
 using Orbit.Mobile.Localization;
 using System.Text;
 using System.Text.Json;
@@ -156,6 +157,40 @@ public sealed class AccountScreenTests
         Assert.StartsWith("orbit-export-", offered!.Value.FileName);
         Assert.EndsWith(".json", offered.Value.FileName);
         Assert.Contains("\"version\"", offered.Value.Json, StringComparison.OrdinalIgnoreCase);
+    }
+
+    /// <summary>
+    /// The Google links are the reader's to turn off on this phone, as they are in the browser. The
+    /// switch is only offered where the account may use them at all - one for something unavailable
+    /// would turn nothing off.
+    /// </summary>
+    [Fact]
+    public async Task The_Google_extras_can_be_turned_off_on_this_phone()
+    {
+        using var context = new ScreenContext();
+        context.Users.Account = context.Users.Account with { IsEmailVerified = true };
+        var screen = context.Open();
+        await screen.LoadCommand.ExecuteAsync(null);
+
+        Assert.True(screen.CanChooseGoogleExtras);
+        Assert.True(screen.AllowsGoogleExtras);
+
+        screen.AllowsGoogleExtras = false;
+
+        // Written where the next launch will read it, rather than held by the screen.
+        Assert.False(context.GoogleExtras.IsAllowedOnThisDevice);
+    }
+
+    /// <summary>An account that cannot use them is not asked about them.</summary>
+    [Fact]
+    public async Task An_account_that_cannot_use_the_Google_extras_is_not_offered_the_switch()
+    {
+        using var context = new ScreenContext();
+        var screen = context.Open();
+
+        await screen.LoadCommand.ExecuteAsync(null);
+
+        Assert.False(screen.CanChooseGoogleExtras);
     }
 
     /// <summary>One of each, so a test about what a file carries has something to find in it.</summary>
@@ -446,7 +481,11 @@ public sealed class AccountScreenTests
                     new AccountClient(_users.ToHttpClient(), FixedNetworkStatus.Online, _sessionStore),
                     new AuthenticationClient(_users.ToHttpClient(), FixedNetworkStatus.Online, _sessionStore),
                     new GoogleSignIn(new FakeSignInBrowser(), _users.ToHttpClient()),
-                    new Translations(new InMemoryLanguageStore())));
+                    new Translations(new InMemoryLanguageStore())),
+                GoogleExtras);
+
+        /// <summary>What this "device" answers about the Google links - see GoogleExtras.</summary>
+        public GoogleExtras GoogleExtras { get; } = new(new InMemoryGoogleExtrasStore());
 
         public void Dispose()
         {

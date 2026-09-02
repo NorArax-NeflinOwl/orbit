@@ -6,6 +6,7 @@ using Orbit.Mobile.Data;
 using System.Collections.ObjectModel;
 using System.Text;
 using Orbit.Core.Permissions;
+using Orbit.Mobile.Google;
 using Orbit.Mobile.Localization;
 using Orbit.Mobile.Api;
 using Orbit.Mobile.Permissions;
@@ -23,6 +24,7 @@ namespace Orbit.Mobile.Screens.Account;
 public sealed partial class AccountViewModel : ObservableObject
 {
     private readonly AccountClient _accountClient;
+    private readonly GoogleExtras _googleExtras;
     private readonly OwnEncryptionKeyProvider _encryptionKeyProvider;
     private readonly SessionStore _sessionStore;
     private readonly Translations _translations;
@@ -108,7 +110,7 @@ public sealed partial class AccountViewModel : ObservableObject
         UserPermissions permissions, IThemeStore themes, IAccentColorStore accents, TransferClient transfer,
         LocalStoreReset localStore,
         Notifications.NotificationSettingsViewModel notifications, IScreenNavigator navigator,
-        GoogleAccountLink googleLink)
+        GoogleAccountLink googleLink, GoogleExtras googleExtras)
     {
         _accountClient = accountClient;
         _encryptionKeyProvider = encryptionKeyProvider;
@@ -129,6 +131,7 @@ public sealed partial class AccountViewModel : ObservableObject
         Notifications = notifications;
         _navigator = navigator;
         GoogleLink = googleLink;
+        _googleExtras = googleExtras;
         // Connecting or disconnecting changes what the account is, so the screen reads it again rather
         // than keeping the copy it showed before.
         GoogleLink.Changed += (_, _) => _ = ShowAccountAsync();
@@ -143,6 +146,33 @@ public sealed partial class AccountViewModel : ObservableObject
 
     /// <summary>Signing in with Google as well as with a password - see <see cref="GoogleAccountLink"/>.</summary>
     public GoogleAccountLink GoogleLink { get; }
+
+    /// <summary>
+    /// Whether this phone offers the links that hand an event to Google Calendar or a place to Google
+    /// Maps. Kept on the device, and a different question from the account below it: turning these off
+    /// leaves a connected Google account connected, and signing in with it still works.
+    /// </summary>
+    public bool AllowsGoogleExtras
+    {
+        get => _googleExtras.IsAllowedOnThisDevice;
+        set
+        {
+            if (value == _googleExtras.IsAllowedOnThisDevice)
+            {
+                return;
+            }
+
+            _googleExtras.IsAllowedOnThisDevice = value;
+            OnPropertyChanged();
+        }
+    }
+
+    /// <summary>
+    /// Whether the switch above is worth offering: an account that has neither confirmed an address nor
+    /// connected Google cannot use the extras at all - see GoogleIntegrationAccess.
+    /// </summary>
+    [ObservableProperty]
+    private bool _canChooseGoogleExtras;
 
     /// <summary>
     /// Which section is showing. Tabs rather than one long scroll, as Orbit.Web's Options page has -
@@ -392,6 +422,9 @@ public sealed partial class AccountViewModel : ObservableObject
             EmailAddress = account.Email;
             IsEmailVerified = account.IsEmailVerified;
             RequiresPasswordToDelete = account.HasPassword;
+            // A switch for something the account cannot use yet would turn nothing off, so it is only
+            // offered where the account qualifies - the line Orbit.Web draws over the same row.
+            CanChooseGoogleExtras = GoogleIntegrationAccess.Qualifies(account);
             await GoogleLink.ShowAsync(account);
         }
         catch (HttpRequestException)
