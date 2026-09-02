@@ -311,28 +311,25 @@ The blob name never changes, so neither setting has to be touched again when a n
 
 ### 8. Where the "Debug logs" entry leads
 
-The avatar menu offers a link to this deployment's logs, for an account holding the **Debug**
-permission. Locally that is the Aspire dashboard the compose stack runs; on Azure there is no Aspire
-dashboard - `orbit-api` sends its OpenTelemetry traces straight to Application Insights instead (see
-`APPLICATIONINSIGHTS_CONNECTION_STRING` above). So the address here is a portal one:
+The avatar menu offers this deployment's logs to an account holding the **Debug** permission, and asks
+which of the two are wanted: what was logged, or what is happening this second. They are different
+places. Locally both are pages of the Aspire dashboard the compose stack runs; on Azure there is no
+Aspire dashboard - `orbit-api` sends its OpenTelemetry traces *and* its Serilog log lines straight to
+Application Insights instead (see `APPLICATIONINSIGHTS_CONNECTION_STRING` above), while the container's
+own console is a stream that keeps nothing. So the two addresses are portal ones:
 
 ```bash
-# Whichever of the two is meant to be read - the App Insights resource, or the container's own log
-# stream, which is where Serilog's console output goes.
-az containerapp update -n orbit-web -g Orbit \
-  --set-env-vars DIAGNOSTICS_DASHBOARD_URL="https://portal.azure.com/#@<tenant>/resource$(az monitor app-insights component show --app appinsights-orbit -g Orbit --query id -o tsv)/logs"
+az containerapp update -n orbit-web -g Orbit --set-env-vars \
+  DIAGNOSTICS_HISTORY_URL="https://portal.azure.com/#@/resource$(az monitor app-insights component show --app appinsights-orbit -g Orbit --query id -o tsv)/logs" \
+  DIAGNOSTICS_LIVE_URL="https://portal.azure.com/#@/resource$(az containerapp show -n orbit-api -g Orbit --query id -o tsv)/logstream"
 ```
 
-Unset, the menu offers nothing rather than a dead link - see
-[write-diagnostics-dashboard.sh](../src/Clients/Orbit.Web/write-diagnostics-dashboard.sh), which
-writes it into the client's `appsettings.json` when the container starts. It is a link rather than a
-credential: it lands in a file every visitor can download, and following it still needs a portal
-sign-in with rights to that resource.
-
-Both halves are there: traces under Application Insights' own transaction search, and Serilog's log
-lines as traces alongside them (see the `WriteTo.ApplicationInsights` sink in
-[Program.cs](../src/Server/Orbit.Api/Program.cs)). The Container App's log stream shows the same lines
-live while a container is running; App Insights is what still has them tomorrow.
+Either unset drops that half of the choice; both unset and the menu offers nothing rather than a dead
+link - see [write-diagnostics-dashboard.sh](../src/Clients/Orbit.Web/write-diagnostics-dashboard.sh),
+which writes them into the client's `appsettings.json` when the container starts. They are links rather
+than credentials, and they are deliberately not committed: they land in a file every visitor can
+download, so the resource path lives in the deployment's own configuration rather than in the
+repository. Following one still needs a portal sign-in with rights to that resource.
 
 ## Verifying a deploy
 

@@ -159,7 +159,8 @@ builder.Services.AddSingleton(new MobileAppDownloads(
 
 // Where this deployment's logs are read, if it publishes them anywhere - see DiagnosticsDashboard.
 builder.Services.AddSingleton(new DiagnosticsDashboard(
-    builder.Configuration["DiagnosticsDashboardUrl"] ?? string.Empty));
+    builder.Configuration["DiagnosticsHistoryUrl"] ?? string.Empty,
+    builder.Configuration["DiagnosticsLiveUrl"] ?? string.Empty));
 
 // A third-party host, not Orbit.Api - deliberately not given AuthorizationMessageHandler, so Orbit's
 // own bearer token is never sent to it (see GeocodingApiClient's class comment).

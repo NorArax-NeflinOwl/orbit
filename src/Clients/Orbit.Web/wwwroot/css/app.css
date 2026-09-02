@@ -662,6 +662,21 @@ input.note-editor-title {
     margin: 6px 4px;
 }
 
+/* The two places logs can be read, under the entry that offers them - see MainLayout. Indented to the
+   width of the icon above, so they read as answers to it rather than as two more places to go. */
+.avatar-dropdown-subitem {
+    padding-left: 34px;
+    font-size: 13px;
+    color: var(--text-tertiary);
+}
+
+/* Which way the pair under it is - the same mark a folded card uses. */
+.avatar-dropdown-chevron {
+    margin-left: auto;
+    font-size: 11px;
+    color: var(--text-tertiary);
+}
+
 .avatar-dropdown-item {
     display: flex;
     align-items: center;
