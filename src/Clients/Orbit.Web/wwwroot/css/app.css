@@ -4982,15 +4982,15 @@ input.note-editor-title {
 /* Whatever this page keeps in view whatever the form is scrolled to. Under the buttons on a wide
    screen, and folded away behind the arrow on a narrow one.
 
-   Given a width of its own because the panel takes its width from what is in it: a sentence saying who
-   is holding this list would otherwise stretch the panel across a third of the page and squeeze the
-   form it belongs to. Wide enough for a sentence to wrap into a few lines, and no wider. */
+   Capped rather than given a width, because the panel takes its width from what is in it and this box
+   is empty most of the time: a fixed width held the panel open at a couple of hundred pixels around
+   three buttons, and a sentence with no cap would stretch it across a third of the page. Capped, the
+   panel hugs the buttons until there is something to say and wraps it into a few lines when there is. */
 .editor-rail-extras {
     display: flex;
     flex-direction: column;
     gap: 8px;
-    width: 220px;
-    max-width: 100%;
+    max-width: 220px;
     font-size: 12.5px;
 }
 
@@ -5064,7 +5064,7 @@ input.note-editor-title {
        pressed: a bar tall enough to hold fields as well would be most of a phone. */
     .editor-rail-extras {
         order: 1;
-        width: auto;
+        max-width: none;
         flex-basis: 100%;
         display: none;
     }
