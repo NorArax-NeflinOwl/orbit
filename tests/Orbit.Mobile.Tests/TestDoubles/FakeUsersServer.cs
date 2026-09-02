@@ -42,8 +42,19 @@ internal sealed class FakeUsersServer : HttpMessageHandler
         Guid.NewGuid(), "me@orbit.example", "me", "Me",
         IsEmailVerified: false, HasPassword: true, IsGoogleLinked: false);
 
-    public void Add(Guid userId, string displayName, string? publicKeyBase64)
-        => _users[userId] = new UserSearchResultDto(userId, displayName.ToLowerInvariant(), displayName, publicKeyBase64);
+    /// <summary>
+    /// Every account gone, for the case a lookup has to answer "nobody" - which is also how the server
+    /// answers for somebody who has made themselves unfindable.
+    /// </summary>
+    public void ForgetEverybody() => _users.Clear();
+
+    /// <summary>
+    /// An account this server knows. The login is derived from the name unless a test says otherwise -
+    /// most do not care, and the ones that do are about the difference between the two.
+    /// </summary>
+    public void Add(Guid userId, string displayName, string? publicKeyBase64, string? userName = null)
+        => _users[userId] = new UserSearchResultDto(
+            userId, userName ?? displayName.ToLowerInvariant(), displayName, publicKeyBase64);
 
     protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
     {

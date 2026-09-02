@@ -1,4 +1,6 @@
 using System.Collections.Specialized;
+using System.Windows.Input;
+using Orbit.Mobile.Localization;
 using Microsoft.Maui.Layouts;
 using Orbit.Mobile.Screens.Calendar;
 
@@ -13,9 +15,15 @@ public partial class CalendarPage : ContentPage
 	private const double HourHeight = 46;
 
 	private readonly CalendarViewModel _viewModel;
+	private readonly Translations _translations;
 
-	public CalendarPage(CalendarViewModel viewModel)
+	public CalendarPage(CalendarViewModel viewModel, Translations translations)
 	{
+		_translations = translations;
+		// Assigned before InitializeComponent, which is where the binding to it is built - see
+		// TaskListDetailPage for the same order and why it matters.
+		ChooseSortOrderCommand = new Command(() => _ = ChooseSortOrderAsync());
+
 		InitializeComponent();
 		BindingContext = _viewModel = viewModel;
 		_viewModel.DayBlocks.CollectionChanged += OnTheDayChanged;
@@ -27,6 +35,32 @@ public partial class CalendarPage : ContentPage
 	/// RelativeSource walks the visual tree - so it names the page and comes through here.
 	/// </summary>
 	public CalendarViewModel ViewModel => _viewModel;
+
+	/// <summary>What order the list under the grid is read in - see CalendarListEntry.</summary>
+	public ICommand ChooseSortOrderCommand { get; }
+
+	private async Task ChooseSortOrderAsync()
+	{
+		// The one in force is marked, because a menu of three with no answer among them leaves the
+		// reader guessing what they are looking at.
+		var orders = new Dictionary<string, CalendarListSortOrder>
+		{
+			[Mark(_translations["By when"], CalendarListSortOrder.When)] = CalendarListSortOrder.When,
+			[Mark(_translations["By type"], CalendarListSortOrder.Type)] = CalendarListSortOrder.Type,
+			[Mark(_translations["Alphabetical"], CalendarListSortOrder.Alphabetical)] = CalendarListSortOrder.Alphabetical
+		};
+
+		var chosen = await DisplayActionSheet(
+			_translations["Sort"], _translations["Cancel"], destruction: null, [.. orders.Keys]);
+
+		if (chosen is not null && orders.TryGetValue(chosen, out var order))
+		{
+			_viewModel.SortOrder = order;
+		}
+	}
+
+	private string Mark(string name, CalendarListSortOrder order)
+		=> _viewModel.SortOrder == order ? $"{name} ✓" : name;
 
 	protected override void OnAppearing()
 	{

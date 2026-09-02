@@ -48,9 +48,16 @@
                 <Label Text="{Binding FoundPerson.UserName, StringFormat='@{0}'}" FontSize="12"
                        TextColor="{AppThemeBinding Light={StaticResource SubtleTextLight}, Dark={StaticResource SubtleTextDark}}" />
             </VerticalStackLayout>
-            <Button Grid.Column="1" Text="{controls:Translate 'Message'}" VerticalOptions="Center"
-                    Command="{Binding OpenConversationCommand}"
-                    CommandParameter="{Binding FoundPerson}" />
+            <HorizontalStackLayout Grid.Column="1" Spacing="4" VerticalOptions="Center">
+                <!-- Who they are, before deciding whether to write to them at all. -->
+                <Button Text="{controls:Translate 'Info'}" FontSize="13" Padding="12,4"
+                        Style="{StaticResource LinkButton}"
+                        Command="{Binding OpenContactInfoCommand}"
+                        CommandParameter="{Binding FoundPerson.UserId}" />
+                <Button Text="{controls:Translate 'Message'}"
+                        Command="{Binding OpenConversationCommand}"
+                        CommandParameter="{Binding FoundPerson}" />
+            </HorizontalStackLayout>
         </Grid>
 
         <!-- Offered only once something has been put away: an empty archive is a place that answers

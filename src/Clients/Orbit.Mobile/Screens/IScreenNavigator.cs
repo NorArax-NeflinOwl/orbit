@@ -30,6 +30,13 @@ public interface IScreenNavigator
 
     void ShowConversation(LocalContact contact);
 
+    /// <summary>
+    /// Who somebody is, apart from what they have said - see ContactInfoViewModel. Named by the account
+    /// rather than by a stored contact, because it is also opened for somebody this phone has never
+    /// spoken to.
+    /// </summary>
+    void ShowContactInfo(Guid userId);
+
     void ShowGroups();
 
     void ShowGroupConversation(LocalChatGroup group);

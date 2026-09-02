@@ -36,6 +36,7 @@ public sealed class UpNavigation
         [Screen.Warehouse] = Screen.Inventory,
         [Screen.Contacts] = Screen.Dashboard,
         [Screen.Conversation] = Screen.Contacts,
+        [Screen.ContactInfo] = Screen.Contacts,
         [Screen.Groups] = Screen.Contacts,
         [Screen.GroupConversation] = Screen.Groups,
         [Screen.GroupDetail] = Screen.Groups,

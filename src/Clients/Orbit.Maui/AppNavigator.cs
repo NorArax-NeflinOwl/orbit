@@ -107,6 +107,10 @@ public sealed class AppNavigator : IScreenNavigator
 	public void ShowConversation(LocalContact contact)
 		=> ShowAsRoot<ConversationPage>(Screen.Conversation, page => page.ViewModel.Open(contact));
 
+	/// <inheritdoc cref="ShowConversation"/>
+	public void ShowContactInfo(Guid userId)
+		=> ShowAsRoot<ContactInfoPage>(Screen.ContactInfo, page => page.ViewModel.Open(userId));
+
 	public void ShowGroups() => ShowAsRoot<GroupsPage>(Screen.Groups);
 
 	/// <inheritdoc cref="ShowConversation"/>

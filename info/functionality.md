@@ -331,6 +331,14 @@ named from the conversation, told the two possible reasons, and told plainly tha
 unaffected — while an id that means nothing gets "there is nothing to show" and no offer to open a chat
 that does not exist.
 
+**The phone opens the same card** (`ContactInfoViewModel`), from the contact list's row menu, from
+beside somebody just found by search, and from the conversation's own header - the three places a name
+is already on screen. It answers from the row this phone holds before it asks the server anything, which
+is why it says who somebody is on a train: the contact sync now stores the address as well as the name,
+so the whole card reads offline. What only the account can say - a name changed since the last sync -
+overwrites it when the lookup answers, and nothing is claimed when it cannot be reached: being offline
+is not an answer about somebody.
+
 A chat with more than one other person, under the same end-to-end encryption one-to-one chats already
 have. There is no group key: the sender's browser encrypts the same text **once per other member**,
 under the pairwise key it already shares with each of them, and posts the copies together
@@ -847,9 +855,19 @@ deadline row beside it is the same appointment written out a second time, one li
 grid leaves it off whenever the event it names is on the same day — asked of the occurrence rather than
 of the date the event is stored under, so a repeat takes its entry off every day it lands on
 (`CalendarGridBuilder.DueTasksOnDate`). It stays on any other day, and it stays when the event is one
-this reader cannot see (deleted, or somebody else's), where nothing on the day stands for it. The side
-panels are left alone: "Events" and "Tasks" are two lists by design, and something that is both belongs
-in each.
+this reader cannot see (deleted, or somebody else's), where nothing on the day stands for it.
+
+**The list beside the grid holds both kinds, in one list.** Appointments and deadlines answer the same
+question - what is happening in this period - and two lists side by side made the reader merge them by
+eye, in a period where they interleave by definition. Each row says which kind it is, and the list is
+read in one of three orders from the page's own menu: by when (soonest first, which is what a calendar
+is asked for), by type (appointments first, still by when within each), or by name. The order is kept on
+the device, like the dashboard's own layout (`CalendarListOrder` in the browser,
+`ICalendarListOrderStore` on the phone). **The phone draws the same one list**, with the same three
+orders behind the heading's menu - it used to stack "Tasks with a due date" underneath the events, which
+is the shape the browser moved away from. The one difference between them is the entry tied to an event:
+the browser's list carries both rows, and the phone leaves the deadline off the day its event is on,
+since in a single list the two would sit one under the other.
 
 The pin comes from whichever source holds the address. An entry tied to a calendar event takes the
 event's stored coordinates directly — the link exists so the address lives in one place. An entry with
