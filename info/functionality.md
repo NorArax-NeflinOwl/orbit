@@ -686,6 +686,9 @@ it is the one thing on the page that most needs saying, and hiding it would hide
 The grid never hides anything. A day with something in it should say so whether or not it has been, and
 a month drawn with holes in it would be a month that had not happened.
 
+**The phone draws the same line**, from the same menu the order is chosen in and kept beside it on the
+device (`CalendarListReading`). Its grid keeps everything too.
+
 **Show → "Everything, including what is over"** in the page's menu puts them back, and is remembered by
 the device the way the list's order is (`CalendarListOrder`, localStorage - it describes one page for
 one reader on one screen).

@@ -2,12 +2,12 @@ using Orbit.Mobile.Screens.Calendar;
 
 namespace Orbit.Mobile.Tests.TestDoubles;
 
-/// <summary>What order the calendar's list is read in, kept for as long as one test runs.</summary>
+/// <summary>How the calendar's list is read, kept for as long as one test runs.</summary>
 internal sealed class InMemoryCalendarListOrderStore : ICalendarListOrderStore
 {
-    private CalendarListSortOrder _sortOrder = CalendarListSortOrder.When;
+    private CalendarListReading _reading = CalendarListReading.Default;
 
-    public CalendarListSortOrder Read() => _sortOrder;
+    public CalendarListReading Read() => _reading;
 
-    public void Write(CalendarListSortOrder sortOrder) => _sortOrder = sortOrder;
+    public void Write(CalendarListReading reading) => _reading = reading;
 }

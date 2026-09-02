@@ -48,7 +48,9 @@ public sealed partial class CalendarViewModel : ObservableObject
     {
         _events = events;
         _listOrder = listOrder;
-        _sortOrder = listOrder.Read();
+        var reading = listOrder.Read();
+        _sortOrder = reading.SortOrder;
+        _showsEverything = reading.ShowsEverything;
         _taskLists = taskLists;
         _synchronizer = synchronizer;
         _networkStatus = networkStatus;
@@ -77,6 +79,13 @@ public sealed partial class CalendarViewModel : ObservableObject
     /// <summary>What order that list is read in, kept on this device - see ICalendarListOrderStore.</summary>
     [ObservableProperty]
     private CalendarListSortOrder _sortOrder;
+
+    /// <summary>
+    /// Whether the list also holds what is already over - see CalendarListEntry.IsOver. Kept beside the
+    /// order, because both describe how this one reader reads this one page.
+    /// </summary>
+    [ObservableProperty]
+    private bool _showsEverything;
 
     /// <summary>The month grid - six weeks of seven days, whatever month it is. See CalendarMonth.</summary>
     public ObservableCollection<CalendarDay> Days { get; } = [];
@@ -364,8 +373,15 @@ public sealed partial class CalendarViewModel : ObservableObject
 
     private void ShowInChosenOrder()
     {
+        // What a calendar is read for is what is coming, so what is over is left off unless it was
+        // asked for. The grid beside the list still draws it - see CalendarListEntry.IsOver.
+        var nowUtc = _timeProvider.GetUtcNow();
+        var worthShowing = ShowsEverything
+            ? _listed
+            : [.. _listed.Where(entry => !entry.IsOver(nowUtc))];
+
         Listed.Clear();
-        foreach (var entry in CalendarListEntry.InOrder(_listed, SortOrder))
+        foreach (var entry in CalendarListEntry.InOrder(worthShowing, SortOrder))
         {
             Listed.Add(entry);
         }
@@ -373,9 +389,17 @@ public sealed partial class CalendarViewModel : ObservableObject
 
     partial void OnSortOrderChanged(CalendarListSortOrder value)
     {
-        _listOrder.Write(value);
+        Remember();
         ShowInChosenOrder();
     }
+
+    partial void OnShowsEverythingChanged(bool value)
+    {
+        Remember();
+        ShowInChosenOrder();
+    }
+
+    private void Remember() => _listOrder.Write(new CalendarListReading(SortOrder, ShowsEverything));
 
     /// <summary>
     /// A repeating event as every day it lands on - see <see cref="CalendarOccurrences"/>.

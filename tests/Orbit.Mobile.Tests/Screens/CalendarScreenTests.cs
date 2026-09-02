@@ -136,6 +136,9 @@ public sealed class CalendarScreenTests
         await context.AddEventAsync(
             "Standup", new DateTime(2026, 8, 3, 9, 0, 0), Weekly());
         var screen = await context.OpenAsync();
+        // This is about how many days the rule falls on, not about what the list leaves out - the ones
+        // already past would otherwise be missing from the count. See ShowsEverything.
+        screen.ShowsEverything = true;
 
         // Five Mondays in August 2026, counting the one it starts on.
         Assert.Equal(5, Events(screen).Count(row => row.Title == "Standup"));
@@ -157,6 +160,8 @@ public sealed class CalendarScreenTests
             "Standup", new DateTime(2026, 8, 3, 9, 0, 0),
             Weekly(until: new DateTime(2026, 8, 17)));
         var screen = await context.OpenAsync();
+        // Counting the days the rule falls on, past ones included - see the test above.
+        screen.ShowsEverything = true;
 
         Assert.Equal(3, Events(screen).Count(row => row.Title == "Standup"));
         Assert.False(screen.Days.Single(day => day.Date == new DateTime(2026, 8, 24)).HasEvents);
@@ -276,6 +281,58 @@ public sealed class CalendarScreenTests
         Assert.Equal(["Groceries: Apples", "Zoo"], screen.Listed.Select(entry => entry.Name));
     }
 
+    /// <summary>
+    /// A calendar is read for what is coming, so the list leaves out what is over: an appointment that
+    /// has ended, and a deadline that has been ticked off. The same line Orbit.Web draws over the same
+    /// list - and the grid beside it still draws everything, because a day with something in it should
+    /// say so whether or not it has been.
+    /// </summary>
+    [Fact]
+    public async Task What_is_over_is_left_off_the_list()
+    {
+        using var context = new ScreenContext();
+        // The clock this screen runs on says 2026-08-15; both days are in the month it opens on.
+        await context.AddEventAsync("Last week", new DateTime(2026, 8, 10, 9, 0, 0));
+        await context.AddEventAsync("Next week", new DateTime(2026, 8, 20, 9, 0, 0));
+
+        var screen = await context.OpenAsync();
+
+        Assert.Equal(["Next week"], screen.Listed.Select(entry => entry.Name));
+        // Still on the grid: the day it happened is not an empty day.
+        Assert.True(screen.Days.Single(day => day.Date == new DateTime(2026, 8, 10)).HasEvents);
+
+        screen.ShowsEverything = true;
+        Assert.Contains(screen.Listed, entry => entry.Name == "Last week");
+    }
+
+    /// <summary>
+    /// A deadline that has passed and is still not done stays: it is the one thing on this page that
+    /// most needs saying, and hiding it would hide the work.
+    /// </summary>
+    [Fact]
+    public async Task An_overdue_deadline_stays_on_the_list()
+    {
+        using var context = new ScreenContext();
+        // Due five days before the day the screen calls today, and still not ticked off.
+        await context.AddDeadlineAsync("Groceries", "Buy milk", new DateTime(2026, 8, 10, 17, 0, 0));
+
+        var screen = await context.OpenAsync();
+
+        Assert.Equal(["Groceries: Buy milk"], screen.Listed.Select(entry => entry.Name));
+    }
+
+    [Fact]
+    public async Task Whether_it_shows_everything_is_remembered_on_the_device()
+    {
+        using var context = new ScreenContext();
+        var screen = await context.OpenAsync();
+
+        screen.ShowsEverything = true;
+
+        Assert.True(context.ListOrder.Read().ShowsEverything);
+        Assert.True((await context.OpenAsync()).ShowsEverything);
+    }
+
     [Fact]
     public async Task The_chosen_order_is_remembered_on_the_device()
     {
@@ -284,7 +341,7 @@ public sealed class CalendarScreenTests
 
         screen.SortOrder = CalendarListSortOrder.Alphabetical;
 
-        Assert.Equal(CalendarListSortOrder.Alphabetical, context.ListOrder.Read());
+        Assert.Equal(CalendarListSortOrder.Alphabetical, context.ListOrder.Read().SortOrder);
         Assert.Equal(CalendarListSortOrder.Alphabetical, (await context.OpenAsync()).SortOrder);
     }
 

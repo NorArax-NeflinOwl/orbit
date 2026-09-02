@@ -9,16 +9,23 @@ namespace Orbit.Maui.Platform;
 public sealed class PreferencesCalendarListOrderStore : ICalendarListOrderStore
 {
 	private const string SortOrderKey = "orbit.calendar.list.sort-order";
+	private const string ShowsEverythingKey = "orbit.calendar.list.shows-everything";
 
 	private readonly IPreferences _preferences;
 
 	public PreferencesCalendarListOrderStore(IPreferences preferences) => _preferences = preferences;
 
 	/// <summary>An order written by a build that offered a different set reads as the default.</summary>
-	public CalendarListSortOrder Read()
-		=> Enum.TryParse<CalendarListSortOrder>(_preferences.Get<string?>(SortOrderKey, null), out var stored)
-			? stored
-			: CalendarListSortOrder.When;
+	public CalendarListReading Read()
+		=> new(
+			Enum.TryParse<CalendarListSortOrder>(_preferences.Get<string?>(SortOrderKey, null), out var stored)
+				? stored
+				: CalendarListSortOrder.When,
+			_preferences.Get(ShowsEverythingKey, false));
 
-	public void Write(CalendarListSortOrder sortOrder) => _preferences.Set(SortOrderKey, sortOrder.ToString());
+	public void Write(CalendarListReading reading)
+	{
+		_preferences.Set(SortOrderKey, reading.SortOrder.ToString());
+		_preferences.Set(ShowsEverythingKey, reading.ShowsEverything);
+	}
 }
