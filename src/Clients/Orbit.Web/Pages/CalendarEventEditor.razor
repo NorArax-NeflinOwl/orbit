@@ -29,27 +29,15 @@
 
 <PageTitle>@(IsNewEvent ? T["New event"] : T["Edit event"])</PageTitle>
 
+@* Two panels: the form on the left, which scrolls, and the panel on the right, which does not - see
+   EditorRail. On a narrow screen the right one becomes a bar along the foot of the window. *@
+<div class="editor-page">
+<div class="editor-page-body">
+
 <div class="page-header">
     <div class="page-heading">
         <h1>@(IsNewEvent ? T["New event"] : T["Edit event"])</h1>
     </div>
-    @if (!_isLoading)
-    {
-        <EditorActions OnSave="SaveAsync" OnCancel="CancelAsync" SaveDisabled="@_isSaving">
-            @* Deleting from here, not only from the calendar page: opening an event to look at it and
-               deciding it should go is the moment the wish arrives. In a menu rather than as a third
-               button, because it is not one of the two things this page is for - and only for an event
-               that is actually yours to change, the same gate the content fieldset uses. *@
-            @if (!IsNewEvent && _canEditContent)
-            {
-                <OverflowMenu>
-                    <button type="button" class="avatar-dropdown-item" disabled="@_isDeleting" @onclick="DeleteAsync">
-                        @T["Delete event"]
-                    </button>
-                </OverflowMenu>
-            }
-        </EditorActions>
-    }
 </div>
 
 @if (_isLoading)
@@ -135,6 +123,26 @@ else
         <p class="error">@_errorMessage</p>
     }
 }
+
+</div>
+@if (!_isLoading)
+{
+    <EditorRail OnSave="SaveAsync" OnCancel="CancelAsync" SaveDisabled="@_isSaving">
+        @* Deleting from here, not only from the calendar page: opening an event to look at it and
+           deciding it should go is the moment the wish arrives. In a menu rather than as a third
+           button, because it is not one of the two things this page is for - and only for an event
+           that is actually yours to change, the same gate the content fieldset uses. *@
+        @if (!IsNewEvent && _canEditContent)
+        {
+            <OverflowMenu>
+                <button type="button" class="avatar-dropdown-item" disabled="@_isDeleting" @onclick="DeleteAsync">
+                    @T["Delete event"]
+                </button>
+            </OverflowMenu>
+        }
+    </EditorRail>
+}
+</div>
 
 @if (_isMapVisible)
 {

@@ -23,6 +23,11 @@
    from the top down and the form has no fixed height, so the buttons used to be wherever the writing
    happened to end - which on a long note is off the screen. Icons, because two words there would
    compete with the one thing the page is called. *@
+@* Two panels: the form on the left, which scrolls, and the panel on the right, which does not - see
+   EditorRail. On a narrow screen the right one becomes a bar along the foot of the window. *@
+<div class="editor-page">
+<div class="editor-page-body">
+
 <div class="page-header">
     <div class="page-heading">
         <h1>@(IsNewNote ? T["New note"] : T["Edit note"])</h1>
@@ -31,10 +36,6 @@
             <span class="form-hint">@T["Write something in it."]</span>
         }
     </div>
-    @if (!_isLoading && !_isSharedReadOnly && _lockedByUserName is null)
-    {
-        <EditorActions OnSave="SaveAsync" OnCancel="CancelAsync" SaveDisabled="@(!HasSomethingToSave || _isSaving)" />
-    }
 </div>
 
 @if (_isLoading)
@@ -161,6 +162,13 @@ else
         }
     }
 }
+
+</div>
+@if (!_isLoading && !_isSharedReadOnly && _lockedByUserName is null)
+{
+    <EditorRail OnSave="SaveAsync" OnCancel="CancelAsync" SaveDisabled="@(!HasSomethingToSave || _isSaving)" />
+}
+</div>
 
 @code {
     [Parameter]

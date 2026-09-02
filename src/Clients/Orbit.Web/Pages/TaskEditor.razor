@@ -37,38 +37,15 @@
     }
 </datalist>
 
+@* Two panels: the form on the left, which scrolls, and the panel on the right, which does not - see
+   EditorRail. On a narrow screen the right one becomes a bar along the foot of the window. *@
+<div class="editor-page">
+<div class="editor-page-body">
+
 <div class="page-header">
     <div>
         <h1>@(IsNewTaskList ? T["New task list"] : T["Edit task list"])</h1>
     </div>
-    @if (!_isLoading)
-    {
-        <EditorActions OnSave="SaveAsync" OnCancel="CancelAsync"
-                       SaveDisabled="@(_isSharedReadOnly || _lockedByUserName is not null || _isSaving)">
-            @* Only for a list that exists: nothing in the menu can act on one that has never been saved. *@
-            @if (!IsNewTaskList && Id is { } menuTaskListId)
-            {
-                <OverflowMenu>
-                    @* A list already measured against a storage has nowhere to put a second one: this
-                       would build it and quietly move the list onto it, leaving the first behind with
-                       nothing pointing at it. What such a list wants instead is a product on the shelf
-                       it already has - which is what an inventory entry offers there. *@
-                    <button type="button" class="avatar-dropdown-item"
-                            disabled="@(_isWorkingOnInventory || _linkedWarehouseId is not null)"
-                            title="@(_linkedWarehouseId is null ? null : T["This list already has a storage."])"
-                            @onclick="() => GenerateInventoryAsync(menuTaskListId)">
-                        @T["Generate inventory"]
-                    </button>
-                    @* Nothing to recalculate until there is a warehouse to recalculate against. *@
-                    <button type="button" class="avatar-dropdown-item"
-                            disabled="@(_isWorkingOnInventory || _linkedWarehouseId is null)"
-                            @onclick="() => RecalculateAsync(menuTaskListId)">
-                        @T["Recalculate against the inventory"]
-                    </button>
-                </OverflowMenu>
-            }
-        </EditorActions>
-    }
 </div>
 
 @if (_inventoryMessage is not null)
@@ -494,6 +471,37 @@ else
         }
     }
 }
+
+</div>
+@if (!_isLoading)
+{
+    <EditorRail OnSave="SaveAsync" OnCancel="CancelAsync"
+                SaveDisabled="@(_isSharedReadOnly || _lockedByUserName is not null || _isSaving)">
+        @* Only for a list that exists: nothing in the menu can act on one that has never been saved. *@
+        @if (!IsNewTaskList && Id is { } menuTaskListId)
+        {
+            <OverflowMenu>
+                @* A list already measured against a storage has nowhere to put a second one: this
+                   would build it and quietly move the list onto it, leaving the first behind with
+                   nothing pointing at it. What such a list wants instead is a product on the shelf
+                   it already has - which is what an inventory entry offers there. *@
+                <button type="button" class="avatar-dropdown-item"
+                        disabled="@(_isWorkingOnInventory || _linkedWarehouseId is not null)"
+                        title="@(_linkedWarehouseId is null ? null : T["This list already has a storage."])"
+                        @onclick="() => GenerateInventoryAsync(menuTaskListId)">
+                    @T["Generate inventory"]
+                </button>
+                @* Nothing to recalculate until there is a warehouse to recalculate against. *@
+                <button type="button" class="avatar-dropdown-item"
+                        disabled="@(_isWorkingOnInventory || _linkedWarehouseId is null)"
+                        @onclick="() => RecalculateAsync(menuTaskListId)">
+                    @T["Recalculate against the inventory"]
+                </button>
+            </OverflowMenu>
+        }
+    </EditorRail>
+}
+</div>
 
 @if (_itemBeingPlacedOnTheMap is { } itemOnTheMap)
 {

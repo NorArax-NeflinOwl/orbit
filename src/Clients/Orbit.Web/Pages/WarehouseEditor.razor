@@ -23,6 +23,11 @@
 }
 else
 {
+@* Two panels: the form on the left, which scrolls, and the panel on the right, which does not - see
+   EditorRail. On a narrow screen the right one becomes a bar along the foot of the window. *@
+<div class="editor-page">
+<div class="editor-page-body">
+
     <div class="page-header">
         <div>
             <h1>@(_formModel.Name.Length > 0 ? _formModel.Name : T["Warehouse"])</h1>
@@ -32,8 +37,6 @@ else
                 <p class="shared-note-banner">@T["Shared by"]@Space<strong>@_sharedByUserName</strong> - @SharedAccessDescription.</p>
             }
         </div>
-        <EditorActions OnSave="SaveAsync" OnCancel="GoToWarehouses"
-                       SaveDisabled="@(_isReadOnly || _lockedByUserName is not null || _isSaving)" />
     </div>
 
     @if (_lockedByUserName is not null)
@@ -268,6 +271,11 @@ else
                     @onclick="RefreshRestockListAsync">@T["Refresh"]</button>
         </div>
     </div>
+
+</div>
+<EditorRail OnSave="SaveAsync" OnCancel="GoToWarehouses"
+            SaveDisabled="@(_isReadOnly || _lockedByUserName is not null || _isSaving)" />
+</div>
 }
 
 @code {

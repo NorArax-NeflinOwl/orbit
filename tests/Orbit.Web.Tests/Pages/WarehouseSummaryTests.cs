@@ -86,7 +86,7 @@ public sealed class WarehouseSummaryTests : OrbitTestContext
         var navigationManager = Services.GetRequiredService<NavigationManager>();
         var cut = RenderComponent<WarehouseSummary>(parameters => parameters.Add(page => page.WarehouseId, WarehouseId));
 
-        cut.Find(".page-header-actions .overflow-menu-trigger").Click();
+        cut.Find(".editor-rail .overflow-menu-trigger").Click();
         cut.FindAll(".avatar-dropdown-item").First(entry => entry.TextContent.Trim() == "Edit").Click();
 
         Assert.EndsWith($"/inventory/{WarehouseId}/edit", navigationManager.Uri);

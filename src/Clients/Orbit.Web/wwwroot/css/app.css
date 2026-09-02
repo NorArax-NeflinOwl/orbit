@@ -4942,7 +4942,126 @@ input.note-editor-title {
     padding: 0;
 }
 
-/* An editor's own two actions - see EditorActions.razor. Twice the size of an ordinary icon button and
+/* An editing screen: what is being filled in on the left, and the panel that does not move on the
+   right. The left column scrolls with the page, so the right one is sticky rather than fixed - it
+   belongs to the page it is acting on, and stops at that page's end rather than hanging over the
+   footer. */
+.editor-page {
+    display: flex;
+    align-items: flex-start;
+    gap: 20px;
+}
+
+.editor-page-body {
+    /* min-width, because a flex item's floor is the width of its widest content and a long line inside
+       a form would otherwise push the panel off the screen instead of wrapping. */
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+.editor-rail {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+    flex: 0 0 auto;
+    position: sticky;
+    /* The bar along the top, plus the air the page starts with: a number rather than a measurement for
+       the reason the map page gives about its own chrome - the bar's height is fixed. */
+    top: 76px;
+    padding: 10px;
+    background: var(--bg-elevated);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+}
+
+/* Whatever this page keeps in view whatever the form is scrolled to. Above the buttons on a wide
+   screen, and folded away behind the arrow on a narrow one. */
+.editor-rail-extras {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    width: 100%;
+}
+
+.editor-rail-actions {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+}
+
+/* Only ever pressed where the panel is a bar - on a wide screen the extras are simply there, and an
+   arrow that folds away something already in view is a control that undoes itself. */
+.editor-rail-toggle {
+    display: none;
+}
+
+/* No room for a column beside the form, so the panel becomes a bar along the foot of the window: the
+   arrow that opens the rest of it at one end, the three actions at the other. Fixed rather than sticky,
+   because the point of it on a phone is to be under the thumb wherever the form has been scrolled to. */
+@media (max-width: 680px) {
+    .editor-page {
+        display: block;
+    }
+
+    .editor-rail {
+        position: fixed;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        /* Undoes the offset it sticks to on a wide screen: kept, it would hold the bar's top there and
+           stretch it over the whole page. */
+        top: auto;
+        flex-direction: row;
+        flex-wrap: wrap;
+        align-items: center;
+        justify-content: space-between;
+        padding: 8px 12px;
+        border-radius: 0;
+        border-left: 0;
+        border-right: 0;
+        border-bottom: 0;
+        /* Over the page it sits on, and under the menus that hang off the bar at the top. */
+        z-index: 20;
+    }
+
+    .editor-rail-toggle {
+        display: inline-flex;
+        order: 2;
+    }
+
+    .editor-rail-actions {
+        flex-direction: row;
+        order: 3;
+        margin-left: auto;
+    }
+
+    /* On its own line above the buttons rather than beside them, and only once the arrow has been
+       pressed: a bar tall enough to hold fields as well would be most of a phone. */
+    .editor-rail-extras {
+        order: 1;
+        flex-basis: 100%;
+        display: none;
+    }
+
+    .editor-rail-open .editor-rail-extras {
+        display: flex;
+    }
+
+    /* Room under the last thing on the page for the bar to sit over nothing. */
+    .main-content-page {
+        padding-bottom: 96px;
+    }
+
+    /* Half the size, because a bar that is 60px tall on a phone is a bar and a half. */
+    .icon-btn.page-action {
+        width: 44px;
+        height: 44px;
+    }
+}
+
+/* An editor's own two actions - see EditorRail.razor. Twice the size of an ordinary icon button and
    drawn with an edge like .page-add's: these are what the page is for, and at 30px without one they
    read as an afterthought next to the form they act on. */
 .icon-btn.page-action {

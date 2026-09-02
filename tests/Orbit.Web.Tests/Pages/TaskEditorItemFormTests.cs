@@ -414,12 +414,14 @@ public sealed class TaskEditorItemFormTests : OrbitTestContext
 
     /// <summary>
     /// A button by what it says - its words, or the name it carries for a screen reader, since an
-    /// editor's Save and Cancel are icons now (see EditorActions.razor).
+    /// editor's Save and Cancel are icons now (see EditorRail.razor). The screen-reader name is looked
+    /// at first and matched whole: a page can hold both the editor's Save and a "Save settings" beside
+    /// something else, and by their words alone the wrong one answers to "Save".
     /// </summary>
     private static AngleSharp.Dom.IElement ButtonSaying(IRenderedFragment cut, string label)
-        => cut.FindAll("button").First(button =>
-            button.TextContent.Contains(label, StringComparison.Ordinal)
-                || string.Equals(button.GetAttribute("aria-label"), label, StringComparison.Ordinal));
+        => cut.FindAll("button").FirstOrDefault(button =>
+               string.Equals(button.GetAttribute("aria-label"), label, StringComparison.Ordinal))
+            ?? cut.FindAll("button").First(button => button.TextContent.Contains(label, StringComparison.Ordinal));
 
     private static TaskItemDto AnItem(
         string kind = nameof(TaskItemKind.Checklist), DateTimeOffset? dueDateUtc = null, bool remindDaily = false,
