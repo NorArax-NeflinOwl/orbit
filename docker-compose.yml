@@ -123,9 +123,10 @@ services:
       # the app instead of a browser - see write-android-app-links.sh. Left unset, nothing is served
       # and links open in a browser, which is the ordinary state for a local stack.
       ANDROID_APP_SHA256: "${ANDROID_APP_SHA256:-}"
-      # Where the "Debug logs" entry in the avatar menu leads - the Aspire dashboard this stack already
-      # runs, unless a deployment says otherwise. See write-diagnostics-dashboard.sh.
-      DIAGNOSTICS_DASHBOARD_URL: "${DIAGNOSTICS_DASHBOARD_URL:-http://localhost:18888}"
+      # Where the "Debug logs" entry in the avatar menu leads - the two pages of the Aspire dashboard this
+      # stack already runs, unless a deployment says otherwise. See write-diagnostics-dashboard.sh.
+      DIAGNOSTICS_HISTORY_URL: "${DIAGNOSTICS_HISTORY_URL:-http://localhost:18888/structuredlogs}"
+      DIAGNOSTICS_LIVE_URL: "${DIAGNOSTICS_LIVE_URL:-http://localhost:18888/consolelogs}"
     volumes:
       - orbit-web-certs:/etc/nginx/certs
     depends_on:

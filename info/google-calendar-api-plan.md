@@ -50,15 +50,54 @@ are the cost of admission and produce nothing a user can see.
 
 ### T1 - Get the scope approved in Google Cloud Console (outside this repo, L)
 
-Enable the Google Calendar API on the project, add `https://www.googleapis.com/auth/calendar.events` to
-the consent screen, and take it through verification: Google classes that scope as **sensitive**, which
-means a privacy policy, a recorded demonstration of the flow, and a justification. Until it passes, only
-accounts listed as test users on the consent screen can grant it.
+`https://www.googleapis.com/auth/calendar.events` is a scope Google classes as **sensitive**: an app may
+ask for it in testing straight away, but not from anybody outside its own test-user list until the
+consent screen has been through verification. That is a review with a person on the other end, measured
+in weeks, so it starts before any of the code below.
 
-**Done when** an account that is not a project member can complete the consent flow.
+Sensitive is not the worst tier - a **restricted** scope (Gmail, full Drive) additionally needs an
+annual third-party security assessment, and this one does not. Google's console shows the current
+requirements for the scopes actually selected, and that checklist is the authority; what follows is what
+to have ready before opening it.
 
-**Start this first.** Every other task can be built against test users, but nothing ships without it, and
-the review is measured in weeks with back-and-forth.
+**The prerequisite that is not in Google's console at all: a domain.** Verification asks for authorised
+domains that the applicant owns and has verified in Google Search Console, and for a privacy policy and
+terms of service hosted on one of them. Orbit is served from
+`orbit-web.victorioustree-36ad82ca.polandcentral.azurecontainerapps.io` - a domain Microsoft owns, which
+cannot be verified as Orbit's. **A custom domain is therefore step zero**, and it is also the longest
+pole: registering it, pointing it at the Container App, and re-issuing the OAuth client's authorised
+JavaScript origins and redirect URIs against it.
+
+In order:
+
+1. **A domain, and the two documents on it.** Register it, put it in front of `orbit-web` (Container
+   Apps custom domain plus its managed certificate), verify it in Google Search Console under the same
+   Google account that owns the Cloud project. Publish a privacy policy and terms of service on it -
+   they have to say what Google user data Orbit reads, what it stores, who else sees it, and how someone
+   deletes it. For this integration the honest answer is short: calendar events Orbit itself created,
+   written on the reader's instruction, never read back.
+2. **Enable the Google Calendar API** on the project that already issues Orbit's sign-in client ids
+   (APIs & Services → Library). Verification is per project, and Orbit has one.
+3. **Fill in the consent screen** (Branding / Audience): app name, support email, developer contact,
+   the authorised domain from step 1, and links to both documents. A logo is optional and not free -
+   uploading one adds a brand review on top of the scope review.
+4. **Add the scope** and write its justification: what Orbit does with it (creates and updates events
+   the reader asked for, in their own calendar), and why nothing narrower does - there is no
+   write-only-what-I-created scope.
+5. **Record the demo video.** Unlisted on YouTube is fine. It has to show the whole flow end to end: the
+   browser's address bar with the client id visible on the consent screen, somebody granting consent,
+   and then what the app actually does with the access - creating the event and it appearing in Google
+   Calendar. A video that only shows the consent screen comes back with questions.
+6. **Switch the app from Testing to In production and submit.** Then answer whatever comes back;
+   expect at least one round of questions.
+
+**One trap while still in Testing**: for an app in that state, Google expires refresh tokens after
+**seven days**. T3's "does a token survive a restart" is therefore testable, and "does it still work next
+week" is not, until verification passes. Worth knowing before someone spends a day chasing a token that
+was revoked by policy rather than by a bug.
+
+**Done when** an account that is neither a project member nor a listed test user can complete the consent
+flow and stay connected for longer than a week.
 
 ### T2 - The authorization-code flow and a client secret (M)
 
@@ -185,3 +224,5 @@ decision with its own failure modes.
 3. **Opt-in per event or all of them** - every Orbit event goes to Google once connected, or only the
    ones a reader asks for. Changes the UI, not the plumbing.
 4. **Where the encryption key lives** - Data Protection key ring or Key Vault (T3).
+5. **Which domain Orbit lives at** - forced by T1 rather than chosen for this feature, but it is the
+   first thing to buy and the slowest to take effect.

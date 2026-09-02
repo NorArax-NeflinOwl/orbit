@@ -106,7 +106,6 @@ using Orbit.Core.Tasks.MoveTaskItem;
 using Orbit.Core.Tasks.OverdueNotifications;
 using Orbit.Core.Tasks.ReleaseTaskListLock;
 using Orbit.Core.Tasks.LinkTaskListToWarehouse;
-using Orbit.Core.Tasks.ReconcileTaskListWithStock;
 using Orbit.Core.Tasks.GenerateWarehouseFromTaskList;
 using Orbit.Core.Tasks.GetTaskListStockCheck;
 using Orbit.Core.Tasks.StockCheck;
@@ -189,7 +188,6 @@ public static class OrbitCoreServiceCollectionExtensions
         services.AddScoped<IRequestHandler<GetTaskListStockCheckQuery, TaskListStockCheck?>, GetTaskListStockCheckQueryHandler>();
         services.AddScoped<IRequestHandler<RaiseStockShortfallsCommand, int>, RaiseStockShortfallsCommandHandler>();
         services.AddScoped<IRequestHandler<GenerateWarehouseFromTaskListCommand, Guid?>, GenerateWarehouseFromTaskListCommandHandler>();
-        services.AddScoped<IRequestHandler<ReconcileTaskListWithStockCommand, StockReconciliation>, ReconcileTaskListWithStockCommandHandler>();
         services.AddScoped<IRequestHandler<SetNotePinnedCommand, bool>, SetNotePinnedCommandHandler>();
         services.AddScoped<IRequestHandler<SetAvailabilityCommand, bool>, SetAvailabilityCommandHandler>();
         services.AddScoped<IRequestHandler<PresenceHeartbeatCommand, bool>, PresenceHeartbeatCommandHandler>();

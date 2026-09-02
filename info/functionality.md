@@ -1014,14 +1014,15 @@ it away, and its own menu holds the orders. The warehouse it is measured against
 rather than inside the fold - it is how the panel gets linked in the first place, so unreachable while
 folded would mean unreachable before it has anything to fold.
 
-`POST /api/tasks/{id}/stock-check/reconciliation` is the other half, and what "recalculate against the
-inventory" does. It runs in both directions. What the warehouse already covers is crossed off - counted
-per product rather than per line, so three jars on the shelf finish three of the five lines asking for
-one, oldest first; stock spent on a line already crossed off is not spent again, and work dated in the
-future is left alone because the check does not count it either. And a product the shelf holds that no
-list in the tree mentions is written onto the list being reconciled, since that is the same disagreement
-seen from the other side. One line per product rather than one per unit: the counting rule reads
-repetition as quantity, but a shelf holding fifty screws is not fifty errands.
+"Recalculate against the inventory", on the three-dot menu, re-reads the check and says what it found -
+everything covered, or how many things are short. It writes nothing by itself; putting what is short
+onto the restock list is the separate press above.
+
+There used to be a third endpoint here, `POST /api/tasks/{id}/stock-check/reconciliation`, which brought
+a list and its warehouse back into step in both directions at once - crossing off what the shelf covered
+and writing onto the list whatever the shelf held that no list mentioned. Nothing called it any more:
+the web now recalculates by reading, and the phone by the same two presses. It was deleted rather than
+left reachable, since an endpoint nothing asks for is an endpoint nobody notices going wrong.
 
 `POST /api/tasks/{id}/inventory` goes the other way: it builds the shelf the work needs - one entry per
 distinct thing, **each carrying how many the job needs as its minimum**, and starting with whatever the
