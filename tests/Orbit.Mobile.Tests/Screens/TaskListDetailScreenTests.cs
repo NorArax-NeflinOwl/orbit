@@ -1039,6 +1039,58 @@ public sealed class TaskListDetailScreenTests
     }
 
     /// <summary>
+    /// The bug this stands for: moving an entry onto a list it already stands for took the whole app
+    /// down. The server refuses it - an entry cannot link to the list it belongs to - as a 400 with a
+    /// message, and the phone turned every unexpected status into an exception nothing caught.
+    /// </summary>
+    [Fact]
+    public async Task A_move_the_server_refuses_is_said_rather_than_thrown()
+    {
+        using var context = new ScreenContext();
+        var later = context.OpenTaskList("Later");
+        var screen = context.OpenTaskList("Today");
+        await AddAsync(screen, "Call the plumber");
+        await context.SynchroniseAsync();
+        await screen.LoadCommand.ExecuteAsync(null);
+        screen.EditItemCommand.Execute(screen.Items.Single());
+        context.Server.RefusesTheNextMove = true;
+
+        await screen.MoveItemCommand.ExecuteAsync(
+            screen.MoveTargets.Single(target => target.Name == "Later"));
+
+        // Said, and said as something that will not come right by trying again.
+        Assert.Contains("isn't allowed", screen.Status);
+        Assert.Single(screen.Items);
+    }
+
+    /// <summary>
+    /// An entry cannot link to the list it belongs to, so a list it already stands for is not somewhere
+    /// it can be moved - the server refuses that move outright. Left out of the picker rather than
+    /// offered and then rejected, which is what Orbit.Web's editor does too.
+    /// </summary>
+    [Fact]
+    public async Task A_list_the_entry_stands_for_is_not_offered_as_somewhere_to_move_it()
+    {
+        using var context = new ScreenContext();
+        context.OpenTaskList("Shopping");
+        context.OpenTaskList("Later");
+        var screen = context.OpenTaskList("Today");
+        await AddAsync(screen, "The shopping");
+        await context.SynchroniseAsync();
+        await screen.LoadCommand.ExecuteAsync(null);
+
+        screen.EditItemCommand.Execute(screen.Items.Single());
+        Assert.Equal(
+            ["Later", "Shopping"],
+            screen.MoveTargetsForTheEntry.Select(target => target.Name).Order());
+
+        screen.BeingEdited!.LinkToCommand.Execute(
+            screen.BeingEdited.LinkableTaskLists.Single(choice => choice.Name == "Shopping"));
+
+        Assert.Equal(["Later"], screen.MoveTargetsForTheEntry.Select(target => target.Name));
+    }
+
+    /// <summary>
     /// A group list is nothing but entries standing for other lists, and this screen offered no way
     /// into any of them: the work it gathers was one tap away in the browser and unreachable here.
     /// The browser stacks the whole tree as cards; a phone has room for one list at a time, so the

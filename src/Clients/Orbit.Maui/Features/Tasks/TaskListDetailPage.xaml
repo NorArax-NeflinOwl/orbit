@@ -327,8 +327,8 @@
                  the entry: choosing a list does it there and then, and this form's Save is not involved. -->
             <VerticalStackLayout Spacing="4" IsVisible="{Binding CanMoveItem}">
                 <Label Text="{controls:Translate 'Move to list'}" FontSize="12" Style="{StaticResource SubtleLabel}" />
-                <Picker Title="{controls:Translate 'Move to…'}" ItemsSource="{Binding MoveTargets}"
-                        SelectedItem="{Binding MoveTarget}" SelectedIndexChanged="OnMoveTargetChosen"
+                <Picker Title="{controls:Translate 'Move to…'}" ItemsSource="{Binding MoveTargetsForTheEntry}"
+                        SelectedIndexChanged="OnMoveTargetChosen"
                         ItemDisplayBinding="{Binding Name, x:DataType=screens:TaskListChoice}"
                         SemanticProperties.Description="{controls:Translate 'Move to list'}" />
             </VerticalStackLayout>

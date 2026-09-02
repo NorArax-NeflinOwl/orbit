@@ -274,8 +274,18 @@ public sealed partial class TaskListDetailViewModel : ObservableObject
             BeingEdited = TaskItemEditor.For(
                 row.Item, _translations, AppointmentFor(row.Item), LinkTargets, _nameSuggestions,
                 ShelfProductFor(row.Item));
-            MoveTarget = null;
-            OnPropertyChanged(nameof(CanMoveItem));
+
+            // Where the entry can go depends on what it stands for, and that changes while the form is
+            // open - see MoveTargetsForTheEntry.
+            BeingEdited.PropertyChanged += (_, changed) =>
+            {
+                if (changed.PropertyName == nameof(TaskItemEditor.LinkableTaskListsLeft))
+                {
+                    SayWhereTheEntryCanGo();
+                }
+            };
+
+            SayWhereTheEntryCanGo();
         }
     }
 
@@ -290,13 +300,6 @@ public sealed partial class TaskListDetailViewModel : ObservableObject
     public ObservableCollection<TaskListChoice> LinkTargets { get; } = [];
 
     /// <summary>
-    /// Choosing one moves the entry there and then, rather than waiting for this form's Save. The move
-    /// is not part of the entry - it is a change to two lists - and Orbit.Web's editor does the same.
-    /// </summary>
-    [ObservableProperty]
-    private TaskListChoice? _moveTarget;
-
-    /// <summary>
     /// Moving is a change to two lists, which only the server can make - so it is offered only for an
     /// entry the server already knows about, and only while there is somebody to ask.
     ///
@@ -309,7 +312,7 @@ public sealed partial class TaskListDetailViewModel : ObservableObject
     public bool CanMoveItem
         => CanEdit
             && _networkStatus.IsOnline
-            && MoveTargets.Count > 0
+            && MoveTargetsForTheEntry.Count > 0
             && !_isWaitingToBePushed
             && BeingEdited?.ToDto().Id is { } itemId && itemId != Guid.Empty;
 
@@ -344,9 +347,14 @@ public sealed partial class TaskListDetailViewModel : ObservableObject
         await SynchroniseAsync(cancellationToken);
         await ShowStoredListAsync(cancellationToken);
 
-        Status = outcome is WriteOutcome.Applied
-            ? _translations.Format("Moved to {0}.", target.Name)
-            : _translations["Couldn't move it. Try again."];
+        Status = outcome switch
+        {
+            WriteOutcome.Applied => _translations.Format("Moved to {0}.", target.Name),
+            // A rule about the entry itself, so trying again would only fail again - say so rather than
+            // asking for another go. See WriteOutcome.Rejected.
+            WriteOutcome.Rejected => _translations["That move isn't allowed."],
+            _ => _translations["Couldn't move it. Try again."]
+        };
     }
 
     /// <summary>
@@ -355,6 +363,24 @@ public sealed partial class TaskListDetailViewModel : ObservableObject
     /// points at.
     /// </summary>
     private IReadOnlyDictionary<Guid, LocalTaskList> _linkedTaskLists = new Dictionary<Guid, LocalTaskList>();
+
+    private void SayWhereTheEntryCanGo()
+    {
+        OnPropertyChanged(nameof(MoveTargetsForTheEntry));
+        OnPropertyChanged(nameof(CanMoveItem));
+    }
+
+    /// <summary>
+    /// Where the entry being edited could actually go: any other list, except one it already stands for.
+    /// An entry cannot link to the list it belongs to, and the server refuses such a move outright - so
+    /// it is left out rather than offered and then rejected, the way the linking picker already leaves
+    /// out what the entry stands for. Orbit.Web's editor draws the same distinction.
+    /// </summary>
+    public IReadOnlyList<TaskListChoice> MoveTargetsForTheEntry
+        => BeingEdited is not { LinkedTaskLists.Count: > 0 } editor
+            ? [.. MoveTargets]
+            : [.. MoveTargets.Where(target =>
+                editor.LinkedTaskLists.All(linked => linked.ServerId != target.ServerId))];
 
     private async Task ShowWhereItCanGoAsync(CancellationToken cancellationToken)
     {
@@ -1054,14 +1080,8 @@ public sealed partial class TaskListDetailViewModel : ObservableObject
         OnPropertyChanged(nameof(IsEditingItem));
         OnPropertyChanged(nameof(IsShowingList));
         OnPropertyChanged(nameof(CanMoveItem));
-    }
-
-    partial void OnMoveTargetChanged(TaskListChoice? value)
-    {
-        if (value is not null)
-        {
-            MoveItemCommand.Execute(value);
-        }
+        // What the entry stands for decides where it can go - see MoveTargetsForTheEntry.
+        OnPropertyChanged(nameof(MoveTargetsForTheEntry));
     }
 
     partial void OnRestockTickBeingAskedChanged(TaskItemRow? value)
