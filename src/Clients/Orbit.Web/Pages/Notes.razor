@@ -1,6 +1,7 @@
 @page "/notes"
 @attribute [Authorize]
 @using Orbit.Contracts.Notes
+@using Orbit.Core.Abstractions
 @using Orbit.Web.Services
 @inject NotesApiClient NotesApiClient
 @inject NavigationManager NavigationManager
@@ -44,7 +45,7 @@ else
         {
             <ItemCard Name="@NameOf(note)"
                       OnNameSelected="() => OpenNote(note.Id)"
-                      OnBodySelected="@(note.IsPrivate ? default(EventCallback) : EventCallback.Factory.Create(this, () => OpenNote(note.Id)))"
+                      OnBodySelected="() => OpenNote(note.Id)"
                       ExtraClass="@(note.IsPinned ? "item-card-pinned" : null)">
                 @* Only for a note you own: pinning moves it on its owner's page, so a recipient
                    pinning a note shared with them would be rearranging someone else's list. *@
@@ -57,9 +58,12 @@ else
                 <Menu>
                     <OverflowMenu>
                         @* The card opens the note to be read; changing what it says is a named press,
-                           the same as a task list's - see NoteSummary.razor. *@
+                           the same as a task list's - see NoteSummary.razor. Named for what it will
+                           actually do: a note shared read-only opens in the form to be looked at, and
+                           calling that "Edit" here and "View" one press further in said two different
+                           things about one note. *@
                         <button type="button" class="avatar-dropdown-item" @onclick="() => GoToEditNote(note.Id)">
-                            @T["Edit"]
+                            @(CanBeChanged(note) ? T["Edit"] : T["View"])
                         </button>
                         @* Somebody else's note is not this reader's to delete: pressing this takes it
                            off their list and leaves the owner's alone, so it says that rather than
@@ -163,6 +167,13 @@ else
         Logger.LogInformation("User clicked 'Add note'");
         NavigationManager.NavigateTo("/notes/new");
     }
+
+    /// <summary>
+    /// Whether this reader may change the note, which is what the menu is named for - see NoteSummary,
+    /// which asks the same question of the note it has open.
+    /// </summary>
+    private static bool CanBeChanged(NoteDto note)
+        => !note.IsShared || SharedItemAccess.For(note.IsShared, note.AccessLevel).CanEdit;
 
     private void OpenNote(Guid noteId)
     {
