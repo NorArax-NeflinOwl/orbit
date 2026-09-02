@@ -1029,6 +1029,20 @@ and writing onto the list whatever the shelf held that no list mentioned. Nothin
 the web now recalculates by reading, and the phone by the same two presses. It was deleted rather than
 left reachable, since an endpoint nothing asks for is an endpoint nobody notices going wrong.
 
+**An entry on a list that already has a storage describes a product for that shelf.** It shows the
+product's fields - how much, how little is too little, the unit, what it is, how long it keeps - and
+everything except the name, because the entry's own words are the name. That is the same rule the
+generation above follows and the same one the check matches by, so the two cannot come to disagree about
+which product an errand is about. Saving the list puts it on the shelf; a shelf already holding
+something by that name is what the entry was asking for, so nothing is added twice.
+
+Which storage a list is measured against is set in its editor, under **About this list**, for any list
+rather than only a group one - an entry describing a product has to be able to say which shelf it goes
+on. The picker leaves out storages another list already measures (one list per storage, see
+`LinkTaskListToWarehouseCommandHandler`), and "Generate inventory" is refused to a list that already has
+one: it would build a second and quietly move the list onto it, leaving the first with nothing pointing
+at it.
+
 `POST /api/tasks/{id}/inventory` goes the other way: it builds the shelf the work needs - one entry per
 distinct thing, **each carrying how many the job needs as its minimum**, and starting with whatever the
 list has already crossed off, since a ticked line is something somebody has fetched - and points the list

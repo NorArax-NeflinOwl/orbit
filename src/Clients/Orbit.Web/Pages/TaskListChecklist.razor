@@ -765,12 +765,17 @@ else
 
     /// <summary>
     /// Reads the warehouses to choose from and, when one is already chosen, what the work costs against
-    /// it. Only for a group list: a single list's items are the work in front of you, not a bill of
-    /// materials gathered from several places.
+    /// it.
+    ///
+    /// For any list, not only a group one. It was group-only on the grounds that a single list's items
+    /// are the work in front of you rather than a bill of materials - but the panel above only appears
+    /// where a list actually holds inventory entries, and on a plain list holding some this left the
+    /// picker with nothing in it and the count unread. A list with errands about stock is asking the
+    /// question whether or not it gathers other lists.
     /// </summary>
     private async Task LoadStockCheckAsync()
     {
-        if (_sections.Count == 0 || !_sections[0].TaskList.IsGroup)
+        if (_sections.Count == 0)
         {
             return;
         }

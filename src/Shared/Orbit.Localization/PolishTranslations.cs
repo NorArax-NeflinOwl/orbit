@@ -77,6 +77,12 @@ public static class PolishTranslations
         ["Couldn't measure this list against that storage. Try again."] =
             "Nie udało się zmierzyć tej listy względem tego magazynu. Spróbuj ponownie.",
         ["Not measured against a warehouse"] = "Bez porównania z magazynem",
+        ["Storage this list is measured against"] = "Magazyn, względem którego mierzona jest ta lista",
+        ["An inventory entry then describes a product to put on that shelf."] =
+            "Pozycja typu inwentarz opisuje wtedy produkt, który ma trafić na tę półkę.",
+        ["This list already has a storage."] = "Ta lista ma już magazyn.",
+        ["Goes on the shelf in {0} when this list is saved, named after this entry."] =
+            "Trafi na półkę w: {0} przy zapisie tej listy, pod nazwą tej pozycji.",
         ["Can this be done?"] = "Czy da się to wykonać?",
         ["Nothing due in this period."] = "Nic z terminem w tym okresie.",
         ["Nothing in this period."] = "Nic w tym okresie.",
