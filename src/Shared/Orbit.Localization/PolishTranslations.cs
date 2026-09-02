@@ -672,6 +672,8 @@ public static class PolishTranslations
         ["Use my location"] = "Korzystaj z mojego położenia",
         ["Debugger"] = "Debugger",
         ["Debug logs"] = "Logi diagnostyczne",
+        ["Logged so far"] = "Zapisane do tej pory",
+        ["Happening now"] = "Dzieje się teraz",
         ["What Orbit reports about itself - the Debugger settings, the captured log, and the detail behind an error."] =
             "To, co Orbit mówi o sobie samym — ustawienia debuggera, zapisany log i szczegóły błędu.",
         ["Off"] = "Wyłączone",

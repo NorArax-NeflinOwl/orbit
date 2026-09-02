@@ -155,21 +155,45 @@
                                 <PhoneIcon Size="16" />
                                 @T["Get the app"]
                             </a>
-                            @* Where this deployment's logs and traces are read - see DiagnosticsDashboard.
-                               Only for an account that has been given Orbit's own internals, and only
-                               where a deployment has said there is one to open. Leaves Orbit, so it
-                               opens in a tab of its own like every other outward link. *@
-                            @if (DiagnosticsDashboard.HasUrl && Permissions.Has(ApplicationPermission.Debug))
+                            @* Where this deployment's logs are read - see DiagnosticsDashboard. Only for
+                               an account that has been given Orbit's own internals, and only where a
+                               deployment has said there is anywhere to go. Both leave Orbit, so they
+                               open in a tab of their own like every other outward link. *@
+                            @if (DiagnosticsDashboard.HasAny && Permissions.Has(ApplicationPermission.Debug))
                             {
-                                <a class="avatar-dropdown-item" href="@DiagnosticsDashboard.Url" target="_blank" rel="noopener">
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 20 20" fill="none"
-                                         stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
-                                        <path d="M4 3.5h9l3 3v10a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1v-12a1 1 0 0 1 1-1Z" />
-                                        <path d="M13 3.5v3h3" />
-                                        <path d="M6 11.5l2 2 4-4.5" />
-                                    </svg>
-                                    @T["Debug logs"]
-                                </a>
+                                @* Two answers to one question, and they are not interchangeable: what was
+                                   logged, and what is happening this second. Asked rather than guessed -
+                                   but only where there are two, since a choice with one option is not a
+                                   choice. *@
+                                @if (DiagnosticsDashboard.HasBoth)
+                                {
+                                    <button type="button" class="avatar-dropdown-item"
+                                            aria-expanded="@(_debugLogsOpen ? "true" : "false")"
+                                            @onclick="() => _debugLogsOpen = !_debugLogsOpen">
+                                        <DebugLogsIcon />
+                                        @T["Debug logs"]
+                                        <span class="avatar-dropdown-chevron">@(_debugLogsOpen ? "⌃" : "⌄")</span>
+                                    </button>
+                                    @if (_debugLogsOpen)
+                                    {
+                                        <a class="avatar-dropdown-item avatar-dropdown-subitem"
+                                           href="@DiagnosticsDashboard.HistoryUrl" target="_blank" rel="noopener">
+                                            @T["Logged so far"]
+                                        </a>
+                                        <a class="avatar-dropdown-item avatar-dropdown-subitem"
+                                           href="@DiagnosticsDashboard.LiveUrl" target="_blank" rel="noopener">
+                                            @T["Happening now"]
+                                        </a>
+                                    }
+                                }
+                                else
+                                {
+                                    <a class="avatar-dropdown-item" href="@DiagnosticsDashboard.TheOnlyUrl"
+                                       target="_blank" rel="noopener">
+                                        <DebugLogsIcon />
+                                        @T["Debug logs"]
+                                    </a>
+                                }
                             }
                             <a class="avatar-dropdown-item" href="/options">
                                 <GearIcon Size="16" />
@@ -300,6 +324,9 @@
 
 
     private bool _avatarMenuOpen;
+
+    /// <summary>Whether the two places logs can be read are showing under the entry that offers them.</summary>
+    private bool _debugLogsOpen;
     private PeriodicTimer? _sessionHeartbeatTimer;
     private CancellationTokenSource? _sessionHeartbeatCancellation;
 
