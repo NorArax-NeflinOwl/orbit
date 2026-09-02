@@ -24,7 +24,8 @@ public sealed record WarehouseItemRow(
     bool IsPointedAt = false)
 {
     public static WarehouseItemRow From(
-        WarehouseItemDto item, Translations translations, Guid? pointedAtProductId = null)
+        WarehouseItemDto item, Translations translations, Guid? pointedAtProductId = null,
+        DateTimeOffset? arrivedAtUtc = null)
         => new(
             item,
             Describe(item, translations),
@@ -38,7 +39,11 @@ public sealed record WarehouseItemRow(
         {
             NameForAReader = pointedAtProductId is { } wanted && item.Id == wanted
                 ? translations.Format("{0}, what you were sent here for", item.Name)
-                : item.Name
+                : item.Name,
+            Arrived = arrivedAtUtc is { } arrived
+                ? translations.Format(
+                    "added {0}", arrived.LocalDateTime.ToString("d", translations.DisplayCulture))
+                : string.Empty
         };
 
     public string Name => Item.Name;
@@ -50,6 +55,15 @@ public sealed record WarehouseItemRow(
     public string NameForAReader { get; private init; } = string.Empty;
 
     public bool HasExpiry => Expiry.Length > 0;
+
+    /// <summary>
+    /// When this batch arrived, in the reader's language, or nothing for one no server has accepted yet.
+    /// A row is a batch rather than a product - two rows of one name are two deliveries of it - and this
+    /// is what tells them apart. Orbit.Web's shelf says it in the same words.
+    /// </summary>
+    public string Arrived { get; private init; } = string.Empty;
+
+    public bool HasArrived => Arrived.Length > 0;
 
     private static string Describe(WarehouseItemDto item, Translations translations)
     {

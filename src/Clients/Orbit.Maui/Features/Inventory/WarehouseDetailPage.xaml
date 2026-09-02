@@ -127,6 +127,10 @@
                                    Style="{StaticResource SubtleLabel}" />
                             <Label Text="{Binding Expiry}" IsVisible="{Binding HasExpiry}" FontSize="11"
                                    Style="{StaticResource SubtleLabel}" />
+                            <!-- A row is a batch: two of one name are two deliveries, and when each
+                                 arrived is what tells them apart. See WarehouseItemRow.Arrived. -->
+                            <Label Text="{Binding Arrived}" IsVisible="{Binding HasArrived}" FontSize="11"
+                                   Style="{StaticResource SubtleLabel}" />
                         </VerticalStackLayout>
                         <!-- Below its own minimum, which is the whole reason to set one. -->
                         <Label Grid.Column="1" Text="{Binding Amount}" VerticalOptions="Center"

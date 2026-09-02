@@ -39,6 +39,9 @@ public sealed partial class WarehouseDetailViewModel : ObservableObject
     private Guid _localId;
     private IReadOnlyList<WarehouseItemDto> _items = [];
 
+    /// <summary>When each batch arrived, by its id - see LocalWarehouse.ItemArrivals.</summary>
+    private IReadOnlyDictionary<Guid, DateTimeOffset> _arrivals = new Dictionary<Guid, DateTimeOffset>();
+
     /// <summary>What is on screen has been narrowed down to - see <see cref="WarehouseItemFilter"/>.</summary>
     private readonly WarehouseItemFilter _filter = new();
 
@@ -466,6 +469,7 @@ public sealed partial class WarehouseDetailViewModel : ObservableObject
 
         HasHistory = (await _warehouses.GetHistoryOfAsync(_localId, cancellationToken)).Count > 0;
         _items = warehouse.Items;
+        _arrivals = warehouse.ItemArrivals;
         // What this shelf's restock list asks for, and when - see RestockListSettingsPanel.
         await RestockList.ShowFor(warehouse.ServerId, cancellationToken);
 
@@ -549,7 +553,7 @@ public sealed partial class WarehouseDetailViewModel : ObservableObject
         Items.Clear();
         foreach (var item in _items.Where(_filter.Matches))
         {
-            Items.Add(WarehouseItemRow.From(item, _translations, _pointedAtProductId));
+            Items.Add(WarehouseItemRow.From(item, _translations, _pointedAtProductId, ArrivalOf(item)));
         }
 
         OnPropertyChanged(nameof(PointedAtRow));
@@ -557,6 +561,13 @@ public sealed partial class WarehouseDetailViewModel : ObservableObject
         OnPropertyChanged(nameof(FilterNote));
         OnPropertyChanged(nameof(EmptyMessage));
     }
+
+    /// <summary>
+    /// When this batch arrived, or null for one this phone has queued and no server has accepted - it
+    /// has no id yet, or none this shelf was told about.
+    /// </summary>
+    private DateTimeOffset? ArrivalOf(WarehouseItemDto item)
+        => item.Id is { } id && _arrivals.TryGetValue(id, out var arrived) ? arrived : null;
 
     partial void OnChosenProductTypeChanged(string? value)
     {

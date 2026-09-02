@@ -165,7 +165,11 @@ public sealed class WarehouseSynchronizer
 
             if (itemsMayHaveChanged)
             {
-                warehouse.Items = ToItems(await _inventoryClient.GetItemsAsync(incoming.Id, cancellationToken));
+                var onTheShelf = await _inventoryClient.GetItemsAsync(incoming.Id, cancellationToken);
+                warehouse.Items = ToItems(onTheShelf);
+                // When each batch arrived, which the save shape does not carry - see
+                // LocalWarehouse.ItemArrivals.
+                warehouse.ItemArrivals = onTheShelf.ToDictionary(item => item.Id, item => item.CreatedAtUtc);
             }
 
             received++;

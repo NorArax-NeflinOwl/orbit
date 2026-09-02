@@ -53,6 +53,27 @@ public sealed class BlankListColumnTests
         Assert.Empty(stored.Items);
     }
 
+    /// <summary>
+    /// The same for the newest of these columns, which is a dictionary rather than a list: every shelf
+    /// on every phone that upgrades has it backfilled blank, and reading one must answer "nothing known"
+    /// rather than throwing.
+    /// </summary>
+    [Fact]
+    public async Task A_shelfs_blank_arrivals_column_reads_as_nothing_known()
+    {
+        using var localStore = new LocalStore();
+        var clock = new FakeTimeProvider(DateTimeOffset.Parse("2026-08-31T10:00:00Z"));
+        var warehouses = new LocalWarehouseRepository(
+            localStore, clock, FixedNetworkStatus.Online, PrivateContent.WithoutAKey());
+        var warehouse = await warehouses.CreateAsync("Kitchen");
+
+        Blank(localStore, "Warehouses", "ItemArrivals", warehouse.LocalId);
+
+        var stored = Assert.Single(await warehouses.GetAllAsync());
+        Assert.Equal("Kitchen", stored.Name);
+        Assert.Empty(stored.ItemArrivals);
+    }
+
     /// <summary>Writes a column as a migration's backfill leaves it, going round the converter.</summary>
     private static void BlankTheSnapshot(LocalStore localStore, Guid localId)
         => Blank(localStore, "Notes", "CopyBaseLines", localId);

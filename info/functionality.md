@@ -1078,6 +1078,12 @@ generation above follows and the same one the check matches by, so the two canno
 which product an errand is about. Saving the list puts it on the shelf; a shelf already holding
 something by that name is what the entry was asking for, so nothing is added twice.
 
+**And says when each batch arrived**, which is the fourth thing a shelf answers and the one the phone
+left out. The date comes down with the items and is kept beside them (`LocalWarehouse.ItemArrivals`)
+rather than on them: the item shape is what a save sends back, and when something arrived is the
+server's answer rather than the phone's. A row this phone has queued and nothing has accepted yet says
+nothing about it.
+
 **The phone's shelf opens on the row somebody was sent to.** A warehouse reached from an errand naming
 it, or from the search across every shelf, marks that product and scrolls to it - the accent bar and
 tint the browser gives the row its `?highlight=` names (`WarehouseItemRow.IsPointedAt`,

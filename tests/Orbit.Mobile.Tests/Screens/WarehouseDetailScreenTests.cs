@@ -25,6 +25,41 @@ namespace Orbit.Mobile.Tests.Screens;
 public sealed class WarehouseDetailScreenTests
 {
     /// <summary>
+    /// A row is a batch rather than a product: two rows of one name are two deliveries of it, and when
+    /// each arrived is what tells them apart. The browser's shelf says it; the phone showed three of the
+    /// four things a shelf answers and left this one out.
+    /// </summary>
+    [Fact]
+    public async Task A_row_says_when_its_batch_arrived()
+    {
+        using var context = new ScreenContext();
+        var warehouse = await context.PullWarehouseAsync("Pantry", "Flour");
+
+        var screen = await context.OpenAsync(warehouse.LocalId);
+
+        var row = Assert.Single(screen.Items);
+        Assert.True(row.HasArrived);
+        Assert.Contains("27", row.Arrived);
+    }
+
+    /// <summary>
+    /// And says nothing about it for a row this phone queued and no server has accepted: nothing has
+    /// taken delivery of it, so a date here would be the phone answering a question it was not asked.
+    /// </summary>
+    [Fact]
+    public async Task A_row_no_server_has_taken_yet_says_nothing_about_arriving()
+    {
+        using var context = new ScreenContext();
+        var warehouse = await context.AddWarehouseAsync("Pantry");
+        var screen = await context.OpenAsync(warehouse.LocalId);
+
+        screen.NewItemName = "Flour";
+        await screen.AddItemCommand.ExecuteAsync(null);
+
+        Assert.False(Assert.Single(screen.Items).HasArrived);
+    }
+
+    /// <summary>
     /// A shelf opened from somewhere that meant one product - an errand naming it, or a search that
     /// found it - marks that row. Sixty rows and no sign of which one was meant is half an answer, and
     /// Orbit.Web's own shelf marks the row its ?highlight= names.
@@ -787,6 +822,22 @@ public sealed class WarehouseDetailScreenTests
         /// <summary>A warehouse is created empty, so its items are put in by the same update a screen makes.</summary>
         public Task<LocalWarehouse> AddWarehouseAsync(string name)
             => _warehouses.CreateAsync(name);
+
+        /// <summary>
+        /// A shelf as it comes down from a server, which is the only way a batch's arrival is known -
+        /// see LocalWarehouse.ItemArrivals.
+        /// </summary>
+        public async Task<LocalWarehouse> PullWarehouseAsync(string name, params string[] productNames)
+        {
+            var remote = Server.AddWarehouse(name);
+            foreach (var productName in productNames)
+            {
+                Server.AddItem(remote.Id, productName, quantity: 1);
+            }
+
+            await _synchronizer.SynchroniseAsync(CancellationToken.None);
+            return (await _warehouses.GetAllAsync()).Single(warehouse => warehouse.ServerId == remote.Id);
+        }
 
         /// <summary>
         /// The one row as it really sits in the database, rather than as a read hands it back opened.
