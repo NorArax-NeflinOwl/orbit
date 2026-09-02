@@ -3,6 +3,7 @@ using Android.Content;
 using Android.Content.PM;
 using Android.Content.Res;
 using Android.OS;
+using Android.Views;
 using AndroidX.Activity;
 using AndroidX.Core.View;
 using Microsoft.Extensions.DependencyInjection;
@@ -11,7 +12,11 @@ using Orbit.Mobile.Screens.Navigation;
 
 namespace Orbit.Maui;
 
-[Activity(Theme = "@style/Maui.SplashTheme", MainLauncher = true, LaunchMode = LaunchMode.SingleTop, ConfigurationChanges = ConfigChanges.ScreenSize | ConfigChanges.Orientation | ConfigChanges.UiMode | ConfigChanges.ScreenLayout | ConfigChanges.SmallestScreenSize | ConfigChanges.Density)]
+// WindowSoftInputMode: the keyboard takes the bottom of the screen rather than sliding the whole page
+// out from under it, so a form scrolls to the field being typed into instead of hiding the ones below
+// it. Without this the sign-in and register screens put their last field behind the keyboard, with no
+// way to see what was being typed - the template leaves it unset, and Android's default pans.
+[Activity(Theme = "@style/Maui.SplashTheme", MainLauncher = true, LaunchMode = LaunchMode.SingleTop, WindowSoftInputMode = SoftInput.AdjustResize | SoftInput.StateHidden, ConfigurationChanges = ConfigChanges.ScreenSize | ConfigChanges.Orientation | ConfigChanges.UiMode | ConfigChanges.ScreenLayout | ConfigChanges.SmallestScreenSize | ConfigChanges.Density)]
 // A public share link, opened in Orbit rather than in a browser. The host is the deployment's own and
 // is fixed at build time - see OrbitShareLinkHost in Orbit.Maui.csproj - because an intent filter is an
 // attribute, and a filter with no host would offer Orbit for every link on the phone.

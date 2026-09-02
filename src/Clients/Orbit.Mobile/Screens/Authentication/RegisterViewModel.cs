@@ -33,6 +33,14 @@ public sealed partial class RegisterViewModel : ObservableObject
     [ObservableProperty]
     private string _password = string.Empty;
 
+    /// <summary>
+    /// Typed a second time, because a password nobody can see is a password nobody can check - and one
+    /// mistyped here locks somebody out of an account they have just made. Orbit.Web has asked for it
+    /// since it had a form; this screen took the first answer and made the account from it.
+    /// </summary>
+    [ObservableProperty]
+    private string _repeatedPassword = string.Empty;
+
     [ObservableProperty]
     private string _errorMessage = string.Empty;
 
@@ -57,12 +65,20 @@ public sealed partial class RegisterViewModel : ObservableObject
 
     private bool CanRegister
         => EmailAddress.Trim().Length > 0 && UserName.Trim().Length > 0
-            && DisplayName.Trim().Length > 0 && Password.Length > 0;
+            && DisplayName.Trim().Length > 0 && Password.Length > 0 && RepeatedPassword.Length > 0;
 
     [RelayCommand(CanExecute = nameof(CanRegister), AllowConcurrentExecutions = false)]
     private async Task RegisterAsync(CancellationToken cancellationToken)
     {
         ErrorMessage = string.Empty;
+
+        // Checked here rather than only on the button, so the reason is said out loud: a button that
+        // stays dead tells nobody which of the two fields is wrong.
+        if (Password != RepeatedPassword)
+        {
+            ErrorMessage = _translations["The two passwords don't match."];
+            return;
+        }
 
         AccountOperationResult result;
         try
@@ -88,6 +104,7 @@ public sealed partial class RegisterViewModel : ObservableObject
         await _completion.CompleteAsync(Password, cancellationToken);
 
         Password = string.Empty;
+        RepeatedPassword = string.Empty;
         _navigator.ShowDashboard();
     }
 
@@ -103,4 +120,6 @@ public sealed partial class RegisterViewModel : ObservableObject
     partial void OnDisplayNameChanged(string value) => RegisterCommand.NotifyCanExecuteChanged();
 
     partial void OnPasswordChanged(string value) => RegisterCommand.NotifyCanExecuteChanged();
+
+    partial void OnRepeatedPasswordChanged(string value) => RegisterCommand.NotifyCanExecuteChanged();
 }

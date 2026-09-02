@@ -128,6 +128,14 @@ since the entry's own words are the name - and saving the entry puts it there, s
 already holds that name. It is the last of the browser's 2026-09-02 item form that the phone was
 missing.
 
+Three things found by driving the app on a device. A password is asked for twice where it is being set -
+making an account, and changing one - as the browser has always asked, because a box nobody can read
+back is one nobody can check. The keyboard no longer hides the field being typed into: the window
+resizes for it, so a form scrolls to what has focus instead of sliding out from under it. And the
+Debugger tab is named as the browser names it and goes only to an account that has unlocked `Debug` -
+the chat key moved out of it onto the Account tab, since unlocking what this account sealed is an
+ordinary thing to want rather than a look inside Orbit.
+
 The Google links can be turned off here too, on this phone rather than for the account: the switch sits
 on the account screen where the browser keeps its own, is offered only where the account may use the
 extras at all, and turning it off leaves a connected Google account connected.

@@ -2,6 +2,7 @@ using Orbit.Mobile.Api;
 using Orbit.Mobile.Authentication;
 using Orbit.Mobile.Crypto;
 using Orbit.Mobile.Data;
+using Orbit.Core.Permissions;
 using Orbit.Mobile.Google;
 using Orbit.Mobile.Localization;
 using System.Text;
@@ -157,6 +158,74 @@ public sealed class AccountScreenTests
         Assert.StartsWith("orbit-export-", offered!.Value.FileName);
         Assert.EndsWith(".json", offered.Value.FileName);
         Assert.Contains("\"version\"", offered.Value.Json, StringComparison.OrdinalIgnoreCase);
+    }
+
+    /// <summary>
+    /// The Debugger is Orbit's own inside - the captured log, and the detail behind an error - so its
+    /// tab goes to an account that has unlocked it and to nobody else. The browser's Options draws the
+    /// same line, and so does the version row in the avatar menu.
+    /// </summary>
+    [Fact]
+    public async Task The_Debugger_tab_is_offered_only_to_an_account_holding_it()
+    {
+        using var context = new ScreenContext { Holding = [ApplicationPermission.Chat] };
+        var screen = context.Open();
+
+        await screen.LoadCommand.ExecuteAsync(null);
+
+        Assert.DoesNotContain(screen.Tabs, tab => tab.Tab == AccountTab.Debug);
+        Assert.False(screen.IsShowingDebug);
+    }
+
+    [Fact]
+    public async Task An_account_holding_the_Debugger_is_offered_its_tab()
+    {
+        using var context = new ScreenContext { Holding = [ApplicationPermission.Debug] };
+        var screen = context.Open();
+        await screen.LoadCommand.ExecuteAsync(null);
+
+        var debugger = Assert.Single(screen.Tabs, tab => tab.Tab == AccountTab.Debug);
+        Assert.Equal("Debugger", debugger.Name);
+
+        screen.Tab = AccountTab.Debug;
+        Assert.True(screen.IsShowingDebug);
+    }
+
+    /// <summary>
+    /// The section answers to the permission as well as to the tab, so an account that never held it
+    /// reads nothing even if something else puts the screen on that tab.
+    /// </summary>
+    [Fact]
+    public async Task The_Debugger_section_stays_shut_without_the_permission()
+    {
+        using var context = new ScreenContext { Holding = [ApplicationPermission.Chat] };
+        var screen = context.Open();
+        await screen.LoadCommand.ExecuteAsync(null);
+
+        screen.Tab = AccountTab.Debug;
+
+        Assert.False(screen.IsShowingDebug);
+    }
+
+    /// <summary>
+    /// A new password typed twice, as the browser's form asks: one mistyped in a box nobody can read
+    /// back is one nobody can sign in with afterwards.
+    /// </summary>
+    [Fact]
+    public async Task Two_new_passwords_that_differ_are_refused()
+    {
+        using var context = new ScreenContext();
+        var screen = context.Open();
+        screen.CurrentPassword = "sourdough-and-thunder";
+        screen.NewPassword = "rye-and-lightning";
+        screen.RepeatedNewPassword = "rye-and-lightening";
+
+        await screen.ChangePasswordCommand.ExecuteAsync(null);
+
+        Assert.True(screen.MessageIsFailure);
+        Assert.True(screen.HasMessage);
+        // Nothing was sent, so nothing was cleared - what was typed is still there to be corrected.
+        Assert.Equal("rye-and-lightning", screen.NewPassword);
     }
 
     /// <summary>
@@ -454,6 +523,12 @@ public sealed class AccountScreenTests
             dbContext.SaveChanges();
         }
 
+        /// <summary>
+        /// A screen for an account that holds only these - for the tabs, which are not all offered to
+        /// everybody. Null means "everything", which is what the other tests want.
+        /// </summary>
+        public ApplicationPermission[]? Holding { get; set; }
+
         public AccountViewModel Open()
             => new(
                 new AccountClient(_users.ToHttpClient(), FixedNetworkStatus.Online, _sessionStore),
@@ -466,7 +541,9 @@ public sealed class AccountScreenTests
                 _sessionStore,
                 new Translations(new InMemoryLanguageStore()),
                 new UsersClient(_users.ToHttpClient()),
-                UnlockedPermissions.For(_localStore),
+                Holding is { } held
+                    ? UnlockedPermissions.LockedTo(_localStore, held).GetAwaiter().GetResult()
+                    : UnlockedPermissions.For(_localStore),
                 Themes,
                 Accents,
                 new TransferClient(Transfer.ToHttpClient()),
