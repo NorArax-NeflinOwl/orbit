@@ -96,10 +96,6 @@ public sealed class TasksApiClient
     }
 
     /// <summary>
-    /// Says the whole restock list is done: crosses off what is left of it and brings its warehouse up
-    /// to the levels it is meant to hold. Answers how many shelf items moved.
-    /// </summary>
-    /// <summary>
     /// Settles the finished errands on a restock list - each fills its shelf item and then leaves the
     /// list. Answers how many were settled, and does nothing at all for an ordinary list, so the
     /// checklist screen can ask on opening any of them.
@@ -121,6 +117,10 @@ public sealed class TasksApiClient
         => await _httpClient.GetFromJsonAsync<List<InventoryReferenceDto>>(
             $"api/tasks/{taskListId}/inventory-references", cancellationToken) ?? [];
 
+    /// <summary>
+    /// Says the whole restock list is done: crosses off what is left of it and brings its warehouse up
+    /// to the levels it is meant to hold. Answers how many shelf items moved.
+    /// </summary>
     public async Task<int> FinishRestockingAsync(Guid taskListId, CancellationToken cancellationToken = default)
     {
         var response = await _httpClient.PostAsync($"api/tasks/{taskListId}/restocking/finished", content: null, cancellationToken);
