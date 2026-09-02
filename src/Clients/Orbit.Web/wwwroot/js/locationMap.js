@@ -1,6 +1,7 @@
 // Shows points on a Leaflet map (loaded from the CDN in index.html, the same one the event editor's
-// picker uses). Read-only on purpose: this window displays recorded locations, it doesn't set one -
-// that comes from the device, via geolocation.js.
+// picker uses). What it draws comes from elsewhere - a recorded position comes from the device, via
+// geolocation.js - and the one thing it reports back is where somebody pressed: a caller that hands in
+// a .NET reference is told about each click, which is how the map page turns a point into a pin.
 
 const mapInstancesByElementId = new Map();
 
@@ -16,7 +17,11 @@ export async function showLocation(elementId, latitude, longitude, label) {
 
 /// Draws several points at once and frames them all. Used when other people are sharing their position
 /// alongside the viewer's own: one map showing everyone beats one map each.
-export async function showLocations(elementId, points) {
+///
+/// `dotNetHelper` is optional. Given one, every press on the map is reported to it as
+/// `OnMapPressed(latitude, longitude)`; without one the map is read-only, which is what every other
+/// caller wants.
+export async function showLocations(elementId, points, dotNetHelper) {
     dispose(elementId);
 
     const element = document.getElementById(elementId);
@@ -56,6 +61,16 @@ export async function showLocations(elementId, points) {
         map.setView([drawn[0].latitude, drawn[0].longitude], 14);
     } else if (drawn.length > 1) {
         map.fitBounds(drawn.map(point => [point.latitude, point.longitude]), { padding: [40, 40] });
+    }
+
+    if (dotNetHelper) {
+        map.on('click', event => {
+            // Wrapped before it leaves, for the reason mapPicker.js gives: the tile layer repeats the
+            // world sideways and Leaflet keeps counting past the antimeridian, so a click two worlds
+            // east of Warsaw arrives as longitude 741 rather than 21.
+            const { lat, lng } = event.latlng.wrap();
+            dotNetHelper.invokeMethodAsync('OnMapPressed', lat, lng);
+        });
     }
 
     // Later size changes - a window resize, a panel opening - still need the map told about them.

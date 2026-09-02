@@ -204,6 +204,13 @@ else
                 }
             </div>
         }
+        @* The other way to pin a place, said out loud: the map takes a press anywhere on it, and a map
+           that answers presses looks exactly like one that does not. Only while nothing is pinned - once
+           there is one, the bar under the map is what the page is asking about. *@
+        else if (_foundPlace is null)
+        {
+            <p class="map-canvas-note">@T["Click the map to drop a pin."]</p>
+        }
 
         <div class="location-map-frame map-canvas-frame">
             <div id="@MapElementId" class="location-map"></div>
@@ -306,6 +313,41 @@ else
 
         await RedrawAsync();
     }
+
+    /// <summary>
+    /// Where the reader pressed the map, which is the other way of pinning a place - the search names
+    /// one, this points at one. Called from locationMap.js.
+    ///
+    /// The words are looked up because the rest of the page is about words: what the pin says is what
+    /// travels to the editor and becomes an appointment's address. A point Nominatim knows nothing
+    /// about - a field, the sea - keeps its coordinates and is named by them, since somebody who
+    /// pressed there meant that spot whether or not it has a street.
+    /// </summary>
+    [JSInvokable]
+    public async Task OnMapPressed(double latitude, double longitude)
+    {
+        // What was searched for is no longer what is pinned, so the other matches go with it: leaving
+        // them offered would list answers to a question nobody is asking any more.
+        _matches = [];
+        _hasSearched = false;
+        _placeToPlanFor = null;
+        _foundPlace = new FoundPlace(T["Looking up where that is…"], latitude, longitude);
+        StateHasChanged();
+
+        var address = await GeocodingApiClient.ReverseGeocodeAsync(latitude, longitude);
+        _foundPlace = new FoundPlace(
+            address is { Length: > 0 } ? address : DescribeCoordinates(latitude, longitude), latitude, longitude);
+        await RedrawAsync();
+        StateHasChanged();
+    }
+
+    /// <summary>A place with no name of its own, said as the numbers it is - see OnMapPressed.</summary>
+    private static string DescribeCoordinates(double latitude, double longitude)
+        => string.Create(
+            CoordinateCulture, $"{latitude:0.#####}, {longitude:0.#####}");
+
+    /// <summary>Handed to the map so a press on it reaches this page - see OnMapPressed.</summary>
+    private DotNetObjectReference<MapPage>? _pageReference;
 
     /// <summary>Moves the pin to one of the other matches, for when the first was the wrong Długa 4.</summary>
     private async Task PinTheMatchAsync(FoundPlace match)
@@ -434,7 +476,8 @@ else
         try
         {
             _mapModule ??= await JSRuntime.InvokeAsync<IJSObjectReference>("import", "./js/locationMap.js");
-            await _mapModule.InvokeVoidAsync("showLocations", MapElementId, MapPoints());
+            _pageReference ??= DotNetObjectReference.Create(this);
+            await _mapModule.InvokeVoidAsync("showLocations", MapElementId, MapPoints(), _pageReference);
         }
         catch (JSException exception)
         {
@@ -933,6 +976,7 @@ else
         _refreshCancellation?.Dispose();
 
         await DisposeMapAsync();
+        _pageReference?.Dispose();
         if (_mapModule is not null)
         {
             try
