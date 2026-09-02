@@ -656,6 +656,24 @@ wrong (and each pinned by a test):
   possibly another city days ago.
 - Every link opens with `target="_blank" rel="noopener"`.
 
+### Two depths, everywhere
+
+Every object that can have both now has both: land on what the thing is, with the fields one named press
+further in, and whatever light doing belongs to it offered where it is read.
+
+| Object | Read | Change |
+| --- | --- | --- |
+| Task list | `/tasks/{id}` - tick items, see the tree it stands for, measure it against a storage | `/tasks/{id}/edit` |
+| Task entry | `/tasks/{listId}/items/{itemId}` - when, where, what the appointment is about, who is coming, and a map | its own row in the list's editor |
+| Note | `/notes/{id}` - the note read, with the checklist lines in it tickable | `/notes/{id}/edit` |
+| Calendar event | `/calendar/{id}` - when, where, what it is about, who is coming, its reminders, and a map | `/calendar/{id}/edit` |
+| Storage | `/inventory/{id}` - one row per batch, counted up and down in place | `/inventory/{id}/edit` |
+
+What "light doing" means differs by object and is the point of the split: a list is ticked, a note's
+checklist lines are ticked, a shelf is counted up and down. An appointment has none - there is nothing
+about it to do without changing what it is - so its page has no Save, which is honest rather than
+missing. Nothing is written until Save on any of them: these are pages people scroll through.
+
 ### A shelf, read rather than edited
 
 `/inventory/{id}` is what opening a warehouse lands on: one row per batch, saying what it is, how much
@@ -664,10 +682,16 @@ carry the same name, which is what two deliveries of one thing are, and the chec
 against a shelf adds them up by name (`StockRequirementCounter`). A row an errand pointed at is marked,
 the way the editor already marked one.
 
-Changing what is on the shelf is a named press from there (`/inventory/{id}/edit`), and from the card's
-own menu - the same two depths a task list has, for the same reason: opening a warehouse to see what is
-in it is a different thing from opening it to change it, and a page of editable fields is the wrong
-answer to "what have we got".
+Each row also carries the two things somebody standing in front of a shelf actually does: **one off, one
+back on**, before the name, where the eye starts. Nothing is written until Save - the same tick and cross
+every editor in Orbit carries - and saving refreshes the restock list, because a count that has just
+crossed a minimum either raises an errand or settles one. Counting below nothing is refused rather than
+stored: minus one of something is a number nobody can act on.
+
+Everything else is behind the menu beside them: all warehouses, the editor, and deleting. Changing the
+fields themselves is a named press further in (`/inventory/{id}/edit`) - the same two depths a task list
+has, for the same reason: opening a warehouse to see what is in it is a different thing from opening it
+to change it, and a page of editable fields is the wrong answer to "what have we got".
 
 ### What the calendar's list leaves out
 

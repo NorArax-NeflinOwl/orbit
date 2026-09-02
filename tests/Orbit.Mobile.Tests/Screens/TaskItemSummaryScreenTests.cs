@@ -1,5 +1,6 @@
 using Microsoft.Extensions.Time.Testing;
 using Orbit.Contracts.Calendar;
+using Orbit.Contracts.Chat;
 using Orbit.Contracts.Tasks;
 using Orbit.Mobile.Data;
 using Orbit.Mobile.Localization;
@@ -98,6 +99,42 @@ public sealed class TaskItemSummaryScreenTests
         Assert.NotNull(screen.Pin);
         Assert.Equal(54.3540, screen.Pin.Latitude, precision: 4);
         Assert.Equal(0, context.LookupCount);
+    }
+
+    /// <summary>
+    /// What the appointment says about itself and who is coming, shown above the map as the browser
+    /// shows them. Both live on the event, so an entry that is only a deadline has neither - which is
+    /// why each of the two rows hides itself rather than standing empty.
+    /// </summary>
+    [Fact]
+    public async Task An_entry_tied_to_an_event_says_what_it_is_about_and_who_is_coming()
+    {
+        using var context = new ScreenContext();
+        var anna = Guid.NewGuid();
+        await context.AddContactAsync(anna, "Anna");
+        var eventId = await context.AddEventAsync(
+            "Dentist", "Wały Piastowskie 1, Gdańsk", 54.3540, 18.6560,
+            description: "Bring the x-rays", guests: [anna]);
+        var opened = await context.AddEntryAsync("Dentist", tiedTo: eventId);
+
+        var screen = await context.OpenAsync(opened);
+
+        Assert.Equal("Bring the x-rays", screen.AppointmentDescription);
+        Assert.True(screen.HasAppointmentDescription);
+        Assert.Equal("Anna", screen.Guests);
+        Assert.True(screen.HasGuests);
+    }
+
+    [Fact]
+    public async Task An_entry_that_is_only_a_deadline_says_neither()
+    {
+        using var context = new ScreenContext();
+        var opened = await context.AddEntryAsync("Collect the parcel");
+
+        var screen = await context.OpenAsync(opened);
+
+        Assert.False(screen.HasAppointmentDescription);
+        Assert.False(screen.HasGuests);
     }
 
     /// <summary>
@@ -202,12 +239,14 @@ public sealed class TaskItemSummaryScreenTests
         /// An event the server knows about, which is what an entry's tie points at - the tie is stored
         /// as the event's own id.
         /// </summary>
-        public async Task<Guid> AddEventAsync(string title, string address, double latitude, double longitude)
+        public async Task<Guid> AddEventAsync(
+            string title, string address, double latitude, double longitude,
+            string? description = null, IReadOnlyList<Guid>? guests = null)
         {
             var start = _clock.GetUtcNow();
             var created = await _events.CreateAsync(new CalendarEventDetailsDto(
-                title, null, new EventLocationDto(address, latitude, longitude), null,
-                start, start.AddHours(1), false, null, [], [], "None", "None"));
+                title, description, new EventLocationDto(address, latitude, longitude), null,
+                start, start.AddHours(1), false, null, guests ?? [], [], "None", "None"));
 
             await using var dbContext = _localStore.CreateDbContext();
             var stored = dbContext.CalendarEvents.Single(candidate => candidate.LocalId == created.LocalId);
@@ -221,12 +260,18 @@ public sealed class TaskItemSummaryScreenTests
             _nominatim = StubHttpMessageHandler.RespondingWith(Places);
             var screen = new TaskItemSummaryViewModel(
                 _taskLists, _events, new PlaceSearch(_nominatim.ToHttpClient()),
-                new Translations(new InMemoryLanguageStore()), Navigator);
+                new Translations(new InMemoryLanguageStore()), Navigator,
+                new ChatRepository(_localStore, _clock));
 
             screen.Open(opened.TaskListLocalId, opened.ItemId);
             await screen.LoadCommand.ExecuteAsync(null);
             return screen;
         }
+
+        /// <summary>Somebody this account has in its contacts, so a guest can be named rather than counted.</summary>
+        public async Task AddContactAsync(Guid userId, string displayName)
+            => await new ChatRepository(_localStore, _clock).StoreContactsAsync(
+                [new ContactDto(userId, displayName, displayName, $"{displayName}@example.com", "public-key", _clock.GetUtcNow(), RequiresApprovalFromCurrentUser: false, IsPendingApprovalFromOtherParty: false)]);
 
         public void Dispose()
         {

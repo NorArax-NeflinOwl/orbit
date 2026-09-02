@@ -50,8 +50,20 @@ public partial class CalendarPage : ContentPage
 			[Mark(_translations["Alphabetical"], CalendarListSortOrder.Alphabetical)] = CalendarListSortOrder.Alphabetical
 		};
 
+		// What is over is left out of the list unless it is asked for, as in the browser - so the same
+		// sheet that says how to read it also says how much of it to read.
+		var showEverything = _viewModel.ShowsEverything
+			? $"{_translations["Everything, including what is over"]} ✓"
+			: _translations["Everything, including what is over"];
+
 		var chosen = await DisplayActionSheet(
-			_translations["Sort"], _translations["Cancel"], destruction: null, [.. orders.Keys]);
+			_translations["Sort"], _translations["Cancel"], destruction: null, [.. orders.Keys, showEverything]);
+
+		if (chosen == showEverything)
+		{
+			_viewModel.ShowsEverything = !_viewModel.ShowsEverything;
+			return;
+		}
 
 		if (chosen is not null && orders.TryGetValue(chosen, out var order))
 		{

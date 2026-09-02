@@ -110,17 +110,25 @@ public sealed class NotesTests : OrbitTestContext
         Assert.Empty(cut.FindAll(".item-card-body p"));
     }
 
+    /// <summary>
+    /// The card opens the note to be read, and changing what it says is a named press - the same two
+    /// depths a task list and a storage have, see NoteSummary.razor.
+    /// </summary>
     [Fact]
-    public void Editing_a_note_opens_it()
+    public void A_card_opens_the_note_and_its_menu_opens_the_form()
     {
         var note = Note("Shopping");
         RegisterNotesApiClient([note]);
+        var navigationManager = Services.GetRequiredService<NavigationManager>();
         var cut = RenderComponent<Web.Pages.Notes>();
+
+        cut.Find(".item-card-name").Click();
+        Assert.EndsWith($"/notes/{note.Id}", navigationManager.Uri);
 
         OpenTheCardMenu(cut);
         FindButton(cut, "Edit").Click();
 
-        Assert.EndsWith($"/notes/{note.Id}", Services.GetRequiredService<NavigationManager>().Uri);
+        Assert.EndsWith($"/notes/{note.Id}/edit", navigationManager.Uri);
     }
 
     [Fact]

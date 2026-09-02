@@ -43,8 +43,8 @@ else
         @foreach (var note in Ordered(_notes))
         {
             <ItemCard Name="@NameOf(note)"
-                      OnNameSelected="() => GoToEditNote(note.Id)"
-                      OnBodySelected="@(note.IsPrivate ? default(EventCallback) : EventCallback.Factory.Create(this, () => GoToEditNote(note.Id)))"
+                      OnNameSelected="() => OpenNote(note.Id)"
+                      OnBodySelected="@(note.IsPrivate ? default(EventCallback) : EventCallback.Factory.Create(this, () => OpenNote(note.Id)))"
                       ExtraClass="@(note.IsPinned ? "item-card-pinned" : null)">
                 @* Only for a note you own: pinning moves it on its owner's page, so a recipient
                    pinning a note shared with them would be rearranging someone else's list. *@
@@ -56,6 +56,8 @@ else
                 </Pin>
                 <Menu>
                     <OverflowMenu>
+                        @* The card opens the note to be read; changing what it says is a named press,
+                           the same as a task list's - see NoteSummary.razor. *@
                         <button type="button" class="avatar-dropdown-item" @onclick="() => GoToEditNote(note.Id)">
                             @T["Edit"]
                         </button>
@@ -162,10 +164,16 @@ else
         NavigationManager.NavigateTo("/notes/new");
     }
 
+    private void OpenNote(Guid noteId)
+    {
+        Logger.LogInformation("User opened note {NoteId}", noteId);
+        NavigationManager.NavigateTo($"/notes/{noteId}");
+    }
+
     private void GoToEditNote(Guid noteId)
     {
         Logger.LogInformation("User clicked 'Edit' for note {NoteId}", noteId);
-        NavigationManager.NavigateTo($"/notes/{noteId}");
+        NavigationManager.NavigateTo($"/notes/{noteId}/edit");
     }
 
     /// <summary>

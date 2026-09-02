@@ -155,6 +155,13 @@ public partial class TaskListDetailPage : ContentPage
 	/// </summary>
 	private async void OnViewModelPropertyChanged(object? sender, PropertyChangedEventArgs eventArgs)
 	{
+		if (eventArgs.PropertyName == nameof(TaskListDetailViewModel.IsAskingAboutTheListsBehind)
+			&& _viewModel.IsAskingAboutTheListsBehind)
+		{
+			await AskAboutTheListsBehindAsync();
+			return;
+		}
+
 		if (eventArgs.PropertyName != nameof(TaskListDetailViewModel.IsAskingToFinishRestocking)
 			|| !_viewModel.IsAskingToFinishRestocking)
 		{
@@ -170,6 +177,46 @@ public partial class TaskListDetailPage : ContentPage
 		await (finishesTheRound
 			? _viewModel.FinishRestockingCommand.ExecuteAsync(null)
 			: _viewModel.TickOnlyThisCommand.ExecuteAsync(null));
+	}
+
+	/// <summary>
+	/// The question raised by pressing the box of an entry that stands for other lists - see
+	/// TaskListDetailViewModel.AskAboutTheListsBehind. One list is a yes-or-no; several are a sheet, so
+	/// the reader picks which of them they meant rather than being sent to the first.
+	/// </summary>
+	private async Task AskAboutTheListsBehindAsync()
+	{
+		var lists = _viewModel.ListsBehindTheEntry.ToList();
+		if (lists.Count == 0)
+		{
+			// Nothing this phone can open: the question is still answered - what the entry is waiting on
+			// is worth knowing - but there is no door to offer.
+			await DisplayAlertAsync(
+				_viewModel.LinkedTickBeingAsked?.Description ?? string.Empty,
+				_viewModel.ListsBehindTheEntryQuestion,
+				_translations["Close"]);
+			_viewModel.LeaveTheListBehindCommand.Execute(null);
+			return;
+		}
+
+		if (lists.Count == 1)
+		{
+			var opens = await DisplayAlertAsync(
+				_viewModel.LinkedTickBeingAsked?.Description ?? string.Empty,
+				_viewModel.ListsBehindTheEntryQuestion,
+				_translations["Yes"],
+				_translations["No"]);
+
+			_viewModel.OpenTheListBehindCommand.Execute(opens ? lists[0] : null);
+			return;
+		}
+
+		var chosen = await DisplayActionSheet(
+			_viewModel.ListsBehindTheEntryQuestion, _translations["No"], null,
+			[.. lists.Select(list => list.Label)]);
+
+		_viewModel.OpenTheListBehindCommand.Execute(
+			lists.FirstOrDefault(list => list.Label == chosen));
 	}
 
 	private async Task ShowItemMenuAsync(TaskItemRow? item)

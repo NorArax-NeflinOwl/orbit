@@ -435,16 +435,17 @@ inventory lists, the contacts tabs, the chat menus - is built and needs no schem
 
 ## Smaller identified follow-ups
 
-- **The light editing view needs redesigning.** Orbit has two depths for the same thing: a shallow view
-  for reading and ticking, and a full form for changing what it is. Which objects have the shallow one,
-  and what it currently is:
+- **Done, kept here as the map of it.** Orbit has two depths for the same thing: a shallow view for
+  reading and doing, and a full form for changing what it is. Every object that can have both now does,
+  and the pattern is the same one each time - land on what the thing is, with the fields a named press
+  further in, and whatever light doing belongs to that thing offered where it is read. Which is which:
 
   | Object | Shallow view | Full form |
   | --- | --- | --- |
   | Task list | `/tasks/{id}` - the checklist: tick items, see the tree of lists it stands for, measure it against a storage | `/tasks/{id}/edit` |
-  | Task entry | `/tasks/{listId}/items/{itemId}` - `TaskItemSummary`: when, where, and a map, for an entry with a place | the entry's own row in the list's editor |
-  | Note | none of its own - the card's body opens the editor itself, which is the only view a note has | `/notes/{id}` |
-  | Calendar event | none of its own - the card unfolds in place on the calendar to show when, where, who is coming | `/calendar/{id}` |
+  | Task entry | `/tasks/{listId}/items/{itemId}` - `TaskItemSummary`: when, where, what the appointment is about, who is coming, and a map | the entry's own row in the list's editor |
+  | Note | `/notes/{id}` - `NoteSummary`: the note read, with the checklist lines in it tickable | `/notes/{id}/edit` |
+  | Calendar event | `/calendar/{id}` - `CalendarEventSummary`: when, where, what it is about, who is coming, its reminders, and the place on a map | `/calendar/{id}/edit` |
   | Storage | `/inventory/{id}` - the shelf read rather than edited, one row per batch: what it is, how much, when it arrived, how long it keeps | `/inventory/{id}/edit` |
   | Contact / group | `/contacts/{userId}`, `/chat/groups/{id}/info` - read-only cards about who somebody is | no form; membership is edited on the roster |
 
@@ -475,6 +476,18 @@ inventory lists, the contacts tabs, the chat menus - is built and needs no schem
   the messages are unaffected; for the latter it says there is nothing to show and why it cannot be more
   specific. It used to say "Orbit can't reach that account right now" to both, which read as a fault
   Orbit was having.
+
+- ~~**The phone has not caught up with the browser's last few passes.**~~ Done. The Google link and the
+  verified-address filter are the same builder as the browser's with tests on both sides
+  (`Orbit.Mobile/Google/GoogleCalendarEventLink.cs`); the calendar's list leaves out what is over; a task
+  entry's own screen now says what the appointment is about and who is coming, above the map, as the
+  browser's page does; and a press on an entry that stands for another list names that list and offers to
+  open it rather than ticking off something the server will only overwrite.
+
+  What is left is a difference in shape rather than a gap: the browser split each object into a page that
+  reads and a form one press further in, where the phone keeps one screen that does both - a note's lines
+  are ticked where they are written, and a shelf is counted up and down on the same screen that edits it.
+  That is the right answer for a phone, so it is recorded here rather than queued.
 
 - **The phone cannot flatten a tree of lists.** The browser's checklist reads a group list either as the
   stack of cards it is or as one run of items labelled with the list each came from, and remembers which
