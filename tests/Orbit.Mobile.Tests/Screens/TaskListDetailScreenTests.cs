@@ -658,6 +658,49 @@ public sealed class TaskListDetailScreenTests
     }
 
     /// <summary>
+    /// The fields for a product appear when somebody says the entry is an errand, not after a save and
+    /// a reopen. Found on a device: picking Inventory left the form saying "this entry isn't tied to a
+    /// product yet", which is the message for a list with no shelf behind it - and the only way to the
+    /// fields was to save, come back, and open it again.
+    /// </summary>
+    [Fact]
+    public async Task Making_an_entry_an_errand_shows_the_product_it_would_describe()
+    {
+        using var context = new ScreenContext();
+        var screen = context.OpenTaskList("Saturday");
+        await context.MeasureAgainstAnEmptyShelfAsync(screen, "Kitchen");
+        await AddAsync(screen, "Sugar");
+
+        screen.EditItemCommand.Execute(screen.Items[0]);
+        var editor = screen.BeingEdited!;
+        Assert.False(editor.IsShelfEntry);
+
+        editor.Kind = nameof(TaskItemKind.Inventory);
+
+        Assert.True(editor.IsShelfEntry);
+        Assert.True(editor.IsDescribingSomethingNew);
+        Assert.Contains("Kitchen", editor.WhereTheProductLives);
+    }
+
+    /// <summary>And go again when the entry stops being one, rather than being saved to a shelf nobody asked.</summary>
+    [Fact]
+    public async Task An_entry_that_stops_being_an_errand_stops_describing_a_product()
+    {
+        using var context = new ScreenContext();
+        var screen = context.OpenTaskList("Saturday");
+        await context.MeasureAgainstAnEmptyShelfAsync(screen, "Kitchen");
+        await AddAsync(screen, "Sugar");
+
+        screen.EditItemCommand.Execute(screen.Items[0]);
+        var editor = screen.BeingEdited!;
+        editor.Kind = nameof(TaskItemKind.Inventory);
+        editor.Kind = nameof(TaskItemKind.Checklist);
+
+        Assert.False(editor.IsShelfEntry);
+        Assert.Null(editor.Shelf);
+    }
+
+    /// <summary>
     /// A list measured against a shelf can say what it needs before that shelf holds it: the entry is
     /// the description, and saving puts the product there. Until now the phone could only correct
     /// something already on the shelf, so anything new had to be typed into the warehouse first.

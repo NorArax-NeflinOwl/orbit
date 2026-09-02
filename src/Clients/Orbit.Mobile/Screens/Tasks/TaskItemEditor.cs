@@ -89,7 +89,20 @@ public sealed partial class TaskItemEditor : ObservableObject
     /// for every other kind, and for an errand whose product this phone has not got: an entry tied to a
     /// warehouse somebody stopped sharing still opens, with the shelf half missing rather than the form.
     /// </summary>
-    public TaskItemShelfProduct? Shelf { get; private init; }
+    /// <summary>
+    /// The product this errand is about - one already on a shelf, or one being described for the shelf
+    /// the list is measured against. Settable because the answer follows the kind: somebody who picks
+    /// Inventory here means "this is an errand about a product" and the fields for it have to appear
+    /// then, not after a save and a reopen.
+    /// </summary>
+    public TaskItemShelfProduct? Shelf { get; private set; }
+
+    /// <summary>
+    /// Makes the form for a product this shelf has not got yet, or null when the list is measured
+    /// against no shelf. Handed in rather than reached for, the way the channels and the lists are -
+    /// which warehouse a list is measured against is the screen's knowledge, not the editor's.
+    /// </summary>
+    public Func<TaskItemShelfProduct?>? ShelfForSomethingNew { private get; init; }
 
     /// <summary>True when this entry is an errand about a product that can be corrected from here.</summary>
     public bool IsShelfEntry => Kind == nameof(TaskItemKind.Inventory) && Shelf is not null;
@@ -267,9 +280,9 @@ public sealed partial class TaskItemEditor : ObservableObject
     public static TaskItemEditor For(
         TaskItemDto item, Translations translations, CalendarEventDetailsDto? linkedEvent,
         IReadOnlyList<TaskListChoice> lists, NameSuggestions? suggestions = null,
-        TaskItemShelfProduct? shelf = null)
+        TaskItemShelfProduct? shelf = null, Func<TaskItemShelfProduct?>? shelfForSomethingNew = null)
     {
-        var editor = Build(item, translations, linkedEvent, lists, suggestions, shelf);
+        var editor = Build(item, translations, linkedEvent, lists, suggestions, shelf, shelfForSomethingNew);
         if (suggestions is not null)
         {
             suggestions.Offers(NameSuggestionKind.TaskItemDescription);
@@ -282,10 +295,12 @@ public sealed partial class TaskItemEditor : ObservableObject
 
     private static TaskItemEditor Build(
         TaskItemDto item, Translations translations, CalendarEventDetailsDto? linkedEvent,
-        IReadOnlyList<TaskListChoice> lists, NameSuggestions? suggestions, TaskItemShelfProduct? shelf)
+        IReadOnlyList<TaskListChoice> lists, NameSuggestions? suggestions, TaskItemShelfProduct? shelf,
+        Func<TaskItemShelfProduct?>? shelfForSomethingNew)
     {
         var editor = new TaskItemEditor(item, translations)
         {
+            ShelfForSomethingNew = shelfForSomethingNew,
             Suggestions = suggestions,
             Channels = NotificationChannelChoice.All(translations),
             Kinds = TaskItemKindChoice.All(translations),
@@ -434,7 +449,24 @@ public sealed partial class TaskItemEditor : ObservableObject
         OnPropertyChanged(nameof(CanSave));
     }
 
-    partial void OnKindChanged(string value) => SayWhatTheFormShows();
+    partial void OnKindChanged(string value)
+    {
+        // An entry becomes an errand, or stops being one. A product already on a shelf is left alone -
+        // the entry still names it, and changing the kind back and forth must not lose the amounts
+        // somebody typed - but the form for a new one appears and disappears with the choice.
+        if (value == nameof(TaskItemKind.Inventory))
+        {
+            Shelf ??= ShelfForSomethingNew?.Invoke();
+        }
+        else if (Shelf is { Product.IsSomethingNew: true })
+        {
+            Shelf = null;
+        }
+
+        OnPropertyChanged(nameof(Shelf));
+        OnPropertyChanged(nameof(IsDescribingSomethingNew));
+        SayWhatTheFormShows();
+    }
 
     /// <summary>
     /// What appears and disappears together: the appointment's form and the place it happens are shown
