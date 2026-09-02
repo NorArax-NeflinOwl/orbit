@@ -128,6 +128,11 @@ since the entry's own words are the name - and saving the entry puts it there, s
 already holds that name. It is the last of the browser's 2026-09-02 item form that the phone was
 missing.
 
+The shelf itself answers two more questions. A warehouse opened from an errand naming a product, or from
+the search across every shelf, marks that row and scrolls to it rather than landing on a list with no
+sign of which one was meant - and says so in words as well as in colour. And every row says when its
+batch arrived, which is what tells two rows of one name apart: they are two deliveries of the thing.
+
 Being offline no longer only refuses. Anything shared that cannot be edited without a connection - see
 [the conflict policy](orbit-maui-plan.md#54-pushing-changes-and-conflicts-built-for-notes) - now offers
 a copy to write in instead, for all four kinds: notes, task lists, appointments and warehouses. The copy
