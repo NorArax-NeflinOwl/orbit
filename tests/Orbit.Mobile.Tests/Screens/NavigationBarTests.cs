@@ -2,6 +2,8 @@ using Microsoft.Extensions.Logging.Abstractions;
 using Orbit.Core.Mobile;
 using Orbit.Mobile.Update;
 using Orbit.Mobile.Api;
+using Orbit.Core.Permissions;
+using Orbit.Mobile.Permissions;
 using Microsoft.Extensions.Time.Testing;
 using Orbit.Mobile.Authentication;
 using Orbit.Mobile.Data;
@@ -23,6 +25,33 @@ namespace Orbit.Mobile.Tests.Screens;
 /// </summary>
 public sealed class NavigationBarTests
 {
+    /// <summary>
+    /// The commit is detail about Orbit's own inside, so it goes to the accounts holding Debug and to
+    /// nobody else - the rule the server and the browser's footer already apply, and the phone's About
+    /// row was the half still showing it to everybody. The number itself stays: "which Orbit is this"
+    /// is everybody's question.
+    /// </summary>
+    [Fact]
+    public async Task The_about_row_keeps_the_commit_from_an_account_without_debug()
+    {
+        var context = new BarContext("Ala");
+        var bar = context.Open(await UnlockedPermissions.LockedTo(context.LocalStore, ApplicationPermission.Contacts));
+        await bar.LoadCommand.ExecuteAsync(null);
+
+        Assert.DoesNotContain("gitHash", bar.AboutVersion);
+        Assert.Contains("ver:", bar.AboutVersion);
+        // Nothing to reveal, so the row is text rather than something that looks pressable.
+        Assert.False(bar.CanShowTheWholeCommit);
+
+        // And the same build does say it to somebody holding Debug - without this the test above would
+        // pass just as well on a build carrying no commit at all.
+        var debugging = context.Open(
+            await UnlockedPermissions.LockedTo(context.LocalStore, ApplicationPermission.Debug));
+        await debugging.LoadCommand.ExecuteAsync(null);
+
+        Assert.Contains("gitHash", debugging.AboutVersion);
+    }
+
     [Fact]
     public async Task The_avatar_shows_the_reader_initials()
     {
@@ -517,12 +546,15 @@ public sealed class NavigationBarTests
 
         private const string InstalledVersion = "1.3.0";
 
-        public NavigationBarViewModel Open()
+        public NavigationBarViewModel Open() => Open(UnlockedPermissions.For(LocalStore));
+
+        /// <summary>The same bar for an account that holds only some of it - see the About row.</summary>
+        public NavigationBarViewModel Open(UserPermissions permissions)
             => new(
                 _sessionStore, new NotificationsClient(Server.ToHttpClient()),
                 new AuthenticationClient(Server.ToHttpClient(), FixedNetworkStatus.Online, _sessionStore),
                 Presence, new Translations(new InMemoryLanguageStore()),
-                new LocalStoreReset(LocalStore), UnlockedPermissions.For(LocalStore), SyncState,
+                new LocalStoreReset(LocalStore), permissions, SyncState,
                 new MobileVersionGate(
                     new AppVersion(MobilePlatform.Android, InstalledVersion),
                     // Unreachable on purpose: the bar reads what is remembered and asks nobody.

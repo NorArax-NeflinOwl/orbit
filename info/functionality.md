@@ -1373,12 +1373,14 @@ The footer says `ver:0.1.17+gitHash:51536f3`, and pressing it grows the rest of 
 is what anybody reads, the whole one is what a `git checkout` takes, and asking for it should not mean
 going somewhere else. The phone's **About** row says the same thing and behaves the same way when tapped.
 
-**The hash is only there while debugging.** A released build says `ver:0.1.17` and stops: nothing to
-press, and nothing that looks pressable. The number is what somebody reporting a problem needs and what
-the update gate compares; which commit it was cut from is a question for whoever has the repository, and
-a released build has no reason to volunteer detail about its own insides. The rule lives in one place
-(`OrbitVersion.IsADebugBuild`) and travels as a value, so both answers can be tested rather than only
-whichever one the test run happened to compile.
+**The hash goes to the accounts holding `Debug`, and to nobody else.** Every build reads its own commit
+off itself whatever configuration it was made in - a deployed footer that cannot answer "which code is
+this" is a footer with no reason to carry a hash at all - and the *showing* is what is gated. Somebody
+without the permission sees `ver:0.1.17` and nothing to press: the number is what a bug report needs and
+what the update gate compares, while which commit it was cut from is detail about Orbit's own insides.
+All three ends apply the one rule: the server leaves the hash out of its answer rather than sending it
+to be hidden (`ConfigEndpoints`), the browser's footer drops it with `OrbitVersion.WithoutTheCommit()`,
+and the phone's About row does the same - it was the half still showing it to everybody.
 
 **Both versions are shown, the client's and the server's**, because they can differ:
 
