@@ -29,6 +29,10 @@ _to_delete/
 .env
 .env.*
 *.pem
+
+# Compose reads this on top of docker-compose.yml automatically. It is where a machine says what is
+# true only of itself - the folder its TLS certificate lives in, say - see info/instructions.md.
+docker-compose.override.yml
 *.key
 *.p12
 # APNs auth key, downloadable exactly once - Firebase holds it, but it lands on disk first.
