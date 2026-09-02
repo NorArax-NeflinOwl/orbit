@@ -47,14 +47,21 @@ public partial class ContactsPage : ContentPage
 			return;
 		}
 
+		var info = _translations["Info"];
 		var putAway = contact.IsArchived ? _translations["Put back"] : _translations["Archive"];
 		// Offered only where somebody has already decided they are done with the conversation, which is
 		// the one place Orbit.Web offers it too.
 		var clear = _translations["Delete chat history"];
-		var choices = contact.IsArchived ? new[] { putAway, clear } : [putAway];
+		string[] choices = contact.IsArchived ? [info, putAway, clear] : [info, putAway];
 
 		var chosen = await DisplayActionSheet(
 			contact.DisplayName, _translations["Cancel"], destruction: null, choices);
+
+		if (chosen == info)
+		{
+			_viewModel.OpenContactInfoCommand.Execute(contact.UserId);
+			return;
+		}
 
 		if (chosen == putAway)
 		{

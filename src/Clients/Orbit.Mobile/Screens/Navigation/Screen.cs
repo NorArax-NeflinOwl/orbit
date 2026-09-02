@@ -34,6 +34,9 @@ public enum Screen
     Warehouse,
     Contacts,
     Conversation,
+
+    /// <summary>Who somebody is, apart from what they have said - see ContactInfoViewModel.</summary>
+    ContactInfo,
     Groups,
     GroupConversation,
     GroupDetail,

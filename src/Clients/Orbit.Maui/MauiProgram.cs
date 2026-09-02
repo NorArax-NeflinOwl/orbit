@@ -328,7 +328,9 @@ public static class MauiProgram
 		services.AddTransient<ContactsPage>();
 		services.AddTransient<ContactsViewModel>();
 		services.AddTransient<ConversationPage>();
+		services.AddTransient<ContactInfoPage>();
 		services.AddTransient<ConversationViewModel>();
+		services.AddTransient<ContactInfoViewModel>();
 		services.AddTransient<GroupsPage>();
 		services.AddTransient<GroupsViewModel>();
 		services.AddTransient<GroupConversationPage>();

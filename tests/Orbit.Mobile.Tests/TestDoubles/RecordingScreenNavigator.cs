@@ -56,6 +56,15 @@ internal sealed class RecordingScreenNavigator : IScreenNavigator
         _destinations.Add(nameof(ShowConversation));
     }
 
+    public void ShowContactInfo(Guid userId)
+    {
+        LastContactInfoUserId = userId;
+        _destinations.Add(nameof(ShowContactInfo));
+    }
+
+    /// <summary>Whose card was opened - see ContactInfoViewModel.</summary>
+    public Guid? LastContactInfoUserId { get; private set; }
+
     public void ShowGroups() => _destinations.Add(nameof(ShowGroups));
 
     public void ShowGroupConversation(LocalChatGroup group)

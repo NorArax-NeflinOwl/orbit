@@ -183,6 +183,19 @@ public sealed partial class ConversationViewModel : ObservableObject, IDisposabl
 
     partial void OnReplyingToPreviewChanged(string value) => OnPropertyChanged(nameof(HasReplyingTo));
 
+    /// <summary>
+    /// Who the other person is, apart from what they have said - the same Info the browser keeps in the
+    /// conversation's own menu. See ContactInfoViewModel.
+    /// </summary>
+    [RelayCommand]
+    private void OpenContactInfo()
+    {
+        if (_contact is { } contact)
+        {
+            _navigator.ShowContactInfo(contact.UserId);
+        }
+    }
+
     [RelayCommand]
     private async Task ApproveRequestAsync(CancellationToken cancellationToken)
     {

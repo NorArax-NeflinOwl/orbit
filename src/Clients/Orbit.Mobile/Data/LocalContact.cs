@@ -34,6 +34,13 @@ public sealed class LocalContact
 
     public string DisplayName { get; set; } = string.Empty;
 
+    /// <summary>
+    /// How to reach them outside Orbit, for the card that says who somebody is. Cached with the rest of
+    /// the row rather than looked up when the card opens: that card has to answer offline, and an
+    /// address is the one line on it nothing else stands in for.
+    /// </summary>
+    public string Email { get; set; } = string.Empty;
+
     public string? PublicKeyBase64 { get; set; }
 
     public DateTimeOffset LastMessageAtUtc { get; set; }

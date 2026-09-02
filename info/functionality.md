@@ -331,6 +331,14 @@ named from the conversation, told the two possible reasons, and told plainly tha
 unaffected — while an id that means nothing gets "there is nothing to show" and no offer to open a chat
 that does not exist.
 
+**The phone opens the same card** (`ContactInfoViewModel`), from the contact list's row menu, from
+beside somebody just found by search, and from the conversation's own header - the three places a name
+is already on screen. It answers from the row this phone holds before it asks the server anything, which
+is why it says who somebody is on a train: the contact sync now stores the address as well as the name,
+so the whole card reads offline. What only the account can say - a name changed since the last sync -
+overwrites it when the lookup answers, and nothing is claimed when it cannot be reached: being offline
+is not an answer about somebody.
+
 A chat with more than one other person, under the same end-to-end encryption one-to-one chats already
 have. There is no group key: the sender's browser encrypts the same text **once per other member**,
 under the pairwise key it already shares with each of them, and posts the copies together

@@ -45,6 +45,7 @@ public sealed class ChatRepository
             UserId = contact.UserId,
             UserName = contact.UserName,
             DisplayName = contact.DisplayName,
+            Email = contact.Email,
             PublicKeyBase64 = contact.PublicKeyBase64,
             LastMessageAtUtc = contact.LastMessageAtUtc,
             RequiresApprovalFromCurrentUser = contact.RequiresApprovalFromCurrentUser,

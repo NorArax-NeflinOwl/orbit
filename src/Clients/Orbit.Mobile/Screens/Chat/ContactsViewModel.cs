@@ -327,6 +327,13 @@ public sealed partial class ContactsViewModel : ObservableObject
         await LoadAsync(cancellationToken);
     }
 
+    /// <summary>
+    /// Who somebody is, apart from what they have said - see ContactInfoViewModel. Also opened for
+    /// somebody just found by search, who is not a contact yet.
+    /// </summary>
+    [RelayCommand]
+    private void OpenContactInfo(Guid userId) => _navigator.ShowContactInfo(userId);
+
     [RelayCommand]
     private void OpenGroups() => _navigator.ShowGroups();
 
