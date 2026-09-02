@@ -238,6 +238,13 @@ else
                     <div class="list-row task-preview-row @(item.IsCompleted ? "completed" : "")">
                         <span class="task-preview-mark">@(item.IsCompleted ? "✓" : "")</span>
                         <span class="row-title">@Written(item.Description)</span>
+                        @* What the entry is filed under, on the row itself: the chips above filter by
+                           these, and a filter whose subject is invisible on what it returns leaves the
+                           reader to take the page's word for it. *@
+                        @foreach (var category in item.AllCategories)
+                        {
+                            <span class="row-category @(_itemFilter.IsChosen(category) ? "on" : "")">@category</span>
+                        }
                         @if (item.AllLinkedTaskListIds.Count > 0)
                         {
                             <span class="row-meta">@T["follows another list"]</span>

@@ -313,6 +313,26 @@ public sealed class TasksTests : OrbitTestContext
     }
 
     /// <summary>
+    /// The chips filter by what entries are filed under, so the rows have to say it - otherwise the
+    /// reader takes the page's word for why a list is still here.
+    /// </summary>
+    [Fact]
+    public void A_row_says_what_it_is_filed_under_and_marks_the_one_being_filtered_by()
+    {
+        RegisterTasksApiClient([TaskList("Kitchen", Item("Buy milk") with { Categories = ["shopping", "weekly"] })]);
+        var cut = RenderComponent<Web.Pages.Tasks>();
+
+        Assert.Equal(
+            ["shopping", "weekly"],
+            cut.FindAll(".task-preview-row .row-category").Select(category => category.TextContent.Trim()));
+
+        cut.FindAll(".filter-chip").First(chip => chip.TextContent.Contains("weekly")).Click();
+
+        var marked = cut.FindAll(".task-preview-row .row-category.on").Select(category => category.TextContent.Trim());
+        Assert.Equal(["weekly"], marked);
+    }
+
+    /// <summary>
     /// A word from an entry, not from the list's own name: the box is there to find the thing that has
     /// to be done, which is what a reader remembers and what the card only shows a few of.
     /// </summary>

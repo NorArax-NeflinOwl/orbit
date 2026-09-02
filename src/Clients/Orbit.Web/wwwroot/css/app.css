@@ -4686,6 +4686,25 @@ input.note-editor-title {
     background: var(--bg-subtle);
 }
 
+/* What an entry is filed under, on the row itself - see Tasks.razor. Quieter than a card badge: these
+   sit inside a list of work, where the work is what should be read first. */
+.row-category {
+    flex: 0 0 auto;
+    font-size: 11px;
+    line-height: 1.6;
+    padding: 0 6px;
+    border-radius: 999px;
+    border: 1px solid var(--border);
+    color: var(--text-tertiary);
+    white-space: nowrap;
+}
+
+/* The one being filtered by, so the row says which of its categories brought it here. */
+.row-category.on {
+    border-color: var(--accent);
+    color: var(--accent);
+}
+
 /* Looking for one entry among every list - see Tasks.razor. Full width, because what is typed here is
    a phrase rather than a word, and it sits above the chips it narrows alongside. */
 .task-search {
