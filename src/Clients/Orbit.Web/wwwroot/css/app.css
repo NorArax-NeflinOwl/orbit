@@ -4961,7 +4961,11 @@ input.note-editor-title {
 
 .editor-rail {
     display: flex;
-    flex-direction: column;
+    /* Reversed, so the panel reads from the page's edge inwards: the menu at the top, then Cancel, then
+       Save, and whatever this page keeps in view under them. The markup keeps Save first because that
+       is the order a keyboard should meet them in and the order the bar uses on a narrow screen - the
+       column is the one place the two disagree, so it is the column that is turned round. */
+    flex-direction: column-reverse;
     align-items: center;
     gap: 10px;
     flex: 0 0 auto;
@@ -4975,7 +4979,7 @@ input.note-editor-title {
     border-radius: 14px;
 }
 
-/* Whatever this page keeps in view whatever the form is scrolled to. Above the buttons on a wide
+/* Whatever this page keeps in view whatever the form is scrolled to. Under the buttons on a wide
    screen, and folded away behind the arrow on a narrow one. */
 .editor-rail-extras {
     display: flex;
@@ -4984,9 +4988,11 @@ input.note-editor-title {
     width: 100%;
 }
 
+/* Turned round with the panel around it, so the three read menu, Cancel, Save downwards - see
+   .editor-rail. */
 .editor-rail-actions {
     display: flex;
-    flex-direction: column;
+    flex-direction: column-reverse;
     align-items: center;
     gap: 10px;
 }
