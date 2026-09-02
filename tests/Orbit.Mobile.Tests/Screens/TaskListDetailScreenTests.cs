@@ -286,7 +286,9 @@ public sealed class TaskListDetailScreenTests
 
         screen.Description = "Prescriptions";
         screen.IsPrivate = true;
-        await screen.SaveListCommand.ExecuteAsync(null);
+        // Waits on the save the switch started rather than starting a second: two saves race,
+        // and the first can outlive the test - which brought the whole run down.
+        await screen.SaveListCommand.ExecutionTask!;
 
         Assert.False(screen.IsNotPrivate);
         Assert.Empty(context.Server.TaskLists.Single().Description);
@@ -1616,7 +1618,9 @@ public sealed class TaskListDetailScreenTests
         var screen = context.OpenTaskList("Bank paperwork");
 
         screen.IsPrivate = true;
-        await screen.SaveListCommand.ExecuteAsync(null);
+        // Waits on the save the switch started rather than starting a second: two saves race,
+        // and the first can outlive the test - which brought the whole run down.
+        await screen.SaveListCommand.ExecutionTask!;
 
         var stored = context.Stored();
         Assert.True(stored.IsPrivate);
@@ -1634,7 +1638,9 @@ public sealed class TaskListDetailScreenTests
         await screen.AddItemCommand.ExecuteAsync(null);
 
         screen.IsPrivate = true;
-        await screen.SaveListCommand.ExecuteAsync(null);
+        // Waits on the save the switch started rather than starting a second: two saves race,
+        // and the first can outlive the test - which brought the whole run down.
+        await screen.SaveListCommand.ExecutionTask!;
         await screen.LoadCommand.ExecuteAsync(null);
 
         Assert.False(screen.IsReadOnly);
@@ -1658,7 +1664,9 @@ public sealed class TaskListDetailScreenTests
         await screen.AddItemCommand.ExecuteAsync(null);
 
         screen.IsPrivate = true;
-        await screen.SaveListCommand.ExecuteAsync(null);
+        // Waits on the save the switch started rather than starting a second: two saves race,
+        // and the first can outlive the test - which brought the whole run down.
+        await screen.SaveListCommand.ExecutionTask!;
         await screen.LoadCommand.ExecuteAsync(null);
 
         var ids = screen.Items.Select(item => item.Id).ToList();
@@ -1673,7 +1681,9 @@ public sealed class TaskListDetailScreenTests
         var screen = context.OpenTaskList("Bank paperwork");
 
         screen.IsPrivate = true;
-        await screen.SaveListCommand.ExecuteAsync(null);
+        // Waits on the save the switch started rather than starting a second: two saves race,
+        // and the first can outlive the test - which brought the whole run down.
+        await screen.SaveListCommand.ExecutionTask!;
 
         Assert.False(screen.Share.CanShare);
     }
@@ -1686,7 +1696,9 @@ public sealed class TaskListDetailScreenTests
         var screen = context.OpenTaskList("Bank paperwork");
 
         screen.IsPrivate = true;
-        await screen.SaveListCommand.ExecuteAsync(null);
+        // Waits on the save the switch started rather than starting a second: two saves race,
+        // and the first can outlive the test - which brought the whole run down.
+        await screen.SaveListCommand.ExecutionTask!;
 
         Assert.Contains(nameof(IScreenNavigator.ShowChatKeyGate), context.Navigator.Destinations);
         Assert.False(context.Stored().IsPrivate);
