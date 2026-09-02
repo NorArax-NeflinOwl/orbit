@@ -23,6 +23,10 @@ public sealed partial class CalendarViewModel : ObservableObject
     private readonly SyncState _syncState;
     private readonly IScreenNavigator _navigator;
     private readonly Translations _translations;
+    private readonly ICalendarListOrderStore _listOrder;
+
+    /// <summary>What is on the shown days, before it is put in the reader's chosen order.</summary>
+    private readonly List<CalendarListEntry> _listed = [];
 
     [ObservableProperty]
     private string _newEventTitle = string.Empty;
@@ -40,9 +44,11 @@ public sealed partial class CalendarViewModel : ObservableObject
     public CalendarViewModel(
         LocalCalendarEventRepository events, CalendarEventSynchronizer synchronizer, INetworkStatus networkStatus,
         TimeProvider timeProvider, SyncState syncState, IScreenNavigator navigator, Translations translations,
-        LocalTaskListRepository taskLists)
+        LocalTaskListRepository taskLists, ICalendarListOrderStore listOrder)
     {
         _events = events;
+        _listOrder = listOrder;
+        _sortOrder = listOrder.Read();
         _taskLists = taskLists;
         _synchronizer = synchronizer;
         _networkStatus = networkStatus;
@@ -61,15 +67,16 @@ public sealed partial class CalendarViewModel : ObservableObject
         _newEventDate = today;
     }
 
-    public ObservableCollection<CalendarEventRow> Events { get; } = [];
-
     /// <summary>
-    /// What falls due over the same stretch of days, beneath the events. Read-only here: a deadline
-    /// belongs to the list it sits on, and tapping it opens that list, which is where it can be ticked.
+    /// Everything happening over the shown days, whichever kind it is - see CalendarListEntry for why
+    /// appointments and deadlines share one list. A deadline is read-only here: it belongs to the list
+    /// it sits on, and tapping it opens that list, which is where it can be ticked.
     /// </summary>
-    public ObservableCollection<CalendarDeadline> Deadlines { get; } = [];
+    public ObservableCollection<CalendarListEntry> Listed { get; } = [];
 
-    public bool HasDeadlines => Deadlines.Count > 0;
+    /// <summary>What order that list is read in, kept on this device - see ICalendarListOrderStore.</summary>
+    [ObservableProperty]
+    private CalendarListSortOrder _sortOrder;
 
     /// <summary>The month grid - six weeks of seven days, whatever month it is. See CalendarMonth.</summary>
     public ObservableCollection<CalendarDay> Days { get; } = [];
@@ -268,6 +275,22 @@ public sealed partial class CalendarViewModel : ObservableObject
     }
 
     /// <summary>
+    /// Opens whichever kind of thing was pressed, since the list holds both - an appointment opens
+    /// itself, a deadline opens where it can be ticked off. See OpenDeadline for that split.
+    /// </summary>
+    [RelayCommand]
+    private void OpenListed(CalendarListEntry? entry)
+    {
+        if (entry?.Event is { } calendarEvent)
+        {
+            Open(calendarEvent);
+            return;
+        }
+
+        OpenDeadline(entry?.Deadline);
+    }
+
+    /// <summary>
     /// Somewhere to get to opens on its own, with what it is, when it is and where; everything else
     /// opens the list it sits on, which is where it gets ticked off. Orbit.Web's calendar splits them
     /// the same way and for the same reason - see CalendarDeadline.IsSomewhere.
@@ -312,24 +335,46 @@ public sealed partial class CalendarViewModel : ObservableObject
         // The list beneath the grid follows it: the chosen day, or the whole month when none is chosen.
         var shown = stored.Where(calendarEvent => Covers(calendarEvent.Details.StartUtc.ToLocalTime().Date));
 
-        Events.Clear();
-        foreach (var calendarEvent in shown)
-        {
-            Events.Add(CalendarEventRow.From(calendarEvent, pending.Contains(calendarEvent.LocalId), _networkStatus, _translations));
-        }
-
-        Deadlines.Clear();
-        foreach (var deadline in deadlines.Where(deadline => Covers(deadline.DueLocalDate)))
-        {
-            Deadlines.Add(deadline);
-        }
+        ShowListed(
+            shown.Select(calendarEvent => CalendarListEntry.For(
+                CalendarEventRow.From(
+                    calendarEvent, pending.Contains(calendarEvent.LocalId), _networkStatus, _translations)))
+            .Concat(deadlines
+                .Where(deadline => Covers(deadline.DueLocalDate))
+                .Select(CalendarListEntry.For)));
 
         ShowTheChosenDay(stored);
 
         OnPropertyChanged(nameof(PeriodLabel));
         OnPropertyChanged(nameof(IsShowingOneDay));
-        OnPropertyChanged(nameof(HasDeadlines));
         OnPropertyChanged(nameof(HasDayTimeline));
+    }
+
+    /// <summary>
+    /// Keeps what is on the shown days, then draws it in whatever order was chosen. Held apart from the
+    /// collection the screen reads so that changing the order re-sorts what is already there rather
+    /// than sending the screen back to the database for it.
+    /// </summary>
+    private void ShowListed(IEnumerable<CalendarListEntry> entries)
+    {
+        _listed.Clear();
+        _listed.AddRange(entries);
+        ShowInChosenOrder();
+    }
+
+    private void ShowInChosenOrder()
+    {
+        Listed.Clear();
+        foreach (var entry in CalendarListEntry.InOrder(_listed, SortOrder))
+        {
+            Listed.Add(entry);
+        }
+    }
+
+    partial void OnSortOrderChanged(CalendarListSortOrder value)
+    {
+        _listOrder.Write(value);
+        ShowInChosenOrder();
     }
 
     /// <summary>

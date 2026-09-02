@@ -189,6 +189,7 @@ public static class MauiProgram
 		services.AddSingleton<IDashboardPinStore, PreferencesDashboardPinStore>();
 		services.AddSingleton<IDashboardCardPreferenceStore, PreferencesDashboardCardPreferenceStore>();
 		services.AddSingleton<IChecklistReadingStore, PreferencesChecklistReadingStore>();
+		services.AddSingleton<ICalendarListOrderStore, PreferencesCalendarListOrderStore>();
 		services.AddSingleton<IThemeStore, PreferencesThemeStore>();
 		services.AddSingleton<IAccentColorStore, PreferencesAccentColorStore>();
 		services.AddSingleton<ILanguageStore, PreferencesLanguageStore>();

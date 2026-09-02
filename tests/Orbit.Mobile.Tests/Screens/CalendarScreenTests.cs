@@ -18,6 +18,16 @@ namespace Orbit.Mobile.Tests.Screens;
 /// </summary>
 public sealed class CalendarScreenTests
 {
+    /// <summary>
+    /// The appointments among what the screen lists. The screen holds one list of both kinds now - see
+    /// CalendarListEntry - and these keep each test asking about the kind it is about.
+    /// </summary>
+    private static IEnumerable<CalendarEventRow> Events(CalendarViewModel screen)
+        => screen.Listed.Where(entry => entry.Event is not null).Select(entry => entry.Event!);
+
+    private static IEnumerable<CalendarDeadline> Deadlines(CalendarViewModel screen)
+        => screen.Listed.Where(entry => entry.Deadline is not null).Select(entry => entry.Deadline!);
+
     [Fact]
     public async Task The_month_is_what_opens()
     {
@@ -105,13 +115,13 @@ public sealed class CalendarScreenTests
         await context.AddEventAsync("Next year", new DateTime(2027, 3, 1, 9, 0, 0));
         var screen = await context.OpenAsync();
 
-        Assert.Equal(["Dentist"], screen.Events.Select(row => row.Title));
+        Assert.Equal(["Dentist"], Events(screen).Select(row => row.Title));
 
         await screen.ShowYearCommand.ExecuteAsync(null);
-        Assert.Equal(["Dentist", "Concert"], screen.Events.Select(row => row.Title));
+        Assert.Equal(["Dentist", "Concert"], Events(screen).Select(row => row.Title));
 
         await screen.ShowMonthCommand.ExecuteAsync(null);
-        Assert.Equal(["Dentist"], screen.Events.Select(row => row.Title));
+        Assert.Equal(["Dentist"], Events(screen).Select(row => row.Title));
     }
 
     /// <summary>
@@ -128,7 +138,7 @@ public sealed class CalendarScreenTests
         var screen = await context.OpenAsync();
 
         // Five Mondays in August 2026, counting the one it starts on.
-        Assert.Equal(5, screen.Events.Count(row => row.Title == "Standup"));
+        Assert.Equal(5, Events(screen).Count(row => row.Title == "Standup"));
         foreach (var monday in new[] { 3, 10, 17, 24, 31 })
         {
             Assert.True(screen.Days.Single(day => day.Date == new DateTime(2026, 8, monday)).HasEvents);
@@ -148,7 +158,7 @@ public sealed class CalendarScreenTests
             Weekly(until: new DateTime(2026, 8, 17)));
         var screen = await context.OpenAsync();
 
-        Assert.Equal(3, screen.Events.Count(row => row.Title == "Standup"));
+        Assert.Equal(3, Events(screen).Count(row => row.Title == "Standup"));
         Assert.False(screen.Days.Single(day => day.Date == new DateTime(2026, 8, 24)).HasEvents);
     }
 
@@ -165,7 +175,7 @@ public sealed class CalendarScreenTests
 
         var screen = await context.OpenAsync();
 
-        Assert.Contains(screen.Events, row => row.Title == "Standup");
+        Assert.Contains(Events(screen), row => row.Title == "Standup");
     }
 
     /// <summary>
@@ -179,7 +189,7 @@ public sealed class CalendarScreenTests
         await context.AddEventAsync("Standup", new DateTime(2026, 8, 3, 9, 0, 0), Weekly());
         var screen = await context.OpenAsync();
 
-        var occurrences = screen.Events.Where(row => row.Title == "Standup").ToList();
+        var occurrences = Events(screen).Where(row => row.Title == "Standup").ToList();
         Assert.All(occurrences, row => Assert.Equal(occurrences[0].LocalId, row.LocalId));
     }
 
@@ -220,9 +230,76 @@ public sealed class CalendarScreenTests
 
         var screen = await context.OpenAsync();
 
-        var deadline = Assert.Single(screen.Deadlines);
+        var deadline = Assert.Single(Deadlines(screen));
         Assert.Equal("Groceries: Buy milk", deadline.Label);
-        Assert.True(screen.HasDeadlines);
+    }
+
+    /// <summary>
+    /// One list, whatever kind of thing is on it: two lists one under the other made the reader merge
+    /// them by eye, in a period where they interleave by definition. Soonest first is what a calendar is
+    /// asked for, so a deadline in the morning comes before an appointment in the afternoon.
+    /// </summary>
+    [Fact]
+    public async Task Appointments_and_deadlines_are_read_as_one_list()
+    {
+        using var context = new ScreenContext();
+        await context.AddEventAsync("Dentist", new DateTime(2026, 8, 20, 15, 0, 0));
+        await context.AddDeadlineAsync("Groceries", "Buy milk", new DateTime(2026, 8, 19, 17, 0, 0));
+
+        var screen = await context.OpenAsync();
+
+        Assert.Equal(["Groceries: Buy milk", "Dentist"], screen.Listed.Select(entry => entry.Name));
+        Assert.Collection(
+            screen.Listed,
+            entry => Assert.True(entry.IsDeadline),
+            entry => Assert.True(entry.IsEvent));
+    }
+
+    /// <summary>
+    /// The three orders Orbit.Web reads the same list in. By type is for a reader who came looking for
+    /// one kind of thing in a period holding a lot of both; within each kind it is still soonest first.
+    /// </summary>
+    [Fact]
+    public async Task The_list_is_read_in_the_chosen_order()
+    {
+        using var context = new ScreenContext();
+        await context.AddEventAsync("Zoo", new DateTime(2026, 8, 21, 9, 0, 0));
+        await context.AddDeadlineAsync("Groceries", "Apples", new DateTime(2026, 8, 20, 17, 0, 0));
+        var screen = await context.OpenAsync();
+
+        Assert.Equal(["Groceries: Apples", "Zoo"], screen.Listed.Select(entry => entry.Name));
+
+        screen.SortOrder = CalendarListSortOrder.Type;
+        Assert.Equal(["Zoo", "Groceries: Apples"], screen.Listed.Select(entry => entry.Name));
+
+        screen.SortOrder = CalendarListSortOrder.Alphabetical;
+        Assert.Equal(["Groceries: Apples", "Zoo"], screen.Listed.Select(entry => entry.Name));
+    }
+
+    [Fact]
+    public async Task The_chosen_order_is_remembered_on_the_device()
+    {
+        using var context = new ScreenContext();
+        var screen = await context.OpenAsync();
+
+        screen.SortOrder = CalendarListSortOrder.Alphabetical;
+
+        Assert.Equal(CalendarListSortOrder.Alphabetical, context.ListOrder.Read());
+        Assert.Equal(CalendarListSortOrder.Alphabetical, (await context.OpenAsync()).SortOrder);
+    }
+
+    /// <summary>Whichever kind was pressed opens its own thing - see OpenListed.</summary>
+    [Fact]
+    public async Task Pressing_a_deadline_opens_the_list_it_sits_on()
+    {
+        using var context = new ScreenContext();
+        var taskListId = await context.AddDeadlineAsync("Groceries", "Buy milk", new DateTime(2026, 8, 20, 17, 0, 0));
+        var screen = await context.OpenAsync();
+
+        screen.OpenListedCommand.Execute(Assert.Single(screen.Listed));
+
+        Assert.Equal("ShowTaskList", context.Navigator.LastDestination);
+        Assert.Equal(taskListId, context.Navigator.LastTaskListId);
     }
 
     /// <summary>The list beneath the grid follows the grid, deadlines as much as events.</summary>
@@ -237,7 +314,7 @@ public sealed class CalendarScreenTests
         await screen.ChooseDayCommand.ExecuteAsync(
             screen.Days.Single(day => day.Date == new DateTime(2026, 8, 20)));
 
-        Assert.Equal("Groceries: Buy milk", Assert.Single(screen.Deadlines).Label);
+        Assert.Equal("Groceries: Buy milk", Assert.Single(Deadlines(screen)).Label);
     }
 
     /// <summary>A day with something due on it is not an empty day, so the grid marks it.</summary>
@@ -266,8 +343,8 @@ public sealed class CalendarScreenTests
 
         var screen = await context.OpenAsync();
 
-        Assert.Equal(["Dentist"], screen.Events.Select(row => row.Title));
-        Assert.Empty(screen.Deadlines);
+        Assert.Equal(["Dentist"], Events(screen).Select(row => row.Title));
+        Assert.Empty(Deadlines(screen));
     }
 
     /// <summary>
@@ -284,7 +361,7 @@ public sealed class CalendarScreenTests
 
         var screen = await context.OpenAsync();
 
-        Assert.Equal("Saturday: Bring the forms", Assert.Single(screen.Deadlines).Label);
+        Assert.Equal("Saturday: Bring the forms", Assert.Single(Deadlines(screen)).Label);
     }
 
     /// <summary>
@@ -298,7 +375,7 @@ public sealed class CalendarScreenTests
         var listId = await context.AddDeadlineAsync("Groceries", "Buy milk", new DateTime(2026, 8, 20, 17, 0, 0));
         var screen = await context.OpenAsync();
 
-        screen.OpenDeadlineCommand.Execute(Assert.Single(screen.Deadlines));
+        screen.OpenDeadlineCommand.Execute(Assert.Single(Deadlines(screen)));
 
         Assert.Equal(listId, context.Navigator.LastTaskListId);
     }
@@ -316,7 +393,7 @@ public sealed class CalendarScreenTests
             "Errands", "Collect the parcel", new DateTime(2026, 8, 20, 17, 0, 0), at: "Długa 4, Gdańsk");
         var screen = await context.OpenAsync();
 
-        screen.OpenDeadlineCommand.Execute(Assert.Single(screen.Deadlines));
+        screen.OpenDeadlineCommand.Execute(Assert.Single(Deadlines(screen)));
 
         var opened = Assert.NotNull(context.Navigator.LastTaskItem);
         Assert.Equal(listId, opened.TaskListLocalId);
@@ -333,7 +410,7 @@ public sealed class CalendarScreenTests
         await context.AddDeadlineAsync("Errands", "Dentist", new DateTime(2026, 8, 20, 17, 0, 0), tiedTo: eventId);
         var screen = await context.OpenAsync();
 
-        screen.OpenDeadlineCommand.Execute(Assert.Single(screen.Deadlines));
+        screen.OpenDeadlineCommand.Execute(Assert.Single(Deadlines(screen)));
 
         Assert.NotNull(context.Navigator.LastTaskItem);
     }
@@ -406,11 +483,14 @@ public sealed class CalendarScreenTests
             return stored.ServerId.Value;
         }
 
+        /// <summary>What order the list is read in, kept across the screens one test opens.</summary>
+        public InMemoryCalendarListOrderStore ListOrder { get; } = new();
+
         public async Task<CalendarViewModel> OpenAsync()
         {
             var screen = new CalendarViewModel(
                 _events, _synchronizer, FixedNetworkStatus.Online, _clock, new SyncState(FixedNetworkStatus.Online, _clock),
-                Navigator, new Translations(new InMemoryLanguageStore()), _taskLists);
+                Navigator, new Translations(new InMemoryLanguageStore()), _taskLists, ListOrder);
 
             await screen.LoadCommand.ExecuteAsync(null);
             return screen;

@@ -847,9 +847,19 @@ deadline row beside it is the same appointment written out a second time, one li
 grid leaves it off whenever the event it names is on the same day — asked of the occurrence rather than
 of the date the event is stored under, so a repeat takes its entry off every day it lands on
 (`CalendarGridBuilder.DueTasksOnDate`). It stays on any other day, and it stays when the event is one
-this reader cannot see (deleted, or somebody else's), where nothing on the day stands for it. The side
-panels are left alone: "Events" and "Tasks" are two lists by design, and something that is both belongs
-in each.
+this reader cannot see (deleted, or somebody else's), where nothing on the day stands for it.
+
+**The list beside the grid holds both kinds, in one list.** Appointments and deadlines answer the same
+question - what is happening in this period - and two lists side by side made the reader merge them by
+eye, in a period where they interleave by definition. Each row says which kind it is, and the list is
+read in one of three orders from the page's own menu: by when (soonest first, which is what a calendar
+is asked for), by type (appointments first, still by when within each), or by name. The order is kept on
+the device, like the dashboard's own layout (`CalendarListOrder` in the browser,
+`ICalendarListOrderStore` on the phone). **The phone draws the same one list**, with the same three
+orders behind the heading's menu - it used to stack "Tasks with a due date" underneath the events, which
+is the shape the browser moved away from. The one difference between them is the entry tied to an event:
+the browser's list carries both rows, and the phone leaves the deadline off the day its event is on,
+since in a single list the two would sit one under the other.
 
 The pin comes from whichever source holds the address. An entry tied to a calendar event takes the
 event's stored coordinates directly — the link exists so the address lives in one place. An entry with
