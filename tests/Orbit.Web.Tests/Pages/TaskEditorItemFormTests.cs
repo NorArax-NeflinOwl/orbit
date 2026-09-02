@@ -282,6 +282,12 @@ public sealed class TaskEditorItemFormTests : OrbitTestContext
         Assert.Contains("Amount", details);
         Assert.DoesNotContain("Item name", details);
         Assert.Contains("Pantry", details);
+
+        // And it starts where generating a storage from a list would have put it: one of the thing
+        // wanted, none of it there yet, counted in pieces.
+        var amounts = cut.FindAll(".editor-item-details input[type=number]").ToList();
+        Assert.Equal("1", amounts[1].GetAttribute("value"));
+        Assert.Equal("Piece", cut.Find(".editor-item-unit").GetAttribute("value"));
     }
 
     /// <summary>

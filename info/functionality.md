@@ -1029,6 +1029,11 @@ and writing onto the list whatever the shelf held that no list mentioned. Nothin
 the web now recalculates by reading, and the phone by the same two presses. It was deleted rather than
 left reachable, since an endpoint nothing asks for is an endpoint nobody notices going wrong.
 
+Two things are defaulted rather than asked for, and the same way in both directions: the unit is
+**pieces**, and **how many times a name is written is how little is too little** - one entry asks for one
+of the thing, the same entry twice asks for two. Nothing on a task entry says an amount, so repetition is
+what says it, and pieces is what something nobody counted otherwise is counted in.
+
 **An entry on a list that already has a storage describes a product for that shelf.** It shows the
 product's fields - how much, how little is too little, the unit, what it is, how long it keeps - and
 everything except the name, because the entry's own words are the name. That is the same rule the

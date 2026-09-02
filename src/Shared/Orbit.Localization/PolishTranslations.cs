@@ -103,8 +103,8 @@ public static class PolishTranslations
         ["years"] = "lat",
         ["\"{0}\" is reminded daily, so it needs a time to be reminded at."] = "„{0}” ma przypomnienie dzienne, więc potrzebuje godziny.",
         ["On the shelf in {0}. Saving this list saves the change there too."] = "Na półce w: {0}. Zapis tej listy zapisuje też tę zmianę.",
-        ["Naming it is the whole of it: \"Generate inventory\" in the menu above makes one product per distinct name, and the same name twice asks for two of it."] =
-            "Nazwanie to całość tej pozycji: „Wygeneruj magazyn” w menu powyżej tworzy jeden produkt na każdą odrębną nazwę, a ta sama nazwa dwa razy oznacza prośbę o dwie sztuki.",
+        ["Naming it is the whole of it: \"Generate inventory\" in the menu above makes one product per distinct name, counted in pieces, and the same name twice asks for two of it."] =
+            "Nazwanie to całość tej pozycji: „Wygeneruj magazyn” w menu powyżej tworzy jeden produkt na każdą odrębną nazwę, liczony w sztukach, a ta sama nazwa dwa razy oznacza prośbę o dwie sztuki.",
         ["This entry isn't tied to a product yet, so there is nothing to edit here."] = "Ta pozycja nie jest jeszcze powiązana z produktem, więc nie ma tu czego edytować.",
         ["No other list yet"] = "Nie ma jeszcze innej listy",
         ["The list was saved, but the shelf couldn't be updated. Open the warehouse and check it."] = "Lista została zapisana, ale nie udało się zaktualizować magazynu. Otwórz magazyn i sprawdź.",

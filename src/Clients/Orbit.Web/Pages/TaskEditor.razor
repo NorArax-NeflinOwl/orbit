@@ -295,7 +295,7 @@ else
                                    product on yet, and this is where one comes from. Says the rule as
                                    well as the fact - nobody could guess either half of it from a form
                                    with nothing on it. *@
-                                <small>@T["Naming it is the whole of it: \"Generate inventory\" in the menu above makes one product per distinct name, and the same name twice asks for two of it."]</small>
+                                <small>@T["Naming it is the whole of it: \"Generate inventory\" in the menu above makes one product per distinct name, counted in pieces, and the same name twice asks for two of it."]</small>
                             }
                         }
                         else if (item.Kind == nameof(TaskItemKind.Checklist))
@@ -1308,7 +1308,14 @@ else
         public InventoryFieldsFormModel DescribeNewProduct(
             TaskItemFormModel item, Guid warehouseId, string warehouseName)
         {
-            var fields = new InventoryFieldsFormModel(warehouseId, warehouseName, new InventoryItemFormModel());
+            // Starts where generating a storage from a list would put it: one of the thing wanted, none
+            // of it there yet, counted in pieces. An entry asking for something is asking for one of it
+            // until it says otherwise - see GenerateWarehouseFromTaskListCommandHandler, where the same
+            // entry written twice asks for two. The unit is the model's own default and is named here
+            // only because the two answers have to be the same answer.
+            var fields = new InventoryFieldsFormModel(
+                warehouseId, warehouseName,
+                new InventoryItemFormModel { MinimumQuantity = 1, Unit = InventoryUnitOption.Default.Value });
             _fieldsByItem[item] = fields;
             return fields;
         }
