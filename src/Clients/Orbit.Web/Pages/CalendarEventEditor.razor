@@ -52,13 +52,6 @@ else
         </p>
     }
 
-    @if (_lockedByUserName is not null)
-    {
-        <p class="lock-banner">
-            @T.Format("{0} is currently editing this event - you can't edit it right now.", _lockedByUserName)
-        </p>
-    }
-
     <EditForm Model="_formModel" OnValidSubmit="SaveAsync" class="editor-form">
     <fieldset disabled="@IsLockedForEditing">
         <div class="field">
@@ -118,28 +111,41 @@ else
         </a>
     }
 
-    @if (_errorMessage is not null)
-    {
-        <p class="error">@_errorMessage</p>
-    }
 }
 
 </div>
 @if (!_isLoading)
 {
     <EditorRail OnSave="SaveAsync" OnCancel="CancelAsync" SaveDisabled="@_isSaving">
-        @* Deleting from here, not only from the calendar page: opening an event to look at it and
-           deciding it should go is the moment the wish arrives. In a menu rather than as a third
-           button, because it is not one of the two things this page is for - and only for an event
-           that is actually yours to change, the same gate the content fieldset uses. *@
-        @if (!IsNewEvent && _canEditContent)
-        {
-            <OverflowMenu>
-                <button type="button" class="avatar-dropdown-item" disabled="@_isDeleting" @onclick="DeleteAsync">
-                    @T["Delete event"]
-                </button>
-            </OverflowMenu>
-        }
+        @* Beside the button that failed rather than at the end of a form that is taller than the
+           screen: a save that did not happen and an event somebody else is holding are both answers to
+           "why has Save done nothing", and an answer nobody scrolls to is not one. *@
+        <Extras>
+            @if (_lockedByUserName is not null)
+            {
+                <p class="lock-banner">
+                    @T.Format("{0} is currently editing this event - you can't edit it right now.", _lockedByUserName)
+                </p>
+            }
+            @if (_errorMessage is not null)
+            {
+                <p class="error">@_errorMessage</p>
+            }
+        </Extras>
+        <ChildContent>
+            @* Deleting from here, not only from the calendar page: opening an event to look at it and
+               deciding it should go is the moment the wish arrives. In a menu rather than as a third
+               button, because it is not one of the two things this page is for - and only for an event
+               that is actually yours to change, the same gate the content fieldset uses. *@
+            @if (!IsNewEvent && _canEditContent)
+            {
+                <OverflowMenu>
+                    <button type="button" class="avatar-dropdown-item" disabled="@_isDeleting" @onclick="DeleteAsync">
+                        @T["Delete event"]
+                    </button>
+                </OverflowMenu>
+            }
+        </ChildContent>
     </EditorRail>
 }
 </div>

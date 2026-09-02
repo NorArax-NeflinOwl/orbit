@@ -39,13 +39,6 @@ else
         </div>
     </div>
 
-    @if (_lockedByUserName is not null)
-    {
-        <p class="lock-banner">
-            @T.Format("{0} is currently editing this warehouse - you can't edit it right now.", _lockedByUserName)
-        </p>
-    }
-
     @* Submitting this form adds a row rather than saving it. Enter is what somebody filling a shelf
        presses between items, and it used to save the warehouse and leave the page instead - so the
        form's default button is "Add item", and Save is a click of its own. *@
@@ -203,10 +196,6 @@ else
             @* The form's only submit button, and so the one Enter presses - see the EditForm above. *@
             <button type="submit" class="btn-secondary">@T["Add item"]</button>
 
-            @if (_saveErrorMessage is not null)
-            {
-                <p class="error">@_saveErrorMessage</p>
-            }
         </fieldset>
     </EditForm>
 
@@ -274,7 +263,23 @@ else
 
 </div>
 <EditorRail OnSave="SaveAsync" OnCancel="GoToWarehouses"
-            SaveDisabled="@(_isReadOnly || _lockedByUserName is not null || _isSaving)" />
+            SaveDisabled="@(_isReadOnly || _lockedByUserName is not null || _isSaving)">
+    @* Beside the button that failed rather than at the end of a shelf that is taller than the screen:
+       a save that did not happen and a warehouse somebody else is holding are both answers to "why has
+       Save done nothing", and an answer nobody scrolls to is not one. *@
+    <Extras>
+        @if (_lockedByUserName is not null)
+        {
+            <p class="lock-banner">
+                @T.Format("{0} is currently editing this warehouse - you can't edit it right now.", _lockedByUserName)
+            </p>
+        }
+        @if (_saveErrorMessage is not null)
+        {
+            <p class="error">@_saveErrorMessage</p>
+        }
+    </Extras>
+</EditorRail>
 </div>
 }
 

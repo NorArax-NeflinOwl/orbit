@@ -34,11 +34,6 @@
     </div>
 </div>
 
-@if (_message is not null)
-{
-    <p class="error">@_message</p>
-}
-
 @if (_isLoading)
 {
     <p>@T["Loading…"]</p>
@@ -83,16 +78,27 @@ else
 @if (_note is not null)
 {
     <EditorRail OnSave="SaveAsync" OnCancel="GoToNotes" SaveDisabled="@(!_hasChanges || _isSaving)">
-        <OverflowMenu>
-            <button type="button" class="avatar-dropdown-item" @onclick="GoToNotes">@T["All notes"]</button>
-            <button type="button" class="avatar-dropdown-item" @onclick="GoToEditor">
-                @(_isReadOnly ? T["View"] : T["Edit"])
-            </button>
-            @if (!_note.IsShared)
+        @* Beside the button that failed: a save that did not happen and a note somebody else is holding
+           are both answers to "why has Save done nothing", and this page is read by scrolling - an
+           answer at the top of it is an answer nobody scrolls back to. *@
+        <Extras>
+            @if (_message is not null)
             {
-                <button type="button" class="avatar-dropdown-item" @onclick="DeleteAsync">@T["Delete"]</button>
+                <p class="error">@_message</p>
             }
-        </OverflowMenu>
+        </Extras>
+        <ChildContent>
+            <OverflowMenu>
+                <button type="button" class="avatar-dropdown-item" @onclick="GoToNotes">@T["All notes"]</button>
+                <button type="button" class="avatar-dropdown-item" @onclick="GoToEditor">
+                    @(_isReadOnly ? T["View"] : T["Edit"])
+                </button>
+                @if (!_note.IsShared)
+                {
+                    <button type="button" class="avatar-dropdown-item" @onclick="DeleteAsync">@T["Delete"]</button>
+                }
+            </OverflowMenu>
+        </ChildContent>
     </EditorRail>
 }
 </div>

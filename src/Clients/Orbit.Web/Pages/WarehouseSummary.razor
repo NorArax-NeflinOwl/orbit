@@ -34,11 +34,6 @@
     </div>
 </div>
 
-@if (_message is not null)
-{
-    <p class="error">@_message</p>
-}
-
 @if (_isLoading)
 {
     <p>@T["Loading…"]</p>
@@ -90,11 +85,22 @@ else
 @if (_warehouse is not null)
 {
     <EditorRail OnSave="SaveAsync" OnCancel="GoToWarehouses" SaveDisabled="@(!_hasChanges || _isSaving)">
-        <OverflowMenu>
-            <button type="button" class="avatar-dropdown-item" @onclick="GoToWarehouses">@T["All warehouses"]</button>
-            <button type="button" class="avatar-dropdown-item" @onclick="GoToEditor">@T["Edit"]</button>
-            <button type="button" class="avatar-dropdown-item" @onclick="DeleteAsync">@T["Delete"]</button>
-        </OverflowMenu>
+        @* Beside the button that failed: a save that did not happen and a shelf somebody else is
+           holding are both answers to "why has Save done nothing", and a long shelf is read by
+           scrolling - an answer at the top of it is an answer nobody scrolls back to. *@
+        <Extras>
+            @if (_message is not null)
+            {
+                <p class="error">@_message</p>
+            }
+        </Extras>
+        <ChildContent>
+            <OverflowMenu>
+                <button type="button" class="avatar-dropdown-item" @onclick="GoToWarehouses">@T["All warehouses"]</button>
+                <button type="button" class="avatar-dropdown-item" @onclick="GoToEditor">@T["Edit"]</button>
+                <button type="button" class="avatar-dropdown-item" @onclick="DeleteAsync">@T["Delete"]</button>
+            </OverflowMenu>
+        </ChildContent>
     </EditorRail>
 }
 </div>

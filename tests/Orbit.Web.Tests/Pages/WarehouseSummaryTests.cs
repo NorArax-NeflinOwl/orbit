@@ -24,10 +24,16 @@ public sealed class WarehouseSummaryTests : OrbitTestContext
 
     private IReadOnlyList<InventoryItemDto> _shelf = [];
 
+    /// <summary>Whether the shelf refuses to be written, so a test can watch what the page says about it.</summary>
+    private bool _savingFails;
+
     public WarehouseSummaryTests()
     {
         Services.AddSingleton(typeof(ILogger<>), typeof(NullLogger<>));
-        var httpClient = new HttpClient(new StubHttpMessageHandler(request => new HttpResponseMessage(HttpStatusCode.OK)
+        var httpClient = new HttpClient(new StubHttpMessageHandler(request =>
+            request.Method == HttpMethod.Put && _savingFails
+                ? new HttpResponseMessage(HttpStatusCode.InternalServerError)
+                : new HttpResponseMessage(HttpStatusCode.OK)
         {
             Content = request.RequestUri!.AbsolutePath.EndsWith("/items", StringComparison.Ordinal)
                 ? JsonContent.Create(_shelf)
@@ -111,6 +117,24 @@ public sealed class WarehouseSummaryTests : OrbitTestContext
         Assert.Contains("2", cut.Find(".shelf-batch-amount").TextContent);
         Assert.False(
             cut.FindAll("button").First(button => button.GetAttribute("aria-label") == "Save").HasAttribute("disabled"));
+    }
+
+    /// <summary>
+    /// A save that did not happen is said beside the button that did not do it. A shelf is read by
+    /// scrolling, so a sentence at the top of the page is one nobody scrolls back to - and "why has
+    /// Save done nothing" is a question asked with the thumb still on Save.
+    /// </summary>
+    [Fact]
+    public void A_save_that_failed_says_so_in_the_panel_that_stays()
+    {
+        _shelf = [Batch(FirstBatchId, "Flour", 1, DateTime.Today, expires: null)];
+        _savingFails = true;
+        var cut = RenderComponent<WarehouseSummary>(parameters => parameters.Add(page => page.WarehouseId, WarehouseId));
+
+        cut.FindAll(".shelf-batch-count button").First(button => button.TextContent.Contains('+')).Click();
+        cut.FindAll("button").First(button => button.GetAttribute("aria-label") == "Save").Click();
+
+        Assert.Contains("Failed to save", cut.Find(".editor-rail-extras .error").TextContent);
     }
 
     /// <summary>A shelf holding minus one of something is a number nobody can act on.</summary>

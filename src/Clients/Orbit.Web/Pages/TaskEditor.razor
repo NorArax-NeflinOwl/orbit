@@ -71,13 +71,6 @@ else
         }
     }
 
-    @if (_lockedByUserName is not null)
-    {
-        <p class="lock-banner">
-            @T.Format("{0} is currently editing this task list - you can't edit it right now.", _lockedByUserName)
-        </p>
-    }
-
     @* Submitting this form adds a row rather than saving it. Enter is what somebody writing a list
        presses between items, and it used to save the list and leave the page instead - so the form's
        default button is "Add item", and Save is a click of its own. *@
@@ -355,10 +348,6 @@ else
             <button type="submit" class="btn-secondary">@T["Add item"]</button>
         </div>
 
-        @if (_saveErrorMessage is not null)
-        {
-            <p class="error">@_saveErrorMessage</p>
-        }
     </fieldset>
     </EditForm>
 
@@ -477,28 +466,45 @@ else
 {
     <EditorRail OnSave="SaveAsync" OnCancel="CancelAsync"
                 SaveDisabled="@(_isSharedReadOnly || _lockedByUserName is not null || _isSaving)">
-        @* Only for a list that exists: nothing in the menu can act on one that has never been saved. *@
-        @if (!IsNewTaskList && Id is { } menuTaskListId)
-        {
-            <OverflowMenu>
-                @* A list already measured against a storage has nowhere to put a second one: this
-                   would build it and quietly move the list onto it, leaving the first behind with
-                   nothing pointing at it. What such a list wants instead is a product on the shelf
-                   it already has - which is what an inventory entry offers there. *@
-                <button type="button" class="avatar-dropdown-item"
-                        disabled="@(_isWorkingOnInventory || _linkedWarehouseId is not null)"
-                        title="@(_linkedWarehouseId is null ? null : T["This list already has a storage."])"
-                        @onclick="() => GenerateInventoryAsync(menuTaskListId)">
-                    @T["Generate inventory"]
-                </button>
-                @* Nothing to recalculate until there is a warehouse to recalculate against. *@
-                <button type="button" class="avatar-dropdown-item"
-                        disabled="@(_isWorkingOnInventory || _linkedWarehouseId is null)"
-                        @onclick="() => RecalculateAsync(menuTaskListId)">
-                    @T["Recalculate against the inventory"]
-                </button>
-            </OverflowMenu>
-        }
+        @* Beside the button that failed, rather than at the end of a form that is taller than the
+           screen: a save that did not happen and a list somebody else is holding are both answers to
+           "why has Save done nothing", and an answer nobody scrolls to is not one. *@
+        <Extras>
+            @if (_lockedByUserName is not null)
+            {
+                <p class="lock-banner">
+                    @T.Format("{0} is currently editing this task list - you can't edit it right now.", _lockedByUserName)
+                </p>
+            }
+            @if (_saveErrorMessage is not null)
+            {
+                <p class="error">@_saveErrorMessage</p>
+            }
+        </Extras>
+        <ChildContent>
+            @* Only for a list that exists: nothing in the menu can act on one that has never been saved. *@
+            @if (!IsNewTaskList && Id is { } menuTaskListId)
+            {
+                <OverflowMenu>
+                    @* A list already measured against a storage has nowhere to put a second one: this
+                       would build it and quietly move the list onto it, leaving the first behind with
+                       nothing pointing at it. What such a list wants instead is a product on the shelf
+                       it already has - which is what an inventory entry offers there. *@
+                    <button type="button" class="avatar-dropdown-item"
+                            disabled="@(_isWorkingOnInventory || _linkedWarehouseId is not null)"
+                            title="@(_linkedWarehouseId is null ? null : T["This list already has a storage."])"
+                            @onclick="() => GenerateInventoryAsync(menuTaskListId)">
+                        @T["Generate inventory"]
+                    </button>
+                    @* Nothing to recalculate until there is a warehouse to recalculate against. *@
+                    <button type="button" class="avatar-dropdown-item"
+                            disabled="@(_isWorkingOnInventory || _linkedWarehouseId is null)"
+                            @onclick="() => RecalculateAsync(menuTaskListId)">
+                        @T["Recalculate against the inventory"]
+                    </button>
+                </OverflowMenu>
+            }
+        </ChildContent>
     </EditorRail>
 }
 </div>
