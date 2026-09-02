@@ -4728,12 +4728,17 @@ input.note-editor-title {
 
 /* The card's own footnote - when it last changed, how much is on it. Aligned with the name and the
    body above it rather than centred, and separated from them by a hairline so it reads as being about
-   the card rather than as one more line of it. */
+   the card rather than as one more line of it.
+
+   Pushed to the card's own bottom edge rather than left to sit under whatever the body happens to end
+   at: cards in a row are all as tall as the tallest of them, so without this each footnote floated at a
+   different height and the row read as ragged. Now the hairline is the foot of every card in the row. */
 .item-card-footer {
     display: flex;
     align-items: center;
     justify-content: flex-start;
     gap: 10px;
+    margin-top: auto;
     padding-top: 8px;
     border-top: 1px solid var(--border);
     color: var(--text-secondary);
