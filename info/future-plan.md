@@ -477,14 +477,12 @@ inventory lists, the contacts tabs, the chat menus - is built and needs no schem
   specific. It used to say "Orbit can't reach that account right now" to both, which read as a fault
   Orbit was having.
 
-- **The phone has not caught up with the browser's last few passes.** Four things the web gained and the
-  phone did not: `GoogleCalendarEventLink`'s own twin there still writes the old link (no task-list
-  prefix on the title, no guests, no reminders in the description - see
-  `Orbit.Mobile/Google/GoogleCalendarEventLink.cs` against the web's); `ContactDto.HasGoogleVerifiedEmail`
-  arrives and is unused, so the phone cannot narrow guests to addresses Google can reach; the calendar's
-  list still shows what is over, where the browser now leaves it out until asked; and neither of the two
-  shallow views added on the web - a task entry's own page and a shelf read rather than edited - exists
-  there. None of it is broken, and all of it is the phone answering a question differently from the
+- **The phone has not caught up with the browser's last few passes.** The Google link and the
+  verified-address filter are done - see `Orbit.Mobile/Google/GoogleCalendarEventLink.cs`, now the same
+  builder as the browser's with tests on both sides. What is still only the browser's: the calendar's
+  list leaves out what is over until asked, and none of the shallow views exists there - a task entry's
+  own page, an appointment's, a note read with its checklist tickable, and a shelf counted up and down
+  in place. None of it is broken, and all of it is the phone answering a question differently from the
   browser.
 
 - **The phone cannot flatten a tree of lists.** The browser's checklist reads a group list either as the

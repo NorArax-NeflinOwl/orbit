@@ -271,10 +271,23 @@ public sealed partial class CalendarEventDetailViewModel : ObservableObject
     /// </summary>
     public string AddToGoogleCalendarUrl
         => GoogleCalendarEventLink.ForEvent(
-            Title.Trim(), ChosenStartUtc, ChosenEndUtc, IsAllDay,
-            Description.Trim() is { Length: > 0 } description ? description : null,
-            LocationAddress.Trim() is { Length: > 0 } address ? address : null,
-            RecurrenceOrNothing());
+            new GoogleCalendarEvent(Title.Trim(), ChosenStartUtc, ChosenEndUtc)
+            {
+                IsAllDay = IsAllDay,
+                Description = Description.Trim() is { Length: > 0 } description ? description : null,
+                Location = LocationAddress.Trim() is { Length: > 0 } address ? address : null,
+                Recurrence = RecurrenceOrNothing(),
+                // Only the people Google itself could reach: an address it has not verified is an
+                // invitation that bounces, and one this phone has no contact row for is not an address
+                // at all - see GuestRow.
+                GuestEmailAddresses =
+                [
+                    .. Guests
+                        .Where(guest => guest.HasGoogleVerifiedEmail && guest.EmailAddress.Length > 0)
+                        .Select(guest => guest.EmailAddress)
+                ],
+                ReminderMinutesBeforeStart = [.. Reminders.Select(reminder => reminder.MinutesBefore)]
+            });
 
     /// <summary>An event with no title is not worth handing over, and an account that does not qualify may not.</summary>
     public bool CanAddToGoogleCalendar => HasGoogleExtras && Title.Trim().Length > 0;
@@ -385,7 +398,8 @@ public sealed partial class CalendarEventDetailViewModel : ObservableObject
         ContactsToInvite.Clear();
         foreach (var contact in contacts.Where(contact => Guests.All(guest => guest.UserId != contact.UserId)))
         {
-            ContactsToInvite.Add(new GuestRow(contact.UserId, contact.DisplayName));
+            ContactsToInvite.Add(new GuestRow(
+                contact.UserId, contact.DisplayName, contact.Email, contact.HasGoogleVerifiedEmail));
         }
 
         OnPropertyChanged(nameof(HasNobodyToInvite));
@@ -602,10 +616,12 @@ public sealed partial class CalendarEventDetailViewModel : ObservableObject
         {
             // Somebody invited from another device need not be a contact of this phone's; their id is
             // still the truth about who is coming, so they are listed as the id rather than dropped.
+            var known = contacts.FirstOrDefault(contact => contact.UserId == guestUserId);
             Guests.Add(new GuestRow(
                 guestUserId,
-                contacts.FirstOrDefault(contact => contact.UserId == guestUserId)?.DisplayName
-                    ?? _translations["Somebody else"]));
+                known?.DisplayName ?? _translations["Somebody else"],
+                known?.Email ?? string.Empty,
+                known?.HasGoogleVerifiedEmail ?? false));
         }
 
         ShowWhoCouldBeInvited(contacts);
