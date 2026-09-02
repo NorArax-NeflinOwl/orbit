@@ -170,10 +170,12 @@ public sealed class ImportArchiveCommandHandler : IRequestHandler<ImportArchiveC
             [.. item.AllLinkedTaskListTitles
                 .Select(title => createdIdsByTitle.TryGetValue(title, out var linkedId) ? linkedId : (Guid?)null)
                 .OfType<Guid>()],
-            ParseChannel(item.OverdueNotificationChannel),
-            item.RemindDaily,
-            ParseChannel(item.DailyReminderNotificationChannel),
-            item.DailyReminderTimeOfDay);
+            new TaskItemReminders(
+                ParseChannel(item.OverdueNotificationChannel),
+                item.RemindDaily,
+                ParseChannel(item.DailyReminderNotificationChannel),
+                item.DailyReminderTimeOfDay),
+            categories: item.AllCategories);
 
     /// <summary>An unrecognised channel reads as None: a file should not be able to switch on notifications this account never asked for.</summary>
     private static NotificationChannel ParseChannel(string channel)

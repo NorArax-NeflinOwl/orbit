@@ -63,7 +63,7 @@ public sealed class StoredTextLimitsTests
         => Assert.Throws<InvalidRequestException>(
             () => TaskItem.Create(
                 "Dentist", dueDateUtc: null, isCompleted: false,
-                kind: TaskItemKind.Calendar, location: TooLongFor(StoredTextLimits.Address)));
+                subject: new TaskItemSubject(TaskItemKind.Calendar, TooLongFor(StoredTextLimits.Address))));
 
     [Fact]
     public void A_warehouse_name_that_would_not_fit_is_refused()

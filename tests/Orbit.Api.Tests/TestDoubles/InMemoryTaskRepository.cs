@@ -47,6 +47,20 @@ internal sealed class InMemoryTaskRepository : ITaskRepository
         return Task.CompletedTask;
     }
 
+    /// <summary>
+    /// Counted rather than performed: the real one writes three columns and leaves the entries alone
+    /// (see TaskRepository.UpdateLockAsync), and what a test can check here is that a lock took this
+    /// path rather than the one that rewrites the whole list.
+    /// </summary>
+    public Task UpdateLockAsync(TaskList taskList, CancellationToken cancellationToken)
+    {
+        LockSaves++;
+        return Task.CompletedTask;
+    }
+
+    /// <summary>How many times a lock was saved on its own - see UpdateLockAsync.</summary>
+    public int LockSaves { get; private set; }
+
     public Task UpdateManyAsync(IReadOnlyList<TaskList> taskLists, CancellationToken cancellationToken)
     {
         // Same reasoning as UpdateAsync - every list here is already the same tracked instance.

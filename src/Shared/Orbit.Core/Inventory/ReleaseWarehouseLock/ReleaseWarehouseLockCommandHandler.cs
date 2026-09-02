@@ -22,7 +22,7 @@ public sealed class ReleaseWarehouseLockCommandHandler : IRequestHandler<Release
         }
 
         warehouse.ReleaseLock(request.UserId);
-        await _warehouseRepository.UpdateAsync(warehouse, cancellationToken);
+        await _warehouseRepository.UpdateLockAsync(warehouse, cancellationToken);
         return true;
     }
 }

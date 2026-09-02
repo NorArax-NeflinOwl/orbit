@@ -587,6 +587,11 @@ public static class PolishTranslations
         ["Warehouse name"] = "Nazwa magazynu",
         ["Product type"] = "Rodzaj produktu",
         ["Category"] = "Kategoria",
+        ["Categories"] = "Kategorie",
+        ["Separate them with commas"] = "Oddziel je przecinkami",
+        ["Find an entry on any list"] = "Znajdź element na dowolnej liście",
+        ["Entries in every chosen category"] = "Elementy w każdej wybranej kategorii",
+        ["Nothing on any list matches that."] = "Nic na żadnej liście tego nie pasuje.",
         ["Expires"] = "Termin ważności",
         ["Private - encrypted, and only you can read it"] = "Prywatne — zaszyfrowane, czyta to tylko Ty",
         ["There is less of this than the minimum you set"] = "Zostało tego mniej niż ustawione minimum",
@@ -1011,6 +1016,13 @@ public static class PolishTranslations
         ["That didn't work. Reload the group and try again."] = "Nie udało się. Odśwież grupę i spróbuj ponownie.",
         ["That message is no longer yours to delete."] = "Tej wiadomości nie możesz już usunąć.",
         ["Something went wrong. Try again."] = "Coś poszło nie tak. Spróbuj ponownie.",
+        ["Orbit — Reset your password"] = "Orbit — Resetowanie hasła",
+        ["Forgot your password?"] = "Nie pamiętasz hasła?",
+        ["Back to logging in"] = "Wróć do logowania",
+        ["Tell us the address or login you sign in with, and we'll email a code to reset the password."] =
+            "Podaj adres lub login, którym się logujesz, a wyślemy mailem kod do zresetowania hasła.",
+        ["If that account exists and its address is confirmed, a code is on its way. It is good for 15 minutes."] =
+            "Jeśli takie konto istnieje i ma potwierdzony adres, kod jest już w drodze. Jest ważny przez 15 minut.",
         ["{0} is currently editing this note - you can't edit it right now."] =
             "{0} właśnie edytuje tę notatkę — w tej chwili nie możesz jej zmieniać.",
         ["{0} is currently editing this task list - you can't edit it right now."] =

@@ -55,8 +55,17 @@ public sealed record ArchivedTaskList(
 public sealed record ArchivedTaskItem(
     string Description, DateTimeOffset? DueDateUtc, bool IsCompleted, string? LinkedTaskListTitle,
     string OverdueNotificationChannel, bool RemindDaily, string DailyReminderNotificationChannel,
-    TimeOnly DailyReminderTimeOfDay, IReadOnlyList<string>? LinkedTaskListTitles = null)
+    TimeOnly DailyReminderTimeOfDay, IReadOnlyList<string>? LinkedTaskListTitles = null,
+    /// <summary>
+    /// What the entry is filed under - see Orbit.Core.Tasks.TaskItem.Categories. Defaulted and last for
+    /// the same reason the titles above are: an archive written before categories existed says nothing
+    /// here, and reads as an entry nobody has filed.
+    /// </summary>
+    IReadOnlyList<string>? Categories = null)
 {
+    /// <summary>The categories as something to read without a null check.</summary>
+    public IReadOnlyList<string> AllCategories => Categories ?? [];
+
     /// <summary>Both shapes read as one, newest first - see the two parameters above.</summary>
     public IReadOnlyList<string> AllLinkedTaskListTitles
         => LinkedTaskListTitles is { Count: > 0 } titles

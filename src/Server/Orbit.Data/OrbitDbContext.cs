@@ -131,6 +131,22 @@ public sealed class OrbitDbContext : DbContext
                 .WithOne()
                 .HasForeignKey(link => link.TaskItemId)
                 .OnDelete(DeleteBehavior.Cascade);
+
+            // What it is filed under, owned the same way.
+            entity.HasMany(item => item.Categories)
+                .WithOne()
+                .HasForeignKey(category => category.TaskItemId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<TaskItemCategoryEntity>(entity =>
+        {
+            // The category itself is half the key: an entry carries each one once, which is the same
+            // rule TaskItem.Categories applies on the way in.
+            entity.HasKey(category => new { category.TaskItemId, category.Category });
+            entity.Property(category => category.Category).IsRequired().HasMaxLength(StoredTextLimits.Category);
+            // Every page that offers a category filter first has to ask what categories there are.
+            entity.HasIndex(category => category.Category);
         });
 
         modelBuilder.Entity<TaskItemTaskListLinkEntity>(entity =>

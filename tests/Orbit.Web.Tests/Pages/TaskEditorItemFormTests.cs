@@ -30,6 +30,9 @@ namespace Orbit.Web.Tests.Pages;
 public sealed class TaskEditorItemFormTests : OrbitTestContext
 {
     private static readonly Guid TaskListId = Guid.NewGuid();
+
+    /// <summary>One of the other lists this account has, with an id a test can name.</summary>
+    private static readonly Guid OtherTaskListId = Guid.NewGuid();
     private static readonly Guid ItemId = Guid.NewGuid();
 
     public TaskEditorItemFormTests()
@@ -223,6 +226,53 @@ public sealed class TaskEditorItemFormTests : OrbitTestContext
         Assert.NotNull(_lastSavedJson);
     }
 
+    /// <summary>
+    /// One box holding as many as apply, like a shelf item's category - see CategoryText for why they
+    /// are typed on one line rather than through a control of their own.
+    /// </summary>
+    [Fact]
+    public void What_an_entry_is_about_is_typed_on_one_line_and_saved_as_several()
+    {
+        RegisterApiClients(AnItem());
+        var cut = Render();
+        ExpandTheOnlyItem(cut);
+
+        cut.Find("input[list=taskItemCategories]").Change("shopping, Car ,shopping");
+        ClickButtonSaying(cut, "Save");
+
+        // Trimmed, and the repeat dropped - the same tidying the domain does, done here so what is on
+        // screen is what will be stored.
+        Assert.Contains("\"categories\":[\"shopping\",\"Car\"]", _lastSavedJson);
+    }
+
+    [Fact]
+    public void An_entry_already_filed_shows_what_it_is_filed_under()
+    {
+        RegisterApiClients(AnItem() with { Categories = ["shopping", "car"] });
+        var cut = Render();
+        ExpandTheOnlyItem(cut);
+
+        Assert.Equal("shopping, car", cut.Find("input[list=taskItemCategories]").GetAttribute("value"));
+    }
+
+    /// <summary>
+    /// An entry cannot link to the list it belongs to, so a list it already stands for is not somewhere
+    /// it can be moved - and the server refuses such a move with a 400. Left out of the dropdown rather
+    /// than offered and then rejected.
+    /// </summary>
+    [Fact]
+    public void A_list_an_entry_already_stands_for_is_not_offered_as_somewhere_to_move_it()
+    {
+        RegisterApiClients(AnItem() with { LinkedTaskListIds = [OtherTaskListId] });
+        var cut = Render();
+        ExpandTheOnlyItem(cut);
+
+        var offered = cut.FindAll("select")
+            .SelectMany(select => select.QuerySelectorAll("option"))
+            .Select(option => option.GetAttribute("value"));
+        Assert.DoesNotContain(OtherTaskListId.ToString(), offered);
+    }
+
     [Fact]
     public void What_the_list_is_for_is_shown_under_its_title()
     {
@@ -402,7 +452,7 @@ public sealed class TaskEditorItemFormTests : OrbitTestContext
             // it never offers the list being edited, which would be a link to itself.
             return path.EndsWith($"/{TaskListId}", StringComparison.Ordinal)
                 ? JsonOf(taskList)
-                : JsonOf(new[] { taskList, AnotherTaskList("Kitchen"), AnotherTaskList("Bathroom") });
+                : JsonOf(new[] { taskList, AnotherTaskList("Kitchen", OtherTaskListId), AnotherTaskList("Bathroom") });
         }))
         {
             BaseAddress = new Uri("https://example.test/")
@@ -416,9 +466,9 @@ public sealed class TaskEditorItemFormTests : OrbitTestContext
         Services.AddSingleton(new InventoryApiClient(httpClient));
     }
 
-    private static TaskDto AnotherTaskList(string title)
+    private static TaskDto AnotherTaskList(string title, Guid? id = null)
         => new(
-            Guid.NewGuid(), title, [], IsCompleted: false, IsGroup: false, IsPrivate: false,
+            id ?? Guid.NewGuid(), title, [], IsCompleted: false, IsGroup: false, IsPrivate: false,
             EncryptedContent: null, DateTimeOffset.UtcNow, DateTimeOffset.UtcNow,
             IsShared: false, SharedByUserName: null, AccessLevel: "CanEdit", OriginalOwnerUserId: null);
 

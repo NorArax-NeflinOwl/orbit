@@ -35,7 +35,13 @@ public sealed record TaskItemDto(
     /// Every list this entry stands for, in order - see Orbit.Core.Tasks.TaskItem.LinkedTaskListIds.
     /// Always sent; LinkedTaskListId above repeats the first of them for older clients.
     /// </summary>
-    IReadOnlyList<Guid>? LinkedTaskListIds = null)
+    IReadOnlyList<Guid>? LinkedTaskListIds = null,
+    /// <summary>
+    /// What this entry is about, in the reader's own words, and as many as apply - see
+    /// Orbit.Core.Tasks.TaskItem.Categories. Null means "not provided", which is what a client written
+    /// before categories existed sends; an empty list means "none", and clears them.
+    /// </summary>
+    IReadOnlyList<string>? Categories = null)
 {
     /// <summary>
     /// Whichever shape the sender used, read as one. Needed on the way in as well as the way out: a
@@ -43,4 +49,7 @@ public sealed record TaskItemDto(
     /// </summary>
     public IReadOnlyList<Guid> AllLinkedTaskListIds
         => LinkedTaskListIds is { Count: > 0 } ids ? ids : LinkedTaskListId is { } single ? [single] : [];
+
+    /// <summary>The categories as something to read without a null check - see <see cref="Categories"/>.</summary>
+    public IReadOnlyList<string> AllCategories => Categories ?? [];
 }

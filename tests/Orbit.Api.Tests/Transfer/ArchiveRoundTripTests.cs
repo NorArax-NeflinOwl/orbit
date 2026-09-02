@@ -79,6 +79,24 @@ public sealed class ArchiveRoundTripTests
         Assert.Equal(["Buy milk", "Buy bread"], taskList.Items.Select(item => item.Description));
     }
 
+    /// <summary>
+    /// What an entry is filed under travels with it. An archive is what an account gets back after
+    /// losing everything, and coming back unfiled would be coming back changed.
+    /// </summary>
+    [Fact]
+    public async Task What_an_entry_is_filed_under_comes_back_with_it()
+    {
+        var source = new ArchiveTestContext();
+        await source.AddFiledTaskListAsync("Errands", "Buy milk", ["shopping", "weekly"]);
+        var archive = await source.ExportAsync();
+
+        var destination = new ArchiveTestContext();
+        await destination.ImportAsync(archive);
+
+        var taskList = Assert.Single(await destination.OwnTaskListsAsync());
+        Assert.Equal(["shopping", "weekly"], Assert.Single(taskList.Items).Categories);
+    }
+
     [Fact]
     public async Task A_link_between_two_task_lists_is_rebuilt_against_the_new_ones()
     {
@@ -180,6 +198,10 @@ public sealed class ArchiveRoundTripTests
         await Assert.ThrowsAsync<InvalidRequestException>(() => context.ImportAsync(archive));
     }
 
+    /// <summary>What these lists say when they are late, and when they say it daily - the same for all of them.</summary>
+    private static readonly TaskItemReminders NineOClock =
+        new(NotificationChannel.None, Daily: false, NotificationChannel.None, new TimeOnly(9, 0));
+
     private sealed class ArchiveTestContext
     {
         private readonly InMemoryNoteRepository _noteRepository = new();
@@ -210,7 +232,7 @@ public sealed class ArchiveRoundTripTests
 
         public async Task<Guid> AddTaskListAsync(string title, params string[] descriptions)
         {
-            var taskList = TaskList.Create(UserId, title, descriptions.Select(Item).ToList());
+            var taskList = TaskList.Create(UserId, title, descriptions.Select(description => Item(description)).ToList());
             await _taskRepository.AddAsync(taskList, CancellationToken.None);
             return taskList.Id;
         }
@@ -220,8 +242,7 @@ public sealed class ArchiveRoundTripTests
             var taskList = TaskList.Create(
                 UserId, title,
                 [TaskItem.Create(
-                    "Follows another list", null, false, [linkedTaskListId], NotificationChannel.None, false,
-                    NotificationChannel.None, new TimeOnly(9, 0))]);
+                    "Follows another list", null, false, [linkedTaskListId], NineOClock)]);
             await _taskRepository.AddAsync(taskList, CancellationToken.None);
         }
 
@@ -264,8 +285,14 @@ public sealed class ArchiveRoundTripTests
         public Task<IReadOnlyList<InventoryItem>> ItemsInAsync(Guid warehouseId)
             => _inventoryRepository.GetAllAsync(warehouseId, CancellationToken.None);
 
-        private static TaskItem Item(string description)
+        public async Task AddFiledTaskListAsync(string title, string description, IReadOnlyList<string> categories)
+        {
+            var taskList = TaskList.Create(UserId, title, [Item(description, categories)]);
+            await _taskRepository.AddAsync(taskList, CancellationToken.None);
+        }
+
+        private static TaskItem Item(string description, IReadOnlyList<string>? categories = null)
             => TaskItem.Create(
-                description, null, false, null, NotificationChannel.None, false, NotificationChannel.None, new TimeOnly(9, 0));
+                description, null, false, null, NineOClock, categories: categories);
     }
 }

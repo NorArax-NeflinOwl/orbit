@@ -17,6 +17,11 @@ public interface IWarehouseRepository
     Task AddAsync(Warehouse warehouse, CancellationToken cancellationToken);
 
     Task UpdateAsync(Warehouse warehouse, CancellationToken cancellationToken);
+    /// <summary>
+    /// Writes only who holds the edit lock and until when - see Orbit.Core.Notes.INoteRepository.UpdateLockAsync
+    /// for why. Here it saves rewriting every shelf row as well as the warehouse's own.
+    /// </summary>
+    Task UpdateLockAsync(Warehouse warehouse, CancellationToken cancellationToken);
 
     /// <summary>Deletes the warehouse along with every item in it - see DeleteWarehouseCommandHandler for why the items go too.</summary>
     Task DeleteAsync(Guid userId, Guid id, CancellationToken cancellationToken);

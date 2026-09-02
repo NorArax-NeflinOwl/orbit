@@ -146,7 +146,7 @@ public sealed class RestockListRefreshTests
             _userId, "Saturday baking",
             [TaskItem.Create(
                 "Flour for the bread", dueDateUtc, isCompleted: false,
-                kind: TaskItemKind.Inventory, linkedInventoryItemId: inventoryItemId)]);
+                subject: new TaskItemSubject(TaskItemKind.Inventory, linkedInventoryItemId: inventoryItemId))]);
         await _context.TaskRepository.AddAsync(taskList, CancellationToken.None);
     }
 

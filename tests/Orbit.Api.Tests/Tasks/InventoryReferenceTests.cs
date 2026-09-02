@@ -66,7 +66,7 @@ public sealed class InventoryReferenceTests
         // reference is for: somebody looking at one of two lists asking for one product.
         var byHand = TaskList.Create(
             _userId, "Saturday shopping",
-            [TaskItem.Create("Restock: Flour", null, false, kind: TaskItemKind.Inventory, linkedInventoryItemId: item.Id)]);
+            [TaskItem.Create("Restock: Flour", null, false, subject: new TaskItemSubject(TaskItemKind.Inventory, linkedInventoryItemId: item.Id))]);
         await _context.TaskRepository.AddAsync(byHand, CancellationToken.None);
 
         var reference = Assert.Single(await ReferencesAsync(taskListId));

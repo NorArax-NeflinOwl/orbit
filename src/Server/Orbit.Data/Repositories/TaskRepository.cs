@@ -21,6 +21,7 @@ public sealed class TaskRepository : ITaskRepository
         var query = _dbContext.Tasks
             .AsNoTracking()
             .Include(task => task.Items).ThenInclude(item => item.LinkedTaskLists)
+            .Include(task => task.Items).ThenInclude(item => item.Categories)
             .Where(task => task.UserId == userId);
 
         // Narrowed in the database when the caller only wants what changed. A client catching up asks
@@ -43,6 +44,7 @@ public sealed class TaskRepository : ITaskRepository
         var entity = await _dbContext.Tasks
             .AsNoTracking()
             .Include(task => task.Items).ThenInclude(item => item.LinkedTaskLists)
+            .Include(task => task.Items).ThenInclude(item => item.Categories)
             .FirstOrDefaultAsync(task => task.Id == id && task.UserId == userId, cancellationToken);
 
         return entity is null ? null : ToDomain(entity);
@@ -59,6 +61,7 @@ public sealed class TaskRepository : ITaskRepository
         var entities = await _dbContext.Tasks
             .AsNoTracking()
             .Include(task => task.Items).ThenInclude(item => item.LinkedTaskLists)
+            .Include(task => task.Items).ThenInclude(item => item.Categories)
             .Where(task => task.UserId == userId
                 && task.Id != exceptListId
                 && task.Items.Any(item => itemIds.Contains(item.Id)))
@@ -118,11 +121,32 @@ public sealed class TaskRepository : ITaskRepository
         // instead of this explicit remove/add made EF Core treat the freshly-created items as
         // updates to rows that don't exist yet (DbUpdateConcurrencyException: 0 rows affected),
         // since their ids are already non-default by the time they reach the change tracker.
+        // The children come along: without them the change tracker knows only about the parent rows, so
+        // it leaves their links and categories to the database's own cascade - and the inserts for the
+        // replacements can then reach the server before that cascade has run, against a primary key
+        // (item + linked list) the old rows still hold. That is a 23505 on a save nobody thought was
+        // risky, which is exactly how it turned up: on a lock heartbeat.
         var existingItems = await _dbContext.Set<TaskItemEntity>()
+            .Include(item => item.LinkedTaskLists)
+            .Include(item => item.Categories)
             .Where(item => item.TaskId == taskList.Id)
             .ToListAsync(cancellationToken);
         _dbContext.RemoveRange(existingItems);
         _dbContext.AddRange(taskList.Items.Select((item, position) => ToItemEntity(item, taskList.Id, position)));
+    }
+
+    /// <summary>
+    /// The three columns a lock is, and nothing else - see ITaskRepository.UpdateLockAsync. Neither
+    /// UpdatedAtUtc nor the entries are touched: holding the page open is not a change to the list, and
+    /// saying it was would move the card under "recently updated" every twenty seconds.
+    /// </summary>
+    public async Task UpdateLockAsync(TaskList taskList, CancellationToken cancellationToken)
+    {
+        var entity = await _dbContext.Tasks.FirstAsync(task => task.Id == taskList.Id, cancellationToken);
+        entity.LockedByUserId = taskList.LockedByUserId;
+        entity.LockedByUserName = taskList.LockedByUserName;
+        entity.LockExpiresAtUtc = taskList.LockExpiresAtUtc;
+        await _dbContext.SaveChangesAsync(cancellationToken);
     }
 
     public async Task DeleteAsync(Guid userId, Guid id, CancellationToken cancellationToken)
@@ -176,12 +200,15 @@ public sealed class TaskRepository : ITaskRepository
             entity.DueDateUtc,
             entity.IsCompleted,
             [.. entity.LinkedTaskLists.OrderBy(link => link.Position).Select(link => link.LinkedTaskListId)],
-            Enum.Parse<NotificationChannel>(entity.OverdueNotificationChannel, ignoreCase: true),
-            entity.RemindDaily,
-            Enum.Parse<NotificationChannel>(entity.DailyReminderNotificationChannel, ignoreCase: true),
-            TimeOnly.FromTimeSpan(TimeSpan.FromMinutes(entity.DailyReminderTimeOfDayMinutes)),
-            Enum.TryParse<TaskItemKind>(entity.Kind, out var kind) ? kind : TaskItemKind.Checklist,
-            entity.Location, entity.LinkedCalendarEventId, entity.LinkedInventoryItemId);
+            new TaskItemReminders(
+                Enum.Parse<NotificationChannel>(entity.OverdueNotificationChannel, ignoreCase: true),
+                entity.RemindDaily,
+                Enum.Parse<NotificationChannel>(entity.DailyReminderNotificationChannel, ignoreCase: true),
+                TimeOnly.FromTimeSpan(TimeSpan.FromMinutes(entity.DailyReminderTimeOfDayMinutes))),
+            new TaskItemSubject(
+                Enum.TryParse<TaskItemKind>(entity.Kind, out var kind) ? kind : TaskItemKind.Checklist,
+                entity.Location, entity.LinkedCalendarEventId, entity.LinkedInventoryItemId),
+            [.. entity.Categories.OrderBy(category => category.Position).Select(category => category.Category)]);
 
     private static TaskEntity ToEntity(TaskList taskList)
         => new()
@@ -229,6 +256,13 @@ public sealed class TaskRepository : ITaskRepository
             Kind = item.Kind.ToString(),
             Location = item.Location,
             LinkedCalendarEventId = item.LinkedCalendarEventId,
-            LinkedInventoryItemId = item.LinkedInventoryItemId
+            LinkedInventoryItemId = item.LinkedInventoryItemId,
+            Categories = [.. item.Categories.Select((category, categoryPosition) =>
+                new TaskItemCategoryEntity
+                {
+                    TaskItemId = item.Id,
+                    Category = category,
+                    Position = categoryPosition
+                })]
         };
 }

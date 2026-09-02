@@ -42,7 +42,7 @@ public sealed class AcquireWarehouseLockCommandHandler : IRequestHandler<Acquire
 
         var user = await _userRepository.GetByIdAsync(request.UserId, cancellationToken);
         warehouse.AcquireLock(request.UserId, user!.UserName, nowUtc, LockDuration);
-        await _warehouseRepository.UpdateAsync(warehouse, cancellationToken);
+        await _warehouseRepository.UpdateLockAsync(warehouse, cancellationToken);
         return EditOutcome.Success;
     }
 }

@@ -34,15 +34,17 @@ public sealed class TaskItem
     /// </summary>
     public bool IsALinkToOtherLists => LinkedTaskListIds.Count > 0;
 
-    /// <summary>What this entry is, and so what else it carries - see <see cref="TaskItemKind"/>.</summary>
-    public TaskItemKind Kind { get; private set; }
+    /// <summary>What this entry is and what it stands for - see <see cref="TaskItemSubject"/>.</summary>
+    public TaskItemSubject Subject { get; private set; }
 
-    /// <summary>
-    /// Where a calendar entry happens, as the reader wrote it. Empty for every other kind, and empty
-    /// for one tied to a calendar event: that event already holds the place, and a second copy here
-    /// would be a second answer to the same question - see <see cref="LinkedCalendarEventId"/>.
-    /// </summary>
-    public string Location { get; private set; } = string.Empty;
+    // The four answers above, each still readable on its own, for the same reason the reminders are -
+    // everything that acts on them asks one question at a time.
+
+    /// <inheritdoc cref="TaskItemSubject.Kind"/>
+    public TaskItemKind Kind => Subject.Kind;
+
+    /// <inheritdoc cref="TaskItemSubject.Location"/>
+    public string Location => Subject.Location;
 
     /// <summary>
     /// The calendar event this entry is the same appointment as, when it is one. The event is where the
@@ -52,7 +54,7 @@ public sealed class TaskItem
     /// reading it treats that as "no event" - the same way a link to a deleted task list is treated as
     /// "not completed" rather than as a failure (see LinkedTaskCompletionResolver).
     /// </summary>
-    public Guid? LinkedCalendarEventId { get; private set; }
+    public Guid? LinkedCalendarEventId => Subject.LinkedCalendarEventId;
 
     /// <summary>
     /// The shelf item this entry is an errand about, when it is one - see
@@ -62,33 +64,42 @@ public sealed class TaskItem
     /// afterwards leaves this pointing at nothing, and a reader treats that as "no shelf item" rather
     /// than as a failure.
     /// </summary>
-    public Guid? LinkedInventoryItemId { get; private set; }
+    public Guid? LinkedInventoryItemId => Subject.LinkedInventoryItemId;
 
     /// <summary>
-    /// Which channel(s), if any, notify the owner once this item becomes overdue - see
-    /// <see cref="Orbit.Core.Tasks.OverdueNotifications.OverdueTaskNotificationScheduler"/>.
+    /// What this entry is about, in the reader's own words - "shopping", "car", "the flat". Free text
+    /// rather than a fixed list, the way a shelf item's category is (see InventoryItem.Category), but
+    /// several of them: one errand is often two subjects at once, and being made to pick the single
+    /// truest one is how a category stops being written at all.
+    ///
+    /// Kept for every kind of entry, checklist and appointment alike - what something is about does not
+    /// depend on whether it also has a time.
     /// </summary>
-    public NotificationChannel OverdueNotificationChannel { get; private set; }
+    public IReadOnlyList<string> Categories { get; private set; }
 
-    /// <summary>
-    /// When set, this item is reminded about once a day (at <see cref="DailyReminderTimeOfDay"/>, on
-    /// <see cref="DailyReminderNotificationChannel"/>) until the user turns it back off - and comes back
-    /// as something still to do each time, so finishing it today does not end it. See
-    /// <see cref="Orbit.Core.Tasks.DailyReminders.DailyTaskReminderScheduler"/>.
-    /// </summary>
-    public bool RemindDaily { get; private set; }
+    /// <summary>When this entry speaks up and where - see <see cref="TaskItemReminders"/>.</summary>
+    public TaskItemReminders Reminders { get; private set; }
 
-    /// <summary>Which channel(s) the daily reminder above goes out on.</summary>
-    public NotificationChannel DailyReminderNotificationChannel { get; private set; }
+    // The four settings above, each still readable on its own. Everything that acts on them - the two
+    // schedulers, the repository, the endpoints - asks one question at a time, and making forty read
+    // sites say "Reminders." would be a wider change than the one this grouping is for, which is the
+    // pile of parameters every way of making an entry had to carry.
 
-    /// <summary>Local time of day the daily reminder above is sent at. Defaults to midnight.</summary>
-    public TimeOnly DailyReminderTimeOfDay { get; private set; }
+    /// <inheritdoc cref="TaskItemReminders.WhenOverdue"/>
+    public NotificationChannel OverdueNotificationChannel => Reminders.WhenOverdue;
+
+    /// <inheritdoc cref="TaskItemReminders.Daily"/>
+    public bool RemindDaily => Reminders.Daily;
+
+    /// <inheritdoc cref="TaskItemReminders.DailyChannel"/>
+    public NotificationChannel DailyReminderNotificationChannel => Reminders.DailyChannel;
+
+    /// <inheritdoc cref="TaskItemReminders.DailyTimeOfDay"/>
+    public TimeOnly DailyReminderTimeOfDay => Reminders.DailyTimeOfDay;
 
     private TaskItem(
         Guid id, string description, DateTimeOffset? dueDateUtc, bool isCompleted, IReadOnlyList<Guid>? linkedTaskListIds,
-        NotificationChannel overdueNotificationChannel, bool remindDaily, NotificationChannel dailyReminderNotificationChannel,
-        TimeOnly dailyReminderTimeOfDay, TaskItemKind kind, string location, Guid? linkedCalendarEventId,
-        Guid? linkedInventoryItemId)
+        TaskItemReminders? reminders, TaskItemSubject? subject, IReadOnlyList<string>? categories)
     {
         Id = id;
         Description = description;
@@ -97,23 +108,24 @@ public sealed class TaskItem
         // Distinct and in order: naming the same list twice is one link written twice, not two steps,
         // and it would make the entry look like it stands for more work than it does.
         LinkedTaskListIds = linkedTaskListIds is null ? [] : [.. linkedTaskListIds.Distinct()];
-        OverdueNotificationChannel = overdueNotificationChannel;
-        RemindDaily = remindDaily;
-        DailyReminderNotificationChannel = dailyReminderNotificationChannel;
-        DailyReminderTimeOfDay = dailyReminderTimeOfDay;
-        Kind = kind;
-        LinkedCalendarEventId = kind == TaskItemKind.Calendar ? linkedCalendarEventId : null;
-        LinkedInventoryItemId = kind == TaskItemKind.Inventory ? linkedInventoryItemId : null;
-        Location = WhereItHappens(kind, location, LinkedCalendarEventId);
+        Reminders = reminders ?? TaskItemReminders.Default;
+        Subject = subject ?? TaskItemSubject.PlainWork;
+        Categories = TidyCategories(categories);
     }
 
     /// <summary>
-    /// The place an entry keeps for itself. Only a calendar entry has one at all, and one tied to an
-    /// event keeps none: the event holds the place, and storing it twice is how the two come to disagree
-    /// - which is the whole reason the link exists.
+    /// What is worth storing of what was typed: blanks dropped, edges trimmed, and the same word said
+    /// twice kept once - written in the order they were given, because that is the order the reader
+    /// thinks of them in. "Shopping" and "shopping" are one category: a filter that told them apart
+    /// would quietly hide half of what it was asked for.
     /// </summary>
-    private static string WhereItHappens(TaskItemKind kind, string location, Guid? linkedCalendarEventId)
-        => kind == TaskItemKind.Calendar && linkedCalendarEventId is null ? location.Trim() : string.Empty;
+    private static IReadOnlyList<string> TidyCategories(IReadOnlyList<string>? categories)
+        => categories is null
+            ? []
+            : [.. categories
+                .Select(category => category.Trim())
+                .Where(category => category.Length > 0)
+                .Distinct(StringComparer.CurrentCultureIgnoreCase)];
 
     /// <summary>
     /// Brings a finished entry back as something still to do, keeping its identity - the same row the
@@ -147,28 +159,36 @@ public sealed class TaskItem
     }
 
     /// <summary>
+    /// Keeps what this entry is already filed under, for a caller that said nothing about it - see
+    /// UpdateTaskListCommand.EntriesKeepingTheirCategories.
+    /// </summary>
+    public void KeepCategoriesOf(TaskItem stored) => Categories = stored.Categories;
+
+    /// <summary>
     /// A linked item's completion can't be set directly - it always follows the lists it links to (see
     /// <see cref="LinkedTaskCompletionResolver"/>) - so <paramref name="isCompleted"/> is ignored in
     /// favor of "not completed" whenever <paramref name="linkedTaskListIds"/> holds anything.
     /// </summary>
     public static TaskItem Create(
         string description, DateTimeOffset? dueDateUtc, bool isCompleted, IReadOnlyList<Guid>? linkedTaskListIds = null,
-        NotificationChannel overdueNotificationChannel = NotificationChannel.Push, bool remindDaily = false,
-        NotificationChannel dailyReminderNotificationChannel = NotificationChannel.Push, TimeOnly dailyReminderTimeOfDay = default,
-        TaskItemKind kind = TaskItemKind.Checklist, string location = "", Guid? linkedCalendarEventId = null,
-        Guid? linkedInventoryItemId = null)
+        TaskItemReminders? reminders = null, TaskItemSubject? subject = null, IReadOnlyList<string>? categories = null)
     {
         // Here rather than in the constructor, which FromPersistence also uses: a row already stored
         // fits by definition, and rejecting one on the way back out would make an old entry unreadable
         // rather than telling anybody anything.
         StoredTextLimits.OrRefuse(description, StoredTextLimits.TaskDescription, "task entry");
-        StoredTextLimits.OrRefuse(location, StoredTextLimits.Address, "place's address");
+        // The place as the subject actually keeps it: an address too long to store is refused, and one
+        // an entry of this kind does not keep at all was already dropped - see TaskItemSubject.
+        StoredTextLimits.OrRefuse(subject?.Location ?? string.Empty, StoredTextLimits.Address, "place's address");
+        foreach (var category in categories ?? [])
+        {
+            StoredTextLimits.OrRefuse(category, StoredTextLimits.Category, "task entry's category");
+        }
 
         return new TaskItem(
             Guid.NewGuid(), description, dueDateUtc,
             (linkedTaskListIds is null || linkedTaskListIds.Count == 0) && isCompleted, linkedTaskListIds,
-            overdueNotificationChannel, remindDaily, dailyReminderNotificationChannel, dailyReminderTimeOfDay,
-            kind, location, linkedCalendarEventId, linkedInventoryItemId);
+            reminders, subject, categories);
     }
 
     /// <summary>
@@ -179,8 +199,7 @@ public sealed class TaskItem
     public TaskItem WithNewId()
         => new(
             Guid.NewGuid(), Description, DueDateUtc, IsCompleted, LinkedTaskListIds,
-            OverdueNotificationChannel, RemindDaily, DailyReminderNotificationChannel, DailyReminderTimeOfDay,
-            Kind, Location, LinkedCalendarEventId, LinkedInventoryItemId);
+            Reminders, Subject, Categories);
 
     /// <summary>
     /// Rebuilds a checklist entry from already-known values, bypassing the completion override above -
@@ -189,11 +208,6 @@ public sealed class TaskItem
     /// </summary>
     public static TaskItem FromPersistence(
         Guid id, string description, DateTimeOffset? dueDateUtc, bool isCompleted, IReadOnlyList<Guid>? linkedTaskListIds,
-        NotificationChannel overdueNotificationChannel, bool remindDaily, NotificationChannel dailyReminderNotificationChannel,
-        TimeOnly dailyReminderTimeOfDay, TaskItemKind kind = TaskItemKind.Checklist, string location = "",
-        Guid? linkedCalendarEventId = null, Guid? linkedInventoryItemId = null)
-        => new(
-            id, description, dueDateUtc, isCompleted, linkedTaskListIds,
-            overdueNotificationChannel, remindDaily, dailyReminderNotificationChannel, dailyReminderTimeOfDay,
-            kind, location, linkedCalendarEventId, linkedInventoryItemId);
+        TaskItemReminders? reminders, TaskItemSubject? subject = null, IReadOnlyList<string>? categories = null)
+        => new(id, description, dueDateUtc, isCompleted, linkedTaskListIds, reminders, subject, categories);
 }

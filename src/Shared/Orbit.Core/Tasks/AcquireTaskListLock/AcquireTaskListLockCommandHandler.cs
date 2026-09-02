@@ -41,7 +41,7 @@ public sealed class AcquireTaskListLockCommandHandler : IRequestHandler<AcquireT
 
         var user = await _userRepository.GetByIdAsync(request.UserId, cancellationToken);
         taskList.AcquireLock(request.UserId, user!.UserName, nowUtc, LockDuration);
-        await _taskRepository.UpdateAsync(taskList, cancellationToken);
+        await _taskRepository.UpdateLockAsync(taskList, cancellationToken);
         return EditOutcome.Success;
     }
 }

@@ -88,7 +88,7 @@ public static class TaskEndpoints
                 new UpdateTaskListCommand(
                     GetUserId(user), id, request.Title, ToDomainItems(request.Items), request.IsGroup, request.IsPrivate,
                     ToDomainPayload(request.EncryptedContent), RequestEnum.Parse<ItemPriority>(request.Priority, "priority"),
-                    request.Description),
+                    request.Description, EntriesSayingNothingAboutTheirCategories(request.Items)),
                 cancellationToken);
             return ToApiResult(outcome);
         });
@@ -278,18 +278,34 @@ public static class TaskEndpoints
     private static IReadOnlyList<TaskItem> ToDomainItems(IReadOnlyList<TaskItemRequest> items)
         => items.Select(ToDomainItem).ToList();
 
+    /// <summary>
+    /// The entries that sent no categories at all, which is what a client written before they existed
+    /// sends - they keep whatever they are already filed under rather than being unfiled by a save that
+    /// was about something else. An entry sending an empty list means "none" and is not in here; one
+    /// with no id yet has nothing stored to keep. See UpdateTaskListCommand.EntriesKeepingTheirCategories.
+    /// </summary>
+    private static IReadOnlySet<Guid> EntriesSayingNothingAboutTheirCategories(IReadOnlyList<TaskItemRequest> items)
+        => items
+            .Where(item => item.Categories is null && item.Id is not null)
+            .Select(item => item.Id!.Value)
+            .ToHashSet();
+
     private static TaskItem ToDomainItem(TaskItemRequest item)
     {
-        var overdueChannel = RequestEnum.Parse<NotificationChannel>(item.OverdueNotificationChannel, "overdueNotificationChannel");
-        var dailyChannel = RequestEnum.Parse<NotificationChannel>(item.DailyReminderNotificationChannel, "dailyReminderNotificationChannel");
-        var kind = RequestEnum.Parse<TaskItemKind>(item.Kind, "kind");
+        var reminders = new TaskItemReminders(
+            RequestEnum.Parse<NotificationChannel>(item.OverdueNotificationChannel, "overdueNotificationChannel"),
+            item.RemindDaily,
+            RequestEnum.Parse<NotificationChannel>(item.DailyReminderNotificationChannel, "dailyReminderNotificationChannel"),
+            item.DailyReminderTimeOfDay);
+        var subject = new TaskItemSubject(
+            RequestEnum.Parse<TaskItemKind>(item.Kind, "kind"),
+            item.Location, item.LinkedCalendarEventId, item.LinkedInventoryItemId);
 
         if (item.Id is not { } existingId)
         {
             return TaskItem.Create(
                 item.Description, item.DueDateUtc, item.IsCompleted, item.AllLinkedTaskListIds,
-                overdueChannel, item.RemindDaily, dailyChannel, item.DailyReminderTimeOfDay,
-                kind, item.Location, item.LinkedCalendarEventId, item.LinkedInventoryItemId);
+                reminders, subject, item.AllCategories);
         }
 
         // Same override Create applies: a linked entry's completion follows the list it links to, so a
@@ -297,8 +313,7 @@ public static class TaskEndpoints
         return TaskItem.FromPersistence(
             existingId, item.Description, item.DueDateUtc,
             item.AllLinkedTaskListIds.Count == 0 && item.IsCompleted, item.AllLinkedTaskListIds,
-            overdueChannel, item.RemindDaily, dailyChannel, item.DailyReminderTimeOfDay,
-            kind, item.Location, item.LinkedCalendarEventId, item.LinkedInventoryItemId);
+            reminders, subject, item.AllCategories);
     }
 
 
@@ -343,7 +358,8 @@ public static class TaskEndpoints
                     item.Location,
                     item.LinkedCalendarEventId,
                     item.LinkedInventoryItemId,
-                    item.LinkedTaskListIds))
+                    item.LinkedTaskListIds,
+                    item.Categories))
                 .ToList(),
             taskList.IsCompleted,
             taskList.IsGroup,

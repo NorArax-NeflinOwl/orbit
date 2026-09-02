@@ -76,8 +76,7 @@ public sealed class InventoryTaskListCoordinator
         var settings = await _managedTaskListRepository.GetSettingsAsync(warehouseId, cancellationToken);
         var reminderItem = TaskItem.Create(
             UpdateStockReminderDescription, dueDateUtc: null, isCompleted: false,
-            remindDaily: true, dailyReminderNotificationChannel: NotificationChannel.Push,
-            dailyReminderTimeOfDay: settings.RefreshTimeOfDay);
+            reminders: TaskItemReminders.Default with { Daily = true, DailyTimeOfDay = settings.RefreshTimeOfDay });
         // Pinned from the moment it exists: this is the one list Orbit maintains rather than the reader,
         // and it is only useful if it is where they will see it.
         var taskList = TaskList.Create(ownerUserId, title, [reminderItem], isPinned: true);
@@ -152,7 +151,7 @@ public sealed class InventoryTaskListCoordinator
         // TaskItemKind.Inventory and RestockReconciliation.
         var restockItem = TaskItem.Create(
             RestockTaskNaming.EntryFor(item.Name, item.MinimumQuantity, item.Unit), dueDateUtc: null, isCompleted: false,
-            kind: TaskItemKind.Inventory, linkedInventoryItemId: item.Id);
+            subject: new TaskItemSubject(TaskItemKind.Inventory, linkedInventoryItemId: item.Id));
         taskList.Update(
             taskList.Title, [.. taskList.Items, restockItem], taskList.IsGroup, taskList.IsPrivate,
             taskList.EncryptedContent, taskList.Priority);
@@ -252,7 +251,7 @@ public sealed class InventoryTaskListCoordinator
         return shelf.TryGetValue(need.ProductName.Trim(), out var inventoryItemId)
             ? TaskItem.Create(
                 description, dueDateUtc: null, isCompleted: false,
-                kind: TaskItemKind.Inventory, linkedInventoryItemId: inventoryItemId)
+                subject: new TaskItemSubject(TaskItemKind.Inventory, linkedInventoryItemId: inventoryItemId))
             : TaskItem.Create(description, dueDateUtc: null, isCompleted: false);
     }
 }

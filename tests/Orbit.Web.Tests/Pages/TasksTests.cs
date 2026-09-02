@@ -294,6 +294,75 @@ public sealed class TasksTests : OrbitTestContext
         Assert.EndsWith($"/tasks/{taskList.Id}", navigationManager.Uri);
     }
 
+    /// <summary>
+    /// The chips are built from what the entries are actually filed under, and pressing one narrows the
+    /// page to the lists still holding something - see TaskItemFilter.
+    /// </summary>
+    [Fact]
+    public void Choosing_a_category_leaves_only_the_lists_that_have_one()
+    {
+        RegisterTasksApiClient([
+            TaskList("Kitchen", Item("Buy milk") with { Categories = ["shopping"] }),
+            TaskList("Garage", Item("New tyres") with { Categories = ["car"] })]);
+        var cut = RenderComponent<Web.Pages.Tasks>();
+
+        cut.FindAll(".filter-chip").First(chip => chip.TextContent.Contains("shopping")).Click();
+
+        var shown = cut.FindAll(".item-card-name").Select(card => card.TextContent.Trim()).ToList();
+        Assert.Equal(["Kitchen"], shown);
+    }
+
+    /// <summary>
+    /// The chips filter by what entries are filed under, so the rows have to say it - otherwise the
+    /// reader takes the page's word for why a list is still here.
+    /// </summary>
+    [Fact]
+    public void A_row_says_what_it_is_filed_under_and_marks_the_one_being_filtered_by()
+    {
+        RegisterTasksApiClient([TaskList("Kitchen", Item("Buy milk") with { Categories = ["shopping", "weekly"] })]);
+        var cut = RenderComponent<Web.Pages.Tasks>();
+
+        Assert.Equal(
+            ["shopping", "weekly"],
+            cut.FindAll(".task-preview-row .row-category").Select(category => category.TextContent.Trim()));
+
+        cut.FindAll(".filter-chip").First(chip => chip.TextContent.Contains("weekly")).Click();
+
+        var marked = cut.FindAll(".task-preview-row .row-category.on").Select(category => category.TextContent.Trim());
+        Assert.Equal(["weekly"], marked);
+    }
+
+    /// <summary>
+    /// A word from an entry, not from the list's own name: the box is there to find the thing that has
+    /// to be done, which is what a reader remembers and what the card only shows a few of.
+    /// </summary>
+    [Fact]
+    public void Searching_finds_the_list_an_entry_is_on()
+    {
+        RegisterTasksApiClient([TaskList("Kitchen", Item("Buy milk")), TaskList("Garage", Item("New tyres"))]);
+        var cut = RenderComponent<Web.Pages.Tasks>();
+
+        cut.Find(".task-search input").Input("tyre");
+
+        var shown = cut.FindAll(".item-card-name").Select(card => card.TextContent.Trim()).ToList();
+        Assert.Equal(["Garage"], shown);
+    }
+
+    /// <summary>With something being looked for, a card shows what matched rather than its first few rows.</summary>
+    [Fact]
+    public void A_narrowed_card_shows_what_matched()
+    {
+        RegisterTasksApiClient([TaskList("Kitchen", Item("Buy milk"), Item("Buy bread"))]);
+        var cut = RenderComponent<Web.Pages.Tasks>();
+
+        cut.Find(".task-search input").Input("milk");
+
+        var rows = cut.FindAll(".item-card-body .task-preview-row .row-title")
+            .Select(row => row.TextContent.Trim())
+            .ToList();
+        Assert.Equal(["Buy milk"], rows);
+    }
+
     [Fact]
     public void An_account_with_no_lists_gets_a_hint_instead_of_an_empty_grid()
     {
