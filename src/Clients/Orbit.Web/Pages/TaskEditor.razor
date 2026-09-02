@@ -278,7 +278,10 @@ else
                             else
                             {
                                 <span class="field-break"></span>
-                                <small>@T["What this entry names becomes a product when a storage is made from this list."]</small>
+                                @* Says the rule as well as the fact. Nobody could guess either half of
+                                   it from a form with nothing on it: where the product comes from, and
+                                   that asking twice is how you ask for two. *@
+                                <small>@T["Naming it is the whole of it: \"Generate inventory\" in the menu above makes one product per distinct name, and the same name twice asks for two of it."]</small>
                             }
                         }
                         else if (item.Kind == nameof(TaskItemKind.Checklist))

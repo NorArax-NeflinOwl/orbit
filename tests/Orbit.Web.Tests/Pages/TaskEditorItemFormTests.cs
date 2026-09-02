@@ -132,7 +132,8 @@ public sealed class TaskEditorItemFormTests : OrbitTestContext
 
         var details = cut.Find(".editor-item-details").TextContent;
         Assert.DoesNotContain("Warehouse", details);
-        Assert.Contains("becomes a product", details);
+        // And says where the product does come from, since a form with nothing on it explains nothing.
+        Assert.Contains("one product per distinct name", details);
     }
 
     /// <summary>
