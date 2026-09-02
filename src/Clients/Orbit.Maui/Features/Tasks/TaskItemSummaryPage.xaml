@@ -4,6 +4,7 @@
     xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
     xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
     xmlns:controls="clr-namespace:Orbit.Maui.Controls"
+    xmlns:calendar="clr-namespace:Orbit.Mobile.Screens.Calendar;assembly=Orbit.Mobile"
     xmlns:screens="clr-namespace:Orbit.Mobile.Screens.Tasks;assembly=Orbit.Mobile"
     xmlns:maps="clr-namespace:Microsoft.Maui.Controls.Maps;assembly=Microsoft.Maui.Controls.Maps"
     x:DataType="screens:TaskItemSummaryViewModel"
@@ -26,6 +27,25 @@
                        Style="{StaticResource SubtleLabel}" FontSize="13" />
                 <Label Grid.Row="1" Grid.Column="1" Text="{Binding Where}" LineBreakMode="WordWrap" />
             </Grid>
+
+            <!-- What the appointment says about itself, for an entry that is one. Both live on the
+                 event, so both appear only where there is one - see ShowTheAppointmentAsync, and
+                 Orbit.Web's own summary, which says the same two things in the same place. -->
+            <VerticalStackLayout Spacing="4" IsVisible="{Binding HasAboutTheAppointment}">
+                <Label Text="{controls:Translate 'Description'}" Style="{StaticResource SubtleLabel}" FontSize="13" />
+                <Label Text="{Binding AboutTheAppointment}" LineBreakMode="WordWrap" />
+            </VerticalStackLayout>
+
+            <VerticalStackLayout Spacing="4" IsVisible="{Binding HasGuests}">
+                <Label Text="{controls:Translate 'Guests'}" Style="{StaticResource SubtleLabel}" FontSize="13" />
+                <VerticalStackLayout Spacing="2" BindableLayout.ItemsSource="{Binding Guests}">
+                    <BindableLayout.ItemTemplate>
+                        <DataTemplate x:DataType="calendar:GuestRow">
+                            <Label Text="{Binding Name}" LineBreakMode="TailTruncation" />
+                        </DataTemplate>
+                    </BindableLayout.ItemTemplate>
+                </VerticalStackLayout>
+            </VerticalStackLayout>
 
             <Label Text="{controls:Translate 'Already done.'}" IsVisible="{Binding IsCompleted}"
                    FontSize="12" Style="{StaticResource SubtleLabel}" />
