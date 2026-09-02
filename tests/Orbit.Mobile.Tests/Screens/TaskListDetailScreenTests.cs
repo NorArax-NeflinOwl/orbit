@@ -1025,9 +1025,11 @@ public sealed class TaskListDetailScreenTests
         screen.EditItemCommand.Execute(screen.Items.Single());
         // Choosing from the picker adds a list rather than replacing what is there, and the picker
         // clears itself: it says what to add next, not what the entry already stands for.
-        screen.BeingEdited!.ChosenLinkedTaskList =
-            screen.BeingEdited.LinkableTaskLists.Single(choice => choice.Name == "Shopping");
-        Assert.Null(screen.BeingEdited.ChosenLinkedTaskList);
+        screen.BeingEdited!.LinkToCommand.Execute(
+            screen.BeingEdited.LinkableTaskLists.Single(choice => choice.Name == "Shopping"));
+        // The picker goes on offering what to add next: what the entry already stands for is off it.
+        Assert.DoesNotContain(
+            screen.BeingEdited.LinkableTaskListsLeft, choice => choice.Name == "Shopping");
         await screen.SaveItemCommand.ExecuteAsync(null);
         await context.SynchroniseAsync();
 
@@ -1052,8 +1054,8 @@ public sealed class TaskListDetailScreenTests
         await context.SynchroniseAsync();
         await screen.LoadCommand.ExecuteAsync(null);
         screen.EditItemCommand.Execute(screen.Items.Single());
-        screen.BeingEdited!.ChosenLinkedTaskList =
-            screen.BeingEdited.LinkableTaskLists.Single(choice => choice.Name == "Shopping");
+        screen.BeingEdited!.LinkToCommand.Execute(
+            screen.BeingEdited.LinkableTaskLists.Single(choice => choice.Name == "Shopping"));
         await screen.SaveItemCommand.ExecuteAsync(null);
         await context.SynchroniseAsync();
         await screen.LoadCommand.ExecuteAsync(null);
@@ -1103,8 +1105,8 @@ public sealed class TaskListDetailScreenTests
 
         screen.EditItemCommand.Execute(screen.Items.Single());
         var editor = screen.BeingEdited!;
-        editor.ChosenLinkedTaskList = editor.LinkableTaskLists.Single(choice => choice.Name == "Shopping");
-        editor.ChosenLinkedTaskList = editor.LinkableTaskLists.Single(choice => choice.Name == "Chemist");
+        editor.LinkToCommand.Execute(editor.LinkableTaskLists.Single(choice => choice.Name == "Shopping"));
+        editor.LinkToCommand.Execute(editor.LinkableTaskLists.Single(choice => choice.Name == "Chemist"));
 
         Assert.Equal(["Shopping", "Chemist"], editor.LinkedTaskLists.Select(linked => linked.Name));
         // And what it already stands for is not offered again.
@@ -1138,8 +1140,8 @@ public sealed class TaskListDetailScreenTests
         await screen.LoadCommand.ExecuteAsync(null);
 
         screen.EditItemCommand.Execute(screen.Items.Single());
-        screen.BeingEdited!.ChosenLinkedTaskList =
-            screen.BeingEdited.LinkableTaskLists.Single(choice => choice.Name == "Shopping");
+        screen.BeingEdited!.LinkToCommand.Execute(
+            screen.BeingEdited.LinkableTaskLists.Single(choice => choice.Name == "Shopping"));
         await screen.SaveItemCommand.ExecuteAsync(null);
 
         await screen.LoadCommand.ExecuteAsync(null);

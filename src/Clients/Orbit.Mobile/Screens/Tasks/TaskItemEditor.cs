@@ -120,13 +120,6 @@ public sealed partial class TaskItemEditor : ObservableObject
     /// </summary>
     public IReadOnlyList<TaskListChoice> LinkableTaskLists { get; private init; } = [];
 
-    /// <summary>
-    /// The picker's own value: what to add next, or the "none" choice. Choosing a list adds it to
-    /// <see cref="LinkedTaskLists"/> rather than replacing what is there - one entry often stands for
-    /// several lists, which is what the web gained on 2026-09-01 and the phone could only carry.
-    /// </summary>
-    [ObservableProperty]
-    private TaskListChoice? _chosenLinkedTaskList;
 
     /// <summary>
     /// Every list this entry stands for, in the order they were added. An entry that points somewhere is
@@ -146,18 +139,24 @@ public sealed partial class TaskItemEditor : ObservableObject
     public bool CanBeLinked => LinkableTaskLists.Count > 1;
 
     /// <summary>
-    /// Adds the list the picker names, and then clears the picker: it says what to add next rather than
-    /// what is already there, so leaving a chosen list in it would read as a fourth entry in the row.
+    /// Makes the entry stand for one more list. Adding rather than replacing: one entry often stands for
+    /// several, which is what the web gained on 2026-09-01 and the phone could only carry.
+    ///
+    /// A command rather than the picker's own bound value. Choosing a list changes what the picker
+    /// offers and what it has selected, and doing either from inside the picker's own change - which a
+    /// bound property does - hung the app on Android: the dialog stopped answering and the screen was
+    /// reported as not responding. The head now says "this was chosen" and settles the picker itself,
+    /// after its selection has finished - see TaskListDetailPage.OnLinkedTaskListPicked.
     /// </summary>
-    partial void OnChosenLinkedTaskListChanged(TaskListChoice? value)
+    [RelayCommand]
+    private void LinkTo(TaskListChoice? chosen)
     {
-        if (value?.ServerId is null || LinkedTaskLists.Any(linked => linked.ServerId == value.ServerId))
+        if (chosen?.ServerId is null || LinkedTaskLists.Any(linked => linked.ServerId == chosen.ServerId))
         {
             return;
         }
 
-        LinkedTaskLists.Add(value);
-        ChosenLinkedTaskList = null;
+        LinkedTaskLists.Add(chosen);
         SayWhatItStandsFor();
     }
 

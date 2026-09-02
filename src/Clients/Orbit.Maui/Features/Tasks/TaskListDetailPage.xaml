@@ -298,9 +298,9 @@
                 <Label Text="{controls:Translate 'Link to list'}" FontSize="12" Style="{StaticResource SubtleLabel}" />
                 <!-- The picker says what to add next rather than what is already there: one entry may
                      stand for several lists, and choosing adds one and clears the picker. -->
-                <Picker ItemsSource="{Binding BeingEdited.LinkableTaskListsLeft}"
-                        SelectedItem="{Binding BeingEdited.ChosenLinkedTaskList}"
+                <Picker x:Name="LinkedTaskListPicker" ItemsSource="{Binding BeingEdited.LinkableTaskListsLeft}"
                         ItemDisplayBinding="{Binding Name, x:DataType=screens:TaskListChoice}"
+                        SelectedIndexChanged="OnLinkedTaskListPicked"
                         SemanticProperties.Description="{controls:Translate 'Link to list'}" />
 
                 <!-- What it stands for now, each with a way off. Orbit.Web draws the same pair. -->

@@ -9,6 +9,6 @@ namespace Orbit.Mobile.Screens.Tasks;
 /// <param name="ServerId">Null only for the "no list" choice a picker needs to offer.</param>
 public sealed record TaskListChoice(Guid? ServerId, string Name)
 {
-    /// <summary>Pointing at nothing, which is what most entries do - see TaskItemEditor.ChosenLinkedTaskList.</summary>
+    /// <summary>Pointing at nothing, which is what most entries do - see TaskItemEditor.LinkTo.</summary>
     public static TaskListChoice NoList(Translations translations) => new(null, translations["None"]);
 }
