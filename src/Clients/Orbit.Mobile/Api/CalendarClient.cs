@@ -75,6 +75,9 @@ public sealed class CalendarClient : ILockableItems
         switch (response.StatusCode)
         {
             case HttpStatusCode.Conflict:
+            // Not this reader's to change - a share that was read-only, or has become so. Answered
+            // rather than thrown for the reason WriteOutcome.Refused gives.
+            case HttpStatusCode.Forbidden:
                 return WriteOutcome.Refused;
             case HttpStatusCode.NotFound:
                 return WriteOutcome.Gone;

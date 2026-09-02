@@ -9,9 +9,14 @@ public enum WriteOutcome
     Applied,
 
     /// <summary>
-    /// Somebody else held the edit lock. Under the offline policy this should be rare - shared items are
-    /// not editable offline - but sharing can change while the phone is away, so it has to be handled
-    /// rather than assumed impossible.
+    /// The server took the request and would not have it: somebody else held the edit lock, or it is
+    /// not this reader's to change at all. Under the offline policy both should be rare - shared items
+    /// are not editable offline - but sharing can change while the phone is away, so it has to be
+    /// handled rather than assumed impossible.
+    ///
+    /// Answered rather than thrown, because a queued change the server will never accept has to be
+    /// given up on: an unhandled 403 escaped the outbox's own retry rules, so the change stayed queued,
+    /// was sent again on every sync, and blocked every later change of its kind behind it.
     /// </summary>
     Refused,
 

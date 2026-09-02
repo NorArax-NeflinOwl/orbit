@@ -194,6 +194,52 @@ public sealed class NoteSynchronizerTests
         Assert.Empty(await context.DbContext.Outbox.ToListAsync());
     }
 
+    /// <summary>
+    /// The bug this stands for, found on a device: a queued edit of a note this reader may only read
+    /// was answered 403 every time. That is not a status worth retrying, so it escaped the outbox's own
+    /// rules - the change was never given up on, it went to the server again on every sync, and it
+    /// blocked every later note change behind it. Forever.
+    /// </summary>
+    [Fact]
+    public async Task An_edit_the_reader_is_not_allowed_is_dropped_rather_than_sent_again()
+    {
+        using var context = new SyncContext();
+        var refused = await context.Notes.CreateAsync("Not mine to change", SomeContent);
+        await context.SynchroniseAsync();
+        context.Server.ForcedWriteFailure = HttpStatusCode.Forbidden;
+        await context.Notes.UpdateAsync(refused.LocalId, new NoteContent("Edited anyway", SomeContent, "Normal"));
+
+        var result = await context.SynchroniseAsync();
+
+        Assert.Equal(1, result.GivenUp);
+        Assert.Empty(await context.DbContext.Outbox.ToListAsync());
+        // Said out loud: somebody's edit went with it.
+        Assert.Contains(
+            await context.DbContext.Notifications.ToListAsync(),
+            notification => notification.Kind == "ChangeDropped");
+    }
+
+    /// <summary>
+    /// And what was queued behind it goes on its way: one change the server will never accept must not
+    /// take the rest of the queue with it.
+    /// </summary>
+    [Fact]
+    public async Task A_change_behind_a_refused_one_still_reaches_the_server()
+    {
+        using var context = new SyncContext();
+        var refused = await context.Notes.CreateAsync("Not mine to change", SomeContent);
+        await context.SynchroniseAsync();
+        context.Server.ForcedWriteFailure = HttpStatusCode.Forbidden;
+        await context.Notes.UpdateAsync(refused.LocalId, new NoteContent("Edited anyway", SomeContent, "Normal"));
+        await context.SynchroniseAsync();
+
+        context.Server.ForcedWriteFailure = null;
+        await context.Notes.CreateAsync("Written afterwards", SomeContent);
+        await context.SynchroniseAsync();
+
+        Assert.Contains(context.Server.Notes, note => note.Title == "Written afterwards");
+    }
+
     [Fact]
     public async Task A_note_written_on_the_web_appears_on_the_phone()
     {
