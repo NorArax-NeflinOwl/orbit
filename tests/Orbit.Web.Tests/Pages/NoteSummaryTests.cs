@@ -89,6 +89,37 @@ public sealed class NoteSummaryTests : OrbitTestContext
     }
 
     /// <summary>
+    /// Pressing what the note says opens it to be rewritten. Reading a note and wanting to change a
+    /// word is one thought, and it used to take finding the menu at the other end of the page first.
+    /// </summary>
+    [Fact]
+    public void Pressing_what_the_note_says_opens_it_to_be_written_in()
+    {
+        var navigationManager = Services.GetRequiredService<NavigationManager>();
+        var cut = RenderComponent<NoteSummary>(parameters => parameters.Add(page => page.Id, NoteId));
+
+        cut.Find(".card").Click();
+
+        Assert.EndsWith($"/notes/{NoteId}/edit", navigationManager.Uri);
+    }
+
+    /// <summary>
+    /// A tick is what a checklist row is for, so the row keeps its own press: ticking a line must not
+    /// open the whole note to write in, which is a different question entirely.
+    /// </summary>
+    [Fact]
+    public void Ticking_a_line_does_not_open_the_form()
+    {
+        var navigationManager = Services.GetRequiredService<NavigationManager>();
+        var startedAt = navigationManager.Uri;
+        var cut = RenderComponent<NoteSummary>(parameters => parameters.Add(page => page.Id, NoteId));
+
+        cut.FindAll(".check-row").First().Click();
+
+        Assert.Equal(startedAt, navigationManager.Uri);
+    }
+
+    /// <summary>
     /// The two panels an editing screen is made of: what is read and filled in on the left, and the
     /// actions on the right, outside the box that scrolls. The pair used to sit in the page's heading,
     /// which scrolled away with it - see EditorRail.

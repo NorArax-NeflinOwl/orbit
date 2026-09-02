@@ -347,6 +347,17 @@ input.note-editor-title {
     padding: 12px 14px;
 }
 
+/* The note's own page: pressing what it says opens it to be rewritten, so it is drawn as something
+   that can be pressed - see NoteSummary. The rows inside it keep their own cursor: a tick box is a tick
+   box wherever it sits. */
+.note-summary-opens {
+    cursor: pointer;
+}
+
+.note-summary-opens .check-row {
+    cursor: default;
+}
+
 /* A note nobody may write to. contenteditable="false" stops the typing; the tick boxes in it are real
    <input>s, which a non-editable surface does not disable, so they are stopped here. Text stays
    selectable on purpose - a note that can be read should be one that can be copied. */
