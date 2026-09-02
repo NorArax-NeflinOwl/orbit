@@ -37,7 +37,13 @@ public sealed class CalendarTests : OrbitTestContext
         // a browser that has never had them opened gets.
         Services.AddSingleton(new PanelPreferences(new StubJSRuntime()));
         // Storage starts empty, so the list comes back in the order it has always been in - by when.
-        Services.AddSingleton(new CalendarListOrder(new StubJSRuntime()));
+        //
+        // Showing everything, deliberately: the list leaves out what is over, and most of these fixtures
+        // sit on the fifteenth of the current month - which is in the past for half of every month. They
+        // are about what the list draws and how it reads, not about what it hides, so they say so here
+        // rather than each carrying a date chosen to dodge the rule. The two tests about the rule build
+        // their own.
+        Services.AddSingleton(ShowingEverything());
     }
 
     [Fact]
@@ -248,6 +254,53 @@ public sealed class CalendarTests : OrbitTestContext
     }
 
     /// <summary>
+    /// What a calendar is read for is what is coming. By the twentieth of a month, a month's worth of
+    /// finished work is what a reader has to scroll past to find it - so the list leaves out what is
+    /// over, and the menu is how it is asked for.
+    /// </summary>
+    [Fact]
+    public void A_ticked_off_deadline_is_not_listed_until_everything_is_asked_for()
+    {
+        Services.AddSingleton(new CalendarListOrder(new StubJSRuntime()));
+        var midMonth = new DateTime(DateTime.Today.Year, DateTime.Today.Month, 15, 10, 0, 0);
+        RegisterCalendarApiClient([]);
+        RegisterTasksApiClient([
+            CreateTaskListWithDueItem(midMonth, "Still to do"),
+            TickedOff(CreateTaskListWithDueItem(midMonth, "Already done"))]);
+
+        var cut = RenderComponent<Calendar>();
+
+        Assert.Equal(["Still to do"], ListedNames(cut));
+
+        cut.Find(".page-header-actions .overflow-menu-trigger").Click();
+        cut.FindAll(".page-header-actions .avatar-dropdown-item")
+            .First(entry => entry.TextContent.Contains("Everything", StringComparison.Ordinal))
+            .Click();
+
+        Assert.Equal(["Still to do", "Already done"], ListedNames(cut));
+    }
+
+    /// <summary>
+    /// An event that has already ended is over the same way. A deadline that has passed and is still not
+    /// ticked off is not: it is the one thing on the page that most needs saying.
+    /// </summary>
+    [Fact]
+    public void An_event_that_has_ended_goes_but_an_overdue_deadline_stays()
+    {
+        Services.AddSingleton(new CalendarListOrder(new StubJSRuntime()));
+        // Midnight this morning: always in the month being listed, and always already past. A time
+        // relative to "now" would leave the month on the first of it and the test would then be asking
+        // about a period the list is not showing.
+        var earlierToday = DateTime.Today;
+        RegisterCalendarApiClient([CreateTimedEvent(earlierToday, earlierToday, "Over and done with")]);
+        RegisterTasksApiClient([CreateTaskListWithDueItem(earlierToday, "Still not done")]);
+
+        var cut = RenderComponent<Calendar>();
+
+        Assert.Equal(["Still not done"], ListedNames(cut));
+    }
+
+    /// <summary>
     /// An entry tied to an event is that event. Listing both put the same appointment on the page twice,
     /// one card under the other - the grids have always dropped one, and the list beside them had not.
     /// </summary>
@@ -384,6 +437,18 @@ public sealed class CalendarTests : OrbitTestContext
     {
         cut.Find(".calendar-event-list-panel .overflow-menu-trigger, .page-header-actions .overflow-menu-trigger").Click();
         cut.FindAll(".avatar-dropdown-item").First(item => item.TextContent.Contains(label)).Click();
+    }
+
+    /// <summary>The same list with its one entry crossed off.</summary>
+    private static TaskDto TickedOff(TaskDto taskList)
+        => taskList with { Items = [taskList.Items[0] with { IsCompleted = true }] };
+
+    /// <summary>A list order that hides nothing - see the constructor for why most of these want one.</summary>
+    private static CalendarListOrder ShowingEverything()
+    {
+        var listOrder = new CalendarListOrder(new StubJSRuntime());
+        listOrder.ShowEverythingAsync(true).GetAwaiter().GetResult();
+        return listOrder;
     }
 
     private static string[] ListedNames(IRenderedFragment cut)

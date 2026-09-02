@@ -22,13 +22,15 @@ public enum CalendarListSortOrder
 }
 
 /// <summary>
-/// How this reader wants the calendar's list ordered. Kept on the device rather than on the account,
-/// like <see cref="TaskListArrangement"/> and <see cref="PanelPreferences"/>: it describes one page for
-/// one reader on one screen and says nothing about what is on it.
+/// How this reader wants the calendar's list ordered, and whether it still shows what is over and done
+/// with. Kept on the device rather than on the account, like <see cref="TaskListArrangement"/> and
+/// <see cref="PanelPreferences"/>: it describes one page for one reader on one screen and says nothing
+/// about what is on it.
 /// </summary>
 public sealed class CalendarListOrder
 {
     private const string SortOrderKey = "orbit-calendar-list-sort-order";
+    private const string ShowsEverythingKey = "orbit-calendar-list-shows-everything";
 
     private readonly IJSRuntime _jsRuntime;
 
@@ -38,6 +40,15 @@ public sealed class CalendarListOrder
     }
 
     public CalendarListSortOrder SortOrder { get; private set; } = CalendarListSortOrder.When;
+
+    /// <summary>
+    /// Whether the list still shows a task already ticked off and an event already over. Off by
+    /// default: what a calendar is read for is what is coming, and a month's worth of finished work
+    /// pushes it below the fold by the twentieth. Everything is still there to be asked for - see
+    /// Calendar.razor's menu - and the grid never hides anything, since a day with something in it
+    /// should say so whether or not it has been.
+    /// </summary>
+    public bool ShowsEverything { get; private set; }
 
     /// <summary>
     /// Reads what was stored. Anything unreadable - a browser with storage blocked, a value written by
@@ -52,10 +63,27 @@ public sealed class CalendarListOrder
             {
                 SortOrder = stored;
             }
+
+            ShowsEverything =
+                await _jsRuntime.InvokeAsync<string?>("localStorage.getItem", ShowsEverythingKey) == "true";
         }
         catch (JSException)
         {
             // The default is the right answer for a browser that cannot tell us otherwise.
+        }
+    }
+
+    public async Task ShowEverythingAsync(bool showsEverything)
+    {
+        ShowsEverything = showsEverything;
+        try
+        {
+            await _jsRuntime.InvokeVoidAsync(
+                "localStorage.setItem", ShowsEverythingKey, showsEverything ? "true" : "false");
+        }
+        catch (JSException)
+        {
+            // It still applies for this session - it just won't be remembered for the next one.
         }
     }
 

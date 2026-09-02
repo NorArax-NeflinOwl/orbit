@@ -656,6 +656,19 @@ wrong (and each pinned by a test):
   possibly another city days ago.
 - Every link opens with `target="_blank" rel="noopener"`.
 
+### What the calendar's list leaves out
+
+The list beside the grid answers "what is coming", so it leaves out what is over: a deadline already
+ticked off, and an event that has already ended. An overdue deadline that is still not done **stays** -
+it is the one thing on the page that most needs saying, and hiding it would hide the work.
+
+The grid never hides anything. A day with something in it should say so whether or not it has been, and
+a month drawn with holes in it would be a month that had not happened.
+
+**Show → "Everything, including what is over"** in the page's menu puts them back, and is remembered by
+the device the way the list's order is (`CalendarListOrder`, localStorage - it describes one page for
+one reader on one screen).
+
 ## Refusing a request
 
 Anything that refuses what a caller asked for — domain validation (an event ending before it starts, a

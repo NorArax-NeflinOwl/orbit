@@ -454,6 +454,7 @@ public static class PolishTranslations
         ["No items on this list."] = "Ta lista jest pusta.",
         ["Open checklist"] = "Otwórz listę",
         ["Sort"] = "Sortuj",
+        ["Everything, including what is over"] = "Wszystko, łącznie z tym, co minęło",
         // The calendar's list beside the grid - see CalendarListSortOrder.
         ["By when"] = "Po dacie",
         ["By type"] = "Po typie",
