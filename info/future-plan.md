@@ -435,14 +435,16 @@ inventory lists, the contacts tabs, the chat menus - is built and needs no schem
 
 ## Smaller identified follow-ups
 
-- **The light editing view needs redesigning.** Orbit has two depths for the same thing: a shallow view
-  for reading and ticking, and a full form for changing what it is. Which objects have the shallow one,
-  and what it currently is:
+- **Two of the six objects still have no shallow view.** Orbit has two depths for the same thing: a
+  shallow view for reading and doing, and a full form for changing what it is. The task list, the task
+  entry and the storage now have both, and the pattern they settled on is the same one each time - land
+  on what the thing is, with the fields a named press further in. A note and a calendar event still have
+  only the form. Which objects have which:
 
   | Object | Shallow view | Full form |
   | --- | --- | --- |
   | Task list | `/tasks/{id}` - the checklist: tick items, see the tree of lists it stands for, measure it against a storage | `/tasks/{id}/edit` |
-  | Task entry | `/tasks/{listId}/items/{itemId}` - `TaskItemSummary`: when, where, and a map, for an entry with a place | the entry's own row in the list's editor |
+  | Task entry | `/tasks/{listId}/items/{itemId}` - `TaskItemSummary`: when, where, what the appointment is about, who is coming, and a map | the entry's own row in the list's editor |
   | Note | none of its own - the card's body opens the editor itself, which is the only view a note has | `/notes/{id}` |
   | Calendar event | none of its own - the card unfolds in place on the calendar to show when, where, who is coming | `/calendar/{id}` |
   | Storage | `/inventory/{id}` - the shelf read rather than edited, one row per batch: what it is, how much, when it arrived, how long it keeps | `/inventory/{id}/edit` |
@@ -475,6 +477,16 @@ inventory lists, the contacts tabs, the chat menus - is built and needs no schem
   the messages are unaffected; for the latter it says there is nothing to show and why it cannot be more
   specific. It used to say "Orbit can't reach that account right now" to both, which read as a fault
   Orbit was having.
+
+- **The phone has not caught up with the browser's last few passes.** Four things the web gained and the
+  phone did not: `GoogleCalendarEventLink`'s own twin there still writes the old link (no task-list
+  prefix on the title, no guests, no reminders in the description - see
+  `Orbit.Mobile/Google/GoogleCalendarEventLink.cs` against the web's); `ContactDto.HasGoogleVerifiedEmail`
+  arrives and is unused, so the phone cannot narrow guests to addresses Google can reach; the calendar's
+  list still shows what is over, where the browser now leaves it out until asked; and neither of the two
+  shallow views added on the web - a task entry's own page and a shelf read rather than edited - exists
+  there. None of it is broken, and all of it is the phone answering a question differently from the
+  browser.
 
 - **The phone cannot flatten a tree of lists.** The browser's checklist reads a group list either as the
   stack of cards it is or as one run of items labelled with the list each came from, and remembers which
