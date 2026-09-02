@@ -46,6 +46,10 @@
 
 <GoogleSignInButton OnCredential="SignInWithGoogleAsync" ShowDivider="true" />
 
+@* Where somebody goes when the password does not work, which is the moment they are on this page for
+   and had nowhere to go from - see ForgotPassword.razor. *@
+<p><a href="/forgot-password">@T["Forgot your password?"]</a></p>
+
 <p>@T["Don't have an account? "]<a href="/register">@T["Register"]</a></p>
 <p><a href="/download">@T["Orbit on your phone"]</a></p>
 
