@@ -218,6 +218,11 @@ else
                            disabled="@IsItemLocked(entry.Section, entry.Item)"
                            @onchange="args => ToggleItemAsync(entry.Section.TaskList, entry.Item, (bool)args.Value!)" />
                     <span class="check-row-text">@Written(entry.Item.Description)</span>
+                    @* What it is about, the same marks the cards on /tasks carry - see TaskItem.Categories. *@
+                    @foreach (var category in entry.Item.AllCategories)
+                    {
+                        <span class="row-category">@category</span>
+                    }
                     @* Which list it came from, since the headings are gone in this view. *@
                     <span class="row-meta">@Written(entry.Section.TaskList.Title)</span>
                     @if (IsAChecklistEntry(entry.Item) && entry.Item.DueDateUtc is { } flatDueDate)
@@ -259,6 +264,11 @@ else
                            line by tapping it completed it. *@
                         <button type="button" class="check-row-text"
                                 @onclick="() => GoToEditItem(section.TaskList.Id, item.Id)">@Written(item.Description)</button>
+                        @* What it is about, the same marks the cards on /tasks carry - see TaskItem.Categories. *@
+                        @foreach (var category in item.AllCategories)
+                        {
+                            <span class="row-category">@category</span>
+                        }
                         @* An inventory errand says which shelf it is about, and - when a second list is
                            asking for the same product - where else it is being asked for. Both are links
                            rather than labels: the reason to show them is to be able to go and look. *@

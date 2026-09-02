@@ -418,11 +418,22 @@ input.note-editor-title {
    rule below, a wide window drew cards flush against the glass on the left and the right. The width is
    capped as well - a dashboard stretched across a very wide monitor puts its three columns so far
    apart that reading across a row becomes a head movement. */
+/* Two thirds of a 1920 screen, centred, with the rest given away as margin. A page that runs the whole
+   width of a wide monitor makes the eye travel from one end to the other to read one row, and puts what
+   a card says a long way from the card next to it. The bar at the top is not narrowed with it: it is
+   furniture rather than reading, and it belongs to the window rather than to the page. */
 .main-content {
     width: 100%;
-    max-width: 1600px;
+    max-width: 1280px;
     margin: 0 auto;
     padding: 24px 32px 40px 32px;
+}
+
+/* Except the map, which is the one page whose content is the width it is given - see MapPage.razor,
+   where a quarter of it is the panel and the rest is the map itself. Said by what the page renders
+   rather than by which route it is, so the rule lives beside the width it undoes. */
+.main-content:has(.map-page) {
+    max-width: 1600px;
 }
 
 .topbar {
