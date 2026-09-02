@@ -35,8 +35,15 @@ time with the code already spent. Whatever the account turns out to be, the answ
 conditional sentence: the request must not become a way of testing whether somebody has an Orbit
 account. Nothing is signed in afterwards, because the chat key is wrapped with the password that is
 gone — what replaces it is decided at the chat key gate, with the warning that messages sealed under
-the old password stay unreadable. **Orbit.Web still reaches the same flow only from its chat password
-gate, which is behind signing in**; giving `Login.razor` the same entry point is outstanding.
+the old password stay unreadable. The web offers the same two steps at `/forgot-password`
+(`ForgotPassword.razor`), reached from a link under the sign-in form; it also still reaches them from
+the chat password gate, which is the same flow for somebody already signed in.
+
+Both sign-in forms listen for `input` as well as `change`, and neither uses `@bind`, which can only be
+told about one of the two. A password manager fills a box without anybody typing in it: some raise one
+event, some the other, some neither until the field is touched — so a form bound to a single event
+showed a filled box with an empty model behind it and sent an empty password to a real account, which
+the server answers exactly as it answers a wrong one.
 
 `token` is a short-lived JWT (15 minutes by default, `Jwt:ExpiryMinutes`). `refreshToken` is a
 long-lived (30 days), single-use, opaque value: `POST /api/auth/refresh` (`refreshToken`) exchanges it
@@ -258,6 +265,16 @@ stays open (a `PeriodicTimer` heartbeat, the same pattern `Chat.razor` uses for 
 acquire extends the lock 60 seconds into the future (`AcquireNoteLockCommandHandler.LockDuration`), so a
 lock outlives any single heartbeat gap but expires on its own — no explicit release needed — if the
 holder's browser closes, crashes, or goes to sleep before it can release.
+
+A lock is written on its own, and writes nothing but itself: who holds it and until when
+(`ITaskRepository.UpdateLockAsync`, and the same on notes and warehouses). It went through the ordinary
+update at first, which replaces everything the thing is made of - so a heartbeat every twenty seconds
+deleted and re-inserted a whole checklist with its links and categories, rewrote a note's entire text,
+or rewrote every row of a warehouse, to say somebody still had the page open. On task lists that also
+crashed: the replacement left the entries' child rows to the database's cascade, which the change
+tracker knows nothing about, and the inserts for the new ones could reach the server first - a duplicate
+key on a save nobody thought was risky, seen in production on 1 September 2026. Holding something open
+is not a change to it, so the lock does not touch `UpdatedAtUtc` either.
 
 Acquiring a lock already held by someone else, or saving into one, returns HTTP 409 with a
 `LockConflictDto { lockedByUserName }` body (`Orbit.Core.Abstractions.EditOutcome`/`EditOutcomeKind`,
@@ -807,6 +824,32 @@ dashboard's own layout). A list made or shared since the last drag sits after th
 placed, rather than pushing the arrangement about.
 
 Pinned lists lead every order except that one, which already says where every card goes.
+
+### Finding one entry among every list
+
+Above the chips sit the two questions about what is *on* the lists rather than about the lists
+themselves: a search box, and a row of categories.
+
+Every entry can be filed under as many categories as apply — free text, typed on one line and separated
+by commas, the way a shelf item's category is written, with every category already in use offered
+underneath it (`TaskItem.Categories`, `CategoryText`). One errand is often two subjects at once, so
+being made to pick the single truest one is how a category stops being written at all. Every kind of
+entry carries them: an appointment is about something the same way an errand is.
+
+The search matches a word anywhere in an entry's own words. The chips are built from what entries are
+actually filed under, each with how many carry it. Several can be chosen: **any of them** by default,
+because that is usually what picking a second one means, and a checkbox appears once a second is chosen
+for the reader who means an entry that is both at once. The two narrow independently — a search and a
+category both set means both must hold (`TaskItemFilter`).
+
+What they narrow is which lists are worth showing: a list stays if one entry on it still matches. The
+card then previews **what matched** rather than its first few rows, and every row says what it is filed
+under with the chosen category marked — a list shown for a match nobody can see reads as a bug.
+
+A save that says nothing about categories leaves them alone. That is what lets a client written before
+they existed — the phone's sync, an older tab — go on saving lists without unfiling every entry on them,
+the same rule a list's description already follows
+(`UpdateTaskListCommand.EntriesKeepingTheirCategories`).
 
 ### Two editing levels
 
