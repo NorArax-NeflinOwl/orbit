@@ -220,6 +220,22 @@
                 <Button Text="{controls:Translate 'Confirm new address'}" Command="{Binding ConfirmEmailChangeCommand}" />
             </VerticalStackLayout>
 
+            <!-- What this phone hands to Google, which is a different question from what the account is
+                 connected to: turning these off leaves a connected account connected. Offered only
+                 where the account may use them at all - see GoogleIntegrationAccess. -->
+            <VerticalStackLayout Spacing="4" IsVisible="{Binding CanChooseGoogleExtras}">
+                <Grid ColumnDefinitions="*,Auto">
+                    <Label Grid.Column="0" Text="{controls:Translate 'Google extras'}"
+                           Style="{StaticResource FieldLabel}" VerticalOptions="Center" />
+                    <Switch Grid.Column="1" IsToggled="{Binding AllowsGoogleExtras}"
+                            SemanticProperties.Description="{controls:Translate 'Google extras'}" />
+                </Grid>
+                <Label Text="{controls:Translate 'Adds links that open Google Calendar or Google Maps with the details filled in. Orbit never writes to your calendar.'}"
+                       FontSize="12" LineBreakMode="WordWrap" Style="{StaticResource SubtleLabel}" />
+                <Label Text="{controls:Translate 'Kept on this device.'}"
+                       FontSize="12" Style="{StaticResource SubtleLabel}" />
+            </VerticalStackLayout>
+
             <!-- Directly above the password form, as Orbit.Web has it: the warning below says "set one
                  below before disconnecting", and that has to be true of this screen too. Absent where
                  the deployment has no Google client id for this app - see GoogleAccountLink. -->
@@ -254,10 +270,36 @@
                  rather than restoring old ones, so it never puts what is already here at risk. -->
             <VerticalStackLayout Spacing="8" IsVisible="{Binding IsShowingAccount}">
                 <Label Text="{controls:Translate 'Export'}" Style="{StaticResource FieldLabel}" />
-                <Label Text="{controls:Translate 'Downloads everything in your account as one file. Things shared with you are left out, and a private item travels sealed.'}"
+                <Label Text="{controls:Translate 'Downloads what you choose below as one file. Things shared with you are left out, and a private item travels sealed.'}"
                        FontSize="12" LineBreakMode="WordWrap" Style="{StaticResource SubtleLabel}" />
-                <Button Text="{controls:Translate 'Export everything'}" HorizontalOptions="Start"
-                        IsEnabled="{Binding Connection.IsMet}" Command="{Binding ExportCommand}" />
+
+                <!-- All four to begin with, which is what an export meant before there was anything to
+                     choose - see ExportChoice. -->
+                <VerticalStackLayout Spacing="2" BindingContext="{Binding Export}">
+                    <Grid ColumnDefinitions="*,Auto">
+                        <Label Grid.Column="0" Text="{controls:Translate 'Notes'}" VerticalOptions="Center" />
+                        <Switch Grid.Column="1" IsToggled="{Binding IncludesNotes}"
+                                SemanticProperties.Description="{controls:Translate 'Notes'}" />
+                    </Grid>
+                    <Grid ColumnDefinitions="*,Auto">
+                        <Label Grid.Column="0" Text="{controls:Translate 'Task lists'}" VerticalOptions="Center" />
+                        <Switch Grid.Column="1" IsToggled="{Binding IncludesTaskLists}"
+                                SemanticProperties.Description="{controls:Translate 'Task lists'}" />
+                    </Grid>
+                    <Grid ColumnDefinitions="*,Auto">
+                        <Label Grid.Column="0" Text="{controls:Translate 'Calendar events'}" VerticalOptions="Center" />
+                        <Switch Grid.Column="1" IsToggled="{Binding IncludesCalendarEvents}"
+                                SemanticProperties.Description="{controls:Translate 'Calendar events'}" />
+                    </Grid>
+                    <Grid ColumnDefinitions="*,Auto">
+                        <Label Grid.Column="0" Text="{controls:Translate 'Storages'}" VerticalOptions="Center" />
+                        <Switch Grid.Column="1" IsToggled="{Binding IncludesWarehouses}"
+                                SemanticProperties.Description="{controls:Translate 'Storages'}" />
+                    </Grid>
+                </VerticalStackLayout>
+
+                <Button Text="{controls:Translate 'Export'}" HorizontalOptions="Start"
+                        IsEnabled="{Binding CanExport}" Command="{Binding ExportCommand}" />
 
                 <Label Text="{controls:Translate 'Import'}" Style="{StaticResource FieldLabel}" Margin="0,8,0,0" />
                 <Label Text="{controls:Translate 'Adds everything in a file to this account. Nothing is replaced, so importing the same file twice leaves two copies.'}"

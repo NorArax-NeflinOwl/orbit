@@ -22,13 +22,16 @@ public sealed class TransferClient
 
     public TransferClient(HttpClient httpClient) => _httpClient = httpClient;
 
-    /// <summary>The whole account as JSON, or null when the server would not build it.</summary>
-    public async Task<string?> ExportAsync(CancellationToken cancellationToken = default)
-    {
-        var archive = await _httpClient.GetFromJsonAsync<OrbitArchive>("api/transfer/export", cancellationToken);
+    /// <summary>
+    /// The whole account, or null when the server would not build it. Handed back as the archive rather
+    /// than as text, because what gets written is only the parts that were asked for - see ExportChoice.
+    /// </summary>
+    public Task<OrbitArchive?> ExportAsync(CancellationToken cancellationToken = default)
+        => _httpClient.GetFromJsonAsync<OrbitArchive>("api/transfer/export", cancellationToken);
 
-        return archive is null ? null : JsonSerializer.Serialize(archive, ArchiveFormat);
-    }
+    /// <summary>The archive as the file holds it. Here rather than at the caller: this is the one place
+    /// that knows how an Orbit file is written, and the same shape has to read back in.</summary>
+    public string Write(OrbitArchive archive) => JsonSerializer.Serialize(archive, ArchiveFormat);
 
     /// <summary>
     /// Reads a file back into the account. Null when the text is not an Orbit export at all - which

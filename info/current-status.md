@@ -128,6 +128,14 @@ since the entry's own words are the name - and saving the entry puts it there, s
 already holds that name. It is the last of the browser's 2026-09-02 item form that the phone was
 missing.
 
+The Google links can be turned off here too, on this phone rather than for the account: the switch sits
+on the account screen where the browser keeps its own, is offered only where the account may use the
+extras at all, and turning it off leaves a connected Google account connected.
+
+An export is the reader's to choose, as it is in the browser: four switches for notes, task lists,
+events and storages, all on to begin with, and the file says how much of each it ended up carrying.
+What is left out is emptied rather than dropped from the file's shape, so an older Orbit still reads it.
+
 Conversations can be pinned here now, as they always could in the browser: people and groups out of one
 set, kept on the device that pinned them, lifted to the top of the list without being taken out of its
 order and without touching the archive.

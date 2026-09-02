@@ -363,6 +363,25 @@ public sealed class CalendarEventDetailScreenTests
         Assert.Contains("calendar.google.com", screen.AddToGoogleCalendarUrl);
     }
 
+    /// <summary>
+    /// And neither is a phone whose reader has turned the extras off - a different question from what
+    /// the account may do, and one Orbit.Web has always let a reader answer. Turning them off leaves a
+    /// connected Google account connected; it only stops this device offering the hand-off.
+    /// </summary>
+    [Fact]
+    public async Task A_phone_with_the_Google_extras_turned_off_offers_no_hand_off()
+    {
+        using var context = new ScreenContext();
+        context.Users.Account = context.Users.Account with { IsEmailVerified = true };
+        context.GoogleExtras.IsAllowedOnThisDevice = false;
+        var stored = await context.AddEventAsync(
+            new DateTime(2026, 8, 20, 9, 0, 0), new DateTime(2026, 8, 20, 10, 0, 0));
+
+        var screen = await context.OpenAsync(stored.LocalId);
+
+        Assert.False(screen.CanAddToGoogleCalendar);
+    }
+
     /// <summary>An account nobody has stood behind is not offered the hand-off - see GoogleIntegrationAccess.</summary>
     [Fact]
     public async Task An_unverified_account_is_not_offered_Google_Calendar()
@@ -611,6 +630,9 @@ public sealed class CalendarEventDetailScreenTests
         public Orbit.Mobile.Location.PlaceSearch Places { get; } =
             new(StubHttpMessageHandler.Unreachable().ToHttpClient());
 
+        /// <summary>What this "device" answers about the Google links - see GoogleExtras.</summary>
+        public GoogleExtras GoogleExtras { get; } = new(new InMemoryGoogleExtrasStore());
+
         public async Task<CalendarEventDetailViewModel> OpenAsync(Guid localId)
         {
             var screen = new CalendarEventDetailViewModel(
@@ -620,8 +642,9 @@ public sealed class CalendarEventDetailScreenTests
                 new CalendarClient(_server.ToHttpClient()),
                 new EditLock(FixedNetworkStatus.Online, _clock, new Translations(new InMemoryLanguageStore())),
                 Here, Contacts,
-                new GoogleIntegrationAccess(new AccountClient(
-                    _users.ToHttpClient(), FixedNetworkStatus.Online, SessionForTests())),
+                new GoogleIntegrationAccess(
+                    new AccountClient(_users.ToHttpClient(), FixedNetworkStatus.Online, SessionForTests()),
+                    GoogleExtras),
                 Network, Places);
 
             screen.Open(localId);

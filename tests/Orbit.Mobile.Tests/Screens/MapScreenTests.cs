@@ -438,7 +438,8 @@ public sealed class MapScreenTests
                 _repository, chatClient, _usersClient, sender, NullLogger<ChatSynchronizer>.Instance);
             LocationClient = new LocationClient(LocationServer.ToHttpClient());
             _google = new GoogleIntegrationAccess(
-                new AccountClient(_users.ToHttpClient(), FixedNetworkStatus.Online, sessionStore));
+                new AccountClient(_users.ToHttpClient(), FixedNetworkStatus.Online, sessionStore),
+                new GoogleExtras(new InMemoryGoogleExtrasStore()));
             _sharedLocations = new SharedLocations(
                 LocationClient, _usersClient, encryptionKeyProvider, NullLogger<SharedLocations>.Instance);
         }
