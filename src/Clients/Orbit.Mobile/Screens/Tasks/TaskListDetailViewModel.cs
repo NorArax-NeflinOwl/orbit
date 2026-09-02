@@ -349,9 +349,20 @@ public sealed partial class TaskListDetailViewModel : ObservableObject
             : _translations["Couldn't move it. Try again."];
     }
 
+    /// <summary>
+    /// The lists this screen's entries stand for, by the server id they name - so an entry that points
+    /// at one can offer the way into it. Read from this phone's own copy, like everything else a row
+    /// points at.
+    /// </summary>
+    private IReadOnlyDictionary<Guid, LocalTaskList> _linkedTaskLists = new Dictionary<Guid, LocalTaskList>();
+
     private async Task ShowWhereItCanGoAsync(CancellationToken cancellationToken)
     {
         var others = await _taskLists.GetAllAsync(cancellationToken);
+
+        _linkedTaskLists = others
+            .Where(list => list.ServerId is not null)
+            .ToDictionary(list => list.ServerId!.Value);
 
         MoveTargets.Clear();
 
@@ -461,6 +472,21 @@ public sealed partial class TaskListDetailViewModel : ObservableObject
     /// </summary>
     private IReadOnlyList<TaskItemReference> ReferencesFor(TaskItemDto item)
     {
+        // An entry that stands for other lists is a way into them, and was a dead end here: a group
+        // list is nothing but such entries, so its screen offered no way to the work it gathers. The
+        // browser draws the whole tree as stacked cards; a phone has room for one list at a time, so
+        // this says which lists the entry stands for and lets the reader walk into each.
+        if (item.AllLinkedTaskListIds.Count > 0)
+        {
+            return [.. item.AllLinkedTaskListIds
+                // A list this reader cannot see, or one this phone has not pulled yet: there is nothing
+                // to open, and a chip that leads nowhere is worse than no chip.
+                .Select(linkedId => _linkedTaskLists.GetValueOrDefault(linkedId))
+                .Where(linked => linked is not null)
+                .Select(linked => new TaskItemReference(
+                    _translations.Written(linked!.Title), linked.LocalId, TaskItemReferenceTarget.TaskList))];
+        }
+
         if (item.Kind != nameof(TaskItemKind.Inventory) || item.LinkedInventoryItemId is not { } productId)
         {
             return [];

@@ -858,6 +858,13 @@ A save that says nothing about categories leaves them alone. That is what lets a
 they existed — an older tab — go on saving lists without unfiling every entry on them, the same rule a
 list's description already follows (`UpdateTaskListCommand.EntriesKeepingTheirCategories`).
 
+**On the phone, an entry that stands for other lists is the way into them.** The browser stacks the
+whole tree as cards on one page; a phone has room for one list at a time, so the entry carries a chip
+per list it stands for and each one opens that list - the same chips an inventory errand uses to reach
+its shelf. A group list is nothing but such entries, and its screen used to be a dead end: the work it
+gathers was one tap away in the browser and unreachable here. A list this phone does not hold offers no
+chip, because a chip that leads nowhere is worse than none.
+
 **The phone files entries the same way and looks for them the same way.** The entry's form carries the
 same comma-separated box, each row on a list shows what it is filed under, and the tasks screen carries
 the search and the category chips above its status chips - narrowing to the lists that still hold a

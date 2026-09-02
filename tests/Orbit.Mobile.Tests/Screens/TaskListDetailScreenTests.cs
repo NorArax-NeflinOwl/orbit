@@ -1037,6 +1037,54 @@ public sealed class TaskListDetailScreenTests
     }
 
     /// <summary>
+    /// A group list is nothing but entries standing for other lists, and this screen offered no way
+    /// into any of them: the work it gathers was one tap away in the browser and unreachable here.
+    /// The browser stacks the whole tree as cards; a phone has room for one list at a time, so the
+    /// entry says which lists it stands for and each opens.
+    /// </summary>
+    [Fact]
+    public async Task An_entry_standing_for_a_list_is_the_way_into_it()
+    {
+        using var context = new ScreenContext();
+        var shopping = context.OpenTaskList("Shopping");
+        var screen = context.OpenTaskList("This week");
+        await AddAsync(screen, "The shopping");
+        await context.SynchroniseAsync();
+        await screen.LoadCommand.ExecuteAsync(null);
+        screen.EditItemCommand.Execute(screen.Items.Single());
+        screen.BeingEdited!.ChosenLinkedTaskList =
+            screen.BeingEdited.LinkableTaskLists.Single(choice => choice.Name == "Shopping");
+        await screen.SaveItemCommand.ExecuteAsync(null);
+        await context.SynchroniseAsync();
+        await screen.LoadCommand.ExecuteAsync(null);
+
+        var reference = Assert.Single(Assert.Single(screen.Items).References);
+        Assert.Equal("Shopping", reference.Label);
+
+        screen.OpenReferenceCommand.Execute(reference);
+
+        Assert.Equal("ShowTaskList", context.Navigator.LastDestination);
+        Assert.Equal(context.OpenedListIdOf("Shopping"), context.Navigator.LastTaskListId);
+    }
+
+    /// <summary>A list this phone has not got is no way in at all, so no chip is offered for it.</summary>
+    [Fact]
+    public async Task A_list_this_phone_has_not_got_offers_nothing_to_open()
+    {
+        using var context = new ScreenContext();
+        var screen = context.OpenTaskList("This week");
+        await AddAsync(screen, "The shopping");
+        await context.SynchroniseAsync();
+        await screen.LoadCommand.ExecuteAsync(null);
+
+        // An entry pointing at a list nobody here holds - shared and then unshared, or not pulled yet.
+        await context.PointAtAListNobodyHoldsAsync(screen);
+        await screen.LoadCommand.ExecuteAsync(null);
+
+        Assert.Empty(Assert.Single(screen.Items).References);
+    }
+
+    /// <summary>
     /// One entry, several lists - what the web gained on 2026-09-01. The phone carried them from the
     /// first sync but showed one and would have sent one back, so the second list was lost to whichever
     /// phone touched the entry next.
@@ -1604,6 +1652,26 @@ public sealed class TaskListDetailScreenTests
 
         /// <summary>Which list is open, for a test that asks what was remembered about it.</summary>
         public Guid OpenedListId => _openedListId;
+
+        /// <summary>This phone's id for a list a test opened earlier, for asserting where a tap led.</summary>
+        public Guid OpenedListIdOf(string title)
+            => _taskLists.GetAllAsync().GetAwaiter().GetResult().Single(list => list.Title == title).LocalId;
+
+        /// <summary>
+        /// Makes the open list's entry stand for a list this phone does not hold - what a share taken
+        /// back leaves behind.
+        /// </summary>
+        public async Task PointAtAListNobodyHoldsAsync(TaskListDetailViewModel screen)
+        {
+            var stored = await _taskLists.FindAsync(_openedListId);
+            await _taskLists.UpdateAsync(
+                _openedListId,
+                new TaskListContent(
+                    stored!.Title,
+                    [.. stored.Items.Select(item => item with { LinkedTaskListIds = [Guid.NewGuid()] })],
+                    stored.IsGroup,
+                    stored.Priority));
+        }
         private readonly FakeTimeProvider _clock = new(DateTimeOffset.Parse("2026-08-26T10:00:00Z"));
         private readonly LocalTaskListRepository _taskLists;
 
