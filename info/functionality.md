@@ -1078,6 +1078,14 @@ generation above follows and the same one the check matches by, so the two canno
 which product an errand is about. Saving the list puts it on the shelf; a shelf already holding
 something by that name is what the entry was asking for, so nothing is added twice.
 
+**The phone's shelf opens on the row somebody was sent to.** A warehouse reached from an errand naming
+it, or from the search across every shelf, marks that product and scrolls to it - the accent bar and
+tint the browser gives the row its `?highlight=` names (`WarehouseItemRow.IsPointedAt`,
+`IScreenNavigator.ShowWarehouse`). The row says so in words as well, because a colour is nothing to
+somebody who cannot see it. The mark is not lifted to the top and does not outlive the screen: a shelf
+read in one order should not rearrange itself around where somebody came from, and narrowing the shelf
+and clearing the filter again finds the row still marked.
+
 **The phone describes one the same way, one entry at a time.** An Inventory entry on a list measured
 against a storage opens the product's fields with no name box (`ShelfProductFor`,
 `WarehouseItemEditor.ForSomethingNotOnTheShelfYet`), says above them which shelf it will go on, and

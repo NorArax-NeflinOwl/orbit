@@ -560,7 +560,8 @@ public sealed partial class TaskListDetailViewModel : ObservableObject
             references.Add(new(
                 _translations.Format("in {0}", shelf.WarehouseName),
                 shelf.WarehouseLocalId,
-                TaskItemReferenceTarget.Warehouse));
+                TaskItemReferenceTarget.Warehouse,
+                productId));
         }
 
         if (_alsoAskedForBy.TryGetValue(productId, out var elsewhere))
@@ -582,7 +583,7 @@ public sealed partial class TaskListDetailViewModel : ObservableObject
 
         if (reference.Target == TaskItemReferenceTarget.Warehouse)
         {
-            _navigator.ShowWarehouse(reference.LocalId);
+            _navigator.ShowWarehouse(reference.LocalId, reference.ProductId);
             return;
         }
 

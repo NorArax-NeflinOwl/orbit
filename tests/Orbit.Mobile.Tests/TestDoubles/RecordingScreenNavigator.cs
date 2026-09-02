@@ -133,11 +133,15 @@ internal sealed class RecordingScreenNavigator : IScreenNavigator
 
     public void ShowMap() => _destinations.Add(nameof(ShowMap));
 
-    public void ShowWarehouse(Guid localId)
+    public void ShowWarehouse(Guid localId, Guid? productId = null)
     {
         LastWarehouseId = localId;
+        LastPointedAtProductId = productId;
         _destinations.Add(nameof(ShowWarehouse));
     }
+
+    /// <summary>Which product the shelf was opened for, when whoever opened it meant one.</summary>
+    public Guid? LastPointedAtProductId { get; private set; }
 
     public void ShowNotifications() => _destinations.Add(nameof(ShowNotifications));
 

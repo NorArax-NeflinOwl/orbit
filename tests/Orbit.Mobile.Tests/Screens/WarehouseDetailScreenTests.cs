@@ -24,6 +24,65 @@ namespace Orbit.Mobile.Tests.Screens;
 /// </summary>
 public sealed class WarehouseDetailScreenTests
 {
+    /// <summary>
+    /// A shelf opened from somewhere that meant one product - an errand naming it, or a search that
+    /// found it - marks that row. Sixty rows and no sign of which one was meant is half an answer, and
+    /// Orbit.Web's own shelf marks the row its ?highlight= names.
+    /// </summary>
+    [Fact]
+    public async Task A_shelf_opened_for_one_product_marks_that_row()
+    {
+        using var context = new ScreenContext();
+        var flour = Guid.NewGuid();
+        var warehouse = await context.AddWarehouseAsync(
+            new WarehouseItemDto(Guid.NewGuid(), "Coffee", "", "", 2, null, nameof(InventoryUnit.Piece), null, "None"),
+            new WarehouseItemDto(flour, "Flour", "", "", 1, null, nameof(InventoryUnit.Kilogram), null, "None"));
+
+        var screen = await context.OpenAsync(warehouse.LocalId, flour);
+
+        var marked = Assert.Single(screen.Items, row => row.IsPointedAt);
+        Assert.Equal("Flour", marked.Name);
+        Assert.Equal(marked, screen.PointedAtRow);
+        // A colour says nothing to somebody who cannot see it, so the row says it in words as well.
+        Assert.NotEqual(marked.Name, marked.NameForAReader);
+    }
+
+    /// <summary>A shelf opened for its own sake marks nothing - there is nothing it was opened about.</summary>
+    [Fact]
+    public async Task A_shelf_opened_for_its_own_sake_marks_nothing()
+    {
+        using var context = new ScreenContext();
+        var warehouse = await context.AddWarehouseAsync(
+            new WarehouseItemDto(Guid.NewGuid(), "Coffee", "", "", 2, null, nameof(InventoryUnit.Piece), null, "None"));
+
+        var screen = await context.OpenAsync(warehouse.LocalId);
+
+        Assert.All(screen.Items, row => Assert.False(row.IsPointedAt));
+        Assert.Null(screen.PointedAtRow);
+    }
+
+    /// <summary>
+    /// The mark outlives a filter, the way the browser's ?highlight= outlives one: narrowing the shelf
+    /// and widening it again should find the row still marked, not quietly forgotten.
+    /// </summary>
+    [Fact]
+    public async Task Narrowing_the_shelf_and_widening_it_again_keeps_the_mark()
+    {
+        using var context = new ScreenContext();
+        var flour = Guid.NewGuid();
+        var warehouse = await context.AddWarehouseAsync(
+            new WarehouseItemDto(Guid.NewGuid(), "Coffee", "", "", 2, null, nameof(InventoryUnit.Piece), null, "None"),
+            new WarehouseItemDto(flour, "Flour", "", "", 1, null, nameof(InventoryUnit.Kilogram), null, "None"));
+        var screen = await context.OpenAsync(warehouse.LocalId, flour);
+
+        screen.SearchedName = "coffee";
+        Assert.Null(screen.PointedAtRow);
+
+        screen.SearchedName = string.Empty;
+
+        Assert.Equal("Flour", screen.PointedAtRow?.Name);
+    }
+
     [Fact]
     public async Task An_items_kind_and_minimum_are_shown()
     {
@@ -765,7 +824,10 @@ public sealed class WarehouseDetailScreenTests
         /// <summary>Whether the phone has a connection, which is what the offline refusal turns on.</summary>
         public FixedNetworkStatus Network { get; } = FixedNetworkStatus.Online;
 
-        public async Task<WarehouseDetailViewModel> OpenAsync(Guid localId)
+        public Task<WarehouseDetailViewModel> OpenAsync(Guid localId) => OpenAsync(localId, null);
+
+        /// <param name="productId">Which row the shelf was opened for - see IScreenNavigator.ShowWarehouse.</param>
+        public async Task<WarehouseDetailViewModel> OpenAsync(Guid localId, Guid? productId)
         {
             var screen = new WarehouseDetailViewModel(
                 _warehouses, _synchronizer, new Translations(new InMemoryLanguageStore()),
@@ -777,7 +839,7 @@ public sealed class WarehouseDetailScreenTests
                     new InventoryClient(Server.ToHttpClient()), new Translations(new InMemoryLanguageStore()),
                     new ConnectionRequirement(Network, new Translations(new InMemoryLanguageStore()))));
 
-            screen.Open(localId);
+            screen.Open(localId, productId);
             await screen.LoadCommand.ExecuteAsync(null);
             return screen;
         }

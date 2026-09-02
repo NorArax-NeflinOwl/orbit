@@ -734,6 +734,9 @@ public sealed class TaskListDetailScreenTests
         screen.OpenReferenceCommand.Execute(reference);
 
         Assert.Equal(shelf.WarehouseLocalId, context.Navigator.LastWarehouseId);
+        // And on the product itself: a shelf of sixty rows with no sign of which one the errand meant
+        // sends somebody looking for it a second time.
+        Assert.Equal(shelf.ProductId, context.Navigator.LastPointedAtProductId);
     }
 
     /// <summary>

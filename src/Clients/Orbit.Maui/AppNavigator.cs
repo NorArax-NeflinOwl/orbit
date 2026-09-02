@@ -69,8 +69,8 @@ public sealed class AppNavigator : IScreenNavigator
 
 	public void ShowMap() => ShowAsRoot<MapPage>(Screen.Map);
 
-	public void ShowWarehouse(Guid localId)
-		=> ShowAsRoot<WarehouseDetailPage>(Screen.Warehouse, page => page.ViewModel.Open(localId));
+	public void ShowWarehouse(Guid localId, Guid? productId = null)
+		=> ShowAsRoot<WarehouseDetailPage>(Screen.Warehouse, page => page.ViewModel.Open(localId, productId));
 
 	public void ShowNotifications() => ShowAsRoot<NotificationFeedPage>(Screen.Notifications);
 

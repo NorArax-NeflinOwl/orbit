@@ -14,10 +14,17 @@ namespace Orbit.Mobile.Screens.Inventory;
 /// "2" of a thing already means two of them; the same rule the server follows when it names a restock
 /// errand (see RestockTaskNaming).
 /// </param>
+/// <param name="IsPointedAt">
+/// Whether this is the row the shelf was opened for - see IScreenNavigator.ShowWarehouse. Marked rather
+/// than lifted to the top: a shelf read in one order should not rearrange itself around where somebody
+/// came from.
+/// </param>
 public sealed record WarehouseItemRow(
-    WarehouseItemDto Item, string Detail, string Amount, bool IsRunningLow, string Expiry)
+    WarehouseItemDto Item, string Detail, string Amount, bool IsRunningLow, string Expiry,
+    bool IsPointedAt = false)
 {
-    public static WarehouseItemRow From(WarehouseItemDto item, Translations translations)
+    public static WarehouseItemRow From(
+        WarehouseItemDto item, Translations translations, Guid? pointedAtProductId = null)
         => new(
             item,
             Describe(item, translations),
@@ -26,9 +33,21 @@ public sealed record WarehouseItemRow(
             item.MinimumQuantity is { } minimum && item.Quantity < minimum,
             item.ExpiryDate is { } expiry
                 ? translations.Format("Expires {0}", expiry.LocalDateTime.ToString("d", translations.DisplayCulture))
-                : string.Empty);
+                : string.Empty,
+            IsPointedAt: pointedAtProductId is { } pointedAt && item.Id == pointedAt)
+        {
+            NameForAReader = pointedAtProductId is { } wanted && item.Id == wanted
+                ? translations.Format("{0}, what you were sent here for", item.Name)
+                : item.Name
+        };
 
     public string Name => Item.Name;
+
+    /// <summary>
+    /// What a screen reader says for this row. The mark on a pointed-at row is a colour and a bar, and
+    /// a colour is nothing to somebody who cannot see it - so the row says so in words as well.
+    /// </summary>
+    public string NameForAReader { get; private init; } = string.Empty;
 
     public bool HasExpiry => Expiry.Length > 0;
 

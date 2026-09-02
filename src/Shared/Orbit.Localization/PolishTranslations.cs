@@ -87,6 +87,7 @@ public static class PolishTranslations
         ["Goes on the shelf in {0} when this entry is saved, named after this entry."] =
             "Trafi na półkę w: {0} przy zapisie tej pozycji, pod nazwą tej pozycji.",
         ["This errand's product needs an amount."] = "Produkt tego sprawunku potrzebuje ilości.",
+        ["{0}, what you were sent here for"] = "{0} - to, po co tu przyszedłeś",
         ["Can this be done?"] = "Czy da się to wykonać?",
         ["Nothing due in this period."] = "Nic z terminem w tym okresie.",
         ["Nothing in this period."] = "Nic w tym okresie.",

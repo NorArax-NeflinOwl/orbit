@@ -88,7 +88,7 @@
             </Grid>
         </VerticalStackLayout>
 
-        <CollectionView Grid.Row="3" ItemsSource="{Binding Items}" IsVisible="{Binding IsShowingList}">
+        <CollectionView x:Name="Shelf" Grid.Row="3" ItemsSource="{Binding Items}" IsVisible="{Binding IsShowingList}">
 
             <CollectionView.EmptyView>
                 <!-- Bound rather than fixed: an empty shelf and a shelf narrowed down to nothing need
@@ -102,7 +102,17 @@
                  instead compiles and then silently binds to nothing. -->
             <CollectionView.ItemTemplate>
                 <DataTemplate x:DataType="screens:WarehouseItemRow">
-                    <Grid ColumnDefinitions="*,Auto,Auto,Auto,Auto" ColumnSpacing="6" Padding="0,10">
+                    <!-- The row this shelf was opened for gets the accent bar and tint the browser's own
+                         highlighted row has - see WarehouseItemRow.IsPointedAt. -->
+                    <Grid ColumnDefinitions="Auto,*" ColumnSpacing="6">
+                        <Grid.Triggers>
+                            <DataTrigger TargetType="Grid" Binding="{Binding IsPointedAt}" Value="True">
+                                <Setter Property="BackgroundColor" Value="{DynamicResource AccentSubtle}" />
+                            </DataTrigger>
+                        </Grid.Triggers>
+                        <BoxView WidthRequest="3" Color="{DynamicResource Accent}"
+                                 IsVisible="{Binding IsPointedAt}" />
+                    <Grid Grid.Column="1" ColumnDefinitions="*,Auto,Auto,Auto,Auto" ColumnSpacing="6" Padding="0,10">
                         <!-- Tapping the name opens what the shelf actually says about it: kind,
                              minimum, expiry - none of which the phone could show before. -->
                         <VerticalStackLayout Grid.Column="0" Spacing="2" VerticalOptions="Center">
@@ -111,7 +121,8 @@
                                     Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=ViewModel.EditItemCommand, x:DataType=inventory:WarehouseDetailPage}"
                                     CommandParameter="{Binding .}" />
                             </VerticalStackLayout.GestureRecognizers>
-                            <Label Text="{Binding Name}" LineBreakMode="WordWrap" />
+                            <Label Text="{Binding Name}" LineBreakMode="WordWrap"
+                                   SemanticProperties.Description="{Binding NameForAReader}" />
                             <Label Text="{Binding Detail}" FontSize="11" LineBreakMode="WordWrap"
                                    Style="{StaticResource SubtleLabel}" />
                             <Label Text="{Binding Expiry}" IsVisible="{Binding HasExpiry}" FontSize="11"
@@ -141,6 +152,7 @@
                                 TextColor="{AppThemeBinding Light={StaticResource SubtleTextLight}, Dark={StaticResource SubtleTextDark}}"
                                 Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=ShowItemMenuCommand, x:DataType=inventory:WarehouseDetailPage}"
                                 CommandParameter="{Binding .}" />
+                    </Grid>
                     </Grid>
                 </DataTemplate>
             </CollectionView.ItemTemplate>

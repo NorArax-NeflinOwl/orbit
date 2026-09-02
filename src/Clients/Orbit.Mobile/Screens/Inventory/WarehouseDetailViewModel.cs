@@ -215,7 +215,25 @@ public sealed partial class WarehouseDetailViewModel : ObservableObject
 
     public bool CanEdit => !IsReadOnly;
 
-    public void Open(Guid localId) => _localId = localId;
+    public void Open(Guid localId, Guid? productId = null)
+    {
+        _localId = localId;
+        _pointedAtProductId = productId;
+    }
+
+    /// <summary>
+    /// The product this shelf was opened for, when something meant one - see
+    /// IScreenNavigator.ShowWarehouse. Kept for as long as the screen is, the way the browser keeps the
+    /// ?highlight= it was opened with: narrowing the shelf and clearing the filter again should find the
+    /// row still marked.
+    /// </summary>
+    private Guid? _pointedAtProductId;
+
+    /// <summary>
+    /// The row that was pointed at, for a list that has to bring it into view - a mark below the fold is
+    /// a mark nobody sees. Null when nothing was pointed at, or when the filter is hiding it.
+    /// </summary>
+    public WarehouseItemRow? PointedAtRow => Items.FirstOrDefault(row => row.IsPointedAt);
 
     [RelayCommand]
     private Task LoadAsync(CancellationToken cancellationToken) => ShowStoredWarehouseAsync(cancellationToken);
@@ -531,9 +549,10 @@ public sealed partial class WarehouseDetailViewModel : ObservableObject
         Items.Clear();
         foreach (var item in _items.Where(_filter.Matches))
         {
-            Items.Add(WarehouseItemRow.From(item, _translations));
+            Items.Add(WarehouseItemRow.From(item, _translations, _pointedAtProductId));
         }
 
+        OnPropertyChanged(nameof(PointedAtRow));
         OnPropertyChanged(nameof(IsNarrowed));
         OnPropertyChanged(nameof(FilterNote));
         OnPropertyChanged(nameof(EmptyMessage));

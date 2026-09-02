@@ -27,13 +27,30 @@ public partial class WarehouseDetailPage : ContentPage
 	protected override void OnAppearing()
 	{
 		base.OnAppearing();
+		// Subscribed before the load, so the row a shelf was opened for is brought into view as soon as
+		// there is one - a mark below the fold is a mark nobody sees.
+		_viewModel.PropertyChanged += OnViewModelChanged;
 		_viewModel.LoadCommand.Execute(null);
+	}
+
+	private void OnViewModelChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs args)
+	{
+		if (args.PropertyName != nameof(WarehouseDetailViewModel.PointedAtRow)
+			|| _viewModel.PointedAtRow is not { } row)
+		{
+			return;
+		}
+
+		// Not animated: this is where the screen opens rather than somewhere it travels to, and a shelf
+		// that scrolls itself under a thumb already on it is a shelf that fights back.
+		Shelf.ScrollTo(row, position: ScrollToPosition.Center, animate: false);
 	}
 
 	/// <summary>Lets go of the edit lock as the screen leaves - see EditLock.</summary>
 	protected override async void OnDisappearing()
 	{
 		base.OnDisappearing();
+		_viewModel.PropertyChanged -= OnViewModelChanged;
 		await _viewModel.CloseAsync();
 	}
 
