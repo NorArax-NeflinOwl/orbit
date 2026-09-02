@@ -128,6 +128,11 @@ since the entry's own words are the name - and saving the entry puts it there, s
 already holds that name. It is the last of the browser's 2026-09-02 item form that the phone was
 missing.
 
+On Android the calendar now gets out of the way as the list under it is read: it minimises to the week
+the reader is standing on, the month they are reading in the year view, or one hour of the day, and
+comes back whole at the top of the list. Decided for the phone and not for the browser - a desktop
+window has room for the grid and the list at once, and a phone has one column and a thumb.
+
 The shelf itself answers two more questions. A warehouse opened from an errand naming a product, or from
 the search across every shelf, marks that row and scrolls to it rather than landing on a list with no
 sign of which one was meant - and says so in words as well as in colour. And every row says when its

@@ -396,8 +396,8 @@ Decided 2026-09-01, while the web calendar was being reshaped. **The web keeps w
 side on a wide screen, and stacked - calendar above, list below - once there is no room for that. It
 does not shrink as the page scrolls, and it is not meant to.
 
-**The phone should.** On Android the calendar stays pinned while the list under it is read, and
-minimises to a single row as soon as the reader scrolls past it:
+**The phone does, as of 2026-09-02.** On Android the calendar stays pinned while the list under it is
+read, and minimises to a single row as soon as the reader scrolls past it:
 
 | view | what is left when it is minimised |
 |---|---|
@@ -412,6 +412,12 @@ while somebody scrolled a list beside it would be motion answering a question no
 
 Not attempted on the web deliberately. It is scroll-and-viewport behaviour, which no test in this
 project can cover, and the web has no problem for it to solve.
+
+What is testable was kept out of the page: which row survives is a rule (`MinimisedCalendar`,
+`CalendarViewModel.IsMinimised`, `HoursOnShow`) and is covered; the page owns only the scroll offset
+that turns it on and the redraw that follows. The hour rule is the one worth restating: today keeps the
+hour it is now, held inside the stretch there is to draw, and any other day keeps the hour its first
+thing starts in - an empty row above everything the day holds would be the wrong answer.
 
 ## What the UI pass still needs a migration for
 

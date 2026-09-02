@@ -87,8 +87,24 @@ public sealed partial class CalendarViewModel : ObservableObject
     [ObservableProperty]
     private bool _showsEverything;
 
-    /// <summary>The month grid - six weeks of seven days, whatever month it is. See CalendarMonth.</summary>
+    /// <summary>
+    /// The month grid - six weeks of seven days, whatever month it is, or the one week the reader is
+    /// standing on once the calendar has been minimised. See CalendarMonth and MinimisedCalendar.
+    /// </summary>
     public ObservableCollection<CalendarDay> Days { get; } = [];
+
+    /// <summary>
+    /// Whether the calendar has got out of the way, which the page turns on as the list beneath it is
+    /// scrolled past it. Android only, and decided as such: a desktop window has room for the grid and
+    /// the list at once - see info/future-plan.md.
+    /// </summary>
+    [ObservableProperty]
+    private bool _isMinimised;
+
+    /// <summary>Everything the grid holds, whatever is being shown of it right now.</summary>
+    private IReadOnlyList<CalendarDay> _wholeMonth = [];
+
+    private IReadOnlyList<CalendarYearMonth> _wholeYear = [];
 
     /// <summary>
     /// The chosen day laid out by the hour - see CalendarDayTimeline. Drawn under the month grid rather
@@ -107,6 +123,44 @@ public sealed partial class CalendarViewModel : ObservableObject
     public ObservableCollection<CalendarYearMonth> Months { get; } = [];
 
     public IReadOnlyList<string> WeekdayNames => CalendarMonth.WeekdayNames(_translations);
+
+    /// <summary>
+    /// The stretch of the clock the day view draws - see CalendarDayTimeline. One hour of it once the
+    /// calendar has been minimised, which is the day's answer to the week the month keeps.
+    /// </summary>
+    public (int FirstHour, int LastHour) HoursOnShow
+        => IsMinimised
+            ? MinimisedCalendar.HourOf(DayBlocks, SelectedDay ?? Month, _timeProvider.GetUtcNow().LocalDateTime)
+            : CalendarDayTimeline.HoursWorthDrawing(DayBlocks);
+
+    partial void OnIsMinimisedChanged(bool value)
+    {
+        ShowTheGrid();
+        OnPropertyChanged(nameof(HoursOnShow));
+    }
+
+    /// <summary>
+    /// Fills the grid from what was last read, taking the minimising into account - so getting out of
+    /// the way and coming back is a redraw rather than another read of the store.
+    /// </summary>
+    private void ShowTheGrid()
+    {
+        var today = _timeProvider.GetUtcNow().LocalDateTime;
+
+        Days.Clear();
+        foreach (var day in IsMinimised
+            ? MinimisedCalendar.WeekOf(_wholeMonth, SelectedDay, today)
+            : _wholeMonth)
+        {
+            Days.Add(day);
+        }
+
+        Months.Clear();
+        foreach (var month in IsMinimised ? MinimisedCalendar.MonthOf(_wholeYear, Month) : _wholeYear)
+        {
+            Months.Add(month);
+        }
+    }
 
     /// <summary>
     /// Which month the grid is showing, which is not necessarily the month containing today. Starts at
@@ -329,17 +383,9 @@ public sealed partial class CalendarViewModel : ObservableObject
         var deadlines = CalendarDeadline.From(
             await _taskLists.GetAllAsync(cancellationToken), stored, _translations);
 
-        Days.Clear();
-        foreach (var day in CalendarMonth.Build(Month, SelectedDay, today, stored, deadlines))
-        {
-            Days.Add(day);
-        }
-
-        Months.Clear();
-        foreach (var month in CalendarYear.Build(Month.Year, today, stored, deadlines, _translations))
-        {
-            Months.Add(month);
-        }
+        _wholeMonth = CalendarMonth.Build(Month, SelectedDay, today, stored, deadlines);
+        _wholeYear = CalendarYear.Build(Month.Year, today, stored, deadlines, _translations);
+        ShowTheGrid();
 
         // The list beneath the grid follows it: the chosen day, or the whole month when none is chosen.
         var shown = stored.Where(calendarEvent => Covers(calendarEvent.Details.StartUtc.ToLocalTime().Date));

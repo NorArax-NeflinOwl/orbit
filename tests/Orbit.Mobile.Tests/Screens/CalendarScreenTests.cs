@@ -472,6 +472,126 @@ public sealed class CalendarScreenTests
         Assert.NotNull(context.Navigator.LastTaskItem);
     }
 
+    /// <summary>
+    /// The calendar gets out of the way as the list under it is read, and what survives is the week the
+    /// reader is standing on - see MinimisedCalendar, and info/future-plan.md for why this is an Android
+    /// job rather than a web one. A phone has one column and a thumb.
+    /// </summary>
+    [Fact]
+    public async Task Minimising_the_calendar_leaves_the_week_being_looked_at()
+    {
+        using var context = new ScreenContext();
+        var screen = await context.OpenAsync();
+        Assert.Equal(42, screen.Days.Count);
+
+        screen.IsMinimised = true;
+
+        Assert.Equal(7, screen.Days.Count);
+        Assert.Contains(screen.Days, day => day.Date == context.Today);
+    }
+
+    /// <summary>The week the chosen day is in, when one has been chosen - that is what is being read.</summary>
+    [Fact]
+    public async Task The_week_that_survives_is_the_chosen_days()
+    {
+        using var context = new ScreenContext();
+        var screen = await context.OpenAsync();
+        var chosen = screen.Days.Single(day => day.Date == new DateTime(2026, 8, 27));
+        screen.ChooseDayCommand.Execute(chosen);
+
+        screen.IsMinimised = true;
+
+        Assert.Contains(screen.Days, day => day.Date == new DateTime(2026, 8, 27));
+        Assert.DoesNotContain(screen.Days, day => day.Date == context.Today);
+    }
+
+    /// <summary>
+    /// And comes back whole when the reader returns to the top of the list, without reading the store
+    /// again: getting out of the way is a redraw, not a reload.
+    /// </summary>
+    [Fact]
+    public async Task The_calendar_comes_back_whole()
+    {
+        using var context = new ScreenContext();
+        var screen = await context.OpenAsync();
+
+        screen.IsMinimised = true;
+        screen.IsMinimised = false;
+
+        Assert.Equal(42, screen.Days.Count);
+    }
+
+    /// <summary>The year's answer to the same gesture: the month being read, not the twelve.</summary>
+    [Fact]
+    public async Task Minimising_the_year_leaves_the_month_being_read()
+    {
+        using var context = new ScreenContext();
+        var screen = await context.OpenAsync();
+        await screen.ShowYearCommand.ExecuteAsync(null);
+        Assert.Equal(12, screen.Months.Count);
+
+        screen.IsMinimised = true;
+
+        Assert.Equal("August", Assert.Single(screen.Months).Name);
+    }
+
+    /// <summary>
+    /// The day's answer: one hour of the clock rather than the whole stretch worth drawing. The hour it
+    /// is now, for a day that is today.
+    /// </summary>
+    [Fact]
+    public async Task Minimising_a_day_leaves_the_hour_it_is_now()
+    {
+        using var context = new ScreenContext();
+        await context.AddEventAsync("Standup", new DateTime(2026, 8, 15, 9, 0, 0));
+        await context.AddEventAsync("Retro", new DateTime(2026, 8, 15, 16, 0, 0));
+        var screen = await context.OpenAsync();
+        screen.ChooseDayCommand.Execute(screen.Days.Single(day => day.Date == context.Today));
+
+        // Nine to the hour the four o'clock ends in.
+        Assert.Equal((9, 17), screen.HoursOnShow);
+
+        screen.IsMinimised = true;
+
+        // The hour the fake clock is at where this test runs, held inside what there is to draw.
+        var nowLocal = context.Now.LocalDateTime.Hour;
+        Assert.Equal((nowLocal, nowLocal), screen.HoursOnShow);
+    }
+
+    /// <summary>
+    /// A day that is not today has no "now" to stand on, so what is left is the hour its first thing
+    /// starts in - the alternative is an empty row above everything the day actually holds.
+    /// </summary>
+    [Fact]
+    public async Task Minimising_another_day_leaves_the_hour_it_starts_at()
+    {
+        using var context = new ScreenContext();
+        await context.AddEventAsync("Dentist", new DateTime(2026, 8, 20, 15, 0, 0));
+        var screen = await context.OpenAsync();
+        screen.ChooseDayCommand.Execute(screen.Days.Single(day => day.Date == new DateTime(2026, 8, 20)));
+
+        screen.IsMinimised = true;
+
+        Assert.Equal((15, 15), screen.HoursOnShow);
+    }
+
+    /// <summary>
+    /// A month nobody is standing in - paged away from today, with no day chosen - keeps its first week
+    /// rather than nothing. Whole weeks only: a grid is read by its rows.
+    /// </summary>
+    [Fact]
+    public async Task Minimising_a_month_nobody_is_standing_in_keeps_its_first_week()
+    {
+        using var context = new ScreenContext();
+        var screen = await context.OpenAsync();
+        await screen.ShowLaterCommand.ExecuteAsync(null);
+
+        screen.IsMinimised = true;
+
+        Assert.Equal(7, screen.Days.Count);
+        Assert.Equal(screen.Days[0].Date, screen.Days.Min(day => day.Date));
+    }
+
     private sealed class ScreenContext : IDisposable
     {
         private readonly LocalStore _localStore = new();
@@ -479,6 +599,9 @@ public sealed class CalendarScreenTests
 
         /// <summary>The day the screen calls today, which is the fake clock's rather than the machine's.</summary>
         public DateTime Today => _clock.GetUtcNow().LocalDateTime.Date;
+
+        /// <summary>The moment the screen calls now - for the one test that is about the hour, not the day.</summary>
+        public DateTimeOffset Now => _clock.GetUtcNow();
         private readonly FakeCalendarServer _server;
         private readonly LocalCalendarEventRepository _events;
         private readonly LocalTaskListRepository _taskLists;
