@@ -427,6 +427,22 @@ input.note-editor-title {
     max-width: 1280px;
     margin: 0 auto;
     padding: 24px 32px 40px 32px;
+    /* Fills whatever the bar above it leaves, and lays its two children out down the page, so that the
+       footer can be told to take the space nobody else wanted - see .app-footer. */
+    flex: 1 0 auto;
+    display: flex;
+    flex-direction: column;
+}
+
+/* The page itself, between the bar and the footer. A box of its own rather than the page's markup
+   sitting directly in the flex column: as flex items, every top-level element of every page would stop
+   collapsing its margins against its neighbours, which is a different amount of white space on every
+   screen in Orbit for the sake of one rule about the footer. */
+.main-content-page {
+    flex: 1 0 auto;
+    /* Air between the last thing on the page and the footer's hairline, which the footer itself can no
+       longer hold as a margin. */
+    padding-bottom: 40px;
 }
 
 /* Except the map, which is the one page whose content is the width it is given - see MapPage.razor,
@@ -1822,13 +1838,19 @@ input.note-editor-title {
 /* Which build this is, when it was made, and under what licence. Quiet on purpose: it is a thing to
    look up once, not a thing to read, so it sits at the very end of the content in the smallest type the
    palette still keeps legible. */
+/* Under the page, and never higher than the bottom of the window: a short page would otherwise leave it
+   floating halfway up with empty space beneath it, which reads as the page having failed to load the
+   rest. `margin-top: auto` takes whatever height is going spare, so on a page that scrolls the footer
+   simply follows the last thing on it. */
 .app-footer {
     display: flex;
     flex-wrap: wrap;
     align-items: center;
     justify-content: center;
     gap: 6px;
-    margin-top: 40px;
+    /* The gap above it used to be a margin, which `auto` has taken over; the same distance is now the
+       page box's own bottom padding - see .main-content-page. */
+    margin-top: auto;
     padding: 16px 0 8px;
     border-top: 1px solid var(--border);
     color: var(--text-tertiary);

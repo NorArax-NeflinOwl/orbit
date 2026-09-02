@@ -229,11 +229,16 @@
     }
 
     <main class="main-content" @onclick="CloseAvatarMenu">
-        @Body
+        @* The page in a box of its own, so the footer under it can be given the height nobody else
+           wanted - see .main-content-page. *@
+        <div class="main-content-page">
+            @Body
+        </div>
         @* Which build this is, when it was made, and under what licence. In the layout rather than on
            each page so there is one of it, and inside <main> rather than after it so it scrolls with
-           the content - a bar pinned to the bottom of the window would take height from every screen
-           to say something nobody reads twice. The phone says the same thing behind About. *@
+           the content on a page long enough to scroll. On a short one it settles at the bottom of the
+           window instead of floating halfway up it - see .app-footer. The phone says the same thing
+           behind About. *@
         <footer class="app-footer">
             @* The mark, at the start of the line the page ends on - the same one the bar opens with,
                so the page is bracketed by it. Decorative here: the bar's copy is the one that goes
