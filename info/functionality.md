@@ -101,6 +101,14 @@ from the one `MainLayout` is actually subscribed to — the notification would f
 `IHttpClientFactory` mutates a handler's `InnerHandler` while assembling each client's pipeline and
 rejects reusing one instance across more than one.
 
+**The phone is under the same rule, and broke it in its own way.** `TokenRefreshService` there was
+registered with `AddHttpClient<TokenRefreshService>`, which registers the type as **transient** - so
+every synchronizer held its own, and the single-flight guard inside it (one in-flight redemption shared
+by every caller) guarded nothing across them. Two of them meeting an expired access token at the same
+moment each redeemed the same single-use refresh token, and the loser's rejection signed the reader out
+mid-use. It shows up in the server's log as a refresh answering 200 and another answering 401 a second
+later. The client is now registered as a singleton over a named `HttpClient`.
+
 `/api/auth/register`, `/api/auth/login`, `/api/auth/refresh`, and `/api/auth/logout` are all rate
 limited to 5 requests per minute per client IP address (no queueing — an excess request gets an
 immediate 429), as brute-force protection for login attempts in particular.

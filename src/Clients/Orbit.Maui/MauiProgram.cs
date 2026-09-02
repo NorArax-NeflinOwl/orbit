@@ -271,7 +271,16 @@ public static class MauiProgram
 		// both endpoints it uses are absolute, and Orbit's token means nothing to Google.
 		services.AddHttpClient<GoogleSignIn>();
 
-		services.AddHttpClient<TokenRefreshService>(client => client.BaseAddress = apiSettings.BaseAddress);
+		// One for the whole app, not one per thing that asks. AddHttpClient<T> registers T as transient,
+		// which quietly undid what TokenRefreshService is for: its single-flight guard is per instance,
+		// so two synchronizers meeting an expired token at the same moment each redeemed the same
+		// single-use refresh token, and the loser's rejection signed the reader out mid-use. Seen in the
+		// server's log as a refresh that answered 200 and another a second later that answered 401.
+		services.AddHttpClient(nameof(TokenRefreshService), client => client.BaseAddress = apiSettings.BaseAddress);
+		services.AddSingleton(provider => new TokenRefreshService(
+			provider.GetRequiredService<SessionStore>(),
+			provider.GetRequiredService<IHttpClientFactory>().CreateClient(nameof(TokenRefreshService)),
+			provider.GetRequiredService<ILogger<TokenRefreshService>>()));
 		services.AddHttpClient<AuthenticationClient>(client => client.BaseAddress = apiSettings.BaseAddress);
 		// Registering has no token to attach, and the rest are guarded by the server checking the current
 		// password rather than by this client - see AccountClient.
