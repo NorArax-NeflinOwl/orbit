@@ -30,6 +30,9 @@ namespace Orbit.Web.Tests.Pages;
 public sealed class TaskEditorItemFormTests : OrbitTestContext
 {
     private static readonly Guid TaskListId = Guid.NewGuid();
+
+    /// <summary>One of the other lists this account has, with an id a test can name.</summary>
+    private static readonly Guid OtherTaskListId = Guid.NewGuid();
     private static readonly Guid ItemId = Guid.NewGuid();
 
     public TaskEditorItemFormTests()
@@ -252,6 +255,24 @@ public sealed class TaskEditorItemFormTests : OrbitTestContext
         Assert.Equal("shopping, car", cut.Find("input[list=taskItemCategories]").GetAttribute("value"));
     }
 
+    /// <summary>
+    /// An entry cannot link to the list it belongs to, so a list it already stands for is not somewhere
+    /// it can be moved - and the server refuses such a move with a 400. Left out of the dropdown rather
+    /// than offered and then rejected.
+    /// </summary>
+    [Fact]
+    public void A_list_an_entry_already_stands_for_is_not_offered_as_somewhere_to_move_it()
+    {
+        RegisterApiClients(AnItem() with { LinkedTaskListIds = [OtherTaskListId] });
+        var cut = Render();
+        ExpandTheOnlyItem(cut);
+
+        var offered = cut.FindAll("select")
+            .SelectMany(select => select.QuerySelectorAll("option"))
+            .Select(option => option.GetAttribute("value"));
+        Assert.DoesNotContain(OtherTaskListId.ToString(), offered);
+    }
+
     [Fact]
     public void What_the_list_is_for_is_shown_under_its_title()
     {
@@ -431,7 +452,7 @@ public sealed class TaskEditorItemFormTests : OrbitTestContext
             // it never offers the list being edited, which would be a link to itself.
             return path.EndsWith($"/{TaskListId}", StringComparison.Ordinal)
                 ? JsonOf(taskList)
-                : JsonOf(new[] { taskList, AnotherTaskList("Kitchen"), AnotherTaskList("Bathroom") });
+                : JsonOf(new[] { taskList, AnotherTaskList("Kitchen", OtherTaskListId), AnotherTaskList("Bathroom") });
         }))
         {
             BaseAddress = new Uri("https://example.test/")
@@ -445,9 +466,9 @@ public sealed class TaskEditorItemFormTests : OrbitTestContext
         Services.AddSingleton(new InventoryApiClient(httpClient));
     }
 
-    private static TaskDto AnotherTaskList(string title)
+    private static TaskDto AnotherTaskList(string title, Guid? id = null)
         => new(
-            Guid.NewGuid(), title, [], IsCompleted: false, IsGroup: false, IsPrivate: false,
+            id ?? Guid.NewGuid(), title, [], IsCompleted: false, IsGroup: false, IsPrivate: false,
             EncryptedContent: null, DateTimeOffset.UtcNow, DateTimeOffset.UtcNow,
             IsShared: false, SharedByUserName: null, AccessLevel: "CanEdit", OriginalOwnerUserId: null);
 

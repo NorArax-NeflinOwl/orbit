@@ -205,10 +205,11 @@ else
                            that had gone missing. *@
                         @if (item.Id is { } persistedItemId)
                         {
+                            var moveTargets = MoveTargetsFor(item);
                             <label>@T["Move to list"]<select @onchange="@(changeArgs => MoveItemAsync(item, persistedItemId, changeArgs.Value))"
-                                                             disabled="@(_isMovingItem || _moveTargetTaskLists.Count == 0)">
-                                    <option value="">@(_moveTargetTaskLists.Count == 0 ? T["No other list yet"] : T["Move to…"])</option>
-                                    @foreach (var targetTaskList in _moveTargetTaskLists)
+                                                             disabled="@(_isMovingItem || moveTargets.Count == 0)">
+                                    <option value="">@(moveTargets.Count == 0 ? T["No other list yet"] : T["Move to…"])</option>
+                                    @foreach (var targetTaskList in moveTargets)
                                     {
                                         <option value="@targetTaskList.Id">@Written(targetTaskList.Title)</option>
                                     }
@@ -575,6 +576,17 @@ else
 
     /// <summary>The lists a row may be moved to, which is any but this one.</summary>
     private IReadOnlyList<TaskDto> _moveTargetTaskLists = [];
+
+    /// <summary>
+    /// Where this particular entry could go: any other list, except one it already stands for. An entry
+    /// cannot link to the list it belongs to, and the server refuses a move that would make it - so the
+    /// list is left out of the dropdown rather than offered and then rejected, the way the linking
+    /// picker already treats a link that would close a loop.
+    /// </summary>
+    private IReadOnlyList<TaskDto> MoveTargetsFor(TaskItemFormModel item)
+        => item.LinkedTaskListIds.Count == 0
+            ? _moveTargetTaskLists
+            : [.. _moveTargetTaskLists.Where(candidate => !item.LinkedTaskListIds.Contains(candidate.Id))];
 
     /// <summary>Every category this account already uses, offered as suggestions under each entry's box.</summary>
     private IReadOnlyList<string> _knownCategories = [];
