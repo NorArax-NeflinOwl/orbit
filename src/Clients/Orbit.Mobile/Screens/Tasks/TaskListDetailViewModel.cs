@@ -364,6 +364,18 @@ public sealed partial class TaskListDetailViewModel : ObservableObject
     /// </summary>
     private IReadOnlyDictionary<Guid, LocalTaskList> _linkedTaskLists = new Dictionary<Guid, LocalTaskList>();
 
+    /// <summary>
+    /// The lists an entry stands for, named. A list this phone has not got is named by nothing, so it
+    /// is left out rather than written as a blank - the sentence reads about the ones that can be said.
+    /// </summary>
+    private string NamesOfTheListsBehind(TaskItemRow row)
+        => string.Join(
+            ", ",
+            row.Item.AllLinkedTaskListIds
+                .Select(linkedId => _linkedTaskLists.GetValueOrDefault(linkedId))
+                .Where(linked => linked is not null)
+                .Select(linked => _translations.Written(linked!.Title)));
+
     private void SayWhereTheEntryCanGo()
     {
         OnPropertyChanged(nameof(MoveTargetsForTheEntry));
@@ -697,6 +709,16 @@ public sealed partial class TaskListDetailViewModel : ObservableObject
     {
         if (row is null)
         {
+            return Task.CompletedTask;
+        }
+
+        // An entry standing for other lists is not ticked here - it is done when they are, and the
+        // server recomputes it from them whatever this phone says. Answered rather than ignored: the
+        // press did nothing and said nothing, which reads as a tick that did not register. The way
+        // there is already on the row, as a chip per list - see ReferencesFor.
+        if (row.Item.AllLinkedTaskListIds.Count > 0)
+        {
+            Status = _translations.Format("This is done when {0} is.", NamesOfTheListsBehind(row));
             return Task.CompletedTask;
         }
 

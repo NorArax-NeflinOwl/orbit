@@ -1121,6 +1121,33 @@ public sealed class TaskListDetailScreenTests
         Assert.Equal(context.OpenedListIdOf("Shopping"), context.Navigator.LastTaskListId);
     }
 
+    /// <summary>
+    /// An entry standing for other lists is not ticked here - it is done when they are, and the server
+    /// recomputes it from them whatever the phone says. The press used to do nothing and say nothing,
+    /// which reads as a tick that did not register. The browser answers the same press the same way.
+    /// </summary>
+    [Fact]
+    public async Task Ticking_an_entry_that_stands_for_a_list_says_where_the_answer_is()
+    {
+        using var context = new ScreenContext();
+        context.OpenTaskList("Shopping");
+        var screen = context.OpenTaskList("This week");
+        await AddAsync(screen, "The shopping");
+        await context.SynchroniseAsync();
+        await screen.LoadCommand.ExecuteAsync(null);
+        screen.EditItemCommand.Execute(screen.Items.Single());
+        screen.BeingEdited!.LinkToCommand.Execute(
+            screen.BeingEdited.LinkableTaskLists.Single(choice => choice.Name == "Shopping"));
+        await screen.SaveItemCommand.ExecuteAsync(null);
+        await context.SynchroniseAsync();
+        await screen.LoadCommand.ExecuteAsync(null);
+
+        await screen.ToggleItemCommand.ExecuteAsync(screen.Items.Single());
+
+        Assert.Contains("Shopping", screen.Status);
+        Assert.False(Assert.Single(screen.Items).IsCompleted);
+    }
+
     /// <summary>A list this phone has not got is no way in at all, so no chip is offered for it.</summary>
     [Fact]
     public async Task A_list_this_phone_has_not_got_offers_nothing_to_open()
