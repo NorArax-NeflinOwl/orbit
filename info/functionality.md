@@ -656,6 +656,19 @@ wrong (and each pinned by a test):
   possibly another city days ago.
 - Every link opens with `target="_blank" rel="noopener"`.
 
+### A shelf, read rather than edited
+
+`/inventory/{id}` is what opening a warehouse lands on: one row per batch, saying what it is, how much
+there is, when it arrived and how long it keeps. A row is a batch rather than a product - two rows can
+carry the same name, which is what two deliveries of one thing are, and the check that measures work
+against a shelf adds them up by name (`StockRequirementCounter`). A row an errand pointed at is marked,
+the way the editor already marked one.
+
+Changing what is on the shelf is a named press from there (`/inventory/{id}/edit`), and from the card's
+own menu - the same two depths a task list has, for the same reason: opening a warehouse to see what is
+in it is a different thing from opening it to change it, and a page of editable fields is the wrong
+answer to "what have we got".
+
 ### What the calendar's list leaves out
 
 The list beside the grid answers "what is coming", so it leaves out what is over: a deadline already

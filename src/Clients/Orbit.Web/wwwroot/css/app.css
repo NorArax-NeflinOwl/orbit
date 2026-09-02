@@ -4800,6 +4800,12 @@ input.note-editor-title {
     white-space: nowrap;
 }
 
+/* One batch on a shelf, read rather than edited - see WarehouseSummary.razor. The amount is pushed away
+   from the name so a column of them lines up, which is what makes a shelf readable at a glance. */
+.shelf-batch-amount {
+    margin-left: auto;
+}
+
 /* What a box that cannot be ticked here says back - see TaskListChecklist. Indented to where the row's
    words start, so it reads as an answer to that line rather than as a line of its own. */
 .check-row-asks {
