@@ -1,6 +1,6 @@
 namespace Orbit.Contracts.Sharing;
 
-/// <param name="ItemType">One of "Note", "TaskList", "CalendarEvent", "Warehouse".</param>
+/// <param name="ItemType">One of "Note", "TaskList", "CalendarEvent", "Inventory".</param>
 public sealed record CreatePublicShareLinkRequest(string ItemType, Guid ItemId);
 
 /// <param name="Token">The secret that makes the link work - the caller builds the URL around it, since only the browser knows what origin it is running on.</param>

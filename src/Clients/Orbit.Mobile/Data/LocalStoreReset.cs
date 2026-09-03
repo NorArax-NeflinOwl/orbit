@@ -5,7 +5,7 @@ namespace Orbit.Mobile.Data;
 /// <summary>
 /// Empties the phone's database when it stops belonging to the person holding it.
 ///
-/// Everything Orbit caches locally - notes, task lists, the calendar, warehouses, contacts, groups and
+/// Everything Orbit caches locally - notes, task lists, the calendar, inventories, contacts, groups and
 /// <b>decrypted chat messages</b> - survives a sign-out otherwise, and the next account to sign in on
 /// the same phone reads all of it. Found by signing out and signing in as somebody else: the dashboard
 /// showed the previous account's notes, and the server had none of them.
@@ -33,7 +33,7 @@ public sealed class LocalStoreReset
         await dbContext.Notes.ExecuteDeleteAsync(cancellationToken);
         await dbContext.TaskLists.ExecuteDeleteAsync(cancellationToken);
         await dbContext.CalendarEvents.ExecuteDeleteAsync(cancellationToken);
-        await dbContext.Warehouses.ExecuteDeleteAsync(cancellationToken);
+        await dbContext.Inventories.ExecuteDeleteAsync(cancellationToken);
         await dbContext.Outbox.ExecuteDeleteAsync(cancellationToken);
         await dbContext.SyncCursors.ExecuteDeleteAsync(cancellationToken);
         await dbContext.ChatMessages.ExecuteDeleteAsync(cancellationToken);

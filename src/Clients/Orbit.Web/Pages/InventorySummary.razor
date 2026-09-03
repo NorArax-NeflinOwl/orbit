@@ -1,0 +1,263 @@
+@page "/inventory/{InventoryId:guid}"
+@attribute [Authorize]
+@using System.Net
+@using Orbit.Contracts.Inventories
+@using Orbit.Core.Abstractions
+@using Orbit.Web.Services
+@inject InventoryApiClient InventoryApiClient
+@inject NavigationManager NavigationManager
+@inject IJSRuntime JSRuntime
+@inject ILogger<InventorySummary> Logger
+@inject Translations T
+
+@* One shelf, read rather than edited: what is on it, how much, when it arrived and how long it keeps.
+   The same depth a task entry's own page has - see TaskItemSummary - and for the same reason: opening a
+   inventory to look at it is a different thing from opening it to change it, and a page of editable
+   fields is the wrong answer to "what have we got".
+
+   A row is a batch. Two rows can carry the same name, and that is what two deliveries of one thing are;
+   the check that measures work against a shelf adds them up by name - see StockRequirementCounter. *@
+<PageTitle>@(_inventory is null ? T["Inventory"] : _inventory.Name)</PageTitle>
+
+@* Two panels: what is on the shelf on the left, which scrolls, and the panel on the right, which does
+   not - see EditorRail. On a narrow screen the right one becomes a bar along the foot of the window. *@
+<div class="editor-page">
+<div class="editor-page-body">
+
+<PageHeader Subtitle="@Optional(_inventory is { Description.Length: > 0 } described ? described.Description : null)">
+    <Title>@(_inventory?.Name ?? T["Inventory"])</Title>
+</PageHeader>
+
+@if (_isLoading)
+{
+    <p>@T["Loading…"]</p>
+}
+else if (_inventory is null)
+{
+    <p>@T["That inventory no longer exists."]</p>
+}
+else
+{
+    @* Pressing the shelf opens the form that changes what is on it - the same rule the note's own page
+       follows. Counting a batch up or down is not that: those two buttons keep their own press, below. *@
+    <SummaryCard OnOpen="GoToEditor">
+        @if (_shelf.Count == 0)
+        {
+            <p class="checklist-empty">@T["Nothing on this shelf yet."]</p>
+        }
+        @foreach (var batch in _shelf)
+        {
+            <div class="list-row shelf-batch @(Highlight == batch.Id ? "highlighted" : "")">
+                @* Before the name, where the eye starts on the row: taking one off the shelf and
+                   putting one back are the two things somebody does standing in front of it, and
+                   opening an editor to type a number is not what either of them feels like. *@
+                <span class="shelf-batch-count" @onclick="() => { }" @onclick:stopPropagation="true">
+                    <button type="button" class="icon-btn" disabled="@(batch.Quantity <= 0)"
+                            title="@(T["One fewer"])" aria-label="@T.Format("One fewer: {0}", batch.Name)"
+                            @onclick="() => Count(batch, -1)">−</button>
+                    <button type="button" class="icon-btn" title="@(T["One more"])"
+                            aria-label="@T.Format("One more: {0}", batch.Name)"
+                            @onclick="() => Count(batch, 1)">+</button>
+                </span>
+                <span class="row-title">@batch.Name</span>
+                <span class="row-meta shelf-batch-amount">@Amount(batch)</span>
+                @* When it arrived, and how long it keeps. A shelf answers "have we got any" with the
+                   first and "is it still good" with the second, and neither is worth opening an editor
+                   to read. *@
+                <span class="row-meta">@T.Format("added {0}", batch.CreatedAtUtc.LocalDateTime.ToString("dd.MM.yyyy"))</span>
+                <span class="row-meta">
+                    @(batch.ExpiryDate is { } expires
+                        ? T.Format("best before {0}", expires.LocalDateTime.ToString("dd.MM.yyyy"))
+                        : T["keeps"])
+                </span>
+            </div>
+        }
+    </SummaryCard>
+}
+
+</div>
+@* The same two actions every editor in Orbit carries, and everything else behind the menu beside them
+   - see EditorRail. This page changes what is on a shelf now, so it needs a save. *@
+@if (_inventory is not null)
+{
+    <EditorRail OnSave="SaveAsync" OnCancel="GoToInventories" SaveDisabled="@(!_hasChanges || _isSaving)">
+        @* Beside the button that failed: a save that did not happen and a shelf somebody else is
+           holding are both answers to "why has Save done nothing", and a long shelf is read by
+           scrolling - an answer at the top of it is an answer nobody scrolls back to. *@
+        <Extras>
+            @if (_message is not null)
+            {
+                <p class="error">@_message</p>
+            }
+        </Extras>
+        <ChildContent>
+            <ObjectMenu AllLabel="@T["All inventories"]" OnAll="GoToInventories"
+                        EditLabel="@(_isReadOnly ? T["View"] : T["Edit"])" OnEdit="GoToEditor"
+                        DeleteLabel="@(!_inventory!.IsShared ? T["Delete"] : null)" OnDelete="DeleteAsync" />
+        </ChildContent>
+    </EditorRail>
+}
+</div>
+
+@code {
+    [Parameter] public Guid InventoryId { get; set; }
+
+    /// <summary>
+    /// Which row was pointed at, when this page was opened from somewhere that meant one - a task
+    /// entry's errand names the product it is about. Mirrors InventoryEditor's parameter of the same
+    /// name, so a link written for one still lands on the other.
+    /// </summary>
+    [Parameter, SupplyParameterFromQuery(Name = "highlight")]
+    public Guid? Highlight { get; set; }
+
+    private InventoryDto? _inventory;
+    private IReadOnlyList<InventoryItemDto> _shelf = [];
+    private bool _isLoading = true;
+    private bool _isReadOnly;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        _isLoading = true;
+        try
+        {
+            _inventory = await InventoryApiClient.GetInventoryByIdAsync(InventoryId);
+            _shelf = _inventory is null
+                ? []
+                : await InventoryApiClient.GetInventoryItemsAsync(InventoryId) ?? [];
+            _isReadOnly = _inventory is not null
+                && _inventory.IsShared && !SharedItemAccess.For(_inventory.IsShared, _inventory.AccessLevel).CanEdit;
+        }
+        catch (HttpRequestException exception)
+        {
+            // A shelf that will not load leaves the page saying so rather than half-drawn.
+            Logger.LogWarning(exception, "Couldn't read inventory {InventoryId}", InventoryId);
+            _inventory = null;
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+
+    /// <summary>How much there is, in what it is counted in - "3 pcs", "1.5 kg".</summary>
+    private string Amount(InventoryItemDto batch)
+        => $"{batch.Quantity:0.##} {T[InventoryUnitOption.For(batch.Unit).ShortName]}";
+
+    /// <summary>Whether anything on the shelf has been counted up or down and not yet saved.</summary>
+    private bool _hasChanges;
+    private bool _isSaving;
+
+    /// <summary>What went wrong, said on the page. Null while nothing needs saying.</summary>
+    private string? _message;
+
+    /// <summary>
+    /// Takes one off the shelf, or puts one back. Never below nothing: a shelf holding minus one of
+    /// something is a number nobody can act on, and the button that would make it is offered greyed.
+    /// </summary>
+    private void Count(InventoryItemDto batch, decimal by)
+    {
+        var counted = batch.Quantity + by;
+        if (counted < 0)
+        {
+            return;
+        }
+
+        _shelf = [.. _shelf.Select(stored => stored.Id == batch.Id ? stored with { Quantity = counted } : stored)];
+        _hasChanges = true;
+        _message = null;
+    }
+
+    /// <summary>
+    /// Writes the counting back. The whole shelf goes, because that is the only save an inventory has -
+    /// every other row travels unchanged, and the flag that says "check this every round" is sent as
+    /// stored rather than left out, which would turn it off (see InventoryItemRequest.IsCheckedRegularly).
+    ///
+    /// The restock list is refreshed afterwards for the same reason the task editor refreshes it: a
+    /// count that has just crossed a minimum either raises an errand or settles one, and a list still
+    /// saying the old thing would make the change look like it had not taken.
+    /// </summary>
+    private async Task SaveAsync()
+    {
+        if (_inventory is null || _isSaving)
+        {
+            return;
+        }
+
+        _isSaving = true;
+        _message = null;
+        try
+        {
+            var outcome = await InventoryApiClient.UpdateInventoryAsync(
+                InventoryId,
+                new SaveInventoryRequest(
+                    _inventory.Name,
+                    [.. _shelf.Select(batch => new InventoryItemRequest(
+                        batch.Id, batch.Name, batch.ProductType, batch.Category, batch.Quantity,
+                        batch.MinimumQuantity, batch.Unit, batch.ExpiryDate, batch.ExpiryNotificationChannel,
+                        batch.IsCheckedRegularly))],
+                    _inventory.IsPrivate,
+                    Description: _inventory.Description));
+
+            if (outcome.Kind == EditOutcomeKind.Locked)
+            {
+                _message = T.Format("{0} is currently editing this inventory - you can't edit it right now.", outcome.LockedByUserName);
+                return;
+            }
+
+            if (outcome.Kind != EditOutcomeKind.Success)
+            {
+                _message = T["Failed to save the inventory. Try again."];
+                return;
+            }
+
+            await InventoryApiClient.RefreshRestockListAsync(InventoryId);
+            _hasChanges = false;
+        }
+        catch (HttpRequestException exception) when (exception.StatusCode == HttpStatusCode.Unauthorized)
+        {
+            NavigationManager.NavigateTo("/login");
+        }
+        catch (HttpRequestException exception)
+        {
+            Logger.LogWarning(exception, "Couldn't save what is on inventory {InventoryId}", InventoryId);
+            _message = T["Failed to save the inventory. Try again."];
+        }
+        finally
+        {
+            _isSaving = false;
+        }
+    }
+
+    /// <summary>Asked first, and asked with the name: everything on the shelf goes with it.</summary>
+    private async Task DeleteAsync()
+    {
+        if (_inventory is null)
+        {
+            return;
+        }
+
+        if (!await JSRuntime.InvokeAsync<bool>("confirm", T.Format("Delete \"{0}\" and everything in it?", _inventory.Name)))
+        {
+            return;
+        }
+
+        try
+        {
+            await InventoryApiClient.DeleteInventoryAsync(InventoryId);
+            NavigationManager.NavigateTo("/inventory");
+        }
+        catch (HttpRequestException exception)
+        {
+            Logger.LogWarning(exception, "Couldn't delete inventory {InventoryId}", InventoryId);
+            _message = T["Failed to delete the inventory. Try again."];
+        }
+    }
+
+    private void GoToInventories() => NavigationManager.NavigateTo("/inventory");
+
+    private void GoToEditor()
+    {
+        Logger.LogInformation("User opened the editor for inventory {InventoryId}", InventoryId);
+        NavigationManager.NavigateTo($"/inventory/{InventoryId}/edit");
+    }
+}

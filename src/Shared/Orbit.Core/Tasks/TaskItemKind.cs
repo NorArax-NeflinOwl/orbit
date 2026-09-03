@@ -21,7 +21,7 @@ public enum TaskItemKind
     Calendar,
 
     /// <summary>
-    /// An errand about one product on a shelf: bring this back up to the level the warehouse is meant to
+    /// An errand about one product on a shelf: bring this back up to the level the inventory is meant to
     /// hold. Carries <see cref="TaskItem.LinkedInventoryItemId"/>, which is what makes it that product's
     /// errand rather than a line of text that happens to mention it.
     ///

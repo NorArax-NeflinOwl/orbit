@@ -1,4 +1,4 @@
-using Orbit.Contracts.Inventory;
+using Orbit.Contracts.Inventories;
 using Orbit.Mobile.Api;
 using Orbit.Mobile.Data;
 using Orbit.Mobile.Sync;
@@ -10,11 +10,11 @@ public enum ShelfCorrectionOutcome
 {
     Applied,
 
-    /// <summary>The warehouse is not on this phone, so there was nothing to correct.</summary>
+    /// <summary>The inventory is not on this phone, so there was nothing to correct.</summary>
     NotFound,
 
     /// <summary>
-    /// The warehouse cannot be written to: somebody else can change it and there is no connection to
+    /// The inventory cannot be written to: somebody else can change it and there is no connection to
     /// check with, or it was shared without editing - see LocalWriteOutcome.
     /// </summary>
     Refused
@@ -23,19 +23,19 @@ public enum ShelfCorrectionOutcome
 /// <summary>
 /// A product corrected from an Inventory errand, written back to the shelf it lives on.
 ///
-/// Its own object rather than three more fields on the task list screen: the warehouse store, its
+/// Its own object rather than three more fields on the task list screen: the inventory store, its
 /// synchroniser and the inventory client only ever travel together and only ever serve this one job.
 /// </summary>
 public sealed class ShelfCorrection
 {
-    private readonly LocalWarehouseRepository _warehouses;
-    private readonly WarehouseSynchronizer _synchronizer;
+    private readonly LocalInventoryRepository _inventories;
+    private readonly InventorySynchronizer _synchronizer;
     private readonly InventoryClient _inventoryClient;
 
     public ShelfCorrection(
-        LocalWarehouseRepository warehouses, WarehouseSynchronizer synchronizer, InventoryClient inventoryClient)
+        LocalInventoryRepository inventories, InventorySynchronizer synchronizer, InventoryClient inventoryClient)
     {
-        _warehouses = warehouses;
+        _inventories = inventories;
         _synchronizer = synchronizer;
         _inventoryClient = inventoryClient;
     }
@@ -44,11 +44,11 @@ public sealed class ShelfCorrection
     /// Every shelf this phone holds - what lets an errand say which shelf it is about, and which other
     /// list is asking for the same product. Read locally, so it is there with no connection.
     /// </summary>
-    public Task<IReadOnlyList<LocalWarehouse>> ShelvesAsync(CancellationToken cancellationToken)
-        => _warehouses.GetAllAsync(cancellationToken);
+    public Task<IReadOnlyList<LocalInventory>> ShelvesAsync(CancellationToken cancellationToken)
+        => _inventories.GetAllAsync(cancellationToken);
 
     /// <summary>
-    /// Writes the corrected product back, then asks that warehouse to work out its restock list again -
+    /// Writes the corrected product back, then asks that inventory to work out its restock list again -
     /// a corrected amount can settle an errand or raise one, and a list still saying the old thing makes
     /// the correction look like it did not take.
     ///
@@ -60,15 +60,15 @@ public sealed class ShelfCorrection
     public async Task<ShelfCorrectionOutcome> ApplyAsync(
         TaskItemShelfProduct shelf, CancellationToken cancellationToken)
     {
-        if (await _warehouses.FindAsync(shelf.WarehouseLocalId, cancellationToken) is not { } warehouse)
+        if (await _inventories.FindAsync(shelf.InventoryLocalId, cancellationToken) is not { } inventory)
         {
             return ShelfCorrectionOutcome.NotFound;
         }
 
         var corrected = shelf.Product.ToDto();
-        var outcome = await _warehouses.UpdateAsync(
-            shelf.WarehouseLocalId,
-            new WarehouseContent(warehouse.Name, ShelfWith(warehouse, corrected), warehouse.IsPrivate),
+        var outcome = await _inventories.UpdateAsync(
+            shelf.InventoryLocalId,
+            new InventoryContent(inventory.Name, ShelfWith(inventory, corrected), inventory.IsPrivate),
             cancellationToken);
 
         if (outcome.WasRefused())
@@ -76,11 +76,11 @@ public sealed class ShelfCorrection
             return ShelfCorrectionOutcome.Refused;
         }
 
-        // Pushed here rather than left for whenever somebody next opens the warehouse: the correction is
+        // Pushed here rather than left for whenever somebody next opens the inventory: the correction is
         // to a shelf the task list screen is not otherwise about, so nothing else would carry it up, and
         // a restock list rebuilt before the new amount arrives would be rebuilt from the old one.
         await _synchronizer.SynchroniseAsync(cancellationToken);
-        await RebuildTheRestockListAsync(warehouse.ServerId, cancellationToken);
+        await RebuildTheRestockListAsync(inventory.ServerId, cancellationToken);
         return ShelfCorrectionOutcome.Applied;
     }
 
@@ -92,17 +92,17 @@ public sealed class ShelfCorrection
     /// added for it - the stock check matches an errand to a product by name, and two rows of one name
     /// would be two answers to "is there enough". The same rule Orbit.Web's own save applies.
     /// </summary>
-    private static IReadOnlyList<WarehouseItemDto> ShelfWith(LocalWarehouse warehouse, WarehouseItemDto product)
+    private static IReadOnlyList<InventoryItemRequest> ShelfWith(LocalInventory inventory, InventoryItemRequest product)
     {
         if (product.Id is { } productId)
         {
-            return [.. warehouse.Items.Select(stored => stored.Id == productId ? product : stored)];
+            return [.. inventory.Items.Select(stored => stored.Id == productId ? product : stored)];
         }
 
-        var alreadyThere = warehouse.Items.Any(stored =>
+        var alreadyThere = inventory.Items.Any(stored =>
             string.Equals(stored.Name.Trim(), product.Name.Trim(), StringComparison.CurrentCultureIgnoreCase));
 
-        return alreadyThere ? warehouse.Items : [.. warehouse.Items, product];
+        return alreadyThere ? inventory.Items : [.. inventory.Items, product];
     }
 
     /// <summary>
@@ -110,9 +110,9 @@ public sealed class ShelfCorrection
     /// up, and a restock list that is one sync behind rights itself. Saying "couldn't reach Orbit" about
     /// a change that did land would be the wrong thing to tell somebody.
     /// </summary>
-    private async Task RebuildTheRestockListAsync(Guid? warehouseServerId, CancellationToken cancellationToken)
+    private async Task RebuildTheRestockListAsync(Guid? inventoryServerId, CancellationToken cancellationToken)
     {
-        if (warehouseServerId is not { } serverId)
+        if (inventoryServerId is not { } serverId)
         {
             return;
         }

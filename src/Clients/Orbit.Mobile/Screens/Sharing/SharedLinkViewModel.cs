@@ -187,7 +187,7 @@ public sealed partial class SharedLinkViewModel : ObservableObject
         "Note" => _translations["Note"],
         "TaskList" => _translations["Task list"],
         "CalendarEvent" => _translations["Event"],
-        "Warehouse" => _translations["Warehouse"],
+        "Inventory" => _translations["Inventory"],
         // A kind added after this build. The rest of the screen reads perfectly well without a label.
         _ => string.Empty
     };

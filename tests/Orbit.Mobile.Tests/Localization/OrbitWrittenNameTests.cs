@@ -1,4 +1,4 @@
-using Orbit.Core.Inventory;
+using Orbit.Core.Inventories;
 using Orbit.Localization;
 using Orbit.Mobile.Localization;
 using Orbit.Mobile.Tests.TestDoubles;

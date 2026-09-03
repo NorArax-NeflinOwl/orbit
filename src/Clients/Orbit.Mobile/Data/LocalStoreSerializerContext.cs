@@ -1,6 +1,6 @@
 using System.Text.Json.Serialization;
 using Orbit.Contracts.Calendar;
-using Orbit.Contracts.Inventory;
+using Orbit.Contracts.Inventories;
 using Orbit.Contracts.Notes;
 using Orbit.Contracts.Tasks;
 
@@ -14,8 +14,8 @@ namespace Orbit.Mobile.Data;
 [JsonSerializable(typeof(IReadOnlyList<NoteContentLineDto>))]
 [JsonSerializable(typeof(IReadOnlyList<TaskItemDto>))]
 [JsonSerializable(typeof(CalendarEventDetailsDto))]
-[JsonSerializable(typeof(IReadOnlyList<WarehouseItemDto>))]
-// When each batch on a shelf arrived, by its id - see LocalWarehouse.ItemArrivals.
+[JsonSerializable(typeof(IReadOnlyList<InventoryItemRequest>))]
+// When each batch on a shelf arrived, by its id - see LocalInventory.ItemArrivals.
 [JsonSerializable(typeof(IReadOnlyDictionary<Guid, DateTimeOffset>))]
 [JsonSerializable(typeof(IReadOnlyList<LocalChatGroupMember>))]
 // What a copy was taken from, already rendered as lines - see ICopyableForEditing.CopyBaseLines.

@@ -1,6 +1,6 @@
 using Orbit.Api.Tests.TestDoubles;
 using Orbit.Core.Abstractions;
-using Orbit.Core.Inventory;
+using Orbit.Core.Inventories;
 using Orbit.Core.Notes;
 using Orbit.Core.Notes.GetNotes;
 using Orbit.Core.Tasks;
@@ -44,9 +44,9 @@ public sealed class MalformedEncryptedContentTests
             () => TaskList.Create(Guid.NewGuid(), string.Empty, [], isPrivate: true, encryptedContent: null));
 
     [Fact]
-    public void A_private_warehouse_with_no_payload_is_refused()
+    public void A_private_inventory_with_no_payload_is_refused()
         => Assert.Throws<InvalidRequestException>(
-            () => Warehouse.Create(Guid.NewGuid(), string.Empty, isPrivate: true, encryptedContent: null));
+            () => Inventory.Create(Guid.NewGuid(), string.Empty, isPrivate: true, encryptedContent: null));
 
     [Fact]
     public void Turning_a_note_private_with_no_payload_is_refused()

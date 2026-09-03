@@ -7,7 +7,7 @@
 @inject Translations T
 
 @* Used by every editor that can publish its item, so a link means the same thing and looks the same
-   whether it points at a note, a task list, an event or a warehouse. *@
+   whether it points at a note, a task list, an event or an inventory. *@
 <div class="share-link">
     <div class="share-link-actions">
         <button type="button" class="btn-secondary share-link-button" disabled="@_isWorking" @onclick="CreateOrCopyAsync"
@@ -41,7 +41,7 @@
 </div>
 
 @code {
-    /// <summary>One of "Note", "TaskList", "CalendarEvent", "Warehouse" - see Orbit.Core.Sharing.SharedItemType.</summary>
+    /// <summary>One of "Note", "TaskList", "CalendarEvent", "Inventory" - see Orbit.Core.Sharing.SharedItemType.</summary>
     [Parameter]
     [EditorRequired]
     public string ItemType { get; set; } = string.Empty;

@@ -232,9 +232,9 @@ public sealed class PublicShareLinkTests
 
         public InMemoryNoteShareRepository NoteShareRepository { get; } = new();
         public InMemoryTaskRepository TaskRepository { get; } = new();
-        public InMemoryWarehouseRepository WarehouseRepository { get; } = new();
+        public InMemoryInventoryRepository InventoryRepository { get; } = new();
         public InMemoryTaskListShareRepository TaskListShareRepository { get; } = new();
-        public InMemoryWarehouseShareRepository WarehouseShareRepository { get; } = new();
+        public InMemoryInventoryShareRepository InventoryShareRepository { get; } = new();
         public RecordingSharedItemNotifier SharedItemNotifier { get; } = new();
         public Guid OwnerId { get; }
         public Guid ReaderId { get; } = Guid.NewGuid();
@@ -248,7 +248,7 @@ public sealed class PublicShareLinkTests
 
             _reader = new PublicSharedItemReader(
                 _noteRepository, TaskRepository, new InMemoryCalendarEventRepository(),
-                WarehouseRepository, new InMemoryInventoryRepository(), userRepository);
+                InventoryRepository, new InMemoryInventoryItemRepository(), userRepository);
         }
 
         public async Task<Guid> AddNoteAsync(string title, params string[] lines)
@@ -289,9 +289,9 @@ public sealed class PublicShareLinkTests
         public Task<ClaimPublicShareLinkResult> ClaimAsync(string token, Guid claimingUserId)
             => new ClaimPublicShareLinkCommandHandler(
                     _linkRepository, _reader, NoteShareRepository, TaskListShareRepository,
-                    new InMemoryCalendarEventShareRepository(), WarehouseShareRepository,
+                    new InMemoryCalendarEventShareRepository(), InventoryShareRepository,
                     new TaskListShareCascade(
-                        TaskRepository, WarehouseRepository, TaskListShareRepository, WarehouseShareRepository),
+                        TaskRepository, InventoryRepository, TaskListShareRepository, InventoryShareRepository),
                     SharedItemNotifier)
                 .HandleAsync(new ClaimPublicShareLinkCommand(token, claimingUserId), CancellationToken.None);
     }

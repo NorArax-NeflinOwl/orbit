@@ -2,14 +2,14 @@ namespace Orbit.Core.Suggestions;
 
 /// <summary>
 /// Which of the four name fields a suggestion is for. Each reads from a different place, and mixing
-/// them would offer a warehouse's name where a product's was being typed.
+/// them would offer an inventory's name where a product's was being typed.
 /// </summary>
 public enum NameSuggestionKind
 {
     /// <summary>A product on a shelf - the field this matters most in, since the same thing gets typed in twenty ways.</summary>
     InventoryItemName,
 
-    WarehouseName,
+    InventoryName,
 
     TaskListTitle,
 

@@ -1,36 +1,36 @@
 using Orbit.Core.Abstractions;
-using Orbit.Core.Inventory;
+using Orbit.Core.Inventories;
 
 namespace Orbit.Core.Tasks;
 
 /// <summary>
 /// What a shared task list drags along with it: the lists its items link to, all the way down, and the
-/// warehouse any of those lists is measured against.
+/// inventory any of those lists is measured against.
 ///
 /// A group list is a set of headings pointing at other lists, so handing one over on its own hands the
 /// recipient a page on which nothing opens - and the same is true of the inventory its stock check is
 /// read against. One grant is therefore offered by name and the rest follow it: created when it is
 /// created, and accepted when it is accepted.
 ///
-/// Private lists and private warehouses are left out. Their contents are sealed in their owner's
+/// Private lists and private inventories are left out. Their contents are sealed in their owner's
 /// browser, so a grant of one would only ever hand the recipient ciphertext - the same reason
 /// ShareTaskListCommandHandler refuses to share a private list at all.
 /// </summary>
 public sealed class TaskListShareCascade
 {
     private readonly ITaskRepository _taskRepository;
-    private readonly IWarehouseRepository _warehouseRepository;
+    private readonly IInventoryRepository _inventoryRepository;
     private readonly ITaskListShareRepository _taskListShareRepository;
-    private readonly IWarehouseShareRepository _warehouseShareRepository;
+    private readonly IInventoryShareRepository _inventoryShareRepository;
 
     public TaskListShareCascade(
-        ITaskRepository taskRepository, IWarehouseRepository warehouseRepository,
-        ITaskListShareRepository taskListShareRepository, IWarehouseShareRepository warehouseShareRepository)
+        ITaskRepository taskRepository, IInventoryRepository inventoryRepository,
+        ITaskListShareRepository taskListShareRepository, IInventoryShareRepository inventoryShareRepository)
     {
         _taskRepository = taskRepository;
-        _warehouseRepository = warehouseRepository;
+        _inventoryRepository = inventoryRepository;
         _taskListShareRepository = taskListShareRepository;
-        _warehouseShareRepository = warehouseShareRepository;
+        _inventoryShareRepository = inventoryShareRepository;
     }
 
     /// <summary>
@@ -53,9 +53,9 @@ public sealed class TaskListShareCascade
             await GrantTaskListAsync(ownerUserId, taskListId, recipientUserId, accessLevel, acceptImmediately, cancellationToken);
         }
 
-        foreach (var warehouseId in cascade.WarehouseIds)
+        foreach (var inventoryId in cascade.InventoryIds)
         {
-            await GrantWarehouseAsync(ownerUserId, warehouseId, recipientUserId, accessLevel, acceptImmediately, cancellationToken);
+            await GrantInventoryAsync(ownerUserId, inventoryId, recipientUserId, accessLevel, acceptImmediately, cancellationToken);
         }
     }
 
@@ -79,20 +79,20 @@ public sealed class TaskListShareCascade
             await _taskListShareRepository.UpdateAsync(share, cancellationToken);
         }
 
-        foreach (var warehouseId in cascade.WarehouseIds)
+        foreach (var inventoryId in cascade.InventoryIds)
         {
-            if (await _warehouseShareRepository.FindExistingAsync(warehouseId, recipientUserId, cancellationToken) is not { IsAccepted: false } share)
+            if (await _inventoryShareRepository.FindExistingAsync(inventoryId, recipientUserId, cancellationToken) is not { IsAccepted: false } share)
             {
                 continue;
             }
 
             share.MarkAccepted();
-            await _warehouseShareRepository.UpdateAsync(share, cancellationToken);
+            await _inventoryShareRepository.UpdateAsync(share, cancellationToken);
         }
     }
 
     /// <summary>
-    /// The linked lists and warehouses that travel with the root, without the root itself - it is
+    /// The linked lists and inventories that travel with the root, without the root itself - it is
     /// granted by its own handler, which is also what decides whether it may be granted at all.
     /// </summary>
     private async Task<CascadedItems> ResolveAsync(Guid ownerUserId, Guid rootTaskListId, CancellationToken cancellationToken)
@@ -109,16 +109,16 @@ public sealed class TaskListShareCascade
         var tree = StockCheck.LinkedTaskListTree.Flatten(root, owned);
         var linkedTaskLists = tree.Where(taskList => taskList.Id != rootTaskListId && !taskList.IsPrivate).ToList();
 
-        var warehouseIds = new List<Guid>();
-        foreach (var candidateId in tree.Select(taskList => taskList.LinkedWarehouseId).OfType<Guid>().Distinct())
+        var inventoryIds = new List<Guid>();
+        foreach (var candidateId in tree.Select(taskList => taskList.LinkedInventoryId).OfType<Guid>().Distinct())
         {
-            if (await _warehouseRepository.GetByIdAsync(ownerUserId, candidateId, cancellationToken) is { IsPrivate: false })
+            if (await _inventoryRepository.GetByIdAsync(ownerUserId, candidateId, cancellationToken) is { IsPrivate: false })
             {
-                warehouseIds.Add(candidateId);
+                inventoryIds.Add(candidateId);
             }
         }
 
-        return new CascadedItems([.. linkedTaskLists.Select(taskList => taskList.Id)], warehouseIds);
+        return new CascadedItems([.. linkedTaskLists.Select(taskList => taskList.Id)], inventoryIds);
     }
 
     private async Task GrantTaskListAsync(
@@ -144,31 +144,31 @@ public sealed class TaskListShareCascade
         await _taskListShareRepository.AddAsync(share, cancellationToken);
     }
 
-    private async Task GrantWarehouseAsync(
-        Guid ownerUserId, Guid warehouseId, Guid recipientUserId, ShareAccessLevel accessLevel,
+    private async Task GrantInventoryAsync(
+        Guid ownerUserId, Guid inventoryId, Guid recipientUserId, ShareAccessLevel accessLevel,
         bool acceptImmediately, CancellationToken cancellationToken)
     {
-        if (await _warehouseShareRepository.FindExistingAsync(warehouseId, recipientUserId, cancellationToken) is { } existing)
+        if (await _inventoryShareRepository.FindExistingAsync(inventoryId, recipientUserId, cancellationToken) is { } existing)
         {
             if (existing.RaiseAccessLevelTo(accessLevel))
             {
-                await _warehouseShareRepository.UpdateAsync(existing, cancellationToken);
+                await _inventoryShareRepository.UpdateAsync(existing, cancellationToken);
             }
 
             return;
         }
 
-        var share = WarehouseShare.Create(warehouseId, ownerUserId, recipientUserId, accessLevel);
+        var share = InventoryShare.Create(inventoryId, ownerUserId, recipientUserId, accessLevel);
         if (acceptImmediately)
         {
             share.MarkAccepted();
         }
 
-        await _warehouseShareRepository.AddAsync(share, cancellationToken);
+        await _inventoryShareRepository.AddAsync(share, cancellationToken);
     }
 
     /// <summary>The ids that follow one shared task list, gathered once and then granted or accepted.</summary>
-    private sealed record CascadedItems(IReadOnlyList<Guid> TaskListIds, IReadOnlyList<Guid> WarehouseIds)
+    private sealed record CascadedItems(IReadOnlyList<Guid> TaskListIds, IReadOnlyList<Guid> InventoryIds)
     {
         public static readonly CascadedItems None = new([], []);
     }

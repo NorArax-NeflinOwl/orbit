@@ -1,7 +1,7 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
-using Orbit.Contracts.Inventory;
-using Orbit.Core.Inventory;
+using Orbit.Contracts.Inventories;
+using Orbit.Core.Inventories;
 using Orbit.Mobile.Api;
 using Orbit.Mobile.Localization;
 using Orbit.Mobile.Screens;
@@ -10,11 +10,11 @@ using Orbit.Mobile.Sync;
 namespace Orbit.Mobile.Screens.Inventory;
 
 /// <summary>
-/// How a warehouse's restock list is built, and when it comes round - the settings Orbit.Web has had at
-/// the bottom of its warehouse editor and the phone had no way to see, let alone change. A shelf could
+/// How an inventory's restock list is built, and when it comes round - the settings Orbit.Web has had at
+/// the bottom of its inventory editor and the phone had no way to see, let alone change. A shelf could
 /// be edited here while the rule that decides what it asks for was reachable only from a browser.
 ///
-/// Its own object rather than five more fields on the warehouse screen: two settings, two actions and a
+/// Its own object rather than five more fields on the inventory screen: two settings, two actions and a
 /// message that only ever concern each other - and the screen it sits on is about the shelf, not about
 /// the list the shelf feeds.
 ///
@@ -26,7 +26,7 @@ public sealed partial class RestockListSettingsPanel : ObservableObject
     private readonly InventoryClient _inventory;
     private readonly Translations _translations;
 
-    private Guid? _warehouseServerId;
+    private Guid? _inventoryServerId;
 
     public RestockListSettingsPanel(
         InventoryClient inventory, Translations translations, ConnectionRequirement connection)
@@ -54,7 +54,7 @@ public sealed partial class RestockListSettingsPanel : ObservableObject
     private string _message = string.Empty;
 
     /// <summary>
-    /// Whether to show the panel at all. A warehouse the server has never seen has no list to build,
+    /// Whether to show the panel at all. An inventory the server has never seen has no list to build,
     /// and one shared read-only has settings that are not this reader's to change.
     /// </summary>
     [ObservableProperty]
@@ -68,13 +68,13 @@ public sealed partial class RestockListSettingsPanel : ObservableObject
             ? "The list asks for products some task with a due date needs. What is running low but nothing is waiting on is left off."
             : "The list asks for everything on this shelf that has dropped below its own minimum."];
 
-    /// <summary>Which warehouse this is about, by the name the server knows it by - null while it has none.</summary>
-    public async Task ShowFor(Guid? warehouseServerId, CancellationToken cancellationToken)
+    /// <summary>Which inventory this is about, by the name the server knows it by - null while it has none.</summary>
+    public async Task ShowFor(Guid? inventoryServerId, CancellationToken cancellationToken)
     {
-        _warehouseServerId = warehouseServerId;
+        _inventoryServerId = inventoryServerId;
         Message = string.Empty;
 
-        if (warehouseServerId is not { } serverId)
+        if (inventoryServerId is not { } serverId)
         {
             IsOffered = false;
             return;
@@ -119,7 +119,7 @@ public sealed partial class RestockListSettingsPanel : ObservableObject
     private async Task ReportAsync(
         Func<Guid, Task<RestockRefreshResultDto>> act, CancellationToken cancellationToken)
     {
-        if (_warehouseServerId is not { } serverId)
+        if (_inventoryServerId is not { } serverId)
         {
             return;
         }

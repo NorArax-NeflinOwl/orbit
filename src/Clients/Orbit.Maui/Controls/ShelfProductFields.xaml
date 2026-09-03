@@ -6,10 +6,10 @@
     xmlns:controls="clr-namespace:Orbit.Maui.Controls"
     xmlns:common="clr-namespace:Orbit.Mobile.Screens;assembly=Orbit.Mobile"
     xmlns:screens="clr-namespace:Orbit.Mobile.Screens.Inventory;assembly=Orbit.Mobile"
-    x:DataType="screens:WarehouseItemEditor">
+    x:DataType="screens:InventoryItemEditor">
 
     <!-- Everything a product on a shelf is, as one form. Its own control because two screens ask for it:
-         the warehouse, where a product is opened directly, and a task list, where an Inventory errand
+         the inventory, where a product is opened directly, and a task list, where an Inventory errand
          opens the product it is about - see TaskItemShelfProduct. One form means a correction made from
          either place asks the same questions and applies the same rules. -->
     <VerticalStackLayout Spacing="10">

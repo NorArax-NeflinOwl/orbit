@@ -17,34 +17,34 @@
 
         <controls:PageHeader Grid.Row="0" Title="{controls:Translate 'Inventory'}">
             <controls:PageHeader.Subtitle>
-                <controls:Translate Text="Keep separate stocks in separate warehouses, and share one with someone over chat." />
+                <controls:Translate Text="Keep separate stocks in separate inventories, and share one with someone over chat." />
             </controls:PageHeader.Subtitle>
         </controls:PageHeader>
 
         <Grid Grid.Row="1" ColumnDefinitions="*,Auto" ColumnSpacing="8">
-            <Entry Grid.Column="0" Placeholder="{controls:Translate 'New warehouse'}" Text="{Binding NewWarehouseName}"
-                   ReturnType="Done" ReturnCommand="{Binding AddWarehouseCommand}" />
-            <Button Grid.Column="1" Text="{controls:Translate 'Add'}" Command="{Binding AddWarehouseCommand}" />
+            <Entry Grid.Column="0" Placeholder="{controls:Translate 'New inventory'}" Text="{Binding NewInventoryName}"
+                   ReturnType="Done" ReturnCommand="{Binding AddInventoryCommand}" />
+            <Button Grid.Column="1" Text="{controls:Translate 'Add'}" Command="{Binding AddInventoryCommand}" />
         </Grid>
 
-        <!-- "Which warehouse is the flour in?" - the one question this page could not answer, since it
+        <!-- "Which inventory is the flour in?" - the one question this page could not answer, since it
              lists shelves and not what is on them. -->
-        <Entry Grid.Row="2" Placeholder="{controls:Translate 'Find an item in any warehouse'}"
+        <Entry Grid.Row="2" Placeholder="{controls:Translate 'Find an item in any inventory'}"
                Text="{Binding SearchedItemName}" ClearButtonVisibility="WhileEditing" ReturnType="Search" />
 
         <RefreshView Grid.Row="3" IsRefreshing="{Binding IsRefreshing}" Command="{Binding LoadCommand}"
-                     IsVisible="{Binding IsShowingWarehouses}">
-            <CollectionView ItemsSource="{Binding Warehouses}"
+                     IsVisible="{Binding IsShowingInventories}">
+            <CollectionView ItemsSource="{Binding Inventories}"
                             SelectionMode="Single"
-                            SelectionChangedCommand="{Binding OpenWarehouseCommand}"
+                            SelectionChangedCommand="{Binding OpenInventoryCommand}"
                             SelectionChangedCommandParameter="{Binding SelectedItem, Source={RelativeSource Self}, x:DataType=CollectionView}">
 
                 <CollectionView.EmptyView>
-                    <Label Text="{controls:Translate 'No warehouses yet.'}" Padding="24" HorizontalTextAlignment="Center" />
+                    <Label Text="{controls:Translate 'No inventories yet.'}" Padding="24" HorizontalTextAlignment="Center" />
                 </CollectionView.EmptyView>
 
                 <CollectionView.ItemTemplate>
-                    <DataTemplate x:DataType="screens:WarehouseRow">
+                    <DataTemplate x:DataType="screens:InventoryRow">
                         <!-- The same card every list of things is drawn with - see ItemCard. -->
                         <controls:ItemCard Name="{Binding DisplayName}">
                             <controls:ItemCard.Tags>
@@ -56,7 +56,7 @@
 
                             <controls:ItemCard.Body>
                                 <VerticalStackLayout Spacing="2">
-                                    <!-- A hidden card keeps its place - a warehouse vanishing would look
+                                    <!-- A hidden card keeps its place - an inventory vanishing would look
                                          like it had been deleted - but says nothing until unlocked. -->
                                     <Button Text="{controls:Translate 'Unlock'}" IsVisible="{Binding IsHidden}"
                                             FontSize="12" Padding="12,2" HorizontalOptions="Start"
@@ -97,7 +97,7 @@
                             <Label Grid.Row="0" Grid.Column="0" Text="{Binding Name}" FontSize="17" FontAttributes="Bold" />
                             <Label Grid.Row="0" Grid.Column="1" Text="{Binding Amount}" FontSize="15" VerticalOptions="Center" />
                             <!-- Where it is, which is what was asked. -->
-                            <Label Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="2" Text="{Binding WarehouseName}"
+                            <Label Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="2" Text="{Binding InventoryName}"
                                    FontSize="12" TextColor="{AppThemeBinding Light={StaticResource SubtleTextLight}, Dark={StaticResource SubtleTextDark}}" />
                             <BoxView Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="2" HeightRequest="1" Margin="0,12,0,0" VerticalOptions="End"
                                      Color="{AppThemeBinding Light={StaticResource CardStrokeLight}, Dark={StaticResource CardStrokeDark}}" />

@@ -1,4 +1,4 @@
-using Orbit.Core.Inventory;
+using Orbit.Core.Inventories;
 using Orbit.Mobile.Localization;
 
 namespace Orbit.Mobile.Screens.Inventory;

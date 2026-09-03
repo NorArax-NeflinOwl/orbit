@@ -7,7 +7,7 @@ namespace Orbit.Web.Tests.Components;
 /// <summary>
 /// The three-way question every list on Orbit asks before it draws anything: not loaded yet, loaded
 /// and genuinely empty, or here it is. What "here it is" draws is entirely the caller's own, so that is
-/// not this component's to test - see Notes/Tasks/WarehousesTests for that.
+/// not this component's to test - see Notes/Tasks/InventoriesTests for that.
 /// </summary>
 public sealed class ObjectListTests : OrbitTestContext
 {

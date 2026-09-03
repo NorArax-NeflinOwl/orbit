@@ -1,24 +1,24 @@
-using Orbit.Core.Inventory;
+using Orbit.Core.Inventories;
 using Orbit.Core.Users;
 
 namespace Orbit.Api.Tests.TestDoubles;
 
 /// <summary>
 /// The whole in-memory collaborator graph an inventory handler needs, wired the same way DI wires the
-/// real one. Inventory grew a lot of collaborators once items moved under warehouses (access resolution,
-/// warehouse lookups, restock tasks), and every test needs the same handful - building them here keeps
+/// real one. Inventory grew a lot of collaborators once items moved under inventories (access resolution,
+/// inventory lookups, restock tasks), and every test needs the same handful - building them here keeps
 /// each test file down to the one handler it actually exercises.
 /// </summary>
 internal sealed class InventoryTestContext
 {
+    public InMemoryInventoryItemRepository InventoryItemRepository { get; } = new();
     public InMemoryInventoryRepository InventoryRepository { get; } = new();
-    public InMemoryWarehouseRepository WarehouseRepository { get; } = new();
-    public InMemoryWarehouseShareRepository WarehouseShareRepository { get; } = new();
+    public InMemoryInventoryShareRepository InventoryShareRepository { get; } = new();
     public InMemoryTaskRepository TaskRepository { get; } = new();
     public InMemoryInventoryManagedTaskListRepository ManagedTaskListRepository { get; } = new();
     public InMemoryUserRepository UserRepository { get; } = new();
 
-    public WarehouseAccessResolver AccessResolver { get; }
+    public InventoryAccessResolver AccessResolver { get; }
     public PendingRestockTaskResolver RestockTaskResolver { get; }
     public InventoryTaskListCoordinator TaskListCoordinator { get; }
 
@@ -27,20 +27,20 @@ internal sealed class InventoryTestContext
 
     public InventoryTestContext()
     {
-        AccessResolver = new WarehouseAccessResolver(WarehouseRepository, WarehouseShareRepository, UserRepository);
-        RestockTaskResolver = new PendingRestockTaskResolver(TaskRepository, WarehouseRepository);
+        AccessResolver = new InventoryAccessResolver(InventoryRepository, InventoryShareRepository, UserRepository);
+        RestockTaskResolver = new PendingRestockTaskResolver(TaskRepository, InventoryRepository);
         TaskListCoordinator = new InventoryTaskListCoordinator(
-            TaskRepository, ManagedTaskListRepository, WarehouseRepository, InventoryRepository, RestockTaskResolver);
+            TaskRepository, ManagedTaskListRepository, InventoryRepository, InventoryItemRepository, RestockTaskResolver);
         RestockCompletion = new RestockCompletion(
-            ManagedTaskListRepository, InventoryRepository, WarehouseRepository, TaskRepository);
+            ManagedTaskListRepository, InventoryItemRepository, InventoryRepository, TaskRepository);
     }
 
-    /// <summary>Creates and stores a warehouse owned by ownerUserId, returning its id - the starting point for almost every inventory test.</summary>
-    public Guid AddWarehouse(Guid ownerUserId, string name = "Kitchen")
+    /// <summary>Creates and stores an inventory owned by ownerUserId, returning its id - the starting point for almost every inventory test.</summary>
+    public Guid AddInventory(Guid ownerUserId, string name = "Kitchen")
     {
-        var warehouse = Warehouse.Create(ownerUserId, name);
-        WarehouseRepository.AddAsync(warehouse, CancellationToken.None).GetAwaiter().GetResult();
-        return warehouse.Id;
+        var inventory = Inventory.Create(ownerUserId, name);
+        InventoryRepository.AddAsync(inventory, CancellationToken.None).GetAwaiter().GetResult();
+        return inventory.Id;
     }
 
     /// <summary>Registers a user, needed by the paths that stamp a name onto something (the edit lock records who holds it).</summary>
@@ -51,11 +51,11 @@ internal sealed class InventoryTestContext
         UserRepository.AddAsync(user, CancellationToken.None).GetAwaiter().GetResult();
     }
 
-    /// <summary>Grants recipientUserId already-accepted access to warehouseId, for the tests that exercise a share recipient's view.</summary>
-    public void AddAcceptedShare(Guid warehouseId, Guid ownerUserId, Guid recipientUserId, Orbit.Core.Abstractions.ShareAccessLevel accessLevel)
+    /// <summary>Grants recipientUserId already-accepted access to inventoryId, for the tests that exercise a share recipient's view.</summary>
+    public void AddAcceptedShare(Guid inventoryId, Guid ownerUserId, Guid recipientUserId, Orbit.Core.Abstractions.ShareAccessLevel accessLevel)
     {
-        var share = WarehouseShare.Create(warehouseId, ownerUserId, recipientUserId, accessLevel);
+        var share = InventoryShare.Create(inventoryId, ownerUserId, recipientUserId, accessLevel);
         share.MarkAccepted();
-        WarehouseShareRepository.AddAsync(share, CancellationToken.None).GetAwaiter().GetResult();
+        InventoryShareRepository.AddAsync(share, CancellationToken.None).GetAwaiter().GetResult();
     }
 }

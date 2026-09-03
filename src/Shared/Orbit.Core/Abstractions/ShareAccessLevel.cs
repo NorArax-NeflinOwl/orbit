@@ -2,8 +2,8 @@ namespace Orbit.Core.Abstractions;
 
 /// <summary>
 /// The level of access a share offer grants its recipient once accepted - shared by calendar event,
-/// note, task list, and warehouse sharing (see CalendarEventShare, NoteShare, TaskListShare,
-/// WarehouseShare) so all four use the same concept instead of four copies of it.
+/// note, task list, and inventory sharing (see CalendarEventShare, NoteShare, TaskListShare,
+/// InventoryShare) so all four use the same concept instead of four copies of it.
 ///
 /// Declaration order is significant: the underlying int doubles as a rank, and nobody may ever grant
 /// more than they hold. It is not the whole rule, though - see <see cref="ShareAccess.CanGrant"/>,
@@ -33,7 +33,7 @@ public enum ShareAccessLevel
 
 /// <summary>
 /// The rules that read <see cref="ShareAccessLevel"/>. They live here rather than in each
-/// Share*CommandHandler because notes, task lists, events and warehouses must answer them identically -
+/// Share*CommandHandler because notes, task lists, events and inventories must answer them identically -
 /// four copies of "may this person grant that" is four chances for them to drift apart.
 /// </summary>
 public static class ShareAccess

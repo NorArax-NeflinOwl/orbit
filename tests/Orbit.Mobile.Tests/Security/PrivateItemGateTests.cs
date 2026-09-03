@@ -5,7 +5,7 @@ using Xunit;
 namespace Orbit.Mobile.Tests.Security;
 
 /// <summary>
-/// The gate in front of private notes, lists and warehouses.
+/// The gate in front of private notes, lists and inventories.
 ///
 /// IsPrivate already means "only the owner can read this, and the server never can". This is the half
 /// of that promise a phone is responsible for: the same guarantee against the person holding it rather

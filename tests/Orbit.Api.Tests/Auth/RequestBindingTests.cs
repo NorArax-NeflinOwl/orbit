@@ -55,7 +55,7 @@ public sealed class RequestBindingTests
         // defaulted parameter is the shape half these contracts use to stay additive.
         var body = """{"name":"Kitchen","items":[]}""";
 
-        var request = JsonSerializer.Deserialize<Orbit.Contracts.Inventory.SaveWarehouseRequest>(body, Options);
+        var request = JsonSerializer.Deserialize<Orbit.Contracts.Inventories.SaveInventoryRequest>(body, Options);
 
         Assert.False(request!.IsPrivate);
         Assert.Null(request.EncryptedContent);

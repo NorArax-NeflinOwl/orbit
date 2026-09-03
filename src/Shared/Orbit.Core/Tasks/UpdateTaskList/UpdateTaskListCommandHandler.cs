@@ -1,5 +1,5 @@
 using Orbit.Core.Abstractions;
-using Orbit.Core.Inventory;
+using Orbit.Core.Inventories;
 
 namespace Orbit.Core.Tasks.UpdateTaskList;
 

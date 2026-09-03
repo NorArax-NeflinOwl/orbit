@@ -1,6 +1,6 @@
 using Microsoft.Extensions.Time.Testing;
 using Orbit.Contracts.Calendar;
-using Orbit.Contracts.Inventory;
+using Orbit.Contracts.Inventories;
 using Orbit.Contracts.Notes;
 using Orbit.Contracts.Tasks;
 using Orbit.Mobile.Authentication;
@@ -19,7 +19,7 @@ namespace Orbit.Mobile.Tests.Screens.Copies;
 /// What happens when somebody comes back with copies in their pocket. The three answers the window
 /// offers are the whole of the offline conflict story on this phone, so each is checked for what it
 /// leaves behind rather than only for what it says - and for all four kinds, because one screen now
-/// decides between a note, a task list, an appointment and a warehouse.
+/// decides between a note, a task list, an appointment and an inventory.
 /// </summary>
 public sealed class CopyReviewScreenTests
 {
@@ -49,13 +49,13 @@ public sealed class CopyReviewScreenTests
         await context.CopyTheNoteAsync((await context.AddSharedNoteAsync("Shopping", "milk")).LocalId, "milk", "bread");
         await context.CopyTheTaskListAsync((await context.AddSharedTaskListAsync("Errands", "post office")).LocalId);
         await context.CopyTheAppointmentAsync((await context.AddSharedAppointmentAsync("Dentist")).LocalId);
-        await context.CopyTheWarehouseAsync((await context.AddSharedWarehouseAsync("Kitchen")).LocalId);
+        await context.CopyTheInventoryAsync((await context.AddSharedInventoryAsync("Kitchen")).LocalId);
 
         var screen = await context.OpenAsync();
 
         Assert.Equal(4, screen.Reviews.Count);
         Assert.Equal(
-            [CopyKind.Note, CopyKind.TaskList, CopyKind.CalendarEvent, CopyKind.Warehouse],
+            [CopyKind.Note, CopyKind.TaskList, CopyKind.CalendarEvent, CopyKind.Inventory],
             screen.Reviews.Select(review => review.Kind).Order());
         Assert.All(screen.Reviews, review => Assert.NotEqual(string.Empty, review.KindDescription));
     }
@@ -144,17 +144,17 @@ public sealed class CopyReviewScreenTests
     }
 
     [Fact]
-    public async Task Keeping_a_warehouses_copy_writes_its_shelf_back()
+    public async Task Keeping_a_inventories_copy_writes_its_shelf_back()
     {
         using var context = new ReviewContext();
-        var original = await context.AddSharedWarehouseAsync("Kitchen");
-        var copy = await context.CopyTheWarehouseAsync(original.LocalId);
+        var original = await context.AddSharedInventoryAsync("Kitchen");
+        var copy = await context.CopyTheInventoryAsync(original.LocalId);
         await context.RestockAsync(copy.LocalId, 9);
         var screen = await context.OpenAsync();
 
         await screen.KeepMineCommand.ExecuteAsync(screen.Reviews[0]);
 
-        var stored = await context.Warehouses.FindAsync(original.LocalId);
+        var stored = await context.Inventories.FindAsync(original.LocalId);
         Assert.Equal(9, Assert.Single(stored!.Items).Quantity);
     }
 
@@ -242,18 +242,18 @@ public sealed class CopyReviewScreenTests
         Assert.All(kept!.Items, item => Assert.DoesNotContain(item.Id, borrowedIds));
     }
 
-    /// <summary>The same rule for a shelf: a kept warehouse's items are new items, not the original's.</summary>
+    /// <summary>The same rule for a shelf: a kept inventory's items are new items, not the original's.</summary>
     [Fact]
-    public async Task A_kept_warehouse_stops_claiming_the_original_shelfs_item_ids()
+    public async Task A_kept_inventory_stops_claiming_the_original_shelfs_item_ids()
     {
         using var context = new ReviewContext();
-        var original = await context.AddSharedWarehouseAsync("Kitchen");
-        var copy = await context.CopyTheWarehouseAsync(original.LocalId);
+        var original = await context.AddSharedInventoryAsync("Kitchen");
+        var copy = await context.CopyTheInventoryAsync(original.LocalId);
         var screen = await context.OpenAsync();
 
         await screen.KeepBothCommand.ExecuteAsync(screen.Reviews[0]);
 
-        var kept = await context.Warehouses.FindAsync(copy.LocalId);
+        var kept = await context.Inventories.FindAsync(copy.LocalId);
         Assert.All(kept!.Items, item => Assert.Null(item.Id));
     }
 
@@ -385,7 +385,7 @@ public sealed class CopyReviewScreenTests
             Notes = new LocalNoteRepository(_localStore, _clock, Network, privateContent);
             TaskLists = new LocalTaskListRepository(_localStore, _clock, Network, privateContent);
             Appointments = new LocalCalendarEventRepository(_localStore, _clock, Network);
-            Warehouses = new LocalWarehouseRepository(_localStore, _clock, Network, privateContent);
+            Inventories = new LocalInventoryRepository(_localStore, _clock, Network, privateContent);
 
             var sessionStore = new SessionStore(new InMemorySessionStorage(
                 new UserSession("access", "refresh", Guid.NewGuid(), "me@orbit.example", "Ala")));
@@ -404,7 +404,7 @@ public sealed class CopyReviewScreenTests
 
         public LocalCalendarEventRepository Appointments { get; }
 
-        public LocalWarehouseRepository Warehouses { get; }
+        public LocalInventoryRepository Inventories { get; }
 
         public FixedNetworkStatus Network { get; } = FixedNetworkStatus.Online;
 
@@ -431,12 +431,12 @@ public sealed class CopyReviewScreenTests
             return appointment;
         }
 
-        public async Task<LocalWarehouse> AddSharedWarehouseAsync(string name)
+        public async Task<LocalInventory> AddSharedInventoryAsync(string name)
         {
-            var warehouse = await Warehouses.CreateAsync(name);
-            await Warehouses.UpdateAsync(warehouse.LocalId, new WarehouseContent(name, [Shelf(4)]));
-            await ShareAsync<LocalWarehouse>(warehouse.LocalId);
-            return warehouse;
+            var inventory = await Inventories.CreateAsync(name);
+            await Inventories.UpdateAsync(inventory.LocalId, new InventoryContent(name, [Shelf(4)]));
+            await ShareAsync<LocalInventory>(inventory.LocalId);
+            return inventory;
         }
 
         /// <summary>
@@ -467,8 +467,8 @@ public sealed class CopyReviewScreenTests
         public Task<LocalCalendarEvent> CopyTheAppointmentAsync(Guid originalLocalId)
             => Copied(Appointments.CopyForEditingAsync(originalLocalId));
 
-        public Task<LocalWarehouse> CopyTheWarehouseAsync(Guid originalLocalId)
-            => Copied(Warehouses.CopyForEditingAsync(originalLocalId));
+        public Task<LocalInventory> CopyTheInventoryAsync(Guid originalLocalId)
+            => Copied(Inventories.CopyForEditingAsync(originalLocalId));
 
         public async Task WriteIntoTheTaskListAsync(Guid localId, params string[] descriptions)
         {
@@ -487,8 +487,8 @@ public sealed class CopyReviewScreenTests
 
         public async Task RestockAsync(Guid localId, decimal quantity)
         {
-            var stored = await Warehouses.FindAsync(localId);
-            await Warehouses.UpdateAsync(localId, new WarehouseContent(stored!.Name, [Shelf(quantity)]));
+            var stored = await Inventories.FindAsync(localId);
+            await Inventories.UpdateAsync(localId, new InventoryContent(stored!.Name, [Shelf(quantity)]));
         }
 
         /// <summary>Somebody else's change to the same note, as a pull would have brought it in.</summary>
@@ -518,7 +518,7 @@ public sealed class CopyReviewScreenTests
         public async Task<CopyReviewViewModel> OpenAsync()
         {
             var screen = new CopyReviewViewModel(
-                [Notes, TaskLists, Appointments, Warehouses], _synchronizer,
+                [Notes, TaskLists, Appointments, Inventories], _synchronizer,
                 new Translations(new InMemoryLanguageStore()), new RecordingScreenNavigator());
 
             await screen.LoadCommand.ExecuteAsync(null);
@@ -535,7 +535,7 @@ public sealed class CopyReviewScreenTests
         private static TaskItemDto Entry(string description)
             => new(Guid.NewGuid(), description, null, false, null, "None", false, "None", new TimeOnly(9, 0));
 
-        private static WarehouseItemDto Shelf(decimal quantity)
+        private static InventoryItemRequest Shelf(decimal quantity)
             => new(Guid.NewGuid(), "Flour", "Dry", "Baking", quantity, 2, "Kilogram", null, "None");
 
         private static CalendarEventDetailsDto Details(string title)

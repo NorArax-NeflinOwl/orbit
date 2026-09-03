@@ -1,6 +1,6 @@
 using System.Globalization;
 using Orbit.Core.Calendar;
-using Orbit.Core.Inventory;
+using Orbit.Core.Inventories;
 using Orbit.Core.Notes;
 using Orbit.Core.Tasks;
 using Orbit.Core.Users;
@@ -19,23 +19,23 @@ public sealed class PublicSharedItemReader
     private readonly INoteRepository _noteRepository;
     private readonly ITaskRepository _taskRepository;
     private readonly ICalendarEventRepository _calendarEventRepository;
-    private readonly IWarehouseRepository _warehouseRepository;
     private readonly IInventoryRepository _inventoryRepository;
+    private readonly IInventoryItemRepository _inventoryItemRepository;
     private readonly IUserRepository _userRepository;
 
     public PublicSharedItemReader(
         INoteRepository noteRepository,
         ITaskRepository taskRepository,
         ICalendarEventRepository calendarEventRepository,
-        IWarehouseRepository warehouseRepository,
         IInventoryRepository inventoryRepository,
+        IInventoryItemRepository inventoryItemRepository,
         IUserRepository userRepository)
     {
         _noteRepository = noteRepository;
         _taskRepository = taskRepository;
         _calendarEventRepository = calendarEventRepository;
-        _warehouseRepository = warehouseRepository;
         _inventoryRepository = inventoryRepository;
+        _inventoryItemRepository = inventoryItemRepository;
         _userRepository = userRepository;
     }
 
@@ -64,8 +64,8 @@ public sealed class PublicSharedItemReader
                     : null,
                 ownerUserId),
             _ => IsOwnedAndPublishable(
-                await _warehouseRepository.GetByIdAsync(ownerUserId, itemId, cancellationToken) is { } warehouse
-                    ? (warehouse.UserId, warehouse.IsPrivate)
+                await _inventoryRepository.GetByIdAsync(ownerUserId, itemId, cancellationToken) is { } inventory
+                    ? (inventory.UserId, inventory.IsPrivate)
                     : null,
                 ownerUserId)
         };
@@ -85,7 +85,7 @@ public sealed class PublicSharedItemReader
             SharedItemType.Note => await ReadNoteAsync(link, ownerDisplayName, cancellationToken),
             SharedItemType.TaskList => await ReadTaskListAsync(link, ownerDisplayName, cancellationToken),
             SharedItemType.CalendarEvent => await ReadCalendarEventAsync(link, ownerDisplayName, cancellationToken),
-            _ => await ReadWarehouseAsync(link, ownerDisplayName, cancellationToken)
+            _ => await ReadInventoryAsync(link, ownerDisplayName, cancellationToken)
         };
     }
 
@@ -156,15 +156,15 @@ public sealed class PublicSharedItemReader
             calendarEvent.UpdatedAtUtc);
     }
 
-    private async Task<PublicSharedItem?> ReadWarehouseAsync(PublicShareLink link, string ownerDisplayName, CancellationToken cancellationToken)
+    private async Task<PublicSharedItem?> ReadInventoryAsync(PublicShareLink link, string ownerDisplayName, CancellationToken cancellationToken)
     {
-        var warehouse = await _warehouseRepository.GetByIdAsync(link.OwnerUserId, link.ItemId, cancellationToken);
-        if (warehouse is null || warehouse.UserId != link.OwnerUserId || warehouse.IsPrivate)
+        var inventory = await _inventoryRepository.GetByIdAsync(link.OwnerUserId, link.ItemId, cancellationToken);
+        if (inventory is null || inventory.UserId != link.OwnerUserId || inventory.IsPrivate)
         {
             return null;
         }
 
-        var items = await _inventoryRepository.GetAllAsync(warehouse.Id, cancellationToken);
+        var items = await _inventoryItemRepository.GetAllAsync(inventory.Id, cancellationToken);
         var lines = items
             .Select(item => new PublicSharedItemLine(
                 item.Name, IsChecklistItem: false, IsChecked: false,
@@ -174,7 +174,7 @@ public sealed class PublicSharedItemReader
         var subtitle = items.Count == 1 ? "1 item" : $"{items.Count} items";
 
         return new PublicSharedItem(
-            SharedItemType.Warehouse, warehouse.Name, subtitle, lines, ownerDisplayName, warehouse.UpdatedAtUtc);
+            SharedItemType.Inventory, inventory.Name, subtitle, lines, ownerDisplayName, inventory.UpdatedAtUtc);
     }
 
     private static bool IsOwnedAndPublishable((Guid OwnerUserId, bool IsPrivate)? item, Guid ownerUserId)

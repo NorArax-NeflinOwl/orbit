@@ -41,7 +41,7 @@ Read one of them end to end before writing anything.
 - `Repositories/<Thing>Repository.cs` implementing the `Orbit.Core` interface (plus a
   `...EntityMapper.cs` beside it when the mapping is not trivial).
 - Register in `OrbitDataServiceCollectionExtensions.AddOrbitData`.
-- Migration: `dotnet ef migrations add <Name>` (exact command in `README.md`); migrations are applied
+- Migration: `dotnet ef migrations add <Name>` (exact command in `info/testing-and-running-locally.md`); migrations are applied
   automatically at API startup (`dbContext.Database.Migrate()` in `Program.cs`), so a migration file
   is all a deployment needs.
 

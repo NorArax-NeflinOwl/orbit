@@ -76,7 +76,7 @@ public static class PolishTranslations
             "Ten magazyn jest już mierzony względem innej listy.",
         ["Couldn't measure this list against that storage. Try again."] =
             "Nie udało się zmierzyć tej listy względem tego magazynu. Spróbuj ponownie.",
-        ["Not measured against a warehouse"] = "Bez porównania z magazynem",
+        ["Not measured against a inventory"] = "Bez porównania z magazynem",
         ["Storage this list is measured against"] = "Magazyn, względem którego mierzona jest ta lista",
         ["An inventory entry then describes a product to put on that shelf."] =
             "Pozycja typu inwentarz opisuje wtedy produkt, który ma trafić na tę półkę.",
@@ -116,7 +116,7 @@ public static class PolishTranslations
             "Nazwanie to całość tej pozycji: „Wygeneruj magazyn” w menu powyżej tworzy jeden produkt na każdą odrębną nazwę, liczony w sztukach, a ta sama nazwa dwa razy oznacza prośbę o dwie sztuki.",
         ["This entry isn't tied to a product yet, so there is nothing to edit here."] = "Ta pozycja nie jest jeszcze powiązana z produktem, więc nie ma tu czego edytować.",
         ["No other list yet"] = "Nie ma jeszcze innej listy",
-        ["The list was saved, but the shelf couldn't be updated. Open the warehouse and check it."] = "Lista została zapisana, ale nie udało się zaktualizować magazynu. Otwórz magazyn i sprawdź.",
+        ["The list was saved, but the shelf couldn't be updated. Open the inventory and check it."] = "Lista została zapisana, ale nie udało się zaktualizować magazynu. Otwórz magazyn i sprawdź.",
         ["Pick a point on the map, or type what to call this place"] = "Wskaż punkt na mapie albo wpisz, jak nazwać to miejsce",
         ["The name is yours to write - the pin below keeps its exact position either way."] = "Nazwę piszesz sam – pinezka i tak zachowuje swoje dokładne położenie.",
         ["Use the address from the map"] = "Użyj adresu z mapy",
@@ -143,7 +143,7 @@ public static class PolishTranslations
         ["Related inventory"] = "Powiązany magazyn",
         ["Done: {0}"] = "Zrobione: {0}",
         ["About this list"] = "O tej liście",
-        ["About this warehouse"] = "O tym magazynie",
+        ["About this inventory"] = "O tym magazynie",
         ["No contacts yet."] = "Brak kontaktów.",
         ["Banner only"] = "Tylko baner",
         ["Push and email"] = "Push i e-mail",
@@ -185,12 +185,12 @@ public static class PolishTranslations
         ["Minimal"] = "Minimalistyczny",
         ["Normal view"] = "Normalny",
         ["Full"] = "Pełny",
-        ["Lists measured against this warehouse"] = "Listy mierzone tym magazynem",
+        ["Lists measured against this inventory"] = "Listy mierzone tym magazynem",
         ["{0} (shared with another list)"] = "{0} (dzielony z inną listą)",
         ["A shelf several lists ask for is split between them, so each is told its own share."] = "Półkę, o którą prosi kilka list, dzielimy między nie — każda widzi swoją część.",
-        ["Measure {0} against this warehouse"] = "Mierz „{0}” tym magazynem",
+        ["Measure {0} against this inventory"] = "Mierz „{0}” tym magazynem",
         ["now measured against {0}"] = "teraz mierzona magazynem {0}",
-        ["Couldn't measure \"{0}\" against this warehouse. Try again."] = "Nie udało się zmierzyć „{0}” tym magazynem. Spróbuj ponownie.",
+        ["Couldn't measure \"{0}\" against this inventory. Try again."] = "Nie udało się zmierzyć „{0}” tym magazynem. Spróbuj ponownie.",
         ["Restock list"] = "Lista uzupełnień",
         ["Only what a dated task is waiting on"] = "Tylko to, na co czeka zadanie z terminem",
         ["The list asks for products some task with a due date needs. What is running low but nothing is waiting on is left off."] = "Lista prosi o produkty potrzebne zadaniu z terminem. To, czego brakuje, ale nic na to nie czeka, zostaje pominięte.",
@@ -213,12 +213,12 @@ public static class PolishTranslations
         ["Restock:"] = "Uzupełnij:",
         ["Update stock levels"] = "Zaktualizuj stany magazynowe",
 
-        ["{0} crossed off, because the warehouse covers them."] = "Odhaczono {0}, bo magazyn je pokrywa.",
-        ["{0} added from the warehouse."] = "Dodano z magazynu: {0}.",
-        ["{0} crossed off, because the warehouse covers them, and {1} added from the warehouse."] =
+        ["{0} crossed off, because the inventory covers them."] = "Odhaczono {0}, bo magazyn je pokrywa.",
+        ["{0} added from the inventory."] = "Dodano z magazynu: {0}.",
+        ["{0} crossed off, because the inventory covers them, and {1} added from the inventory."] =
             "Odhaczono {0}, bo magazyn je pokrywa, oraz dodano z magazynu: {1}.",
-        ["Nothing new is covered by the warehouse."] = "Magazyn nie pokrywa niczego nowego.",
-        ["Finish this list and set every item in the warehouse to its minimum?"] =
+        ["Nothing new is covered by the inventory."] = "Magazyn nie pokrywa niczego nowego.",
+        ["Finish this list and set every item in the inventory to its minimum?"] =
             "Czy chcesz zakończyć zadanie i ustawić wszystkim elementom minimalną wartość na magazynie?",
         // The two answers to the question above. The web has the browser's own OK and Cancel; a phone
         // alert names its buttons, and "OK" would not say which of the two things it does.
@@ -226,7 +226,7 @@ public static class PolishTranslations
         ["Just this one"] = "Tylko to",
         ["{0} brought up to their minimum."] = "Uzupełniono do minimum: {0}.",
         ["Couldn't finish the restocking. Try again."] = "Nie udało się zakończyć uzupełniania. Spróbuj ponownie.",
-        ["Couldn't recalculate against the warehouse. Try again."] =
+        ["Couldn't recalculate against the inventory. Try again."] =
             "Nie udało się przeliczyć względem magazynu. Spróbuj ponownie.",
         ["Hide"] = "Ukryj",
         ["Show on the dashboard"] = "Pokaż na pulpicie",
@@ -357,7 +357,7 @@ public static class PolishTranslations
         ["This note was also changed elsewhere."] = "Ta notatka zmieniła się też gdzie indziej.",
         ["The note this came from is gone."] = "Notatki, z której to powstało, już nie ma.",
         // What each kind is called, for the two copy windows that hold all four at once. "Note",
-        // "Task list" and "Warehouse" are already translated above, under the words the whole app shares.
+        // "Task list" and "Inventory" are already translated above, under the words the whole app shares.
         ["Appointment"] = "Spotkanie",
         ["Your copy"] = "Twoja kopia",
         ["Changed elsewhere"] = "Zmienione gdzie indziej",
@@ -383,7 +383,7 @@ public static class PolishTranslations
         ["How the daily reminder arrives"] = "Jak przychodzi codzienne przypomnienie",
         // What the banner offers when a notification arrives with the app in front - see ForegroundNotices.
         ["Dismiss"] = "Odrzuć",
-        // ---- What a list or a warehouse is for, under its name - see TaskListDetailViewModel. ----
+        // ---- What a list or a inventory is for, under its name - see TaskListDetailViewModel. ----
         ["What is it for?"] = "Do czego to jest?",
         // ---- Putting a conversation away, emptying it, and leaving a group - see ContactsViewModel. ----
         ["Show what is put away"] = "Pokaż odłożone",
@@ -440,7 +440,7 @@ public static class PolishTranslations
         ["Saved, but that place could not be found - open the map and point at it to keep it."] =
             "Zapisano, ale nie udało się znaleźć tego miejsca - otwórz mapę i wskaż je, żeby je zachować.",
 
-        // What rebuilding a warehouse's restock list moved, and what it needs - see the phone's
+        // What rebuilding a inventory's restock list moved, and what it needs - see the phone's
         // RestockListSettingsPanel, which shows the settings Orbit.Web has had all along.
         ["Added {0}, removed {1}."] = "Dodano {0}, usunięto {1}.",
         ["The restock list needs a connection."] = "Lista uzupełnień wymaga połączenia.",
@@ -454,7 +454,7 @@ public static class PolishTranslations
             "Orbitowi nie udało się zapisać zmiany na liście zadań, więc nie czeka już na wysłanie.",
         ["Orbit couldn't save a change to an appointment, so it is no longer waiting to be sent."] =
             "Orbitowi nie udało się zapisać zmiany w spotkaniu, więc nie czeka już na wysłanie.",
-        ["Orbit couldn't save a change to a warehouse, so it is no longer waiting to be sent."] =
+        ["Orbit couldn't save a change to a inventory, so it is no longer waiting to be sent."] =
             "Orbitowi nie udało się zapisać zmiany w magazynie, więc nie czeka już na wysłanie.",
         ["Orbit couldn't save a change, so it is no longer waiting to be sent."] =
             "Orbitowi nie udało się zapisać zmiany, więc nie czeka już na wysłanie.",
@@ -465,7 +465,7 @@ public static class PolishTranslations
             "Bez połączenia pisałeś w kopii listy zadań „{0}”.",
         ["You wrote in a copy of the appointment “{0}” while you were offline."] =
             "Bez połączenia pisałeś w kopii spotkania „{0}”.",
-        ["You wrote in a copy of the warehouse “{0}” while you were offline."] =
+        ["You wrote in a copy of the inventory “{0}” while you were offline."] =
             "Bez połączenia pisałeś w kopii magazynu „{0}”.",
 
         // ---- Tasks ----
@@ -518,16 +518,16 @@ public static class PolishTranslations
         ["Any type"] = "Dowolny typ",
         ["Any category"] = "Dowolna kategoria",
         ["Search items by name"] = "Szukaj pozycji po nazwie",
-        ["Find an item in any warehouse"] = "Znajdź pozycję w dowolnym magazynie",
-        ["Looking through your warehouses…"] = "Przeszukuję magazyny…",
+        ["Find an item in any inventory"] = "Znajdź pozycję w dowolnym magazynie",
+        ["Looking through your inventories…"] = "Przeszukuję magazyny…",
         ["Nothing on any shelf matches that."] = "Nic na żadnej półce nie pasuje.",
-        ["Found in {0} of {1} warehouses."] = "Znaleziono w {0} z {1} magazynów.",
-        ["Found in {0} of {1} warehouses. {2} could not be opened, so nothing in them was searched."] =
+        ["Found in {0} of {1} inventories."] = "Znaleziono w {0} z {1} magazynów.",
+        ["Found in {0} of {1} inventories. {2} could not be opened, so nothing in them was searched."] =
             "Znaleziono w {0} z {1} magazynów. {2} nie udało się otworzyć, więc nic w nich nie zostało przeszukane.",
         ["Move up"] = "Przenieś w górę",
         ["Move down"] = "Przenieś w dół",
         ["Show everything"] = "Pokaż wszystko",
-        ["Nothing here matches that. The rest of the warehouse is still there - clear the filter to see it."] = "Nic tu nie pasuje. Reszta magazynu nadal tam jest - wyczyść filtr, żeby ją zobaczyć.",
+        ["Nothing here matches that. The rest of the inventory is still there - clear the filter to see it."] = "Nic tu nie pasuje. Reszta magazynu nadal tam jest - wyczyść filtr, żeby ją zobaczyć.",
         ["Showing {0} of {1} items. Saving keeps all of them."] = "Widocznych {0} z {1} pozycji. Zapis zachowuje wszystkie.",
         ["Piece"] = "Sztuka",
         ["Kilogram"] = "Kilogram",
@@ -603,14 +603,14 @@ public static class PolishTranslations
         ["The event's end can't be before its start."] = "Koniec wydarzenia nie może być przed jego początkiem.",
 
         // ---- Inventory ----
-        ["Add warehouse"] = "Dodaj magazyn",
-        ["Keep separate stocks in separate warehouses, and share one with someone over chat."] =
+        ["Add inventory"] = "Dodaj magazyn",
+        ["Keep separate stocks in separate inventories, and share one with someone over chat."] =
             "Trzymaj różne zapasy w osobnych magazynach i udostępnij któryś komuś przez czat.",
-        ["No warehouses yet. Create one to start tracking stock."] =
+        ["No inventories yet. Create one to start tracking stock."] =
             "Nie ma jeszcze magazynów. Utwórz jeden, żeby zacząć pilnować zapasów.",
         ["No items yet."] = "Nie ma jeszcze pozycji.",
         ["Item name"] = "Nazwa pozycji",
-        ["Warehouse name"] = "Nazwa magazynu",
+        ["Inventory name"] = "Nazwa magazynu",
         ["Product type"] = "Rodzaj produktu",
         ["Category"] = "Kategoria",
         ["Categories"] = "Kategorie",
@@ -787,7 +787,7 @@ public static class PolishTranslations
         ["{0} shared a note with you"] = "{0} udostępnił(a) Ci notatkę",
         ["{0} shared a task list with you"] = "{0} udostępnił(a) Ci listę zadań",
         ["{0} shared an event with you"] = "{0} udostępnił(a) Ci wydarzenie",
-        ["{0} shared a warehouse with you"] = "{0} udostępnił(a) Ci magazyn",
+        ["{0} shared a inventory with you"] = "{0} udostępnił(a) Ci magazyn",
         ["{0} shared their location with you"] = "{0} udostępnił(a) Ci swoje położenie",
         ["All day"] = "Cały dzień",
         ["Shared by"] = "Udostępnił",
@@ -834,10 +834,10 @@ public static class PolishTranslations
         ["Completion follows the linked list, so it can't be ticked by hand."] =
             "Ukończenie wynika z powiązanej listy, więc nie da się go odhaczyć ręcznie.",
         ["Sorts this list against the others. Its progress is worked out from its items."] = "Porządkuje tę listę względem pozostałych. Postęp wynika z jej pozycji.",
-        ["All warehouses"] = "Wszystkie magazyny",
+        ["All inventories"] = "Wszystkie magazyny",
         ["Expiry notification"] = "Powiadomienie o terminie ważności",
         ["Running low"] = "Kończy się",
-        ["Everything in this warehouse, edited together - a low item still raises a restock task."] =
+        ["Everything in this inventory, edited together - a low item still raises a restock task."] =
             "Cała zawartość magazynu, edytowana razem — kończąca się pozycja nadal tworzy zadanie uzupełnienia.",
         ["No contacts to share with yet - start a conversation first."] =
             "Nie masz jeszcze komu udostępnić — zacznij od rozmowy.",
@@ -942,7 +942,8 @@ public static class PolishTranslations
         ["Task list"] = "Lista zadań",
         ["Event"] = "Wydarzenie",
         ["Storage"] = "Magazyn",
-        ["Warehouse"] = "Magazyn",
+        // "Inventory" is not repeated here: it is already among the section names above, and it is the
+        // same word in Polish either way.
         ["Checklist"] = "Lista kontrolna",
 
         // ---- What the app says when something worked, or didn't. Composed in code rather than
@@ -956,7 +957,7 @@ public static class PolishTranslations
             "Nie udało się wczytać pulpitu. Sprawdź połączenie i spróbuj ponownie.",
         ["Couldn't load your groups. Check your connection and try again."] =
             "Nie udało się wczytać grup. Sprawdź połączenie i spróbuj ponownie.",
-        ["Couldn't load your warehouses. Check your connection and try again."] =
+        ["Couldn't load your inventories. Check your connection and try again."] =
             "Nie udało się wczytać magazynów. Sprawdź połączenie i spróbuj ponownie.",
         ["Failed to load contacts. Check your connection and try again."] =
             "Nie udało się wczytać kontaktów. Sprawdź połączenie i spróbuj ponownie.",
@@ -970,17 +971,17 @@ public static class PolishTranslations
         ["Failed to save the event. Try again."] = "Nie udało się zapisać wydarzenia. Spróbuj ponownie.",
         ["Failed to save the note. Try again."] = "Nie udało się zapisać notatki. Spróbuj ponownie.",
         ["Failed to save the task list. Try again."] = "Nie udało się zapisać listy zadań. Spróbuj ponownie.",
-        ["Failed to save the warehouse. Try again."] = "Nie udało się zapisać magazynu. Spróbuj ponownie.",
+        ["Failed to save the inventory. Try again."] = "Nie udało się zapisać magazynu. Spróbuj ponownie.",
         ["Couldn't save that change. Try again."] = "Nie udało się zapisać tej zmiany. Spróbuj ponownie.",
         ["Couldn't save your profile. Try again."] = "Nie udało się zapisać profilu. Spróbuj ponownie.",
         ["Couldn't save it. Try again."] = "Nie udało się tego zapisać. Spróbuj ponownie.",
         ["Couldn't delete the event. Try again."] = "Nie udało się usunąć wydarzenia. Spróbuj ponownie.",
-        ["Failed to create the warehouse. Try again."] = "Nie udało się utworzyć magazynu. Spróbuj ponownie.",
-        ["Failed to delete the warehouse. Try again."] = "Nie udało się usunąć magazynu. Spróbuj ponownie.",
+        ["Failed to create the inventory. Try again."] = "Nie udało się utworzyć magazynu. Spróbuj ponownie.",
+        ["Failed to delete the inventory. Try again."] = "Nie udało się usunąć magazynu. Spróbuj ponownie.",
         ["Failed to move this item. Try again."] = "Nie udało się przenieść tej pozycji. Spróbuj ponownie.",
         ["Failed to share the note."] = "Nie udało się udostępnić notatki.",
         ["Failed to share the task list."] = "Nie udało się udostępnić listy zadań.",
-        ["Failed to share the warehouse."] = "Nie udało się udostępnić magazynu.",
+        ["Failed to share the inventory."] = "Nie udało się udostępnić magazynu.",
         ["Couldn't forward the message."] = "Nie udało się przekazać wiadomości.",
         ["Couldn't create the link. Try again."] = "Nie udało się utworzyć linku. Spróbuj ponownie.",
         ["Couldn't stop sharing. Try again."] = "Nie udało się zakończyć udostępniania. Spróbuj ponownie.",
@@ -1058,7 +1059,7 @@ public static class PolishTranslations
             "{0} właśnie edytuje tę listę zadań — w tej chwili nie możesz jej zmieniać.",
         ["{0} is currently editing this event - you can't edit it right now."] =
             "{0} właśnie edytuje to wydarzenie — w tej chwili nie możesz go zmieniać.",
-        ["{0} is currently editing this warehouse - you can't edit it right now."] =
+        ["{0} is currently editing this inventory - you can't edit it right now."] =
             "{0} właśnie edytuje ten magazyn — w tej chwili nie możesz go zmieniać.",
         ["{0} is currently editing \"{1}\" - try again in a moment."] =
             "{0} właśnie edytuje „{1}” — spróbuj za chwilę.",
@@ -1089,7 +1090,7 @@ public static class PolishTranslations
         ["a note"] = "notatkę",
         ["a task list"] = "listę zadań",
         ["an event"] = "wydarzenie",
-        ["a warehouse"] = "magazyn",
+        ["a inventory"] = "magazyn",
         ["An error occurred while logging in. Try again."] = "Wystąpił błąd podczas logowania. Spróbuj ponownie.",
         ["An error occurred while registering. Try again."] = "Wystąpił błąd podczas rejestracji. Spróbuj ponownie.",
         ["Tick items off; use Edit to change the list itself."] = "Odhaczaj pozycje; użyj Edytuj, aby zmienić samą listę.",
@@ -1163,7 +1164,7 @@ public static class PolishTranslations
         ["another list"] = "inną listą",
         ["This is done when {0} is."] = "To jest zrobione, gdy zrobione jest: {0}.",
         ["Yes"] = "Tak",
-        ["That warehouse no longer exists."] = "Tego magazynu już nie ma.",
+        ["That inventory no longer exists."] = "Tego magazynu już nie ma.",
         ["Nothing on this shelf yet."] = "Na tej półce nic jeszcze nie ma.",
         ["added {0}"] = "dodano {0}",
         ["best before {0}"] = "najlepiej spożyć przed {0}",
@@ -1315,10 +1316,10 @@ public static class PolishTranslations
         ["New item"] = "Nowa pozycja",
         ["New list"] = "Nowa lista",
         ["New username"] = "Nowa nazwa użytkownika",
-        ["New warehouse"] = "Nowy magazyn",
+        ["New inventory"] = "Nowy magazyn",
         ["No messages yet."] = "Nie ma jeszcze wiadomości.",
         ["No notes yet."] = "Nie ma jeszcze notatek.",
-        ["No warehouses yet."] = "Nie ma jeszcze magazynów.",
+        ["No inventories yet."] = "Nie ma jeszcze magazynów.",
         ["Nobody is sharing their position with you."] = "Nikt nie udostępnia Ci swojego położenia.",
         ["Nobody."] = "Nikt.",
         ["Nothing coming up."] = "Nic się nie zbliża.",
@@ -1326,7 +1327,7 @@ public static class PolishTranslations
         ["Nothing here yet."] = "Nic tu jeszcze nie ma.",
         ["Nothing here yet. Add a note or a task to get started."] =
             "Nic tu jeszcze nie ma. Dodaj notatkę albo zadanie, żeby zacząć.",
-        ["Nothing in this warehouse yet."] = "W tym magazynie nic jeszcze nie ma.",
+        ["Nothing in this inventory yet."] = "W tym magazynie nic jeszcze nie ma.",
         ["Nothing on this list yet."] = "Na tej liście nic jeszcze nie ma.",
         ["Notification settings"] = "Ustawienia powiadomień",
         ["Notify me"] = "Powiadamiaj mnie",
@@ -1388,8 +1389,8 @@ public static class PolishTranslations
         ["Item options"] = "Opcje pozycji",
         ["{0} minutes before"] = "{0} min przed",
         ["List options"] = "Opcje listy",
-        ["Built a warehouse from what this list needs."] = "Zbudowano magazyn z tego, czego potrzebuje ta lista.",
-        ["There was nothing on this list to build a warehouse from."]
+        ["Built a inventory from what this list needs."] = "Zbudowano magazyn z tego, czego potrzebuje ta lista.",
+        ["There was nothing on this list to build a inventory from."]
             = "Na tej liście nie było nic, z czego można zbudować magazyn.",
         ["Added {0} to the restock list."] = "Dodano {0} do listy uzupełnień.",
         ["Nothing new to add - what is short is already waiting there."]
@@ -1400,7 +1401,7 @@ public static class PolishTranslations
         ["Somebody else"] = "Ktoś inny",
         ["Name of the place"] = "Nazwa miejsca",
         ["Couldn't work out where this phone is."] = "Nie udało się ustalić, gdzie jest ten telefon.",
-        ["Delete warehouse"] = "Usuń magazyn",
+        ["Delete inventory"] = "Usuń magazyn",
         ["Delete item"] = "Usuń pozycję",
         ["Line options"] = "Opcje wiersza",
         ["Make it a checklist item"] = "Zmień w pozycję listy",
@@ -1415,7 +1416,7 @@ public static class PolishTranslations
         ["Shared with others - read-only until you're back online"] =
             "Udostępnione innym — tylko do odczytu, dopóki nie wrócisz online",
         ["Saved on this phone - it will sync later"] = "Zapisano na tym telefonie — zsynchronizuje się później",
-        ["Somebody else can change this warehouse, and Orbit can't be reached to check. It stays read-only until you're back online."] =
+        ["Somebody else can change this inventory, and Orbit can't be reached to check. It stays read-only until you're back online."] =
             "Ktoś inny może zmieniać ten magazyn, a Orbit jest poza zasięgiem i nie da się tego sprawdzić. Zostaje tylko do odczytu, dopóki nie wrócisz online.",
 
         // Counted things put the label first and the number after it. Polish declines the noun
@@ -1609,11 +1610,11 @@ public static class PolishTranslations
             "Ta lista jest prywatna. Odblokuj klucz szyfrowania na tym urządzeniu, żeby ją przeczytać.",
         ["This list was sealed with an encryption key this account no longer has."] =
             "Ta lista została zapieczętowana kluczem szyfrowania, którego to konto już nie ma.",
-        ["This warehouse is private, and its contents are sealed with a key this phone doesn't have."] =
+        ["This inventory is private, and its contents are sealed with a key this phone doesn't have."] =
             "Ten magazyn jest prywatny, a jego zawartość jest zapieczętowana kluczem, którego ten telefon nie ma.",
-        ["This warehouse is private. Unlock this device's encryption key to read it."] =
+        ["This inventory is private. Unlock this device's encryption key to read it."] =
             "Ten magazyn jest prywatny. Odblokuj klucz szyfrowania na tym urządzeniu, żeby go otworzyć.",
-        ["This warehouse was sealed with an encryption key this account no longer has."] =
+        ["This inventory was sealed with an encryption key this account no longer has."] =
             "Ten magazyn został zapieczętowany kluczem szyfrowania, którego to konto już nie ma.",
 
         // One group message's own info view: who it reached, and who has opened it.

@@ -4,7 +4,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.ChangeTracking;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Orbit.Contracts.Calendar;
-using Orbit.Contracts.Inventory;
+using Orbit.Contracts.Inventories;
 using Orbit.Contracts.Notes;
 using Orbit.Contracts.Tasks;
 
@@ -27,7 +27,7 @@ public sealed class OrbitLocalDbContext : DbContext
 
     public DbSet<LocalCalendarEvent> CalendarEvents => Set<LocalCalendarEvent>();
 
-    public DbSet<LocalWarehouse> Warehouses => Set<LocalWarehouse>();
+    public DbSet<LocalInventory> Inventories => Set<LocalInventory>();
 
     public DbSet<OutboxEntry> Outbox => Set<OutboxEntry>();
 
@@ -114,17 +114,17 @@ public sealed class OrbitLocalDbContext : DbContext
                 .Metadata.SetValueComparer(LinesComparer);
         });
 
-        modelBuilder.Entity<LocalWarehouse>(warehouse =>
+        modelBuilder.Entity<LocalInventory>(inventory =>
         {
-            warehouse.HasKey(entity => entity.LocalId);
-            warehouse.HasIndex(entity => entity.ServerId).IsUnique().HasFilter("\"ServerId\" IS NOT NULL");
-            warehouse.Property(entity => entity.Items)
-                .HasConversion(WarehouseItemsConverter)
-                .Metadata.SetValueComparer(WarehouseItemsComparer);
-            warehouse.Property(entity => entity.ItemArrivals)
+            inventory.HasKey(entity => entity.LocalId);
+            inventory.HasIndex(entity => entity.ServerId).IsUnique().HasFilter("\"ServerId\" IS NOT NULL");
+            inventory.Property(entity => entity.Items)
+                .HasConversion(InventoryItemsConverter)
+                .Metadata.SetValueComparer(InventoryItemsComparer);
+            inventory.Property(entity => entity.ItemArrivals)
                 .HasConversion(ArrivalsConverter)
                 .Metadata.SetValueComparer(ArrivalsComparer);
-            warehouse.Property(entity => entity.CopyBaseLines)
+            inventory.Property(entity => entity.CopyBaseLines)
                 .HasConversion(LinesConverter)
                 .Metadata.SetValueComparer(LinesComparer);
         });
@@ -225,12 +225,12 @@ public sealed class OrbitLocalDbContext : DbContext
         members => members.Aggregate(0, (hash, member) => HashCode.Combine(hash, member.GetHashCode())),
         members => members.ToList());
 
-    /// <summary>What a warehouse holds, in one column - nothing ever queries a single item.</summary>
-    private static readonly ValueConverter<IReadOnlyList<WarehouseItemDto>, string> WarehouseItemsConverter = new(
-        items => JsonSerializer.Serialize(items, LocalStoreSerializerContext.Default.IReadOnlyListWarehouseItemDto),
-        stored => ReadList(stored, LocalStoreSerializerContext.Default.IReadOnlyListWarehouseItemDto));
+    /// <summary>What an inventory holds, in one column - nothing ever queries a single item.</summary>
+    private static readonly ValueConverter<IReadOnlyList<InventoryItemRequest>, string> InventoryItemsConverter = new(
+        items => JsonSerializer.Serialize(items, LocalStoreSerializerContext.Default.IReadOnlyListInventoryItemRequest),
+        stored => ReadList(stored, LocalStoreSerializerContext.Default.IReadOnlyListInventoryItemRequest));
 
-    /// <summary>When each batch arrived, in one column beside the items - see LocalWarehouse.ItemArrivals.</summary>
+    /// <summary>When each batch arrived, in one column beside the items - see LocalInventory.ItemArrivals.</summary>
     private static readonly ValueConverter<IReadOnlyDictionary<Guid, DateTimeOffset>, string> ArrivalsConverter = new(
         arrivals => JsonSerializer.Serialize(
             arrivals, LocalStoreSerializerContext.Default.IReadOnlyDictionaryGuidDateTimeOffset),
@@ -250,7 +250,7 @@ public sealed class OrbitLocalDbContext : DbContext
                 ?? new Dictionary<Guid, DateTimeOffset>();
 
     /// <summary>Without this an edited item list is compared by reference and saved unchanged.</summary>
-    private static readonly ValueComparer<IReadOnlyList<WarehouseItemDto>> WarehouseItemsComparer = new(
+    private static readonly ValueComparer<IReadOnlyList<InventoryItemRequest>> InventoryItemsComparer = new(
         (left, right) => left!.SequenceEqual(right!),
         items => items.Aggregate(0, (hash, item) => HashCode.Combine(hash, item.GetHashCode())),
         items => items.ToList());

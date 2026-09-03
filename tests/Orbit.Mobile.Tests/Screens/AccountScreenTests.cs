@@ -332,7 +332,7 @@ public sealed class AccountScreenTests
         screen.Export.IncludesNotes = false;
         screen.Export.IncludesTaskLists = false;
         screen.Export.IncludesCalendarEvents = false;
-        screen.Export.IncludesWarehouses = false;
+        screen.Export.IncludesInventories = false;
 
         Assert.False(screen.CanExport);
     }
@@ -360,7 +360,7 @@ public sealed class AccountScreenTests
         await screen.ExportCommand.ExecuteAsync(null);
 
         await screen.ImportAsync(
-            """{"version":1,"exportedAtUtc":"2026-08-27T10:00:00Z","notes":[],"taskLists":[],"calendarEvents":[],"warehouses":[]}""");
+            """{"version":1,"exportedAtUtc":"2026-08-27T10:00:00Z","notes":[],"taskLists":[],"calendarEvents":[],"inventories":[]}""");
 
         Assert.NotNull(context.Transfer.Imported);
         Assert.True(screen.HasTransferMessage);

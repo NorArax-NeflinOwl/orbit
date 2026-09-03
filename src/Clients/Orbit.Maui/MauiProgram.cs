@@ -122,7 +122,7 @@ public static class MauiProgram
 		services.AddSingleton<LocalNoteRepository>();
 		services.AddSingleton<LocalTaskListRepository>();
 		services.AddSingleton<LocalCalendarEventRepository>();
-		services.AddSingleton<LocalWarehouseRepository>();
+		services.AddSingleton<LocalInventoryRepository>();
 
 		// Transient, not singleton: both take a typed HttpClient, and holding one for the life of the app
 		// pins the handler underneath it forever - which is the thing IHttpClientFactory exists to rotate.
@@ -133,7 +133,7 @@ public static class MauiProgram
 		services.AddTransient<NotificationSynchronizer>();
 		services.AddTransient<LocalNotificationRepository>();
 		services.AddTransient<PendingCalendarLinkResolver>();
-		services.AddTransient<WarehouseSynchronizer>();
+		services.AddTransient<InventorySynchronizer>();
 		services.AddSingleton<ChatRepository>();
 		services.AddTransient<LocalStoreReset>();
 		// The steps every way in shares once the server has accepted somebody - see SignInCompletion.
@@ -370,7 +370,7 @@ public static class MauiProgram
 		services.AddTransient<ICopyReviewStore>(services => services.GetRequiredService<LocalNoteRepository>());
 		services.AddTransient<ICopyReviewStore>(services => services.GetRequiredService<LocalTaskListRepository>());
 		services.AddTransient<ICopyReviewStore>(services => services.GetRequiredService<LocalCalendarEventRepository>());
-		services.AddTransient<ICopyReviewStore>(services => services.GetRequiredService<LocalWarehouseRepository>());
+		services.AddTransient<ICopyReviewStore>(services => services.GetRequiredService<LocalInventoryRepository>());
 		services.AddTransient<CalendarEventDetailViewModel>();
 		services.AddTransient<TasksPage>();
 		services.AddTransient<TasksViewModel>();
@@ -389,9 +389,9 @@ public static class MauiProgram
 		services.AddTransient<MapViewModel>();
 		services.AddTransient<InventoryPage>();
 		services.AddTransient<InventoryViewModel>();
-		services.AddTransient<WarehouseDetailPage>();
+		services.AddTransient<InventoryDetailPage>();
 		services.AddTransient<RestockListSettingsPanel>();
-		services.AddTransient<WarehouseDetailViewModel>();
+		services.AddTransient<InventoryDetailViewModel>();
 		services.AddTransient<NotificationFeedPage>();
 		services.AddTransient<Features.Update.UpdatePage>();
 		services.AddTransient<Orbit.Mobile.Screens.Update.UpdateViewModel>();

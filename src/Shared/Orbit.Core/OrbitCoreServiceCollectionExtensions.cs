@@ -39,22 +39,22 @@ using Orbit.Core.Chat.GetConversationAccess;
 using Orbit.Core.Chat.GetReadReceipt;
 using Orbit.Core.Chat.MarkConversationAsRead;
 using Orbit.Core.Chat.SendMessage;
-using Orbit.Core.Inventory;
-using Orbit.Core.Inventory.FinishRestocking;
-using Orbit.Core.Inventory.ReconcileRestockList;
-using Orbit.Core.Inventory.RestockListSettingsAccess;
-using Orbit.Core.Inventory.ExpiryReminders;
-using Orbit.Core.Inventory.GetInventoryItems;
-using Orbit.Core.Inventory.AcceptWarehouseShare;
-using Orbit.Core.Inventory.AcquireWarehouseLock;
-using Orbit.Core.Inventory.ReleaseWarehouseLock;
-using Orbit.Core.Inventory.CreateWarehouse;
-using Orbit.Core.Inventory.DeleteWarehouse;
-using Orbit.Core.Inventory.GetWarehouseById;
-using Orbit.Core.Inventory.GetWarehouses;
-using Orbit.Core.Inventory.GetWarehouseShareStatus;
-using Orbit.Core.Inventory.ShareWarehouse;
-using Orbit.Core.Inventory.UpdateWarehouse;
+using Orbit.Core.Inventories;
+using Orbit.Core.Inventories.FinishRestocking;
+using Orbit.Core.Inventories.ReconcileRestockList;
+using Orbit.Core.Inventories.RestockListSettingsAccess;
+using Orbit.Core.Inventories.ExpiryReminders;
+using Orbit.Core.Inventories.GetInventoryItems;
+using Orbit.Core.Inventories.AcceptInventoryShare;
+using Orbit.Core.Inventories.AcquireInventoryLock;
+using Orbit.Core.Inventories.ReleaseInventoryLock;
+using Orbit.Core.Inventories.CreateInventory;
+using Orbit.Core.Inventories.DeleteInventory;
+using Orbit.Core.Inventories.GetInventoryById;
+using Orbit.Core.Inventories.GetInventories;
+using Orbit.Core.Inventories.GetInventoryShareStatus;
+using Orbit.Core.Inventories.ShareInventory;
+using Orbit.Core.Inventories.UpdateInventory;
 using Orbit.Core.LiveUpdates;
 using Orbit.Core.Notes;
 using Orbit.Core.Permissions;
@@ -105,8 +105,8 @@ using Orbit.Core.Tasks.LinkCalendarEventToTaskList;
 using Orbit.Core.Tasks.MoveTaskItem;
 using Orbit.Core.Tasks.OverdueNotifications;
 using Orbit.Core.Tasks.ReleaseTaskListLock;
-using Orbit.Core.Tasks.LinkTaskListToWarehouse;
-using Orbit.Core.Tasks.GenerateWarehouseFromTaskList;
+using Orbit.Core.Tasks.LinkTaskListToInventory;
+using Orbit.Core.Tasks.GenerateInventoryFromTaskList;
 using Orbit.Core.Tasks.GetTaskListStockCheck;
 using Orbit.Core.Tasks.StockCheck;
 using Orbit.Core.Tasks.RaiseStockShortfalls;
@@ -171,7 +171,7 @@ public static class OrbitCoreServiceCollectionExtensions
         // Depends on ITaskRepository/ITaskListShareRepository/IUserRepository (all scoped), so it must
         // be scoped too - mirrors NoteAccessResolver's registration above.
         services.AddScoped<TaskListAccessResolver>();
-        // Depends on the task, warehouse and share repositories (all scoped), so it must be scoped too -
+        // Depends on the task, inventory and share repositories (all scoped), so it must be scoped too -
         // shared by the three paths that hand a task list to somebody: an offer by name, accepting one,
         // and claiming a public link.
         services.AddScoped<TaskListShareCascade>();
@@ -184,10 +184,10 @@ public static class OrbitCoreServiceCollectionExtensions
         services.AddScoped<IRequestHandler<GetTaskListByIdQuery, TaskList?>, GetTaskListByIdQueryHandler>();
         services.AddScoped<IRequestHandler<ShareTaskListCommand, ShareOutcome?>, ShareTaskListCommandHandler>();
         services.AddScoped<IRequestHandler<SetTaskListPinnedCommand, bool>, SetTaskListPinnedCommandHandler>();
-        services.AddScoped<IRequestHandler<LinkTaskListToWarehouseCommand, bool>, LinkTaskListToWarehouseCommandHandler>();
+        services.AddScoped<IRequestHandler<LinkTaskListToInventoryCommand, bool>, LinkTaskListToInventoryCommandHandler>();
         services.AddScoped<IRequestHandler<GetTaskListStockCheckQuery, TaskListStockCheck?>, GetTaskListStockCheckQueryHandler>();
         services.AddScoped<IRequestHandler<RaiseStockShortfallsCommand, int>, RaiseStockShortfallsCommandHandler>();
-        services.AddScoped<IRequestHandler<GenerateWarehouseFromTaskListCommand, Guid?>, GenerateWarehouseFromTaskListCommandHandler>();
+        services.AddScoped<IRequestHandler<GenerateInventoryFromTaskListCommand, Guid?>, GenerateInventoryFromTaskListCommandHandler>();
         services.AddScoped<IRequestHandler<SetNotePinnedCommand, bool>, SetNotePinnedCommandHandler>();
         services.AddScoped<IRequestHandler<SetAvailabilityCommand, bool>, SetAvailabilityCommandHandler>();
         services.AddScoped<IRequestHandler<PresenceHeartbeatCommand, bool>, PresenceHeartbeatCommandHandler>();
@@ -325,7 +325,7 @@ public static class OrbitCoreServiceCollectionExtensions
         services.AddScoped<RestockCompletion>();
         services.AddScoped<RestockListRefresh>();
 
-        // How a warehouse's restock list is built and when it comes round, plus the manual rebuild.
+        // How an inventory's restock list is built and when it comes round, plus the manual rebuild.
         services.AddScoped<IRequestHandler<GetRestockListSettingsQuery, RestockListSettings?>, GetRestockListSettingsQueryHandler>();
         services.AddScoped<IRequestHandler<SaveRestockListSettingsCommand, RestockRefreshOutcome>, SaveRestockListSettingsCommandHandler>();
         services.AddScoped<IRequestHandler<RefreshRestockListCommand, RestockRefreshOutcome>, RefreshRestockListCommandHandler>();
@@ -338,18 +338,18 @@ public static class OrbitCoreServiceCollectionExtensions
         services.AddScoped<IRequestHandler<FinishRestockingCommand, int>, FinishRestockingCommandHandler>();
         services.AddScoped<IRequestHandler<GetInventoryItemsQuery, IReadOnlyList<InventoryItem>?>, GetInventoryItemsQueryHandler>();
 
-        // Warehouses - the container inventory items now belong to, with Notes-style sharing on top.
-        services.AddScoped<WarehouseAccessResolver>();
-        services.AddScoped<IRequestHandler<CreateWarehouseCommand, Guid>, CreateWarehouseCommandHandler>();
-        services.AddScoped<IRequestHandler<GetWarehousesQuery, IReadOnlyList<Warehouse>>, GetWarehousesQueryHandler>();
-        services.AddScoped<IRequestHandler<GetWarehouseByIdQuery, Warehouse?>, GetWarehouseByIdQueryHandler>();
-        services.AddScoped<IRequestHandler<UpdateWarehouseCommand, EditOutcome>, UpdateWarehouseCommandHandler>();
-        services.AddScoped<IRequestHandler<DeleteWarehouseCommand, bool>, DeleteWarehouseCommandHandler>();
-        services.AddScoped<IRequestHandler<ShareWarehouseCommand, ShareOutcome?>, ShareWarehouseCommandHandler>();
-        services.AddScoped<IRequestHandler<AcceptWarehouseShareCommand, bool>, AcceptWarehouseShareCommandHandler>();
-        services.AddScoped<IRequestHandler<GetWarehouseShareStatusQuery, bool?>, GetWarehouseShareStatusQueryHandler>();
-        services.AddScoped<IRequestHandler<AcquireWarehouseLockCommand, EditOutcome>, AcquireWarehouseLockCommandHandler>();
-        services.AddScoped<IRequestHandler<ReleaseWarehouseLockCommand, bool>, ReleaseWarehouseLockCommandHandler>();
+        // Inventories - the container inventory items now belong to, with Notes-style sharing on top.
+        services.AddScoped<InventoryAccessResolver>();
+        services.AddScoped<IRequestHandler<CreateInventoryCommand, Guid>, CreateInventoryCommandHandler>();
+        services.AddScoped<IRequestHandler<GetInventoriesQuery, IReadOnlyList<Inventory>>, GetInventoriesQueryHandler>();
+        services.AddScoped<IRequestHandler<GetInventoryByIdQuery, Inventory?>, GetInventoryByIdQueryHandler>();
+        services.AddScoped<IRequestHandler<UpdateInventoryCommand, EditOutcome>, UpdateInventoryCommandHandler>();
+        services.AddScoped<IRequestHandler<DeleteInventoryCommand, bool>, DeleteInventoryCommandHandler>();
+        services.AddScoped<IRequestHandler<ShareInventoryCommand, ShareOutcome?>, ShareInventoryCommandHandler>();
+        services.AddScoped<IRequestHandler<AcceptInventoryShareCommand, bool>, AcceptInventoryShareCommandHandler>();
+        services.AddScoped<IRequestHandler<GetInventoryShareStatusQuery, bool?>, GetInventoryShareStatusQueryHandler>();
+        services.AddScoped<IRequestHandler<AcquireInventoryLockCommand, EditOutcome>, AcquireInventoryLockCommandHandler>();
+        services.AddScoped<IRequestHandler<ReleaseInventoryLockCommand, bool>, ReleaseInventoryLockCommandHandler>();
         // Depends on IInventoryExpiryNotificationRepository (scoped, backed by the DbContext), so it
         // must be scoped too - used by Orbit.Api's InventoryExpiryReminderBackgroundService, not
         // through IDispatcher, for the same reason as OverdueTaskNotificationScheduler above.

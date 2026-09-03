@@ -1,6 +1,6 @@
 using Orbit.Core.Abstractions;
 using Orbit.Core.Calendar;
-using Orbit.Core.Inventory;
+using Orbit.Core.Inventories;
 using Orbit.Core.Notes;
 using Orbit.Core.Tasks;
 
@@ -16,21 +16,21 @@ public sealed class ExportArchiveQueryHandler : IRequestHandler<ExportArchiveQue
     private readonly INoteRepository _noteRepository;
     private readonly ITaskRepository _taskRepository;
     private readonly ICalendarEventRepository _calendarEventRepository;
-    private readonly IWarehouseRepository _warehouseRepository;
     private readonly IInventoryRepository _inventoryRepository;
+    private readonly IInventoryItemRepository _inventoryItemRepository;
 
     public ExportArchiveQueryHandler(
         INoteRepository noteRepository,
         ITaskRepository taskRepository,
         ICalendarEventRepository calendarEventRepository,
-        IWarehouseRepository warehouseRepository,
-        IInventoryRepository inventoryRepository)
+        IInventoryRepository inventoryRepository,
+        IInventoryItemRepository inventoryItemRepository)
     {
         _noteRepository = noteRepository;
         _taskRepository = taskRepository;
         _calendarEventRepository = calendarEventRepository;
-        _warehouseRepository = warehouseRepository;
         _inventoryRepository = inventoryRepository;
+        _inventoryItemRepository = inventoryItemRepository;
     }
 
     public async Task<OrbitArchive> HandleAsync(ExportArchiveQuery request, CancellationToken cancellationToken)
@@ -38,7 +38,7 @@ public sealed class ExportArchiveQueryHandler : IRequestHandler<ExportArchiveQue
         var notes = await _noteRepository.GetAllAsync(request.UserId, updatedSinceUtc: null, cancellationToken);
         var taskLists = await _taskRepository.GetAllAsync(request.UserId, updatedSinceUtc: null, cancellationToken);
         var calendarEvents = await _calendarEventRepository.GetAllAsync(request.UserId, updatedSinceUtc: null, cancellationToken);
-        var warehouses = await _warehouseRepository.GetAllAsync(request.UserId, updatedSinceUtc: null, cancellationToken);
+        var inventories = await _inventoryRepository.GetAllAsync(request.UserId, updatedSinceUtc: null, cancellationToken);
 
         var ownTaskLists = taskLists.Where(taskList => taskList.UserId == request.UserId).ToList();
         var taskListTitlesById = ownTaskLists.ToDictionary(taskList => taskList.Id, taskList => taskList.Title);
@@ -49,24 +49,24 @@ public sealed class ExportArchiveQueryHandler : IRequestHandler<ExportArchiveQue
             notes.Where(note => note.UserId == request.UserId).Select(ToArchived).ToList(),
             ownTaskLists.Select(taskList => ToArchived(taskList, taskListTitlesById)).ToList(),
             calendarEvents.Where(calendarEvent => calendarEvent.UserId == request.UserId).Select(ToArchived).ToList(),
-            await ToArchivedWarehousesAsync(warehouses, request.UserId, cancellationToken));
+            await ToArchivedInventoriesAsync(inventories, request.UserId, cancellationToken));
     }
 
-    private async Task<IReadOnlyList<ArchivedWarehouse>> ToArchivedWarehousesAsync(
-        IReadOnlyList<Warehouse> warehouses, Guid userId, CancellationToken cancellationToken)
+    private async Task<IReadOnlyList<ArchivedInventory>> ToArchivedInventoriesAsync(
+        IReadOnlyList<Inventory> inventories, Guid userId, CancellationToken cancellationToken)
     {
-        var archived = new List<ArchivedWarehouse>();
-        foreach (var warehouse in warehouses.Where(warehouse => warehouse.UserId == userId))
+        var archived = new List<ArchivedInventory>();
+        foreach (var inventory in inventories.Where(inventory => inventory.UserId == userId))
         {
-            // A private warehouse has no item rows at all - they were removed when it became private
-            // (see UpdateWarehouseCommandHandler), and its contents live inside the sealed payload.
-            var items = warehouse.IsPrivate
+            // A private inventory has no item rows at all - they were removed when it became private
+            // (see UpdateInventoryCommandHandler), and its contents live inside the sealed payload.
+            var items = inventory.IsPrivate
                 ? []
-                : await _inventoryRepository.GetAllAsync(warehouse.Id, cancellationToken);
+                : await _inventoryItemRepository.GetAllAsync(inventory.Id, cancellationToken);
 
-            archived.Add(new ArchivedWarehouse(
-                warehouse.Name, warehouse.IsPrivate, ToArchived(warehouse.EncryptedContent),
-                items.Select(item => new ArchivedWarehouseItem(
+            archived.Add(new ArchivedInventory(
+                inventory.Name, inventory.IsPrivate, ToArchived(inventory.EncryptedContent),
+                items.Select(item => new ArchivedInventoryItem(
                     item.Name, item.ProductType, item.Category, item.Quantity, item.MinimumQuantity,
                     item.ExpiryDate, item.ExpiryNotificationChannel.ToString(), item.Unit.ToString())).ToList()));
         }

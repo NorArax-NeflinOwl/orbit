@@ -19,7 +19,7 @@ public sealed record OrbitArchive(
     IReadOnlyList<ArchivedNote> Notes,
     IReadOnlyList<ArchivedTaskList> TaskLists,
     IReadOnlyList<ArchivedCalendarEvent> CalendarEvents,
-    IReadOnlyList<ArchivedWarehouse> Warehouses)
+    IReadOnlyList<ArchivedInventory> Inventories)
 {
     public const int CurrentVersion = 1;
 }
@@ -85,14 +85,14 @@ public sealed record ArchivedCalendarEvent(
 
 public sealed record ArchivedEventLocation(string Address, double? Latitude, double? Longitude);
 
-public sealed record ArchivedWarehouse(
-    string Name, bool IsPrivate, ArchivedEncryptedContent? EncryptedContent, IReadOnlyList<ArchivedWarehouseItem> Items);
+public sealed record ArchivedInventory(
+    string Name, bool IsPrivate, ArchivedEncryptedContent? EncryptedContent, IReadOnlyList<ArchivedInventoryItem> Items);
 
 /// <param name="Unit">
 /// Defaulted, and last, so an archive written before units existed still imports - it says nothing about
 /// what its amounts were counted in, and pieces is the honest reading of that rather than a refusal.
 /// </param>
-public sealed record ArchivedWarehouseItem(
+public sealed record ArchivedInventoryItem(
     string Name, string ProductType, string Category, decimal Quantity, decimal? MinimumQuantity,
     DateTimeOffset? ExpiryDate, string ExpiryNotificationChannel, string Unit = "Piece");
 

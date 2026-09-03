@@ -25,7 +25,7 @@ public partial class TaskListDetailPage : ContentPage
 		_viewModel = viewModel;
 		ShowItemMenuCommand = new Command<TaskItemRow>(item => _ = ShowItemMenuAsync(item));
 		ShowListMenuCommand = new Command(() => _ = ShowListMenuAsync());
-		ChooseWarehouseCommand = new Command(() => _ = ChooseWarehouseAsync());
+		ChooseInventoryCommand = new Command(() => _ = ChooseInventoryAsync());
 		ChooseStockOrderCommand = new Command(() => _ = ChooseStockOrderAsync());
 
 		InitializeComponent();
@@ -39,7 +39,7 @@ public partial class TaskListDetailPage : ContentPage
 	public ICommand ShowListMenuCommand { get; }
 
 	/// <summary>Which shelf this list's work is measured against - see StockCheckPanel.</summary>
-	public ICommand ChooseWarehouseCommand { get; }
+	public ICommand ChooseInventoryCommand { get; }
 
 	/// <summary>What order that panel lists what the work needs in - the same four Orbit.Web offers.</summary>
 	public ICommand ChooseStockOrderCommand { get; }
@@ -63,15 +63,15 @@ public partial class TaskListDetailPage : ContentPage
 		}
 	}
 
-	private async Task ChooseWarehouseAsync()
+	private async Task ChooseInventoryAsync()
 	{
-		var names = _viewModel.StockCheck.Warehouses.Select(warehouse => warehouse.Name).ToArray();
+		var names = _viewModel.StockCheck.Inventories.Select(inventory => inventory.Name).ToArray();
 		var chosen = await DisplayActionSheet(
 			_translations["Can this be done?"], _translations["Cancel"], destruction: null, names);
 
-		if (_viewModel.StockCheck.Warehouses.FirstOrDefault(warehouse => warehouse.Name == chosen) is { } picked)
+		if (_viewModel.StockCheck.Inventories.FirstOrDefault(inventory => inventory.Name == chosen) is { } picked)
 		{
-			_viewModel.StockCheck.LinkedWarehouse = picked;
+			_viewModel.StockCheck.LinkedInventory = picked;
 		}
 	}
 
@@ -108,7 +108,7 @@ public partial class TaskListDetailPage : ContentPage
 		}
 		else if (chosen == refresh)
 		{
-			_viewModel.StockCheck.RefreshFromTheWarehouseCommand.Execute(null);
+			_viewModel.StockCheck.RefreshFromTheInventoryCommand.Execute(null);
 		}
 	}
 
@@ -207,7 +207,7 @@ public partial class TaskListDetailPage : ContentPage
 
 		var finishesTheRound = await DisplayAlertAsync(
 			_translations["Update stock levels"],
-			_translations["Finish this list and set every item in the warehouse to its minimum?"],
+			_translations["Finish this list and set every item in the inventory to its minimum?"],
 			_translations["Finish the whole list"],
 			_translations["Just this one"]);
 

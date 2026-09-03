@@ -1,9 +1,9 @@
-using Orbit.Contracts.Inventory;
+using Orbit.Contracts.Inventories;
 
 namespace Orbit.Web.Services;
 
 /// <summary>
-/// One shelf item as a form holds it. Shared by the warehouse editor and by a task list's inventory
+/// One shelf item as a form holds it. Shared by the inventory editor and by a task list's inventory
 /// errand, which edits the same product from the other side - see InventoryFields.razor. Two models for
 /// one thing is how the two forms came to offer different fields.
 /// </summary>
@@ -42,7 +42,7 @@ public sealed class InventoryItemFormModel
             Category = item.Category,
             Quantity = item.Quantity,
             MinimumQuantity = item.MinimumQuantity,
-            // Read through the option list rather than taken as it comes: a private warehouse sealed
+            // Read through the option list rather than taken as it comes: a private inventory sealed
             // before units existed has none, and the picker would then show pieces while the row held
             // nothing - see InventoryUnitOption.For.
             Unit = InventoryUnitOption.For(item.Unit).Value,
@@ -56,7 +56,7 @@ public sealed class InventoryItemFormModel
     /// "timestamp with time zone" column, so the chosen local day is converted to the instant it began
     /// rather than merely re-labelled.
     /// </summary>
-    public WarehouseItemDto ToDto()
+    public InventoryItemRequest ToDto()
         => new(
             Id, Name, ProductType, Category, Quantity, MinimumQuantity, Unit,
             ExpiryDate is { } expiresOn ? expiresOn.ToUniversalTime() : null,

@@ -1,4 +1,4 @@
-using Orbit.Core.Inventory;
+using Orbit.Core.Inventories;
 
 namespace Orbit.Web.Services;
 
@@ -23,7 +23,7 @@ public sealed record InventoryUnitOption(string Value, string Name, string Short
     /// <summary>
     /// An unrecognised value - or none at all - reads as pieces rather than as nothing: the dropdown
     /// only offers the units above, and a row from somewhere else should still show an amount somebody
-    /// can read. A private warehouse sealed before units existed is exactly the "none at all" case: its
+    /// can read. A private inventory sealed before units existed is exactly the "none at all" case: its
     /// items carry no unit, and without this the picker showed pieces while the item held nothing, so
     /// the next save wrote that nothing back.
     /// </summary>

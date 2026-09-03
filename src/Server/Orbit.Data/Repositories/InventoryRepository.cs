@@ -1,6 +1,6 @@
 using Microsoft.EntityFrameworkCore;
-using Orbit.Core.Inventory;
-using Orbit.Core.Notifications;
+using Orbit.Core.Abstractions;
+using Orbit.Core.Inventories;
 using Orbit.Data.Entities;
 
 namespace Orbit.Data.Repositories;
@@ -14,138 +14,113 @@ public sealed class InventoryRepository : IInventoryRepository
         _dbContext = dbContext;
     }
 
-    public async Task<IReadOnlyList<InventoryItem>> GetAllAsync(Guid warehouseId, CancellationToken cancellationToken)
+    public async Task<IReadOnlyList<Inventory>> GetAllAsync(
+        Guid userId, DateTimeOffset? updatedSinceUtc, CancellationToken cancellationToken)
     {
-        var entities = await _dbContext.InventoryItems
+        var query = _dbContext.Inventories
             .AsNoTracking()
-            .Where(entity => entity.WarehouseId == warehouseId)
-            .ToListAsync(cancellationToken);
+            .Where(inventory => inventory.UserId == userId);
 
-        // As arranged, then alphabetically - which is the whole order for a warehouse nobody has
-        // arranged yet, since everything in one sits at position zero.
+        // Narrowed in the database when the caller only wants what changed. A client catching up asks
+        // for a delta; fetching everything and dropping most of it here saved the wire and nothing else.
+        if (updatedSinceUtc is not null)
+        {
+            query = query.Where(inventory => inventory.UpdatedAtUtc >= updatedSinceUtc.Value);
+        }
+
+        var entities = await query.ToListAsync(cancellationToken);
+
         return entities
-            .OrderBy(entity => entity.Position)
-            .ThenBy(entity => entity.Name)
+            .OrderBy(inventory => inventory.Name)
             .Select(ToDomain)
             .ToList();
     }
 
-    public async Task<InventoryItem?> GetByIdAsync(Guid warehouseId, Guid id, CancellationToken cancellationToken)
+    public async Task<Inventory?> GetByIdAsync(Guid userId, Guid id, CancellationToken cancellationToken)
     {
-        var entity = await _dbContext.InventoryItems
+        var entity = await _dbContext.Inventories
             .AsNoTracking()
-            .FirstOrDefaultAsync(item => item.Id == id && item.WarehouseId == warehouseId, cancellationToken);
+            .FirstOrDefaultAsync(inventory => inventory.Id == id && inventory.UserId == userId, cancellationToken);
 
         return entity is null ? null : ToDomain(entity);
     }
 
-    public async Task AddAsync(InventoryItem item, CancellationToken cancellationToken)
+    public async Task AddAsync(Inventory inventory, CancellationToken cancellationToken)
     {
-        _dbContext.InventoryItems.Add(ToEntity(item));
-        await MarkWarehouseChangedAsync(item.WarehouseId, cancellationToken);
+        _dbContext.Inventories.Add(ToEntity(inventory));
         await _dbContext.SaveChangesAsync(cancellationToken);
     }
 
-    public async Task UpdateAsync(InventoryItem item, CancellationToken cancellationToken)
+    public async Task UpdateAsync(Inventory inventory, CancellationToken cancellationToken)
     {
-        // Updates the tracked entity's properties in place rather than attaching a fresh ToEntity(item)
-        // instance (as NoteRepository/TaskRepository's own UpdateAsync do) - CreateInventoryItemCommandHandler
-        // can call AddAsync and then, within the same request/DbContext, UpdateAsync on the very same
-        // item (see InventoryTaskListCoordinator.EnsureRestockTaskAsync), and attaching a second entity
-        // instance with the same key the context already tracks throws
-        // "another instance with the same key value is already being tracked".
-        var entity = await _dbContext.InventoryItems.FirstAsync(existing => existing.Id == item.Id, cancellationToken);
-        entity.Name = item.Name;
-        entity.ProductType = item.ProductType;
-        entity.Category = item.Category;
-        entity.Quantity = item.Quantity;
-        entity.MinimumQuantity = item.MinimumQuantity;
-        entity.Unit = item.Unit.ToString();
-        entity.ExpiryDate = item.ExpiryDate;
-        entity.ExpiryNotificationChannel = item.ExpiryNotificationChannel.ToString();
-        entity.PendingRestockTaskListId = item.PendingRestockTaskListId;
-        entity.PendingRestockTaskItemId = item.PendingRestockTaskItemId;
-        entity.Position = item.Position;
-        entity.UpdatedAtUtc = item.UpdatedAtUtc;
-
-        await MarkWarehouseChangedAsync(item.WarehouseId, cancellationToken);
+        _dbContext.Inventories.Update(ToEntity(inventory));
         await _dbContext.SaveChangesAsync(cancellationToken);
     }
 
-    public async Task DeleteAsync(Guid warehouseId, Guid id, CancellationToken cancellationToken)
+    /// <summary>The three columns a lock is, and nothing else - see IInventoryRepository.UpdateLockAsync.</summary>
+    public async Task UpdateLockAsync(Inventory inventory, CancellationToken cancellationToken)
     {
-        var entity = await _dbContext.InventoryItems
-            .FirstOrDefaultAsync(item => item.Id == id && item.WarehouseId == warehouseId, cancellationToken);
+        var entity = await _dbContext.Inventories.FirstAsync(stored => stored.Id == inventory.Id, cancellationToken);
+        entity.LockedByUserId = inventory.LockedByUserId;
+        entity.LockedByUserName = inventory.LockedByUserName;
+        entity.LockExpiresAtUtc = inventory.LockExpiresAtUtc;
+        await _dbContext.SaveChangesAsync(cancellationToken);
+    }
+
+    public async Task DeleteAsync(Guid userId, Guid id, CancellationToken cancellationToken)
+    {
+        var entity = await _dbContext.Inventories
+            .FirstOrDefaultAsync(inventory => inventory.Id == id && inventory.UserId == userId, cancellationToken);
         if (entity is null)
         {
             return;
         }
 
-        _dbContext.InventoryItems.Remove(entity);
-        await MarkWarehouseChangedAsync(warehouseId, cancellationToken);
+        _dbContext.Inventories.Remove(entity);
         await _dbContext.SaveChangesAsync(cancellationToken);
     }
 
-    public async Task DeleteAllInWarehouseAsync(Guid warehouseId, CancellationToken cancellationToken)
+    public async Task<Guid?> GetOwnerUserIdAsync(Guid inventoryId, CancellationToken cancellationToken)
     {
-        var entities = await _dbContext.InventoryItems
-            .Where(item => item.WarehouseId == warehouseId)
-            .ToListAsync(cancellationToken);
-        if (entities.Count == 0)
-        {
-            return;
-        }
+        var owner = await _dbContext.Inventories
+            .AsNoTracking()
+            .Where(inventory => inventory.Id == inventoryId)
+            .Select(inventory => (Guid?)inventory.UserId)
+            .FirstOrDefaultAsync(cancellationToken);
 
-        _dbContext.InventoryItems.RemoveRange(entities);
-        await _dbContext.SaveChangesAsync(cancellationToken);
+        return owner;
     }
 
-    /// <summary>
-    /// Says the warehouse changed, in the same write as the item that changed inside it.
-    ///
-    /// The change feed's unit is the warehouse: its items travel inside it and are gated by its
-    /// timestamp - see WarehouseRepository.GetAllAsync. So an item written on its own never reached
-    /// another device. Finishing a restock round brought the shelf up to its minimums on the server and
-    /// left every phone showing what it last saw; the next save from one of them wrote that back over
-    /// the top-up. Saving a warehouse stamps it anyway, so this only matters for the writes that go
-    /// straight at an item, which are all the server's own.
-    /// </summary>
-    private async Task MarkWarehouseChangedAsync(Guid warehouseId, CancellationToken cancellationToken)
-    {
-        // Gone already when the whole warehouse is being deleted, which is not a change to report.
-        if (await _dbContext.Warehouses.FirstOrDefaultAsync(
-                warehouse => warehouse.Id == warehouseId, cancellationToken) is { } entity)
-        {
-            entity.UpdatedAtUtc = DateTimeOffset.UtcNow;
-        }
-    }
+    /// <summary>Both columns are written together or not at all, so either alone means no sealed content.</summary>
+    private static EncryptedPayload? ToEncryptedPayload(string? ciphertext, string? nonce)
+        // Blank counts as absent, not just null: a row half-written before EncryptedPayload started
+        // checking its own parts would otherwise fail inside that check while being read, which is the
+        // one place a stored row must never throw.
+        => !string.IsNullOrWhiteSpace(ciphertext) && !string.IsNullOrWhiteSpace(nonce)
+            ? new EncryptedPayload(ciphertext, nonce)
+            : null;
 
-    private static InventoryItem ToDomain(InventoryItemEntity entity)
-        => InventoryItem.FromPersistence(
-            entity.Id, entity.WarehouseId, entity.Name, entity.ProductType, entity.Category, entity.Quantity, entity.MinimumQuantity,
-            Enum.Parse<InventoryUnit>(entity.Unit, ignoreCase: true), entity.ExpiryDate,
-            Enum.Parse<NotificationChannel>(entity.ExpiryNotificationChannel, ignoreCase: true),
-            entity.PendingRestockTaskListId, entity.PendingRestockTaskItemId, entity.Position, entity.CreatedAtUtc,
-            entity.UpdatedAtUtc, entity.IsCheckedRegularly);
+    private static Inventory ToDomain(InventoryEntity entity)
+        => Inventory.FromPersistence(
+            entity.Id, entity.UserId, entity.Name, entity.IsPrivate,
+            ToEncryptedPayload(entity.EncryptedCiphertext, entity.EncryptedNonce),
+            entity.CreatedAtUtc, entity.UpdatedAtUtc,
+            entity.LockedByUserId, entity.LockedByUserName, entity.LockExpiresAtUtc, entity.Description);
 
-    private static InventoryItemEntity ToEntity(InventoryItem item)
+    private static InventoryEntity ToEntity(Inventory inventory)
         => new()
         {
-            Id = item.Id,
-            WarehouseId = item.WarehouseId,
-            Name = item.Name,
-            ProductType = item.ProductType,
-            Category = item.Category,
-            Quantity = item.Quantity,
-            MinimumQuantity = item.MinimumQuantity,
-            IsCheckedRegularly = item.IsCheckedRegularly,
-            Unit = item.Unit.ToString(),
-            ExpiryDate = item.ExpiryDate,
-            ExpiryNotificationChannel = item.ExpiryNotificationChannel.ToString(),
-            PendingRestockTaskListId = item.PendingRestockTaskListId,
-            PendingRestockTaskItemId = item.PendingRestockTaskItemId,
-            Position = item.Position,
-            CreatedAtUtc = item.CreatedAtUtc,
-            UpdatedAtUtc = item.UpdatedAtUtc
+            Id = inventory.Id,
+            UserId = inventory.UserId,
+            Name = inventory.Name,
+            Description = inventory.Description,
+            IsPrivate = inventory.IsPrivate,
+            EncryptedCiphertext = inventory.EncryptedContent?.Ciphertext,
+            EncryptedNonce = inventory.EncryptedContent?.Nonce,
+            CreatedAtUtc = inventory.CreatedAtUtc,
+            UpdatedAtUtc = inventory.UpdatedAtUtc,
+            LockedByUserId = inventory.LockedByUserId,
+            LockedByUserName = inventory.LockedByUserName,
+            LockExpiresAtUtc = inventory.LockExpiresAtUtc
         };
 }

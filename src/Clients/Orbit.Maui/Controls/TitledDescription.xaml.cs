@@ -14,7 +14,7 @@ public partial class TitledDescription : ContentView
 	public static readonly BindableProperty TitlePlaceholderProperty = BindableProperty.Create(
 		nameof(TitlePlaceholder), typeof(string), typeof(TitledDescription), string.Empty);
 
-	/// <summary>What the title box is called to a screen reader - "Title" for a list, "Name" for a warehouse.</summary>
+	/// <summary>What the title box is called to a screen reader - "Title" for a list, "Name" for an inventory.</summary>
 	public static readonly BindableProperty TitleLabelProperty = BindableProperty.Create(
 		nameof(TitleLabel), typeof(string), typeof(TitledDescription), string.Empty,
 		propertyChanged: (field, _, value) =>

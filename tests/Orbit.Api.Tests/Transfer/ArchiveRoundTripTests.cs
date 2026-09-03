@@ -1,7 +1,7 @@
 using Orbit.Api.Tests.TestDoubles;
 using Orbit.Core.Abstractions;
 using Orbit.Core.Calendar;
-using Orbit.Core.Inventory;
+using Orbit.Core.Inventories;
 using Orbit.Core.Notes;
 using Orbit.Core.Notifications;
 using Orbit.Core.Tasks;
@@ -25,7 +25,7 @@ public sealed class ArchiveRoundTripTests
         await context.AddNoteAsync("Shopping list", "Milk");
         await context.AddTaskListAsync("Errands", "Buy milk");
         await context.AddCalendarEventAsync("Dentist");
-        await context.AddWarehouseAsync("Pantry", "Flour");
+        await context.AddInventoryAsync("Pantry", "Flour");
 
         var archive = await context.ExportAsync();
 
@@ -33,7 +33,7 @@ public sealed class ArchiveRoundTripTests
         Assert.Single(archive.Notes);
         Assert.Single(archive.TaskLists);
         Assert.Single(archive.CalendarEvents);
-        Assert.Single(archive.Warehouses);
+        Assert.Single(archive.Inventories);
     }
 
     [Fact]
@@ -161,17 +161,17 @@ public sealed class ArchiveRoundTripTests
     }
 
     [Fact]
-    public async Task A_warehouses_items_come_along_with_it()
+    public async Task A_inventories_items_come_along_with_it()
     {
         var source = new ArchiveTestContext();
-        await source.AddWarehouseAsync("Pantry", "Flour", "Sugar");
+        await source.AddInventoryAsync("Pantry", "Flour", "Sugar");
         var archive = await source.ExportAsync();
 
         var destination = new ArchiveTestContext();
         await destination.ImportAsync(archive);
 
-        var warehouse = Assert.Single(await destination.OwnWarehousesAsync());
-        var items = await destination.ItemsInAsync(warehouse.Id);
+        var inventory = Assert.Single(await destination.OwnInventoriesAsync());
+        var items = await destination.ItemsInAsync(inventory.Id);
         Assert.Equal(["Flour", "Sugar"], items.Select(item => item.Name));
     }
 
@@ -207,8 +207,8 @@ public sealed class ArchiveRoundTripTests
         private readonly InMemoryNoteRepository _noteRepository = new();
         private readonly InMemoryTaskRepository _taskRepository = new();
         private readonly InMemoryCalendarEventRepository _calendarEventRepository = new();
-        private readonly InMemoryWarehouseRepository _warehouseRepository = new();
         private readonly InMemoryInventoryRepository _inventoryRepository = new();
+        private readonly InMemoryInventoryItemRepository _inventoryItemRepository = new();
 
         private Guid UserId { get; } = Guid.NewGuid();
 
@@ -254,36 +254,36 @@ public sealed class ArchiveRoundTripTests
             await _calendarEventRepository.AddAsync(CalendarEvent.Create(UserId, details), CancellationToken.None);
         }
 
-        public async Task AddWarehouseAsync(string name, params string[] itemNames)
+        public async Task AddInventoryAsync(string name, params string[] itemNames)
         {
-            var warehouse = Warehouse.Create(UserId, name);
-            await _warehouseRepository.AddAsync(warehouse, CancellationToken.None);
+            var inventory = Inventory.Create(UserId, name);
+            await _inventoryRepository.AddAsync(inventory, CancellationToken.None);
             foreach (var itemName in itemNames)
             {
-                await _inventoryRepository.AddAsync(
-                    InventoryItem.Create(warehouse.Id, itemName, "Food", "Dry goods", 1, null, InventoryUnit.Piece, null, NotificationChannel.None),
+                await _inventoryItemRepository.AddAsync(
+                    InventoryItem.Create(inventory.Id, itemName, "Food", "Dry goods", 1, null, InventoryUnit.Piece, null, NotificationChannel.None),
                     CancellationToken.None);
             }
         }
 
         public Task<OrbitArchive> ExportAsync()
             => new ExportArchiveQueryHandler(
-                    _noteRepository, _taskRepository, _calendarEventRepository, _warehouseRepository, _inventoryRepository)
+                    _noteRepository, _taskRepository, _calendarEventRepository, _inventoryRepository, _inventoryItemRepository)
                 .HandleAsync(new ExportArchiveQuery(UserId), CancellationToken.None);
 
         public Task<ImportArchiveResult> ImportAsync(OrbitArchive archive)
             => new ImportArchiveCommandHandler(
-                    _noteRepository, _taskRepository, _calendarEventRepository, _warehouseRepository, _inventoryRepository)
+                    _noteRepository, _taskRepository, _calendarEventRepository, _inventoryRepository, _inventoryItemRepository)
                 .HandleAsync(new ImportArchiveCommand(UserId, archive), CancellationToken.None);
 
         public Task<IReadOnlyList<Note>> OwnNotesAsync() => _noteRepository.GetAllAsync(UserId, updatedSinceUtc: null, CancellationToken.None);
 
         public Task<IReadOnlyList<TaskList>> OwnTaskListsAsync() => _taskRepository.GetAllAsync(UserId, updatedSinceUtc: null, CancellationToken.None);
 
-        public Task<IReadOnlyList<Warehouse>> OwnWarehousesAsync() => _warehouseRepository.GetAllAsync(UserId, updatedSinceUtc: null, CancellationToken.None);
+        public Task<IReadOnlyList<Inventory>> OwnInventoriesAsync() => _inventoryRepository.GetAllAsync(UserId, updatedSinceUtc: null, CancellationToken.None);
 
-        public Task<IReadOnlyList<InventoryItem>> ItemsInAsync(Guid warehouseId)
-            => _inventoryRepository.GetAllAsync(warehouseId, CancellationToken.None);
+        public Task<IReadOnlyList<InventoryItem>> ItemsInAsync(Guid inventoryId)
+            => _inventoryItemRepository.GetAllAsync(inventoryId, CancellationToken.None);
 
         public async Task AddFiledTaskListAsync(string title, string description, IReadOnlyList<string> categories)
         {

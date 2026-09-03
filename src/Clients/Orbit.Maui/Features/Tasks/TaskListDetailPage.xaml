@@ -233,15 +233,15 @@
                 </VerticalStackLayout>
 
                 <!-- An errand about a product opens the product itself, so correcting an amount does
-                     not mean leaving the list and finding the warehouse again. The same form the
-                     warehouse screen shows, and saving here saves it there - see TaskItemShelfProduct. -->
+                     not mean leaving the list and finding the inventory again. The same form the
+                     inventory screen shows, and saving here saves it there - see TaskItemShelfProduct. -->
                 <VerticalStackLayout Spacing="10" IsVisible="{Binding IsShelfEntry}">
                     <Label Text="{Binding WhereTheProductLives}" FontSize="12" LineBreakMode="WordWrap"
                            Style="{StaticResource SubtleLabel}" />
                     <controls:ShelfProductFields BindingContext="{Binding Shelf.Product}" />
                 </VerticalStackLayout>
 
-                <!-- An errand whose product this phone has not got - a warehouse no longer shared, or
+                <!-- An errand whose product this phone has not got - an inventory no longer shared, or
                      one not synced yet. Said, rather than left as an empty form that looks broken. -->
                 <Label Text="{Binding NoProductMessage}"
                        IsVisible="{Binding HasNoProductToEdit}" FontSize="12" LineBreakMode="WordWrap"
@@ -376,7 +376,7 @@
                         SemanticProperties.Description="{controls:Translate 'Priority'}" />
             </Grid>
 
-            <!-- "Can this be done?" - what this list's work costs against a warehouse, as Orbit.Web's
+            <!-- "Can this be done?" - what this list's work costs against an inventory, as Orbit.Web's
                  task list page asks it. Only a group list gathers enough work to be worth counting.
 
                  The same card everything else is drawn with, folded by its heading: the question is
@@ -450,10 +450,10 @@
                     <!-- A sheet rather than a picker, for the reason the event editor's three are:
                          iOS docks a picker's wheel at the bottom of the screen, which here covers the
                          sharing links and the way back. -->
-                    <Button Text="{Binding LinkedWarehouse.Name}" HorizontalOptions="Start"
+                    <Button Text="{Binding LinkedInventory.Name}" HorizontalOptions="Start"
                             FontSize="13" Padding="12,6" Style="{StaticResource SecondaryButton}"
                             IsEnabled="{Binding Connection.IsMet}"
-                            Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=ChooseWarehouseCommand, x:DataType=tasks:TaskListDetailPage}" />
+                            Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=ChooseInventoryCommand, x:DataType=tasks:TaskListDetailPage}" />
                 </controls:ItemCard.Extras>
             </controls:ItemCard>
 

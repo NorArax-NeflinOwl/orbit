@@ -1,4 +1,4 @@
-using Orbit.Core.Inventory;
+using Orbit.Core.Inventories;
 using Orbit.Web.Services;
 using Xunit;
 
@@ -47,7 +47,7 @@ public sealed class InventoryUnitOptionTests
     [InlineData(null, "Piece")]
     public void An_unreadable_unit_reads_as_pieces_rather_than_as_nothing(string? stored, string expected)
     {
-        // Null is not hypothetical: a private warehouse sealed before units existed carries no unit at
+        // Null is not hypothetical: a private inventory sealed before units existed carries no unit at
         // all, and without this the picker showed pieces while the row held nothing.
         Assert.Equal(expected, InventoryUnitOption.For(stored).Value);
     }

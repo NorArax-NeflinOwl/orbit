@@ -48,7 +48,7 @@ public sealed class TasksApiClient
 
     /// <summary>
     /// Builds the shelf this list's work needs - one entry per distinct thing it calls for, each starting
-    /// at nothing - and points the list at it. Returns the new warehouse's id.
+    /// at nothing - and points the list at it. Returns the new inventory's id.
     /// </summary>
     public async Task<Guid?> GenerateInventoryAsync(Guid taskListId, CancellationToken cancellationToken = default)
     {
@@ -62,16 +62,16 @@ public sealed class TasksApiClient
         return await response.Content.ReadFromJsonAsync<Guid>(cancellationToken);
     }
 
-    /// <summary>Points a task list at the warehouse its work is measured against, or at none.</summary>
-    public async Task<bool> LinkWarehouseAsync(Guid taskListId, Guid? warehouseId, CancellationToken cancellationToken = default)
+    /// <summary>Points a task list at the inventory its work is measured against, or at none.</summary>
+    public async Task<bool> LinkInventoryAsync(Guid taskListId, Guid? inventoryId, CancellationToken cancellationToken = default)
     {
         var response = await _httpClient.PutAsJsonAsync(
-            $"api/tasks/{taskListId}/warehouse", new LinkTaskListToWarehouseRequest(warehouseId), cancellationToken);
+            $"api/tasks/{taskListId}/inventory", new LinkTaskListToInventoryRequest(inventoryId), cancellationToken);
         return response.IsSuccessStatusCode;
     }
 
     /// <summary>
-    /// What this list's work costs against that warehouse, or null when no warehouse has been chosen -
+    /// What this list's work costs against that inventory, or null when no inventory has been chosen -
     /// there is no question to answer then, which is not the same as an answer of "nothing".
     /// </summary>
     public async Task<TaskListStockCheckDto?> GetStockCheckAsync(Guid taskListId, CancellationToken cancellationToken = default)
@@ -86,7 +86,7 @@ public sealed class TasksApiClient
         return await response.Content.ReadFromJsonAsync<TaskListStockCheckDto>(cancellationToken);
     }
 
-    /// <summary>Puts what is short onto the warehouse's restock list. Returns how many entries were added.</summary>
+    /// <summary>Puts what is short onto the inventory's restock list. Returns how many entries were added.</summary>
     public async Task<int> RaiseStockShortfallsAsync(Guid taskListId, CancellationToken cancellationToken = default)
     {
         var response = await _httpClient.PostAsync($"api/tasks/{taskListId}/stock-check/shortfalls", content: null, cancellationToken);
@@ -118,7 +118,7 @@ public sealed class TasksApiClient
             $"api/tasks/{taskListId}/inventory-references", cancellationToken) ?? [];
 
     /// <summary>
-    /// Says the whole restock list is done: crosses off what is left of it and brings its warehouse up
+    /// Says the whole restock list is done: crosses off what is left of it and brings its inventory up
     /// to the levels it is meant to hold. Answers how many shelf items moved.
     /// </summary>
     public async Task<int> FinishRestockingAsync(Guid taskListId, CancellationToken cancellationToken = default)

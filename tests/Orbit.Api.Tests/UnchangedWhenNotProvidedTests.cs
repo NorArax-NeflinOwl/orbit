@@ -1,7 +1,7 @@
 using Orbit.Api.Tests.TestDoubles;
 using Orbit.Core.Abstractions;
-using Orbit.Core.Inventory;
-using Orbit.Core.Inventory.UpdateWarehouse;
+using Orbit.Core.Inventories;
+using Orbit.Core.Inventories.UpdateInventory;
 using Orbit.Core.Notifications;
 using Orbit.Core.Tasks;
 using Orbit.Core.Tasks.UpdateTaskList;
@@ -32,8 +32,8 @@ public sealed class UnchangedWhenNotProvidedTests
             tasks,
             new TaskListLinkValidator(tasks),
             new RestockCompletion(
-                new InMemoryInventoryManagedTaskListRepository(), new InMemoryInventoryRepository(),
-                new InMemoryWarehouseRepository(), new InMemoryTaskRepository()));
+                new InMemoryInventoryManagedTaskListRepository(), new InMemoryInventoryItemRepository(),
+                new InMemoryInventoryRepository(), new InMemoryTaskRepository()));
 
     private static async Task<(InMemoryTaskRepository Tasks, Guid Id)> ADescribedListAsync()
     {
@@ -71,75 +71,75 @@ public sealed class UnchangedWhenNotProvidedTests
     }
 
     [Fact]
-    public async Task A_warehouse_save_that_says_nothing_about_the_description_keeps_it()
+    public async Task A_inventory_save_that_says_nothing_about_the_description_keeps_it()
     {
         var context = new InventoryTestContext();
-        var warehouse = Warehouse.Create(UserId, "Spiżarnia", description: "Za lodówką");
-        await context.WarehouseRepository.AddAsync(warehouse, CancellationToken.None);
+        var inventory = Inventory.Create(UserId, "Spiżarnia", description: "Za lodówką");
+        await context.InventoryRepository.AddAsync(inventory, CancellationToken.None);
 
-        await AWarehouseHandler(context).HandleAsync(
-            new UpdateWarehouseCommand(UserId, warehouse.Id, "Spiżarnia", [], IsPrivate: false, EncryptedContent: null),
+        await AInventoryHandler(context).HandleAsync(
+            new UpdateInventoryCommand(UserId, inventory.Id, "Spiżarnia", [], IsPrivate: false, EncryptedContent: null),
             CancellationToken.None);
 
         Assert.Equal(
             "Za lodówką",
-            (await context.WarehouseRepository.GetByIdAsync(UserId, warehouse.Id, CancellationToken.None))!.Description);
+            (await context.InventoryRepository.GetByIdAsync(UserId, inventory.Id, CancellationToken.None))!.Description);
     }
 
     /// <summary>
-    /// And the same for a shelf item's flag. This one matters most: a warehouse save sends the whole
+    /// And the same for a shelf item's flag. This one matters most: an inventory save sends the whole
     /// list back, so an older client returns every item without the flag at once.
     /// </summary>
     [Fact]
-    public async Task A_warehouse_save_that_says_nothing_about_an_item_keeps_it_being_checked()
+    public async Task A_inventory_save_that_says_nothing_about_an_item_keeps_it_being_checked()
     {
         var context = new InventoryTestContext();
-        var warehouse = Warehouse.Create(UserId, "Spiżarnia");
-        await context.WarehouseRepository.AddAsync(warehouse, CancellationToken.None);
+        var inventory = Inventory.Create(UserId, "Spiżarnia");
+        await context.InventoryRepository.AddAsync(inventory, CancellationToken.None);
         var item = InventoryItem.Create(
-            warehouse.Id, "Mleko", "Nabiał", "Jedzenie", 1, null, InventoryUnit.Piece, null,
+            inventory.Id, "Mleko", "Nabiał", "Jedzenie", 1, null, InventoryUnit.Piece, null,
             NotificationChannel.None, isCheckedRegularly: true);
-        await context.InventoryRepository.AddAsync(item, CancellationToken.None);
+        await context.InventoryItemRepository.AddAsync(item, CancellationToken.None);
 
-        await AWarehouseHandler(context).HandleAsync(
-            new UpdateWarehouseCommand(
-                UserId, warehouse.Id, "Spiżarnia",
-                [new WarehouseItemInput(
+        await AInventoryHandler(context).HandleAsync(
+            new UpdateInventoryCommand(
+                UserId, inventory.Id, "Spiżarnia",
+                [new InventoryItemInput(
                     item.Id, "Mleko", "Nabiał", "Jedzenie", 1, null, InventoryUnit.Piece, null,
                     NotificationChannel.None)],
                 IsPrivate: false, EncryptedContent: null),
             CancellationToken.None);
 
-        var saved = Assert.Single(await context.InventoryRepository.GetAllAsync(warehouse.Id, CancellationToken.None));
+        var saved = Assert.Single(await context.InventoryItemRepository.GetAllAsync(inventory.Id, CancellationToken.None));
         Assert.True(saved.IsCheckedRegularly);
     }
 
     [Fact]
-    public async Task A_warehouse_save_that_says_false_turns_it_off()
+    public async Task A_inventory_save_that_says_false_turns_it_off()
     {
         var context = new InventoryTestContext();
-        var warehouse = Warehouse.Create(UserId, "Spiżarnia");
-        await context.WarehouseRepository.AddAsync(warehouse, CancellationToken.None);
+        var inventory = Inventory.Create(UserId, "Spiżarnia");
+        await context.InventoryRepository.AddAsync(inventory, CancellationToken.None);
         var item = InventoryItem.Create(
-            warehouse.Id, "Mleko", "Nabiał", "Jedzenie", 1, null, InventoryUnit.Piece, null,
+            inventory.Id, "Mleko", "Nabiał", "Jedzenie", 1, null, InventoryUnit.Piece, null,
             NotificationChannel.None, isCheckedRegularly: true);
-        await context.InventoryRepository.AddAsync(item, CancellationToken.None);
+        await context.InventoryItemRepository.AddAsync(item, CancellationToken.None);
 
-        await AWarehouseHandler(context).HandleAsync(
-            new UpdateWarehouseCommand(
-                UserId, warehouse.Id, "Spiżarnia",
-                [new WarehouseItemInput(
+        await AInventoryHandler(context).HandleAsync(
+            new UpdateInventoryCommand(
+                UserId, inventory.Id, "Spiżarnia",
+                [new InventoryItemInput(
                     item.Id, "Mleko", "Nabiał", "Jedzenie", 1, null, InventoryUnit.Piece, null,
                     NotificationChannel.None, IsCheckedRegularly: false)],
                 IsPrivate: false, EncryptedContent: null),
             CancellationToken.None);
 
-        var saved = Assert.Single(await context.InventoryRepository.GetAllAsync(warehouse.Id, CancellationToken.None));
+        var saved = Assert.Single(await context.InventoryItemRepository.GetAllAsync(inventory.Id, CancellationToken.None));
         Assert.False(saved.IsCheckedRegularly);
     }
 
-    private static UpdateWarehouseCommandHandler AWarehouseHandler(InventoryTestContext context)
+    private static UpdateInventoryCommandHandler AInventoryHandler(InventoryTestContext context)
         => new(
-            new WarehouseAccessResolver(context.WarehouseRepository, new InMemoryWarehouseShareRepository(), new InMemoryUserRepository()),
-            context.WarehouseRepository, context.InventoryRepository, context.TaskListCoordinator);
+            new InventoryAccessResolver(context.InventoryRepository, new InMemoryInventoryShareRepository(), new InMemoryUserRepository()),
+            context.InventoryRepository, context.InventoryItemRepository, context.TaskListCoordinator);
 }

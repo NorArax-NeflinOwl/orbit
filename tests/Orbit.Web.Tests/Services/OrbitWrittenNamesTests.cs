@@ -23,7 +23,7 @@ public sealed class OrbitWrittenNamesTests
     }
 
     [Fact]
-    public void A_restock_list_is_named_in_Polish_without_losing_its_warehouse()
+    public void A_restock_list_is_named_in_Polish_without_losing_its_inventory()
     {
         Assert.Equal(
             "Uzupełnienie zapasów - Spiżarnia",

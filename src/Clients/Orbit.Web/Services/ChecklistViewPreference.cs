@@ -23,7 +23,7 @@ public enum ChecklistOrder
 }
 
 /// <summary>
-/// What order the panel pricing a list against a warehouse lists what it needs in. Its own set rather
+/// What order the panel pricing a list against an inventory lists what it needs in. Its own set rather
 /// than <see cref="ChecklistOrder"/>: the rows there are products and shortfalls, not things to tick.
 /// </summary>
 public enum StockCheckOrder
@@ -39,7 +39,7 @@ public enum StockCheckOrder
 
 /// <summary>
 /// How one person reads one checklist: which shape, in what order, whether the panel that prices it
-/// against a warehouse is in the way, and what order that panel lists things in. They travel together
+/// against an inventory is in the way, and what order that panel lists things in. They travel together
 /// because one button saves all of them.
 /// </summary>
 public sealed record ChecklistReading(

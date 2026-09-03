@@ -32,8 +32,8 @@ public sealed class UpNavigation
         [Screen.CalendarEvent] = Screen.Calendar,
         // The calendar, not the list: this only ever opens from there - see CalendarViewModel.OpenDeadline.
         [Screen.TaskItem] = Screen.Calendar,
-        [Screen.Inventory] = Screen.Dashboard,
-        [Screen.Warehouse] = Screen.Inventory,
+        [Screen.Inventories] = Screen.Dashboard,
+        [Screen.Inventory] = Screen.Inventories,
         [Screen.Contacts] = Screen.Dashboard,
         [Screen.Conversation] = Screen.Contacts,
         [Screen.ContactInfo] = Screen.Contacts,
@@ -82,7 +82,7 @@ public sealed class UpNavigation
 
     /// <summary>
     /// Only screens taking no argument appear here, and that is not an omission: going up leads to a
-    /// list and never to a particular row, so a conversation or a warehouse could not be a parent -
+    /// list and never to a particular row, so a conversation or an inventory could not be a parent -
     /// there would be nothing to say which one.
     /// </summary>
     private void Show(Screen screen)
@@ -94,7 +94,7 @@ public sealed class UpNavigation
             case Screen.Notes: _navigator.ShowNotes(); return;
             case Screen.Tasks: _navigator.ShowTasks(); return;
             case Screen.Calendar: _navigator.ShowCalendar(); return;
-            case Screen.Inventory: _navigator.ShowInventory(); return;
+            case Screen.Inventories: _navigator.ShowInventory(); return;
             case Screen.Contacts: _navigator.ShowContacts(); return;
             case Screen.Groups: _navigator.ShowGroups(); return;
             case Screen.Notifications: _navigator.ShowNotifications(); return;

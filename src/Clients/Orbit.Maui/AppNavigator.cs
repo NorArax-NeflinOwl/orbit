@@ -65,12 +65,12 @@ public sealed class AppNavigator : IScreenNavigator
 
 	public void ShowCalendar() => ShowAsRoot<CalendarPage>(Screen.Calendar);
 
-	public void ShowInventory() => ShowAsRoot<InventoryPage>(Screen.Inventory);
+	public void ShowInventory() => ShowAsRoot<InventoryPage>(Screen.Inventories);
 
 	public void ShowMap() => ShowAsRoot<MapPage>(Screen.Map);
 
-	public void ShowWarehouse(Guid localId, Guid? productId = null)
-		=> ShowAsRoot<WarehouseDetailPage>(Screen.Warehouse, page => page.ViewModel.Open(localId, productId));
+	public void ShowInventory(Guid localId, Guid? productId = null)
+		=> ShowAsRoot<InventoryDetailPage>(Screen.Inventory, page => page.ViewModel.Open(localId, productId));
 
 	public void ShowNotifications() => ShowAsRoot<NotificationFeedPage>(Screen.Notifications);
 

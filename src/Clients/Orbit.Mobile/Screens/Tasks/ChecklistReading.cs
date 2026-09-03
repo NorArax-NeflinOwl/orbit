@@ -1,7 +1,7 @@
 namespace Orbit.Mobile.Screens.Tasks;
 
 /// <summary>
-/// What order the panel pricing a list against a warehouse lists what it needs in. Its own set rather
+/// What order the panel pricing a list against an inventory lists what it needs in. Its own set rather
 /// than the order the list itself is read in: the rows there are products and shortfalls, not things to
 /// tick. The same four Orbit.Web offers - see its StockCheckOrder.
 /// </summary>
@@ -31,7 +31,7 @@ public enum ChecklistOrder
 
 /// <summary>
 /// How one person reads one checklist on this device: what order its entries come in, whether the panel
-/// that prices it against a warehouse is in the way, and what order that panel lists things in. They
+/// that prices it against an inventory is in the way, and what order that panel lists things in. They
 /// travel together because they are answers to the same question.
 ///
 /// Each is written by the part of the screen that owns it, so a writer reads the record first and

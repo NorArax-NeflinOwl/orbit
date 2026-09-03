@@ -8,8 +8,8 @@ using Orbit.Mobile.Localization;
 
 namespace Orbit.Mobile.Screens.Tasks;
 
-/// <summary>One warehouse a list's work can be measured against, or none at all.</summary>
-public sealed record WarehouseChoice(Guid? ServerId, string Name);
+/// <summary>One inventory a list's work can be measured against, or none at all.</summary>
+public sealed record InventoryChoice(Guid? ServerId, string Name);
 
 /// <summary>One thing the work calls for, and whether the shelf covers it.</summary>
 public sealed record StockRequirementRow(string Name, string Required, string Available, string Missing)
@@ -25,7 +25,7 @@ public sealed record StockRequirementRow(string Name, string Required, string Av
 }
 
 /// <summary>
-/// "Can this be done?" - what a group list's work costs against a warehouse, as Orbit.Web's task list
+/// "Can this be done?" - what a group list's work costs against an inventory, as Orbit.Web's task list
 /// page asks it. Its own object rather than more members on the task-list screen, because it is a
 /// question about two things and the screen is about one of them.
 ///
@@ -37,7 +37,7 @@ public sealed partial class StockCheckPanel : ObservableObject
 {
     private readonly TasksClient _tasks;
     private readonly InventoryClient _inventory;
-    private readonly LocalWarehouseRepository _warehouses;
+    private readonly LocalInventoryRepository _inventories;
     private readonly Translations _translations;
     private readonly IChecklistReadingStore _reading;
 
@@ -48,12 +48,12 @@ public sealed partial class StockCheckPanel : ObservableObject
     private readonly List<StockRequirementRow> _asCounted = [];
 
     public StockCheckPanel(
-        TasksClient tasks, InventoryClient inventory, LocalWarehouseRepository warehouses,
+        TasksClient tasks, InventoryClient inventory, LocalInventoryRepository inventories,
         Translations translations, ConnectionRequirement connection, IChecklistReadingStore reading)
     {
         _tasks = tasks;
         _inventory = inventory;
-        _warehouses = warehouses;
+        _inventories = inventories;
         _translations = translations;
         _reading = reading;
         Connection = connection;
@@ -73,10 +73,10 @@ public sealed partial class StockCheckPanel : ObservableObject
     private bool _isOffered;
 
     /// <summary>What the shelf is measured against, plus "not measured at all" leading the list.</summary>
-    public ObservableCollection<WarehouseChoice> Warehouses { get; } = [];
+    public ObservableCollection<InventoryChoice> Inventories { get; } = [];
 
     [ObservableProperty]
-    private WarehouseChoice? _linkedWarehouse;
+    private InventoryChoice? _linkedInventory;
 
     public ObservableCollection<StockRequirementRow> Requirements { get; } = [];
 
@@ -99,7 +99,7 @@ public sealed partial class StockCheckPanel : ObservableObject
     [ObservableProperty]
     private StockCheckOrder _order;
 
-    /// <summary>Whether the answer is worth reading - there is none until a warehouse is chosen.</summary>
+    /// <summary>Whether the answer is worth reading - there is none until an inventory is chosen.</summary>
     [ObservableProperty]
     private string _summary = string.Empty;
 
@@ -143,13 +143,13 @@ public sealed partial class StockCheckPanel : ObservableObject
             return;
         }
 
-        await ShowWarehousesAsync(taskList.LinkedWarehouseId, cancellationToken);
+        await ShowInventoriesAsync(taskList.LinkedInventoryId, cancellationToken);
         await AskAsync(cancellationToken);
     }
 
     /// <summary>
     /// Builds a shelf from the work and points the list at it. The screen re-reads afterwards, because
-    /// the list now has a warehouse it did not have.
+    /// the list now has an inventory it did not have.
     /// </summary>
     [RelayCommand]
     private async Task GenerateInventoryAsync(CancellationToken cancellationToken)
@@ -162,8 +162,8 @@ public sealed partial class StockCheckPanel : ObservableObject
         try
         {
             Message = await _tasks.GenerateInventoryAsync(serverId, cancellationToken) is not null
-                ? _translations["Built a warehouse from what this list needs."]
-                : _translations["There was nothing on this list to build a warehouse from."];
+                ? _translations["Built a inventory from what this list needs."]
+                : _translations["There was nothing on this list to build a inventory from."];
 
             Changed?.Invoke(this, EventArgs.Empty);
         }
@@ -174,7 +174,7 @@ public sealed partial class StockCheckPanel : ObservableObject
     }
 
     /// <summary>
-    /// Rebuilds the restock list against the warehouse behind it and the settings that warehouse
+    /// Rebuilds the restock list against the inventory behind it and the settings that inventory
     /// carries - what somebody presses when the world changed rather than the list - and then reads the
     /// check again, since the point of asking is to see the answer.
     ///
@@ -183,16 +183,16 @@ public sealed partial class StockCheckPanel : ObservableObject
     /// the reader to work out the rest.
     /// </summary>
     [RelayCommand]
-    private async Task RefreshFromTheWarehouseAsync(CancellationToken cancellationToken)
+    private async Task RefreshFromTheInventoryAsync(CancellationToken cancellationToken)
     {
-        if (LinkedWarehouse?.ServerId is not { } warehouseId)
+        if (LinkedInventory?.ServerId is not { } inventoryId)
         {
             return;
         }
 
         try
         {
-            var refreshed = await _inventory.RefreshRestockListAsync(warehouseId, cancellationToken);
+            var refreshed = await _inventory.RefreshRestockListAsync(inventoryId, cancellationToken);
             Message = refreshed is { AddedCount: 0, RemovedCount: 0 }
                 ? _translations["The restock list already asks for exactly what it should."]
                 : _translations.Format(
@@ -228,21 +228,21 @@ public sealed partial class StockCheckPanel : ObservableObject
         }
     }
 
-    private async Task ShowWarehousesAsync(Guid? linkedWarehouseId, CancellationToken cancellationToken)
+    private async Task ShowInventoriesAsync(Guid? linkedInventoryId, CancellationToken cancellationToken)
     {
-        var stored = await _warehouses.GetAllAsync(cancellationToken);
+        var stored = await _inventories.GetAllAsync(cancellationToken);
 
-        Warehouses.Clear();
-        Warehouses.Add(new WarehouseChoice(null, _translations["Not measured against a warehouse"]));
-        foreach (var warehouse in stored.Where(warehouse => warehouse.ServerId is not null))
+        Inventories.Clear();
+        Inventories.Add(new InventoryChoice(null, _translations["Not measured against a inventory"]));
+        foreach (var inventory in stored.Where(inventory => inventory.ServerId is not null))
         {
-            Warehouses.Add(new WarehouseChoice(warehouse.ServerId, warehouse.Name));
+            Inventories.Add(new InventoryChoice(inventory.ServerId, inventory.Name));
         }
 
         // Assigned without going back to the server: this is what the list already says it points at.
         _isShowingWhatIsStored = true;
-        LinkedWarehouse = Warehouses.FirstOrDefault(choice => choice.ServerId == linkedWarehouseId)
-            ?? Warehouses[0];
+        LinkedInventory = Inventories.FirstOrDefault(choice => choice.ServerId == linkedInventoryId)
+            ?? Inventories[0];
         _isShowingWhatIsStored = false;
     }
 
@@ -255,7 +255,7 @@ public sealed partial class StockCheckPanel : ObservableObject
         _asCounted.Clear();
         IsShortOfSomething = false;
 
-        if (_taskListServerId is not { } serverId || LinkedWarehouse?.ServerId is null)
+        if (_taskListServerId is not { } serverId || LinkedInventory?.ServerId is null)
         {
             Summary = string.Empty;
             return;
@@ -287,7 +287,7 @@ public sealed partial class StockCheckPanel : ObservableObject
         }
     }
 
-    async partial void OnLinkedWarehouseChanged(WarehouseChoice? value)
+    async partial void OnLinkedInventoryChanged(InventoryChoice? value)
     {
         if (_isShowingWhatIsStored || _taskListServerId is not { } serverId)
         {
@@ -296,7 +296,7 @@ public sealed partial class StockCheckPanel : ObservableObject
 
         try
         {
-            await _tasks.LinkWarehouseAsync(serverId, value?.ServerId, CancellationToken.None);
+            await _tasks.LinkInventoryAsync(serverId, value?.ServerId, CancellationToken.None);
             await AskAsync(CancellationToken.None);
             Changed?.Invoke(this, EventArgs.Empty);
         }

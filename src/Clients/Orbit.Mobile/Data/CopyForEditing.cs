@@ -13,7 +13,7 @@ public enum CopyKind
 
     CalendarEvent,
 
-    Warehouse
+    Inventory
 }
 
 /// <summary>
@@ -69,7 +69,7 @@ public sealed record CopyUnderReview(
 /// <summary>
 /// What a repository has to answer for the review window to work over its kind. Each of the four
 /// implements it; the window itself knows none of them apart, which is what keeps one screen able to
-/// decide between a note, a task list, an appointment and a warehouse.
+/// decide between a note, a task list, an appointment and an inventory.
 /// </summary>
 public interface ICopyReviewStore
 {
@@ -244,6 +244,6 @@ public static class CopiesForEditing
             CopyKind.Note => "You wrote in a copy of the note “{0}” while you were offline.",
             CopyKind.TaskList => "You wrote in a copy of the task list “{0}” while you were offline.",
             CopyKind.CalendarEvent => "You wrote in a copy of the appointment “{0}” while you were offline.",
-            _ => "You wrote in a copy of the warehouse “{0}” while you were offline."
+            _ => "You wrote in a copy of the inventory “{0}” while you were offline."
         };
 }

@@ -14,7 +14,7 @@ namespace Orbit.Mobile.Tests.Data;
 /// on the first read of every row that existed before the migration ran.
 ///
 /// Nothing in the tests caught it, because a test builds its rows after the schema. It took a phone with
-/// a warehouse and two task lists already on it, and it took the whole screen down.
+/// an inventory and two task lists already on it, and it took the whole screen down.
 ///
 /// Checked for two of the columns rather than one: the reader is shared by all of them, and the point is
 /// that the whole class of column survives it rather than only the one that failed.
@@ -63,13 +63,13 @@ public sealed class BlankListColumnTests
     {
         using var localStore = new LocalStore();
         var clock = new FakeTimeProvider(DateTimeOffset.Parse("2026-08-31T10:00:00Z"));
-        var warehouses = new LocalWarehouseRepository(
+        var inventories = new LocalInventoryRepository(
             localStore, clock, FixedNetworkStatus.Online, PrivateContent.WithoutAKey());
-        var warehouse = await warehouses.CreateAsync("Kitchen");
+        var inventory = await inventories.CreateAsync("Kitchen");
 
-        Blank(localStore, "Warehouses", "ItemArrivals", warehouse.LocalId);
+        Blank(localStore, "Inventories", "ItemArrivals", inventory.LocalId);
 
-        var stored = Assert.Single(await warehouses.GetAllAsync());
+        var stored = Assert.Single(await inventories.GetAllAsync());
         Assert.Equal("Kitchen", stored.Name);
         Assert.Empty(stored.ItemArrivals);
     }

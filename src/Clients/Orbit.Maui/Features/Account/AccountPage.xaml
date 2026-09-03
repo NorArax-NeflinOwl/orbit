@@ -300,7 +300,7 @@
                     </Grid>
                     <Grid ColumnDefinitions="*,Auto">
                         <Label Grid.Column="0" Text="{controls:Translate 'Storages'}" VerticalOptions="Center" />
-                        <Switch Grid.Column="1" IsToggled="{Binding IncludesWarehouses}"
+                        <Switch Grid.Column="1" IsToggled="{Binding IncludesInventories}"
                                 SemanticProperties.Description="{controls:Translate 'Storages'}" />
                     </Grid>
                 </VerticalStackLayout>

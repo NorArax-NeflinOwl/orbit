@@ -5,7 +5,7 @@ namespace Orbit.Mobile.Screens;
 
 /// <summary>
 /// The line under a row, or above an editor, saying why it cannot be changed right now - or that a
-/// change is still on its way out. Notes, task lists, warehouses and calendar events answer the same
+/// change is still on its way out. Notes, task lists, inventories and calendar events answer the same
 /// questions, so they say it the same way rather than four times over.
 ///
 /// Two reasons, and they are not the same shape. A share that does not permit editing holds whatever

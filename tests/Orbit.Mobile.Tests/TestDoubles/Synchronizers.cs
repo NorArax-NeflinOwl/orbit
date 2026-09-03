@@ -46,9 +46,9 @@ internal static class Synchronizers
                 localStore, new CalendarClient(calendar), clock, gate,
                 new PendingCalendarLinkResolver(clock, NullLogger<PendingCalendarLinkResolver>.Instance),
                 NullLogger<CalendarEventSynchronizer>.Instance),
-            new WarehouseSynchronizer(
+            new InventorySynchronizer(
                 localStore, new InventoryClient(inventory), clock, gate,
-                NullLogger<WarehouseSynchronizer>.Instance),
+                NullLogger<InventorySynchronizer>.Instance),
             new ChatSynchronizer(
                 chat, chatClient, usersClient,
                 new EncryptedChatMessageSender(
@@ -77,7 +77,7 @@ internal static class Synchronizers
                 localStore, new CalendarClient(nobody), clock, gate,
                 new PendingCalendarLinkResolver(clock, NullLogger<PendingCalendarLinkResolver>.Instance),
                 NullLogger<CalendarEventSynchronizer>.Instance),
-            new WarehouseSynchronizer(localStore, new InventoryClient(nobody), clock, gate, NullLogger<WarehouseSynchronizer>.Instance),
+            new InventorySynchronizer(localStore, new InventoryClient(nobody), clock, gate, NullLogger<InventorySynchronizer>.Instance),
             new ChatSynchronizer(
                 chat, chatClient, usersClient,
                 new EncryptedChatMessageSender(

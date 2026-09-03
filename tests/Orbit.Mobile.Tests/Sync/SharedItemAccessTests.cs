@@ -67,7 +67,7 @@ public sealed class SharedItemAccessTests
         // One rule for four types, which is the reason it takes ISharedState rather than a note.
         Assert.False(SharedItemAccess.AllowsEditing(new LocalTaskList { IsShared = true, AccessLevel = "ReadOnly" }));
         Assert.False(SharedItemAccess.AllowsEditing(new LocalCalendarEvent { IsShared = true, AccessLevel = "ReadOnly" }));
-        Assert.False(SharedItemAccess.AllowsEditing(new LocalWarehouse { IsShared = true, AccessLevel = "ReadOnly" }));
+        Assert.False(SharedItemAccess.AllowsEditing(new LocalInventory { IsShared = true, AccessLevel = "ReadOnly" }));
     }
 
     /// <summary>

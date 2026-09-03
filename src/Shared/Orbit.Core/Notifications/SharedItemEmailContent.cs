@@ -37,7 +37,7 @@ public static class SharedItemEmailContent
         SharedItemKind.Note => $"{sharerName} shared a note with you",
         SharedItemKind.TaskList => $"{sharerName} shared a task list with you",
         SharedItemKind.CalendarEvent => $"{sharerName} shared an event with you",
-        SharedItemKind.Warehouse => $"{sharerName} shared a warehouse with you",
+        SharedItemKind.Inventory => $"{sharerName} shared an inventory with you",
         _ => $"{sharerName} shared their location with you"
     };
 

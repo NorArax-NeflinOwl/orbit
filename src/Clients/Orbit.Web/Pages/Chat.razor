@@ -1433,7 +1433,7 @@ else
     /// <summary>
     /// A decrypted message's plaintext is ordinary user-typed text unless it happens to parse as one of
     /// the four structured share shapes (see EventShareMessagePayload/NoteShareMessagePayload/
-    /// TaskListShareMessagePayload/WarehouseShareMessagePayload) - anything else, including JSON that just doesn't match any of them,
+    /// TaskListShareMessagePayload/InventoryShareMessagePayload) - anything else, including JSON that just doesn't match any of them,
     /// is treated as plain text rather than surfacing a parse error.
     /// </summary>
     private ShareNotice? TryParseShare(string plainText)
@@ -1462,12 +1462,12 @@ else
                 () => TasksApiClient.AcceptTaskListShareAsync(taskListShare.ShareId));
         }
 
-        if (TryDeserialize<WarehouseShareMessagePayload>(plainText) is { Type: WarehouseShareMessagePayload.MessageType } warehouseShare)
+        if (TryDeserialize<InventoryShareMessagePayload>(plainText) is { Type: InventoryShareMessagePayload.MessageType } inventoryShare)
         {
             return new ShareNotice(
-                warehouseShare.ShareId, $"Shared a warehouse: {warehouseShare.WarehouseName}",
-                () => InventoryApiClient.GetWarehouseShareStatusAsync(warehouseShare.ShareId),
-                () => InventoryApiClient.AcceptWarehouseShareAsync(warehouseShare.ShareId));
+                inventoryShare.ShareId, $"Shared an inventory: {inventoryShare.InventoryName}",
+                () => InventoryApiClient.GetInventoryShareStatusAsync(inventoryShare.ShareId),
+                () => InventoryApiClient.AcceptInventoryShareAsync(inventoryShare.ShareId));
         }
 
         return null;
@@ -1488,7 +1488,7 @@ else
             "Note" => GrantAsync(NotesApiClient.ShareNoteAsync(request.ItemId, requesterUserId, "EditOnly")),
             "TaskList" => GrantAsync(TasksApiClient.ShareTaskListAsync(request.ItemId, requesterUserId, "EditOnly")),
             "CalendarEvent" => GrantAsync(CalendarApiClient.ShareCalendarEventAsync(request.ItemId, requesterUserId, "EditOnly")),
-            _ => GrantAsync(InventoryApiClient.ShareWarehouseAsync(request.ItemId, requesterUserId, "EditOnly"))
+            _ => GrantAsync(InventoryApiClient.ShareInventoryAsync(request.ItemId, requesterUserId, "EditOnly"))
         });
     }
 
@@ -1499,7 +1499,7 @@ else
         "Note" => T["a note"],
         "TaskList" => T["a task list"],
         "CalendarEvent" => T["an event"],
-        _ => T["a warehouse"]
+        _ => T["a inventory"]
     };
 
     private async Task GrantEditAccessAsync(Guid messageId, EditAccessRequestNotice notice)

@@ -11,8 +11,8 @@ public sealed class AcceptTaskListShareCommandHandlerTests
         => new(
             shareRepository,
             new TaskListShareCascade(
-                new InMemoryTaskRepository(), new InMemoryWarehouseRepository(),
-                shareRepository, new InMemoryWarehouseShareRepository()));
+                new InMemoryTaskRepository(), new InMemoryInventoryRepository(),
+                shareRepository, new InMemoryInventoryShareRepository()));
 
     [Fact]
     public async Task HandleAsync_marks_the_share_accepted()

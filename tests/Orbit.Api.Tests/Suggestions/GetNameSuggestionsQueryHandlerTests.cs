@@ -9,7 +9,7 @@ namespace Orbit.Api.Tests.Suggestions;
 /// The rules around the similarity search, which is the part that is not the database's. What this is
 /// for is written on the query itself: offering a name somebody already has is a database question, and
 /// answering it with a language model would be slower, dearer, and wrong more often - a model does not
-/// know what is in this warehouse.
+/// know what is in this inventory.
 /// </summary>
 public sealed class GetNameSuggestionsQueryHandlerTests
 {
@@ -58,11 +58,11 @@ public sealed class GetNameSuggestionsQueryHandlerTests
     public async Task Each_field_reads_from_its_own_names()
     {
         _repository.Add(NameSuggestionKind.InventoryItemName, "Mleko 2%");
-        _repository.Add(NameSuggestionKind.WarehouseName, "Mleczarnia");
+        _repository.Add(NameSuggestionKind.InventoryName, "Mleczarnia");
 
         var forAProduct = await AskAsync(NameSuggestionKind.InventoryItemName, "mlek");
 
-        // Offering a warehouse's name where a product's is being typed would be worse than offering
+        // Offering an inventory's name where a product's is being typed would be worse than offering
         // nothing: it reads as a real suggestion.
         Assert.DoesNotContain(forAProduct, suggestion => suggestion.Name == "Mleczarnia");
     }
@@ -73,7 +73,7 @@ public sealed class GetNameSuggestionsQueryHandlerTests
         _repository.Add(NameSuggestionKind.InventoryItemName, "Mleko 2%");
 
         // The case this exists for: the same product typed with a space in it, which is a second row in
-        // the warehouse unless somebody is told about the first one.
+        // the inventory unless somebody is told about the first one.
         var suggestions = await AskAsync(NameSuggestionKind.InventoryItemName, "Mleko 2 %");
 
         // What separates "you already have one of these" from "here is a completion" - see

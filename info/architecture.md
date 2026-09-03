@@ -33,6 +33,35 @@ EF Core persistence on PostgreSQL, isolated behind repository interfaces
 `Orbit.Core` never depends on the storage technology. Schema changes are applied through EF Core
 Migrations — see [Testing and Running Locally](testing-and-running-locally.md#database-migrations).
 
+Entity classes sit in `Entities/` under three folders that mirror the table prefixes below — `Data/`,
+`Links/` and `Setups/`. The folders group; they are not namespaces, so every entity stays in
+`Orbit.Data.Entities` and no repository needs a second `using`.
+
+#### Table and column names
+
+Physical names live in one place, `OrbitStorageNames`, which renames the finished model at the end of
+`OnModelCreating`. Nothing is named by EF's defaults, and an entity missing from that map throws at
+startup rather than drifting out of the convention.
+
+A table reads as `prefix_midfix[_postfix]`:
+
+| Prefix | Holds | Examples |
+| --- | --- | --- |
+| `OP_` | what the user works on | `OP_NOTES`, `OP_TASKS_ITEMS`, `OP_INVENTORIES_SHARED` |
+| `OL_` | rows that only join two of those tables | `OL_PUBLIC_SHARES`, `OL_CHATS_MEMBERS` |
+| `OS_` | accounts, permissions, settings, bookkeeping | `OS_USERS`, `OS_SYNC_TOMBSTONES` |
+
+A column repeats its table's prefix, shortens the midfix to initials, and ends with the property name
+in upper case: `OP_NOTES.OP_N_ID`, `OP_NOTES_SHARED.OP_NS_ACCESSLEVEL`. Initials are taken letter by
+letter from the midfix and postfix (`OP_TASKS_ITEMS` → `OP_TI_`); where two tables under one prefix
+would collide, the midfix contributes its first three consonants (`OP_NOTIFICATIONS` → `OP_NTF_`) and a
+run-together name its initials (`OS_REFRESH_TOKENS` → `OS_RT_`). The point is that a column carries its
+table with it, so a query joining several reads without aliases.
+
+One value deliberately keeps the old wording: `SharedItemType.Warehouse` is stored as text in
+`OL_PUBLIC_SHARES` and travels inside chat payloads that were delivered before the rename, so renaming
+it would orphan every public link handed out so far.
+
 ### Orbit.GoogleIntegration
 
 Holds what Orbit needs from Google. Today that is authentication only: `GoogleIdentityVerifier`
@@ -55,7 +84,7 @@ Orbit.Api, it only logs errors to the browser console.
 
 Two things it does that the API deliberately has no part in:
 
-- **Encryption.** Chat messages, private notes/task lists/warehouses, and shared positions are sealed and
+- **Encryption.** Chat messages, private notes/task lists/inventories, and shared positions are sealed and
   opened here, never on the server — see
   [Functionality](functionality.md#private-notes-and-task-lists).
 - **The Google hand-off links.** `GoogleCalendarEventLink` and `GoogleMapsLink` build ordinary URLs in the

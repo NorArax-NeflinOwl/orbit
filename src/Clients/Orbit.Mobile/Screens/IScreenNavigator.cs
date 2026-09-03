@@ -86,10 +86,10 @@ public interface IScreenNavigator
     /// <param name="productId">
     /// Which product this was opened for, when it was opened from something that meant one - an errand
     /// naming the shelf it is about, or a search that found the thing on it. The shelf marks that row
-    /// and opens on it; null when the warehouse was opened for its own sake. Orbit.Web passes the same
-    /// thing as ?highlight= - see WarehouseSummary.
+    /// and opens on it; null when the inventory was opened for its own sake. Orbit.Web passes the same
+    /// thing as ?highlight= - see InventorySummary.
     /// </param>
-    void ShowWarehouse(Guid localId, Guid? productId = null);
+    void ShowInventory(Guid localId, Guid? productId = null);
 
     /// <summary>What happened while the reader was elsewhere - see NotificationFeedViewModel.</summary>
     void ShowNotifications();

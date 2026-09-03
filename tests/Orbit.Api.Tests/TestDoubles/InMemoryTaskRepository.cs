@@ -85,7 +85,7 @@ internal sealed class InMemoryTaskRepository : ITaskRepository
             stored.Id, stored.UserId, stored.Title, stored.Items, stored.IsGroup, stored.IsPrivate,
             stored.EncryptedContent, stored.CreatedAtUtc, updatedAtUtc,
             stored.LockedByUserId, stored.LockedByUserName, stored.LockExpiresAtUtc,
-            stored.Priority, stored.IsPinned, stored.LinkedWarehouseId);
+            stored.Priority, stored.IsPinned, stored.LinkedInventoryId);
 
         // Carried over rather than left at their defaults: FromPersistence does not take them, and a
         // shared list that came back unshared would be a different list from the one being tested.

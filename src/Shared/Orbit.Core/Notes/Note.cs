@@ -135,7 +135,7 @@ public sealed class Note
     /// No parameter has a default, the same way TaskList.Update has none: this replaces the whole note,
     /// so a caller that forgot one would silently reset it. That is not a hypothetical - the task-list
     /// side had exactly this shape and three callers that left the priority out, and a list marked High
-    /// dropped back to Normal every time the warehouse appended an errand to it.
+    /// dropped back to Normal every time the inventory appended an errand to it.
     /// </summary>
     public void Update(
         string title, IReadOnlyList<NoteContentLine> content, bool isPrivate, EncryptedPayload? encryptedContent,

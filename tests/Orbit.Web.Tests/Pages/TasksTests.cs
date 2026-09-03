@@ -257,7 +257,7 @@ public sealed class TasksTests : OrbitTestContext
     }
 
     /// <summary>Somebody else's shared list is not this reader's to delete - the same rule the note and
-    /// warehouse cards already follow.</summary>
+    /// inventory cards already follow.</summary>
     [Fact]
     public void A_shared_list_is_not_offered_for_deleting()
     {

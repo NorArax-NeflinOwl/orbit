@@ -14,7 +14,7 @@ namespace Orbit.Core;
 /// </summary>
 public static class StoredTextLimits
 {
-    /// <summary>What a note, a task list, an event, a warehouse or a shelf item is called.</summary>
+    /// <summary>What a note, a task list, an event, an inventory or a shelf item is called.</summary>
     public const int Title = 200;
 
     /// <summary>What somebody chose to be called - the same length as anything else with a name.</summary>

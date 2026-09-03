@@ -24,18 +24,18 @@ public sealed class AccountDeletionRepository : IAccountDeletionRepository
     {
         await using var transaction = await _dbContext.Database.BeginTransactionAsync(cancellationToken);
 
-        var ownedWarehouseIds = await _dbContext.Warehouses
-            .Where(warehouse => warehouse.UserId == userId)
-            .Select(warehouse => warehouse.Id)
+        var ownedInventoryIds = await _dbContext.Inventories
+            .Where(inventory => inventory.UserId == userId)
+            .Select(inventory => inventory.Id)
             .ToListAsync(cancellationToken);
-        if (ownedWarehouseIds.Count > 0)
+        if (ownedInventoryIds.Count > 0)
         {
             await _dbContext.InventoryItems
-                .Where(item => ownedWarehouseIds.Contains(item.WarehouseId))
+                .Where(item => ownedInventoryIds.Contains(item.InventoryId))
                 .ExecuteDeleteAsync(cancellationToken);
         }
 
-        await _dbContext.Warehouses.Where(warehouse => warehouse.UserId == userId).ExecuteDeleteAsync(cancellationToken);
+        await _dbContext.Inventories.Where(inventory => inventory.UserId == userId).ExecuteDeleteAsync(cancellationToken);
         await _dbContext.Notes.Where(note => note.UserId == userId).ExecuteDeleteAsync(cancellationToken);
         await _dbContext.Tasks.Where(task => task.UserId == userId).ExecuteDeleteAsync(cancellationToken);
         await _dbContext.CalendarEvents.Where(calendarEvent => calendarEvent.UserId == userId).ExecuteDeleteAsync(cancellationToken);

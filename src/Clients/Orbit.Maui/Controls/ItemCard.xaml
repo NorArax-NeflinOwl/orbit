@@ -4,7 +4,7 @@
     xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
     xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml">
 
-    <!-- One card, used by every list that shows things - notes, task lists, events, warehouses. The
+    <!-- One card, used by every list that shows things - notes, task lists, events, inventories. The
          shape is fixed so that a reader who learns it once knows where to look on every screen: the name
          is always in the same place, the menu is always in the same corner, and what a card carries
          beyond that is what differs between them.

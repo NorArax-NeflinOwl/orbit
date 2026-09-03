@@ -80,10 +80,10 @@ public sealed class SharedItemNotifierTests
     {
         var context = new SharedItemNotifierTestContext();
 
-        await context.NotifyAsync(SharedItemKind.Warehouse, "Pantry");
+        await context.NotifyAsync(SharedItemKind.Inventory, "Pantry");
 
         // The item isn't the recipient's to open until they accept, and Accept lives in the chat with
-        // whoever sent it - pointing at the warehouse itself would land on a "not found".
+        // whoever sent it - pointing at the inventory itself would land on a "not found".
         Assert.Equal($"/chat/{context.SharerId}", Assert.Single(await context.RecipientEntriesAsync()).Url);
     }
 
@@ -134,7 +134,7 @@ public sealed class SharedItemNotifierTests
         var context = new SharedItemNotifierTestContext(webClientBaseUrl: "https://orbit.example");
         await context.AllowShareNotificationsAsync(true);
 
-        await context.NotifyAsync(SharedItemKind.Warehouse, "Pantry");
+        await context.NotifyAsync(SharedItemKind.Inventory, "Pantry");
 
         var email = Assert.Single(context.EmailSender.SentEmails);
         Assert.Contains($"https://orbit.example/chat/{context.SharerId}", email.Body);
@@ -147,7 +147,7 @@ public sealed class SharedItemNotifierTests
         var context = new SharedItemNotifierTestContext(webClientBaseUrl: null);
         await context.AllowShareNotificationsAsync(true);
 
-        await context.NotifyAsync(SharedItemKind.Warehouse, "Pantry");
+        await context.NotifyAsync(SharedItemKind.Inventory, "Pantry");
 
         var email = Assert.Single(context.EmailSender.SentEmails);
         Assert.DoesNotContain("://", email.Body);

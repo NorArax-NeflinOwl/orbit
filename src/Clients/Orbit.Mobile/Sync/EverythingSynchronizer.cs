@@ -20,18 +20,18 @@ public sealed class EverythingSynchronizer
     private readonly NoteSynchronizer _notes;
     private readonly TaskListSynchronizer _taskLists;
     private readonly CalendarEventSynchronizer _calendarEvents;
-    private readonly WarehouseSynchronizer _warehouses;
+    private readonly InventorySynchronizer _inventories;
     private readonly ChatSynchronizer _chat;
     private readonly UserPermissions _permissions;
 
     public EverythingSynchronizer(
         NoteSynchronizer notes, TaskListSynchronizer taskLists, CalendarEventSynchronizer calendarEvents,
-        WarehouseSynchronizer warehouses, ChatSynchronizer chat, UserPermissions permissions)
+        InventorySynchronizer inventories, ChatSynchronizer chat, UserPermissions permissions)
     {
         _notes = notes;
         _taskLists = taskLists;
         _calendarEvents = calendarEvents;
-        _warehouses = warehouses;
+        _inventories = inventories;
         _chat = chat;
         _permissions = permissions;
     }
@@ -43,7 +43,7 @@ public sealed class EverythingSynchronizer
         everything = everything.And(await TryAsync(() => _notes.SynchroniseAsync(cancellationToken)));
         everything = everything.And(await TryAsync(() => _taskLists.SynchroniseAsync(cancellationToken)));
         everything = everything.And(await TryAsync(() => _calendarEvents.SynchroniseAsync(cancellationToken)));
-        everything = everything.And(await TryAsync(() => _warehouses.SynchroniseAsync(cancellationToken)));
+        everything = everything.And(await TryAsync(() => _inventories.SynchroniseAsync(cancellationToken)));
 
         // Chat reports only whether it worked, so it contributes reachability rather than counts. The
         // dashboard shows contacts and groups, which is exactly what these two fill in.

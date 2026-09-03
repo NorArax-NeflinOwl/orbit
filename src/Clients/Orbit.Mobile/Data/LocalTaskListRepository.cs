@@ -333,7 +333,7 @@ public sealed class LocalTaskListRepository : ICopyReviewStore
             Items = original.Items,
             IsGroup = original.IsGroup,
             IsCompleted = original.IsCompleted,
-            LinkedWarehouseId = original.LinkedWarehouseId,
+            LinkedInventoryId = original.LinkedInventoryId,
             Priority = original.Priority,
             Status = original.Status,
             CopyOfLocalId = original.LocalId,

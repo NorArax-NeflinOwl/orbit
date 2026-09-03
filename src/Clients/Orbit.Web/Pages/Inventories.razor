@@ -1,0 +1,484 @@
+@page "/inventory"
+@attribute [Authorize]
+@using System.Globalization
+@using System.Text.Json
+@using Orbit.Contracts.Chat
+@using Orbit.Contracts.Inventories
+@using Orbit.Core.Inventories
+@using Orbit.Web.Services
+@inject InventoryApiClient InventoryApiClient
+@inject ChatApiClient ChatApiClient
+@inject EncryptedChatMessageSender EncryptedChatMessageSender
+@inject OrbitAuthenticationStateProvider AuthenticationStateProvider
+@inject NavigationManager NavigationManager
+@inject IJSRuntime JSRuntime
+@inject ILogger<Inventories> Logger
+@inject Translations T
+@inject InventoryArrangement Arrangement
+
+<PageTitle>@T["Orbit — Inventory"]</PageTitle>
+
+<PageHeader>
+    <LeadingAction>
+        <button type="button" class="icon-btn page-add" title="@(T["Add inventory"])"
+                aria-label="@(T["Add inventory"])" @onclick="GoToAddInventory">
+            <svg viewBox="0 0 20 20" width="18" height="18" aria-hidden="true" fill="none"
+                 stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M10 4v12M4 10h12" /></svg>
+        </button>
+    </LeadingAction>
+    <Title>@T["Inventory"]</Title>
+</PageHeader>
+
+@if (_errorMessage is not null)
+{
+    <p class="error">@_errorMessage</p>
+}
+
+@* "Which inventory is the flour in?" - the one question this page could not answer, since it lists
+   shelves and not what is on them. Searching one inventory at a time is the editor's own box; this is
+   the level above it. *@
+@if (_inventories is { Count: > 0 })
+{
+    <div class="inventory-search">
+        <input type="search" @bind="_itemSearch" @bind:event="oninput" @bind:after="SearchForItemsAsync"
+               placeholder="@(T["Find an item in any inventory"])"
+               aria-label="@(T["Find an item in any inventory"])" />
+        @if (_itemSearch.Trim().Length > 0)
+        {
+            <button type="button" class="btn-secondary" @onclick="ClearItemSearchAsync">@T["Clear"]</button>
+        }
+    </div>
+}
+
+@if (_itemSearch.Trim().Length > 0)
+{
+    @if (_isSearchingItems)
+    {
+        <p>@T["Looking through your inventories…"]</p>
+    }
+    else if (_itemMatches.Count == 0)
+    {
+        <p class="empty-hint">@T["Nothing on any shelf matches that."]</p>
+    }
+    else
+    {
+        <div class="card inventory-search-results">
+            @* Where it is comes second on the row and is the point of the whole search, so it is the
+               part that is a link: the name only says what was found. *@
+            @foreach (var match in _itemMatches)
+            {
+                <Row Title="@match.Name" OnPressed="() => OpenInventory(match.InventoryId)">
+                    <Trailing>
+                        <span class="row-meta">@match.Amount</span>
+                        <span class="row-meta inventory-search-where">@match.InventoryName</span>
+                    </Trailing>
+                </Row>
+            }
+        </div>
+        <p class="empty-hint">@ItemMatchSummary</p>
+    }
+}
+
+<ObjectList IsLoading="_inventories is null" IsEmpty="_inventories is { Count: 0 }"
+            EmptyMessage="@T["No inventories yet. Create one to start tracking stock."]">
+    <div class="item-card-list">
+        @foreach (var inventory in ArrangedInventories)
+        {
+            <div @key="inventory.Id" class="@(_cardOrder.IsDragging(inventory) ? "dragging" : "")"
+                 @ondragover:preventDefault="true" @ondrop="() => DropCardOnAsync(inventory)">
+                <ItemCard Name="@inventory.Name" OnNameSelected="() => OpenInventory(inventory.Id)">
+                    <Handle>
+                        <ReorderControls OnDragStart="() => _cardOrder.Start(inventory)" OnDragEnd="_cardOrder.Finish"
+                                         OnMoveUp="() => MoveCardAsync(inventory, -1)"
+                                         OnMoveDown="() => MoveCardAsync(inventory, 1)"
+                                         CanMoveUp="CanMoveCard(inventory, -1)" CanMoveDown="CanMoveCard(inventory, 1)" />
+                    </Handle>
+                    <Menu>
+                        @* The card opens the shelf to be read; changing what is on it is a named press,
+                           the same as a task list's - unless a share below CanEdit means there is
+                           nothing to press it into changing, the same question Notes.razor asks. *@
+                        <ObjectMenu EditLabel="@(CanBeChanged(inventory) ? T["Edit"] : T["View"])" OnEdit="() => EditInventory(inventory.Id)"
+                                    ShareLabel="@(CanShare(inventory) ? T["Share"] : null)" OnShare="() => ToggleSharePanel(inventory.Id)"
+                                    DeleteLabel="@(!inventory.IsShared ? T["Delete"] : null)" OnDelete="() => DeleteInventoryAsync(inventory)" />
+                    </Menu>
+                    <Tags>
+                        @if (inventory.IsPrivate)
+                        {
+                            <span class="card-badge" title="@(T["Private - encrypted, and only you can read it"])">@T["Private"]</span>
+                        }
+                        @if (inventory.IsShared)
+                        {
+                            <span class="card-badge">@T.Format("Shared by {0} · {1}", inventory.SharedByUserName, AccessDescription(inventory.AccessLevel))</span>
+                        }
+                        @if (inventory.LockedByUserName is { } lockedBy)
+                        {
+                            <span class="card-badge">@T.Format("{0} is editing it right now", lockedBy)</span>
+                        }
+                    </Tags>
+                    <Body>
+                @if (_sharePanelInventoryId == inventory.Id)
+                {
+                    <div class="inventory-share-panel">
+                        @if (ShareableContacts(inventory).Count == 0)
+                        {
+                            <p>@T["No contacts to share with yet - start a conversation first."]</p>
+                        }
+                        else
+                        {
+                            <select id="shareContactSelect" @bind="_selectedContactUserId">
+                                <option value="">@T["-- select a contact --"]</option>
+                                @foreach (var contact in ShareableContacts(inventory))
+                                {
+                                    <option value="@contact.UserId">@contact.DisplayName (@contact.Email)</option>
+                                }
+                            </select>
+                            <select id="shareAccessLevelSelect" @bind="_selectedAccessLevel">
+                                <option value="ReadOnly">@T["Read-only"]</option>
+                                <option value="Share">@T["Can share"]</option>
+                                @if (CanGrantEditOnly(inventory))
+                                {
+                                    <option value="EditOnly">@T["Can edit, but not share editing"]</option>
+                                }
+                                @if (CanGrantCanEdit(inventory))
+                                {
+                                    <option value="CanEdit">@T["Can edit"]</option>
+                                }
+                            </select>
+                            <button id="shareInventoryButton" class="btn-primary" disabled="@_isSharing"
+                                    @onclick="() => ShareAsync(inventory)">@T["Share"]</button>
+                        }
+                        @if (_shareErrorMessage is not null)
+                        {
+                            <p class="error">@_shareErrorMessage</p>
+                        }
+                        @if (_shareInfoMessage is not null)
+                        {
+                            <p class="info">@_shareInfoMessage</p>
+                        }
+                    </div>
+                }
+                    </Body>
+                </ItemCard>
+            </div>
+        }
+    </div>
+</ObjectList>
+
+@code {
+    private IReadOnlyList<InventoryDto>? _inventories;
+    private IReadOnlyList<ContactDto> _contacts = [];
+    private Guid _ownUserId;
+    private string? _errorMessage;
+
+    /// <summary>What the reader is looking for across every inventory, and what was found.</summary>
+    private string _itemSearch = string.Empty;
+    private bool _isSearchingItems;
+    private IReadOnlyList<ItemMatch> _itemMatches = [];
+
+    /// <summary>
+    /// Every inventory's items, read once and kept for as long as the page is open - a search narrows
+    /// as it is typed, and fetching a whole account's stock per keystroke would be a request storm.
+    /// Null until the first search: opening this page to look at the shelves should cost nothing extra.
+    /// </summary>
+    private IReadOnlyList<ItemMatch>? _everythingOnEveryShelf;
+
+    /// <summary>
+    /// Inventories whose contents could not be read, if any. Named rather than skipped: a search that
+    /// quietly leaves one out answers "it is nowhere" when the truth is "I could not look there".
+    /// </summary>
+    private IReadOnlyList<string> _unreadableInventories = [];
+
+    /// <summary>One thing found, and where it is.</summary>
+    /// <param name="Amount">Already written for reading - see AmountOf.</param>
+    private sealed record ItemMatch(Guid InventoryId, string InventoryName, string Name, string Amount);
+
+    /// <summary>Which inventory's inline share panel is open, if any - only one at a time.</summary>
+    private Guid? _sharePanelInventoryId;
+
+    private string _selectedContactUserId = string.Empty;
+    private string _selectedAccessLevel = "ReadOnly";
+    private bool _isSharing;
+    private string? _shareErrorMessage;
+    private string? _shareInfoMessage;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await Arrangement.InitializeAsync();
+        var currentUserId = await AuthenticationStateProvider.TryGetCurrentUserIdAsync();
+        if (currentUserId is null)
+        {
+            NavigationManager.NavigateTo("/login");
+            return;
+        }
+        _ownUserId = currentUserId.Value;
+
+        try
+        {
+            _inventories = await InventoryApiClient.GetInventoriesAsync();
+            _contacts = await ChatApiClient.GetContactsAsync();
+        }
+        catch (HttpRequestException exception) when (exception.StatusCode == HttpStatusCode.Unauthorized)
+        {
+            NavigationManager.NavigateTo("/login");
+        }
+        catch (HttpRequestException exception)
+        {
+            Logger.LogError(exception, "Failed to load inventories");
+            _errorMessage = T["Couldn't load your inventories. Check your connection and try again."];
+            _inventories = [];
+        }
+    }
+
+    /// <summary>
+    /// Keeps the inventory's true owner out of a re-sharer's recipient picker - sharing back to them is
+    /// always rejected server-side (see ShareInventoryCommandHandler), so offering the option would only
+    /// ever produce an error. Mirrors NoteEditor's _shareableContacts.
+    /// </summary>
+    private IReadOnlyList<ContactDto> ShareableContacts(InventoryDto inventory)
+        => inventory.OriginalOwnerUserId is { } ownerUserId
+            ? _contacts.Where(contact => contact.UserId != ownerUserId).ToList()
+            : _contacts;
+
+    /// <summary>Whether this reader may actually change the shelf - the owner, or a share granted at
+    /// least EditOnly. Mirrors NoteSummary's own rung-2 check, which asks the same question of the
+    /// note it has open.</summary>
+    private static bool CanBeChanged(InventoryDto inventory)
+        => SharedItemAccess.For(inventory.IsShared, inventory.AccessLevel).CanEdit;
+
+    /// <summary>Mirrors ShareInventoryCommandHandler's own rule, so the button isn't offered for a share that would be rejected.</summary>
+    /// <summary>
+    /// A private inventory can never be shared - the server refuses it, so offering the button would
+    /// only lead to a refusal. Matches the same rule for notes and task lists.
+    /// </summary>
+    private static bool CanShare(InventoryDto inventory)
+        => !inventory.IsPrivate && SharedItemAccess.For(inventory.IsShared, inventory.AccessLevel).CanShare;
+
+    /// <summary>A re-share can never grant more than the re-sharer holds - again matching the server.</summary>
+    private static bool CanGrantCanEdit(InventoryDto inventory)
+        => SharedItemAccess.For(inventory.IsShared, inventory.AccessLevel).CanGrantCanEdit;
+
+    /// <summary>An EditOnly holder can pass on neither this nor CanEdit - see ShareAccess.CanGrant.</summary>
+    private static bool CanGrantEditOnly(InventoryDto inventory)
+        => SharedItemAccess.For(inventory.IsShared, inventory.AccessLevel).CanGrantEditOnly;
+
+    private string AccessDescription(string accessLevel)
+        => T[SharedItemAccess.For(isShared: true, accessLevel).Description];
+
+    private void GoToAddInventory() => NavigationManager.NavigateTo("/inventory/new");
+
+    private void OpenInventory(Guid inventoryId) => NavigationManager.NavigateTo($"/inventory/{inventoryId}");
+
+    private void EditInventory(Guid inventoryId) => NavigationManager.NavigateTo($"/inventory/{inventoryId}/edit");
+
+    /// <summary>
+    /// Answers "which inventory is this in". Read here rather than asked of the server, because a
+    /// private inventory keeps no item rows there at all - its stock is sealed and only this browser
+    /// holds the key (see InventoryApiClient.GetInventoryItemsAsync). A server-side search would leave
+    /// those shelves out and call it "nowhere", which is worse than not offering the search.
+    /// </summary>
+    private async Task SearchForItemsAsync()
+    {
+        if (_itemSearch.Trim() is not { Length: > 0 } wanted)
+        {
+            _itemMatches = [];
+            return;
+        }
+
+        _isSearchingItems = true;
+        try
+        {
+            _everythingOnEveryShelf ??= await ReadEveryShelfAsync();
+        }
+        finally
+        {
+            _isSearchingItems = false;
+        }
+
+        // Matched anywhere in the name and without case, the same as the editor's own box: a shelf holds
+        // "Flour, wheat" and somebody typing "flour" means it.
+        _itemMatches = [.. _everythingOnEveryShelf
+            .Where(item => item.Name.Contains(wanted, StringComparison.CurrentCultureIgnoreCase))
+            .OrderBy(item => item.Name, StringComparer.CurrentCultureIgnoreCase)
+            .ThenBy(item => item.InventoryName, StringComparer.CurrentCultureIgnoreCase)];
+    }
+
+    private async Task ClearItemSearchAsync()
+    {
+        _itemSearch = string.Empty;
+        await SearchForItemsAsync();
+    }
+
+    /// <summary>
+    /// Everything in every inventory, flattened to what a result row needs. An inventory that will not
+    /// open is remembered by name rather than dropped - see _unreadableInventories.
+    /// </summary>
+    private async Task<IReadOnlyList<ItemMatch>> ReadEveryShelfAsync()
+    {
+        var everything = new List<ItemMatch>();
+        var unreadable = new List<string>();
+        foreach (var inventory in _inventories ?? [])
+        {
+            try
+            {
+                var items = await InventoryApiClient.GetInventoryItemsAsync(inventory.Id) ?? [];
+                everything.AddRange(items.Select(item => new ItemMatch(
+                    inventory.Id, inventory.Name, item.Name, AmountOf(item))));
+            }
+            catch (HttpRequestException exception)
+            {
+                Logger.LogWarning(exception, "Couldn't read inventory {InventoryId} while searching", inventory.Id);
+                unreadable.Add(inventory.Name);
+            }
+        }
+
+        _unreadableInventories = unreadable;
+        return everything;
+    }
+
+    /// <summary>
+    /// How much of it there is. The unit is left off for something counted one by one - "2" of a thing
+    /// already means two of them - which is the rule a restock errand is written by too.
+    /// </summary>
+    private string AmountOf(InventoryItemDto item)
+    {
+        var unit = InventoryUnitOption.For(item.Unit);
+        var amount = item.Quantity.ToString("0.##", CultureInfo.InvariantCulture);
+        return unit.Value == nameof(InventoryUnit.Piece) ? amount : $"{amount} {T[unit.ShortName]}";
+    }
+
+    /// <summary>
+    /// What was found, and - when a shelf could not be opened - that the answer is short of those.
+    /// Saying only the count would let "nothing found" stand for "I could not look".
+    /// </summary>
+    private string ItemMatchSummary
+        => _unreadableInventories.Count == 0
+            ? T.Format("Found in {0} of {1} inventories.", InventoriesMatched, (_inventories ?? []).Count)
+            : T.Format(
+                "Found in {0} of {1} inventories. These could not be opened, so nothing in them was searched: {2}",
+                InventoriesMatched, (_inventories ?? []).Count, string.Join(", ", _unreadableInventories));
+
+    private int InventoriesMatched => _itemMatches.Select(match => match.InventoryId).Distinct().Count();
+
+    private void ToggleSharePanel(Guid inventoryId)
+    {
+        _sharePanelInventoryId = _sharePanelInventoryId == inventoryId ? null : inventoryId;
+        _selectedContactUserId = string.Empty;
+        _selectedAccessLevel = "ReadOnly";
+        _shareErrorMessage = null;
+        _shareInfoMessage = null;
+    }
+
+    /// <summary>
+    /// Creates the share server-side, then notifies the recipient with an encrypted chat message
+    /// carrying its id - exactly the flow NoteEditor.razor uses, so an inventory share shows up in Chat
+    /// with an "Accept" button like every other kind of share.
+    /// </summary>
+    private async Task ShareAsync(InventoryDto inventory)
+    {
+        if (!Guid.TryParse(_selectedContactUserId, out var recipientUserId))
+        {
+            return;
+        }
+
+        _shareErrorMessage = null;
+        _shareInfoMessage = null;
+        _isSharing = true;
+        try
+        {
+            var result = await InventoryApiClient.ShareInventoryAsync(inventory.Id, recipientUserId, _selectedAccessLevel);
+            if (result is null)
+            {
+                _shareErrorMessage = T["Failed to share the inventory."];
+                return;
+            }
+
+            var payloadJson = JsonSerializer.Serialize(new InventoryShareMessagePayload(result.ShareId, inventory.Name));
+            await EncryptedChatMessageSender.SendAsync(_ownUserId, recipientUserId, payloadJson, isShareInvitation: true);
+            _shareInfoMessage = result.AlreadyShared
+                ? T["Already shared with that contact - sent a reminder."]
+                : T["Shared - they'll see it in your chat."];
+            _selectedContactUserId = string.Empty;
+        }
+        catch (HttpRequestException exception) when (exception.StatusCode == HttpStatusCode.Unauthorized)
+        {
+            NavigationManager.NavigateTo("/login");
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            Logger.LogWarning(exception, "Failed to share inventory {InventoryId} with user {RecipientUserId}", inventory.Id, recipientUserId);
+            _shareErrorMessage = T["Failed to share the inventory."];
+        }
+        finally
+        {
+            _isSharing = false;
+        }
+    }
+
+    /// <summary>The inventories in the order this reader put them - see InventoryArrangement.</summary>
+    private IReadOnlyList<InventoryDto> ArrangedInventories
+        => [.. Arrangement.Arrange(_inventories ?? [], inventory => inventory.Id)];
+
+    /// <summary>The card being dragged to a new place, while one is - see RowArrangement.</summary>
+    private readonly RowArrangement<InventoryDto> _cardOrder = new();
+
+    /// <summary>
+    /// Where a card was dropped is where it belongs. The whole visible order is written back rather
+    /// than the one card that moved: a stored order naming only what somebody had touched would leave
+    /// the rest wherever they happened to fall.
+    /// </summary>
+    private async Task DropCardOnAsync(InventoryDto target)
+    {
+        var arranged = ArrangedInventories.ToList();
+        if (!_cardOrder.DropOn(arranged, target))
+        {
+            _cardOrder.Finish();
+            return;
+        }
+
+        _cardOrder.Finish();
+        await Arrangement.SetOrderAsync([.. arranged.Select(inventory => inventory.Id)]);
+    }
+
+    /// <summary>The same move a drag makes, one card at a time - what a keyboard asks for, and a finger.</summary>
+    private async Task MoveCardAsync(InventoryDto inventory, int offset)
+    {
+        var arranged = ArrangedInventories.ToList();
+        if (!RowArrangement<InventoryDto>.Move(arranged, inventory, offset))
+        {
+            return;
+        }
+
+        await Arrangement.SetOrderAsync([.. arranged.Select(existing => existing.Id)]);
+    }
+
+    private bool CanMoveCard(InventoryDto inventory, int offset)
+        => RowArrangement<InventoryDto>.CanMove(ArrangedInventories.ToList(), inventory, offset);
+
+    private async Task DeleteInventoryAsync(InventoryDto inventory)
+    {
+        var confirmed = await JSRuntime.InvokeAsync<bool>(
+            "confirm", T.Format("Delete \"{0}\" and everything in it?", inventory.Name));
+        if (!confirmed)
+        {
+            return;
+        }
+
+        try
+        {
+            await InventoryApiClient.DeleteInventoryAsync(inventory.Id);
+        }
+        catch (HttpRequestException exception) when (exception.StatusCode == HttpStatusCode.Unauthorized)
+        {
+            NavigationManager.NavigateTo("/login");
+            return;
+        }
+        catch (HttpRequestException exception)
+        {
+            Logger.LogError(exception, "Failed to delete inventory {InventoryId}", inventory.Id);
+            _errorMessage = T["Failed to delete the inventory. Try again."];
+            return;
+        }
+
+        _inventories = _inventories!.Where(existing => existing.Id != inventory.Id).ToList();
+    }
+}

@@ -30,8 +30,8 @@ public enum Screen
     TaskItem,
     Calendar,
     CalendarEvent,
+    Inventories,
     Inventory,
-    Warehouse,
     Contacts,
     Conversation,
 
