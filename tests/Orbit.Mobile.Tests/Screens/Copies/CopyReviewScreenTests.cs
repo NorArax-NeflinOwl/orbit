@@ -542,7 +542,7 @@ public sealed class CopyReviewScreenTests
             => new(
                 title, null, null, null,
                 DateTimeOffset.Parse("2026-09-01T09:00:00Z"), DateTimeOffset.Parse("2026-09-01T10:00:00Z"),
-                false, null, [], [], "None", "None");
+                false, null, [], [], ReminderNotificationChannel: "None");
 
         public void Dispose()
         {

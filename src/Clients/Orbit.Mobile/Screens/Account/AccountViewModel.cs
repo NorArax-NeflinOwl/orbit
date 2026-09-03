@@ -55,6 +55,14 @@ public sealed partial class AccountViewModel : ObservableObject
     private string _newPassword = string.Empty;
 
     /// <summary>
+    /// The new password typed a second time. A password nobody can read back is a password nobody can
+    /// check, and one mistyped here is one nobody can sign in with afterwards - Orbit.Web asks for it in
+    /// the same form, and this screen took the first answer and changed the password to it.
+    /// </summary>
+    [ObservableProperty]
+    private string _repeatedNewPassword = string.Empty;
+
+    /// <summary>
     /// Confirms the deletion below. Kept apart from <see cref="CurrentPassword"/> deliberately: typing a
     /// password into the change-password box and then pressing a delete button that silently reused it
     /// is the one mistake this screen must not make possible.
@@ -182,9 +190,19 @@ public sealed partial class AccountViewModel : ObservableObject
     [ObservableProperty]
     private AccountTab _tab = AccountTab.Account;
 
+    /// <summary>
+    /// The tabs this account is offered. Everything but the Debugger, which goes only to an account
+    /// that has unlocked it: what it opens is Orbit's own inside - the captured log and the detail
+    /// behind an error - and that is the same line the browser's Options draws and the same one the
+    /// version row in the avatar menu draws. See ApplicationPermission.Debug.
+    /// </summary>
     public IReadOnlyList<AccountTabRow> Tabs
         => [.. Enum.GetValues<AccountTab>()
+            .Where(IsOffered)
             .Select(tab => new AccountTabRow(tab, AccountTabRow.Describe(tab, _translations), tab == Tab))];
+
+    private bool IsOffered(AccountTab tab)
+        => tab != AccountTab.Debug || _permissions.Has(ApplicationPermission.Debug);
 
     public bool IsShowingAccount => Tab is AccountTab.Account;
 
@@ -192,7 +210,11 @@ public sealed partial class AccountViewModel : ObservableObject
 
     public bool IsShowingPermissions => Tab is AccountTab.Permissions;
 
-    public bool IsShowingDebug => Tab is AccountTab.Debug;
+    /// <summary>
+    /// The section behind the Debugger tab. Answers to the permission as well as to the tab, so an
+    /// account that loses it while the screen is open is not left reading what it no longer holds.
+    /// </summary>
+    public bool IsShowingDebug => Tab is AccountTab.Debug && _permissions.Has(ApplicationPermission.Debug);
 
     [RelayCommand]
     private void ChooseTab(AccountTabRow? row)
@@ -489,6 +511,17 @@ public sealed partial class AccountViewModel : ObservableObject
         {
             Permissions.Add(PermissionRow.For(permission, granted, _translations));
         }
+
+        // Unlocking Debug adds a tab, and losing it takes one away - so the row of tabs is drawn again
+        // rather than left as it was when the screen opened. A reader standing in a tab they no longer
+        // hold is put back where everybody starts.
+        if (!IsOffered(Tab))
+        {
+            Tab = AccountTab.Account;
+        }
+
+        OnPropertyChanged(nameof(Tabs));
+        OnPropertyChanged(nameof(IsShowingDebug));
     }
 
     [RelayCommand]
@@ -517,6 +550,13 @@ public sealed partial class AccountViewModel : ObservableObject
     [RelayCommand]
     private async Task ChangePasswordAsync(CancellationToken cancellationToken)
     {
+        if (NewPassword != RepeatedNewPassword)
+        {
+            MessageIsFailure = true;
+            Message = _translations["The two new passwords don't match."];
+            return;
+        }
+
         var currentPassword = CurrentPassword;
         var newPassword = NewPassword;
 
@@ -531,6 +571,7 @@ public sealed partial class AccountViewModel : ObservableObject
 
         CurrentPassword = string.Empty;
         NewPassword = string.Empty;
+        RepeatedNewPassword = string.Empty;
         await RewrapChatKeyAsync(currentPassword, newPassword, cancellationToken);
     }
 

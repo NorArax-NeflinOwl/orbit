@@ -246,7 +246,7 @@ public sealed class TaskItemSummaryScreenTests
             var start = _clock.GetUtcNow();
             var created = await _events.CreateAsync(new CalendarEventDetailsDto(
                 title, description, new EventLocationDto(address, latitude, longitude), null,
-                start, start.AddHours(1), false, null, guests ?? [], [], "None", "None"));
+                start, start.AddHours(1), false, null, guests ?? [], [], ReminderNotificationChannel: "None"));
 
             await using var dbContext = _localStore.CreateDbContext();
             var stored = dbContext.CalendarEvents.Single(candidate => candidate.LocalId == created.LocalId);

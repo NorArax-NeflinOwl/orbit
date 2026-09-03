@@ -1123,7 +1123,10 @@ saving the entry puts it there - a shelf already holding something by that name 
 asking for, so nothing is added twice (`ShelfCorrection.ApplyAsync`). The same fields correct a product
 the entry is already linked to, which is all the phone could do before: the difference is whether the
 form is filling in something that has an id yet, and the entry's own words are the name either way. It
-happens on the entry's save rather than the list's, because that is the moment this screen has.
+happens on the entry's save rather than the list's, because that is the moment this screen has. The
+fields arrive with the choice: picking Inventory on an open form shows them there and then, and picking
+something else takes them away again - waiting for a save and a reopen made the feature unreachable
+without knowing it was there.
 
 Which storage a list is measured against is set in its editor, under **About this list**, for any list
 rather than only a group one - an entry describing a product has to be able to say which shelf it goes

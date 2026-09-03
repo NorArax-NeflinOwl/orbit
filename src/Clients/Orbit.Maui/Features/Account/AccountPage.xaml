@@ -263,7 +263,14 @@
                 <Label Text="{controls:Translate 'Password'}" Style="{StaticResource FieldLabel}" />
                 <Entry Placeholder="{controls:Translate 'Current password'}" Text="{Binding CurrentPassword}" IsPassword="True" />
                 <Entry Placeholder="{controls:Translate 'New password'}" Text="{Binding NewPassword}" IsPassword="True" />
+                <!-- <inheritdoc cref="RegisterPage" /> - the same second answer, for the same reason. -->
+                <Entry Placeholder="{controls:Translate 'Repeat new password'}" Text="{Binding RepeatedNewPassword}"
+                       IsPassword="True" />
                 <Button Text="{controls:Translate 'Change password'}" Command="{Binding ChangePasswordCommand}" />
+                <Label Text="{controls:Translate 'Changing it also re-encrypts your chat key backup, so your messages stay readable when you next sign in elsewhere.'}"
+                       FontSize="12" LineBreakMode="WordWrap" Style="{StaticResource SubtleLabel}" />
+                <Button Text="{controls:Translate 'Chat key'}" Command="{Binding GoToChatKeyCommand}"
+                        HorizontalOptions="Start" Style="{StaticResource LinkButton}" />
             </VerticalStackLayout>
 
             <!-- A file somebody keeps, not a copy the app maintains. Importing creates new things
@@ -361,11 +368,13 @@
                 </Grid>
             </VerticalStackLayout>
 
+            <!-- What Orbit reports about itself, behind the permission that opens it - see
+                 AccountViewModel.Tabs. The chat key is not here: unlocking what this account sealed is
+                 an ordinary thing to want, not a look inside Orbit, so it stays on the Account tab. -->
             <VerticalStackLayout Spacing="10" IsVisible="{Binding IsShowingDebug}">
+                <Label Text="{controls:Translate 'What Orbit reports about itself. Kept on this device.'}"
+                       FontSize="12" LineBreakMode="WordWrap" Style="{StaticResource SubtleLabel}" />
                 <Button Text="{controls:Translate 'Diagnostics'}" Command="{Binding GoToDiagnosticsCommand}"
-                        HorizontalOptions="Start" Style="{StaticResource LinkButton}" />
-
-                <Button Text="{controls:Translate 'Chat key'}" Command="{Binding GoToChatKeyCommand}"
                         HorizontalOptions="Start" Style="{StaticResource LinkButton}" />
             </VerticalStackLayout>
 

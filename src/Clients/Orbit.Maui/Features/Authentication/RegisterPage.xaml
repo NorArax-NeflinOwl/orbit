@@ -25,8 +25,12 @@
                  which silently turns a typed username into a different one. -->
             <Entry Placeholder="{controls:Translate 'Login'}" Text="{Binding UserName}" Keyboard="Plain" />
             <Entry Placeholder="{controls:Translate 'Display name'}" Text="{Binding DisplayName}" />
-            <Entry Placeholder="{controls:Translate 'Password'}" Text="{Binding Password}" IsPassword="True" ReturnType="Go"
-                   ReturnCommand="{Binding RegisterCommand}" />
+            <Entry Placeholder="{controls:Translate 'Password'}" Text="{Binding Password}" IsPassword="True" />
+            <!-- Asked a second time, as the browser's form asks: a password nobody can read back is a
+                 password nobody can check, and one mistyped here locks somebody out of the account they
+                 are making. -->
+            <Entry Placeholder="{controls:Translate 'Repeat password'}" Text="{Binding RepeatedPassword}"
+                   IsPassword="True" ReturnType="Go" ReturnCommand="{Binding RegisterCommand}" />
 
             <Label Text="{Binding ErrorMessage}"
                    IsVisible="{Binding HasError}"

@@ -21,6 +21,34 @@ namespace Orbit.Mobile.Tests.Calendar;
 /// </summary>
 public sealed class CalendarEventSyncTests
 {
+    /// <summary>
+    /// A create the server will not have is dropped and said out loud, rather than queued for ever. It
+    /// used to throw: the exception was not one the outbox retries, so it escaped the replay altogether,
+    /// the change stayed queued, and every change behind it stopped moving. On a phone that reads as
+    /// "couldn't sync" with nothing else to go on - which is exactly how it was found.
+    /// </summary>
+    [Fact]
+    public async Task An_event_the_server_refuses_is_given_up_on_rather_than_queued_for_ever()
+    {
+        using var context = new CalendarContext();
+        // A priority nothing answers to, which is what the calendar's own box used to send.
+        await context.Events.CreateAsync(
+            FakeCalendarServer.DetailsFor("Dentist", context.Clock.GetUtcNow()) with { Priority = "None" });
+
+        var result = await context.SynchroniseAsync();
+
+        Assert.Equal(0, result.Sent);
+        Assert.Equal(1, result.GivenUp);
+        // And the reader is told, because this is their work being thrown away - see OutboxReplay.
+        Assert.Contains(context.DroppedNotices(), kind => kind == "ChangeDropped");
+
+        // Nothing is left blocking the queue: the next event goes.
+        await context.Events.CreateAsync(
+            FakeCalendarServer.DetailsFor("Standup", context.Clock.GetUtcNow()));
+        var afterwards = await context.SynchroniseAsync();
+        Assert.Equal(1, afterwards.Sent);
+    }
+
     [Fact]
     public async Task An_event_written_offline_reaches_the_server_when_the_connection_returns()
     {
@@ -203,6 +231,13 @@ public sealed class CalendarEventSyncTests
         public CalendarEventSynchronizer Synchronizer { get; }
 
         public Task<SyncResult> SynchroniseAsync() => Synchronizer.SynchroniseAsync(CancellationToken.None);
+
+        /// <summary>What the phone wrote into its own feed about work it gave up on - see OutboxReplay.</summary>
+        public IReadOnlyList<string> DroppedNotices()
+        {
+            using var dbContext = _localStore.CreateDbContext();
+            return [.. dbContext.Notifications.Select(notification => notification.Kind)];
+        }
 
         public void GoOffline() => Server.IsUnreachable = true;
 

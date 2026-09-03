@@ -245,7 +245,7 @@ public sealed class TodayAtAGlanceTests
             ServerId = Guid.NewGuid(),
             Details = new CalendarEventDetailsDto(
                 title, null, null, null, start.ToUniversalTime(), start.AddHours(1).ToUniversalTime(),
-                false, null, [], [], "None", "None")
+                false, null, [], [], ReminderNotificationChannel: "None")
         };
 
     private static LocalCalendarEvent AllDay(string title)

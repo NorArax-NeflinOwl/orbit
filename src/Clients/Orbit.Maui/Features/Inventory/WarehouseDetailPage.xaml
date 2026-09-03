@@ -76,7 +76,10 @@
                 <Picker Title="{controls:Translate 'Category'}" IsVisible="{Binding CanNarrowByCategory}"
                         ItemsSource="{Binding Categories}" SelectedItem="{Binding ChosenCategory}"
                         SemanticProperties.Description="{controls:Translate 'Private'}" />
+                <!-- The browser writes "Search" above this box; a phone has no room for the label, so
+                     the name a screen reader hears carries it instead. -->
                 <Entry Placeholder="{controls:Translate 'Item name'}" Text="{Binding SearchedName}"
+                       SemanticProperties.Description="{controls:Translate 'Search items by name'}"
                        ClearButtonVisibility="WhileEditing" ReturnType="Search" />
             </VerticalStackLayout>
 
@@ -104,12 +107,14 @@
                 <DataTemplate x:DataType="screens:WarehouseItemRow">
                     <!-- The row this shelf was opened for gets the accent bar and tint the browser's own
                          highlighted row has - see WarehouseItemRow.IsPointedAt. -->
-                    <Grid ColumnDefinitions="Auto,*" ColumnSpacing="6">
-                        <Grid.Triggers>
-                            <DataTrigger TargetType="Grid" Binding="{Binding IsPointedAt}" Value="True">
+                    <Border StrokeThickness="0" Padding="0" BackgroundColor="Transparent"
+                            StrokeShape="RoundRectangle 8">
+                        <Border.Triggers>
+                            <DataTrigger TargetType="Border" Binding="{Binding IsPointedAt}" Value="True">
                                 <Setter Property="BackgroundColor" Value="{DynamicResource AccentSubtle}" />
                             </DataTrigger>
-                        </Grid.Triggers>
+                        </Border.Triggers>
+                    <Grid ColumnDefinitions="Auto,*" ColumnSpacing="6">
                         <BoxView WidthRequest="3" Color="{DynamicResource Accent}"
                                  IsVisible="{Binding IsPointedAt}" />
                     <Grid Grid.Column="1" ColumnDefinitions="*,Auto,Auto,Auto,Auto" ColumnSpacing="6" Padding="0,10">
@@ -158,6 +163,7 @@
                                 CommandParameter="{Binding .}" />
                     </Grid>
                     </Grid>
+                    </Border>
                 </DataTemplate>
             </CollectionView.ItemTemplate>
 

@@ -293,7 +293,10 @@ public sealed partial class TaskListDetailViewModel : ObservableObject
         {
             BeingEdited = TaskItemEditor.For(
                 row.Item, _translations, AppointmentFor(row.Item), LinkTargets, _nameSuggestions,
-                ShelfProductFor(row.Item));
+                ShelfProductFor(row.Item),
+                // For an entry that becomes an errand while the form is open: the fields for a product
+                // this shelf has not got appear with the choice rather than after a save.
+                ShelfForSomethingNew);
 
             // Where the entry can go depends on what it stands for, and that changes while the form is
             // open - see MoveTargetsForTheEntry.
@@ -499,10 +502,17 @@ public sealed partial class TaskListDetailViewModel : ObservableObject
         // Nothing on the shelf answers to this entry yet, and the list says which shelf it is measured
         // against - so the entry describes something to put there rather than showing an empty form.
         // Orbit.Web's editor offers the same two cases through the same fields.
-        return item.Kind == nameof(TaskItemKind.Inventory) && _theListsOwnShelf is { } shelf
+        return item.Kind == nameof(TaskItemKind.Inventory) ? ShelfForSomethingNew() : null;
+    }
+
+    /// <summary>
+    /// A form for a product the list's own shelf has not got yet, or null when it is measured against
+    /// no shelf - see TaskItemEditor.ShelfForSomethingNew.
+    /// </summary>
+    private TaskItemShelfProduct? ShelfForSomethingNew()
+        => _theListsOwnShelf is { } shelf
             ? TaskItemShelfProduct.ForSomethingNotOnTheShelfYet(shelf.LocalId, shelf.Name, _translations)
             : null;
-    }
 
     /// <summary>
     /// The warehouse this list is measured against, as this phone holds it. Null when the list names

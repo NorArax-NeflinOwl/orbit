@@ -53,6 +53,7 @@ public sealed record AccountTabRow(AccountTab Tab, string Name, bool IsChosen)
         AccountTab.Account => translations["Account"],
         AccountTab.Appearance => translations["Appearance"],
         AccountTab.Permissions => translations["Permissions"],
-        _ => translations["Debug"]
+        // Named as the browser names it, and as the permission that opens it is named.
+        _ => translations["Debugger"]
     };
 }

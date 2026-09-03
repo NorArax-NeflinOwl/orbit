@@ -161,6 +161,16 @@ internal sealed class FakeInventoryServer : HttpMessageHandler
             Description = body.IsPrivate ? string.Empty : body.Description ?? existing.Description
         };
 
+        if (body.Items.FirstOrDefault(item => !Enum.TryParse<InventoryUnit>(item.Unit, out _)) is { } unknown)
+        {
+            // What the real server does - see InventoryEndpoints.UnitOf. A fake that took any string
+            // called "pcs" a unit, and the shelf it was on would have been refused on a device.
+            return new HttpResponseMessage(HttpStatusCode.BadRequest)
+            {
+                Content = JsonContent.Create(new { message = $"'unit' does not name a unit: {unknown.Unit}." })
+            };
+        }
+
         // A save carries the whole intended list: anything missing from it is gone, and an item that
         // came back with its id keeps that id.
         _items[id] = body.Items.Select(item => new InventoryItemDto(

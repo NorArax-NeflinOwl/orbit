@@ -128,6 +128,23 @@ since the entry's own words are the name - and saving the entry puts it there, s
 already holds that name. It is the last of the browser's 2026-09-02 item form that the phone was
 missing.
 
+An event added from the calendar's own box never reached the server, and nothing on the phone said why.
+The call that built it was positional, a priority had been added to the shape beside two optional
+fields, and the notification channel's "None" slid into it - which the server refuses. Worse than the
+typo: a refused **create** threw, and the exception was not one the outbox retries, so it escaped the
+replay altogether and left every queued change behind it stuck, showing as "Couldn't sync" with nothing
+to act on. A create now answers like every other write - dropped, and written into the feed as work
+given up on - and the fake calendar server refuses a priority it does not know, so the next one fails a
+test rather than a device.
+
+Three things found by driving the app on a device. A password is asked for twice where it is being set -
+making an account, and changing one - as the browser has always asked, because a box nobody can read
+back is one nobody can check. The keyboard no longer hides the field being typed into: the window
+resizes for it, so a form scrolls to what has focus instead of sliding out from under it. And the
+Debugger tab is named as the browser names it and goes only to an account that has unlocked `Debug` -
+the chat key moved out of it onto the Account tab, since unlocking what this account sealed is an
+ordinary thing to want rather than a look inside Orbit.
+
 The Google links can be turned off here too, on this phone rather than for the account: the switch sits
 on the account screen where the browser keeps its own, is offered only where the account may use the
 extras at all, and turning it off leaves a connected Google account connected.

@@ -87,6 +87,8 @@ public static class PolishTranslations
         ["Goes on the shelf in {0} when this entry is saved, named after this entry."] =
             "Trafi na półkę w: {0} przy zapisie tej pozycji, pod nazwą tej pozycji.",
         ["This errand's product needs an amount."] = "Produkt tego sprawunku potrzebuje ilości.",
+        ["What Orbit reports about itself. Kept on this device."] =
+            "Co Orbit mówi sam o sobie. Trzymane na tym urządzeniu.",
         ["Downloads what you choose below as one file. Things shared with you are left out, and a private item travels sealed."] =
             "Pobiera to, co wybierzesz poniżej, jako jeden plik. Rzeczy udostępnione tobie są pomijane, a element prywatny podróżuje zapieczętowany.",
         ["{0}, what you were sent here for"] = "{0} - to, po co tu przyszedłeś",

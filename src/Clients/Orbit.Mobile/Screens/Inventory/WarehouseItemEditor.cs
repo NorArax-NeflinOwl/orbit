@@ -147,7 +147,9 @@ public sealed partial class WarehouseItemEditor : ObservableObject
         var editor = For(
             new WarehouseItemDto(
                 null, string.Empty, string.Empty, string.Empty, Quantity: 0, MinimumQuantity: 1,
-                Unit: "pcs", ExpiryDate: null, ExpiryNotificationChannel: "None"),
+                // The unit's own name, not its short form: "pcs" is what a row is written with, and the
+                // server parses this as an InventoryUnit - it would have refused the whole shelf.
+                Unit: nameof(InventoryUnit.Piece), ExpiryDate: null, ExpiryNotificationChannel: "None"),
             translations);
 
         editor.ShowsName = false;
