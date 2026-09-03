@@ -71,7 +71,7 @@
             </VerticalStackLayout>
         </VerticalStackLayout>
 
-        <CollectionView Grid.Row="3" ItemsSource="{Binding Items}" IsVisible="{Binding IsShowingList}">
+        <CollectionView x:Name="Checklist" Grid.Row="3" ItemsSource="{Binding Items}" IsVisible="{Binding IsShowingList}">
 
             <CollectionView.EmptyView>
                 <Label Text="{controls:Translate 'Nothing on this list yet.'}" Padding="24" HorizontalTextAlignment="Center" />

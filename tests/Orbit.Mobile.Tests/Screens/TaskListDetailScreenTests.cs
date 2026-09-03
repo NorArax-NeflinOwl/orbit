@@ -42,6 +42,46 @@ public sealed class TaskListDetailScreenTests
         }
     }
 
+    /// <summary>
+    /// Adding an entry says which row it made, so the screen can bring it into view. The checklist
+    /// shares this screen with everything the list itself carries and is often drawn shorter than it
+    /// is; a new row below the fold, with the box above it cleared, looks exactly like a tap that never
+    /// landed - and the entry gets added a second time. Found by adding the same one twice, twice,
+    /// while driving the app.
+    /// </summary>
+    [Fact]
+    public async Task Adding_an_entry_points_the_screen_at_the_row_it_made()
+    {
+        using var context = new ScreenContext();
+        var screen = context.OpenTaskList("Groceries");
+        await AddAsync(screen, "Bread", "Milk");
+
+        screen.NewItemDescription = "Sugar";
+        await screen.AddItemCommand.ExecuteAsync(null);
+
+        Assert.Equal("Sugar", screen.RowJustAdded?.Description);
+    }
+
+    /// <summary>
+    /// And at the new one rather than the last one on the list: which way round those are is the
+    /// reader's to choose, so taking the end of the list would point at somebody else's entry as soon
+    /// as the newest is drawn first.
+    /// </summary>
+    [Fact]
+    public async Task It_points_at_the_new_row_wherever_the_reader_reads_it()
+    {
+        using var context = new ScreenContext();
+        var screen = context.OpenTaskList("Groceries");
+        await AddAsync(screen, "Bread", "Milk");
+        var alreadyThere = screen.Items.Select(row => row.Item.Id).ToHashSet();
+
+        screen.NewItemDescription = "Sugar";
+        await screen.AddItemCommand.ExecuteAsync(null);
+
+        Assert.NotNull(screen.RowJustAdded);
+        Assert.DoesNotContain(screen.RowJustAdded!.Item.Id, alreadyThere);
+    }
+
     [Fact]
     public async Task Ticking_an_entry_just_added_keeps_the_id_the_server_gave_it()
     {

@@ -937,6 +937,14 @@ its shelf. A group list is nothing but such entries, and its screen used to be a
 gathers was one tap away in the browser and unreachable here. A list this phone does not hold offers no
 chip, because a chip that leads nowhere is worse than none.
 
+**A new entry brings itself into view on the phone.** Its checklist shares a screen with everything the
+list itself carries - the two switches, the priority, "Can this be done?", the sharing - so it is drawn
+in whatever room is left rather than growing with the list, and an entry added to a list already
+filling that room landed below the fold. The only other sign was the box clearing, which is exactly
+what a tap that missed looks like, so the same entry got added twice. The screen now says which row the
+add made (`TaskListDetailViewModel.RowJustAdded`) and the page scrolls to it, the way the shelf screen
+brings a pointed-at product into view.
+
 **The phone files entries the same way and looks for them the same way.** The entry's form carries the
 same comma-separated box, each row on a list shows what it is filed under, and the tasks screen carries
 the search and the category chips above its status chips - narrowing to the lists that still hold a

@@ -199,6 +199,17 @@ public partial class TaskListDetailPage : ContentPage
 	/// </summary>
 	private async void OnViewModelPropertyChanged(object? sender, PropertyChangedEventArgs eventArgs)
 	{
+		// The entry the last add put on the list, brought into view. The checklist shares this screen
+		// with everything the list itself carries, so it is often drawn shorter than it is - and a new
+		// row below the fold, with a cleared box above it, looks exactly like a tap that never landed.
+		// The shelf screen brings a pointed-at row into view the same way.
+		if (eventArgs.PropertyName == nameof(TaskListDetailViewModel.RowJustAdded)
+			&& _viewModel.RowJustAdded is { } added)
+		{
+			Checklist.ScrollTo(added, position: ScrollToPosition.End, animate: true);
+			return;
+		}
+
 		if (eventArgs.PropertyName == nameof(TaskListDetailViewModel.IsAskingAboutTheListsBehind)
 			&& _viewModel.IsAskingAboutTheListsBehind)
 		{
