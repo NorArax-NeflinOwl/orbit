@@ -534,7 +534,15 @@ else
         // Deliberately not keyed on firstRender: what goes on the map arrives from HTTP calls, so the
         // render that has something to draw is never the first one. Drawn even with nothing on it - the
         // map is the page, not a picture the page shows once there is a reason to.
-        if (_isMapDrawnFor || !Permissions.Has(ApplicationPermission.Location))
+        //
+        // Gated on _isLoading too, not just _isMapDrawnFor: OnInitializedAsync awaits real HTTP calls
+        // (LoadAsync), so Blazor renders once before that finishes - with the map element already in the
+        // DOM (it isn't behind the _isLoading check) but _location/_receivedPositions still at their
+        // default, empty values. Without this guard that first render was the one that got drawn: an
+        // empty MapPoints() drew the map's own empty-state fallback (Warsaw, zoomed out, no pins) and
+        // _isMapDrawnFor then stayed true, so the real data never got a redraw once it arrived - the map
+        // looked broken until something else (a full reload) happened to land the loaded render first.
+        if (_isMapDrawnFor || _isLoading || !Permissions.Has(ApplicationPermission.Location))
         {
             return;
         }
