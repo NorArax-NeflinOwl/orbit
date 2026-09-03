@@ -256,6 +256,20 @@ public sealed class TasksTests : OrbitTestContext
         Assert.Contains("Edit", cut.Find(".item-card-menu").TextContent);
     }
 
+    /// <summary>Somebody else's shared list is not this reader's to delete - the same rule the note and
+    /// warehouse cards already follow.</summary>
+    [Fact]
+    public void A_shared_list_is_not_offered_for_deleting()
+    {
+        var shared = TaskList("From Bob", Item("Something")) with { IsShared = true, SharedByUserName = "bob" };
+        RegisterTasksApiClient([shared]);
+
+        var cut = RenderComponent<Web.Pages.Tasks>();
+
+        OpenTheCardMenu(cut);
+        Assert.DoesNotContain("Delete", cut.Find(".item-card-menu").TextContent);
+    }
+
     [Fact]
     public void Opening_a_list_means_its_checklist_and_the_editor_has_to_be_asked_for()
     {

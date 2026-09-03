@@ -107,6 +107,35 @@ public sealed class WarehousesTests : OrbitTestContext
         Assert.DoesNotContain("Share", ActionsOf(cut));
     }
 
+    /// <summary>
+    /// A share below CanEdit still opens the shelf to be looked at, but nothing there can be saved, so
+    /// the card's menu says "View" rather than promising an Edit that will refuse - the same rule
+    /// Notes.razor's own card already follows.
+    /// </summary>
+    [Fact]
+    public void A_read_only_share_offers_View_instead_of_Edit()
+    {
+        RegisterApiClients([Warehouse("Pantry", isShared: true, sharedByUserName: "Anna", accessLevel: "ReadOnly")]);
+
+        var cut = RenderComponent<Web.Pages.Warehouses>();
+        var actions = ActionsOf(cut);
+
+        Assert.Contains("View", actions);
+        Assert.DoesNotContain("Edit", actions);
+    }
+
+    /// <summary>A share granted CanEdit still says "Edit": there is something to save, and the card
+    /// promises exactly that.</summary>
+    [Fact]
+    public void A_share_granted_CanEdit_still_offers_Edit()
+    {
+        RegisterApiClients([Warehouse("Pantry", isShared: true, sharedByUserName: "Anna", accessLevel: "CanEdit")]);
+
+        var cut = RenderComponent<Web.Pages.Warehouses>();
+
+        Assert.Contains("Edit", ActionsOf(cut));
+    }
+
     [Fact]
     public void A_warehouse_somebody_else_is_editing_says_so()
     {

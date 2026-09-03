@@ -27,6 +27,10 @@ public sealed class WarehouseSummaryTests : OrbitTestContext
     /// <summary>Whether the shelf refuses to be written, so a test can watch what the page says about it.</summary>
     private bool _savingFails;
 
+    /// <summary>Whether this shelf is shared to this reader, and on what terms - see the read-only tests.</summary>
+    private bool _isShared;
+    private string _accessLevel = "CanEdit";
+
     public WarehouseSummaryTests()
     {
         Services.AddSingleton(typeof(ILogger<>), typeof(NullLogger<>));
@@ -39,7 +43,7 @@ public sealed class WarehouseSummaryTests : OrbitTestContext
                 ? JsonContent.Create(_shelf)
                 : JsonContent.Create(new WarehouseDto(
                     WarehouseId, "Pantry", DateTimeOffset.UtcNow, DateTimeOffset.UtcNow,
-                    IsShared: false, SharedByUserName: null, AccessLevel: "CanEdit", LockedByUserName: null,
+                    _isShared, SharedByUserName: _isShared ? "Anna" : null, _accessLevel, LockedByUserName: null,
                     OriginalOwnerUserId: null, Description: "What the kitchen keeps"))
         }))
         {
@@ -96,6 +100,26 @@ public sealed class WarehouseSummaryTests : OrbitTestContext
         cut.FindAll(".avatar-dropdown-item").First(entry => entry.TextContent.Trim() == "Edit").Click();
 
         Assert.EndsWith($"/inventory/{WarehouseId}/edit", navigationManager.Uri);
+    }
+
+    /// <summary>
+    /// A share below CanEdit still opens the form - there is nothing else it could open - but nothing
+    /// there can be saved, so the menu says "View" rather than promising a Save that will refuse. It
+    /// also has nothing to delete: this warehouse is not this reader's to remove.
+    /// </summary>
+    [Fact]
+    public void A_read_only_share_offers_View_and_no_Delete()
+    {
+        _isShared = true;
+        _accessLevel = "ReadOnly";
+        var cut = RenderComponent<WarehouseSummary>(parameters => parameters.Add(page => page.WarehouseId, WarehouseId));
+
+        cut.Find(".editor-rail .overflow-menu-trigger").Click();
+        var entries = cut.FindAll(".avatar-dropdown-item").Select(entry => entry.TextContent.Trim()).ToList();
+
+        Assert.Contains("View", entries);
+        Assert.DoesNotContain("Edit", entries);
+        Assert.DoesNotContain("Delete", entries);
     }
 
     /// <summary>

@@ -92,8 +92,8 @@ else
         </Extras>
         <ChildContent>
             <ObjectMenu AllLabel="@T["All warehouses"]" OnAll="GoToWarehouses"
-                        EditLabel="@T["Edit"]" OnEdit="GoToEditor"
-                        DeleteLabel="@T["Delete"]" OnDelete="DeleteAsync" />
+                        EditLabel="@(_isReadOnly ? T["View"] : T["Edit"])" OnEdit="GoToEditor"
+                        DeleteLabel="@(!_warehouse!.IsShared ? T["Delete"] : null)" OnDelete="DeleteAsync" />
         </ChildContent>
     </EditorRail>
 }
@@ -113,6 +113,7 @@ else
     private WarehouseDto? _warehouse;
     private IReadOnlyList<InventoryItemDto> _shelf = [];
     private bool _isLoading = true;
+    private bool _isReadOnly;
 
     protected override async Task OnParametersSetAsync()
     {
@@ -123,6 +124,8 @@ else
             _shelf = _warehouse is null
                 ? []
                 : await InventoryApiClient.GetInventoryItemsAsync(WarehouseId) ?? [];
+            _isReadOnly = _warehouse is not null
+                && _warehouse.IsShared && !SharedItemAccess.For(_warehouse.IsShared, _warehouse.AccessLevel).CanEdit;
         }
         catch (HttpRequestException exception)
         {

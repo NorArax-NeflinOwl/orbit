@@ -112,8 +112,9 @@ else
                     </Handle>
                     <Menu>
                         @* The card opens the shelf to be read; changing what is on it is a named press,
-                           the same as a task list's. *@
-                        <ObjectMenu EditLabel="@T["Edit"]" OnEdit="() => EditWarehouse(warehouse.Id)"
+                           the same as a task list's - unless a share below CanEdit means there is
+                           nothing to press it into changing, the same question Notes.razor asks. *@
+                        <ObjectMenu EditLabel="@(CanBeChanged(warehouse) ? T["Edit"] : T["View"])" OnEdit="() => EditWarehouse(warehouse.Id)"
                                     ShareLabel="@(CanShare(warehouse) ? T["Share"] : null)" OnShare="() => ToggleSharePanel(warehouse.Id)"
                                     DeleteLabel="@(!warehouse.IsShared ? T["Delete"] : null)" OnDelete="() => DeleteWarehouseAsync(warehouse)" />
                     </Menu>
@@ -258,6 +259,12 @@ else
         => warehouse.OriginalOwnerUserId is { } ownerUserId
             ? _contacts.Where(contact => contact.UserId != ownerUserId).ToList()
             : _contacts;
+
+    /// <summary>Whether this reader may actually change the shelf - the owner, or a share granted at
+    /// least EditOnly. Mirrors NoteSummary's own rung-2 check, which asks the same question of the
+    /// note it has open.</summary>
+    private static bool CanBeChanged(WarehouseDto warehouse)
+        => SharedItemAccess.For(warehouse.IsShared, warehouse.AccessLevel).CanEdit;
 
     /// <summary>Mirrors ShareWarehouseCommandHandler's own rule, so the button isn't offered for a share that would be rejected.</summary>
     /// <summary>
