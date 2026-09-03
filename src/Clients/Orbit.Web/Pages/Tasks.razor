@@ -171,10 +171,8 @@ else
                         }
                     </Pin>
                     <Menu>
-                        <OverflowMenu>
-                            <button type="button" class="avatar-dropdown-item" @onclick="() => GoToEditTaskList(taskList.Id)">@T["Edit"]</button>
-                            <button type="button" class="avatar-dropdown-item" @onclick="() => DeleteTaskListAsync(taskList)">@T["Delete"]</button>
-                        </OverflowMenu>
+                        <ObjectMenu EditLabel="@T["Edit"]" OnEdit="() => GoToEditTaskList(taskList.Id)"
+                                    DeleteLabel="@T["Delete"]" OnDelete="() => DeleteTaskListAsync(taskList)" />
                     </Menu>
                     <Tags>
                         @if (taskList.IsGroup)

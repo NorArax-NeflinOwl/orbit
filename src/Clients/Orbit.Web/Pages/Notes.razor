@@ -56,23 +56,15 @@ else
                     }
                 </Pin>
                 <Menu>
-                    <OverflowMenu>
-                        @* The card opens the note to be read; changing what it says is a named press,
-                           the same as a task list's - see NoteSummary.razor. Named for what it will
-                           actually do: a note shared read-only opens in the form to be looked at, and
-                           calling that "Edit" here and "View" one press further in said two different
-                           things about one note. *@
-                        <button type="button" class="avatar-dropdown-item" @onclick="() => GoToEditNote(note.Id)">
-                            @(CanBeChanged(note) ? T["Edit"] : T["View"])
-                        </button>
-                        @* Somebody else's note is not this reader's to delete: pressing this takes it
-                           off their list and leaves the owner's alone, so it says that rather than
-                           "Delete". *@
-                        <button type="button" class="avatar-dropdown-item" disabled="@(_deletingNoteId == note.Id)"
-                                @onclick="() => DeleteNoteAsync(note)">
-                            @(note.IsShared ? T["Remove from my list"] : T["Delete"])
-                        </button>
-                    </OverflowMenu>
+                    @* The card opens the note to be read; changing what it says is a named press, the
+                       same as a task list's - see NoteSummary.razor. Named for what it will actually
+                       do: a note shared read-only opens in the form to be looked at, and calling that
+                       "Edit" here and "View" one press further in said two different things about one
+                       note. Somebody else's note is not this reader's to delete: pressing that takes it
+                       off their list and leaves the owner's alone, so it says that rather than "Delete". *@
+                    <ObjectMenu EditLabel="@(CanBeChanged(note) ? T["Edit"] : T["View"])" OnEdit="() => GoToEditNote(note.Id)"
+                                DeleteLabel="@(note.IsShared ? T["Remove from my list"] : T["Delete"])"
+                                OnDelete="() => DeleteNoteAsync(note)" DeleteDisabled="@(_deletingNoteId == note.Id)" />
                 </Menu>
                 <Extras>
                     @* When, in as few words as it takes. "Created" is gone: a note is read by when it

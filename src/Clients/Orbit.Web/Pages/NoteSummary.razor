@@ -89,16 +89,9 @@ else
             }
         </Extras>
         <ChildContent>
-            <OverflowMenu>
-                <button type="button" class="avatar-dropdown-item" @onclick="GoToNotes">@T["All notes"]</button>
-                <button type="button" class="avatar-dropdown-item" @onclick="GoToEditor">
-                    @(_isReadOnly ? T["View"] : T["Edit"])
-                </button>
-                @if (!_note.IsShared)
-                {
-                    <button type="button" class="avatar-dropdown-item" @onclick="DeleteAsync">@T["Delete"]</button>
-                }
-            </OverflowMenu>
+            <ObjectMenu AllLabel="@T["All notes"]" OnAll="GoToNotes"
+                        EditLabel="@(_isReadOnly ? T["View"] : T["Edit"])" OnEdit="GoToEditor"
+                        DeleteLabel="@(!_note.IsShared ? T["Delete"] : null)" OnDelete="DeleteAsync" />
         </ChildContent>
     </EditorRail>
 }

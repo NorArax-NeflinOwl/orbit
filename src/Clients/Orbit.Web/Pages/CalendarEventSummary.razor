@@ -104,16 +104,9 @@ else
 @if (_event is not null)
 {
     <EditorRail OnCancel="GoToCalendar">
-        <OverflowMenu>
-            <button type="button" class="avatar-dropdown-item" @onclick="GoToCalendar">@T["Calendar"]</button>
-            <button type="button" class="avatar-dropdown-item" @onclick="GoToEditor">
-                @(_event.IsShared ? T["View"] : T["Edit"])
-            </button>
-            @if (!_event.IsShared)
-            {
-                <button type="button" class="avatar-dropdown-item" @onclick="DeleteAsync">@T["Delete"]</button>
-            }
-        </OverflowMenu>
+        <ObjectMenu AllLabel="@T["Calendar"]" OnAll="GoToCalendar"
+                    EditLabel="@(_event.IsShared ? T["View"] : T["Edit"])" OnEdit="GoToEditor"
+                    DeleteLabel="@(!_event.IsShared ? T["Delete"] : null)" OnDelete="DeleteAsync" />
     </EditorRail>
 }
 </div>

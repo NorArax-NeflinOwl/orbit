@@ -91,11 +91,9 @@ else
             }
         </Extras>
         <ChildContent>
-            <OverflowMenu>
-                <button type="button" class="avatar-dropdown-item" @onclick="GoToWarehouses">@T["All warehouses"]</button>
-                <button type="button" class="avatar-dropdown-item" @onclick="GoToEditor">@T["Edit"]</button>
-                <button type="button" class="avatar-dropdown-item" @onclick="DeleteAsync">@T["Delete"]</button>
-            </OverflowMenu>
+            <ObjectMenu AllLabel="@T["All warehouses"]" OnAll="GoToWarehouses"
+                        EditLabel="@T["Edit"]" OnEdit="GoToEditor"
+                        DeleteLabel="@T["Delete"]" OnDelete="DeleteAsync" />
         </ChildContent>
     </EditorRail>
 }

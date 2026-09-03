@@ -1,0 +1,42 @@
+@* All X · Edit-or-View · Share · Delete, in that order - the shape six menus wrote out by hand as
+   plain avatar-dropdown-item buttons inside an OverflowMenu. A page hands each slot the label its own
+   rules already chose - whether it reads "Edit" or "View", whether Share or Delete belongs at all -
+   nothing here decides that; a slot left null is left out rather than drawn disabled, the same rule
+   PageHeader's Subtitle follows. *@
+<OverflowMenu>
+    @if (AllLabel is not null)
+    {
+        <button type="button" class="avatar-dropdown-item" @onclick="OnAll">@AllLabel</button>
+    }
+    <button type="button" class="avatar-dropdown-item" @onclick="OnEdit">@EditLabel</button>
+    @if (ShareLabel is not null)
+    {
+        <button type="button" class="avatar-dropdown-item" @onclick="OnShare">@ShareLabel</button>
+    }
+    @if (DeleteLabel is not null)
+    {
+        <button type="button" class="avatar-dropdown-item" disabled="@DeleteDisabled" @onclick="OnDelete">@DeleteLabel</button>
+    }
+</OverflowMenu>
+
+@code {
+    /// <summary>The way back to every object of this kind - "All notes", "All warehouses", "Calendar".
+    /// Left out on a card that is already sitting on that list.</summary>
+    [Parameter] public string? AllLabel { get; set; }
+
+    [Parameter] public EventCallback OnAll { get; set; }
+
+    [Parameter, EditorRequired] public string EditLabel { get; set; } = default!;
+
+    [Parameter] public EventCallback OnEdit { get; set; }
+
+    [Parameter] public string? ShareLabel { get; set; }
+
+    [Parameter] public EventCallback OnShare { get; set; }
+
+    [Parameter] public string? DeleteLabel { get; set; }
+
+    [Parameter] public EventCallback OnDelete { get; set; }
+
+    [Parameter] public bool DeleteDisabled { get; set; }
+}

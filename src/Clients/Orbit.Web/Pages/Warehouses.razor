@@ -111,20 +111,11 @@ else
                                          CanMoveUp="CanMoveCard(warehouse, -1)" CanMoveDown="CanMoveCard(warehouse, 1)" />
                     </Handle>
                     <Menu>
-                        <OverflowMenu>
-                            @* The card opens the shelf to be read; changing what is on it is a named
-                               press, the same as a task list's. *@
-                            <button type="button" class="avatar-dropdown-item"
-                                    @onclick="() => EditWarehouse(warehouse.Id)">@T["Edit"]</button>
-                            @if (CanShare(warehouse))
-                            {
-                                <button type="button" class="avatar-dropdown-item" @onclick="() => ToggleSharePanel(warehouse.Id)">@T["Share"]</button>
-                            }
-                            @if (!warehouse.IsShared)
-                            {
-                                <button type="button" class="avatar-dropdown-item" @onclick="() => DeleteWarehouseAsync(warehouse)">@T["Delete"]</button>
-                            }
-                        </OverflowMenu>
+                        @* The card opens the shelf to be read; changing what is on it is a named press,
+                           the same as a task list's. *@
+                        <ObjectMenu EditLabel="@T["Edit"]" OnEdit="() => EditWarehouse(warehouse.Id)"
+                                    ShareLabel="@(CanShare(warehouse) ? T["Share"] : null)" OnShare="() => ToggleSharePanel(warehouse.Id)"
+                                    DeleteLabel="@(!warehouse.IsShared ? T["Delete"] : null)" OnDelete="() => DeleteWarehouseAsync(warehouse)" />
                     </Menu>
                     <Tags>
                         @if (warehouse.IsPrivate)
