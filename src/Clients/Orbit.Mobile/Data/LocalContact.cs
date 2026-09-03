@@ -1,3 +1,5 @@
+using System.ComponentModel.DataAnnotations.Schema;
+
 namespace Orbit.Mobile.Data;
 
 /// <summary>
@@ -34,9 +36,37 @@ public sealed class LocalContact
 
     public string DisplayName { get; set; } = string.Empty;
 
+    /// <summary>
+    /// How to reach them outside Orbit, for the card that says who somebody is. Cached with the rest of
+    /// the row rather than looked up when the card opens: that card has to answer offline, and an
+    /// address is the one line on it nothing else stands in for.
+    /// </summary>
+    public string Email { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Whether that address is one Google itself has verified, which it is for an account signed in with
+    /// Google - see ContactDto.HasGoogleVerifiedEmail. Cached with the row for the same reason the
+    /// address is: what it guards is a link built on this phone, offline as often as not.
+    /// </summary>
+    public bool HasGoogleVerifiedEmail { get; set; }
+
     public string? PublicKeyBase64 { get; set; }
 
     public DateTimeOffset LastMessageAtUtc { get; set; }
+
+    /// <summary>
+    /// Put away by this reader, and by nobody else - see ContactDto.IsArchived. One-sided on purpose:
+    /// the other party's list has its own row and its own answer.
+    /// </summary>
+    public bool IsArchived { get; set; }
+
+    /// <summary>
+    /// Kept at the top of this reader's list, on this device only - see ConversationPins. Not stored
+    /// with the row: pinning is one person's answer about one screen, and the server has no business
+    /// knowing it.
+    /// </summary>
+    [NotMapped]
+    public bool IsPinned { get; set; }
 
     /// <summary>A chat request this user sent that the signed-in user hasn't approved yet.</summary>
     public bool RequiresApprovalFromCurrentUser { get; set; }

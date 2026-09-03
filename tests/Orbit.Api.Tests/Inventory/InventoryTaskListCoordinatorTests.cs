@@ -122,8 +122,7 @@ public sealed class InventoryTaskListCoordinatorTests
         var taskList = await context.TaskRepository.GetByIdAsync(userId, taskListId, CancellationToken.None);
         var completed = taskList!.Items.Select(existing => existing.Id == item.PendingRestockTaskItemId
             ? TaskItem.FromPersistence(existing.Id, existing.Description, existing.DueDateUtc, isCompleted: true,
-                existing.LinkedTaskListId, existing.OverdueNotificationChannel, existing.RemindDaily,
-                existing.DailyReminderNotificationChannel, existing.DailyReminderTimeOfDay)
+                existing.LinkedTaskListIds, existing.Reminders)
             : existing).ToList();
         taskList.Update(
             taskList.Title, completed, taskList.IsGroup, taskList.IsPrivate, taskList.EncryptedContent, taskList.Priority);

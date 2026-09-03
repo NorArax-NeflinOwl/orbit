@@ -116,11 +116,57 @@ public sealed class LocalNoteRepositoryTests
         Assert.Equal(["Newer", "Older"], notes.Select(note => note.Title));
     }
 
+    /// <summary>
+    /// The guard behind the screen. A read-only share opened as an editable screen once, and the edit
+    /// was queued for a server that answers 403 - so the work was lost some minutes later with nothing
+    /// saying why. Refused here as well as hidden there: a screen that forgets to ask must not be able
+    /// to queue it.
+    /// </summary>
+    [Fact]
+    public async Task Something_shared_to_read_cannot_be_edited_and_queues_nothing()
+    {
+        using var context = new RepositoryContext();
+        var note = await context.SharedWithMeAsync("ReadOnly");
+
+        var outcome = await context.Repository.UpdateAsync(
+            note.LocalId, new NoteContent("Mine now", SomeContent, "Normal"));
+
+        Assert.Equal(LocalWriteOutcome.RefusedAsReadOnly, outcome);
+        Assert.Empty(await context.DbContext.Outbox.ToListAsync());
+        Assert.False(await context.Repository.CanEditAsync(note.LocalId));
+    }
+
+    [Fact]
+    public async Task Something_shared_for_editing_is_edited_as_usual()
+    {
+        using var context = new RepositoryContext();
+        var note = await context.SharedWithMeAsync("EditOnly");
+
+        var outcome = await context.Repository.UpdateAsync(
+            note.LocalId, new NoteContent("Reworded", SomeContent, "Normal"));
+
+        Assert.Equal(LocalWriteOutcome.Applied, outcome);
+        Assert.True(await context.Repository.CanEditAsync(note.LocalId));
+    }
+
+    /// <summary>
+    /// Deleting something shared with you is not editing it: the server takes it off your list and
+    /// leaves the owner's alone (see DeleteNoteCommandHandler), so the phone must not refuse it.
+    /// </summary>
+    [Fact]
+    public async Task Something_shared_to_read_can_still_be_taken_off_your_own_list()
+    {
+        using var context = new RepositoryContext();
+        var note = await context.SharedWithMeAsync("ReadOnly");
+
+        Assert.Equal(LocalWriteOutcome.Applied, await context.Repository.DeleteAsync(note.LocalId));
+    }
+
     private sealed class RepositoryContext : IDisposable
     {
         private readonly LocalStore _localStore = new();
 
-        public RepositoryContext() => Repository = new LocalNoteRepository(_localStore, Clock, FixedNetworkStatus.Online);
+        public RepositoryContext() => Repository = new LocalNoteRepository(_localStore, Clock, FixedNetworkStatus.Online, PrivateContent.WithoutAKey());
 
         public FakeTimeProvider Clock { get; } = new(DateTimeOffset.Parse("2026-08-26T10:00:00Z"));
         public LocalNoteRepository Repository { get; }
@@ -128,6 +174,30 @@ public sealed class LocalNoteRepositoryTests
 
         /// <summary>The same database as a later launch of the app would find it.</summary>
         public OrbitLocalDbContext Reopen() => _localStore.CreateDbContext();
+
+        /// <summary>
+        /// A note that arrived through somebody else's share, as a pull would have written it - see
+        /// NoteSynchronizer, which is what sets these three together.
+        /// </summary>
+        public async Task<LocalNote> SharedWithMeAsync(string accessLevel)
+        {
+            await using var dbContext = _localStore.CreateDbContext();
+            var note = new LocalNote
+            {
+                LocalId = Guid.NewGuid(),
+                ServerId = Guid.NewGuid(),
+                Title = "Somebody else's note",
+                IsShared = true,
+                SharedByUserName = "ala",
+                AccessLevel = accessLevel,
+                CreatedAtUtc = Clock.GetUtcNow(),
+                UpdatedAtUtc = Clock.GetUtcNow()
+            };
+
+            dbContext.Notes.Add(note);
+            await dbContext.SaveChangesAsync();
+            return note;
+        }
 
         public void Dispose() => _localStore.Dispose();
     }

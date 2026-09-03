@@ -6,6 +6,7 @@ using Orbit.Mobile.Data;
 using System.Collections.ObjectModel;
 using System.Text;
 using Orbit.Core.Permissions;
+using Orbit.Mobile.Google;
 using Orbit.Mobile.Localization;
 using Orbit.Mobile.Api;
 using Orbit.Mobile.Permissions;
@@ -23,8 +24,8 @@ namespace Orbit.Mobile.Screens.Account;
 public sealed partial class AccountViewModel : ObservableObject
 {
     private readonly AccountClient _accountClient;
+    private readonly GoogleExtras _googleExtras;
     private readonly OwnEncryptionKeyProvider _encryptionKeyProvider;
-    private readonly INetworkStatus _networkStatus;
     private readonly SessionStore _sessionStore;
     private readonly Translations _translations;
     private readonly UsersClient _usersClient;
@@ -52,6 +53,14 @@ public sealed partial class AccountViewModel : ObservableObject
 
     [ObservableProperty]
     private string _newPassword = string.Empty;
+
+    /// <summary>
+    /// The new password typed a second time. A password nobody can read back is a password nobody can
+    /// check, and one mistyped here is one nobody can sign in with afterwards - Orbit.Web asks for it in
+    /// the same form, and this screen took the first answer and changed the password to it.
+    /// </summary>
+    [ObservableProperty]
+    private string _repeatedNewPassword = string.Empty;
 
     /// <summary>
     /// Confirms the deletion below. Kept apart from <see cref="CurrentPassword"/> deliberately: typing a
@@ -104,16 +113,19 @@ public sealed partial class AccountViewModel : ObservableObject
     private bool _isRedeemingCode;
 
     public AccountViewModel(
-        AccountClient accountClient, OwnEncryptionKeyProvider encryptionKeyProvider, INetworkStatus networkStatus,
+        AccountClient accountClient, OwnEncryptionKeyProvider encryptionKeyProvider, ConnectionRequirement connection,
         SessionStore sessionStore, Translations translations, UsersClient usersClient,
         UserPermissions permissions, IThemeStore themes, IAccentColorStore accents, TransferClient transfer,
         LocalStoreReset localStore,
         Notifications.NotificationSettingsViewModel notifications, IScreenNavigator navigator,
-        GoogleAccountLink googleLink)
+        GoogleAccountLink googleLink, GoogleExtras googleExtras)
     {
         _accountClient = accountClient;
         _encryptionKeyProvider = encryptionKeyProvider;
-        _networkStatus = networkStatus;
+        Connection = connection;
+        // The button answers to both of them: something to export, and a connection to ask for it over.
+        Export.PropertyChanged += (_, _) => OnPropertyChanged(nameof(CanExport));
+        connection.PropertyChanged += (_, _) => OnPropertyChanged(nameof(CanExport));
         _sessionStore = sessionStore;
         _translations = translations;
         _usersClient = usersClient;
@@ -127,6 +139,7 @@ public sealed partial class AccountViewModel : ObservableObject
         Notifications = notifications;
         _navigator = navigator;
         GoogleLink = googleLink;
+        _googleExtras = googleExtras;
         // Connecting or disconnecting changes what the account is, so the screen reads it again rather
         // than keeping the copy it showed before.
         GoogleLink.Changed += (_, _) => _ = ShowAccountAsync();
@@ -143,6 +156,33 @@ public sealed partial class AccountViewModel : ObservableObject
     public GoogleAccountLink GoogleLink { get; }
 
     /// <summary>
+    /// Whether this phone offers the links that hand an event to Google Calendar or a place to Google
+    /// Maps. Kept on the device, and a different question from the account below it: turning these off
+    /// leaves a connected Google account connected, and signing in with it still works.
+    /// </summary>
+    public bool AllowsGoogleExtras
+    {
+        get => _googleExtras.IsAllowedOnThisDevice;
+        set
+        {
+            if (value == _googleExtras.IsAllowedOnThisDevice)
+            {
+                return;
+            }
+
+            _googleExtras.IsAllowedOnThisDevice = value;
+            OnPropertyChanged();
+        }
+    }
+
+    /// <summary>
+    /// Whether the switch above is worth offering: an account that has neither confirmed an address nor
+    /// connected Google cannot use the extras at all - see GoogleIntegrationAccess.
+    /// </summary>
+    [ObservableProperty]
+    private bool _canChooseGoogleExtras;
+
+    /// <summary>
     /// Which section is showing. Tabs rather than one long scroll, as Orbit.Web's Options page has -
     /// changing a password and unlocking a feature are different errands and were stacked on top of
     /// each other.
@@ -150,9 +190,19 @@ public sealed partial class AccountViewModel : ObservableObject
     [ObservableProperty]
     private AccountTab _tab = AccountTab.Account;
 
+    /// <summary>
+    /// The tabs this account is offered. Everything but the Debugger, which goes only to an account
+    /// that has unlocked it: what it opens is Orbit's own inside - the captured log and the detail
+    /// behind an error - and that is the same line the browser's Options draws and the same one the
+    /// version row in the avatar menu draws. See ApplicationPermission.Debug.
+    /// </summary>
     public IReadOnlyList<AccountTabRow> Tabs
         => [.. Enum.GetValues<AccountTab>()
+            .Where(IsOffered)
             .Select(tab => new AccountTabRow(tab, AccountTabRow.Describe(tab, _translations), tab == Tab))];
+
+    private bool IsOffered(AccountTab tab)
+        => tab != AccountTab.Debug || _permissions.Has(ApplicationPermission.Debug);
 
     public bool IsShowingAccount => Tab is AccountTab.Account;
 
@@ -160,7 +210,11 @@ public sealed partial class AccountViewModel : ObservableObject
 
     public bool IsShowingPermissions => Tab is AccountTab.Permissions;
 
-    public bool IsShowingDebug => Tab is AccountTab.Debug;
+    /// <summary>
+    /// The section behind the Debugger tab. Answers to the permission as well as to the tab, so an
+    /// account that loses it while the screen is open is not left reading what it no longer holds.
+    /// </summary>
+    public bool IsShowingDebug => Tab is AccountTab.Debug && _permissions.Has(ApplicationPermission.Debug);
 
     [RelayCommand]
     private void ChooseTab(AccountTabRow? row)
@@ -190,21 +244,41 @@ public sealed partial class AccountViewModel : ObservableObject
     /// </summary>
     public event EventHandler<(string FileName, string Json)>? ExportReady;
 
+    /// <summary>
+    /// What the next export will carry - all four parts unless the reader says otherwise, the same four
+    /// the browser offers. See ExportChoice.
+    /// </summary>
+    public ExportChoice Export { get; } = new();
+
+    /// <summary>
+    /// Whether there is an export to build: something chosen, and a connection to ask for it over -
+    /// the archive is the server's answer rather than something this phone can assemble.
+    /// </summary>
+    public bool CanExport => Connection.IsMet && !Export.IsEmpty;
+
     [RelayCommand]
     private async Task ExportAsync(CancellationToken cancellationToken)
     {
         IsTransferring = true;
         try
         {
-            var json = await _transfer.ExportAsync(cancellationToken);
-            if (json is null)
+            var everything = await _transfer.ExportAsync(cancellationToken);
+            if (everything is null)
             {
                 TransferMessage = _translations["Couldn't build the export. Try again."];
                 return;
             }
 
-            TransferMessage = string.Empty;
-            ExportReady?.Invoke(this, ($"orbit-export-{DateTimeOffset.Now:yyyy-MM-dd}.json", json));
+            var archive = Export.Narrow(everything);
+            // Said rather than left to the file: what was asked for and what came back are two different
+            // things, and a file nobody opens is where that difference would otherwise be found.
+            TransferMessage = _translations.Format(
+                "Exported {0} notes, {1} task lists, {2} events and {3} storages.",
+                archive.Notes.Count, archive.TaskLists.Count, archive.CalendarEvents.Count,
+                archive.Warehouses.Count);
+
+            ExportReady?.Invoke(
+                this, ($"orbit-export-{DateTimeOffset.Now:yyyy-MM-dd}.json", _transfer.Write(archive)));
         }
         catch (Exception exception) when (exception is HttpRequestException or OperationCanceledException)
         {
@@ -322,10 +396,13 @@ public sealed partial class AccountViewModel : ObservableObject
 
     public bool HasPermissionMessage => PermissionMessage.Length > 0;
 
-    /// <summary>Everything on this screen is unavailable offline, so the whole form reflects one flag.</summary>
-    public bool IsOnline => _networkStatus.IsOnline;
-
-    public bool IsOffline => !IsOnline;
+    /// <summary>
+    /// Everything on this screen needs the server - a username has to be checked for being free, a
+    /// password change has to be proved against the old one - so the whole form reflects one answer.
+    /// Held as an object rather than read from the network each time, because the answer changes while
+    /// somebody is filling the form in and the buttons have to follow it.
+    /// </summary>
+    public ConnectionRequirement Connection { get; }
 
     public bool HasMessage => Message.Length > 0;
 
@@ -338,9 +415,6 @@ public sealed partial class AccountViewModel : ObservableObject
         }
 
         await ShowAccountAsync();
-
-        OnPropertyChanged(nameof(IsOnline));
-        OnPropertyChanged(nameof(IsOffline));
 
         await _permissions.EnsureLoadedAsync();
         ShowPermissions();
@@ -370,6 +444,9 @@ public sealed partial class AccountViewModel : ObservableObject
             EmailAddress = account.Email;
             IsEmailVerified = account.IsEmailVerified;
             RequiresPasswordToDelete = account.HasPassword;
+            // A switch for something the account cannot use yet would turn nothing off, so it is only
+            // offered where the account qualifies - the line Orbit.Web draws over the same row.
+            CanChooseGoogleExtras = GoogleIntegrationAccess.Qualifies(account);
             await GoogleLink.ShowAsync(account);
         }
         catch (HttpRequestException)
@@ -423,7 +500,7 @@ public sealed partial class AccountViewModel : ObservableObject
         }
     }
 
-    private bool CanRedeemCode => PermissionCode.Trim().Length > 0 && !IsRedeemingCode && IsOnline;
+    private bool CanRedeemCode => PermissionCode.Trim().Length > 0 && !IsRedeemingCode && Connection.IsMet;
 
     private void ShowPermissions()
     {
@@ -434,6 +511,17 @@ public sealed partial class AccountViewModel : ObservableObject
         {
             Permissions.Add(PermissionRow.For(permission, granted, _translations));
         }
+
+        // Unlocking Debug adds a tab, and losing it takes one away - so the row of tabs is drawn again
+        // rather than left as it was when the screen opened. A reader standing in a tab they no longer
+        // hold is put back where everybody starts.
+        if (!IsOffered(Tab))
+        {
+            Tab = AccountTab.Account;
+        }
+
+        OnPropertyChanged(nameof(Tabs));
+        OnPropertyChanged(nameof(IsShowingDebug));
     }
 
     [RelayCommand]
@@ -462,6 +550,13 @@ public sealed partial class AccountViewModel : ObservableObject
     [RelayCommand]
     private async Task ChangePasswordAsync(CancellationToken cancellationToken)
     {
+        if (NewPassword != RepeatedNewPassword)
+        {
+            MessageIsFailure = true;
+            Message = _translations["The two new passwords don't match."];
+            return;
+        }
+
         var currentPassword = CurrentPassword;
         var newPassword = NewPassword;
 
@@ -476,6 +571,7 @@ public sealed partial class AccountViewModel : ObservableObject
 
         CurrentPassword = string.Empty;
         NewPassword = string.Empty;
+        RepeatedNewPassword = string.Empty;
         await RewrapChatKeyAsync(currentPassword, newPassword, cancellationToken);
     }
 

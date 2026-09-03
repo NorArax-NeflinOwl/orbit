@@ -7,6 +7,9 @@ using Orbit.Core.Notifications.GetNotificationEntries;
 using Orbit.Core.Notifications.GetNotificationSettings;
 using Orbit.Core.Notifications.GetUnreadNotificationEntries;
 using Orbit.Core.Notifications.ClearNotifications;
+using Orbit.Api.Sync;
+using Orbit.Core.Sync;
+using Orbit.Core.Notifications.GetChangedNotifications;
 using Orbit.Core.Notifications.GetNotificationHistory;
 using Orbit.Core.Notifications.MarkNotificationsAtUrlRead;
 using Orbit.Core.Notifications.MarkAllNotificationsRead;
@@ -58,6 +61,26 @@ public static class NotificationEndpoints
             var entries = await dispatcher.SendAsync(
                 new GetNotificationHistoryQuery(GetUserId(user), MaxHistoryEntries), cancellationToken);
             return Results.Ok(entries.Select(ToDto));
+        });
+
+        // What has changed since a point in time, in the same shape the other four collections answer -
+        // so a phone can hold its own copy of the feed and show it with no connection.
+        //
+        // No tombstones: an entry only ever leaves by outliving its retention window (see
+        // DeleteExpiredAsync), which every client can work out for itself from the age of what it holds.
+        // Writing one per expired notification would be a lot of rows to say something already known.
+        notifications.MapGet("/changes", async (
+            DateTimeOffset since, ClaimsPrincipal user, IDispatcher dispatcher,
+            ISyncTombstoneRepository tombstones, CancellationToken cancellationToken) =>
+        {
+            var userId = GetUserId(user);
+            var cursor = ChangeFeed.StartCursor();
+            var changed = await dispatcher.SendAsync(
+                new GetChangedNotificationsQuery(userId, since, MaxHistoryEntries), cancellationToken);
+
+            return Results.Ok(await ChangeFeed.BuildAsync(
+                changed.Select(ToDto).ToList(), cursor, userId, SyncEntityType.NotificationEntry, since,
+                tombstones, cancellationToken));
         });
 
         // The unread entries themselves rather than a bare count: the client badges each place a

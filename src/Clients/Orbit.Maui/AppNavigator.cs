@@ -1,6 +1,7 @@
 using Orbit.Maui.Features.Account;
 using Orbit.Maui.Features.Authentication;
 using Orbit.Maui.Features.Calendar;
+using Orbit.Maui.Features.Copies;
 using Orbit.Maui.Features.Chat;
 using Orbit.Maui.Features.Dashboard;
 using Orbit.Maui.Features.Diagnostics;
@@ -8,6 +9,7 @@ using Orbit.Maui.Features.Inventory;
 using Orbit.Maui.Features.Location;
 using Orbit.Maui.Features.Notes;
 using Orbit.Maui.Features.Notifications;
+using Orbit.Maui.Features.Sharing;
 using Orbit.Maui.Features.Tasks;
 using Orbit.Maui.Features.Update;
 using Orbit.Mobile.Authentication;
@@ -51,6 +53,8 @@ public sealed class AppNavigator : IScreenNavigator
 
 	public void ShowRegister() => ShowAsRoot<RegisterPage>(Screen.Register);
 
+	public void ShowPasswordReset() => ShowAsRoot<PasswordResetPage>(Screen.PasswordReset);
+
 	public void ShowAccount() => ShowAsRoot<AccountPage>(Screen.Account);
 
 	public void ShowChatKeyGate() => ShowAsRoot<ChatKeyGatePage>(Screen.ChatKeyGate);
@@ -65,10 +69,13 @@ public sealed class AppNavigator : IScreenNavigator
 
 	public void ShowMap() => ShowAsRoot<MapPage>(Screen.Map);
 
-	public void ShowWarehouse(Guid localId)
-		=> ShowAsRoot<WarehouseDetailPage>(Screen.Warehouse, page => page.ViewModel.Open(localId));
+	public void ShowWarehouse(Guid localId, Guid? productId = null)
+		=> ShowAsRoot<WarehouseDetailPage>(Screen.Warehouse, page => page.ViewModel.Open(localId, productId));
 
 	public void ShowNotifications() => ShowAsRoot<NotificationFeedPage>(Screen.Notifications);
+
+	public void ShowSharedLink(string token)
+		=> ShowAsRoot<SharedLinkPage>(Screen.SharedLink, page => page.ViewModel.Open(token));
 
 	public void ShowUpdate() => ShowAsRoot<UpdatePage>(Screen.Update);
 
@@ -85,6 +92,11 @@ public sealed class AppNavigator : IScreenNavigator
 	public void ShowNote(Guid localId)
 		=> ShowAsRoot<NoteDetailPage>(Screen.Note, page => page.ViewModel.Open(localId));
 
+	public void ShowCopyReview() => ShowAsRoot<CopyReviewPage>(Screen.CopyReview);
+
+	public void ShowCopyHistory(CopyKind kind, Guid localId)
+		=> ShowAsRoot<CopyHistoryPage>(Screen.CopyHistory, page => page.ViewModel.Open(kind, localId));
+
 	public void ShowCalendarEvent(Guid localId)
 		=> ShowAsRoot<CalendarEventDetailPage>(Screen.CalendarEvent, page => page.ViewModel.Open(localId));
 
@@ -94,6 +106,10 @@ public sealed class AppNavigator : IScreenNavigator
 	/// </summary>
 	public void ShowConversation(LocalContact contact)
 		=> ShowAsRoot<ConversationPage>(Screen.Conversation, page => page.ViewModel.Open(contact));
+
+	/// <inheritdoc cref="ShowConversation"/>
+	public void ShowContactInfo(Guid userId)
+		=> ShowAsRoot<ContactInfoPage>(Screen.ContactInfo, page => page.ViewModel.Open(userId));
 
 	public void ShowGroups() => ShowAsRoot<GroupsPage>(Screen.Groups);
 

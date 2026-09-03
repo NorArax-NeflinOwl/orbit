@@ -177,6 +177,45 @@ public sealed class MapScreenTests
         Assert.Contains("signing in", screen.Message);
     }
 
+    /// <summary>
+    /// Location unlocks the map on its own; the two reads about sharing need Contacts as well. An
+    /// account with one and not the other opens this screen legitimately, so a 403 from those reads is
+    /// the answer to "who is sharing" - nobody - and not something to report.
+    /// </summary>
+    [Fact]
+    public async Task Not_being_allowed_to_ask_who_is_sharing_shows_nobody_rather_than_an_error()
+    {
+        // Found on a device: the map said "Couldn't reach Orbit just now" while Orbit was answering
+        // every request, because the account had Location without Contacts.
+        using var context = new MapContext();
+        context.LocationServer.RefuseShareReadsWith = System.Net.HttpStatusCode.Forbidden;
+        context.ChatServer.RefuseContactsWith = System.Net.HttpStatusCode.Forbidden;
+        var screen = context.Open();
+
+        await screen.LoadCommand.ExecuteAsync(null);
+
+        Assert.Empty(screen.Message);
+        Assert.Empty(screen.SharedWithMe);
+        Assert.Empty(screen.SharingWith);
+        Assert.Empty(screen.Candidates);
+    }
+
+    /// <summary>The map itself still works for that account - the refusal is about other people only.</summary>
+    [Fact]
+    public async Task Not_being_allowed_to_ask_who_is_sharing_still_records_where_you_are()
+    {
+        using var context = new MapContext();
+        context.LocationServer.RefuseShareReadsWith = System.Net.HttpStatusCode.Forbidden;
+        context.ChatServer.RefuseContactsWith = System.Net.HttpStatusCode.Forbidden;
+        var screen = context.Open();
+
+        await screen.LoadCommand.ExecuteAsync(null);
+        await screen.ReadMyPositionCommand.ExecuteAsync(null);
+
+        Assert.True(screen.HasOwnPosition);
+        Assert.Empty(screen.Message);
+    }
+
     [Fact]
     public async Task Being_genuinely_unreachable_still_says_so()
     {
@@ -399,13 +438,16 @@ public sealed class MapScreenTests
                 _repository, chatClient, _usersClient, sender, NullLogger<ChatSynchronizer>.Instance);
             LocationClient = new LocationClient(LocationServer.ToHttpClient());
             _google = new GoogleIntegrationAccess(
-                new AccountClient(_users.ToHttpClient(), FixedNetworkStatus.Online, sessionStore));
+                new AccountClient(_users.ToHttpClient(), FixedNetworkStatus.Online, sessionStore),
+                new GoogleExtras(new InMemoryGoogleExtrasStore()));
             _sharedLocations = new SharedLocations(
                 LocationClient, _usersClient, encryptionKeyProvider, NullLogger<SharedLocations>.Instance);
         }
 
         /// <summary>Held so a test can say whether this account qualifies for the Google extras.</summary>
         public FakeUsersServer Users => _users;
+
+        public FakeChatServer ChatServer => _chatServer;
 
         public FakeLocationServer LocationServer { get; }
         public LocationClient LocationClient { get; }

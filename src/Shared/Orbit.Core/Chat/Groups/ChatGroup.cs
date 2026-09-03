@@ -1,3 +1,4 @@
+using Orbit.Core;
 using Orbit.Core.Abstractions;
 
 namespace Orbit.Core.Chat.Groups;
@@ -48,6 +49,7 @@ public sealed class ChatGroup
     /// <summary>The creator is the first admin - a group with nobody able to manage it would be stuck from the start.</summary>
     public static ChatGroup Create(Guid createdByUserId, string name)
     {
+        StoredTextLimits.OrRefuse(name, StoredTextLimits.GroupName, "group's name");
         var trimmedName = name.Trim();
         if (trimmedName.Length == 0)
         {
@@ -201,6 +203,51 @@ public sealed class ChatGroup
 
         _members.Remove(member);
         _members.Add(member with { Role = role });
+    }
+
+    /// <summary>
+    /// Puts this group away on one member's own list, or brings it back. Answers false when they are
+    /// not in it.
+    ///
+    /// No admin check, and none of the "a group needs an admin" rules above: archiving changes nothing
+    /// about the group, only about one person's view of it. An admin tidying their own list must not
+    /// take the group off anybody else's, and a member deciding they are done reading it does not need
+    /// permission to stop looking.
+    /// </summary>
+    public bool SetArchivedFor(Guid userId, bool isArchived)
+    {
+        if (FindMember(userId) is not { } member)
+        {
+            return false;
+        }
+
+        _members.Remove(member);
+        _members.Add(member with { IsArchived = isArchived });
+        return true;
+    }
+
+    /// <summary>
+    /// Refuses unless actorUserId may hand this group's history to recipientUserId. An admin's to give,
+    /// for the same reason the membership is: deciding what somebody sees on arrival is the same act as
+    /// deciding they arrive at all, and a group where any member could replay the whole conversation to
+    /// a newcomer would put that choice in nobody's hands in particular.
+    ///
+    /// The recipient has to be in the group already - history is shared into a membership, not instead
+    /// of one - and nobody shares with themselves, who by definition already has it.
+    /// </summary>
+    public void EnsureHistoryCanBeSharedWith(Guid actorUserId, Guid recipientUserId)
+    {
+        RequireAdmin(actorUserId);
+
+        if (actorUserId == recipientUserId)
+        {
+            throw new InvalidRequestException("You already have this group's history.");
+        }
+
+        if (!IsMember(recipientUserId))
+        {
+            throw new InvalidRequestException("That person isn't in this group.");
+        }
     }
 
     /// <summary>

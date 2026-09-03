@@ -46,7 +46,7 @@ public sealed class AcquireNoteLockCommandHandler : IRequestHandler<AcquireNoteL
 
         var user = await _userRepository.GetByIdAsync(request.UserId, cancellationToken);
         note.AcquireLock(request.UserId, user!.UserName, nowUtc, LockDuration);
-        await _noteRepository.UpdateAsync(note, cancellationToken);
+        await _noteRepository.UpdateLockAsync(note, cancellationToken);
         return EditOutcome.Success;
     }
 }

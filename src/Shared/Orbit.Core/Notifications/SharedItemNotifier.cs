@@ -1,3 +1,4 @@
+using Microsoft.Extensions.Logging;
 using Orbit.Core.Users;
 
 namespace Orbit.Core.Notifications;
@@ -15,8 +16,9 @@ public interface ISharedItemNotifier
 /// whatever kind of thing it is.
 ///
 /// The entry in the notification feed **is** the invitation, so it is always recorded (subject only to
-/// the master AllowNotifications switch). Push and email are the extra on top, and only go out when the
-/// recipient asked for them - see NotificationSettings.AllowShareNotifications, which starts off.
+/// the master AllowNotifications switch). Push and email are the extra on top, and only go out on the
+/// channels the recipient asked for - see NotificationSettings.ChannelForShares, whose
+/// AllowShareNotifications starts off.
 /// </summary>
 public sealed class SharedItemNotifier : ISharedItemNotifier
 {
@@ -24,17 +26,23 @@ public sealed class SharedItemNotifier : ISharedItemNotifier
     private readonly NotificationRecorder _notificationRecorder;
     private readonly PushNotificationDispatcher _pushNotificationDispatcher;
     private readonly IUserRepository _userRepository;
+    private readonly IEmailSender _emailSender;
+    private readonly ILogger<SharedItemNotifier> _logger;
 
     public SharedItemNotifier(
         INotificationSettingsRepository notificationSettingsRepository,
         NotificationRecorder notificationRecorder,
         PushNotificationDispatcher pushNotificationDispatcher,
-        IUserRepository userRepository)
+        IUserRepository userRepository,
+        IEmailSender emailSender,
+        ILogger<SharedItemNotifier> logger)
     {
         _notificationSettingsRepository = notificationSettingsRepository;
         _notificationRecorder = notificationRecorder;
         _pushNotificationDispatcher = pushNotificationDispatcher;
         _userRepository = userRepository;
+        _emailSender = emailSender;
+        _logger = logger;
     }
 
     /// <summary>
@@ -66,6 +74,40 @@ public sealed class SharedItemNotifier : ISharedItemNotifier
         if (result.AllowedChannel.HasFlag(NotificationChannel.Push))
         {
             await _pushNotificationDispatcher.NotifyUserAsync(recipientUserId, payload, cancellationToken);
+        }
+
+        if (result.AllowedChannel.HasFlag(NotificationChannel.Email))
+        {
+            await EmailTheInvitationAsync(recipientUserId, kind, sharerName, itemTitle, cancellationToken);
+        }
+    }
+
+    /// <summary>
+    /// Caught on its own rather than left to the caller: by the time this runs the share is saved and
+    /// the invitation is already in the recipient's feed, so an unreachable mail server must not turn
+    /// a share that happened into a request that failed. PushNotificationDispatcher above never throws
+    /// for the same reason.
+    /// </summary>
+    private async Task EmailTheInvitationAsync(
+        Guid recipientUserId, SharedItemKind kind, string sharerName, string? itemTitle, CancellationToken cancellationToken)
+    {
+        try
+        {
+            // Read here rather than alongside the sharer: share notifications start off, so on the
+            // common path this account is never looked up at all.
+            var recipient = await _userRepository.GetByIdAsync(recipientUserId, cancellationToken);
+            if (recipient is null)
+            {
+                return;
+            }
+
+            var (subject, body) = SharedItemEmailContent.Build(kind, sharerName, itemTitle);
+            await _emailSender.SendAsync(recipient.Email, subject, body, cancellationToken);
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            _logger.LogError(
+                exception, "Failed to email a {Kind} share invitation to user {RecipientUserId}", kind, recipientUserId);
         }
     }
 

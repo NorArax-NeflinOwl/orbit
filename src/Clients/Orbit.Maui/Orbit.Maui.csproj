@@ -41,7 +41,11 @@
 
 		<!-- ApplicationDisplayVersion is the SemVer the version gate compares against, and
 		ApplicationVersion the monotonic build number stores order by - see info/orbit-maui-plan.md's
-		"Forced update". Both are read at runtime by AppVersion rather than duplicated in code. -->
+		"Forced update". Both are read at runtime by AppVersion rather than duplicated in code.
+
+		What is written here is only what a local build gets. A release passes the real number in
+		(-p:ApplicationDisplayVersion), worked out from the history by ci/compute-version.sh - see
+		info/functionality.md's "Which build this is". -->
 		<ApplicationDisplayVersion>0.1.0</ApplicationDisplayVersion>
 		<ApplicationVersion>1</ApplicationVersion>
 
@@ -77,7 +81,33 @@
 		  dotnet publish src/Clients/Orbit.Maui/Orbit.Maui.csproj -f net10.0-android -c Release \
 		    -p:OrbitApiBaseAddress=https://orbit-web.example.azurecontainerapps.io/ -->
 		<OrbitApiBaseAddress Condition="'$(OrbitApiBaseAddress)' == ''"></OrbitApiBaseAddress>
+
+		<!-- The host public share links are served from, which is what lets Android hand one to Orbit
+		instead of opening a browser (see MainActivity's intent filter and info/functionality.md's
+		"A link opened on a phone"). It is the deployment's own address with the scheme taken off, so a
+		release build needs nothing extra; a build that was told no address gets a name that can never
+		resolve, because a filter with no host would offer Orbit for every link on the phone.
+
+		Overridable on its own for the case the two differ - a deployment serving the client from one
+		host and its links from another. -->
+		<OrbitShareLinkHost Condition="'$(OrbitShareLinkHost)' == '' and '$(OrbitApiBaseAddress)' != ''">$(OrbitApiBaseAddress.Replace('https://', '').Replace('http://', '').TrimEnd('/'))</OrbitShareLinkHost>
+		<OrbitShareLinkHost Condition="'$(OrbitShareLinkHost)' == ''">orbit.invalid</OrbitShareLinkHost>
 	</PropertyGroup>
+
+	<!-- Written rather than configured, because an intent filter is an attribute and an attribute takes
+	compile-time constants only. The generated constant is the one place the host reaches the manifest
+	from. -->
+	<Target Name="WriteOrbitShareLinkHost" BeforeTargets="BeforeCompile"
+			Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'android'">
+		<PropertyGroup>
+			<_OrbitShareLinkHostFile>$(IntermediateOutputPath)OrbitShareLinks.g.cs</_OrbitShareLinkHostFile>
+		</PropertyGroup>
+		<WriteLinesToFile File="$(_OrbitShareLinkHostFile)" Overwrite="true" WriteOnlyWhenDifferent="true"
+						  Lines="namespace Orbit.Maui%3B;;/// &lt;summary&gt;Generated from OrbitShareLinkHost - see Orbit.Maui.csproj.&lt;/summary&gt;;internal static class OrbitShareLinks;{;    public const string Host = &quot;$(OrbitShareLinkHost)&quot;%3B;}" />
+		<ItemGroup>
+			<Compile Include="$(_OrbitShareLinkHostFile)" />
+		</ItemGroup>
+	</Target>
 
 	<ItemGroup>
 		<AssemblyAttribute Include="System.Reflection.AssemblyMetadataAttribute">
@@ -143,6 +173,27 @@
 		a pile of NU1608 warnings and two AndroidX versions in one app. 1.1.0.30 binds the same
 		androidx.biometric 1.1.0 against the versions MAUI already brings. Raise it when MAUI does. -->
 		<PackageReference Include="Xamarin.AndroidX.Biometric" Version="1.1.0.30" />
+		<!-- The FCM registration token that tells Orbit's server where to deliver a notification. Android
+		only: iOS gets its token from APNs through the same Firebase project, but that needs an auth key
+		uploaded to the console first, so its head still answers NotAvailableHere - see
+		Platforms/iOS/PhonePushNotifications.cs.
+
+		Messaging is the only Firebase piece Orbit uses, and it is pinned below the newest build for the
+		reason the biometric binding above is: from 125.x it drags AndroidX Lifecycle, Activity, Fragment,
+		Collection and SavedState past what MAUI 10.0.20 pins, which restores as fifty NU1608 warnings and
+		leaves MAUI running against AndroidX it was not built against. 124.1.2 is the newest that asks for
+		exactly the versions MAUI already carries - measured, not guessed: 125.0.2 gives nine warnings and
+		125.1.1 gives fifty. Raise it when MAUI does. -->
+		<PackageReference Include="Xamarin.Firebase.Messaging" Version="124.1.2" />
+	</ItemGroup>
+
+	<ItemGroup Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'android' And Exists('Platforms\Android\google-services.json')">
+		<!-- Turned into the resource values the Firebase SDK reads at startup: the project number, the
+		app id and the API key. Without this the SDK initialises with no options and there is no token to
+		be had - which is a build made without the file, and an ordinary state rather than a fault, the
+		same as the Maps key below. See Platforms/Android/PhonePushNotifications.cs for what it answers
+		then. The file is deployment-specific and gitignored. -->
+		<GoogleServicesJson Include="Platforms\Android\google-services.json" />
 	</ItemGroup>
 
 	<ItemGroup Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'android' And Exists('Platforms\Android\AndroidManifestOverlay.xml')">

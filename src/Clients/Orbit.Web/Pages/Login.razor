@@ -11,24 +11,28 @@
 
 <PageTitle>@T["Orbit — Log in"]</PageTitle>
 
-@* TODO(Orbit.Web.UI): still plain unstyled <div>/<label>/<input> - and unlike the other pages, this one
-   also renders with the full sidebar shell next to it if a stale-but-still-valid token is already in
-   localStorage (see MainLayout's AuthorizeView), which looks odd against an unstyled form. Worth a
-   dedicated centered-card auth layout (logo, card, form) using app.css's .card/.btn-primary, closer to
-   what a login page usually looks like than reusing the app shell's .page-header pattern. Register.razor
-   is the same story. *@
 <h1>@T["Log in"]</h1>
 
 <EditForm Model="_formModel" OnValidSubmit="SubmitAsync" class="editor-form">
+    @* Both fields listen for "input" as well as "change", and neither uses @bind, which can only be
+       told about one of the two.
+
+       A password manager fills a box without anybody typing in it. Some raise "input" when they do,
+       some raise "change", and some raise neither until the field is touched - so a form bound to one
+       event alone showed a filled box with an empty model behind it, and Orbit sent an empty password
+       to a real account. The server answers that exactly as it answers a wrong one, which is what made
+       it read as "my manager has the wrong password". *@
     <div class="field">
         <label>@T["Email or login"]</label>
-        <InputText id="emailOrUserName" @bind-Value="_formModel.EmailOrUserName" />
+        <input id="emailOrUserName" value="@_formModel.EmailOrUserName"
+               @oninput="argument => _formModel.EmailOrUserName = Typed(argument)"
+               @onchange="argument => _formModel.EmailOrUserName = Typed(argument)" />
     </div>
     <div class="field">
         <label>@T["Password"]</label>
-        <!-- InputText always renders type="text" regardless of splatted attributes, so a real masked
-             password field needs a plain <input> with a manual two-way binding instead. -->
-        <input type="password" id="password" @bind="_formModel.Password" />
+        <input type="password" id="password" value="@_formModel.Password"
+               @oninput="argument => _formModel.Password = Typed(argument)"
+               @onchange="argument => _formModel.Password = Typed(argument)" />
     </div>
     <div class="form-actions">
         <button type="submit" class="btn-primary" disabled="@_isSubmitting">@T["Log in"]</button>
@@ -42,10 +46,17 @@
 
 <GoogleSignInButton OnCredential="SignInWithGoogleAsync" ShowDivider="true" />
 
+@* Where somebody goes when the password does not work, which is the moment they are on this page for
+   and had nowhere to go from - see ForgotPassword.razor. *@
+<p><a href="/forgot-password">@T["Forgot your password?"]</a></p>
+
 <p>@T["Don't have an account? "]<a href="/register">@T["Register"]</a></p>
 <p><a href="/download">@T["Orbit on your phone"]</a></p>
 
 @code {
+    /// <summary>What a field now holds, however it came to hold it - see the form above.</summary>
+    private static string Typed(ChangeEventArgs argument) => argument.Value?.ToString() ?? string.Empty;
+
     /// <summary>Set by whatever sent the reader here - see DestinationAfterLogin, which is what decides whether to honour it.</summary>
     [Parameter]
     [SupplyParameterFromQuery(Name = "returnUrl")]

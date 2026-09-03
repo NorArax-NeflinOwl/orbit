@@ -38,6 +38,7 @@ public sealed partial class NotesViewModel : ObservableObject
     [ObservableProperty]
     private string _message = string.Empty;
 
+
     public NotesViewModel(
         LocalNoteRepository notes, NoteSynchronizer synchronizer, NotesClient notesClient,
         INetworkStatus networkStatus,

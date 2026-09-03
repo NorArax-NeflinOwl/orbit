@@ -167,6 +167,7 @@ public sealed class WarehouseFilteringTests : OrbitTestContext
         RegisterApiClients([Item("Flour", unit: "Kilogram")]);
 
         var cut = Render();
+        ExpandTheOnlyItem(cut);
 
         var unitPicker = cut.Find(".editor-item-unit");
         var offered = unitPicker.QuerySelectorAll("option").Select(option => option.GetAttribute("value")).ToList();
@@ -177,12 +178,13 @@ public sealed class WarehouseFilteringTests : OrbitTestContext
     [Fact]
     public void A_unit_is_written_short_beside_the_amount()
     {
-        // "2 kg" is what a shelf label says; "2 Kilogram" is not.
+        // "2 kg" is what a shelf label says; "2 Kilogram" is not. Read off the row itself, not the
+        // picker: the unit is chosen behind the toggle and only reported here.
         RegisterApiClients([Item("Flour", unit: "Kilogram")]);
 
         var cut = Render();
 
-        Assert.Contains("kg", cut.Find(".editor-item-unit").TextContent);
+        Assert.Contains("kg", cut.Find(".editor-item-unit-label").TextContent);
     }
 
     [Fact]
@@ -190,6 +192,7 @@ public sealed class WarehouseFilteringTests : OrbitTestContext
     {
         RegisterApiClients([Item("Flour", unit: "Piece")]);
         var cut = Render();
+        ExpandTheOnlyItem(cut);
 
         cut.Find(".editor-item-unit").Change("Litre");
         ClickButtonSaying(cut, "Save");
@@ -207,6 +210,7 @@ public sealed class WarehouseFilteringTests : OrbitTestContext
         // what the next save wrote back.
         RegisterApiClients([Item("Flour", unit: null!)]);
         var cut = Render();
+        ExpandTheOnlyItem(cut);
 
         Assert.Equal("Piece", cut.Find(".editor-item-unit").GetAttribute("value"));
 
@@ -215,6 +219,12 @@ public sealed class WarehouseFilteringTests : OrbitTestContext
         Assert.NotNull(_lastSavedJson);
         Assert.Contains("Piece", _lastSavedJson);
     }
+
+    /// <summary>
+    /// Opens the row's other settings. The unit, the expiry and Remove all live behind the toggle now:
+    /// the row itself carries what somebody is reading down a shelf for - the name and the two numbers.
+    /// </summary>
+    private static void ExpandTheOnlyItem(IRenderedFragment cut) => cut.Find(".editor-item-toggle").Click();
 
     [Fact]
     public void A_name_can_be_searched_for()
@@ -396,7 +406,18 @@ public sealed class WarehouseFilteringTests : OrbitTestContext
         => RenderComponent<WarehouseEditor>(parameters => parameters.Add(editor => editor.WarehouseId, WarehouseId));
 
     private static void ClickButtonSaying(IRenderedComponent<WarehouseEditor> cut, string label)
-        => cut.FindAll("button").First(button => button.TextContent.Contains(label, StringComparison.Ordinal)).Click();
+        => ButtonSaying(cut, label).Click();
+
+    /// <summary>
+    /// A button by what it says - its words, or the name it carries for a screen reader, since an
+    /// editor's Save and Cancel are icons now (see EditorRail.razor). The screen-reader name is looked
+    /// at first and matched whole: a page can hold both the editor's Save and a "Save settings" beside
+    /// something else, and by their words alone the wrong one answers to "Save".
+    /// </summary>
+    private static AngleSharp.Dom.IElement ButtonSaying(IRenderedFragment cut, string label)
+        => cut.FindAll("button").FirstOrDefault(button =>
+               string.Equals(button.GetAttribute("aria-label"), label, StringComparison.Ordinal))
+            ?? cut.FindAll("button").First(button => button.TextContent.Contains(label, StringComparison.Ordinal));
 
     private static void ChooseProductType(IRenderedComponent<WarehouseEditor> cut, string productType)
         => cut.FindAll(".inventory-filters select").First().Change(productType);
@@ -437,6 +458,14 @@ public sealed class WarehouseFilteringTests : OrbitTestContext
 
             // ShareLinkButton asks on render whether this warehouse already has a public link, and the
             // lock is taken when the editor opens. NoContent answers both with "nothing to report".
+            // Which lists are measured against this warehouse, and what the other warehouses are called
+            // - none of these tests are about either, and the editor draws its checklist empty rather
+            // than failing to open.
+            if (path is "/api/tasks" or "/api/warehouses")
+            {
+                return new HttpResponseMessage(HttpStatusCode.OK) { Content = JsonContent.Create(Array.Empty<object>()) };
+            }
+
             if (path.EndsWith("/lock", StringComparison.Ordinal) || path.StartsWith("/api/share-links", StringComparison.Ordinal))
             {
                 return new HttpResponseMessage(HttpStatusCode.NoContent);
@@ -453,6 +482,8 @@ public sealed class WarehouseFilteringTests : OrbitTestContext
 
         var httpClient = new HttpClient(handler) { BaseAddress = new Uri("https://example.test/") };
         Services.AddSingleton(new InventoryApiClient(httpClient));
+        // The editor also asks which lists are measured against this warehouse - see its checklist.
+        Services.AddSingleton(new TasksApiClient(httpClient));
         Services.AddSingleton(new NotificationsApiClient(httpClient));
         Services.AddSingleton(new PublicShareApiClient(httpClient));
     }

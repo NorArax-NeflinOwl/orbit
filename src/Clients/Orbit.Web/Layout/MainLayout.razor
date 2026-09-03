@@ -1,10 +1,12 @@
 @inherits LayoutComponentBase
 @implements IDisposable
 @using System.Globalization
+@using Orbit.Contracts.Config
 @using Orbit.Contracts.Notifications
 @using Orbit.Core.Abstractions
 @using Orbit.Core.Permissions
 @using Orbit.Core.Users
+@using Orbit.Core
 @using Orbit.Web.Services
 @inject AuthApiClient AuthApiClient
 @inject OrbitAuthenticationStateProvider AuthenticationStateProvider
@@ -19,9 +21,11 @@
 @inject AccentColorService AccentColorService
 @inject DevicePreferences DevicePreferences
 @inject PresenceService Presence
+@inject LiveUpdatesConnection LiveUpdates
 @inject UserPermissionState Permissions
 @inject Translations T
 @inject NavigationManager NavigationManager
+@inject DiagnosticsDashboard DiagnosticsDashboard
 @inject IJSRuntime JSRuntime
 @inject ILogger<MainLayout> Logger
 
@@ -35,21 +39,18 @@
     }
     @if (_isAuthenticated)
     {
-            <aside class="sidebar @(_sidebarCollapsed ? "collapsed" : "")">
-                <div class="sidebar-logo" role="button" tabindex="0" title="@(T["Collapse sidebar"])"
-                     @onclick="OnLogoClickAsync" @onkeydown="OnLogoKeyDown">
+            @* Along the top rather than down the side. The phone has always shown it this way, and the
+               two now agree - which is what lets one habit carry between them. *@
+            <header class="topbar">
+                <a class="topbar-logo" href="/" title="@(T["Dashboard"])">
                     <svg xmlns="http://www.w3.org/2000/svg" width="26" height="26" viewBox="0 0 26 26">
                         <circle cx="13" cy="13" r="3" fill="var(--accent)" />
                         <ellipse cx="13" cy="13" rx="11" ry="5.5" fill="none" stroke="var(--accent)" stroke-width="1.6" transform="rotate(-28 13 13)" />
                     </svg>
-                    <span class="sidebar-logo-text">Orbit</span>
-                </div>
+                    <span class="topbar-logo-text">Orbit</span>
+                </a>
 
-                <nav class="sidebar-nav">
-                    <NavLink class="nav-item nav-item-dashboard" href="/" Match="NavLinkMatch.All" title="@(T["Dashboard"])">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="2.5" y="2.5" width="6" height="6" rx="1.5" /><rect x="11.5" y="2.5" width="6" height="6" rx="1.5" /><rect x="2.5" y="11.5" width="6" height="6" rx="1.5" /><rect x="11.5" y="11.5" width="6" height="6" rx="1.5" /></svg>
-                        <span class="label">@T["Dashboard"]</span>
-                    </NavLink>
+                <nav class="topbar-nav">
                     <NavLink class="nav-item" href="/notes" title="@(T["Notes"])">
                         <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 2.5h7l3 3v12a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-14a1 1 0 0 1 1-1Z" /><path d="M12 2.5v3h3" /><path d="M6.5 11h7M6.5 14h7M6.5 8h3" /></svg>
                         <span class="label">@T["Notes"]</span>
@@ -69,17 +70,10 @@
                         <span class="label">@T["Inventory"]</span>
                         @RenderSectionBadge("/inventory")
                     </NavLink>
-                    @* Hidden rather than shown-and-refused: the API turns these away without the matching
+                    @* Either kind of conversation is reached from here, so one of the two is enough.
+                       Hidden rather than shown-and-refused: the API turns these away without the matching
                        permission (see PermissionPolicies in Orbit.Api), so offering the link would only
-                       promise a page that cannot load. Unlocked under Options, Debug. *@
-                    @if (Permissions.Has(ApplicationPermission.Location))
-                    {
-                    <NavLink class="nav-item" href="/map" title="@(T["Map"])">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M10 17.5s5.5-5 5.5-9a5.5 5.5 0 1 0-11 0c0 4 5.5 9 5.5 9Z" /><circle cx="10" cy="8.5" r="2" /></svg>
-                        <span class="label">@T["Map"]</span>
-                    </NavLink>
-                    }
-                    @* Either kind of conversation is reached from here, so one of the two is enough. *@
+                       promise a page that cannot load. Unlocked under Options, Permissions. *@
                     @if (Permissions.Has(ApplicationPermission.Contacts))
                     {
                     <NavLink class="nav-item" href="/contacts" title="@(T["Contacts"])">
@@ -88,36 +82,34 @@
                         @RenderSectionBadge("/chat")
                     </NavLink>
                     }
-
-                    <div class="nav-divider"></div>
-
-                    @* Below the divider with Options rather than among the sections above: this is not a
-                       part of Orbit to work in, it is somewhere to go once. The login page carries the
-                       same link for a reader who has not signed in yet - that is the other half, since
-                       the sidebar only exists after signing in. *@
-                    <NavLink class="nav-item nav-item-overflows" href="/download" title="@(T["Get the app"])">
-                        <PhoneIcon />
-                        <span class="label">@T["Get the app"]</span>
+                    @if (Permissions.Has(ApplicationPermission.Location))
+                    {
+                    <NavLink class="nav-item" href="/map" title="@(T["Map"])">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M10 17.5s5.5-5 5.5-9a5.5 5.5 0 1 0-11 0c0 4 5.5 9 5.5 9Z" /><circle cx="10" cy="8.5" r="2" /></svg>
+                        <span class="label">@T["Map"]</span>
                     </NavLink>
+                    }
 
-                    <NavLink class="nav-item nav-item-overflows" href="/options" title="@(T["Options"])">
-                        <GearIcon />
-                        <span class="label">@T["Options"]</span>
-                    </NavLink>
                 </nav>
 
-                <div class="sidebar-footer">
+                <div class="topbar-account">
+                    @* Its own button beside the avatar rather than a badge on it. A count on a face
+                       says "you", not "unread", and reaching it meant opening a menu first - which is
+                       two steps for the one thing people check most. *@
+                    <button type="button" class="notifications-trigger" title="@(T["Notifications"])"
+                            aria-label="@(T["Notifications"])" @onclick="ToggleNotificationsMenuAsync"
+                            @onclick:stopPropagation="true">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M10 2.5c-2.5 0-4 2-4 4.5v3l-1.5 2.5h11L14 10V7c0-2.5-1.5-4.5-4-4.5Z" /><path d="M8.3 15.5a1.8 1.8 0 0 0 3.4 0" /></svg>
+                        @if (_unreadCount > 0)
+                        {
+                            <span class="notif-badge">@FormatUnreadCount(_unreadCount)</span>
+                        }
+                    </button>
+
                     <button type="button" class="avatar-trigger" @onclick="ToggleAvatarMenu" @onclick:stopPropagation="true">
                         <span class="avatar">
                             @GetInitials(_userName)
-                            @if (_unreadCount > 0)
-                            {
-                                <span class="notif-badge">@FormatUnreadCount(_unreadCount)</span>
-                            }
                             <PresenceDot Status="OwnStatus" />
-                        </span>
-                        <span class="user-meta">
-                            <span class="user-name">@_userName</span>
                         </span>
                     </button>
 
@@ -155,23 +147,55 @@
                                 <p class="availability-error">@_availabilityErrorMessage</p>
                             }
                             <div class="avatar-dropdown-divider"></div>
-                            @* Status, Notifications, Get the app, Options, Log out - what somebody uses
-                               most, first. The two in the middle are rows of the navigation rail, which
-                               a narrow screen has no room for, so they appear here instead and nowhere
-                               else; on a wide screen this menu is the three that are always here. *@
-                            <button type="button" class="avatar-dropdown-item" @onclick="ToggleNotificationsMenuAsync">
-                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M10 2.5c-2.5 0-4 2-4 4.5v3l-1.5 2.5h11L14 10V7c0-2.5-1.5-4.5-4-4.5Z" /><path d="M8.3 15.5a1.8 1.8 0 0 0 3.4 0" /></svg>
-                                @T["Notifications"]
-                                @if (_unreadCount > 0)
-                                {
-                                    <span class="avatar-dropdown-item-badge">@FormatUnreadCount(_unreadCount)</span>
-                                }
-                            </button>
-                            <a class="avatar-dropdown-item overflowed-nav-item" href="/download">
+                            @* Status, Get the app, the log dashboard, Options, Log out. Notifications
+                               used to be here and is now a button of its own in the bar; these are
+                               places you go once to set something up or to look Orbit over, which is
+                               exactly what this menu is for. *@
+                            <a class="avatar-dropdown-item" href="/download">
                                 <PhoneIcon Size="16" />
                                 @T["Get the app"]
                             </a>
-                            <a class="avatar-dropdown-item overflowed-nav-item" href="/options">
+                            @* Where this deployment's logs are read - see DiagnosticsDashboard. Only for
+                               an account that has been given Orbit's own internals, and only where a
+                               deployment has said there is anywhere to go. Both leave Orbit, so they
+                               open in a tab of their own like every other outward link. *@
+                            @if (DiagnosticsDashboard.HasAny && Permissions.Has(ApplicationPermission.Debug))
+                            {
+                                @* Two answers to one question, and they are not interchangeable: what was
+                                   logged, and what is happening this second. Asked rather than guessed -
+                                   but only where there are two, since a choice with one option is not a
+                                   choice. *@
+                                @if (DiagnosticsDashboard.HasBoth)
+                                {
+                                    <button type="button" class="avatar-dropdown-item"
+                                            aria-expanded="@(_debugLogsOpen ? "true" : "false")"
+                                            @onclick="() => _debugLogsOpen = !_debugLogsOpen">
+                                        <DebugLogsIcon />
+                                        @T["Debug logs"]
+                                        <span class="avatar-dropdown-chevron">@(_debugLogsOpen ? "⌃" : "⌄")</span>
+                                    </button>
+                                    @if (_debugLogsOpen)
+                                    {
+                                        <a class="avatar-dropdown-item avatar-dropdown-subitem"
+                                           href="@DiagnosticsDashboard.HistoryUrl" target="_blank" rel="noopener">
+                                            @T["Logged so far"]
+                                        </a>
+                                        <a class="avatar-dropdown-item avatar-dropdown-subitem"
+                                           href="@DiagnosticsDashboard.LiveUrl" target="_blank" rel="noopener">
+                                            @T["Happening now"]
+                                        </a>
+                                    }
+                                }
+                                else
+                                {
+                                    <a class="avatar-dropdown-item" href="@DiagnosticsDashboard.TheOnlyUrl"
+                                       target="_blank" rel="noopener">
+                                        <DebugLogsIcon />
+                                        @T["Debug logs"]
+                                    </a>
+                                }
+                            }
+                            <a class="avatar-dropdown-item" href="/options">
                                 <GearIcon Size="16" />
                                 @T["Options"]
                             </a>
@@ -201,21 +225,113 @@
                         </div>
                     }
                 </div>
-            </aside>
+            </header>
     }
 
     <main class="main-content" @onclick="CloseAvatarMenu">
-        @Body
+        @* The page in a box of its own, so the footer under it can be given the height nobody else
+           wanted - see .main-content-page. *@
+        <div class="main-content-page">
+            @Body
+        </div>
+        @* Which build this is, when it was made, and under what licence. In the layout rather than on
+           each page so there is one of it, and inside <main> rather than after it so it scrolls with
+           the content on a page long enough to scroll. On a short one it settles at the bottom of the
+           window instead of floating halfway up it - see .app-footer. The phone says the same thing
+           behind About. *@
+        <footer class="app-footer">
+            @* The mark, at the start of the line the page ends on - the same one the bar opens with,
+               so the page is bracketed by it. Decorative here: the bar's copy is the one that goes
+               anywhere, and two links to the dashboard on one screen is one more than anybody needs. *@
+            <svg class="app-footer-mark" xmlns="http://www.w3.org/2000/svg" width="16" height="16"
+                 viewBox="0 0 26 26" aria-hidden="true">
+                <circle cx="13" cy="13" r="3" fill="var(--accent)" />
+                <ellipse cx="13" cy="13" rx="11" ry="5.5" fill="none" stroke="var(--accent)"
+                         stroke-width="1.6" transform="rotate(-28 13 13)" />
+            </svg>
+            <span>@OrbitRelease.Copyright</span>
+            <span class="app-footer-separator">·</span>
+            @* Pressed, it grows the rest of the hash. There is nothing to press for a reader who is not
+               shown the commit at all, or for a build carrying none - a local `docker compose build`,
+               which nothing numbered - and it is then drawn as the text it is rather than as a button
+               that would do nothing. See OrbitVersion. *@
+            @if (ShownVersion.CanShowTheWholeCommit)
+            {
+                <button type="button" class="app-footer-version" title="@(T["Show the whole commit"])"
+                        @onclick="() => _isVersionExpanded = !_isVersionExpanded">
+                    @(_isVersionExpanded ? ShownVersion.Full : ShownVersion.Short)
+                </button>
+            }
+            else
+            {
+                <span>@ShownVersion.Short</span>
+            }
+            @* The server's own build, beside the client's. The two can differ - the pipeline rolls each
+               app back on its own, and a browser can be holding a cached client - so showing only one
+               answers "which Orbit is this" with half the truth. Absent when the server cannot be
+               reached, which is honest: an offline footer knows nothing about it. *@
+            @if (_serverVersion is { } server)
+            {
+                <span class="app-footer-separator">·</span>
+                <span>@T.Format("api {0}", ServerVersionText(server))</span>
+            }
+            <span class="app-footer-separator">·</span>
+            @* Orbit's own page rather than the file on GitHub: the licence is part of what this
+               deployment says about itself, and a reader should not have to leave it to read it -
+               see Pages/License.razor. *@
+            <a href="/license">@T[OrbitRelease.LicenseName]</a>
+        </footer>
     </main>
 </div>
 
 @code {
-    private const string SidebarCollapsedStorageKey = "orbit.sidebarCollapsed";
+    /// <summary>
+    /// This build, read off this assembly - see OrbitVersion. Not the shared project's: the number is
+    /// per client, and Orbit.Core is compiled into three of them.
+    /// </summary>
+    private static readonly OrbitVersion _version = OrbitVersion.ReadFrom(typeof(MainLayout).Assembly);
+
+    /// <summary>
+    /// This build as the footer says it. Which commit it came from is detail about Orbit's own inside,
+    /// so it is said to the accounts that have been given Orbit's inside and to nobody else - see
+    /// ApplicationPermission.Debug. The server applies the same rule to its own version, and there by
+    /// leaving the hash out of the answer rather than sending it to be hidden.
+    /// </summary>
+    private OrbitVersion ShownVersion
+        => Permissions.Has(ApplicationPermission.Debug) ? _version : _version.WithoutTheCommit();
+
+    /// <summary>Whether the footer is showing the whole commit hash rather than the first seven of it.</summary>
+    private bool _isVersionExpanded;
+
+    /// <summary>Which build of the server this client is talking to, once it has been asked - see ServerVersionDto.</summary>
+    private ServerVersionDto? _serverVersion;
+
+    /// <summary>
+    /// The server's version as the footer says it. It follows the same expand as the client's, because
+    /// pressing one and having the other stay short would read as a bug rather than as two facts.
+    ///
+    /// A server that will not show this reader its commit sends no hash, so there is usually nothing to
+    /// grow - and the permission is checked here as well, so an older server that still sends one to
+    /// everybody does not get to say more than this client would.
+    /// </summary>
+    private string ServerVersionText(ServerVersionDto server)
+    {
+        if (server.CommitHash.Length == 0 || !Permissions.Has(ApplicationPermission.Debug))
+        {
+            return $"ver:{server.Version}";
+        }
+
+        var hash = _isVersionExpanded || server.CommitHash.Length <= 7 ? server.CommitHash : server.CommitHash[..7];
+        return $"ver:{server.Version}+gitHash:{hash}";
+    }
 
 
 
-    private bool _sidebarCollapsed;
+
     private bool _avatarMenuOpen;
+
+    /// <summary>Whether the two places logs can be read are showing under the entry that offers them.</summary>
+    private bool _debugLogsOpen;
     private PeriodicTimer? _sessionHeartbeatTimer;
     private CancellationTokenSource? _sessionHeartbeatCancellation;
 
@@ -233,6 +349,9 @@
     private bool _isBannerVisible;
     private DateTimeOffset? _lastBannerShownAtUtc;
     private PeriodicTimer? _notificationPollTimer;
+
+    /// <summary>Whether this layout has already attached to the shared connection - it is never recreated across a sign-in.</summary>
+    private bool _isSubscribedToLiveUpdates;
     private CancellationTokenSource? _notificationPollCancellation;
 
     /// <summary>
@@ -241,14 +360,26 @@
     /// minimum gap are per-user settings (see BannerMinimumGap/BannerVisibleDuration below), so this
     /// poll cadence is only a floor on how quickly a new entry can be noticed, not on banner pacing.
     /// </summary>
+    /// <summary>
+    /// How often to ask when nothing is announcing changes - an old proxy, a blocked WebSocket, a
+    /// server without the hub. Unchanged from what it always was, because this is the case where
+    /// nothing about the app is different.
+    /// </summary>
     private static readonly TimeSpan NotificationPollInterval = TimeSpan.FromSeconds(10);
+
+    /// <summary>
+    /// How often to ask while the live connection is up. Not never: an announcement is best-effort and
+    /// a few things still change without one - a notification cleared from another device, settings
+    /// edited on the Options page - so this is the net underneath, not the mechanism.
+    /// </summary>
+    private static readonly TimeSpan ConnectedNotificationPollInterval = TimeSpan.FromSeconds(60);
 
     private TimeSpan BannerMinimumGap => TimeSpan.FromSeconds(_notificationSettings.BannerMinimumGapSeconds);
     private TimeSpan BannerVisibleDuration => TimeSpan.FromSeconds(_notificationSettings.BannerVisibleSeconds);
 
     /// <summary>
-    /// Whether to render the sidebar at all, and <see cref="_userName"/> for its avatar/name. Tracked
-    /// explicitly here instead of via a nested &lt;AuthorizeView&gt; so the sidebar's visibility doesn't
+    /// Whether to render the top bar at all, and <see cref="_userName"/> for its avatar/name. Tracked
+    /// explicitly here instead of via a nested &lt;AuthorizeView&gt; so the bar's visibility doesn't
     /// depend on anything but this component's own, always-correctly-scoped AuthenticationStateProvider
     /// instance (see the DI registration notes in Program.cs and AuthorizationMessageHandler's class
     /// remarks for the scoping pitfall that motivated this). Updated directly off the same
@@ -272,11 +403,13 @@
     {
         AuthenticationStateProvider.AuthenticationStateChanged += OnAuthenticationStateChanged;
         NavigationManager.LocationChanged += OnLocationChanged;
-        _sidebarCollapsed = await JSRuntime.InvokeAsync<string?>("localStorage.getItem", SidebarCollapsedStorageKey) == "true";
         await RefreshAuthenticationDisplayStateAsync();
         // Syncs ThemeService.Current to whatever index.html's inline anti-flash script already applied
         // (see ThemeService's class comment) - runs once per app load, regardless of auth state, since
         // theme applies to the login/register pages too.
+        // The footer says which server this is talking to. Asked once, and a failure leaves it unsaid
+        // rather than stopping the layout - see GetServerVersionAsync.
+        _serverVersion = await ClientFlagsApiClient.GetServerVersionAsync();
         await ThemeService.InitializeAsync();
         await AccentColorService.InitializeAsync();
         await DevicePreferences.InitializeAsync();
@@ -291,6 +424,58 @@
         await StartPresenceAndPermissionsIfAuthenticatedAsync();
         await RefreshNotificationStateIfAuthenticatedAsync();
         StartNotificationPoll();
+        await StartLiveUpdatesIfAuthenticatedAsync();
+    }
+
+    /// <summary>
+    /// Opens the shared live connection and slows the poll to match. Subscribed before starting, so an
+    /// announcement that arrives during the handshake is not missed.
+    /// </summary>
+    private async Task StartLiveUpdatesIfAuthenticatedAsync()
+    {
+        if (!_isAuthenticated || _isSubscribedToLiveUpdates)
+        {
+            return;
+        }
+
+        _isSubscribedToLiveUpdates = true;
+        LiveUpdates.NotificationsChanged += OnNotificationsAnnounced;
+        LiveUpdates.ConnectionStateChanged += OnLiveConnectionStateChanged;
+        await LiveUpdates.StartAsync();
+        ApplyNotificationPollInterval();
+    }
+
+    /// <summary>
+    /// Runs the same tick the timer runs. Through InvokeAsync because this arrives on the connection's
+    /// own callback, not on the renderer's dispatcher, and touching component state from there corrupts
+    /// the render tree in ways that surface somewhere else entirely.
+    /// </summary>
+    private void OnNotificationsAnnounced()
+        => _ = InvokeAsync(async () =>
+        {
+            await NotificationPollTickAsync();
+            StateHasChanged();
+        });
+
+    private void OnLiveConnectionStateChanged()
+        => _ = InvokeAsync(() =>
+        {
+            ApplyNotificationPollInterval();
+            return Task.CompletedTask;
+        });
+
+    /// <summary>
+    /// The timer keeps running either way - only how often it fires changes, so a connection that drops
+    /// puts the old pace back on its own rather than leaving the panel stale until a reload.
+    /// </summary>
+    private void ApplyNotificationPollInterval()
+    {
+        if (_notificationPollTimer is not null)
+        {
+            _notificationPollTimer.Period = LiveUpdates.IsConnected
+                ? ConnectedNotificationPollInterval
+                : NotificationPollInterval;
+        }
     }
 
     /// <summary>
@@ -454,6 +639,10 @@
 
         await Presence.StartAsync();
         await Permissions.RefreshAsync();
+        // Asked again now that there is somebody to ask as: how much of its version the server answers
+        // with depends on what this account may see - see ConfigEndpoints.
+        ClientFlagsApiClient.ForgetTheServerVersion();
+        _serverVersion = await ClientFlagsApiClient.GetServerVersionAsync();
     }
 
     /// <summary>
@@ -513,51 +702,9 @@
         }
     }
 
-    private async Task ToggleSidebarCollapsedAsync()
-    {
-        _sidebarCollapsed = !_sidebarCollapsed;
-        await JSRuntime.InvokeVoidAsync("localStorage.setItem", SidebarCollapsedStorageKey, _sidebarCollapsed ? "true" : "false");
-    }
 
-    /// <summary>
-    /// On a mobile viewport the sidebar is a horizontal top bar (see app.css's @media (max-width: 680px)
-    /// block) rather than the desktop collapse-to-icon-rail layout, so "collapse sidebar" doesn't apply
-    /// there - the logo instead acts as a shortcut back to the Dashboard, mirroring the now-hidden
-    /// Dashboard nav item (.nav-item-dashboard) it replaces on that breakpoint.
-    /// </summary>
-    private async Task OnLogoClickAsync()
-    {
-        if (await IsMobileViewportAsync())
-        {
-            NavigationManager.NavigateTo("/");
-            return;
-        }
 
-        await ToggleSidebarCollapsedAsync();
-    }
 
-    /// <summary>Matches app.css's own mobile breakpoint - see wwwroot/js/viewport.js, the single place both check it.</summary>
-    private async Task<bool> IsMobileViewportAsync()
-    {
-        try
-        {
-            return await JSRuntime.InvokeAsync<bool>("OrbitViewport.isMobile");
-        }
-        catch (JSException exception)
-        {
-            // Treated as desktop: the popup still works there, it is just less comfortable.
-            Logger.LogWarning(exception, "Failed to read the viewport size");
-            return false;
-        }
-    }
-
-    private async Task OnLogoKeyDown(KeyboardEventArgs args)
-    {
-        if (args.Key is "Enter" or " ")
-        {
-            await OnLogoClickAsync();
-        }
-    }
 
     private void ToggleAvatarMenu() => _avatarMenuOpen = !_avatarMenuOpen;
 
@@ -607,9 +754,9 @@
     /// on-demand recovery AuthorizationMessageHandler already does for a live API call, so a tab merely
     /// left idle past the access token's short lifetime doesn't lose a session that's still well within
     /// the refresh token's much longer one (30 days - see RefreshTokenService). Either way,
-    /// NotifyAuthenticationStateChanged is what actually makes this sidebar and every [Authorize]-gated
+    /// NotifyAuthenticationStateChanged is what actually makes this bar and every [Authorize]-gated
     /// route notice - on success it just confirms the (now-renewed) signed-in state; on failure it's
-    /// what finally hides the sidebar and redirects to /login instead of leaving both looking
+    /// what finally hides the bar and redirects to /login instead of leaving both looking
     /// signed-in indefinitely.
     /// </summary>
     private async Task CheckSessionHeartbeatAsync()
@@ -724,8 +871,7 @@
     /// "opening Notifications resets the unread counter" rather than waiting for the next poll tick.
     ///
     /// On a phone the popup is the wrong shape for this - a 320px panel anchored to a top bar leaves
-    /// almost nothing readable - so there it navigates to the full-page Notifications route instead,
-    /// mirroring how the logo becomes a Dashboard shortcut on the same breakpoint (see OnLogoClickAsync).
+    /// almost nothing readable - so there it navigates to the full-page Notifications route instead.
     /// </summary>
     private async Task ToggleNotificationsMenuAsync()
     {
@@ -839,18 +985,22 @@
     /// <summary>
     /// Reads this browser's own captured Warning+/Error client-side log (see clientLogging.js's
     /// appendLog, mirrored here by PersistentLoggerProvider) - purely local per-device diagnostics, never
-    /// sent to the server, unlike the push/chat entries in _recentEntries above. Gated on both the
-    /// server's environment flag and the reader asking for them - either through this account's
+    /// sent to the server, unlike the push/chat entries in _recentEntries above. Gated on three things:
+    /// this account having unlocked the Debugger at all (see ApplicationPermission.Debug), the server's
+    /// environment flag, and the reader asking for them - either through this account's
     /// ShowExceptionDetails preference or by putting this browser in Debug mode (see
-    /// DevicePreferences.DiagnosticsMode). The server's flag stays the outer gate whichever way they
-    /// asked, so a Production deployment never shows this section regardless of what anyone has set.
+    /// DevicePreferences.DiagnosticsMode). The permission and the server's flag stay the outer gates
+    /// whichever way they asked, so a Production deployment never shows this section regardless of what
+    /// anyone has set, and neither does an account that was never given the Debugger.
     /// </summary>
     private async Task LoadClientExceptionEntriesAsync()
     {
         var exceptionDetailsAllowedByServer = await ClientFlagsApiClient.GetExceptionDetailsAllowedAsync();
         var readerAskedForThem = _notificationSettings.ShowExceptionDetails
             || DevicePreferences.DiagnosticsMode == DiagnosticsMode.Debug;
-        _showExceptionsSection = exceptionDetailsAllowedByServer && readerAskedForThem;
+        _showExceptionsSection = Permissions.Has(ApplicationPermission.Debug)
+            && exceptionDetailsAllowedByServer
+            && readerAskedForThem;
         if (!_showExceptionsSection)
         {
             _clientExceptionEntries = [];
@@ -884,6 +1034,9 @@
         NotificationFeedState.Clear();
         StopSessionHeartbeat();
         StopNotificationPoll();
+        // Closed rather than left open: it is authenticated as the account that just left, and whoever
+        // signs in next would otherwise inherit a connection announcing somebody else's changes.
+        await StopLiveUpdatesAsync();
         await AuthApiClient.LogoutAsync();
         AuthenticationStateProvider.NotifyAuthenticationStateChanged();
         NavigationManager.NavigateTo("/login");
@@ -906,8 +1059,46 @@
         };
     }
 
+    private async Task StopLiveUpdatesAsync()
+    {
+        if (!_isSubscribedToLiveUpdates)
+        {
+            return;
+        }
+
+        _isSubscribedToLiveUpdates = false;
+        LiveUpdates.NotificationsChanged -= OnNotificationsAnnounced;
+        LiveUpdates.ConnectionStateChanged -= OnLiveConnectionStateChanged;
+        await LiveUpdates.StopAsync();
+        ApplyNotificationPollInterval();
+    }
+
+    /// <summary>Matches app.css's own mobile breakpoint - see wwwroot/js/viewport.js, the single place both check it.</summary>
+    private async Task<bool> IsMobileViewportAsync()
+    {
+        try
+        {
+            return await JSRuntime.InvokeAsync<bool>("OrbitViewport.isMobile");
+        }
+        catch (JSException exception)
+        {
+            // Treated as desktop: the popup still works there, it is just less comfortable.
+            Logger.LogWarning(exception, "Failed to read the viewport size");
+            return false;
+        }
+    }
+
     public void Dispose()
     {
+        // Unsubscribed, but not closed. The connection outlives this layout - it belongs to the app,
+        // and the pages that share it are still using it.
+        if (_isSubscribedToLiveUpdates)
+        {
+            _isSubscribedToLiveUpdates = false;
+            LiveUpdates.NotificationsChanged -= OnNotificationsAnnounced;
+            LiveUpdates.ConnectionStateChanged -= OnLiveConnectionStateChanged;
+        }
+
         AuthenticationStateProvider.AuthenticationStateChanged -= OnAuthenticationStateChanged;
         NavigationManager.LocationChanged -= OnLocationChanged;
         T.Changed -= OnLanguageChanged;

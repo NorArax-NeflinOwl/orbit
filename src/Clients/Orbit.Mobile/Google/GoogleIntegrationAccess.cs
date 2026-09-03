@@ -7,6 +7,9 @@ namespace Orbit.Mobile.Google;
 /// Answers whether the signed-in account may use the Google extras - the calendar and maps links that
 /// hand something off to Google (see <see cref="GoogleCalendarEventLink"/>, <see cref="GoogleMapsLink"/>).
 ///
+/// Two answers, both of which have to be yes: this phone offers them at all (see <see cref="GoogleExtras"/>,
+/// which the reader turns off from the account screen), and the account may use them.
+///
 /// Offered to an account that has either confirmed its email address or connected Google, because both
 /// mean the same thing here: somebody stood behind the account rather than typing an address nobody has
 /// ever read. The same rule Orbit.Web applies, so a reader sees the same extras on both.
@@ -17,9 +20,14 @@ namespace Orbit.Mobile.Google;
 public sealed class GoogleIntegrationAccess
 {
     private readonly AccountClient _accountClient;
+    private readonly GoogleExtras _onThisDevice;
     private bool? _isAvailable;
 
-    public GoogleIntegrationAccess(AccountClient accountClient) => _accountClient = accountClient;
+    public GoogleIntegrationAccess(AccountClient accountClient, GoogleExtras onThisDevice)
+    {
+        _accountClient = accountClient;
+        _onThisDevice = onThisDevice;
+    }
 
     /// <summary>
     /// False when the account qualifies for neither route, and false when the account cannot be read at
@@ -31,6 +39,13 @@ public sealed class GoogleIntegrationAccess
     /// </summary>
     public async ValueTask<bool> IsAvailableAsync(CancellationToken cancellationToken = default)
     {
+        // Asked first and never cached: this one is the reader's own answer about this phone, and it
+        // changes while the app is running.
+        if (!_onThisDevice.IsAllowedOnThisDevice)
+        {
+            return false;
+        }
+
         if (_isAvailable is { } cached)
         {
             return cached;

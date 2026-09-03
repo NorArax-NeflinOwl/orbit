@@ -14,10 +14,28 @@ public sealed record TaskListStockCheckDto(bool IsAchievable, IReadOnlyList<Stoc
 /// <param name="AddedCount">How many entries were put on the restock list - zero when nothing was short, or when everything short was already waiting there.</param>
 public sealed record RaiseStockShortfallsResultDto(int AddedCount);
 
-/// <summary>What bringing a list and its warehouse back into step actually moved.</summary>
-/// <param name="CrossedOffCount">Entries the warehouse turned out to cover, and so finished.</param>
-/// <param name="AddedCount">Products the warehouse held that no list mentioned, and so put on one.</param>
-public sealed record StockReconciliationResultDto(int CrossedOffCount, int AddedCount);
 
 /// <summary>How many shelf items were brought up to their minimum by finishing a restock list.</summary>
 public sealed record FinishRestockingResultDto(int ToppedUpCount);
+
+/// <summary>
+/// What settling a restock list's finished errands moved - see
+/// Orbit.Core.Inventory.ReconcileRestockList. Both zero for an ordinary list, which is every list no
+/// warehouse tracks.
+/// </summary>
+public sealed record RestockReconciliationResultDto(int ToppedUpCount, int SettledCount);
+
+/// <summary>
+/// What one inventory errand on a list is about - see Orbit.Core.Tasks.GetInventoryReferences. The
+/// screen draws the shelf item as a link, and each entry of AlsoAskedForBy as a second one.
+/// </summary>
+public sealed record InventoryReferenceDto(
+    Guid TaskItemId,
+    Guid InventoryItemId,
+    string InventoryItemName,
+    Guid WarehouseId,
+    string WarehouseName,
+    IReadOnlyList<InventoryReferenceElsewhereDto> AlsoAskedForBy);
+
+/// <summary>Another list asking for the same shelf item, and the entry on it.</summary>
+public sealed record InventoryReferenceElsewhereDto(Guid TaskListId, string TaskListTitle, Guid TaskItemId);

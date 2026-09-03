@@ -66,6 +66,18 @@ public sealed class ChatMessageRepository : IChatMessageRepository
         await _dbContext.ChatMessages.Where(message => message.Id == messageId).ExecuteDeleteAsync(cancellationToken);
     }
 
+    /// <summary>
+    /// The copies of this group's messages addressed to one member, and only those - what they take
+    /// with them when they leave. Copies addressed to anybody else stay, including ones this member
+    /// sent: those are the others' to read.
+    /// </summary>
+    public async Task DeleteGroupCopiesForAsync(Guid groupId, Guid recipientUserId, CancellationToken cancellationToken)
+    {
+        await _dbContext.ChatMessages
+            .Where(message => message.GroupId == groupId && message.RecipientUserId == recipientUserId)
+            .ExecuteDeleteAsync(cancellationToken);
+    }
+
     public async Task DeleteGroupMessageAsync(Guid groupMessageId, CancellationToken cancellationToken)
     {
         await _dbContext.ChatMessages.Where(message => message.GroupMessageId == groupMessageId).ExecuteDeleteAsync(cancellationToken);
@@ -132,7 +144,7 @@ public sealed class ChatMessageRepository : IChatMessageRepository
     private static ChatMessage ToDomain(ChatMessageEntity entity)
         => ChatMessage.FromPersistence(
             entity.Id, entity.SenderUserId, entity.RecipientUserId, entity.CiphertextBase64, entity.NonceBase64, entity.SentAtUtc,
-            entity.IsEdited, entity.EditedAtUtc, entity.GroupId, entity.GroupMessageId);
+            entity.IsEdited, entity.EditedAtUtc, entity.GroupId, entity.GroupMessageId, entity.IsSharedHistory);
 
     private static ChatMessageEntity ToEntity(ChatMessage message)
         => new()
@@ -146,7 +158,8 @@ public sealed class ChatMessageRepository : IChatMessageRepository
             GroupMessageId = message.GroupMessageId,
             SentAtUtc = message.SentAtUtc,
             IsEdited = message.IsEdited,
-            EditedAtUtc = message.EditedAtUtc
+            EditedAtUtc = message.EditedAtUtc,
+            IsSharedHistory = message.IsSharedHistory
         };
     public async Task<IReadOnlyDictionary<Guid, int>> GetUnreadCountsBySenderAsync(
         Guid readerUserId, CancellationToken cancellationToken)
@@ -190,9 +203,14 @@ public sealed class ChatMessageRepository : IChatMessageRepository
             return new Dictionary<Guid, IReadOnlyList<GroupMessageReceipt>>();
         }
 
+        // Copies re-encrypted for a later joiner are left out: they say nothing about whether the message
+        // reached the people it was posted to, and counting them would turn a sender's fully-read message
+        // back into an unread one the moment somebody was given the history.
         var rows = await _dbContext.ChatMessages
             .AsNoTracking()
-            .Where(message => message.GroupMessageId != null && groupMessageIds.Contains(message.GroupMessageId.Value))
+            .Where(message =>
+                message.GroupMessageId != null && groupMessageIds.Contains(message.GroupMessageId.Value)
+                && !message.IsSharedHistory)
             .Select(message => new { GroupMessageId = message.GroupMessageId!.Value, message.RecipientUserId, message.ReadAtUtc })
             .ToListAsync(cancellationToken);
 

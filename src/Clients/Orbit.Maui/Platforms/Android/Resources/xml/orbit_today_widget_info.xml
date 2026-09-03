@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- What the launcher needs to know before Orbit's own code runs: how big the widget is and how often
+     Android should ask it to redraw itself.
+
+     Half an hour is the shortest Android honours for updatePeriodMillis, and it is what makes the widget
+     right at midnight without the app ever being opened - "today" is worked out when it redraws, not when
+     it was last filled in. The app refreshes it as well, whenever it is put down (see App.CreateWindow),
+     which is the update that carries what just changed. -->
+<appwidget-provider xmlns:android="http://schemas.android.com/apk/res/android"
+    android:minWidth="180dp"
+    android:minHeight="110dp"
+    android:targetCellWidth="3"
+    android:targetCellHeight="2"
+    android:updatePeriodMillis="1800000"
+    android:initialLayout="@layout/orbit_today_widget"
+    android:resizeMode="horizontal|vertical"
+    android:widgetCategory="home_screen"
+    android:description="@string/orbit_widget_description" />

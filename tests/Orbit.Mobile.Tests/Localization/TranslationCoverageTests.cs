@@ -21,7 +21,9 @@ public sealed partial class TranslationCoverageTests
     /// so adding one is a decision somebody makes on purpose.
     /// </summary>
     private static readonly HashSet<string> SameInEveryLanguage =
-        ["Orbit", "Google", "+", "−", "✕", "↑", "↓", "English", "Polski"];
+        // The pin on a conversation row is a glyph like the rest; what it means is said beside it, in
+        // words a screen reader gets and this sweep checks - see ContactsPage.
+        ["Orbit", "Google", "+", "−", "✕", "↑", "↓", "📌", "English", "Polski"];
 
     [Fact]
     public void Every_string_the_app_asks_to_translate_has_a_Polish_translation()

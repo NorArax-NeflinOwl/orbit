@@ -50,12 +50,12 @@ public sealed class CreateTaskListCommandHandlerTests
         var linkedList = TaskList.Create(userId, "Linked list", []);
         await repository.AddAsync(linkedList, CancellationToken.None);
         var handler = new CreateTaskListCommandHandler(repository, new TaskListLinkValidator(repository));
-        var items = new[] { TaskItem.Create("Depends on linked list", null, false, linkedList.Id) };
+        var items = new[] { TaskItem.Create("Depends on linked list", null, false, [linkedList.Id]) };
 
         var taskListId = await handler.HandleAsync(new CreateTaskListCommand(userId, "Main list", items, IsGroup: false, IsPrivate: false, EncryptedContent: null), CancellationToken.None);
 
         var stored = await repository.GetByIdAsync(userId, taskListId, CancellationToken.None);
-        Assert.Equal(linkedList.Id, Assert.Single(stored!.Items).LinkedTaskListId);
+        Assert.Equal([linkedList.Id], Assert.Single(stored!.Items).LinkedTaskListIds);
     }
 
     [Fact]
@@ -68,7 +68,7 @@ public sealed class CreateTaskListCommandHandlerTests
         var handler = new CreateTaskListCommandHandler(repository, new TaskListLinkValidator(repository));
         // A linked item's completion can't be set manually - see TaskItem.Create - so this is expected
         // to be stored as not completed even though the request asked for isCompleted: true.
-        var items = new[] { TaskItem.Create("Depends on linked list", null, isCompleted: true, linkedList.Id) };
+        var items = new[] { TaskItem.Create("Depends on linked list", null, isCompleted: true, [linkedList.Id]) };
 
         var taskListId = await handler.HandleAsync(new CreateTaskListCommand(userId, "Main list", items, IsGroup: false, IsPrivate: false, EncryptedContent: null), CancellationToken.None);
 
@@ -81,7 +81,7 @@ public sealed class CreateTaskListCommandHandlerTests
     {
         var repository = new InMemoryTaskRepository();
         var handler = new CreateTaskListCommandHandler(repository, new TaskListLinkValidator(repository));
-        var items = new[] { TaskItem.Create("Depends on nothing", null, false, Guid.NewGuid()) };
+        var items = new[] { TaskItem.Create("Depends on nothing", null, false, [Guid.NewGuid()]) };
 
         await Assert.ThrowsAsync<InvalidRequestException>(
             () => handler.HandleAsync(new CreateTaskListCommand(Guid.NewGuid(), "Main list", items, IsGroup: false, IsPrivate: false, EncryptedContent: null), CancellationToken.None));

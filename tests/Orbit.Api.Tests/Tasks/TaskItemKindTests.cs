@@ -14,7 +14,7 @@ public sealed class TaskItemKindTests
         TaskItemKind kind = TaskItemKind.Checklist, string location = "", Guid? linkedCalendarEventId = null)
         => TaskItem.Create(
             "Dentist", dueDateUtc: null, isCompleted: false,
-            kind: kind, location: location, linkedCalendarEventId: linkedCalendarEventId);
+            subject: new TaskItemSubject(kind, location, linkedCalendarEventId));
 
     [Fact]
     public void An_entry_is_an_ordinary_one_unless_it_says_otherwise()
@@ -65,10 +65,11 @@ public sealed class TaskItemKindTests
         var eventId = Guid.NewGuid();
 
         var entry = TaskItem.FromPersistence(
-            Guid.NewGuid(), "Dentist", dueDateUtc: null, isCompleted: false, linkedTaskListId: null,
-            Orbit.Core.Notifications.NotificationChannel.None, remindDaily: false,
-            Orbit.Core.Notifications.NotificationChannel.None, dailyReminderTimeOfDay: default,
-            TaskItemKind.Calendar, location: "", linkedCalendarEventId: eventId);
+            Guid.NewGuid(), "Dentist", dueDateUtc: null, isCompleted: false, linkedTaskListIds: null,
+            new TaskItemReminders(
+                Orbit.Core.Notifications.NotificationChannel.None, Daily: false,
+                Orbit.Core.Notifications.NotificationChannel.None, default),
+            new TaskItemSubject(TaskItemKind.Calendar, linkedCalendarEventId: eventId));
 
         Assert.Equal(TaskItemKind.Calendar, entry.Kind);
         Assert.Equal(eventId, entry.LinkedCalendarEventId);

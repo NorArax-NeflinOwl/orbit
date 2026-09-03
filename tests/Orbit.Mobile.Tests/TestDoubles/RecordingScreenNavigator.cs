@@ -33,6 +33,17 @@ internal sealed class RecordingScreenNavigator : IScreenNavigator
 
     public void ShowRegister() => _destinations.Add(nameof(ShowRegister));
 
+    public void ShowPasswordReset() => _destinations.Add(nameof(ShowPasswordReset));
+
+    public void ShowSharedLink(string token)
+    {
+        LastSharedLinkToken = token;
+        _destinations.Add(nameof(ShowSharedLink));
+    }
+
+    /// <summary>The token out of the link that was followed - see NotificationDestination.</summary>
+    public string? LastSharedLinkToken { get; private set; }
+
     public void ShowAccount() => _destinations.Add(nameof(ShowAccount));
 
     public void ShowChatKeyGate() => _destinations.Add(nameof(ShowChatKeyGate));
@@ -44,6 +55,15 @@ internal sealed class RecordingScreenNavigator : IScreenNavigator
         LastContact = contact;
         _destinations.Add(nameof(ShowConversation));
     }
+
+    public void ShowContactInfo(Guid userId)
+    {
+        LastContactInfoUserId = userId;
+        _destinations.Add(nameof(ShowContactInfo));
+    }
+
+    /// <summary>Whose card was opened - see ContactInfoViewModel.</summary>
+    public Guid? LastContactInfoUserId { get; private set; }
 
     public void ShowGroups() => _destinations.Add(nameof(ShowGroups));
 
@@ -85,6 +105,17 @@ internal sealed class RecordingScreenNavigator : IScreenNavigator
         _destinations.Add(nameof(ShowNote));
     }
 
+    public void ShowCopyReview() => _destinations.Add(nameof(ShowCopyReview));
+
+    /// <summary>Whose history was opened, so a test can check the screen led to the right one.</summary>
+    public (Orbit.Mobile.Data.CopyKind Kind, Guid LocalId)? LastHistory { get; private set; }
+
+    public void ShowCopyHistory(Orbit.Mobile.Data.CopyKind kind, Guid localId)
+    {
+        LastHistory = (kind, localId);
+        _destinations.Add(nameof(ShowCopyHistory));
+    }
+
     public void ShowCalendar() => _destinations.Add(nameof(ShowCalendar));
 
     /// <summary>Which event was opened, so a test can check the calendar led to the right one.</summary>
@@ -102,11 +133,15 @@ internal sealed class RecordingScreenNavigator : IScreenNavigator
 
     public void ShowMap() => _destinations.Add(nameof(ShowMap));
 
-    public void ShowWarehouse(Guid localId)
+    public void ShowWarehouse(Guid localId, Guid? productId = null)
     {
         LastWarehouseId = localId;
+        LastPointedAtProductId = productId;
         _destinations.Add(nameof(ShowWarehouse));
     }
+
+    /// <summary>Which product the shelf was opened for, when whoever opened it meant one.</summary>
+    public Guid? LastPointedAtProductId { get; private set; }
 
     public void ShowNotifications() => _destinations.Add(nameof(ShowNotifications));
 

@@ -2,6 +2,7 @@ using System.Net;
 using System.Text.Json;
 using System.Net.Http.Json;
 using Bunit;
+using Microsoft.AspNetCore.Components;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -37,6 +38,23 @@ public sealed class TaskListChecklistTests : OrbitTestContext
         RegisterGoogleIntegrationAccess();
         RegisterChecklistViewPreference();
         RegisterInventoryApiClient();
+    }
+
+    /// <summary>
+    /// The same marks the cards on /tasks carry. Somebody working through a list should see what an
+    /// entry is about where the work is actually done, not only on the page they came from.
+    /// </summary>
+    [Fact]
+    public void A_row_says_what_it_is_filed_under()
+    {
+        var taskList = TaskList("Errands", Item("Buy milk") with { Categories = ["shopping", "weekly"] });
+        RegisterTasksApiClient([taskList]);
+
+        var cut = RenderComponent<TaskListChecklist>(parameters => parameters.Add(page => page.Id, taskList.Id));
+
+        Assert.Equal(
+            ["shopping", "weekly"],
+            cut.FindAll(".check-row .row-category").Select(category => category.TextContent.Trim()));
     }
 
     [Fact]
@@ -100,20 +118,31 @@ public sealed class TaskListChecklistTests : OrbitTestContext
         Assert.DoesNotContain("Paint walls", cut.Markup);
     }
 
+    /// <summary>
+    /// Its completion is derived from the list it points at (see LinkedTaskCompletionResolver), so
+    /// setting it here would be a change the next reload silently undoes. The press is still worth
+    /// taking: it says where the answer is, and offers to go there.
+    /// </summary>
     [Fact]
-    public void An_item_that_follows_another_list_cannot_be_ticked_by_hand()
+    public void Ticking_an_item_that_follows_another_list_offers_that_list_instead()
     {
         var kitchen = TaskList("Kitchen", Item("Paint walls"));
         var group = TaskList("Renovation", Item("Kitchen done", linkedTaskListId: kitchen.Id)) with { IsGroup = true };
         RegisterTasksApiClient([group, kitchen]);
+        var navigationManager = Services.GetRequiredService<NavigationManager>();
 
         var cut = RenderComponent<TaskListChecklist>(parameters => parameters.Add(page => page.Id, group.Id));
-
-        // Its completion is derived from the linked list (see LinkedTaskCompletionResolver), so setting
-        // it here would be a change the next reload silently undoes.
-        var linkedCheckbox = cut.FindAll(".check-row input[type=checkbox]").ToArray()[0];
-        Assert.True(linkedCheckbox.HasAttribute("disabled"));
         Assert.Contains("follows Kitchen", cut.Markup);
+
+        cut.FindAll(".check-row input[type=checkbox]").First().Click();
+
+        Assert.Contains("This is done when Kitchen is.", cut.Markup);
+        // And nothing was saved: the box says the same thing it did before.
+        Assert.DoesNotContain(_requests, request => request.Method == HttpMethod.Put);
+
+        cut.FindAll(".check-row-asks button").First(button => button.TextContent.Trim() == "Yes").Click();
+
+        Assert.EndsWith($"/tasks/{kitchen.Id}", navigationManager.Uri);
     }
 
     [Fact]
@@ -125,6 +154,41 @@ public sealed class TaskListChecklistTests : OrbitTestContext
         var cut = RenderComponent<TaskListChecklist>(parameters => parameters.Add(page => page.Id, taskList.Id));
 
         Assert.True(cut.Find(".check-row input[type=checkbox]").HasAttribute("disabled"));
+    }
+
+    /// <summary>
+    /// Ticking a box must not change what the other entries *are*.
+    ///
+    /// The endpoint replaces the list wholesale, so every field of every item has to ride along - and
+    /// four of them did not. Kind, Location and the two links fell back to their defaults, so ticking
+    /// anything on a list turned its inventory errands and its appointments into plain checklist lines
+    /// and cut them loose from the shelf item and the event they were about. On the Restock supplies
+    /// list that is what made entries disappear as soon as they were ticked: the link the restock
+    /// reconciliation recognises them by was gone.
+    /// </summary>
+    [Fact]
+    public void Ticking_an_item_leaves_the_other_entries_as_the_kind_of_thing_they_were()
+    {
+        var shelfItemId = Guid.NewGuid();
+        var eventId = Guid.NewGuid();
+        var taskList = TaskList(
+            "Zakupy",
+            Item("Buy milk"),
+            Item("Restock: Parówki", kind: "Inventory") with { LinkedInventoryItemId = shelfItemId },
+            Item("Dentist", kind: "Calendar") with { Location = "Długa 4", LinkedCalendarEventId = eventId });
+        RegisterTasksApiClient([taskList]);
+        var cut = RenderComponent<TaskListChecklist>(parameters => parameters.Add(page => page.Id, taskList.Id));
+
+        cut.FindAll(".check-row input[type=checkbox]").ToArray()[0].Change(true);
+
+        var update = _requests.Single(request => request.Method == HttpMethod.Put);
+        var items = JsonDocument.Parse(_requestBodies[_requests.IndexOf(update)]).RootElement.GetProperty("items");
+
+        Assert.Equal("Inventory", items[1].GetProperty("kind").GetString());
+        Assert.Equal(shelfItemId, items[1].GetProperty("linkedInventoryItemId").GetGuid());
+        Assert.Equal("Calendar", items[2].GetProperty("kind").GetString());
+        Assert.Equal("Długa 4", items[2].GetProperty("location").GetString());
+        Assert.Equal(eventId, items[2].GetProperty("linkedCalendarEventId").GetGuid());
     }
 
     [Fact]
@@ -182,21 +246,11 @@ public sealed class TaskListChecklistTests : OrbitTestContext
     }
 
 
-    [Fact]
-    public void A_due_item_offers_to_go_into_google_calendar()
-    {
-        _googleExtrasAvailable = true;
-        var taskList = TaskList("Admin", Item("File the return", dueDateUtc: new DateTimeOffset(2026, 9, 1, 10, 0, 0, TimeSpan.Zero)));
-        RegisterTasksApiClient([taskList]);
+    // A_due_item_offers_to_go_into_google_calendar lived here. The checklist no longer offers to put
+    // a deadline into Google Calendar - the row is for reading and ticking off, and the link was a
+    // third control competing with the two that matter. GoogleCalendarEventLink itself is unchanged
+    // and still covered by its own tests; only this page stopped using it.
 
-        var cut = RenderComponent<TaskListChecklist>(parameters => parameters.Add(page => page.Id, taskList.Id));
-
-        var link = cut.Find("a.google-link");
-        Assert.Contains("calendar.google.com", link.GetAttribute("href"));
-        // Opens away from Orbit, and without handing Google a referrer that names the page.
-        Assert.Equal("_blank", link.GetAttribute("target"));
-        Assert.Equal("noopener", link.GetAttribute("rel"));
-    }
 
     [Fact]
     public void An_account_without_the_google_extras_is_offered_none()
@@ -237,6 +291,9 @@ public sealed class TaskListChecklistTests : OrbitTestContext
         });
         Services.AddSingleton(new GoogleIntegrationAccess(
             new UsersApiClient(new HttpClient(handler) { BaseAddress = new Uri("https://example.test/") }),
+            // Never initialised, so the extras are on - which leaves the account above as the only
+            // thing deciding, and it is the thing these tests are pointed at.
+            new DevicePreferences(new StubJSRuntime()),
             NullLogger<GoogleIntegrationAccess>.Instance));
     }
 
@@ -384,11 +441,13 @@ public sealed class TaskListChecklistTests : OrbitTestContext
             IsShared: false, SharedByUserName: null, AccessLevel: "CanEdit", OriginalOwnerUserId: null);
 
     private static TaskItemDto Item(
-        string description, bool isCompleted = false, Guid? linkedTaskListId = null, DateTimeOffset? dueDateUtc = null)
+        string description, bool isCompleted = false, Guid? linkedTaskListId = null, DateTimeOffset? dueDateUtc = null,
+        string kind = "Checklist")
         => new(
             Guid.NewGuid(), description, dueDateUtc, isCompleted, linkedTaskListId,
             OverdueNotificationChannel: "None", RemindDaily: false,
-            DailyReminderNotificationChannel: "None", DailyReminderTimeOfDay: default);
+            DailyReminderNotificationChannel: "None", DailyReminderTimeOfDay: default,
+            Kind: kind);
 
     [Fact]
     public void A_group_shows_the_lists_below_its_own_members_too()
@@ -533,7 +592,7 @@ public sealed class TaskListChecklistTests : OrbitTestContext
     [Fact]
     public void The_stock_check_can_be_read_shortfalls_first()
     {
-        var group = TaskList("Renovation", Item("Screw")) with { IsGroup = true };
+        var group = TaskList("Renovation", Item("Screw", kind: "Inventory")) with { IsGroup = true };
         RegisterTasksApiClient([group], new TaskListStockCheckDto(IsAchievable: false, [
             new StockRequirementDto("Anchor", 1, 1, 0),
             new StockRequirementDto("Screw", 2, 0, 2),
@@ -549,12 +608,14 @@ public sealed class TaskListChecklistTests : OrbitTestContext
     [Fact]
     public void Putting_the_stock_check_away_is_remembered_without_pressing_Save_view()
     {
-        var group = TaskList("Renovation", Item("Screw")) with { IsGroup = true };
+        var group = TaskList("Renovation", Item("Screw", kind: "Inventory")) with { IsGroup = true };
         RegisterTasksApiClient([group], new TaskListStockCheckDto(IsAchievable: true, [
             new StockRequirementDto("Screw", 1, 1, 0)]));
         var cut = RenderComponent<TaskListChecklist>(parameters => parameters.Add(page => page.Id, group.Id));
 
-        ChooseInStockCheckMenu(cut, "Hide");
+        // Folded by the card itself - the name and the chevron do it, so the menu no longer carries a
+        // third way to say the same thing.
+        cut.FindAll(".item-card .item-card-collapse").First().Click();
 
         Assert.Empty(cut.FindAll(".permissions-table"));
         // Nothing left over to save: a panel somebody puts away has already been answered about.
@@ -565,11 +626,14 @@ public sealed class TaskListChecklistTests : OrbitTestContext
     private static IReadOnlyList<string> StockCheckNames(IRenderedComponent<TaskListChecklist> cut)
         => [.. cut.FindAll(".permissions-table tbody tr td:first-child").Select(cell => cell.TextContent.Trim())];
 
-    /// <summary>Picks an entry out of the stock-check panel's own menu - the second one on the page.</summary>
+    /// <summary>
+    /// Picks an entry out of the Related inventory card's own menu. That card is the one ItemCard on
+    /// this page - the checklist's sections are not cards - so it is found by that.
+    /// </summary>
     private static void ChooseInStockCheckMenu(IRenderedComponent<TaskListChecklist> cut, string label)
     {
-        cut.FindAll(".stock-check-card .overflow-menu-trigger").First().Click();
-        cut.FindAll(".stock-check-card .overflow-menu-dropdown .avatar-dropdown-item")
+        cut.FindAll(".item-card .overflow-menu-trigger").First().Click();
+        cut.FindAll(".item-card .overflow-menu-dropdown .avatar-dropdown-item")
             .First(entry => entry.TextContent.Contains(label))
             .Click();
     }

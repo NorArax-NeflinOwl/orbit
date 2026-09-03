@@ -16,7 +16,7 @@ internal sealed class SyncContext : IDisposable
     {
         Clock = new FakeTimeProvider(DateTimeOffset.Parse("2026-08-26T10:00:00Z"));
         Server = new FakeNotesServer(Clock);
-        Notes = new LocalNoteRepository(_localStore, Clock, FixedNetworkStatus.Online);
+        Notes = new LocalNoteRepository(_localStore, Clock, FixedNetworkStatus.Online, PrivateContent.WithoutAKey());
         Synchronizer = new NoteSynchronizer(
             _localStore, new NotesClient(Server.ToHttpClient()), Clock, new SyncGate(),
             NullLogger<NoteSynchronizer>.Instance);
@@ -34,6 +34,13 @@ internal sealed class SyncContext : IDisposable
     /// <summary>Requests the phone made, stripped to just the ones that change something.</summary>
     public IReadOnlyList<string> WriteRequests()
         => Server.ReceivedRequests.Where(request => !request.Contains("/changes")).ToList();
+
+    /// <summary>How much is still queued - what tells a test that nothing was quietly dropped.</summary>
+    public int QueuedCount()
+    {
+        using var dbContext = _localStore.CreateDbContext();
+        return dbContext.Outbox.Count();
+    }
 
     public void GoOffline() => Server.IsUnreachable = true;
 

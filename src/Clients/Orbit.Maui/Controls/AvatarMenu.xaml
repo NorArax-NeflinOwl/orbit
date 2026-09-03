@@ -8,6 +8,12 @@
     x:DataType="screens:NavigationBarViewModel"
     IsVisible="{Binding IsMenuOpen}">
 
+    <ContentView.Resources>
+        <!-- A circular arrow, the refresh glyph every mobile app uses - drawn rather than shipped as an
+             image so it takes the accent colour and the theme with it. -->
+        <x:String x:Key="ReconnectIcon">M10,3.2 A6.8,6.8 0 1 1 3.6,7.9 L1.6,7.2 A8.9,8.9 0 1 0 10,1.1 Z M10,0 L14,3.2 L10,6.4 Z</x:String>
+    </ContentView.Resources>
+
     <!-- The avatar's menu, as Orbit.Web's dropdown: who you are, then the things that hang off the
          account. Anchored under the avatar rather than centred, so it reads as belonging to it. -->
     <!-- Placed last on a page and spanning its rows, so it covers everything. Invisible when closed,
@@ -33,7 +39,23 @@
                      bottom-left corner of every screen; it is a fact about the account, so it lives
                      with the account. -->
                 <VerticalStackLayout Spacing="2">
-                    <Label Text="{Binding DisplayName}" FontAttributes="Bold" LineBreakMode="TailTruncation" />
+                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="6">
+                        <Label Grid.Column="0" Text="{Binding DisplayName}" FontAttributes="Bold"
+                               LineBreakMode="TailTruncation" VerticalOptions="Center" />
+
+                        <!-- Only while the phone believes it is offline: online there is nothing to
+                             reconnect, and a button that is always there invites tapping at a working
+                             app. An icon rather than a word, beside the name it belongs to. -->
+                        <Grid Grid.Column="1" WidthRequest="32" HeightRequest="32"
+                              IsVisible="{Binding CanReconnect}">
+                            <Path Data="{StaticResource ReconnectIcon}" InputTransparent="True"
+                                  Fill="{DynamicResource Accent}" HeightRequest="18" WidthRequest="18"
+                                  Aspect="Uniform" HorizontalOptions="Center" VerticalOptions="Center" />
+                            <Button BackgroundColor="Transparent" Command="{Binding ReconnectCommand}"
+                                    SemanticProperties.Description="{controls:Translate 'Reconnect'}" />
+                        </Grid>
+                    </Grid>
+
                     <HorizontalStackLayout Spacing="6">
                         <ActivityIndicator IsRunning="{Binding IsSyncing}" IsVisible="{Binding IsSyncing}"
                                            HeightRequest="10" WidthRequest="10" VerticalOptions="Center" />
@@ -84,23 +106,9 @@
                 <BoxView HeightRequest="1"
                          Color="{AppThemeBinding Light={StaticResource CardStrokeLight}, Dark={StaticResource CardStrokeDark}}" />
 
-                <Grid ColumnDefinitions="*,Auto">
-                    <Label Grid.Column="0" Text="{controls:Translate 'Notifications'}" VerticalOptions="Center" />
-                    <Border Grid.Column="1" IsVisible="{Binding HasUnread}" StrokeThickness="0"
-                            HeightRequest="18" MinimumWidthRequest="18" Padding="5,0"
-                            BackgroundColor="{AppThemeBinding Light={StaticResource DangerLight}, Dark={StaticResource DangerDark}}">
-                        <Border.StrokeShape>
-                            <RoundRectangle CornerRadius="9" />
-                        </Border.StrokeShape>
-                        <Label Text="{Binding UnreadLabel}" FontSize="10" FontAttributes="Bold"
-                               TextColor="{AppThemeBinding Light={StaticResource White}, Dark={StaticResource PrimaryDarkText}}"
-                               HorizontalOptions="Center" VerticalOptions="Center" />
-                    </Border>
-                    <Button Grid.Column="0" Grid.ColumnSpan="2" BackgroundColor="Transparent"
-                            Command="{Binding GoToNotificationsCommand}"
-                            SemanticProperties.Description="{controls:Translate 'Notifications'}" />
-                </Grid>
-
+                <!-- Notifications used to be here and is now a button of its own in the bar - see
+                     NavigationBar. What is left in this menu are the places somebody goes once, to set
+                     something up or to look Orbit over. -->
                 <!-- Orbit.Web's "Get the app", which on a phone is an update rather than a download.
                      Badged like Notifications above and for the same reason: startup says it once in a
                      prompt the reader may dismiss, and this is what is left standing afterwards. -->
@@ -119,11 +127,66 @@
                             SemanticProperties.Description="{controls:Translate 'Update'}" />
                 </Grid>
 
+                <!-- What was written offline and has not been decided on yet. Here rather than on one
+                     of the lists, because a copy can be of any of the four kinds and no single list is
+                     the right place to wait for it. Badged like Notifications above. -->
+                <Grid ColumnDefinitions="*,Auto" IsVisible="{Binding HasCopiesAwaitingReview}">
+                    <Label Grid.Column="0" Text="{controls:Translate 'Copies to review'}" VerticalOptions="Center" />
+                    <Border Grid.Column="1" StrokeThickness="0" HeightRequest="18" MinimumWidthRequest="18"
+                            Padding="5,0"
+                            BackgroundColor="{AppThemeBinding Light={StaticResource DangerLight}, Dark={StaticResource DangerDark}}">
+                        <Border.StrokeShape>
+                            <RoundRectangle CornerRadius="9" />
+                        </Border.StrokeShape>
+                        <Label Text="{Binding CopiesAwaitingReviewLabel}" FontSize="10" FontAttributes="Bold"
+                               TextColor="{AppThemeBinding Light={StaticResource White}, Dark={StaticResource PrimaryDarkText}}"
+                               HorizontalOptions="Center" VerticalOptions="Center" />
+                    </Border>
+                    <Button Grid.Column="0" Grid.ColumnSpan="2" BackgroundColor="Transparent"
+                            Command="{Binding GoToCopyReviewCommand}"
+                            SemanticProperties.Description="{controls:Translate 'Copies to review'}" />
+                </Grid>
+
                 <Grid>
                     <Label Text="{controls:Translate 'Settings'}" />
                     <Button BackgroundColor="Transparent" Command="{Binding GoToAccountCommand}"
                             SemanticProperties.Description="{controls:Translate 'Settings'}" />
                 </Grid>
+
+                <!-- What Orbit.Web says in its footer, said here instead: a phone has no footer, and
+                     this is the menu everything about the account already hangs off. Folded by
+                     default, like Status and Language above. -->
+                <Grid>
+                    <Label Text="{controls:Translate 'About'}" />
+                    <Button BackgroundColor="Transparent" Command="{Binding ToggleAboutCommand}"
+                            SemanticProperties.Description="{controls:Translate 'About'}" />
+                </Grid>
+
+                <VerticalStackLayout Spacing="2" IsVisible="{Binding IsAboutExpanded}">
+                    <Label Text="{Binding AboutCopyright}" FontSize="12" Style="{StaticResource SubtleLabel}" />
+                    <!-- Tapped, it grows the rest of the commit hash - the same thing the web footer
+                         does, and for the same reason: the short form is what anybody reads, the whole
+                         one is what a checkout takes. -->
+                    <Label Text="{Binding AboutVersion}" FontSize="12" LineBreakMode="CharacterWrap"
+                           Style="{StaticResource SubtleLabel}">
+                        <Label.GestureRecognizers>
+                            <TapGestureRecognizer Command="{Binding ShowTheWholeCommitCommand}" />
+                        </Label.GestureRecognizers>
+                    </Label>
+                    <!-- Tapped rather than shown as a URL: the licence is a document to read, and the
+                         address of it is not the information anybody came for. -->
+                    <!-- The server's own build, beside the app's. The two drift by design here: the
+                         phone is updated whenever its owner chooses. Hidden while the server has not
+                         answered - an offline About row should say nothing about it rather than guess. -->
+                    <Label Text="{Binding AboutServerVersion}" IsVisible="{Binding HasServerVersion}"
+                           FontSize="12" LineBreakMode="CharacterWrap" Style="{StaticResource SubtleLabel}" />
+                    <Label x:Name="LicenseLink" Text="{Binding LicenseName}" FontSize="12"
+                           TextDecorations="Underline" Style="{StaticResource SubtleLabel}">
+                        <Label.GestureRecognizers>
+                            <TapGestureRecognizer Tapped="OnLicenseTapped" />
+                        </Label.GestureRecognizers>
+                    </Label>
+                </VerticalStackLayout>
 
                 <Grid>
                     <Label Text="{controls:Translate 'Sign out'}"

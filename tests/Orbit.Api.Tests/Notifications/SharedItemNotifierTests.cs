@@ -1,5 +1,6 @@
 using Microsoft.Extensions.Logging.Abstractions;
 using Orbit.Api.Tests.TestDoubles;
+using Orbit.Core.LiveUpdates;
 using Orbit.Core.Notifications;
 using Orbit.Core.Users;
 using Xunit;
@@ -112,6 +113,59 @@ public sealed class SharedItemNotifierTests
         Assert.Equal(["Someone"], entry.TitleArguments);
     }
 
+    [Fact]
+    public async Task Turning_the_setting_on_also_emails_the_invitation()
+    {
+        var context = new SharedItemNotifierTestContext();
+        await context.AllowShareNotificationsAsync(true);
+
+        await context.NotifyAsync(SharedItemKind.CalendarEvent, "Dentist");
+
+        var email = Assert.Single(context.EmailSender.SentEmails);
+        Assert.Equal("bea@example.com", email.ToEmailAddress);
+        Assert.Equal("Anna Kowalska shared an event with you", email.Subject);
+        Assert.Contains("Name: Dentist", email.Body);
+    }
+
+    [Fact]
+    public async Task The_invitation_is_not_emailed_while_the_extra_notification_is_off()
+    {
+        var context = new SharedItemNotifierTestContext();
+
+        await context.NotifyAsync(SharedItemKind.CalendarEvent, "Dentist");
+
+        Assert.Single(await context.RecipientEntriesAsync());
+        Assert.Empty(context.EmailSender.SentEmails);
+    }
+
+    [Fact]
+    public async Task Each_channel_is_asked_for_separately()
+    {
+        var context = new SharedItemNotifierTestContext();
+        await context.SubscribeRecipientToPushAsync();
+        await context.AllowChannelsAsync(allowPush: true, allowEmail: false);
+
+        await context.NotifyAsync(SharedItemKind.Note, "Shopping");
+
+        // Share notifications are on, so the extra goes out - but only down the channel this account
+        // left switched on.
+        Assert.Single(context.PushNotificationSender.SentNotifications);
+        Assert.Empty(context.EmailSender.SentEmails);
+    }
+
+    [Fact]
+    public async Task A_mail_server_that_is_down_does_not_undo_the_share()
+    {
+        var context = new SharedItemNotifierTestContext(emailSender: new ThrowingEmailSender());
+        await context.AllowShareNotificationsAsync(true);
+
+        // The share is already saved by the time this runs, so the announcement must not throw back
+        // into the handler that saved it.
+        await context.NotifyAsync(SharedItemKind.Note, "Shopping");
+
+        Assert.Single(await context.RecipientEntriesAsync());
+    }
+
     private sealed class SharedItemNotifierTestContext
     {
         private readonly InMemoryNotificationSettingsRepository _settingsRepository = new();
@@ -121,13 +175,19 @@ public sealed class SharedItemNotifierTests
         private readonly SharedItemNotifier _notifier;
 
         public RecordingPushNotificationSender PushNotificationSender { get; } = new();
+        public RecordingEmailSender EmailSender { get; } = new();
+        private readonly IEmailSender _emailSender;
         public Guid SharerId { get; }
-        public Guid RecipientId { get; } = Guid.NewGuid();
+        public Guid RecipientId { get; }
 
-        public SharedItemNotifierTestContext(bool registerSharer = true)
+        public SharedItemNotifierTestContext(bool registerSharer = true, IEmailSender? emailSender = null)
         {
             var sharer = User.Create("anna@example.com", "anna", "Anna Kowalska", "hash");
             SharerId = sharer.Id;
+            var recipient = User.Create("bea@example.com", "bea", "Bea Nowak", "hash");
+            RecipientId = recipient.Id;
+            _userRepository.AddAsync(recipient, CancellationToken.None).GetAwaiter().GetResult();
+            _emailSender = emailSender ?? EmailSender;
             if (registerSharer)
             {
                 _userRepository.AddAsync(sharer, CancellationToken.None).GetAwaiter().GetResult();
@@ -135,9 +195,11 @@ public sealed class SharedItemNotifierTests
 
             _notifier = new SharedItemNotifier(
                 _settingsRepository,
-                new NotificationRecorder(_settingsRepository, _entryRepository),
+                new NotificationRecorder(_settingsRepository, _entryRepository, new SilentLiveUpdatePublisher()),
                 new PushNotificationDispatcher(_pushSubscriptionRepository, [PushNotificationSender], NullLogger<PushNotificationDispatcher>.Instance),
-                _userRepository);
+                _userRepository,
+                _emailSender,
+                NullLogger<SharedItemNotifier>.Instance);
         }
 
         public Task NotifyAsync(SharedItemKind kind, string? itemTitle)
@@ -150,17 +212,28 @@ public sealed class SharedItemNotifierTests
 
         public Task AllowNotificationsAsync(bool allowed) => UpdateSettingsAsync(allowed, allowShareNotifications: true);
 
+        public Task AllowChannelsAsync(bool allowPush, bool allowEmail)
+            => UpdateSettingsAsync(allowNotifications: true, allowShareNotifications: true, allowPush, allowEmail);
+
         public Task SubscribeRecipientToPushAsync()
             => _pushSubscriptionRepository.AddOrReplaceAsync(
                 PushSubscription.CreateForBrowser(RecipientId, new WebPushRegistration("https://push.example/a", "p256dh", "auth")), CancellationToken.None);
 
-        private Task UpdateSettingsAsync(bool allowNotifications, bool allowShareNotifications)
+        private Task UpdateSettingsAsync(
+            bool allowNotifications, bool allowShareNotifications, bool allowPush = true, bool allowEmail = true)
         {
             var settings = NotificationSettings.Default(RecipientId);
             settings.Update(
-                allowNotifications, allowPush: true, allowEmail: true, allowMobileBanner: true, showExceptionDetails: true,
+                allowNotifications, allowPush, allowEmail, allowMobileBanner: true, showExceptionDetails: true,
                 allowShareNotifications, BannerTiming.Default, NotificationSettings.DefaultRetentionDays);
             return _settingsRepository.UpsertAsync(settings, CancellationToken.None);
         }
+    }
+
+    /// <summary>An unreachable mail server, so the announcement can be shown not to fail the share.</summary>
+    private sealed class ThrowingEmailSender : IEmailSender
+    {
+        public Task SendAsync(string toEmailAddress, string subject, string body, CancellationToken cancellationToken)
+            => throw new InvalidOperationException("The mail server is unreachable.");
     }
 }

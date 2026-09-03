@@ -14,6 +14,10 @@ An ASP.NET Core minimal API exposing:
   minute per client IP.
 - `/api/notes`, `/api/tasks`, `/api/calendar-events`, `/api/users`, `/api/chat`, `/api/push` — all
   require a valid JWT and are scoped to the caller's own data.
+- `/api/live` — a SignalR hub the web client holds open so it can be told what changed instead of
+  polling for it. Announcements only, never content; see
+  [Functionality — Live updates](functionality.md#live-updates). Authenticated from the query string,
+  because a browser cannot put a header on a WebSocket handshake, and only on this path.
 - `/health*` endpoints — liveness, readiness, and a full report covering the database, disk space,
   external services, and background services.
 
@@ -143,6 +147,25 @@ that broke `azure/login`'s OIDC federation the one time it was tried.
 
 ## Continuous integration
 
-`.github/workflows/ci.yml` runs on every push and pull request targeting `main` (and can also be
-triggered manually): it restores, builds (`Release` configuration), and runs the full test suite
-(`dotnet test Orbit.sln`) on `ubuntu-latest` with .NET SDK 10.
+`.github/workflows/main_orbit.yml` runs on every push to `main` and on every pull request into it (and
+can be triggered manually). Its
+`test` job restores, builds (`Release` configuration), and runs the full test suite
+(`dotnet test Orbit.sln`) on `ubuntu-latest` with .NET SDK 10, then runs the two harnesses covering the
+parts of the client no .NET test can reach, since bUnit executes none of the browser APIs they are made
+of: `ci/verify-browser-crypto.mjs` for `wwwroot/js/e2eeChat.js` (Web Crypto and IndexedDB) and
+`ci/verify-push-notifications.mjs` for `wwwroot/service-worker.js` and `wwwroot/js/pushNotifications.js`
+(a registered service worker receiving real push events, and the Notification and Push APIs). Every
+later job depends on this one, so a failure here stops the deploy before an image is built.
+
+**The pull request trigger was removed once and put back.** It went because every minute is billed on a
+private repository and a day of ordinary work exhausted the allowance, stopping Actions outright; it
+came back because a branch unchecked until it lands stopped being theoretical - `main` sat red for a day
+with nobody told. What made it affordable is that a run now costs a fraction of what it did: the
+`android` job looks before it builds and does nothing when nothing it builds from changed, a pull
+request run is cancelled by the next push to the same branch, and documentation-only branches are
+skipped outright.
+
+The `deploy` job stays out of it either way — guarded on the event as well as gated on the suite, so a
+branch stops at the tests rather than deploying itself. Running the suite locally before opening a pull
+request is still worth doing; it is no longer the only check a branch gets — see
+[Testing and Running Locally](testing-and-running-locally.md#automated-test-coverage).

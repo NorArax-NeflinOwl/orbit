@@ -5,6 +5,8 @@ using Orbit.Contracts.Sync;
 using Orbit.Mobile.Api;
 using Orbit.Mobile.Data;
 using Orbit.Mobile.Localization;
+using Orbit.Mobile.Screens.Notes;
+using Orbit.Mobile.Security;
 using Orbit.Mobile.Sync;
 
 namespace Orbit.Mobile.Screens.Tasks;
@@ -23,6 +25,7 @@ public sealed partial class TasksViewModel : ObservableObject
     private readonly IScreenNavigator _navigator;
     private readonly Translations _translations;
     private readonly ITaskListArrangementStore _arrangements;
+    private readonly PrivateItemGate _privateItems;
 
     [ObservableProperty]
     private string _newListTitle = string.Empty;
@@ -38,6 +41,73 @@ public sealed partial class TasksViewModel : ObservableObject
     [ObservableProperty]
     private string? _statusFilter;
 
+    /// <summary>
+    /// What is being looked for among the entries on every list - see TaskItemFilter. Its own object
+    /// because the search box and the chips are one question asked two ways.
+    /// </summary>
+    private readonly TaskItemFilter _itemFilter = new();
+
+    /// <summary>A word from an entry, on any list. Everything is shown until something is typed.</summary>
+    public string ItemSearch
+    {
+        get => _itemFilter.Search;
+        set
+        {
+            if (_itemFilter.Search == value)
+            {
+                return;
+            }
+
+            _itemFilter.Search = value;
+            OnPropertyChanged();
+            ShowArrangedLists();
+        }
+    }
+
+    /// <inheritdoc cref="TaskItemFilter.MatchesEveryCategory"/>
+    public bool MatchesEveryCategory
+    {
+        get => _itemFilter.MatchesEveryCategory;
+        set
+        {
+            if (_itemFilter.MatchesEveryCategory == value)
+            {
+                return;
+            }
+
+            _itemFilter.MatchesEveryCategory = value;
+            OnPropertyChanged();
+            ShowArrangedLists();
+        }
+    }
+
+    /// <summary>Whether anything has been asked for, which is what makes "clear" worth offering.</summary>
+    public bool IsLookingForAnEntry => _itemFilter.IsActive;
+
+    /// <summary>
+    /// What an empty screen means, which is not the same thing twice: a page narrowed away by a search
+    /// is changed by typing something else, and one with nothing on it at all by making a list. Saying
+    /// "no task lists yet" to somebody holding six of them reads as having lost them.
+    /// </summary>
+    public string NothingHereMessage => _itemFilter.IsActive
+        ? _translations["Nothing on any list matches that."]
+        : _translations["No task lists yet."];
+
+    /// <summary>
+    /// Only worth asking once two are chosen: with one, "any of them" and "all of them" are the same
+    /// question.
+    /// </summary>
+    public bool IsCategoryRuleWorthAsking => _itemFilter.Categories.Count > 1;
+
+    /// <summary>
+    /// Every category in use on this account, with how many entries each would leave. Built from what
+    /// the phone holds rather than asked of the server: the same lists the screen is showing are the
+    /// ones the answer is about.
+    /// </summary>
+    public ObservableCollection<TaskCategoryChoice> Categories { get; } = [];
+
+    public bool HasCategories => Categories.Count > 0;
+
     /// <summary>Read back from where the reader left it - see ITaskListArrangementStore.</summary>
     private TaskListArrangement _arrangement;
 
@@ -46,7 +116,7 @@ public sealed partial class TasksViewModel : ObservableObject
 
     public TasksViewModel(
         LocalTaskListRepository taskLists, TaskListSynchronizer synchronizer, TasksClient tasksClient,
-        INetworkStatus networkStatus, ITaskListArrangementStore arrangements,
+        INetworkStatus networkStatus, ITaskListArrangementStore arrangements, PrivateItemGate privateItems,
         SyncState syncState, IScreenNavigator navigator, Translations translations)
     {
         _taskLists = taskLists;
@@ -57,6 +127,7 @@ public sealed partial class TasksViewModel : ObservableObject
         _navigator = navigator;
         _translations = translations;
         _arrangements = arrangements;
+        _privateItems = privateItems;
         _arrangement = new TaskListArrangement(arrangements.ReadSortOrder(), arrangements.ReadManualOrder());
         _collapsed = [.. arrangements.ReadCollapsed()];
     }
@@ -89,12 +160,26 @@ public sealed partial class TasksViewModel : ObservableObject
 
     private bool CanAddList => NewListTitle.Trim().Length > 0;
 
+    /// <summary>
+    /// Opens one list. A hidden row opens nothing: it offers the lock instead, which is the whole point
+    /// of hiding it - see TaskListRow.CanBeOpened.
+    /// </summary>
     [RelayCommand]
     private void OpenList(TaskListRow? row)
     {
-        if (row is not null)
+        if (row is { CanBeOpened: true })
         {
             _navigator.ShowTaskList(row.LocalId);
+        }
+    }
+
+    /// <inheritdoc cref="NotesViewModel.UnlockPrivateAsync"/>
+    [RelayCommand]
+    private async Task UnlockPrivateAsync(CancellationToken cancellationToken)
+    {
+        if (await _privateItems.TryUnlockAsync(cancellationToken))
+        {
+            ShowArrangedLists();
         }
     }
 
@@ -144,20 +229,29 @@ public sealed partial class TasksViewModel : ObservableObject
     /// </summary>
     private void ShowArrangedLists()
     {
+        ShowCategoriesInUse();
+
         TaskLists.Clear();
-        foreach (var taskList in TaskListView.Arrange(_stored, StatusFilter, _arrangement))
+        foreach (var taskList in TaskListView.Arrange(_stored, StatusFilter, _arrangement)
+            .Where(_itemFilter.HasAMatch))
         {
             // Every list, not just the visible ones: a group's row looks up what its links stand for,
             // and a member filtered off the screen is still where that work sits.
             TaskLists.Add(TaskListRow.From(
-                taskList, _stored, _pending.Contains(taskList.LocalId), _networkStatus, _translations)
+                taskList, _stored, _pending.Contains(taskList.LocalId), _networkStatus, _translations,
+                _privateItems.IsUnlocked, _translations["Private"])
                 with
                 {
                     CanBeMoved = SortOrder == TaskListSortOrder.Manual,
                     IsCollapsed = _collapsed.Contains(taskList.LocalId),
                     FoldDescription = _collapsed.Contains(taskList.LocalId)
                         ? _translations["Expand"]
-                        : _translations["Collapse"]
+                        : _translations["Collapse"],
+                    // What answered, in place of what the card would otherwise say is next: a list left
+                    // on screen for a match nobody can see reads as a bug.
+                    Matched = _itemFilter.FirstMatch(taskList) is { } match
+                        ? _translations.Written(match.Description)
+                        : string.Empty
                 });
         }
 
@@ -167,6 +261,55 @@ public sealed partial class TasksViewModel : ObservableObject
         // not only with which chip is chosen. Raised only when one was tapped, every chip read "0" from
         // the first paint until the reader tapped one, on a screen that was already showing six lists.
         OnPropertyChanged(nameof(Filters));
+        OnPropertyChanged(nameof(IsLookingForAnEntry));
+        OnPropertyChanged(nameof(NothingHereMessage));
+        OnPropertyChanged(nameof(IsCategoryRuleWorthAsking));
+    }
+
+    /// <summary>
+    /// Narrows the screen to the entries filed under one word, or widens it again. Several can be
+    /// chosen at once - see TaskItemFilter for what two of them mean together.
+    /// </summary>
+    [RelayCommand]
+    private void ToggleCategory(TaskCategoryChoice? category)
+    {
+        if (category is null)
+        {
+            return;
+        }
+
+        _itemFilter.Toggle(category.Name);
+        ShowArrangedLists();
+    }
+
+    /// <summary>Back to every list, whatever was being looked for.</summary>
+    [RelayCommand]
+    private void ClearItemFilter()
+    {
+        _itemFilter.Clear();
+        OnPropertyChanged(nameof(ItemSearch));
+        OnPropertyChanged(nameof(MatchesEveryCategory));
+        ShowArrangedLists();
+    }
+
+    private void ShowCategoriesInUse()
+    {
+        var counted = _stored
+            .SelectMany(taskList => taskList.Items)
+            .SelectMany(item => item.AllCategories)
+            .GroupBy(category => category, StringComparer.CurrentCultureIgnoreCase)
+            .Select(byCategory => new TaskCategoryChoice(
+                byCategory.Key, byCategory.Count(), _itemFilter.IsChosen(byCategory.Key)))
+            .OrderBy(category => category.Name, StringComparer.CurrentCultureIgnoreCase)
+            .ToList();
+
+        Categories.Clear();
+        foreach (var category in counted)
+        {
+            Categories.Add(category);
+        }
+
+        OnPropertyChanged(nameof(HasCategories));
     }
 
     /// <summary>

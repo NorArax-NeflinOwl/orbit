@@ -49,11 +49,11 @@ public sealed class TaskEditorLocationTests : OrbitTestContext
         ExpandTheOnlyItem(cut);
 
         Assert.DoesNotContain("Where this happens", cut.Markup);
-        Assert.DoesNotContain("Show map", cut.Markup);
+        Assert.Empty(MapButtonsIn(cut));
     }
 
     [Fact]
-    public void A_calendar_entry_can_be_typed_or_pointed_at()
+    public async Task A_calendar_entry_can_be_typed_or_pointed_at()
     {
         RegisterApiClients(Item("Dentist", kind: "Calendar"));
         var cut = Render();
@@ -61,46 +61,76 @@ public sealed class TaskEditorLocationTests : OrbitTestContext
         ExpandTheOnlyItem(cut);
 
         Assert.Contains("Where this happens", cut.Markup);
-        Assert.Contains("Show map", cut.Markup);
+        Assert.Single(MapButtonsIn(cut));
     }
 
     [Fact]
-    public void An_entry_tied_to_an_event_is_told_where_it_is_rather_than_asked()
+    public void An_entry_that_already_has_an_event_says_so_and_offers_to_let_go_of_it()
     {
+        // A calendar entry is the appointment now rather than a pointer at one, so it edits the event's
+        // own fields - the place included. What it gains is a way to stop being that event without the
+        // event being destroyed, which is what makes the refusal below fair.
         RegisterApiClients(Item("Dentist", kind: "Calendar", linkedCalendarEventId: EventId));
         var cut = Render();
 
         ExpandTheOnlyItem(cut);
 
-        Assert.Contains("Przychodnia, Długa 4", cut.Markup);
-        Assert.DoesNotContain("Where this happens", cut.Markup);
-        // Nothing to point at either: the event holds the place, and a second answer could drift.
-        Assert.DoesNotContain("Show map", cut.Markup);
+        Assert.Contains("has an event in the calendar", cut.Markup);
+        Assert.Contains("Detach from the event", cut.Markup);
+        Assert.Contains("Where this happens", cut.Markup);
     }
 
     [Fact]
-    public void The_map_opens_over_the_page_rather_than_inside_the_row()
+    public void An_entry_that_made_an_event_cannot_quietly_stop_being_one()
+    {
+        RegisterApiClients(Item("Dentist", kind: "Calendar", linkedCalendarEventId: EventId));
+        var cut = Render();
+        ExpandTheOnlyItem(cut);
+
+        cut.Find(".editor-item-details select").Change(nameof(Orbit.Core.Tasks.TaskItemKind.Checklist));
+        ClickButtonSaying(cut, "Save");
+
+        // Orbit cannot settle this on its own: deleting the event would throw away something that may
+        // since have been edited in the calendar, and keeping it leaves an appointment nothing points
+        // at. The save stops and hands the choice back.
+        Assert.Contains("already has an event in the calendar", cut.Markup);
+    }
+
+    [Fact]
+    public void Letting_go_of_the_event_lets_the_type_change_again()
+    {
+        RegisterApiClients(Item("Dentist", kind: "Calendar", linkedCalendarEventId: EventId));
+        var cut = Render();
+        ExpandTheOnlyItem(cut);
+
+        cut.FindAll("button").First(button => button.TextContent.Contains("Detach from the event")).Click();
+
+        Assert.DoesNotContain("Detach from the event", cut.Markup);
+    }
+
+    [Fact]
+    public async Task The_map_opens_over_the_page_rather_than_inside_the_row()
     {
         RegisterApiClients(Item("Dentist", kind: "Calendar"));
         var cut = Render();
         ExpandTheOnlyItem(cut);
 
-        ClickButtonSaying(cut, "Show map");
+        OpenTheMap(cut);
 
         Assert.Single(cut.FindAll(".map-overlay"));
-        Assert.Contains("Click the map to drop a pin.", cut.Markup);
+        Assert.Contains("Click the map to pick a place", cut.Markup);
     }
 
     [Fact]
-    public void A_confirmed_pin_fills_the_location_box_and_closes_the_map()
+    public async Task A_confirmed_pin_fills_the_location_box_and_closes_the_map()
     {
         RegisterApiClients(Item("Dentist", kind: "Calendar"));
         var cut = Render();
         ExpandTheOnlyItem(cut);
-        ClickButtonSaying(cut, "Show map");
+        OpenTheMap(cut);
 
         var overlay = cut.FindComponent<Web.Components.LocationPickerOverlay>();
-        cut.InvokeAsync(() => overlay.Instance.OnMapLocationPicked(52.2497, 21.0122)).GetAwaiter().GetResult();
+        await cut.InvokeAsync(() => overlay.Instance.OnMapLocationPicked(52.2497, 21.0122));
         cut.FindAll(".map-overlay-confirm button").First(button => button.TextContent.Contains("Yes")).Click();
 
         Assert.Empty(cut.FindAll(".map-overlay"));
@@ -108,16 +138,16 @@ public sealed class TaskEditorLocationTests : OrbitTestContext
     }
 
     [Fact]
-    public void Backing_out_of_the_map_leaves_what_was_already_typed()
+    public async Task Backing_out_of_the_map_leaves_what_was_already_typed()
     {
         // A stray click on a map must not rewrite an address somebody typed.
         RegisterApiClients(Item("Dentist", kind: "Calendar", location: "Przychodnia"));
         var cut = Render();
         ExpandTheOnlyItem(cut);
-        ClickButtonSaying(cut, "Show map");
+        OpenTheMap(cut);
 
         var overlay = cut.FindComponent<Web.Components.LocationPickerOverlay>();
-        cut.InvokeAsync(() => overlay.Instance.OnMapLocationPicked(52.2497, 21.0122)).GetAwaiter().GetResult();
+        await cut.InvokeAsync(() => overlay.Instance.OnMapLocationPicked(52.2497, 21.0122));
         cut.FindAll(".map-overlay-confirm button").First(button => button.TextContent.Contains("Cancel")).Click();
 
         Assert.Empty(cut.FindAll(".map-overlay"));
@@ -130,12 +160,28 @@ public sealed class TaskEditorLocationTests : OrbitTestContext
     private static void ExpandTheOnlyItem(IRenderedComponent<TaskEditor> cut)
         => cut.Find(".editor-item-toggle").Click();
 
+    /// <summary>The map button carries an icon rather than words, so it is found by what it is for.</summary>
+    private static void OpenTheMap(IRenderedComponent<TaskEditor> cut) => MapButtonsIn(cut).Single().Click();
+
+    private static IReadOnlyList<AngleSharp.Dom.IElement> MapButtonsIn(IRenderedComponent<TaskEditor> cut)
+        => [.. cut.FindAll("button").Where(button => button.GetAttribute("aria-label") == "Pick on map")];
+
     private static void ClickButtonSaying(IRenderedComponent<TaskEditor> cut, string label)
-        => cut.FindAll("button").First(button => button.TextContent.Contains(label, StringComparison.Ordinal)).Click();
+        => ButtonSaying(cut, label).Click();
+
+    /// <summary>
+    /// A button by what it says - its words, or the name it carries for a screen reader, since an
+    /// editor's Save and Cancel are icons now (see EditorRail.razor). The screen-reader name is looked
+    /// at first and matched whole: a page can hold both the editor's Save and a "Save settings" beside
+    /// something else, and by their words alone the wrong one answers to "Save".
+    /// </summary>
+    private static AngleSharp.Dom.IElement ButtonSaying(IRenderedFragment cut, string label)
+        => cut.FindAll("button").FirstOrDefault(button =>
+               string.Equals(button.GetAttribute("aria-label"), label, StringComparison.Ordinal))
+            ?? cut.FindAll("button").First(button => button.TextContent.Contains(label, StringComparison.Ordinal));
 
     private static AngleSharp.Dom.IElement LocationBoxOf(IRenderedComponent<TaskEditor> cut)
-        => cut.FindAll(".editor-item-details input")
-            .First(box => box.GetAttribute("placeholder") == "Where this happens");
+        => cut.Find(".event-fields-location");
 
     private static TaskItemDto Item(
         string description, string kind, string location = "", Guid? linkedCalendarEventId = null)
@@ -177,6 +223,14 @@ public sealed class TaskEditorLocationTests : OrbitTestContext
                 return new HttpResponseMessage(HttpStatusCode.NoContent);
             }
 
+            // The editor asks what shelf items this list's errands are about. None of these lists carry
+            // one, so the answer is empty - without this the fallback below hands back a task list,
+            // which is not what that route returns.
+            if (path.EndsWith("/inventory-references", StringComparison.Ordinal))
+            {
+                return Ok(Array.Empty<object>());
+            }
+
             // The editor takes the edit lock as it opens; nobody else holds it here.
             if (path.EndsWith("/lock", StringComparison.Ordinal))
             {
@@ -198,6 +252,9 @@ public sealed class TaskEditorLocationTests : OrbitTestContext
         Services.AddSingleton(new CalendarApiClient(httpClient));
         Services.AddSingleton(new NotificationsApiClient(httpClient));
         Services.AddSingleton(new PublicShareApiClient(httpClient));
+        // The editor reads the shelf behind any inventory errand on the list - see
+        // TaskEditor.LoadInventoryFieldsAsync. These lists carry none, so it is asked and answers nothing.
+        Services.AddSingleton(new InventoryApiClient(httpClient));
         RegisterGeocoding();
     }
 

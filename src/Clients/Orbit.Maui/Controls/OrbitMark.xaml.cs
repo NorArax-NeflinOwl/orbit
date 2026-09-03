@@ -3,20 +3,18 @@ namespace Orbit.Maui.Controls;
 /// <summary>
 /// Orbit's mark, at whatever size the caller asks for.
 ///
-/// The proportions are taken from Orbit.Web's sidebar logo, where the drawing sits on a 26-unit canvas:
-/// a ring 22 across and 11 tall, tilted, with a 6-unit body at its centre. Kept as ratios so one
-/// drawing serves a navigation bar and a sign-in screen without either being a second copy that can
-/// drift.
+/// The drawing is Orbit.Web's, unit for unit: a 26-unit canvas, a ring 22 across and 11 tall tilted
+/// about its centre, and a 6-unit body at that same centre. Asking for a different size scales the
+/// whole canvas rather than resizing each shape, which is what an SVG's viewBox does and what keeps the
+/// stroke in proportion with everything else.
 /// </summary>
 public partial class OrbitMark : ContentView
 {
-	private const double RingWidthRatio = 22.0 / 26.0;
-	private const double RingHeightRatio = 11.0 / 26.0;
-	private const double RingStrokeRatio = 1.6 / 26.0;
-	private const double BodyRatio = 6.0 / 26.0;
+	/// <summary>The canvas the drawing is laid out on - Orbit.Web's viewBox, and its unit.</summary>
+	private const double CanvasSize = 26.0;
 
 	public static readonly BindableProperty MarkSizeProperty = BindableProperty.Create(
-		nameof(MarkSize), typeof(double), typeof(OrbitMark), 26.0, propertyChanged: OnMarkSizeChanged);
+		nameof(MarkSize), typeof(double), typeof(OrbitMark), CanvasSize, propertyChanged: OnMarkSizeChanged);
 
 	public OrbitMark()
 	{
@@ -24,7 +22,7 @@ public partial class OrbitMark : ContentView
 		Draw();
 	}
 
-	/// <summary>The width of the whole mark. Everything else is a fixed fraction of it.</summary>
+	/// <summary>How wide the finished mark should be. The canvas is scaled to it.</summary>
 	public double MarkSize
 	{
 		get => (double)GetValue(MarkSizeProperty);
@@ -34,12 +32,15 @@ public partial class OrbitMark : ContentView
 	private static void OnMarkSizeChanged(BindableObject bindable, object oldValue, object newValue)
 		=> ((OrbitMark)bindable).Draw();
 
+	/// <summary>
+	/// Scaling the canvas rather than the shapes on it. The control asks its parent for the finished
+	/// size, because scaling is a render transform and layout would otherwise reserve the canvas's own
+	/// 26 units however large the mark is drawn.
+	/// </summary>
 	private void Draw()
 	{
-		Ring.WidthRequest = MarkSize * RingWidthRatio;
-		Ring.HeightRequest = MarkSize * RingHeightRatio;
-		Ring.StrokeThickness = MarkSize * RingStrokeRatio;
-		Body.WidthRequest = MarkSize * BodyRatio;
-		Body.HeightRequest = MarkSize * BodyRatio;
+		WidthRequest = MarkSize;
+		HeightRequest = MarkSize;
+		Canvas.Scale = MarkSize / CanvasSize;
 	}
 }

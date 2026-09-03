@@ -1,0 +1,158 @@
+@implements IAsyncDisposable
+@using Orbit.Contracts.Suggestions
+@using Orbit.Core.Suggestions
+@using Orbit.Web.Services
+@inject NameSuggestionsApiClient NameSuggestionsApiClient
+@inject Translations T
+
+@* Names the reader already has, under the field they are typing into. Two things at once, told apart by
+   how close the match is: a completion to save typing, and - when what they are typing is nearly a name
+   they already use - a warning that they are about to create the same thing twice.
+
+   Deliberately not a language model: this is a similarity search over the reader's own rows, which the
+   database answers in milliseconds for nothing, and answers better - a model does not know what is
+   already in this warehouse. See Orbit.Core.Suggestions.GetNameSuggestions. *@
+@if (_suggestions.Count > 0)
+{
+    <div class="name-suggestions">
+        @if (_duplicate is { } duplicate)
+        {
+            <span class="name-suggestion-warning">@T.Format("You already have \"{0}\".", duplicate.Name)</span>
+        }
+        @foreach (var suggestion in _suggestions)
+        {
+            <button type="button" class="reference-chip" @onclick="() => ChooseAsync(suggestion)">@suggestion.Name</button>
+        }
+    </div>
+}
+
+@code {
+    /// <summary>Which field this is under, and so which names are offered - see NameSuggestionKind.</summary>
+    [Parameter, EditorRequired] public NameSuggestionKind Kind { get; set; }
+
+    /// <summary>What is in the field right now.</summary>
+    [Parameter, EditorRequired] public string Value { get; set; } = string.Empty;
+
+    /// <summary>Raised when one of the offered names is picked, so the field can take it.</summary>
+    [Parameter] public EventCallback<string> OnChosen { get; set; }
+
+    /// <summary>
+    /// How long to wait after the last keystroke. Long enough that typing a word is one lookup rather
+    /// than eight, short enough that the list is there by the time somebody stops to look at it.
+    /// </summary>
+    private static readonly TimeSpan SettleDelay = TimeSpan.FromMilliseconds(150);
+
+    /// <summary>Above this the two names are the same thing spelled differently - see the query handler.</summary>
+    private const double DuplicateSimilarity = 0.6;
+
+    /// <summary>Below this everything looks similar to everything - the rule GetNameSuggestionsQueryHandler applies too.</summary>
+    private const int ShortestUsefulQuery = 2;
+
+    private IReadOnlyList<NameSuggestionDto> _suggestions = [];
+    private string _lastLookedUp = string.Empty;
+    private CancellationTokenSource? _pending;
+
+    /// <summary>
+    /// Set once this control is going away, so a lookup that was already in flight does not try to draw
+    /// into a component that no longer exists.
+    /// </summary>
+    private bool _isGone;
+
+    /// <summary>Whether this control has been shown a value before - see OnParametersSet.</summary>
+    private bool _hasSeenAValue;
+
+    /// <summary>The offered name close enough to be the same thing, if there is one - said out loud rather than left to be spotted.</summary>
+    private NameSuggestionDto? _duplicate
+        => _suggestions.FirstOrDefault(suggestion => suggestion.Similarity >= DuplicateSimilarity);
+
+    protected override void OnParametersSet()
+    {
+        var typed = Value.Trim();
+        if (typed == _lastLookedUp)
+        {
+            return;
+        }
+
+        _lastLookedUp = typed;
+
+        // Nothing on the first sight of a value. Suggestions are about what somebody is typing, not about
+        // what is already saved: opening an editor holding thirty items would otherwise fire thirty
+        // lookups for names nobody is editing.
+        if (!_hasSeenAValue)
+        {
+            _hasSeenAValue = true;
+            return;
+        }
+
+        // Too short to mean anything, and this is the rule the server applies too - asking would be a
+        // request whose answer is known to be empty.
+        if (typed.Length < ShortestUsefulQuery)
+        {
+            _suggestions = [];
+            return;
+        }
+
+        // Deliberately not awaited: this waits out a pause in typing, and a lifecycle method that
+        // blocked for it would stop the field redrawing the character that was just typed.
+        _ = LookUpAsync(typed);
+    }
+
+    /// <summary>
+    /// One lookup per pause in typing. The previous one is cancelled rather than awaited: its answer is
+    /// about a word that no longer exists, and letting it land would replace the current list with a
+    /// stale one.
+    /// </summary>
+    private async Task LookUpAsync(string typed)
+    {
+        if (_pending is { } inFlight)
+        {
+            await inFlight.CancelAsync();
+            inFlight.Dispose();
+        }
+
+        _pending = new CancellationTokenSource();
+        var cancellationToken = _pending.Token;
+
+        try
+        {
+            await Task.Delay(SettleDelay, cancellationToken);
+            var found = await NameSuggestionsApiClient.FindAsync(Kind, typed, cancellationToken);
+            if (cancellationToken.IsCancellationRequested || _isGone)
+            {
+                return;
+            }
+
+            // Through InvokeAsync, not straight: this continuation is on a thread pool thread by now,
+            // and telling a component to redraw from off the renderer's dispatcher corrupts the render
+            // tree rather than failing cleanly - which showed up as an unrelated page saving nothing.
+            await InvokeAsync(() =>
+            {
+                _suggestions = found;
+                StateHasChanged();
+            });
+        }
+        catch (OperationCanceledException)
+        {
+            // Another keystroke arrived, which is the ordinary case.
+        }
+    }
+
+    private async Task ChooseAsync(NameSuggestionDto suggestion)
+    {
+        // Cleared before the callback: the field is about to hold exactly what was offered, and offering
+        // it again under itself reads as the suggestion not having been taken.
+        _suggestions = [];
+        _lastLookedUp = suggestion.Name.Trim();
+        await OnChosen.InvokeAsync(suggestion.Name);
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        _isGone = true;
+        if (_pending is { } pending)
+        {
+            await pending.CancelAsync();
+            pending.Dispose();
+        }
+    }
+}

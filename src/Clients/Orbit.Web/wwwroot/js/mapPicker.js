@@ -29,15 +29,12 @@ export function initializeMapPicker(elementId, dotNetHelper, initialLatitude, in
     }
 
     map.on('click', event => {
-        const marker = markersByElementId.get(elementId);
-        if (marker) {
-            marker.setLatLng(event.latlng);
-        } else {
-            markersByElementId.set(elementId, L.marker(event.latlng).addTo(map));
-        }
+        // The pin is deliberately not moved here. A map is dragged and zoomed by pressing it, so a
+        // press is easy to make by accident, and one that moved the pin rewrote where something happens
+        // before anybody had agreed to it. What a press does is ask - see LocationPickerOverlay, which
+        // moves the pin itself once the question below it is answered.
 
-        // The marker stays where the click landed, but the coordinates reported to .NET are wrapped
-        // first: the tile layer repeats the world horizontally, and Leaflet keeps panning past the
+        // The coordinates reported to .NET are wrapped first: the tile layer repeats the world horizontally, and Leaflet keeps panning past the
         // antimeridian in the same continuous coordinate space rather than wrapping - a click two
         // worlds east of Warsaw arrives here as longitude 741, not 21. CalendarEvent rejects anything
         // outside -180..180, so sending it unwrapped turned an ordinary map click into a failed save.

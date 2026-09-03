@@ -429,6 +429,39 @@ public sealed partial class DashboardViewModel : ObservableObject
         HasNothing = Cards.Count == 0;
     }
 
+    /// <summary>
+    /// Opens the section a card is a way into, which is what its heading is for - the dashboard shows
+    /// the few most relevant rows and the section itself has the rest. The same destinations Orbit.Web's
+    /// card headings lead to; the two chat cards both lead to Contacts there, because that page holds
+    /// the chats and the directory as tabs.
+    /// </summary>
+    [RelayCommand]
+    private void OpenSection(DashboardCard? card)
+    {
+        switch (card?.Kind)
+        {
+            case DashboardCardKind.Notes:
+                _navigator.ShowNotes();
+                break;
+            case DashboardCardKind.Tasks:
+                _navigator.ShowTasks();
+                break;
+            case DashboardCardKind.Upcoming:
+                _navigator.ShowCalendar();
+                break;
+            case DashboardCardKind.Groups:
+                _navigator.ShowGroups();
+                break;
+            case DashboardCardKind.RecentChats:
+            case DashboardCardKind.Contacts:
+                _navigator.ShowContacts();
+                break;
+            case DashboardCardKind.SharedLocations:
+                _navigator.ShowMap();
+                break;
+        }
+    }
+
     /// <summary>Keeps a card at the top of this page on this device, or lets it back down.</summary>
     [RelayCommand]
     private void TogglePin(DashboardCard? card)
@@ -492,7 +525,7 @@ public sealed partial class DashboardViewModel : ObservableObject
             .OrderByDescending(note => note.UpdatedAtUtc)
             .Take(RowsPerCard)
             .Select(note => new DashboardRow(
-                note.LocalId, TitleOrPlaceholder(note.Title, _translations["Untitled"]), Ago(note.UpdatedAtUtc))
+                note.LocalId, NameOf(note.IsSealed, note.Title, _translations["Untitled"]), Ago(note.UpdatedAtUtc))
             {
                 // Badged like a task list, and like the same row on Orbit.Web - only where it says
                 // something, which is never for the Normal most notes are.
@@ -510,7 +543,7 @@ public sealed partial class DashboardViewModel : ObservableObject
             .Take(RowsPerCard)
             .Select(list => new DashboardRow(
                 list.LocalId,
-                TitleOrPlaceholder(list.Title, _translations["Untitled list"]),
+                NameOf(list.IsSealed, _translations.Written(list.Title), _translations["Untitled list"]),
                 DescribeProgress(list))
             {
                 HasProgress = list.Items.Count > 0,
@@ -644,4 +677,12 @@ public sealed partial class DashboardViewModel : ObservableObject
 
     private string TitleOrPlaceholder(string title, string placeholder)
         => title.Trim() is { Length: > 0 } trimmed ? trimmed : placeholder;
+
+    /// <summary>
+    /// What to call something the reader may not be able to read. A sealed item has no title to show -
+    /// it is sealed with the rest of it - and calling it "Untitled" would claim it has none, which is a
+    /// different thing entirely.
+    /// </summary>
+    private string NameOf(bool isSealed, string title, string placeholder)
+        => isSealed ? _translations["Private"] : TitleOrPlaceholder(title, placeholder);
 }

@@ -19,8 +19,18 @@ public static class StockRequirementCounter
     /// shortfall for something nobody is about to start, and send a restock task out early.
     /// </summary>
     public static TaskListStockCheck Count(
-        IEnumerable<TaskItem> items, IEnumerable<InventoryItem> stock, DateTimeOffset nowUtc)
-        => Measure(items.Where(item => !IsNotDueYet(item, nowUtc)), stock);
+        IEnumerable<TaskItem> items, IEnumerable<InventoryItem> stock, DateTimeOffset nowUtc,
+        IReadOnlyDictionary<string, decimal>? alsoAskedFor = null)
+        => Measure(items.Where(item => !IsNotDueYet(item, nowUtc)), stock, alsoAskedFor);
+
+    /// <summary>
+    /// What <paramref name="items"/> call for, by name, with nothing measured against it. This is one
+    /// list's half of a shelf several lists share - see <see cref="Count"/>'s alsoAskedFor.
+    /// </summary>
+    public static IReadOnlyDictionary<string, decimal> DemandOf(
+        IEnumerable<TaskItem> items, DateTimeOffset nowUtc)
+        => Measure(items.Where(item => !IsNotDueYet(item, nowUtc)), [], alsoAskedFor: null).Requirements
+            .ToDictionary(requirement => Normalize(requirement.Name), requirement => requirement.Required);
 
     /// <summary>
     /// What the work calls for in total, whenever each piece of it falls due, against an empty shelf.
@@ -28,9 +38,11 @@ public static class StockRequirementCounter
     /// while <see cref="Count"/> answers whether the job can be started today.
     /// </summary>
     public static TaskListStockCheck CountRegardlessOfDueDate(IEnumerable<TaskItem> items)
-        => Measure(items, []);
+        => Measure(items, [], alsoAskedFor: null);
 
-    private static TaskListStockCheck Measure(IEnumerable<TaskItem> items, IEnumerable<InventoryItem> stock)
+    private static TaskListStockCheck Measure(
+        IEnumerable<TaskItem> items, IEnumerable<InventoryItem> stock,
+        IReadOnlyDictionary<string, decimal>? alsoAskedFor)
     {
         var available = stock
             .GroupBy(item => Normalize(item.Name))
@@ -44,7 +56,7 @@ public static class StockRequirementCounter
 
         foreach (var item in items)
         {
-            if (item.LinkedTaskListId is not null)
+            if (item.IsALinkToOtherLists)
             {
                 continue;
             }
@@ -74,7 +86,26 @@ public static class StockRequirementCounter
 
         return new TaskListStockCheck(
             [.. namesInOrder.Select(key => new StockRequirement(
-                displayNames[key], required[key], available.GetValueOrDefault(key), done[key]))]);
+                displayNames[key],
+                required[key],
+                ShareOfTheShelf(available.GetValueOrDefault(key), required[key], alsoAskedFor?.GetValueOrDefault(key) ?? 0),
+                done[key]))]);
+    }
+
+    /// <summary>
+    /// How much of what is on the shelf is this list's, when other lists are measured against the same
+    /// warehouse. Split in proportion to what each asks for: a shelf holding one of something that two
+    /// lists each want two of leaves both of them short by one and a half, rather than telling each of
+    /// them the whole one is theirs. With nothing else asking, this is simply what is on the shelf.
+    /// </summary>
+    private static decimal ShareOfTheShelf(decimal onTheShelf, decimal required, decimal askedForElsewhere)
+    {
+        if (askedForElsewhere <= 0 || required <= 0)
+        {
+            return onTheShelf;
+        }
+
+        return onTheShelf * required / (required + askedForElsewhere);
     }
 
     /// <summary>

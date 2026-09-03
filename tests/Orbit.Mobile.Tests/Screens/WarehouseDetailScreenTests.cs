@@ -3,11 +3,14 @@ using Microsoft.Extensions.Time.Testing;
 using Orbit.Core.Inventory;
 using Orbit.Contracts.Inventory;
 using Orbit.Mobile.Api;
+using Orbit.Mobile.Crypto;
 using Orbit.Mobile.Data;
 using Orbit.Mobile.Localization;
 using Orbit.Mobile.Screens.Inventory;
 using Orbit.Mobile.Screens;
 using Orbit.Mobile.Sync;
+using Orbit.Contracts.Suggestions;
+using Orbit.Core.Suggestions;
 using Orbit.Mobile.Tests.TestDoubles;
 using Xunit;
 using Orbit.Mobile.Chat;
@@ -21,6 +24,100 @@ namespace Orbit.Mobile.Tests.Screens;
 /// </summary>
 public sealed class WarehouseDetailScreenTests
 {
+    /// <summary>
+    /// A row is a batch rather than a product: two rows of one name are two deliveries of it, and when
+    /// each arrived is what tells them apart. The browser's shelf says it; the phone showed three of the
+    /// four things a shelf answers and left this one out.
+    /// </summary>
+    [Fact]
+    public async Task A_row_says_when_its_batch_arrived()
+    {
+        using var context = new ScreenContext();
+        var warehouse = await context.PullWarehouseAsync("Pantry", "Flour");
+
+        var screen = await context.OpenAsync(warehouse.LocalId);
+
+        var row = Assert.Single(screen.Items);
+        Assert.True(row.HasArrived);
+        Assert.Contains("27", row.Arrived);
+    }
+
+    /// <summary>
+    /// And says nothing about it for a row this phone queued and no server has accepted: nothing has
+    /// taken delivery of it, so a date here would be the phone answering a question it was not asked.
+    /// </summary>
+    [Fact]
+    public async Task A_row_no_server_has_taken_yet_says_nothing_about_arriving()
+    {
+        using var context = new ScreenContext();
+        var warehouse = await context.AddWarehouseAsync("Pantry");
+        var screen = await context.OpenAsync(warehouse.LocalId);
+
+        screen.NewItemName = "Flour";
+        await screen.AddItemCommand.ExecuteAsync(null);
+
+        Assert.False(Assert.Single(screen.Items).HasArrived);
+    }
+
+    /// <summary>
+    /// A shelf opened from somewhere that meant one product - an errand naming it, or a search that
+    /// found it - marks that row. Sixty rows and no sign of which one was meant is half an answer, and
+    /// Orbit.Web's own shelf marks the row its ?highlight= names.
+    /// </summary>
+    [Fact]
+    public async Task A_shelf_opened_for_one_product_marks_that_row()
+    {
+        using var context = new ScreenContext();
+        var flour = Guid.NewGuid();
+        var warehouse = await context.AddWarehouseAsync(
+            new WarehouseItemDto(Guid.NewGuid(), "Coffee", "", "", 2, null, nameof(InventoryUnit.Piece), null, "None"),
+            new WarehouseItemDto(flour, "Flour", "", "", 1, null, nameof(InventoryUnit.Kilogram), null, "None"));
+
+        var screen = await context.OpenAsync(warehouse.LocalId, flour);
+
+        var marked = Assert.Single(screen.Items, row => row.IsPointedAt);
+        Assert.Equal("Flour", marked.Name);
+        Assert.Equal(marked, screen.PointedAtRow);
+        // A colour says nothing to somebody who cannot see it, so the row says it in words as well.
+        Assert.NotEqual(marked.Name, marked.NameForAReader);
+    }
+
+    /// <summary>A shelf opened for its own sake marks nothing - there is nothing it was opened about.</summary>
+    [Fact]
+    public async Task A_shelf_opened_for_its_own_sake_marks_nothing()
+    {
+        using var context = new ScreenContext();
+        var warehouse = await context.AddWarehouseAsync(
+            new WarehouseItemDto(Guid.NewGuid(), "Coffee", "", "", 2, null, nameof(InventoryUnit.Piece), null, "None"));
+
+        var screen = await context.OpenAsync(warehouse.LocalId);
+
+        Assert.All(screen.Items, row => Assert.False(row.IsPointedAt));
+        Assert.Null(screen.PointedAtRow);
+    }
+
+    /// <summary>
+    /// The mark outlives a filter, the way the browser's ?highlight= outlives one: narrowing the shelf
+    /// and widening it again should find the row still marked, not quietly forgotten.
+    /// </summary>
+    [Fact]
+    public async Task Narrowing_the_shelf_and_widening_it_again_keeps_the_mark()
+    {
+        using var context = new ScreenContext();
+        var flour = Guid.NewGuid();
+        var warehouse = await context.AddWarehouseAsync(
+            new WarehouseItemDto(Guid.NewGuid(), "Coffee", "", "", 2, null, nameof(InventoryUnit.Piece), null, "None"),
+            new WarehouseItemDto(flour, "Flour", "", "", 1, null, nameof(InventoryUnit.Kilogram), null, "None"));
+        var screen = await context.OpenAsync(warehouse.LocalId, flour);
+
+        screen.SearchedName = "coffee";
+        Assert.Null(screen.PointedAtRow);
+
+        screen.SearchedName = string.Empty;
+
+        Assert.Equal("Flour", screen.PointedAtRow?.Name);
+    }
+
     [Fact]
     public async Task An_items_kind_and_minimum_are_shown()
     {
@@ -34,6 +131,54 @@ public sealed class WarehouseDetailScreenTests
         Assert.Contains("Bag", row.Detail);
         Assert.Contains("Kitchen", row.Detail);
         Assert.Contains("5", row.Detail);
+    }
+
+    /// <summary>
+    /// Orbit.Web offers names under all four fields; the phone only had the two item ones, so the
+    /// warehouse's own name was a place a reader could quietly make the same storage twice.
+    /// </summary>
+    [Fact]
+    public async Task Warehouse_names_already_in_use_are_offered_under_the_name()
+    {
+        using var context = new ScreenContext();
+        context.SuggestionsServer.Names.Add(new NameSuggestionDto("Kitchen, upstairs", 0.4));
+        var warehouse = await context.AddWarehouseAsync();
+        var screen = await context.OpenAsync(warehouse.LocalId);
+
+        screen.Name = "Kitc";
+
+        await WaitUntil(() => screen.WarehouseNameSuggestions.Names.Count > 0);
+        Assert.Equal(["Kitchen, upstairs"], screen.WarehouseNameSuggestions.Names);
+        Assert.Equal(nameof(NameSuggestionKind.WarehouseName), context.SuggestionsServer.LastKind);
+        Assert.Empty(screen.Suggestions.Names);
+    }
+
+    /// <summary>Opening a warehouse must not warn that its own name duplicates itself.</summary>
+    [Fact]
+    public async Task Opening_a_warehouse_does_not_call_its_own_name_a_duplicate()
+    {
+        using var context = new ScreenContext();
+        context.SuggestionsServer.Names.Add(new NameSuggestionDto("Kitchen", 0.9));
+        var warehouse = await context.AddWarehouseAsync();
+
+        var screen = await context.OpenAsync(warehouse.LocalId);
+
+        await Task.Delay(SettleTime);
+        Assert.Empty(screen.WarehouseNameSuggestions.Names);
+        Assert.Equal(string.Empty, screen.WarehouseNameSuggestions.DuplicateWarning);
+    }
+
+    /// <summary>Comfortably past the 150ms the lookup waits for the typing to stop.</summary>
+    private static readonly TimeSpan SettleTime = TimeSpan.FromMilliseconds(600);
+
+    private static async Task WaitUntil(Func<bool> condition)
+    {
+        for (var attempt = 0; attempt < 40 && !condition(); attempt++)
+        {
+            await Task.Delay(50);
+        }
+
+        Assert.True(condition(), "The suggestions never arrived.");
     }
 
     /// <summary>The whole reason to set a minimum, and the same test Orbit.Web's editor makes.</summary>
@@ -76,15 +221,80 @@ public sealed class WarehouseDetailScreenTests
         screen.BeingEdited!.ProductType = "Bag";
         screen.BeingEdited.Category = "Kitchen";
         screen.BeingEdited.MinimumQuantity = "5";
-        screen.BeingEdited.Expires = true;
-        screen.BeingEdited.ExpiryDate = new DateTime(2027, 3, 1);
+        // Asked as how long it keeps rather than the day it stops - see ExpiryPeriod.
+        screen.BeingEdited.ChosenExpiryUnit = ExpiryUnitChoice.For(screen.BeingEdited.ExpiryUnits, ExpiryUnit.Weeks);
+        screen.BeingEdited.ExpiresIn = "2";
         await screen.SaveItemCommand.ExecuteAsync(null);
 
         var row = Assert.Single(screen.Items);
         Assert.Equal("Bag", row.Item.ProductType);
         Assert.Equal("Kitchen", row.Item.Category);
         Assert.Equal(5, row.Item.MinimumQuantity);
-        Assert.Equal(new DateTime(2027, 3, 1), row.Item.ExpiryDate!.Value.LocalDateTime.Date);
+        Assert.Equal(DateTime.Today.AddDays(14), row.Item.ExpiryDate!.Value.LocalDateTime.Date);
+    }
+
+    /// <summary>
+    /// What the warehouse holds, under its name - the same field a task list gained, and for the same
+    /// reason: it is the rest of the sentence the name starts. A private one keeps none.
+    /// </summary>
+    [Fact]
+    public async Task A_warehouse_can_say_what_it_is_for()
+    {
+        using var context = new ScreenContext();
+        var warehouse = await context.AddWarehouseAsync();
+        var screen = await context.OpenAsync(warehouse.LocalId);
+
+        screen.Description = "Dry goods, and the freezer in the garage.";
+        // <inheritdoc cref="TaskListDetailScreenTests" /> - leaving the box is what saves it.
+        await screen.CommitDescriptionCommand.ExecuteAsync(null);
+
+        Assert.Equal("Dry goods, and the freezer in the garage.", context.Stored().Description);
+    }
+
+    /// <summary>
+    /// A different question from the minimum: that one asks when there is too little of something, this
+    /// one asks for it every round however much there is - see InventoryItem.BelongsOnTheRestockList.
+    /// Added to the web on 2026-09-01; the phone could neither see nor set it.
+    /// </summary>
+    [Fact]
+    public async Task An_item_can_be_asked_for_every_round()
+    {
+        using var context = new ScreenContext();
+        var warehouse = await context.AddWarehouseAsync(
+            new WarehouseItemDto(Guid.NewGuid(), "Coffee", "Piece", "General", 1, null, nameof(InventoryUnit.Piece), null, "None"));
+        var screen = await context.OpenAsync(warehouse.LocalId);
+
+        screen.EditItemCommand.Execute(screen.Items[0]);
+        Assert.False(screen.BeingEdited!.IsCheckedRegularly);
+
+        screen.BeingEdited.IsCheckedRegularly = true;
+        await screen.SaveItemCommand.ExecuteAsync(null);
+
+        Assert.True(Assert.Single(screen.Items).Item.IsCheckedRegularly);
+    }
+
+    /// <summary>
+    /// Null on the way in means "not provided" and keeps what is stored, so a save from a screen that
+    /// says nothing cannot turn the flag off. The phone therefore always says which it is - otherwise
+    /// somebody switching it off here would have been ignored.
+    /// </summary>
+    [Fact]
+    public async Task Turning_it_off_is_said_rather_than_left_unsaid()
+    {
+        using var context = new ScreenContext();
+        var warehouse = await context.AddWarehouseAsync(
+            new WarehouseItemDto(
+                Guid.NewGuid(), "Coffee", "Piece", "General", 1, null, nameof(InventoryUnit.Piece), null, "None",
+                IsCheckedRegularly: true));
+        var screen = await context.OpenAsync(warehouse.LocalId);
+
+        screen.EditItemCommand.Execute(screen.Items[0]);
+        Assert.True(screen.BeingEdited!.IsCheckedRegularly);
+
+        screen.BeingEdited.IsCheckedRegularly = false;
+        await screen.SaveItemCommand.ExecuteAsync(null);
+
+        Assert.False(Assert.Single(screen.Items).Item.IsCheckedRegularly);
     }
 
     /// <summary>
@@ -410,11 +620,11 @@ public sealed class WarehouseDetailScreenTests
     }
 
     /// <summary>
-    /// A private shelf arrives sealed and this phone has no key for it. Saving one sends a private
-    /// warehouse with no ciphertext, which the server refuses - see the same guard on the task list.
+    /// A private shelf this device cannot open. Saving it would replace the sealed warehouse with the
+    /// empty one on screen - see the same guard on the task list.
     /// </summary>
     [Fact]
-    public async Task A_private_warehouse_is_read_only_here()
+    public async Task A_private_warehouse_this_device_cannot_open_is_read_only_here()
     {
         using var context = new ScreenContext();
 
@@ -424,6 +634,58 @@ public sealed class WarehouseDetailScreenTests
         Assert.False(screen.CanEdit);
         Assert.NotEmpty(screen.ReadOnlyReason);
     }
+
+    [Fact]
+    public async Task Making_a_warehouse_private_seals_it_and_leaves_the_readable_columns_empty()
+    {
+        using var context = new ScreenContext(PrivateContent.HoldingAKeyFor(Owner));
+        var warehouse = await context.AddWarehouseAsync(Product("Coffee"));
+        var screen = await context.OpenAsync(warehouse.LocalId);
+
+        screen.IsPrivate = true;
+        await screen.RenameCommand.ExecuteAsync(null);
+
+        var stored = context.Stored();
+        Assert.True(stored.IsPrivate);
+        Assert.Equal(string.Empty, stored.Name);
+        Assert.Empty(stored.Items);
+        Assert.NotNull(stored.EncryptedContent);
+    }
+
+    [Fact]
+    public async Task A_warehouse_this_device_sealed_opens_again_with_its_shelf_back()
+    {
+        using var context = new ScreenContext(PrivateContent.HoldingAKeyFor(Owner));
+        var warehouse = await context.AddWarehouseAsync(Product("Coffee"));
+        var screen = await context.OpenAsync(warehouse.LocalId);
+        screen.IsPrivate = true;
+        await screen.RenameCommand.ExecuteAsync(null);
+
+        var reopened = await context.OpenAsync(warehouse.LocalId);
+
+        Assert.False(reopened.IsReadOnly);
+        Assert.True(reopened.IsPrivate);
+        Assert.Equal(["Coffee"], reopened.Items.Select(row => row.Name));
+        Assert.False(reopened.Share.CanShare);
+    }
+
+    /// <inheritdoc cref="NoteDetailScreenTests"/>
+    [Fact]
+    public async Task Making_a_warehouse_private_without_a_key_asks_for_it_rather_than_saving()
+    {
+        using var context = new ScreenContext(PrivateContent.SignedInWithoutAKey(Owner));
+        var warehouse = await context.AddWarehouseAsync(Product("Coffee"));
+        var screen = await context.OpenAsync(warehouse.LocalId);
+
+        screen.IsPrivate = true;
+        await screen.RenameCommand.ExecuteAsync(null);
+
+        Assert.Contains(nameof(IScreenNavigator.ShowChatKeyGate), context.Navigator.Destinations);
+        Assert.False(context.Stored().IsPrivate);
+    }
+
+    /// <summary>Whoever is signed in - only its identity matters, as the key is kept per account.</summary>
+    private static readonly Guid Owner = Guid.Parse("11111111-0000-4000-8000-000000000001");
 
     private static WarehouseItemDto Product(string name, string category = "General")
         => new(Guid.NewGuid(), name, "Bag", category, 1, null, nameof(InventoryUnit.Piece), null, "None");
@@ -478,7 +740,7 @@ public sealed class WarehouseDetailScreenTests
         var screen = await context.OpenAsync(warehouse.LocalId);
 
         screen.EditItemCommand.Execute(screen.Items[0]);
-        screen.BeingEdited!.Expires = false;
+        screen.BeingEdited!.ChosenExpiryUnit = ExpiryUnitChoice.For(screen.BeingEdited.ExpiryUnits, ExpiryUnit.None);
         await screen.SaveItemCommand.ExecuteAsync(null);
 
         Assert.Null(Assert.Single(screen.Items).Item.ExpiryDate);
@@ -538,11 +800,13 @@ public sealed class WarehouseDetailScreenTests
         private readonly FakeTimeProvider _clock = new(DateTimeOffset.Parse("2026-08-27T10:00:00Z"));
         private readonly LocalWarehouseRepository _warehouses;
         private readonly WarehouseSynchronizer _synchronizer;
+        private readonly PrivateContentSealer _privateContent;
 
-        public ScreenContext()
+        public ScreenContext(PrivateContentSealer? privateContent = null)
         {
+            _privateContent = privateContent ?? PrivateContent.WithoutAKey();
             Server = new FakeInventoryServer(_clock);
-            _warehouses = new LocalWarehouseRepository(_localStore, _clock, FixedNetworkStatus.Online);
+            _warehouses = new LocalWarehouseRepository(_localStore, _clock, FixedNetworkStatus.Online, _privateContent);
             _synchronizer = new WarehouseSynchronizer(
                 _localStore, new InventoryClient(Server.ToHttpClient()), _clock, new SyncGate(),
                 NullLogger<WarehouseSynchronizer>.Instance);
@@ -552,9 +816,37 @@ public sealed class WarehouseDetailScreenTests
 
         public RecordingScreenNavigator Navigator { get; } = new();
 
+        /// <summary>What this account has already named - see NameSuggestions. Empty unless a test fills it.</summary>
+        public FakeSuggestionsServer SuggestionsServer { get; } = new();
+
         /// <summary>A warehouse is created empty, so its items are put in by the same update a screen makes.</summary>
         public Task<LocalWarehouse> AddWarehouseAsync(string name)
             => _warehouses.CreateAsync(name);
+
+        /// <summary>
+        /// A shelf as it comes down from a server, which is the only way a batch's arrival is known -
+        /// see LocalWarehouse.ItemArrivals.
+        /// </summary>
+        public async Task<LocalWarehouse> PullWarehouseAsync(string name, params string[] productNames)
+        {
+            var remote = Server.AddWarehouse(name);
+            foreach (var productName in productNames)
+            {
+                Server.AddItem(remote.Id, productName, quantity: 1);
+            }
+
+            await _synchronizer.SynchroniseAsync(CancellationToken.None);
+            return (await _warehouses.GetAllAsync()).Single(warehouse => warehouse.ServerId == remote.Id);
+        }
+
+        /// <summary>
+        /// The one row as it really sits in the database, rather than as a read hands it back opened.
+        /// </summary>
+        public LocalWarehouse Stored()
+        {
+            using var dbContext = _localStore.CreateDbContext();
+            return dbContext.Warehouses.Single();
+        }
 
         /// <summary>What the local store holds now - for the one test that expects it to hold nothing.</summary>
         public async Task<IReadOnlyList<LocalWarehouse>> StoredWarehousesAsync()
@@ -576,19 +868,29 @@ public sealed class WarehouseDetailScreenTests
         public async Task<LocalWarehouse> AddWarehouseAsync(params WarehouseItemDto[] items)
         {
             var warehouse = await _warehouses.CreateAsync("Kitchen");
-            await _warehouses.UpdateAsync(warehouse.LocalId, warehouse.Name, items);
+            await _warehouses.UpdateAsync(warehouse.LocalId, new WarehouseContent(warehouse.Name, items));
             return warehouse;
         }
 
-        public async Task<WarehouseDetailViewModel> OpenAsync(Guid localId)
+        /// <summary>Whether the phone has a connection, which is what the offline refusal turns on.</summary>
+        public FixedNetworkStatus Network { get; } = FixedNetworkStatus.Online;
+
+        public Task<WarehouseDetailViewModel> OpenAsync(Guid localId) => OpenAsync(localId, null);
+
+        /// <param name="productId">Which row the shelf was opened for - see IScreenNavigator.ShowWarehouse.</param>
+        public async Task<WarehouseDetailViewModel> OpenAsync(Guid localId, Guid? productId)
         {
             var screen = new WarehouseDetailViewModel(
                 _warehouses, _synchronizer, new Translations(new InMemoryLanguageStore()),
                 ShareTestPanel.For(_localStore, new ChatRepository(_localStore, _clock)),
                 Navigator,
-                new InventoryClient(Server.ToHttpClient()), NothingIsBeingEdited(_clock));
+                new InventoryClient(Server.ToHttpClient()), NothingIsBeingEdited(_clock), _privateContent,
+                Suggestions.Offering(SuggestionsServer), Suggestions.Offering(SuggestionsServer), Network,
+                new RestockListSettingsPanel(
+                    new InventoryClient(Server.ToHttpClient()), new Translations(new InMemoryLanguageStore()),
+                    new ConnectionRequirement(Network, new Translations(new InMemoryLanguageStore()))));
 
-            screen.Open(localId);
+            screen.Open(localId, productId);
             await screen.LoadCommand.ExecuteAsync(null);
             return screen;
         }

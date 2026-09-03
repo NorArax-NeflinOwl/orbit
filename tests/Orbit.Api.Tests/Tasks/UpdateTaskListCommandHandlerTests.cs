@@ -1,6 +1,7 @@
 using Orbit.Api.Tests.TestDoubles;
 using Orbit.Core.Inventory;
 using Orbit.Core.Abstractions;
+using Orbit.Core.Notifications;
 using Orbit.Core.Tasks;
 using Orbit.Core.Tasks.UpdateTaskList;
 using Xunit;
@@ -15,7 +16,9 @@ public sealed class UpdateTaskListCommandHandlerTests
             taskRepository,
             new TaskListLinkValidator(taskRepository),
             // No warehouse tracks these lists, so finishing an entry on one means nothing to a shelf.
-            new RestockCompletion(new InMemoryInventoryManagedTaskListRepository(), new InMemoryInventoryRepository()));
+            new RestockCompletion(
+                new InMemoryInventoryManagedTaskListRepository(), new InMemoryInventoryRepository(),
+                new InMemoryWarehouseRepository(), new InMemoryTaskRepository()));
 
     [Fact]
     public async Task HandleAsync_updates_a_task_list_owned_by_the_requesting_user()
@@ -33,6 +36,58 @@ public sealed class UpdateTaskListCommandHandlerTests
         var stored = await repository.GetByIdAsync(userId, taskList.Id, CancellationToken.None);
         Assert.Equal("New title", stored!.Title);
         Assert.Equal("New item", Assert.Single(stored.Items).Description);
+    }
+
+    /// <summary>
+    /// A save from a client that knows nothing about categories - the phone, an older tab - is a save
+    /// about something else, and must not unfile every entry on the list on its way past. The same rule
+    /// the description already follows.
+    /// </summary>
+    [Fact]
+    public async Task An_entry_that_says_nothing_about_its_categories_keeps_them()
+    {
+        var repository = new InMemoryTaskRepository();
+        var handler = CreateHandler(repository);
+        var userId = Guid.NewGuid();
+        var stored = TaskItem.Create("Buy milk", null, false, categories: ["shopping"]);
+        var taskList = TaskList.Create(userId, "Errands", [stored]);
+        await repository.AddAsync(taskList, CancellationToken.None);
+
+        // The same entry, ticked off, and carrying no categories - which is what an older client sends.
+        var incoming = TaskItem.FromPersistence(
+            stored.Id, "Buy milk", null, true, null, TaskItemReminders.Default);
+
+        await handler.HandleAsync(
+            new UpdateTaskListCommand(
+                userId, taskList.Id, "Errands", [incoming], IsGroup: false, IsPrivate: false, EncryptedContent: null,
+                EntriesKeepingTheirCategories: new HashSet<Guid> { stored.Id }),
+            CancellationToken.None);
+
+        var saved = await repository.GetByIdAsync(userId, taskList.Id, CancellationToken.None);
+        Assert.Equal(["shopping"], Assert.Single(saved!.Items).Categories);
+    }
+
+    /// <summary>An entry that sent an empty list means "none", and is not in the set above.</summary>
+    [Fact]
+    public async Task An_entry_sent_with_no_categories_at_all_is_unfiled()
+    {
+        var repository = new InMemoryTaskRepository();
+        var handler = CreateHandler(repository);
+        var userId = Guid.NewGuid();
+        var stored = TaskItem.Create("Buy milk", null, false, categories: ["shopping"]);
+        var taskList = TaskList.Create(userId, "Errands", [stored]);
+        await repository.AddAsync(taskList, CancellationToken.None);
+
+        var incoming = TaskItem.FromPersistence(
+            stored.Id, "Buy milk", null, false, null, TaskItemReminders.Default);
+
+        await handler.HandleAsync(
+            new UpdateTaskListCommand(
+                userId, taskList.Id, "Errands", [incoming], IsGroup: false, IsPrivate: false, EncryptedContent: null),
+            CancellationToken.None);
+
+        var saved = await repository.GetByIdAsync(userId, taskList.Id, CancellationToken.None);
+        Assert.Empty(Assert.Single(saved!.Items).Categories);
     }
 
     [Fact]
@@ -156,7 +211,7 @@ public sealed class UpdateTaskListCommandHandlerTests
         var userId = Guid.NewGuid();
         var taskList = TaskList.Create(userId, "Errands", []);
         await repository.AddAsync(taskList, CancellationToken.None);
-        var itemsLinkingToSelf = new[] { TaskItem.Create("Self reference", null, false, taskList.Id) };
+        var itemsLinkingToSelf = new[] { TaskItem.Create("Self reference", null, false, [taskList.Id]) };
 
         await Assert.ThrowsAsync<InvalidRequestException>(() => handler.HandleAsync(
             new UpdateTaskListCommand(userId, taskList.Id, "Errands", itemsLinkingToSelf, IsGroup: false, IsPrivate: false, EncryptedContent: null), CancellationToken.None));
@@ -172,7 +227,7 @@ public sealed class UpdateTaskListCommandHandlerTests
         var taskList = TaskList.Create(userId, "Renovation", []);
         await repository.AddAsync(member, CancellationToken.None);
         await repository.AddAsync(taskList, CancellationToken.None);
-        var items = new[] { TaskItem.Create("Kitchen done", null, false, member.Id) };
+        var items = new[] { TaskItem.Create("Kitchen done", null, false, [member.Id]) };
 
         await handler.HandleAsync(
             new UpdateTaskListCommand(userId, taskList.Id, "Renovation", items, IsGroup: true, IsPrivate: false, EncryptedContent: null), CancellationToken.None);

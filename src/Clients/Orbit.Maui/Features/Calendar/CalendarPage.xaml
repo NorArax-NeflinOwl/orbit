@@ -12,16 +12,25 @@
     <Grid RowDefinitions="Auto,*,Auto">
 
 
-    <Grid Grid.Row="1" RowDefinitions="Auto,Auto,Auto,Auto,*,Auto" Padding="20" RowSpacing="10">
+    <Grid Grid.Row="1" RowDefinitions="Auto,Auto,Auto,Auto,*" Padding="20" RowSpacing="10">
 
         <!-- The month at a glance, or the year. Orbit.Web offers day, month and year; the day here is
              this grid with one of its days chosen, so the switch beneath is the rest of it. -->
         <VerticalStackLayout Grid.Row="0" Spacing="6">
-            <controls:PageHeader Title="{controls:Translate 'Calendar'}">
-                <controls:PageHeader.Subtitle>
-                    <controls:Translate Text="Your events, and the ones you have been invited to." />
-                </controls:PageHeader.Subtitle>
-            </controls:PageHeader>
+            <Grid ColumnDefinitions="*,Auto">
+                <controls:PageHeader Grid.Column="0" Title="{controls:Translate 'Calendar'}">
+                    <controls:PageHeader.Subtitle>
+                        <controls:Translate Text="Your events, and the ones you have been invited to." />
+                    </controls:PageHeader.Subtitle>
+                </controls:PageHeader>
+
+                <!-- What order to read the list in, as Orbit.Web keeps it over the same list. An action
+                     sheet rather than a panel - one choice, then done. -->
+                <Button Grid.Column="1" Text="⋯" SemanticProperties.Description="{controls:Translate 'Sort'}"
+                        FontSize="20" Padding="12,0" HeightRequest="36" VerticalOptions="Start"
+                        Style="{StaticResource LinkButton}"
+                        Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=ChooseSortOrderCommand, x:DataType=calendar:CalendarPage}" />
+            </Grid>
 
             <Grid ColumnDefinitions="Auto,*,Auto,Auto" ColumnSpacing="4">
                 <Button Grid.Column="0" Text="‹" SemanticProperties.Description="{controls:Translate 'Earlier'}" FontSize="20" Padding="10,0" Style="{StaticResource LinkButton}"
@@ -34,42 +43,61 @@
                         Style="{StaticResource LinkButton}" Command="{Binding ShowTodayCommand}" />
             </Grid>
 
-            <!-- Which of the two the grid is showing. The one not showing goes quiet, the way the days
-                 either side of the month do - bold alone is too fine a difference at this size to read. -->
+            <!-- Which of the three is showing, the same three the browser offers. The ones not showing
+                 go quiet, the way the days either side of the month do - bold alone is too fine a
+                 difference at this size to read. -->
             <HorizontalStackLayout Spacing="14" HorizontalOptions="Center">
-                <Button Text="{controls:Translate 'Month'}" FontSize="13" Padding="4,0"
-                        Style="{StaticResource LinkButton}" Command="{Binding ShowMonthCommand}">
+                <Button Text="{controls:Translate 'Day'}" FontSize="13" Padding="4,0"
+                        Style="{StaticResource LinkButton}" Command="{Binding ShowDayCommand}"
+                        Opacity="0.4">
                     <Button.Triggers>
-                        <DataTrigger TargetType="Button" Binding="{Binding IsShowingYear}" Value="True">
-                            <Setter Property="Opacity" Value="0.4" />
+                        <DataTrigger TargetType="Button" Binding="{Binding IsShowingDay}" Value="True">
+                            <Setter Property="Opacity" Value="1" />
+                        </DataTrigger>
+                    </Button.Triggers>
+                </Button>
+                <Button Text="{controls:Translate 'Month'}" FontSize="13" Padding="4,0"
+                        Style="{StaticResource LinkButton}" Command="{Binding ShowMonthCommand}"
+                        Opacity="0.4">
+                    <Button.Triggers>
+                        <DataTrigger TargetType="Button" Binding="{Binding IsShowingMonth}" Value="True">
+                            <Setter Property="Opacity" Value="1" />
                         </DataTrigger>
                     </Button.Triggers>
                 </Button>
                 <Button Text="{controls:Translate 'Year'}" FontSize="13" Padding="4,0"
-                        Style="{StaticResource LinkButton}" Command="{Binding ShowYearCommand}">
+                        Style="{StaticResource LinkButton}" Command="{Binding ShowYearCommand}"
+                        Opacity="0.4">
                     <Button.Triggers>
-                        <DataTrigger TargetType="Button" Binding="{Binding IsShowingMonth}" Value="True">
-                            <Setter Property="Opacity" Value="0.4" />
+                        <DataTrigger TargetType="Button" Binding="{Binding IsShowingYear}" Value="True">
+                            <Setter Property="Opacity" Value="1" />
                         </DataTrigger>
                     </Button.Triggers>
                 </Button>
             </HorizontalStackLayout>
 
-            <HorizontalStackLayout BindableLayout.ItemsSource="{Binding WeekdayNames}"
-                                   IsVisible="{Binding IsShowingMonth}">
+            <!-- A seventh of the row each, for both the names and the days beneath them - see the day
+                 cell below for why this is a fraction rather than a width. -->
+            <FlexLayout Wrap="Wrap" Direction="Row" BindableLayout.ItemsSource="{Binding WeekdayNames}"
+                        IsVisible="{Binding IsShowingMonth}">
                 <BindableLayout.ItemTemplate>
                     <DataTemplate x:DataType="x:String">
-                        <Label Text="{Binding .}" FontSize="10" WidthRequest="46" HorizontalTextAlignment="Center"
-                               Style="{StaticResource SubtleLabel}" />
+                        <Label Text="{Binding .}" FontSize="10" FlexLayout.Basis="14.28%"
+                               HorizontalTextAlignment="Center" Style="{StaticResource SubtleLabel}" />
                     </DataTemplate>
                 </BindableLayout.ItemTemplate>
-            </HorizontalStackLayout>
+            </FlexLayout>
 
             <FlexLayout Wrap="Wrap" Direction="Row" BindableLayout.ItemsSource="{Binding Days}"
                         IsVisible="{Binding IsShowingMonth}">
                 <BindableLayout.ItemTemplate>
                     <DataTemplate x:DataType="screens:CalendarDay">
-                        <Grid WidthRequest="46" HeightRequest="40" RowDefinitions="*,Auto">
+                        <!-- A seventh of the row, not a fixed 46. A week is seven days by construction;
+                             with a width it was seven only on the screens the width happened to suit,
+                             and the grid ran eight days to a row on a phone slightly wider than that.
+                             Just under a seventh so seven always fit: 7 x 14.29% overflows and wraps at
+                             six, which is the same bug the other way. -->
+                        <Grid FlexLayout.Basis="14.28%" HeightRequest="40" RowDefinitions="*,Auto">
                             <Grid.GestureRecognizers>
                                 <TapGestureRecognizer
                                     Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=ViewModel.ChooseDayCommand, x:DataType=calendar:CalendarPage}"
@@ -146,8 +174,12 @@
         </Grid>
 
         <Grid Grid.Row="2" ColumnDefinitions="*,*" ColumnSpacing="8">
-            <DatePicker Grid.Column="0" Date="{Binding NewEventDate}" Format="{controls:DatePattern}" />
-            <TimePicker Grid.Column="1" Time="{Binding NewEventTime}" Format="{controls:TimePattern}" />
+            <!-- When the event above starts. Named, because the two sit under the box it is
+                     typed into rather than under headings of their own. -->
+            <DatePicker Grid.Column="0" Date="{Binding NewEventDate}" Format="{controls:DatePattern}"
+                        SemanticProperties.Description="{controls:Translate 'Starts'}" />
+            <TimePicker Grid.Column="1" Time="{Binding NewEventTime}" Format="{controls:TimePattern}"
+                        SemanticProperties.Description="{controls:Translate 'Starts'}" />
         </Grid>
 
         <!-- The chosen day on the clock, under the grid that chose it. Orbit.Web swaps its grid for this
@@ -167,10 +199,15 @@
                 </Grid>
         </VerticalStackLayout>
 
+        <!-- One list, whatever kind of thing is on it. Appointments and deadlines answer the same
+             question - what is happening in this period - and two lists one under the other made the
+             reader merge them by eye, in a period where they interleave by definition. Orbit.Web's
+             calendar draws them together for the same reason - see CalendarListEntry. -->
         <RefreshView Grid.Row="4" IsRefreshing="{Binding IsRefreshing}" Command="{Binding LoadCommand}">
-            <CollectionView ItemsSource="{Binding Events}"
+            <CollectionView ItemsSource="{Binding Listed}"
+                            Scrolled="OnListScrolled"
                             SelectionMode="Single"
-                            SelectionChangedCommand="{Binding OpenCommand}"
+                            SelectionChangedCommand="{Binding OpenListedCommand}"
                             SelectionChangedCommandParameter="{Binding SelectedItem, Source={RelativeSource Self}, x:DataType=CollectionView}">
 
                 <CollectionView.EmptyView>
@@ -178,52 +215,47 @@
                 </CollectionView.EmptyView>
 
                 <CollectionView.ItemTemplate>
-                    <DataTemplate x:DataType="screens:CalendarEventRow">
-                        <VerticalStackLayout Padding="0,12" Spacing="2">
-                            <Label Text="{Binding Title}" FontSize="17" FontAttributes="Bold" />
-                            <Label Text="{Binding When}" FontSize="12" TextColor="{AppThemeBinding Light={StaticResource SubtleTextLight}, Dark={StaticResource SubtleTextDark}}" />
-                            <Label Text="{Binding Status}" IsVisible="{Binding HasStatus}"
-                                   FontSize="12" TextColor="{DynamicResource Accent}" />
-                        </VerticalStackLayout>
+                    <DataTemplate x:DataType="screens:CalendarListEntry">
+                        <!-- The same card every list of things is drawn with - see ItemCard. -->
+                        <controls:ItemCard Name="{Binding Name}">
+                            <controls:ItemCard.Tags>
+                                <HorizontalStackLayout Spacing="6">
+                                    <!-- Which kind of thing this is, now that both kinds share one list. -->
+                                    <Border Style="{StaticResource FilterChip}" Padding="6,3" IsVisible="{Binding IsEvent}">
+                                        <Label Text="{controls:Translate 'Event'}" Style="{StaticResource FilterChipLabel}" />
+                                    </Border>
+                                    <Border Style="{StaticResource FilterChip}" Padding="6,3" IsVisible="{Binding IsDeadline}">
+                                        <Label Text="{controls:Translate 'Task'}" Style="{StaticResource FilterChipLabel}" />
+                                    </Border>
+                                    <!-- Two cards with the same title are otherwise indistinguishable, and
+                                         the reader has no way of telling which one they wrote in. -->
+                                    <Label Text="{controls:Translate 'copy'}" IsVisible="{Binding IsCopy}"
+                                           FontSize="11" VerticalOptions="Center" Style="{StaticResource SubtleLabel}" />
+                                </HorizontalStackLayout>
+                            </controls:ItemCard.Tags>
+
+                            <controls:ItemCard.Body>
+                                <Label Text="{Binding When}" FontSize="12" Style="{StaticResource SubtleLabel}">
+                                    <Label.Triggers>
+                                        <!-- Struck through rather than hidden: a day whose errands are all
+                                             ticked reads differently from an empty one. -->
+                                        <DataTrigger TargetType="Label" Binding="{Binding IsDone}" Value="True">
+                                            <Setter Property="TextDecorations" Value="Strikethrough" />
+                                        </DataTrigger>
+                                    </Label.Triggers>
+                                </Label>
+                            </controls:ItemCard.Body>
+
+                            <controls:ItemCard.Extras>
+                                <Label Text="{Binding Status}" IsVisible="{Binding HasStatus}" FontSize="12"
+                                       LineBreakMode="WordWrap" TextColor="{DynamicResource Accent}" />
+                            </controls:ItemCard.Extras>
+                        </controls:ItemCard>
                     </DataTemplate>
                 </CollectionView.ItemTemplate>
 
             </CollectionView>
         </RefreshView>
-
-        <!-- What falls due over the same days, beneath the events. A deadline is as much a thing
-             happening on a day as an appointment is, and Orbit.Web's calendar has shown both all
-             along - see CalendarDeadline. -->
-        <VerticalStackLayout Grid.Row="5" Spacing="4" IsVisible="{Binding HasDeadlines}" Margin="0,8,0,0">
-            <Label Text="{controls:Translate 'Tasks with a due date'}" Style="{StaticResource FieldLabel}" />
-            <VerticalStackLayout BindableLayout.ItemsSource="{Binding Deadlines}">
-                <BindableLayout.ItemTemplate>
-                    <DataTemplate x:DataType="screens:CalendarDeadline">
-                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8" Padding="0,6">
-                            <Grid.GestureRecognizers>
-                                <TapGestureRecognizer
-                                    Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=ViewModel.OpenDeadlineCommand, x:DataType=calendar:CalendarPage}"
-                                    CommandParameter="{Binding .}" />
-                            </Grid.GestureRecognizers>
-                            <Label Grid.Column="0" Text="{Binding Label}" FontSize="13" LineBreakMode="TailTruncation"
-                                   VerticalOptions="Center">
-                                <Label.Triggers>
-                                    <!-- Struck through rather than hidden: a day whose errands are all
-                                         ticked reads differently from an empty one. -->
-                                    <DataTrigger TargetType="Label" Binding="{Binding IsCompleted}" Value="True">
-                                        <Setter Property="TextDecorations" Value="Strikethrough" />
-                                        <Setter Property="TextColor"
-                                                Value="{AppThemeBinding Light={StaticResource SubtleTextLight}, Dark={StaticResource SubtleTextDark}}" />
-                                    </DataTrigger>
-                                </Label.Triggers>
-                            </Label>
-                            <Label Grid.Column="1" Text="{Binding When}" FontSize="11" VerticalOptions="Center"
-                                   Style="{StaticResource SubtleLabel}" />
-                        </Grid>
-                    </DataTemplate>
-                </BindableLayout.ItemTemplate>
-            </VerticalStackLayout>
-        </VerticalStackLayout>
 
     </Grid>
         <controls:NavigationBar Grid.Row="0" />

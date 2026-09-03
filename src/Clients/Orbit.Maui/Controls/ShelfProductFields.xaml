@@ -1,0 +1,79 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<ContentView
+    x:Class="Orbit.Maui.Controls.ShelfProductFields"
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    xmlns:controls="clr-namespace:Orbit.Maui.Controls"
+    xmlns:common="clr-namespace:Orbit.Mobile.Screens;assembly=Orbit.Mobile"
+    xmlns:screens="clr-namespace:Orbit.Mobile.Screens.Inventory;assembly=Orbit.Mobile"
+    x:DataType="screens:WarehouseItemEditor">
+
+    <!-- Everything a product on a shelf is, as one form. Its own control because two screens ask for it:
+         the warehouse, where a product is opened directly, and a task list, where an Inventory errand
+         opens the product it is about - see TaskItemShelfProduct. One form means a correction made from
+         either place asks the same questions and applies the same rules. -->
+    <VerticalStackLayout Spacing="10">
+        <!-- Left out where the product is being described by a task entry: the entry's own words are
+             its name, and two boxes for one name are two answers to the same question. See
+             TaskItemShelfProduct.ForSomethingNotOnTheShelfYet. -->
+        <Entry Placeholder="{controls:Translate 'Item name'}" Text="{Binding Name}"
+               IsVisible="{Binding ShowsName}" />
+        <!-- Products this account already has, offered as the name is typed. The field the
+             suggestions exist for: the same thing gets typed twenty ways onto one shelf. -->
+        <controls:NameSuggestionChips BindingContext="{Binding Suggestions}" IsVisible="{Binding ShowsName}" />
+        <Entry Placeholder="{controls:Translate 'Product type'}" Text="{Binding ProductType}" />
+        <Entry Placeholder="{controls:Translate 'Category'}" Text="{Binding Category}" />
+
+        <!-- The unit sits beside the numbers it qualifies rather than below with the rest of the
+             settings, for the reason Orbit.Web's editor gives: "2" and "2 kg" are different
+             amounts, and the second is the one somebody stocking a shelf can act on. -->
+        <Grid ColumnDefinitions="*,*,Auto" ColumnSpacing="8">
+            <Entry Grid.Column="0" Placeholder="{controls:Translate 'Quantity'}" Text="{Binding Quantity}"
+                   Keyboard="Numeric" />
+            <Entry Grid.Column="1" Placeholder="{controls:Translate 'Minimum'}" Text="{Binding MinimumQuantity}"
+                   Keyboard="Numeric" />
+            <Picker Grid.Column="2" Title="{controls:Translate 'Unit'}" WidthRequest="96"
+                    ItemsSource="{Binding Units}" SelectedItem="{Binding ChosenUnit}"
+                    ItemDisplayBinding="{Binding ShortName, x:DataType=screens:InventoryUnitChoice}"
+                    SemanticProperties.Description="{controls:Translate 'Unit'}" />
+        </Grid>
+
+        <!-- How long it keeps, rather than the day it stops keeping. A date is still what gets
+             stored - the reminder needs one - but nobody stocking a shelf knows a carton runs
+             out on the 14th, they know it keeps a fortnight. Orbit.Web asks it this way too;
+             the rule both count by is ExpiryPeriod. -->
+        <Label Text="{controls:Translate 'Expires in'}" FontSize="12" Style="{StaticResource SubtleLabel}" />
+        <Grid ColumnDefinitions="Auto,*" ColumnSpacing="8">
+            <Entry Grid.Column="0" Text="{Binding ExpiresIn}" WidthRequest="80" Keyboard="Numeric"
+                   IsVisible="{Binding Expires}"
+                   SemanticProperties.Description="{controls:Translate 'Expires in'}" />
+            <Picker Grid.Column="1" ItemsSource="{Binding ExpiryUnits}"
+                    SelectedItem="{Binding ChosenExpiryUnit}"
+                    ItemDisplayBinding="{Binding Name, x:DataType=screens:ExpiryUnitChoice}"
+                    SemanticProperties.Description="{controls:Translate 'Unit'}" />
+        </Grid>
+        <!-- Said quietly: somebody who set "2 weeks" is owed the answer to "when exactly". -->
+        <Label Text="{Binding ExpiresOn}" IsVisible="{Binding HasExpiryDate}" FontSize="12"
+               Style="{StaticResource SubtleLabel}" />
+
+        <Label Text="{controls:Translate 'Expiry notification'}" FontSize="12"
+               Style="{StaticResource SubtleLabel}" />
+        <Picker ItemsSource="{Binding Channels}"
+                SelectedItem="{Binding ChosenExpiryNotificationChannel}"
+                ItemDisplayBinding="{Binding Name, x:DataType=common:NotificationChannelChoice}"
+                SemanticProperties.Description="{controls:Translate 'Expiry notification'}" />
+
+        <!-- A different question from the minimum above: that one asks when there is too little, this
+             one asks every round however much there is - see InventoryItem.BelongsOnTheRestockList. -->
+        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+            <VerticalStackLayout Grid.Column="0">
+                <Label Text="{controls:Translate 'Check every round'}" />
+                <Label Text="{controls:Translate 'Always on the restock list, however much there is'}"
+                       FontSize="12" LineBreakMode="WordWrap" Style="{StaticResource SubtleLabel}" />
+            </VerticalStackLayout>
+            <Switch Grid.Column="1" IsToggled="{Binding IsCheckedRegularly}" VerticalOptions="Center"
+                    SemanticProperties.Description="{controls:Translate 'Check every round'}" />
+        </Grid>
+    </VerticalStackLayout>
+
+</ContentView>

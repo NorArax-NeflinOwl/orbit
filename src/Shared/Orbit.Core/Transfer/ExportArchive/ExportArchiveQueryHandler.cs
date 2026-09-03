@@ -88,15 +88,29 @@ public sealed class ExportArchiveQueryHandler : IRequestHandler<ExportArchiveQue
                 item.Description,
                 item.DueDateUtc,
                 item.IsCompleted,
-                item.LinkedTaskListId is { } linkedId && taskListTitlesById.TryGetValue(linkedId, out var title) ? title : null,
+                // Both shapes: the first title on its own for a reader that only knows the old field,
+                // and all of them for one that knows the new.
+                TitlesOf(item, taskListTitlesById).FirstOrDefault(),
                 item.OverdueNotificationChannel.ToString(),
                 item.RemindDaily,
                 item.DailyReminderNotificationChannel.ToString(),
-                item.DailyReminderTimeOfDay)).ToList(),
+                item.DailyReminderTimeOfDay,
+                TitlesOf(item, taskListTitlesById),
+                item.Categories)).ToList(),
             taskList.IsGroup,
             taskList.IsPrivate,
             ToArchived(taskList.EncryptedContent),
             taskList.Priority.ToString());
+
+    /// <summary>
+    /// The lists an entry stands for, by title, because a file has no ids worth keeping - it is read
+    /// into a different account with different ones. A link to a list that is not in the export is
+    /// dropped rather than written as a title nothing will match.
+    /// </summary>
+    private static IReadOnlyList<string> TitlesOf(TaskItem item, IReadOnlyDictionary<Guid, string> taskListTitlesById)
+        => [.. item.LinkedTaskListIds
+            .Select(linkedId => taskListTitlesById.TryGetValue(linkedId, out var title) ? title : null)
+            .OfType<string>()];
 
     private static ArchivedCalendarEvent ToArchived(CalendarEvent calendarEvent)
     {
@@ -108,7 +122,8 @@ public sealed class ExportArchiveQueryHandler : IRequestHandler<ExportArchiveQue
             details.Title, details.Description, details.Color, details.StartUtc, details.EndUtc, details.IsAllDay,
             details.Location is { } location ? new ArchivedEventLocation(location.Address ?? string.Empty, location.Latitude, location.Longitude) : null,
             details.ReminderMinutesBeforeStart,
-            details.CreationNotificationChannel.ToString(),
+            // Nothing announces an event to its own owner any more - see ArchivedCalendarEvent.
+            CreationNotificationChannel: nameof(Orbit.Core.Notifications.NotificationChannel.None),
             details.ReminderNotificationChannel.ToString());
     }
 

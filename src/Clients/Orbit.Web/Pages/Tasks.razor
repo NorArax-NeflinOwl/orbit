@@ -16,16 +16,33 @@
 <PageTitle>@T["Orbit — Tasks"]</PageTitle>
 
 <div class="page-header">
-    <div>
+    @* The one thing this page is for, left of what the page is called - the same plus every list
+       carries, in the same place. *@
+    <div class="page-heading">
+        <button type="button" class="icon-btn page-add" title="@(T["Add task list"])"
+                aria-label="@(T["Add task list"])" @onclick="GoToAddTaskList">
+            <svg viewBox="0 0 20 20" width="18" height="18" aria-hidden="true" fill="none"
+                 stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M10 4v12M4 10h12" /></svg>
+        </button>
         <h1>@T["Tasks"]</h1>
-        <p class="page-subtitle">@T["Every list you own or someone shared with you."]</p>
     </div>
     <div class="page-header-actions">
-        <button type="button" class="btn-primary" @onclick="GoToAddTaskList">@T["Add task list"]</button>
         @* The order these cards come in is something a reader sets once and then reads by, so it lives
            behind the menu rather than in a control taking up the top of every visit. Stays open while
            they try one order and then another - see OverflowMenu.StaysOpen. *@
         <OverflowMenu StaysOpen="true">
+            @* How much of each list to show. One answer for the whole page, remembered by this browser -
+               the question is "how am I reading this today", not one about any particular list. *@
+            <span class="overflow-menu-heading">@T["Card view"]</span>
+            @foreach (var view in Enum.GetValues<TaskListView>())
+            {
+                <button type="button" class="avatar-dropdown-item @(view == Arrangement.View ? "chosen" : "")"
+                        @onclick="() => SetViewAsync(view)">
+                    <span class="card-filter-mark">@(view == Arrangement.View ? "✓" : "")</span>
+                    @DescribeView(view)
+                </button>
+            }
+
             <span class="overflow-menu-heading">@T["Sort"]</span>
             @foreach (var sortOrder in Enum.GetValues<TaskListSortOrder>())
             {
@@ -49,6 +66,45 @@ else if (_taskLists.Count == 0)
 }
 else
 {
+    @* What the reader is looking for, above the chips that say which lists are on offer at all: a word
+       from an entry, and the categories entries are filed under. Both narrow to lists that still hold
+       something worth reading, and the cards then show what matched rather than their first few rows -
+       a list shown for a match nobody can see reads as a bug. *@
+    <div class="task-search">
+        <input type="search" value="@_itemFilter.Search"
+               @oninput="changeArgs => _itemFilter.Search = changeArgs.Value?.ToString() ?? string.Empty"
+               placeholder="@(T["Find an entry on any list"])" aria-label="@(T["Find an entry on any list"])" />
+        @if (_itemFilter.IsActive)
+        {
+            <button type="button" class="btn-secondary" @onclick="_itemFilter.Clear">@T["Clear"]</button>
+        }
+    </div>
+
+    @if (KnownCategories.Count > 0)
+    {
+        <div class="list-controls">
+            <div class="list-filters">
+                @foreach (var category in KnownCategories)
+                {
+                    <button type="button" class="filter-chip @(_itemFilter.IsChosen(category) ? "on" : "")"
+                            @onclick="() => _itemFilter.Toggle(category)">
+                        @category <span class="filter-chip-count">@CountEntriesIn(category)</span>
+                    </button>
+                }
+            </div>
+            @* Only worth asking once two are chosen: with one, "any of them" and "all of them" are the
+               same question. *@
+            @if (_itemFilter.Categories.Count > 1)
+            {
+                <label class="task-category-rule">
+                    <input type="checkbox" checked="@_itemFilter.MatchesEveryCategory"
+                           @onchange="changeArgs => _itemFilter.MatchesEveryCategory = changeArgs.Value is true" />
+                    @T["Entries in every chosen category"]
+                </label>
+            }
+        </div>
+    }
+
     <div class="list-controls">
         <div class="list-filters">
             @* "All" is a filter like the rest rather than a way of clearing them, so there is always
@@ -68,18 +124,36 @@ else
 
     @if (VisibleTaskLists.Count == 0)
     {
-        <p class="empty-hint">@T.Format("No lists are {0}.", DescribeFilter(_filter).ToLowerInvariant())</p>
+        @* Which of the two narrowed everything away, since they say different things about what to do
+           next: a chip is changed by pressing another one, a search by typing something else. *@
+        @if (_itemFilter.IsActive)
+        {
+            <p class="empty-hint">@T["Nothing on any list matches that."]</p>
+        }
+        else
+        {
+            <p class="empty-hint">@T.Format("No lists are {0}.", DescribeFilter(_filter).ToLowerInvariant())</p>
+        }
     }
 
-    <div class="card-grid">
+    <div class="task-card-grid">
         @foreach (var taskList in VisibleTaskLists)
         {
-            <div class="card task-list-card @(_cardOrder.IsDragging(taskList) ? "dragging" : "")" @key="taskList.Id"
+            <div @key="taskList.Id" class="@(_cardOrder.IsDragging(taskList) ? "dragging" : "")"
                  @ondragover:preventDefault="true" @ondrop="() => DropCardOnAsync(taskList)">
-                <div class="card-header">
-                    <span class="card-title">
-                        @* Only where dragging means something: in every other order the cards are
-                           arranged by an answer, and moving one by hand would not survive a redraw. *@
+                @* The rows of what is on the list open it as well as its name does: they sit above the
+                   overlay that makes the rest of the card pressable, so without OnBodySelected the one
+                   part of the card a reader actually points at was the one part that did nothing. *@
+                <ItemCard Name="@Written(taskList.Title)"
+                          OnNameSelected="() => GoToChecklist(taskList.Id)"
+                          OnBodySelected="() => GoToChecklist(taskList.Id)"
+                          HasUnseenAction="@(UnreadCountFor(taskList) > 0)"
+                          IsCollapsed="Arrangement.IsCollapsed(taskList.Id)"
+                          OnCollapseToggled="() => ToggleCollapsedAsync(taskList)"
+                          ExtraClass="@(taskList.IsPinned ? "item-card-pinned" : null)">
+                    @* Only where dragging means something: in every other order the cards are
+                       arranged by an answer, and moving one by hand would not survive a redraw. *@
+                    <Handle>
                         @if (Arrangement.SortOrder == TaskListSortOrder.Manual)
                         {
                             <ReorderControls OnDragStart="() => _cardOrder.Start(taskList)" OnDragEnd="_cardOrder.Finish"
@@ -87,21 +161,22 @@ else
                                              OnMoveDown="() => MoveCardAsync(taskList, 1)"
                                              CanMoveUp="CanMoveCard(taskList, -1)" CanMoveDown="CanMoveCard(taskList, 1)" />
                         }
-                        @* Before the name, so a page of cards answers "which list was that reminder
-                           about?" at a glance rather than by opening them one at a time. Goes out when
-                           the list is opened - see NotificationFeedState.UnreadUrlsSettledBy. *@
-                        @if (UnreadCountFor(taskList) is > 0 and var unread)
+                    </Handle>
+                    @* Only for a list you own: pinning moves the card on its owner's page, so a
+                       recipient pinning a shared list would be rearranging someone else's. *@
+                    <Pin>
+                        @if (!taskList.IsShared)
                         {
-                            <span class="task-card-notification" title="@T.Format("{0} new", unread)"
-                                  aria-label="@T.Format("{0} new", unread)">
-                                <svg width="14" height="14" viewBox="0 0 20 20" fill="none" stroke="currentColor"
-                                     stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                                    <path d="M10 2.5c-2.5 0-4 2-4 4.5v3l-1.5 2.5h11L14 10V7c0-2.5-1.5-4.5-4-4.5Z" />
-                                    <path d="M8.3 15.5a1.8 1.8 0 0 0 3.4 0" />
-                                </svg>
-                            </span>
+                            <PinButton IsPinned="taskList.IsPinned" OnPinnedChanged="_ => TogglePinnedAsync(taskList)" />
                         }
-                        @Written(taskList.Title)
+                    </Pin>
+                    <Menu>
+                        <OverflowMenu>
+                            <button type="button" class="avatar-dropdown-item" @onclick="() => GoToEditTaskList(taskList.Id)">@T["Edit"]</button>
+                            <button type="button" class="avatar-dropdown-item" @onclick="() => DeleteTaskListAsync(taskList)">@T["Delete"]</button>
+                        </OverflowMenu>
+                    </Menu>
+                    <Tags>
                         @if (taskList.IsGroup)
                         {
                             <span class="card-badge">@T["Group"]</span>
@@ -115,34 +190,18 @@ else
                             <span class="card-badge card-badge-priority-@taskList.Priority.ToLowerInvariant()">@DescribePriority(ParsePriority(taskList))</span>
                         }
                         <span class="card-badge card-badge-status-@taskList.Status.ToLowerInvariant()">@DescribeStatus(ParseStatus(taskList))</span>
+                        @* Kept as a tag as well as an outline: the pin control is only offered on a
+                           list you own, so on a shared one the tag is the only thing that says so. *@
                         @if (taskList.IsPinned)
                         {
                             <span class="card-badge card-badge-pinned">@T["Pinned"]</span>
                         }
-                    </span>
-                    <span class="card-header-end">
+                    </Tags>
+                    @* How far along, always at the end of the tag row - see ItemCard. *@
+                    <Extras>
                         <span class="card-count">@CompletionSummary(taskList)</span>
-                        @* Only for a list you own: pinning moves the card on its owner's page, so a
-                           recipient pinning a shared list would be rearranging someone else's. *@
-                        @if (!taskList.IsShared)
-                        {
-                            <PinButton IsPinned="taskList.IsPinned" OnPinnedChanged="_ => TogglePinnedAsync(taskList)" />
-                        }
-                        @* Folds the card down to its heading, one line of what is on it, and its buttons -
-                           for a page of lists where only some are this week's work. *@
-                        <button type="button" class="icon-btn"
-                                title="@(Arrangement.IsCollapsed(taskList.Id) ? T["Expand"] : T["Minimise"])"
-                                aria-label="@(Arrangement.IsCollapsed(taskList.Id) ? T["Expand"] : T["Minimise"])"
-                                aria-expanded="@(Arrangement.IsCollapsed(taskList.Id) ? "false" : "true")"
-                                @onclick="() => ToggleCollapsedAsync(taskList)">
-                            <svg width="16" height="16" viewBox="0 0 20 20" fill="none" stroke="currentColor"
-                                 stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                                <path d="@(Arrangement.IsCollapsed(taskList.Id) ? "M4.5 7.5 10 13l5.5-5.5" : "M4.5 12.5 10 7l5.5 5.5")" />
-                            </svg>
-                        </button>
-                    </span>
-                </div>
-
+                    </Extras>
+                    <CollapsedBody>
                 @if (Arrangement.IsCollapsed(taskList.Id))
                 {
                     @* One line, and the one worth having: what is still to be done on this list. A folded
@@ -168,20 +227,32 @@ else
                         </div>
                     }
                 }
-                else
-                {
+                    </CollapsedBody>
+                    <Body>
                 @* A preview rather than the whole list: enough to recognise what is on it, with the
-                   checklist view one click away for working through it. *@
-                @foreach (var item in taskList.Items.Take(RowsToShow(taskList.Items.Count, PreviewItemCount)))
+                   checklist view one click away for working through it. What is previewed narrows with
+                   the page - see EntriesToShow. *@
+                @{ var entries = EntriesToShow(taskList); }
+                @foreach (var item in entries.Take(RowsToShow(entries.Count, PreviewLimitFor(taskList))))
                 {
                     <div class="list-row task-preview-row @(item.IsCompleted ? "completed" : "")">
                         <span class="task-preview-mark">@(item.IsCompleted ? "✓" : "")</span>
                         <span class="row-title">@Written(item.Description)</span>
-                        @if (item.LinkedTaskListId is not null)
+                        @* What the entry is filed under, on the row itself: the chips above filter by
+                           these, and a filter whose subject is invisible on what it returns leaves the
+                           reader to take the page's word for it. *@
+                        @foreach (var category in item.AllCategories)
+                        {
+                            <span class="row-category @(_itemFilter.IsChosen(category) ? "on" : "")">@category</span>
+                        }
+                        @if (item.AllLinkedTaskListIds.Count > 0)
                         {
                             <span class="row-meta">@T["follows another list"]</span>
                         }
-                        else if (item.DueDateUtc is { } dueDate)
+                        @* A day to be done by belongs to a checklist entry - an appointment says when it
+                           is in the calendar, and a restock errand is about an amount. Same rule as the
+                           editor, which only asks a checklist entry for one. *@
+                        else if (IsAChecklistEntry(item) && item.DueDateUtc is { } dueDate)
                         {
                             <span class="row-meta">@dueDate.LocalDateTime.ToString("dd.MM.yyyy HH:mm")</span>
                         }
@@ -189,7 +260,7 @@ else
 
                     @* What a row that only points at another list actually stands for. Without it a
                        group list's card is a stack of titles, which says nothing about the work. *@
-                    @if (item.LinkedTaskListId is { } linkedTaskListId)
+                    @foreach (var linkedTaskListId in item.AllLinkedTaskListIds)
                     {
                         @foreach (var linkedItem in LinkedItems(linkedTaskListId))
                         {
@@ -201,28 +272,23 @@ else
                         @if (LinkedItemCount(linkedTaskListId) > RowsToShow(LinkedItemCount(linkedTaskListId), LinkedPreviewItemCount))
                         {
                             <div class="list-row task-preview-row-linked">
-                                <span class="row-meta">@T.Format("and {0} more…", LinkedItemCount(linkedTaskListId) - LinkedPreviewItemCount)</span>
+                                <span class="row-meta">@T.Format("and {0} more…", LinkedItemCount(linkedTaskListId) - RowsToShow(LinkedItemCount(linkedTaskListId), LinkedPreviewItemCount))</span>
                             </div>
                         }
                     }
                 }
-                @if (taskList.Items.Count > RowsToShow(taskList.Items.Count, PreviewItemCount))
+                @if (entries.Count > RowsToShow(entries.Count, PreviewLimitFor(taskList)))
                 {
                     <div class="list-row">
-                        <span class="row-meta">@T.Format("and {0} more…", taskList.Items.Count - PreviewItemCount)</span>
+                        <span class="row-meta">@T.Format("and {0} more…", entries.Count - RowsToShow(entries.Count, PreviewLimitFor(taskList)))</span>
                     </div>
                 }
                 @if (taskList.Items.Count == 0)
                 {
                     <p class="empty-hint">@T["No items on this list."]</p>
                 }
-                }
-
-                <div class="card-actions">
-                    <button type="button" class="btn-primary" @onclick="() => GoToChecklist(taskList.Id)">@T["Open checklist"]</button>
-                    <button type="button" class="btn-secondary" @onclick="() => GoToEditTaskList(taskList.Id)">@T["Edit"]</button>
-                    <button type="button" class="btn-secondary" @onclick="() => DeleteTaskListAsync(taskList)">@T["Delete"]</button>
-                </div>
+                    </Body>
+                </ItemCard>
             </div>
         }
     </div>
@@ -230,6 +296,29 @@ else
 
 @code {
     private IReadOnlyList<TaskDto>? _taskLists;
+
+    /// <summary>What the reader is looking for among the entries themselves - see TaskItemFilter.</summary>
+    private readonly TaskItemFilter _itemFilter = new();
+
+    /// <summary>Every category anything on this page is filed under, in the order a reader reads them.</summary>
+    private IReadOnlyList<string> KnownCategories
+        => [.. (_taskLists ?? [])
+            .SelectMany(taskList => taskList.Items.SelectMany(item => item.AllCategories))
+            .Distinct(StringComparer.CurrentCultureIgnoreCase)
+            .OrderBy(category => category, StringComparer.CurrentCultureIgnoreCase)];
+
+    /// <summary>How many entries carry a category, which is what makes a chip worth pressing or not.</summary>
+    private int CountEntriesIn(string category)
+        => (_taskLists ?? [])
+            .SelectMany(taskList => taskList.Items)
+            .Count(item => item.AllCategories.Contains(category, StringComparer.CurrentCultureIgnoreCase));
+
+    /// <summary>
+    /// The entries a card shows: what matched while something is being looked for, and simply what is
+    /// on the list otherwise.
+    /// </summary>
+    private IReadOnlyList<TaskItemDto> EntriesToShow(TaskDto taskList)
+        => _itemFilter.IsActive ? [.. taskList.Items.Where(_itemFilter.Matches)] : taskList.Items;
 
     /// <summary>What the chips offer, in the order a list moves through its statuses - with "shared" after them, since it is about where a list came from rather than how far along it is.</summary>
     private static readonly TaskListFilter[] SelectableFilters =
@@ -251,7 +340,9 @@ else
     {
         get
         {
-            var visible = (_taskLists ?? []).Where(taskList => Matches(taskList, _filter)).ToList();
+            var visible = (_taskLists ?? [])
+                .Where(taskList => Matches(taskList, _filter) && _itemFilter.HasAMatch(taskList))
+                .ToList();
             return Sort(visible, Arrangement);
         }
     }
@@ -346,6 +437,16 @@ else
 
     private async Task ToggleCollapsedAsync(TaskDto taskList)
     {
+        // Expanding a card while the whole page is folded away is a request to see things again, so it
+        // leaves the minimal view rather than unfolding one card the view says is folded. The page goes
+        // back to whatever it was before it was folded - see TaskListArrangement.LeaveMinimalViewAsync.
+        if (Arrangement.View == TaskListView.Minimal)
+        {
+            Logger.LogInformation("User left the minimal view by expanding a card");
+            await Arrangement.LeaveMinimalViewAsync();
+            return;
+        }
+
         var isCollapsed = !Arrangement.IsCollapsed(taskList.Id);
         Logger.LogInformation(
             "User {Action} the card for task list {TaskListId}", isCollapsed ? "minimised" : "expanded", taskList.Id);
@@ -365,21 +466,26 @@ else
     {
         foreach (var item in taskList.Items.Where(item => !item.IsCompleted))
         {
-            if (item.LinkedTaskListId is not { } linkedTaskListId)
+            if (item.AllLinkedTaskListIds.Count == 0)
             {
                 return new ThingLeftToDo(item.Description, OnList: null);
             }
 
-            // A member list this reader cannot see, or one not loaded: the row's own name is that list's
-            // title, which still says more than nothing.
-            if (LinkedTaskList(linkedTaskListId) is not { } linkedTaskList)
+            // An entry standing for several lists is looked through in order, so what comes back is the
+            // first outstanding thing on the first list that still has one.
+            foreach (var linkedTaskListId in item.AllLinkedTaskListIds)
             {
-                return new ThingLeftToDo(item.Description, OnList: null);
-            }
+                // A member list this reader cannot see, or one not loaded: the row's own name is that
+                // list's title, which still says more than nothing.
+                if (LinkedTaskList(linkedTaskListId) is not { } linkedTaskList)
+                {
+                    return new ThingLeftToDo(item.Description, OnList: null);
+                }
 
-            if (linkedTaskList.Items.FirstOrDefault(linked => !linked.IsCompleted) is { } linkedItem)
-            {
-                return new ThingLeftToDo(linkedItem.Description, linkedTaskList.Title);
+                if (linkedTaskList.Items.FirstOrDefault(linked => !linked.IsCompleted) is { } linkedItem)
+                {
+                    return new ThingLeftToDo(linkedItem.Description, linkedTaskList.Title);
+                }
             }
         }
 
@@ -442,7 +548,7 @@ else
     {
         ItemPriority.Low => T["Low"],
         ItemPriority.High => T["High"],
-        _ => T["Normal"]
+        _ => T["Normal view"]
     };
 
     private string DescribeFilter(TaskListFilter filter) => filter switch
@@ -492,11 +598,35 @@ else
         Group
     }
 
-    /// <summary>How much of a list to show on its card before falling back to "and N more" - a card is for recognising a list, not working through it.</summary>
-    private const int PreviewItemCount = 4;
-
-    /// <summary>How much of a linked list to show under the row that points at it - less than the card's own preview, since it is standing in for one line of it.</summary>
+    /// <summary>
+    /// How much of a linked list to show under the row that points at it. Three whatever the view, which
+    /// is what makes a group list's card readable: the row naming the member list, three of its items,
+    /// and a fifth line that is either "and N more…" or - when there are exactly four - the fourth item
+    /// itself. Five lines per member is what lets four of them sit on one card.
+    /// </summary>
     private const int LinkedPreviewItemCount = 3;
+
+    /// <summary>Five, which is what a card can carry without becoming the list it stands in for.</summary>
+    private const int NormalPreviewItemCount = 5;
+
+    /// <summary>As much as a card can carry before it stops being a card. The full view's answer for an ordinary list.</summary>
+    private const int FullPreviewItemCount = 20;
+
+    /// <summary>
+    /// The full view's answer for a group list, counted in member lists rather than in rows: each one
+    /// brings five lines with it (see <see cref="LinkedPreviewItemCount"/>), so four of them is already
+    /// twenty lines - the same height an ordinary list gets.
+    /// </summary>
+    private const int FullGroupPreviewCount = 4;
+
+    /// <summary>
+    /// How many of a card's own rows to draw. It depends on the view and on what the list is: a group
+    /// list's rows are not items but other lists, and each one costs five lines rather than one.
+    /// </summary>
+    private int PreviewLimitFor(TaskDto taskList)
+        => Arrangement.View == TaskListView.Full
+            ? taskList.IsGroup ? FullGroupPreviewCount : FullPreviewItemCount
+            : NormalPreviewItemCount;
 
     /// <summary>
     /// How many rows to actually draw. One over the limit is drawn in full: the line saying "and 1 more…"
@@ -504,6 +634,20 @@ else
     /// and costs the reader the one thing it was hiding.
     /// </summary>
     private static int RowsToShow(int itemCount, int limit) => itemCount <= limit + 1 ? itemCount : limit;
+
+    /// <summary>How much of each list is on show, in the reader's language.</summary>
+    private string DescribeView(TaskListView view) => view switch
+    {
+        TaskListView.Minimal => T["Minimal"],
+        TaskListView.Full => T["Full"],
+        _ => T["Normal"]
+    };
+
+    private async Task SetViewAsync(TaskListView view)
+    {
+        Logger.LogInformation("User switched the tasks page to the {View} view", view);
+        await Arrangement.SetViewAsync(view);
+    }
 
     /// <summary>The work a linked row actually stands for, as far as the card has room for.</summary>
     private IEnumerable<TaskItemDto> LinkedItems(Guid linkedTaskListId)
@@ -515,7 +659,10 @@ else
         => (_taskLists ?? []).FirstOrDefault(candidate => candidate.Id == linkedTaskListId);
 
     /// <summary>A name Orbit wrote itself, in the reader's language - see OrbitWrittenNames.</summary>
-    private string Written(string name) => OrbitWrittenNames.Translate(T, name);
+    /// <summary>Whether this entry is ordinary work rather than an appointment or a restock errand.</summary>
+    private static bool IsAChecklistEntry(TaskItemDto item) => item.Kind == nameof(TaskItemKind.Checklist);
+
+    private string Written(string name) => OrbitWrittenNames.Translate(key => T[key], name);
 
     private static string CompletionSummary(TaskDto taskList)
         => taskList.Items.Count == 0 ? "empty" : $"{taskList.Items.Count(item => item.IsCompleted)}/{taskList.Items.Count}";

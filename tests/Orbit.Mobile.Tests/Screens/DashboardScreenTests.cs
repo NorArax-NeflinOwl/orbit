@@ -220,6 +220,24 @@ public sealed class DashboardScreenTests
     }
 
     /// <summary>
+    /// A note this device cannot open has no title to show - it is sealed with the rest of it - so
+    /// "Untitled" would claim it has none, which is a different thing. The row is still there, and its
+    /// own screen says which of the two reasons it is.
+    /// </summary>
+    [Fact]
+    public async Task A_note_this_device_cannot_open_is_named_as_private_rather_than_untitled()
+    {
+        using var context = new DashboardContext();
+        await context.AddSealedNoteAsync();
+        await context.PrivateItems.TryUnlockAsync();
+        var screen = context.Open();
+
+        await screen.LoadCommand.ExecuteAsync(null);
+
+        Assert.Equal("Private", Assert.Single(Assert.Single(screen.Cards).Rows).Title);
+    }
+
+    /// <summary>
     /// The dashboard used to read the local store and stop there, on the assumption that each section
     /// keeps itself current. A section only does that once its own screen has been opened, so after a
     /// sign-in - or after the cache was emptied - the landing screen sat empty until the reader had
@@ -533,6 +551,29 @@ public sealed class DashboardScreenTests
     }
 
     /// <summary>
+    /// A card's heading is the way into the section it summarises, as it is on Orbit.Web: the dashboard
+    /// shows the few most relevant rows, and the rest of them are one tap away.
+    /// </summary>
+    [Theory]
+    [InlineData(DashboardCardKind.Notes, "ShowNotes")]
+    [InlineData(DashboardCardKind.Tasks, "ShowTasks")]
+    [InlineData(DashboardCardKind.Upcoming, "ShowCalendar")]
+    [InlineData(DashboardCardKind.Groups, "ShowGroups")]
+    [InlineData(DashboardCardKind.RecentChats, "ShowContacts")]
+    [InlineData(DashboardCardKind.Contacts, "ShowContacts")]
+    [InlineData(DashboardCardKind.SharedLocations, "ShowMap")]
+    public void A_cards_heading_opens_its_section(DashboardCardKind kind, string expectedDestination)
+    {
+        using var context = new DashboardContext();
+        var screen = context.Open();
+
+        screen.OpenSectionCommand.Execute(
+            new DashboardCard(kind, "Whatever it is called", "1", []));
+
+        Assert.Equal(expectedDestination, context.Navigator.LastDestination);
+    }
+
+    /// <summary>
     /// Only the cards whose items can be narrowed get a menu. Chats and contacts hold things with
     /// neither a pin nor a priority, so offering one would open an empty sheet.
     /// </summary>
@@ -651,8 +692,8 @@ public sealed class DashboardScreenTests
         public DashboardContext()
         {
             var network = FixedNetworkStatus.Online;
-            _notes = new LocalNoteRepository(_localStore, _clock, network);
-            _taskLists = new LocalTaskListRepository(_localStore, _clock, network);
+            _notes = new LocalNoteRepository(_localStore, _clock, network, PrivateContent.WithoutAKey());
+            _taskLists = new LocalTaskListRepository(_localStore, _clock, network, PrivateContent.WithoutAKey());
             _calendarEvents = new LocalCalendarEventRepository(_localStore, _clock, network);
             _chat = new ChatRepository(_localStore, _clock);
             _syncState = new SyncState(network, _clock);
@@ -719,6 +760,7 @@ public sealed class DashboardScreenTests
                     NullLogger<TaskListSynchronizer>.Instance),
                 new CalendarEventSynchronizer(
                     _localStore, new CalendarClient(new FakeCalendarServer(_clock).ToHttpClient()), _clock, gate,
+                    new PendingCalendarLinkResolver(_clock, NullLogger<PendingCalendarLinkResolver>.Instance),
                     NullLogger<CalendarEventSynchronizer>.Instance),
                 new WarehouseSynchronizer(
                     _localStore, new InventoryClient(new FakeInventoryServer(_clock).ToHttpClient()), _clock, gate,
@@ -777,13 +819,31 @@ public sealed class DashboardScreenTests
                 NullLogger<SharedLocations>.Instance);
         }
 
+        /// <summary>One for the whole context, so a test can unlock private things before opening.</summary>
+        public PrivateItemGate PrivateItems { get; } = new(new FixedDeviceAuthentication());
+
         public DashboardViewModel Open()
             => new(_notes, _taskLists, _calendarEvents, _chat, _clock, new Translations(new InMemoryLanguageStore()),
-                new PrivateItemGate(new FixedDeviceAuthentication()), _synchronizer, _syncState, _permissions,
+                PrivateItems, _synchronizer, _syncState, _permissions,
                 Pins, Visibility, SharedPositions(), Navigator);
 
         public async Task<Guid> AddNoteAsync(string title)
             => (await _notes.CreateAsync(title, [new NoteContentLineDto("Body", false, false)])).LocalId;
+
+        /// <summary>A note this device cannot open, as the sync would bring one down - see LocalNote.IsSealed.</summary>
+        public async Task<Guid> AddSealedNoteAsync()
+        {
+            var localId = await AddNoteAsync(string.Empty);
+            await using var dbContext = _localStore.CreateDbContext();
+            var note = dbContext.Notes.Single(candidate => candidate.LocalId == localId);
+            note.IsPrivate = true;
+            note.Title = string.Empty;
+            note.Content = [];
+            note.EncryptedCiphertext = "AAAA";
+            note.EncryptedNonce = "BBBB";
+            await dbContext.SaveChangesAsync();
+            return localId;
+        }
 
         /// <summary>Marks something as mattering more, the way the picker on its own screen does.</summary>
         public async Task MarkAsync(Guid localId, string priority)
@@ -818,7 +878,7 @@ public sealed class DashboardScreenTests
 
         public async Task AddEventAsync(string title, DateTimeOffset startUtc, string? colour = null)
             => await _calendarEvents.CreateAsync(new CalendarEventDetailsDto(
-                title, null, null, colour, startUtc, startUtc.AddHours(1), false, null, [], [], "None", "None"));
+                title, null, null, colour, startUtc, startUtc.AddHours(1), false, null, [], [], ReminderNotificationChannel: "None"));
 
         /// <summary>
         /// Put on the server as well as in the local store, because the dashboard now synchronises on

@@ -7,7 +7,10 @@ using Orbit.Mobile.Api;
 using Orbit.Mobile.Data;
 using Orbit.Mobile.Localization;
 using Orbit.Mobile.Chat;
+using Orbit.Mobile.Crypto;
 using Orbit.Mobile.Screens.Sharing;
+using Orbit.Core.Suggestions;
+using Orbit.Mobile.Screens.Suggestions;
 using Orbit.Mobile.Screens;
 using Orbit.Mobile.Sync;
 
@@ -21,14 +24,23 @@ namespace Orbit.Mobile.Screens.Inventory;
 public sealed partial class WarehouseDetailViewModel : ObservableObject
 {
     private readonly LocalWarehouseRepository _warehouses;
+
+    /// <summary>Only to say why this is read-only, in the same words the inventory's own rows use.</summary>
+    private readonly INetworkStatus _networkStatus;
     private readonly WarehouseSynchronizer _synchronizer;
     private readonly InventoryClient _inventoryClient;
     private readonly EditLock _editLock;
     private readonly Translations _translations;
+    private readonly PrivateContentSealer _privateContent;
+    private readonly NameSuggestions _nameSuggestions;
+    private readonly NameSuggestions _warehouseNameSuggestions;
     private readonly IScreenNavigator _navigator;
 
     private Guid _localId;
     private IReadOnlyList<WarehouseItemDto> _items = [];
+
+    /// <summary>When each batch arrived, by its id - see LocalWarehouse.ItemArrivals.</summary>
+    private IReadOnlyDictionary<Guid, DateTimeOffset> _arrivals = new Dictionary<Guid, DateTimeOffset>();
 
     /// <summary>What is on screen has been narrowed down to - see <see cref="WarehouseItemFilter"/>.</summary>
     private readonly WarehouseItemFilter _filter = new();
@@ -44,6 +56,19 @@ public sealed partial class WarehouseDetailViewModel : ObservableObject
     [ObservableProperty]
     private string _name = string.Empty;
 
+    /// <inheritdoc cref="Tasks.TaskListDetailViewModel.Description"/>
+    [ObservableProperty]
+    private string _description = string.Empty;
+
+    /// <inheritdoc cref="Tasks.TaskListDetailViewModel._savedDescription"/>
+    private string _savedDescription = string.Empty;
+
+    /// <summary>
+    /// Whether a description is worth offering at all: a private warehouse keeps none, because a
+    /// description stored in the clear would say in the open what the name is sealed to hide.
+    /// </summary>
+    public bool IsNotPrivate => !IsPrivate;
+
     [ObservableProperty]
     private string _newItemName = string.Empty;
 
@@ -53,17 +78,35 @@ public sealed partial class WarehouseDetailViewModel : ObservableObject
     [ObservableProperty]
     private bool _isReadOnly;
 
+    /// <summary>
+    /// Only its owner may ever read this warehouse, and the server never can. Orbit.Web's warehouse
+    /// editor has had the checkbox all along; the phone carried the flag without being able to set one -
+    /// see PrivateContentSealer.
+    /// </summary>
+    [ObservableProperty]
+    private bool _isPrivate;
+
     public WarehouseDetailViewModel(
         LocalWarehouseRepository warehouses, WarehouseSynchronizer synchronizer, Translations translations,
         SharePanel share, IScreenNavigator navigator,
-        InventoryClient inventoryClient, EditLock editLock)
+        InventoryClient inventoryClient, EditLock editLock, PrivateContentSealer privateContent,
+        NameSuggestions nameSuggestions, NameSuggestions warehouseNameSuggestions,
+        INetworkStatus networkStatus, RestockListSettingsPanel restockList)
     {
+        _networkStatus = networkStatus;
+        RestockList = restockList;
         _warehouses = warehouses;
         _synchronizer = synchronizer;
         _translations = translations;
         Share = share;
         _navigator = navigator;
         _inventoryClient = inventoryClient;
+        _privateContent = privateContent;
+        _nameSuggestions = nameSuggestions;
+        OfferNamesToTheQuickAddBox();
+        _warehouseNameSuggestions = warehouseNameSuggestions;
+        _warehouseNameSuggestions.Offers(NameSuggestionKind.WarehouseName);
+        _warehouseNameSuggestions.Takes = name => Name = name;
         _editLock = editLock;
         _editLock.Changed += (_, _) => ShowWhoElseIsEditing();
         _anyProductType = translations["Any type"];
@@ -73,6 +116,33 @@ public sealed partial class WarehouseDetailViewModel : ObservableObject
     }
 
     public ObservableCollection<WarehouseItemRow> Items { get; } = [];
+
+    /// <summary>True while the screen fills itself in, so loading does not look like a person choosing.</summary>
+    private bool _isShowingWhatIsStored;
+
+    /// <summary>Saved as soon as it is switched, the way ticking an entry on a list is.</summary>
+    /// <inheritdoc cref="Tasks.TaskListDetailViewModel.CommitDescriptionAsync"/>
+    [RelayCommand]
+    private Task CommitDescriptionAsync(CancellationToken cancellationToken)
+    {
+        if (Description == _savedDescription)
+        {
+            return Task.CompletedTask;
+        }
+
+        _savedDescription = Description;
+        return RenameCommand.ExecuteAsync(null);
+    }
+
+    partial void OnIsPrivateChanged(bool value)
+    {
+        OnPropertyChanged(nameof(IsNotPrivate));
+
+        if (!_isShowingWhatIsStored && !IsReadOnly)
+        {
+            RenameCommand.Execute(null);
+        }
+    }
 
     /// <summary>
     /// The types and categories actually on this shelf, each behind an "any" that stands for no choice -
@@ -148,7 +218,25 @@ public sealed partial class WarehouseDetailViewModel : ObservableObject
 
     public bool CanEdit => !IsReadOnly;
 
-    public void Open(Guid localId) => _localId = localId;
+    public void Open(Guid localId, Guid? productId = null)
+    {
+        _localId = localId;
+        _pointedAtProductId = productId;
+    }
+
+    /// <summary>
+    /// The product this shelf was opened for, when something meant one - see
+    /// IScreenNavigator.ShowWarehouse. Kept for as long as the screen is, the way the browser keeps the
+    /// ?highlight= it was opened with: narrowing the shelf and clearing the filter again should find the
+    /// row still marked.
+    /// </summary>
+    private Guid? _pointedAtProductId;
+
+    /// <summary>
+    /// The row that was pointed at, for a list that has to bring it into view - a mark below the fold is
+    /// a mark nobody sees. Null when nothing was pointed at, or when the filter is hiding it.
+    /// </summary>
+    public WarehouseItemRow? PointedAtRow => Items.FirstOrDefault(row => row.IsPointedAt);
 
     [RelayCommand]
     private Task LoadAsync(CancellationToken cancellationToken) => ShowStoredWarehouseAsync(cancellationToken);
@@ -192,7 +280,7 @@ public sealed partial class WarehouseDetailViewModel : ObservableObject
     {
         if (row is not null && CanEdit)
         {
-            BeingEdited = WarehouseItemEditor.For(row.Item, _translations);
+            BeingEdited = WarehouseItemEditor.For(row.Item, _translations, _nameSuggestions);
         }
     }
 
@@ -304,11 +392,9 @@ public sealed partial class WarehouseDetailViewModel : ObservableObject
     private async Task DeleteAsync(CancellationToken cancellationToken)
     {
         var outcome = await _warehouses.DeleteAsync(_localId, cancellationToken);
-        if (outcome is LocalWriteOutcome.RefusedWhileOffline)
+        if (outcome.WasRefused())
         {
-            Status = _translations[
-                "Somebody else can change this warehouse, and Orbit can't be reached to check. "
-                + "It stays read-only until you're back online."];
+            Status = outcome.Explain(RefusalMessage, _translations);
             return;
         }
 
@@ -319,14 +405,30 @@ public sealed partial class WarehouseDetailViewModel : ObservableObject
     [RelayCommand]
     private void GoBack() => _navigator.ShowInventory();
 
+    /// <summary>The dictionary key, not the text itself - see <see cref="Translations"/>.</summary>
+    private const string RefusalMessage =
+        "Somebody else can change this warehouse, and Orbit can't be reached to check. "
+        + "It stays read-only until you're back online.";
+
     private async Task SaveAsync(IReadOnlyList<WarehouseItemDto> items, CancellationToken cancellationToken)
     {
-        var outcome = await _warehouses.UpdateAsync(_localId, Name, items, cancellationToken);
-        if (outcome is LocalWriteOutcome.RefusedWhileOffline)
+        LocalWriteOutcome outcome;
+        try
         {
-            Status = _translations[
-                "Somebody else can change this warehouse, and Orbit can't be reached to check. "
-                + "It stays read-only until you're back online."];
+            outcome = await _warehouses.UpdateAsync(
+                _localId, new WarehouseContent(Name, items, IsPrivate, Description), cancellationToken);
+        }
+        catch (EncryptionKeyLockedException)
+        {
+            // Sealing needs the account's own key, and this device has not got it - see
+            // NoteDetailViewModel, which sends the reader to the same gate for the same reason.
+            _navigator.ShowChatKeyGate();
+            return;
+        }
+
+        if (outcome.WasRefused())
+        {
+            Status = outcome.Explain(RefusalMessage, _translations);
             return;
         }
 
@@ -343,27 +445,55 @@ public sealed partial class WarehouseDetailViewModel : ObservableObject
         }
 
         Name = warehouse.Name;
-        if (warehouse.ServerId is { } serverId)
+        Description = warehouse.Description;
+        _savedDescription = warehouse.Description;
+        // Taken as already looked up, so opening a warehouse does not offer completions of its own name
+        // and warn that it duplicates itself - see NameSuggestions.StartsAt.
+        _warehouseNameSuggestions.StartsAt(warehouse.Name);
+        _isShowingWhatIsStored = true;
+        IsPrivate = warehouse.IsPrivate;
+        _isShowingWhatIsStored = false;
+
+        // A private warehouse is offered to nobody: the server holds no readable copy to hand over,
+        // which is what makes it private - the same line Orbit.Web's editor draws.
+        if (warehouse is { ServerId: { } serverId, IsPrivate: false })
         {
             Share.Describes(
                 SharedItemKind.Warehouse, serverId, warehouse.Name,
                 warehouse.AccessLevel == "CanEdit" ? null : warehouse.OwnerUserId);
         }
+        else
+        {
+            Share.OffersNothing();
+        }
 
+        HasHistory = (await _warehouses.GetHistoryOfAsync(_localId, cancellationToken)).Count > 0;
         _items = warehouse.Items;
+        _arrivals = warehouse.ItemArrivals;
+        // What this shelf's restock list asks for, and when - see RestockListSettingsPanel.
+        await RestockList.ShowFor(warehouse.ServerId, cancellationToken);
 
-        // Sealed with a key this phone has not got - see TaskListDetailViewModel for the same guard and
-        // why saving one anyway is worse than not offering to.
-        if (warehouse.IsPrivate)
+        // Sealed with a key this device cannot open - see TaskListDetailViewModel for the same guard
+        // and why saving one anyway is worse than not offering to.
+        if (warehouse.IsSealed)
         {
             IsReadOnly = true;
-            ReadOnlyReason = _translations[
-                "This warehouse is private, and its contents are sealed with a key this phone doesn't have."];
+            ReadOnlyReason = await _privateContent.HasKeyAsync(cancellationToken)
+                ? _translations["This warehouse was sealed with an encryption key this account no longer has."]
+                : _translations["This warehouse is private. Unlock this device's encryption key to read it."];
+            IsCopyOffered = false;
         }
         else
         {
             IsReadOnly = !await _warehouses.CanEditAsync(_localId, cancellationToken);
-            ReadOnlyReason = string.Empty;
+            // Said in the same words the row on the list before it used - being told it cannot be
+            // changed, without being told why, leaves a screen that simply looks broken.
+            ReadOnlyReason = OfflineEditExplanation.For(
+                warehouse, OfflineEditPolicy.Evaluate(warehouse, _networkStatus), hasUnsentChanges: false,
+                _translations);
+            // <inheritdoc cref="Tasks.TaskListDetailViewModel"/> - a copy is for editing offline what
+            // could be edited online.
+            IsCopyOffered = IsReadOnly && warehouse.CopyOfLocalId is null && SharedItemAccess.AllowsEditing(warehouse);
         }
 
         if (!IsReadOnly && warehouse.ServerId is { } lockedServerId)
@@ -423,13 +553,21 @@ public sealed partial class WarehouseDetailViewModel : ObservableObject
         Items.Clear();
         foreach (var item in _items.Where(_filter.Matches))
         {
-            Items.Add(WarehouseItemRow.From(item, _translations));
+            Items.Add(WarehouseItemRow.From(item, _translations, _pointedAtProductId, ArrivalOf(item)));
         }
 
+        OnPropertyChanged(nameof(PointedAtRow));
         OnPropertyChanged(nameof(IsNarrowed));
         OnPropertyChanged(nameof(FilterNote));
         OnPropertyChanged(nameof(EmptyMessage));
     }
+
+    /// <summary>
+    /// When this batch arrived, or null for one this phone has queued and no server has accepted - it
+    /// has no id yet, or none this shelf was told about.
+    /// </summary>
+    private DateTimeOffset? ArrivalOf(WarehouseItemDto item)
+        => item.Id is { } id && _arrivals.TryGetValue(id, out var arrived) ? arrived : null;
 
     partial void OnChosenProductTypeChanged(string? value)
     {
@@ -476,15 +614,49 @@ public sealed partial class WarehouseDetailViewModel : ObservableObject
 
     partial void OnBeingEditedChanged(WarehouseItemEditor? value)
     {
+        // Nothing on offer once the form is gone, and the box above the list takes what is chosen
+        // again - it is the field being typed into whenever no editor is.
+        if (value is null)
+        {
+            OfferNamesToTheQuickAddBox();
+        }
+
         OnPropertyChanged(nameof(IsEditingItem));
         OnPropertyChanged(nameof(IsShowingList));
+    }
+
+    /// <summary>
+    /// Products already on the shelves, offered under whichever field is being typed into - the box
+    /// above the list, or an item's name once one is open. One at a time, because only one of the two
+    /// is ever on screen.
+    /// </summary>
+    public NameSuggestions Suggestions => _nameSuggestions;
+
+    /// <summary>
+    /// Warehouse names this account already has, offered under the name field. Its own instance rather
+    /// than the one above: the name and the quick-add box are on screen together, and one instance
+    /// serves one field - see NameSuggestions.Takes.
+    /// </summary>
+    public NameSuggestions WarehouseNameSuggestions => _warehouseNameSuggestions;
+
+    private void OfferNamesToTheQuickAddBox()
+    {
+        _nameSuggestions.Forget();
+        _nameSuggestions.Offers(NameSuggestionKind.InventoryItemName);
+        _nameSuggestions.Takes = name => NewItemName = name;
     }
 
     partial void OnStatusChanged(string value) => OnPropertyChanged(nameof(HasStatus));
 
     partial void OnIsReadOnlyChanged(bool value) => OnPropertyChanged(nameof(CanEdit));
 
-    partial void OnNewItemNameChanged(string value) => AddItemCommand.NotifyCanExecuteChanged();
+    partial void OnNewItemNameChanged(string value)
+    {
+        AddItemCommand.NotifyCanExecuteChanged();
+        Suggestions.ShowFor(value);
+    }
+
+    partial void OnNameChanged(string value) => WarehouseNameSuggestions.ShowFor(value);
 
     /// <summary>Why it cannot be changed right now - empty when it can, which is the common case.</summary>
     [ObservableProperty]
@@ -507,4 +679,39 @@ public sealed partial class WarehouseDetailViewModel : ObservableObject
     public Task CloseAsync() => _editLock.ReleaseAsync();
 
     partial void OnReadOnlyReasonChanged(string value) => OnPropertyChanged(nameof(HasReadOnlyReason));
+
+    /// <inheritdoc cref="Notes.NoteDetailViewModel.IsCopyOffered"/>
+    [ObservableProperty]
+    private bool _isCopyOffered;
+
+    /// <inheritdoc cref="Notes.NoteDetailViewModel.CopyForEditingAsync"/>
+    [RelayCommand]
+    private async Task CopyForEditingAsync(CancellationToken cancellationToken)
+    {
+        if (await _warehouses.CopyForEditingAsync(_localId, cancellationToken) is not { } copy)
+        {
+            return;
+        }
+
+        IsCopyOffered = false;
+        _navigator.ShowWarehouse(copy.LocalId);
+    }
+
+    /// <inheritdoc cref="Notes.NoteDetailViewModel.DeclineCopy"/>
+    [RelayCommand]
+    private void DeclineCopy() => IsCopyOffered = false;
+
+    /// <summary>
+    /// Whether anything was ever copied from this - what puts its history within reach. Hidden until
+    /// there is one, because most things have none and a permanent link to an empty window is clutter.
+    /// </summary>
+    [ObservableProperty]
+    private bool _hasHistory;
+
+    /// <summary>This thing's own history, opened from this thing - see CopyHistoryViewModel.</summary>
+    [RelayCommand]
+    private void GoToHistory() => _navigator.ShowCopyHistory(CopyKind.Warehouse, _localId);
+
+    /// <summary>How this warehouse's restock list is built - see <see cref="RestockListSettingsPanel"/>.</summary>
+    public RestockListSettingsPanel RestockList { get; }
 }

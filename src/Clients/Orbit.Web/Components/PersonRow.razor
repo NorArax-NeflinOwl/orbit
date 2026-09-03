@@ -1,0 +1,71 @@
+@using Orbit.Web.Services
+@inject Translations T
+
+@* One row for a person or a group, used by every list that shows either. Its own shape rather than
+   ItemCard's, because these lists lead with a face and live or die on density: a card's anatomy has
+   nowhere to put an avatar, and giving each conversation a tag row would make a picker into a page.
+
+       [pin][action][avatar with status][name ...................][menu]
+
+   A group has no status on its avatar - a group is not somewhere anybody is or is not. *@
+<div class="person-row @(HasUnseenAction ? "unread" : "")">
+    @if (Pin is not null)
+    {
+        <span class="person-row-pin">@Pin</span>
+    }
+    @* Something happened here that this reader has not seen. Before the face rather than on it: a
+       count drawn on an avatar reads as being about the person, not about what is waiting. *@
+    @if (HasUnseenAction)
+    {
+        <span class="person-row-action" title="@(T["Something happened here"])"
+              aria-label="@(T["Something happened here"])"></span>
+    }
+    <button type="button" class="person-row-open" @onclick="OnSelected">
+        <span class="avatar-sm" style="background:@AvatarHelper.AvatarColor(Id)">
+            @AvatarHelper.GetInitials(Name)
+            @if (Status is { } status)
+            {
+                <PresenceDot Status="status" />
+            }
+        </span>
+        <span class="person-row-meta">
+            <span class="person-row-name">@Name</span>
+            @if (!string.IsNullOrWhiteSpace(Subtitle))
+            {
+                <span class="person-row-subtitle">@Subtitle</span>
+            }
+        </span>
+    </button>
+    @if (Menu is not null)
+    {
+        <span class="person-row-menu">@Menu</span>
+    }
+</div>
+
+@code {
+    /// <summary>Whose row this is - the person or the group. Decides the avatar's colour and initials.</summary>
+    [Parameter, EditorRequired] public Guid Id { get; set; }
+
+    [Parameter, EditorRequired] public string Name { get; set; } = string.Empty;
+
+    /// <summary>The quieter second line - a login, or how many people are in a group.</summary>
+    [Parameter] public string? Subtitle { get; set; }
+
+    /// <summary>Opening the conversation, which is what the whole row does.</summary>
+    [Parameter] public EventCallback OnSelected { get; set; }
+
+    /// <summary>
+    /// Where somebody is, when that means anything. Null for a group: a group is not somewhere anybody
+    /// is or is not, so its avatar carries no dot.
+    /// </summary>
+    [Parameter] public Orbit.Core.Users.PresenceStatus? Status { get; set; }
+
+    /// <summary>Something is waiting here that this reader has not seen - an unread message.</summary>
+    [Parameter] public bool HasUnseenAction { get; set; }
+
+    /// <summary>The pin control, for a row somebody wants kept at the top.</summary>
+    [Parameter] public RenderFragment? Pin { get; set; }
+
+    /// <summary>The overflow menu - Info, and what else this list offers.</summary>
+    [Parameter] public RenderFragment? Menu { get; set; }
+}

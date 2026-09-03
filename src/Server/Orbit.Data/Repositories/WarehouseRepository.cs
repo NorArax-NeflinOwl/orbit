@@ -57,6 +57,16 @@ public sealed class WarehouseRepository : IWarehouseRepository
         await _dbContext.SaveChangesAsync(cancellationToken);
     }
 
+    /// <summary>The three columns a lock is, and nothing else - see IWarehouseRepository.UpdateLockAsync.</summary>
+    public async Task UpdateLockAsync(Warehouse warehouse, CancellationToken cancellationToken)
+    {
+        var entity = await _dbContext.Warehouses.FirstAsync(stored => stored.Id == warehouse.Id, cancellationToken);
+        entity.LockedByUserId = warehouse.LockedByUserId;
+        entity.LockedByUserName = warehouse.LockedByUserName;
+        entity.LockExpiresAtUtc = warehouse.LockExpiresAtUtc;
+        await _dbContext.SaveChangesAsync(cancellationToken);
+    }
+
     public async Task DeleteAsync(Guid userId, Guid id, CancellationToken cancellationToken)
     {
         var entity = await _dbContext.Warehouses
@@ -95,7 +105,7 @@ public sealed class WarehouseRepository : IWarehouseRepository
             entity.Id, entity.UserId, entity.Name, entity.IsPrivate,
             ToEncryptedPayload(entity.EncryptedCiphertext, entity.EncryptedNonce),
             entity.CreatedAtUtc, entity.UpdatedAtUtc,
-            entity.LockedByUserId, entity.LockedByUserName, entity.LockExpiresAtUtc);
+            entity.LockedByUserId, entity.LockedByUserName, entity.LockExpiresAtUtc, entity.Description);
 
     private static WarehouseEntity ToEntity(Warehouse warehouse)
         => new()
@@ -103,6 +113,7 @@ public sealed class WarehouseRepository : IWarehouseRepository
             Id = warehouse.Id,
             UserId = warehouse.UserId,
             Name = warehouse.Name,
+            Description = warehouse.Description,
             IsPrivate = warehouse.IsPrivate,
             EncryptedCiphertext = warehouse.EncryptedContent?.Ciphertext,
             EncryptedNonce = warehouse.EncryptedContent?.Nonce,

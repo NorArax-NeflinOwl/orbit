@@ -5,6 +5,7 @@
 @using Orbit.Core.Permissions
 @using Orbit.Web.Services
 @inject ChatApiClient ChatApiClient
+@inject GroupHistorySharing GroupHistorySharing
 @inject OrbitAuthenticationStateProvider AuthenticationStateProvider
 @inject NavigationManager NavigationManager
 @inject ILogger<GroupMembers> Logger
@@ -23,9 +24,6 @@
         {
             <p class="page-subtitle">@_group.Name</p>
         }
-    </div>
-    <div class="page-header-actions">
-        <button type="button" class="btn-secondary" @onclick="GoToChat">@T["Back to chat"]</button>
     </div>
 </div>
 
@@ -80,6 +78,17 @@ else if (_errorMessage is not null)
                 </select>
                 <button type="button" class="btn-secondary" disabled="@_isBusy" @onclick="AddMemberAsync">@T["Add"]</button>
             </div>
+            @* Off unless asked for: everything said in this group so far was said to the people who were
+               in it, and handing it on is a decision, not a default. *@
+            <label class="field-checkbox" for="shareHistoryInput">
+                <input id="shareHistoryInput" type="checkbox" @bind="_shareHistoryWithNewMember" />
+                <span>@T["Also give them what was said before they joined"]</span>
+            </label>
+            <p class="field-hint">@T["Your device re-encrypts each message for them, so only messages it can open are passed on."]</p>
+            @if (_historyShareMessage is not null)
+            {
+                <p class="field-hint">@_historyShareMessage</p>
+            }
         }
     </div>
 }
@@ -96,6 +105,12 @@ else if (_errorMessage is not null)
     private string _contactToAddId = string.Empty;
     private bool _isBusy;
     private string? _errorMessage;
+
+    /// <summary>Whether the next person added should also be handed the conversation so far.</summary>
+    private bool _shareHistoryWithNewMember;
+
+    /// <summary>What the last share actually managed, said plainly rather than left to be guessed at.</summary>
+    private string? _historyShareMessage;
 
     private bool IsOwnAdmin => _group?.OwnRole == AdminRole;
 
@@ -143,8 +158,6 @@ else if (_errorMessage is not null)
         }
     }
 
-    private void GoToChat() => NavigationManager.NavigateTo($"/chat/groups/{GroupId}");
-
     private async Task AddMemberAsync()
     {
         if (!Guid.TryParse(_contactToAddId, out var userId))
@@ -154,10 +167,45 @@ else if (_errorMessage is not null)
 
         await RunAsync(async () =>
         {
+            _historyShareMessage = null;
             await ChatApiClient.AddGroupMemberAsync(GroupId, userId);
             _contactToAddId = string.Empty;
+
+            if (_shareHistoryWithNewMember)
+            {
+                await ShareHistoryWithAsync(userId);
+            }
+
             await LoadAsync();
         });
+    }
+
+    /// <summary>
+    /// Runs after the person is already in, not before: the copies are sealed under the key pair they
+    /// have as a member, and a share that failed leaves them in the group with the history they would
+    /// have had anyway rather than half-added. What went wrong is said here rather than swallowed - a
+    /// silent nothing looks exactly like a checkbox that was never read.
+    /// </summary>
+    private async Task ShareHistoryWithAsync(Guid userId)
+    {
+        try
+        {
+            var shared = await GroupHistorySharing.ShareWithAsync(_ownUserId, GroupId, userId);
+            _historyShareMessage = shared == 0
+                ? T["No earlier messages could be passed on - this device can't open any of them."]
+                : T.Format("Passed on {0} earlier messages.", shared);
+        }
+        catch (InvalidOperationException exception)
+        {
+            // Raised when the new member has never signed in, so there is no key to seal anything for.
+            Logger.LogWarning(exception, "The history of group {GroupId} could not be shared", GroupId);
+            _historyShareMessage = T["They're in the group, but the earlier messages couldn't be passed on until they've signed in once."];
+        }
+        catch (HttpRequestException exception)
+        {
+            Logger.LogError(exception, "The history of group {GroupId} could not be shared", GroupId);
+            _historyShareMessage = T["They're in the group, but passing on the earlier messages didn't work."];
+        }
     }
 
     private async Task RemoveMemberAsync(Guid userId)

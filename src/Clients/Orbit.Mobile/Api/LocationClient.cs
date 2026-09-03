@@ -1,3 +1,4 @@
+using System.Net;
 using System.Net.Http.Json;
 using Orbit.Contracts.Users;
 
@@ -65,12 +66,32 @@ public sealed class LocationClient
     }
 
     /// <summary>Who the caller is currently sharing with.</summary>
-    public async Task<IReadOnlyList<SharedLocationDto>> GetOwnSharesAsync(CancellationToken cancellationToken = default)
-        => await _httpClient.GetFromJsonAsync<IReadOnlyList<SharedLocationDto>>(
-            "api/users/me/location/shares", cancellationToken) ?? [];
+    public Task<IReadOnlyList<SharedLocationDto>> GetOwnSharesAsync(CancellationToken cancellationToken = default)
+        => ReadSharesAsync("api/users/me/location/shares", cancellationToken);
 
     /// <summary>What other people are sharing with the caller, as ciphertext only they can open.</summary>
-    public async Task<IReadOnlyList<SharedLocationDto>> GetSharedWithMeAsync(CancellationToken cancellationToken = default)
-        => await _httpClient.GetFromJsonAsync<IReadOnlyList<SharedLocationDto>>(
-            "api/users/me/location/shared-with-me", cancellationToken) ?? [];
+    public Task<IReadOnlyList<SharedLocationDto>> GetSharedWithMeAsync(CancellationToken cancellationToken = default)
+        => ReadSharesAsync("api/users/me/location/shared-with-me", cancellationToken);
+
+    /// <summary>
+    /// Empty rather than an exception when the account has not unlocked what the endpoint asks for -
+    /// both of these need Contacts as well as Location (see PermissionPolicies in Orbit.Api), and the
+    /// map opens for anybody with Location alone. Orbit.Web answers the same way, for the same reason:
+    /// a refusal here is not a failure to report, it is the answer - there is nobody to show. Left
+    /// throwing, the map read the 403 as "Couldn't reach Orbit just now", which blames the connection
+    /// for a server that answered perfectly clearly.
+    /// </summary>
+    private async Task<IReadOnlyList<SharedLocationDto>> ReadSharesAsync(
+        string address, CancellationToken cancellationToken)
+    {
+        try
+        {
+            return await _httpClient.GetFromJsonAsync<IReadOnlyList<SharedLocationDto>>(
+                address, cancellationToken) ?? [];
+        }
+        catch (HttpRequestException exception) when (exception.StatusCode == HttpStatusCode.Forbidden)
+        {
+            return [];
+        }
+    }
 }

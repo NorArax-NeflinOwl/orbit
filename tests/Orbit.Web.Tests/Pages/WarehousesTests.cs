@@ -37,7 +37,7 @@ public sealed class WarehousesTests : OrbitTestContext
 
         var cut = RenderComponent<Web.Pages.Warehouses>();
 
-        Assert.Equal(2, cut.FindAll(".warehouse-card").Count);
+        Assert.Equal(2, cut.FindAll(".item-card").Count);
         Assert.Contains("Pantry", cut.Markup);
         Assert.Contains("Garage", cut.Markup);
     }
@@ -125,7 +125,7 @@ public sealed class WarehousesTests : OrbitTestContext
         var navigationManager = Services.GetRequiredService<NavigationManager>();
         var cut = RenderComponent<Web.Pages.Warehouses>();
 
-        cut.FindAll(".warehouse-card-actions button").First(button => button.TextContent.Contains("Open")).Click();
+        cut.Find(".item-card-name").Click();
 
         Assert.EndsWith($"/inventory/{pantry.Id}", navigationManager.Uri);
     }
@@ -136,7 +136,7 @@ public sealed class WarehousesTests : OrbitTestContext
         RegisterApiClients([]);
         var cut = RenderComponent<Web.Pages.Warehouses>();
 
-        cut.FindAll("button").First(button => button.TextContent.Contains("Add warehouse")).Click();
+        cut.Find(".page-add").Click();
 
         var create = cut.FindAll(".warehouse-create-row button").First(button => button.TextContent.Trim() == "Create");
         Assert.True(create.HasAttribute("disabled"));
@@ -147,7 +147,7 @@ public sealed class WarehousesTests : OrbitTestContext
     {
         RegisterApiClients([]);
         var cut = RenderComponent<Web.Pages.Warehouses>();
-        cut.FindAll("button").First(button => button.TextContent.Contains("Add warehouse")).Click();
+        cut.Find(".page-add").Click();
 
         cut.Find("#newWarehouseNameInput").Input("Cellar");
 
@@ -155,7 +155,21 @@ public sealed class WarehousesTests : OrbitTestContext
         Assert.False(create.HasAttribute("disabled"));
     }
 
-    private static string ActionsOf(IRenderedFragment cut) => cut.Find(".warehouse-card-actions").TextContent;
+    /// <summary>
+    /// What a card offers, which is now what its overflow menu holds - see ItemCard's Menu slot. The
+    /// menu renders its entries only once opened, so this opens the first card's before reading it.
+    /// </summary>
+    private static string ActionsOf(IRenderedFragment cut)
+    {
+        if (cut.FindAll(".item-card .overflow-menu-trigger").FirstOrDefault() is not { } trigger)
+        {
+            // A card with nothing to offer renders no menu at all, which is an empty list of actions.
+            return string.Empty;
+        }
+
+        trigger.Click();
+        return cut.Find(".item-card-menu").TextContent;
+    }
 
     private static WarehouseDto Warehouse(
         string name, bool isPrivate = false, bool isShared = false, string? sharedByUserName = null,

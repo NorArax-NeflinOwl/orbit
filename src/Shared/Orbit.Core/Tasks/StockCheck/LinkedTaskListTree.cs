@@ -22,7 +22,7 @@ public static class LinkedTaskListTree
 
     /// <summary>Every piece of work in the tree - the entries that are things to do rather than links.</summary>
     public static IReadOnlyList<TaskItem> WorkIn(TaskList root, IReadOnlyCollection<TaskList> candidates)
-        => [.. Flatten(root, candidates).SelectMany(list => list.Items).Where(item => item.LinkedTaskListId is null)];
+        => [.. Flatten(root, candidates).SelectMany(list => list.Items).Where(item => !item.IsALinkToOtherLists)];
 
     private static void Append(
         TaskList taskList, IReadOnlyDictionary<Guid, TaskList> byId, HashSet<Guid> alreadyGathered, List<TaskList> gathered)
@@ -38,7 +38,7 @@ public static class LinkedTaskListTree
             return;
         }
 
-        foreach (var linkedId in taskList.Items.Select(item => item.LinkedTaskListId).OfType<Guid>())
+        foreach (var linkedId in taskList.Items.SelectMany(item => item.LinkedTaskListIds))
         {
             if (byId.TryGetValue(linkedId, out var linked))
             {

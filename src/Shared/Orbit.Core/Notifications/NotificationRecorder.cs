@@ -1,3 +1,5 @@
+using Orbit.Core.LiveUpdates;
+
 namespace Orbit.Core.Notifications;
 
 /// <summary>
@@ -10,12 +12,16 @@ public sealed class NotificationRecorder
 {
     private readonly INotificationSettingsRepository _notificationSettingsRepository;
     private readonly INotificationEntryRepository _notificationEntryRepository;
+    private readonly ILiveUpdatePublisher _liveUpdatePublisher;
 
     public NotificationRecorder(
-        INotificationSettingsRepository notificationSettingsRepository, INotificationEntryRepository notificationEntryRepository)
+        INotificationSettingsRepository notificationSettingsRepository,
+        INotificationEntryRepository notificationEntryRepository,
+        ILiveUpdatePublisher liveUpdatePublisher)
     {
         _notificationSettingsRepository = notificationSettingsRepository;
         _notificationEntryRepository = notificationEntryRepository;
+        _liveUpdatePublisher = liveUpdatePublisher;
     }
 
     public async Task<NotificationRecordResult> RecordAndFilterAsync(
@@ -26,6 +32,11 @@ public sealed class NotificationRecorder
         if (settings.AllowNotifications)
         {
             await _notificationEntryRepository.AddAsync(NotificationEntry.Create(userId, kind, says), cancellationToken);
+
+            // Announced from here rather than from each trigger, because every one of them - the four
+            // reminder services and SendMessageCommandHandler - already comes through this method. One
+            // call covers all of them, and a trigger added later gets it without having to remember.
+            await _liveUpdatePublisher.NotificationsChangedAsync(userId, cancellationToken);
         }
 
         return new NotificationRecordResult(settings.FilterChannel(requestedChannel), EntryRecorded: settings.AllowNotifications);

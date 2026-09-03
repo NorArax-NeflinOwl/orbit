@@ -86,7 +86,7 @@ public sealed class CalendarMonthTests
             LocalId = Guid.NewGuid(),
             Details = new CalendarEventDetailsDto(
                 "Meeting", null, null, null, start.ToUniversalTime(), start.AddHours(1).ToUniversalTime(),
-                false, null, [], [], "None", "None")
+                false, null, [], [], ReminderNotificationChannel: "None")
         };
     }
 }

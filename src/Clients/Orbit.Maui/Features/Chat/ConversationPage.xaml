@@ -16,7 +16,16 @@
 
     <Grid Grid.Row="1" RowDefinitions="Auto,Auto,*,Auto,Auto" Padding="20" RowSpacing="10">
 
-        <Label Grid.Row="0" Text="{Binding Title}" FontSize="22" FontAttributes="Bold" />
+        <Grid Grid.Row="0" ColumnDefinitions="*,Auto" ColumnSpacing="8">
+            <Label Grid.Column="0" Text="{Binding Title}" FontSize="22" FontAttributes="Bold"
+                   LineBreakMode="TailTruncation" VerticalOptions="Center" />
+
+            <!-- Who this is, apart from what they have said - where the browser keeps it too, in the
+                 conversation's own menu. -->
+            <Button Grid.Column="1" Text="{controls:Translate 'Info'}" FontSize="13" Padding="12,4"
+                    VerticalOptions="Center" Style="{StaticResource LinkButton}"
+                    Command="{Binding OpenContactInfoCommand}" />
+        </Grid>
         <VerticalStackLayout Grid.Row="1" Spacing="8">
             <Label Text="{Binding Status}" IsVisible="{Binding HasStatus}"
                    FontSize="12" TextColor="{AppThemeBinding Light={StaticResource SubtleTextLight}, Dark={StaticResource SubtleTextDark}}" LineBreakMode="WordWrap" />

@@ -121,9 +121,7 @@ public sealed class ContactInfoTests : OrbitTestContext
 
         var cut = Render();
 
-        Assert.Contains(
-            cut.FindAll(".page-header-actions button"),
-            button => button.TextContent.Contains("Open chat", StringComparison.Ordinal));
+        Assert.NotEmpty(cut.FindAll(".contact-info-open-chat"));
     }
 
     [Fact]
@@ -134,9 +132,7 @@ public sealed class ContactInfoTests : OrbitTestContext
 
         var cut = Render();
 
-        Assert.DoesNotContain(
-            cut.FindAll(".page-header-actions button"),
-            button => button.TextContent.Contains("Open chat", StringComparison.Ordinal));
+        Assert.Empty(cut.FindAll(".contact-info-open-chat"));
     }
 
     [Fact]
@@ -148,7 +144,8 @@ public sealed class ContactInfoTests : OrbitTestContext
         var navigationManager = Services.GetRequiredService<NavigationManager>();
         var cut = Render();
 
-        cut.FindAll(".page-header-actions button").First(button => button.TextContent.Contains("Open chat")).Click();
+        // An icon rather than a word now, so it is found by what it is for rather than by its text.
+        cut.Find(".contact-info-open-chat").Click();
 
         Assert.EndsWith($"/chat/{ContactUserId}", navigationManager.Uri);
     }

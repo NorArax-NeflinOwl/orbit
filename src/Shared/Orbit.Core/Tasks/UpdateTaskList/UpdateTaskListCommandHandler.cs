@@ -46,21 +46,63 @@ public sealed class UpdateTaskListCommandHandler : IRequestHandler<UpdateTaskLis
         // TaskListLinkValidator has always validated against.
         await _taskListLinkValidator.ValidateAsync(taskList.UserId, request.Id, request.Items, cancellationToken);
 
-        // Read before the update, since afterwards there is nothing left to compare against.
-        var alreadyDone = taskList.Items.Where(item => item.IsCompleted).Select(item => item.Id).ToHashSet();
+        // Clients name their own entries now, so two of them can hand over the same id. Both sides are
+        // renamed when they do - see TaskItemIdentity for why neither may keep it.
+        var identity = TaskItemIdentity.Resolve(
+            request.Items,
+            await _taskRepository.GetHoldingItemsAsync(
+                taskList.UserId, request.Id, [.. request.Items.Select(item => item.Id)], cancellationToken));
 
+        KeepTheCategoriesOfEntriesThatSaidNothing(identity.Items, taskList, request.EntriesKeepingTheirCategories);
+
+        // A caller that said nothing about the description keeps the one that is stored. That is what
+        // lets a client which has not learned about the field - the phone, an older tab - go on saving
+        // lists without erasing what was written somewhere else.
         taskList.Update(
-            request.Title, request.Items, request.IsGroup, request.IsPrivate, request.EncryptedContent, request.Priority);
-        await _taskRepository.UpdateAsync(taskList, cancellationToken);
+            request.Title, identity.Items, request.IsGroup, request.IsPrivate, request.EncryptedContent, request.Priority,
+            request.Description ?? taskList.Description);
 
-        // Crossing off a restock errand says the shelf was filled - see RestockCompletion, which does
-        // nothing at all for the ordinary lists this handler mostly saves.
-        var justDone = taskList.Items
-            .Where(item => item.IsCompleted && !alreadyDone.Contains(item.Id))
-            .Select(item => item.Id)
-            .ToList();
-        await _restockCompletion.ApplyAsync(request.Id, justDone, cancellationToken);
+        // One save when another list had to be renamed too, so a failure cannot leave two entries
+        // claiming one id in the database - the state this exists to prevent.
+        if (identity.ListsToSaveToo.Count > 0)
+        {
+            await _taskRepository.UpdateManyAsync([taskList, .. identity.ListsToSaveToo], cancellationToken);
+        }
+        else
+        {
+            await _taskRepository.UpdateAsync(taskList, cancellationToken);
+        }
+
+        // Crossing off a restock errand says the shelf was filled, so the shelf is filled - but the
+        // entry stays, crossed off, rather than disappearing under the finger that just tapped it. The
+        // checklist asks for a refresh a few minutes later and that is what clears it. Does nothing at
+        // all for the ordinary lists this handler mostly saves.
+        await _restockCompletion.TopUpFinishedAsync(request.Id, cancellationToken);
 
         return EditOutcome.Success;
+    }
+
+    /// <summary>
+    /// An entry whose categories were not sent keeps the ones it already has. The wire cannot tell
+    /// "nothing to say" from "none at all" once it has become a TaskItem, so which entries meant which
+    /// is decided where the request is read and travels on the command - see
+    /// UpdateTaskListCommand.EntriesKeepingTheirCategories.
+    /// </summary>
+    private static void KeepTheCategoriesOfEntriesThatSaidNothing(
+        IReadOnlyList<TaskItem> incoming, TaskList stored, IReadOnlySet<Guid>? entriesKeepingTheirCategories)
+    {
+        if (entriesKeepingTheirCategories is not { Count: > 0 })
+        {
+            return;
+        }
+
+        var storedById = stored.Items.ToDictionary(item => item.Id);
+        foreach (var item in incoming.Where(item => entriesKeepingTheirCategories.Contains(item.Id)))
+        {
+            if (storedById.TryGetValue(item.Id, out var storedItem))
+            {
+                item.KeepCategoriesOf(storedItem);
+            }
+        }
     }
 }

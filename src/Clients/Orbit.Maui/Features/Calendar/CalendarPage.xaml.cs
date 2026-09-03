@@ -1,4 +1,6 @@
 using System.Collections.Specialized;
+using System.Windows.Input;
+using Orbit.Mobile.Localization;
 using Microsoft.Maui.Layouts;
 using Orbit.Mobile.Screens.Calendar;
 
@@ -13,9 +15,15 @@ public partial class CalendarPage : ContentPage
 	private const double HourHeight = 46;
 
 	private readonly CalendarViewModel _viewModel;
+	private readonly Translations _translations;
 
-	public CalendarPage(CalendarViewModel viewModel)
+	public CalendarPage(CalendarViewModel viewModel, Translations translations)
 	{
+		_translations = translations;
+		// Assigned before InitializeComponent, which is where the binding to it is built - see
+		// TaskListDetailPage for the same order and why it matters.
+		ChooseSortOrderCommand = new Command(() => _ = ChooseSortOrderAsync());
+
 		InitializeComponent();
 		BindingContext = _viewModel = viewModel;
 		_viewModel.DayBlocks.CollectionChanged += OnTheDayChanged;
@@ -28,6 +36,44 @@ public partial class CalendarPage : ContentPage
 	/// </summary>
 	public CalendarViewModel ViewModel => _viewModel;
 
+	/// <summary>What order the list under the grid is read in - see CalendarListEntry.</summary>
+	public ICommand ChooseSortOrderCommand { get; }
+
+	private async Task ChooseSortOrderAsync()
+	{
+		// The one in force is marked, because a menu of three with no answer among them leaves the
+		// reader guessing what they are looking at.
+		var orders = new Dictionary<string, CalendarListSortOrder>
+		{
+			[Mark(_translations["By when"], CalendarListSortOrder.When)] = CalendarListSortOrder.When,
+			[Mark(_translations["By type"], CalendarListSortOrder.Type)] = CalendarListSortOrder.Type,
+			[Mark(_translations["Alphabetical"], CalendarListSortOrder.Alphabetical)] = CalendarListSortOrder.Alphabetical
+		};
+
+		// What is over is left out of the list unless it is asked for, as in the browser - so the same
+		// sheet that says how to read it also says how much of it to read.
+		var showEverything = _viewModel.ShowsEverything
+			? $"{_translations["Everything, including what is over"]} ✓"
+			: _translations["Everything, including what is over"];
+
+		var chosen = await DisplayActionSheet(
+			_translations["Sort"], _translations["Cancel"], destruction: null, [.. orders.Keys, showEverything]);
+
+		if (chosen == showEverything)
+		{
+			_viewModel.ShowsEverything = !_viewModel.ShowsEverything;
+			return;
+		}
+
+		if (chosen is not null && orders.TryGetValue(chosen, out var order))
+		{
+			_viewModel.SortOrder = order;
+		}
+	}
+
+	private string Mark(string name, CalendarListSortOrder order)
+		=> _viewModel.SortOrder == order ? $"{name} ✓" : name;
+
 	protected override void OnAppearing()
 	{
 		base.OnAppearing();
@@ -35,6 +81,31 @@ public partial class CalendarPage : ContentPage
 	}
 
 	private void OnTheDayChanged(object? sender, NotifyCollectionChangedEventArgs eventArgs) => DrawTheDay();
+
+	/// <summary>
+	/// The calendar gets out of the way as the list under it is read, and comes back when the reader
+	/// returns to the top - see MinimisedCalendar for what is left of it. The offset rather than the
+	/// first visible item: an item is a whole event row, and the grid should start standing aside as
+	/// soon as the list moves at all.
+	/// </summary>
+	private void OnListScrolled(object? sender, ItemsViewScrolledEventArgs eventArgs)
+	{
+		var minimised = eventArgs.VerticalOffset > ScrollBeforeMinimising;
+		if (minimised == _viewModel.IsMinimised)
+		{
+			return;
+		}
+
+		_viewModel.IsMinimised = minimised;
+		DrawTheDay();
+	}
+
+	/// <summary>
+	/// How far the list travels before the calendar stands aside. Enough that a thumb resting on the
+	/// list does not flip it back and forth, and little enough that it is out of the way by the time
+	/// anybody is reading.
+	/// </summary>
+	private const double ScrollBeforeMinimising = 24;
 
 	/// <summary>
 	/// Draws the chosen day: an hour rule behind, and every block where its placement says. Built here
@@ -53,15 +124,25 @@ public partial class CalendarPage : ContentPage
 			AllDayRow.Children.Add(Chip(block));
 		}
 
-		var (firstHour, lastHour) = CalendarDayTimeline.HoursWorthDrawing(_viewModel.DayBlocks);
+		var (firstHour, lastHour) = _viewModel.HoursOnShow;
 		DayClock.HeightRequest = (lastHour - firstHour + 1) * HourHeight;
+		// Minimised, the clock is one hour tall and a two-hour meeting would be drawn straight through
+		// the list beneath it.
+		DayClock.IsClippedToBounds = true;
 
 		DrawTheHours(firstHour, lastHour);
-		foreach (var block in _viewModel.DayBlocks)
+		foreach (var block in _viewModel.DayBlocks.Where(block => IsWithin(block, firstHour, lastHour)))
 		{
 			DayBlocks.Children.Add(Block(block, firstHour));
 		}
 	}
+
+	/// <summary>
+	/// Whether any of this block falls in the hours being drawn. Everything, until the calendar is
+	/// minimised to one hour - what does not reach that hour has nowhere to go.
+	/// </summary>
+	private static bool IsWithin(DayBlock block, int firstHour, int lastHour)
+		=> block.StartMinute < (lastHour + 1) * 60 && block.StartMinute + block.Minutes > firstHour * 60;
 
 	/// <summary>
 	/// A label and a line on every hour, so a block has something to be read against. Drawn before the

@@ -14,15 +14,19 @@
 @inject IJSRuntime JSRuntime
 @inject ILogger<Warehouses> Logger
 @inject Translations T
+@inject WarehouseArrangement Arrangement
 
 <PageTitle>@T["Orbit — Inventory"]</PageTitle>
 
 <div class="page-header">
-    <div>
+    <div class="page-heading">
+        <button type="button" class="icon-btn page-add" title="@(T["Add warehouse"])"
+                aria-label="@(T["Add warehouse"])" @onclick="StartCreating">
+            <svg viewBox="0 0 20 20" width="18" height="18" aria-hidden="true" fill="none"
+                 stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M10 4v12M4 10h12" /></svg>
+        </button>
         <h1>@T["Inventory"]</h1>
-        <p class="page-subtitle">@T["Keep separate stocks in separate warehouses, and share one with someone over chat."]</p>
     </div>
-    <button class="btn-primary" @onclick="StartCreating">@T["Add warehouse"]</button>
 </div>
 
 @if (_isCreating)
@@ -94,39 +98,49 @@ else if (_warehouses.Count == 0)
 }
 else
 {
-    <ul class="warehouse-list">
-        @foreach (var warehouse in _warehouses)
+    <div class="item-card-list">
+        @foreach (var warehouse in ArrangedWarehouses)
         {
-            <li class="card warehouse-card">
-                <div class="warehouse-card-main">
-                    @* A heading rather than a button: opening it is the "Open" action below, which says
-                       so instead of leaving the reader to discover that the name is clickable. *@
-                    <h2 class="warehouse-name">@warehouse.Name</h2>
-                    @if (warehouse.IsPrivate)
-                    {
-                        <span class="warehouse-shared-badge">@T["Private - encrypted, and only you can read it"]</span>
-                    }
-                    @if (warehouse.IsShared)
-                    {
-                        <span class="warehouse-shared-badge">@T.Format("Shared by {0} · {1}", warehouse.SharedByUserName, AccessDescription(warehouse.AccessLevel))</span>
-                    }
-                    @if (warehouse.LockedByUserName is { } lockedBy)
-                    {
-                        <span class="warehouse-shared-badge">@T.Format("{0} is editing it right now", lockedBy)</span>
-                    }
-                </div>
-                <div class="warehouse-card-actions">
-                    <button class="btn-primary" @onclick="() => OpenWarehouse(warehouse.Id)">@T["Open"]</button>
-                    @if (CanShare(warehouse))
-                    {
-                        <button class="btn-secondary" @onclick="() => ToggleSharePanel(warehouse.Id)">@T["Share"]</button>
-                    }
-                    @if (!warehouse.IsShared)
-                    {
-                        <button class="btn-secondary" @onclick="() => DeleteWarehouseAsync(warehouse)">@T["Delete"]</button>
-                    }
-                </div>
-
+            <div @key="warehouse.Id" class="@(_cardOrder.IsDragging(warehouse) ? "dragging" : "")"
+                 @ondragover:preventDefault="true" @ondrop="() => DropCardOnAsync(warehouse)">
+                <ItemCard Name="@warehouse.Name" OnNameSelected="() => OpenWarehouse(warehouse.Id)">
+                    <Handle>
+                        <ReorderControls OnDragStart="() => _cardOrder.Start(warehouse)" OnDragEnd="_cardOrder.Finish"
+                                         OnMoveUp="() => MoveCardAsync(warehouse, -1)"
+                                         OnMoveDown="() => MoveCardAsync(warehouse, 1)"
+                                         CanMoveUp="CanMoveCard(warehouse, -1)" CanMoveDown="CanMoveCard(warehouse, 1)" />
+                    </Handle>
+                    <Menu>
+                        <OverflowMenu>
+                            @* The card opens the shelf to be read; changing what is on it is a named
+                               press, the same as a task list's. *@
+                            <button type="button" class="avatar-dropdown-item"
+                                    @onclick="() => EditWarehouse(warehouse.Id)">@T["Edit"]</button>
+                            @if (CanShare(warehouse))
+                            {
+                                <button type="button" class="avatar-dropdown-item" @onclick="() => ToggleSharePanel(warehouse.Id)">@T["Share"]</button>
+                            }
+                            @if (!warehouse.IsShared)
+                            {
+                                <button type="button" class="avatar-dropdown-item" @onclick="() => DeleteWarehouseAsync(warehouse)">@T["Delete"]</button>
+                            }
+                        </OverflowMenu>
+                    </Menu>
+                    <Tags>
+                        @if (warehouse.IsPrivate)
+                        {
+                            <span class="card-badge" title="@(T["Private - encrypted, and only you can read it"])">@T["Private"]</span>
+                        }
+                        @if (warehouse.IsShared)
+                        {
+                            <span class="card-badge">@T.Format("Shared by {0} · {1}", warehouse.SharedByUserName, AccessDescription(warehouse.AccessLevel))</span>
+                        }
+                        @if (warehouse.LockedByUserName is { } lockedBy)
+                        {
+                            <span class="card-badge">@T.Format("{0} is editing it right now", lockedBy)</span>
+                        }
+                    </Tags>
+                    <Body>
                 @if (_sharePanelWarehouseId == warehouse.Id)
                 {
                     <div class="warehouse-share-panel">
@@ -168,9 +182,11 @@ else
                         }
                     </div>
                 }
-            </li>
+                    </Body>
+                </ItemCard>
+            </div>
         }
-    </ul>
+    </div>
 }
 
 @code {
@@ -216,6 +232,7 @@ else
 
     protected override async Task OnInitializedAsync()
     {
+        await Arrangement.InitializeAsync();
         var currentUserId = await AuthenticationStateProvider.TryGetCurrentUserIdAsync();
         if (currentUserId is null)
         {
@@ -316,6 +333,8 @@ else
     }
 
     private void OpenWarehouse(Guid warehouseId) => NavigationManager.NavigateTo($"/inventory/{warehouseId}");
+
+    private void EditWarehouse(Guid warehouseId) => NavigationManager.NavigateTo($"/inventory/{warehouseId}/edit");
 
     /// <summary>
     /// Answers "which warehouse is this in". Read here rather than asked of the server, because a
@@ -460,6 +479,46 @@ else
             _isSharing = false;
         }
     }
+
+    /// <summary>The warehouses in the order this reader put them - see WarehouseArrangement.</summary>
+    private IReadOnlyList<WarehouseDto> ArrangedWarehouses
+        => [.. Arrangement.Arrange(_warehouses ?? [], warehouse => warehouse.Id)];
+
+    /// <summary>The card being dragged to a new place, while one is - see RowArrangement.</summary>
+    private readonly RowArrangement<WarehouseDto> _cardOrder = new();
+
+    /// <summary>
+    /// Where a card was dropped is where it belongs. The whole visible order is written back rather
+    /// than the one card that moved: a stored order naming only what somebody had touched would leave
+    /// the rest wherever they happened to fall.
+    /// </summary>
+    private async Task DropCardOnAsync(WarehouseDto target)
+    {
+        var arranged = ArrangedWarehouses.ToList();
+        if (!_cardOrder.DropOn(arranged, target))
+        {
+            _cardOrder.Finish();
+            return;
+        }
+
+        _cardOrder.Finish();
+        await Arrangement.SetOrderAsync([.. arranged.Select(warehouse => warehouse.Id)]);
+    }
+
+    /// <summary>The same move a drag makes, one card at a time - what a keyboard asks for, and a finger.</summary>
+    private async Task MoveCardAsync(WarehouseDto warehouse, int offset)
+    {
+        var arranged = ArrangedWarehouses.ToList();
+        if (!RowArrangement<WarehouseDto>.Move(arranged, warehouse, offset))
+        {
+            return;
+        }
+
+        await Arrangement.SetOrderAsync([.. arranged.Select(existing => existing.Id)]);
+    }
+
+    private bool CanMoveCard(WarehouseDto warehouse, int offset)
+        => RowArrangement<WarehouseDto>.CanMove(ArrangedWarehouses.ToList(), warehouse, offset);
 
     private async Task DeleteWarehouseAsync(WarehouseDto warehouse)
     {

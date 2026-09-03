@@ -65,6 +65,30 @@ public sealed class TaskListSyncTests
         Assert.Equal(eventId, onServer.LinkedCalendarEventId);
     }
 
+    /// <summary>
+    /// The same bug one entry further along, and quieter: the push left the shelf item off every
+    /// request, so a list holding a restock errand cut that errand loose from its product the first
+    /// time the phone synced - TaskItem keeps LinkedInventoryItemId only for an Inventory entry, and
+    /// drops it otherwise. Nobody had to open the errand, or even look at the list.
+    /// </summary>
+    [Fact]
+    public async Task An_errand_still_names_its_product_after_the_phone_pushes_it()
+    {
+        using var context = new TaskContext();
+        var product = Guid.NewGuid();
+        await context.TaskLists.CreateAsync("Pantry",
+        [
+            new(Guid.NewGuid(), "Restock: Flour", null, false, null, "None", false, "None", new TimeOnly(9, 0),
+                nameof(TaskItemKind.Inventory), string.Empty, null, product)
+        ]);
+
+        await context.SynchroniseAsync();
+
+        var onServer = Assert.Single(Assert.Single(context.Server.TaskLists).Items);
+        Assert.Equal(nameof(TaskItemKind.Inventory), onServer.Kind);
+        Assert.Equal(product, onServer.LinkedInventoryItemId);
+    }
+
     [Fact]
     public async Task Items_survive_the_round_trip_through_the_local_database()
     {
@@ -293,8 +317,8 @@ public sealed class TaskListSyncTests
         {
             Clock = new FakeTimeProvider(DateTimeOffset.Parse("2026-08-26T10:00:00Z"));
             Server = new FakeTasksServer(Clock);
-            TaskLists = new LocalTaskListRepository(_localStore, Clock, FixedNetworkStatus.Online);
-            Notes = new LocalNoteRepository(_localStore, Clock, FixedNetworkStatus.Online);
+            TaskLists = new LocalTaskListRepository(_localStore, Clock, FixedNetworkStatus.Online, PrivateContent.WithoutAKey());
+            Notes = new LocalNoteRepository(_localStore, Clock, FixedNetworkStatus.Online, PrivateContent.WithoutAKey());
             Synchronizer = new TaskListSynchronizer(
                 _localStore, new TasksClient(Server.ToHttpClient()), Clock, new SyncGate(),
                 NullLogger<TaskListSynchronizer>.Instance);

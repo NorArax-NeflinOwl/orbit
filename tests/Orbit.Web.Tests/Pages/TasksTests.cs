@@ -33,6 +33,14 @@ public sealed class TasksTests : OrbitTestContext
     private readonly NotificationFeedState _notifications = new();
 
     /// <summary>Opens the menu the sort orders live behind, and picks one by the words on it.</summary>
+    /// <summary>
+    /// A card's actions live in its overflow menu now - see ItemCard's Menu slot - and OverflowMenu
+    /// renders its children only once opened, so they do not exist until this is called. The page's
+    /// own sort menu uses the same trigger class, and the card's is the last of them.
+    /// </summary>
+    private static void OpenTheCardMenu(IRenderedFragment cut)
+        => cut.FindAll(".item-card .overflow-menu-trigger").First().Click();
+
     private static void SortBy(IRenderedFragment cut, string label)
     {
         if (cut.FindAll(".overflow-menu-dropdown").Count == 0)
@@ -52,9 +60,23 @@ public sealed class TasksTests : OrbitTestContext
 
         var cut = RenderComponent<Web.Pages.Tasks>();
 
-        Assert.Equal(2, cut.FindAll(".task-list-card").Count);
+        Assert.Equal(2, cut.FindAll(".item-card").Count);
         Assert.Contains("Kitchen", cut.Markup);
         Assert.Contains("Bathroom", cut.Markup);
+    }
+
+    /// <summary>
+    /// A stray closing brace had ended up in the card's body markup, where Razor rendered it as the
+    /// literal text it is - so every expanded card finished with a "}" nobody put there.
+    /// </summary>
+    [Fact]
+    public void An_expanded_card_ends_with_its_list_and_nothing_after_it()
+    {
+        RegisterTasksApiClient([TaskList("Kitchen", Item("Paint walls"))]);
+
+        var cut = RenderComponent<Web.Pages.Tasks>();
+
+        Assert.DoesNotContain("}", cut.Find(".item-card-body").TextContent);
     }
 
     [Fact]
@@ -86,10 +108,113 @@ public sealed class TasksTests : OrbitTestContext
 
         var cut = RenderComponent<Web.Pages.Tasks>();
 
-        // The card is for recognising a list; the checklist view is where you work through it.
-        Assert.Equal(4, cut.FindAll(".task-preview-row").Count);
-        Assert.Contains("and 5 more", cut.Markup);
+        // The card is for recognising a list; the checklist view is where you work through it. Five is
+        // what the normal view shows, which is what the page opens on - see TaskListView.
+        Assert.Equal(5, cut.FindAll(".task-preview-row").Count);
+        Assert.Contains("and 4 more", cut.Markup);
         Assert.DoesNotContain("Item 9", cut.Markup);
+    }
+
+    [Fact]
+    public void The_full_view_carries_twenty_of_an_ordinary_lists_items()
+    {
+        var items = Enumerable.Range(1, 30).Select(number => Item($"Item {number}")).ToArray();
+        RegisterTasksApiClient([TaskList("Long one", items)]);
+        var cut = RenderComponent<Web.Pages.Tasks>();
+
+        ChooseTheView(cut, "Full");
+
+        // As much as a card can carry before it stops being a card.
+        Assert.Equal(20, cut.FindAll(".task-preview-row").Count);
+        Assert.Contains("and 10 more", cut.Markup);
+    }
+
+    [Fact]
+    public void The_full_view_counts_a_group_list_in_member_lists_rather_than_rows()
+    {
+        // Each member costs five lines - its name, three of its items, and either "and N more…" or the
+        // fourth item - so four members is already the twenty lines an ordinary list gets.
+        var members = Enumerable.Range(1, 6)
+            .Select(number => TaskList(
+                $"Member {number}", [.. Enumerable.Range(1, 6).Select(item => Item($"Buy {number}.{item}"))]))
+            .ToArray();
+        var group = TaskList("Saturday", [.. members.Select(LinkTo)]) with { IsGroup = true };
+        RegisterTasksApiClient([group, .. members]);
+        var cut = RenderComponent<Web.Pages.Tasks>();
+
+        ChooseTheView(cut, "Full");
+
+        // Four member lists, three items under each. The link rows are the ones naming a member, and the
+        // nested rows only exist on the group's card - the members' own cards link to nothing.
+        var namedMembers = cut.FindAll(".task-preview-row .row-title")
+            .Count(row => row.TextContent.StartsWith("Member ", StringComparison.Ordinal));
+        Assert.Equal(4, namedMembers);
+        Assert.Equal(12, cut.FindAll(".task-preview-row-linked .row-title").Count);
+    }
+
+    [Fact]
+    public void A_member_list_of_exactly_four_shows_its_fourth_item_rather_than_a_line_saying_one_is_missing()
+    {
+        // "and 1 more…" takes exactly the room the row it stands for would have taken.
+        var member = TaskList("Shopping", [.. Enumerable.Range(1, 4).Select(number => Item($"Buy {number}"))]);
+        var group = TaskList("Saturday", LinkTo(member)) with { IsGroup = true };
+        RegisterTasksApiClient([group, member]);
+
+        var cut = RenderComponent<Web.Pages.Tasks>();
+
+        Assert.Equal(4, cut.FindAll(".task-preview-row-linked .row-title").Count);
+        Assert.DoesNotContain("and 1 more", cut.Markup);
+    }
+
+    [Fact]
+    public void The_minimal_view_folds_every_card()
+    {
+        RegisterTasksApiClient([
+            TaskList("Kitchen", Item("Paint walls")),
+            TaskList("Garden", Item("Mow the lawn"))
+        ]);
+        var cut = RenderComponent<Web.Pages.Tasks>();
+
+        ChooseTheView(cut, "Minimal");
+
+        // Every card's own control now says "Expand", which is the tick the brief asked for: the minimal
+        // view is the same state as folding each card by hand, so each card shows it as folded.
+        var toggles = cut.FindAll("button").Where(button => button.GetAttribute("aria-label") is "Expand" or "Minimise").ToList();
+        Assert.Equal(2, toggles.Count);
+        Assert.All(toggles, toggle => Assert.Equal("Expand", toggle.GetAttribute("aria-label")));
+
+        // A folded card keeps one line - what is still to be done - so two cards leave two rows.
+        Assert.Equal(2, cut.FindAll(".task-preview-row").Count);
+    }
+
+    [Fact]
+    public void Expanding_a_card_leaves_the_minimal_view_rather_than_unfolding_one_card()
+    {
+        var items = Enumerable.Range(1, 9).Select(number => Item($"Item {number}")).ToArray();
+        RegisterTasksApiClient([TaskList("Long one", items)]);
+        var cut = RenderComponent<Web.Pages.Tasks>();
+        ChooseTheView(cut, "Full");
+        ChooseTheView(cut, "Minimal");
+
+        cut.FindAll("button").First(button => button.GetAttribute("aria-label") == "Expand").Click();
+
+        // Back to what the page was before it was folded away, not to the default - see
+        // TaskListArrangement.LeaveMinimalViewAsync.
+        Assert.Equal(9, cut.FindAll(".task-preview-row").Count);
+    }
+
+    /// <summary>
+    /// Opens the menu if it is shut and picks a view. It stays open between choices (see
+    /// OverflowMenu.StaysOpen), so pressing the trigger again would close it rather than open it.
+    /// </summary>
+    private static void ChooseTheView(IRenderedFragment cut, string view)
+    {
+        if (cut.FindAll(".avatar-dropdown-item").Count == 0)
+        {
+            cut.Find(".overflow-menu-trigger").Click();
+        }
+
+        cut.FindAll(".avatar-dropdown-item").First(option => option.TextContent.Contains(view)).Click();
     }
 
     [Fact]
@@ -123,9 +248,12 @@ public sealed class TasksTests : OrbitTestContext
 
         var cut = RenderComponent<Web.Pages.Tasks>();
 
-        var actions = cut.Find(".card-actions").TextContent;
-        Assert.Contains("Open checklist", actions);
-        Assert.Contains("Edit", actions);
+        // The name opens the checklist; the menu is where the rest of a card's actions live. Two
+        // ways in, and neither of them a button repeating what the heading already does.
+        Assert.Single(cut.FindAll(".item-card-name"));
+
+        OpenTheCardMenu(cut);
+        Assert.Contains("Edit", cut.Find(".item-card-menu").TextContent);
     }
 
     [Fact]
@@ -136,15 +264,103 @@ public sealed class TasksTests : OrbitTestContext
         var navigationManager = Services.GetRequiredService<NavigationManager>();
         var cut = RenderComponent<Web.Pages.Tasks>();
 
-        cut.FindAll(".card-actions button").First(button => button.TextContent.Contains("Open checklist")).Click();
+        cut.Find(".item-card-name").Click();
 
         // "/tasks/{id}" is the shallow level, wherever somebody arrives from; the deep editor lives one
         // named click further on, so nothing lands there by default.
         Assert.EndsWith($"/tasks/{taskList.Id}", navigationManager.Uri);
 
-        cut.FindAll(".card-actions button").First(button => button.TextContent.Trim() == "Edit").Click();
+        OpenTheCardMenu(cut);
+        cut.FindAll(".item-card-menu button").First(button => button.TextContent.Trim() == "Edit").Click();
 
         Assert.EndsWith($"/tasks/{taskList.Id}/edit", navigationManager.Uri);
+    }
+
+    /// <summary>
+    /// The rows of what is on a list are the part of the card a reader points at, and they sit above
+    /// the overlay that makes the rest of it pressable - so pressing them has to open the list itself,
+    /// the way the dashboard's rows do. They used to be the one dead area on the card.
+    /// </summary>
+    [Fact]
+    public void Pressing_what_is_on_a_list_opens_the_list()
+    {
+        var taskList = TaskList("Kitchen", Item("Paint walls"));
+        RegisterTasksApiClient([taskList]);
+        var navigationManager = Services.GetRequiredService<NavigationManager>();
+        var cut = RenderComponent<Web.Pages.Tasks>();
+
+        cut.Find(".item-card-body .task-preview-row").Click();
+
+        Assert.EndsWith($"/tasks/{taskList.Id}", navigationManager.Uri);
+    }
+
+    /// <summary>
+    /// The chips are built from what the entries are actually filed under, and pressing one narrows the
+    /// page to the lists still holding something - see TaskItemFilter.
+    /// </summary>
+    [Fact]
+    public void Choosing_a_category_leaves_only_the_lists_that_have_one()
+    {
+        RegisterTasksApiClient([
+            TaskList("Kitchen", Item("Buy milk") with { Categories = ["shopping"] }),
+            TaskList("Garage", Item("New tyres") with { Categories = ["car"] })]);
+        var cut = RenderComponent<Web.Pages.Tasks>();
+
+        cut.FindAll(".filter-chip").First(chip => chip.TextContent.Contains("shopping")).Click();
+
+        var shown = cut.FindAll(".item-card-name").Select(card => card.TextContent.Trim()).ToList();
+        Assert.Equal(["Kitchen"], shown);
+    }
+
+    /// <summary>
+    /// The chips filter by what entries are filed under, so the rows have to say it - otherwise the
+    /// reader takes the page's word for why a list is still here.
+    /// </summary>
+    [Fact]
+    public void A_row_says_what_it_is_filed_under_and_marks_the_one_being_filtered_by()
+    {
+        RegisterTasksApiClient([TaskList("Kitchen", Item("Buy milk") with { Categories = ["shopping", "weekly"] })]);
+        var cut = RenderComponent<Web.Pages.Tasks>();
+
+        Assert.Equal(
+            ["shopping", "weekly"],
+            cut.FindAll(".task-preview-row .row-category").Select(category => category.TextContent.Trim()));
+
+        cut.FindAll(".filter-chip").First(chip => chip.TextContent.Contains("weekly")).Click();
+
+        var marked = cut.FindAll(".task-preview-row .row-category.on").Select(category => category.TextContent.Trim());
+        Assert.Equal(["weekly"], marked);
+    }
+
+    /// <summary>
+    /// A word from an entry, not from the list's own name: the box is there to find the thing that has
+    /// to be done, which is what a reader remembers and what the card only shows a few of.
+    /// </summary>
+    [Fact]
+    public void Searching_finds_the_list_an_entry_is_on()
+    {
+        RegisterTasksApiClient([TaskList("Kitchen", Item("Buy milk")), TaskList("Garage", Item("New tyres"))]);
+        var cut = RenderComponent<Web.Pages.Tasks>();
+
+        cut.Find(".task-search input").Input("tyre");
+
+        var shown = cut.FindAll(".item-card-name").Select(card => card.TextContent.Trim()).ToList();
+        Assert.Equal(["Garage"], shown);
+    }
+
+    /// <summary>With something being looked for, a card shows what matched rather than its first few rows.</summary>
+    [Fact]
+    public void A_narrowed_card_shows_what_matched()
+    {
+        RegisterTasksApiClient([TaskList("Kitchen", Item("Buy milk"), Item("Buy bread"))]);
+        var cut = RenderComponent<Web.Pages.Tasks>();
+
+        cut.Find(".task-search input").Input("milk");
+
+        var rows = cut.FindAll(".item-card-body .task-preview-row .row-title")
+            .Select(row => row.TextContent.Trim())
+            .ToList();
+        Assert.Equal(["Buy milk"], rows);
     }
 
     [Fact]
@@ -155,7 +371,7 @@ public sealed class TasksTests : OrbitTestContext
         var cut = RenderComponent<Web.Pages.Tasks>();
 
         Assert.Contains("No task lists yet", cut.Markup);
-        Assert.Empty(cut.FindAll(".task-list-card"));
+        Assert.Empty(cut.FindAll(".item-card"));
     }
 
     [Fact]
@@ -187,8 +403,8 @@ public sealed class TasksTests : OrbitTestContext
 
         cut.FindAll(".filter-chip").First(chip => chip.TextContent.Contains("Shared")).Click();
 
-        Assert.Contains("From Bob", cut.Find(".card-grid").InnerHtml);
-        Assert.DoesNotContain("Kitchen", cut.Find(".card-grid").InnerHtml);
+        Assert.Contains("From Bob", cut.Find(".task-card-grid").InnerHtml);
+        Assert.DoesNotContain("Kitchen", cut.Find(".task-card-grid").InnerHtml);
     }
 
     [Fact]
@@ -203,8 +419,8 @@ public sealed class TasksTests : OrbitTestContext
 
         // One card, and it is the group. Asserted by counting rather than by looking for the member's
         // title, which legitimately appears inside the group's card as the row that points at it.
-        var card = Assert.Single(cut.FindAll(".task-list-card"));
-        Assert.Contains("Saturday", card.QuerySelector(".card-title")!.TextContent);
+        var card = Assert.Single(cut.FindAll(".item-card"));
+        Assert.Contains("Saturday", card.QuerySelector(".item-card-name")!.TextContent);
     }
 
     [Fact]
@@ -213,14 +429,15 @@ public sealed class TasksTests : OrbitTestContext
         RegisterTasksApiClient([TaskList("Kitchen", Item("Paint walls", isCompleted: true), Item("Fit worktop"), Item("Tile"))]);
         var cut = RenderComponent<Web.Pages.Tasks>();
 
-        cut.FindAll(".task-list-card .icon-btn").First(button => button.GetAttribute("title") == "Minimise").Click();
+        cut.FindAll(".item-card .icon-btn").First(button => button.GetAttribute("title") == "Minimise").Click();
 
         // One row, and the one worth having: what is still to be done. The heading and the buttons stay.
         var row = Assert.Single(cut.FindAll(".task-preview-row"));
         Assert.Contains("Fit worktop", row.TextContent);
-        Assert.DoesNotContain("Tile", cut.Find(".card-grid").InnerHtml);
-        Assert.Contains("Kitchen", cut.Find(".card-title").TextContent);
-        Assert.Contains("Open checklist", cut.Find(".card-actions").TextContent);
+        Assert.DoesNotContain("Tile", cut.Find(".task-card-grid").InnerHtml);
+        Assert.Contains("Kitchen", cut.Find(".item-card-name").TextContent);
+        OpenTheCardMenu(cut);
+        Assert.Contains("Edit", cut.Find(".item-card-menu").TextContent);
     }
 
     [Fact]
@@ -228,9 +445,9 @@ public sealed class TasksTests : OrbitTestContext
     {
         RegisterTasksApiClient([TaskList("Kitchen", Item("Paint walls"), Item("Fit worktop"))]);
         var cut = RenderComponent<Web.Pages.Tasks>();
-        cut.FindAll(".task-list-card .icon-btn").First(button => button.GetAttribute("title") == "Minimise").Click();
+        cut.FindAll(".item-card .icon-btn").First(button => button.GetAttribute("title") == "Minimise").Click();
 
-        cut.FindAll(".task-list-card .icon-btn").First(button => button.GetAttribute("title") == "Expand").Click();
+        cut.FindAll(".item-card .icon-btn").First(button => button.GetAttribute("title") == "Expand").Click();
 
         Assert.Equal(2, cut.FindAll(".task-preview-row").Count);
     }
@@ -246,8 +463,14 @@ public sealed class TasksTests : OrbitTestContext
         var cut = RenderComponent<Web.Pages.Tasks>();
 
         // A page of cards should answer "which list was that reminder about?" without opening any.
-        var flagged = Assert.Single(cut.FindAll(".task-list-card"), card => card.QuerySelector(".task-card-notification") is not null);
-        Assert.Contains("Garden", flagged.QuerySelector(".card-title")!.TextContent);
+        var flagged = Assert.Single(cut.FindAll(".item-card"), card => card.QuerySelector(".item-card-action") is not null);
+        Assert.Contains("Garden", flagged.QuerySelector(".item-card-name")!.TextContent);
+        // And says it on its own edge as well as with the dot: nine pixels is easy to miss on a page of
+        // cards, and this is the one worth stopping at.
+        Assert.Contains("item-card-unseen", flagged.ClassName);
+        Assert.DoesNotContain(
+            "item-card-unseen",
+            Assert.Single(cut.FindAll(".item-card"), card => card.QuerySelector(".item-card-action") is null).ClassName);
     }
 
     private static NotificationEntryDto Notification(string url)
@@ -263,7 +486,7 @@ public sealed class TasksTests : OrbitTestContext
         var cut = RenderComponent<Web.Pages.Tasks>();
 
         // Otherwise a group list's card is a stack of titles, which says nothing about the work.
-        var groupCard = cut.FindAll(".task-list-card").First(card => card.TextContent.Contains("Saturday"));
+        var groupCard = cut.FindAll(".item-card").First(card => card.TextContent.Contains("Saturday"));
         Assert.Contains("Milk", groupCard.TextContent);
         Assert.Contains("Bread", groupCard.TextContent);
     }
@@ -277,11 +500,11 @@ public sealed class TasksTests : OrbitTestContext
         var cut = RenderComponent<Web.Pages.Tasks>();
 
         // Moving a card by hand under any other order would not survive the next redraw.
-        Assert.Empty(cut.FindAll(".task-list-card .drag-handle"));
+        Assert.Empty(cut.FindAll(".item-card .drag-handle"));
 
         SortBy(cut, "The way I arranged them");
 
-        Assert.Equal(2, cut.FindAll(".task-list-card .drag-handle").Count);
+        Assert.Equal(2, cut.FindAll(".item-card .drag-handle").Count);
     }
 
     [Fact]
@@ -295,7 +518,7 @@ public sealed class TasksTests : OrbitTestContext
         cut.FindAll(".filter-chip").First(chip => chip.TextContent.Contains("Overdue")).Click();
 
         Assert.Contains("Kitchen", cut.Markup);
-        Assert.DoesNotContain("Garden", cut.Find(".card-grid").InnerHtml);
+        Assert.DoesNotContain("Garden", cut.Find(".task-card-grid").InnerHtml);
     }
 
     [Fact]
@@ -398,9 +621,11 @@ public sealed class TasksTests : OrbitTestContext
 
         var cut = RenderComponent<Web.Pages.Tasks>();
 
-        // Top right of the card, beside the count - the same corner a note and a dashboard card use.
-        Assert.Single(cut.FindAll(".card-header .card-header-end .pin-button"));
-        Assert.Empty(cut.FindAll(".card-actions .pin-button"));
+        // Left of the name, which is where every card in the app now carries it - see ItemCard. It
+        // used to sit in the top right beside the count; the anatomy moved it, deliberately, so that
+        // the things describing what a card *is* all read from the same edge.
+        Assert.Single(cut.FindAll(".item-card-head .item-card-pin .pin-button"));
+        Assert.Empty(cut.FindAll(".item-card-menu .pin-button"));
     }
 
     [Fact]
@@ -416,12 +641,12 @@ public sealed class TasksTests : OrbitTestContext
 
         var cut = RenderComponent<Web.Pages.Tasks>();
 
-        Assert.DoesNotContain("Pin", cut.Find(".card-actions").TextContent);
+        Assert.DoesNotContain("Pin", cut.Find(".item-card-menu").TextContent);
     }
 
     /// <summary>The card titles in the order they render, each still carrying its badges' text after the title itself.</summary>
     private static string[] CardTitles(IRenderedFragment cut)
-        => cut.FindAll(".card-title").Select(title => title.TextContent.Trim()).ToArray();
+        => cut.FindAll(".item-card-name").Select(title => title.TextContent.Trim()).ToArray();
 
 
     [Fact]
@@ -482,8 +707,8 @@ public sealed class TasksTests : OrbitTestContext
         => CardFor(cut, title).QuerySelector(".list-row")!;
 
     private static IElement CardFor(IRenderedFragment cut, string title)
-        => cut.FindAll(".task-list-card")
-            .First(card => card.QuerySelector(".card-title")!.TextContent.Contains(title, StringComparison.Ordinal));
+        => cut.FindAll(".item-card")
+            .First(card => card.QuerySelector(".item-card-name")!.TextContent.Contains(title, StringComparison.Ordinal));
     private void RegisterTasksApiClient(IReadOnlyList<TaskDto> taskLists)
     {
         var handler = new StubHttpMessageHandler(_ =>

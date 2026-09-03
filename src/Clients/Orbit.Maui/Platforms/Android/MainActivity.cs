@@ -3,6 +3,7 @@ using Android.Content;
 using Android.Content.PM;
 using Android.Content.Res;
 using Android.OS;
+using Android.Views;
 using AndroidX.Activity;
 using AndroidX.Core.View;
 using Microsoft.Extensions.DependencyInjection;
@@ -11,7 +12,26 @@ using Orbit.Mobile.Screens.Navigation;
 
 namespace Orbit.Maui;
 
-[Activity(Theme = "@style/Maui.SplashTheme", MainLauncher = true, LaunchMode = LaunchMode.SingleTop, ConfigurationChanges = ConfigChanges.ScreenSize | ConfigChanges.Orientation | ConfigChanges.UiMode | ConfigChanges.ScreenLayout | ConfigChanges.SmallestScreenSize | ConfigChanges.Density)]
+// WindowSoftInputMode: the keyboard takes the bottom of the screen rather than sliding the whole page
+// out from under it, so a form scrolls to the field being typed into instead of hiding the ones below
+// it. Without this the sign-in and register screens put their last field behind the keyboard, with no
+// way to see what was being typed - the template leaves it unset, and Android's default pans.
+[Activity(Theme = "@style/Maui.SplashTheme", MainLauncher = true, LaunchMode = LaunchMode.SingleTop, WindowSoftInputMode = SoftInput.AdjustResize | SoftInput.StateHidden, ConfigurationChanges = ConfigChanges.ScreenSize | ConfigChanges.Orientation | ConfigChanges.UiMode | ConfigChanges.ScreenLayout | ConfigChanges.SmallestScreenSize | ConfigChanges.Density)]
+// A public share link, opened in Orbit rather than in a browser. The host is the deployment's own and
+// is fixed at build time - see OrbitShareLinkHost in Orbit.Maui.csproj - because an intent filter is an
+// attribute, and a filter with no host would offer Orbit for every link on the phone.
+//
+// AutoVerify asks Android to check https://<host>/.well-known/assetlinks.json for this app's package
+// and signing certificate. Without that file Android 12 and later will not route the link on its own:
+// the reader has to allow it under Settings > Apps > Orbit > Open by default. See
+// info/functionality.md's "A link opened on a phone" for what a deployment has to serve.
+[IntentFilter(
+	[Intent.ActionView],
+	Categories = [Intent.CategoryDefault, Intent.CategoryBrowsable],
+	DataScheme = "https",
+	DataHost = OrbitShareLinks.Host,
+	DataPathPrefix = "/s/",
+	AutoVerify = true)]
 public class MainActivity : MauiAppCompatActivity
 {
 	/// <summary>
@@ -136,13 +156,39 @@ public class MainActivity : MauiAppCompatActivity
 	/// </summary>
 	private static void RecordNotificationTap(Intent? intent)
 	{
-		if (intent?.GetStringExtra(UrlKey) is not { Length: > 0 } url)
+		if (DestinationOf(intent) is not { Length: > 0 } url)
 		{
 			return;
 		}
 
-		intent.RemoveExtra(UrlKey);
 		IPlatformApplication.Current?.Services.GetService<PendingNotificationTap>()?.Record(url);
+	}
+
+	/// <summary>
+	/// Where this intent wants to go, and taken off it so it is followed once - see the note on
+	/// <see cref="RecordNotificationTap"/>.
+	///
+	/// Two ways in, and they carry it differently. A tapped notification has it as a string extra put
+	/// there by Firebase; a link Android handed to Orbit instead of the browser has it as the intent's
+	/// own data. Only the path is kept from the link: the destinations are read as paths, and the host
+	/// is Orbit's own or the filter would not have matched - see NotificationDestination.
+	/// </summary>
+	private static string? DestinationOf(Intent? intent)
+	{
+		if (intent?.GetStringExtra(UrlKey) is { Length: > 0 } url)
+		{
+			intent.RemoveExtra(UrlKey);
+			return url;
+		}
+
+		if (intent?.Data is { Path: { Length: > 0 } path })
+		{
+			// SetData rather than the read-only Data property, which the binding does not let you assign.
+			intent.SetData(null);
+			return path;
+		}
+
+		return null;
 	}
 
 	/// <summary>

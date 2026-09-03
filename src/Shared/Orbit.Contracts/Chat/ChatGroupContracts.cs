@@ -10,7 +10,9 @@ namespace Orbit.Contracts.Chat;
 /// </param>
 public sealed record ChatGroupDto(
     Guid Id, string Name, Guid CreatedByUserId, DateTimeOffset CreatedAtUtc, string OwnRole,
-    IReadOnlyList<ChatGroupMemberDto> Members, DateTimeOffset LastMessageAtUtc = default);
+    IReadOnlyList<ChatGroupMemberDto> Members, DateTimeOffset LastMessageAtUtc = default,
+    /// <summary>Put away by the reader asking - per member, so it says nothing about anybody else.</summary>
+    bool IsArchived = false);
 
 public sealed record ChatGroupMemberDto(Guid UserId, string Role, DateTimeOffset JoinedAtUtc);
 
@@ -27,3 +29,26 @@ public sealed record ChangeChatGroupMemberRoleRequest(string Role);
 public sealed record SendGroupMessageRequest(IReadOnlyList<GroupMessageCopyDto> Copies);
 
 public sealed record GroupMessageCopyDto(Guid RecipientUserId, string CiphertextBase64, string NonceBase64);
+
+/// <summary>
+/// A line in a group conversation that nobody wrote - see Orbit.Core.Chat.Groups.ChatGroupAnnouncement.
+/// HistoryShared says whether the person who added them also handed over what was said before they
+/// arrived, which is what turns one line into two facts.
+/// </summary>
+public sealed record ChatGroupAnnouncementDto(
+    Guid Id, Guid JoinedUserId, Guid AddedByUserId, bool HistoryShared, DateTimeOffset AnnouncedAtUtc);
+
+/// <summary>
+/// A group's past, re-encrypted for somebody who joined after it happened. Sent by the sharer's browser
+/// because only it holds keys to any of this - see Orbit.Core.Chat.Groups.ShareGroupHistory.
+/// </summary>
+public sealed record ShareGroupHistoryRequest(Guid RecipientUserId, IReadOnlyList<SharedHistoryCopyDto> Copies);
+
+/// <summary>
+/// One re-encrypted message. Carries no sender and no timestamp: those are read from the copy the server
+/// already holds, so re-sharing cannot restate who said what, or when.
+/// </summary>
+public sealed record SharedHistoryCopyDto(Guid GroupMessageId, string CiphertextBase64, string NonceBase64);
+
+/// <summary>Body for putting a conversation or a group away on the caller's own list, or bringing it back.</summary>
+public sealed record SetArchivedRequest(bool IsArchived);

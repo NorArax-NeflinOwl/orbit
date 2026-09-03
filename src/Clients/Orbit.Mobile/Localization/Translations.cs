@@ -94,4 +94,13 @@ public sealed class Translations
         _store.Write(language);
         Changed?.Invoke(this, EventArgs.Empty);
     }
+
+    /// <summary>
+    /// A name Orbit wrote for itself - a restock list, an errand on one - said in the reader's language.
+    /// See <see cref="Orbit.Core.OrbitWrittenNames"/>, which the browser reads the same names through.
+    ///
+    /// On the way to the screen only. What is stored stays English, because the server recognises its
+    /// own list again by that name.
+    /// </summary>
+    public string Written(string name) => Orbit.Core.OrbitWrittenNames.Translate(key => this[key], name);
 }

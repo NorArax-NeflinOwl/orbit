@@ -39,10 +39,22 @@ public sealed record ReadableChatMessage(
     SharedItemInvitation? Invitation = null, EditAccessRequest? EditAccessRequest = null)
 {
     /// <summary>
+    /// A line in the conversation that nobody wrote - somebody joining, and whether the past came with
+    /// them. Carried on the same row type as a message so one thread can hold both in the order they
+    /// happened; every other part of the row is hidden while this is set.
+    /// </summary>
+    public string? Announcement { get; init; }
+
+    public bool IsAnnouncement => Announcement is not null;
+
+    /// <summary>What the row shows when it is a message after all - see <see cref="Announcement"/>.</summary>
+    public bool IsNotAnnouncement => !IsAnnouncement;
+
+    /// <summary>
     /// True when this device could not open it - the screen shows a placeholder in its place. An offer
     /// to share something is not that: it opened perfectly well, and what it says is the offer.
     /// </summary>
-    public bool CannotBeOpened => Text is null && Invitation is null && EditAccessRequest is null;
+    public bool CannotBeOpened => !IsAnnouncement && Text is null && Invitation is null && EditAccessRequest is null;
 
     /// <summary>
     /// When it was sent, on the reader's own clock and in their own language. Carried rather than

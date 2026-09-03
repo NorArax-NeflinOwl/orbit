@@ -19,16 +19,19 @@ public sealed class CalendarEventSynchronizer
     private readonly CalendarClient _calendarClient;
     private readonly TimeProvider _timeProvider;
     private readonly SyncGate _syncGate;
+    private readonly PendingCalendarLinkResolver _pendingLinks;
     private readonly ILogger<CalendarEventSynchronizer> _logger;
 
     public CalendarEventSynchronizer(
         IDbContextFactory<OrbitLocalDbContext> dbContextFactory, CalendarClient calendarClient,
-        TimeProvider timeProvider, SyncGate syncGate, ILogger<CalendarEventSynchronizer> logger)
+        TimeProvider timeProvider, SyncGate syncGate, PendingCalendarLinkResolver pendingLinks,
+        ILogger<CalendarEventSynchronizer> logger)
     {
         _dbContextFactory = dbContextFactory;
         _calendarClient = calendarClient;
         _timeProvider = timeProvider;
         _syncGate = syncGate;
+        _pendingLinks = pendingLinks;
         _logger = logger;
     }
 
@@ -41,7 +44,11 @@ public sealed class CalendarEventSynchronizer
         await using var dbContext = await _dbContextFactory.CreateDbContextAsync(cancellationToken);
         var push = await OutboxReplay.RunAsync(
             dbContext, SyncEntityType.CalendarEvent,
-            (entry, token) => SendAsync(dbContext, entry, token), _logger, cancellationToken);
+            (entry, token) => SendAsync(dbContext, entry, token), _timeProvider, _logger, cancellationToken);
+
+        // Straight after the push, because that is where a locally-made event gains its server id -
+        // and an appointment made offline is only half made until its entry carries that id.
+        await _pendingLinks.ResolveAsync(dbContext, cancellationToken);
 
         try
         {
@@ -91,8 +98,20 @@ public sealed class CalendarEventSynchronizer
             return SendResult.Abandoned;
         }
 
-        calendarEvent.ServerId = await _calendarClient.CreateAsync(
+        var created = await _calendarClient.CreateAsync(
             new CreateCalendarEventRequest(ToRequest(calendarEvent.Details)), cancellationToken);
+
+        if (created is not { Outcome: WriteOutcome.Applied, ServerId: { } serverId })
+        {
+            // Nothing more to try: the server has answered about this event and will answer the same
+            // way tomorrow. Dropped and said out loud rather than queued for ever - see OutboxReplay.
+            _logger.LogInformation(
+                "The server refused a queued event: {Outcome}", created.Outcome);
+
+            return SendResult.Refused;
+        }
+
+        calendarEvent.ServerId = serverId;
         calendarEvent.LastSyncedAtUtc = _timeProvider.GetUtcNow();
         return SendResult.Sent;
     }
@@ -111,7 +130,7 @@ public sealed class CalendarEventSynchronizer
         if (outcome is not WriteOutcome.Applied)
         {
             _logger.LogInformation("The server refused an offline edit of event {ServerId}: {Outcome}", serverId, outcome);
-            return SendResult.Abandoned;
+            return SendResult.Refused;
         }
 
         calendarEvent.LastSyncedAtUtc = _timeProvider.GetUtcNow();
@@ -201,12 +220,18 @@ public sealed class CalendarEventSynchronizer
             details.Location is { } location ? new EventLocationRequest(location.Address, location.Latitude, location.Longitude) : null,
             details.Color, details.StartUtc.ToUniversalTime(), details.EndUtc.ToUniversalTime(), details.IsAllDay,
             details.Recurrence is { } recurrence
-                ? new RecurrenceRequest(recurrence.Frequency, recurrence.IntervalCount, recurrence.UntilUtc?.ToUniversalTime())
+                ? new RecurrenceRequest(
+                    recurrence.Frequency, recurrence.IntervalCount, recurrence.UntilUtc?.ToUniversalTime(),
+                    // The second way a rule can stop. Left out, a repeat set to end after five times in
+                    // a browser became one that never ends, the first time the phone saved it.
+                    recurrence.OccurrenceCount)
                 : null,
             details.Guests, details.ReminderMinutesBeforeStart,
-            details.CreationNotificationChannel, details.ReminderNotificationChannel,
+            details.ReminderNotificationChannel,
             // Carried rather than left to the contract's default, which is "Normal": a save writes the
             // whole event, so an event marked High in a browser came back Normal the first time anybody
             // touched it from a phone. The same mistake notes had - see NoteSynchronizer.
-            details.Priority);
+            details.Priority,
+            // And the same again for what an event says as it begins.
+            details.NotifyAtStart);
 }

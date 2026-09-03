@@ -8,4 +8,7 @@ public sealed class ChatGroupMemberEntity
     public Guid UserId { get; set; }
     public string Role { get; set; } = string.Empty;
     public DateTimeOffset JoinedAtUtc { get; set; }
+
+    /// <summary>Put away by this member - see Orbit.Core.Chat.Groups.ChatGroupMembership.IsArchived.</summary>
+    public bool IsArchived { get; set; }
 }

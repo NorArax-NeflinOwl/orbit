@@ -3,6 +3,7 @@ using System.Net.Http.Json;
 using System.Text.Json;
 using System.Web;
 using Orbit.Contracts.Calendar;
+using Orbit.Core.Abstractions;
 using Orbit.Contracts.Sync;
 
 namespace Orbit.Mobile.Tests.TestDoubles;
@@ -19,6 +20,13 @@ internal sealed class FakeCalendarServer : HttpMessageHandler
     public List<string> ReceivedRequests { get; } = [];
 
     public bool IsUnreachable { get; set; }
+
+    /// <summary>
+    /// Set to make a request hang until the client gives up, which is what a phone with no route
+    /// actually sees - a timeout rather than a refusal. Told apart from IsUnreachable because the two
+    /// arrive as different exception types and code has been written that only handled one.
+    /// </summary>
+    public bool TimesOut { get; set; }
 
     public IReadOnlyCollection<CalendarEventDto> Events => _events.Values;
 
@@ -40,7 +48,7 @@ internal sealed class FakeCalendarServer : HttpMessageHandler
     }
 
     public static CalendarEventDetailsDto DetailsFor(string title, DateTimeOffset startUtc)
-        => new(title, null, null, null, startUtc, startUtc.AddHours(1), false, null, [], [], "None", "None");
+        => new(title, null, null, null, startUtc, startUtc.AddHours(1), false, null, [], [], ReminderNotificationChannel: "None");
 
     protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
     {
@@ -50,6 +58,11 @@ internal sealed class FakeCalendarServer : HttpMessageHandler
         if (IsUnreachable)
         {
             throw new HttpRequestException("No such host is known.");
+        }
+
+        if (TimesOut)
+        {
+            throw new TaskCanceledException("The request was canceled due to the configured HttpClient.Timeout.");
         }
 
         // Nobody else is ever in it here; EditLockTests covers the answer where somebody is.
@@ -79,7 +92,12 @@ internal sealed class FakeCalendarServer : HttpMessageHandler
     private async Task<HttpResponseMessage> CreateAsync(HttpRequestMessage request, CancellationToken cancellationToken)
     {
         var body = await ReadAsync<CreateCalendarEventRequest>(request, cancellationToken);
-        var created = AddEvent(body!.Details.Title);
+        if (Refuses(body!.Details) is { } refusal)
+        {
+            return refusal;
+        }
+
+        var created = AddEvent(body.Details.Title);
         _events[created.Id] = created with { Details = ToDto(body.Details) };
         return Json(created.Id, HttpStatusCode.Created);
     }
@@ -93,7 +111,12 @@ internal sealed class FakeCalendarServer : HttpMessageHandler
         }
 
         var body = await ReadAsync<UpdateCalendarEventRequest>(request, cancellationToken);
-        _events[id] = existing with { Details = ToDto(body!.Details), UpdatedAtUtc = _timeProvider.GetUtcNow() };
+        if (Refuses(body!.Details) is { } refusal)
+        {
+            return refusal;
+        }
+
+        _events[id] = existing with { Details = ToDto(body.Details), UpdatedAtUtc = _timeProvider.GetUtcNow() };
         return new HttpResponseMessage(HttpStatusCode.NoContent);
     }
 
@@ -109,17 +132,38 @@ internal sealed class FakeCalendarServer : HttpMessageHandler
         return new HttpResponseMessage(HttpStatusCode.NoContent);
     }
 
+    /// <summary>
+    /// What the real server refuses, so a client that sends a name nothing answers to fails here rather
+    /// than on a device. It happened: the calendar's own "New event" box sent the priority "None" -
+    /// which is a notification channel, not a priority - and every event added from it stuck in the
+    /// outbox behind a 400 that only the server's log ever said out loud.
+    /// </summary>
+    private static HttpResponseMessage? Refuses(CalendarEventDetailsRequest details)
+        => Enum.TryParse<ItemPriority>(details.Priority, out _)
+            ? null
+            : new HttpResponseMessage(HttpStatusCode.BadRequest)
+            {
+                Content = JsonContent.Create(
+                    new { message = "'priority' must be one of: Low, Normal, High." })
+            };
+
     private static CalendarEventDetailsDto ToDto(CalendarEventDetailsRequest details)
         => new(
             details.Title, details.Description,
             details.Location is { } location ? new EventLocationDto(location.Address, location.Latitude, location.Longitude) : null,
             details.Color, details.StartUtc, details.EndUtc, details.IsAllDay,
-            details.Recurrence is { } recurrence ? new RecurrenceDto(recurrence.Frequency, recurrence.IntervalCount, recurrence.UntilUtc) : null,
+            details.Recurrence is { } recurrence
+                ? new RecurrenceDto(
+                    recurrence.Frequency, recurrence.IntervalCount, recurrence.UntilUtc, recurrence.OccurrenceCount)
+                : null,
             details.Guests, details.ReminderMinutesBeforeStart,
-            details.CreationNotificationChannel, details.ReminderNotificationChannel,
+            details.ReminderNotificationChannel,
             // Dropping this made a client that sent no priority look exactly like one that did - the
             // fourth fake in this suite to hide a real bug that way. See FakeNotesServer.
-            details.Priority);
+            details.Priority,
+            // And the fifth: the phone really was dropping this one on every save, and a fake that
+            // dropped it too would have called that correct.
+            details.NotifyAtStart);
 
     private static Guid ReadId(string path) => Guid.Parse(path.Split('/')[^1]);
 

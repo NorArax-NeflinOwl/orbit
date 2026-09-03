@@ -45,6 +45,36 @@ public sealed class PublicShareClient
             : null;
     }
 
+    /// <summary>
+    /// What is behind a link somebody was sent - the reader's side, and the only part of the API that
+    /// answers without a token at all. Null for every way a link can fail (unknown, withdrawn, or
+    /// pointing at something now deleted), which the screen says as one sentence: they all mean the same
+    /// thing to whoever holds the link, and telling them apart would say more about somebody else's
+    /// account than a stranger should learn.
+    /// </summary>
+    public async Task<PublicSharedItemDto?> ReadAsync(string token, CancellationToken cancellationToken = default)
+    {
+        using var response = await _httpClient.GetAsync($"api/public/{token}", cancellationToken);
+
+        return response.StatusCode is HttpStatusCode.OK
+            ? await response.Content.ReadFromJsonAsync<PublicSharedItemDto>(cancellationToken)
+            : null;
+    }
+
+    /// <summary>
+    /// Takes a read-only copy into the signed-in account. Null when the server refused - which includes
+    /// not being signed in, since a copy has to belong to somebody.
+    /// </summary>
+    public async Task<ClaimPublicShareLinkResponse?> ClaimAsync(
+        string token, CancellationToken cancellationToken = default)
+    {
+        using var response = await _httpClient.PostAsync($"api/public/{token}/claim", content: null, cancellationToken);
+
+        return response.IsSuccessStatusCode
+            ? await response.Content.ReadFromJsonAsync<ClaimPublicShareLinkResponse>(cancellationToken)
+            : null;
+    }
+
     /// <summary>Withdraws the link. Whoever already opened it keeps nothing - the page stops answering.</summary>
     public async Task RevokeLinkAsync(string itemType, Guid itemId, CancellationToken cancellationToken = default)
     {

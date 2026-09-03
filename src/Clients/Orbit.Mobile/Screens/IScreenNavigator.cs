@@ -16,6 +16,12 @@ public interface IScreenNavigator
 
     void ShowRegister();
 
+    /// <summary>
+    /// Asking for a code and setting a new password, for somebody who cannot get past the sign-in
+    /// screen - see PasswordResetViewModel.
+    /// </summary>
+    void ShowPasswordReset();
+
     void ShowAccount();
 
     void ShowChatKeyGate();
@@ -23,6 +29,13 @@ public interface IScreenNavigator
     void ShowContacts();
 
     void ShowConversation(LocalContact contact);
+
+    /// <summary>
+    /// Who somebody is, apart from what they have said - see ContactInfoViewModel. Named by the account
+    /// rather than by a stored contact, because it is also opened for somebody this phone has never
+    /// spoken to.
+    /// </summary>
+    void ShowContactInfo(Guid userId);
 
     void ShowGroups();
 
@@ -37,6 +50,18 @@ public interface IScreenNavigator
 
     /// <summary>One note, opened from the list - see NoteDetailViewModel.</summary>
     void ShowNote(Guid localId);
+
+    /// <summary>
+    /// The copies taken while offline, each beside the thing it came from - opened when the connection
+    /// is back and there is something to decide. See CopyReviewViewModel.
+    /// </summary>
+    void ShowCopyReview();
+
+    /// <summary>
+    /// One thing's history: the copies taken from it, and where each came from. Opened from the thing
+    /// itself - see CopyHistoryViewModel for why it is per thing rather than one global list.
+    /// </summary>
+    void ShowCopyHistory(Data.CopyKind kind, Guid localId);
 
     void ShowTasks();
 
@@ -58,15 +83,26 @@ public interface IScreenNavigator
 
     void ShowMap();
 
-    void ShowWarehouse(Guid localId);
+    /// <param name="productId">
+    /// Which product this was opened for, when it was opened from something that meant one - an errand
+    /// naming the shelf it is about, or a search that found the thing on it. The shelf marks that row
+    /// and opens on it; null when the warehouse was opened for its own sake. Orbit.Web passes the same
+    /// thing as ?highlight= - see WarehouseSummary.
+    /// </param>
+    void ShowWarehouse(Guid localId, Guid? productId = null);
 
     /// <summary>What happened while the reader was elsewhere - see NotificationFeedViewModel.</summary>
     void ShowNotifications();
 
+    /// <summary>
+    /// What is behind a public link somebody followed into the app, named by the token in it - see
+    /// SharedLinkViewModel.
+    /// </summary>
+    void ShowSharedLink(string token);
+
     /// <summary>Where a newer Orbit comes from - see UpdateViewModel.</summary>
     void ShowUpdate();
 
-    /// <summary>What Orbit is allowed to interrupt the reader with - see NotificationSettingsViewModel.</summary>
     /// <summary>The app's own log, and the one way it leaves the phone - see DiagnosticsViewModel.</summary>
     void ShowDiagnostics();
 }

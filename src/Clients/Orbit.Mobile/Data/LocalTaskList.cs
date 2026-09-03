@@ -1,3 +1,5 @@
+using System.ComponentModel.DataAnnotations.Schema;
+using Orbit.Contracts;
 using Orbit.Contracts.Tasks;
 
 namespace Orbit.Mobile.Data;
@@ -10,7 +12,7 @@ namespace Orbit.Mobile.Data;
 /// task list is not a single blob of text but a title plus a list of items, each with a due date and its
 /// own notification settings.
 /// </summary>
-public sealed class LocalTaskList : Orbit.Mobile.Sync.ISharedState
+public sealed class LocalTaskList : Orbit.Mobile.Sync.ISharedState, ICopyableForEditing
 {
     /// <summary>The key on this device, generated here and never changing - see <see cref="LocalNote.LocalId"/>.</summary>
     public Guid LocalId { get; set; }
@@ -19,6 +21,13 @@ public sealed class LocalTaskList : Orbit.Mobile.Sync.ISharedState
     public Guid? ServerId { get; set; }
 
     public string Title { get; set; } = string.Empty;
+
+    /// <summary>
+    /// What the list is about, under its title - see TaskDto.Description. Empty for one nobody
+    /// described, and always empty for a private one: the server blanks it there rather than storing in
+    /// the clear what the title is sealed to hide (see Orbit.Core.Tasks.TaskList.Update).
+    /// </summary>
+    public string Description { get; set; } = string.Empty;
 
     public IReadOnlyList<TaskItemDto> Items { get; set; } = [];
 
@@ -35,10 +44,21 @@ public sealed class LocalTaskList : Orbit.Mobile.Sync.ISharedState
 
     public bool IsPrivate { get; set; }
 
-    /// <summary>The sealed title and items of a private list - carried through untouched.</summary>
+    /// <inheritdoc cref="LocalNote.EncryptedCiphertext"/>
     public string? EncryptedCiphertext { get; set; }
 
     public string? EncryptedNonce { get; set; }
+
+    /// <inheritdoc cref="LocalNote.EncryptedContent"/>
+    [NotMapped]
+    public EncryptedContentDto? EncryptedContent
+        => EncryptedCiphertext is { } ciphertext && EncryptedNonce is { } nonce
+            ? new EncryptedContentDto(ciphertext, nonce)
+            : null;
+
+    /// <inheritdoc cref="LocalNote.IsSealed"/>
+    [NotMapped]
+    public bool IsSealed { get; set; }
 
     public DateTimeOffset CreatedAtUtc { get; set; }
 
@@ -67,4 +87,20 @@ public sealed class LocalTaskList : Orbit.Mobile.Sync.ISharedState
 
     /// <summary>When the server last confirmed this row - see <see cref="LocalNote.LastSyncedAtUtc"/>.</summary>
     public DateTimeOffset? LastSyncedAtUtc { get; set; }
+
+    /// <inheritdoc cref="LocalNote.CopyOfLocalId"/>
+    public Guid? CopyOfLocalId { get; set; }
+
+    /// <inheritdoc cref="LocalNote.CopiedAtUtc"/>
+    public DateTimeOffset? CopiedAtUtc { get; set; }
+
+    /// <inheritdoc cref="LocalNote.CopyBaseTitle"/>
+    public string CopyBaseTitle { get; set; } = string.Empty;
+
+    /// <inheritdoc cref="ICopyableForEditing.CopyBaseLines"/>
+    public IReadOnlyList<string> CopyBaseLines { get; set; } = [];
+
+    /// <inheritdoc cref="LocalNote.IsKeptCopy"/>
+    public bool IsKeptCopy { get; set; }
+
 }

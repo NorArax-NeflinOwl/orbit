@@ -1,9 +1,11 @@
+using Orbit.Contracts.Tasks;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Time.Testing;
 using Orbit.Mobile.Api;
 using Orbit.Mobile.Data;
 using Orbit.Mobile.Localization;
 using Orbit.Mobile.Screens.Tasks;
+using Orbit.Mobile.Security;
 using Orbit.Mobile.Sync;
 using Orbit.Mobile.Tests.TestDoubles;
 using Xunit;
@@ -25,7 +27,7 @@ public sealed class TasksScreenTests : IDisposable
     public TasksScreenTests()
     {
         _server = new FakeTasksServer(_clock);
-        _taskLists = new LocalTaskListRepository(_localStore, _clock, FixedNetworkStatus.Online);
+        _taskLists = new LocalTaskListRepository(_localStore, _clock, FixedNetworkStatus.Online, PrivateContent.WithoutAKey());
     }
 
     public void Dispose()
@@ -318,6 +320,80 @@ public sealed class TasksScreenTests : IDisposable
         // And says so out loud: the page shows it only when it is told the property changed.
         Assert.True(announced);
     }
+    /// <summary>
+    /// Finding an entry among every list, by a word in it or by what it is filed under - the same
+    /// question Orbit.Web's tasks page asks. The phone could only narrow to whole lists by status, so
+    /// "where did I write down the car insurance" meant opening them one at a time.
+    /// </summary>
+    [Fact]
+    public async Task An_entry_can_be_found_by_a_word_in_it()
+    {
+        await AddWithEntriesAsync("Errands", ("Renew the car insurance", []));
+        await AddWithEntriesAsync("Groceries", ("Buy milk", []));
+        var screen = await OpenAsync();
+
+        screen.ItemSearch = "insurance";
+
+        Assert.Equal(["Errands"], Titles(screen));
+        // The card says what answered rather than what is next: a list shown for a match nobody can see
+        // reads as a bug.
+        Assert.Equal("Renew the car insurance", Assert.Single(screen.TaskLists).NextOrMatched);
+    }
+
+    [Fact]
+    public async Task An_entry_can_be_found_by_what_it_is_filed_under()
+    {
+        await AddWithEntriesAsync("Errands", ("Renew the car insurance", ["car"]));
+        await AddWithEntriesAsync("Groceries", ("Buy milk", ["shopping"]));
+        var screen = await OpenAsync();
+
+        Assert.Equal(["car", "shopping"], screen.Categories.Select(category => category.Name));
+        Assert.Equal([1, 1], screen.Categories.Select(category => category.Count));
+
+        screen.ToggleCategoryCommand.Execute(screen.Categories.Single(category => category.Name == "car"));
+
+        Assert.Equal(["Errands"], Titles(screen));
+        Assert.True(screen.IsLookingForAnEntry);
+    }
+
+    /// <summary>
+    /// Two chosen categories mean "either of them" unless the reader says otherwise - which is what
+    /// picking a second one usually means.
+    /// </summary>
+    [Fact]
+    public async Task Two_categories_mean_either_of_them_until_told_otherwise()
+    {
+        await AddWithEntriesAsync("Errands", ("Renew the car insurance", ["car", "money"]));
+        await AddWithEntriesAsync("Groceries", ("Buy milk", ["shopping"]));
+        var screen = await OpenAsync();
+
+        screen.ToggleCategoryCommand.Execute(screen.Categories.Single(category => category.Name == "car"));
+        screen.ToggleCategoryCommand.Execute(screen.Categories.Single(category => category.Name == "shopping"));
+
+        Assert.Equal(["Errands", "Groceries"], Titles(screen).Order());
+        Assert.True(screen.IsCategoryRuleWorthAsking);
+
+        screen.MatchesEveryCategory = true;
+
+        // Nothing is both, so nothing is left.
+        Assert.Empty(screen.TaskLists);
+    }
+
+    [Fact]
+    public async Task Clearing_it_brings_every_list_back()
+    {
+        await AddWithEntriesAsync("Errands", ("Renew the car insurance", ["car"]));
+        await AddWithEntriesAsync("Groceries", ("Buy milk", ["shopping"]));
+        var screen = await OpenAsync();
+        screen.ItemSearch = "insurance";
+
+        screen.ClearItemFilterCommand.Execute(null);
+
+        Assert.Equal(["Errands", "Groceries"], Titles(screen).Order());
+        Assert.False(screen.IsLookingForAnEntry);
+        Assert.Empty(screen.ItemSearch);
+    }
+
     private static IReadOnlyList<string> Titles(TasksViewModel screen)
         => [.. screen.TaskLists.Select(row => row.Title)];
 
@@ -331,6 +407,23 @@ public sealed class TasksScreenTests : IDisposable
             // the order they were made in, and a test about arranging them is not a test about a tie.
             _clock.Advance(TimeSpan.FromMinutes(1));
         }
+    }
+
+    /// <summary>A list with entries on it, each filed under whatever the test is about.</summary>
+    private async Task AddWithEntriesAsync(string title, params (string Description, string[] Categories)[] entries)
+    {
+        var created = await _taskLists.CreateAsync(title, TaskListRow.NoItems);
+        await _taskLists.UpdateAsync(
+            created.LocalId,
+            new TaskListContent(
+                title,
+                [.. entries.Select(entry => new TaskItemDto(
+                    Guid.NewGuid(), entry.Description, null, false, null, "Push", false, "Push",
+                    new TimeOnly(9, 0), Categories: entry.Categories))],
+                IsGroup: false,
+                Priority: "Normal"));
+
+        _clock.Advance(TimeSpan.FromMinutes(1));
     }
 
     private void CompleteOnTheServer(string title)
@@ -347,6 +440,7 @@ public sealed class TasksScreenTests : IDisposable
                 _localStore, new TasksClient(_server.ToHttpClient()), _clock, new SyncGate(),
                 NullLogger<TaskListSynchronizer>.Instance),
             new TasksClient(_server.ToHttpClient()), FixedNetworkStatus.Online, Arrangement,
+            new PrivateItemGate(new FixedDeviceAuthentication()),
             new SyncState(FixedNetworkStatus.Online, _clock), new RecordingScreenNavigator(),
             new Translations(new InMemoryLanguageStore()));
 

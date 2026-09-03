@@ -24,4 +24,11 @@ public static class SyncEntityType
     public const string TaskList = "TaskList";
     public const string CalendarEvent = "CalendarEvent";
     public const string Warehouse = "Warehouse";
+
+    /// <summary>
+    /// One entry in the in-app notification feed. Unlike the four above, nothing ever writes a tombstone
+    /// for one - an entry leaves only by outliving its retention window, which a client works out from
+    /// the age of what it holds. The constant exists so the feed can use the same delta shape.
+    /// </summary>
+    public const string NotificationEntry = "NotificationEntry";
 }

@@ -6,6 +6,12 @@ namespace Orbit.Core.Tasks.LinkTaskListToWarehouse;
 /// <summary>
 /// Only the list's owner may point it at a warehouse, and only at a warehouse they can actually read -
 /// otherwise the stock check would report on shelves its reader never had access to.
+///
+/// Several lists may share one warehouse. That used to be refused, because two lists measured against
+/// one shelf each reported a shortfall the other had already accounted for; what answers that is the
+/// counting rather than a ban - a shelf is now measured against everything asking for it at once, and
+/// each list is told its share (see GetTaskListStockCheckQueryHandler). A list still points at one
+/// warehouse: work is done out of one store.
 /// </summary>
 public sealed class LinkTaskListToWarehouseCommandHandler : IRequestHandler<LinkTaskListToWarehouseCommand, bool>
 {

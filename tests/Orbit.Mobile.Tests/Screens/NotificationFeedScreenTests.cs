@@ -10,6 +10,7 @@ using Orbit.Mobile.Notifications;
 using Orbit.Mobile.Screens.Notifications;
 using Orbit.Mobile.Sync;
 using Orbit.Mobile.Tests.Crypto;
+using Orbit.Mobile.Screens;
 using Orbit.Mobile.Tests.TestDoubles;
 using Xunit;
 using Orbit.Mobile.Localization;
@@ -126,16 +127,35 @@ public sealed class NotificationFeedScreenTests
         Assert.False(screen.HasMessage);
     }
 
+    /// <summary>
+    /// What replaced "the feed is out of reach": it is this phone's feed now, so it shows what it holds
+    /// and says nothing alarming. The old behaviour was an empty screen and an error on a train, for a
+    /// list the phone had already been told about.
+    /// </summary>
     [Fact]
-    public async Task Being_out_of_reach_says_so()
+    public async Task Being_out_of_reach_shows_what_the_phone_already_holds()
     {
         using var context = new FeedContext();
-        context.Server.IsUnreachable = true;
+        context.Server.Add("A task is overdue", "/tasks/1");
         var screen = context.Open();
-
         await screen.LoadCommand.ExecuteAsync(null);
 
-        Assert.Contains("out of reach", screen.Message);
+        context.Server.IsUnreachable = true;
+        await screen.LoadCommand.ExecuteAsync(null);
+
+        Assert.Equal("A task is overdue", Assert.Single(screen.Rows).Title);
+        Assert.False(screen.HasMessage);
+    }
+
+    /// <summary>And the actions on it are not offered, rather than offered and refused.</summary>
+    [Fact]
+    public void Reading_and_clearing_are_not_offered_without_a_connection()
+    {
+        using var context = new FeedContext();
+        var screen = context.Open(Connections.Offline);
+
+        Assert.True(screen.Connection.IsNotMet);
+        Assert.NotEmpty(screen.Connection.Explanation);
     }
 
     [Fact]
@@ -150,6 +170,25 @@ public sealed class NotificationFeedScreenTests
 
         Assert.DoesNotContain("out of reach", screen.Message);
         Assert.Contains("signing in", screen.Message);
+    }
+
+    /// <summary>
+    /// The feed reads again when something says there is something to read, rather than only when it is
+    /// opened - which is what makes a message arriving while it is on screen appear at all.
+    /// </summary>
+    [Fact]
+    public async Task The_feed_reads_again_when_it_is_announced()
+    {
+        using var context = new FeedContext();
+        var screen = context.Open();
+        await screen.LoadCommand.ExecuteAsync(null);
+        Assert.Empty(screen.Rows);
+
+        context.Server.Add("New message", "/map");
+        context.LiveUpdates.AnnounceNotifications();
+        await Task.Delay(50);
+
+        Assert.NotEmpty(screen.Rows);
     }
 
     private sealed class FeedContext : IDisposable
@@ -187,17 +226,27 @@ public sealed class NotificationFeedScreenTests
                 encryptionKeyProvider, new SyncGate(), NullLogger<EncryptedChatMessageSender>.Instance);
             _synchronizer = new ChatSynchronizer(
                 repository, chatClient, usersClient, sender, NullLogger<ChatSynchronizer>.Instance);
-            _opener = new NotificationOpener(repository, _synchronizer, usersClient, new PendingNotificationTap(), Navigator);
+            _opener = new NotificationOpener(
+                repository, _synchronizer, usersClient, Openers.TaskListsIn(_localStore), Openers.NoTaskListServer(_localStore),
+                new PendingNotificationTap(), Navigator);
         }
 
         public FakeNotificationServer Server { get; } = new();
 
         public RecordingScreenNavigator Navigator { get; } = new();
 
-        public NotificationFeedViewModel Open()
+        /// <summary>Announcements without a hub, so a test can say the feed changed - see ILiveUpdates.</summary>
+        public AnnouncedLiveUpdates LiveUpdates { get; } = new();
+
+        public NotificationFeedViewModel Open(ConnectionRequirement? connection = null)
             => new(
-                new NotificationsClient(Server.ToHttpClient()), _opener,
-                new Translations(new InMemoryLanguageStore()), Navigator);
+                new NotificationsClient(Server.ToHttpClient()),
+                new LocalNotificationRepository(_localStore),
+                new NotificationSynchronizer(
+                    _localStore, new NotificationsClient(Server.ToHttpClient()), TimeProvider.System,
+                    new SyncGate(), NullLogger<NotificationSynchronizer>.Instance),
+                _opener, new Translations(new InMemoryLanguageStore()), Navigator,
+                connection ?? Connections.Online, LiveUpdates);
 
         public async Task<Guid> AddKnownContactAsync(string displayName)
         {

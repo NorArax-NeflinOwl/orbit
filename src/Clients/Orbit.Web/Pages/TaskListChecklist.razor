@@ -5,6 +5,7 @@
 
    The second route is what every link written before that was true still says. Kept so a bookmark, or a
    push notification already sitting on somebody's phone, lands here rather than nowhere. *@
+@implements IDisposable
 @page "/tasks/{Id:guid}"
 @page "/tasks/{Id:guid}/checklist"
 @attribute [Authorize]
@@ -83,16 +84,18 @@ else
                     @(_savedReading == _reading ? T["View saved"] : T["Save view"])
                 </button>
                 <button type="button" class="avatar-dropdown-item" @onclick="GoToDeepEditor">@T["Edit"]</button>
-                <button type="button" class="avatar-dropdown-item" disabled="@_isWorkingOnInventory"
-                        @onclick="GenerateInventoryAsync">
-                    @T["Generate inventory"]
-                </button>
-                @* Nothing to recalculate until there is a warehouse to recalculate against. *@
-                <button type="button" class="avatar-dropdown-item"
-                        disabled="@(_isWorkingOnInventory || _linkedWarehouseId.Length == 0)"
-                        @onclick="RecalculateAsync">
-                    @T["Recalculate against the inventory"]
-                </button>
+                @* One button where "Generate inventory" and "Recalculate against the inventory" used to
+                   be. Both did half of something else - one made a warehouse out of a list, the other
+                   counted a list against one - and neither answered the question somebody has in front
+                   of a restock list, which is "is this still what I need?". Offered only there, since
+                   that is the only list Orbit maintains. *@
+                @if (IsARestockList)
+                {
+                    <button type="button" class="avatar-dropdown-item" disabled="@_isWorkingOnInventory"
+                            @onclick="RefreshFromTheWarehouseAsync">
+                        @T["Refresh"]
+                    </button>
+                }
             </OverflowMenu>
         </div>
     </div>
@@ -102,27 +105,44 @@ else
         <p class="error">@_errorMessage</p>
     }
 
-    @* What this list's work costs against a warehouse. Offered for a group list, because that is what
-       gathers enough work to be worth counting - see StockRequirementCounter for the counting rule. *@
-    @if (_sections.Count > 0 && _sections[0].TaskList.IsGroup)
+    @* What this list's work costs against a warehouse. Offered where the list actually has errands
+       about stock - the panel used to appear on any group list, including ones with nothing on a shelf
+       to count, where it could only ever say "nothing to measure". *@
+    @if (HasInventoryWork)
     {
-        <div class="card stock-check-card">
-            <div class="card-header">
-                <span class="card-title">@T["Can this be done?"]</span>
-                <select class="options-select" value="@_linkedWarehouseId" @onchange="OnWarehouseChangedAsync">
+        <ItemCard Name="@(T["Related inventory"])"
+                  OnNameSelected="@(HasSomethingToUnfold ? EventCallback.Factory.Create(this, ToggleStockCheckHiddenAsync) : default)"
+                  IsCollapsed="_reading.IsStockCheckHidden"
+                  OnCollapseToggled="@(HasSomethingToUnfold ? EventCallback.Factory.Create(this, ToggleStockCheckHiddenAsync) : default)">
+            @* Which shelf this is counted against. At the end of the meta row rather than inside the
+               body, because it is how the panel gets linked in the first place - unreachable while
+               folded would mean unreachable before it has anything to fold. *@
+            <Extras>
+                <select class="options-select" value="@_linkedWarehouseId" @onchange="OnWarehouseChangedAsync"
+                        @onclick:stopPropagation="true">
                     <option value="">@T["Not measured against a warehouse"]</option>
+                    @* Every storage, the ones other lists already measure included: a store serves as
+                       many jobs as it holds things for, and the shelf is split between the lists asking
+                       for it - see StockRequirementCounter. Which of them are shared is said in the
+                       option itself rather than by leaving it out. *@
                     @foreach (var warehouse in _warehouses)
                     {
-                        <option value="@warehouse.Id">@warehouse.Name</option>
+                        <option value="@warehouse.Id">
+                            @(_warehousesMeasuredByAnotherList.Contains(warehouse.Id)
+                                ? T.Format("{0} (shared with another list)", warehouse.Name)
+                                : warehouse.Name)
+                        </option>
                     }
                 </select>
-                @* Whether this panel is in the way, and what order it lists things in - both settings
-                   rather than actions, so the menu stays open while they are being tried. Both are
-                   remembered as they are set: neither is worth pressing Save view for. *@
+                @if (_warehouseMessage is not null)
+                {
+                    <span class="row-meta">@_warehouseMessage</span>
+                }
+            </Extras>
+            @* Only what order things are listed in. Show/Hide left: the card's own name and its
+               collapse do that now, so the menu row was a third way to say the same thing. *@
+            <Menu>
                 <OverflowMenu StaysOpen="true">
-                    <button type="button" class="avatar-dropdown-item" @onclick="ToggleStockCheckHiddenAsync">
-                        @(_reading.IsStockCheckHidden ? T["Show"] : T["Hide"])
-                    </button>
                     <span class="overflow-menu-heading">@T["Sort"]</span>
                     @foreach (var stockOrder in Enum.GetValues<StockCheckOrder>())
                     {
@@ -133,9 +153,9 @@ else
                         </button>
                     }
                 </OverflowMenu>
-            </div>
-
-            @if (_stockCheck is { } stockCheck && !_reading.IsStockCheckHidden)
+            </Menu>
+            <Body>
+            @if (_stockCheck is { } stockCheck)
             {
                 <p class="options-subtext">
                     @if (stockCheck.IsAchievable)
@@ -182,7 +202,8 @@ else
                     <p class="info">@_shortfallMessage</p>
                 }
             }
-        </div>
+            </Body>
+        </ItemCard>
     }
 
     @if (_reading.View == ChecklistView.Flat)
@@ -202,9 +223,14 @@ else
                            disabled="@IsItemLocked(entry.Section, entry.Item)"
                            @onchange="args => ToggleItemAsync(entry.Section.TaskList, entry.Item, (bool)args.Value!)" />
                     <span class="check-row-text">@Written(entry.Item.Description)</span>
+                    @* What it is about, the same marks the cards on /tasks carry - see TaskItem.Categories. *@
+                    @foreach (var category in entry.Item.AllCategories)
+                    {
+                        <span class="row-category">@category</span>
+                    }
                     @* Which list it came from, since the headings are gone in this view. *@
                     <span class="row-meta">@Written(entry.Section.TaskList.Title)</span>
-                    @if (entry.Item.DueDateUtc is { } flatDueDate)
+                    @if (IsAChecklistEntry(entry.Item) && entry.Item.DueDateUtc is { } flatDueDate)
                     {
                         <span class="row-meta">@T.Format("due {0}", flatDueDate.LocalDateTime.ToString("dd.MM.yyyy HH:mm"))</span>
                     }
@@ -233,27 +259,80 @@ else
             {
                 @foreach (var item in ItemsToShow(section.TaskList))
                 {
-                    <label class="check-row @(item.IsCompleted ? "completed" : "")">
+                    <div class="check-row @(item.IsCompleted ? "completed" : "") @(Highlight == item.Id ? "highlighted" : "")">
+                        @* An entry standing for other lists is not ticked here - it is done when they
+                           are. Pressed rather than refused: the box takes the press, says which list
+                           the answer is on, and offers to go there. Prevented rather than disabled,
+                           because a disabled box takes no press at all and had nothing to say. *@
                         <input type="checkbox" checked="@item.IsCompleted"
+                               aria-label="@T.Format("Done: {0}", Written(item.Description))"
                                disabled="@IsItemLocked(section, item)"
+                               @onclick="() => AskAboutTheListsBehind(item)"
+                               @onclick:preventDefault="item.AllLinkedTaskListIds.Count > 0"
                                @onchange="args => ToggleItemAsync(section.TaskList, item, (bool)args.Value!)" />
-                        <span class="check-row-text">@Written(item.Description)</span>
-                        @if (item.LinkedTaskListId is { } linkedTaskListId)
+                        @* Opens the entry to be worked on rather than ticking it off. Ticking is the
+                           checkbox's job, and it was doing both: the row was a <label>, so reading a
+                           line by tapping it completed it. *@
+                        <button type="button" class="check-row-text"
+                                @onclick="() => GoToEditItem(section.TaskList.Id, item.Id)">@Written(item.Description)</button>
+                        @* What it is about, the same marks the cards on /tasks carry - see TaskItem.Categories. *@
+                        @foreach (var category in item.AllCategories)
                         {
-                            <span class="row-meta">@T.Format("follows {0}", LinkedTaskListTitle(linkedTaskListId))</span>
+                            <span class="row-category">@category</span>
                         }
-                        else if (item.DueDateUtc is { } dueDate)
+                        @* An inventory errand says which shelf it is about, and - when a second list is
+                           asking for the same product - where else it is being asked for. Both are links
+                           rather than labels: the reason to show them is to be able to go and look. *@
+                        @if (ReferenceFor(item) is { } reference)
+                        {
+                            <span class="check-row-references" @onclick:stopPropagation="true">
+                                <a class="reference-chip" href="@InventoryHref(reference)"
+                                   @onclick="() => GoTo(InventoryHref(reference))" @onclick:preventDefault="true">
+                                    @T.Format("in {0}", reference.WarehouseName)
+                                </a>
+                                @foreach (var elsewhere in reference.AlsoAskedForBy)
+                                {
+                                    <a class="reference-chip" href="@TaskListHref(elsewhere)"
+                                       @onclick="() => GoTo(TaskListHref(elsewhere))" @onclick:preventDefault="true">
+                                        @T.Format("also on {0}", Written(elsewhere.TaskListTitle))
+                                    </a>
+                                }
+                            </span>
+                        }
+                        @if (item.AllLinkedTaskListIds.Count > 0)
+                        {
+                            @* Every list it stands for, named: "follows Kitchen, Bathroom" says what
+                               the row is waiting on, where "follows another list" says only that it is
+                               waiting. *@
+                            <span class="row-meta">@T.Format("follows {0}", LinkedTaskListTitles(item))</span>
+                        }
+                        @* A day to be done by belongs to a checklist entry - an appointment says when
+                           it is in the calendar, and a restock errand is about an amount. Same rule as
+                           the editor, which only asks a checklist entry for one. *@
+                        else if (IsAChecklistEntry(item) && item.DueDateUtc is { } dueDate)
                         {
                             <span class="row-meta">@T.Format("due {0}", dueDate.LocalDateTime.ToString("dd.MM.yyyy HH:mm"))</span>
-                            @if (_hasGoogleExtras)
-                            {
-                                @* Google Calendar template links can't create a task, so a deadline
-                                   becomes a short event ending at it - see GoogleCalendarEventLink. *@
-                                <a class="google-link" href="@GoogleCalendarEventLink.ForTaskItem(item.Description, dueDate, section.TaskList.Title)"
-                                   target="_blank" rel="noopener" @onclick:stopPropagation="true">@T["Add to Google Calendar"]</a>
-                            }
                         }
-                    </label>
+                    </div>
+                    @if (_askedAbout == item.Id)
+                    {
+                        @* Under the row rather than in a dialog over the page: it is about this line,
+                           and a reader who meant to tick something else should be able to see which
+                           one they pressed. *@
+                        <div class="check-row-asks">
+                            <span>@T.Format("This is done when {0} is.", LinkedTaskListTitles(item))</span>
+                            @foreach (var linkedTaskListId in item.AllLinkedTaskListIds)
+                            {
+                                <button type="button" class="btn-secondary"
+                                        @onclick="() => GoToLinkedList(linkedTaskListId)">
+                                    @(item.AllLinkedTaskListIds.Count == 1
+                                        ? T["Yes"]
+                                        : LinkedTaskListTitle(linkedTaskListId))
+                                </button>
+                            }
+                            <button type="button" class="btn-secondary" @onclick="() => _askedAbout = null">@T["No"]</button>
+                        </div>
+                    }
                 }
             }
         </div>
@@ -265,8 +344,19 @@ else
     [Parameter]
     public Guid Id { get; set; }
 
+    /// <summary>
+    /// One entry to draw attention to, when this page was opened by following a reference to it. From
+    /// the query string rather than the route: it is a hint about what to look at, not part of what
+    /// this page is, and a link shared without it still opens the same list.
+    /// </summary>
+    [Parameter, SupplyParameterFromQuery(Name = "highlight")]
+    public Guid? Highlight { get; set; }
+
     private bool _isLoading = true;
     private string? _errorMessage;
+
+    /// <summary>What each inventory errand on this list is about - see TasksApiClient.GetInventoryReferencesAsync.</summary>
+    private IReadOnlyList<InventoryReferenceDto> _inventoryReferences = [];
 
     /// <summary>
     /// The list being viewed first, then - when it's a group list - every list its items link to. Kept
@@ -309,7 +399,7 @@ else
     /// </summary>
     private IReadOnlyList<FlatChecklistEntry> _flatItems =>
         [.. _sections.SelectMany(section => section.TaskList.Items
-            .Where(item => item.LinkedTaskListId is null)
+            .Where(item => item.AllLinkedTaskListIds.Count == 0)
             .Select(item => new FlatChecklistEntry(section, item)))];
 
     /// <summary>
@@ -344,6 +434,8 @@ else
 
         _hasGoogleExtras = await GoogleIntegrationAccess.IsAvailableAsync();
         _sections = BuildSections();
+        await SettleFinishedErrandsAsync();
+        await LoadInventoryReferencesAsync();
         await LoadStockCheckAsync();
         // Only asked for once the sections are built, since whether the saved view still applies
         // depends on what this list turned out to hold.
@@ -393,7 +485,7 @@ else
             return;
         }
 
-        foreach (var memberId in taskList.Items.Select(item => item.LinkedTaskListId).OfType<Guid>())
+        foreach (var memberId in taskList.Items.SelectMany(item => item.AllLinkedTaskListIds))
         {
             if (_allTaskLists.FirstOrDefault(candidate => candidate.Id == memberId) is { } member)
             {
@@ -403,20 +495,197 @@ else
     }
 
     /// <summary>
-    /// A linked item's completion mirrors the list it points at rather than being set by hand (see
-    /// LinkedTaskCompletionResolver), and a read-only share grants no writes at all - both render as a
-    /// checkbox that can be seen but not moved.
+    /// A read-only share grants no writes at all, so its boxes are shown and cannot be moved. An entry
+    /// standing for other lists is not disabled: its completion still mirrors the lists it points at
+    /// (see LinkedTaskCompletionResolver), but the press is worth taking - see AskAboutTheListsBehind.
     /// </summary>
     private static bool IsItemLocked(ChecklistSection section, TaskItemDto item)
-        => item.LinkedTaskListId is not null || section.TaskList.AccessLevel != nameof(ShareAccessLevel.CanEdit);
+        => section.TaskList.AccessLevel != nameof(ShareAccessLevel.CanEdit);
+
+    /// <summary>The entry whose lists are being offered right now, if any - see the prompt under the row.</summary>
+    private Guid? _askedAbout;
+
+    /// <summary>
+    /// Answers a press on a box that cannot be ticked here, by saying where the answer actually is. An
+    /// ordinary entry says nothing: it was ticked, which is answer enough.
+    /// </summary>
+    private void AskAboutTheListsBehind(TaskItemDto item)
+        => _askedAbout = item.AllLinkedTaskListIds.Count > 0 ? item.Id : null;
+
+    private void GoToLinkedList(Guid linkedTaskListId)
+    {
+        _askedAbout = null;
+        Logger.LogInformation("User opened linked task list {LinkedTaskListId} from a checklist", linkedTaskListId);
+        NavigationManager.NavigateTo($"/tasks/{linkedTaskListId}");
+    }
+
+    /// <summary>
+    /// The lists an entry stands for, named and joined - an entry naming three of them is one step, and
+    /// saying so takes naming all three.
+    /// </summary>
+    private string LinkedTaskListTitles(TaskItemDto item)
+        => string.Join(", ", item.AllLinkedTaskListIds.Select(LinkedTaskListTitle));
 
     private string LinkedTaskListTitle(Guid linkedTaskListId)
         => _allTaskLists.FirstOrDefault(candidate => candidate.Id == linkedTaskListId) is { } linked
             ? Written(linked.Title)
             : T["another list"];
 
+    /// <summary>
+    /// Whether this is the list a warehouse keeps for itself. Only Orbit maintains one of those, so it
+    /// is the only list where "rebuild it from what is true now" means anything.
+    /// </summary>
+    private bool IsARestockList
+        => _sections.Count > 0 && RestockTaskNaming.IsManagedTitle(_sections[0].TaskList.Title);
+
+    /// <summary>
+    /// Rebuilds this list against the warehouse behind it and the settings that warehouse carries - what
+    /// somebody presses when the world changed rather than the list. Re-reads afterwards, since the
+    /// point of asking is to see the answer.
+    /// </summary>
+    private async Task RefreshFromTheWarehouseAsync()
+    {
+        _menu?.Close();
+        if (await WarehouseBehindThisListAsync() is not { } warehouseId)
+        {
+            return;
+        }
+
+        _isWorkingOnInventory = true;
+        _shortfallMessage = null;
+        try
+        {
+            var result = await InventoryApiClient.RefreshRestockListAsync(warehouseId);
+            _shortfallMessage = result.AddedCount == 0 && result.RemovedCount == 0
+                ? T["The restock list already asks for exactly what it should."]
+                : T.Format("Restock list updated: {0} added, {1} removed.", result.AddedCount, result.RemovedCount);
+            _allTaskLists = await TasksApiClient.GetTaskListsAsync();
+            _sections = BuildSections();
+            await LoadInventoryReferencesAsync();
+        }
+        catch (HttpRequestException exception)
+        {
+            Logger.LogError(exception, "Failed to refresh the restock list for task list {TaskListId}", Id);
+            _errorMessage = T["That didn't work. Try again."];
+        }
+        finally
+        {
+            _isWorkingOnInventory = false;
+        }
+    }
+
+    /// <summary>
+    /// Which warehouse keeps this list. Read off the errands on it rather than from a route of its own:
+    /// every one names the shelf item it is about, and every one of those is in the same warehouse.
+    /// </summary>
+    private async Task<Guid?> WarehouseBehindThisListAsync()
+    {
+        if (_inventoryReferences.Count > 0)
+        {
+            return _inventoryReferences[0].WarehouseId;
+        }
+
+        // A list with nothing on it yet has no errand to read a warehouse off. The one the list is
+        // measured against is the next best answer, and for a restock list it is the same warehouse.
+        return Guid.TryParse(_linkedWarehouseId, out var linked) ? linked : null;
+    }
+
+    /// <summary>
+    /// Settles anything already crossed off on a restock list: each finished errand fills its shelf item
+    /// and leaves the list. Asked for on opening rather than only on saving, so a list that accumulated
+    /// crossed-off errands before Orbit did this clears itself the first time somebody looks at it - and
+    /// the list is re-read afterwards, since it is the thing that changed.
+    ///
+    /// Best effort: a settle that fails leaves the list exactly as it was, which is readable, so it is
+    /// not worth an error bar over the checklist somebody came here to use.
+    /// </summary>
+    private async Task SettleFinishedErrandsAsync()
+    {
+        if (_sections.Count == 0 || !RestockTaskNaming.IsManagedTitle(_sections[0].TaskList.Title))
+        {
+            return;
+        }
+
+        try
+        {
+            if (await TasksApiClient.ReconcileRestockingAsync(Id) == 0)
+            {
+                return;
+            }
+
+            _allTaskLists = await TasksApiClient.GetTaskListsAsync();
+            _sections = BuildSections();
+        }
+        catch (HttpRequestException exception)
+        {
+            Logger.LogWarning(exception, "Couldn't settle the finished errands on task list {TaskListId}", Id);
+        }
+    }
+
+    private async Task LoadInventoryReferencesAsync()
+    {
+        try
+        {
+            _inventoryReferences = await TasksApiClient.GetInventoryReferencesAsync(Id);
+        }
+        catch (HttpRequestException exception)
+        {
+            // The entries still read as what they say; they just have nothing to follow.
+            Logger.LogWarning(exception, "Couldn't load the inventory references for task list {TaskListId}", Id);
+            _inventoryReferences = [];
+        }
+    }
+
+    private InventoryReferenceDto? ReferenceFor(TaskItemDto item)
+        => _inventoryReferences.FirstOrDefault(reference => reference.TaskItemId == item.Id);
+
+    /// <summary>
+    /// The warehouse this errand's product sits in, with the product itself named so the page that opens
+    /// can draw attention to it rather than leaving somebody to find one row among fifty.
+    /// </summary>
+    private static string InventoryHref(InventoryReferenceDto reference)
+        => $"/inventory/{reference.WarehouseId}?highlight={reference.InventoryItemId}";
+
+    private static string TaskListHref(InventoryReferenceElsewhereDto elsewhere)
+        => $"/tasks/{elsewhere.TaskListId}?highlight={elsewhere.TaskItemId}";
+
+    /// <summary>
+    /// Follows a reference. Handled here rather than left to the browser so that going from one task
+    /// list to another is a parameter change Blazor can make in place - an ordinary href would reload
+    /// the whole application to arrive at the same page.
+    /// </summary>
+    /// <summary>
+    /// Whether anything on this list is an errand about stock. The panel counts inventory work, so a
+    /// list with none of it has nothing to count - it used to appear on every group list regardless,
+    /// where the only thing it could say was that there was nothing to measure.
+    /// </summary>
+    private bool HasInventoryWork
+        => _sections.Any(section => section.TaskList.Items.Any(
+            item => item.Kind == nameof(Orbit.Core.Tasks.TaskItemKind.Inventory)));
+
+    /// <summary>
+    /// Whether there is a count to fold away. Asked of the count itself rather than of the warehouse
+    /// picker: what makes the card worth unfolding is having something inside it, and keying the
+    /// offer to the link meant a card with a count in it that refused to fold.
+    /// </summary>
+    private bool HasSomethingToUnfold => _stockCheck is not null;
+
+    private void GoTo(string href) => NavigationManager.NavigateTo(href);
+
+    /// <summary>
+    /// Opens the deep editor with this entry already unfolded. The checklist is for ticking things off;
+    /// changing what an entry actually is - its day, its place, what it is about - is the editor's job,
+    /// and this is the way there from the line itself.
+    /// </summary>
+    private void GoToEditItem(Guid taskListId, Guid itemId)
+        => NavigationManager.NavigateTo($"/tasks/{taskListId}/edit?item={itemId}");
+
+    /// <summary>Whether this entry is ordinary work rather than an appointment or a restock errand.</summary>
+    private static bool IsAChecklistEntry(TaskItemDto item)
+        => item.Kind == nameof(Orbit.Core.Tasks.TaskItemKind.Checklist);
+
     /// <summary>A name Orbit wrote itself, in the reader's language - see OrbitWrittenNames.</summary>
-    private string Written(string name) => OrbitWrittenNames.Translate(T, name);
+    private string Written(string name) => OrbitWrittenNames.Translate(key => T[key], name);
 
     private static string CompletionSummary(TaskDto taskList)
         => $"{taskList.Items.Count(item => item.IsCompleted)}/{taskList.Items.Count}";
@@ -435,17 +704,13 @@ else
         }
 
         var toggledIndex = taskList.Items.ToList().IndexOf(item);
+        // Everything as it already is, with one item's completion changed - see TaskItemRequest.From on
+        // why the fields are not listed here.
         var items = taskList.Items
-            .Select((existingItem, index) => new TaskItemRequest(
-                existingItem.Description,
-                existingItem.Id,
-                existingItem.DueDateUtc,
-                index == toggledIndex ? isCompleted : existingItem.IsCompleted,
-                existingItem.LinkedTaskListId,
-                existingItem.OverdueNotificationChannel,
-                existingItem.RemindDaily,
-                existingItem.DailyReminderNotificationChannel,
-                existingItem.DailyReminderTimeOfDay))
+            .Select((existingItem, index) => TaskItemRequest.From(existingItem) with
+            {
+                IsCompleted = index == toggledIndex ? isCompleted : existingItem.IsCompleted
+            })
             .ToList();
 
         try
@@ -475,6 +740,59 @@ else
         // Reloads even after a failure, so a checkbox that didn't save snaps back to what the server
         // actually holds - and after a success, so a group's linked items pick up their new completion.
         await LoadAsync();
+
+        TidyTheRestockListShortly();
+    }
+
+    /// <summary>How long a crossed-off restock errand stays on the list before a refresh clears it.</summary>
+    private static readonly TimeSpan RestockTidyDelay = TimeSpan.FromMinutes(5);
+
+    /// <summary>The pending tidy-up, while one is waiting - restarted by each tick, cancelled on leaving.</summary>
+    private CancellationTokenSource? _restockTidy;
+
+    /// <summary>
+    /// Asks for the refresh that takes finished errands off the restock list, a few minutes from now.
+    ///
+    /// Crossing one off used to remove it in the same breath, so a row answered a tap by vanishing -
+    /// and a tap on the wrong row could not be undone by untapping it, because there was nothing left
+    /// to untap. The shelf is still filled at once (see RestockCompletion.TopUpFinishedAsync); only
+    /// the tidying waits.
+    ///
+    /// Restarted on every tick rather than queued once per tick: somebody working down a list ticks
+    /// six things in a minute, and six refreshes would be five more than the list needs. The wait
+    /// therefore measures from the last one, which is also when they have stopped and might look back.
+    /// </summary>
+    private void TidyTheRestockListShortly()
+    {
+        _restockTidy?.Cancel();
+        _restockTidy?.Dispose();
+        _restockTidy = new CancellationTokenSource();
+        var waiting = _restockTidy.Token;
+
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                await Task.Delay(RestockTidyDelay, waiting);
+                await InvokeAsync(RefreshFromTheWarehouseAsync);
+            }
+            catch (OperationCanceledException)
+            {
+                // Another tick came in, or the page went away. Either way this one is not wanted.
+            }
+            catch (Exception exception)
+            {
+                // Nothing here is worth interrupting somebody over: the list is correct as it stands,
+                // it just has crossed-off rows still on it, and the next refresh settles them.
+                Logger.LogWarning(exception, "The restock list could not be tidied up after a delay");
+            }
+        }, waiting);
+    }
+
+    public void Dispose()
+    {
+        _restockTidy?.Cancel();
+        _restockTidy?.Dispose();
     }
 
     private void GoToDeepEditor()
@@ -494,12 +812,17 @@ else
 
     /// <summary>
     /// Reads the warehouses to choose from and, when one is already chosen, what the work costs against
-    /// it. Only for a group list: a single list's items are the work in front of you, not a bill of
-    /// materials gathered from several places.
+    /// it.
+    ///
+    /// For any list, not only a group one. It was group-only on the grounds that a single list's items
+    /// are the work in front of you rather than a bill of materials - but the panel above only appears
+    /// where a list actually holds inventory entries, and on a plain list holding some this left the
+    /// picker with nothing in it and the count unread. A list with errands about stock is asking the
+    /// question whether or not it gathers other lists.
     /// </summary>
     private async Task LoadStockCheckAsync()
     {
-        if (_sections.Count == 0 || !_sections[0].TaskList.IsGroup)
+        if (_sections.Count == 0)
         {
             return;
         }
@@ -508,6 +831,14 @@ else
         {
             _warehouses = await InventoryApiClient.GetWarehousesAsync();
             _linkedWarehouseId = _sections[0].TaskList.LinkedWarehouseId?.ToString() ?? string.Empty;
+            // Which shelves some other list already measures, so the picker can say which of them would
+            // be shared - see LinkTaskListToWarehouseCommandHandler, which allows the sharing.
+            _warehousesMeasuredByAnotherList =
+            [
+                .. (await TasksApiClient.GetTaskListsAsync())
+                    .Where(taskList => taskList.Id != Id && taskList.LinkedWarehouseId is not null)
+                    .Select(taskList => taskList.LinkedWarehouseId!.Value)
+            ];
             _stockCheck = await TasksApiClient.GetStockCheckAsync(Id);
         }
         catch (HttpRequestException exception)
@@ -518,11 +849,21 @@ else
         }
     }
 
+    /// <summary>
+    /// Every warehouse some other list of this account's already measures. Still on offer, and named as
+    /// shared in the picker - see the option there.
+    /// </summary>
+    private HashSet<Guid> _warehousesMeasuredByAnotherList = [];
+
+    /// <summary>What the picker says back when a choice did not take. Null while nothing needs saying.</summary>
+    private string? _warehouseMessage;
+
     private async Task OnWarehouseChangedAsync(ChangeEventArgs args)
     {
         var chosen = args.Value?.ToString();
         _linkedWarehouseId = chosen ?? string.Empty;
         _shortfallMessage = null;
+        _warehouseMessage = null;
         Guid? warehouseId = Guid.TryParse(chosen, out var parsed) ? parsed : null;
         Logger.LogInformation("User measured task list {TaskListId} against warehouse {WarehouseId}", Id, warehouseId);
 
@@ -530,6 +871,13 @@ else
         {
             if (!await TasksApiClient.LinkWarehouseAsync(Id, warehouseId))
             {
+                // The picker leaves out what is already spoken for, so this is a shelf that was taken
+                // between the page loading and the choice being made. Said out loud rather than left as
+                // a select that snaps back for no visible reason.
+                _warehouseMessage = T["That storage is already measured against another list."];
+                _linkedWarehouseId = _sections.Count > 0
+                    ? _sections[0].TaskList.LinkedWarehouseId?.ToString() ?? string.Empty
+                    : string.Empty;
                 return;
             }
 
@@ -538,6 +886,7 @@ else
         catch (HttpRequestException exception)
         {
             Logger.LogError(exception, "Failed to measure task list {TaskListId} against a warehouse", Id);
+            _warehouseMessage = T["Couldn't measure this list against that storage. Try again."];
         }
     }
 
@@ -567,41 +916,6 @@ else
         }
     }
 
-    /// <summary>
-    /// Builds a warehouse out of what this list calls for and points the list at it, so the check below
-    /// can be read straight away. The entries start empty - a shelf that began full would report the job
-    /// as doable before anybody had fetched anything.
-    /// </summary>
-    private async Task GenerateInventoryAsync()
-    {
-        _menu?.Close();
-        _isWorkingOnInventory = true;
-        _shortfallMessage = null;
-        Logger.LogInformation("User generated an inventory from task list {TaskListId}", Id);
-        try
-        {
-            if (await TasksApiClient.GenerateInventoryAsync(Id) is not { } warehouseId)
-            {
-                return;
-            }
-
-            _warehouses = await InventoryApiClient.GetWarehousesAsync();
-            _linkedWarehouseId = warehouseId.ToString();
-            _stockCheck = await TasksApiClient.GetStockCheckAsync(Id);
-            _shortfallMessage = T["Inventory generated from this list."];
-        }
-        catch (HttpRequestException exception)
-        {
-            Logger.LogError(exception, "Failed to generate an inventory from task list {TaskListId}", Id);
-            _shortfallMessage = T["Couldn't generate an inventory from this list."];
-        }
-        finally
-        {
-            _isWorkingOnInventory = false;
-        }
-    }
-
-    /// <summary>Asks the question again - the shelf moves without this page hearing about it.</summary>
     /// <summary>
     /// Crossing off "Update stock levels" while errands are still open on the same list is either the
     /// end of a round of restocking or a tick on one reminder. Only the reader knows which, so they are
@@ -639,50 +953,6 @@ else
         await LoadAsync();
         return true;
     }
-
-    /// <summary>
-    /// Reads the warehouse again and brings the list back into step with it - crossing off the work the
-    /// shelf covers, and writing on what the shelf holds that nothing here asked for - then redraws both
-    /// the panel and the lists, since the point of asking is to have the answer applied, not just shown.
-    /// </summary>
-    private async Task RecalculateAsync()
-    {
-        _menu?.Close();
-        _isWorkingOnInventory = true;
-        _shortfallMessage = null;
-        Logger.LogInformation("User recalculated the stock check for task list {TaskListId}", Id);
-        try
-        {
-            var reconciliation = await TasksApiClient.ReconcileWithStockAsync(Id);
-            _shortfallMessage = DescribeReconciliation(reconciliation);
-            _allTaskLists = await TasksApiClient.GetTaskListsAsync();
-            _sections = BuildSections();
-            _stockCheck = await TasksApiClient.GetStockCheckAsync(Id);
-        }
-        catch (HttpRequestException exception)
-        {
-            Logger.LogError(exception, "Failed to recalculate the stock check for task list {TaskListId}", Id);
-            _errorMessage = T["Couldn't recalculate against the warehouse. Try again."];
-        }
-        finally
-        {
-            _isWorkingOnInventory = false;
-        }
-    }
-
-    /// <summary>
-    /// What the reconciliation moved, in one sentence. Both halves are said when both happened: "12
-    /// crossed off" alone would leave the reader wondering where the new rows came from.
-    /// </summary>
-    private string DescribeReconciliation(StockReconciliationResultDto reconciliation) => reconciliation switch
-    {
-        { CrossedOffCount: 0, AddedCount: 0 } => T["Nothing new is covered by the warehouse."],
-        { AddedCount: 0 } => T.Format("{0} crossed off, because the warehouse covers them.", reconciliation.CrossedOffCount),
-        { CrossedOffCount: 0 } => T.Format("{0} added from the warehouse.", reconciliation.AddedCount),
-        _ => T.Format(
-            "{0} crossed off, because the warehouse covers them, and {1} added from the warehouse.",
-            reconciliation.CrossedOffCount, reconciliation.AddedCount)
-    };
 
     private void ToggleView()
     {

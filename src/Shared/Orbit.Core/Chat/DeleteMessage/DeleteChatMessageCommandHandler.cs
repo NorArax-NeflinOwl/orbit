@@ -1,5 +1,6 @@
 using Orbit.Core.Abstractions;
 using Orbit.Core.Chat.Groups;
+using Orbit.Core.LiveUpdates;
 
 namespace Orbit.Core.Chat.DeleteMessage;
 
@@ -16,11 +17,16 @@ public sealed class DeleteChatMessageCommandHandler : IRequestHandler<DeleteChat
 {
     private readonly IChatMessageRepository _chatMessageRepository;
     private readonly IChatGroupRepository _chatGroupRepository;
+    private readonly ILiveUpdatePublisher _liveUpdatePublisher;
 
-    public DeleteChatMessageCommandHandler(IChatMessageRepository chatMessageRepository, IChatGroupRepository chatGroupRepository)
+    public DeleteChatMessageCommandHandler(
+        IChatMessageRepository chatMessageRepository,
+        IChatGroupRepository chatGroupRepository,
+        ILiveUpdatePublisher liveUpdatePublisher)
     {
         _chatMessageRepository = chatMessageRepository;
         _chatGroupRepository = chatGroupRepository;
+        _liveUpdatePublisher = liveUpdatePublisher;
     }
 
     public async Task<bool> HandleAsync(DeleteChatMessageCommand request, CancellationToken cancellationToken)
@@ -39,6 +45,11 @@ public sealed class DeleteChatMessageCommandHandler : IRequestHandler<DeleteChat
             }
 
             await _chatMessageRepository.DeleteAsync(message.Id, cancellationToken);
+
+            // A message that vanishes is news for whoever was looking at it, which is the recipient
+            // first of all - a deletion nobody hears about stays on their screen until the slow poll.
+            await _liveUpdatePublisher.ChatChangedAsync(
+                [message.RecipientUserId, message.SenderUserId], cancellationToken);
             return true;
         }
 
@@ -51,6 +62,8 @@ public sealed class DeleteChatMessageCommandHandler : IRequestHandler<DeleteChat
         // Every copy of the same posting goes, so the message leaves the group rather than one member's
         // view of it - see ChatMessage.GroupMessageId.
         await _chatMessageRepository.DeleteGroupMessageAsync(message.GroupMessageId!.Value, cancellationToken);
+        await _liveUpdatePublisher.ChatChangedAsync(
+            [.. group.Members.Select(member => member.UserId)], cancellationToken);
         return true;
     }
 }

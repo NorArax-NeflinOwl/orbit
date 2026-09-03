@@ -15,5 +15,9 @@ namespace Orbit.Mobile.Data;
 [JsonSerializable(typeof(IReadOnlyList<TaskItemDto>))]
 [JsonSerializable(typeof(CalendarEventDetailsDto))]
 [JsonSerializable(typeof(IReadOnlyList<WarehouseItemDto>))]
+// When each batch on a shelf arrived, by its id - see LocalWarehouse.ItemArrivals.
+[JsonSerializable(typeof(IReadOnlyDictionary<Guid, DateTimeOffset>))]
 [JsonSerializable(typeof(IReadOnlyList<LocalChatGroupMember>))]
+// What a copy was taken from, already rendered as lines - see ICopyableForEditing.CopyBaseLines.
+[JsonSerializable(typeof(IReadOnlyList<string>))]
 internal sealed partial class LocalStoreSerializerContext : JsonSerializerContext;

@@ -11,6 +11,13 @@
         return element.scrollHeight - element.scrollTop - element.clientHeight <= NEAR_BOTTOM_THRESHOLD_PIXELS;
     }
 
+    /// Not "is there something here" but "is it an element". An ElementReference Blazor never bound -
+    /// the list is not on screen, or is not rendered at all - arrives as an ordinary object, which
+    /// passes a truthiness check and then has no addEventListener to call.
+    function isAnElement(candidate) {
+        return !!candidate && typeof candidate.addEventListener === "function";
+    }
+
     window.OrbitChatScroll = {
         // Always an instant jump: a smooth animation is silently ignored where reduced motion is in
         // effect, and where it does run it gets cancelled part-way by the poll loop's re-renders.
@@ -27,7 +34,7 @@
         // @onscroll handler on the message list never fires. Registering the listener directly on the
         // element here and calling back into the component is the way to get it.
         observeScroll: (element, dotNetRef) => {
-            if (!element) {
+            if (!isAnElement(element)) {
                 return;
             }
 
@@ -37,7 +44,7 @@
         },
 
         unobserveScroll: (element) => {
-            if (element && element.orbitScrollListener) {
+            if (isAnElement(element) && element.orbitScrollListener) {
                 element.removeEventListener("scroll", element.orbitScrollListener);
                 delete element.orbitScrollListener;
             }

@@ -46,14 +46,18 @@
                         <div class="calendar-month-grid-day-events">
                             @foreach (var calendarEvent in day.Events.Take(MaxVisibleEvents))
                             {
-                                <button type="button" class="calendar-event-chip" style="border-left-color:@EventColor(calendarEvent);"
-                                        @onclick="() => EventSelectedAsync(calendarEvent.Id)" @onclick:stopPropagation="true">
-                                    @if (!calendarEvent.Details.IsAllDay)
-                                    {
-                                        <span class="calendar-event-chip-time">@calendarEvent.Details.StartUtc.LocalDateTime.ToString("HH:mm")</span>
-                                    }
-                                    <span class="calendar-event-chip-title">@RecurringPrefix(calendarEvent)@calendarEvent.Details.Title</span>
-                                </button>
+                                @* No time on a month cell. Seven of these across a screen leaves a chip
+                                   about as wide as "00:00", so the clock was taking the room the name
+                                   needed - and which day something is on is what a month is read for.
+                                   The day view is where times are read. *@
+                                @* A label, not a button. The cell is what opens - a month answers
+                                   "which day", and the day view is where a particular entry is picked
+                                   out. A button inside a clickable cell also gave two targets a
+                                   keyboard had to tell apart for one thing. *@
+                                <span class="calendar-event-chip" title="@calendarEvent.Details.Title"
+                                      style="border-left-color:@EventColor(calendarEvent);">
+                                    <span class="calendar-event-chip-title">@RecurringPrefix(calendarEvent)@Shortened(calendarEvent.Details.Title)</span>
+                                </span>
                             }
                             @if (day.Events.Count > MaxVisibleEvents)
                             {
@@ -61,11 +65,14 @@
                             }
                             @foreach (var dueTask in day.DueTasks.Take(MaxVisibleDueTasks))
                             {
-                                <button type="button" class="calendar-task-chip @(dueTask.IsCompleted ? "calendar-task-chip-completed" : "")"
-                                        @onclick@onclick="() => TaskSelectedAsync(dueTask)" @onclick:stopPropagation="true">
-                                    <span class="calendar-event-chip-time">@dueTask.DueDateUtc.LocalDateTime.ToString("HH:mm")</span>
-                                    <span class="calendar-event-chip-title">@dueTask.Label</span>
-                                </button>
+                                <span class="calendar-task-chip @(dueTask.IsCompleted ? "calendar-task-chip-completed" : "")"
+                                      title="@dueTask.Label">
+                                    @* What the entry says, not the list it is on. A task's label reads
+                                       "Errands: buy milk", so two words of it would be the list's name
+                                       and a colon - the part that fits least and tells least. The whole
+                                       label is on the title above. *@
+                                    <span class="calendar-event-chip-title">@Shortened(dueTask.Description)</span>
+                                </span>
                             }
                             @if (day.DueTasks.Count > MaxVisibleDueTasks)
                             {
@@ -105,6 +112,18 @@
     [Parameter, EditorRequired]
     public IReadOnlyList<MonthGridWeek> Weeks { get; set; } = [];
 
+    /// <summary>
+    /// As much of a name as a month cell can hold: the first two words, and an ellipsis when there was
+    /// more. Two because a cell is a seventh of the width and one word is often the least useful part
+    /// of a name ("Ginekolog:" alone says less than "Ginekolog: wizyta"). The whole name is on the
+    /// chip's title attribute, and the day view shows it in full.
+    /// </summary>
+    private static string Shortened(string title)
+    {
+        var words = title.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        return words.Length <= 2 ? title : string.Join(' ', words.Take(2)) + "…";
+    }
+
     /// <summary>Renders a dot per event instead of a full time/title chip - used for the 12-months-at-once year view.</summary>
     [Parameter]
     public bool IsCompact { get; set; }
@@ -112,11 +131,7 @@
     [Parameter]
     public EventCallback<DateOnly> OnDaySelected { get; set; }
 
-    [Parameter]
-    public EventCallback<Guid> OnEventSelected { get; set; }
 
-    [Parameter]
-    public EventCallback<DueTaskDto> OnTaskSelected { get; set; }
 
     private static string DayCssClass(MonthGridDay day)
     {
@@ -141,8 +156,4 @@
     private static string RecurringPrefix(CalendarEventDto calendarEvent) => calendarEvent.Details.Recurrence is not null ? "↻ " : "";
 
     private Task DaySelectedAsync(DateOnly date) => OnDaySelected.InvokeAsync(date);
-
-    private Task EventSelectedAsync(Guid eventId) => OnEventSelected.InvokeAsync(eventId);
-
-    private Task TaskSelectedAsync(DueTaskDto dueTask) => OnTaskSelected.InvokeAsync(dueTask);
 }

@@ -66,7 +66,7 @@ public static class CalendarEventOccurrenceExpander
     /// </summary>
     private static DateTimeOffset FastForwardToWindow(DateTimeOffset firstOccurrenceStart, RecurrenceDto recurrence, DateTimeOffset windowStart)
     {
-        if (firstOccurrenceStart >= windowStart || recurrence.Frequency == "Monthly")
+        if (firstOccurrenceStart >= windowStart || recurrence.Frequency is "Monthly" or "Yearly")
         {
             return firstOccurrenceStart;
         }
@@ -85,6 +85,7 @@ public static class CalendarEventOccurrenceExpander
             "Daily" => occurrenceStart.AddDays(intervalCount),
             "Weekly" => occurrenceStart.AddDays(intervalCount * 7),
             "Monthly" => occurrenceStart.AddMonths(intervalCount),
+            "Yearly" => occurrenceStart.AddYears(intervalCount),
             _ => occurrenceStart.AddDays(intervalCount)
         };
     }

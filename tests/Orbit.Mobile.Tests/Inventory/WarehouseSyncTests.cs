@@ -72,7 +72,8 @@ public sealed class WarehouseSyncTests
 
         var stored = (await context.Warehouses.GetAllAsync()).Single();
         var itemId = stored.Items.Single().Id;
-        await context.Warehouses.UpdateAsync(stored.LocalId, "Pantry", [stored.Items.Single() with { Quantity = 5 }]);
+        await context.Warehouses.UpdateAsync(
+            stored.LocalId, new WarehouseContent("Pantry", [stored.Items.Single() with { Quantity = 5 }]));
         await context.SynchroniseAsync();
 
         // Minting a fresh id on every save would cut loose whatever points at the item - an open restock
@@ -80,6 +81,57 @@ public sealed class WarehouseSyncTests
         var onServer = Assert.Single(context.Server.ItemsIn(remote.Id));
         Assert.Equal(itemId, onServer.Id);
         Assert.Equal(5, onServer.Quantity);
+    }
+
+    /// <summary>
+    /// A row is a batch rather than a product: two rows of one name are two deliveries of it, and when
+    /// each arrived is the only thing that tells them apart. The save shape carries no such date - the
+    /// server decides it - so the phone keeps it beside the items, and a save must not lose it.
+    /// </summary>
+    [Fact]
+    public async Task A_shelf_remembers_when_each_batch_arrived()
+    {
+        using var context = new WarehouseContext();
+        var remote = context.Server.AddWarehouse("Pantry");
+        context.Server.AddItem(remote.Id, "Flour", 2);
+        var delivered = context.Clock.GetUtcNow();
+        await context.SynchroniseAsync();
+
+        var stored = (await context.Warehouses.GetAllAsync()).Single();
+        Assert.Equal(delivered, stored.ItemArrivals[stored.Items.Single().Id!.Value]);
+
+        context.Clock.Advance(TimeSpan.FromDays(3));
+        await context.Warehouses.UpdateAsync(
+            stored.LocalId, new WarehouseContent("Pantry", [stored.Items.Single() with { Quantity = 5 }]));
+        await context.SynchroniseAsync();
+
+        // Counting what is there is not a new delivery: an edited row still arrived when it arrived.
+        var afterEditing = (await context.Warehouses.GetAllAsync()).Single();
+        Assert.Equal(delivered, afterEditing.ItemArrivals[afterEditing.Items.Single().Id!.Value]);
+    }
+
+    /// <summary>
+    /// The other thing a save must not cut loose. An item asked for every round is on the restock list
+    /// whatever its count says, and the phone's save writes the whole list - so a save that said nothing
+    /// about the flag would have been read as saying nothing at all, and the item would have gone on
+    /// being asked for while nobody could turn it off from here.
+    /// </summary>
+    [Fact]
+    public async Task An_item_asked_for_every_round_stays_that_way_across_a_save()
+    {
+        using var context = new WarehouseContext();
+        var remote = context.Server.AddWarehouse("Pantry");
+        context.Server.AddItem(remote.Id, "Flour", 2, isCheckedRegularly: true);
+        await context.SynchroniseAsync();
+
+        var stored = (await context.Warehouses.GetAllAsync()).Single();
+        Assert.True(stored.Items.Single().IsCheckedRegularly);
+
+        await context.Warehouses.UpdateAsync(
+            stored.LocalId, new WarehouseContent("Pantry", [stored.Items.Single() with { Quantity = 5 }]));
+        await context.SynchroniseAsync();
+
+        Assert.True(Assert.Single(context.Server.ItemsIn(remote.Id)).IsCheckedRegularly);
     }
 
     [Fact]
@@ -93,7 +145,7 @@ public sealed class WarehouseSyncTests
 
         var stored = (await context.Warehouses.GetAllAsync()).Single();
         var keeping = stored.Items.Single(item => item.Name == "Flour");
-        await context.Warehouses.UpdateAsync(stored.LocalId, "Pantry", [keeping]);
+        await context.Warehouses.UpdateAsync(stored.LocalId, new WarehouseContent("Pantry", [keeping]));
         await context.SynchroniseAsync();
 
         Assert.Equal("Flour", Assert.Single(context.Server.ItemsIn(remote.Id)).Name);
@@ -133,7 +185,7 @@ public sealed class WarehouseSyncTests
             Clock = new FakeTimeProvider(DateTimeOffset.Parse("2026-08-26T10:00:00Z"));
             Server = new FakeInventoryServer(Clock);
             Client = new InventoryClient(Server.ToHttpClient());
-            Warehouses = new LocalWarehouseRepository(_localStore, Clock, FixedNetworkStatus.Online);
+            Warehouses = new LocalWarehouseRepository(_localStore, Clock, FixedNetworkStatus.Online, PrivateContent.WithoutAKey());
             Synchronizer = new WarehouseSynchronizer(
                 _localStore, Client, Clock, new SyncGate(), NullLogger<WarehouseSynchronizer>.Instance);
         }

@@ -20,10 +20,13 @@ public sealed class TaskItemEntity
     public bool IsCompleted { get; set; }
 
     /// <summary>
-    /// Id of another <see cref="TaskEntity"/> this entry references instead of being independently
-    /// completable - see <see cref="Orbit.Core.Tasks.LinkedTaskCompletionResolver"/>.
+    /// The lists this entry references instead of being independently completable - see
+    /// <see cref="Orbit.Core.Tasks.LinkedTaskCompletionResolver"/>. Empty for an ordinary entry.
     /// </summary>
-    public Guid? LinkedTaskListId { get; set; }
+    public List<TaskItemTaskListLinkEntity> LinkedTaskLists { get; set; } = [];
+
+    /// <summary>What this entry is filed under - see Orbit.Core.Tasks.TaskItem.Categories. Empty for one nobody has filed.</summary>
+    public List<TaskItemCategoryEntity> Categories { get; set; } = [];
 
     /// <summary>What this entry is, stored by name like every other enum here - see Orbit.Core.Tasks.TaskItemKind.</summary>
     public string Kind { get; set; } = nameof(Orbit.Core.Tasks.TaskItemKind.Checklist);
@@ -33,6 +36,9 @@ public sealed class TaskItemEntity
 
     /// <summary>The calendar event this entry is the same appointment as, if any - see Orbit.Core.Tasks.TaskItem.LinkedCalendarEventId.</summary>
     public Guid? LinkedCalendarEventId { get; set; }
+
+    /// <summary>The shelf item this entry is an errand about, if any - see Orbit.Core.Tasks.TaskItem.LinkedInventoryItemId.</summary>
+    public Guid? LinkedInventoryItemId { get; set; }
 
     /// <summary>Serialized <see cref="Orbit.Core.Notifications.NotificationChannel"/> - "None"/"Email"/"Push"/"Both".</summary>
     public string OverdueNotificationChannel { get; set; } = "Push";

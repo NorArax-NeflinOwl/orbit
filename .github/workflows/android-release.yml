@@ -3,8 +3,8 @@
 #
 # Runs on its own whenever the phone app changes on main, so what /download offers is the current
 # Orbit rather than whatever was last released by hand. Still startable by hand as well, which is how
-# a version is chosen deliberately - a release that renames the series (0.1 to 0.2, say) is a decision
-# somebody makes, not something a push should infer.
+# a version is chosen deliberately - raising the milestone (0.2 to 0.3, say) is a decision somebody
+# makes, not something a push should infer.
 #
 # A workflow of its own rather than another job in main_orbit.yml, and for a different reason than the
 # one at the top of that file: what goes to Azure as a container and what somebody installs on a phone
@@ -57,7 +57,9 @@ env:
   # ingress only, and orbit-web's nginx is the only way in (see src/Clients/Orbit.Web/nginx.azure.conf).
   # Public, like that file's own hostname, so it lives here rather than in a secret.
   ORBIT_API_BASE_ADDRESS: https://orbit-web.victorioustree-36ad82ca.polandcentral.azurecontainerapps.io/
-  APK_NAME: orbit-android.apk
+  # The base of the name. The version is glued on once it is known - see "Decide the version" - so a
+  # download says which build it is without anybody opening it.
+  APK_BASE_NAME: orbit-android
 
 jobs:
   # The app's own tests, before anything is signed. Narrower than the whole solution on purpose: this
@@ -89,31 +91,35 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          # The whole history, because the version is counted from it - see ci/compute-version.sh.
+          fetch-depth: 0
 
-      # A hand-started release is told its version. A push cannot be, so it keeps the series the csproj
-      # names - the 0.1 of 0.1.0 - and takes this workflow's own run number as the release within it.
-      # That number only moves when this workflow runs, so the versions read as releases (0.1.2, 0.1.3)
-      # rather than as build numbers, and it never repeats or goes backwards, which is what Android
-      # requires of the version code below and what the update gate compares on the display version.
+      # A hand-started release is told its version. A push works it out from the history: the build
+      # number is the count of days on which a commit landed on main touching the phone's own projects,
+      # so a day that changed nothing there raises nothing, two builds of the same commit agree, and
+      # nobody maintains a number. See ci/compute-version.sh.
       #
-      # Raising the series is an edit to the csproj, which is a decision somebody makes on purpose - it
-      # is the number that says a release is a different thing rather than the next of the same.
+      # The two numbers in front of it are edits to version.props, which are decisions somebody makes on
+      # purpose: the move to production, and a milestone.
       - name: Decide the version
         id: version
         run: |
           if [ -n "${{ inputs.version }}" ]; then
             echo "value=${{ inputs.version }}" >> "$GITHUB_OUTPUT"
-            exit 0
+          else
+            echo "value=$(ci/compute-version.sh mobile | head -1 | cut -d= -f2)" >> "$GITHUB_OUTPUT"
           fi
 
-          SERIES=$(grep -o '<ApplicationDisplayVersion>[^<]*' src/Clients/Orbit.Maui/Orbit.Maui.csproj \
-            | head -1 | cut -d'>' -f2 | cut -d. -f1,2)
-          if [ -z "$SERIES" ]; then
-            echo "::error::Could not read ApplicationDisplayVersion out of Orbit.Maui.csproj - a release cannot be numbered."
-            exit 1
-          fi
+          echo "commit=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
 
-          echo "value=$SERIES.${{ github.run_number }}" >> "$GITHUB_OUTPUT"
+      # "orbit-android-0_1_32v.apk": dots are not something a download name should carry twice, and the
+      # trailing v is what tells the number apart from the rest of the name at a glance.
+      - name: Name the APK after the version
+        id: apk
+        run: |
+          VERSION="${{ steps.version.outputs.value }}"
+          echo "name=${APK_BASE_NAME}-${VERSION//./_}v.apk" >> "$GITHUB_OUTPUT"
 
       - name: Say what is being released
         run: echo "Releasing ${{ steps.version.outputs.value }} from ${{ github.sha }}"
@@ -209,6 +215,7 @@ jobs:
             -p:OrbitApiBaseAddress="$ORBIT_API_BASE_ADDRESS" \
             -p:ApplicationDisplayVersion="${{ steps.version.outputs.value }}" \
             -p:ApplicationVersion="${{ github.run_number }}" \
+            -p:InformationalVersion="${{ steps.version.outputs.value }}+${{ steps.version.outputs.commit }}" \
             -p:AndroidPackageFormat=apk \
             -p:AndroidKeyStore=true \
             -p:AndroidSigningKeyStore="$RUNNER_TEMP/orbit-release.jks" \
@@ -224,7 +231,7 @@ jobs:
             echo "::error::The publish produced no signed APK. Check the signing secrets above."
             exit 1
           fi
-          cp "$SIGNED" "$RUNNER_TEMP/$APK_NAME"
+          cp "$SIGNED" "$RUNNER_TEMP/${{ steps.apk.outputs.name }}"
 
       # Always, so a run is never wasted: whatever else is configured, the APK can be fetched from the
       # run itself. That needs a GitHub account, which is why the upload below exists as well.
@@ -232,7 +239,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: orbit-android-${{ steps.version.outputs.value }}
-          path: ${{ runner.temp }}/orbit-android.apk
+          path: ${{ runner.temp }}/${{ steps.apk.outputs.name }}
           if-no-files-found: error
 
       # This repository is private, so a release asset here would need a GitHub sign-in to download and
@@ -247,17 +254,54 @@ jobs:
           tenant-id: ${{ secrets.AZUREAPPSERVICE_TENANTID_94E34BA93C604CA382EDE479DD7DF344 }}
           subscription-id: ${{ secrets.AZUREAPPSERVICE_SUBSCRIPTIONID_4D66E98B9B334790B251FF8C8748B1B1 }}
 
-      # Overwrites the one address the download page knows, so the page never needs changing again -
-      # what it points at is always the newest release.
+      # Twice, under two names, because they answer different questions.
+      #
+      # The versioned name is what a download should be called: a file sitting in somebody's Downloads
+      # folder says which build it is without anybody opening it.
+      #
+      # The fixed name is what the download page links to (see Orbit.Web's appsettings.json). That link
+      # has to keep working without the page being edited every release, so the newest build is always
+      # also published there. Dropping it in favour of the versioned name alone would break the one
+      # address the page knows.
       - name: Publish the APK where the download page points
         if: vars.DOWNLOADS_STORAGE_ACCOUNT != ''
         run: |
-          az storage blob upload \
-            --account-name "${{ vars.DOWNLOADS_STORAGE_ACCOUNT }}" \
-            --container-name "${{ vars.DOWNLOADS_CONTAINER }}" \
-            --name "$APK_NAME" \
-            --file "$RUNNER_TEMP/$APK_NAME" \
-            --content-type application/vnd.android.package-archive \
-            --auth-mode login \
-            --overwrite
-          echo "Published to https://${{ vars.DOWNLOADS_STORAGE_ACCOUNT }}.blob.core.windows.net/${{ vars.DOWNLOADS_CONTAINER }}/$APK_NAME"
+          for name in "${{ steps.apk.outputs.name }}" "$APK_BASE_NAME.apk"; do
+            az storage blob upload \
+              --account-name "${{ vars.DOWNLOADS_STORAGE_ACCOUNT }}" \
+              --container-name "${{ vars.DOWNLOADS_CONTAINER }}" \
+              --name "$name" \
+              --file "$RUNNER_TEMP/${{ steps.apk.outputs.name }}" \
+              --content-type application/vnd.android.package-archive \
+              --auth-mode login \
+              --overwrite
+            echo "Published to https://${{ vars.DOWNLOADS_STORAGE_ACCOUNT }}.blob.core.windows.net/${{ vars.DOWNLOADS_CONTAINER }}/$name"
+          done
+
+      # Telling the server what was just released, which is the half that was missing: the app asks
+      # GET /api/config/mobile-version on startup and compares itself against MobileVersion:Android:
+      # LatestVersion, so a release nobody records is a release no phone is told about - the update row
+      # in the avatar menu simply never lights up.
+      #
+      # Only LatestVersion, deliberately. MinimumSupportedVersion is the one that *blocks* an app, and
+      # while Orbit is a prototype every build should keep working - see MobileVersionPolicy, where the
+      # two verdicts are UpdateAvailable and UpdateRequired.
+      - name: Tell the server this is the newest Android build
+        if: vars.API_CONTAINER_APP_RESOURCE_GROUP != '' && vars.DOWNLOADS_STORAGE_ACCOUNT != ''
+        run: |
+          # The address as well as the number. Without somewhere to send people, UpdateViewModel leaves
+          # its download button disabled (CanUpdate is false on an empty url) - the app would announce an
+          # update and then offer no way to get it, which is worse than saying nothing.
+          #
+          # The fixed name, not the versioned one: this address is stored and read back later, and it has
+          # to still point at a build the day after the next release.
+          DOWNLOAD_URL="https://${{ vars.DOWNLOADS_STORAGE_ACCOUNT }}.blob.core.windows.net/${{ vars.DOWNLOADS_CONTAINER }}/$APK_BASE_NAME.apk"
+
+          az containerapp update \
+            --name orbit-api \
+            --resource-group "${{ vars.API_CONTAINER_APP_RESOURCE_GROUP }}" \
+            --set-env-vars \
+              "MobileVersion__Android__LatestVersion=${{ steps.version.outputs.value }}" \
+              "MobileVersion__Android__UpdateUrl=$DOWNLOAD_URL"
+          echo "orbit-api now offers ${{ steps.version.outputs.value }} at $DOWNLOAD_URL"
+

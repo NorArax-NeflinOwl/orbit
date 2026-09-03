@@ -29,6 +29,10 @@ _to_delete/
 .env
 .env.*
 *.pem
+
+# Compose reads this on top of docker-compose.yml automatically. It is where a machine says what is
+# true only of itself - the folder its TLS certificate lives in, say - see info/instructions.md.
+docker-compose.override.yml
 *.key
 *.p12
 # APNs auth key, downloadable exactly once - Firebase holds it, but it lands on disk first.
@@ -59,3 +63,15 @@ AndroidManifestOverlay.xml
 # Deployment notes that name real accounts - see notes/permissions.local.md. Kept out of git because
 # which account may do what is a deployment's own business, not the source's.
 *.local.md
+
+# Playwright, installed with `npm install --no-save` by CI and by anyone running
+# ci/verify-browser-crypto.mjs locally. Nothing here is committed - there is no package.json.
+node_modules/
+
+# Test run artefacts (.trx and friends) - written by `dotnet test --logger trx`, never source.
+TestResults/
+
+# The web client serves the repository's LICENSE so the footer can link to it on this site rather than
+# on GitHub. It is copied in at build time (see Orbit.Web.csproj) rather than committed twice - a second
+# copy is a second thing to keep in step, and this one would go stale silently.
+src/Clients/Orbit.Web/wwwroot/LICENSE.txt

@@ -148,9 +148,9 @@ public static class CalendarEndpoints
             ToDomainRecurrence(request.Recurrence),
             request.Guests,
             request.ReminderMinutesBeforeStart,
-            RequestEnum.Parse<NotificationChannel>(request.CreationNotificationChannel, "creationNotificationChannel"),
             RequestEnum.Parse<NotificationChannel>(request.ReminderNotificationChannel, "reminderNotificationChannel"),
-            RequestEnum.Parse<ItemPriority>(request.Priority, "priority"));
+            RequestEnum.Parse<ItemPriority>(request.Priority, "priority"),
+            request.NotifyAtStart);
 
     private static EventLocation? ToDomainLocation(EventLocationRequest? request)
         => request is null ? null : new EventLocation(request.Address, request.Latitude, request.Longitude);
@@ -158,7 +158,11 @@ public static class CalendarEndpoints
     private static EventRecurrence? ToDomainRecurrence(RecurrenceRequest? request)
         => request is null
             ? null
-            : new EventRecurrence(RequestEnum.Parse<RecurrenceFrequency>(request.Frequency, "frequency"), request.IntervalCount, request.UntilUtc);
+            : new EventRecurrence(
+                RequestEnum.Parse<RecurrenceFrequency>(request.Frequency, "frequency"),
+                request.IntervalCount,
+                request.UntilUtc,
+                request.OccurrenceCount);
 
     private static CalendarEventDto ToDto(CalendarEvent calendarEvent)
     {
@@ -174,9 +178,9 @@ public static class CalendarEndpoints
             ToRecurrenceDto(details.Recurrence),
             details.Guests,
             details.ReminderMinutesBeforeStart,
-            details.CreationNotificationChannel.ToString(),
             details.ReminderNotificationChannel.ToString(),
-            details.Priority.ToString());
+            details.Priority.ToString(),
+            details.NotifyAtStart);
 
         return new CalendarEventDto(
             calendarEvent.Id, detailsDto, calendarEvent.CreatedAtUtc, calendarEvent.UpdatedAtUtc,
@@ -189,7 +193,10 @@ public static class CalendarEndpoints
         => location is null ? null : new EventLocationDto(location.Address, location.Latitude, location.Longitude);
 
     private static RecurrenceDto? ToRecurrenceDto(EventRecurrence? recurrence)
-        => recurrence is null ? null : new RecurrenceDto(recurrence.Frequency.ToString(), recurrence.IntervalCount, recurrence.UntilUtc);
+        => recurrence is null
+            ? null
+            : new RecurrenceDto(
+                recurrence.Frequency.ToString(), recurrence.IntervalCount, recurrence.UntilUtc, recurrence.OccurrenceCount);
 
     /// <summary>Maps an EditOutcome onto the corresponding HTTP response - shared by the update and lock-acquire endpoints above.</summary>
     private static IResult ToApiResult(EditOutcome outcome) => outcome.Kind switch

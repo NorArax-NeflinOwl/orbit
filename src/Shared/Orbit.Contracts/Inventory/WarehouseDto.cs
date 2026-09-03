@@ -30,4 +30,6 @@ public sealed record WarehouseDto(
     /// <summary>Readable only by its owner - Name is empty and everything is inside EncryptedContent.</summary>
     bool IsPrivate = false,
     EncryptedContentDto? EncryptedContent = null,
-    bool IsSharedWithOthers = false);
+    bool IsSharedWithOthers = false,
+    /// <summary>What it is, under its name. Empty for one nobody described, and for a private one.</summary>
+    string Description = "");

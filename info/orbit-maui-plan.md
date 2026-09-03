@@ -2,8 +2,10 @@
 
 **`Orbit.Maui`**: one .NET MAUI project producing both the iOS and Android apps, carrying every
 feature the Blazor web client (`src/Clients/Orbit.Web`) has today, **plus offline operation** and two
-mechanisms the web client has no need for (§7, §8). **iPhone 15 Pro is the target device**; Android is
-the second platform.
+mechanisms the web client has no need for (§7, §8). **iPhone 15 Pro was named as the target device**;
+in practice **Android is the platform being built and verified**, and iOS stopped after phase 1 for
+want of an Apple developer account — see §12. Everything below still holds for the day it resumes:
+`Orbit.Mobile` is shared with the iOS head, and nothing has been removed for it.
 
 This document is the plan **and** the running record of the work: §10 marks each phase as it lands, and
 §13 says what exists today. It is not a description of something unbuilt.
@@ -96,6 +98,11 @@ If moving to Windows is genuinely on the table, that alone settles §1 in MAUI's
 "iPhone 15 Pro exactly" is read here as **the reference device**: it defines the baseline capabilities
 the app may assume, the screen it is designed against, and the only device tested during development.
 
+**In practice it has never been tested on.** iOS stopped after phase 1 (§12), so the device this
+section describes is an intention rather than a record; what has actually been driven is an Android
+emulator, with API 29 as the floor and API 36 as the everyday target. The table below is what to
+design against when iOS resumes, not what anything has been checked on.
+
 | | |
 | --- | --- |
 | Display | 6.1", 2556×1179 at 460 ppi, Super Retina XDR |
@@ -136,7 +143,7 @@ each maps onto, since that is what Orbit.Maui actually consumes.
 | Group chat: create, members, roles, messages | `/api/chat/groups/*` | One ciphertext copy per member |
 | Contacts and user search | `/api/chat/contacts`, `/api/users/search` | |
 | Location: record own, share with contacts, view shared | `/api/users/me/location*` | |
-| Push notifications | `/api/push/*` | **Web Push only today** — see §4.2 |
+| Push notifications | `/api/push/*` | Three transports: Web Push, FCM (Android, delivering), APNs — see §4.2 |
 | In-app notification feed, settings, read state | `/api/notifications/*` | |
 | Public share links | `/api/share-links/*`, `/api/public/*` | |
 | Export / import | `/api/transfer/*` | |
@@ -236,33 +243,42 @@ backup can never be opened by anyone again, including its owner. So the gate cal
 
 ### 4.2 Push notifications: Web Push, APNs, and FCM are three different things
 
-This is the largest server-side change the mobile client forces, and going cross-platform makes it
-three transports rather than two.
+This was the largest server-side change the mobile client forced, and going cross-platform made it
+three transports rather than two. It is done; what follows is kept as the record of what the problem
+was and what was decided, because the shape of the answer is not obvious from the code alone.
 
-What exists: `IPushNotificationSender` is properly transport-agnostic (`Orbit.Core.Notifications`), so
-the domain layer is ready for more implementations. Good.
+What already existed: `IPushNotificationSender` was properly transport-agnostic
+(`Orbit.Core.Notifications`), so the domain layer was ready for more implementations.
 
-What does not: the stored subscription is Web-Push-shaped all the way down. `PushSubscriptionEntity`
-holds `Endpoint`, `P256dhBase64`, `AuthBase64` — a browser endpoint URL and its two encryption
+What did not: the stored subscription was Web-Push-shaped all the way down. `PushSubscriptionEntity`
+held `Endpoint`, `P256dhBase64`, `AuthBase64` — a browser endpoint URL and its two encryption
 parameters. An APNs registration is a **device token plus a topic**, and an FCM one is a registration
 token; neither fits those columns in any honest way.
 
-Required work, server-side:
+Required work, server-side — **all four built**:
 
-1. Add a platform discriminator to the push subscription (domain type, entity, migration) and make
-   the token/endpoint fields shaped per platform rather than assuming Web Push.
-2. Add an `ApnsPushNotificationSender` (APNs auth key `.p8`, key id, team id, bundle id) and, for
-   Android, an FCM sender — each implementing `IPushNotificationSender`, following the existing
-   `VapidSettings` pattern, and staying silent-but-warning when unconfigured exactly as
-   `VapidPushNotificationSender` does today.
-3. Teach `PushNotificationDispatcher` to route each subscription to the sender for its platform, and
-   keep the existing expired-subscription pruning working for each transport's own "gone" response
-   (APNs `Unregistered`, FCM `UNREGISTERED`).
-4. Decide how `PushNotificationPayload` (`{title, body, url}` today) maps onto each envelope,
-   including what `url` means when the target is an app route rather than a web path.
+1. ~~Add a platform discriminator to the push subscription~~ — `PushSubscriptions` carries
+   `DevicePlatform`, `DeviceToken` and `Transport` beside the Web Push columns, so a row says which
+   kind of registration it is rather than being assumed.
+2. ~~Add an APNs sender and an FCM sender~~ — `FirebasePushNotificationSender` covers both, since FCM
+   reaches iOS through APNs underneath; it is silent-but-warning when unconfigured, as
+   `VapidPushNotificationSender` is. There is no separate `ApnsPushNotificationSender` and the plan
+   was wrong to expect one: a second Apple integration would only duplicate what Firebase already does.
+3. ~~Teach `PushNotificationDispatcher` to route by platform~~ — built, pruning included.
+4. ~~Decide how `PushNotificationPayload` maps onto each envelope~~ — the message carries a
+   `notification` block for the tray and `data.url` for the tap target, with the same `url` repeated
+   inside `apns.payload` because Android reads it from `data` and iOS from the aps payload's custom
+   fields.
 
-None of this is exotic, but it is a schema change plus two integrations, and it should be scoped and
-merged **before** the mobile client needs it rather than alongside.
+**Android delivers end to end** (2026-08-31): `Xamarin.Firebase.Messaging` plus a `google-services.json`
+processed at build time gives the app an FCM registration token, it registers on every sign-in, and a
+notification raised by the server arrives in the tray and taps through to the screen it names. No
+`FirebaseMessagingService` is needed for that: the server sends a `notification` block, so Android draws
+it while the app is backgrounded and puts `data.url` in the intent, which `MainActivity` already reads.
+A push arriving while the app is **in front of somebody** still shows nothing — that path is unhandled,
+and is the one piece of §4.2 left on Android.
+
+iOS is unstarted here for the reason §12 gives, and §4.2.1 below is what will bite when it resumes.
 
 ### 4.2.1 The iOS push failure nothing can detect
 
@@ -286,10 +302,18 @@ being unconfigured entirely - but not this.
 `ValidationSettings { Audience = [ClientId] }`. A mobile app has its **own** OAuth client id per
 platform, so tokens it obtains will fail that check.
 
-Small, contained server change: allow a set of accepted audiences (web, iOS, and later Android)
-rather than one. Worth doing carefully — the comment on that line correctly notes that the audience
-check is the security-critical part, so widening it must stay an explicit allowlist and never become
-"accept any audience".
+~~Small, contained server change: allow a set of accepted audiences~~ — **built.**
+`GoogleAuthSettings` holds `ClientId`, `IosClientId` and `AndroidClientId`, and
+`GoogleIdentityVerifier` validates against `AcceptedClientIds`. It stayed an explicit allowlist, which
+was the security-critical part: an id that is not configured is not accepted, rather than the check
+widening to "any audience".
+
+**A configured id is what makes the button exist.** `client-flags` hands each client its own id, and a
+head with none hides the Google button rather than offering one that could only ever fail — so an
+unset `GOOGLE_ANDROID_CLIENT_ID` looks exactly like a deployment that does not offer Google sign-in,
+and a *wrongly* set one is refused by Orbit.Api rather than by Google, which reads as a bad password.
+Both are configuration mistakes with no error message pointing at them, which is why the ids belong in
+the deployment checklist rather than in someone's memory.
 
 **Configuration.** Client ids are not secrets — the existing comment says so, and a mobile client id
 ships inside the app binary regardless. Even so, this repo deliberately keeps the *value* out of
@@ -424,6 +448,45 @@ it silently discards someone else's work — the exact outcome the locks were ad
 `NoteAccessResolver` (and its task, calendar, and warehouse equivalents) loads the *owner's* row and
 stamps the caller's access level onto it. Two people with `CanEdit` are editing one row, which is what
 the locks exist for and what makes offline editing of a shared item genuinely unsafe.
+
+**The way out of a refusal: a copy (built for all four).** Refusing is honest, but it leaves somebody with
+something to write down and nowhere to write it. So the refusal now offers a second answer: take a copy
+of the note and write in that. The copy is the phone's own — shared with nobody, and therefore editable
+under the very policy that refused the original, so nothing above is weakened to allow it. A sealed or
+private note is not offered one: what would be copied is either ciphertext this device cannot open or
+words that are only allowed to exist sealed, and a copy is written in the clear.
+
+**A copy is a question, not a thing, until it is answered.** It stays on the phone and out of the outbox
+while it waits — pushed on sight, two of the three answers below would have to take a note off the
+server again, and the reader would watch a duplicate appear and disappear for nothing.
+
+**The review.** Back online, `NoteCopyReviewViewModel` shows the copy and the note it came from, each
+diffed against what the note said when the copy was taken (`CopyBaseTitle`/`CopyBaseContent`), so a
+change can be told from a collision — both sides having moved is flagged rather than silently resolved.
+Three answers and no more:
+
+- **Keep mine** — the copy's words go onto the original through the ordinary update path, so a review
+  is an edit made late rather than a private route to the server; still refused, and the copy kept, if
+  the connection has gone again.
+- **Keep theirs** — the copy and anything queued about it go away together.
+- **Keep both** — the copy becomes a thing in its own right, queued as a create, tagged `copy` in its
+  list, and still pointing at what it came from. That pointer is the whole of the **History** window.
+
+**The history is the thing's own.** Opened from the note or the list it belongs to, from either version,
+and it lists copies still awaiting review as well as answered ones - a question still open is part of
+what happened to that thing too. A global list of everything ever kept would make somebody read past
+everything else to find the pair they are looking at.
+
+**One review window, four kinds.** A copy can be of a note, a task list, an appointment or a warehouse,
+so no one list is the right place to wait for one: it hangs off the avatar's menu, badged there the way
+notifications are, and each copy announces itself in the notification feed by name and by kind. Each repository implements `ICopyReviewStore` and renders its own rows into
+lines — a note's lines, a list's entries, an appointment's times, a shelf's stock — and one diff then
+serves all four.
+
+**A copy carries the original's inner ids, and gives them up when kept.** That is what lets "keep mine"
+replace words rather than identity: an entry linked to an appointment stays that entry. "Keep both"
+re-issues them, since two lists claiming one entry id is exactly what the server would otherwise have
+to resolve by renaming both (§5.4's identity rule).
 
 **One prerequisite the API doesn't meet yet.** A client can see when an item was shared *with* it —
 `IsShared` on the DTO — but nothing tells an **owner** that they shared an item *out*. So the owner's
@@ -594,9 +657,9 @@ already has.
   real "this is running right now, and you can stop it" state — the exact thing the Dynamic Island
   exists for, and a genuine safety improvement over a share the user forgot about. Best fit on the
   device.
-- **Face ID for private notes, task lists, and warehouses.** The `IsPrivate` feature already means
-  "only the owner can read this, and the server never can". A biometric gate in front of those is the
-  natural physical counterpart.
+- ~~**Face ID for private notes, task lists, and warehouses.**~~ Built, and now on all three screens
+  rather than only notes (`PrivateItemGate`). The `IsPrivate` feature already means "only the owner can
+  read this, and the server never can"; the biometric gate is the physical counterpart of that promise.
 - **Action Button for quick capture.** One press to a new note or task, the most frequent action in
   the app.
 - **Widgets and Live Activities for today's tasks and the next event.** The dashboard's most valuable
@@ -619,8 +682,8 @@ phase behind it, mostly for free apart from the platform-specific work.
 | **3. Crypto spine** (built) | E2EE against cross-platform test vectors, key restore from backup, 1:1 chat, offline outbox for messages | A message sent from the web decrypts on the phone and vice versa |
 | **4. The content features** (built) | Tasks, Calendar, Inventory on the sync spine — CRUD, sharing, edit locks, private items behind biometrics | Feature parity with the web for everything non-chat |
 | **5. The rest of chat** (built) | Group chat (send-time fan-out, §5.5), roles, edit/delete, read receipts, forwarding, contacts | Chat parity |
-| **6. Location and maps** (sharing built) | Geolocation, maps, recording, sharing, viewing shared | Location parity |
-| **7. Notifications and diagnostics** | APNs/FCM registration, notification settings, in-app feed, deep links, **file logging and upload (§8)** | A push taps through to the right screen; a user can send a log |
+| **6. Location and maps** (built) | Geolocation, maps, recording, sharing, viewing shared | Location parity |
+| **7. Notifications and diagnostics** (built on Android) | APNs/FCM registration, notification settings, in-app feed, deep links, **file logging and upload (§8)** | A push taps through to the right screen; a user can send a log |
 | **8. Platform polish** | Live Activities and the Dynamic Island location share, Action Button, widgets, accessibility, localisation | Ready for review |
 
 Two things changed shape once offline became a requirement:
@@ -636,6 +699,20 @@ Two things changed shape once offline became a requirement:
 Phase 0 is genuinely blocking for 2, 3 and 7, and should start immediately; phase 1 can run alongside
 it. The iPhone-15-Pro-specific work in §9 deliberately lands last — it needs the Mac most and benefits
 least from being started early.
+
+**How the phases actually ran.** iOS did not lead: it stopped after phase 1 for want of an Apple
+developer account (§12), and Android carried phases 2 to 7. Phase 6's "done when" is met on Android —
+the map renders, a position is recorded and reverse-geocoded, and it can be shared and stopped — with
+the Google Maps key being deployment configuration rather than code (see `secrets/README.md`). Phase 7
+is met on Android too: a real push arrives in the tray, and one that arrives while the app is in front
+of somebody now shows as a banner in the app rather than nothing at all.
+
+Phase 8 is met on Android: every control on both heads names itself to a screen reader, both are
+localised through the same `Orbit.Localization` the web client uses, and the home screen widget is
+built and driven on a device — the day, what is still ahead in it, and a tap that lands on the right
+screen (see [Functionality](functionality.md#the-home-screen-widget-android)). The rest of the phase —
+Live Activities, the Dynamic Island, the Action Button — is iOS-only, as is most of §9, so it is
+blocked on the same thing iOS is.
 
 ## 11. Risks
 
@@ -663,9 +740,11 @@ least from being started early.
   What is *not* done is the rest of phase 3 - key storage on the device, restore at sign-in, and chat
   itself. The risk this bullet described was that the spec would be discovered wrong late; that part is
   settled.
-- **A local database of decrypted content weakens what private items promise** (§5.1). Private notes
-  exist so the server cannot read them; caching them in plaintext on the device moves the exposure
-  rather than removing it. Decide on database encryption deliberately.
+- ~~**A local database of decrypted content weakens what private items promise**~~ (§5.1). Settled by
+  not caching them in the clear at all: the local store holds a private item's sealed payload, exactly
+  as the server does, and the words are opened for the screen that shows them and never written back
+  (`PrivateContentSealer`, `LocalNoteRepository`). The rest of the local database stays unencrypted, as
+  §12 decided; what this bullet was about was the one kind of content that promises otherwise.
 - **Diagnostic logs are a new way to leak plaintext** (§8) out of an app whose whole design avoids it.
   Scrubbing has to happen at the logging call, and stay a review concern afterwards.
 - **Chat history is not portable to a device that never had the key.** This is by design, but it will
@@ -698,6 +777,8 @@ These change the plan materially and are worth answering before the phase they l
 1. ~~**Offline conflict policy** (§5.4)~~ — **settled and built: restrictive**, and the owner-side gap
    is closed for all four shareable types. `IsSharedWithOthers` tells an owner that somebody holds
    accepted access, so the client can tell a private item from one another person may be editing.
+   A refusal now offers a copy to write in, and a review window to decide between the two afterwards —
+   built for notes, and the shape the other three types will follow.
 2. ~~**Is the local database encrypted?** (§5.1)~~ — **settled: it is not, deliberately.** The phone
    keeps plain SQLite in app-private storage and relies on platform disk encryption. The guarantee
    Orbit makes is about what leaves the device: chat messages, private notes, task lists, warehouses
@@ -749,4 +830,39 @@ resources.
 survived relaunch from the Keychain, notes loaded through the token handler, and an out-of-date build
 stopped on the splash screen — including with the server switched off entirely, from the cached
 verdict, which is the rule in §7 that matters most. Nothing since has been checked there: phases 2-7
-were built and driven on Android, from a Windows machine that cannot build the head at all.
+were built and driven on Android.
+
+The machine moved. Early phases were written on Windows, which can build the Android head and not the
+iOS one; the work is now on a Mac, which can build both — so what still blocks iOS is the Apple
+developer account and signing key of §12, and no longer the hardware.
+
+## 14. Where the phone is meant to differ from the web
+
+Most of the time the web client is the answer and the phone follows it — see
+[Orbit.Web is the model](../CLAUDE.md) in spirit, and the parity notes above. These are the places
+where following it would be the wrong call.
+
+### 14.1 The calendar shrinks as you scroll
+
+Decided 2026-09-01, while the web calendar was being reshaped, and **the web deliberately does not do
+this**: there it sits side by side with the list on a wide screen, stacks above it under 900px, and
+stays put.
+
+On the phone it should stay pinned while the list beneath it is read, and minimise to a single row as
+soon as the reader scrolls past it:
+
+| view | what is left when minimised |
+|---|---|
+| Day | one hour row |
+| Month | one week row |
+| Year | the month's name, and nothing else |
+
+A phone has one column and a thumb, so the calendar is either taking the screen or getting out of the
+way, and the row worth keeping is the one the reader is standing on. A desktop window fits both at
+once, so nothing has to move — and a grid resizing itself while somebody scrolls a list beside it is
+motion answering a question nobody asked.
+
+The web's own calendar was rebuilt at the same time and the rest of that work **does** apply here: one
+list rather than two, each row tagged as an event or a task, a date said once when something starts and
+ends on the same day, and no times on a month cell. See
+[Functionality — the calendar](functionality.md).

@@ -96,16 +96,26 @@ public sealed class TasksApiClient
     }
 
     /// <summary>
-    /// Brings this list and the warehouse it is measured against back into step: what the shelf covers
-    /// is crossed off, and what the shelf holds but no list mentions is added. Answers what moved.
+    /// Settles the finished errands on a restock list - each fills its shelf item and then leaves the
+    /// list. Answers how many were settled, and does nothing at all for an ordinary list, so the
+    /// checklist screen can ask on opening any of them.
     /// </summary>
-    public async Task<StockReconciliationResultDto> ReconcileWithStockAsync(Guid taskListId, CancellationToken cancellationToken = default)
+    public async Task<int> ReconcileRestockingAsync(Guid taskListId, CancellationToken cancellationToken = default)
     {
-        var response = await _httpClient.PostAsync($"api/tasks/{taskListId}/stock-check/reconciliation", content: null, cancellationToken);
+        var response = await _httpClient.PostAsync($"api/tasks/{taskListId}/restocking/reconcile", content: null, cancellationToken);
         response.EnsureSuccessStatusCode();
-        var result = await response.Content.ReadFromJsonAsync<StockReconciliationResultDto>(cancellationToken);
-        return result ?? new StockReconciliationResultDto(0, 0);
+        var result = await response.Content.ReadFromJsonAsync<RestockReconciliationResultDto>(cancellationToken);
+        return result?.SettledCount ?? 0;
     }
+
+    /// <summary>
+    /// What each inventory errand on this list is about: the shelf item behind it, and any other list
+    /// asking for the same thing. Empty for a list holding none.
+    /// </summary>
+    public async Task<IReadOnlyList<InventoryReferenceDto>> GetInventoryReferencesAsync(
+        Guid taskListId, CancellationToken cancellationToken = default)
+        => await _httpClient.GetFromJsonAsync<List<InventoryReferenceDto>>(
+            $"api/tasks/{taskListId}/inventory-references", cancellationToken) ?? [];
 
     /// <summary>
     /// Says the whole restock list is done: crosses off what is left of it and brings its warehouse up
@@ -189,16 +199,17 @@ public sealed class TasksApiClient
 
         var sealedItems = items
             .Select(item => new TaskItemDto(
-                Guid.Empty, item.Description, item.DueDateUtc, item.IsCompleted, item.LinkedTaskListId,
+                Guid.Empty, item.Description, item.DueDateUtc, item.IsCompleted,
+                // Sealed from whichever shape the caller used, and written into the new field: the
+                // single one carries only the first, and a private list would silently lose the rest.
+                LinkedTaskListId: null,
                 item.OverdueNotificationChannel, item.RemindDaily, item.DailyReminderNotificationChannel,
-                item.DailyReminderTimeOfDay))
+                item.DailyReminderTimeOfDay,
+                LinkedTaskListIds: item.AllLinkedTaskListIds))
             .ToList();
         var encryptedContent = await _privateContentSealer.SealAsync(new SealedTaskList(title, sealedItems), cancellationToken);
         return (string.Empty, [], encryptedContent);
     }
-
-    /// <summary>Everything a private list hides from the server, as one sealed payload.</summary>
-    private sealed record SealedTaskList(string Title, IReadOnlyList<TaskItemDto> Items);
 
     public async Task<Guid> CreateTaskListAsync(CreateTaskRequest request, CancellationToken cancellationToken = default)
     {
@@ -265,6 +276,32 @@ public sealed class TasksApiClient
         catch (Exception exception)
         {
             _logger.LogActionFailed(ClientActionCategory.Edit, "Move task item", exception);
+            throw;
+        }
+    }
+
+    /// <summary>
+    /// Puts an event on a task list as an entry that points at it. One request rather than a whole-list
+    /// save, so nothing else on the list is at risk - see LinkCalendarEventToTaskListCommand.
+    /// </summary>
+    public async Task<EditOutcome> LinkCalendarEventAsync(
+        Guid taskListId, Guid calendarEventId, CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            var response = await _httpClient.PostAsJsonAsync(
+                $"api/tasks/{taskListId}/items/calendar-event", new LinkCalendarEventRequest(calendarEventId), cancellationToken);
+            var outcome = await ToEditOutcomeAsync(response, cancellationToken);
+            if (outcome.Kind == EditOutcomeKind.Success)
+            {
+                _logger.LogActionCompleted(ClientActionCategory.Edit, "Link a calendar event to a task list");
+            }
+
+            return outcome;
+        }
+        catch (Exception exception)
+        {
+            _logger.LogActionFailed(ClientActionCategory.Edit, "Link a calendar event to a task list", exception);
             throw;
         }
     }
@@ -371,7 +408,11 @@ public sealed class TasksApiClient
     public async Task<bool?> GetTaskListShareStatusAsync(Guid shareId, CancellationToken cancellationToken = default)
     {
         var response = await _httpClient.GetAsync($"api/tasks/shares/{shareId}/status", cancellationToken);
-        if (response.StatusCode == HttpStatusCode.NotFound)
+        // Refused reads the same as absent from here: an account that has not unlocked sharing cannot
+        // be told whether an offer was taken, and "no such offer" is the honest answer to give it. This
+        // is asked in passing while a conversation is opened - see Chat - and left throwing, one 403
+        // took the whole conversation down.
+        if (response.StatusCode is HttpStatusCode.NotFound or HttpStatusCode.Forbidden)
         {
             return null;
         }

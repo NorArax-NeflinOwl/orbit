@@ -8,6 +8,10 @@ namespace Orbit.Mobile.Authentication;
 /// Exchanges the stored refresh token for a new access token. Uses its own unauthenticated
 /// <see cref="HttpClient"/> - routing this through <see cref="AuthorizationMessageHandler"/> would
 /// recurse straight back into the retry that called it.
+///
+/// <b>One of these per app.</b> The guard below is per instance, so a second instance is a second
+/// redemption of a single-use token - which is a sign-out, not a slow path. The head registers it as a
+/// singleton for that reason; AddHttpClient&lt;T&gt; on its own would make it transient.
 /// </summary>
 public sealed class TokenRefreshService
 {

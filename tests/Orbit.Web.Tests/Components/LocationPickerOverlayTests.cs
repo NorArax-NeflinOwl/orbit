@@ -28,6 +28,25 @@ public sealed class LocationPickerOverlayTests : OrbitTestContext
         mapPicker.SetupVoid("moveMarker", _ => true).SetVoidResult();
     }
 
+    /// <summary>
+    /// A press asks; it does not move anything. The pin drawn on the map is Leaflet's and is moved from
+    /// mapPicker.js, so what this holds is the half that is Orbit's: the press produces a question and
+    /// the place it is about, and the address behind it is only reported once it is answered.
+    /// </summary>
+    [Fact]
+    public async Task A_press_is_a_question_rather_than_a_move()
+    {
+        RegisterGeocoding("Wały Piastowskie 1, Gdańsk");
+        PickedPlace? reported = null;
+        var cut = Render(picked => reported = picked);
+
+        await DropAPinAsync(cut);
+
+        Assert.Contains("Use this place?", cut.Find(".map-overlay-confirm").TextContent);
+        // Not reported yet: the press said where, and nothing has agreed to it.
+        Assert.Null(reported);
+    }
+
     [Fact]
     public void Nothing_is_asked_until_a_pin_is_dropped()
     {
@@ -35,7 +54,7 @@ public sealed class LocationPickerOverlayTests : OrbitTestContext
 
         var cut = Render();
 
-        Assert.Contains("Click the map to drop a pin.", cut.Markup);
+        Assert.Contains("Click the map to pick a place", cut.Markup);
         Assert.Empty(cut.FindAll(".map-overlay-confirm"));
     }
 
@@ -56,7 +75,7 @@ public sealed class LocationPickerOverlayTests : OrbitTestContext
     {
         RegisterGeocoding("Długa 4, Warszawa");
         string? reported = null;
-        var cut = Render(onPicked: address => reported = address);
+        var cut = Render(onPicked: place => reported = place.Address);
         await DropAPinAsync(cut);
 
         cut.FindAll(".map-overlay-confirm button").First(button => button.TextContent.Contains("Yes")).Click();
@@ -83,7 +102,7 @@ public sealed class LocationPickerOverlayTests : OrbitTestContext
         RegisterGeocoding("Długa 4, Warszawa");
         string? reported = null;
         var cancelled = false;
-        var cut = Render(onPicked: address => reported = address, onCancelled: () => cancelled = true);
+        var cut = Render(onPicked: place => reported = place.Address, onCancelled: () => cancelled = true);
         await DropAPinAsync(cut);
 
         cut.FindAll(".map-overlay-confirm button").First(button => button.TextContent.Contains("Cancel")).Click();
@@ -164,7 +183,7 @@ public sealed class LocationPickerOverlayTests : OrbitTestContext
         // a second lookup could answer differently.
         RegisterGeocoding("Somewhere else entirely", searchBody: TwoMatches);
         string? reported = null;
-        var cut = Render(onPicked: address => reported = address);
+        var cut = Render(onPicked: place => reported = place.Address);
         SearchFor(cut, "Długa 4");
         cut.FindAll(".map-overlay-match").First(match => match.TextContent.Contains("Warszawa")).Click();
 
@@ -223,10 +242,10 @@ public sealed class LocationPickerOverlayTests : OrbitTestContext
         cut.FindAll(".map-overlay-search button").First().Click();
     }
     private IRenderedComponent<LocationPickerOverlay> Render(
-        Action<string>? onPicked = null, Action? onCancelled = null)
+        Action<PickedPlace>? onPicked = null, Action? onCancelled = null)
         => RenderComponent<LocationPickerOverlay>(parameters => parameters
             .Add(overlay => overlay.Address, "Warszawa")
-            .Add(overlay => overlay.OnPicked, address => onPicked?.Invoke(address))
+            .Add(overlay => overlay.OnPicked, place => onPicked?.Invoke(place))
             .Add(overlay => overlay.OnCancelled, () => onCancelled?.Invoke()));
 
     /// <summary>What mapPicker.js does when somebody clicks the map.</summary>

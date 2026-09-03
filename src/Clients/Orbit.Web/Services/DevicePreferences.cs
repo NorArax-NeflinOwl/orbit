@@ -39,6 +39,17 @@ public sealed class DevicePreferences
     public bool AllowLocation { get; private set; }
 
     /// <summary>
+    /// Whether the links that hand something off to Google - a day in Google Calendar, a place in Google
+    /// Maps - are offered at all. On unless somebody says otherwise: they are shortcuts, and an account
+    /// that qualifies for them was not asked for anything in order to.
+    ///
+    /// Per device like the rest of this class, because it is about what this browser puts in front of
+    /// whoever is at it. Turning it off does not disconnect a Google account or change anything on the
+    /// server - see GoogleIntegrationAccess, and the Google row in Options for the account-level link.
+    /// </summary>
+    public bool AllowGoogleExtras { get; private set; } = true;
+
+    /// <summary>
     /// Debug shows the diagnostics the app can report about itself; Release keeps them out of the way.
     /// The name matches what a developer expects it to mean, and it is a runtime choice rather than the
     /// build's own configuration, which is fixed long before anyone opens Options.
@@ -55,6 +66,9 @@ public sealed class DevicePreferences
     public async Task InitializeAsync()
     {
         AllowLocation = await ReadAsync(StorageKeys.AllowLocation) == "true";
+        // Anything but an explicit "false" leaves them on: a browser that has never been asked, and one
+        // whose storage cannot be read at all, both mean "nobody turned these off".
+        AllowGoogleExtras = await ReadAsync(StorageKeys.AllowGoogleExtras) != "false";
         DiagnosticsMode = Enum.TryParse<DiagnosticsMode>(await ReadAsync(StorageKeys.DiagnosticsMode), out var mode)
             ? mode
             : DiagnosticsMode.Release;
@@ -67,6 +81,12 @@ public sealed class DevicePreferences
     {
         AllowLocation = allowLocation;
         return WriteAsync(StorageKeys.AllowLocation, allowLocation ? "true" : "false");
+    }
+
+    public Task SetAllowGoogleExtrasAsync(bool allowGoogleExtras)
+    {
+        AllowGoogleExtras = allowGoogleExtras;
+        return WriteAsync(StorageKeys.AllowGoogleExtras, allowGoogleExtras ? "true" : "false");
     }
 
     public Task SetDiagnosticsModeAsync(DiagnosticsMode mode)
@@ -117,6 +137,7 @@ public sealed class DevicePreferences
     private static class StorageKeys
     {
         public const string AllowLocation = "orbit-allow-location";
+        public const string AllowGoogleExtras = "orbit-allow-google-extras";
         public const string DiagnosticsMode = "orbit-diagnostics-mode";
         public const string MinimumLogLevel = "orbit-minimum-log-level";
     }

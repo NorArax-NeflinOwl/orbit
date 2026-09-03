@@ -1,6 +1,7 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Orbit.Contracts.Notifications;
+using Orbit.Core.Notifications;
 using Orbit.Mobile.Api;
 using Orbit.Mobile.Localization;
 using Orbit.Mobile.Screens;
@@ -15,6 +16,11 @@ namespace Orbit.Mobile.Screens.Notifications;
 /// this screen deliberately shows only the switches that mean something on a phone. The ones it does
 /// not show are carried through untouched from what was loaded, so saving here cannot quietly undo a
 /// choice made in a browser. See <see cref="SaveAsync"/>.
+///
+/// The banner settings are here because the phone obeys them - see ForegroundNotices, which decides
+/// whether a push arriving with Orbit in front shows anything, how long it stays and how soon the next
+/// one may follow. They could be changed only in a browser, which meant the phone's own banner was
+/// configured from somewhere other than the phone.
 /// </summary>
 public sealed partial class NotificationSettingsViewModel : ObservableObject
 {
@@ -48,6 +54,23 @@ public sealed partial class NotificationSettingsViewModel : ObservableObject
     [ObservableProperty]
     private bool _allowShareNotifications;
 
+    /// <summary>Whether a notification arriving with Orbit in front shows a banner - see ForegroundNotices.</summary>
+    [ObservableProperty]
+    private bool _allowMobileBanner;
+
+    [ObservableProperty]
+    private int _bannerVisibleSeconds = BannerTiming.Default.VisibleSeconds;
+
+    [ObservableProperty]
+    private int _bannerMinimumGapSeconds = BannerTiming.Default.MinimumGapSeconds;
+
+    /// <summary>
+    /// How long a notification stays in the feed before it is deleted for good. Clearing the panel only
+    /// tidies them out of the way; this is what removes them.
+    /// </summary>
+    [ObservableProperty]
+    private int _retentionDays = NotificationSettings.DefaultRetentionDays;
+
     public NotificationSettingsViewModel(
         NotificationsClient notificationsClient, Translations translations, IScreenNavigator navigator)
     {
@@ -63,6 +86,24 @@ public sealed partial class NotificationSettingsViewModel : ObservableObject
     /// than offering switches that have no effect.
     /// </summary>
     public bool CanChooseChannels => AllowNotifications;
+
+    /// <summary>
+    /// How long a banner stays and how soon the next may follow mean nothing when no banner is shown,
+    /// so they are offered only when one will be - the rule Orbit.Web's Options applies to the same two
+    /// fields.
+    /// </summary>
+    public bool CanChooseBannerTiming => AllowNotifications && AllowMobileBanner;
+
+    /// <summary>What a stepper may be moved between, so the screen cannot offer a value the server would clamp.</summary>
+    public int ShortestBannerSeconds => BannerTiming.MinimumSeconds;
+
+    public int LongestBannerSeconds => BannerTiming.MaximumVisibleSeconds;
+
+    public int LongestGapSeconds => BannerTiming.MaximumGapSeconds;
+
+    public int FewestRetentionDays => NotificationSettings.MinimumRetentionDays;
+
+    public int MostRetentionDays => NotificationSettings.MaximumRetentionDays;
 
     /// <summary>False until a load has succeeded: saving what was never read would write guesses.</summary>
     public bool CanSave => _loaded is not null && !IsBusy;
@@ -81,7 +122,13 @@ public sealed partial class NotificationSettingsViewModel : ObservableObject
         SaveCommand.NotifyCanExecuteChanged();
     }
 
-    partial void OnAllowNotificationsChanged(bool value) => OnPropertyChanged(nameof(CanChooseChannels));
+    partial void OnAllowNotificationsChanged(bool value)
+    {
+        OnPropertyChanged(nameof(CanChooseChannels));
+        OnPropertyChanged(nameof(CanChooseBannerTiming));
+    }
+
+    partial void OnAllowMobileBannerChanged(bool value) => OnPropertyChanged(nameof(CanChooseBannerTiming));
 
     [RelayCommand]
     private void GoBack() => _navigator.ShowNotifications();
@@ -119,13 +166,20 @@ public sealed partial class NotificationSettingsViewModel : ObservableObject
         IsBusy = true;
         try
         {
-            // Everything this screen does not show comes from what was loaded, not from a default. A
-            // banner duration tuned in the browser is not this screen's business to reset.
+            // Everything this screen does not show comes from what was loaded, not from a default -
+            // ShowExceptionDetails is a browser's business (it governs how much of a failure Orbit.Web
+            // prints on the page) and nothing on the phone reads it.
+            //
+            // The numbers are clamped here as well as on the server so the screen and the account agree
+            // about what was saved: the server clamps silently, and a screen still showing what was
+            // typed would be describing a setting that does not exist.
+            var timing = new BannerTiming(BannerVisibleSeconds, BannerMinimumGapSeconds);
+
             Show(await _notificationsClient.SaveSettingsAsync(
                 new UpdateNotificationSettingsRequest(
-                    AllowNotifications, AllowPush, AllowEmail, current.AllowMobileBanner,
-                    current.ShowExceptionDetails, current.BannerVisibleSeconds, current.BannerMinimumGapSeconds,
-                    AllowShareNotifications, current.RetentionDays),
+                    AllowNotifications, AllowPush, AllowEmail, AllowMobileBanner,
+                    current.ShowExceptionDetails, timing.VisibleSeconds, timing.MinimumGapSeconds,
+                    AllowShareNotifications, Math.Clamp(RetentionDays, FewestRetentionDays, MostRetentionDays)),
                 cancellationToken));
 
             Message = _translations["Saved."];
@@ -150,6 +204,10 @@ public sealed partial class NotificationSettingsViewModel : ObservableObject
         AllowPush = settings.AllowPush;
         AllowEmail = settings.AllowEmail;
         AllowShareNotifications = settings.AllowShareNotifications;
+        AllowMobileBanner = settings.AllowMobileBanner;
+        BannerVisibleSeconds = settings.BannerVisibleSeconds;
+        BannerMinimumGapSeconds = settings.BannerMinimumGapSeconds;
+        RetentionDays = settings.RetentionDays;
         OnPropertyChanged(nameof(CanSave));
         SaveCommand.NotifyCanExecuteChanged();
     }

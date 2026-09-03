@@ -2,6 +2,7 @@ using System.Net;
 using System.Net.Http.Json;
 using AngleSharp.Dom;
 using Bunit;
+using Microsoft.AspNetCore.Components;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -17,6 +18,10 @@ using Xunit;
 
 namespace Orbit.Web.Tests.Pages;
 
+// The two tests that pressed "Show event list" and "Show task list" lived here. Both lists are one
+// list now and it is always on, so there is nothing to reveal - see Calendar.razor. What they were
+// really guarding, that the list is scoped to the period on screen, is still covered by the two
+// tests further down that check the month and the year.
 public sealed class CalendarTests : OrbitTestContext
 {
     public CalendarTests()
@@ -31,6 +36,14 @@ public sealed class CalendarTests : OrbitTestContext
         // Nothing stored, so both side panels start closed - which is what these tests assume, and what
         // a browser that has never had them opened gets.
         Services.AddSingleton(new PanelPreferences(new StubJSRuntime()));
+        // Storage starts empty, so the list comes back in the order it has always been in - by when.
+        //
+        // Showing everything, deliberately: the list leaves out what is over, and most of these fixtures
+        // sit on the fifteenth of the current month - which is in the past for half of every month. They
+        // are about what the list draws and how it reads, not about what it hides, so they say so here
+        // rather than each carrying a date chosen to dodge the rule. The two tests about the rule build
+        // their own.
+        Services.AddSingleton(ShowingEverything());
     }
 
     [Fact]
@@ -69,39 +82,10 @@ public sealed class CalendarTests : OrbitTestContext
         Assert.Equal(12, cut.FindAll(".calendar-year-grid-month").Count);
     }
 
-    [Fact]
-    public void The_event_list_starts_hidden_and_the_toggle_button_reveals_it()
-    {
-        RegisterCalendarApiClient([]);
-        var cut = RenderComponent<Calendar>();
-        Assert.Empty(cut.FindAll(".calendar-event-list-panel"));
-        Assert.Equal("false", FindButtonByTitle(cut, "Show event list").GetAttribute("aria-pressed"));
 
-        FindButtonByTitle(cut, "Show event list").Click();
-
-        Assert.NotEmpty(cut.FindAll(".calendar-event-list-panel"));
-        Assert.Contains(cut.FindAll("button"), button => button.GetAttribute("title") == "Hide event list");
-        // The visualization panel keeps rendering alongside the revealed list.
-        Assert.NotEmpty(cut.FindAll(".calendar-visualization-panel"));
-    }
 
     [Fact]
-    public void The_due_task_list_starts_hidden_and_the_toggle_button_reveals_it()
-    {
-        RegisterCalendarApiClient([]);
-        var cut = RenderComponent<Calendar>();
-
-        Assert.DoesNotContain("Tasks with a due date", cut.Markup);
-        Assert.Equal("false", FindButtonByTitle(cut, "Show task list").GetAttribute("aria-pressed"));
-
-        FindButtonByTitle(cut, "Show task list").Click();
-
-        Assert.Contains("Tasks with a due date", cut.Markup);
-        Assert.NotEmpty(cut.FindAll(".calendar-event-list-panel"));
-    }
-
-    [Fact]
-    public void Todays_timed_event_shows_up_as_a_chip_with_its_start_time_in_the_month_view()
+    public void Todays_timed_event_shows_up_as_a_chip_named_but_not_timed_in_the_month_view()
     {
         var todayNoon = DateTime.SpecifyKind(DateTime.Today.AddHours(14).AddMinutes(30), DateTimeKind.Local);
         var calendarEvent = CreateTimedEvent(todayNoon, todayNoon.AddHours(1), "Team meeting");
@@ -109,9 +93,29 @@ public sealed class CalendarTests : OrbitTestContext
 
         var cut = RenderComponent<Calendar>();
 
-        var chipText = cut.Find(".calendar-event-chip").TextContent;
-        Assert.Contains("14:30", chipText);
-        Assert.Contains("Team meeting", chipText);
+        var chip = cut.Find(".calendar-event-chip");
+        Assert.Contains("Team meeting", chip.TextContent);
+        // No clock on a month cell: seven of these across a screen leaves a chip about as wide as
+        // "00:00", so the time was spending the room the name needed. The day view reads times.
+        Assert.DoesNotContain("14:30", chip.TextContent);
+    }
+
+    /// <summary>
+    /// A long name is cut to its first two words. One word is often the least useful part of a name -
+    /// "Ginekolog:" on its own says less than "Ginekolog: wizyta" - and the whole of it stays on the
+    /// chip's title for anyone hovering.
+    /// </summary>
+    [Fact]
+    public void A_long_name_is_shortened_to_two_words_on_a_month_cell()
+    {
+        var todayNoon = DateTime.SpecifyKind(DateTime.Today.AddHours(14).AddMinutes(30), DateTimeKind.Local);
+        RegisterCalendarApiClient([CreateTimedEvent(todayNoon, todayNoon.AddHours(1), "Ginekolog: wizyta kontrolna")]);
+
+        var cut = RenderComponent<Calendar>();
+
+        var chip = cut.Find(".calendar-event-chip");
+        Assert.Contains("Ginekolog: wizyta…", chip.TextContent);
+        Assert.Equal("Ginekolog: wizyta kontrolna", chip.GetAttribute("title"));
     }
 
     [Fact]
@@ -124,9 +128,9 @@ public sealed class CalendarTests : OrbitTestContext
 
         var cut = RenderComponent<Calendar>();
 
-        var chipText = cut.Find(".calendar-task-chip").TextContent;
-        Assert.Contains("09:00", chipText);
-        Assert.Contains("Send the report", chipText);
+        var chip = cut.Find(".calendar-task-chip");
+        Assert.Contains("Send the…", chip.TextContent);
+        Assert.DoesNotContain("09:00", chip.TextContent);
     }
 
     [Fact]
@@ -208,6 +212,9 @@ public sealed class CalendarTests : OrbitTestContext
         });
         Services.AddSingleton(new GoogleIntegrationAccess(
             new UsersApiClient(new HttpClient(handler) { BaseAddress = new Uri("https://example.test/") }),
+            // Never initialised, so the extras are on - which leaves the account above as the only
+            // thing deciding, and it is the thing these tests are pointed at.
+            new DevicePreferences(new StubJSRuntime()),
             NullLogger<GoogleIntegrationAccess>.Instance));
     }
 
@@ -242,11 +249,210 @@ public sealed class CalendarTests : OrbitTestContext
         RegisterTasksApiClient([]);
         var cut = RenderComponent<Calendar>();
 
-        FindButtonByTitle(cut, "Show event list").Click();
-
         Assert.Contains("This month", cut.Markup);
         Assert.DoesNotContain("Two months on", cut.Markup);
     }
+
+    /// <summary>
+    /// What a calendar is read for is what is coming. By the twentieth of a month, a month's worth of
+    /// finished work is what a reader has to scroll past to find it - so the list leaves out what is
+    /// over, and the menu is how it is asked for.
+    /// </summary>
+    [Fact]
+    public void A_ticked_off_deadline_is_not_listed_until_everything_is_asked_for()
+    {
+        Services.AddSingleton(new CalendarListOrder(new StubJSRuntime()));
+        var midMonth = new DateTime(DateTime.Today.Year, DateTime.Today.Month, 15, 10, 0, 0);
+        RegisterCalendarApiClient([]);
+        RegisterTasksApiClient([
+            CreateTaskListWithDueItem(midMonth, "Still to do"),
+            TickedOff(CreateTaskListWithDueItem(midMonth, "Already done"))]);
+
+        var cut = RenderComponent<Calendar>();
+
+        Assert.Equal(["Still to do"], ListedNames(cut));
+
+        cut.Find(".page-header-actions .overflow-menu-trigger").Click();
+        cut.FindAll(".page-header-actions .avatar-dropdown-item")
+            .First(entry => entry.TextContent.Contains("Everything", StringComparison.Ordinal))
+            .Click();
+
+        Assert.Equal(["Still to do", "Already done"], ListedNames(cut));
+    }
+
+    /// <summary>
+    /// An event that has already ended is over the same way. A deadline that has passed and is still not
+    /// ticked off is not: it is the one thing on the page that most needs saying.
+    /// </summary>
+    [Fact]
+    public void An_event_that_has_ended_goes_but_an_overdue_deadline_stays()
+    {
+        Services.AddSingleton(new CalendarListOrder(new StubJSRuntime()));
+        // Midnight this morning: always in the month being listed, and always already past. A time
+        // relative to "now" would leave the month on the first of it and the test would then be asking
+        // about a period the list is not showing.
+        var earlierToday = DateTime.Today;
+        RegisterCalendarApiClient([CreateTimedEvent(earlierToday, earlierToday, "Over and done with")]);
+        RegisterTasksApiClient([CreateTaskListWithDueItem(earlierToday, "Still not done")]);
+
+        var cut = RenderComponent<Calendar>();
+
+        Assert.Equal(["Still not done"], ListedNames(cut));
+    }
+
+    /// <summary>
+    /// An entry tied to an event is that event. Listing both put the same appointment on the page twice,
+    /// one card under the other - the grids have always dropped one, and the list beside them had not.
+    /// </summary>
+    [Fact]
+    public void An_entry_that_is_an_event_is_listed_once()
+    {
+        var midMonth = new DateTime(DateTime.Today.Year, DateTime.Today.Month, 15, 10, 0, 0);
+        var calendarEvent = CreateTimedEvent(midMonth, midMonth.AddHours(1), "Dentist");
+        RegisterCalendarApiClient([calendarEvent]);
+        RegisterTasksApiClient([TaskListWithAnEntryFor(calendarEvent.Id, midMonth, "Dentist")]);
+
+        var cut = RenderComponent<Calendar>();
+
+        Assert.Equal(["Dentist"], ListedNames(cut));
+    }
+
+    /// <summary>
+    /// And the card that survives says which list it came from. The entry carried that and the event did
+    /// not, so folding the two into one card would otherwise have lost it.
+    /// </summary>
+    [Fact]
+    public void The_one_card_says_which_list_the_appointment_is_on()
+    {
+        var midMonth = new DateTime(DateTime.Today.Year, DateTime.Today.Month, 15, 10, 0, 0);
+        var calendarEvent = CreateTimedEvent(midMonth, midMonth.AddHours(1), "Dentist");
+        RegisterCalendarApiClient([calendarEvent]);
+        RegisterTasksApiClient([TaskListWithAnEntryFor(calendarEvent.Id, midMonth, "Dentist")]);
+
+        var cut = RenderComponent<Calendar>();
+
+        Assert.Contains("Errands", cut.Find(".item-card-meta").TextContent);
+    }
+
+    /// <summary>
+    /// An appointment a list made opens as that entry rather than as the event: the list is where it is
+    /// worked from, and the full event form is a different thing from looking at what is coming. Which
+    /// is the entry's own summary, because an appointment has a place - see GoToDueTask and HasPlace.
+    /// </summary>
+    [Fact]
+    public void An_appointment_a_list_made_opens_as_the_entry_behind_it()
+    {
+        var midMonth = new DateTime(DateTime.Today.Year, DateTime.Today.Month, 15, 10, 0, 0);
+        var calendarEvent = CreateTimedEvent(midMonth, midMonth.AddHours(1), "Dentist");
+        var taskList = TaskListWithAnEntryFor(calendarEvent.Id, midMonth, "Dentist");
+        RegisterCalendarApiClient([calendarEvent]);
+        RegisterTasksApiClient([taskList]);
+        var navigationManager = Services.GetRequiredService<NavigationManager>();
+        var cut = RenderComponent<Calendar>();
+
+        cut.Find(".item-card-name").Click();
+
+        Assert.EndsWith($"/tasks/{taskList.Id}/items/{taskList.Items[0].Id}", navigationManager.Uri);
+        Assert.DoesNotContain("/calendar/", navigationManager.Uri);
+    }
+
+    /// <summary>An event nothing made still opens as itself.</summary>
+    [Fact]
+    public void An_event_of_its_own_still_opens_as_the_event()
+    {
+        var midMonth = new DateTime(DateTime.Today.Year, DateTime.Today.Month, 15, 10, 0, 0);
+        var calendarEvent = CreateTimedEvent(midMonth, midMonth.AddHours(1), "Dentist");
+        RegisterCalendarApiClient([calendarEvent]);
+        RegisterTasksApiClient([]);
+        var navigationManager = Services.GetRequiredService<NavigationManager>();
+        var cut = RenderComponent<Calendar>();
+
+        cut.Find(".item-card-name").Click();
+
+        Assert.EndsWith($"/calendar/{calendarEvent.Id}", navigationManager.Uri);
+    }
+
+    /// <summary>
+    /// An appointment on a list carries no due date of its own - the event says when it is - so it is
+    /// not among the due tasks at all, and the link has to be read off the lists themselves.
+    /// </summary>
+    private static TaskDto TaskListWithAnEntryFor(Guid calendarEventId, DateTime when, string description)
+        => new(
+            Guid.NewGuid(), "Errands",
+            [new TaskItemDto(
+                Guid.NewGuid(), description, DueDateUtc: null, IsCompleted: false, LinkedTaskListId: null,
+                OverdueNotificationChannel: "None", RemindDaily: false, DailyReminderNotificationChannel: "Push",
+                DailyReminderTimeOfDay: default, Kind: "Calendar", Location: "",
+                LinkedCalendarEventId: calendarEventId)],
+            IsCompleted: false, IsGroup: false, IsPrivate: false, EncryptedContent: null,
+            DateTimeOffset.UtcNow, DateTimeOffset.UtcNow, IsShared: false, SharedByUserName: null,
+            AccessLevel: "CanEdit", OriginalOwnerUserId: null);
+
+    /// <summary>
+    /// The list's default, and the reason it exists: what is coming, soonest first. The two orders
+    /// below are for a reader looking for one thing rather than reading the period.
+    /// </summary>
+    [Fact]
+    public void The_list_comes_in_the_order_things_happen()
+    {
+        var midMonth = new DateTime(DateTime.Today.Year, DateTime.Today.Month, 15, 10, 0, 0);
+        RegisterCalendarApiClient([
+            CreateTimedEvent(midMonth.AddDays(2), midMonth.AddDays(2).AddHours(1), "Beta"),
+            CreateTimedEvent(midMonth, midMonth.AddHours(1), "Zulu")]);
+        RegisterTasksApiClient([]);
+
+        var cut = RenderComponent<Calendar>();
+
+        Assert.Equal(["Zulu", "Beta"], ListedNames(cut));
+    }
+
+    [Fact]
+    public void Sorting_by_type_puts_the_events_before_the_deadlines()
+    {
+        var midMonth = new DateTime(DateTime.Today.Year, DateTime.Today.Month, 15, 10, 0, 0);
+        // The deadline is first by when, so only the order asked for can put the event in front of it.
+        RegisterCalendarApiClient([CreateTimedEvent(midMonth.AddDays(1), midMonth.AddDays(1).AddHours(1), "An event")]);
+        RegisterTasksApiClient([CreateTaskListWithDueItem(midMonth, "A deadline")]);
+        var cut = RenderComponent<Calendar>();
+
+        SortBy(cut, "By type");
+
+        Assert.Equal(["An event", "A deadline"], ListedNames(cut));
+    }
+
+    [Fact]
+    public void Sorting_alphabetically_orders_by_name_whatever_kind_of_thing_it_is()
+    {
+        var midMonth = new DateTime(DateTime.Today.Year, DateTime.Today.Month, 15, 10, 0, 0);
+        RegisterCalendarApiClient([CreateTimedEvent(midMonth, midMonth.AddHours(1), "Zulu")]);
+        RegisterTasksApiClient([CreateTaskListWithDueItem(midMonth.AddDays(1), "Alpha")]);
+        var cut = RenderComponent<Calendar>();
+
+        SortBy(cut, "Alphabetical");
+
+        Assert.Equal(["Alpha", "Zulu"], ListedNames(cut));
+    }
+
+    private static void SortBy(IRenderedFragment cut, string label)
+    {
+        cut.Find(".calendar-event-list-panel .overflow-menu-trigger, .page-header-actions .overflow-menu-trigger").Click();
+        cut.FindAll(".avatar-dropdown-item").First(item => item.TextContent.Contains(label)).Click();
+    }
+
+    /// <summary>The same list with its one entry crossed off.</summary>
+    private static TaskDto TickedOff(TaskDto taskList)
+        => taskList with { Items = [taskList.Items[0] with { IsCompleted = true }] };
+
+    /// <summary>A list order that hides nothing - see the constructor for why most of these want one.</summary>
+    private static CalendarListOrder ShowingEverything()
+    {
+        var listOrder = new CalendarListOrder(new StubJSRuntime());
+        listOrder.ShowEverythingAsync(true).GetAwaiter().GetResult();
+        return listOrder;
+    }
+
+    private static string[] ListedNames(IRenderedFragment cut)
+        => [.. cut.FindAll(".item-card-name-text").Select(name => name.TextContent.Trim())];
 
     [Fact]
     public void The_year_view_lists_the_year_rather_than_the_month()
@@ -261,7 +467,6 @@ public sealed class CalendarTests : OrbitTestContext
         RegisterTasksApiClient([]);
         var cut = RenderComponent<Calendar>();
 
-        FindButtonByTitle(cut, "Show event list").Click();
         FindViewSwitchButton(cut, "Year").Click();
 
         Assert.Contains("This month", cut.Markup);

@@ -26,7 +26,20 @@ public enum NotificationTarget
 
     Inventory,
 
-    Map
+    Map,
+
+    /// <summary>
+    /// The copies taken offline that are waiting to be decided on. The only destination the phone
+    /// raises for itself: a copy has no server id to name, and nobody but this device knows it exists.
+    /// </summary>
+    CopyReview,
+
+    /// <summary>
+    /// A public link somebody was sent. Unlike every other destination here it names nothing in this
+    /// account - what is behind it may belong to a stranger - and it arrives from the system rather
+    /// than from a notification, when Android hands Orbit a link instead of the browser.
+    /// </summary>
+    SharedLink
 }
 
 /// <summary>
@@ -37,7 +50,11 @@ public enum NotificationTarget
 /// rather than defaulting to <see cref="Guid.Empty"/> so "this destination has no id" cannot be
 /// mistaken for "this destination's id is all zeroes".
 /// </param>
-public sealed record NotificationDestination(NotificationTarget Target, Guid? Id = null)
+/// <param name="Token">
+/// The secret out of a public link, which is not an id and not a Guid - see PublicShareLinkDto. Empty
+/// for every other destination.
+/// </param>
+public sealed record NotificationDestination(NotificationTarget Target, Guid? Id = null, string Token = "")
 {
     /// <summary>
     /// Reads one of the server's notification paths. Returns null for anything unrecognised - an
@@ -58,7 +75,14 @@ public sealed record NotificationDestination(NotificationTarget Target, Guid? Id
             // is deliberately dropped rather than carried to somewhere that cannot use it.
             ["calendar", _] or ["calendar"] => new NotificationDestination(NotificationTarget.Calendar),
             ["inventory"] => new NotificationDestination(NotificationTarget.Inventory),
+            ["copies"] => new NotificationDestination(NotificationTarget.CopyReview),
+            // The id names which copy the notice is about, so answering that one can take its notice
+            // away again. The window itself shows them all, so the opener has no use for it.
+            ["copies", var copyLocalId] => ForId(NotificationTarget.CopyReview, copyLocalId),
             ["map"] => new NotificationDestination(NotificationTarget.Map),
+            // The one path that is not the server's: it is what Orbit.Web serves a public link at, and
+            // what a link handed to the app by Android carries - see MainActivity.
+            ["s", var token] => new NotificationDestination(NotificationTarget.SharedLink, Token: token),
             _ => null
         };
     }

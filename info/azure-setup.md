@@ -111,7 +111,7 @@ All required and optional settings in one place. Every `az containerapp secret s
 |---|---|---|
 | `Jwt__SigningKey` | **Required.** Crashes startup if missing/short - see [Program.cs](../src/Server/Orbit.Api/Program.cs). | Container App secret, ≥32 chars, e.g. `openssl rand -base64 48`. |
 | `ConnectionStrings__Orbit` | **Required.** Throws on startup if unset - see [OrbitDataServiceCollectionExtensions.cs](../src/Server/Orbit.Data/OrbitDataServiceCollectionExtensions.cs). | Container App secret. PostgreSQL connection string from step 1. |
-| `APPLICATIONINSIGHTS_CONNECTION_STRING` | Optional - traces. A malformed value (not empty - see [gotcha](#a-malformed-app-insights-string-crashes-startup-same-as-missing-jwt)) crashes startup the same as a missing JWT key. | Container App secret. From the `appinsights-orbit` resource. |
+| `APPLICATIONINSIGHTS_CONNECTION_STRING` | Optional - traces *and* log lines; unset, both go to the OTLP endpoint instead. A malformed value (not empty - see [gotcha](#a-malformed-app-insights-string-crashes-startup-same-as-missing-jwt)) crashes startup the same as a missing JWT key. | Container App secret. From the `appinsights-orbit` resource. |
 | `Vapid__PublicKeyBase64Url` / `Vapid__PrivateKeyBase64Url` / `Vapid__Subject` | Optional - push notifications. Missing means the "enable push notifications" toggle silently never turns on, no visible error. | Public key/subject as plain env vars, private key as a secret. `npx web-push generate-vapid-keys`. |
 | `Smtp__Host` / `Smtp__Port` / `Smtp__UserName` / `Smtp__Password` / `Smtp__FromAddress` | Optional - all outgoing email: calendar reminders, email verification codes, password reset codes. | `Smtp__Password` as a secret, rest as plain env vars. |
 | `GoogleAuth__ClientId` | Optional - "sign in with Google". Missing means the Google button never renders, no visible error. Public by design, so a plain env var. | The OAuth web client in Google Cloud Console → Credentials; the production `orbit-web` URL must be in its Authorized JavaScript origins. |
@@ -176,7 +176,32 @@ az containerapp revision restart -n orbit-api -g Orbit --revision <latest-revisi
 Changing which secret an env var *points to* (or adding/removing an env var) does create a new
 revision automatically, which picks up the current secret value on its own.
 
-### 3. Confirm database backups
+### 3. Allow the pg_trgm extension
+
+Orbit's name suggestions are a trigram search, so a migration runs `CREATE EXTENSION pg_trgm`. Because
+`Program.cs` applies migrations at startup, a server that refuses the extension is a server the API
+cannot start against - and nothing in CI would find it first, since the smoke test runs against a plain
+`postgres:18-alpine`, where the extension needs no permission.
+
+**On this deployment it worked with `azure.extensions` empty**, on 2026-08-31: `orbit-postgres-djgiwo`
+allowed the extension without being told to. So the allowlist is not the absolute gate it is often
+described as - at least not for `pg_trgm`, and at least not here. This section stays because the failure
+mode is real and expensive when it happens, and because a different server, region or Postgres version
+may well answer differently. Check rather than assume:
+
+```bash
+az postgres flexible-server parameter show \
+  --resource-group Orbit --server-name <server> --name azure.extensions --query value -o tsv
+```
+
+If `PG_TRGM` is not in that list, add it - keeping whatever is already there - and restart the server:
+
+```bash
+az postgres flexible-server parameter set \
+  --resource-group Orbit --server-name <server> --name azure.extensions --value PG_TRGM
+```
+
+### 4. Confirm database backups
 
 Flexible Server enables automated backups by default (7-day retention, locally redundant) - worth
 confirming rather than assuming, especially given the SQLite incident already cost this project one
@@ -204,7 +229,7 @@ To restore from a backup (point-in-time restore, within the retention window), s
 - it creates a new server from the backup rather than restoring in place, so restoring is itself an
 exercise in re-pointing `ConnectionStrings__Orbit` at the new server once it's ready.
 
-### 4. Confirm ingress
+### 5. Confirm ingress
 
 | | orbit-api | orbit-web |
 |---|---|---|
@@ -217,7 +242,32 @@ az containerapp ingress show -n orbit-api -g Orbit
 az containerapp ingress show -n orbit-web -g Orbit
 ```
 
-### 5. Where the phone apps are downloaded from
+**Raising `max-replicas` on `orbit-api` needs a backplane at the same time.** The live-update hub (see
+[Functionality — Live updates](functionality.md#live-updates)) keeps its registry of who is connected in
+the process's own memory. With two replicas, an announcement raised on one reaches only the clients
+connected to that one; everybody else hears nothing and falls back to their slow poll. Nothing errors,
+nothing appears in a log, and the only symptom is that the app is slower for some people than for others.
+Scaling out means adding Azure SignalR Service or a Redis backplane in the same change.
+
+**`orbit-web` will stop scaling to zero.** A client holding a WebSocket open is not idle, so the
+scale-to-zero rule above no longer fires while anybody has Orbit open. The cold start goes away with it;
+the cost does not.
+
+### 6. Let a release record itself as the newest build
+
+The Android release workflow tells `orbit-api` what it just published, so the app's update row lights up
+(`MobileVersion__Android__LatestVersion`). It needs one repository variable naming the resource group the
+Container App is in, and skips the step silently when it is absent:
+
+```bash
+gh variable set API_CONTAINER_APP_RESOURCE_GROUP --body Orbit
+```
+
+Only `LatestVersion` is set. `MinimumSupportedVersion` is the one that **blocks** an app that is too old,
+and while Orbit is a prototype it should stay empty so every build keeps working - see
+`MobileVersionPolicy`, where the two verdicts are `UpdateAvailable` and `UpdateRequired`.
+
+### 7. Where the phone apps are downloaded from
 
 Optional, and only needed once there is a build to hand out. `/download` in the web client offers
 whatever [`MobileDownloads`](../src/Clients/Orbit.Web/wwwroot/appsettings.json) names, and says nothing
@@ -258,6 +308,28 @@ address, since the page is where a new build comes from:
     https://orbitdownloads.blob.core.windows.net/apps/orbit-android.apk
 
 The blob name never changes, so neither setting has to be touched again when a newer build is released.
+
+### 8. Where the "Debug logs" entry leads
+
+The avatar menu offers this deployment's logs to an account holding the **Debug** permission, and asks
+which of the two are wanted: what was logged, or what is happening this second. They are different
+places. Locally both are pages of the Aspire dashboard the compose stack runs; on Azure there is no
+Aspire dashboard - `orbit-api` sends its OpenTelemetry traces *and* its Serilog log lines straight to
+Application Insights instead (see `APPLICATIONINSIGHTS_CONNECTION_STRING` above), while the container's
+own console is a stream that keeps nothing. So the two addresses are portal ones:
+
+```bash
+az containerapp update -n orbit-web -g Orbit --set-env-vars \
+  DIAGNOSTICS_HISTORY_URL="https://portal.azure.com/#@/resource$(az monitor app-insights component show --app appinsights-orbit -g Orbit --query id -o tsv)/logs" \
+  DIAGNOSTICS_LIVE_URL="https://portal.azure.com/#@/resource$(az containerapp show -n orbit-api -g Orbit --query id -o tsv)/logstream"
+```
+
+Either unset drops that half of the choice; both unset and the menu offers nothing rather than a dead
+link - see [write-diagnostics-dashboard.sh](../src/Clients/Orbit.Web/write-diagnostics-dashboard.sh),
+which writes them into the client's `appsettings.json` when the container starts. They are links rather
+than credentials, and they are deliberately not committed: they land in a file every visitor can
+download, so the resource path lives in the deployment's own configuration rather than in the
+repository. Following one still needs a portal sign-in with rights to that resource.
 
 ## Verifying a deploy
 

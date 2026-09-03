@@ -21,7 +21,8 @@ internal static class CalendarEventEntityMapper
             : new EventRecurrence(
                 Enum.Parse<RecurrenceFrequency>(entity.RecurrenceFrequency),
                 entity.RecurrenceIntervalCount ?? 1,
-                entity.RecurrenceUntilUtc);
+                entity.RecurrenceUntilUtc,
+                entity.RecurrenceOccurrenceCount);
 
         var location = entity.LocationLatitude is { } latitude && entity.LocationLongitude is { } longitude
             ? new EventLocation(entity.LocationAddress, latitude, longitude)
@@ -38,9 +39,9 @@ internal static class CalendarEventEntityMapper
             recurrence,
             JsonSerializer.Deserialize<List<Guid>>(entity.GuestsJson) ?? [],
             JsonSerializer.Deserialize<List<int>>(entity.RemindersJson) ?? [],
-            Enum.Parse<NotificationChannel>(entity.CreationNotificationChannel),
             Enum.Parse<NotificationChannel>(entity.ReminderNotificationChannel),
-            Enum.TryParse<ItemPriority>(entity.Priority, out var priority) ? priority : ItemPriority.Normal);
+            Enum.TryParse<ItemPriority>(entity.Priority, out var priority) ? priority : ItemPriority.Normal,
+            entity.NotifyAtStart);
 
         return CalendarEvent.FromPersistence(
             entity.Id, entity.UserId, details, entity.CreatedAtUtc, entity.UpdatedAtUtc,
@@ -66,10 +67,11 @@ internal static class CalendarEventEntityMapper
             RecurrenceFrequency = details.Recurrence?.Frequency.ToString(),
             RecurrenceIntervalCount = details.Recurrence?.IntervalCount,
             RecurrenceUntilUtc = details.Recurrence?.UntilUtc,
+            RecurrenceOccurrenceCount = details.Recurrence?.OccurrenceCount,
             GuestsJson = JsonSerializer.Serialize(details.Guests),
             RemindersJson = JsonSerializer.Serialize(details.ReminderMinutesBeforeStart),
-            CreationNotificationChannel = details.CreationNotificationChannel.ToString(),
             ReminderNotificationChannel = details.ReminderNotificationChannel.ToString(),
+            NotifyAtStart = details.NotifyAtStart,
             Priority = details.Priority.ToString(),
             LockedByUserId = calendarEvent.LockedByUserId,
             LockedByUserName = calendarEvent.LockedByUserName,

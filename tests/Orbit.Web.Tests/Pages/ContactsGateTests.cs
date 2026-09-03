@@ -46,8 +46,8 @@ public sealed class ContactsGateTests : OrbitTestContext
 
         var cut = RenderComponent<Web.Pages.Contacts>();
 
-        Assert.Equal("3", cut.Find(".notif-badge").TextContent);
-        Assert.Contains("unread", cut.Find(".chat-list-item").ClassName);
+        Assert.Single(cut.FindAll(".person-row-action"));
+        Assert.Contains("unread", cut.Find(".person-row").ClassName);
     }
 
     [Fact]
@@ -59,20 +59,15 @@ public sealed class ContactsGateTests : OrbitTestContext
 
         var cut = RenderComponent<Web.Pages.Contacts>();
 
-        Assert.Empty(cut.FindAll(".notif-badge"));
-        Assert.DoesNotContain("unread", cut.Find(".chat-list-item").ClassName);
+        Assert.Empty(cut.FindAll(".person-row-action"));
+        Assert.DoesNotContain("unread", cut.Find(".person-row").ClassName);
     }
 
-    [Fact]
-    public void A_long_wait_does_not_stretch_the_avatar()
-    {
-        RegisterPermissions([nameof(ApplicationPermission.Contacts), nameof(ApplicationPermission.Chat)]);
-        RegisterContacts(Contact("Anna", unread: 42));
+    // A_long_wait_does_not_stretch_the_avatar lived here. The row marks that something is waiting
+    // rather than counting it - see PersonRow - so there is no longer a number that could overflow.
+    // How many is the notifications panel's answer, and two places counting the same thing would
+    // eventually disagree. UnreadBadge itself is unchanged and still used by the chat list.
 
-        var cut = RenderComponent<Web.Pages.Contacts>();
-
-        Assert.Equal("9+", cut.Find(".notif-badge").TextContent);
-    }
 
     private static string Contact(string displayName, int unread)
         => $$"""
@@ -153,7 +148,10 @@ public sealed class ContactsGateTests : OrbitTestContext
 
         var cut = RenderComponent<Web.Pages.Contacts>();
 
-        // A group is a conversation like any other; this was the one page in the app that left them out.
+        // A group is a conversation like any other, and now has a list of its own rather than sitting
+        // under the chats - so finding it means asking for that list first.
+        cut.FindAll(".contacts-tab").First(tab => tab.TextContent.Contains("Groups")).Click();
+
         Assert.Contains("Weekend trip", cut.Markup);
     }
 

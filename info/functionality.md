@@ -26,6 +26,25 @@ Google) shows "too many attempts, wait a minute" rather than the generic "an err
 it used to — which was both wrong and the worst possible advice, since trying again is what keeps the
 window shut.
 
+**Forgetting the password.** `POST /api/auth/password-reset` (`emailOrUserName`) emails a code to the
+address the account was registered with, and `POST /api/auth/password-reset/confirm`
+(`emailOrUserName`, `code`, `newPassword`) sets the new one. The phone offers this from its sign-in
+screen — "Forgotten your password?" — as a screen of its own: ask for a code, then type the new
+password twice, since there is nothing to check it against and a typo would lock the account a second
+time with the code already spent. Whatever the account turns out to be, the answer is the same
+conditional sentence: the request must not become a way of testing whether somebody has an Orbit
+account. Nothing is signed in afterwards, because the chat key is wrapped with the password that is
+gone — what replaces it is decided at the chat key gate, with the warning that messages sealed under
+the old password stay unreadable. The web offers the same two steps at `/forgot-password`
+(`ForgotPassword.razor`), reached from a link under the sign-in form; it also still reaches them from
+the chat password gate, which is the same flow for somebody already signed in.
+
+Both sign-in forms listen for `input` as well as `change`, and neither uses `@bind`, which can only be
+told about one of the two. A password manager fills a box without anybody typing in it: some raise one
+event, some the other, some neither until the field is touched — so a form bound to a single event
+showed a filled box with an empty model behind it and sent an empty password to a real account, which
+the server answers exactly as it answers a wrong one.
+
 `token` is a short-lived JWT (15 minutes by default, `Jwt:ExpiryMinutes`). `refreshToken` is a
 long-lived (30 days), single-use, opaque value: `POST /api/auth/refresh` (`refreshToken`) exchanges it
 for a new `{ token, refreshToken, ... }` pair and revokes the one that was redeemed, so a leaked refresh
@@ -81,6 +100,14 @@ from the one `MainLayout` is actually subscribed to — the notification would f
 `AuthorizationMessageHandler` itself stays Transient (the one exception), since
 `IHttpClientFactory` mutates a handler's `InnerHandler` while assembling each client's pipeline and
 rejects reusing one instance across more than one.
+
+**The phone is under the same rule, and broke it in its own way.** `TokenRefreshService` there was
+registered with `AddHttpClient<TokenRefreshService>`, which registers the type as **transient** - so
+every synchronizer held its own, and the single-flight guard inside it (one in-flight redemption shared
+by every caller) guarded nothing across them. Two of them meeting an expired access token at the same
+moment each redeemed the same single-use refresh token, and the loser's rejection signed the reader out
+mid-use. It shows up in the server's log as a refresh answering 200 and another answering 401 a second
+later. The client is now registered as a singleton over a named `HttpClient`.
 
 `/api/auth/register`, `/api/auth/login`, `/api/auth/refresh`, and `/api/auth/logout` are all rate
 limited to 5 requests per minute per client IP address (no queueing — an excess request gets an
@@ -180,7 +207,17 @@ Every share carries an **access level**, chosen when the share is offered: `Read
 underlying int value doubles as a rank: `ReadOnly < Share < CanEdit`). Only `CanEdit` unlocks actually
 editing the item — `UpdateNoteCommandHandler`/`UpdateTaskListCommandHandler`/`UpdateCalendarEventCommandHandler`
 all return "not found" for an update attempt by a grantee whose access level is `ReadOnly` *or* `Share`,
-and the Blazor editor pages disable their form (via a `<fieldset disabled>`) for the same grantees.
+and the Blazor editor pages disable their form (via a `<fieldset disabled>`) for the same grantees. **The
+phone does the same as of 2026-09-01, and did not before**: it asked only whether an offline edit was
+safe (`OfflineEditPolicy`) and never what the share allowed, so anything shared read-only opened as an
+ordinary editable screen the moment the phone was online. The edit was applied locally, queued, refused
+by the server, and given up on minutes later - work disappearing with nothing on the way saying why.
+`SharedItemAccess` (`Orbit.Mobile.Sync`) is the missing half: the four detail screens open read-only and
+say so, the four repositories refuse the write rather than queue it, and a copy-for-editing is not
+offered, since a copy of something shared to read could never be kept over the original. Both clients
+read the rules from `ShareAccess` in `Orbit.Core` rather than comparing strings - `EditOnly` permits
+editing too, and a check written as `== "CanEdit"` calls an editor a reader. Deleting is untouched on
+both: for a grantee it means taking the item off their own list, which is theirs to do.
 
 Every editor page shows a "shared by {name}" banner on any item the current user doesn't own, regardless
 of access level — not just the restricted ones — with the wording adapting to what the current access
@@ -236,6 +273,16 @@ stays open (a `PeriodicTimer` heartbeat, the same pattern `Chat.razor` uses for 
 acquire extends the lock 60 seconds into the future (`AcquireNoteLockCommandHandler.LockDuration`), so a
 lock outlives any single heartbeat gap but expires on its own — no explicit release needed — if the
 holder's browser closes, crashes, or goes to sleep before it can release.
+
+A lock is written on its own, and writes nothing but itself: who holds it and until when
+(`ITaskRepository.UpdateLockAsync`, and the same on notes and warehouses). It went through the ordinary
+update at first, which replaces everything the thing is made of - so a heartbeat every twenty seconds
+deleted and re-inserted a whole checklist with its links and categories, rewrote a note's entire text,
+or rewrote every row of a warehouse, to say somebody still had the page open. On task lists that also
+crashed: the replacement left the entries' child rows to the database's cascade, which the change
+tracker knows nothing about, and the inserts for the new ones could reach the server first - a duplicate
+key on a save nobody thought was risky, seen in production on 1 September 2026. Holding something open
+is not a change to it, so the lock does not touch `UpdatedAtUtc` either.
 
 Acquiring a lock already held by someone else, or saving into one, returns HTTP 409 with a
 `LockConflictDto { lockedByUserName }` body (`Orbit.Core.Abstractions.EditOutcome`/`EditOutcomeKind`,
@@ -309,6 +356,14 @@ named from the conversation, told the two possible reasons, and told plainly tha
 unaffected — while an id that means nothing gets "there is nothing to show" and no offer to open a chat
 that does not exist.
 
+**The phone opens the same card** (`ContactInfoViewModel`), from the contact list's row menu, from
+beside somebody just found by search, and from the conversation's own header - the three places a name
+is already on screen. It answers from the row this phone holds before it asks the server anything, which
+is why it says who somebody is on a train: the contact sync now stores the address as well as the name,
+so the whole card reads offline. What only the account can say - a name changed since the last sync -
+overwrites it when the lookup answers, and nothing is claimed when it cannot be reached: being offline
+is not an answer about somebody.
+
 A chat with more than one other person, under the same end-to-end encryption one-to-one chats already
 have. There is no group key: the sender's browser encrypts the same text **once per other member**,
 under the pairwise key it already shares with each of them, and posts the copies together
@@ -319,14 +374,78 @@ That choice buys a lot and costs two things worth knowing:
 
 - Nothing new to distribute or rotate when membership changes, and the server still can't read
   anything — it never had a key and doesn't get one now.
-- **A new member can't read anything sent before they joined**, since no copy was ever encrypted for
-  them. The group view says so rather than showing empty space.
+- **A new member cannot read anything sent before they joined unless somebody hands it to them**, since
+  no copy was ever encrypted for them — see [Letting a new member read the history](#letting-a-new-member-read-the-history)
+  below.
 - A message costs N rows instead of one.
 
 The server checks the fan-out rather than trusting it: exactly one copy per current member, no more and
 no fewer. A missing copy would silently cut someone out of a conversation they are in; an extra one
 would deliver into a group its recipient has no part in. Reading a group returns only the copies the
 caller can actually decrypt — the ones addressed to them plus the ones they sent.
+
+### Letting a new member read the history
+
+Adding somebody to a group offers a checkbox: **"Also give them what was said before they joined"**
+(`GroupMembers.razor`). It is off unless asked for. Everything said in the group so far was said to the
+people who were in it, and handing it on is a decision somebody makes rather than what happens if they
+do not look.
+
+The work is the **adder's own device's**, because there is nowhere else it could happen. The server has
+never held a key to any of this and cannot make a copy for the newcomer, so `GroupHistorySharing` reads
+the conversation the adder can already read, decrypts each message on their device, seals each one again
+under the pairwise key they share with the new member, and posts the results
+(`POST /api/chat/groups/{id}/history`). A message this device cannot open — one sealed under a key pair
+since replaced — is left behind rather than passed on as ciphertext the newcomer would stare at, and the
+screen says how many actually went across.
+
+**Both clients can do it**, with a class of that name each: the browser's runs the crypto through
+`e2eeChat.js`, the phone's through `ChatIdentity` in process, and they hand the same thing to the same
+endpoint. Being able to add somebody to a group but not give them its past — which is what a phone
+could do until now — made the switch a thing you had to go and find a browser for.
+
+What the server will accept on their behalf is narrow, since it cannot read what it is being handed:
+
+- **Only an admin may share.** Deciding what a newcomer sees on arrival is the same act as deciding they
+  arrive at all (`ChatGroup.EnsureHistoryCanBeSharedWith`). Nothing stops an ordinary member replaying a
+  conversation by hand; what the rule buys is that the group's own history is not handed over as the
+  group's doing by somebody never trusted with its membership.
+- **Only into a membership.** The recipient has to already be in the group, and nobody shares with
+  themselves.
+- **Only what the sharer actually holds.** Each copy names a `GroupMessageId`, and the server looks up
+  the sharer's own copy of it to take the sender, the instant and the edited state from — never from the
+  request. Who wrote a message and when are facts about it, and re-sharing is not the place they get to
+  be restated. A posting the sharer holds no readable copy of is dropped rather than stored under an
+  invented attribution.
+- **Never twice.** A message the recipient already has is skipped, so a retry after a half-finished
+  share, or a button pressed twice, does not leave them reading everything in duplicate.
+
+A backfilled copy is marked (`ChatMessage.IsSharedHistory`) and that mark does two things. It keeps the
+copy out of the original's **delivery receipts** — a receipt says whether a message reached the people it
+was posted to, and counting a copy made afterwards would take a sender's "Read" away for a delivery that
+had already happened. And it sorts last when the conversation picks which copy stands for a message, so
+a reader who already had one keeps reading the one they have been reading, and only the newcomer — who
+has nothing else — is given the new one.
+
+### The line that says somebody joined
+
+Being added to a group used to be visible only to the person it happened to: the group turned up in
+their list, and everybody else saw a roster that had quietly changed. Now the conversation itself carries
+a line for it — *"Anna joined Weekend trip"* — drawn where it happened rather than pinned anywhere
+(`ChatGroupAnnouncement`, rendered by `GroupConversation.razor` and, on the phone, by
+`GroupAnnouncementLine` in the same thread and the same words).
+
+When the history was shared, the same line says so too: *"Anna joined Weekend trip · Piotr shared the
+conversation so far"*. The two halves are recorded separately on purpose. The join is known the moment it
+happens; the history is sealed in the sharer's browser and arrives afterwards, so the line gains its
+second half only once the copies actually land. An admin who ticked the box and whose browser could open
+nothing has shared nothing, and the line says only what happened.
+
+These lines hold no ciphertext, and that is not an oversight: everything in one — who joined, who added
+them, when — the server already knows from the membership table. There is nothing here to seal. They are
+read from a route of their own (`GET /api/chat/groups/{id}/announcements`) rather than folded into the
+messages, so the conversation endpoint keeps answering exactly what every already-installed client
+expects of it; the browser merges the two by time.
 
 ### Roles
 
@@ -356,22 +475,37 @@ give you the right to erase it from the sender's own history.
 ## Private notes and task lists
 
 A note or task list can be marked **private**, which means exactly one thing: only its creator can ever
-read it, and Orbit's servers can't. Ticking the box in the editor makes the browser seal the title and
+read it, and Orbit's servers can't. Ticking the box in the editor makes the client seal the title and
 the content before saving, so what the server stores is `IsPrivate` plus a base64 ciphertext and nonce
 (`EncryptedPayload`) — the readable columns go **empty**, not merely unread. `Note.Update` and
 `TaskList.Update` enforce that pairing rather than trusting callers: claiming privacy without sealed
 content is refused, and turning privacy off drops the ciphertext.
 
 The key is the one chat already uses, agreed with the owner's own public key on both sides of an ECDH
-exchange (`e2eeChat.js`'s `encryptForSelf`). That means no second key to generate, back up, or restore:
-a browser that can read your chat can read your private items, one that can't asks for your password
-the same way, and **a password reset replaces the key pair, so private content is lost with the chat
-history** — the editor says so next to the checkbox.
+exchange (`e2eeChat.js`'s `encryptForSelf`, and `ChatIdentity.EncryptForSelf` on the phone). That means
+no second key to generate, back up, or restore: a device that can read your chat can read your private
+items, one that can't asks for your password the same way, and **a password reset replaces the key
+pair, so private content is lost with the chat history** — the editor says so next to the checkbox.
 
 Sealing and opening happen in `NotesApiClient`/`TasksApiClient`, not in the pages, so the overview, the
 dashboard, the checklist view and the calendar all receive a readable DTO without knowing any of this
 happened. Content that can no longer be opened renders with an "Unreadable — encrypted with an older
 key" title rather than throwing, so one lost item doesn't take a whole list down.
+
+**Both clients do all of this**, and to the same bytes: what goes inside the ciphertext is JSON, so the
+payload shapes (`SealedNote`, `SealedTaskList`, `SealedWarehouse`) live in `Orbit.Contracts` and are
+serialized with the same property names on either side — `SealedContentTests` pins the phone's
+source-generated output against the browser's reflection-based one, because a mismatch there produces
+notes that round-trip perfectly on one client and cannot be opened on the other.
+
+Two things are the phone's own. Its local database holds the **sealed** payload rather than the opened
+words, so a handset that is picked up says no more about a private note than the server does; the
+words are opened for the screen that shows them and never written back (`LocalNoteRepository`,
+`PrivateContentSealer`). And a private item is additionally kept behind the **device lock** — a face
+or a passcode — on the notes, tasks and inventory screens, which is the physical counterpart of a
+promise that otherwise only holds against the server (`PrivateItemGate`). A device holding no key says
+which of the two situations it is in — no key here, or a key pair since replaced — rather than showing
+an empty editor.
 
 What private costs:
 
@@ -382,8 +516,12 @@ What private costs:
   due dates the server can no longer read.
 - **Items can't be moved into or out of one** (`MoveTaskItemCommandHandler` refuses): a private list
   keeps no readable items, so the move would take the item off the source and then drop it.
-- **Completion is recomputed in the browser.** The server derives `IsCompleted` from items it can't see,
-  so what it sends for a private list means nothing; `TasksApiClient` works it out after opening.
+- **Completion is recomputed on the client.** The server derives `IsCompleted` from items it can't see,
+  so what it sends for a private list means nothing; `TasksApiClient` and `LocalTaskListRepository`
+  work it out after opening.
+- **A private list's entries get their identity from the client.** The server mints entry ids and never
+  sees a private list's entries, so the phone mints one for any entry that has none before sealing —
+  without it every entry on the list would share the empty id.
 
 ### Private warehouses
 
@@ -455,6 +593,33 @@ follows: a position is not something to be able to push at a stranger who never 
 The Map page shows the viewer's own position and everyone sharing with them on **one** map, framed to fit
 them all.
 
+### Planning something at a place
+
+The map is where people already go to point at somewhere, so it is also where pointing at somewhere and
+making something of it belongs. **Plan something here** opens the same `LocationPickerOverlay` the task
+editor uses - a pin, or an address search - and confirming one asks a single question: is this an event,
+or a task list?
+
+The question is asked rather than guessed. An appointment and an errand at the same address are
+different things, and only the person pointing at it knows which they meant. Answering takes them to the
+form they chose with the place already filled in:
+
+- **An event in the calendar** opens `/calendar/new` with the address and its pin set.
+- **A task list starting here** opens `/tasks/new` with one entry already standing at that place - a
+  calendar entry, because it is the only kind that has anywhere to be, and open, because an entry whose
+  place is filled in and whose day is not is not finished.
+
+Either way the **pin** travels, not only the address: the calendar keeps places as coordinates with a
+label (see [`EventLocation`](#the-place-is-stored-once)), so an address on its own could not be shown on
+a map or turned into a Google Maps link.
+
+The place travels in a scoped `ChosenPlace` rather than in the address bar. `/calendar/new?lat=52.2&lon=21.0`
+would write where somebody is going into their browser history and into anything that later reads a URL,
+and a place is exactly the kind of thing that should not be sitting in a link somebody might paste.
+Nothing about it needs to survive a reload - it is a handover between two screens, a second apart - and
+it is **taken** rather than read, so coming back to a new event or a new list later starts empty instead
+of at somewhere the reader looked at once and has no memory of choosing.
+
 ## Handing something off to Google
 
 An account that has **confirmed its email address or connected Google** is offered links that carry
@@ -499,6 +664,59 @@ wrong (and each pinned by a test):
   possibly another city days ago.
 - Every link opens with `target="_blank" rel="noopener"`.
 
+### Two depths, everywhere
+
+Every object that can have both now has both: land on what the thing is, with the fields one named press
+further in, and whatever light doing belongs to it offered where it is read.
+
+| Object | Read | Change |
+| --- | --- | --- |
+| Task list | `/tasks/{id}` - tick items, see the tree it stands for, measure it against a storage | `/tasks/{id}/edit` |
+| Task entry | `/tasks/{listId}/items/{itemId}` - when, where, what the appointment is about, who is coming, and a map | its own row in the list's editor |
+| Note | `/notes/{id}` - the note read, with the checklist lines in it tickable | `/notes/{id}/edit` |
+| Calendar event | `/calendar/{id}` - when, where, what it is about, who is coming, its reminders, and a map | `/calendar/{id}/edit` |
+| Storage | `/inventory/{id}` - one row per batch, counted up and down in place | `/inventory/{id}/edit` |
+
+What "light doing" means differs by object and is the point of the split: a list is ticked, a note's
+checklist lines are ticked, a shelf is counted up and down. An appointment has none - there is nothing
+about it to do without changing what it is - so its page has no Save, which is honest rather than
+missing. Nothing is written until Save on any of them: these are pages people scroll through.
+
+### A shelf, read rather than edited
+
+`/inventory/{id}` is what opening a warehouse lands on: one row per batch, saying what it is, how much
+there is, when it arrived and how long it keeps. A row is a batch rather than a product - two rows can
+carry the same name, which is what two deliveries of one thing are, and the check that measures work
+against a shelf adds them up by name (`StockRequirementCounter`). A row an errand pointed at is marked,
+the way the editor already marked one.
+
+Each row also carries the two things somebody standing in front of a shelf actually does: **one off, one
+back on**, before the name, where the eye starts. Nothing is written until Save - the same tick and cross
+every editor in Orbit carries - and saving refreshes the restock list, because a count that has just
+crossed a minimum either raises an errand or settles one. Counting below nothing is refused rather than
+stored: minus one of something is a number nobody can act on.
+
+Everything else is behind the menu beside them: all warehouses, the editor, and deleting. Changing the
+fields themselves is a named press further in (`/inventory/{id}/edit`) - the same two depths a task list
+has, for the same reason: opening a warehouse to see what is in it is a different thing from opening it
+to change it, and a page of editable fields is the wrong answer to "what have we got".
+
+### What the calendar's list leaves out
+
+The list beside the grid answers "what is coming", so it leaves out what is over: a deadline already
+ticked off, and an event that has already ended. An overdue deadline that is still not done **stays** -
+it is the one thing on the page that most needs saying, and hiding it would hide the work.
+
+The grid never hides anything. A day with something in it should say so whether or not it has been, and
+a month drawn with holes in it would be a month that had not happened.
+
+**The phone draws the same line**, from the same menu the order is chosen in and kept beside it on the
+device (`CalendarListReading`). Its grid keeps everything too.
+
+**Show → "Everything, including what is over"** in the page's menu puts them back, and is remembered by
+the device the way the list's order is (`CalendarListOrder`, localStorage - it describes one page for
+one reader on one screen).
+
 ## Refusing a request
 
 Anything that refuses what a caller asked for — domain validation (an event ending before it starts, a
@@ -531,8 +749,12 @@ list back.
 The domain type behind this is named `TaskList`, not `Task`: `Orbit.Core.Tasks.Task` would collide with
 `System.Threading.Tasks.Task`, which every async method in the codebase returns.
 
-An item can instead reference another of the user's task lists via `linkedTaskListId`, rather than
-being independently completable. A linked item's `isCompleted` is entirely derived — it follows the
+An item can instead reference other task lists of the user's - `linkedTaskListIds`, with
+`linkedTaskListId` repeating the first of them for a client that has not learned about the plural yet -
+rather than being independently completable. **The phone offers all of them as of 2026-09-01**: the
+picker says what to add next rather than what is already there, each list it stands for is listed with a
+way off, and a save sends the whole set. It carried them from the first sync but showed only the first,
+so the rest were lost to whichever phone touched the entry next. A linked item's `isCompleted` is entirely derived — it follows the
 referenced list's own completion (true only once every item on that list is checked off) and is
 resolved live on every read (`LinkedTaskCompletionResolver`), the same "never trust the persisted
 completion column, always recompute it" approach `TaskList.IsCompleted` already uses, extended
@@ -575,8 +797,27 @@ and reverse-geocodes it into an address. Over the page because a map needs room 
 none. Nothing is written back until the pin is confirmed: the overlay asks "Use this place?" with the
 address it found, and only a yes replaces what the box held — a stray click on a map must not silently
 rewrite an address somebody typed. The map opens where the box already points, when that address can be
-found (`GeocodingApiClient.FindPlaceAsync`). Only the address is stored; the item keeps no coordinates,
-which is why the pin has to become words before it is worth anything.
+found (`GeocodingApiClient.FindPlaceAsync`).
+
+**A confirmed pin keeps its position, not only its name.** The overlay hands back a `PickedPlace` -
+where it is as well as what it is called - and the editor keeps both. The words are still the reader's
+to choose (confirming a pin fills an empty box and leaves a name they wrote alone), but the position is
+what the calendar needs: a `EventLocation` is coordinates with an optional label, so an address on its
+own cannot be shown on a map or turned into a Google Maps link.
+
+This used to be the other way round - the overlay reverse-geocoded the pin and then discarded where it
+was - and the consequences reached further than the pin. A calendar entry's event was created with no
+place at all, and worse, an entry that *already had* an event sent "no place" back on every save, so
+editing a task list's colour or its day erased a location somebody had set in the calendar. The web
+editor now reads the linked event's location into the form along with every other field it already read
+back, and the phone - which has no map to offer and so cannot set a place - carries the one it loaded
+through untouched rather than writing a blank over it (`TaskItemEventForm.PlaceItAlreadyHad`).
+
+**A name nobody pointed at stays a name.** Typing "the back entrance" and never opening the map leaves
+the entry with a label and the event with no place, and the editor says so under the box rather than
+letting it go nowhere quietly. Orbit does not look coordinates up for it: `SearchPlacesAsync` exists
+precisely because "Długa 4" is a real address in a dozen towns, and silently taking the first match
+would put the appointment in the wrong one. The calendar's own event editor refuses in the same way.
 
 **A place can be named as well as pointed at.** The overlay carries an address search
 (`GeocodingApiClient.SearchPlacesAsync`), which is the way that works when somebody knows the address
@@ -605,6 +846,26 @@ the id doesn't exist or isn't owned by the caller. Deleting a list that another 
 failing, so this is safe, just something to be aware of if a list you expect to still be linkable is
 gone. The Blazor client's task list page asks for confirmation before calling this endpoint.
 
+### How much of each list the page shows
+
+The tasks page's menu carries a **Card view** with three answers, remembered by the browser like the
+sort order beside it (`TaskListArrangement`):
+
+- **Minimal** folds every card to its heading and the one line worth having - what is still to be done.
+  Each card's own control reads "Expand" while it is on, because this is the same state as folding them
+  all by hand.
+- **Normal**, the default, shows up to five items per card.
+- **Full** shows as much as a card can carry before it stops being a card: **twenty items** on an
+  ordinary list, and **four member lists** on a group one. Counted differently on purpose - a group
+  list's rows are not items but other lists, and each one brings five lines with it: the row naming the
+  member, three of its items, and a fifth that is either "and N more…" or, when there are exactly four,
+  the fourth item itself. Four members is therefore already the twenty lines an ordinary list gets.
+
+Minimal deliberately writes nothing into the per-card folded set, so **leaving it puts back exactly the
+cards that were folded before**. And **expanding a card while it is on leaves the view** rather than
+unfolding one card the view says is folded - it goes back to whatever the page was before it was folded
+away, not to the default, which may be a choice nobody made in months.
+
 ### The page of lists
 
 `/tasks` is one card per list, showing enough to recognise it: its badges, how far through it is, and a
@@ -632,6 +893,50 @@ dashboard's own layout). A list made or shared since the last drag sits after th
 placed, rather than pushing the arrangement about.
 
 Pinned lists lead every order except that one, which already says where every card goes.
+
+### Finding one entry among every list
+
+Above the chips sit the two questions about what is *on* the lists rather than about the lists
+themselves: a search box, and a row of categories.
+
+Every entry can be filed under as many categories as apply — free text, typed on one line and separated
+by commas, the way a shelf item's category is written, with every category already in use offered
+underneath it (`TaskItem.Categories`, `CategoryText`). One errand is often two subjects at once, so
+being made to pick the single truest one is how a category stops being written at all. Every kind of
+entry carries them: an appointment is about something the same way an errand is.
+
+The search matches a word anywhere in an entry's own words. The chips are built from what entries are
+actually filed under, each with how many carry it. Several can be chosen: **any of them** by default,
+because that is usually what picking a second one means, and a checkbox appears once a second is chosen
+for the reader who means an entry that is both at once. The two narrow independently — a search and a
+category both set means both must hold (`TaskItemFilter`).
+
+What they narrow is which lists are worth showing: a list stays if one entry on it still matches. The
+card then previews **what matched** rather than its first few rows, and every row says what it is filed
+under with the chosen category marked — a list shown for a match nobody can see reads as a bug. The
+checklist says it too, since that is where the work is actually done.
+
+**The phone files an entry the same way**: the same box on its item form, and the same rule behind both
+(`CategoryText`, which lives in Orbit.Core precisely so the browser and the phone cannot come to
+disagree about what "shopping, Shopping" means).
+
+A save that says nothing about categories leaves them alone. That is what lets a client written before
+they existed — an older tab — go on saving lists without unfiling every entry on them, the same rule a
+list's description already follows (`UpdateTaskListCommand.EntriesKeepingTheirCategories`).
+
+**On the phone, an entry that stands for other lists is the way into them.** The browser stacks the
+whole tree as cards on one page; a phone has room for one list at a time, so the entry carries a chip
+per list it stands for and each one opens that list - the same chips an inventory errand uses to reach
+its shelf. A group list is nothing but such entries, and its screen used to be a dead end: the work it
+gathers was one tap away in the browser and unreachable here. A list this phone does not hold offers no
+chip, because a chip that leads nowhere is worse than none.
+
+**The phone files entries the same way and looks for them the same way.** The entry's form carries the
+same comma-separated box, each row on a list shows what it is filed under, and the tasks screen carries
+the search and the category chips above its status chips - narrowing to the lists that still hold a
+match, with the card saying what matched rather than what is next. Its sync sends the categories on
+every save rather than leaving them out: "not provided" is what an older client says, and a phone that
+said it could never clear a category somebody had removed.
 
 ### Two editing levels
 
@@ -672,9 +977,19 @@ deadline row beside it is the same appointment written out a second time, one li
 grid leaves it off whenever the event it names is on the same day — asked of the occurrence rather than
 of the date the event is stored under, so a repeat takes its entry off every day it lands on
 (`CalendarGridBuilder.DueTasksOnDate`). It stays on any other day, and it stays when the event is one
-this reader cannot see (deleted, or somebody else's), where nothing on the day stands for it. The side
-panels are left alone: "Events" and "Tasks" are two lists by design, and something that is both belongs
-in each.
+this reader cannot see (deleted, or somebody else's), where nothing on the day stands for it.
+
+**The list beside the grid holds both kinds, in one list.** Appointments and deadlines answer the same
+question - what is happening in this period - and two lists side by side made the reader merge them by
+eye, in a period where they interleave by definition. Each row says which kind it is, and the list is
+read in one of three orders from the page's own menu: by when (soonest first, which is what a calendar
+is asked for), by type (appointments first, still by when within each), or by name. The order is kept on
+the device, like the dashboard's own layout (`CalendarListOrder` in the browser,
+`ICalendarListOrderStore` on the phone). **The phone draws the same one list**, with the same three
+orders behind the heading's menu - it used to stack "Tasks with a due date" underneath the events, which
+is the shape the browser moved away from. The one difference between them is the entry tied to an event:
+the browser's list carries both rows, and the phone leaves the deadline off the day its event is on,
+since in a single list the two would sit one under the other.
 
 The pin comes from whichever source holds the address. An entry tied to a calendar event takes the
 event's stored coordinates directly — the link exists so the address lives in one place. An entry with
@@ -716,6 +1031,16 @@ All of it lives behind the screen's three-dot menu, along with Edit and the two 
 none of it is what somebody came to this screen to do. The menu stays open while the settings are being
 tried and closes behind the entries that act.
 
+**The phone offers the same three orders**, behind the list's own three-dot menu, with the one in force
+marked - a menu of three with no answer among them leaves the reader guessing what they are looking at.
+The menu is offered on every list, not only on the ones priced against a shelf: a single long list is
+exactly where reading it off alphabetically helps. Moving an entry up or down disappears from its menu
+while the list is read in any other order, since "up" would move it in an arrangement nobody can see.
+The order is kept per list on the device (`ChecklistReading`, the phone's preferences, the same category
+as the dashboard's pins) and never reaches what is saved: what goes back to the server is always the list
+as it was arranged. Flattening a tree is still the browser's alone - see
+[the follow-ups](future-plan.md#smaller-identified-follow-ups).
+
 ### Arranging a list by hand
 
 In the deep editor each item carries a drag handle, and dropping one where another sits puts it there.
@@ -750,14 +1075,68 @@ all, and what order it lists things in - its own order, A to Z, Z to A, or short
 the only part of the table anybody has to act on. Both are remembered as they are set rather than
 waiting for "Save view", since a panel somebody puts away every visit has already been answered about.
 
-`POST /api/tasks/{id}/stock-check/reconciliation` is the other half, and what "recalculate against the
-inventory" does. It runs in both directions. What the warehouse already covers is crossed off - counted
-per product rather than per line, so three jars on the shelf finish three of the five lines asking for
-one, oldest first; stock spent on a line already crossed off is not spent again, and work dated in the
-future is left alone because the check does not count it either. And a product the shelf holds that no
-list in the tree mentions is written onto the list being reconciled, since that is the same disagreement
-seen from the other side. One line per product rather than one per unit: the counting rule reads
-repetition as quantity, but a shelf holding fifty screws is not fifty errands.
+**The phone folds the same panel and offers the same four orders**: its heading and its chevron both put
+it away, and its own menu holds the orders. The warehouse it is measured against stays at the card's foot
+rather than inside the fold - it is how the panel gets linked in the first place, so unreachable while
+folded would mean unreachable before it has anything to fold.
+
+"Recalculate against the inventory", on the three-dot menu, re-reads the check and says what it found -
+everything covered, or how many things are short. It writes nothing by itself; putting what is short
+onto the restock list is the separate press above.
+
+There used to be a third endpoint here, `POST /api/tasks/{id}/stock-check/reconciliation`, which brought
+a list and its warehouse back into step in both directions at once - crossing off what the shelf covered
+and writing onto the list whatever the shelf held that no list mentioned. Nothing called it any more:
+the web now recalculates by reading, and the phone by the same two presses. It was deleted rather than
+left reachable, since an endpoint nothing asks for is an endpoint nobody notices going wrong.
+
+Two things are defaulted rather than asked for, and the same way in both directions: the unit is
+**pieces**, and **how many times a name is written is how little is too little** - one entry asks for one
+of the thing, the same entry twice asks for two. Nothing on a task entry says an amount, so repetition is
+what says it, and pieces is what something nobody counted otherwise is counted in.
+
+**An entry on a list that already has a storage describes a product for that shelf.** It shows the
+product's fields - how much, how little is too little, the unit, what it is, how long it keeps - and
+everything except the name, because the entry's own words are the name. That is the same rule the
+generation above follows and the same one the check matches by, so the two cannot come to disagree about
+which product an errand is about. Saving the list puts it on the shelf; a shelf already holding
+something by that name is what the entry was asking for, so nothing is added twice.
+
+**And says when each batch arrived**, which is the fourth thing a shelf answers and the one the phone
+left out. The date comes down with the items and is kept beside them (`LocalWarehouse.ItemArrivals`)
+rather than on them: the item shape is what a save sends back, and when something arrived is the
+server's answer rather than the phone's. A row this phone has queued and nothing has accepted yet says
+nothing about it.
+
+**The phone's shelf opens on the row somebody was sent to.** A warehouse reached from an errand naming
+it, or from the search across every shelf, marks that product and scrolls to it - the accent bar and
+tint the browser gives the row its `?highlight=` names (`WarehouseItemRow.IsPointedAt`,
+`IScreenNavigator.ShowWarehouse`). The row says so in words as well, because a colour is nothing to
+somebody who cannot see it. The mark is not lifted to the top and does not outlive the screen: a shelf
+read in one order should not rearrange itself around where somebody came from, and narrowing the shelf
+and clearing the filter again finds the row still marked.
+
+**The phone describes one the same way, one entry at a time.** An Inventory entry on a list measured
+against a storage opens the product's fields with no name box (`ShelfProductFor`,
+`WarehouseItemEditor.ForSomethingNotOnTheShelfYet`), says above them which shelf it will go on, and
+saving the entry puts it there - a shelf already holding something by that name is what the entry was
+asking for, so nothing is added twice (`ShelfCorrection.ApplyAsync`). The same fields correct a product
+the entry is already linked to, which is all the phone could do before: the difference is whether the
+form is filling in something that has an id yet, and the entry's own words are the name either way. It
+happens on the entry's save rather than the list's, because that is the moment this screen has. The
+fields arrive with the choice: picking Inventory on an open form shows them there and then, and picking
+something else takes them away again - waiting for a save and a reopen made the feature unreachable
+without knowing it was there.
+
+Which storage a list is measured against is set in its editor, under **About this list**, for any list
+rather than only a group one - an entry describing a product has to be able to say which shelf it goes
+on. The picker offers every storage, the ones other lists already measure included - a store serves as many
+jobs as it holds things for - and marks those as shared. A shelf several lists ask for is split between
+them in proportion to what each asks for, so each list is told its own share rather than being told the
+last bag is theirs (see `StockRequirementCounter.ShareOfTheShelf`). The tie can be made from either end:
+a warehouse's editor carries a checklist of the lists measured against it. "Generate inventory" is still
+refused to a list that already has one: it would build a second and quietly move the list onto it,
+leaving the first with nothing pointing at it.
 
 `POST /api/tasks/{id}/inventory` goes the other way: it builds the shelf the work needs - one entry per
 distinct thing, **each carrying how many the job needs as its minimum**, and starting with whatever the
@@ -846,8 +1225,10 @@ Opening `/inventory` without searching costs nothing extra.
 
 The phone's inventory screen answers the same question (`InventoryViewModel.ShowMatchingItems`), and has
 less to do about it: every warehouse's items came down with the warehouse, so there is nothing to fetch
-and nothing to cache. A private warehouse is one this phone cannot open at all, and is named in the same
-summary for the same reason.
+and nothing to cache. A private warehouse is searched like any other once this device can open it and
+private things are unlocked; one it cannot look inside — no key for it, or the device lock still on — is
+**counted** in the same summary for the same reason, rather than named, since the name is one of the
+things being kept back.
 
 A shelf is read back in the order somebody arranged it (`InventoryItem.Position`, set from the order the
 warehouse editor's rows arrive in, where they are dragged into place by their handles), then by name -
@@ -954,13 +1335,243 @@ product goes low, and how many are short when a task list comes up short. Entrie
 product rather than the whole line, so raising one for eight after one for five does not put a second
 copy on the list.
 
-Crossing an errand off brings its item up to that level - saying it once, on the list, rather than twice.
-Only ever upwards: somebody who stocked more than the minimum keeps it, because finishing an errand is
-not a claim about how much is there beyond it.
+**An errand is a kind, not a sentence.** A restock entry is a `TaskItem` whose `Kind` is `Inventory` and
+which carries `LinkedInventoryItemId` - the shelf item it is about. Orbit used to recognise these entries
+by reading their own description back, parsing "Restock: " and a product name out of it, which meant
+renaming a product broke the connection and two products differing only by punctuation were the same
+errand. The description is now what a person reads; the link is what Orbit acts on. Entries written
+before the link existed are still matched by the product name in their description, so nothing has to be
+migrated by hand.
+
+**Crossing an errand off settles it: the shelf comes up to the level it is meant to hold, and the errand
+leaves the list.** Both halves matter. Only ever upwards - somebody who stocked more than the minimum
+keeps it, because finishing an errand is not a claim about how much is there beyond it. And it leaves,
+because it is no longer something missing: a list that accumulates permanently crossed-off lines is a
+list that stops being read. The shelf item's pointer to the entry is cleared at the same time, or the
+next time that product went low Orbit would look up an entry that no longer exists.
+
+**The two halves no longer happen in the same breath.** The shelf fills on the save
+(`TopUpFinishedAsync`); the errand leaves on a refresh a few minutes later, which the checklist asks
+for five minutes after the last tick. Removing it immediately meant a row answered a tap by vanishing,
+and a tap on the wrong row could not be undone by untapping it - there was nothing left to untap. The
+delay measures from the *last* tick rather than each one, because somebody working down a list ticks
+six things in a minute and does not need six refreshes; it is also when they have stopped, and might
+look back.
+
+`RestockCompletion.ReconcileAsync` does all of it, and is safe to run twice - which is what lets it run
+in two places. It runs on that refresh, and again **when the list is
+opened** (`POST /api/tasks/{id}/restocking/reconcile`, asked for by `TaskListChecklist.razor` and by the
+phone's `TaskListDetailViewModel`), which is what clears errands that were ticked off before Orbit did
+any of this. Both clients ask, and on opening rather than on ticking: a list that settled itself in a
+browser and quietly did not on a phone would behave differently depending on which client last looked
+at it, with the shelf left un-topped-up in between. An errand whose product has since
+been deleted still leaves the list: there is nothing left to bring back.
+
+**What the list asks for is the warehouse's choice.** Two settings at the bottom of the warehouse editor
+(`GET`/`PUT /api/warehouses/{id}/restock-list/settings`):
+
+- **What goes on it.** By default the list answers "what is running out": everything on the shelf below
+  its own minimum. Ticked, it answers a different question - "what do I need before Thursday" - and holds
+  only products some task with a **due date** is waiting on. A product below its minimum that nothing is
+  waiting on is left off, and so is one something wants with no date, because without a date there is
+  nothing to be early or late for.
+- **When it comes round.** Nine in the morning was a constant; it is now the default. Changing it moves
+  the standing reminder, since a field that changed nothing would look like a field that does nothing.
+
+Changing either rebuilds the list to match (`RestockListRefresh`), and **Refresh**
+(`POST /api/warehouses/{id}/restock-list/refresh`) does the same rebuild against settings that have not
+changed - what somebody presses when the world moved rather than the settings. It replaced a button that
+used to sit on the checklist's menu, "Recalculate against the inventory", which did half of something
+else and did not answer the question somebody has in front of a restock list.
+
+**The phone offers the same one**, in the stock check beside the list's warehouse picker, and stopped
+offering the button it replaced. Until it did, the two clients disagreed about what the menu over a
+restock list even contained.
+
+**An errand says where it came from and where else it is being asked for.** Under each one the checklist
+draws up to two links (`GET /api/tasks/{id}/inventory-references`): the warehouse the product sits in,
+and - when a second list carries an errand about the same product - that list. Following either opens the
+target with `?highlight={id}`, and the row it names is drawn highlighted, so arriving on a page of fifty
+rows lands on the one that was linked rather than at the top. Neither link is stored on the task list:
+the shelf item lives in a warehouse, and the other lists are a fact about the whole account, so both are
+looked up when the screen asks rather than carried on every read of every list.
 
 Crossing off "Update stock levels" while errands are still open asks whether the whole round is done.
 Yes (`POST /api/tasks/{id}/restocking/finished`) finishes the list and brings every item in the warehouse
-up to its minimum; the reminder is finished with it, and `RemindDaily` brings it back tomorrow.
+up to its minimum; the errands then leave it as they would one at a time, the reminder is finished with
+them, and `RemindDaily` brings the reminder back tomorrow.
+
+### Editing the shelf from the list
+
+A restock errand carries the whole shelf item it names - amount, minimum, unit, product type, category,
+expiry and its notification channel - in the task editor, behind the entry's own toggle. That is what
+the kind and the link were for: the row already knows which product it means, so correcting the amount
+should not mean opening the warehouse in another tab and finding it again.
+
+Saving the list writes the change back to the warehouse and then rebuilds that warehouse's restock list,
+because a corrected amount can settle an errand or raise one. The list is saved first and the shelf
+second: if the shelf write fails the list is still saved, and the screen says so.
+
+**Expiry is asked as how long something keeps**, not as the day it stops keeping - "2 weeks", not the
+14th (`ExpiresInField` in the browser, the same two boxes on the phone's shelf editor). A date is still
+what gets stored, because the expiry reminder needs one and "in two weeks" is not something a background
+service can compare against; what changed is only the asking. An item that already has a date says how
+long is left, in the coarsest unit that lands on it exactly.
+
+The rule turning one into the other is `ExpiryPeriod` in `Orbit.Core`, shared rather than written twice:
+a phone reading "14 days" where a browser reads "2 weeks" would be two clients disagreeing about one
+row. Months and years are asked of the calendar rather than divided out of a day count - three months
+from the 30th of August is 92 days, which divides by neither 30 nor 7, so a length set in months used to
+read back as "92 days".
+
+### What an entry's form offers
+
+The row itself reports rather than sets: what the entry says, whether it is done, when it is due, and -
+for anything that is not an ordinary checklist entry - what kind it is. Everything editable waits behind
+the toggle, because a list of thirty items was thirty rows of boxes.
+
+Behind it, four fields every entry has - **type, due date, due time, move to list** - and then fields
+that depend on the type:
+
+| Kind | What it also carries |
+| --- | --- |
+| Checklist | Link to list, overdue notification, remind daily and its channel and hour |
+| Inventory | The shelf item itself - see above |
+| Calendar | The event's own form - see below |
+
+**A Calendar entry is the appointment, not a pointer at one.** It carries the event's own fields -
+description, start and end, all-day, repeats, a reminder, a colour - and **saving the list makes the
+event**; nothing has to be linked by hand. The events are written before the list itself, so an entry
+carries its event's id when the list is saved rather than in a second write, and a failure there stops
+the save instead of leaving entries pointing at appointments that were never made. Opening a list reads
+each linked event back into its entry, so saving again keeps them in step rather than overwriting them
+with an empty form.
+
+**An entry that already has an event cannot quietly stop being one.** Changing its type is refused, with
+the entry named. Orbit cannot settle that on its own: deleting the event would throw away something that
+may since have been edited in the calendar, and keeping it leaves an appointment nothing points at. So
+the save stops and hands the choice back - **Detach from the event** stops the entry being that event
+without destroying it, and the type is free to change afterwards.
+
+The place named on a calendar entry stays on the entry. The calendar's own location is coordinates first
+(`EventLocationRequest`) and the map overlay deliberately hands back an address rather than a pin, so
+there is nothing to build one from here; the screen says so rather than dropping it quietly.
+
+**A daily reminder needs an hour.** Saving refuses without one rather than sending it at midnight - an
+hour nobody chose is worse than being asked for one. An entry loaded at exactly 00:00 reads as one with
+no hour set: the wire carries a plain `TimeOnly` and cannot say "none". **Both clients read it that
+way.** The phone needed one thing the browser did not: its picker cannot be empty, so an hour shown
+from the start would be one somebody accepts by not touching it - which records nothing and leaves the
+refusal standing. There the picker appears only once an hour exists, and a button puts one there.
+
+### Naming a place in your own words
+
+The address box beside a map pin is the reader's to write. It always was, and behaved as though it was
+not: every confirmed pin overwrote whatever was in it with a street address, so correcting
+"ul. Krucza 16/22" to "the back entrance" lasted until the next click on the map.
+
+The pin always moves; the name only follows it when it is still the one the map gave. **The coordinates
+are untouched by anything typed there** - they are what the Google Maps link and the directions are built
+from, and the name is only what the place is called. The event editor offers the map's own address back
+for somebody who renamed a place and then wanted the street after all.
+
+**The phone had already landed here**, by a different route. It has no map pin to move: a place there is
+the phone's own position, taken on purpose, and its calendar screen has always filled the name only when
+the box was empty. Its task entries carry a name and no point at all, so the map's answer has nowhere
+else to go and must land in the name - which is why the picker asks before answering rather than writing
+on every tap. What was missing was only saying so, which the screen now does.
+
+### Which build this is
+
+The footer says `ver:0.1.17+gitHash:51536f3`, and pressing it grows the rest of the hash - the short form
+is what anybody reads, the whole one is what a `git checkout` takes, and asking for it should not mean
+going somewhere else. The phone's **About** row says the same thing and behaves the same way when tapped.
+
+**The hash goes to the accounts holding `Debug`, and to nobody else.** Every build reads its own commit
+off itself whatever configuration it was made in - a deployed footer that cannot answer "which code is
+this" is a footer with no reason to carry a hash at all - and the *showing* is what is gated. Somebody
+without the permission sees `ver:0.1.17` and nothing to press: the number is what a bug report needs and
+what the update gate compares, while which commit it was cut from is detail about Orbit's own insides.
+All three ends apply the one rule: the server leaves the hash out of its answer rather than sending it
+to be hidden (`ConfigEndpoints`), the browser's footer drops it with `OrbitVersion.WithoutTheCommit()`,
+and the phone's About row does the same - it was the half still showing it to everybody.
+
+**Both versions are shown, the client's and the server's**, because they can differ:
+
+- The pipeline deploys `orbit-api` and `orbit-web` from one commit but **rolls each back on its own**, so
+  an API that fails its health check leaves the web client new and the server old.
+- A browser holding a cached Blazor client is the same drift by another route.
+- The phone is released separately and updated whenever its owner chooses - which is the whole reason the
+  version gate exists.
+
+So the footer and the About row carry a second entry, `api ver:0.1.17+gitHash:…`, read from
+`GET /api/config/version`. A released **server** sends no hash at all rather than sending one the client
+then hides: what is not sent cannot be read off the wire. When the server cannot be reached the entry is
+simply absent - an offline footer knows nothing about it and should not guess.
+
+**The number reads `version.patch.build`, and the three parts answer three different questions.**
+
+- **version** - the move to production. Orbit runs on a test environment today: publicly reachable, but a
+  test one. The day it moves to its own address this becomes `1`, and nothing else raises it.
+- **patch** - a milestone, raised by hand when somebody decides one has been reached. Deliberately not
+  derivable from anything: "far enough to matter" is a judgement, not a count.
+- **build** - nobody maintains this one. It is the count of distinct days on which a commit landed **on
+  main** touching that project (`ci/compute-version.sh`), since either number above was last changed. A
+  day with five commits counts once, a day whose commits went nowhere near the project does not count at
+  all, and the same commit always numbers itself the same.
+
+The first two live in `version.props` - a file that holds nothing else, and that is the point. The build
+count restarts at whatever commit last changed that file, so the file has to mean "a version bump" and
+nothing more. It used to live in `Directory.Build.props` alongside the warnings settings, and turning
+warnings into errors silently restarted the count, which is not a version bump by any reading.
+
+Counting against **main** rather than against whatever is checked out is what makes the number a claim
+about what has shipped. Commits on a branch have not shipped, so a build from a branch reports the number
+main would - which is what lets a local build be compared against a released one at all.
+
+It is counted **per project**, which is the point of counting it at all: a day that changed the phone and
+not the web client raises one and not the other. Each client counts the shared projects it compiles as
+its own, since a change to `Orbit.Core` is a change to every app built from it.
+
+The number is stamped into the assembly at build time as its informational version and read back at
+runtime (`OrbitVersion`), each client reading **its own** assembly. A build nobody stamped - a local
+`dotnet run`, a local `docker compose build` - says `0.0.0-dev` rather than inventing a number that looks
+real, because this is the string somebody pastes into a bug report.
+
+**An unstamped build still knows which commit it is.** The SDK writes its own `1.0.0` default next to
+the real `HEAD`, so a local build reads as `0.0.0-dev` and keeps the hash. That matters because the
+hash is the whole point of the line while debugging: nobody compares `0.0.0-dev` against anything,
+they are asking which code is running. Discarding the commit along with the number left a Debug build
+showing no hash and a footer that could not be opened - the one case the hash exists for.
+
+The Android release carries it twice over: `-p:InformationalVersion` for the About row, and the file name
+itself - **`orbit-android-0_1_32v.apk`**, so a download says which build it is without anybody opening
+it. It is also published under the fixed `orbit-android.apk` the download page links to, so that one
+address keeps working without the page being edited every release.
+
+### Names you have already used
+
+The four fields where the same thing gets typed twenty ways - a task list's title, a task item, a
+warehouse's name, a product - offer what the reader already has as they type
+(`GET /api/suggestions/names?kind=…`, `NameSuggestions.razor`). Picking one fills the field.
+
+**The phone offers the same thing under two of the four** (`Orbit.Mobile`'s `NameSuggestions`, drawn by
+`NameSuggestionChips`): a product's name and an errand's description, which are the two the feature
+exists for. It offers them under the box a new one is typed into as well as in the editor, because on a
+phone that box is where names are actually written - the editor is mostly for changing one that exists.
+A list's title and a warehouse's name are not offered there yet. When what is
+being typed is close enough to an existing name to be the same thing spelled differently, the control
+says so out loud - "You already have «Mleko 2%»" - because the moment a duplicate is about to be created
+is the only cheap moment to avoid it.
+
+This is a **similarity search over the reader's own rows**, not a language model: PostgreSQL's `pg_trgm`
+answers it in milliseconds for nothing, and answers it better, since a model does not know what is in
+this warehouse and would invent plausible names instead of offering real ones. Four GIN indexes make it
+cheap enough to run while somebody types. Nothing is asked for under two characters, and nothing is asked
+for when a screen merely opens holding saved values - suggestions are about what is being typed. Private
+notes and private task lists are left out entirely: their names are sealed client-side, so there is
+nothing readable to suggest from. See [Orbit Assistant — Plan](ai-assistant-plan.md), where this is
+step 1 and the reasoning behind it is written down.
 
 ## Calendar
 
@@ -1294,6 +1905,157 @@ The three triggers:
   that links to another task list (see [Tasks](#tasks) above) is excluded from this check, since its true
   completion depends on the list it links to, not its own stored (always-false) completion flag.
 
+## Putting a conversation away
+
+`PUT /api/chat/conversations/{otherUserId}/archived` and `PUT /api/chat/groups/{groupId}/archived`,
+both taking `{ "isArchived": true }`.
+
+**Archiving is one-sided, and that is the whole point.** Nothing is deleted, nobody leaves, and the
+other party is told nothing - their list has its own row and its own answer. A group's flag lives on
+the *membership* rather than the group, so an admin tidying their own list cannot take the group off
+anybody else's, and archiving needs no rank at all: deciding to stop looking at something is not a
+moderation act.
+
+A member who archives a group is still in it and still receives what is posted. Leaving is the other
+thing, and this is not it.
+
+Both answer 404 when the caller has no such conversation - which for a group covers both "no such
+group" and "you are not in it", because from the caller's side those are the same fact.
+
+The change is announced to that account's **other devices** only (see
+[Live updates](#live-updates)): a conversation put away on a phone should not still be in the way on
+the laptop, and nobody else's screen changed.
+
+**The phone offers all three as of 2026-09-01.** Each list - people, groups - carries its own switch to
+what has been put away, shown only once something is there, and each row's menu offers putting it away,
+bringing it back, and the thing that is not reversible: emptying a conversation, or leaving a group,
+each behind a question first. Emptying also drops what the phone had cached, because a pull only ever
+adds and the server has nothing left to send that would take those words away.
+
+**And the other half of arranging a list: pinning.** A conversation kept at the top stays there whatever
+the last message said, on the device that pinned it and nowhere else - the browser has kept its own
+since it had a list to keep, and the phone had no way to. People and groups share one set of pins
+(`ConversationPins`, `IConversationPinStore`): an id means one conversation whichever kind it is. Pinned
+rows are lifted rather than taken out, so unpinning finds the row back where the sort would have put it,
+and the archive is left in the order it has - keeping something at the top of the day is the opposite of
+what putting it away said. The row says it is pinned in a word as well as a mark, since a mark is
+nothing to somebody who cannot see it.
+
+## Saying nothing about a field
+
+Descriptions on a task list and a warehouse, and a shelf item's regular-check flag, are all optional on
+the way in: **null means "not provided" and keeps what is stored; an empty string, or false, means the
+caller really said so.**
+
+This exists because a save replaces what it touches wholesale and the two clients learn about a field at
+different times - the browser deploys with the server, the phone whenever somebody installs it. Without
+the distinction, an older phone returning a row it does not fully understand would erase a description
+written on the web, which is the shape of bug this codebase has already had three times (a calendar
+entry's place, the phone's event place, and every entry's kind when a checklist box was ticked).
+
+The cost is one distinction to keep in mind. What it buys is that the two clients never have to ship in
+lockstep for a new field to be safe.
+
+On the way **out** these fields are always sent, so a reader never has to guess.
+
+## Live updates
+
+The web client holds one WebSocket open to the API and is told when something changed, instead of
+asking. It replaced polling that ran **four requests a second per open chat** (a message read, a
+conversation's approval state, a read receipt, and every tenth tick the whole contact roster), a
+notification poll every ten seconds, and a presence heartbeat every twenty.
+
+**What travels over it is an announcement, never the thing that changed.** The server says "your chat
+changed" and the client answers with the same API call its timer used to make. This is the design, not
+a shortcut:
+
+- Chat messages are end-to-end encrypted. A connection that carried content would need a plaintext the
+  server does not have, so the announcement carries none and the server stays exactly as ignorant as it
+  was.
+- Nothing new is readable. The client fetches over the endpoints it already used, behind the guards
+  those already have — the hub adds no read path of its own.
+- A dropped announcement costs a delay, never a message. The answer to every announcement is "read
+  again from the cursor you already hold", so hearing it late, twice, or not at all is harmless.
+
+**The polls are still there, and deliberately so.** They slow down while the connection is up (chat 1s →
+20s, notifications 10s → 60s) and snap back the moment it drops. Announcements are best-effort, and a few
+things genuinely have no moment to announce — most notably somebody going *away*, which happens by time
+passing with nothing calling anything (see `UserPresence.StatusAt`). A chat that silently stopped
+updating because one announcement was lost would be a far worse bug than one that takes twenty seconds
+in a rare case.
+
+| | Announced | Still only found by the slow poll |
+|---|---|---|
+| Chat | a message sent or edited or deleted, in a conversation or a group; a read receipt; a conversation approved; a group made, joined, left, or a role changed in one; history shared with a new member | nothing that changes what is on screen |
+| Notifications | anything recorded in the feed, from any trigger; and anything read or cleared, so this account's other devices hear it | a change to the notification settings themselves |
+| Presence | somebody arriving, somebody choosing "do not disturb" | somebody ageing to away or offline |
+
+Who each one goes to is the part worth stating, because getting it wrong is invisible: an announcement
+sent to the wrong account raises nothing anywhere, and the client that needed it simply falls back to
+its slow poll. Two are easy to get backwards. A **read receipt** is the *other* party's news - the
+reader already knows they read it. A **removal from a group** goes to the person removed as well as to
+the people left, because otherwise the group stays in their list and they will write to it.
+
+Presence keeps its old rule exactly: the beat stops while the tab is in the background, because a tab
+left open behind thirty others is not somebody there to answer. The connection staying open does **not**
+on its own keep an account looking available — the client reports being at the keyboard, and declining to
+report is what lets the account age.
+
+**The phone holds the same connection, and only while it is in front.** Started and stopped with the
+window, the way its presence heartbeat already was: a socket held open behind a locked screen is one
+Android drops in Doze anyway, and what it would have carried is exactly what push already delivers. So
+the connection speeds up the app somebody is looking at, and push covers the app they are not. Its chat
+polls slow from 5s and 10s to 30s while it is up and snap back when it drops; the unread badge and the
+notification feed hear about the feed changing instead of waiting for the next screen to be opened; and
+the presence heartbeat goes over the connection when there is one — a frame instead of a handshake and a
+round trip every twenty seconds — falling back to the request when there is not.
+
+The phone does not listen for `PresenceChanged`: it shows nobody else's presence yet, so there would be
+nothing to redraw.
+
+### How it is put together
+
+| Piece | Where | What it is for |
+|---|---|---|
+| `ILiveUpdatePublisher` | `Orbit.Core.LiveUpdates` | What the domain calls. Knows nothing about WebSockets — the same separation `IPushNotificationSender` gives push. |
+| `SilentLiveUpdatePublisher` | `Orbit.Core.LiveUpdates` | The default, so every call site can announce unconditionally. |
+| `LiveUpdatesHub` | `Orbit.Api.LiveUpdates` | The connection. Almost empty: the only thing coming *up* it is presence. |
+| `SignalRLiveUpdatePublisher` | `Orbit.Api.LiveUpdates` | Delivers announcements, swallowing its own failures — a sent message must not fail because a socket was reconnecting. |
+| `SubjectClaimUserIdProvider` | `Orbit.Api.LiveUpdates` | Which account a connection belongs to. |
+| `LiveUpdatesConnection` | `Orbit.Web.Services` | One connection for the whole app; pages subscribe while they are on screen. |
+
+**Two things here fail silently, and both have tests of their own.**
+
+The first is the claim a connection is keyed on. SignalR looks for `ClaimTypes.NameIdentifier`; Orbit's
+tokens carry the account in `sub` and keep it there (`MapInboundClaims = false`). Read the wrong one and
+every announcement is addressed to nobody — no exception, no log, just an app that quietly polls exactly
+as it did before.
+
+The second is nginx. A WebSocket handshake is an HTTP/1.1 `Upgrade`, and nginx proxies as HTTP/1.0
+unless told otherwise, which strips it. SignalR survives that by falling back to long polling, so
+leaving `proxy_http_version 1.1` out does not break anything visible: the live connection simply never
+happens. Both configs carry it, and both go through the same `/api/` location the phone uses.
+
+### The access token in the URL
+
+A browser cannot put an `Authorization` header on a WebSocket handshake — the WebSocket API has no way
+to set one — so the token goes in the query string, which is what SignalR does and what `OnMessageReceived`
+reads. It is accepted **only** on the hub's own path; nowhere else in the API takes a credential that
+way.
+
+A token in a URL is a token in access logs, so nginx stops logging the query string for that one path
+(`map $uri $orbit_logged_request`). Everything else still logs what it asked for.
+
+### Before this scales past one replica
+
+`orbit-api` runs at `max-replicas 1`, and the hub's delivery depends on it. SignalR keeps its connection
+registry in the process's own memory, so with two replicas an announcement raised on one reaches only the
+clients connected to that one — the rest hear nothing and fall back to their slow poll. Nothing errors.
+
+Raising `max-replicas` therefore needs a backplane (Azure SignalR Service, or Redis) added at the same
+time. There is also a cost consequence worth knowing: `orbit-web` is set to scale to zero when idle, and
+a client holding a connection open is not idle, so it will stop scaling to zero once this is in use.
+
 ## In-app notifications
 
 Every push/email trigger above (the three under [Push notifications](#push-notifications), plus a
@@ -1356,7 +2118,12 @@ and each chat contact's avatar. A section's count is simply how many unread entr
 its prefix (`/tasks`, `/calendar`, `/inventory`, `/chat`), so a reminder shows up on the thing it is
 about. Chat subscribes to the same state instead of polling again. The poll also refreshes settings, so a
 change made on Options takes effect within one interval; when the unread count has just gone up and
-`AllowMobileBanner` is on, it shows the newest entry as a toast fixed to the top of the viewport.
+`AllowMobileBanner` is on, it shows the newest entry as a toast fixed to the top of the viewport. The
+phone reads the same three settings for its own banner (see
+[the foreground banner](orbit-maui-plan.md)) and, as of 2026-09-01, offers them: its Settings screen
+edits `AllowMobileBanner`, both banner timings and `RetentionDays` alongside the channel switches it
+already had. `ShowExceptionDetails` stays browser-only, since it governs what Orbit.Web prints on the
+page and nothing on the phone reads it.
 
 **A person with a message waiting is marked wherever that person appears** — the chat page's own
 conversation list, the contact list, and the dashboard's "Recent chats" card — all through one
@@ -1387,3 +2154,76 @@ environment-driven flag, the same shape as the existing VAPID public-key endpoin
 never be talked out of via a stored per-account preference. Options.razor's own "Diagnostics" section
 (the "Show exceptions" switch) is likewise only rendered at all when the server reports it's not running
 in Production.
+
+### The bell, and what it counts
+
+Notifications are their own button in the bar on both clients as of 2026-09-01, left of the avatar and
+carrying the unread count - 0 draws nothing, 1 to 9 draw themselves, anything above draws "9+". It was
+a badge on the avatar before, and a menu entry behind it: **a count on a face says "you", not "unread"**,
+and reaching the panel meant opening a menu first, which is two steps for the one thing people check
+most. What is left in the avatar menu are the places somebody goes once - status, the language, the
+app's own settings, signing out.
+
+### A link opened on a phone
+
+A public link is an ordinary web address (`https://<host>/s/<token>`), and on a phone with Orbit
+installed Android hands it to the app instead of a browser: the app declares an intent filter for that
+path on the deployment's own host, and the same screen the browser would have shown appears inside
+Orbit - what was shared, who shared it, and one button to keep a read-only copy. It is the same
+destination pipeline a tapped notification travels (`NotificationDestination`), so there is one way into
+the app from outside it rather than two.
+
+The host is fixed when the app is built, from the deployment address it is already given
+(`OrbitShareLinkHost`, defaulting to the host of `OrbitApiBaseAddress`) - an intent filter is an
+attribute and takes compile-time constants, and a filter with no host would offer Orbit for every link
+on the phone. A build told no address gets a name that can never resolve.
+
+**Two halves are needed for a link to route on its own.** The app declares the filter with
+`autoVerify`; the deployment has to serve `https://<host>/.well-known/assetlinks.json` naming the app's
+package and the certificate the installed build was signed with. `orbit-web` writes that file at
+startup from `ANDROID_APP_SHA256` (see `write-android-app-links.sh`) and writes nothing when it is
+unset, which is the ordinary state for a local stack. Without it, Android 12 and later open the link in
+a browser and the reader has to allow the app by hand under Settings > Apps > Orbit > Open by default -
+the app half is complete either way, and was checked on an emulator with the domain approved.
+
+The fingerprint to set it to is the release keystore's, printed by the command the keystore's own notes
+already document for the Maps key, reading `SHA256` where that one reads `SHA1`. It is not a secret:
+Android hands it to every device that installs the app.
+
+Following a link, like following a notification, waits for an account: the app holds the destination
+and opens it once somebody is signed in, rather than showing a stranger's shared item over a signed-out
+app. Signing in now goes on to whatever was waiting instead of always landing on the dashboard.
+
+## The home screen widget (Android)
+
+A 3 × 2 widget showing the day and the few things still ahead in it: today's appointments that have
+not finished, and what falls due today and is not done, in the order they happen. Four lines fit;
+anything past that is counted rather than dropped ("2 more"). Tapping a line opens Orbit on it - an
+appointment on the calendar, an errand on the list it is ticked off on - through the same paths a
+tapped notification travels (`NotificationDestination`), so there is one way into the app from
+outside it rather than two.
+
+What it shows is `TodayAtAGlance` (`Orbit.Mobile.Widgets`), which is where the rules live and is
+covered by tests; `OrbitTodayWidget` (`Orbit.Maui/Platforms/Android`) is the drawing. Two rules are
+about the home screen specifically rather than copied from any screen:
+
+- **Nothing private is ever named.** A widget is on show to whoever is holding the phone, and on most
+  Androids to whoever can see the lock screen, with no unlocking in between. The gate that guards
+  private items inside the app (see [Private notes and task lists](#private-notes-and-task-lists)) has
+  no equivalent out there, so private lists are left off rather than hidden behind it.
+- **A phone nobody is signed in on shows no day at all**, only "Open Orbit to see your day". Signing
+  out clears the session but leaves the local database, so a widget reading it would go on showing the
+  previous account's day to the next person holding the phone.
+
+None of the app is running when the widget is drawn: the launcher asks for it in a broadcast that can
+arrive with no MAUI application, no service container and no session in memory. It reads the local
+database itself, through the secure store and the database file - the two things that outlive the app
+being closed - rather than a snapshot the app left behind, because "today" has a different answer every
+midnight and a snapshot taken at nine in the evening is wrong by morning. Android redraws it every half
+hour, which is what makes it right after midnight without the app being opened at all, and Orbit asks
+for a redraw itself whenever it is put down, which is the update carrying whatever just changed.
+
+It follows the system's light or dark mode rather than the theme chosen inside Orbit: a widget is drawn
+in the launcher's process, and the app's own choice is not something it can see.
+
+There is no iOS counterpart yet - see [Orbit.Maui — Plan](orbit-maui-plan.md), phase 8.

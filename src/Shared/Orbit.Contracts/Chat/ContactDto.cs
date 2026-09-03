@@ -17,4 +17,12 @@ public sealed record ContactDto(
     /// "Offline" - see Orbit.Core.Users.PresenceStatus. Resolved when the list is read, so it ages the
     /// moment it arrives; the chat list already refreshes on a poll, which is what keeps it current.
     /// </summary>
-    string PresenceStatus = "Offline");
+    string PresenceStatus = "Offline",
+    /// <summary>Put away by this reader - see Orbit.Core.Chat.Contact.IsArchived.</summary>
+    bool IsArchived = false,
+    /// <summary>
+    /// Whether this address is one Google itself has verified, which it is for an account signed in
+    /// with Google - see Orbit.Core.Users.User.GoogleSubjectId. Guards what Orbit hands to Google:
+    /// an invitation in GoogleCalendarEventLink only carries the guests Google can actually reach.
+    /// </summary>
+    bool HasGoogleVerifiedEmail = false);

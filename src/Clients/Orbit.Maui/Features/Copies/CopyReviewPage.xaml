@@ -1,0 +1,123 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<ContentPage
+    x:Class="Orbit.Maui.Features.Copies.CopyReviewPage"
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    xmlns:controls="clr-namespace:Orbit.Maui.Controls"
+    xmlns:copies="clr-namespace:Orbit.Maui.Features.Copies"
+    xmlns:screens="clr-namespace:Orbit.Mobile.Screens.Copies;assembly=Orbit.Mobile"
+    x:DataType="screens:CopyReviewViewModel"
+    Title="{controls:Translate 'Copies to review'}">
+
+    <Grid RowDefinitions="Auto,*,Auto">
+
+        <Grid Grid.Row="1" RowDefinitions="Auto,*" Padding="20" RowSpacing="12">
+
+            <VerticalStackLayout Grid.Row="0" Spacing="10">
+                <controls:PageHeader Title="{controls:Translate 'Copies to review'}">
+                    <controls:PageHeader.Subtitle>
+                        <controls:Translate Text="What you wrote while you were offline, beside what it came from." />
+                    </controls:PageHeader.Subtitle>
+                </controls:PageHeader>
+
+                <Label Text="{Binding Message}" IsVisible="{Binding HasMessage}" FontSize="12"
+                       LineBreakMode="WordWrap" TextColor="{DynamicResource Accent}" />
+
+                <Label Text="{controls:Translate 'Nothing to review.'}" IsVisible="{Binding HasNothingToReview}"
+                       Style="{StaticResource SubtleLabel}" HorizontalOptions="Center" Margin="0,20,0,0" />
+
+                <Button Text="{controls:Translate 'Back'}" FontSize="13" Padding="8,4" HorizontalOptions="Start"
+                        Style="{StaticResource LinkButton}" Command="{Binding GoBackCommand}" />
+            </VerticalStackLayout>
+
+            <CollectionView Grid.Row="1" ItemsSource="{Binding Reviews}">
+                <CollectionView.ItemTemplate>
+                    <DataTemplate x:DataType="screens:CopyReviewRow">
+                        <Border Style="{StaticResource CardBorder}" Margin="0,0,0,12" Padding="14">
+                            <VerticalStackLayout Spacing="8">
+                                <!-- One screen holds all four kinds, so each card says which it is - and
+                                     tapping the title opens the copy, for a reader who wants to read the
+                                     whole of it before choosing. -->
+                                <VerticalStackLayout Spacing="1">
+                                    <Label Text="{Binding Title}" FontSize="17" FontAttributes="Bold" />
+                                    <Label Text="{Binding KindDescription}" FontSize="11"
+                                           Style="{StaticResource SubtleLabel}" />
+                                    <VerticalStackLayout.GestureRecognizers>
+                                        <TapGestureRecognizer
+                                            Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=ViewModel.OpenCommand, x:DataType=copies:CopyReviewPage}"
+                                            CommandParameter="{Binding .}" />
+                                    </VerticalStackLayout.GestureRecognizers>
+                                </VerticalStackLayout>
+
+                                <!-- Said before the buttons rather than after: keeping one version here
+                                     throws the other away, and that is worth knowing before tapping. -->
+                                <Label Text="{controls:Translate 'This note was also changed elsewhere.'}"
+                                       IsVisible="{Binding HasConflict}" FontSize="12" LineBreakMode="WordWrap"
+                                       TextColor="{AppThemeBinding Light={StaticResource WarningLight}, Dark={StaticResource WarningDark}}" />
+
+                                <!-- Its owner deleted it while this phone was away, so there is nothing
+                                     left to choose between - only whether to keep what was written. -->
+                                <Label Text="{controls:Translate 'The original is gone - its owner may have deleted it. Do you want to keep your copy?'}"
+                                       IsVisible="{Binding IsOriginalGone}" FontSize="12" LineBreakMode="WordWrap"
+                                       TextColor="{AppThemeBinding Light={StaticResource WarningLight}, Dark={StaticResource WarningDark}}" />
+
+                                <Label Text="{controls:Translate 'Your copy'}" FontSize="12" FontAttributes="Bold"
+                                       Style="{StaticResource SubtleLabel}" />
+                                <VerticalStackLayout BindableLayout.ItemsSource="{Binding MyChanges}">
+                                    <BindableLayout.ItemTemplate>
+                                        <DataTemplate x:DataType="screens:DiffLine">
+                                            <Label Text="{Binding Display}" FontSize="13" FontFamily="Monospace"
+                                                   LineBreakMode="WordWrap" Style="{StaticResource DiffLineLabel}" />
+                                        </DataTemplate>
+                                    </BindableLayout.ItemTemplate>
+                                </VerticalStackLayout>
+
+                                <Label Text="{controls:Translate 'Changed elsewhere'}" FontSize="12" FontAttributes="Bold"
+                                       IsVisible="{Binding HasTheirChanges}" Style="{StaticResource SubtleLabel}" />
+                                <VerticalStackLayout BindableLayout.ItemsSource="{Binding TheirChanges}"
+                                                     IsVisible="{Binding HasTheirChanges}">
+                                    <BindableLayout.ItemTemplate>
+                                        <DataTemplate x:DataType="screens:DiffLine">
+                                            <Label Text="{Binding Display}" FontSize="13" FontFamily="Monospace"
+                                                   LineBreakMode="WordWrap" Style="{StaticResource DiffLineLabel}" />
+                                        </DataTemplate>
+                                    </BindableLayout.ItemTemplate>
+                                </VerticalStackLayout>
+
+                                <!-- Three answers and no more, which is the whole of the decision. Link
+                                     buttons: they are the point of the card, but three solid blocks of
+                                     accent colour under every card would read as the content. -->
+                                <!-- One answer when there is nothing to compare against. It keeps the
+                                     copy, which then stands on its own - tagged, and still in that
+                                     thing's history so its past is not lost with the original. -->
+                                <Button Text="{controls:Translate 'Keep my copy'}" IsVisible="{Binding IsOriginalGone}"
+                                        FontSize="12" Padding="6,4" HorizontalOptions="Start"
+                                        Style="{StaticResource LinkButton}"
+                                        Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=ViewModel.KeepBothCommand, x:DataType=copies:CopyReviewPage}"
+                                        CommandParameter="{Binding .}" />
+
+                                <Grid ColumnDefinitions="*,*,*" ColumnSpacing="6" IsVisible="{Binding IsDecidable}">
+                                    <Button Grid.Column="0" Text="{controls:Translate 'Keep mine'}" FontSize="12"
+                                            Padding="6,4" LineBreakMode="WordWrap" Style="{StaticResource LinkButton}"
+                                            Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=ViewModel.KeepMineCommand, x:DataType=copies:CopyReviewPage}"
+                                            CommandParameter="{Binding .}" />
+                                    <Button Grid.Column="1" Text="{controls:Translate 'Keep theirs'}" FontSize="12"
+                                            Padding="6,4" LineBreakMode="WordWrap" Style="{StaticResource LinkButton}"
+                                            Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=ViewModel.KeepTheirsCommand, x:DataType=copies:CopyReviewPage}"
+                                            CommandParameter="{Binding .}" />
+                                    <Button Grid.Column="2" Text="{controls:Translate 'Keep both'}" FontSize="12"
+                                            Padding="6,4" LineBreakMode="WordWrap" Style="{StaticResource LinkButton}"
+                                            Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=ViewModel.KeepBothCommand, x:DataType=copies:CopyReviewPage}"
+                                            CommandParameter="{Binding .}" />
+                                </Grid>
+                            </VerticalStackLayout>
+                        </Border>
+                    </DataTemplate>
+                </CollectionView.ItemTemplate>
+            </CollectionView>
+        </Grid>
+
+        <controls:NavigationBar Grid.Row="0" />
+        <controls:AvatarMenu Grid.Row="0" Grid.RowSpan="3" />
+    </Grid>
+</ContentPage>

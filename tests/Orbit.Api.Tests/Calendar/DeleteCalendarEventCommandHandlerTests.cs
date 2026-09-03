@@ -9,8 +9,7 @@ namespace Orbit.Api.Tests.Calendar;
 public sealed class DeleteCalendarEventCommandHandlerTests
 {
     private static readonly CalendarEventDetails DefaultDetails = new(
-        "Title", null, null, null, DateTimeOffset.UtcNow, DateTimeOffset.UtcNow.AddHours(1), false, null, [], [],
-        CreationNotificationChannel: NotificationChannel.None, ReminderNotificationChannel: NotificationChannel.None);
+        "Title", null, null, null, DateTimeOffset.UtcNow, DateTimeOffset.UtcNow.AddHours(1), false, null, [], [], ReminderNotificationChannel: NotificationChannel.None);
 
     [Fact]
     public async Task HandleAsync_deletes_an_event_owned_by_the_requesting_user()

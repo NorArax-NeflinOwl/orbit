@@ -126,7 +126,7 @@ public sealed class InventoryRepository : IInventoryRepository
             Enum.Parse<InventoryUnit>(entity.Unit, ignoreCase: true), entity.ExpiryDate,
             Enum.Parse<NotificationChannel>(entity.ExpiryNotificationChannel, ignoreCase: true),
             entity.PendingRestockTaskListId, entity.PendingRestockTaskItemId, entity.Position, entity.CreatedAtUtc,
-            entity.UpdatedAtUtc);
+            entity.UpdatedAtUtc, entity.IsCheckedRegularly);
 
     private static InventoryItemEntity ToEntity(InventoryItem item)
         => new()
@@ -138,6 +138,7 @@ public sealed class InventoryRepository : IInventoryRepository
             Category = item.Category,
             Quantity = item.Quantity,
             MinimumQuantity = item.MinimumQuantity,
+            IsCheckedRegularly = item.IsCheckedRegularly,
             Unit = item.Unit.ToString(),
             ExpiryDate = item.ExpiryDate,
             ExpiryNotificationChannel = item.ExpiryNotificationChannel.ToString(),

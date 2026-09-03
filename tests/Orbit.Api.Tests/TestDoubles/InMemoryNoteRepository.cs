@@ -39,6 +39,19 @@ internal sealed class InMemoryNoteRepository : INoteRepository
         return Task.CompletedTask;
     }
 
+    /// <summary>
+    /// Counted rather than performed - the real one writes three columns and leaves the rest of the row
+    /// alone, and what a test can check here is that a lock took this path.
+    /// </summary>
+    public Task UpdateLockAsync(Note note, CancellationToken cancellationToken)
+    {
+        LockSaves++;
+        return Task.CompletedTask;
+    }
+
+    /// <summary>How many times a lock was saved on its own - see UpdateLockAsync.</summary>
+    public int LockSaves { get; private set; }
+
     public Task DeleteAsync(Guid userId, Guid id, CancellationToken cancellationToken)
     {
         _notes.RemoveAll(note => note.Id == id && note.UserId == userId);

@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
+using Orbit.Core.Sync;
 using Orbit.Mobile.Data;
 
 namespace Orbit.Mobile.Sync;
@@ -9,8 +10,17 @@ public enum SendResult
 {
     Sent,
 
-    /// <summary>The server will never accept it. Dropped, and the next pull restores its version.</summary>
-    Abandoned
+    /// <summary>
+    /// There was nothing to send after all - the row was deleted locally first, or a create had already
+    /// succeeded. Dropped silently, because nothing was lost.
+    /// </summary>
+    Abandoned,
+
+    /// <summary>
+    /// The server took the request and would not have it. Dropped like <see cref="Abandoned"/>, and the
+    /// next pull restores its version - but somebody's edit went with it, so this one is said out loud.
+    /// </summary>
+    Refused
 }
 
 public sealed record ReplayResult(int Sent, int GivenUp);
@@ -28,16 +38,20 @@ public sealed record ReplayResult(int Sent, int GivenUp);
 public static class OutboxReplay
 {
     /// <summary>
-    /// After this many failures a queued change is dropped. Something the server refuses in a way that
-    /// looks retryable - a persistent 500 on one malformed row - would otherwise block every change
-    /// behind it forever, which costs far more than the one change being abandoned.
+    /// After this many <i>answered</i> failures a queued change is dropped. Something the server refuses
+    /// in a way that looks retryable - a persistent 500 on one malformed row - would otherwise block
+    /// every change behind it forever, which costs far more than the one change being abandoned.
+    ///
+    /// Answered is the whole of it: a phone with no signal has not been refused anything, and counting
+    /// that would delete somebody's work for having been out of range five times - see
+    /// <see cref="SyncFailure.WasAnswered"/>.
     /// </summary>
     private const int MaximumFailedAttempts = 5;
 
     public static async Task<ReplayResult> RunAsync(
         OrbitLocalDbContext dbContext, string entityType,
         Func<OutboxEntry, CancellationToken, Task<SendResult>> send,
-        ILogger logger, CancellationToken cancellationToken)
+        TimeProvider timeProvider, ILogger logger, CancellationToken cancellationToken)
     {
         var queued = await dbContext.Outbox
             .Where(entry => entry.EntityType == entityType)
@@ -58,7 +72,9 @@ public static class OutboxReplay
             {
                 // Offline again, or the server faltered. Stop here and keep this change and everything
                 // queued behind it - sending the rest out of order is worse than sending none.
-                givenUp += await RecordFailureAsync(dbContext, entry, logger, cancellationToken);
+                givenUp += await RecordFailureAsync(
+                    dbContext, entry, SyncFailure.WasAnswered(exception), timeProvider, logger, cancellationToken);
+
                 return new ReplayResult(sent, givenUp);
             }
 
@@ -68,6 +84,11 @@ public static class OutboxReplay
             }
             else
             {
+                if (result is SendResult.Refused)
+                {
+                    AnnounceAsDropped(dbContext, entry, timeProvider);
+                }
+
                 givenUp++;
             }
 
@@ -81,10 +102,62 @@ public static class OutboxReplay
         return new ReplayResult(sent, givenUp);
     }
 
+    /// <summary>
+    /// Writes down, where the reader will see it, that a change they made has been dropped.
+    ///
+    /// A log line is not telling anybody. This is somebody's work being thrown away to keep the queue
+    /// moving, and it is the one thing here that cannot be undone - so it goes into the feed, in the
+    /// same save as the deletion, and stays there until they clear it.
+    ///
+    /// No destination: there is nothing to open that would help. The change is gone, and a tap landing
+    /// on the thing as it now stands would suggest otherwise.
+    /// </summary>
+    private static void AnnounceAsDropped(
+        OrbitLocalDbContext dbContext, OutboxEntry entry, TimeProvider timeProvider)
+        => dbContext.Notifications.Add(new LocalNotification
+        {
+            Id = Guid.NewGuid(),
+            Kind = "ChangeDropped",
+            Title = "A change couldn't be saved",
+            Body = DroppedDescription(entry.EntityType),
+            Url = null,
+            CreatedAtUtc = timeProvider.GetUtcNow(),
+            IsRaisedHere = true
+        });
+
+    /// <summary>
+    /// One whole sentence per kind rather than a noun dropped into a shared one. Polish declines what
+    /// was refused, so "zmiany w notatce" and "…w liście zadań" cannot come from the same template -
+    /// the same reason the server writes its share notifications out one by one.
+    ///
+    /// Said as "couldn't save" rather than "kept refusing": a change is dropped either after five
+    /// answered failures or on the first answer that will never change (see WriteOutcome.Refused), and
+    /// "kept refusing" is untrue of the second - which is the commoner of the two.
+    /// </summary>
+    private static string DroppedDescription(string entityType)
+        => entityType switch
+        {
+            SyncEntityType.Note => "Orbit couldn't save a change to a note, so it is no longer waiting to be sent.",
+            SyncEntityType.TaskList => "Orbit couldn't save a change to a task list, so it is no longer waiting to be sent.",
+            SyncEntityType.CalendarEvent => "Orbit couldn't save a change to an appointment, so it is no longer waiting to be sent.",
+            SyncEntityType.Warehouse => "Orbit couldn't save a change to a warehouse, so it is no longer waiting to be sent.",
+            _ => "Orbit couldn't save a change, so it is no longer waiting to be sent."
+        };
+
     /// <summary>Returns 1 when the change was given up on rather than kept for another attempt.</summary>
+    /// <param name="wasAnswered">
+    /// Whether the server answered at all. Only an answer counts against the limit - see
+    /// <see cref="MaximumFailedAttempts"/>.
+    /// </param>
     private static async Task<int> RecordFailureAsync(
-        OrbitLocalDbContext dbContext, OutboxEntry entry, ILogger logger, CancellationToken cancellationToken)
+        OrbitLocalDbContext dbContext, OutboxEntry entry, bool wasAnswered, TimeProvider timeProvider,
+        ILogger logger, CancellationToken cancellationToken)
     {
+        if (!wasAnswered)
+        {
+            return 0;
+        }
+
         entry.FailedAttempts++;
         var givenUp = 0;
 
@@ -93,6 +166,7 @@ public static class OutboxReplay
             logger.LogWarning(
                 "Giving up on a queued {Operation} for {EntityType} {LocalId} after {Attempts} attempts",
                 entry.Operation, entry.EntityType, entry.LocalId, entry.FailedAttempts);
+            AnnounceAsDropped(dbContext, entry, timeProvider);
             givenUp = 1;
         }
 

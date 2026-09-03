@@ -1,8 +1,13 @@
-// Shows one point on a Leaflet map (loaded from the CDN in index.html, the same one the event editor's
-// picker uses). Read-only on purpose: this window displays a recorded location, it doesn't set one -
-// that comes from the device, via geolocation.js.
+// Shows points on a Leaflet map (loaded from the CDN in index.html, the same one the event editor's
+// picker uses). What it draws comes from elsewhere - a recorded position comes from the device, via
+// geolocation.js - and the one thing it reports back is where somebody pressed: a caller that hands in
+// a .NET reference is told about each click, which is how the map page turns a point into a pin.
 
 const mapInstancesByElementId = new Map();
+
+// Warsaw, and only for a map with nothing on it yet - the map page keeps its map on screen whether or
+// not anybody has recorded a position, so it needs somewhere to open. Matches mapPicker.js.
+const defaultCenter = [52.2297, 21.0122];
 
 /// Draws latitude/longitude with a marker labelled `label`, replacing whatever was on this element
 /// before. Async because it waits for the element to have a size first - see waitForSize.
@@ -12,7 +17,11 @@ export async function showLocation(elementId, latitude, longitude, label) {
 
 /// Draws several points at once and frames them all. Used when other people are sharing their position
 /// alongside the viewer's own: one map showing everyone beats one map each.
-export async function showLocations(elementId, points) {
+///
+/// `dotNetHelper` is optional. Given one, every press on the map is reported to it as
+/// `OnMapPressed(latitude, longitude)`; without one the map is read-only, which is what every other
+/// caller wants.
+export async function showLocations(elementId, points, dotNetHelper) {
     dispose(elementId);
 
     const element = document.getElementById(elementId);
@@ -20,44 +29,82 @@ export async function showLocations(elementId, points) {
         return;
     }
 
+    const drawn = points ?? [];
+
     // Leaflet measures its container once, at creation, and lays the tile grid out from that. Blazor
     // adds this element in the same render pass that calls in here, so measuring now would measure a
     // box the browser hasn't laid out yet - which leaves the tiles covering a corner of the map and the
     // marker outside them. Waiting for a real height costs a frame and avoids the whole problem, rather
     // than correcting it afterwards: invalidateSize fixes the size Leaflet believes in, but a setView
     // back to the same centre and zoom is a no-op, so the tile grid keeps its stale origin.
-    if (!points || points.length === 0) {
-        return;
-    }
-
     await waitForSize(element);
 
-    const map = L.map(elementId).setView([points[0].latitude, points[0].longitude], 14);
+    // An empty map is still a map: the map page keeps one on screen from the moment it opens, so
+    // somebody who has recorded nothing has somewhere to search rather than a blank panel.
+    const start = drawn.length > 0 ? [drawn[0].latitude, drawn[0].longitude] : defaultCenter;
+    const map = L.map(elementId).setView(start, drawn.length > 0 ? 14 : 6);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
         attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
         maxZoom: 19
     }).addTo(map);
 
-    for (const point of points) {
-        const marker = L.marker([point.latitude, point.longitude]).addTo(map);
+    for (const point of drawn) {
+        const marker = L.marker([point.latitude, point.longitude], iconFor(point.color)).addTo(map);
         if (point.label) {
             marker.bindPopup(point.label);
         }
     }
 
-    if (points.length === 1) {
+    if (drawn.length === 1) {
         // A single point is what the viewer asked to look at, so keep it centred and readable rather
         // than letting fitBounds pick an arbitrary zoom for a one-point box.
-        map.setView([points[0].latitude, points[0].longitude], 14);
-    } else {
-        map.fitBounds(points.map(point => [point.latitude, point.longitude]), { padding: [40, 40] });
+        map.setView([drawn[0].latitude, drawn[0].longitude], 14);
+    } else if (drawn.length > 1) {
+        map.fitBounds(drawn.map(point => [point.latitude, point.longitude]), { padding: [40, 40] });
     }
 
-    // Later size changes - a window resize, the sidebar collapsing - still need the map told about them.
+    if (dotNetHelper) {
+        map.on('click', event => {
+            // Wrapped before it leaves, for the reason mapPicker.js gives: the tile layer repeats the
+            // world sideways and Leaflet keeps counting past the antimeridian, so a click two worlds
+            // east of Warsaw arrives as longitude 741 rather than 21.
+            const { lat, lng } = event.latlng.wrap();
+            dotNetHelper.invokeMethodAsync('OnMapPressed', lat, lng);
+        });
+    }
+
+    // Later size changes - a window resize, a panel opening - still need the map told about them.
     const resizeObserver = new ResizeObserver(() => map.invalidateSize({ animate: false }));
     resizeObserver.observe(element);
 
     mapInstancesByElementId.set(elementId, { map, resizeObserver });
+}
+
+/// A pin in the colour the caller asked for, so a name in the list and its pin on the map are tied
+/// together by something the reader can see without clicking anything. Colours arrive as whatever CSS
+/// the caller wrote - a var(--accent) included, which resolves here because the pin is in the page.
+///
+/// Leaflet's own default icon is a fixed image, so a coloured one has to be drawn: a divIcon is a plain
+/// element the stylesheet can shape - see .map-pin in app.css.
+function iconFor(color) {
+    if (!color) {
+        return {};
+    }
+
+    // Narrowed to what a colour is made of before it goes into markup. Every caller here is Orbit's own
+    // code, so this guards against a mistake rather than an attacker - but a colour is never the place
+    // to find out that string interpolation into HTML is how injection happens.
+    const safeColor = String(color).replace(/[^a-zA-Z0-9 ,.%()#/-]/g, '');
+
+    return {
+        icon: L.divIcon({
+            className: 'map-pin-icon',
+            html: `<span class="map-pin" style="background:${safeColor}"></span>`,
+            iconSize: [18, 18],
+            iconAnchor: [9, 18],
+            popupAnchor: [0, -16]
+        })
+    };
 }
 
 /// Puts the map's frame full screen, or takes it back out. Nothing here tracks the state: leaving can

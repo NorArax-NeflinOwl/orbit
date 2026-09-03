@@ -22,7 +22,7 @@ public sealed class OverdueTaskNotificationRepository : IOverdueTaskNotification
         var rows = await (
             from item in _dbContext.Set<TaskItemEntity>().AsNoTracking()
             join task in _dbContext.Tasks.AsNoTracking() on item.TaskId equals task.Id
-            where !item.IsCompleted && item.DueDateUtc != null && item.LinkedTaskListId == null
+            where !item.IsCompleted && item.DueDateUtc != null && !item.LinkedTaskLists.Any()
                 && item.OverdueNotificationChannel != "None"
             select new
             {

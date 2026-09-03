@@ -6,6 +6,7 @@ using Orbit.Maui.Features.Account;
 using Orbit.Mobile.Screens.Account;
 using Orbit.Mobile.Screens.Authentication;
 using Orbit.Mobile.Screens.Calendar;
+using Orbit.Mobile.Google;
 using Orbit.Mobile.Screens.Chat;
 using Orbit.Mobile.Screens.Inventory;
 using Orbit.Mobile.Screens.Location;
@@ -15,9 +16,11 @@ using Orbit.Mobile.Screens.Diagnostics;
 using Orbit.Mobile.Screens.Navigation;
 using Orbit.Mobile.Screens.Notes;
 using Orbit.Mobile.Screens.Sharing;
+using Orbit.Mobile.Screens.Suggestions;
 using Orbit.Mobile.Screens.Notifications;
 using Orbit.Mobile.Diagnostics;
 using Orbit.Mobile.Notifications;
+using Orbit.Mobile.Live;
 using Orbit.Mobile.Localization;
 using Orbit.Mobile.Permissions;
 using Orbit.Mobile.Presence;
@@ -27,6 +30,8 @@ using Orbit.Mobile.Screens.Tasks;
 using Orbit.Mobile.Screens;
 using Orbit.Maui.Features.Authentication;
 using Orbit.Maui.Features.Calendar;
+using Orbit.Maui.Features.Copies;
+using Orbit.Mobile.Screens.Copies;
 using Orbit.Maui.Features.Chat;
 using Orbit.Maui.Features.Inventory;
 using Orbit.Maui.Features.Location;
@@ -69,6 +74,7 @@ public static class MauiProgram
 		RegisterPlatformServices(builder.Services);
 		RegisterLocalStore(builder.Services);
 		RegisterHttpClients(builder.Services, OrbitApiSettings.Current);
+		RegisterLiveUpdates(builder.Services, OrbitApiSettings.Current);
 		RegisterScreens(builder.Services);
 
 #if DEBUG
@@ -105,8 +111,14 @@ public static class MauiProgram
 		services.AddDbContextFactory<OrbitLocalDbContext>(options => options.UseSqlite(LocalDatabase.ConnectionString));
 		services.AddSingleton(TimeProvider.System);
 		services.AddSingleton<INetworkStatus, DeviceNetworkStatus>();
+		// Transient: each screen binds its own, and one that outlived its screen would keep it alive
+		// through the connectivity subscription.
+		services.AddTransient<ConnectionRequirement>();
 		// Shared, because the synchronisers are transient and the thing being guarded is the database.
 		services.AddSingleton<SyncGate>();
+		// One instance: it reads the key this device already holds and nothing else - no network, no state
+		// of its own - so the repositories that seal with it can stay singletons too.
+		services.AddSingleton<PrivateContentSealer>();
 		services.AddSingleton<LocalNoteRepository>();
 		services.AddSingleton<LocalTaskListRepository>();
 		services.AddSingleton<LocalCalendarEventRepository>();
@@ -118,6 +130,9 @@ public static class MauiProgram
 		services.AddTransient<NoteSynchronizer>();
 		services.AddTransient<TaskListSynchronizer>();
 		services.AddTransient<CalendarEventSynchronizer>();
+		services.AddTransient<NotificationSynchronizer>();
+		services.AddTransient<LocalNotificationRepository>();
+		services.AddTransient<PendingCalendarLinkResolver>();
 		services.AddTransient<WarehouseSynchronizer>();
 		services.AddSingleton<ChatRepository>();
 		services.AddTransient<LocalStoreReset>();
@@ -130,9 +145,13 @@ public static class MauiProgram
 		services.AddTransient<ChatDirectoryReader>();
 		services.AddTransient<EncryptedChatMessageEditor>();
 		services.AddTransient<MessageForwarder>();
+		services.AddTransient<GroupHistorySharing>();
 		services.AddTransient<SharedItemAcceptance>();
 		services.AddTransient<SharedItemSharing>();
 		services.AddTransient<SharePanel>();
+		// One per editor screen rather than one for the app: it holds what is being typed into the field
+		// that is open, and two screens sharing it would offer each other's names.
+		services.AddTransient<NameSuggestions>();
 		services.AddTransient<StockCheckPanel>();
 		services.AddTransient<GoogleAccountLink>();
 		services.AddTransient<SharedLocations>();
@@ -154,8 +173,13 @@ public static class MauiProgram
 		services.AddSingleton<UserPermissions>();
 		// One answer for the app, like the permissions above: the map and the calendar both ask whether
 		// this account may hand something off to Google, and neither should cost its own round trip.
+		services.AddSingleton<IGoogleExtrasStore, PreferencesGoogleExtrasStore>();
+		services.AddSingleton<Orbit.Mobile.Google.GoogleExtras>();
 		services.AddSingleton<Orbit.Mobile.Google.GoogleIntegrationAccess>();
 		// One heartbeat for the app, started and stopped with the window - see PresenceReporter.
+		// One banner for the app, so a push arriving while somebody is looking at it is not silently
+		// dropped - see ForegroundNotices.
+		services.AddSingleton<ForegroundNotices>();
 		services.AddSingleton<PresenceReporter>();
 		// One gate for the whole app: unlocking private things on one screen unlocks them everywhere,
 		// and putting the phone down locks them everywhere.
@@ -166,7 +190,13 @@ public static class MauiProgram
 		services.AddSingleton<IDevicePushNotifications, PhonePushNotifications>();
 		services.AddSingleton<IPresenceStore, PreferencesPresenceStore>();
 		services.AddSingleton<IDashboardPinStore, PreferencesDashboardPinStore>();
+		services.AddSingleton<IConversationPinStore, PreferencesConversationPinStore>();
+		// One per app rather than one per screen: the contact list and the group list read the same
+		// pins, and two copies would disagree the moment one of them wrote.
+		services.AddSingleton<ConversationPins>();
 		services.AddSingleton<IDashboardCardPreferenceStore, PreferencesDashboardCardPreferenceStore>();
+		services.AddSingleton<IChecklistReadingStore, PreferencesChecklistReadingStore>();
+		services.AddSingleton<ICalendarListOrderStore, PreferencesCalendarListOrderStore>();
 		services.AddSingleton<IThemeStore, PreferencesThemeStore>();
 		services.AddSingleton<IAccentColorStore, PreferencesAccentColorStore>();
 		services.AddSingleton<ILanguageStore, PreferencesLanguageStore>();
@@ -212,6 +242,23 @@ public static class MauiProgram
 	/// access token; the other two must not, because refreshing through the token handler would recurse
 	/// into the retry that called it, and the version gate has to work for a build too old to sign in.
 	/// </summary>
+	/// <summary>
+	/// The one connection the app holds open to hear that something changed. Takes the API's address
+	/// rather than an HttpClient: a hub connection is not an HTTP call and does not go through the
+	/// message handlers, so it carries its own token - see LiveUpdatesConnection.
+	/// </summary>
+	private static void RegisterLiveUpdates(IServiceCollection services, OrbitApiSettings apiSettings)
+	{
+		services.AddSingleton(provider => new LiveUpdatesConnection(
+			provider.GetRequiredService<SessionStore>(),
+			provider.GetRequiredService<TokenRefreshService>(),
+			apiSettings.BaseAddress,
+			provider.GetRequiredService<ILogger<LiveUpdatesConnection>>()));
+
+		// Screens depend on the interface so they can be tested without a hub - see ILiveUpdates.
+		services.AddSingleton<ILiveUpdates>(provider => provider.GetRequiredService<LiveUpdatesConnection>());
+	}
+
 	private static void RegisterHttpClients(IServiceCollection services, OrbitApiSettings apiSettings)
 	{
 		services.AddTransient<AuthorizationMessageHandler>();
@@ -224,12 +271,23 @@ public static class MauiProgram
 			.AddHttpMessageHandler<AuthorizationMessageHandler>();
 		services.AddHttpClient<InventoryClient>(client => client.BaseAddress = apiSettings.BaseAddress)
 			.AddHttpMessageHandler<AuthorizationMessageHandler>();
+		services.AddHttpClient<SuggestionsClient>(client => client.BaseAddress = apiSettings.BaseAddress)
+			.AddHttpMessageHandler<AuthorizationMessageHandler>();
 
 		// Talks to Google rather than to Orbit, so it gets no base address and no authorization handler -
 		// both endpoints it uses are absolute, and Orbit's token means nothing to Google.
 		services.AddHttpClient<GoogleSignIn>();
 
-		services.AddHttpClient<TokenRefreshService>(client => client.BaseAddress = apiSettings.BaseAddress);
+		// One for the whole app, not one per thing that asks. AddHttpClient<T> registers T as transient,
+		// which quietly undid what TokenRefreshService is for: its single-flight guard is per instance,
+		// so two synchronizers meeting an expired token at the same moment each redeemed the same
+		// single-use refresh token, and the loser's rejection signed the reader out mid-use. Seen in the
+		// server's log as a refresh that answered 200 and another a second later that answered 401.
+		services.AddHttpClient(nameof(TokenRefreshService), client => client.BaseAddress = apiSettings.BaseAddress);
+		services.AddSingleton(provider => new TokenRefreshService(
+			provider.GetRequiredService<SessionStore>(),
+			provider.GetRequiredService<IHttpClientFactory>().CreateClient(nameof(TokenRefreshService)),
+			provider.GetRequiredService<ILogger<TokenRefreshService>>()));
 		services.AddHttpClient<AuthenticationClient>(client => client.BaseAddress = apiSettings.BaseAddress);
 		// Registering has no token to attach, and the rest are guarded by the server checking the current
 		// password rather than by this client - see AccountClient.
@@ -252,6 +310,9 @@ public static class MauiProgram
 		services.AddHttpClient<DiagnosticsClient>(client => client.BaseAddress = apiSettings.BaseAddress)
 			.AddHttpMessageHandler<AuthorizationMessageHandler>();
 		services.AddHttpClient<MobileVersionGate>(client => client.BaseAddress = apiSettings.BaseAddress);
+		// No authorization handler, like the gate above: which build the server is, is the answer to
+		// "what am I talking to" - exactly the question somebody has when they cannot sign in.
+		services.AddHttpClient<ServerVersionClient>(client => client.BaseAddress = apiSettings.BaseAddress);
 	}
 
 	private static void RegisterScreens(IServiceCollection services)
@@ -272,6 +333,10 @@ public static class MauiProgram
 		services.AddTransient<SignInViewModel>();
 		services.AddTransient<RegisterPage>();
 		services.AddTransient<RegisterViewModel>();
+		services.AddTransient<PasswordResetPage>();
+		services.AddTransient<PasswordResetViewModel>();
+		services.AddTransient<Orbit.Maui.Features.Sharing.SharedLinkPage>();
+		services.AddTransient<Orbit.Mobile.Screens.Sharing.SharedLinkViewModel>();
 		services.AddTransient<AccountPage>();
 		services.AddTransient<AccountViewModel>();
 		services.AddTransient<ChatKeyGatePage>();
@@ -279,7 +344,9 @@ public static class MauiProgram
 		services.AddTransient<ContactsPage>();
 		services.AddTransient<ContactsViewModel>();
 		services.AddTransient<ConversationPage>();
+		services.AddTransient<ContactInfoPage>();
 		services.AddTransient<ConversationViewModel>();
+		services.AddTransient<ContactInfoViewModel>();
 		services.AddTransient<GroupsPage>();
 		services.AddTransient<GroupsViewModel>();
 		services.AddTransient<GroupConversationPage>();
@@ -293,10 +360,25 @@ public static class MauiProgram
 		// One lock per editor, not one for the app: two editors open at once each hold their own item.
 		services.AddTransient<EditLock>();
 		services.AddTransient<NoteDetailViewModel>();
+		services.AddTransient<CopyReviewPage>();
+		services.AddTransient<CopyReviewViewModel>();
+		services.AddTransient<CopyHistoryPage>();
+		services.AddTransient<CopyHistoryViewModel>();
+		// The four repositories, again, as the one thing the two copy screens know them by. Registered
+		// against the same instances rather than as separate ones: a copy resolved here has to be the
+		// copy the rest of the app is reading.
+		services.AddTransient<ICopyReviewStore>(services => services.GetRequiredService<LocalNoteRepository>());
+		services.AddTransient<ICopyReviewStore>(services => services.GetRequiredService<LocalTaskListRepository>());
+		services.AddTransient<ICopyReviewStore>(services => services.GetRequiredService<LocalCalendarEventRepository>());
+		services.AddTransient<ICopyReviewStore>(services => services.GetRequiredService<LocalWarehouseRepository>());
 		services.AddTransient<CalendarEventDetailViewModel>();
 		services.AddTransient<TasksPage>();
 		services.AddTransient<TasksViewModel>();
 		services.AddTransient<TaskListDetailPage>();
+		// The two things the task list screen does besides being a task list: the appointment a Calendar
+		// entry carries, and the shelf an Inventory errand is about.
+		services.AddTransient<EntryAppointment>();
+		services.AddTransient<ShelfCorrection>();
 		services.AddTransient<TaskListDetailViewModel>();
 		services.AddTransient<TaskItemSummaryPage>();
 		services.AddTransient<TaskItemSummaryViewModel>();
@@ -308,6 +390,7 @@ public static class MauiProgram
 		services.AddTransient<InventoryPage>();
 		services.AddTransient<InventoryViewModel>();
 		services.AddTransient<WarehouseDetailPage>();
+		services.AddTransient<RestockListSettingsPanel>();
 		services.AddTransient<WarehouseDetailViewModel>();
 		services.AddTransient<NotificationFeedPage>();
 		services.AddTransient<Features.Update.UpdatePage>();

@@ -1,0 +1,262 @@
+@page "/notes/{Id:guid}"
+@attribute [Authorize]
+@using System.Net
+@using Orbit.Contracts.Notes
+@using Orbit.Core.Abstractions
+@using Orbit.Web.Services
+@inject NotesApiClient NotesApiClient
+@inject NavigationManager NavigationManager
+@inject IJSRuntime JSRuntime
+@inject ILogger<NoteSummary> Logger
+@inject Translations T
+
+@* A note read rather than written: its lines as they are, with the ones that are checklist items
+   tickable. That is the whole of what somebody does with a note they are not rewriting - the checklist
+   in it is a list of things to do, and opening a text editor to tick one is the same mismatch a shelf
+   had before it could be counted.
+
+   The last of the six objects to get this depth, and the same shape as the others: land on what the
+   thing is, with the form a named press further in. *@
+<PageTitle>@(_note is null ? T["Note"] : Written(_note.Title))</PageTitle>
+
+@* Two panels: the note on the left, which scrolls, and the panel on the right, which does not - see
+   EditorRail. On a narrow screen the right one becomes a bar along the foot of the window. *@
+<div class="editor-page">
+<div class="editor-page-body">
+
+<div class="page-header">
+    <div class="page-heading">
+        <h1>@(_note is null ? T["Note"] : Written(_note.Title))</h1>
+        @if (_note is { IsShared: true, SharedByUserName: { } sharedBy })
+        {
+            <p class="page-subtitle">@T.Format("Shared by {0}", sharedBy)</p>
+        }
+    </div>
+</div>
+
+@if (_isLoading)
+{
+    <p>@T["Loading…"]</p>
+}
+else if (_note is null)
+{
+    <p>@T["That note no longer exists."]</p>
+}
+else
+{
+    @* Pressing what the note says opens it to be rewritten. Reading a note and wanting to change a word
+       is one thought, and it used to take finding the menu at the other end of the page first - the same
+       reason a card on the list opens the note rather than only its name does. Ticking a line is not
+       that: a checklist row keeps its own press, below. *@
+    <div class="card checklist-card note-summary-opens" role="button" tabindex="0"
+         @onclick="GoToEditor" @onkeydown="OpenOnEnterOrSpace">
+        @if (_lines.Count == 0)
+        {
+            <p class="checklist-empty">@T["Nothing written here yet."]</p>
+        }
+        @foreach (var line in _lines)
+        {
+            @* A checklist line is ticked here; an ordinary one is read. Both keep the order they were
+               written in, because a note is prose as often as it is a list and the two are mixed. *@
+            @if (line.IsChecklistItem)
+            {
+                @* Its own press, kept from the card around it: a tick is what this row is for, and
+                   opening the whole note to write in instead would be answering a different question. *@
+                <label class="check-row @(line.IsChecked ? "completed" : "")"
+                       @onclick="() => { }" @onclick:stopPropagation="true">
+                    <input type="checkbox" checked="@line.IsChecked" disabled="@_isReadOnly"
+                           aria-label="@T.Format("Done: {0}", line.Text)"
+                           @onchange="args => Tick(line, (bool)args.Value!)" />
+                    <span class="check-row-text">@line.Text</span>
+                </label>
+            }
+            else if (line.Text.Length > 0)
+            {
+                <p class="note-summary-line">@line.Text</p>
+            }
+            else
+            {
+                <p class="note-summary-line note-summary-break"></p>
+            }
+        }
+    </div>
+}
+
+</div>
+@if (_note is not null)
+{
+    <EditorRail OnSave="SaveAsync" OnCancel="GoToNotes" SaveDisabled="@(!_hasChanges || _isSaving)">
+        @* Beside the button that failed: a save that did not happen and a note somebody else is holding
+           are both answers to "why has Save done nothing", and this page is read by scrolling - an
+           answer at the top of it is an answer nobody scrolls back to. *@
+        <Extras>
+            @if (_message is not null)
+            {
+                <p class="error">@_message</p>
+            }
+        </Extras>
+        <ChildContent>
+            <OverflowMenu>
+                <button type="button" class="avatar-dropdown-item" @onclick="GoToNotes">@T["All notes"]</button>
+                <button type="button" class="avatar-dropdown-item" @onclick="GoToEditor">
+                    @(_isReadOnly ? T["View"] : T["Edit"])
+                </button>
+                @if (!_note.IsShared)
+                {
+                    <button type="button" class="avatar-dropdown-item" @onclick="DeleteAsync">@T["Delete"]</button>
+                }
+            </OverflowMenu>
+        </ChildContent>
+    </EditorRail>
+}
+</div>
+
+@code {
+    [Parameter] public Guid Id { get; set; }
+
+    private NoteDto? _note;
+    private List<NoteContentLineDto> _lines = [];
+    private bool _isLoading = true;
+    private bool _isReadOnly;
+    private bool _hasChanges;
+    private bool _isSaving;
+    private string? _message;
+
+    /// <summary>A name Orbit wrote itself, in the reader's language - see OrbitWrittenNames.</summary>
+    private string Written(string name) => OrbitWrittenNames.Translate(key => T[key], name);
+
+    protected override async Task OnParametersSetAsync()
+    {
+        _isLoading = true;
+        _message = null;
+        try
+        {
+            _note = await NotesApiClient.GetNoteByIdAsync(Id);
+        }
+        catch (HttpRequestException exception) when (exception.StatusCode == HttpStatusCode.Unauthorized)
+        {
+            NavigationManager.NavigateTo("/login");
+            return;
+        }
+        catch (HttpRequestException exception)
+        {
+            Logger.LogWarning(exception, "Couldn't read note {NoteId}", Id);
+            _note = null;
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+
+        if (_note is null)
+        {
+            return;
+        }
+
+        _lines = [.. _note.Content];
+        _isReadOnly = _note.IsShared && !SharedItemAccess.For(_note.IsShared, _note.AccessLevel).CanEdit;
+        _hasChanges = false;
+    }
+
+    /// <summary>
+    /// Ticks a line, or unticks it. Nothing is written until Save: a note is read by scrolling, and a
+    /// page that saved on every press would be writing while somebody is only passing through.
+    /// </summary>
+    private void Tick(NoteContentLineDto line, bool isChecked)
+    {
+        var at = _lines.IndexOf(line);
+        if (at < 0)
+        {
+            return;
+        }
+
+        _lines[at] = line with { IsChecked = isChecked };
+        _hasChanges = true;
+        _message = null;
+    }
+
+    /// <summary>
+    /// Writes the ticks back. The whole note goes, because that is the only save a note has - the title
+    /// and every line travel with it, unchanged except for what was ticked, and a private note is
+    /// sealed again on the way out by the client that opened it (see NotesApiClient.SealIfPrivateAsync).
+    /// </summary>
+    private async Task SaveAsync()
+    {
+        if (_note is null || _isSaving)
+        {
+            return;
+        }
+
+        _isSaving = true;
+        _message = null;
+        try
+        {
+            var outcome = await NotesApiClient.UpdateNoteAsync(
+                Id, new UpdateNoteRequest(_note.Title, _lines, _note.IsPrivate, Priority: _note.Priority));
+
+            if (outcome.Kind == EditOutcomeKind.Locked)
+            {
+                _message = T.Format("{0} is currently editing this note - you can't edit it right now.", outcome.LockedByUserName);
+                return;
+            }
+
+            if (outcome.Kind != EditOutcomeKind.Success)
+            {
+                _message = T["Failed to save the note. Try again."];
+                return;
+            }
+
+            _hasChanges = false;
+        }
+        catch (HttpRequestException exception) when (exception.StatusCode == HttpStatusCode.Unauthorized)
+        {
+            NavigationManager.NavigateTo("/login");
+        }
+        catch (Exception exception) when (exception is HttpRequestException or InvalidOperationException)
+        {
+            Logger.LogWarning(exception, "Couldn't save what was ticked on note {NoteId}", Id);
+            _message = T["Failed to save the note. Try again."];
+        }
+        finally
+        {
+            _isSaving = false;
+        }
+    }
+
+    /// <summary>Asked first, and asked with the name: a note deleted by accident is gone.</summary>
+    private async Task DeleteAsync()
+    {
+        if (_note is null
+            || !await JSRuntime.InvokeAsync<bool>("confirm", T.Format("Delete \"{0}\"?", Written(_note.Title))))
+        {
+            return;
+        }
+
+        try
+        {
+            await NotesApiClient.DeleteNoteAsync(Id);
+            NavigationManager.NavigateTo("/notes");
+        }
+        catch (HttpRequestException exception)
+        {
+            Logger.LogWarning(exception, "Couldn't delete note {NoteId}", Id);
+            _message = T["Failed to delete the note. Try again."];
+        }
+    }
+
+    /// <summary>
+    /// A box given a button's role has to answer a keyboard like one; the browser does that for a real
+    /// button and for nothing else. Space as well as Enter, which is what a button takes.
+    /// </summary>
+    private void OpenOnEnterOrSpace(KeyboardEventArgs args)
+    {
+        if (args.Key is "Enter" or " ")
+        {
+            GoToEditor();
+        }
+    }
+
+    private void GoToNotes() => NavigationManager.NavigateTo("/notes");
+
+    private void GoToEditor() => NavigationManager.NavigateTo($"/notes/{Id}/edit");
+}

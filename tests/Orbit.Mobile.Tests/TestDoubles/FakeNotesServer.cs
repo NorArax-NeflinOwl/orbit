@@ -32,6 +32,13 @@ internal sealed class FakeNotesServer : HttpMessageHandler
     /// <summary>True while the server is simply unreachable, as it is to a phone with no signal.</summary>
     public bool IsUnreachable { get; set; }
 
+    /// <summary>
+    /// Set to refuse writes while still answering reads - a note shared read-only, which the reader may
+    /// pull and may not change. <see cref="ForcedFailure"/> refuses everything, which is a different
+    /// situation and cannot stand in for this one: it takes the change feed down as well.
+    /// </summary>
+    public HttpStatusCode? ForcedWriteFailure { get; set; }
+
     public IReadOnlyCollection<NoteDto> Notes => _notes.Values;
 
     public NoteDto AddNote(string title, bool isShared = false, bool isSharedWithOthers = false)
@@ -80,6 +87,11 @@ internal sealed class FakeNotesServer : HttpMessageHandler
             return BuildChangeFeed(request.RequestUri.Query);
         }
 
+        if (ForcedWriteFailure is { } writeFailure && request.Method.Method is "POST" or "PUT" or "DELETE")
+        {
+            return new HttpResponseMessage(writeFailure);
+        }
+
         return request.Method.Method switch
         {
             "POST" => await CreateAsync(request, cancellationToken),
@@ -105,7 +117,10 @@ internal sealed class FakeNotesServer : HttpMessageHandler
         var created = AddNote(body!.Title);
         _notes[created.Id] = created with
         {
-            Content = body.Content, IsPrivate = body.IsPrivate, Priority = body.Priority
+            Content = body.Content, IsPrivate = body.IsPrivate, Priority = body.Priority,
+            // Stored as the real endpoint stores it: a private note's words are only here, so a fake
+            // that dropped it would answer the next pull with an empty note and look like data loss.
+            EncryptedContent = body.EncryptedContent
         };
         return Json(created.Id, HttpStatusCode.Created);
     }
@@ -124,6 +139,7 @@ internal sealed class FakeNotesServer : HttpMessageHandler
             Title = body!.Title,
             Content = body.Content,
             IsPrivate = body.IsPrivate,
+            EncryptedContent = body.EncryptedContent,
             // Stored by the real endpoint, and a fake that dropped it would hide the very thing this
             // was written for: an update that carried no priority looked exactly like one that did.
             Priority = body.Priority,

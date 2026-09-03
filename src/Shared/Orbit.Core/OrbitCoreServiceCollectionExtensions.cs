@@ -1,4 +1,5 @@
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Logging;
 using Orbit.Core.Abstractions;
 using Orbit.Core.Calendar;
@@ -13,14 +14,20 @@ using Orbit.Core.Calendar.ReleaseCalendarEventLock;
 using Orbit.Core.Calendar.Reminders;
 using Orbit.Core.Calendar.ShareCalendarEvent;
 using Orbit.Core.Calendar.UpdateCalendarEvent;
+using Orbit.Core.Chat.ClearConversationHistory;
+using Orbit.Core.Chat.Groups.LeaveChatGroup;
+using Orbit.Core.Chat.Groups.SetGroupArchived;
+using Orbit.Core.Chat.SetConversationArchived;
 using Orbit.Core.Chat;
 using Orbit.Core.Chat.ApproveConversation;
 using Orbit.Core.Chat.EditMessage;
 using Orbit.Core.Chat.Groups.EditGroupMessage;
+using Orbit.Core.Chat.Groups.GetGroupAnnouncements;
 using Orbit.Core.Chat.Groups.GetGroupConversation;
 using Orbit.Core.Chat.Groups.GetGroupMessageReceipts;
 using Orbit.Core.Chat.Groups.MarkGroupConversationAsRead;
 using Orbit.Core.Chat.Groups.SendGroupMessage;
+using Orbit.Core.Chat.Groups.ShareGroupHistory;
 using Orbit.Core.Chat.Groups.ManageChatGroupMembers;
 using Orbit.Core.Chat.Groups.GetChatGroups;
 using Orbit.Core.Chat.Groups.CreateChatGroup;
@@ -34,6 +41,8 @@ using Orbit.Core.Chat.MarkConversationAsRead;
 using Orbit.Core.Chat.SendMessage;
 using Orbit.Core.Inventory;
 using Orbit.Core.Inventory.FinishRestocking;
+using Orbit.Core.Inventory.ReconcileRestockList;
+using Orbit.Core.Inventory.RestockListSettingsAccess;
 using Orbit.Core.Inventory.ExpiryReminders;
 using Orbit.Core.Inventory.GetInventoryItems;
 using Orbit.Core.Inventory.AcceptWarehouseShare;
@@ -46,6 +55,7 @@ using Orbit.Core.Inventory.GetWarehouses;
 using Orbit.Core.Inventory.GetWarehouseShareStatus;
 using Orbit.Core.Inventory.ShareWarehouse;
 using Orbit.Core.Inventory.UpdateWarehouse;
+using Orbit.Core.LiveUpdates;
 using Orbit.Core.Notes;
 using Orbit.Core.Permissions;
 using Orbit.Core.Permissions.GetUserPermissions;
@@ -66,6 +76,7 @@ using Orbit.Core.Notifications.GetNotificationEntries;
 using Orbit.Core.Notifications.GetNotificationSettings;
 using Orbit.Core.Notifications.GetUnreadNotificationEntries;
 using Orbit.Core.Notifications.ClearNotifications;
+using Orbit.Core.Notifications.GetChangedNotifications;
 using Orbit.Core.Notifications.GetNotificationHistory;
 using Orbit.Core.Notifications.MarkNotificationsAtUrlRead;
 using Orbit.Core.Sharing;
@@ -90,22 +101,26 @@ using Orbit.Core.Tasks.DeleteTaskList;
 using Orbit.Core.Tasks.GetTaskListById;
 using Orbit.Core.Tasks.GetTaskListShareStatus;
 using Orbit.Core.Tasks.GetTaskLists;
+using Orbit.Core.Tasks.LinkCalendarEventToTaskList;
 using Orbit.Core.Tasks.MoveTaskItem;
 using Orbit.Core.Tasks.OverdueNotifications;
 using Orbit.Core.Tasks.ReleaseTaskListLock;
 using Orbit.Core.Tasks.LinkTaskListToWarehouse;
-using Orbit.Core.Tasks.ReconcileTaskListWithStock;
 using Orbit.Core.Tasks.GenerateWarehouseFromTaskList;
 using Orbit.Core.Tasks.GetTaskListStockCheck;
 using Orbit.Core.Tasks.StockCheck;
 using Orbit.Core.Tasks.RaiseStockShortfalls;
 using Orbit.Core.Tasks.SetTaskListPinned;
 using Orbit.Core.Tasks.ShareTaskList;
+using Orbit.Core.Tasks.GetInventoryReferences;
 using Orbit.Core.Tasks.UpdateTaskList;
+using Orbit.Core.Suggestions;
+using Orbit.Core.Suggestions.GetNameSuggestions;
 using Orbit.Core.Users;
 using Orbit.Core.Users.SetPresence;
 using Orbit.Core.Users.SaveOwnLocation;
 using Orbit.Core.Location.GetSharedLocations;
+using Orbit.Core.Location.StopReceivingLocation;
 using Orbit.Core.Location.StopSharingLocation;
 using Orbit.Core.Location.ShareLocation;
 using Orbit.Core.Location;
@@ -163,6 +178,7 @@ public static class OrbitCoreServiceCollectionExtensions
         services.AddScoped<IRequestHandler<CreateTaskListCommand, Guid>, CreateTaskListCommandHandler>();
         services.AddScoped<IRequestHandler<UpdateTaskListCommand, EditOutcome>, UpdateTaskListCommandHandler>();
         services.AddScoped<IRequestHandler<MoveTaskItemCommand, EditOutcome>, MoveTaskItemCommandHandler>();
+        services.AddScoped<IRequestHandler<LinkCalendarEventToTaskListCommand, EditOutcome>, LinkCalendarEventToTaskListCommandHandler>();
         services.AddScoped<IRequestHandler<DeleteTaskListCommand, bool>, DeleteTaskListCommandHandler>();
         services.AddScoped<IRequestHandler<GetTaskListsQuery, IReadOnlyList<TaskList>>, GetTaskListsQueryHandler>();
         services.AddScoped<IRequestHandler<GetTaskListByIdQuery, TaskList?>, GetTaskListByIdQueryHandler>();
@@ -172,7 +188,6 @@ public static class OrbitCoreServiceCollectionExtensions
         services.AddScoped<IRequestHandler<GetTaskListStockCheckQuery, TaskListStockCheck?>, GetTaskListStockCheckQueryHandler>();
         services.AddScoped<IRequestHandler<RaiseStockShortfallsCommand, int>, RaiseStockShortfallsCommandHandler>();
         services.AddScoped<IRequestHandler<GenerateWarehouseFromTaskListCommand, Guid?>, GenerateWarehouseFromTaskListCommandHandler>();
-        services.AddScoped<IRequestHandler<ReconcileTaskListWithStockCommand, StockReconciliation>, ReconcileTaskListWithStockCommandHandler>();
         services.AddScoped<IRequestHandler<SetNotePinnedCommand, bool>, SetNotePinnedCommandHandler>();
         services.AddScoped<IRequestHandler<SetAvailabilityCommand, bool>, SetAvailabilityCommandHandler>();
         services.AddScoped<IRequestHandler<PresenceHeartbeatCommand, bool>, PresenceHeartbeatCommandHandler>();
@@ -245,6 +260,7 @@ public static class OrbitCoreServiceCollectionExtensions
         // Sharing a position with one contact, encrypted for them - see SharedLocation.
         services.AddScoped<IRequestHandler<ShareLocationCommand, bool>, ShareLocationCommandHandler>();
         services.AddScoped<IRequestHandler<StopSharingLocationCommand, bool>, StopSharingLocationCommandHandler>();
+        services.AddScoped<IRequestHandler<StopReceivingLocationCommand, bool>, StopReceivingLocationCommandHandler>();
         services.AddScoped<IRequestHandler<GetSharedLocationsQuery, IReadOnlyList<SharedLocation>>, GetSharedLocationsQueryHandler>();
         services.AddScoped<IRequestHandler<GetOwnLocationSharesQuery, IReadOnlyList<SharedLocation>>, GetOwnLocationSharesQueryHandler>();
 
@@ -260,6 +276,9 @@ public static class OrbitCoreServiceCollectionExtensions
         services.AddScoped<IRequestHandler<EditGroupMessageCommand, bool>, EditGroupMessageCommandHandler>();
         services.AddScoped<IRequestHandler<MarkGroupConversationAsReadCommand, bool>, MarkGroupConversationAsReadCommandHandler>();
         services.AddScoped<IRequestHandler<GetGroupMessageReceiptsQuery, IReadOnlyList<GroupMessageReceipt>>, GetGroupMessageReceiptsQueryHandler>();
+        // What a newcomer is given of the conversation they arrived late to, and the line that says so.
+        services.AddScoped<IRequestHandler<ShareGroupHistoryCommand, int>, ShareGroupHistoryCommandHandler>();
+        services.AddScoped<IRequestHandler<GetGroupAnnouncementsQuery, IReadOnlyList<ChatGroupAnnouncement>>, GetGroupAnnouncementsQueryHandler>();
         services.AddScoped<IRequestHandler<GetConversationQuery, IReadOnlyList<ChatMessage>>, GetConversationQueryHandler>();
         services.AddScoped<IRequestHandler<GetContactsQuery, IReadOnlyList<ContactSummary>>, GetContactsQueryHandler>();
         services.AddScoped<IRequestHandler<MarkConversationAsReadCommand, bool>, MarkConversationAsReadCommandHandler>();
@@ -283,6 +302,7 @@ public static class OrbitCoreServiceCollectionExtensions
         services.AddScoped<IRequestHandler<MarkAllNotificationsReadCommand, bool>, MarkAllNotificationsReadCommandHandler>();
         services.AddScoped<IRequestHandler<MarkNotificationsAtUrlReadCommand, bool>, MarkNotificationsAtUrlReadCommandHandler>();
         services.AddScoped<IRequestHandler<GetNotificationHistoryQuery, IReadOnlyList<NotificationEntry>>, GetNotificationHistoryQueryHandler>();
+        services.AddScoped<IRequestHandler<GetChangedNotificationsQuery, IReadOnlyList<NotificationEntry>>, GetChangedNotificationsQueryHandler>();
 
         services.AddScoped<PublicSharedItemReader>();
         services.AddScoped<IRequestHandler<CreatePublicShareLinkCommand, PublicShareLink?>, CreatePublicShareLinkCommandHandler>();
@@ -303,6 +323,18 @@ public static class OrbitCoreServiceCollectionExtensions
         services.AddScoped<PendingRestockTaskResolver>();
         services.AddScoped<InventoryTaskListCoordinator>();
         services.AddScoped<RestockCompletion>();
+        services.AddScoped<RestockListRefresh>();
+
+        // How a warehouse's restock list is built and when it comes round, plus the manual rebuild.
+        services.AddScoped<IRequestHandler<GetRestockListSettingsQuery, RestockListSettings?>, GetRestockListSettingsQueryHandler>();
+        services.AddScoped<IRequestHandler<SaveRestockListSettingsCommand, RestockRefreshOutcome>, SaveRestockListSettingsCommandHandler>();
+        services.AddScoped<IRequestHandler<RefreshRestockListCommand, RestockRefreshOutcome>, RefreshRestockListCommandHandler>();
+        services.AddScoped<IRequestHandler<ReconcileRestockListCommand, RestockOutcome>, ReconcileRestockListCommandHandler>();
+        services.AddScoped<IRequestHandler<GetInventoryReferencesQuery, IReadOnlyList<InventoryReference>>, GetInventoryReferencesQueryHandler>();
+
+        // Names the reader has already used, offered as they type one - see GetNameSuggestionsQuery for
+        // why this is a database question rather than a question for the assistant.
+        services.AddScoped<IRequestHandler<GetNameSuggestionsQuery, IReadOnlyList<NameSuggestion>>, GetNameSuggestionsQueryHandler>();
         services.AddScoped<IRequestHandler<FinishRestockingCommand, int>, FinishRestockingCommandHandler>();
         services.AddScoped<IRequestHandler<GetInventoryItemsQuery, IReadOnlyList<InventoryItem>?>, GetInventoryItemsQueryHandler>();
 
@@ -322,6 +354,16 @@ public static class OrbitCoreServiceCollectionExtensions
         // must be scoped too - used by Orbit.Api's InventoryExpiryReminderBackgroundService, not
         // through IDispatcher, for the same reason as OverdueTaskNotificationScheduler above.
         services.AddScoped<InventoryExpiryReminderScheduler>();
+
+        // Announcing a change is unconditional at every call site, so something always has to be here.
+        // A host that has a live connection to announce over replaces this - see Orbit.Api's
+        // AddOrbitLiveUpdates - and TryAdd rather than Add is what lets it, by registering first.
+        services.TryAddSingleton<ILiveUpdatePublisher, SilentLiveUpdatePublisher>();
+
+        services.AddScoped<IRequestHandler<SetConversationArchivedCommand, bool>, SetConversationArchivedCommandHandler>();
+        services.AddScoped<IRequestHandler<SetGroupArchivedCommand, bool>, SetGroupArchivedCommandHandler>();
+        services.AddScoped<IRequestHandler<ClearConversationHistoryCommand, bool>, ClearConversationHistoryCommandHandler>();
+        services.AddScoped<IRequestHandler<LeaveChatGroupCommand, bool>, LeaveChatGroupCommandHandler>();
 
         services.AddScoped<Dispatcher>();
         services.AddScoped<IDispatcher>(provider => new LoggingDispatcher(

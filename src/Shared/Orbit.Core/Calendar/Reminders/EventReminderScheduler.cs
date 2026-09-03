@@ -34,12 +34,8 @@ public sealed class EventReminderScheduler
         {
             foreach (var occurrenceStartUtc in RelevantOccurrenceStarts(calendarEvent, nowUtc, lookBackWindow))
             {
-                if (WasAllDayEventCreatedOnItsOwnStartDate(calendarEvent, occurrenceStartUtc))
-                {
-                    continue;
-                }
 
-                foreach (var minutesBeforeStart in calendarEvent.Details.ReminderMinutesBeforeStart)
+                foreach (var minutesBeforeStart in calendarEvent.Details.ReminderLeadTimesMinutes)
                 {
                     if (dueReminders.Count >= maxResults)
                     {
@@ -79,7 +75,7 @@ public sealed class EventReminderScheduler
             return [calendarEvent.Details.StartUtc];
         }
 
-        var leadTimesMinutes = calendarEvent.Details.ReminderMinutesBeforeStart;
+        var leadTimesMinutes = calendarEvent.Details.ReminderLeadTimesMinutes;
         var windowStart = nowUtc - lookBackWindow + TimeSpan.FromMinutes(leadTimesMinutes.Min());
         var windowEndExclusive = nowUtc + TimeSpan.FromMinutes(leadTimesMinutes.Max()) + TimeSpan.FromTicks(1);
         return CalendarEventOccurrenceGenerator.GenerateOccurrenceStarts(calendarEvent.Details.StartUtc, recurrence, windowStart, windowEndExclusive);
@@ -91,26 +87,4 @@ public sealed class EventReminderScheduler
         return reminderAtUtc <= nowUtc && reminderAtUtc >= nowUtc - lookBackWindow;
     }
 
-    /// <summary>
-    /// An all-day event created on the same calendar day one of its occurrences starts already told its
-    /// owner about itself at creation time (see EventCreationEmailContent) - a same-day "the event is
-    /// starting" reminder on top of that would be redundant, so it's suppressed for that occurrence. For a
-    /// recurring event this only ever matches its very first occurrence: CreatedAtUtc is fixed, so a later
-    /// occurrence's date coincides with it only by construction, never by accident.
-    /// </summary>
-    private static bool WasAllDayEventCreatedOnItsOwnStartDate(CalendarEvent calendarEvent, DateTimeOffset occurrenceStartUtc)
-    {
-        if (!calendarEvent.Details.IsAllDay)
-        {
-            return false;
-        }
-
-        // Both timestamps are compared as calendar dates in the occurrence's own offset (rather than
-        // each in its own stored offset, or both converted to UTC), so "the same day" means the same
-        // thing regardless of which time zone created the event - see CalendarEventEditor.razor's
-        // ToDateTimeOffset, which anchors an all-day event's StartUtc to local midnight in the browser's
-        // own offset at the moment it was picked.
-        var createdAtInOccurrenceOffset = calendarEvent.CreatedAtUtc.ToOffset(occurrenceStartUtc.Offset);
-        return createdAtInOccurrenceOffset.Date == occurrenceStartUtc.Date;
-    }
 }

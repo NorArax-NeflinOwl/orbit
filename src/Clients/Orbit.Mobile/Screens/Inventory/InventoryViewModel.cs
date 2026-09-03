@@ -3,6 +3,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Orbit.Mobile.Data;
 using Orbit.Mobile.Localization;
+using Orbit.Mobile.Security;
 using Orbit.Mobile.Sync;
 
 namespace Orbit.Mobile.Screens.Inventory;
@@ -16,6 +17,7 @@ public sealed partial class InventoryViewModel : ObservableObject
     private readonly SyncState _syncState;
     private readonly IScreenNavigator _navigator;
     private readonly Translations _translations;
+    private readonly PrivateItemGate _privateItems;
 
     [ObservableProperty]
     private string _newWarehouseName = string.Empty;
@@ -30,18 +32,21 @@ public sealed partial class InventoryViewModel : ObservableObject
     private IReadOnlyList<LocalWarehouse> _stored = [];
 
     /// <summary>
-    /// Warehouses sealed with a key this phone has not got. Named rather than skipped: a search that
-    /// quietly leaves one out answers "it is nowhere" when the truth is "I could not look there".
+    /// Warehouses this device could not look inside - sealed with a key it has not got, or private
+    /// while private things are locked. Counted rather than skipped: a search that quietly leaves one
+    /// out answers "it is nowhere" when the truth is "I could not look there". Counted rather than
+    /// named, because a name is one of the things being kept back.
     /// </summary>
-    private IReadOnlyList<string> _sealedWarehouseNames = [];
+    private int _unsearchableWarehouseCount;
 
     public InventoryViewModel(
         LocalWarehouseRepository warehouses, WarehouseSynchronizer synchronizer, INetworkStatus networkStatus,
-        SyncState syncState, IScreenNavigator navigator, Translations translations)
+        PrivateItemGate privateItems, SyncState syncState, IScreenNavigator navigator, Translations translations)
     {
         _warehouses = warehouses;
         _synchronizer = synchronizer;
         _networkStatus = networkStatus;
+        _privateItems = privateItems;
         _syncState = syncState;
         _navigator = navigator;
         _translations = translations;
@@ -74,11 +79,11 @@ public sealed partial class InventoryViewModel : ObservableObject
     /// look there", which is the one answer a search must never give by accident.
     /// </summary>
     public string ItemMatchSummary
-        => _sealedWarehouseNames.Count == 0
+        => _unsearchableWarehouseCount == 0
             ? _translations.Format("Found in {0} of {1} warehouses.", WarehousesMatched, _stored.Count)
             : _translations.Format(
-                "Found in {0} of {1} warehouses. These could not be opened, so nothing in them was searched: {2}",
-                WarehousesMatched, _stored.Count, string.Join(", ", _sealedWarehouseNames));
+                "Found in {0} of {1} warehouses. {2} could not be opened, so nothing in them was searched.",
+                WarehousesMatched, _stored.Count, _unsearchableWarehouseCount);
 
     private int WarehousesMatched
         => ItemMatches.Select(match => match.WarehouseLocalId).Distinct().Count();
@@ -91,7 +96,9 @@ public sealed partial class InventoryViewModel : ObservableObject
     {
         if (match is not null)
         {
-            _navigator.ShowWarehouse(match.WarehouseLocalId);
+            // Opened on the thing that was found: a search across every shelf that landed somebody on a
+            // shelf and left them looking for it again would have answered half the question.
+            _navigator.ShowWarehouse(match.WarehouseLocalId, match.Item.Item.Id);
         }
     }
 
@@ -110,7 +117,7 @@ public sealed partial class InventoryViewModel : ObservableObject
         if (SearchedItemName.Trim() is { Length: > 0 } wanted)
         {
             var found = _stored
-                .Where(warehouse => !warehouse.IsPrivate)
+                .Where(CanBeSearched)
                 .SelectMany(warehouse => warehouse.Items.Select(item => new InventoryItemMatch(
                     warehouse.LocalId, warehouse.Name, WarehouseItemRow.From(item, _translations))))
                 .Where(match => match.Name.Contains(wanted, StringComparison.CurrentCultureIgnoreCase))
@@ -150,29 +157,62 @@ public sealed partial class InventoryViewModel : ObservableObject
 
     private bool CanAddWarehouse => NewWarehouseName.Trim().Length > 0;
 
+    /// <inheritdoc cref="Notes.NotesViewModel.Open"/>
     [RelayCommand]
     private void OpenWarehouse(WarehouseRow? row)
     {
-        if (row is not null)
+        if (row is { CanBeOpened: true })
         {
             _navigator.ShowWarehouse(row.LocalId);
         }
     }
+
+    /// <inheritdoc cref="Notes.NotesViewModel.UnlockPrivateAsync"/>
+    [RelayCommand]
+    private async Task UnlockPrivateAsync(CancellationToken cancellationToken)
+    {
+        if (await _privateItems.TryUnlockAsync(cancellationToken))
+        {
+            ShowRows();
+        }
+    }
+
+    /// <summary>
+    /// Whether a search may look inside. A sealed warehouse holds nothing this device could read, and a
+    /// private one while private things are locked holds nothing it may show - see PrivateItemGate.
+    /// </summary>
+    private bool CanBeSearched(LocalWarehouse warehouse)
+        => !warehouse.IsSealed && (!warehouse.IsPrivate || _privateItems.IsUnlocked);
 
     private async Task ShowStoredWarehousesAsync(CancellationToken cancellationToken)
     {
         _stored = await _warehouses.GetAllAsync(cancellationToken);
         var pending = await _warehouses.GetPendingLocalIdsAsync(cancellationToken);
 
+        _pending = pending;
+        ShowRows();
+    }
+
+    /// <summary>
+    /// Rebuilds the rows from what is already held. Separate from the read, so unlocking private things
+    /// redraws without another round trip to the database.
+    /// </summary>
+    private void ShowRows()
+    {
         Warehouses.Clear();
         foreach (var warehouse in _stored)
         {
-            Warehouses.Add(WarehouseRow.From(warehouse, pending.Contains(warehouse.LocalId), _networkStatus, _translations));
+            Warehouses.Add(WarehouseRow.From(
+                warehouse, _pending.Contains(warehouse.LocalId), _networkStatus, _translations,
+                _privateItems.IsUnlocked, _translations["Private"]));
         }
 
-        _sealedWarehouseNames = [.. _stored.Where(warehouse => warehouse.IsPrivate).Select(warehouse => warehouse.Name)];
+        _unsearchableWarehouseCount = _stored.Count(warehouse => !CanBeSearched(warehouse));
         ShowMatchingItems();
     }
+
+    /// <summary>Which warehouses still have changes waiting to go out - see LocalNoteRepository.</summary>
+    private IReadOnlySet<Guid> _pending = new HashSet<Guid>();
 
     private async Task SynchroniseAsync(CancellationToken cancellationToken)
     {

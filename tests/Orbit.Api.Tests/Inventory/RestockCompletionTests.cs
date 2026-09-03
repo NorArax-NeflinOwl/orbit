@@ -9,8 +9,9 @@ using Xunit;
 namespace Orbit.Api.Tests.Inventory;
 
 /// <summary>
-/// What crossing a restock errand off means to the shelf it came from: somebody went and got the thing,
-/// so the amount comes up to the level the shelf is meant to hold.
+/// What crossing a restock errand off means: somebody went and got the thing, so the shelf comes up to
+/// the level it is meant to hold - and the errand leaves the list, because it is no longer something
+/// missing. A list of permanently crossed-off lines is a list that stops being read.
 /// </summary>
 public sealed class RestockCompletionTests
 {
@@ -29,8 +30,22 @@ public sealed class RestockCompletionTests
         return (warehouseId, raised.PendingRestockTaskListId!.Value, raised);
     }
 
-    private RestockCompletion ACompletion()
-        => new(_context.ManagedTaskListRepository, _context.InventoryRepository);
+    private RestockCompletion ACompletion() => _context.RestockCompletion;
+
+    private async Task<TaskList> TaskListAsync(Guid taskListId)
+        => (await _context.TaskRepository.GetByIdAsync(_userId, taskListId, CancellationToken.None))!;
+
+    /// <summary>Crosses off everything on the list, the way a save from the checklist screen arrives.</summary>
+    private async Task TickEverythingAsync(Guid taskListId)
+    {
+        var taskList = await TaskListAsync(taskListId);
+        foreach (var item in taskList.Items)
+        {
+            item.Complete();
+        }
+
+        await _context.TaskRepository.UpdateAsync(taskList, CancellationToken.None);
+    }
 
     private async Task<InventoryItem> ShelfItemAsync(Guid warehouseId)
         => (await _context.InventoryRepository.GetAllAsync(warehouseId, CancellationToken.None)).Single();
@@ -38,12 +53,95 @@ public sealed class RestockCompletionTests
     [Fact]
     public async Task Crossing_an_errand_off_fills_the_shelf_to_its_minimum()
     {
-        var (warehouseId, taskListId, item) = await ALowItemWithItsErrandAsync();
+        var (warehouseId, taskListId, _) = await ALowItemWithItsErrandAsync();
+        await TickEverythingAsync(taskListId);
 
-        var toppedUp = await ACompletion().ApplyAsync(taskListId, [item.PendingRestockTaskItemId!.Value], CancellationToken.None);
+        var outcome = await ACompletion().ReconcileAsync(taskListId, CancellationToken.None);
 
-        Assert.Equal(1, toppedUp);
+        Assert.Equal(1, outcome.ToppedUp);
         Assert.Equal(5, (await ShelfItemAsync(warehouseId)).Quantity);
+    }
+
+    [Fact]
+    public async Task A_settled_errand_leaves_the_list()
+    {
+        var (_, taskListId, _) = await ALowItemWithItsErrandAsync();
+        await TickEverythingAsync(taskListId);
+
+        await ACompletion().ReconcileAsync(taskListId, CancellationToken.None);
+
+        // The standing reminder stays - crossing that off is a claim about the whole shelf, and
+        // RemindDaily brings it back tomorrow rather than it leaving.
+        var remaining = await TaskListAsync(taskListId);
+        Assert.DoesNotContain(remaining.Items, item => RestockTaskNaming.IsRestockEntry(item.Description));
+        Assert.Contains(remaining.Items, item => item.Description == RestockTaskNaming.UpdateStockReminderDescription);
+    }
+
+    [Fact]
+    public async Task The_shelf_item_stops_pointing_at_an_errand_that_no_longer_exists()
+    {
+        var (warehouseId, taskListId, _) = await ALowItemWithItsErrandAsync();
+        await TickEverythingAsync(taskListId);
+
+        await ACompletion().ReconcileAsync(taskListId, CancellationToken.None);
+
+        // Left dangling, the next time this product went low EnsureRestockTaskAsync would look up an
+        // entry that had been removed - and throw rather than raise a new errand.
+        var shelfItem = await ShelfItemAsync(warehouseId);
+        Assert.Null(shelfItem.PendingRestockTaskItemId);
+        Assert.Null(shelfItem.PendingRestockTaskListId);
+    }
+
+    [Fact]
+    public async Task An_errand_settled_once_is_not_settled_again()
+    {
+        var (_, taskListId, _) = await ALowItemWithItsErrandAsync();
+        await TickEverythingAsync(taskListId);
+        await ACompletion().ReconcileAsync(taskListId, CancellationToken.None);
+
+        // Reconciling runs both on save and on opening the list, so running twice has to be worth
+        // nothing the second time.
+        var second = await ACompletion().ReconcileAsync(taskListId, CancellationToken.None);
+
+        Assert.False(second.ChangedAnything);
+    }
+
+    [Fact]
+    public async Task An_errand_written_before_the_link_existed_is_still_settled()
+    {
+        // Entries created before TaskItemKind.Inventory carry no link, only "Restock: Flour (5)". They
+        // are matched by the product name in their own description, which is what lets a list that has
+        // been accumulating crossed-off errands settle the first time it is opened.
+        var (warehouseId, taskListId, _) = await ALowItemWithItsErrandAsync();
+        var taskList = await TaskListAsync(taskListId);
+        var withoutLinks = taskList.Items
+            .Select(item => TaskItem.FromPersistence(
+                item.Id, item.Description, item.DueDateUtc, isCompleted: true, item.LinkedTaskListIds,
+                item.Reminders))
+            .ToList();
+        taskList.Update(taskList.Title, withoutLinks, taskList.IsGroup, taskList.IsPrivate, taskList.EncryptedContent, taskList.Priority);
+        await _context.TaskRepository.UpdateAsync(taskList, CancellationToken.None);
+
+        var outcome = await ACompletion().ReconcileAsync(taskListId, CancellationToken.None);
+
+        Assert.Equal(1, outcome.ToppedUp);
+        Assert.Equal(5, (await ShelfItemAsync(warehouseId)).Quantity);
+        Assert.DoesNotContain((await TaskListAsync(taskListId)).Items, item => RestockTaskNaming.IsRestockEntry(item.Description));
+    }
+
+    [Fact]
+    public async Task An_errand_for_a_product_that_has_since_been_deleted_still_leaves_the_list()
+    {
+        var (warehouseId, taskListId, _) = await ALowItemWithItsErrandAsync();
+        var shelfItem = await ShelfItemAsync(warehouseId);
+        await _context.InventoryRepository.DeleteAsync(warehouseId, shelfItem.Id, CancellationToken.None);
+        await TickEverythingAsync(taskListId);
+
+        await ACompletion().ReconcileAsync(taskListId, CancellationToken.None);
+
+        // There is nothing left to bring back, so the errand is over. Keeping it would leave a crossed-off
+        // line about a product that no longer exists, for ever.
+        Assert.DoesNotContain((await TaskListAsync(taskListId)).Items, item => RestockTaskNaming.IsRestockEntry(item.Description));
     }
 
     [Fact]
@@ -51,27 +149,29 @@ public sealed class RestockCompletionTests
     {
         // Finishing an errand is not a claim about how much is there beyond the minimum, so it raises
         // an amount and never lowers one.
-        var (warehouseId, taskListId, item) = await ALowItemWithItsErrandAsync();
+        var (warehouseId, taskListId, _) = await ALowItemWithItsErrandAsync();
         var stockedGenerously = await ShelfItemAsync(warehouseId);
         stockedGenerously.Update("Flour", "Food", "Dry", 9, 5, InventoryUnit.Piece, null, NotificationChannel.None);
         await _context.InventoryRepository.UpdateAsync(stockedGenerously, CancellationToken.None);
+        await TickEverythingAsync(taskListId);
 
-        var toppedUp = await ACompletion().ApplyAsync(taskListId, [item.PendingRestockTaskItemId!.Value], CancellationToken.None);
+        var outcome = await ACompletion().ReconcileAsync(taskListId, CancellationToken.None);
 
-        Assert.Equal(0, toppedUp);
+        Assert.Equal(0, outcome.ToppedUp);
         Assert.Equal(9, (await ShelfItemAsync(warehouseId)).Quantity);
     }
 
     [Fact]
     public async Task An_ordinary_task_list_means_nothing_to_any_shelf()
     {
-        var taskList = TaskList.Create(_userId, "Errands", [TaskItem.Create("Buy milk", null, false)]);
+        var taskList = TaskList.Create(_userId, "Errands", [TaskItem.Create("Buy milk", null, isCompleted: true)]);
         await _context.TaskRepository.AddAsync(taskList, CancellationToken.None);
 
-        var toppedUp = await ACompletion().ApplyAsync(
-            taskList.Id, [taskList.Items[0].Id], CancellationToken.None);
+        var outcome = await ACompletion().ReconcileAsync(taskList.Id, CancellationToken.None);
 
-        Assert.Equal(0, toppedUp);
+        Assert.False(outcome.ChangedAnything);
+        // And nothing was taken off it: a crossed-off entry on a list nobody manages is the reader's.
+        Assert.Single((await _context.TaskRepository.GetByIdAsync(_userId, taskList.Id, CancellationToken.None))!.Items);
     }
 
     [Fact]
@@ -82,9 +182,8 @@ public sealed class RestockCompletionTests
         var taskList = await _context.TaskRepository.GetByIdAsync(_userId, taskListId, CancellationToken.None);
         var ticked = taskList!.Items
             .Select(item => TaskItem.FromPersistence(
-                item.Id, item.Description, item.DueDateUtc, isCompleted: true, item.LinkedTaskListId,
-                item.OverdueNotificationChannel, item.RemindDaily, item.DailyReminderNotificationChannel,
-                item.DailyReminderTimeOfDay))
+                item.Id, item.Description, item.DueDateUtc, isCompleted: true, item.LinkedTaskListIds,
+                item.Reminders))
             .ToList();
 
         var outcome = await new UpdateTaskListCommandHandler(
@@ -99,6 +198,37 @@ public sealed class RestockCompletionTests
 
         Assert.Equal(Orbit.Core.Abstractions.EditOutcomeKind.Success, outcome.Kind);
         Assert.Equal(5, (await ShelfItemAsync(warehouseId)).Quantity);
+
+        // And the errand stays, crossed off. It used to go in the same breath, so a row answered a tap
+        // by vanishing - and a tap on the wrong row could not be undone by untapping it, because there
+        // was nothing left to untap. The checklist asks for a refresh a few minutes later, and that is
+        // what clears it; see RestockCompletion.TopUpFinishedAsync.
+        var errand = Assert.Single(
+            (await TaskListAsync(taskListId)).Items, item => RestockTaskNaming.IsRestockEntry(item.Description));
+        Assert.True(errand.IsCompleted);
+    }
+
+    /// <summary>
+    /// And the refresh is what settles it - the same run that used to happen on the save, now asked for
+    /// once the reader has had a moment to notice a mistake.
+    /// </summary>
+    [Fact]
+    public async Task The_refresh_afterwards_is_what_takes_the_finished_errand_off_the_list()
+    {
+        var (warehouseId, taskListId, _) = await ALowItemWithItsErrandAsync();
+        var taskList = await _context.TaskRepository.GetByIdAsync(_userId, taskListId, CancellationToken.None);
+        var ticked = taskList!.Items
+            .Select(item => TaskItem.FromPersistence(
+                item.Id, item.Description, item.DueDateUtc, isCompleted: true, item.LinkedTaskListIds,
+                item.Reminders))
+            .ToList();
+        taskList.Update(taskList.Title, ticked, taskList.IsGroup, taskList.IsPrivate, taskList.EncryptedContent, taskList.Priority);
+        await _context.TaskRepository.UpdateAsync(taskList, CancellationToken.None);
+
+        await ACompletion().ReconcileAsync(taskListId, CancellationToken.None);
+
+        Assert.DoesNotContain(
+            (await TaskListAsync(taskListId)).Items, item => RestockTaskNaming.IsRestockEntry(item.Description));
     }
 
     [Fact]
@@ -117,10 +247,8 @@ public sealed class RestockCompletionTests
         var shelf = await _context.InventoryRepository.GetAllAsync(warehouseId, CancellationToken.None);
         Assert.Equal([4m, 5m], shelf.OrderBy(item => item.Quantity).Select(item => item.Quantity));
 
-        var taskList = await _context.TaskRepository.GetByIdAsync(_userId, taskListId, CancellationToken.None);
-        Assert.All(
-            taskList!.Items.Where(item => RestockTaskNaming.IsRestockEntry(item.Description)),
-            item => Assert.True(item.IsCompleted));
+        // Finished means gone, not crossed off: everything the list was asking for is now on the shelf.
+        Assert.DoesNotContain((await TaskListAsync(taskListId)).Items, item => RestockTaskNaming.IsRestockEntry(item.Description));
     }
 
     [Fact]
@@ -147,8 +275,10 @@ public sealed class RestockCompletionTests
     public async Task Finishing_the_list_says_the_list_changed()
     {
         var (_, taskListId, _) = await ALowItemWithItsErrandAsync();
-        var before = (await _context.TaskRepository.GetByIdAsync(_userId, taskListId, CancellationToken.None))!
-            .UpdatedAtUtc;
+        // Aged first - see InMemoryTaskRepository.PretendItWasLastChanged. Raising the errand stamped the
+        // list a moment ago, and finishing it below could tie with that stamp rather than beat it.
+        var before = DateTimeOffset.UtcNow.AddMinutes(-1);
+        _context.TaskRepository.PretendItWasLastChanged(taskListId, before);
 
         await new FinishRestockingCommandHandler(_context.TaskRepository, ACompletion())
             .HandleAsync(new FinishRestockingCommand(_userId, taskListId), CancellationToken.None);
@@ -173,5 +303,40 @@ public sealed class RestockCompletionTests
 
         var taskList = await _context.TaskRepository.GetByIdAsync(_userId, taskListId, CancellationToken.None);
         Assert.Equal(afterFirst, taskList!.UpdatedAtUtc);
+    }
+
+    /// <summary>
+    /// Something marked as checked every round is asked for whatever the count says. That is the point
+    /// of the flag: a minimum only works for things somebody keeps counted, and nobody counts the milk -
+    /// they look. Crossing it off answers "have you looked", not "is it above four".
+    /// </summary>
+    [Fact]
+    public async Task Something_checked_every_round_is_asked_for_even_when_it_is_not_low()
+    {
+        var warehouse = Warehouse.Create(_userId, "Spiżarnia");
+        await _context.WarehouseRepository.AddAsync(warehouse, CancellationToken.None);
+        var item = InventoryItem.Create(
+            warehouse.Id, "Mleko", "Nabiał", "Jedzenie", quantity: 10, minimumQuantity: 1,
+            InventoryUnit.Piece, null, NotificationChannel.None, isCheckedRegularly: true);
+
+        Assert.False(item.IsBelowMinimum);
+        Assert.True(item.BelongsOnTheRestockList);
+    }
+
+    /// <summary>And one nobody marked is still only asked for when the shelf says so.</summary>
+    [Fact]
+    public async Task Something_nobody_marked_is_asked_for_only_when_it_runs_low()
+    {
+        var warehouse = Warehouse.Create(_userId, "Spiżarnia");
+        await _context.WarehouseRepository.AddAsync(warehouse, CancellationToken.None);
+        var plenty = InventoryItem.Create(
+            warehouse.Id, "Cukier", "Sypkie", "Jedzenie", quantity: 10, minimumQuantity: 1,
+            InventoryUnit.Piece, null, NotificationChannel.None);
+        var low = InventoryItem.Create(
+            warehouse.Id, "Sól", "Sypkie", "Jedzenie", quantity: 0, minimumQuantity: 1,
+            InventoryUnit.Piece, null, NotificationChannel.None);
+
+        Assert.False(plenty.BelongsOnTheRestockList);
+        Assert.True(low.BelongsOnTheRestockList);
     }
 }

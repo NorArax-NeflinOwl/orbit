@@ -70,7 +70,7 @@ public sealed class NoteSynchronizer
         await using var dbContext = await _dbContextFactory.CreateDbContextAsync(cancellationToken);
         var push = await OutboxReplay.RunAsync(
             dbContext, SyncEntityType.Note,
-            (entry, token) => SendAsync(dbContext, entry, token), _logger, cancellationToken);
+            (entry, token) => SendAsync(dbContext, entry, token), _timeProvider, _logger, cancellationToken);
 
         try
         {
@@ -123,7 +123,9 @@ public sealed class NoteSynchronizer
         }
 
         note.ServerId = await _notesClient.CreateAsync(
-            new CreateNoteRequest(note.Title, note.Content, note.IsPrivate, Priority: note.Priority),
+            // A private note's words are in EncryptedContent and its readable fields are empty, which is
+            // how the row is already stored - see LocalNoteRepository.WriteContentAsync.
+            new CreateNoteRequest(note.Title, note.Content, note.IsPrivate, note.EncryptedContent, note.Priority),
             cancellationToken);
         note.LastSyncedAtUtc = _timeProvider.GetUtcNow();
         return SendResult.Sent;
@@ -141,13 +143,13 @@ public sealed class NoteSynchronizer
             serverId,
             // The priority travels with every save, because a save writes the whole note: left out, it
             // answered "Normal" and took the reader's own answer with it - see LocalNote.Priority.
-            new UpdateNoteRequest(note.Title, note.Content, note.IsPrivate, Priority: note.Priority),
+            new UpdateNoteRequest(note.Title, note.Content, note.IsPrivate, note.EncryptedContent, note.Priority),
             cancellationToken);
 
         if (outcome is not WriteOutcome.Applied)
         {
             _logger.LogInformation("The server refused an offline edit of note {ServerId}: {Outcome}", serverId, outcome);
-            return SendResult.Abandoned;
+            return SendResult.Refused;
         }
 
         note.LastSyncedAtUtc = _timeProvider.GetUtcNow();

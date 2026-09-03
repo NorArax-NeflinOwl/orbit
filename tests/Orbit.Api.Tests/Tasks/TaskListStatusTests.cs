@@ -107,9 +107,6 @@ public sealed class TaskListStatusTests
             description,
             dueDaysAgo is null ? null : DateTimeOffset.UtcNow.AddDays(-dueDaysAgo.Value),
             isCompleted,
-            linkedTaskListId: null,
-            NotificationChannel.None,
-            remindDaily: false,
-            NotificationChannel.None,
-            new TimeOnly(9, 0));
+            linkedTaskListIds: null,
+            new TaskItemReminders(NotificationChannel.None, Daily: false, NotificationChannel.None, new TimeOnly(9, 0)));
 }

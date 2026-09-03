@@ -43,7 +43,7 @@ public sealed class NotesTests : OrbitTestContext
 
         var cut = RenderComponent<Web.Pages.Notes>();
 
-        var titles = cut.FindAll(".note-row-title").Select(element => element.TextContent.Trim()).ToList();
+        var titles = cut.FindAll(".item-card-name").Select(element => element.TextContent.Trim()).ToList();
         Assert.Equal(["Ideas", "Shopping"], titles);
     }
 
@@ -77,7 +77,7 @@ public sealed class NotesTests : OrbitTestContext
 
         // The first line, not the whole note glued together - a preview that prints everything is not a
         // preview, and made every card in the list a different height.
-        var preview = cut.Find("li p").TextContent;
+        var preview = cut.Find(".item-card-body p").TextContent;
         Assert.Contains("Milk", preview);
         Assert.DoesNotContain("Coffee", preview);
         Assert.Contains("+2 more", preview);
@@ -94,8 +94,8 @@ public sealed class NotesTests : OrbitTestContext
         var cut = RenderComponent<Web.Pages.Notes>();
 
         // The same mark a task list preview uses, so a ticked-off line reads as ticked off here too.
-        Assert.Contains("✓", cut.Find("li p").TextContent);
-        Assert.Contains("completed", cut.Find("li p").ClassName);
+        Assert.Contains("✓", cut.Find(".item-card-body p").TextContent);
+        Assert.Contains("completed", cut.Find(".item-card-body p").ClassName);
     }
 
     [Fact]
@@ -107,19 +107,65 @@ public sealed class NotesTests : OrbitTestContext
 
         Assert.Contains("Empty one", cut.Markup);
         // Nothing written yet means no preview line at all, rather than an empty one holding space open.
-        Assert.Empty(cut.FindAll("li p"));
+        Assert.Empty(cut.FindAll(".item-card-body p"));
     }
 
+    /// <summary>
+    /// The card opens the note to be read, and changing what it says is a named press - the same two
+    /// depths a task list and a storage have, see NoteSummary.razor.
+    /// </summary>
     [Fact]
-    public void Editing_a_note_opens_it()
+    public void A_card_opens_the_note_and_its_menu_opens_the_form()
     {
         var note = Note("Shopping");
         RegisterNotesApiClient([note]);
+        var navigationManager = Services.GetRequiredService<NavigationManager>();
         var cut = RenderComponent<Web.Pages.Notes>();
 
+        cut.Find(".item-card-name").Click();
+        Assert.EndsWith($"/notes/{note.Id}", navigationManager.Uri);
+
+        OpenTheCardMenu(cut);
         FindButton(cut, "Edit").Click();
 
-        Assert.EndsWith($"/notes/{note.Id}", Services.GetRequiredService<NavigationManager>().Uri);
+        Assert.EndsWith($"/notes/{note.Id}/edit", navigationManager.Uri);
+    }
+
+    /// <summary>
+    /// A sealed note's card opens it too. Its body is empty here - the server holds no readable line of
+    /// it - but the empty box still sits over the card, so a press there used to land on nothing at all
+    /// and the card read as broken. The light view opens it: the client unseals it there.
+    /// </summary>
+    [Fact]
+    public void A_private_notes_card_opens_it_as_any_other_does()
+    {
+        var note = Note("Shopping") with { IsPrivate = true };
+        RegisterNotesApiClient([note]);
+        var navigationManager = Services.GetRequiredService<NavigationManager>();
+        var cut = RenderComponent<Web.Pages.Notes>();
+
+        cut.Find(".item-card-body").Click();
+
+        Assert.EndsWith($"/notes/{note.Id}", navigationManager.Uri);
+    }
+
+    /// <summary>
+    /// The menu is named for what the press will do. A note shared read-only opens in the form to be
+    /// looked at, and the list called that "Edit" while the note's own page called it "View" - two
+    /// different things said about one note.
+    /// </summary>
+    [Fact]
+    public void A_note_this_reader_cannot_change_offers_to_be_viewed()
+    {
+        RegisterNotesApiClient([
+            Note("Theirs") with { IsShared = true, SharedByUserName = "Anna", AccessLevel = "ReadOnly" }]);
+        var cut = RenderComponent<Web.Pages.Notes>();
+
+        OpenTheCardMenu(cut);
+
+        var offered = cut.FindAll(".avatar-dropdown-item").Select(entry => entry.TextContent.Trim()).ToList();
+        Assert.Contains("View", offered);
+        Assert.DoesNotContain("Edit", offered);
     }
 
     [Fact]
@@ -128,7 +174,7 @@ public sealed class NotesTests : OrbitTestContext
         RegisterNotesApiClient([]);
         var cut = RenderComponent<Web.Pages.Notes>();
 
-        FindButton(cut, "Add note").Click();
+        cut.Find(".page-add").Click();
 
         Assert.EndsWith("/notes/new", Services.GetRequiredService<NavigationManager>().Uri);
     }
@@ -140,6 +186,7 @@ public sealed class NotesTests : OrbitTestContext
         RegisterNotesApiClient([note], confirmDeletion: true);
         var cut = RenderComponent<Web.Pages.Notes>();
 
+        OpenTheCardMenu(cut);
         FindButton(cut, "Delete").Click();
 
         Assert.DoesNotContain("Shopping", cut.Markup);
@@ -152,6 +199,7 @@ public sealed class NotesTests : OrbitTestContext
         RegisterNotesApiClient([Note("Shopping")], confirmDeletion: false);
         var cut = RenderComponent<Web.Pages.Notes>();
 
+        OpenTheCardMenu(cut);
         FindButton(cut, "Delete").Click();
 
         // Nothing asked of the server, and nothing removed from the page - a declined confirmation has
@@ -174,6 +222,13 @@ public sealed class NotesTests : OrbitTestContext
 
     private static IElement FindButton(IRenderedFragment cut, string text)
         => cut.FindAll("button").First(button => button.TextContent.Trim() == text);
+
+    /// <summary>
+    /// Edit and Delete live in each card's overflow menu now, which has to be opened before they
+    /// exist - see ItemCard's Menu slot and OverflowMenu.
+    /// </summary>
+    private static void OpenTheCardMenu(IRenderedFragment cut)
+        => cut.FindAll(".overflow-menu-trigger").First().Click();
 
     private void RegisterNotesApiClient(
         IReadOnlyList<NoteDto>? notes, bool confirmDeletion = true, HttpStatusCode statusCode = HttpStatusCode.OK)

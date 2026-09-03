@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Runs the prune hourly, in the background, as the logged-in user. Copy it into
+  ~/Library/LaunchAgents with __REPOSITORY_PATH__ replaced - see
+  info/testing-and-running-locally.md, "Keeping Docker from eating the disk".
+
+  Hourly rather than daily because it costs nothing to check: under the threshold the script exits in
+  well under a second without touching Docker at all.
+-->
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.orbit.prune-docker-caches</string>
+
+    <key>ProgramArguments</key>
+    <array>
+        <string>/bin/bash</string>
+        <string>__REPOSITORY_PATH__/scripts/prune-docker-caches.sh</string>
+    </array>
+
+    <key>StartInterval</key>
+    <integer>3600</integer>
+
+    <key>RunAtLoad</key>
+    <true/>
+
+    <key>StandardOutPath</key>
+    <string>__HOME__/Library/Logs/orbit-prune-docker-caches.log</string>
+    <key>StandardErrorPath</key>
+    <string>__HOME__/Library/Logs/orbit-prune-docker-caches.log</string>
+</dict>
+</plist>

@@ -25,6 +25,7 @@ public sealed partial class ContactsViewModel : ObservableObject
     private readonly OwnEncryptionKeyProvider _encryptionKeyProvider;
     private readonly Translations _translations;
     private readonly UserPermissions _permissions;
+    private readonly ConversationPins _pins;
     private readonly IScreenNavigator _navigator;
 
     [ObservableProperty]
@@ -43,8 +44,10 @@ public sealed partial class ContactsViewModel : ObservableObject
     public ContactsViewModel(
         ChatRepository chatRepository, ChatClient chatClient, UsersClient usersClient,
         ChatSynchronizer synchronizer, OwnEncryptionKeyProvider encryptionKeyProvider,
-        Translations translations, UserPermissions permissions, IScreenNavigator navigator)
+        Translations translations, UserPermissions permissions, IScreenNavigator navigator,
+        ConnectionRequirement connection, ConversationPins pins)
     {
+        _pins = pins;
         _chatRepository = chatRepository;
         _chatClient = chatClient;
         _usersClient = usersClient;
@@ -53,6 +56,7 @@ public sealed partial class ContactsViewModel : ObservableObject
         _translations = translations;
         _permissions = permissions;
         _navigator = navigator;
+        Connection = connection;
     }
 
     /// <summary>
@@ -67,7 +71,29 @@ public sealed partial class ContactsViewModel : ObservableObject
 
     public ObservableCollection<LocalContact> Contacts { get; } = [];
 
+    /// <summary>
+    /// Whether the list is showing what has been put away rather than what is current. A switch rather
+    /// than a fourth tab as the browser has: this screen is one list, and what it holds is the question
+    /// the switch answers.
+    /// </summary>
+    [ObservableProperty]
+    private bool _isShowingArchive;
+
+    /// <summary>
+    /// Whether the archive is worth offering at all. An empty one is a place that answers "nothing" to
+    /// somebody who had to go there to find out - the same rule Orbit.Web's Contacts applies to its tab.
+    /// </summary>
+    [ObservableProperty]
+    private bool _hasArchive;
+
     public bool HasMessage => Message.Length > 0;
+
+    /// <summary>
+    /// Finding somebody new is the one thing here that cannot be answered from this phone: there
+    /// is no local copy of everybody who has an Orbit account, and there should not be. The rest of
+    /// the screen - the contacts already known - reads offline like everything else.
+    /// </summary>
+    public ConnectionRequirement Connection { get; }
 
     public bool HasFoundSomebody => FoundPerson is not null;
 
@@ -169,14 +195,121 @@ public sealed partial class ContactsViewModel : ObservableObject
     private async Task ShowCachedContactsAsync(CancellationToken cancellationToken)
     {
         var contacts = await _chatRepository.GetContactsAsync(cancellationToken);
-        Contacts.Clear();
-        foreach (var contact in contacts)
+        HasArchive = contacts.Any(contact => contact.IsArchived);
+
+        // Nothing to come back to, so the switch goes with it rather than leaving the reader in an empty
+        // list they have to find their own way out of.
+        if (!HasArchive)
         {
+            IsShowingArchive = false;
+        }
+
+        Contacts.Clear();
+        foreach (var contact in InReadingOrder(contacts.Where(contact => contact.IsArchived == IsShowingArchive)))
+        {
+            contact.IsPinned = _pins.IsPinned(contact.UserId);
             Contacts.Add(contact);
         }
 
-        Message = Contacts.Count == 0 ? _translations["No conversations yet."] : string.Empty;
+        Message = Contacts.Count == 0
+            ? IsShowingArchive ? _translations["Nothing put away."] : _translations["No conversations yet."]
+            : string.Empty;
     }
+
+    /// <summary>
+    /// Pinned first, and the archive left as it is: putting something away is the opposite of keeping
+    /// it at the top of the day, so the two lists do not both answer to the pins - the same line
+    /// Orbit.Web draws.
+    /// </summary>
+    private IEnumerable<LocalContact> InReadingOrder(IEnumerable<LocalContact> contacts)
+        => IsShowingArchive ? contacts : _pins.PinnedFirst(contacts, contact => contact.UserId);
+
+    /// <summary>
+    /// Keeps this conversation at the top of the list, or lets it back into the order it was in. On
+    /// this device only - see ConversationPins.
+    /// </summary>
+    [RelayCommand]
+    private Task TogglePinAsync(LocalContact? contact, CancellationToken cancellationToken)
+    {
+        if (contact is null)
+        {
+            return Task.CompletedTask;
+        }
+
+        _pins.Toggle(contact.UserId);
+        return ShowCachedContactsAsync(cancellationToken);
+    }
+
+    /// <summary>
+    /// Puts a conversation away on this reader's list, or brings it back. One-sided: nobody else is
+    /// told, and their own list is untouched - see ChatClient.SetConversationArchivedAsync.
+    /// </summary>
+    [RelayCommand]
+    private async Task SetArchivedAsync(LocalContact? contact, CancellationToken cancellationToken)
+    {
+        if (contact is null)
+        {
+            return;
+        }
+
+        try
+        {
+            if (!await _chatClient.SetConversationArchivedAsync(contact.UserId, !contact.IsArchived, cancellationToken))
+            {
+                Message = _translations["Orbit has no such conversation any more."];
+                return;
+            }
+        }
+        catch (Exception exception) when (exception is HttpRequestException or OperationCanceledException)
+        {
+            Message = contact.IsArchived
+                ? _translations["Could not put that back. Check your connection and try again."]
+                : _translations["Could not put that away. Check your connection and try again."];
+            return;
+        }
+
+        await RefreshFromTheServerAsync(cancellationToken);
+    }
+
+    /// <summary>
+    /// Empties a conversation on this reader's side. The other party keeps theirs - the server records
+    /// where this reader's history begins rather than deleting anybody's messages - and this phone
+    /// drops what it had cached, or the words would still be here afterwards.
+    /// </summary>
+    [RelayCommand]
+    private async Task ClearHistoryAsync(LocalContact? contact, CancellationToken cancellationToken)
+    {
+        if (contact is null)
+        {
+            return;
+        }
+
+        try
+        {
+            if (!await _chatClient.ClearConversationHistoryAsync(contact.UserId, cancellationToken))
+            {
+                Message = _translations["Orbit has no such conversation any more."];
+                return;
+            }
+        }
+        catch (Exception exception) when (exception is HttpRequestException or OperationCanceledException)
+        {
+            Message = _translations["Could not delete that chat history. Check your connection and try again."];
+            return;
+        }
+
+        await _chatRepository.DeleteConversationAsync(contact.UserId, cancellationToken);
+        await RefreshFromTheServerAsync(cancellationToken);
+    }
+
+    /// <summary>Pulls the list again and shows it, so a change made here is read back rather than guessed at.</summary>
+    private async Task RefreshFromTheServerAsync(CancellationToken cancellationToken)
+    {
+        await _synchronizer.SynchroniseContactsAsync(cancellationToken);
+        await ShowCachedContactsAsync(cancellationToken);
+    }
+
+    partial void OnIsShowingArchiveChanged(bool value) => LoadCommand.Execute(null);
 
     [RelayCommand]
     private void OpenConversation(LocalContact? contact)
@@ -220,6 +353,13 @@ public sealed partial class ContactsViewModel : ObservableObject
 
         await LoadAsync(cancellationToken);
     }
+
+    /// <summary>
+    /// Who somebody is, apart from what they have said - see ContactInfoViewModel. Also opened for
+    /// somebody just found by search, who is not a contact yet.
+    /// </summary>
+    [RelayCommand]
+    private void OpenContactInfo(Guid userId) => _navigator.ShowContactInfo(userId);
 
     [RelayCommand]
     private void OpenGroups() => _navigator.ShowGroups();

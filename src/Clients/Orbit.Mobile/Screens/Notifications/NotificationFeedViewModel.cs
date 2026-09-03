@@ -2,6 +2,8 @@ using System.Collections.ObjectModel;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Orbit.Mobile.Api;
+using Orbit.Mobile.Data;
+using Orbit.Mobile.Sync;
 using Orbit.Mobile.Localization;
 using Orbit.Mobile.Notifications;
 using Orbit.Mobile.Screens;
@@ -12,13 +14,19 @@ namespace Orbit.Mobile.Screens.Notifications;
 /// The in-app notification feed: what happened while the reader was elsewhere, and a way back to each
 /// of them.
 ///
-/// Needs a connection, unlike most screens here. The feed lives on the server - it is the same feed the
-/// web shows - and every action on it (reading, clearing) is a server action. Caching it locally would
-/// buy a list that cannot be acted on and would go stale silently, which is worse than saying so.
+/// Reads from this phone's own copy, like every other screen. It was the last one that did not: the
+/// feed was fetched from the server each time, so with no connection it was simply empty - an overdue
+/// task nobody could see on a train. It now syncs and then reads what it holds.
+///
+/// The two actions on it - reading, clearing - are still the server's, because they are about the
+/// account rather than about this phone, and the second device has to hear about them. They are
+/// disabled with no connection rather than offered and refused - see ConnectionRequirement.
 /// </summary>
 public sealed partial class NotificationFeedViewModel : ObservableObject
 {
     private readonly NotificationsClient _notificationsClient;
+    private readonly LocalNotificationRepository _notifications;
+    private readonly NotificationSynchronizer _synchronizer;
     private readonly NotificationOpener _opener;
     private readonly Translations _translations;
     private readonly IScreenNavigator _navigator;
@@ -37,16 +45,26 @@ public sealed partial class NotificationFeedViewModel : ObservableObject
     private bool _isShowingEverything;
 
     public NotificationFeedViewModel(
-        NotificationsClient notificationsClient, NotificationOpener opener, Translations translations,
-        IScreenNavigator navigator)
+        NotificationsClient notificationsClient, LocalNotificationRepository notifications,
+        NotificationSynchronizer synchronizer, NotificationOpener opener, Translations translations,
+        IScreenNavigator navigator, ConnectionRequirement connection, Live.ILiveUpdates liveUpdates)
     {
+        // Read again when something says there is something to read, rather than only when this screen
+        // is opened - see ILiveUpdates.
+        liveUpdates.NotificationsChanged += () => _ = ShowFeedAsync(CancellationToken.None);
         _notificationsClient = notificationsClient;
+        _notifications = notifications;
+        _synchronizer = synchronizer;
+        Connection = connection;
         _translations = translations;
         _opener = opener;
         _navigator = navigator;
     }
 
     public ObservableCollection<NotificationRow> Rows { get; } = [];
+
+    /// <summary>Reading and clearing are the server's to record, so they are not offered without it.</summary>
+    public ConnectionRequirement Connection { get; }
 
     public bool HasMessage => Message.Length > 0;
 
@@ -77,6 +95,10 @@ public sealed partial class NotificationFeedViewModel : ObservableObject
     {
         try
         {
+            // Both sides: the server does not know about what this phone raised for itself, and left to
+            // the server alone "mark all read" would leave one stubbornly unread - see
+            // LocalNotificationRepository.MarkEverythingReadAsync.
+            await _notifications.MarkEverythingReadAsync(cancellationToken);
             await _notificationsClient.MarkAllReadAsync(cancellationToken);
             await ShowFeedAsync(cancellationToken);
         }
@@ -94,6 +116,7 @@ public sealed partial class NotificationFeedViewModel : ObservableObject
     {
         try
         {
+            await _notifications.DismissEverythingAsync(cancellationToken);
             await _notificationsClient.ClearAsync(cancellationToken);
             await ShowFeedAsync(cancellationToken);
         }
@@ -138,9 +161,13 @@ public sealed partial class NotificationFeedViewModel : ObservableObject
                 _ => string.Empty
             };
 
-            if (outcome == NotificationOpenOutcome.Opened && row.Url is { Length: > 0 } url)
+            if (outcome == NotificationOpenOutcome.Opened)
             {
-                await _notificationsClient.MarkReadAtAsync(url);
+                await _notifications.MarkReadAsync(row.Id);
+                if (row.Url is { Length: > 0 } url)
+                {
+                    await _notificationsClient.MarkReadAtAsync(url);
+                }
             }
         }
         catch (HttpRequestException)
@@ -157,9 +184,13 @@ public sealed partial class NotificationFeedViewModel : ObservableObject
         IsBusy = true;
         try
         {
+            // Asked for first and read afterwards, so a phone with a connection shows what the server
+            // has and one without shows what it heard last - rather than nothing at all.
+            await _synchronizer.SynchroniseAsync(cancellationToken);
+
             var entries = IsShowingEverything
-                ? await _notificationsClient.GetHistoryAsync(cancellationToken)
-                : await _notificationsClient.GetRecentAsync(cancellationToken);
+                ? await _notifications.GetHistoryAsync(cancellationToken)
+                : await _notifications.GetRecentAsync(cancellationToken);
 
             Rows.Clear();
             foreach (var entry in entries)
@@ -169,6 +200,9 @@ public sealed partial class NotificationFeedViewModel : ObservableObject
 
             Message = string.Empty;
         }
+        // Being out of reach never lands here - the synchroniser answers "never got through" and the
+        // feed shows what it holds. What does land here is a refusal, most often an expired session,
+        // and that still has to be said: it is not something waiting for a connection will fix.
         catch (HttpRequestException exception)
         {
             Message = Explain(exception, _translations["Couldn't read your notifications"]);

@@ -1,0 +1,82 @@
+@using Orbit.Core.Inventory
+@using Orbit.Web.Services
+@inject Translations T
+
+@* How long something keeps, rather than the day it stops keeping.
+
+   A date is what gets stored - the expiry reminder needs one, and "in two weeks" is not a thing a
+   background service can compare against. What changed is only the asking: nobody stocking a shelf
+   knows that a carton runs out on the 14th, they know it keeps a fortnight. The two boxes below turn
+   that into a date from today, and an item that already has one says how long is left instead. *@
+<span class="expires-in-field">
+    <input type="number" min="1" step="1" class="expires-in-amount" aria-label="@(T["Expires in"])"
+           value="@_amount" @onchange="OnAmountChangedAsync" />
+    <select class="expires-in-unit" aria-label="@(T["Expires in"])" value="@_unit" @onchange="OnUnitChangedAsync">
+        <option value="@nameof(ExpiryUnit.None)">@T["No date"]</option>
+        <option value="@nameof(ExpiryUnit.Days)">@T["days"]</option>
+        <option value="@nameof(ExpiryUnit.Weeks)">@T["weeks"]</option>
+        <option value="@nameof(ExpiryUnit.Months)">@T["months"]</option>
+        <option value="@nameof(ExpiryUnit.Years)">@T["years"]</option>
+    </select>
+    @if (Value is { } expiresOn)
+    {
+        @* The date itself, said quietly. Somebody who set "2 weeks" three days ago is owed the answer to
+           "when exactly", and somebody reading a shelf is owed it too. *@
+        <span class="expires-in-date">@expiresOn.ToLocalTime().ToString("d", T.DisplayCulture)</span>
+    }
+</span>
+
+@code {
+    /// <summary>The day this stops keeping, which is what is stored. Null for something that does not expire.</summary>
+    [Parameter] public DateTimeOffset? Value { get; set; }
+
+    [Parameter] public EventCallback<DateTimeOffset?> ValueChanged { get; set; }
+
+    private int _amount = 1;
+    private string _unit = nameof(ExpiryUnit.None);
+
+    /// <summary>What was last shown, so a value arriving from outside is read but a value this control just wrote is not.</summary>
+    private DateTimeOffset? _lastSeenValue;
+
+    protected override void OnParametersSet()
+    {
+        if (Value == _lastSeenValue)
+        {
+            return;
+        }
+
+        _lastSeenValue = Value;
+        ReadTheBoxesFrom(Value);
+    }
+
+    /// <summary>Reads a stored date back as a length - see ExpiryPeriod, which both clients count by.</summary>
+    private void ReadTheBoxesFrom(DateTimeOffset? value)
+    {
+        var period = ExpiryPeriod.For(value, DateTime.Today);
+        _amount = period.Amount;
+        _unit = period.Unit.ToString();
+    }
+
+    private async Task OnAmountChangedAsync(ChangeEventArgs args)
+    {
+        _amount = int.TryParse(args.Value?.ToString(), out var typed) && typed > 0 ? typed : 1;
+        await WriteTheDateAsync();
+    }
+
+    private async Task OnUnitChangedAsync(ChangeEventArgs args)
+    {
+        _unit = args.Value?.ToString() ?? nameof(ExpiryUnit.None);
+        await WriteTheDateAsync();
+    }
+
+    /// <inheritdoc cref="ExpiryPeriod.On"/>
+    private async Task WriteTheDateAsync()
+    {
+        var unit = Enum.TryParse<ExpiryUnit>(_unit, out var parsed) ? parsed : ExpiryUnit.None;
+        var expiresOn = new ExpiryPeriod(_amount, unit).On(DateTime.Today);
+
+        _lastSeenValue = expiresOn;
+        Value = expiresOn;
+        await ValueChanged.InvokeAsync(expiresOn);
+    }
+}

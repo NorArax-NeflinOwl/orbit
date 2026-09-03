@@ -1,12 +1,14 @@
 @page "/tasks/{TaskListId:guid}/items/{ItemId:guid}"
 @attribute [Authorize]
-@implements IAsyncDisposable
 @using Orbit.Contracts.Calendar
+@using Orbit.Contracts.Chat
 @using Orbit.Contracts.Tasks
 @using Orbit.Core.Tasks
 @using Orbit.Web.Services
 @inject TasksApiClient TasksApiClient
 @inject CalendarApiClient CalendarApiClient
+@inject ChatApiClient ChatApiClient
+@inject UsersApiClient UsersApiClient
 @inject GeocodingApiClient GeocodingApiClient
 @inject NavigationManager NavigationManager
 @inject IJSRuntime JSRuntime
@@ -51,6 +53,23 @@ else
             <span class="row-title">@T["Where"]</span>
             <span class="row-meta">@(_place.Length > 0 ? _place : T["No place set"])</span>
         </div>
+        @* What the appointment says about itself, and who is coming. Both live on the event rather than
+           on the entry - an entry that is an appointment keeps neither - so both appear only where
+           there is one. Above the map, because they are what the thing is; the map is where it is. *@
+        @if (_event?.Details.Description is { Length: > 0 } description)
+        {
+            <div class="list-row">
+                <span class="row-title">@T["Description"]</span>
+                <span class="row-meta">@description</span>
+            </div>
+        }
+        @if (_event is { Details.Guests.Count: > 0 } withGuests)
+        {
+            <div class="list-row">
+                <span class="row-title">@T["Guests:"]</span>
+                <span class="row-meta">@string.Join(", ", withGuests.Details.Guests.Select(NameOfTheGuest))</span>
+            </div>
+        }
         @if (_item.IsCompleted)
         {
             <div class="list-row">
@@ -61,9 +80,9 @@ else
 
     @* Drawn only once there is somewhere to draw. An address nobody could find stays as the words
        somebody typed rather than becoming a pin in the wrong country - see GeocodingApiClient. *@
-    @if (_pin is not null)
+    @if (_pin is { } pin)
     {
-        <div id="@MapElementId" class="task-item-map"></div>
+        <PlaceMap Latitude="pin.Latitude" Longitude="pin.Longitude" Label="@_place" ElementId="taskItemMap" />
     }
     else if (_place.Length > 0)
     {
@@ -76,8 +95,6 @@ else
 
     [Parameter] public Guid ItemId { get; set; }
 
-    private const string MapElementId = "taskItemMap";
-
     private bool _isLoading = true;
     private TaskDto? _taskList;
     private TaskItemDto? _item;
@@ -86,12 +103,6 @@ else
     private string _place = string.Empty;
 
     private GeocodedPlace? _pin;
-
-    /// <summary>Held so the map can be torn down when this page goes away - see locationMap.js.</summary>
-    private IJSObjectReference? _mapModule;
-
-    /// <summary>Whether the pin still needs drawing. The map element only exists once there is one.</summary>
-    private bool _isWaitingToDrawTheMap;
 
     protected override async Task OnParametersSetAsync()
     {
@@ -130,7 +141,13 @@ else
             return;
         }
 
-        if (_item.LinkedCalendarEventId is { } eventId && await LoadEventAsync(eventId) is { Details.Location: { } location })
+        _event = _item.LinkedCalendarEventId is { } eventId ? await LoadEventAsync(eventId) : null;
+        if (_event is { Details.Guests.Count: > 0 })
+        {
+            await NameTheGuestsAsync();
+        }
+
+        if (_event is { Details.Location: { } location })
         {
             _place = location.Address ?? string.Empty;
             _pin = new GeocodedPlace(location.Latitude, location.Longitude);
@@ -140,8 +157,52 @@ else
             _place = _item.Location;
             _pin = await GeocodingApiClient.FindPlaceAsync(_place);
         }
+    }
 
-        _isWaitingToDrawTheMap = _pin is not null;
+    /// <summary>The appointment this entry is, when it is one. Null for an entry that is only a deadline.</summary>
+    private CalendarEventDto? _event;
+
+    /// <summary>What each guest is called, by user id - see NameTheGuestsAsync.</summary>
+    private readonly Dictionary<Guid, string> _guestNames = [];
+
+    /// <summary>
+    /// What to call a guest: their login. Falls back to the id, which is not useful to read but is
+    /// honest about what is known - the alternative is a blank where a person should be.
+    /// </summary>
+    private string NameOfTheGuest(Guid guestUserId)
+        => _guestNames.TryGetValue(guestUserId, out var name) ? name : guestUserId.ToString();
+
+    /// <summary>
+    /// Names the people coming: from this account's contacts first, since most guests are, and from the
+    /// user itself for anyone else. Best effort throughout - a name that cannot be read leaves the id,
+    /// and this page is about when and where rather than about who.
+    /// </summary>
+    private async Task NameTheGuestsAsync()
+    {
+        if (_event is null)
+        {
+            return;
+        }
+
+        try
+        {
+            foreach (var contact in await ChatApiClient.GetContactsAsync())
+            {
+                _guestNames[contact.UserId] = contact.UserName;
+            }
+
+            foreach (var guestUserId in _event.Details.Guests.Where(guest => !_guestNames.ContainsKey(guest)))
+            {
+                if (await UsersApiClient.GetUserAsync(guestUserId) is { } user)
+                {
+                    _guestNames[guestUserId] = user.UserName;
+                }
+            }
+        }
+        catch (HttpRequestException exception)
+        {
+            Logger.LogWarning(exception, "Couldn't read who is coming to the appointment behind a task entry");
+        }
     }
 
     /// <summary>Best-effort: a calendar that will not load leaves the entry's own words standing rather than taking the page down.</summary>
@@ -158,48 +219,12 @@ else
         }
     }
 
-    protected override async Task OnAfterRenderAsync(bool firstRender)
-    {
-        if (!_isWaitingToDrawTheMap || _pin is not { } pin)
-        {
-            return;
-        }
-
-        _isWaitingToDrawTheMap = false;
-        try
-        {
-            _mapModule ??= await JSRuntime.InvokeAsync<IJSObjectReference>("import", "./js/locationMap.js");
-            await _mapModule.InvokeVoidAsync("showLocation", MapElementId, pin.Latitude, pin.Longitude, _place);
-        }
-        catch (JSException exception)
-        {
-            // The words are still on the page above; only the picture is missing.
-            Logger.LogWarning(exception, "Failed to draw the map for task item {ItemId}", ItemId);
-        }
-    }
 
     private void GoToCalendar() => NavigationManager.NavigateTo("/calendar");
 
     /// <summary>The list this entry is on, at the shallow level - see TaskListChecklist.</summary>
     private void GoToTaskList() => NavigationManager.NavigateTo($"/tasks/{TaskListId}");
 
-    private string Written(string name) => OrbitWrittenNames.Translate(T, name);
+    private string Written(string name) => OrbitWrittenNames.Translate(key => T[key], name);
 
-    public async ValueTask DisposeAsync()
-    {
-        if (_mapModule is null)
-        {
-            return;
-        }
-
-        try
-        {
-            await _mapModule.InvokeVoidAsync("dispose", MapElementId);
-            await _mapModule.DisposeAsync();
-        }
-        catch (JSDisconnectedException)
-        {
-            // The circuit is already gone, which is one of the ways this page ends.
-        }
-    }
 }

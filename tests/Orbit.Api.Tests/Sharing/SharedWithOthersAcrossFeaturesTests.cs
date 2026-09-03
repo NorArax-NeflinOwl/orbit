@@ -23,8 +23,7 @@ namespace Orbit.Api.Tests.Sharing;
 public sealed class SharedWithOthersAcrossFeaturesTests
 {
     private static readonly CalendarEventDetails SomeEvent = new(
-        "Title", null, null, null, DateTimeOffset.UtcNow, DateTimeOffset.UtcNow.AddHours(1), false, null, [], [],
-        CreationNotificationChannel: NotificationChannel.None, ReminderNotificationChannel: NotificationChannel.None);
+        "Title", null, null, null, DateTimeOffset.UtcNow, DateTimeOffset.UtcNow.AddHours(1), false, null, [], [], ReminderNotificationChannel: NotificationChannel.None);
 
     private readonly InMemoryUserRepository _users = new();
     private readonly User _owner = User.Create("owner@example.com", "owner", "Owner", "hash");

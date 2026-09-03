@@ -18,10 +18,20 @@ namespace Orbit.Mobile.Screens.Notes;
 /// A private note while private things are locked. The row still appears - a note vanishing from the
 /// list would look like it had been deleted - but says nothing about itself until it is unlocked.
 /// </param>
+/// <param name="Title">
+/// What the note is called. A private note this device could not open has none to show - its title is
+/// sealed with the rest of it - so the row falls back to what a hidden one says and the note itself
+/// explains why when it is opened (see NoteDetailViewModel).
+/// </param>
+/// <param name="IsCopy">
+/// Taken from another note to be written on with no connection. Two rows with the same title are
+/// otherwise indistinguishable, and the reader has no way of telling which one they have been writing
+/// in - so the copy says so.
+/// </param>
 public sealed record NoteListItem(
     Guid LocalId, string Title, DateTimeOffset UpdatedAtUtc, bool HasUnsentChanges, OfflineEditRefusal Refusal,
     string Status = "", string Updated = "", bool IsPinned = false, bool IsSharedWithMe = false,
-    bool IsHidden = false, string HiddenTitle = "Private")
+    bool IsHidden = false, string HiddenTitle = "Private", bool IsCopy = false)
 {
     public static NoteListItem From(
         LocalNote note, bool hasUnsentChanges, INetworkStatus networkStatus, bool privateItemsAreUnlocked,
@@ -30,12 +40,13 @@ public sealed record NoteListItem(
         var refusal = OfflineEditPolicy.Evaluate(note, networkStatus);
 
         return new(
-            note.LocalId, note.Title, note.UpdatedAtUtc, hasUnsentChanges, refusal,
-            OfflineEditExplanation.For(refusal, hasUnsentChanges, translations),
+            note.LocalId, note.IsSealed ? hiddenTitle : note.Title, note.UpdatedAtUtc, hasUnsentChanges, refusal,
+            OfflineEditExplanation.For(note, refusal, hasUnsentChanges, translations),
             translations.Format(
                 "Updated {0}", note.UpdatedAtUtc.ToLocalTime().ToString("g", translations.DisplayCulture)),
             note.IsPinned, note.IsShared,
-            IsHidden: note.IsPrivate && !privateItemsAreUnlocked, HiddenTitle: hiddenTitle);
+            IsHidden: note.IsPrivate && !privateItemsAreUnlocked, HiddenTitle: hiddenTitle,
+            IsCopy: note.CopyOfLocalId is not null);
     }
 
     /// <summary>What the row shows instead of the title while it is hidden.</summary>

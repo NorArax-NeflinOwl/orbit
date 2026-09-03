@@ -49,7 +49,8 @@
                                         </Grid.GestureRecognizers>
                                         <Label Grid.Column="0" Text="{Binding Name}" FontSize="15" VerticalOptions="Center" />
                                         <Switch Grid.Column="1" IsToggled="{Binding IsShown, Mode=OneWay}"
-                                                InputTransparent="True" VerticalOptions="Center" />
+                                                InputTransparent="True" VerticalOptions="Center"
+                                                SemanticProperties.Description="{controls:Translate 'Show on the dashboard'}" />
                                     </Grid>
                                 </DataTemplate>
                             </BindableLayout.ItemTemplate>
@@ -99,34 +100,33 @@
                 <VerticalStackLayout Spacing="14" BindableLayout.ItemsSource="{Binding Cards}">
                     <BindableLayout.ItemTemplate>
                         <DataTemplate x:DataType="screens:DashboardCard">
-                            <Border Style="{StaticResource CardBorder}">
-                                <VerticalStackLayout Spacing="8">
-                                    <!-- The heading is a heading: larger than the rows beneath it and
-                                         ruled off from them, so the card's name does not read as its
-                                         first entry. -->
-                                    <Grid ColumnDefinitions="*,Auto,Auto,Auto" ColumnSpacing="8">
-                                        <Label Grid.Column="0" Text="{Binding Title}" Style="{StaticResource CardTitle}"
-                                               VerticalOptions="Center" />
-                                        <Border Grid.Column="1" Style="{StaticResource CardCount}">
-                                            <Label Text="{Binding Count}" Style="{StaticResource CardCountLabel}" />
-                                        </Border>
-                                        <controls:PinButton Grid.Column="2" IsPinned="{Binding IsPinned}"
-                                                            Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=ViewModel.TogglePinCommand, x:DataType=dashboard:DashboardPage}"
-                                                            CommandParameter="{Binding .}" />
-                                        <!-- The card's own overflow, as Orbit.Web has it: what this
-                                             card is narrowed to. An action sheet rather than a panel,
-                                             unlike the page's menu above - one choice, then done. -->
-                                        <Button Grid.Column="3" Text="⋯" SemanticProperties.Description="{controls:Translate 'More'}" FontSize="18" Padding="8,0"
-                                                HeightRequest="32" WidthRequest="36"
-                                                IsVisible="{Binding CanBeFiltered}"
-                                                Style="{StaticResource LinkButton}"
-                                                Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=ShowCardFilterCommand, x:DataType=dashboard:DashboardPage}"
-                                                CommandParameter="{Binding .}" />
-                                    </Grid>
+                            <!-- The same card every list of things is drawn with - see ItemCard. The
+                                 heading is the way into the section itself, as it is on Orbit.Web: the
+                                 dashboard shows the few most relevant rows and the section has the
+                                 rest. The rows below open their own things, which is why the name
+                                 carries the press rather than the whole card. -->
+                            <controls:ItemCard Name="{Binding Title}"
+                                               NameCommand="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=ViewModel.OpenSectionCommand, x:DataType=dashboard:DashboardPage}"
+                                               NameCommandParameter="{Binding .}">
+                                <controls:ItemCard.Pin>
+                                    <controls:PinButton IsPinned="{Binding IsPinned}"
+                                                        Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=ViewModel.TogglePinCommand, x:DataType=dashboard:DashboardPage}"
+                                                        CommandParameter="{Binding .}" />
+                                </controls:ItemCard.Pin>
 
-                                    <BoxView HeightRequest="1"
-                                             Color="{AppThemeBinding Light={StaticResource CardStrokeLight}, Dark={StaticResource CardStrokeDark}}" />
+                                <controls:ItemCard.Menu>
+                                    <!-- The card's own overflow, as Orbit.Web has it: what this card is
+                                         narrowed to. An action sheet rather than a panel, unlike the
+                                         page's menu above - one choice, then done. -->
+                                    <Button Text="⋯" SemanticProperties.Description="{controls:Translate 'More'}" FontSize="18" Padding="8,0"
+                                            HeightRequest="32" WidthRequest="36"
+                                            IsVisible="{Binding CanBeFiltered}"
+                                            Style="{StaticResource LinkButton}"
+                                            Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=ShowCardFilterCommand, x:DataType=dashboard:DashboardPage}"
+                                            CommandParameter="{Binding .}" />
+                                </controls:ItemCard.Menu>
 
+                                <controls:ItemCard.Body>
                                     <VerticalStackLayout Spacing="0" BindableLayout.ItemsSource="{Binding Rows}">
                                         <BindableLayout.ItemTemplate>
                                             <DataTemplate x:DataType="screens:DashboardRow">
@@ -171,8 +171,17 @@
                                             </DataTemplate>
                                         </BindableLayout.ItemTemplate>
                                     </VerticalStackLayout>
-                                </VerticalStackLayout>
-                            </Border>
+                                </controls:ItemCard.Body>
+
+                                <!-- How many things are on the card, at its foot and aligned with the
+                                     name - where Orbit.Web puts it, and where a card with nothing to
+                                     say leaves nothing floating against the right margin. -->
+                                <controls:ItemCard.Extras>
+                                    <Border Style="{StaticResource CardCount}" HorizontalOptions="Start">
+                                        <Label Text="{Binding Count}" Style="{StaticResource CardCountLabel}" />
+                                    </Border>
+                                </controls:ItemCard.Extras>
+                            </controls:ItemCard>
                         </DataTemplate>
                     </BindableLayout.ItemTemplate>
                 </VerticalStackLayout>

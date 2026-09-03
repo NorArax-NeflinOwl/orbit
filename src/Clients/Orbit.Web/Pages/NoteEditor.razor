@@ -1,5 +1,7 @@
 @page "/notes/new"
-@page "/notes/{Id:guid}"
+@* One press further in than the note itself, the way a task list's editor is - see NoteSummary.razor,
+   which is what opening a note lands on. *@
+@page "/notes/{Id:guid}/edit"
 @attribute [Authorize]
 @implements IAsyncDisposable
 @using System.Text.Json
@@ -17,11 +19,24 @@
 
 <PageTitle>@(IsNewNote ? T["New note"] : T["Edit note"])</PageTitle>
 
-@* TODO(Orbit.Web.UI): still plain unstyled form markup. Restyle onto app.css's .page-header/.card/
-   .btn-primary/.btn-secondary once Notes.razor (the list page) gets the same treatment - do them
-   together, since this editor's "Back"/"Save"/"Delete" affordances should match whatever button/card
-   pattern the list ends up using. *@
-<h1>@(IsNewNote ? T["New note"] : T["Edit note"])</h1>
+@* Save and Cancel at the top beside the name rather than at the foot of the form. A note is written
+   from the top down and the form has no fixed height, so the buttons used to be wherever the writing
+   happened to end - which on a long note is off the screen. Icons, because two words there would
+   compete with the one thing the page is called. *@
+@* Two panels: the form on the left, which scrolls, and the panel on the right, which does not - see
+   EditorRail. On a narrow screen the right one becomes a bar along the foot of the window. *@
+<div class="editor-page">
+<div class="editor-page-body">
+
+<div class="page-header">
+    <div class="page-heading">
+        <h1>@(IsNewNote ? T["New note"] : T["Edit note"])</h1>
+        @if (!HasSomethingToSave && !_isLoading)
+        {
+            <span class="form-hint">@T["Write something in it."]</span>
+        }
+    </div>
+</div>
 
 @if (_isLoading)
 {
@@ -41,19 +56,30 @@ else
         }
     }
 
-    @if (_lockedByUserName is not null)
-    {
-        <p class="lock-banner">
-            @T.Format("{0} is currently editing this note - you can't edit it right now.", _lockedByUserName)
-        </p>
-    }
-
     <EditForm Model="_formModel" OnValidSubmit="SaveAsync" class="editor-form note-editor-form">
         <fieldset disabled="@(_isSharedReadOnly || _lockedByUserName is not null || _isSaving)">
+            @* One field for the whole note. The first line is its title and is drawn as one - a
+               separate title box asked twice for something people write once, and left the two able
+               to disagree about what the note is called. *@
             <div class="field">
-                <label>@T["Title"]</label>
-                <InputText @bind-Value="_formModel.Title" class="note-editor-title" />
+                <div class="note-editor-toolbar">
+                    <button type="button" class="btn-secondary" @onclick="InsertChecklistItemAsync">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="14" height="14" rx="3" /><path d="M6.5 10.2l2.3 2.3L13.5 7.8" /></svg>@T["Checklist item"]</button>
+                </div>
+                <ChecklistTextEditor @ref="_checklistEditorRef" CssClass="note-editor-content note-editor-titled"
+                                     IsReadOnly="@(_isSharedReadOnly || _lockedByUserName is not null)"
+                                     @bind-Lines="_formModel.Lines" />
             </div>
+
+        </fieldset>
+    </EditForm>
+
+    @* Everything that is about the note rather than in it, in one place under the writing: how much it
+       matters, who may read it, and how it is reached. They used to sit above the content, so a page
+       opened to write on began with three questions nobody had an answer to yet. *@
+    <h2>@T["About this note"]</h2>
+    <div class="note-editor-settings">
+        <fieldset disabled="@(_isSharedReadOnly || _lockedByUserName is not null || _isSaving)">
             <div class="field">
                 <label for="notePrioritySelect">@T["Priority"]</label>
                 <InputSelect id="notePrioritySelect" @bind-Value="_formModel.Priority">
@@ -76,32 +102,8 @@ else
                     </small>
                 </div>
             }
-
-            <div class="field">
-                <label>@T["Content"]</label>
-                <div class="note-editor-toolbar">
-                    <button type="button" class="btn-secondary" @onclick="InsertChecklistItemAsync">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="14" height="14" rx="3" /><path d="M6.5 10.2l2.3 2.3L13.5 7.8" /></svg>@T["Checklist item"]</button>
-                </div>
-                <ChecklistTextEditor @ref="_checklistEditorRef" CssClass="note-editor-content" @bind-Lines="_formModel.Content" />
-            </div>
-
-            @if (_saveErrorMessage is not null)
-            {
-                <p class="error">@_saveErrorMessage</p>
-            }
-            <div class="form-actions">
-                @* Disabled rather than left to fail on the server: an empty note is a mistake to catch
-                   while it is still being made, and the hint beside it says what is missing. *@
-                <button type="submit" class="btn-primary" disabled="@(!HasSomethingToSave)">@T["Save"]</button>
-                <button type="button" class="btn-secondary" @onclick="CancelAsync">@T["Cancel"]</button>
-                @if (!HasSomethingToSave)
-                {
-                    <span class="form-hint">@T["Give it a title, or write something in it."]</span>
-                }
-            </div>
         </fieldset>
-    </EditForm>
+    </div>
 
     @if (!IsNewNote && !_formModel.IsPrivate && Id is { } noteId)
     {
@@ -151,6 +153,33 @@ else
         }
     }
 }
+
+</div>
+@* Drawn for a note nobody can write to as well, with Save greyed - the same rule the other editors
+   follow. It is where the reason lives: a panel that vanished along with the form's buttons took the
+   sentence saying why they were gone with it. *@
+@if (!_isLoading)
+{
+    <EditorRail OnSave="SaveAsync" OnCancel="CancelAsync"
+                SaveDisabled="@(_isSharedReadOnly || _lockedByUserName is not null || !HasSomethingToSave || _isSaving)">
+        @* Beside the button that failed rather than at the end of a form that is taller than the
+           screen: a save that did not happen and a note somebody else is holding are both answers to
+           "why has Save done nothing", and an answer nobody scrolls to is not one. *@
+        <Extras>
+            @if (_lockedByUserName is not null)
+            {
+                <p class="lock-banner">
+                    @T.Format("{0} is currently editing this note - you can't edit it right now.", _lockedByUserName)
+                </p>
+            }
+            @if (_saveErrorMessage is not null)
+            {
+                <p class="error">@_saveErrorMessage</p>
+            }
+        </Extras>
+    </EditorRail>
+}
+</div>
 
 @code {
     [Parameter]
@@ -224,7 +253,11 @@ else
                 {
                     _formModel = new NoteFormModel
                     {
-                        Title = note.Title, Content = note.Content, IsPrivate = note.IsPrivate, Priority = note.Priority
+                        // Put back together the way it is written: the title as the first line, the
+                        // rest after it. Not a checklist line - a title is not something to tick off.
+                        Lines = [new NoteContentLineDto(note.Title, false, false), .. note.Content],
+                        IsPrivate = note.IsPrivate,
+                        Priority = note.Priority
                     };
                     _isShared = note.IsShared;
                     _access = SharedItemAccess.For(note.IsShared, note.AccessLevel);
@@ -270,8 +303,7 @@ else
     /// </summary>
     private bool HasSomethingToSave
         => _formModel.IsPrivate
-            || !string.IsNullOrWhiteSpace(_formModel.Title)
-            || _formModel.Content.Any(line => !string.IsNullOrWhiteSpace(line.Text));
+            || _formModel.Lines.Any(line => !string.IsNullOrWhiteSpace(line.Text));
 
     private async Task SaveAsync()
     {
@@ -495,8 +527,18 @@ else
 
     private sealed class NoteFormModel
     {
-        public string Title { get; set; } = string.Empty;
-        public IReadOnlyList<NoteContentLineDto> Content { get; set; } = [];
+        /// <summary>
+        /// Everything written in the note, first line first. Line one is the title - which is why
+        /// there is no separate box for it: a note is written as one thing, and two fields let the
+        /// name and the note disagree about what it is called.
+        /// </summary>
+        public IReadOnlyList<NoteContentLineDto> Lines { get; set; } = [];
+
+        /// <summary>The first line, which is what the note is called everywhere else.</summary>
+        public string Title => Lines.Count > 0 ? Lines[0].Text.Trim() : string.Empty;
+
+        /// <summary>Everything after it, which is what the API and the list preview call the content.</summary>
+        public IReadOnlyList<NoteContentLineDto> Content => [.. Lines.Skip(1)];
 
         /// <summary>Encrypt this note so only its owner can read it - see PrivateContentSealer.</summary>
         public bool IsPrivate { get; set; }

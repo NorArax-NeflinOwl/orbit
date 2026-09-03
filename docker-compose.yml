@@ -92,8 +92,10 @@ services:
       GoogleAuth__ClientId: "${GOOGLE_CLIENT_ID:-}"
       GoogleAuth__IosClientId: "${GOOGLE_IOS_CLIENT_ID:-}"
       GoogleAuth__AndroidClientId: "${GOOGLE_ANDROID_CLIENT_ID:-}"
-      # Push to the Orbit.Maui apps. Mount the key in rather than baking it into the image.
-      Firebase__ServiceAccountKeyPath: "${FIREBASE_SERVICE_ACCOUNT_KEY_PATH:-}"
+      # Push to the Orbit.Maui apps. This is the path *inside* the container - the key is mounted in
+      # rather than baked into the image, from the directory the volume below names. With no key
+      # there, FirebasePushNotificationSender logs a warning and drops the push; nothing else breaks.
+      Firebase__ServiceAccountKeyPath: "/run/secrets/firebase-service-account.json"
       # Optional - see .env.example. Read directly (not under a "Smtp__"-style prefix) since it's
       # picked up by Azure Monitor's exporter by its own conventional env var name, not app config.
       APPLICATIONINSIGHTS_CONNECTION_STRING: "${APPLICATIONINSIGHTS_CONNECTION_STRING:-}"
@@ -111,6 +113,10 @@ services:
       Vapid__Subject: "${VAPID_SUBJECT:-}"
     volumes:
       - orbit-api-logs:/app/logs
+      # Read-only, and the whole directory rather than the single file: Docker creates a *directory*
+      # in place of a bind source that does not exist, so naming the file would leave a stray one
+      # behind on any checkout without a key.
+      - ${FIREBASE_SECRETS_DIRECTORY:-./secrets}:/run/secrets:ro
     depends_on:
       aspire-dashboard:
         condition: service_started
@@ -135,6 +141,14 @@ services:
       # generate-certificate.sh. Left unset, the certificate only covers "localhost", which isn't
       # reachable from another device.
       TLS_CERTIFICATE_HOSTNAME: "${TLS_CERTIFICATE_HOSTNAME:-localhost}"
+      # The Android app's signing certificate, which is what lets a phone open Orbit's own links in
+      # the app instead of a browser - see write-android-app-links.sh. Left unset, nothing is served
+      # and links open in a browser, which is the ordinary state for a local stack.
+      ANDROID_APP_SHA256: "${ANDROID_APP_SHA256:-}"
+      # Where the "Debug logs" entry in the avatar menu leads - the two pages of the Aspire dashboard this
+      # stack already runs, unless a deployment says otherwise. See write-diagnostics-dashboard.sh.
+      DIAGNOSTICS_HISTORY_URL: "${DIAGNOSTICS_HISTORY_URL:-http://localhost:18888/structuredlogs}"
+      DIAGNOSTICS_LIVE_URL: "${DIAGNOSTICS_LIVE_URL:-http://localhost:18888/consolelogs}"
     volumes:
       - orbit-web-certs:/etc/nginx/certs
     depends_on:

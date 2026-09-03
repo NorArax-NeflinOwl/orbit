@@ -73,9 +73,6 @@ public sealed class InventoryApiClient
         return request with { Name = string.Empty, Items = [], EncryptedContent = encryptedContent };
     }
 
-    /// <summary>Everything a private warehouse hides from the server, as one sealed payload.</summary>
-    private sealed record SealedWarehouse(string Name, IReadOnlyList<WarehouseItemDto> Items);
-
     public async Task<IReadOnlyList<WarehouseDto>> GetWarehousesAsync(CancellationToken cancellationToken = default)
     {
         var warehouses = await _httpClient.GetFromJsonAsync<List<WarehouseDto>>("api/warehouses", cancellationToken) ?? [];
@@ -201,7 +198,11 @@ public sealed class InventoryApiClient
     public async Task<bool?> GetWarehouseShareStatusAsync(Guid shareId, CancellationToken cancellationToken = default)
     {
         var response = await _httpClient.GetAsync($"api/warehouses/shares/{shareId}/status", cancellationToken);
-        if (response.StatusCode == HttpStatusCode.NotFound)
+        // Refused reads the same as absent from here: an account that has not unlocked sharing cannot
+        // be told whether an offer was taken, and "no such offer" is the honest answer to give it. This
+        // is asked in passing while a conversation is opened - see Chat - and left throwing, one 403
+        // took the whole conversation down.
+        if (response.StatusCode is HttpStatusCode.NotFound or HttpStatusCode.Forbidden)
         {
             return null;
         }
@@ -275,4 +276,43 @@ public sealed class InventoryApiClient
     /// a real one the reader wrote.
     /// </summary>
     private string Translated(string english) => _translations?[english] ?? english;
+
+    /// <summary>
+    /// How this warehouse's restock list is built and when it comes round. Null when the warehouse is
+    /// not one this reader may see.
+    /// </summary>
+    public async Task<RestockListSettingsDto?> GetRestockListSettingsAsync(
+        Guid warehouseId, CancellationToken cancellationToken = default)
+    {
+        var response = await _httpClient.GetAsync($"api/warehouses/{warehouseId}/restock-list/settings", cancellationToken);
+        if (response.StatusCode == HttpStatusCode.NotFound)
+        {
+            return null;
+        }
+
+        response.EnsureSuccessStatusCode();
+        return await response.Content.ReadFromJsonAsync<RestockListSettingsDto>(cancellationToken);
+    }
+
+    /// <summary>Saves the settings and rebuilds the list to match, answering what that moved.</summary>
+    public async Task<RestockRefreshResultDto> SaveRestockListSettingsAsync(
+        Guid warehouseId, RestockListSettingsDto settings, CancellationToken cancellationToken = default)
+    {
+        var response = await _httpClient.PutAsJsonAsync(
+            $"api/warehouses/{warehouseId}/restock-list/settings", settings, cancellationToken);
+        response.EnsureSuccessStatusCode();
+        return await response.Content.ReadFromJsonAsync<RestockRefreshResultDto>(cancellationToken)
+            ?? new RestockRefreshResultDto(0, 0);
+    }
+
+    /// <summary>Rebuilds the list against the settings it already has - the Refresh button.</summary>
+    public async Task<RestockRefreshResultDto> RefreshRestockListAsync(
+        Guid warehouseId, CancellationToken cancellationToken = default)
+    {
+        var response = await _httpClient.PostAsync(
+            $"api/warehouses/{warehouseId}/restock-list/refresh", content: null, cancellationToken);
+        response.EnsureSuccessStatusCode();
+        return await response.Content.ReadFromJsonAsync<RestockRefreshResultDto>(cancellationToken)
+            ?? new RestockRefreshResultDto(0, 0);
+    }
 }

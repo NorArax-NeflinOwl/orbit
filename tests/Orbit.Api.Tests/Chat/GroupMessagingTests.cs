@@ -1,5 +1,6 @@
 using Orbit.Api.Tests.TestDoubles;
 using Microsoft.Extensions.Logging.Abstractions;
+using Orbit.Core.LiveUpdates;
 using Orbit.Core.Users;
 using Orbit.Core.Notifications;
 using Orbit.Core.Abstractions;
@@ -204,11 +205,12 @@ public sealed class GroupMessagingTests
         await groupRepository.AddAsync(group, CancellationToken.None);
 
         var added = await new AddChatGroupMemberCommandHandler(
-                groupRepository, contactRepository, userRepository,
-                new NotificationRecorder(new InMemoryNotificationSettingsRepository(), entryRepository),
+                groupRepository, new InMemoryChatGroupAnnouncementRepository(), contactRepository, userRepository,
+                new NotificationRecorder(new InMemoryNotificationSettingsRepository(), entryRepository, new SilentLiveUpdatePublisher()),
                 new PushNotificationDispatcher(
                     new InMemoryPushSubscriptionRepository(), [new RecordingPushNotificationSender()],
-                    NullLogger<PushNotificationDispatcher>.Instance))
+                    NullLogger<PushNotificationDispatcher>.Instance),
+                new SilentLiveUpdatePublisher())
             .HandleAsync(new AddChatGroupMemberCommand(admin.Id, group.Id, invitee.Id), CancellationToken.None);
 
         // Joining a group is the one thing that happens to a member without them doing anything, so
@@ -304,7 +306,7 @@ public sealed class GroupMessagingTests
         var group = ChatGroup.Create(owner, "Weekend trip");
         await groupRepository.AddAsync(group, CancellationToken.None);
 
-        var left = await new RemoveChatGroupMemberCommandHandler(groupRepository)
+        var left = await new RemoveChatGroupMemberCommandHandler(groupRepository, new SilentLiveUpdatePublisher())
             .HandleAsync(new RemoveChatGroupMemberCommand(owner, group.Id, owner), CancellationToken.None);
 
         // An emptied group is not something to keep - the same tidy-up the account-deletion path does.
@@ -317,7 +319,7 @@ public sealed class GroupMessagingTests
     {
         var context = new GroupMessagingTestContext();
 
-        var left = await new RemoveChatGroupMemberCommandHandler(context.GroupRepository)
+        var left = await new RemoveChatGroupMemberCommandHandler(context.GroupRepository, new SilentLiveUpdatePublisher())
             .HandleAsync(new RemoveChatGroupMemberCommand(context.MemberId, context.GroupId, context.MemberId), CancellationToken.None);
 
         Assert.True(left);
@@ -405,6 +407,7 @@ public sealed class GroupMessagingTests
     {
         public InMemoryChatMessageRepository MessageRepository { get; } = new();
         public InMemoryChatGroupRepository GroupRepository { get; } = new();
+        public InMemoryChatGroupAnnouncementRepository AnnouncementRepository { get; } = new();
         public InMemoryUserRepository UserRepository { get; } = new();
         public InMemoryContactRepository ContactRepository { get; } = new();
         public InMemoryNotificationEntryRepository NotificationEntryRepository { get; } = new();
@@ -425,7 +428,7 @@ public sealed class GroupMessagingTests
         }
 
         public Task<bool> SendAsync(Guid senderId, IReadOnlyList<Guid> recipientIds)
-            => new SendGroupMessageCommandHandler(GroupRepository, MessageRepository)
+            => new SendGroupMessageCommandHandler(GroupRepository, MessageRepository, new SilentLiveUpdatePublisher())
                 .HandleAsync(
                     new SendGroupMessageCommand(
                         senderId, GroupId, recipientIds.Select(id => new GroupMessageCopy(id, $"cipher-for-{id}", "nonce")).ToList()),
@@ -441,15 +444,16 @@ public sealed class GroupMessagingTests
 
         public Task<bool> AddMemberAsync(Guid actorId, Guid userId)
             => new AddChatGroupMemberCommandHandler(
-                    GroupRepository, ContactRepository, UserRepository,
-                    new NotificationRecorder(new InMemoryNotificationSettingsRepository(), NotificationEntryRepository),
+                    GroupRepository, AnnouncementRepository, ContactRepository, UserRepository,
+                    new NotificationRecorder(new InMemoryNotificationSettingsRepository(), NotificationEntryRepository, new SilentLiveUpdatePublisher()),
                     new PushNotificationDispatcher(
-                        new InMemoryPushSubscriptionRepository(), [PushSender], NullLogger<PushNotificationDispatcher>.Instance))
+                        new InMemoryPushSubscriptionRepository(), [PushSender], NullLogger<PushNotificationDispatcher>.Instance),
+                    new SilentLiveUpdatePublisher())
                 .HandleAsync(new AddChatGroupMemberCommand(actorId, GroupId, userId), CancellationToken.None);
 
 
         public Task MarkReadAsync(Guid readerId)
-            => new MarkGroupConversationAsReadCommandHandler(GroupRepository, MessageRepository)
+            => new MarkGroupConversationAsReadCommandHandler(GroupRepository, MessageRepository, new SilentLiveUpdatePublisher())
                 .HandleAsync(new MarkGroupConversationAsReadCommand(readerId, GroupId), CancellationToken.None);
 
         public Task<IReadOnlyList<GroupMessageReceipt>> ReceiptsAsync(Guid callerId, Guid groupMessageId)
@@ -457,7 +461,7 @@ public sealed class GroupMessagingTests
                 .HandleAsync(new GetGroupMessageReceiptsQuery(callerId, GroupId, groupMessageId), CancellationToken.None);
 
         public Task<bool> EditAsync(Guid actorId, Guid groupMessageId, IReadOnlyList<Guid> recipientIds, string newText)
-            => new EditGroupMessageCommandHandler(MessageRepository)
+            => new EditGroupMessageCommandHandler(MessageRepository, new SilentLiveUpdatePublisher())
                 .HandleAsync(
                     new EditGroupMessageCommand(
                         actorId, groupMessageId,
@@ -465,7 +469,7 @@ public sealed class GroupMessagingTests
                     CancellationToken.None);
 
         public Task<bool> DeleteAsync(Guid actorId, Guid messageId)
-            => new DeleteChatMessageCommandHandler(MessageRepository, GroupRepository)
+            => new DeleteChatMessageCommandHandler(MessageRepository, GroupRepository, new SilentLiveUpdatePublisher())
                 .HandleAsync(new DeleteChatMessageCommand(actorId, messageId), CancellationToken.None);
     }
 }

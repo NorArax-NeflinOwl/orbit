@@ -8,8 +8,11 @@ Run the whole suite with:
 dotnet test Orbit.sln
 ```
 
-This also runs automatically in CI on every push and pull request to `main` — see
-[Architecture — Continuous integration](architecture.md#continuous-integration).
+This also runs automatically in CI, on every push to `main` and on every pull request into it - so a
+branch is checked before it lands rather than after. Documentation-only branches are skipped, and a
+pull request run is cancelled by the next push to the same branch. See
+[Architecture — Continuous integration](architecture.md#continuous-integration) for what that costs and
+why it is affordable now when it was not before.
 
 ### `tests/Orbit.Api.Tests`
 
@@ -27,9 +30,14 @@ read-only-vs-can-edit access level rule (see
 exact-match user search including self-exclusion; setting a user's public key; the chat
 message/contact handlers including the first-message-creates-a-contact-in-both-directions rule and the
 push notification it sends the recipient; subscribing/unsubscribing a push endpoint;
-`PushNotificationDispatcher`'s fan-out and expired-subscription pruning; and the overdue-task
+`PushNotificationDispatcher`'s fan-out and expired-subscription pruning; the overdue-task
 notification scheduling logic (see
-[Functionality — Push notifications](functionality.md#push-notifications)).
+[Functionality — Push notifications](functionality.md#push-notifications)); the two delivery senders
+against stand-ins for the services they talk to (`SmtpEmailSenderTests`, `VapidPushNotificationSenderTests`);
+the auth rate limiter against the very policies `Program.cs` installs (`AuthRateLimiterTests`); and
+handing a group's history to somebody who joined after it happened, including who may do it and what the
+server refuses to take on their word (`ShareGroupHistoryTests`, see
+[Functionality — Letting a new member read the history](functionality.md#letting-a-new-member-read-the-history)).
 
 A few of these run against a real database rather than an in-memory double, because what they pin lives
 in storage itself — the order a checklist comes back in, and which tables account deletion empties. They
@@ -114,18 +122,68 @@ node ci/verify-app-boots.mjs https://your-orbit-web-url/ 60000
 See [Future Plan — Testing gaps](future-plan.md#testing-gaps) for the reasoning behind each of these
 and what closing them would take:
 
-- The `/api/auth/*` rate limiter and the exact 429 behavior.
-- Actually sending an email through `SmtpEmailSender` or a push notification through
-  `VapidPushNotificationSender`.
 - The `Chat` page saying why a conversation cannot be opened (an account the API will not resolve),
   which is checked by hand in a browser: the message on screen and the `Warning` it writes to this
   browser's own log. Rendering that page under bUnit means standing up seventeen injected services and
-  the browser crypto behind them, which is the same reason the rest of this bullet exists.
-- The chat thread, `PushNotificationManager`, and
-  `wwwroot/js/e2eeChat.js`/`wwwroot/js/pushNotifications.js`/`wwwroot/service-worker.js` — the
-  encryption/decryption round trip, key generation and persistence in IndexedDB, browser notification
-  permission handling, and the push subscription/service worker lifecycle have no automated coverage.
-  `Contacts` itself is covered: see `ContactsGateTests` and `ContactInfoTests`.
+  the browser crypto behind them.
+- `notificationclick` in `wwwroot/service-worker.js` — whether clicking a notification reuses an open
+  Orbit tab or opens a new one. Nothing outside the operating system can raise a real click on a system
+  notification, and Chrome DevTools has no command for it either, so this one branch is checked by hand.
+  The rest of that file, and of `pushNotifications.js`, is covered — see below.
+- The chat thread, whose interesting behaviour is timing: it is a polling component.
+
+What used to be on this list and no longer is: push notifications end to end
+(`ci/verify-push-notifications.mjs` and `PushNotificationManagerTests`, below), the `/api/auth/*` rate limiter
+(`AuthRateLimiterTests`, against the very policies `Program.cs` installs), sending through
+`SmtpEmailSender` and `VapidPushNotificationSender` (`SmtpEmailSenderTests` against a loopback SMTP
+listener, `VapidPushNotificationSenderTests` against a stub transport), and `wwwroot/js/e2eeChat.js` —
+see below. `Contacts` is covered by `ContactsGateTests` and `ContactInfoTests`.
+
+### The browser-side encryption, in a real browser
+
+`ci/verify-browser-crypto.mjs` runs `Orbit.Web/wwwroot/js/e2eeChat.js` itself in headless Chromium. It
+exists because every line of that file is Web Crypto and IndexedDB, bUnit executes neither, and the
+whole chat's confidentiality rests on it. The .NET side is pinned against vectors generated *from* this
+file (`tests/Orbit.Mobile.Tests/Crypto`), which proves the two agree — not that this file is right.
+
+It serves `wwwroot` itself rather than booting Blazor: the module is a plain ES module, and `127.0.0.1`
+is a secure context, which is all `crypto.subtle` and IndexedDB need. Fourteen checks cover the round
+trip, a per-message nonce, a tampered message refusing to open, a stranger's key not opening one, two
+accounts in one browser not sharing a key, the password-wrapped backup and its restore, and a key
+surviving a page reload.
+
+It runs in the `test` job of `main_orbit.yml`, so it gates every pull request rather than only a deploy.
+Running it by hand needs the browser installed once:
+
+```bash
+npm install --no-save playwright@1 && npx playwright install chromium && node ci/verify-browser-crypto.mjs
+```
+
+### Push notifications, in a real browser
+
+`ci/verify-push-notifications.mjs` does the same for the other two files bUnit cannot reach:
+`wwwroot/service-worker.js` only ever runs inside a registered service worker handling a push event, and
+`wwwroot/js/pushNotifications.js` is the Notification and Push APIs. The push events are delivered for
+real, through Chrome DevTools' `ServiceWorker.deliverPushMessage`, so it is the registered worker being
+exercised and not a copy of its source with a fake `self` around it.
+
+Ten checks: a full payload showing the right title, body and link; a data-less push and a malformed one
+each still showing something rather than nothing; a payload with no `url` still leading somewhere;
+`isSupported` and `getPermissionState` agreeing with the browser they are asked about; nothing invented
+for a browser that never subscribed or has nothing to unsubscribe; and a refused permission answering
+with no subscription rather than half of one.
+
+It launches the full Chromium rather than Playwright's default headless shell, which has no notification
+service at all and reports `Notification.permission` as `denied` whatever is granted. Both are installed
+by the same command:
+
+```bash
+npm install --no-save playwright@1 && npx playwright install chromium && node ci/verify-push-notifications.mjs
+```
+
+What happens on the C# side of that — no VAPID key meaning the browser is never prompted, a refusal
+registering nothing, and what reaches `/api/push` when somebody does say yes — is
+`PushNotificationManagerTests`, against a stub standing in for the module above.
 
 ## Running locally
 
@@ -307,6 +365,54 @@ docker compose down -v && docker compose up -d
 To avoid the drift in the first place, run a branch that carries its own migrations in its own stack
 rather than this one - `docker compose` names its volumes after the project, so a checkout in its own
 directory with its own project name gets its own database.
+
+## Keeping Docker from eating the disk
+
+Building this project's images is what fills a laptop. Every `docker compose build` leaves another layer
+cache behind and orphans the image it replaced; on the machine this was written for that reached **27 GB
+of build cache and 54 orphaned images**, with Docker's disk image at 40 GB.
+
+`scripts/prune-docker-caches.sh` frees it, but only once there is something worth freeing:
+
+```bash
+scripts/prune-docker-caches.sh --dry-run        # what it would do, changing nothing
+scripts/prune-docker-caches.sh                  # prune if over 25 GB
+scripts/prune-docker-caches.sh --threshold-gigabytes 10
+scripts/prune-docker-caches.sh --force          # prune whatever the size
+```
+
+It measures images, containers and build cache - what pruning can actually reclaim - and prunes in
+order, stopping as soon as it is under: the build cache first, then orphaned layers, and only then
+images no container is running, which is the one step that costs a re-pull. Stopped containers are left
+alone: they are worth kilobytes, and removing them makes `docker compose ps` look like the stack was
+never there.
+
+**Named volumes are never touched.** That is where Postgres keeps the local database. `docker volume
+prune` and `docker system prune --volumes` do not appear in the script at all, and volumes are left out
+of the total it compares against - counting data it refuses to delete would have it clean up over and
+over without ever getting under the threshold.
+
+`scripts/test-prune-docker-caches.sh` drives all of that against a docker that only pretends, so the
+rungs of the ladder - including the one that removes images - are exercised without removing anything.
+
+### Running it by itself
+
+```bash
+sed "s|__REPOSITORY_PATH__|$PWD|g; s|__HOME__|$HOME|g" scripts/com.orbit.prune-docker-caches.plist \
+  > ~/Library/LaunchAgents/com.orbit.prune-docker-caches.plist
+launchctl load ~/Library/LaunchAgents/com.orbit.prune-docker-caches.plist
+```
+
+Hourly, and it writes to `~/Library/Logs/orbit-prune-docker-caches.log`. Under the threshold it exits in
+well under a second without touching Docker, so the frequency costs nothing. To stop it:
+
+```bash
+launchctl unload ~/Library/LaunchAgents/com.orbit.prune-docker-caches.plist
+```
+
+macOS returns the freed space as Docker Desktop trims its own disk image, which can lag by a few
+minutes - `du -sh ~/Library/Containers/com.docker.docker` is the number to watch, not the 228 GB
+apparent size of `Docker.raw`, which is a sparse file.
 
 ## Further guides in this folder
 

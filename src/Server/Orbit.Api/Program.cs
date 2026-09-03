@@ -1,11 +1,9 @@
-using System.Security.Claims;
+using Orbit.Api.LiveUpdates;
+using Orbit.Core.LiveUpdates;
 using System.Security.Cryptography;
 using System.Text;
-using System.Threading.RateLimiting;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
-using Microsoft.IdentityModel.JsonWebTokens;
-using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Orbit.Api;
@@ -23,6 +21,7 @@ using Orbit.Api.Inventory;
 using Orbit.Api.Notes;
 using Orbit.Api.Notifications;
 using Orbit.Api.PushNotifications;
+using Orbit.Api.Suggestions;
 using Orbit.Api.Tasks;
 using Orbit.Api.Transfer;
 using Orbit.Api.Users;
@@ -38,6 +37,7 @@ using OpenTelemetry.Resources;
 using OpenTelemetry.Trace;
 using Serilog;
 using Serilog.Events;
+using Serilog.Sinks.ApplicationInsights.TelemetryConverters;
 using Serilog.Sinks.OpenTelemetry;
 using Azure.Monitor.OpenTelemetry.Exporter;
 
@@ -56,7 +56,7 @@ const string serviceName = "Orbit.Api";
 var isDevelopment = string.Equals(
     Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT"), "Development", StringComparison.OrdinalIgnoreCase);
 
-Log.Logger = new LoggerConfiguration()
+var loggerConfiguration = new LoggerConfiguration()
     .MinimumLevel.Is(isDevelopment ? LogEventLevel.Debug : LogEventLevel.Information)
     // EF Core narrates each query in around ten lines - creating a command, opening a connection,
     // executing, disposing the reader, closing again - and prints the SQL twice, once before and once
@@ -79,8 +79,25 @@ Log.Logger = new LoggerConfiguration()
     // by day keeps any one file openable, and 14 files is more history than anyone reads locally.
     .WriteTo.File(
         "logs/orbit-api-.log", rollingInterval: RollingInterval.Day,
-        fileSizeLimitBytes: 50 * 1024 * 1024, rollOnFileSizeLimit: true, retainedFileCountLimit: 14)
-    .WriteTo.OpenTelemetry(options =>
+        fileSizeLimitBytes: 50 * 1024 * 1024, rollOnFileSizeLimit: true, retainedFileCountLimit: 14);
+
+// Where the log lines go beyond this machine, and the same either/or the traces make below: a
+// deployment with Application Insights sends them there, everything else sends them to whatever is
+// listening on the OTLP endpoint - locally, the Aspire dashboard.
+//
+// Application Insights does not read OTLP, so on Azure the OTLP sink was writing into a port nothing
+// answered on: the traces arrived and the words written alongside them did not, leaving the container's
+// console - which goes away with the container - as the only place a log line could be read.
+if (!string.IsNullOrEmpty(applicationInsightsConnectionString))
+{
+    // Traces, not events: a log line is a sentence about something that happened, which is what App
+    // Insights calls a trace. TelemetryConverter.Events would file each one as a custom event, which is
+    // for things being counted rather than things being read.
+    loggerConfiguration.WriteTo.ApplicationInsights(applicationInsightsConnectionString, TelemetryConverter.Traces);
+}
+else
+{
+    loggerConfiguration.WriteTo.OpenTelemetry(options =>
     {
         options.Endpoint = otlpEndpoint;
         options.Protocol = OtlpProtocol.Grpc;
@@ -88,8 +105,10 @@ Log.Logger = new LoggerConfiguration()
         {
             ["service.name"] = serviceName
         };
-    })
-    .CreateLogger();
+    });
+}
+
+Log.Logger = loggerConfiguration.CreateLogger();
 
 try
 {
@@ -112,6 +131,7 @@ try
             .AllowAnyMethod());
     });
 
+    builder.Services.AddOrbitLiveUpdates();
     builder.Services.AddOrbitCore();
     builder.Services.AddOrbitData(builder.Configuration);
     builder.Services.AddOrbitHealthChecks(builder.Configuration);
@@ -211,50 +231,32 @@ try
                 IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtSettings.SigningKey)),
                 ClockSkew = TimeSpan.FromSeconds(30)
             };
+
+            // A browser cannot put an Authorization header on a WebSocket handshake - the WebSocket API
+            // has no way to set one - so SignalR passes the token in the query string instead, and this
+            // is what reads it. Scoped to the hub's own path deliberately: a token in a URL is a token
+            // in access logs and in anything that records one, so nowhere else in this API accepts a
+            // credential that way. See nginx-app-locations.conf, which stops logging the query string
+            // for this one path for the same reason.
+            options.Events = new JwtBearerEvents
+            {
+                OnMessageReceived = context =>
+                {
+                    var token = context.Request.Query["access_token"];
+                    if (!string.IsNullOrEmpty(token)
+                        && context.HttpContext.Request.Path.StartsWithSegments(LiveUpdateMessages.Path))
+                    {
+                        context.Token = token;
+                    }
+
+                    return Task.CompletedTask;
+                }
+            };
         });
     builder.Services.AddScoped<IAuthorizationHandler, PermissionAuthorizationHandler>();
     builder.Services.AddAuthorization(options => options.AddPermissionPolicies());
 
-    builder.Services.AddRateLimiter(options =>
-    {
-        options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
-        // Brute-force protection for /api/auth/register and /api/auth/login (see AuthEndpoints for why
-        // /refresh and /logout don't use this policy) and for the signed-in endpoints that change an
-        // account: 5 requests per minute per caller, with no queueing, so a caller that exceeds this
-        // gets an immediate 429 instead of waiting.
-        //
-        // Partitioned by user id whenever the caller is signed in, and only by IP address when there is
-        // nobody to name. Behind an ingress proxy - which is how this runs in Azure Container Apps -
-        // RemoteIpAddress is the proxy's own address, identical for every visitor, so an IP partition
-        // there is really one shared bucket: five email-verification codes a minute for the whole
-        // installation, and a signed-in user locked out by strangers. The user id is both the honest
-        // key for those endpoints and one no forwarded header has to be trusted for.
-        options.AddPolicy(RateLimiterPolicyNames.Auth, httpContext => RateLimitPartition.GetFixedWindowLimiter(
-            // "sub", not ClaimTypes.NameIdentifier: MapInboundClaims is off above, so the token's own
-            // claim names survive unmapped - which is what every endpoint here reads too.
-            partitionKey: httpContext.User.FindFirstValue(JwtRegisteredClaimNames.Sub)
-                ?? httpContext.Connection.RemoteIpAddress?.ToString()
-                ?? "unknown",
-            factory: _ => new FixedWindowRateLimiterOptions
-            {
-                PermitLimit = 5,
-                Window = TimeSpan.FromMinutes(1),
-                QueueLimit = 0
-            }));
-
-        // Public share links: the token in the URL is the whole access check, so this is the one
-        // endpoint where guessing is worth attempting at all. 30 a minute per IP is far more than
-        // opening links by hand needs and far less than working through a keyspace requires - the
-        // token's own length is what makes that hopeless; this just removes the free attempts.
-        options.AddPolicy(RateLimiterPolicyNames.PublicShare, httpContext => RateLimitPartition.GetFixedWindowLimiter(
-            partitionKey: httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown",
-            factory: _ => new FixedWindowRateLimiterOptions
-            {
-                PermitLimit = 30,
-                Window = TimeSpan.FromMinutes(1),
-                QueueLimit = 0
-            }));
-    });
+    builder.Services.AddRateLimiter(options => options.AddOrbitPolicies());
 
     // Traces every incoming HTTP request, every outgoing HttpClient call, and every command/query
     // dispatched through Orbit.Core's "Orbit.Core" ActivitySource (see LoggingDispatcher), so a
@@ -350,6 +352,7 @@ try
     app.MapTaskEndpoints();
     app.MapCalendarEndpoints();
     app.MapInventoryEndpoints();
+    app.MapSuggestionEndpoints();
     app.MapPushNotificationEndpoints();
     app.MapNotificationEndpoints();
     app.MapConfigEndpoints();
@@ -358,6 +361,7 @@ try
     app.MapTransferEndpoints();
     app.MapAssistantEndpoints();
     app.MapHealthEndpoints();
+    app.MapHub<LiveUpdatesHub>(LiveUpdateMessages.Path);
 
     app.Run();
 }

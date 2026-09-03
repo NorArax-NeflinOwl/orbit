@@ -4,14 +4,25 @@
     xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
     xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml">
 
-    <!-- Orbit's mark: a body and the path around it. The same drawing as the app icon and as
-         Orbit.Web's sidebar logo, so the three cannot drift apart. -->
-    <Grid>
-        <Ellipse x:Name="Ring" Rotation="-28" Fill="Transparent"
-                 Stroke="{DynamicResource Accent}"
-                 HorizontalOptions="Center" VerticalOptions="Center" />
-        <Ellipse x:Name="Body"
-                 Fill="{DynamicResource Accent}"
-                 HorizontalOptions="Center" VerticalOptions="Center" />
-    </Grid>
+    <!-- Orbit's mark: a body and the path around it. Drawn on the same 26-unit canvas Orbit.Web draws it
+         on (MainLayout.razor) and with the same numbers - a ring 22 across and 11 tall tilted 28 degrees
+         about 13,13, and a 6-unit body at that same point - so the two cannot drift apart. Asking for a
+         different size scales the whole canvas, the way a viewBox does, which keeps the stroke in
+         proportion with everything else.
+
+         The tilt is in the arc's own x-axis-rotation, as it is in the SVG, rather than a Rotation on the
+         ring's view. That was the bug this drawing was rebuilt to fix: on Android the view transform
+         turns the shape about a point that is not its middle, so the ring swung up and to the right and
+         left the body sitting on its lower edge. Geometry cannot be turned about the wrong point. -->
+    <AbsoluteLayout x:Name="Canvas" WidthRequest="26" HeightRequest="26"
+                    HorizontalOptions="Center" VerticalOptions="Center">
+
+        <!-- The two arcs are the halves of one ellipse: each starts where the other ends, on opposite
+             sides of 13,13, so together they close the ring. -->
+        <Path AbsoluteLayout.LayoutBounds="0,0,26,26" Aspect="None"
+              Data="M 22.7124 7.8358 A 11 5.5 -28 0 1 3.2876 18.1642 A 11 5.5 -28 0 1 22.7124 7.8358 Z"
+              Stroke="{DynamicResource Accent}" StrokeThickness="1.6" Fill="Transparent" />
+
+        <Ellipse AbsoluteLayout.LayoutBounds="10,10,6,6" Fill="{DynamicResource Accent}" />
+    </AbsoluteLayout>
 </ContentView>

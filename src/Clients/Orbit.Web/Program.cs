@@ -64,7 +64,7 @@ builder.Services.AddTransient<AuthorizationMessageHandler>();
 // so both injection sites resolve to the same instance. Singleton for the same reason as TokenStore
 // above: AuthorizationMessageHandler calls NotifyAuthenticationStateChanged() on this when a request's
 // access and refresh tokens both turn out to be dead (see its class comment) - a Scoped registration
-// meant that call landed on a throwaway instance nothing was subscribed to, so MainLayout's sidebar
+// meant that call landed on a throwaway instance nothing was subscribed to, so MainLayout's top bar
 // never found out the session had ended until something else (a manual login/logout, or the
 // session-expiry heartbeat below, both of which run in the app's real scope) eventually noticed too.
 builder.Services.AddSingleton<OrbitAuthenticationStateProvider>();
@@ -78,6 +78,8 @@ builder.Services.AddHttpClient<TasksApiClient>(httpClient => httpClient.BaseAddr
     .AddHttpMessageHandler<AuthorizationMessageHandler>();
 builder.Services.AddHttpClient<InventoryApiClient>(httpClient => httpClient.BaseAddress = new Uri(apiBaseAddress))
     .AddHttpMessageHandler<AuthorizationMessageHandler>();
+builder.Services.AddHttpClient<NameSuggestionsApiClient>(httpClient => httpClient.BaseAddress = new Uri(apiBaseAddress))
+    .AddHttpMessageHandler<AuthorizationMessageHandler>();
 builder.Services.AddHttpClient<CalendarApiClient>(httpClient => httpClient.BaseAddress = new Uri(apiBaseAddress))
     .AddHttpMessageHandler<AuthorizationMessageHandler>();
 builder.Services.AddHttpClient<AuthApiClient>(httpClient => httpClient.BaseAddress = new Uri(apiBaseAddress))
@@ -90,24 +92,46 @@ builder.Services.AddHttpClient<PushNotificationApiClient>(httpClient => httpClie
     .AddHttpMessageHandler<AuthorizationMessageHandler>();
 builder.Services.AddHttpClient<NotificationsApiClient>(httpClient => httpClient.BaseAddress = new Uri(apiBaseAddress))
     .AddHttpMessageHandler<AuthorizationMessageHandler>();
-builder.Services.AddHttpClient<ClientFlagsApiClient>(httpClient => httpClient.BaseAddress = new Uri(apiBaseAddress));
+// Carries the token, unlike the unauthenticated calls it also makes: the server decides how much of its
+// own version to answer with from what the caller is allowed to see - see ConfigEndpoints. Without a
+// token the same endpoints still answer, which is what keeps the sign-in page able to read them.
+builder.Services.AddHttpClient<ClientFlagsApiClient>(httpClient => httpClient.BaseAddress = new Uri(apiBaseAddress))
+    .AddHttpMessageHandler<AuthorizationMessageHandler>();
 // Carries the token handler like the rest: making and revoking a link needs the owner's session, and
 // the reader's half of this client works with or without one.
 builder.Services.AddHttpClient<PublicShareApiClient>(httpClient => httpClient.BaseAddress = new Uri(apiBaseAddress))
     .AddHttpMessageHandler<AuthorizationMessageHandler>();
 builder.Services.AddHttpClient<TransferApiClient>(httpClient => httpClient.BaseAddress = new Uri(apiBaseAddress))
     .AddHttpMessageHandler<AuthorizationMessageHandler>();
+// The only client pointed at this app's own files rather than at the API, and the only one with no
+// token handler: the licence is a static file served beside index.html - see LicenseText.
+builder.Services.AddHttpClient<LicenseText>(httpClient => httpClient.BaseAddress = browserOrigin);
 builder.Services.AddScoped<OwnEncryptionKeyProvider>();
 builder.Services.AddScoped<EncryptedChatMessageSender>();
 builder.Services.AddScoped<EncryptedChatMessageReader>();
+builder.Services.AddScoped<GroupHistorySharing>();
 builder.Services.AddScoped<SharedLocationSender>();
 builder.Services.AddScoped<GoogleIntegrationAccess>();
 builder.Services.AddScoped<PrivateContentSealer>();
 builder.Services.AddScoped<PushNotificationManager>();
 builder.Services.AddScoped<ThemeService>();
 builder.Services.AddScoped<AccentColorService>();
+// Holds a place between the map and the form it is handed to - see ChosenPlace on why it is not a
+// query string. Scoped, which in WebAssembly means one for the life of the app, so the page that picks
+// it up is the same one the map handed it to.
+builder.Services.AddScoped<ChosenPlace>();
 builder.Services.AddScoped<DashboardPinService>();
 builder.Services.AddScoped<DashboardCardPreferences>();
+// Scoped for the same reason PresenceService below is: in WebAssembly there is one scope for the life
+// of the app, so this is the one connection every page shares. It takes the API's address rather than
+// an HttpClient - a hub connection is not an HTTP call and does not go through the message handlers.
+builder.Services.AddScoped(services => new LiveUpdatesConnection(
+    services.GetRequiredService<TokenStore>(),
+    services.GetRequiredService<TokenRefreshService>(),
+    apiBaseAddress,
+    services.GetRequiredService<ILogger<LiveUpdatesConnection>>()));
+builder.Services.AddScoped<WarehouseArrangement>();
+builder.Services.AddScoped<ConversationPins>();
 builder.Services.AddScoped<PresenceService>();
 // Asked by the chat poll before every tick - see PageVisibility for why polling behind thirty other
 // tabs is waste rather than diligence.
@@ -116,6 +140,7 @@ builder.Services.AddScoped<UserPermissionState>();
 builder.Services.AddScoped<ChecklistViewPreference>();
 builder.Services.AddScoped<TaskListArrangement>();
 builder.Services.AddScoped<PanelPreferences>();
+builder.Services.AddScoped<CalendarListOrder>();
 // Singleton rather than scoped: PersistentLoggerProvider is registered as a singleton and reads the log
 // level from this on every line it considers.
 builder.Services.AddSingleton<DevicePreferences>();
@@ -131,6 +156,11 @@ builder.Services.AddScoped<ClientExceptionLog>();
 builder.Services.AddSingleton(new MobileAppDownloads(
     builder.Configuration["MobileDownloads:Android"] ?? string.Empty,
     builder.Configuration["MobileDownloads:Ios"] ?? string.Empty));
+
+// Where this deployment's logs are read, if it publishes them anywhere - see DiagnosticsDashboard.
+builder.Services.AddSingleton(new DiagnosticsDashboard(
+    builder.Configuration["DiagnosticsHistoryUrl"] ?? string.Empty,
+    builder.Configuration["DiagnosticsLiveUrl"] ?? string.Empty));
 
 // A third-party host, not Orbit.Api - deliberately not given AuthorizationMessageHandler, so Orbit's
 // own bearer token is never sent to it (see GeocodingApiClient's class comment).

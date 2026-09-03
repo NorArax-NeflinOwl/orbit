@@ -23,6 +23,9 @@ public static class PermissionPolicies
     public const string Sharing = nameof(ApplicationPermission.Sharing);
     public const string Location = nameof(ApplicationPermission.Location);
 
+    /// <summary>Declared for completeness; nothing names it, because Debug gates no endpoint - see ApplicationPermission.Debug.</summary>
+    public const string Debug = nameof(ApplicationPermission.Debug);
+
     public static void AddPermissionPolicies(this AuthorizationOptions options)
     {
         foreach (var permission in Enum.GetValues<ApplicationPermission>())

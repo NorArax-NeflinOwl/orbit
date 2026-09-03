@@ -6,6 +6,7 @@ using Orbit.Mobile.Api;
 using Orbit.Mobile.Data;
 using Orbit.Mobile.Localization;
 using Orbit.Mobile.Screens.Inventory;
+using Orbit.Mobile.Security;
 using Orbit.Mobile.Sync;
 using Orbit.Mobile.Tests.TestDoubles;
 using Xunit;
@@ -83,12 +84,33 @@ public sealed class InventorySearchTests
     }
 
     /// <summary>
-    /// A sealed warehouse is named rather than skipped. Its items never came down to this phone, so a
-    /// search that stayed quiet about it would answer "it is nowhere" when the truth is "I could not look
-    /// there" - the one answer a search must never give by accident.
+    /// And on the thing that was found, not just on the shelf holding it: a search across every
+    /// warehouse that leaves somebody looking for it again has answered half the question.
     /// </summary>
     [Fact]
-    public async Task A_warehouse_this_phone_cannot_open_is_named_rather_than_ignored()
+    public async Task Opening_a_result_lands_on_the_thing_that_was_found()
+    {
+        using var context = new ScreenContext();
+        var paste = Item("Flour paste");
+        await context.AddWarehouseAsync("Workshop", Item("Sugar"), paste);
+        var screen = await context.OpenInventoryAsync();
+        screen.SearchedItemName = "paste";
+
+        screen.OpenMatchCommand.Execute(Assert.Single(screen.ItemMatches));
+
+        Assert.Equal(paste.Id, context.Navigator.LastPointedAtProductId);
+    }
+
+    /// <summary>
+    /// A sealed warehouse is counted rather than skipped. Its items never came down to this phone, so a
+    /// search that stayed quiet about it would answer "it is nowhere" when the truth is "I could not look
+    /// there" - the one answer a search must never give by accident.
+    ///
+    /// Counted rather than named, which is what it used to be: a private warehouse's name is sealed
+    /// with the rest of it, so the names put in that sentence were the empty strings the server sends.
+    /// </summary>
+    [Fact]
+    public async Task A_warehouse_this_phone_cannot_open_is_counted_rather_than_ignored()
     {
         using var context = new ScreenContext();
         await context.AddWarehouseAsync("Kitchen", Item("Flour"));
@@ -97,7 +119,8 @@ public sealed class InventorySearchTests
 
         screen.SearchedItemName = "flour";
 
-        Assert.Contains("Locked away", screen.ItemMatchSummary);
+        Assert.Contains("could not be opened", screen.ItemMatchSummary);
+        Assert.DoesNotContain("Locked away", screen.ItemMatchSummary);
     }
 
     /// <summary>Nothing to apologise for when every shelf could be read - just what was found.</summary>
@@ -176,7 +199,7 @@ public sealed class InventorySearchTests
         public ScreenContext()
         {
             _server = new FakeInventoryServer(_clock);
-            _warehouses = new LocalWarehouseRepository(_localStore, _clock, FixedNetworkStatus.Online);
+            _warehouses = new LocalWarehouseRepository(_localStore, _clock, FixedNetworkStatus.Online, PrivateContent.WithoutAKey());
             _synchronizer = new WarehouseSynchronizer(
                 _localStore, new InventoryClient(_server.ToHttpClient()), _clock, new SyncGate(),
                 NullLogger<WarehouseSynchronizer>.Instance);
@@ -188,7 +211,7 @@ public sealed class InventorySearchTests
         public async Task<LocalWarehouse> AddWarehouseAsync(string name, params WarehouseItemDto[] items)
         {
             var warehouse = await _warehouses.CreateAsync(name);
-            await _warehouses.UpdateAsync(warehouse.LocalId, name, items);
+            await _warehouses.UpdateAsync(warehouse.LocalId, new WarehouseContent(name, items));
             return warehouse;
         }
 
@@ -206,6 +229,7 @@ public sealed class InventorySearchTests
             var translations = new Translations(new InMemoryLanguageStore());
             var screen = new InventoryViewModel(
                 _warehouses, _synchronizer, FixedNetworkStatus.Online,
+                new PrivateItemGate(new FixedDeviceAuthentication()),
                 new SyncState(FixedNetworkStatus.Online, _clock), Navigator, translations);
 
             await screen.LoadCommand.ExecuteAsync(null);

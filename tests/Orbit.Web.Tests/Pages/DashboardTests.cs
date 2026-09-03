@@ -263,7 +263,7 @@ public sealed class DashboardTests : OrbitTestContext
 
         var cut = RenderComponent<Dashboard>();
 
-        Assert.DoesNotContain(cut.FindAll("div.card"), card => card.QuerySelector(".card-title")!.TextContent == "Recent chats");
+        Assert.DoesNotContain(cut.FindAll(".item-card"), card => card.QuerySelector(".item-card-name")!.TextContent == "Recent chats");
         Assert.Contains("Anna Kowalska", FindColumn(cut, "Contacts").TextContent);
     }
 
@@ -277,7 +277,7 @@ public sealed class DashboardTests : OrbitTestContext
         MenuEntries(cut).Single(entry => entry.TextContent.Contains("Recent chats"))
             .QuerySelector("input")!.Change(false);
 
-        Assert.DoesNotContain(cut.FindAll("div.card"), card => card.QuerySelector(".card-title")!.TextContent == "Recent chats");
+        Assert.DoesNotContain(cut.FindAll(".item-card"), card => card.QuerySelector(".item-card-name")!.TextContent == "Recent chats");
     }
 
     [Fact]
@@ -318,7 +318,7 @@ public sealed class DashboardTests : OrbitTestContext
 
         var cut = RenderComponent<Dashboard>();
 
-        Assert.Empty(cut.FindAll("div.card"));
+        Assert.Empty(cut.FindAll(".item-card"));
         Assert.Contains("Everything here is hidden", cut.Markup);
     }
 
@@ -446,7 +446,7 @@ public sealed class DashboardTests : OrbitTestContext
             unread);
 
     private static IElement FindColumn(IRenderedComponent<Dashboard> cut, string heading)
-        => cut.FindAll("div.card").Single(column => column.QuerySelector(".card-title")!.TextContent == heading);
+        => cut.FindAll(".item-card").Single(column => column.QuerySelector(".item-card-name")!.TextContent == heading);
 
     /// <summary>
     /// The dashboard asks this client for two different things - contacts and groups - so the stub has
@@ -593,8 +593,7 @@ public sealed class DashboardTests : OrbitTestContext
             Guid.NewGuid(),
             new CalendarEventDetailsDto(
                 title, Description: null, Location: null, Color: null, startUtc, startUtc.AddHours(lengthHours),
-                IsAllDay: false, Recurrence: recurrence, Guests: [], ReminderMinutesBeforeStart: [],
-                CreationNotificationChannel: "None", ReminderNotificationChannel: "None", Priority: priority),
+                IsAllDay: false, Recurrence: recurrence, Guests: [], ReminderMinutesBeforeStart: [], ReminderNotificationChannel: "None", Priority: priority),
             DateTimeOffset.UtcNow, DateTimeOffset.UtcNow,
             IsShared: false, SharedByUserName: null, AccessLevel: "CanEdit", OriginalOwnerUserId: null);
 
@@ -639,7 +638,7 @@ public sealed class DashboardTests : OrbitTestContext
 
         var cut = RenderComponent<Dashboard>();
 
-        Assert.DoesNotContain(cut.FindAll("div.card"), card => card.QuerySelector(".card-title")!.TextContent == "Upcoming");
+        Assert.DoesNotContain(cut.FindAll(".item-card"), card => card.QuerySelector(".item-card-name")!.TextContent == "Upcoming");
     }
 
     [Fact]
@@ -677,4 +676,81 @@ public sealed class DashboardTests : OrbitTestContext
             Guid.NewGuid(), description, dueDateUtc, isCompleted, LinkedTaskListId: null,
             OverdueNotificationChannel: "None", RemindDaily: false,
             DailyReminderNotificationChannel: "None", DailyReminderTimeOfDay: new TimeOnly(9, 0));
+
+    /// <summary>
+    /// A filter that matches nothing must not take the card away with it.
+    ///
+    /// The reported bug: choosing "High" on Upcoming with nothing high coming up removed the whole
+    /// card - and the filter menu lives in that card's header, so the choice could not be undone from
+    /// the page that made it. Reloading did not help either, because the filter is remembered. The card
+    /// is gated on whether anything is coming up at all, which is a question about the account rather
+    /// than about the filter.
+    /// </summary>
+    [Fact]
+    public void A_filter_that_matches_nothing_leaves_the_card_and_its_filter_reachable()
+    {
+        RegisterChatApiClient([]);
+        RegisterDashboardCardPreferences(new Dictionary<string, string> { ["upcoming"] = "HighPriority" });
+        RegisterCalendarApiClient([EventSoon("Dentist", "Normal")]);
+
+        var cut = RenderComponent<Dashboard>();
+
+        var card = FindColumn(cut, "Upcoming");
+        Assert.NotNull(card.QuerySelector(".card-filter-trigger, .overflow-menu-trigger"));
+        Assert.Contains("Nothing here matches the filter", card.TextContent);
+        Assert.Empty(card.QuerySelectorAll(".list-row"));
+    }
+
+    /// <summary>The same card with a filter that does match still shows what it matched.</summary>
+    [Fact]
+    public void A_filter_that_matches_something_still_shows_it()
+    {
+        RegisterChatApiClient([]);
+        RegisterDashboardCardPreferences(new Dictionary<string, string> { ["upcoming"] = "HighPriority" });
+        RegisterCalendarApiClient([EventSoon("Dentist", "High")]);
+
+        var cut = RenderComponent<Dashboard>();
+
+        var card = FindColumn(cut, "Upcoming");
+        Assert.Single(card.QuerySelectorAll(".list-row"));
+        Assert.DoesNotContain("Nothing here matches the filter", card.TextContent);
+    }
+
+    /// <summary>
+    /// An account with nothing coming up at all still has no Upcoming card - the fix is about the
+    /// filter hiding things, not about showing an empty card to somebody with an empty calendar.
+    /// </summary>
+    [Fact]
+    public void An_account_with_nothing_coming_up_has_no_card_at_all()
+    {
+        RegisterChatApiClient([]);
+        RegisterDashboardCardPreferences(new Dictionary<string, string> { ["upcoming"] = "HighPriority" });
+
+        var cut = RenderComponent<Dashboard>();
+
+        Assert.DoesNotContain(cut.FindAll(".item-card"), card => card.QuerySelector(".item-card-name")!.TextContent == "Upcoming");
+    }
+
+    /// <summary>Notes kept its card when filtered to nothing, but rendered a silent void; now it says why.</summary>
+    [Fact]
+    public void A_notes_card_filtered_to_nothing_says_so_rather_than_showing_a_blank()
+    {
+        RegisterChatApiClient([]);
+        RegisterDashboardCardPreferences(new Dictionary<string, string> { ["notes"] = "HighPriority" });
+        RegisterNotesApiClient([Note("Shopping", "Normal")]);
+
+        var cut = RenderComponent<Dashboard>();
+
+        Assert.Contains("Nothing here matches the filter", FindColumn(cut, "Notes").TextContent);
+    }
+
+    private static CalendarEventDto EventSoon(string title, string priority)
+        => new(
+            Guid.NewGuid(),
+            new CalendarEventDetailsDto(
+                title, null, null, "#ffffff",
+                DateTimeOffset.UtcNow.AddDays(1), DateTimeOffset.UtcNow.AddDays(1).AddHours(1),
+                IsAllDay: false, null, [], [], "None", Priority: priority),
+            DateTimeOffset.UtcNow, DateTimeOffset.UtcNow,
+            IsShared: false, SharedByUserName: null, AccessLevel: "CanEdit", OriginalOwnerUserId: null);
 }

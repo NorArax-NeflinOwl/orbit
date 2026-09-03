@@ -12,10 +12,34 @@
 
   <ItemGroup>
     <PackageReference Include="Microsoft.AspNetCore.Components.Authorization" Version="10.0.10" />
+    <!-- The client half of the live connection (see LiveUpdatesConnection). Not part of the framework
+         reference the way the server half is, so it is a package here and not in Orbit.Api. -->
+    <PackageReference Include="Microsoft.AspNetCore.SignalR.Client" Version="10.0.0" />
     <PackageReference Include="Microsoft.AspNetCore.Components.WebAssembly" Version="10.0.10" />
     <PackageReference Include="Microsoft.AspNetCore.Components.WebAssembly.DevServer" Version="10.0.10" PrivateAssets="all" />
     <PackageReference Include="Microsoft.Extensions.Http" Version="10.0.0" />
   </ItemGroup>
+
+  <ItemGroup>
+    <!-- The licence the footer links to, served beside the app so it can be read on this site rather
+         than on GitHub - see Pages/License.razor. Copied in from the repository's own LICENSE by the
+         target below rather than kept as a second copy, so the page cannot fall behind the file.
+
+         Removed from the default wwwroot glob and declared again, so there is exactly one item whether
+         or not the copy already existed when this project was evaluated - which it does not on the
+         first build after a fresh checkout. -->
+    <Content Remove="wwwroot\LICENSE.txt" />
+    <Content Include="wwwroot\LICENSE.txt" />
+  </ItemGroup>
+
+  <!-- Before AssignTargetPaths, which is where the static web assets are worked out: an asset whose
+       file is not under wwwroot when that runs is served as an empty response by `dotnet run`'s dev
+       server, which is a licence page saying nothing. -->
+  <Target Name="CopyTheLicenceIntoWwwroot" BeforeTargets="AssignTargetPaths">
+    <Copy SourceFiles="$(MSBuildThisFileDirectory)..\..\..\LICENSE"
+          DestinationFiles="$(MSBuildThisFileDirectory)wwwroot\LICENSE.txt"
+          SkipUnchangedFiles="true" />
+  </Target>
 
   <ItemGroup>
     <ProjectReference Include="..\..\Shared\Orbit.Contracts\Orbit.Contracts.csproj" />

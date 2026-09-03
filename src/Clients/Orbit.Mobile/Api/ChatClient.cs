@@ -68,8 +68,27 @@ public sealed class ChatClient
 
     public ChatClient(HttpClient httpClient) => _httpClient = httpClient;
 
+    /// <summary>
+    /// Empty rather than an exception when this account has not unlocked contacts (see
+    /// PermissionPolicies in Orbit.Api). Screens other than the contacts list ask this in passing - the
+    /// map wants names for the people it could share a position with - and a refusal there is not a
+    /// failure to report, it is the answer: there is nobody to show. Orbit.Web answers the same way.
+    ///
+    /// Unlike the 403 that ChatSynchronizer deliberately lets through, this one is not about a session
+    /// having gone: it is a standing rule that another attempt will not change.
+    /// </summary>
     public async Task<IReadOnlyList<ContactDto>> GetContactsAsync(CancellationToken cancellationToken = default)
-        => await _httpClient.GetFromJsonAsync<IReadOnlyList<ContactDto>>("api/chat/contacts", cancellationToken) ?? [];
+    {
+        try
+        {
+            return await _httpClient.GetFromJsonAsync<IReadOnlyList<ContactDto>>(
+                "api/chat/contacts", cancellationToken) ?? [];
+        }
+        catch (HttpRequestException exception) when (exception.StatusCode == HttpStatusCode.Forbidden)
+        {
+            return [];
+        }
+    }
 
     /// <summary>
     /// The conversation with one person. <paramref name="sinceUtc"/> asks for only what arrived after a
@@ -126,6 +145,72 @@ public sealed class ChatClient
     /// anything they try to send - see SendMessageCommandHandler - so this is what unblocks replying.
     /// </summary>
     /// <returns>False when there is no such request to approve, which a stale screen can produce.</returns>
+    /// <summary>
+    /// Puts a conversation away on this reader's list, or brings it back. One-sided and told to nobody:
+    /// the other party's list has its own row and its own answer - see info/functionality.md's "Putting
+    /// a conversation away". False when the server has no such conversation for this account.
+    /// </summary>
+    public Task<bool> SetConversationArchivedAsync(
+        Guid otherUserId, bool isArchived, CancellationToken cancellationToken = default)
+        => PutArchivedAsync($"api/chat/conversations/{otherUserId}/archived", isArchived, cancellationToken);
+
+    /// <summary>
+    /// The same for a group, and the flag lives on this reader's membership rather than on the group -
+    /// so tidying your own list cannot take the group off anybody else's, and it needs no rank.
+    /// </summary>
+    public Task<bool> SetGroupArchivedAsync(Guid groupId, bool isArchived, CancellationToken cancellationToken = default)
+        => PutArchivedAsync($"api/chat/groups/{groupId}/archived", isArchived, cancellationToken);
+
+    private async Task<bool> PutArchivedAsync(string path, bool isArchived, CancellationToken cancellationToken)
+    {
+        using var response = await _httpClient.PutAsJsonAsync(
+            path, new SetArchivedRequest(isArchived), cancellationToken);
+
+        if (response.StatusCode is HttpStatusCode.NotFound)
+        {
+            return false;
+        }
+
+        response.EnsureSuccessStatusCode();
+        return true;
+    }
+
+    /// <summary>
+    /// Empties a conversation on this reader's side only. The other party keeps theirs: the server
+    /// records where this reader's history begins rather than deleting anybody's messages.
+    /// </summary>
+    public async Task<bool> ClearConversationHistoryAsync(Guid otherUserId, CancellationToken cancellationToken = default)
+    {
+        using var response = await _httpClient.DeleteAsync(
+            $"api/chat/conversations/{otherUserId}/messages", cancellationToken);
+
+        if (response.StatusCode is HttpStatusCode.NotFound)
+        {
+            return false;
+        }
+
+        response.EnsureSuccessStatusCode();
+        return true;
+    }
+
+    /// <summary>
+    /// Leaves a group. A different thing from putting it away: what is posted afterwards no longer
+    /// arrives, and the rest of the group sees somebody go.
+    /// </summary>
+    public async Task<bool> LeaveGroupAsync(Guid groupId, CancellationToken cancellationToken = default)
+    {
+        using var response = await _httpClient.DeleteAsync(
+            $"api/chat/groups/{groupId}/membership", cancellationToken);
+
+        if (response.StatusCode is HttpStatusCode.NotFound)
+        {
+            return false;
+        }
+
+        response.EnsureSuccessStatusCode();
+        return true;
+    }
+
     public async Task<bool> ApproveConversationAsync(Guid otherUserId, CancellationToken cancellationToken = default)
     {
         using var response = await _httpClient.PostAsync(
@@ -220,6 +305,33 @@ public sealed class ChatClient
         Guid groupId, CancellationToken cancellationToken = default)
         => await _httpClient.GetFromJsonAsync<IReadOnlyList<ChatMessageDto>>(
             $"api/chat/groups/{groupId}/messages", cancellationToken) ?? [];
+
+    /// <summary>
+    /// The lines in a group's conversation that nobody wrote - who joined, and whether whoever added
+    /// them also handed over what was said before. Read separately from the messages because the server
+    /// keeps them separately: they are facts about the membership rather than anything encrypted.
+    /// </summary>
+    public async Task<IReadOnlyList<ChatGroupAnnouncementDto>> GetGroupAnnouncementsAsync(
+        Guid groupId, CancellationToken cancellationToken = default)
+        => await _httpClient.GetFromJsonAsync<IReadOnlyList<ChatGroupAnnouncementDto>>(
+            $"api/chat/groups/{groupId}/announcements", cancellationToken) ?? [];
+
+    /// <summary>
+    /// Hands the group's past to a member who joined after it happened, already re-encrypted for them -
+    /// the server holds no key to any of it. Answers with how many copies were stored, which can be
+    /// fewer than were offered: one the recipient already has is not stored twice.
+    /// </summary>
+    public async Task<int> ShareGroupHistoryAsync(
+        Guid groupId, Guid recipientUserId, IReadOnlyList<SharedHistoryCopyDto> copies,
+        CancellationToken cancellationToken = default)
+    {
+        using var response = await _httpClient.PostAsJsonAsync(
+            $"api/chat/groups/{groupId}/history", new ShareGroupHistoryRequest(recipientUserId, copies),
+            cancellationToken);
+
+        response.EnsureSuccessStatusCode();
+        return await response.Content.ReadFromJsonAsync<int>(cancellationToken);
+    }
 
     /// <summary>
     /// Who one group message reached and who has read it. Asked per message rather than drawn for every

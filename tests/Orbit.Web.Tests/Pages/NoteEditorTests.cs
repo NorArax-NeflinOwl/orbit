@@ -79,7 +79,7 @@ public sealed class NoteEditorTests : OrbitTestContext
 
         var cut = RenderComponent<NoteEditor>();
 
-        Assert.Equal(string.Empty, cut.Find(".note-editor-title").GetAttribute("value"));
+        Assert.Empty(FirstWrittenLine(cut));
         // Nothing exists to share until it has been saved once.
         Assert.DoesNotContain("Sharing", cut.Markup);
     }
@@ -92,7 +92,7 @@ public sealed class NoteEditorTests : OrbitTestContext
 
         var cut = RenderComponent<NoteEditor>(parameters => parameters.Add(editor => editor.Id, note.Id));
 
-        Assert.Equal("Shopping", cut.Find(".note-editor-title").GetAttribute("value"));
+        Assert.Equal("Shopping", FirstWrittenLine(cut));
     }
 
     [Fact]
@@ -168,6 +168,44 @@ public sealed class NoteEditorTests : OrbitTestContext
         Assert.Empty(cut.FindAll("input[type=checkbox]"));
     }
 
+    /// <summary>
+    /// A note held read-only cannot be typed into. The disabled fieldset around the form does not say
+    /// so on its own: it disables form controls, and the writing surface is a contenteditable div,
+    /// which is not one - so the note took every keystroke with Save greyed out beside it.
+    /// </summary>
+    [Fact]
+    public void A_note_shared_read_only_cannot_be_written_in()
+    {
+        var note = Note("Shopping") with
+        {
+            IsShared = true, SharedByUserName = "anna", AccessLevel = "ReadOnly"
+        };
+        RegisterApiClients(note);
+
+        var cut = RenderComponent<NoteEditor>(parameters => parameters.Add(editor => editor.Id, note.Id));
+
+        var surface = cut.Find(".note-editor-content");
+        Assert.Equal("false", surface.GetAttribute("contenteditable"));
+        Assert.Contains("note-editor-content-readonly", surface.ClassName);
+    }
+
+    /// <summary>And neither can one somebody else is holding - the same surface, the same rule.</summary>
+    [Fact]
+    public void A_note_someone_else_is_editing_cannot_be_written_in()
+    {
+        var note = Note("Shopping");
+        RegisterApiClients(note, lockedByUserName: "anna");
+
+        var cut = RenderComponent<NoteEditor>(parameters => parameters.Add(editor => editor.Id, note.Id));
+
+        Assert.Equal("false", cut.Find(".note-editor-content").GetAttribute("contenteditable"));
+    }
+
+    /// <summary>
+    /// Said in the panel that stays in view rather than above a form that scrolls away, and beside the
+    /// Save it explains: "why is Save greyed" is asked with the thumb on Save. The panel is drawn for a
+    /// note nobody can write to as well - one that vanished took the reason with it.
+    /// </summary>
     [Fact]
     public void A_note_someone_else_is_editing_says_so_and_locks_the_form()
     {
@@ -176,8 +214,9 @@ public sealed class NoteEditorTests : OrbitTestContext
 
         var cut = RenderComponent<NoteEditor>(parameters => parameters.Add(editor => editor.Id, note.Id));
 
-        Assert.Contains("anna", cut.Find(".lock-banner").TextContent);
+        Assert.Contains("anna", cut.Find(".editor-rail-extras .lock-banner").TextContent);
         Assert.True(cut.Find("fieldset").HasAttribute("disabled"));
+        Assert.True(cut.Find(".page-action-primary").HasAttribute("disabled"));
     }
 
     [Fact]
@@ -188,8 +227,8 @@ public sealed class NoteEditorTests : OrbitTestContext
         var cut = RenderComponent<NoteEditor>();
 
         // Caught while the mistake is still being made, rather than left to fail on the server.
-        Assert.True(cut.Find("button[type=submit]").HasAttribute("disabled"));
-        Assert.Contains("Give it a title", cut.Markup);
+        Assert.True(cut.Find(".page-action-primary").HasAttribute("disabled"));
+        Assert.Contains("Write something in it", cut.Markup);
     }
 
     [Fact]
@@ -198,10 +237,10 @@ public sealed class NoteEditorTests : OrbitTestContext
         RegisterApiClients(note: null);
         var cut = RenderComponent<NoteEditor>();
 
-        cut.Find(".note-editor-title").Change("Dentist on Tuesday");
+        WriteFirstLine(cut, "Dentist on Tuesday");
 
-        Assert.False(cut.Find("button[type=submit]").HasAttribute("disabled"));
-        Assert.DoesNotContain("Give it a title", cut.Markup);
+        Assert.False(cut.Find(".page-action-primary").HasAttribute("disabled"));
+        Assert.DoesNotContain("Write something in it", cut.Markup);
     }
 
     [Fact]
@@ -211,7 +250,28 @@ public sealed class NoteEditorTests : OrbitTestContext
 
         var cut = RenderComponent<NoteEditor>(parameters => parameters.Add(editor => editor.Id, Note("Shopping").Id));
 
-        Assert.False(cut.Find("button[type=submit]").HasAttribute("disabled"));
+        Assert.False(cut.Find(".page-action-primary").HasAttribute("disabled"));
+    }
+
+    /// <summary>
+    /// What the note is called, which is the first line of the one field the editor has - there is no
+    /// separate title box any more, so this reads it where it actually lives.
+    /// </summary>
+    private static string FirstWrittenLine(IRenderedComponent<NoteEditor> cut)
+    {
+        var lines = cut.FindComponent<Web.Components.ChecklistTextEditor>().Instance.Lines;
+        return lines.Count > 0 ? lines[0].Text : string.Empty;
+    }
+
+    /// <summary>
+    /// Types the first line. The field is a contenteditable driven by JS, which bUnit cannot type
+    /// into, so this raises the same callback that JS raises after an edit.
+    /// </summary>
+    private static void WriteFirstLine(IRenderedComponent<NoteEditor> cut, string text)
+    {
+        var editor = cut.FindComponent<Web.Components.ChecklistTextEditor>();
+        cut.InvokeAsync(() => editor.Instance.LinesChanged.InvokeAsync(
+            [new Orbit.Contracts.Notes.NoteContentLineDto(text, false, false)])).GetAwaiter().GetResult();
     }
 
     /// <summary>

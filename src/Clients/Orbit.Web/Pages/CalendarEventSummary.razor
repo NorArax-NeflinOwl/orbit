@@ -1,0 +1,283 @@
+@page "/calendar/{Id:guid}"
+@attribute [Authorize]
+@using System.Net
+@using Orbit.Contracts.Calendar
+@using Orbit.Contracts.Chat
+@using Orbit.Web.Services
+@inject CalendarApiClient CalendarApiClient
+@inject ChatApiClient ChatApiClient
+@inject UsersApiClient UsersApiClient
+@inject GoogleIntegrationAccess GoogleIntegrationAccess
+@inject NavigationManager NavigationManager
+@inject IJSRuntime JSRuntime
+@inject ILogger<CalendarEventSummary> Logger
+@inject Translations T
+
+@* One appointment, read rather than filled in: when it is, where, what it is about, who is coming, and
+   the place on a map. The same depth a task entry's own page has - see TaskItemSummary, which shows the
+   same things for an entry that is an appointment - and the form is one named press further in.
+
+   Nothing here is editable, so there is nothing to save. That is not an omission: an appointment has no
+   equivalent of ticking a line off or counting a shelf down, and a page that offered a Save with nothing
+   to write would be a button that does nothing. *@
+<PageTitle>@(_event is null ? T["Event"] : _event.Details.Title)</PageTitle>
+
+<div class="page-header">
+    <div class="page-heading">
+        <h1>@(_event?.Details.Title ?? T["Event"])</h1>
+        @if (_event is { IsShared: true, SharedByUserName: { } sharedBy })
+        {
+            <p class="page-subtitle">@T.Format("Shared by {0}", sharedBy)</p>
+        }
+    </div>
+    <div class="page-header-actions">
+        <button type="button" class="btn-secondary" @onclick="GoToCalendar">@T["Calendar"]</button>
+        @if (_event is not null)
+        {
+            <OverflowMenu>
+                <button type="button" class="avatar-dropdown-item" @onclick="GoToEditor">
+                    @(_event.IsShared ? T["View"] : T["Edit"])
+                </button>
+                @if (!_event.IsShared)
+                {
+                    <button type="button" class="avatar-dropdown-item" @onclick="DeleteAsync">@T["Delete"]</button>
+                }
+            </OverflowMenu>
+        }
+    </div>
+</div>
+
+@if (_message is not null)
+{
+    <p class="error">@_message</p>
+}
+
+@if (_isLoading)
+{
+    <p>@T["Loading…"]</p>
+}
+else if (_event is null)
+{
+    <p>@T["That event no longer exists."]</p>
+}
+else
+{
+    @* Pressing what the appointment says opens the form - the same rule a note's own page and a shelf
+       follow. There is nothing on this card to do instead: an appointment has no line to tick. *@
+    <div class="card summary-opens" role="button" tabindex="0"
+         @onclick="GoToEditor" @onkeydown="OpenOnEnterOrSpace">
+        <div class="list-row">
+            <span class="row-title">@T["When"]</span>
+            <span class="row-meta">@WhenItHappens(_event.Details)</span>
+        </div>
+        <div class="list-row">
+            <span class="row-title">@T["Where"]</span>
+            <span class="row-meta">@(_place.Length > 0 ? _place : T["No place set"])</span>
+        </div>
+        @if (_event.Details.Description is { Length: > 0 } description)
+        {
+            <div class="list-row">
+                <span class="row-title">@T["Description"]</span>
+                <span class="row-meta">@description</span>
+            </div>
+        }
+        @if (_event.Details.Guests.Count > 0)
+        {
+            <div class="list-row">
+                <span class="row-title">@T["Guests:"]</span>
+                <span class="row-meta">@string.Join(", ", _event.Details.Guests.Select(NameOfTheGuest))</span>
+            </div>
+        }
+        @* What it will say, and when. The channel is left out: what a reminder arrives on is a setting
+           rather than a fact about the appointment, and this page is about the appointment. *@
+        @if (_leadTimes.Count > 0)
+        {
+            <div class="list-row">
+                <span class="row-title">@T["Reminders"]</span>
+                <span class="row-meta">@string.Join(", ", _leadTimes.Select(DescribeLeadTime))</span>
+            </div>
+        }
+    </div>
+
+    @if (_pin is { } pin)
+    {
+        <PlaceMap Latitude="pin.Latitude" Longitude="pin.Longitude" Label="@_place" ElementId="calendarEventMap" />
+    }
+
+    @* Handing it to a calendar somebody else lives out of - see GoogleCalendarEventLink for why this is
+       a link and not an API call. *@
+    @if (_hasGoogleExtras)
+    {
+        <p>
+            <a class="btn-secondary" href="@GoogleCalendarLink()" target="_blank" rel="noopener">
+                @T["Add to Google Calendar"]
+            </a>
+        </p>
+    }
+}
+
+@code {
+    [Parameter] public Guid Id { get; set; }
+
+    private CalendarEventDto? _event;
+    private bool _isLoading = true;
+    private string? _message;
+    private string _place = string.Empty;
+    private GeocodedPlace? _pin;
+    private bool _hasGoogleExtras;
+
+    /// <summary>What each guest is called, by user id - see NameTheGuestsAsync.</summary>
+    private readonly Dictionary<Guid, string> _guestNames = [];
+
+    /// <summary>The lead times this event actually reminds at, "at the start" folded in - see CalendarEventDetails.</summary>
+    private IReadOnlyList<int> _leadTimes = [];
+
+    protected override async Task OnParametersSetAsync()
+    {
+        _isLoading = true;
+        _message = null;
+        try
+        {
+            _hasGoogleExtras = await GoogleIntegrationAccess.IsAvailableAsync();
+            _event = await CalendarApiClient.GetCalendarEventByIdAsync(Id);
+        }
+        catch (HttpRequestException exception) when (exception.StatusCode == HttpStatusCode.Unauthorized)
+        {
+            NavigationManager.NavigateTo("/login");
+            return;
+        }
+        catch (HttpRequestException exception)
+        {
+            Logger.LogWarning(exception, "Couldn't read calendar event {EventId}", Id);
+            _event = null;
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+
+        if (_event is null)
+        {
+            return;
+        }
+
+        _place = _event.Details.Location?.Address ?? string.Empty;
+        _pin = _event.Details.Location is { } location ? new GeocodedPlace(location.Latitude, location.Longitude) : null;
+        _leadTimes = [.. _event.Details.ReminderMinutesBeforeStart
+            .Concat(_event.Details.NotifyAtStart ? [0] : Array.Empty<int>())
+            .Distinct()
+            .OrderByDescending(minutes => minutes)];
+
+        if (_event.Details.Guests.Count > 0)
+        {
+            await NameTheGuestsAsync();
+        }
+    }
+
+    /// <summary>
+    /// Names the people coming: from this account's contacts first, since most guests are, and from the
+    /// user itself for anyone else. Mirrors TaskItemSummary, which shows the same row for an entry that
+    /// is this appointment.
+    /// </summary>
+    private async Task NameTheGuestsAsync()
+    {
+        try
+        {
+            foreach (var contact in await ChatApiClient.GetContactsAsync())
+            {
+                _guestNames[contact.UserId] = contact.UserName;
+            }
+
+            foreach (var guestUserId in _event!.Details.Guests.Where(guest => !_guestNames.ContainsKey(guest)))
+            {
+                if (await UsersApiClient.GetUserAsync(guestUserId) is { } user)
+                {
+                    _guestNames[guestUserId] = user.UserName;
+                }
+            }
+        }
+        catch (HttpRequestException exception)
+        {
+            Logger.LogWarning(exception, "Couldn't read who is coming to event {EventId}", Id);
+        }
+    }
+
+    /// <summary>What to call a guest: their login, or the id when that is all this browser knows.</summary>
+    private string NameOfTheGuest(Guid guestUserId)
+        => _guestNames.TryGetValue(guestUserId, out var name) ? name : guestUserId.ToString();
+
+    /// <summary>When it happens, said the way the calendar's own list says it.</summary>
+    private string WhenItHappens(CalendarEventDetailsDto details)
+    {
+        var start = details.StartUtc.LocalDateTime;
+        var end = details.EndUtc.LocalDateTime;
+
+        if (details.IsAllDay)
+        {
+            return start.Date == end.Date
+                ? T.Format("{0} (all day)", start.ToString("dd.MM.yyyy"))
+                : $"{start:dd.MM.yyyy} – {end:dd.MM.yyyy}";
+        }
+
+        return start.Date == end.Date
+            ? $"{start:dd.MM.yyyy} {start:HH:mm} – {end:HH:mm}"
+            : $"{start:dd.MM.yyyy HH:mm} – {end:dd.MM.yyyy HH:mm}";
+    }
+
+    private string DescribeLeadTime(int minutesBeforeStart) => minutesBeforeStart switch
+    {
+        0 => T["at the start"],
+        _ when minutesBeforeStart % (24 * 60) == 0 => T.Format("{0} days before", minutesBeforeStart / (24 * 60)),
+        _ when minutesBeforeStart % 60 == 0 => T.Format("{0} hr before", minutesBeforeStart / 60),
+        _ => T.Format("{0} min before", minutesBeforeStart)
+    };
+
+    private string GoogleCalendarLink()
+        => GoogleCalendarEventLink.ForEvent(new GoogleCalendarEvent(
+            _event!.Details.Title, _event.Details.StartUtc, _event.Details.EndUtc)
+        {
+            IsAllDay = _event.Details.IsAllDay,
+            Description = _event.Details.Description,
+            Location = _place.Length > 0 ? _place : null,
+            Recurrence = _event.Details.Recurrence,
+            ReminderMinutesBeforeStart = _event.Details.ReminderMinutesBeforeStart,
+            NotifyAtStart = _event.Details.NotifyAtStart
+        });
+
+    /// <summary>
+    /// A box given a button's role has to answer a keyboard like one; the browser does that for a real
+    /// button and for nothing else.
+    /// </summary>
+    private void OpenOnEnterOrSpace(KeyboardEventArgs args)
+    {
+        if (args.Key is "Enter" or " ")
+        {
+            GoToEditor();
+        }
+    }
+
+    private void GoToCalendar() => NavigationManager.NavigateTo("/calendar");
+
+    private void GoToEditor() => NavigationManager.NavigateTo($"/calendar/{Id}/edit");
+
+    /// <summary>Asked first, and asked with the name: an appointment deleted by accident is gone.</summary>
+    private async Task DeleteAsync()
+    {
+        if (_event is null
+            || !await JSRuntime.InvokeAsync<bool>("confirm", T.Format("Delete \"{0}\"?", _event.Details.Title)))
+        {
+            return;
+        }
+
+        try
+        {
+            await CalendarApiClient.DeleteCalendarEventAsync(Id);
+            NavigationManager.NavigateTo("/calendar");
+        }
+        catch (HttpRequestException exception)
+        {
+            Logger.LogWarning(exception, "Couldn't delete calendar event {EventId}", Id);
+            _message = T["Failed to delete the event. Try again."];
+        }
+    }
+}

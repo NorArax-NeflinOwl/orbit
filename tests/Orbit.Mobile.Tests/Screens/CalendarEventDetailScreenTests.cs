@@ -143,6 +143,66 @@ public sealed class CalendarEventDetailScreenTests
         Assert.Null((await context.FindAsync(stored.LocalId)).Details.Recurrence);
     }
 
+    /// <summary>
+    /// The other way of saying when to stop, added to the web on 2026-09-01 along with a yearly repeat.
+    /// Both may be given at once; whichever comes first wins, which is Orbit.Core's rule rather than
+    /// this screen's - see CalendarEventOccurrenceGenerator.
+    /// </summary>
+    [Fact]
+    public async Task A_repeat_can_stop_after_so_many_times()
+    {
+        using var context = new ScreenContext();
+        var stored = await context.AddEventAsync(new DateTime(2026, 8, 20, 9, 0, 0), new DateTime(2026, 8, 20, 10, 0, 0));
+        var screen = await context.OpenAsync(stored.LocalId);
+
+        screen.IsRecurring = true;
+        screen.RecurrenceFrequency = "Yearly";
+        screen.RecurrenceCount = 5;
+        await screen.SaveCommand.ExecuteAsync(null);
+
+        var saved = (await context.FindAsync(stored.LocalId)).Details.Recurrence;
+        Assert.Equal("Yearly", saved!.Frequency);
+        Assert.Equal(5, saved.OccurrenceCount);
+    }
+
+    /// <summary>Zero is the empty box on the web: this rule has no limit of that kind, rather than a limit of none.</summary>
+    [Fact]
+    public async Task A_repeat_with_no_count_is_sent_without_one()
+    {
+        using var context = new ScreenContext();
+        var stored = await context.AddEventAsync(new DateTime(2026, 8, 20, 9, 0, 0), new DateTime(2026, 8, 20, 10, 0, 0));
+        var screen = await context.OpenAsync(stored.LocalId);
+
+        screen.IsRecurring = true;
+        screen.RecurrenceCount = 0;
+        await screen.SaveCommand.ExecuteAsync(null);
+
+        Assert.Null((await context.FindAsync(stored.LocalId)).Details.Recurrence!.OccurrenceCount);
+    }
+
+    /// <summary>
+    /// A different question from the reminders: those say it is coming, this says it has begun. It was
+    /// added to the event as CreationNotificationChannel was taken off it, so a phone that carried the
+    /// old field and not this one would have quietly dropped the new answer on every save.
+    /// </summary>
+    [Fact]
+    public async Task An_event_can_be_asked_to_say_when_it_starts()
+    {
+        using var context = new ScreenContext();
+        var stored = await context.AddEventAsync(new DateTime(2026, 8, 20, 9, 0, 0), new DateTime(2026, 8, 20, 10, 0, 0));
+        var screen = await context.OpenAsync(stored.LocalId);
+
+        Assert.False(screen.NotifyAtStart);
+
+        screen.NotifyAtStart = true;
+        await screen.SaveCommand.ExecuteAsync(null);
+
+        Assert.True((await context.FindAsync(stored.LocalId)).Details.NotifyAtStart);
+
+        var reopened = await context.OpenAsync(stored.LocalId);
+        Assert.True(reopened.NotifyAtStart);
+    }
+
     /// <summary>A repeat with no end is the web's blank "until", not a missing rule.</summary>
     [Fact]
     public async Task A_repeat_without_an_end_repeats_without_one()
@@ -303,6 +363,25 @@ public sealed class CalendarEventDetailScreenTests
         Assert.Contains("calendar.google.com", screen.AddToGoogleCalendarUrl);
     }
 
+    /// <summary>
+    /// And neither is a phone whose reader has turned the extras off - a different question from what
+    /// the account may do, and one Orbit.Web has always let a reader answer. Turning them off leaves a
+    /// connected Google account connected; it only stops this device offering the hand-off.
+    /// </summary>
+    [Fact]
+    public async Task A_phone_with_the_Google_extras_turned_off_offers_no_hand_off()
+    {
+        using var context = new ScreenContext();
+        context.Users.Account = context.Users.Account with { IsEmailVerified = true };
+        context.GoogleExtras.IsAllowedOnThisDevice = false;
+        var stored = await context.AddEventAsync(
+            new DateTime(2026, 8, 20, 9, 0, 0), new DateTime(2026, 8, 20, 10, 0, 0));
+
+        var screen = await context.OpenAsync(stored.LocalId);
+
+        Assert.False(screen.CanAddToGoogleCalendar);
+    }
+
     /// <summary>An account nobody has stood behind is not offered the hand-off - see GoogleIntegrationAccess.</summary>
     [Fact]
     public async Task An_unverified_account_is_not_offered_Google_Calendar()
@@ -375,6 +454,40 @@ public sealed class CalendarEventDetailScreenTests
         Assert.Equal("High", (await context.OpenAsync(stored.LocalId)).ChosenPriority.Value);
     }
 
+    /// <summary>
+    /// The same trap as the priority above, in the two fields the web added on 2026-09-01: the phone
+    /// builds its request field by field, so anything it does not name is sent as the contract's
+    /// default - and a save writes the whole event. Both really were being dropped.
+    /// </summary>
+    [Fact]
+    public async Task What_an_event_says_as_it_starts_survives_an_edit_from_here()
+    {
+        using var context = new ScreenContext();
+        var stored = await context.AddEventAsync(
+            new DateTime(2026, 8, 20, 9, 0, 0), new DateTime(2026, 8, 20, 10, 0, 0), notifyAtStart: true);
+        var screen = await context.OpenAsync(stored.LocalId);
+
+        screen.Title = "Standup, moved";
+        await screen.SaveCommand.ExecuteAsync(null);
+
+        Assert.True(Assert.Single(context.Server.Events).Details.NotifyAtStart);
+    }
+
+    [Fact]
+    public async Task A_repeat_that_stops_after_so_many_times_survives_an_edit_from_here()
+    {
+        using var context = new ScreenContext();
+        var stored = await context.AddEventAsync(
+            new DateTime(2026, 8, 20, 9, 0, 0), new DateTime(2026, 8, 20, 10, 0, 0),
+            recurrence: new RecurrenceDto("Weekly", 1, null, OccurrenceCount: 5));
+        var screen = await context.OpenAsync(stored.LocalId);
+
+        screen.Title = "Standup, moved";
+        await screen.SaveCommand.ExecuteAsync(null);
+
+        Assert.Equal(5, Assert.Single(context.Server.Events).Details.Recurrence!.OccurrenceCount);
+    }
+
     [Fact]
     public async Task An_event_can_be_marked_as_mattering_more_from_here()
     {
@@ -419,6 +532,27 @@ public sealed class CalendarEventDetailScreenTests
 
     private static Translations English() => new(new InMemoryLanguageStore());
 
+    /// <summary>
+    /// Typing a place and saving used to lose it: an event stores a point first, and the only way to
+    /// attach one was "Use my location" - which answers where the phone is, not where the appointment
+    /// happens. The name is looked up now, and a name nothing can be found for is reported rather than
+    /// silently emptied on the next open.
+    /// </summary>
+    [Fact]
+    public async Task A_place_that_cannot_be_found_is_reported_rather_than_dropped_in_silence()
+    {
+        using var context = new ScreenContext();
+        var stored = await context.AddEventAsync(
+            new DateTime(2026, 8, 20, 9, 0, 0), new DateTime(2026, 8, 20, 10, 0, 0));
+        var screen = await context.OpenAsync(stored.LocalId);
+
+        screen.LocationAddress = "somewhere nobody can find";
+        await screen.SaveCommand.ExecuteAsync(null);
+
+        Assert.True(screen.HasStatus);
+        Assert.False(screen.HasLocation);
+    }
+
     private sealed class ScreenContext : IDisposable
     {
         private readonly LocalStore _localStore = new();
@@ -441,6 +575,7 @@ public sealed class CalendarEventDetailScreenTests
             Contacts = new ChatRepository(_localStore, _clock);
             _synchronizer = new CalendarEventSynchronizer(
                 _localStore, new CalendarClient(_server.ToHttpClient()), _clock, new SyncGate(),
+                new PendingCalendarLinkResolver(_clock, NullLogger<PendingCalendarLinkResolver>.Instance),
                 NullLogger<CalendarEventSynchronizer>.Instance);
         }
 
@@ -452,7 +587,7 @@ public sealed class CalendarEventDetailScreenTests
         public Task<LocalCalendarEvent> AddEventAsync(
             DateTime localStart, DateTime localEnd, bool isAllDay = false, RecurrenceDto? recurrence = null,
             IReadOnlyList<int>? reminderMinutes = null, IReadOnlyList<Guid>? guests = null,
-            string priority = "Normal")
+            string priority = "Normal", bool notifyAtStart = false)
         {
             var start = new DateTimeOffset(localStart, TimeZoneInfo.Local.GetUtcOffset(localStart)).ToUniversalTime();
             var end = new DateTimeOffset(localEnd, TimeZoneInfo.Local.GetUtcOffset(localEnd)).ToUniversalTime();
@@ -460,7 +595,7 @@ public sealed class CalendarEventDetailScreenTests
             return _events.CreateAsync(
                 new CalendarEventDetailsDto(
                     "Standup", null, null, null, start, end, isAllDay, recurrence, guests ?? [],
-                    reminderMinutes ?? [], "None", "None", priority));
+                    reminderMinutes ?? [], "None", priority, notifyAtStart));
         }
 
         /// <summary>One contact this phone knows, which is what makes somebody invitable.</summary>
@@ -485,6 +620,19 @@ public sealed class CalendarEventDetailScreenTests
             => new(new InMemorySessionStorage(
                 new UserSession("access", "refresh", Guid.NewGuid(), "me@orbit.example", "Me")));
 
+        /// <summary>Whether the phone has a connection, which is what the offline refusal turns on.</summary>
+        public FixedNetworkStatus Network { get; } = FixedNetworkStatus.Online;
+
+        /// <summary>
+        /// Where a typed place turns out to be. Unreachable by default - a third-party lookup is not
+        /// something a test should depend on, and "nothing could be found" is the case worth checking.
+        /// </summary>
+        public Orbit.Mobile.Location.PlaceSearch Places { get; } =
+            new(StubHttpMessageHandler.Unreachable().ToHttpClient());
+
+        /// <summary>What this "device" answers about the Google links - see GoogleExtras.</summary>
+        public GoogleExtras GoogleExtras { get; } = new(new InMemoryGoogleExtrasStore());
+
         public async Task<CalendarEventDetailViewModel> OpenAsync(Guid localId)
         {
             var screen = new CalendarEventDetailViewModel(
@@ -494,8 +642,10 @@ public sealed class CalendarEventDetailScreenTests
                 new CalendarClient(_server.ToHttpClient()),
                 new EditLock(FixedNetworkStatus.Online, _clock, new Translations(new InMemoryLanguageStore())),
                 Here, Contacts,
-                new GoogleIntegrationAccess(new AccountClient(
-                    _users.ToHttpClient(), FixedNetworkStatus.Online, SessionForTests())));
+                new GoogleIntegrationAccess(
+                    new AccountClient(_users.ToHttpClient(), FixedNetworkStatus.Online, SessionForTests()),
+                    GoogleExtras),
+                Network, Places);
 
             screen.Open(localId);
             await screen.LoadCommand.ExecuteAsync(null);

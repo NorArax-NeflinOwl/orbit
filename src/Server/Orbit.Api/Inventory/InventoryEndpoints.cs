@@ -8,6 +8,7 @@ using Orbit.Core.Abstractions;
 using Orbit.Api.Sync;
 using Orbit.Core.Sync;
 using Orbit.Core.Inventory;
+using Orbit.Core.Inventory.RestockListSettingsAccess;
 using Orbit.Core.Inventory.AcceptWarehouseShare;
 using Orbit.Core.Inventory.AcquireWarehouseLock;
 using Orbit.Core.Inventory.CreateWarehouse;
@@ -75,7 +76,9 @@ public static class InventoryEndpoints
                     "A warehouse is created with a name and filled afterwards - send its items to PUT /api/warehouses/{id} instead.");
             }
 
-            var id = await dispatcher.SendAsync(new CreateWarehouseCommand(GetUserId(user), request.Name, request.IsPrivate, ToDomainPayload(request.EncryptedContent)), cancellationToken);
+            var id = await dispatcher.SendAsync(new CreateWarehouseCommand(
+                    GetUserId(user), request.Name, request.IsPrivate, ToDomainPayload(request.EncryptedContent),
+                    request.Description), cancellationToken);
             return Results.Created($"/api/warehouses/{id}", id);
         });
 
@@ -85,7 +88,7 @@ public static class InventoryEndpoints
             var outcome = await dispatcher.SendAsync(
                 new UpdateWarehouseCommand(
                     GetUserId(user), warehouseId, request.Name, ToDomainItems(request.Items),
-                    request.IsPrivate, ToDomainPayload(request.EncryptedContent)),
+                    request.IsPrivate, ToDomainPayload(request.EncryptedContent), request.Description),
                 cancellationToken);
             return ToApiResult(outcome);
         });
@@ -95,6 +98,41 @@ public static class InventoryEndpoints
         {
             var deleted = await dispatcher.SendAsync(new DeleteWarehouseCommand(GetUserId(user), warehouseId), cancellationToken);
             return deleted ? Results.NoContent() : Results.NotFound();
+        });
+
+        // How this warehouse's restock list is built, and when it comes round. On the warehouse rather
+        // than on the task list: it is the warehouse's choice about a list it owns, and the list may not
+        // exist yet - see RestockListSettings.
+        warehouses.MapGet("/{warehouseId:guid}/restock-list/settings", async (
+            Guid warehouseId, ClaimsPrincipal user, IDispatcher dispatcher, CancellationToken cancellationToken) =>
+        {
+            var settings = await dispatcher.SendAsync(
+                new GetRestockListSettingsQuery(GetUserId(user), warehouseId), cancellationToken);
+            return settings is null
+                ? Results.NotFound()
+                : Results.Ok(new RestockListSettingsDto(settings.OnlyLinkedWithDueDate, settings.RefreshTimeOfDay));
+        });
+
+        warehouses.MapPut("/{warehouseId:guid}/restock-list/settings", async (
+            Guid warehouseId, RestockListSettingsDto request, ClaimsPrincipal user, IDispatcher dispatcher,
+            CancellationToken cancellationToken) =>
+        {
+            var outcome = await dispatcher.SendAsync(
+                new SaveRestockListSettingsCommand(
+                    GetUserId(user), warehouseId,
+                    new RestockListSettings(request.OnlyLinkedWithDueDate, request.RefreshTimeOfDay)),
+                cancellationToken);
+            return Results.Ok(new RestockRefreshResultDto(outcome.Added, outcome.Removed));
+        });
+
+        // The Refresh button: rebuild the list against the settings it already has. What somebody presses
+        // when the world changed rather than the settings.
+        warehouses.MapPost("/{warehouseId:guid}/restock-list/refresh", async (
+            Guid warehouseId, ClaimsPrincipal user, IDispatcher dispatcher, CancellationToken cancellationToken) =>
+        {
+            var outcome = await dispatcher.SendAsync(
+                new RefreshRestockListCommand(GetUserId(user), warehouseId), cancellationToken);
+            return Results.Ok(new RestockRefreshResultDto(outcome.Added, outcome.Removed));
         });
 
         warehouses.MapPost("/{warehouseId:guid}/shares", async (
@@ -175,7 +213,8 @@ public static class InventoryEndpoints
             warehouse.IsShared ? warehouse.UserId : null,
             warehouse.IsPrivate,
             ToDto(warehouse.EncryptedContent),
-            warehouse.IsSharedWithOthers);
+            warehouse.IsSharedWithOthers,
+            warehouse.Description);
 
 
     /// <summary>Both halves travel together or not at all, so a request carrying only one is treated as carrying neither.</summary>
@@ -190,7 +229,8 @@ public static class InventoryEndpoints
             .Select(item => new WarehouseItemInput(
                 item.Id, item.Name, item.ProductType, item.Category, item.Quantity, item.MinimumQuantity,
                 UnitOf(item), item.ExpiryDate,
-                RequestEnum.Parse<NotificationChannel>(item.ExpiryNotificationChannel, "expiryNotificationChannel")))
+                RequestEnum.Parse<NotificationChannel>(item.ExpiryNotificationChannel, "expiryNotificationChannel"),
+                item.IsCheckedRegularly))
             .ToList();
 
     /// <summary>
@@ -210,7 +250,8 @@ public static class InventoryEndpoints
         => new(
             item.Id, item.Name, item.ProductType, item.Category, item.Quantity, item.MinimumQuantity,
             item.Unit.ToString(), item.ExpiryDate, item.ExpiryNotificationChannel.ToString(), item.IsBelowMinimum,
-            item.PendingRestockTaskItemId is not null, item.CreatedAtUtc, item.UpdatedAtUtc);
+            item.PendingRestockTaskItemId is not null, item.CreatedAtUtc, item.UpdatedAtUtc,
+            item.IsCheckedRegularly);
 
     private static IResult ToApiResult(EditOutcome outcome)
         => outcome.Kind switch

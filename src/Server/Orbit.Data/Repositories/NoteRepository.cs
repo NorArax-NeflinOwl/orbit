@@ -58,6 +58,16 @@ public sealed class NoteRepository : INoteRepository
         await _dbContext.SaveChangesAsync(cancellationToken);
     }
 
+    /// <summary>The three columns a lock is, and nothing else - see INoteRepository.UpdateLockAsync.</summary>
+    public async Task UpdateLockAsync(Note note, CancellationToken cancellationToken)
+    {
+        var entity = await _dbContext.Notes.FirstAsync(stored => stored.Id == note.Id, cancellationToken);
+        entity.LockedByUserId = note.LockedByUserId;
+        entity.LockedByUserName = note.LockedByUserName;
+        entity.LockExpiresAtUtc = note.LockExpiresAtUtc;
+        await _dbContext.SaveChangesAsync(cancellationToken);
+    }
+
     public async Task DeleteAsync(Guid userId, Guid id, CancellationToken cancellationToken)
     {
         var entity = await _dbContext.Notes

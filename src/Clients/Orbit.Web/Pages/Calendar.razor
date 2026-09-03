@@ -10,6 +10,7 @@
 @inject ChatApiClient ChatApiClient
 @inject TasksApiClient TasksApiClient
 @inject PanelPreferences Panels
+@inject CalendarListOrder ListOrder
 @inject UsersApiClient UsersApiClient
 @inject NavigationManager NavigationManager
 @inject GoogleIntegrationAccess GoogleIntegrationAccess
@@ -19,158 +20,160 @@
 
 <PageTitle>@T["Orbit — Calendar"]</PageTitle>
 
-@* TODO(Orbit.Web.UI): still the pre-redesign markup/CSS (the old .calendar-* classes further down in
-   app.css - .calendar-month-grid-day, .calendar-event-chip, etc). The approved concept mockup restyled
-   this as a flat-card month grid with filled tinted event chips + dashed task chips, a left "Upcoming"
-   panel, and a pill view-switch (Day/Month/Year) - see wwwroot/css/app.css's .card/.btn-primary/.today-strip
-   vocabulary from Dashboard.razor for the pattern. CalendarMonthGrid.razor/CalendarDayGrid.razor/
-   CalendarYearGrid.razor would need the same treatment since they render into this page's grid classes. *@
 <div class="page-header">
-    <div>
+    <div class="page-heading">
+        <button type="button" class="icon-btn page-add" title="@(T["Add event"])" aria-label="@(T["Add event"])"
+                @onclick="GoToAddEvent">
+            <svg viewBox="0 0 20 20" width="18" height="18" aria-hidden="true" fill="none"
+                 stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M10 4v12M4 10h12" /></svg>
+        </button>
         <h1>@T["Calendar"]</h1>
-        <p class="page-subtitle">@T["Your events, and the ones you have been invited to."]</p>
     </div>
     <div class="page-header-actions">
-        <button type="button" class="btn-primary" @onclick="GoToAddEvent">@T["Add event"]</button>
-    </div>
-</div>
+        @* The order the list beside the grid comes in. Behind the menu rather than in a control across
+           the top, the same as every other list in the app - it is something a reader sets once and
+           then reads by. Stays open while they try one order and then another. *@
+        <OverflowMenu StaysOpen="true">
+            <span class="overflow-menu-heading">@T["Sort"]</span>
+            @foreach (var sortOrder in Enum.GetValues<CalendarListSortOrder>())
+            {
+                <button type="button" class="avatar-dropdown-item @(sortOrder == ListOrder.SortOrder ? "chosen" : "")"
+                        @onclick="() => SetSortOrderAsync(sortOrder)">
+                    <span class="card-filter-mark">@(sortOrder == ListOrder.SortOrder ? "✓" : "")</span>
+                    @DescribeSortOrder(sortOrder)
+                </button>
+            }
 
-<div class="calendar-toolbar">
-    <button type="button" class="icon-btn @(_viewState.IsEventListVisible ? "active" : "")"
-            title="@(_viewState.IsEventListVisible ? T["Hide event list"] : T["Show event list"])"
-            aria-pressed="@AriaBool(_viewState.IsEventListVisible)" @onclick="ToggleEventListVisibilityAsync">
-        @if (_viewState.IsEventListVisible)
-        {
-            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M1.5 10S4.5 4 10 4s8.5 6 8.5 6-3 6-8.5 6S1.5 10 1.5 10Z" /><circle cx="10" cy="10" r="2.3" /></svg>
-        }
-        else
-        {
-            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M1.5 10S4.5 4 10 4s8.5 6 8.5 6-3 6-8.5 6S1.5 10 1.5 10Z" /><circle cx="10" cy="10" r="2.3" /><path d="M3 17L17 3" /></svg>
-        }
-    </button>
-    <button type="button" class="icon-btn @(_viewState.IsTaskListVisible ? "active" : "")"
-            title="@(_viewState.IsTaskListVisible ? T["Hide task list"] : T["Show task list"])"
-            aria-pressed="@AriaBool(_viewState.IsTaskListVisible)" @onclick="ToggleTaskListVisibilityAsync">
-        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="14" height="14" rx="3" /><path d="M6.5 10.2l2.3 2.3L13.5 7.8" /></svg>
-    </button>
+            @* What a calendar is read for is what is coming, so the list leaves out what is over: a task
+               already ticked off, an event that has already ended. The grid beside it still draws them -
+               a day with something in it should say so whether or not it has been - and this is how the
+               list is asked for them too. *@
+            <span class="overflow-menu-heading">@T["Show"]</span>
+            <button type="button" class="avatar-dropdown-item @(ListOrder.ShowsEverything ? "chosen" : "")"
+                    @onclick="ToggleShowsEverythingAsync">
+                <span class="card-filter-mark">@(ListOrder.ShowsEverything ? "✓" : "")</span>
+                @T["Everything, including what is over"]
+            </button>
+        </OverflowMenu>
+    </div>
 </div>
 
 <div class="calendar-layout">
-    @if (_viewState.IsEventListVisible || _viewState.IsTaskListVisible)
-    {
-        <div class="calendar-event-list-panel">
-            @if (_viewState.IsEventListVisible)
-            {
-                @if (_events is null)
+    <div class="calendar-event-list-panel">
+        @* One list, whatever kind of thing is on it. Events and deadlines answer the same
+           question - what is happening in this period - and two lists side by side made the
+           reader merge them by eye, in a period where they interleave by definition. *@
+        @if (_events is null || _dueTasks is null)
+        {
+            <p>@T["Loading…"]</p>
+        }
+        else if (ListedThings.Count == 0)
+        {
+            <p>@T["Nothing in this period."]</p>
+        }
+        else
+        {
+            <div class="item-card-list">
+                @foreach (var thing in ListedThings)
                 {
-                    <p>@T["Loading…"]</p>
-                }
-                else if (_listedEvents.Count == 0)
-                {
-                    <p>@T["Nothing in this period."]</p>
-                }
-                else
-                {
-                    <div class="event-list">
-                        @foreach (var calendarEvent in _listedEvents)
+                    @if (thing.Event is { } calendarEvent)
+                    {
+                        @* An event a task list made is opened as that entry rather than as the event: the
+                           list is where it is worked from, and the full event form is a different thing
+                           from ticking a step off. The entry itself is not listed - see _listedDueTasks. *@
+                        <ItemCard Name="@calendarEvent.Details.Title"
+                        OnNameSelected="() => OpenTheEvent(calendarEvent)"
+                        OnBodySelected="() => OpenTheEvent(calendarEvent)"
+                        AccentColour="@(string.IsNullOrWhiteSpace(calendarEvent.Details.Color) ? null : calendarEvent.Details.Color)"
+                        IsCollapsed="@(!IsEventExpanded(calendarEvent.Id))"
+                        OnCollapseToggled="@(HasDetails(calendarEvent.Details) ? EventCallback.Factory.Create(this, () => ToggleEventExpanded(calendarEvent.Id)) : default)">
+                        <Tags>
+                            @* Which kind of thing this is, now that both kinds share one list. *@
+                            <span class="card-badge card-badge-event">@T["Event"]</span>
+                            @* And which list it belongs to, where one made it. The entry used to carry
+                               this and the event did not, so folding the two into one card lost it. *@
+                            @if (TheEntryBehind(calendarEvent) is { } entry)
+                            {
+                                <span class="card-badge">@Written(entry.TaskListTitle)</span>
+                            }
+                            @if (calendarEvent.IsShared)
+                            {
+                                <span class="card-badge">@T.Format("Shared by {0}", calendarEvent.SharedByUserName)</span>
+                            }
+                        </Tags>
+                        <Menu>
+                        <OverflowMenu>
+                        <button type="button" class="avatar-dropdown-item" @onclick="() => GoToEditEvent(calendarEvent.Id)">@(calendarEvent.IsShared ? T["View"] : T["Edit"])</button>
+                        <button type="button" class="avatar-dropdown-item" @onclick="() => DeleteEventAsync(calendarEvent)">@T["Delete"]</button>
+                        </OverflowMenu>
+                        </Menu>
+                        <Body>
+                            @* When, first: it is the one thing every row on this list has, and the
+                               reason somebody is reading the list at all. *@
+                            <p class="event-when">@WhenItHappens(calendarEvent.Details)</p>
+                            <div class="editor-item-details">
+                        @if (calendarEvent.Details.Location is { } location)
                         {
-                            @* One row per event: colour, title, when. Location, repeats and guests
-                               open underneath, so a busy day stays a list rather than a wall. *@
-                            <div class="editor-item">
-                                <div class="editor-item-summary">
-                                    <span class="stat-dot" style="background:@(string.IsNullOrWhiteSpace(calendarEvent.Details.Color) ? "var(--accent)" : calendarEvent.Details.Color)"></span>
-                                    <span class="editor-item-main">
-                                        <span class="event-title">@calendarEvent.Details.Title</span>
-                                        @if (calendarEvent.IsShared)
-                                        {
-                                            <span class="card-badge">@T.Format("Shared by {0}", calendarEvent.SharedByUserName)</span>
-                                        }
-                                        <span class="row-meta event-when">@FormatTimeRange(calendarEvent.Details)</span>
-                                    </span>
-                                    <span class="editor-item-aside">
-                                        @if (HasDetails(calendarEvent.Details))
-                                        {
-                                            <button type="button" class="editor-item-toggle @(IsEventExpanded(calendarEvent.Id) ? "open" : "")"
-                                                    title="@(IsEventExpanded(calendarEvent.Id) ? T["Hide details"] : T["Show details"])"
-                                                    aria-expanded="@(IsEventExpanded(calendarEvent.Id) ? "true" : "false")"
-                                                    @onclick="() => ToggleEventExpanded(calendarEvent.Id)">
-                                                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7.5 4.5 13 10l-5.5 5.5" /></svg>
-                                            </button>
-                                        }
-                                        <button type="button" class="btn-secondary" @onclick="() => GoToEditEvent(calendarEvent.Id)">@(calendarEvent.IsShared ? T["View"] : "Edit")</button>
-                                        <button type="button" class="btn-secondary" @onclick="() => DeleteEventAsync(calendarEvent)">@T["Delete"]</button>
-                                    </span>
-                                </div>
-
-                                @if (IsEventExpanded(calendarEvent.Id))
-                                {
-                                    <div class="editor-item-details">
-                                        @if (calendarEvent.Details.Location is { } location)
-                                        {
-                                            <span>
-                                                <strong>@T["Location:"]</strong>
-                                                @* The address itself is the link, so the place is one click away rather than
-                                                   something to copy out - see GoogleMapsLink. *@
-                                                @if (_hasGoogleExtras)
-                                                {
-                                                    <a href="@GoogleMapsLink.ToPlace(location.Latitude, location.Longitude)" target="_blank" rel="noopener">@FormatLocation(location)</a>
-                                                    <a class="google-link" href="@GoogleMapsLink.ToDirections(location.Latitude, location.Longitude)" target="_blank" rel="noopener">@T["Directions"]</a>
-                                                }
-                                                else
-                                                {
-                                                    @FormatLocation(location)
-                                                }
-                                            </span>
-                                        }
-                                        @if (_hasGoogleExtras)
-                                        {
-                                            <span class="field-break"></span>
-                                            <a class="google-link" href="@GoogleCalendarLinkFor(calendarEvent)" target="_blank" rel="noopener">@T["Add to Google Calendar"]</a>
-                                        }
-                                        @if (calendarEvent.Details.Recurrence is { } recurrence)
-                                        {
-                                            <span><strong>@T["Repeats:"]</strong> @FormatRecurrence(recurrence)</span>
-                                        }
-                                        @if (calendarEvent.Details.Guests.Count > 0)
-                                        {
-                                            <span><strong>@T["Guests:"]</strong> @string.Join(", ", calendarEvent.Details.Guests.Select(GetGuestDisplayName))</span>
-                                        }
-                                    </div>
-                                }
-                            </div>
-                        }
-                    </div>
-                }
-            }
-
-            @if (_viewState.IsTaskListVisible)
-            {
-                <h3>@T["Tasks with a due date"]</h3>
-                @if (_dueTasks is null)
-                {
-                    <p>@T["Loading…"]</p>
-                }
-                else if (_listedDueTasks.Count == 0)
-                {
-                    <p>@T["Nothing due in this period."]</p>
-                }
-                else
-                {
-                    <div class="event-list">
-                        @foreach (var dueTask in _listedDueTasks)
+                        <span>
+                        <strong>@T["Location:"]</strong>
+                        @* The address itself is the link, so the place is one click away rather than
+                        something to copy out - see GoogleMapsLink. *@
+                        @if (_hasGoogleExtras)
                         {
-                            <div class="list-row task-preview-row @(dueTask.IsCompleted ? "completed" : "")">
-                                <span class="task-preview-mark">@(dueTask.IsCompleted ? "✓" : "")</span>
-                                <span class="row-title">@Written(dueTask.TaskListTitle): @Written(dueTask.Description)</span>
-                                <span class="row-meta">@dueTask.DueDateUtc.LocalDateTime.ToString("dd.MM.yyyy HH:mm")</span>
-                                <button type="button" class="btn-secondary" @onclick="() => GoToDueTask(dueTask)">@T["Open"]</button>
-                            </div>
+                        <a href="@GoogleMapsLink.ToPlace(location.Latitude, location.Longitude)" target="_blank" rel="noopener">@FormatLocation(location)</a>
+                        <a class="google-link" href="@GoogleMapsLink.ToDirections(location.Latitude, location.Longitude)" target="_blank" rel="noopener">@T["Directions"]</a>
                         }
-                    </div>
+                        else
+                        {
+                        @FormatLocation(location)
+                        }
+                        </span>
+                        }
+                        @if (_hasGoogleExtras)
+                        {
+                        <span class="field-break"></span>
+                        <a class="google-link" href="@GoogleCalendarLinkFor(calendarEvent)" target="_blank" rel="noopener">@T["Add to Google Calendar"]</a>
+                        }
+                        @if (calendarEvent.Details.Recurrence is { } recurrence)
+                        {
+                        <span><strong>@T["Repeats:"]</strong> @FormatRecurrence(recurrence)</span>
+                        }
+                        @if (calendarEvent.Details.Guests.Count > 0)
+                        {
+                        <span><strong>@T["Guests:"]</strong> @string.Join(", ", calendarEvent.Details.Guests.Select(GetGuestDisplayName))</span>
+                        }
+                        </div>
+                        </Body>
+                        </ItemCard>
+                    }
+                    else if (thing.DueTask is { } dueTask)
+                    {
+                        <ItemCard Name="@Written(dueTask.Description)"
+                                  OnNameSelected="() => GoToDueTask(dueTask)"
+                                  OnBodySelected="() => GoToDueTask(dueTask)"
+                                  ExtraClass="@(dueTask.IsCompleted ? "item-card-done" : null)">
+                            @* The same two actions an event carries. A deadline is a thing on this list
+                               like any other, and having to go and find the list it lives on to change
+                               or drop it was the one row here that answered differently. *@
+                            <Menu>
+                                <OverflowMenu>
+                                    <button type="button" class="avatar-dropdown-item" @onclick="() => GoToDueTask(dueTask)">@T["Edit"]</button>
+                                    <button type="button" class="avatar-dropdown-item" @onclick="() => DeleteDueTaskAsync(dueTask)">@T["Delete"]</button>
+                                </OverflowMenu>
+                            </Menu>
+                            <Tags>
+                                <span class="card-badge card-badge-task">@T["Task"]</span>
+                                <span class="card-badge">@Written(dueTask.TaskListTitle)</span>
+                            </Tags>
+                            <Body>
+                                <span class="event-when">@WhenItIsDue(dueTask)</span>
+                            </Body>
+                        </ItemCard>
+                    }
                 }
-            }
-        </div>
-    }
+            </div>
+        }
+    </div>
 
     <div class="calendar-visualization-panel">
         <div class="calendar-visualization-toolbar">
@@ -190,13 +193,13 @@
         @switch (_viewState.ViewMode)
         {
             case CalendarViewMode.Day:
-                <CalendarDayGrid Grid="CalendarGridBuilder.BuildDayGrid(_viewState.ReferenceDate, _events ?? [], _dueTasks ?? [])" OnEventSelected="GoToEditEvent" OnTaskSelected="GoToDueTask" />
+                <CalendarDayGrid Grid="CalendarGridBuilder.BuildDayGrid(_viewState.ReferenceDate, _events ?? [], _dueTasks ?? [])" OnEventSelected="OpenTheEvent" OnTaskSelected="GoToDueTask" />
                 break;
             case CalendarViewMode.Year:
                 <CalendarYearGrid Months="CalendarGridBuilder.BuildYearGrid(_viewState.ReferenceDate.Year, _events ?? [], _viewState.ShowDueTasksInYearView ? _dueTasks ?? [] : [])" OnDaySelected="GoToDay" />
                 break;
             default:
-                <CalendarMonthGrid Weeks="CalendarGridBuilder.BuildMonthGrid(_viewState.ReferenceDate, _events ?? [], _dueTasks ?? [])" OnDaySelected="GoToDay" OnEventSelected="GoToEditEvent" OnTaskSelected="GoToDueTask" />
+                <CalendarMonthGrid Weeks="CalendarGridBuilder.BuildMonthGrid(_viewState.ReferenceDate, _events ?? [], _dueTasks ?? [])" OnDaySelected="GoToDay" />
                 break;
         }
     </div>
@@ -250,9 +253,13 @@
             var (from, toExclusive) = _viewState.ListedPeriod();
             // An event that starts before the period and runs into it belongs to it as much as one that
             // starts inside it.
+            var nowUtc = DateTimeOffset.UtcNow;
             return [.. (_events ?? [])
                 .Where(calendarEvent => DateOnly.FromDateTime(calendarEvent.Details.StartUtc.LocalDateTime) < toExclusive
                     && DateOnly.FromDateTime(calendarEvent.Details.EndUtc.LocalDateTime) >= from)
+                // An event that has already ended is over. Left out unless the reader asked for
+                // everything - see CalendarListOrder.ShowsEverything.
+                .Where(calendarEvent => ListOrder.ShowsEverything || calendarEvent.Details.EndUtc >= nowUtc)
                 .OrderBy(calendarEvent => calendarEvent.Details.StartUtc)];
         }
     }
@@ -263,9 +270,17 @@
         get
         {
             var (from, toExclusive) = _viewState.ListedPeriod();
+            // An entry tied to an event is that event, so the list shows one of them rather than the
+            // same appointment twice, one card under the other. The grids have always done this - see
+            // CalendarGridBuilder.DueTasksOnDate - and the list beside them had not.
+            var listedEventIds = _listedEvents.Select(calendarEvent => calendarEvent.Id).ToHashSet();
             return [.. (_dueTasks ?? [])
                 .Where(dueTask => DateOnly.FromDateTime(dueTask.DueDateUtc.LocalDateTime) is var due
                     && due >= from && due < toExclusive)
+                .Where(dueTask => dueTask.LinkedCalendarEventId is not { } eventId || !listedEventIds.Contains(eventId))
+                // Done is done. A deadline that has passed and is still not ticked off stays: it is the
+                // one thing on this page that most needs saying, and hiding it would hide the work.
+                .Where(dueTask => ListOrder.ShowsEverything || !dueTask.IsCompleted)
                 .OrderBy(dueTask => dueTask.DueDateUtc)];
         }
     }
@@ -280,10 +295,10 @@
     protected override async Task OnInitializedAsync()
     {
         Logger.LogInformation("Calendar page opened, loading events");
-        // Before the first render, so the panels come back open rather than opening a moment later.
+        // Before the first render, so the panels come back open rather than opening a moment later, and
+        // the list is in the order it was left in rather than jumping into it.
         await Panels.InitializeAsync();
-        _viewState.IsEventListVisible = Panels.IsOpen(PanelPreferences.Panel.CalendarEventList);
-        _viewState.IsTaskListVisible = Panels.IsOpen(PanelPreferences.Panel.CalendarTaskList);
+        await ListOrder.InitializeAsync();
         try
         {
             _events = await CalendarApiClient.GetCalendarEventsAsync();
@@ -326,7 +341,7 @@
     }
 
     /// <summary>A name Orbit wrote itself, in the reader's language - see OrbitWrittenNames.</summary>
-    private string Written(string name) => OrbitWrittenNames.Translate(T, name);
+    private string Written(string name) => OrbitWrittenNames.Translate(key => T[key], name);
 
     /// <summary>
     /// Looks up guestUserId's login for display, preferring the already-loaded contact list and falling
@@ -371,10 +386,14 @@
         NavigationManager.NavigateTo("/calendar/new");
     }
 
+    /// <summary>
+    /// The form, which is a named press - pressing the card itself lands on what the appointment is,
+    /// see CalendarEventDestination.
+    /// </summary>
     private void GoToEditEvent(Guid eventId)
     {
         Logger.LogInformation("User clicked 'Edit' for calendar event {EventId}", eventId);
-        NavigationManager.NavigateTo($"/calendar/{eventId}");
+        NavigationManager.NavigateTo($"/calendar/{eventId}/edit");
     }
 
     /// <summary>
@@ -386,6 +405,40 @@
     /// - the checklist is the right landing for something to tick off and the wrong one for something
     /// you have to get to. Everything else opens as the list, at the shallow level.
     /// </summary>
+    /// <summary>
+    /// The task entry this event is, when a task list made it. Read from the lists themselves rather
+    /// than from the due tasks: an appointment on a list carries no due date of its own - the event says
+    /// when it is - so it is not among them at all.
+    /// </summary>
+    private DueTaskDto? TheEntryBehind(CalendarEventDto calendarEvent)
+        => _taskLists
+            .SelectMany(taskList => taskList.Items.Select(item => (taskList, item)))
+            .Where(pair => pair.item.LinkedCalendarEventId == calendarEvent.Id)
+            .Select(pair => new DueTaskDto(
+                pair.taskList.Id, pair.item.Id, pair.taskList.Title, pair.item.Description,
+                pair.item.DueDateUtc ?? calendarEvent.Details.StartUtc, pair.item.IsCompleted,
+                HasPlace(pair.item), pair.item.LinkedCalendarEventId))
+            .FirstOrDefault();
+
+    /// <summary>
+    /// Where an event leads from this list: to the entry that made it where there is one, and to the
+    /// event's own form otherwise.
+    /// </summary>
+    private void OpenTheEvent(CalendarEventDto calendarEvent) => OpenTheEvent(calendarEvent.Id);
+
+    /// <summary>
+    /// Wherever an event is pressed on this page - a card in the list, a chip in the day grid - it
+    /// leads to the same place, which is the entry behind it where a task list made it. See
+    /// CalendarEventDestination, which the dashboard reads too.
+    /// </summary>
+    private void OpenTheEvent(Guid calendarEventId)
+    {
+        var destination = CalendarEventDestination.For(calendarEventId, _taskLists);
+        Logger.LogInformation(
+            "User opened calendar event {EventId} from the calendar, going to {Destination}", calendarEventId, destination);
+        NavigationManager.NavigateTo(destination);
+    }
+
     private void GoToDueTask(DueTaskDto dueTask)
     {
         if (dueTask.HasPlace)
@@ -433,8 +486,58 @@
     private Guid? Gatherer(Guid taskListId)
         => _taskLists
             .FirstOrDefault(candidate => candidate.IsGroup
-                && candidate.Items.Any(item => item.LinkedTaskListId == taskListId))
+                && candidate.Items.Any(item => item.AllLinkedTaskListIds.Contains(taskListId)))
             ?.Id;
+
+    /// <summary>
+    /// Removes one deadline from the list it lives on. There is no endpoint for a single entry - a list
+    /// is saved whole - so this sends the list back without it, carrying every other entry through
+    /// TaskItemRequest.From so that nothing else on it is quietly changed by the trip.
+    /// </summary>
+    private async Task DeleteDueTaskAsync(DueTaskDto dueTask)
+    {
+        Logger.LogInformation("User clicked 'Delete' for task item {TaskItemId} from the calendar", dueTask.TaskItemId);
+        if (_taskLists.FirstOrDefault(list => list.Id == dueTask.TaskListId) is not { } taskList)
+        {
+            return;
+        }
+
+        if (!await JSRuntime.InvokeAsync<bool>("confirm", T.Format("Delete \"{0}\"?", dueTask.Description)))
+        {
+            return;
+        }
+
+        var items = taskList.Items
+            .Where(item => item.Id != dueTask.TaskItemId)
+            .Select(TaskItemRequest.From)
+            .ToList();
+
+        try
+        {
+            await TasksApiClient.UpdateTaskListAsync(
+                taskList.Id, new UpdateTaskRequest(taskList.Title, items, taskList.IsGroup, taskList.IsPrivate));
+        }
+        catch (HttpRequestException exception) when (exception.StatusCode == HttpStatusCode.Unauthorized)
+        {
+            NavigationManager.NavigateTo("/login");
+            return;
+        }
+        catch (HttpRequestException exception)
+        {
+            Logger.LogError(exception, "Failed to delete task item {TaskItemId}", dueTask.TaskItemId);
+            return;
+        }
+
+        // Dropped from what is already loaded rather than fetched again, the way deleting an event
+        // does: nothing else about the period changed, and a reload here would cost a round trip to
+        // learn what this method already knows.
+        _taskLists = _taskLists
+            .Select(list => list.Id == taskList.Id
+                ? list with { Items = [.. list.Items.Where(item => item.Id != dueTask.TaskItemId)] }
+                : list)
+            .ToList();
+        _dueTasks = _dueTasks?.Where(due => due.TaskItemId != dueTask.TaskItemId).ToList();
+    }
 
     private async Task DeleteEventAsync(CalendarEventDto calendarEvent)
     {
@@ -464,17 +567,7 @@
         Logger.LogInformation("Calendar event {EventId} deleted", calendarEvent.Id);
     }
 
-    private async Task ToggleEventListVisibilityAsync()
-    {
-        _viewState.IsEventListVisible = !_viewState.IsEventListVisible;
-        await Panels.SetOpenAsync(PanelPreferences.Panel.CalendarEventList, _viewState.IsEventListVisible);
-    }
 
-    private async Task ToggleTaskListVisibilityAsync()
-    {
-        _viewState.IsTaskListVisible = !_viewState.IsTaskListVisible;
-        await Panels.SetOpenAsync(PanelPreferences.Panel.CalendarTaskList, _viewState.IsTaskListVisible);
-    }
 
     private void ToggleShowDueTasksInYearView()
     {
@@ -511,10 +604,77 @@
         _viewState.SwitchView(CalendarViewMode.Day);
     }
 
-    private static string FormatTimeRange(CalendarEventDetailsDto details)
-        => details.IsAllDay
-            ? $"{details.StartUtc.LocalDateTime:dd.MM.yyyy} (all day)"
-            : $"{details.StartUtc.LocalDateTime:dd.MM.yyyy HH:mm} – {details.EndUtc.LocalDateTime:dd.MM.yyyy HH:mm}";
+    /// <summary>
+    /// When an event happens, said the shortest way that is still unambiguous. Something starting and
+    /// ending on one day - which is nearly everything - says its date once and then the two times:
+    /// "01.09.2026 19:30 – 20:30". Printing the date twice for a one-hour appointment is most of the
+    /// line spent saying the same thing again.
+    /// </summary>
+    private string WhenItHappens(CalendarEventDetailsDto details)
+    {
+        var start = details.StartUtc.LocalDateTime;
+        var end = details.EndUtc.LocalDateTime;
+
+        if (details.IsAllDay)
+        {
+            return start.Date == end.Date
+                ? T.Format("{0} (all day)", start.ToString("dd.MM.yyyy"))
+                : $"{start:dd.MM.yyyy} – {end:dd.MM.yyyy}";
+        }
+
+        return start.Date == end.Date
+            ? $"{start:dd.MM.yyyy} {start:HH:mm} – {end:HH:mm}"
+            : $"{start:dd.MM.yyyy HH:mm} – {end:dd.MM.yyyy HH:mm}";
+    }
+
+    /// <summary>When a deadline falls. One instant, so there is no range to shorten.</summary>
+    private static string WhenItIsDue(DueTaskDto dueTask)
+        => dueTask.DueDateUtc.LocalDateTime.ToString("dd.MM.yyyy HH:mm");
+
+    /// <summary>
+    /// Everything in this period, both kinds together and in the order they happen. Two lists made the
+    /// reader interleave them by eye, which is the one thing a calendar is meant to have done already.
+    /// </summary>
+    private IReadOnlyList<ListedThing> ListedThings
+        => [.. InOrder(
+            _listedEvents
+                .Select(calendarEvent => new ListedThing(
+                    calendarEvent.Details.StartUtc, calendarEvent.Details.Title, calendarEvent, null))
+                .Concat(_listedDueTasks.Select(dueTask => new ListedThing(
+                    dueTask.DueDateUtc, Written(dueTask.Description), null, dueTask))))];
+
+    /// <summary>
+    /// Whichever order the reader chose. When is the fallback within the other two as well: two things
+    /// that sort the same by kind or by name are still most usefully read soonest first.
+    /// </summary>
+    private IEnumerable<ListedThing> InOrder(IEnumerable<ListedThing> things) => ListOrder.SortOrder switch
+    {
+        CalendarListSortOrder.Type => things
+            .OrderBy(thing => thing.Event is null)
+            .ThenBy(thing => thing.At),
+        CalendarListSortOrder.Alphabetical => things
+            .OrderBy(thing => thing.Name, StringComparer.CurrentCultureIgnoreCase)
+            .ThenBy(thing => thing.At),
+        _ => things.OrderBy(thing => thing.At)
+    };
+
+    private string DescribeSortOrder(CalendarListSortOrder sortOrder) => sortOrder switch
+    {
+        CalendarListSortOrder.Type => T["By type"],
+        CalendarListSortOrder.Alphabetical => T["Alphabetical"],
+        _ => T["By when"]
+    };
+
+    private Task ToggleShowsEverythingAsync() => ListOrder.ShowEverythingAsync(!ListOrder.ShowsEverything);
+
+    private async Task SetSortOrderAsync(CalendarListSortOrder sortOrder)
+    {
+        Logger.LogInformation("User sorted the calendar list by {SortOrder}", sortOrder);
+        await ListOrder.SetSortOrderAsync(sortOrder);
+    }
+
+    /// <summary>One row of the list: an event or a deadline, when it is, and what it is called.</summary>
+    private sealed record ListedThing(DateTimeOffset At, string Name, CalendarEventDto? Event, DueTaskDto? DueTask);
 
     /// <summary>
     /// Whether to offer the Google links at all - see GoogleIntegrationAccess for who qualifies and why.
@@ -522,11 +682,29 @@
     private bool _hasGoogleExtras;
 
     private string GoogleCalendarLinkFor(CalendarEventDto calendarEvent)
-        => GoogleCalendarEventLink.ForEvent(
-            calendarEvent.Details.Title, calendarEvent.Details.StartUtc, calendarEvent.Details.EndUtc,
-            calendarEvent.Details.IsAllDay, calendarEvent.Details.Description,
-            calendarEvent.Details.Location is { } location ? FormatLocation(location) : null,
-            calendarEvent.Details.Recurrence);
+    {
+        var details = calendarEvent.Details;
+        return GoogleCalendarEventLink.ForEvent(new GoogleCalendarEvent(details.Title, details.StartUtc, details.EndUtc)
+        {
+            IsAllDay = details.IsAllDay,
+            Description = details.Description,
+            Location = details.Location is { } location ? FormatLocation(location) : null,
+            Recurrence = details.Recurrence,
+            TaskListTitle = TheEntryBehind(calendarEvent) is { } entry ? Written(entry.TaskListTitle) : null,
+            GuestEmailAddresses = GoogleGuestAddresses(details.Guests),
+            ReminderMinutesBeforeStart = details.ReminderMinutesBeforeStart,
+            NotifyAtStart = details.NotifyAtStart
+        });
+    }
+
+    /// <summary>
+    /// The guests Google can actually invite. An address Google has not verified is one it cannot match
+    /// to an account, so the invitation would go nowhere - see ContactDto.HasGoogleVerifiedEmail.
+    /// </summary>
+    private IReadOnlyList<string> GoogleGuestAddresses(IReadOnlyList<Guid> guests)
+        => [.. _contacts
+            .Where(contact => contact.HasGoogleVerifiedEmail && guests.Contains(contact.UserId))
+            .Select(contact => contact.Email)];
 
     private string FormatLocation(EventLocationDto location)
         => string.IsNullOrWhiteSpace(location.Address)
@@ -566,12 +744,6 @@
     {
         public CalendarViewMode ViewMode { get; private set; } = CalendarViewMode.Month;
         public DateOnly ReferenceDate { get; set; } = DateOnly.FromDateTime(DateTime.Today);
-        /// <summary>Hidden by default, like <see cref="IsTaskListVisible"/> - the calendar grid is the primary view; both side lists are opt-in per visit.</summary>
-        public bool IsEventListVisible { get; set; }
-
-        /// <summary>Hidden by default - the due-task list is a secondary panel most users don't need open every visit.</summary>
-        public bool IsTaskListVisible { get; set; }
-
         /// <summary>
         /// Whether due-task dots are mixed in with event dots on the compact year view - each day cell
         /// there is tiny, so this lets the user opt back out if the combined dots feel too cluttered.

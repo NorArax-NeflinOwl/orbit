@@ -109,8 +109,13 @@ public sealed class EventReminderSchedulerTests
         Assert.Empty(dueReminders);
     }
 
+    /// <summary>
+    /// An all-day event made on the day it starts is reminded about like any other. It used to be
+    /// skipped, on the grounds that creating it had already said so - and now nothing says so at
+    /// creation, so skipping it would mean an event asked to announce itself announcing nothing at all.
+    /// </summary>
     [Fact]
-    public async Task FindDueRemindersAsync_ignores_an_all_day_event_created_on_the_same_day_it_starts()
+    public async Task FindDueRemindersAsync_reminds_about_an_all_day_event_created_on_the_same_day_it_starts()
     {
         // An arbitrary fixed midnight, used as both the event's start and the "now" passed to
         // FindDueRemindersAsync, so the 0-minutes-before reminder is due by construction regardless of
@@ -118,10 +123,9 @@ public sealed class EventReminderSchedulerTests
         var startUtc = ArbitraryMidnightUtc;
         var createdAtUtc = startUtc.AddHours(20);
         var details = new CalendarEventDetails(
-            "Holiday", null, null, null, startUtc, startUtc.AddDays(1), true, null, [], [0],
-            CreationNotificationChannel: NotificationChannel.None, ReminderNotificationChannel: NotificationChannel.Email);
+            "Holiday", null, null, null, startUtc, startUtc.AddDays(1), true, null, [], [0], ReminderNotificationChannel: NotificationChannel.Email);
         // FromPersistence (rather than Create) is the only way to control CreatedAtUtc directly, which
-        // this suppression rule depends on.
+        // is what the rule this replaces turned on.
         var calendarEvent = CalendarEvent.FromPersistence(
             Guid.NewGuid(), Guid.NewGuid(), details, createdAtUtc, updatedAtUtc: createdAtUtc, lockedByUserId: null, lockedByUserName: null, lockExpiresAtUtc: null);
         var repository = new InMemoryEventReminderRepository([calendarEvent]);
@@ -129,7 +133,7 @@ public sealed class EventReminderSchedulerTests
 
         var dueReminders = await scheduler.FindDueRemindersAsync(startUtc, LookBackWindow, CancellationToken.None);
 
-        Assert.Empty(dueReminders);
+        Assert.Single(dueReminders);
     }
 
     [Fact]
@@ -138,8 +142,7 @@ public sealed class EventReminderSchedulerTests
         var startUtc = ArbitraryMidnightUtc;
         var createdAtUtc = startUtc.AddDays(-3);
         var details = new CalendarEventDetails(
-            "Holiday", null, null, null, startUtc, startUtc.AddDays(1), true, null, [], [0],
-            CreationNotificationChannel: NotificationChannel.None, ReminderNotificationChannel: NotificationChannel.Email);
+            "Holiday", null, null, null, startUtc, startUtc.AddDays(1), true, null, [], [0], ReminderNotificationChannel: NotificationChannel.Email);
         var calendarEvent = CalendarEvent.FromPersistence(
             Guid.NewGuid(), Guid.NewGuid(), details, createdAtUtc, updatedAtUtc: createdAtUtc, lockedByUserId: null, lockedByUserName: null, lockExpiresAtUtc: null);
         var repository = new InMemoryEventReminderRepository([calendarEvent]);
@@ -161,8 +164,7 @@ public sealed class EventReminderSchedulerTests
         var firstOccurrenceStartUtc = occurrenceStartUtc.AddDays(-5);
         var recurrence = new EventRecurrence(RecurrenceFrequency.Daily, 1, null);
         var details = new CalendarEventDetails(
-            "Standup", null, null, null, firstOccurrenceStartUtc, firstOccurrenceStartUtc.AddMinutes(30), false, recurrence, [], [10],
-            CreationNotificationChannel: NotificationChannel.None, ReminderNotificationChannel: NotificationChannel.Email);
+            "Standup", null, null, null, firstOccurrenceStartUtc, firstOccurrenceStartUtc.AddMinutes(30), false, recurrence, [], [10], ReminderNotificationChannel: NotificationChannel.Email);
         var calendarEvent = CalendarEvent.Create(Guid.NewGuid(), details);
         var repository = new InMemoryEventReminderRepository([calendarEvent]);
         var scheduler = new EventReminderScheduler(repository);
@@ -206,8 +208,7 @@ public sealed class EventReminderSchedulerTests
         var createdAtUtc = firstOccurrenceStartUtc.AddHours(20);
         var recurrence = new EventRecurrence(RecurrenceFrequency.Daily, 1, null);
         var details = new CalendarEventDetails(
-            "Daily holiday", null, null, null, firstOccurrenceStartUtc, firstOccurrenceStartUtc.AddDays(1), true, recurrence, [], [0],
-            CreationNotificationChannel: NotificationChannel.None, ReminderNotificationChannel: NotificationChannel.Email);
+            "Daily holiday", null, null, null, firstOccurrenceStartUtc, firstOccurrenceStartUtc.AddDays(1), true, recurrence, [], [0], ReminderNotificationChannel: NotificationChannel.Email);
         var calendarEvent = CalendarEvent.FromPersistence(
             Guid.NewGuid(), Guid.NewGuid(), details, createdAtUtc, updatedAtUtc: createdAtUtc, lockedByUserId: null, lockedByUserName: null, lockExpiresAtUtc: null);
         var repository = new InMemoryEventReminderRepository([calendarEvent]);
@@ -236,8 +237,7 @@ public sealed class EventReminderSchedulerTests
         var tomorrowOccurrenceStartUtc = now.AddDays(1);
         var recurrence = new EventRecurrence(RecurrenceFrequency.Daily, 1, null);
         var details = new CalendarEventDetails(
-            "All-hands", null, null, null, todayOccurrenceStartUtc, todayOccurrenceStartUtc.AddHours(1), false, recurrence, [], [0, 1440],
-            CreationNotificationChannel: NotificationChannel.None, ReminderNotificationChannel: NotificationChannel.Email);
+            "All-hands", null, null, null, todayOccurrenceStartUtc, todayOccurrenceStartUtc.AddHours(1), false, recurrence, [], [0, 1440], ReminderNotificationChannel: NotificationChannel.Email);
         var calendarEvent = CalendarEvent.Create(Guid.NewGuid(), details);
         var repository = new InMemoryEventReminderRepository([calendarEvent]);
         var scheduler = new EventReminderScheduler(repository);
@@ -260,13 +260,60 @@ public sealed class EventReminderSchedulerTests
     }
 
     private static CalendarEvent CreateEventStartingIn(
-        DateTimeOffset now, TimeSpan leadTime, IReadOnlyList<int> reminderMinutesBeforeStart, bool notifyBeforeStart = true)
+        DateTimeOffset now, TimeSpan leadTime, IReadOnlyList<int> reminderMinutesBeforeStart,
+        bool notifyBeforeStart = true, bool notifyAtStart = false)
     {
         var startUtc = now.Add(leadTime);
         var details = new CalendarEventDetails(
             "Title", null, null, null, startUtc, startUtc.AddHours(1), false, null, [], reminderMinutesBeforeStart,
-            CreationNotificationChannel: NotificationChannel.None,
-            ReminderNotificationChannel: notifyBeforeStart ? NotificationChannel.Email : NotificationChannel.None);
+            ReminderNotificationChannel: notifyBeforeStart ? NotificationChannel.Email : NotificationChannel.None,
+            NotifyAtStart: notifyAtStart);
         return CalendarEvent.Create(Guid.NewGuid(), details);
+    }
+
+    /// <summary>
+    /// A notification at the moment the event begins is a reminder zero minutes before it, so it goes
+    /// through the same due-time rule and the same already-sent record as any other. The event below
+    /// has no lead times at all, which is the case that has to work: asking only to be told when it
+    /// starts is a perfectly ordinary thing to ask for.
+    /// </summary>
+    [Fact]
+    public async Task FindDueRemindersAsync_says_something_at_the_moment_an_event_begins()
+    {
+        var now = DateTimeOffset.UtcNow;
+        var calendarEvent = CreateEventStartingIn(now, TimeSpan.Zero, [], notifyAtStart: true);
+        var repository = new InMemoryEventReminderRepository([calendarEvent]);
+        var scheduler = new EventReminderScheduler(repository);
+
+        var dueReminders = await scheduler.FindDueRemindersAsync(now, LookBackWindow, CancellationToken.None);
+
+        var dueReminder = Assert.Single(dueReminders);
+        Assert.Equal(0, dueReminder.MinutesBeforeStart);
+    }
+
+    [Fact]
+    public async Task FindDueRemindersAsync_says_nothing_at_the_start_of_an_event_that_did_not_ask()
+    {
+        var now = DateTimeOffset.UtcNow;
+        var calendarEvent = CreateEventStartingIn(now, TimeSpan.Zero, [], notifyAtStart: false);
+        var repository = new InMemoryEventReminderRepository([calendarEvent]);
+        var scheduler = new EventReminderScheduler(repository);
+
+        Assert.Empty(await scheduler.FindDueRemindersAsync(now, LookBackWindow, CancellationToken.None));
+    }
+
+    [Fact]
+    public async Task FindDueRemindersAsync_still_reminds_beforehand_when_it_also_says_something_at_the_start()
+    {
+        var now = DateTimeOffset.UtcNow;
+        var calendarEvent = CreateEventStartingIn(now, TimeSpan.FromMinutes(10), [10], notifyAtStart: true);
+        var repository = new InMemoryEventReminderRepository([calendarEvent]);
+        var scheduler = new EventReminderScheduler(repository);
+
+        var dueReminders = await scheduler.FindDueRemindersAsync(now, LookBackWindow, CancellationToken.None);
+
+        // Ten minutes before is due now; the one at the start is not, and comes ten minutes later.
+        var dueReminder = Assert.Single(dueReminders);
+        Assert.Equal(10, dueReminder.MinutesBeforeStart);
     }
 }

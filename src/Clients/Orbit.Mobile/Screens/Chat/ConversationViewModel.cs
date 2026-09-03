@@ -16,7 +16,7 @@ namespace Orbit.Mobile.Screens.Chat;
 /// anything typed to <see cref="EncryptedChatMessageSender"/>, which queues it and encrypts it at the
 /// moment it goes out - see info/orbit-maui-plan.md §5.5.
 /// </summary>
-public sealed partial class ConversationViewModel : ObservableObject
+public sealed partial class ConversationViewModel : ObservableObject, IDisposable
 {
     private readonly EncryptedChatMessageReader _reader;
     private readonly EncryptedChatMessageSender _sender;
@@ -38,6 +38,16 @@ public sealed partial class ConversationViewModel : ObservableObject
     /// It is a stopgap either way - §4.2's silent push is what makes chat timely without a timer at all.
     /// </summary>
     private static readonly TimeSpan PollingInterval = TimeSpan.FromSeconds(5);
+
+    /// <summary>
+    /// How often to ask while something is announcing changes. A message, an edit and an approval are
+    /// all announced now, so this is only the net under what is not - and it stays, because an
+    /// announcement is best-effort and a chat that silently stopped updating would be the worse bug.
+    /// </summary>
+    private static readonly TimeSpan ConnectedPollingInterval = TimeSpan.FromSeconds(30);
+
+    /// <summary>What says a message arrived, so this screen can read once instead of every five seconds.</summary>
+    private readonly Live.ILiveUpdates _liveUpdates;
 
     private LocalContact? _contact;
     private CancellationTokenSource? _polling;
@@ -96,8 +106,10 @@ public sealed partial class ConversationViewModel : ObservableObject
         EncryptedChatMessageReader reader, EncryptedChatMessageSender sender, EncryptedChatMessageEditor editor,
         MessageForwarder forwarder, SharedItemAcceptance acceptance, ChatRepository chatRepository,
         ChatSynchronizer synchronizer, ChatClient chatClient,
-        Translations translations, IScreenNavigator navigator)
+        Translations translations, IScreenNavigator navigator, Live.ILiveUpdates liveUpdates)
     {
+        _liveUpdates = liveUpdates;
+        _liveUpdates.ChatChanged += OnSomethingChanged;
         _reader = reader;
         _sender = sender;
         _editor = editor;
@@ -170,6 +182,19 @@ public sealed partial class ConversationViewModel : ObservableObject
     public bool HasReplyingTo => ReplyingToPreview.Length > 0;
 
     partial void OnReplyingToPreviewChanged(string value) => OnPropertyChanged(nameof(HasReplyingTo));
+
+    /// <summary>
+    /// Who the other person is, apart from what they have said - the same Info the browser keeps in the
+    /// conversation's own menu. See ContactInfoViewModel.
+    /// </summary>
+    [RelayCommand]
+    private void OpenContactInfo()
+    {
+        if (_contact is { } contact)
+        {
+            _navigator.ShowContactInfo(contact.UserId);
+        }
+    }
 
     [RelayCommand]
     private async Task ApproveRequestAsync(CancellationToken cancellationToken)
@@ -531,12 +556,17 @@ public sealed partial class ConversationViewModel : ObservableObject
 
     private async Task PollAsync(CancellationToken cancellationToken)
     {
-        using var timer = new PeriodicTimer(PollingInterval);
+        // Slower while something is announcing changes, and back to the old pace the moment it stops -
+        // see ILiveUpdates. Not switched off entirely: an announcement is best-effort, and a chat that
+        // silently stopped updating because one was dropped is a far worse bug than one that takes half
+        // a minute in a rare case.
+        using var timer = new PeriodicTimer(_liveUpdates.IsConnected ? ConnectedPollingInterval : PollingInterval);
 
         try
         {
             while (await timer.WaitForNextTickAsync(cancellationToken))
             {
+                timer.Period = _liveUpdates.IsConnected ? ConnectedPollingInterval : PollingInterval;
                 // No spinner: a pull-to-refresh indicator appearing by itself every few seconds reads
                 // as the app struggling rather than as it working.
                 await SynchroniseAsync(cancellationToken, showProgress: false);
@@ -663,4 +693,20 @@ public sealed partial class ConversationViewModel : ObservableObject
     }
 
     partial void OnStatusChanged(string value) => OnPropertyChanged(nameof(HasStatus));
+
+    /// <summary>
+    /// Reads once, now, because something said there is something to read. Fire and forget: this arrives
+    /// on the connection's own callback, and awaiting it there would hold the connection's thread while
+    /// a conversation is decrypted.
+    /// </summary>
+    private void OnSomethingChanged()
+    {
+        if (_polling is { IsCancellationRequested: false } polling)
+        {
+            _ = SynchroniseAsync(polling.Token, showProgress: false);
+        }
+    }
+
+    /// <summary>Lets the connection go when the screen does - see StopPolling, which the screen calls.</summary>
+    public void Dispose() => _liveUpdates.ChatChanged -= OnSomethingChanged;
 }

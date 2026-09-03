@@ -4,8 +4,8 @@ namespace Orbit.Core.Tasks;
 
 /// <summary>
 /// Validates the links task items make to other task lists before a create or update is allowed to
-/// save: a linked list must exist and be owned by the same user, an item can't link to the list it
-/// belongs to, and a link can't create a cycle - which would make
+/// save: every linked list must exist and be owned by the same user, an item can't link to the list it
+/// belongs to, and no link can create a cycle - which would make
 /// <see cref="LinkedTaskCompletionResolver"/>'s completion resolution loop forever without this check.
 /// </summary>
 public sealed class TaskListLinkValidator
@@ -23,7 +23,7 @@ public sealed class TaskListLinkValidator
     /// </summary>
     public async Task ValidateAsync(Guid userId, Guid? taskListId, IReadOnlyList<TaskItem> items, CancellationToken cancellationToken)
     {
-        var linkedListIds = items.Select(item => item.LinkedTaskListId).OfType<Guid>().Distinct().ToList();
+        var linkedListIds = items.SelectMany(item => item.LinkedTaskListIds).Distinct().ToList();
         if (linkedListIds.Count == 0)
         {
             return;
@@ -75,7 +75,7 @@ public sealed class TaskListLinkValidator
                 continue;
             }
 
-            foreach (var linkedId in currentList.Items.Select(item => item.LinkedTaskListId).OfType<Guid>())
+            foreach (var linkedId in currentList.Items.SelectMany(item => item.LinkedTaskListIds))
             {
                 toVisit.Enqueue(linkedId);
             }

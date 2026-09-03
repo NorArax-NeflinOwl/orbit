@@ -41,12 +41,12 @@ internal sealed class FakeInventoryServer : HttpMessageHandler
         return warehouse;
     }
 
-    public void AddItem(Guid warehouseId, string name, decimal quantity)
+    public void AddItem(Guid warehouseId, string name, decimal quantity, bool isCheckedRegularly = false)
     {
         var now = _timeProvider.GetUtcNow();
         _items[warehouseId].Add(new InventoryItemDto(
             Guid.NewGuid(), name, "Piece", "General", quantity, null, nameof(InventoryUnit.Piece), null, "None",
-            false, false, now, now));
+            false, false, now, now, isCheckedRegularly));
     }
 
     protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
@@ -60,6 +60,31 @@ internal sealed class FakeInventoryServer : HttpMessageHandler
         }
 
         // Nobody else is ever in it here; EditLockTests covers the answer where somebody is.
+        // api/warehouses/{id}/restock-list/refresh - rebuilt against what is on the shelves now.
+        if (path.EndsWith("/restock-list/refresh", StringComparison.Ordinal))
+        {
+            RestockRefreshesAsked++;
+            return Json(RestockRefresh);
+        }
+
+        // api/warehouses/{id}/restock-list/settings - how that list is built, and when it comes round.
+        if (path.EndsWith("/restock-list/settings", StringComparison.Ordinal))
+        {
+            if (RestockSettings is null)
+            {
+                return new HttpResponseMessage(HttpStatusCode.NotFound);
+            }
+
+            if (request.Method == HttpMethod.Put)
+            {
+                RestockSettings = await request.Content!.ReadFromJsonAsync<RestockListSettingsDto>(cancellationToken);
+                RestockSettingsSaved++;
+                return Json(RestockRefresh);
+            }
+
+            return Json(RestockSettings);
+        }
+
         if (path.EndsWith("/lock", StringComparison.Ordinal))
         {
             return new HttpResponseMessage(HttpStatusCode.NoContent);
@@ -89,12 +114,34 @@ internal sealed class FakeInventoryServer : HttpMessageHandler
         };
     }
 
+    /// <summary>What a refresh of a warehouse's restock list answers with, and how often one was asked for.</summary>
+    public RestockRefreshResultDto RestockRefresh { get; set; } = new(0, 0);
+
+    public int RestockRefreshesAsked { get; private set; }
+
+    /// <summary>
+    /// How a warehouse's restock list is built here. Null stands for a warehouse whose settings this
+    /// reader may not see, which is what the API answers with a 404.
+    /// </summary>
+    public RestockListSettingsDto? RestockSettings { get; set; } =
+        new(OnlyLinkedWithDueDate: false, new TimeOnly(9, 0));
+
+    public int RestockSettingsSaved { get; private set; }
+
     private async Task<HttpResponseMessage> CreateAsync(HttpRequestMessage request, CancellationToken cancellationToken)
     {
         var body = await ReadAsync<SaveWarehouseRequest>(request, cancellationToken);
-        // Carries IsPrivate back: the phone reads what it is told, so a fake that dropped it would
-        // un-seal a private warehouse on the next sync - and read as the phone having lost it.
-        return Json(AddWarehouse(body!.Name, isPrivate: body.IsPrivate).Id, HttpStatusCode.Created);
+        // Carries IsPrivate and the sealed payload back: the phone reads what it is told, so a fake that
+        // dropped either would un-seal a private warehouse on the next sync - and read as the phone
+        // having lost it. A private warehouse's name is only in that payload.
+        var created = AddWarehouse(body!.Name, isPrivate: body.IsPrivate);
+        _warehouses[created.Id] = created with
+        {
+            EncryptedContent = body.EncryptedContent,
+            // As the real endpoint stores it - see FakeTasksServer for the same two rules.
+            Description = body.IsPrivate ? string.Empty : body.Description ?? string.Empty
+        };
+        return Json(created.Id, HttpStatusCode.Created);
     }
 
     private async Task<HttpResponseMessage> SaveAsync(HttpRequestMessage request, string path, CancellationToken cancellationToken)
@@ -107,17 +154,51 @@ internal sealed class FakeInventoryServer : HttpMessageHandler
 
         var body = await ReadAsync<SaveWarehouseRequest>(request, cancellationToken);
         var now = _timeProvider.GetUtcNow();
-        _warehouses[id] = existing with { Name = body!.Name, UpdatedAtUtc = now, IsPrivate = body.IsPrivate };
+        _warehouses[id] = existing with
+        {
+            Name = body!.Name, UpdatedAtUtc = now, IsPrivate = body.IsPrivate,
+            EncryptedContent = body.EncryptedContent,
+            Description = body.IsPrivate ? string.Empty : body.Description ?? existing.Description
+        };
+
+        if (body.Items.FirstOrDefault(item => !Enum.TryParse<InventoryUnit>(item.Unit, out _)) is { } unknown)
+        {
+            // What the real server does - see InventoryEndpoints.UnitOf. A fake that took any string
+            // called "pcs" a unit, and the shelf it was on would have been refused on a device.
+            return new HttpResponseMessage(HttpStatusCode.BadRequest)
+            {
+                Content = JsonContent.Create(new { message = $"'unit' does not name a unit: {unknown.Unit}." })
+            };
+        }
 
         // A save carries the whole intended list: anything missing from it is gone, and an item that
         // came back with its id keeps that id.
         _items[id] = body.Items.Select(item => new InventoryItemDto(
             item.Id ?? Guid.NewGuid(), item.Name, item.ProductType, item.Category, item.Quantity,
             item.MinimumQuantity, item.Unit, item.ExpiryDate, item.ExpiryNotificationChannel,
-            false, false, now, now)).ToList();
+            // As UpdateWarehouseCommandHandler does: an item that came back with its id is updated
+            // rather than replaced, so the day it arrived is the day it arrived. Restamping it here
+            // would have made every shelf look like it was delivered on the day it was last edited.
+            false, false, ArrivalOf(id, item.Id) ?? now, now,
+            // As the server does: null on the way in means "not provided" and keeps what was stored -
+            // see WarehouseItemDto. A fake that read it as false would have called a client that says
+            // nothing a client that turns it off.
+            item.IsCheckedRegularly ?? Stored(id, item.Id))).ToList();
 
         return new HttpResponseMessage(HttpStatusCode.NoContent);
     }
+
+    /// <summary>When this item arrived, for one that is being updated rather than added.</summary>
+    private DateTimeOffset? ArrivalOf(Guid warehouseId, Guid? itemId)
+        => itemId is { } id
+            ? _items[warehouseId].FirstOrDefault(stored => stored.Id == id)?.CreatedAtUtc
+            : null;
+
+    /// <summary>What this item was last stored as, for a save that says nothing about the flag.</summary>
+    private bool Stored(Guid warehouseId, Guid? itemId)
+        => itemId is { } id
+            && _items.TryGetValue(warehouseId, out var items)
+            && items.FirstOrDefault(item => item.Id == id) is { IsCheckedRegularly: true };
 
     private HttpResponseMessage Delete(string path)
     {

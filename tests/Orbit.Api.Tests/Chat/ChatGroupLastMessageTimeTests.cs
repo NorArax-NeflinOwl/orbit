@@ -26,12 +26,16 @@ public sealed class ChatGroupLastMessageTimeTests
     [Fact]
     public void Posting_a_message_moves_it_forward()
     {
-        var group = ChatGroup.Create(Guid.NewGuid(), "Weekend trip");
-        var whenItWasMade = group.LastMessageAtUtc;
+        // Built as a group made two days ago rather than one made on the line above: both stamps would
+        // then come from readings of the same clock taken microseconds apart, and the assertion would
+        // be about how fast this ran. The `>=` it used to make could not fail at all.
+        var whenItWasMade = DateTimeOffset.UtcNow.AddDays(-2);
+        var group = ChatGroup.FromPersistence(
+            Guid.NewGuid(), "Weekend trip", Guid.NewGuid(), whenItWasMade, whenItWasMade, []);
 
         group.MarkMessagePosted();
 
-        Assert.True(group.LastMessageAtUtc >= whenItWasMade);
+        Assert.True(group.LastMessageAtUtc > whenItWasMade);
         Assert.NotEqual(group.CreatedAtUtc, group.LastMessageAtUtc);
     }
 

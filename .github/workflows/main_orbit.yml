@@ -11,25 +11,45 @@
 
 name: Build, test and deploy Orbit to Azure Container Apps
 
-# Merges only. A pull request used to run the test and android jobs too, and on a private repository
-# every one of those minutes is billed - a day of ordinary work exhausted the account's allowance and
-# stopped Actions outright, which costs more than a late red build does.
+# Merges, and pull requests into main.
 #
-# What that gives up: a branch is now unchecked until it lands. What it does not give up is production,
-# because the deploy job needs the test job - a merge that breaks the suite fails here rather than
-# reaching Azure. The trade is "main goes red", not "broken code ships".
+# The pull request trigger was removed once already: every minute is billed on a private repository, and
+# a day of ordinary work exhausted the account's allowance and stopped Actions outright. It is back
+# because leaving a branch unchecked until it lands stopped being theoretical - main sat red for a day
+# with nobody told - and because two things since have made a pull request run cost a fraction of what
+# it did then:
+#
+#   - The android job looks before it builds and does nothing when nothing it builds from changed, so
+#     the five minutes it used to spend go only on branches that touch the phone.
+#   - A pull request run is now cancelled by the next push to the same branch (see `concurrency`). A
+#     branch pushed five times used to cost five full runs; it costs one.
+#
+# Documentation-only branches are skipped outright: a change to info/ cannot break a build, and paying a
+# runner to prove it is the kind of spend that exhausted the allowance in the first place.
+#
+# The deploy job stays out of it either way - it is guarded on the event as well as gated on the suite.
 on:
   push:
     branches:
       - main
+  pull_request:
+    branches:
+      - main
+    paths-ignore:
+      - 'info/**'
+      - '**/*.md'
   workflow_dispatch:
 
 # One deploy at a time. Two merges a minute apart would otherwise build, push and update the same two
 # Container Apps concurrently, and which image ends up running would be down to which job finished
 # last. Queued rather than cancelled: a deploy interrupted halfway leaves a state nobody chose.
+#
+# A pull request is the opposite case and gets the opposite answer: one group per branch, cancelled by
+# the next push to it. Nobody wants the results of a commit that has already been replaced, and paying
+# for them is what made this trigger too expensive to keep the first time.
 concurrency:
-  group: deploy-orbit
-  cancel-in-progress: false
+  group: ${{ github.event_name == 'pull_request' && format('pr-{0}', github.ref) || 'deploy-orbit' }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 env:
   registryName: orbitcontainerregistry
@@ -64,6 +84,26 @@ jobs:
 
       - name: Test
         run: dotnet test Orbit.sln --configuration Release --no-build
+
+      # Everything in Orbit.Web's e2eeChat.js is Web Crypto and IndexedDB, and bUnit executes neither -
+      # so the one file the chat's confidentiality rests on was reachable by no test above. This runs it
+      # in a real browser instead. It sits in this job rather than beside the boot check further down,
+      # so a change that quietly weakens the encryption stops the deploy at the same gate a failing unit
+      # test does, before an image is ever built.
+      - name: Install a browser to run the client's own JavaScript in
+        run: |
+          npm install --no-save playwright@1
+          npx playwright install --with-deps chromium
+
+      - name: Verify the browser-side encryption
+        run: node ci/verify-browser-crypto.mjs
+
+      # The same argument for the other two files no .NET test reaches: service-worker.js only ever runs
+      # inside a registered service worker handling a real push event, and pushNotifications.js is the
+      # Notification and Push APIs. A push that silently shows nothing looks exactly like a push that was
+      # never sent, so this is not a failure anybody would report.
+      - name: Verify push notifications in a browser
+        run: node ci/verify-push-notifications.mjs
 
   android:
     # The Android app head, which Orbit.sln cannot carry and so the job above never touches. That
@@ -185,6 +225,19 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          # The whole history, because the version is counted from it - see ci/compute-version.sh. The
+          # default shallow checkout can see one commit and would number every build 0.1.1.
+          fetch-depth: 0
+
+      # What this build calls itself, per project: the patch is the number of days on which a commit
+      # touched that project, so nobody maintains it and the same commit always numbers itself the same.
+      - name: Work out the version
+        id: version
+        run: |
+          ci/compute-version.sh web | sed 's/^version=/web=/;s/^commit=/commit=/' >> "$GITHUB_OUTPUT"
+          ci/compute-version.sh api | sed -n 's/^version=/api=/p' >> "$GITHUB_OUTPUT"
+          echo "web $(ci/compute-version.sh web | head -1 | cut -d= -f2), api $(ci/compute-version.sh api | head -1 | cut -d= -f2)"
 
       # OIDC login: Azure exchanges GitHub's short-lived token for an access token. No client secret
       # is ever generated, stored, or rotated. Reuses the same identity (identity-orbit) and secrets
@@ -249,6 +302,7 @@ jobs:
             --tag ${{ env.registryLoginServer }}/orbit-api:${{ github.sha }} \
             --tag ${{ env.registryLoginServer }}/orbit-api:latest \
             --build-arg NGINX_CONF_FILE=nginx.azure.conf \
+            --build-arg ORBIT_VERSION="${{ steps.version.outputs.api }}+${{ steps.version.outputs.commit }}" \
             .
 
       - name: Build orbit-web image
@@ -258,6 +312,7 @@ jobs:
             --tag ${{ env.registryLoginServer }}/orbit-web:${{ github.sha }} \
             --tag ${{ env.registryLoginServer }}/orbit-web:latest \
             --build-arg NGINX_CONF_FILE=nginx.azure.conf \
+            --build-arg ORBIT_VERSION="${{ steps.version.outputs.web }}+${{ steps.version.outputs.commit }}" \
             .
 
       # Runs the freshly built orbit-api image for real, against a real PostgreSQL, before it ever

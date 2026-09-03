@@ -5,6 +5,7 @@ using Orbit.Core.Calendar;
 using Orbit.Core.Diagnostics;
 using Orbit.Core.Calendar.Reminders;
 using Orbit.Core.Chat;
+using Orbit.Core.Suggestions;
 using Orbit.Core.Chat.Groups;
 using Orbit.Core.Location;
 using Orbit.Core.Inventory;
@@ -55,6 +56,8 @@ public static class OrbitDataServiceCollectionExtensions
         services.AddScoped<IContactRepository, ContactRepository>();
         services.AddScoped<IChatMessageRepository, ChatMessageRepository>();
         services.AddScoped<IChatGroupRepository, ChatGroupRepository>();
+        services.AddScoped<IChatGroupAnnouncementRepository, ChatGroupAnnouncementRepository>();
+        services.AddScoped<INameSuggestionRepository, NameSuggestionRepository>();
         services.AddScoped<ISharedLocationRepository, SharedLocationRepository>();
         services.AddScoped<IChatConversationAccessRepository, ChatConversationAccessRepository>();
         services.AddScoped<IPushSubscriptionRepository, PushSubscriptionRepository>();

@@ -4,6 +4,7 @@ using System.Text.Json;
 using System.Web;
 using Orbit.Contracts.Sync;
 using Orbit.Contracts.Tasks;
+using Orbit.Core.Tasks;
 
 namespace Orbit.Mobile.Tests.TestDoubles;
 
@@ -36,17 +37,19 @@ internal sealed class FakeTasksServer : HttpMessageHandler
 
     public int RaisedShortfallCount { get; set; }
 
-    /// <summary>What bringing the list and the warehouse back into step reports having moved.</summary>
-    public StockReconciliationResultDto Reconciliation { get; set; } = new(0, 0);
-
-    /// <summary>How many times it was actually asked for - the panel used to only re-read instead.</summary>
-    public int ReconciliationsAsked { get; private set; }
-
     /// <summary>How many products bringing the whole warehouse up to its minimum moved.</summary>
     public int ToppedUpCount { get; set; }
 
     /// <summary>How many times the shelf was asked to be topped up in one go.</summary>
     public int RestockingsFinished { get; private set; }
+
+    /// <summary>How often the screen asked for the finished errands to be settled - see ReconcileRestockingAsync.</summary>
+    public int RestockingsSettled { get; private set; }
+
+    /// <summary>What the settle answers with. Nothing settled unless a test says otherwise.</summary>
+    public int SettledCount { get; set; }
+
+    public int SettledToppedUpCount { get; set; }
 
     /// <summary>The warehouse a list was last pointed at.</summary>
     public Guid? LinkedWarehouseId { get; private set; }
@@ -120,16 +123,16 @@ internal sealed class FakeTasksServer : HttpMessageHandler
             return Json(new RaiseStockShortfallsResultDto(RaisedShortfallCount));
         }
 
-        if (path.EndsWith("/stock-check/reconciliation", StringComparison.Ordinal))
-        {
-            ReconciliationsAsked++;
-            return Json(Reconciliation);
-        }
-
         if (path.EndsWith("/restocking/finished", StringComparison.Ordinal))
         {
             RestockingsFinished++;
             return Json(new FinishRestockingResultDto(ToppedUpCount));
+        }
+
+        if (path.EndsWith("/restocking/reconcile", StringComparison.Ordinal))
+        {
+            RestockingsSettled++;
+            return Json(new RestockReconciliationResultDto(SettledToppedUpCount, SettledCount));
         }
 
         if (path.EndsWith("/inventory", StringComparison.Ordinal))
@@ -139,10 +142,19 @@ internal sealed class FakeTasksServer : HttpMessageHandler
                 : new HttpResponseMessage(HttpStatusCode.NotFound);
         }
 
+        // api/tasks/{id}/warehouse
         if (path.EndsWith("/warehouse", StringComparison.Ordinal))
         {
             var body = await ReadAsync<LinkTaskItemToWarehouseBody>(request, cancellationToken);
             LinkedWarehouseId = body?.WarehouseId;
+            // Kept on the list itself as well, because that is where a pull reads it from: a phone told
+            // which shelf a list is measured against only learns it by asking for the list again.
+            var taskListId = Guid.Parse(path.Split('/')[^2]);
+            if (_taskLists.TryGetValue(taskListId, out var taskList))
+            {
+                _taskLists[taskListId] = taskList with { LinkedWarehouseId = body?.WarehouseId };
+            }
+
             return new HttpResponseMessage(HttpStatusCode.NoContent);
         }
 
@@ -167,9 +179,26 @@ internal sealed class FakeTasksServer : HttpMessageHandler
     /// As MoveTaskItemCommandHandler does it: the entry leaves one list and arrives in the other, and
     /// both lists count as changed so a delta pull brings them both back.
     /// </summary>
+    /// <summary>
+    /// Answers the next move the way the real server answers one it will not make: 400 with a message
+    /// (see "Refusing a request"). An entry cannot link to the list it belongs to, and there is no
+    /// reason for this fake to work out which moves those are - what matters is that the client is
+    /// handed a refusal rather than an exception.
+    /// </summary>
+    public bool RefusesTheNextMove { get; set; }
+
     private async Task<HttpResponseMessage> MoveItemAsync(
         HttpRequestMessage request, Guid sourceId, Guid itemId, CancellationToken cancellationToken)
     {
+        if (RefusesTheNextMove)
+        {
+            RefusesTheNextMove = false;
+            return new HttpResponseMessage(HttpStatusCode.BadRequest)
+            {
+                Content = JsonContent.Create(new { message = "A task list item can't link to the list it belongs to." })
+            };
+        }
+
         var body = await ReadAsync<MoveTaskItemRequest>(request, cancellationToken);
         if (!_taskLists.TryGetValue(sourceId, out var source)
             || !_taskLists.TryGetValue(body!.TargetTaskListId, out var target)
@@ -195,7 +224,13 @@ internal sealed class FakeTasksServer : HttpMessageHandler
         _taskLists[created.Id] = created with
         {
             Items = ToDtos(body.Items), IsGroup = body.IsGroup, IsPrivate = body.IsPrivate,
-            Priority = body.Priority
+            // Stored as the real endpoint stores it: a private list's title and entries are only here,
+            // so a fake that dropped it would answer the next pull with an empty list.
+            EncryptedContent = body.EncryptedContent,
+            Priority = body.Priority,
+            // As the real endpoint stores it: null means "not provided", and a private list keeps none
+            // at all - see Orbit.Core.Tasks.TaskList.
+            Description = body.IsPrivate ? string.Empty : body.Description ?? string.Empty
         };
         return Json(created.Id, HttpStatusCode.Created);
     }
@@ -219,7 +254,13 @@ internal sealed class FakeTasksServer : HttpMessageHandler
             // "Normal" over the top, and the phone looked like it had never sent one.
             IsGroup = body.IsGroup,
             IsPrivate = body.IsPrivate,
+            EncryptedContent = body.EncryptedContent,
             Priority = body.Priority,
+            // <inheritdoc cref="CreateAsync"/> - and null here keeps what was stored rather than
+            // clearing it, which is the whole point of the field being nullable.
+            Description = body.IsPrivate
+                ? string.Empty
+                : body.Description ?? existing.Description,
             UpdatedAtUtc = _timeProvider.GetUtcNow()
         };
 
@@ -245,9 +286,20 @@ internal sealed class FakeTasksServer : HttpMessageHandler
     /// </summary>
     private static IReadOnlyList<TaskItemDto> ToDtos(IReadOnlyList<TaskItemRequest> items)
         => items.Select(item => new TaskItemDto(
-            item.Id ?? Guid.NewGuid(), item.Description, item.DueDateUtc, item.IsCompleted, item.LinkedTaskListId,
+            item.Id ?? Guid.NewGuid(), item.Description, item.DueDateUtc, item.IsCompleted,
+            // Whichever shape the client sent, answered in both - what the real endpoint does, so a
+            // client reading only the old field still works against this fake. See TaskEndpoints.ToDto.
+            item.AllLinkedTaskListIds.Count > 0 ? item.AllLinkedTaskListIds[0] : null,
             item.OverdueNotificationChannel, item.RemindDaily, item.DailyReminderNotificationChannel,
-            item.DailyReminderTimeOfDay, item.Kind, item.Location, item.LinkedCalendarEventId)).ToList();
+            item.DailyReminderTimeOfDay, item.Kind, item.Location, item.LinkedCalendarEventId,
+            // Kept only for an Inventory entry, which is TaskItem's own rule - a fake that kept it for
+            // every kind would let a client sending the wrong kind pass, and the real server would cut
+            // the errand loose from its product.
+            item.Kind == nameof(TaskItemKind.Inventory) ? item.LinkedInventoryItemId : null,
+            item.AllLinkedTaskListIds,
+            // Answered as sent. A fake that dropped them would let a client that never sends them pass,
+            // and the reader would find their entries unfiled the next time the list was pulled.
+            item.AllCategories)).ToList();
 
     private static Guid ReadId(string path) => Guid.Parse(path.Split('/')[^1]);
 

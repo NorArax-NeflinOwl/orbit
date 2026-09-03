@@ -1,0 +1,27 @@
+<Project>
+
+  <!-- The two numbers somebody decides, kept in a file of their own so that changing anything else here
+       does not look like a version bump - see version.props, and ci/compute-version.sh, which counts the
+       third number from the commits made since that file last changed. -->
+  <Import Project="version.props" />
+
+  <!-- A warning nobody has to act on is a warning nobody reads, and eight of them had accumulated
+       unnoticed - a possible null dereference among them. They fail the build now, which is only
+       bearable because the count was brought to zero first.
+
+       Not applied while somebody is working: a warning about an unused variable half way through
+       writing a method should not stop the build they are running to check their work. It is the
+       Release build - which is what CI and every image build use - that has to stay clean. -->
+  <PropertyGroup Condition="'$(Configuration)' == 'Release'">
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+  </PropertyGroup>
+
+  <!-- Except the phone head, which nothing here can build: it needs the MAUI workloads and an Android
+       SDK, so whether it compiles warning-free is not something this change was able to find out.
+       Turning warnings into errors for it would be betting the Android release on an answer nobody has.
+       Lift this once somebody has built it clean. -->
+  <PropertyGroup Condition="'$(MSBuildProjectName)' == 'Orbit.Maui'">
+    <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
+  </PropertyGroup>
+
+</Project>

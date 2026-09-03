@@ -26,6 +26,7 @@ public partial class TaskListDetailPage : ContentPage
 		ShowItemMenuCommand = new Command<TaskItemRow>(item => _ = ShowItemMenuAsync(item));
 		ShowListMenuCommand = new Command(() => _ = ShowListMenuAsync());
 		ChooseWarehouseCommand = new Command(() => _ = ChooseWarehouseAsync());
+		ChooseStockOrderCommand = new Command(() => _ = ChooseStockOrderAsync());
 
 		InitializeComponent();
 		BindingContext = viewModel;
@@ -39,6 +40,28 @@ public partial class TaskListDetailPage : ContentPage
 
 	/// <summary>Which shelf this list's work is measured against - see StockCheckPanel.</summary>
 	public ICommand ChooseWarehouseCommand { get; }
+
+	/// <summary>What order that panel lists what the work needs in - the same four Orbit.Web offers.</summary>
+	public ICommand ChooseStockOrderCommand { get; }
+
+	private async Task ChooseStockOrderAsync()
+	{
+		var names = new Dictionary<string, StockCheckOrder>
+		{
+			[MarkStock(_translations["In list order"], StockCheckOrder.AsCounted)] = StockCheckOrder.AsCounted,
+			[MarkStock(_translations["A to Z"], StockCheckOrder.Alphabetical)] = StockCheckOrder.Alphabetical,
+			[MarkStock(_translations["Z to A"], StockCheckOrder.ReverseAlphabetical)] = StockCheckOrder.ReverseAlphabetical,
+			[MarkStock(_translations["Short first"], StockCheckOrder.ShortFirst)] = StockCheckOrder.ShortFirst
+		};
+
+		var chosen = await DisplayActionSheet(
+			_translations["Sort"], _translations["Cancel"], destruction: null, [.. names.Keys]);
+
+		if (chosen is not null && names.TryGetValue(chosen, out var order))
+		{
+			_viewModel.StockCheck.Order = order;
+		}
+	}
 
 	private async Task ChooseWarehouseAsync()
 	{
@@ -54,20 +77,46 @@ public partial class TaskListDetailPage : ContentPage
 
 	private async Task ShowListMenuAsync()
 	{
-		var generate = _translations["Generate inventory"];
-		var recalculate = _translations["Recalculate against the inventory"];
-		var chosen = await DisplayActionSheet(
-			_translations["List options"], _translations["Cancel"], destruction: null, generate, recalculate);
+		// What order to read the entries in, then what to do to the list - one menu holding both, as
+		// Orbit.Web's checklist keeps them. The order in force is marked, because a menu of three with
+		// no answer among them leaves the reader guessing what they are looking at.
+		var orders = new Dictionary<string, ChecklistOrder>
+		{
+			[Mark(_translations["In list order"], ChecklistOrder.AsArranged)] = ChecklistOrder.AsArranged,
+			[Mark(_translations["A to Z"], ChecklistOrder.Alphabetical)] = ChecklistOrder.Alphabetical,
+			[Mark(_translations["Left to do first"], ChecklistOrder.UndoneFirst)] = ChecklistOrder.UndoneFirst
+		};
 
-		if (chosen == generate)
+		// The two that price a list against a shelf are only worth offering where there is a shelf to
+		// price it against - the panel below appears by the same rule.
+		var generate = _translations["Generate inventory"];
+		var refresh = _translations["Refresh the restock list"];
+		string[] choices = _viewModel.StockCheck.IsOffered
+			? [.. orders.Keys, generate, refresh]
+			: [.. orders.Keys];
+
+		var chosen = await DisplayActionSheet(
+			_translations["List options"], _translations["Cancel"], destruction: null, choices);
+
+		if (chosen is not null && orders.TryGetValue(chosen, out var order))
+		{
+			_viewModel.ItemOrder = order;
+		}
+		else if (chosen == generate)
 		{
 			_viewModel.StockCheck.GenerateInventoryCommand.Execute(null);
 		}
-		else if (chosen == recalculate)
+		else if (chosen == refresh)
 		{
-			_viewModel.StockCheck.RecalculateCommand.Execute(null);
+			_viewModel.StockCheck.RefreshFromTheWarehouseCommand.Execute(null);
 		}
 	}
+
+	private string MarkStock(string name, StockCheckOrder order)
+		=> _viewModel.StockCheck.Order == order ? $"{name} ✓" : name;
+
+	private string Mark(string name, ChecklistOrder order)
+		=> _viewModel.ItemOrder == order ? $"{name} ✓" : name;
 
 	protected override void OnAppearing()
 	{
@@ -77,12 +126,49 @@ public partial class TaskListDetailPage : ContentPage
 	}
 
 	/// <summary>
+	/// Takes what the picker was pointed at and lets go of it again, so it goes on saying what to add
+	/// next rather than what the entry already stands for.
+	///
+	/// Both happen after the picker's own selection has finished rather than during it: adding a list
+	/// changes what the picker offers, and changing a picker's source or its selection from inside its
+	/// own change hung the app on Android - the dialog stopped answering and the screen was reported as
+	/// not responding.
+	/// </summary>
+	private void OnLinkedTaskListPicked(object? sender, EventArgs eventArgs)
+	{
+		if (sender is not Picker picker || picker.SelectedItem is not TaskListChoice chosen)
+		{
+			return;
+		}
+
+		Dispatcher.Dispatch(() =>
+		{
+			_viewModel.BeingEdited?.LinkToCommand.Execute(chosen);
+			picker.SelectedIndex = -1;
+		});
+	}
+
+	/// <summary>
 	/// Choosing a list moves the entry, which closes the editor the picker lives in - and iOS leaves its
 	/// wheel on screen when the view under it disappears. Dismissing it first is the view's own business.
+	///
+	/// The move itself happens after the picker's own selection has finished, for the reason the link
+	/// picker beside it does the same: closing the editor and rebuilding what the picker offers from
+	/// inside its own change is what hung the app on Android.
 	/// </summary>
 	private void OnMoveTargetChosen(object? sender, EventArgs eventArgs)
 	{
-		(sender as Picker)?.Unfocus();
+		if (sender is not Picker picker || picker.SelectedItem is not TaskListChoice chosen)
+		{
+			return;
+		}
+
+		picker.Unfocus();
+		Dispatcher.Dispatch(() =>
+		{
+			picker.SelectedIndex = -1;
+			_viewModel.MoveItemCommand.Execute(chosen);
+		});
 	}
 
 	/// <summary>Lets go of the edit lock as the screen leaves - see EditLock.</summary>
@@ -106,6 +192,13 @@ public partial class TaskListDetailPage : ContentPage
 	/// </summary>
 	private async void OnViewModelPropertyChanged(object? sender, PropertyChangedEventArgs eventArgs)
 	{
+		if (eventArgs.PropertyName == nameof(TaskListDetailViewModel.IsAskingAboutTheListsBehind)
+			&& _viewModel.IsAskingAboutTheListsBehind)
+		{
+			await AskAboutTheListsBehindAsync();
+			return;
+		}
+
 		if (eventArgs.PropertyName != nameof(TaskListDetailViewModel.IsAskingToFinishRestocking)
 			|| !_viewModel.IsAskingToFinishRestocking)
 		{
@@ -123,6 +216,46 @@ public partial class TaskListDetailPage : ContentPage
 			: _viewModel.TickOnlyThisCommand.ExecuteAsync(null));
 	}
 
+	/// <summary>
+	/// The question raised by pressing the box of an entry that stands for other lists - see
+	/// TaskListDetailViewModel.AskAboutTheListsBehind. One list is a yes-or-no; several are a sheet, so
+	/// the reader picks which of them they meant rather than being sent to the first.
+	/// </summary>
+	private async Task AskAboutTheListsBehindAsync()
+	{
+		var lists = _viewModel.ListsBehindTheEntry.ToList();
+		if (lists.Count == 0)
+		{
+			// Nothing this phone can open: the question is still answered - what the entry is waiting on
+			// is worth knowing - but there is no door to offer.
+			await DisplayAlertAsync(
+				_viewModel.LinkedTickBeingAsked?.Description ?? string.Empty,
+				_viewModel.ListsBehindTheEntryQuestion,
+				_translations["Close"]);
+			_viewModel.LeaveTheListBehindCommand.Execute(null);
+			return;
+		}
+
+		if (lists.Count == 1)
+		{
+			var opens = await DisplayAlertAsync(
+				_viewModel.LinkedTickBeingAsked?.Description ?? string.Empty,
+				_viewModel.ListsBehindTheEntryQuestion,
+				_translations["Yes"],
+				_translations["No"]);
+
+			_viewModel.OpenTheListBehindCommand.Execute(opens ? lists[0] : null);
+			return;
+		}
+
+		var chosen = await DisplayActionSheet(
+			_viewModel.ListsBehindTheEntryQuestion, _translations["No"], null,
+			[.. lists.Select(list => list.Label)]);
+
+		_viewModel.OpenTheListBehindCommand.Execute(
+			lists.FirstOrDefault(list => list.Label == chosen));
+	}
+
 	private async Task ShowItemMenuAsync(TaskItemRow? item)
 	{
 		if (item is null)
@@ -133,9 +266,14 @@ public partial class TaskListDetailPage : ContentPage
 		var remove = _translations["Delete item"];
 		var moveUp = _translations["Move up"];
 		var moveDown = _translations["Move down"];
+		// Moving an entry is only offered while the list is being read in the order it was arranged in:
+		// anywhere else "up" would move it in an arrangement nobody can see, and the entry would stay
+		// exactly where it is on screen.
+		string[] choices = _viewModel.CanBeRearranged
+			? [_translations["Edit"], moveUp, moveDown]
+			: [_translations["Edit"]];
 		var chosen = await DisplayActionSheet(
-			_translations["Item options"], _translations["Cancel"], remove,
-			_translations["Edit"], moveUp, moveDown);
+			_translations["Item options"], _translations["Cancel"], remove, choices);
 
 		if (chosen == remove)
 		{

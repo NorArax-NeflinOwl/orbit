@@ -44,7 +44,7 @@ public sealed class TaskListSynchronizer
         await using var dbContext = await _dbContextFactory.CreateDbContextAsync(cancellationToken);
         var push = await OutboxReplay.RunAsync(
             dbContext, SyncEntityType.TaskList,
-            (entry, token) => SendAsync(dbContext, entry, token), _logger, cancellationToken);
+            (entry, token) => SendAsync(dbContext, entry, token), _timeProvider, _logger, cancellationToken);
 
         try
         {
@@ -95,8 +95,10 @@ public sealed class TaskListSynchronizer
         }
 
         taskList.ServerId = await _tasksClient.CreateAsync(
+            // A private list's title and entries are in EncryptedContent and its readable fields are
+            // empty, which is how the row is already stored - see LocalTaskListRepository.
             new CreateTaskRequest(taskList.Title, ToRequests(taskList.Items), taskList.IsGroup, taskList.IsPrivate,
-                Priority: taskList.Priority),
+                taskList.EncryptedContent, taskList.Priority, taskList.Description),
             cancellationToken);
         taskList.LastSyncedAtUtc = _timeProvider.GetUtcNow();
         return SendResult.Sent;
@@ -112,14 +114,16 @@ public sealed class TaskListSynchronizer
 
         var outcome = await _tasksClient.UpdateAsync(
             serverId,
+            // Said rather than left out: null would mean "not provided" and keep whatever is stored, so
+            // a description cleared on this phone would come back at the next pull - see CreateTaskRequest.
             new UpdateTaskRequest(taskList.Title, ToRequests(taskList.Items), taskList.IsGroup, taskList.IsPrivate,
-                Priority: taskList.Priority),
+                taskList.EncryptedContent, taskList.Priority, taskList.Description),
             cancellationToken);
 
         if (outcome is not WriteOutcome.Applied)
         {
             _logger.LogInformation("The server refused an offline edit of task list {ServerId}: {Outcome}", serverId, outcome);
-            return SendResult.Abandoned;
+            return SendResult.Refused;
         }
 
         taskList.LastSyncedAtUtc = _timeProvider.GetUtcNow();
@@ -184,6 +188,7 @@ public sealed class TaskListSynchronizer
     private void CopyInto(LocalTaskList taskList, TaskDto incoming)
     {
         taskList.Title = incoming.Title;
+        taskList.Description = incoming.Description;
         taskList.Items = incoming.Items;
         taskList.IsCompleted = incoming.IsCompleted;
         taskList.IsGroup = incoming.IsGroup;
@@ -216,11 +221,24 @@ public sealed class TaskListSynchronizer
     /// The kind, the place and the event it belongs to travel with it for the same reason: left off,
     /// every push from the phone turned an appointment set on the web back into a plain errand with
     /// nowhere to be.
+    ///
+    /// The shelf item is the same story and worse. TaskItem keeps LinkedInventoryItemId only for an
+    /// Inventory entry and drops it otherwise, so a push that carried neither the link nor the kind cut
+    /// a restock errand loose from the product it was about - on any save of any list holding one,
+    /// without the reader touching the errand at all.
+    ///
+    /// The categories travel for the same reason. The server does keep them when a request says nothing
+    /// at all about them (see UpdateTaskListCommand.EntriesKeepingTheirCategories), which is what let
+    /// older builds of this app go on saving without unfiling everything - but this one can set them, so
+    /// it has to say what they are.
     /// </summary>
     private static IReadOnlyList<TaskItemRequest> ToRequests(IReadOnlyList<TaskItemDto> items)
         => items.Select(item => new TaskItemRequest(
             item.Description, item.Id == Guid.Empty ? null : item.Id, item.DueDateUtc, item.IsCompleted,
-            item.LinkedTaskListId, item.OverdueNotificationChannel, item.RemindDaily,
+            // The new field, always: the old single one carries only the first list, so a save from
+            // this phone would quietly drop the rest of an entry standing for several.
+            LinkedTaskListId: null, item.OverdueNotificationChannel, item.RemindDaily,
             item.DailyReminderNotificationChannel, item.DailyReminderTimeOfDay,
-            item.Kind, item.Location, item.LinkedCalendarEventId)).ToList();
+            item.Kind, item.Location, item.LinkedCalendarEventId, item.LinkedInventoryItemId,
+            item.AllLinkedTaskListIds, item.AllCategories)).ToList();
 }

@@ -42,8 +42,19 @@ internal sealed class FakeUsersServer : HttpMessageHandler
         Guid.NewGuid(), "me@orbit.example", "me", "Me",
         IsEmailVerified: false, HasPassword: true, IsGoogleLinked: false);
 
-    public void Add(Guid userId, string displayName, string? publicKeyBase64)
-        => _users[userId] = new UserSearchResultDto(userId, displayName.ToLowerInvariant(), displayName, publicKeyBase64);
+    /// <summary>
+    /// Every account gone, for the case a lookup has to answer "nobody" - which is also how the server
+    /// answers for somebody who has made themselves unfindable.
+    /// </summary>
+    public void ForgetEverybody() => _users.Clear();
+
+    /// <summary>
+    /// An account this server knows. The login is derived from the name unless a test says otherwise -
+    /// most do not care, and the ones that do are about the difference between the two.
+    /// </summary>
+    public void Add(Guid userId, string displayName, string? publicKeyBase64, string? userName = null)
+        => _users[userId] = new UserSearchResultDto(
+            userId, userName ?? displayName.ToLowerInvariant(), displayName, publicKeyBase64);
 
     protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
     {
@@ -69,7 +80,7 @@ internal sealed class FakeUsersServer : HttpMessageHandler
 
         // Asked by the account screen's Google row, which is absent unless a client id comes back -
         // see GoogleAccountLink. GoogleAccountLinkTests is where the offered case is exercised.
-        if (request.RequestUri.AbsolutePath.EndsWith("/config/client-flags", StringComparison.Ordinal))
+        if (request.RequestUri!.AbsolutePath.EndsWith("/config/client-flags", StringComparison.Ordinal))
         {
             return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
             {

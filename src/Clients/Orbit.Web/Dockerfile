@@ -6,6 +6,14 @@
 FROM mcr.microsoft.com/dotnet/sdk:10.0-alpine AS build
 WORKDIR /src
 
+# Inherited by every project below, so a property added to it applies here as well as locally. Copied
+# rather than left out: without it a build in this image quietly ignores whatever it says, and the
+# difference only shows up as "works on my machine".
+#
+# LICENSE comes along because the client serves it: the footer's licence link opens it on this site
+# rather than on GitHub, and the file is linked into wwwroot from here - see Orbit.Web.csproj.
+COPY Directory.Build.props version.props LICENSE ./
+
 COPY src/Shared/Orbit.Contracts/Orbit.Contracts.csproj src/Shared/Orbit.Contracts/
 COPY src/Shared/Orbit.Core/Orbit.Core.csproj src/Shared/Orbit.Core/
 COPY src/Shared/Orbit.Localization/Orbit.Localization.csproj src/Shared/Orbit.Localization/
@@ -17,9 +25,15 @@ COPY src/Shared/Orbit.Core/ src/Shared/Orbit.Core/
 COPY src/Shared/Orbit.Localization/ src/Shared/Orbit.Localization/
 COPY src/Clients/Orbit.Web/ src/Clients/Orbit.Web/
 
+# What this build calls itself, worked out by the pipeline from the history - see ci/compute-version.sh.
+# Empty for a local `docker compose build`, which is honest: nothing counted the days, so the footer
+# says 0.0.0-dev rather than a number that looks real. See Orbit.Core's OrbitVersion.
+ARG ORBIT_VERSION=
+
 RUN dotnet publish src/Clients/Orbit.Web/Orbit.Web.csproj \
     --configuration Release \
     --no-restore \
+    ${ORBIT_VERSION:+-p:InformationalVersion="$ORBIT_VERSION"} \
     --output /app/publish
 
 # Blazor WebAssembly ships as static files; there's no .NET runtime to host it, so the final image
@@ -54,5 +68,15 @@ RUN apk add --no-cache openssl
 # before starting nginx - no need to override the image's ENTRYPOINT/CMD to hook this in.
 COPY src/Clients/Orbit.Web/generate-certificate.sh /docker-entrypoint.d/10-generate-certificate.sh
 RUN chmod +x /docker-entrypoint.d/10-generate-certificate.sh
+
+# What lets a phone open Orbit's own links in the app rather than in a browser - see the script for
+# what Android does with it and what happens when the deployment has not set a fingerprint.
+COPY src/Clients/Orbit.Web/write-android-app-links.sh /docker-entrypoint.d/20-write-android-app-links.sh
+RUN chmod +x /docker-entrypoint.d/20-write-android-app-links.sh
+
+# Where this deployment's logs are read, if it publishes them anywhere - see the script for why this
+# is answered at startup rather than baked into the image.
+COPY src/Clients/Orbit.Web/write-diagnostics-dashboard.sh /docker-entrypoint.d/30-write-diagnostics-dashboard.sh
+RUN chmod +x /docker-entrypoint.d/30-write-diagnostics-dashboard.sh
 
 EXPOSE 80 443

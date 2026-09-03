@@ -5,11 +5,14 @@ rest of the documentation already flags as "not implemented yet," a deliberate f
 cut, or an identified follow-up. It is not a committed roadmap with dates — it is the current honest
 picture of what's left.
 
-**Last checked against the code on 2026-08-30.** A plan is only worth reading if it describes the
-present, and this one had drifted: it named browser-driven test infrastructure as missing while CI had
-been running Playwright, and listed two gaps that tests had since closed. Anything below that says
-"not started" or "no coverage" was checked against the repository on that date rather than carried
-forward on trust.
+**Last checked against the code on 2026-08-31.** A plan is only worth reading if it describes the
+present. Anything below that says "not started" or "no coverage" was checked against the repository on
+that date rather than carried forward on trust.
+
+Since the last pass: the version is counted from the history rather than maintained by hand, the tasks
+page reads three ways, a restock errand edits the shelf it names, a calendar entry is the appointment
+rather than a pointer at one, and the build refuses to finish on a warning. What that pass found and did
+**not** fix is in [Known scope cuts and rough edges](#known-scope-cuts-and-rough-edges) below.
 
 ## Planned features
 
@@ -20,9 +23,18 @@ forward on trust.
   [Orbit.Maui — Plan](orbit-maui-plan.md) for the design it was built to. Android is the verified
   head; iOS has not been run since phase 1, and desktop has not been started at all.
 
-  What is left of it: push delivered to a phone (blocked on a Firebase registration for this
-  application id), the iOS head beyond phase 1 (deferred — no Apple developer account or signing
-  key), and phase 8 — widgets, Live Activities, accessibility. Remaining design decisions are in
+  What is left of it: the iOS head beyond phase 1 (deferred — no Apple developer account or signing
+  key, which also blocks push there) and phase 8's iOS half — Live Activities, the Dynamic Island, the
+  Action Button. Phase 8 is done on Android: every switch, picker, date or time picker and checkbox
+  names itself to a screen reader and a test fails on one that does not, and the home screen widget is
+  built and driven on a device (see
+  [Functionality](functionality.md#the-home-screen-widget-android)).
+  A push
+  arriving while the app is in front of somebody now shows a banner on the navigation bar, which is
+  where the browser shows its own; it honours `AllowMobileBanner` and the two settings that pace it,
+  all three of which existed for this and had no reader on the phone — and, since 2026-09-01, no way to
+  be set from it either: the phone's own banner was configured only from a browser. Push to an Android phone is delivered as of
+  2026-08-31 and no longer on this list. Remaining design decisions are in
   [§12](orbit-maui-plan.md#12-open-questions); the local database staying unencrypted and iOS being
   deferred are both settled there.
 - **Writing to a real Google Calendar.** `Orbit.GoogleIntegration` (`src/Server`) holds the ID-token
@@ -41,14 +53,49 @@ forward on trust.
   distributed lock or message queue once it's needed — see
   [Functionality — Calendar event reminders](functionality.md#calendar-event-reminders). No second
   instance runs today; this is forward-looking groundwork already in place.
-- **A local AI model on the server, as groundwork for a future chat bot.** No work started; explicitly
-  scoped on the backlog as infrastructure to land before the chat bot feature itself. **Proposed
-  approach:** self-hosting something like Ollama alongside `orbit-api` in `docker-compose.yml` (a new
-  service, similar in shape to the existing `aspire-dashboard` one) keeps this from depending on a
-  paid third-party LLM API, at the cost of needing real CPU/GPU/RAM sized for whatever model is chosen
-  - worth prototyping with a small model before committing to it as the target architecture.
+- **Google Contacts sync.** Not started, and named here because
+  [Current Status](current-status.md#implemented-vs-planned) lists it and links to this section. Like
+  calendar sync it needs an authorization-code flow and a sensitive scope
+  (`https://www.googleapis.com/auth/contacts.readonly`) through Google's verification - see
+  [What real Google Calendar sync would take](#what-real-google-calendar-sync-would-take), which is the
+  same shape of work and should be done once for both rather than twice. It also needs a decision this
+  document cannot make for it: Orbit's own contacts are people who hold an Orbit account and have agreed
+  to a conversation, and a Google contact is a name and an email address. Whether an imported contact is
+  a third kind of row, or only a way to find somebody already on Orbit, changes the feature entirely.
+- **An AI assistant for inventories and task lists.** No work started. It suggests and corrects what the
+  user is typing, finds duplicate items, explains what Orbit can do, and proposes calendar events linked
+  to the right task lists. It is deliberately shut out of private items and out of chat entirely - it is
+  not a party to any conversation, and the messages are sealed so there would be nothing to give it.
+  The whole design, the model and hosting decision, and the order to build it in are in
+  [Orbit Assistant — Plan](ai-assistant-plan.md).
+
+  Two things there are worth knowing without opening it. **Half of what was asked for is not a language
+  model's job**: typeahead and duplicate detection are trigram similarity searches over the user's own
+  data, which PostgreSQL answers in milliseconds for nothing and more correctly than a model could. And
+  **the model should not be self-hosted**: an earlier version of this entry proposed running Ollama
+  beside `orbit-api`, and measuring that is what killed it - a model small enough to serve on the CPU
+  Orbit deploys on is too weak for Polish, and one good enough at Polish is too slow to sit behind a chat
+  window. A small hosted model in Azure AI Foundry costs cents a month at this size. Ollama stays, for
+  local development only.
 
 ## What real Google Calendar sync would take
+
+**Waiting on infrastructure, deliberately, as of 2 September 2026.** Google's review of a sensitive scope
+asks for authorised domains the applicant owns, and for a privacy policy and terms of service hosted on
+one of them. Orbit is served from a hostname Microsoft owns
+(`orbit-web.…azurecontainerapps.io`), which cannot be verified as Orbit's, so nothing here can start
+until three things happen in this order:
+
+1. a domain is bought;
+2. a **production environment of its own** is carved out in Azure, separate from what is running now;
+3. DNS points the domain at it, and the OAuth client's authorised origins and redirect URIs are
+   re-issued against that name.
+
+Only then is there anything to submit. The order matters and none of it is code: the review is measured
+in weeks *after* the domain exists, so buying it is what actually starts the clock. Everything in
+[google-calendar-api-plan.md](google-calendar-api-plan.md) - what maps onto what, which of Orbit's
+expectations the API narrows rather than meets, and the task-by-task breakdown - stands as written and is
+ready to start the day that infrastructure is there.
 
 Orbit currently hands events to Google as **links** (see
 [Functionality](functionality.md#handing-something-off-to-google)). That needs nothing beyond the sign-in
@@ -87,11 +134,57 @@ event deleted on one side. One-way is the sensible first step.
 does: retries, backoff, and somewhere for the user to see that a sync did not go through.
 
 None of this is required for what Orbit does today, which is why it is here rather than in the code.
+The task-by-task version of it - what maps onto what, which of Orbit's expectations the API narrows
+rather than meets, and what has to be decided before any of it starts - is in
+[google-calendar-api-plan.md](google-calendar-api-plan.md).
 
 ## Known scope cuts and rough edges
 
 Explicitly called out in the functionality documentation as deliberate limitations of this first
 version, so they aren't mistaken for oversights:
+
+- ~~**`pg_trgm` may not be allowed on the deployed database.**~~ It was allowed: the deploy on
+  2026-08-31 applied the migration and `orbit-api` came up healthy, with `azure.extensions` empty. The
+  warning was over-stated - the allowlist is not the absolute gate it is usually described as, at least
+  not for this extension on this server. What remains true, and is kept in
+  [Azure setup](azure-setup.md#3-allow-the-pgtrgm-extension), is the shape of the failure if a different
+  server ever does refuse: migrations run at startup, so the API simply would not start, and CI would not
+  see it first because its smoke test uses a plain `postgres:18-alpine`.
+- ~~**The forced-update gate has nothing to compare against.**~~ Done: the Android release now sets
+  `MobileVersion__Android__LatestVersion` on `orbit-api` to whatever it just published, so the app's
+  update row can light up. It needs one repository variable naming the resource group - see
+  [Azure setup](azure-setup.md#6-let-a-release-record-itself-as-the-newest-build) - and skips silently
+  without it. `MinimumSupportedVersion` is the one that **blocks** an app and stays empty while this is
+  a prototype.
+- **One test was removed because it could not be made to fail on demand.**
+  `NoteDetailScreenTests.Turning_private_off_puts_the_words_back_where_the_server_can_read_them` failed
+  about one full-suite run in ten and was never reproduced on its own - roughly fifty targeted runs,
+  including under load from a second test host, all passed. It needs the whole suite in flight, which
+  points at something about running the three assemblies together rather than at the unsealing it
+  covers.
+
+  Taken out rather than left red or "fixed" by guessing: a change that cannot be shown to address the
+  failure only hides it, and a test that fails one run in ten teaches everybody to re-run the build
+  instead of reading it. What is no longer asserted is the way *back* from private - that clearing the
+  switch puts the title and lines where the server can read them and drops the sealed payload. Turning
+  privacy on, and the refusal when the device holds no key, are still covered. Worth restoring once the
+  parallelism question is answered.
+- **A timestamp is only as fine as the clock.** `NotificationChangeFeedTests` took its cursor from
+  `DateTimeOffset.UtcNow` a moment before recording, and on a fast machine both reads land on the same
+  tick - fixed by stamping its records at a fixed point in the past, which is the technique the other
+  tests of this shape already use (`PretendItWasLastChanged`, `AMinuteAgo`).
+
+  Not only a test problem, and this is the part worth keeping in view: the change feed gates on
+  `UpdatedAtUtc > since`, so two changes inside one tick are genuinely indistinguishable to a syncing
+  client and the second is never delivered.
+
+  **Decided on 2026-08-31: not worth fixing at this scale.** Two changes to the same row inside one tick
+  needs either two people editing the same thing in the same instant or a script; with one person and a
+  handful of accounts it is theoretical. Recorded rather than dropped because the answer depends entirely
+  on that scale - the day Orbit has concurrent editors or a bulk import, it stops being theoretical, and
+  whoever hits it should find this rather than rediscover it. The fix, when it is wanted, is a stamp that
+  cannot go backwards or sideways: keep the last one issued per row and step forward a tick when the
+  clock has not moved.
 
 - **Chat has no per-message forward secrecy.** A single shared AES-GCM key is derived per user pair
   instead of a rotating scheme like Signal's Double Ratchet — compromising one derived key exposes
@@ -101,12 +194,20 @@ version, so they aren't mistaken for oversights:
   fingerprints) to confirm a public key really belongs to the person it claims to; the browser
   trusts whatever key Orbit.Api currently reports for a user. A compromised server could substitute
   a key and intercept new messages, though it still couldn't decrypt already-sent ciphertext.
-- **A new group member can't read anything sent before they joined.** Group messages are encrypted
-  once per member under the existing pairwise keys rather than under a group key, so no copy exists
-  for someone who wasn't a member at the time. The group view says so rather than showing empty
-  space, and the trade-off is deliberate — there is no group key to distribute or rotate when
-  membership changes. The other side of the same choice is that a group message costs one stored row
-  per member instead of one. See [Functionality — Group chats](functionality.md#group-chats).
+- ~~**A new group member can't read anything sent before they joined.**~~ Answered without giving up the
+  design: there is still no group key, and the server still holds no key to anything. What changed is
+  that the admin adding somebody can tick a box to hand over what was said before, and their browser does
+  the work - decrypting what it can already read and sealing each message again under the pairwise key it
+  shares with the newcomer. The conversation gains a line saying both halves of what happened. What the
+  server will accept is narrow, because it cannot read what it is being handed: an admin only, into a
+  membership only, only postings the sharer demonstrably holds, and never twice. A backfilled copy is
+  marked so it stays out of the original's delivery receipts. See
+  [Functionality — Letting a new member read the history](functionality.md#letting-a-new-member-read-the-history).
+
+  Still true, and now the deliberate part rather than the whole story: a group message costs one stored
+  row per member, and sharing history adds one more row per message per newcomer. Nobody who was never
+  given the history can read it, which is the point - this is a member's decision to make, not something
+  joining a group grants.
 - **Chat delivery is polling-based** (once a second while a conversation is open), not real-time - no
   SignalR or WebSockets. The polling itself has since been made to cost what it should: a group
   conversation polls at all, nothing is polled while the tab is behind others, and the conversation list
@@ -122,40 +223,56 @@ version, so they aren't mistaken for oversights:
   leaves out every list that links back to the one being edited, however long the chain
   (`TaskListLinkCycle`), so a link the save would refuse is never offered. `TaskListLinkValidator` stays
   the authority — this only stops the editor asking for something it already knows the answer to.
-- **Half of Orbit.Web is still on the pre-redesign markup.** Sixteen of the twenty-three pages have been
-  moved onto the shared design system; seven have not, and each still carries a `TODO(Orbit.Web.UI)`
-  marker naming itself: **Calendar**, **CalendarEventEditor**, **Login**, **NoteEditor**, **Notes**,
-  **Register** and **TaskEditor**. This is a visible inconsistency rather than a hidden one - it is the
-  difference somebody sees moving from the task list to the task editor - and the two sign-in pages are
-  the first thing a new account ever sees. The markers are the backlog; nothing else in `info/` records
-  this, which is why it is written down here.
 
 ## Testing gaps
 
 Documented in [Testing and Running Locally](testing-and-running-locally.md#what-is-not-covered-by-an-automated-test-today)
-as not covered by an automated test today, together with why:
+as not covered by an automated test today, together with why. Most of what used to be listed here has
+since been closed; what is left is recorded below with the same honesty about why.
 
-- The `/api/auth/*` rate limiter's exact 429 behavior, which would need HTTP-integration test
-  infrastructure (e.g. `WebApplicationFactory` on the API side) that this project doesn't have yet.
-  The client half of this entry is closed: `SignInThroughTheRealPipelineTests` drives sign-in through
-  the same `AuthorizationMessageHandler` the app composes, which is what a unit test that built the API
-  client bare had missed — it let a wrong password be reported as an expired session.
-- Actually sending an email through `SmtpEmailSender` or a push notification through
-  `VapidPushNotificationSender` — both need a real or fake server to connect to.
-- The chat **thread**, `PushNotificationManager`, and the browser-side JavaScript (`e2eeChat.js`,
-  `pushNotifications.js`, `service-worker.js`) — the encryption/decryption round trip, IndexedDB key
-  persistence, browser notification permission handling, and the push subscription/service worker
-  lifecycle have no automated coverage. bUnit doesn't execute real browser crypto, IndexedDB, Push or
-  Notification APIs.
-
-  What has changed is that the missing piece is no longer the tooling. CI already runs Playwright:
-  `ci/verify-app-boots.mjs` drives headless Chromium to prove the WebAssembly app boots without a
-  console error, and `main_orbit.yml` installs the browser for it. Nothing yet points that harness at
-  these paths, which is a smaller and far better-defined job than standing one up from nothing.
-
-  The `Contacts` half of this entry is closed: `ContactsGateTests` covers the permission gate and
-  `ContactInfoTests` the contact card, including the case Orbit's own findability policy turns on -
-  an account that has gone unfindable is answered exactly as a stranger's id is.
+- ~~**The `/api/auth/*` rate limiter's exact 429 behavior.**~~ Done. It needed no
+  `WebApplicationFactory` in the end - what stood in the way was that the policies were written inline
+  in `Program.cs`, reachable only by running the whole application. They now live in
+  `RateLimiterPolicies.AddOrbitPolicies`, which `Program.cs` calls and `AuthRateLimiterTests` calls too,
+  so the test cannot pass against a copy that has drifted. It covers the sixth attempt in a window being
+  refused rather than queued, and the partitioning that matters most: one signed-in caller running out
+  of attempts does not lock anybody else out, which is the whole reason the partition key is the user id
+  rather than an address every request shares behind an ingress proxy.
+- ~~**Actually sending an email or a push notification.**~~ Done, both against a stand-in rather than a
+  real service. `SmtpEmailSenderTests` drives MailKit against `FakeSmtpServer`, a loopback listener
+  speaking just enough of RFC 5321 - the only seam available, since `SmtpEmailSender` constructs its own
+  client. `VapidPushNotificationSenderTests` hands `WebPushClient` a stub transport instead. Neither
+  test is about the protocol libraries; both are about Orbit's own decisions around them: that an
+  unconfigured deployment stays quiet and says so, that half-configured credentials count as no
+  configuration rather than as something to try, and that a 404/410 from a push service comes back as
+  `PushSubscriptionExpiredException` while a 503 does not - pruning on the latter would throw away a
+  working subscription because the push service was briefly down.
+- ~~**The browser-side encryption (`e2eeChat.js`).**~~ Done, and it is the gap that mattered most: every
+  line of that file is Web Crypto and IndexedDB, bUnit executes neither, and the entire chat's
+  confidentiality rests on it. `ci/verify-browser-crypto.mjs` runs the module itself in headless
+  Chromium - serving `wwwroot` directly rather than booting Blazor, since the module has no dependency
+  on it and `127.0.0.1` is a secure context. Fourteen checks: the round trip, a per-message nonce, a
+  tampered message refusing to open, a stranger's key not opening it, two accounts in one browser not
+  sharing a key, the password-wrapped backup and its restore, and the key surviving a reload. It runs in
+  the `test` job on every pull request, not only on a deploy - a change that quietly weakens the
+  encryption is not something to find out about afterwards.
+- ~~**`PushNotificationManager`, `pushNotifications.js` and `service-worker.js` have no coverage.**~~
+  Closed the same way, by `ci/verify-push-notifications.mjs`. It registers the real worker, grants the
+  permission, and delivers real push events through Chrome DevTools' `ServiceWorker.deliverPushMessage`,
+  which turned out to be the piece that made this reachable at all: what a headless browser cannot be
+  made to do is receive a push from a push service, and this side-steps that entirely by handing the
+  worker the payload directly. Ten checks, covering what is shown for a good payload and for the three
+  bad ones a push service can still deliver. The C# half is `PushNotificationManagerTests`. Two things
+  are still out of reach and are named in the script: `notificationclick`, since nothing outside the
+  operating system can click a system notification, and subscribing for real, which needs a push service.
+- **The chat thread still has no coverage.** It is a polling component whose interesting behaviour is
+  timing.
+- ~~**Nothing runs on a pull request.**~~ Put back, cheaply. The trigger was removed because every
+  billed minute counted and a day of ordinary work exhausted the allowance; what changed is that a run
+  now costs a fraction of what it did. The android job looks before it builds and does nothing when
+  nothing it builds from changed, a pull request run is cancelled by the next push to the same branch,
+  and documentation-only branches are skipped outright. The deploy job stays out of it either way -
+  guarded on the event as well as gated on the suite.
 - **What Google actually does with an "Add to Google Calendar" link.** The URL is built and pinned by
   `GoogleLinkTests` - the shape of the dates, the RRULE, what is escaped - but whether Google renders
   a pre-filled event form from it has only ever been checked by reading its documentation. Opening
@@ -183,7 +300,7 @@ as not covered by an automated test today, together with why:
   Terraform) under a new `infra/` folder, covering at minimum the two Container Apps' full
   configuration (env vars referencing Key Vault secrets rather than plain Container App secrets,
   ingress settings, scaling), the Container Apps Environment, and the PostgreSQL Flexible Server
-  (SKU, storage, backup retention - see [Azure setup](azure-setup.md#3-confirm-database-backups)).
+  (SKU, storage, backup retention - see [Azure setup](azure-setup.md#4-confirm-database-backups)).
   `.github/workflows/main_orbit.yml` would gain an `az deployment group create` step using that
   template, so an infrastructure change goes through the same PR review as a code change instead of
   being invisible until someone happens to `az containerapp show` and finds it. This is a genuinely
@@ -211,7 +328,139 @@ as not covered by an automated test today, together with why:
   approval gate is then about *deliberateness* (did a human mean to ship this now) rather than being
   the only thing standing between a bug and production.
 
+## What the footer could grow into
+
+The footer at the bottom of every page - and the phone's About row, which says the same three things -
+currently carries the copyright year, the version, and a link to the licence
+(`OrbitRelease` for the copyright and the licence, `OrbitVersion` for the build - see
+[Functionality](functionality.md#which-build-this-is)). What it is missing, roughly in the order it would be
+worth adding:
+
+- ~~**The build, not just the version.**~~ Done: the footer reads `ver:0.1.17+gitHash:51536f3`, and
+  pressing it grows the rest of the hash - see
+  [Functionality](functionality.md#which-build-this-is). The number is no longer maintained by hand
+  either; it is counted from the history, one per day on which a commit touched that project.
+- **When it was deployed.** The year is a constant maintained by hand, which is honest but coarse: it
+  answers "roughly when was this written", not "is what I am looking at the thing that was merged this
+  morning". A build timestamp answers the second, and the second is the question people actually ask -
+  though the commit hash now answers most of what it was wanted for.
+- **A link to what changed.** The version means nothing to somebody who has not been reading the
+  commits. A release-notes page, or simply a link to the repository's releases, is what makes a version
+  number worth showing at all.
+- **A health or status link.** Orbit already exposes `/health`, `/health/ready` and `/health/live`
+  (see [Architecture](architecture.md)). A footer is where people look when something is wrong, and a
+  link that answers "is it me or is it the server" belongs there rather than in a document.
+- **Privacy and data handling.** Not yet written, and it is the one entry here with a deadline attached
+  to it: an application that ends up in a store needs one, and the store is the place that will ask.
+  What it would have to describe is unusual and worth saying plainly - most of Orbit's content is sealed
+  client-side, so a large part of the answer is "the server cannot read it".
+- **Making it reachable rather than only visible.** The footer sits at the end of the scrolling content,
+  which is right for something read once. If it grows past three items it stops being a footer and
+  becomes an About page, and the honest move at that point is to give it one and leave a single link
+  behind - the phone has already made that choice, since it has no footer to put anything in.
+
+Deliberately not there: a language switch (it is in the avatar menu, where the rest of the account's
+settings are), and anything that has to be fetched. A footer that waits on a request is a footer that
+sometimes is not there.
+
+## What the live connection still leaves undone
+
+The web client now hears about chat, notifications and presence instead of asking - see
+[Functionality — Live updates](functionality.md#live-updates). Three things were deliberately left out
+of that change rather than missed.
+
+- ~~**The phone still polls.**~~ Done, in its own change as this said it should be. The phone holds the
+  same connection and only while the app is in front, started and stopped with the window: a socket held
+  open behind a locked screen is one Android drops in Doze anyway, and what it would have carried is what
+  push already delivers. Its chat polls slow to thirty seconds while it is up and snap back when it
+  drops, the unread badge and the feed hear about changes instead of waiting for the next screen, and the
+  presence heartbeat goes over the connection when there is one. It does not listen for
+  `PresenceChanged`: the phone shows nobody else's presence yet.
+- ~~**Edits and deletions are only found by the slow poll.**~~ Done, along with the rest of what was
+  left announcing nothing: editing and deleting a message in a conversation or a group, making a group,
+  adding or removing a member, changing a role, sharing history with a new member, and reading or
+  clearing a notification - the last of which reaches this account's *other* devices, so a badge
+  cleared on a phone does not stay lit on the laptop.
+- **Somebody going *away* can never be announced.** It happens by time passing, with nothing calling
+  anything, so there is no moment at which the server could say so (see `UserPresence.StatusAt`). Making
+  it instant would mean the server tracking timers per connected account and announcing on expiry - real
+  work, for a transition nobody is usually watching. The slow poll resolves it, and that is the reason
+  the slow poll exists.
+
+Scaling `orbit-api` past one replica needs a backplane before any of this survives it - see
+[Azure setup](azure-setup.md#5-confirm-ingress).
+
+## The calendar that shrinks as you scroll - Android, not the web
+
+Decided 2026-09-01, while the web calendar was being reshaped. **The web keeps what it has**: side by
+side on a wide screen, and stacked - calendar above, list below - once there is no room for that. It
+does not shrink as the page scrolls, and it is not meant to.
+
+**The phone does, as of 2026-09-02.** On Android the calendar stays pinned while the list under it is
+read, and minimises to a single row as soon as the reader scrolls past it:
+
+| view | what is left when it is minimised |
+|---|---|
+| Day | one hour row |
+| Month | one week row |
+| Year | the month's name, and nothing else |
+
+Why there and not here: a phone has one column and a thumb, so the calendar is either taking the
+screen or getting out of the way, and the row that survives is the one the reader is standing on.
+A desktop window has room for both at once, so nothing has to move - and a grid that resized itself
+while somebody scrolled a list beside it would be motion answering a question nobody asked.
+
+Not attempted on the web deliberately. It is scroll-and-viewport behaviour, which no test in this
+project can cover, and the web has no problem for it to solve.
+
+What is testable was kept out of the page: which row survives is a rule (`MinimisedCalendar`,
+`CalendarViewModel.IsMinimised`, `HoursOnShow`) and is covered; the page owns only the scroll offset
+that turns it on and the redraw that follows. The hour rule is the one worth restating: today keeps the
+hour it is now, held inside the stretch there is to draw, and any other day keeps the hour its first
+thing starts in - an empty row above everything the day holds would be the wrong answer.
+
+## What the UI pass still needs a migration for
+
+The web redesign is done except for four things, and all four are the same shape: they need somewhere
+to store something the database has no column for. They are held together deliberately, so one
+migration, one deploy and one APK release cover them rather than three of each.
+
+- **Archiving a conversation.** The contacts page has its three tabs; the fourth - Archive, appearing
+  only when it holds something - needs a durable "archived" flag per contact and per group. Hiding a
+  row in the browser would unhide it on the next device, which is worse than not offering it.
+- **A description under a name.** A task list, a warehouse and a note all want the same control: first
+  line the title, the rest the description. Only the note has it, because only the note has a field to
+  put it in. See [[task-list-description-deferred]] in the session memory for the phone's half.
+- **"Needed" on a shelf item**, so the restock list can ask for what is checked regularly rather than
+  only what has fallen below a minimum.
+- **Sharing a warehouse from its own editor**, with the Inventories card on the dashboard that goes
+  with it. The share itself exists; the section and the card are new surface on top of it.
+
+Everything else on the pass - the top bar, the shared card and its footer, the calendar, the task and
+inventory lists, the contacts tabs, the chat menus - is built and needs no schema change.
+
 ## Smaller identified follow-ups
+
+- **Done, kept here as the map of it.** Orbit has two depths for the same thing: a shallow view for
+  reading and doing, and a full form for changing what it is. Every object that can have both now does,
+  and the pattern is the same one each time - land on what the thing is, with the fields a named press
+  further in, and whatever light doing belongs to that thing offered where it is read. Which is which:
+
+  | Object | Shallow view | Full form |
+  | --- | --- | --- |
+  | Task list | `/tasks/{id}` - the checklist: tick items, see the tree of lists it stands for, measure it against a storage | `/tasks/{id}/edit` |
+  | Task entry | `/tasks/{listId}/items/{itemId}` - `TaskItemSummary`: when, where, what the appointment is about, who is coming, and a map | the entry's own row in the list's editor |
+  | Note | `/notes/{id}` - `NoteSummary`: the note read, with the checklist lines in it tickable | `/notes/{id}/edit` |
+  | Calendar event | `/calendar/{id}` - `CalendarEventSummary`: when, where, what it is about, who is coming, its reminders, and the place on a map | `/calendar/{id}/edit` |
+  | Storage | `/inventory/{id}` - the shelf read rather than edited, one row per batch: what it is, how much, when it arrived, how long it keeps | `/inventory/{id}/edit` |
+  | Contact / group | `/contacts/{userId}`, `/chat/groups/{id}/info` - read-only cards about who somebody is | no form; membership is edited on the roster |
+
+  Two things are wrong with that. It is uneven: a task list and a task entry have a real shallow view,
+  a note and an event have nothing between a card and a whole form, and a storage has neither. And it is
+  inconsistent about what a card's body does - `OnBodySelected` opens the *full* editor for a note and
+  the *shallow* view for an entry, which is the same gesture meaning two different things. Worth settling
+  what the shallow view is for across all of them before adding a sixth answer.
+
 
 - ~~**Reordering by hand needs a mouse.**~~ Done: each handle now carries a pair of move-up/move-down
   buttons (`ReorderControls`, `RowArrangement.Move`), which a keyboard can use as well - a handle you can
@@ -234,12 +483,38 @@ as not covered by an automated test today, together with why:
   specific. It used to say "Orbit can't reach that account right now" to both, which read as a fault
   Orbit was having.
 
-- **A permanent, bind-mounted TLS certificate setup for local development.** The mkcert-based option
-  in [`info/instructions.md`](instructions.md) currently requires copying certificate files into the
-  running `orbit-web` container by hand after every `docker compose down -v`. Switching the
-  `orbit-web-certs` volume to a bind mount pointing at a folder holding the mkcert output would make
-  this survive that command — noted in `info/instructions.md` as a small `docker-compose.yml`
-  change, not yet made.
+- ~~**The phone has not caught up with the browser's last few passes.**~~ Done. The Google link and the
+  verified-address filter are the same builder as the browser's with tests on both sides
+  (`Orbit.Mobile/Google/GoogleCalendarEventLink.cs`); the calendar's list leaves out what is over; a task
+  entry's own screen now says what the appointment is about and who is coming, above the map, as the
+  browser's page does; and a press on an entry that stands for another list names that list and offers to
+  open it rather than ticking off something the server will only overwrite.
+
+  What is left is a difference in shape rather than a gap: the browser split each object into a page that
+  reads and a form one press further in, where the phone keeps one screen that does both - a note's lines
+  are ticked where they are written, and a shelf is counted up and down on the same screen that edits it.
+  That is the right answer for a phone, so it is recorded here rather than queued.
+
+- **The phone cannot flatten a tree of lists.** The browser's checklist reads a group list either as the
+  stack of cards it is or as one run of items labelled with the list each came from, and remembers which
+  (`ChecklistView`). The phone now matches everything else in that menu - the three orders, the stock
+  panel's folding and its four orders - but has no flat view, and its checklist draws one list at a time
+  rather than the tree. Worth doing after the tree itself is drawn there; flattening a view that does not
+  nest would change nothing.
+
+- **A switch's thumb cannot be coloured on Android.** Orbit's style asks for an accent thumb; Android
+  paints it from the Material theme instead, and saying it again through `SwitchHandler.Mapper` does not
+  change that (tried on a device: the track follows the accent, the thumb stays grey). The accent now
+  goes on the track, which is where it lands and where the browser fills its own toggles in. Worth
+  revisiting only if MAUI's Android switch handler grows a thumb tint that sticks.
+
+- ~~**A permanent, bind-mounted TLS certificate setup for local development.**~~ Done, without
+  touching the committed `docker-compose.yml`: the certificate lives in a folder of the developer's
+  own and a gitignored `docker-compose.override.yml` mounts it over `/etc/nginx/certs`, which Compose
+  reads automatically. `docker compose down -v` no longer costs the certificate. The steps are in
+  [`info/instructions.md`](instructions.md), along with what an untrusted certificate looks like from
+  inside the app — every `.wasm` and every `/api` call failing with `TypeError: Failed to fetch`,
+  which reads as a broken build rather than as the certificate it is.
 - **Self-hosting the Nominatim reverse-geocoding endpoint.** The calendar's map location picker
   currently calls OpenStreetMap's free, public Nominatim instance (see
   [Functionality — Calendar](functionality.md#calendar)), whose usage policy caps it to light,

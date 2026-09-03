@@ -9,12 +9,13 @@ namespace Orbit.Mobile.Screens.Calendar;
 /// </summary>
 public sealed record RecurrenceChoice(string Value, string Name)
 {
-    /// <summary>Orbit.Core's three, in its own order - see RecurrenceFrequency.</summary>
+    /// <summary>Orbit.Core's four, in its own order - see RecurrenceFrequency.</summary>
     public static IReadOnlyList<RecurrenceChoice> All(Translations translations)
         =>
         [
             new("Daily", translations["Daily"]),
             new("Weekly", translations["Weekly"]),
-            new("Monthly", translations["Monthly"])
+            new("Monthly", translations["Monthly"]),
+            new("Yearly", translations["Yearly"])
         ];
 }

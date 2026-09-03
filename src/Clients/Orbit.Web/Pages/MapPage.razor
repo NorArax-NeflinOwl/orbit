@@ -16,6 +16,7 @@
 @inject OrbitAuthenticationStateProvider AuthenticationStateProvider
 @inject GoogleIntegrationAccess GoogleIntegrationAccess
 @inject IJSRuntime JSRuntime
+@inject ChosenPlace ChosenPlace
 @inject DevicePreferences DevicePreferences
 @inject NavigationManager NavigationManager
 @inject ILogger<MapPage> Logger
@@ -24,170 +25,426 @@
 
 <PageTitle>@T["Orbit — Map"]</PageTitle>
 
+@* Two halves: everything to decide on down the left, and the map itself down the right, always on and
+   always the whole height of the screen. The map used to be a square card at the foot of a column of
+   panels, which meant scrolling past the controls to see what they were about. *@
+@if (!Permissions.Has(ApplicationPermission.Location))
+{
+    <FeatureLocked Explanation="@(T["Recording where you are. Sharing it, or seeing somebody else's, also needs contacts."])" />
+}
+else
+{
 <div class="map-page">
-    <div class="page-header">
-        <div>
-            <h1>@T["Map"]</h1>
-            <p class="page-subtitle">@T["The one location you've recorded for yourself, and where it is."]</p>
+    <div class="map-panel">
+        <div class="map-panel-head">
+            <div class="map-panel-head-row">
+                <h1>@T["Map"]</h1>
+                @* Everything that can only be done to a recording that already exists, at the far edge
+                   of the name's own row - the same place every other page keeps its menu. Offered
+                   rather than hidden while there is nothing to update or stop: what the page can do is
+                   then the same list every time, and greyed says why one of them cannot be pressed. *@
+                <OverflowMenu>
+                    <button type="button" class="avatar-dropdown-item" disabled="@(_isBusy || _location is null)"
+                            @onclick="RecordCurrentLocationAsync">@T["Update to where I am now"]</button>
+                    <button type="button" class="avatar-dropdown-item" disabled="@(_isBusy || _location is null)"
+                            @onclick="ClearLocationAsync">@T["Stop recording"]</button>
+                </OverflowMenu>
+            </div>
+            <p class="page-subtitle">@T["Where you are, who you are sharing it with, and who is sharing theirs."]</p>
         </div>
-        <div class="page-header-actions">
-            <button type="button" class="btn-primary" disabled="@_isBusy" @onclick="RecordCurrentLocationAsync">
-                @(_location is null ? T["Record where I am"] : T["Update to where I am now"])
-            </button>
-            @if (_location is not null)
-            {
-                <button type="button" class="btn-secondary" disabled="@_isBusy" @onclick="ClearLocationAsync">@T["Forget it"]</button>
-            }
-        </div>
-    </div>
 
-    @if (!Permissions.Has(ApplicationPermission.Location))
-    {
-        <FeatureLocked Explanation="@(T["Recording where you are. Sharing it, or seeing somebody else's, also needs contacts."])" />
-    }
-    else
-    {
+        @* The one thing this page is opened to do, as a button rather than an entry in a menu, and
+           directly above whatever the page says back - what was pressed and what came of it then read
+           as one thing instead of as opposite corners. *@
+        <div class="map-panel-actions">
+            <button type="button" class="btn-primary" disabled="@(_isBusy || _location is not null)"
+                    @onclick="RecordCurrentLocationAsync">@T["Start recording"]</button>
+        </div>
 
         @if (_message is not null)
         {
             <p class="@(_hasFailed ? "error" : "info")">@_message</p>
         }
 
-        @if (_contacts.Count > 0)
+        @if (_isLoading)
         {
-            <div class="card share-location-card">
-                <div class="card-header">
-                    <span class="card-title">@T["Share where you are"]</span>
-                    @if (_ownShares.Count > 0)
-                    {
-                        <span class="card-count">@T.Format("{0} sharing", _ownShares.Count)</span>
-                    }
-                </div>
+            <p>@T["Loading…"]</p>
+        }
+        else
+        {
+        <section class="map-panel-section">
+            <h2 class="map-panel-heading">@T["Share where you are"]</h2>
+            @if (_contacts.Count == 0)
+            {
+                <p class="empty-hint">@T["No contacts to share with yet - start a conversation first."]</p>
+            }
+            else
+            {
                 <div class="field-row">
-                    <select @bind="_shareWithUserId">
+                    <select @bind="_shareWithUserId" aria-label="@(T["Share where you are"])">
                         <option value="">@T["Pick a contact…"]</option>
                         @foreach (var contact in _contacts)
                         {
                             <option value="@contact.UserId">@contact.DisplayName</option>
                         }
                     </select>
-                    <button type="button" class="btn-secondary" disabled="@_isBusy" @onclick="() => ShareAsync(isContinuous: false)">@T["Send once"]</button>
-                    <button type="button" class="btn-primary" disabled="@_isBusy" @onclick="() => ShareAsync(isContinuous: true)">@T["Keep sharing"]</button>
-                </div>
-
-                @foreach (var share in _ownShares)
-                {
-                    <div class="list-row">
-                        <span class="row-title">@DisplayNameFor(share.SharerUserId == _ownUserId ? share.RecipientUserId : share.SharerUserId)</span>
-                        <span class="row-meta">@(share.IsContinuous ? T["live"] : T["sent once"]) · @FormatRecordedAt(share.UpdatedAtUtc)</span>
-                        <button type="button" class="btn-secondary" disabled="@_isBusy" @onclick="() => StopSharingAsync(share.RecipientUserId)">@T["Stop"]</button>
-                    </div>
-                }
-
-                @if (_isLiveSharing)
-                {
-                    <p class="empty-hint">
-                        @T["Your position goes out every minute while this page is open. Ending a share deletes it from Orbit."]
-                    </p>
-                }
-            </div>
-        }
-
-        @if (!_isLoading && _receivedPositions.Count > 0)
-        {
-            @* Who is on the map, written out. The name was only ever inside a pin's own popup, so a map
-               with two pins on it said nothing about whose they were until one was clicked - and when the
-               reader has recorded a position of their own, everyone shares the one map. *@
-            <div class="card location-card">
-                <div class="card-header">
-                    <span class="card-title">@T["Shared with you"]</span>
-                    <span class="card-count">@_receivedPositions.Count</span>
-                </div>
-                @foreach (var received in _receivedPositions)
-                {
-                    <div class="list-row shared-position-row">
-                        <span class="avatar-sm" style="background:@AvatarHelper.AvatarColor(received.SharerUserId)">@AvatarHelper.GetInitials(DisplayNameFor(received.SharerUserId))</span>
-                        <span class="row-title">@DisplayNameFor(received.SharerUserId)</span>
-                        @if (received.IsContinuous)
-                        {
-                            <span class="card-badge">@T["live"]</span>
-                        }
-                        <span class="row-meta">@DescribePosition(received)</span>
-                    </div>
-                }
-            </div>
-        }
-
-        @if (_isLoading)
-        {
-            <p>@T["Loading…"]</p>
-        }
-        else if (_location is null)
-        {
-            <div class="card">
-                <p class="empty-hint">
-                    @T["Nothing recorded yet. Orbit asks your browser for your position only when you press the button, and keeps one point with no history."]
-                </p>
-            </div>
-            @* Somebody else's position does not wait on the reader having recorded their own. Without this
-               the map was drawn only for people who had, so a notification saying someone had shared their
-               location led to a page that showed nothing of it. *@
-            @if (_receivedPositions.Count > 0)
-            {
-                <div class="card location-card">
-                    <div class="location-map-frame">
-                    <div id="@MapElementId" class="location-map"></div>
-                    @* Sits over the map rather than inside it: Leaflet owns its container's children, and
-                       the frame is what goes fullscreen, so the button stays reachable once it is. Which of
-                       the two labels shows is decided by CSS :fullscreen, so leaving fullscreen with Esc or
-                       the back gesture - neither of which this code sees - still leaves the button right. *@
-                    <button type="button" class="map-fullscreen-button" @onclick="ToggleFullscreenAsync">
-                        <span class="map-fullscreen-enter" title="@(T["Full screen"])" aria-label="@(T["Full screen"])">⤢</span>
-                        <span class="map-fullscreen-exit" title="@(T["Leave full screen"])" aria-label="@(T["Leave full screen"])">✕</span>
+                    @* Adds the share as a single position. Which of the two it is afterwards belongs to
+                       the row it becomes, not to the moment of adding - see its menu below. *@
+                    <button type="button" class="icon-btn map-panel-add" title="@(T["Add"])" aria-label="@(T["Add"])"
+                            disabled="@(_isBusy || _shareWithUserId.Length == 0)" @onclick="AddShareAsync">
+                        <svg viewBox="0 0 20 20" width="18" height="18" aria-hidden="true" fill="none"
+                             stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M10 4v12M4 10h12" /></svg>
                     </button>
-                </div>
                 </div>
             }
+        </section>
+
+        <section class="map-panel-section">
+            <h2 class="map-panel-heading">@T["You are sharing with"]</h2>
+            @if (_ownShares.Count == 0)
+            {
+                <p class="empty-hint">@T["Nobody yet."]</p>
+            }
+            @foreach (var share in _ownShares)
+            {
+                var recipientUserId = share.SharerUserId == _ownUserId ? share.RecipientUserId : share.SharerUserId;
+                <div class="map-share-row">
+                    <span class="row-title">@DisplayNameFor(recipientUserId)</span>
+                    <span class="row-meta">@(share.IsContinuous ? T["live"] : T["sent once"])</span>
+                    @* How the share is made, rather than whether it exists: the two options are the two
+                       promises - one position, or every position while this page is open. *@
+                    <OverflowMenu>
+                        <button type="button" class="avatar-dropdown-item @(share.IsContinuous ? "" : "chosen")"
+                                disabled="@_isBusy" @onclick="() => SetShareModeAsync(recipientUserId, isContinuous: false)">
+                            <span class="card-filter-mark">@(share.IsContinuous ? "" : "✓")</span>
+                            @T["Send once"]
+                        </button>
+                        <button type="button" class="avatar-dropdown-item @(share.IsContinuous ? "chosen" : "")"
+                                disabled="@_isBusy" @onclick="() => SetShareModeAsync(recipientUserId, isContinuous: true)">
+                            <span class="card-filter-mark">@(share.IsContinuous ? "✓" : "")</span>
+                            @T["Keep sharing"]
+                        </button>
+                    </OverflowMenu>
+                    @* The way out, on the row rather than behind the menu: ending a share is not one of
+                       the ways of making one, and a share somebody cannot end is the one thing this
+                       panel must not become. *@
+                    <button type="button" class="icon-btn map-share-stop" disabled="@_isBusy"
+                            title="@(T["Stop sharing"])" aria-label="@(T["Stop sharing"])"
+                            @onclick="() => StopSharingAsync(recipientUserId)">✕</button>
+                </div>
+            }
+            @if (_isLiveSharing)
+            {
+                <p class="empty-hint">
+                    @T["Your position goes out every minute while this page is open. Ending a share deletes it from Orbit."]
+                </p>
+            }
+        </section>
+
+        <section class="map-panel-section">
+            <h2 class="map-panel-heading">@T["Sharing with you"]</h2>
+            @if (_receivedPositions.Count == 0)
+            {
+                <p class="empty-hint">@T["Nobody yet."]</p>
+            }
+            @foreach (var received in _receivedPositions)
+            {
+                <div class="map-share-row">
+                    @* The name written in the colour of its own pin, which is what says which of the pins
+                       on the map is whose without clicking any of them. *@
+                    <span class="row-title map-sharer-name" style="color:@AvatarHelper.AvatarColor(received.SharerUserId)">
+                        @DisplayNameFor(received.SharerUserId)
+                    </span>
+                    @if (received.IsContinuous)
+                    {
+                        <span class="card-badge">@T["live"]</span>
+                    }
+                    <span class="row-meta">@DescribePosition(received)</span>
+                    @* The other end of the same row. A share is an arrangement between two people, and
+                       until now only one of them could end it - which left somebody's live position on
+                       this map with nothing to do about it but ask them to stop. *@
+                    <button type="button" class="icon-btn map-share-stop" disabled="@_isBusy"
+                            title="@(T["Stop receiving"])" aria-label="@(T["Stop receiving"])"
+                            @onclick="() => StopReceivingAsync(received.SharerUserId)">✕</button>
+                </div>
+            }
+        </section>
         }
-        else
+    </div>
+
+    @* The shape the place picker already had, opened out to fill the page: what is being looked for
+       across the top, the map under it, and what to do about the pin along the bottom. *@
+    <div class="map-canvas">
+        <div class="map-search">
+            <input class="map-search-box" @bind="_searchText" @bind:event="oninput"
+                   @onkeydown="OnSearchKeyDownAsync" placeholder="@(T["Search for a place"])"
+                   aria-label="@(T["Search for a place"])" />
+            <button type="button" class="btn-secondary" disabled="@(_isSearching || _searchText.Trim().Length == 0)"
+                    @onclick="SearchAsync">@T["Search"]</button>
+        </div>
+
+        @if (_isSearching)
         {
-            <div class="card location-card">
-                <div class="card-header">
-                    <span class="card-title">
-                    @if (_hasGoogleExtras)
-                    {
-                        @* The street name itself opens the place in Google Maps. *@
-                        <a href="@GoogleMapsLink.ToPlace(_location.Latitude, _location.Longitude)" target="_blank" rel="noopener">@(_location.Address ?? T["Recorded location"])</a>
-                    }
-                    else
-                    {
-                        @(_location.Address ?? T["Recorded location"])
-                    }
-                </span>
-                    <span class="card-count">@FormatRecordedAt(_location.RecordedAtUtc)</span>
-                </div>
-                <div class="list-row">
-                    <span class="row-title">@FormatCoordinates(_location)</span>
-                </div>
-                @* The map itself is drawn by Leaflet into this element - see locationMap.js. *@
-                <div class="location-map-frame">
-                    <div id="@MapElementId" class="location-map"></div>
-                    @* Sits over the map rather than inside it: Leaflet owns its container's children, and
-                       the frame is what goes fullscreen, so the button stays reachable once it is. Which of
-                       the two labels shows is decided by CSS :fullscreen, so leaving fullscreen with Esc or
-                       the back gesture - neither of which this code sees - still leaves the button right. *@
-                    <button type="button" class="map-fullscreen-button" @onclick="ToggleFullscreenAsync">
-                        <span class="map-fullscreen-enter" title="@(T["Full screen"])" aria-label="@(T["Full screen"])">⤢</span>
-                        <span class="map-fullscreen-exit" title="@(T["Leave full screen"])" aria-label="@(T["Leave full screen"])">✕</span>
-                    </button>
-                </div>
+            <p class="map-canvas-note">@T["Searching…"]</p>
+        }
+        else if (_hasSearched && _matches.Count == 0)
+        {
+            <p class="map-canvas-note">@T["Nothing found for that. Try fewer words."]</p>
+        }
+        else if (_matches.Count > 1)
+        {
+            @* The pin is already on the best match, because that is what somebody searching expects to
+               see. The rest are offered here rather than guessed between: street names repeat, and
+               "Długa 4" is a real address in a dozen towns. *@
+            <div class="map-canvas-matches">
+                @foreach (var match in _matches.Skip(1))
+                {
+                    <button type="button" class="avatar-dropdown-item map-overlay-match"
+                            @onclick="() => PinTheMatchAsync(match)">@match.Name</button>
+                }
             </div>
+        }
+        @* The other way to pin a place, said out loud: the map takes a press anywhere on it, and a map
+           that answers presses looks exactly like one that does not. Only while nothing is pinned - once
+           there is one, the bar under the map is what the page is asking about. *@
+        else if (_foundPlace is null)
+        {
+            <p class="map-canvas-note">@T["Click the map to drop a pin."]</p>
+        }
+
+        <div class="location-map-frame map-canvas-frame">
+            <div id="@MapElementId" class="location-map"></div>
+            @* Sits over the map rather than inside it: Leaflet owns its container's children, and
+               the frame is what goes fullscreen, so the button stays reachable once it is. Which of
+               the two labels shows is decided by CSS :fullscreen, so leaving fullscreen with Esc or
+               the back gesture - neither of which this code sees - still leaves the button right. *@
+            <button type="button" class="map-fullscreen-button" @onclick="ToggleFullscreenAsync">
+                <span class="map-fullscreen-enter" title="@(T["Full screen"])" aria-label="@(T["Full screen"])">⤢</span>
+                <span class="map-fullscreen-exit" title="@(T["Leave full screen"])" aria-label="@(T["Leave full screen"])">✕</span>
+            </button>
+        </div>
+
+        @* A press on the map, waiting to be allowed. Above the bar about the pin itself, because it is
+           about what would replace it - and nothing on the map has moved: see OnMapPressed. *@
+        @if (_pressedPlace is { } pressed)
+        {
+            <div class="map-create-event map-press-asks">
+                <span class="map-create-event-place">@pressed.Name</span>
+                <span class="map-create-event-question">
+                    @(_foundPlace is null ? T["Put a pin here?"] : T["Move the pin here?"])
+                </span>
+                <button type="button" class="btn-primary" @onclick="PinThePlacePressedAsync">@T["Yes"]</button>
+                <button type="button" class="btn-secondary" @onclick="ForgetThePlacePressed">@T["No"]</button>
+            </div>
+        }
+
+        @* Along the foot of the map, about the pin the search just dropped. Confirming it is not the
+           same as knowing what to do with it - see the question that follows. *@
+        @if (_foundPlace is { } found)
+        {
+            <div class="map-create-event">
+                <span class="map-create-event-place">@found.Name</span>
+                <span class="map-create-event-question">@T["Use this place?"]</span>
+                <button type="button" class="btn-primary" @onclick="UseTheFoundPlace">@T["Yes, use it"]</button>
+                <button type="button" class="btn-secondary" @onclick="ForgetTheFoundPlace">@T["Cancel"]</button>
+            </div>
+        }
+    </div>
+</div>
+}
+
+@* Asked rather than guessed: an appointment and an errand at the same address are different things, and
+   only the person who pointed at it knows which they meant. Over the map, because the map is the page
+   and the question is about the pin on it. *@
+@if (_placeToPlanFor is { } chosen)
+{
+    <div class="map-overlay" @onclick="ForgetTheChosenPlace">
+        <div class="map-overlay-panel" @onclick:stopPropagation="true">
+            <div class="map-overlay-header">
+                <h2>@T["What happens here?"]</h2>
+            </div>
+            <p class="map-overlay-hint">@chosen.Address</p>
+            <div class="map-overlay-confirm">
+                <button type="button" class="btn-primary" @onclick="PlanAnEventHere">@T["An event in the calendar"]</button>
+                <button type="button" class="btn-secondary" @onclick="PlanATaskHere">@T["A task list starting here"]</button>
+                <button type="button" class="btn-secondary" @onclick="ForgetTheChosenPlace">@T["Cancel"]</button>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    /// <summary>What the reader is looking for on the map, and what came back.</summary>
+    private string _searchText = string.Empty;
+    private bool _isSearching;
+    private IReadOnlyList<FoundPlace> _matches = [];
+
+    /// <summary>Whether a search has been run at all - what tells "nothing found" from "nothing asked".</summary>
+    private bool _hasSearched;
+
+    /// <summary>The place the pin is currently on, which is what the corner is asking about. Null when there is no pin.</summary>
+    private FoundPlace? _foundPlace;
+
+    /// <summary>Enter searches, because a search box that only answers a button is a box people press Enter in and wait.</summary>
+    private async Task OnSearchKeyDownAsync(KeyboardEventArgs args)
+    {
+        if (args.Key == "Enter")
+        {
+            await SearchAsync();
         }
     }
 
-</div>
+    /// <summary>
+    /// Looks the words up and pins the best answer. The rest of the matches stay on offer underneath -
+    /// see the markup on why the first is pinned rather than chosen between.
+    /// </summary>
+    private async Task SearchAsync()
+    {
+        var query = _searchText.Trim();
+        if (query.Length == 0)
+        {
+            return;
+        }
 
-@code {
+        _isSearching = true;
+        _hasSearched = true;
+        _foundPlace = null;
+        try
+        {
+            _matches = await GeocodingApiClient.SearchPlacesAsync(query);
+            _foundPlace = _matches.FirstOrDefault();
+        }
+        catch (HttpRequestException exception)
+        {
+            // Somebody else's service, and not the point of the page: the map keeps whatever is on it.
+            Logger.LogWarning(exception, "Could not search for a place on the map");
+            _matches = [];
+        }
+        finally
+        {
+            _isSearching = false;
+        }
+
+        await RedrawAsync();
+    }
+
+    /// <summary>
+    /// Where the reader pressed the map, which is the other way of pinning a place - the search names
+    /// one, this points at one. Called from locationMap.js.
+    ///
+    /// The words are looked up because the rest of the page is about words: what the pin says is what
+    /// travels to the editor and becomes an appointment's address. A point Nominatim knows nothing
+    /// about - a field, the sea - keeps its coordinates and is named by them, since somebody who
+    /// pressed there meant that spot whether or not it has a street.
+    /// </summary>
+    [JSInvokable]
+    public async Task OnMapPressed(double latitude, double longitude)
+    {
+        // Nothing on the map moves yet. A press is easy to make by accident - a map is dragged and
+        // zoomed by pressing it - so what a press produces is a question, and the pin somebody already
+        // has stays where it is until that question is answered.
+        _pressedPlace = new FoundPlace(T["Looking up where that is…"], latitude, longitude);
+        StateHasChanged();
+
+        var address = await GeocodingApiClient.ReverseGeocodeAsync(latitude, longitude);
+        // Answered while the lookup was running: the reader has moved on, and the answer is about a
+        // question that is no longer on screen.
+        if (_pressedPlace is null)
+        {
+            return;
+        }
+
+        _pressedPlace = new FoundPlace(
+            address is { Length: > 0 } ? address : DescribeCoordinates(latitude, longitude), latitude, longitude);
+        StateHasChanged();
+    }
+
+    /// <summary>Where the reader pressed, while the question about it is on screen - see OnMapPressed.</summary>
+    private FoundPlace? _pressedPlace;
+
+    /// <summary>"Yes" - the pin goes there, and what was searched for is no longer what is pinned.</summary>
+    private async Task PinThePlacePressedAsync()
+    {
+        if (_pressedPlace is not { } pressed)
+        {
+            return;
+        }
+
+        _matches = [];
+        _hasSearched = false;
+        _placeToPlanFor = null;
+        _foundPlace = pressed;
+        _pressedPlace = null;
+        await RedrawAsync();
+    }
+
+    /// <summary>"No" - the question goes, and the map is exactly as it was.</summary>
+    private void ForgetThePlacePressed() => _pressedPlace = null;
+
+    /// <summary>A place with no name of its own, said as the numbers it is - see OnMapPressed.</summary>
+    private static string DescribeCoordinates(double latitude, double longitude)
+        => string.Create(
+            CoordinateCulture, $"{latitude:0.#####}, {longitude:0.#####}");
+
+    /// <summary>Handed to the map so a press on it reaches this page - see OnMapPressed.</summary>
+    private DotNetObjectReference<MapPage>? _pageReference;
+
+    /// <summary>Moves the pin to one of the other matches, for when the first was the wrong Długa 4.</summary>
+    private async Task PinTheMatchAsync(FoundPlace match)
+    {
+        _foundPlace = match;
+        await RedrawAsync();
+    }
+
+    private async Task ForgetTheFoundPlace()
+    {
+        _foundPlace = null;
+        _placeToPlanFor = null;
+        _matches = [];
+        _hasSearched = false;
+        await RedrawAsync();
+    }
+
+    /// <summary>The confirmed pin, while the question about what to make of it is still on screen.</summary>
+    private PickedPlace? _placeToPlanFor;
+
+    /// <summary>
+    /// Confirms the pin and asks what it is for. The two are separate steps because they are separate
+    /// questions - "is this the place" is answered by looking at the map, and "what happens here" is not.
+    /// </summary>
+    private void UseTheFoundPlace()
+    {
+        if (_foundPlace is { } found)
+        {
+            _placeToPlanFor = new PickedPlace(found.Name, found.Latitude, found.Longitude);
+        }
+    }
+
+    private void ForgetTheChosenPlace() => _placeToPlanFor = null;
+
+    private void PlanAnEventHere() => HandOverThePlaceTo("/calendar/new");
+
+    private void PlanATaskHere() => HandOverThePlaceTo("/tasks/new");
+
+    /// <summary>
+    /// Hands the place to the editor that makes something of it - neither an event nor a list is
+    /// something this page can write, because only the person who pinned it knows when it is or what is
+    /// on it. The place travels in ChosenPlace rather than in the address bar - see that class. Cleared
+    /// from here as it goes, so backing out of the form and coming back does not find it waiting.
+    /// </summary>
+    private void HandOverThePlaceTo(string url)
+    {
+        if (_placeToPlanFor is not { } place)
+        {
+            return;
+        }
+
+        ChosenPlace.Hold(place);
+        _placeToPlanFor = null;
+        _foundPlace = null;
+        NavigationManager.NavigateTo(url);
+    }
+
     private const string MapElementId = "recordedLocationMap";
 
     /// <summary>Long enough for a cold GPS fix, short enough that a page waiting on nothing gives up.</summary>
@@ -247,11 +504,10 @@
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        // Deliberately not keyed on firstRender: the location arrives from an HTTP call, so the render
-        // that has the map element in it is never the first one.
-        // Drawn as soon as there is anything to put on it - the reader's own point is one of the points,
-        // not the condition for having a map at all.
-        if ((_location is null && _receivedPositions.Count == 0) || _isMapDrawnFor)
+        // Deliberately not keyed on firstRender: what goes on the map arrives from HTTP calls, so the
+        // render that has something to draw is never the first one. Drawn even with nothing on it - the
+        // map is the page, not a picture the page shows once there is a reason to.
+        if (_isMapDrawnFor || !Permissions.Has(ApplicationPermission.Location))
         {
             return;
         }
@@ -260,22 +516,8 @@
         try
         {
             _mapModule ??= await JSRuntime.InvokeAsync<IJSObjectReference>("import", "./js/locationMap.js");
-
-            // One map for everyone on it: the viewer's own position plus anyone sharing with them.
-            var points = new List<object>();
-            if (_location is { } own)
-            {
-                points.Add(new { latitude = own.Latitude, longitude = own.Longitude, label = own.Address ?? T["You"] });
-            }
-
-            points.AddRange(_receivedPositions.Select(received => (object)new
-            {
-                latitude = received.Position.Latitude,
-                longitude = received.Position.Longitude,
-                label = $"{DisplayNameFor(received.SharerUserId)} · {received.Position.Address ?? T["shared a position"]}"
-            }));
-
-            await _mapModule.InvokeVoidAsync("showLocations", MapElementId, points);
+            _pageReference ??= DotNetObjectReference.Create(this);
+            await _mapModule.InvokeVoidAsync("showLocations", MapElementId, MapPoints(), _pageReference);
         }
         catch (JSException exception)
         {
@@ -283,6 +525,49 @@
             _hasFailed = true;
             _message = T["The map couldn't be drawn, but your location is recorded."];
         }
+    }
+
+    /// <summary>
+    /// Everything the map is showing: where the reader is, everyone sharing with them, and the pin a
+    /// search just dropped. Each carries the colour it is drawn in - a sharer's is their own, the same
+    /// one their name is written in beside the map, which is what ties a pin to a person without
+    /// anybody having to click it.
+    /// </summary>
+    private IReadOnlyList<object> MapPoints()
+    {
+        var points = new List<object>();
+        if (_location is { } own)
+        {
+            points.Add(new
+            {
+                latitude = own.Latitude,
+                longitude = own.Longitude,
+                label = own.Address ?? T["You"],
+                color = "var(--accent)"
+            });
+        }
+
+        points.AddRange(_receivedPositions.Select(received => (object)new
+        {
+            latitude = received.Position.Latitude,
+            longitude = received.Position.Longitude,
+            label = $"{DisplayNameFor(received.SharerUserId)} · {received.Position.Address ?? T["shared a position"]}",
+            color = AvatarHelper.AvatarColor(received.SharerUserId)
+        }));
+
+        if (_foundPlace is { } found)
+        {
+            // Its own colour, and not anybody's: this pin is a question rather than a person.
+            points.Add(new
+            {
+                latitude = found.Latitude,
+                longitude = found.Longitude,
+                label = found.Name,
+                color = "var(--danger)"
+            });
+        }
+
+        return points;
     }
 
     private async Task LoadAsync()
@@ -435,6 +720,12 @@
         {
             // The circuit is already gone, so there is no map left to tear down.
         }
+        catch (ObjectDisposedException)
+        {
+            // The page was left while this was still running - DisposeAsync got to the module first.
+            // Both mean the same thing here, and taking the renderer down over a map that is already
+            // gone is worse than either.
+        }
     }
 
 
@@ -472,13 +763,23 @@
     /// "what Orbit knows about where I am" a single thing the user set on purpose, rather than sharing
     /// silently reading the device behind a second, easier-to-miss button.
     /// </summary>
-    private async Task ShareAsync(bool isContinuous)
+    private async Task AddShareAsync()
     {
-        if (!Guid.TryParse(_shareWithUserId, out var recipientUserId))
+        if (Guid.TryParse(_shareWithUserId, out var recipientUserId))
         {
-            return;
+            await ShareAsync(recipientUserId, isContinuous: false);
         }
+    }
 
+    /// <summary>
+    /// Changes how somebody is being shared with. Sharing again with the same person overwrites the row
+    /// rather than adding one, so this is the whole of it - see SharedLocationSender.
+    /// </summary>
+    private Task SetShareModeAsync(Guid recipientUserId, bool isContinuous)
+        => ShareAsync(recipientUserId, isContinuous);
+
+    private async Task ShareAsync(Guid recipientUserId, bool isContinuous)
+    {
         if (_location is not { } location)
         {
             _hasFailed = true;
@@ -507,7 +808,7 @@
             }
 
             _shareWithUserId = string.Empty;
-            await LoadAsync();
+            await RedrawAsync();
             _message = isContinuous
                 ? T["Sharing. Your position goes out again every minute while this page is open."]
                 : T["Sent. That one position is all they can see."];
@@ -539,12 +840,39 @@
         try
         {
             await UsersApiClient.StopSharingLocationAsync(recipientUserId);
-            await LoadAsync();
+            await RedrawAsync();
             _message = T["Stopped. Orbit no longer holds that position at all."];
         }
         catch (HttpRequestException exception)
         {
             Logger.LogError(exception, "Failed to stop sharing a location");
+            _hasFailed = true;
+            _message = T["Couldn't stop sharing. Try again."];
+        }
+        finally
+        {
+            _isBusy = false;
+        }
+    }
+
+    /// <summary>
+    /// Refuses what somebody is sharing with this reader. The row is deleted, so their position is gone
+    /// from Orbit rather than merely off this map - see StopReceivingLocationCommand.
+    /// </summary>
+    private async Task StopReceivingAsync(Guid sharerUserId)
+    {
+        _isBusy = true;
+        _message = null;
+        _hasFailed = false;
+        try
+        {
+            await UsersApiClient.StopReceivingLocationAsync(sharerUserId);
+            await RedrawAsync();
+            _message = T["Stopped. Orbit no longer holds that position at all."];
+        }
+        catch (HttpRequestException exception)
+        {
+            Logger.LogError(exception, "Failed to stop receiving a location from {SharerUserId}", sharerUserId);
             _hasFailed = true;
             _message = T["Couldn't stop sharing. Try again."];
         }
@@ -688,6 +1016,7 @@
         _refreshCancellation?.Dispose();
 
         await DisposeMapAsync();
+        _pageReference?.Dispose();
         if (_mapModule is not null)
         {
             try

@@ -27,6 +27,7 @@ public sealed partial class GroupsViewModel : ObservableObject
     private readonly OwnEncryptionKeyProvider _encryptionKeyProvider;
     private readonly Translations _translations;
     private readonly UserPermissions _permissions;
+    private readonly ConversationPins _pins;
     private readonly IScreenNavigator _navigator;
 
     [ObservableProperty]
@@ -44,8 +45,9 @@ public sealed partial class GroupsViewModel : ObservableObject
     public GroupsViewModel(
         ChatRepository chatRepository, ChatClient chatClient, ChatSynchronizer synchronizer,
         OwnEncryptionKeyProvider encryptionKeyProvider, Translations translations, UserPermissions permissions,
-        IScreenNavigator navigator)
+        IScreenNavigator navigator, ConversationPins pins)
     {
+        _pins = pins;
         _chatRepository = chatRepository;
         _chatClient = chatClient;
         _synchronizer = synchronizer;
@@ -207,14 +209,121 @@ public sealed partial class GroupsViewModel : ObservableObject
     private async Task ShowCachedGroupsAsync(CancellationToken cancellationToken)
     {
         var groups = await _chatRepository.GetGroupsAsync(cancellationToken);
-        Groups.Clear();
-        foreach (var group in groups)
+        HasArchive = groups.Any(group => group.IsArchived);
+
+        // <inheritdoc cref="ContactsViewModel.ShowCachedContactsAsync" />
+        if (!HasArchive)
         {
+            IsShowingArchive = false;
+        }
+
+        Groups.Clear();
+        foreach (var group in InReadingOrder(groups.Where(group => group.IsArchived == IsShowingArchive)))
+        {
+            group.IsPinned = _pins.IsPinned(group.Id);
             Groups.Add(group);
         }
 
-        Message = Groups.Count == 0 ? _translations["No groups yet."] : string.Empty;
+        Message = Groups.Count == 0
+            ? IsShowingArchive ? _translations["Nothing put away."] : _translations["No groups yet."]
+            : string.Empty;
     }
+
+    /// <inheritdoc cref="ContactsViewModel.InReadingOrder"/>
+    private IEnumerable<LocalChatGroup> InReadingOrder(IEnumerable<LocalChatGroup> groups)
+        => IsShowingArchive ? groups : _pins.PinnedFirst(groups, group => group.Id);
+
+    /// <inheritdoc cref="ContactsViewModel.TogglePinAsync"/>
+    [RelayCommand]
+    private Task TogglePinAsync(LocalChatGroup? group, CancellationToken cancellationToken)
+    {
+        if (group is null)
+        {
+            return Task.CompletedTask;
+        }
+
+        _pins.Toggle(group.Id);
+        return ShowCachedGroupsAsync(cancellationToken);
+    }
+
+    /// <summary>
+    /// Puts a group away on this reader's list, or brings it back. The flag lives on their own
+    /// membership, so this takes it off nobody else's list and needs no rank at all - see
+    /// ChatClient.SetGroupArchivedAsync. A member who puts a group away is still in it and still
+    /// receives what is posted; leaving is the other thing.
+    /// </summary>
+    [RelayCommand]
+    private async Task SetArchivedAsync(LocalChatGroup? group, CancellationToken cancellationToken)
+    {
+        if (group is null)
+        {
+            return;
+        }
+
+        try
+        {
+            if (!await _chatClient.SetGroupArchivedAsync(group.Id, !group.IsArchived, cancellationToken))
+            {
+                Message = _translations["Orbit has no such group any more."];
+                return;
+            }
+        }
+        catch (Exception exception) when (exception is HttpRequestException or OperationCanceledException)
+        {
+            Message = group.IsArchived
+                ? _translations["Could not put that back. Check your connection and try again."]
+                : _translations["Could not put that away. Check your connection and try again."];
+            return;
+        }
+
+        await RefreshFromTheServerAsync(cancellationToken);
+    }
+
+    /// <summary>
+    /// Leaves the group for good. Unlike putting it away, the rest of the group sees somebody go and
+    /// nothing posted afterwards arrives - which is why the screen asks first.
+    /// </summary>
+    [RelayCommand]
+    private async Task LeaveAsync(LocalChatGroup? group, CancellationToken cancellationToken)
+    {
+        if (group is null)
+        {
+            return;
+        }
+
+        try
+        {
+            if (!await _chatClient.LeaveGroupAsync(group.Id, cancellationToken))
+            {
+                Message = _translations["Orbit has no such group any more."];
+                return;
+            }
+        }
+        catch (Exception exception) when (exception is HttpRequestException or OperationCanceledException)
+        {
+            Message = _translations["Could not leave that group. Check your connection and try again."];
+            return;
+        }
+
+        await RefreshFromTheServerAsync(cancellationToken);
+    }
+
+    /// <inheritdoc cref="ContactsViewModel.RefreshFromTheServerAsync"/>
+    private async Task RefreshFromTheServerAsync(CancellationToken cancellationToken)
+    {
+        await _synchronizer.SynchroniseGroupsAsync(cancellationToken);
+        await ShowCachedGroupsAsync(cancellationToken);
+    }
+
+    partial void OnIsShowingArchiveChanged(bool value) => LoadCommand.Execute(null);
+
+    /// <inheritdoc cref="ContactsViewModel.IsShowingArchive"/>
+    [ObservableProperty]
+    private bool _isShowingArchive;
+
+    /// <inheritdoc cref="ContactsViewModel.HasArchive"/>
+    [ObservableProperty]
+    private bool _hasArchive;
 
     partial void OnMessageChanged(string value) => OnPropertyChanged(nameof(HasMessage));
 

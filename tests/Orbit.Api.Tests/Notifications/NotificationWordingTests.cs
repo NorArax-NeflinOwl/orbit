@@ -5,6 +5,7 @@ using Orbit.Core.Calendar.Reminders;
 using Orbit.Core.Chat.Groups.ManageChatGroupMembers;
 using Orbit.Core.Chat.SendMessage;
 using Orbit.Core.Inventory.ExpiryReminders;
+using Orbit.Core.LiveUpdates;
 using Orbit.Core.Notifications;
 using Orbit.Core.Tasks.DailyReminders;
 using Orbit.Core.Tasks.OverdueNotifications;
@@ -33,12 +34,11 @@ public sealed class NotificationWordingTests
     {
         var details = new CalendarEventDetails(
             "Dentist", null, null, null, DateTimeOffset.UtcNow, DateTimeOffset.UtcNow.AddHours(1), false,
-            null, [], [], NotificationChannel.None, NotificationChannel.None);
+            null, [], [], NotificationChannel.None);
 
         return
         [
             ChatMessagePushContent.Build(Guid.NewGuid(), "Bea"),
-            EventCreationPushContent.Build(details, Guid.NewGuid()),
             // All three shapes a reminder takes: as it starts, hours before, minutes before.
             EventReminderPushContent.Build(details, Guid.NewGuid(), 0),
             EventReminderPushContent.Build(details, Guid.NewGuid(), 120),
@@ -117,10 +117,12 @@ public sealed class NotificationWordingTests
 
             var notifier = new SharedItemNotifier(
                 settingsRepository,
-                new NotificationRecorder(settingsRepository, entryRepository),
+                new NotificationRecorder(settingsRepository, entryRepository, new SilentLiveUpdatePublisher()),
                 new PushNotificationDispatcher(
                     new InMemoryPushSubscriptionRepository(), [], NullLogger<PushNotificationDispatcher>.Instance),
-                userRepository);
+                userRepository,
+                new RecordingEmailSender(),
+                NullLogger<SharedItemNotifier>.Instance);
 
             var recipientId = Guid.NewGuid();
             notifier.NotifyAsync(recipientId, sharer.Id, kind, "Shopping", CancellationToken.None)

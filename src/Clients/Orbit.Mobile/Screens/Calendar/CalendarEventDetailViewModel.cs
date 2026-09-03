@@ -26,6 +26,15 @@ namespace Orbit.Mobile.Screens.Calendar;
 public sealed partial class CalendarEventDetailViewModel : ObservableObject
 {
     private readonly LocalCalendarEventRepository _events;
+
+    /// <summary>Only to say why this is read-only, in the same words the calendar's own rows use.</summary>
+    private readonly INetworkStatus _networkStatus;
+
+    /// <summary>
+    /// Where a place somebody typed actually is. An event stores a point first, so a name alone cannot
+    /// be saved - see TryFindTheTypedPlaceAsync.
+    /// </summary>
+    private readonly Orbit.Mobile.Location.PlaceSearch _places;
     private readonly CalendarEventSynchronizer _synchronizer;
     private readonly CalendarClient _calendarClient;
     private readonly EditLock _editLock;
@@ -131,6 +140,21 @@ public sealed partial class CalendarEventDetailViewModel : ObservableObject
     [ObservableProperty]
     private DateTime _recurrenceUntil = DateTime.Today;
 
+    /// <summary>
+    /// The other way of saying when to stop: after so many occurrences, counting the first. Zero means
+    /// no limit of this kind, which is what the web's empty box means. Both may be set, and whichever
+    /// comes first wins - the rule is Orbit.Core's, see CalendarEventOccurrenceGenerator.
+    /// </summary>
+    [ObservableProperty]
+    private int _recurrenceCount;
+
+    /// <summary>
+    /// Whether the event says so as it begins, as well as beforehand. A different question from the
+    /// reminders above it: those say it is coming, this says it has started.
+    /// </summary>
+    [ObservableProperty]
+    private bool _notifyAtStart;
+
     /// <summary>The frequencies, for the picker - in Orbit.Core's own order.</summary>
     public IReadOnlyList<RecurrenceChoice> Frequencies { get; private set; } = [];
 
@@ -157,11 +181,8 @@ public sealed partial class CalendarEventDetailViewModel : ObservableObject
     [ObservableProperty]
     private ReminderChoice? _reminderToAdd;
 
-    /// <summary>How it is announced - when it is made, and as it approaches. Both are Orbit.Web's.</summary>
+    /// <summary>How it is announced as it approaches. The same choices Orbit.Web offers.</summary>
     public IReadOnlyList<NotificationChannelChoice> Channels { get; private set; } = [];
-
-    [ObservableProperty]
-    private NotificationChannelChoice? _creationChannel;
 
     [ObservableProperty]
     private NotificationChannelChoice? _reminderChannel;
@@ -196,8 +217,11 @@ public sealed partial class CalendarEventDetailViewModel : ObservableObject
         LocalCalendarEventRepository events, CalendarEventSynchronizer synchronizer, Translations translations,
         SharePanel share, IScreenNavigator navigator,
         CalendarClient calendarClient, EditLock editLock, IDeviceLocation deviceLocation,
-        ChatRepository contacts, GoogleIntegrationAccess google)
+        ChatRepository contacts, GoogleIntegrationAccess google, INetworkStatus networkStatus,
+        Orbit.Mobile.Location.PlaceSearch places)
     {
+        _places = places;
+        _networkStatus = networkStatus;
         _events = events;
         _synchronizer = synchronizer;
         _translations = translations;
@@ -247,10 +271,23 @@ public sealed partial class CalendarEventDetailViewModel : ObservableObject
     /// </summary>
     public string AddToGoogleCalendarUrl
         => GoogleCalendarEventLink.ForEvent(
-            Title.Trim(), ChosenStartUtc, ChosenEndUtc, IsAllDay,
-            Description.Trim() is { Length: > 0 } description ? description : null,
-            LocationAddress.Trim() is { Length: > 0 } address ? address : null,
-            RecurrenceOrNothing());
+            new GoogleCalendarEvent(Title.Trim(), ChosenStartUtc, ChosenEndUtc)
+            {
+                IsAllDay = IsAllDay,
+                Description = Description.Trim() is { Length: > 0 } description ? description : null,
+                Location = LocationAddress.Trim() is { Length: > 0 } address ? address : null,
+                Recurrence = RecurrenceOrNothing(),
+                // Only the people Google itself could reach: an address it has not verified is an
+                // invitation that bounces, and one this phone has no contact row for is not an address
+                // at all - see GuestRow.
+                GuestEmailAddresses =
+                [
+                    .. Guests
+                        .Where(guest => guest.HasGoogleVerifiedEmail && guest.EmailAddress.Length > 0)
+                        .Select(guest => guest.EmailAddress)
+                ],
+                ReminderMinutesBeforeStart = [.. Reminders.Select(reminder => reminder.MinutesBefore)]
+            });
 
     /// <summary>An event with no title is not worth handing over, and an account that does not qualify may not.</summary>
     public bool CanAddToGoogleCalendar => HasGoogleExtras && Title.Trim().Length > 0;
@@ -361,7 +398,8 @@ public sealed partial class CalendarEventDetailViewModel : ObservableObject
         ContactsToInvite.Clear();
         foreach (var contact in contacts.Where(contact => Guests.All(guest => guest.UserId != contact.UserId)))
         {
-            ContactsToInvite.Add(new GuestRow(contact.UserId, contact.DisplayName));
+            ContactsToInvite.Add(new GuestRow(
+                contact.UserId, contact.DisplayName, contact.Email, contact.HasGoogleVerifiedEmail));
         }
 
         OnPropertyChanged(nameof(HasNobodyToInvite));
@@ -420,14 +458,57 @@ public sealed partial class CalendarEventDetailViewModel : ObservableObject
                 TimeZoneInfo.Local.GetUtcOffset(RecurrenceUntil.Date)).ToUniversalTime()
             : (DateTimeOffset?)null;
 
-        return new RecurrenceDto(RecurrenceFrequency, Math.Max(1, RecurrenceIntervalCount), until);
+        return new RecurrenceDto(
+            RecurrenceFrequency, Math.Max(1, RecurrenceIntervalCount), until,
+            RecurrenceCount > 0 ? RecurrenceCount : null);
     }
 
+    /// <summary>
+    /// Where this happens, in the shape an event can store - a point first, with the name beside it.
+    ///
+    /// A name typed with no point behind it is looked up before this is asked, so that typing a place
+    /// and saving keeps it. Without that step the box invited a name and the save quietly dropped it:
+    /// the only way to attach a point was "Use my location", which answers a different question.
+    /// </summary>
     private EventLocationDto? LocationOrNothing()
         => _locationLatitude is { } latitude && _locationLongitude is { } longitude
             ? new EventLocationDto(
                 LocationAddress.Trim() is { Length: > 0 } address ? address : null, latitude, longitude)
             : null;
+
+    /// <summary>
+    /// Finds where a typed place is, when somebody typed one and no point is known yet. Leaves a name
+    /// nothing could be found for alone and answers false, so the save can say the place was not kept
+    /// rather than emptying the box on the next open.
+    /// </summary>
+    private async Task<bool> TryFindTheTypedPlaceAsync(CancellationToken cancellationToken)
+    {
+        if (LocationAddress.Trim() is not { Length: > 0 } typed || _locationLatitude is not null)
+        {
+            return true;
+        }
+
+        try
+        {
+            if (await _places.SearchAsync(typed, limit: 1, cancellationToken) is not [var found, ..])
+            {
+                return false;
+            }
+
+            _locationLatitude = found.Latitude;
+            _locationLongitude = found.Longitude;
+            OnPropertyChanged(nameof(HasLocation));
+            OnPropertyChanged(nameof(LocationInGoogleMapsUrl));
+            OnPropertyChanged(nameof(LocationDirectionsUrl));
+            OnPropertyChanged(nameof(CanOpenLocationInGoogleMaps));
+            return true;
+        }
+        catch (Exception exception) when (exception is HttpRequestException or TaskCanceledException)
+        {
+            // Nothing to look it up with. Said out loud by the caller rather than dropped in silence.
+            return false;
+        }
+    }
 
     [RelayCommand(CanExecute = nameof(CanSave))]
     private async Task SaveAsync(CancellationToken cancellationToken)
@@ -436,6 +517,9 @@ public sealed partial class CalendarEventDetailViewModel : ObservableObject
         {
             return;
         }
+
+        // Before the event is built, because a name with no point behind it cannot be stored on one.
+        var placeWasFound = await TryFindTheTypedPlaceAsync(cancellationToken);
 
         var details = current with
         {
@@ -446,30 +530,43 @@ public sealed partial class CalendarEventDetailViewModel : ObservableObject
             Guests = [.. Guests.Select(guest => guest.UserId)],
             Color = _colour,
             ReminderMinutesBeforeStart = [.. Reminders.Select(reminder => reminder.MinutesBefore)],
-            CreationNotificationChannel = CreationChannel?.Value ?? current.CreationNotificationChannel,
             ReminderNotificationChannel = ReminderChannel?.Value ?? current.ReminderNotificationChannel,
             StartUtc = ChosenStartUtc,
             EndUtc = ChosenEndUtc,
             IsAllDay = IsAllDay,
+            NotifyAtStart = NotifyAtStart,
             Priority = ChosenPriority.Value
         };
 
-        if (await _events.UpdateAsync(_localId, details, cancellationToken) is LocalWriteOutcome.RefusedWhileOffline)
+        var outcome = await _events.UpdateAsync(_localId, details, cancellationToken);
+        if (outcome.WasRefused())
         {
-            Status = _translations[RefusalMessage];
+            Status = outcome.Explain(RefusalMessage, _translations);
             return;
         }
 
         await ShowStoredEventAsync(cancellationToken);
         await SynchroniseAsync(cancellationToken);
+
+        // After the sync, which reports on itself: said first, this would be wiped by it and the reader
+        // would never learn the place did not stick.
+        if (!placeWasFound)
+        {
+            Status = _translations[PlaceNotFoundMessage];
+        }
     }
+
+    /// <summary>The dictionary key, not the text itself - see <see cref="Translations"/>.</summary>
+    private const string PlaceNotFoundMessage =
+        "Saved, but that place could not be found - use your location to keep a point for it.";
 
     [RelayCommand]
     private async Task DeleteAsync(CancellationToken cancellationToken)
     {
-        if (await _events.DeleteAsync(_localId, cancellationToken) is LocalWriteOutcome.RefusedWhileOffline)
+        var deletion = await _events.DeleteAsync(_localId, cancellationToken);
+        if (deletion.WasRefused())
         {
-            Status = _translations[RefusalMessage];
+            Status = deletion.Explain(RefusalMessage, _translations);
             return;
         }
 
@@ -519,10 +616,12 @@ public sealed partial class CalendarEventDetailViewModel : ObservableObject
         {
             // Somebody invited from another device need not be a contact of this phone's; their id is
             // still the truth about who is coming, so they are listed as the id rather than dropped.
+            var known = contacts.FirstOrDefault(contact => contact.UserId == guestUserId);
             Guests.Add(new GuestRow(
                 guestUserId,
-                contacts.FirstOrDefault(contact => contact.UserId == guestUserId)?.DisplayName
-                    ?? _translations["Somebody else"]));
+                known?.DisplayName ?? _translations["Somebody else"],
+                known?.Email ?? string.Empty,
+                known?.HasGoogleVerifiedEmail ?? false));
         }
 
         ShowWhoCouldBeInvited(contacts);
@@ -533,7 +632,6 @@ public sealed partial class CalendarEventDetailViewModel : ObservableObject
             Reminders.Add(new ReminderRow(minutes, ReminderChoice.Describe(minutes, _translations)));
         }
 
-        CreationChannel = NotificationChannelChoice.For(Channels, calendarEvent.Details.CreationNotificationChannel);
         ReminderChannel = NotificationChannelChoice.For(Channels, calendarEvent.Details.ReminderNotificationChannel);
 
         IsRecurring = calendarEvent.Details.Recurrence is not null;
@@ -541,6 +639,8 @@ public sealed partial class CalendarEventDetailViewModel : ObservableObject
         RecurrenceIntervalCount = calendarEvent.Details.Recurrence?.IntervalCount ?? 1;
         RecurrenceEnds = calendarEvent.Details.Recurrence?.UntilUtc is not null;
         RecurrenceUntil = calendarEvent.Details.Recurrence?.UntilUtc?.ToLocalTime().Date ?? DateTime.Today;
+        RecurrenceCount = calendarEvent.Details.Recurrence?.OccurrenceCount ?? 0;
+        NotifyAtStart = calendarEvent.Details.NotifyAtStart;
         OnPropertyChanged(nameof(ChosenFrequency));
 
         LocationAddress = calendarEvent.Details.Location?.Address ?? string.Empty;
@@ -552,8 +652,15 @@ public sealed partial class CalendarEventDetailViewModel : ObservableObject
         OnPropertyChanged(nameof(CanOpenLocationInGoogleMaps));
 
         // Asked of the store rather than decided here, so the screen and the write agree by construction.
+        HasHistory = (await _events.GetHistoryOfAsync(_localId, cancellationToken)).Count > 0;
         IsReadOnly = !await _events.CanEditAsync(_localId, cancellationToken);
-        ReadOnlyReason = string.Empty;
+        // Said in the same words the row on the list before it used - being told it cannot be
+        // changed, without being told why, leaves a screen that simply looks broken.
+        ReadOnlyReason = OfflineEditExplanation.For(
+            calendarEvent, OfflineEditPolicy.Evaluate(calendarEvent, _networkStatus), hasUnsentChanges: false,
+            _translations);
+        // A copy is for editing offline what could be edited online - see TaskListDetailViewModel.
+        IsCopyOffered = IsReadOnly && calendarEvent.CopyOfLocalId is null && SharedItemAccess.AllowsEditing(calendarEvent);
 
         if (!IsReadOnly && calendarEvent.ServerId is { } lockedServerId)
         {
@@ -629,4 +736,36 @@ public sealed partial class CalendarEventDetailViewModel : ObservableObject
     public Task CloseAsync() => _editLock.ReleaseAsync();
 
     partial void OnReadOnlyReasonChanged(string value) => OnPropertyChanged(nameof(HasReadOnlyReason));
+
+    /// <inheritdoc cref="Notes.NoteDetailViewModel.IsCopyOffered"/>
+    [ObservableProperty]
+    private bool _isCopyOffered;
+
+    /// <inheritdoc cref="Notes.NoteDetailViewModel.CopyForEditingAsync"/>
+    [RelayCommand]
+    private async Task CopyForEditingAsync(CancellationToken cancellationToken)
+    {
+        if (await _events.CopyForEditingAsync(_localId, cancellationToken) is not { } copy)
+        {
+            return;
+        }
+
+        IsCopyOffered = false;
+        _navigator.ShowCalendarEvent(copy.LocalId);
+    }
+
+    /// <inheritdoc cref="Notes.NoteDetailViewModel.DeclineCopy"/>
+    [RelayCommand]
+    private void DeclineCopy() => IsCopyOffered = false;
+
+    /// <summary>
+    /// Whether anything was ever copied from this - what puts its history within reach. Hidden until
+    /// there is one, because most things have none and a permanent link to an empty window is clutter.
+    /// </summary>
+    [ObservableProperty]
+    private bool _hasHistory;
+
+    /// <summary>This thing's own history, opened from this thing - see CopyHistoryViewModel.</summary>
+    [RelayCommand]
+    private void GoToHistory() => _navigator.ShowCopyHistory(CopyKind.CalendarEvent, _localId);
 }

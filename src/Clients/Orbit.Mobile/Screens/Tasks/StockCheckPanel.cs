@@ -36,21 +36,38 @@ public sealed record StockRequirementRow(string Name, string Required, string Av
 public sealed partial class StockCheckPanel : ObservableObject
 {
     private readonly TasksClient _tasks;
+    private readonly InventoryClient _inventory;
     private readonly LocalWarehouseRepository _warehouses;
     private readonly Translations _translations;
+    private readonly IChecklistReadingStore _reading;
 
     private Guid? _taskListServerId;
+    private Guid _taskListLocalId;
 
-    public StockCheckPanel(TasksClient tasks, LocalWarehouseRepository warehouses, Translations translations)
+    /// <summary>What the last answer said, before it was put in the reader's chosen order.</summary>
+    private readonly List<StockRequirementRow> _asCounted = [];
+
+    public StockCheckPanel(
+        TasksClient tasks, InventoryClient inventory, LocalWarehouseRepository warehouses,
+        Translations translations, ConnectionRequirement connection, IChecklistReadingStore reading)
     {
         _tasks = tasks;
+        _inventory = inventory;
         _warehouses = warehouses;
         _translations = translations;
+        _reading = reading;
+        Connection = connection;
     }
 
     /// <summary>
-    /// Only a group list gathers enough work to be worth counting, which is the rule Orbit.Web applies
-    /// too - see StockRequirementCounter.
+    /// Whether this list is asking the question at all. Any list, not only a group one: it was
+    /// group-only on the grounds that a single list's items are the work in front of you rather than a
+    /// bill of materials gathered from several places - but a list holding errands about stock is
+    /// asking it whether or not it gathers other lists, and on a plain list the picker was simply
+    /// absent and the count unread. Orbit.Web widened the same rule for the same reason.
+    ///
+    /// A list the server has never seen still cannot ask: the count is worked out there, against an id
+    /// this phone has not got yet.
     /// </summary>
     [ObservableProperty]
     private bool _isOffered;
@@ -62,6 +79,25 @@ public sealed partial class StockCheckPanel : ObservableObject
     private WarehouseChoice? _linkedWarehouse;
 
     public ObservableCollection<StockRequirementRow> Requirements { get; } = [];
+
+    /// <summary>
+    /// Folded down to its heading. The panel asks a question about a shelf, which is not what somebody
+    /// working through the list itself is looking at - so it is put away rather than scrolled past, and
+    /// stays that way for this list on this device. Orbit.Web folds the same panel for the same reason.
+    /// </summary>
+    [ObservableProperty]
+    private bool _isFolded;
+
+    public bool IsNotFolded => !IsFolded;
+
+    /// <summary>The same chevron every card on the phone folds by - see TaskListRow.FoldGlyph.</summary>
+    public string FoldGlyph => IsFolded ? "▾" : "▴";
+
+    public string FoldDescription => IsFolded ? _translations["Show"] : _translations["Hide"];
+
+    /// <summary>What order the rows are read in. Remembered per list, as the folding is.</summary>
+    [ObservableProperty]
+    private StockCheckOrder _order;
 
     /// <summary>Whether the answer is worth reading - there is none until a warehouse is chosen.</summary>
     [ObservableProperty]
@@ -78,14 +114,29 @@ public sealed partial class StockCheckPanel : ObservableObject
 
     public bool HasMessage => Message.Length > 0;
 
+    /// <summary>
+    /// Both questions this panel asks - can this list be done from the shelves, and what should be
+    /// restocked - are worked out by the server against stock it holds. Neither can be answered here.
+    /// </summary>
+    public ConnectionRequirement Connection { get; }
+
     /// <summary>Raised when the panel has changed something the screen has to re-read - see GenerateInventory.</summary>
     public event EventHandler? Changed;
 
     public async Task ShowAsync(LocalTaskList taskList, CancellationToken cancellationToken = default)
     {
-        IsOffered = taskList.IsGroup;
+        IsOffered = taskList.ServerId is not null;
         _taskListServerId = taskList.ServerId;
+        _taskListLocalId = taskList.LocalId;
         Message = string.Empty;
+
+        // Read before anything is drawn, and assigned without saving it back - this is what was already
+        // chosen, not somebody choosing it again.
+        var reading = _reading.Read(_taskListLocalId);
+        _isShowingWhatIsStored = true;
+        IsFolded = reading.IsStockCheckFolded;
+        Order = reading.StockOrder;
+        _isShowingWhatIsStored = false;
 
         if (!IsOffered || _taskListServerId is null)
         {
@@ -123,22 +174,29 @@ public sealed partial class StockCheckPanel : ObservableObject
     }
 
     /// <summary>
-    /// Brings the list and the warehouse back into step, then reads the check again - the same thing
-    /// Orbit.Web's "Recalculate" does. Asking again on its own was all this did before, which left the
-    /// reader ticking off by hand what the panel had just told them was on the shelf; the point of
-    /// asking is to have the answer applied, not only shown.
+    /// Rebuilds the restock list against the warehouse behind it and the settings that warehouse
+    /// carries - what somebody presses when the world changed rather than the list - and then reads the
+    /// check again, since the point of asking is to see the answer.
+    ///
+    /// This is what Orbit.Web's rebuild put in place of two half-actions, and the phone was still
+    /// offering one of them: "recalculate against the inventory" reconciled the list one way and left
+    /// the reader to work out the rest.
     /// </summary>
     [RelayCommand]
-    private async Task RecalculateAsync(CancellationToken cancellationToken)
+    private async Task RefreshFromTheWarehouseAsync(CancellationToken cancellationToken)
     {
-        if (_taskListServerId is not { } serverId)
+        if (LinkedWarehouse?.ServerId is not { } warehouseId)
         {
             return;
         }
 
         try
         {
-            Message = Describe(await _tasks.ReconcileWithStockAsync(serverId, cancellationToken));
+            var refreshed = await _inventory.RefreshRestockListAsync(warehouseId, cancellationToken);
+            Message = refreshed is { AddedCount: 0, RemovedCount: 0 }
+                ? _translations["The restock list already asks for exactly what it should."]
+                : _translations.Format(
+                    "Restock list updated: {0} added, {1} removed.", refreshed.AddedCount, refreshed.RemovedCount);
         }
         catch (Exception exception) when (exception is HttpRequestException or OperationCanceledException)
         {
@@ -148,23 +206,6 @@ public sealed partial class StockCheckPanel : ObservableObject
 
         await AskAsync(cancellationToken);
     }
-
-    /// <summary>
-    /// What the reconciliation moved, in one sentence and in Orbit.Web's own words. Both halves are said
-    /// when both happened: "12 crossed off" alone would leave the reader wondering where the new rows
-    /// came from.
-    /// </summary>
-    private string Describe(StockReconciliationResultDto reconciliation) => reconciliation switch
-    {
-        { CrossedOffCount: 0, AddedCount: 0 } => _translations["Nothing new is covered by the warehouse."],
-        { AddedCount: 0 } => _translations.Format(
-            "{0} crossed off, because the warehouse covers them.", reconciliation.CrossedOffCount),
-        { CrossedOffCount: 0 } => _translations.Format(
-            "{0} added from the warehouse.", reconciliation.AddedCount),
-        _ => _translations.Format(
-            "{0} crossed off, because the warehouse covers them, and {1} added from the warehouse.",
-            reconciliation.CrossedOffCount, reconciliation.AddedCount)
-    };
 
     [RelayCommand]
     private async Task RaiseShortfallsAsync(CancellationToken cancellationToken)
@@ -211,6 +252,7 @@ public sealed partial class StockCheckPanel : ObservableObject
     private async Task AskAsync(CancellationToken cancellationToken)
     {
         Requirements.Clear();
+        _asCounted.Clear();
         IsShortOfSomething = false;
 
         if (_taskListServerId is not { } serverId || LinkedWarehouse?.ServerId is null)
@@ -227,10 +269,9 @@ public sealed partial class StockCheckPanel : ObservableObject
                 return;
             }
 
-            foreach (var requirement in check.Requirements)
-            {
-                Requirements.Add(StockRequirementRow.From(requirement));
-            }
+            _asCounted.Clear();
+            _asCounted.AddRange(check.Requirements.Select(StockRequirementRow.From));
+            ShowInChosenOrder();
 
             IsShortOfSomething = !check.IsAchievable;
             Summary = check.IsAchievable
@@ -263,6 +304,63 @@ public sealed partial class StockCheckPanel : ObservableObject
         {
             Message = _translations["Couldn't reach Orbit just now."];
         }
+    }
+
+    /// <summary>Puts the panel away, or brings it back - what its heading and its chevron both do.</summary>
+    [RelayCommand]
+    private void ToggleFold() => IsFolded = !IsFolded;
+
+    /// <summary>
+    /// Reads the rows in one of the four orders, without asking the server again: the answer has not
+    /// changed, only how it is being read. Sorted from the order it was counted in rather than from what
+    /// is on screen, so switching back and forth cannot compound.
+    /// </summary>
+    private void ShowInChosenOrder()
+    {
+        Requirements.Clear();
+        foreach (var row in InChosenOrder())
+        {
+            Requirements.Add(row);
+        }
+    }
+
+    private IEnumerable<StockRequirementRow> InChosenOrder() => Order switch
+    {
+        StockCheckOrder.Alphabetical => _asCounted.OrderBy(row => row.Name, StringComparer.CurrentCultureIgnoreCase),
+        StockCheckOrder.ReverseAlphabetical => _asCounted.OrderByDescending(row => row.Name, StringComparer.CurrentCultureIgnoreCase),
+        // Shortfalls first, and within them the order they were counted in - a second key by name would
+        // hide which of them the work asks for first.
+        StockCheckOrder.ShortFirst => _asCounted.OrderByDescending(row => row.IsShort),
+        _ => _asCounted
+    };
+
+    partial void OnIsFoldedChanged(bool value)
+    {
+        OnPropertyChanged(nameof(IsNotFolded));
+        OnPropertyChanged(nameof(FoldGlyph));
+        OnPropertyChanged(nameof(FoldDescription));
+        Remember();
+    }
+
+    partial void OnOrderChanged(StockCheckOrder value)
+    {
+        ShowInChosenOrder();
+        Remember();
+    }
+
+    private void Remember()
+    {
+        if (_isShowingWhatIsStored || _taskListLocalId == Guid.Empty)
+        {
+            return;
+        }
+
+        // Read first: the screen around this panel writes the same record - see ChecklistReading.
+        _reading.Write(_taskListLocalId, _reading.Read(_taskListLocalId) with
+        {
+            IsStockCheckFolded = IsFolded,
+            StockOrder = Order
+        });
     }
 
     partial void OnSummaryChanged(string value) => OnPropertyChanged(nameof(HasSummary));

@@ -24,11 +24,24 @@ public sealed class CalendarClient : ILockableItems
             ?? new ChangeFeedDto<CalendarEventDto>([], [], since);
     }
 
-    public async Task<Guid> CreateAsync(CreateCalendarEventRequest request, CancellationToken cancellationToken = default)
+    /// <summary>
+    /// Makes the event and hands back the id the server minted for it.
+    ///
+    /// Answered rather than thrown when the server will not have it, exactly as the update beneath is:
+    /// a create the server refuses can never succeed, and one that threw escaped the outbox's own rules
+    /// - it left the change queued, sent it again on every sync, and stopped every change behind it.
+    /// That is not hypothetical: an event added from the calendar carried a priority nothing answers to,
+    /// and its 400 kept the whole queue shut.
+    /// </summary>
+    public async Task<CalendarEventCreation> CreateAsync(
+        CreateCalendarEventRequest request, CancellationToken cancellationToken = default)
     {
-        var response = await _httpClient.PostAsJsonAsync("api/calendar-events", request, cancellationToken);
-        response.EnsureSuccessStatusCode();
-        return await response.Content.ReadFromJsonAsync<Guid>(cancellationToken);
+        using var response = await _httpClient.PostAsJsonAsync("api/calendar-events", request, cancellationToken);
+        var outcome = ReadOutcome(response);
+
+        return outcome is WriteOutcome.Applied
+            ? new CalendarEventCreation(outcome, await response.Content.ReadFromJsonAsync<Guid>(cancellationToken))
+            : new CalendarEventCreation(outcome, null);
     }
 
     /// <summary>
@@ -75,9 +88,15 @@ public sealed class CalendarClient : ILockableItems
         switch (response.StatusCode)
         {
             case HttpStatusCode.Conflict:
+            // Not this reader's to change - a share that was read-only, or has become so. Answered
+            // rather than thrown for the reason WriteOutcome.Refused gives.
+            case HttpStatusCode.Forbidden:
                 return WriteOutcome.Refused;
             case HttpStatusCode.NotFound:
                 return WriteOutcome.Gone;
+            // A rule about the thing itself - see WriteOutcome.Rejected.
+            case HttpStatusCode.BadRequest:
+                return WriteOutcome.Rejected;
             default:
                 response.EnsureSuccessStatusCode();
                 return WriteOutcome.Applied;

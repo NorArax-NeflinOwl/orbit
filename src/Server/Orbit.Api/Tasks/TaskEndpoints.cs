@@ -16,11 +16,13 @@ using Orbit.Core.Tasks.DeleteTaskList;
 using Orbit.Core.Tasks.GetTaskListById;
 using Orbit.Core.Tasks.GetTaskListShareStatus;
 using Orbit.Core.Tasks.GetTaskLists;
+using Orbit.Core.Tasks.LinkCalendarEventToTaskList;
 using Orbit.Core.Tasks.MoveTaskItem;
 using Orbit.Core.Tasks.ReleaseTaskListLock;
 using Orbit.Core.Tasks.LinkTaskListToWarehouse;
 using Orbit.Core.Inventory.FinishRestocking;
-using Orbit.Core.Tasks.ReconcileTaskListWithStock;
+using Orbit.Core.Inventory.ReconcileRestockList;
+using Orbit.Core.Tasks.GetInventoryReferences;
 using Orbit.Core.Tasks.GenerateWarehouseFromTaskList;
 using Orbit.Core.Tasks.GetTaskListStockCheck;
 using Orbit.Core.Tasks.RaiseStockShortfalls;
@@ -72,7 +74,8 @@ public static class TaskEndpoints
             var id = await dispatcher.SendAsync(
                 new CreateTaskListCommand(
                     GetUserId(user), request.Title, ToDomainItems(request.Items), request.IsGroup, request.IsPrivate,
-                    ToDomainPayload(request.EncryptedContent), RequestEnum.Parse<ItemPriority>(request.Priority, "priority")),
+                    ToDomainPayload(request.EncryptedContent), RequestEnum.Parse<ItemPriority>(request.Priority, "priority"),
+                    request.Description),
                 cancellationToken);
             return Results.Created($"/api/tasks/{id}", id);
         });
@@ -83,7 +86,8 @@ public static class TaskEndpoints
             var outcome = await dispatcher.SendAsync(
                 new UpdateTaskListCommand(
                     GetUserId(user), id, request.Title, ToDomainItems(request.Items), request.IsGroup, request.IsPrivate,
-                    ToDomainPayload(request.EncryptedContent), RequestEnum.Parse<ItemPriority>(request.Priority, "priority")),
+                    ToDomainPayload(request.EncryptedContent), RequestEnum.Parse<ItemPriority>(request.Priority, "priority"),
+                    request.Description, EntriesSayingNothingAboutTheirCategories(request.Items)),
                 cancellationToken);
             return ToApiResult(outcome);
         });
@@ -120,17 +124,6 @@ public static class TaskEndpoints
             return warehouseId is null ? Results.NotFound() : Results.Ok(warehouseId);
         });
 
-        // Brings the list and the warehouse back into step both ways - the other half of the check
-        // below, so the reader is neither left ticking by hand what the panel just told them is on the
-        // shelf, nor left with a shelf holding things no list has heard of.
-        tasks.MapPost("/{id:guid}/stock-check/reconciliation", async (
-            Guid id, ClaimsPrincipal user, IDispatcher dispatcher, CancellationToken cancellationToken) =>
-        {
-            var reconciliation = await dispatcher.SendAsync(
-                new ReconcileTaskListWithStockCommand(GetUserId(user), id), cancellationToken);
-            return Results.Ok(new StockReconciliationResultDto(reconciliation.CrossedOff, reconciliation.Added));
-        });
-
         // "Everything on this list is done" - see FinishRestockingCommandHandler. Its own endpoint
         // rather than part of the save above, because it is a claim about the warehouse rather than an
         // edit to the list.
@@ -139,6 +132,28 @@ public static class TaskEndpoints
         {
             var toppedUp = await dispatcher.SendAsync(new FinishRestockingCommand(GetUserId(user), id), cancellationToken);
             return Results.Ok(new FinishRestockingResultDto(toppedUp));
+        });
+
+        // Settles the finished errands on a restock list: each one fills its shelf item and then leaves
+        // the list. Asked for when the checklist screen opens one, which is what clears errands ticked
+        // off before this existed - see ReconcileRestockListCommand.
+        tasks.MapPost("/{id:guid}/restocking/reconcile", async (
+            Guid id, ClaimsPrincipal user, IDispatcher dispatcher, CancellationToken cancellationToken) =>
+        {
+            var outcome = await dispatcher.SendAsync(
+                new ReconcileRestockListCommand(GetUserId(user), id), cancellationToken);
+            return Results.Ok(new RestockReconciliationResultDto(outcome.ToppedUp, outcome.Removed));
+        });
+
+        // What each inventory errand on this list is about: the shelf item, and any other list asking for
+        // the same thing. Its own route rather than fields on the list, because neither belongs to the
+        // list - see GetInventoryReferencesQuery.
+        tasks.MapGet("/{id:guid}/inventory-references", async (
+            Guid id, ClaimsPrincipal user, IDispatcher dispatcher, CancellationToken cancellationToken) =>
+        {
+            var references = await dispatcher.SendAsync(
+                new GetInventoryReferencesQuery(GetUserId(user), id), cancellationToken);
+            return Results.Ok(references.Select(ToDto));
         });
 
         // Whether this list's work - and everything linked below it - can be done out of that warehouse.
@@ -172,6 +187,17 @@ public static class TaskEndpoints
         {
             var outcome = await dispatcher.SendAsync(
                 new MoveTaskItemCommand(GetUserId(user), id, itemId, request.TargetTaskListId), cancellationToken);
+            return ToApiResult(outcome);
+        });
+
+        // Puts an existing event on this list as an entry pointing at it. Its own endpoint rather than a
+        // whole-list save: a client that had to read the list, add a row and send it all back would
+        // overwrite whatever changed in between - see the command.
+        tasks.MapPost("/{id:guid}/items/calendar-event", async (
+            Guid id, LinkCalendarEventRequest request, ClaimsPrincipal user, IDispatcher dispatcher, CancellationToken cancellationToken) =>
+        {
+            var outcome = await dispatcher.SendAsync(
+                new LinkCalendarEventToTaskListCommand(GetUserId(user), id, request.CalendarEventId), cancellationToken);
             return ToApiResult(outcome);
         });
 
@@ -240,27 +266,42 @@ public static class TaskEndpoints
     private static IReadOnlyList<TaskItem> ToDomainItems(IReadOnlyList<TaskItemRequest> items)
         => items.Select(ToDomainItem).ToList();
 
+    /// <summary>
+    /// The entries that sent no categories at all, which is what a client written before they existed
+    /// sends - they keep whatever they are already filed under rather than being unfiled by a save that
+    /// was about something else. An entry sending an empty list means "none" and is not in here; one
+    /// with no id yet has nothing stored to keep. See UpdateTaskListCommand.EntriesKeepingTheirCategories.
+    /// </summary>
+    private static IReadOnlySet<Guid> EntriesSayingNothingAboutTheirCategories(IReadOnlyList<TaskItemRequest> items)
+        => items
+            .Where(item => item.Categories is null && item.Id is not null)
+            .Select(item => item.Id!.Value)
+            .ToHashSet();
+
     private static TaskItem ToDomainItem(TaskItemRequest item)
     {
-        var overdueChannel = RequestEnum.Parse<NotificationChannel>(item.OverdueNotificationChannel, "overdueNotificationChannel");
-        var dailyChannel = RequestEnum.Parse<NotificationChannel>(item.DailyReminderNotificationChannel, "dailyReminderNotificationChannel");
-        var kind = RequestEnum.Parse<TaskItemKind>(item.Kind, "kind");
+        var reminders = new TaskItemReminders(
+            RequestEnum.Parse<NotificationChannel>(item.OverdueNotificationChannel, "overdueNotificationChannel"),
+            item.RemindDaily,
+            RequestEnum.Parse<NotificationChannel>(item.DailyReminderNotificationChannel, "dailyReminderNotificationChannel"),
+            item.DailyReminderTimeOfDay);
+        var subject = new TaskItemSubject(
+            RequestEnum.Parse<TaskItemKind>(item.Kind, "kind"),
+            item.Location, item.LinkedCalendarEventId, item.LinkedInventoryItemId);
 
         if (item.Id is not { } existingId)
         {
             return TaskItem.Create(
-                item.Description, item.DueDateUtc, item.IsCompleted, item.LinkedTaskListId,
-                overdueChannel, item.RemindDaily, dailyChannel, item.DailyReminderTimeOfDay,
-                kind, item.Location, item.LinkedCalendarEventId);
+                item.Description, item.DueDateUtc, item.IsCompleted, item.AllLinkedTaskListIds,
+                reminders, subject, item.AllCategories);
         }
 
         // Same override Create applies: a linked entry's completion follows the list it links to, so a
         // value sent for it is ignored rather than briefly believed - see LinkedTaskCompletionResolver.
         return TaskItem.FromPersistence(
             existingId, item.Description, item.DueDateUtc,
-            item.LinkedTaskListId is null && item.IsCompleted, item.LinkedTaskListId,
-            overdueChannel, item.RemindDaily, dailyChannel, item.DailyReminderTimeOfDay,
-            kind, item.Location, item.LinkedCalendarEventId);
+            item.AllLinkedTaskListIds.Count == 0 && item.IsCompleted, item.AllLinkedTaskListIds,
+            reminders, subject, item.AllCategories);
     }
 
 
@@ -270,6 +311,13 @@ public static class TaskEndpoints
 
     private static EncryptedContentDto? ToDto(EncryptedPayload? encryptedContent)
         => encryptedContent is null ? null : new EncryptedContentDto(encryptedContent.Ciphertext, encryptedContent.Nonce);
+
+    private static InventoryReferenceDto ToDto(InventoryReference reference)
+        => new(
+            reference.TaskItemId, reference.InventoryItemId, reference.InventoryItemName, reference.WarehouseId,
+            reference.WarehouseName,
+            [.. reference.AlsoAskedForBy.Select(elsewhere => new InventoryReferenceElsewhereDto(
+                elsewhere.TaskListId, elsewhere.TaskListTitle, elsewhere.TaskItemId))]);
 
     private static TaskListStockCheckDto ToDto(Orbit.Core.Tasks.StockCheck.TaskListStockCheck check)
         => new(check.IsAchievable,
@@ -286,14 +334,20 @@ public static class TaskEndpoints
                     item.Description,
                     item.DueDateUtc,
                     item.IsCompleted,
-                    item.LinkedTaskListId,
+                    // The first one repeated on its own, for a client that only knows the old field.
+                    // Written out rather than FirstOrDefault, which gives the all-zero Guid for an
+                    // entry that links to nothing - a link to a list nobody has.
+                    item.LinkedTaskListIds.Count > 0 ? item.LinkedTaskListIds[0] : null,
                     item.OverdueNotificationChannel.ToString(),
                     item.RemindDaily,
                     item.DailyReminderNotificationChannel.ToString(),
                     item.DailyReminderTimeOfDay,
                     item.Kind.ToString(),
                     item.Location,
-                    item.LinkedCalendarEventId))
+                    item.LinkedCalendarEventId,
+                    item.LinkedInventoryItemId,
+                    item.LinkedTaskListIds,
+                    item.Categories))
                 .ToList(),
             taskList.IsCompleted,
             taskList.IsGroup,
@@ -307,7 +361,7 @@ public static class TaskEndpoints
             taskList.IsShared ? taskList.UserId : null,
             taskList.Priority.ToString(),
             taskList.Status.ToString(),
-            taskList.IsPinned, taskList.IsSharedWithOthers, taskList.LinkedWarehouseId);
+            taskList.IsPinned, taskList.IsSharedWithOthers, taskList.LinkedWarehouseId, taskList.Description);
 
     /// <summary>Maps an EditOutcome onto the corresponding HTTP response - shared by the update and lock-acquire endpoints above.</summary>
     private static IResult ToApiResult(EditOutcome outcome) => outcome.Kind switch

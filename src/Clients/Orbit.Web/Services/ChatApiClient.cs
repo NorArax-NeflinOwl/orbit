@@ -165,6 +165,30 @@ public sealed class ChatApiClient
     public async Task<IReadOnlyList<ChatMessageDto>> GetGroupConversationAsync(Guid groupId, CancellationToken cancellationToken = default)
         => await _httpClient.GetFromJsonAsync<List<ChatMessageDto>>($"api/chat/groups/{groupId}/messages", cancellationToken) ?? [];
 
+    /// <summary>
+    /// The group's "somebody joined" lines - read separately from its messages, since the two are
+    /// different shapes (see the announcements route in ChatEndpoints).
+    /// </summary>
+    public async Task<IReadOnlyList<ChatGroupAnnouncementDto>> GetGroupAnnouncementsAsync(
+        Guid groupId, CancellationToken cancellationToken = default)
+        => await _httpClient.GetFromJsonAsync<List<ChatGroupAnnouncementDto>>(
+            $"api/chat/groups/{groupId}/announcements", cancellationToken) ?? [];
+
+    /// <summary>
+    /// Hands the group's past to a member who joined after it happened, already re-encrypted for them.
+    /// Answers with how many copies were stored, which can be fewer than were offered - see the history
+    /// route in ChatEndpoints.
+    /// </summary>
+    public async Task<int> ShareGroupHistoryAsync(
+        Guid groupId, Guid recipientUserId, IReadOnlyList<SharedHistoryCopyDto> copies,
+        CancellationToken cancellationToken = default)
+    {
+        var response = await _httpClient.PostAsJsonAsync(
+            $"api/chat/groups/{groupId}/history", new ShareGroupHistoryRequest(recipientUserId, copies), cancellationToken);
+        response.EnsureSuccessStatusCode();
+        return await response.Content.ReadFromJsonAsync<int>(cancellationToken);
+    }
+
     public async Task SendGroupMessageAsync(
         Guid groupId, IReadOnlyList<GroupMessageCopyDto> copies, CancellationToken cancellationToken = default)
     {
@@ -205,6 +229,46 @@ public sealed class ChatApiClient
     public async Task MarkGroupConversationAsReadAsync(Guid groupId, CancellationToken cancellationToken = default)
     {
         var response = await _httpClient.PutAsync($"api/chat/groups/{groupId}/read", content: null, cancellationToken);
+        response.EnsureSuccessStatusCode();
+    }
+
+    /// <summary>
+    /// Puts a one-to-one conversation away, or brings it back. Only for this reader - the other party
+    /// keeps theirs where it was, which is why the server takes no "archive for everybody".
+    /// </summary>
+    public async Task SetConversationArchivedAsync(
+        Guid otherUserId, bool isArchived, CancellationToken cancellationToken = default)
+    {
+        var response = await _httpClient.PutAsJsonAsync(
+            $"api/chat/conversations/{otherUserId}/archived", new SetArchivedRequest(isArchived), cancellationToken);
+        response.EnsureSuccessStatusCode();
+    }
+
+    /// <summary>
+    /// Empties a one-to-one conversation for this reader. The other party keeps every word of it, and
+    /// writing again starts the conversation up where it left off - see ClearConversationHistoryCommand.
+    /// </summary>
+    public async Task ClearConversationHistoryAsync(Guid otherUserId, CancellationToken cancellationToken = default)
+    {
+        var response = await _httpClient.DeleteAsync($"api/chat/conversations/{otherUserId}/messages", cancellationToken);
+        response.EnsureSuccessStatusCode();
+    }
+
+    /// <summary>
+    /// Walks out of a group and deletes this reader's copies of what was said in it. One call, because
+    /// leaving and still holding every message is a state nobody asks for.
+    /// </summary>
+    public async Task LeaveGroupAsync(Guid groupId, CancellationToken cancellationToken = default)
+    {
+        var response = await _httpClient.DeleteAsync($"api/chat/groups/{groupId}/membership", cancellationToken);
+        response.EnsureSuccessStatusCode();
+    }
+
+    /// <summary>The same for a group, and equally only for this reader - nobody else's list moves.</summary>
+    public async Task SetGroupArchivedAsync(Guid groupId, bool isArchived, CancellationToken cancellationToken = default)
+    {
+        var response = await _httpClient.PutAsJsonAsync(
+            $"api/chat/groups/{groupId}/archived", new SetArchivedRequest(isArchived), cancellationToken);
         response.EnsureSuccessStatusCode();
     }
 

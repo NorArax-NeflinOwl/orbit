@@ -1,4 +1,5 @@
 using Orbit.Core.Abstractions;
+using Orbit.Core.LiveUpdates;
 
 namespace Orbit.Core.Chat.Groups.CreateChatGroup;
 
@@ -6,11 +7,16 @@ public sealed class CreateChatGroupCommandHandler : IRequestHandler<CreateChatGr
 {
     private readonly IChatGroupRepository _chatGroupRepository;
     private readonly IContactRepository _contactRepository;
+    private readonly ILiveUpdatePublisher _liveUpdatePublisher;
 
-    public CreateChatGroupCommandHandler(IChatGroupRepository chatGroupRepository, IContactRepository contactRepository)
+    public CreateChatGroupCommandHandler(
+        IChatGroupRepository chatGroupRepository,
+        IContactRepository contactRepository,
+        ILiveUpdatePublisher liveUpdatePublisher)
     {
         _chatGroupRepository = chatGroupRepository;
         _contactRepository = contactRepository;
+        _liveUpdatePublisher = liveUpdatePublisher;
     }
 
     public async Task<Guid> HandleAsync(CreateChatGroupCommand request, CancellationToken cancellationToken)
@@ -33,6 +39,11 @@ public sealed class CreateChatGroupCommandHandler : IRequestHandler<CreateChatGr
         }
 
         await _chatGroupRepository.AddAsync(group, cancellationToken);
+
+        // A group appears in everybody's conversation list at once, and nobody but the creator asked
+        // for it - so without this it shows up for the rest whenever their list is next read.
+        await _liveUpdatePublisher.ChatChangedAsync(
+            [.. group.Members.Select(member => member.UserId)], cancellationToken);
         return group.Id;
     }
 }

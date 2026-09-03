@@ -173,7 +173,7 @@ public sealed class CalendarDayTimelineTests
             LocalId = Guid.NewGuid(),
             ServerId = Guid.NewGuid(),
             Details = new CalendarEventDetailsDto(
-                title, null, null, null, ToUtc(localStart), ToUtc(localEnd), false, null, [], [], "None", "None")
+                title, null, null, null, ToUtc(localStart), ToUtc(localEnd), false, null, [], [], ReminderNotificationChannel: "None")
         };
 
     private static DateTimeOffset ToUtc(DateTime local)

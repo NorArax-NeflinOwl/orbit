@@ -8,6 +8,11 @@ WORKDIR /src
 
 # .csproj files only, copied first: `dotnet restore` is only re-run when a project reference or
 # package version actually changes, not on every source edit.
+# Inherited by every project below, so a property added to it applies here as well as locally. Copied
+# rather than left out: without it a build in this image quietly ignores whatever it says, and the
+# difference only shows up as "works on my machine".
+COPY Directory.Build.props version.props ./
+
 COPY src/Shared/Orbit.Core/Orbit.Core.csproj src/Shared/Orbit.Core/
 COPY src/Shared/Orbit.Contracts/Orbit.Contracts.csproj src/Shared/Orbit.Contracts/
 COPY src/Server/Orbit.Data/Orbit.Data.csproj src/Server/Orbit.Data/
@@ -21,9 +26,15 @@ COPY src/Server/Orbit.Data/ src/Server/Orbit.Data/
 COPY src/Server/Orbit.GoogleIntegration/ src/Server/Orbit.GoogleIntegration/
 COPY src/Server/Orbit.Api/ src/Server/Orbit.Api/
 
+# What this build calls itself, worked out by the pipeline from the history - see ci/compute-version.sh.
+# Empty for a local `docker compose build`: nothing counted the days, so it reports 0.0.0-dev rather than
+# a number that looks real. See Orbit.Core's OrbitVersion.
+ARG ORBIT_VERSION=
+
 RUN dotnet publish src/Server/Orbit.Api/Orbit.Api.csproj \
     --configuration Release \
     --no-restore \
+    ${ORBIT_VERSION:+-p:InformationalVersion="$ORBIT_VERSION"} \
     --output /app/publish
 
 FROM mcr.microsoft.com/dotnet/aspnet:10.0-alpine AS runtime

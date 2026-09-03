@@ -55,7 +55,7 @@ public sealed class GetContactsQueryHandler : IRequestHandler<GetContactsQuery, 
             var isPendingApprovalFromOtherParty = access is { IsApproved: false } && access.InitiatedByUserId == request.UserId;
             summaries.Add(new ContactSummary(
                 otherUser, contact.LastMessageAtUtc, requiresApprovalFromCurrentUser, isPendingApprovalFromOtherParty,
-                unreadCounts.GetValueOrDefault(otherUser.Id)));
+                unreadCounts.GetValueOrDefault(otherUser.Id), contact.IsArchived));
         }
 
         return summaries;
