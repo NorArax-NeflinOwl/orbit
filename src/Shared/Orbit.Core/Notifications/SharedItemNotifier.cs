@@ -27,6 +27,7 @@ public sealed class SharedItemNotifier : ISharedItemNotifier
     private readonly PushNotificationDispatcher _pushNotificationDispatcher;
     private readonly IUserRepository _userRepository;
     private readonly IEmailSender _emailSender;
+    private readonly IWebClientLinks _webClientLinks;
     private readonly ILogger<SharedItemNotifier> _logger;
 
     public SharedItemNotifier(
@@ -35,6 +36,7 @@ public sealed class SharedItemNotifier : ISharedItemNotifier
         PushNotificationDispatcher pushNotificationDispatcher,
         IUserRepository userRepository,
         IEmailSender emailSender,
+        IWebClientLinks webClientLinks,
         ILogger<SharedItemNotifier> logger)
     {
         _notificationSettingsRepository = notificationSettingsRepository;
@@ -42,6 +44,7 @@ public sealed class SharedItemNotifier : ISharedItemNotifier
         _pushNotificationDispatcher = pushNotificationDispatcher;
         _userRepository = userRepository;
         _emailSender = emailSender;
+        _webClientLinks = webClientLinks;
         _logger = logger;
     }
 
@@ -78,7 +81,7 @@ public sealed class SharedItemNotifier : ISharedItemNotifier
 
         if (result.AllowedChannel.HasFlag(NotificationChannel.Email))
         {
-            await EmailTheInvitationAsync(recipientUserId, kind, sharerName, itemTitle, cancellationToken);
+            await EmailTheInvitationAsync(recipientUserId, sharerUserId, kind, sharerName, itemTitle, cancellationToken);
         }
     }
 
@@ -89,7 +92,8 @@ public sealed class SharedItemNotifier : ISharedItemNotifier
     /// for the same reason.
     /// </summary>
     private async Task EmailTheInvitationAsync(
-        Guid recipientUserId, SharedItemKind kind, string sharerName, string? itemTitle, CancellationToken cancellationToken)
+        Guid recipientUserId, Guid sharerUserId, SharedItemKind kind, string sharerName, string? itemTitle,
+        CancellationToken cancellationToken)
     {
         try
         {
@@ -101,7 +105,8 @@ public sealed class SharedItemNotifier : ISharedItemNotifier
                 return;
             }
 
-            var (subject, body) = SharedItemEmailContent.Build(kind, sharerName, itemTitle);
+            var itemUrl = _webClientLinks.For(UrlFor(kind, sharerUserId));
+            var (subject, body) = SharedItemEmailContent.Build(kind, sharerName, itemTitle, itemUrl);
             await _emailSender.SendAsync(recipient.Email, subject, body, cancellationToken);
         }
         catch (Exception exception) when (exception is not OperationCanceledException)

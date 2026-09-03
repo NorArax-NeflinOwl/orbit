@@ -63,6 +63,9 @@ services:
       # origin (e.g. the `dotnet run`/`dotnet watch` dev server). Set WEB_CLIENT_LAN_ORIGIN in .env for
       # that case if needed.
       WebClientOrigins: "http://localhost:8080,${WEB_CLIENT_LAN_ORIGIN:-}"
+      # Where a shared-item email's link points - see IWebClientLinks. Optional; left unset the email
+      # simply carries no link, so this only matters for actually clicking one from a local test inbox.
+      WebClientBaseUrl: "http://localhost:8080"
       ConnectionStrings__Orbit: "Host=postgres;Port=5432;Database=${POSTGRES_DB:-orbit};Username=${POSTGRES_USER:-orbit};Password=${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in a .env file - see .env.example}"
       # Secret - read from the .env file at the repo root (see .env.example), never hardcoded here.
       Jwt__SigningKey: "${JWT_SIGNING_KEY:?Set JWT_SIGNING_KEY in a .env file - see .env.example}"
