@@ -88,7 +88,7 @@ else
                                TitleLabel="@(T["Title"])"
                                IsReadOnly="@(_isSharedReadOnly || _lockedByUserName is not null)">
                 <Suggestions>
-                    <NameSuggestions Kind="NameSuggestionKind.TaskListTitle" Value="_formModel.Title"
+                    <NameSuggestions Kind="NameSuggestionKind.TaskListTitle" Value="@_formModel.Title"
                                      OnChosen="chosen => _formModel.Title = chosen" />
                 </Suggestions>
             </TitledDescription>
@@ -118,14 +118,17 @@ else
                     }
                     @* Reassigned on every row, so it holds the last one by the time the loop ends - which
                        is the row Add item just appended, and the one the cursor belongs in. *@
-                    @* A text area rather than a single-line box: an entry is allowed to be a sentence
-                       or two, and one that scrolled sideways inside a one-line field could not be read
-                       back without dragging through it. It starts one line tall and grows with what is
-                       written - see .editor-item-main in app.css. *@
-                    <textarea class="editor-item-main" @ref="_lastItemDescription" rows="1"
-                              placeholder="@(T["Item description"])" value="@item.Description"
-                              @oninput="args => item.Description = args.Value?.ToString() ?? string.Empty"></textarea>
-                    <NameSuggestions Kind="NameSuggestionKind.TaskItemDescription" Value="item.Description"
+                    @* A single-line box, like the name it is a sibling of on InventoryEditor's own row
+                       (both share .editor-item-main): an entry is a name, not a paragraph, and a text
+                       area let somebody paste one in with line breaks still in it. type="text" also
+                       makes Enter here do what Enter already does everywhere else in this form - submit
+                       it, which is "Add item" (see the EditForm above) - so typing an entry and pressing
+                       Enter chains straight into the next blank row, which is the whole point of
+                       _lastItemDescription's auto-focus below. *@
+                    <input type="text" class="editor-item-main" @ref="_lastItemDescription"
+                           placeholder="@(T["Item description"])" value="@item.Description"
+                           @oninput="args => item.Description = args.Value?.ToString() ?? string.Empty" />
+                    <NameSuggestions Kind="NameSuggestionKind.TaskItemDescription" Value="@item.Description"
                                      OnChosen="chosen => item.Description = chosen" />
                     <span class="editor-item-aside">
                         @* What the row reports rather than what it sets: when this is due, if anything,

@@ -1555,23 +1555,36 @@ The four fields where the same thing gets typed twenty ways - a task list's titl
 inventory's name, a product - offer what the reader already has as they type
 (`GET /api/suggestions/names?kind=…`, `NameSuggestions.razor`). Picking one fills the field.
 
+**A task item's own field reads wider than its own kind.** The other three each search one place - a
+task list's title only offers other task list titles, and so on - but a task entry is where a product,
+a note's title or an event's title most often gets typed again as an errand, so its suggestions merge
+all four: past task item descriptions, inventory item names, note titles and calendar event titles
+(`NameSuggestionRepository.NamesFor`, the `TaskItemDescription` case). The field is also a single-line
+box now rather than a text area - an entry is a name, not a paragraph, and `type="text"` both rules out
+line breaks and makes Enter there do what Enter already does everywhere else in the task editor: add
+the next item.
+
 **The phone offers the same thing under two of the four** (`Orbit.Mobile`'s `NameSuggestions`, drawn by
 `NameSuggestionChips`): a product's name and an errand's description, which are the two the feature
 exists for. It offers them under the box a new one is typed into as well as in the editor, because on a
 phone that box is where names are actually written - the editor is mostly for changing one that exists.
-A list's title and an inventory's name are not offered there yet. When what is
+A list's title and an inventory's name are not offered there yet, and the phone's own errand suggestions
+are not widened the way the web's are - see the web behaviour above. When what is
 being typed is close enough to an existing name to be the same thing spelled differently, the control
 says so out loud - "You already have «Mleko 2%»" - because the moment a duplicate is about to be created
 is the only cheap moment to avoid it.
 
 This is a **similarity search over the reader's own rows**, not a language model: PostgreSQL's `pg_trgm`
 answers it in milliseconds for nothing, and answers it better, since a model does not know what is in
-this inventory and would invent plausible names instead of offering real ones. Four GIN indexes make it
-cheap enough to run while somebody types. Nothing is asked for under two characters, and nothing is asked
-for when a screen merely opens holding saved values - suggestions are about what is being typed. Private
-notes and private task lists are left out entirely: their names are sealed client-side, so there is
-nothing readable to suggest from. See [Orbit Assistant — Plan](ai-assistant-plan.md), where this is
-step 1 and the reasoning behind it is written down.
+this inventory and would invent plausible names instead of offering real ones. Six GIN indexes make it
+cheap enough to run while somebody types - one per searched column, including the two (a note's title, a
+calendar event's title) that exist only to back the task item field's wider search rather than a kind of
+their own. Nothing is asked for under two characters, and nothing is asked for when a screen merely opens
+holding saved values - suggestions are about what is being typed. Private notes and private task lists
+are left out entirely: their names are sealed client-side, so there is nothing readable to suggest from -
+a calendar event has no private form to leave out, since nothing about one is ever sealed client-side.
+See [Orbit Assistant — Plan](ai-assistant-plan.md), where this is step 1 and the reasoning behind it is
+written down.
 
 ## Calendar
 
