@@ -48,12 +48,7 @@ export async function showLocations(elementId, points, dotNetHelper) {
         maxZoom: 19
     }).addTo(map);
 
-    for (const point of drawn) {
-        const marker = L.marker([point.latitude, point.longitude], iconFor(point.color)).addTo(map);
-        if (point.label) {
-            marker.bindPopup(point.label);
-        }
-    }
+    const markersByKey = drawMarkers(map, drawn);
 
     if (drawn.length === 1) {
         // A single point is what the viewer asked to look at, so keep it centred and readable rather
@@ -77,7 +72,80 @@ export async function showLocations(elementId, points, dotNetHelper) {
     const resizeObserver = new ResizeObserver(() => map.invalidateSize({ animate: false }));
     resizeObserver.observe(element);
 
-    mapInstancesByElementId.set(elementId, { map, resizeObserver });
+    mapInstancesByElementId.set(elementId, { map, resizeObserver, markersByKey });
+}
+
+/// Draws each point's marker and returns them keyed by point.key (falling back to its coordinates, for
+/// showLocation's single-point callers, which never carry one) - the identity updateLocations matches
+/// an old marker against a new point by, and focusOn looks a marker up by.
+function drawMarkers(map, points) {
+    const markersByKey = new Map();
+    for (const point of points) {
+        const marker = L.marker([point.latitude, point.longitude], iconFor(point.color)).addTo(map);
+        if (point.label) {
+            marker.bindPopup(point.label);
+        }
+        markersByKey.set(point.key ?? `${point.latitude},${point.longitude}`, marker);
+    }
+
+    return markersByKey;
+}
+
+/// Moves the markers on a map that is already there to wherever the given points now are, without
+/// moving its own pan or zoom or touching a marker that has not moved - the light alternative to
+/// showLocations' own dispose-and-rebuild, for whatever must not reset what the reader is looking at: a
+/// live share's once-a-minute refresh, and a press on the map that has to draw its own pin without
+/// losing the view the press itself was made on.
+///
+/// A marker already on the map for a point's key is moved in place rather than replaced, so anything
+/// about the marker itself survives a refresh nobody asked for - an open popup someone pressed to read,
+/// most of all. Only a key no longer present drops its marker; a new key gets a new one. Does nothing
+/// before the map exists at all - the render that follows draws one fresh with whatever is current by
+/// then.
+export function updateLocations(elementId, points) {
+    const instance = mapInstancesByElementId.get(elementId);
+    if (!instance) {
+        return;
+    }
+
+    const drawn = points ?? [];
+    const next = new Map();
+
+    for (const point of drawn) {
+        const key = point.key ?? `${point.latitude},${point.longitude}`;
+        const existing = instance.markersByKey.get(key);
+        if (existing) {
+            existing.setLatLng([point.latitude, point.longitude]);
+            if (point.label) {
+                existing.setPopupContent(point.label);
+            }
+
+            next.set(key, existing);
+        } else {
+            next.set(key, drawMarkers(instance.map, [point]).get(key));
+        }
+    }
+
+    for (const [key, marker] of instance.markersByKey) {
+        if (!next.has(key)) {
+            marker.remove();
+        }
+    }
+
+    instance.markersByKey = next;
+}
+
+/// Pans to one point on a map that is already there and opens its pin - see the "Sharing with you"
+/// list, where pressing a name is how to look at where they are.
+export function focusOn(elementId, key) {
+    const instance = mapInstancesByElementId.get(elementId);
+    const marker = instance?.markersByKey.get(key);
+    if (!marker) {
+        return;
+    }
+
+    instance.map.setView(marker.getLatLng(), Math.max(instance.map.getZoom(), 14));
+    marker.openPopup();
 }
 
 /// A pin in the colour the caller asked for, so a name in the list and its pin on the map are tied

@@ -24,15 +24,9 @@
 <div class="editor-page">
 <div class="editor-page-body">
 
-<div class="page-header">
-    <div class="page-heading">
-        <h1>@(_warehouse?.Name ?? T["Warehouse"])</h1>
-        @if (_warehouse is { Description.Length: > 0 } described)
-        {
-            <p class="page-subtitle">@described.Description</p>
-        }
-    </div>
-</div>
+<PageHeader Subtitle="@Optional(_warehouse is { Description.Length: > 0 } described ? described.Description : null)">
+    <Title>@(_warehouse?.Name ?? T["Warehouse"])</Title>
+</PageHeader>
 
 @if (_isLoading)
 {
@@ -46,8 +40,7 @@ else
 {
     @* Pressing the shelf opens the form that changes what is on it - the same rule the note's own page
        follows. Counting a batch up or down is not that: those two buttons keep their own press, below. *@
-    <div class="card summary-opens" role="button" tabindex="0"
-         @onclick="GoToEditor" @onkeydown="OpenOnEnterOrSpace">
+    <SummaryCard OnOpen="GoToEditor">
         @if (_shelf.Count == 0)
         {
             <p class="checklist-empty">@T["Nothing on this shelf yet."]</p>
@@ -79,7 +72,7 @@ else
                 </span>
             </div>
         }
-    </div>
+    </SummaryCard>
 }
 
 </div>
@@ -98,11 +91,9 @@ else
             }
         </Extras>
         <ChildContent>
-            <OverflowMenu>
-                <button type="button" class="avatar-dropdown-item" @onclick="GoToWarehouses">@T["All warehouses"]</button>
-                <button type="button" class="avatar-dropdown-item" @onclick="GoToEditor">@T["Edit"]</button>
-                <button type="button" class="avatar-dropdown-item" @onclick="DeleteAsync">@T["Delete"]</button>
-            </OverflowMenu>
+            <ObjectMenu AllLabel="@T["All warehouses"]" OnAll="GoToWarehouses"
+                        EditLabel="@(_isReadOnly ? T["View"] : T["Edit"])" OnEdit="GoToEditor"
+                        DeleteLabel="@(!_warehouse!.IsShared ? T["Delete"] : null)" OnDelete="DeleteAsync" />
         </ChildContent>
     </EditorRail>
 }
@@ -122,6 +113,7 @@ else
     private WarehouseDto? _warehouse;
     private IReadOnlyList<InventoryItemDto> _shelf = [];
     private bool _isLoading = true;
+    private bool _isReadOnly;
 
     protected override async Task OnParametersSetAsync()
     {
@@ -132,6 +124,8 @@ else
             _shelf = _warehouse is null
                 ? []
                 : await InventoryApiClient.GetInventoryItemsAsync(WarehouseId) ?? [];
+            _isReadOnly = _warehouse is not null
+                && _warehouse.IsShared && !SharedItemAccess.For(_warehouse.IsShared, _warehouse.AccessLevel).CanEdit;
         }
         catch (HttpRequestException exception)
         {
@@ -256,18 +250,6 @@ else
         {
             Logger.LogWarning(exception, "Couldn't delete warehouse {WarehouseId}", WarehouseId);
             _message = T["Failed to delete the warehouse. Try again."];
-        }
-    }
-
-    /// <summary>
-    /// A box given a button's role has to answer a keyboard like one; the browser does that for a real
-    /// button and for nothing else.
-    /// </summary>
-    private void OpenOnEnterOrSpace(KeyboardEventArgs args)
-    {
-        if (args.Key is "Enter" or " ")
-        {
-            GoToEditor();
         }
     }
 

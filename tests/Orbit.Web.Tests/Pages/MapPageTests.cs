@@ -44,21 +44,41 @@ public sealed class MapPageTests : OrbitTestContext
     }
 
     /// <summary>
-    /// Recording is one button on the page and two entries in the menu, and the two are about a
-    /// recording that exists - so with nothing recorded they are offered and greyed rather than absent,
-    /// which is what makes the menu the same list every time.
+    /// With nothing recorded, Start is the button and Update/Stop are what the menu offers about a
+    /// recording that does not exist yet - so it is offered and greyed rather than absent, which is
+    /// what makes the menu the same list every time.
     /// </summary>
     [Fact]
-    public void Nothing_recorded_yet_leaves_only_starting_it_pressable()
+    public void Nothing_recorded_yet_offers_only_starting_it()
     {
         GrantLocations();
         var cut = RenderComponent<MapPage>();
 
-        Assert.False(ButtonSaying(cut, "Start recording").HasAttribute("disabled"));
+        Assert.False(ButtonSaying(cut, "Start").HasAttribute("disabled"));
+        Assert.DoesNotContain(cut.FindAll(".map-panel-actions button"), button => button.TextContent.Contains("Stop"));
 
         cut.Find(".overflow-menu-trigger").Click();
         Assert.True(ButtonSaying(cut, "Update to where I am now").HasAttribute("disabled"));
-        Assert.True(ButtonSaying(cut, "Stop recording").HasAttribute("disabled"));
+    }
+
+    /// <summary>
+    /// Once a recording exists, Stop takes Start's own place rather than staying buried in the menu -
+    /// the button used to just grey out, with no way back to it except through Stop recording there.
+    /// </summary>
+    [Fact]
+    public void A_recording_that_exists_offers_Stop_in_starts_own_place()
+    {
+        GrantLocations();
+        _ownLocationJson = OwnLocation();
+        var cut = RenderComponent<MapPage>();
+
+        Assert.DoesNotContain(cut.FindAll(".map-panel-actions button"), button => button.TextContent.Contains("Start"));
+        var stop = ButtonSaying(cut, "Stop");
+        Assert.False(stop.HasAttribute("disabled"));
+
+        stop.Click();
+
+        Assert.Contains(_deletedPaths, path => path.EndsWith("/location", StringComparison.Ordinal));
     }
 
     private static AngleSharp.Dom.IElement ButtonSaying(IRenderedFragment cut, string label)
@@ -289,6 +309,13 @@ public sealed class MapPageTests : OrbitTestContext
     private static readonly Guid FriendUserId = Guid.NewGuid();
     private string _ownSharesJson = "[]";
 
+    /// <summary>What the account already had recorded when the page opened - nothing, unless a test says so.</summary>
+    private string _ownLocationJson = "null";
+
+    private static string OwnLocation()
+        => "{\"address\":\"Długa 4, Warszawa\",\"latitude\":52.25,\"longitude\":21.0,"
+            + "\"recordedAtUtc\":\"2026-08-01T10:00:00+00:00\"}";
+
     /// <summary>Every DELETE the page made, so a test can say which row it ended rather than that it ended one.</summary>
     private readonly List<string> _deletedPaths = [];
 
@@ -297,10 +324,31 @@ public sealed class MapPageTests : OrbitTestContext
     /// *with* somebody, which only opens with a pairwise key no test renderer can make, which is why
     /// the other end of this is covered where the rule itself lives: Orbit.Api.Tests' SharedLocationTests.
     /// </summary>
-    private static string OneShareTo(Guid recipientUserId)
+    private static string OneShareTo(Guid recipientUserId, bool isContinuous = false)
         => "[{\"sharerUserId\":\"" + OwnUserId + "\",\"recipientUserId\":\"" + recipientUserId + "\","
-            + "\"ciphertextBase64\":\"\",\"nonceBase64\":\"\",\"isContinuous\":false,"
+            + "\"ciphertextBase64\":\"\",\"nonceBase64\":\"\",\"isContinuous\":" + (isContinuous ? "true" : "false") + ","
             + "\"updatedAtUtc\":\"2026-08-01T10:00:00+00:00\"}]";
+
+    /// <summary>
+    /// A live share left running from a previous visit used to show whatever was last saved until the
+    /// timer ticked, up to a minute away - opening the page is what freshens it now, not a wait or a
+    /// press on Update.
+    /// </summary>
+    [Fact]
+    public void Opening_the_page_with_a_live_share_already_running_tries_to_freshen_the_position_at_once()
+    {
+        GrantLocations();
+        _ownLocationJson = OwnLocation();
+        _ownSharesJson = OneShareTo(FriendUserId, isContinuous: true);
+
+        var cut = RenderComponent<MapPage>();
+
+        // DevicePreferences.AllowLocation defaults to off in this fixture, so the attempt refuses at
+        // the same first guard RecordCurrentLocationAsync always would - but reaching that message at
+        // all, on the very first render, is what proves a live share tries to freshen itself right away
+        // rather than waiting for the once-a-minute timer to get to it.
+        Assert.Contains("isn't allowed to use your location", cut.Markup);
+    }
 
     private void RegisterEverythingThePageAsksFor()
     {
@@ -342,6 +390,7 @@ public sealed class MapPageTests : OrbitTestContext
                 return new HttpResponseMessage(HttpStatusCode.NoContent);
             }
 
+
             if (path.EndsWith("/location/shares", StringComparison.Ordinal))
             {
                 return Text(_ownSharesJson);
@@ -353,11 +402,11 @@ public sealed class MapPageTests : OrbitTestContext
                 return Text("[]");
             }
 
-            // The account itself, with no location recorded on it.
+            // The account itself, with whatever location a test has set up for it.
             return Text(
                 "{\"id\":\"" + OwnUserId + "\",\"email\":\"owner@example.com\",\"userName\":\"owner\","
                 + "\"displayName\":\"Owner\",\"isEmailVerified\":true,\"hasPassword\":true,"
-                + "\"isGoogleLinked\":false,\"location\":null}");
+                + "\"isGoogleLinked\":false,\"location\":" + _ownLocationJson + "}");
         }))
         {
             BaseAddress = new Uri("https://example.test/")

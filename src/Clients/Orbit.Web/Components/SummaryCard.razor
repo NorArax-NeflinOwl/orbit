@@ -1,0 +1,33 @@
+@* The rung-2 card: press what it says and the form opens, keyboard included - see NoteSummary,
+   WarehouseSummary and CalendarEventSummary, which used to draw this and its own Enter/Space handling
+   three times over. Whatever sits inside keeps its own controls' press - a checklist's tick box, the
+   two buttons that count a batch - by stopping its own click before it reaches this one; that stays the
+   page's job, since only the page knows which of its own rows need it. *@
+<div class="card summary-opens @AdditionalClass" role="button" tabindex="0"
+     @onclick="OnOpen" @onkeydown="OpenOnEnterOrSpace">
+    @ChildContent
+</div>
+
+@code {
+    [Parameter] public EventCallback OnOpen { get; set; }
+
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+
+    /// <summary>
+    /// Extra classes a page needs beside the shared ones - NoteSummary's checklist spacing and its own
+    /// cursor-default selector for a tick row, which nothing else here carries.
+    /// </summary>
+    [Parameter] public string? AdditionalClass { get; set; }
+
+    /// <summary>
+    /// A box given a button's role has to answer a keyboard like one; the browser does that for a real
+    /// button and for nothing else.
+    /// </summary>
+    private void OpenOnEnterOrSpace(KeyboardEventArgs args)
+    {
+        if (args.Key is "Enter" or " ")
+        {
+            OnOpen.InvokeAsync();
+        }
+    }
+}

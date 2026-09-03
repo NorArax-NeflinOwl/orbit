@@ -1,10 +1,12 @@
 using System.Net;
 using System.Net.Http.Json;
 using Bunit;
+using Microsoft.AspNetCore.Components;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Orbit.Contracts.Inventory;
+using Orbit.Contracts.Notes;
 using Orbit.Contracts.Notifications;
 using Orbit.Web.Pages;
 using Orbit.Web.Services;
@@ -194,4 +196,95 @@ public sealed class WarehouseEditorTests : OrbitTestContext
             Guid.NewGuid(), name, "Food", "Dry", quantity, minimum, Unit: "Piece", ExpiryDate: null,
             ExpiryNotificationChannel: "None", IsBelowMinimum: minimum is { } value && quantity < value,
             HasPendingRestockTask: false, DateTimeOffset.UtcNow, DateTimeOffset.UtcNow);
+
+    /// <summary>
+    /// A warehouse being made rather than one being read - "/inventory/new" rather than
+    /// "/inventory/{id}/edit". Nothing here exists yet, so nothing that depends on it doing so is
+    /// offered - see WarehouseEditor's own "!IsNewWarehouse" sections.
+    /// </summary>
+    [Fact]
+    public void A_new_warehouse_offers_nothing_that_needs_one_to_exist_first()
+    {
+        RegisterApiClientsForANewWarehouse();
+
+        var cut = RenderComponent<WarehouseEditor>();
+
+        Assert.Contains("New warehouse", cut.Find("h1").TextContent);
+        Assert.DoesNotContain("Lists measured against this warehouse", cut.Markup);
+        Assert.DoesNotContain("Restock list", cut.Markup);
+        Assert.Empty(cut.FindAll(".share-link"));
+    }
+
+    [Fact]
+    public void A_new_warehouse_cannot_be_saved_before_it_has_a_name()
+    {
+        RegisterApiClientsForANewWarehouse();
+        var cut = RenderComponent<WarehouseEditor>();
+
+        var save = cut.FindAll("button").First(button => button.GetAttribute("aria-label") == "Save");
+        Assert.True(save.HasAttribute("disabled"));
+    }
+
+    /// <summary>Saving one for the first time creates it and returns to the list, the same place saving an existing one leaves from.</summary>
+    [Fact]
+    public void Saving_a_new_warehouse_creates_it_and_returns_to_the_list()
+    {
+        RegisterApiClientsForANewWarehouse();
+        var navigationManager = Services.GetRequiredService<NavigationManager>();
+        var cut = RenderComponent<WarehouseEditor>();
+
+        WriteTheName(cut, "Cellar");
+        cut.FindAll("button").First(button => button.GetAttribute("aria-label") == "Save").Click();
+
+        Assert.EndsWith("/inventory", navigationManager.Uri);
+    }
+
+    /// <summary>
+    /// Types the warehouse's name. The field is a contenteditable driven by JS, which bUnit cannot type
+    /// into, so this raises the same callback that JS raises after an edit - mirrors NoteEditorTests'
+    /// WriteFirstLine.
+    /// </summary>
+    private static void WriteTheName(IRenderedComponent<WarehouseEditor> cut, string name)
+    {
+        var editor = cut.FindComponent<Web.Components.ChecklistTextEditor>();
+        cut.InvokeAsync(() => editor.Instance.LinesChanged.InvokeAsync(
+            [new NoteContentLineDto(name, IsChecklistItem: false, IsChecked: false)])).GetAwaiter().GetResult();
+    }
+
+    /// <summary>
+    /// Everything "/inventory/new" asks for before Save is pressed: notification settings, for the
+    /// item form's channel options. Nothing else - see OnInitializedAsync's early return for a new
+    /// warehouse - so a request this does not expect would mean a "!IsNewWarehouse" guard had gone
+    /// missing somewhere.
+    /// </summary>
+    private void RegisterApiClientsForANewWarehouse()
+    {
+        var handler = new StubHttpMessageHandler(request =>
+        {
+            var path = request.RequestUri!.AbsolutePath;
+
+            if (path.EndsWith("/settings", StringComparison.Ordinal))
+            {
+                return new HttpResponseMessage(HttpStatusCode.OK)
+                {
+                    Content = JsonContent.Create(new NotificationSettingsDto(
+                        true, true, true, true, ShowExceptionDetails: false,
+                        BannerVisibleSeconds: 5, BannerMinimumGapSeconds: 5))
+                };
+            }
+
+            if (request.Method == HttpMethod.Post && path == "/api/warehouses")
+            {
+                return new HttpResponseMessage(HttpStatusCode.OK) { Content = JsonContent.Create(Guid.NewGuid()) };
+            }
+
+            throw new InvalidOperationException($"Unexpected request for a new warehouse: {request.Method} {path}");
+        });
+
+        var httpClient = new HttpClient(handler) { BaseAddress = new Uri("https://example.test/") };
+        Services.AddSingleton(new InventoryApiClient(httpClient));
+        Services.AddSingleton(new TasksApiClient(httpClient));
+        Services.AddSingleton(new NotificationsApiClient(httpClient));
+        Services.AddSingleton(new PublicShareApiClient(httpClient));
+    }
 }

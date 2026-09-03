@@ -15,12 +15,10 @@
 
 <PageTitle>@T["Orbit — Contacts"]</PageTitle>
 
-<div class="page-header">
-    <div>
-        <h1>@T["Contacts"]</h1>
-        <p class="page-subtitle">@T["Search for someone and start a conversation."]</p>
-    </div>
-</div>
+<PageHeader>
+    <Title>@T["Contacts"]</Title>
+    <Subtitle>@T["Search for someone and start a conversation."]</Subtitle>
+</PageHeader>
 
 @if (!Permissions.Has(ApplicationPermission.Contacts))
 {

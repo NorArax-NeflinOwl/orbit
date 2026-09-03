@@ -57,6 +57,23 @@ public sealed class TaskListChecklistTests : OrbitTestContext
             cut.FindAll(".check-row .row-category").Select(category => category.TextContent.Trim()));
     }
 
+    /// <summary>
+    /// The row is for ticking; reading what an entry actually is or changing it is the press on its own
+    /// text - to the entry's own address, the same one TaskItemSummary's Edit leads to.
+    /// </summary>
+    [Fact]
+    public void Pressing_an_entrys_text_opens_its_own_form()
+    {
+        var taskList = TaskList("Errands", Item("Buy milk"));
+        RegisterTasksApiClient([taskList]);
+        var navigationManager = Services.GetRequiredService<NavigationManager>();
+        var cut = RenderComponent<TaskListChecklist>(parameters => parameters.Add(page => page.Id, taskList.Id));
+
+        cut.Find(".check-row-text").Click();
+
+        Assert.EndsWith($"/tasks/{taskList.Id}/items/{taskList.Items[0].Id}/edit", navigationManager.Uri);
+    }
+
     [Fact]
     public void Every_item_on_the_list_is_rendered_as_a_tickable_row()
     {
@@ -409,19 +426,19 @@ public sealed class TaskListChecklistTests : OrbitTestContext
     private static AngleSharp.Dom.IElement FindSaveViewButton(IRenderedComponent<TaskListChecklist> cut)
     {
         OpenMenu(cut);
-        return cut.FindAll(".page-header-actions .overflow-menu-dropdown .avatar-dropdown-item")
+        return cut.FindAll(".editor-rail .overflow-menu-dropdown .avatar-dropdown-item")
             .First(entry => entry.TextContent.Contains("view", StringComparison.OrdinalIgnoreCase));
     }
 
     /// <summary>
-    /// Opens the header menu everything but ticking now lives behind - the first menu on the page, since
-    /// the stock-check panel below has one of its own.
+    /// Opens the menu everything but ticking lives behind. It is in the panel beside the list now - see
+    /// EditorRail - rather than in the page's heading; the stock-check panel below has one of its own.
     /// </summary>
     private static void OpenMenu(IRenderedComponent<TaskListChecklist> cut)
     {
-        if (cut.FindAll(".page-header-actions .overflow-menu-dropdown").Count == 0)
+        if (cut.FindAll(".editor-rail .overflow-menu-dropdown").Count == 0)
         {
-            cut.FindAll(".page-header-actions .overflow-menu-trigger").First().Click();
+            cut.FindAll(".editor-rail .overflow-menu-trigger").First().Click();
         }
     }
 
@@ -429,7 +446,7 @@ public sealed class TaskListChecklistTests : OrbitTestContext
     private static void ChooseInMenu(IRenderedComponent<TaskListChecklist> cut, string label)
     {
         OpenMenu(cut);
-        cut.FindAll(".page-header-actions .overflow-menu-dropdown .avatar-dropdown-item")
+        cut.FindAll(".editor-rail .overflow-menu-dropdown .avatar-dropdown-item")
             .First(entry => entry.TextContent.Contains(label))
             .Click();
     }

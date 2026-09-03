@@ -115,6 +115,7 @@ All required and optional settings in one place. Every `az containerapp secret s
 | `Vapid__PublicKeyBase64Url` / `Vapid__PrivateKeyBase64Url` / `Vapid__Subject` | Optional - push notifications. Missing means the "enable push notifications" toggle silently never turns on, no visible error. | Public key/subject as plain env vars, private key as a secret. `npx web-push generate-vapid-keys`. |
 | `Smtp__Host` / `Smtp__Port` / `Smtp__UserName` / `Smtp__Password` / `Smtp__FromAddress` | Optional - all outgoing email: calendar reminders, email verification codes, password reset codes. | `Smtp__Password` as a secret, rest as plain env vars. |
 | `GoogleAuth__ClientId` | Optional - "sign in with Google". Missing means the Google button never renders, no visible error. Public by design, so a plain env var. | The OAuth web client in Google Cloud Console → Credentials; the production `orbit-web` URL must be in its Authorized JavaScript origins. |
+| `WebClientBaseUrl` | Optional - the link a shared-item email carries (see [IWebClientLinks](../src/Shared/Orbit.Core/Notifications/IWebClientLinks.cs)). Missing means the email still sends, just without a link. Public by design, so a plain env var. | `orbit-web`'s own public URL, e.g. `https://orbit-web.<environment>.<region>.azurecontainerapps.io` or the custom domain if one is set up. |
 
 Two safety nets watch this table, because every "Optional" row fails *silently* when missing:
 

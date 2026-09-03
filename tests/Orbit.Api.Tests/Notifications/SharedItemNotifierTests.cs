@@ -127,6 +127,32 @@ public sealed class SharedItemNotifierTests
         Assert.Contains("Name: Dentist", email.Body);
     }
 
+    /// <summary>The email points where the invitation itself does - see SharedItemNotifier.UrlFor.</summary>
+    [Fact]
+    public async Task The_email_carries_a_link_to_where_the_invitation_leads()
+    {
+        var context = new SharedItemNotifierTestContext(webClientBaseUrl: "https://orbit.example");
+        await context.AllowShareNotificationsAsync(true);
+
+        await context.NotifyAsync(SharedItemKind.Warehouse, "Pantry");
+
+        var email = Assert.Single(context.EmailSender.SentEmails);
+        Assert.Contains($"https://orbit.example/chat/{context.SharerId}", email.Body);
+    }
+
+    /// <summary>No address configured is the common case on a fresh checkout - see IWebClientLinks.</summary>
+    [Fact]
+    public async Task The_email_carries_no_link_when_no_public_address_is_configured()
+    {
+        var context = new SharedItemNotifierTestContext(webClientBaseUrl: null);
+        await context.AllowShareNotificationsAsync(true);
+
+        await context.NotifyAsync(SharedItemKind.Warehouse, "Pantry");
+
+        var email = Assert.Single(context.EmailSender.SentEmails);
+        Assert.DoesNotContain("://", email.Body);
+    }
+
     [Fact]
     public async Task The_invitation_is_not_emailed_while_the_extra_notification_is_off()
     {
@@ -180,7 +206,8 @@ public sealed class SharedItemNotifierTests
         public Guid SharerId { get; }
         public Guid RecipientId { get; }
 
-        public SharedItemNotifierTestContext(bool registerSharer = true, IEmailSender? emailSender = null)
+        public SharedItemNotifierTestContext(
+            bool registerSharer = true, IEmailSender? emailSender = null, string? webClientBaseUrl = null)
         {
             var sharer = User.Create("anna@example.com", "anna", "Anna Kowalska", "hash");
             SharerId = sharer.Id;
@@ -199,6 +226,7 @@ public sealed class SharedItemNotifierTests
                 new PushNotificationDispatcher(_pushSubscriptionRepository, [PushNotificationSender], NullLogger<PushNotificationDispatcher>.Instance),
                 _userRepository,
                 _emailSender,
+                new FixedWebClientLinks(webClientBaseUrl),
                 NullLogger<SharedItemNotifier>.Instance);
         }
 

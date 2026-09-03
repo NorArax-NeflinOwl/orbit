@@ -1647,6 +1647,19 @@ input.note-editor-title {
     font-weight: 600;
 }
 
+/* The same "something happened here" pulse ItemCard's own unseen state draws - see .item-card-unseen -
+   so an unread conversation reads the way an unread task list does, not only in bolder text. */
+.chat-list-item.unread {
+    border-bottom-color: var(--danger);
+    animation: card-with-news 2.4s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .chat-list-item.unread {
+        animation: none;
+    }
+}
+
 .chat-list-preview {
     font-size: 12px;
     color: var(--text-tertiary);
@@ -2896,14 +2909,6 @@ input.note-editor-title {
     padding-top: 12px;
 }
 
-.warehouse-create-row {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 8px;
-    align-items: center;
-    margin-bottom: 12px;
-}
-
 /* Inventory.razor's header keeps two buttons side by side now ("All warehouses" plus "Add item"). */
 .page-header-actions {
     display: flex;
@@ -3491,6 +3496,19 @@ input.note-editor-title {
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+}
+
+/* Pressing a name in "Sharing with you" is how to look at where they are - see MapPage.razor's
+   FocusOnAsync. */
+.map-share-row-opens {
+    cursor: pointer;
+    border-radius: 8px;
+    margin: -4px -6px;
+    padding: 4px 6px;
+}
+
+.map-share-row-opens:hover {
+    background: var(--bg-subtle);
 }
 
 /* Written in the colour of its own pin, which is what says which pin is whose without clicking one. */
@@ -4760,6 +4778,14 @@ input.note-editor-title {
     gap: 8px;
 }
 
+/* ItemCard draws this the moment a caller hands it a Tags slot at all, whether or not any of that
+   slot's own conditions actually produced a tag - a warehouse with nothing to say about itself still
+   passes one, empty. Left undrawn here rather than in the component: an empty row still claimed the
+   gap around it, which pushed the head toward the card's top edge with nothing below to fill the rest. */
+.item-card-meta:has(.item-card-tags:empty) {
+    display: none;
+}
+
 .item-card-tags {
     display: flex;
     flex-wrap: wrap;
@@ -4792,6 +4818,11 @@ input.note-editor-title {
     color: var(--text-secondary);
     font-size: 13.5px;
     line-height: 1.5;
+}
+
+/* Same reason as .item-card-meta above: a Body slot that renders nothing is still a Body slot. */
+.item-card-body:empty {
+    display: none;
 }
 
 .item-card-body-opens {
@@ -5079,6 +5110,13 @@ input.note-editor-title {
         flex-direction: row;
         order: 3;
         margin-left: auto;
+    }
+
+    /* The bar sits on the bottom edge, so a menu hanging off it would open into the ground. It opens
+       upwards instead - the same distance, the other way. */
+    .editor-rail .overflow-menu-dropdown {
+        top: auto;
+        bottom: calc(100% + 4px);
     }
 
     /* On its own line above the buttons rather than beside them, and only once the arrow has been

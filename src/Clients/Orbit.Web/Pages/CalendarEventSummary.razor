@@ -22,30 +22,15 @@
    to write would be a button that does nothing. *@
 <PageTitle>@(_event is null ? T["Event"] : _event.Details.Title)</PageTitle>
 
-<div class="page-header">
-    <div class="page-heading">
-        <h1>@(_event?.Details.Title ?? T["Event"])</h1>
-        @if (_event is { IsShared: true, SharedByUserName: { } sharedBy })
-        {
-            <p class="page-subtitle">@T.Format("Shared by {0}", sharedBy)</p>
-        }
-    </div>
-    <div class="page-header-actions">
-        <button type="button" class="btn-secondary" @onclick="GoToCalendar">@T["Calendar"]</button>
-        @if (_event is not null)
-        {
-            <OverflowMenu>
-                <button type="button" class="avatar-dropdown-item" @onclick="GoToEditor">
-                    @(_event.IsShared ? T["View"] : T["Edit"])
-                </button>
-                @if (!_event.IsShared)
-                {
-                    <button type="button" class="avatar-dropdown-item" @onclick="DeleteAsync">@T["Delete"]</button>
-                }
-            </OverflowMenu>
-        }
-    </div>
-</div>
+@* Two panels, as every screen that reads one object has: what the appointment says on the left, and
+   the panel that does not scroll on the right - see EditorRail. There is no Save in it: an appointment
+   has nothing that can be changed where it stands. *@
+<div class="editor-page">
+<div class="editor-page-body">
+
+<PageHeader Subtitle="@Optional(_event is { IsShared: true, SharedByUserName: { } sharedBy } ? T.Format("Shared by {0}", sharedBy) : null)">
+    <Title>@(_event?.Details.Title ?? T["Event"])</Title>
+</PageHeader>
 
 @if (_message is not null)
 {
@@ -64,40 +49,34 @@ else
 {
     @* Pressing what the appointment says opens the form - the same rule a note's own page and a shelf
        follow. There is nothing on this card to do instead: an appointment has no line to tick. *@
-    <div class="card summary-opens" role="button" tabindex="0"
-         @onclick="GoToEditor" @onkeydown="OpenOnEnterOrSpace">
-        <div class="list-row">
-            <span class="row-title">@T["When"]</span>
-            <span class="row-meta">@WhenItHappens(_event.Details)</span>
-        </div>
-        <div class="list-row">
-            <span class="row-title">@T["Where"]</span>
-            <span class="row-meta">@(_place.Length > 0 ? _place : T["No place set"])</span>
-        </div>
+    <SummaryCard OnOpen="GoToEditor">
+        <Row Title="@T["When"]">
+            <Trailing><span class="row-meta">@WhenItHappens(_event.Details)</span></Trailing>
+        </Row>
+        <Row Title="@T["Where"]">
+            <Trailing><span class="row-meta">@(_place.Length > 0 ? _place : T["No place set"])</span></Trailing>
+        </Row>
         @if (_event.Details.Description is { Length: > 0 } description)
         {
-            <div class="list-row">
-                <span class="row-title">@T["Description"]</span>
-                <span class="row-meta">@description</span>
-            </div>
+            <Row Title="@T["Description"]">
+                <Trailing><span class="row-meta">@description</span></Trailing>
+            </Row>
         }
         @if (_event.Details.Guests.Count > 0)
         {
-            <div class="list-row">
-                <span class="row-title">@T["Guests:"]</span>
-                <span class="row-meta">@string.Join(", ", _event.Details.Guests.Select(NameOfTheGuest))</span>
-            </div>
+            <Row Title="@T["Guests:"]">
+                <Trailing><span class="row-meta">@string.Join(", ", _event.Details.Guests.Select(NameOfTheGuest))</span></Trailing>
+            </Row>
         }
         @* What it will say, and when. The channel is left out: what a reminder arrives on is a setting
            rather than a fact about the appointment, and this page is about the appointment. *@
         @if (_leadTimes.Count > 0)
         {
-            <div class="list-row">
-                <span class="row-title">@T["Reminders"]</span>
-                <span class="row-meta">@string.Join(", ", _leadTimes.Select(DescribeLeadTime))</span>
-            </div>
+            <Row Title="@T["Reminders"]">
+                <Trailing><span class="row-meta">@string.Join(", ", _leadTimes.Select(DescribeLeadTime))</span></Trailing>
+            </Row>
         }
-    </div>
+    </SummaryCard>
 
     @if (_pin is { } pin)
     {
@@ -115,6 +94,17 @@ else
         </p>
     }
 }
+
+</div>
+@if (_event is not null)
+{
+    <EditorRail OnCancel="GoToCalendar">
+        <ObjectMenu AllLabel="@T["Calendar"]" OnAll="GoToCalendar"
+                    EditLabel="@(_event.IsShared ? T["View"] : T["Edit"])" OnEdit="GoToEditor"
+                    DeleteLabel="@(!_event.IsShared ? T["Delete"] : null)" OnDelete="DeleteAsync" />
+    </EditorRail>
+}
+</div>
 
 @code {
     [Parameter] public Guid Id { get; set; }
@@ -243,18 +233,6 @@ else
             ReminderMinutesBeforeStart = _event.Details.ReminderMinutesBeforeStart,
             NotifyAtStart = _event.Details.NotifyAtStart
         });
-
-    /// <summary>
-    /// A box given a button's role has to answer a keyboard like one; the browser does that for a real
-    /// button and for nothing else.
-    /// </summary>
-    private void OpenOnEnterOrSpace(KeyboardEventArgs args)
-    {
-        if (args.Key is "Enter" or " ")
-        {
-            GoToEditor();
-        }
-    }
 
     private void GoToCalendar() => NavigationManager.NavigateTo("/calendar");
 

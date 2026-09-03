@@ -10,7 +10,7 @@ namespace Orbit.Core.Notifications;
 /// </summary>
 public static class SharedItemEmailContent
 {
-    public static (string Subject, string Body) Build(SharedItemKind kind, string sharerName, string? itemTitle)
+    public static (string Subject, string Body) Build(SharedItemKind kind, string sharerName, string? itemTitle, string? itemUrl)
     {
         var subject = SubjectFor(kind, sharerName);
 
@@ -21,6 +21,13 @@ public static class SharedItemEmailContent
         }
 
         bodyLines.Add(WhatHappensNext(kind));
+        // On its own line rather than folded into the sentence above it: a bare URL is what every mail
+        // client already knows how to turn into something clickable, and a link stitched into a
+        // sentence is a link with punctuation stuck to the end of it.
+        if (!string.IsNullOrWhiteSpace(itemUrl))
+        {
+            bodyLines.Add(itemUrl);
+        }
 
         return (subject, string.Join(Environment.NewLine, bodyLines));
     }

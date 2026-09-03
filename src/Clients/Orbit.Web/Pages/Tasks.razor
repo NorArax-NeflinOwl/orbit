@@ -15,18 +15,18 @@
 
 <PageTitle>@T["Orbit — Tasks"]</PageTitle>
 
-<div class="page-header">
-    @* The one thing this page is for, left of what the page is called - the same plus every list
-       carries, in the same place. *@
-    <div class="page-heading">
+<PageHeader>
+    <LeadingAction>
+        @* The one thing this page is for, left of what the page is called - the same plus every list
+           carries, in the same place. *@
         <button type="button" class="icon-btn page-add" title="@(T["Add task list"])"
                 aria-label="@(T["Add task list"])" @onclick="GoToAddTaskList">
             <svg viewBox="0 0 20 20" width="18" height="18" aria-hidden="true" fill="none"
                  stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M10 4v12M4 10h12" /></svg>
         </button>
-        <h1>@T["Tasks"]</h1>
-    </div>
-    <div class="page-header-actions">
+    </LeadingAction>
+    <Title>@T["Tasks"]</Title>
+    <Actions>
         @* The order these cards come in is something a reader sets once and then reads by, so it lives
            behind the menu rather than in a control taking up the top of every visit. Stays open while
            they try one order and then another - see OverflowMenu.StaysOpen. *@
@@ -53,19 +53,10 @@
                 </button>
             }
         </OverflowMenu>
-    </div>
-</div>
+    </Actions>
+</PageHeader>
 
-@if (_taskLists is null)
-{
-    <p>@T["Loading…"]</p>
-}
-else if (_taskLists.Count == 0)
-{
-    <p class="empty-hint">@T["No task lists yet."]</p>
-}
-else
-{
+<ObjectList IsLoading="_taskLists is null" IsEmpty="_taskLists is { Count: 0 }" EmptyMessage="@T["No task lists yet."]">
     @* What the reader is looking for, above the chips that say which lists are on offer at all: a word
        from an entry, and the categories entries are filed under. Both narrow to lists that still hold
        something worth reading, and the cards then show what matched rather than their first few rows -
@@ -110,7 +101,7 @@ else
             @* "All" is a filter like the rest rather than a way of clearing them, so there is always
                exactly one answer to "what am I looking at". *@
             <button type="button" class="filter-chip @(_filter == TaskListFilter.All ? "on" : "")"
-                    @onclick="() => SetFilter(TaskListFilter.All)">@T["All"]<span class="filter-chip-count">@_taskLists.Count</span>
+                    @onclick="() => SetFilter(TaskListFilter.All)">@T["All"]<span class="filter-chip-count">@_taskLists!.Count</span>
             </button>
             @foreach (var filter in SelectableFilters)
             {
@@ -171,10 +162,10 @@ else
                         }
                     </Pin>
                     <Menu>
-                        <OverflowMenu>
-                            <button type="button" class="avatar-dropdown-item" @onclick="() => GoToEditTaskList(taskList.Id)">@T["Edit"]</button>
-                            <button type="button" class="avatar-dropdown-item" @onclick="() => DeleteTaskListAsync(taskList)">@T["Delete"]</button>
-                        </OverflowMenu>
+                        @* Somebody else's shared list is not this reader's to delete - the same rule
+                           the note and warehouse cards already follow. *@
+                        <ObjectMenu EditLabel="@T["Edit"]" OnEdit="() => GoToEditTaskList(taskList.Id)"
+                                    DeleteLabel="@(!taskList.IsShared ? T["Delete"] : null)" OnDelete="() => DeleteTaskListAsync(taskList)" />
                     </Menu>
                     <Tags>
                         @if (taskList.IsGroup)
@@ -292,7 +283,7 @@ else
             </div>
         }
     </div>
-}
+</ObjectList>
 
 @code {
     private IReadOnlyList<TaskDto>? _taskLists;

@@ -24,15 +24,9 @@
 <div class="editor-page">
 <div class="editor-page-body">
 
-<div class="page-header">
-    <div class="page-heading">
-        <h1>@(_note is null ? T["Note"] : Written(_note.Title))</h1>
-        @if (_note is { IsShared: true, SharedByUserName: { } sharedBy })
-        {
-            <p class="page-subtitle">@T.Format("Shared by {0}", sharedBy)</p>
-        }
-    </div>
-</div>
+<PageHeader Subtitle="@Optional(_note is { IsShared: true, SharedByUserName: { } sharedBy } ? T.Format("Shared by {0}", sharedBy) : null)">
+    <Title>@(_note is null ? T["Note"] : Written(_note.Title))</Title>
+</PageHeader>
 
 @if (_isLoading)
 {
@@ -48,8 +42,7 @@ else
        is one thought, and it used to take finding the menu at the other end of the page first - the same
        reason a card on the list opens the note rather than only its name does. Ticking a line is not
        that: a checklist row keeps its own press, below. *@
-    <div class="card checklist-card note-summary-opens" role="button" tabindex="0"
-         @onclick="GoToEditor" @onkeydown="OpenOnEnterOrSpace">
+    <SummaryCard OnOpen="GoToEditor" AdditionalClass="checklist-card note-summary-opens">
         @if (_lines.Count == 0)
         {
             <p class="checklist-empty">@T["Nothing written here yet."]</p>
@@ -79,7 +72,7 @@ else
                 <p class="note-summary-line note-summary-break"></p>
             }
         }
-    </div>
+    </SummaryCard>
 }
 
 </div>
@@ -96,16 +89,9 @@ else
             }
         </Extras>
         <ChildContent>
-            <OverflowMenu>
-                <button type="button" class="avatar-dropdown-item" @onclick="GoToNotes">@T["All notes"]</button>
-                <button type="button" class="avatar-dropdown-item" @onclick="GoToEditor">
-                    @(_isReadOnly ? T["View"] : T["Edit"])
-                </button>
-                @if (!_note.IsShared)
-                {
-                    <button type="button" class="avatar-dropdown-item" @onclick="DeleteAsync">@T["Delete"]</button>
-                }
-            </OverflowMenu>
+            <ObjectMenu AllLabel="@T["All notes"]" OnAll="GoToNotes"
+                        EditLabel="@(_isReadOnly ? T["View"] : T["Edit"])" OnEdit="GoToEditor"
+                        DeleteLabel="@(!_note.IsShared ? T["Delete"] : null)" OnDelete="DeleteAsync" />
         </ChildContent>
     </EditorRail>
 }
@@ -241,18 +227,6 @@ else
         {
             Logger.LogWarning(exception, "Couldn't delete note {NoteId}", Id);
             _message = T["Failed to delete the note. Try again."];
-        }
-    }
-
-    /// <summary>
-    /// A box given a button's role has to answer a keyboard like one; the browser does that for a real
-    /// button and for nothing else. Space as well as Enter, which is what a button takes.
-    /// </summary>
-    private void OpenOnEnterOrSpace(KeyboardEventArgs args)
-    {
-        if (args.Key is "Enter" or " ")
-        {
-            GoToEditor();
         }
     }
 

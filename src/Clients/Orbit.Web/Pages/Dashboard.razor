@@ -24,12 +24,10 @@
 
 <PageTitle>@T["Orbit — Dashboard"]</PageTitle>
 
-<div class="page-header">
-    <div>
-        <h1>@T["Dashboard"]</h1>
-        <p class="page-subtitle">@T["Everything on your plate, in one place."]</p>
-    </div>
-    <div class="page-header-actions">
+<PageHeader>
+    <Title>@T["Dashboard"]</Title>
+    <Subtitle>@T["Everything on your plate, in one place."]</Subtitle>
+    <Actions>
         @* Which parts of this page are wanted at all. A menu of settings rather than of actions, so it
            stays open while several are changed - see OverflowMenu.StaysOpen. *@
         <OverflowMenu StaysOpen="true">
@@ -43,8 +41,8 @@
                 </label>
             }
         </OverflowMenu>
-    </div>
-</div>
+    </Actions>
+</PageHeader>
 
 @if (_loadErrorMessage is not null)
 {
@@ -100,11 +98,12 @@ else
                 }
                 @foreach (var note in NotesToShow)
                 {
-                    <button type="button" class="list-row list-row-button" @onclick="() => GoToEditNote(note.Id)">
-                        <span class="row-title">@note.Title</span>
-                        @RenderPriorityBadge(note.Priority)
-                        <span class="row-meta">@FormatRelative(note.UpdatedAtUtc)</span>
-                    </button>
+                    <Row Title="@note.Title" OnPressed="() => GoToEditNote(note.Id)">
+                        <Trailing>
+                            @RenderPriorityBadge(note.Priority)
+                            <span class="row-meta">@FormatRelative(note.UpdatedAtUtc)</span>
+                        </Trailing>
+                    </Row>
                 }
                 </Body>
             </ItemCard>
@@ -130,19 +129,20 @@ else
                 }
                 @foreach (var taskList in TaskListsToShow)
                 {
-                    <button type="button" class="list-row list-row-button" @onclick="() => GoToTaskList(taskList.Id)">
-                        <span class="row-title">@Written(taskList.Title)</span>
-                        @RenderPriorityBadge(taskList.Priority)
-                        @if (taskList.Items.Count > 0)
-                        {
-                            <span class="progress-track"><span class="progress-fill" style="width:@(CompletionPercent(taskList))%"></span></span>
-                            <span class="row-meta">@taskList.Items.Count(item => item.IsCompleted)/@taskList.Items.Count</span>
-                        }
-                        else if (taskList.IsCompleted)
-                        {
-                            <span class="row-meta">@T["Done"]</span>
-                        }
-                    </button>
+                    <Row Title="@Written(taskList.Title)" OnPressed="() => GoToTaskList(taskList.Id)">
+                        <Trailing>
+                            @RenderPriorityBadge(taskList.Priority)
+                            @if (taskList.Items.Count > 0)
+                            {
+                                <span class="progress-track"><span class="progress-fill" style="width:@(CompletionPercent(taskList))%"></span></span>
+                                <span class="row-meta">@taskList.Items.Count(item => item.IsCompleted)/@taskList.Items.Count</span>
+                            }
+                            else if (taskList.IsCompleted)
+                            {
+                                <span class="row-meta">@T["Done"]</span>
+                            }
+                        </Trailing>
+                    </Row>
                 }
                 </Body>
             </ItemCard>
@@ -176,12 +176,13 @@ else
                 }
                 @foreach (var entry in UpcomingToShow.Take(6))
                 {
-                    <button type="button" class="list-row list-row-button" @onclick="() => NavigationManager.NavigateTo(entry.Url)">
-                        <span class="stat-dot" style="background:@entry.Colour"></span>
-                        <span class="row-title">@entry.Title</span>
-                        @RenderPriorityBadge(entry.Priority)
-                        <span class="row-meta">@entry.When</span>
-                    </button>
+                    <Row Title="@entry.Title" OnPressed="() => NavigationManager.NavigateTo(entry.Url)">
+                        <Leading><span class="stat-dot" style="background:@entry.Colour"></span></Leading>
+                        <Trailing>
+                            @RenderPriorityBadge(entry.Priority)
+                            <span class="row-meta">@entry.When</span>
+                        </Trailing>
+                    </Row>
                 }
                 </Body>
             </ItemCard>
@@ -200,15 +201,16 @@ else
                 <Body>
                 @foreach (var group in _groups)
                 {
-                    <button type="button" class="list-row list-row-button" @onclick="() => GoToGroup(group.Id)">
-                        <span class="avatar-sm" style="background:@AvatarHelper.AvatarColor(group.Id)">@AvatarHelper.GetInitials(group.Name)</span>
-                        <span class="row-title">@group.Name</span>
-                        @if (group.OwnRole == AdminRole)
-                        {
-                            <span class="card-badge">@T["Admin"]</span>
-                        }
-                        <span class="row-meta">@group.Members.Count</span>
-                    </button>
+                    <Row Title="@group.Name" OnPressed="() => GoToGroup(group.Id)">
+                        <Leading><span class="avatar-sm" style="background:@AvatarHelper.AvatarColor(group.Id)">@AvatarHelper.GetInitials(group.Name)</span></Leading>
+                        <Trailing>
+                            @if (group.OwnRole == AdminRole)
+                            {
+                                <span class="card-badge">@T["Admin"]</span>
+                            }
+                            <span class="row-meta">@group.Members.Count</span>
+                        </Trailing>
+                    </Row>
                 }
                 </Body>
             </ItemCard>
@@ -227,11 +229,10 @@ else
                 <Body>
                 @foreach (var share in _sharedLocations!)
                 {
-                    <button type="button" class="list-row list-row-button" @onclick="GoToMap">
-                        <span class="avatar-sm" style="background:@AvatarHelper.AvatarColor(share.SharerUserId)">@AvatarHelper.GetInitials(DisplayNameFor(share.SharerUserId))</span>
-                        <span class="row-title">@DisplayNameFor(share.SharerUserId)</span>
-                        <span class="row-meta">@(share.IsContinuous ? T["live"] : T["sent once"])</span>
-                    </button>
+                    <Row Title="@DisplayNameFor(share.SharerUserId)" OnPressed="GoToMap">
+                        <Leading><span class="avatar-sm" style="background:@AvatarHelper.AvatarColor(share.SharerUserId)">@AvatarHelper.GetInitials(DisplayNameFor(share.SharerUserId))</span></Leading>
+                        <Trailing><span class="row-meta">@(share.IsContinuous ? T["live"] : T["sent once"])</span></Trailing>
+                    </Row>
                 }
                 </Body>
             </ItemCard>
@@ -240,6 +241,7 @@ else
         @if (_contacts.Count > 0 && CardPreferences.IsVisible("chats"))
         {
             <ItemCard Name="@(T["Recent chats"])" OnNameSelected='() => NavigationManager.NavigateTo("/contacts")'
+                      HasUnseenAction="@_recentContacts.Any(contact => contact.UnreadCount > 0)"
                       ExtraClass="@(DashboardPins.IsPinned("chats") ? "item-card-pinned" : null)">
                 <Pin>
                     <PinButton IsPinned='DashboardPins.IsPinned("chats")' OnPinnedChanged='pinned => SetCardPinnedAsync("chats", pinned)' />
@@ -250,12 +252,11 @@ else
                    reads as nobody waiting. *@
                 @foreach (var contact in _recentContacts.Take(6))
                 {
-                    <button type="button" class="list-row list-row-button @(contact.UnreadCount > 0 ? "unread" : "")"
-                            @onclick="() => GoToChat(contact.UserId)">
-                        <span class="avatar-sm" style="background:@AvatarHelper.AvatarColor(contact.UserId)">@AvatarHelper.GetInitials(contact.DisplayName)<UnreadBadge Count="contact.UnreadCount" /><PresenceDot Status="Conversation.PresenceOf(contact)" /></span>
-                        <span class="row-title">@contact.DisplayName</span>
-                        <span class="row-meta">@FormatRelative(contact.LastMessageAtUtc)</span>
-                    </button>
+                    <Row Title="@contact.DisplayName" OnPressed="() => GoToChat(contact.UserId)"
+                         AdditionalClass="@(contact.UnreadCount > 0 ? "unread" : "")">
+                        <Leading><span class="avatar-sm" style="background:@AvatarHelper.AvatarColor(contact.UserId)">@AvatarHelper.GetInitials(contact.DisplayName)<UnreadBadge Count="contact.UnreadCount" /><PresenceDot Status="Conversation.PresenceOf(contact)" /></span></Leading>
+                        <Trailing><span class="row-meta">@FormatRelative(contact.LastMessageAtUtc)</span></Trailing>
+                    </Row>
                 }
                 </Body>
             </ItemCard>
@@ -276,10 +277,9 @@ else
                    chats" card above is for, and two cards that do the same thing are one card. *@
                 @foreach (var contact in _contactsAlphabetically)
                 {
-                    <button type="button" class="list-row list-row-button" @onclick="() => GoToContactInfo(contact.UserId)">
-                        <span class="avatar-sm" style="background:@AvatarHelper.AvatarColor(contact.UserId)">@AvatarHelper.GetInitials(contact.DisplayName)<PresenceDot Status="Conversation.PresenceOf(contact)" /></span>
-                        <span class="row-title">@contact.DisplayName</span>
-                    </button>
+                    <Row Title="@contact.DisplayName" OnPressed="() => GoToContactInfo(contact.UserId)">
+                        <Leading><span class="avatar-sm" style="background:@AvatarHelper.AvatarColor(contact.UserId)">@AvatarHelper.GetInitials(contact.DisplayName)<PresenceDot Status="Conversation.PresenceOf(contact)" /></span></Leading>
+                    </Row>
                 }
                 </Body>
             </ItemCard>

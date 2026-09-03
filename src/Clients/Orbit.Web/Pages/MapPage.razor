@@ -46,8 +46,6 @@ else
                 <OverflowMenu>
                     <button type="button" class="avatar-dropdown-item" disabled="@(_isBusy || _location is null)"
                             @onclick="RecordCurrentLocationAsync">@T["Update to where I am now"]</button>
-                    <button type="button" class="avatar-dropdown-item" disabled="@(_isBusy || _location is null)"
-                            @onclick="ClearLocationAsync">@T["Stop recording"]</button>
                 </OverflowMenu>
             </div>
             <p class="page-subtitle">@T["Where you are, who you are sharing it with, and who is sharing theirs."]</p>
@@ -55,10 +53,20 @@ else
 
         @* The one thing this page is opened to do, as a button rather than an entry in a menu, and
            directly above whatever the page says back - what was pressed and what came of it then read
-           as one thing instead of as opposite corners. *@
+           as one thing instead of as opposite corners. Whichever of the two is true right now, in the
+           one place a reader's eye already is: this used to stay Start recording and merely grey out
+           once one was under way, with the way to end it buried in the menu above instead of here. *@
         <div class="map-panel-actions">
-            <button type="button" class="btn-primary" disabled="@(_isBusy || _location is not null)"
-                    @onclick="RecordCurrentLocationAsync">@T["Start recording"]</button>
+            @if (_location is null)
+            {
+                <button type="button" class="btn-primary" disabled="@_isBusy"
+                        @onclick="RecordCurrentLocationAsync">@T["Start"]</button>
+            }
+            else
+            {
+                <button type="button" class="btn-secondary" disabled="@_isBusy"
+                        @onclick="ClearLocationAsync">@T["Stop"]</button>
+            }
         </div>
 
         @if (_message is not null)
@@ -149,23 +157,22 @@ else
             }
             @foreach (var received in _receivedPositions)
             {
-                <div class="map-share-row">
-                    @* The name written in the colour of its own pin, which is what says which of the pins
-                       on the map is whose without clicking any of them. *@
+                @* Pressing a name is how to look at where they are - the same reason a card opens the
+                   thing it names everywhere else in Orbit. The colour matches the pin on the map, which
+                   is what says which pin is whose without clicking any of them. *@
+                <div class="map-share-row map-share-row-opens" role="button" tabindex="0"
+                     @onclick="() => FocusOnAsync(received)" @onkeydown="args => OpenOnEnterOrSpaceAsync(args, received)">
                     <span class="row-title map-sharer-name" style="color:@AvatarHelper.AvatarColor(received.SharerUserId)">
                         @DisplayNameFor(received.SharerUserId)
                     </span>
-                    @if (received.IsContinuous)
-                    {
-                        <span class="card-badge">@T["live"]</span>
-                    }
-                    <span class="row-meta">@DescribePosition(received)</span>
+                    <span class="row-meta">@(received.IsContinuous ? T["live"] : T["sent once"])</span>
                     @* The other end of the same row. A share is an arrangement between two people, and
                        until now only one of them could end it - which left somebody's live position on
-                       this map with nothing to do about it but ask them to stop. *@
+                       this map with nothing to do about it but ask them to stop. Its own press, kept
+                       from the row around it - see You are sharing with's own stop button, above. *@
                     <button type="button" class="icon-btn map-share-stop" disabled="@_isBusy"
                             title="@(T["Stop receiving"])" aria-label="@(T["Stop receiving"])"
-                            @onclick="() => StopReceivingAsync(received.SharerUserId)">✕</button>
+                            @onclick="() => StopReceivingAsync(received.SharerUserId)" @onclick:stopPropagation="true">✕</button>
                 </div>
             }
         </section>
@@ -342,9 +349,12 @@ else
     {
         // Nothing on the map moves yet. A press is easy to make by accident - a map is dragged and
         // zoomed by pressing it - so what a press produces is a question, and the pin somebody already
-        // has stays where it is until that question is answered.
+        // has stays where it is until that question is answered. Its own marker still needs drawing,
+        // though - see MapPoints - which showLocations never did on its own; StateHasChanged only
+        // repaints the banner asking the question, not the Leaflet map beside it.
         _pressedPlace = new FoundPlace(T["Looking up where that is…"], latitude, longitude);
         StateHasChanged();
+        await RefreshMapMarkersAsync();
 
         var address = await GeocodingApiClient.ReverseGeocodeAsync(latitude, longitude);
         // Answered while the lookup was running: the reader has moved on, and the answer is about a
@@ -357,6 +367,7 @@ else
         _pressedPlace = new FoundPlace(
             address is { Length: > 0 } ? address : DescribeCoordinates(latitude, longitude), latitude, longitude);
         StateHasChanged();
+        await RefreshMapMarkersAsync();
     }
 
     /// <summary>Where the reader pressed, while the question about it is on screen - see OnMapPressed.</summary>
@@ -466,6 +477,14 @@ else
     private string _shareWithUserId = string.Empty;
 
     /// <summary>
+    /// Names for a sharer this reader has not added as a contact - sharing a position only requires the
+    /// sharer to have the recipient as a contact, not the other way round, so DisplayNameFor's usual
+    /// lookup came up empty and said "Someone" for anybody who had not. Mirrors CalendarEventSummary's
+    /// NameTheGuestsAsync, which resolves the same gap for a guest who is not a contact either.
+    /// </summary>
+    private readonly Dictionary<Guid, string> _sharerNames = [];
+
+    /// <summary>
     /// Refreshes every live share while this page is open. Deliberately tied to the page rather than
     /// running in the background: sharing a position is something someone is doing on purpose, and a
     /// timer that outlived the page would keep broadcasting after they had moved on from it.
@@ -499,6 +518,14 @@ else
         _ownUserId = await AuthenticationStateProvider.TryGetCurrentUserIdAsync() ?? Guid.Empty;
         _hasGoogleExtras = await GoogleIntegrationAccess.IsAvailableAsync();
         await LoadAsync();
+        // A live share left running from a previous visit shows whatever was last saved until the timer
+        // below ticks for the first time, up to a minute away - reusing the same tick early means
+        // opening the page is what freshens it, not a wait or a press on Update.
+        if (_isLiveSharing)
+        {
+            await RefreshOnceAsync();
+        }
+
         StartRefreshLoop();
     }
 
@@ -531,7 +558,8 @@ else
     /// Everything the map is showing: where the reader is, everyone sharing with them, and the pin a
     /// search just dropped. Each carries the colour it is drawn in - a sharer's is their own, the same
     /// one their name is written in beside the map, which is what ties a pin to a person without
-    /// anybody having to click it.
+    /// anybody having to click it - and a stable key, which is what lets locationMap.js's
+    /// updateLocations move a marker that already exists instead of replacing it; see RefreshMapMarkersAsync.
     /// </summary>
     private IReadOnlyList<object> MapPoints()
     {
@@ -540,6 +568,7 @@ else
         {
             points.Add(new
             {
+                key = "own",
                 latitude = own.Latitude,
                 longitude = own.Longitude,
                 label = own.Address ?? T["You"],
@@ -549,6 +578,7 @@ else
 
         points.AddRange(_receivedPositions.Select(received => (object)new
         {
+            key = SharerMapKey(received.SharerUserId),
             latitude = received.Position.Latitude,
             longitude = received.Position.Longitude,
             label = $"{DisplayNameFor(received.SharerUserId)} · {received.Position.Address ?? T["shared a position"]}",
@@ -560,6 +590,7 @@ else
             // Its own colour, and not anybody's: this pin is a question rather than a person.
             points.Add(new
             {
+                key = "found",
                 latitude = found.Latitude,
                 longitude = found.Longitude,
                 label = found.Name,
@@ -567,8 +598,25 @@ else
             });
         }
 
+        if (_pressedPlace is { } pressed)
+        {
+            // Drawn alongside a found place still on screen rather than in place of it - "Move the pin
+            // here?" is a question about two points, and answering it means seeing both.
+            points.Add(new
+            {
+                key = "pressed",
+                latitude = pressed.Latitude,
+                longitude = pressed.Longitude,
+                label = pressed.Name,
+                color = "var(--danger)"
+            });
+        }
+
         return points;
     }
+
+    /// <summary>The key a sharer's own marker is drawn under - see MapPoints and FocusOnAsync.</summary>
+    private static string SharerMapKey(Guid sharerUserId) => $"sharer:{sharerUserId}";
 
     private async Task LoadAsync()
     {
@@ -579,6 +627,7 @@ else
             _contacts = await ChatApiClient.GetContactsAsync();
             _ownShares = await UsersApiClient.GetOwnLocationSharesAsync();
             _receivedPositions = await OpenReceivedPositionsAsync();
+            await NameTheSharersAsync();
         }
         catch (HttpRequestException exception) when (exception.StatusCode == HttpStatusCode.Unauthorized)
         {
@@ -602,9 +651,15 @@ else
     /// asks the user's permission itself; a refusal comes back as an ordinary message rather than an
     /// error, since declining is a legitimate answer.
     /// </summary>
-    private async Task RecordCurrentLocationAsync() => await RecordCurrentLocationAsync(announce: true);
+    private async Task RecordCurrentLocationAsync() => await RecordCurrentLocationAsync(announce: true, redraw: true);
 
-    private async Task RecordCurrentLocationAsync(bool announce)
+    /// <param name="redraw">
+    /// False for the once-a-minute refresh: rebuilding the map from scratch there reset whatever the
+    /// reader was looking at - the pan, the zoom, an open popup - every time it ticked, which made
+    /// actually reading the map while a live share ran impossible. Only what moved needs redrawing then,
+    /// so this instead asks RefreshMapMarkersAsync to move the markers on the map that is already there.
+    /// </param>
+    private async Task RecordCurrentLocationAsync(bool announce, bool redraw)
     {
         if (!DevicePreferences.AllowLocation)
         {
@@ -636,7 +691,16 @@ else
             var address = await TryResolveAddressAsync(position.Latitude, position.Longitude);
             await UsersApiClient.SaveOwnLocationAsync(position.Latitude, position.Longitude, address);
 
-            await RedrawAsync();
+            if (redraw)
+            {
+                await RedrawAsync();
+            }
+            else
+            {
+                await LoadAsync();
+                await RefreshMapMarkersAsync();
+            }
+
             if (announce)
             {
                 _message = T["Location recorded."];
@@ -705,6 +769,30 @@ else
         await LoadAsync();
     }
 
+    /// <summary>
+    /// Moves the markers on the map that is already there, without touching its pan or zoom - the light
+    /// alternative to RedrawAsync's dispose-and-rebuild, for whatever must not reset what the reader is
+    /// looking at: a live share's own once-a-minute refresh, and a press on the map that has to draw its
+    /// pin without losing the view the press itself was made on. A no-op before the map exists at all -
+    /// the render that follows draws it fresh with whatever is current by then, see OnAfterRenderAsync.
+    /// </summary>
+    private async Task RefreshMapMarkersAsync()
+    {
+        if (_mapModule is null)
+        {
+            return;
+        }
+
+        try
+        {
+            await _mapModule.InvokeVoidAsync("updateLocations", MapElementId, MapPoints());
+        }
+        catch (JSException exception)
+        {
+            Logger.LogWarning(exception, "Could not update the markers on the location map");
+        }
+    }
+
     private async Task DisposeMapAsync()
     {
         if (_mapModule is null)
@@ -756,6 +844,34 @@ else
         }
 
         return opened;
+    }
+
+    /// <summary>
+    /// Names whichever sharer is not this reader's own contact - see _sharerNames. Sharing a position
+    /// only requires the sharer to have the recipient as a contact, not the other way round, so this
+    /// reader may never have added them at all.
+    /// </summary>
+    private async Task NameTheSharersAsync()
+    {
+        try
+        {
+            foreach (var sharerUserId in _receivedPositions.Select(received => received.SharerUserId).Distinct())
+            {
+                if (_contacts.Any(contact => contact.UserId == sharerUserId) || _sharerNames.ContainsKey(sharerUserId))
+                {
+                    continue;
+                }
+
+                if (await UsersApiClient.GetUserAsync(sharerUserId) is { } user)
+                {
+                    _sharerNames[sharerUserId] = user.DisplayName;
+                }
+            }
+        }
+        catch (HttpRequestException exception)
+        {
+            Logger.LogWarning(exception, "Couldn't name everyone sharing a position with this user");
+        }
     }
 
     /// <summary>
@@ -917,7 +1033,7 @@ else
             var live = _ownShares.Where(share => share.IsContinuous).ToList();
             if (live.Count > 0)
             {
-                await RecordCurrentLocationAsync(announce: false);
+                await RecordCurrentLocationAsync(announce: false, redraw: false);
                 if (_location is { } location)
                 {
                     foreach (var share in live)
@@ -930,8 +1046,12 @@ else
                 }
             }
 
+            // A friend's own position can have moved since the last tick even when this reader is not
+            // sharing anything back - refreshed either way, and without resetting the map the same
+            // reason applies to: see RefreshMapMarkersAsync.
             _receivedPositions = await OpenReceivedPositionsAsync();
-            await RedrawAsync();
+            await NameTheSharersAsync();
+            await RefreshMapMarkersAsync();
         }
         catch (Exception exception) when (exception is HttpRequestException or JSException or InvalidOperationException)
         {
@@ -984,29 +1104,37 @@ else
     private bool _hasGoogleExtras;
 
     private string DisplayNameFor(Guid userId)
-        => _contacts.FirstOrDefault(contact => contact.UserId == userId)?.DisplayName ?? T["Someone"];
+        => _contacts.FirstOrDefault(contact => contact.UserId == userId)?.DisplayName
+           ?? (_sharerNames.TryGetValue(userId, out var name) ? name : T["Someone"]);
 
     /// <summary>
-    /// Where somebody is and when they were last there. Falls back to the coordinates when reverse
-    /// geocoding had nothing to say - a pair of numbers still tells the reader where to look.
+    /// Pans the map to where somebody is and opens their pin, without moving anything else - see
+    /// RefreshMapMarkersAsync's own reasoning for why a press here must not reset the map.
     /// </summary>
-    private string DescribePosition(ReceivedPosition received)
+    private async Task FocusOnAsync(ReceivedPosition received)
     {
-        var place = received.Position.Address ?? FormatCoordinates(received.Position.Latitude, received.Position.Longitude);
-        return $"{place} · {FormatRecordedAt(received.Position.RecordedAtUtc)}";
+        try
+        {
+            _mapModule ??= await JSRuntime.InvokeAsync<IJSObjectReference>("import", "./js/locationMap.js");
+            await _mapModule.InvokeVoidAsync("focusOn", MapElementId, SharerMapKey(received.SharerUserId));
+        }
+        catch (JSException exception)
+        {
+            Logger.LogWarning(exception, "Could not focus the map on a shared position");
+        }
+    }
+
+    /// <summary>A div given a button's role has to answer a keyboard like one - see SummaryCard's own copy of this rule.</summary>
+    private async Task OpenOnEnterOrSpaceAsync(KeyboardEventArgs args, ReceivedPosition received)
+    {
+        if (args.Key is "Enter" or " ")
+        {
+            await FocusOnAsync(received);
+        }
     }
 
     /// <summary>One position someone is sharing with this user, already opened.</summary>
     private sealed record ReceivedPosition(Guid SharerUserId, bool IsContinuous, SharedLocationSender.SharedPosition Position);
-
-    private static string FormatCoordinates(UserLocationDto location)
-        => FormatCoordinates(location.Latitude, location.Longitude);
-
-    private static string FormatCoordinates(double latitude, double longitude)
-        => $"{latitude.ToString("F5", CoordinateCulture)}, {longitude.ToString("F5", CoordinateCulture)}";
-
-    private string FormatRecordedAt(DateTimeOffset recordedAtUtc)
-        => recordedAtUtc.ToLocalTime().ToString("d MMM yyyy, HH:mm", T.DisplayCulture);
 
     public async ValueTask DisposeAsync()
     {

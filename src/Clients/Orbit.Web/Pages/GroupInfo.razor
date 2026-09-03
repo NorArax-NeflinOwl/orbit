@@ -14,12 +14,10 @@
    offers both, the same way it offers a person's card for a two-person conversation. *@
 <PageTitle>@(_group?.Name ?? T["Group chat"])</PageTitle>
 
-<div class="page-header">
-    <div>
-        <h1>@(_group?.Name ?? T["Group chat"])</h1>
-        <p class="page-subtitle">@T["Chats with more than one other person, encrypted the same way one-to-one chats are."]</p>
-    </div>
-</div>
+<PageHeader>
+    <Title>@(_group?.Name ?? T["Group chat"])</Title>
+    <Subtitle>@T["Chats with more than one other person, encrypted the same way one-to-one chats are."]</Subtitle>
+</PageHeader>
 
 @if (!Permissions.Has(ApplicationPermission.Chat))
 {
@@ -32,27 +30,25 @@ else if (_errorMessage is not null)
 else if (_group is { } group)
 {
     <div class="card">
-        <div class="list-row">
-            <span class="row-title">@T["Name"]</span>
-            <span class="row-meta">@group.Name</span>
-        </div>
-        <div class="list-row">
-            <span class="row-title">@T["Members"]</span>
-            @* The count is the way in to the roster. A button beside the page's name said the same
-               thing twice - once as a number and once as a word - and the number is the half somebody
-               is already reading when they want to know who is in it. *@
-            <button type="button" class="row-meta row-meta-opens" @onclick="GoToMembers">
-                @T.Format("{0} members", group.Members.Count)
-            </button>
-        </div>
-        <div class="list-row">
-            <span class="row-title">@T["Started"]</span>
-            <span class="row-meta">@group.CreatedAtUtc.LocalDateTime.ToString("dd.MM.yyyy HH:mm")</span>
-        </div>
-        <div class="list-row">
-            <span class="row-title">@T["Your role"]</span>
-            <span class="row-meta">@(group.OwnRole == AdminRole ? T["Admin"] : T["Member"])</span>
-        </div>
+        <Row Title="@T["Name"]">
+            <Trailing><span class="row-meta">@group.Name</span></Trailing>
+        </Row>
+        <Row Title="@T["Members"]">
+            <Trailing>
+                @* The count is the way in to the roster. A button beside the page's name said the same
+                   thing twice - once as a number and once as a word - and the number is the half somebody
+                   is already reading when they want to know who is in it. *@
+                <button type="button" class="row-meta row-meta-opens" @onclick="GoToMembers">
+                    @T.Format("{0} members", group.Members.Count)
+                </button>
+            </Trailing>
+        </Row>
+        <Row Title="@T["Started"]">
+            <Trailing><span class="row-meta">@group.CreatedAtUtc.LocalDateTime.ToString("dd.MM.yyyy HH:mm")</span></Trailing>
+        </Row>
+        <Row Title="@T["Your role"]">
+            <Trailing><span class="row-meta">@(group.OwnRole == AdminRole ? T["Admin"] : T["Member"])</span></Trailing>
+        </Row>
     </div>
 }
 

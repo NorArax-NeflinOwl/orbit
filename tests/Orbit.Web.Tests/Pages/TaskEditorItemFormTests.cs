@@ -89,6 +89,25 @@ public sealed class TaskEditorItemFormTests : OrbitTestContext
     }
 
     /// <summary>
+    /// An entry's own address - "/tasks/{listId}/items/{itemId}/edit" - lands on the list's form with
+    /// that one entry already unfolded, the same as the toggle does by hand. See TaskItemSummary's and
+    /// TaskListChecklist's GoTo*, the two places that link here now that this is a route rather than a
+    /// query string nobody else could point at.
+    /// </summary>
+    [Fact]
+    public void The_entrys_own_address_opens_it_already_unfolded()
+    {
+        RegisterApiClients(AnItem());
+
+        var cut = RenderComponent<TaskEditor>(parameters => parameters
+            .Add(editor => editor.Id, TaskListId)
+            .Add(editor => editor.ItemToOpen, ItemId));
+
+        var details = cut.Find(".editor-item-details").TextContent;
+        Assert.Contains("Due date", details);
+    }
+
+    /// <summary>
     /// An appointment already says when it is, in the event's own start and end. Asking it for a due
     /// date as well left two answers to one question, and nothing saying which the calendar reads.
     /// </summary>

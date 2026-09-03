@@ -107,6 +107,35 @@ public sealed class WarehousesTests : OrbitTestContext
         Assert.DoesNotContain("Share", ActionsOf(cut));
     }
 
+    /// <summary>
+    /// A share below CanEdit still opens the shelf to be looked at, but nothing there can be saved, so
+    /// the card's menu says "View" rather than promising an Edit that will refuse - the same rule
+    /// Notes.razor's own card already follows.
+    /// </summary>
+    [Fact]
+    public void A_read_only_share_offers_View_instead_of_Edit()
+    {
+        RegisterApiClients([Warehouse("Pantry", isShared: true, sharedByUserName: "Anna", accessLevel: "ReadOnly")]);
+
+        var cut = RenderComponent<Web.Pages.Warehouses>();
+        var actions = ActionsOf(cut);
+
+        Assert.Contains("View", actions);
+        Assert.DoesNotContain("Edit", actions);
+    }
+
+    /// <summary>A share granted CanEdit still says "Edit": there is something to save, and the card
+    /// promises exactly that.</summary>
+    [Fact]
+    public void A_share_granted_CanEdit_still_offers_Edit()
+    {
+        RegisterApiClients([Warehouse("Pantry", isShared: true, sharedByUserName: "Anna", accessLevel: "CanEdit")]);
+
+        var cut = RenderComponent<Web.Pages.Warehouses>();
+
+        Assert.Contains("Edit", ActionsOf(cut));
+    }
+
     [Fact]
     public void A_warehouse_somebody_else_is_editing_says_so()
     {
@@ -130,29 +159,20 @@ public sealed class WarehousesTests : OrbitTestContext
         Assert.EndsWith($"/inventory/{pantry.Id}", navigationManager.Uri);
     }
 
+    /// <summary>
+    /// Making one is a named address now, the same as every other object - see WarehouseEditor's
+    /// "/inventory/new" route. A warehouse used to be made in a box right here instead.
+    /// </summary>
     [Fact]
-    public void Creating_one_is_offered_but_not_until_it_has_a_name()
+    public void Adding_one_opens_its_own_form()
     {
         RegisterApiClients([]);
+        var navigationManager = Services.GetRequiredService<NavigationManager>();
         var cut = RenderComponent<Web.Pages.Warehouses>();
 
         cut.Find(".page-add").Click();
 
-        var create = cut.FindAll(".warehouse-create-row button").First(button => button.TextContent.Trim() == "Create");
-        Assert.True(create.HasAttribute("disabled"));
-    }
-
-    [Fact]
-    public void A_named_warehouse_can_be_created()
-    {
-        RegisterApiClients([]);
-        var cut = RenderComponent<Web.Pages.Warehouses>();
-        cut.Find(".page-add").Click();
-
-        cut.Find("#newWarehouseNameInput").Input("Cellar");
-
-        var create = cut.FindAll(".warehouse-create-row button").First(button => button.TextContent.Trim() == "Create");
-        Assert.False(create.HasAttribute("disabled"));
+        Assert.EndsWith("/inventory/new", navigationManager.Uri);
     }
 
     /// <summary>

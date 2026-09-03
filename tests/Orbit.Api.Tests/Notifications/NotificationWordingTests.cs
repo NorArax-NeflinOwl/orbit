@@ -122,6 +122,7 @@ public sealed class NotificationWordingTests
                     new InMemoryPushSubscriptionRepository(), [], NullLogger<PushNotificationDispatcher>.Instance),
                 userRepository,
                 new RecordingEmailSender(),
+                new FixedWebClientLinks(),
                 NullLogger<SharedItemNotifier>.Instance);
 
             var recipientId = Guid.NewGuid();

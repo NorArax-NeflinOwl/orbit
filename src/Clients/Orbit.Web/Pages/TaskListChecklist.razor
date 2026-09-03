@@ -39,66 +39,25 @@ else if (_sections.Count == 0)
 }
 else
 {
-    <div class="page-header">
-        <div>
-            <h1>@Written(_sections[0].TaskList.Title)</h1>
-            <p class="page-subtitle">
-                @if (_sections[0].TaskList.IsGroup)
-                {
-                    <text>@T.Format("Group list - {0} linked {1} shown below.", _sections.Count - 1, _sections.Count == 2 ? T["list"] : T["lists"])</text>
-                }
-                else
-                {
-                    <text>@T["Tick items off; use Edit to change the list itself."]</text>
-                }
-            </p>
-        </div>
-        <div class="page-header-actions">
-            @* Everything this screen offers that is not "tick something off" - one menu rather than a
-               row of buttons and a dropdown, because none of it is what somebody came here to do. It
-               stays open while they set how the page reads, and the entries that act close it. *@
-            <OverflowMenu @ref="_menu" StaysOpen="true">
-                <span class="overflow-menu-heading">@T["Sort"]</span>
-                @* What order to read the items in. Offered whatever the list looks like: a single long
-                   list is exactly where reading it off alphabetically helps. *@
-                @foreach (var order in Enum.GetValues<ChecklistOrder>())
-                {
-                    <button type="button" class="avatar-dropdown-item @(order == _reading.Order ? "chosen" : "")"
-                            @onclick="() => SetOrder(order)">
-                        <span class="card-filter-mark">@(order == _reading.Order ? "✓" : "")</span>
-                        @DescribeOrder(order)
-                    </button>
-                }
+@* Two panels, as every screen that reads one object has: the list on the left, and the panel that does
+   not scroll on the right - see EditorRail. No Save: a tick is written the moment it is made, which is
+   what a checklist is for. *@
+<div class="editor-page">
+<div class="editor-page-body">
 
-                <span class="overflow-menu-heading">@T["This list"]</span>
-                @* Only for a tree deep enough to be worth flattening. A group whose members are plain
-                   lists already reads as one page with headings; the choice is what a nested one needs. *@
-                @if (HasNestedLists)
-                {
-                    <button type="button" class="avatar-dropdown-item" @onclick="ToggleView">
-                        @(_reading.View == ChecklistView.Flat ? T["Show the lists"] : T["Show single items"])
-                    </button>
-                }
-                <button type="button" class="avatar-dropdown-item" disabled="@(_savedReading == _reading)"
-                        @onclick="SaveViewAsync">
-                    @(_savedReading == _reading ? T["View saved"] : T["Save view"])
-                </button>
-                <button type="button" class="avatar-dropdown-item" @onclick="GoToDeepEditor">@T["Edit"]</button>
-                @* One button where "Generate inventory" and "Recalculate against the inventory" used to
-                   be. Both did half of something else - one made a warehouse out of a list, the other
-                   counted a list against one - and neither answered the question somebody has in front
-                   of a restock list, which is "is this still what I need?". Offered only there, since
-                   that is the only list Orbit maintains. *@
-                @if (IsARestockList)
-                {
-                    <button type="button" class="avatar-dropdown-item" disabled="@_isWorkingOnInventory"
-                            @onclick="RefreshFromTheWarehouseAsync">
-                        @T["Refresh"]
-                    </button>
-                }
-            </OverflowMenu>
-        </div>
-    </div>
+    <PageHeader>
+        <Title>@Written(_sections[0].TaskList.Title)</Title>
+        <Subtitle>
+            @if (_sections[0].TaskList.IsGroup)
+            {
+                <text>@T.Format("Group list - {0} linked {1} shown below.", _sections.Count - 1, _sections.Count == 2 ? T["list"] : T["lists"])</text>
+            }
+            else
+            {
+                <text>@T["Tick items off; use Edit to change the list itself."]</text>
+            }
+        </Subtitle>
+    </PageHeader>
 
     @if (_errorMessage is not null)
     {
@@ -338,6 +297,54 @@ else
         </div>
     }
     }
+
+</div>
+@* Everything this screen offers that is not "tick something off" - one menu rather than a row of
+   buttons, because none of it is what somebody came here to do. It stays open while they set how the
+   page reads, and the entries that act close it. *@
+<EditorRail OnCancel="GoToTaskLists">
+    <OverflowMenu @ref="_menu" StaysOpen="true">
+        <span class="overflow-menu-heading">@T["Sort"]</span>
+        @* What order to read the items in. Offered whatever the list looks like: a single long
+           list is exactly where reading it off alphabetically helps. *@
+        @foreach (var order in Enum.GetValues<ChecklistOrder>())
+        {
+            <button type="button" class="avatar-dropdown-item @(order == _reading.Order ? "chosen" : "")"
+                    @onclick="() => SetOrder(order)">
+                <span class="card-filter-mark">@(order == _reading.Order ? "✓" : "")</span>
+                @DescribeOrder(order)
+            </button>
+        }
+
+        <span class="overflow-menu-heading">@T["This list"]</span>
+        @* Only for a tree deep enough to be worth flattening. A group whose members are plain
+           lists already reads as one page with headings; the choice is what a nested one needs. *@
+        @if (HasNestedLists)
+        {
+            <button type="button" class="avatar-dropdown-item" @onclick="ToggleView">
+                @(_reading.View == ChecklistView.Flat ? T["Show the lists"] : T["Show single items"])
+            </button>
+        }
+        <button type="button" class="avatar-dropdown-item" disabled="@(_savedReading == _reading)"
+                @onclick="SaveViewAsync">
+            @(_savedReading == _reading ? T["View saved"] : T["Save view"])
+        </button>
+        <button type="button" class="avatar-dropdown-item" @onclick="GoToDeepEditor">@T["Edit"]</button>
+        @* One button where "Generate inventory" and "Recalculate against the inventory" used to
+           be. Both did half of something else - one made a warehouse out of a list, the other
+           counted a list against one - and neither answered the question somebody has in front
+           of a restock list, which is "is this still what I need?". Offered only there, since
+           that is the only list Orbit maintains. *@
+        @if (IsARestockList)
+        {
+            <button type="button" class="avatar-dropdown-item" disabled="@_isWorkingOnInventory"
+                    @onclick="RefreshFromTheWarehouseAsync">
+                @T["Refresh"]
+            </button>
+        }
+    </OverflowMenu>
+</EditorRail>
+</div>
 }
 
 @code {
@@ -678,7 +685,7 @@ else
     /// and this is the way there from the line itself.
     /// </summary>
     private void GoToEditItem(Guid taskListId, Guid itemId)
-        => NavigationManager.NavigateTo($"/tasks/{taskListId}/edit?item={itemId}");
+        => NavigationManager.NavigateTo($"/tasks/{taskListId}/items/{itemId}/edit");
 
     /// <summary>Whether this entry is ordinary work rather than an appointment or a restock errand.</summary>
     private static bool IsAChecklistEntry(TaskItemDto item)

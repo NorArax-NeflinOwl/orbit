@@ -1,6 +1,7 @@
 @* One click further in than the shelf itself, the way a task list's editor is - see
    WarehouseSummary.razor, which is what opening a warehouse lands on. *@
 @page "/inventory/{WarehouseId:guid}/edit"
+@page "/inventory/new"
 @attribute [Authorize]
 @implements IAsyncDisposable
 @using Orbit.Contracts.Inventory
@@ -17,7 +18,7 @@
 @inject ILogger<WarehouseEditor> Logger
 @inject Translations T
 
-<PageTitle>@(_formModel.Name.Length > 0 ? _formModel.Name : T["Warehouse"])</PageTitle>
+<PageTitle>@PageHeading</PageTitle>
 
 @if (_isLoading)
 {
@@ -30,16 +31,15 @@ else
 <div class="editor-page">
 <div class="editor-page-body">
 
-    <div class="page-header">
-        <div>
-            <h1>@(_formModel.Name.Length > 0 ? _formModel.Name : T["Warehouse"])</h1>
-            <p class="page-subtitle">@T["Everything in this warehouse, edited together - a low item still raises a restock task."]</p>
-            @if (_isShared)
-            {
-                <p class="shared-note-banner">@T["Shared by"]@Space<strong>@_sharedByUserName</strong> - @SharedAccessDescription.</p>
-            }
-        </div>
-    </div>
+    <PageHeader>
+        <Title>@PageHeading</Title>
+        <Subtitle>@T["Everything in this warehouse, edited together - a low item still raises a restock task."]</Subtitle>
+    </PageHeader>
+
+    @if (_isShared)
+    {
+        <p class="shared-note-banner">@T["Shared by"]@Space<strong>@_sharedByUserName</strong> - @SharedAccessDescription.</p>
+    }
 
     @* Submitting this form adds a row rather than saving it. Enter is what somebody filling a shelf
        presses between items, and it used to save the warehouse and leave the page instead - so the
@@ -222,10 +222,18 @@ else
             </fieldset>
         </div>
 
-        <h2>@T["Link"]</h2>
-        <ShareLinkButton ItemType="Warehouse" ItemId="WarehouseId" />
+        @if (!IsNewWarehouse)
+        {
+            <h2>@T["Link"]</h2>
+            <ShareLinkButton ItemType="Warehouse" ItemId="WarehouseId!.Value" />
+        }
     }
 
+    @* Both of these are about a shelf that already exists - what asks for it, and what it asks back -
+       so neither means anything yet for one still being named. They appear the moment Save has made
+       one of it: opening the new warehouse's own edit page again offers both. *@
+    @if (!IsNewWarehouse)
+    {
     @* Which lists are measured against this shelf. The same tie a task list's own editor offers from
        its end - said from here as well because a store is opened as often as a list is, and somebody
        standing in the pantry is thinking about which jobs it serves rather than the other way round.
@@ -302,10 +310,11 @@ else
                     @onclick="RefreshRestockListAsync">@T["Refresh"]</button>
         </div>
     </div>
+    }
 
 </div>
 <EditorRail OnSave="SaveAsync" OnCancel="GoToWarehouses"
-            SaveDisabled="@(_isReadOnly || _lockedByUserName is not null || _isSaving)">
+            SaveDisabled="@(_isReadOnly || _lockedByUserName is not null || _isSaving || _formModel.Name.Trim().Length == 0)">
     @* Beside the button that failed rather than at the end of a shelf that is taller than the screen:
        a save that did not happen and a warehouse somebody else is holding are both answers to "why has
        Save done nothing", and an answer nobody scrolls to is not one. *@
@@ -327,7 +336,18 @@ else
 
 @code {
     [Parameter]
-    public Guid WarehouseId { get; set; }
+    public Guid? WarehouseId { get; set; }
+
+    /// <summary>Absent on "/inventory/new" - see IsNewWarehouse.</summary>
+    private bool IsNewWarehouse => WarehouseId is null;
+
+    /// <summary>
+    /// The name it is called by, once it has one - the same rule this page already followed for an
+    /// existing warehouse, just with "New warehouse" standing in for "Warehouse" while nothing has been
+    /// typed yet, since there is no saved shelf underneath this one for that word to mean.
+    /// </summary>
+    private string PageHeading
+        => _formModel.Name.Length > 0 ? _formModel.Name : (IsNewWarehouse ? T["New warehouse"] : T["Warehouse"]);
 
     /// <summary>
     /// One item to draw attention to, when this page was opened by following a reference to it - see
@@ -395,9 +415,18 @@ else
             Logger.LogWarning(exception, "Failed to load notification settings");
         }
 
+        // Nothing below means anything yet: there is no warehouse to read, lock, share, or measure a
+        // list against - see PageHeading and every "!IsNewWarehouse" section below for what waits for
+        // the first Save.
+        if (IsNewWarehouse)
+        {
+            _isLoading = false;
+            return;
+        }
+
         try
         {
-            var warehouse = await InventoryApiClient.GetWarehouseByIdAsync(WarehouseId);
+            var warehouse = await InventoryApiClient.GetWarehouseByIdAsync(WarehouseId!.Value);
             if (warehouse is null)
             {
                 NavigationManager.NavigateTo("/inventory");
@@ -409,7 +438,7 @@ else
             _access = SharedItemAccess.For(warehouse.IsShared, warehouse.AccessLevel);
             _isReadOnly = !_access.CanEdit;
 
-            var items = await InventoryApiClient.GetInventoryItemsAsync(WarehouseId) ?? [];
+            var items = await InventoryApiClient.GetInventoryItemsAsync(WarehouseId.Value) ?? [];
             _formModel = WarehouseFormModel.FromDto(warehouse, items);
 
             if (!_isReadOnly)
@@ -504,7 +533,7 @@ else
     {
         try
         {
-            if (await InventoryApiClient.GetRestockListSettingsAsync(WarehouseId) is { } settings)
+            if (await InventoryApiClient.GetRestockListSettingsAsync(WarehouseId!.Value) is { } settings)
             {
                 _restockSettings = RestockSettingsFormModel.FromDto(settings);
             }
@@ -517,10 +546,10 @@ else
 
     private async Task SaveRestockSettingsAsync()
         => await RunOnTheRestockListAsync(
-            () => InventoryApiClient.SaveRestockListSettingsAsync(WarehouseId, _restockSettings.ToDto()));
+            () => InventoryApiClient.SaveRestockListSettingsAsync(WarehouseId!.Value, _restockSettings.ToDto()));
 
     private async Task RefreshRestockListAsync()
-        => await RunOnTheRestockListAsync(() => InventoryApiClient.RefreshRestockListAsync(WarehouseId));
+        => await RunOnTheRestockListAsync(() => InventoryApiClient.RefreshRestockListAsync(WarehouseId!.Value));
 
     /// <summary>
     /// Both buttons do the same thing to this page: work, then say what moved. Nothing moving is said
@@ -724,17 +753,24 @@ else
         _isSaving = true;
         try
         {
-            var outcome = await InventoryApiClient.UpdateWarehouseAsync(WarehouseId, _formModel.ToRequest());
-            if (outcome.Kind == EditOutcomeKind.Locked)
+            if (IsNewWarehouse)
             {
-                _lockedByUserName = outcome.LockedByUserName;
-                return;
+                await InventoryApiClient.CreateWarehouseAsync(_formModel.ToRequest());
             }
-
-            if (outcome.Kind == EditOutcomeKind.NotFound)
+            else
             {
-                _saveErrorMessage = T["Failed to save the warehouse. Try again."];
-                return;
+                var outcome = await InventoryApiClient.UpdateWarehouseAsync(WarehouseId!.Value, _formModel.ToRequest());
+                if (outcome.Kind == EditOutcomeKind.Locked)
+                {
+                    _lockedByUserName = outcome.LockedByUserName;
+                    return;
+                }
+
+                if (outcome.Kind == EditOutcomeKind.NotFound)
+                {
+                    _saveErrorMessage = T["Failed to save the warehouse. Try again."];
+                    return;
+                }
             }
         }
         catch (HttpRequestException exception) when (exception.StatusCode == HttpStatusCode.Unauthorized)
@@ -760,7 +796,7 @@ else
     {
         try
         {
-            var outcome = await InventoryApiClient.AcquireWarehouseLockAsync(WarehouseId);
+            var outcome = await InventoryApiClient.AcquireWarehouseLockAsync(WarehouseId!.Value);
             _lockedByUserName = outcome.Kind == EditOutcomeKind.Locked ? outcome.LockedByUserName : null;
         }
         catch (HttpRequestException exception) when (exception.StatusCode == HttpStatusCode.Unauthorized)
@@ -773,14 +809,14 @@ else
     private async Task ReleaseLockAsync()
     {
         StopLockHeartbeat();
-        if (_isReadOnly)
+        if (IsNewWarehouse || _isReadOnly)
         {
             return;
         }
 
         try
         {
-            await InventoryApiClient.ReleaseWarehouseLockAsync(WarehouseId);
+            await InventoryApiClient.ReleaseWarehouseLockAsync(WarehouseId!.Value);
         }
         catch (HttpRequestException)
         {

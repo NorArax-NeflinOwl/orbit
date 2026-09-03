@@ -18,26 +18,16 @@
 
 <PageTitle>@T["Orbit — Inventory"]</PageTitle>
 
-<div class="page-header">
-    <div class="page-heading">
+<PageHeader>
+    <LeadingAction>
         <button type="button" class="icon-btn page-add" title="@(T["Add warehouse"])"
-                aria-label="@(T["Add warehouse"])" @onclick="StartCreating">
+                aria-label="@(T["Add warehouse"])" @onclick="GoToAddWarehouse">
             <svg viewBox="0 0 20 20" width="18" height="18" aria-hidden="true" fill="none"
                  stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M10 4v12M4 10h12" /></svg>
         </button>
-        <h1>@T["Inventory"]</h1>
-    </div>
-</div>
-
-@if (_isCreating)
-{
-    <div class="card warehouse-create-row">
-        <input id="newWarehouseNameInput" placeholder="@(T["Warehouse name"])" @bind="_newWarehouseName" @bind:event="oninput"
-               @onkeydown="OnNewWarehouseKeyDownAsync" />
-        <button class="btn-primary" disabled="@(_isSaving || _newWarehouseName.Trim().Length == 0)" @onclick="CreateWarehouseAsync">@T["Create"]</button>
-        <button class="btn-secondary" @onclick="CancelCreating">@T["Cancel"]</button>
-    </div>
-}
+    </LeadingAction>
+    <Title>@T["Inventory"]</Title>
+</PageHeader>
 
 @if (_errorMessage is not null)
 {
@@ -77,27 +67,20 @@
                part that is a link: the name only says what was found. *@
             @foreach (var match in _itemMatches)
             {
-                <button type="button" class="list-row list-row-button" @onclick="() => OpenWarehouse(match.WarehouseId)">
-                    <span class="row-title">@match.Name</span>
-                    <span class="row-meta">@match.Amount</span>
-                    <span class="row-meta warehouse-search-where">@match.WarehouseName</span>
-                </button>
+                <Row Title="@match.Name" OnPressed="() => OpenWarehouse(match.WarehouseId)">
+                    <Trailing>
+                        <span class="row-meta">@match.Amount</span>
+                        <span class="row-meta warehouse-search-where">@match.WarehouseName</span>
+                    </Trailing>
+                </Row>
             }
         </div>
         <p class="empty-hint">@ItemMatchSummary</p>
     }
 }
 
-@if (_warehouses is null)
-{
-    <p>@T["Loading…"]</p>
-}
-else if (_warehouses.Count == 0)
-{
-    <p>@T["No warehouses yet. Create one to start tracking stock."]</p>
-}
-else
-{
+<ObjectList IsLoading="_warehouses is null" IsEmpty="_warehouses is { Count: 0 }"
+            EmptyMessage="@T["No warehouses yet. Create one to start tracking stock."]">
     <div class="item-card-list">
         @foreach (var warehouse in ArrangedWarehouses)
         {
@@ -111,20 +94,12 @@ else
                                          CanMoveUp="CanMoveCard(warehouse, -1)" CanMoveDown="CanMoveCard(warehouse, 1)" />
                     </Handle>
                     <Menu>
-                        <OverflowMenu>
-                            @* The card opens the shelf to be read; changing what is on it is a named
-                               press, the same as a task list's. *@
-                            <button type="button" class="avatar-dropdown-item"
-                                    @onclick="() => EditWarehouse(warehouse.Id)">@T["Edit"]</button>
-                            @if (CanShare(warehouse))
-                            {
-                                <button type="button" class="avatar-dropdown-item" @onclick="() => ToggleSharePanel(warehouse.Id)">@T["Share"]</button>
-                            }
-                            @if (!warehouse.IsShared)
-                            {
-                                <button type="button" class="avatar-dropdown-item" @onclick="() => DeleteWarehouseAsync(warehouse)">@T["Delete"]</button>
-                            }
-                        </OverflowMenu>
+                        @* The card opens the shelf to be read; changing what is on it is a named press,
+                           the same as a task list's - unless a share below CanEdit means there is
+                           nothing to press it into changing, the same question Notes.razor asks. *@
+                        <ObjectMenu EditLabel="@(CanBeChanged(warehouse) ? T["Edit"] : T["View"])" OnEdit="() => EditWarehouse(warehouse.Id)"
+                                    ShareLabel="@(CanShare(warehouse) ? T["Share"] : null)" OnShare="() => ToggleSharePanel(warehouse.Id)"
+                                    DeleteLabel="@(!warehouse.IsShared ? T["Delete"] : null)" OnDelete="() => DeleteWarehouseAsync(warehouse)" />
                     </Menu>
                     <Tags>
                         @if (warehouse.IsPrivate)
@@ -187,7 +162,7 @@ else
             </div>
         }
     </div>
-}
+</ObjectList>
 
 @code {
     private IReadOnlyList<WarehouseDto>? _warehouses;
@@ -216,10 +191,6 @@ else
     /// <summary>One thing found, and where it is.</summary>
     /// <param name="Amount">Already written for reading - see AmountOf.</param>
     private sealed record ItemMatch(Guid WarehouseId, string WarehouseName, string Name, string Amount);
-
-    private bool _isCreating;
-    private string _newWarehouseName = string.Empty;
-    private bool _isSaving;
 
     /// <summary>Which warehouse's inline share panel is open, if any - only one at a time.</summary>
     private Guid? _sharePanelWarehouseId;
@@ -268,6 +239,12 @@ else
             ? _contacts.Where(contact => contact.UserId != ownerUserId).ToList()
             : _contacts;
 
+    /// <summary>Whether this reader may actually change the shelf - the owner, or a share granted at
+    /// least EditOnly. Mirrors NoteSummary's own rung-2 check, which asks the same question of the
+    /// note it has open.</summary>
+    private static bool CanBeChanged(WarehouseDto warehouse)
+        => SharedItemAccess.For(warehouse.IsShared, warehouse.AccessLevel).CanEdit;
+
     /// <summary>Mirrors ShareWarehouseCommandHandler's own rule, so the button isn't offered for a share that would be rejected.</summary>
     /// <summary>
     /// A private warehouse can never be shared - the server refuses it, so offering the button would
@@ -287,50 +264,7 @@ else
     private string AccessDescription(string accessLevel)
         => T[SharedItemAccess.For(isShared: true, accessLevel).Description];
 
-    private void StartCreating()
-    {
-        _isCreating = true;
-        _newWarehouseName = string.Empty;
-    }
-
-    private void CancelCreating()
-    {
-        _isCreating = false;
-        _newWarehouseName = string.Empty;
-    }
-
-    private async Task OnNewWarehouseKeyDownAsync(KeyboardEventArgs args)
-    {
-        if (args.Key == "Enter" && _newWarehouseName.Trim().Length > 0)
-        {
-            await CreateWarehouseAsync();
-        }
-    }
-
-    private async Task CreateWarehouseAsync()
-    {
-        _isSaving = true;
-        _errorMessage = null;
-        try
-        {
-            await InventoryApiClient.CreateWarehouseAsync(new SaveWarehouseRequest(_newWarehouseName.Trim(), []));
-            _warehouses = await InventoryApiClient.GetWarehousesAsync();
-            CancelCreating();
-        }
-        catch (HttpRequestException exception) when (exception.StatusCode == HttpStatusCode.Unauthorized)
-        {
-            NavigationManager.NavigateTo("/login");
-        }
-        catch (HttpRequestException exception)
-        {
-            Logger.LogError(exception, "Failed to create a warehouse");
-            _errorMessage = T["Failed to create the warehouse. Try again."];
-        }
-        finally
-        {
-            _isSaving = false;
-        }
-    }
+    private void GoToAddWarehouse() => NavigationManager.NavigateTo("/inventory/new");
 
     private void OpenWarehouse(Guid warehouseId) => NavigationManager.NavigateTo($"/inventory/{warehouseId}");
 

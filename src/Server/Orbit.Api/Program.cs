@@ -159,6 +159,10 @@ try
     builder.Services.AddSingleton<IEmailSender, SmtpEmailSender>();
     builder.Services.AddHostedService<CalendarEventReminderBackgroundService>();
 
+    // The address a shared-item email's link points at - see IWebClientLinks. Optional: unset (the
+    // common case on a fresh local checkout) just means an email that shared item sends carries no link.
+    builder.Services.AddSingleton<IWebClientLinks, WebClientLinks>();
+
     // Push notifications for approaching events (above), new chat messages (see
     // SendMessageCommandHandler) and overdue tasks (below). VapidPushNotificationSender itself just
     // logs a warning and skips sending when Vapid:PublicKeyBase64Url/PrivateKeyBase64Url/Subject aren't

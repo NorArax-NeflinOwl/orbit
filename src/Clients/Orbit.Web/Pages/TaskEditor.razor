@@ -2,6 +2,11 @@
 @* The deep level has to be asked for by name. "/tasks/{id}" is the checklist - see TaskListChecklist,
    and see Tasks.razor's card for the two ways in. *@
 @page "/tasks/{Id:guid}/edit"
+@* An entry's own address, so opening one to change it is a link like every other object's rung 4 -
+   see TaskItemSummary and TaskListChecklist.GoToEditItem, the two places that land here. Still the
+   list's own form under it: an entry is not something this app edits apart from the list it is on,
+   only something it can now be asked to open already unfolded. *@
+@page "/tasks/{Id:guid}/items/{ItemToOpen:guid}/edit"
 @attribute [Authorize]
 @implements IAsyncDisposable
 @using System.Text.Json
@@ -42,11 +47,9 @@
 <div class="editor-page">
 <div class="editor-page-body">
 
-<div class="page-header">
-    <div>
-        <h1>@(IsNewTaskList ? T["New task list"] : T["Edit task list"])</h1>
-    </div>
-</div>
+<PageHeader>
+    <Title>@(IsNewTaskList ? T["New task list"] : T["Edit task list"])</Title>
+</PageHeader>
 
 @if (_inventoryMessage is not null)
 {
@@ -862,10 +865,11 @@ else
     }
 
     /// <summary>
-    /// Which entry to open on, when the checklist sent somebody here to change one - see
-    /// TaskListChecklist's GoToEditItem. Absent when the editor was opened for the list as a whole.
+    /// Which entry to open on, when somewhere else sent the reader here to change one rather than the
+    /// list as a whole - see TaskListChecklist's GoToEditItem and TaskItemSummary's GoToEditor. Absent
+    /// when the editor was opened for the list itself.
     /// </summary>
-    [SupplyParameterFromQuery(Name = "item")]
+    [Parameter]
     public Guid? ItemToOpen { get; set; }
 
     /// <summary>
