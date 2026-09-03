@@ -2909,14 +2909,6 @@ input.note-editor-title {
     padding-top: 12px;
 }
 
-.warehouse-create-row {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 8px;
-    align-items: center;
-    margin-bottom: 12px;
-}
-
 /* Inventory.razor's header keeps two buttons side by side now ("All warehouses" plus "Add item"). */
 .page-header-actions {
     display: flex;

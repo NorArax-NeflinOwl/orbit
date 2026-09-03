@@ -21,23 +21,13 @@
 <PageHeader>
     <LeadingAction>
         <button type="button" class="icon-btn page-add" title="@(T["Add warehouse"])"
-                aria-label="@(T["Add warehouse"])" @onclick="StartCreating">
+                aria-label="@(T["Add warehouse"])" @onclick="GoToAddWarehouse">
             <svg viewBox="0 0 20 20" width="18" height="18" aria-hidden="true" fill="none"
                  stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M10 4v12M4 10h12" /></svg>
         </button>
     </LeadingAction>
     <Title>@T["Inventory"]</Title>
 </PageHeader>
-
-@if (_isCreating)
-{
-    <div class="card warehouse-create-row">
-        <input id="newWarehouseNameInput" placeholder="@(T["Warehouse name"])" @bind="_newWarehouseName" @bind:event="oninput"
-               @onkeydown="OnNewWarehouseKeyDownAsync" />
-        <button class="btn-primary" disabled="@(_isSaving || _newWarehouseName.Trim().Length == 0)" @onclick="CreateWarehouseAsync">@T["Create"]</button>
-        <button class="btn-secondary" @onclick="CancelCreating">@T["Cancel"]</button>
-    </div>
-}
 
 @if (_errorMessage is not null)
 {
@@ -209,10 +199,6 @@ else
     /// <param name="Amount">Already written for reading - see AmountOf.</param>
     private sealed record ItemMatch(Guid WarehouseId, string WarehouseName, string Name, string Amount);
 
-    private bool _isCreating;
-    private string _newWarehouseName = string.Empty;
-    private bool _isSaving;
-
     /// <summary>Which warehouse's inline share panel is open, if any - only one at a time.</summary>
     private Guid? _sharePanelWarehouseId;
 
@@ -285,50 +271,7 @@ else
     private string AccessDescription(string accessLevel)
         => T[SharedItemAccess.For(isShared: true, accessLevel).Description];
 
-    private void StartCreating()
-    {
-        _isCreating = true;
-        _newWarehouseName = string.Empty;
-    }
-
-    private void CancelCreating()
-    {
-        _isCreating = false;
-        _newWarehouseName = string.Empty;
-    }
-
-    private async Task OnNewWarehouseKeyDownAsync(KeyboardEventArgs args)
-    {
-        if (args.Key == "Enter" && _newWarehouseName.Trim().Length > 0)
-        {
-            await CreateWarehouseAsync();
-        }
-    }
-
-    private async Task CreateWarehouseAsync()
-    {
-        _isSaving = true;
-        _errorMessage = null;
-        try
-        {
-            await InventoryApiClient.CreateWarehouseAsync(new SaveWarehouseRequest(_newWarehouseName.Trim(), []));
-            _warehouses = await InventoryApiClient.GetWarehousesAsync();
-            CancelCreating();
-        }
-        catch (HttpRequestException exception) when (exception.StatusCode == HttpStatusCode.Unauthorized)
-        {
-            NavigationManager.NavigateTo("/login");
-        }
-        catch (HttpRequestException exception)
-        {
-            Logger.LogError(exception, "Failed to create a warehouse");
-            _errorMessage = T["Failed to create the warehouse. Try again."];
-        }
-        finally
-        {
-            _isSaving = false;
-        }
-    }
+    private void GoToAddWarehouse() => NavigationManager.NavigateTo("/inventory/new");
 
     private void OpenWarehouse(Guid warehouseId) => NavigationManager.NavigateTo($"/inventory/{warehouseId}");
 
