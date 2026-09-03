@@ -70,7 +70,7 @@ public sealed class InventoryTaskListCoordinatorTests
     }
 
     [Fact]
-    public async Task EnsureManagedTaskListAsync_returns_null_for_a_inventory_that_no_longer_exists()
+    public async Task EnsureManagedTaskListAsync_returns_null_for_an_inventory_that_no_longer_exists()
     {
         var context = new InventoryTestContext();
 

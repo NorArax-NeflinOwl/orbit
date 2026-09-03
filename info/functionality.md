@@ -810,8 +810,14 @@ was - and the consequences reached further than the pin. A calendar entry's even
 place at all, and worse, an entry that *already had* an event sent "no place" back on every save, so
 editing a task list's colour or its day erased a location somebody had set in the calendar. The web
 editor now reads the linked event's location into the form along with every other field it already read
-back, and the phone - which has no map to offer and so cannot set a place - carries the one it loaded
-through untouched rather than writing a blank over it (`TaskItemEventForm.PlaceItAlreadyHad`).
+back, and so does the phone: the entry's editor loads the event's address *and* its coordinates
+(`TaskItemEditor.Location`, `LocationLatitude`, `LocationLongitude`), and sends the pair back as one
+`EventPlace` - both or neither, since an address without a point cannot be stored on an event.
+
+The phone has its own map for this now (`IPlacePicker`, drawn by `PlacePickerPage`, offered as
+**Show map** beside the box exactly as Orbit.Web offers it). It asks the same question before it
+answers: nothing is written back until the pin is confirmed, and a cancelled pick leaves what was
+loaded alone rather than writing a blank over it.
 
 **A name nobody pointed at stays a name.** Typing "the back entrance" and never opening the map leaves
 the entry with a label and the event with no place, and the editor says so under the box rather than
@@ -930,6 +936,14 @@ per list it stands for and each one opens that list - the same chips an inventor
 its shelf. A group list is nothing but such entries, and its screen used to be a dead end: the work it
 gathers was one tap away in the browser and unreachable here. A list this phone does not hold offers no
 chip, because a chip that leads nowhere is worse than none.
+
+**A new entry brings itself into view on the phone.** Its checklist shares a screen with everything the
+list itself carries - the two switches, the priority, "Can this be done?", the sharing - so it is drawn
+in whatever room is left rather than growing with the list, and an entry added to a list already
+filling that room landed below the fold. The only other sign was the box clearing, which is exactly
+what a tap that missed looks like, so the same entry got added twice. The screen now says which row the
+add made (`TaskListDetailViewModel.RowJustAdded`) and the page scrolls to it, the way the shelf screen
+brings a pointed-at product into view.
 
 **The phone files entries the same way and looks for them the same way.** The entry's form carries the
 same comma-separated box, each row on a list shows what it is filed under, and the tasks screen carries
@@ -1475,11 +1489,13 @@ are untouched by anything typed there** - they are what the Google Maps link and
 from, and the name is only what the place is called. The event editor offers the map's own address back
 for somebody who renamed a place and then wanted the street after all.
 
-**The phone had already landed here**, by a different route. It has no map pin to move: a place there is
-the phone's own position, taken on purpose, and its calendar screen has always filled the name only when
-the box was empty. Its task entries carry a name and no point at all, so the map's answer has nowhere
-else to go and must land in the name - which is why the picker asks before answering rather than writing
-on every tap. What was missing was only saying so, which the screen now does.
+**The phone had already landed here**, by a different route: its calendar screen has always filled the
+name only when the box was empty, and a place taken from the phone's own position is one nobody typed a
+name for. Its *task entries* were the exception, and were so for a reason that has since expired - they
+carried a name and no point at all, so the map's answer had nowhere else to go and had to land in the
+name. Since the entry editor started carrying coordinates (`TaskItemEditor.LocationLatitude`) the pin
+has somewhere of its own to land, and the entry editor now draws the line where every other screen does:
+the position always, the words only into a box nobody has written in.
 
 ### Which build this is
 

@@ -121,7 +121,7 @@ public sealed class SharedItemNotifier : ISharedItemNotifier
         SharedItemKind.Note => "{0} shared a note with you",
         SharedItemKind.TaskList => "{0} shared a task list with you",
         SharedItemKind.CalendarEvent => "{0} shared an event with you",
-        SharedItemKind.Inventory => "{0} shared a inventory with you",
+        SharedItemKind.Inventory => "{0} shared an inventory with you",
         _ => "{0} shared their location with you"
     };
 

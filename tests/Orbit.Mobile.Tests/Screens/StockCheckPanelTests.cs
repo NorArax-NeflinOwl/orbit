@@ -46,7 +46,7 @@ public sealed class StockCheckPanelTests
     /// "everything is on the shelf" about no shelf would be untrue.
     /// </summary>
     [Fact]
-    public async Task Without_a_inventory_there_is_no_answer_at_all()
+    public async Task Without_an_inventory_there_is_no_answer_at_all()
     {
         using var context = new PanelContext();
         context.Server.StockCheck = new TaskListStockCheckDto(true, []);
@@ -58,7 +58,7 @@ public sealed class StockCheckPanelTests
     }
 
     [Fact]
-    public async Task With_a_inventory_it_says_what_is_short()
+    public async Task With_an_inventory_it_says_what_is_short()
     {
         using var context = new PanelContext();
         var inventory = await context.AddInventoryAsync("Kitchen");
@@ -274,7 +274,7 @@ public sealed class StockCheckPanelTests
     /// the screen has to be told to read it again.
     /// </summary>
     [Fact]
-    public async Task Generating_a_inventory_asks_the_screen_to_read_the_list_again()
+    public async Task Generating_an_inventory_asks_the_screen_to_read_the_list_again()
     {
         using var context = new PanelContext();
         var panel = await context.ShowAsync(isGroup: true);
@@ -299,7 +299,49 @@ public sealed class StockCheckPanelTests
         Assert.NotEmpty(panel.Message);
     }
 
-    /// <summary>"Not measured against a inventory" leads the list, as it does on the web.</summary>
+    /// <summary>
+    /// An unanswered question is asked once and then never again: the panel asks when the screen opens,
+    /// and nothing else on the card asks a second time - so a connection back a moment later left the
+    /// summary saying it could not reach anything until the reader left the list and came back. The
+    /// summary now carries a way to ask again.
+    /// </summary>
+    [Fact]
+    public async Task An_answer_that_never_came_can_be_asked_for_again()
+    {
+        using var context = new PanelContext();
+        var inventoryId = await context.AddInventoryAsync("Kitchen");
+        context.Server.StockCheck = new TaskListStockCheckDto(true, []);
+        context.Server.IsUnreachable = true;
+
+        var panel = await context.ShowAsync(isGroup: true, linkedInventoryId: inventoryId);
+
+        Assert.True(panel.CouldNotBeAnswered);
+        Assert.NotEmpty(panel.Summary);
+
+        context.Server.IsUnreachable = false;
+        await panel.AskAgainCommand.ExecuteAsync(null);
+
+        Assert.False(panel.CouldNotBeAnswered);
+        Assert.Equal("Everything this list needs is on the shelf.", panel.Summary);
+    }
+
+    /// <summary>
+    /// And only then. A panel that has its answer is not asking for another one, so a way to ask again
+    /// beside it would say the answer on screen is in doubt when it is not.
+    /// </summary>
+    [Fact]
+    public async Task An_answer_that_arrived_is_not_offered_a_second_attempt()
+    {
+        using var context = new PanelContext();
+        var inventoryId = await context.AddInventoryAsync("Kitchen");
+        context.Server.StockCheck = new TaskListStockCheckDto(true, []);
+
+        var panel = await context.ShowAsync(isGroup: true, linkedInventoryId: inventoryId);
+
+        Assert.False(panel.CouldNotBeAnswered);
+    }
+
+    /// <summary>"Not measured against an inventory" leads the list, as it does on the web.</summary>
     [Fact]
     public async Task The_inventories_offered_start_with_none()
     {

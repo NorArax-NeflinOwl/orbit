@@ -133,6 +133,13 @@ public partial class TaskListDetailPage : ContentPage
 	/// changes what the picker offers, and changing a picker's source or its selection from inside its
 	/// own change hung the app on Android - the dialog stopped answering and the screen was reported as
 	/// not responding.
+	///
+	/// The selection is let go of <em>before</em> the link is added, the order the move picker beside
+	/// this one already uses. Adding a link takes the chosen list out of what the picker offers, and a
+	/// selection still pointing past the end of the shortened list is pulled back onto whatever now sits
+	/// last - which raises this handler a second time and linked a list nobody had chosen. Choosing the
+	/// last list on offer was enough to link the one above it as well, and the entry then waited on both.
+	/// With nothing selected there is no index for the shortening to move.
 	/// </summary>
 	private void OnLinkedTaskListPicked(object? sender, EventArgs eventArgs)
 	{
@@ -143,8 +150,8 @@ public partial class TaskListDetailPage : ContentPage
 
 		Dispatcher.Dispatch(() =>
 		{
-			_viewModel.BeingEdited?.LinkToCommand.Execute(chosen);
 			picker.SelectedIndex = -1;
+			_viewModel.BeingEdited?.LinkToCommand.Execute(chosen);
 		});
 	}
 
@@ -192,6 +199,17 @@ public partial class TaskListDetailPage : ContentPage
 	/// </summary>
 	private async void OnViewModelPropertyChanged(object? sender, PropertyChangedEventArgs eventArgs)
 	{
+		// The entry the last add put on the list, brought into view. The checklist shares this screen
+		// with everything the list itself carries, so it is often drawn shorter than it is - and a new
+		// row below the fold, with a cleared box above it, looks exactly like a tap that never landed.
+		// The shelf screen brings a pointed-at row into view the same way.
+		if (eventArgs.PropertyName == nameof(TaskListDetailViewModel.RowJustAdded)
+			&& _viewModel.RowJustAdded is { } added)
+		{
+			Checklist.ScrollTo(added, position: ScrollToPosition.End, animate: true);
+			return;
+		}
+
 		if (eventArgs.PropertyName == nameof(TaskListDetailViewModel.IsAskingAboutTheListsBehind)
 			&& _viewModel.IsAskingAboutTheListsBehind)
 		{

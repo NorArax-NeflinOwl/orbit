@@ -270,18 +270,33 @@ public sealed partial class TaskListDetailViewModel : ObservableObject
     }
 
     [RelayCommand(CanExecute = nameof(CanAddItem))]
-    private Task AddItemAsync(CancellationToken cancellationToken)
+    private async Task AddItemAsync(CancellationToken cancellationToken)
     {
         var description = NewItemDescription.Trim();
         NewItemDescription = string.Empty;
+        var alreadyOnTheList = _items.Select(item => item.Id).ToHashSet();
 
         // Both channels start at Push, as Orbit.Web's new-entry defaults do. "None" would be a quieter
         // default in name only: nothing on this screen says a channel is off, so an entry added here
         // would go overdue in silence and look like push was broken rather than switched off.
-        return SaveAsync(
+        await SaveAsync(
             [.. _items, new TaskItemDto(Guid.Empty, description, null, false, null, "Push", false, "Push", new TimeOnly(9, 0))],
             cancellationToken);
+
+        // Which row the list gained, for the screen to bring into view - see RowJustAdded. Found by the
+        // id it was given rather than taken from the end: the reader chooses what order these are read
+        // in, and the newest is only last in one of them.
+        RowJustAdded = Items.FirstOrDefault(row => !alreadyOnTheList.Contains(row.Item.Id));
     }
+
+    /// <summary>
+    /// The row the last add put on the list, for the screen to scroll to - the shelf screen points at a
+    /// row the same way. A checklist longer than the space it is drawn in put the new entry below the
+    /// fold, and the box clearing was the only sign anything had happened at all: it looks exactly like
+    /// a tap that missed, so the same entry gets added twice.
+    /// </summary>
+    [ObservableProperty]
+    private TaskItemRow? _rowJustAdded;
 
     private bool CanAddItem => NewItemDescription.Trim().Length > 0;
 
@@ -670,10 +685,19 @@ public sealed partial class TaskListDetailViewModel : ObservableObject
         var picked = await _placePicker.PickAsync(editor.Location, cancellationToken);
         if (picked.Outcome is PickedPlaceOutcome.Chosen)
         {
-            editor.Location = picked.Address;
-            // And where the pin was, which is what the appointment actually stores - see EventPlace.
+            // Where the pin was, whatever the box says: that is what the appointment actually stores,
+            // and it was decided by the pin - see EventPlace.
             editor.LocationLatitude = picked.Latitude;
             editor.LocationLongitude = picked.Longitude;
+
+            // The words, only into a box nobody has written in. "The back entrance" is the whole reason
+            // that box is typed into, and replacing it with a street every time a pin is confirmed is
+            // what made correcting it feel impossible. Orbit.Web's UseThePickedPlace draws this line in
+            // the same place, and this screen's own calendar sibling has always drawn it.
+            if (editor.Location.Trim().Length == 0)
+            {
+                editor.Location = picked.Address;
+            }
         }
     }
 

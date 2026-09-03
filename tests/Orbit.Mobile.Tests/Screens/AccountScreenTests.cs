@@ -22,6 +22,21 @@ namespace Orbit.Mobile.Tests.Screens;
 /// </summary>
 public sealed class AccountScreenTests
 {
+    /// <summary>
+    /// What the reader types into the password boxes. Named for the same reason SignInScreenTests names
+    /// its own: a literal beside a field called Password is what a secret scanner looks for, and it
+    /// cannot tell a test from a credential somebody pasted. It read two of these as real ones once.
+    /// </summary>
+    private const string Current = "sourdough-and-thunder";
+    private const string Chosen = "rye-and-lightning";
+    private const string Mistyped = "rye-and-lightening";
+
+    /// <summary>
+    /// The same, for deleting the account: the one it would accept, and the one it must not.
+    /// </summary>
+    private const string Real = "the real one";
+    private const string Guessed = "a guess";
+
     [Fact]
     public void It_opens_on_the_account_tab()
     {
@@ -237,16 +252,16 @@ public sealed class AccountScreenTests
     {
         using var context = new ScreenContext();
         var screen = context.Open();
-        screen.CurrentPassword = "sourdough-and-thunder";
-        screen.NewPassword = "rye-and-lightning";
-        screen.RepeatedNewPassword = "rye-and-lightening";
+        screen.CurrentPassword = Current;
+        screen.NewPassword = Chosen;
+        screen.RepeatedNewPassword = Mistyped;
 
         await screen.ChangePasswordCommand.ExecuteAsync(null);
 
         Assert.True(screen.MessageIsFailure);
         Assert.True(screen.HasMessage);
         // Nothing was sent, so nothing was cleared - what was typed is still there to be corrected.
-        Assert.Equal("rye-and-lightning", screen.NewPassword);
+        Assert.Equal(Chosen, screen.NewPassword);
     }
 
     /// <summary>
@@ -427,10 +442,10 @@ public sealed class AccountScreenTests
     public async Task Deleting_the_account_empties_this_device_and_returns_to_sign_in()
     {
         using var context = new ScreenContext();
-        context.Users.DeletionPassword = "the real one";
+        context.Users.DeletionPassword = Real;
         context.Keep(new LocalNote { Title = "Bank details" });
         var screen = context.Open();
-        screen.DeleteAccountPassword = "the real one";
+        screen.DeleteAccountPassword = Real;
 
         await screen.DeleteAccountCommand.ExecuteAsync(null);
 
@@ -450,10 +465,10 @@ public sealed class AccountScreenTests
     public async Task A_refused_deletion_leaves_the_account_and_the_device_untouched()
     {
         using var context = new ScreenContext();
-        context.Users.DeletionPassword = "the real one";
+        context.Users.DeletionPassword = Real;
         context.Keep(new LocalNote { Title = "Bank details" });
         var screen = context.Open();
-        screen.DeleteAccountPassword = "a guess";
+        screen.DeleteAccountPassword = Guessed;
 
         await screen.DeleteAccountCommand.ExecuteAsync(null);
 

@@ -115,6 +115,15 @@ public sealed partial class StockCheckPanel : ObservableObject
     public bool HasMessage => Message.Length > 0;
 
     /// <summary>
+    /// Whether the last attempt to ask went unanswered. The summary says so, and this puts a way to ask
+    /// again beside it: the question is only ever asked when the screen opens, so a connection that came
+    /// back a second later left the panel saying it could not reach anything until the reader left the
+    /// list and returned. A phone loses its connection often enough that this is the ordinary case.
+    /// </summary>
+    [ObservableProperty]
+    private bool _couldNotBeAnswered;
+
+    /// <summary>
     /// Both questions this panel asks - can this list be done from the shelves, and what should be
     /// restocked - are worked out by the server against stock it holds. Neither can be answered here.
     /// </summary>
@@ -162,8 +171,8 @@ public sealed partial class StockCheckPanel : ObservableObject
         try
         {
             Message = await _tasks.GenerateInventoryAsync(serverId, cancellationToken) is not null
-                ? _translations["Built a inventory from what this list needs."]
-                : _translations["There was nothing on this list to build a inventory from."];
+                ? _translations["Built an inventory from what this list needs."]
+                : _translations["There was nothing on this list to build an inventory from."];
 
             Changed?.Invoke(this, EventArgs.Empty);
         }
@@ -207,6 +216,14 @@ public sealed partial class StockCheckPanel : ObservableObject
         await AskAsync(cancellationToken);
     }
 
+    /// <summary>
+    /// Asks the question again after an attempt that went unanswered - see <see cref="CouldNotBeAnswered"/>.
+    /// Folding the card away and back does not do this on purpose: that is a reader putting the panel
+    /// out of the way, not one asking for an answer.
+    /// </summary>
+    [RelayCommand]
+    private Task AskAgainAsync(CancellationToken cancellationToken) => AskAsync(cancellationToken);
+
     [RelayCommand]
     private async Task RaiseShortfallsAsync(CancellationToken cancellationToken)
     {
@@ -233,7 +250,7 @@ public sealed partial class StockCheckPanel : ObservableObject
         var stored = await _inventories.GetAllAsync(cancellationToken);
 
         Inventories.Clear();
-        Inventories.Add(new InventoryChoice(null, _translations["Not measured against a inventory"]));
+        Inventories.Add(new InventoryChoice(null, _translations["Not measured against an inventory"]));
         foreach (var inventory in stored.Where(inventory => inventory.ServerId is not null))
         {
             Inventories.Add(new InventoryChoice(inventory.ServerId, inventory.Name));
@@ -254,6 +271,7 @@ public sealed partial class StockCheckPanel : ObservableObject
         Requirements.Clear();
         _asCounted.Clear();
         IsShortOfSomething = false;
+        CouldNotBeAnswered = false;
 
         if (_taskListServerId is not { } serverId || LinkedInventory?.ServerId is null)
         {
@@ -284,6 +302,7 @@ public sealed partial class StockCheckPanel : ObservableObject
         {
             // The arithmetic is the server's, and a stale answer about a shelf is worse than none.
             Summary = _translations["Couldn't work out what this needs without a connection."];
+            CouldNotBeAnswered = true;
         }
     }
 

@@ -144,7 +144,7 @@ public sealed class CopyReviewScreenTests
     }
 
     [Fact]
-    public async Task Keeping_a_inventories_copy_writes_its_shelf_back()
+    public async Task Keeping_an_inventories_copy_writes_its_shelf_back()
     {
         using var context = new ReviewContext();
         var original = await context.AddSharedInventoryAsync("Kitchen");
