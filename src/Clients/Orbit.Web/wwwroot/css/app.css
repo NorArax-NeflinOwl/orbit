@@ -5378,17 +5378,6 @@ span.calendar-task-chip {
     color: var(--text-primary);
 }
 
-/* A task entry's own words, in a text area that starts at one line and grows with what is written.
-   field-sizing does the growing where the browser supports it; the min-height keeps it a one-line box
-   everywhere else rather than the browser's default two or three. */
-textarea.editor-item-main {
-    field-sizing: content;
-    min-height: 2.25rem;
-    resize: vertical;
-    font: inherit;
-    line-height: 1.4;
-}
-
 /* A title and what it is for, written as one thing - see TitledDescription.razor. It is the note
    editor's own surface (.note-editor-content, .note-editor-titled), so the first line is drawn as a
    heading and everything under it as ordinary text; all this adds is a height. A note is a page to

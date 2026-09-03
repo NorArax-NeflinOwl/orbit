@@ -1,8 +1,10 @@
 namespace Orbit.Core.Suggestions;
 
 /// <summary>
-/// Which of the four name fields a suggestion is for. Each reads from a different place, and mixing
-/// them would offer an inventory's name where a product's was being typed.
+/// Which of the four name fields a suggestion is for. Three read from a single place each, and mixing
+/// them would offer an inventory's name where a product's was being typed - except
+/// <see cref="TaskItemDescription"/>, which reads from all of them plus notes and events; see
+/// NameSuggestionRepository.NamesFor for why that one field is different.
 /// </summary>
 public enum NameSuggestionKind
 {
@@ -13,6 +15,11 @@ public enum NameSuggestionKind
 
     TaskListTitle,
 
+    /// <summary>
+    /// The one field that reads across every other kind: a task entry is where a product, a note's
+    /// title or an event's title most often gets typed again as an errand - "Milk" is "Milk" whichever
+    /// of those it started as.
+    /// </summary>
     TaskItemDescription
 }
 

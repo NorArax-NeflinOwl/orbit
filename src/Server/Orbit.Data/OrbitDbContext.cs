@@ -266,6 +266,9 @@ public sealed class OrbitDbContext : DbContext
 
         // One GIN index per name the suggestions search. Without them a similarity query reads every row
         // the reader owns, which is fine at ten items and not at a thousand - and this runs on keystrokes.
+        // Notes and CalendarEvents are only ever searched as part of TaskItemDescription's own query
+        // (see NameSuggestionRepository.NamesFor) - they have no kind of their own - but a UNION ALL
+        // branch benefits from its own index exactly as a standalone query would.
         modelBuilder.Entity<InventoryItemEntity>()
             .HasIndex(item => item.Name)
             .HasDatabaseName("ix_inventory_items_name_trgm")
@@ -284,6 +287,16 @@ public sealed class OrbitDbContext : DbContext
         modelBuilder.Entity<TaskItemEntity>()
             .HasIndex(item => item.Description)
             .HasDatabaseName("ix_task_items_description_trgm")
+            .HasMethod("gin")
+            .HasOperators("gin_trgm_ops");
+        modelBuilder.Entity<NoteEntity>()
+            .HasIndex(note => note.Title)
+            .HasDatabaseName("ix_notes_title_trgm")
+            .HasMethod("gin")
+            .HasOperators("gin_trgm_ops");
+        modelBuilder.Entity<CalendarEventEntity>()
+            .HasIndex(calendarEvent => calendarEvent.Title)
+            .HasDatabaseName("ix_calendar_events_title_trgm")
             .HasMethod("gin")
             .HasOperators("gin_trgm_ops");
 
