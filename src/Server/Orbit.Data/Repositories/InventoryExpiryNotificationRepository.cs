@@ -1,5 +1,5 @@
 using Microsoft.EntityFrameworkCore;
-using Orbit.Core.Inventory.ExpiryReminders;
+using Orbit.Core.Inventories.ExpiryReminders;
 using Orbit.Core.Notifications;
 using Orbit.Data.Entities;
 
@@ -16,16 +16,16 @@ public sealed class InventoryExpiryNotificationRepository : IInventoryExpiryNoti
 
     public async Task<IReadOnlyList<DueExpiryReminder>> GetItemsNearingExpiryAsync(DateTimeOffset thresholdUtc, CancellationToken cancellationToken)
     {
-        // Joined to Warehouses because an item has no owner of its own any more - the warning goes to
-        // the warehouse's owner, not to everyone it happens to be shared with.
+        // Joined to Inventories because an item has no owner of its own any more - the warning goes to
+        // the inventory's owner, not to everyone it happens to be shared with.
         var rows = await _dbContext.InventoryItems
             .AsNoTracking()
             .Where(item => item.ExpiryDate != null && item.ExpiryDate <= thresholdUtc && item.ExpiryNotificationChannel != "None")
             .Join(
-                _dbContext.Warehouses.AsNoTracking(),
-                item => item.WarehouseId,
-                warehouse => warehouse.Id,
-                (item, warehouse) => new { Item = item, warehouse.UserId })
+                _dbContext.Inventories.AsNoTracking(),
+                item => item.InventoryId,
+                inventory => inventory.Id,
+                (item, inventory) => new { Item = item, inventory.UserId })
             .ToListAsync(cancellationToken);
 
         return rows

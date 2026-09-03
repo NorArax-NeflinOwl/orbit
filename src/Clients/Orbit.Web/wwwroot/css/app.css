@@ -348,7 +348,7 @@ input.note-editor-title {
 }
 
 /* An object's own page: pressing what it says opens the form that changes it, so the card is drawn as
-   something that can be pressed - see NoteSummary, WarehouseSummary and CalendarEventSummary. The
+   something that can be pressed - see NoteSummary, InventorySummary and CalendarEventSummary. The
    controls inside it keep their own cursor: a tick box is a tick box wherever it sits, and so are the
    two buttons that count a batch up and down. */
 .summary-opens,
@@ -2852,8 +2852,8 @@ input.note-editor-title {
     margin-top: 0.75rem;
 }
 
-/* Warehouses.razor: the list of warehouses that Inventory now opens on. */
-.warehouse-list {
+/* Inventories.razor: the list of inventories that Inventory now opens on. */
+.inventory-list {
     display: flex;
     flex-direction: column;
     gap: 10px;
@@ -2862,7 +2862,7 @@ input.note-editor-title {
     padding: 0;
 }
 
-.warehouse-card {
+.inventory-card {
     display: flex;
     flex-wrap: wrap;
     align-items: center;
@@ -2870,16 +2870,16 @@ input.note-editor-title {
     justify-content: space-between;
 }
 
-.warehouse-card-main {
+.inventory-card-main {
     display: flex;
     flex-direction: column;
     gap: 2px;
     min-width: 0;
 }
 
-/* The card's title. It used to be the button that opened the warehouse, which meant the way in was a
+/* The card's title. It used to be the button that opened the inventory, which meant the way in was a
    thing you had to discover; "Open" now says so among the other actions. */
-.warehouse-name {
+.inventory-name {
     margin: 0;
     color: var(--text-primary);
     font-family: var(--font-display);
@@ -2888,18 +2888,18 @@ input.note-editor-title {
     text-align: left;
 }
 
-.warehouse-shared-badge {
+.inventory-shared-badge {
     color: var(--text-tertiary);
     font-size: 12px;
 }
 
-.warehouse-card-actions {
+.inventory-card-actions {
     display: flex;
     gap: 8px;
 }
 
-/* The inline share form that opens under one warehouse card at a time. */
-.warehouse-share-panel {
+/* The inline share form that opens under one inventory card at a time. */
+.inventory-share-panel {
     display: flex;
     flex-wrap: wrap;
     align-items: center;
@@ -3089,7 +3089,7 @@ input.note-editor-title {
     margin: 4px;
 }
 
-/* Editor item rows (TaskEditor/WarehouseEditor): one line per item, with everything that isn't needed
+/* Editor item rows (TaskEditor/InventoryEditor): one line per item, with everything that isn't needed
    to recognise it folded away until asked for. The previous full-height card per item made a list of
    any real length unreadable - a single item filled close to half the viewport. */
 .editor-item {
@@ -3941,7 +3941,7 @@ input.note-editor-title {
     color: var(--text-tertiary);
 }
 
-/* ---- Running-low warning on an inventory row (WarehouseEditor.razor) ---- */
+/* ---- Running-low warning on an inventory row (InventoryEditor.razor) ---- */
 
 .item-warning {
     flex: 0 0 auto;
@@ -4243,7 +4243,7 @@ input.note-editor-title {
     }
 }
 
-/* Whether a group list's work can be done out of a warehouse - see Pages/TaskListChecklist.razor. */
+/* Whether a group list's work can be done out of an inventory - see Pages/TaskListChecklist.razor. */
 .stock-check-card {
     margin-bottom: 20px;
 }
@@ -4388,7 +4388,7 @@ input.note-editor-title {
     flex: 0 0 auto;
 }
 
-/* Narrowing a shelf down to one type or category - see WarehouseEditor.razor. Sits above the item list
+/* Narrowing a shelf down to one type or category - see InventoryEditor.razor. Sits above the item list
    and wraps on a narrow screen rather than pushing the list sideways. */
 .inventory-filters {
     display: flex;
@@ -4533,26 +4533,26 @@ input.note-editor-title {
     font-size: 12px;
 }
 
-/* "Which warehouse is this in" - see Warehouses.razor. Above the shelves rather than inside one,
+/* "Which inventory is this in" - see Inventories.razor. Above the shelves rather than inside one,
    because that is the question it answers. */
-.warehouse-search {
+.inventory-search {
     display: flex;
     gap: 8px;
     margin-bottom: 16px;
 }
 
-.warehouse-search input {
+.inventory-search input {
     flex: 1;
     min-width: 0;
 }
 
-.warehouse-search-results {
+.inventory-search-results {
     margin-bottom: 8px;
 }
 
 /* Where the thing is, pushed to the end of the row: it is what the search was for, so it wants the
    place the eye stops rather than the one it passes over. */
-.warehouse-search-where {
+.inventory-search-where {
     margin-left: auto;
     color: var(--text-primary);
 }
@@ -4779,7 +4779,7 @@ input.note-editor-title {
 }
 
 /* ItemCard draws this the moment a caller hands it a Tags slot at all, whether or not any of that
-   slot's own conditions actually produced a tag - a warehouse with nothing to say about itself still
+   slot's own conditions actually produced a tag - an inventory with nothing to say about itself still
    passes one, empty. Left undrawn here rather than in the component: an empty row still claimed the
    gap around it, which pushed the head toward the card's top edge with nothing below to fill the rest. */
 .item-card-meta:has(.item-card-tags:empty) {
@@ -4891,7 +4891,7 @@ input.note-editor-title {
     min-height: 10px;
 }
 
-/* Taking one off the shelf and putting one back, at the start of the row - see WarehouseSummary.razor.
+/* Taking one off the shelf and putting one back, at the start of the row - see InventorySummary.razor.
    Small and side by side, so the pair reads as one control rather than as two more things on the row. */
 .shelf-batch-count {
     display: flex;
@@ -4913,7 +4913,7 @@ input.note-editor-title {
     cursor: default;
 }
 
-/* One batch on a shelf, read rather than edited - see WarehouseSummary.razor. The amount is pushed away
+/* One batch on a shelf, read rather than edited - see InventorySummary.razor. The amount is pushed away
    from the name so a column of them lines up, which is what makes a shelf readable at a glance. */
 .shelf-batch-amount {
     margin-left: auto;

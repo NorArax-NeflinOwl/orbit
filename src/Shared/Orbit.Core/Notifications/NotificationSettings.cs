@@ -21,7 +21,7 @@ public sealed class NotificationSettings
     public bool AllowMobileBanner { get; private set; }
 
     /// <summary>
-    /// Whether being shared something - a note, task list, event, warehouse, or someone's position -
+    /// Whether being shared something - a note, task list, event, inventory, or someone's position -
     /// also pushes or emails, on top of the entry that always appears in the notification feed.
     /// Off by default, unlike every other switch here: an invitation is worth seeing when you next look,
     /// but interrupting someone for one is a choice they should make rather than have made for them.

@@ -140,7 +140,7 @@ public static class OutboxReplay
             SyncEntityType.Note => "Orbit couldn't save a change to a note, so it is no longer waiting to be sent.",
             SyncEntityType.TaskList => "Orbit couldn't save a change to a task list, so it is no longer waiting to be sent.",
             SyncEntityType.CalendarEvent => "Orbit couldn't save a change to an appointment, so it is no longer waiting to be sent.",
-            SyncEntityType.Warehouse => "Orbit couldn't save a change to a warehouse, so it is no longer waiting to be sent.",
+            SyncEntityType.Inventory => "Orbit couldn't save a change to a inventory, so it is no longer waiting to be sent.",
             _ => "Orbit couldn't save a change, so it is no longer waiting to be sent."
         };
 

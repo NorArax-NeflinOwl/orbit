@@ -18,12 +18,12 @@ stated scope.
 | Notes (sharing, private notes, checklist lines) | Implemented | [Functionality — Notes](functionality.md#notes) |
 | Tasks (sharing, private lists, group lists, list links, daily and overdue reminders) | Implemented | [Functionality — Tasks](functionality.md#tasks) |
 | Calendar (sharing, recurrence, reminders, map location picker) | Implemented | [Functionality — Calendar](functionality.md#calendar) |
-| Inventory planner (warehouses, sharing, restock tasks, expiry warnings) | Implemented | [Functionality — Inventory](functionality.md#inventory) |
+| Inventory planner (inventories, sharing, restock tasks, expiry warnings) | Implemented | [Functionality — Inventory](functionality.md#inventory) |
 | End-to-end-encrypted 1:1 chat (including editing a sent message) | Implemented | [Functionality — Contacts and encrypted chat](functionality.md#contacts-and-encrypted-chat) |
 | Group chats, with admin and member roles | Implemented | [Functionality — Group chats](functionality.md#group-chats) |
 | Giving a new group member the history, re-encrypted for them | Implemented | [Functionality](functionality.md#letting-a-new-member-read-the-history) |
 | Permissions (Contacts, Chat, Sharing, Location) and their unlock codes | Implemented | [Functionality — Permissions](functionality.md#permissions) |
-| Counting a task list's work against a warehouse, and generating one from it | Implemented | [Functionality — Tasks](functionality.md#can-this-list-be-done) |
+| Counting a task list's work against an inventory, and generating one from it | Implemented | [Functionality — Tasks](functionality.md#can-this-list-be-done) |
 | Priorities on notes, task lists and events, and the dashboard filters that read them | Implemented | [Functionality — Priorities](functionality.md#priorities) |
 | Push notifications | Implemented | [Functionality — Push notifications](functionality.md#push-notifications) |
 | In-app notification feed, badge, and banner | Implemented | [Functionality — In-app notifications](functionality.md#in-app-notifications) |
@@ -38,7 +38,7 @@ stated scope.
 | Home screen widget | Implemented on Android and driven on a device; nothing on iOS | [Functionality](functionality.md#the-home-screen-widget-android) |
 | Google Contacts sync | Not started | [Future Plan](future-plan.md#planned-features) |
 | Name suggestions and duplicate warnings while typing | Implemented | [Functionality](functionality.md#names-you-have-already-used) |
-| Choosing what a warehouse's restock list asks for, and when | Implemented | [Functionality](functionality.md#the-restock-list) |
+| Choosing what an inventory's restock list asks for, and when | Implemented | [Functionality](functionality.md#the-restock-list) |
 | Editing a shelf item from the restock list | Implemented | [Functionality](functionality.md#editing-the-shelf-from-the-list) |
 | A task entry that is a calendar appointment, and makes one | Implemented | [Functionality](functionality.md#what-an-entrys-form-offers) |
 | AI assistant for inventories and task lists | Step 1 built, the model half not started | [Orbit Assistant — Plan](ai-assistant-plan.md) |
@@ -55,9 +55,9 @@ or with Google. Everything else is behind authentication. Signing in lands on th
 which summarizes notes, task lists, calendar events, and contacts, and where each row opens the thing
 it names.
 
-Each area also has its own page: `/notes`, `/tasks`, `/calendar`, `/inventory` (warehouses and their
+Each area also has its own page: `/notes`, `/tasks`, `/calendar`, `/inventory` (inventories and their
 contents), `/contacts` (user search and existing conversations), `/map` (the one location you've
-recorded for yourself), and `/options`. Notes, task lists, calendar events, and warehouses can each be
+recorded for yourself), and `/options`. Notes, task lists, calendar events, and inventories can each be
 shared with another user through an offer/accept flow carried over encrypted chat, or marked private
 so they can't be shared at all.
 
@@ -73,6 +73,14 @@ the push half needs the user to approve browser notifications first — see
 
 ## The mobile client
 
+> **A 0.2.x Android build no longer runs.** The inventory endpoints moved from `/api/warehouses` to
+> `/api/inventories`, and linking a list to a shelf from `PUT /api/tasks/{id}/warehouse` to
+> `.../inventory`, so an older build asks for addresses that no longer answer. Rather than let that
+> fail screen by screen, `MobileVersion:Android:MinimumSupportedVersion` is set to `0.3.0` and the
+> forced-update gate stops such a build at startup. Rebuild and reinstall the app after this deploy.
+> A local build reports the number in `Orbit.Maui.csproj` (`0.3.0`), so it passes the gate; a release
+> gets the real one from `ci/compute-version.sh`.
+
 `src/Clients/` holds two projects rather than one, and the split matters when reading the tests:
 
 - **`Orbit.Mobile`** (`net10.0`) — every screen's view model, the local store, the sync spine, the
@@ -84,15 +92,15 @@ the push half needs the user to approve browser notifications first — see
 Phases 0-6 of the [plan](orbit-maui-plan.md#10-phasing) are built: the version gate, offline SQLite
 with an outbox and delta pull, end-to-end-encrypted chat against the same test vectors the browser
 uses, tasks, calendar, inventory, group chat, and location sharing. Private notes, task lists and
-warehouses are read and written here too, sealed under the account's own key and kept sealed in the
+inventories are read and written here too, sealed under the account's own key and kept sealed in the
 local store as well — see [Functionality](functionality.md#private-notes-and-task-lists). A restock
 list settles its finished errands when the phone opens it, as a browser does, and an admin can hand a
 group's past to somebody they have just added. The names already in the account are offered under all
 four fields the browser offers them under — a product's name, an errand's description, a list's title
-and a warehouse's name — each field with its own set, since a title and the box below it are on screen
+and an inventory's name — each field with its own set, since a title and the box below it are on screen
 together.
 
-Two more things the browser had and the phone did not: a warehouse's **restock list settings** - the rule
+Two more things the browser had and the phone did not: an inventory's **restock list settings** - the rule
 deciding what that list asks for, and the hour its reminder comes round - and the calendar's **day view**,
 so "just today" no longer means finding today in a month grid. The names Orbit writes for itself are also
 read in the reader's language here now, as they always were in the browser: a restock list on a Polish
@@ -117,8 +125,8 @@ something bigger than themselves. A **Calendar** entry is the appointment rather
 it carries the event's own form, and saving the entry is what puts the event in the calendar — the one
 thing on that screen which needs a connection, since the entry has to carry an id the server issued,
 and which says so rather than saving a link to nothing. An **Inventory** errand opens the product it is
-about, through the same form the warehouse screen shows, and saving writes the correction back to the
-shelf and rebuilds that warehouse's restock list; it also says which shelf it is about and which other
+about, through the same form the inventory screen shows, and saving writes the correction back to the
+shelf and rebuilds that inventory's restock list; it also says which shelf it is about and which other
 list is asking for the same product, both as something to tap. Unlike the calendar half this one works
 offline, because the product already exists and is only being corrected.
 
@@ -162,14 +170,14 @@ the reader is standing on, the month they are reading in the year view, or one h
 comes back whole at the top of the list. Decided for the phone and not for the browser - a desktop
 window has room for the grid and the list at once, and a phone has one column and a thumb.
 
-The shelf itself answers two more questions. A warehouse opened from an errand naming a product, or from
+The shelf itself answers two more questions. An inventory opened from an errand naming a product, or from
 the search across every shelf, marks that row and scrolls to it rather than landing on a list with no
 sign of which one was meant - and says so in words as well as in colour. And every row says when its
 batch arrived, which is what tells two rows of one name apart: they are two deliveries of the thing.
 
 Being offline no longer only refuses. Anything shared that cannot be edited without a connection - see
 [the conflict policy](orbit-maui-plan.md#54-pushing-changes-and-conflicts-built-for-notes) - now offers
-a copy to write in instead, for all four kinds: notes, task lists, appointments and warehouses. The copy
+a copy to write in instead, for all four kinds: notes, task lists, appointments and inventories. The copy
 belongs to the phone, is shared with nobody, and stays off the wire until it has been decided on; back
 online, one review window shows every outstanding copy against what it came from, each diffed from what
 that said when the copy was taken, and offers three answers: keep mine, keep theirs, or keep both. The

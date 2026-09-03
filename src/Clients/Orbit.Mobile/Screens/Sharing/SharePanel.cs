@@ -17,7 +17,7 @@ public sealed record AccessLevelChoice(ShareAccessLevel Value, string Name);
 
 /// <summary>
 /// Offering the thing on screen to somebody else. One panel shared by the note, task-list, event and
-/// warehouse editors, because the question is the same on all four - who, and how much - and only what
+/// inventory editors, because the question is the same on all four - who, and how much - and only what
 /// is being offered differs.
 ///
 /// Held by each editor rather than being a screen of its own: sharing is something done to the thing you

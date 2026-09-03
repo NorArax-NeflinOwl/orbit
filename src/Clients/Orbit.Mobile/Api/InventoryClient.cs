@@ -1,17 +1,17 @@
 using System.Net;
 using System.Net.Http.Json;
-using Orbit.Contracts.Inventory;
+using Orbit.Contracts.Inventories;
 using Orbit.Contracts.Sync;
 using Orbit.Contracts.Sharing;
 
 namespace Orbit.Mobile.Api;
 
 /// <summary>
-/// The warehouses half of the API.
+/// The inventories half of the API.
 ///
-/// Items have no endpoints of their own: they are created, changed and removed through the warehouse
+/// Items have no endpoints of their own: they are created, changed and removed through the inventory
 /// save, exactly as task entries are through their task list. Reading them <b>is</b> separate, though -
-/// the change feed describes a warehouse without saying what is in it - which is why
+/// the change feed describes an inventory without saying what is in it - which is why
 /// <see cref="GetItemsAsync"/> exists at all.
 /// </summary>
 public sealed class InventoryClient : ILockableItems
@@ -20,20 +20,20 @@ public sealed class InventoryClient : ILockableItems
 
     public InventoryClient(HttpClient httpClient) => _httpClient = httpClient;
 
-    public async Task<ChangeFeedDto<WarehouseDto>> GetChangesAsync(
+    public async Task<ChangeFeedDto<InventoryDto>> GetChangesAsync(
         string? cursor, CancellationToken cancellationToken = default)
     {
         var since = cursor ?? DateTimeOffset.MinValue.UtcDateTime.ToString("O");
-        return await _httpClient.GetFromJsonAsync<ChangeFeedDto<WarehouseDto>>(
-            $"api/warehouses/changes?since={Uri.EscapeDataString(since)}", cancellationToken)
-            ?? new ChangeFeedDto<WarehouseDto>([], [], since);
+        return await _httpClient.GetFromJsonAsync<ChangeFeedDto<InventoryDto>>(
+            $"api/inventories/changes?since={Uri.EscapeDataString(since)}", cancellationToken)
+            ?? new ChangeFeedDto<InventoryDto>([], [], since);
     }
 
-    /// <summary>What one warehouse holds. Empty when it is gone, which a pull can race with.</summary>
+    /// <summary>What one inventory holds. Empty when it is gone, which a pull can race with.</summary>
     public async Task<IReadOnlyList<InventoryItemDto>> GetItemsAsync(
-        Guid warehouseId, CancellationToken cancellationToken = default)
+        Guid inventoryId, CancellationToken cancellationToken = default)
     {
-        using var response = await _httpClient.GetAsync($"api/warehouses/{warehouseId}/items", cancellationToken);
+        using var response = await _httpClient.GetAsync($"api/inventories/{inventoryId}/items", cancellationToken);
         if (response.StatusCode is HttpStatusCode.NotFound)
         {
             return [];
@@ -43,17 +43,17 @@ public sealed class InventoryClient : ILockableItems
         return await response.Content.ReadFromJsonAsync<IReadOnlyList<InventoryItemDto>>(cancellationToken) ?? [];
     }
 
-    public async Task<Guid> CreateAsync(SaveWarehouseRequest request, CancellationToken cancellationToken = default)
+    public async Task<Guid> CreateAsync(SaveInventoryRequest request, CancellationToken cancellationToken = default)
     {
-        var response = await _httpClient.PostAsJsonAsync("api/warehouses", request, cancellationToken);
+        var response = await _httpClient.PostAsJsonAsync("api/inventories", request, cancellationToken);
         response.EnsureSuccessStatusCode();
         return await response.Content.ReadFromJsonAsync<Guid>(cancellationToken);
     }
 
     public async Task<WriteOutcome> UpdateAsync(
-        Guid warehouseId, SaveWarehouseRequest request, CancellationToken cancellationToken = default)
+        Guid inventoryId, SaveInventoryRequest request, CancellationToken cancellationToken = default)
     {
-        var response = await _httpClient.PutAsJsonAsync($"api/warehouses/{warehouseId}", request, cancellationToken);
+        var response = await _httpClient.PutAsJsonAsync($"api/inventories/{inventoryId}", request, cancellationToken);
         return ReadOutcome(response);
     }
 
@@ -63,10 +63,10 @@ public sealed class InventoryClient : ILockableItems
     /// the key - see SharedItemSharing.
     /// </summary>
     public async Task<ShareResultDto?> ShareAsync(
-        Guid warehouseId, Guid recipientUserId, string accessLevel, CancellationToken cancellationToken = default)
+        Guid inventoryId, Guid recipientUserId, string accessLevel, CancellationToken cancellationToken = default)
     {
         using var response = await _httpClient.PostAsJsonAsync(
-            $"api/warehouses/{warehouseId}/shares", new { RecipientUserId = recipientUserId, AccessLevel = accessLevel },
+            $"api/inventories/{inventoryId}/shares", new { RecipientUserId = recipientUserId, AccessLevel = accessLevel },
             cancellationToken);
 
         return response.IsSuccessStatusCode
@@ -77,19 +77,19 @@ public sealed class InventoryClient : ILockableItems
     /// <inheritdoc cref="NotesClient.AcceptShareAsync"/>
     public async Task<bool> AcceptShareAsync(Guid shareId, CancellationToken cancellationToken = default)
     {
-        using var response = await _httpClient.PostAsync($"api/warehouses/shares/{shareId}/accept", null, cancellationToken);
+        using var response = await _httpClient.PostAsync($"api/inventories/shares/{shareId}/accept", null, cancellationToken);
         return response.IsSuccessStatusCode;
     }
 
     /// <summary>
-    /// How this warehouse's restock list is built, and when it comes round. Null when the warehouse is
+    /// How this inventory's restock list is built, and when it comes round. Null when the inventory is
     /// not this reader's to look at - a share can be read without carrying the settings behind it.
     /// </summary>
     public async Task<RestockListSettingsDto?> GetRestockListSettingsAsync(
-        Guid warehouseId, CancellationToken cancellationToken = default)
+        Guid inventoryId, CancellationToken cancellationToken = default)
     {
         using var response = await _httpClient.GetAsync(
-            $"api/warehouses/{warehouseId}/restock-list/settings", cancellationToken);
+            $"api/inventories/{inventoryId}/restock-list/settings", cancellationToken);
 
         if (response.StatusCode is HttpStatusCode.NotFound or HttpStatusCode.Forbidden)
         {
@@ -102,10 +102,10 @@ public sealed class InventoryClient : ILockableItems
 
     /// <summary>Saves the settings and rebuilds the list to match, answering what that moved.</summary>
     public async Task<RestockRefreshResultDto> SaveRestockListSettingsAsync(
-        Guid warehouseId, RestockListSettingsDto settings, CancellationToken cancellationToken = default)
+        Guid inventoryId, RestockListSettingsDto settings, CancellationToken cancellationToken = default)
     {
         using var response = await _httpClient.PutAsJsonAsync(
-            $"api/warehouses/{warehouseId}/restock-list/settings", settings, cancellationToken);
+            $"api/inventories/{inventoryId}/restock-list/settings", settings, cancellationToken);
 
         response.EnsureSuccessStatusCode();
         return await response.Content.ReadFromJsonAsync<RestockRefreshResultDto>(cancellationToken)
@@ -113,7 +113,7 @@ public sealed class InventoryClient : ILockableItems
     }
 
     /// <summary>
-    /// Rebuilds this warehouse's restock list against what is on its shelves now and the settings it
+    /// Rebuilds this inventory's restock list against what is on its shelves now and the settings it
     /// carries - what somebody asks for when the world changed rather than the list. Answers with what
     /// moved.
     ///
@@ -121,19 +121,19 @@ public sealed class InventoryClient : ILockableItems
     /// against the inventory" reconciled the list one way and left the reader to do the rest.
     /// </summary>
     public async Task<RestockRefreshResultDto> RefreshRestockListAsync(
-        Guid warehouseId, CancellationToken cancellationToken = default)
+        Guid inventoryId, CancellationToken cancellationToken = default)
     {
         using var response = await _httpClient.PostAsync(
-            $"api/warehouses/{warehouseId}/restock-list/refresh", content: null, cancellationToken);
+            $"api/inventories/{inventoryId}/restock-list/refresh", content: null, cancellationToken);
 
         response.EnsureSuccessStatusCode();
         return await response.Content.ReadFromJsonAsync<RestockRefreshResultDto>(cancellationToken)
             ?? new RestockRefreshResultDto(0, 0);
     }
 
-    public async Task<WriteOutcome> DeleteAsync(Guid warehouseId, CancellationToken cancellationToken = default)
+    public async Task<WriteOutcome> DeleteAsync(Guid inventoryId, CancellationToken cancellationToken = default)
     {
-        var response = await _httpClient.DeleteAsync($"api/warehouses/{warehouseId}", cancellationToken);
+        var response = await _httpClient.DeleteAsync($"api/inventories/{inventoryId}", cancellationToken);
         return response.StatusCode is HttpStatusCode.NotFound ? WriteOutcome.Applied : ReadOutcome(response);
     }
 
@@ -166,7 +166,7 @@ public sealed class InventoryClient : ILockableItems
     /// </summary>
     public async Task<bool?> IsShareAcceptedAsync(Guid shareId, CancellationToken cancellationToken = default)
     {
-        using var response = await _httpClient.GetAsync($"api/warehouses/shares/{shareId}/status", cancellationToken);
+        using var response = await _httpClient.GetAsync($"api/inventories/shares/{shareId}/status", cancellationToken);
         return response.IsSuccessStatusCode
             ? await response.Content.ReadFromJsonAsync<bool>(cancellationToken)
             : null;
@@ -177,8 +177,8 @@ public sealed class InventoryClient : ILockableItems
     /// out when their save is refused. Calling it again refreshes the claim - see EditLock.
     /// </summary>
     public Task<EditClaim> AcquireLockAsync(Guid serverId, CancellationToken cancellationToken = default)
-        => EditLocking.AcquireAsync(_httpClient, $"api/warehouses/{serverId}/lock", cancellationToken);
+        => EditLocking.AcquireAsync(_httpClient, $"api/inventories/{serverId}/lock", cancellationToken);
 
     public Task ReleaseLockAsync(Guid serverId, CancellationToken cancellationToken = default)
-        => EditLocking.ReleaseAsync(_httpClient, $"api/warehouses/{serverId}/lock", cancellationToken);
+        => EditLocking.ReleaseAsync(_httpClient, $"api/inventories/{serverId}/lock", cancellationToken);
 }

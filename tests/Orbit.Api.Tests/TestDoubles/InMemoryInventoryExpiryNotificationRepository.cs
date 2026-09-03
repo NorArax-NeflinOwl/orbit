@@ -1,4 +1,4 @@
-using Orbit.Core.Inventory.ExpiryReminders;
+using Orbit.Core.Inventories.ExpiryReminders;
 
 namespace Orbit.Api.Tests.TestDoubles;
 

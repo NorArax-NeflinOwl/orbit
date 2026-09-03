@@ -126,18 +126,18 @@ public sealed class TasksClient : ILockableItems
             : null;
     }
 
-    /// <summary>Points a task list at the warehouse its work is measured against, or at none.</summary>
-    public async Task<bool> LinkWarehouseAsync(
-        Guid taskListId, Guid? warehouseId, CancellationToken cancellationToken = default)
+    /// <summary>Points a task list at the inventory its work is measured against, or at none.</summary>
+    public async Task<bool> LinkInventoryAsync(
+        Guid taskListId, Guid? inventoryId, CancellationToken cancellationToken = default)
     {
         using var response = await _httpClient.PutAsJsonAsync(
-            $"api/tasks/{taskListId}/warehouse", new LinkTaskListToWarehouseRequest(warehouseId), cancellationToken);
+            $"api/tasks/{taskListId}/inventory", new LinkTaskListToInventoryRequest(inventoryId), cancellationToken);
 
         return response.IsSuccessStatusCode;
     }
 
     /// <summary>
-    /// What this list's work costs against that warehouse, or null when no warehouse has been chosen -
+    /// What this list's work costs against that inventory, or null when no inventory has been chosen -
     /// there is no question to answer then, which is not the same as an answer of "nothing".
     /// </summary>
     public async Task<TaskListStockCheckDto?> GetStockCheckAsync(
@@ -150,7 +150,7 @@ public sealed class TasksClient : ILockableItems
     }
 
     /// <summary>
-    /// "Everything on this list is done": brings every product in the warehouse up to its minimum, and
+    /// "Everything on this list is done": brings every product in the inventory up to its minimum, and
     /// answers with how many that moved. A claim about the shelf rather than an edit to the list, which
     /// is why it is its own call and not part of saving the entries.
     /// </summary>
@@ -191,7 +191,7 @@ public sealed class TasksClient : ILockableItems
         return result?.SettledCount ?? 0;
     }
 
-    /// <summary>Puts what is short onto the warehouse's restock list. Returns how many entries were added.</summary>
+    /// <summary>Puts what is short onto the inventory's restock list. Returns how many entries were added.</summary>
     public async Task<int> RaiseStockShortfallsAsync(Guid taskListId, CancellationToken cancellationToken = default)
     {
         using var response = await _httpClient.PostAsync(

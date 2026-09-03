@@ -6,7 +6,7 @@ using Microsoft.AspNetCore.Components;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
-using Orbit.Contracts.Inventory;
+using Orbit.Contracts.Inventories;
 using Orbit.Contracts.Tasks;
 using Orbit.Contracts.Users;
 using Orbit.Web.Pages;
@@ -315,8 +315,8 @@ public sealed class TaskListChecklistTests : OrbitTestContext
     }
 
     /// <param name="stockCheck">
-    /// What the list costs against its warehouse, for the tests that are about that panel. Null means no
-    /// warehouse is chosen for these fixtures, which is what the stock check answers 404 to - and the
+    /// What the list costs against its inventory, for the tests that are about that panel. Null means no
+    /// inventory is chosen for these fixtures, which is what the stock check answers 404 to - and the
     /// page reads as "no question to answer" rather than as a failure.
     /// </param>
     private void RegisterTasksApiClient(IReadOnlyList<TaskDto> taskLists, TaskListStockCheckDto? stockCheck = null)
@@ -679,14 +679,14 @@ public sealed class TaskListChecklistTests : OrbitTestContext
         Services.AddScoped<ChecklistViewPreference>();
     }
     /// <summary>
-    /// The checklist offers to price a group list against a warehouse. These tests are about the items,
-    /// so there are no warehouses to choose and the panel stays empty.
+    /// The checklist offers to price a group list against an inventory. These tests are about the items,
+    /// so there are no inventories to choose and the panel stays empty.
     /// </summary>
     private void RegisterInventoryApiClient()
     {
         var handler = new StubHttpMessageHandler(_ => new HttpResponseMessage(HttpStatusCode.OK)
         {
-            Content = JsonContent.Create(Array.Empty<WarehouseDto>())
+            Content = JsonContent.Create(Array.Empty<InventoryDto>())
         });
         Services.AddSingleton(new InventoryApiClient(new HttpClient(handler) { BaseAddress = new Uri("https://example.test/") }));
     }

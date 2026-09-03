@@ -4,7 +4,7 @@ using Orbit.Core.Calendar;
 using Orbit.Core.Calendar.Reminders;
 using Orbit.Core.Chat.Groups.ManageChatGroupMembers;
 using Orbit.Core.Chat.SendMessage;
-using Orbit.Core.Inventory.ExpiryReminders;
+using Orbit.Core.Inventories.ExpiryReminders;
 using Orbit.Core.LiveUpdates;
 using Orbit.Core.Notifications;
 using Orbit.Core.Tasks.DailyReminders;

@@ -163,7 +163,7 @@
                     </Pin>
                     <Menu>
                         @* Somebody else's shared list is not this reader's to delete - the same rule
-                           the note and warehouse cards already follow. *@
+                           the note and inventory cards already follow. *@
                         <ObjectMenu EditLabel="@T["Edit"]" OnEdit="() => GoToEditTaskList(taskList.Id)"
                                     DeleteLabel="@(!taskList.IsShared ? T["Delete"] : null)" OnDelete="() => DeleteTaskListAsync(taskList)" />
                     </Menu>

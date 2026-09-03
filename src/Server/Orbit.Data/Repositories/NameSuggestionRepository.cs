@@ -35,7 +35,7 @@ public sealed class NameSuggestionRepository : INameSuggestionRepository
             .Where(candidate => candidate.Similarity >= minimumSimilarity)
             .OrderByDescending(candidate => candidate.Similarity)
             .ThenBy(candidate => candidate.Name)
-            // Distinct after ordering rather than before: the same product in two warehouses is one
+            // Distinct after ordering rather than before: the same product in two inventories is one
             // suggestion, and which row it came from does not matter to somebody typing.
             .Take(limit * 4)
             .ToListAsync(cancellationToken);
@@ -50,21 +50,21 @@ public sealed class NameSuggestionRepository : INameSuggestionRepository
 
     /// <summary>
     /// Where each kind's names live. Every one is scoped to what this user owns - a suggestion drawn
-    /// from somebody else's data would be telling them what that person keeps in their warehouse.
+    /// from somebody else's data would be telling them what that person keeps in their inventory.
     /// </summary>
     private IQueryable<string> NamesFor(Guid userId, NameSuggestionKind kind)
         => kind switch
         {
             NameSuggestionKind.InventoryItemName => _dbContext.InventoryItems
                 .AsNoTracking()
-                .Where(item => _dbContext.Warehouses
-                    .Any(warehouse => warehouse.Id == item.WarehouseId && warehouse.UserId == userId && !warehouse.IsPrivate))
+                .Where(item => _dbContext.Inventories
+                    .Any(inventory => inventory.Id == item.InventoryId && inventory.UserId == userId && !inventory.IsPrivate))
                 .Select(item => item.Name),
 
-            NameSuggestionKind.WarehouseName => _dbContext.Warehouses
+            NameSuggestionKind.InventoryName => _dbContext.Inventories
                 .AsNoTracking()
-                .Where(warehouse => warehouse.UserId == userId && !warehouse.IsPrivate)
-                .Select(warehouse => warehouse.Name),
+                .Where(inventory => inventory.UserId == userId && !inventory.IsPrivate)
+                .Select(inventory => inventory.Name),
 
             NameSuggestionKind.TaskListTitle => _dbContext.Tasks
                 .AsNoTracking()

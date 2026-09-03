@@ -6,7 +6,7 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
     xmlns:controls="clr-namespace:Orbit.Maui.Controls">
 
-    <!-- What a list or a warehouse is called, and what it is for, written as one thing.
+    <!-- What a list or an inventory is called, and what it is for, written as one thing.
 
          Two boxes with two labels made the description look like a setting somebody had to decide
          about. It is not - it is the rest of the sentence the title starts, and most lists never need

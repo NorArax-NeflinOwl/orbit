@@ -1,5 +1,5 @@
 using Orbit.Api.Tests.TestDoubles;
-using Orbit.Core.Inventory;
+using Orbit.Core.Inventories;
 using Orbit.Core.Tasks;
 using Orbit.Core.Tasks.UpdateTaskList;
 using Xunit;
@@ -123,8 +123,8 @@ public sealed class TaskItemIdentityTests
                     _taskRepository,
                     new TaskListLinkValidator(_taskRepository),
                     new RestockCompletion(
-                        new InMemoryInventoryManagedTaskListRepository(), new InMemoryInventoryRepository(),
-                        new InMemoryWarehouseRepository(), new InMemoryTaskRepository()))
+                        new InMemoryInventoryManagedTaskListRepository(), new InMemoryInventoryItemRepository(),
+                        new InMemoryInventoryRepository(), new InMemoryTaskRepository()))
                 .HandleAsync(
                     new UpdateTaskListCommand(
                         _userId, listId, "Saturday", items, IsGroup: false, IsPrivate: false, null),

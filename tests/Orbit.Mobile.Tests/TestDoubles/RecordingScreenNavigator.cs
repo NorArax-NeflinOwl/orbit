@@ -24,10 +24,10 @@ internal sealed class RecordingScreenNavigator : IScreenNavigator
     public Guid? LastTaskListId { get; private set; }
 
     /// <summary>
-    /// Which warehouse it was sent to. Kept because the inventory search answers "which warehouse is
+    /// Which inventory it was sent to. Kept because the inventory search answers "which inventory is
     /// this in" - a double that dropped the id would let it open the wrong one and still pass.
     /// </summary>
-    public Guid? LastWarehouseId { get; private set; }
+    public Guid? LastInventoryId { get; private set; }
 
     public void ShowSignIn() => _destinations.Add(nameof(ShowSignIn));
 
@@ -133,11 +133,11 @@ internal sealed class RecordingScreenNavigator : IScreenNavigator
 
     public void ShowMap() => _destinations.Add(nameof(ShowMap));
 
-    public void ShowWarehouse(Guid localId, Guid? productId = null)
+    public void ShowInventory(Guid localId, Guid? productId = null)
     {
-        LastWarehouseId = localId;
+        LastInventoryId = localId;
         LastPointedAtProductId = productId;
-        _destinations.Add(nameof(ShowWarehouse));
+        _destinations.Add(nameof(ShowInventory));
     }
 
     /// <summary>Which product the shelf was opened for, when whoever opened it meant one.</summary>

@@ -11,7 +11,7 @@ public interface ISharedItemNotifier
 }
 
 /// <summary>
-/// Tells someone that a note, task list, calendar event, warehouse, or position has been shared with
+/// Tells someone that a note, task list, calendar event, inventory, or position has been shared with
 /// them. Every Share*CommandHandler goes through here, so being invited to something looks the same
 /// whatever kind of thing it is.
 ///
@@ -121,12 +121,12 @@ public sealed class SharedItemNotifier : ISharedItemNotifier
         SharedItemKind.Note => "{0} shared a note with you",
         SharedItemKind.TaskList => "{0} shared a task list with you",
         SharedItemKind.CalendarEvent => "{0} shared an event with you",
-        SharedItemKind.Warehouse => "{0} shared a warehouse with you",
+        SharedItemKind.Inventory => "{0} shared a inventory with you",
         _ => "{0} shared their location with you"
     };
 
     /// <summary>
-    /// Where the notification takes the recipient. A shared note, list, event or warehouse has to be
+    /// Where the notification takes the recipient. A shared note, list, event or inventory has to be
     /// accepted before it is theirs to open, and the Accept action lives in the conversation with
     /// whoever sent it - so pointing at the item itself would land on a "not found". A shared position
     /// needs no accepting and shows up on the map.
@@ -141,6 +141,6 @@ public enum SharedItemKind
     Note,
     TaskList,
     CalendarEvent,
-    Warehouse,
+    Inventory,
     Location
 }

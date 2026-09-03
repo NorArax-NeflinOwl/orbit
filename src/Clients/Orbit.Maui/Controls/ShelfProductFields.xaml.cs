@@ -1,7 +1,7 @@
 namespace Orbit.Maui.Controls;
 
 /// <summary>
-/// The fields of one product on a shelf. Bound to a WarehouseItemEditor - see the markup beside this,
+/// The fields of one product on a shelf. Bound to a InventoryItemEditor - see the markup beside this,
 /// and TaskItemShelfProduct for the second screen that opens one.
 /// </summary>
 public partial class ShelfProductFields : ContentView

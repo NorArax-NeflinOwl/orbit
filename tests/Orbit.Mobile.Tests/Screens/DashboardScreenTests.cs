@@ -762,9 +762,9 @@ public sealed class DashboardScreenTests
                     _localStore, new CalendarClient(new FakeCalendarServer(_clock).ToHttpClient()), _clock, gate,
                     new PendingCalendarLinkResolver(_clock, NullLogger<PendingCalendarLinkResolver>.Instance),
                     NullLogger<CalendarEventSynchronizer>.Instance),
-                new WarehouseSynchronizer(
+                new InventorySynchronizer(
                     _localStore, new InventoryClient(new FakeInventoryServer(_clock).ToHttpClient()), _clock, gate,
-                    NullLogger<WarehouseSynchronizer>.Instance),
+                    NullLogger<InventorySynchronizer>.Instance),
                 new ChatSynchronizer(
                     _chat, chatClient, usersClient,
                     new EncryptedChatMessageSender(

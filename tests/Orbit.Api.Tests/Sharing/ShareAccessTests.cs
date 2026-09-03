@@ -5,7 +5,7 @@ namespace Orbit.Api.Tests.Sharing;
 
 /// <summary>
 /// Covers the access rules themselves, away from any one kind of item - notes, task lists, events and
-/// warehouses all ask these, so getting them wrong here would be wrong in four places at once.
+/// inventories all ask these, so getting them wrong here would be wrong in four places at once.
 /// </summary>
 public sealed class ShareAccessTests
 {

@@ -1,5 +1,5 @@
 using Orbit.Api.Tests.TestDoubles;
-using Orbit.Core.Inventory;
+using Orbit.Core.Inventories;
 using Orbit.Core.Notifications;
 using Orbit.Core.Tasks;
 using Orbit.Core.Tasks.GetInventoryReferences;
@@ -47,14 +47,14 @@ public sealed class InventoryReferenceTests
     [Fact]
     public async Task An_errand_says_which_shelf_it_is_about()
     {
-        var (warehouseId, taskListId, item) = await ALowItemAsync();
+        var (inventoryId, taskListId, item) = await ALowItemAsync();
 
         var reference = Assert.Single(await ReferencesAsync(taskListId));
 
         Assert.Equal(item.Id, reference.InventoryItemId);
         Assert.Equal("Flour", reference.InventoryItemName);
-        Assert.Equal(warehouseId, reference.WarehouseId);
-        Assert.Equal("Kitchen", reference.WarehouseName);
+        Assert.Equal(inventoryId, reference.InventoryId);
+        Assert.Equal("Kitchen", reference.InventoryName);
     }
 
     [Fact]
@@ -90,8 +90,8 @@ public sealed class InventoryReferenceTests
     [Fact]
     public async Task An_errand_whose_product_has_been_deleted_has_nothing_to_point_at()
     {
-        var (warehouseId, taskListId, item) = await ALowItemAsync();
-        await _context.InventoryRepository.DeleteAsync(warehouseId, item.Id, CancellationToken.None);
+        var (inventoryId, taskListId, item) = await ALowItemAsync();
+        await _context.InventoryItemRepository.DeleteAsync(inventoryId, item.Id, CancellationToken.None);
 
         // The entry still reads as what it says. Offering a link to a shelf item that is gone would be
         // offering a page that cannot be opened.
@@ -114,21 +114,21 @@ public sealed class InventoryReferenceTests
 
         var references = await new GetInventoryReferencesQueryHandler(
                 new TaskListAccessResolver(_context.TaskRepository, new InMemoryTaskListShareRepository(), _context.UserRepository),
-                _context.TaskRepository, _context.WarehouseRepository, _context.InventoryRepository)
+                _context.TaskRepository, _context.InventoryRepository, _context.InventoryItemRepository)
             .HandleAsync(new GetInventoryReferencesQuery(Guid.NewGuid(), taskListId), CancellationToken.None);
 
         Assert.Empty(references);
     }
 
-    private async Task<(Guid WarehouseId, Guid TaskListId, InventoryItem Item)> ALowItemAsync()
+    private async Task<(Guid InventoryId, Guid TaskListId, InventoryItem Item)> ALowItemAsync()
     {
-        var warehouseId = _context.AddWarehouse(_userId);
+        var inventoryId = _context.AddInventory(_userId);
         var item = InventoryItem.Create(
-            warehouseId, "Flour", "Food", "Dry", 0, 5, InventoryUnit.Piece, null, NotificationChannel.None);
-        await _context.InventoryRepository.AddAsync(item, CancellationToken.None);
+            inventoryId, "Flour", "Food", "Dry", 0, 5, InventoryUnit.Piece, null, NotificationChannel.None);
+        await _context.InventoryItemRepository.AddAsync(item, CancellationToken.None);
         var raised = await _context.TaskListCoordinator.EnsureRestockTaskAsync(item, CancellationToken.None);
-        await _context.InventoryRepository.UpdateAsync(raised, CancellationToken.None);
-        return (warehouseId, raised.PendingRestockTaskListId!.Value, raised);
+        await _context.InventoryItemRepository.UpdateAsync(raised, CancellationToken.None);
+        return (inventoryId, raised.PendingRestockTaskListId!.Value, raised);
     }
 
     private async Task<TaskList> TaskListAsync(Guid taskListId)
@@ -137,6 +137,6 @@ public sealed class InventoryReferenceTests
     private Task<IReadOnlyList<InventoryReference>> ReferencesAsync(Guid taskListId)
         => new GetInventoryReferencesQueryHandler(
                 new TaskListAccessResolver(_context.TaskRepository, new InMemoryTaskListShareRepository(), _context.UserRepository),
-                _context.TaskRepository, _context.WarehouseRepository, _context.InventoryRepository)
+                _context.TaskRepository, _context.InventoryRepository, _context.InventoryItemRepository)
             .HandleAsync(new GetInventoryReferencesQuery(_userId, taskListId), CancellationToken.None);
 }

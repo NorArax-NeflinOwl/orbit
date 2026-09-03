@@ -37,10 +37,10 @@ public sealed class LocalTaskList : Orbit.Mobile.Sync.ISharedState, ICopyableFor
     public bool IsGroup { get; set; }
 
     /// <summary>
-    /// The warehouse this list's work is measured against, when one has been chosen. Kept so the stock
+    /// The inventory this list's work is measured against, when one has been chosen. Kept so the stock
     /// check opens knowing which shelf the question is about, rather than asking the server first.
     /// </summary>
-    public Guid? LinkedWarehouseId { get; set; }
+    public Guid? LinkedInventoryId { get; set; }
 
     public bool IsPrivate { get; set; }
 

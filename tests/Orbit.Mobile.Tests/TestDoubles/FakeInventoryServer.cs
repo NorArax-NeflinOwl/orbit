@@ -2,20 +2,20 @@ using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
 using System.Web;
-using Orbit.Core.Inventory;
-using Orbit.Contracts.Inventory;
+using Orbit.Core.Inventories;
+using Orbit.Contracts.Inventories;
 using Orbit.Contracts.Sync;
 
 namespace Orbit.Mobile.Tests.TestDoubles;
 
 /// <summary>
-/// Orbit's warehouse endpoints, in memory - including the part that makes this entity type different:
-/// the change feed describes a warehouse without saying what is in it, and items are served separately.
+/// Orbit's inventory endpoints, in memory - including the part that makes this entity type different:
+/// the change feed describes an inventory without saying what is in it, and items are served separately.
 /// </summary>
 internal sealed class FakeInventoryServer : HttpMessageHandler
 {
     private readonly TimeProvider _timeProvider;
-    private readonly Dictionary<Guid, WarehouseDto> _warehouses = [];
+    private readonly Dictionary<Guid, InventoryDto> _inventories = [];
     private readonly Dictionary<Guid, List<InventoryItemDto>> _items = [];
     private readonly List<(Guid Id, DateTimeOffset DeletedAtUtc)> _tombstones = [];
 
@@ -25,26 +25,26 @@ internal sealed class FakeInventoryServer : HttpMessageHandler
 
     public bool IsUnreachable { get; set; }
 
-    public IReadOnlyCollection<WarehouseDto> Warehouses => _warehouses.Values;
+    public IReadOnlyCollection<InventoryDto> Inventories => _inventories.Values;
 
-    public IReadOnlyList<InventoryItemDto> ItemsIn(Guid warehouseId)
-        => _items.TryGetValue(warehouseId, out var items) ? items : [];
+    public IReadOnlyList<InventoryItemDto> ItemsIn(Guid inventoryId)
+        => _items.TryGetValue(inventoryId, out var items) ? items : [];
 
-    public WarehouseDto AddWarehouse(string name, bool isSharedWithOthers = false, bool isPrivate = false)
+    public InventoryDto AddInventory(string name, bool isSharedWithOthers = false, bool isPrivate = false)
     {
         var now = _timeProvider.GetUtcNow();
-        var warehouse = new WarehouseDto(
+        var inventory = new InventoryDto(
             Guid.NewGuid(), name, now, now, false, null, "CanEdit", null, null, isPrivate, null, isSharedWithOthers);
 
-        _warehouses[warehouse.Id] = warehouse;
-        _items[warehouse.Id] = [];
-        return warehouse;
+        _inventories[inventory.Id] = inventory;
+        _items[inventory.Id] = [];
+        return inventory;
     }
 
-    public void AddItem(Guid warehouseId, string name, decimal quantity, bool isCheckedRegularly = false)
+    public void AddItem(Guid inventoryId, string name, decimal quantity, bool isCheckedRegularly = false)
     {
         var now = _timeProvider.GetUtcNow();
-        _items[warehouseId].Add(new InventoryItemDto(
+        _items[inventoryId].Add(new InventoryItemDto(
             Guid.NewGuid(), name, "Piece", "General", quantity, null, nameof(InventoryUnit.Piece), null, "None",
             false, false, now, now, isCheckedRegularly));
     }
@@ -60,14 +60,14 @@ internal sealed class FakeInventoryServer : HttpMessageHandler
         }
 
         // Nobody else is ever in it here; EditLockTests covers the answer where somebody is.
-        // api/warehouses/{id}/restock-list/refresh - rebuilt against what is on the shelves now.
+        // api/inventories/{id}/restock-list/refresh - rebuilt against what is on the shelves now.
         if (path.EndsWith("/restock-list/refresh", StringComparison.Ordinal))
         {
             RestockRefreshesAsked++;
             return Json(RestockRefresh);
         }
 
-        // api/warehouses/{id}/restock-list/settings - how that list is built, and when it comes round.
+        // api/inventories/{id}/restock-list/settings - how that list is built, and when it comes round.
         if (path.EndsWith("/restock-list/settings", StringComparison.Ordinal))
         {
             if (RestockSettings is null)
@@ -93,16 +93,16 @@ internal sealed class FakeInventoryServer : HttpMessageHandler
         if (path.EndsWith("/changes", StringComparison.Ordinal))
         {
             var since = DateTimeOffset.Parse(HttpUtility.ParseQueryString(request.RequestUri.Query)["since"]!);
-            return Json(new ChangeFeedDto<WarehouseDto>(
-                _warehouses.Values.Where(item => item.UpdatedAtUtc >= since).ToList(),
+            return Json(new ChangeFeedDto<InventoryDto>(
+                _inventories.Values.Where(item => item.UpdatedAtUtc >= since).ToList(),
                 _tombstones.Where(entry => entry.DeletedAtUtc >= since).Select(entry => entry.Id).ToList(),
                 _timeProvider.GetUtcNow().UtcDateTime.ToString("O")));
         }
 
         if (path.EndsWith("/items", StringComparison.Ordinal))
         {
-            var warehouseId = Guid.Parse(path.Split('/')[^2]);
-            return Json(ItemsIn(warehouseId).ToList());
+            var inventoryId = Guid.Parse(path.Split('/')[^2]);
+            return Json(ItemsIn(inventoryId).ToList());
         }
 
         return request.Method.Method switch
@@ -110,17 +110,17 @@ internal sealed class FakeInventoryServer : HttpMessageHandler
             "POST" => await CreateAsync(request, cancellationToken),
             "PUT" => await SaveAsync(request, path, cancellationToken),
             "DELETE" => Delete(path),
-            _ => Json(_warehouses.Values.ToList())
+            _ => Json(_inventories.Values.ToList())
         };
     }
 
-    /// <summary>What a refresh of a warehouse's restock list answers with, and how often one was asked for.</summary>
+    /// <summary>What a refresh of an inventory's restock list answers with, and how often one was asked for.</summary>
     public RestockRefreshResultDto RestockRefresh { get; set; } = new(0, 0);
 
     public int RestockRefreshesAsked { get; private set; }
 
     /// <summary>
-    /// How a warehouse's restock list is built here. Null stands for a warehouse whose settings this
+    /// How an inventory's restock list is built here. Null stands for an inventory whose settings this
     /// reader may not see, which is what the API answers with a 404.
     /// </summary>
     public RestockListSettingsDto? RestockSettings { get; set; } =
@@ -130,12 +130,12 @@ internal sealed class FakeInventoryServer : HttpMessageHandler
 
     private async Task<HttpResponseMessage> CreateAsync(HttpRequestMessage request, CancellationToken cancellationToken)
     {
-        var body = await ReadAsync<SaveWarehouseRequest>(request, cancellationToken);
+        var body = await ReadAsync<SaveInventoryRequest>(request, cancellationToken);
         // Carries IsPrivate and the sealed payload back: the phone reads what it is told, so a fake that
-        // dropped either would un-seal a private warehouse on the next sync - and read as the phone
-        // having lost it. A private warehouse's name is only in that payload.
-        var created = AddWarehouse(body!.Name, isPrivate: body.IsPrivate);
-        _warehouses[created.Id] = created with
+        // dropped either would un-seal a private inventory on the next sync - and read as the phone
+        // having lost it. A private inventory's name is only in that payload.
+        var created = AddInventory(body!.Name, isPrivate: body.IsPrivate);
+        _inventories[created.Id] = created with
         {
             EncryptedContent = body.EncryptedContent,
             // As the real endpoint stores it - see FakeTasksServer for the same two rules.
@@ -147,14 +147,14 @@ internal sealed class FakeInventoryServer : HttpMessageHandler
     private async Task<HttpResponseMessage> SaveAsync(HttpRequestMessage request, string path, CancellationToken cancellationToken)
     {
         var id = Guid.Parse(path.Split('/')[^1]);
-        if (!_warehouses.TryGetValue(id, out var existing))
+        if (!_inventories.TryGetValue(id, out var existing))
         {
             return new HttpResponseMessage(HttpStatusCode.NotFound);
         }
 
-        var body = await ReadAsync<SaveWarehouseRequest>(request, cancellationToken);
+        var body = await ReadAsync<SaveInventoryRequest>(request, cancellationToken);
         var now = _timeProvider.GetUtcNow();
-        _warehouses[id] = existing with
+        _inventories[id] = existing with
         {
             Name = body!.Name, UpdatedAtUtc = now, IsPrivate = body.IsPrivate,
             EncryptedContent = body.EncryptedContent,
@@ -176,12 +176,12 @@ internal sealed class FakeInventoryServer : HttpMessageHandler
         _items[id] = body.Items.Select(item => new InventoryItemDto(
             item.Id ?? Guid.NewGuid(), item.Name, item.ProductType, item.Category, item.Quantity,
             item.MinimumQuantity, item.Unit, item.ExpiryDate, item.ExpiryNotificationChannel,
-            // As UpdateWarehouseCommandHandler does: an item that came back with its id is updated
+            // As UpdateInventoryCommandHandler does: an item that came back with its id is updated
             // rather than replaced, so the day it arrived is the day it arrived. Restamping it here
             // would have made every shelf look like it was delivered on the day it was last edited.
             false, false, ArrivalOf(id, item.Id) ?? now, now,
             // As the server does: null on the way in means "not provided" and keeps what was stored -
-            // see WarehouseItemDto. A fake that read it as false would have called a client that says
+            // see InventoryItemRequest. A fake that read it as false would have called a client that says
             // nothing a client that turns it off.
             item.IsCheckedRegularly ?? Stored(id, item.Id))).ToList();
 
@@ -189,21 +189,21 @@ internal sealed class FakeInventoryServer : HttpMessageHandler
     }
 
     /// <summary>When this item arrived, for one that is being updated rather than added.</summary>
-    private DateTimeOffset? ArrivalOf(Guid warehouseId, Guid? itemId)
+    private DateTimeOffset? ArrivalOf(Guid inventoryId, Guid? itemId)
         => itemId is { } id
-            ? _items[warehouseId].FirstOrDefault(stored => stored.Id == id)?.CreatedAtUtc
+            ? _items[inventoryId].FirstOrDefault(stored => stored.Id == id)?.CreatedAtUtc
             : null;
 
     /// <summary>What this item was last stored as, for a save that says nothing about the flag.</summary>
-    private bool Stored(Guid warehouseId, Guid? itemId)
+    private bool Stored(Guid inventoryId, Guid? itemId)
         => itemId is { } id
-            && _items.TryGetValue(warehouseId, out var items)
+            && _items.TryGetValue(inventoryId, out var items)
             && items.FirstOrDefault(item => item.Id == id) is { IsCheckedRegularly: true };
 
     private HttpResponseMessage Delete(string path)
     {
         var id = Guid.Parse(path.Split('/')[^1]);
-        if (!_warehouses.Remove(id))
+        if (!_inventories.Remove(id))
         {
             return new HttpResponseMessage(HttpStatusCode.NotFound);
         }

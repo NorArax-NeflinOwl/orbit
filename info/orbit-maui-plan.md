@@ -138,7 +138,7 @@ each maps onto, since that is what Orbit.Maui actually consumes.
 | Notes, incl. checklist lines, sharing, private notes | `/api/notes/*` | Private notes are client-encrypted |
 | Tasks, incl. group lists, pinning, item moves, sharing | `/api/tasks/*` | |
 | Calendar, incl. recurrence, reminders, sharing, edit locks | `/api/calendar-events/*` | |
-| Inventory: warehouses, items, sharing, locks | `/api/warehouses/*` | |
+| Inventory: inventories, items, sharing, locks | `/api/inventories/*` | |
 | Chat 1:1: send, edit, delete, read receipts, approval | `/api/chat/*` | End-to-end encrypted — see §4.1 |
 | Group chat: create, members, roles, messages | `/api/chat/groups/*` | One ciphertext copy per member |
 | Contacts and user search | `/api/chat/contacts`, `/api/users/search` | |
@@ -365,7 +365,7 @@ The local schema mirrors `Orbit.Contracts` DTOs plus per-row sync bookkeeping (`
 dirty flag, and the local-vs-server id distinction for records created offline).
 
 **The local database holds decrypted content, and that deserves attention.** Private notes, task
-lists, and warehouses are client-encrypted precisely so the server can never read them; caching them
+lists, and inventories are client-encrypted precisely so the server can never read them; caching them
 in a plaintext SQLite file weakens exactly the property that feature exists to provide. At minimum the
 file belongs in app-private storage relying on platform disk encryption; encrypting the database
 itself (SQLCipher, key in the platform keystore) is the stronger option and should be decided
@@ -410,14 +410,14 @@ Two gaps stood in the way of real sync, both server-side:
 
 1. **No `since` parameter.** Every collection endpoint returns everything it has; only
    `GET /api/chat/messages/{otherUserId}` accepts `sinceUtc`. The main DTOs already carry
-   `UpdatedAtUtc` (`NoteDto`, `TaskDto`, `CalendarEventDto`, `WarehouseDto`, `InventoryItemDto`), so
+   `UpdatedAtUtc` (`NoteDto`, `TaskDto`, `CalendarEventDto`, `InventoryDto`, `InventoryItemDto`), so
    adding a `since` filter is straightforward — the data is there, the parameter isn't.
 2. **No way to learn about deletions.** A full pull detects a delete by absence; a *delta* pull cannot
    see one at all, so a note deleted on the web would live forever on the phone. This needs either
    soft-delete tombstones server-side, or a periodic full reconciliation pull to catch what the delta
    missed. Tombstones are the cleaner answer and the larger change.
 
-**Both now exist.** `GET /api/{notes,tasks,calendar-events,warehouses}/changes?since=` returns what
+**Both now exist.** `GET /api/{notes,tasks,calendar-events,inventories}/changes?since=` returns what
 changed and what was deleted, and deletions are recorded as tombstones in one table covering every
 entity type — see `Orbit.Core.Sync.SyncTombstone`. The cursor comes back as an ISO-8601 UTC string
 ending in `Z`, safe to drop straight into the next URL, and `since` is inclusive so a change landing
@@ -428,7 +428,7 @@ mid-request is re-sent rather than lost.
 Local mutations go into an **outbox** and replay in order when connectivity returns. The conflict
 question is where Orbit's existing design bites.
 
-**Edit locks are the sharp edge.** Notes, task lists, calendar events, and warehouses are protected by
+**Edit locks are the sharp edge.** Notes, task lists, calendar events, and inventories are protected by
 server-held, time-limited edit locks with a heartbeat (`LockedByUserId`, `LockExpiresAtUtc`, and
 `IsLockedByAnotherUser`) — the mechanism that stops two people editing the same shared item at once.
 **An offline client cannot hold a lock.** It can only find out at replay time that someone else was
@@ -445,7 +445,7 @@ who can lose anything is the same person on another device. For a shared item it
 it silently discards someone else's work — the exact outcome the locks were added to prevent.
 
 **Sharing is not a copy, which is why this matters.** Accepting a share does not duplicate the item:
-`NoteAccessResolver` (and its task, calendar, and warehouse equivalents) loads the *owner's* row and
+`NoteAccessResolver` (and its task, calendar, and inventory equivalents) loads the *owner's* row and
 stamps the caller's access level onto it. Two people with `CanEdit` are editing one row, which is what
 the locks exist for and what makes offline editing of a shared item genuinely unsafe.
 
@@ -477,7 +477,7 @@ and it lists copies still awaiting review as well as answered ones - a question 
 what happened to that thing too. A global list of everything ever kept would make somebody read past
 everything else to find the pair they are looking at.
 
-**One review window, four kinds.** A copy can be of a note, a task list, an appointment or a warehouse,
+**One review window, four kinds.** A copy can be of a note, a task list, an appointment or an inventory,
 so no one list is the right place to wait for one: it hangs off the avatar's menu, badged there the way
 notifications are, and each copy announces itself in the notification feed by name and by kind. Each repository implements `ICopyReviewStore` and renders its own rows into
 lines — a note's lines, a list's entries, an appointment's times, a shelf's stock — and one diff then
@@ -657,7 +657,7 @@ already has.
   real "this is running right now, and you can stop it" state — the exact thing the Dynamic Island
   exists for, and a genuine safety improvement over a share the user forgot about. Best fit on the
   device.
-- ~~**Face ID for private notes, task lists, and warehouses.**~~ Built, and now on all three screens
+- ~~**Face ID for private notes, task lists, and inventories.**~~ Built, and now on all three screens
   rather than only notes (`PrivateItemGate`). The `IsPrivate` feature already means "only the owner can
   read this, and the server never can"; the biometric gate is the physical counterpart of that promise.
 - **Action Button for quick capture.** One press to a new note or task, the most frequent action in
@@ -728,7 +728,7 @@ blocked on the same thing iOS is.
   copied, and `NoteSynchronizer` shrank from 344 lines to 217 with its tests unchanged and still
   passing. What each feature still owns is small and visible: which requests its create, update and
   delete are, and how its DTO becomes a local row. The conflict policy did not need changing. Calendar
-  events and warehouses are now expected to be additions rather than discoveries.
+  events and inventories are now expected to be additions rather than discoveries.
 - ~~**Crypto interop is the other schedule risk.**~~ **Retired.** The mitigation was carried out as
   written: vectors generated *from the browser* running Orbit.Web's own `e2eeChat.js`, checked into
   `tests/Orbit.Mobile.Tests/Crypto`, and asserted against. The no-KDF detail in §4.1 is now pinned in
@@ -781,7 +781,7 @@ These change the plan materially and are worth answering before the phase they l
    built for notes, and the shape the other three types will follow.
 2. ~~**Is the local database encrypted?** (§5.1)~~ — **settled: it is not, deliberately.** The phone
    keeps plain SQLite in app-private storage and relies on platform disk encryption. The guarantee
-   Orbit makes is about what leaves the device: chat messages, private notes, task lists, warehouses
+   Orbit makes is about what leaves the device: chat messages, private notes, task lists, inventories
    and shared positions are sealed client-side so the server cannot read them, and that is unchanged.
    A local cache the device's own owner can reach is accepted. Everything needed to revisit it is in
    `Orbit.Maui/Platform/LocalDatabase.cs` and one provider registration, so SQLCipher stays a cheap

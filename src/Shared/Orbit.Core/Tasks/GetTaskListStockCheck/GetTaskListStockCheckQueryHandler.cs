@@ -1,28 +1,28 @@
 using Orbit.Core.Abstractions;
-using Orbit.Core.Inventory;
+using Orbit.Core.Inventories;
 using Orbit.Core.Tasks.StockCheck;
 
 namespace Orbit.Core.Tasks.GetTaskListStockCheck;
 
 /// <summary>
-/// Null when there is nothing to answer - no such list, or no warehouse chosen for it. Told apart from
+/// Null when there is nothing to answer - no such list, or no inventory chosen for it. Told apart from
 /// an empty check, which means the question was asked and the work costs nothing.
 /// </summary>
 public sealed class GetTaskListStockCheckQueryHandler : IRequestHandler<GetTaskListStockCheckQuery, TaskListStockCheck?>
 {
     private readonly ITaskRepository _taskRepository;
-    private readonly IInventoryRepository _inventoryRepository;
+    private readonly IInventoryItemRepository _inventoryItemRepository;
 
-    public GetTaskListStockCheckQueryHandler(ITaskRepository taskRepository, IInventoryRepository inventoryRepository)
+    public GetTaskListStockCheckQueryHandler(ITaskRepository taskRepository, IInventoryItemRepository inventoryItemRepository)
     {
         _taskRepository = taskRepository;
-        _inventoryRepository = inventoryRepository;
+        _inventoryItemRepository = inventoryItemRepository;
     }
 
     public async Task<TaskListStockCheck?> HandleAsync(GetTaskListStockCheckQuery request, CancellationToken cancellationToken)
     {
         var taskList = await _taskRepository.GetByIdAsync(request.UserId, request.TaskListId, cancellationToken);
-        if (taskList?.LinkedWarehouseId is not { } warehouseId)
+        if (taskList?.LinkedInventoryId is not { } inventoryId)
         {
             return null;
         }
@@ -30,15 +30,15 @@ public sealed class GetTaskListStockCheckQueryHandler : IRequestHandler<GetTaskL
         // The whole tree, because a group list's work is on the lists below it rather than on itself.
         var reachable = await _taskRepository.GetAllAsync(request.UserId, updatedSinceUtc: null, cancellationToken);
         var work = LinkedTaskListTree.WorkIn(taskList, reachable);
-        var stock = await _inventoryRepository.GetAllAsync(warehouseId, cancellationToken);
+        var stock = await _inventoryItemRepository.GetAllAsync(inventoryId, cancellationToken);
         var now = DateTimeOffset.UtcNow;
 
         return StockRequirementCounter.Count(
-            work, stock, now, AskedForByTheOtherLists(taskList, reachable, warehouseId, now));
+            work, stock, now, AskedForByTheOtherLists(taskList, reachable, inventoryId, now));
     }
 
     /// <summary>
-    /// What every other list measured against this warehouse asks for, by name. A shelf serves all of
+    /// What every other list measured against this inventory asks for, by name. A shelf serves all of
     /// them, so the answer to "is there enough" is about the whole demand on it: without this, two lists
     /// each wanting the last bag of flour would both be told the bag is theirs.
     ///
@@ -46,13 +46,13 @@ public sealed class GetTaskListStockCheckQueryHandler : IRequestHandler<GetTaskL
     /// another's tree is not counted twice - what a group list stands for is already in it.
     /// </summary>
     private static IReadOnlyDictionary<string, decimal> AskedForByTheOtherLists(
-        TaskList taskList, IReadOnlyList<TaskList> reachable, Guid warehouseId, DateTimeOffset nowUtc)
+        TaskList taskList, IReadOnlyList<TaskList> reachable, Guid inventoryId, DateTimeOffset nowUtc)
     {
         var alreadyCounted = LinkedTaskListTree.Flatten(taskList, reachable).Select(list => list.Id).ToHashSet();
         var elsewhere = new Dictionary<string, decimal>();
 
         foreach (var other in reachable.Where(candidate =>
-            candidate.LinkedWarehouseId == warehouseId && !alreadyCounted.Contains(candidate.Id)))
+            candidate.LinkedInventoryId == inventoryId && !alreadyCounted.Contains(candidate.Id)))
         {
             foreach (var (name, quantity) in StockRequirementCounter.DemandOf(
                 LinkedTaskListTree.WorkIn(other, reachable), nowUtc))

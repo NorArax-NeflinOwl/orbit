@@ -1,5 +1,5 @@
 using Orbit.Api.Tests.TestDoubles;
-using Orbit.Core.Inventory;
+using Orbit.Core.Inventories;
 using Orbit.Core.Abstractions;
 using Orbit.Core.Tasks;
 using Orbit.Core.Tasks.SetTaskListPinned;
@@ -87,9 +87,9 @@ public sealed class TaskListPinningTests
     {
         var context = new InventoryTestContext();
         var ownerId = Guid.NewGuid();
-        var warehouseId = context.AddWarehouse(ownerId, "Pantry");
+        var inventoryId = context.AddInventory(ownerId, "Pantry");
 
-        await context.TaskListCoordinator.EnsureManagedTaskListAsync(warehouseId, CancellationToken.None);
+        await context.TaskListCoordinator.EnsureManagedTaskListAsync(inventoryId, CancellationToken.None);
 
         var taskList = Assert.Single(await context.TaskRepository.GetAllAsync(ownerId, updatedSinceUtc: null, CancellationToken.None));
         Assert.Equal(RestockTaskNaming.TitleFor("Pantry"), taskList.Title);

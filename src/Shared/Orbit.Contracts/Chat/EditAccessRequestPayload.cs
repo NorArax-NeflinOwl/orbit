@@ -8,7 +8,7 @@ namespace Orbit.Contracts.Chat;
 ///
 /// Deliberately a request rather than a grant: only the owner can widen access, so all this does is ask.
 /// </summary>
-/// <param name="ItemType">One of "Note", "TaskList", "CalendarEvent", "Warehouse".</param>
+/// <param name="ItemType">One of "Note", "TaskList", "CalendarEvent", "Inventory".</param>
 public sealed record EditAccessRequestPayload(string ItemType, Guid ItemId, string ItemTitle)
 {
     public const string MessageType = "orbit/edit-access-request";

@@ -44,7 +44,7 @@ internal sealed class FakeTransferServer : HttpMessageHandler
         {
             Content = JsonContent.Create(new ImportArchiveResult(
                 Imported!.Notes.Count, Imported.TaskLists.Count, Imported.CalendarEvents.Count,
-                Imported.Warehouses.Count))
+                Imported.Inventories.Count))
         };
     }
 

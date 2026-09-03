@@ -5,7 +5,7 @@ using Orbit.Core;
 using Orbit.Core.Abstractions;
 using Orbit.Core.Calendar;
 using Orbit.Core.Chat.Groups;
-using Orbit.Core.Inventory;
+using Orbit.Core.Inventories;
 using Orbit.Core.Notes;
 using Orbit.Core.Notifications;
 using Orbit.Core.Tasks;
@@ -66,9 +66,9 @@ public sealed class StoredTextLimitsTests
                 subject: new TaskItemSubject(TaskItemKind.Calendar, TooLongFor(StoredTextLimits.Address))));
 
     [Fact]
-    public void A_warehouse_name_that_would_not_fit_is_refused()
+    public void A_inventory_name_that_would_not_fit_is_refused()
         => Assert.Throws<InvalidRequestException>(
-            () => Warehouse.Create(Guid.NewGuid(), TooLongFor(StoredTextLimits.Title)));
+            () => Inventory.Create(Guid.NewGuid(), TooLongFor(StoredTextLimits.Title)));
 
     [Fact]
     public void A_group_name_that_would_not_fit_is_refused()

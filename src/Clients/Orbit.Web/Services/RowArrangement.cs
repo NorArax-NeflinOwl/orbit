@@ -2,7 +2,7 @@ namespace Orbit.Web.Services;
 
 /// <summary>
 /// Putting a row where somebody wants it, for the editors that let a list be arranged by hand - a task
-/// list's items, a warehouse's shelf, the task cards - because the order those are written in is the
+/// list's items, an inventory's shelf, the task cards - because the order those are written in is the
 /// order they are saved and read back in.
 ///
 /// Two ways to the same move, because one of them needs a mouse. <see cref="DropOn"/> is dragging, and

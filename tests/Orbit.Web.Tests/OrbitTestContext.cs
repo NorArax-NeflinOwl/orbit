@@ -24,10 +24,10 @@ public abstract class OrbitTestContext : TestContext
         // Empty, which is what every page sees unless the map sent somebody to it - the same reason
         // Translations is here. A test about the handover puts a place in it first.
         Services.AddSingleton(new ChosenPlace());
-        // The inventory page reads the order this reader put their warehouses in. StubJSRuntime is
+        // The inventory page reads the order this reader put their inventories in. StubJSRuntime is
         // the one that answers localStorage, and it starts empty - so nothing is arranged, which is
         // the right answer for a test that has not arranged anything.
-        Services.AddSingleton(new WarehouseArrangement(new StubJSRuntime()));
+        Services.AddSingleton(new InventoryArrangement(new StubJSRuntime()));
         // The contacts page reads which conversations this reader keeps at the top. Same storage, same
         // empty start - nothing is pinned until a test pins something.
         Services.AddSingleton(new ConversationPins(new StubJSRuntime()));
@@ -36,7 +36,7 @@ public abstract class OrbitTestContext : TestContext
         // nothing; without it any test that opens a menu fails on the interop call rather than on
         // whatever it was about.
         JSInterop.SetupModule("./js/menuAnchor.js").SetupVoid("anchorToTrigger", _ => true).SetVoidResult();
-        // The one field a task list and a warehouse are named in draws itself through a module too - see
+        // The one field a task list and an inventory are named in draws itself through a module too - see
         // ChecklistTextEditor, which the note editor and TitledDescription both use. Same reason as the
         // menu above: without this, every editor test fails on an interop call rather than on whatever
         // it was about. Answered rather than made loose, so a call nobody expected is still an error.

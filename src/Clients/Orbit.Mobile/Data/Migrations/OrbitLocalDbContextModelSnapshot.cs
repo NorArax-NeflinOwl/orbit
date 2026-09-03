@@ -202,6 +202,91 @@ namespace Orbit.Mobile.Data.Migrations
                     b.ToTable("Contacts");
                 });
 
+            modelBuilder.Entity("Orbit.Mobile.Data.LocalInventory", b =>
+                {
+                    b.Property<Guid>("LocalId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("AccessLevel")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<long?>("CopiedAtUtc")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("CopyBaseLines")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("CopyBaseTitle")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid?>("CopyOfLocalId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<long>("CreatedAtUtc")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Description")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("EncryptedCiphertext")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("EncryptedNonce")
+                        .HasColumnType("TEXT");
+
+                    b.Property<bool>("IsKeptCopy")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<bool>("IsPrivate")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<bool>("IsShared")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<bool>("IsSharedWithOthers")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("ItemArrivals")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Items")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<long?>("LastSyncedAtUtc")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid?>("OwnerUserId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid?>("ServerId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("SharedByUserName")
+                        .HasColumnType("TEXT");
+
+                    b.Property<long>("UpdatedAtUtc")
+                        .HasColumnType("INTEGER");
+
+                    b.HasKey("LocalId");
+
+                    b.HasIndex("ServerId")
+                        .IsUnique()
+                        .HasFilter("\"ServerId\" IS NOT NULL");
+
+                    b.ToTable("Inventories");
+                });
+
             modelBuilder.Entity("Orbit.Mobile.Data.LocalNote", b =>
                 {
                     b.Property<Guid>("LocalId")
@@ -421,7 +506,7 @@ namespace Orbit.Mobile.Data.Migrations
                     b.Property<long?>("LastSyncedAtUtc")
                         .HasColumnType("INTEGER");
 
-                    b.Property<Guid?>("LinkedWarehouseId")
+                    b.Property<Guid?>("LinkedInventoryId")
                         .HasColumnType("TEXT");
 
                     b.Property<Guid?>("OwnerUserId")
@@ -455,91 +540,6 @@ namespace Orbit.Mobile.Data.Migrations
                         .HasFilter("\"ServerId\" IS NOT NULL");
 
                     b.ToTable("TaskLists");
-                });
-
-            modelBuilder.Entity("Orbit.Mobile.Data.LocalWarehouse", b =>
-                {
-                    b.Property<Guid>("LocalId")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("AccessLevel")
-                        .IsRequired()
-                        .HasColumnType("TEXT");
-
-                    b.Property<long?>("CopiedAtUtc")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<string>("CopyBaseLines")
-                        .IsRequired()
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("CopyBaseTitle")
-                        .IsRequired()
-                        .HasColumnType("TEXT");
-
-                    b.Property<Guid?>("CopyOfLocalId")
-                        .HasColumnType("TEXT");
-
-                    b.Property<long>("CreatedAtUtc")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<string>("Description")
-                        .IsRequired()
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("EncryptedCiphertext")
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("EncryptedNonce")
-                        .HasColumnType("TEXT");
-
-                    b.Property<bool>("IsKeptCopy")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<bool>("IsPrivate")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<bool>("IsShared")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<bool>("IsSharedWithOthers")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<string>("ItemArrivals")
-                        .IsRequired()
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("Items")
-                        .IsRequired()
-                        .HasColumnType("TEXT");
-
-                    b.Property<long?>("LastSyncedAtUtc")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<string>("Name")
-                        .IsRequired()
-                        .HasColumnType("TEXT");
-
-                    b.Property<Guid?>("OwnerUserId")
-                        .HasColumnType("TEXT");
-
-                    b.Property<Guid?>("ServerId")
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("SharedByUserName")
-                        .HasColumnType("TEXT");
-
-                    b.Property<long>("UpdatedAtUtc")
-                        .HasColumnType("INTEGER");
-
-                    b.HasKey("LocalId");
-
-                    b.HasIndex("ServerId")
-                        .IsUnique()
-                        .HasFilter("\"ServerId\" IS NOT NULL");
-
-                    b.ToTable("Warehouses");
                 });
 
             modelBuilder.Entity("Orbit.Mobile.Data.OutboxEntry", b =>

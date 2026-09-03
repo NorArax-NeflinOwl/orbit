@@ -8,7 +8,7 @@ using Xunit;
 namespace Orbit.Web.Tests.Components;
 
 /// <summary>
-/// The title-and-description field, which both the task list and the warehouse editors put at the top of
+/// The title-and-description field, which both the task list and the inventory editors put at the top of
 /// their form. One surface rather than two boxes: the first line is the title and everything under it is
 /// the description - the note editor's own shape, reused.
 ///

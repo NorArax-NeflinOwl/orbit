@@ -1,7 +1,7 @@
 namespace Orbit.Mobile.Security;
 
 /// <summary>
-/// Whether private notes, lists and warehouses are readable on this phone right now.
+/// Whether private notes, lists and inventories are readable on this phone right now.
 ///
 /// Orbit's <c>IsPrivate</c> already means "only the owner can read this, and the server never can". On a
 /// phone the missing half of that is physical: a private note on an unlocked handset is readable by

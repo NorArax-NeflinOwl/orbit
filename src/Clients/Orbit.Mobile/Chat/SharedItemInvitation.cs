@@ -9,7 +9,7 @@ public enum SharedItemKind
     Note,
     TaskList,
     CalendarEvent,
-    Warehouse
+    Inventory
 }
 
 /// <summary>
@@ -39,7 +39,7 @@ public sealed record SharedItemInvitation(SharedItemKind Kind, Guid ShareId, str
             return ReadNote(plainText)
                 ?? ReadTaskList(plainText)
                 ?? ReadEvent(plainText)
-                ?? ReadWarehouse(plainText);
+                ?? ReadInventory(plainText);
         }
         catch (JsonException)
         {
@@ -65,9 +65,9 @@ public sealed record SharedItemInvitation(SharedItemKind Kind, Guid ShareId, str
             ? new SharedItemInvitation(SharedItemKind.CalendarEvent, payload.ShareId, payload.EventTitle)
             : null;
 
-    private static SharedItemInvitation? ReadWarehouse(string plainText)
-        => JsonSerializer.Deserialize(plainText, ChatPayloadSerializerContext.Default.WarehouseShareMessagePayload)
-            is { Type: WarehouseShareMessagePayload.MessageType } payload
-            ? new SharedItemInvitation(SharedItemKind.Warehouse, payload.ShareId, payload.WarehouseName)
+    private static SharedItemInvitation? ReadInventory(string plainText)
+        => JsonSerializer.Deserialize(plainText, ChatPayloadSerializerContext.Default.InventoryShareMessagePayload)
+            is { Type: InventoryShareMessagePayload.MessageType } payload
+            ? new SharedItemInvitation(SharedItemKind.Inventory, payload.ShareId, payload.InventoryName)
             : null;
 }

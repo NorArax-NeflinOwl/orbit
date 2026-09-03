@@ -27,235 +27,289 @@ namespace Orbit.Data.Migrations
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid");
+                        .HasColumnType("uuid")
+                        .HasColumnName("OP_E_ID");
 
                     b.Property<string>("Color")
                         .HasMaxLength(20)
-                        .HasColumnType("character varying(20)");
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("OP_E_COLOR");
 
                     b.Property<DateTimeOffset>("CreatedAtUtc")
-                        .HasColumnType("timestamp with time zone");
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("OP_E_CREATEDATUTC");
 
                     b.Property<string>("Description")
                         .HasMaxLength(2000)
-                        .HasColumnType("character varying(2000)");
+                        .HasColumnType("character varying(2000)")
+                        .HasColumnName("OP_E_DESCRIPTION");
 
                     b.Property<DateTimeOffset>("EndUtc")
-                        .HasColumnType("timestamp with time zone");
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("OP_E_ENDUTC");
 
                     b.Property<string>("GuestsJson")
                         .IsRequired()
-                        .HasColumnType("text");
+                        .HasColumnType("text")
+                        .HasColumnName("OP_E_GUESTSJSON");
 
                     b.Property<bool>("IsAllDay")
-                        .HasColumnType("boolean");
+                        .HasColumnType("boolean")
+                        .HasColumnName("OP_E_ISALLDAY");
 
                     b.Property<string>("LocationAddress")
                         .HasMaxLength(300)
-                        .HasColumnType("character varying(300)");
+                        .HasColumnType("character varying(300)")
+                        .HasColumnName("OP_E_LOCATIONADDRESS");
 
                     b.Property<double?>("LocationLatitude")
-                        .HasColumnType("double precision");
+                        .HasColumnType("double precision")
+                        .HasColumnName("OP_E_LOCATIONLATITUDE");
 
                     b.Property<double?>("LocationLongitude")
-                        .HasColumnType("double precision");
+                        .HasColumnType("double precision")
+                        .HasColumnName("OP_E_LOCATIONLONGITUDE");
 
                     b.Property<DateTimeOffset?>("LockExpiresAtUtc")
-                        .HasColumnType("timestamp with time zone");
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("OP_E_LOCKEXPIRESATUTC");
 
                     b.Property<Guid?>("LockedByUserId")
-                        .HasColumnType("uuid");
+                        .HasColumnType("uuid")
+                        .HasColumnName("OP_E_LOCKEDBYUSERID");
 
                     b.Property<string>("LockedByUserName")
                         .HasMaxLength(64)
-                        .HasColumnType("character varying(64)");
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("OP_E_LOCKEDBYUSERNAME");
 
                     b.Property<bool>("NotifyAtStart")
-                        .HasColumnType("boolean");
+                        .HasColumnType("boolean")
+                        .HasColumnName("OP_E_NOTIFYATSTART");
 
                     b.Property<string>("Priority")
                         .IsRequired()
                         .ValueGeneratedOnAdd()
                         .HasMaxLength(10)
                         .HasColumnType("character varying(10)")
-                        .HasDefaultValue("Normal");
+                        .HasDefaultValue("Normal")
+                        .HasColumnName("OP_E_PRIORITY");
 
                     b.Property<string>("RecurrenceFrequency")
                         .HasMaxLength(20)
-                        .HasColumnType("character varying(20)");
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("OP_E_RECURRENCEFREQUENCY");
 
                     b.Property<int?>("RecurrenceIntervalCount")
-                        .HasColumnType("integer");
+                        .HasColumnType("integer")
+                        .HasColumnName("OP_E_RECURRENCEINTERVALCOUNT");
 
                     b.Property<int?>("RecurrenceOccurrenceCount")
-                        .HasColumnType("integer");
+                        .HasColumnType("integer")
+                        .HasColumnName("OP_E_RECURRENCEOCCURRENCECOUNT");
 
                     b.Property<DateTimeOffset?>("RecurrenceUntilUtc")
-                        .HasColumnType("timestamp with time zone");
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("OP_E_RECURRENCEUNTILUTC");
 
                     b.Property<string>("ReminderNotificationChannel")
                         .IsRequired()
                         .HasMaxLength(20)
-                        .HasColumnType("character varying(20)");
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("OP_E_REMINDERNOTIFICATIONCHANNEL");
 
                     b.Property<string>("RemindersJson")
                         .IsRequired()
-                        .HasColumnType("text");
+                        .HasColumnType("text")
+                        .HasColumnName("OP_E_REMINDERSJSON");
 
                     b.Property<DateTimeOffset>("StartUtc")
-                        .HasColumnType("timestamp with time zone");
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("OP_E_STARTUTC");
 
                     b.Property<string>("Title")
                         .IsRequired()
                         .HasMaxLength(200)
-                        .HasColumnType("character varying(200)");
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("OP_E_TITLE");
 
                     b.Property<DateTimeOffset>("UpdatedAtUtc")
-                        .HasColumnType("timestamp with time zone");
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("OP_E_UPDATEDATUTC");
 
                     b.Property<Guid>("UserId")
-                        .HasColumnType("uuid");
+                        .HasColumnType("uuid")
+                        .HasColumnName("OP_E_USERID");
 
                     b.HasKey("Id");
 
                     b.HasIndex("UserId");
 
-                    b.ToTable("CalendarEvents");
+                    b.ToTable("OP_EVENTS");
                 });
 
             modelBuilder.Entity("Orbit.Data.Entities.CalendarEventShareEntity", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid");
+                        .HasColumnType("uuid")
+                        .HasColumnName("OP_ES_ID");
 
                     b.Property<DateTimeOffset?>("AcceptedAtUtc")
-                        .HasColumnType("timestamp with time zone");
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("OP_ES_ACCEPTEDATUTC");
 
                     b.Property<string>("AccessLevel")
                         .IsRequired()
-                        .HasColumnType("text");
+                        .HasColumnType("text")
+                        .HasColumnName("OP_ES_ACCESSLEVEL");
 
                     b.Property<DateTimeOffset>("CreatedAtUtc")
-                        .HasColumnType("timestamp with time zone");
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("OP_ES_CREATEDATUTC");
 
                     b.Property<Guid>("OwnerUserId")
-                        .HasColumnType("uuid");
+                        .HasColumnType("uuid")
+                        .HasColumnName("OP_ES_OWNERUSERID");
 
                     b.Property<Guid>("RecipientUserId")
-                        .HasColumnType("uuid");
+                        .HasColumnType("uuid")
+                        .HasColumnName("OP_ES_RECIPIENTUSERID");
 
                     b.Property<Guid>("SourceCalendarEventId")
-                        .HasColumnType("uuid");
+                        .HasColumnType("uuid")
+                        .HasColumnName("OP_ES_SOURCECALENDAREVENTID");
 
                     b.HasKey("Id");
 
                     b.HasIndex("SourceCalendarEventId", "RecipientUserId");
 
-                    b.ToTable("CalendarEventShares");
+                    b.ToTable("OP_EVENTS_SHARED");
                 });
 
             modelBuilder.Entity("Orbit.Data.Entities.ChatConversationAccessEntity", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid");
+                        .HasColumnType("uuid")
+                        .HasColumnName("OL_CA_ID");
 
                     b.Property<DateTimeOffset?>("ApprovedAtUtc")
-                        .HasColumnType("timestamp with time zone");
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("OL_CA_APPROVEDATUTC");
 
                     b.Property<DateTimeOffset>("CreatedAtUtc")
-                        .HasColumnType("timestamp with time zone");
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("OL_CA_CREATEDATUTC");
 
                     b.Property<Guid>("InitiatedByUserId")
-                        .HasColumnType("uuid");
+                        .HasColumnType("uuid")
+                        .HasColumnName("OL_CA_INITIATEDBYUSERID");
 
                     b.Property<Guid>("OtherUserId")
-                        .HasColumnType("uuid");
+                        .HasColumnType("uuid")
+                        .HasColumnName("OL_CA_OTHERUSERID");
 
                     b.HasKey("Id");
 
                     b.HasIndex("InitiatedByUserId", "OtherUserId")
                         .IsUnique();
 
-                    b.ToTable("ChatConversationAccesses");
+                    b.ToTable("OL_CHATS_ACCESS");
                 });
 
             modelBuilder.Entity("Orbit.Data.Entities.ChatGroupAnnouncementEntity", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid");
+                        .HasColumnType("uuid")
+                        .HasColumnName("OP_CA_ID");
 
                     b.Property<Guid>("AddedByUserId")
-                        .HasColumnType("uuid");
+                        .HasColumnType("uuid")
+                        .HasColumnName("OP_CA_ADDEDBYUSERID");
 
                     b.Property<DateTimeOffset>("AnnouncedAtUtc")
-                        .HasColumnType("timestamp with time zone");
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("OP_CA_ANNOUNCEDATUTC");
 
                     b.Property<Guid>("GroupId")
-                        .HasColumnType("uuid");
+                        .HasColumnType("uuid")
+                        .HasColumnName("OP_CA_GROUPID");
 
                     b.Property<bool>("HistoryShared")
-                        .HasColumnType("boolean");
+                        .HasColumnType("boolean")
+                        .HasColumnName("OP_CA_HISTORYSHARED");
 
                     b.Property<Guid>("JoinedUserId")
-                        .HasColumnType("uuid");
+                        .HasColumnType("uuid")
+                        .HasColumnName("OP_CA_JOINEDUSERID");
 
                     b.HasKey("Id");
 
                     b.HasIndex("GroupId", "JoinedUserId");
 
-                    b.ToTable("ChatGroupAnnouncements");
+                    b.ToTable("OP_CHATS_ANNOUNCEMENTS");
                 });
 
             modelBuilder.Entity("Orbit.Data.Entities.ChatGroupEntity", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid");
+                        .HasColumnType("uuid")
+                        .HasColumnName("OP_CG_ID");
 
                     b.Property<DateTimeOffset>("CreatedAtUtc")
-                        .HasColumnType("timestamp with time zone");
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("OP_CG_CREATEDATUTC");
 
                     b.Property<Guid>("CreatedByUserId")
-                        .HasColumnType("uuid");
+                        .HasColumnType("uuid")
+                        .HasColumnName("OP_CG_CREATEDBYUSERID");
 
                     b.Property<DateTimeOffset>("LastMessageAtUtc")
-                        .HasColumnType("timestamp with time zone");
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("OP_CG_LASTMESSAGEATUTC");
 
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasMaxLength(120)
-                        .HasColumnType("character varying(120)");
+                        .HasColumnType("character varying(120)")
+                        .HasColumnName("OP_CG_NAME");
 
                     b.HasKey("Id");
 
-                    b.ToTable("ChatGroups");
+                    b.ToTable("OP_CHATS_GROUPS");
                 });
 
             modelBuilder.Entity("Orbit.Data.Entities.ChatGroupMemberEntity", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid");
+                        .HasColumnType("uuid")
+                        .HasColumnName("OL_CM_ID");
 
                     b.Property<Guid>("GroupId")
-                        .HasColumnType("uuid");
+                        .HasColumnType("uuid")
+                        .HasColumnName("OL_CM_GROUPID");
 
                     b.Property<bool>("IsArchived")
-                        .HasColumnType("boolean");
+                        .HasColumnType("boolean")
+                        .HasColumnName("OL_CM_ISARCHIVED");
 
                     b.Property<DateTimeOffset>("JoinedAtUtc")
-                        .HasColumnType("timestamp with time zone");
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("OL_CM_JOINEDATUTC");
 
                     b.Property<string>("Role")
                         .IsRequired()
                         .HasMaxLength(16)
-                        .HasColumnType("character varying(16)");
+                        .HasColumnType("character varying(16)")
+                        .HasColumnName("OL_CM_ROLE");
 
                     b.Property<Guid>("UserId")
-                        .HasColumnType("uuid");
+                        .HasColumnType("uuid")
+                        .HasColumnName("OL_CM_USERID");
 
                     b.HasKey("Id");
 
@@ -264,49 +318,61 @@ namespace Orbit.Data.Migrations
                     b.HasIndex("GroupId", "UserId")
                         .IsUnique();
 
-                    b.ToTable("ChatGroupMembers");
+                    b.ToTable("OL_CHATS_MEMBERS");
                 });
 
             modelBuilder.Entity("Orbit.Data.Entities.ChatMessageEntity", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid");
+                        .HasColumnType("uuid")
+                        .HasColumnName("OP_C_ID");
 
                     b.Property<string>("CiphertextBase64")
                         .IsRequired()
-                        .HasColumnType("text");
+                        .HasColumnType("text")
+                        .HasColumnName("OP_C_CIPHERTEXTBASE64");
 
                     b.Property<DateTimeOffset?>("EditedAtUtc")
-                        .HasColumnType("timestamp with time zone");
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("OP_C_EDITEDATUTC");
 
                     b.Property<Guid?>("GroupId")
-                        .HasColumnType("uuid");
+                        .HasColumnType("uuid")
+                        .HasColumnName("OP_C_GROUPID");
 
                     b.Property<Guid?>("GroupMessageId")
-                        .HasColumnType("uuid");
+                        .HasColumnType("uuid")
+                        .HasColumnName("OP_C_GROUPMESSAGEID");
 
                     b.Property<bool>("IsEdited")
-                        .HasColumnType("boolean");
+                        .HasColumnType("boolean")
+                        .HasColumnName("OP_C_ISEDITED");
 
                     b.Property<bool>("IsSharedHistory")
-                        .HasColumnType("boolean");
+                        .HasColumnType("boolean")
+                        .HasColumnName("OP_C_ISSHAREDHISTORY");
 
                     b.Property<string>("NonceBase64")
                         .IsRequired()
-                        .HasColumnType("text");
+                        .HasColumnType("text")
+                        .HasColumnName("OP_C_NONCEBASE64");
 
                     b.Property<DateTimeOffset?>("ReadAtUtc")
-                        .HasColumnType("timestamp with time zone");
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("OP_C_READATUTC");
 
                     b.Property<Guid>("RecipientUserId")
-                        .HasColumnType("uuid");
+                        .HasColumnType("uuid")
+                        .HasColumnName("OP_C_RECIPIENTUSERID");
 
                     b.Property<Guid>("SenderUserId")
-                        .HasColumnType("uuid");
+                        .HasColumnType("uuid")
+                        .HasColumnName("OP_C_SENDERUSERID");
 
                     b.Property<DateTimeOffset>("SentAtUtc")
-                        .HasColumnType("timestamp with time zone");
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("OP_C_SENTATUTC");
 
                     b.HasKey("Id");
 
@@ -318,89 +384,107 @@ namespace Orbit.Data.Migrations
 
                     b.HasIndex("SenderUserId", "RecipientUserId");
 
-                    b.ToTable("ChatMessages");
+                    b.ToTable("OP_CHATS");
                 });
 
             modelBuilder.Entity("Orbit.Data.Entities.ContactEntity", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid");
+                        .HasColumnType("uuid")
+                        .HasColumnName("OL_C_ID");
 
                     b.Property<Guid>("ContactUserId")
-                        .HasColumnType("uuid");
+                        .HasColumnType("uuid")
+                        .HasColumnName("OL_C_CONTACTUSERID");
 
                     b.Property<DateTimeOffset>("CreatedAtUtc")
-                        .HasColumnType("timestamp with time zone");
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("OL_C_CREATEDATUTC");
 
                     b.Property<DateTimeOffset?>("HistoryClearedAtUtc")
-                        .HasColumnType("timestamp with time zone");
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("OL_C_HISTORYCLEAREDATUTC");
 
                     b.Property<bool>("IsArchived")
-                        .HasColumnType("boolean");
+                        .HasColumnType("boolean")
+                        .HasColumnName("OL_C_ISARCHIVED");
 
                     b.Property<DateTimeOffset>("LastMessageAtUtc")
-                        .HasColumnType("timestamp with time zone");
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("OL_C_LASTMESSAGEATUTC");
 
                     b.Property<Guid>("OwnerUserId")
-                        .HasColumnType("uuid");
+                        .HasColumnType("uuid")
+                        .HasColumnName("OL_C_OWNERUSERID");
 
                     b.HasKey("Id");
 
                     b.HasIndex("OwnerUserId", "ContactUserId")
                         .IsUnique();
 
-                    b.ToTable("Contacts");
+                    b.ToTable("OL_CONTACTS");
                 });
 
             modelBuilder.Entity("Orbit.Data.Entities.DiagnosticLogEntryEntity", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid");
+                        .HasColumnType("uuid")
+                        .HasColumnName("OS_D_ID");
 
                     b.Property<string>("AppVersion")
                         .IsRequired()
                         .HasMaxLength(40)
-                        .HasColumnType("character varying(40)");
+                        .HasColumnType("character varying(40)")
+                        .HasColumnName("OS_D_APPVERSION");
 
                     b.Property<string>("Detail")
                         .HasMaxLength(4000)
-                        .HasColumnType("character varying(4000)");
+                        .HasColumnType("character varying(4000)")
+                        .HasColumnName("OS_D_DETAIL");
 
                     b.Property<string>("DeviceModel")
                         .IsRequired()
                         .HasMaxLength(80)
-                        .HasColumnType("character varying(80)");
+                        .HasColumnType("character varying(80)")
+                        .HasColumnName("OS_D_DEVICEMODEL");
 
                     b.Property<string>("Level")
                         .IsRequired()
                         .HasMaxLength(20)
-                        .HasColumnType("character varying(20)");
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("OS_D_LEVEL");
 
                     b.Property<string>("Message")
                         .IsRequired()
                         .HasMaxLength(1000)
-                        .HasColumnType("character varying(1000)");
+                        .HasColumnType("character varying(1000)")
+                        .HasColumnName("OS_D_MESSAGE");
 
                     b.Property<string>("OperatingSystemVersion")
                         .IsRequired()
                         .HasMaxLength(40)
-                        .HasColumnType("character varying(40)");
+                        .HasColumnType("character varying(40)")
+                        .HasColumnName("OS_D_OPERATINGSYSTEMVERSION");
 
                     b.Property<string>("Platform")
                         .IsRequired()
                         .HasMaxLength(20)
-                        .HasColumnType("character varying(20)");
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("OS_D_PLATFORM");
 
                     b.Property<DateTimeOffset>("ReceivedAtUtc")
-                        .HasColumnType("timestamp with time zone");
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("OS_D_RECEIVEDATUTC");
 
                     b.Property<DateTimeOffset>("TimestampUtc")
-                        .HasColumnType("timestamp with time zone");
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("OS_D_TIMESTAMPUTC");
 
                     b.Property<Guid>("UserId")
-                        .HasColumnType("uuid");
+                        .HasColumnType("uuid")
+                        .HasColumnName("OS_D_USERID");
 
                     b.HasKey("Id");
 
@@ -408,119 +492,217 @@ namespace Orbit.Data.Migrations
 
                     b.HasIndex("UserId", "ReceivedAtUtc");
 
-                    b.ToTable("DiagnosticLogEntries");
+                    b.ToTable("OS_DIAGNOSTICS");
                 });
 
             modelBuilder.Entity("Orbit.Data.Entities.EventReminderDeliveryEntity", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid");
+                        .HasColumnType("uuid")
+                        .HasColumnName("OS_ER_ID");
 
                     b.Property<Guid>("CalendarEventId")
-                        .HasColumnType("uuid");
+                        .HasColumnType("uuid")
+                        .HasColumnName("OS_ER_CALENDAREVENTID");
 
                     b.Property<int>("MinutesBeforeStart")
-                        .HasColumnType("integer");
+                        .HasColumnType("integer")
+                        .HasColumnName("OS_ER_MINUTESBEFORESTART");
 
                     b.Property<DateTimeOffset>("OccurrenceStartUtc")
-                        .HasColumnType("timestamp with time zone");
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("OS_ER_OCCURRENCESTARTUTC");
 
                     b.Property<DateTimeOffset>("SentAtUtc")
-                        .HasColumnType("timestamp with time zone");
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("OS_ER_SENTATUTC");
 
                     b.HasKey("Id");
 
                     b.HasIndex("CalendarEventId", "MinutesBeforeStart", "OccurrenceStartUtc")
                         .IsUnique();
 
-                    b.ToTable("EventReminderDeliveries");
+                    b.ToTable("OS_EVENTS_REMINDERS");
+                });
+
+            modelBuilder.Entity("Orbit.Data.Entities.InventoryEntity", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("OP_I_ID");
+
+                    b.Property<DateTimeOffset>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("OP_I_CREATEDATUTC");
+
+                    b.Property<string>("Description")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)")
+                        .HasDefaultValue("")
+                        .HasColumnName("OP_I_DESCRIPTION");
+
+                    b.Property<string>("EncryptedCiphertext")
+                        .HasColumnType("text")
+                        .HasColumnName("OP_I_ENCRYPTEDCIPHERTEXT");
+
+                    b.Property<string>("EncryptedNonce")
+                        .HasColumnType("text")
+                        .HasColumnName("OP_I_ENCRYPTEDNONCE");
+
+                    b.Property<bool>("IsPrivate")
+                        .HasColumnType("boolean")
+                        .HasColumnName("OP_I_ISPRIVATE");
+
+                    b.Property<DateTimeOffset?>("LockExpiresAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("OP_I_LOCKEXPIRESATUTC");
+
+                    b.Property<Guid?>("LockedByUserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("OP_I_LOCKEDBYUSERID");
+
+                    b.Property<string>("LockedByUserName")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("OP_I_LOCKEDBYUSERNAME");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("OP_I_NAME");
+
+                    b.Property<DateTimeOffset>("UpdatedAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("OP_I_UPDATEDATUTC");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("OP_I_USERID");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Name")
+                        .HasDatabaseName("ix_inventories_name_trgm");
+
+                    NpgsqlIndexBuilderExtensions.HasMethod(b.HasIndex("Name"), "gin");
+                    NpgsqlIndexBuilderExtensions.HasOperators(b.HasIndex("Name"), new[] { "gin_trgm_ops" });
+
+                    b.HasIndex("UserId");
+
+                    b.ToTable("OP_INVENTORIES");
                 });
 
             modelBuilder.Entity("Orbit.Data.Entities.InventoryExpiryNotificationDeliveryEntity", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid");
+                        .HasColumnType("uuid")
+                        .HasColumnName("OS_IE_ID");
 
                     b.Property<DateTimeOffset>("ExpiryDate")
-                        .HasColumnType("timestamp with time zone");
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("OS_IE_EXPIRYDATE");
 
                     b.Property<Guid>("InventoryItemId")
-                        .HasColumnType("uuid");
+                        .HasColumnType("uuid")
+                        .HasColumnName("OS_IE_INVENTORYITEMID");
 
                     b.Property<DateTimeOffset>("SentAtUtc")
-                        .HasColumnType("timestamp with time zone");
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("OS_IE_SENTATUTC");
 
                     b.HasKey("Id");
 
                     b.HasIndex("InventoryItemId", "ExpiryDate")
                         .IsUnique();
 
-                    b.ToTable("InventoryExpiryNotificationDeliveries");
+                    b.ToTable("OS_INVENTORIES_EXPIRY");
                 });
 
             modelBuilder.Entity("Orbit.Data.Entities.InventoryItemEntity", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid");
+                        .HasColumnType("uuid")
+                        .HasColumnName("OP_II_ID");
 
                     b.Property<string>("Category")
                         .IsRequired()
                         .HasMaxLength(100)
-                        .HasColumnType("character varying(100)");
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("OP_II_CATEGORY");
 
                     b.Property<DateTimeOffset>("CreatedAtUtc")
-                        .HasColumnType("timestamp with time zone");
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("OP_II_CREATEDATUTC");
 
                     b.Property<DateTimeOffset?>("ExpiryDate")
-                        .HasColumnType("timestamp with time zone");
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("OP_II_EXPIRYDATE");
 
                     b.Property<string>("ExpiryNotificationChannel")
                         .IsRequired()
                         .HasMaxLength(20)
-                        .HasColumnType("character varying(20)");
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("OP_II_EXPIRYNOTIFICATIONCHANNEL");
+
+                    b.Property<Guid>("InventoryId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("OP_II_INVENTORYID");
 
                     b.Property<bool>("IsCheckedRegularly")
-                        .HasColumnType("boolean");
+                        .HasColumnType("boolean")
+                        .HasColumnName("OP_II_ISCHECKEDREGULARLY");
 
                     b.Property<decimal?>("MinimumQuantity")
-                        .HasColumnType("numeric");
+                        .HasColumnType("numeric")
+                        .HasColumnName("OP_II_MINIMUMQUANTITY");
 
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasMaxLength(200)
-                        .HasColumnType("character varying(200)");
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("OP_II_NAME");
 
                     b.Property<Guid?>("PendingRestockTaskItemId")
-                        .HasColumnType("uuid");
+                        .HasColumnType("uuid")
+                        .HasColumnName("OP_II_PENDINGRESTOCKTASKITEMID");
 
                     b.Property<Guid?>("PendingRestockTaskListId")
-                        .HasColumnType("uuid");
+                        .HasColumnType("uuid")
+                        .HasColumnName("OP_II_PENDINGRESTOCKTASKLISTID");
 
                     b.Property<int>("Position")
-                        .HasColumnType("integer");
+                        .HasColumnType("integer")
+                        .HasColumnName("OP_II_POSITION");
 
                     b.Property<string>("ProductType")
                         .IsRequired()
                         .HasMaxLength(100)
-                        .HasColumnType("character varying(100)");
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("OP_II_PRODUCTTYPE");
 
                     b.Property<decimal>("Quantity")
-                        .HasColumnType("numeric");
+                        .HasColumnType("numeric")
+                        .HasColumnName("OP_II_QUANTITY");
 
                     b.Property<string>("Unit")
                         .IsRequired()
-                        .HasColumnType("text");
+                        .HasColumnType("text")
+                        .HasColumnName("OP_II_UNIT");
 
                     b.Property<DateTimeOffset>("UpdatedAtUtc")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<Guid>("WarehouseId")
-                        .HasColumnType("uuid");
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("OP_II_UPDATEDATUTC");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("InventoryId");
 
                     b.HasIndex("Name")
                         .HasDatabaseName("ix_inventory_items_name_trgm");
@@ -528,278 +710,376 @@ namespace Orbit.Data.Migrations
                     NpgsqlIndexBuilderExtensions.HasMethod(b.HasIndex("Name"), "gin");
                     NpgsqlIndexBuilderExtensions.HasOperators(b.HasIndex("Name"), new[] { "gin_trgm_ops" });
 
-                    b.HasIndex("WarehouseId");
-
-                    b.ToTable("InventoryItems");
+                    b.ToTable("OP_INVENTORIES_ITEMS");
                 });
 
             modelBuilder.Entity("Orbit.Data.Entities.InventoryManagedTaskListEntity", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid");
+                        .HasColumnType("uuid")
+                        .HasColumnName("OL_IT_ID");
+
+                    b.Property<Guid>("InventoryId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("OL_IT_INVENTORYID");
 
                     b.Property<bool>("OnlyLinkedWithDueDate")
-                        .HasColumnType("boolean");
+                        .HasColumnType("boolean")
+                        .HasColumnName("OL_IT_ONLYLINKEDWITHDUEDATE");
 
                     b.Property<int>("RefreshTimeOfDayMinutes")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("integer")
-                        .HasDefaultValue(540);
+                        .HasDefaultValue(540)
+                        .HasColumnName("OL_IT_REFRESHTIMEOFDAYMINUTES");
 
                     b.Property<Guid>("TaskListId")
-                        .HasColumnType("uuid");
-
-                    b.Property<Guid>("WarehouseId")
-                        .HasColumnType("uuid");
+                        .HasColumnType("uuid")
+                        .HasColumnName("OL_IT_TASKLISTID");
 
                     b.HasKey("Id");
 
-                    b.HasIndex("WarehouseId")
+                    b.HasIndex("InventoryId")
                         .IsUnique();
 
-                    b.ToTable("InventoryManagedTaskLists");
+                    b.ToTable("OL_INVENTORIES_TASKS");
+                });
+
+            modelBuilder.Entity("Orbit.Data.Entities.InventoryShareEntity", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("OP_IS_ID");
+
+                    b.Property<DateTimeOffset?>("AcceptedAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("OP_IS_ACCEPTEDATUTC");
+
+                    b.Property<string>("AccessLevel")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("OP_IS_ACCESSLEVEL");
+
+                    b.Property<DateTimeOffset>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("OP_IS_CREATEDATUTC");
+
+                    b.Property<Guid>("OwnerUserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("OP_IS_OWNERUSERID");
+
+                    b.Property<Guid>("RecipientUserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("OP_IS_RECIPIENTUSERID");
+
+                    b.Property<Guid>("SourceInventoryId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("OP_IS_SOURCEINVENTORYID");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("RecipientUserId");
+
+                    b.HasIndex("SourceInventoryId", "RecipientUserId");
+
+                    b.ToTable("OP_INVENTORIES_SHARED");
                 });
 
             modelBuilder.Entity("Orbit.Data.Entities.NoteEntity", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid");
+                        .HasColumnType("uuid")
+                        .HasColumnName("OP_N_ID");
 
                     b.Property<string>("ContentJson")
                         .IsRequired()
-                        .HasColumnType("text");
+                        .HasColumnType("text")
+                        .HasColumnName("OP_N_CONTENTJSON");
 
                     b.Property<DateTimeOffset>("CreatedAtUtc")
-                        .HasColumnType("timestamp with time zone");
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("OP_N_CREATEDATUTC");
 
                     b.Property<string>("EncryptedCiphertext")
-                        .HasColumnType("text");
+                        .HasColumnType("text")
+                        .HasColumnName("OP_N_ENCRYPTEDCIPHERTEXT");
 
                     b.Property<string>("EncryptedNonce")
-                        .HasColumnType("text");
+                        .HasColumnType("text")
+                        .HasColumnName("OP_N_ENCRYPTEDNONCE");
 
                     b.Property<bool>("IsPinned")
-                        .HasColumnType("boolean");
+                        .HasColumnType("boolean")
+                        .HasColumnName("OP_N_ISPINNED");
 
                     b.Property<bool>("IsPrivate")
-                        .HasColumnType("boolean");
+                        .HasColumnType("boolean")
+                        .HasColumnName("OP_N_ISPRIVATE");
 
                     b.Property<DateTimeOffset?>("LockExpiresAtUtc")
-                        .HasColumnType("timestamp with time zone");
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("OP_N_LOCKEXPIRESATUTC");
 
                     b.Property<Guid?>("LockedByUserId")
-                        .HasColumnType("uuid");
+                        .HasColumnType("uuid")
+                        .HasColumnName("OP_N_LOCKEDBYUSERID");
 
                     b.Property<string>("LockedByUserName")
                         .HasMaxLength(64)
-                        .HasColumnType("character varying(64)");
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("OP_N_LOCKEDBYUSERNAME");
 
                     b.Property<string>("Priority")
                         .IsRequired()
                         .ValueGeneratedOnAdd()
                         .HasMaxLength(10)
                         .HasColumnType("character varying(10)")
-                        .HasDefaultValue("Normal");
+                        .HasDefaultValue("Normal")
+                        .HasColumnName("OP_N_PRIORITY");
 
                     b.Property<string>("Title")
                         .IsRequired()
                         .HasMaxLength(200)
-                        .HasColumnType("character varying(200)");
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("OP_N_TITLE");
 
                     b.Property<DateTimeOffset>("UpdatedAtUtc")
-                        .HasColumnType("timestamp with time zone");
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("OP_N_UPDATEDATUTC");
 
                     b.Property<Guid>("UserId")
-                        .HasColumnType("uuid");
+                        .HasColumnType("uuid")
+                        .HasColumnName("OP_N_USERID");
 
                     b.HasKey("Id");
 
                     b.HasIndex("UserId");
 
-                    b.ToTable("Notes");
+                    b.ToTable("OP_NOTES");
                 });
 
             modelBuilder.Entity("Orbit.Data.Entities.NoteShareEntity", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid");
+                        .HasColumnType("uuid")
+                        .HasColumnName("OP_NS_ID");
 
                     b.Property<DateTimeOffset?>("AcceptedAtUtc")
-                        .HasColumnType("timestamp with time zone");
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("OP_NS_ACCEPTEDATUTC");
 
                     b.Property<string>("AccessLevel")
                         .IsRequired()
-                        .HasColumnType("text");
+                        .HasColumnType("text")
+                        .HasColumnName("OP_NS_ACCESSLEVEL");
 
                     b.Property<DateTimeOffset>("CreatedAtUtc")
-                        .HasColumnType("timestamp with time zone");
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("OP_NS_CREATEDATUTC");
 
                     b.Property<Guid>("OwnerUserId")
-                        .HasColumnType("uuid");
+                        .HasColumnType("uuid")
+                        .HasColumnName("OP_NS_OWNERUSERID");
 
                     b.Property<Guid>("RecipientUserId")
-                        .HasColumnType("uuid");
+                        .HasColumnType("uuid")
+                        .HasColumnName("OP_NS_RECIPIENTUSERID");
 
                     b.Property<Guid>("SourceNoteId")
-                        .HasColumnType("uuid");
+                        .HasColumnType("uuid")
+                        .HasColumnName("OP_NS_SOURCENOTEID");
 
                     b.HasKey("Id");
 
                     b.HasIndex("SourceNoteId", "RecipientUserId");
 
-                    b.ToTable("NoteShares");
+                    b.ToTable("OP_NOTES_SHARED");
                 });
 
             modelBuilder.Entity("Orbit.Data.Entities.NotificationEntryEntity", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid");
+                        .HasColumnType("uuid")
+                        .HasColumnName("OP_NTF_ID");
 
                     b.Property<string>("Body")
                         .IsRequired()
                         .HasMaxLength(1000)
-                        .HasColumnType("character varying(1000)");
+                        .HasColumnType("character varying(1000)")
+                        .HasColumnName("OP_NTF_BODY");
 
                     b.Property<string>("BodyArguments")
                         .HasMaxLength(2000)
-                        .HasColumnType("character varying(2000)");
+                        .HasColumnType("character varying(2000)")
+                        .HasColumnName("OP_NTF_BODYARGUMENTS");
 
                     b.Property<DateTimeOffset>("CreatedAtUtc")
-                        .HasColumnType("timestamp with time zone");
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("OP_NTF_CREATEDATUTC");
 
                     b.Property<DateTimeOffset?>("DismissedAtUtc")
-                        .HasColumnType("timestamp with time zone");
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("OP_NTF_DISMISSEDATUTC");
 
                     b.Property<string>("Kind")
                         .IsRequired()
                         .HasMaxLength(20)
-                        .HasColumnType("character varying(20)");
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("OP_NTF_KIND");
 
                     b.Property<DateTimeOffset?>("ReadAtUtc")
-                        .HasColumnType("timestamp with time zone");
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("OP_NTF_READATUTC");
 
                     b.Property<string>("Title")
                         .IsRequired()
                         .HasMaxLength(200)
-                        .HasColumnType("character varying(200)");
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("OP_NTF_TITLE");
 
                     b.Property<string>("TitleArguments")
                         .HasMaxLength(1000)
-                        .HasColumnType("character varying(1000)");
+                        .HasColumnType("character varying(1000)")
+                        .HasColumnName("OP_NTF_TITLEARGUMENTS");
 
                     b.Property<string>("Url")
-                        .HasColumnType("text");
+                        .HasColumnType("text")
+                        .HasColumnName("OP_NTF_URL");
 
                     b.Property<Guid>("UserId")
-                        .HasColumnType("uuid");
+                        .HasColumnType("uuid")
+                        .HasColumnName("OP_NTF_USERID");
 
                     b.HasKey("Id");
 
                     b.HasIndex("UserId", "CreatedAtUtc");
 
-                    b.ToTable("NotificationEntries");
+                    b.ToTable("OP_NOTIFICATIONS");
                 });
 
             modelBuilder.Entity("Orbit.Data.Entities.NotificationSettingsEntity", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid");
+                        .HasColumnType("uuid")
+                        .HasColumnName("OS_NTFS_ID");
 
                     b.Property<bool>("AllowEmail")
-                        .HasColumnType("boolean");
+                        .HasColumnType("boolean")
+                        .HasColumnName("OS_NTFS_ALLOWEMAIL");
 
                     b.Property<bool>("AllowMobileBanner")
-                        .HasColumnType("boolean");
+                        .HasColumnType("boolean")
+                        .HasColumnName("OS_NTFS_ALLOWMOBILEBANNER");
 
                     b.Property<bool>("AllowNotifications")
-                        .HasColumnType("boolean");
+                        .HasColumnType("boolean")
+                        .HasColumnName("OS_NTFS_ALLOWNOTIFICATIONS");
 
                     b.Property<bool>("AllowPush")
-                        .HasColumnType("boolean");
+                        .HasColumnType("boolean")
+                        .HasColumnName("OS_NTFS_ALLOWPUSH");
 
                     b.Property<bool>("AllowShareNotifications")
-                        .HasColumnType("boolean");
+                        .HasColumnType("boolean")
+                        .HasColumnName("OS_NTFS_ALLOWSHARENOTIFICATIONS");
 
                     b.Property<int>("BannerMinimumGapSeconds")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("integer")
-                        .HasDefaultValue(5);
+                        .HasDefaultValue(5)
+                        .HasColumnName("OS_NTFS_BANNERMINIMUMGAPSECONDS");
 
                     b.Property<int>("BannerVisibleSeconds")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("integer")
-                        .HasDefaultValue(5);
+                        .HasDefaultValue(5)
+                        .HasColumnName("OS_NTFS_BANNERVISIBLESECONDS");
 
                     b.Property<int>("RetentionDays")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("integer")
-                        .HasDefaultValue(3);
+                        .HasDefaultValue(3)
+                        .HasColumnName("OS_NTFS_RETENTIONDAYS");
 
                     b.Property<bool>("ShowExceptionDetails")
-                        .HasColumnType("boolean");
+                        .HasColumnType("boolean")
+                        .HasColumnName("OS_NTFS_SHOWEXCEPTIONDETAILS");
 
                     b.Property<Guid>("UserId")
-                        .HasColumnType("uuid");
+                        .HasColumnType("uuid")
+                        .HasColumnName("OS_NTFS_USERID");
 
                     b.HasKey("Id");
 
                     b.HasIndex("UserId")
                         .IsUnique();
 
-                    b.ToTable("NotificationSettings");
+                    b.ToTable("OS_NOTIFICATIONS_SETTINGS");
                 });
 
             modelBuilder.Entity("Orbit.Data.Entities.PermissionCodeEntity", b =>
                 {
                     b.Property<string>("Permission")
                         .HasMaxLength(32)
-                        .HasColumnType("character varying(32)");
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("OS_PC_PERMISSION");
 
                     b.Property<string>("Code")
                         .IsRequired()
                         .HasMaxLength(32)
-                        .HasColumnType("character varying(32)");
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("OS_PC_CODE");
 
                     b.Property<DateTimeOffset>("CreatedAtUtc")
-                        .HasColumnType("timestamp with time zone");
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("OS_PC_CREATEDATUTC");
 
                     b.HasKey("Permission");
 
-                    b.ToTable("PermissionCodes");
+                    b.ToTable("OS_PERMISSIONS_CODES");
                 });
 
             modelBuilder.Entity("Orbit.Data.Entities.PublicShareLinkEntity", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid");
+                        .HasColumnType("uuid")
+                        .HasColumnName("OL_PS_ID");
 
                     b.Property<DateTimeOffset>("CreatedAtUtc")
-                        .HasColumnType("timestamp with time zone");
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("OL_PS_CREATEDATUTC");
 
                     b.Property<Guid>("ItemId")
-                        .HasColumnType("uuid");
+                        .HasColumnType("uuid")
+                        .HasColumnName("OL_PS_ITEMID");
 
                     b.Property<string>("ItemType")
                         .IsRequired()
                         .HasMaxLength(20)
-                        .HasColumnType("character varying(20)");
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("OL_PS_ITEMTYPE");
 
                     b.Property<Guid>("OwnerUserId")
-                        .HasColumnType("uuid");
+                        .HasColumnType("uuid")
+                        .HasColumnName("OL_PS_OWNERUSERID");
 
                     b.Property<DateTimeOffset?>("RevokedAtUtc")
-                        .HasColumnType("timestamp with time zone");
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("OL_PS_REVOKEDATUTC");
 
                     b.Property<string>("Token")
                         .IsRequired()
                         .HasMaxLength(64)
-                        .HasColumnType("character varying(64)");
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("OL_PS_TOKEN");
 
                     b.HasKey("Id");
 
@@ -808,41 +1088,50 @@ namespace Orbit.Data.Migrations
 
                     b.HasIndex("OwnerUserId", "ItemType", "ItemId");
 
-                    b.ToTable("PublicShareLinks");
+                    b.ToTable("OL_PUBLIC_SHARES");
                 });
 
             modelBuilder.Entity("Orbit.Data.Entities.PushSubscriptionEntity", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid");
+                        .HasColumnType("uuid")
+                        .HasColumnName("OS_PS_ID");
 
                     b.Property<string>("AuthBase64")
-                        .HasColumnType("text");
+                        .HasColumnType("text")
+                        .HasColumnName("OS_PS_AUTHBASE64");
 
                     b.Property<DateTimeOffset>("CreatedAtUtc")
-                        .HasColumnType("timestamp with time zone");
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("OS_PS_CREATEDATUTC");
 
                     b.Property<string>("DevicePlatform")
                         .HasMaxLength(20)
-                        .HasColumnType("character varying(20)");
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("OS_PS_DEVICEPLATFORM");
 
                     b.Property<string>("DeviceToken")
-                        .HasColumnType("text");
+                        .HasColumnType("text")
+                        .HasColumnName("OS_PS_DEVICETOKEN");
 
                     b.Property<string>("Endpoint")
-                        .HasColumnType("text");
+                        .HasColumnType("text")
+                        .HasColumnName("OS_PS_ENDPOINT");
 
                     b.Property<string>("P256dhBase64")
-                        .HasColumnType("text");
+                        .HasColumnType("text")
+                        .HasColumnName("OS_PS_P256DHBASE64");
 
                     b.Property<string>("Transport")
                         .IsRequired()
                         .HasMaxLength(20)
-                        .HasColumnType("character varying(20)");
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("OS_PS_TRANSPORT");
 
                     b.Property<Guid>("UserId")
-                        .HasColumnType("uuid");
+                        .HasColumnType("uuid")
+                        .HasColumnName("OS_PS_USERID");
 
                     b.HasKey("Id");
 
@@ -854,31 +1143,37 @@ namespace Orbit.Data.Migrations
 
                     b.HasIndex("UserId");
 
-                    b.ToTable("PushSubscriptions");
+                    b.ToTable("OS_PUSH_SUBSCRIPTIONS");
                 });
 
             modelBuilder.Entity("Orbit.Data.Entities.RefreshTokenEntity", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid");
+                        .HasColumnType("uuid")
+                        .HasColumnName("OS_RT_ID");
 
                     b.Property<DateTimeOffset>("CreatedAtUtc")
-                        .HasColumnType("timestamp with time zone");
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("OS_RT_CREATEDATUTC");
 
                     b.Property<DateTimeOffset>("ExpiresAtUtc")
-                        .HasColumnType("timestamp with time zone");
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("OS_RT_EXPIRESATUTC");
 
                     b.Property<DateTimeOffset?>("RevokedAtUtc")
-                        .HasColumnType("timestamp with time zone");
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("OS_RT_REVOKEDATUTC");
 
                     b.Property<string>("TokenHash")
                         .IsRequired()
                         .HasMaxLength(64)
-                        .HasColumnType("character varying(64)");
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("OS_RT_TOKENHASH");
 
                     b.Property<Guid>("UserId")
-                        .HasColumnType("uuid");
+                        .HasColumnType("uuid")
+                        .HasColumnName("OS_RT_USERID");
 
                     b.HasKey("Id");
 
@@ -887,34 +1182,41 @@ namespace Orbit.Data.Migrations
 
                     b.HasIndex("UserId");
 
-                    b.ToTable("RefreshTokens");
+                    b.ToTable("OS_REFRESH_TOKENS");
                 });
 
             modelBuilder.Entity("Orbit.Data.Entities.SharedLocationEntity", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid");
+                        .HasColumnType("uuid")
+                        .HasColumnName("OP_L_ID");
 
                     b.Property<string>("CiphertextBase64")
                         .IsRequired()
-                        .HasColumnType("text");
+                        .HasColumnType("text")
+                        .HasColumnName("OP_L_CIPHERTEXTBASE64");
 
                     b.Property<bool>("IsContinuous")
-                        .HasColumnType("boolean");
+                        .HasColumnType("boolean")
+                        .HasColumnName("OP_L_ISCONTINUOUS");
 
                     b.Property<string>("NonceBase64")
                         .IsRequired()
-                        .HasColumnType("text");
+                        .HasColumnType("text")
+                        .HasColumnName("OP_L_NONCEBASE64");
 
                     b.Property<Guid>("RecipientUserId")
-                        .HasColumnType("uuid");
+                        .HasColumnType("uuid")
+                        .HasColumnName("OP_L_RECIPIENTUSERID");
 
                     b.Property<Guid>("SharerUserId")
-                        .HasColumnType("uuid");
+                        .HasColumnType("uuid")
+                        .HasColumnName("OP_L_SHARERUSERID");
 
                     b.Property<DateTimeOffset>("UpdatedAtUtc")
-                        .HasColumnType("timestamp with time zone");
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("OP_L_UPDATEDATUTC");
 
                     b.HasKey("Id");
 
@@ -923,123 +1225,149 @@ namespace Orbit.Data.Migrations
                     b.HasIndex("SharerUserId", "RecipientUserId")
                         .IsUnique();
 
-                    b.ToTable("SharedLocations");
+                    b.ToTable("OP_LOCATIONS");
                 });
 
             modelBuilder.Entity("Orbit.Data.Entities.SyncTombstoneEntity", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid");
+                        .HasColumnType("uuid")
+                        .HasColumnName("OS_ST_ID");
 
                     b.Property<DateTimeOffset>("DeletedAtUtc")
-                        .HasColumnType("timestamp with time zone");
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("OS_ST_DELETEDATUTC");
 
                     b.Property<Guid>("EntityId")
-                        .HasColumnType("uuid");
+                        .HasColumnType("uuid")
+                        .HasColumnName("OS_ST_ENTITYID");
 
                     b.Property<string>("EntityType")
                         .IsRequired()
                         .HasMaxLength(40)
-                        .HasColumnType("character varying(40)");
+                        .HasColumnType("character varying(40)")
+                        .HasColumnName("OS_ST_ENTITYTYPE");
 
                     b.Property<Guid>("UserId")
-                        .HasColumnType("uuid");
+                        .HasColumnType("uuid")
+                        .HasColumnName("OS_ST_USERID");
 
                     b.HasKey("Id");
 
                     b.HasIndex("UserId", "EntityType", "DeletedAtUtc");
 
-                    b.ToTable("SyncTombstones");
+                    b.ToTable("OS_SYNC_TOMBSTONES");
                 });
 
             modelBuilder.Entity("Orbit.Data.Entities.TaskDailyReminderDeliveryEntity", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid");
+                        .HasColumnType("uuid")
+                        .HasColumnName("OS_TR_ID");
 
                     b.Property<DateTimeOffset>("ReminderDate")
-                        .HasColumnType("timestamp with time zone");
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("OS_TR_REMINDERDATE");
 
                     b.Property<DateTimeOffset>("SentAtUtc")
-                        .HasColumnType("timestamp with time zone");
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("OS_TR_SENTATUTC");
 
                     b.Property<Guid>("TaskItemId")
-                        .HasColumnType("uuid");
+                        .HasColumnType("uuid")
+                        .HasColumnName("OS_TR_TASKITEMID");
 
                     b.HasKey("Id");
 
                     b.HasIndex("TaskItemId", "ReminderDate")
                         .IsUnique();
 
-                    b.ToTable("TaskDailyReminderDeliveries");
+                    b.ToTable("OS_TASKS_REMINDERS");
                 });
 
             modelBuilder.Entity("Orbit.Data.Entities.TaskEntity", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid");
+                        .HasColumnType("uuid")
+                        .HasColumnName("OP_T_ID");
 
                     b.Property<DateTimeOffset>("CreatedAtUtc")
-                        .HasColumnType("timestamp with time zone");
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("OP_T_CREATEDATUTC");
 
                     b.Property<string>("Description")
                         .IsRequired()
                         .ValueGeneratedOnAdd()
                         .HasMaxLength(2000)
                         .HasColumnType("character varying(2000)")
-                        .HasDefaultValue("");
+                        .HasDefaultValue("")
+                        .HasColumnName("OP_T_DESCRIPTION");
 
                     b.Property<string>("EncryptedCiphertext")
-                        .HasColumnType("text");
+                        .HasColumnType("text")
+                        .HasColumnName("OP_T_ENCRYPTEDCIPHERTEXT");
 
                     b.Property<string>("EncryptedNonce")
-                        .HasColumnType("text");
+                        .HasColumnType("text")
+                        .HasColumnName("OP_T_ENCRYPTEDNONCE");
 
                     b.Property<bool>("IsCompleted")
-                        .HasColumnType("boolean");
+                        .HasColumnType("boolean")
+                        .HasColumnName("OP_T_ISCOMPLETED");
 
                     b.Property<bool>("IsGroup")
-                        .HasColumnType("boolean");
+                        .HasColumnType("boolean")
+                        .HasColumnName("OP_T_ISGROUP");
 
                     b.Property<bool>("IsPinned")
-                        .HasColumnType("boolean");
+                        .HasColumnType("boolean")
+                        .HasColumnName("OP_T_ISPINNED");
 
                     b.Property<bool>("IsPrivate")
-                        .HasColumnType("boolean");
+                        .HasColumnType("boolean")
+                        .HasColumnName("OP_T_ISPRIVATE");
 
-                    b.Property<Guid?>("LinkedWarehouseId")
-                        .HasColumnType("uuid");
+                    b.Property<Guid?>("LinkedInventoryId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("OP_T_LINKEDINVENTORYID");
 
                     b.Property<DateTimeOffset?>("LockExpiresAtUtc")
-                        .HasColumnType("timestamp with time zone");
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("OP_T_LOCKEXPIRESATUTC");
 
                     b.Property<Guid?>("LockedByUserId")
-                        .HasColumnType("uuid");
+                        .HasColumnType("uuid")
+                        .HasColumnName("OP_T_LOCKEDBYUSERID");
 
                     b.Property<string>("LockedByUserName")
                         .HasMaxLength(64)
-                        .HasColumnType("character varying(64)");
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("OP_T_LOCKEDBYUSERNAME");
 
                     b.Property<string>("Priority")
                         .IsRequired()
                         .ValueGeneratedOnAdd()
                         .HasMaxLength(10)
                         .HasColumnType("character varying(10)")
-                        .HasDefaultValue("Normal");
+                        .HasDefaultValue("Normal")
+                        .HasColumnName("OP_T_PRIORITY");
 
                     b.Property<string>("Title")
                         .IsRequired()
                         .HasMaxLength(200)
-                        .HasColumnType("character varying(200)");
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("OP_T_TITLE");
 
                     b.Property<DateTimeOffset>("UpdatedAtUtc")
-                        .HasColumnType("timestamp with time zone");
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("OP_T_UPDATEDATUTC");
 
                     b.Property<Guid>("UserId")
-                        .HasColumnType("uuid");
+                        .HasColumnType("uuid")
+                        .HasColumnName("OP_T_USERID");
 
                     b.HasKey("Id");
 
@@ -1051,86 +1379,103 @@ namespace Orbit.Data.Migrations
 
                     b.HasIndex("UserId");
 
-                    b.ToTable("Tasks");
+                    b.ToTable("OP_TASKS");
                 });
 
             modelBuilder.Entity("Orbit.Data.Entities.TaskItemCategoryEntity", b =>
                 {
                     b.Property<Guid>("TaskItemId")
-                        .HasColumnType("uuid");
+                        .HasColumnType("uuid")
+                        .HasColumnName("OP_TC_TASKITEMID");
 
                     b.Property<string>("Category")
                         .HasMaxLength(100)
-                        .HasColumnType("character varying(100)");
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("OP_TC_CATEGORY");
 
                     b.Property<int>("Position")
-                        .HasColumnType("integer");
+                        .HasColumnType("integer")
+                        .HasColumnName("OP_TC_POSITION");
 
                     b.HasKey("TaskItemId", "Category");
 
                     b.HasIndex("Category");
 
-                    b.ToTable("TaskItemCategoryEntity");
+                    b.ToTable("OP_TASKS_CATEGORIES");
                 });
 
             modelBuilder.Entity("Orbit.Data.Entities.TaskItemEntity", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid");
+                        .HasColumnType("uuid")
+                        .HasColumnName("OP_TI_ID");
 
                     b.Property<string>("DailyReminderNotificationChannel")
                         .IsRequired()
                         .HasMaxLength(20)
-                        .HasColumnType("character varying(20)");
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("OP_TI_DAILYREMINDERNOTIFICATIONCHANNEL");
 
                     b.Property<int>("DailyReminderTimeOfDayMinutes")
-                        .HasColumnType("integer");
+                        .HasColumnType("integer")
+                        .HasColumnName("OP_TI_DAILYREMINDERTIMEOFDAYMINUTES");
 
                     b.Property<string>("Description")
                         .IsRequired()
                         .HasMaxLength(2000)
-                        .HasColumnType("character varying(2000)");
+                        .HasColumnType("character varying(2000)")
+                        .HasColumnName("OP_TI_DESCRIPTION");
 
                     b.Property<DateTimeOffset?>("DueDateUtc")
-                        .HasColumnType("timestamp with time zone");
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("OP_TI_DUEDATEUTC");
 
                     b.Property<bool>("IsCompleted")
-                        .HasColumnType("boolean");
+                        .HasColumnType("boolean")
+                        .HasColumnName("OP_TI_ISCOMPLETED");
 
                     b.Property<string>("Kind")
                         .IsRequired()
                         .ValueGeneratedOnAdd()
                         .HasMaxLength(20)
                         .HasColumnType("character varying(20)")
-                        .HasDefaultValue("Checklist");
+                        .HasDefaultValue("Checklist")
+                        .HasColumnName("OP_TI_KIND");
 
                     b.Property<Guid?>("LinkedCalendarEventId")
-                        .HasColumnType("uuid");
+                        .HasColumnType("uuid")
+                        .HasColumnName("OP_TI_LINKEDCALENDAREVENTID");
 
                     b.Property<Guid?>("LinkedInventoryItemId")
-                        .HasColumnType("uuid");
+                        .HasColumnType("uuid")
+                        .HasColumnName("OP_TI_LINKEDINVENTORYITEMID");
 
                     b.Property<string>("Location")
                         .IsRequired()
                         .ValueGeneratedOnAdd()
                         .HasMaxLength(300)
                         .HasColumnType("character varying(300)")
-                        .HasDefaultValue("");
+                        .HasDefaultValue("")
+                        .HasColumnName("OP_TI_LOCATION");
 
                     b.Property<string>("OverdueNotificationChannel")
                         .IsRequired()
                         .HasMaxLength(20)
-                        .HasColumnType("character varying(20)");
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("OP_TI_OVERDUENOTIFICATIONCHANNEL");
 
                     b.Property<int>("Position")
-                        .HasColumnType("integer");
+                        .HasColumnType("integer")
+                        .HasColumnName("OP_TI_POSITION");
 
                     b.Property<bool>("RemindDaily")
-                        .HasColumnType("boolean");
+                        .HasColumnType("boolean")
+                        .HasColumnName("OP_TI_REMINDDAILY");
 
                     b.Property<Guid>("TaskId")
-                        .HasColumnType("uuid");
+                        .HasColumnType("uuid")
+                        .HasColumnName("OP_TI_TASKID");
 
                     b.HasKey("Id");
 
@@ -1142,150 +1487,182 @@ namespace Orbit.Data.Migrations
 
                     b.HasIndex("TaskId");
 
-                    b.ToTable("TaskItemEntity");
+                    b.ToTable("OP_TASKS_ITEMS");
                 });
 
             modelBuilder.Entity("Orbit.Data.Entities.TaskItemTaskListLinkEntity", b =>
                 {
                     b.Property<Guid>("TaskItemId")
-                        .HasColumnType("uuid");
+                        .HasColumnType("uuid")
+                        .HasColumnName("OL_TI_TASKITEMID");
 
                     b.Property<Guid>("LinkedTaskListId")
-                        .HasColumnType("uuid");
+                        .HasColumnType("uuid")
+                        .HasColumnName("OL_TI_LINKEDTASKLISTID");
 
                     b.Property<int>("Position")
-                        .HasColumnType("integer");
+                        .HasColumnType("integer")
+                        .HasColumnName("OL_TI_POSITION");
 
                     b.HasKey("TaskItemId", "LinkedTaskListId");
 
                     b.HasIndex("LinkedTaskListId");
 
-                    b.ToTable("TaskItemTaskListLinkEntity");
+                    b.ToTable("OL_TASKS_ITEMS");
                 });
 
             modelBuilder.Entity("Orbit.Data.Entities.TaskOverdueNotificationDeliveryEntity", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid");
+                        .HasColumnType("uuid")
+                        .HasColumnName("OS_TO_ID");
 
                     b.Property<DateTimeOffset>("SentAtUtc")
-                        .HasColumnType("timestamp with time zone");
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("OS_TO_SENTATUTC");
 
                     b.Property<Guid>("TaskItemId")
-                        .HasColumnType("uuid");
+                        .HasColumnType("uuid")
+                        .HasColumnName("OS_TO_TASKITEMID");
 
                     b.HasKey("Id");
 
                     b.HasIndex("TaskItemId")
                         .IsUnique();
 
-                    b.ToTable("TaskOverdueNotificationDeliveries");
+                    b.ToTable("OS_TASKS_OVERDUE");
                 });
 
             modelBuilder.Entity("Orbit.Data.Entities.TaskShareEntity", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid");
+                        .HasColumnType("uuid")
+                        .HasColumnName("OP_TS_ID");
 
                     b.Property<DateTimeOffset?>("AcceptedAtUtc")
-                        .HasColumnType("timestamp with time zone");
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("OP_TS_ACCEPTEDATUTC");
 
                     b.Property<string>("AccessLevel")
                         .IsRequired()
-                        .HasColumnType("text");
+                        .HasColumnType("text")
+                        .HasColumnName("OP_TS_ACCESSLEVEL");
 
                     b.Property<DateTimeOffset>("CreatedAtUtc")
-                        .HasColumnType("timestamp with time zone");
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("OP_TS_CREATEDATUTC");
 
                     b.Property<Guid>("OwnerUserId")
-                        .HasColumnType("uuid");
+                        .HasColumnType("uuid")
+                        .HasColumnName("OP_TS_OWNERUSERID");
 
                     b.Property<Guid>("RecipientUserId")
-                        .HasColumnType("uuid");
+                        .HasColumnType("uuid")
+                        .HasColumnName("OP_TS_RECIPIENTUSERID");
 
                     b.Property<Guid>("SourceTaskListId")
-                        .HasColumnType("uuid");
+                        .HasColumnType("uuid")
+                        .HasColumnName("OP_TS_SOURCETASKLISTID");
 
                     b.HasKey("Id");
 
                     b.HasIndex("SourceTaskListId", "RecipientUserId");
 
-                    b.ToTable("TaskShares");
+                    b.ToTable("OP_TASKS_SHARED");
                 });
 
             modelBuilder.Entity("Orbit.Data.Entities.UserEntity", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid");
+                        .HasColumnType("uuid")
+                        .HasColumnName("OS_U_ID");
 
                     b.Property<DateTimeOffset>("CreatedAtUtc")
-                        .HasColumnType("timestamp with time zone");
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("OS_U_CREATEDATUTC");
 
                     b.Property<string>("DisplayName")
                         .IsRequired()
                         .HasMaxLength(200)
-                        .HasColumnType("character varying(200)");
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("OS_U_DISPLAYNAME");
 
                     b.Property<string>("Email")
                         .IsRequired()
                         .HasMaxLength(320)
-                        .HasColumnType("character varying(320)");
+                        .HasColumnType("character varying(320)")
+                        .HasColumnName("OS_U_EMAIL");
 
                     b.Property<DateTimeOffset?>("EmailVerifiedAtUtc")
-                        .HasColumnType("timestamp with time zone");
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("OS_U_EMAILVERIFIEDATUTC");
 
                     b.Property<string>("GoogleSubjectId")
                         .HasMaxLength(64)
-                        .HasColumnType("character varying(64)");
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("OS_U_GOOGLESUBJECTID");
 
                     b.Property<string>("LocationAddress")
-                        .HasColumnType("text");
+                        .HasColumnType("text")
+                        .HasColumnName("OS_U_LOCATIONADDRESS");
 
                     b.Property<double?>("LocationLatitude")
-                        .HasColumnType("double precision");
+                        .HasColumnType("double precision")
+                        .HasColumnName("OS_U_LOCATIONLATITUDE");
 
                     b.Property<double?>("LocationLongitude")
-                        .HasColumnType("double precision");
+                        .HasColumnType("double precision")
+                        .HasColumnName("OS_U_LOCATIONLONGITUDE");
 
                     b.Property<DateTimeOffset?>("LocationRecordedAtUtc")
-                        .HasColumnType("timestamp with time zone");
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("OS_U_LOCATIONRECORDEDATUTC");
 
                     b.Property<string>("PasswordHash")
-                        .HasColumnType("text");
+                        .HasColumnType("text")
+                        .HasColumnName("OS_U_PASSWORDHASH");
 
                     b.Property<string>("PresenceAvailability")
                         .IsRequired()
-                        .HasColumnType("text");
+                        .HasColumnType("text")
+                        .HasColumnName("OS_U_PRESENCEAVAILABILITY");
 
                     b.Property<DateTimeOffset?>("PresenceLastSeenAtUtc")
-                        .HasColumnType("timestamp with time zone");
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("OS_U_PRESENCELASTSEENATUTC");
 
                     b.Property<int?>("PrivateKeyDerivationIterations")
-                        .HasColumnType("integer");
+                        .HasColumnType("integer")
+                        .HasColumnName("OS_U_PRIVATEKEYDERIVATIONITERATIONS");
 
                     b.Property<string>("PrivateKeySaltBase64")
                         .HasMaxLength(24)
-                        .HasColumnType("character varying(24)");
+                        .HasColumnType("character varying(24)")
+                        .HasColumnName("OS_U_PRIVATEKEYSALTBASE64");
 
                     b.Property<string>("PrivateKeyWrapNonceBase64")
                         .HasMaxLength(16)
-                        .HasColumnType("character varying(16)");
+                        .HasColumnType("character varying(16)")
+                        .HasColumnName("OS_U_PRIVATEKEYWRAPNONCEBASE64");
 
                     b.Property<string>("PublicKeyBase64")
                         .HasMaxLength(200)
-                        .HasColumnType("character varying(200)");
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("OS_U_PUBLICKEYBASE64");
 
                     b.Property<string>("UserName")
                         .IsRequired()
                         .HasMaxLength(64)
-                        .HasColumnType("character varying(64)");
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("OS_U_USERNAME");
 
                     b.Property<string>("WrappedPrivateKeyBase64")
                         .HasMaxLength(1000)
-                        .HasColumnType("character varying(1000)");
+                        .HasColumnType("character varying(1000)")
+                        .HasColumnName("OS_U_WRAPPEDPRIVATEKEYBASE64");
 
                     b.HasKey("Id");
 
@@ -1297,161 +1674,79 @@ namespace Orbit.Data.Migrations
                     b.HasIndex("UserName")
                         .IsUnique();
 
-                    b.ToTable("Users");
+                    b.ToTable("OS_USERS");
                 });
 
             modelBuilder.Entity("Orbit.Data.Entities.UserPermissionEntity", b =>
                 {
                     b.Property<Guid>("UserId")
-                        .HasColumnType("uuid");
+                        .HasColumnType("uuid")
+                        .HasColumnName("OS_UP_USERID");
 
                     b.Property<string>("Permission")
                         .HasMaxLength(32)
-                        .HasColumnType("character varying(32)");
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("OS_UP_PERMISSION");
 
                     b.Property<DateTimeOffset>("GrantedAtUtc")
-                        .HasColumnType("timestamp with time zone");
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("OS_UP_GRANTEDATUTC");
 
                     b.HasKey("UserId", "Permission");
 
-                    b.ToTable("UserPermissions");
+                    b.ToTable("OS_USERS_PERMISSIONS");
                 });
 
             modelBuilder.Entity("Orbit.Data.Entities.UserVerificationCodeEntity", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid");
+                        .HasColumnType("uuid")
+                        .HasColumnName("OS_VC_ID");
 
                     b.Property<string>("CodeHash")
                         .IsRequired()
                         .HasMaxLength(200)
-                        .HasColumnType("character varying(200)");
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("OS_VC_CODEHASH");
 
                     b.Property<DateTimeOffset?>("ConsumedAtUtc")
-                        .HasColumnType("timestamp with time zone");
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("OS_VC_CONSUMEDATUTC");
 
                     b.Property<DateTimeOffset>("CreatedAtUtc")
-                        .HasColumnType("timestamp with time zone");
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("OS_VC_CREATEDATUTC");
 
                     b.Property<string>("EmailAddress")
                         .IsRequired()
                         .HasMaxLength(320)
-                        .HasColumnType("character varying(320)");
+                        .HasColumnType("character varying(320)")
+                        .HasColumnName("OS_VC_EMAILADDRESS");
 
                     b.Property<DateTimeOffset>("ExpiresAtUtc")
-                        .HasColumnType("timestamp with time zone");
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("OS_VC_EXPIRESATUTC");
 
                     b.Property<int>("FailedAttempts")
-                        .HasColumnType("integer");
+                        .HasColumnType("integer")
+                        .HasColumnName("OS_VC_FAILEDATTEMPTS");
 
                     b.Property<string>("Purpose")
                         .IsRequired()
                         .HasMaxLength(30)
-                        .HasColumnType("character varying(30)");
+                        .HasColumnType("character varying(30)")
+                        .HasColumnName("OS_VC_PURPOSE");
 
                     b.Property<Guid>("UserId")
-                        .HasColumnType("uuid");
+                        .HasColumnType("uuid")
+                        .HasColumnName("OS_VC_USERID");
 
                     b.HasKey("Id");
 
                     b.HasIndex("UserId", "Purpose");
 
-                    b.ToTable("UserVerificationCodes");
-                });
-
-            modelBuilder.Entity("Orbit.Data.Entities.WarehouseEntity", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid");
-
-                    b.Property<DateTimeOffset>("CreatedAtUtc")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<string>("Description")
-                        .IsRequired()
-                        .ValueGeneratedOnAdd()
-                        .HasMaxLength(2000)
-                        .HasColumnType("character varying(2000)")
-                        .HasDefaultValue("");
-
-                    b.Property<string>("EncryptedCiphertext")
-                        .HasColumnType("text");
-
-                    b.Property<string>("EncryptedNonce")
-                        .HasColumnType("text");
-
-                    b.Property<bool>("IsPrivate")
-                        .HasColumnType("boolean");
-
-                    b.Property<DateTimeOffset?>("LockExpiresAtUtc")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<Guid?>("LockedByUserId")
-                        .HasColumnType("uuid");
-
-                    b.Property<string>("LockedByUserName")
-                        .HasMaxLength(64)
-                        .HasColumnType("character varying(64)");
-
-                    b.Property<string>("Name")
-                        .IsRequired()
-                        .HasMaxLength(200)
-                        .HasColumnType("character varying(200)");
-
-                    b.Property<DateTimeOffset>("UpdatedAtUtc")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<Guid>("UserId")
-                        .HasColumnType("uuid");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("Name")
-                        .HasDatabaseName("ix_warehouses_name_trgm");
-
-                    NpgsqlIndexBuilderExtensions.HasMethod(b.HasIndex("Name"), "gin");
-                    NpgsqlIndexBuilderExtensions.HasOperators(b.HasIndex("Name"), new[] { "gin_trgm_ops" });
-
-                    b.HasIndex("UserId");
-
-                    b.ToTable("Warehouses");
-                });
-
-            modelBuilder.Entity("Orbit.Data.Entities.WarehouseShareEntity", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid");
-
-                    b.Property<DateTimeOffset?>("AcceptedAtUtc")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<string>("AccessLevel")
-                        .IsRequired()
-                        .HasMaxLength(20)
-                        .HasColumnType("character varying(20)");
-
-                    b.Property<DateTimeOffset>("CreatedAtUtc")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<Guid>("OwnerUserId")
-                        .HasColumnType("uuid");
-
-                    b.Property<Guid>("RecipientUserId")
-                        .HasColumnType("uuid");
-
-                    b.Property<Guid>("SourceWarehouseId")
-                        .HasColumnType("uuid");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("RecipientUserId");
-
-                    b.HasIndex("SourceWarehouseId", "RecipientUserId");
-
-                    b.ToTable("WarehouseShares");
+                    b.ToTable("OS_VERIFICATION_CODES");
                 });
 
             modelBuilder.Entity("Orbit.Data.Entities.ChatGroupAnnouncementEntity", b =>

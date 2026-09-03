@@ -85,6 +85,39 @@ or a module has several top-level `const`/`static` values that belong together.
 
 Do not wrap two unrelated locals (a loop index and a flag) into an artificial object.
 
+## Database names
+
+Tables and columns are never left to EF's defaults. Every entity has an entry in
+`Orbit.Data.OrbitStorageNames`, which renames the model at the end of `OnModelCreating`; an entity
+missing from that map throws at startup. Adding an entity means adding its names there too.
+
+- Tables: `OP_` for what the user works on, `OL_` for rows that only join two of those, `OS_` for
+  accounts, settings and bookkeeping - then the module (`NOTES`, `TASKS`, `INVENTORIES`, `CHATS`,
+  `EVENTS`, `LOCATIONS`, `USERS`, ...) and an optional postfix (`_SHARED`, `_ITEMS`).
+- Columns: the table's prefix, the module shortened to initials, then the property name in upper case -
+  `OP_NOTES.OP_N_ID`, `OP_NOTES_SHARED.OP_NS_ACCESSLEVEL`. On a collision inside one prefix, take three
+  consonants (`NOTIFICATIONS` → `NTF`); for a run-together name, its initials (`REFRESH_TOKENS` → `RT`).
+- Entity classes live under `Entities/Data`, `Entities/Links` or `Entities/Setups` to match the prefix.
+  The folders group only - the namespace stays `Orbit.Data.Entities`.
+- The module namespace is plural (`Orbit.Core.Inventories`, like `Notes` and `Tasks`). A singular one
+  shadows an aggregate of the same name for every file under `Orbit.Core.*` and `Orbit.Api.*`, since
+  namespaces merge across assemblies.
+
+## What may not be renamed
+
+Some strings are a contract with something outside this build, and a rename silently breaks it rather
+than failing to compile:
+
+- **Enum members serialized by name into the database** - `SharedItemType.Warehouse` is stored as text
+  in `OL_PUBLIC_SHARES` and sits inside already-delivered chat payloads.
+- **Translation keys.** The Polish dictionary in `PolishTranslations.cs` is keyed on the English source
+  text; a renamed key falls back to English on a Polish screen instead of failing.
+- **Persisted browser keys** such as `orbit-warehouse-order`, whose value is a reader's saved ordering.
+
+Route paths and query-parameter enum values are a contract with installed phone builds rather than with
+stored data: they may be renamed, but the Android app has to be rebuilt and reinstalled in the same
+breath, since it updates on its own schedule.
+
 ## Comments
 
 - Explain intent or a non-obvious constraint, not what the code says.

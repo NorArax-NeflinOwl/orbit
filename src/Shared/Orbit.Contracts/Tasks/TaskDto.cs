@@ -18,8 +18,8 @@ public sealed record TaskDto(
     DateTimeOffset CreatedAtUtc, DateTimeOffset UpdatedAtUtc,
     bool IsShared, string? SharedByUserName, string AccessLevel, Guid? OriginalOwnerUserId,
     string Priority = "Normal", string Status = "New", bool IsPinned = false, bool IsSharedWithOthers = false,
-    /// <summary>The warehouse this list's work is measured against, when one has been chosen - see the stock check.</summary>
-    Guid? LinkedWarehouseId = null,
+    /// <summary>The inventory this list's work is measured against, when one has been chosen - see the stock check.</summary>
+    Guid? LinkedInventoryId = null,
     /// <summary>
     /// What the list is about, under its title. Always sent - empty for a list nobody described, and
     /// for a private one, whose description is sealed with the rest of it.

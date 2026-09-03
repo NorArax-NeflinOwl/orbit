@@ -9,8 +9,8 @@
 @page "/tasks/{Id:guid}"
 @page "/tasks/{Id:guid}/checklist"
 @attribute [Authorize]
-@using Orbit.Contracts.Inventory
-@using Orbit.Core.Inventory
+@using Orbit.Contracts.Inventories
+@using Orbit.Core.Inventories
 @using Orbit.Contracts.Tasks
 @using Orbit.Core.Abstractions
 @using Orbit.Web.Services
@@ -64,7 +64,7 @@ else
         <p class="error">@_errorMessage</p>
     }
 
-    @* What this list's work costs against a warehouse. Offered where the list actually has errands
+    @* What this list's work costs against an inventory. Offered where the list actually has errands
        about stock - the panel used to appear on any group list, including ones with nothing on a shelf
        to count, where it could only ever say "nothing to measure". *@
     @if (HasInventoryWork)
@@ -77,25 +77,25 @@ else
                body, because it is how the panel gets linked in the first place - unreachable while
                folded would mean unreachable before it has anything to fold. *@
             <Extras>
-                <select class="options-select" value="@_linkedWarehouseId" @onchange="OnWarehouseChangedAsync"
+                <select class="options-select" value="@_linkedInventoryId" @onchange="OnInventoryChangedAsync"
                         @onclick:stopPropagation="true">
-                    <option value="">@T["Not measured against a warehouse"]</option>
+                    <option value="">@T["Not measured against a inventory"]</option>
                     @* Every storage, the ones other lists already measure included: a store serves as
                        many jobs as it holds things for, and the shelf is split between the lists asking
                        for it - see StockRequirementCounter. Which of them are shared is said in the
                        option itself rather than by leaving it out. *@
-                    @foreach (var warehouse in _warehouses)
+                    @foreach (var inventory in _inventories)
                     {
-                        <option value="@warehouse.Id">
-                            @(_warehousesMeasuredByAnotherList.Contains(warehouse.Id)
-                                ? T.Format("{0} (shared with another list)", warehouse.Name)
-                                : warehouse.Name)
+                        <option value="@inventory.Id">
+                            @(_inventoriesMeasuredByAnotherList.Contains(inventory.Id)
+                                ? T.Format("{0} (shared with another list)", inventory.Name)
+                                : inventory.Name)
                         </option>
                     }
                 </select>
-                @if (_warehouseMessage is not null)
+                @if (_inventoryMessage is not null)
                 {
-                    <span class="row-meta">@_warehouseMessage</span>
+                    <span class="row-meta">@_inventoryMessage</span>
                 }
             </Extras>
             @* Only what order things are listed in. Show/Hide left: the card's own name and its
@@ -247,7 +247,7 @@ else
                             <span class="check-row-references" @onclick:stopPropagation="true">
                                 <a class="reference-chip" href="@InventoryHref(reference)"
                                    @onclick="() => GoTo(InventoryHref(reference))" @onclick:preventDefault="true">
-                                    @T.Format("in {0}", reference.WarehouseName)
+                                    @T.Format("in {0}", reference.InventoryName)
                                 </a>
                                 @foreach (var elsewhere in reference.AlsoAskedForBy)
                                 {
@@ -331,14 +331,14 @@ else
         </button>
         <button type="button" class="avatar-dropdown-item" @onclick="GoToDeepEditor">@T["Edit"]</button>
         @* One button where "Generate inventory" and "Recalculate against the inventory" used to
-           be. Both did half of something else - one made a warehouse out of a list, the other
+           be. Both did half of something else - one made an inventory out of a list, the other
            counted a list against one - and neither answered the question somebody has in front
            of a restock list, which is "is this still what I need?". Offered only there, since
            that is the only list Orbit maintains. *@
         @if (IsARestockList)
         {
             <button type="button" class="avatar-dropdown-item" disabled="@_isWorkingOnInventory"
-                    @onclick="RefreshFromTheWarehouseAsync">
+                    @onclick="RefreshFromTheInventoryAsync">
                 @T["Refresh"]
             </button>
         }
@@ -384,9 +384,9 @@ else
     /// </summary>
     private OverflowMenu? _menu;
 
-    /// <summary>The warehouses this reader could measure against, and which one is chosen.</summary>
-    private IReadOnlyList<WarehouseDto> _warehouses = [];
-    private string _linkedWarehouseId = string.Empty;
+    /// <summary>The inventories this reader could measure against, and which one is chosen.</summary>
+    private IReadOnlyList<InventoryDto> _inventories = [];
+    private string _linkedInventoryId = string.Empty;
     private TaskListStockCheckDto? _stockCheck;
     private bool _isRaisingShortfalls;
     private string? _shortfallMessage;
@@ -539,21 +539,21 @@ else
             : T["another list"];
 
     /// <summary>
-    /// Whether this is the list a warehouse keeps for itself. Only Orbit maintains one of those, so it
+    /// Whether this is the list an inventory keeps for itself. Only Orbit maintains one of those, so it
     /// is the only list where "rebuild it from what is true now" means anything.
     /// </summary>
     private bool IsARestockList
         => _sections.Count > 0 && RestockTaskNaming.IsManagedTitle(_sections[0].TaskList.Title);
 
     /// <summary>
-    /// Rebuilds this list against the warehouse behind it and the settings that warehouse carries - what
+    /// Rebuilds this list against the inventory behind it and the settings that inventory carries - what
     /// somebody presses when the world changed rather than the list. Re-reads afterwards, since the
     /// point of asking is to see the answer.
     /// </summary>
-    private async Task RefreshFromTheWarehouseAsync()
+    private async Task RefreshFromTheInventoryAsync()
     {
         _menu?.Close();
-        if (await WarehouseBehindThisListAsync() is not { } warehouseId)
+        if (await InventoryBehindThisListAsync() is not { } inventoryId)
         {
             return;
         }
@@ -562,7 +562,7 @@ else
         _shortfallMessage = null;
         try
         {
-            var result = await InventoryApiClient.RefreshRestockListAsync(warehouseId);
+            var result = await InventoryApiClient.RefreshRestockListAsync(inventoryId);
             _shortfallMessage = result.AddedCount == 0 && result.RemovedCount == 0
                 ? T["The restock list already asks for exactly what it should."]
                 : T.Format("Restock list updated: {0} added, {1} removed.", result.AddedCount, result.RemovedCount);
@@ -582,19 +582,19 @@ else
     }
 
     /// <summary>
-    /// Which warehouse keeps this list. Read off the errands on it rather than from a route of its own:
-    /// every one names the shelf item it is about, and every one of those is in the same warehouse.
+    /// Which inventory keeps this list. Read off the errands on it rather than from a route of its own:
+    /// every one names the shelf item it is about, and every one of those is in the same inventory.
     /// </summary>
-    private async Task<Guid?> WarehouseBehindThisListAsync()
+    private async Task<Guid?> InventoryBehindThisListAsync()
     {
         if (_inventoryReferences.Count > 0)
         {
-            return _inventoryReferences[0].WarehouseId;
+            return _inventoryReferences[0].InventoryId;
         }
 
-        // A list with nothing on it yet has no errand to read a warehouse off. The one the list is
-        // measured against is the next best answer, and for a restock list it is the same warehouse.
-        return Guid.TryParse(_linkedWarehouseId, out var linked) ? linked : null;
+        // A list with nothing on it yet has no errand to read an inventory off. The one the list is
+        // measured against is the next best answer, and for a restock list it is the same inventory.
+        return Guid.TryParse(_linkedInventoryId, out var linked) ? linked : null;
     }
 
     /// <summary>
@@ -647,11 +647,11 @@ else
         => _inventoryReferences.FirstOrDefault(reference => reference.TaskItemId == item.Id);
 
     /// <summary>
-    /// The warehouse this errand's product sits in, with the product itself named so the page that opens
+    /// The inventory this errand's product sits in, with the product itself named so the page that opens
     /// can draw attention to it rather than leaving somebody to find one row among fifty.
     /// </summary>
     private static string InventoryHref(InventoryReferenceDto reference)
-        => $"/inventory/{reference.WarehouseId}?highlight={reference.InventoryItemId}";
+        => $"/inventory/{reference.InventoryId}?highlight={reference.InventoryItemId}";
 
     private static string TaskListHref(InventoryReferenceElsewhereDto elsewhere)
         => $"/tasks/{elsewhere.TaskListId}?highlight={elsewhere.TaskItemId}";
@@ -671,7 +671,7 @@ else
             item => item.Kind == nameof(Orbit.Core.Tasks.TaskItemKind.Inventory)));
 
     /// <summary>
-    /// Whether there is a count to fold away. Asked of the count itself rather than of the warehouse
+    /// Whether there is a count to fold away. Asked of the count itself rather than of the inventory
     /// picker: what makes the card worth unfolding is having something inside it, and keying the
     /// offer to the link meant a card with a count in it that refused to fold.
     /// </summary>
@@ -781,7 +781,7 @@ else
             try
             {
                 await Task.Delay(RestockTidyDelay, waiting);
-                await InvokeAsync(RefreshFromTheWarehouseAsync);
+                await InvokeAsync(RefreshFromTheInventoryAsync);
             }
             catch (OperationCanceledException)
             {
@@ -818,7 +818,7 @@ else
     private sealed record FlatChecklistEntry(ChecklistSection Section, TaskItemDto Item);
 
     /// <summary>
-    /// Reads the warehouses to choose from and, when one is already chosen, what the work costs against
+    /// Reads the inventories to choose from and, when one is already chosen, what the work costs against
     /// it.
     ///
     /// For any list, not only a group one. It was group-only on the grounds that a single list's items
@@ -836,69 +836,69 @@ else
 
         try
         {
-            _warehouses = await InventoryApiClient.GetWarehousesAsync();
-            _linkedWarehouseId = _sections[0].TaskList.LinkedWarehouseId?.ToString() ?? string.Empty;
+            _inventories = await InventoryApiClient.GetInventoriesAsync();
+            _linkedInventoryId = _sections[0].TaskList.LinkedInventoryId?.ToString() ?? string.Empty;
             // Which shelves some other list already measures, so the picker can say which of them would
-            // be shared - see LinkTaskListToWarehouseCommandHandler, which allows the sharing.
-            _warehousesMeasuredByAnotherList =
+            // be shared - see LinkTaskListToInventoryCommandHandler, which allows the sharing.
+            _inventoriesMeasuredByAnotherList =
             [
                 .. (await TasksApiClient.GetTaskListsAsync())
-                    .Where(taskList => taskList.Id != Id && taskList.LinkedWarehouseId is not null)
-                    .Select(taskList => taskList.LinkedWarehouseId!.Value)
+                    .Where(taskList => taskList.Id != Id && taskList.LinkedInventoryId is not null)
+                    .Select(taskList => taskList.LinkedInventoryId!.Value)
             ];
             _stockCheck = await TasksApiClient.GetStockCheckAsync(Id);
         }
         catch (HttpRequestException exception)
         {
             // The checklist itself is the point of this page; not being able to price it against a
-            // warehouse leaves the panel empty rather than taking the page down.
+            // inventory leaves the panel empty rather than taking the page down.
             Logger.LogWarning(exception, "Could not read the stock check for task list {TaskListId}", Id);
         }
     }
 
     /// <summary>
-    /// Every warehouse some other list of this account's already measures. Still on offer, and named as
+    /// Every inventory some other list of this account's already measures. Still on offer, and named as
     /// shared in the picker - see the option there.
     /// </summary>
-    private HashSet<Guid> _warehousesMeasuredByAnotherList = [];
+    private HashSet<Guid> _inventoriesMeasuredByAnotherList = [];
 
     /// <summary>What the picker says back when a choice did not take. Null while nothing needs saying.</summary>
-    private string? _warehouseMessage;
+    private string? _inventoryMessage;
 
-    private async Task OnWarehouseChangedAsync(ChangeEventArgs args)
+    private async Task OnInventoryChangedAsync(ChangeEventArgs args)
     {
         var chosen = args.Value?.ToString();
-        _linkedWarehouseId = chosen ?? string.Empty;
+        _linkedInventoryId = chosen ?? string.Empty;
         _shortfallMessage = null;
-        _warehouseMessage = null;
-        Guid? warehouseId = Guid.TryParse(chosen, out var parsed) ? parsed : null;
-        Logger.LogInformation("User measured task list {TaskListId} against warehouse {WarehouseId}", Id, warehouseId);
+        _inventoryMessage = null;
+        Guid? inventoryId = Guid.TryParse(chosen, out var parsed) ? parsed : null;
+        Logger.LogInformation("User measured task list {TaskListId} against inventory {InventoryId}", Id, inventoryId);
 
         try
         {
-            if (!await TasksApiClient.LinkWarehouseAsync(Id, warehouseId))
+            if (!await TasksApiClient.LinkInventoryAsync(Id, inventoryId))
             {
                 // The picker leaves out what is already spoken for, so this is a shelf that was taken
                 // between the page loading and the choice being made. Said out loud rather than left as
                 // a select that snaps back for no visible reason.
-                _warehouseMessage = T["That storage is already measured against another list."];
-                _linkedWarehouseId = _sections.Count > 0
-                    ? _sections[0].TaskList.LinkedWarehouseId?.ToString() ?? string.Empty
+                _inventoryMessage = T["That storage is already measured against another list."];
+                _linkedInventoryId = _sections.Count > 0
+                    ? _sections[0].TaskList.LinkedInventoryId?.ToString() ?? string.Empty
                     : string.Empty;
                 return;
             }
 
-            _stockCheck = warehouseId is null ? null : await TasksApiClient.GetStockCheckAsync(Id);
+            _stockCheck = inventoryId is null ? null : await TasksApiClient.GetStockCheckAsync(Id);
         }
         catch (HttpRequestException exception)
         {
-            Logger.LogError(exception, "Failed to measure task list {TaskListId} against a warehouse", Id);
-            _warehouseMessage = T["Couldn't measure this list against that storage. Try again."];
+            Logger.LogError(exception, "Failed to measure task list {TaskListId} against an inventory", Id);
+            _inventoryMessage = T["Couldn't measure this list against that storage. Try again."];
         }
     }
 
     /// <summary>
-    /// Puts what is short onto the warehouse's standing restock list, where the daily reminder brings it
+    /// Puts what is short onto the inventory's standing restock list, where the daily reminder brings it
     /// up, then re-reads the check - the shelf has not changed, but what is already waiting has.
     /// </summary>
     private async Task RaiseShortfallsAsync()
@@ -938,7 +938,7 @@ else
         }
 
         if (!await JSRuntime.InvokeAsync<bool>(
-                "confirm", T["Finish this list and set every item in the warehouse to its minimum?"]))
+                "confirm", T["Finish this list and set every item in the inventory to its minimum?"]))
         {
             return false;
         }
@@ -968,7 +968,7 @@ else
     }
 
     /// <summary>
-    /// Puts the panel that prices this list against a warehouse out of the way, or brings it back -
+    /// Puts the panel that prices this list against an inventory out of the way, or brings it back -
     /// remembered as it is set rather than waiting for "Save view", since a panel somebody keeps putting
     /// away every visit is one they have already answered about.
     /// </summary>

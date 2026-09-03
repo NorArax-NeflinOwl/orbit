@@ -23,7 +23,7 @@ public static class SyncEntityType
     public const string Note = "Note";
     public const string TaskList = "TaskList";
     public const string CalendarEvent = "CalendarEvent";
-    public const string Warehouse = "Warehouse";
+    public const string Inventory = "Inventory";
 
     /// <summary>
     /// One entry in the in-app notification feed. Unlike the four above, nothing ever writes a tombstone

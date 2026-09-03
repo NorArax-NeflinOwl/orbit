@@ -1,10 +1,10 @@
 namespace Orbit.Core.Tasks.StockCheck;
 
 /// <summary>
-/// What one kind of thing a task list calls for costs against a warehouse: how many the work needs, how
+/// What one kind of thing a task list calls for costs against an inventory: how many the work needs, how
 /// many are on the shelf, and the difference when the shelf falls short.
 /// </summary>
-/// <param name="Name">The entry's description, which is what is matched against a warehouse item's name.</param>
+/// <param name="Name">The entry's description, which is what is matched against an inventory item's name.</param>
 /// <param name="Available">
 /// How many of them are this list's. That is everything on the shelf where this is the only list asking
 /// for it, and a share of the shelf where it is not - see StockRequirementCounter.ShareOfTheShelf.
@@ -23,7 +23,7 @@ public sealed record StockRequirement(string Name, decimal Required, decimal Ava
 }
 
 /// <summary>
-/// Whether a task list's work can be done out of a warehouse, item by item.
+/// Whether a task list's work can be done out of an inventory, item by item.
 /// </summary>
 /// <param name="Requirements">Every kind of thing the work calls for, in the order it was first asked for.</param>
 public sealed record TaskListStockCheck(IReadOnlyList<StockRequirement> Requirements)

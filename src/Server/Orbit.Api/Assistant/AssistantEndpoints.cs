@@ -13,7 +13,7 @@ public static class AssistantEndpoints
     /// can do, what sharing means - is its own step in info/ai-assistant-plan.md.
     /// </summary>
     private const string Instructions =
-        "You are Orbit's assistant. Orbit is a household organiser: warehouses of inventory items, task " +
+        "You are Orbit's assistant. Orbit is a household organiser: inventories of inventory items, task " +
         "lists, a calendar and sharing between people. Answer briefly, in the language the question was " +
         "asked in. You have not been given any of this user's data, so if a question needs it, say that " +
         "you cannot see it yet rather than inventing an answer.";

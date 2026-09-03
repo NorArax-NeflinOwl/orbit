@@ -1,6 +1,6 @@
 using Orbit.Core.Abstractions;
 using Orbit.Core.Calendar;
-using Orbit.Core.Inventory;
+using Orbit.Core.Inventories;
 using Orbit.Core.Notes;
 using Orbit.Core.Notifications;
 using Orbit.Core.Tasks;
@@ -20,7 +20,7 @@ public sealed class ClaimPublicShareLinkCommandHandler : IRequestHandler<ClaimPu
     private readonly INoteShareRepository _noteShareRepository;
     private readonly ITaskListShareRepository _taskListShareRepository;
     private readonly ICalendarEventShareRepository _calendarEventShareRepository;
-    private readonly IWarehouseShareRepository _warehouseShareRepository;
+    private readonly IInventoryShareRepository _inventoryShareRepository;
     private readonly TaskListShareCascade _taskListShareCascade;
     private readonly ISharedItemNotifier _sharedItemNotifier;
 
@@ -30,7 +30,7 @@ public sealed class ClaimPublicShareLinkCommandHandler : IRequestHandler<ClaimPu
         INoteShareRepository noteShareRepository,
         ITaskListShareRepository taskListShareRepository,
         ICalendarEventShareRepository calendarEventShareRepository,
-        IWarehouseShareRepository warehouseShareRepository,
+        IInventoryShareRepository inventoryShareRepository,
         TaskListShareCascade taskListShareCascade,
         ISharedItemNotifier sharedItemNotifier)
     {
@@ -39,7 +39,7 @@ public sealed class ClaimPublicShareLinkCommandHandler : IRequestHandler<ClaimPu
         _noteShareRepository = noteShareRepository;
         _taskListShareRepository = taskListShareRepository;
         _calendarEventShareRepository = calendarEventShareRepository;
-        _warehouseShareRepository = warehouseShareRepository;
+        _inventoryShareRepository = inventoryShareRepository;
         _taskListShareCascade = taskListShareCascade;
         _sharedItemNotifier = sharedItemNotifier;
     }
@@ -129,14 +129,14 @@ public sealed class ClaimPublicShareLinkCommandHandler : IRequestHandler<ClaimPu
 
             default:
             {
-                if (await _warehouseShareRepository.FindExistingAsync(link.ItemId, claimingUserId, cancellationToken) is not null)
+                if (await _inventoryShareRepository.FindExistingAsync(link.ItemId, claimingUserId, cancellationToken) is not null)
                 {
                     return true;
                 }
 
-                var share = WarehouseShare.Create(link.ItemId, link.OwnerUserId, claimingUserId);
+                var share = InventoryShare.Create(link.ItemId, link.OwnerUserId, claimingUserId);
                 share.MarkAccepted();
-                await _warehouseShareRepository.AddAsync(share, cancellationToken);
+                await _inventoryShareRepository.AddAsync(share, cancellationToken);
                 return false;
             }
         }
@@ -147,6 +147,6 @@ public sealed class ClaimPublicShareLinkCommandHandler : IRequestHandler<ClaimPu
         SharedItemType.Note => SharedItemKind.Note,
         SharedItemType.TaskList => SharedItemKind.TaskList,
         SharedItemType.CalendarEvent => SharedItemKind.CalendarEvent,
-        _ => SharedItemKind.Warehouse
+        _ => SharedItemKind.Inventory
     };
 }

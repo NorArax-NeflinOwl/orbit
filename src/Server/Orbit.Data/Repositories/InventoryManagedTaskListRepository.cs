@@ -1,5 +1,5 @@
 using Microsoft.EntityFrameworkCore;
-using Orbit.Core.Inventory;
+using Orbit.Core.Inventories;
 using Orbit.Data.Entities;
 
 namespace Orbit.Data.Repositories;
@@ -13,19 +13,19 @@ public sealed class InventoryManagedTaskListRepository : IInventoryManagedTaskLi
         _dbContext = dbContext;
     }
 
-    public async Task<Guid?> GetTaskListIdAsync(Guid warehouseId, CancellationToken cancellationToken)
+    public async Task<Guid?> GetTaskListIdAsync(Guid inventoryId, CancellationToken cancellationToken)
     {
         var entity = await _dbContext.InventoryManagedTaskLists
             .AsNoTracking()
-            .FirstOrDefaultAsync(row => row.WarehouseId == warehouseId, cancellationToken);
+            .FirstOrDefaultAsync(row => row.InventoryId == inventoryId, cancellationToken);
 
-        // A row can exist before any list does: settings are writable for a warehouse nothing has gone
+        // A row can exist before any list does: settings are writable for an inventory nothing has gone
         // low in yet (see SetSettingsAsync). An empty id there means "no list", not "the list with the
         // empty id" - which is what every caller here already treats null as.
         return entity is null || entity.TaskListId == Guid.Empty ? null : entity.TaskListId;
     }
 
-    public async Task<Guid?> GetWarehouseIdAsync(Guid taskListId, CancellationToken cancellationToken)
+    public async Task<Guid?> GetInventoryIdAsync(Guid taskListId, CancellationToken cancellationToken)
     {
         if (taskListId == Guid.Empty)
         {
@@ -37,20 +37,20 @@ public sealed class InventoryManagedTaskListRepository : IInventoryManagedTaskLi
             .AsNoTracking()
             .FirstOrDefaultAsync(row => row.TaskListId == taskListId, cancellationToken);
 
-        return entity?.WarehouseId;
+        return entity?.InventoryId;
     }
 
-    public async Task SetTaskListIdAsync(Guid warehouseId, Guid taskListId, CancellationToken cancellationToken)
+    public async Task SetTaskListIdAsync(Guid inventoryId, Guid taskListId, CancellationToken cancellationToken)
     {
         var entity = await _dbContext.InventoryManagedTaskLists
-            .FirstOrDefaultAsync(row => row.WarehouseId == warehouseId, cancellationToken);
+            .FirstOrDefaultAsync(row => row.InventoryId == inventoryId, cancellationToken);
 
         if (entity is null)
         {
             _dbContext.InventoryManagedTaskLists.Add(new InventoryManagedTaskListEntity
             {
                 Id = Guid.NewGuid(),
-                WarehouseId = warehouseId,
+                InventoryId = inventoryId,
                 TaskListId = taskListId
             });
         }
@@ -62,13 +62,13 @@ public sealed class InventoryManagedTaskListRepository : IInventoryManagedTaskLi
         await _dbContext.SaveChangesAsync(cancellationToken);
     }
 
-    public async Task<RestockListSettings> GetSettingsAsync(Guid warehouseId, CancellationToken cancellationToken)
+    public async Task<RestockListSettings> GetSettingsAsync(Guid inventoryId, CancellationToken cancellationToken)
     {
         var entity = await _dbContext.InventoryManagedTaskLists
             .AsNoTracking()
-            .FirstOrDefaultAsync(row => row.WarehouseId == warehouseId, cancellationToken);
+            .FirstOrDefaultAsync(row => row.InventoryId == inventoryId, cancellationToken);
 
-        // A warehouse with no list yet has the defaults rather than nothing, so nobody has to tell "not
+        // An inventory with no list yet has the defaults rather than nothing, so nobody has to tell "not
         // set" from "set to what everybody starts with".
         return entity is null
             ? RestockListSettings.Default
@@ -78,17 +78,17 @@ public sealed class InventoryManagedTaskListRepository : IInventoryManagedTaskLi
     }
 
     /// <summary>
-    /// Writes the settings even for a warehouse whose list has not been created yet: somebody can decide
+    /// Writes the settings even for an inventory whose list has not been created yet: somebody can decide
     /// how the list should behave before anything has gone low enough to make one.
     /// </summary>
-    public async Task SetSettingsAsync(Guid warehouseId, RestockListSettings settings, CancellationToken cancellationToken)
+    public async Task SetSettingsAsync(Guid inventoryId, RestockListSettings settings, CancellationToken cancellationToken)
     {
         var entity = await _dbContext.InventoryManagedTaskLists
-            .FirstOrDefaultAsync(row => row.WarehouseId == warehouseId, cancellationToken);
+            .FirstOrDefaultAsync(row => row.InventoryId == inventoryId, cancellationToken);
 
         if (entity is null)
         {
-            entity = new InventoryManagedTaskListEntity { Id = Guid.NewGuid(), WarehouseId = warehouseId };
+            entity = new InventoryManagedTaskListEntity { Id = Guid.NewGuid(), InventoryId = inventoryId };
             _dbContext.InventoryManagedTaskLists.Add(entity);
         }
 

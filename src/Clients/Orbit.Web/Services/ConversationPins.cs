@@ -6,7 +6,7 @@ namespace Orbit.Web.Services;
 /// <summary>
 /// The people and groups this reader keeps at the top of their lists.
 ///
-/// Kept on the device, like <see cref="WarehouseArrangement"/> and the dashboard's own pins: pinning
+/// Kept on the device, like <see cref="InventoryArrangement"/> and the dashboard's own pins: pinning
 /// says which conversations matter to one person reading one screen, and the other party has their own
 /// answer. It is also why this needs no column anywhere - a preference about reading is not something
 /// the server has to know.

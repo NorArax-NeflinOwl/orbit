@@ -1,6 +1,6 @@
 using Orbit.Core.Abstractions;
 using Orbit.Core.Calendar;
-using Orbit.Core.Inventory;
+using Orbit.Core.Inventories;
 using Orbit.Core.Notes;
 using Orbit.Core.Notifications;
 using Orbit.Core.Tasks;
@@ -20,21 +20,21 @@ public sealed class ImportArchiveCommandHandler : IRequestHandler<ImportArchiveC
     private readonly INoteRepository _noteRepository;
     private readonly ITaskRepository _taskRepository;
     private readonly ICalendarEventRepository _calendarEventRepository;
-    private readonly IWarehouseRepository _warehouseRepository;
     private readonly IInventoryRepository _inventoryRepository;
+    private readonly IInventoryItemRepository _inventoryItemRepository;
 
     public ImportArchiveCommandHandler(
         INoteRepository noteRepository,
         ITaskRepository taskRepository,
         ICalendarEventRepository calendarEventRepository,
-        IWarehouseRepository warehouseRepository,
-        IInventoryRepository inventoryRepository)
+        IInventoryRepository inventoryRepository,
+        IInventoryItemRepository inventoryItemRepository)
     {
         _noteRepository = noteRepository;
         _taskRepository = taskRepository;
         _calendarEventRepository = calendarEventRepository;
-        _warehouseRepository = warehouseRepository;
         _inventoryRepository = inventoryRepository;
+        _inventoryItemRepository = inventoryItemRepository;
     }
 
     public async Task<ImportArchiveResult> HandleAsync(ImportArchiveCommand request, CancellationToken cancellationToken)
@@ -49,9 +49,9 @@ public sealed class ImportArchiveCommandHandler : IRequestHandler<ImportArchiveC
         var noteCount = await ImportNotesAsync(archive, request.UserId, cancellationToken);
         var taskListCount = await ImportTaskListsAsync(archive, request.UserId, cancellationToken);
         var calendarEventCount = await ImportCalendarEventsAsync(archive, request.UserId, cancellationToken);
-        var warehouseCount = await ImportWarehousesAsync(archive, request.UserId, cancellationToken);
+        var inventoryCount = await ImportInventoriesAsync(archive, request.UserId, cancellationToken);
 
-        return new ImportArchiveResult(noteCount, taskListCount, calendarEventCount, warehouseCount);
+        return new ImportArchiveResult(noteCount, taskListCount, calendarEventCount, inventoryCount);
     }
 
     private async Task<int> ImportNotesAsync(OrbitArchive archive, Guid userId, CancellationToken cancellationToken)
@@ -137,12 +137,12 @@ public sealed class ImportArchiveCommandHandler : IRequestHandler<ImportArchiveC
         return archive.CalendarEvents.Count;
     }
 
-    private async Task<int> ImportWarehousesAsync(OrbitArchive archive, Guid userId, CancellationToken cancellationToken)
+    private async Task<int> ImportInventoriesAsync(OrbitArchive archive, Guid userId, CancellationToken cancellationToken)
     {
-        foreach (var archived in archive.Warehouses)
+        foreach (var archived in archive.Inventories)
         {
-            var warehouse = Warehouse.Create(userId, archived.Name, archived.IsPrivate, ToPayload(archived.EncryptedContent));
-            await _warehouseRepository.AddAsync(warehouse, cancellationToken);
+            var inventory = Inventory.Create(userId, archived.Name, archived.IsPrivate, ToPayload(archived.EncryptedContent));
+            await _inventoryRepository.AddAsync(inventory, cancellationToken);
 
             if (archived.IsPrivate)
             {
@@ -151,15 +151,15 @@ public sealed class ImportArchiveCommandHandler : IRequestHandler<ImportArchiveC
 
             foreach (var item in archived.Items)
             {
-                await _inventoryRepository.AddAsync(
+                await _inventoryItemRepository.AddAsync(
                     InventoryItem.Create(
-                        warehouse.Id, item.Name, item.ProductType, item.Category, item.Quantity, item.MinimumQuantity,
+                        inventory.Id, item.Name, item.ProductType, item.Category, item.Quantity, item.MinimumQuantity,
                         ParseUnit(item.Unit), item.ExpiryDate, ParseChannel(item.ExpiryNotificationChannel)),
                     cancellationToken);
             }
         }
 
-        return archive.Warehouses.Count;
+        return archive.Inventories.Count;
     }
 
     private static TaskItem ToTaskItem(ArchivedTaskItem item, IReadOnlyDictionary<string, Guid> createdIdsByTitle)

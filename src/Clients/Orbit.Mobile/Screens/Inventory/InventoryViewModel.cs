@@ -8,11 +8,11 @@ using Orbit.Mobile.Sync;
 
 namespace Orbit.Mobile.Screens.Inventory;
 
-/// <summary>Warehouses, read from the local database exactly as the other three features are.</summary>
+/// <summary>Inventories, read from the local database exactly as the other three features are.</summary>
 public sealed partial class InventoryViewModel : ObservableObject
 {
-    private readonly LocalWarehouseRepository _warehouses;
-    private readonly WarehouseSynchronizer _synchronizer;
+    private readonly LocalInventoryRepository _inventories;
+    private readonly InventorySynchronizer _synchronizer;
     private readonly INetworkStatus _networkStatus;
     private readonly SyncState _syncState;
     private readonly IScreenNavigator _navigator;
@@ -20,30 +20,30 @@ public sealed partial class InventoryViewModel : ObservableObject
     private readonly PrivateItemGate _privateItems;
 
     [ObservableProperty]
-    private string _newWarehouseName = string.Empty;
+    private string _newInventoryName = string.Empty;
 
     [ObservableProperty]
     private bool _isRefreshing;
 
     /// <summary>
-    /// The warehouses on screen, items and all, kept so the search can read them without going back to
+    /// The inventories on screen, items and all, kept so the search can read them without going back to
     /// the database on every keystroke. Refreshed wherever the rows are.
     /// </summary>
-    private IReadOnlyList<LocalWarehouse> _stored = [];
+    private IReadOnlyList<LocalInventory> _stored = [];
 
     /// <summary>
-    /// Warehouses this device could not look inside - sealed with a key it has not got, or private
+    /// Inventories this device could not look inside - sealed with a key it has not got, or private
     /// while private things are locked. Counted rather than skipped: a search that quietly leaves one
     /// out answers "it is nowhere" when the truth is "I could not look there". Counted rather than
     /// named, because a name is one of the things being kept back.
     /// </summary>
-    private int _unsearchableWarehouseCount;
+    private int _unsearchableInventoryCount;
 
     public InventoryViewModel(
-        LocalWarehouseRepository warehouses, WarehouseSynchronizer synchronizer, INetworkStatus networkStatus,
+        LocalInventoryRepository inventories, InventorySynchronizer synchronizer, INetworkStatus networkStatus,
         PrivateItemGate privateItems, SyncState syncState, IScreenNavigator navigator, Translations translations)
     {
-        _warehouses = warehouses;
+        _inventories = inventories;
         _synchronizer = synchronizer;
         _networkStatus = networkStatus;
         _privateItems = privateItems;
@@ -52,11 +52,11 @@ public sealed partial class InventoryViewModel : ObservableObject
         _translations = translations;
     }
 
-    public ObservableCollection<WarehouseRow> Warehouses { get; } = [];
+    public ObservableCollection<InventoryRow> Inventories { get; } = [];
 
 
     /// <summary>
-    /// What the reader is looking for across every warehouse. This page lists shelves and not what is on
+    /// What the reader is looking for across every inventory. This page lists shelves and not what is on
     /// them, so where something is was the one question it could not answer.
     /// </summary>
     [ObservableProperty]
@@ -68,25 +68,25 @@ public sealed partial class InventoryViewModel : ObservableObject
     /// <summary>The list of shelves steps aside while a search is on, since the answer replaces it.</summary>
     public bool IsSearchingItems => SearchedItemName.Trim().Length > 0;
 
-    public bool IsShowingWarehouses => !IsSearchingItems;
+    public bool IsShowingInventories => !IsSearchingItems;
 
     /// <summary>An empty shelf list and a search that found nothing need different words.</summary>
     public bool FoundNothing => IsSearchingItems && ItemMatches.Count == 0;
 
     /// <summary>
-    /// What was found, and - when a warehouse is sealed with a key this phone has not got - that the
+    /// What was found, and - when an inventory is sealed with a key this phone has not got - that the
     /// answer is short of those. Saying only the count would let "nothing found" stand for "I could not
     /// look there", which is the one answer a search must never give by accident.
     /// </summary>
     public string ItemMatchSummary
-        => _unsearchableWarehouseCount == 0
-            ? _translations.Format("Found in {0} of {1} warehouses.", WarehousesMatched, _stored.Count)
+        => _unsearchableInventoryCount == 0
+            ? _translations.Format("Found in {0} of {1} inventories.", InventoriesMatched, _stored.Count)
             : _translations.Format(
-                "Found in {0} of {1} warehouses. {2} could not be opened, so nothing in them was searched.",
-                WarehousesMatched, _stored.Count, _unsearchableWarehouseCount);
+                "Found in {0} of {1} inventories. {2} could not be opened, so nothing in them was searched.",
+                InventoriesMatched, _stored.Count, _unsearchableInventoryCount);
 
-    private int WarehousesMatched
-        => ItemMatches.Select(match => match.WarehouseLocalId).Distinct().Count();
+    private int InventoriesMatched
+        => ItemMatches.Select(match => match.InventoryLocalId).Distinct().Count();
 
     [RelayCommand]
     private void ClearItemSearch() => SearchedItemName = string.Empty;
@@ -98,14 +98,14 @@ public sealed partial class InventoryViewModel : ObservableObject
         {
             // Opened on the thing that was found: a search across every shelf that landed somebody on a
             // shelf and left them looking for it again would have answered half the question.
-            _navigator.ShowWarehouse(match.WarehouseLocalId, match.Item.Item.Id);
+            _navigator.ShowInventory(match.InventoryLocalId, match.Item.Item.Id);
         }
     }
 
     /// <summary>
-    /// Answers "which warehouse is this in", from what the phone already holds rather than by asking the
-    /// server. Every warehouse's items came down with the warehouse, so there is nothing to fetch and
-    /// nothing to cache - and a private warehouse keeps no item rows on the server at all, so an
+    /// Answers "which inventory is this in", from what the phone already holds rather than by asking the
+    /// server. Every inventory's items came down with the inventory, so there is nothing to fetch and
+    /// nothing to cache - and a private inventory keeps no item rows on the server at all, so an
     /// endpoint could not have answered for those anyway.
     ///
     /// Matched anywhere in the name and without case, the same as the shelf's own search box: a shelf
@@ -118,11 +118,11 @@ public sealed partial class InventoryViewModel : ObservableObject
         {
             var found = _stored
                 .Where(CanBeSearched)
-                .SelectMany(warehouse => warehouse.Items.Select(item => new InventoryItemMatch(
-                    warehouse.LocalId, warehouse.Name, WarehouseItemRow.From(item, _translations))))
+                .SelectMany(inventory => inventory.Items.Select(item => new InventoryItemMatch(
+                    inventory.LocalId, inventory.Name, InventoryItemRow.From(item, _translations))))
                 .Where(match => match.Name.Contains(wanted, StringComparison.CurrentCultureIgnoreCase))
                 .OrderBy(match => match.Name, StringComparer.CurrentCultureIgnoreCase)
-                .ThenBy(match => match.WarehouseName, StringComparer.CurrentCultureIgnoreCase);
+                .ThenBy(match => match.InventoryName, StringComparer.CurrentCultureIgnoreCase);
 
             foreach (var match in found)
             {
@@ -131,7 +131,7 @@ public sealed partial class InventoryViewModel : ObservableObject
         }
 
         OnPropertyChanged(nameof(IsSearchingItems));
-        OnPropertyChanged(nameof(IsShowingWarehouses));
+        OnPropertyChanged(nameof(IsShowingInventories));
         OnPropertyChanged(nameof(FoundNothing));
         OnPropertyChanged(nameof(ItemMatchSummary));
     }
@@ -141,29 +141,29 @@ public sealed partial class InventoryViewModel : ObservableObject
     [RelayCommand]
     private async Task LoadAsync(CancellationToken cancellationToken)
     {
-        await ShowStoredWarehousesAsync(cancellationToken);
+        await ShowStoredInventoriesAsync(cancellationToken);
         await SynchroniseAsync(cancellationToken);
     }
 
-    [RelayCommand(CanExecute = nameof(CanAddWarehouse))]
-    private async Task AddWarehouseAsync(CancellationToken cancellationToken)
+    [RelayCommand(CanExecute = nameof(CanAddInventory))]
+    private async Task AddInventoryAsync(CancellationToken cancellationToken)
     {
-        await _warehouses.CreateAsync(NewWarehouseName.Trim(), cancellationToken);
-        NewWarehouseName = string.Empty;
+        await _inventories.CreateAsync(NewInventoryName.Trim(), cancellationToken);
+        NewInventoryName = string.Empty;
 
-        await ShowStoredWarehousesAsync(cancellationToken);
+        await ShowStoredInventoriesAsync(cancellationToken);
         await SynchroniseAsync(cancellationToken);
     }
 
-    private bool CanAddWarehouse => NewWarehouseName.Trim().Length > 0;
+    private bool CanAddInventory => NewInventoryName.Trim().Length > 0;
 
     /// <inheritdoc cref="Notes.NotesViewModel.Open"/>
     [RelayCommand]
-    private void OpenWarehouse(WarehouseRow? row)
+    private void OpenInventory(InventoryRow? row)
     {
         if (row is { CanBeOpened: true })
         {
-            _navigator.ShowWarehouse(row.LocalId);
+            _navigator.ShowInventory(row.LocalId);
         }
     }
 
@@ -178,16 +178,16 @@ public sealed partial class InventoryViewModel : ObservableObject
     }
 
     /// <summary>
-    /// Whether a search may look inside. A sealed warehouse holds nothing this device could read, and a
+    /// Whether a search may look inside. A sealed inventory holds nothing this device could read, and a
     /// private one while private things are locked holds nothing it may show - see PrivateItemGate.
     /// </summary>
-    private bool CanBeSearched(LocalWarehouse warehouse)
-        => !warehouse.IsSealed && (!warehouse.IsPrivate || _privateItems.IsUnlocked);
+    private bool CanBeSearched(LocalInventory inventory)
+        => !inventory.IsSealed && (!inventory.IsPrivate || _privateItems.IsUnlocked);
 
-    private async Task ShowStoredWarehousesAsync(CancellationToken cancellationToken)
+    private async Task ShowStoredInventoriesAsync(CancellationToken cancellationToken)
     {
-        _stored = await _warehouses.GetAllAsync(cancellationToken);
-        var pending = await _warehouses.GetPendingLocalIdsAsync(cancellationToken);
+        _stored = await _inventories.GetAllAsync(cancellationToken);
+        var pending = await _inventories.GetPendingLocalIdsAsync(cancellationToken);
 
         _pending = pending;
         ShowRows();
@@ -199,19 +199,19 @@ public sealed partial class InventoryViewModel : ObservableObject
     /// </summary>
     private void ShowRows()
     {
-        Warehouses.Clear();
-        foreach (var warehouse in _stored)
+        Inventories.Clear();
+        foreach (var inventory in _stored)
         {
-            Warehouses.Add(WarehouseRow.From(
-                warehouse, _pending.Contains(warehouse.LocalId), _networkStatus, _translations,
+            Inventories.Add(InventoryRow.From(
+                inventory, _pending.Contains(inventory.LocalId), _networkStatus, _translations,
                 _privateItems.IsUnlocked, _translations["Private"]));
         }
 
-        _unsearchableWarehouseCount = _stored.Count(warehouse => !CanBeSearched(warehouse));
+        _unsearchableInventoryCount = _stored.Count(inventory => !CanBeSearched(inventory));
         ShowMatchingItems();
     }
 
-    /// <summary>Which warehouses still have changes waiting to go out - see LocalNoteRepository.</summary>
+    /// <summary>Which inventories still have changes waiting to go out - see LocalNoteRepository.</summary>
     private IReadOnlySet<Guid> _pending = new HashSet<Guid>();
 
     private async Task SynchroniseAsync(CancellationToken cancellationToken)
@@ -225,7 +225,7 @@ public sealed partial class InventoryViewModel : ObservableObject
 
             if (result.Sent + result.Received + result.RemovedLocally > 0)
             {
-                await ShowStoredWarehousesAsync(cancellationToken);
+                await ShowStoredInventoriesAsync(cancellationToken);
             }
         }
         catch (HttpRequestException)
@@ -257,5 +257,5 @@ public sealed partial class InventoryViewModel : ObservableObject
 
         _syncState.RecordFailed();
     }
-    partial void OnNewWarehouseNameChanged(string value) => AddWarehouseCommand.NotifyCanExecuteChanged();
+    partial void OnNewInventoryNameChanged(string value) => AddInventoryCommand.NotifyCanExecuteChanged();
 }

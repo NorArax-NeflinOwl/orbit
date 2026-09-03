@@ -1,16 +1,16 @@
-using Orbit.Core.Inventory;
+using Orbit.Core.Inventories;
 
 namespace Orbit.Core;
 
 /// <summary>
 /// The names Orbit writes for itself, said in the reader's language.
 ///
-/// A warehouse's restock list and the errands on it are created on the server (see RestockTaskNaming),
+/// An inventory's restock list and the errands on it are created on the server (see RestockTaskNaming),
 /// which has no idea what language anybody reads in - so an otherwise Polish Tasks page carried one list
 /// called "Restock supplies - Spiżarnia" and a row saying "Restock: Mąka (5)".
 ///
 /// What is stored stays English, deliberately: the server recognises its own list again by that name
-/// when a warehouse is renamed, and an entry by its prefix when a shortfall is raised twice. The
+/// when an inventory is renamed, and an entry by its prefix when a shortfall is raised twice. The
 /// translation happens here instead, on the way to the screen, and never on the way back.
 ///
 /// Shared rather than the browser's own, because the phone shows the same names off the same server and
@@ -22,7 +22,7 @@ public static class OrbitWrittenNames
 {
     /// <summary>
     /// <paramref name="name"/> in the reader's language when Orbit wrote it, and unchanged when anybody
-    /// else did. The part a person chose - the warehouse's name, the product - rides along untouched.
+    /// else did. The part a person chose - the inventory's name, the product - rides along untouched.
     /// </summary>
     /// <param name="say">
     /// How this client turns an English string into the reader's language - <c>key => translations[key]</c>

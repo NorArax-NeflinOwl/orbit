@@ -1,8 +1,8 @@
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Time.Testing;
 using Orbit.Contracts.Calendar;
-using Orbit.Contracts.Inventory;
-using Orbit.Core.Inventory;
+using Orbit.Contracts.Inventories;
+using Orbit.Core.Inventories;
 using Orbit.Core.Tasks;
 using Orbit.Mobile.Location;
 using Orbit.Contracts.Tasks;
@@ -595,7 +595,7 @@ public sealed class TaskListDetailScreenTests
 
     /// <summary>
     /// The whole point of giving these entries a kind and a link: the row already knows which product it
-    /// means, so correcting an amount should not mean leaving the list and finding the warehouse again.
+    /// means, so correcting an amount should not mean leaving the list and finding the inventory again.
     /// Orbit.Web puts the same fields on its task editor.
     /// </summary>
     [Fact]
@@ -616,7 +616,7 @@ public sealed class TaskListDetailScreenTests
 
     /// <summary>Saving the entry saves the shelf, which is what the line above the fields promises.</summary>
     [Fact]
-    public async Task Correcting_a_product_from_an_errand_writes_it_back_to_the_warehouse()
+    public async Task Correcting_a_product_from_an_errand_writes_it_back_to_the_inventory()
     {
         using var context = new ScreenContext();
         var shelf = await context.AddShelfProductAsync("Kitchen", "Coffee", quantity: 2);
@@ -628,14 +628,14 @@ public sealed class TaskListDetailScreenTests
         screen.BeingEdited.Shelf.Product.Name = "Coffee, ground";
         await screen.SaveItemCommand.ExecuteAsync(null);
 
-        var stored = await context.Shelves.FindAsync(shelf.WarehouseLocalId);
+        var stored = await context.Shelves.FindAsync(shelf.InventoryLocalId);
         var product = Assert.Single(stored!.Items);
         Assert.Equal(7, product.Quantity);
         Assert.Equal("Coffee, ground", product.Name);
     }
 
     /// <summary>
-    /// The correction has to leave the phone here, not whenever somebody next opens the warehouse: this
+    /// The correction has to leave the phone here, not whenever somebody next opens the inventory: this
     /// screen is the only thing that knows the shelf was touched, and a restock list rebuilt before the
     /// new amount arrives would be rebuilt from the old one.
     /// </summary>
@@ -652,8 +652,8 @@ public sealed class TaskListDetailScreenTests
         screen.BeingEdited!.Shelf!.Product.Quantity = "7";
         await screen.SaveItemCommand.ExecuteAsync(null);
 
-        var onTheServer = Assert.Single(context.Warehouses.Warehouses);
-        var product = Assert.Single(context.Warehouses.ItemsIn(onTheServer.Id));
+        var onTheServer = Assert.Single(context.Inventories.Inventories);
+        var product = Assert.Single(context.Inventories.ItemsIn(onTheServer.Id));
         Assert.Equal(7, product.Quantity);
     }
 
@@ -703,7 +703,7 @@ public sealed class TaskListDetailScreenTests
     /// <summary>
     /// A list measured against a shelf can say what it needs before that shelf holds it: the entry is
     /// the description, and saving puts the product there. Until now the phone could only correct
-    /// something already on the shelf, so anything new had to be typed into the warehouse first.
+    /// something already on the shelf, so anything new had to be typed into the inventory first.
     /// </summary>
     [Fact]
     public async Task An_errand_for_something_not_on_the_shelf_yet_puts_it_there()
@@ -716,7 +716,7 @@ public sealed class TaskListDetailScreenTests
         screen.EditItemCommand.Execute(screen.Items[0]);
         var editor = screen.BeingEdited!;
         Assert.True(editor.IsDescribingSomethingNew);
-        // The entry names it, so the form does not ask - see WarehouseItemEditor.ShowsName.
+        // The entry names it, so the form does not ask - see InventoryItemEditor.ShowsName.
         Assert.False(editor.Shelf!.Product.ShowsName);
         Assert.Contains("Kitchen", editor.WhereTheProductLives);
 
@@ -743,9 +743,9 @@ public sealed class TaskListDetailScreenTests
         var shelfLocalId = await context.MeasureAgainstAnEmptyShelfAsync(screen, "Kitchen");
         await context.Shelves.UpdateAsync(
             shelfLocalId,
-            new WarehouseContent(
+            new InventoryContent(
                 "Kitchen",
-                [new WarehouseItemDto(
+                [new InventoryItemRequest(
                     Guid.NewGuid(), "coffee", "", "", 5, null, nameof(InventoryUnit.Piece), null, "None")]));
         await context.AddErrandForSomethingNotOnTheShelfAsync(screen, "Coffee");
 
@@ -759,7 +759,7 @@ public sealed class TaskListDetailScreenTests
     }
 
     /// <summary>
-    /// An inventory errand says which shelf it is about, and tapping that opens the warehouse - the
+    /// An inventory errand says which shelf it is about, and tapping that opens the inventory - the
     /// reason to show it at all is to be able to go and look. Orbit.Web asks its server for this; a
     /// phone works it out from what it already holds, so it still says so with no connection.
     /// </summary>
@@ -776,7 +776,7 @@ public sealed class TaskListDetailScreenTests
 
         screen.OpenReferenceCommand.Execute(reference);
 
-        Assert.Equal(shelf.WarehouseLocalId, context.Navigator.LastWarehouseId);
+        Assert.Equal(shelf.InventoryLocalId, context.Navigator.LastInventoryId);
         // And on the product itself: a shelf of sixty rows with no sign of which one the errand meant
         // sends somebody looking for it a second time.
         Assert.Equal(shelf.ProductId, context.Navigator.LastPointedAtProductId);
@@ -819,7 +819,7 @@ public sealed class TaskListDetailScreenTests
     }
 
     /// <summary>
-    /// An errand whose product this phone has not got - a warehouse no longer shared, or one not synced
+    /// An errand whose product this phone has not got - an inventory no longer shared, or one not synced
     /// yet - still opens, with the shelf half missing rather than an empty form that looks broken.
     /// </summary>
     [Fact]
@@ -1431,7 +1431,7 @@ public sealed class TaskListDetailScreenTests
 
 
     /// <summary>
-    /// Opening a warehouse's restock list settles what is already crossed off on it - each finished
+    /// Opening an inventory's restock list settles what is already crossed off on it - each finished
     /// errand fills its shelf item and leaves. Orbit.Web asks for this on opening; a phone that did not
     /// would leave the same list behaving differently depending on which client last looked at it, and
     /// the shelf never topped up.
@@ -1447,7 +1447,7 @@ public sealed class TaskListDetailScreenTests
     }
 
     /// <summary>
-    /// Nothing to settle on a list no warehouse tracks, so nothing is asked - the title is the only way
+    /// Nothing to settle on a list no inventory tracks, so nothing is asked - the title is the only way
     /// to tell, and it is the same test Orbit.Web applies before making the call.
     /// </summary>
     [Fact]
@@ -1499,7 +1499,7 @@ public sealed class TaskListDetailScreenTests
     }
 
     [Fact]
-    public async Task Answering_yes_brings_the_whole_warehouse_up_to_its_minimum()
+    public async Task Answering_yes_brings_the_whole_inventory_up_to_its_minimum()
     {
         using var context = new ScreenContext();
         context.Server.ToppedUpCount = 4;
@@ -1515,7 +1515,7 @@ public sealed class TaskListDetailScreenTests
 
     /// <summary>
     /// "No" is not a cancel: the reader did ask for that tick, and only the claim about the whole
-    /// warehouse was declined.
+    /// inventory was declined.
     /// </summary>
     [Fact]
     public async Task Answering_no_crosses_off_that_entry_and_leaves_the_shelf_alone()
@@ -1914,13 +1914,13 @@ public sealed class TaskListDetailScreenTests
             Server = new FakeTasksServer(_clock);
             CalendarServer = new FakeCalendarServer(_clock);
             _taskLists = new LocalTaskListRepository(_localStore, _clock, FixedNetworkStatus.Online, _privateContent);
-            Shelves = new LocalWarehouseRepository(
+            Shelves = new LocalInventoryRepository(
                 _localStore, _clock, FixedNetworkStatus.Online, PrivateContent.WithoutAKey());
-            ShelfSynchronizer = new WarehouseSynchronizer(
-                _localStore, new InventoryClient(Warehouses.ToHttpClient()), _clock, new SyncGate(),
-                NullLogger<WarehouseSynchronizer>.Instance);
+            ShelfSynchronizer = new InventorySynchronizer(
+                _localStore, new InventoryClient(Inventories.ToHttpClient()), _clock, new SyncGate(),
+                NullLogger<InventorySynchronizer>.Instance);
             StockCheck = new StockCheckPanel(
-                new TasksClient(Server.ToHttpClient()), new InventoryClient(Warehouses.ToHttpClient()),
+                new TasksClient(Server.ToHttpClient()), new InventoryClient(Inventories.ToHttpClient()),
                 Shelves, new Translations(new InMemoryLanguageStore()), Connections.Online, Reading);
             CalendarEvents = new LocalCalendarEventRepository(_localStore, _clock, FixedNetworkStatus.Online);
             Synchronizer = new TaskListSynchronizer(
@@ -1960,13 +1960,13 @@ public sealed class TaskListDetailScreenTests
         public FakeSuggestionsServer SuggestionsServer { get; } = new();
 
         /// <summary>The shelves, which the stock check's refresh asks - see StockCheckPanel.</summary>
-        public FakeInventoryServer Warehouses { get; } = new(TimeProvider.System);
+        public FakeInventoryServer Inventories { get; } = new(TimeProvider.System);
 
-        /// <summary>This phone's warehouses, which is where an errand's product is read from.</summary>
-        public LocalWarehouseRepository Shelves { get; private set; } = null!;
+        /// <summary>This phone's inventories, which is where an errand's product is read from.</summary>
+        public LocalInventoryRepository Shelves { get; private set; } = null!;
 
         /// <summary>What carries a correction made here up to the server - see SaveTheShelfAsync.</summary>
-        public WarehouseSynchronizer ShelfSynchronizer { get; private set; } = null!;
+        public InventorySynchronizer ShelfSynchronizer { get; private set; } = null!;
 
         /// <summary>
         /// An errand about one product on a shelf, as the restock machinery makes one. Written straight
@@ -2061,7 +2061,7 @@ public sealed class TaskListDetailScreenTests
                 StockCheck,
                 new EntryAppointment(
                     CalendarEvents, new CalendarClient(CalendarServer.ToHttpClient()), Network, Places),
-                new ShelfCorrection(Shelves, ShelfSynchronizer, new InventoryClient(Warehouses.ToHttpClient())),
+                new ShelfCorrection(Shelves, ShelfSynchronizer, new InventoryClient(Inventories.ToHttpClient())),
                 PlacePicker, _privateContent,
                 Suggestions.Offering(SuggestionsServer), Suggestions.Offering(SuggestionsServer), Reading);
             screen.Open(created.LocalId);
@@ -2075,30 +2075,30 @@ public sealed class TaskListDetailScreenTests
         /// the entry's form is filled from when it is opened again.
         /// </summary>
         /// <summary>
-        /// An empty shelf this list is measured against, as the stock check leaves things: the warehouse
+        /// An empty shelf this list is measured against, as the stock check leaves things: the inventory
         /// is pushed up so it has a server id, and the list is pointed at that id the way a pull would
         /// point it. Written to the store directly because the link is made on the server and comes back
         /// down - there is no local write for it.
         /// </summary>
-        public async Task<Guid> MeasureAgainstAnEmptyShelfAsync(TaskListDetailViewModel screen, string warehouseName)
+        public async Task<Guid> MeasureAgainstAnEmptyShelfAsync(TaskListDetailViewModel screen, string inventoryName)
         {
-            var warehouse = await Shelves.CreateAsync(warehouseName);
+            var inventory = await Shelves.CreateAsync(inventoryName);
             await ShelfSynchronizer.SynchroniseAsync();
             await Synchronizer.SynchroniseAsync(CancellationToken.None);
 
-            Guid warehouseServerId;
+            Guid inventoryServerId;
             await using (var dbContext = _localStore.CreateDbContext())
             {
-                warehouseServerId = dbContext.Warehouses
-                    .Single(candidate => candidate.LocalId == warehouse.LocalId).ServerId!.Value;
+                inventoryServerId = dbContext.Inventories
+                    .Single(candidate => candidate.LocalId == inventory.LocalId).ServerId!.Value;
             }
 
             // Through the server rather than into the row, because that is where the link lives - a
             // phone learns which shelf a list is measured against by pulling the list back down.
-            await new TasksClient(Server.ToHttpClient()).LinkWarehouseAsync(
-                Stored().ServerId!.Value, warehouseServerId);
+            await new TasksClient(Server.ToHttpClient()).LinkInventoryAsync(
+                Stored().ServerId!.Value, inventoryServerId);
             await screen.LoadCommand.ExecuteAsync(null);
-            return warehouse.LocalId;
+            return inventory.LocalId;
         }
 
         /// <summary>An entry standing for an errand about nothing on the shelf yet.</summary>
@@ -2120,19 +2120,19 @@ public sealed class TaskListDetailScreenTests
         }
 
         /// <summary>One product on one shelf, as this phone holds it.</summary>
-        public async Task<(Guid WarehouseLocalId, Guid ProductId)> AddShelfProductAsync(
-            string warehouseName, string productName, decimal quantity)
+        public async Task<(Guid InventoryLocalId, Guid ProductId)> AddShelfProductAsync(
+            string inventoryName, string productName, decimal quantity)
         {
-            var warehouse = await Shelves.CreateAsync(warehouseName);
+            var inventory = await Shelves.CreateAsync(inventoryName);
             var productId = Guid.NewGuid();
             await Shelves.UpdateAsync(
-                warehouse.LocalId,
-                new WarehouseContent(
-                    warehouseName,
-                    [new WarehouseItemDto(
+                inventory.LocalId,
+                new InventoryContent(
+                    inventoryName,
+                    [new InventoryItemRequest(
                         productId, productName, "", "", quantity, null, nameof(InventoryUnit.Piece), null, "None")]));
 
-            return (warehouse.LocalId, productId);
+            return (inventory.LocalId, productId);
         }
 
         /// <summary>An entry standing for an errand about one product, saved as the wire has it.</summary>
@@ -2215,7 +2215,7 @@ public sealed class TaskListDetailScreenTests
         }
 
         /// <summary>
-        /// A round of restocking as the warehouse's daily reminder leaves it: one errand, and the
+        /// A round of restocking as the inventory's daily reminder leaves it: one errand, and the
         /// standing "Update stock levels" entry that closes the round - see RestockTaskNaming.
         /// </summary>
         public async Task<TaskListDetailViewModel> OpenRestockRoundAsync()
@@ -2231,7 +2231,7 @@ public sealed class TaskListDetailScreenTests
         }
 
         /// <summary>
-        /// A warehouse's own restock list, as the server holds one: the title Orbit names it with, and a
+        /// An inventory's own restock list, as the server holds one: the title Orbit names it with, and a
         /// server id, which is what a settle needs to ask about anything. Opened a second time on
         /// purpose - the first open happens before the create has been accepted, which is the one moment
         /// a real list has no id either.

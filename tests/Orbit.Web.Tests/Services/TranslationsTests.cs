@@ -153,7 +153,7 @@ public sealed class TranslationsTests
         AssertAllTranslated([
             NotesApiClient.UnreadableNoteTitle,
             TasksApiClient.UnreadableTaskListTitle,
-            InventoryApiClient.UnreadableWarehouseName,
+            InventoryApiClient.UnreadableInventoryName,
             "another user",
             "another list"
         ]);
@@ -207,7 +207,7 @@ public sealed class TranslationsTests
     private static readonly string[] KnownKeys =
     [
         "Dashboard", "Notes", "Tasks", "Calendar", "Inventory", "Contacts", "Map", "Options",
-        "Save", "Cancel", "Delete", "Add note", "Add task list", "Add event", "Add warehouse",
+        "Save", "Cancel", "Delete", "Add note", "Add task list", "Add event", "Add inventory",
         "Log in", "Register", "Password", "Amount", "Priority", "Language", "Debugger",
         "Use my location", "Share link", "Write a message…", "Reply", "Forward"
     ];

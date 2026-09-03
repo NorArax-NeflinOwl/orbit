@@ -1,7 +1,7 @@
 using Orbit.Api.Tests.TestDoubles;
 using Orbit.Core.Abstractions;
 using Orbit.Core.Calendar;
-using Orbit.Core.Inventory;
+using Orbit.Core.Inventories;
 using Orbit.Core.Notifications;
 using Orbit.Core.Tasks;
 using Orbit.Core.Users;
@@ -70,18 +70,18 @@ public sealed class SharedWithOthersAcrossFeaturesTests
     }
 
     [Fact]
-    public async Task An_owner_sees_which_warehouses_are_shared_out()
+    public async Task An_owner_sees_which_inventories_are_shared_out()
     {
-        var warehouses = new InMemoryWarehouseRepository();
-        var shares = new InMemoryWarehouseShareRepository();
+        var inventories = new InMemoryInventoryRepository();
+        var shares = new InMemoryInventoryShareRepository();
 
-        var shared = Warehouse.Create(_owner.Id, "Shared");
-        var privateOne = Warehouse.Create(_owner.Id, "Mine alone");
-        await warehouses.AddAsync(shared, CancellationToken.None);
-        await warehouses.AddAsync(privateOne, CancellationToken.None);
-        await shares.AddAsync(Accepted(WarehouseShare.Create(shared.Id, _owner.Id, Guid.NewGuid())), CancellationToken.None);
+        var shared = Inventory.Create(_owner.Id, "Shared");
+        var privateOne = Inventory.Create(_owner.Id, "Mine alone");
+        await inventories.AddAsync(shared, CancellationToken.None);
+        await inventories.AddAsync(privateOne, CancellationToken.None);
+        await shares.AddAsync(Accepted(InventoryShare.Create(shared.Id, _owner.Id, Guid.NewGuid())), CancellationToken.None);
 
-        var resolved = await new WarehouseAccessResolver(warehouses, shares, _users).ResolveAllAsync(_owner.Id, updatedSinceUtc: null, CancellationToken.None);
+        var resolved = await new InventoryAccessResolver(inventories, shares, _users).ResolveAllAsync(_owner.Id, updatedSinceUtc: null, CancellationToken.None);
 
         Assert.True(resolved.Single(item => item.Name == "Shared").IsSharedWithOthers);
         Assert.False(resolved.Single(item => item.Name == "Mine alone").IsSharedWithOthers);
@@ -136,7 +136,7 @@ public sealed class SharedWithOthersAcrossFeaturesTests
         return share;
     }
 
-    private static WarehouseShare Accepted(WarehouseShare share)
+    private static InventoryShare Accepted(InventoryShare share)
     {
         share.MarkAccepted();
         return share;

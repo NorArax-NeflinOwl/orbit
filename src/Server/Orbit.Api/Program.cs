@@ -17,7 +17,7 @@ using Orbit.Api.Diagnostics;
 using Orbit.Api.HealthChecks;
 using Orbit.Api.Permissions;
 using Orbit.Api.Sharing;
-using Orbit.Api.Inventory;
+using Orbit.Api.Inventories;
 using Orbit.Api.Notes;
 using Orbit.Api.Notifications;
 using Orbit.Api.PushNotifications;

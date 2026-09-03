@@ -18,7 +18,7 @@ namespace Orbit.Mobile.Screens.Tasks;
 /// every day until it is done, and - for an entry that is somewhere to be rather than something to
 /// fetch - what kind it is, where it happens and which event it belongs to.
 ///
-/// A separate object from the DTO for the same reason as WarehouseItemEditor: a form holds half-typed
+/// A separate object from the DTO for the same reason as InventoryItemEditor: a form holds half-typed
 /// values, and "no due date" and "a date being picked" are different states the DTO cannot express.
 /// </summary>
 public sealed partial class TaskItemEditor : ObservableObject
@@ -87,7 +87,7 @@ public sealed partial class TaskItemEditor : ObservableObject
     /// <summary>
     /// The product an Inventory entry is an errand about - see <see cref="TaskItemShelfProduct"/>. Null
     /// for every other kind, and for an errand whose product this phone has not got: an entry tied to a
-    /// warehouse somebody stopped sharing still opens, with the shelf half missing rather than the form.
+    /// inventory somebody stopped sharing still opens, with the shelf half missing rather than the form.
     /// </summary>
     /// <summary>
     /// The product this errand is about - one already on a shelf, or one being described for the shelf
@@ -100,7 +100,7 @@ public sealed partial class TaskItemEditor : ObservableObject
     /// <summary>
     /// Makes the form for a product this shelf has not got yet, or null when the list is measured
     /// against no shelf. Handed in rather than reached for, the way the channels and the lists are -
-    /// which warehouse a list is measured against is the screen's knowledge, not the editor's.
+    /// which inventory a list is measured against is the screen's knowledge, not the editor's.
     /// </summary>
     public Func<TaskItemShelfProduct?>? ShelfForSomethingNew { private get; init; }
 
@@ -108,7 +108,7 @@ public sealed partial class TaskItemEditor : ObservableObject
     public bool IsShelfEntry => Kind == nameof(TaskItemKind.Inventory) && Shelf is not null;
 
     /// <summary>
-    /// Said before anything is changed: this form writes to a warehouse, not only to the list. Empty
+    /// Said before anything is changed: this form writes to an inventory, not only to the list. Empty
     /// when there is no product behind the entry.
     /// </summary>
     public string WhereTheProductLives
@@ -117,9 +117,9 @@ public sealed partial class TaskItemEditor : ObservableObject
             : Shelf.Product.IsSomethingNew
                 ? _translations.Format(
                     "Goes on the shelf in {0} when this entry is saved, named after this entry.",
-                    Shelf.WarehouseName)
+                    Shelf.InventoryName)
                 : _translations.Format(
-                    "On the shelf in {0}. Saving this list saves the change there too.", Shelf.WarehouseName);
+                    "On the shelf in {0}. Saving this list saves the change there too.", Shelf.InventoryName);
 
     /// <summary>
     /// Whether the form is describing something to put on the shelf rather than correcting what is
@@ -129,7 +129,7 @@ public sealed partial class TaskItemEditor : ObservableObject
     public bool IsDescribingSomethingNew => Shelf is { Product.IsSomethingNew: true };
 
     /// <summary>
-    /// An Inventory entry with nothing behind it - one whose warehouse is gone, or not synced yet. Said
+    /// An Inventory entry with nothing behind it - one whose inventory is gone, or not synced yet. Said
     /// rather than left as an empty form that looks broken, which is the line Orbit.Web draws too.
     /// </summary>
     public bool HasNoProductToEdit => Kind == nameof(TaskItemKind.Inventory) && Shelf is null;
@@ -274,7 +274,7 @@ public sealed partial class TaskItemEditor : ObservableObject
     /// What the calendar knows about, which the caller reads: the editor is handed the choices rather
     /// than reaching for a store, the same way it is handed the notification channels.
     /// </param>
-    /// <inheritdoc cref="Inventory.WarehouseItemEditor.Suggestions"/>
+    /// <inheritdoc cref="Inventory.InventoryItemEditor.Suggestions"/>
     public NameSuggestions? Suggestions { get; private init; }
 
     public static TaskItemEditor For(

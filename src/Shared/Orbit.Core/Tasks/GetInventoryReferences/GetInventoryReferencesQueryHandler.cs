@@ -1,5 +1,5 @@
 using Orbit.Core.Abstractions;
-using Orbit.Core.Inventory;
+using Orbit.Core.Inventories;
 
 namespace Orbit.Core.Tasks.GetInventoryReferences;
 
@@ -8,17 +8,17 @@ public sealed class GetInventoryReferencesQueryHandler
 {
     private readonly TaskListAccessResolver _taskListAccessResolver;
     private readonly ITaskRepository _taskRepository;
-    private readonly IWarehouseRepository _warehouseRepository;
     private readonly IInventoryRepository _inventoryRepository;
+    private readonly IInventoryItemRepository _inventoryItemRepository;
 
     public GetInventoryReferencesQueryHandler(
         TaskListAccessResolver taskListAccessResolver, ITaskRepository taskRepository,
-        IWarehouseRepository warehouseRepository, IInventoryRepository inventoryRepository)
+        IInventoryRepository inventoryRepository, IInventoryItemRepository inventoryItemRepository)
     {
         _taskListAccessResolver = taskListAccessResolver;
         _taskRepository = taskRepository;
-        _warehouseRepository = warehouseRepository;
         _inventoryRepository = inventoryRepository;
+        _inventoryItemRepository = inventoryItemRepository;
     }
 
     public async Task<IReadOnlyList<InventoryReference>> HandleAsync(
@@ -38,8 +38,8 @@ public sealed class GetInventoryReferencesQueryHandler
             return [];
         }
 
-        // The reader's own warehouses, read once. A shelf item carries its warehouse id but not the
-        // warehouse, and the screen needs the name to say which shelf it is talking about.
+        // The reader's own inventories, read once. A shelf item carries its inventory id but not the
+        // inventory, and the screen needs the name to say which shelf it is talking about.
         var shelvesByItemId = await ShelvesByItemIdAsync(request.UserId, cancellationToken);
         var elsewhere = await ErrandsElsewhereAsync(request.UserId, request.TaskListId, cancellationToken);
 
@@ -49,28 +49,28 @@ public sealed class GetInventoryReferencesQueryHandler
             var inventoryItemId = errand.LinkedInventoryItemId!.Value;
             if (!shelvesByItemId.TryGetValue(inventoryItemId, out var shelf))
             {
-                // The product, or the whole warehouse, is gone or was never the reader's. The entry is
+                // The product, or the whole inventory, is gone or was never the reader's. The entry is
                 // still readable as a line of text; it just has nothing to link to.
                 continue;
             }
 
             references.Add(new InventoryReference(
-                errand.Id, inventoryItemId, shelf.ItemName, shelf.WarehouseId, shelf.WarehouseName,
+                errand.Id, inventoryItemId, shelf.ItemName, shelf.InventoryId, shelf.InventoryName,
                 elsewhere.GetValueOrDefault(inventoryItemId, [])));
         }
 
         return references;
     }
 
-    /// <summary>Every shelf item the reader owns, with the warehouse it sits in, keyed by the item's id.</summary>
+    /// <summary>Every shelf item the reader owns, with the inventory it sits in, keyed by the item's id.</summary>
     private async Task<Dictionary<Guid, ShelfLocation>> ShelvesByItemIdAsync(Guid userId, CancellationToken cancellationToken)
     {
         var byItemId = new Dictionary<Guid, ShelfLocation>();
-        foreach (var warehouse in await _warehouseRepository.GetAllAsync(userId, updatedSinceUtc: null, cancellationToken))
+        foreach (var inventory in await _inventoryRepository.GetAllAsync(userId, updatedSinceUtc: null, cancellationToken))
         {
-            foreach (var item in await _inventoryRepository.GetAllAsync(warehouse.Id, cancellationToken))
+            foreach (var item in await _inventoryItemRepository.GetAllAsync(inventory.Id, cancellationToken))
             {
-                byItemId[item.Id] = new ShelfLocation(warehouse.Id, warehouse.Name, item.Name);
+                byItemId[item.Id] = new ShelfLocation(inventory.Id, inventory.Name, item.Name);
             }
         }
 
@@ -116,5 +116,5 @@ public sealed class GetInventoryReferencesQueryHandler
     }
 
     /// <summary>Where one shelf item sits, as the screen needs to say it.</summary>
-    private sealed record ShelfLocation(Guid WarehouseId, string WarehouseName, string ItemName);
+    private sealed record ShelfLocation(Guid InventoryId, string InventoryName, string ItemName);
 }

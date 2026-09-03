@@ -1,4 +1,4 @@
-using Orbit.Core.Inventory;
+using Orbit.Core.Inventories;
 using Orbit.Core.Notifications;
 using Orbit.Core.Tasks;
 using Orbit.Core.Tasks.StockCheck;
@@ -46,7 +46,7 @@ public sealed class StockRequirementCounterTests
     }
 
     [Fact]
-    public void Something_the_warehouse_has_never_heard_of_is_missing_in_full()
+    public void Something_the_inventory_has_never_heard_of_is_missing_in_full()
     {
         var check = StockRequirementCounter.Count([Work("Brass handle")], [Stock("Screw", 100)], Now);
 

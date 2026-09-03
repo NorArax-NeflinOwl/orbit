@@ -818,7 +818,7 @@
 
             _transferMessage = T.Format(
                 "Exported {0} notes, {1} task lists, {2} events and {3} storages.",
-                archive.Notes.Count, archive.TaskLists.Count, archive.CalendarEvents.Count, archive.Warehouses.Count);
+                archive.Notes.Count, archive.TaskLists.Count, archive.CalendarEvents.Count, archive.Inventories.Count);
         }
         catch (Exception exception) when (exception is not OperationCanceledException)
         {
@@ -856,7 +856,7 @@
 
             _transferMessage = T.Format(
                 "Imported {0} notes, {1} task lists, {2} events and {3} storages.",
-                result.Notes, result.TaskLists, result.CalendarEvents, result.Warehouses);
+                result.Notes, result.TaskLists, result.CalendarEvents, result.Inventories);
         }
         catch (JsonException)
         {
@@ -1388,7 +1388,7 @@
         Notes,
         TaskLists,
         CalendarEvents,
-        Warehouses
+        Inventories
     }
 
     private string DescribeExportPart(ExportPart part) => part switch
@@ -1435,7 +1435,7 @@
                 Notes = Includes(ExportPart.Notes) ? archive.Notes : [],
                 TaskLists = Includes(ExportPart.TaskLists) ? archive.TaskLists : [],
                 CalendarEvents = Includes(ExportPart.CalendarEvents) ? archive.CalendarEvents : [],
-                Warehouses = Includes(ExportPart.Warehouses) ? archive.Warehouses : []
+                Inventories = Includes(ExportPart.Inventories) ? archive.Inventories : []
             };
     }
 

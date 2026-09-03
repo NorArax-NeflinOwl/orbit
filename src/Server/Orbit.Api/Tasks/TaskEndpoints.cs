@@ -19,11 +19,11 @@ using Orbit.Core.Tasks.GetTaskLists;
 using Orbit.Core.Tasks.LinkCalendarEventToTaskList;
 using Orbit.Core.Tasks.MoveTaskItem;
 using Orbit.Core.Tasks.ReleaseTaskListLock;
-using Orbit.Core.Tasks.LinkTaskListToWarehouse;
-using Orbit.Core.Inventory.FinishRestocking;
-using Orbit.Core.Inventory.ReconcileRestockList;
+using Orbit.Core.Tasks.LinkTaskListToInventory;
+using Orbit.Core.Inventories.FinishRestocking;
+using Orbit.Core.Inventories.ReconcileRestockList;
 using Orbit.Core.Tasks.GetInventoryReferences;
-using Orbit.Core.Tasks.GenerateWarehouseFromTaskList;
+using Orbit.Core.Tasks.GenerateInventoryFromTaskList;
 using Orbit.Core.Tasks.GetTaskListStockCheck;
 using Orbit.Core.Tasks.RaiseStockShortfalls;
 using Orbit.Core.Tasks.SetTaskListPinned;
@@ -103,14 +103,14 @@ public static class TaskEndpoints
         // whole-list PUT above (it touches two different TaskList aggregates at once).
         // Its own endpoint rather than part of the update: pinning is done from the list of lists,
         // where nothing has been loaded to edit - see TaskList.SetPinned.
-        // Which warehouse this list's work is measured against. Its own endpoint for the same reason
+        // Which inventory this list's work is measured against. Its own endpoint for the same reason
         // pinning has one: it changes what the list is compared with, not what is on it.
-        tasks.MapPut("/{id:guid}/warehouse", async (
-            Guid id, LinkTaskListToWarehouseRequest request, ClaimsPrincipal user, IDispatcher dispatcher,
+        tasks.MapPut("/{id:guid}/inventory", async (
+            Guid id, LinkTaskListToInventoryRequest request, ClaimsPrincipal user, IDispatcher dispatcher,
             CancellationToken cancellationToken) =>
         {
             var linked = await dispatcher.SendAsync(
-                new LinkTaskListToWarehouseCommand(GetUserId(user), id, request.WarehouseId), cancellationToken);
+                new LinkTaskListToInventoryCommand(GetUserId(user), id, request.InventoryId), cancellationToken);
             return linked ? Results.NoContent() : Results.NotFound();
         });
 
@@ -119,13 +119,13 @@ public static class TaskEndpoints
         tasks.MapPost("/{id:guid}/inventory", async (
             Guid id, ClaimsPrincipal user, IDispatcher dispatcher, CancellationToken cancellationToken) =>
         {
-            var warehouseId = await dispatcher.SendAsync(
-                new GenerateWarehouseFromTaskListCommand(GetUserId(user), id), cancellationToken);
-            return warehouseId is null ? Results.NotFound() : Results.Ok(warehouseId);
+            var inventoryId = await dispatcher.SendAsync(
+                new GenerateInventoryFromTaskListCommand(GetUserId(user), id), cancellationToken);
+            return inventoryId is null ? Results.NotFound() : Results.Ok(inventoryId);
         });
 
         // "Everything on this list is done" - see FinishRestockingCommandHandler. Its own endpoint
-        // rather than part of the save above, because it is a claim about the warehouse rather than an
+        // rather than part of the save above, because it is a claim about the inventory rather than an
         // edit to the list.
         tasks.MapPost("/{id:guid}/restocking/finished", async (
             Guid id, ClaimsPrincipal user, IDispatcher dispatcher, CancellationToken cancellationToken) =>
@@ -156,8 +156,8 @@ public static class TaskEndpoints
             return Results.Ok(references.Select(ToDto));
         });
 
-        // Whether this list's work - and everything linked below it - can be done out of that warehouse.
-        // 404 rather than an empty answer when no warehouse has been chosen: there is no question yet.
+        // Whether this list's work - and everything linked below it - can be done out of that inventory.
+        // 404 rather than an empty answer when no inventory has been chosen: there is no question yet.
         tasks.MapGet("/{id:guid}/stock-check", async (
             Guid id, ClaimsPrincipal user, IDispatcher dispatcher, CancellationToken cancellationToken) =>
         {
@@ -165,7 +165,7 @@ public static class TaskEndpoints
             return check is null ? Results.NotFound() : Results.Ok(ToDto(check));
         });
 
-        // Puts what is short onto the warehouse's standing restock list, where the daily reminder brings
+        // Puts what is short onto the inventory's standing restock list, where the daily reminder brings
         // it up - see InventoryTaskListCoordinator.
         tasks.MapPost("/{id:guid}/stock-check/shortfalls", async (
             Guid id, ClaimsPrincipal user, IDispatcher dispatcher, CancellationToken cancellationToken) =>
@@ -314,8 +314,8 @@ public static class TaskEndpoints
 
     private static InventoryReferenceDto ToDto(InventoryReference reference)
         => new(
-            reference.TaskItemId, reference.InventoryItemId, reference.InventoryItemName, reference.WarehouseId,
-            reference.WarehouseName,
+            reference.TaskItemId, reference.InventoryItemId, reference.InventoryItemName, reference.InventoryId,
+            reference.InventoryName,
             [.. reference.AlsoAskedForBy.Select(elsewhere => new InventoryReferenceElsewhereDto(
                 elsewhere.TaskListId, elsewhere.TaskListTitle, elsewhere.TaskItemId))]);
 
@@ -361,7 +361,7 @@ public static class TaskEndpoints
             taskList.IsShared ? taskList.UserId : null,
             taskList.Priority.ToString(),
             taskList.Status.ToString(),
-            taskList.IsPinned, taskList.IsSharedWithOthers, taskList.LinkedWarehouseId, taskList.Description);
+            taskList.IsPinned, taskList.IsSharedWithOthers, taskList.LinkedInventoryId, taskList.Description);
 
     /// <summary>Maps an EditOutcome onto the corresponding HTTP response - shared by the update and lock-acquire endpoints above.</summary>
     private static IResult ToApiResult(EditOutcome outcome) => outcome.Kind switch

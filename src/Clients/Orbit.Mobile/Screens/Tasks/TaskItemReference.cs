@@ -3,8 +3,8 @@ namespace Orbit.Mobile.Screens.Tasks;
 /// <summary>What a reference under an errand leads to, which is what tapping it has to open.</summary>
 public enum TaskItemReferenceTarget
 {
-    /// <summary>The warehouse the product sits in.</summary>
-    Warehouse,
+    /// <summary>The inventory the product sits in.</summary>
+    Inventory,
 
     /// <summary>Another list asking for the same product.</summary>
     TaskList

@@ -3,7 +3,7 @@ using Orbit.Core.Abstractions;
 namespace Orbit.Web.Services;
 
 /// <summary>
-/// What the access level on a note, task list, event or warehouse DTO lets this reader do. The rules
+/// What the access level on a note, task list, event or inventory DTO lets this reader do. The rules
 /// themselves are asked of <see cref="ShareAccess"/> rather than restated here: the client and the
 /// server have to agree on them, and four editors each spelling them out in string comparisons is four
 /// chances to disagree - which is exactly what happened when EditOnly was added and every

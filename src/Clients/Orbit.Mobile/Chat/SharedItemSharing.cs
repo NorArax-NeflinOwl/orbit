@@ -110,6 +110,6 @@ public sealed class SharedItemSharing
         SharedItemKind.CalendarEvent => JsonSerializer.Serialize(
             new EventShareMessagePayload(shareId, name), ChatPayloadSerializerContext.Default.EventShareMessagePayload),
         _ => JsonSerializer.Serialize(
-            new WarehouseShareMessagePayload(shareId, name), ChatPayloadSerializerContext.Default.WarehouseShareMessagePayload)
+            new InventoryShareMessagePayload(shareId, name), ChatPayloadSerializerContext.Default.InventoryShareMessagePayload)
     };
 }

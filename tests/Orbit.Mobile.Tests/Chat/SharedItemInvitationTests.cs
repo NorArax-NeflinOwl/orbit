@@ -31,8 +31,8 @@ public sealed class SharedItemInvitationTests
             SharedItemKind.CalendarEvent,
             SharedItemInvitation.TryRead(Serialize(new EventShareMessagePayload(shareId, "Standup")))!.Kind);
         Assert.Equal(
-            SharedItemKind.Warehouse,
-            SharedItemInvitation.TryRead(Serialize(new WarehouseShareMessagePayload(shareId, "Kitchen")))!.Kind);
+            SharedItemKind.Inventory,
+            SharedItemInvitation.TryRead(Serialize(new InventoryShareMessagePayload(shareId, "Kitchen")))!.Kind);
     }
 
     [Fact]
@@ -73,14 +73,14 @@ public sealed class SharedItemInvitationTests
         await acceptance.AcceptAsync(new SharedItemInvitation(SharedItemKind.Note, shareId, "Shopping"));
         await acceptance.AcceptAsync(new SharedItemInvitation(SharedItemKind.TaskList, shareId, "Trip"));
         await acceptance.AcceptAsync(new SharedItemInvitation(SharedItemKind.CalendarEvent, shareId, "Standup"));
-        await acceptance.AcceptAsync(new SharedItemInvitation(SharedItemKind.Warehouse, shareId, "Kitchen"));
+        await acceptance.AcceptAsync(new SharedItemInvitation(SharedItemKind.Inventory, shareId, "Kitchen"));
 
         Assert.Equal(
             [
                 $"api/notes/shares/{shareId}/accept",
                 $"api/tasks/shares/{shareId}/accept",
                 $"api/calendar-events/shares/{shareId}/accept",
-                $"api/warehouses/shares/{shareId}/accept"
+                $"api/inventories/shares/{shareId}/accept"
             ],
             server.Accepted);
     }

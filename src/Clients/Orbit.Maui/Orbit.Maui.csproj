@@ -45,8 +45,11 @@
 
 		What is written here is only what a local build gets. A release passes the real number in
 		(-p:ApplicationDisplayVersion), worked out from the history by ci/compute-version.sh - see
-		info/functionality.md's "Which build this is". -->
-		<ApplicationDisplayVersion>0.1.0</ApplicationDisplayVersion>
+		info/functionality.md's "Which build this is".
+
+		Kept at or above MobileVersion:Android:MinimumSupportedVersion in the API's appsettings, or the
+		server refuses the local build on startup - which is what a version below the minimum means. -->
+		<ApplicationDisplayVersion>0.3.0</ApplicationDisplayVersion>
 		<ApplicationVersion>1</ApplicationVersion>
 
 		<!-- iOS 17 is the floor: it is what the iPhone 15 Pro shipped with, and what Live Activities,

@@ -1,5 +1,5 @@
 // How a group checklist opens - as the tree of linked lists it is or as one flat run of items, in what
-// order, and whether the panel pricing it against a warehouse is in the way. Kept in localStorage per
+// order, and whether the panel pricing it against an inventory is in the way. Kept in localStorage per
 // list, the same category as the dashboard's pinned cards (see dashboardPins.js): it is how one person
 // reads one page on one device, and it says nothing about the lists themselves.
 const STORAGE_KEY = 'orbit-checklist-views';

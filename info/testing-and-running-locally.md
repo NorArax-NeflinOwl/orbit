@@ -55,7 +55,7 @@ Covers the Blazor client's auth wiring: the token store; the handler that attach
 outgoing requests and transparently refreshes it after a 401; `AuthApiClient`;
 `OrbitAuthenticationStateProvider`; `PushNotificationApiClient`; and the `Login`, `Register`, `Calendar`
 (including `CalendarEventEditor`), `Dashboard`, `Tasks`, `TaskListChecklist`, `TaskItemSummary`,
-`Warehouses`, `WarehouseEditor`, `ContactInfo`, and the group-conversation pages themselves, rendered
+`Inventories`, `InventoryEditor`, `ContactInfo`, and the group-conversation pages themselves, rendered
 with [bUnit](https://bunit.dev). Also the shared controls several screens reuse (`PinButton`,
 `OverflowMenu`, `FeatureLocked`, `PresenceDot`, `LocationPickerOverlay`) and the device-local services
 behind them (`PresenceService`, `AccentColorService`, `InventoryUnitOption`).

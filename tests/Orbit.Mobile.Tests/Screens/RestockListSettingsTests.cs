@@ -1,5 +1,5 @@
 using Microsoft.Extensions.Time.Testing;
-using Orbit.Contracts.Inventory;
+using Orbit.Contracts.Inventories;
 using Orbit.Mobile.Api;
 using Orbit.Mobile.Localization;
 using Orbit.Mobile.Screens;
@@ -10,8 +10,8 @@ using Xunit;
 namespace Orbit.Mobile.Tests.Screens;
 
 /// <summary>
-/// How a warehouse's restock list is built, and when it comes round. Orbit.Web has had these at the
-/// bottom of its warehouse editor all along; the phone could edit the shelf while the rule deciding what
+/// How an inventory's restock list is built, and when it comes round. Orbit.Web has had these at the
+/// bottom of its inventory editor all along; the phone could edit the shelf while the rule deciding what
 /// that shelf asks for was reachable only from a browser.
 ///
 /// They live on the server and nothing local stands in for them, so the awkward cases are the ones where
@@ -25,7 +25,7 @@ public sealed class RestockListSettingsTests
         using var context = new PanelContext();
         context.Server.RestockSettings = new RestockListSettingsDto(OnlyLinkedWithDueDate: true, new TimeOnly(7, 30));
 
-        var panel = await context.OpenAsync(context.WarehouseId);
+        var panel = await context.OpenAsync(context.InventoryId);
 
         Assert.True(panel.IsOffered);
         Assert.True(panel.OnlyLinkedWithDueDate);
@@ -37,7 +37,7 @@ public sealed class RestockListSettingsTests
     public async Task The_rule_is_described_in_words_and_follows_the_switch()
     {
         using var context = new PanelContext();
-        var panel = await context.OpenAsync(context.WarehouseId);
+        var panel = await context.OpenAsync(context.InventoryId);
 
         var whenEverything = panel.RuleDescription;
         panel.OnlyLinkedWithDueDate = true;
@@ -50,7 +50,7 @@ public sealed class RestockListSettingsTests
     {
         using var context = new PanelContext();
         context.Server.RestockRefresh = new RestockRefreshResultDto(AddedCount: 2, RemovedCount: 1);
-        var panel = await context.OpenAsync(context.WarehouseId);
+        var panel = await context.OpenAsync(context.InventoryId);
 
         panel.OnlyLinkedWithDueDate = true;
         panel.RefreshTime = new TimeSpan(6, 15, 0);
@@ -65,7 +65,7 @@ public sealed class RestockListSettingsTests
     public async Task Refreshing_rebuilds_the_list_without_changing_the_settings()
     {
         using var context = new PanelContext();
-        var panel = await context.OpenAsync(context.WarehouseId);
+        var panel = await context.OpenAsync(context.InventoryId);
 
         await panel.RefreshCommand.ExecuteAsync(null);
 
@@ -74,15 +74,15 @@ public sealed class RestockListSettingsTests
     }
 
     /// <summary>
-    /// A warehouse the server has never seen has no list to build. Showing the defaults as though they
+    /// An inventory the server has never seen has no list to build. Showing the defaults as though they
     /// were its settings would be inventing an answer.
     /// </summary>
     [Fact]
-    public async Task A_warehouse_the_server_has_never_seen_is_offered_nothing()
+    public async Task A_inventory_the_server_has_never_seen_is_offered_nothing()
     {
         using var context = new PanelContext();
 
-        Assert.False((await context.OpenAsync(warehouseServerId: null)).IsOffered);
+        Assert.False((await context.OpenAsync(inventoryServerId: null)).IsOffered);
     }
 
     /// <summary>Nothing local stands in for these, so with no connection the panel simply is not there.</summary>
@@ -92,7 +92,7 @@ public sealed class RestockListSettingsTests
         using var context = new PanelContext();
         context.Server.IsUnreachable = true;
 
-        Assert.False((await context.OpenAsync(context.WarehouseId)).IsOffered);
+        Assert.False((await context.OpenAsync(context.InventoryId)).IsOffered);
     }
 
     /// <summary>A share can be read without carrying the settings behind it, which the API answers 404 to.</summary>
@@ -102,14 +102,14 @@ public sealed class RestockListSettingsTests
         using var context = new PanelContext();
         context.Server.RestockSettings = null;
 
-        Assert.False((await context.OpenAsync(context.WarehouseId)).IsOffered);
+        Assert.False((await context.OpenAsync(context.InventoryId)).IsOffered);
     }
 
     [Fact]
     public async Task Saving_with_no_connection_says_so_rather_than_failing_silently()
     {
         using var context = new PanelContext();
-        var panel = await context.OpenAsync(context.WarehouseId);
+        var panel = await context.OpenAsync(context.InventoryId);
         context.Server.IsUnreachable = true;
 
         await panel.SaveCommand.ExecuteAsync(null);
@@ -124,23 +124,23 @@ public sealed class RestockListSettingsTests
         public PanelContext()
         {
             Server = new FakeInventoryServer(_clock);
-            WarehouseId = Server.AddWarehouse("Kitchen").Id;
+            InventoryId = Server.AddInventory("Kitchen").Id;
         }
 
         public FakeInventoryServer Server { get; }
 
-        public Guid WarehouseId { get; }
+        public Guid InventoryId { get; }
 
         public FixedNetworkStatus Network { get; } = FixedNetworkStatus.Online;
 
-        public async Task<RestockListSettingsPanel> OpenAsync(Guid? warehouseServerId)
+        public async Task<RestockListSettingsPanel> OpenAsync(Guid? inventoryServerId)
         {
             var translations = new Translations(new InMemoryLanguageStore());
             var panel = new RestockListSettingsPanel(
                 new InventoryClient(Server.ToHttpClient()), translations,
                 new ConnectionRequirement(Network, translations));
 
-            await panel.ShowFor(warehouseServerId, CancellationToken.None);
+            await panel.ShowFor(inventoryServerId, CancellationToken.None);
             return panel;
         }
 

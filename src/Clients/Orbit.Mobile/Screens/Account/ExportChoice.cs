@@ -24,14 +24,14 @@ public sealed partial class ExportChoice : ObservableObject
     private bool _includesCalendarEvents = true;
 
     [ObservableProperty]
-    private bool _includesWarehouses = true;
+    private bool _includesInventories = true;
 
     /// <summary>
     /// Nothing chosen is not an export of nothing - it is a button with no reason to be pressed, so it
     /// is not offered.
     /// </summary>
     public bool IsEmpty
-        => !IncludesNotes && !IncludesTaskLists && !IncludesCalendarEvents && !IncludesWarehouses;
+        => !IncludesNotes && !IncludesTaskLists && !IncludesCalendarEvents && !IncludesInventories;
 
     /// <summary>
     /// The archive with the parts nobody asked for emptied. Emptied rather than left out: the file's
@@ -43,7 +43,7 @@ public sealed partial class ExportChoice : ObservableObject
             Notes = IncludesNotes ? archive.Notes : [],
             TaskLists = IncludesTaskLists ? archive.TaskLists : [],
             CalendarEvents = IncludesCalendarEvents ? archive.CalendarEvents : [],
-            Warehouses = IncludesWarehouses ? archive.Warehouses : []
+            Inventories = IncludesInventories ? archive.Inventories : []
         };
 
     partial void OnIncludesNotesChanged(bool value) => OnPropertyChanged(nameof(IsEmpty));
@@ -52,5 +52,5 @@ public sealed partial class ExportChoice : ObservableObject
 
     partial void OnIncludesCalendarEventsChanged(bool value) => OnPropertyChanged(nameof(IsEmpty));
 
-    partial void OnIncludesWarehousesChanged(bool value) => OnPropertyChanged(nameof(IsEmpty));
+    partial void OnIncludesInventoriesChanged(bool value) => OnPropertyChanged(nameof(IsEmpty));
 }

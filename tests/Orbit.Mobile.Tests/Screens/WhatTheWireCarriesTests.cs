@@ -1,6 +1,6 @@
-using Orbit.Contracts.Inventory;
+using Orbit.Contracts.Inventories;
 using Orbit.Contracts.Tasks;
-using Orbit.Core.Inventory;
+using Orbit.Core.Inventories;
 using Orbit.Mobile.Localization;
 using Orbit.Mobile.Screens.Inventory;
 using Orbit.Mobile.Screens.Tasks;
@@ -68,8 +68,8 @@ public sealed class WhatTheWireCarriesTests
     [Fact]
     public void An_expiry_date_leaves_the_phone_in_utc()
     {
-        var editor = WarehouseItemEditor.For(
-            new WarehouseItemDto(
+        var editor = InventoryItemEditor.For(
+            new InventoryItemRequest(
                 Guid.NewGuid(), "Milk", "Bottle", "Fridge", 1, null, nameof(InventoryUnit.Piece), null, "None"),
             new Translations(new InMemoryLanguageStore()));
 

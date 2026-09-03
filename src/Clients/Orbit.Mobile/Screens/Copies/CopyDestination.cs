@@ -21,8 +21,8 @@ public static class CopyDestination
             case CopyKind.CalendarEvent:
                 navigator.ShowCalendarEvent(localId);
                 return;
-            case CopyKind.Warehouse:
-                navigator.ShowWarehouse(localId);
+            case CopyKind.Inventory:
+                navigator.ShowInventory(localId);
                 return;
         }
     }
@@ -34,6 +34,6 @@ public static class CopyDestination
             CopyKind.Note => "Note",
             CopyKind.TaskList => "Task list",
             CopyKind.CalendarEvent => "Appointment",
-            _ => "Warehouse"
+            _ => "Inventory"
         };
 }

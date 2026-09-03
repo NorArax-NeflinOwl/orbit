@@ -2,10 +2,10 @@ using System.Collections.ObjectModel;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Orbit.Contracts.Calendar;
-using Orbit.Contracts.Inventory;
+using Orbit.Contracts.Inventories;
 using Orbit.Contracts.Tasks;
 using Orbit.Core.Tasks;
-using Orbit.Core.Inventory;
+using Orbit.Core.Inventories;
 using Orbit.Mobile.Api;
 using Orbit.Mobile.Data;
 using Orbit.Mobile.Localization;
@@ -105,7 +105,7 @@ public sealed partial class TaskListDetailViewModel : ObservableObject
     [ObservableProperty]
     private bool _isReadOnly;
 
-    /// <inheritdoc cref="Inventory.WarehouseDetailViewModel.BeingEdited"/>
+    /// <inheritdoc cref="Inventory.InventoryDetailViewModel.BeingEdited"/>
     [ObservableProperty]
     private TaskItemEditor? _beingEdited;
 
@@ -173,7 +173,7 @@ public sealed partial class TaskListDetailViewModel : ObservableObject
         _titleSuggestions.Takes = title => Title = title;
         OfferNamesToTheQuickAddBox();
         StockCheck = stockCheck;
-        // Generating a warehouse or pointing at a different one changes the list itself, so the screen
+        // Generating an inventory or pointing at a different one changes the list itself, so the screen
         // re-reads rather than letting the panel and the list drift apart.
         StockCheck.Changed += (_, _) => LoadCommand.Execute(null);
 
@@ -457,7 +457,7 @@ public sealed partial class TaskListDetailViewModel : ObservableObject
     /// rather than on nothing - the event itself is not lost, since the id still travels untouched.
     /// </summary>
     /// <summary>
-    /// The product behind each Inventory entry, by the shelf item's id, together with the warehouse it
+    /// The product behind each Inventory entry, by the shelf item's id, together with the inventory it
     /// sits on. Read from this phone's own copy rather than asked for: the whole point of the link is
     /// that the row already knows which product it means, and a correction has to be possible offline
     /// the same as every other edit on this screen.
@@ -465,38 +465,38 @@ public sealed partial class TaskListDetailViewModel : ObservableObject
     private IReadOnlyDictionary<Guid, ShelfProductLocation> _shelfProducts =
         new Dictionary<Guid, ShelfProductLocation>();
 
-    /// <summary>Where one product lives, so a change made here knows which warehouse to go back to.</summary>
-    private sealed record ShelfProductLocation(Guid WarehouseLocalId, string WarehouseName, WarehouseItemDto Product);
+    /// <summary>Where one product lives, so a change made here knows which inventory to go back to.</summary>
+    private sealed record ShelfProductLocation(Guid InventoryLocalId, string InventoryName, InventoryItemRequest Product);
 
     private async Task ShowWhatItsErrandsAreAboutAsync(CancellationToken cancellationToken)
     {
         var shelves = await _shelfCorrection.ShelvesAsync(cancellationToken);
         var byProductId = new Dictionary<Guid, ShelfProductLocation>();
-        foreach (var warehouse in shelves)
+        foreach (var inventory in shelves)
         {
             // A product still waiting to be pushed has no id yet, so nothing can be pointing at it.
-            foreach (var product in warehouse.Items.Where(product => product.Id is not null))
+            foreach (var product in inventory.Items.Where(product => product.Id is not null))
             {
-                byProductId[product.Id!.Value] = new(warehouse.LocalId, warehouse.Name, product);
+                byProductId[product.Id!.Value] = new(inventory.LocalId, inventory.Name, product);
             }
         }
 
         _shelfProducts = byProductId;
-        _theListsOwnShelf = _linkedWarehouseId is { } warehouseId
-            ? shelves.FirstOrDefault(warehouse => warehouse.ServerId == warehouseId)
+        _theListsOwnShelf = _linkedInventoryId is { } inventoryId
+            ? shelves.FirstOrDefault(inventory => inventory.ServerId == inventoryId)
             : null;
     }
 
     /// <summary>
     /// The product an errand is about, ready to edit, or null when this phone has not got it - a
-    /// warehouse somebody stopped sharing, or one not synced yet. The entry still opens either way.
+    /// inventory somebody stopped sharing, or one not synced yet. The entry still opens either way.
     /// </summary>
     private TaskItemShelfProduct? ShelfProductFor(TaskItemDto item)
     {
         if (item.LinkedInventoryItemId is { } productId && _shelfProducts.TryGetValue(productId, out var found))
         {
             return TaskItemShelfProduct.For(
-                found.WarehouseLocalId, found.WarehouseName, found.Product, _translations);
+                found.InventoryLocalId, found.InventoryName, found.Product, _translations);
         }
 
         // Nothing on the shelf answers to this entry yet, and the list says which shelf it is measured
@@ -515,13 +515,13 @@ public sealed partial class TaskListDetailViewModel : ObservableObject
             : null;
 
     /// <summary>
-    /// The warehouse this list is measured against, as this phone holds it. Null when the list names
+    /// The inventory this list is measured against, as this phone holds it. Null when the list names
     /// none, or names one this phone has not got - there is nothing to put a product on either way.
     /// </summary>
-    private LocalWarehouse? _theListsOwnShelf;
+    private LocalInventory? _theListsOwnShelf;
 
-    /// <summary>The server's id for that warehouse, as the list carries it.</summary>
-    private Guid? _linkedWarehouseId;
+    /// <summary>The server's id for that inventory, as the list carries it.</summary>
+    private Guid? _linkedInventoryId;
 
     /// <summary>
     /// Every list other than this one that is asking for the same product, by that product's id. Worked
@@ -590,9 +590,9 @@ public sealed partial class TaskListDetailViewModel : ObservableObject
         if (_shelfProducts.TryGetValue(productId, out var shelf))
         {
             references.Add(new(
-                _translations.Format("in {0}", shelf.WarehouseName),
-                shelf.WarehouseLocalId,
-                TaskItemReferenceTarget.Warehouse,
+                _translations.Format("in {0}", shelf.InventoryName),
+                shelf.InventoryLocalId,
+                TaskItemReferenceTarget.Inventory,
                 productId));
         }
 
@@ -613,9 +613,9 @@ public sealed partial class TaskListDetailViewModel : ObservableObject
             return;
         }
 
-        if (reference.Target == TaskItemReferenceTarget.Warehouse)
+        if (reference.Target == TaskItemReferenceTarget.Inventory)
         {
-            _navigator.ShowWarehouse(reference.LocalId, reference.ProductId);
+            _navigator.ShowInventory(reference.LocalId, reference.ProductId);
             return;
         }
 
@@ -750,7 +750,7 @@ public sealed partial class TaskListDetailViewModel : ObservableObject
 
     /// <summary>The dictionary key, not the text itself - see <see cref="Translations"/>.</summary>
     private const string ShelfRefusalMessage =
-        "The list was saved, but the shelf couldn't be updated. Open the warehouse and check it.";
+        "The list was saved, but the shelf couldn't be updated. Open the inventory and check it.";
 
     /// <summary>The dictionary key, not the text itself - see <see cref="Translations"/>.</summary>
     private const string AppointmentRefusalMessage =
@@ -859,7 +859,7 @@ public sealed partial class TaskListDetailViewModel : ObservableObject
     }
 
     /// <summary>
-    /// "Yes, everything is done": every product in the warehouse goes up to its minimum and the whole
+    /// "Yes, everything is done": every product in the inventory goes up to its minimum and the whole
     /// list is crossed off, the standing reminder included. Both are the server's doing, so the list is
     /// pulled back rather than written from here - see FinishRestockingCommandHandler.
     /// </summary>
@@ -1010,7 +1010,7 @@ public sealed partial class TaskListDetailViewModel : ObservableObject
         _items = taskList.Items;
         // Which shelf this list is measured against, so an inventory entry on it knows where a product
         // it describes would go - see ShelfProductFor.
-        _linkedWarehouseId = taskList.LinkedWarehouseId;
+        _linkedInventoryId = taskList.LinkedInventoryId;
         _isShowingWhatIsStored = true;
         IsGroup = taskList.IsGroup;
         IsPrivate = taskList.IsPrivate;
@@ -1132,7 +1132,7 @@ public sealed partial class TaskListDetailViewModel : ObservableObject
     private const string RefusalMessage =
         "Somebody else can change this list, and Orbit can't be reached to check. It stays read-only until you're back online.";
 
-    /// <inheritdoc cref="Inventory.WarehouseDetailViewModel.Suggestions"/>
+    /// <inheritdoc cref="Inventory.InventoryDetailViewModel.Suggestions"/>
     public NameSuggestions Suggestions => _nameSuggestions;
 
     /// <summary>

@@ -15,7 +15,7 @@ public sealed record TaskItemRequest(
     /// The entry's existing id, or null for one the reader just added. Sent back so an entry keeps its
     /// identity across a save: other things point at a task entry by id - an inventory item's open
     /// restock task, a daily reminder's "already sent today" record, an overdue notification - and a
-    /// save that minted fresh ids quietly cut every one of those loose. Mirrors WarehouseItemDto.Id.
+    /// save that minted fresh ids quietly cut every one of those loose. Mirrors InventoryItemRequest.Id.
     /// </summary>
     Guid? Id,
     DateTimeOffset? DueDateUtc,

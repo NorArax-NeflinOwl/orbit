@@ -1,5 +1,5 @@
 using Orbit.Api.Tests.TestDoubles;
-using Orbit.Core.Inventory;
+using Orbit.Core.Inventories;
 using Orbit.Core.Abstractions;
 using Orbit.Core.Tasks;
 using Orbit.Core.Tasks.CreateTaskList;
@@ -147,8 +147,8 @@ public sealed class PrivateTaskListTests
             => new UpdateTaskListCommandHandler(
                     Resolver, TaskRepository, new TaskListLinkValidator(TaskRepository),
                     new RestockCompletion(
-                new InMemoryInventoryManagedTaskListRepository(), new InMemoryInventoryRepository(),
-                new InMemoryWarehouseRepository(), new InMemoryTaskRepository()))
+                new InMemoryInventoryManagedTaskListRepository(), new InMemoryInventoryItemRepository(),
+                new InMemoryInventoryRepository(), new InMemoryTaskRepository()))
                 .HandleAsync(
                     new UpdateTaskListCommand(OwnerId, taskListId, title, items, IsGroup: false, isPrivate, encryptedContent),
                     CancellationToken.None);
@@ -157,8 +157,8 @@ public sealed class PrivateTaskListTests
             => new ShareTaskListCommandHandler(
                     Resolver, TaskListShareRepository,
                     new TaskListShareCascade(
-                        TaskRepository, new InMemoryWarehouseRepository(),
-                        TaskListShareRepository, new InMemoryWarehouseShareRepository()),
+                        TaskRepository, new InMemoryInventoryRepository(),
+                        TaskListShareRepository, new InMemoryInventoryShareRepository()),
                     new RecordingSharedItemNotifier())
                 .HandleAsync(new ShareTaskListCommand(OwnerId, taskListId, recipientId, ShareAccessLevel.ReadOnly), CancellationToken.None);
 

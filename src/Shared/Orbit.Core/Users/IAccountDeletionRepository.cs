@@ -6,8 +6,8 @@ namespace Orbit.Core.Users;
 /// unlike deleting a single one of those. See DeleteAccountCommandHandler, its only caller.
 ///
 /// Dangling references left in *other* users' data (an accepted share, a chat message, a contact entry)
-/// are left as-is rather than cleaned up - the same trade-off DeleteWarehouseCommandHandler already
-/// makes for a single deleted warehouse, since the resolvers reading those references already treat a
+/// are left as-is rather than cleaned up - the same trade-off DeleteInventoryCommandHandler already
+/// makes for a single deleted inventory, since the resolvers reading those references already treat a
 /// stale/missing owner as "not found".
 /// </summary>
 public interface IAccountDeletionRepository

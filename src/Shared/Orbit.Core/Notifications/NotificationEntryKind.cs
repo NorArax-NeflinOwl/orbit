@@ -7,7 +7,7 @@ public enum NotificationEntryKind
     ChatMessage,
 
     /// <summary>
-    /// Somebody shared a note, task list, calendar event, warehouse or their position with this user.
+    /// Somebody shared a note, task list, calendar event, inventory or their position with this user.
     /// Recorded whenever it happens - the entry in the feed *is* the invitation, which is why it does
     /// not depend on NotificationSettings.AllowShareNotifications; that switch only adds push and email
     /// on top of it.

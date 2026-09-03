@@ -54,7 +54,7 @@ public sealed class CopyReviewRow
 /// both - and "both" is what the History screen then lists.
 ///
 /// One screen for all four kinds rather than four screens: it asks the same question about a note, a
-/// task list, an appointment and a warehouse, and somebody coming back from a week away wants one place
+/// task list, an appointment and an inventory, and somebody coming back from a week away wants one place
 /// that says what is outstanding, not four to remember to visit.
 ///
 /// It reads and writes through the repositories like every other screen, so applying a copy is queued

@@ -1,9 +1,9 @@
-using Orbit.Core.Inventory;
+using Orbit.Core.Inventories;
 
 namespace Orbit.Core.Tasks.StockCheck;
 
 /// <summary>
-/// Works out what a task list's work costs, and whether a warehouse covers it.
+/// Works out what a task list's work costs, and whether an inventory covers it.
 ///
 /// The counting rule is that repetition is quantity: a list saying "Screw" three times needs three
 /// screws. That is what makes a checklist a bill of materials without asking anyone to type a number
@@ -94,7 +94,7 @@ public static class StockRequirementCounter
 
     /// <summary>
     /// How much of what is on the shelf is this list's, when other lists are measured against the same
-    /// warehouse. Split in proportion to what each asks for: a shelf holding one of something that two
+    /// inventory. Split in proportion to what each asks for: a shelf holding one of something that two
     /// lists each want two of leaves both of them short by one and a half, rather than telling each of
     /// them the whole one is theirs. With nothing else asking, this is simply what is on the shelf.
     /// </summary>
@@ -117,7 +117,7 @@ public static class StockRequirementCounter
 
     /// <summary>
     /// What counts as the same thing: trimmed, and compared without case. "screw", "Screw" and " Screw "
-    /// are one entry in a warehouse and should be one line here.
+    /// are one entry in an inventory and should be one line here.
     /// </summary>
     private static string Normalize(string name) => name.Trim().ToLowerInvariant();
 }

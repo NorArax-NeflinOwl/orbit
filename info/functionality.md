@@ -252,9 +252,9 @@ was created.
 **What a shared task list drags along with it.** A group list is a set of headings pointing at other
 lists, so handing one over on its own handed the recipient a page on which nothing opened — and the same
 was true of the inventory its stock check is read against. `TaskListShareCascade` follows the links all
-the way down: every list in the tree, and every warehouse any of them is measured against, is granted
+the way down: every list in the tree, and every inventory any of them is measured against, is granted
 alongside the offer at the same access level, accepted when the offer is accepted, and claimed when a
-public link to the list is claimed. Private lists and private warehouses are left out, for the same
+public link to the list is claimed. Private lists and private inventories are left out, for the same
 reason they cannot be shared directly — their contents are sealed in their owner's browser, so a grant
 would only ever hand over ciphertext. Only one grant is offered by name, so there is still one chat
 message and one thing to accept; the rest follow it. Re-sharing an already-accepted list re-runs the
@@ -275,10 +275,10 @@ lock outlives any single heartbeat gap but expires on its own — no explicit re
 holder's browser closes, crashes, or goes to sleep before it can release.
 
 A lock is written on its own, and writes nothing but itself: who holds it and until when
-(`ITaskRepository.UpdateLockAsync`, and the same on notes and warehouses). It went through the ordinary
+(`ITaskRepository.UpdateLockAsync`, and the same on notes and inventories). It went through the ordinary
 update at first, which replaces everything the thing is made of - so a heartbeat every twenty seconds
 deleted and re-inserted a whole checklist with its links and categories, rewrote a note's entire text,
-or rewrote every row of a warehouse, to say somebody still had the page open. On task lists that also
+or rewrote every row of an inventory, to say somebody still had the page open. On task lists that also
 crashed: the replacement left the entries' child rows to the database's cascade, which the change
 tracker knows nothing about, and the inserts for the new ones could reach the server first - a duplicate
 key on a save nobody thought was risky, seen in production on 1 September 2026. Holding something open
@@ -493,7 +493,7 @@ happened. Content that can no longer be opened renders with an "Unreadable — e
 key" title rather than throwing, so one lost item doesn't take a whole list down.
 
 **Both clients do all of this**, and to the same bytes: what goes inside the ciphertext is JSON, so the
-payload shapes (`SealedNote`, `SealedTaskList`, `SealedWarehouse`) live in `Orbit.Contracts` and are
+payload shapes (`SealedNote`, `SealedTaskList`, `SealedInventory`) live in `Orbit.Contracts` and are
 serialized with the same property names on either side — `SealedContentTests` pins the phone's
 source-generated output against the browser's reflection-based one, because a mismatch there produces
 notes that round-trip perfectly on one client and cannot be opened on the other.
@@ -523,16 +523,16 @@ What private costs:
   sees a private list's entries, so the phone mints one for any entry that has none before sealing —
   without it every entry on the list would share the empty id.
 
-### Private warehouses
+### Private inventories
 
-A warehouse can be marked private too, on the same key and the same rules — with one difference worth
+An inventory can be marked private too, on the same key and the same rules — with one difference worth
 stating plainly. A note's lines and a task list's items live inside their parent row, so sealing the
-parent seals them. **A warehouse's items are rows of their own**, so making one private *deletes* those
-rows: the sealed payload carries the name and every item, and `UpdateWarehouseCommandHandler` removes
-whatever item rows were there before. "The server can't read this warehouse" is therefore literally
+parent seals them. **An inventory's items are rows of their own**, so making one private *deletes* those
+rows: the sealed payload carries the name and every item, and `UpdateInventoryCommandHandler` removes
+whatever item rows were there before. "The server can't read this inventory" is therefore literally
 true — there is nothing left for it to read.
 
-That is also why a private warehouse **raises no restock tasks and sends no expiry reminders**: both are
+That is also why a private inventory **raises no restock tasks and sends no expiry reminders**: both are
 worked out from item rows that no longer exist. `IsBelowMinimum` is recomputed in the browser after
 opening the payload, the same way a private task list's completion is.
 
@@ -684,7 +684,7 @@ missing. Nothing is written until Save on any of them: these are pages people sc
 
 ### A shelf, read rather than edited
 
-`/inventory/{id}` is what opening a warehouse lands on: one row per batch, saying what it is, how much
+`/inventory/{id}` is what opening an inventory lands on: one row per batch, saying what it is, how much
 there is, when it arrived and how long it keeps. A row is a batch rather than a product - two rows can
 carry the same name, which is what two deliveries of one thing are, and the check that measures work
 against a shelf adds them up by name (`StockRequirementCounter`). A row an errand pointed at is marked,
@@ -696,9 +696,9 @@ every editor in Orbit carries - and saving refreshes the restock list, because a
 crossed a minimum either raises an errand or settles one. Counting below nothing is refused rather than
 stored: minus one of something is a number nobody can act on.
 
-Everything else is behind the menu beside them: all warehouses, the editor, and deleting. Changing the
+Everything else is behind the menu beside them: all inventories, the editor, and deleting. Changing the
 fields themselves is a named press further in (`/inventory/{id}/edit`) - the same two depths a task list
-has, for the same reason: opening a warehouse to see what is in it is a different thing from opening it
+has, for the same reason: opening an inventory to see what is in it is a different thing from opening it
 to change it, and a page of editable fields is the wrong answer to "what have we got".
 
 ### What the calendar's list leaves out
@@ -1063,20 +1063,20 @@ phone, which is the half that always worked.
 
 ### Can this list be done?
 
-A group list can be pointed at a warehouse (`PUT /api/tasks/{id}/warehouse`), and
+A group list can be pointed at an inventory (`PUT /api/tasks/{id}/inventory`), and
 `GET /api/tasks/{id}/stock-check` then answers what the work costs against it. The counting rule is that
 **repetition is quantity**: a tree naming "Makaron świderki" in three recipes needs three
 (`StockRequirementCounter`). That is what makes a checklist a bill of materials without asking anybody
 to type a number beside every line. A line with a due date in the future is not counted - that work has
 not come round, and counting it would raise a restock errand early. `POST /api/tasks/{id}/stock-check/shortfalls`
-puts what is short onto the warehouse's standing restock list, where the daily reminder brings it up;
+puts what is short onto the inventory's standing restock list, where the daily reminder brings it up;
 names already waiting are left alone. The panel carries a menu of its own: whether it is in the way at
 all, and what order it lists things in - its own order, A to Z, Z to A, or shortfalls first, which is
 the only part of the table anybody has to act on. Both are remembered as they are set rather than
 waiting for "Save view", since a panel somebody puts away every visit has already been answered about.
 
 **The phone folds the same panel and offers the same four orders**: its heading and its chevron both put
-it away, and its own menu holds the orders. The warehouse it is measured against stays at the card's foot
+it away, and its own menu holds the orders. The inventory it is measured against stays at the card's foot
 rather than inside the fold - it is how the panel gets linked in the first place, so unreachable while
 folded would mean unreachable before it has anything to fold.
 
@@ -1085,7 +1085,7 @@ everything covered, or how many things are short. It writes nothing by itself; p
 onto the restock list is the separate press above.
 
 There used to be a third endpoint here, `POST /api/tasks/{id}/stock-check/reconciliation`, which brought
-a list and its warehouse back into step in both directions at once - crossing off what the shelf covered
+a list and its inventory back into step in both directions at once - crossing off what the shelf covered
 and writing onto the list whatever the shelf held that no list mentioned. Nothing called it any more:
 the web now recalculates by reading, and the phone by the same two presses. It was deleted rather than
 left reachable, since an endpoint nothing asks for is an endpoint nobody notices going wrong.
@@ -1103,22 +1103,22 @@ which product an errand is about. Saving the list puts it on the shelf; a shelf 
 something by that name is what the entry was asking for, so nothing is added twice.
 
 **And says when each batch arrived**, which is the fourth thing a shelf answers and the one the phone
-left out. The date comes down with the items and is kept beside them (`LocalWarehouse.ItemArrivals`)
+left out. The date comes down with the items and is kept beside them (`LocalInventory.ItemArrivals`)
 rather than on them: the item shape is what a save sends back, and when something arrived is the
 server's answer rather than the phone's. A row this phone has queued and nothing has accepted yet says
 nothing about it.
 
-**The phone's shelf opens on the row somebody was sent to.** A warehouse reached from an errand naming
+**The phone's shelf opens on the row somebody was sent to.** An inventory reached from an errand naming
 it, or from the search across every shelf, marks that product and scrolls to it - the accent bar and
-tint the browser gives the row its `?highlight=` names (`WarehouseItemRow.IsPointedAt`,
-`IScreenNavigator.ShowWarehouse`). The row says so in words as well, because a colour is nothing to
+tint the browser gives the row its `?highlight=` names (`InventoryItemRow.IsPointedAt`,
+`IScreenNavigator.ShowInventory`). The row says so in words as well, because a colour is nothing to
 somebody who cannot see it. The mark is not lifted to the top and does not outlive the screen: a shelf
 read in one order should not rearrange itself around where somebody came from, and narrowing the shelf
 and clearing the filter again finds the row still marked.
 
 **The phone describes one the same way, one entry at a time.** An Inventory entry on a list measured
 against a storage opens the product's fields with no name box (`ShelfProductFor`,
-`WarehouseItemEditor.ForSomethingNotOnTheShelfYet`), says above them which shelf it will go on, and
+`InventoryItemEditor.ForSomethingNotOnTheShelfYet`), says above them which shelf it will go on, and
 saving the entry puts it there - a shelf already holding something by that name is what the entry was
 asking for, so nothing is added twice (`ShelfCorrection.ApplyAsync`). The same fields correct a product
 the entry is already linked to, which is all the phone could do before: the difference is whether the
@@ -1134,7 +1134,7 @@ on. The picker offers every storage, the ones other lists already measure includ
 jobs as it holds things for - and marks those as shared. A shelf several lists ask for is split between
 them in proportion to what each asks for, so each list is told its own share rather than being told the
 last bag is theirs (see `StockRequirementCounter.ShareOfTheShelf`). The tie can be made from either end:
-a warehouse's editor carries a checklist of the lists measured against it. "Generate inventory" is still
+an inventory's editor carries a checklist of the lists measured against it. "Generate inventory" is still
 refused to a list that already has one: it would build a second and quietly move the list onto it,
 leaving the first with nothing pointing at it.
 
@@ -1144,7 +1144,7 @@ list has already crossed off, since a ticked line is something somebody has fetc
 at the result. Everything the tree names is included, including lines dated in the
 future: the shelf holds what the whole job will need, while the check counts only what is due. Both are
 reached from the three-dot menu on the checklist and the deep editor, where "recalculate" is offered
-greyed until a warehouse is chosen rather than hidden.
+greyed until an inventory is chosen rather than hidden.
 
 ### Moving an item to another task list
 
@@ -1176,9 +1176,9 @@ list (`InventoryUnit`): `Piece`, `Kilogram`, `Milligram`, `Litre`, `Millilitre`,
 "szt." typed three ways would leave a shelf that looks stocked and a restock task nobody understands.
 An item that says nothing is counted in pieces — every item stocked before units existed became one, and
 a save that omits the field is read the same way rather than refused, so a client built before units
-existed can still save a warehouse (`InventoryEndpoints.UnitOf`). A unit that is *named* but not
+existed can still save an inventory (`InventoryEndpoints.UnitOf`). A unit that is *named* but not
 recognised is still refused: that is a typo, not a silence. The client applies the same rule when it
-opens a private warehouse sealed before units existed, whose items carry none
+opens a private inventory sealed before units existed, whose items carry none
 (`InventoryUnitOption.For`). The editor writes the short form beside the amount (`kg`, `ml`, `pcs`) and keeps the
 full name in each option's tooltip, and a restock errand carries it too - "Restock: Flour (5 kg)"
 (`RestockTaskNaming.EntryFor`). Pieces are left off there, since "(5)" of a thing already means five of
@@ -1189,33 +1189,33 @@ server writes them into an errand, and the client reads them back to say them in
 (`OrbitWrittenNames`), which only touches a trailing "(number unit)" whose unit is one Orbit itself
 wrote.
 
-**A full shelf can be narrowed down.** The warehouse editor offers a product-type and a category filter,
+**A full shelf can be narrowed down.** The inventory editor offers a product-type and a category filter,
 each listing only values something is actually filed under, so neither can be set to a dead end —
 neither is offered at all where nothing is filed under it. Beside them is a **search by name**, which
 has no such condition: a name is typed rather than picked, and every item has one, so the box is there
 for any shelf with anything on it. It matches anywhere in the name and ignores case, because a shelf
 holds "Flour, wheat" and "Wholemeal flour" and somebody typing "flour" means both. All three narrow
 together (`ItemFilter.Matches`), so a search inside a category is a search inside that category. The
-phone offers the same three on its warehouse screen, matching the same way
-(`WarehouseItemFilter.Matches`).
+phone offers the same three on its inventory screen, matching the same way
+(`InventoryItemFilter.Matches`).
 
-This is a view and nothing more: `WarehouseFormModel.ToRequest` reads the whole item list, so a save
+This is a view and nothing more: `InventoryFormModel.ToRequest` reads the whole item list, so a save
 made while the shelf is narrowed keeps the rows that were hidden — the editor says so on screen
 (`Showing 1 of 2 items. Saving keeps all of them.`) rather than leaving it to be discovered. Adding a
 row clears all of it, since a new row is filed under nothing and has no name yet, and would otherwise
 be added and hidden in the same click.
 
-**One level up, the inventory page answers "which warehouse is this in".** `/inventory` lists shelves
-rather than what is on them, so `Warehouses.razor` carries a search that reads every warehouse and
-returns each match with the warehouse holding it; a result opens that warehouse. Two things about it
+**One level up, the inventory page answers "which inventory is this in".** `/inventory` lists shelves
+rather than what is on them, so `Inventories.razor` carries a search that reads every inventory and
+returns each match with the inventory holding it; a result opens that inventory. Two things about it
 are deliberate:
 
-- **It searches client-side**, one warehouse at a time, rather than through an endpoint of its own. A
-  private warehouse keeps no item rows on the server at all — its stock is sealed and only the owner's
-  browser holds the key (see [Private warehouses](#private-warehouses)) — so a server-side search would
+- **It searches client-side**, one inventory at a time, rather than through an endpoint of its own. A
+  private inventory keeps no item rows on the server at all — its stock is sealed and only the owner's
+  browser holds the key (see [Private inventories](#private-inventories)) — so a server-side search would
   leave those shelves out and report "nowhere". The reader would have no way to tell that apart from
   "not there".
-- **A warehouse that cannot be read is named**, not skipped: the summary under the results says which
+- **An inventory that cannot be read is named**, not skipped: the summary under the results says which
   ones could not be opened and that nothing in them was searched. The same reasoning — an incomplete
   answer that looks complete is worse than an honest partial one.
 
@@ -1224,29 +1224,29 @@ results narrow as the reader types, and fetching every shelf per keystroke would
 Opening `/inventory` without searching costs nothing extra.
 
 The phone's inventory screen answers the same question (`InventoryViewModel.ShowMatchingItems`), and has
-less to do about it: every warehouse's items came down with the warehouse, so there is nothing to fetch
-and nothing to cache. A private warehouse is searched like any other once this device can open it and
+less to do about it: every inventory's items came down with the inventory, so there is nothing to fetch
+and nothing to cache. A private inventory is searched like any other once this device can open it and
 private things are unlocked; one it cannot look inside — no key for it, or the device lock still on — is
 **counted** in the same summary for the same reason, rather than named, since the name is one of the
 things being kept back.
 
 A shelf is read back in the order somebody arranged it (`InventoryItem.Position`, set from the order the
-warehouse editor's rows arrive in, where they are dragged into place by their handles), then by name -
-which is the whole order for a warehouse nobody has arranged, since everything in one sits at position
+inventory editor's rows arrive in, where they are dragged into place by their handles), then by name -
+which is the whole order for an inventory nobody has arranged, since everything in one sits at position
 zero. A shelf generated from a task list keeps the order the work asks for things rather than the
 alphabet.
 
-**Items live in warehouses, and the warehouse is what sharing understands.** An `InventoryItem` carries
-a `WarehouseId` rather than an owner of its own, so "may this caller read/change this item" is answered
-entirely by `WarehouseAccessResolver` — the same owner-or-accepted-grant lookup `NoteAccessResolver`
+**Items live in inventories, and the inventory is what sharing understands.** An `InventoryItem` carries
+a `InventoryId` rather than an owner of its own, so "may this caller read/change this item" is answered
+entirely by `InventoryAccessResolver` — the same owner-or-accepted-grant lookup `NoteAccessResolver`
 does, with `ResolveForEditAsync` on top for the write paths so a read-only grantee can list a shared
-warehouse's stock without being able to touch it. `Warehouse`/`WarehouseShare` mirror `Note`/`NoteShare`
+inventory's stock without being able to touch it. `Inventory`/`InventoryShare` mirror `Note`/`NoteShare`
 including the re-share rules (who may re-share, and never above their own level), and a share is offered
-over chat exactly like every other kind: `WarehouseShareMessagePayload` carries the share id inside an
+over chat exactly like every other kind: `InventoryShareMessagePayload` carries the share id inside an
 ordinary end-to-end encrypted message, and Chat renders it with the same "Accept" action.
 
-**Editing works the way a task list does.** A warehouse and its whole item list are edited in one form
-and saved in one request (`UpdateWarehouseCommand`), so items have no routes of their own — exactly as
+**Editing works the way a task list does.** An inventory and its whole item list are edited in one form
+and saved in one request (`UpdateInventoryCommand`), so items have no routes of their own — exactly as
 task items only exist through their task list. Items missing from a save are deleted, which makes the
 request the full intended contents rather than a patch.
 
@@ -1256,20 +1256,20 @@ with an `Id` updates in place. That matters because an inventory item carries st
 already has. The restock rule itself is unchanged, just applied per item during the save: an item that
 just went below its minimum raises a task, one that recovered has its reference cleared.
 
-Because the whole warehouse is now saved in one go, it carries the same **edit lock** Note/TaskList/
-CalendarEvent do (`POST`/`DELETE /api/warehouses/{id}/lock`, a 60-second lease refreshed by a 20-second
+Because the whole inventory is now saved in one go, it carries the same **edit lock** Note/TaskList/
+CalendarEvent do (`POST`/`DELETE /api/inventories/{id}/lock`, a 60-second lease refreshed by a 20-second
 heartbeat from the editor) — without it two people editing at once would silently overwrite each other.
 A save attempted while someone else holds the lock comes back `409` with their name.
 
-**Only the owner may delete** a warehouse — not even a `CanEdit` grantee, since that would let a
+**Only the owner may delete** an inventory — not even a `CanEdit` grantee, since that would let a
 recipient destroy the owner's data wholesale rather than just edit it; its items go with it, because
-nothing could reach them afterwards. Accepted shares of a deleted warehouse are left as dangling grants,
+nothing could reach them afterwards. Accepted shares of a deleted inventory are left as dangling grants,
 which the resolver already reads as "not found".
 
-Every route names the warehouse (`/api/warehouses/{warehouseId}/...`) — there is deliberately no route
-that reaches an item without it, since the warehouse is what authorizes the request. On the client,
-`/inventory` is the warehouse list (`Warehouses.razor`, where sharing lives) and `/inventory/{id}` is the
-editor (`WarehouseEditor.razor`).
+Every route names the inventory (`/api/inventories/{inventoryId}/...`) — there is deliberately no route
+that reaches an item without it, since the inventory is what authorizes the request. On the client,
+`/inventory` is the inventory list (`Inventories.razor`, where sharing lives) and `/inventory/{id}` is the
+editor (`InventoryEditor.razor`).
 
 **Low stock creates a real Task, not a separate notification.** Whenever a saved item's `quantity` drops
 strictly below its `minimumQuantity` (exactly at the minimum still counts as fine - the minimum is the
@@ -1282,15 +1282,15 @@ Create/Update handlers right after saving (`CreateInventoryItemCommandHandler`/
 because the user just edited it, so there's no "time passing" trigger to poll for the way overdue tasks
 or calendar reminders have.
 
-The managed task list is created lazily, once per **warehouse**, the first time any item lands in it —
+The managed task list is created lazily, once per **inventory**, the first time any item lands in it —
 independent of whether that first item happens to be low — and comes pre-seeded with one standing item,
 "Update stock levels", with `RemindDaily` turned on. This is the "recurring reminder to keep stock
 updated" the feature calls for: Tasks has no engine for a task that recreates itself after being
 completed, but `RemindDaily` already nags daily until checked off, and unchecking it re-arms the daily
 nag — treated here as close enough to "recurring" without building a second recurrence engine on top of
 Tasks' existing one (Calendar's). Since `TaskList` has no field to mark itself "system-managed", a
-separate one-row-per-warehouse table (`InventoryManagedTaskListEntity`) tracks which `TaskListId`
-Inventory created, entirely outside the Tasks schema. The list itself belongs to the warehouse's *owner*,
+separate one-row-per-inventory table (`InventoryManagedTaskListEntity`) tracks which `TaskListId`
+Inventory created, entirely outside the Tasks schema. The list itself belongs to the inventory's *owner*,
 never to whoever happens to be looking — otherwise a share recipient's own `/tasks` would fill up with
 someone else's restock chores. Expiry warnings go to the owner for the same reason.
 
@@ -1326,7 +1326,7 @@ path.
 
 ### The restock list
 
-One per warehouse, pinned, named after it - "Restock supplies - Pantry" - and renamed with it, unless
+One per inventory, pinned, named after it - "Restock supplies - Pantry" - and renamed with it, unless
 the reader renamed the list themselves. It holds one standing "Update stock levels" reminder that comes
 back daily, plus an errand per product that has gone low.
 
@@ -1367,8 +1367,8 @@ browser and quietly did not on a phone would behave differently depending on whi
 at it, with the shelf left un-topped-up in between. An errand whose product has since
 been deleted still leaves the list: there is nothing left to bring back.
 
-**What the list asks for is the warehouse's choice.** Two settings at the bottom of the warehouse editor
-(`GET`/`PUT /api/warehouses/{id}/restock-list/settings`):
+**What the list asks for is the inventory's choice.** Two settings at the bottom of the inventory editor
+(`GET`/`PUT /api/inventories/{id}/restock-list/settings`):
 
 - **What goes on it.** By default the list answers "what is running out": everything on the shelf below
   its own minimum. Ticked, it answers a different question - "what do I need before Thursday" - and holds
@@ -1379,25 +1379,25 @@ been deleted still leaves the list: there is nothing left to bring back.
   the standing reminder, since a field that changed nothing would look like a field that does nothing.
 
 Changing either rebuilds the list to match (`RestockListRefresh`), and **Refresh**
-(`POST /api/warehouses/{id}/restock-list/refresh`) does the same rebuild against settings that have not
+(`POST /api/inventories/{id}/restock-list/refresh`) does the same rebuild against settings that have not
 changed - what somebody presses when the world moved rather than the settings. It replaced a button that
 used to sit on the checklist's menu, "Recalculate against the inventory", which did half of something
 else and did not answer the question somebody has in front of a restock list.
 
-**The phone offers the same one**, in the stock check beside the list's warehouse picker, and stopped
+**The phone offers the same one**, in the stock check beside the list's inventory picker, and stopped
 offering the button it replaced. Until it did, the two clients disagreed about what the menu over a
 restock list even contained.
 
 **An errand says where it came from and where else it is being asked for.** Under each one the checklist
-draws up to two links (`GET /api/tasks/{id}/inventory-references`): the warehouse the product sits in,
+draws up to two links (`GET /api/tasks/{id}/inventory-references`): the inventory the product sits in,
 and - when a second list carries an errand about the same product - that list. Following either opens the
 target with `?highlight={id}`, and the row it names is drawn highlighted, so arriving on a page of fifty
 rows lands on the one that was linked rather than at the top. Neither link is stored on the task list:
-the shelf item lives in a warehouse, and the other lists are a fact about the whole account, so both are
+the shelf item lives in an inventory, and the other lists are a fact about the whole account, so both are
 looked up when the screen asks rather than carried on every read of every list.
 
 Crossing off "Update stock levels" while errands are still open asks whether the whole round is done.
-Yes (`POST /api/tasks/{id}/restocking/finished`) finishes the list and brings every item in the warehouse
+Yes (`POST /api/tasks/{id}/restocking/finished`) finishes the list and brings every item in the inventory
 up to its minimum; the errands then leave it as they would one at a time, the reminder is finished with
 them, and `RemindDaily` brings the reminder back tomorrow.
 
@@ -1406,9 +1406,9 @@ them, and `RemindDaily` brings the reminder back tomorrow.
 A restock errand carries the whole shelf item it names - amount, minimum, unit, product type, category,
 expiry and its notification channel - in the task editor, behind the entry's own toggle. That is what
 the kind and the link were for: the row already knows which product it means, so correcting the amount
-should not mean opening the warehouse in another tab and finding it again.
+should not mean opening the inventory in another tab and finding it again.
 
-Saving the list writes the change back to the warehouse and then rebuilds that warehouse's restock list,
+Saving the list writes the change back to the inventory and then rebuilds that inventory's restock list,
 because a corrected amount can settle an errand or raise one. The list is saved first and the shelf
 second: if the shelf write fails the list is still saved, and the screen says so.
 
@@ -1552,21 +1552,21 @@ address keeps working without the page being edited every release.
 ### Names you have already used
 
 The four fields where the same thing gets typed twenty ways - a task list's title, a task item, a
-warehouse's name, a product - offer what the reader already has as they type
+inventory's name, a product - offer what the reader already has as they type
 (`GET /api/suggestions/names?kind=…`, `NameSuggestions.razor`). Picking one fills the field.
 
 **The phone offers the same thing under two of the four** (`Orbit.Mobile`'s `NameSuggestions`, drawn by
 `NameSuggestionChips`): a product's name and an errand's description, which are the two the feature
 exists for. It offers them under the box a new one is typed into as well as in the editor, because on a
 phone that box is where names are actually written - the editor is mostly for changing one that exists.
-A list's title and a warehouse's name are not offered there yet. When what is
+A list's title and an inventory's name are not offered there yet. When what is
 being typed is close enough to an existing name to be the same thing spelled differently, the control
 says so out loud - "You already have «Mleko 2%»" - because the moment a duplicate is about to be created
 is the only cheap moment to avoid it.
 
 This is a **similarity search over the reader's own rows**, not a language model: PostgreSQL's `pg_trgm`
 answers it in milliseconds for nothing, and answers it better, since a model does not know what is in
-this warehouse and would invent plausible names instead of offering real ones. Four GIN indexes make it
+this inventory and would invent plausible names instead of offering real ones. Four GIN indexes make it
 cheap enough to run while somebody types. Nothing is asked for under two characters, and nothing is asked
 for when a screen merely opens holding saved values - suggestions are about what is being typed. Private
 notes and private task lists are left out entirely: their names are sealed client-side, so there is
@@ -1643,7 +1643,7 @@ The Blazor client's calendar page asks for confirmation before calling this endp
 
 #### The restock list
 
-One per warehouse, pinned, named after it - "Restock supplies - Pantry" - and renamed with it, unless
+One per inventory, pinned, named after it - "Restock supplies - Pantry" - and renamed with it, unless
 the reader renamed the list themselves. It holds one standing "Update stock levels" reminder that comes
 back daily, plus an errand per product that has gone low.
 
@@ -1657,7 +1657,7 @@ Only ever upwards: somebody who stocked more than the minimum keeps it, because 
 not a claim about how much is there beyond it.
 
 Crossing off "Update stock levels" while errands are still open asks whether the whole round is done.
-Yes (`POST /api/tasks/{id}/restocking/finished`) finishes the list and brings every item in the warehouse
+Yes (`POST /api/tasks/{id}/restocking/finished`) finishes the list and brings every item in the inventory
 up to its minimum; the reminder is finished with it, and `RemindDaily` brings it back tomorrow.
 
 ## Calendar event reminders
@@ -1943,7 +1943,7 @@ nothing to somebody who cannot see it.
 
 ## Saying nothing about a field
 
-Descriptions on a task list and a warehouse, and a shelf item's regular-check flag, are all optional on
+Descriptions on a task list and an inventory, and a shelf item's regular-check flag, are all optional on
 the way in: **null means "not provided" and keeps what is stored; an empty string, or false, means the
 caller really said so.**
 

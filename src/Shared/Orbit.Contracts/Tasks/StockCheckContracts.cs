@@ -1,10 +1,10 @@
 namespace Orbit.Contracts.Tasks;
 
-/// <summary>Points a task list at the warehouse its work is measured against. A null WarehouseId unlinks it.</summary>
-public sealed record LinkTaskListToWarehouseRequest(Guid? WarehouseId);
+/// <summary>Points a task list at the inventory its work is measured against. A null InventoryId unlinks it.</summary>
+public sealed record LinkTaskListToInventoryRequest(Guid? InventoryId);
 
 /// <param name="Required">How many the work calls for - one per line saying so, so repetition is quantity.</param>
-/// <param name="Available">How many the warehouse holds under that name.</param>
+/// <param name="Available">How many the inventory holds under that name.</param>
 /// <param name="Missing">The difference, or zero when the shelf covers it.</param>
 public sealed record StockRequirementDto(string Name, decimal Required, decimal Available, decimal Missing);
 
@@ -20,8 +20,8 @@ public sealed record FinishRestockingResultDto(int ToppedUpCount);
 
 /// <summary>
 /// What settling a restock list's finished errands moved - see
-/// Orbit.Core.Inventory.ReconcileRestockList. Both zero for an ordinary list, which is every list no
-/// warehouse tracks.
+/// Orbit.Core.Inventories.ReconcileRestockList. Both zero for an ordinary list, which is every list no
+/// inventory tracks.
 /// </summary>
 public sealed record RestockReconciliationResultDto(int ToppedUpCount, int SettledCount);
 
@@ -33,8 +33,8 @@ public sealed record InventoryReferenceDto(
     Guid TaskItemId,
     Guid InventoryItemId,
     string InventoryItemName,
-    Guid WarehouseId,
-    string WarehouseName,
+    Guid InventoryId,
+    string InventoryName,
     IReadOnlyList<InventoryReferenceElsewhereDto> AlsoAskedForBy);
 
 /// <summary>Another list asking for the same shelf item, and the entry on it.</summary>

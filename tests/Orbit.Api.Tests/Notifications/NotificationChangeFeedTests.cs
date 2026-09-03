@@ -10,7 +10,7 @@ namespace Orbit.Api.Tests.Notifications;
 
 /// <summary>
 /// The delta a phone pulls so it can hold its own copy of the feed and show it with no connection - the
-/// same shape notes, task lists, calendar events and warehouses already answer in.
+/// same shape notes, task lists, calendar events and inventories already answer in.
 ///
 /// The point that makes it more than "what is new": reading one and clearing one both change what the
 /// feed shows. A client told only about new entries would keep showing an old one as unread forever.

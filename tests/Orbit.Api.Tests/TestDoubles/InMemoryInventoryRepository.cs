@@ -1,45 +1,54 @@
-using Orbit.Core.Inventory;
+using Orbit.Core.Inventories;
 
 namespace Orbit.Api.Tests.TestDoubles;
 
-/// <summary>
-/// In-memory <see cref="IInventoryRepository"/> stub for unit tests that need real add/lookup/update
-/// behavior, including per-warehouse scoping, without spinning up Postgres.
-/// </summary>
+/// <summary>In-memory <see cref="IInventoryRepository"/> stub for unit tests, with the same owner scoping the real one applies.</summary>
 internal sealed class InMemoryInventoryRepository : IInventoryRepository
 {
-    private readonly List<InventoryItem> _items = [];
+    private readonly List<Inventory> _inventories = [];
 
-    /// <summary>As arranged, then by name - the order InventoryRepository reads a shelf back in.</summary>
-    public Task<IReadOnlyList<InventoryItem>> GetAllAsync(Guid warehouseId, CancellationToken cancellationToken)
-        => Task.FromResult<IReadOnlyList<InventoryItem>>(
-            [.. _items.Where(item => item.WarehouseId == warehouseId).OrderBy(item => item.Position).ThenBy(item => item.Name)]);
-
-    public Task<InventoryItem?> GetByIdAsync(Guid warehouseId, Guid id, CancellationToken cancellationToken)
-        => Task.FromResult(_items.FirstOrDefault(item => item.Id == id && item.WarehouseId == warehouseId));
-
-    public Task AddAsync(InventoryItem item, CancellationToken cancellationToken)
+    public Task<IReadOnlyList<Inventory>> GetAllAsync(
+        Guid userId, DateTimeOffset? updatedSinceUtc, CancellationToken cancellationToken)
     {
-        _items.Add(item);
+        var matching = _inventories.Where(inventory => inventory.UserId == userId);
+        if (updatedSinceUtc is not null)
+        {
+            matching = matching.Where(inventory => inventory.UpdatedAtUtc >= updatedSinceUtc.Value);
+        }
+
+        return Task.FromResult<IReadOnlyList<Inventory>>(matching.ToList());
+    }
+
+    public Task<Inventory?> GetByIdAsync(Guid userId, Guid id, CancellationToken cancellationToken)
+        => Task.FromResult(_inventories.FirstOrDefault(inventory => inventory.Id == id && inventory.UserId == userId));
+
+    public Task AddAsync(Inventory inventory, CancellationToken cancellationToken)
+    {
+        _inventories.Add(inventory);
         return Task.CompletedTask;
     }
 
-    public Task UpdateAsync(InventoryItem item, CancellationToken cancellationToken)
+    public Task UpdateAsync(Inventory inventory, CancellationToken cancellationToken) => Task.CompletedTask;
+
+    /// <summary>
+    /// Counted rather than performed - the real one writes three columns and leaves the rest of the row
+    /// alone, and what a test can check here is that a lock took this path.
+    /// </summary>
+    public Task UpdateLockAsync(Inventory inventory, CancellationToken cancellationToken)
     {
-        // Handlers mutate the same InventoryItem instance this repository already holds a reference
-        // to, so there is nothing to replace here - mirrors InMemoryNoteRepository/InMemoryTaskRepository.
+        LockSaves++;
         return Task.CompletedTask;
     }
 
-    public Task DeleteAsync(Guid warehouseId, Guid id, CancellationToken cancellationToken)
+    /// <summary>How many times a lock was saved on its own - see UpdateLockAsync.</summary>
+    public int LockSaves { get; private set; }
+
+    public Task DeleteAsync(Guid userId, Guid id, CancellationToken cancellationToken)
     {
-        _items.RemoveAll(item => item.Id == id && item.WarehouseId == warehouseId);
+        _inventories.RemoveAll(inventory => inventory.Id == id && inventory.UserId == userId);
         return Task.CompletedTask;
     }
 
-    public Task DeleteAllInWarehouseAsync(Guid warehouseId, CancellationToken cancellationToken)
-    {
-        _items.RemoveAll(item => item.WarehouseId == warehouseId);
-        return Task.CompletedTask;
-    }
+    public Task<Guid?> GetOwnerUserIdAsync(Guid inventoryId, CancellationToken cancellationToken)
+        => Task.FromResult(_inventories.FirstOrDefault(inventory => inventory.Id == inventoryId)?.UserId);
 }

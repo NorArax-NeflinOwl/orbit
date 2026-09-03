@@ -2,12 +2,12 @@
 @using Orbit.Web.Services
 @inject Translations T
 
-@* What a shelf item is, drawn once: by the warehouse editor, and by a task list's restock errand,
+@* What a shelf item is, drawn once: by the inventory editor, and by a task list's restock errand,
    which edits the same product from the other side. Two forms asking different things about one thing
-   is how an errand came to be able to set fields the warehouse could not, and the other way round.
+   is how an errand came to be able to set fields the inventory could not, and the other way round.
 
    The name and the two amounts are optional here, and optional separately, because the three screens
-   put them in different places: the warehouse keeps them on the row, where a full shelf is read at a
+   put them in different places: the inventory keeps them on the row, where a full shelf is read at a
    glance; an errand about a product already on a shelf has no row of its own to keep them on; and an
    entry describing a product that does not exist yet is its own name, so asking for one again would be
    asking the same question twice - see TaskEditor.razor. *@

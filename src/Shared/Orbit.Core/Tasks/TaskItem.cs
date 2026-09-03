@@ -145,7 +145,7 @@ public sealed class TaskItem
 
     /// <summary>
     /// Crosses an entry off. Used where something other than the reader's own tick establishes that the
-    /// work is done - a warehouse that turns out to hold what the entry asks for.
+    /// work is done - an inventory that turns out to hold what the entry asks for.
     ///
     /// A linked entry is left alone for the same reason <see cref="Reopen"/> leaves it: its completion
     /// follows the list it points at.

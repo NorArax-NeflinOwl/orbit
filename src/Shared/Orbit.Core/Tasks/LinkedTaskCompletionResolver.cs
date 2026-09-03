@@ -52,7 +52,7 @@ public sealed class LinkedTaskCompletionResolver
             taskList.Id, taskList.UserId, taskList.Title, resolvedItems, taskList.IsGroup, taskList.IsPrivate, taskList.EncryptedContent,
             taskList.CreatedAtUtc, taskList.UpdatedAtUtc,
             taskList.LockedByUserId, taskList.LockedByUserName, taskList.LockExpiresAtUtc, taskList.Priority, taskList.IsPinned,
-            taskList.LinkedWarehouseId, taskList.Description);
+            taskList.LinkedInventoryId, taskList.Description);
         // Every persisted field has to be named above, and every new one has to be added here too - this
         // rebuild is on the path of every read, so a field left out of it is a field that is stored,
         // works in the handler that reads the row directly, and comes back null to the client.

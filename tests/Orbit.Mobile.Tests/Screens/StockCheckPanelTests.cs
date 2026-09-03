@@ -1,5 +1,5 @@
 using Microsoft.Extensions.Time.Testing;
-using Orbit.Contracts.Inventory;
+using Orbit.Contracts.Inventories;
 using Orbit.Contracts.Tasks;
 using Orbit.Mobile.Api;
 using Orbit.Mobile.Data;
@@ -11,7 +11,7 @@ using Xunit;
 namespace Orbit.Mobile.Tests.Screens;
 
 /// <summary>
-/// "Can this be done?" - what a group list's work costs against a warehouse. The arithmetic is the
+/// "Can this be done?" - what a group list's work costs against an inventory. The arithmetic is the
 /// server's; what this has to get right is which question it asks, and what it does with silence.
 /// </summary>
 public sealed class StockCheckPanelTests
@@ -42,11 +42,11 @@ public sealed class StockCheckPanelTests
     }
 
     /// <summary>
-    /// No warehouse chosen is not an answer of "nothing" - there is no question yet, and saying
+    /// No inventory chosen is not an answer of "nothing" - there is no question yet, and saying
     /// "everything is on the shelf" about no shelf would be untrue.
     /// </summary>
     [Fact]
-    public async Task Without_a_warehouse_there_is_no_answer_at_all()
+    public async Task Without_a_inventory_there_is_no_answer_at_all()
     {
         using var context = new PanelContext();
         context.Server.StockCheck = new TaskListStockCheckDto(true, []);
@@ -58,15 +58,15 @@ public sealed class StockCheckPanelTests
     }
 
     [Fact]
-    public async Task With_a_warehouse_it_says_what_is_short()
+    public async Task With_a_inventory_it_says_what_is_short()
     {
         using var context = new PanelContext();
-        var warehouse = await context.AddWarehouseAsync("Kitchen");
+        var inventory = await context.AddInventoryAsync("Kitchen");
         context.Server.StockCheck = new TaskListStockCheckDto(
             false,
             [new StockRequirementDto("Flour", 3, 1, 2), new StockRequirementDto("Salt", 1, 1, 0)]);
 
-        var panel = await context.ShowAsync(isGroup: true, linkedWarehouseId: warehouse);
+        var panel = await context.ShowAsync(isGroup: true, linkedInventoryId: inventory);
 
         Assert.True(panel.IsShortOfSomething);
         Assert.Contains("1", panel.Summary);
@@ -111,7 +111,7 @@ public sealed class StockCheckPanelTests
     public async Task The_rows_are_read_in_the_chosen_order(StockCheckOrder order, string[] expected)
     {
         using var context = new PanelContext();
-        var warehouse = await context.AddWarehouseAsync("Kitchen");
+        var inventory = await context.AddInventoryAsync("Kitchen");
         context.Server.StockCheck = new TaskListStockCheckDto(
             false,
             [
@@ -119,7 +119,7 @@ public sealed class StockCheckPanelTests
                 new StockRequirementDto("Salt", 1, 1, 0),
                 new StockRequirementDto("Butter", 2, 0, 2)
             ]);
-        var panel = await context.ShowAsync(isGroup: true, linkedWarehouseId: warehouse);
+        var panel = await context.ShowAsync(isGroup: true, linkedInventoryId: inventory);
 
         panel.Order = order;
 
@@ -134,10 +134,10 @@ public sealed class StockCheckPanelTests
     public async Task Going_back_to_the_list_order_gives_the_list_order()
     {
         using var context = new PanelContext();
-        var warehouse = await context.AddWarehouseAsync("Kitchen");
+        var inventory = await context.AddInventoryAsync("Kitchen");
         context.Server.StockCheck = new TaskListStockCheckDto(
             false, [new StockRequirementDto("Flour", 3, 1, 2), new StockRequirementDto("Butter", 2, 2, 0)]);
-        var panel = await context.ShowAsync(isGroup: true, linkedWarehouseId: warehouse);
+        var panel = await context.ShowAsync(isGroup: true, linkedInventoryId: inventory);
 
         panel.Order = StockCheckOrder.Alphabetical;
         panel.Order = StockCheckOrder.AsCounted;
@@ -160,10 +160,10 @@ public sealed class StockCheckPanelTests
     public async Task When_the_shelf_covers_it_there_is_nothing_to_raise()
     {
         using var context = new PanelContext();
-        var warehouse = await context.AddWarehouseAsync("Kitchen");
+        var inventory = await context.AddInventoryAsync("Kitchen");
         context.Server.StockCheck = new TaskListStockCheckDto(true, [new StockRequirementDto("Salt", 1, 4, 0)]);
 
-        var panel = await context.ShowAsync(isGroup: true, linkedWarehouseId: warehouse);
+        var panel = await context.ShowAsync(isGroup: true, linkedInventoryId: inventory);
 
         Assert.False(panel.IsShortOfSomething);
         Assert.NotEmpty(panel.Summary);
@@ -179,17 +179,17 @@ public sealed class StockCheckPanelTests
     /// the shelves now. The phone was still offering one of the two it replaced.
     /// </summary>
     [Fact]
-    public async Task Refreshing_rebuilds_the_list_against_the_warehouse()
+    public async Task Refreshing_rebuilds_the_list_against_the_inventory()
     {
         using var context = new PanelContext();
-        var warehouse = await context.AddWarehouseAsync("Kitchen");
+        var inventory = await context.AddInventoryAsync("Kitchen");
         context.Server.StockCheck = new TaskListStockCheckDto(true, []);
-        context.Warehouses.RestockRefresh = new RestockRefreshResultDto(AddedCount: 3, RemovedCount: 2);
-        var panel = await context.ShowAsync(isGroup: true, linkedWarehouseId: warehouse);
+        context.Inventories.RestockRefresh = new RestockRefreshResultDto(AddedCount: 3, RemovedCount: 2);
+        var panel = await context.ShowAsync(isGroup: true, linkedInventoryId: inventory);
 
-        await panel.RefreshFromTheWarehouseCommand.ExecuteAsync(null);
+        await panel.RefreshFromTheInventoryCommand.ExecuteAsync(null);
 
-        Assert.Equal(1, context.Warehouses.RestockRefreshesAsked);
+        Assert.Equal(1, context.Inventories.RestockRefreshesAsked);
         Assert.Contains("3", panel.Message);
         Assert.Contains("2", panel.Message);
     }
@@ -198,28 +198,28 @@ public sealed class StockCheckPanelTests
     public async Task Refreshing_when_nothing_moved_says_the_list_already_asks_for_the_right_things()
     {
         using var context = new PanelContext();
-        var warehouse = await context.AddWarehouseAsync("Kitchen");
+        var inventory = await context.AddInventoryAsync("Kitchen");
         context.Server.StockCheck = new TaskListStockCheckDto(true, []);
-        var panel = await context.ShowAsync(isGroup: true, linkedWarehouseId: warehouse);
+        var panel = await context.ShowAsync(isGroup: true, linkedInventoryId: inventory);
 
-        await panel.RefreshFromTheWarehouseCommand.ExecuteAsync(null);
+        await panel.RefreshFromTheInventoryCommand.ExecuteAsync(null);
 
-        Assert.Equal(1, context.Warehouses.RestockRefreshesAsked);
+        Assert.Equal(1, context.Inventories.RestockRefreshesAsked);
         Assert.Contains("already asks", panel.Message);
     }
 
-    /// <summary>A list measured against nothing has no warehouse to rebuild from, so nothing is asked.</summary>
+    /// <summary>A list measured against nothing has no inventory to rebuild from, so nothing is asked.</summary>
     [Fact]
     public async Task A_list_measured_against_nothing_refreshes_nothing()
     {
         using var context = new PanelContext();
-        await context.AddWarehouseAsync("Kitchen");
+        await context.AddInventoryAsync("Kitchen");
         context.Server.StockCheck = new TaskListStockCheckDto(true, []);
         var panel = await context.ShowAsync(isGroup: true);
 
-        await panel.RefreshFromTheWarehouseCommand.ExecuteAsync(null);
+        await panel.RefreshFromTheInventoryCommand.ExecuteAsync(null);
 
-        Assert.Equal(0, context.Warehouses.RestockRefreshesAsked);
+        Assert.Equal(0, context.Inventories.RestockRefreshesAsked);
     }
 
     /// <summary>
@@ -230,10 +230,10 @@ public sealed class StockCheckPanelTests
     public async Task Without_a_connection_it_says_so_rather_than_guessing()
     {
         using var context = new PanelContext();
-        var warehouse = await context.AddWarehouseAsync("Kitchen");
+        var inventory = await context.AddInventoryAsync("Kitchen");
         context.Server.IsUnreachable = true;
 
-        var panel = await context.ShowAsync(isGroup: true, linkedWarehouseId: warehouse);
+        var panel = await context.ShowAsync(isGroup: true, linkedInventoryId: inventory);
 
         Assert.NotEmpty(panel.Summary);
         Assert.Empty(panel.Requirements);
@@ -244,11 +244,11 @@ public sealed class StockCheckPanelTests
     public async Task Raising_what_is_short_says_how_many_went_on_the_list()
     {
         using var context = new PanelContext();
-        var warehouse = await context.AddWarehouseAsync("Kitchen");
+        var inventory = await context.AddInventoryAsync("Kitchen");
         context.Server.StockCheck = new TaskListStockCheckDto(false, [new StockRequirementDto("Flour", 3, 1, 2)]);
         context.Server.RaisedShortfallCount = 2;
 
-        var panel = await context.ShowAsync(isGroup: true, linkedWarehouseId: warehouse);
+        var panel = await context.ShowAsync(isGroup: true, linkedInventoryId: inventory);
         await panel.RaiseShortfallsCommand.ExecuteAsync(null);
 
         Assert.Contains("2", panel.Message);
@@ -259,22 +259,22 @@ public sealed class StockCheckPanelTests
     public async Task Raising_nothing_says_that_too()
     {
         using var context = new PanelContext();
-        var warehouse = await context.AddWarehouseAsync("Kitchen");
+        var inventory = await context.AddInventoryAsync("Kitchen");
         context.Server.StockCheck = new TaskListStockCheckDto(false, [new StockRequirementDto("Flour", 3, 1, 2)]);
         context.Server.RaisedShortfallCount = 0;
 
-        var panel = await context.ShowAsync(isGroup: true, linkedWarehouseId: warehouse);
+        var panel = await context.ShowAsync(isGroup: true, linkedInventoryId: inventory);
         await panel.RaiseShortfallsCommand.ExecuteAsync(null);
 
         Assert.NotEmpty(panel.Message);
     }
 
     /// <summary>
-    /// Building a shelf changes the list itself - it now points at a warehouse it did not have - so
+    /// Building a shelf changes the list itself - it now points at an inventory it did not have - so
     /// the screen has to be told to read it again.
     /// </summary>
     [Fact]
-    public async Task Generating_a_warehouse_asks_the_screen_to_read_the_list_again()
+    public async Task Generating_a_inventory_asks_the_screen_to_read_the_list_again()
     {
         using var context = new PanelContext();
         var panel = await context.ShowAsync(isGroup: true);
@@ -291,7 +291,7 @@ public sealed class StockCheckPanelTests
     public async Task A_list_with_nothing_to_build_from_says_so()
     {
         using var context = new PanelContext();
-        context.Server.GeneratedWarehouseId = null;
+        context.Server.GeneratedInventoryId = null;
         var panel = await context.ShowAsync(isGroup: true);
 
         await panel.GenerateInventoryCommand.ExecuteAsync(null);
@@ -299,42 +299,42 @@ public sealed class StockCheckPanelTests
         Assert.NotEmpty(panel.Message);
     }
 
-    /// <summary>"Not measured against a warehouse" leads the list, as it does on the web.</summary>
+    /// <summary>"Not measured against a inventory" leads the list, as it does on the web.</summary>
     [Fact]
-    public async Task The_warehouses_offered_start_with_none()
+    public async Task The_inventories_offered_start_with_none()
     {
         using var context = new PanelContext();
-        await context.AddWarehouseAsync("Kitchen");
+        await context.AddInventoryAsync("Kitchen");
 
         var panel = await context.ShowAsync(isGroup: true);
 
-        Assert.Null(panel.Warehouses[0].ServerId);
-        Assert.Equal(2, panel.Warehouses.Count);
+        Assert.Null(panel.Inventories[0].ServerId);
+        Assert.Equal(2, panel.Inventories.Count);
     }
 
     private sealed class PanelContext : IDisposable
     {
         private readonly LocalStore _localStore = new();
         private readonly FakeTimeProvider _clock = new(DateTimeOffset.Parse("2026-08-28T10:00:00Z"));
-        private readonly LocalWarehouseRepository _warehouses;
+        private readonly LocalInventoryRepository _inventories;
 
         public PanelContext()
         {
             Server = new FakeTasksServer(_clock);
-            _warehouses = new LocalWarehouseRepository(_localStore, _clock, FixedNetworkStatus.Online, PrivateContent.WithoutAKey());
+            _inventories = new LocalInventoryRepository(_localStore, _clock, FixedNetworkStatus.Online, PrivateContent.WithoutAKey());
         }
 
         public FakeTasksServer Server { get; }
 
         /// <summary>The shelves themselves, which is where a refresh is asked for - see StockCheckPanel.</summary>
-        public FakeInventoryServer Warehouses { get; } = new(TimeProvider.System);
+        public FakeInventoryServer Inventories { get; } = new(TimeProvider.System);
 
-        /// <summary>A warehouse the server knows about, which is what makes it choosable.</summary>
-        public async Task<Guid> AddWarehouseAsync(string name)
+        /// <summary>An inventory the server knows about, which is what makes it choosable.</summary>
+        public async Task<Guid> AddInventoryAsync(string name)
         {
-            var warehouse = await _warehouses.CreateAsync(name);
+            var inventory = await _inventories.CreateAsync(name);
             await using var dbContext = _localStore.CreateDbContext();
-            var stored = dbContext.Warehouses.Single(candidate => candidate.LocalId == warehouse.LocalId);
+            var stored = dbContext.Inventories.Single(candidate => candidate.LocalId == inventory.LocalId);
             stored.ServerId = Guid.NewGuid();
             await dbContext.SaveChangesAsync();
             return stored.ServerId.Value;
@@ -350,10 +350,10 @@ public sealed class StockCheckPanelTests
         private readonly Guid _taskListLocalId = Guid.NewGuid();
 
         public async Task<StockCheckPanel> ShowAsync(
-            bool isGroup, Guid? linkedWarehouseId = null, bool hasReachedTheServer = true)
+            bool isGroup, Guid? linkedInventoryId = null, bool hasReachedTheServer = true)
         {
             var panel = new StockCheckPanel(
-                new TasksClient(Server.ToHttpClient()), new InventoryClient(Warehouses.ToHttpClient()), _warehouses,
+                new TasksClient(Server.ToHttpClient()), new InventoryClient(Inventories.ToHttpClient()), _inventories,
                 new Translations(new InMemoryLanguageStore()), Connections.Online, Reading);
 
             await panel.ShowAsync(new LocalTaskList
@@ -361,7 +361,7 @@ public sealed class StockCheckPanelTests
                 LocalId = _taskListLocalId,
                 ServerId = hasReachedTheServer ? Guid.NewGuid() : null,
                 IsGroup = isGroup,
-                LinkedWarehouseId = linkedWarehouseId
+                LinkedInventoryId = linkedInventoryId
             });
 
             return panel;
@@ -370,7 +370,7 @@ public sealed class StockCheckPanelTests
         public void Dispose()
         {
             Server.Dispose();
-            Warehouses.Dispose();
+            Inventories.Dispose();
             _localStore.Dispose();
         }
     }

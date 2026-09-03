@@ -64,10 +64,10 @@ public sealed class TaskList
     public bool IsGroup { get; private set; }
 
     /// <summary>
-    /// The warehouse this list's work is measured against, when one has been chosen - see
+    /// The inventory this list's work is measured against, when one has been chosen - see
     /// StockRequirementCounter. Null for a list nobody has asked that question of.
     /// </summary>
-    public Guid? LinkedWarehouseId { get; private set; }
+    public Guid? LinkedInventoryId { get; private set; }
 
     /// <summary>The user id currently holding the edit lock, if any - see AcquireLock/ReleaseLock.</summary>
     public Guid? LockedByUserId { get; private set; }
@@ -144,11 +144,11 @@ public sealed class TaskList
         Guid id, Guid userId, string title, IReadOnlyList<TaskItem> items, bool isGroup, bool isPrivate, EncryptedPayload? encryptedContent,
         DateTimeOffset createdAtUtc, DateTimeOffset updatedAtUtc,
         Guid? lockedByUserId, string? lockedByUserName, DateTimeOffset? lockExpiresAtUtc,
-        ItemPriority priority, bool isPinned, Guid? linkedWarehouseId = null, string description = "")
+        ItemPriority priority, bool isPinned, Guid? linkedInventoryId = null, string description = "")
     {
         var taskList = new TaskList(id, userId, title, items, isGroup, isPrivate, encryptedContent, priority, isPinned,
             createdAtUtc, updatedAtUtc, lockedByUserId, lockedByUserName, lockExpiresAtUtc);
-        taskList.LinkedWarehouseId = linkedWarehouseId;
+        taskList.LinkedInventoryId = linkedInventoryId;
         taskList.Description = description;
         return taskList;
     }
@@ -173,7 +173,7 @@ public sealed class TaskList
     /// No parameter here has a default, on purpose: this replaces the whole list, so a caller that
     /// forgot one would silently reset it. <paramref name="priority"/> used to default to Normal, and
     /// every caller that appends a single item - a restock errand, a moved entry - forgot it, so a list
-    /// somebody had marked High quietly dropped back the next time the warehouse touched it.
+    /// somebody had marked High quietly dropped back the next time the inventory touched it.
     /// </summary>
     public void Update(
         string title, IReadOnlyList<TaskItem> items, bool isGroup, bool isPrivate, EncryptedPayload? encryptedContent,
@@ -239,22 +239,22 @@ public sealed class TaskList
     }
 
     /// <summary>
-    /// Points this list at a warehouse, or at none. Its own command rather than part of an update, for
+    /// Points this list at an inventory, or at none. Its own command rather than part of an update, for
     /// the same reason pinning is: it changes what the list is measured against, not what is on it.
     ///
-    /// Says the list changed, as pinning does. It did not, so choosing a warehouse - or having one
+    /// Says the list changed, as pinning does. It did not, so choosing an inventory - or having one
     /// built from the list - reached nobody else's copy, and on a phone it did not even reach the one
     /// making the choice: the screen re-reads what it has stored, and the change feed had never
     /// mentioned it.
     /// </summary>
-    public void LinkToWarehouse(Guid? warehouseId)
+    public void LinkToInventory(Guid? inventoryId)
     {
-        if (LinkedWarehouseId == warehouseId)
+        if (LinkedInventoryId == inventoryId)
         {
             return;
         }
 
-        LinkedWarehouseId = warehouseId;
+        LinkedInventoryId = inventoryId;
         UpdatedAtUtc = DateTimeOffset.UtcNow;
     }
 

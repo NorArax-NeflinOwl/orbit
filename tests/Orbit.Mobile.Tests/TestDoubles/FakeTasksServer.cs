@@ -29,15 +29,15 @@ internal sealed class FakeTasksServer : HttpMessageHandler
 
     public IReadOnlyCollection<TaskDto> TaskLists => _taskLists.Values;
 
-    /// <summary>What the stock check answers, or null for "no warehouse chosen".</summary>
+    /// <summary>What the stock check answers, or null for "no inventory chosen".</summary>
     public TaskListStockCheckDto? StockCheck { get; set; }
 
-    /// <summary>What generating a warehouse hands back, or null when there was nothing to build.</summary>
-    public Guid? GeneratedWarehouseId { get; set; } = Guid.NewGuid();
+    /// <summary>What generating an inventory hands back, or null when there was nothing to build.</summary>
+    public Guid? GeneratedInventoryId { get; set; } = Guid.NewGuid();
 
     public int RaisedShortfallCount { get; set; }
 
-    /// <summary>How many products bringing the whole warehouse up to its minimum moved.</summary>
+    /// <summary>How many products bringing the whole inventory up to its minimum moved.</summary>
     public int ToppedUpCount { get; set; }
 
     /// <summary>How many times the shelf was asked to be topped up in one go.</summary>
@@ -51,11 +51,11 @@ internal sealed class FakeTasksServer : HttpMessageHandler
 
     public int SettledToppedUpCount { get; set; }
 
-    /// <summary>The warehouse a list was last pointed at.</summary>
-    public Guid? LinkedWarehouseId { get; private set; }
+    /// <summary>The inventory a list was last pointed at.</summary>
+    public Guid? LinkedInventoryId { get; private set; }
 
     /// <summary>Named apart from the contract so this fake does not depend on its property name.</summary>
-    private sealed record LinkTaskItemToWarehouseBody(Guid? WarehouseId);
+    private sealed record LinkTaskItemToInventoryBody(Guid? InventoryId);
 
     public IReadOnlyList<TaskItemDto> ItemsIn(Guid taskListId)
         => _taskLists.TryGetValue(taskListId, out var taskList) ? taskList.Items : [];
@@ -135,24 +135,26 @@ internal sealed class FakeTasksServer : HttpMessageHandler
             return Json(new RestockReconciliationResultDto(SettledToppedUpCount, SettledCount));
         }
 
-        if (path.EndsWith("/inventory", StringComparison.Ordinal))
+        // api/tasks/{id}/inventory, POST: build a shelf out of what the list calls for.
+        if (path.EndsWith("/inventory", StringComparison.Ordinal) && request.Method == HttpMethod.Post)
         {
-            return GeneratedWarehouseId is { } generated
+            return GeneratedInventoryId is { } generated
                 ? Json(generated)
                 : new HttpResponseMessage(HttpStatusCode.NotFound);
         }
 
-        // api/tasks/{id}/warehouse
-        if (path.EndsWith("/warehouse", StringComparison.Ordinal))
+        // api/tasks/{id}/inventory, PUT: measure the list against a shelf that already exists. Told
+        // apart by the verb, the way the real endpoints are - see TaskEndpoints.
+        if (path.EndsWith("/inventory", StringComparison.Ordinal) && request.Method == HttpMethod.Put)
         {
-            var body = await ReadAsync<LinkTaskItemToWarehouseBody>(request, cancellationToken);
-            LinkedWarehouseId = body?.WarehouseId;
+            var body = await ReadAsync<LinkTaskItemToInventoryBody>(request, cancellationToken);
+            LinkedInventoryId = body?.InventoryId;
             // Kept on the list itself as well, because that is where a pull reads it from: a phone told
             // which shelf a list is measured against only learns it by asking for the list again.
             var taskListId = Guid.Parse(path.Split('/')[^2]);
             if (_taskLists.TryGetValue(taskListId, out var taskList))
             {
-                _taskLists[taskListId] = taskList with { LinkedWarehouseId = body?.WarehouseId };
+                _taskLists[taskListId] = taskList with { LinkedInventoryId = body?.InventoryId };
             }
 
             return new HttpResponseMessage(HttpStatusCode.NoContent);

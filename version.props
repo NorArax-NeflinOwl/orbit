@@ -15,7 +15,7 @@
        deliberately not derivable from anything: "far enough to matter" is a judgement, not a count. -->
   <PropertyGroup>
     <OrbitMajorVersion>0</OrbitMajorVersion>
-    <OrbitPatchVersion>2</OrbitPatchVersion>
+    <OrbitPatchVersion>3</OrbitPatchVersion>
   </PropertyGroup>
 
 </Project>

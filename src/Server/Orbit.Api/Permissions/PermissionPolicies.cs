@@ -12,7 +12,7 @@ public sealed class PermissionRequirement(ApplicationPermission permission) : IA
 /// <summary>
 /// One policy per gated part of Orbit, named after the permission it needs. Applied to whole route
 /// groups where a group happens to be exactly one feature, and endpoint by endpoint where it does not -
-/// sharing, for instance, lives across notes, task lists, calendar events and warehouses. An endpoint
+/// sharing, for instance, lives across notes, task lists, calendar events and inventories. An endpoint
 /// that needs two (sharing a position needs Location and Contacts both) names both policies, and both
 /// have to pass.
 /// </summary>

@@ -21,7 +21,7 @@ public enum ApplicationPermission
     /// <summary>Conversations, with one other person or with several.</summary>
     Chat,
 
-    /// <summary>Handing a note, task list, calendar event or warehouse to another Orbit account.</summary>
+    /// <summary>Handing a note, task list, calendar event or inventory to another Orbit account.</summary>
     Sharing,
 
     /// <summary>

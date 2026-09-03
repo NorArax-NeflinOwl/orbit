@@ -3,7 +3,7 @@ using Orbit.Mobile.Authentication;
 namespace Orbit.Mobile.Crypto;
 
 /// <summary>
-/// The way in to sealing and opening private notes, lists and warehouses on this device - the
+/// The way in to sealing and opening private notes, lists and inventories on this device - the
 /// counterpart of Orbit.Web's class of the same name, and sealed under the same key, so a private note
 /// written in a browser opens on the phone and one written here opens in the browser.
 ///

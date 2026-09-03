@@ -275,7 +275,7 @@ public sealed partial class AccountViewModel : ObservableObject
             TransferMessage = _translations.Format(
                 "Exported {0} notes, {1} task lists, {2} events and {3} storages.",
                 archive.Notes.Count, archive.TaskLists.Count, archive.CalendarEvents.Count,
-                archive.Warehouses.Count);
+                archive.Inventories.Count);
 
             ExportReady?.Invoke(
                 this, ($"orbit-export-{DateTimeOffset.Now:yyyy-MM-dd}.json", _transfer.Write(archive)));
@@ -336,7 +336,7 @@ public sealed partial class AccountViewModel : ObservableObject
                 ? _translations["That file didn't contain an Orbit export."]
                 : _translations.Format(
                     "Imported {0} notes, {1} task lists, {2} events and {3} storages.",
-                    result.Notes, result.TaskLists, result.CalendarEvents, result.Warehouses);
+                    result.Notes, result.TaskLists, result.CalendarEvents, result.Inventories);
         }
         catch (Exception exception) when (exception is HttpRequestException or OperationCanceledException)
         {

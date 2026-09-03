@@ -21,7 +21,7 @@ public sealed record EditClaim(string? HeldByOtherUserName)
 }
 
 /// <summary>
-/// Notes, task lists, calendar events and warehouses are all held the same way while somebody edits
+/// Notes, task lists, calendar events and inventories are all held the same way while somebody edits
 /// them, so <see cref="Screens.EditLock"/> holds any of them through this rather than four times over.
 /// Orbit.Web repeats the whole of it in each of its four editors.
 /// </summary>

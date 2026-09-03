@@ -1,5 +1,5 @@
 using System.Text.Json.Serialization;
-using Orbit.Contracts.Inventory;
+using Orbit.Contracts.Inventories;
 using Orbit.Contracts.Notes;
 using Orbit.Contracts.Tasks;
 
@@ -15,5 +15,5 @@ namespace Orbit.Mobile.Crypto;
 /// </summary>
 [JsonSerializable(typeof(SealedNote))]
 [JsonSerializable(typeof(SealedTaskList))]
-[JsonSerializable(typeof(SealedWarehouse))]
+[JsonSerializable(typeof(SealedInventory))]
 internal sealed partial class SealedContentSerializerContext : JsonSerializerContext;
