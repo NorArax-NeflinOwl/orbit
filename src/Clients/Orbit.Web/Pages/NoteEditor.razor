@@ -28,15 +28,9 @@
 <div class="editor-page">
 <div class="editor-page-body">
 
-<div class="page-header">
-    <div class="page-heading">
-        <h1>@(IsNewNote ? T["New note"] : T["Edit note"])</h1>
-        @if (!HasSomethingToSave && !_isLoading)
-        {
-            <span class="form-hint">@T["Write something in it."]</span>
-        }
-    </div>
-</div>
+<PageHeader Hint="@Optional(!HasSomethingToSave && !_isLoading ? T["Write something in it."] : null)">
+    <Title>@(IsNewNote ? T["New note"] : T["Edit note"])</Title>
+</PageHeader>
 
 @if (_isLoading)
 {

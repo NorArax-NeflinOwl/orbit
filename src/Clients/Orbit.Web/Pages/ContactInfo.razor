@@ -17,12 +17,10 @@
    menu - the three places somebody is already looking at a name and wanting to know more about it. *@
 <PageTitle>@(_displayName.Length > 0 ? _displayName : T["Contact"])</PageTitle>
 
-<div class="page-header">
-    <div>
-        <h1>@(_displayName.Length > 0 ? _displayName : T["Contact"])</h1>
-        <p class="page-subtitle">@T["Who this is, and how to reach them."]</p>
-    </div>
-</div>
+<PageHeader>
+    <Title>@(_displayName.Length > 0 ? _displayName : T["Contact"])</Title>
+    <Subtitle>@T["Who this is, and how to reach them."]</Subtitle>
+</PageHeader>
 
 @if (_isLoading)
 {

@@ -26,15 +26,9 @@
 <div class="editor-page">
 <div class="editor-page-body">
 
-<div class="page-header">
-    <div>
-        <h1>@(_item is null ? T["Task"] : Written(_item.Description))</h1>
-        @if (_taskList is not null)
-        {
-            <p class="page-subtitle">@Written(_taskList.Title)</p>
-        }
-    </div>
-</div>
+<PageHeader Subtitle="@Optional(_taskList is not null ? Written(_taskList.Title) : null)">
+    <Title>@(_item is null ? T["Task"] : Written(_item.Description))</Title>
+</PageHeader>
 
 @if (_isLoading)
 {

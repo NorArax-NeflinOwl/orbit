@@ -45,21 +45,19 @@ else
 <div class="editor-page">
 <div class="editor-page-body">
 
-    <div class="page-header">
-        <div>
-            <h1>@Written(_sections[0].TaskList.Title)</h1>
-            <p class="page-subtitle">
-                @if (_sections[0].TaskList.IsGroup)
-                {
-                    <text>@T.Format("Group list - {0} linked {1} shown below.", _sections.Count - 1, _sections.Count == 2 ? T["list"] : T["lists"])</text>
-                }
-                else
-                {
-                    <text>@T["Tick items off; use Edit to change the list itself."]</text>
-                }
-            </p>
-        </div>
-    </div>
+    <PageHeader>
+        <Title>@Written(_sections[0].TaskList.Title)</Title>
+        <Subtitle>
+            @if (_sections[0].TaskList.IsGroup)
+            {
+                <text>@T.Format("Group list - {0} linked {1} shown below.", _sections.Count - 1, _sections.Count == 2 ? T["list"] : T["lists"])</text>
+            }
+            else
+            {
+                <text>@T["Tick items off; use Edit to change the list itself."]</text>
+            }
+        </Subtitle>
+    </PageHeader>
 
     @if (_errorMessage is not null)
     {

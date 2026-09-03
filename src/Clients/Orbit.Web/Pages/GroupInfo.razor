@@ -14,12 +14,10 @@
    offers both, the same way it offers a person's card for a two-person conversation. *@
 <PageTitle>@(_group?.Name ?? T["Group chat"])</PageTitle>
 
-<div class="page-header">
-    <div>
-        <h1>@(_group?.Name ?? T["Group chat"])</h1>
-        <p class="page-subtitle">@T["Chats with more than one other person, encrypted the same way one-to-one chats are."]</p>
-    </div>
-</div>
+<PageHeader>
+    <Title>@(_group?.Name ?? T["Group chat"])</Title>
+    <Subtitle>@T["Chats with more than one other person, encrypted the same way one-to-one chats are."]</Subtitle>
+</PageHeader>
 
 @if (!Permissions.Has(ApplicationPermission.Chat))
 {

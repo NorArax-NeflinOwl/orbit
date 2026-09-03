@@ -17,15 +17,9 @@
    conversation itself below the fold on every visit. *@
 <PageTitle>@(_group?.Name ?? T["Members"])</PageTitle>
 
-<div class="page-header">
-    <div>
-        <h1>@T["Members"]</h1>
-        @if (_group is not null)
-        {
-            <p class="page-subtitle">@_group.Name</p>
-        }
-    </div>
-</div>
+<PageHeader Subtitle="@Optional(_group?.Name)">
+    <Title>@T["Members"]</Title>
+</PageHeader>
 
 @if (!Permissions.Has(ApplicationPermission.Chat))
 {

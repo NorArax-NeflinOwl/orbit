@@ -16,17 +16,17 @@
    so clearing is somewhere to put things rather than somewhere they are destroyed. Reached from the
    panel's "See all" link on any screen, and it is the whole notifications UI on phones, where the popup
    would be unreadably cramped (see MainLayout.ToggleNotificationsMenuAsync). *@
-<div class="page-header">
-    <div>
-        <h1>@T["Notifications"]</h1>
-        <p class="page-subtitle">
-            @T.Format(
-                "Everything from the last {0}, newest first — cleared ones included. Older than that and they are deleted; change how long in",
-                $"{_retentionDays} {(_retentionDays == 1 ? T["day"] : T["days"])}")@Space<a href="/options">@T["Options"]</a>.
-        </p>
-    </div>
-    <button class="btn-secondary" disabled="@_isClearing" @onclick="ClearAsync">@T["Clear"]</button>
-</div>
+<PageHeader>
+    <Title>@T["Notifications"]</Title>
+    <Subtitle>
+        @T.Format(
+            "Everything from the last {0}, newest first — cleared ones included. Older than that and they are deleted; change how long in",
+            $"{_retentionDays} {(_retentionDays == 1 ? T["day"] : T["days"])}")@Space<a href="/options">@T["Options"]</a>.
+    </Subtitle>
+    <Actions>
+        <button class="btn-secondary" disabled="@_isClearing" @onclick="ClearAsync">@T["Clear"]</button>
+    </Actions>
+</PageHeader>
 
 <div class="notifications-page">
     <NotificationList IsLoading="_isLoading" Entries="_entries" ExceptionEntries="_exceptionEntries"

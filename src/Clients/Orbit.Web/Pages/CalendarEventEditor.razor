@@ -34,11 +34,9 @@
 <div class="editor-page">
 <div class="editor-page-body">
 
-<div class="page-header">
-    <div class="page-heading">
-        <h1>@(IsNewEvent ? T["New event"] : T["Edit event"])</h1>
-    </div>
-</div>
+<PageHeader>
+    <Title>@(IsNewEvent ? T["New event"] : T["Edit event"])</Title>
+</PageHeader>
 
 @if (_isLoading)
 {

@@ -30,16 +30,15 @@ else
 <div class="editor-page">
 <div class="editor-page-body">
 
-    <div class="page-header">
-        <div>
-            <h1>@(_formModel.Name.Length > 0 ? _formModel.Name : T["Warehouse"])</h1>
-            <p class="page-subtitle">@T["Everything in this warehouse, edited together - a low item still raises a restock task."]</p>
-            @if (_isShared)
-            {
-                <p class="shared-note-banner">@T["Shared by"]@Space<strong>@_sharedByUserName</strong> - @SharedAccessDescription.</p>
-            }
-        </div>
-    </div>
+    <PageHeader>
+        <Title>@(_formModel.Name.Length > 0 ? _formModel.Name : T["Warehouse"])</Title>
+        <Subtitle>@T["Everything in this warehouse, edited together - a low item still raises a restock task."]</Subtitle>
+    </PageHeader>
+
+    @if (_isShared)
+    {
+        <p class="shared-note-banner">@T["Shared by"]@Space<strong>@_sharedByUserName</strong> - @SharedAccessDescription.</p>
+    }
 
     @* Submitting this form adds a row rather than saving it. Enter is what somebody filling a shelf
        presses between items, and it used to save the warehouse and leave the page instead - so the

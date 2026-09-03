@@ -28,15 +28,9 @@
 <div class="editor-page">
 <div class="editor-page-body">
 
-<div class="page-header">
-    <div class="page-heading">
-        <h1>@(_event?.Details.Title ?? T["Event"])</h1>
-        @if (_event is { IsShared: true, SharedByUserName: { } sharedBy })
-        {
-            <p class="page-subtitle">@T.Format("Shared by {0}", sharedBy)</p>
-        }
-    </div>
-</div>
+<PageHeader Subtitle="@Optional(_event is { IsShared: true, SharedByUserName: { } sharedBy } ? T.Format("Shared by {0}", sharedBy) : null)">
+    <Title>@(_event?.Details.Title ?? T["Event"])</Title>
+</PageHeader>
 
 @if (_message is not null)
 {

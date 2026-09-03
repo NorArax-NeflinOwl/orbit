@@ -37,12 +37,10 @@
 
 <PageTitle>@T["Orbit — Chat"]</PageTitle>
 
-<div class="page-header">
-    <div>
-        <h1>@T["Messages"]</h1>
-        <p class="page-subtitle">@T["End-to-end encrypted conversations."]</p>
-    </div>
-</div>
+<PageHeader>
+    <Title>@T["Messages"]</Title>
+    <Subtitle>@T["End-to-end encrypted conversations."]</Subtitle>
+</PageHeader>
 
 @if (!Permissions.Has(ApplicationPermission.Chat))
 {

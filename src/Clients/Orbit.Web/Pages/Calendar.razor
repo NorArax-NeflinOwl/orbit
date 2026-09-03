@@ -20,16 +20,16 @@
 
 <PageTitle>@T["Orbit — Calendar"]</PageTitle>
 
-<div class="page-header">
-    <div class="page-heading">
+<PageHeader>
+    <LeadingAction>
         <button type="button" class="icon-btn page-add" title="@(T["Add event"])" aria-label="@(T["Add event"])"
                 @onclick="GoToAddEvent">
             <svg viewBox="0 0 20 20" width="18" height="18" aria-hidden="true" fill="none"
                  stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M10 4v12M4 10h12" /></svg>
         </button>
-        <h1>@T["Calendar"]</h1>
-    </div>
-    <div class="page-header-actions">
+    </LeadingAction>
+    <Title>@T["Calendar"]</Title>
+    <Actions>
         @* The order the list beside the grid comes in. Behind the menu rather than in a control across
            the top, the same as every other list in the app - it is something a reader sets once and
            then reads by. Stays open while they try one order and then another. *@
@@ -55,8 +55,8 @@
                 @T["Everything, including what is over"]
             </button>
         </OverflowMenu>
-    </div>
-</div>
+    </Actions>
+</PageHeader>
 
 <div class="calendar-layout">
     <div class="calendar-event-list-panel">

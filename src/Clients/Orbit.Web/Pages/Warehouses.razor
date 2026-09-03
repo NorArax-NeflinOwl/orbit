@@ -18,16 +18,16 @@
 
 <PageTitle>@T["Orbit — Inventory"]</PageTitle>
 
-<div class="page-header">
-    <div class="page-heading">
+<PageHeader>
+    <LeadingAction>
         <button type="button" class="icon-btn page-add" title="@(T["Add warehouse"])"
                 aria-label="@(T["Add warehouse"])" @onclick="StartCreating">
             <svg viewBox="0 0 20 20" width="18" height="18" aria-hidden="true" fill="none"
                  stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M10 4v12M4 10h12" /></svg>
         </button>
-        <h1>@T["Inventory"]</h1>
-    </div>
-</div>
+    </LeadingAction>
+    <Title>@T["Inventory"]</Title>
+</PageHeader>
 
 @if (_isCreating)
 {

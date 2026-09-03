@@ -24,15 +24,9 @@
 <div class="editor-page">
 <div class="editor-page-body">
 
-<div class="page-header">
-    <div class="page-heading">
-        <h1>@(_warehouse?.Name ?? T["Warehouse"])</h1>
-        @if (_warehouse is { Description.Length: > 0 } described)
-        {
-            <p class="page-subtitle">@described.Description</p>
-        }
-    </div>
-</div>
+<PageHeader Subtitle="@Optional(_warehouse is { Description.Length: > 0 } described ? described.Description : null)">
+    <Title>@(_warehouse?.Name ?? T["Warehouse"])</Title>
+</PageHeader>
 
 @if (_isLoading)
 {

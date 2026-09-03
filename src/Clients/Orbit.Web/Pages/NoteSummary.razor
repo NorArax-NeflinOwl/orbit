@@ -24,15 +24,9 @@
 <div class="editor-page">
 <div class="editor-page-body">
 
-<div class="page-header">
-    <div class="page-heading">
-        <h1>@(_note is null ? T["Note"] : Written(_note.Title))</h1>
-        @if (_note is { IsShared: true, SharedByUserName: { } sharedBy })
-        {
-            <p class="page-subtitle">@T.Format("Shared by {0}", sharedBy)</p>
-        }
-    </div>
-</div>
+<PageHeader Subtitle="@Optional(_note is { IsShared: true, SharedByUserName: { } sharedBy } ? T.Format("Shared by {0}", sharedBy) : null)">
+    <Title>@(_note is null ? T["Note"] : Written(_note.Title))</Title>
+</PageHeader>
 
 @if (_isLoading)
 {

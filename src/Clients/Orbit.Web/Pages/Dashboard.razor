@@ -24,12 +24,10 @@
 
 <PageTitle>@T["Orbit — Dashboard"]</PageTitle>
 
-<div class="page-header">
-    <div>
-        <h1>@T["Dashboard"]</h1>
-        <p class="page-subtitle">@T["Everything on your plate, in one place."]</p>
-    </div>
-    <div class="page-header-actions">
+<PageHeader>
+    <Title>@T["Dashboard"]</Title>
+    <Subtitle>@T["Everything on your plate, in one place."]</Subtitle>
+    <Actions>
         @* Which parts of this page are wanted at all. A menu of settings rather than of actions, so it
            stays open while several are changed - see OverflowMenu.StaysOpen. *@
         <OverflowMenu StaysOpen="true">
@@ -43,8 +41,8 @@
                 </label>
             }
         </OverflowMenu>
-    </div>
-</div>
+    </Actions>
+</PageHeader>
 
 @if (_loadErrorMessage is not null)
 {

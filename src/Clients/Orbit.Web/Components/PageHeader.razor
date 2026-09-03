@@ -1,0 +1,59 @@
+@* The block every screen opens with: what the page is called, what stands under that, and whatever
+   sits at the header's other end. The same divs used to be redrawn on every page - which is why the
+   "shared by" line above a note read differently from the one above an event, and why a subtitle sat
+   beside its title on three pages and stacked under it everywhere else. One component now draws the
+   header; a page only says what it has.
+
+   The heading is a row only where there is a leading button to sit beside the title - see Notes.razor,
+   Tasks.razor, Calendar.razor and Warehouses.razor, the four screens that open with "add another of
+   these". Everywhere else the title and whatever stands under it simply stack, the way block elements
+   always have where nothing tried to lay them out side by side. *@
+<div class="page-header">
+    <div class="@(LeadingAction is null ? null : "page-heading")">
+        @LeadingAction
+        <h1>@Title</h1>
+        @if (Subtitle is not null)
+        {
+            <p class="page-subtitle">@Subtitle</p>
+        }
+        @if (Hint is not null)
+        {
+            <span class="form-hint">@Hint</span>
+        }
+    </div>
+    @if (Actions is not null)
+    {
+        <div class="page-header-actions">@Actions</div>
+    }
+</div>
+
+@code {
+    /// <summary>
+    /// The one control that makes another of whatever the page lists, drawn before the title. The only
+    /// thing that turns the heading into a row - a page with nothing here gets the title and whatever is
+    /// under it stacked instead.
+    /// </summary>
+    [Parameter] public RenderFragment? LeadingAction { get; set; }
+
+    [Parameter, EditorRequired] public RenderFragment? Title { get; set; }
+
+    /// <summary>
+    /// Whatever a page states under its title - a description, a "Shared by" line, a count of what a
+    /// group list gathers. Left as the page's own markup rather than fixed text, since what it says
+    /// differs by object; wrapped here so every page's version reads the same.
+    /// </summary>
+    [Parameter] public RenderFragment? Subtitle { get; set; }
+
+    /// <summary>
+    /// The one page that has nothing to save yet and says so beside its title instead of under it - see
+    /// NoteEditor.razor. Kept apart from <see cref="Subtitle"/> because it is a different sentence in a
+    /// different place, not a second copy of the same one.
+    /// </summary>
+    [Parameter] public RenderFragment? Hint { get; set; }
+
+    /// <summary>
+    /// Whatever sits at the header's other end - a sort menu, a back button, a Clear. Left out entirely,
+    /// rather than drawn empty, when a page has nothing there.
+    /// </summary>
+    [Parameter] public RenderFragment? Actions { get; set; }
+}
