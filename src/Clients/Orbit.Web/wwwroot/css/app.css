@@ -3506,6 +3506,19 @@ input.note-editor-title {
     white-space: nowrap;
 }
 
+/* Pressing a name in "Sharing with you" is how to look at where they are - see MapPage.razor's
+   FocusOnAsync. */
+.map-share-row-opens {
+    cursor: pointer;
+    border-radius: 8px;
+    margin: -4px -6px;
+    padding: 4px 6px;
+}
+
+.map-share-row-opens:hover {
+    background: var(--bg-subtle);
+}
+
 /* Written in the colour of its own pin, which is what says which pin is whose without clicking one. */
 .map-sharer-name {
     font-weight: 600;

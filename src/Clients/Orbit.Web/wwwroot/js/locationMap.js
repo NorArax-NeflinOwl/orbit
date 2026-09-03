@@ -48,12 +48,7 @@ export async function showLocations(elementId, points, dotNetHelper) {
         maxZoom: 19
     }).addTo(map);
 
-    for (const point of drawn) {
-        const marker = L.marker([point.latitude, point.longitude], iconFor(point.color)).addTo(map);
-        if (point.label) {
-            marker.bindPopup(point.label);
-        }
-    }
+    const markers = drawMarkers(map, drawn);
 
     if (drawn.length === 1) {
         // A single point is what the viewer asked to look at, so keep it centred and readable rather
@@ -77,7 +72,55 @@ export async function showLocations(elementId, points, dotNetHelper) {
     const resizeObserver = new ResizeObserver(() => map.invalidateSize({ animate: false }));
     resizeObserver.observe(element);
 
-    mapInstancesByElementId.set(elementId, { map, resizeObserver });
+    mapInstancesByElementId.set(elementId, { map, resizeObserver, markers });
+}
+
+/// Draws each point's marker and returns them, so a caller can find one again later - see focusOn.
+function drawMarkers(map, points) {
+    return points.map(point => {
+        const marker = L.marker([point.latitude, point.longitude], iconFor(point.color)).addTo(map);
+        if (point.label) {
+            marker.bindPopup(point.label);
+        }
+        return marker;
+    });
+}
+
+/// Replaces the markers on a map that is already there, without moving its pan or zoom - the light
+/// alternative to showLocations' own dispose-and-rebuild, for whatever must not reset what the reader
+/// is looking at: a live share's once-a-minute refresh, and a press on the map that has to draw its own
+/// pin without losing the view the press itself was made on. Does nothing before the map exists at all;
+/// the render that follows draws one fresh with whatever is current by then.
+export function updateLocations(elementId, points) {
+    const instance = mapInstancesByElementId.get(elementId);
+    if (!instance) {
+        return;
+    }
+
+    for (const marker of instance.markers) {
+        marker.remove();
+    }
+
+    instance.markers = drawMarkers(instance.map, points ?? []);
+}
+
+/// Pans to one point on a map that is already there and opens its pin - see the "Sharing with you"
+/// list, where pressing a name is how to look at where they are. Matched by position rather than by an
+/// id threaded all the way through, since the marker was drawn from this exact pair of numbers moments
+/// before the press that asks for it.
+export function focusOn(elementId, latitude, longitude) {
+    const instance = mapInstancesByElementId.get(elementId);
+    if (!instance) {
+        return;
+    }
+
+    instance.map.setView([latitude, longitude], Math.max(instance.map.getZoom(), 14));
+    instance.markers
+        .find(marker => {
+            const position = marker.getLatLng();
+            return position.lat === latitude && position.lng === longitude;
+        })
+        ?.openPopup();
 }
 
 /// A pin in the colour the caller asked for, so a name in the list and its pin on the map are tied
