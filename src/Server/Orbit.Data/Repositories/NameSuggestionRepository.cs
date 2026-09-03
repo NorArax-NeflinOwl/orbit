@@ -55,11 +55,7 @@ public sealed class NameSuggestionRepository : INameSuggestionRepository
     private IQueryable<string> NamesFor(Guid userId, NameSuggestionKind kind)
         => kind switch
         {
-            NameSuggestionKind.InventoryItemName => _dbContext.InventoryItems
-                .AsNoTracking()
-                .Where(item => _dbContext.Inventories
-                    .Any(inventory => inventory.Id == item.InventoryId && inventory.UserId == userId && !inventory.IsPrivate))
-                .Select(item => item.Name),
+            NameSuggestionKind.InventoryItemName => InventoryItemNames(userId),
 
             NameSuggestionKind.InventoryName => _dbContext.Inventories
                 .AsNoTracking()
@@ -71,12 +67,44 @@ public sealed class NameSuggestionRepository : INameSuggestionRepository
                 .Where(task => task.UserId == userId && !task.IsPrivate)
                 .Select(task => task.Title),
 
-            NameSuggestionKind.TaskItemDescription => _dbContext.Tasks
-                .AsNoTracking()
-                .Where(task => task.UserId == userId && !task.IsPrivate)
-                .SelectMany(task => task.Items)
-                .Select(item => item.Description),
+            // The one field that reads across every other kind - see NameSuggestionKind.TaskItemDescription.
+            // Concat translates to UNION ALL, so each source query still runs against its own GIN
+            // trigram index rather than one query scanning four tables.
+            NameSuggestionKind.TaskItemDescription => TaskItemDescriptions(userId)
+                .Concat(InventoryItemNames(userId))
+                .Concat(NoteTitles(userId))
+                .Concat(CalendarEventTitles(userId)),
 
             _ => throw new ArgumentOutOfRangeException(nameof(kind), kind, "No names are kept for that kind.")
         };
+
+    private IQueryable<string> InventoryItemNames(Guid userId)
+        => _dbContext.InventoryItems
+            .AsNoTracking()
+            .Where(item => _dbContext.Inventories
+                .Any(inventory => inventory.Id == item.InventoryId && inventory.UserId == userId && !inventory.IsPrivate))
+            .Select(item => item.Name);
+
+    private IQueryable<string> TaskItemDescriptions(Guid userId)
+        => _dbContext.Tasks
+            .AsNoTracking()
+            .Where(task => task.UserId == userId && !task.IsPrivate)
+            .SelectMany(task => task.Items)
+            .Select(item => item.Description);
+
+    private IQueryable<string> NoteTitles(Guid userId)
+        => _dbContext.Notes
+            .AsNoTracking()
+            .Where(note => note.UserId == userId && !note.IsPrivate)
+            .Select(note => note.Title);
+
+    /// <summary>
+    /// Calendar events carry no IsPrivate flag at all - unlike a note, an inventory or a task list,
+    /// nothing about one is ever sealed client-side, so there is no equivalent filter to apply here.
+    /// </summary>
+    private IQueryable<string> CalendarEventTitles(Guid userId)
+        => _dbContext.CalendarEvents
+            .AsNoTracking()
+            .Where(calendarEvent => calendarEvent.UserId == userId)
+            .Select(calendarEvent => calendarEvent.Title);
 }

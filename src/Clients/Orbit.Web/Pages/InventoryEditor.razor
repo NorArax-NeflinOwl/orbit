@@ -55,7 +55,7 @@ else
                                    TitleLabel="@(T["Name"])"
                                    IsReadOnly="@(_isReadOnly || _lockedByUserName is not null)">
                     <Suggestions>
-                        <NameSuggestions Kind="NameSuggestionKind.InventoryName" Value="_formModel.Name"
+                        <NameSuggestions Kind="NameSuggestionKind.InventoryName" Value="@_formModel.Name"
                                          OnChosen="chosen => _formModel.Name = chosen" />
                     </Suggestions>
                 </TitledDescription>
@@ -143,7 +143,7 @@ else
                             <InputText class="editor-item-main" @ref="_lastItemName"
                                        placeholder="@(T["Item name"])" @bind-Value="item.Name"
                                        @oninput="args => item.Name = args.Value?.ToString() ?? string.Empty" />
-                            <NameSuggestions Kind="NameSuggestionKind.InventoryItemName" Value="item.Name"
+                            <NameSuggestions Kind="NameSuggestionKind.InventoryItemName" Value="@item.Name"
                                              OnChosen="chosen => item.Name = chosen" />
                             <span class="editor-item-aside">
                                 @if (NeedsRestocking(item))
