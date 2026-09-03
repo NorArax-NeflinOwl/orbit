@@ -922,6 +922,10 @@ public sealed class TaskListDetailScreenTests
         Assert.True(screen.HasStatus);
     }
 
+    /// <summary>
+    /// The map opens where the box already points, so a reader who has half an address does not start
+    /// in the middle of the ocean. What it answers with lands on the entry as a position; the words in
+    /// the box are the reader's - see A_confirmed_pin_leaves_a_name_the_reader_wrote_alone.
     /// </summary>
     [Fact]
     public async Task A_place_can_be_pointed_at_on_the_map()
@@ -938,7 +942,8 @@ public sealed class TaskListDetailScreenTests
         await screen.ShowMapCommand.ExecuteAsync(null);
 
         Assert.Equal("Mill Lane", context.PlacePicker.StartedAt);
-        Assert.Equal("12 Mill Lane", screen.BeingEdited.Location);
+        Assert.Equal(52.23, screen.BeingEdited.LocationLatitude);
+        Assert.Equal(21.01, screen.BeingEdited.LocationLongitude);
     }
 
     /// <summary>
@@ -960,6 +965,51 @@ public sealed class TaskListDetailScreenTests
         await screen.ShowMapCommand.ExecuteAsync(null);
 
         Assert.Equal("Mill Lane", screen.BeingEdited.Location);
+    }
+
+    /// <summary>
+    /// Confirming a pin keeps a name the reader wrote. "The back entrance" is the whole reason that box
+    /// is typed into, and this screen replaced it with the street on every confirmed pin - so correcting
+    /// it was impossible for as long as the map was the way to set the place. Orbit.Web draws the line
+    /// in the same spot, and so does this phone's own calendar screen; only the entry editor did not.
+    ///
+    /// The old tests could not see it: the map answered with the same address the test had typed.
+    /// </summary>
+    [Fact]
+    public async Task A_confirmed_pin_leaves_a_name_the_reader_wrote_alone()
+    {
+        using var context = new ScreenContext();
+        context.PlacePicker.Result = PickedPlace.Chosen("12 Mill Lane", 52.23, 21.01);
+        var screen = context.OpenTaskList("Saturday");
+        screen.NewItemDescription = "dentist";
+        await screen.AddItemCommand.ExecuteAsync(null);
+
+        screen.EditItemCommand.Execute(screen.Items[0]);
+        screen.BeingEdited!.Kind = nameof(TaskItemKind.Calendar);
+        screen.BeingEdited.Location = "the back entrance";
+        await screen.ShowMapCommand.ExecuteAsync(null);
+
+        Assert.Equal("the back entrance", screen.BeingEdited.Location);
+        // Where it is was decided by the pin either way - that is what the appointment stores.
+        Assert.Equal(52.23, screen.BeingEdited.LocationLatitude);
+        Assert.Equal(21.01, screen.BeingEdited.LocationLongitude);
+    }
+
+    /// <summary>And it fills a box nobody has written in, which is the point of opening the map.</summary>
+    [Fact]
+    public async Task A_confirmed_pin_names_a_place_that_had_no_name()
+    {
+        using var context = new ScreenContext();
+        context.PlacePicker.Result = PickedPlace.Chosen("12 Mill Lane", 52.23, 21.01);
+        var screen = context.OpenTaskList("Saturday");
+        screen.NewItemDescription = "dentist";
+        await screen.AddItemCommand.ExecuteAsync(null);
+
+        screen.EditItemCommand.Execute(screen.Items[0]);
+        screen.BeingEdited!.Kind = nameof(TaskItemKind.Calendar);
+        await screen.ShowMapCommand.ExecuteAsync(null);
+
+        Assert.Equal("12 Mill Lane", screen.BeingEdited.Location);
     }
 
     /// <summary>

@@ -670,10 +670,19 @@ public sealed partial class TaskListDetailViewModel : ObservableObject
         var picked = await _placePicker.PickAsync(editor.Location, cancellationToken);
         if (picked.Outcome is PickedPlaceOutcome.Chosen)
         {
-            editor.Location = picked.Address;
-            // And where the pin was, which is what the appointment actually stores - see EventPlace.
+            // Where the pin was, whatever the box says: that is what the appointment actually stores,
+            // and it was decided by the pin - see EventPlace.
             editor.LocationLatitude = picked.Latitude;
             editor.LocationLongitude = picked.Longitude;
+
+            // The words, only into a box nobody has written in. "The back entrance" is the whole reason
+            // that box is typed into, and replacing it with a street every time a pin is confirmed is
+            // what made correcting it feel impossible. Orbit.Web's UseThePickedPlace draws this line in
+            // the same place, and this screen's own calendar sibling has always drawn it.
+            if (editor.Location.Trim().Length == 0)
+            {
+                editor.Location = picked.Address;
+            }
         }
     }
 
