@@ -43,7 +43,7 @@ public sealed class InventorySharingTests
     }
 
     [Fact]
-    public async Task Sharing_a_inventory_tells_the_recipient_about_it()
+    public async Task Sharing_an_inventory_tells_the_recipient_about_it()
     {
         var context = new InventoryTestContext();
         var ownerUserId = Guid.NewGuid();
@@ -108,7 +108,7 @@ public sealed class InventorySharingTests
     }
 
     [Fact]
-    public async Task Nobody_can_share_a_inventory_back_to_its_owner()
+    public async Task Nobody_can_share_an_inventory_back_to_its_owner()
     {
         var context = new InventoryTestContext();
         var ownerUserId = Guid.NewGuid();
@@ -153,7 +153,7 @@ public sealed class InventorySharingTests
     }
 
     [Fact]
-    public async Task Deleting_a_inventory_takes_its_items_with_it()
+    public async Task Deleting_an_inventory_takes_its_items_with_it()
     {
         var context = new InventoryTestContext();
         var ownerUserId = Guid.NewGuid();

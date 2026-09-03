@@ -77,6 +77,7 @@ public static class PolishTranslations
         ["Couldn't measure this list against that storage. Try again."] =
             "Nie udało się zmierzyć tej listy względem tego magazynu. Spróbuj ponownie.",
         ["Not measured against an inventory"] = "Bez porównania z magazynem",
+        ["Try again"] = "Spróbuj ponownie",
         ["Storage this list is measured against"] = "Magazyn, względem którego mierzona jest ta lista",
         ["An inventory entry then describes a product to put on that shelf."] =
             "Pozycja typu inwentarz opisuje wtedy produkt, który ma trafić na tę półkę.",

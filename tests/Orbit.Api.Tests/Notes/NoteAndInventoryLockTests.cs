@@ -63,7 +63,7 @@ public sealed class NoteAndInventoryLockTests
     }
 
     [Fact]
-    public async Task Holding_a_inventory_open_writes_the_lock_and_leaves_the_shelf_alone()
+    public async Task Holding_an_inventory_open_writes_the_lock_and_leaves_the_shelf_alone()
     {
         var repository = new InMemoryInventoryRepository();
         var inventory = Inventory.Create(_ownerId, "Pantry");
@@ -79,7 +79,7 @@ public sealed class NoteAndInventoryLockTests
     }
 
     [Fact]
-    public async Task Letting_a_inventory_go_writes_the_lock_on_its_own_too()
+    public async Task Letting_an_inventory_go_writes_the_lock_on_its_own_too()
     {
         var repository = new InMemoryInventoryRepository();
         var inventory = Inventory.Create(_ownerId, "Pantry");

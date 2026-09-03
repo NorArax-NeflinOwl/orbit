@@ -409,6 +409,13 @@
                         <Label Text="{Binding Summary}" IsVisible="{Binding HasSummary}" FontSize="13"
                                LineBreakMode="WordWrap" Style="{StaticResource SubtleLabel}" />
 
+                        <!-- Beside a summary that says the answer never came, and only then. Nothing
+                             else on this card asks the question a second time. -->
+                        <Button Text="{controls:Translate 'Try again'}" IsVisible="{Binding CouldNotBeAnswered}"
+                                IsEnabled="{Binding Connection.IsMet}" HorizontalOptions="Start"
+                                FontSize="12" Padding="12,6" Style="{StaticResource LinkButton}"
+                                Command="{Binding AskAgainCommand}" />
+
                         <VerticalStackLayout Spacing="0" BindableLayout.ItemsSource="{Binding Requirements}">
                             <BindableLayout.ItemTemplate>
                                 <DataTemplate x:DataType="screens:StockRequirementRow">

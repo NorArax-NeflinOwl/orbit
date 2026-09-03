@@ -12,10 +12,10 @@ namespace Orbit.Api.Tests.Tasks;
 /// counting: the shelf is split between everything asking for it, which is held in
 /// StockCheckSharedInventoryTests. What this file holds is that the linking itself is allowed.
 /// </summary>
-public sealed class ListsSharingAInventoryTests
+public sealed class ListsSharingAnInventoryTests
 {
     [Fact]
-    public async Task A_list_can_be_measured_against_a_inventory_nobody_has_taken()
+    public async Task A_list_can_be_measured_against_an_inventory_nobody_has_taken()
     {
         var context = new LinkingContext();
         var inventory = await context.AInventoryAsync();

@@ -31,7 +31,7 @@ public sealed class InventorySyncTests
     }
 
     [Fact]
-    public async Task What_a_inventory_holds_is_fetched_even_though_the_change_feed_omits_it()
+    public async Task What_an_inventory_holds_is_fetched_even_though_the_change_feed_omits_it()
     {
         using var context = new InventoryContext();
         var remote = context.Server.AddInventory("Pantry");

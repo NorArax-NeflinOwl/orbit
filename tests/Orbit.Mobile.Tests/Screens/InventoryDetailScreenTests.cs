@@ -155,7 +155,7 @@ public sealed class InventoryDetailScreenTests
 
     /// <summary>Opening an inventory must not warn that its own name duplicates itself.</summary>
     [Fact]
-    public async Task Opening_a_inventory_does_not_call_its_own_name_a_duplicate()
+    public async Task Opening_an_inventory_does_not_call_its_own_name_a_duplicate()
     {
         using var context = new ScreenContext();
         context.SuggestionsServer.Names.Add(new NameSuggestionDto("Kitchen", 0.9));
@@ -636,7 +636,7 @@ public sealed class InventoryDetailScreenTests
     }
 
     [Fact]
-    public async Task Making_a_inventory_private_seals_it_and_leaves_the_readable_columns_empty()
+    public async Task Making_an_inventory_private_seals_it_and_leaves_the_readable_columns_empty()
     {
         using var context = new ScreenContext(PrivateContent.HoldingAKeyFor(Owner));
         var inventory = await context.AddInventoryAsync(Product("Coffee"));
@@ -671,7 +671,7 @@ public sealed class InventoryDetailScreenTests
 
     /// <inheritdoc cref="NoteDetailScreenTests"/>
     [Fact]
-    public async Task Making_a_inventory_private_without_a_key_asks_for_it_rather_than_saving()
+    public async Task Making_an_inventory_private_without_a_key_asks_for_it_rather_than_saving()
     {
         using var context = new ScreenContext(PrivateContent.SignedInWithoutAKey(Owner));
         var inventory = await context.AddInventoryAsync(Product("Coffee"));

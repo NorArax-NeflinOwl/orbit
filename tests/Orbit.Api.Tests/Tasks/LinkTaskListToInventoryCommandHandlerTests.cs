@@ -31,7 +31,7 @@ public sealed class LinkTaskListToInventoryCommandHandlerTests
     }
 
     [Fact]
-    public async Task A_list_can_be_pointed_at_a_inventory()
+    public async Task A_list_can_be_pointed_at_an_inventory()
     {
         var taskList = AList();
         var inventoryId = _context.AddInventory(_userId);

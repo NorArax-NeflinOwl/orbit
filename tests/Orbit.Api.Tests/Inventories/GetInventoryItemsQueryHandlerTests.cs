@@ -29,7 +29,7 @@ public sealed class GetInventoryItemsQueryHandlerTests
     }
 
     [Fact]
-    public async Task HandleAsync_returns_null_for_a_inventory_the_caller_cannot_reach()
+    public async Task HandleAsync_returns_null_for_an_inventory_the_caller_cannot_reach()
     {
         var context = new InventoryTestContext();
         var handler = CreateHandler(context);
