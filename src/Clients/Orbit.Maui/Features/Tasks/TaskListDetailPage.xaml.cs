@@ -133,6 +133,13 @@ public partial class TaskListDetailPage : ContentPage
 	/// changes what the picker offers, and changing a picker's source or its selection from inside its
 	/// own change hung the app on Android - the dialog stopped answering and the screen was reported as
 	/// not responding.
+	///
+	/// The selection is let go of <em>before</em> the link is added, the order the move picker beside
+	/// this one already uses. Adding a link takes the chosen list out of what the picker offers, and a
+	/// selection still pointing past the end of the shortened list is pulled back onto whatever now sits
+	/// last - which raises this handler a second time and linked a list nobody had chosen. Choosing the
+	/// last list on offer was enough to link the one above it as well, and the entry then waited on both.
+	/// With nothing selected there is no index for the shortening to move.
 	/// </summary>
 	private void OnLinkedTaskListPicked(object? sender, EventArgs eventArgs)
 	{
@@ -143,8 +150,8 @@ public partial class TaskListDetailPage : ContentPage
 
 		Dispatcher.Dispatch(() =>
 		{
-			_viewModel.BeingEdited?.LinkToCommand.Execute(chosen);
 			picker.SelectedIndex = -1;
+			_viewModel.BeingEdited?.LinkToCommand.Execute(chosen);
 		});
 	}
 
