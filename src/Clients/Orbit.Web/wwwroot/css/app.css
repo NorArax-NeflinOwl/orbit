@@ -347,14 +347,17 @@ input.note-editor-title {
     padding: 12px 14px;
 }
 
-/* The note's own page: pressing what it says opens it to be rewritten, so it is drawn as something
-   that can be pressed - see NoteSummary. The rows inside it keep their own cursor: a tick box is a tick
-   box wherever it sits. */
+/* An object's own page: pressing what it says opens the form that changes it, so the card is drawn as
+   something that can be pressed - see NoteSummary, WarehouseSummary and CalendarEventSummary. The
+   controls inside it keep their own cursor: a tick box is a tick box wherever it sits, and so are the
+   two buttons that count a batch up and down. */
+.summary-opens,
 .note-summary-opens {
     cursor: pointer;
 }
 
-.note-summary-opens .check-row {
+.note-summary-opens .check-row,
+.summary-opens .shelf-batch-count {
     cursor: default;
 }
 

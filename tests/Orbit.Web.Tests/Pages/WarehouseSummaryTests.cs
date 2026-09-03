@@ -137,6 +137,26 @@ public sealed class WarehouseSummaryTests : OrbitTestContext
         Assert.Contains("Failed to save", cut.Find(".editor-rail-extras .error").TextContent);
     }
 
+    /// <summary>
+    /// Pressing the shelf opens the form that changes what is on it - the same rule a note's own page
+    /// follows. Counting a batch is not that, and the two buttons that do it keep their own press.
+    /// </summary>
+    [Fact]
+    public void Pressing_the_shelf_opens_the_form_and_counting_does_not()
+    {
+        _shelf = [Batch(FirstBatchId, "Flour", 1, DateTime.Today, expires: null)];
+        var navigationManager = Services.GetRequiredService<NavigationManager>();
+        var cut = RenderComponent<WarehouseSummary>(parameters => parameters.Add(page => page.WarehouseId, WarehouseId));
+        var startedAt = navigationManager.Uri;
+
+        cut.Find(".shelf-batch-count").Click();
+        Assert.Equal(startedAt, navigationManager.Uri);
+
+        cut.Find(".card").Click();
+
+        Assert.EndsWith($"/inventory/{WarehouseId}/edit", navigationManager.Uri);
+    }
+
     /// <summary>A shelf holding minus one of something is a number nobody can act on.</summary>
     [Fact]
     public void Nothing_on_the_shelf_cannot_be_counted_down_further()

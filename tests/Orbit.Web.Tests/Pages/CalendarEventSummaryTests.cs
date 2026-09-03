@@ -87,6 +87,21 @@ public sealed class CalendarEventSummaryTests : OrbitTestContext
         Assert.EndsWith($"/calendar/{EventId}/edit", navigationManager.Uri);
     }
 
+    /// <summary>
+    /// Pressing what the appointment says opens the form, the same rule a note's own page and a shelf
+    /// follow - reading it and wanting to move it by an hour is one thought.
+    /// </summary>
+    [Fact]
+    public void Pressing_what_it_says_opens_the_form()
+    {
+        var navigationManager = Services.GetRequiredService<NavigationManager>();
+        var cut = RenderComponent<CalendarEventSummary>(parameters => parameters.Add(page => page.Id, EventId));
+
+        cut.Find(".card").Click();
+
+        Assert.EndsWith($"/calendar/{EventId}/edit", navigationManager.Uri);
+    }
+
     /// <summary>Somebody else's appointment is theirs to change: this reader looks, and cannot delete.</summary>
     [Fact]
     public void An_event_shared_with_this_reader_offers_no_deleting()
