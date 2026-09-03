@@ -49,8 +49,7 @@ else
 {
     @* Pressing what the appointment says opens the form - the same rule a note's own page and a shelf
        follow. There is nothing on this card to do instead: an appointment has no line to tick. *@
-    <div class="card summary-opens" role="button" tabindex="0"
-         @onclick="GoToEditor" @onkeydown="OpenOnEnterOrSpace">
+    <SummaryCard OnOpen="GoToEditor">
         <div class="list-row">
             <span class="row-title">@T["When"]</span>
             <span class="row-meta">@WhenItHappens(_event.Details)</span>
@@ -82,7 +81,7 @@ else
                 <span class="row-meta">@string.Join(", ", _leadTimes.Select(DescribeLeadTime))</span>
             </div>
         }
-    </div>
+    </SummaryCard>
 
     @if (_pin is { } pin)
     {
@@ -246,18 +245,6 @@ else
             ReminderMinutesBeforeStart = _event.Details.ReminderMinutesBeforeStart,
             NotifyAtStart = _event.Details.NotifyAtStart
         });
-
-    /// <summary>
-    /// A box given a button's role has to answer a keyboard like one; the browser does that for a real
-    /// button and for nothing else.
-    /// </summary>
-    private void OpenOnEnterOrSpace(KeyboardEventArgs args)
-    {
-        if (args.Key is "Enter" or " ")
-        {
-            GoToEditor();
-        }
-    }
 
     private void GoToCalendar() => NavigationManager.NavigateTo("/calendar");
 

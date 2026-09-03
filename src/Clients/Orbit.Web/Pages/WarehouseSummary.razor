@@ -40,8 +40,7 @@ else
 {
     @* Pressing the shelf opens the form that changes what is on it - the same rule the note's own page
        follows. Counting a batch up or down is not that: those two buttons keep their own press, below. *@
-    <div class="card summary-opens" role="button" tabindex="0"
-         @onclick="GoToEditor" @onkeydown="OpenOnEnterOrSpace">
+    <SummaryCard OnOpen="GoToEditor">
         @if (_shelf.Count == 0)
         {
             <p class="checklist-empty">@T["Nothing on this shelf yet."]</p>
@@ -73,7 +72,7 @@ else
                 </span>
             </div>
         }
-    </div>
+    </SummaryCard>
 }
 
 </div>
@@ -250,18 +249,6 @@ else
         {
             Logger.LogWarning(exception, "Couldn't delete warehouse {WarehouseId}", WarehouseId);
             _message = T["Failed to delete the warehouse. Try again."];
-        }
-    }
-
-    /// <summary>
-    /// A box given a button's role has to answer a keyboard like one; the browser does that for a real
-    /// button and for nothing else.
-    /// </summary>
-    private void OpenOnEnterOrSpace(KeyboardEventArgs args)
-    {
-        if (args.Key is "Enter" or " ")
-        {
-            GoToEditor();
         }
     }
 
