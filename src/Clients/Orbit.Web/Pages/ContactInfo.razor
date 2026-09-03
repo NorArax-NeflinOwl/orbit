@@ -80,18 +80,15 @@ else
         }
         else if (_contact is { } contact)
         {
-            <div class="list-row">
-                <span class="row-title">@T["Email address"]</span>
-                <span class="row-meta">@contact.Email</span>
-            </div>
-            <div class="list-row">
-                <span class="row-title">@T["Status"]</span>
-                <span class="row-meta">@T[PresenceLabel(contact)]</span>
-            </div>
-            <div class="list-row">
-                <span class="row-title">@T["Last message"]</span>
-                <span class="row-meta">@contact.LastMessageAtUtc.LocalDateTime.ToString("dd.MM.yyyy HH:mm")</span>
-            </div>
+            <Row Title="@T["Email address"]">
+                <Trailing><span class="row-meta">@contact.Email</span></Trailing>
+            </Row>
+            <Row Title="@T["Status"]">
+                <Trailing><span class="row-meta">@T[PresenceLabel(contact)]</span></Trailing>
+            </Row>
+            <Row Title="@T["Last message"]">
+                <Trailing><span class="row-meta">@contact.LastMessageAtUtc.LocalDateTime.ToString("dd.MM.yyyy HH:mm")</span></Trailing>
+            </Row>
             @* Said plainly rather than left to be discovered by a message that goes nowhere. *@
             @if (contact.RequiresApprovalFromCurrentUser)
             {

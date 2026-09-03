@@ -41,36 +41,32 @@ else if (_item is null)
 else
 {
     <div class="card">
-        <div class="list-row">
-            <span class="row-title">@T["When"]</span>
-            <span class="row-meta">@(_item.DueDateUtc is { } dueDate ? dueDate.LocalDateTime.ToString("dd.MM.yyyy HH:mm") : T["No date set"])</span>
-        </div>
-        <div class="list-row">
-            <span class="row-title">@T["Where"]</span>
-            <span class="row-meta">@(_place.Length > 0 ? _place : T["No place set"])</span>
-        </div>
+        <Row Title="@T["When"]">
+            <Trailing><span class="row-meta">@(_item.DueDateUtc is { } dueDate ? dueDate.LocalDateTime.ToString("dd.MM.yyyy HH:mm") : T["No date set"])</span></Trailing>
+        </Row>
+        <Row Title="@T["Where"]">
+            <Trailing><span class="row-meta">@(_place.Length > 0 ? _place : T["No place set"])</span></Trailing>
+        </Row>
         @* What the appointment says about itself, and who is coming. Both live on the event rather than
            on the entry - an entry that is an appointment keeps neither - so both appear only where
            there is one. Above the map, because they are what the thing is; the map is where it is. *@
         @if (_event?.Details.Description is { Length: > 0 } description)
         {
-            <div class="list-row">
-                <span class="row-title">@T["Description"]</span>
-                <span class="row-meta">@description</span>
-            </div>
+            <Row Title="@T["Description"]">
+                <Trailing><span class="row-meta">@description</span></Trailing>
+            </Row>
         }
         @if (_event is { Details.Guests.Count: > 0 } withGuests)
         {
-            <div class="list-row">
-                <span class="row-title">@T["Guests:"]</span>
-                <span class="row-meta">@string.Join(", ", withGuests.Details.Guests.Select(NameOfTheGuest))</span>
-            </div>
+            <Row Title="@T["Guests:"]">
+                <Trailing><span class="row-meta">@string.Join(", ", withGuests.Details.Guests.Select(NameOfTheGuest))</span></Trailing>
+            </Row>
         }
         @if (_item.IsCompleted)
         {
-            <div class="list-row">
-                <span class="row-meta">@T["Already done."]</span>
-            </div>
+            <Row>
+                <Trailing><span class="row-meta">@T["Already done."]</span></Trailing>
+            </Row>
         }
     </div>
 

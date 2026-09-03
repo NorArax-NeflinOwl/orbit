@@ -50,36 +50,31 @@ else
     @* Pressing what the appointment says opens the form - the same rule a note's own page and a shelf
        follow. There is nothing on this card to do instead: an appointment has no line to tick. *@
     <SummaryCard OnOpen="GoToEditor">
-        <div class="list-row">
-            <span class="row-title">@T["When"]</span>
-            <span class="row-meta">@WhenItHappens(_event.Details)</span>
-        </div>
-        <div class="list-row">
-            <span class="row-title">@T["Where"]</span>
-            <span class="row-meta">@(_place.Length > 0 ? _place : T["No place set"])</span>
-        </div>
+        <Row Title="@T["When"]">
+            <Trailing><span class="row-meta">@WhenItHappens(_event.Details)</span></Trailing>
+        </Row>
+        <Row Title="@T["Where"]">
+            <Trailing><span class="row-meta">@(_place.Length > 0 ? _place : T["No place set"])</span></Trailing>
+        </Row>
         @if (_event.Details.Description is { Length: > 0 } description)
         {
-            <div class="list-row">
-                <span class="row-title">@T["Description"]</span>
-                <span class="row-meta">@description</span>
-            </div>
+            <Row Title="@T["Description"]">
+                <Trailing><span class="row-meta">@description</span></Trailing>
+            </Row>
         }
         @if (_event.Details.Guests.Count > 0)
         {
-            <div class="list-row">
-                <span class="row-title">@T["Guests:"]</span>
-                <span class="row-meta">@string.Join(", ", _event.Details.Guests.Select(NameOfTheGuest))</span>
-            </div>
+            <Row Title="@T["Guests:"]">
+                <Trailing><span class="row-meta">@string.Join(", ", _event.Details.Guests.Select(NameOfTheGuest))</span></Trailing>
+            </Row>
         }
         @* What it will say, and when. The channel is left out: what a reminder arrives on is a setting
            rather than a fact about the appointment, and this page is about the appointment. *@
         @if (_leadTimes.Count > 0)
         {
-            <div class="list-row">
-                <span class="row-title">@T["Reminders"]</span>
-                <span class="row-meta">@string.Join(", ", _leadTimes.Select(DescribeLeadTime))</span>
-            </div>
+            <Row Title="@T["Reminders"]">
+                <Trailing><span class="row-meta">@string.Join(", ", _leadTimes.Select(DescribeLeadTime))</span></Trailing>
+            </Row>
         }
     </SummaryCard>
 

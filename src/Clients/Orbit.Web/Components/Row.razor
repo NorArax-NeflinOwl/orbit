@@ -9,7 +9,10 @@
 {
     <button type="button" class="list-row list-row-button @AdditionalClass" @onclick="OnPressed">
         @Leading
-        <span class="row-title">@Title</span>
+        @if (!string.IsNullOrEmpty(Title))
+        {
+            <span class="row-title">@Title</span>
+        }
         @Trailing
     </button>
 }
@@ -17,7 +20,10 @@ else
 {
     <div class="list-row @AdditionalClass">
         @Leading
-        <span class="row-title">@Title</span>
+        @if (!string.IsNullOrEmpty(Title))
+        {
+            <span class="row-title">@Title</span>
+        }
         @Trailing
     </div>
 }
@@ -26,7 +32,13 @@ else
     /// <summary>What sits before the title - an avatar, a status dot. Left out entirely, not drawn empty, for a row that has none.</summary>
     [Parameter] public RenderFragment? Leading { get; set; }
 
-    [Parameter, EditorRequired] public string Title { get; set; } = string.Empty;
+    /// <summary>
+    /// Left out entirely rather than drawn empty for the one row that has none - TaskItemSummary's
+    /// "Already done.", which is only ever a trailing line on its own. An empty span here would still
+    /// take up the flexible width .row-title claims in the row's flex layout, pushing that lone line to
+    /// the right instead of leaving it where a row with no title puts its one thing.
+    /// </summary>
+    [Parameter] public string? Title { get; set; }
 
     /// <summary>Whatever follows the title - a priority badge, a progress bar, one or more meta spans. The caller's own markup, since how many and which vary by row.</summary>
     [Parameter] public RenderFragment? Trailing { get; set; }

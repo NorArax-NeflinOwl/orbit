@@ -55,6 +55,16 @@ public sealed class RowTests : OrbitTestContext
     }
 
     [Fact]
+    public void With_no_title_the_row_title_span_is_left_out_entirely()
+    {
+        var cut = RenderComponent<Row>(parameters => parameters
+            .Add(row => row.Trailing, "<span class=\"row-meta\">Already done.</span>"));
+
+        Assert.Empty(cut.FindAll(".row-title"));
+        Assert.Contains("Already done.", cut.Find(".list-row").TextContent);
+    }
+
+    [Fact]
     public void A_page_can_add_its_own_class_beside_the_shared_one()
     {
         var cut = RenderComponent<Row>(parameters => parameters

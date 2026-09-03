@@ -135,14 +135,15 @@
                        then was not one of this message's deliveries. *@
                     @foreach (var receipt in _infoReceipts)
                     {
-                        <div class="list-row">
-                            <span class="row-title">@DisplayNameFor(receipt.RecipientUserId)</span>
-                            <span class="row-meta">
-                                @(receipt.ReadAtUtc is { } readAt
-                                    ? T.Format("Read {0}", readAt.LocalDateTime.ToString("dd.MM HH:mm"))
-                                    : T["Delivered"])
-                            </span>
-                        </div>
+                        <Row Title="@DisplayNameFor(receipt.RecipientUserId)">
+                            <Trailing>
+                                <span class="row-meta">
+                                    @(receipt.ReadAtUtc is { } readAt
+                                        ? T.Format("Read {0}", readAt.LocalDateTime.ToString("dd.MM HH:mm"))
+                                        : T["Delivered"])
+                                </span>
+                            </Trailing>
+                        </Row>
                     }
                 </div>
             }
