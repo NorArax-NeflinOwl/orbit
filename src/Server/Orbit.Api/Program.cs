@@ -7,6 +7,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Orbit.Api;
+using Orbit.Api.Assistant;
 using Orbit.Api.Auth;
 using Orbit.GoogleIntegration;
 using Orbit.Api.Calendar;
@@ -26,6 +27,7 @@ using Orbit.Api.Transfer;
 using Orbit.Api.Users;
 using Orbit.Core;
 using Orbit.Core.Abstractions;
+using Orbit.Core.Assistant;
 using Orbit.Core.Notifications;
 using Orbit.Core.Permissions;
 using Orbit.Core.Users;
@@ -177,6 +179,13 @@ try
     builder.Services.AddHostedService<InventoryExpiryReminderBackgroundService>();
     builder.Services.AddHostedService<NotificationRetentionBackgroundService>();
     builder.Services.AddHostedService<DiagnosticLogRetentionBackgroundService>();
+
+    // The assistant's language model - Ollama locally, Azure AI Foundry in production, the same client
+    // either way (see info/ai-assistant-plan.md). Unconfigured, AssistantChatClient says so in the log
+    // the first time anything asks for it and the assistant endpoint answers 503, rather than anything
+    // failing - a fresh checkout runs with no model, exactly as it runs with no SMTP server.
+    builder.Services.Configure<AssistantSettings>(builder.Configuration.GetSection(AssistantSettings.SectionName));
+    builder.Services.AddSingleton<IAssistantChatClient, AssistantChatClient>();
 
     builder.Services.Configure<JwtSettings>(builder.Configuration.GetSection("Jwt"));
     builder.Services.AddSingleton<TokenService>();
@@ -350,6 +359,7 @@ try
     app.MapDiagnosticLogEndpoints();
     app.MapPublicShareEndpoints();
     app.MapTransferEndpoints();
+    app.MapAssistantEndpoints();
     app.MapHealthEndpoints();
     app.MapHub<LiveUpdatesHub>(LiveUpdateMessages.Path);
 
