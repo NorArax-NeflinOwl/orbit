@@ -1,0 +1,36 @@
+@using Orbit.Web.Services
+@inject Translations T
+
+@* Whether there is anything to show yet - not loaded, loaded and empty, or here it is - the same
+   three-way question every list on Orbit asks, worded slightly differently each time it was asked by
+   hand (a plain paragraph here, .empty-hint there). What "here it is" draws stays entirely the
+   caller's own: a flex column of cards, a two-column grid, a page's own search and filter chips above
+   them and a second, narrower emptiness underneath once those have had their say - see Tasks.razor,
+   which asks a second version of this same question about what a filter left standing, from inside
+   its own ChildContent. *@
+@if (IsLoading)
+{
+    <p>@T["Loading…"]</p>
+}
+else if (IsEmpty)
+{
+    <p class="empty-hint">@EmptyMessage</p>
+}
+else
+{
+    @ChildContent
+}
+
+@code {
+    [Parameter] public bool IsLoading { get; set; }
+
+    /// <summary>Whether there is nothing to show - not because it hasn't loaded, but because there is
+    /// genuinely none of it. What counts as "none" is the caller's own question to answer: the whole
+    /// list for the outer gate, or what a filter left standing for a second, narrower one - see
+    /// Tasks.razor.</summary>
+    [Parameter] public bool IsEmpty { get; set; }
+
+    [Parameter, EditorRequired] public string EmptyMessage { get; set; } = string.Empty;
+
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+}

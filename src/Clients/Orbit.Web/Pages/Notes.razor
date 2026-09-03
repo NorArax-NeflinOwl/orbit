@@ -30,18 +30,9 @@
     <p class="info">@_deleteMessage</p>
 }
 
-@if (_notes is null)
-{
-    <p>@T["Loading…"]</p>
-}
-else if (_notes.Count == 0)
-{
-    <p>@T["No notes."]</p>
-}
-else
-{
+<ObjectList IsLoading="_notes is null" IsEmpty="_notes is { Count: 0 }" EmptyMessage="@T["No notes."]">
     <div class="item-card-list">
-        @foreach (var note in Ordered(_notes))
+        @foreach (var note in Ordered(_notes!))
         {
             <ItemCard Name="@NameOf(note)"
                       OnNameSelected="() => OpenNote(note.Id)"
@@ -93,7 +84,7 @@ else
             </ItemCard>
         }
     </div>
-}
+</ObjectList>
 
 @code {
     private IReadOnlyList<NoteDto>? _notes;

@@ -78,16 +78,8 @@
     }
 }
 
-@if (_warehouses is null)
-{
-    <p>@T["Loading…"]</p>
-}
-else if (_warehouses.Count == 0)
-{
-    <p>@T["No warehouses yet. Create one to start tracking stock."]</p>
-}
-else
-{
+<ObjectList IsLoading="_warehouses is null" IsEmpty="_warehouses is { Count: 0 }"
+            EmptyMessage="@T["No warehouses yet. Create one to start tracking stock."]">
     <div class="item-card-list">
         @foreach (var warehouse in ArrangedWarehouses)
         {
@@ -169,7 +161,7 @@ else
             </div>
         }
     </div>
-}
+</ObjectList>
 
 @code {
     private IReadOnlyList<WarehouseDto>? _warehouses;

@@ -56,16 +56,7 @@
     </Actions>
 </PageHeader>
 
-@if (_taskLists is null)
-{
-    <p>@T["Loading…"]</p>
-}
-else if (_taskLists.Count == 0)
-{
-    <p class="empty-hint">@T["No task lists yet."]</p>
-}
-else
-{
+<ObjectList IsLoading="_taskLists is null" IsEmpty="_taskLists is { Count: 0 }" EmptyMessage="@T["No task lists yet."]">
     @* What the reader is looking for, above the chips that say which lists are on offer at all: a word
        from an entry, and the categories entries are filed under. Both narrow to lists that still hold
        something worth reading, and the cards then show what matched rather than their first few rows -
@@ -110,7 +101,7 @@ else
             @* "All" is a filter like the rest rather than a way of clearing them, so there is always
                exactly one answer to "what am I looking at". *@
             <button type="button" class="filter-chip @(_filter == TaskListFilter.All ? "on" : "")"
-                    @onclick="() => SetFilter(TaskListFilter.All)">@T["All"]<span class="filter-chip-count">@_taskLists.Count</span>
+                    @onclick="() => SetFilter(TaskListFilter.All)">@T["All"]<span class="filter-chip-count">@_taskLists!.Count</span>
             </button>
             @foreach (var filter in SelectableFilters)
             {
@@ -292,7 +283,7 @@ else
             </div>
         }
     </div>
-}
+</ObjectList>
 
 @code {
     private IReadOnlyList<TaskDto>? _taskLists;
