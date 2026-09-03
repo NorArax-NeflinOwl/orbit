@@ -67,11 +67,12 @@
                part that is a link: the name only says what was found. *@
             @foreach (var match in _itemMatches)
             {
-                <button type="button" class="list-row list-row-button" @onclick="() => OpenWarehouse(match.WarehouseId)">
-                    <span class="row-title">@match.Name</span>
-                    <span class="row-meta">@match.Amount</span>
-                    <span class="row-meta warehouse-search-where">@match.WarehouseName</span>
-                </button>
+                <Row Title="@match.Name" OnPressed="() => OpenWarehouse(match.WarehouseId)">
+                    <Trailing>
+                        <span class="row-meta">@match.Amount</span>
+                        <span class="row-meta warehouse-search-where">@match.WarehouseName</span>
+                    </Trailing>
+                </Row>
             }
         </div>
         <p class="empty-hint">@ItemMatchSummary</p>

@@ -1,0 +1,38 @@
+@* One line in a list: an optional leading mark, a title, and whatever follows it - a badge, a meta
+   span, several of each. A dozen places wrote this out by hand as a plain div, and eight of them wrote
+   it a second way besides - a <button> instead, because the whole line is what you press to get to the
+   thing it names. Both are "list-row"; only the second is also "list-row-button". A native <button>
+   gets Enter/Space for free, so unlike SummaryCard's div-based press target this needs no keydown
+   handling of its own - the only decision left is which element to draw, and OnPressed.HasDelegate
+   answers that the same way ItemCard's own slots do. *@
+@if (OnPressed.HasDelegate)
+{
+    <button type="button" class="list-row list-row-button @AdditionalClass" @onclick="OnPressed">
+        @Leading
+        <span class="row-title">@Title</span>
+        @Trailing
+    </button>
+}
+else
+{
+    <div class="list-row @AdditionalClass">
+        @Leading
+        <span class="row-title">@Title</span>
+        @Trailing
+    </div>
+}
+
+@code {
+    /// <summary>What sits before the title - an avatar, a status dot. Left out entirely, not drawn empty, for a row that has none.</summary>
+    [Parameter] public RenderFragment? Leading { get; set; }
+
+    [Parameter, EditorRequired] public string Title { get; set; } = string.Empty;
+
+    /// <summary>Whatever follows the title - a priority badge, a progress bar, one or more meta spans. The caller's own markup, since how many and which vary by row.</summary>
+    [Parameter] public RenderFragment? Trailing { get; set; }
+
+    /// <summary>Pressing the row. A row with nothing here draws as a plain, unpressable line - see the read-only rows on GroupInfo, ContactInfo and the summary pages.</summary>
+    [Parameter] public EventCallback OnPressed { get; set; }
+
+    [Parameter] public string? AdditionalClass { get; set; }
+}
