@@ -391,7 +391,7 @@ else
                 <label for="taskListInventorySelect">@T["Storage this list is measured against"]</label>
                 <select id="taskListInventorySelect" value="@(_linkedInventoryId?.ToString() ?? string.Empty)"
                         disabled="@_isWorkingOnInventory" @onchange="OnInventoryChangedAsync">
-                    <option value="">@T["Not measured against a inventory"]</option>
+                    <option value="">@T["Not measured against an inventory"]</option>
                     @* Every storage, including the ones other lists already measure: a store serves as
                        many jobs as it holds things for. What that costs is said under the picker rather
                        than hidden by leaving them out - the shelf is split between the lists asking for
@@ -1186,7 +1186,7 @@ else
     /// </summary>
     /// <summary>
     /// Every storage this account has, for the picker. Best effort: a list can be written and saved
-    /// without one, so a inventories call that fails costs the picker and nothing else.
+    /// without one, so an inventories call that fails costs the picker and nothing else.
     /// </summary>
     private async Task LoadTheInventoriesAsync()
     {

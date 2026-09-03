@@ -162,8 +162,8 @@ public sealed partial class StockCheckPanel : ObservableObject
         try
         {
             Message = await _tasks.GenerateInventoryAsync(serverId, cancellationToken) is not null
-                ? _translations["Built a inventory from what this list needs."]
-                : _translations["There was nothing on this list to build a inventory from."];
+                ? _translations["Built an inventory from what this list needs."]
+                : _translations["There was nothing on this list to build an inventory from."];
 
             Changed?.Invoke(this, EventArgs.Empty);
         }
@@ -233,7 +233,7 @@ public sealed partial class StockCheckPanel : ObservableObject
         var stored = await _inventories.GetAllAsync(cancellationToken);
 
         Inventories.Clear();
-        Inventories.Add(new InventoryChoice(null, _translations["Not measured against a inventory"]));
+        Inventories.Add(new InventoryChoice(null, _translations["Not measured against an inventory"]));
         foreach (var inventory in stored.Where(inventory => inventory.ServerId is not null))
         {
             Inventories.Add(new InventoryChoice(inventory.ServerId, inventory.Name));

@@ -79,7 +79,7 @@ else
             <Extras>
                 <select class="options-select" value="@_linkedInventoryId" @onchange="OnInventoryChangedAsync"
                         @onclick:stopPropagation="true">
-                    <option value="">@T["Not measured against a inventory"]</option>
+                    <option value="">@T["Not measured against an inventory"]</option>
                     @* Every storage, the ones other lists already measure included: a store serves as
                        many jobs as it holds things for, and the shelf is split between the lists asking
                        for it - see StockRequirementCounter. Which of them are shared is said in the

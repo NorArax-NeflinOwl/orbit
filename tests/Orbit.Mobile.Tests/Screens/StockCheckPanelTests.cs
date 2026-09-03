@@ -299,7 +299,7 @@ public sealed class StockCheckPanelTests
         Assert.NotEmpty(panel.Message);
     }
 
-    /// <summary>"Not measured against a inventory" leads the list, as it does on the web.</summary>
+    /// <summary>"Not measured against an inventory" leads the list, as it does on the web.</summary>
     [Fact]
     public async Task The_inventories_offered_start_with_none()
     {

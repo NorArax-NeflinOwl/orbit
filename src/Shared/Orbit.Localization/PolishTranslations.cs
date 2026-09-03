@@ -55,12 +55,12 @@ public static class PolishTranslations
         ["That note was already gone. The list has been brought up to date."] = "Tej notatki już nie było. Lista została odświeżona.",
         ["Orbit refused that change."] = "Orbit odrzucił tę zmianę.",
         ["Can't move this item right now - {0} is editing one of the lists."] = "Nie można teraz przenieść tej pozycji — {0} edytuje jedną z list.",
-        ["Couldn't recalculate against the inventory."] = "Nie udało się przeliczyć względem inventory.",
-        ["This list isn't measured against an inventory."] = "Ta lista nie jest porównywana z żadnym inventory.",
-        ["Couldn't generate an inventory from this list."] = "Nie udało się wygenerować inventory z tej listy.",
-        ["Inventory generated from this list."] = "Inventory wygenerowane z tej listy.",
-        ["Recalculate against the inventory"] = "Przelicz względem inventory",
-        ["Generate inventory"] = "Generuj inventory",
+        ["Couldn't recalculate against the inventory."] = "Nie udało się przeliczyć względem magazynu.",
+        ["This list isn't measured against an inventory."] = "Ta lista nie jest porównywana z żadnym magazynem.",
+        ["Couldn't generate an inventory from this list."] = "Nie udało się wygenerować magazynu z tej listy.",
+        ["Inventory generated from this list."] = "Magazyn wygenerowany z tej listy.",
+        ["Recalculate against the inventory"] = "Przelicz względem magazynu",
+        ["Generate inventory"] = "Generuj magazyn",
         ["More"] = "Więcej",
         ["Couldn't add those to the restock list."] = "Nie udało się dodać ich do listy uzupełnień.",
         ["{0} added to the restock list."] = "Dodano do listy uzupełnień: {0}.",
@@ -76,7 +76,7 @@ public static class PolishTranslations
             "Ten magazyn jest już mierzony względem innej listy.",
         ["Couldn't measure this list against that storage. Try again."] =
             "Nie udało się zmierzyć tej listy względem tego magazynu. Spróbuj ponownie.",
-        ["Not measured against a inventory"] = "Bez porównania z magazynem",
+        ["Not measured against an inventory"] = "Bez porównania z magazynem",
         ["Storage this list is measured against"] = "Magazyn, względem którego mierzona jest ta lista",
         ["An inventory entry then describes a product to put on that shelf."] =
             "Pozycja typu inwentarz opisuje wtedy produkt, który ma trafić na tę półkę.",
@@ -383,7 +383,7 @@ public static class PolishTranslations
         ["How the daily reminder arrives"] = "Jak przychodzi codzienne przypomnienie",
         // What the banner offers when a notification arrives with the app in front - see ForegroundNotices.
         ["Dismiss"] = "Odrzuć",
-        // ---- What a list or a inventory is for, under its name - see TaskListDetailViewModel. ----
+        // ---- What a list or an inventory is for, under its name - see TaskListDetailViewModel. ----
         ["What is it for?"] = "Do czego to jest?",
         // ---- Putting a conversation away, emptying it, and leaving a group - see ContactsViewModel. ----
         ["Show what is put away"] = "Pokaż odłożone",
@@ -440,7 +440,7 @@ public static class PolishTranslations
         ["Saved, but that place could not be found - open the map and point at it to keep it."] =
             "Zapisano, ale nie udało się znaleźć tego miejsca - otwórz mapę i wskaż je, żeby je zachować.",
 
-        // What rebuilding a inventory's restock list moved, and what it needs - see the phone's
+        // What rebuilding an inventory's restock list moved, and what it needs - see the phone's
         // RestockListSettingsPanel, which shows the settings Orbit.Web has had all along.
         ["Added {0}, removed {1}."] = "Dodano {0}, usunięto {1}.",
         ["The restock list needs a connection."] = "Lista uzupełnień wymaga połączenia.",
@@ -454,7 +454,7 @@ public static class PolishTranslations
             "Orbitowi nie udało się zapisać zmiany na liście zadań, więc nie czeka już na wysłanie.",
         ["Orbit couldn't save a change to an appointment, so it is no longer waiting to be sent."] =
             "Orbitowi nie udało się zapisać zmiany w spotkaniu, więc nie czeka już na wysłanie.",
-        ["Orbit couldn't save a change to a inventory, so it is no longer waiting to be sent."] =
+        ["Orbit couldn't save a change to an inventory, so it is no longer waiting to be sent."] =
             "Orbitowi nie udało się zapisać zmiany w magazynie, więc nie czeka już na wysłanie.",
         ["Orbit couldn't save a change, so it is no longer waiting to be sent."] =
             "Orbitowi nie udało się zapisać zmiany, więc nie czeka już na wysłanie.",
@@ -787,7 +787,7 @@ public static class PolishTranslations
         ["{0} shared a note with you"] = "{0} udostępnił(a) Ci notatkę",
         ["{0} shared a task list with you"] = "{0} udostępnił(a) Ci listę zadań",
         ["{0} shared an event with you"] = "{0} udostępnił(a) Ci wydarzenie",
-        ["{0} shared a inventory with you"] = "{0} udostępnił(a) Ci magazyn",
+        ["{0} shared an inventory with you"] = "{0} udostępnił(a) Ci magazyn",
         ["{0} shared their location with you"] = "{0} udostępnił(a) Ci swoje położenie",
         ["All day"] = "Cały dzień",
         ["Shared by"] = "Udostępnił",
@@ -1090,7 +1090,7 @@ public static class PolishTranslations
         ["a note"] = "notatkę",
         ["a task list"] = "listę zadań",
         ["an event"] = "wydarzenie",
-        ["a inventory"] = "magazyn",
+        ["an inventory"] = "magazyn",
         ["An error occurred while logging in. Try again."] = "Wystąpił błąd podczas logowania. Spróbuj ponownie.",
         ["An error occurred while registering. Try again."] = "Wystąpił błąd podczas rejestracji. Spróbuj ponownie.",
         ["Tick items off; use Edit to change the list itself."] = "Odhaczaj pozycje; użyj Edytuj, aby zmienić samą listę.",
@@ -1389,8 +1389,8 @@ public static class PolishTranslations
         ["Item options"] = "Opcje pozycji",
         ["{0} minutes before"] = "{0} min przed",
         ["List options"] = "Opcje listy",
-        ["Built a inventory from what this list needs."] = "Zbudowano magazyn z tego, czego potrzebuje ta lista.",
-        ["There was nothing on this list to build a inventory from."]
+        ["Built an inventory from what this list needs."] = "Zbudowano magazyn z tego, czego potrzebuje ta lista.",
+        ["There was nothing on this list to build an inventory from."]
             = "Na tej liście nie było nic, z czego można zbudować magazyn.",
         ["Added {0} to the restock list."] = "Dodano {0} do listy uzupełnień.",
         ["Nothing new to add - what is short is already waiting there."]
