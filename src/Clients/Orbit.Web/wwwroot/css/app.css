@@ -1647,6 +1647,19 @@ input.note-editor-title {
     font-weight: 600;
 }
 
+/* The same "something happened here" pulse ItemCard's own unseen state draws - see .item-card-unseen -
+   so an unread conversation reads the way an unread task list does, not only in bolder text. */
+.chat-list-item.unread {
+    border-bottom-color: var(--danger);
+    animation: card-with-news 2.4s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .chat-list-item.unread {
+        animation: none;
+    }
+}
+
 .chat-list-preview {
     font-size: 12px;
     color: var(--text-tertiary);
@@ -4760,6 +4773,14 @@ input.note-editor-title {
     gap: 8px;
 }
 
+/* ItemCard draws this the moment a caller hands it a Tags slot at all, whether or not any of that
+   slot's own conditions actually produced a tag - a warehouse with nothing to say about itself still
+   passes one, empty. Left undrawn here rather than in the component: an empty row still claimed the
+   gap around it, which pushed the head toward the card's top edge with nothing below to fill the rest. */
+.item-card-meta:has(.item-card-tags:empty) {
+    display: none;
+}
+
 .item-card-tags {
     display: flex;
     flex-wrap: wrap;
@@ -4792,6 +4813,11 @@ input.note-editor-title {
     color: var(--text-secondary);
     font-size: 13.5px;
     line-height: 1.5;
+}
+
+/* Same reason as .item-card-meta above: a Body slot that renders nothing is still a Body slot. */
+.item-card-body:empty {
+    display: none;
 }
 
 .item-card-body-opens {

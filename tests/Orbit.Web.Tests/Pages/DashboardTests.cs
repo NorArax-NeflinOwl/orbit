@@ -439,6 +439,29 @@ public sealed class DashboardTests : OrbitTestContext
 
         Assert.Empty(FindColumn(cut, "Recent chats").QuerySelectorAll(".notif-badge"));
     }
+
+    /// <summary>The card's own pulsing edge, the same "something happened here" every other card in
+    /// Orbit carries - not only the badge on the one row that has news.</summary>
+    [Fact]
+    public void A_message_waiting_pulses_the_recent_chats_cards_own_edge()
+    {
+        RegisterChatApiClient([Contact("Anna Kowalska", unread: 2), Contact("Bartek Nowak")]);
+
+        var cut = RenderComponent<Dashboard>();
+
+        Assert.Contains("item-card-unseen", FindColumn(cut, "Recent chats").ClassName);
+    }
+
+    [Fact]
+    public void Nobody_waiting_leaves_the_recent_chats_cards_edge_alone()
+    {
+        RegisterChatApiClient([Contact("Anna Kowalska"), Contact("Bartek Nowak")]);
+
+        var cut = RenderComponent<Dashboard>();
+
+        Assert.DoesNotContain("item-card-unseen", FindColumn(cut, "Recent chats").ClassName);
+    }
+
     private static ContactDto Contact(string displayName, int unread = 0)
         => new(
             Guid.NewGuid(), displayName.ToLowerInvariant(), displayName, $"{displayName}@example.com", "public-key",

@@ -238,6 +238,7 @@ else
         @if (_contacts.Count > 0 && CardPreferences.IsVisible("chats"))
         {
             <ItemCard Name="@(T["Recent chats"])" OnNameSelected='() => NavigationManager.NavigateTo("/contacts")'
+                      HasUnseenAction="@_recentContacts.Any(contact => contact.UnreadCount > 0)"
                       ExtraClass="@(DashboardPins.IsPinned("chats") ? "item-card-pinned" : null)">
                 <Pin>
                     <PinButton IsPinned='DashboardPins.IsPinned("chats")' OnPinnedChanged='pinned => SetCardPinnedAsync("chats", pinned)' />
