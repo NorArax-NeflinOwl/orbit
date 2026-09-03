@@ -685,7 +685,7 @@ else
     /// and this is the way there from the line itself.
     /// </summary>
     private void GoToEditItem(Guid taskListId, Guid itemId)
-        => NavigationManager.NavigateTo($"/tasks/{taskListId}/edit?item={itemId}");
+        => NavigationManager.NavigateTo($"/tasks/{taskListId}/items/{itemId}/edit");
 
     /// <summary>Whether this entry is ordinary work rather than an appointment or a restock errand.</summary>
     private static bool IsAChecklistEntry(TaskItemDto item)

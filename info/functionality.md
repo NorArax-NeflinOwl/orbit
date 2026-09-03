@@ -672,7 +672,7 @@ further in, and whatever light doing belongs to it offered where it is read.
 | Object | Read | Change |
 | --- | --- | --- |
 | Task list | `/tasks/{id}` - tick items, see the tree it stands for, measure it against a storage | `/tasks/{id}/edit` |
-| Task entry | `/tasks/{listId}/items/{itemId}` - when, where, what the appointment is about, who is coming, and a map | its own row in the list's editor |
+| Task entry | `/tasks/{listId}/items/{itemId}` - when, where, what the appointment is about, who is coming, and a map | `/tasks/{listId}/items/{itemId}/edit` - the list's own form, landing on this entry already unfolded |
 | Note | `/notes/{id}` - the note read, with the checklist lines in it tickable | `/notes/{id}/edit` |
 | Calendar event | `/calendar/{id}` - when, where, what it is about, who is coming, its reminders, and a map | `/calendar/{id}/edit` |
 | Storage | `/inventory/{id}` - one row per batch, counted up and down in place | `/inventory/{id}/edit` |

@@ -241,7 +241,7 @@ else
     /// The form for this one entry, which is the list's form opened on it - see TaskEditor's item
     /// parameter. An entry has no editor of its own yet.
     /// </summary>
-    private void GoToEditor() => NavigationManager.NavigateTo($"/tasks/{TaskListId}/edit?item={ItemId}");
+    private void GoToEditor() => NavigationManager.NavigateTo($"/tasks/{TaskListId}/items/{ItemId}/edit");
 
     private string Written(string name) => OrbitWrittenNames.Translate(key => T[key], name);
 

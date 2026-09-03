@@ -87,6 +87,24 @@ public sealed class TaskItemSummaryTests : OrbitTestContext
         Assert.EndsWith($"/tasks/{TaskListId}", navigationManager.Uri);
     }
 
+    /// <summary>
+    /// Edit leads to the entry's own address rather than the list's form for its own sake - see
+    /// TaskEditor's "/tasks/{listId}/items/{itemId}/edit" route, which opens on this one entry already
+    /// unfolded.
+    /// </summary>
+    [Fact]
+    public void Edit_opens_the_entrys_own_form()
+    {
+        RegisterClients(Item("Dentist", DateTimeOffset.UtcNow.AddDays(1), location: "Przychodnia"));
+        var navigationManager = Services.GetRequiredService<NavigationManager>();
+        var cut = Render();
+
+        cut.Find(".editor-rail .overflow-menu-trigger").Click();
+        cut.FindAll(".editor-rail .avatar-dropdown-item").First(entry => entry.TextContent.Contains("Edit")).Click();
+
+        Assert.EndsWith($"/tasks/{TaskListId}/items/{ItemId}/edit", navigationManager.Uri);
+    }
+
     /// <summary>The one press that leaves without opening a menu goes back to the list it is on.</summary>
     [Fact]
     public void Cancel_goes_back_to_the_list()
