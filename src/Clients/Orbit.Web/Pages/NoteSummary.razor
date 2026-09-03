@@ -44,7 +44,12 @@ else if (_note is null)
 }
 else
 {
-    <div class="card checklist-card">
+    @* Pressing what the note says opens it to be rewritten. Reading a note and wanting to change a word
+       is one thought, and it used to take finding the menu at the other end of the page first - the same
+       reason a card on the list opens the note rather than only its name does. Ticking a line is not
+       that: a checklist row keeps its own press, below. *@
+    <div class="card checklist-card note-summary-opens" role="button" tabindex="0"
+         @onclick="GoToEditor" @onkeydown="OpenOnEnterOrSpace">
         @if (_lines.Count == 0)
         {
             <p class="checklist-empty">@T["Nothing written here yet."]</p>
@@ -55,7 +60,10 @@ else
                written in, because a note is prose as often as it is a list and the two are mixed. *@
             @if (line.IsChecklistItem)
             {
-                <label class="check-row @(line.IsChecked ? "completed" : "")">
+                @* Its own press, kept from the card around it: a tick is what this row is for, and
+                   opening the whole note to write in instead would be answering a different question. *@
+                <label class="check-row @(line.IsChecked ? "completed" : "")"
+                       @onclick="() => { }" @onclick:stopPropagation="true">
                     <input type="checkbox" checked="@line.IsChecked" disabled="@_isReadOnly"
                            aria-label="@T.Format("Done: {0}", line.Text)"
                            @onchange="args => Tick(line, (bool)args.Value!)" />
@@ -233,6 +241,18 @@ else
         {
             Logger.LogWarning(exception, "Couldn't delete note {NoteId}", Id);
             _message = T["Failed to delete the note. Try again."];
+        }
+    }
+
+    /// <summary>
+    /// A box given a button's role has to answer a keyboard like one; the browser does that for a real
+    /// button and for nothing else. Space as well as Enter, which is what a button takes.
+    /// </summary>
+    private void OpenOnEnterOrSpace(KeyboardEventArgs args)
+    {
+        if (args.Key is "Enter" or " ")
+        {
+            GoToEditor();
         }
     }
 

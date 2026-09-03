@@ -141,16 +141,42 @@ your user's login keychain, not the system one.
    mkcert localhost 127.0.0.1 ::1 <your-LAN-IP>
    ```
    This produces two files, e.g. `localhost+3.pem` (certificate) and `localhost+3-key.pem` (key).
-4. Get these files into the container in place of the ones `generate-certificate.sh` would otherwise
-   generate - same `docker cp`/`docker compose restart` commands as on Windows, no macOS-specific
-   change:
+4. Put the two files where the container will read them, under the names it expects:
    ```
-   docker cp localhost+3.pem orbit-web:/etc/nginx/certs/orbit.crt
-   docker cp localhost+3-key.pem orbit-web:/etc/nginx/certs/orbit.key
-   docker compose restart orbit-web
+   mkdir -p ~/.orbit-certs
+   cp localhost+3.pem ~/.orbit-certs/orbit.crt
+   cp localhost+3-key.pem ~/.orbit-certs/orbit.key
+   chmod 600 ~/.orbit-certs/orbit.key
    ```
-   (`generate-certificate.sh` only generates a certificate when `orbit.crt`/`orbit.key` don't already
-   exist, so it will leave the mkcert-issued files alone on restart.)
+5. Point `orbit-web` at that folder, so the certificate lives outside Docker and survives
+   `docker compose down -v`. Compose reads `docker-compose.override.yml` on top of
+   `docker-compose.yml` automatically, and that file is gitignored, so this changes your machine and
+   nobody else's:
+   ```
+   cat > docker-compose.override.yml <<'YAML'
+   services:
+     orbit-web:
+       volumes:
+         - ${HOME}/.orbit-certs:/etc/nginx/certs
+   YAML
+   docker compose up -d orbit-web
+   ```
+   The bind mount replaces the committed `orbit-web-certs` volume for that path, and
+   `generate-certificate.sh` only issues a certificate when `orbit.crt`/`orbit.key` are missing - so
+   it leaves the mkcert-issued pair alone.
+
+   Without this step the certificate lives in the `orbit-web-certs` volume, `docker compose down -v`
+   deletes it, and the next start issues a fresh self-signed one that no browser trusts. What that
+   looks like from the app is worth knowing, because it does not look like a certificate problem: the
+   page loads from cache and then every `_framework/*.wasm` and every `/api` call fails with
+   `TypeError: Failed to fetch` and no status code. Nothing is wrong with the server - `curl -k`
+   against it answers 200 for the same files.
+
+   To check what is actually being served:
+   ```
+   echo | openssl s_client -connect localhost:8443 -servername localhost 2>/dev/null | openssl x509 -noout -issuer -dates
+   ```
+   An issuer of `mkcert development CA` is the trusted one; a self-signed certificate names itself.
 
 ## Option 3 - Manually import the existing self-signed certificate
 

@@ -508,12 +508,13 @@ inventory lists, the contacts tabs, the chat menus - is built and needs no schem
   goes on the track, which is where it lands and where the browser fills its own toggles in. Worth
   revisiting only if MAUI's Android switch handler grows a thumb tint that sticks.
 
-- **A permanent, bind-mounted TLS certificate setup for local development.** The mkcert-based option
-  in [`info/instructions.md`](instructions.md) currently requires copying certificate files into the
-  running `orbit-web` container by hand after every `docker compose down -v`. Switching the
-  `orbit-web-certs` volume to a bind mount pointing at a folder holding the mkcert output would make
-  this survive that command — noted in `info/instructions.md` as a small `docker-compose.yml`
-  change, not yet made.
+- ~~**A permanent, bind-mounted TLS certificate setup for local development.**~~ Done, without
+  touching the committed `docker-compose.yml`: the certificate lives in a folder of the developer's
+  own and a gitignored `docker-compose.override.yml` mounts it over `/etc/nginx/certs`, which Compose
+  reads automatically. `docker compose down -v` no longer costs the certificate. The steps are in
+  [`info/instructions.md`](instructions.md), along with what an untrusted certificate looks like from
+  inside the app — every `.wasm` and every `/api` call failing with `TypeError: Failed to fetch`,
+  which reads as a broken build rather than as the certificate it is.
 - **Self-hosting the Nominatim reverse-geocoding endpoint.** The calendar's map location picker
   currently calls OpenStreetMap's free, public Nominatim instance (see
   [Functionality — Calendar](functionality.md#calendar)), whose usage policy caps it to light,

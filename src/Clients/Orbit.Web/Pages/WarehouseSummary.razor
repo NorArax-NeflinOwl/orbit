@@ -44,7 +44,10 @@ else if (_warehouse is null)
 }
 else
 {
-    <div class="card">
+    @* Pressing the shelf opens the form that changes what is on it - the same rule the note's own page
+       follows. Counting a batch up or down is not that: those two buttons keep their own press, below. *@
+    <div class="card summary-opens" role="button" tabindex="0"
+         @onclick="GoToEditor" @onkeydown="OpenOnEnterOrSpace">
         @if (_shelf.Count == 0)
         {
             <p class="checklist-empty">@T["Nothing on this shelf yet."]</p>
@@ -55,7 +58,7 @@ else
                 @* Before the name, where the eye starts on the row: taking one off the shelf and
                    putting one back are the two things somebody does standing in front of it, and
                    opening an editor to type a number is not what either of them feels like. *@
-                <span class="shelf-batch-count">
+                <span class="shelf-batch-count" @onclick="() => { }" @onclick:stopPropagation="true">
                     <button type="button" class="icon-btn" disabled="@(batch.Quantity <= 0)"
                             title="@(T["One fewer"])" aria-label="@T.Format("One fewer: {0}", batch.Name)"
                             @onclick="() => Count(batch, -1)">−</button>
@@ -253,6 +256,18 @@ else
         {
             Logger.LogWarning(exception, "Couldn't delete warehouse {WarehouseId}", WarehouseId);
             _message = T["Failed to delete the warehouse. Try again."];
+        }
+    }
+
+    /// <summary>
+    /// A box given a button's role has to answer a keyboard like one; the browser does that for a real
+    /// button and for nothing else.
+    /// </summary>
+    private void OpenOnEnterOrSpace(KeyboardEventArgs args)
+    {
+        if (args.Key is "Enter" or " ")
+        {
+            GoToEditor();
         }
     }
 

@@ -347,6 +347,20 @@ input.note-editor-title {
     padding: 12px 14px;
 }
 
+/* An object's own page: pressing what it says opens the form that changes it, so the card is drawn as
+   something that can be pressed - see NoteSummary, WarehouseSummary and CalendarEventSummary. The
+   controls inside it keep their own cursor: a tick box is a tick box wherever it sits, and so are the
+   two buttons that count a batch up and down. */
+.summary-opens,
+.note-summary-opens {
+    cursor: pointer;
+}
+
+.note-summary-opens .check-row,
+.summary-opens .shelf-batch-count {
+    cursor: default;
+}
+
 /* A note nobody may write to. contenteditable="false" stops the typing; the tick boxes in it are real
    <input>s, which a non-editable surface does not disable, so they are stopped here. Text stays
    selectable on purpose - a note that can be read should be one that can be copied. */
