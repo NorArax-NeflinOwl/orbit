@@ -22,27 +22,18 @@
    to write would be a button that does nothing. *@
 <PageTitle>@(_event is null ? T["Event"] : _event.Details.Title)</PageTitle>
 
+@* Two panels, as every screen that reads one object has: what the appointment says on the left, and
+   the panel that does not scroll on the right - see EditorRail. There is no Save in it: an appointment
+   has nothing that can be changed where it stands. *@
+<div class="editor-page">
+<div class="editor-page-body">
+
 <div class="page-header">
     <div class="page-heading">
         <h1>@(_event?.Details.Title ?? T["Event"])</h1>
         @if (_event is { IsShared: true, SharedByUserName: { } sharedBy })
         {
             <p class="page-subtitle">@T.Format("Shared by {0}", sharedBy)</p>
-        }
-    </div>
-    <div class="page-header-actions">
-        <button type="button" class="btn-secondary" @onclick="GoToCalendar">@T["Calendar"]</button>
-        @if (_event is not null)
-        {
-            <OverflowMenu>
-                <button type="button" class="avatar-dropdown-item" @onclick="GoToEditor">
-                    @(_event.IsShared ? T["View"] : T["Edit"])
-                </button>
-                @if (!_event.IsShared)
-                {
-                    <button type="button" class="avatar-dropdown-item" @onclick="DeleteAsync">@T["Delete"]</button>
-                }
-            </OverflowMenu>
         }
     </div>
 </div>
@@ -115,6 +106,24 @@ else
         </p>
     }
 }
+
+</div>
+@if (_event is not null)
+{
+    <EditorRail OnCancel="GoToCalendar">
+        <OverflowMenu>
+            <button type="button" class="avatar-dropdown-item" @onclick="GoToCalendar">@T["Calendar"]</button>
+            <button type="button" class="avatar-dropdown-item" @onclick="GoToEditor">
+                @(_event.IsShared ? T["View"] : T["Edit"])
+            </button>
+            @if (!_event.IsShared)
+            {
+                <button type="button" class="avatar-dropdown-item" @onclick="DeleteAsync">@T["Delete"]</button>
+            }
+        </OverflowMenu>
+    </EditorRail>
+}
+</div>
 
 @code {
     [Parameter] public Guid Id { get; set; }

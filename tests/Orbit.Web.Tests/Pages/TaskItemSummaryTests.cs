@@ -53,16 +53,24 @@ public sealed class TaskItemSummaryTests : OrbitTestContext
         Assert.Contains("Przychodnia, Długa 4", cut.Markup);
     }
 
+    /// <summary>
+    /// Everywhere this entry leads, in the panel every other screen keeps its actions in - and the
+    /// form, which this page offered no way to reach at all.
+    /// </summary>
     [Fact]
-    public void Both_ways_out_are_offered()
+    public void Every_way_out_is_offered_in_the_panel()
     {
         RegisterClients(Item("Dentist", DateTimeOffset.UtcNow.AddDays(1), location: "Przychodnia"));
 
         var cut = Render();
+        cut.Find(".editor-rail .overflow-menu-trigger").Click();
 
-        var actions = cut.Find(".page-header-actions").TextContent;
-        Assert.Contains("Back to Calendar", actions);
-        Assert.Contains("Show Tasks", actions);
+        var offered = cut.FindAll(".editor-rail .avatar-dropdown-item").Select(entry => entry.TextContent.Trim()).ToList();
+        Assert.Contains("Back to Calendar", offered);
+        Assert.Contains("Show Tasks", offered);
+        Assert.Contains("Edit", offered);
+        // Nothing on this screen can be written, so the panel carries no Save.
+        Assert.Empty(cut.FindAll(".editor-rail .page-action-primary"));
     }
 
     [Fact]
@@ -72,9 +80,23 @@ public sealed class TaskItemSummaryTests : OrbitTestContext
         var navigationManager = Services.GetRequiredService<NavigationManager>();
         var cut = Render();
 
-        cut.FindAll(".page-header-actions button").First(button => button.TextContent.Contains("Show Tasks")).Click();
+        cut.Find(".editor-rail .overflow-menu-trigger").Click();
+        cut.FindAll(".editor-rail .avatar-dropdown-item").First(entry => entry.TextContent.Contains("Show Tasks")).Click();
 
         // The shallow level, like every other way into a list.
+        Assert.EndsWith($"/tasks/{TaskListId}", navigationManager.Uri);
+    }
+
+    /// <summary>The one press that leaves without opening a menu goes back to the list it is on.</summary>
+    [Fact]
+    public void Cancel_goes_back_to_the_list()
+    {
+        RegisterClients(Item("Dentist", DateTimeOffset.UtcNow.AddDays(1), location: "Przychodnia"));
+        var navigationManager = Services.GetRequiredService<NavigationManager>();
+        var cut = Render();
+
+        cut.FindAll("button").First(button => button.GetAttribute("aria-label") == "Cancel").Click();
+
         Assert.EndsWith($"/tasks/{TaskListId}", navigationManager.Uri);
     }
 

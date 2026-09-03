@@ -5081,6 +5081,13 @@ input.note-editor-title {
         margin-left: auto;
     }
 
+    /* The bar sits on the bottom edge, so a menu hanging off it would open into the ground. It opens
+       upwards instead - the same distance, the other way. */
+    .editor-rail .overflow-menu-dropdown {
+        top: auto;
+        bottom: calc(100% + 4px);
+    }
+
     /* On its own line above the buttons rather than beside them, and only once the arrow has been
        pressed: a bar tall enough to hold fields as well would be most of a phone. */
     .editor-rail-extras {

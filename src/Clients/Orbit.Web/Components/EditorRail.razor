@@ -12,7 +12,9 @@
    at the bar's other end, since a bar tall enough to hold fields as well would be most of a phone.
 
    One component rather than the same panel written out on six pages: it is the same panel, and it has
-   to sit and behave the same on all of them. *@
+   to sit and behave the same on all of them. A screen that is only read carries the same panel with no
+   Save in it - what leaves the screen and what else it can do belong in the same place whether or not
+   there is anything to write. *@
 <div class="editor-rail @(_isOpen ? "editor-rail-open" : null)">
     @* Only where a page has something to keep beside the buttons. The arrow that opens it is drawn on
        narrow screens only, where the panel is a bar and the fields are folded into it. *@
@@ -29,11 +31,17 @@
         <div class="editor-rail-extras">@Extras</div>
     }
     <div class="editor-rail-actions">
-        <button type="button" class="icon-btn page-action page-action-primary"
-                title="@T["Save"]" aria-label="@T["Save"]" disabled="@SaveDisabled" @onclick="OnSave">
-            <svg viewBox="0 0 20 20" width="30" height="30" aria-hidden="true" fill="none"
-                 stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m4 10.5 4 4 8-9" /></svg>
-        </button>
+        @* Only where the page has something to write. A screen that is read rather than filled in - an
+           appointment, a checklist that saves each tick as it is made - would otherwise carry a Save
+           that does nothing, and a button that does nothing is worse than no button. *@
+        @if (OnSave.HasDelegate)
+        {
+            <button type="button" class="icon-btn page-action page-action-primary"
+                    title="@T["Save"]" aria-label="@T["Save"]" disabled="@SaveDisabled" @onclick="OnSave">
+                <svg viewBox="0 0 20 20" width="30" height="30" aria-hidden="true" fill="none"
+                     stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m4 10.5 4 4 8-9" /></svg>
+            </button>
+        }
         <button type="button" class="icon-btn page-action" title="@T["Cancel"]" aria-label="@T["Cancel"]"
                 @onclick="OnCancel">
             <svg viewBox="0 0 20 20" width="30" height="30" aria-hidden="true" fill="none"
@@ -44,8 +52,13 @@
 </div>
 
 @code {
+    /// <summary>
+    /// What Save writes. Left unset by a screen that is read rather than filled in, and the button is
+    /// then not drawn at all.
+    /// </summary>
     [Parameter] public EventCallback OnSave { get; set; }
 
+    /// <summary>Leaving the screen: back to the list on a page that is read, out of the form on one that is filled in.</summary>
     [Parameter] public EventCallback OnCancel { get; set; }
 
     [Parameter] public bool SaveDisabled { get; set; }

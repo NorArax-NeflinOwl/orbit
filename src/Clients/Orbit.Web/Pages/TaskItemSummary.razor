@@ -20,6 +20,12 @@
    the wrong one for something you have to get to. See Calendar.razor's GoToDueTask. *@
 <PageTitle>@(_item is null ? T["Task"] : Written(_item.Description))</PageTitle>
 
+@* Two panels, as every screen that reads one object has: the entry on the left, and the panel that
+   does not scroll on the right - see EditorRail. No Save: the tick that finishes this entry is made on
+   the list it is on, which is where the whole list is in front of the reader. *@
+<div class="editor-page">
+<div class="editor-page-body">
+
 <div class="page-header">
     <div>
         <h1>@(_item is null ? T["Task"] : Written(_item.Description))</h1>
@@ -27,10 +33,6 @@
         {
             <p class="page-subtitle">@Written(_taskList.Title)</p>
         }
-    </div>
-    <div class="page-header-actions">
-        <button type="button" class="btn-secondary" @onclick="GoToCalendar">@T["Back to Calendar"]</button>
-        <button type="button" class="btn-primary" @onclick="GoToTaskList">@T["Show Tasks"]</button>
     </div>
 </div>
 
@@ -89,6 +91,22 @@ else
         <p class="empty-hint">@T["That place could not be found on the map."]</p>
     }
 }
+
+</div>
+@* The way out is the list this entry is on, which is where it gets ticked off; everywhere else it
+   leads is behind the menu. This screen had no way to change the entry at all until now - the form is
+   the list's, opened on this one entry. *@
+<EditorRail OnCancel="GoToTaskList">
+    <OverflowMenu>
+        <button type="button" class="avatar-dropdown-item" @onclick="GoToTaskList">@T["Show Tasks"]</button>
+        <button type="button" class="avatar-dropdown-item" @onclick="GoToCalendar">@T["Back to Calendar"]</button>
+        @if (_item is not null)
+        {
+            <button type="button" class="avatar-dropdown-item" @onclick="GoToEditor">@T["Edit"]</button>
+        }
+    </OverflowMenu>
+</EditorRail>
+</div>
 
 @code {
     [Parameter] public Guid TaskListId { get; set; }
@@ -224,6 +242,12 @@ else
 
     /// <summary>The list this entry is on, at the shallow level - see TaskListChecklist.</summary>
     private void GoToTaskList() => NavigationManager.NavigateTo($"/tasks/{TaskListId}");
+
+    /// <summary>
+    /// The form for this one entry, which is the list's form opened on it - see TaskEditor's item
+    /// parameter. An entry has no editor of its own yet.
+    /// </summary>
+    private void GoToEditor() => NavigationManager.NavigateTo($"/tasks/{TaskListId}/edit?item={ItemId}");
 
     private string Written(string name) => OrbitWrittenNames.Translate(key => T[key], name);
 

@@ -32,13 +32,32 @@ public sealed class EditorRailTests : OrbitTestContext
         Assert.Single(cut.FindAll(".editor-rail-actions .beside"));
     }
 
-    /// <summary>Nothing to save is said by the button rather than by leaving it out - see .page-action.</summary>
+    /// <summary>
+    /// Nothing to save *yet* is said by the button rather than by leaving it out: the page can write,
+    /// and there is nothing written to write. See .page-action.
+    /// </summary>
     [Fact]
-    public void Nothing_to_save_greys_the_save()
+    public void Nothing_to_save_yet_greys_the_save()
     {
-        var cut = RenderComponent<EditorRail>(parameters => parameters.Add(rail => rail.SaveDisabled, true));
+        var cut = RenderComponent<EditorRail>(parameters => parameters
+            .Add(rail => rail.OnSave, () => { })
+            .Add(rail => rail.SaveDisabled, true));
 
         Assert.True(cut.Find(".page-action-primary").HasAttribute("disabled"));
+    }
+
+    /// <summary>
+    /// A screen that is read rather than filled in hands the panel no Save, and the button is not drawn
+    /// at all - an appointment has nothing that can be changed where it stands, and a Save that does
+    /// nothing is worse than no Save. What leaves the screen stays where it always is.
+    /// </summary>
+    [Fact]
+    public void A_screen_with_nothing_to_write_carries_no_save()
+    {
+        var cut = RenderComponent<EditorRail>(parameters => parameters.Add(rail => rail.OnCancel, () => { }));
+
+        Assert.Empty(cut.FindAll(".page-action-primary"));
+        Assert.Single(cut.FindAll("button[aria-label=Cancel]"));
     }
 
     /// <summary>

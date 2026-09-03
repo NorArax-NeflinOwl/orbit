@@ -81,7 +81,7 @@ public sealed class CalendarEventSummaryTests : OrbitTestContext
         var navigationManager = Services.GetRequiredService<NavigationManager>();
         var cut = RenderComponent<CalendarEventSummary>(parameters => parameters.Add(page => page.Id, EventId));
 
-        cut.Find(".page-header-actions .overflow-menu-trigger").Click();
+        cut.Find(".editor-rail .overflow-menu-trigger").Click();
         cut.FindAll(".avatar-dropdown-item").First(entry => entry.TextContent.Trim() == "Edit").Click();
 
         Assert.EndsWith($"/calendar/{EventId}/edit", navigationManager.Uri);
@@ -109,7 +109,7 @@ public sealed class CalendarEventSummaryTests : OrbitTestContext
         _event = AnEvent() with { IsShared = true, SharedByUserName = "Anna", AccessLevel = "ReadOnly" };
 
         var cut = RenderComponent<CalendarEventSummary>(parameters => parameters.Add(page => page.Id, EventId));
-        cut.Find(".page-header-actions .overflow-menu-trigger").Click();
+        cut.Find(".editor-rail .overflow-menu-trigger").Click();
 
         var offered = cut.FindAll(".avatar-dropdown-item").Select(entry => entry.TextContent.Trim()).ToList();
         Assert.Contains("View", offered);
