@@ -62,6 +62,18 @@ Do not stack a new branch on top of an unmerged one unless the user explicitly a
 
 Only when opening a PR - work that joins an existing one uses that PR's branch.
 
+Work from a worktree of your own, not from the main checkout:
+
+```bash
+git worktree add .claude/worktrees/<name> -b <branch> origin/Coding
+```
+
+The main checkout at the repository root is shared by every session on this
+machine. A `git switch` there moves the ground under all of them, and a commit
+there lands on whatever branch somebody else last checked out - which is how a
+handover ended up on another session's PR on 2026-09-04. If you must commit in
+the shared tree, check `git branch --show-current` immediately before.
+
 - Start from up-to-date `Coding`: `git fetch origin && git switch -c <branch> origin/Coding`
 - Name: `<type>/<short-kebab-description>`, for example
   `fix/orbit-api-startup-port`, `feat/calendar-module-schema`,
