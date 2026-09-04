@@ -44,12 +44,10 @@ Rules in this file are always in context. Longer procedures live in
    inherits this session's open PR rather than opening its own.
 4. One logical change per commit. A session's PR usually carries several, so the
    commits - not the PR - are where that separation lives.
-5. **Runner minutes are a hard budget: 2000 a month, and a badly triggered pipeline
-   spent them in four days once.** Before adding a workflow trigger, work out how many
-   times one change would run the suite - a feature PR, the push that merges it and
-   the integration PR it synchronises are three chances to test the same tree. Keep
-   one per stage. `paths-ignore` documentation out of every trigger, and never add a
-   trigger "to be safe". See skill `ci-pipeline`.
+5. Runner minutes are a monthly budget - 2000, and they ran out once in four days.
+   Every push to a PR branch runs the full suite, so push finished work rather than
+   every commit, and test locally first. Adding or widening a workflow trigger is a
+   decision made with skill `ci-pipeline` open, never "to be safe".
 
 ## Azure constraints (pay-as-you-go subscription)
 
