@@ -33,4 +33,18 @@ public sealed class InventoryManagedTaskListEntity
 
     /// <summary>Stored by name, like every other enum here - see Orbit.Core.Abstractions.ItemPriority.</summary>
     public string ListPriority { get; set; } = nameof(Orbit.Core.Abstractions.ItemPriority.Normal);
+
+    /// <summary>
+    /// Whether the list asks only about the products somebody marked to look at every round - see
+    /// Orbit.Core.Inventories.RestockListSettings.OnlyCheckedRegularly. False in the schema as well as
+    /// here, so a row written before this column existed reads back as the behaviour it had.
+    /// </summary>
+    public bool OnlyCheckedRegularly { get; set; }
+
+    /// <summary>
+    /// Where the standing daily reminder is said. Serialized
+    /// <see cref="Orbit.Core.Notifications.NotificationChannel"/> - "None"/"Email"/"Push"/"Both" - and
+    /// defaulted to the channel that reminder has always gone out on.
+    /// </summary>
+    public string ReminderNotificationChannel { get; set; } = nameof(Orbit.Core.Notifications.NotificationChannel.Push);
 }

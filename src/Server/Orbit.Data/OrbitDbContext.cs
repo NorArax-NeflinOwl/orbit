@@ -360,6 +360,13 @@ public sealed class OrbitDbContext : DbContext
             .Property(row => row.ListPriority)
             .IsRequired().HasMaxLength(10)
             .HasDefaultValue(nameof(Orbit.Core.Abstractions.ItemPriority.Normal));
+        // The same rule again for where the standing reminder is said: a row written before the column
+        // existed is a list that was being reminded on the phone, and reading back an empty channel
+        // would take that away.
+        modelBuilder.Entity<InventoryManagedTaskListEntity>()
+            .Property(row => row.ReminderNotificationChannel)
+            .IsRequired().HasMaxLength(10)
+            .HasDefaultValue(nameof(Orbit.Core.Notifications.NotificationChannel.Push));
 
         modelBuilder.Entity<ChatGroupAnnouncementEntity>(entity =>
         {

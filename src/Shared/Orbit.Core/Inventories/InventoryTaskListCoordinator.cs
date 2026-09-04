@@ -95,6 +95,7 @@ public sealed class InventoryTaskListCoordinator
             reminders: TaskItemReminders.Default with
             {
                 Daily = settings.RemindDaily,
+                DailyChannel = settings.ReminderChannel,
                 DailyTimeOfDay = settings.RefreshTimeOfDay
             });
         // Pinned from the moment it exists: this is the one list Orbit maintains rather than the reader,
@@ -170,6 +171,13 @@ public sealed class InventoryTaskListCoordinator
         // asks for is worked out across every task at once, which is RestockListRefresh's job.
         var settings = await _managedTaskListRepository.GetSettingsAsync(item.InventoryId, cancellationToken);
         if (settings.OnlyLinkedWithDueDate)
+        {
+            return item;
+        }
+
+        // Nor does a list that only asks about the round: the shelf running low is not a question it
+        // puts, so a product nobody marked to look at stays off it however little there is.
+        if (settings.OnlyCheckedRegularly && !item.IsCheckedRegularly)
         {
             return item;
         }

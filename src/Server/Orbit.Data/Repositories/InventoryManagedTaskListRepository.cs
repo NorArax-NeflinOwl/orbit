@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Orbit.Core.Abstractions;
 using Orbit.Core.Inventories;
+using Orbit.Core.Notifications;
 using Orbit.Data.Entities;
 
 namespace Orbit.Data.Repositories;
@@ -97,7 +98,11 @@ public sealed class InventoryManagedTaskListRepository : IInventoryManagedTaskLi
                 entity.RemindDaily,
                 // A priority nobody recognises reads as Normal rather than failing the whole settings
                 // read - the same rule every other stored-by-name enum here follows.
-                Enum.TryParse<ItemPriority>(entity.ListPriority, out var priority) ? priority : ItemPriority.Normal);
+                Enum.TryParse<ItemPriority>(entity.ListPriority, out var priority) ? priority : ItemPriority.Normal,
+                entity.OnlyCheckedRegularly,
+                Enum.TryParse<NotificationChannel>(entity.ReminderNotificationChannel, out var channel)
+                    ? channel
+                    : NotificationChannel.Push);
     }
 
     /// <summary>
@@ -120,6 +125,8 @@ public sealed class InventoryManagedTaskListRepository : IInventoryManagedTaskLi
         entity.IsEnabled = settings.IsEnabled;
         entity.RemindDaily = settings.RemindDaily;
         entity.ListPriority = settings.ListPriority.ToString();
+        entity.OnlyCheckedRegularly = settings.OnlyCheckedRegularly;
+        entity.ReminderNotificationChannel = settings.ReminderChannel.ToString();
         await _dbContext.SaveChangesAsync(cancellationToken);
     }
 }

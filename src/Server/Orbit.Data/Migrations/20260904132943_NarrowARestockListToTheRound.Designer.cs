@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using Orbit.Data;
@@ -11,9 +12,11 @@ using Orbit.Data;
 namespace Orbit.Data.Migrations
 {
     [DbContext(typeof(OrbitDbContext))]
-    partial class OrbitDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260904132943_NarrowARestockListToTheRound")]
+    partial class NarrowARestockListToTheRound
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -1512,6 +1515,38 @@ namespace Orbit.Data.Migrations
                     b.Property<int>("Position")
                         .HasColumnType("integer")
                         .HasColumnName("OP_TI_POSITION");
+
+                    b.Property<string>("ProductCategory")
+                        .HasColumnType("text")
+                        .HasColumnName("OP_TI_PRODUCTCATEGORY");
+
+                    b.Property<DateTimeOffset?>("ProductExpiryDate")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("OP_TI_PRODUCTEXPIRYDATE");
+
+                    b.Property<string>("ProductExpiryNotificationChannel")
+                        .HasColumnType("text")
+                        .HasColumnName("OP_TI_PRODUCTEXPIRYNOTIFICATIONCHANNEL");
+
+                    b.Property<bool?>("ProductIsCheckedRegularly")
+                        .HasColumnType("boolean")
+                        .HasColumnName("OP_TI_PRODUCTISCHECKEDREGULARLY");
+
+                    b.Property<decimal?>("ProductMinimumQuantity")
+                        .HasColumnType("numeric")
+                        .HasColumnName("OP_TI_PRODUCTMINIMUMQUANTITY");
+
+                    b.Property<decimal?>("ProductQuantity")
+                        .HasColumnType("numeric")
+                        .HasColumnName("OP_TI_PRODUCTQUANTITY");
+
+                    b.Property<string>("ProductType")
+                        .HasColumnType("text")
+                        .HasColumnName("OP_TI_PRODUCTTYPE");
+
+                    b.Property<string>("ProductUnit")
+                        .HasColumnType("text")
+                        .HasColumnName("OP_TI_PRODUCTUNIT");
 
                     b.Property<bool>("RemindDaily")
                         .HasColumnType("boolean")

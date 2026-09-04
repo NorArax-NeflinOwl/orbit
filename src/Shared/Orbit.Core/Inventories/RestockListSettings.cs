@@ -1,4 +1,5 @@
 using Orbit.Core.Abstractions;
+using Orbit.Core.Notifications;
 
 namespace Orbit.Core.Inventories;
 
@@ -39,6 +40,21 @@ namespace Orbit.Core.Inventories;
 /// shows on the calendar. Off leaves the list itself alone: products dropping below their minimum still
 /// raise their own errands, there is simply nothing arriving each morning to ask about the whole shelf.
 /// </param>
+/// <param name="OnlyCheckedRegularly">
+/// A second narrowing, and a blunter one: only the products somebody marked as ones to look at every
+/// round (see <see cref="InventoryItem.IsCheckedRegularly"/>) are asked for, whatever the shelf says
+/// about the rest.
+///
+/// False - the default - leaves the answer as it was: everything the rule above lets through, which
+/// includes anything that has dropped below its own minimum. True is for a shelf whose counts nobody
+/// keeps up to date, where the list is a round rather than a report: the milk, the batteries, the
+/// things you look at rather than count.
+/// </param>
+/// <param name="ReminderChannel">
+/// Where the standing "Update stock levels" reminder is said - the banner, an email, the phone, or
+/// nowhere but the in-app feed. Means nothing while <paramref name="RemindDaily"/> is off, for the same
+/// reason the hour does.
+/// </param>
 /// <param name="ListPriority">
 /// How much the generated list matters, which is the priority the "Restock supplies - X" list is created
 /// with and kept at. A task list carries a priority and a task item does not, so this is the only place
@@ -49,7 +65,9 @@ public sealed record RestockListSettings(
     TimeOnly RefreshTimeOfDay,
     bool IsEnabled = true,
     bool RemindDaily = true,
-    ItemPriority ListPriority = ItemPriority.Normal)
+    ItemPriority ListPriority = ItemPriority.Normal,
+    bool OnlyCheckedRegularly = false,
+    NotificationChannel ReminderChannel = NotificationChannel.Push)
 {
     public static readonly TimeOnly DefaultRefreshTimeOfDay = new(9, 0);
 
