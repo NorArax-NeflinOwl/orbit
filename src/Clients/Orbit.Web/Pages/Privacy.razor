@@ -1,0 +1,58 @@
+@page "/privacy"
+@using Orbit.Core
+@using Orbit.Web.Services
+@inject Translations T
+
+@* What Orbit keeps, where it goes, and what it never sees. Deliberately has no [Authorize], the same
+   as the licence: what a service does with what you give it is a question somebody is entitled to an
+   answer to before they hand anything over, and the footer that links here is on the sign-in page too.
+
+   The words are drawn from info/functionality.md - the sections on private items, sharing, the map and
+   authentication - rewritten for somebody who wants to know what happens to their own notes rather than
+   which command handler enforces it. Where the two ever disagree, that document is the one describing
+   the code and this one is wrong. *@
+<PageTitle>@T["Orbit — Privacy"]</PageTitle>
+
+<PageHeader>
+    <Title>@T["Privacy"]</Title>
+    <Subtitle>@T["What Orbit keeps, what leaves your device, and what nobody but you can read."]</Subtitle>
+</PageHeader>
+
+<div class="prose-page">
+    <div class="card">
+        <h2>@T["The short version"]</h2>
+        <p>@T["Orbit is a place to keep your own things. It does not sell anything about you, does not track you across other sites, and carries no advertising. Nothing you write is used to train anything. What it stores, it stores because Orbit cannot show it back to you otherwise."]</p>
+    </div>
+
+    <div class="card">
+        <h2>@T["What is stored on Orbit's server"]</h2>
+        <p>@T["Your account: the email address you registered with, your username and display name, and a hash of your password - never the password itself. The hash is PBKDF2, so a stolen database cannot be turned back into passwords."]</p>
+        <p>@T["Your things: notes, task lists, calendar events, what is on your shelves, your contacts and your group memberships. These are stored as you wrote them, so that Orbit can search them, remind you about them and show them on another device."]</p>
+        <p>@T["Signing in: a short-lived access token and a long-lived refresh token. Only a SHA-256 hash of the refresh token is kept, so a leaked database alone cannot be used to sign in as you."]</p>
+    </div>
+
+    <div class="card">
+        <h2>@T["What Orbit's server cannot read"]</h2>
+        <p>@T["Messages between you and a contact are sealed in your browser before they are sent, with a key agreed between the two of you. The server stores and delivers them without ever holding a key that could open them."]</p>
+        <p>@T["A note, task list or inventory marked private is sealed the same way. What the server stores is the fact that it is private plus a block of ciphertext - the readable columns go empty, not merely unread. That is why a private item cannot be shared, raises no reminders, and is lost if you reset your password: the key is replaced along with it, and Orbit has no copy."]</p>
+        <p>@T["A private inventory goes one step further. An inventory's items are rows of their own, so making one private deletes those rows - there is nothing left on the server to read."]</p>
+    </div>
+
+    <div class="card">
+        <h2>@T["What this browser keeps"]</h2>
+        <p>@T["Orbit sets no cookies. It uses local storage instead - the same browser, a different drawer - for being signed in, the language you read it in, how you have arranged the pages, and the last errors it noticed on this device. None of it is sent anywhere on its own."]</p>
+        <p>@T["Manage cookies at the bottom of any page lists all of it by category, says how much of each there is, and lets you turn off everything that is not needed to stay signed in. Turning a category off clears what is already there, not only what would be written next."]</p>
+    </div>
+
+    <div class="card">
+        <h2>@T["Who else is involved"]</h2>
+        <p>@T["Sharing something reaches exactly the people you name, at the level you choose, and can be withdrawn. Sharing your position is the same, and it stops on its own - a live position is shared for as long as you said and no longer."]</p>
+        <p>@T["Some things reach other companies because you asked them to: signing in with Google, adding an event to a Google calendar, or opening a map, which fetches its tiles from OpenStreetMap. The map also loads its code from a public CDN, and the fonts come from Google Fonts. Nothing you have written is sent with any of those requests, but your address is visible to whoever answers them."]</p>
+    </div>
+
+    <div class="card">
+        <h2>@T["Getting rid of it"]</h2>
+        <p>@T["Options → Account deletes the account and everything under it. There is no soft copy kept afterwards, and it is the one action on that page that asks twice."]</p>
+        <p class="prose-footnote">@OrbitRelease.Copyright</p>
+    </div>
+</div>

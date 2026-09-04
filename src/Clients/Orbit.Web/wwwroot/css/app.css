@@ -1900,9 +1900,116 @@ input.note-editor-title {
     color: var(--accent);
 }
 
-/* The version, which is pressable to reveal the rest of the hash. Looks like the text beside it: it is
-   a fact that happens to expand, not a button somebody is being invited to press. */
-.app-footer-version {
+/* A footer entry that opens a dialog rather than a page - About, and Manage cookies. Drawn exactly like
+   the links beside it: which of the two a reader is pressing is not a distinction they should have to
+   make, and one underlined word next to one that is not reads as a mistake. */
+.app-footer-link {
+    padding: 0;
+    border: 0;
+    background: none;
+    color: var(--text-tertiary);
+    font: inherit;
+    text-decoration: underline;
+    cursor: pointer;
+}
+
+.app-footer-link:hover {
+    color: var(--accent);
+}
+
+/* The gap between one footer entry and the next. Wider than the row's own gap, because these are
+   separate destinations rather than parts of one sentence - the dot that used to separate them said
+   the same thing in a character. */
+.app-footer a,
+.app-footer-link {
+    margin-left: 8px;
+}
+
+/* A panel over the page, from the footer or from anywhere else - see Components/Dialog.razor. The map
+   picker had the only overlay in Orbit and kept its own; these are the general ones. */
+.dialog-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 70;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+    background: oklch(20% 0.02 60 / 0.55);
+}
+
+.dialog-panel {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    width: min(520px, 100%);
+    max-height: 100%;
+    padding: 20px;
+    background: var(--bg-elevated);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    box-shadow: 0 18px 48px oklch(20% 0.02 60 / 0.35);
+}
+
+/* The panel takes focus when it opens so Escape reaches it - which would otherwise draw the browser's
+   focus ring around the whole thing, as though the box itself were the control. */
+.dialog-panel:focus {
+    outline: none;
+}
+
+.dialog-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+}
+
+.dialog-header h2 {
+    margin: 0;
+    font-size: 16px;
+}
+
+/* The one part that scrolls. The heading and the buttons stay put, so a long panel never leaves its
+   way out somewhere below the fold. */
+.dialog-body {
+    overflow-y: auto;
+    font-size: 13.5px;
+    line-height: 1.6;
+    color: var(--text-secondary);
+}
+
+.dialog-body p {
+    margin: 0 0 12px;
+}
+
+.dialog-footer {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: 8px;
+}
+
+/* What this build is - see AboutDialog. A definition list, because that is what it is: a short label
+   and the fact under it, three or four times. */
+.about-facts {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 4px 16px;
+    margin: 0 0 12px;
+}
+
+.about-facts dt {
+    color: var(--text-tertiary);
+}
+
+.about-facts dd {
+    margin: 0;
+    overflow-wrap: anywhere;
+}
+
+/* Pressable to reveal the rest of the commit hash. Looks like the text beside it: it is a fact that
+   happens to expand, not a button somebody is being invited to press. */
+.about-version {
     padding: 0;
     border: 0;
     background: none;
@@ -1912,12 +2019,70 @@ input.note-editor-title {
     word-break: break-all;
 }
 
-.app-footer-version:hover {
+.about-version:hover {
     color: var(--accent);
 }
 
-.app-footer-separator {
-    opacity: 0.5;
+.about-copyright {
+    color: var(--text-tertiary);
+}
+
+/* One category of what this browser keeps - see ManageCookiesDialog. The box, its name and how much
+   there is on one line; what it actually is underneath, where there is room to say it. */
+.cookies-category {
+    padding: 10px 0;
+    border-bottom: 1px solid var(--border);
+}
+
+.cookies-category:last-of-type {
+    border-bottom: none;
+}
+
+.cookies-category-head {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    cursor: pointer;
+}
+
+.cookies-category-name {
+    flex: 1;
+    min-width: 0;
+    color: var(--text-primary);
+    font-weight: 500;
+}
+
+.cookies-category-what {
+    margin: 4px 0 0 28px;
+    color: var(--text-tertiary);
+    font-size: 12.5px;
+}
+
+/* Privacy, Security and Docs: pages that are read rather than used. Narrower than a page of cards,
+   because a line of prose the full width of a desktop window is a line nobody finishes. */
+.prose-page {
+    max-width: 760px;
+}
+
+.prose-page h2 {
+    margin: 0 0 8px;
+    font-size: 15px;
+}
+
+.prose-page p {
+    margin: 0 0 12px;
+    font-size: 13.5px;
+    line-height: 1.7;
+    color: var(--text-secondary);
+}
+
+.prose-page p:last-child {
+    margin-bottom: 0;
+}
+
+.prose-footnote {
+    color: var(--text-tertiary);
+    font-size: 12px;
 }
 
 /* Names the reader already has, under the field they are typing into. Sits close under the input so it

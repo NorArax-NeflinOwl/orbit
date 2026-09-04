@@ -1,0 +1,102 @@
+@using Orbit.Web.Services
+@inject BrowserStorageConsent Consent
+@inject Translations T
+
+@* What this browser is allowed to keep. The link that opens it says "Manage cookies", because that is
+   the phrase everybody looks for, and the first line says the honest version: Orbit sets no cookies at
+   all - it uses localStorage, which is the same question about the same browser.
+
+   Three categories, and only two of them are a choice. Turning one off clears what is already there
+   rather than only stopping the next write - see storageConsent.js. *@
+<Dialog Title="@(T["Manage cookies"])" AdditionalClass="cookies-dialog" OnClosed="OnClosed">
+    <ChildContent>
+        <p>@T["Orbit sets no cookies. What it remembers about you in this browser is kept in local storage, which never leaves this device on its own, and this is where you decide how much of it there is."]</p>
+
+        <div class="cookies-category">
+            <label class="cookies-category-head">
+                @* Ticked and unpressable rather than absent: a reader deciding what to allow should see
+                   everything that is being kept, including the part that is not up for discussion. *@
+                <input type="checkbox" checked disabled aria-label="@(T["Strictly necessary - always kept"])" />
+                <span class="cookies-category-name">@T["Strictly necessary"]</span>
+                <span class="row-meta">@Held(_counts.Necessary)</span>
+            </label>
+            <p class="cookies-category-what">@T["Being signed in, the language you read Orbit in, and the record of what you have chosen here. Turning this off would be indistinguishable from signing out."]</p>
+        </div>
+
+        <div class="cookies-category">
+            <label class="cookies-category-head">
+                <input type="checkbox" checked="@_preferences" @onchange="args => _preferences = (bool)args.Value!" />
+                <span class="cookies-category-name">@T["Preferences"]</span>
+                <span class="row-meta">@Held(_counts.Preferences)</span>
+            </label>
+            <p class="cookies-category-what">@T["How you have arranged Orbit: the theme and accent colour, what is pinned to the dashboard, what is put away, and how each list is sorted. Turning it off forgets the arranging, not the things themselves."]</p>
+        </div>
+
+        <div class="cookies-category">
+            <label class="cookies-category-head">
+                <input type="checkbox" checked="@_diagnostics" @onchange="args => _diagnostics = (bool)args.Value!" />
+                <span class="cookies-category-name">@T["Diagnostics"]</span>
+                <span class="row-meta">@Held(_counts.Diagnostics)</span>
+            </label>
+            <p class="cookies-category-what">@T["The last errors Orbit noticed on this device. It stays on this device unless you send it yourself - see the Privacy page - but it still records what you were doing when something broke."]</p>
+        </div>
+
+        @if (_savedMessage is not null)
+        {
+            <p class="info">@_savedMessage</p>
+        }
+    </ChildContent>
+
+    <Footer>
+        @* "Reject" ahead of "Accept" and both plain buttons: a dialog where refusing is one press and
+           agreeing is a bright one is a dialog with an opinion about the answer. *@
+        <button type="button" class="btn-secondary" @onclick="RejectEverythingOptionalAsync">@T["Reject optional"]</button>
+        <button type="button" class="btn-secondary" @onclick="AcceptEverythingAsync">@T["Accept all"]</button>
+        <button type="button" class="btn-primary" @onclick="SaveAsync">@T["Save choices"]</button>
+    </Footer>
+</Dialog>
+
+@code {
+    [Parameter] public EventCallback OnClosed { get; set; }
+
+    private bool _preferences = true;
+    private bool _diagnostics = true;
+    private StoredKeyCounts _counts;
+    private string? _savedMessage;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var consent = await Consent.ReadAsync();
+        _preferences = consent.Preferences;
+        _diagnostics = consent.Diagnostics;
+        _counts = await Consent.CountAsync();
+    }
+
+    private async Task AcceptEverythingAsync()
+    {
+        _preferences = true;
+        _diagnostics = true;
+        await SaveAsync();
+    }
+
+    private async Task RejectEverythingOptionalAsync()
+    {
+        _preferences = false;
+        _diagnostics = false;
+        await SaveAsync();
+    }
+
+    /// <summary>
+    /// Saves and stays open, with the counts read again. A dialog that closed on Save would leave the
+    /// reader to take on trust that anything happened; the numbers dropping to zero is the proof.
+    /// </summary>
+    private async Task SaveAsync()
+    {
+        await Consent.SaveAsync(new StorageConsent(_preferences, _diagnostics));
+        _counts = await Consent.CountAsync();
+        _savedMessage = T["Saved. Anything you turned off has been cleared from this browser."];
+    }
+
+    private string Held(int count)
+        => count == 1 ? T["1 thing kept"] : T.Format("{0} things kept", count);
+}
