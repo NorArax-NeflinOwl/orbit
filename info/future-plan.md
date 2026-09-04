@@ -472,17 +472,6 @@ inventory lists, the contacts tabs, the chat menus - is built and needs no schem
 
 ## Smaller identified follow-ups
 
-- **Finish "Do not share my personal information".** The footer offers About, Privacy, Security, Docs
-  and Manage cookies; the sixth entry GitHub's own footer carries is the one still missing, and it is
-  the only one of the six that is not purely in the browser. What it needs: a per-account setting on
-  the server (a migration, beside `NotificationSettingsEntity`) so the choice follows a reader between
-  devices, mirrored into local storage under a strictly-necessary key so the very first paint can
-  honour it; telemetry off for that account; the map's tiles held until consent; and Google Fonts and
-  Leaflet moved off their CDNs into `wwwroot`, so that opening Orbit stops telling `fonts.googleapis.com`
-  and `unpkg.com` who is reading it. Manage cookies already says what this browser keeps - see
-  [Functionality](functionality.md#the-footer-and-what-stands-behind-each-word-in-it) - and this is the
-  other half: what leaves it.
-
 - **A shelf item's category, held as several.** A task entry is filed under as many words as apply and
   a shelf item under exactly one, which is the one place the two boxes still differ - see `TagField`
   and `SuggestedTextField`, the multi- and single-valued halves of the same control. Making the shelf

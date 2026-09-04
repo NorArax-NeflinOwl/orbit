@@ -1572,6 +1572,8 @@ them: which of the two a reader is pressing is not a distinction they should hav
   changes, those three pages are the other place it is written down.**
 - **Manage cookies** (`ManageCookiesDialog`) - see below. Orbit sets no cookies at all; the link is
   named for what people go looking for, and the dialog's first line says so.
+- **Do not share my personal information** (`DoNotShareDialog`) - the other half of that one. Manage
+  cookies is about what this browser *keeps*; this is about what *leaves* it. See below.
 
 `Dialog` (`Components/Dialog.razor`) is the shared panel the two dialogs are built on: a heading, a
 body that scrolls, an optional row of buttons that does not, and three ways out - the backdrop, the
@@ -1600,6 +1602,39 @@ Turning a category off **clears what is already stored**, not only what would be
 dialog stays open with the counts re-read so the numbers dropping to zero are the proof. There is no
 banner across the page on a first visit: Orbit stores nothing before somebody uses it, so there is
 nothing to agree to before reading.
+
+#### What leaves the browser, and the one switch that stops it
+
+Three things used to reach another company when somebody opened Orbit, before they had agreed to
+anything: **Google Fonts**, **unpkg** (Leaflet's code) and **OpenStreetMap** (the map's tiles). Two of
+the three are gone outright - the fonts live in `wwwroot/fonts` (latin and latin-ext only, which is what
+English and Polish need) and Leaflet in `wwwroot/vendor/leaflet`. They were vendored rather than gated,
+because a page that looks different depending on a privacy choice is a page that tells everybody what
+the choice was.
+
+The third cannot be: a world of map tiles is not something to keep in `wwwroot`, and the browser fetches
+them a square at a time, so opening a map tells OpenStreetMap roughly where somebody is looking. That is
+what the switch turns off, along with keeping the account out of the trace this deployment records of
+what its own server was doing. The map keeps its pins and its searching and loses the picture behind
+them, and says so where Leaflet's own attribution sits (`mapTiles.js`, `.map-tiles-off`).
+
+**The answer lives on the account** (`User.KeepsThirdPartiesOut`, `PUT /api/users/me/privacy`), not in
+the browser: it is a standing instruction, and somebody who has said it once should not have to say it
+again on their phone. The browser keeps a **mirror** under `orbit-keep-third-parties-out` - a
+strictly-necessary key, since it is a record of consent - written when the layout signs in and whenever
+the switch moves, because a map is drawn long before an API call could come back and one that flashed
+the world and then blanked would be worse than either answer.
+
+Server-side it is `TraceOptOut`, a middleware after `UseAuthorization` that clears the `Recorded` flag on
+the request's own activity. The exporter is the wrong place to decide this - an activity starts before
+authentication has run, so the only moment both facts exist is there. The choice is cached for a minute
+per account, because otherwise this would be a database read on every request in Orbit; the endpoint
+that changes it clears that entry, so turning the switch **off** takes effect at once rather than
+waiting out a minute of nothing being recorded.
+
+What it deliberately does **not** touch: signing in with Google and handing an event to a Google
+calendar are things somebody asks for one at a time, and a standing switch that silently disabled them
+would be answering a question nobody asked.
 
 #### Which build this is
 

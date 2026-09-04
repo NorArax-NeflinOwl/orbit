@@ -119,6 +119,7 @@ using Orbit.Core.Suggestions.GetNameSuggestions;
 using Orbit.Core.Suggestions.GetUsedValues;
 using Orbit.Core.Users;
 using Orbit.Core.Users.SetPresence;
+using Orbit.Core.Users.SetPrivacyChoice;
 using Orbit.Core.Users.SaveOwnLocation;
 using Orbit.Core.Location.GetSharedLocations;
 using Orbit.Core.Location.StopReceivingLocation;
@@ -191,6 +192,8 @@ public static class OrbitCoreServiceCollectionExtensions
         services.AddScoped<IRequestHandler<GenerateInventoryFromTaskListCommand, Guid?>, GenerateInventoryFromTaskListCommandHandler>();
         services.AddScoped<IRequestHandler<SetNotePinnedCommand, bool>, SetNotePinnedCommandHandler>();
         services.AddScoped<IRequestHandler<SetAvailabilityCommand, bool>, SetAvailabilityCommandHandler>();
+        // The footer's "Do not share my personal information" - see User.KeepsThirdPartiesOut.
+        services.AddScoped<IRequestHandler<SetPrivacyChoiceCommand, bool>, SetPrivacyChoiceCommandHandler>();
         services.AddScoped<IRequestHandler<PresenceHeartbeatCommand, bool>, PresenceHeartbeatCommandHandler>();
         services.AddScoped<UserVisibility>();
         services.AddScoped<PermissionCodeStore>();

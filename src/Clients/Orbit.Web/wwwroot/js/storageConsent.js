@@ -25,6 +25,7 @@ window.OrbitStorageConsent = (function () {
         'orbit-language',
         'orbit-allow-location',
         'orbit-allow-google-extras',
+        'orbit-keep-third-parties-out',
         CONSENT_KEY
     ];
 

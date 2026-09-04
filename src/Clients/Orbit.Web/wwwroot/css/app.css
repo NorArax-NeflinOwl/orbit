@@ -2066,6 +2066,19 @@ input.note-editor-title {
     font-size: 12.5px;
 }
 
+/* What a map says when its background is off - see mapTiles.js. In the corner where Leaflet's own
+   attribution sits, because it is the same kind of remark about where the picture comes from. */
+.map-tiles-off {
+    max-width: 260px;
+    padding: 6px 8px;
+    border-radius: 6px;
+    background: var(--bg-elevated);
+    border: 1px solid var(--border);
+    color: var(--text-tertiary);
+    font-size: 11.5px;
+    line-height: 1.4;
+}
+
 /* Privacy, Security and Docs: pages that are read rather than used. Narrower than a page of cards,
    because a line of prose the full width of a desktop window is a line nobody finishes. */
 .prose-page {

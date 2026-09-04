@@ -9,6 +9,7 @@
 @using Orbit.Core
 @using Orbit.Web.Services
 @inject AuthApiClient AuthApiClient
+@inject UsersApiClient UsersApiClient
 @inject OrbitAuthenticationStateProvider AuthenticationStateProvider
 @inject TokenStore TokenStore
 @inject TokenRefreshService TokenRefreshService
@@ -268,6 +269,9 @@
             @* Named for the thing people go looking for, even though Orbit sets no cookies - see
                ManageCookiesDialog, whose first line says so. *@
             <button type="button" class="app-footer-link" @onclick="() => _isCookiesOpen = true">@T["Manage cookies"]</button>
+            @* Manage cookies is about what this browser keeps; this is about what leaves it - see
+               DoNotShareDialog. Named the way GitHub's own footer names it. *@
+            <button type="button" class="app-footer-link" @onclick="() => _isDoNotShareOpen = true">@T["Do not share my personal information"]</button>
         </footer>
 
         @* Over the page, from the footer. Rendered here rather than beside the footer's own row so the
@@ -280,13 +284,38 @@
         {
             <ManageCookiesDialog OnClosed="() => _isCookiesOpen = false" />
         }
+        @if (_isDoNotShareOpen)
+        {
+            <DoNotShareDialog OnClosed="() => _isDoNotShareOpen = false" />
+        }
     </main>
 </div>
 
 @code {
-    /// <summary>Which of the footer's two dialogs is open, if either - see AboutDialog and ManageCookiesDialog.</summary>
+    /// <summary>
+    /// Copies the account's "do not share my personal information" into this browser, so the next first
+    /// paint can honour it - a map is drawn long before an API call could come back, and a device
+    /// somebody has only just signed in on has never been told the answer. Best-effort: a browser that
+    /// could not be told asks again next time, which is the safe way round for a choice that defaults
+    /// to sharing nothing extra anyway. See mapTiles.js.
+    /// </summary>
+    private async Task MirrorThePrivacyChoiceAsync()
+    {
+        try
+        {
+            var account = await UsersApiClient.GetAccountAsync();
+            await JSRuntime.InvokeVoidAsync("OrbitMapTiles.remember", account?.KeepsThirdPartiesOut ?? false);
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            Logger.LogWarning(exception, "Couldn't mirror the privacy choice into this browser");
+        }
+    }
+
+    /// <summary>Which of the footer's dialogs is open, if any - see AboutDialog, ManageCookiesDialog and DoNotShareDialog.</summary>
     private bool _isAboutOpen;
     private bool _isCookiesOpen;
+    private bool _isDoNotShareOpen;
 
 
     private bool _avatarMenuOpen;
@@ -597,6 +626,7 @@
 
         await Presence.StartAsync();
         await Permissions.RefreshAsync();
+        await MirrorThePrivacyChoiceAsync();
         // Forgotten now that there is somebody to ask as: how much of its version the server answers
         // with depends on what this account may see (see ConfigEndpoints), so the answer cached while
         // nobody was signed in is the wrong one. Not asked again here - About asks when it is opened,
