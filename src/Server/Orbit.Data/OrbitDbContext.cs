@@ -347,6 +347,19 @@ public sealed class OrbitDbContext : DbContext
             // Nine in the morning, matching RestockListSettings.DefaultRefreshTimeOfDay - stated here as
             // well so the column's own default agrees with the domain's.
             .HasDefaultValue(9 * 60);
+        // Both default to true in the schema, not only in the entity: every inventory that had a restock
+        // list before these columns existed kept one and was reminded about it, and a migration that
+        // read back "false" would silently switch that off for all of them.
+        modelBuilder.Entity<InventoryManagedTaskListEntity>()
+            .Property(row => row.IsEnabled)
+            .HasDefaultValue(true);
+        modelBuilder.Entity<InventoryManagedTaskListEntity>()
+            .Property(row => row.RemindDaily)
+            .HasDefaultValue(true);
+        modelBuilder.Entity<InventoryManagedTaskListEntity>()
+            .Property(row => row.ListPriority)
+            .IsRequired().HasMaxLength(10)
+            .HasDefaultValue(nameof(Orbit.Core.Abstractions.ItemPriority.Normal));
 
         modelBuilder.Entity<ChatGroupAnnouncementEntity>(entity =>
         {

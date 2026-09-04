@@ -107,11 +107,31 @@ public sealed class DailyTaskReminderRepository : IDailyTaskReminderRepository
     /// event's StartUtc, per CalendarEventEditor.razor's ToDateTimeOffset) are anchored to local midnight
     /// rather than UTC midnight.
     /// </summary>
-    public async Task ReopenAsync(Guid taskItemId, CancellationToken cancellationToken)
+    public async Task ReopenAsync(Guid taskItemId, DateOnly reminderDate, CancellationToken cancellationToken)
     {
-        await _dbContext.Set<TaskItemEntity>()
-            .Where(item => item.Id == taskItemId && item.IsCompleted)
-            .ExecuteUpdateAsync(update => update.SetProperty(item => item.IsCompleted, false), cancellationToken);
+        // Loaded rather than updated in place, unlike the single-column write this used to be: the new
+        // due date is computed from the entry's own reminder hour, which no ExecuteUpdate can read and
+        // write in one statement portably. One row per fired reminder, so the round trip is cheap.
+        var item = await _dbContext.Set<TaskItemEntity>()
+            .FirstOrDefaultAsync(row => row.Id == taskItemId, cancellationToken);
+        if (item is null)
+        {
+            return;
+        }
+
+        item.IsCompleted = false;
+
+        // Only an entry that already carried a due date gets a new one - see the interface for why.
+        if (item.DueDateUtc is not null)
+        {
+            var dueLocal = reminderDate.ToDateTime(
+                TimeOnly.FromTimeSpan(TimeSpan.FromMinutes(item.DailyReminderTimeOfDayMinutes)));
+            // As UTC, like every other due date here: Npgsql refuses any other offset for a "timestamp
+            // with time zone" column, which fails the whole save rather than just this field.
+            item.DueDateUtc = new DateTimeOffset(dueLocal, DateTimeOffset.Now.Offset).ToUniversalTime();
+        }
+
+        await _dbContext.SaveChangesAsync(cancellationToken);
     }
 
     /// <summary>

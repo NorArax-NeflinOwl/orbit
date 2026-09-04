@@ -294,15 +294,18 @@ public sealed class InventoryApiClient
         return await response.Content.ReadFromJsonAsync<RestockListSettingsDto>(cancellationToken);
     }
 
-    /// <summary>Saves the settings and rebuilds the list to match, answering what that moved.</summary>
-    public async Task<RestockRefreshResultDto> SaveRestockListSettingsAsync(
+    /// <summary>
+    /// Saves the settings and rebuilds the list to match. What that moved is not read back: these are
+    /// saved with the rest of the inventory now (see InventoryEditor.SaveAsync), and the page leaves for
+    /// the list of inventories straight afterwards, so there is nowhere left to say "two added, one
+    /// removed" to. Asking for the body anyway is what made a save fail on a response that carried none.
+    /// </summary>
+    public async Task SaveRestockListSettingsAsync(
         Guid inventoryId, RestockListSettingsDto settings, CancellationToken cancellationToken = default)
     {
         var response = await _httpClient.PutAsJsonAsync(
             $"api/inventories/{inventoryId}/restock-list/settings", settings, cancellationToken);
         response.EnsureSuccessStatusCode();
-        return await response.Content.ReadFromJsonAsync<RestockRefreshResultDto>(cancellationToken)
-            ?? new RestockRefreshResultDto(0, 0);
     }
 
     /// <summary>Rebuilds the list against the settings it already has - the Refresh button.</summary>

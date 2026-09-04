@@ -110,7 +110,9 @@ public static class InventoryEndpoints
                 new GetRestockListSettingsQuery(GetUserId(user), inventoryId), cancellationToken);
             return settings is null
                 ? Results.NotFound()
-                : Results.Ok(new RestockListSettingsDto(settings.OnlyLinkedWithDueDate, settings.RefreshTimeOfDay));
+                : Results.Ok(new RestockListSettingsDto(
+                    settings.OnlyLinkedWithDueDate, settings.RefreshTimeOfDay,
+                    settings.IsEnabled, settings.RemindDaily, settings.ListPriority.ToString()));
         });
 
         inventories.MapPut("/{inventoryId:guid}/restock-list/settings", async (
@@ -120,7 +122,10 @@ public static class InventoryEndpoints
             var outcome = await dispatcher.SendAsync(
                 new SaveRestockListSettingsCommand(
                     GetUserId(user), inventoryId,
-                    new RestockListSettings(request.OnlyLinkedWithDueDate, request.RefreshTimeOfDay)),
+                    new RestockListSettings(
+                        request.OnlyLinkedWithDueDate, request.RefreshTimeOfDay,
+                        request.IsEnabled, request.RemindDaily,
+                        RequestEnum.Parse<ItemPriority>(request.ListPriority, "listPriority"))),
                 cancellationToken);
             return Results.Ok(new RestockRefreshResultDto(outcome.Added, outcome.Removed));
         });

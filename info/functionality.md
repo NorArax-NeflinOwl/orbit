@@ -1689,6 +1689,29 @@ Crossing off "Update stock levels" while errands are still open asks whether the
 Yes (`POST /api/tasks/{id}/restocking/finished`) finishes the list and brings every item in the inventory
 up to its minimum; the reminder is finished with it, and `RemindDaily` brings it back tomorrow.
 
+**The standing reminder carries a due date - today's, at the hour it comes round.** Without one it was
+invisible everywhere except its own list: the calendar and the dashboard both read task entries by
+`DueDateUtc` and know nothing about a daily reminder, so the one entry meant to say "look at the shelf
+today" was the one thing that never said it. The daily tick moves the date on as it fires
+(`IDailyTaskReminderRepository.ReopenAsync`, which reopens the entry and re-dates it in the same write),
+and saving the settings brings an existing list's reminder into line - which is what fixes the lists
+created before this. An entry that never had a due date is still left without one: only the entries that
+already work that way are re-dated, since inventing a deadline nobody set would be inventing a promise.
+
+**What the inventory's form decides** (`RestockListSettings`, on the inventory rather than on the list,
+since the list may not exist yet):
+
+| Setting | What it does |
+| --- | --- |
+| Keep a restock list | Off **deletes** the list and everything on it, and stops anything creating another; on builds a fresh one. The rest of the section is greyed out while it is off. |
+| Only what a dated task is waiting on | Narrows the list to products some task with a due date needs, rather than everything under its minimum. |
+| Priority of the restock list | The priority the generated list is created with and kept at - a task list carries one and a task entry does not, so this is the only place restock work can be marked as mattering more or less. |
+| Remind me to update stock levels | Off leaves the list alone and only drops the standing entry; the hour beside it is greyed out. On brings the entry back, dated, so it reaches the calendar again. |
+
+All four are saved by the inventory editor's own Save, alongside everything else on that form. They used
+to have a "Save settings" and a "Refresh" of their own, which is what made pressing the page's Save leave
+a moved switch behind.
+
 ## Calendar event reminders
 
 Two independent notification emails can go to the event's owner and to every guest who has accepted a

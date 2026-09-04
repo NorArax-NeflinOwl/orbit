@@ -34,14 +34,16 @@ public sealed class SaveRestockListSettingsCommandHandler
     private readonly InventoryAccessResolver _inventoryAccessResolver;
     private readonly IInventoryManagedTaskListRepository _managedTaskListRepository;
     private readonly RestockListRefresh _restockListRefresh;
+    private readonly InventoryTaskListCoordinator _taskListCoordinator;
 
     public SaveRestockListSettingsCommandHandler(
         InventoryAccessResolver inventoryAccessResolver, IInventoryManagedTaskListRepository managedTaskListRepository,
-        RestockListRefresh restockListRefresh)
+        RestockListRefresh restockListRefresh, InventoryTaskListCoordinator taskListCoordinator)
     {
         _inventoryAccessResolver = inventoryAccessResolver;
         _managedTaskListRepository = managedTaskListRepository;
         _restockListRefresh = restockListRefresh;
+        _taskListCoordinator = taskListCoordinator;
     }
 
     public async Task<RestockRefreshOutcome> HandleAsync(
@@ -54,6 +56,19 @@ public sealed class SaveRestockListSettingsCommandHandler
         }
 
         await _managedTaskListRepository.SetSettingsAsync(request.InventoryId, request.Settings, cancellationToken);
+
+        if (!request.Settings.IsEnabled)
+        {
+            // Off takes the list with it - see RestockListSettings.IsEnabled. Written unconditionally
+            // rather than only on the off-to-on edge: a list that exists while the setting says it
+            // should not is the state to correct, however it came about. Nothing to refresh afterwards,
+            // since RefreshAsync would only build a fresh one.
+            await _taskListCoordinator.DeleteManagedTaskListAsync(request.InventoryId, cancellationToken);
+            return RestockRefreshOutcome.Nothing;
+        }
+
+        // On: refresh ensures the list first, so this covers both reconciling one that exists and
+        // building the fresh one that switching back on asks for.
         return await _restockListRefresh.RefreshAsync(request.InventoryId, cancellationToken);
     }
 }

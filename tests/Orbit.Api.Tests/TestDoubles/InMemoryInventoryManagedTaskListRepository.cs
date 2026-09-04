@@ -22,6 +22,16 @@ internal sealed class InMemoryInventoryManagedTaskListRepository : IInventoryMan
         return Task.CompletedTask;
     }
 
+    /// <summary>
+    /// Drops the entry rather than storing an empty id, which is the same answer GetTaskListIdAsync
+    /// gives either way - see the real repository, which empties the id to keep the settings beside it.
+    /// </summary>
+    public Task ClearTaskListIdAsync(Guid inventoryId, CancellationToken cancellationToken)
+    {
+        _taskListIdByInventoryId.Remove(inventoryId);
+        return Task.CompletedTask;
+    }
+
     private readonly Dictionary<Guid, RestockListSettings> _settingsByInventoryId = [];
 
     public Task<RestockListSettings> GetSettingsAsync(Guid inventoryId, CancellationToken cancellationToken)
