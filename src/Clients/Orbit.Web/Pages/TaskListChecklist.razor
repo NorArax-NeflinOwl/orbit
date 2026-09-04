@@ -19,6 +19,7 @@
 @inject GoogleIntegrationAccess GoogleIntegrationAccess
 @inject ChecklistViewPreference ChecklistViewPreference
 @inject InventoryApiClient InventoryApiClient
+@inject TaskListDeletion TaskListDeletion
 @inject IJSRuntime JSRuntime
 @inject ILogger<TaskListChecklist> Logger
 @inject Translations T
@@ -331,6 +332,15 @@ else
             @(_savedReading == _reading ? T["View saved"] : T["Save view"])
         </button>
         <button type="button" class="avatar-dropdown-item" @onclick="GoToDeepEditor">@T["Edit"]</button>
+        @* Deleting the list from the list itself. A note, an inventory and a calendar event have all
+           been deletable from the screen that reads them; a task list was the one that could only be
+           deleted from the page of cards, which meant leaving the thing to get rid of it. Offered only
+           on the reader's own list: something shared with them is not theirs to destroy. *@
+        @if (!_sections[0].TaskList.IsShared)
+        {
+            <button type="button" class="avatar-dropdown-item" disabled="@_isDeleting"
+                    @onclick="DeleteAsync">@T["Delete"]</button>
+        }
         @* One button where "Generate inventory" and "Recalculate against the inventory" used to
            be. Both did half of something else - one made an inventory out of a list, the other
            counted a list against one - and neither answered the question somebody has in front
@@ -362,6 +372,7 @@ else
 
     private bool _isLoading = true;
     private string? _errorMessage;
+    private bool _isDeleting;
 
     /// <summary>What each inventory errand on this list is about - see TasksApiClient.GetInventoryReferencesAsync.</summary>
     private IReadOnlyList<InventoryReferenceDto> _inventoryReferences = [];
@@ -810,6 +821,32 @@ else
     }
 
     private void GoToTaskLists() => NavigationManager.NavigateTo("/tasks");
+
+    /// <summary>
+    /// Asks, deletes, and leaves - there is nothing left on this page to look at afterwards. The
+    /// questions are TaskListDeletion's, the same ones the page of cards and the editor ask, which is
+    /// what keeps a group list's second question from existing in three slightly different wordings.
+    /// </summary>
+    private async Task DeleteAsync()
+    {
+        _menu?.Close();
+        Logger.LogInformation("User clicked 'Delete' on the checklist for task list {TaskListId}", Id);
+        _isDeleting = true;
+        try
+        {
+            if (await TaskListDeletion.AskAndDeleteAsync(_sections[0].TaskList) is not TaskListDeletionOutcome.Deleted)
+            {
+                _errorMessage = TaskListDeletion.FailureMessage;
+                return;
+            }
+        }
+        finally
+        {
+            _isDeleting = false;
+        }
+
+        GoToTaskLists();
+    }
 
     /// <summary>One list rendered in this view - the list being viewed, or one of a group list's members.</summary>
     /// <param name="Depth">How far below the list being viewed this one sits - 0 for that list itself.</param>

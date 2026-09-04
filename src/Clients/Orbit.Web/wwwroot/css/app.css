@@ -1467,6 +1467,14 @@ input.note-editor-title {
     text-align: left;
 }
 
+/* A row for something already finished - the dashboard's task card, which keeps a done list only where
+   it has been pinned. Struck through and quieted, the same way a ticked checklist line is: the two are
+   the same fact about two different things, and they should not read differently. */
+.list-row.completed .row-title {
+    color: var(--text-tertiary);
+    text-decoration: line-through;
+}
+
 .row-meta {
     font-size: 12px;
     color: var(--text-tertiary);
@@ -3420,6 +3428,101 @@ input.note-editor-title {
     gap: 6px;
     font-size: 12.5px;
     color: var(--text-secondary);
+}
+
+/* A field that holds several short words rather than one value - see TagField. Its own block in the
+   row of fields, because it is two lines tall when anything has been added to it and a label beside a
+   box would leave the chips hanging under the wrong thing. */
+.editor-item-tags {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex: 1 1 260px;
+    min-width: 0;
+    font-size: 12.5px;
+    color: var(--text-secondary);
+}
+
+.editor-item-tags-label {
+    flex: 0 0 auto;
+}
+
+.tag-field {
+    position: relative;
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 6px;
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+.tag-field-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+}
+
+/* What has been filed already. Drawn as what a category mark looks like everywhere else in Orbit, with
+   a cross of its own - see .row-category, which these become once the entry is saved. */
+.tag-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 1px 6px 1px 8px;
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    background: var(--bg-subtle);
+    color: var(--text-secondary);
+    font-size: 11.5px;
+    white-space: nowrap;
+}
+
+.tag-chip-remove {
+    padding: 0;
+    border: 0;
+    background: none;
+    color: var(--text-tertiary);
+    font: inherit;
+    font-size: 10px;
+    line-height: 1;
+    cursor: pointer;
+}
+
+.tag-chip-remove:hover {
+    color: var(--danger, var(--accent));
+}
+
+.tag-field-row {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    flex: 1 1 120px;
+    min-width: 0;
+}
+
+.tag-field-input {
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+/* Small, quiet, and beside the box rather than under it: it is the second half of one control, not an
+   action of its own. Disabled while the box is empty, so it never reads as the button that saves. */
+.tag-field-add {
+    flex: 0 0 auto;
+    width: 26px;
+    height: 26px;
+}
+
+.tag-field-add:disabled {
+    opacity: 0.4;
+    cursor: default;
+}
+
+/* The word the arrow keys are on. Same treatment the name-suggestions panel gives its own highlight. */
+.name-suggestion-option.highlighted {
+    background: var(--bg-subtle);
+    color: var(--accent);
 }
 
 .editor-item-details .field-break {

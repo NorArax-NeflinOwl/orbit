@@ -966,6 +966,33 @@ A task list can be opened at either of two depths, both reachable from the task 
   item's text, due date, link, notification settings, adding and removing items. This is the level that
   takes the edit lock described under [Edit locking](#edit-locking).
 
+**Deleting the list is offered at both depths** as well as from its card, which is the arrangement a
+note, an inventory and a calendar event have all had - a task list was the one thing in Orbit that could
+only be deleted from the page of cards, so getting rid of one meant leaving it first. Only on the
+reader's own list: something shared with them is not theirs to destroy, and `DeleteTaskListCommandHandler`
+answers a recipient's delete by dropping their grant rather than the list.
+
+The questions are `TaskListDeletion` (`Orbit.Web/Services`), asked identically from all three, because a
+group list asks a **second** one: *"It gathers N other lists. Delete those too?"* Answering no still
+deletes the group list - the first question already agreed to that - and answering yes sends
+`DELETE /api/tasks/{id}?deleteTheListsItGathers=true`, which deletes the whole tree. Why a question
+rather than a rule either way: a group list is a way of *reading* several lists together, and getting rid
+of the reading is not the same as getting rid of what was being read - but a list gathering five lists
+that exist only for it leaves five orphans behind, and nothing on the page says so.
+
+What the server does with that flag is worth knowing. It walks the tree breadth-first before deleting
+anything (once the group list is gone there is nothing left saying what it gathered), it stops at lists
+the caller does not own - a link may point at somebody else's list shared with them - and it carries a
+visited set, because a pair of lists gathering each other is refused when it is made (see
+`TaskListLinkValidator`) but would hang here if one ever slipped through. Each deletion leaves its own
+per-user tombstone, so the phone's next delta names all of them.
+
+How many it gathers is counted on the client, and the two callers count it differently on purpose: the
+card and the checklist read the list as it was loaded, while the editor counts off the **form**, so
+somebody who has just taken the links out and not saved is not asked about lists the list no longer
+gathers. Only the direct children are counted - the client holds only what it loaded - so the question
+names the number it is sure of and says the rest goes with them.
+
 **The shallow level is what opening a list means.** It owns the plain `/tasks/{id}` route, so every way
 into a list lands there whether or not the code that sent you thought about it: the card on the task
 list page, a deadline clicked on the calendar, a row on the dashboard, an overdue-task or daily-reminder
@@ -1943,6 +1970,13 @@ point of this page is a quick glance at what exists, not a third copy of each li
 Clicking any item navigates straight to it (`/notes/{id}`, `/tasks/{id}`, or `/calendar/{id}`) — the
 dashboard has no editing of its own. For a task list that is its checklist, not its settings: see
 [Two editing levels](#two-editing-levels) for why the shallow level is what opening a list means.
+
+**A finished task list is off the card unless it has been pinned.** This page is what is still on your
+plate, and a list that has been done stays done for as long as it exists - so left in, it silts the card
+up with work nobody has to think about again. Pinning is the way to say "keep this in front of me
+anyway", and a pinned list that is finished is drawn struck through (`.list-row.completed`), the same way
+a ticked checklist line is: the two are the same fact about two different things and should not read
+differently.
 
 ### Deciding what the page shows
 

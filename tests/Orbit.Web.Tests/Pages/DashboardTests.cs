@@ -556,6 +556,41 @@ public sealed class DashboardTests : OrbitTestContext
             IsShared: false, SharedByUserName: null, AccessLevel: "CanEdit", OriginalOwnerUserId: null,
             Priority: priority);
 
+    /// <summary>
+    /// The dashboard is what is still on your plate. A list that has been done stays done for as long
+    /// as it exists, so left in it silts the card up with work nobody has to think about again.
+    /// </summary>
+    [Fact]
+    public void A_finished_task_list_is_off_the_card_unless_it_has_been_pinned()
+    {
+        RegisterChatApiClient([]);
+        RegisterTasksApiClient([Finished(TaskList("Moving out")), TaskList("Shopping")]);
+
+        var cut = RenderComponent<Dashboard>();
+
+        var tasksColumn = FindColumn(cut, "Tasks").TextContent;
+        Assert.DoesNotContain("Moving out", tasksColumn);
+        Assert.Contains("Shopping", tasksColumn);
+    }
+
+    [Fact]
+    public void A_finished_task_list_that_was_pinned_stays_and_is_struck_through()
+    {
+        RegisterChatApiClient([]);
+        RegisterTasksApiClient([Finished(TaskList("Moving out")) with { IsPinned = true }]);
+
+        var cut = RenderComponent<Dashboard>();
+
+        // Pinning is the way to say "keep this in front of me anyway" - so it stays, drawn as what it
+        // is rather than looking like work still to do.
+        var row = FindColumn(cut, "Tasks").QuerySelector(".list-row");
+        Assert.NotNull(row);
+        Assert.Contains("Moving out", row!.TextContent);
+        Assert.Contains("completed", row.ClassName);
+    }
+
+    private static TaskDto Finished(TaskDto taskList) => taskList with { IsCompleted = true };
+
     private void RegisterEmptyCalendarApiClient()
     {
         var httpClient = new HttpClient(new StubHttpMessageHandler(_ => JsonResponse(Array.Empty<CalendarEventDto>()))) { BaseAddress = new Uri("https://example.test/") };

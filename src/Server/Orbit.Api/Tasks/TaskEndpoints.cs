@@ -92,9 +92,16 @@ public static class TaskEndpoints
             return ToApiResult(outcome);
         });
 
-        tasks.MapDelete("/{id:guid}", async (Guid id, ClaimsPrincipal user, IDispatcher dispatcher, CancellationToken cancellationToken) =>
+        // deleteTheListsItGathers says what a group list's deletion means - see DeleteTaskListCommand.
+        // A query parameter rather than a body: this is still a DELETE of one list, and which of the two
+        // it means is a modifier on it rather than a second thing being sent. Absent reads as false,
+        // which is what every caller written before this asked for.
+        tasks.MapDelete("/{id:guid}", async (
+            Guid id, bool? deleteTheListsItGathers, ClaimsPrincipal user, IDispatcher dispatcher,
+            CancellationToken cancellationToken) =>
         {
-            var deleted = await dispatcher.SendAsync(new DeleteTaskListCommand(GetUserId(user), id), cancellationToken);
+            var deleted = await dispatcher.SendAsync(
+                new DeleteTaskListCommand(GetUserId(user), id, deleteTheListsItGathers ?? false), cancellationToken);
             return deleted ? Results.NoContent() : Results.NotFound();
         });
 

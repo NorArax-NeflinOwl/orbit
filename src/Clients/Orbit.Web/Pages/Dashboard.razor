@@ -132,7 +132,10 @@ else
                 }
                 @foreach (var taskList in TaskListsToShow)
                 {
-                    <Row Title="@Written(taskList.Title)" OnPressed="() => GoToTaskList(taskList.Id)">
+                    @* Struck through where it is finished - which on this card means pinned, since an
+                       unpinned finished list is not shown at all. See TaskListsToShow. *@
+                    <Row Title="@Written(taskList.Title)" OnPressed="() => GoToTaskList(taskList.Id)"
+                         AdditionalClass="@(taskList.IsCompleted ? "completed" : null)">
                         <Trailing>
                             @RenderPriorityBadge(taskList.Priority)
                             @if (taskList.Items.Count > 0)
@@ -376,8 +379,17 @@ else
     private IReadOnlyList<NoteDto> NotesToShow =>
         [.. (_notes ?? []).Where(note => Matches("notes", note.IsPinned, note.Priority))];
 
+    /// <summary>
+    /// A finished list is off this card unless it has been pinned. The dashboard is what is still on
+    /// your plate, and a list that has been done stays done for as long as it exists - so left in, it
+    /// silts the card up with work nobody has to think about again. Pinning is the way to say "keep
+    /// this in front of me anyway", and a pinned one that is finished is drawn struck through rather
+    /// than looking like the rest.
+    /// </summary>
     private IReadOnlyList<TaskDto> TaskListsToShow =>
-        [.. (_taskLists ?? []).Where(taskList => Matches("tasks", taskList.IsPinned, taskList.Priority))];
+        [.. (_taskLists ?? [])
+            .Where(taskList => !taskList.IsCompleted || taskList.IsPinned)
+            .Where(taskList => Matches("tasks", taskList.IsPinned, taskList.Priority))];
 
     private IReadOnlyList<UpcomingEntry> UpcomingToShow =>
         [.. Upcoming().Where(entry => Matches("upcoming", isPinned: false, entry.Priority))];
