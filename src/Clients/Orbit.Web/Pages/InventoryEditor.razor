@@ -845,7 +845,14 @@ else
         {
             if (IsNewInventory)
             {
-                await InventoryApiClient.CreateInventoryAsync(_formModel.ToRequest());
+                // Said in the server's own words when it refuses. "Try again" is the wrong thing to
+                // tell somebody about a request that will be refused identically every time.
+                var creation = await InventoryApiClient.CreateInventoryAsync(_formModel.ToRequest());
+                if (!creation.WasCreated)
+                {
+                    _saveErrorMessage = creation.RefusedBecause;
+                    return;
+                }
             }
             else
             {

@@ -14,12 +14,13 @@ Date: 2026-09-04
 - Uncommitted changes: none.
 
 ## Goal of the work
-Fix what the user reported at the end of the previous session: creating an inventory that already has
-items is refused by the server, and three smaller gaps between the tasks page and the dashboard.
+Fix what the user reported at the end of the previous session. The first of the four - creating an
+inventory that already has items being refused - was fixed before this handover was written; three
+smaller gaps between the tasks page and the dashboard are left.
 
 ## Done
-Everything below is on the branch, built, and covered by `dotnet test` — **2952 passing, 0 failing**
-(743 web, 1143 mobile, 1066 api).
+Everything below is on the branch, built, and covered by `dotnet test` — **2958 passing, 0 failing**
+(745 web, 1143 mobile, 1070 api).
 
 - **Sharing an inventory from its own editor** — `ShareInventoryPanel.razor`, shown from both the card
   on `/inventory` and the editor. The dashboard gained an Inventory card.
@@ -27,6 +28,10 @@ Everything below is on the branch, built, and covered by `dotnet test` — **295
   line of numbers along the foot of every page), `/privacy`, `/security`, `/docs`, and `Manage cookies`
   with a real gate: `wwwroot/js/storageConsent.js` wraps `Storage.prototype.setItem` and is loaded first
   in `index.html`, so a declined category is never written and turning one off clears what is there.
+- **Creating an inventory that already has items** — the reported production bug. `POST
+  /api/inventories` no longer refuses a body carrying rows; they go through `InventoryItemsSaver`,
+  extracted from the update handler so both paths write items the same way. `CreateInventoryAsync`
+  reads the 400's body, so a refusal reaches the screen in the server's own words.
 - **Deleting a task list from its own screens** — the checklist's menu and the editor's, not only the
   card. A group list asks a second question and can take the lists it gathers with it
   (`?deleteTheListsItGathers=true`; the handler walks the tree, stops at lists the caller does not own,
@@ -39,44 +44,18 @@ Everything below is on the branch, built, and covered by `dotnet test` — **295
 
 ## Still failing / unknown
 
-### 1. Creating an inventory that has items is refused (the reported production bug)
-
-**Root cause, confirmed by running it** against the local stack on 2026-09-04:
-
-- `InventoryEditor.SaveAsync` sends `_formModel.ToRequest()` for a new inventory, and `ToRequest()`
-  includes every item row — the same body the update path uses.
-- `InventoryEndpoints`' `MapPost("/")` throws `InvalidRequestException` when `request.Items.Count > 0`
-  ("An inventory is created with a name and filled afterwards — send its items to
-  `PUT /api/inventories/{id}` instead").
-- `/inventory/new` is a create-*and*-fill screen: its form's default button is "Add item". So naming an
-  inventory, adding a row and pressing Save is refused, every time.
-
-Verified against the local API with the browser's own token:
-
-```
-POST /api/inventories  {"name":"…","items":[]}      → 201
-POST /api/inventories  {"name":"…","items":[one]}   → 400 {"message":"An inventory is created with a
-                                                      name and filled afterwards - …"}
-```
-
-**Second defect, same request.** `InventoryApiClient.CreateInventoryAsync` calls
-`EnsureSuccessStatusCode()` and never reads the body, so `InventoryEditor` shows
-"Failed to save the inventory. Try again." — advice that can never work — while the server had said
-exactly what was wrong. `UpdateInventoryAsync` does not have this problem; it goes through
-`ToEditOutcomeAsync`. See the `failures-must-reach-the-user` note: log it *and* say it on screen.
-
-### 2. `/tasks`: the preview rows are not pressable
+### 1. `/tasks`: the preview rows are not pressable
 The rows inside a task-list card on `/tasks` are plain `<div class="list-row task-preview-row">`. The
 dashboard's equivalents are `<Row OnPressed=…>` and open what they name. The checklist's own rows open
 the entry (`GoToEditItem` → the entry's screen), so `/tasks` is the odd one out.
 
-### 3. `/tasks`: no colour for an activity/event
+### 2. `/tasks`: no colour for an activity/event
 The dashboard's Upcoming card draws a `stat-dot` in the event's own colour (`entry.Colour`, from
 `CalendarEventDto.Details.Color`). A Calendar-kind entry on `/tasks` shows no colour at all. Note that
 `TaskItemDto` carries no colour and `/tasks` does not currently load calendar events — decide whether to
 load them or to carry the colour on the entry before building this.
 
-### 4. Dashboard "Upcoming": an entry raised by a task list should read `[List]: [Event]`
+### 3. Dashboard "Upcoming": an entry raised by a task list should read `[List]: [Event]`
 `UpcomingDeadlines` already names task deadlines that way ("Shopping: Milk"). `ToUpcomingEntry`, which
 builds the row for an actual calendar event, uses the event title alone — so an event a task list raised
 loses where it came from. `CalendarEventDestination.For(...)` already resolves which list raised it, so
@@ -85,7 +64,7 @@ the list is reachable at that point.
 ## Rejected approaches (do not retry)
 
 - **Do not conclude anything about a 400 from the status code alone.** A first attempt to reproduce
-  bug 1 sent an item without its `id` field and got `400` with an **empty body and no log line** — that
+  the inventory-create bug sent an item without its `id` field and got `400` with an **empty body and no log line** — that
   is minimal-API model binding failing, not the endpoint's refusal, and it looks identical from the
   browser. The refusal itself logs `Refused POST /api/inventories: …` and returns
   `{"message":"…"}`. Check the API log before believing which 400 you have.
@@ -97,19 +76,14 @@ the list is reachable at that point.
   empty `event.key`. Press `Enter`.
 
 ## Next step
-Fix bug 1. Two halves, and both are wanted:
+Take 1, 2 and 3 above, smallest first.
 
-1. Decide where creating-with-items belongs. The straightforward reading is that the server should
-   accept it: `CreateInventoryCommand` takes a name only, and the endpoint's refusal exists because the
-   items *would have been dropped*, not because a caller has no business sending them. Making
-   `CreateInventoryCommandHandler` write the items is one round trip and atomic. The alternative — the
-   browser creating and then immediately `PUT`ting — leaves an empty inventory behind when the second
-   call fails, and is worth choosing only if the domain has a reason to refuse.
-2. Make `CreateInventoryAsync` read the `{ message }` body on a 400 and surface it, the way
-   `UpdateInventoryAsync` surfaces its outcomes. A refusal the reader cannot see is what turned a
-   one-line server message into a bug report.
-
-Then 2, 3 and 4 above, smallest first.
+The production bug this handover was written for - creating an inventory that already has items being
+refused - **is fixed on this branch**, on the server as the user asked: `POST /api/inventories` accepts
+the rows and writes them through the same `InventoryItemsSaver` a save uses, and
+`CreateInventoryAsync` reads the refusal body so the editor can say what the server said. Verified
+live: `POST` with one item below its minimum answered 201, the item was stored, and the inventory's
+restock list came back holding "Restock: Flour (5)".
 
 ## Environment facts confirmed this session
 - Deployed web app: `https://orbit-web.victorioustree-36ad82ca.polandcentral.azurecontainerapps.io`,

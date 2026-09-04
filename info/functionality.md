@@ -1203,6 +1203,21 @@ since there's nothing persisted yet to move.
 
 ## Inventory
 
+**Creating one takes its contents as well as its name.** `POST /api/inventories` used to refuse a body
+whose `Items` was not empty, on the grounds that the create path did not write items and would have
+dropped them without a word - but `/inventory/new` is a name-it-and-fill-it screen, and its form's own
+button is "Add item". Naming an inventory, adding a row and pressing Save was therefore a save that
+could never succeed, and the page said "Failed to save the inventory. Try again." over the top of the
+sentence the server had written into the 400. Both halves are fixed: the rows go through
+`InventoryItemsSaver`, the same code a save uses - so they get their positions, their restock tasks and
+the inventory's managed task list exactly as they would on the next save - and
+`InventoryApiClient.CreateInventoryAsync` now reads the refusal body and hands back an
+`InventoryCreation` the editor can put on screen, the way `UpdateInventoryAsync` always has.
+
+A private inventory is the exception and stays one: its contents travel sealed inside
+`EncryptedContent`, and the create handler writes no item rows for one even if a caller sends some.
+That is what makes "the server can't read this inventory" a rule rather than the browser's good manners.
+
 `POST /api/inventory` and `PUT /api/inventory/{id}` both take `{ name, productType, category, quantity,
 minimumQuantity, unit, expiryDate, expiryNotificationChannel }` — `productType` and `category` are free
 text (no fixed list), `quantity`/`minimumQuantity` are decimal (not integer) so fractional amounts like

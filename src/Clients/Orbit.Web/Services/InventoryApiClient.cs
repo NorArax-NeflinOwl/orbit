@@ -99,12 +99,29 @@ public sealed class InventoryApiClient
         return inventory is null ? null : await OpenIfPrivateAsync(inventory, cancellationToken);
     }
 
-    public async Task<Guid> CreateInventoryAsync(SaveInventoryRequest request, CancellationToken cancellationToken = default)
+    /// <summary>
+    /// Creates the inventory, name and contents together, and says why if the server would not.
+    ///
+    /// It used to call EnsureSuccessStatusCode and hand back the id, which threw away the sentence the
+    /// server writes into a refusal (see InvalidRequestExceptionHandler) and left the editor showing
+    /// "Failed to save the inventory. Try again." - advice that could never work for a request the
+    /// server had already explained. The save beside this one has read that body all along; this is the
+    /// one that did not.
+    /// </summary>
+    public async Task<InventoryCreation> CreateInventoryAsync(
+        SaveInventoryRequest request, CancellationToken cancellationToken = default)
     {
         request = await SealIfPrivateAsync(request, cancellationToken);
         var response = await _httpClient.PostAsJsonAsync("api/inventories", request, cancellationToken);
+        if (response.StatusCode == HttpStatusCode.BadRequest)
+        {
+            var refusal = await response.Content.ReadFromJsonAsync<RefusalDto>(cancellationToken: cancellationToken);
+            return InventoryCreation.Refused(refusal?.Message ?? Translated("Orbit refused that inventory."));
+        }
+
         response.EnsureSuccessStatusCode();
-        return await response.Content.ReadFromJsonAsync<Guid>(cancellationToken: cancellationToken);
+        return InventoryCreation.Created(
+            await response.Content.ReadFromJsonAsync<Guid>(cancellationToken: cancellationToken));
     }
 
     /// <summary>Saves the inventory and its whole item list in one request - see SaveInventoryRequest.</summary>

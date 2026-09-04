@@ -323,6 +323,9 @@ public static class OrbitCoreServiceCollectionExtensions
         // Depends on ITaskRepository (scoped, backed by the DbContext), so it must be scoped too.
         services.AddScoped<PendingRestockTaskResolver>();
         services.AddScoped<InventoryTaskListCoordinator>();
+        // Writing an inventory's item list, shared by the command that creates one already holding
+        // rows and the command that saves one - see InventoryItemsSaver.
+        services.AddScoped<InventoryItemsSaver>();
         services.AddScoped<RestockCompletion>();
         services.AddScoped<RestockListRefresh>();
 

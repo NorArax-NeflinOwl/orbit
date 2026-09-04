@@ -63,22 +63,18 @@ public static class InventoryEndpoints
             return inventory is null ? Results.NotFound() : Results.Ok(ToDto(inventory, callerId));
         });
 
-        // Creating an inventory takes its name, not its contents - items are created through the save
-        // below, exactly as task items are through their task list. Anything sent here would have been
-        // dropped without a word, leaving the caller holding an inventory that quietly lost what it was
-        // told to keep, so it is refused instead.
+        // Creating an inventory takes its name and whatever is already on the shelf. It used to take the
+        // name alone and refuse anything else, on the grounds that items sent here would be dropped
+        // without a word - but /inventory/new is a name-it-and-fill-it screen whose form button is "Add
+        // item", so naming an inventory, adding a row and pressing Save was a save that could never
+        // succeed. The answer to "they would be dropped" is to stop dropping them: the rows go through
+        // the same InventoryItemsSaver a save uses, positions and restock tasks included.
         inventories.MapPost("/", async (
             SaveInventoryRequest request, ClaimsPrincipal user, IDispatcher dispatcher, CancellationToken cancellationToken) =>
         {
-            if (request.Items.Count > 0)
-            {
-                throw new InvalidRequestException(
-                    "An inventory is created with a name and filled afterwards - send its items to PUT /api/inventories/{id} instead.");
-            }
-
             var id = await dispatcher.SendAsync(new CreateInventoryCommand(
                     GetUserId(user), request.Name, request.IsPrivate, ToDomainPayload(request.EncryptedContent),
-                    request.Description), cancellationToken);
+                    request.Description, ToDomainItems(request.Items)), cancellationToken);
             return Results.Created($"/api/inventories/{id}", id);
         });
 
