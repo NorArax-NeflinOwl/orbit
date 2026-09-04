@@ -9,6 +9,10 @@ public sealed record InventoryItemRequest(
     Guid? Id,
     string Name,
     string ProductType,
+    /// <summary>
+    /// The first thing it is filed under. The old shape, kept because a client that has not learned
+    /// about the new one still sends this - see <see cref="Categories"/>.
+    /// </summary>
     string Category,
     decimal Quantity,
     decimal? MinimumQuantity,
@@ -25,4 +29,15 @@ public sealed record InventoryItemRequest(
     /// the flag yet returns the item without it - and must not thereby turn it off. On the way out it
     /// is always set.
     /// </summary>
-    bool? IsCheckedRegularly = null);
+    bool? IsCheckedRegularly = null,
+    /// <summary>
+    /// Everything it is filed under, in order. Null means "the sender does not know about this field",
+    /// and <see cref="Category"/> is then the whole answer - which is what a client written before this
+    /// sends. An empty list means "none", and clears them.
+    /// </summary>
+    IReadOnlyList<string>? Categories = null)
+{
+    /// <summary>Whichever shape the sender used, read as one - the same helper TaskItemDto carries.</summary>
+    public IReadOnlyList<string> AllCategories
+        => Categories ?? (Category.Length > 0 ? [Category] : []);
+}

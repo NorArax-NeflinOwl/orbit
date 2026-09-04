@@ -8,6 +8,9 @@ using Orbit.Contracts.Users;
 using Orbit.Core.Abstractions;
 using Orbit.Core.Users;
 using Orbit.Core.Users.SetPresence;
+using Microsoft.Extensions.Caching.Memory;
+using Orbit.Api.Telemetry;
+using Orbit.Core.Users.SetPrivacyChoice;
 using Orbit.Core.Users.SaveOwnLocation;
 using Orbit.Core.Location.GetSharedLocations;
 using Orbit.Core.Location.StopReceivingLocation;
@@ -58,7 +61,24 @@ public static class UserEndpoints
                     account.Id, account.Email, account.UserName, account.DisplayName, account.IsEmailVerified,
                     account.HasPassword, account.GoogleSubjectId is not null, ToDto(account.Location),
                     account.Presence.Availability.ToString(),
-                    account.Presence.StatusAt(DateTimeOffset.UtcNow).ToString()));
+                    account.Presence.StatusAt(DateTimeOffset.UtcNow).ToString(),
+                    account.KeepsThirdPartiesOut));
+        });
+
+        // The footer's "Do not share my personal information". On the account rather than in the
+        // browser because it is a standing instruction rather than a preference about one screen - see
+        // User.KeepsThirdPartiesOut, and the mirror the browser keeps so the first paint can honour it.
+        users.MapPut("/me/privacy", async (
+            SetPrivacyChoiceRequest request, ClaimsPrincipal user, IDispatcher dispatcher,
+            IMemoryCache cache, CancellationToken cancellationToken) =>
+        {
+            var callerId = GetUserId(user);
+            var updated = await dispatcher.SendAsync(
+                new SetPrivacyChoiceCommand(callerId, request.KeepsThirdPartiesOut), cancellationToken);
+            // So the answer takes effect on the very next request rather than when the cache expires -
+            // see TraceOptOut.Forget for why that matters in one direction more than the other.
+            TraceOptOut.Forget(cache, callerId);
+            return updated ? Results.NoContent() : Results.NotFound();
         });
 
         // What this account may use. Always readable, and always about the caller alone - a page that

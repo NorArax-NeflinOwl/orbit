@@ -1,0 +1,110 @@
+@implements IAsyncDisposable
+@using Orbit.Web.Services
+@inject IJSRuntime JSRuntime
+@inject Translations T
+
+@* Everything the reader has already filed things under, hanging under the box they are filing this one
+   in. A sibling of NameSuggestions and drawn to look identical, but answering a different question: that
+   one searches for a name resembling what is being typed, this one lists a whole short vocabulary and is
+   open before a character is typed. Which is the point of a category - the reason to show it is so that
+   the twenty-first thing goes under one of the twenty words already in use rather than a new one.
+
+   Placed by measurement, like NameSuggestions and for the reason given in menuAnchor.js: fixed, so a
+   panel opened on a row deep in a scrolling form is not clipped by it. *@
+@if (Offered.Count > 0)
+{
+    <div class="name-suggestions" @ref="_panel" role="listbox" aria-label="@T["Words you have already used"]">
+        @foreach (var value in Offered)
+        {
+            <button type="button" class="name-suggestion-option @(value == Highlighted ? "highlighted" : null)"
+                    role="option" aria-selected="@((value == Highlighted).ToString().ToLowerInvariant())"
+                    @onclick="() => OnChosen.InvokeAsync(value)">@value</button>
+        }
+    </div>
+}
+
+@code {
+    /// <summary>Every word this reader has used for the field - read once by whoever owns the form.</summary>
+    [Parameter, EditorRequired] public IReadOnlyList<string> Known { get; set; } = [];
+
+    /// <summary>What is in the box right now. Narrows the list; empty offers all of it.</summary>
+    [Parameter] public string Typed { get; set; } = string.Empty;
+
+    /// <summary>Words the box has already taken, left out - offering one that is on the row reads as the row not having taken it.</summary>
+    [Parameter] public IReadOnlyList<string> Taken { get; set; } = [];
+
+    /// <summary>Which offered word the arrow keys are on, if any. The field owns the keys; this only draws the answer.</summary>
+    [Parameter] public string? Highlighted { get; set; }
+
+    [Parameter] public EventCallback<string> OnChosen { get; set; }
+
+    /// <summary>
+    /// Which box in the panel's own parent this hangs under. Passed in rather than fixed, because two
+    /// different fields use this - a task entry's categories and a shelf item's - and they are not the
+    /// same element.
+    /// </summary>
+    [Parameter, EditorRequired] public string FieldSelector { get; set; } = string.Empty;
+
+    /// <summary>
+    /// What is actually on offer: what has not been taken, narrowed by what is typed. Contains rather
+    /// than starts-with, since somebody who files things under "Food, dry" will type "dry".
+    /// </summary>
+    public IReadOnlyList<string> Offered
+        => [.. Known
+            .Where(value => !Taken.Contains(value, StringComparer.CurrentCultureIgnoreCase))
+            .Where(value => Typed.Trim().Length == 0
+                || value.Contains(Typed.Trim(), StringComparison.CurrentCultureIgnoreCase))
+            .Take(Most)];
+
+    /// <summary>
+    /// Enough to be worth reading and not so many that the panel becomes the page. Somebody with more
+    /// categories than this types a letter, which is what the narrowing is for. Public because the field
+    /// above walks this same list with the arrow keys, and a highlight on a word the panel cut off would
+    /// move the selection to nowhere.
+    /// </summary>
+    public const int Most = 12;
+
+    private ElementReference _panel;
+    private IJSObjectReference? _anchoring;
+
+    /// <summary>
+    /// Measured on every render rather than only the first: the list shrinks as the box is typed into,
+    /// and a panel measured once sits where a taller version of itself used to be.
+    /// </summary>
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (Offered.Count == 0)
+        {
+            return;
+        }
+
+        try
+        {
+            _anchoring ??= await JSRuntime.InvokeAsync<IJSObjectReference>("import", "./js/menuAnchor.js");
+            await _anchoring.InvokeVoidAsync("anchorToField", _panel, FieldSelector);
+        }
+        catch (JSException)
+        {
+            // The list is still readable where CSS put it; this only improves where that is.
+        }
+        catch (JSDisconnectedException)
+        {
+            // The page is going away with the panel open.
+        }
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        if (_anchoring is not null)
+        {
+            try
+            {
+                await _anchoring.DisposeAsync();
+            }
+            catch (JSDisconnectedException)
+            {
+                // Nothing left to release.
+            }
+        }
+    }
+}

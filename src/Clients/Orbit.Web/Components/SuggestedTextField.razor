@@ -1,0 +1,104 @@
+@using Orbit.Web.Services
+
+@* One word, with the ones already used listed under the box. TagField's single-valued sibling: same
+   panel, same keys, no chips and no "+", because the field it is used for has exactly one answer - what
+   kind of thing a shelf item is.
+
+   Typing is what counts, as it always was. Picking from the list is a way of not typing it again, and
+   there is nothing to confirm: whatever is in the box when the form is saved is the value. *@
+<div class="suggested-text-field">
+    <input class="form-control suggested-text-input" type="text" value="@Value" disabled="@IsReadOnly"
+           placeholder="@Placeholder" aria-label="@AriaLabel"
+           @oninput="OnTypedAsync" @onkeydown="OnKeyDownAsync"
+           @onfocus="() => _isBrowsing = true" @onblur="OnBlurAsync" />
+    @if (_isBrowsing && !IsReadOnly)
+    {
+        <UsedValueBrowser Known="Known" Typed="@Value" Highlighted="@_highlighted"
+                          FieldSelector=".suggested-text-input" OnChosen="TakeAsync" />
+    }
+</div>
+
+@code {
+    [Parameter] public string Value { get; set; } = string.Empty;
+
+    [Parameter] public EventCallback<string> ValueChanged { get; set; }
+
+    /// <summary>Every word the reader has used for this field before - see UsedValueBrowser.</summary>
+    [Parameter] public IReadOnlyList<string> Known { get; set; } = [];
+
+    [Parameter] public string? Placeholder { get; set; }
+
+    [Parameter] public string? AriaLabel { get; set; }
+
+    [Parameter] public bool IsReadOnly { get; set; }
+
+    private bool _isBrowsing;
+    private string? _highlighted;
+
+    private Task OnTypedAsync(ChangeEventArgs args)
+    {
+        _isBrowsing = true;
+        _highlighted = null;
+        return ValueChanged.InvokeAsync(args.Value?.ToString() ?? string.Empty);
+    }
+
+    /// <summary>
+    /// Enter takes the highlighted word if the arrows have moved to one, and is otherwise left alone -
+    /// on the inventory editor it submits the form, which adds a row, and that is what somebody who has
+    /// finished typing is reaching for.
+    /// </summary>
+    private async Task OnKeyDownAsync(KeyboardEventArgs args)
+    {
+        var offered = OfferedNow();
+        switch (args.Key)
+        {
+            case "Enter" when _highlighted is { } highlighted:
+                await TakeAsync(highlighted);
+                return;
+
+            case "Escape":
+                _isBrowsing = false;
+                _highlighted = null;
+                return;
+
+            case "ArrowDown" when offered.Count > 0:
+                _isBrowsing = true;
+                _highlighted = Next(offered, by: 1);
+                return;
+
+            case "ArrowUp" when offered.Count > 0:
+                _isBrowsing = true;
+                _highlighted = Next(offered, by: -1);
+                return;
+        }
+    }
+
+    /// <summary>Deferred, so a click on an offered word lands before the panel holding it goes - see TagField.</summary>
+    private async Task OnBlurAsync()
+    {
+        await Task.Delay(150);
+        _isBrowsing = false;
+        _highlighted = null;
+        StateHasChanged();
+    }
+
+    private async Task TakeAsync(string value)
+    {
+        _isBrowsing = false;
+        _highlighted = null;
+        await ValueChanged.InvokeAsync(value);
+    }
+
+    private IReadOnlyList<string> OfferedNow()
+        => [.. Known
+            .Where(value => Value.Trim().Length == 0
+                || value.Contains(Value.Trim(), StringComparison.CurrentCultureIgnoreCase))
+            .Take(UsedValueBrowser.Most)];
+
+    private string Next(IReadOnlyList<string> offered, int by)
+    {
+        var current = _highlighted is null ? -1 : offered.ToList().IndexOf(_highlighted);
+        var next = current < 0 ? (by > 0 ? 0 : offered.Count - 1) : (current + by + offered.Count) % offered.Count;
+        return offered[next];
+    }
+}

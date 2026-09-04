@@ -19,10 +19,9 @@ export function initializeMapPicker(elementId, dotNetHelper, initialLatitude, in
     const startPosition = hasInitialPosition ? [initialLatitude, initialLongitude] : defaultCenter;
     const map = L.map(elementId).setView(startPosition, hasInitialPosition ? 15 : 6);
 
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
-        maxZoom: 19
-    }).addTo(map);
+    // Asked rather than added: the tiles are the one third-party request Orbit cannot serve itself,
+    // so they are the one thing "do not share my personal information" turns off - see mapTiles.js.
+    window.OrbitMapTiles.addTo(map);
 
     if (hasInitialPosition) {
         markersByElementId.set(elementId, L.marker(startPosition).addTo(map));

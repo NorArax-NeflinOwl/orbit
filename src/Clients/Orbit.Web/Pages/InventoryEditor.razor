@@ -4,6 +4,7 @@
 @page "/inventory/new"
 @attribute [Authorize]
 @implements IAsyncDisposable
+@using Orbit.Contracts.Chat
 @using Orbit.Contracts.Inventories
 @using Orbit.Contracts.Tasks
 @using Orbit.Contracts.Notifications
@@ -14,6 +15,9 @@
 @inject InventoryApiClient InventoryApiClient
 @inject TasksApiClient TasksApiClient
 @inject NotificationsApiClient NotificationsApiClient
+@inject ChatApiClient ChatApiClient
+@inject OrbitAuthenticationStateProvider AuthenticationStateProvider
+@inject NameSuggestionsApiClient NameSuggestionsApiClient
 @inject NavigationManager NavigationManager
 @inject ILogger<InventoryEditor> Logger
 @inject Translations T
@@ -184,7 +188,9 @@ else
                         @if (IsExpanded(item))
                         {
                             <div class="editor-item-details">
-                                <InventoryFields Model="item" NotificationSettings="_notificationSettings" />
+                                <InventoryFields Model="item" NotificationSettings="_notificationSettings"
+                                                 KnownProductTypes="_knownProductTypes"
+                                                 KnownCategories="_knownCategories" />
                                 @* Taking a row off the shelf is not something to have one click away from
                                    the amount somebody came to correct. Behind the toggle, at the end,
                                    where it is found on purpose rather than by accident. *@
@@ -224,6 +230,15 @@ else
 
         @if (!IsNewInventory)
         {
+            @* Handing the shelf to somebody, from inside the shelf. It used to be offered only from the
+               card on the list, so anybody already in here had to leave and find it again - see
+               ShareInventoryPanel, which is the same panel both places show. *@
+            @if (_inventory is { } inventory && _access.CanShare)
+            {
+                <h2>@T["Share"]</h2>
+                <ShareInventoryPanel Inventory="inventory" Contacts="_contacts" OwnUserId="_ownUserId" />
+            }
+
             <h2>@T["Link"]</h2>
             <ShareLinkButton ItemType="Inventory" ItemId="InventoryId!.Value" />
         }
@@ -258,23 +273,24 @@ else
                    letting somebody clear one child would make a promise this page cannot keep. See
                    MeasuredThroughAParent. *@
                 var throughParent = MeasuredThrough(taskList);
-                <label class="check-row">
-                    <input type="checkbox" checked="@(taskList.LinkedInventoryId == InventoryId || throughParent is not null)"
-                           disabled="@(_isReadOnly || _isLinkingTaskLists || throughParent is not null)"
-                           aria-label="@T.Format("Measure {0} against this inventory", taskList.Title)"
-                           @onchange="args => MeasureAsync(taskList, (bool)args.Value!)" />
-                    <span class="check-row-text">@taskList.Title</span>
-                    @if (throughParent is { } gatheredBy)
-                    {
-                        <span class="row-meta">@T.Format("through {0}", gatheredBy)</span>
-                    }
-                    @* A list already measured against another store: ticking it here moves it, so which
-                       store it would leave is named rather than left to be noticed afterwards. *@
-                    else if (taskList.LinkedInventoryId is { } elsewhere && elsewhere != InventoryId)
-                    {
-                        <span class="row-meta">@T.Format("now measured against {0}", NameOfInventory(elsewhere))</span>
-                    }
-                </label>
+                <CheckRow Title="@taskList.Title"
+                          IsTicked="@(taskList.LinkedInventoryId == InventoryId || throughParent is not null)"
+                          IsDisabled="@(_isReadOnly || _isLinkingTaskLists || throughParent is not null)"
+                          AriaLabel="@T.Format("Measure {0} against this inventory", taskList.Title)"
+                          OnTicked="ticked => MeasureAsync(taskList, ticked)">
+                    <Trailing>
+                        @if (throughParent is { } gatheredBy)
+                        {
+                            <span class="row-meta">@T.Format("through {0}", gatheredBy)</span>
+                        }
+                        @* A list already measured against another store: ticking it here moves it, so
+                           which store it would leave is named rather than left to be noticed after. *@
+                        else if (taskList.LinkedInventoryId is { } elsewhere && elsewhere != InventoryId)
+                        {
+                            <span class="row-meta">@T.Format("now measured against {0}", NameOfInventory(elsewhere))</span>
+                        }
+                    </Trailing>
+                </CheckRow>
             }
         }
         @if (_linkingMessage is not null)
@@ -397,6 +413,10 @@ else
     private RestockSettingsFormModel _restockSettings = new();
 
 
+    /// <summary>What this account already files shelf items under - read once, handed to every row.</summary>
+    private IReadOnlyList<string> _knownProductTypes = [];
+    private IReadOnlyList<string> _knownCategories = [];
+
     private bool _isLoading = true;
 
     /// <summary>
@@ -418,6 +438,16 @@ else
     private string? _sharedByUserName;
     private SharedItemAccess _access = new(IsShared: false, ShareAccessLevel.CanEdit);
 
+    /// <summary>
+    /// The inventory as it was read, kept whole for the share panel - which asks it who owns it and at
+    /// what level this reader holds it. Null while a new one is still being named.
+    /// </summary>
+    private InventoryDto? _inventory;
+
+    /// <summary>Who this shelf could be handed to, and who would be doing the handing.</summary>
+    private IReadOnlyList<ContactDto> _contacts = [];
+    private Guid _ownUserId;
+
     /// <summary>A read-only or share-only grant can look but not touch, so the whole form is disabled.</summary>
     private bool _isReadOnly;
 
@@ -435,6 +465,11 @@ else
         // Best-effort: gates which notification-channel options are selectable (see
         // NotificationChannelOption.IsDisabledBy) - a failure here just leaves every option enabled
         // rather than blocking the rest of the page from loading.
+        // Same best-effort footing: the two boxes on every item row offer what this account already
+        // files things under, and a list that could not be read leaves them plain boxes.
+        _knownProductTypes = await NameSuggestionsApiClient.UsedValuesAsync(UsedValueKind.InventoryItemProductType);
+        _knownCategories = await NameSuggestionsApiClient.UsedValuesAsync(UsedValueKind.InventoryItemCategory);
+
         try
         {
             _notificationSettings = await NotificationsApiClient.GetSettingsAsync();
@@ -462,10 +497,23 @@ else
                 return;
             }
 
+            _inventory = inventory;
             _isShared = inventory.IsShared;
             _sharedByUserName = inventory.SharedByUserName;
             _access = SharedItemAccess.For(inventory.IsShared, inventory.AccessLevel);
             _isReadOnly = !_access.CanEdit;
+
+            // Best-effort, like the notification settings above: without them the share panel says it
+            // has nobody to offer, which is the truth of what it can do rather than a broken page.
+            try
+            {
+                _contacts = await ChatApiClient.GetContactsAsync();
+                _ownUserId = await AuthenticationStateProvider.TryGetCurrentUserIdAsync() ?? Guid.Empty;
+            }
+            catch (HttpRequestException contactsException)
+            {
+                Logger.LogWarning(contactsException, "Failed to load contacts for sharing inventory {InventoryId}", InventoryId);
+            }
 
             var items = await InventoryApiClient.GetInventoryItemsAsync(InventoryId.Value) ?? [];
             _formModel = InventoryFormModel.FromDto(inventory, items);
@@ -655,7 +703,17 @@ else
     /// <summary>The types actually on this shelf - a filter offering one nothing is filed under is a dead end.</summary>
     private IReadOnlyList<string> ProductTypesOnTheShelf => DistinctValues(item => item.ProductType);
 
-    private IReadOnlyList<string> CategoriesOnTheShelf => DistinctValues(item => item.Category);
+    /// <summary>
+    /// Every word anything on this shelf is filed under. An item can carry several now, so this reads
+    /// across all of them rather than taking one per row - see InventoryItem.Categories.
+    /// </summary>
+    private IReadOnlyList<string> CategoriesOnTheShelf
+        => [.. _formModel.Items
+            .SelectMany(item => item.Categories)
+            .Select(category => category.Trim())
+            .Where(category => category.Length > 0)
+            .Distinct(StringComparer.CurrentCultureIgnoreCase)
+            .OrderBy(category => category, StringComparer.CurrentCultureIgnoreCase)];
 
     private IReadOnlyList<string> DistinctValues(Func<InventoryItemFormModel, string> of)
         => [.. _formModel.Items
@@ -696,7 +754,10 @@ else
 
         public bool Matches(InventoryItemFormModel item)
             => Matches(ProductType, item.ProductType)
-                && Matches(Category, item.Category)
+                // One of them is enough: an item filed under both "baking" and "dry goods" is what
+                // either filter is looking for.
+                && (Category.Length == 0 || item.Categories.Any(
+                    category => string.Equals(Category, category.Trim(), StringComparison.CurrentCultureIgnoreCase)))
                 && Contains(Name, item.Name);
 
         private static bool Matches(string chosen, string itemValue)
@@ -797,7 +858,14 @@ else
         {
             if (IsNewInventory)
             {
-                await InventoryApiClient.CreateInventoryAsync(_formModel.ToRequest());
+                // Said in the server's own words when it refuses. "Try again" is the wrong thing to
+                // tell somebody about a request that will be refused identically every time.
+                var creation = await InventoryApiClient.CreateInventoryAsync(_formModel.ToRequest());
+                if (!creation.WasCreated)
+                {
+                    _saveErrorMessage = creation.RefusedBecause;
+                    return;
+                }
             }
             else
             {

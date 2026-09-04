@@ -1,0 +1,64 @@
+@page "/docs"
+@using Orbit.Web.Services
+@inject Translations T
+
+@* What Orbit can do, said once, for somebody using it. Drawn from info/functionality.md - which is
+   written for whoever is building Orbit and names the classes that enforce each rule - and rewritten
+   here without any of that: a reader on this page wants to know what the two depths are for, not which
+   command handler refuses a move.
+
+   Nothing about Azure, the pipeline or what is planned next: those are in info/ because they are about
+   running Orbit, and this page is about using it. No [Authorize], so it can be read before signing up. *@
+<PageTitle>@T["Orbit — Docs"]</PageTitle>
+
+<PageHeader>
+    <Title>@T["Docs"]</Title>
+    <Subtitle>@T["What Orbit does, and how the parts fit together."]</Subtitle>
+</PageHeader>
+
+<div class="prose-page">
+    <div class="card">
+        <h2>@T["Two depths, everywhere"]</h2>
+        <p>@T["Every kind of thing in Orbit is met at the same two depths. Pressing it opens what it is - a note read, a list to tick off, a shelf to look at - and a named press one step further in opens the form that changes it. Landing on the form would answer a question nobody asked; landing on the thing is what you came for."]</p>
+        <p>@T["The dashboard is the layer above both. Every card there opens what it names, and the menu at its top right decides which cards you see at all."]</p>
+    </div>
+
+    <div class="card">
+        <h2>@T["Notes"]</h2>
+        <p>@T["A note is a title and whatever follows it. Lines that start as checklist items can be ticked off while reading, without opening the editor. A note can be pinned, given a priority, shared, or marked private."]</p>
+    </div>
+
+    <div class="card">
+        <h2>@T["Tasks"]</h2>
+        <p>@T["A task list holds entries of three kinds: something to do, something happening at a time and a place, and something that stands for another list - a group list is done when the lists it gathers are. Lists can be nested, read flat when the headings get in the way, sorted by hand, and collapsed."]</p>
+        <p>@T["An entry with a date shows up on the calendar and on the dashboard, and can remind you. An entry can also be measured against an inventory, which is what turns \"we are low on flour\" into a line on a shopping list."]</p>
+    </div>
+
+    <div class="card">
+        <h2>@T["Calendar"]</h2>
+        <p>@T["Events, with a place, guests and reminders, alongside the deadlines your task lists carry - the two are shown together, because a day does not care which of the two something came from. Events can be shared, and handed off to Google Calendar if you want them there as well."]</p>
+    </div>
+
+    <div class="card">
+        <h2>@T["Inventory"]</h2>
+        <p>@T["What is on your shelves: how much of each thing there is, what counts as running low, and when it goes off. An item under its minimum - or one you have said to check every round - is put on that inventory's restock list, which is an ordinary task list Orbit keeps up to date for you."]</p>
+        <p>@T["Several lists can be measured against one inventory. What that costs is said where you tick it: a shelf is split between everything asking for it."]</p>
+    </div>
+
+    <div class="card">
+        <h2>@T["Contacts, chat and the map"]</h2>
+        <p>@T["Conversations with one person or with a group, sealed end to end. Contacts are people who have agreed to be found by you, and a conversation you are done with can be archived rather than deleted."]</p>
+        <p>@T["Your position can be sent once or shared live for a set time, and the map shows both yours and whatever anybody has shared with you. It stops on its own when the time you gave runs out."]</p>
+    </div>
+
+    <div class="card">
+        <h2>@T["Sharing"]</h2>
+        <p>@T["Notes, task lists, events and inventories can be handed to a contact at one of four levels: read it, share it on, edit it, or edit it without being able to pass editing on. The invitation arrives in your chat with them. You can never grant more than you hold yourself."]</p>
+        <p>@T["Anything marked private is the exception: it is sealed with a key only you have, which is also why it cannot be shared, cannot raise reminders, and does not survive a password reset."]</p>
+    </div>
+
+    <div class="card">
+        <h2>@T["Settings"]</h2>
+        <p>@T["Options holds the account, the language, the theme and accent colour, which notifications reach you and how, and which parts of Orbit are unlocked for this account at all. What this browser is allowed to remember is under Manage cookies, at the bottom of any page."]</p>
+    </div>
+</div>

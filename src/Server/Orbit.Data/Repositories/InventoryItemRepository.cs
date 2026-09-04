@@ -18,6 +18,7 @@ public sealed class InventoryItemRepository : IInventoryItemRepository
     {
         var entities = await _dbContext.InventoryItems
             .AsNoTracking()
+            .Include(entity => entity.Categories)
             .Where(entity => entity.InventoryId == inventoryId)
             .ToListAsync(cancellationToken);
 
@@ -34,6 +35,7 @@ public sealed class InventoryItemRepository : IInventoryItemRepository
     {
         var entity = await _dbContext.InventoryItems
             .AsNoTracking()
+            .Include(item => item.Categories)
             .FirstOrDefaultAsync(item => item.Id == id && item.InventoryId == inventoryId, cancellationToken);
 
         return entity is null ? null : ToDomain(entity);
@@ -54,10 +56,16 @@ public sealed class InventoryItemRepository : IInventoryItemRepository
         // item (see InventoryTaskListCoordinator.EnsureRestockTaskAsync), and attaching a second entity
         // instance with the same key the context already tracks throws
         // "another instance with the same key value is already being tracked".
-        var entity = await _dbContext.InventoryItems.FirstAsync(existing => existing.Id == item.Id, cancellationToken);
+        var entity = await _dbContext.InventoryItems
+            .Include(existing => existing.Categories)
+            .FirstAsync(existing => existing.Id == item.Id, cancellationToken);
         entity.Name = item.Name;
         entity.ProductType = item.ProductType;
-        entity.Category = item.Category;
+        // Replaced rather than merged: a save is the whole list, and the rows carry nothing but the
+        // words and their order, so there is no state to lose by rewriting them - unlike the item row
+        // itself, which is why that one is updated in place. Mirrors TaskRepository's own categories.
+        entity.Categories.Clear();
+        entity.Categories.AddRange(ToCategoryEntities(item));
         entity.Quantity = item.Quantity;
         entity.MinimumQuantity = item.MinimumQuantity;
         entity.Unit = item.Unit.ToString();
@@ -120,9 +128,23 @@ public sealed class InventoryItemRepository : IInventoryItemRepository
         }
     }
 
+    /// <summary>
+    /// The item's categories as rows, numbered in the order it holds them - see
+    /// InventoryItemCategoryEntity.Position for why the order is stored rather than inferred.
+    /// </summary>
+    private static List<InventoryItemCategoryEntity> ToCategoryEntities(InventoryItem item)
+        => [.. item.Categories.Select((category, position) => new InventoryItemCategoryEntity
+        {
+            InventoryItemId = item.Id,
+            Category = category,
+            Position = position
+        })];
+
     private static InventoryItem ToDomain(InventoryItemEntity entity)
         => InventoryItem.FromPersistence(
-            entity.Id, entity.InventoryId, entity.Name, entity.ProductType, entity.Category, entity.Quantity, entity.MinimumQuantity,
+            entity.Id, entity.InventoryId, entity.Name, entity.ProductType,
+            [.. entity.Categories.OrderBy(category => category.Position).Select(category => category.Category)],
+            entity.Quantity, entity.MinimumQuantity,
             Enum.Parse<InventoryUnit>(entity.Unit, ignoreCase: true), entity.ExpiryDate,
             Enum.Parse<NotificationChannel>(entity.ExpiryNotificationChannel, ignoreCase: true),
             entity.PendingRestockTaskListId, entity.PendingRestockTaskItemId, entity.Position, entity.CreatedAtUtc,
@@ -135,7 +157,7 @@ public sealed class InventoryItemRepository : IInventoryItemRepository
             InventoryId = item.InventoryId,
             Name = item.Name,
             ProductType = item.ProductType,
-            Category = item.Category,
+            Categories = ToCategoryEntities(item),
             Quantity = item.Quantity,
             MinimumQuantity = item.MinimumQuantity,
             IsCheckedRegularly = item.IsCheckedRegularly,

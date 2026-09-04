@@ -40,4 +40,30 @@ public sealed class NameSuggestionsApiClient
             return [];
         }
     }
+
+    /// <summary>
+    /// Everything the reader has already filed something under for that field - see UsedValueKind for
+    /// why this is a different question from the one above. Read once when an editor opens, so unlike
+    /// FindAsync there is nothing to narrow it by and nothing racing another keystroke.
+    ///
+    /// Empty rather than throwing, for the same reason: a category box that will not accept typing
+    /// because its list could not be fetched is worse than one with no list.
+    /// </summary>
+    public async Task<IReadOnlyList<string>> UsedValuesAsync(
+        UsedValueKind kind, CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            return await _httpClient.GetFromJsonAsync<List<string>>(
+                $"api/suggestions/used-values?kind={kind}", cancellationToken) ?? [];
+        }
+        catch (HttpRequestException)
+        {
+            return [];
+        }
+        catch (TaskCanceledException)
+        {
+            return [];
+        }
+    }
 }

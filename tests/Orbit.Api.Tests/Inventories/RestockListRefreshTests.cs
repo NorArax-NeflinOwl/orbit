@@ -74,7 +74,7 @@ public sealed class RestockListRefreshTests
 
         // Somebody counted the shelf and it turns out there is plenty.
         var stocked = await ShelfItemAsync(inventoryId, flour.Id);
-        stocked.Update("Flour", "Food", "Dry", 9, 5, InventoryUnit.Piece, null, NotificationChannel.None);
+        stocked.Update("Flour", "Food", ["Dry"], 9, 5, InventoryUnit.Piece, null, NotificationChannel.None);
         await _context.InventoryItemRepository.UpdateAsync(stocked, CancellationToken.None);
 
         var outcome = await ARefresh().RefreshAsync(inventoryId, CancellationToken.None);
@@ -134,7 +134,7 @@ public sealed class RestockListRefreshTests
     private async Task<InventoryItem> AProductAsync(Guid inventoryId, string name, decimal quantity, decimal minimum)
     {
         var item = InventoryItem.Create(
-            inventoryId, name, "Food", "Dry", quantity, minimum, InventoryUnit.Piece, null, NotificationChannel.None);
+            inventoryId, name, "Food", ["Dry"], quantity, minimum, InventoryUnit.Piece, null, NotificationChannel.None);
         await _context.InventoryItemRepository.AddAsync(item, CancellationToken.None);
         return item;
     }

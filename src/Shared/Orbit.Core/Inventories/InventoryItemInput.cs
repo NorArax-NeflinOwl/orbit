@@ -9,7 +9,7 @@ namespace Orbit.Core.Inventories;
 /// keep its identity (and its open restock task) across a save.
 /// </summary>
 public sealed record InventoryItemInput(
-    Guid? Id, string Name, string ProductType, string Category, decimal Quantity, decimal? MinimumQuantity,
+    Guid? Id, string Name, string ProductType, IReadOnlyList<string> Categories, decimal Quantity, decimal? MinimumQuantity,
     InventoryUnit Unit, DateTimeOffset? ExpiryDate, NotificationChannel ExpiryNotificationChannel,
     /// <summary>
     /// Null leaves the stored flag alone - see InventoryItemRequest. A save is the whole list, so a client

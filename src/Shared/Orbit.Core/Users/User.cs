@@ -62,6 +62,23 @@ public sealed class User
     /// <summary>What this account chose to be, and when it was last heard from - see <see cref="UserPresence"/>.</summary>
     public UserPresence Presence { get; private set; } = UserPresence.NeverSeen;
 
+    /// <summary>
+    /// Whether this account has asked that nothing about it reach anybody but Orbit - the footer's
+    /// "Do not share my personal information".
+    ///
+    /// It is about the third parties a page brings with it rather than about sharing a note with a
+    /// contact, which is the account's own doing and is asked for a note at a time. What it turns off
+    /// is named on the Privacy page: the map's tiles, and the trace this deployment keeps of what its
+    /// server was doing. The fonts and the map's own code were moved into Orbit's own wwwroot rather
+    /// than gated, because a page that looks different depending on a privacy choice is a page that
+    /// tells everybody what the choice was.
+    ///
+    /// Kept on the account rather than in the browser so it follows a reader between devices - it is a
+    /// standing instruction, not a preference about this screen. The browser mirrors it for the first
+    /// paint; see BrowserStorageConsent's necessary keys.
+    /// </summary>
+    public bool KeepsThirdPartiesOut { get; private set; }
+
     private User(
         Guid id, string email, string userName, string displayName, string? passwordHash, DateTimeOffset createdAtUtc,
         string? publicKeyBase64, WrappedPrivateKey? wrappedPrivateKey, DateTimeOffset? emailVerifiedAtUtc, string? googleSubjectId)
@@ -100,15 +117,20 @@ public sealed class User
     public static User FromPersistence(
         Guid id, string email, string userName, string displayName, string? passwordHash, DateTimeOffset createdAtUtc,
         string? publicKeyBase64, WrappedPrivateKey? wrappedPrivateKey = null, DateTimeOffset? emailVerifiedAtUtc = null,
-        string? googleSubjectId = null, UserLocation? location = null, UserPresence? presence = null)
+        string? googleSubjectId = null, UserLocation? location = null, UserPresence? presence = null,
+        bool keepsThirdPartiesOut = false)
     {
         var user = new User(
             id, email, userName, displayName, passwordHash, createdAtUtc, publicKeyBase64, wrappedPrivateKey,
             emailVerifiedAtUtc, googleSubjectId);
         user.Location = location;
         user.Presence = presence ?? UserPresence.NeverSeen;
+        user.KeepsThirdPartiesOut = keepsThirdPartiesOut;
         return user;
     }
+
+    /// <summary>Answers the footer's "Do not share my personal information" - see <see cref="KeepsThirdPartiesOut"/>.</summary>
+    public void SetKeepsThirdPartiesOut(bool keepsThemOut) => KeepsThirdPartiesOut = keepsThemOut;
 
     /// <summary>Records that this account is here right now - see PresenceHeartbeatCommandHandler.</summary>
     public void RecordSeen(DateTimeOffset nowUtc) => Presence = Presence.SeenAt(nowUtc);

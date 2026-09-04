@@ -1,0 +1,38 @@
+@* One line in a list that is ticked rather than opened: a box, what it is called, and whatever follows.
+   Row's sibling rather than a mode of it - the two look identical and are not the same thing. A Row is
+   a <div> or a <button>; this is a <label>, so the whole line hands its press to the box inside it, and
+   a <button> may not contain one at all. Four pages wrote it out by hand, and the only differences
+   between them were which of the trailing spans they added.
+
+   The press stops here. A tick row can sit inside something else that is pressable - see NoteSummary,
+   whose whole card opens the editor - and ticking a line there means ticking that line, not opening the
+   note to write in. Nothing is lost where there is nothing above to reach: the other three sit in plain
+   cards. *@
+<label class="check-row @AdditionalClass" @onclick="() => { }" @onclick:stopPropagation="true">
+    <input type="checkbox" checked="@IsTicked" disabled="@IsDisabled" aria-label="@AriaLabel"
+           @onchange="args => OnTicked.InvokeAsync((bool)args.Value!)" />
+    <span class="check-row-text">@Title</span>
+    @Trailing
+</label>
+
+@code {
+    [Parameter, EditorRequired] public string Title { get; set; } = string.Empty;
+
+    [Parameter] public bool IsTicked { get; set; }
+
+    [Parameter] public bool IsDisabled { get; set; }
+
+    /// <summary>
+    /// What the box alone says, for a reader who never sees the words beside it. Left off where the
+    /// title already reads as the whole question - a contact's name in a list of who to add to a group.
+    /// </summary>
+    [Parameter] public string? AriaLabel { get; set; }
+
+    /// <summary>Whatever follows the title - a category mark, a meta span, several of each. Row's own Trailing, and for the same reason: how many and which vary by row.</summary>
+    [Parameter] public RenderFragment? Trailing { get; set; }
+
+    [Parameter] public EventCallback<bool> OnTicked { get; set; }
+
+    /// <summary>"completed" where a ticked row is struck through, and whatever else the caller marks it with.</summary>
+    [Parameter] public string? AdditionalClass { get; set; }
+}

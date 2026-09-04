@@ -153,7 +153,7 @@ public sealed class ImportArchiveCommandHandler : IRequestHandler<ImportArchiveC
             {
                 await _inventoryItemRepository.AddAsync(
                     InventoryItem.Create(
-                        inventory.Id, item.Name, item.ProductType, item.Category, item.Quantity, item.MinimumQuantity,
+                        inventory.Id, item.Name, item.ProductType, item.AllCategories, item.Quantity, item.MinimumQuantity,
                         ParseUnit(item.Unit), item.ExpiryDate, ParseChannel(item.ExpiryNotificationChannel)),
                     cancellationToken);
             }

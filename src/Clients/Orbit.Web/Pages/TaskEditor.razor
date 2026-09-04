@@ -20,6 +20,8 @@
 @using Orbit.Core.Suggestions
 @using Orbit.Web.Services
 @inject TasksApiClient TasksApiClient
+@inject TaskListDeletion TaskListDeletion
+@inject NameSuggestionsApiClient NameSuggestionsApiClient
 @inject InventoryApiClient InventoryApiClient
 @inject ChatApiClient ChatApiClient
 @inject CalendarApiClient CalendarApiClient
@@ -32,15 +34,6 @@
 @inject ChosenPlace ChosenPlace
 
 <PageTitle>@(IsNewTaskList ? T["New task list"] : T["Edit task list"])</PageTitle>
-
-@* Every category this account already uses, offered to each entry's box - one list for the page rather
-   than one per entry, which would be the same names repeated as many times as the list is long. *@
-<datalist id="taskItemCategories">
-    @foreach (var category in _knownCategories)
-    {
-        <option value="@category"></option>
-    }
-</datalist>
 
 @* Two panels: the form on the left, which scrolls, and the panel on the right, which does not - see
    EditorRail. On a narrow screen the right one becomes a bar along the foot of the window. *@
@@ -162,16 +155,18 @@ else
                                 <option value="@nameof(TaskItemKind.Inventory)">@T["Inventory"]</option>
                             </select>
                         </label>
-                        @* What the entry is about, whatever kind it is - a shelf item's category box,
-                           holding as many as apply rather than making somebody pick the truest one.
-                           The list under it is every category already in use on this account, so the
-                           second entry about the car is filed under the same word as the first. *@
-                        <label>@T["Categories"]<input list="taskItemCategories" class="form-control"
-                                                      placeholder="@(T["Separate them with commas"])"
-                                                      aria-label="@(T["Categories"])"
-                                                      value="@item.CategoriesText"
-                                                      @onchange="changeArgs => item.CategoriesText = changeArgs.Value?.ToString() ?? string.Empty" />
-                        </label>
+                        @* What the entry is about, whatever kind it is - as many words as apply rather
+                           than making somebody pick the truest one. It was one box holding
+                           "shopping, car", which asked the reader to know that the comma was the
+                           separator; it is now a word at a time, with every category already in use on
+                           this account listed under the box - see TagField. *@
+                        <div class="editor-item-tags">
+                            <span class="editor-item-tags-label">@T["Categories"]</span>
+                            <TagField Values="item.Categories" ValuesChanged="values => item.Categories = [.. values]"
+                                      Known="_knownCategories" Placeholder="@(T["Add a category"])"
+                                      AriaLabel="@(T["Categories"])"
+                                      IsReadOnly="@(_isSharedReadOnly || _lockedByUserName is not null)" />
+                        </div>
                         @* A day to be done by is a checklist entry's question and nobody else's: an
                            appointment already says when it is, in the event's own start and end below,
                            and a restock errand is about an amount rather than a date. Asking all three
@@ -257,7 +252,9 @@ else
                                    list; see SaveTheShelfAsync. *@
                                 <span class="field-break"></span>
                                 <InventoryFields Model="product.Product" NotificationSettings="_notificationSettings"
-                                                 ShowsName="@(product.Product.Id is not null)" ShowsAmounts="true" />
+                                                 ShowsName="@(product.Product.Id is not null)" ShowsAmounts="true"
+                                                 KnownProductTypes="_knownProductTypes"
+                                                 KnownCategories="_knownShelfCategories" />
                                 <span class="field-break"></span>
                                 <small>
                                     @(product.Product.Id is null
@@ -514,6 +511,16 @@ else
                             @onclick="() => RecalculateAsync(menuTaskListId)">
                         @T["Recalculate against the inventory"]
                     </button>
+                    @* Where a calendar event's editor has had "Delete event" all along. A task list was
+                       the one thing in Orbit that could only be deleted from the page of cards - so
+                       getting rid of one meant leaving the form that opens everything else about it. *@
+                    @if (!_isShared)
+                    {
+                        <button type="button" class="avatar-dropdown-item" disabled="@_isDeleting"
+                                @onclick="DeleteAsync">
+                            @T["Delete task list"]
+                        </button>
+                    }
                 </OverflowMenu>
             }
         </ChildContent>
@@ -656,6 +663,14 @@ else
 
     /// <summary>Every category this account already uses, offered as suggestions under each entry's box.</summary>
     private IReadOnlyList<string> _knownCategories = [];
+
+    /// <summary>
+    /// What shelf items on this account are filed under, for the product fields an Inventory entry
+    /// opens. A different vocabulary from _knownCategories above, which is what *entries* are filed
+    /// under - the two boxes sit on the same row and mean different things.
+    /// </summary>
+    private IReadOnlyList<string> _knownProductTypes = [];
+    private IReadOnlyList<string> _knownShelfCategories = [];
     private bool _isShared;
     private bool _isSharedReadOnly;
     private bool _canShare;
@@ -694,6 +709,12 @@ else
         {
             _ownUserId = await AuthenticationStateProvider.TryGetCurrentUserIdAsync()
                 ?? throw new HttpRequestException("No signed-in user.", null, HttpStatusCode.Unauthorized);
+
+            // What shelf items on this account are already filed under, for the product fields an
+            // Inventory entry opens. Answers empty rather than throwing when it cannot be read - see
+            // UsedValuesAsync - so a box with no list is the worst this can do to the page.
+            _knownProductTypes = await NameSuggestionsApiClient.UsedValuesAsync(UsedValueKind.InventoryItemProductType);
+            _knownShelfCategories = await NameSuggestionsApiClient.UsedValuesAsync(UsedValueKind.InventoryItemCategory);
 
             // Best-effort: gates which notification-channel options are selectable (see
             // NotificationChannelOption.IsDisabledBy) - a failure here just leaves every option enabled
@@ -1748,6 +1769,47 @@ else
         NavigationManager.NavigateTo("/tasks");
     }
 
+    /// <summary>Whether the delete is in flight, so the menu entry cannot be pressed a second time.</summary>
+    private bool _isDeleting;
+
+    /// <summary>
+    /// Deletes the list this form is editing and leaves, questions and all - see TaskListDeletion, which
+    /// the page of cards and the checklist ask through as well.
+    ///
+    /// How many lists it gathers is counted off the form rather than off what was loaded: somebody who
+    /// has just taken the links out and not saved yet should not be asked about lists this one no longer
+    /// gathers. Unsaved edits go with it, which is what deleting the thing being edited means; the lock
+    /// is released first, so a list that turns out not to be deletable is not left held by a page that
+    /// has gone.
+    /// </summary>
+    private async Task DeleteAsync()
+    {
+        if (Id is not { } taskListId)
+        {
+            return;
+        }
+
+        Logger.LogInformation("User clicked 'Delete task list' (TaskListId={TaskListId})", taskListId);
+        var gathers = _formModel.Items.SelectMany(item => item.LinkedTaskListIds).Distinct().Count();
+        _isDeleting = true;
+        try
+        {
+            if (await TaskListDeletion.AskAndDeleteAsync(taskListId, _formModel.Title, gathers)
+                is not TaskListDeletionOutcome.Deleted)
+            {
+                _saveErrorMessage = TaskListDeletion.FailureMessage;
+                return;
+            }
+        }
+        finally
+        {
+            _isDeleting = false;
+        }
+
+        await ReleaseLockAsync(taskListId);
+        NavigationManager.NavigateTo("/tasks");
+    }
+
     /// <summary>Mirrors NoteEditor's method of the same name - see its comment.</summary>
     private async Task AcquireLockAsync(Guid taskListId)
     {
@@ -1967,12 +2029,6 @@ else
         /// </summary>
         public List<string> Categories { get; set; } = [];
 
-        /// <summary>The same list as one line, which is what the form binds to - see CategoryText.</summary>
-        public string CategoriesText
-        {
-            get => CategoryText.Join(Categories);
-            set => Categories = CategoryText.Split(value);
-        }
         /// <summary>
         /// The banner by default - which is not silence: every notification is written into the in-app
         /// feed whatever the channel says (see NotificationRecorder). A new entry therefore says

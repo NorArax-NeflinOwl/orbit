@@ -229,7 +229,8 @@ public sealed class InventorySynchronizer
         => items.Select(item => new InventoryItemRequest(
             item.Id, item.Name, item.ProductType, item.Category, item.Quantity, item.MinimumQuantity,
             item.Unit, item.ExpiryDate?.ToUniversalTime(), item.ExpiryNotificationChannel,
-            // Carried rather than left to mean "not provided": the read shape always says what it is,
-            // and a save that says nothing cannot turn it off.
-            item.IsCheckedRegularly)).ToList();
+            // Both carried rather than left to mean "not provided": the read shape always says what it
+            // is, and a save that says nothing cannot turn it off. Categories especially - a phone that
+            // sent only the first would quietly delete the rest on every save it made.
+            item.IsCheckedRegularly, item.AllCategories)).ToList();
 }

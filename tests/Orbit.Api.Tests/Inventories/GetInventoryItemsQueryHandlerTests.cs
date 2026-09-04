@@ -19,9 +19,9 @@ public sealed class GetInventoryItemsQueryHandlerTests
         var kitchenId = context.AddInventory(userId, "Kitchen");
         var garageId = context.AddInventory(userId, "Garage");
         await context.InventoryItemRepository.AddAsync(
-            InventoryItem.Create(kitchenId, "Milk", "Dairy", "Fridge", 2m, 1m, InventoryUnit.Piece, null, NotificationChannel.Push), CancellationToken.None);
+            InventoryItem.Create(kitchenId, "Milk", "Dairy", ["Fridge"], 2m, 1m, InventoryUnit.Piece, null, NotificationChannel.Push), CancellationToken.None);
         await context.InventoryItemRepository.AddAsync(
-            InventoryItem.Create(garageId, "Screws", "Hardware", "Shelf", 2m, 1m, InventoryUnit.Piece, null, NotificationChannel.Push), CancellationToken.None);
+            InventoryItem.Create(garageId, "Screws", "Hardware", ["Shelf"], 2m, 1m, InventoryUnit.Piece, null, NotificationChannel.Push), CancellationToken.None);
 
         var results = await handler.HandleAsync(new GetInventoryItemsQuery(userId, kitchenId), CancellationToken.None);
 
@@ -50,7 +50,7 @@ public sealed class GetInventoryItemsQueryHandlerTests
         var inventoryId = context.AddInventory(ownerUserId);
         context.AddAcceptedShare(inventoryId, ownerUserId, recipientUserId, ShareAccessLevel.ReadOnly);
         await context.InventoryItemRepository.AddAsync(
-            InventoryItem.Create(inventoryId, "Milk", "Dairy", "Fridge", 2m, 1m, InventoryUnit.Piece, null, NotificationChannel.Push), CancellationToken.None);
+            InventoryItem.Create(inventoryId, "Milk", "Dairy", ["Fridge"], 2m, 1m, InventoryUnit.Piece, null, NotificationChannel.Push), CancellationToken.None);
 
         var results = await handler.HandleAsync(new GetInventoryItemsQuery(recipientUserId, inventoryId), CancellationToken.None);
 
@@ -67,7 +67,7 @@ public sealed class GetInventoryItemsQueryHandlerTests
 
         // The list the reference points at was deleted; completing the task no longer counts as losing
         // it, since that is what let a second "Restock: Milk" appear beside the finished one.
-        var item = InventoryItem.Create(inventoryId, "Milk", "Dairy", "Fridge", 0m, 1m, InventoryUnit.Piece, null, NotificationChannel.Push);
+        var item = InventoryItem.Create(inventoryId, "Milk", "Dairy", ["Fridge"], 0m, 1m, InventoryUnit.Piece, null, NotificationChannel.Push);
         item.SetPendingRestockTask(Guid.NewGuid(), Guid.NewGuid());
         await context.InventoryItemRepository.AddAsync(item, CancellationToken.None);
 

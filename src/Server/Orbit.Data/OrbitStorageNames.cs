@@ -36,6 +36,7 @@ internal static class OrbitStorageNames
         [typeof(SharedLocationEntity)] = new("OP_LOCATIONS", "OP_L_"),
         [typeof(InventoryEntity)] = new("OP_INVENTORIES", "OP_I_"),
         [typeof(InventoryItemEntity)] = new("OP_INVENTORIES_ITEMS", "OP_II_"),
+        [typeof(InventoryItemCategoryEntity)] = new("OP_INVENTORIES_CATEGORIES", "OP_IC_"),
         [typeof(InventoryShareEntity)] = new("OP_INVENTORIES_SHARED", "OP_IS_"),
         [typeof(NotificationEntryEntity)] = new("OP_NOTIFICATIONS", "OP_NTF_"),
 

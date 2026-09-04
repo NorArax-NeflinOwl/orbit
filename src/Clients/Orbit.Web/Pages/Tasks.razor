@@ -1,11 +1,14 @@
 @page "/tasks"
 @attribute [Authorize]
 @implements IDisposable
+@using Orbit.Contracts.Calendar
 @using Orbit.Contracts.Tasks
 @using Orbit.Core.Abstractions
 @using Orbit.Core.Tasks
 @using Orbit.Web.Services
 @inject TasksApiClient TasksApiClient
+@inject CalendarApiClient CalendarApiClient
+@inject TaskListDeletion TaskListDeletion
 @inject TaskListArrangement Arrangement
 @inject NotificationFeedState NotificationFeedState
 @inject NavigationManager NavigationManager
@@ -55,6 +58,13 @@
         </OverflowMenu>
     </Actions>
 </PageHeader>
+
+@* This page had nowhere to say that something went wrong, so a delete that was refused looked
+   exactly like a press that never registered - see TaskListDeletion, which words it. *@
+@if (_errorMessage is not null)
+{
+    <p class="error">@_errorMessage</p>
+}
 
 <ObjectList IsLoading="_taskLists is null" IsEmpty="_taskLists is { Count: 0 }" EmptyMessage="@T["No task lists yet."]">
     @* What the reader is looking for, above the chips that say which lists are on offer at all: a word
@@ -226,39 +236,62 @@
                 @{ var entries = EntriesToShow(taskList); }
                 @foreach (var item in entries.Take(RowsToShow(entries.Count, PreviewLimitFor(taskList))))
                 {
-                    <div class="list-row task-preview-row @(item.IsCompleted ? "completed" : "")">
-                        <span class="task-preview-mark">@(item.IsCompleted ? "✓" : "")</span>
-                        <span class="row-title">@Written(item.Description)</span>
-                        @* What the entry is filed under, on the row itself: the chips above filter by
-                           these, and a filter whose subject is invisible on what it returns leaves the
-                           reader to take the page's word for it. *@
-                        @foreach (var category in item.AllCategories)
-                        {
-                            <span class="row-category @(_itemFilter.IsChosen(category) ? "on" : "")">@category</span>
-                        }
-                        @if (item.AllLinkedTaskListIds.Count > 0)
-                        {
-                            <span class="row-meta">@T["follows another list"]</span>
-                        }
-                        @* A day to be done by belongs to a checklist entry - an appointment says when it
-                           is in the calendar, and a restock errand is about an amount. Same rule as the
-                           editor, which only asks a checklist entry for one. *@
-                        else if (IsAChecklistEntry(item) && item.DueDateUtc is { } dueDate)
-                        {
-                            <span class="row-meta">@dueDate.LocalDateTime.ToString("dd.MM.yyyy HH:mm")</span>
-                        }
-                    </div>
+                    @* Pressed, the row opens the entry itself. It used to be a plain div, so the one
+                       part of the card a reader actually points at was the one part that did nothing -
+                       the dashboard's rows have opened what they name all along. The press stops here
+                       rather than reaching the card behind it, which opens the whole checklist. *@
+                    <Row Title="@Written(item.Description)" OnPressed="() => GoToEntry(taskList.Id, item.Id)"
+                         AdditionalClass="@($"task-preview-row {(item.IsCompleted ? "completed" : "")}")">
+                        <Leading>
+                            <span class="task-preview-mark">@(item.IsCompleted ? "✓" : "")</span>
+                            @* An appointment's own colour, the same dot the dashboard's Upcoming card
+                               draws - see EventColourOf. Only for an entry that is one: a thing to tick
+                               off and a restock errand have no event and so no colour. *@
+                            @if (EventColourOf(item) is { } colour)
+                            {
+                                <span class="stat-dot" style="background:@colour" title="@(T["Appointment"])"></span>
+                            }
+                        </Leading>
+                        <Trailing>
+                            @* What the entry is filed under, on the row itself: the chips above filter
+                               by these, and a filter whose subject is invisible on what it returns
+                               leaves the reader to take the page's word for it. *@
+                            @foreach (var category in item.AllCategories)
+                            {
+                                <span class="row-category @(_itemFilter.IsChosen(category) ? "on" : "")">@category</span>
+                            }
+                            @if (item.AllLinkedTaskListIds.Count > 0)
+                            {
+                                <span class="row-meta">@T["follows another list"]</span>
+                            }
+                            @* A day to be done by belongs to a checklist entry - an appointment says
+                               when it is in the calendar, and a restock errand is about an amount. Same
+                               rule as the editor, which only asks a checklist entry for one. *@
+                            else if (IsAChecklistEntry(item) && item.DueDateUtc is { } dueDate)
+                            {
+                                <span class="row-meta">@dueDate.LocalDateTime.ToString("dd.MM.yyyy HH:mm")</span>
+                            }
+                        </Trailing>
+                    </Row>
 
                     @* What a row that only points at another list actually stands for. Without it a
-                       group list's card is a stack of titles, which says nothing about the work. *@
+                       group list's card is a stack of titles, which says nothing about the work. It
+                       opens on the list it is actually on, not on the one gathering it. *@
                     @foreach (var linkedTaskListId in item.AllLinkedTaskListIds)
                     {
                         @foreach (var linkedItem in LinkedItems(linkedTaskListId))
                         {
-                            <div class="list-row task-preview-row task-preview-row-linked @(linkedItem.IsCompleted ? "completed" : "")">
-                                <span class="task-preview-mark">@(linkedItem.IsCompleted ? "✓" : "")</span>
-                                <span class="row-title">@Written(linkedItem.Description)</span>
-                            </div>
+                            <Row Title="@Written(linkedItem.Description)"
+                                 OnPressed="() => GoToEntry(linkedTaskListId, linkedItem.Id)"
+                                 AdditionalClass="@($"task-preview-row task-preview-row-linked {(linkedItem.IsCompleted ? "completed" : "")}")">
+                                <Leading>
+                                    <span class="task-preview-mark">@(linkedItem.IsCompleted ? "✓" : "")</span>
+                                    @if (EventColourOf(linkedItem) is { } linkedColour)
+                                    {
+                                        <span class="stat-dot" style="background:@linkedColour" title="@(T["Appointment"])"></span>
+                                    }
+                                </Leading>
+                            </Row>
                         }
                         @if (LinkedItemCount(linkedTaskListId) > RowsToShow(LinkedItemCount(linkedTaskListId), LinkedPreviewItemCount))
                         {
@@ -653,6 +686,52 @@
     /// <summary>Whether this entry is ordinary work rather than an appointment or a restock errand.</summary>
     private static bool IsAChecklistEntry(TaskItemDto item) => item.Kind == nameof(TaskItemKind.Checklist);
 
+    /// <summary>
+    /// The colour of the appointment an entry stands for, or null for an entry that is not one. The
+    /// dashboard's Upcoming card has drawn this dot all along and this page drew nothing, so the same
+    /// appointment looked like an appointment on one page and like anything else on the other.
+    ///
+    /// An entry carries no colour of its own - it is on the calendar event it made - so the events are
+    /// read alongside the lists. An event that could not be read, or one whose colour was never set,
+    /// falls back to the accent, which is what the dashboard does with the same gap.
+    /// </summary>
+    private string? EventColourOf(TaskItemDto item)
+    {
+        if (item.LinkedCalendarEventId is not { } eventId)
+        {
+            return null;
+        }
+
+        var colour = _events.FirstOrDefault(calendarEvent => calendarEvent.Id == eventId)?.Details.Color;
+        return string.IsNullOrWhiteSpace(colour) ? "var(--accent)" : colour;
+    }
+
+    /// <summary>
+    /// The calendar events this account owns, for the colours above. Best-effort: a page of task lists
+    /// that would not open because the calendar could not be read would be trading something that
+    /// matters for something that decorates.
+    /// </summary>
+    private IReadOnlyList<CalendarEventDto> _events = [];
+
+    private async Task LoadEventsAsync()
+    {
+        try
+        {
+            _events = await CalendarApiClient.GetCalendarEventsAsync();
+        }
+        catch (HttpRequestException exception)
+        {
+            Logger.LogWarning(exception, "Couldn't read the calendar, so appointments on this page carry no colour");
+        }
+    }
+
+    /// <summary>Opens one entry rather than the list it is on - see TaskItemSummary, which is what an entry is met at.</summary>
+    private void GoToEntry(Guid taskListId, Guid itemId)
+    {
+        Logger.LogInformation("User opened task entry {TaskItemId} from the task list page", itemId);
+        NavigationManager.NavigateTo($"/tasks/{taskListId}/items/{itemId}");
+    }
+
     private string Written(string name) => OrbitWrittenNames.Translate(key => T[key], name);
 
     private static string CompletionSummary(TaskDto taskList)
@@ -668,6 +747,7 @@
         try
         {
             _taskLists = await TasksApiClient.GetTaskListsAsync();
+            await LoadEventsAsync();
         }
         catch (HttpRequestException exception) when (exception.StatusCode == HttpStatusCode.Unauthorized)
         {
@@ -704,31 +784,25 @@
         NavigationManager.NavigateTo($"/tasks/{taskListId}");
     }
 
+    /// <summary>
+    /// The questions, and the sending, are TaskListDeletion's - the same ones the checklist and the
+    /// editor ask, since a list can be deleted from all three now. What is left here is what only this
+    /// page knows: the whole set is read again afterwards, because deleting a group list may have taken
+    /// the lists it gathered with it and this page is showing those too.
+    /// </summary>
     private async Task DeleteTaskListAsync(TaskDto taskList)
     {
         Logger.LogInformation("User clicked 'Delete' for task list {TaskListId}", taskList.Id);
-        var confirmed = await JSRuntime.InvokeAsync<bool>("confirm", $"Delete task list \"{taskList.Title}\"?");
-        if (!confirmed)
+        if (await TaskListDeletion.AskAndDeleteAsync(taskList) is not TaskListDeletionOutcome.Deleted)
         {
+            _errorMessage = TaskListDeletion.FailureMessage;
             return;
         }
 
-        try
-        {
-            await TasksApiClient.DeleteTaskListAsync(taskList.Id);
-        }
-        catch (HttpRequestException exception) when (exception.StatusCode == HttpStatusCode.Unauthorized)
-        {
-            NavigationManager.NavigateTo("/login");
-            return;
-        }
-        catch (HttpRequestException exception)
-        {
-            Logger.LogError(exception, "Failed to delete task list {TaskListId}", taskList.Id);
-            return;
-        }
-
-        _taskLists = _taskLists!.Where(existingTaskList => existingTaskList.Id != taskList.Id).ToList();
-        Logger.LogInformation("Task list {TaskListId} deleted", taskList.Id);
+        _errorMessage = null;
+        _taskLists = await TasksApiClient.GetTaskListsAsync();
     }
+
+    /// <summary>Said on screen when something this page did was refused - see DeleteTaskListAsync.</summary>
+    private string? _errorMessage;
 }

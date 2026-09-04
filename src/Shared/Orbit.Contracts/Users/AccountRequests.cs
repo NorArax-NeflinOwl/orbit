@@ -15,10 +15,18 @@ public sealed record AccountDto(
     /// <summary>What this account chose to be: "Available" or "DoNotDisturb" - see Orbit.Core.Users.PresenceAvailability.</summary>
     string Availability = "Available",
     /// <summary>What everybody else currently sees: "Available", "Away", "DoNotDisturb" or "Offline" - see Orbit.Core.Users.PresenceStatus.</summary>
-    string PresenceStatus = "Offline");
+    string PresenceStatus = "Offline",
+    /// <summary>
+    /// Whether this account has asked that nothing about it reach anybody but Orbit - the footer's
+    /// "Do not share my personal information". See Orbit.Core.Users.User.KeepsThirdPartiesOut.
+    /// </summary>
+    bool KeepsThirdPartiesOut = false);
 
 /// <summary>Changes what the caller chose to be - see Orbit.Core.Users.PresenceAvailability for the accepted names.</summary>
 public sealed record SetAvailabilityRequest(string Availability);
+
+/// <summary>Answers the footer's "Do not share my personal information" - see AccountDto.KeepsThirdPartiesOut.</summary>
+public sealed record SetPrivacyChoiceRequest(bool KeepsThirdPartiesOut);
 
 /// <summary>
 /// A point a user recorded for themselves: coordinates, the address reverse geocoding resolved if it

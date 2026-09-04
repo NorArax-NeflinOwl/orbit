@@ -31,7 +31,7 @@ public sealed class GenerateInventoryFromTaskListCommandHandlerTests
 
     private GenerateInventoryFromTaskListCommandHandler AHandler()
         => new(
-            new InventoryCreatingDispatcher(new CreateInventoryCommandHandler(_context.InventoryRepository)),
+            new InventoryCreatingDispatcher(new CreateInventoryCommandHandler(_context.InventoryRepository, _context.ItemsSaver)),
             _context.TaskRepository, _context.InventoryItemRepository, _context.TaskListCoordinator);
 
     private IReadOnlyList<(string Name, decimal Quantity, decimal? Minimum)> ShelfIn(Guid inventoryId)

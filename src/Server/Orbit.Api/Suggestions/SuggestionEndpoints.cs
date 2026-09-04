@@ -3,6 +3,7 @@ using Orbit.Contracts.Suggestions;
 using Orbit.Core.Abstractions;
 using Orbit.Core.Suggestions;
 using Orbit.Core.Suggestions.GetNameSuggestions;
+using Orbit.Core.Suggestions.GetUsedValues;
 
 namespace Orbit.Api.Suggestions;
 
@@ -27,6 +28,17 @@ public static class SuggestionEndpoints
                 new GetNameSuggestionsQuery(GetUserId(user), suggestionKind, query ?? string.Empty), cancellationToken);
 
             return Results.Ok(found.Select(suggestion => new NameSuggestionDto(suggestion.Name, suggestion.Similarity)));
+        });
+
+        // The whole of what this reader has filed things under, rather than what looks like what they
+        // are typing - see UsedValueKind for why the two are different questions. Asked once when an
+        // editor opens, so there is no query to narrow it by.
+        suggestions.MapGet("/used-values", async (
+            string kind, ClaimsPrincipal user, IDispatcher dispatcher, CancellationToken cancellationToken) =>
+        {
+            var valueKind = RequestEnum.Parse<UsedValueKind>(kind, "kind");
+            var used = await dispatcher.SendAsync(new GetUsedValuesQuery(GetUserId(user), valueKind), cancellationToken);
+            return Results.Ok(used);
         });
     }
 

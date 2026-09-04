@@ -630,18 +630,34 @@ namespace Orbit.Data.Migrations
                     b.ToTable("OS_INVENTORIES_EXPIRY");
                 });
 
+            modelBuilder.Entity("Orbit.Data.Entities.InventoryItemCategoryEntity", b =>
+                {
+                    b.Property<Guid>("InventoryItemId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("OP_IC_INVENTORYITEMID");
+
+                    b.Property<string>("Category")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("OP_IC_CATEGORY");
+
+                    b.Property<int>("Position")
+                        .HasColumnType("integer")
+                        .HasColumnName("OP_IC_POSITION");
+
+                    b.HasKey("InventoryItemId", "Category");
+
+                    b.HasIndex("Category");
+
+                    b.ToTable("OP_INVENTORIES_CATEGORIES");
+                });
+
             modelBuilder.Entity("Orbit.Data.Entities.InventoryItemEntity", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid")
                         .HasColumnName("OP_II_ID");
-
-                    b.Property<string>("Category")
-                        .IsRequired()
-                        .HasMaxLength(100)
-                        .HasColumnType("character varying(100)")
-                        .HasColumnName("OP_II_CATEGORY");
 
                     b.Property<DateTimeOffset>("CreatedAtUtc")
                         .HasColumnType("timestamp with time zone")
@@ -1637,6 +1653,10 @@ namespace Orbit.Data.Migrations
                         .HasColumnType("character varying(64)")
                         .HasColumnName("OS_U_GOOGLESUBJECTID");
 
+                    b.Property<bool>("KeepsThirdPartiesOut")
+                        .HasColumnType("boolean")
+                        .HasColumnName("OS_U_KEEPSTHIRDPARTIESOUT");
+
                     b.Property<string>("LocationAddress")
                         .HasColumnType("text")
                         .HasColumnName("OS_U_LOCATIONADDRESS");
@@ -1799,6 +1819,15 @@ namespace Orbit.Data.Migrations
                         .IsRequired();
                 });
 
+            modelBuilder.Entity("Orbit.Data.Entities.InventoryItemCategoryEntity", b =>
+                {
+                    b.HasOne("Orbit.Data.Entities.InventoryItemEntity", null)
+                        .WithMany("Categories")
+                        .HasForeignKey("InventoryItemId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("Orbit.Data.Entities.TaskItemCategoryEntity", b =>
                 {
                     b.HasOne("Orbit.Data.Entities.TaskItemEntity", null)
@@ -1829,6 +1858,11 @@ namespace Orbit.Data.Migrations
             modelBuilder.Entity("Orbit.Data.Entities.ChatGroupEntity", b =>
                 {
                     b.Navigation("Members");
+                });
+
+            modelBuilder.Entity("Orbit.Data.Entities.InventoryItemEntity", b =>
+                {
+                    b.Navigation("Categories");
                 });
 
             modelBuilder.Entity("Orbit.Data.Entities.TaskEntity", b =>

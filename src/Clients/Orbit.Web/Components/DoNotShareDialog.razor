@@ -1,0 +1,110 @@
+@using Orbit.Web.Services
+@inject UsersApiClient UsersApiClient
+@inject IJSRuntime JSRuntime
+@inject ILogger<DoNotShareDialog> Logger
+@inject Translations T
+
+@* The other half of Manage cookies. That one is about what this browser keeps; this is about what
+   leaves it. Named the way GitHub's footer names it, because that is the phrase people look for.
+
+   One switch, and the page says plainly what it does and does not do rather than implying more. Most of
+   what used to reach another company - the fonts, and the map's own code - was moved into Orbit's own
+   wwwroot instead of being gated, so there is nothing left to decide about those. What is left is the
+   map's background, which is a world of images nobody can serve themselves, and the trace this
+   deployment keeps of what its own server was doing. *@
+<Dialog Title="@(T["Do not share my personal information"])" AdditionalClass="do-not-share-dialog" OnClosed="OnClosed">
+    <ChildContent>
+        <p>@T["Orbit does not sell anything about you and carries no advertising. What this switch is about is narrower and worth saying exactly: the other companies a page reaches while you are reading it."]</p>
+
+        <label class="cookies-category-head">
+            <input type="checkbox" checked="@_keepsThemOut" disabled="@_isSaving"
+                   @onchange="args => SaveAsync((bool)args.Value!)" />
+            <span class="cookies-category-name">@T["Do not share my personal information"]</span>
+        </label>
+
+        <p class="cookies-category-what">@T["Turning this on stops the map fetching its background from OpenStreetMap - the map still works, with its pins and its searching, but without the picture behind them. It also keeps this account out of the trace Orbit keeps of what its server was doing."]</p>
+
+        <p>@T["It is remembered on your account rather than in this browser, so it follows you to your phone and to any other device you sign in on."]</p>
+
+        <p class="prose-footnote">@T["Two things it does not need to turn off any more: the fonts and the map's code used to be fetched from Google and from a public CDN, and are now served by Orbit itself - so they reach nobody, whatever this says. Signing in with Google, and handing an event to a Google calendar, are things you ask for one at a time and are unaffected."]</p>
+
+        @if (_errorMessage is not null)
+        {
+            <p class="error">@_errorMessage</p>
+        }
+        else if (_savedMessage is not null)
+        {
+            <p class="info">@_savedMessage</p>
+        }
+    </ChildContent>
+</Dialog>
+
+@code {
+    [Parameter] public EventCallback OnClosed { get; set; }
+
+    private bool _keepsThemOut;
+    private bool _isSaving;
+    private string? _savedMessage;
+    private string? _errorMessage;
+
+    /// <summary>
+    /// Read when the dialog opens rather than held by the layout, which does not otherwise need the
+    /// account at all - the same choice AboutDialog makes about the server's version.
+    /// </summary>
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            _keepsThemOut = (await UsersApiClient.GetAccountAsync())?.KeepsThirdPartiesOut ?? false;
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            Logger.LogWarning(exception, "Couldn't read the privacy choice");
+            _errorMessage = T["Couldn't read that. Check your connection and try again."];
+        }
+    }
+
+    /// <summary>
+    /// Saved on the switch rather than behind a button: there is one answer here and pressing Save on a
+    /// single switch is a step that exists only to be pressed. The box goes back to what the server
+    /// still holds if the save is refused, so it never shows an answer nobody has.
+    /// </summary>
+    private async Task SaveAsync(bool keepsThemOut)
+    {
+        _errorMessage = null;
+        _savedMessage = null;
+        _isSaving = true;
+        try
+        {
+            await UsersApiClient.SetKeepsThirdPartiesOutAsync(keepsThemOut);
+            _keepsThemOut = keepsThemOut;
+            // Mirrored for the next first paint: a map is drawn long before an API call could come back,
+            // and one that flashed the world and then blanked would be worse than either answer.
+            await RememberAsync(keepsThemOut);
+            _savedMessage = keepsThemOut
+                ? T["Saved. Nothing about you will reach another site from Orbit."]
+                : T["Saved."];
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            Logger.LogWarning(exception, "Failed to save the privacy choice");
+            _errorMessage = T["Couldn't save that. Check your connection and try again."];
+        }
+        finally
+        {
+            _isSaving = false;
+        }
+    }
+
+    private async Task RememberAsync(bool keepsThemOut)
+    {
+        try
+        {
+            await JSRuntime.InvokeVoidAsync("OrbitMapTiles.remember", keepsThemOut);
+        }
+        catch (JSException)
+        {
+            // The account still holds the answer; only this browser's first paint loses it.
+        }
+    }
+}

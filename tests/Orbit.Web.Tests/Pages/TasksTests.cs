@@ -7,6 +7,8 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Orbit.Contracts.Notifications;
+using Orbit.Contracts.Calendar;
+using Orbit.Core.Tasks;
 using Orbit.Contracts.Tasks;
 using Orbit.Web.Services;
 using Orbit.Web.Tests.TestDoubles;
@@ -291,21 +293,72 @@ public sealed class TasksTests : OrbitTestContext
     }
 
     /// <summary>
-    /// The rows of what is on a list are the part of the card a reader points at, and they sit above
-    /// the overlay that makes the rest of it pressable - so pressing them has to open the list itself,
-    /// the way the dashboard's rows do. They used to be the one dead area on the card.
+    /// The rows of what is on a list are the part of the card a reader points at, and pressing one
+    /// opens that entry - the same thing the checklist's own rows and the dashboard's do. They were the
+    /// one dead area on the card, and then briefly opened the whole list because the press fell through
+    /// to the card behind them.
     /// </summary>
     [Fact]
-    public void Pressing_what_is_on_a_list_opens_the_list()
+    public void Pressing_an_entry_on_a_card_opens_that_entry()
     {
-        var taskList = TaskList("Kitchen", Item("Paint walls"));
+        var item = Item("Paint walls");
+        var taskList = TaskList("Kitchen", item);
         RegisterTasksApiClient([taskList]);
         var navigationManager = Services.GetRequiredService<NavigationManager>();
         var cut = RenderComponent<Web.Pages.Tasks>();
 
         cut.Find(".item-card-body .task-preview-row").Click();
 
+        Assert.EndsWith($"/tasks/{taskList.Id}/items/{item.Id}", navigationManager.Uri);
+    }
+
+    /// <summary>
+    /// And the card around them still opens the list, which is what the press stopping at the row is
+    /// for: one press, one answer, depending on what was under the pointer.
+    /// </summary>
+    [Fact]
+    public void Pressing_the_card_itself_still_opens_the_list()
+    {
+        var taskList = TaskList("Kitchen", Item("Paint walls"));
+        RegisterTasksApiClient([taskList]);
+        var navigationManager = Services.GetRequiredService<NavigationManager>();
+        var cut = RenderComponent<Web.Pages.Tasks>();
+
+        cut.Find(".item-card-body").Click();
+
         Assert.EndsWith($"/tasks/{taskList.Id}", navigationManager.Uri);
+    }
+
+    /// <summary>
+    /// An entry that is an appointment carries its event's colour, the same dot the dashboard's Upcoming
+    /// card draws. The same appointment used to look like an appointment on one page and like anything
+    /// else on the other.
+    /// </summary>
+    [Fact]
+    public void An_appointment_on_a_card_carries_its_events_colour()
+    {
+        var eventId = Guid.NewGuid();
+        var appointment = Item("Dentist") with
+        {
+            Kind = nameof(TaskItemKind.Calendar), LinkedCalendarEventId = eventId
+        };
+        RegisterTasksApiClient([TaskList("Kitchen", appointment)], [AnEventColoured(eventId, "#ff0000")]);
+
+        var cut = RenderComponent<Web.Pages.Tasks>();
+
+        var dot = cut.Find(".item-card-body .task-preview-row .stat-dot");
+        Assert.Contains("#ff0000", dot.GetAttribute("style"));
+    }
+
+    [Fact]
+    public void An_ordinary_entry_carries_no_colour_at_all()
+    {
+        RegisterTasksApiClient([TaskList("Kitchen", Item("Paint walls"))]);
+
+        var cut = RenderComponent<Web.Pages.Tasks>();
+
+        // A thing to tick off is not an appointment, so there is no event and nothing to colour it with.
+        Assert.Empty(cut.FindAll(".item-card-body .stat-dot"));
     }
 
     /// <summary>
@@ -723,11 +776,31 @@ public sealed class TasksTests : OrbitTestContext
     private static IElement CardFor(IRenderedFragment cut, string title)
         => cut.FindAll(".item-card")
             .First(card => card.QuerySelector(".item-card-name")!.TextContent.Contains(title, StringComparison.Ordinal));
-    private void RegisterTasksApiClient(IReadOnlyList<TaskDto> taskLists)
+    private static CalendarEventDto AnEventColoured(Guid eventId, string colour) => new(
+        eventId,
+        new CalendarEventDetailsDto(
+            "Dentist", Description: null, Location: null, Color: colour,
+            DateTimeOffset.UtcNow, DateTimeOffset.UtcNow.AddHours(1), IsAllDay: false, Recurrence: null,
+            Guests: [], ReminderMinutesBeforeStart: [], ReminderNotificationChannel: "None", Priority: "Normal"),
+        DateTimeOffset.UtcNow, DateTimeOffset.UtcNow,
+        IsShared: false, SharedByUserName: null, AccessLevel: "CanEdit", OriginalOwnerUserId: null);
+
+    /// <param name="events">
+    /// The calendar, which this page reads only for the colour of an entry that is an appointment - see
+    /// Tasks.EventColourOf. Empty unless a test is about that, and on its own stub because the task
+    /// handler answers every request with task lists.
+    /// </param>
+    private void RegisterTasksApiClient(
+        IReadOnlyList<TaskDto> taskLists, IReadOnlyList<CalendarEventDto>? events = null)
     {
         var handler = new StubHttpMessageHandler(_ =>
             new HttpResponseMessage(HttpStatusCode.OK) { Content = JsonContent.Create(taskLists) });
         Services.AddSingleton(new TasksApiClient(new HttpClient(handler) { BaseAddress = new Uri("https://example.test/") }));
+
+        var calendarHandler = new StubHttpMessageHandler(_ =>
+            new HttpResponseMessage(HttpStatusCode.OK) { Content = JsonContent.Create(events ?? []) });
+        Services.AddSingleton(new CalendarApiClient(
+            new HttpClient(calendarHandler) { BaseAddress = new Uri("https://example.test/") }));
     }
 
     private static TaskDto TaskList(string title, params TaskItemDto[] items)

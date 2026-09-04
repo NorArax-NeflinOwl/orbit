@@ -1,0 +1,51 @@
+@page "/security"
+@using Orbit.Web.Services
+@inject Translations T
+
+@* How Orbit is built to keep things safe, and how to tell somebody it is not. No [Authorize], the same
+   as Privacy and the licence: somebody deciding whether to trust this deployment should be able to read
+   this before signing up, and a security contact behind a sign-in wall is a security contact nobody
+   uses.
+
+   Drawn from info/functionality.md's authentication and private-items sections and from the crypto in
+   e2eeChat.js, written for a reader deciding whether to trust it rather than for one maintaining it. *@
+<PageTitle>@T["Orbit — Security"]</PageTitle>
+
+<PageHeader>
+    <Title>@T["Security"]</Title>
+    <Subtitle>@T["How Orbit protects what you put in it, and how to tell us when it does not."]</Subtitle>
+</PageHeader>
+
+<div class="prose-page">
+    <div class="card">
+        <h2>@T["Signing in"]</h2>
+        <p>@T["Passwords are stored as PBKDF2 hashes and never in the clear. Signing in returns a short-lived access token, refreshed behind the scenes by a long-lived one that can be used exactly once - redeeming it revokes it, so a stolen refresh token replayed after your own browser has used it is rejected. Only a hash of that token is stored."]</p>
+        <p>@T["Repeated attempts are rate-limited, and Orbit says so rather than telling you to try again - trying again is what keeps the window shut."]</p>
+    </div>
+
+    <div class="card">
+        <h2>@T["End-to-end encryption"]</h2>
+        <p>@T["Chat messages, and anything you mark private, are sealed on your device and opened on your device. Keys are agreed with ECDH on the P-256 curve; the content is encrypted with AES-GCM using a 256-bit key."]</p>
+        <p>@T["Your private key never leaves your devices readable. A backup is kept so that a new device can pick up your history, wrapped with a key derived from your password by PBKDF2-HMAC-SHA256 at 600,000 iterations - OWASP's current minimum. The iteration count is stored beside each backup rather than assumed, so raising it later does not strand the old ones."]</p>
+        <p>@T["The consequence is deliberate and worth knowing before you rely on it: resetting your password replaces the key pair, and anything sealed under the old one - past messages, private notes - cannot be recovered by anybody, Orbit included."]</p>
+    </div>
+
+    <div class="card">
+        <h2>@T["Sharing"]</h2>
+        <p>@T["A share names one person and one level: read, share on, edit, or edit without passing editing on. What you cannot do yourself you cannot grant - the rule is enforced on the server, and the client only hides what the server would refuse anyway."]</p>
+        <p>@T["Two people editing the same thing take turns: whoever opens the editor holds a lock, and the other is told who is in there rather than losing their work to a silent overwrite."]</p>
+        <p>@T["Anything marked private cannot be shared at all, and an existing share stops granting the moment it becomes private."]</p>
+    </div>
+
+    <div class="card">
+        <h2>@T["On this device"]</h2>
+        <p>@T["The phone keeps private items sealed in its own database and opens them only for the screen showing them, so a handset that is picked up says no more than the server does. It also puts them behind the device lock - a face or a passcode - which is the physical half of a promise that otherwise only holds against the server."]</p>
+        <p>@T["In the browser, everything Orbit keeps is listed under Manage cookies, and the diagnostics it records stay on the device unless you send them yourself."]</p>
+    </div>
+
+    <div class="card">
+        <h2>@T["Reporting something"]</h2>
+        <p>@T["If you have found a way to read or change something that is not yours, please report it privately rather than opening a public issue: security advisories on the Orbit repository, or the address in the repository's README. Please include enough to reproduce it, and give us a chance to fix it before it is published."]</p>
+        <p>@T["Orbit is a small project run by one person. There is no bounty, and there may not be a reply the same day - but a real report will be read and acted on."]</p>
+    </div>
+</div>
