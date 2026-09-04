@@ -26,7 +26,7 @@ public sealed class InventoryChangeVisibilityTests : IDisposable
     {
         var (inventories, items, inventory) = await AShelfAsync();
         var flour = InventoryItem.Create(
-            inventory.Id, "Flour", "Food", "Dry", 0, 5, InventoryUnit.Piece, null, NotificationChannel.None);
+            inventory.Id, "Flour", "Food", ["Dry"], 0, 5, InventoryUnit.Piece, null, NotificationChannel.None);
         await items.AddAsync(flour, CancellationToken.None);
         var before = await PutTheStampBackAsync(inventory);
 
@@ -43,7 +43,7 @@ public sealed class InventoryChangeVisibilityTests : IDisposable
         var beforeAdding = await PutTheStampBackAsync(inventory);
 
         var sugar = InventoryItem.Create(
-            inventory.Id, "Sugar", "Food", "Dry", 1, null, InventoryUnit.Piece, null, NotificationChannel.None);
+            inventory.Id, "Sugar", "Food", ["Dry"], 1, null, InventoryUnit.Piece, null, NotificationChannel.None);
         await items.AddAsync(sugar, CancellationToken.None);
 
         Assert.True(await LastChangedAsync(inventories, inventory.Id) > beforeAdding);

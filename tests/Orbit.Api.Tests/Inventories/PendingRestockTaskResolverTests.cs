@@ -13,7 +13,7 @@ public sealed class PendingRestockTaskResolverTests
     {
         var context = new InventoryTestContext();
         var resolver = context.RestockTaskResolver;
-        var item = InventoryItem.Create(context.AddInventory(Guid.NewGuid()), "Milk", "Dairy", "Fridge", 2m, 1m, InventoryUnit.Piece, null, NotificationChannel.Push);
+        var item = InventoryItem.Create(context.AddInventory(Guid.NewGuid()), "Milk", "Dairy", ["Fridge"], 2m, 1m, InventoryUnit.Piece, null, NotificationChannel.Push);
 
         var result = await resolver.ResolveAsync(item, CancellationToken.None);
 
@@ -31,7 +31,7 @@ public sealed class PendingRestockTaskResolverTests
         var restockItem = TaskItem.Create("Restock: Milk", dueDateUtc: null, isCompleted: false);
         var taskList = TaskList.Create(userId, "Restock supplies", [restockItem]);
         await taskRepository.AddAsync(taskList, CancellationToken.None);
-        var item = InventoryItem.Create(inventoryId, "Milk", "Dairy", "Fridge", 0m, 1m, InventoryUnit.Piece, null, NotificationChannel.Push);
+        var item = InventoryItem.Create(inventoryId, "Milk", "Dairy", ["Fridge"], 0m, 1m, InventoryUnit.Piece, null, NotificationChannel.Push);
         item.SetPendingRestockTask(taskList.Id, restockItem.Id);
 
         var result = await resolver.ResolveAsync(item, CancellationToken.None);
@@ -50,7 +50,7 @@ public sealed class PendingRestockTaskResolverTests
         var restockItem = TaskItem.Create("Restock: Milk", dueDateUtc: null, isCompleted: true);
         var taskList = TaskList.Create(userId, "Restock supplies", [restockItem]);
         await taskRepository.AddAsync(taskList, CancellationToken.None);
-        var item = InventoryItem.Create(inventoryId, "Milk", "Dairy", "Fridge", 0m, 1m, InventoryUnit.Piece, null, NotificationChannel.Push);
+        var item = InventoryItem.Create(inventoryId, "Milk", "Dairy", ["Fridge"], 0m, 1m, InventoryUnit.Piece, null, NotificationChannel.Push);
         item.SetPendingRestockTask(taskList.Id, restockItem.Id);
 
         var result = await resolver.ResolveAsync(item, CancellationToken.None);
@@ -72,7 +72,7 @@ public sealed class PendingRestockTaskResolverTests
         var inventoryId = context.AddInventory(userId);
         var danglingTaskListId = Guid.NewGuid();
         var danglingTaskItemId = Guid.NewGuid();
-        var item = InventoryItem.Create(inventoryId, "Milk", "Dairy", "Fridge", 0m, 1m, InventoryUnit.Piece, null, NotificationChannel.Push);
+        var item = InventoryItem.Create(inventoryId, "Milk", "Dairy", ["Fridge"], 0m, 1m, InventoryUnit.Piece, null, NotificationChannel.Push);
         item.SetPendingRestockTask(danglingTaskListId, danglingTaskItemId);
 
         var result = await resolver.ResolveAsync(item, CancellationToken.None);
@@ -91,7 +91,7 @@ public sealed class PendingRestockTaskResolverTests
         var inventoryId = context.AddInventory(userId);
         var taskList = TaskList.Create(userId, "Restock supplies", []);
         await taskRepository.AddAsync(taskList, CancellationToken.None);
-        var item = InventoryItem.Create(inventoryId, "Milk", "Dairy", "Fridge", 0m, 1m, InventoryUnit.Piece, null, NotificationChannel.Push);
+        var item = InventoryItem.Create(inventoryId, "Milk", "Dairy", ["Fridge"], 0m, 1m, InventoryUnit.Piece, null, NotificationChannel.Push);
         item.SetPendingRestockTask(taskList.Id, Guid.NewGuid());
 
         var result = await resolver.ResolveAsync(item, CancellationToken.None);

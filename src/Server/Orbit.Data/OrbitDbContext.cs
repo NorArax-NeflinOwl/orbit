@@ -149,6 +149,17 @@ public sealed class OrbitDbContext : DbContext
             entity.HasIndex(category => category.Category);
         });
 
+        modelBuilder.Entity<InventoryItemCategoryEntity>(entity =>
+        {
+            // The category itself is half the key, the same as a task entry's: an item carries each one
+            // once, which is the rule InventoryItem.Categories applies on the way in.
+            entity.HasKey(category => new { category.InventoryItemId, category.Category });
+            entity.Property(category => category.Category).IsRequired().HasMaxLength(StoredTextLimits.Category);
+            // The inventory editor's own filter first has to ask what categories a shelf holds, and the
+            // used-values list asks it of the whole account.
+            entity.HasIndex(category => category.Category);
+        });
+
         modelBuilder.Entity<TaskItemTaskListLinkEntity>(entity =>
         {
             entity.HasKey(link => new { link.TaskItemId, link.LinkedTaskListId });
@@ -269,6 +280,12 @@ public sealed class OrbitDbContext : DbContext
         // Notes and CalendarEvents are only ever searched as part of TaskItemDescription's own query
         // (see NameSuggestionRepository.NamesFor) - they have no kind of their own - but a UNION ALL
         // branch benefits from its own index exactly as a standalone query would.
+        modelBuilder.Entity<InventoryItemEntity>()
+            .HasMany(item => item.Categories)
+            .WithOne()
+            .HasForeignKey(category => category.InventoryItemId)
+            .OnDelete(DeleteBehavior.Cascade);
+
         modelBuilder.Entity<InventoryItemEntity>()
             .HasIndex(item => item.Name)
             .HasDatabaseName("ix_inventory_items_name_trgm")
@@ -434,7 +451,6 @@ public sealed class OrbitDbContext : DbContext
             entity.HasKey(item => item.Id);
             entity.Property(item => item.Name).IsRequired().HasMaxLength(StoredTextLimits.Title);
             entity.Property(item => item.ProductType).HasMaxLength(StoredTextLimits.ProductType);
-            entity.Property(item => item.Category).HasMaxLength(StoredTextLimits.Category);
             entity.Property(item => item.ExpiryNotificationChannel).HasMaxLength(20);
             // Every inventory query is scoped to a single inventory's items; this is the index that
             // makes those lookups fast instead of scanning the whole table.

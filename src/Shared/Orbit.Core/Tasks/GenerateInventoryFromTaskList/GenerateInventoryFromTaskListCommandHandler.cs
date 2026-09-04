@@ -69,7 +69,7 @@ public sealed class GenerateInventoryFromTaskListCommandHandler : IRequestHandle
         {
             await _inventoryItemRepository.AddAsync(
                 InventoryItem.Create(
-                    inventoryId, requirement.Name, GeneratedProductType, GeneratedCategory, requirement.Done,
+                    inventoryId, requirement.Name, GeneratedProductType, [GeneratedCategory], requirement.Done,
                     minimumQuantity: requirement.Required, GeneratedUnit, expiryDate: null, NotificationChannel.None,
                     position),
                 cancellationToken);

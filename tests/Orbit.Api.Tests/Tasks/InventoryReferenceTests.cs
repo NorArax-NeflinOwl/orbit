@@ -124,7 +124,7 @@ public sealed class InventoryReferenceTests
     {
         var inventoryId = _context.AddInventory(_userId);
         var item = InventoryItem.Create(
-            inventoryId, "Flour", "Food", "Dry", 0, 5, InventoryUnit.Piece, null, NotificationChannel.None);
+            inventoryId, "Flour", "Food", ["Dry"], 0, 5, InventoryUnit.Piece, null, NotificationChannel.None);
         await _context.InventoryItemRepository.AddAsync(item, CancellationToken.None);
         var raised = await _context.TaskListCoordinator.EnsureRestockTaskAsync(item, CancellationToken.None);
         await _context.InventoryItemRepository.UpdateAsync(raised, CancellationToken.None);

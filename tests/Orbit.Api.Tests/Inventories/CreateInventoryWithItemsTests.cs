@@ -100,5 +100,5 @@ public sealed class CreateInventoryWithItemsTests
                 new CreateInventoryCommand(ownerId, "Pantry", Items: items), CancellationToken.None);
 
     private static InventoryItemInput Item(string name)
-        => new(Id: null, name, "Food", "Dry", 1, null, InventoryUnit.Piece, null, NotificationChannel.None);
+        => new(Id: null, name, "Food", ["Dry"], 1, null, InventoryUnit.Piece, null, NotificationChannel.None);
 }

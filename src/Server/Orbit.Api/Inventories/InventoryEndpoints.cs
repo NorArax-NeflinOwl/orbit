@@ -228,7 +228,7 @@ public static class InventoryEndpoints
     internal static IReadOnlyList<InventoryItemInput> ToDomainItems(IReadOnlyList<InventoryItemRequest> items)
         => items
             .Select(item => new InventoryItemInput(
-                item.Id, item.Name, item.ProductType, item.Category, item.Quantity, item.MinimumQuantity,
+                item.Id, item.Name, item.ProductType, item.AllCategories, item.Quantity, item.MinimumQuantity,
                 UnitOf(item), item.ExpiryDate,
                 RequestEnum.Parse<NotificationChannel>(item.ExpiryNotificationChannel, "expiryNotificationChannel"),
                 item.IsCheckedRegularly))
@@ -249,10 +249,13 @@ public static class InventoryEndpoints
 
     private static InventoryItemDto ToDto(InventoryItem item)
         => new(
-            item.Id, item.Name, item.ProductType, item.Category, item.Quantity, item.MinimumQuantity,
+            // The first of them in the old single field too, so a client that has not learned about
+            // several still reads one - see InventoryItemDto.Category.
+            item.Id, item.Name, item.ProductType, item.Categories.FirstOrDefault() ?? string.Empty, item.Quantity,
+            item.MinimumQuantity,
             item.Unit.ToString(), item.ExpiryDate, item.ExpiryNotificationChannel.ToString(), item.IsBelowMinimum,
             item.PendingRestockTaskItemId is not null, item.CreatedAtUtc, item.UpdatedAtUtc,
-            item.IsCheckedRegularly);
+            item.IsCheckedRegularly, item.Categories);
 
     private static IResult ToApiResult(EditOutcome outcome)
         => outcome.Kind switch

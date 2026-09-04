@@ -40,11 +40,13 @@
                         Known="KnownProductTypes" Placeholder="@(T["Product type"])"
                         AriaLabel="@(T["Product type"])" />
 </label>
-<label>@T["Category"]
-    <SuggestedTextField Value="@Model.Category" ValueChanged="value => Model.Category = value"
-                        Known="KnownCategories" Placeholder="@(T["Category"])"
-                        AriaLabel="@(T["Category"])" />
-</label>
+@* As many as apply, the same control a task entry's categories get - a thing on a shelf is "baking"
+   and "dry goods" at once, and the single box this replaced asked somebody to pick one. See TagField. *@
+<div class="editor-item-tags">
+    <span class="editor-item-tags-label">@T["Categories"]</span>
+    <TagField Values="Model.Categories" ValuesChanged="values => Model.Categories = [.. values]"
+              Known="KnownCategories" Placeholder="@(T["Add a category"])" AriaLabel="@(T["Categories"])" />
+</div>
 @* How long it keeps rather than the day it stops keeping - see ExpiresInField. A date is still what
    gets stored; nobody stocking a shelf knows the 14th, they know "a fortnight". *@
 <label>@T["Expires in"]

@@ -168,7 +168,7 @@ public sealed class PublicSharedItemReader
         var lines = items
             .Select(item => new PublicSharedItemLine(
                 item.Name, IsChecklistItem: false, IsChecked: false,
-                $"{item.Quantity.ToString("0.##", DisplayCulture)} · {item.Category}"))
+                $"{item.Quantity.ToString("0.##", DisplayCulture)} · {string.Join(", ", item.Categories)}"))
             .ToList();
 
         var subtitle = items.Count == 1 ? "1 item" : $"{items.Count} items";

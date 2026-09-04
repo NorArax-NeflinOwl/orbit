@@ -1240,6 +1240,27 @@ needs a restock threshold or an expiry date. `GET /api/inventory` and `GET /api/
 the same shape back plus `id`, `isBelowMinimum` and `hasPendingRestockTask` (both derived, computed
 server-side so the client never reimplements the comparison), and `createdAtUtc`/`updatedAtUtc`.
 
+**A shelf item is filed under as many words as apply**, the way a task entry already was - the single
+box it replaced asked somebody stocking a shelf whether the flour was "baking" or "dry goods" when it is
+plainly both. They live in `OP_INVENTORIES_CATEGORIES`, a table like `OP_TASKS_CATEGORIES` and for the
+same reason, and are tidied by the same rule: trimmed, blanks dropped, repeats folded case-insensitively.
+The shelf's own filter matches an item carrying **any** of them.
+
+Both DTOs keep the old `category` beside the new `categories`, the way `TaskItemDto` keeps
+`linkedTaskListId` beside `linkedTaskListIds`: a client that has not learned about several still reads
+and writes one, and `AllCategories` reads whichever shape arrived. That is what let the phone keep
+working through the change rather than needing to ship in lockstep - it now offers the same
+comma-separated box it already offers for a task entry (`CategoryText`), and `InventorySynchronizer`
+carries the whole list, because a phone that sent only the first would have deleted the rest on every
+save it made.
+
+**The migration found something.** `OP_INVENTORIES_ITEMS` had had **no primary key** since the rename to
+the Orbit convention: that migration dropped `PK_InventoryItems` along with every other table's and
+added twenty-nine of the thirty back. Nothing had noticed, because nothing pointed at the table - a
+foreign key needs a unique constraint to reference, and the categories table is the first thing that
+ever did. `ShelfItemCategoriesBecomeATable` restores it, guarded so a database that still has one is
+left alone, and does not drop it again on the way down: it was missing by accident, not by design.
+
 `unit` says what the two amounts are counted in, and unlike the type and the category it **is** a fixed
 list (`InventoryUnit`): `Piece`, `Kilogram`, `Milligram`, `Litre`, `Millilitre`, `Pack`. Fixed because
 `quantity` and `minimumQuantity` are compared as bare numbers, so both have to mean the same thing —

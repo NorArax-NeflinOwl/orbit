@@ -40,7 +40,9 @@ public sealed class UsedValueRepository(OrbitDbContext dbContext) : IUsedValueRe
                 .SelectMany(item => item.Categories)
                 .Select(category => category.Category),
 
-            UsedValueKind.InventoryItemCategory => OwnItems(userId).Select(item => item.Category),
+            UsedValueKind.InventoryItemCategory => OwnItems(userId)
+                .SelectMany(item => item.Categories)
+                .Select(category => category.Category),
 
             UsedValueKind.InventoryItemProductType => OwnItems(userId).Select(item => item.ProductType),
 

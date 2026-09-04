@@ -15,7 +15,15 @@ public sealed class InventoryItem
     public Guid InventoryId { get; private set; }
     public string Name { get; private set; }
     public string ProductType { get; private set; }
-    public string Category { get; private set; }
+    /// <summary>
+    /// What this is filed under, as many words as apply - the same shape a task entry's categories have
+    /// (see Orbit.Core.Tasks.TaskItem.Categories). It was a single word, which asked somebody stocking a
+    /// shelf to decide whether the flour was "baking" or "dry goods" when it is plainly both.
+    ///
+    /// Tidied the way a task entry's are: trimmed, blanks dropped, and repeats folded case-insensitively,
+    /// so "Food, food" is one category rather than two spellings of one.
+    /// </summary>
+    public IReadOnlyList<string> Categories { get; private set; }
     public decimal Quantity { get; private set; }
     public decimal? MinimumQuantity { get; private set; }
 
@@ -74,7 +82,8 @@ public sealed class InventoryItem
     public bool BelongsOnTheRestockList => IsBelowMinimum || IsCheckedRegularly;
 
     private InventoryItem(
-        Guid id, Guid inventoryId, string name, string productType, string category, decimal quantity, decimal? minimumQuantity,
+        Guid id, Guid inventoryId, string name, string productType, IReadOnlyList<string>? categories, decimal quantity,
+        decimal? minimumQuantity,
         InventoryUnit unit, DateTimeOffset? expiryDate, NotificationChannel expiryNotificationChannel,
         Guid? pendingRestockTaskListId, Guid? pendingRestockTaskItemId, int position, DateTimeOffset createdAtUtc,
         DateTimeOffset updatedAtUtc)
@@ -83,7 +92,7 @@ public sealed class InventoryItem
         InventoryId = inventoryId;
         Name = name;
         ProductType = productType;
-        Category = category;
+        Categories = Tidied(categories);
         Quantity = quantity;
         MinimumQuantity = minimumQuantity;
         Unit = unit;
@@ -97,14 +106,15 @@ public sealed class InventoryItem
     }
 
     public static InventoryItem Create(
-        Guid inventoryId, string name, string productType, string category, decimal quantity, decimal? minimumQuantity,
+        Guid inventoryId, string name, string productType, IReadOnlyList<string>? categories, decimal quantity,
+        decimal? minimumQuantity,
         InventoryUnit unit, DateTimeOffset? expiryDate, NotificationChannel expiryNotificationChannel, int position = 0,
         bool isCheckedRegularly = false)
     {
-        EnsureTheWordsFit(name, productType, category);
+        EnsureTheWordsFit(name, productType, categories);
         var now = DateTimeOffset.UtcNow;
         return new InventoryItem(
-            Guid.NewGuid(), inventoryId, name, productType, category, quantity, minimumQuantity, unit, expiryDate,
+            Guid.NewGuid(), inventoryId, name, productType, categories, quantity, minimumQuantity, unit, expiryDate,
             expiryNotificationChannel, pendingRestockTaskListId: null, pendingRestockTaskItemId: null, position, now, now)
         {
             IsCheckedRegularly = isCheckedRegularly
@@ -113,12 +123,13 @@ public sealed class InventoryItem
 
     /// <summary>Rebuilds an inventory item from already-persisted values, bypassing creation rules.</summary>
     public static InventoryItem FromPersistence(
-        Guid id, Guid inventoryId, string name, string productType, string category, decimal quantity, decimal? minimumQuantity,
+        Guid id, Guid inventoryId, string name, string productType, IReadOnlyList<string>? categories, decimal quantity,
+        decimal? minimumQuantity,
         InventoryUnit unit, DateTimeOffset? expiryDate, NotificationChannel expiryNotificationChannel,
         Guid? pendingRestockTaskListId, Guid? pendingRestockTaskItemId, int position, DateTimeOffset createdAtUtc,
         DateTimeOffset updatedAtUtc, bool isCheckedRegularly = false)
         => new(
-            id, inventoryId, name, productType, category, quantity, minimumQuantity, unit, expiryDate,
+            id, inventoryId, name, productType, categories, quantity, minimumQuantity, unit, expiryDate,
             expiryNotificationChannel, pendingRestockTaskListId, pendingRestockTaskItemId, position, createdAtUtc,
             updatedAtUtc)
         {
@@ -155,15 +166,15 @@ public sealed class InventoryItem
     /// TaskList.Update used to hold for priority.
     /// </summary>
     public void Update(
-        string name, string productType, string category, decimal quantity, decimal? minimumQuantity,
+        string name, string productType, IReadOnlyList<string>? categories, decimal quantity, decimal? minimumQuantity,
         InventoryUnit unit, DateTimeOffset? expiryDate, NotificationChannel expiryNotificationChannel,
         bool isCheckedRegularly = false)
     {
-        EnsureTheWordsFit(name, productType, category);
+        EnsureTheWordsFit(name, productType, categories);
         Name = name;
         IsCheckedRegularly = isCheckedRegularly;
         ProductType = productType;
-        Category = category;
+        Categories = Tidied(categories);
         Quantity = quantity;
         MinimumQuantity = minimumQuantity;
         Unit = unit;
@@ -173,12 +184,28 @@ public sealed class InventoryItem
     }
 
     /// <summary>What a shelf item may be called and classified as - see StoredTextLimits.</summary>
-    private static void EnsureTheWordsFit(string name, string productType, string category)
+    private static void EnsureTheWordsFit(string name, string productType, IReadOnlyList<string>? categories)
     {
         StoredTextLimits.OrRefuse(name, StoredTextLimits.Title, "shelf item's name");
         StoredTextLimits.OrRefuse(productType, StoredTextLimits.ProductType, "shelf item's type");
-        StoredTextLimits.OrRefuse(category, StoredTextLimits.Category, "shelf item's category");
+        foreach (var category in categories ?? [])
+        {
+            StoredTextLimits.OrRefuse(category, StoredTextLimits.Category, "shelf item's category");
+        }
     }
+
+    /// <summary>
+    /// The same tidying a task entry's categories get, and deliberately the same rule: one list of
+    /// words in Orbit should not mean two different things depending on which screen typed it. See
+    /// Orbit.Core.Tasks.CategoryText, which the forms use on the way in for the same reason.
+    /// </summary>
+    private static IReadOnlyList<string> Tidied(IReadOnlyList<string>? categories)
+        => categories is null
+            ? []
+            : [.. categories
+                .Select(category => category.Trim())
+                .Where(category => category.Length > 0)
+                .Distinct(StringComparer.CurrentCultureIgnoreCase)];
 
     public void SetPendingRestockTask(Guid taskListId, Guid taskItemId)
     {

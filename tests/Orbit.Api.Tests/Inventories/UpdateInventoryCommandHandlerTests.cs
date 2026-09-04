@@ -252,7 +252,7 @@ public sealed class UpdateInventoryCommandHandlerTests
         var inventoryId = context.AddInventory(userId);
         var existing = await AddStoredItemAsync(context, inventoryId, "Flour", quantity: 5m);
         existing.Update(
-            existing.Name, existing.ProductType, existing.Category, existing.Quantity, existing.MinimumQuantity,
+            existing.Name, existing.ProductType, existing.Categories, existing.Quantity, existing.MinimumQuantity,
             InventoryUnit.Kilogram, existing.ExpiryDate, existing.ExpiryNotificationChannel);
         await context.InventoryItemRepository.UpdateAsync(existing, CancellationToken.None);
 
@@ -268,12 +268,12 @@ public sealed class UpdateInventoryCommandHandlerTests
         Assert.Equal(8m, stored.Quantity);
     }
     private static InventoryItemInput NewItem(string name, decimal quantity, decimal? minimumQuantity = null)
-        => new(Id: null, name, "Dairy", "Fridge", quantity, minimumQuantity, InventoryUnit.Piece, ExpiryDate: null, NotificationChannel.Push);
+        => new(Id: null, name, "Dairy", ["Fridge"], quantity, minimumQuantity, InventoryUnit.Piece, ExpiryDate: null, NotificationChannel.Push);
 
     private static async Task<InventoryItem> AddStoredItemAsync(
         InventoryTestContext context, Guid inventoryId, string name, decimal quantity)
     {
-        var item = InventoryItem.Create(inventoryId, name, "Dairy", "Fridge", quantity, null, InventoryUnit.Piece, null, NotificationChannel.Push);
+        var item = InventoryItem.Create(inventoryId, name, "Dairy", ["Fridge"], quantity, null, InventoryUnit.Piece, null, NotificationChannel.Push);
         await context.InventoryItemRepository.AddAsync(item, CancellationToken.None);
         return item;
     }

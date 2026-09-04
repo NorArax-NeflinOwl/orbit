@@ -43,7 +43,7 @@ public sealed class InventoryItemsSaver(
             }
 
             existing.Update(
-                input.Name, input.ProductType, input.Category, input.Quantity, input.MinimumQuantity,
+                input.Name, input.ProductType, input.Categories, input.Quantity, input.MinimumQuantity,
                 input.Unit, input.ExpiryDate, input.ExpiryNotificationChannel,
                 input.IsCheckedRegularly ?? existing.IsCheckedRegularly);
             existing.MoveTo(position);
@@ -73,7 +73,7 @@ public sealed class InventoryItemsSaver(
         Guid inventoryId, InventoryItemInput input, int position, CancellationToken cancellationToken)
     {
         var item = InventoryItem.Create(
-            inventoryId, input.Name, input.ProductType, input.Category, input.Quantity, input.MinimumQuantity,
+            inventoryId, input.Name, input.ProductType, input.Categories, input.Quantity, input.MinimumQuantity,
             input.Unit, input.ExpiryDate, input.ExpiryNotificationChannel, position,
             input.IsCheckedRegularly ?? false);
         await inventoryItemRepository.AddAsync(item, cancellationToken);

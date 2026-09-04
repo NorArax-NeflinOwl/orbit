@@ -14,7 +14,8 @@ public sealed class InventoryItemFormModel
 
     public string Name { get; set; } = string.Empty;
     public string ProductType { get; set; } = string.Empty;
-    public string Category { get; set; } = string.Empty;
+    /// <summary>What it is filed under, as many words as apply - see InventoryItem.Categories.</summary>
+    public List<string> Categories { get; set; } = [];
     public decimal Quantity { get; set; }
     public decimal? MinimumQuantity { get; set; }
 
@@ -39,7 +40,7 @@ public sealed class InventoryItemFormModel
             Id = item.Id,
             Name = item.Name,
             ProductType = item.ProductType,
-            Category = item.Category,
+            Categories = [.. item.AllCategories],
             Quantity = item.Quantity,
             MinimumQuantity = item.MinimumQuantity,
             // Read through the option list rather than taken as it comes: a private inventory sealed
@@ -58,9 +59,11 @@ public sealed class InventoryItemFormModel
     /// </summary>
     public InventoryItemRequest ToDto()
         => new(
-            Id, Name, ProductType, Category, Quantity, MinimumQuantity, Unit,
+            // The first of them in the old single field too, so a server that has not learned about
+            // several still reads one - see InventoryItemRequest.Category.
+            Id, Name, ProductType, Categories.FirstOrDefault() ?? string.Empty, Quantity, MinimumQuantity, Unit,
             ExpiryDate is { } expiresOn ? expiresOn.ToUniversalTime() : null,
-            ExpiryNotificationChannel, IsCheckedRegularly);
+            ExpiryNotificationChannel, IsCheckedRegularly, Categories);
 
     /// <summary>Whether the shelf says there is less of this than somebody asked to keep.</summary>
     public bool IsBelowMinimum => MinimumQuantity is { } minimum && Quantity < minimum;

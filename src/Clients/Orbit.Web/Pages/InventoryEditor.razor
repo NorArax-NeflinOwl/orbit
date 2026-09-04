@@ -703,7 +703,17 @@ else
     /// <summary>The types actually on this shelf - a filter offering one nothing is filed under is a dead end.</summary>
     private IReadOnlyList<string> ProductTypesOnTheShelf => DistinctValues(item => item.ProductType);
 
-    private IReadOnlyList<string> CategoriesOnTheShelf => DistinctValues(item => item.Category);
+    /// <summary>
+    /// Every word anything on this shelf is filed under. An item can carry several now, so this reads
+    /// across all of them rather than taking one per row - see InventoryItem.Categories.
+    /// </summary>
+    private IReadOnlyList<string> CategoriesOnTheShelf
+        => [.. _formModel.Items
+            .SelectMany(item => item.Categories)
+            .Select(category => category.Trim())
+            .Where(category => category.Length > 0)
+            .Distinct(StringComparer.CurrentCultureIgnoreCase)
+            .OrderBy(category => category, StringComparer.CurrentCultureIgnoreCase)];
 
     private IReadOnlyList<string> DistinctValues(Func<InventoryItemFormModel, string> of)
         => [.. _formModel.Items
@@ -744,7 +754,10 @@ else
 
         public bool Matches(InventoryItemFormModel item)
             => Matches(ProductType, item.ProductType)
-                && Matches(Category, item.Category)
+                // One of them is enough: an item filed under both "baking" and "dry goods" is what
+                // either filter is looking for.
+                && (Category.Length == 0 || item.Categories.Any(
+                    category => string.Equals(Category, category.Trim(), StringComparison.CurrentCultureIgnoreCase)))
                 && Contains(Name, item.Name);
 
         private static bool Matches(string chosen, string itemValue)

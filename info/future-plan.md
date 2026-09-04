@@ -472,13 +472,6 @@ inventory lists, the contacts tabs, the chat menus - is built and needs no schem
 
 ## Smaller identified follow-ups
 
-- **A shelf item's category, held as several.** A task entry is filed under as many words as apply and
-  a shelf item under exactly one, which is the one place the two boxes still differ - see `TagField`
-  and `SuggestedTextField`, the multi- and single-valued halves of the same control. Making the shelf
-  item's match needs a join table like `TaskItemCategoryEntity` rather than the column it has now, and
-  it reaches further than the browser: the phone's local store, the export and import archives, the
-  public-share reader and the sealed inventory payload all carry that column by name.
-
 - **Done, kept here as the map of it.** Orbit has two depths for the same thing: a shallow view for
   reading and doing, and a full form for changing what it is. Every object that can have both now does,
   and the pattern is the same one each time - land on what the thing is, with the fields a named press

@@ -84,7 +84,7 @@ public sealed class InventoryTaskListCoordinatorTests
     {
         var context = new InventoryTestContext();
         var inventoryId = context.AddInventory(Guid.NewGuid());
-        var item = InventoryItem.Create(inventoryId, "Milk", "Dairy", "Fridge", 5m, 1m, InventoryUnit.Piece, null, NotificationChannel.Push);
+        var item = InventoryItem.Create(inventoryId, "Milk", "Dairy", ["Fridge"], 5m, 1m, InventoryUnit.Piece, null, NotificationChannel.Push);
 
         var result = await context.TaskListCoordinator.EnsureRestockTaskAsync(item, CancellationToken.None);
 
@@ -97,7 +97,7 @@ public sealed class InventoryTaskListCoordinatorTests
         var context = new InventoryTestContext();
         var userId = Guid.NewGuid();
         var inventoryId = context.AddInventory(userId);
-        var item = InventoryItem.Create(inventoryId, "Milk", "Dairy", "Fridge", 0m, 1m, InventoryUnit.Piece, null, NotificationChannel.Push);
+        var item = InventoryItem.Create(inventoryId, "Milk", "Dairy", ["Fridge"], 0m, 1m, InventoryUnit.Piece, null, NotificationChannel.Push);
 
         var result = await context.TaskListCoordinator.EnsureRestockTaskAsync(item, CancellationToken.None);
 
@@ -114,7 +114,7 @@ public sealed class InventoryTaskListCoordinatorTests
         var context = new InventoryTestContext();
         var userId = Guid.NewGuid();
         var inventoryId = context.AddInventory(userId);
-        var item = InventoryItem.Create(inventoryId, "Milk", "Dairy", "Fridge", 0m, 1m, InventoryUnit.Piece, null, NotificationChannel.Push);
+        var item = InventoryItem.Create(inventoryId, "Milk", "Dairy", ["Fridge"], 0m, 1m, InventoryUnit.Piece, null, NotificationChannel.Push);
         item = await context.TaskListCoordinator.EnsureRestockTaskAsync(item, CancellationToken.None);
 
         // The reader restocks, ticks the task off - and the product is still under its minimum.
@@ -147,7 +147,7 @@ public sealed class InventoryTaskListCoordinatorTests
         var context = new InventoryTestContext();
         var userId = Guid.NewGuid();
         var inventoryId = context.AddInventory(userId);
-        var item = InventoryItem.Create(inventoryId, "Milk", "Dairy", "Fridge", 0m, 1m, InventoryUnit.Piece, null, NotificationChannel.Push);
+        var item = InventoryItem.Create(inventoryId, "Milk", "Dairy", ["Fridge"], 0m, 1m, InventoryUnit.Piece, null, NotificationChannel.Push);
         item = await context.TaskListCoordinator.EnsureRestockTaskAsync(item, CancellationToken.None);
 
         var result = await context.TaskListCoordinator.EnsureRestockTaskAsync(item, CancellationToken.None);
@@ -182,7 +182,7 @@ public sealed class InventoryTaskListCoordinatorTests
         var taskListId = await context.TaskListCoordinator.EnsureManagedTaskListAsync(inventoryId, CancellationToken.None);
         await MarkHighPriorityAsync(context, userId, taskListId!.Value);
 
-        var item = InventoryItem.Create(inventoryId, "Milk", "Dairy", "Fridge", 0m, 1m, InventoryUnit.Piece, null, NotificationChannel.Push);
+        var item = InventoryItem.Create(inventoryId, "Milk", "Dairy", ["Fridge"], 0m, 1m, InventoryUnit.Piece, null, NotificationChannel.Push);
         await context.TaskListCoordinator.EnsureRestockTaskAsync(item, CancellationToken.None);
 
         var afterwards = await context.TaskRepository.GetByIdAsync(userId, taskListId.Value, CancellationToken.None);

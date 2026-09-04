@@ -159,7 +159,7 @@ public sealed class InventorySharingTests
         var ownerUserId = Guid.NewGuid();
         var inventoryId = context.AddInventory(ownerUserId);
         await context.InventoryItemRepository.AddAsync(
-            InventoryItem.Create(inventoryId, "Milk", "Dairy", "Fridge", 2m, 1m, InventoryUnit.Piece, null, NotificationChannel.Push), CancellationToken.None);
+            InventoryItem.Create(inventoryId, "Milk", "Dairy", ["Fridge"], 2m, 1m, InventoryUnit.Piece, null, NotificationChannel.Push), CancellationToken.None);
         var handler = new DeleteInventoryCommandHandler(context.InventoryRepository, context.InventoryItemRepository, new InMemoryInventoryShareRepository(), new InMemorySyncTombstoneRepository());
 
         var deleted = await handler.HandleAsync(new DeleteInventoryCommand(ownerUserId, inventoryId), CancellationToken.None);

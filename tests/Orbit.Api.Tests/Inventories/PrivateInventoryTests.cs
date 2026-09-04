@@ -146,7 +146,7 @@ public sealed class PrivateInventoryTests
     }
 
     private static InventoryItemInput Item(string name, decimal quantity, decimal? minimumQuantity)
-        => new(null, name, "Medicine", "Cabinet", quantity, minimumQuantity, InventoryUnit.Piece, null, NotificationChannel.None);
+        => new(null, name, "Medicine", ["Cabinet"], quantity, minimumQuantity, InventoryUnit.Piece, null, NotificationChannel.None);
 
     /// <summary>
     /// Wraps the shared InventoryTestContext with the three calls these tests make, rather than wiring

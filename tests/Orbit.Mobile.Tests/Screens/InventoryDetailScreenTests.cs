@@ -219,7 +219,7 @@ public sealed class InventoryDetailScreenTests
 
         screen.EditItemCommand.Execute(screen.Items[0]);
         screen.BeingEdited!.ProductType = "Bag";
-        screen.BeingEdited.Category = "Kitchen";
+        screen.BeingEdited.Categories = "Kitchen, Dry";
         screen.BeingEdited.MinimumQuantity = "5";
         // Asked as how long it keeps rather than the day it stops - see ExpiryPeriod.
         screen.BeingEdited.ChosenExpiryUnit = ExpiryUnitChoice.For(screen.BeingEdited.ExpiryUnits, ExpiryUnit.Weeks);
@@ -228,6 +228,9 @@ public sealed class InventoryDetailScreenTests
 
         var row = Assert.Single(screen.Items);
         Assert.Equal("Bag", row.Item.ProductType);
+        // As many as apply, typed on one line - see InventoryItemEditor.Categories. The old single
+        // field still carries the first, for a server that has not learned about several.
+        Assert.Equal(["Kitchen", "Dry"], row.Item.AllCategories);
         Assert.Equal("Kitchen", row.Item.Category);
         Assert.Equal(5, row.Item.MinimumQuantity);
         Assert.Equal(DateTime.Today.AddDays(14), row.Item.ExpiryDate!.Value.LocalDateTime.Date);

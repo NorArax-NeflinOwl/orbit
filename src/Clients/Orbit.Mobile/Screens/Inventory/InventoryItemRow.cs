@@ -67,7 +67,8 @@ public sealed record InventoryItemRow(
 
     private static string Describe(InventoryItemRequest item, Translations translations)
     {
-        var kind = string.Join(" · ", new[] { item.ProductType, item.Category }.Where(part => part.Length > 0));
+        var kind = string.Join(
+            " · ", item.AllCategories.Prepend(item.ProductType).Where(part => part.Length > 0));
 
         return item.MinimumQuantity is { } minimum
             ? $"{kind} · {translations.Format("Minimum: {0}", Measure(minimum, item.Unit, translations))}"
