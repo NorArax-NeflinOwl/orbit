@@ -20,6 +20,13 @@ public interface IInventoryManagedTaskListRepository
     Task SetTaskListIdAsync(Guid inventoryId, Guid taskListId, CancellationToken cancellationToken);
 
     /// <summary>
+    /// Forgets which list this inventory had, leaving its settings where they are - the two are stored
+    /// in one row but answer different questions, and switching the restock list off should not also
+    /// forget the hour it used to come round at. A no-op for an inventory that has no row yet.
+    /// </summary>
+    Task ClearTaskListIdAsync(Guid inventoryId, CancellationToken cancellationToken);
+
+    /// <summary>
     /// How this inventory's restock list is built and when it comes round - see
     /// <see cref="RestockListSettings"/>. Answers the default for an inventory that has never had a list,
     /// so callers never have to tell "not set" from "set to the default".

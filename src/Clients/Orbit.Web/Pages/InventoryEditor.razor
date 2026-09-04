@@ -277,38 +277,61 @@ else
        somebody came here to edit - see RestockListSettings. *@
     <h2>@T["Restock list"]</h2>
     <div class="card restock-settings-card">
-        <label class="field-checkbox" for="onlyLinkedWithDueDateInput">
-            <input id="onlyLinkedWithDueDateInput" type="checkbox" @bind="_restockSettings.OnlyLinkedWithDueDate" />
-            <span>@T["Only what a dated task is waiting on"]</span>
+        @* The switch the rest of the section hangs off. Everything below it is greyed out while it is
+           off, rather than hidden: a reader deciding whether to turn it back on should be able to see
+           what they would be turning on. Saved with the rest of the form - see SaveAsync. *@
+        <label class="field-checkbox" for="restockEnabledInput">
+            <input id="restockEnabledInput" type="checkbox" @bind="_restockSettings.IsEnabled" />
+            <span>@T["Keep a restock list for this inventory"]</span>
         </label>
         <p class="field-hint">
-            @(_restockSettings.OnlyLinkedWithDueDate
-                ? T["The list asks for products some task with a due date needs. What is running low but nothing is waiting on is left off."]
-                : T["The list asks for everything on this shelf that has dropped below its own minimum."])
+            @(_restockSettings.IsEnabled
+                ? T["Orbit keeps a \"Restock supplies\" list for this shelf and puts what is running low on it."]
+                : T["Turning this off deletes the restock list and everything on it. Turning it back on builds a new one."])
         </p>
 
-        <div class="field">
-            <label for="restockRefreshTimeInput">@T["Comes round at"]</label>
-            <TimeField Value="_restockSettings.RefreshTimeOfDay"
-                       ValueChanged="time => _restockSettings.RefreshTimeOfDay = time ?? RestockListSettings.DefaultRefreshTimeOfDay"
-                       AriaLabel="@(T["Comes round at"])" />
-            <small>@T["When the standing \"Update stock levels\" reminder arrives."]</small>
-        </div>
+        <fieldset class="restock-settings-fields" disabled="@(!_restockSettings.IsEnabled)">
+            <label class="field-checkbox" for="onlyLinkedWithDueDateInput">
+                <input id="onlyLinkedWithDueDateInput" type="checkbox" @bind="_restockSettings.OnlyLinkedWithDueDate" />
+                <span>@T["Only what a dated task is waiting on"]</span>
+            </label>
+            <p class="field-hint">
+                @(_restockSettings.OnlyLinkedWithDueDate
+                    ? T["The list asks for products some task with a due date needs. What is running low but nothing is waiting on is left off."]
+                    : T["The list asks for everything on this shelf that has dropped below its own minimum."])
+            </p>
 
-        @if (_restockMessage is not null)
-        {
-            <p class="field-hint">@_restockMessage</p>
-        }
+            <div class="field">
+                <label for="restockPrioritySelect">@T["Priority of the restock list"]</label>
+                <select id="restockPrioritySelect" @bind="_restockSettings.ListPriority">
+                    <option value="@ItemPriority.Low">@T["Low"]</option>
+                    <option value="@ItemPriority.Normal">@T["Normal"]</option>
+                    <option value="@ItemPriority.High">@T["High"]</option>
+                </select>
+                <small>@T["How much the generated \"Restock supplies\" list matters, next to your own lists."]</small>
+            </div>
 
-        <div class="form-actions">
-            <button type="button" class="btn-primary" disabled="@_isWorkingOnRestockList"
-                    @onclick="SaveRestockSettingsAsync">@T["Save settings"]</button>
-            @* What replaced "Generate inventory" and "Recalculate against the inventory": one button
-               that rebuilds this list from what is true now, rather than two that each did half of
-               something else. *@
-            <button type="button" class="btn-secondary" disabled="@_isWorkingOnRestockList"
-                    @onclick="RefreshRestockListAsync">@T["Refresh"]</button>
-        </div>
+            @* The reminder and the hour it arrives at are one decision, so the switch sits beside the
+               field it governs rather than above the section: turning it off leaves the list alone and
+               only stops the standing entry. *@
+            <div class="field">
+                <label class="field-checkbox" for="restockRemindDailyInput">
+                    <input id="restockRemindDailyInput" type="checkbox" @bind="_restockSettings.RemindDaily" />
+                    <span>@T["Remind me to update stock levels"]</span>
+                </label>
+                <fieldset class="restock-reminder-time" disabled="@(!_restockSettings.RemindDaily)">
+                    <label for="restockRefreshTimeInput">@T["Comes round at"]</label>
+                    <TimeField Value="_restockSettings.RefreshTimeOfDay"
+                               ValueChanged="time => _restockSettings.RefreshTimeOfDay = time ?? RestockListSettings.DefaultRefreshTimeOfDay"
+                               AriaLabel="@(T["Comes round at"])" />
+                </fieldset>
+                <small>
+                    @(_restockSettings.RemindDaily
+                        ? T["The standing \"Update stock levels\" entry comes back every day at this hour, and shows on the calendar for that day."]
+                        : T["Nothing arrives each day. Products dropping below their minimum still raise their own errands."])
+                </small>
+            </div>
+        </fieldset>
     </div>
     }
 
@@ -358,15 +381,11 @@ else
     public Guid? Highlight { get; set; }
 
     /// <summary>
-    /// How this inventory's restock list behaves. A working copy, edited in the form below and sent when
-    /// somebody presses Save settings - the same shape the rest of this page uses.
+    /// How this inventory's restock list behaves. A working copy, edited in the form below and sent by
+    /// the page's own Save along with everything else - the same shape the rest of this page uses.
     /// </summary>
     private RestockSettingsFormModel _restockSettings = new();
 
-    private bool _isWorkingOnRestockList;
-
-    /// <summary>What the last save or refresh actually moved, said rather than left to be noticed.</summary>
-    private string? _restockMessage;
 
     private bool _isLoading = true;
 
@@ -544,39 +563,6 @@ else
         }
     }
 
-    private async Task SaveRestockSettingsAsync()
-        => await RunOnTheRestockListAsync(
-            () => InventoryApiClient.SaveRestockListSettingsAsync(InventoryId!.Value, _restockSettings.ToDto()));
-
-    private async Task RefreshRestockListAsync()
-        => await RunOnTheRestockListAsync(() => InventoryApiClient.RefreshRestockListAsync(InventoryId!.Value));
-
-    /// <summary>
-    /// Both buttons do the same thing to this page: work, then say what moved. Nothing moving is said
-    /// too - a button that answers silently reads as one that did not register.
-    /// </summary>
-    private async Task RunOnTheRestockListAsync(Func<Task<RestockRefreshResultDto>> action)
-    {
-        _isWorkingOnRestockList = true;
-        _restockMessage = null;
-        try
-        {
-            var result = await action();
-            _restockMessage = result.AddedCount == 0 && result.RemovedCount == 0
-                ? T["The restock list already asks for exactly what it should."]
-                : T.Format("Restock list updated: {0} added, {1} removed.", result.AddedCount, result.RemovedCount);
-        }
-        catch (HttpRequestException exception)
-        {
-            Logger.LogError(exception, "A restock list action failed for inventory {InventoryId}", InventoryId);
-            _restockMessage = T["That didn't work. Try again."];
-        }
-        finally
-        {
-            _isWorkingOnRestockList = false;
-        }
-    }
-
     /// <summary>
     /// The form model keeps a DateOnly? because that is what a date box binds to; ExpiresInField speaks
     /// in DateTimeOffset? because that is what the item carries. These two are the join.
@@ -589,17 +575,33 @@ else
     private static DateOnly? ToExpiryDate(DateTimeOffset? expiresOn)
         => expiresOn is { } value ? DateOnly.FromDateTime(value.LocalDateTime) : null;
 
-    /// <summary>The two restock-list settings while somebody is editing them - see RestockListSettings.</summary>
+    /// <summary>The restock-list settings while somebody is editing them - see RestockListSettings.</summary>
     private sealed class RestockSettingsFormModel
     {
+        public bool IsEnabled { get; set; } = true;
+
+        public bool RemindDaily { get; set; } = true;
+
         public bool OnlyLinkedWithDueDate { get; set; }
 
         public TimeOnly RefreshTimeOfDay { get; set; } = RestockListSettings.DefaultRefreshTimeOfDay;
 
-        public static RestockSettingsFormModel FromDto(RestockListSettingsDto settings)
-            => new() { OnlyLinkedWithDueDate = settings.OnlyLinkedWithDueDate, RefreshTimeOfDay = settings.RefreshTimeOfDay };
+        public ItemPriority ListPriority { get; set; } = ItemPriority.Normal;
 
-        public RestockListSettingsDto ToDto() => new(OnlyLinkedWithDueDate, RefreshTimeOfDay);
+        public static RestockSettingsFormModel FromDto(RestockListSettingsDto settings)
+            => new()
+            {
+                IsEnabled = settings.IsEnabled,
+                RemindDaily = settings.RemindDaily,
+                OnlyLinkedWithDueDate = settings.OnlyLinkedWithDueDate,
+                RefreshTimeOfDay = settings.RefreshTimeOfDay,
+                ListPriority = Enum.TryParse<ItemPriority>(settings.ListPriority, out var priority)
+                    ? priority
+                    : ItemPriority.Normal
+            };
+
+        public RestockListSettingsDto ToDto()
+            => new(OnlyLinkedWithDueDate, RefreshTimeOfDay, IsEnabled, RemindDaily, ListPriority.ToString());
     }
 
     /// <summary>A new row opens straight to its fields - there is nothing to recognise it by yet.</summary>
@@ -771,6 +773,13 @@ else
                     _saveErrorMessage = T["Failed to save the inventory. Try again."];
                     return;
                 }
+
+                // The restock list's settings go with the shelf they belong to, rather than behind a
+                // Save of their own: this form already has one Save and one Cancel, and a section with
+                // a second pair of them left somebody who pressed the page's Save wondering why the
+                // switch they had just moved had not taken. Only for an inventory that exists - a new
+                // one has no list to configure until it has been created.
+                await InventoryApiClient.SaveRestockListSettingsAsync(InventoryId!.Value, _restockSettings.ToDto());
             }
         }
         catch (HttpRequestException exception) when (exception.StatusCode == HttpStatusCode.Unauthorized)

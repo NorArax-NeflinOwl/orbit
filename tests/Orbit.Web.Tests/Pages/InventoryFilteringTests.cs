@@ -435,9 +435,17 @@ public sealed class InventoryFilteringTests : OrbitTestContext
         {
             var path = request.RequestUri!.AbsolutePath;
 
+            // Saving now sends two PUTs - the inventory itself, then its restock list settings, which go
+            // with the page's own Save rather than a Save of their own. Only the first is what these
+            // tests read back, so the settings one is answered without being recorded: capturing every
+            // PUT meant _lastSavedJson held the settings by the time an assertion looked at it.
             if (request.Method == HttpMethod.Put && request.Content is { } body)
             {
-                _lastSavedJson = body.ReadAsStringAsync().GetAwaiter().GetResult();
+                if (!path.EndsWith("/restock-list/settings", StringComparison.Ordinal))
+                {
+                    _lastSavedJson = body.ReadAsStringAsync().GetAwaiter().GetResult();
+                }
+
                 return new HttpResponseMessage(HttpStatusCode.NoContent);
             }
 

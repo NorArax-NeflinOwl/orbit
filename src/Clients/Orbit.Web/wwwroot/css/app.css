@@ -5506,3 +5506,29 @@ span.calendar-task-chip {
     border-radius: 999px;
     font-size: 13px;
 }
+
+/* The restock section's two switches each govern what sits under them: the first the whole section, the
+   second only the hour its reminder arrives at. Greyed out rather than hidden, because somebody deciding
+   whether to switch one back on should be able to read what they would be switching on. The controls
+   already grey themselves (see input:disabled above); this is what fades the words around them, which is
+   the half that says the section is off rather than merely unreachable. */
+.restock-settings-fields,
+.restock-reminder-time {
+    border: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+}
+
+.restock-reminder-time {
+    flex-direction: row;
+    align-items: center;
+    gap: 8px;
+}
+
+.restock-settings-fields[disabled],
+.restock-reminder-time[disabled] {
+    opacity: 0.55;
+}
