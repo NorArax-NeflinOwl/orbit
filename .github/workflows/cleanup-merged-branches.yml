@@ -18,7 +18,11 @@ env:
   # Only ever considers branches that are provably merged into this one (see the `git branch --merged`
   # step below) - a branch that hasn't been merged is never a deletion candidate here, regardless of
   # age. Nothing in this workflow can delete unmerged work.
-  baseBranch: main
+  #
+  # Coding rather than main: work merges there first, and waiting for it to reach main would keep every
+  # finished branch alive until the next deploy. main itself is reachable from Coding and would look
+  # like a merged branch here, so it is excluded by name in the loop below - as is Coding.
+  baseBranch: Coding
   # A branch is eligible for deletion once BOTH its last commit and its PR's merge date are at least
   # this old - i.e. counted from whichever of the two happened more recently. A branch merged days ago
   # but pushed to again yesterday stays alive; so does a branch whose last commit is old but that
@@ -53,7 +57,8 @@ jobs:
           # --merged lists only branches whose entire commit history is already reachable from
           # $baseBranch - i.e. provably contains nothing that isn't already merged in, so deleting one
           # can never lose work. HEAD and $baseBranch itself are always excluded.
-          for ref in $(git branch -r --merged "origin/${{ env.baseBranch }}" | grep -v -e "HEAD" -e "origin/${{ env.baseBranch }}$"); do
+          for ref in $(git branch -r --merged "origin/${{ env.baseBranch }}" \
+                 | grep -v -e "HEAD" -e "origin/${{ env.baseBranch }}$" -e "origin/main$"); do
             branchName="${ref#origin/}"
             lastCommitEpoch=$(git log -1 --format=%ct "$ref")
 

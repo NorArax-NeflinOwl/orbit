@@ -7,7 +7,10 @@ description: How Orbit's GitHub Actions pipeline (main_orbit.yml) builds Docker 
 
 ## What the pipeline does
 
-`.github/workflows/main_orbit.yml` runs on push to `main`:
+`.github/workflows/main_orbit.yml` builds and tests on a push to `main` or `Coding`
+and on pull requests into either, but the deploy job is gated on `main` alone
+(`github.ref == 'refs/heads/main'`). So a merge into `Coding` costs a build; only
+the integration PR reaching `main` costs a deploy. On a push to `main` it:
 
 1. Log in to Azure via OIDC (managed identity `identity-orbit`, no stored secret)
 2. `docker build` the `Orbit.Api` and `Orbit.Web` images on the runner

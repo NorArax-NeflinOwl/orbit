@@ -8,7 +8,7 @@ Run the whole suite with:
 dotnet test Orbit.sln
 ```
 
-This also runs automatically in CI, on every push to `main` and on every pull request into it - so a
+This also runs automatically in CI, on every push to `main` or `Coding` and on every pull request into either - so a
 branch is checked before it lands rather than after. Documentation-only branches are skipped, and a
 pull request run is cancelled by the next push to the same branch. See
 [Architecture — Continuous integration](architecture.md#continuous-integration) for what that costs and
@@ -95,7 +95,7 @@ referenced by an ordinary test project, which is why behaviour lives on this sid
 
 ### What the deploy pipeline checks
 
-`.github/workflows/main_orbit.yml` gates every push to `main`, in this order, so a failure costs as
+`.github/workflows/main_orbit.yml` gates every push to `main` or `Coding`, in this order, so a failure costs as
 little as possible:
 
 1. **Every required Azure environment variable is present** - before spending minutes on image builds.

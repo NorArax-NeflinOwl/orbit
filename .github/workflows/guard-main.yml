@@ -1,0 +1,54 @@
+# Closes pull requests that aim at main from anywhere except Coding.
+#
+# This is a stand-in for branch protection, which this repository cannot have: GitHub gates both
+# classic protection and rulesets behind Pro for private repositories, and answers 403 to the API. So
+# the rule that work reaches main only through the integration pull request is enforced here, in the
+# one place a private repository on the free plan still gets to say no.
+#
+# What it cannot do is stop a direct push to main - no workflow can, since it runs after the push has
+# landed and the deploy has already started. That one stays a rule in .claude/CLAUDE.md rather than a
+# guarantee. What it does cover is the mistake anyone is actually going to make: opening a feature
+# pull request against main out of habit, which merges into a deploy.
+#
+# The escape hatch is a label. A hotfix that genuinely has to skip Coding is a decision somebody makes
+# on purpose, and labelling the pull request "hotfix" says so out loud.
+name: Keep main reachable only from Coding
+
+on:
+  pull_request:
+    types: [opened, reopened, edited, labeled, unlabeled]
+    branches:
+      - main
+
+permissions:
+  pull-requests: write
+
+jobs:
+  guard:
+    # The integration pull request is the whole point of the arrangement, and a deliberate hotfix says
+    # so with a label. Everything else aimed at main is a mistake.
+    if: |
+      github.event.pull_request.head.ref != 'Coding' &&
+      !contains(github.event.pull_request.labels.*.name, 'hotfix')
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - name: Say why, then close it
+        run: |
+          gh pr comment "${{ github.event.pull_request.number }}" --repo "${{ github.repository }}" --body \
+          "Closed automatically: work reaches \`main\` only through the integration pull request from \`Coding\`.
+
+          Merging into \`main\` is what deploys - a build, a push to ACR and two Container App revisions - so it happens once for a run of work rather than once per change.
+
+          **Point this at \`Coding\` instead:**
+
+          \`\`\`bash
+          gh pr edit ${{ github.event.pull_request.number }} --base Coding
+          \`\`\`
+
+          Then reopen it. \`Coding\` is where everything lands; \`.github/workflows/integration-pr.yml\` keeps one pull request open from there to \`main\` on its own.
+
+          If this really does have to skip \`Coding\`, label it \`hotfix\` and reopen - that says the deploy was somebody's decision rather than a habit."
+
+          gh pr close "${{ github.event.pull_request.number }}" --repo "${{ github.repository }}"

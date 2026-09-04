@@ -22,16 +22,28 @@ Rules in this file are always in context. Longer procedures live in
 
 ## Workflow
 
-1. Never have more than one open PR at a time. Merging to `main` triggers an
-   expensive pipeline (Docker build, push to ACR, Container Apps deploy). Finish
-   and merge the current PR before opening the next one. See skill `pr-workflow`.
-2. Never push directly to `main`. Work on a feature branch and open a PR.
-   Do not merge the PR yourself — the user merges it.
+1. One PR per session, and at most three open in the repository at once. If this
+   session already has a PR open, put the work on its branch instead of opening a
+   second one - it makes no difference whether the work touches the web, the phone
+   or documentation. Several sessions may share one PR. Merging to `main` triggers
+   an expensive pipeline (Docker build, push to ACR, Container Apps deploy), which
+   is what the cap and the `Coding` branch in rule 2 both protect. See skill
+   `pr-workflow`.
+2. Never push directly to `main`, and never open a pull request against it. Work on
+   a feature branch and open the PR against `Coding`, which is where everything
+   lands first. `Coding` reaches `main` through one integration PR that
+   `.github/workflows/integration-pr.yml` keeps open on its own - merging *that* is
+   what deploys, so it is deliberately rare. A PR aimed at `main` from anywhere else
+   is closed automatically by `.github/workflows/guard-main.yml` (label it `hotfix`
+   to mean it on purpose). Branch protection would say this more firmly, but GitHub
+   gates it behind Pro for private repositories. Do not merge any PR yourself; the
+   user merges.
 3. Before the context fills up for the second time, start a new session and hand
    over the context. Name the new session like the current one with the numeric
    suffix incremented (`orbit-deploy-2` → `orbit-deploy-3`).
    See skill `session-handover` for the handover template.
-4. One PR = one logical change. Do not bundle unrelated changes.
+4. One logical change per commit. A session's PR usually carries several, so the
+   commits - not the PR - are where that separation lives.
 
 ## Azure constraints (pay-as-you-go subscription)
 

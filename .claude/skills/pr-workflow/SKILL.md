@@ -5,9 +5,38 @@ description: Branching, commit message and pull request rules for the Orbit repo
 
 # PR workflow for Orbit
 
-Merging to `main` runs the full build-push-deploy pipeline, which costs real
-money on the pay-as-you-go subscription. The rules below exist to keep that
-pipeline from running more than once per logical change.
+Merging to `main` runs the full build-push-deploy pipeline, which costs real money
+on the pay-as-you-go subscription. Every limit below is protecting that.
+
+## Where a pull request goes
+
+**`Coding`, never `main`.** Work lands on `Coding` first; a merge there costs a
+build and deploys nothing. `Coding` reaches `main` through a single integration
+pull request that `.github/workflows/integration-pr.yml` opens and rewrites on
+every push, so many merges arrive at production as one - which is the saving.
+
+Nobody opens or merges that integration PR by hand: the workflow keeps it current,
+and merging it is the user's decision because it is the expensive one. When the two
+branches agree again, the workflow closes it.
+
+`Coding` is the repository's default branch, so `gh pr create` already proposes it.
+A PR aimed at `main` from any other branch is closed by `guard-main.yml` with a
+comment saying how to retarget it; a change that genuinely has to skip `Coding`
+carries the `hotfix` label, which says the deploy was a decision. That guard exists
+because branch protection does not: GitHub gates it behind Pro for private
+repositories, so nothing can stop a *direct push* to `main` - which is why rule 2
+still says never to do it.
+
+## How many pull requests may be open
+
+- **One per session.** A session opens at most one, and everything it does
+  afterwards goes on that branch - it makes no difference whether the work is in
+  the web client, the phone or the documentation. Splitting by subject is not
+  tidier here; it is a second pipeline run.
+- **Three in the repository, at most.** The other two belong to other sessions.
+- **A PR may be shared.** Several sessions can push to one branch, and joining an
+  existing PR is the normal answer when this session has none open and three
+  already are.
 
 ## Before starting a task
 
@@ -15,16 +44,28 @@ pipeline from running more than once per logical change.
 gh pr list --state open
 ```
 
-If a PR is open: finish it (address review, fix CI) or ask the user whether to
-abandon it. Do not open a second one. Do not stack a new branch on top of an
-unmerged one unless the user explicitly asks.
+Then, in order:
+
+- **This session already has one open** → keep using it. Commit onto its branch
+  and push; do not open a second, and do not ask to.
+- **This session has none, fewer than three are open** → open one (below).
+- **Three are open, none of them this session's** → do not open a fourth. Put the
+  work on whichever open PR it belongs with and tell that session (`ListAgents`,
+  then `SendMessage`), or ask the user which one to join.
+
+Do not stack a new branch on top of an unmerged one unless the user explicitly asks.
 
 ## Branch
 
-- Start from up-to-date `main`: `git fetch origin && git switch -c <branch> origin/main`
+Only when opening a PR - work that joins an existing one uses that PR's branch.
+
+- Start from up-to-date `Coding`: `git fetch origin && git switch -c <branch> origin/Coding`
 - Name: `<type>/<short-kebab-description>`, for example
   `fix/orbit-api-startup-port`, `feat/calendar-module-schema`,
   `chore/pipeline-image-tags`. No ticket numbers unless the user gives one.
+- Name it for the first thing that goes on it, and leave it at that when later
+  work joins: renaming a branch other sessions may be pushing to costs more than
+  a name that has aged.
 
 ## Commits
 
@@ -60,7 +101,7 @@ Add APPLICATIONINSIGHTS_CONNECTION_STRING to .env.example
 ## Opening the PR
 
 ```bash
-gh pr create --base main --title "<summary line>" --body-file <body.md>
+gh pr create --base Coding --title "<summary line>" --body-file <body.md>
 ```
 
 PR body template:
@@ -85,9 +126,32 @@ PR body template:
 
 Open as a draft (`--draft`) if CI has not been checked locally yet.
 
+The title opens with this session's tag - `[Web]`, `[Android]`, `[DB]`, `[Docs]` -
+so a glance at the list says which session is behind which PR.
+
+A session's PR accumulates, so treat the description as living: when later work
+lands on it, extend **What** and **Verified** rather than leaving them describing
+only the first commit (`gh pr edit <n> --body-file <body.md>`). A reviewer reads
+the description, not the reflog.
+
+## Sharing a branch with another session
+
+A shared branch is the normal case now, so treat it as somebody else's too:
+
+```bash
+git pull --rebase origin <branch>     # before every push
+```
+
+Never force-push a branch another session is on - `--force-with-lease` included,
+since it protects your own view, not their unpushed work. Say what you are about
+to push before you push it, and if a push is rejected, pull and rebase rather than
+overwriting. Which sessions are live is what `ListAgents` answers.
+
 ## After opening
 
 - Do not merge. The user merges.
+- Later work in this session goes on this same PR, whatever it touches.
 - If CI fails on the PR, fix it in the same branch — do not open a new PR.
-- When the user merges, watch the deploy with `gh run watch` and, on failure,
-  switch to `azure-deploy-diagnose`.
+- When the user merges into `Coding`, nothing deploys - the suite runs and the
+  integration PR updates itself. Watch the deploy only when the user merges *that*
+  one into `main`: `gh run watch`, and on failure switch to `azure-deploy-diagnose`.

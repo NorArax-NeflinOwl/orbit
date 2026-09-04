@@ -28,13 +28,20 @@ name: Build, test and deploy Orbit to Azure Container Apps
 # runner to prove it is the kind of spend that exhausted the allowance in the first place.
 #
 # The deploy job stays out of it either way - it is guarded on the event as well as gated on the suite.
+#
+# Work lands on Coding first and reaches main in one integration pull request (see
+# integration-pr.yml), so both branches build and both accept pull requests - but only main deploys,
+# which is the whole point of the arrangement: a merge to Coding costs a build, a merge to main costs
+# a deploy.
 on:
   push:
     branches:
       - main
+      - Coding
   pull_request:
     branches:
       - main
+      - Coding
     paths-ignore:
       - 'info/**'
       - '**/*.md'
@@ -47,9 +54,12 @@ on:
 # A pull request is the opposite case and gets the opposite answer: one group per branch, cancelled by
 # the next push to it. Nobody wants the results of a commit that has already been replaced, and paying
 # for them is what made this trigger too expensive to keep the first time.
+#
+# A push to Coding is neither: it deploys nothing, so it takes a group of its own and is cancelled by
+# the next push the same way a pull request is.
 concurrency:
-  group: ${{ github.event_name == 'pull_request' && format('pr-{0}', github.ref) || 'deploy-orbit' }}
-  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+  group: ${{ github.event_name == 'pull_request' && format('pr-{0}', github.ref) || format('push-{0}', github.ref) }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 
 env:
   registryName: orbitcontainerregistry
@@ -192,7 +202,9 @@ jobs:
     # Everything from here talks to Azure. Nothing triggers this workflow from a pull request any more
     # (see the top of the file), so the condition is a belt to that braces: if the trigger is ever put
     # back, a branch still stops at the job above rather than deploying itself.
-    if: github.event_name != 'pull_request'
+    # main only. Coding builds and tests on every push, but deploying from it would spend exactly what
+    # the branch exists to save - and the federated credential only trusts refs/heads/main anyway.
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     # Deliberately NOT targeting a GitHub Environment here (e.g. `environment: production`), tempting
     # as that is for gating deploys behind a manual approval - doing so changes the OIDC token's

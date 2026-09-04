@@ -48,7 +48,8 @@ Date: <YYYY-MM-DD>
 
 ## Branch and PR
 - Branch: <name>
-- Open PR: <number and title, or none>
+- Open PR: <number and title, or none. The new session inherits it rather than
+  opening its own - see `pr-workflow`.>
 - Uncommitted changes: <list, or none>
 
 ## Goal of the work
