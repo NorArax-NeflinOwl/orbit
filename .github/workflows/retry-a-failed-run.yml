@@ -57,5 +57,10 @@ jobs:
             exit 0
           fi
 
-          gh run rerun "$RUN_ID" --failed
+          # -R, like the API call above: this job never checks the repository out, and gh works out
+          # which repository it is talking about from the git remote when nothing says. With no
+          # checkout there is no remote, so this failed with "failed to determine base repo: not a
+          # git repository" - and it failed silently as far as anybody looking at the deploy could
+          # tell, since a broken retry looks exactly like a retry that decided not to run.
+          gh run rerun "$RUN_ID" --failed -R "${{ github.repository }}"
           echo "::notice::Retrying the failed jobs of $RUN_NAME once. If they fail again, that is the answer."
