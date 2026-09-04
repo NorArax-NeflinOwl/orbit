@@ -46,6 +46,43 @@ public abstract class OrbitTestContext : TestContext
         checklistEditor.SetupVoid("dispose", _ => true).SetVoidResult();
         // Nothing was typed into a surface that does not exist, so it reports the lines it was given.
         checklistEditor.Setup<string>("getLinesAsJson", _ => true).SetResult("[]");
+        RegisterSharingWithNobody();
+    }
+
+    /// <summary>
+    /// What every page that can hand something to somebody needs in order to render at all: who is
+    /// signed in, who they know, and the sealed sender an invitation goes out through. Nobody and
+    /// nothing here - the same reason <see cref="SuggestingNothing"/> is registered above. A test about
+    /// sharing registers its own over these, and the later registration is the one that resolves.
+    ///
+    /// It sits in the base because sharing stopped being one page's business: an inventory is handed on
+    /// from its card and from inside its own editor now, so four test classes were failing on a service
+    /// none of them were about.
+    /// </summary>
+    private void RegisterSharingWithNobody()
+    {
+        var httpClient = new HttpClient(new StubHttpMessageHandler(_ => new HttpResponseMessage(HttpStatusCode.OK)
+        {
+            Content = new StringContent("[]", Encoding.UTF8, "application/json")
+        }))
+        {
+            BaseAddress = new Uri("https://example.test/")
+        };
+
+        // No token was ever stored, so this answers "nobody is signed in" - which is what a test that
+        // has not signed anybody in should see.
+        var tokenStore = new TokenStore(new StubJSRuntime());
+        var authenticationStateProvider = new OrbitAuthenticationStateProvider(
+            tokenStore, new TokenRefreshService(tokenStore, httpClient));
+        Services.AddSingleton(authenticationStateProvider);
+
+        var usersApiClient = new UsersApiClient(httpClient);
+        Services.AddSingleton(new ChatApiClient(httpClient));
+        Services.AddSingleton(new EncryptedChatMessageSender(
+            JSInterop.JSRuntime,
+            new OwnEncryptionKeyProvider(JSInterop.JSRuntime, usersApiClient, authenticationStateProvider),
+            usersApiClient,
+            new ChatApiClient(httpClient)));
     }
 
     /// <summary>

@@ -447,14 +447,12 @@ thing starts in - an empty row above everything the day holds would be the wrong
 
 The web redesign was done except for four things of the same shape: each needed somewhere to store
 something the database had no column for, so they were held together deliberately - one migration, one
-deploy and one APK release rather than four of each. **Two of the four have since shipped**, which is
-what broke the bundle: the remaining two now cost a migration each, and there is no longer a reason to
-keep holding them.
+deploy and one APK release rather than four of each. **All four have since shipped**, one at a time -
+which is the answer to why the bundle was worth breaking up.
 
-- **Archiving a conversation.** Still open. The contacts page has its three tabs; the fourth - Archive,
-  appearing only when it holds something - needs a durable "archived" flag per contact and per group,
-  and `ContactEntity` carries none. Hiding a row in the browser would unhide it on the next device,
-  which is worse than not offering it.
+- ~~**Archiving a conversation.**~~ Done: `IsArchived` on a contact and on a group membership, with the
+  fourth tab on the contacts page appearing only when it holds something. Archiving is a command like
+  any other, so it holds across devices - which is what ruled out doing it in the browser alone.
 - ~~**A description under a name.**~~ Done, and on all three: a note, a task list and an inventory each
   take a title and a description as one control (`TitledDescription` in `TaskEditor.razor` and
   `InventoryEditor.razor`), first line the title and the rest the description. See
@@ -463,10 +461,11 @@ keep holding them.
 - ~~**"Needed" on a shelf item.**~~ Done: `InventoryItem.IsCheckedRegularly`, and the restock list asks
   on `BelongsOnTheRestockList => IsBelowMinimum || IsCheckedRegularly` - so a thing checked every week
   is asked for whether or not it has fallen under a minimum.
-- **Sharing an inventory from its own editor**, with the Inventories card on the dashboard that goes
-  with it. Still open, and only half of it needs a column at all: sharing with a contact at an access
-  level exists on the inventory *list* card, and the editor carries only the public share link
-  (`ShareLinkButton`); the dashboard has no inventory card of any kind.
+- ~~**Sharing an inventory from its own editor**, with the Inventories card on the dashboard.~~ Done,
+  and it needed no column after all - which is why it was the last of the four left standing. The panel
+  that was written inline on the inventory list card is now `ShareInventoryPanel`, shown from both
+  places a shelf is met; the dashboard gained an Inventory card beside the others, opening
+  `/inventory/{id}` the way every other card on that page opens what it names.
 
 Everything else on the pass - the top bar, the shared card and its footer, the calendar, the task and
 inventory lists, the contacts tabs, the chat menus - is built and needs no schema change.

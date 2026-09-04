@@ -6,11 +6,13 @@
 @using Orbit.Contracts.Users
 @using Orbit.Core.Abstractions
 @using Orbit.Core.Users
+@using Orbit.Contracts.Inventories
 @using Orbit.Contracts.Notes
 @using Orbit.Contracts.Tasks
 @using Orbit.Core.Permissions
 @using Orbit.Web.Services
 @inject NotesApiClient NotesApiClient
+@inject InventoryApiClient InventoryApiClient
 @inject TasksApiClient TasksApiClient
 @inject CalendarApiClient CalendarApiClient
 @inject ChatApiClient ChatApiClient
@@ -49,11 +51,12 @@
     <p>@_loadErrorMessage</p>
 }
 else if (_notes is null || _taskLists is null || _events is null || _contacts is null || _groups is null
-    || _sharedLocations is null)
+    || _sharedLocations is null || _inventories is null)
 {
     <p>@T["Loading…"]</p>
 }
-else if (_notes.Count == 0 && _taskLists.Count == 0 && _events.Count == 0 && _contacts.Count == 0 && _groups.Count == 0)
+else if (_notes.Count == 0 && _taskLists.Count == 0 && _events.Count == 0 && _contacts.Count == 0 && _groups.Count == 0
+    && _inventories.Count == 0)
 {
     <p>@T["Nothing to show."]</p>
 }
@@ -98,7 +101,7 @@ else
                 }
                 @foreach (var note in NotesToShow)
                 {
-                    <Row Title="@note.Title" OnPressed="() => GoToEditNote(note.Id)">
+                    <Row Title="@note.Title" OnPressed="() => GoToNote(note.Id)">
                         <Trailing>
                             @RenderPriorityBadge(note.Priority)
                             <span class="row-meta">@FormatRelative(note.UpdatedAtUtc)</span>
@@ -181,6 +184,40 @@ else
                         <Trailing>
                             @RenderPriorityBadge(entry.Priority)
                             <span class="row-meta">@entry.When</span>
+                        </Trailing>
+                    </Row>
+                }
+                </Body>
+            </ItemCard>
+        }
+
+        @* The shelves themselves, beside the lists they feed. Everything else this page draws was
+           reachable from it and this was not, so the one part of Orbit that answers "have we run out"
+           could only be found through the side navigation. Nothing here is pinned or prioritised - an
+           inventory carries neither - so it has no filter menu, like the locations card below. *@
+        @if (_inventories.Count > 0 && CardPreferences.IsVisible("inventories"))
+        {
+            <ItemCard Name="@(T["Inventory"])" OnNameSelected='() => NavigationManager.NavigateTo("/inventory")'
+                      ExtraClass="@(DashboardPins.IsPinned("inventories") ? "item-card-pinned" : null)">
+                <Pin>
+                    <PinButton IsPinned='DashboardPins.IsPinned("inventories")' OnPinnedChanged='pinned => SetCardPinnedAsync("inventories", pinned)' />
+                </Pin>
+                <Extras>
+                    <span class="card-count">@(_inventories.Count)</span>
+                </Extras>
+                <Body>
+                @foreach (var inventory in _inventories)
+                {
+                    <Row Title="@inventory.Name" OnPressed="() => GoToInventory(inventory.Id)">
+                        <Trailing>
+                            @if (inventory.IsPrivate)
+                            {
+                                <span class="card-badge">@T["Private"]</span>
+                            }
+                            @if (inventory.IsShared)
+                            {
+                                <span class="card-badge">@T["Shared"]</span>
+                            }
                         </Trailing>
                     </Row>
                 }
@@ -300,6 +337,7 @@ else
     private IReadOnlyList<ContactDto>? _contacts;
     private IReadOnlyList<ChatGroupDto>? _groups;
     private IReadOnlyList<SharedLocationDto>? _sharedLocations;
+    private IReadOnlyList<InventoryDto>? _inventories;
 
     /// <summary>One part of the dashboard that can be put away, and what the menu calls it.</summary>
     private sealed record DashboardPart(string Key, string Name);
@@ -314,6 +352,7 @@ else
         new("notes", "Notes"),
         new("tasks", "Tasks"),
         new("upcoming", "Upcoming"),
+        new("inventories", "Inventory"),
         new("groups", "Groups"),
         new("locations", "Shared with you"),
         new("chats", "Recent chats"),
@@ -528,7 +567,7 @@ else
             // slowest single call instead of the sum of all of them.
             await Task.WhenAll(
                 LoadNotesAsync(), LoadTaskListsAsync(), LoadEventsAsync(), LoadContactsAsync(), LoadGroupsAsync(),
-                LoadSharedLocationsAsync());
+                LoadSharedLocationsAsync(), LoadInventoriesAsync());
         }
         catch (HttpRequestException exception) when (exception.StatusCode == HttpStatusCode.Unauthorized)
         {
@@ -616,6 +655,11 @@ else
 
     private async Task LoadGroupsAsync()
         => _groups = Permissions.Has(ApplicationPermission.Chat) ? await ChatApiClient.GetGroupsAsync() : [];
+
+    // Read once when the page opens rather than on every poll tick, the same as the groups above: a
+    // shelf changes when somebody edits it, not by itself, and a private one costs a decryption per
+    // inventory to read at all.
+    private async Task LoadInventoriesAsync() => _inventories = await InventoryApiClient.GetInventoriesAsync();
 
     /// <summary>
     /// Only who is sharing, not where they are. Opening a position means decrypting it, which is the
@@ -707,32 +751,40 @@ else
         NavigationManager.NavigateTo($"/chat/{contactUserId}");
     }
 
-    private void GoToEditNote(Guid noteId)
+    /// <summary>
+    /// Reading it, not the form that changes it. The same choice every row on this page makes - see
+    /// GoToTaskList below, and GoToInventory at the end - because clicking something on the dashboard
+    /// means "let me look at this", and reworking it is a deliberate trip one press further on.
+    ///
+    /// These two were called GoToEditNote and GoToEditEvent long after they had stopped opening either
+    /// editor, which was the only thing left saying a note behaved differently here from a task list.
+    /// </summary>
+    private void GoToNote(Guid noteId)
     {
         Logger.LogInformation("User clicked a note on the dashboard ({NoteId})", noteId);
         NavigationManager.NavigateTo($"/notes/{noteId}");
     }
 
-    /// <summary>
-    /// Opens the checklist rather than the full editor. Clicking a list on the dashboard means "let me
-    /// get on with it", which is ticking things off - reworking the list's own settings is a deliberate
-    /// trip to the editor, one click further on from there.
-    /// </summary>
+    /// <summary>Opens the checklist, which is what getting on with a list means - see GoToNote above.</summary>
     private void GoToTaskList(Guid taskListId)
     {
         Logger.LogInformation("User clicked a task list on the dashboard ({TaskListId})", taskListId);
         NavigationManager.NavigateTo($"/tasks/{taskListId}");
     }
 
-    private void GoToEditEvent(Guid eventId)
-    {
-        Logger.LogInformation("User clicked a calendar event on the dashboard ({EventId})", eventId);
-        NavigationManager.NavigateTo($"/calendar/{eventId}");
-    }
-
     private void GoToCalendar()
     {
         Logger.LogInformation("User clicked today's summary on the dashboard");
         NavigationManager.NavigateTo("/calendar");
+    }
+
+    /// <summary>
+    /// Opens what is on the shelf, not the form for changing it - the same choice GoToTaskList makes
+    /// above, for the same reason: from here the question is what is in there.
+    /// </summary>
+    private void GoToInventory(Guid inventoryId)
+    {
+        Logger.LogInformation("User clicked an inventory on the dashboard ({InventoryId})", inventoryId);
+        NavigationManager.NavigateTo($"/inventory/{inventoryId}");
     }
 }

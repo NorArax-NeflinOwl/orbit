@@ -177,23 +177,24 @@ else
             }
             @foreach (var entry in FlatItemsToShow)
             {
-                <label class="check-row @(entry.Item.IsCompleted ? "completed" : "")">
-                    <input type="checkbox" checked="@entry.Item.IsCompleted"
-                           disabled="@IsItemLocked(entry.Section, entry.Item)"
-                           @onchange="args => ToggleItemAsync(entry.Section.TaskList, entry.Item, (bool)args.Value!)" />
-                    <span class="check-row-text">@Written(entry.Item.Description)</span>
-                    @* What it is about, the same marks the cards on /tasks carry - see TaskItem.Categories. *@
-                    @foreach (var category in entry.Item.AllCategories)
-                    {
-                        <span class="row-category">@category</span>
-                    }
-                    @* Which list it came from, since the headings are gone in this view. *@
-                    <span class="row-meta">@Written(entry.Section.TaskList.Title)</span>
-                    @if (IsAChecklistEntry(entry.Item) && entry.Item.DueDateUtc is { } flatDueDate)
-                    {
-                        <span class="row-meta">@T.Format("due {0}", flatDueDate.LocalDateTime.ToString("dd.MM.yyyy HH:mm"))</span>
-                    }
-                </label>
+                <CheckRow Title="@Written(entry.Item.Description)" IsTicked="@entry.Item.IsCompleted"
+                          IsDisabled="@IsItemLocked(entry.Section, entry.Item)"
+                          AdditionalClass="@(entry.Item.IsCompleted ? "completed" : null)"
+                          OnTicked="ticked => ToggleItemAsync(entry.Section.TaskList, entry.Item, ticked)">
+                    <Trailing>
+                        @* What it is about, the same marks the cards on /tasks carry - see TaskItem.Categories. *@
+                        @foreach (var category in entry.Item.AllCategories)
+                        {
+                            <span class="row-category">@category</span>
+                        }
+                        @* Which list it came from, since the headings are gone in this view. *@
+                        <span class="row-meta">@Written(entry.Section.TaskList.Title)</span>
+                        @if (IsAChecklistEntry(entry.Item) && entry.Item.DueDateUtc is { } flatDueDate)
+                        {
+                            <span class="row-meta">@T.Format("due {0}", flatDueDate.LocalDateTime.ToString("dd.MM.yyyy HH:mm"))</span>
+                        }
+                    </Trailing>
+                </CheckRow>
             }
         </div>
     }
@@ -232,7 +233,7 @@ else
                         @* Opens the entry to be worked on rather than ticking it off. Ticking is the
                            checkbox's job, and it was doing both: the row was a <label>, so reading a
                            line by tapping it completed it. *@
-                        <button type="button" class="check-row-text"
+                        <button type="button" class="check-row-text check-row-text-opens"
                                 @onclick="() => GoToEditItem(section.TaskList.Id, item.Id)">@Written(item.Description)</button>
                         @* What it is about, the same marks the cards on /tasks carry - see TaskItem.Categories. *@
                         @foreach (var category in item.AllCategories)

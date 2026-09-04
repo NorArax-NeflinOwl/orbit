@@ -4,6 +4,7 @@
 @page "/inventory/new"
 @attribute [Authorize]
 @implements IAsyncDisposable
+@using Orbit.Contracts.Chat
 @using Orbit.Contracts.Inventories
 @using Orbit.Contracts.Tasks
 @using Orbit.Contracts.Notifications
@@ -14,6 +15,8 @@
 @inject InventoryApiClient InventoryApiClient
 @inject TasksApiClient TasksApiClient
 @inject NotificationsApiClient NotificationsApiClient
+@inject ChatApiClient ChatApiClient
+@inject OrbitAuthenticationStateProvider AuthenticationStateProvider
 @inject NavigationManager NavigationManager
 @inject ILogger<InventoryEditor> Logger
 @inject Translations T
@@ -224,6 +227,15 @@ else
 
         @if (!IsNewInventory)
         {
+            @* Handing the shelf to somebody, from inside the shelf. It used to be offered only from the
+               card on the list, so anybody already in here had to leave and find it again - see
+               ShareInventoryPanel, which is the same panel both places show. *@
+            @if (_inventory is { } inventory && _access.CanShare)
+            {
+                <h2>@T["Share"]</h2>
+                <ShareInventoryPanel Inventory="inventory" Contacts="_contacts" OwnUserId="_ownUserId" />
+            }
+
             <h2>@T["Link"]</h2>
             <ShareLinkButton ItemType="Inventory" ItemId="InventoryId!.Value" />
         }
@@ -258,23 +270,24 @@ else
                    letting somebody clear one child would make a promise this page cannot keep. See
                    MeasuredThroughAParent. *@
                 var throughParent = MeasuredThrough(taskList);
-                <label class="check-row">
-                    <input type="checkbox" checked="@(taskList.LinkedInventoryId == InventoryId || throughParent is not null)"
-                           disabled="@(_isReadOnly || _isLinkingTaskLists || throughParent is not null)"
-                           aria-label="@T.Format("Measure {0} against this inventory", taskList.Title)"
-                           @onchange="args => MeasureAsync(taskList, (bool)args.Value!)" />
-                    <span class="check-row-text">@taskList.Title</span>
-                    @if (throughParent is { } gatheredBy)
-                    {
-                        <span class="row-meta">@T.Format("through {0}", gatheredBy)</span>
-                    }
-                    @* A list already measured against another store: ticking it here moves it, so which
-                       store it would leave is named rather than left to be noticed afterwards. *@
-                    else if (taskList.LinkedInventoryId is { } elsewhere && elsewhere != InventoryId)
-                    {
-                        <span class="row-meta">@T.Format("now measured against {0}", NameOfInventory(elsewhere))</span>
-                    }
-                </label>
+                <CheckRow Title="@taskList.Title"
+                          IsTicked="@(taskList.LinkedInventoryId == InventoryId || throughParent is not null)"
+                          IsDisabled="@(_isReadOnly || _isLinkingTaskLists || throughParent is not null)"
+                          AriaLabel="@T.Format("Measure {0} against this inventory", taskList.Title)"
+                          OnTicked="ticked => MeasureAsync(taskList, ticked)">
+                    <Trailing>
+                        @if (throughParent is { } gatheredBy)
+                        {
+                            <span class="row-meta">@T.Format("through {0}", gatheredBy)</span>
+                        }
+                        @* A list already measured against another store: ticking it here moves it, so
+                           which store it would leave is named rather than left to be noticed after. *@
+                        else if (taskList.LinkedInventoryId is { } elsewhere && elsewhere != InventoryId)
+                        {
+                            <span class="row-meta">@T.Format("now measured against {0}", NameOfInventory(elsewhere))</span>
+                        }
+                    </Trailing>
+                </CheckRow>
             }
         }
         @if (_linkingMessage is not null)
@@ -418,6 +431,16 @@ else
     private string? _sharedByUserName;
     private SharedItemAccess _access = new(IsShared: false, ShareAccessLevel.CanEdit);
 
+    /// <summary>
+    /// The inventory as it was read, kept whole for the share panel - which asks it who owns it and at
+    /// what level this reader holds it. Null while a new one is still being named.
+    /// </summary>
+    private InventoryDto? _inventory;
+
+    /// <summary>Who this shelf could be handed to, and who would be doing the handing.</summary>
+    private IReadOnlyList<ContactDto> _contacts = [];
+    private Guid _ownUserId;
+
     /// <summary>A read-only or share-only grant can look but not touch, so the whole form is disabled.</summary>
     private bool _isReadOnly;
 
@@ -462,10 +485,23 @@ else
                 return;
             }
 
+            _inventory = inventory;
             _isShared = inventory.IsShared;
             _sharedByUserName = inventory.SharedByUserName;
             _access = SharedItemAccess.For(inventory.IsShared, inventory.AccessLevel);
             _isReadOnly = !_access.CanEdit;
+
+            // Best-effort, like the notification settings above: without them the share panel says it
+            // has nobody to offer, which is the truth of what it can do rather than a broken page.
+            try
+            {
+                _contacts = await ChatApiClient.GetContactsAsync();
+                _ownUserId = await AuthenticationStateProvider.TryGetCurrentUserIdAsync() ?? Guid.Empty;
+            }
+            catch (HttpRequestException contactsException)
+            {
+                Logger.LogWarning(contactsException, "Failed to load contacts for sharing inventory {InventoryId}", InventoryId);
+            }
 
             var items = await InventoryApiClient.GetInventoryItemsAsync(InventoryId.Value) ?? [];
             _formModel = InventoryFormModel.FromDto(inventory, items);

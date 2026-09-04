@@ -118,44 +118,7 @@
                     <Body>
                 @if (_sharePanelInventoryId == inventory.Id)
                 {
-                    <div class="inventory-share-panel">
-                        @if (ShareableContacts(inventory).Count == 0)
-                        {
-                            <p>@T["No contacts to share with yet - start a conversation first."]</p>
-                        }
-                        else
-                        {
-                            <select id="shareContactSelect" @bind="_selectedContactUserId">
-                                <option value="">@T["-- select a contact --"]</option>
-                                @foreach (var contact in ShareableContacts(inventory))
-                                {
-                                    <option value="@contact.UserId">@contact.DisplayName (@contact.Email)</option>
-                                }
-                            </select>
-                            <select id="shareAccessLevelSelect" @bind="_selectedAccessLevel">
-                                <option value="ReadOnly">@T["Read-only"]</option>
-                                <option value="Share">@T["Can share"]</option>
-                                @if (CanGrantEditOnly(inventory))
-                                {
-                                    <option value="EditOnly">@T["Can edit, but not share editing"]</option>
-                                }
-                                @if (CanGrantCanEdit(inventory))
-                                {
-                                    <option value="CanEdit">@T["Can edit"]</option>
-                                }
-                            </select>
-                            <button id="shareInventoryButton" class="btn-primary" disabled="@_isSharing"
-                                    @onclick="() => ShareAsync(inventory)">@T["Share"]</button>
-                        }
-                        @if (_shareErrorMessage is not null)
-                        {
-                            <p class="error">@_shareErrorMessage</p>
-                        }
-                        @if (_shareInfoMessage is not null)
-                        {
-                            <p class="info">@_shareInfoMessage</p>
-                        }
-                    </div>
+                    <ShareInventoryPanel Inventory="inventory" Contacts="_contacts" OwnUserId="_ownUserId" />
                 }
                     </Body>
                 </ItemCard>
@@ -195,12 +158,6 @@
     /// <summary>Which inventory's inline share panel is open, if any - only one at a time.</summary>
     private Guid? _sharePanelInventoryId;
 
-    private string _selectedContactUserId = string.Empty;
-    private string _selectedAccessLevel = "ReadOnly";
-    private bool _isSharing;
-    private string? _shareErrorMessage;
-    private string? _shareInfoMessage;
-
     protected override async Task OnInitializedAsync()
     {
         await Arrangement.InitializeAsync();
@@ -229,16 +186,6 @@
         }
     }
 
-    /// <summary>
-    /// Keeps the inventory's true owner out of a re-sharer's recipient picker - sharing back to them is
-    /// always rejected server-side (see ShareInventoryCommandHandler), so offering the option would only
-    /// ever produce an error. Mirrors NoteEditor's _shareableContacts.
-    /// </summary>
-    private IReadOnlyList<ContactDto> ShareableContacts(InventoryDto inventory)
-        => inventory.OriginalOwnerUserId is { } ownerUserId
-            ? _contacts.Where(contact => contact.UserId != ownerUserId).ToList()
-            : _contacts;
-
     /// <summary>Whether this reader may actually change the shelf - the owner, or a share granted at
     /// least EditOnly. Mirrors NoteSummary's own rung-2 check, which asks the same question of the
     /// note it has open.</summary>
@@ -252,14 +199,6 @@
     /// </summary>
     private static bool CanShare(InventoryDto inventory)
         => !inventory.IsPrivate && SharedItemAccess.For(inventory.IsShared, inventory.AccessLevel).CanShare;
-
-    /// <summary>A re-share can never grant more than the re-sharer holds - again matching the server.</summary>
-    private static bool CanGrantCanEdit(InventoryDto inventory)
-        => SharedItemAccess.For(inventory.IsShared, inventory.AccessLevel).CanGrantCanEdit;
-
-    /// <summary>An EditOnly holder can pass on neither this nor CanEdit - see ShareAccess.CanGrant.</summary>
-    private static bool CanGrantEditOnly(InventoryDto inventory)
-        => SharedItemAccess.For(inventory.IsShared, inventory.AccessLevel).CanGrantEditOnly;
 
     private string AccessDescription(string accessLevel)
         => T[SharedItemAccess.For(isShared: true, accessLevel).Description];
@@ -359,60 +298,12 @@
 
     private int InventoriesMatched => _itemMatches.Select(match => match.InventoryId).Distinct().Count();
 
-    private void ToggleSharePanel(Guid inventoryId)
-    {
-        _sharePanelInventoryId = _sharePanelInventoryId == inventoryId ? null : inventoryId;
-        _selectedContactUserId = string.Empty;
-        _selectedAccessLevel = "ReadOnly";
-        _shareErrorMessage = null;
-        _shareInfoMessage = null;
-    }
-
     /// <summary>
-    /// Creates the share server-side, then notifies the recipient with an encrypted chat message
-    /// carrying its id - exactly the flow NoteEditor.razor uses, so an inventory share shows up in Chat
-    /// with an "Accept" button like every other kind of share.
+    /// Opens one card's share panel, closing whichever was open. The panel is a component now and holds
+    /// its own choices, so closing and reopening starts it fresh - see ShareInventoryPanel.
     /// </summary>
-    private async Task ShareAsync(InventoryDto inventory)
-    {
-        if (!Guid.TryParse(_selectedContactUserId, out var recipientUserId))
-        {
-            return;
-        }
-
-        _shareErrorMessage = null;
-        _shareInfoMessage = null;
-        _isSharing = true;
-        try
-        {
-            var result = await InventoryApiClient.ShareInventoryAsync(inventory.Id, recipientUserId, _selectedAccessLevel);
-            if (result is null)
-            {
-                _shareErrorMessage = T["Failed to share the inventory."];
-                return;
-            }
-
-            var payloadJson = JsonSerializer.Serialize(new InventoryShareMessagePayload(result.ShareId, inventory.Name));
-            await EncryptedChatMessageSender.SendAsync(_ownUserId, recipientUserId, payloadJson, isShareInvitation: true);
-            _shareInfoMessage = result.AlreadyShared
-                ? T["Already shared with that contact - sent a reminder."]
-                : T["Shared - they'll see it in your chat."];
-            _selectedContactUserId = string.Empty;
-        }
-        catch (HttpRequestException exception) when (exception.StatusCode == HttpStatusCode.Unauthorized)
-        {
-            NavigationManager.NavigateTo("/login");
-        }
-        catch (Exception exception) when (exception is not OperationCanceledException)
-        {
-            Logger.LogWarning(exception, "Failed to share inventory {InventoryId} with user {RecipientUserId}", inventory.Id, recipientUserId);
-            _shareErrorMessage = T["Failed to share the inventory."];
-        }
-        finally
-        {
-            _isSharing = false;
-        }
-    }
+    private void ToggleSharePanel(Guid inventoryId)
+        => _sharePanelInventoryId = _sharePanelInventoryId == inventoryId ? null : inventoryId;
 
     /// <summary>The inventories in the order this reader put them - see InventoryArrangement.</summary>
     private IReadOnlyList<InventoryDto> ArrangedInventories

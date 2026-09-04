@@ -3112,9 +3112,26 @@ input.note-editor-title {
 }
 
 .check-row-text {
-    flex: 1;
+    flex: 1 1 auto;
     min-width: 0;
     color: var(--text-primary);
+}
+
+/* One of these rows carries its own way in - the entry's words open it, beside the box that ticks it
+   off (see TaskListChecklist). A <button> rather than the span the others use, so it needs stripping
+   back to look like them; ".check-row-text" alone used to carry both sets of properties from two
+   separate rules, and the second silently overrode the first for every plain row on four pages. */
+.check-row-text-opens {
+    background: transparent;
+    border: none;
+    padding: 0;
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+}
+
+.check-row-text-opens:hover {
+    text-decoration: underline;
 }
 
 .check-row.completed .check-row-text {
@@ -5226,24 +5243,6 @@ input.note-editor-title {
     .task-card-grid {
         grid-template-columns: minmax(0, 1fr);
     }
-}
-
-/* The checklist row is no longer a <label>, so its text needs to look and behave like the control it
-   now is: the way into the entry, beside the checkbox that ticks it off. */
-.check-row-text {
-    flex: 1 1 auto;
-    min-width: 0;
-    background: transparent;
-    border: none;
-    padding: 0;
-    font: inherit;
-    color: inherit;
-    text-align: left;
-    cursor: pointer;
-}
-
-.check-row-text:hover {
-    text-decoration: underline;
 }
 
 /* A month cell's chips are labels inside a clickable cell, not controls of their own - see

@@ -10,6 +10,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Orbit.Contracts.Calendar;
 using Orbit.Contracts.Chat;
+using Orbit.Contracts.Inventories;
 using Orbit.Contracts.Users;
 using Orbit.Contracts.Notes;
 using Orbit.Contracts.Tasks;
@@ -32,6 +33,7 @@ public sealed class DashboardTests : OrbitTestContext
         RegisterEmptyNotesApiClient();
         RegisterEmptyTasksApiClient();
         RegisterEmptyCalendarApiClient();
+        RegisterEmptyInventoryApiClient();
         RegisterDashboardPins();
         RegisterDashboardCardPreferences();
         RegisterPermissions();
@@ -251,7 +253,7 @@ public sealed class DashboardTests : OrbitTestContext
         OpenTheMenu(cut);
 
         Assert.Equal(
-            ["Today", "Notes", "Tasks", "Upcoming", "Groups", "Shared with you", "Recent chats", "Contacts"],
+            ["Today", "Notes", "Tasks", "Upcoming", "Inventory", "Groups", "Shared with you", "Recent chats", "Contacts"],
             MenuEntries(cut).Select(entry => entry.TextContent.Trim()));
     }
 
@@ -313,7 +315,7 @@ public sealed class DashboardTests : OrbitTestContext
     {
         // Otherwise it reads as a dashboard that failed to load, with nothing saying where its contents went.
         RegisterDashboardCardPreferences(
-            null, "today", "notes", "tasks", "upcoming", "groups", "locations", "chats", "contacts");
+            null, "today", "notes", "tasks", "upcoming", "inventories", "groups", "locations", "chats", "contacts");
         RegisterChatApiClient([Contact("Anna Kowalska")]);
 
         var cut = RenderComponent<Dashboard>();
@@ -559,6 +561,47 @@ public sealed class DashboardTests : OrbitTestContext
         var httpClient = new HttpClient(new StubHttpMessageHandler(_ => JsonResponse(Array.Empty<CalendarEventDto>()))) { BaseAddress = new Uri("https://example.test/") };
         Services.AddSingleton(new CalendarApiClient(httpClient));
     }
+
+    /// <summary>
+    /// The shelves were the one part of Orbit this page never mentioned, so the only way to "have we
+    /// run out" was through the side navigation.
+    /// </summary>
+    [Fact]
+    public void An_inventory_is_shown_on_the_dashboard_and_opens_what_is_on_it()
+    {
+        RegisterInventoryApiClient([Inventory("Pantry")]);
+
+        var cut = RenderComponent<Web.Pages.Dashboard>();
+
+        Assert.Contains("Pantry", cut.Markup);
+        var row = cut.FindAll("button.list-row-button").Single(button => button.TextContent.Contains("Pantry"));
+        row.Click();
+
+        Assert.Contains("/inventory/", Services.GetRequiredService<NavigationManager>().Uri);
+    }
+
+    [Fact]
+    public void No_inventories_means_no_inventory_card()
+    {
+        var cut = RenderComponent<Web.Pages.Dashboard>();
+
+        Assert.DoesNotContain(
+            cut.FindAll("button.item-card-name"), name => name.TextContent.Trim() == "Inventory");
+    }
+
+    private void RegisterEmptyInventoryApiClient() => RegisterInventoryApiClient([]);
+
+    private void RegisterInventoryApiClient(IReadOnlyList<InventoryDto> inventories)
+    {
+        var httpClient = new HttpClient(new StubHttpMessageHandler(_ => JsonResponse(inventories))) { BaseAddress = new Uri("https://example.test/") };
+        Services.AddSingleton(new InventoryApiClient(httpClient));
+    }
+
+    private static InventoryDto Inventory(string name)
+        => new(
+            Guid.NewGuid(), name, DateTimeOffset.UtcNow, DateTimeOffset.UtcNow,
+            IsShared: false, SharedByUserName: null, AccessLevel: "CanEdit",
+            LockedByUserName: null, OriginalOwnerUserId: null);
 
     private static HttpResponseMessage JsonResponse<TItem>(IReadOnlyList<TItem> items)
         => new(HttpStatusCode.OK) { Content = JsonContent.Create(items) };

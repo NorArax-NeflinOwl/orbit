@@ -1,0 +1,126 @@
+@using System.Net
+@using System.Text.Json
+@using Orbit.Contracts.Chat
+@using Orbit.Contracts.Inventories
+@using Orbit.Web.Services
+@inject InventoryApiClient InventoryApiClient
+@inject EncryptedChatMessageSender EncryptedChatMessageSender
+@inject NavigationManager NavigationManager
+@inject ILogger<ShareInventoryPanel> Logger
+@inject Translations T
+
+@* Handing a shelf to somebody: who, at what level, and the message that tells them. Written once and
+   used from both places a shelf is met - its card on the list and its own editor - because it is the
+   same decision in both, and the version that existed only on the card meant somebody already inside
+   the shelf had to go back out to a list to share it.
+
+   What may be granted is the reader's own access minus what it cannot pass on - see SharedItemAccess,
+   which mirrors ShareInventoryCommandHandler's rule so nothing is offered that the save would refuse. *@
+<div class="inventory-share-panel">
+    @if (Shareable.Count == 0)
+    {
+        <p>@T["No contacts to share with yet - start a conversation first."]</p>
+    }
+    else
+    {
+        <select id="shareContactSelect" @bind="_selectedContactUserId" aria-label="@(T["Share with"])">
+            <option value="">@T["-- select a contact --"]</option>
+            @foreach (var contact in Shareable)
+            {
+                <option value="@contact.UserId">@contact.DisplayName (@contact.Email)</option>
+            }
+        </select>
+        <select id="shareAccessLevelSelect" @bind="_selectedAccessLevel" aria-label="@(T["What they may do"])">
+            <option value="ReadOnly">@T["Read-only"]</option>
+            <option value="Share">@T["Can share"]</option>
+            @if (Access.CanGrantEditOnly)
+            {
+                <option value="EditOnly">@T["Can edit, but not share editing"]</option>
+            }
+            @if (Access.CanGrantCanEdit)
+            {
+                <option value="CanEdit">@T["Can edit"]</option>
+            }
+        </select>
+        <button id="shareInventoryButton" class="btn-primary" disabled="@_isSharing"
+                @onclick="ShareAsync">@T["Share"]</button>
+    }
+    @if (_errorMessage is not null)
+    {
+        <p class="error">@_errorMessage</p>
+    }
+    @if (_infoMessage is not null)
+    {
+        <p class="info">@_infoMessage</p>
+    }
+</div>
+
+@code {
+    [Parameter, EditorRequired] public InventoryDto Inventory { get; set; } = default!;
+
+    /// <summary>Everybody this reader could hand it to - see <see cref="Shareable"/> for who is left out.</summary>
+    [Parameter, EditorRequired] public IReadOnlyList<ContactDto> Contacts { get; set; } = [];
+
+    /// <summary>Whose chat the invitation is sent from - the message is sealed between the two of them.</summary>
+    [Parameter, EditorRequired] public Guid OwnUserId { get; set; }
+
+    private string _selectedContactUserId = string.Empty;
+    private string _selectedAccessLevel = "ReadOnly";
+    private bool _isSharing;
+    private string? _errorMessage;
+    private string? _infoMessage;
+
+    private SharedItemAccess Access => SharedItemAccess.For(Inventory.IsShared, Inventory.AccessLevel);
+
+    /// <summary>
+    /// Everybody but the shelf's own owner: handing something back to the person it came from is the one
+    /// share that means nothing, and offering it only invites the refusal.
+    /// </summary>
+    private IReadOnlyList<ContactDto> Shareable
+        => Inventory.OriginalOwnerUserId is { } ownerUserId
+            ? [.. Contacts.Where(contact => contact.UserId != ownerUserId)]
+            : Contacts;
+
+    private async Task ShareAsync()
+    {
+        if (!Guid.TryParse(_selectedContactUserId, out var recipientUserId))
+        {
+            return;
+        }
+
+        _errorMessage = null;
+        _infoMessage = null;
+        _isSharing = true;
+        try
+        {
+            var result = await InventoryApiClient.ShareInventoryAsync(Inventory.Id, recipientUserId, _selectedAccessLevel);
+            if (result is null)
+            {
+                _errorMessage = T["Failed to share the inventory."];
+                return;
+            }
+
+            var payloadJson = JsonSerializer.Serialize(new InventoryShareMessagePayload(result.ShareId, Inventory.Name));
+            await EncryptedChatMessageSender.SendAsync(OwnUserId, recipientUserId, payloadJson, isShareInvitation: true);
+            _infoMessage = result.AlreadyShared
+                ? T["Already shared with that contact - sent a reminder."]
+                : T["Shared - they'll see it in your chat."];
+            _selectedContactUserId = string.Empty;
+        }
+        catch (HttpRequestException exception) when (exception.StatusCode == HttpStatusCode.Unauthorized)
+        {
+            NavigationManager.NavigateTo("/login");
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            Logger.LogWarning(
+                exception, "Failed to share inventory {InventoryId} with user {RecipientUserId}",
+                Inventory.Id, recipientUserId);
+            _errorMessage = T["Failed to share the inventory."];
+        }
+        finally
+        {
+            _isSharing = false;
+        }
+    }
+}
