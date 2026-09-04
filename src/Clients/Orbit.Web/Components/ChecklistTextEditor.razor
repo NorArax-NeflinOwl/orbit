@@ -52,6 +52,25 @@
         await _module.InvokeVoidAsync("initialize", _containerRef, _dotNetRef, initialLinesJson);
     }
 
+    /// <summary>
+    /// Puts lines on the surface that did not come from typing in it - a suggested name taken for a
+    /// task list's title, say. Asked for rather than worked out from a changed <see cref="Lines"/>,
+    /// deliberately: this surface owns its content from the moment it appears, and a caller is the only
+    /// one that knows whether a new value is something the reader just wrote or something set for them.
+    /// Guessing that from the parameter is what quietly ate an empty line - see TitledDescription, which
+    /// reports one line for a title with a blank description and is handed two back.
+    /// </summary>
+    public async Task SetLinesAsync(IReadOnlyList<NoteContentLineDto> lines)
+    {
+        if (_module is null)
+        {
+            return;
+        }
+
+        Lines = lines;
+        await _module.InvokeVoidAsync("setLines", _containerRef, JsonSerializer.Serialize(lines, JsonOptions));
+    }
+
     /// <summary>Called from checklistTextEditor.js on every edit (typing, checkbox toggle, Enter/Backspace line changes).</summary>
     [JSInvokable]
     public async Task OnLinesChangedFromJs(string linesJson)

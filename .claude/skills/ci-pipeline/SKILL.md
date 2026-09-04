@@ -7,7 +7,23 @@ description: How Orbit's GitHub Actions pipeline (main_orbit.yml) builds Docker 
 
 ## What the pipeline does
 
-`.github/workflows/main_orbit.yml` runs on push to `main`:
+## The minute budget comes first
+
+2000 runner minutes a month, and a pipeline triggered three times per change spent
+them in four days. Measured afterwards: `main_orbit.yml` was 346 of 408 minutes
+across 100 runs. Before adding or widening a trigger, count how many times one
+change would run the same suite.
+
+`main_orbit.yml` therefore has one trigger: the push to `main`, which is the merge
+of the integration PR - the last step before Azure is paid, and what the deploy job
+hangs off. It ignores `info/**` and `**/*.md`. Nothing runs on a feature branch, a
+pull request, or a merge into `Coding`.
+
+What that means in practice: the full suite on the developer's machine is the only
+check a change gets before `Coding`. A broken merge into `Coding` is found at the
+next push to `main`, before anything deploys - and then it blocks the whole
+integration, so a failed run there is everybody's problem. Run `dotnet test
+Orbit.sln` before opening a PR; it is not optional. On a push to `main` it:
 
 1. Log in to Azure via OIDC (managed identity `identity-orbit`, no stored secret)
 2. `docker build` the `Orbit.Api` and `Orbit.Web` images on the runner

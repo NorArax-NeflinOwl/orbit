@@ -18,7 +18,7 @@ public sealed class StockRequirementCounterTests
         => TaskItem.Create(description, dueDateUtc, isCompleted: false);
 
     private static InventoryItem Stock(string name, decimal quantity)
-        => InventoryItem.Create(Guid.NewGuid(), name, "Part", "Hardware", quantity, minimumQuantity: null, InventoryUnit.Piece,
+        => InventoryItem.Create(Guid.NewGuid(), name, "Part", ["Hardware"], quantity, minimumQuantity: null, InventoryUnit.Piece,
             expiryDate: null, NotificationChannel.None);
 
     [Fact]

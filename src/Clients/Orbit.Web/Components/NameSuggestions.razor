@@ -3,6 +3,7 @@
 @using Orbit.Core.Suggestions
 @using Orbit.Web.Services
 @inject NameSuggestionsApiClient NameSuggestionsApiClient
+@inject IJSRuntime JSRuntime
 @inject Translations T
 
 @* Names the reader already has, under the field they are typing into. Two things at once, told apart by
@@ -14,14 +15,27 @@
    already in this inventory. See Orbit.Core.Suggestions.GetNameSuggestions. *@
 @if (_suggestions.Count > 0)
 {
-    <div class="name-suggestions">
+    @* A list hanging under the box rather than chips beside it. Chips read as tags the field already
+       carries - things that have been chosen - when these are the opposite: things on offer that
+       nothing has taken yet. They also sat to the right of the box on an item row, which is where a
+       row's own meta goes, so they looked like something the entry said about itself.
+
+       Placed by measurement rather than by CSS - see menuAnchor.js's anchorToField and the reason
+       given there. Fixed, so a panel opened on a row deep in a scrolling form is not clipped by it. *@
+    <div class="name-suggestions" @ref="_panel" role="listbox" aria-label="@T["Names you have already used"]">
         @if (_duplicate is { } duplicate)
         {
             <span class="name-suggestion-warning">@T.Format("You already have \"{0}\".", duplicate.Name)</span>
         }
-        @foreach (var suggestion in _suggestions)
+        @* Each option carries an id so the field can point at the highlighted one through
+           aria-activedescendant: the focus stays in the box while the arrows move down the list, so
+           that attribute is the only thing telling a screen reader what is currently on offer. *@
+        @for (var index = 0; index < _suggestions.Count; index++)
         {
-            <button type="button" class="reference-chip" @onclick="() => ChooseAsync(suggestion)">@suggestion.Name</button>
+            var suggestion = _suggestions[index];
+            <button type="button" id="@($"{_panelId}-{index}")" class="name-suggestion-option"
+                    role="option" aria-selected="false"
+                    @onclick="() => ChooseAsync(suggestion)">@suggestion.Name</button>
         }
     </div>
 }
@@ -51,6 +65,32 @@
     private IReadOnlyList<NameSuggestionDto> _suggestions = [];
     private string _lastLookedUp = string.Empty;
     private CancellationTokenSource? _pending;
+
+    /// <summary>The panel itself, so JS can measure it and put it under the field - see menuAnchor.js.</summary>
+    private ElementReference _panel;
+
+    private IJSObjectReference? _anchoring;
+
+    /// <summary>
+    /// Handed to JS so Escape can reach back and close the list. Everything else the keys do - moving
+    /// the highlight, taking the highlighted name - happens in the DOM, where the keys already are.
+    /// </summary>
+    private DotNetObjectReference<NameSuggestions>? _self;
+
+    /// <summary>
+    /// Unique per instance, because several of these are on screen at once - one under every item row -
+    /// and an option's id is what the field points at while the arrows move. Ids that repeated would
+    /// point a screen reader at the first row's list whichever row was being typed into.
+    /// </summary>
+    private readonly string _panelId = $"name-suggestions-{Guid.NewGuid():N}";
+
+    /// <summary>
+    /// Every field this is offered under, as one selector: the item rows' own box, and the surface
+    /// TitledDescription draws a name on. Looked for beside the panel rather than passed in by each
+    /// caller - all four already draw the box and this component as siblings, so there is nothing for a
+    /// caller to tell us that the DOM does not already say.
+    /// </summary>
+    private const string FieldSelector = ".editor-item-main, .titled-description-editor";
 
     /// <summary>
     /// Set once this control is going away, so a lookup that was already in flight does not try to draw
@@ -137,6 +177,57 @@
         }
     }
 
+    /// <summary>
+    /// Puts the panel under the field every time it is drawn, not only the first time: the list grows
+    /// and shrinks with what is typed, and a panel measured once sits where a taller or shorter version
+    /// of itself used to be.
+    /// </summary>
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (_suggestions.Count == 0)
+        {
+            return;
+        }
+
+        try
+        {
+            _anchoring ??= await JSRuntime.InvokeAsync<IJSObjectReference>("import", "./js/menuAnchor.js");
+            await _anchoring.InvokeVoidAsync("anchorToField", _panel, FieldSelector);
+            // Re-bound on every render, not only the first: Blazor hands out a fresh panel element each
+            // time the offered names change, and the keys have to act on the one now on screen.
+            _self ??= DotNetObjectReference.Create(this);
+            await _anchoring.InvokeVoidAsync("bindSuggestionKeys", _panel, FieldSelector, _self);
+        }
+        catch (JSException)
+        {
+            // The list is still readable where CSS put it; this only improves where that is.
+        }
+        catch (JSDisconnectedException)
+        {
+            // The page is going away with the panel open.
+        }
+    }
+
+    /// <summary>
+    /// Escape: the list goes, and what was typed stays exactly as it is. Nothing is looked up again
+    /// until the typing changes - _lastLookedUp still holds this text - so the list stays shut rather
+    /// than springing back the moment the component redraws for something else.
+    /// </summary>
+    [JSInvokable]
+    public async Task DismissSuggestions()
+    {
+        if (_suggestions.Count == 0)
+        {
+            return;
+        }
+
+        await InvokeAsync(() =>
+        {
+            _suggestions = [];
+            StateHasChanged();
+        });
+    }
+
     private async Task ChooseAsync(NameSuggestionDto suggestion)
     {
         // Cleared before the callback: the field is about to hold exactly what was offered, and offering
@@ -154,5 +245,22 @@
             await pending.CancelAsync();
             pending.Dispose();
         }
+
+        if (_anchoring is not null)
+        {
+            try
+            {
+                // Told to forget this panel before the reference it would call back through goes: a
+                // keystroke arriving after that would reach a disposed object.
+                await _anchoring.InvokeVoidAsync("unbindSuggestionKeys");
+                await _anchoring.DisposeAsync();
+            }
+            catch (JSDisconnectedException)
+            {
+                // Nothing left to release.
+            }
+        }
+
+        _self?.Dispose();
     }
 }

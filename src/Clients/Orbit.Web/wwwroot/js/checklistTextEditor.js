@@ -49,6 +49,27 @@ export function getLinesAsJson(container) {
     return JSON.stringify(extractLines(container));
 }
 
+/// Puts lines decided somewhere else onto the surface. Everything else here flows the other way - the
+/// reader types, and Blazor is told what the surface now holds - and that one-way flow is why picking a
+/// suggested name for a task list's title or an inventory's name used to do nothing at all: the model
+/// took the name and the box carried on showing what had been typed, until the next keystroke there
+/// overwrote the model again.
+///
+/// The component decides when to call this; it only does so when what it has been handed differs from
+/// what this surface last reported, so ordinary typing never comes back through here.
+export function setLines(container, linesJson) {
+    const lines = normalizeLines(JSON.parse(linesJson));
+    render(container, lines);
+
+    // The caret goes to the end of what was just put there, so somebody who took a suggested name can
+    // carry on typing after it. Only on a surface that takes writing: moving the caret into a read-only
+    // one would be taking the focus to a place nothing can be done.
+    const lastLine = container.lastElementChild;
+    if (lastLine && container.getAttribute('contenteditable') === 'true') {
+        focusLine(lastLine);
+    }
+}
+
 /// Called from the toolbar button - ends the current line (if not already empty) and starts a new
 /// checklist line, with focus moved into it.
 export function insertChecklistItem(container) {

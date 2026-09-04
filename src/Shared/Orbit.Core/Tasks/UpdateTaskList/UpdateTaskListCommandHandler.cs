@@ -54,6 +54,7 @@ public sealed class UpdateTaskListCommandHandler : IRequestHandler<UpdateTaskLis
                 taskList.UserId, request.Id, [.. request.Items.Select(item => item.Id)], cancellationToken));
 
         KeepTheCategoriesOfEntriesThatSaidNothing(identity.Items, taskList, request.EntriesKeepingTheirCategories);
+        KeepWhatEntriesThatSaidNothingAlreadyAskFor(identity.Items, taskList, request.EntriesKeepingTheirProduct);
 
         // A caller that said nothing about the description keeps the one that is stored. That is what
         // lets a client which has not learned about the field - the phone, an older tab - go on saving
@@ -80,6 +81,30 @@ public sealed class UpdateTaskListCommandHandler : IRequestHandler<UpdateTaskLis
         await _restockCompletion.TopUpFinishedAsync(request.Id, cancellationToken);
 
         return EditOutcome.Success;
+    }
+
+    /// <summary>
+    /// An entry that sent no product keeps the one it already describes - see
+    /// UpdateTaskListCommand.EntriesKeepingTheirProduct. Written apart from the categories rather than
+    /// folded in with them, because the two are separately omitted: the phone sends categories and no
+    /// product, and each has to be kept on its own.
+    /// </summary>
+    private static void KeepWhatEntriesThatSaidNothingAlreadyAskFor(
+        IReadOnlyList<TaskItem> incoming, TaskList stored, IReadOnlySet<Guid>? entriesKeepingTheirProduct)
+    {
+        if (entriesKeepingTheirProduct is not { Count: > 0 })
+        {
+            return;
+        }
+
+        var storedById = stored.Items.ToDictionary(item => item.Id);
+        foreach (var item in incoming.Where(item => entriesKeepingTheirProduct.Contains(item.Id)))
+        {
+            if (storedById.TryGetValue(item.Id, out var storedItem))
+            {
+                item.KeepProductOf(storedItem);
+            }
+        }
     }
 
     /// <summary>

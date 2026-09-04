@@ -23,7 +23,7 @@ public sealed class RestockCompletionTests
         decimal quantity = 0, decimal minimum = 5)
     {
         var inventoryId = _context.AddInventory(_userId);
-        var item = InventoryItem.Create(inventoryId, "Flour", "Food", "Dry", quantity, minimum, InventoryUnit.Piece, null, NotificationChannel.None);
+        var item = InventoryItem.Create(inventoryId, "Flour", "Food", ["Dry"], quantity, minimum, InventoryUnit.Piece, null, NotificationChannel.None);
         await _context.InventoryItemRepository.AddAsync(item, CancellationToken.None);
         var raised = await _context.TaskListCoordinator.EnsureRestockTaskAsync(item, CancellationToken.None);
         await _context.InventoryItemRepository.UpdateAsync(raised, CancellationToken.None);
@@ -151,7 +151,7 @@ public sealed class RestockCompletionTests
         // an amount and never lowers one.
         var (inventoryId, taskListId, _) = await ALowItemWithItsErrandAsync();
         var stockedGenerously = await ShelfItemAsync(inventoryId);
-        stockedGenerously.Update("Flour", "Food", "Dry", 9, 5, InventoryUnit.Piece, null, NotificationChannel.None);
+        stockedGenerously.Update("Flour", "Food", ["Dry"], 9, 5, InventoryUnit.Piece, null, NotificationChannel.None);
         await _context.InventoryItemRepository.UpdateAsync(stockedGenerously, CancellationToken.None);
         await TickEverythingAsync(taskListId);
 
@@ -235,7 +235,7 @@ public sealed class RestockCompletionTests
     public async Task Finishing_the_whole_list_fills_every_shelf_item_and_crosses_the_errands_off()
     {
         var (inventoryId, taskListId, _) = await ALowItemWithItsErrandAsync();
-        var second = InventoryItem.Create(inventoryId, "Sugar", "Food", "Dry", 1, 4, InventoryUnit.Piece, null, NotificationChannel.None);
+        var second = InventoryItem.Create(inventoryId, "Sugar", "Food", ["Dry"], 1, 4, InventoryUnit.Piece, null, NotificationChannel.None);
         await _context.InventoryItemRepository.AddAsync(second, CancellationToken.None);
         await _context.InventoryItemRepository.UpdateAsync(
             await _context.TaskListCoordinator.EnsureRestockTaskAsync(second, CancellationToken.None), CancellationToken.None);
@@ -316,7 +316,7 @@ public sealed class RestockCompletionTests
         var inventory = Inventory.Create(_userId, "Spiżarnia");
         await _context.InventoryRepository.AddAsync(inventory, CancellationToken.None);
         var item = InventoryItem.Create(
-            inventory.Id, "Mleko", "Nabiał", "Jedzenie", quantity: 10, minimumQuantity: 1,
+            inventory.Id, "Mleko", "Nabiał", ["Jedzenie"], quantity: 10, minimumQuantity: 1,
             InventoryUnit.Piece, null, NotificationChannel.None, isCheckedRegularly: true);
 
         Assert.False(item.IsBelowMinimum);
@@ -330,10 +330,10 @@ public sealed class RestockCompletionTests
         var inventory = Inventory.Create(_userId, "Spiżarnia");
         await _context.InventoryRepository.AddAsync(inventory, CancellationToken.None);
         var plenty = InventoryItem.Create(
-            inventory.Id, "Cukier", "Sypkie", "Jedzenie", quantity: 10, minimumQuantity: 1,
+            inventory.Id, "Cukier", "Sypkie", ["Jedzenie"], quantity: 10, minimumQuantity: 1,
             InventoryUnit.Piece, null, NotificationChannel.None);
         var low = InventoryItem.Create(
-            inventory.Id, "Sól", "Sypkie", "Jedzenie", quantity: 0, minimumQuantity: 1,
+            inventory.Id, "Sól", "Sypkie", ["Jedzenie"], quantity: 0, minimumQuantity: 1,
             InventoryUnit.Piece, null, NotificationChannel.None);
 
         Assert.False(plenty.BelongsOnTheRestockList);

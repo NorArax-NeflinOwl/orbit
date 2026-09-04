@@ -156,6 +156,27 @@ See [Azure Container Apps setup](azure-setup.md) for the full checklist of envir
 secrets, ingress settings, and persistent storage that have to be configured on the Container Apps
 themselves - none of it is set up by the pipeline below.
 
+Work does not reach `main` one pull request at a time. Every branch is merged into **`Coding`**
+first, which costs a build and deploys nothing; `.github/workflows/integration-pr.yml` then keeps a
+single draft pull request open from `Coding` to `main`, rewriting its description on each push and
+closing it once the two agree. Merging that one is what deploys, so a run of feature work reaches
+production as one deploy rather than as many - which is the point, since a deploy is the expensive
+operation here.
+
+That workflow needs one repository setting to be on: **Settings > Actions > General > "Allow GitHub
+Actions to create and approve pull requests"**. It is off by default, and without it every run fails
+on `GitHub Actions is not permitted to create or approve pull requests` - the integration pull request
+then has to be opened by hand (`gh pr create --base main --head Coding --draft`).
+
+`Coding` is the repository's default branch, so a new pull request proposes it without anyone
+choosing. Being the default branch also decides which copy of a *scheduled* workflow runs: the nightly
+branch cleanup executes `Coding`'s version of `cleanup-merged-branches.yml`, not main's. What holds the arrangement together beyond habit is `.github/workflows/guard-main.yml`,
+which closes any pull request aimed at `main` from a branch other than `Coding` unless it carries the
+`hotfix` label. It exists in place of branch protection, which this repository cannot have: GitHub
+gates both classic protection and rulesets behind Pro for private repositories. A *direct push* to
+`main` therefore remains possible and still deploys - no workflow can intercept one, since it runs
+after the push has landed.
+
 `.github/workflows/main_orbit.yml` builds and deploys Orbit on every push to `main`, matching the
 local Docker Compose topology of two separate containers (rather than the single combined
 App Service the project started with):
@@ -176,8 +197,14 @@ that broke `azure/login`'s OIDC federation the one time it was tried.
 
 ## Continuous integration
 
-`.github/workflows/main_orbit.yml` runs on every push to `main` and on every pull request into it (and
-can be triggered manually). Its
+`.github/workflows/main_orbit.yml` runs on pushes to `main` only (and can be triggered manually). It
+once also ran on every pull request, on every push to `Coding` and on the integration pull request
+those pushes synchronised - the same suite three and four times for one change - and runner minutes
+are capped at 2000 a month, which that arrangement spent in four days. So the suite now runs at the
+one point where it gates something: the merge of the integration pull request, the last step before
+Azure is paid. It ignores `info/**` and `**/*.md`. Everything on the way to `main` is checked on the
+developer's machine (`dotnet test Orbit.sln` before opening a pull request); a broken merge into
+`Coding` surfaces at the next push to `main`, before anything deploys. Its
 `test` job restores, builds (`Release` configuration), and runs the full test suite
 (`dotnet test Orbit.sln`) on `ubuntu-latest` with .NET SDK 10, then runs the two harnesses covering the
 parts of the client no .NET test can reach, since bUnit executes none of the browser APIs they are made

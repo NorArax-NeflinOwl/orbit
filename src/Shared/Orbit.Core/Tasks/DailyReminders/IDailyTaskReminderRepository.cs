@@ -24,8 +24,15 @@ public interface IDailyTaskReminderRepository
     /// <summary>
     /// Marks the item as not done again, so the day's reminder is about something still to do. A no-op
     /// for an item that was already open.
+    ///
+    /// It also moves the entry's due date on to <paramref name="reminderDate"/>, at the hour the entry
+    /// is reminded at - but only for an entry that already had one. That is what keeps a daily entry on
+    /// the calendar and the dashboard, both of which read entries by their due date: without it the
+    /// inventory's standing "Update stock levels" sat at the date it was created and went permanently
+    /// overdue. An entry with no due date is left without one, since giving it a deadline nobody set
+    /// would be inventing a promise.
     /// </summary>
-    Task ReopenAsync(Guid taskItemId, CancellationToken cancellationToken);
+    Task ReopenAsync(Guid taskItemId, DateOnly reminderDate, CancellationToken cancellationToken);
 
     /// <summary>
     /// Atomically reserves a single (task item, local date) reminder for the caller to send, using a

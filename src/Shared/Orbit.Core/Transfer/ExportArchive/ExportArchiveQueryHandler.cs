@@ -67,8 +67,11 @@ public sealed class ExportArchiveQueryHandler : IRequestHandler<ExportArchiveQue
             archived.Add(new ArchivedInventory(
                 inventory.Name, inventory.IsPrivate, ToArchived(inventory.EncryptedContent),
                 items.Select(item => new ArchivedInventoryItem(
-                    item.Name, item.ProductType, item.Category, item.Quantity, item.MinimumQuantity,
-                    item.ExpiryDate, item.ExpiryNotificationChannel.ToString(), item.Unit.ToString())).ToList()));
+                    // The first of them in the old single field as well, so an archive this build writes
+                    // still imports into one that predates several - see ArchivedInventoryItem.Category.
+                    item.Name, item.ProductType, item.Categories.FirstOrDefault() ?? string.Empty, item.Quantity,
+                    item.MinimumQuantity, item.ExpiryDate, item.ExpiryNotificationChannel.ToString(),
+                    item.Unit.ToString(), item.Categories)).ToList()));
         }
 
         return archived;

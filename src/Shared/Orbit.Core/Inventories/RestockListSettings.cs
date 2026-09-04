@@ -1,3 +1,6 @@
+using Orbit.Core.Abstractions;
+using Orbit.Core.Notifications;
+
 namespace Orbit.Core.Inventories;
 
 /// <summary>
@@ -20,9 +23,51 @@ namespace Orbit.Core.Inventories;
 /// </param>
 /// <param name="RefreshTimeOfDay">
 /// When the standing "Update stock levels" reminder comes round. Nine in the morning by default - a
-/// stock reminder arriving while everybody is asleep is one nobody acts on.
+/// stock reminder arriving while everybody is asleep is one nobody acts on. Means nothing while
+/// <paramref name="RemindDaily"/> is off, which is why the field it is edited in is greyed out there.
 /// </param>
-public sealed record RestockListSettings(bool OnlyLinkedWithDueDate, TimeOnly RefreshTimeOfDay)
+/// <param name="IsEnabled">
+/// Whether this inventory keeps a restock list at all. True for everybody who has not said otherwise,
+/// since that is what Orbit has always done.
+///
+/// Turning it off **deletes** the managed list and everything on it, and stops anything creating another
+/// - a shelf nobody wants restocked should not leave a list behind for somebody to wonder about. Turning
+/// it back on builds a fresh one, with the standing reminder, the way the first one was built. That is
+/// destructive on purpose and is why the editor asks before it saves.
+/// </param>
+/// <param name="RemindDaily">
+/// Whether the list carries the standing "Update stock levels" reminder that comes back every day and
+/// shows on the calendar. Off leaves the list itself alone: products dropping below their minimum still
+/// raise their own errands, there is simply nothing arriving each morning to ask about the whole shelf.
+/// </param>
+/// <param name="OnlyCheckedRegularly">
+/// A second narrowing, and a blunter one: only the products somebody marked as ones to look at every
+/// round (see <see cref="InventoryItem.IsCheckedRegularly"/>) are asked for, whatever the shelf says
+/// about the rest.
+///
+/// False - the default - leaves the answer as it was: everything the rule above lets through, which
+/// includes anything that has dropped below its own minimum. True is for a shelf whose counts nobody
+/// keeps up to date, where the list is a round rather than a report: the milk, the batteries, the
+/// things you look at rather than count.
+/// </param>
+/// <param name="ReminderChannel">
+/// Where the standing "Update stock levels" reminder is said - the banner, an email, the phone, or
+/// nowhere but the in-app feed. Means nothing while <paramref name="RemindDaily"/> is off, for the same
+/// reason the hour does.
+/// </param>
+/// <param name="ListPriority">
+/// How much the generated list matters, which is the priority the "Restock supplies - X" list is created
+/// with and kept at. A task list carries a priority and a task item does not, so this is the only place
+/// the restock work can be marked as mattering more or less than the rest.
+/// </param>
+public sealed record RestockListSettings(
+    bool OnlyLinkedWithDueDate,
+    TimeOnly RefreshTimeOfDay,
+    bool IsEnabled = true,
+    bool RemindDaily = true,
+    ItemPriority ListPriority = ItemPriority.Normal,
+    bool OnlyCheckedRegularly = false,
+    NotificationChannel ReminderChannel = NotificationChannel.Push)
 {
     public static readonly TimeOnly DefaultRefreshTimeOfDay = new(9, 0);
 

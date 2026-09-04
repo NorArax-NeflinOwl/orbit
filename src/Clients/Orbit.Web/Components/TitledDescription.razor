@@ -14,7 +14,8 @@
    title" is a thing this app has already solved, and two of them would drift. The checklist half of it
    never comes up here: nothing offers the button that makes a checkbox line. *@
 <div class="titled-description">
-    <ChecklistTextEditor CssClass="note-editor-content note-editor-titled titled-description-editor"
+    <ChecklistTextEditor @ref="_editor"
+                         CssClass="note-editor-content note-editor-titled titled-description-editor"
                          Lines="Lines" LinesChanged="OnLinesChangedAsync" IsReadOnly="IsReadOnly"
                          aria-label="@TitleLabel" />
     @Suggestions
@@ -73,6 +74,7 @@
     {
         var title = lines.Count > 0 ? lines[0].Text : string.Empty;
         var description = string.Join('\n', lines.Skip(1).Select(line => line.Text));
+        _onTheSurface = (title, description);
 
         if (title != Title)
         {
@@ -85,5 +87,42 @@
             Description = description;
             await DescriptionChanged.InvokeAsync(description);
         }
+    }
+
+    private ChecklistTextEditor? _editor;
+
+    /// <summary>
+    /// The title and description as the surface itself last reported them. Compared against what the
+    /// page hands back, which is how a value set for the reader - a suggested name taken - is told from
+    /// the reader's own typing arriving back as a parameter.
+    ///
+    /// Deliberately these two strings rather than the lines built from them: a blank description is one
+    /// empty line on the surface and no line here (see DescriptionLines), so comparing lines would call
+    /// pressing Enter an outside change and rewrite the surface without the line just made.
+    /// </summary>
+    private (string Title, string Description)? _onTheSurface;
+
+    /// <summary>
+    /// Writes a value the page set onto the surface, which owns its own content otherwise and would
+    /// keep showing what was typed. Before this, picking a suggested name for a task list's title or an
+    /// inventory's name did nothing visible at all: the name reached the page's model, the box kept the
+    /// half-typed word, and the next keystroke wrote that back over the name.
+    /// </summary>
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        // Nothing before the surface has said what it holds: until then it is drawing the lines it was
+        // handed, and there is nothing to correct.
+        if (firstRender || _editor is null || _onTheSurface is not { } surface)
+        {
+            return;
+        }
+
+        if (surface.Title == Title && surface.Description == Description)
+        {
+            return;
+        }
+
+        _onTheSurface = (Title, Description);
+        await _editor.SetLinesAsync(Lines);
     }
 }

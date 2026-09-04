@@ -88,10 +88,13 @@ public sealed class RestockListRefresh
 
         var added = await NewErrandsForAsync(wanted, shelf, taskListId, cancellationToken);
 
-        UpdateTheStandingReminderTime(kept, settings);
+        UpdateTheStandingReminder(kept, settings);
+        // The list's own priority comes from the settings too, for the same reason its reminder's hour
+        // does: it is a choice about this generated list, made on the inventory's form long after the
+        // list was created, and one that would otherwise only ever apply to a list built after it.
         taskList.Update(
             taskList.Title, [.. kept, .. added], taskList.IsGroup, taskList.IsPrivate, taskList.EncryptedContent,
-            taskList.Priority);
+            settings.ListPriority);
         await _taskRepository.UpdateAsync(taskList, cancellationToken);
 
         return new RestockRefreshOutcome(added.Count, removed);
@@ -107,7 +110,7 @@ public sealed class RestockListRefresh
     {
         if (!settings.OnlyLinkedWithDueDate)
         {
-            return [.. shelf.Where(item => item.BelongsOnTheRestockList).Select(item => item.Id)];
+            return [.. shelf.Where(item => WantedOnItsOwn(item, settings)).Select(item => item.Id)];
         }
 
         var onThisShelf = shelf.Select(item => item.Id).ToHashSet();
@@ -137,8 +140,24 @@ public sealed class RestockListRefresh
             }
         }
 
+        if (settings.OnlyCheckedRegularly)
+        {
+            // The narrowing applies to this rule as well as to the shelf's own: a list set to the round
+            // asks about the things somebody looks at, whether they were named by a dated task or by
+            // the shelf running low.
+            var toLookAt = shelf.Where(item => item.IsCheckedRegularly).Select(item => item.Id).ToHashSet();
+            wanted.IntersectWith(toLookAt);
+        }
+
         return wanted;
     }
+
+    /// <summary>
+    /// Whether the shelf itself asks for this product - see RestockListSettings.OnlyCheckedRegularly for
+    /// the two answers, and InventoryItem.BelongsOnTheRestockList for the ordinary one.
+    /// </summary>
+    private static bool WantedOnItsOwn(InventoryItem item, RestockListSettings settings)
+        => settings.OnlyCheckedRegularly ? item.IsCheckedRegularly : item.BelongsOnTheRestockList;
 
     private async Task<List<TaskItem>> NewErrandsForAsync(
         HashSet<Guid> wanted, IReadOnlyList<InventoryItem> shelf, Guid taskListId, CancellationToken cancellationToken)
@@ -183,24 +202,50 @@ public sealed class RestockListRefresh
     }
 
     /// <summary>
-    /// Moves the standing reminder to the hour the inventory asked for. Done here rather than only when
-    /// the list is created, because the setting is changed long after that and a reminder that kept the
-    /// old time would make the field look like it did nothing.
+    /// Brings the standing reminder in line with the settings: the hour it comes round at, whether it
+    /// comes round at all, and the due date that is what puts it on the calendar and the dashboard.
+    ///
+    /// Done here rather than only when the list is created, because all three are changed long after
+    /// that - and because a list created before any of this existed still carries a reminder with no
+    /// due date, which is exactly the one that never reached the calendar. Every save of the settings
+    /// comes through here, so those lists are corrected the first time somebody touches them.
+    ///
+    /// Unlike before, an entry that is *not* currently daily is looked at too: switching the reminder
+    /// back on has to reach an entry that was switched off, and skipping those left it off for good.
     /// </summary>
-    private static void UpdateTheStandingReminderTime(List<TaskItem> items, RestockListSettings settings)
+    private static void UpdateTheStandingReminder(List<TaskItem> items, RestockListSettings settings)
     {
         for (var index = 0; index < items.Count; index++)
         {
             var item = items[index];
-            if (item.Description != RestockTaskNaming.UpdateStockReminderDescription || !item.RemindDaily)
+            if (item.Description != RestockTaskNaming.UpdateStockReminderDescription)
             {
                 continue;
             }
 
+            // Kept where it is if it already falls on today: rewriting it every refresh would move a
+            // reminder somebody is looking at, and the daily tick is what carries it forward from here
+            // (see IDailyTaskReminderRepository.ReopenAsync).
+            var dueUtc = settings.RemindDaily
+                ? StillFallsOnToday(item.DueDateUtc, settings.RefreshTimeOfDay)
+                    ? item.DueDateUtc
+                    : InventoryTaskListCoordinator.StandingReminderDueAt(settings.RefreshTimeOfDay)
+                : null;
+
             items[index] = TaskItem.FromPersistence(
-                item.Id, item.Description, item.DueDateUtc, item.IsCompleted, item.LinkedTaskListIds,
-                item.Reminders with { DailyTimeOfDay = settings.RefreshTimeOfDay },
+                item.Id, item.Description, dueUtc, item.IsCompleted, item.LinkedTaskListIds,
+                item.Reminders with
+                {
+                    Daily = settings.RemindDaily,
+                    DailyChannel = settings.ReminderChannel,
+                    DailyTimeOfDay = settings.RefreshTimeOfDay
+                },
                 item.Subject);
         }
     }
+
+    private static bool StillFallsOnToday(DateTimeOffset? dueDateUtc, TimeOnly refreshTimeOfDay)
+        => dueDateUtc is { } due
+            && DateOnly.FromDateTime(due.LocalDateTime) == DateOnly.FromDateTime(DateTime.Now)
+            && TimeOnly.FromDateTime(due.LocalDateTime) == refreshTimeOfDay;
 }

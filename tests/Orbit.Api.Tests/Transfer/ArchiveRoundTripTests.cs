@@ -261,7 +261,7 @@ public sealed class ArchiveRoundTripTests
             foreach (var itemName in itemNames)
             {
                 await _inventoryItemRepository.AddAsync(
-                    InventoryItem.Create(inventory.Id, itemName, "Food", "Dry goods", 1, null, InventoryUnit.Piece, null, NotificationChannel.None),
+                    InventoryItem.Create(inventory.Id, itemName, "Food", ["Dry goods"], 1, null, InventoryUnit.Piece, null, NotificationChannel.None),
                     CancellationToken.None);
             }
         }

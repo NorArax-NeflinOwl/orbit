@@ -28,11 +28,23 @@ name: Build, test and deploy Orbit to Azure Container Apps
 # runner to prove it is the kind of spend that exhausted the allowance in the first place.
 #
 # The deploy job stays out of it either way - it is guarded on the event as well as gated on the suite.
+#
+# One trigger, and it is the merge to main. Runner minutes are 2000 a month and a pipeline that also
+# ran on pull requests, on pushes to Coding and on the integration pull request they synchronised spent
+# them in four days - the same suite, three and four times over for one change.
+#
+# So the suite runs at the one point where it gates something: the push to main, which is the last
+# step before Azure is paid, and what the deploy job hangs off. Work on the way there - a feature
+# branch, its pull request, the merge into Coding - is checked where it is written: `dotnet test
+# Orbit.sln` on the machine that made the change, before the pull request is opened. That is a rule
+# in .claude/CLAUDE.md, not a hope, and it is the trade this file makes on purpose: a broken merge to
+# Coding is found at the next push to main, before anything deploys, rather than paid for on every
+# branch on the way.
+#
+# paths-ignore, because a documentation-only merge cannot break a build and proving it on a runner is
+# the kind of spend that started this.
 on:
   push:
-    branches:
-      - main
-  pull_request:
     branches:
       - main
     paths-ignore:
@@ -43,13 +55,9 @@ on:
 # One deploy at a time. Two merges a minute apart would otherwise build, push and update the same two
 # Container Apps concurrently, and which image ends up running would be down to which job finished
 # last. Queued rather than cancelled: a deploy interrupted halfway leaves a state nobody chose.
-#
-# A pull request is the opposite case and gets the opposite answer: one group per branch, cancelled by
-# the next push to it. Nobody wants the results of a commit that has already been replaced, and paying
-# for them is what made this trigger too expensive to keep the first time.
 concurrency:
-  group: ${{ github.event_name == 'pull_request' && format('pr-{0}', github.ref) || 'deploy-orbit' }}
-  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+  group: deploy-orbit
+  cancel-in-progress: false
 
 env:
   registryName: orbitcontainerregistry
@@ -65,7 +73,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Setup .NET SDK
         uses: actions/setup-dotnet@v4
@@ -124,7 +132,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Decide whether the phone app changed
         id: changed
@@ -192,7 +200,9 @@ jobs:
     # Everything from here talks to Azure. Nothing triggers this workflow from a pull request any more
     # (see the top of the file), so the condition is a belt to that braces: if the trigger is ever put
     # back, a branch still stops at the job above rather than deploying itself.
-    if: github.event_name != 'pull_request'
+    # main only. Coding builds and tests on every push, but deploying from it would spend exactly what
+    # the branch exists to save - and the federated credential only trusts refs/heads/main anyway.
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     # Deliberately NOT targeting a GitHub Environment here (e.g. `environment: production`), tempting
     # as that is for gating deploys behind a manual approval - doing so changes the OIDC token's
@@ -224,7 +234,7 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           # The whole history, because the version is counted from it - see ci/compute-version.sh. The
           # default shallow checkout can see one commit and would number every build 0.1.1.
@@ -273,6 +283,7 @@ jobs:
             Smtp__FromAddress
             GoogleAuth__ClientId
             Firebase__ServiceAccountKeyPath
+            WebClientBaseUrl
           "
           CONFIGURED_VARIABLES=$(az containerapp show \
             --name orbit-api \

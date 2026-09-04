@@ -34,6 +34,13 @@ public sealed class UserEntity
     /// <summary>When this account was last heard from; null for one that has never been seen since presence existed.</summary>
     public DateTimeOffset? PresenceLastSeenAtUtc { get; set; }
 
+    /// <summary>
+    /// Whether this account has asked that nothing about it reach anybody but Orbit - see
+    /// Orbit.Core.Users.User.KeepsThirdPartiesOut. False for every account that has not said otherwise,
+    /// which is what an existing row gets when the column is added.
+    /// </summary>
+    public bool KeepsThirdPartiesOut { get; set; }
+
     public DateTimeOffset CreatedAtUtc { get; set; }
     /// <summary>When the user last confirmed a code sent to Email, or null if never - see Orbit.Core.Users.User.EmailVerifiedAtUtc.</summary>
     public DateTimeOffset? EmailVerifiedAtUtc { get; set; }

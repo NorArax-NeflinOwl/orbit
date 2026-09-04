@@ -1,5 +1,7 @@
 using Microsoft.EntityFrameworkCore;
+using Orbit.Core.Abstractions;
 using Orbit.Core.Inventories;
+using Orbit.Core.Notifications;
 using Orbit.Data.Entities;
 
 namespace Orbit.Data.Repositories;
@@ -62,6 +64,23 @@ public sealed class InventoryManagedTaskListRepository : IInventoryManagedTaskLi
         await _dbContext.SaveChangesAsync(cancellationToken);
     }
 
+    /// <summary>
+    /// Empties the id rather than deleting the row: the settings beside it are the reader's and outlive
+    /// the list - see GetTaskListIdAsync, which already reads an empty id as "no list".
+    /// </summary>
+    public async Task ClearTaskListIdAsync(Guid inventoryId, CancellationToken cancellationToken)
+    {
+        var entity = await _dbContext.InventoryManagedTaskLists
+            .FirstOrDefaultAsync(row => row.InventoryId == inventoryId, cancellationToken);
+        if (entity is null)
+        {
+            return;
+        }
+
+        entity.TaskListId = Guid.Empty;
+        await _dbContext.SaveChangesAsync(cancellationToken);
+    }
+
     public async Task<RestockListSettings> GetSettingsAsync(Guid inventoryId, CancellationToken cancellationToken)
     {
         var entity = await _dbContext.InventoryManagedTaskLists
@@ -74,7 +93,16 @@ public sealed class InventoryManagedTaskListRepository : IInventoryManagedTaskLi
             ? RestockListSettings.Default
             : new RestockListSettings(
                 entity.OnlyLinkedWithDueDate,
-                TimeOnly.FromTimeSpan(TimeSpan.FromMinutes(entity.RefreshTimeOfDayMinutes)));
+                TimeOnly.FromTimeSpan(TimeSpan.FromMinutes(entity.RefreshTimeOfDayMinutes)),
+                entity.IsEnabled,
+                entity.RemindDaily,
+                // A priority nobody recognises reads as Normal rather than failing the whole settings
+                // read - the same rule every other stored-by-name enum here follows.
+                Enum.TryParse<ItemPriority>(entity.ListPriority, out var priority) ? priority : ItemPriority.Normal,
+                entity.OnlyCheckedRegularly,
+                Enum.TryParse<NotificationChannel>(entity.ReminderNotificationChannel, out var channel)
+                    ? channel
+                    : NotificationChannel.Push);
     }
 
     /// <summary>
@@ -94,6 +122,11 @@ public sealed class InventoryManagedTaskListRepository : IInventoryManagedTaskLi
 
         entity.OnlyLinkedWithDueDate = settings.OnlyLinkedWithDueDate;
         entity.RefreshTimeOfDayMinutes = settings.RefreshTimeOfDay.Hour * 60 + settings.RefreshTimeOfDay.Minute;
+        entity.IsEnabled = settings.IsEnabled;
+        entity.RemindDaily = settings.RemindDaily;
+        entity.ListPriority = settings.ListPriority.ToString();
+        entity.OnlyCheckedRegularly = settings.OnlyCheckedRegularly;
+        entity.ReminderNotificationChannel = settings.ReminderChannel.ToString();
         await _dbContext.SaveChangesAsync(cancellationToken);
     }
 }

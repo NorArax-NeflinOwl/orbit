@@ -33,7 +33,10 @@ public sealed class InventoryItemFilter
 
     public bool Matches(InventoryItemRequest item)
         => Matches(ProductType, item.ProductType)
-            && Matches(Category, item.Category)
+            // One of them is enough: an item filed under both "baking" and "dry goods" is what either
+            // filter is looking for.
+            && (Category.Length == 0 || item.AllCategories.Any(
+                category => string.Equals(Category, category.Trim(), StringComparison.CurrentCultureIgnoreCase)))
             && Contains(Name, item.Name);
 
     private static bool Matches(string chosen, string itemValue)

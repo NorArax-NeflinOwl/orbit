@@ -99,12 +99,29 @@ public sealed class InventoryApiClient
         return inventory is null ? null : await OpenIfPrivateAsync(inventory, cancellationToken);
     }
 
-    public async Task<Guid> CreateInventoryAsync(SaveInventoryRequest request, CancellationToken cancellationToken = default)
+    /// <summary>
+    /// Creates the inventory, name and contents together, and says why if the server would not.
+    ///
+    /// It used to call EnsureSuccessStatusCode and hand back the id, which threw away the sentence the
+    /// server writes into a refusal (see InvalidRequestExceptionHandler) and left the editor showing
+    /// "Failed to save the inventory. Try again." - advice that could never work for a request the
+    /// server had already explained. The save beside this one has read that body all along; this is the
+    /// one that did not.
+    /// </summary>
+    public async Task<InventoryCreation> CreateInventoryAsync(
+        SaveInventoryRequest request, CancellationToken cancellationToken = default)
     {
         request = await SealIfPrivateAsync(request, cancellationToken);
         var response = await _httpClient.PostAsJsonAsync("api/inventories", request, cancellationToken);
+        if (response.StatusCode == HttpStatusCode.BadRequest)
+        {
+            var refusal = await response.Content.ReadFromJsonAsync<RefusalDto>(cancellationToken: cancellationToken);
+            return InventoryCreation.Refused(refusal?.Message ?? Translated("Orbit refused that inventory."));
+        }
+
         response.EnsureSuccessStatusCode();
-        return await response.Content.ReadFromJsonAsync<Guid>(cancellationToken: cancellationToken);
+        return InventoryCreation.Created(
+            await response.Content.ReadFromJsonAsync<Guid>(cancellationToken: cancellationToken));
     }
 
     /// <summary>Saves the inventory and its whole item list in one request - see SaveInventoryRequest.</summary>
@@ -294,15 +311,18 @@ public sealed class InventoryApiClient
         return await response.Content.ReadFromJsonAsync<RestockListSettingsDto>(cancellationToken);
     }
 
-    /// <summary>Saves the settings and rebuilds the list to match, answering what that moved.</summary>
-    public async Task<RestockRefreshResultDto> SaveRestockListSettingsAsync(
+    /// <summary>
+    /// Saves the settings and rebuilds the list to match. What that moved is not read back: these are
+    /// saved with the rest of the inventory now (see InventoryEditor.SaveAsync), and the page leaves for
+    /// the list of inventories straight afterwards, so there is nowhere left to say "two added, one
+    /// removed" to. Asking for the body anyway is what made a save fail on a response that carried none.
+    /// </summary>
+    public async Task SaveRestockListSettingsAsync(
         Guid inventoryId, RestockListSettingsDto settings, CancellationToken cancellationToken = default)
     {
         var response = await _httpClient.PutAsJsonAsync(
             $"api/inventories/{inventoryId}/restock-list/settings", settings, cancellationToken);
         response.EnsureSuccessStatusCode();
-        return await response.Content.ReadFromJsonAsync<RestockRefreshResultDto>(cancellationToken)
-            ?? new RestockRefreshResultDto(0, 0);
     }
 
     /// <summary>Rebuilds the list against the settings it already has - the Refresh button.</summary>

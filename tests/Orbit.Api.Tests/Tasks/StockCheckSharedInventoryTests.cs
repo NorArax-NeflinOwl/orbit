@@ -106,7 +106,7 @@ public sealed class StockCheckSharedInventoryTests
         public Task PutOnTheShelfAsync(string name, decimal quantity)
             => _inventoryItemRepository.AddAsync(
                 InventoryItem.Create(
-                    _inventoryId, name, productType: "", category: "", quantity, minimumQuantity: null,
+                    _inventoryId, name, productType: "", categories: [], quantity, minimumQuantity: null,
                     InventoryUnit.Piece, expiryDate: null, NotificationChannel.None),
                 CancellationToken.None);
 

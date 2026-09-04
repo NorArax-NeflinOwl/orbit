@@ -513,8 +513,10 @@ public sealed partial class InventoryDetailViewModel : ObservableObject
     /// </summary>
     private void ShowWhatIsOnTheShelf()
     {
-        Offer(ProductTypes, _anyProductType, item => item.ProductType);
-        Offer(Categories, _anyCategory, item => item.Category);
+        Offer(ProductTypes, _anyProductType, item => [item.ProductType]);
+        // An item can be filed under several now, so this reads across all of them rather than taking
+        // one per row - see InventoryItem.Categories.
+        Offer(Categories, _anyCategory, item => item.AllCategories);
 
         if (ChosenProductType is not { } productType || !ProductTypes.Contains(productType))
         {
@@ -532,10 +534,11 @@ public sealed partial class InventoryDetailViewModel : ObservableObject
         OnPropertyChanged(nameof(CanNarrowByCategory));
     }
 
-    private void Offer(ObservableCollection<string> options, string forAny, Func<InventoryItemRequest, string> of)
+    private void Offer(
+        ObservableCollection<string> options, string forAny, Func<InventoryItemRequest, IEnumerable<string>> of)
     {
         var onTheShelf = _items
-            .Select(item => of(item).Trim())
+            .SelectMany(item => of(item).Select(value => value.Trim()))
             .Where(value => value.Length > 0)
             .Distinct(StringComparer.CurrentCultureIgnoreCase)
             .OrderBy(value => value, StringComparer.CurrentCultureIgnoreCase);

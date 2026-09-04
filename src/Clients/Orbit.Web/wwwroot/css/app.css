@@ -1467,6 +1467,14 @@ input.note-editor-title {
     text-align: left;
 }
 
+/* A row for something already finished - the dashboard's task card, which keeps a done list only where
+   it has been pinned. Struck through and quieted, the same way a ticked checklist line is: the two are
+   the same fact about two different things, and they should not read differently. */
+.list-row.completed .row-title {
+    color: var(--text-tertiary);
+    text-decoration: line-through;
+}
+
 .row-meta {
     font-size: 12px;
     color: var(--text-tertiary);
@@ -1900,9 +1908,116 @@ input.note-editor-title {
     color: var(--accent);
 }
 
-/* The version, which is pressable to reveal the rest of the hash. Looks like the text beside it: it is
-   a fact that happens to expand, not a button somebody is being invited to press. */
-.app-footer-version {
+/* A footer entry that opens a dialog rather than a page - About, and Manage cookies. Drawn exactly like
+   the links beside it: which of the two a reader is pressing is not a distinction they should have to
+   make, and one underlined word next to one that is not reads as a mistake. */
+.app-footer-link {
+    padding: 0;
+    border: 0;
+    background: none;
+    color: var(--text-tertiary);
+    font: inherit;
+    text-decoration: underline;
+    cursor: pointer;
+}
+
+.app-footer-link:hover {
+    color: var(--accent);
+}
+
+/* The gap between one footer entry and the next. Wider than the row's own gap, because these are
+   separate destinations rather than parts of one sentence - the dot that used to separate them said
+   the same thing in a character. */
+.app-footer a,
+.app-footer-link {
+    margin-left: 8px;
+}
+
+/* A panel over the page, from the footer or from anywhere else - see Components/Dialog.razor. The map
+   picker had the only overlay in Orbit and kept its own; these are the general ones. */
+.dialog-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 70;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+    background: oklch(20% 0.02 60 / 0.55);
+}
+
+.dialog-panel {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    width: min(520px, 100%);
+    max-height: 100%;
+    padding: 20px;
+    background: var(--bg-elevated);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    box-shadow: 0 18px 48px oklch(20% 0.02 60 / 0.35);
+}
+
+/* The panel takes focus when it opens so Escape reaches it - which would otherwise draw the browser's
+   focus ring around the whole thing, as though the box itself were the control. */
+.dialog-panel:focus {
+    outline: none;
+}
+
+.dialog-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+}
+
+.dialog-header h2 {
+    margin: 0;
+    font-size: 16px;
+}
+
+/* The one part that scrolls. The heading and the buttons stay put, so a long panel never leaves its
+   way out somewhere below the fold. */
+.dialog-body {
+    overflow-y: auto;
+    font-size: 13.5px;
+    line-height: 1.6;
+    color: var(--text-secondary);
+}
+
+.dialog-body p {
+    margin: 0 0 12px;
+}
+
+.dialog-footer {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: 8px;
+}
+
+/* What this build is - see AboutDialog. A definition list, because that is what it is: a short label
+   and the fact under it, three or four times. */
+.about-facts {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 4px 16px;
+    margin: 0 0 12px;
+}
+
+.about-facts dt {
+    color: var(--text-tertiary);
+}
+
+.about-facts dd {
+    margin: 0;
+    overflow-wrap: anywhere;
+}
+
+/* Pressable to reveal the rest of the commit hash. Looks like the text beside it: it is a fact that
+   happens to expand, not a button somebody is being invited to press. */
+.about-version {
     padding: 0;
     border: 0;
     background: none;
@@ -1912,31 +2027,141 @@ input.note-editor-title {
     word-break: break-all;
 }
 
-.app-footer-version:hover {
+.about-version:hover {
     color: var(--accent);
 }
 
-.app-footer-separator {
-    opacity: 0.5;
+.about-copyright {
+    color: var(--text-tertiary);
+}
+
+/* One category of what this browser keeps - see ManageCookiesDialog. The box, its name and how much
+   there is on one line; what it actually is underneath, where there is room to say it. */
+.cookies-category {
+    padding: 10px 0;
+    border-bottom: 1px solid var(--border);
+}
+
+.cookies-category:last-of-type {
+    border-bottom: none;
+}
+
+.cookies-category-head {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    cursor: pointer;
+}
+
+.cookies-category-name {
+    flex: 1;
+    min-width: 0;
+    color: var(--text-primary);
+    font-weight: 500;
+}
+
+.cookies-category-what {
+    margin: 4px 0 0 28px;
+    color: var(--text-tertiary);
+    font-size: 12.5px;
+}
+
+/* What a map says when its background is off - see mapTiles.js. In the corner where Leaflet's own
+   attribution sits, because it is the same kind of remark about where the picture comes from. */
+.map-tiles-off {
+    max-width: 260px;
+    padding: 6px 8px;
+    border-radius: 6px;
+    background: var(--bg-elevated);
+    border: 1px solid var(--border);
+    color: var(--text-tertiary);
+    font-size: 11.5px;
+    line-height: 1.4;
+}
+
+/* Privacy, Security and Docs: pages that are read rather than used. Narrower than a page of cards,
+   because a line of prose the full width of a desktop window is a line nobody finishes. */
+.prose-page {
+    max-width: 760px;
+}
+
+.prose-page h2 {
+    margin: 0 0 8px;
+    font-size: 15px;
+}
+
+.prose-page p {
+    margin: 0 0 12px;
+    font-size: 13.5px;
+    line-height: 1.7;
+    color: var(--text-secondary);
+}
+
+.prose-page p:last-child {
+    margin-bottom: 0;
+}
+
+.prose-footnote {
+    color: var(--text-tertiary);
+    font-size: 12px;
 }
 
 /* Names the reader already has, under the field they are typing into. Sits close under the input so it
    reads as belonging to it, and wraps rather than scrolling - five short names, not a menu. */
+/* The names already used, as a list under the box being typed into. menuAnchor.js's anchorToField gives
+   it its position and its width, both of which depend on where that box ended up - everything here is
+   what it looks like once placed. Fixed rather than absolute so a row deep inside a scrolling form is
+   not clipped by it, which is the same reason the overflow menu is fixed. */
 .name-suggestions {
+    position: fixed;
+    z-index: 40;
     display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 6px;
-    margin-top: 4px;
+    flex-direction: column;
+    max-height: 240px;
+    overflow-y: auto;
+    padding: 4px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.28);
 }
 
-.name-suggestions .reference-chip {
+/* One name on offer. A full-width row rather than a chip: chips read as tags a field already carries,
+   and these are things nothing has taken yet. */
+.name-suggestion-option {
+    display: block;
+    width: 100%;
+    padding: 7px 10px;
+    background: none;
+    border: none;
+    border-radius: 6px;
+    color: var(--text-primary);
+    font: inherit;
+    font-size: 13.5px;
+    text-align: left;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
     cursor: pointer;
+}
+
+.name-suggestion-option:hover,
+/* Where the arrow keys are standing. The same fill as hover, because it means the same thing - this is
+   the one Enter would take - and two different highlights on one list would ask which is which. */
+.name-suggestion-option.is-active {
+    background: var(--bg-subtle);
+}
+
+.name-suggestion-option:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: -2px;
 }
 
 /* Said out loud when what is being typed is a name that already exists - the moment a duplicate is
    about to be created is the only moment anybody can cheaply avoid it. */
 .name-suggestion-warning {
+    display: block;
+    padding: 4px 10px 6px;
     color: var(--task);
     font-size: 11.5px;
 }
@@ -3073,9 +3298,26 @@ input.note-editor-title {
 }
 
 .check-row-text {
-    flex: 1;
+    flex: 1 1 auto;
     min-width: 0;
     color: var(--text-primary);
+}
+
+/* One of these rows carries its own way in - the entry's words open it, beside the box that ticks it
+   off (see TaskListChecklist). A <button> rather than the span the others use, so it needs stripping
+   back to look like them; ".check-row-text" alone used to carry both sets of properties from two
+   separate rules, and the second silently overrode the first for every plain row on four pages. */
+.check-row-text-opens {
+    background: transparent;
+    border: none;
+    padding: 0;
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+}
+
+.check-row-text-opens:hover {
+    text-decoration: underline;
 }
 
 .check-row.completed .check-row-text {
@@ -3199,6 +3441,101 @@ input.note-editor-title {
     gap: 6px;
     font-size: 12.5px;
     color: var(--text-secondary);
+}
+
+/* A field that holds several short words rather than one value - see TagField. Its own block in the
+   row of fields, because it is two lines tall when anything has been added to it and a label beside a
+   box would leave the chips hanging under the wrong thing. */
+.editor-item-tags {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex: 1 1 260px;
+    min-width: 0;
+    font-size: 12.5px;
+    color: var(--text-secondary);
+}
+
+.editor-item-tags-label {
+    flex: 0 0 auto;
+}
+
+.tag-field {
+    position: relative;
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 6px;
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+.tag-field-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+}
+
+/* What has been filed already. Drawn as what a category mark looks like everywhere else in Orbit, with
+   a cross of its own - see .row-category, which these become once the entry is saved. */
+.tag-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 1px 6px 1px 8px;
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    background: var(--bg-subtle);
+    color: var(--text-secondary);
+    font-size: 11.5px;
+    white-space: nowrap;
+}
+
+.tag-chip-remove {
+    padding: 0;
+    border: 0;
+    background: none;
+    color: var(--text-tertiary);
+    font: inherit;
+    font-size: 10px;
+    line-height: 1;
+    cursor: pointer;
+}
+
+.tag-chip-remove:hover {
+    color: var(--danger, var(--accent));
+}
+
+.tag-field-row {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    flex: 1 1 120px;
+    min-width: 0;
+}
+
+.tag-field-input {
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+/* Small, quiet, and beside the box rather than under it: it is the second half of one control, not an
+   action of its own. Disabled while the box is empty, so it never reads as the button that saves. */
+.tag-field-add {
+    flex: 0 0 auto;
+    width: 26px;
+    height: 26px;
+}
+
+.tag-field-add:disabled {
+    opacity: 0.4;
+    cursor: default;
+}
+
+/* The word the arrow keys are on. Same treatment the name-suggestions panel gives its own highlight. */
+.name-suggestion-option.highlighted {
+    background: var(--bg-subtle);
+    color: var(--accent);
 }
 
 .editor-item-details .field-break {
@@ -5189,24 +5526,6 @@ input.note-editor-title {
     }
 }
 
-/* The checklist row is no longer a <label>, so its text needs to look and behave like the control it
-   now is: the way into the entry, beside the checkbox that ticks it off. */
-.check-row-text {
-    flex: 1 1 auto;
-    min-width: 0;
-    background: transparent;
-    border: none;
-    padding: 0;
-    font: inherit;
-    color: inherit;
-    text-align: left;
-    cursor: pointer;
-}
-
-.check-row-text:hover {
-    text-decoration: underline;
-}
-
 /* A month cell's chips are labels inside a clickable cell, not controls of their own - see
    CalendarMonthGrid. They still have to lay out like the buttons they replaced. */
 span.calendar-event-chip,
@@ -5505,4 +5824,86 @@ span.calendar-task-chip {
     border: 1px solid var(--border);
     border-radius: 999px;
     font-size: 13px;
+}
+
+/* The restock section's two switches each govern what sits under them: the first the whole section, the
+   second only the hour its reminder arrives at. Greyed out rather than hidden, because somebody deciding
+   whether to switch one back on should be able to read what they would be switching on. The controls
+   already grey themselves (see input:disabled above); this is what fades the words around them, which is
+   the half that says the section is off rather than merely unreachable. */
+.restock-settings-fields,
+.restock-reminder-time {
+    border: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+}
+
+.restock-reminder-time {
+    flex-direction: row;
+    align-items: center;
+    gap: 8px;
+}
+
+.restock-settings-fields[disabled],
+.restock-reminder-time[disabled] {
+    opacity: 0.55;
+}
+
+/* A form over the page, for a question about the whole object rather than about a field on it - see
+   GenerateInventoryOverlay. The map picker's own overlay (.map-overlay above) is the same shape, and
+   these are written apart from it rather than sharing: that one sizes itself around a map, which is a
+   fixed-height thing this must not inherit. */
+.form-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 60;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+    background: oklch(20% 0.02 60 / 0.55);
+}
+
+.form-overlay-panel {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    width: min(520px, 100%);
+    max-height: 100%;
+    padding: 20px;
+    overflow-y: auto;
+    background: var(--bg-elevated);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    box-shadow: 0 18px 48px oklch(20% 0.02 60 / 0.35);
+}
+
+.form-overlay-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+}
+
+.form-overlay-header h2 {
+    margin: 0;
+    font-size: 18px;
+}
+
+/* The heading over the second half of the form. Smaller than the panel's own title, since it names a
+   part of this question rather than a second question. */
+.form-overlay-section {
+    margin: 6px 0 0;
+    font-size: 15px;
+}
+
+/* Cancel and the button that does the thing, at the end and to the right - the order every other form
+   on this app ends in. */
+.form-overlay-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
 }

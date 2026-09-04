@@ -47,12 +47,18 @@ public sealed class TasksApiClient
     }
 
     /// <summary>
-    /// Builds the shelf this list's work needs - one entry per distinct thing it calls for, each starting
-    /// at nothing - and points the list at it. Returns the new inventory's id.
+    /// Builds the shelf this list's work needs - one entry per distinct thing it calls for, each as the
+    /// entry that named it describes it - and points the list at it. Returns the new inventory's id.
     /// </summary>
-    public async Task<Guid?> GenerateInventoryAsync(Guid taskListId, CancellationToken cancellationToken = default)
+    /// <param name="request">
+    /// What to call it and how its restock list should behave - see GenerateInventoryRequest. Null asks
+    /// for the storage the way this used to build it: the list's own title, and the default list.
+    /// </param>
+    public async Task<Guid?> GenerateInventoryAsync(
+        Guid taskListId, GenerateInventoryRequest? request = null, CancellationToken cancellationToken = default)
     {
-        var response = await _httpClient.PostAsync($"api/tasks/{taskListId}/inventory", content: null, cancellationToken);
+        var response = await _httpClient.PostAsJsonAsync(
+            $"api/tasks/{taskListId}/inventory", request ?? new GenerateInventoryRequest(), cancellationToken);
         if (response.StatusCode == HttpStatusCode.NotFound)
         {
             return null;
@@ -351,9 +357,17 @@ public sealed class TasksApiClient
         return EditOutcome.Success;
     }
 
-    public async Task DeleteTaskListAsync(Guid id, CancellationToken cancellationToken = default)
+    /// <param name="deleteTheListsItGathers">
+    /// Whether the lists a group list stands for go with it. Left false by every caller that has not
+    /// asked the reader which they meant - see DeleteTaskListCommand for why that is the safe default.
+    /// </param>
+    public async Task DeleteTaskListAsync(
+        Guid id, bool deleteTheListsItGathers = false, CancellationToken cancellationToken = default)
     {
-        var response = await _httpClient.DeleteAsync($"api/tasks/{id}", cancellationToken);
+        var address = deleteTheListsItGathers
+            ? $"api/tasks/{id}?deleteTheListsItGathers=true"
+            : $"api/tasks/{id}";
+        var response = await _httpClient.DeleteAsync(address, cancellationToken);
         response.EnsureSuccessStatusCode();
     }
 

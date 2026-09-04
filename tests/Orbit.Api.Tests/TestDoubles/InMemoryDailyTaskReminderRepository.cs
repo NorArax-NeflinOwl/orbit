@@ -31,9 +31,13 @@ internal sealed class InMemoryDailyTaskReminderRepository : IDailyTaskReminderRe
     /// <summary>Which items the reminder loop brought back, so a test can check it happened.</summary>
     public List<Guid> Reopened { get; } = [];
 
-    public Task ReopenAsync(Guid taskItemId, CancellationToken cancellationToken)
+    /// <summary>The date each reopen moved the entry's due date on to, so a test can check that half too.</summary>
+    public List<(Guid TaskItemId, DateOnly ReminderDate)> ReopenedOn { get; } = [];
+
+    public Task ReopenAsync(Guid taskItemId, DateOnly reminderDate, CancellationToken cancellationToken)
     {
         Reopened.Add(taskItemId);
+        ReopenedOn.Add((taskItemId, reminderDate));
         return Task.CompletedTask;
     }
 

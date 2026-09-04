@@ -84,7 +84,7 @@ public sealed class InventoryTaskListCoordinatorTests
     {
         var context = new InventoryTestContext();
         var inventoryId = context.AddInventory(Guid.NewGuid());
-        var item = InventoryItem.Create(inventoryId, "Milk", "Dairy", "Fridge", 5m, 1m, InventoryUnit.Piece, null, NotificationChannel.Push);
+        var item = InventoryItem.Create(inventoryId, "Milk", "Dairy", ["Fridge"], 5m, 1m, InventoryUnit.Piece, null, NotificationChannel.Push);
 
         var result = await context.TaskListCoordinator.EnsureRestockTaskAsync(item, CancellationToken.None);
 
@@ -97,7 +97,7 @@ public sealed class InventoryTaskListCoordinatorTests
         var context = new InventoryTestContext();
         var userId = Guid.NewGuid();
         var inventoryId = context.AddInventory(userId);
-        var item = InventoryItem.Create(inventoryId, "Milk", "Dairy", "Fridge", 0m, 1m, InventoryUnit.Piece, null, NotificationChannel.Push);
+        var item = InventoryItem.Create(inventoryId, "Milk", "Dairy", ["Fridge"], 0m, 1m, InventoryUnit.Piece, null, NotificationChannel.Push);
 
         var result = await context.TaskListCoordinator.EnsureRestockTaskAsync(item, CancellationToken.None);
 
@@ -114,7 +114,7 @@ public sealed class InventoryTaskListCoordinatorTests
         var context = new InventoryTestContext();
         var userId = Guid.NewGuid();
         var inventoryId = context.AddInventory(userId);
-        var item = InventoryItem.Create(inventoryId, "Milk", "Dairy", "Fridge", 0m, 1m, InventoryUnit.Piece, null, NotificationChannel.Push);
+        var item = InventoryItem.Create(inventoryId, "Milk", "Dairy", ["Fridge"], 0m, 1m, InventoryUnit.Piece, null, NotificationChannel.Push);
         item = await context.TaskListCoordinator.EnsureRestockTaskAsync(item, CancellationToken.None);
 
         // The reader restocks, ticks the task off - and the product is still under its minimum.
@@ -147,7 +147,7 @@ public sealed class InventoryTaskListCoordinatorTests
         var context = new InventoryTestContext();
         var userId = Guid.NewGuid();
         var inventoryId = context.AddInventory(userId);
-        var item = InventoryItem.Create(inventoryId, "Milk", "Dairy", "Fridge", 0m, 1m, InventoryUnit.Piece, null, NotificationChannel.Push);
+        var item = InventoryItem.Create(inventoryId, "Milk", "Dairy", ["Fridge"], 0m, 1m, InventoryUnit.Piece, null, NotificationChannel.Push);
         item = await context.TaskListCoordinator.EnsureRestockTaskAsync(item, CancellationToken.None);
 
         var result = await context.TaskListCoordinator.EnsureRestockTaskAsync(item, CancellationToken.None);
@@ -182,7 +182,7 @@ public sealed class InventoryTaskListCoordinatorTests
         var taskListId = await context.TaskListCoordinator.EnsureManagedTaskListAsync(inventoryId, CancellationToken.None);
         await MarkHighPriorityAsync(context, userId, taskListId!.Value);
 
-        var item = InventoryItem.Create(inventoryId, "Milk", "Dairy", "Fridge", 0m, 1m, InventoryUnit.Piece, null, NotificationChannel.Push);
+        var item = InventoryItem.Create(inventoryId, "Milk", "Dairy", ["Fridge"], 0m, 1m, InventoryUnit.Piece, null, NotificationChannel.Push);
         await context.TaskListCoordinator.EnsureRestockTaskAsync(item, CancellationToken.None);
 
         var afterwards = await context.TaskRepository.GetByIdAsync(userId, taskListId.Value, CancellationToken.None);
@@ -237,5 +237,91 @@ public sealed class InventoryTaskListCoordinatorTests
         // A bare TimeOnly defaults to midnight, which is a reminder nobody is awake to act on.
         Assert.True(reminder.RemindDaily);
         Assert.Equal(new TimeOnly(9, 0), reminder.DailyReminderTimeOfDay);
+    }
+
+    [Fact]
+    public async Task An_inventory_whose_restock_list_is_switched_off_gets_no_list_at_all()
+    {
+        var context = new InventoryTestContext();
+        var inventoryId = context.AddInventory(Guid.NewGuid());
+        await context.ManagedTaskListRepository.SetSettingsAsync(
+            inventoryId, RestockListSettings.Default with { IsEnabled = false }, CancellationToken.None);
+
+        var taskListId = await context.TaskListCoordinator.EnsureManagedTaskListAsync(inventoryId, CancellationToken.None);
+
+        // Null is what every caller already treats as "nowhere to put an errand", so switching the list
+        // off needs no new answer anywhere else.
+        Assert.Null(taskListId);
+        Assert.Null(await context.ManagedTaskListRepository.GetTaskListIdAsync(inventoryId, CancellationToken.None));
+    }
+
+    [Fact]
+    public async Task The_standing_reminder_carries_a_due_date_so_the_calendar_and_dashboard_can_see_it()
+    {
+        var context = new InventoryTestContext();
+        var userId = Guid.NewGuid();
+        var inventoryId = context.AddInventory(userId);
+        await context.ManagedTaskListRepository.SetSettingsAsync(
+            inventoryId, RestockListSettings.Default with { RefreshTimeOfDay = new TimeOnly(7, 30) },
+            CancellationToken.None);
+
+        var taskListId = await context.TaskListCoordinator.EnsureManagedTaskListAsync(inventoryId, CancellationToken.None);
+
+        var taskList = await context.TaskRepository.GetByIdAsync(userId, taskListId!.Value, CancellationToken.None);
+        var reminder = Assert.Single(taskList!.Items);
+        // Both halves matter: the calendar and the dashboard read entries by their due date and know
+        // nothing about a daily reminder, so without one this entry existed only on its own list.
+        Assert.NotNull(reminder.DueDateUtc);
+        Assert.Equal(new TimeOnly(7, 30), TimeOnly.FromDateTime(reminder.DueDateUtc!.Value.LocalDateTime));
+        Assert.Equal(DateOnly.FromDateTime(DateTime.Now), DateOnly.FromDateTime(reminder.DueDateUtc.Value.LocalDateTime));
+    }
+
+    [Fact]
+    public async Task Turning_the_daily_reminder_off_leaves_the_list_without_one_and_without_a_due_date()
+    {
+        var context = new InventoryTestContext();
+        var userId = Guid.NewGuid();
+        var inventoryId = context.AddInventory(userId);
+        await context.ManagedTaskListRepository.SetSettingsAsync(
+            inventoryId, RestockListSettings.Default with { RemindDaily = false }, CancellationToken.None);
+
+        var taskListId = await context.TaskListCoordinator.EnsureManagedTaskListAsync(inventoryId, CancellationToken.None);
+
+        var taskList = await context.TaskRepository.GetByIdAsync(userId, taskListId!.Value, CancellationToken.None);
+        var reminder = Assert.Single(taskList!.Items);
+        Assert.False(reminder.RemindDaily);
+        // No deadline either: a date nobody asked for would only make the entry overdue tomorrow.
+        Assert.Null(reminder.DueDateUtc);
+    }
+
+    [Fact]
+    public async Task The_list_is_created_at_the_priority_the_inventory_asked_for()
+    {
+        var context = new InventoryTestContext();
+        var userId = Guid.NewGuid();
+        var inventoryId = context.AddInventory(userId);
+        await context.ManagedTaskListRepository.SetSettingsAsync(
+            inventoryId, RestockListSettings.Default with { ListPriority = ItemPriority.High }, CancellationToken.None);
+
+        var taskListId = await context.TaskListCoordinator.EnsureManagedTaskListAsync(inventoryId, CancellationToken.None);
+
+        var taskList = await context.TaskRepository.GetByIdAsync(userId, taskListId!.Value, CancellationToken.None);
+        Assert.Equal(ItemPriority.High, taskList!.Priority);
+    }
+
+    [Fact]
+    public async Task Deleting_the_managed_list_takes_it_away_and_forgets_it()
+    {
+        var context = new InventoryTestContext();
+        var userId = Guid.NewGuid();
+        var inventoryId = context.AddInventory(userId);
+        var taskListId = await context.TaskListCoordinator.EnsureManagedTaskListAsync(inventoryId, CancellationToken.None);
+
+        await context.TaskListCoordinator.DeleteManagedTaskListAsync(inventoryId, CancellationToken.None);
+
+        Assert.Null(await context.TaskRepository.GetByIdAsync(userId, taskListId!.Value, CancellationToken.None));
+        // Forgetting it is the half that matters for switching back on: a tracking row still pointing at
+        // a deleted list is what would make the next Ensure think there was one to reuse.
+        Assert.Null(await context.ManagedTaskListRepository.GetTaskListIdAsync(inventoryId, CancellationToken.None));
     }
 }

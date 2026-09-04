@@ -111,6 +111,17 @@ public sealed class UsersApiClient
     public async Task<AccountDto?> GetAccountAsync(CancellationToken cancellationToken = default)
         => await _httpClient.GetFromJsonAsync<AccountDto>("api/users/me", cancellationToken);
 
+    /// <summary>
+    /// Answers the footer's "Do not share my personal information". On the account rather than in the
+    /// browser so it follows a reader between devices - see User.KeepsThirdPartiesOut.
+    /// </summary>
+    public async Task SetKeepsThirdPartiesOutAsync(bool keepsThemOut, CancellationToken cancellationToken = default)
+    {
+        var response = await _httpClient.PutAsJsonAsync(
+            "api/users/me/privacy", new SetPrivacyChoiceRequest(keepsThemOut), cancellationToken);
+        response.EnsureSuccessStatusCode();
+    }
+
     /// <summary>Null on success, otherwise the reason to show the user (currently only a taken username).</summary>
     public async Task<string?> UpdateProfileAsync(
         string displayName, string userName, CancellationToken cancellationToken = default)

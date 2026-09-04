@@ -4,6 +4,7 @@
 @page "/inventory/new"
 @attribute [Authorize]
 @implements IAsyncDisposable
+@using Orbit.Contracts.Chat
 @using Orbit.Contracts.Inventories
 @using Orbit.Contracts.Tasks
 @using Orbit.Contracts.Notifications
@@ -14,6 +15,9 @@
 @inject InventoryApiClient InventoryApiClient
 @inject TasksApiClient TasksApiClient
 @inject NotificationsApiClient NotificationsApiClient
+@inject ChatApiClient ChatApiClient
+@inject OrbitAuthenticationStateProvider AuthenticationStateProvider
+@inject NameSuggestionsApiClient NameSuggestionsApiClient
 @inject NavigationManager NavigationManager
 @inject ILogger<InventoryEditor> Logger
 @inject Translations T
@@ -184,7 +188,9 @@ else
                         @if (IsExpanded(item))
                         {
                             <div class="editor-item-details">
-                                <InventoryFields Model="item" NotificationSettings="_notificationSettings" />
+                                <InventoryFields Model="item" NotificationSettings="_notificationSettings"
+                                                 KnownProductTypes="_knownProductTypes"
+                                                 KnownCategories="_knownCategories" />
                                 @* Taking a row off the shelf is not something to have one click away from
                                    the amount somebody came to correct. Behind the toggle, at the end,
                                    where it is found on purpose rather than by accident. *@
@@ -224,6 +230,15 @@ else
 
         @if (!IsNewInventory)
         {
+            @* Handing the shelf to somebody, from inside the shelf. It used to be offered only from the
+               card on the list, so anybody already in here had to leave and find it again - see
+               ShareInventoryPanel, which is the same panel both places show. *@
+            @if (_inventory is { } inventory && _access.CanShare)
+            {
+                <h2>@T["Share"]</h2>
+                <ShareInventoryPanel Inventory="inventory" Contacts="_contacts" OwnUserId="_ownUserId" />
+            }
+
             <h2>@T["Link"]</h2>
             <ShareLinkButton ItemType="Inventory" ItemId="InventoryId!.Value" />
         }
@@ -252,19 +267,30 @@ else
             <p class="field-hint">@T["A shelf several lists ask for is split between them, so each is told its own share."]</p>
             @foreach (var taskList in _taskLists)
             {
-                <label class="check-row">
-                    <input type="checkbox" checked="@(taskList.LinkedInventoryId == InventoryId)"
-                           disabled="@(_isReadOnly || _isLinkingTaskLists)"
-                           aria-label="@T.Format("Measure {0} against this inventory", taskList.Title)"
-                           @onchange="args => MeasureAsync(taskList, (bool)args.Value!)" />
-                    <span class="check-row-text">@taskList.Title</span>
-                    @* A list already measured against another store: ticking it here moves it, so which
-                       store it would leave is named rather than left to be noticed afterwards. *@
-                    @if (taskList.LinkedInventoryId is { } elsewhere && elsewhere != InventoryId)
-                    {
-                        <span class="row-meta">@T.Format("now measured against {0}", NameOfInventory(elsewhere))</span>
-                    }
-                </label>
+                @* A list reached because a group list above it is measured here. Ticked, because it is
+                   asking this shelf for what its entries need - that is what gathering it means - but
+                   not untickable on its own: the tie belongs to the list at the top of the tree, and
+                   letting somebody clear one child would make a promise this page cannot keep. See
+                   MeasuredThroughAParent. *@
+                var throughParent = MeasuredThrough(taskList);
+                <CheckRow Title="@taskList.Title"
+                          IsTicked="@(taskList.LinkedInventoryId == InventoryId || throughParent is not null)"
+                          IsDisabled="@(_isReadOnly || _isLinkingTaskLists || throughParent is not null)"
+                          AriaLabel="@T.Format("Measure {0} against this inventory", taskList.Title)"
+                          OnTicked="ticked => MeasureAsync(taskList, ticked)">
+                    <Trailing>
+                        @if (throughParent is { } gatheredBy)
+                        {
+                            <span class="row-meta">@T.Format("through {0}", gatheredBy)</span>
+                        }
+                        @* A list already measured against another store: ticking it here moves it, so
+                           which store it would leave is named rather than left to be noticed after. *@
+                        else if (taskList.LinkedInventoryId is { } elsewhere && elsewhere != InventoryId)
+                        {
+                            <span class="row-meta">@T.Format("now measured against {0}", NameOfInventory(elsewhere))</span>
+                        }
+                    </Trailing>
+                </CheckRow>
             }
         }
         @if (_linkingMessage is not null)
@@ -277,38 +303,82 @@ else
        somebody came here to edit - see RestockListSettings. *@
     <h2>@T["Restock list"]</h2>
     <div class="card restock-settings-card">
-        <label class="field-checkbox" for="onlyLinkedWithDueDateInput">
-            <input id="onlyLinkedWithDueDateInput" type="checkbox" @bind="_restockSettings.OnlyLinkedWithDueDate" />
-            <span>@T["Only what a dated task is waiting on"]</span>
+        @* The switch the rest of the section hangs off. Everything below it is greyed out while it is
+           off, rather than hidden: a reader deciding whether to turn it back on should be able to see
+           what they would be turning on. Saved with the rest of the form - see SaveAsync. *@
+        <label class="field-checkbox" for="restockEnabledInput">
+            <input id="restockEnabledInput" type="checkbox" @bind="_restockSettings.IsEnabled" />
+            <span>@T["Keep a restock list for this inventory"]</span>
         </label>
         <p class="field-hint">
-            @(_restockSettings.OnlyLinkedWithDueDate
-                ? T["The list asks for products some task with a due date needs. What is running low but nothing is waiting on is left off."]
-                : T["The list asks for everything on this shelf that has dropped below its own minimum."])
+            @(_restockSettings.IsEnabled
+                ? T["Orbit keeps a \"Restock supplies\" list for this shelf and puts what is running low on it."]
+                : T["Turning this off deletes the restock list and everything on it. Turning it back on builds a new one."])
         </p>
 
-        <div class="field">
-            <label for="restockRefreshTimeInput">@T["Comes round at"]</label>
-            <TimeField Value="_restockSettings.RefreshTimeOfDay"
-                       ValueChanged="time => _restockSettings.RefreshTimeOfDay = time ?? RestockListSettings.DefaultRefreshTimeOfDay"
-                       AriaLabel="@(T["Comes round at"])" />
-            <small>@T["When the standing \"Update stock levels\" reminder arrives."]</small>
-        </div>
+        <fieldset class="restock-settings-fields" disabled="@(!_restockSettings.IsEnabled)">
+            <label class="field-checkbox" for="onlyLinkedWithDueDateInput">
+                <input id="onlyLinkedWithDueDateInput" type="checkbox" @bind="_restockSettings.OnlyLinkedWithDueDate" />
+                <span>@T["Only what a dated task is waiting on"]</span>
+            </label>
+            <p class="field-hint">
+                @(_restockSettings.OnlyLinkedWithDueDate
+                    ? T["The list asks for products some task with a due date needs. What is running low but nothing is waiting on is left off."]
+                    : T["The list asks for everything on this shelf that has dropped below its own minimum."])
+            </p>
 
-        @if (_restockMessage is not null)
-        {
-            <p class="field-hint">@_restockMessage</p>
-        }
+            @* The blunter narrowing of the two, and the one for a shelf nobody counts: the list becomes
+               a round rather than a report - see RestockListSettings.OnlyCheckedRegularly. *@
+            <label class="field-checkbox" for="onlyCheckedRegularlyInput">
+                <input id="onlyCheckedRegularlyInput" type="checkbox" @bind="_restockSettings.OnlyCheckedRegularly" />
+                <span>@T["Only the products marked \"Check every round\""]</span>
+            </label>
+            <p class="field-hint">
+                @(_restockSettings.OnlyCheckedRegularly
+                    ? T["The list asks only about the products marked to look at every round. What is running low but not marked is left off."]
+                    : T["The list asks about everything it would otherwise ask about, marked or not."])
+            </p>
 
-        <div class="form-actions">
-            <button type="button" class="btn-primary" disabled="@_isWorkingOnRestockList"
-                    @onclick="SaveRestockSettingsAsync">@T["Save settings"]</button>
-            @* What replaced "Generate inventory" and "Recalculate against the inventory": one button
-               that rebuilds this list from what is true now, rather than two that each did half of
-               something else. *@
-            <button type="button" class="btn-secondary" disabled="@_isWorkingOnRestockList"
-                    @onclick="RefreshRestockListAsync">@T["Refresh"]</button>
-        </div>
+            <div class="field">
+                <label for="restockPrioritySelect">@T["Priority of the restock list"]</label>
+                <select id="restockPrioritySelect" @bind="_restockSettings.ListPriority">
+                    <option value="@ItemPriority.Low">@T["Low"]</option>
+                    <option value="@ItemPriority.Normal">@T["Normal"]</option>
+                    <option value="@ItemPriority.High">@T["High"]</option>
+                </select>
+                <small>@T["How much the generated \"Restock supplies\" list matters, next to your own lists."]</small>
+            </div>
+
+            @* The reminder and the hour it arrives at are one decision, so the switch sits beside the
+               field it governs rather than above the section: turning it off leaves the list alone and
+               only stops the standing entry. *@
+            <div class="field">
+                <label class="field-checkbox" for="restockRemindDailyInput">
+                    <input id="restockRemindDailyInput" type="checkbox" @bind="_restockSettings.RemindDaily" />
+                    <span>@T["Remind me to update stock levels"]</span>
+                </label>
+                <fieldset class="restock-reminder-time" disabled="@(!_restockSettings.RemindDaily)">
+                    <label for="restockRefreshTimeInput">@T["Comes round at"]</label>
+                    <TimeField Value="_restockSettings.RefreshTimeOfDay"
+                               ValueChanged="time => _restockSettings.RefreshTimeOfDay = time ?? RestockListSettings.DefaultRefreshTimeOfDay"
+                               AriaLabel="@(T["Comes round at"])" />
+                    @* Where it is said, beside when it arrives: the two are one decision, and a reminder
+                       nobody chose a channel for went out on the phone whether or not that was wanted. *@
+                    <label for="restockReminderChannelSelect">@T["Said on"]</label>
+                    <select id="restockReminderChannelSelect" @bind="_restockSettings.ReminderChannel">
+                        @foreach (var option in NotificationChannelOption.All)
+                        {
+                            <option value="@option.Value" disabled="@option.IsDisabledBy(_notificationSettings)">@T[option.Label]</option>
+                        }
+                    </select>
+                </fieldset>
+                <small>
+                    @(_restockSettings.RemindDaily
+                        ? T["The standing \"Update stock levels\" entry comes back every day at this hour, and shows on the calendar for that day."]
+                        : T["Nothing arrives each day. Products dropping below their minimum still raise their own errands."])
+                </small>
+            </div>
+        </fieldset>
     </div>
     }
 
@@ -358,15 +428,15 @@ else
     public Guid? Highlight { get; set; }
 
     /// <summary>
-    /// How this inventory's restock list behaves. A working copy, edited in the form below and sent when
-    /// somebody presses Save settings - the same shape the rest of this page uses.
+    /// How this inventory's restock list behaves. A working copy, edited in the form below and sent by
+    /// the page's own Save along with everything else - the same shape the rest of this page uses.
     /// </summary>
     private RestockSettingsFormModel _restockSettings = new();
 
-    private bool _isWorkingOnRestockList;
 
-    /// <summary>What the last save or refresh actually moved, said rather than left to be noticed.</summary>
-    private string? _restockMessage;
+    /// <summary>What this account already files shelf items under - read once, handed to every row.</summary>
+    private IReadOnlyList<string> _knownProductTypes = [];
+    private IReadOnlyList<string> _knownCategories = [];
 
     private bool _isLoading = true;
 
@@ -389,6 +459,16 @@ else
     private string? _sharedByUserName;
     private SharedItemAccess _access = new(IsShared: false, ShareAccessLevel.CanEdit);
 
+    /// <summary>
+    /// The inventory as it was read, kept whole for the share panel - which asks it who owns it and at
+    /// what level this reader holds it. Null while a new one is still being named.
+    /// </summary>
+    private InventoryDto? _inventory;
+
+    /// <summary>Who this shelf could be handed to, and who would be doing the handing.</summary>
+    private IReadOnlyList<ContactDto> _contacts = [];
+    private Guid _ownUserId;
+
     /// <summary>A read-only or share-only grant can look but not touch, so the whole form is disabled.</summary>
     private bool _isReadOnly;
 
@@ -406,6 +486,11 @@ else
         // Best-effort: gates which notification-channel options are selectable (see
         // NotificationChannelOption.IsDisabledBy) - a failure here just leaves every option enabled
         // rather than blocking the rest of the page from loading.
+        // Same best-effort footing: the two boxes on every item row offer what this account already
+        // files things under, and a list that could not be read leaves them plain boxes.
+        _knownProductTypes = await NameSuggestionsApiClient.UsedValuesAsync(UsedValueKind.InventoryItemProductType);
+        _knownCategories = await NameSuggestionsApiClient.UsedValuesAsync(UsedValueKind.InventoryItemCategory);
+
         try
         {
             _notificationSettings = await NotificationsApiClient.GetSettingsAsync();
@@ -433,10 +518,23 @@ else
                 return;
             }
 
+            _inventory = inventory;
             _isShared = inventory.IsShared;
             _sharedByUserName = inventory.SharedByUserName;
             _access = SharedItemAccess.For(inventory.IsShared, inventory.AccessLevel);
             _isReadOnly = !_access.CanEdit;
+
+            // Best-effort, like the notification settings above: without them the share panel says it
+            // has nobody to offer, which is the truth of what it can do rather than a broken page.
+            try
+            {
+                _contacts = await ChatApiClient.GetContactsAsync();
+                _ownUserId = await AuthenticationStateProvider.TryGetCurrentUserIdAsync() ?? Guid.Empty;
+            }
+            catch (HttpRequestException contactsException)
+            {
+                Logger.LogWarning(contactsException, "Failed to load contacts for sharing inventory {InventoryId}", InventoryId);
+            }
 
             var items = await InventoryApiClient.GetInventoryItemsAsync(InventoryId.Value) ?? [];
             _formModel = InventoryFormModel.FromDto(inventory, items);
@@ -473,12 +571,28 @@ else
             _taskLists = await TasksApiClient.GetTaskListsAsync();
             _inventoryNames = (await InventoryApiClient.GetInventoriesAsync() ?? [])
                 .ToDictionary(inventory => inventory.Id, inventory => inventory.Name);
+            WorkOutWhatIsMeasuredThroughAGroup();
         }
         catch (HttpRequestException exception)
         {
             Logger.LogWarning(exception, "Couldn't read which lists are measured against inventory {InventoryId}", InventoryId);
         }
     }
+
+    /// <summary>
+    /// Re-read after anything that changes which lists are tied here directly, since every tie brings
+    /// its whole tree with it - ticking one group can light up a dozen rows below it.
+    /// </summary>
+    private void WorkOutWhatIsMeasuredThroughAGroup()
+        => _measuredThroughAParent = MeasuredThroughAParent.Reach(
+            _taskLists,
+            _taskLists
+                .Where(taskList => taskList.LinkedInventoryId == InventoryId)
+                .Select(taskList => taskList.Id)
+                .ToHashSet());
+
+    /// <summary>A name Orbit wrote itself, in the reader's language - see OrbitWrittenNames.</summary>
+    private string Written(string name) => OrbitWrittenNames.Translate(key => T[key], name);
 
     /// <summary>
     /// Ties a list to this inventory, or lets it go. One list at a time and written straight away: a
@@ -509,6 +623,20 @@ else
             _isLinkingTaskLists = false;
         }
     }
+
+    /// <summary>
+    /// Which gathered list this one is measured through, or null when it stands on its own. Worked out
+    /// once per render rather than per row: the walk is over every list this reader has, and asking it
+    /// again for each of thirty rows would be thirty walks of the same tree.
+    /// </summary>
+    private IReadOnlyDictionary<Guid, Guid> _measuredThroughAParent = new Dictionary<Guid, Guid>();
+
+    /// <summary>The name of the list gathering this one, for the row to say - null when nothing does.</summary>
+    private string? MeasuredThrough(TaskDto taskList)
+        => _measuredThroughAParent.TryGetValue(taskList.Id, out var gatheredById)
+            && _taskLists.FirstOrDefault(candidate => candidate.Id == gatheredById) is { } gatheredBy
+            ? Written(gatheredBy.Title)
+            : null;
 
     /// <summary>What another store is called, or its id where this browser has not got it.</summary>
     private string NameOfInventory(Guid inventoryId)
@@ -544,39 +672,6 @@ else
         }
     }
 
-    private async Task SaveRestockSettingsAsync()
-        => await RunOnTheRestockListAsync(
-            () => InventoryApiClient.SaveRestockListSettingsAsync(InventoryId!.Value, _restockSettings.ToDto()));
-
-    private async Task RefreshRestockListAsync()
-        => await RunOnTheRestockListAsync(() => InventoryApiClient.RefreshRestockListAsync(InventoryId!.Value));
-
-    /// <summary>
-    /// Both buttons do the same thing to this page: work, then say what moved. Nothing moving is said
-    /// too - a button that answers silently reads as one that did not register.
-    /// </summary>
-    private async Task RunOnTheRestockListAsync(Func<Task<RestockRefreshResultDto>> action)
-    {
-        _isWorkingOnRestockList = true;
-        _restockMessage = null;
-        try
-        {
-            var result = await action();
-            _restockMessage = result.AddedCount == 0 && result.RemovedCount == 0
-                ? T["The restock list already asks for exactly what it should."]
-                : T.Format("Restock list updated: {0} added, {1} removed.", result.AddedCount, result.RemovedCount);
-        }
-        catch (HttpRequestException exception)
-        {
-            Logger.LogError(exception, "A restock list action failed for inventory {InventoryId}", InventoryId);
-            _restockMessage = T["That didn't work. Try again."];
-        }
-        finally
-        {
-            _isWorkingOnRestockList = false;
-        }
-    }
-
     /// <summary>
     /// The form model keeps a DateOnly? because that is what a date box binds to; ExpiresInField speaks
     /// in DateTimeOffset? because that is what the item carries. These two are the join.
@@ -589,17 +684,43 @@ else
     private static DateOnly? ToExpiryDate(DateTimeOffset? expiresOn)
         => expiresOn is { } value ? DateOnly.FromDateTime(value.LocalDateTime) : null;
 
-    /// <summary>The two restock-list settings while somebody is editing them - see RestockListSettings.</summary>
+    /// <summary>The restock-list settings while somebody is editing them - see RestockListSettings.</summary>
     private sealed class RestockSettingsFormModel
     {
+        public bool IsEnabled { get; set; } = true;
+
+        public bool RemindDaily { get; set; } = true;
+
         public bool OnlyLinkedWithDueDate { get; set; }
 
         public TimeOnly RefreshTimeOfDay { get; set; } = RestockListSettings.DefaultRefreshTimeOfDay;
 
-        public static RestockSettingsFormModel FromDto(RestockListSettingsDto settings)
-            => new() { OnlyLinkedWithDueDate = settings.OnlyLinkedWithDueDate, RefreshTimeOfDay = settings.RefreshTimeOfDay };
+        public ItemPriority ListPriority { get; set; } = ItemPriority.Normal;
 
-        public RestockListSettingsDto ToDto() => new(OnlyLinkedWithDueDate, RefreshTimeOfDay);
+        /// <summary>Whether the list asks only about what somebody marked to look at every round.</summary>
+        public bool OnlyCheckedRegularly { get; set; }
+
+        /// <summary>Where the standing reminder is said - one of "None"/"Email"/"Push"/"Both".</summary>
+        public string ReminderChannel { get; set; } = "Push";
+
+        public static RestockSettingsFormModel FromDto(RestockListSettingsDto settings)
+            => new()
+            {
+                IsEnabled = settings.IsEnabled,
+                RemindDaily = settings.RemindDaily,
+                OnlyLinkedWithDueDate = settings.OnlyLinkedWithDueDate,
+                RefreshTimeOfDay = settings.RefreshTimeOfDay,
+                ListPriority = Enum.TryParse<ItemPriority>(settings.ListPriority, out var priority)
+                    ? priority
+                    : ItemPriority.Normal,
+                OnlyCheckedRegularly = settings.OnlyCheckedRegularly,
+                ReminderChannel = settings.ReminderChannel
+            };
+
+        public RestockListSettingsDto ToDto()
+            => new(
+                OnlyLinkedWithDueDate, RefreshTimeOfDay, IsEnabled, RemindDaily, ListPriority.ToString(),
+                OnlyCheckedRegularly, ReminderChannel);
     }
 
     /// <summary>A new row opens straight to its fields - there is nothing to recognise it by yet.</summary>
@@ -613,7 +734,17 @@ else
     /// <summary>The types actually on this shelf - a filter offering one nothing is filed under is a dead end.</summary>
     private IReadOnlyList<string> ProductTypesOnTheShelf => DistinctValues(item => item.ProductType);
 
-    private IReadOnlyList<string> CategoriesOnTheShelf => DistinctValues(item => item.Category);
+    /// <summary>
+    /// Every word anything on this shelf is filed under. An item can carry several now, so this reads
+    /// across all of them rather than taking one per row - see InventoryItem.Categories.
+    /// </summary>
+    private IReadOnlyList<string> CategoriesOnTheShelf
+        => [.. _formModel.Items
+            .SelectMany(item => item.Categories)
+            .Select(category => category.Trim())
+            .Where(category => category.Length > 0)
+            .Distinct(StringComparer.CurrentCultureIgnoreCase)
+            .OrderBy(category => category, StringComparer.CurrentCultureIgnoreCase)];
 
     private IReadOnlyList<string> DistinctValues(Func<InventoryItemFormModel, string> of)
         => [.. _formModel.Items
@@ -654,7 +785,10 @@ else
 
         public bool Matches(InventoryItemFormModel item)
             => Matches(ProductType, item.ProductType)
-                && Matches(Category, item.Category)
+                // One of them is enough: an item filed under both "baking" and "dry goods" is what
+                // either filter is looking for.
+                && (Category.Length == 0 || item.Categories.Any(
+                    category => string.Equals(Category, category.Trim(), StringComparison.CurrentCultureIgnoreCase)))
                 && Contains(Name, item.Name);
 
         private static bool Matches(string chosen, string itemValue)
@@ -755,7 +889,14 @@ else
         {
             if (IsNewInventory)
             {
-                await InventoryApiClient.CreateInventoryAsync(_formModel.ToRequest());
+                // Said in the server's own words when it refuses. "Try again" is the wrong thing to
+                // tell somebody about a request that will be refused identically every time.
+                var creation = await InventoryApiClient.CreateInventoryAsync(_formModel.ToRequest());
+                if (!creation.WasCreated)
+                {
+                    _saveErrorMessage = creation.RefusedBecause;
+                    return;
+                }
             }
             else
             {
@@ -771,6 +912,13 @@ else
                     _saveErrorMessage = T["Failed to save the inventory. Try again."];
                     return;
                 }
+
+                // The restock list's settings go with the shelf they belong to, rather than behind a
+                // Save of their own: this form already has one Save and one Cancel, and a section with
+                // a second pair of them left somebody who pressed the page's Save wondering why the
+                // switch they had just moved had not taken. Only for an inventory that exists - a new
+                // one has no list to configure until it has been created.
+                await InventoryApiClient.SaveRestockListSettingsAsync(InventoryId!.Value, _restockSettings.ToDto());
             }
         }
         catch (HttpRequestException exception) when (exception.StatusCode == HttpStatusCode.Unauthorized)

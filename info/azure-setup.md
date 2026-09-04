@@ -122,7 +122,11 @@ Two safety nets watch this table, because every "Optional" row fails *silently* 
 - The deploy workflow refuses to deploy while any variable above is absent from `orbit-api` (the
   "Verify orbit-api has every required environment variable" step in
   [main_orbit.yml](../.github/workflows/main_orbit.yml) - edit its list when deliberately dropping a
-  feature). It checks names only, since secret values can't be read back.
+  feature). It checks names only, since secret values can't be read back. Every row above is on that
+  list, including `WebClientBaseUrl`, which was the last one missing from it: the variable was added to
+  this table while still unset in production, and a name on that list is a name whose absence stops the
+  deploy, so listing it then would have blocked every deploy until somebody set it. It was set on
+  `orbit-api` on 2026-09-04 and listed in the same change.
 - The API's `configuration` health check reports on `GET /health` which integration is unconfigured
   (Degraded) or - always a mistake - only partially configured (Unhealthy), naming the missing keys.
   `orbit-api` has no external ingress, so read it via

@@ -137,6 +137,13 @@ public sealed class OrbitDbContext : DbContext
                 .WithOne()
                 .HasForeignKey(category => category.TaskItemId)
                 .OnDelete(DeleteBehavior.Cascade);
+
+            // And what the product it describes is filed under, which is a different question - see
+            // TaskItemProductCategoryEntity.
+            entity.HasMany(item => item.ProductCategories)
+                .WithOne()
+                .HasForeignKey(category => category.TaskItemId)
+                .OnDelete(DeleteBehavior.Cascade);
         });
 
         modelBuilder.Entity<TaskItemCategoryEntity>(entity =>
@@ -146,6 +153,27 @@ public sealed class OrbitDbContext : DbContext
             entity.HasKey(category => new { category.TaskItemId, category.Category });
             entity.Property(category => category.Category).IsRequired().HasMaxLength(StoredTextLimits.Category);
             // Every page that offers a category filter first has to ask what categories there are.
+            entity.HasIndex(category => category.Category);
+        });
+
+        modelBuilder.Entity<TaskItemProductCategoryEntity>(entity =>
+        {
+            // The category itself is half the key, the same as the entry's own: a product carries each
+            // word once, which is the rule TaskItem applies on the way in.
+            entity.HasKey(category => new { category.TaskItemId, category.Category });
+            entity.Property(category => category.Category).IsRequired().HasMaxLength(StoredTextLimits.Category);
+            // Asked of the whole account by the used-values list, the same as every other category here.
+            entity.HasIndex(category => category.Category);
+        });
+
+        modelBuilder.Entity<InventoryItemCategoryEntity>(entity =>
+        {
+            // The category itself is half the key, the same as a task entry's: an item carries each one
+            // once, which is the rule InventoryItem.Categories applies on the way in.
+            entity.HasKey(category => new { category.InventoryItemId, category.Category });
+            entity.Property(category => category.Category).IsRequired().HasMaxLength(StoredTextLimits.Category);
+            // The inventory editor's own filter first has to ask what categories a shelf holds, and the
+            // used-values list asks it of the whole account.
             entity.HasIndex(category => category.Category);
         });
 
@@ -270,6 +298,12 @@ public sealed class OrbitDbContext : DbContext
         // (see NameSuggestionRepository.NamesFor) - they have no kind of their own - but a UNION ALL
         // branch benefits from its own index exactly as a standalone query would.
         modelBuilder.Entity<InventoryItemEntity>()
+            .HasMany(item => item.Categories)
+            .WithOne()
+            .HasForeignKey(category => category.InventoryItemId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<InventoryItemEntity>()
             .HasIndex(item => item.Name)
             .HasDatabaseName("ix_inventory_items_name_trgm")
             .HasMethod("gin")
@@ -347,6 +381,26 @@ public sealed class OrbitDbContext : DbContext
             // Nine in the morning, matching RestockListSettings.DefaultRefreshTimeOfDay - stated here as
             // well so the column's own default agrees with the domain's.
             .HasDefaultValue(9 * 60);
+        // Both default to true in the schema, not only in the entity: every inventory that had a restock
+        // list before these columns existed kept one and was reminded about it, and a migration that
+        // read back "false" would silently switch that off for all of them.
+        modelBuilder.Entity<InventoryManagedTaskListEntity>()
+            .Property(row => row.IsEnabled)
+            .HasDefaultValue(true);
+        modelBuilder.Entity<InventoryManagedTaskListEntity>()
+            .Property(row => row.RemindDaily)
+            .HasDefaultValue(true);
+        modelBuilder.Entity<InventoryManagedTaskListEntity>()
+            .Property(row => row.ListPriority)
+            .IsRequired().HasMaxLength(10)
+            .HasDefaultValue(nameof(Orbit.Core.Abstractions.ItemPriority.Normal));
+        // The same rule again for where the standing reminder is said: a row written before the column
+        // existed is a list that was being reminded on the phone, and reading back an empty channel
+        // would take that away.
+        modelBuilder.Entity<InventoryManagedTaskListEntity>()
+            .Property(row => row.ReminderNotificationChannel)
+            .IsRequired().HasMaxLength(10)
+            .HasDefaultValue(nameof(Orbit.Core.Notifications.NotificationChannel.Push));
 
         modelBuilder.Entity<ChatGroupAnnouncementEntity>(entity =>
         {
@@ -421,7 +475,6 @@ public sealed class OrbitDbContext : DbContext
             entity.HasKey(item => item.Id);
             entity.Property(item => item.Name).IsRequired().HasMaxLength(StoredTextLimits.Title);
             entity.Property(item => item.ProductType).HasMaxLength(StoredTextLimits.ProductType);
-            entity.Property(item => item.Category).HasMaxLength(StoredTextLimits.Category);
             entity.Property(item => item.ExpiryNotificationChannel).HasMaxLength(20);
             // Every inventory query is scoped to a single inventory's items; this is the index that
             // makes those lookups fast instead of scanning the whole table.

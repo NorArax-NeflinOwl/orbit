@@ -5,14 +5,21 @@ rest of the documentation already flags as "not implemented yet," a deliberate f
 cut, or an identified follow-up. It is not a committed roadmap with dates — it is the current honest
 picture of what's left.
 
-**Last checked against the code on 2026-08-31.** A plan is only worth reading if it describes the
+**Last checked against the code on 2026-09-04.** A plan is only worth reading if it describes the
 present. Anything below that says "not started" or "no coverage" was checked against the repository on
 that date rather than carried forward on trust.
 
-Since the last pass: the version is counted from the history rather than maintained by hand, the tasks
-page reads three ways, a restock errand edits the shelf it names, a calendar entry is the appointment
-rather than a pointer at one, and the build refuses to finish on a warning. What that pass found and did
-**not** fix is in [Known scope cuts and rough edges](#known-scope-cuts-and-rough-edges) below.
+Since the last pass: every table and column was renamed to the Orbit convention and a storage is an
+*inventory* everywhere, which is what stops a 0.2.x Android build (see
+[Current Status](current-status.md#the-mobile-client)); the assistant's first model round trip exists on
+the server, and a measured answer to whether a small local model could do the language half is in
+[Local model measurements](ai-assistant-local-model-measurements.md); two of the four things this
+document held back for one migration have shipped, so [that section](#what-the-ui-pass-still-needs-a-migration-for)
+is down to two; the six objects each have a page that reads and a form one press further in, so the
+unevenness recorded under [Smaller identified follow-ups](#smaller-identified-follow-ups) is gone and
+only the inconsistency beside it is left; and a task entry's own field is one line that offers names
+from everywhere they get typed. What this pass found and did **not** fix is in
+[Known scope cuts and rough edges](#known-scope-cuts-and-rough-edges) below.
 
 ## Planned features
 
@@ -62,20 +69,35 @@ rather than a pointer at one, and the build refuses to finish on a warning. What
   document cannot make for it: Orbit's own contacts are people who hold an Orbit account and have agreed
   to a conversation, and a Google contact is a name and an email address. Whether an imported contact is
   a third kind of row, or only a way to find somebody already on Orbit, changes the feature entirely.
-- **An AI assistant for inventories and task lists.** No work started. It suggests and corrects what the
-  user is typing, finds duplicate items, explains what Orbit can do, and proposes calendar events linked
-  to the right task lists. It is deliberately shut out of private items and out of chat entirely - it is
-  not a party to any conversation, and the messages are sealed so there would be nothing to give it.
-  The whole design, the model and hosting decision, and the order to build it in are in
-  [Orbit Assistant — Plan](ai-assistant-plan.md).
+- **An AI assistant for inventories and task lists.** Two steps of it stand; the useful part does not.
+  It is meant to suggest and correct what the user is typing, find duplicate items, explain what Orbit
+  can do, and propose calendar events linked to the right task lists. It is deliberately shut out of
+  private items and out of chat entirely - it is not a party to any conversation, and the messages are
+  sealed so there would be nothing to give it. The whole design, the model and hosting decision, and the
+  order to build it in are in [Orbit Assistant — Plan](ai-assistant-plan.md); the file-by-file version of
+  steps 3 onwards is in [Orbit Assistant — Build Plan](ai-assistant-build-plan.md).
 
-  Two things there are worth knowing without opening it. **Half of what was asked for is not a language
+  **What is built.** Step 1, the half that needs no model: names the reader already has, offered as they
+  type, with a warning when what is being typed is a name they already use (see
+  [Functionality](functionality.md#names-you-have-already-used)). And step 3's first round trip:
+  `POST /api/assistant/messages` answers one question through `Microsoft.Extensions.AI`, against Ollama
+  on a laptop (`docker compose up -d ollama`) or a hosted model in production, and says "not configured"
+  where neither is set.
+
+  **What is not.** Everything that would make that round trip worth having: no context is assembled, so
+  the model is told none of the reader's data and is instructed to say so rather than invent; no tools,
+  and so no proposals to apply; nothing remembered between questions; and no surface in either client -
+  the web and the phone contain no assistant code at all. Step 2, merging the duplicates step 1 already
+  finds, is not started either.
+
+  Two things are worth knowing without opening the plan. **Half of what was asked for is not a language
   model's job**: typeahead and duplicate detection are trigram similarity searches over the user's own
   data, which PostgreSQL answers in milliseconds for nothing and more correctly than a model could. And
-  **the model should not be self-hosted**: an earlier version of this entry proposed running Ollama
-  beside `orbit-api`, and measuring that is what killed it - a model small enough to serve on the CPU
-  Orbit deploys on is too weak for Polish, and one good enough at Polish is too slow to sit behind a chat
-  window. A small hosted model in Azure AI Foundry costs cents a month at this size. Ollama stays, for
+  **the model should not be self-hosted**, which is now measured rather than argued - see
+  [Local model measurements](ai-assistant-local-model-measurements.md). A 3B model on a CPU-only laptop
+  corrected at most one of eight real Polish spelling errors while changing names that were already
+  correct, and its latency had no floor when the machine was busy (181 s for a 39-token reply under
+  load). A small hosted model in Azure AI Foundry costs cents a month at this size. Ollama stays, for
   local development only.
 
 ## What real Google Calendar sync would take
@@ -287,8 +309,10 @@ since been closed; what is left is recorded below with the same honesty about wh
   and `orbit-web` images on every push to `main` and deploys them to two Azure Container Apps via
   OIDC login (no stored client secret), and the first-time setup — Container App secrets for
   `JWT_SIGNING_KEY`, SMTP and VAPID, the database, backups — is written down in
-  [Azure Container Apps setup](azure-setup.md). What is still open is the public URL itself being
-  recorded somewhere findable, rather than read off the workflow file.
+  [Azure Container Apps setup](azure-setup.md). The public URL is at least written down in production
+  now: `WebClientBaseUrl` on `orbit-api` holds `orbit-web`'s own address, set 2026-09-04 so a
+  shared-item email carries a link. What is still open is recording it somewhere a reader of this
+  repository can find, rather than having to ask Azure for it.
 - **Manage the Azure infrastructure itself as code (Bicep or Terraform), instead of one-off `az cli`
   commands typed into Cloud Shell.** Not started. Every Azure resource this project depends on today
   - `orbit-api`/`orbit-web` Container Apps, `orbit-environment`, the container registry, the
@@ -421,25 +445,62 @@ thing starts in - an empty row above everything the day holds would be the wrong
 
 ## What the UI pass still needs a migration for
 
-The web redesign is done except for four things, and all four are the same shape: they need somewhere
-to store something the database has no column for. They are held together deliberately, so one
-migration, one deploy and one APK release cover them rather than three of each.
+The web redesign was done except for four things of the same shape: each needed somewhere to store
+something the database had no column for, so they were held together deliberately - one migration, one
+deploy and one APK release rather than four of each. **All four have since shipped**, one at a time -
+which is the answer to why the bundle was worth breaking up.
 
-- **Archiving a conversation.** The contacts page has its three tabs; the fourth - Archive, appearing
-  only when it holds something - needs a durable "archived" flag per contact and per group. Hiding a
-  row in the browser would unhide it on the next device, which is worse than not offering it.
-- **A description under a name.** A task list, an inventory and a note all want the same control: first
-  line the title, the rest the description. Only the note has it, because only the note has a field to
-  put it in. See [[task-list-description-deferred]] in the session memory for the phone's half.
-- **"Needed" on a shelf item**, so the restock list can ask for what is checked regularly rather than
-  only what has fallen below a minimum.
-- **Sharing an inventory from its own editor**, with the Inventories card on the dashboard that goes
-  with it. The share itself exists; the section and the card are new surface on top of it.
+- ~~**Archiving a conversation.**~~ Done: `IsArchived` on a contact and on a group membership, with the
+  fourth tab on the contacts page appearing only when it holds something. Archiving is a command like
+  any other, so it holds across devices - which is what ruled out doing it in the browser alone.
+- ~~**A description under a name.**~~ Done, and on all three: a note, a task list and an inventory each
+  take a title and a description as one control (`TitledDescription` in `TaskEditor.razor` and
+  `InventoryEditor.razor`), first line the title and the rest the description. See
+  [[task-list-description-deferred]] in the session memory for the phone's half and the two migrations
+  it took.
+- ~~**"Needed" on a shelf item.**~~ Done: `InventoryItem.IsCheckedRegularly`, and the restock list asks
+  on `BelongsOnTheRestockList => IsBelowMinimum || IsCheckedRegularly` - so a thing checked every week
+  is asked for whether or not it has fallen under a minimum.
+- ~~**Sharing an inventory from its own editor**, with the Inventories card on the dashboard.~~ Done,
+  and it needed no column after all - which is why it was the last of the four left standing. The panel
+  that was written inline on the inventory list card is now `ShareInventoryPanel`, shown from both
+  places a shelf is met; the dashboard gained an Inventory card beside the others, opening
+  `/inventory/{id}` the way every other card on that page opens what it names.
 
 Everything else on the pass - the top bar, the shared card and its footer, the calendar, the task and
 inventory lists, the contacts tabs, the chat menus - is built and needs no schema change.
 
+## Noticed while working
+
+Written down rather than fixed on the spot, per rule 14 in `.claude/CLAUDE.md`: work that turns up
+beside a task belongs here, not in that task's diff. A defect is the exception and is fixed when found.
+
+- **`setup-dotnet@v4`, `setup-java@v4` and `upload-artifact@v4`** carry the same Node 20 deprecation
+  `actions/checkout` did. `dependency-submission.yml` already pins `setup-dotnet@v5`, so the bump is
+  available whenever somebody wants it.
+- **The `android` job in `main_orbit.yml` starts a runner even when nothing mobile changed.** It
+  detects that in its first step and exits in seconds, but a started job is billed a whole minute -
+  about 29 of the 346 minutes measured. Moving the phone-head compile into its own workflow with a
+  `paths:` filter would skip the runner entirely on the pull requests that do not touch it.
+- **Nothing enforces that work reaches `main` only through `Coding`.** `guard-main.yml` closes stray
+  pull requests, but a direct push to `main` deploys before any workflow can run. Real branch
+  protection needs GitHub Pro on a private repository.
+
 ## Smaller identified follow-ups
+
+- **The phone does not yet describe a product before the shelf exists, and does not ask what to build.**
+  Both halves of the 2026-09-04 change to inventory entries are web-only. On the phone, an Inventory entry
+  still opens the product's fields only on a list already measured against a storage
+  (`ShelfProductFor`, `InventoryItemEditor.ForSomethingNotOnTheShelfYet`); on a list with no storage it
+  names a thing and nothing else, so what a phone writes there is lost to the shelf the web would have
+  built from it. And "Generate inventory" on the phone still posts an empty body: it takes the list's
+  title and the default restock list rather than asking, which the server deliberately still accepts
+  (`GenerateInventoryRequest`, every field optional). Nothing is broken by either - the phone passes
+  `TaskItemDto.Product` back untouched (`TaskListSynchronizer.ToRequests`), so a description written on
+  the web survives a push from the phone - it is parity that is missing. What it would take: the entry
+  editor's inventory fields shown for an unmeasured list too, bound to the entry's own product, and a
+  sheet in front of `StockCheckPanel.GenerateInventoryAsync` asking the same six questions
+  `GenerateInventoryOverlay` asks.
 
 - **Done, kept here as the map of it.** Orbit has two depths for the same thing: a shallow view for
   reading and doing, and a full form for changing what it is. Every object that can have both now does,
@@ -455,11 +516,16 @@ inventory lists, the contacts tabs, the chat menus - is built and needs no schem
   | Storage | `/inventory/{id}` - the shelf read rather than edited, one row per batch: what it is, how much, when it arrived, how long it keeps | `/inventory/{id}/edit` |
   | Contact / group | `/contacts/{userId}`, `/chat/groups/{id}/info` - read-only cards about who somebody is | no form; membership is edited on the roster |
 
-  Two things are wrong with that. It is uneven: a task list and a task entry have a real shallow view,
-  a note and an event have nothing between a card and a whole form, and a storage has neither. And it is
-  inconsistent about what a card's body does - `OnBodySelected` opens the *full* editor for a note and
-  the *shallow* view for an entry, which is the same gesture meaning two different things. Worth settling
-  what the shallow view is for across all of them before adding a sixth answer.
+  The unevenness this used to record is gone: when it was written a note, an event and a storage had
+  nothing between a card and a whole form, and each of the three has had its own reading page since
+  (`NoteSummary`, `CalendarEventSummary`, the shelf at `/inventory/{id}`), all built to the same shape
+  as part of the screen-ladder pass. A contact and a group are the deliberate exception - they are read
+  and never edited as objects, so there is no second depth to give them.
+
+  One thing is still wrong with it, and it is the smaller half: the shallow view and the full form are
+  reached inconsistently. `OnBodySelected` opens the *full* editor for a note and the *shallow* view for
+  an entry, which is the same gesture meaning two different things. Worth settling what a card's body is
+  for across all of them before adding a sixth answer.
 
 
 - ~~**Reordering by hand needs a mouse.**~~ Done: each handle now carries a pair of move-up/move-down

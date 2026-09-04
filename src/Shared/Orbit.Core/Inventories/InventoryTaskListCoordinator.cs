@@ -56,6 +56,16 @@ public sealed class InventoryTaskListCoordinator
             return null;
         }
 
+        // Asked before anything is created, not only before the standing reminder is built: an inventory
+        // whose restock list is switched off has no list at all, so there is nothing here to ensure.
+        // Everything that calls this treats null as "no list to put an errand on", which is already the
+        // answer for an inventory that has gone missing.
+        var settings = await _managedTaskListRepository.GetSettingsAsync(inventoryId, cancellationToken);
+        if (!settings.IsEnabled)
+        {
+            return null;
+        }
+
         var title = RestockTaskNaming.TitleFor(
             (await _inventoryRepository.GetByIdAsync(ownerUserId, inventoryId, cancellationToken))?.Name ?? string.Empty);
 
@@ -73,16 +83,69 @@ public sealed class InventoryTaskListCoordinator
         // The hour the inventory asked for, not a constant: nine in the morning is only the default (see
         // RestockListSettings), and a list created after somebody changed it should come round when they
         // said rather than when Orbit first guessed.
-        var settings = await _managedTaskListRepository.GetSettingsAsync(inventoryId, cancellationToken);
+        //
+        // It also carries a due date, which is what puts it on the calendar and on the dashboard: both
+        // read entries by DueDateUtc and neither knows anything about a daily reminder, so a standing
+        // reminder without one existed only on its own list. The date is today's, at the hour it comes
+        // round - see StandingReminderDueAt, which the daily reminder moves forward as it fires.
         var reminderItem = TaskItem.Create(
-            UpdateStockReminderDescription, dueDateUtc: null, isCompleted: false,
-            reminders: TaskItemReminders.Default with { Daily = true, DailyTimeOfDay = settings.RefreshTimeOfDay });
+            UpdateStockReminderDescription,
+            dueDateUtc: settings.RemindDaily ? StandingReminderDueAt(settings.RefreshTimeOfDay) : null,
+            isCompleted: false,
+            reminders: TaskItemReminders.Default with
+            {
+                Daily = settings.RemindDaily,
+                DailyChannel = settings.ReminderChannel,
+                DailyTimeOfDay = settings.RefreshTimeOfDay
+            });
         // Pinned from the moment it exists: this is the one list Orbit maintains rather than the reader,
         // and it is only useful if it is where they will see it.
-        var taskList = TaskList.Create(ownerUserId, title, [reminderItem], isPinned: true);
+        var taskList = TaskList.Create(
+            ownerUserId, title, [reminderItem], priority: settings.ListPriority, isPinned: true);
         await _taskRepository.AddAsync(taskList, cancellationToken);
         await _managedTaskListRepository.SetTaskListIdAsync(inventoryId, taskList.Id, cancellationToken);
         return taskList.Id;
+    }
+
+    /// <summary>
+    /// When the standing reminder is due: today, at the hour the inventory asked to be reminded. The
+    /// hour is read as a local one - the daily scheduler compares it against local time too (see
+    /// DailyTaskReminderScheduler.IsDue), and a nine-o'clock reminder that landed at eight or ten
+    /// depending on the season would be a different promise.
+    ///
+    /// Returned as the same instant in UTC, which is what every due date here is and what the column
+    /// will take: Npgsql refuses a DateTimeOffset carrying any other offset for a "timestamp with time
+    /// zone", so handing one straight out failed the whole save rather than only this field.
+    /// </summary>
+    public static DateTimeOffset StandingReminderDueAt(TimeOnly refreshTimeOfDay, DateTimeOffset? nowLocal = null)
+    {
+        var local = nowLocal ?? DateTimeOffset.Now;
+        var dueLocal = DateOnly.FromDateTime(local.DateTime).ToDateTime(refreshTimeOfDay);
+        return new DateTimeOffset(dueLocal, local.Offset).ToUniversalTime();
+    }
+
+    /// <summary>
+    /// Takes the managed list away entirely, with everything on it, and forgets that this inventory ever
+    /// had one - what switching the restock list off means (see RestockListSettings.IsEnabled). Switching
+    /// it back on builds a fresh one rather than finding this one again, which is why the editor asks
+    /// before saving that change.
+    /// </summary>
+    public async Task DeleteManagedTaskListAsync(Guid inventoryId, CancellationToken cancellationToken)
+    {
+        if (await _managedTaskListRepository.GetTaskListIdAsync(inventoryId, cancellationToken) is not { } taskListId)
+        {
+            return;
+        }
+
+        if (await _inventoryRepository.GetOwnerUserIdAsync(inventoryId, cancellationToken) is { } ownerUserId)
+        {
+            await _taskRepository.DeleteAsync(ownerUserId, taskListId, cancellationToken);
+        }
+
+        // Cleared even when the owner could not be found, so a list that is already gone stops being
+        // pointed at: the tracking row is what makes the next EnsureManagedTaskListAsync think there is
+        // still a list to reuse.
+        await _managedTaskListRepository.ClearTaskListIdAsync(inventoryId, cancellationToken);
     }
 
     /// <summary>
@@ -108,6 +171,13 @@ public sealed class InventoryTaskListCoordinator
         // asks for is worked out across every task at once, which is RestockListRefresh's job.
         var settings = await _managedTaskListRepository.GetSettingsAsync(item.InventoryId, cancellationToken);
         if (settings.OnlyLinkedWithDueDate)
+        {
+            return item;
+        }
+
+        // Nor does a list that only asks about the round: the shelf running low is not a question it
+        // puts, so a product nobody marked to look at stays off it however little there is.
+        if (settings.OnlyCheckedRegularly && !item.IsCheckedRegularly)
         {
             return item;
         }

@@ -1,0 +1,139 @@
+@using Orbit.Contracts.Inventories
+@using Orbit.Contracts.Notifications
+@using Orbit.Contracts.Tasks
+@using Orbit.Core.Abstractions
+@using Orbit.Core.Inventories
+@using Orbit.Web.Services
+@inject Translations T
+
+@* What to build, asked before anything is built. Turning a list into a storage used to be one click
+   with no questions: the storage took the list's name whether or not that was what the shelf should be
+   called, and the "Restock supplies" list it keeps was created with the defaults and had to be found
+   and corrected afterwards. Both answers are wanted at the same moment, so both are asked here.
+
+   Over the page rather than in the form: it is about the list as a whole, and it is reached from the
+   menu in the rail, which has nowhere to unfold into. *@
+<div class="form-overlay" @onclick="Cancel">
+    <div class="form-overlay-panel" @onclick:stopPropagation="true">
+        <div class="form-overlay-header">
+            <h2>@T["Generate inventory"]</h2>
+            <button type="button" class="icon-btn" title="@(T["Close"])" aria-label="@(T["Close"])"
+                    @onclick="Cancel">✕</button>
+        </div>
+
+        <div class="field">
+            <label for="generatedInventoryName">@T["Name"]</label>
+            <input id="generatedInventoryName" class="form-control" @bind="_name" @bind:event="oninput"
+                   placeholder="@DefaultName" aria-label="@(T["Name"])" />
+            <small>@T["The list's own title unless you say otherwise. One product per distinct thing the list names goes on the shelf."]</small>
+        </div>
+
+        <h3 class="form-overlay-section">@T["Restock supplies task"]</h3>
+
+        @* The same settings the inventory's own editor keeps, asked here because this is the moment they
+           are decided - see RestockListSettings. Everything below the first switch is greyed out rather
+           than hidden while it is off, so what would be turned back on stays readable. *@
+        <label class="field-checkbox" for="generatedRestockEnabled">
+            <input id="generatedRestockEnabled" type="checkbox" @bind="_isEnabled" />
+            <span>@T["Keep a restock list for this inventory"]</span>
+        </label>
+        <p class="field-hint">
+            @(_isEnabled
+                ? T["Orbit keeps a \"Restock supplies\" list for this shelf and puts what is running low on it."]
+                : T["No list is created. Nothing on the shelf raises an errand."])
+        </p>
+
+        <fieldset class="restock-settings-fields" disabled="@(!_isEnabled)">
+            <label class="field-checkbox" for="generatedRestockRemindDaily">
+                <input id="generatedRestockRemindDaily" type="checkbox" @bind="_remindDaily" />
+                <span>@T["Remind me to update stock levels"]</span>
+            </label>
+
+            @* The hour and the channel both hang off the reminder switch: neither means anything while
+               nothing arrives, which is what the disabled fieldset says without a sentence. *@
+            <fieldset class="restock-reminder-time" disabled="@(!_remindDaily)">
+                <label for="generatedRestockTime">@T["Comes round at"]</label>
+                <TimeField Value="_refreshTimeOfDay"
+                           ValueChanged="time => _refreshTimeOfDay = time ?? RestockListSettings.DefaultRefreshTimeOfDay"
+                           AriaLabel="@(T["Comes round at"])" />
+                <label for="generatedRestockChannel">@T["Said on"]</label>
+                <select id="generatedRestockChannel" @bind="_reminderChannel">
+                    @foreach (var option in NotificationChannelOption.All)
+                    {
+                        <option value="@option.Value" disabled="@option.IsDisabledBy(NotificationSettings)">@T[option.Label]</option>
+                    }
+                </select>
+            </fieldset>
+
+            @* What the list asks about at all - see RestockListSettings.OnlyCheckedRegularly. A choice
+               of two rather than a checkbox, because both answers are answers: one shelf is counted and
+               reports what ran out, another is walked past and looked at. *@
+            <div class="field">
+                <label for="generatedRestockScope">@T["The list asks about"]</label>
+                @* Read and written by hand rather than through @bind: a select's value is a string, and
+                   binding one straight onto a bool quietly kept the default whatever was chosen. *@
+                <select id="generatedRestockScope" value="@ScopeChosen" @onchange="ChooseScope">
+                    <option value="false">@T["Everything running low"]</option>
+                    <option value="true">@T["Only the products marked \"Check every round\""]</option>
+                </select>
+                <small>
+                    @(_onlyCheckedRegularly
+                        ? T["The list asks only about the products marked to look at every round. What is running low but not marked is left off."]
+                        : T["The list asks for everything on this shelf that has dropped below its own minimum."])
+                </small>
+            </div>
+        </fieldset>
+
+        <div class="form-overlay-actions">
+            <button type="button" class="btn-secondary" @onclick="Cancel">@T["Cancel"]</button>
+            <button type="button" class="btn-primary" disabled="@IsWorking" @onclick="ConfirmAsync">@T["Generate"]</button>
+        </div>
+    </div>
+</div>
+
+@code {
+    /// <summary>What the storage is called unless somebody says otherwise - the task list's own title.</summary>
+    [Parameter, EditorRequired] public string DefaultName { get; set; } = string.Empty;
+
+    /// <summary>Which channels this account can actually be reached on - one it cannot is offered greyed.</summary>
+    [Parameter] public NotificationSettingsDto NotificationSettings { get; set; }
+        = new(true, true, true, true, ShowExceptionDetails: false, BannerVisibleSeconds: 5, BannerMinimumGapSeconds: 5);
+
+    /// <summary>Whether a generation asked for from here is still running - the button says so.</summary>
+    [Parameter] public bool IsWorking { get; set; }
+
+    [Parameter] public EventCallback<GenerateInventoryRequest> OnConfirmed { get; set; }
+
+    [Parameter] public EventCallback OnCancelled { get; set; }
+
+    /// <summary>
+    /// Empty until somebody types, rather than pre-filled with the list's title: an untouched box shows
+    /// the title as its placeholder and means "the same as the list", which is also what the server
+    /// reads a blank name as - see GenerateInventoryRequest.
+    /// </summary>
+    private string _name = string.Empty;
+
+    private bool _isEnabled = true;
+    private bool _remindDaily = true;
+    private TimeOnly _refreshTimeOfDay = RestockListSettings.DefaultRefreshTimeOfDay;
+    private string _reminderChannel = "Push";
+    private bool _onlyCheckedRegularly;
+
+    /// <summary>The two answers as the picker holds them - see the markup for why this is not an @bind.</summary>
+    private string ScopeChosen => _onlyCheckedRegularly ? "true" : "false";
+
+    private void ChooseScope(ChangeEventArgs args)
+        => _onlyCheckedRegularly = string.Equals(args.Value?.ToString(), "true", StringComparison.Ordinal);
+
+    private Task Cancel() => OnCancelled.InvokeAsync();
+
+    private Task ConfirmAsync()
+        => OnConfirmed.InvokeAsync(new GenerateInventoryRequest(
+            _name,
+            // Sent whole rather than only the fields that were touched: this is the storage's first and
+            // so far only answer about its restock list, and half of one would leave the rest at
+            // defaults nobody was shown.
+            new RestockListSettingsDto(
+                OnlyLinkedWithDueDate: false, _refreshTimeOfDay, _isEnabled, _remindDaily,
+                nameof(ItemPriority.Normal), _onlyCheckedRegularly, _reminderChannel)));
+}

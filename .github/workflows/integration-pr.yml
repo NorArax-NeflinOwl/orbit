@@ -1,0 +1,124 @@
+# Keeps exactly one pull request open from Coding to main, for as long as the two differ.
+#
+# Work lands on Coding, which costs a build. Only a merge to main deploys, which costs a build, a push
+# to ACR and two Container App revisions - so the fewer merges main sees, the better, and the point of
+# this workflow is that many merges to Coding arrive at main as one.
+#
+# It opens the pull request rather than merging it: what reaches production stays somebody's decision,
+# and the deploy is expensive enough to deserve one. When Coding and main agree again - right after
+# that merge - the pull request has nothing left to describe and is closed here rather than left open
+# saying "no changes".
+#
+# The description is rewritten on every push, so it always lists what is actually waiting, and the PR
+# is opened as a draft: a ready-for-review one would say "somebody looked at this", which nobody has.
+#
+# ONE REPOSITORY SETTING IS REQUIRED. Actions may not open a pull request unless "Allow GitHub Actions
+# to create and approve pull requests" is on (Settings > Actions > General > Workflow permissions).
+# It is off by default, and without it every run here fails on "GitHub Actions is not permitted to
+# create or approve pull requests". The step below says so rather than leaving the GraphQL error to be
+# deciphered:
+#
+#   gh api -X PUT repos/<owner>/<repo>/actions/permissions/workflow -F can_approve_pull_request_reviews=true
+name: Keep one pull request open from Coding to main
+
+on:
+  push:
+    branches:
+      - Coding
+  # For the first run after this file lands, and for re-syncing the description by hand.
+  workflow_dispatch:
+
+# One at a time: two pushes in quick succession would otherwise race to create the same pull request,
+# and the loser would fail on "a pull request already exists". Queued rather than cancelled, so the
+# description ends up describing the newer commit either way.
+concurrency:
+  group: integration-pr
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  integration-pr:
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0   # both branches in full - the commit list below is counted from them
+
+      - name: Work out what Coding is holding
+        id: ahead
+        run: |
+          git fetch origin main Coding --quiet
+          count=$(git rev-list --count origin/main..origin/Coding)
+          echo "count=$count" >> "$GITHUB_OUTPUT"
+          {
+            echo 'list<<COMMITS'
+            git log --format='- %s (%h)' origin/main..origin/Coding
+            echo 'COMMITS'
+          } >> "$GITHUB_OUTPUT"
+          echo "Coding is $count commit(s) ahead of main."
+
+      # Nothing to integrate means the last integration was merged. An open pull request from before
+      # that would now describe an empty diff, so it is closed instead of left to confuse the list.
+      - name: Close the pull request when the branches agree
+        if: steps.ahead.outputs.count == '0'
+        run: |
+          number=$(gh pr list --base main --head Coding --state open --json number --jq '.[0].number // empty')
+          if [ -n "$number" ]; then
+            gh pr close "$number" --comment "Coding and main agree - nothing left to integrate. A new pull request opens by itself on the next push to Coding."
+            echo "Closed #$number."
+          else
+            echo "Nothing ahead and nothing open. Done."
+          fi
+
+      - name: Open or update the one pull request
+        if: steps.ahead.outputs.count != '0'
+        env:
+          COMMITS: ${{ steps.ahead.outputs.list }}
+          COUNT: ${{ steps.ahead.outputs.count }}
+        run: |
+          {
+            echo "## What"
+            echo
+            echo "Everything that has landed on \`Coding\` since main last took a deploy - $COUNT commit(s):"
+            echo
+            echo "$COMMITS"
+            echo
+            echo "## Why this exists"
+            echo
+            echo "Merging here is what deploys, and a deploy costs a build, a push to ACR and two"
+            echo "Container App revisions. Batching the work into one merge is the saving; opening it"
+            echo "automatically is only so nobody has to remember to."
+            echo
+            echo "## Before merging"
+            echo
+            echo "- The suite has run on \`Coding\` for each of those commits (main_orbit.yml)."
+            echo "- Watch the deploy afterwards: \`gh run watch\`."
+            echo
+            echo "_Rewritten by .github/workflows/integration-pr.yml on every push to Coding._"
+          } > "$RUNNER_TEMP/body.md"
+
+          number=$(gh pr list --base main --head Coding --state open --json number --jq '.[0].number // empty')
+          if [ -n "$number" ]; then
+            gh pr edit "$number" --body-file "$RUNNER_TEMP/body.md"
+            echo "Updated #$number."
+            exit 0
+          fi
+
+          # The one failure worth explaining rather than repeating: the repository setting named in the
+          # header. Everything else - a network blip, a branch deleted mid-run - is left to speak for
+          # itself, since a wrong explanation is worse than none.
+          if ! error=$(gh pr create --base main --head Coding --draft \
+                --title "[Integration] Coding → main" --body-file "$RUNNER_TEMP/body.md" 2>&1); then
+            echo "$error"
+            if echo "$error" | grep -q "not permitted to create or approve pull requests"; then
+              echo "::error::Actions may not open pull requests in this repository, so the integration pull request cannot be created. Turn on Settings > Actions > General > 'Allow GitHub Actions to create and approve pull requests', or run: gh api -X PUT repos/${{ github.repository }}/actions/permissions/workflow -F can_approve_pull_request_reviews=true - then re-run this workflow. Until then, open it by hand: gh pr create --base main --head Coding --draft --title '[Integration] Coding → main'"
+            fi
+            exit 1
+          fi
+          echo "Opened the integration pull request." 

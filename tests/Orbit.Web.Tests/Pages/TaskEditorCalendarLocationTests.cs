@@ -484,7 +484,9 @@ public sealed class TaskEditorCalendarLocationTests : OrbitTestContext
         RegisterApiClients(Item("unused"));
         Services.GetRequiredService<ChosenPlace>().Hold(new PickedPlace("Długa 4, Warszawa", 52.2497, 21.0122));
         var cut = RenderComponent<TaskEditor>();
-        cut.Find(".editor-item-details input").Change("Dentist");
+        // The first box in the details block, which is what this entry is filed under - see TagField.
+        // Incidental to what is being held here, but it was what this line always wrote to.
+        cut.Find(".tag-field-input").Input("Dentist");
         SayWhenItHappens(cut);
 
         Save(cut);

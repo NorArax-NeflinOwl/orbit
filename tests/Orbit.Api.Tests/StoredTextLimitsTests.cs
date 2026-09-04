@@ -84,7 +84,7 @@ public sealed class StoredTextLimitsTests
             Guid.NewGuid(),
             tooLongOne == "name" ? TooLongFor(StoredTextLimits.Title) : "Pasta",
             tooLongOne == "type" ? TooLongFor(StoredTextLimits.ProductType) : "Dry",
-            tooLongOne == "category" ? TooLongFor(StoredTextLimits.Category) : "Food",
+            [tooLongOne == "category" ? TooLongFor(StoredTextLimits.Category) : "Food"],
             quantity: 1, minimumQuantity: null, InventoryUnit.Piece,
             expiryDate: null, NotificationChannel.None));
 

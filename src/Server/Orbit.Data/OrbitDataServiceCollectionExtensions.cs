@@ -58,6 +58,7 @@ public static class OrbitDataServiceCollectionExtensions
         services.AddScoped<IChatGroupRepository, ChatGroupRepository>();
         services.AddScoped<IChatGroupAnnouncementRepository, ChatGroupAnnouncementRepository>();
         services.AddScoped<INameSuggestionRepository, NameSuggestionRepository>();
+        services.AddScoped<IUsedValueRepository, UsedValueRepository>();
         services.AddScoped<ISharedLocationRepository, SharedLocationRepository>();
         services.AddScoped<IChatConversationAccessRepository, ChatConversationAccessRepository>();
         services.AddScoped<IPushSubscriptionRepository, PushSubscriptionRepository>();
