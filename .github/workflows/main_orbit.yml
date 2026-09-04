@@ -29,18 +29,33 @@ name: Build, test and deploy Orbit to Azure Container Apps
 #
 # The deploy job stays out of it either way - it is guarded on the event as well as gated on the suite.
 #
-# Work lands on Coding first and reaches main in one integration pull request (see
-# integration-pr.yml), so both branches build and both accept pull requests - but only main deploys,
-# which is the whole point of the arrangement: a merge to Coding costs a build, a merge to main costs
-# a deploy.
+# Two triggers, deliberately, because a third and a fourth were burning the month's runner minutes.
+#
+# Work lands on Coding through pull requests and reaches main in one integration pull request (see
+# integration-pr.yml). Testing all of that would have run the same suite three times over for one
+# change: once on the feature pull request, once on the push to Coding that merged it, and once more
+# when that push synchronised the integration pull request. All three test near-identical trees.
+#
+# So exactly one of them is kept per stage:
+#
+#   pull_request into Coding - the tree as it will be once merged, which is what review needs.
+#   push to main             - the last gate before Azure is paid, and what the deploy job hangs off.
+#
+# What that gives up: two feature branches, each green against Coding, are not tested *together* until
+# the push to main. That is the trade - the combination is caught there, before anything deploys,
+# rather than twice per merge on the way.
+#
+# paths-ignore is on both now. A documentation-only change cannot break a build, and proving it on a
+# runner is the spend that started this.
 on:
   push:
     branches:
       - main
-      - Coding
+    paths-ignore:
+      - 'info/**'
+      - '**/*.md'
   pull_request:
     branches:
-      - main
       - Coding
     paths-ignore:
       - 'info/**'
