@@ -17,24 +17,27 @@ written handover is cheaper than working with a degraded context.
   moment to hand over.
 - Whenever the user asks for it.
 
-## Naming
-
-The new session keeps the current session name and increments the trailing
-counter:
-
-```
-orbit-deploy      → orbit-deploy-2
-orbit-deploy-2    → orbit-deploy-3
-orbit-messaging-1 → orbit-messaging-2
-```
-
-If the current session has no counter, add `-2`.
-
 ## Where the handover lives
 
-Write it to `docs/sessions/<new-session-name>.md` and commit it on the current
-feature branch (it is documentation, in English). If there is no branch
-(session was read-only), write it to the file and tell the user to commit it.
+Write it to `info/sessions/<session-name>.md` - documentation lives in `info/`, and
+this is documentation, in English. Name the file after the session that wrote it
+(whatever the session is called; there is no counter convention to follow).
+
+Commit it on this session's own PR branch, or on a fresh branch from
+`origin/Coding` if the session has none open - **never on whatever happens to be
+checked out.** The main checkout is shared by every session on this machine, and a
+`git switch` by one of them moves the ground under the rest: on 2026-09-04 a
+handover was committed onto another session's branch that way, seconds after that
+session had switched to it. So, immediately before committing:
+
+```bash
+git branch --show-current   # is this the branch you mean to commit to?
+git status --short          # is anything here that is not yours?
+```
+
+If either answer is wrong, do not fix it with a checkout in the shared tree - work
+from a worktree of your own (`git worktree add`). If there is no branch (the session
+was read-only), write the file and tell the user to commit it.
 
 ## Handover template
 
@@ -77,7 +80,7 @@ Date: <YYYY-MM-DD>
 The first message of the new session should be:
 
 ```
-Read .claude/CLAUDE.md and docs/sessions/<new-session-name>.md, then continue
+Read .claude/CLAUDE.md and info/sessions/<session-name>.md, then continue
 from "Next step".
 ```
 

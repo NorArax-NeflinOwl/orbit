@@ -4,12 +4,15 @@ Previous session: orbit-inventory-restock (unnamed at the time; this is the firs
 Date: 2026-09-04
 
 ## Branch and PR
-- Branch: `chore/one-run-per-stage` (this handover is committed here; the branch carries the CI-minutes
-  work that was already on it at the start, and has no PR of its own)
+- Branch: none of its own. This handover was committed in the shared main checkout while
+  `docs/session-handover-orbit-ops-2` - session orbit-ops's branch, PR #209 - happened to be checked out
+  there, so it rides on that PR. (The session believed it was on `chore/one-run-per-stage`; another
+  session had switched the checkout seconds earlier. See `session-handover` on checking the branch
+  before committing.)
 - Open PR: none inherited. Everything this session opened is merged - #101, #102, #103, #104, #106, #137.
-  The two PRs open in the repository belong elsewhere: **#207** (`feat/orbit-web-2026-09-04`, another
-  session's web work) and **#204** (the integration `Coding → main`). That leaves **one free slot** of
-  the three - see `pr-workflow` before opening it.
+  At the time of writing three PRs were open - **#204** (the integration `Coding → main`), **#207**
+  (`feat/orbit-web-2026-09-04`, another session's web work) and **#209** - so the cap was full, not one
+  slot free.
 - Uncommitted changes: none
 
 ## Goal of the work
@@ -19,7 +22,7 @@ with each other, and stop Docker filling the laptop.
 ## Done
 - **Rotatable permission codes** (#101). `IPermissionCodeRepository.SaveAsync` replaces add-if-absent,
   `PermissionCodeStore.RotateAsync` replaces one on purpose, startup still only fills in what is missing.
-  SQL for reading and rotating by hand is in the git-ignored `notes/permissions.local.md`.
+  SQL for reading and rotating by hand was kept in the git-ignored `notes/permissions.local.md` - not present on this machine as of 2026-09-04.
 - **Generated inventory carries quantities** (#102). Minimum = what the tree calls for (repetition is
   quantity); `AddInventoryItemPosition` gives a shelf an order, dragging sets it in both editors, and the
   checklist gained "in list order / A to Z".
@@ -38,7 +41,7 @@ with each other, and stop Docker filling the laptop.
 
 ## Still failing / unknown
 - **An established contact who has not unlocked `Contacts` is a 404**, so a conversation on the reader's
-  own list cannot be opened. On Azure that is `himei_tores`. Ruled out: it is not a bug in the lookup -
+  own list cannot be opened. One account on Azure shows it (named in the git-ignored `notes/permissions.local.md`, not here). Ruled out: it is not a bug in the lookup -
   `UserVisibility` is doing what the permission model asks. The design question (should the gate apply to
   somebody you already talk to?) is written up in `info/future-plan.md`.
 - **`FindableAmongAsync` is declared and never used**: the contact list is not filtered by visibility,
@@ -77,9 +80,11 @@ either exempt that case in `GetUserByIdQueryHandler` or filter the contact list 
   in that list is expected - the migration was deleted from the repository on purpose.
 - Azure Postgres: `orbit-postgres-djgiwo.postgres.database.azure.com`, admin `orbitadmin`, connection
   string in the `orbit-db-connection-string` Container App secret; the firewall already allows this Mac.
-- Permission unlock codes are rows: `SELECT "Permission", "Code" FROM "PermissionCodes";`. A code written
-  by hand must be uppercase, and rotating several in one `UPDATE` can give them all the same value.
-- Accounts on Azure: `admin` and `pudi` hold all four permissions; `himei_tores` and `ppudi7368` hold none.
+- Permission unlock codes are rows. Since PR #196 (2026-09-03) the table and columns follow the storage
+  naming convention: `SELECT "OS_PC_PERMISSION", "OS_PC_CODE" FROM "OS_PERMISSIONS_CODES";`. A code
+  written by hand must be uppercase, and rotating several in one `UPDATE` can give them all the same value.
+- Which account holds which permission is a deployment's own business and stays out of git - see the
+  `*.local.md` rule in `.gitignore`. That note belongs in `notes/permissions.local.md`, not here.
 - Local checking without HTTPS: publish `Orbit.Web` and serve it with a small proxying static server on
   8090 pointing `/api` at `http://127.0.0.1:8081`. The compose `orbit-web` redirects 8080 to 8443, and
   the browser pane will not take a self-signed certificate.

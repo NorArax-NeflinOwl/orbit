@@ -4,8 +4,9 @@ Previous session: orbit-ops
 Date: 2026-09-04
 
 ## Branch and PR
-- Branch: none — every branch this session worked on is merged (most recently
-  `chore/one-run-per-stage` via PR #208; this handover rides on its own small branch).
+- Branch: none of this session's own is open; everything it worked on is merged. This handover rides
+  on its own small branch. (`chore/one-run-per-stage` / PR #208, the CI-minutes work, was session
+  orbit-60's, not this one's - it is listed under Done only as something that landed this day.)
 - Open PR: none of this session's own. Repo-wide: #207 (`feat/orbit-web-2026-09-04` → `Coding`,
   another session's) and #204 (the integration PR `Coding` → `main`). One work slot under the
   three-PR cap is free — see `pr-workflow`.
@@ -24,8 +25,9 @@ deploy/CI hardening and operational planning for the repository.
 - Replaced GitHub's built-in "Automatic dependency submission" with
   `.github/workflows/dependency-submission.yml` (PR #84, merged) because the built-in one restores
   every csproj and always fails on `Orbit.Maui` (no MAUI workloads on Linux runners).
-- CI runner-minutes budget work merged (PR #208): the test suite runs on GitHub only on push to
-  `main` (integration merge); local `dotnet test Orbit.sln` is the pre-`Coding` gate (rule 5).
+- CI runner-minutes budget work landed (PR #208, by session orbit-60): the test suite runs on GitHub
+  only on push to `main` (integration merge); local `dotnet test Orbit.sln` is the pre-`Coding` gate
+  (rule 5).
 - Verified DB naming for ad-hoc SQL: tables `OP_`/`OL_`/`OS_`, columns like `OS_U_ID`,
   `OS_U_USERNAME`, `OP_T_USERID`; identifiers are quoted/case-sensitive; `user` is a reserved word
   in Postgres.
@@ -42,9 +44,10 @@ deploy/CI hardening and operational planning for the repository.
 
 ## Still failing / unknown
 - Unverified whether the user actually disabled the built-in "Automatic dependency submission"
-  setting (Settings → Advanced Security; not readable via API without admin scope). If pushes to
-  `feat/orbit-maui-phase0` still fail with `NETSDK1147` in a run named "Automatic Dependency
-  Submission", it is still on.
+  setting (Settings → Advanced Security; not readable via API without admin scope). The old tell -
+  pushes to `feat/orbit-maui-phase0` failing with `NETSDK1147` in a run named "Automatic Dependency
+  Submission" - is gone, because that branch was deleted as merged on 2026-09-04; check the setting
+  itself, or watch for that run name on any push.
 - The three decisions blocking Azure resource creation for production: which custom domain, the
   production Postgres SKU (B1ms recommended), and confirmation that production starts with an
   empty database.
