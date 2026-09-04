@@ -27,9 +27,14 @@ Rules in this file are always in context. Longer procedures live in
    second one - it makes no difference whether the work touches the web, the phone
    or documentation. Several sessions may share one PR. Merging to `main` triggers
    an expensive pipeline (Docker build, push to ACR, Container Apps deploy), which
-   is what the cap protects. See skill `pr-workflow`.
-2. Never push directly to `main`. Work on a feature branch and open a PR.
-   Do not merge the PR yourself — the user merges it.
+   is what the cap and the `Coding` branch in rule 2 both protect. See skill
+   `pr-workflow`.
+2. Never push directly to `main`, and never open a pull request against it. Work on
+   a feature branch and open the PR against `Coding`, which is where everything
+   lands first. `Coding` reaches `main` through one integration PR that
+   `.github/workflows/integration-pr.yml` keeps open on its own - merging *that* is
+   what deploys, so it is deliberately rare. Do not merge any PR yourself; the user
+   merges.
 3. Before the context fills up for the second time, start a new session and hand
    over the context. Name the new session like the current one with the numeric
    suffix incremented (`orbit-deploy-2` → `orbit-deploy-3`).

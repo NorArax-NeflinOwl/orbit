@@ -156,6 +156,13 @@ See [Azure Container Apps setup](azure-setup.md) for the full checklist of envir
 secrets, ingress settings, and persistent storage that have to be configured on the Container Apps
 themselves - none of it is set up by the pipeline below.
 
+Work does not reach `main` one pull request at a time. Every branch is merged into **`Coding`**
+first, which costs a build and deploys nothing; `.github/workflows/integration-pr.yml` then keeps a
+single draft pull request open from `Coding` to `main`, rewriting its description on each push and
+closing it once the two agree. Merging that one is what deploys, so a run of feature work reaches
+production as one deploy rather than as many - which is the point, since a deploy is the expensive
+operation here.
+
 `.github/workflows/main_orbit.yml` builds and deploys Orbit on every push to `main`, matching the
 local Docker Compose topology of two separate containers (rather than the single combined
 App Service the project started with):
@@ -176,8 +183,8 @@ that broke `azure/login`'s OIDC federation the one time it was tried.
 
 ## Continuous integration
 
-`.github/workflows/main_orbit.yml` runs on every push to `main` and on every pull request into it (and
-can be triggered manually). Its
+`.github/workflows/main_orbit.yml` runs on every push to `main` or `Coding` and on every pull request
+into either (and can be triggered manually); only its deploy job is restricted to `main`. Its
 `test` job restores, builds (`Release` configuration), and runs the full test suite
 (`dotnet test Orbit.sln`) on `ubuntu-latest` with .NET SDK 10, then runs the two harnesses covering the
 parts of the client no .NET test can reach, since bUnit executes none of the browser APIs they are made

@@ -5,8 +5,19 @@ description: Branching, commit message and pull request rules for the Orbit repo
 
 # PR workflow for Orbit
 
-Merging to `main` runs the full build-push-deploy pipeline, which costs real
-money on the pay-as-you-go subscription. Every limit below is protecting that.
+Merging to `main` runs the full build-push-deploy pipeline, which costs real money
+on the pay-as-you-go subscription. Every limit below is protecting that.
+
+## Where a pull request goes
+
+**`Coding`, never `main`.** Work lands on `Coding` first; a merge there costs a
+build and deploys nothing. `Coding` reaches `main` through a single integration
+pull request that `.github/workflows/integration-pr.yml` opens and rewrites on
+every push, so many merges arrive at production as one - which is the saving.
+
+Nobody opens or merges that integration PR by hand: the workflow keeps it current,
+and merging it is the user's decision because it is the expensive one. When the two
+branches agree again, the workflow closes it.
 
 ## How many pull requests may be open
 
@@ -40,7 +51,7 @@ Do not stack a new branch on top of an unmerged one unless the user explicitly a
 
 Only when opening a PR - work that joins an existing one uses that PR's branch.
 
-- Start from up-to-date `main`: `git fetch origin && git switch -c <branch> origin/main`
+- Start from up-to-date `Coding`: `git fetch origin && git switch -c <branch> origin/Coding`
 - Name: `<type>/<short-kebab-description>`, for example
   `fix/orbit-api-startup-port`, `feat/calendar-module-schema`,
   `chore/pipeline-image-tags`. No ticket numbers unless the user gives one.
@@ -82,7 +93,7 @@ Add APPLICATIONINSIGHTS_CONNECTION_STRING to .env.example
 ## Opening the PR
 
 ```bash
-gh pr create --base main --title "<summary line>" --body-file <body.md>
+gh pr create --base Coding --title "<summary line>" --body-file <body.md>
 ```
 
 PR body template:
@@ -133,5 +144,6 @@ overwriting. Which sessions are live is what `ListAgents` answers.
 - Do not merge. The user merges.
 - Later work in this session goes on this same PR, whatever it touches.
 - If CI fails on the PR, fix it in the same branch — do not open a new PR.
-- When the user merges, watch the deploy with `gh run watch` and, on failure,
-  switch to `azure-deploy-diagnose`.
+- When the user merges into `Coding`, nothing deploys - the suite runs and the
+  integration PR updates itself. Watch the deploy only when the user merges *that*
+  one into `main`: `gh run watch`, and on failure switch to `azure-deploy-diagnose`.
