@@ -471,6 +471,18 @@ keep holding them.
 Everything else on the pass - the top bar, the shared card and its footer, the calendar, the task and
 inventory lists, the contacts tabs, the chat menus - is built and needs no schema change.
 
+## Noticed while working
+
+Written down rather than fixed on the spot, per rule 14 in `.claude/CLAUDE.md`: work that turns up
+beside a task belongs here, not in that task's diff. A defect is the exception and is fixed when found.
+
+- **`setup-dotnet@v4`, `setup-java@v4` and `upload-artifact@v4`** carry the same Node 20 deprecation
+  `actions/checkout` did. `dependency-submission.yml` already pins `setup-dotnet@v5`, so the bump is
+  available whenever somebody wants it.
+- **Nothing enforces that work reaches `main` only through `Coding`.** `guard-main.yml` closes stray
+  pull requests, but a direct push to `main` deploys before any workflow can run. Real branch
+  protection needs GitHub Pro on a private repository.
+
 ## Smaller identified follow-ups
 
 - **Done, kept here as the map of it.** Orbit has two depths for the same thing: a shallow view for

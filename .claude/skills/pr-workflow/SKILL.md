@@ -29,14 +29,17 @@ still says never to do it.
 
 ## How many pull requests may be open
 
-- **One per session.** A session opens at most one, and everything it does
-  afterwards goes on that branch - it makes no difference whether the work is in
-  the web client, the phone or the documentation. Splitting by subject is not
-  tidier here; it is a second pipeline run.
-- **Three in the repository, at most.** The other two belong to other sessions.
-- **A PR may be shared.** Several sessions can push to one branch, and joining an
-  existing PR is the normal answer when this session has none open and three
-  already are.
+- **Three at once, and the integration PR is one of them.** `Coding` → `main` is
+  always open while the branches differ, so two slots are left for work.
+- **A session uses the PR it opened.** Everything it does afterwards goes on that
+  branch - web, phone or documentation alike - and the description is extended or
+  rewritten each time, so the PR still documents everything it carries. Splitting by
+  subject buys nothing and spends a slot.
+- **Merged or closed frees the slot.** A session whose PR is gone may open another,
+  if the cap allows.
+- **A full cap is never a reason to stall.** Push to an open PR this session did not
+  open, after telling that session (`ListAgents`, then `SendMessage`). Several
+  sessions on one branch is normal, not an exception.
 
 ## Before starting a task
 
@@ -46,12 +49,12 @@ gh pr list --state open
 
 Then, in order:
 
-- **This session already has one open** → keep using it. Commit onto its branch
-  and push; do not open a second, and do not ask to.
-- **This session has none, fewer than three are open** → open one (below).
-- **Three are open, none of them this session's** → do not open a fourth. Put the
-  work on whichever open PR it belongs with and tell that session (`ListAgents`,
-  then `SendMessage`), or ask the user which one to join.
+- **This session already has one open** → keep using it. Commit onto its branch,
+  push, and update the description; do not open a second, and do not ask to.
+- **This session's PR is merged or closed, and a slot is free** → open one (below).
+- **Three are open** (the integration PR counts) → do not open a fourth and do not
+  wait for one. Push to whichever open PR the work belongs with, after telling that
+  session - `ListAgents`, then `SendMessage`. Ask the user only if none of them fits.
 
 Do not stack a new branch on top of an unmerged one unless the user explicitly asks.
 
