@@ -10,6 +10,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Orbit.Contracts.Calendar;
 using Orbit.Contracts.Chat;
+using Orbit.Contracts.Inventories;
 using Orbit.Contracts.Users;
 using Orbit.Contracts.Notes;
 using Orbit.Contracts.Tasks;
@@ -32,6 +33,7 @@ public sealed class DashboardTests : OrbitTestContext
         RegisterEmptyNotesApiClient();
         RegisterEmptyTasksApiClient();
         RegisterEmptyCalendarApiClient();
+        RegisterEmptyInventoryApiClient();
         RegisterDashboardPins();
         RegisterDashboardCardPreferences();
         RegisterPermissions();
@@ -251,7 +253,7 @@ public sealed class DashboardTests : OrbitTestContext
         OpenTheMenu(cut);
 
         Assert.Equal(
-            ["Today", "Notes", "Tasks", "Upcoming", "Groups", "Shared with you", "Recent chats", "Contacts"],
+            ["Today", "Notes", "Tasks", "Upcoming", "Inventory", "Groups", "Shared with you", "Recent chats", "Contacts"],
             MenuEntries(cut).Select(entry => entry.TextContent.Trim()));
     }
 
@@ -313,7 +315,7 @@ public sealed class DashboardTests : OrbitTestContext
     {
         // Otherwise it reads as a dashboard that failed to load, with nothing saying where its contents went.
         RegisterDashboardCardPreferences(
-            null, "today", "notes", "tasks", "upcoming", "groups", "locations", "chats", "contacts");
+            null, "today", "notes", "tasks", "upcoming", "inventories", "groups", "locations", "chats", "contacts");
         RegisterChatApiClient([Contact("Anna Kowalska")]);
 
         var cut = RenderComponent<Dashboard>();
@@ -554,11 +556,87 @@ public sealed class DashboardTests : OrbitTestContext
             IsShared: false, SharedByUserName: null, AccessLevel: "CanEdit", OriginalOwnerUserId: null,
             Priority: priority);
 
+    /// <summary>
+    /// The dashboard is what is still on your plate. A list that has been done stays done for as long
+    /// as it exists, so left in it silts the card up with work nobody has to think about again.
+    /// </summary>
+    [Fact]
+    public void A_finished_task_list_is_off_the_card_unless_it_has_been_pinned()
+    {
+        RegisterChatApiClient([]);
+        RegisterTasksApiClient([Finished(TaskList("Moving out")), TaskList("Shopping")]);
+
+        var cut = RenderComponent<Dashboard>();
+
+        var tasksColumn = FindColumn(cut, "Tasks").TextContent;
+        Assert.DoesNotContain("Moving out", tasksColumn);
+        Assert.Contains("Shopping", tasksColumn);
+    }
+
+    [Fact]
+    public void A_finished_task_list_that_was_pinned_stays_and_is_struck_through()
+    {
+        RegisterChatApiClient([]);
+        RegisterTasksApiClient([Finished(TaskList("Moving out")) with { IsPinned = true }]);
+
+        var cut = RenderComponent<Dashboard>();
+
+        // Pinning is the way to say "keep this in front of me anyway" - so it stays, drawn as what it
+        // is rather than looking like work still to do.
+        var row = FindColumn(cut, "Tasks").QuerySelector(".list-row");
+        Assert.NotNull(row);
+        Assert.Contains("Moving out", row!.TextContent);
+        Assert.Contains("completed", row.ClassName);
+    }
+
+    private static TaskDto Finished(TaskDto taskList) => taskList with { IsCompleted = true };
+
     private void RegisterEmptyCalendarApiClient()
     {
         var httpClient = new HttpClient(new StubHttpMessageHandler(_ => JsonResponse(Array.Empty<CalendarEventDto>()))) { BaseAddress = new Uri("https://example.test/") };
         Services.AddSingleton(new CalendarApiClient(httpClient));
     }
+
+    /// <summary>
+    /// The shelves were the one part of Orbit this page never mentioned, so the only way to "have we
+    /// run out" was through the side navigation.
+    /// </summary>
+    [Fact]
+    public void An_inventory_is_shown_on_the_dashboard_and_opens_what_is_on_it()
+    {
+        RegisterInventoryApiClient([Inventory("Pantry")]);
+
+        var cut = RenderComponent<Web.Pages.Dashboard>();
+
+        Assert.Contains("Pantry", cut.Markup);
+        var row = cut.FindAll("button.list-row-button").Single(button => button.TextContent.Contains("Pantry"));
+        row.Click();
+
+        Assert.Contains("/inventory/", Services.GetRequiredService<NavigationManager>().Uri);
+    }
+
+    [Fact]
+    public void No_inventories_means_no_inventory_card()
+    {
+        var cut = RenderComponent<Web.Pages.Dashboard>();
+
+        Assert.DoesNotContain(
+            cut.FindAll("button.item-card-name"), name => name.TextContent.Trim() == "Inventory");
+    }
+
+    private void RegisterEmptyInventoryApiClient() => RegisterInventoryApiClient([]);
+
+    private void RegisterInventoryApiClient(IReadOnlyList<InventoryDto> inventories)
+    {
+        var httpClient = new HttpClient(new StubHttpMessageHandler(_ => JsonResponse(inventories))) { BaseAddress = new Uri("https://example.test/") };
+        Services.AddSingleton(new InventoryApiClient(httpClient));
+    }
+
+    private static InventoryDto Inventory(string name)
+        => new(
+            Guid.NewGuid(), name, DateTimeOffset.UtcNow, DateTimeOffset.UtcNow,
+            IsShared: false, SharedByUserName: null, AccessLevel: "CanEdit",
+            LockedByUserName: null, OriginalOwnerUserId: null);
 
     private static HttpResponseMessage JsonResponse<TItem>(IReadOnlyList<TItem> items)
         => new(HttpStatusCode.OK) { Content = JsonContent.Create(items) };
@@ -608,6 +686,48 @@ public sealed class DashboardTests : OrbitTestContext
         };
         Services.AddSingleton(new CalendarApiClient(httpClient));
     }
+
+    /// <summary>
+    /// A deadline on a list is named "Shopping: Milk"; an *event* the same list raised was named by
+    /// itself, so the one row on this card that had come from somewhere was the one that did not say
+    /// where. See CalendarEventDestination.RaisedBy, which both the name and the link ask.
+    /// </summary>
+    [Fact]
+    public void An_event_a_task_list_raised_is_named_after_the_list_too()
+    {
+        RegisterChatApiClient([]);
+        RegisterEmptyNotesApiClient();
+        var appointment = Event("Dentist", DateTimeOffset.UtcNow.AddHours(2));
+        RegisterCalendarApiClient([appointment]);
+        RegisterTasksApiClient([TaskList("Health", EntryFor(appointment.Id))]);
+
+        var cut = RenderComponent<Dashboard>();
+
+        Assert.Contains("Health: Dentist", FindColumn(cut, "Upcoming").TextContent);
+    }
+
+    [Fact]
+    public void An_event_nothing_raised_is_named_by_itself()
+    {
+        RegisterChatApiClient([]);
+        RegisterEmptyNotesApiClient();
+        RegisterEmptyTasksApiClient();
+        RegisterCalendarApiClient([Event("Dentist", DateTimeOffset.UtcNow.AddHours(2))]);
+
+        var cut = RenderComponent<Dashboard>();
+
+        var upcoming = FindColumn(cut, "Upcoming").TextContent;
+        Assert.Contains("Dentist", upcoming);
+        Assert.DoesNotContain(": Dentist", upcoming);
+    }
+
+    /// <summary>The entry on a task list that made a calendar event - see TaskItemDto.LinkedCalendarEventId.</summary>
+    private static TaskItemDto EntryFor(Guid calendarEventId)
+        => new(
+            Guid.NewGuid(), "Dentist", DateTimeOffset.UtcNow.AddHours(2), IsCompleted: false,
+            LinkedTaskListId: null, OverdueNotificationChannel: "None", RemindDaily: false,
+            DailyReminderNotificationChannel: "None", DailyReminderTimeOfDay: new TimeOnly(9, 0),
+            Kind: "Calendar", LinkedCalendarEventId: calendarEventId);
 
     private static CalendarEventDto Event(
         string title, DateTimeOffset startUtc, int lengthHours = 1, RecurrenceDto? recurrence = null,

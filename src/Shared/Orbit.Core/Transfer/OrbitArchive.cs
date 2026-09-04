@@ -92,8 +92,23 @@ public sealed record ArchivedInventory(
 /// Defaulted, and last, so an archive written before units existed still imports - it says nothing about
 /// what its amounts were counted in, and pieces is the honest reading of that rather than a refusal.
 /// </param>
+/// <param name="Category">
+/// What an archive written before a shelf item could be filed under several things says. Still read on
+/// the way in, and written as the first of <paramref name="Categories"/> on the way out, so an archive
+/// this build makes still imports into an older one - the whole point of the format.
+/// </param>
+/// <param name="Categories">
+/// Everything it is filed under. Defaulted and last for the same reason Unit is: an archive that
+/// predates it says nothing here, and its single Category is the honest reading of that.
+/// </param>
 public sealed record ArchivedInventoryItem(
     string Name, string ProductType, string Category, decimal Quantity, decimal? MinimumQuantity,
-    DateTimeOffset? ExpiryDate, string ExpiryNotificationChannel, string Unit = "Piece");
+    DateTimeOffset? ExpiryDate, string ExpiryNotificationChannel, string Unit = "Piece",
+    IReadOnlyList<string>? Categories = null)
+{
+    /// <summary>Whichever shape the archive used, read as one - see <see cref="Categories"/>.</summary>
+    public IReadOnlyList<string> AllCategories
+        => Categories is { Count: > 0 } categories ? categories : Category.Length > 0 ? [Category] : [];
+}
 
 public sealed record ArchivedEncryptedContent(string Ciphertext, string Nonce);

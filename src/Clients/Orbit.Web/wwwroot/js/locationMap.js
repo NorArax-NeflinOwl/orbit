@@ -43,10 +43,9 @@ export async function showLocations(elementId, points, dotNetHelper) {
     // somebody who has recorded nothing has somewhere to search rather than a blank panel.
     const start = drawn.length > 0 ? [drawn[0].latitude, drawn[0].longitude] : defaultCenter;
     const map = L.map(elementId).setView(start, drawn.length > 0 ? 14 : 6);
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
-        maxZoom: 19
-    }).addTo(map);
+    // Asked rather than added: the tiles are the one third-party request Orbit cannot serve itself,
+    // so they are the one thing "do not share my personal information" turns off - see mapTiles.js.
+    window.OrbitMapTiles.addTo(map);
 
     const markersByKey = drawMarkers(map, drawn);
 

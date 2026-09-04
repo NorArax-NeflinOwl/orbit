@@ -95,9 +95,16 @@ public static class TaskEndpoints
             return ToApiResult(outcome);
         });
 
-        tasks.MapDelete("/{id:guid}", async (Guid id, ClaimsPrincipal user, IDispatcher dispatcher, CancellationToken cancellationToken) =>
+        // deleteTheListsItGathers says what a group list's deletion means - see DeleteTaskListCommand.
+        // A query parameter rather than a body: this is still a DELETE of one list, and which of the two
+        // it means is a modifier on it rather than a second thing being sent. Absent reads as false,
+        // which is what every caller written before this asked for.
+        tasks.MapDelete("/{id:guid}", async (
+            Guid id, bool? deleteTheListsItGathers, ClaimsPrincipal user, IDispatcher dispatcher,
+            CancellationToken cancellationToken) =>
         {
-            var deleted = await dispatcher.SendAsync(new DeleteTaskListCommand(GetUserId(user), id), cancellationToken);
+            var deleted = await dispatcher.SendAsync(
+                new DeleteTaskListCommand(GetUserId(user), id, deleteTheListsItGathers ?? false), cancellationToken);
             return deleted ? Results.NoContent() : Results.NotFound();
         });
 
@@ -303,7 +310,7 @@ public static class TaskEndpoints
             ? null
             : new TaskItemProduct(
                 product.ProductType,
-                product.Category,
+                product.AllCategories,
                 product.Quantity,
                 product.MinimumQuantity,
                 RequestEnum.Parse<InventoryUnit>(product.Unit, "product.unit"),
@@ -315,7 +322,7 @@ public static class TaskEndpoints
         => product is null
             ? null
             : new TaskItemProductDto(
-                product.ProductType, product.Category, product.Quantity, product.MinimumQuantity,
+                product.ProductType, product.Categories, product.Quantity, product.MinimumQuantity,
                 product.Unit.ToString(), product.ExpiryDate, product.ExpiryNotificationChannel.ToString(),
                 product.IsCheckedRegularly);
 

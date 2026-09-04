@@ -879,6 +879,20 @@ few of its rows. A row that only points at another list is followed — the firs
 points at are drawn under it — so a group list's card says something about the work rather than being a
 stack of titles.
 
+**Pressing a row opens that entry** (`/tasks/{listId}/items/{itemId}`), and pressing the card around it
+opens the list's checklist. The rows were the one dead area on the card - a reader points at the words,
+and the words did nothing - while the dashboard's equivalents had opened what they name all along. A
+row that belongs to a gathered list opens on *that* list, not on the one gathering it. The press stops
+at the row (`Row` carries `@onclick:stopPropagation`), because a row inside something pressable means
+that row rather than the thing around it - the same rule NoteSummary's tick rows already followed.
+
+**An entry that is an appointment carries its event's colour**, the same dot the dashboard's Upcoming
+card draws. An entry keeps no colour of its own - it lives on the calendar event the entry made - so
+`/tasks` reads the calendar alongside the lists, best-effort: a page of task lists that would not open
+because the calendar could not be read would be trading something that matters for something that
+decorates. An event with no colour set falls back to the accent, which is what the dashboard does with
+the same gap.
+
 A list one row over the preview limit is drawn in full: "and 1 more…" takes exactly the room the row it
 stands for would have taken, so hiding that row saves nothing and costs the reader the one thing it was
 hiding (`RowsToShow`). Two over, and the summary line starts earning its place.
@@ -965,6 +979,33 @@ A task list can be opened at either of two depths, both reachable from the task 
 - **Deep** (`/tasks/{id}/edit`, `TaskEditor.razor`) — the full editor: title, grouping, every
   item's text, due date, link, notification settings, adding and removing items. This is the level that
   takes the edit lock described under [Edit locking](#edit-locking).
+
+**Deleting the list is offered at both depths** as well as from its card, which is the arrangement a
+note, an inventory and a calendar event have all had - a task list was the one thing in Orbit that could
+only be deleted from the page of cards, so getting rid of one meant leaving it first. Only on the
+reader's own list: something shared with them is not theirs to destroy, and `DeleteTaskListCommandHandler`
+answers a recipient's delete by dropping their grant rather than the list.
+
+The questions are `TaskListDeletion` (`Orbit.Web/Services`), asked identically from all three, because a
+group list asks a **second** one: *"It gathers N other lists. Delete those too?"* Answering no still
+deletes the group list - the first question already agreed to that - and answering yes sends
+`DELETE /api/tasks/{id}?deleteTheListsItGathers=true`, which deletes the whole tree. Why a question
+rather than a rule either way: a group list is a way of *reading* several lists together, and getting rid
+of the reading is not the same as getting rid of what was being read - but a list gathering five lists
+that exist only for it leaves five orphans behind, and nothing on the page says so.
+
+What the server does with that flag is worth knowing. It walks the tree breadth-first before deleting
+anything (once the group list is gone there is nothing left saying what it gathered), it stops at lists
+the caller does not own - a link may point at somebody else's list shared with them - and it carries a
+visited set, because a pair of lists gathering each other is refused when it is made (see
+`TaskListLinkValidator`) but would hang here if one ever slipped through. Each deletion leaves its own
+per-user tombstone, so the phone's next delta names all of them.
+
+How many it gathers is counted on the client, and the two callers count it differently on purpose: the
+card and the checklist read the list as it was loaded, while the editor counts off the **form**, so
+somebody who has just taken the links out and not saved is not asked about lists the list no longer
+gathers. Only the direct children are counted - the client holds only what it loaded - so the question
+names the number it is sure of and says the rest goes with them.
 
 **The shallow level is what opening a list means.** It owns the plain `/tasks/{id}` route, so every way
 into a list lands there whether or not the code that sent you thought about it: the card on the task
@@ -1145,8 +1186,11 @@ without knowing it was there.
 **An entry describes a product whether or not a shelf exists yet.** On the web, an Inventory entry opens
 the same fields the inventory editor uses (`InventoryFields`) on any list: on one measured against a
 storage they describe a product to put on that shelf, saved there with the list; on one with no storage
-they are kept on the entry itself (`TaskItemProduct`, stored on `OP_TASKS_ITEMS` and carried by
-`TaskItemDto.Product`) until "Generate inventory" turns them into rows. The description used to be
+they are kept on the entry itself (`TaskItemProduct`, stored on `OP_TASKS_ITEMS` with its categories in
+`OP_TASKS_PRODUCT_CATEGORIES`, and carried by `TaskItemDto.Product`) until "Generate inventory" turns
+them into rows. It is filed under as many words as apply, like the shelf item it becomes - and under its
+own words rather than the entry's: an errand filed under "shopping" can be asking for something filed
+under "baking". The description used to be
 possible only after a storage existed, which meant answering "how many, in what, how long does it keep"
 twice - once on the list and once on the shelf. A request that says nothing about the product leaves what
 is stored alone (`UpdateTaskListCommand.EntriesKeepingTheirProduct`), the same rule the categories follow,
@@ -1205,6 +1249,21 @@ since there's nothing persisted yet to move.
 
 ## Inventory
 
+**Creating one takes its contents as well as its name.** `POST /api/inventories` used to refuse a body
+whose `Items` was not empty, on the grounds that the create path did not write items and would have
+dropped them without a word - but `/inventory/new` is a name-it-and-fill-it screen, and its form's own
+button is "Add item". Naming an inventory, adding a row and pressing Save was therefore a save that
+could never succeed, and the page said "Failed to save the inventory. Try again." over the top of the
+sentence the server had written into the 400. Both halves are fixed: the rows go through
+`InventoryItemsSaver`, the same code a save uses - so they get their positions, their restock tasks and
+the inventory's managed task list exactly as they would on the next save - and
+`InventoryApiClient.CreateInventoryAsync` now reads the refusal body and hands back an
+`InventoryCreation` the editor can put on screen, the way `UpdateInventoryAsync` always has.
+
+A private inventory is the exception and stays one: its contents travel sealed inside
+`EncryptedContent`, and the create handler writes no item rows for one even if a caller sends some.
+That is what makes "the server can't read this inventory" a rule rather than the browser's good manners.
+
 `POST /api/inventory` and `PUT /api/inventory/{id}` both take `{ name, productType, category, quantity,
 minimumQuantity, unit, expiryDate, expiryNotificationChannel }` — `productType` and `category` are free
 text (no fixed list), `quantity`/`minimumQuantity` are decimal (not integer) so fractional amounts like
@@ -1212,6 +1271,27 @@ text (no fixed list), `quantity`/`minimumQuantity` are decimal (not integer) so 
 needs a restock threshold or an expiry date. `GET /api/inventory` and `GET /api/inventory/{id}` return
 the same shape back plus `id`, `isBelowMinimum` and `hasPendingRestockTask` (both derived, computed
 server-side so the client never reimplements the comparison), and `createdAtUtc`/`updatedAtUtc`.
+
+**A shelf item is filed under as many words as apply**, the way a task entry already was - the single
+box it replaced asked somebody stocking a shelf whether the flour was "baking" or "dry goods" when it is
+plainly both. They live in `OP_INVENTORIES_CATEGORIES`, a table like `OP_TASKS_CATEGORIES` and for the
+same reason, and are tidied by the same rule: trimmed, blanks dropped, repeats folded case-insensitively.
+The shelf's own filter matches an item carrying **any** of them.
+
+Both DTOs keep the old `category` beside the new `categories`, the way `TaskItemDto` keeps
+`linkedTaskListId` beside `linkedTaskListIds`: a client that has not learned about several still reads
+and writes one, and `AllCategories` reads whichever shape arrived. That is what let the phone keep
+working through the change rather than needing to ship in lockstep - it now offers the same
+comma-separated box it already offers for a task entry (`CategoryText`), and `InventorySynchronizer`
+carries the whole list, because a phone that sent only the first would have deleted the rest on every
+save it made.
+
+**The migration found something.** `OP_INVENTORIES_ITEMS` had had **no primary key** since the rename to
+the Orbit convention: that migration dropped `PK_InventoryItems` along with every other table's and
+added twenty-nine of the thirty back. Nothing had noticed, because nothing pointed at the table - a
+foreign key needs a unique constraint to reference, and the categories table is the first thing that
+ever did. `ShelfItemCategoriesBecomeATable` restores it, guarded so a database that still has one is
+left alone, and does not drop it again on the way down: it was missing by accident, not by design.
 
 `unit` says what the two amounts are counted in, and unlike the type and the category it **is** a fixed
 list (`InventoryUnit`): `Piece`, `Kilogram`, `Milligram`, `Litre`, `Millilitre`, `Pack`. Fixed because
@@ -1528,20 +1608,104 @@ name. Since the entry editor started carrying coordinates (`TaskItemEditor.Locat
 has somewhere of its own to land, and the entry editor now draws the line where every other screen does:
 the position always, the words only into a box nobody has written in.
 
-### Which build this is
+### The footer, and what stands behind each word in it
 
-The footer says `ver:0.1.17+gitHash:51536f3`, and pressing it grows the rest of the hash - the short form
+The line along the foot of every page used to be the version numbers and the licence. It answered
+"which build is this" for the few people who ask that, and nothing at all for everybody else - so it now
+reads `© 2026 Orbit · About · Privacy · Security · Docs · All Rights Reserved · Manage cookies`, modelled on
+GitHub's own. Two of those open a dialog rather than a page and are drawn exactly like the links beside
+them: which of the two a reader is pressing is not a distinction they should have to make.
+
+- **About** (`AboutDialog`) - what Orbit is in one sentence, then the build numbers described below. A
+  dialog because there is no address worth sharing for "which build is this", and it is read in the
+  middle of doing something else. This is where the version line went.
+- **Privacy**, **Security**, **Docs** (`/privacy`, `/security`, `/docs`) - three pages with no
+  `[Authorize]`, like the licence: somebody deciding whether to trust this deployment must be able to
+  read them before signing up. Their words come from this document - Privacy from the private-items,
+  sharing and authentication sections, Security from those plus the crypto in `e2eeChat.js`, Docs from
+  the feature sections - rewritten for a reader using Orbit rather than building it. **When a rule here
+  changes, those three pages are the other place it is written down.**
+- **Manage cookies** (`ManageCookiesDialog`) - see below. Orbit sets no cookies at all; the link is
+  named for what people go looking for, and the dialog's first line says so.
+- **Do not share my personal information** (`DoNotShareDialog`) - the other half of that one. Manage
+  cookies is about what this browser *keeps*; this is about what *leaves* it. See below.
+
+`Dialog` (`Components/Dialog.razor`) is the shared panel the two dialogs are built on: a heading, a
+body that scrolls, an optional row of buttons that does not, and three ways out - the backdrop, the
+cross and Escape. The map picker keeps its own overlay, which predates this and is a different shape.
+
+#### What this browser is allowed to keep
+
+Orbit uses **local storage, never cookies**, so "Manage cookies" manages that. Three categories:
+
+- **Strictly necessary** - the two tokens, `orbit-language`, the consent record itself, and the two
+  `orbit-allow-*` keys, which are records of consent in their own right. Shown ticked and unpressable
+  rather than hidden: a reader deciding what to allow should see everything being kept.
+- **Preferences** - theme, accent hue, dashboard pins/hidden cards/filters, checklist views, the
+  calendar and task-list and inventory orderings, conversation pins, panel states.
+- **Diagnostics** - `orbit.clientLogs` and `orbit-diagnostics-mode`.
+
+The gate is `wwwroot/js/storageConsent.js`, and **where** it sits is the point: it wraps
+`Storage.prototype.setItem` rather than asking each of the fifteen writers to check first. Half of those
+writes happen in JS modules and half arrive through Blazor interop as `localStorage.setItem`; both go
+through the prototype, so one wrapper covers both and there is a single list of what belongs where. It
+is loaded as a plain classic script **first** in `index.html`, before the inline theme script and before
+Blazor - anything loaded earlier could write past the gate. An unrecognised key reads as a preference,
+which is the narrower of the two guesses to be wrong about.
+
+Turning a category off **clears what is already stored**, not only what would be written next, and the
+dialog stays open with the counts re-read so the numbers dropping to zero are the proof. There is no
+banner across the page on a first visit: Orbit stores nothing before somebody uses it, so there is
+nothing to agree to before reading.
+
+#### What leaves the browser, and the one switch that stops it
+
+Three things used to reach another company when somebody opened Orbit, before they had agreed to
+anything: **Google Fonts**, **unpkg** (Leaflet's code) and **OpenStreetMap** (the map's tiles). Two of
+the three are gone outright - the fonts live in `wwwroot/fonts` (latin and latin-ext only, which is what
+English and Polish need) and Leaflet in `wwwroot/vendor/leaflet`. They were vendored rather than gated,
+because a page that looks different depending on a privacy choice is a page that tells everybody what
+the choice was.
+
+The third cannot be: a world of map tiles is not something to keep in `wwwroot`, and the browser fetches
+them a square at a time, so opening a map tells OpenStreetMap roughly where somebody is looking. That is
+what the switch turns off, along with keeping the account out of the trace this deployment records of
+what its own server was doing. The map keeps its pins and its searching and loses the picture behind
+them, and says so where Leaflet's own attribution sits (`mapTiles.js`, `.map-tiles-off`).
+
+**The answer lives on the account** (`User.KeepsThirdPartiesOut`, `PUT /api/users/me/privacy`), not in
+the browser: it is a standing instruction, and somebody who has said it once should not have to say it
+again on their phone. The browser keeps a **mirror** under `orbit-keep-third-parties-out` - a
+strictly-necessary key, since it is a record of consent - written when the layout signs in and whenever
+the switch moves, because a map is drawn long before an API call could come back and one that flashed
+the world and then blanked would be worse than either answer.
+
+Server-side it is `TraceOptOut`, a middleware after `UseAuthorization` that clears the `Recorded` flag on
+the request's own activity. The exporter is the wrong place to decide this - an activity starts before
+authentication has run, so the only moment both facts exist is there. The choice is cached for a minute
+per account, because otherwise this would be a database read on every request in Orbit; the endpoint
+that changes it clears that entry, so turning the switch **off** takes effect at once rather than
+waiting out a minute of nothing being recorded.
+
+What it deliberately does **not** touch: signing in with Google and handing an event to a Google
+calendar are things somebody asks for one at a time, and a standing switch that silently disabled them
+would be answering a question nobody asked.
+
+#### Which build this is
+
+**About** says `ver:0.1.17+gitHash:51536f3`, and pressing it grows the rest of the hash - the short form
 is what anybody reads, the whole one is what a `git checkout` takes, and asking for it should not mean
 going somewhere else. The phone's **About** row says the same thing and behaves the same way when tapped.
 
 **The hash goes to the accounts holding `Debug`, and to nobody else.** Every build reads its own commit
-off itself whatever configuration it was made in - a deployed footer that cannot answer "which code is
-this" is a footer with no reason to carry a hash at all - and the *showing* is what is gated. Somebody
+off itself whatever configuration it was made in - a deployed build that cannot answer "which code is
+this" has no reason to carry a hash at all - and the *showing* is what is gated. Somebody
 without the permission sees `ver:0.1.17` and nothing to press: the number is what a bug report needs and
 what the update gate compares, while which commit it was cut from is detail about Orbit's own insides.
 All three ends apply the one rule: the server leaves the hash out of its answer rather than sending it
-to be hidden (`ConfigEndpoints`), the browser's footer drops it with `OrbitVersion.WithoutTheCommit()`,
-and the phone's About row does the same - it was the half still showing it to everybody.
+to be hidden (`ConfigEndpoints`), the browser's About dialog drops it with
+`OrbitVersion.WithoutTheCommit()`, and the phone's About row does the same - it was the half still
+showing it to everybody.
 
 **Both versions are shown, the client's and the server's**, because they can differ:
 
@@ -1551,10 +1715,12 @@ and the phone's About row does the same - it was the half still showing it to ev
 - The phone is released separately and updated whenever its owner chooses - which is the whole reason the
   version gate exists.
 
-So the footer and the About row carry a second entry, `api ver:0.1.17+gitHash:…`, read from
-`GET /api/config/version`. A released **server** sends no hash at all rather than sending one the client
-then hides: what is not sent cannot be read off the wire. When the server cannot be reached the entry is
-simply absent - an offline footer knows nothing about it and should not guess.
+So both About dialogs carry a second entry, `api ver:0.1.17+gitHash:…`, read from
+`GET /api/config/version`. The browser asks for it when the dialog is opened rather than when the layout
+loads - the answer is cached for the session, so a dialog nobody opens costs nothing. A released
+**server** sends no hash at all rather than sending one the client then hides: what is not sent cannot be
+read off the wire. When the server cannot be reached the entry is simply absent - a dialog that could not
+ask knows nothing about it and should not guess.
 
 **The number reads `version.patch.build`, and the three parts answer three different questions.**
 
@@ -1589,7 +1755,7 @@ real, because this is the string somebody pastes into a bug report.
 the real `HEAD`, so a local build reads as `0.0.0-dev` and keeps the hash. That matters because the
 hash is the whole point of the line while debugging: nobody compares `0.0.0-dev` against anything,
 they are asking which code is running. Discarding the commit along with the number left a Debug build
-showing no hash and a footer that could not be opened - the one case the hash exists for.
+showing no hash and an About dialog with nothing to press - the one case the hash exists for.
 
 The Android release carries it twice over: `-p:InformationalVersion` for the About row, and the file name
 itself - **`orbit-android-0_1_32v.apk`**, so a download says which build it is without anybody opening
@@ -1927,6 +2093,18 @@ point of this page is a quick glance at what exists, not a third copy of each li
 Clicking any item navigates straight to it (`/notes/{id}`, `/tasks/{id}`, or `/calendar/{id}`) — the
 dashboard has no editing of its own. For a task list that is its checklist, not its settings: see
 [Two editing levels](#two-editing-levels) for why the shallow level is what opening a list means.
+
+**An event a task list raised is named after the list**, "Health: Dentist", the way a deadline on that
+list already was. This card gathers things from everywhere, so a row that does not say where it came
+from is the one row on it that has lost something. Both the name and the link ask the same lookup -
+`CalendarEventDestination.RaisedBy` - so an event cannot be named after one list and open on another.
+
+**A finished task list is off the card unless it has been pinned.** This page is what is still on your
+plate, and a list that has been done stays done for as long as it exists - so left in, it silts the card
+up with work nobody has to think about again. Pinning is the way to say "keep this in front of me
+anyway", and a pinned list that is finished is drawn struck through (`.list-row.completed`), the same way
+a ticked checklist line is: the two are the same fact about two different things and should not read
+differently.
 
 ### Deciding what the page shows
 

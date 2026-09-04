@@ -5,6 +5,11 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Orbit</title>
     <base href="/" />
+    <!-- First of everything, and a plain classic script: it wraps localStorage so a category this
+         reader has declined is never written, and both the inline theme script below and Blazor's own
+         token store go through that same wrapper. Anything loaded before it could write past the gate.
+         See storageConsent.js, and the Manage cookies dialog in the footer that sets the choice. -->
+    <script src="js/storageConsent.js"></script>
     <!-- Resolves and applies the light/dark theme and the chosen accent colour before any CSS paints, so
          the page never flashes the wrong one on load. Mirrors theme.js and accentColor.js (kept in sync
          manually - this one must run as a plain classic script, before app.css, since ES module imports
@@ -29,13 +34,16 @@
             }
         })();
     </script>
-    <!-- Space Grotesk (headings) + IBM Plex Sans (body/UI) - see app.css's --font-display/--font-body. -->
-    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap" />
+    <!-- Space Grotesk (headings) + IBM Plex Sans (body/UI) - see app.css's --font-display/--font-body.
+         Served by Orbit rather than by fonts.googleapis.com, which used to be told the address of
+         everybody who opened Orbit before they had agreed to anything. See wwwroot/fonts. -->
+    <link rel="stylesheet" href="fonts/orbit-fonts.css" />
     <link href="css/app.css" rel="stylesheet" />
     <!-- Leaflet: renders the map CalendarEventEditor.razor opens to pick an event's location (see
-         wwwroot/js/mapPicker.js). Loaded from a CDN rather than as a NuGet/npm package - it's plain
-         JS/CSS with no build step, and Blazor WebAssembly has no built-in mapping component. -->
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+         wwwroot/js/mapPicker.js). Plain JS/CSS with no build step, and Blazor WebAssembly has no
+         built-in mapping component - so it is vendored into wwwroot/vendor rather than fetched from
+         unpkg, for the same reason the fonts are. -->
+    <link rel="stylesheet" href="vendor/leaflet/leaflet.css" />
 </head>
 <body>
     <!-- Loaded first, and as a plain classic script rather than a Blazor-managed one, so its
@@ -58,7 +66,10 @@
              on Blazor/JS interop still working. -->
         <a href="#" onclick="OrbitClientLogging.copyLogsToClipboard(this); return false;">Copy error details</a>
     </div>
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="vendor/leaflet/leaflet.js"></script>
+    <!-- Whether a map may fetch its background from OpenStreetMap - see mapTiles.js. After Leaflet,
+         which it uses, and before Blazor, which asks it. -->
+    <script src="js/mapTiles.js"></script>
     <script src="_framework/blazor.webassembly.js"></script>
 </body>
 </html>

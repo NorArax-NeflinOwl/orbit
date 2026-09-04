@@ -146,7 +146,7 @@ public sealed class PrivateInventoryTests
     }
 
     private static InventoryItemInput Item(string name, decimal quantity, decimal? minimumQuantity)
-        => new(null, name, "Medicine", "Cabinet", quantity, minimumQuantity, InventoryUnit.Piece, null, NotificationChannel.None);
+        => new(null, name, "Medicine", ["Cabinet"], quantity, minimumQuantity, InventoryUnit.Piece, null, NotificationChannel.None);
 
     /// <summary>
     /// Wraps the shared InventoryTestContext with the three calls these tests make, rather than wiring
@@ -162,14 +162,13 @@ public sealed class PrivateInventoryTests
         public Guid OwnerId { get; } = Guid.NewGuid();
 
         public Task<Guid> CreateAsync(string name, bool isPrivate, EncryptedPayload? encryptedContent)
-            => new CreateInventoryCommandHandler(_inventory.InventoryRepository)
+            => new CreateInventoryCommandHandler(_inventory.InventoryRepository, _inventory.ItemsSaver)
                 .HandleAsync(new CreateInventoryCommand(OwnerId, name, isPrivate, encryptedContent), CancellationToken.None);
 
         public Task<EditOutcome> SaveAsync(
             Guid inventoryId, string name, IReadOnlyList<InventoryItemInput> items, bool isPrivate, EncryptedPayload? encryptedContent)
             => new UpdateInventoryCommandHandler(
-                    _inventory.AccessResolver, _inventory.InventoryRepository, _inventory.InventoryItemRepository,
-                    _inventory.TaskListCoordinator)
+                    _inventory.AccessResolver, _inventory.InventoryRepository, _inventory.ItemsSaver)
                 .HandleAsync(
                     new UpdateInventoryCommand(OwnerId, inventoryId, name, items, isPrivate, encryptedContent),
                     CancellationToken.None);

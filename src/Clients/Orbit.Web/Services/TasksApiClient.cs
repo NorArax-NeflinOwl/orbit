@@ -357,9 +357,17 @@ public sealed class TasksApiClient
         return EditOutcome.Success;
     }
 
-    public async Task DeleteTaskListAsync(Guid id, CancellationToken cancellationToken = default)
+    /// <param name="deleteTheListsItGathers">
+    /// Whether the lists a group list stands for go with it. Left false by every caller that has not
+    /// asked the reader which they meant - see DeleteTaskListCommand for why that is the safe default.
+    /// </param>
+    public async Task DeleteTaskListAsync(
+        Guid id, bool deleteTheListsItGathers = false, CancellationToken cancellationToken = default)
     {
-        var response = await _httpClient.DeleteAsync($"api/tasks/{id}", cancellationToken);
+        var address = deleteTheListsItGathers
+            ? $"api/tasks/{id}?deleteTheListsItGathers=true"
+            : $"api/tasks/{id}";
+        var response = await _httpClient.DeleteAsync(address, cancellationToken);
         response.EnsureSuccessStatusCode();
     }
 

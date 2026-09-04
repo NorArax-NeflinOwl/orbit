@@ -259,22 +259,39 @@ public sealed class TaskEditorItemFormTests : OrbitTestContext
     }
 
     /// <summary>
-    /// One box holding as many as apply, like a shelf item's category - see CategoryText for why they
-    /// are typed on one line rather than through a control of their own.
+    /// A word at a time, with "+" between them - see TagField. What is in the box when Save is pressed
+    /// counts whether or not "+" was pressed on it, which is the whole point of the control: the button
+    /// is for adding a second word, not for confirming the first.
     /// </summary>
     [Fact]
-    public void What_an_entry_is_about_is_typed_on_one_line_and_saved_as_several()
+    public void What_an_entry_is_about_is_added_a_word_at_a_time()
     {
         RegisterApiClients(AnItem());
         var cut = Render();
         ExpandTheOnlyItem(cut);
 
-        cut.Find("input[list=taskItemCategories]").Change("shopping, Car ,shopping");
+        cut.Find(".tag-field-input").Input("shopping");
+        cut.Find(".tag-field-add").Click();
+        cut.Find(".tag-field-input").Input("Car");
         ClickButtonSaying(cut, "Save");
 
-        // Trimmed, and the repeat dropped - the same tidying the domain does, done here so what is on
-        // screen is what will be stored.
+        // The second was never added, and is saved all the same.
         Assert.Contains("\"categories\":[\"shopping\",\"Car\"]", _lastSavedJson);
+    }
+
+    [Fact]
+    public void A_word_already_on_the_row_is_not_added_twice()
+    {
+        RegisterApiClients(AnItem());
+        var cut = Render();
+        ExpandTheOnlyItem(cut);
+
+        cut.Find(".tag-field-input").Input("shopping");
+        cut.Find(".tag-field-add").Click();
+        cut.Find(".tag-field-input").Input("Shopping");
+        ClickButtonSaying(cut, "Save");
+
+        Assert.Contains("\"categories\":[\"shopping\"]", _lastSavedJson);
     }
 
     [Fact]
@@ -284,7 +301,10 @@ public sealed class TaskEditorItemFormTests : OrbitTestContext
         var cut = Render();
         ExpandTheOnlyItem(cut);
 
-        Assert.Equal("shopping, car", cut.Find("input[list=taskItemCategories]").GetAttribute("value"));
+        // Chips rather than a line of text: what is already filed is a set of things, and the box below
+        // them is empty and ready for the next one.
+        Assert.Equal(["shopping", "car"], cut.FindAll(".tag-chip").Select(chip => chip.TextContent.Replace("✕", string.Empty).Trim()));
+        Assert.Equal(string.Empty, cut.Find(".tag-field-input").GetAttribute("value"));
     }
 
     /// <summary>
@@ -426,7 +446,9 @@ public sealed class TaskEditorItemFormTests : OrbitTestContext
         var cut = Render();
         ExpandTheOnlyItem(cut);
 
-        cut.FindAll("input").First(box => box.GetAttribute("placeholder") == "Product type").Change("Dry goods");
+        // Typed rather than committed on leaving the box: it is a SuggestedTextField now, and the panel
+        // under it keeps up with what is being written - see InventoryFields.
+        cut.FindAll("input").First(box => box.GetAttribute("placeholder") == "Product type").Input("Dry goods");
         cut.Find(".editor-item-unit").Change("Kilogram");
         ClickButtonSaying(cut, "Save");
 

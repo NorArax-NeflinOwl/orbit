@@ -63,22 +63,18 @@ public static class InventoryEndpoints
             return inventory is null ? Results.NotFound() : Results.Ok(ToDto(inventory, callerId));
         });
 
-        // Creating an inventory takes its name, not its contents - items are created through the save
-        // below, exactly as task items are through their task list. Anything sent here would have been
-        // dropped without a word, leaving the caller holding an inventory that quietly lost what it was
-        // told to keep, so it is refused instead.
+        // Creating an inventory takes its name and whatever is already on the shelf. It used to take the
+        // name alone and refuse anything else, on the grounds that items sent here would be dropped
+        // without a word - but /inventory/new is a name-it-and-fill-it screen whose form button is "Add
+        // item", so naming an inventory, adding a row and pressing Save was a save that could never
+        // succeed. The answer to "they would be dropped" is to stop dropping them: the rows go through
+        // the same InventoryItemsSaver a save uses, positions and restock tasks included.
         inventories.MapPost("/", async (
             SaveInventoryRequest request, ClaimsPrincipal user, IDispatcher dispatcher, CancellationToken cancellationToken) =>
         {
-            if (request.Items.Count > 0)
-            {
-                throw new InvalidRequestException(
-                    "An inventory is created with a name and filled afterwards - send its items to PUT /api/inventories/{id} instead.");
-            }
-
             var id = await dispatcher.SendAsync(new CreateInventoryCommand(
                     GetUserId(user), request.Name, request.IsPrivate, ToDomainPayload(request.EncryptedContent),
-                    request.Description), cancellationToken);
+                    request.Description, ToDomainItems(request.Items)), cancellationToken);
             return Results.Created($"/api/inventories/{id}", id);
         });
 
@@ -235,7 +231,7 @@ public static class InventoryEndpoints
     internal static IReadOnlyList<InventoryItemInput> ToDomainItems(IReadOnlyList<InventoryItemRequest> items)
         => items
             .Select(item => new InventoryItemInput(
-                item.Id, item.Name, item.ProductType, item.Category, item.Quantity, item.MinimumQuantity,
+                item.Id, item.Name, item.ProductType, item.AllCategories, item.Quantity, item.MinimumQuantity,
                 UnitOf(item), item.ExpiryDate,
                 RequestEnum.Parse<NotificationChannel>(item.ExpiryNotificationChannel, "expiryNotificationChannel"),
                 item.IsCheckedRegularly))
@@ -256,10 +252,13 @@ public static class InventoryEndpoints
 
     private static InventoryItemDto ToDto(InventoryItem item)
         => new(
-            item.Id, item.Name, item.ProductType, item.Category, item.Quantity, item.MinimumQuantity,
+            // The first of them in the old single field too, so a client that has not learned about
+            // several still reads one - see InventoryItemDto.Category.
+            item.Id, item.Name, item.ProductType, item.Categories.FirstOrDefault() ?? string.Empty, item.Quantity,
+            item.MinimumQuantity,
             item.Unit.ToString(), item.ExpiryDate, item.ExpiryNotificationChannel.ToString(), item.IsBelowMinimum,
             item.PendingRestockTaskItemId is not null, item.CreatedAtUtc, item.UpdatedAtUtc,
-            item.IsCheckedRegularly);
+            item.IsCheckedRegularly, item.Categories);
 
     private static IResult ToApiResult(EditOutcome outcome)
         => outcome.Kind switch

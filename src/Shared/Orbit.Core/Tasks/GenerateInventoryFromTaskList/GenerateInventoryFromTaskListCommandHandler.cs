@@ -92,7 +92,9 @@ public sealed class GenerateInventoryFromTaskListCommandHandler : IRequestHandle
             var shelfItem = InventoryItem.Create(
                 inventoryId, requirement.Name,
                 Filled(product?.ProductType, GeneratedProductType),
-                Filled(product?.Category, GeneratedCategory),
+                // As many words as apply, like every other shelf item - see InventoryItem.Categories.
+                // An entry that named none is filed where a generated row has always been filed.
+                product?.Categories is { Count: > 0 } categories ? categories : [GeneratedCategory],
                 // A blank box is not an answer here either: an amount somebody typed wins, and zero -
                 // which is what an untouched box holds - leaves the crossed-off lines to say how much
                 // is already there. The same rule for the minimum, where blank means "count the lines".

@@ -11,7 +11,11 @@ public sealed class InventoryItemEntity
     public Guid InventoryId { get; set; }
     public string Name { get; set; } = string.Empty;
     public string ProductType { get; set; } = string.Empty;
-    public string Category { get; set; } = string.Empty;
+    /// <summary>
+    /// What this is filed under - see <see cref="InventoryItemCategoryEntity"/>. Empty for one nobody
+    /// has filed.
+    /// </summary>
+    public List<InventoryItemCategoryEntity> Categories { get; set; } = [];
     public decimal Quantity { get; set; }
     public decimal? MinimumQuantity { get; set; }
 

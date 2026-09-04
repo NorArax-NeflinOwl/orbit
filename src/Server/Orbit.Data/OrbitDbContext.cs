@@ -137,6 +137,13 @@ public sealed class OrbitDbContext : DbContext
                 .WithOne()
                 .HasForeignKey(category => category.TaskItemId)
                 .OnDelete(DeleteBehavior.Cascade);
+
+            // And what the product it describes is filed under, which is a different question - see
+            // TaskItemProductCategoryEntity.
+            entity.HasMany(item => item.ProductCategories)
+                .WithOne()
+                .HasForeignKey(category => category.TaskItemId)
+                .OnDelete(DeleteBehavior.Cascade);
         });
 
         modelBuilder.Entity<TaskItemCategoryEntity>(entity =>
@@ -146,6 +153,27 @@ public sealed class OrbitDbContext : DbContext
             entity.HasKey(category => new { category.TaskItemId, category.Category });
             entity.Property(category => category.Category).IsRequired().HasMaxLength(StoredTextLimits.Category);
             // Every page that offers a category filter first has to ask what categories there are.
+            entity.HasIndex(category => category.Category);
+        });
+
+        modelBuilder.Entity<TaskItemProductCategoryEntity>(entity =>
+        {
+            // The category itself is half the key, the same as the entry's own: a product carries each
+            // word once, which is the rule TaskItem applies on the way in.
+            entity.HasKey(category => new { category.TaskItemId, category.Category });
+            entity.Property(category => category.Category).IsRequired().HasMaxLength(StoredTextLimits.Category);
+            // Asked of the whole account by the used-values list, the same as every other category here.
+            entity.HasIndex(category => category.Category);
+        });
+
+        modelBuilder.Entity<InventoryItemCategoryEntity>(entity =>
+        {
+            // The category itself is half the key, the same as a task entry's: an item carries each one
+            // once, which is the rule InventoryItem.Categories applies on the way in.
+            entity.HasKey(category => new { category.InventoryItemId, category.Category });
+            entity.Property(category => category.Category).IsRequired().HasMaxLength(StoredTextLimits.Category);
+            // The inventory editor's own filter first has to ask what categories a shelf holds, and the
+            // used-values list asks it of the whole account.
             entity.HasIndex(category => category.Category);
         });
 
@@ -269,6 +297,12 @@ public sealed class OrbitDbContext : DbContext
         // Notes and CalendarEvents are only ever searched as part of TaskItemDescription's own query
         // (see NameSuggestionRepository.NamesFor) - they have no kind of their own - but a UNION ALL
         // branch benefits from its own index exactly as a standalone query would.
+        modelBuilder.Entity<InventoryItemEntity>()
+            .HasMany(item => item.Categories)
+            .WithOne()
+            .HasForeignKey(category => category.InventoryItemId)
+            .OnDelete(DeleteBehavior.Cascade);
+
         modelBuilder.Entity<InventoryItemEntity>()
             .HasIndex(item => item.Name)
             .HasDatabaseName("ix_inventory_items_name_trgm")
@@ -441,7 +475,6 @@ public sealed class OrbitDbContext : DbContext
             entity.HasKey(item => item.Id);
             entity.Property(item => item.Name).IsRequired().HasMaxLength(StoredTextLimits.Title);
             entity.Property(item => item.ProductType).HasMaxLength(StoredTextLimits.ProductType);
-            entity.Property(item => item.Category).HasMaxLength(StoredTextLimits.Category);
             entity.Property(item => item.ExpiryNotificationChannel).HasMaxLength(20);
             // Every inventory query is scoped to a single inventory's items; this is the index that
             // makes those lookups fast instead of scanning the whole table.

@@ -17,7 +17,7 @@ public sealed class TaskItemProductTests
     private static readonly TaskItemProduct Flour = TaskItemProduct.Default with
     {
         ProductType = "Dry goods",
-        Category = "Baking",
+        Categories = ["Baking", "Dry goods"],
         Quantity = 1,
         MinimumQuantity = 3,
         Unit = InventoryUnit.Kilogram,

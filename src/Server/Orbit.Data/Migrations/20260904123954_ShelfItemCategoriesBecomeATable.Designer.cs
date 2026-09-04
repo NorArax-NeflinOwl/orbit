@@ -12,8 +12,8 @@ using Orbit.Data;
 namespace Orbit.Data.Migrations
 {
     [DbContext(typeof(OrbitDbContext))]
-    [Migration("20260904132943_NarrowARestockListToTheRound")]
-    partial class NarrowARestockListToTheRound
+    [Migration("20260904123954_ShelfItemCategoriesBecomeATable")]
+    partial class ShelfItemCategoriesBecomeATable
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -633,18 +633,34 @@ namespace Orbit.Data.Migrations
                     b.ToTable("OS_INVENTORIES_EXPIRY");
                 });
 
+            modelBuilder.Entity("Orbit.Data.Entities.InventoryItemCategoryEntity", b =>
+                {
+                    b.Property<Guid>("InventoryItemId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("OP_IC_INVENTORYITEMID");
+
+                    b.Property<string>("Category")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("OP_IC_CATEGORY");
+
+                    b.Property<int>("Position")
+                        .HasColumnType("integer")
+                        .HasColumnName("OP_IC_POSITION");
+
+                    b.HasKey("InventoryItemId", "Category");
+
+                    b.HasIndex("Category");
+
+                    b.ToTable("OP_INVENTORIES_CATEGORIES");
+                });
+
             modelBuilder.Entity("Orbit.Data.Entities.InventoryItemEntity", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid")
                         .HasColumnName("OP_II_ID");
-
-                    b.Property<string>("Category")
-                        .IsRequired()
-                        .HasMaxLength(100)
-                        .HasColumnType("character varying(100)")
-                        .HasColumnName("OP_II_CATEGORY");
 
                     b.Property<DateTimeOffset>("CreatedAtUtc")
                         .HasColumnType("timestamp with time zone")
@@ -747,10 +763,6 @@ namespace Orbit.Data.Migrations
                         .HasDefaultValue("Normal")
                         .HasColumnName("OL_IT_LISTPRIORITY");
 
-                    b.Property<bool>("OnlyCheckedRegularly")
-                        .HasColumnType("boolean")
-                        .HasColumnName("OL_IT_ONLYCHECKEDREGULARLY");
-
                     b.Property<bool>("OnlyLinkedWithDueDate")
                         .HasColumnType("boolean")
                         .HasColumnName("OL_IT_ONLYLINKEDWITHDUEDATE");
@@ -766,14 +778,6 @@ namespace Orbit.Data.Migrations
                         .HasColumnType("boolean")
                         .HasDefaultValue(true)
                         .HasColumnName("OL_IT_REMINDDAILY");
-
-                    b.Property<string>("ReminderNotificationChannel")
-                        .IsRequired()
-                        .ValueGeneratedOnAdd()
-                        .HasMaxLength(10)
-                        .HasColumnType("character varying(10)")
-                        .HasDefaultValue("Push")
-                        .HasColumnName("OL_IT_REMINDERNOTIFICATIONCHANNEL");
 
                     b.Property<Guid>("TaskListId")
                         .HasColumnType("uuid")
@@ -1516,38 +1520,6 @@ namespace Orbit.Data.Migrations
                         .HasColumnType("integer")
                         .HasColumnName("OP_TI_POSITION");
 
-                    b.Property<string>("ProductCategory")
-                        .HasColumnType("text")
-                        .HasColumnName("OP_TI_PRODUCTCATEGORY");
-
-                    b.Property<DateTimeOffset?>("ProductExpiryDate")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("OP_TI_PRODUCTEXPIRYDATE");
-
-                    b.Property<string>("ProductExpiryNotificationChannel")
-                        .HasColumnType("text")
-                        .HasColumnName("OP_TI_PRODUCTEXPIRYNOTIFICATIONCHANNEL");
-
-                    b.Property<bool?>("ProductIsCheckedRegularly")
-                        .HasColumnType("boolean")
-                        .HasColumnName("OP_TI_PRODUCTISCHECKEDREGULARLY");
-
-                    b.Property<decimal?>("ProductMinimumQuantity")
-                        .HasColumnType("numeric")
-                        .HasColumnName("OP_TI_PRODUCTMINIMUMQUANTITY");
-
-                    b.Property<decimal?>("ProductQuantity")
-                        .HasColumnType("numeric")
-                        .HasColumnName("OP_TI_PRODUCTQUANTITY");
-
-                    b.Property<string>("ProductType")
-                        .HasColumnType("text")
-                        .HasColumnName("OP_TI_PRODUCTTYPE");
-
-                    b.Property<string>("ProductUnit")
-                        .HasColumnType("text")
-                        .HasColumnName("OP_TI_PRODUCTUNIT");
-
                     b.Property<bool>("RemindDaily")
                         .HasColumnType("boolean")
                         .HasColumnName("OP_TI_REMINDDAILY");
@@ -1683,6 +1655,10 @@ namespace Orbit.Data.Migrations
                         .HasMaxLength(64)
                         .HasColumnType("character varying(64)")
                         .HasColumnName("OS_U_GOOGLESUBJECTID");
+
+                    b.Property<bool>("KeepsThirdPartiesOut")
+                        .HasColumnType("boolean")
+                        .HasColumnName("OS_U_KEEPSTHIRDPARTIESOUT");
 
                     b.Property<string>("LocationAddress")
                         .HasColumnType("text")
@@ -1846,6 +1822,15 @@ namespace Orbit.Data.Migrations
                         .IsRequired();
                 });
 
+            modelBuilder.Entity("Orbit.Data.Entities.InventoryItemCategoryEntity", b =>
+                {
+                    b.HasOne("Orbit.Data.Entities.InventoryItemEntity", null)
+                        .WithMany("Categories")
+                        .HasForeignKey("InventoryItemId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("Orbit.Data.Entities.TaskItemCategoryEntity", b =>
                 {
                     b.HasOne("Orbit.Data.Entities.TaskItemEntity", null)
@@ -1876,6 +1861,11 @@ namespace Orbit.Data.Migrations
             modelBuilder.Entity("Orbit.Data.Entities.ChatGroupEntity", b =>
                 {
                     b.Navigation("Members");
+                });
+
+            modelBuilder.Entity("Orbit.Data.Entities.InventoryItemEntity", b =>
+                {
+                    b.Navigation("Categories");
                 });
 
             modelBuilder.Entity("Orbit.Data.Entities.TaskEntity", b =>

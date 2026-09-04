@@ -41,6 +41,7 @@ stated scope.
 | Choosing what an inventory's restock list asks for, and when | Implemented | [Functionality](functionality.md#the-restock-list) |
 | Editing a shelf item from the restock list | Implemented | [Functionality](functionality.md#editing-the-shelf-from-the-list) |
 | A task entry that is a calendar appointment, and makes one | Implemented | [Functionality](functionality.md#what-an-entrys-form-offers) |
+| The footer: About, Privacy, Security, Docs, and control over what this browser keeps | Implemented on the web; the phone has had its own About row all along | [Functionality](functionality.md#the-footer-and-what-stands-behind-each-word-in-it) |
 | AI assistant for inventories and task lists | Step 1 built; the model answers one question over `POST /api/assistant/messages`, with no context, no tools and no client yet | [Orbit Assistant — Plan](ai-assistant-plan.md) |
 
 `Orbit.GoogleIntegration` (`src/Server`) is no longer the empty placeholder it was: it holds the

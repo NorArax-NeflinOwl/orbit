@@ -134,11 +134,9 @@ else
                                 {
                                     @foreach (var contact in _establishedChats)
                                     {
-                                        <label class="check-row">
-                                            <input type="checkbox" checked="@_newGroupMemberIds.Contains(contact.UserId)"
-                                                   @onchange="args => ToggleNewGroupMember(contact.UserId, (bool)args.Value!)" />
-                                            <span class="check-row-text">@contact.DisplayName</span>
-                                        </label>
+                                        <CheckRow Title="@contact.DisplayName"
+                                                  IsTicked="@_newGroupMemberIds.Contains(contact.UserId)"
+                                                  OnTicked="ticked => ToggleNewGroupMember(contact.UserId, ticked)" />
                                     }
                                 }
                             </div>

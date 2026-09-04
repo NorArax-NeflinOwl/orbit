@@ -16,6 +16,7 @@ using Orbit.Api.Config;
 using Orbit.Api.Diagnostics;
 using Orbit.Api.HealthChecks;
 using Orbit.Api.Permissions;
+using Orbit.Api.Telemetry;
 using Orbit.Api.Sharing;
 using Orbit.Api.Inventories;
 using Orbit.Api.Notes;
@@ -260,6 +261,8 @@ try
     builder.Services.AddScoped<IAuthorizationHandler, PermissionAuthorizationHandler>();
     builder.Services.AddAuthorization(options => options.AddPermissionPolicies());
 
+    // Remembers, briefly, which accounts asked to be left out of the trace - see TraceOptOut.
+    builder.Services.AddMemoryCache();
     builder.Services.AddRateLimiter(options => options.AddOrbitPolicies());
 
     // Traces every incoming HTTP request, every outgoing HttpClient call, and every command/query
@@ -348,6 +351,10 @@ try
     // token at all (login, register) short-circuit it anyway.
     app.UseRateLimiter();
     app.UseAuthorization();
+
+    // After authorization, so the caller is known: an account that asked to be left out of the trace
+    // has its request un-recorded here, before any endpoint runs - see TraceOptOut.
+    app.UseTraceOptOut();
 
     app.MapAuthEndpoints();
     app.MapUserEndpoints();

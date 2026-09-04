@@ -53,8 +53,12 @@ public sealed class TaskItemEntity
     /// </summary>
     public string? ProductType { get; set; }
 
-    /// <summary>What the product is filed under - one word, unlike the entry's own categories.</summary>
-    public string? ProductCategory { get; set; }
+    /// <summary>
+    /// What the product is filed under, as many words as apply - a table of its own like the entry's own
+    /// categories, and for the same reason. See TaskItemProductCategoryEntity for why it is not that
+    /// same table. Empty for an entry that describes nothing, and for a product nobody filed.
+    /// </summary>
+    public List<TaskItemProductCategoryEntity> ProductCategories { get; set; } = [];
 
     public decimal? ProductQuantity { get; set; }
 

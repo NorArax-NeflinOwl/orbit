@@ -97,7 +97,7 @@ public sealed class UnchangedWhenNotProvidedTests
         var inventory = Inventory.Create(UserId, "Spiżarnia");
         await context.InventoryRepository.AddAsync(inventory, CancellationToken.None);
         var item = InventoryItem.Create(
-            inventory.Id, "Mleko", "Nabiał", "Jedzenie", 1, null, InventoryUnit.Piece, null,
+            inventory.Id, "Mleko", "Nabiał", ["Jedzenie"], 1, null, InventoryUnit.Piece, null,
             NotificationChannel.None, isCheckedRegularly: true);
         await context.InventoryItemRepository.AddAsync(item, CancellationToken.None);
 
@@ -105,7 +105,7 @@ public sealed class UnchangedWhenNotProvidedTests
             new UpdateInventoryCommand(
                 UserId, inventory.Id, "Spiżarnia",
                 [new InventoryItemInput(
-                    item.Id, "Mleko", "Nabiał", "Jedzenie", 1, null, InventoryUnit.Piece, null,
+                    item.Id, "Mleko", "Nabiał", ["Jedzenie"], 1, null, InventoryUnit.Piece, null,
                     NotificationChannel.None)],
                 IsPrivate: false, EncryptedContent: null),
             CancellationToken.None);
@@ -121,7 +121,7 @@ public sealed class UnchangedWhenNotProvidedTests
         var inventory = Inventory.Create(UserId, "Spiżarnia");
         await context.InventoryRepository.AddAsync(inventory, CancellationToken.None);
         var item = InventoryItem.Create(
-            inventory.Id, "Mleko", "Nabiał", "Jedzenie", 1, null, InventoryUnit.Piece, null,
+            inventory.Id, "Mleko", "Nabiał", ["Jedzenie"], 1, null, InventoryUnit.Piece, null,
             NotificationChannel.None, isCheckedRegularly: true);
         await context.InventoryItemRepository.AddAsync(item, CancellationToken.None);
 
@@ -129,7 +129,7 @@ public sealed class UnchangedWhenNotProvidedTests
             new UpdateInventoryCommand(
                 UserId, inventory.Id, "Spiżarnia",
                 [new InventoryItemInput(
-                    item.Id, "Mleko", "Nabiał", "Jedzenie", 1, null, InventoryUnit.Piece, null,
+                    item.Id, "Mleko", "Nabiał", ["Jedzenie"], 1, null, InventoryUnit.Piece, null,
                     NotificationChannel.None, IsCheckedRegularly: false)],
                 IsPrivate: false, EncryptedContent: null),
             CancellationToken.None);
@@ -141,5 +141,5 @@ public sealed class UnchangedWhenNotProvidedTests
     private static UpdateInventoryCommandHandler AInventoryHandler(InventoryTestContext context)
         => new(
             new InventoryAccessResolver(context.InventoryRepository, new InMemoryInventoryShareRepository(), new InMemoryUserRepository()),
-            context.InventoryRepository, context.InventoryItemRepository, context.TaskListCoordinator);
+            context.InventoryRepository, context.ItemsSaver);
 }

@@ -2,6 +2,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using Orbit.Mobile.Localization;
 using Orbit.Mobile.Screens;
 using Orbit.Contracts.Inventories;
+using Orbit.Core.Tasks;
 using Orbit.Core.Inventories;
 using Orbit.Core.Notifications;
 using Orbit.Core.Suggestions;
@@ -75,8 +76,14 @@ public sealed partial class InventoryItemEditor : ObservableObject
     [ObservableProperty]
     private string _productType = string.Empty;
 
+    /// <summary>
+    /// What it is filed under, as many as apply, on one line and separated by commas - the same box
+    /// this screen's sibling offers for a task entry, and the same rule behind it (see CategoryText).
+    /// One box rather than the browser's chips: a phone form is a column of boxes, and a control that
+    /// only exists here is one more thing to learn on the smaller screen.
+    /// </summary>
     [ObservableProperty]
-    private string _category = string.Empty;
+    private string _categories = string.Empty;
 
     [ObservableProperty]
     private string _quantity = "1";
@@ -187,7 +194,7 @@ public sealed partial class InventoryItemEditor : ObservableObject
             Unit = item.Unit,
             Name = item.Name,
             ProductType = item.ProductType,
-            Category = item.Category,
+            Categories = CategoryText.Join(item.AllCategories),
             Quantity = item.Quantity.ToString(System.Globalization.CultureInfo.InvariantCulture),
             MinimumQuantity = item.MinimumQuantity?.ToString(System.Globalization.CultureInfo.InvariantCulture) ?? string.Empty,
             ExpiryUnits = ExpiryUnitChoice.All(translations),
@@ -227,7 +234,9 @@ public sealed partial class InventoryItemEditor : ObservableObject
             // Left as the reader left them. Filling a blank box with "General" put a word nobody typed
             // into the filters above and onto the row, in English, whatever language the shelf was in.
             ProductType.Trim(),
-            Category.Trim(),
+            // The first of them in the old single field as well, so a server that has not learned
+            // about several still reads one - see InventoryItemRequest.Category.
+            CategoryText.Split(Categories).FirstOrDefault() ?? string.Empty,
             ParseQuantity() ?? 0,
             ParseMinimum(),
             Unit,
@@ -237,7 +246,8 @@ public sealed partial class InventoryItemEditor : ObservableObject
             ExpiryNotificationChannel,
             // Always set on the way out, never left as null: null means "not provided" and would keep
             // whatever is stored, so a reader turning this off here would have been ignored.
-            IsCheckedRegularly);
+            IsCheckedRegularly,
+            CategoryText.Split(Categories));
 
     private int ParseExpiresIn()
         => int.TryParse(ExpiresIn.Trim(), out var amount) && amount > 0 ? amount : 1;

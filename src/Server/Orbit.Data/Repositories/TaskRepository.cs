@@ -23,6 +23,7 @@ public sealed class TaskRepository : ITaskRepository
             .AsNoTracking()
             .Include(task => task.Items).ThenInclude(item => item.LinkedTaskLists)
             .Include(task => task.Items).ThenInclude(item => item.Categories)
+            .Include(task => task.Items).ThenInclude(item => item.ProductCategories)
             .Where(task => task.UserId == userId);
 
         // Narrowed in the database when the caller only wants what changed. A client catching up asks
@@ -46,6 +47,7 @@ public sealed class TaskRepository : ITaskRepository
             .AsNoTracking()
             .Include(task => task.Items).ThenInclude(item => item.LinkedTaskLists)
             .Include(task => task.Items).ThenInclude(item => item.Categories)
+            .Include(task => task.Items).ThenInclude(item => item.ProductCategories)
             .FirstOrDefaultAsync(task => task.Id == id && task.UserId == userId, cancellationToken);
 
         return entity is null ? null : ToDomain(entity);
@@ -63,6 +65,7 @@ public sealed class TaskRepository : ITaskRepository
             .AsNoTracking()
             .Include(task => task.Items).ThenInclude(item => item.LinkedTaskLists)
             .Include(task => task.Items).ThenInclude(item => item.Categories)
+            .Include(task => task.Items).ThenInclude(item => item.ProductCategories)
             .Where(task => task.UserId == userId
                 && task.Id != exceptListId
                 && task.Items.Any(item => itemIds.Contains(item.Id)))
@@ -130,6 +133,7 @@ public sealed class TaskRepository : ITaskRepository
         var existingItems = await _dbContext.Set<TaskItemEntity>()
             .Include(item => item.LinkedTaskLists)
             .Include(item => item.Categories)
+            .Include(item => item.ProductCategories)
             .Where(item => item.TaskId == taskList.Id)
             .ToListAsync(cancellationToken);
         _dbContext.RemoveRange(existingItems);
@@ -222,7 +226,7 @@ public sealed class TaskRepository : ITaskRepository
             ? null
             : new TaskItemProduct(
                 entity.ProductType ?? string.Empty,
-                entity.ProductCategory ?? string.Empty,
+                [.. entity.ProductCategories.OrderBy(category => category.Position).Select(category => category.Category)],
                 entity.ProductQuantity ?? 0,
                 entity.ProductMinimumQuantity,
                 Enum.TryParse<InventoryUnit>(entity.ProductUnit, out var unit) ? unit : InventoryUnit.Piece,
@@ -282,7 +286,13 @@ public sealed class TaskRepository : ITaskRepository
             // All of them or none of them - see TaskItemEntity.ProductType. An entry that describes
             // nothing writes nulls across the row rather than half an answer.
             ProductType = item.Product?.ProductType,
-            ProductCategory = item.Product?.Category,
+            ProductCategories = [.. (item.Product?.Categories ?? []).Select((category, categoryPosition) =>
+                new TaskItemProductCategoryEntity
+                {
+                    TaskItemId = item.Id,
+                    Category = category,
+                    Position = categoryPosition
+                })],
             ProductQuantity = item.Product?.Quantity,
             ProductMinimumQuantity = item.Product?.MinimumQuantity,
             ProductUnit = item.Product?.Unit.ToString(),

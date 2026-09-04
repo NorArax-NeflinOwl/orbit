@@ -1,0 +1,102 @@
+@using Orbit.Contracts.Config
+@using Orbit.Core
+@using Orbit.Core.Permissions
+@using Orbit.Web.Services
+@inject ClientFlagsApiClient ClientFlagsApiClient
+@inject UserPermissionState Permissions
+@inject Translations T
+
+@* What this Orbit is: what it does, which build is running, and under what licence. It used to be a
+   line of numbers along the foot of every page, which is where "which version am I on" was answered and
+   also where a reader who wanted to know what Orbit was found nothing. The numbers moved in here, where
+   there is room to say what they are, and the footer kept a word instead - the way the phone has always
+   done it, and the way GitHub's own footer does. *@
+<Dialog Title="@(T["About Orbit"])" AdditionalClass="about-dialog" OnClosed="OnClosed">
+    <p>@T["Orbit keeps notes, task lists, a calendar, what is on your shelves, where you are and who you are talking to - in one place, on the web and on a phone, and shareable with the people you choose."]</p>
+
+    <dl class="about-facts">
+        <dt>@T["This build"]</dt>
+        <dd>
+            @* Pressed, it grows the rest of the hash. There is nothing to press for a reader who is not
+               shown the commit at all, or for a build carrying none - a local `docker compose build`,
+               which nothing numbered - and it is then drawn as the text it is rather than as a button
+               that would do nothing. See OrbitVersion. *@
+            @if (ShownVersion.CanShowTheWholeCommit)
+            {
+                <button type="button" class="about-version" title="@(T["Show the whole commit"])"
+                        @onclick="() => _isVersionExpanded = !_isVersionExpanded">
+                    @(_isVersionExpanded ? ShownVersion.Full : ShownVersion.Short)
+                </button>
+            }
+            else
+            {
+                <span>@ShownVersion.Short</span>
+            }
+        </dd>
+
+        @* The server's own build, beside the client's. The two can differ - the pipeline rolls each app
+           back on its own, and a browser can be holding a cached client - so showing only one answers
+           "which Orbit is this" with half the truth. Absent when the server cannot be reached, which is
+           honest: a dialog that could not ask knows nothing about it. *@
+        @if (_serverVersion is { } server)
+        {
+            <dt>@T["The server it is talking to"]</dt>
+            <dd>@ServerVersionText(server)</dd>
+        }
+
+        <dt>@T["Licence"]</dt>
+        <dd><a href="/license">@T[OrbitRelease.LicenseName]</a></dd>
+    </dl>
+
+    <p class="about-copyright">@OrbitRelease.Copyright</p>
+</Dialog>
+
+@code {
+    [Parameter] public EventCallback OnClosed { get; set; }
+
+    /// <summary>
+    /// This build, read off this assembly - see OrbitVersion. Not the shared project's: the number is
+    /// per client, and Orbit.Core is compiled into three of them.
+    /// </summary>
+    private static readonly OrbitVersion _version = OrbitVersion.ReadFrom(typeof(AboutDialog).Assembly);
+
+    /// <summary>
+    /// This build as the dialog says it. Which commit it came from is detail about Orbit's own inside,
+    /// so it is said to the accounts that have been given Orbit's inside and to nobody else - see
+    /// ApplicationPermission.Debug. The server applies the same rule to its own version, and there by
+    /// leaving the hash out of the answer rather than sending it to be hidden.
+    /// </summary>
+    private OrbitVersion ShownVersion
+        => Permissions.Has(ApplicationPermission.Debug) ? _version : _version.WithoutTheCommit();
+
+    /// <summary>Whether the whole commit hash is showing rather than the first seven of it.</summary>
+    private bool _isVersionExpanded;
+
+    private ServerVersionDto? _serverVersion;
+
+    /// <summary>
+    /// Asked here rather than passed in: the answer is cached for the life of the session (see
+    /// ClientFlagsApiClient), so a dialog nobody opens costs nothing and one opened twice asks once.
+    /// </summary>
+    protected override async Task OnInitializedAsync()
+        => _serverVersion = await ClientFlagsApiClient.GetServerVersionAsync();
+
+    /// <summary>
+    /// The server's version as the dialog says it. It follows the same expand as the client's, because
+    /// pressing one and having the other stay short would read as a bug rather than as two facts.
+    ///
+    /// A server that will not show this reader its commit sends no hash, so there is usually nothing to
+    /// grow - and the permission is checked here as well, so an older server that still sends one to
+    /// everybody does not get to say more than this client would.
+    /// </summary>
+    private string ServerVersionText(ServerVersionDto server)
+    {
+        if (server.CommitHash.Length == 0 || !Permissions.Has(ApplicationPermission.Debug))
+        {
+            return $"ver:{server.Version}";
+        }
+
+        var hash = _isVersionExpanded || server.CommitHash.Length <= 7 ? server.CommitHash : server.CommitHash[..7];
+        return $"ver:{server.Version}+gitHash:{hash}";
+    }
+}

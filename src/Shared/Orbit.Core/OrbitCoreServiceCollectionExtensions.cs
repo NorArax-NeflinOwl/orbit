@@ -116,8 +116,10 @@ using Orbit.Core.Tasks.GetInventoryReferences;
 using Orbit.Core.Tasks.UpdateTaskList;
 using Orbit.Core.Suggestions;
 using Orbit.Core.Suggestions.GetNameSuggestions;
+using Orbit.Core.Suggestions.GetUsedValues;
 using Orbit.Core.Users;
 using Orbit.Core.Users.SetPresence;
+using Orbit.Core.Users.SetPrivacyChoice;
 using Orbit.Core.Users.SaveOwnLocation;
 using Orbit.Core.Location.GetSharedLocations;
 using Orbit.Core.Location.StopReceivingLocation;
@@ -190,6 +192,8 @@ public static class OrbitCoreServiceCollectionExtensions
         services.AddScoped<IRequestHandler<GenerateInventoryFromTaskListCommand, Guid?>, GenerateInventoryFromTaskListCommandHandler>();
         services.AddScoped<IRequestHandler<SetNotePinnedCommand, bool>, SetNotePinnedCommandHandler>();
         services.AddScoped<IRequestHandler<SetAvailabilityCommand, bool>, SetAvailabilityCommandHandler>();
+        // The footer's "Do not share my personal information" - see User.KeepsThirdPartiesOut.
+        services.AddScoped<IRequestHandler<SetPrivacyChoiceCommand, bool>, SetPrivacyChoiceCommandHandler>();
         services.AddScoped<IRequestHandler<PresenceHeartbeatCommand, bool>, PresenceHeartbeatCommandHandler>();
         services.AddScoped<UserVisibility>();
         services.AddScoped<PermissionCodeStore>();
@@ -322,6 +326,9 @@ public static class OrbitCoreServiceCollectionExtensions
         // Depends on ITaskRepository (scoped, backed by the DbContext), so it must be scoped too.
         services.AddScoped<PendingRestockTaskResolver>();
         services.AddScoped<InventoryTaskListCoordinator>();
+        // Writing an inventory's item list, shared by the command that creates one already holding
+        // rows and the command that saves one - see InventoryItemsSaver.
+        services.AddScoped<InventoryItemsSaver>();
         services.AddScoped<RestockCompletion>();
         services.AddScoped<RestockListRefresh>();
 
@@ -335,6 +342,9 @@ public static class OrbitCoreServiceCollectionExtensions
         // Names the reader has already used, offered as they type one - see GetNameSuggestionsQuery for
         // why this is a database question rather than a question for the assistant.
         services.AddScoped<IRequestHandler<GetNameSuggestionsQuery, IReadOnlyList<NameSuggestion>>, GetNameSuggestionsQueryHandler>();
+        // The whole of the reader's own vocabulary for one field, rather than what resembles what
+        // they are typing - see UsedValueKind.
+        services.AddScoped<IRequestHandler<GetUsedValuesQuery, IReadOnlyList<string>>, GetUsedValuesQueryHandler>();
         services.AddScoped<IRequestHandler<FinishRestockingCommand, int>, FinishRestockingCommandHandler>();
         services.AddScoped<IRequestHandler<GetInventoryItemsQuery, IReadOnlyList<InventoryItem>?>, GetInventoryItemsQueryHandler>();
 

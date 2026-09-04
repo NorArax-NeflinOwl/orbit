@@ -11,12 +11,6 @@ namespace Orbit.Data.Migrations
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
         {
-            migrationBuilder.AddColumn<string>(
-                name: "OP_TI_PRODUCTCATEGORY",
-                table: "OP_TASKS_ITEMS",
-                type: "text",
-                nullable: true);
-
             migrationBuilder.AddColumn<DateTimeOffset>(
                 name: "OP_TI_PRODUCTEXPIRYDATE",
                 table: "OP_TASKS_ITEMS",
@@ -58,14 +52,37 @@ namespace Orbit.Data.Migrations
                 table: "OP_TASKS_ITEMS",
                 type: "text",
                 nullable: true);
+
+            migrationBuilder.CreateTable(
+                name: "OP_TASKS_PRODUCT_CATEGORIES",
+                columns: table => new
+                {
+                    OP_TPC_TASKITEMID = table.Column<Guid>(type: "uuid", nullable: false),
+                    OP_TPC_CATEGORY = table.Column<string>(type: "character varying(100)", maxLength: 100, nullable: false),
+                    OP_TPC_POSITION = table.Column<int>(type: "integer", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_OP_TASKS_PRODUCT_CATEGORIES", x => new { x.OP_TPC_TASKITEMID, x.OP_TPC_CATEGORY });
+                    table.ForeignKey(
+                        name: "FK_OP_TASKS_PRODUCT_CATEGORIES_OP_TASKS_ITEMS_OP_TPC_TASKITEMID",
+                        column: x => x.OP_TPC_TASKITEMID,
+                        principalTable: "OP_TASKS_ITEMS",
+                        principalColumn: "OP_TI_ID",
+                        onDelete: ReferentialAction.Cascade);
+                });
+
+            migrationBuilder.CreateIndex(
+                name: "IX_OP_TASKS_PRODUCT_CATEGORIES_OP_TPC_CATEGORY",
+                table: "OP_TASKS_PRODUCT_CATEGORIES",
+                column: "OP_TPC_CATEGORY");
         }
 
         /// <inheritdoc />
         protected override void Down(MigrationBuilder migrationBuilder)
         {
-            migrationBuilder.DropColumn(
-                name: "OP_TI_PRODUCTCATEGORY",
-                table: "OP_TASKS_ITEMS");
+            migrationBuilder.DropTable(
+                name: "OP_TASKS_PRODUCT_CATEGORIES");
 
             migrationBuilder.DropColumn(
                 name: "OP_TI_PRODUCTEXPIRYDATE",

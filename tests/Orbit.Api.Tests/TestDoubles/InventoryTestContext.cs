@@ -28,6 +28,9 @@ internal sealed class InventoryTestContext
     /// <summary>Rebuilds a restock list against the settings and the shelf - see RestockListRefresh.</summary>
     public RestockListRefresh RestockListRefresh { get; }
 
+    /// <summary>Writes an inventory's item list - what both creating one and saving one go through.</summary>
+    public InventoryItemsSaver ItemsSaver { get; }
+
     public InventoryTestContext()
     {
         AccessResolver = new InventoryAccessResolver(InventoryRepository, InventoryShareRepository, UserRepository);
@@ -38,6 +41,7 @@ internal sealed class InventoryTestContext
             ManagedTaskListRepository, InventoryItemRepository, InventoryRepository, TaskRepository);
         RestockListRefresh = new RestockListRefresh(
             ManagedTaskListRepository, InventoryItemRepository, InventoryRepository, TaskRepository, TaskListCoordinator);
+        ItemsSaver = new InventoryItemsSaver(InventoryItemRepository, TaskListCoordinator);
     }
 
     /// <summary>Creates and stores an inventory owned by ownerUserId, returning its id - the starting point for almost every inventory test.</summary>

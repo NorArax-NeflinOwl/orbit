@@ -54,14 +54,12 @@ else
             @if (line.IsChecklistItem)
             {
                 @* Its own press, kept from the card around it: a tick is what this row is for, and
-                   opening the whole note to write in instead would be answering a different question. *@
-                <label class="check-row @(line.IsChecked ? "completed" : "")"
-                       @onclick="() => { }" @onclick:stopPropagation="true">
-                    <input type="checkbox" checked="@line.IsChecked" disabled="@_isReadOnly"
-                           aria-label="@T.Format("Done: {0}", line.Text)"
-                           @onchange="args => Tick(line, (bool)args.Value!)" />
-                    <span class="check-row-text">@line.Text</span>
-                </label>
+                   opening the whole note to write in instead would be answering a different question.
+                   CheckRow stops the press itself - see the note at the top of it. *@
+                <CheckRow Title="@line.Text" IsTicked="@line.IsChecked" IsDisabled="@_isReadOnly"
+                          AriaLabel="@T.Format("Done: {0}", line.Text)"
+                          AdditionalClass="@(line.IsChecked ? "completed" : null)"
+                          OnTicked="ticked => Tick(line, ticked)" />
             }
             else if (line.Text.Length > 0)
             {

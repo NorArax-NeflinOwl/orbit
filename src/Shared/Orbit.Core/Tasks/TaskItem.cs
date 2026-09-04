@@ -124,7 +124,12 @@ public sealed class TaskItem
         // something to put on a shelf means nothing on an appointment, and nothing on an entry that
         // already points at the shelf item itself. Dropped rather than refused, so changing an entry's
         // kind loses what no longer applies instead of failing the save.
-        Product = Subject.Kind == TaskItemKind.Inventory && Subject.LinkedInventoryItemId is null ? product : null;
+        Product = Subject.Kind == TaskItemKind.Inventory && Subject.LinkedInventoryItemId is null
+            // Filed the way the entry's own categories are filed, and for the same reason: a word
+            // written twice is one category, and a filter comparing them without case would otherwise
+            // show two chips meaning the same thing.
+            ? product is null ? null : product with { Categories = TidyCategories(product.Categories) }
+            : null;
     }
 
     /// <summary>
@@ -223,7 +228,10 @@ public sealed class TaskItem
         }
 
         StoredTextLimits.OrRefuse(product?.ProductType ?? string.Empty, StoredTextLimits.ProductType, "product's type");
-        StoredTextLimits.OrRefuse(product?.Category ?? string.Empty, StoredTextLimits.Category, "product's category");
+        foreach (var category in product?.Categories ?? [])
+        {
+            StoredTextLimits.OrRefuse(category, StoredTextLimits.Category, "product's category");
+        }
 
         return new TaskItem(
             Guid.NewGuid(), description, dueDateUtc,

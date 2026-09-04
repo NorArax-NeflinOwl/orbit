@@ -33,7 +33,8 @@ public sealed class GenerateInventoryFromTaskListCommandHandlerTests
 
     private GenerateInventoryFromTaskListCommandHandler AHandler()
         => new(
-            new InventoryCreatingDispatcher(new CreateInventoryCommandHandler(_context.InventoryRepository)),
+            new InventoryCreatingDispatcher(
+                new CreateInventoryCommandHandler(_context.InventoryRepository, _context.ItemsSaver)),
             _context.TaskRepository, _context.InventoryItemRepository, _context.ManagedTaskListRepository,
             _context.RestockListRefresh);
 
@@ -169,7 +170,7 @@ public sealed class GenerateInventoryFromTaskListCommandHandlerTests
         var shopping = Store("Zakupy", isGroup: false, Asking("Mąka", TaskItemProduct.Default with
         {
             ProductType = "Dry goods",
-            Category = "Baking",
+            Categories = ["Baking", "Dry goods"],
             Quantity = 2,
             MinimumQuantity = 5,
             Unit = InventoryUnit.Kilogram,
@@ -181,7 +182,7 @@ public sealed class GenerateInventoryFromTaskListCommandHandlerTests
 
         var flour = Assert.Single(await ProductsIn(inventoryId!.Value));
         Assert.Equal("Dry goods", flour.ProductType);
-        Assert.Equal("Baking", flour.Category);
+        Assert.Equal(["Baking", "Dry goods"], flour.Categories);
         Assert.Equal(2, flour.Quantity);
         Assert.Equal(5, flour.MinimumQuantity);
         Assert.Equal(InventoryUnit.Kilogram, flour.Unit);
@@ -206,6 +207,7 @@ public sealed class GenerateInventoryFromTaskListCommandHandlerTests
         Assert.Equal(2, flour.MinimumQuantity);
         Assert.Equal(0, flour.Quantity);
         Assert.Equal("Part", flour.ProductType);
+        Assert.Equal(["From a task list"], flour.Categories);
     }
 
     /// <summary>

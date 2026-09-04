@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Components;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
+using Orbit.Contracts;
 using Orbit.Contracts.Inventories;
 using Orbit.Contracts.Notes;
 using Orbit.Contracts.Notifications;
@@ -240,6 +241,46 @@ public sealed class InventoryEditorTests : OrbitTestContext
     }
 
     /// <summary>
+    /// /inventory/new is a name-it-and-fill-it screen - its form's own button is "Add item" - so the
+    /// rows it collected have to travel with the create. They used to, and the server refused them,
+    /// which made naming an inventory and adding a row a save that could never succeed.
+    /// </summary>
+    [Fact]
+    public void A_new_inventory_is_created_with_the_rows_that_were_added_to_it()
+    {
+        RegisterApiClientsForANewInventory();
+        var cut = RenderComponent<InventoryEditor>();
+
+        WriteTheName(cut, "Cellar");
+        cut.FindAll("button").First(button => button.TextContent.Contains("Add item")).Click();
+        cut.FindAll("button").First(button => button.GetAttribute("aria-label") == "Save").Click();
+
+        Assert.NotNull(_lastCreateBody);
+        Assert.Contains("\"items\":[", _lastCreateBody);
+    }
+
+    /// <summary>
+    /// A refusal says why. The server writes a sentence into a 400 (see InvalidRequestExceptionHandler)
+    /// and this page used to show "Failed to save the inventory. Try again." over the top of it - advice
+    /// that could never work for a request the server had already explained.
+    /// </summary>
+    [Fact]
+    public void A_refused_create_is_said_in_the_servers_own_words()
+    {
+        RegisterApiClientsForANewInventory(refusedBecause: "That inventory is missing something.");
+        var cut = RenderComponent<InventoryEditor>();
+
+        WriteTheName(cut, "Cellar");
+        cut.FindAll("button").First(button => button.GetAttribute("aria-label") == "Save").Click();
+
+        Assert.Contains("That inventory is missing something.", cut.Markup);
+        Assert.DoesNotContain("Try again", cut.Markup);
+    }
+
+    /// <summary>What the last create sent, so a test can read the body rather than only the outcome.</summary>
+    private string? _lastCreateBody;
+
+    /// <summary>
     /// Types the inventory's name. The field is a contenteditable driven by JS, which bUnit cannot type
     /// into, so this raises the same callback that JS raises after an edit - mirrors NoteEditorTests'
     /// WriteFirstLine.
@@ -257,7 +298,7 @@ public sealed class InventoryEditorTests : OrbitTestContext
     /// inventory - so a request this does not expect would mean a "!IsNewInventory" guard had gone
     /// missing somewhere.
     /// </summary>
-    private void RegisterApiClientsForANewInventory()
+    private void RegisterApiClientsForANewInventory(string? refusedBecause = null)
     {
         var handler = new StubHttpMessageHandler(request =>
         {
@@ -275,7 +316,13 @@ public sealed class InventoryEditorTests : OrbitTestContext
 
             if (request.Method == HttpMethod.Post && path == "/api/inventories")
             {
-                return new HttpResponseMessage(HttpStatusCode.OK) { Content = JsonContent.Create(Guid.NewGuid()) };
+                _lastCreateBody = request.Content?.ReadAsStringAsync().GetAwaiter().GetResult();
+                return refusedBecause is null
+                    ? new HttpResponseMessage(HttpStatusCode.OK) { Content = JsonContent.Create(Guid.NewGuid()) }
+                    : new HttpResponseMessage(HttpStatusCode.BadRequest)
+                    {
+                        Content = JsonContent.Create(new RefusalDto(refusedBecause))
+                    };
             }
 
             throw new InvalidOperationException($"Unexpected request for a new inventory: {request.Method} {path}");

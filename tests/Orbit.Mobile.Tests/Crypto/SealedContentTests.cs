@@ -1,4 +1,5 @@
 using System.Text.Json;
+using Orbit.Contracts.Inventories;
 using Orbit.Contracts.Notes;
 using Orbit.Mobile.Crypto;
 using Orbit.Mobile.Tests.TestDoubles;
@@ -23,6 +24,13 @@ public sealed class SealedContentTests
         "Bank details",
         [new NoteContentLineDto("sort code", false, false), new NoteContentLineDto("call them", true, true)]);
 
+    /// <summary>A shelf whose one item is filed under two things - see InventoryItemRequest.Categories.</summary>
+    private static readonly SealedInventory Shelf = new(
+        "Medicine cabinet",
+        [new InventoryItemRequest(
+            Id: null, "Flour", "Food", "Baking", 2, 1, "Kilogram", ExpiryDate: null, "None",
+            IsCheckedRegularly: false, Categories: ["Baking", "Dry goods"])]);
+
     [Fact]
     public void A_sealed_note_is_written_exactly_as_the_browser_writes_it()
     {
@@ -31,6 +39,34 @@ public sealed class SealedContentTests
         // Reflection with default options is what Orbit.Web's PrivateContentSealer does, so this is the
         // browser's own answer rather than a copy of it kept in step by hand.
         Assert.Equal(JsonSerializer.Serialize(Note), fromThePhone);
+    }
+
+    /// <summary>
+    /// The same guarantee for a private inventory, and worth its own case: an inventory's items are the
+    /// one sealed payload that carries a whole DTO of its own, so a field added to InventoryItemRequest
+    /// is a field the two clients have to agree about. Adding Categories beside Category is exactly that
+    /// kind of change, and this is what would have caught it going wrong.
+    /// </summary>
+    [Fact]
+    public void A_sealed_inventory_is_written_exactly_as_the_browser_writes_it()
+    {
+        var fromThePhone = JsonSerializer.Serialize(
+            Shelf, SealedContentSerializerContext.Default.SealedInventory);
+
+        Assert.Equal(JsonSerializer.Serialize(Shelf), fromThePhone);
+    }
+
+    [Fact]
+    public async Task A_sealed_inventory_opens_again_with_everything_its_items_were_filed_under()
+    {
+        using var key = await PrivateContent.HoldingAKeyFor(Owner).UnlockAsync();
+
+        var opened = key.Open(
+            key.Seal(Shelf, SealedContentSerializerContext.Default.SealedInventory),
+            SealedContentSerializerContext.Default.SealedInventory);
+
+        Assert.NotNull(opened);
+        Assert.Equal(["Baking", "Dry goods"], opened.Items[0].AllCategories);
     }
 
     [Fact]

@@ -15,7 +15,8 @@ public sealed class InventoryItemFormModel
 
     public string Name { get; set; } = string.Empty;
     public string ProductType { get; set; } = string.Empty;
-    public string Category { get; set; } = string.Empty;
+    /// <summary>What it is filed under, as many words as apply - see InventoryItem.Categories.</summary>
+    public List<string> Categories { get; set; } = [];
     public decimal Quantity { get; set; }
     public decimal? MinimumQuantity { get; set; }
 
@@ -40,7 +41,7 @@ public sealed class InventoryItemFormModel
             Id = item.Id,
             Name = item.Name,
             ProductType = item.ProductType,
-            Category = item.Category,
+            Categories = [.. item.AllCategories],
             Quantity = item.Quantity,
             MinimumQuantity = item.MinimumQuantity,
             // Read through the option list rather than taken as it comes: a private inventory sealed
@@ -59,9 +60,11 @@ public sealed class InventoryItemFormModel
     /// </summary>
     public InventoryItemRequest ToDto()
         => new(
-            Id, Name, ProductType, Category, Quantity, MinimumQuantity, Unit,
+            // The first of them in the old single field too, so a server that has not learned about
+            // several still reads one - see InventoryItemRequest.Category.
+            Id, Name, ProductType, Categories.FirstOrDefault() ?? string.Empty, Quantity, MinimumQuantity, Unit,
             ExpiryDate is { } expiresOn ? expiresOn.ToUniversalTime() : null,
-            ExpiryNotificationChannel, IsCheckedRegularly);
+            ExpiryNotificationChannel, IsCheckedRegularly, Categories);
 
     /// <summary>
     /// The same fields as what a task entry asks for - see Orbit.Core.Tasks.TaskItemProduct. One model
@@ -71,7 +74,7 @@ public sealed class InventoryItemFormModel
     /// </summary>
     public TaskItemProductDto ToTaskItemProduct()
         => new(
-            ProductType, Category, Quantity, MinimumQuantity, Unit,
+            ProductType, Categories, Quantity, MinimumQuantity, Unit,
             ExpiryDate is { } expiresOn ? expiresOn.ToUniversalTime() : null,
             ExpiryNotificationChannel, IsCheckedRegularly);
 
@@ -80,7 +83,7 @@ public sealed class InventoryItemFormModel
         => new()
         {
             ProductType = product.ProductType,
-            Category = product.Category,
+            Categories = [.. product.AllCategories],
             Quantity = product.Quantity,
             MinimumQuantity = product.MinimumQuantity,
             Unit = InventoryUnitOption.For(product.Unit).Value,
