@@ -7,7 +7,10 @@
    answers that the same way ItemCard's own slots do. *@
 @if (OnPressed.HasDelegate)
 {
-    <button type="button" class="list-row list-row-button @AdditionalClass" @onclick="OnPressed">
+    @* The press stops here. A row can sit inside something else that is pressable - a task list's card
+       opens its checklist - and pressing one row there means opening that row, not the card around it. *@
+    <button type="button" class="list-row list-row-button @AdditionalClass" @onclick="OnPressed"
+            @onclick:stopPropagation="true">
         @Leading
         @if (!string.IsNullOrEmpty(Title))
         {

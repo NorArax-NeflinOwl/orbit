@@ -879,6 +879,20 @@ few of its rows. A row that only points at another list is followed — the firs
 points at are drawn under it — so a group list's card says something about the work rather than being a
 stack of titles.
 
+**Pressing a row opens that entry** (`/tasks/{listId}/items/{itemId}`), and pressing the card around it
+opens the list's checklist. The rows were the one dead area on the card - a reader points at the words,
+and the words did nothing - while the dashboard's equivalents had opened what they name all along. A
+row that belongs to a gathered list opens on *that* list, not on the one gathering it. The press stops
+at the row (`Row` carries `@onclick:stopPropagation`), because a row inside something pressable means
+that row rather than the thing around it - the same rule NoteSummary's tick rows already followed.
+
+**An entry that is an appointment carries its event's colour**, the same dot the dashboard's Upcoming
+card draws. An entry keeps no colour of its own - it lives on the calendar event the entry made - so
+`/tasks` reads the calendar alongside the lists, best-effort: a page of task lists that would not open
+because the calendar could not be read would be trading something that matters for something that
+decorates. An event with no colour set falls back to the accent, which is what the dashboard does with
+the same gap.
+
 A list one row over the preview limit is drawn in full: "and 1 more…" takes exactly the room the row it
 stands for would have taken, so hiding that row saves nothing and costs the reader the one thing it was
 hiding (`RowsToShow`). Two over, and the summary line starts earning its place.
@@ -1985,6 +1999,11 @@ point of this page is a quick glance at what exists, not a third copy of each li
 Clicking any item navigates straight to it (`/notes/{id}`, `/tasks/{id}`, or `/calendar/{id}`) — the
 dashboard has no editing of its own. For a task list that is its checklist, not its settings: see
 [Two editing levels](#two-editing-levels) for why the shallow level is what opening a list means.
+
+**An event a task list raised is named after the list**, "Health: Dentist", the way a deadline on that
+list already was. This card gathers things from everywhere, so a row that does not say where it came
+from is the one row on it that has lost something. Both the name and the link ask the same lookup -
+`CalendarEventDestination.RaisedBy` - so an event cannot be named after one list and open on another.
 
 **A finished task list is off the card unless it has been pinned.** This page is what is still on your
 plate, and a list that has been done stays done for as long as it exists - so left in, it silts the card

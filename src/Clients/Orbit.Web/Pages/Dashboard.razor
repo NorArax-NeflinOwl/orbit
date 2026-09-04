@@ -434,15 +434,27 @@ else
                 .ExpandOccurrences(calendarEvent, nowUtc, nowUtc + UpcomingWindow)
                 .FirstOrDefault(occurrence => occurrence.Details.EndUtc >= nowUtc);
 
-    private UpcomingEntry ToUpcomingEntry(CalendarEventDto calendarEvent) => new(
-        calendarEvent.Details.StartUtc,
-        calendarEvent.Details.Title + (calendarEvent.IsShared ? " " + T["(shared)"] : string.Empty),
-        FormatEventMeta(calendarEvent.Details),
-        string.IsNullOrWhiteSpace(calendarEvent.Details.Color) ? "var(--accent)" : calendarEvent.Details.Color,
-        calendarEvent.Details.Priority,
-        // An event a task list raised opens as that entry, the same as it does on the calendar itself -
-        // see CalendarEventDestination.
-        CalendarEventDestination.For(calendarEvent.Id, _taskLists));
+    /// <summary>
+    /// One row on the Upcoming card. An event a task list raised is named "Shopping: Milk", the way a
+    /// deadline from the same list already was - this card gathers things from everywhere, so an entry
+    /// that does not say where it came from is the one entry on it that has lost something. It also
+    /// opens as that list's entry rather than as the event, which it always did.
+    /// </summary>
+    private UpcomingEntry ToUpcomingEntry(CalendarEventDto calendarEvent)
+    {
+        var raisedBy = CalendarEventDestination.RaisedBy(calendarEvent.Id, _taskLists);
+        var name = raisedBy is { } origin
+            ? $"{Written(origin.List.Title)}: {calendarEvent.Details.Title}"
+            : calendarEvent.Details.Title;
+
+        return new UpcomingEntry(
+            calendarEvent.Details.StartUtc,
+            name + (calendarEvent.IsShared ? " " + T["(shared)"] : string.Empty),
+            FormatEventMeta(calendarEvent.Details),
+            string.IsNullOrWhiteSpace(calendarEvent.Details.Color) ? "var(--accent)" : calendarEvent.Details.Color,
+            calendarEvent.Details.Priority,
+            CalendarEventDestination.For(calendarEvent.Id, _taskLists));
+    }
 
     /// <summary>
     /// The deadlines on task lists, named the way the calendar names them - "Shopping: Milk", since a

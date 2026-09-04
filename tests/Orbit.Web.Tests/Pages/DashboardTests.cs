@@ -687,6 +687,48 @@ public sealed class DashboardTests : OrbitTestContext
         Services.AddSingleton(new CalendarApiClient(httpClient));
     }
 
+    /// <summary>
+    /// A deadline on a list is named "Shopping: Milk"; an *event* the same list raised was named by
+    /// itself, so the one row on this card that had come from somewhere was the one that did not say
+    /// where. See CalendarEventDestination.RaisedBy, which both the name and the link ask.
+    /// </summary>
+    [Fact]
+    public void An_event_a_task_list_raised_is_named_after_the_list_too()
+    {
+        RegisterChatApiClient([]);
+        RegisterEmptyNotesApiClient();
+        var appointment = Event("Dentist", DateTimeOffset.UtcNow.AddHours(2));
+        RegisterCalendarApiClient([appointment]);
+        RegisterTasksApiClient([TaskList("Health", EntryFor(appointment.Id))]);
+
+        var cut = RenderComponent<Dashboard>();
+
+        Assert.Contains("Health: Dentist", FindColumn(cut, "Upcoming").TextContent);
+    }
+
+    [Fact]
+    public void An_event_nothing_raised_is_named_by_itself()
+    {
+        RegisterChatApiClient([]);
+        RegisterEmptyNotesApiClient();
+        RegisterEmptyTasksApiClient();
+        RegisterCalendarApiClient([Event("Dentist", DateTimeOffset.UtcNow.AddHours(2))]);
+
+        var cut = RenderComponent<Dashboard>();
+
+        var upcoming = FindColumn(cut, "Upcoming").TextContent;
+        Assert.Contains("Dentist", upcoming);
+        Assert.DoesNotContain(": Dentist", upcoming);
+    }
+
+    /// <summary>The entry on a task list that made a calendar event - see TaskItemDto.LinkedCalendarEventId.</summary>
+    private static TaskItemDto EntryFor(Guid calendarEventId)
+        => new(
+            Guid.NewGuid(), "Dentist", DateTimeOffset.UtcNow.AddHours(2), IsCompleted: false,
+            LinkedTaskListId: null, OverdueNotificationChannel: "None", RemindDaily: false,
+            DailyReminderNotificationChannel: "None", DailyReminderTimeOfDay: new TimeOnly(9, 0),
+            Kind: "Calendar", LinkedCalendarEventId: calendarEventId);
+
     private static CalendarEventDto Event(
         string title, DateTimeOffset startUtc, int lengthHours = 1, RecurrenceDto? recurrence = null,
         string priority = "Normal")

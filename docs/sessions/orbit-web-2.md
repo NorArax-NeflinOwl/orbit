@@ -14,13 +14,12 @@ Date: 2026-09-04
 - Uncommitted changes: none.
 
 ## Goal of the work
-Fix what the user reported at the end of the previous session. The first of the four - creating an
-inventory that already has items being refused - was fixed before this handover was written; three
-smaller gaps between the tasks page and the dashboard are left.
+Fix what the user reported at the end of the previous session: creating an inventory that already has
+items being refused, and three gaps between the tasks page and the dashboard. All four are done.
 
 ## Done
-Everything below is on the branch, built, and covered by `dotnet test` — **2958 passing, 0 failing**
-(745 web, 1143 mobile, 1070 api).
+Everything below is on the branch, built, and covered by `dotnet test` — **2963 passing, 0 failing**
+(750 web, 1143 mobile, 1070 api).
 
 - **Sharing an inventory from its own editor** — `ShareInventoryPanel.razor`, shown from both the card
   on `/inventory` and the editor. The dashboard gained an Inventory card.
@@ -38,28 +37,19 @@ Everything below is on the branch, built, and covered by `dotnet test` — **295
   and carries a visited set).
 - **Dashboard Tasks card** — a finished list is hidden unless pinned; a pinned finished one is struck
   through.
+- **`/tasks` rows open the entry they name**, and the press stops at the row so the card behind it
+  still opens the checklist. `Row` gained `@onclick:stopPropagation`.
+- **`/tasks` shows an appointment's colour** — the same dot the dashboard's Upcoming card draws. The
+  page reads the calendar alongside the lists, best-effort.
+- **Dashboard "Upcoming" names an event after the list that raised it** — "Health: Dentist", matching
+  how a deadline on that list was already named. `CalendarEventDestination.RaisedBy` answers both the
+  name and the link, so the two cannot disagree.
 - **Category fields** — `TagField` (box, `+`, chips, and the account's own vocabulary under the box) on
   a task entry; `SuggestedTextField` on the shelf item's Product type and Category. Behind both:
   `GET /api/suggestions/used-values?kind=…`, a plain DISTINCT rather than the trigram search next door.
 
 ## Still failing / unknown
-
-### 1. `/tasks`: the preview rows are not pressable
-The rows inside a task-list card on `/tasks` are plain `<div class="list-row task-preview-row">`. The
-dashboard's equivalents are `<Row OnPressed=…>` and open what they name. The checklist's own rows open
-the entry (`GoToEditItem` → the entry's screen), so `/tasks` is the odd one out.
-
-### 2. `/tasks`: no colour for an activity/event
-The dashboard's Upcoming card draws a `stat-dot` in the event's own colour (`entry.Colour`, from
-`CalendarEventDto.Details.Color`). A Calendar-kind entry on `/tasks` shows no colour at all. Note that
-`TaskItemDto` carries no colour and `/tasks` does not currently load calendar events — decide whether to
-load them or to carry the colour on the entry before building this.
-
-### 3. Dashboard "Upcoming": an entry raised by a task list should read `[List]: [Event]`
-`UpcomingDeadlines` already names task deadlines that way ("Shopping: Milk"). `ToUpcomingEntry`, which
-builds the row for an actual calendar event, uses the event title alone — so an event a task list raised
-loses where it came from. `CalendarEventDestination.For(...)` already resolves which list raised it, so
-the list is reachable at that point.
+None. Everything the user reported has been fixed on this branch.
 
 ## Rejected approaches (do not retry)
 
@@ -76,14 +66,12 @@ the list is reachable at that point.
   empty `event.key`. Press `Enter`.
 
 ## Next step
-Take 1, 2 and 3 above, smallest first.
-
-The production bug this handover was written for - creating an inventory that already has items being
-refused - **is fixed on this branch**, on the server as the user asked: `POST /api/inventories` accepts
-the rows and writes them through the same `InventoryItemsSaver` a save uses, and
-`CreateInventoryAsync` reads the refusal body so the editor can say what the server said. Verified
-live: `POST` with one item below its minimum answered 201, the item was stored, and the inventory's
-restock list came back holding "Restock: Flour (5)".
+Nothing is owed on this branch. The two jobs still on the backlog are in
+[`info/future-plan.md`](../../info/future-plan.md) under "Smaller identified follow-ups": finishing
+**"Do not share my personal information"** (the footer's sixth entry - a per-account setting, telemetry
+gating, and moving the fonts and Leaflet off their CDNs), and making a **shelf item's category hold
+several words** the way a task entry's does, which reaches the phone, the archives and the sealed
+payload.
 
 ## Environment facts confirmed this session
 - Deployed web app: `https://orbit-web.victorioustree-36ad82ca.polandcentral.azurecontainerapps.io`,
