@@ -1922,21 +1922,60 @@ input.note-editor-title {
 
 /* Names the reader already has, under the field they are typing into. Sits close under the input so it
    reads as belonging to it, and wraps rather than scrolling - five short names, not a menu. */
+/* The names already used, as a list under the box being typed into. menuAnchor.js's anchorToField gives
+   it its position and its width, both of which depend on where that box ended up - everything here is
+   what it looks like once placed. Fixed rather than absolute so a row deep inside a scrolling form is
+   not clipped by it, which is the same reason the overflow menu is fixed. */
 .name-suggestions {
+    position: fixed;
+    z-index: 40;
     display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 6px;
-    margin-top: 4px;
+    flex-direction: column;
+    max-height: 240px;
+    overflow-y: auto;
+    padding: 4px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.28);
 }
 
-.name-suggestions .reference-chip {
+/* One name on offer. A full-width row rather than a chip: chips read as tags a field already carries,
+   and these are things nothing has taken yet. */
+.name-suggestion-option {
+    display: block;
+    width: 100%;
+    padding: 7px 10px;
+    background: none;
+    border: none;
+    border-radius: 6px;
+    color: var(--text-primary);
+    font: inherit;
+    font-size: 13.5px;
+    text-align: left;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
     cursor: pointer;
+}
+
+.name-suggestion-option:hover,
+/* Where the arrow keys are standing. The same fill as hover, because it means the same thing - this is
+   the one Enter would take - and two different highlights on one list would ask which is which. */
+.name-suggestion-option.is-active {
+    background: var(--bg-subtle);
+}
+
+.name-suggestion-option:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: -2px;
 }
 
 /* Said out loud when what is being typed is a name that already exists - the moment a duplicate is
    about to be created is the only moment anybody can cheaply avoid it. */
 .name-suggestion-warning {
+    display: block;
+    padding: 4px 10px 6px;
     color: var(--task);
     font-size: 11.5px;
 }

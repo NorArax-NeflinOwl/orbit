@@ -252,15 +252,25 @@ else
             <p class="field-hint">@T["A shelf several lists ask for is split between them, so each is told its own share."]</p>
             @foreach (var taskList in _taskLists)
             {
+                @* A list reached because a group list above it is measured here. Ticked, because it is
+                   asking this shelf for what its entries need - that is what gathering it means - but
+                   not untickable on its own: the tie belongs to the list at the top of the tree, and
+                   letting somebody clear one child would make a promise this page cannot keep. See
+                   MeasuredThroughAParent. *@
+                var throughParent = MeasuredThrough(taskList);
                 <label class="check-row">
-                    <input type="checkbox" checked="@(taskList.LinkedInventoryId == InventoryId)"
-                           disabled="@(_isReadOnly || _isLinkingTaskLists)"
+                    <input type="checkbox" checked="@(taskList.LinkedInventoryId == InventoryId || throughParent is not null)"
+                           disabled="@(_isReadOnly || _isLinkingTaskLists || throughParent is not null)"
                            aria-label="@T.Format("Measure {0} against this inventory", taskList.Title)"
                            @onchange="args => MeasureAsync(taskList, (bool)args.Value!)" />
                     <span class="check-row-text">@taskList.Title</span>
+                    @if (throughParent is { } gatheredBy)
+                    {
+                        <span class="row-meta">@T.Format("through {0}", gatheredBy)</span>
+                    }
                     @* A list already measured against another store: ticking it here moves it, so which
                        store it would leave is named rather than left to be noticed afterwards. *@
-                    @if (taskList.LinkedInventoryId is { } elsewhere && elsewhere != InventoryId)
+                    else if (taskList.LinkedInventoryId is { } elsewhere && elsewhere != InventoryId)
                     {
                         <span class="row-meta">@T.Format("now measured against {0}", NameOfInventory(elsewhere))</span>
                     }
@@ -492,12 +502,28 @@ else
             _taskLists = await TasksApiClient.GetTaskListsAsync();
             _inventoryNames = (await InventoryApiClient.GetInventoriesAsync() ?? [])
                 .ToDictionary(inventory => inventory.Id, inventory => inventory.Name);
+            WorkOutWhatIsMeasuredThroughAGroup();
         }
         catch (HttpRequestException exception)
         {
             Logger.LogWarning(exception, "Couldn't read which lists are measured against inventory {InventoryId}", InventoryId);
         }
     }
+
+    /// <summary>
+    /// Re-read after anything that changes which lists are tied here directly, since every tie brings
+    /// its whole tree with it - ticking one group can light up a dozen rows below it.
+    /// </summary>
+    private void WorkOutWhatIsMeasuredThroughAGroup()
+        => _measuredThroughAParent = MeasuredThroughAParent.Reach(
+            _taskLists,
+            _taskLists
+                .Where(taskList => taskList.LinkedInventoryId == InventoryId)
+                .Select(taskList => taskList.Id)
+                .ToHashSet());
+
+    /// <summary>A name Orbit wrote itself, in the reader's language - see OrbitWrittenNames.</summary>
+    private string Written(string name) => OrbitWrittenNames.Translate(key => T[key], name);
 
     /// <summary>
     /// Ties a list to this inventory, or lets it go. One list at a time and written straight away: a
@@ -528,6 +554,20 @@ else
             _isLinkingTaskLists = false;
         }
     }
+
+    /// <summary>
+    /// Which gathered list this one is measured through, or null when it stands on its own. Worked out
+    /// once per render rather than per row: the walk is over every list this reader has, and asking it
+    /// again for each of thirty rows would be thirty walks of the same tree.
+    /// </summary>
+    private IReadOnlyDictionary<Guid, Guid> _measuredThroughAParent = new Dictionary<Guid, Guid>();
+
+    /// <summary>The name of the list gathering this one, for the row to say - null when nothing does.</summary>
+    private string? MeasuredThrough(TaskDto taskList)
+        => _measuredThroughAParent.TryGetValue(taskList.Id, out var gatheredById)
+            && _taskLists.FirstOrDefault(candidate => candidate.Id == gatheredById) is { } gatheredBy
+            ? Written(gatheredBy.Title)
+            : null;
 
     /// <summary>What another store is called, or its id where this browser has not got it.</summary>
     private string NameOfInventory(Guid inventoryId)
