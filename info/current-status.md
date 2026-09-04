@@ -41,7 +41,7 @@ stated scope.
 | Choosing what an inventory's restock list asks for, and when | Implemented | [Functionality](functionality.md#the-restock-list) |
 | Editing a shelf item from the restock list | Implemented | [Functionality](functionality.md#editing-the-shelf-from-the-list) |
 | A task entry that is a calendar appointment, and makes one | Implemented | [Functionality](functionality.md#what-an-entrys-form-offers) |
-| AI assistant for inventories and task lists | Step 1 built, the model half not started | [Orbit Assistant — Plan](ai-assistant-plan.md) |
+| AI assistant for inventories and task lists | Step 1 built; the model answers one question over `POST /api/assistant/messages`, with no context, no tools and no client yet | [Orbit Assistant — Plan](ai-assistant-plan.md) |
 
 `Orbit.GoogleIntegration` (`src/Server`) is no longer the empty placeholder it was: it holds the
 Google ID-token verification behind Google sign-in, and nothing else - the calendar and maps features
@@ -98,7 +98,10 @@ list settles its finished errands when the phone opens it, as a browser does, an
 group's past to somebody they have just added. The names already in the account are offered under all
 four fields the browser offers them under — a product's name, an errand's description, a list's title
 and an inventory's name — each field with its own set, since a title and the box below it are on screen
-together.
+together. One of those four has since been widened in the browser and not here: an errand's description
+there also offers product names, note titles and event titles, on the grounds that an errand is where
+those get typed again — see
+[Functionality](functionality.md#names-you-have-already-used).
 
 Two more things the browser had and the phone did not: an inventory's **restock list settings** - the rule
 deciding what that list asks for, and the hour its reminder comes round - and the calendar's **day view**,
@@ -195,11 +198,19 @@ on, the phone writes that into its own notification feed rather than only into a
 something the phone can write to at all: it also carries a copy waiting to be reviewed, named and by
 kind, and takes the notice away once the review is answered.
 
-Of phase 7, the in-app feed, notification settings, deep links from a notification, and uploadable
-diagnostic logs are built — and **push is delivered on Android**: the app obtains an FCM registration
-token, registers it on every sign-in, and a notification the server raises arrives in the tray and taps
-through to the screen it names. A push arriving while the app is in front of somebody still shows
-nothing. Phase 8 — widgets, Live Activities, accessibility — has not been started.
+Phase 7 is built: the in-app feed, notification settings, deep links from a notification, uploadable
+diagnostic logs, and **push delivered on Android** — the app obtains an FCM registration token,
+registers it on every sign-in, and a notification the server raises arrives in the tray and taps through
+to the screen it names. A push arriving while the app is already in front of somebody shows a banner on
+the navigation bar, where the browser shows its own, honouring `AllowMobileBanner` and the two settings
+that pace it.
+
+Phase 8 is done on Android and untouched on iOS. Every switch, picker, date or time picker and checkbox
+names itself to a screen reader, with a test that fails on one that does not, and the home screen widget
+is built and driven on a device (see
+[Functionality](functionality.md#the-home-screen-widget-android)). What is left of the phase is the iOS
+half — Live Activities, the Dynamic Island, the Action Button — which waits on the same Apple account
+the rest of iOS does.
 
 **Android is the verified head.** It has been driven on an emulator and a device: signing in, syncing
 each feature both ways, chatting, and sharing. iOS was verified on a simulator at phase 1 and not
@@ -227,10 +238,16 @@ developer account and signing key.
   [Functionality](functionality.md#these-are-links-not-an-api-integration).
 - **Google Contacts sync** — not started. What it would take, and the design question that has to be
   answered first, is in [Future Plan](future-plan.md#planned-features).
-- **The AI assistant** — step 1 of [its plan](ai-assistant-plan.md) is built and is the half that needs
-  no model: names the reader already has, offered as they type, and a warning when what they are typing
-  is a name they already use. Everything from step 3 on - the model, the overlay window, the
-  proposals - is not started.
+- **The AI assistant** — two of its [plan](ai-assistant-plan.md)'s steps stand. Step 1 is the half that
+  needs no model: names the reader already has, offered as they type, and a warning when what they are
+  typing is a name they already use. Step 3's first round trip is now there too, on the server only:
+  `POST /api/assistant/messages` takes one question and returns one answer through
+  `Microsoft.Extensions.AI` (`AssistantChatClient`), against Ollama on a laptop or a hosted model in
+  production, and answers "not configured" where neither is set. What is deliberately *not* in it yet is
+  everything that makes it useful: no context is assembled, so the model is told none of the reader's
+  data and says so rather than inventing; there are no tools and so no proposals; nothing is remembered
+  between questions; and neither client has any surface for it - the web and the phone hold no assistant
+  code at all. Step 2 (merging the duplicates the warning finds) is not started.
 
 See [Future Plan](future-plan.md) for the fuller list of planned work, known scope cuts, and testing
 gaps.
