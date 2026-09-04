@@ -29,19 +29,24 @@ name: Build, test and deploy Orbit to Azure Container Apps
 #
 # The deploy job stays out of it either way - it is guarded on the event as well as gated on the suite.
 #
-# Work lands on Coding first and reaches main in one integration pull request (see
-# integration-pr.yml), so both branches build and both accept pull requests - but only main deploys,
-# which is the whole point of the arrangement: a merge to Coding costs a build, a merge to main costs
-# a deploy.
+# One trigger, and it is the merge to main. Runner minutes are 2000 a month and a pipeline that also
+# ran on pull requests, on pushes to Coding and on the integration pull request they synchronised spent
+# them in four days - the same suite, three and four times over for one change.
+#
+# So the suite runs at the one point where it gates something: the push to main, which is the last
+# step before Azure is paid, and what the deploy job hangs off. Work on the way there - a feature
+# branch, its pull request, the merge into Coding - is checked where it is written: `dotnet test
+# Orbit.sln` on the machine that made the change, before the pull request is opened. That is a rule
+# in .claude/CLAUDE.md, not a hope, and it is the trade this file makes on purpose: a broken merge to
+# Coding is found at the next push to main, before anything deploys, rather than paid for on every
+# branch on the way.
+#
+# paths-ignore, because a documentation-only merge cannot break a build and proving it on a runner is
+# the kind of spend that started this.
 on:
   push:
     branches:
       - main
-      - Coding
-  pull_request:
-    branches:
-      - main
-      - Coding
     paths-ignore:
       - 'info/**'
       - '**/*.md'
@@ -50,16 +55,9 @@ on:
 # One deploy at a time. Two merges a minute apart would otherwise build, push and update the same two
 # Container Apps concurrently, and which image ends up running would be down to which job finished
 # last. Queued rather than cancelled: a deploy interrupted halfway leaves a state nobody chose.
-#
-# A pull request is the opposite case and gets the opposite answer: one group per branch, cancelled by
-# the next push to it. Nobody wants the results of a commit that has already been replaced, and paying
-# for them is what made this trigger too expensive to keep the first time.
-#
-# A push to Coding is neither: it deploys nothing, so it takes a group of its own and is cancelled by
-# the next push the same way a pull request is.
 concurrency:
-  group: ${{ github.event_name == 'pull_request' && format('pr-{0}', github.ref) || format('push-{0}', github.ref) }}
-  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+  group: deploy-orbit
+  cancel-in-progress: false
 
 env:
   registryName: orbitcontainerregistry

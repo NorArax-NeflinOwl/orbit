@@ -197,8 +197,14 @@ that broke `azure/login`'s OIDC federation the one time it was tried.
 
 ## Continuous integration
 
-`.github/workflows/main_orbit.yml` runs on every push to `main` or `Coding` and on every pull request
-into either (and can be triggered manually); only its deploy job is restricted to `main`. Its
+`.github/workflows/main_orbit.yml` runs on pushes to `main` only (and can be triggered manually). It
+once also ran on every pull request, on every push to `Coding` and on the integration pull request
+those pushes synchronised - the same suite three and four times for one change - and runner minutes
+are capped at 2000 a month, which that arrangement spent in four days. So the suite now runs at the
+one point where it gates something: the merge of the integration pull request, the last step before
+Azure is paid. It ignores `info/**` and `**/*.md`. Everything on the way to `main` is checked on the
+developer's machine (`dotnet test Orbit.sln` before opening a pull request); a broken merge into
+`Coding` surfaces at the next push to `main`, before anything deploys. Its
 `test` job restores, builds (`Release` configuration), and runs the full test suite
 (`dotnet test Orbit.sln`) on `ubuntu-latest` with .NET SDK 10, then runs the two harnesses covering the
 parts of the client no .NET test can reach, since bUnit executes none of the browser APIs they are made

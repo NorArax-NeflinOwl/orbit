@@ -29,14 +29,17 @@ still says never to do it.
 
 ## How many pull requests may be open
 
-- **One per session.** A session opens at most one, and everything it does
-  afterwards goes on that branch - it makes no difference whether the work is in
-  the web client, the phone or the documentation. Splitting by subject is not
-  tidier here; it is a second pipeline run.
-- **Three in the repository, at most.** The other two belong to other sessions.
-- **A PR may be shared.** Several sessions can push to one branch, and joining an
-  existing PR is the normal answer when this session has none open and three
-  already are.
+- **Three at once, and the integration PR is one of them.** `Coding` → `main` is
+  always open while the branches differ, so two slots are left for work.
+- **A session uses the PR it opened.** Everything it does afterwards goes on that
+  branch - web, phone or documentation alike - and the description is extended or
+  rewritten each time, so the PR still documents everything it carries. Splitting by
+  subject buys nothing and spends a slot.
+- **Merged or closed frees the slot.** A session whose PR is gone may open another,
+  if the cap allows.
+- **A full cap is never a reason to stall.** Push to an open PR this session did not
+  open, after telling that session (`ListAgents`, then `SendMessage`). Several
+  sessions on one branch is normal, not an exception.
 
 ## Before starting a task
 
@@ -46,12 +49,12 @@ gh pr list --state open
 
 Then, in order:
 
-- **This session already has one open** → keep using it. Commit onto its branch
-  and push; do not open a second, and do not ask to.
-- **This session has none, fewer than three are open** → open one (below).
-- **Three are open, none of them this session's** → do not open a fourth. Put the
-  work on whichever open PR it belongs with and tell that session (`ListAgents`,
-  then `SendMessage`), or ask the user which one to join.
+- **This session already has one open** → keep using it. Commit onto its branch,
+  push, and update the description; do not open a second, and do not ask to.
+- **This session's PR is merged or closed, and a slot is free** → open one (below).
+- **Three are open** (the integration PR counts) → do not open a fourth and do not
+  wait for one. Push to whichever open PR the work belongs with, after telling that
+  session - `ListAgents`, then `SendMessage`. Ask the user only if none of them fits.
 
 Do not stack a new branch on top of an unmerged one unless the user explicitly asks.
 
@@ -95,7 +98,8 @@ Add APPLICATIONINSIGHTS_CONNECTION_STRING to .env.example
 
 - No secrets in the diff (`git diff --cached | grep -i -E "connectionstring|instrumentationkey|password|token|secret"` should only show variable *names*).
 - New environment variable → added to `.env.example` with a placeholder.
-- `dotnet build` passes; relevant tests run and reported.
+- `dotnet test Orbit.sln` passes on this machine and the count is in the PR. Nothing
+  on GitHub runs the suite before `main`, so this is the only check the change gets.
 - No changes outside the task's scope. If you touched something incidental, revert it.
 
 ## Opening the PR
@@ -124,7 +128,8 @@ PR body template:
 - <anything spotted outside the task>
 ```
 
-Open as a draft (`--draft`) if CI has not been checked locally yet.
+Open as a draft (`--draft`) if the suite has not been run locally yet - there is no CI
+on a pull request to catch it.
 
 The title opens with this session's tag - `[Web]`, `[Android]`, `[DB]`, `[Docs]` -
 so a glance at the list says which session is behind which PR.
@@ -151,7 +156,8 @@ overwriting. Which sessions are live is what `ListAgents` answers.
 
 - Do not merge. The user merges.
 - Later work in this session goes on this same PR, whatever it touches.
-- If CI fails on the PR, fix it in the same branch — do not open a new PR.
-- When the user merges into `Coding`, nothing deploys - the suite runs and the
-  integration PR updates itself. Watch the deploy only when the user merges *that*
+- There is no CI on the PR. If the suite fails on the push to `main` after the
+  integration merge, the fix goes on a new branch into `Coding` like any other change.
+- When the user merges into `Coding`, nothing runs but the workflow that updates
+  the integration PR. Watch the suite and the deploy only when the user merges *that*
   one into `main`: `gh run watch`, and on failure switch to `azure-deploy-diagnose`.

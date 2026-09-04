@@ -24,10 +24,11 @@ open_pull_request=$(gh pr list --head "$branch" --state open --json number --jq 
 [ -n "$open_pull_request" ] && exit 0
 
 cat >&2 <<MESSAGE
-error: branch '$branch' was already merged into main via pull request #$merged_pull_request.
-Commits added to it now will never reach main. Start a fresh branch and open a new pull request:
+error: branch '$branch' was already merged via pull request #$merged_pull_request.
+Commits added to it now reach nothing. Start a fresh branch from Coding, which is where work
+lands - see .claude/CLAUDE.md rule 2:
 
-  git checkout -b <new-branch-name> origin/main
+  git checkout -b <new-branch-name> origin/Coding
 
 (To bypass this check deliberately, re-run with --no-verify.)
 MESSAGE
