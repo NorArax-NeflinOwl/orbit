@@ -1,0 +1,64 @@
+@using Orbit.Web.Services
+@inject Translations T
+
+@* A panel over the page with a heading and a way out of it. The map picker had the only one of these
+   in Orbit and it was written into that component; the footer now needs two more - what this build is,
+   and what this browser is allowed to keep - so the shape is its own component rather than a third and
+   fourth copy of the same overlay.
+
+   Closed by the backdrop, by the cross, and by Escape. All three, because a panel that has to be
+   dismissed one particular way is a panel somebody gets stuck in: the backdrop is what a pointer
+   reaches for, Escape is what a keyboard reaches for, and the cross is what says it can be left at all.
+   The panel itself stops the press so a click inside it does not count as a click outside it. *@
+<div class="dialog-overlay" @onclick="OnClosed">
+    <div class="dialog-panel @AdditionalClass" role="dialog" aria-modal="true" aria-label="@Title"
+         tabindex="-1" @ref="_panel" @onclick:stopPropagation="true" @onkeydown="CloseOnEscapeAsync">
+        <div class="dialog-header">
+            <h2>@Title</h2>
+            <button type="button" class="icon-btn" title="@(T["Close"])" aria-label="@(T["Close"])"
+                    @onclick="OnClosed">✕</button>
+        </div>
+        <div class="dialog-body">@ChildContent</div>
+        @if (Footer is not null)
+        {
+            <div class="dialog-footer">@Footer</div>
+        }
+    </div>
+</div>
+
+@code {
+    [Parameter, EditorRequired] public string Title { get; set; } = string.Empty;
+
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+
+    /// <summary>The row of buttons along the foot, where the panel has anything to decide. Left out entirely for one that is only read.</summary>
+    [Parameter] public RenderFragment? Footer { get; set; }
+
+    [Parameter] public EventCallback OnClosed { get; set; }
+
+    [Parameter] public string? AdditionalClass { get; set; }
+
+    private ElementReference _panel;
+
+    /// <summary>
+    /// The panel takes the focus the moment it appears, so Escape reaches it without anybody clicking
+    /// into it first - and so a reader on a keyboard is left where the panel is rather than back on the
+    /// page behind it. Only on the first render: focusing it again on every redraw would pull the caret
+    /// out of anything inside it.
+    /// </summary>
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            await _panel.FocusAsync();
+        }
+    }
+
+    private async Task CloseOnEscapeAsync(KeyboardEventArgs args)
+    {
+        if (args.Key == "Escape")
+        {
+            await OnClosed.InvokeAsync();
+        }
+    }
+}

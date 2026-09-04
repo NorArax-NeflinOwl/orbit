@@ -234,11 +234,16 @@
         <div class="main-content-page">
             @Body
         </div>
-        @* Which build this is, when it was made, and under what licence. In the layout rather than on
-           each page so there is one of it, and inside <main> rather than after it so it scrolls with
-           the content on a page long enough to scroll. On a short one it settles at the bottom of the
-           window instead of floating halfway up it - see .app-footer. The phone says the same thing
-           behind About. *@
+        @* What this Orbit is and what it does with what you give it. In the layout rather than on each
+           page so there is one of it, and inside <main> rather than after it so it scrolls with the
+           content on a page long enough to scroll. On a short one it settles at the bottom of the window
+           instead of floating halfway up it - see .app-footer.
+
+           It used to be a line of version numbers, which answered "which build is this" for the few
+           people who ask it and nothing at all for everybody else. The numbers are behind About now,
+           where there is room to say what they mean - the way the phone has always done it - and the
+           row says instead where the answers are: what Orbit is, what it keeps, how it keeps it safe,
+           and how to use it. *@
         <footer class="app-footer">
             @* The mark, at the start of the line the page ends on - the same one the bar opens with,
                so the page is bracketed by it. Decorative here: the bar's copy is the one that goes
@@ -250,82 +255,38 @@
                          stroke-width="1.6" transform="rotate(-28 13 13)" />
             </svg>
             <span>@OrbitRelease.Copyright</span>
-            <span class="app-footer-separator">·</span>
-            @* Pressed, it grows the rest of the hash. There is nothing to press for a reader who is not
-               shown the commit at all, or for a build carrying none - a local `docker compose build`,
-               which nothing numbered - and it is then drawn as the text it is rather than as a button
-               that would do nothing. See OrbitVersion. *@
-            @if (ShownVersion.CanShowTheWholeCommit)
-            {
-                <button type="button" class="app-footer-version" title="@(T["Show the whole commit"])"
-                        @onclick="() => _isVersionExpanded = !_isVersionExpanded">
-                    @(_isVersionExpanded ? ShownVersion.Full : ShownVersion.Short)
-                </button>
-            }
-            else
-            {
-                <span>@ShownVersion.Short</span>
-            }
-            @* The server's own build, beside the client's. The two can differ - the pipeline rolls each
-               app back on its own, and a browser can be holding a cached client - so showing only one
-               answers "which Orbit is this" with half the truth. Absent when the server cannot be
-               reached, which is honest: an offline footer knows nothing about it. *@
-            @if (_serverVersion is { } server)
-            {
-                <span class="app-footer-separator">·</span>
-                <span>@T.Format("api {0}", ServerVersionText(server))</span>
-            }
-            <span class="app-footer-separator">·</span>
+            @* A dialog rather than a page: what build this is has no address worth sharing, and it is
+               read in the middle of doing something else. See AboutDialog. *@
+            <button type="button" class="app-footer-link" @onclick="() => _isAboutOpen = true">@T["About"]</button>
+            <a href="/privacy">@T["Privacy"]</a>
+            <a href="/security">@T["Security"]</a>
+            <a href="/docs">@T["Docs"]</a>
             @* Orbit's own page rather than the file on GitHub: the licence is part of what this
                deployment says about itself, and a reader should not have to leave it to read it -
                see Pages/License.razor. *@
             <a href="/license">@T[OrbitRelease.LicenseName]</a>
+            @* Named for the thing people go looking for, even though Orbit sets no cookies - see
+               ManageCookiesDialog, whose first line says so. *@
+            <button type="button" class="app-footer-link" @onclick="() => _isCookiesOpen = true">@T["Manage cookies"]</button>
         </footer>
+
+        @* Over the page, from the footer. Rendered here rather than beside the footer's own row so the
+           row stays a row: an overlay is fixed to the viewport wherever it is written. *@
+        @if (_isAboutOpen)
+        {
+            <AboutDialog OnClosed="() => _isAboutOpen = false" />
+        }
+        @if (_isCookiesOpen)
+        {
+            <ManageCookiesDialog OnClosed="() => _isCookiesOpen = false" />
+        }
     </main>
 </div>
 
 @code {
-    /// <summary>
-    /// This build, read off this assembly - see OrbitVersion. Not the shared project's: the number is
-    /// per client, and Orbit.Core is compiled into three of them.
-    /// </summary>
-    private static readonly OrbitVersion _version = OrbitVersion.ReadFrom(typeof(MainLayout).Assembly);
-
-    /// <summary>
-    /// This build as the footer says it. Which commit it came from is detail about Orbit's own inside,
-    /// so it is said to the accounts that have been given Orbit's inside and to nobody else - see
-    /// ApplicationPermission.Debug. The server applies the same rule to its own version, and there by
-    /// leaving the hash out of the answer rather than sending it to be hidden.
-    /// </summary>
-    private OrbitVersion ShownVersion
-        => Permissions.Has(ApplicationPermission.Debug) ? _version : _version.WithoutTheCommit();
-
-    /// <summary>Whether the footer is showing the whole commit hash rather than the first seven of it.</summary>
-    private bool _isVersionExpanded;
-
-    /// <summary>Which build of the server this client is talking to, once it has been asked - see ServerVersionDto.</summary>
-    private ServerVersionDto? _serverVersion;
-
-    /// <summary>
-    /// The server's version as the footer says it. It follows the same expand as the client's, because
-    /// pressing one and having the other stay short would read as a bug rather than as two facts.
-    ///
-    /// A server that will not show this reader its commit sends no hash, so there is usually nothing to
-    /// grow - and the permission is checked here as well, so an older server that still sends one to
-    /// everybody does not get to say more than this client would.
-    /// </summary>
-    private string ServerVersionText(ServerVersionDto server)
-    {
-        if (server.CommitHash.Length == 0 || !Permissions.Has(ApplicationPermission.Debug))
-        {
-            return $"ver:{server.Version}";
-        }
-
-        var hash = _isVersionExpanded || server.CommitHash.Length <= 7 ? server.CommitHash : server.CommitHash[..7];
-        return $"ver:{server.Version}+gitHash:{hash}";
-    }
-
-
+    /// <summary>Which of the footer's two dialogs is open, if either - see AboutDialog and ManageCookiesDialog.</summary>
+    private bool _isAboutOpen;
+    private bool _isCookiesOpen;
 
 
     private bool _avatarMenuOpen;
@@ -407,9 +368,6 @@
         // Syncs ThemeService.Current to whatever index.html's inline anti-flash script already applied
         // (see ThemeService's class comment) - runs once per app load, regardless of auth state, since
         // theme applies to the login/register pages too.
-        // The footer says which server this is talking to. Asked once, and a failure leaves it unsaid
-        // rather than stopping the layout - see GetServerVersionAsync.
-        _serverVersion = await ClientFlagsApiClient.GetServerVersionAsync();
         await ThemeService.InitializeAsync();
         await AccentColorService.InitializeAsync();
         await DevicePreferences.InitializeAsync();
@@ -639,10 +597,11 @@
 
         await Presence.StartAsync();
         await Permissions.RefreshAsync();
-        // Asked again now that there is somebody to ask as: how much of its version the server answers
-        // with depends on what this account may see - see ConfigEndpoints.
+        // Forgotten now that there is somebody to ask as: how much of its version the server answers
+        // with depends on what this account may see (see ConfigEndpoints), so the answer cached while
+        // nobody was signed in is the wrong one. Not asked again here - About asks when it is opened,
+        // which is the only place the answer is read.
         ClientFlagsApiClient.ForgetTheServerVersion();
-        _serverVersion = await ClientFlagsApiClient.GetServerVersionAsync();
     }
 
     /// <summary>

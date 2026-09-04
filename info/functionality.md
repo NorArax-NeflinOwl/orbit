@@ -1497,20 +1497,69 @@ name. Since the entry editor started carrying coordinates (`TaskItemEditor.Locat
 has somewhere of its own to land, and the entry editor now draws the line where every other screen does:
 the position always, the words only into a box nobody has written in.
 
-### Which build this is
+### The footer, and what stands behind each word in it
 
-The footer says `ver:0.1.17+gitHash:51536f3`, and pressing it grows the rest of the hash - the short form
+The line along the foot of every page used to be the version numbers and the licence. It answered
+"which build is this" for the few people who ask that, and nothing at all for everybody else - so it now
+reads `© 2026 Orbit · About · Privacy · Security · Docs · All Rights Reserved · Manage cookies`, modelled on
+GitHub's own. Two of those open a dialog rather than a page and are drawn exactly like the links beside
+them: which of the two a reader is pressing is not a distinction they should have to make.
+
+- **About** (`AboutDialog`) - what Orbit is in one sentence, then the build numbers described below. A
+  dialog because there is no address worth sharing for "which build is this", and it is read in the
+  middle of doing something else. This is where the version line went.
+- **Privacy**, **Security**, **Docs** (`/privacy`, `/security`, `/docs`) - three pages with no
+  `[Authorize]`, like the licence: somebody deciding whether to trust this deployment must be able to
+  read them before signing up. Their words come from this document - Privacy from the private-items,
+  sharing and authentication sections, Security from those plus the crypto in `e2eeChat.js`, Docs from
+  the feature sections - rewritten for a reader using Orbit rather than building it. **When a rule here
+  changes, those three pages are the other place it is written down.**
+- **Manage cookies** (`ManageCookiesDialog`) - see below. Orbit sets no cookies at all; the link is
+  named for what people go looking for, and the dialog's first line says so.
+
+`Dialog` (`Components/Dialog.razor`) is the shared panel the two dialogs are built on: a heading, a
+body that scrolls, an optional row of buttons that does not, and three ways out - the backdrop, the
+cross and Escape. The map picker keeps its own overlay, which predates this and is a different shape.
+
+#### What this browser is allowed to keep
+
+Orbit uses **local storage, never cookies**, so "Manage cookies" manages that. Three categories:
+
+- **Strictly necessary** - the two tokens, `orbit-language`, the consent record itself, and the two
+  `orbit-allow-*` keys, which are records of consent in their own right. Shown ticked and unpressable
+  rather than hidden: a reader deciding what to allow should see everything being kept.
+- **Preferences** - theme, accent hue, dashboard pins/hidden cards/filters, checklist views, the
+  calendar and task-list and inventory orderings, conversation pins, panel states.
+- **Diagnostics** - `orbit.clientLogs` and `orbit-diagnostics-mode`.
+
+The gate is `wwwroot/js/storageConsent.js`, and **where** it sits is the point: it wraps
+`Storage.prototype.setItem` rather than asking each of the fifteen writers to check first. Half of those
+writes happen in JS modules and half arrive through Blazor interop as `localStorage.setItem`; both go
+through the prototype, so one wrapper covers both and there is a single list of what belongs where. It
+is loaded as a plain classic script **first** in `index.html`, before the inline theme script and before
+Blazor - anything loaded earlier could write past the gate. An unrecognised key reads as a preference,
+which is the narrower of the two guesses to be wrong about.
+
+Turning a category off **clears what is already stored**, not only what would be written next, and the
+dialog stays open with the counts re-read so the numbers dropping to zero are the proof. There is no
+banner across the page on a first visit: Orbit stores nothing before somebody uses it, so there is
+nothing to agree to before reading.
+
+#### Which build this is
+
+**About** says `ver:0.1.17+gitHash:51536f3`, and pressing it grows the rest of the hash - the short form
 is what anybody reads, the whole one is what a `git checkout` takes, and asking for it should not mean
 going somewhere else. The phone's **About** row says the same thing and behaves the same way when tapped.
 
 **The hash goes to the accounts holding `Debug`, and to nobody else.** Every build reads its own commit
-off itself whatever configuration it was made in - a deployed footer that cannot answer "which code is
-this" is a footer with no reason to carry a hash at all - and the *showing* is what is gated. Somebody
+off itself whatever configuration it was made in - a deployed build that cannot answer "which code is
+this" has no reason to carry a hash at all - and the *showing* is what is gated. Somebody
 without the permission sees `ver:0.1.17` and nothing to press: the number is what a bug report needs and
 what the update gate compares, while which commit it was cut from is detail about Orbit's own insides.
 All three ends apply the one rule: the server leaves the hash out of its answer rather than sending it
-to be hidden (`ConfigEndpoints`), the browser's footer drops it with `OrbitVersion.WithoutTheCommit()`,
-and the phone's About row does the same - it was the half still showing it to everybody.
+to be hidden (`ConfigEndpoints`), the browser's About dialog drops it with
+`OrbitVersion.WithoutTheCommit()`, and the phone's About row does the same - it was the half still
+showing it to everybody.
 
 **Both versions are shown, the client's and the server's**, because they can differ:
 
@@ -1520,10 +1569,12 @@ and the phone's About row does the same - it was the half still showing it to ev
 - The phone is released separately and updated whenever its owner chooses - which is the whole reason the
   version gate exists.
 
-So the footer and the About row carry a second entry, `api ver:0.1.17+gitHash:…`, read from
-`GET /api/config/version`. A released **server** sends no hash at all rather than sending one the client
-then hides: what is not sent cannot be read off the wire. When the server cannot be reached the entry is
-simply absent - an offline footer knows nothing about it and should not guess.
+So both About dialogs carry a second entry, `api ver:0.1.17+gitHash:…`, read from
+`GET /api/config/version`. The browser asks for it when the dialog is opened rather than when the layout
+loads - the answer is cached for the session, so a dialog nobody opens costs nothing. A released
+**server** sends no hash at all rather than sending one the client then hides: what is not sent cannot be
+read off the wire. When the server cannot be reached the entry is simply absent - a dialog that could not
+ask knows nothing about it and should not guess.
 
 **The number reads `version.patch.build`, and the three parts answer three different questions.**
 
@@ -1558,7 +1609,7 @@ real, because this is the string somebody pastes into a bug report.
 the real `HEAD`, so a local build reads as `0.0.0-dev` and keeps the hash. That matters because the
 hash is the whole point of the line while debugging: nobody compares `0.0.0-dev` against anything,
 they are asking which code is running. Discarding the commit along with the number left a Debug build
-showing no hash and a footer that could not be opened - the one case the hash exists for.
+showing no hash and an About dialog with nothing to press - the one case the hash exists for.
 
 The Android release carries it twice over: `-p:InformationalVersion` for the About row, and the file name
 itself - **`orbit-android-0_1_32v.apk`**, so a download says which build it is without anybody opening

@@ -5,6 +5,11 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Orbit</title>
     <base href="/" />
+    <!-- First of everything, and a plain classic script: it wraps localStorage so a category this
+         reader has declined is never written, and both the inline theme script below and Blazor's own
+         token store go through that same wrapper. Anything loaded before it could write past the gate.
+         See storageConsent.js, and the Manage cookies dialog in the footer that sets the choice. -->
+    <script src="js/storageConsent.js"></script>
     <!-- Resolves and applies the light/dark theme and the chosen accent colour before any CSS paints, so
          the page never flashes the wrong one on load. Mirrors theme.js and accentColor.js (kept in sync
          manually - this one must run as a plain classic script, before app.css, since ES module imports
