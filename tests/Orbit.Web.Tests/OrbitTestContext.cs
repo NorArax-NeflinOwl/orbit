@@ -31,6 +31,11 @@ public abstract class OrbitTestContext : TestContext
         // The contacts page reads which conversations this reader keeps at the top. Same storage, same
         // empty start - nothing is pinned until a test pins something.
         Services.AddSingleton(new ConversationPins(new StubJSRuntime()));
+        // The questions asked before a task list is deleted, which three pages now inject - see
+        // TaskListDeletion. Registered here for the same reason Translations is: a test about what a
+        // page shows should not fail on a service it never exercises. It resolves the TasksApiClient
+        // the test itself registered, so a test that does exercise it still drives its own stub.
+        Services.AddScoped<TaskListDeletion>();
         // Every overflow menu asks JS to place it inside the viewport when it opens - see
         // OverflowMenu and menuAnchor.js. There is no layout to measure here, so it answers and does
         // nothing; without it any test that opens a menu fails on the interop call rather than on

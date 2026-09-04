@@ -20,6 +20,7 @@
 @using Orbit.Core.Suggestions
 @using Orbit.Web.Services
 @inject TasksApiClient TasksApiClient
+@inject TaskListDeletion TaskListDeletion
 @inject InventoryApiClient InventoryApiClient
 @inject ChatApiClient ChatApiClient
 @inject CalendarApiClient CalendarApiClient
@@ -514,6 +515,16 @@ else
                             @onclick="() => RecalculateAsync(menuTaskListId)">
                         @T["Recalculate against the inventory"]
                     </button>
+                    @* Where a calendar event's editor has had "Delete event" all along. A task list was
+                       the one thing in Orbit that could only be deleted from the page of cards - so
+                       getting rid of one meant leaving the form that opens everything else about it. *@
+                    @if (!_isShared)
+                    {
+                        <button type="button" class="avatar-dropdown-item" disabled="@_isDeleting"
+                                @onclick="DeleteAsync">
+                            @T["Delete task list"]
+                        </button>
+                    }
                 </OverflowMenu>
             }
         </ChildContent>
@@ -1745,6 +1756,47 @@ else
             await ReleaseLockAsync(taskListId);
         }
 
+        NavigationManager.NavigateTo("/tasks");
+    }
+
+    /// <summary>Whether the delete is in flight, so the menu entry cannot be pressed a second time.</summary>
+    private bool _isDeleting;
+
+    /// <summary>
+    /// Deletes the list this form is editing and leaves, questions and all - see TaskListDeletion, which
+    /// the page of cards and the checklist ask through as well.
+    ///
+    /// How many lists it gathers is counted off the form rather than off what was loaded: somebody who
+    /// has just taken the links out and not saved yet should not be asked about lists this one no longer
+    /// gathers. Unsaved edits go with it, which is what deleting the thing being edited means; the lock
+    /// is released first, so a list that turns out not to be deletable is not left held by a page that
+    /// has gone.
+    /// </summary>
+    private async Task DeleteAsync()
+    {
+        if (Id is not { } taskListId)
+        {
+            return;
+        }
+
+        Logger.LogInformation("User clicked 'Delete task list' (TaskListId={TaskListId})", taskListId);
+        var gathers = _formModel.Items.SelectMany(item => item.LinkedTaskListIds).Distinct().Count();
+        _isDeleting = true;
+        try
+        {
+            if (await TaskListDeletion.AskAndDeleteAsync(taskListId, _formModel.Title, gathers)
+                is not TaskListDeletionOutcome.Deleted)
+            {
+                _saveErrorMessage = TaskListDeletion.FailureMessage;
+                return;
+            }
+        }
+        finally
+        {
+            _isDeleting = false;
+        }
+
+        await ReleaseLockAsync(taskListId);
         NavigationManager.NavigateTo("/tasks");
     }
 

@@ -1467,6 +1467,14 @@ input.note-editor-title {
     text-align: left;
 }
 
+/* A row for something already finished - the dashboard's task card, which keeps a done list only where
+   it has been pinned. Struck through and quieted, the same way a ticked checklist line is: the two are
+   the same fact about two different things, and they should not read differently. */
+.list-row.completed .row-title {
+    color: var(--text-tertiary);
+    text-decoration: line-through;
+}
+
 .row-meta {
     font-size: 12px;
     color: var(--text-tertiary);

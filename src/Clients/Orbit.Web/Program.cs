@@ -139,6 +139,8 @@ builder.Services.AddScoped<PageVisibility>();
 builder.Services.AddScoped<UserPermissionState>();
 builder.Services.AddScoped<ChecklistViewPreference>();
 builder.Services.AddScoped<TaskListArrangement>();
+// The questions asked before a task list is deleted, shared by the three screens that offer it.
+builder.Services.AddScoped<TaskListDeletion>();
 builder.Services.AddScoped<PanelPreferences>();
 builder.Services.AddScoped<CalendarListOrder>();
 // Singleton rather than scoped: PersistentLoggerProvider is registered as a singleton and reads the log
