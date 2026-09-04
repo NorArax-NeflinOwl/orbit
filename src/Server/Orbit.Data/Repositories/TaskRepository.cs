@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
-using Orbit.Core.Notifications;
 using Orbit.Core.Abstractions;
+using Orbit.Core.Inventories;
+using Orbit.Core.Notifications;
 using Orbit.Core.Tasks;
 using Orbit.Data.Entities;
 
@@ -208,7 +209,28 @@ public sealed class TaskRepository : ITaskRepository
             new TaskItemSubject(
                 Enum.TryParse<TaskItemKind>(entity.Kind, out var kind) ? kind : TaskItemKind.Checklist,
                 entity.Location, entity.LinkedCalendarEventId, entity.LinkedInventoryItemId),
-            [.. entity.Categories.OrderBy(category => category.Position).Select(category => category.Category)]);
+            [.. entity.Categories.OrderBy(category => category.Position).Select(category => category.Category)],
+            ToProductDomain(entity));
+
+    /// <summary>
+    /// What the entry asks for, when it asks for anything - see TaskItemEntity.ProductType for why the
+    /// unit is what says so. Anything unreadable falls back the way every other stored-by-name enum here
+    /// does: a row must not throw while being read.
+    /// </summary>
+    private static TaskItemProduct? ToProductDomain(TaskItemEntity entity)
+        => entity.ProductUnit is null
+            ? null
+            : new TaskItemProduct(
+                entity.ProductType ?? string.Empty,
+                entity.ProductCategory ?? string.Empty,
+                entity.ProductQuantity ?? 0,
+                entity.ProductMinimumQuantity,
+                Enum.TryParse<InventoryUnit>(entity.ProductUnit, out var unit) ? unit : InventoryUnit.Piece,
+                entity.ProductExpiryDate,
+                Enum.TryParse<NotificationChannel>(entity.ProductExpiryNotificationChannel, out var channel)
+                    ? channel
+                    : NotificationChannel.None,
+                entity.ProductIsCheckedRegularly ?? false);
 
     private static TaskEntity ToEntity(TaskList taskList)
         => new()
@@ -257,6 +279,16 @@ public sealed class TaskRepository : ITaskRepository
             Location = item.Location,
             LinkedCalendarEventId = item.LinkedCalendarEventId,
             LinkedInventoryItemId = item.LinkedInventoryItemId,
+            // All of them or none of them - see TaskItemEntity.ProductType. An entry that describes
+            // nothing writes nulls across the row rather than half an answer.
+            ProductType = item.Product?.ProductType,
+            ProductCategory = item.Product?.Category,
+            ProductQuantity = item.Product?.Quantity,
+            ProductMinimumQuantity = item.Product?.MinimumQuantity,
+            ProductUnit = item.Product?.Unit.ToString(),
+            ProductExpiryDate = item.Product?.ExpiryDate,
+            ProductExpiryNotificationChannel = item.Product?.ExpiryNotificationChannel.ToString(),
+            ProductIsCheckedRegularly = item.Product?.IsCheckedRegularly,
             Categories = [.. item.Categories.Select((category, categoryPosition) =>
                 new TaskItemCategoryEntity
                 {

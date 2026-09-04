@@ -231,6 +231,12 @@ public sealed class TaskListSynchronizer
     /// at all about them (see UpdateTaskListCommand.EntriesKeepingTheirCategories), which is what let
     /// older builds of this app go on saving without unfiling everything - but this one can set them, so
     /// it has to say what they are.
+    ///
+    /// So does what an inventory entry asks for - the product it describes before any shelf holds it
+    /// (see Orbit.Core.Tasks.TaskItemProduct). This phone has no form for it yet, and it is sent back
+    /// exactly as it arrived: the server would keep it for a request that said nothing (the same rule as
+    /// the categories), but a list this phone holds is pushed whole, and passing it through is what makes
+    /// that rule unnecessary rather than relied upon.
     /// </summary>
     private static IReadOnlyList<TaskItemRequest> ToRequests(IReadOnlyList<TaskItemDto> items)
         => items.Select(item => new TaskItemRequest(
@@ -240,5 +246,5 @@ public sealed class TaskListSynchronizer
             LinkedTaskListId: null, item.OverdueNotificationChannel, item.RemindDaily,
             item.DailyReminderNotificationChannel, item.DailyReminderTimeOfDay,
             item.Kind, item.Location, item.LinkedCalendarEventId, item.LinkedInventoryItemId,
-            item.AllLinkedTaskListIds, item.AllCategories)).ToList();
+            item.AllLinkedTaskListIds, item.AllCategories, item.Product)).ToList();
 }

@@ -1,4 +1,5 @@
 using Orbit.Contracts.Inventories;
+using Orbit.Contracts.Tasks;
 
 namespace Orbit.Web.Services;
 
@@ -61,6 +62,32 @@ public sealed class InventoryItemFormModel
             Id, Name, ProductType, Category, Quantity, MinimumQuantity, Unit,
             ExpiryDate is { } expiresOn ? expiresOn.ToUniversalTime() : null,
             ExpiryNotificationChannel, IsCheckedRegularly);
+
+    /// <summary>
+    /// The same fields as what a task entry asks for - see Orbit.Core.Tasks.TaskItemProduct. One model
+    /// for both because it is one form: an entry describing something to put on a shelf and a row
+    /// already on one are the same questions asked at different moments, and the answer to the first
+    /// becomes the second when the storage is generated.
+    /// </summary>
+    public TaskItemProductDto ToTaskItemProduct()
+        => new(
+            ProductType, Category, Quantity, MinimumQuantity, Unit,
+            ExpiryDate is { } expiresOn ? expiresOn.ToUniversalTime() : null,
+            ExpiryNotificationChannel, IsCheckedRegularly);
+
+    /// <summary>What an entry already asks for, back in the form. No name: the entry's own words are it.</summary>
+    public static InventoryItemFormModel FromTaskItemProduct(TaskItemProductDto product)
+        => new()
+        {
+            ProductType = product.ProductType,
+            Category = product.Category,
+            Quantity = product.Quantity,
+            MinimumQuantity = product.MinimumQuantity,
+            Unit = InventoryUnitOption.For(product.Unit).Value,
+            ExpiryDate = product.ExpiryDate,
+            ExpiryNotificationChannel = product.ExpiryNotificationChannel,
+            IsCheckedRegularly = product.IsCheckedRegularly
+        };
 
     /// <summary>Whether the shelf says there is less of this than somebody asked to keep.</summary>
     public bool IsBelowMinimum => MinimumQuantity is { } minimum && Quantity < minimum;

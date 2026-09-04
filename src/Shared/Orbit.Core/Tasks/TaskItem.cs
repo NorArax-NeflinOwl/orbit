@@ -77,6 +77,14 @@ public sealed class TaskItem
     /// </summary>
     public IReadOnlyList<string> Categories { get; private set; }
 
+    /// <summary>
+    /// What this entry asks for, in the detail a shelf item is kept in - see
+    /// <see cref="TaskItemProduct"/>. Null for every kind but <see cref="TaskItemKind.Inventory"/>, and
+    /// null for an inventory entry that already stands for a real shelf item: that item is then the
+    /// answer, and a second copy here is the one that would go stale.
+    /// </summary>
+    public TaskItemProduct? Product { get; private set; }
+
     /// <summary>When this entry speaks up and where - see <see cref="TaskItemReminders"/>.</summary>
     public TaskItemReminders Reminders { get; private set; }
 
@@ -99,7 +107,8 @@ public sealed class TaskItem
 
     private TaskItem(
         Guid id, string description, DateTimeOffset? dueDateUtc, bool isCompleted, IReadOnlyList<Guid>? linkedTaskListIds,
-        TaskItemReminders? reminders, TaskItemSubject? subject, IReadOnlyList<string>? categories)
+        TaskItemReminders? reminders, TaskItemSubject? subject, IReadOnlyList<string>? categories,
+        TaskItemProduct? product)
     {
         Id = id;
         Description = description;
@@ -111,6 +120,11 @@ public sealed class TaskItem
         Reminders = reminders ?? TaskItemReminders.Default;
         Subject = subject ?? TaskItemSubject.PlainWork;
         Categories = TidyCategories(categories);
+        // The same rule the subject applies to its own links, and for the same reason: a description of
+        // something to put on a shelf means nothing on an appointment, and nothing on an entry that
+        // already points at the shelf item itself. Dropped rather than refused, so changing an entry's
+        // kind loses what no longer applies instead of failing the save.
+        Product = Subject.Kind == TaskItemKind.Inventory && Subject.LinkedInventoryItemId is null ? product : null;
     }
 
     /// <summary>
@@ -165,13 +179,36 @@ public sealed class TaskItem
     public void KeepCategoriesOf(TaskItem stored) => Categories = stored.Categories;
 
     /// <summary>
+    /// Points this entry at the shelf item it turned out to be about - what generating a storage from a
+    /// list does to the entries it built that storage from (see
+    /// GenerateInventoryFromTaskListCommandHandler). The description it carried is dropped in the same
+    /// breath: the shelf item now answers everything the description was standing in for, and keeping
+    /// both is keeping two answers that drift apart.
+    /// </summary>
+    public void PointAtShelfItem(Guid inventoryItemId)
+    {
+        Subject = new TaskItemSubject(TaskItemKind.Inventory, linkedInventoryItemId: inventoryItemId);
+        Product = null;
+    }
+
+    /// <summary>
+    /// Keeps what this entry already asks for, for a caller that said nothing about it - the same rule
+    /// the categories follow, and for the same reason: a client written before an entry could describe a
+    /// product goes on saving lists without emptying the description somebody wrote on the web. See
+    /// UpdateTaskListCommand.EntriesKeepingTheirProduct.
+    /// </summary>
+    public void KeepProductOf(TaskItem stored)
+        => Product = Kind == TaskItemKind.Inventory && LinkedInventoryItemId is null ? stored.Product : null;
+
+    /// <summary>
     /// A linked item's completion can't be set directly - it always follows the lists it links to (see
     /// <see cref="LinkedTaskCompletionResolver"/>) - so <paramref name="isCompleted"/> is ignored in
     /// favor of "not completed" whenever <paramref name="linkedTaskListIds"/> holds anything.
     /// </summary>
     public static TaskItem Create(
         string description, DateTimeOffset? dueDateUtc, bool isCompleted, IReadOnlyList<Guid>? linkedTaskListIds = null,
-        TaskItemReminders? reminders = null, TaskItemSubject? subject = null, IReadOnlyList<string>? categories = null)
+        TaskItemReminders? reminders = null, TaskItemSubject? subject = null, IReadOnlyList<string>? categories = null,
+        TaskItemProduct? product = null)
     {
         // Here rather than in the constructor, which FromPersistence also uses: a row already stored
         // fits by definition, and rejecting one on the way back out would make an old entry unreadable
@@ -185,10 +222,13 @@ public sealed class TaskItem
             StoredTextLimits.OrRefuse(category, StoredTextLimits.Category, "task entry's category");
         }
 
+        StoredTextLimits.OrRefuse(product?.ProductType ?? string.Empty, StoredTextLimits.ProductType, "product's type");
+        StoredTextLimits.OrRefuse(product?.Category ?? string.Empty, StoredTextLimits.Category, "product's category");
+
         return new TaskItem(
             Guid.NewGuid(), description, dueDateUtc,
             (linkedTaskListIds is null || linkedTaskListIds.Count == 0) && isCompleted, linkedTaskListIds,
-            reminders, subject, categories);
+            reminders, subject, categories, product);
     }
 
     /// <summary>
@@ -199,7 +239,7 @@ public sealed class TaskItem
     public TaskItem WithNewId()
         => new(
             Guid.NewGuid(), Description, DueDateUtc, IsCompleted, LinkedTaskListIds,
-            Reminders, Subject, Categories);
+            Reminders, Subject, Categories, Product);
 
     /// <summary>
     /// Rebuilds a checklist entry from already-known values, bypassing the completion override above -
@@ -208,6 +248,7 @@ public sealed class TaskItem
     /// </summary>
     public static TaskItem FromPersistence(
         Guid id, string description, DateTimeOffset? dueDateUtc, bool isCompleted, IReadOnlyList<Guid>? linkedTaskListIds,
-        TaskItemReminders? reminders, TaskItemSubject? subject = null, IReadOnlyList<string>? categories = null)
-        => new(id, description, dueDateUtc, isCompleted, linkedTaskListIds, reminders, subject, categories);
+        TaskItemReminders? reminders, TaskItemSubject? subject = null, IReadOnlyList<string>? categories = null,
+        TaskItemProduct? product = null)
+        => new(id, description, dueDateUtc, isCompleted, linkedTaskListIds, reminders, subject, categories, product);
 }

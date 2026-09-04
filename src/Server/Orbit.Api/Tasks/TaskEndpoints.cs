@@ -3,8 +3,10 @@ using System.Security.Claims;
 using Orbit.Contracts.Sharing;
 using Orbit.Api.Permissions;
 using Orbit.Contracts;
+using Orbit.Contracts.Inventories;
 using Orbit.Contracts.Tasks;
 using Orbit.Core.Abstractions;
+using Orbit.Core.Inventories;
 using Orbit.Core.Notifications;
 using Orbit.Api.Sync;
 using Orbit.Core.Sync;
@@ -87,7 +89,8 @@ public static class TaskEndpoints
                 new UpdateTaskListCommand(
                     GetUserId(user), id, request.Title, ToDomainItems(request.Items), request.IsGroup, request.IsPrivate,
                     ToDomainPayload(request.EncryptedContent), RequestEnum.Parse<ItemPriority>(request.Priority, "priority"),
-                    request.Description, EntriesSayingNothingAboutTheirCategories(request.Items)),
+                    request.Description, EntriesSayingNothingAboutTheirCategories(request.Items),
+                    EntriesSayingNothingAboutTheirProduct(request.Items)),
                 cancellationToken);
             return ToApiResult(outcome);
         });
@@ -116,11 +119,17 @@ public static class TaskEndpoints
 
         // Builds the shelf this list's work needs - one entry per distinct thing it calls for - and
         // points the list at it, so the check below can be run straight away.
+        // The body says what to call the storage and how its restock list should behave, and is optional
+        // in full: a client that asks for one without saying anything - the phone, an older tab - gets
+        // the list's own title and the defaults, which is what this has always built.
         tasks.MapPost("/{id:guid}/inventory", async (
-            Guid id, ClaimsPrincipal user, IDispatcher dispatcher, CancellationToken cancellationToken) =>
+            Guid id, GenerateInventoryRequest? request, ClaimsPrincipal user, IDispatcher dispatcher,
+            CancellationToken cancellationToken) =>
         {
             var inventoryId = await dispatcher.SendAsync(
-                new GenerateInventoryFromTaskListCommand(GetUserId(user), id), cancellationToken);
+                new GenerateInventoryFromTaskListCommand(
+                    GetUserId(user), id, request?.Name, ToDomainRestockSettings(request?.RestockList)),
+                cancellationToken);
             return inventoryId is null ? Results.NotFound() : Results.Ok(inventoryId);
         });
 
@@ -278,6 +287,55 @@ public static class TaskEndpoints
             .Select(item => item.Id!.Value)
             .ToHashSet();
 
+    /// <summary>
+    /// The entries that sent no product at all, which keep whatever they already ask for rather than
+    /// having it emptied by a save that was about something else - the same rule the categories follow
+    /// just above. See UpdateTaskListCommand.EntriesKeepingTheirProduct.
+    /// </summary>
+    private static IReadOnlySet<Guid> EntriesSayingNothingAboutTheirProduct(IReadOnlyList<TaskItemRequest> items)
+        => items
+            .Where(item => item.Product is null && item.Id is not null)
+            .Select(item => item.Id!.Value)
+            .ToHashSet();
+
+    private static TaskItemProduct? ToDomainProduct(TaskItemProductDto? product)
+        => product is null
+            ? null
+            : new TaskItemProduct(
+                product.ProductType,
+                product.Category,
+                product.Quantity,
+                product.MinimumQuantity,
+                RequestEnum.Parse<InventoryUnit>(product.Unit, "product.unit"),
+                product.ExpiryDate,
+                RequestEnum.Parse<NotificationChannel>(product.ExpiryNotificationChannel, "product.expiryNotificationChannel"),
+                product.IsCheckedRegularly);
+
+    private static TaskItemProductDto? ToDto(TaskItemProduct? product)
+        => product is null
+            ? null
+            : new TaskItemProductDto(
+                product.ProductType, product.Category, product.Quantity, product.MinimumQuantity,
+                product.Unit.ToString(), product.ExpiryDate, product.ExpiryNotificationChannel.ToString(),
+                product.IsCheckedRegularly);
+
+    /// <summary>
+    /// How a generated storage's restock list should behave. Null - a request that said nothing about it
+    /// - leaves the defaults alone rather than writing them, which is not the same thing: writing them
+    /// would count as somebody having chosen them.
+    /// </summary>
+    private static RestockListSettings? ToDomainRestockSettings(RestockListSettingsDto? settings)
+        => settings is null
+            ? null
+            : new RestockListSettings(
+                settings.OnlyLinkedWithDueDate,
+                settings.RefreshTimeOfDay,
+                settings.IsEnabled,
+                settings.RemindDaily,
+                RequestEnum.Parse<ItemPriority>(settings.ListPriority, "restockList.listPriority"),
+                settings.OnlyCheckedRegularly,
+                RequestEnum.Parse<NotificationChannel>(settings.ReminderChannel, "restockList.reminderChannel"));
+
     private static TaskItem ToDomainItem(TaskItemRequest item)
     {
         var reminders = new TaskItemReminders(
@@ -289,11 +347,12 @@ public static class TaskEndpoints
             RequestEnum.Parse<TaskItemKind>(item.Kind, "kind"),
             item.Location, item.LinkedCalendarEventId, item.LinkedInventoryItemId);
 
+        var product = ToDomainProduct(item.Product);
         if (item.Id is not { } existingId)
         {
             return TaskItem.Create(
                 item.Description, item.DueDateUtc, item.IsCompleted, item.AllLinkedTaskListIds,
-                reminders, subject, item.AllCategories);
+                reminders, subject, item.AllCategories, product);
         }
 
         // Same override Create applies: a linked entry's completion follows the list it links to, so a
@@ -301,7 +360,7 @@ public static class TaskEndpoints
         return TaskItem.FromPersistence(
             existingId, item.Description, item.DueDateUtc,
             item.AllLinkedTaskListIds.Count == 0 && item.IsCompleted, item.AllLinkedTaskListIds,
-            reminders, subject, item.AllCategories);
+            reminders, subject, item.AllCategories, product);
     }
 
 
@@ -347,7 +406,8 @@ public static class TaskEndpoints
                     item.LinkedCalendarEventId,
                     item.LinkedInventoryItemId,
                     item.LinkedTaskListIds,
-                    item.Categories))
+                    item.Categories,
+                    ToDto(item.Product)))
                 .ToList(),
             taskList.IsCompleted,
             taskList.IsGroup,

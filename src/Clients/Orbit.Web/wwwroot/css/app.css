@@ -5571,3 +5571,59 @@ span.calendar-task-chip {
 .restock-reminder-time[disabled] {
     opacity: 0.55;
 }
+
+/* A form over the page, for a question about the whole object rather than about a field on it - see
+   GenerateInventoryOverlay. The map picker's own overlay (.map-overlay above) is the same shape, and
+   these are written apart from it rather than sharing: that one sizes itself around a map, which is a
+   fixed-height thing this must not inherit. */
+.form-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 60;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+    background: oklch(20% 0.02 60 / 0.55);
+}
+
+.form-overlay-panel {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    width: min(520px, 100%);
+    max-height: 100%;
+    padding: 20px;
+    overflow-y: auto;
+    background: var(--bg-elevated);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    box-shadow: 0 18px 48px oklch(20% 0.02 60 / 0.35);
+}
+
+.form-overlay-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+}
+
+.form-overlay-header h2 {
+    margin: 0;
+    font-size: 18px;
+}
+
+/* The heading over the second half of the form. Smaller than the panel's own title, since it names a
+   part of this question rather than a second question. */
+.form-overlay-section {
+    margin: 6px 0 0;
+    font-size: 15px;
+}
+
+/* Cancel and the button that does the thing, at the end and to the right - the order every other form
+   on this app ends in. */
+.form-overlay-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+}

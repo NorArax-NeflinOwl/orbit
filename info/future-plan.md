@@ -489,6 +489,20 @@ beside a task belongs here, not in that task's diff. A defect is the exception a
 
 ## Smaller identified follow-ups
 
+- **The phone does not yet describe a product before the shelf exists, and does not ask what to build.**
+  Both halves of the 2026-09-04 change to inventory entries are web-only. On the phone, an Inventory entry
+  still opens the product's fields only on a list already measured against a storage
+  (`ShelfProductFor`, `InventoryItemEditor.ForSomethingNotOnTheShelfYet`); on a list with no storage it
+  names a thing and nothing else, so what a phone writes there is lost to the shelf the web would have
+  built from it. And "Generate inventory" on the phone still posts an empty body: it takes the list's
+  title and the default restock list rather than asking, which the server deliberately still accepts
+  (`GenerateInventoryRequest`, every field optional). Nothing is broken by either - the phone passes
+  `TaskItemDto.Product` back untouched (`TaskListSynchronizer.ToRequests`), so a description written on
+  the web survives a push from the phone - it is parity that is missing. What it would take: the entry
+  editor's inventory fields shown for an unmeasured list too, bound to the entry's own product, and a
+  sheet in front of `StockCheckPanel.GenerateInventoryAsync` asking the same six questions
+  `GenerateInventoryOverlay` asks.
+
 - **Done, kept here as the map of it.** Orbit has two depths for the same thing: a shallow view for
   reading and doing, and a full form for changing what it is. Every object that can have both now does,
   and the pattern is the same one each time - land on what the thing is, with the fields a named press

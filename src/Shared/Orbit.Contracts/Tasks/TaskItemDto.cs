@@ -41,7 +41,13 @@ public sealed record TaskItemDto(
     /// Orbit.Core.Tasks.TaskItem.Categories. Null means "not provided", which is what a client written
     /// before categories existed sends; an empty list means "none", and clears them.
     /// </summary>
-    IReadOnlyList<string>? Categories = null)
+    IReadOnlyList<string>? Categories = null,
+    /// <summary>
+    /// What an Inventory entry asks for, until it stands for a real shelf item - see
+    /// <see cref="TaskItemProductDto"/>. Null for every other entry, and for one that already has a
+    /// shelf item behind it.
+    /// </summary>
+    TaskItemProductDto? Product = null)
 {
     /// <summary>
     /// Whichever shape the sender used, read as one. Needed on the way in as well as the way out: a

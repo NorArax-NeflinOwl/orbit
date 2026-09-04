@@ -267,12 +267,16 @@ else
                             }
                             else
                             {
+                                @* A list with no storage behind it yet. The same form all the same:
+                                   what this entry asks for is worth writing down when it is being
+                                   written, not after a storage exists to write it on. It is kept on
+                                   the entry until then, and "Generate inventory" in the menu above is
+                                   what turns each of these into a row on a shelf. *@
                                 <span class="field-break"></span>
-                                @* Only for a list with no storage behind it: there is nothing to put a
-                                   product on yet, and this is where one comes from. Says the rule as
-                                   well as the fact - nobody could guess either half of it from a form
-                                   with nothing on it. *@
-                                <small>@T["Naming it is the whole of it: \"Generate inventory\" in the menu above makes one product per distinct name, counted in pieces, and the same name twice asks for two of it."]</small>
+                                <InventoryFields Model="item.Product" NotificationSettings="_notificationSettings"
+                                                 ShowsName="false" ShowsAmounts="true" />
+                                <span class="field-break"></span>
+                                <small>@T["Goes on the shelf when \"Generate inventory\" builds one, named after this entry. Leave the minimum empty to have it counted instead: the same name twice asks for two of it."]</small>
                             }
                         }
                         else if (item.Kind == nameof(TaskItemKind.Checklist))
@@ -505,8 +509,8 @@ else
                     <button type="button" class="avatar-dropdown-item"
                             disabled="@(_isWorkingOnInventory || _linkedInventoryId is not null)"
                             title="@(_linkedInventoryId is null ? null : T["This list already has a storage."])"
-                            @onclick="() => GenerateInventoryAsync(menuTaskListId)">
-                        @T["Generate inventory"]
+                            @onclick="OpenTheGenerateForm">
+                        @T["Generate inventory…"]
                     </button>
                     @* Nothing to recalculate until there is an inventory to recalculate against. *@
                     <button type="button" class="avatar-dropdown-item"
@@ -526,6 +530,14 @@ else
     <LocationPickerOverlay Address="@itemOnTheMap.Location" OnPicked="UseThePickedPlace" OnCancelled="CloseTheMap" />
 }
 
+@if (_isNamingTheInventory && Id is { } listBeingTurnedIntoAStorage)
+{
+    <GenerateInventoryOverlay DefaultName="@_formModel.Title" NotificationSettings="_notificationSettings"
+                              IsWorking="_isWorkingOnInventory"
+                              OnConfirmed="request => GenerateInventoryAsync(listBeingTurnedIntoAStorage, request)"
+                              OnCancelled="() => _isNamingTheInventory = false" />
+}
+
 @code {
     [Parameter]
     public Guid? Id { get; set; }
@@ -541,20 +553,51 @@ else
     private bool _isWorkingOnInventory;
     private string? _inventoryMessage;
 
-    private async Task GenerateInventoryAsync(Guid taskListId)
+    /// <summary>Whether the form asking what to build is open - see GenerateInventoryOverlay.</summary>
+    private bool _isNamingTheInventory;
+
+    private void OpenTheGenerateForm()
     {
+        _inventoryMessage = null;
+        _isNamingTheInventory = true;
+    }
+
+    /// <summary>
+    /// Builds the storage this list's work needs, the way the form asked for it.
+    ///
+    /// The list is written first. The shelf is built from the entries as they are stored, not as they
+    /// are on screen, and what each entry asks for now lives on the entry (see TaskItemFormModel.Product)
+    /// - so generating without saving would build a storage from the list as it was before somebody
+    /// filled that in, which is exactly when they would press this.
+    /// </summary>
+    private async Task GenerateInventoryAsync(Guid taskListId, GenerateInventoryRequest request)
+    {
+        if (WhatIsWrongWithTheItems() is { } complaint)
+        {
+            _inventoryMessage = complaint;
+            _isNamingTheInventory = false;
+            return;
+        }
+
         _isWorkingOnInventory = true;
         _inventoryMessage = null;
         Logger.LogInformation("User generated an inventory from task list {TaskListId}", taskListId);
         try
         {
-            if (await TasksApiClient.GenerateInventoryAsync(taskListId) is not { } inventoryId)
+            if (!await SaveTheListBeforeBuildingItsStorageAsync(taskListId))
+            {
+                return;
+            }
+
+            if (await TasksApiClient.GenerateInventoryAsync(taskListId, request) is not { } inventoryId)
             {
                 return;
             }
 
             _linkedInventoryId = inventoryId;
+            _linkedInventoryName = await NameOfTheLinkedInventoryAsync();
             _inventoryMessage = T["Inventory generated from this list."];
+            _isNamingTheInventory = false;
         }
         catch (HttpRequestException exception)
         {
@@ -565,6 +608,29 @@ else
         {
             _isWorkingOnInventory = false;
         }
+    }
+
+    /// <summary>
+    /// Writes the list as it stands, so the storage is built from what is on screen. Answers whether it
+    /// worked; a refusal is said in the same line the generation would have used, and stops it.
+    /// </summary>
+    private async Task<bool> SaveTheListBeforeBuildingItsStorageAsync(Guid taskListId)
+    {
+        var outcome = await TasksApiClient.UpdateTaskListAsync(taskListId, new UpdateTaskRequest(
+            _formModel.Title, ItemsAsSaved(), _formModel.IsGroup, _formModel.IsPrivate,
+            Priority: _formModel.Priority, Description: _formModel.Description));
+        if (outcome.Kind == EditOutcomeKind.Success)
+        {
+            return true;
+        }
+
+        _inventoryMessage = outcome.Kind switch
+        {
+            EditOutcomeKind.Locked => T.Format("{0} is currently editing this task list - try again in a moment.", outcome.LockedByUserName),
+            EditOutcomeKind.Refused => outcome.Reason,
+            _ => T["Failed to save the task list. Try again."]
+        };
+        return false;
     }
 
     /// <summary>Runs the count again and says how it came out - the detail is on the checklist screen.</summary>
@@ -795,7 +861,13 @@ else
                                 DailyReminderTimeOfDay =
                                     item.RemindDaily && item.DailyReminderTimeOfDay == default
                                         ? null
-                                        : item.DailyReminderTimeOfDay
+                                        : item.DailyReminderTimeOfDay,
+                                // What the entry already asks for, or a blank form for one that asks for
+                                // nothing yet - an entry standing for a real shelf item carries no
+                                // description of its own, since that item is the answer.
+                                Product = item.Product is { } product
+                                    ? InventoryItemFormModel.FromTaskItemProduct(product)
+                                    : new InventoryItemFormModel()
                             })
                             .ToList()
                     };
@@ -1338,14 +1410,11 @@ else
         public InventoryFieldsFormModel DescribeNewProduct(
             TaskItemFormModel item, Guid inventoryId, string inventoryName)
         {
-            // Starts where generating a storage from a list would put it: one of the thing wanted, none
-            // of it there yet, counted in pieces. An entry asking for something is asking for one of it
-            // until it says otherwise - see GenerateInventoryFromTaskListCommandHandler, where the same
-            // entry written twice asks for two. The unit is the model's own default and is named here
-            // only because the two answers have to be the same answer.
-            var fields = new InventoryFieldsFormModel(
-                inventoryId, inventoryName,
-                new InventoryItemFormModel { MinimumQuantity = 1, Unit = InventoryUnitOption.Default.Value });
+            // The entry's own description of what it asks for, not a second one beside it: an inventory
+            // entry carries that description whether or not this list has a storage yet (see
+            // TaskItemFormModel.Product), and building a fresh model here is how the same product came to
+            // be typed twice - once for the entry and once for the shelf.
+            var fields = new InventoryFieldsFormModel(inventoryId, inventoryName, item.Product);
             _fieldsByItem[item] = fields;
             return fields;
         }
@@ -1631,6 +1700,45 @@ else
         }
     }
 
+    /// <summary>
+    /// Every entry as the server takes it back. One mapping, because two callers need it: saving the
+    /// list, and building a storage from it - which saves first, so that what is on screen is what the
+    /// shelf gets built from.
+    /// </summary>
+    private IReadOnlyList<TaskItemRequest> ItemsAsSaved()
+        => _formModel.Items
+            .Select(item => new TaskItemRequest(
+                item.Description,
+                item.Id,
+                ToDueDateUtc(item),
+                item.IsCompleted,
+                // The old single field goes out empty: this client speaks the new one, and sending both
+                // would make the server pick between two answers.
+                LinkedTaskListId: null,
+                item.OverdueNotificationChannel,
+                item.RemindDaily,
+                item.DailyReminderNotificationChannel,
+                item.DailyReminderTimeOfDay ?? default,
+                item.Kind,
+                item.Location,
+                ToLinkedCalendarEventId(item),
+                item.LinkedInventoryItemId,
+                item.LinkedTaskListIds,
+                item.Categories,
+                ProductAsked(item)))
+            .ToList();
+
+    /// <summary>
+    /// What an entry asks for, as the save sends it - only for an inventory entry that does not already
+    /// stand for a shelf item, which is the only case the server keeps it for (see TaskItem.Product).
+    /// Null everywhere else, and null is what tells the server to leave a stored description alone, so
+    /// an entry of another kind cannot empty one by being saved beside it.
+    /// </summary>
+    private static TaskItemProductDto? ProductAsked(TaskItemFormModel item)
+        => item.Kind == nameof(TaskItemKind.Inventory) && item.LinkedInventoryItemId is null
+            ? item.Product.ToTaskItemProduct()
+            : null;
+
     private async Task SaveAsync()
     {
         Logger.LogInformation(
@@ -1649,26 +1757,7 @@ else
             return;
         }
 
-        var items = _formModel.Items
-            .Select(item => new TaskItemRequest(
-                item.Description,
-                item.Id,
-                ToDueDateUtc(item),
-                item.IsCompleted,
-                // The old single field goes out empty: this client speaks the new one, and sending both
-                // would make the server pick between two answers.
-                LinkedTaskListId: null,
-                item.OverdueNotificationChannel,
-                item.RemindDaily,
-                item.DailyReminderNotificationChannel,
-                item.DailyReminderTimeOfDay ?? default,
-                item.Kind,
-                item.Location,
-                ToLinkedCalendarEventId(item),
-                item.LinkedInventoryItemId,
-                item.LinkedTaskListIds,
-                item.Categories))
-            .ToList();
+        var items = ItemsAsSaved();
 
         // Blocks the button for the duration of the save (see the button above), so a second click or a
         // double Enter-press can't fire this again while the first request is still in flight and create
@@ -1984,6 +2073,18 @@ else
         public string DailyReminderNotificationChannel { get; set; } = "Push";
         /// <summary>Optional here, though the request is not: an empty box is midnight, which is what an unanswered "what time?" has always meant on this form.</summary>
         public TimeOnly? DailyReminderTimeOfDay { get; set; }
+
+        /// <summary>
+        /// What this entry asks for, while somebody is writing it - the same model the inventory editor
+        /// fills a shelf row in with, so the two forms cannot ask different things about one product
+        /// (see InventoryFields.razor). Kept for every kind, like the event above and for the same
+        /// reason: switching an entry's kind back and forth in one sitting must not lose what was typed.
+        ///
+        /// It is also the model the shelf side edits when this list is measured against a storage - see
+        /// ShelfPicker.DescribeNewProduct, which hands this very object over rather than making a second
+        /// one, so what somebody typed before the storage existed is what gets written onto it.
+        /// </summary>
+        public InventoryItemFormModel Product { get; set; } = new();
 
         /// <summary>
         /// The event this entry is, while somebody is writing it. A Calendar entry does not point at an
