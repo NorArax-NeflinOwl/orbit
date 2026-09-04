@@ -3,6 +3,7 @@
 @using Orbit.Core.Suggestions
 @using Orbit.Web.Services
 @inject NameSuggestionsApiClient NameSuggestionsApiClient
+@inject IJSRuntime JSRuntime
 @inject Translations T
 
 @* Names the reader already has, under the field they are typing into. Two things at once, told apart by
@@ -14,14 +15,22 @@
    already in this inventory. See Orbit.Core.Suggestions.GetNameSuggestions. *@
 @if (_suggestions.Count > 0)
 {
-    <div class="name-suggestions">
+    @* A list hanging under the box rather than chips beside it. Chips read as tags the field already
+       carries - things that have been chosen - when these are the opposite: things on offer that
+       nothing has taken yet. They also sat to the right of the box on an item row, which is where a
+       row's own meta goes, so they looked like something the entry said about itself.
+
+       Placed by measurement rather than by CSS - see menuAnchor.js's anchorToField and the reason
+       given there. Fixed, so a panel opened on a row deep in a scrolling form is not clipped by it. *@
+    <div class="name-suggestions" @ref="_panel" role="listbox" aria-label="@T["Names you have already used"]">
         @if (_duplicate is { } duplicate)
         {
             <span class="name-suggestion-warning">@T.Format("You already have \"{0}\".", duplicate.Name)</span>
         }
         @foreach (var suggestion in _suggestions)
         {
-            <button type="button" class="reference-chip" @onclick="() => ChooseAsync(suggestion)">@suggestion.Name</button>
+            <button type="button" class="name-suggestion-option" role="option" aria-selected="false"
+                    @onclick="() => ChooseAsync(suggestion)">@suggestion.Name</button>
         }
     </div>
 }
@@ -51,6 +60,19 @@
     private IReadOnlyList<NameSuggestionDto> _suggestions = [];
     private string _lastLookedUp = string.Empty;
     private CancellationTokenSource? _pending;
+
+    /// <summary>The panel itself, so JS can measure it and put it under the field - see menuAnchor.js.</summary>
+    private ElementReference _panel;
+
+    private IJSObjectReference? _anchoring;
+
+    /// <summary>
+    /// Every field this is offered under, as one selector: the item rows' own box, and the surface
+    /// TitledDescription draws a name on. Looked for beside the panel rather than passed in by each
+    /// caller - all four already draw the box and this component as siblings, so there is nothing for a
+    /// caller to tell us that the DOM does not already say.
+    /// </summary>
+    private const string FieldSelector = ".editor-item-main, .titled-description-editor";
 
     /// <summary>
     /// Set once this control is going away, so a lookup that was already in flight does not try to draw
@@ -137,6 +159,33 @@
         }
     }
 
+    /// <summary>
+    /// Puts the panel under the field every time it is drawn, not only the first time: the list grows
+    /// and shrinks with what is typed, and a panel measured once sits where a taller or shorter version
+    /// of itself used to be.
+    /// </summary>
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (_suggestions.Count == 0)
+        {
+            return;
+        }
+
+        try
+        {
+            _anchoring ??= await JSRuntime.InvokeAsync<IJSObjectReference>("import", "./js/menuAnchor.js");
+            await _anchoring.InvokeVoidAsync("anchorToField", _panel, FieldSelector);
+        }
+        catch (JSException)
+        {
+            // The list is still readable where CSS put it; this only improves where that is.
+        }
+        catch (JSDisconnectedException)
+        {
+            // The page is going away with the panel open.
+        }
+    }
+
     private async Task ChooseAsync(NameSuggestionDto suggestion)
     {
         // Cleared before the callback: the field is about to hold exactly what was offered, and offering
@@ -153,6 +202,18 @@
         {
             await pending.CancelAsync();
             pending.Dispose();
+        }
+
+        if (_anchoring is not null)
+        {
+            try
+            {
+                await _anchoring.DisposeAsync();
+            }
+            catch (JSDisconnectedException)
+            {
+                // Nothing left to release.
+            }
         }
     }
 }

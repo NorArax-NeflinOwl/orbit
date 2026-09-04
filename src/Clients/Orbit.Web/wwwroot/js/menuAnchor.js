@@ -28,3 +28,37 @@ export function anchorToTrigger(dropdown, triggerSelector) {
     dropdown.style.top = `${top}px`;
     dropdown.style.left = `${left}px`;
 }
+
+/// The same trick for a panel that belongs to a *field* rather than to a button: the name suggestions,
+/// which have to read as a list hanging off the box being typed into. Two differences from the menu
+/// above, both of which come from that. It lines up with the field's left edge and takes its width,
+/// because a list of completions narrower or wider than what it completes reads as being about
+/// something else. And the field is looked for as a sibling of the panel rather than as a trigger
+/// inside it - the panel is drawn after the box, not around it, which is why this cannot simply be CSS:
+/// on the item rows the box and the panel sit side by side in a flex row, so "underneath" is a position
+/// only measurement can find.
+export function anchorToField(panel, fieldSelector) {
+    const field = panel.parentElement?.querySelector(fieldSelector);
+    if (!field) {
+        return;
+    }
+
+    panel.style.position = 'fixed';
+    panel.style.right = 'auto';
+    // Width first, then measure: the height depends on how many suggestions fit across that width, and
+    // reading it before the width is set measures a panel of the wrong shape.
+    const fieldBox = field.getBoundingClientRect();
+    panel.style.width = `${fieldBox.width}px`;
+    const panelBox = panel.getBoundingClientRect();
+
+    const fitsBelow = fieldBox.bottom + GAP_PIXELS + panelBox.height <= window.innerHeight;
+    const top = fitsBelow
+        ? fieldBox.bottom + GAP_PIXELS
+        : Math.max(GAP_PIXELS, fieldBox.top - GAP_PIXELS - panelBox.height);
+    const left = Math.min(
+        Math.max(GAP_PIXELS, fieldBox.left),
+        Math.max(GAP_PIXELS, window.innerWidth - panelBox.width - GAP_PIXELS));
+
+    panel.style.top = `${top}px`;
+    panel.style.left = `${left}px`;
+}
