@@ -116,6 +116,7 @@ using Orbit.Core.Tasks.GetInventoryReferences;
 using Orbit.Core.Tasks.UpdateTaskList;
 using Orbit.Core.Suggestions;
 using Orbit.Core.Suggestions.GetNameSuggestions;
+using Orbit.Core.Suggestions.GetUsedValues;
 using Orbit.Core.Users;
 using Orbit.Core.Users.SetPresence;
 using Orbit.Core.Users.SaveOwnLocation;
@@ -335,6 +336,9 @@ public static class OrbitCoreServiceCollectionExtensions
         // Names the reader has already used, offered as they type one - see GetNameSuggestionsQuery for
         // why this is a database question rather than a question for the assistant.
         services.AddScoped<IRequestHandler<GetNameSuggestionsQuery, IReadOnlyList<NameSuggestion>>, GetNameSuggestionsQueryHandler>();
+        // The whole of the reader's own vocabulary for one field, rather than what resembles what
+        // they are typing - see UsedValueKind.
+        services.AddScoped<IRequestHandler<GetUsedValuesQuery, IReadOnlyList<string>>, GetUsedValuesQueryHandler>();
         services.AddScoped<IRequestHandler<FinishRestockingCommand, int>, FinishRestockingCommandHandler>();
         services.AddScoped<IRequestHandler<GetInventoryItemsQuery, IReadOnlyList<InventoryItem>?>, GetInventoryItemsQueryHandler>();
 

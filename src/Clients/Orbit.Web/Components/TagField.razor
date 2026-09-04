@@ -1,0 +1,238 @@
+@using Orbit.Web.Services
+@inject Translations T
+
+@* Several short words about one thing - what a task entry is filed under. A box to type in, the list of
+   what has been typed before hanging under it, and a "+" that takes what is in the box and clears it for
+   the next one.
+
+   It replaced a single box holding "shopping, car", which asked somebody to know that the comma was the
+   separator and gave them no way to see what they had used before without remembering it.
+
+   **Nothing has to be added for it to count.** What is in the box is part of the value on every
+   keystroke, so somebody who types one word and presses Save gets that word - the "+" is for adding a
+   second, not for confirming the first. That is also why pressing it does not change what would be
+   saved: it moves the word from the box into a chip, and the value either way is the same list. *@
+<div class="tag-field">
+    @if (Values.Count > 0)
+    {
+        <div class="tag-field-chips">
+            @foreach (var value in Values)
+            {
+                <span class="tag-chip">
+                    @value
+                    @if (!IsReadOnly)
+                    {
+                        <button type="button" class="tag-chip-remove" title="@(T["Remove"])"
+                                aria-label="@T.Format("Remove {0}", value)"
+                                @onclick="() => RemoveAsync(value)">✕</button>
+                    }
+                </span>
+            }
+        </div>
+    }
+    <div class="tag-field-row">
+        <input class="form-control tag-field-input" type="text" value="@_typed" disabled="@IsReadOnly"
+               placeholder="@Placeholder" aria-label="@AriaLabel"
+               @oninput="OnTypedAsync" @onkeydown="OnKeyDownAsync"
+               @onfocus="() => _isBrowsing = true" @onblur="OnBlurAsync" />
+        @* Enabled only when there is something to add, so it never reads as the button that saves. *@
+        <button type="button" class="icon-btn tag-field-add" title="@(T["Add"])" aria-label="@(T["Add"])"
+                disabled="@(IsReadOnly || _typed.Trim().Length == 0)" @onclick="CommitAsync">
+            <svg viewBox="0 0 20 20" width="16" height="16" aria-hidden="true" fill="none"
+                 stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M10 4v12M4 10h12" /></svg>
+        </button>
+    </div>
+    @if (_isBrowsing && !IsReadOnly)
+    {
+        <UsedValueBrowser Known="Known" Typed="@_typed" Taken="Values" Highlighted="@_highlighted"
+                          FieldSelector=".tag-field-input" OnChosen="TakeAsync" />
+    }
+</div>
+
+@code {
+    /// <summary>
+    /// Everything this field currently stands for - the chips, plus whatever is in the box. The caller
+    /// binds its model straight to this and needs to know nothing about the difference.
+    /// </summary>
+    [Parameter] public IReadOnlyList<string> Values { get; set; } = [];
+
+    [Parameter] public EventCallback<IReadOnlyList<string>> ValuesChanged { get; set; }
+
+    /// <summary>Every word the reader has used for this field before - see UsedValueBrowser.</summary>
+    [Parameter] public IReadOnlyList<string> Known { get; set; } = [];
+
+    [Parameter] public string? Placeholder { get; set; }
+
+    [Parameter] public string? AriaLabel { get; set; }
+
+    [Parameter] public bool IsReadOnly { get; set; }
+
+    /// <summary>The words that have been added, without whatever is half-typed in the box.</summary>
+    private List<string> _added = [];
+    private string _typed = string.Empty;
+
+    /// <summary>Which offered word the arrows are on, if any.</summary>
+    private string? _highlighted;
+
+    /// <summary>Whether the list under the box is showing - it opens on focus and closes on leaving or Escape.</summary>
+    private bool _isBrowsing;
+
+    /// <summary>
+    /// The last value this control handed out, so a redraw does not undo its own work. The parent hands
+    /// Values straight back, and re-seeding from it would move whatever is being typed into a chip on
+    /// the very next render.
+    /// </summary>
+    private IReadOnlyList<string>? _lastRaised;
+
+    protected override void OnParametersSet()
+    {
+        if (_lastRaised is not null && Values.SequenceEqual(_lastRaised, StringComparer.CurrentCulture))
+        {
+            return;
+        }
+
+        // Somebody else changed it - the form was loaded, or another control wrote to the same model.
+        _added = [.. Values];
+        _typed = string.Empty;
+        _lastRaised = Values;
+    }
+
+    private Task OnTypedAsync(ChangeEventArgs args)
+    {
+        _typed = args.Value?.ToString() ?? string.Empty;
+        _isBrowsing = true;
+        // The highlight is about a list that has just been narrowed, so it means nothing now.
+        _highlighted = null;
+        return RaiseAsync();
+    }
+
+    /// <summary>
+    /// Enter adds, which is what somebody typing a list of short words reaches for - and it must not
+    /// reach the form, whose Enter adds an item row. Escape closes the list without touching the text.
+    /// The arrows walk the offered words; Enter on a highlighted one takes that instead of the text.
+    /// </summary>
+    private async Task OnKeyDownAsync(KeyboardEventArgs args)
+    {
+        var offered = OfferedNow();
+        switch (args.Key)
+        {
+            case "Enter":
+                if (_highlighted is { } highlighted)
+                {
+                    await TakeAsync(highlighted);
+                    return;
+                }
+
+                await CommitAsync();
+                return;
+
+            case "Escape":
+                _isBrowsing = false;
+                _highlighted = null;
+                return;
+
+            case "ArrowDown" when offered.Count > 0:
+                _isBrowsing = true;
+                _highlighted = Next(offered, by: 1);
+                return;
+
+            case "ArrowUp" when offered.Count > 0:
+                _isBrowsing = true;
+                _highlighted = Next(offered, by: -1);
+                return;
+        }
+    }
+
+    /// <summary>
+    /// Closing is deferred, because a click on an offered word is a mousedown on the panel followed by
+    /// this: closing the panel straight away would remove the button before its own click landed.
+    /// </summary>
+    private async Task OnBlurAsync()
+    {
+        await Task.Delay(150);
+        _isBrowsing = false;
+        _highlighted = null;
+        StateHasChanged();
+    }
+
+    /// <summary>Takes what is in the box as a word of its own and clears it, ready for the next.</summary>
+    private async Task CommitAsync()
+    {
+        var typed = _typed.Trim();
+        if (typed.Length == 0)
+        {
+            return;
+        }
+
+        if (!_added.Contains(typed, StringComparer.CurrentCultureIgnoreCase))
+        {
+            _added.Add(typed);
+        }
+
+        _typed = string.Empty;
+        _highlighted = null;
+        await RaiseAsync();
+    }
+
+    private async Task TakeAsync(string value)
+    {
+        // Straight to a chip rather than into the box: it is a word that already exists, so there is
+        // nothing left to type about it.
+        if (!_added.Contains(value, StringComparer.CurrentCultureIgnoreCase))
+        {
+            _added.Add(value);
+        }
+
+        _typed = string.Empty;
+        _highlighted = null;
+        _isBrowsing = false;
+        await RaiseAsync();
+    }
+
+    private Task RemoveAsync(string value)
+    {
+        _added.RemoveAll(added => string.Equals(added, value, StringComparison.CurrentCultureIgnoreCase));
+        // Removing the chip for something still half-typed would leave it in the value anyway, which
+        // reads as a remove that did nothing.
+        if (string.Equals(_typed.Trim(), value, StringComparison.CurrentCultureIgnoreCase))
+        {
+            _typed = string.Empty;
+        }
+
+        return RaiseAsync();
+    }
+
+    /// <summary>
+    /// What the field stands for right now: the chips, plus the box if there is anything in it. Raised
+    /// on every keystroke, which is what makes an unadded word count - see the note at the top.
+    /// </summary>
+    private async Task RaiseAsync()
+    {
+        var typed = _typed.Trim();
+        IReadOnlyList<string> all = typed.Length > 0 && !_added.Contains(typed, StringComparer.CurrentCultureIgnoreCase)
+            ? [.. _added, typed]
+            : [.. _added];
+
+        _lastRaised = all;
+        await ValuesChanged.InvokeAsync(all);
+    }
+
+    /// <summary>
+    /// The same words the panel is showing, worked out the same way and cut at the same length - a
+    /// highlight on a word the panel left off would move the selection to nowhere. See
+    /// UsedValueBrowser.Offered, which this mirrors.
+    /// </summary>
+    private IReadOnlyList<string> OfferedNow()
+        => [.. Known
+            .Where(value => !_added.Contains(value, StringComparer.CurrentCultureIgnoreCase))
+            .Where(value => _typed.Trim().Length == 0
+                || value.Contains(_typed.Trim(), StringComparison.CurrentCultureIgnoreCase))
+            .Take(UsedValueBrowser.Most)];
+
+    private string Next(IReadOnlyList<string> offered, int by)
+    {
+        var current = _highlighted is null ? -1 : offered.ToList().IndexOf(_highlighted);
+        var next = current < 0 ? (by > 0 ? 0 : offered.Count - 1) : (current + by + offered.Count) % offered.Count;
+        return offered[next];
+    }
+}

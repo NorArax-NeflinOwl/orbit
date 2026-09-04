@@ -32,8 +32,19 @@
         }
     </select>
 </label>
-<label>@T["Product type"]<InputText placeholder="@(T["Product type"])" @bind-Value="Model.ProductType" /></label>
-<label>@T["Category"]<InputText placeholder="@(T["Category"])" @bind-Value="Model.Category" /></label>
+@* Both offer what this reader has already filed shelf items under, listed under the box rather than
+   left to be remembered - the same panel a task entry's categories get, and for the same reason: the
+   twenty-first thing should go under one of the twenty words already in use. See UsedValueBrowser. *@
+<label>@T["Product type"]
+    <SuggestedTextField Value="@Model.ProductType" ValueChanged="value => Model.ProductType = value"
+                        Known="KnownProductTypes" Placeholder="@(T["Product type"])"
+                        AriaLabel="@(T["Product type"])" />
+</label>
+<label>@T["Category"]
+    <SuggestedTextField Value="@Model.Category" ValueChanged="value => Model.Category = value"
+                        Known="KnownCategories" Placeholder="@(T["Category"])"
+                        AriaLabel="@(T["Category"])" />
+</label>
 @* How long it keeps rather than the day it stops keeping - see ExpiresInField. A date is still what
    gets stored; nobody stocking a shelf knows the 14th, they know "a fortnight". *@
 <label>@T["Expires in"]
@@ -67,4 +78,13 @@
 
     /// <summary>Whether it needs how much there is and how little is too little. See the markup.</summary>
     [Parameter] public bool ShowsAmounts { get; set; }
+
+    /// <summary>
+    /// What this reader has already filed shelf items under, for the two boxes that offer it. Read by
+    /// whoever owns the screen rather than here: this component is drawn once per item row, and asking
+    /// for the same short list once per row would be a request storm on a full shelf.
+    /// </summary>
+    [Parameter] public IReadOnlyList<string> KnownProductTypes { get; set; } = [];
+
+    [Parameter] public IReadOnlyList<string> KnownCategories { get; set; } = [];
 }

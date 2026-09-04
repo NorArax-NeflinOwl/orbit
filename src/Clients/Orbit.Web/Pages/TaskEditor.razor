@@ -21,6 +21,7 @@
 @using Orbit.Web.Services
 @inject TasksApiClient TasksApiClient
 @inject TaskListDeletion TaskListDeletion
+@inject NameSuggestionsApiClient NameSuggestionsApiClient
 @inject InventoryApiClient InventoryApiClient
 @inject ChatApiClient ChatApiClient
 @inject CalendarApiClient CalendarApiClient
@@ -33,15 +34,6 @@
 @inject ChosenPlace ChosenPlace
 
 <PageTitle>@(IsNewTaskList ? T["New task list"] : T["Edit task list"])</PageTitle>
-
-@* Every category this account already uses, offered to each entry's box - one list for the page rather
-   than one per entry, which would be the same names repeated as many times as the list is long. *@
-<datalist id="taskItemCategories">
-    @foreach (var category in _knownCategories)
-    {
-        <option value="@category"></option>
-    }
-</datalist>
 
 @* Two panels: the form on the left, which scrolls, and the panel on the right, which does not - see
    EditorRail. On a narrow screen the right one becomes a bar along the foot of the window. *@
@@ -163,16 +155,18 @@ else
                                 <option value="@nameof(TaskItemKind.Inventory)">@T["Inventory"]</option>
                             </select>
                         </label>
-                        @* What the entry is about, whatever kind it is - a shelf item's category box,
-                           holding as many as apply rather than making somebody pick the truest one.
-                           The list under it is every category already in use on this account, so the
-                           second entry about the car is filed under the same word as the first. *@
-                        <label>@T["Categories"]<input list="taskItemCategories" class="form-control"
-                                                      placeholder="@(T["Separate them with commas"])"
-                                                      aria-label="@(T["Categories"])"
-                                                      value="@item.CategoriesText"
-                                                      @onchange="changeArgs => item.CategoriesText = changeArgs.Value?.ToString() ?? string.Empty" />
-                        </label>
+                        @* What the entry is about, whatever kind it is - as many words as apply rather
+                           than making somebody pick the truest one. It was one box holding
+                           "shopping, car", which asked the reader to know that the comma was the
+                           separator; it is now a word at a time, with every category already in use on
+                           this account listed under the box - see TagField. *@
+                        <div class="editor-item-tags">
+                            <span class="editor-item-tags-label">@T["Categories"]</span>
+                            <TagField Values="item.Categories" ValuesChanged="values => item.Categories = [.. values]"
+                                      Known="_knownCategories" Placeholder="@(T["Add a category"])"
+                                      AriaLabel="@(T["Categories"])"
+                                      IsReadOnly="@(_isSharedReadOnly || _lockedByUserName is not null)" />
+                        </div>
                         @* A day to be done by is a checklist entry's question and nobody else's: an
                            appointment already says when it is, in the event's own start and end below,
                            and a restock errand is about an amount rather than a date. Asking all three
@@ -258,7 +252,9 @@ else
                                    list; see SaveTheShelfAsync. *@
                                 <span class="field-break"></span>
                                 <InventoryFields Model="product.Product" NotificationSettings="_notificationSettings"
-                                                 ShowsName="@(product.Product.Id is not null)" ShowsAmounts="true" />
+                                                 ShowsName="@(product.Product.Id is not null)" ShowsAmounts="true"
+                                                 KnownProductTypes="_knownProductTypes"
+                                                 KnownCategories="_knownShelfCategories" />
                                 <span class="field-break"></span>
                                 <small>
                                     @(product.Product.Id is null
@@ -667,6 +663,14 @@ else
 
     /// <summary>Every category this account already uses, offered as suggestions under each entry's box.</summary>
     private IReadOnlyList<string> _knownCategories = [];
+
+    /// <summary>
+    /// What shelf items on this account are filed under, for the product fields an Inventory entry
+    /// opens. A different vocabulary from _knownCategories above, which is what *entries* are filed
+    /// under - the two boxes sit on the same row and mean different things.
+    /// </summary>
+    private IReadOnlyList<string> _knownProductTypes = [];
+    private IReadOnlyList<string> _knownShelfCategories = [];
     private bool _isShared;
     private bool _isSharedReadOnly;
     private bool _canShare;
@@ -705,6 +709,12 @@ else
         {
             _ownUserId = await AuthenticationStateProvider.TryGetCurrentUserIdAsync()
                 ?? throw new HttpRequestException("No signed-in user.", null, HttpStatusCode.Unauthorized);
+
+            // What shelf items on this account are already filed under, for the product fields an
+            // Inventory entry opens. Answers empty rather than throwing when it cannot be read - see
+            // UsedValuesAsync - so a box with no list is the worst this can do to the page.
+            _knownProductTypes = await NameSuggestionsApiClient.UsedValuesAsync(UsedValueKind.InventoryItemProductType);
+            _knownShelfCategories = await NameSuggestionsApiClient.UsedValuesAsync(UsedValueKind.InventoryItemCategory);
 
             // Best-effort: gates which notification-channel options are selectable (see
             // NotificationChannelOption.IsDisabledBy) - a failure here just leaves every option enabled
@@ -2019,12 +2029,6 @@ else
         /// </summary>
         public List<string> Categories { get; set; } = [];
 
-        /// <summary>The same list as one line, which is what the form binds to - see CategoryText.</summary>
-        public string CategoriesText
-        {
-            get => CategoryText.Join(Categories);
-            set => Categories = CategoryText.Split(value);
-        }
         /// <summary>
         /// The banner by default - which is not silence: every notification is written into the in-app
         /// feed whatever the channel says (see NotificationRecorder). A new entry therefore says

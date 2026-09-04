@@ -14,6 +14,7 @@
 @inject InventoryApiClient InventoryApiClient
 @inject TasksApiClient TasksApiClient
 @inject NotificationsApiClient NotificationsApiClient
+@inject NameSuggestionsApiClient NameSuggestionsApiClient
 @inject NavigationManager NavigationManager
 @inject ILogger<InventoryEditor> Logger
 @inject Translations T
@@ -184,7 +185,9 @@ else
                         @if (IsExpanded(item))
                         {
                             <div class="editor-item-details">
-                                <InventoryFields Model="item" NotificationSettings="_notificationSettings" />
+                                <InventoryFields Model="item" NotificationSettings="_notificationSettings"
+                                                 KnownProductTypes="_knownProductTypes"
+                                                 KnownCategories="_knownCategories" />
                                 @* Taking a row off the shelf is not something to have one click away from
                                    the amount somebody came to correct. Behind the toggle, at the end,
                                    where it is found on purpose rather than by accident. *@
@@ -397,6 +400,10 @@ else
     private RestockSettingsFormModel _restockSettings = new();
 
 
+    /// <summary>What this account already files shelf items under - read once, handed to every row.</summary>
+    private IReadOnlyList<string> _knownProductTypes = [];
+    private IReadOnlyList<string> _knownCategories = [];
+
     private bool _isLoading = true;
 
     /// <summary>
@@ -435,6 +442,11 @@ else
         // Best-effort: gates which notification-channel options are selectable (see
         // NotificationChannelOption.IsDisabledBy) - a failure here just leaves every option enabled
         // rather than blocking the rest of the page from loading.
+        // Same best-effort footing: the two boxes on every item row offer what this account already
+        // files things under, and a list that could not be read leaves them plain boxes.
+        _knownProductTypes = await NameSuggestionsApiClient.UsedValuesAsync(UsedValueKind.InventoryItemProductType);
+        _knownCategories = await NameSuggestionsApiClient.UsedValuesAsync(UsedValueKind.InventoryItemCategory);
+
         try
         {
             _notificationSettings = await NotificationsApiClient.GetSettingsAsync();
