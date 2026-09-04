@@ -137,6 +137,13 @@ public sealed class OrbitDbContext : DbContext
                 .WithOne()
                 .HasForeignKey(category => category.TaskItemId)
                 .OnDelete(DeleteBehavior.Cascade);
+
+            // And what the product it describes is filed under, which is a different question - see
+            // TaskItemProductCategoryEntity.
+            entity.HasMany(item => item.ProductCategories)
+                .WithOne()
+                .HasForeignKey(category => category.TaskItemId)
+                .OnDelete(DeleteBehavior.Cascade);
         });
 
         modelBuilder.Entity<TaskItemCategoryEntity>(entity =>
@@ -146,6 +153,16 @@ public sealed class OrbitDbContext : DbContext
             entity.HasKey(category => new { category.TaskItemId, category.Category });
             entity.Property(category => category.Category).IsRequired().HasMaxLength(StoredTextLimits.Category);
             // Every page that offers a category filter first has to ask what categories there are.
+            entity.HasIndex(category => category.Category);
+        });
+
+        modelBuilder.Entity<TaskItemProductCategoryEntity>(entity =>
+        {
+            // The category itself is half the key, the same as the entry's own: a product carries each
+            // word once, which is the rule TaskItem applies on the way in.
+            entity.HasKey(category => new { category.TaskItemId, category.Category });
+            entity.Property(category => category.Category).IsRequired().HasMaxLength(StoredTextLimits.Category);
+            // Asked of the whole account by the used-values list, the same as every other category here.
             entity.HasIndex(category => category.Category);
         });
 
@@ -377,6 +394,13 @@ public sealed class OrbitDbContext : DbContext
             .Property(row => row.ListPriority)
             .IsRequired().HasMaxLength(10)
             .HasDefaultValue(nameof(Orbit.Core.Abstractions.ItemPriority.Normal));
+        // The same rule again for where the standing reminder is said: a row written before the column
+        // existed is a list that was being reminded on the phone, and reading back an empty channel
+        // would take that away.
+        modelBuilder.Entity<InventoryManagedTaskListEntity>()
+            .Property(row => row.ReminderNotificationChannel)
+            .IsRequired().HasMaxLength(10)
+            .HasDefaultValue(nameof(Orbit.Core.Notifications.NotificationChannel.Push));
 
         modelBuilder.Entity<ChatGroupAnnouncementEntity>(entity =>
         {

@@ -327,6 +327,18 @@ else
                     : T["The list asks for everything on this shelf that has dropped below its own minimum."])
             </p>
 
+            @* The blunter narrowing of the two, and the one for a shelf nobody counts: the list becomes
+               a round rather than a report - see RestockListSettings.OnlyCheckedRegularly. *@
+            <label class="field-checkbox" for="onlyCheckedRegularlyInput">
+                <input id="onlyCheckedRegularlyInput" type="checkbox" @bind="_restockSettings.OnlyCheckedRegularly" />
+                <span>@T["Only the products marked \"Check every round\""]</span>
+            </label>
+            <p class="field-hint">
+                @(_restockSettings.OnlyCheckedRegularly
+                    ? T["The list asks only about the products marked to look at every round. What is running low but not marked is left off."]
+                    : T["The list asks about everything it would otherwise ask about, marked or not."])
+            </p>
+
             <div class="field">
                 <label for="restockPrioritySelect">@T["Priority of the restock list"]</label>
                 <select id="restockPrioritySelect" @bind="_restockSettings.ListPriority">
@@ -350,6 +362,15 @@ else
                     <TimeField Value="_restockSettings.RefreshTimeOfDay"
                                ValueChanged="time => _restockSettings.RefreshTimeOfDay = time ?? RestockListSettings.DefaultRefreshTimeOfDay"
                                AriaLabel="@(T["Comes round at"])" />
+                    @* Where it is said, beside when it arrives: the two are one decision, and a reminder
+                       nobody chose a channel for went out on the phone whether or not that was wanted. *@
+                    <label for="restockReminderChannelSelect">@T["Said on"]</label>
+                    <select id="restockReminderChannelSelect" @bind="_restockSettings.ReminderChannel">
+                        @foreach (var option in NotificationChannelOption.All)
+                        {
+                            <option value="@option.Value" disabled="@option.IsDisabledBy(_notificationSettings)">@T[option.Label]</option>
+                        }
+                    </select>
                 </fieldset>
                 <small>
                     @(_restockSettings.RemindDaily
@@ -676,6 +697,12 @@ else
 
         public ItemPriority ListPriority { get; set; } = ItemPriority.Normal;
 
+        /// <summary>Whether the list asks only about what somebody marked to look at every round.</summary>
+        public bool OnlyCheckedRegularly { get; set; }
+
+        /// <summary>Where the standing reminder is said - one of "None"/"Email"/"Push"/"Both".</summary>
+        public string ReminderChannel { get; set; } = "Push";
+
         public static RestockSettingsFormModel FromDto(RestockListSettingsDto settings)
             => new()
             {
@@ -685,11 +712,15 @@ else
                 RefreshTimeOfDay = settings.RefreshTimeOfDay,
                 ListPriority = Enum.TryParse<ItemPriority>(settings.ListPriority, out var priority)
                     ? priority
-                    : ItemPriority.Normal
+                    : ItemPriority.Normal,
+                OnlyCheckedRegularly = settings.OnlyCheckedRegularly,
+                ReminderChannel = settings.ReminderChannel
             };
 
         public RestockListSettingsDto ToDto()
-            => new(OnlyLinkedWithDueDate, RefreshTimeOfDay, IsEnabled, RemindDaily, ListPriority.ToString());
+            => new(
+                OnlyLinkedWithDueDate, RefreshTimeOfDay, IsEnabled, RemindDaily, ListPriority.ToString(),
+                OnlyCheckedRegularly, ReminderChannel);
     }
 
     /// <summary>A new row opens straight to its fields - there is nothing to recognise it by yet.</summary>

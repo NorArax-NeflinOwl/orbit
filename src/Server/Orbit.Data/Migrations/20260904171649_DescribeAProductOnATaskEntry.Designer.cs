@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using Orbit.Data;
@@ -11,9 +12,11 @@ using Orbit.Data;
 namespace Orbit.Data.Migrations
 {
     [DbContext(typeof(OrbitDbContext))]
-    partial class OrbitDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260904171649_DescribeAProductOnATaskEntry")]
+    partial class DescribeAProductOnATaskEntry
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -760,10 +763,6 @@ namespace Orbit.Data.Migrations
                         .HasDefaultValue("Normal")
                         .HasColumnName("OL_IT_LISTPRIORITY");
 
-                    b.Property<bool>("OnlyCheckedRegularly")
-                        .HasColumnType("boolean")
-                        .HasColumnName("OL_IT_ONLYCHECKEDREGULARLY");
-
                     b.Property<bool>("OnlyLinkedWithDueDate")
                         .HasColumnType("boolean")
                         .HasColumnName("OL_IT_ONLYLINKEDWITHDUEDATE");
@@ -779,14 +778,6 @@ namespace Orbit.Data.Migrations
                         .HasColumnType("boolean")
                         .HasDefaultValue(true)
                         .HasColumnName("OL_IT_REMINDDAILY");
-
-                    b.Property<string>("ReminderNotificationChannel")
-                        .IsRequired()
-                        .ValueGeneratedOnAdd()
-                        .HasMaxLength(10)
-                        .HasColumnType("character varying(10)")
-                        .HasDefaultValue("Push")
-                        .HasColumnName("OL_IT_REMINDERNOTIFICATIONCHANNEL");
 
                     b.Property<Guid>("TaskListId")
                         .HasColumnType("uuid")

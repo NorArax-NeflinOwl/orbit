@@ -1183,6 +1183,19 @@ fields arrive with the choice: picking Inventory on an open form shows them ther
 something else takes them away again - waiting for a save and a reopen made the feature unreachable
 without knowing it was there.
 
+**An entry describes a product whether or not a shelf exists yet.** On the web, an Inventory entry opens
+the same fields the inventory editor uses (`InventoryFields`) on any list: on one measured against a
+storage they describe a product to put on that shelf, saved there with the list; on one with no storage
+they are kept on the entry itself (`TaskItemProduct`, stored on `OP_TASKS_ITEMS` with its categories in
+`OP_TASKS_PRODUCT_CATEGORIES`, and carried by `TaskItemDto.Product`) until "Generate inventory" turns
+them into rows. It is filed under as many words as apply, like the shelf item it becomes - and under its
+own words rather than the entry's: an errand filed under "shopping" can be asking for something filed
+under "baking". The description used to be
+possible only after a storage existed, which meant answering "how many, in what, how long does it keep"
+twice - once on the list and once on the shelf. A request that says nothing about the product leaves what
+is stored alone (`UpdateTaskListCommand.EntriesKeepingTheirProduct`), the same rule the categories follow,
+so the phone and older tabs can go on saving lists without emptying it.
+
 Which storage a list is measured against is set in its editor, under **About this list**, for any list
 rather than only a group one - an entry describing a product has to be able to say which shelf it goes
 on. The picker offers every storage, the ones other lists already measure included - a store serves as many
@@ -1200,6 +1213,25 @@ at the result. Everything the tree names is included, including lines dated in t
 future: the shelf holds what the whole job will need, while the check counts only what is due. Both are
 reached from the three-dot menu on the checklist and the deep editor, where "recalculate" is offered
 greyed until an inventory is chosen rather than hidden.
+
+**An entry that described the thing it names is taken at its word** (`TaskItemProduct`): the amounts, the
+unit, what it is filed under, how long it keeps and whether it is one to look at every round are what
+somebody wrote on the entry, and the counting rule only answers for the boxes nobody filled in - a blank
+minimum is counted off the lines, and an amount of zero leaves the crossed-off lines to say how much is
+already there. Each entry then **points at the row it asked for** (`TaskItem.PointAtShelfItem`), which is
+what every other screen reads an errand through, and the description on the entry is dropped in the same
+breath: the shelf item is now the answer, and two answers are how they come to disagree.
+
+**The build asks what to build first.** The web's menu opens a form (`GenerateInventoryOverlay`) rather
+than generating on the press: what the storage is called - the list's own title unless somebody says
+otherwise - and how the "Restock supplies" list it keeps should behave: whether there is one at all,
+whether it carries the standing daily reminder, the hour that reminder comes round at, where it is said,
+and whether the list asks about everything running low or only about the products marked "Check every
+round". Both halves of the body are optional (`GenerateInventoryRequest`), so a client that says nothing -
+the phone, an older tab - still gets what this always built. The settings are written **before** the first
+row goes on the shelf, so the first errands the list raises already follow them rather than being raised
+the default way and corrected afterwards. The page saves the list on the way, since the shelf is built
+from the entries as they are stored and this is exactly the moment somebody has just filled them in.
 
 ### Moving an item to another task list
 
@@ -1465,7 +1497,9 @@ been deleted still leaves the list: there is nothing left to bring back.
   its own minimum. Ticked, it answers a different question - "what do I need before Thursday" - and holds
   only products some task with a **due date** is waiting on. A product below its minimum that nothing is
   waiting on is left off, and so is one something wants with no date, because without a date there is
-  nothing to be early or late for.
+  nothing to be early or late for. A second, blunter narrowing sits beside it: **only the products marked
+  "Check every round"**, for a shelf whose counts nobody keeps up to date - the list is then a round
+  rather than a report, and what is running low but unmarked is left off.
 - **When it comes round.** Nine in the morning was a constant; it is now the default. Changing it moves
   the standing reminder, since a field that changed nothing would look like a field that does nothing.
 
@@ -1868,10 +1902,14 @@ since the list may not exist yet):
 | --- | --- |
 | Keep a restock list | Off **deletes** the list and everything on it, and stops anything creating another; on builds a fresh one. The rest of the section is greyed out while it is off. |
 | Only what a dated task is waiting on | Narrows the list to products some task with a due date needs, rather than everything under its minimum. |
+| Only the products marked "Check every round" | Narrows it to what somebody said to look at every round (`InventoryItem.IsCheckedRegularly`), whatever the counts say. Applies on top of the setting above. |
 | Priority of the restock list | The priority the generated list is created with and kept at - a task list carries one and a task entry does not, so this is the only place restock work can be marked as mattering more or less. |
 | Remind me to update stock levels | Off leaves the list alone and only drops the standing entry; the hour beside it is greyed out. On brings the entry back, dated, so it reaches the calendar again. |
+| Said on | Which channel the standing reminder goes out on - banner only, push, email, or both. Greyed out with the hour while nothing arrives. |
 
-All four are saved by the inventory editor's own Save, alongside everything else on that form. They used
+All of them are saved by the inventory editor's own Save, alongside everything else on that form. The
+same settings are asked for once more where a storage is generated from a task list, since that is the
+moment they are first decided - see "Can this list be done?" above. They used
 to have a "Save settings" and a "Refresh" of their own, which is what made pressing the page's Save leave
 a moved switch behind.
 

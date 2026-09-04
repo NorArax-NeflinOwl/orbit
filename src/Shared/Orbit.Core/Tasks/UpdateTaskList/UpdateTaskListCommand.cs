@@ -17,5 +17,12 @@ public sealed record UpdateTaskListCommand(
     /// without erasing what was written somewhere else. An entry that sends an empty list is clearing
     /// them, and is not in here.
     /// </summary>
-    IReadOnlySet<Guid>? EntriesKeepingTheirCategories = null)
+    IReadOnlySet<Guid>? EntriesKeepingTheirCategories = null,
+    /// <summary>
+    /// The entries that said nothing about the product they describe, which keep whatever they already
+    /// ask for. The same rule the categories follow one line up, and for the same reason: the phone and
+    /// every older tab save lists without knowing an entry can describe a product, and a save about
+    /// something else must not empty what was written on the web.
+    /// </summary>
+    IReadOnlySet<Guid>? EntriesKeepingTheirProduct = null)
     : IRequest<EditOutcome>;

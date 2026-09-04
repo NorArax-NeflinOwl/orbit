@@ -25,6 +25,9 @@ internal sealed class InventoryTestContext
     /// <summary>Settles finished restock errands against the shelf - see RestockCompletion.</summary>
     public RestockCompletion RestockCompletion { get; }
 
+    /// <summary>Rebuilds a restock list against the settings and the shelf - see RestockListRefresh.</summary>
+    public RestockListRefresh RestockListRefresh { get; }
+
     /// <summary>Writes an inventory's item list - what both creating one and saving one go through.</summary>
     public InventoryItemsSaver ItemsSaver { get; }
 
@@ -36,6 +39,8 @@ internal sealed class InventoryTestContext
             TaskRepository, ManagedTaskListRepository, InventoryRepository, InventoryItemRepository, RestockTaskResolver);
         RestockCompletion = new RestockCompletion(
             ManagedTaskListRepository, InventoryItemRepository, InventoryRepository, TaskRepository);
+        RestockListRefresh = new RestockListRefresh(
+            ManagedTaskListRepository, InventoryItemRepository, InventoryRepository, TaskRepository, TaskListCoordinator);
         ItemsSaver = new InventoryItemsSaver(InventoryItemRepository, TaskListCoordinator);
     }
 

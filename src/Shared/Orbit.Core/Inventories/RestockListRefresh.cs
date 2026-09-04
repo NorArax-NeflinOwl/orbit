@@ -110,7 +110,7 @@ public sealed class RestockListRefresh
     {
         if (!settings.OnlyLinkedWithDueDate)
         {
-            return [.. shelf.Where(item => item.BelongsOnTheRestockList).Select(item => item.Id)];
+            return [.. shelf.Where(item => WantedOnItsOwn(item, settings)).Select(item => item.Id)];
         }
 
         var onThisShelf = shelf.Select(item => item.Id).ToHashSet();
@@ -140,8 +140,24 @@ public sealed class RestockListRefresh
             }
         }
 
+        if (settings.OnlyCheckedRegularly)
+        {
+            // The narrowing applies to this rule as well as to the shelf's own: a list set to the round
+            // asks about the things somebody looks at, whether they were named by a dated task or by
+            // the shelf running low.
+            var toLookAt = shelf.Where(item => item.IsCheckedRegularly).Select(item => item.Id).ToHashSet();
+            wanted.IntersectWith(toLookAt);
+        }
+
         return wanted;
     }
+
+    /// <summary>
+    /// Whether the shelf itself asks for this product - see RestockListSettings.OnlyCheckedRegularly for
+    /// the two answers, and InventoryItem.BelongsOnTheRestockList for the ordinary one.
+    /// </summary>
+    private static bool WantedOnItsOwn(InventoryItem item, RestockListSettings settings)
+        => settings.OnlyCheckedRegularly ? item.IsCheckedRegularly : item.BelongsOnTheRestockList;
 
     private async Task<List<TaskItem>> NewErrandsForAsync(
         HashSet<Guid> wanted, IReadOnlyList<InventoryItem> shelf, Guid taskListId, CancellationToken cancellationToken)
@@ -218,7 +234,12 @@ public sealed class RestockListRefresh
 
             items[index] = TaskItem.FromPersistence(
                 item.Id, item.Description, dueUtc, item.IsCompleted, item.LinkedTaskListIds,
-                item.Reminders with { Daily = settings.RemindDaily, DailyTimeOfDay = settings.RefreshTimeOfDay },
+                item.Reminders with
+                {
+                    Daily = settings.RemindDaily,
+                    DailyChannel = settings.ReminderChannel,
+                    DailyTimeOfDay = settings.RefreshTimeOfDay
+                },
                 item.Subject);
         }
     }

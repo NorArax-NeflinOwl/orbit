@@ -140,13 +140,16 @@ public sealed class TaskEditorItemFormTests : OrbitTestContext
     }
 
     /// <summary>
-    /// An entry of this kind names something the work needs, and naming it is the whole of it: the shelf
-    /// is built from these names rather than picked from an existing one - see
-    /// GenerateInventoryFromTaskListCommandHandler. A picker for an existing product had the
-    /// relationship backwards.
+    /// An entry of this kind describes something the work needs, on a list that has no storage behind it
+    /// yet - and the description is kept on the entry until "Generate inventory" turns it into a shelf
+    /// row (see Orbit.Core.Tasks.TaskItemProduct). It used to name the thing and nothing else, so
+    /// everything about it had to be typed again on the storage afterwards.
+    ///
+    /// What it still does not do is point at an existing product: the shelf comes from the list, not the
+    /// other way round - see GenerateInventoryFromTaskListCommandHandler.
     /// </summary>
     [Fact]
-    public void An_inventory_entry_names_a_thing_rather_than_pointing_at_one()
+    public void An_inventory_entry_describes_the_thing_it_names()
     {
         RegisterApiClients(AnItem(kind: nameof(TaskItemKind.Inventory)));
         var cut = Render();
@@ -154,12 +157,14 @@ public sealed class TaskEditorItemFormTests : OrbitTestContext
         ExpandTheOnlyItem(cut);
 
         var detailsElement = cut.Find(".editor-item-details");
-        // Type and "Move to list" are on every entry; a third picker would be the one offering an
-        // existing product to point at. Asserted on the controls rather than on the word "Inventory",
-        // which now names this entry kind inside the Type picker itself.
-        Assert.Equal(2, detailsElement.QuerySelectorAll("select").Length);
-        // And says where the product does come from, since a form with nothing on it explains nothing.
-        Assert.Contains("one product per distinct name", detailsElement.TextContent);
+        var details = detailsElement.TextContent;
+        Assert.Contains("Amount", details);
+        Assert.Contains("Product type", details);
+        Assert.Contains("Check every round", details);
+        // The entry's own words are the product's name, so the form does not ask for one - and nothing
+        // here offers a product already on some shelf to point at instead.
+        Assert.DoesNotContain("Item name", details);
+        Assert.Contains("Goes on the shelf", details);
     }
 
     /// <summary>
@@ -325,10 +330,11 @@ public sealed class TaskEditorItemFormTests : OrbitTestContext
         Assert.DoesNotContain("Item name", details);
         Assert.Contains("Pantry", details);
 
-        // And it starts where generating a storage from a list would have put it: one of the thing
-        // wanted, none of it there yet, counted in pieces.
+        // And it starts where generating a storage from a list would have put it: none of it there yet,
+        // counted in pieces, and no minimum - which is what leaves the counting rule to answer, so a
+        // thing named three times still asks for three. See TaskItemProduct.Default.
         var amounts = cut.FindAll(".editor-item-details input[type=number]").ToList();
-        Assert.Equal("1", amounts[1].GetAttribute("value"));
+        Assert.Null(amounts[1].GetAttribute("value"));
         Assert.Equal("Piece", cut.Find(".editor-item-unit").GetAttribute("value"));
     }
 
@@ -429,6 +435,96 @@ public sealed class TaskEditorItemFormTests : OrbitTestContext
     }
 
     /// <summary>
+    /// What an entry asks for is written on the entry and saved with the list, so it survives until
+    /// there is a shelf to put it on - see Orbit.Core.Tasks.TaskItemProduct. Before this, an entry named
+    /// a thing and nothing else, and everything about that thing had to be typed again afterwards.
+    /// </summary>
+    [Fact]
+    public void What_an_inventory_entry_asks_for_is_saved_with_the_list()
+    {
+        RegisterApiClients(AnItem(kind: nameof(TaskItemKind.Inventory)));
+        var cut = Render();
+        ExpandTheOnlyItem(cut);
+
+        // Typed rather than committed on leaving the box: it is a SuggestedTextField now, and the panel
+        // under it keeps up with what is being written - see InventoryFields.
+        cut.FindAll("input").First(box => box.GetAttribute("placeholder") == "Product type").Input("Dry goods");
+        cut.Find(".editor-item-unit").Change("Kilogram");
+        ClickButtonSaying(cut, "Save");
+
+        Assert.Contains("\"productType\":\"Dry goods\"", _lastSavedJson);
+        Assert.Contains("\"unit\":\"Kilogram\"", _lastSavedJson);
+    }
+
+    /// <summary>An entry of another kind describes nothing, and says nothing about it - see TaskEditor.ProductAsked.</summary>
+    [Fact]
+    public void An_ordinary_entry_says_nothing_about_a_product()
+    {
+        RegisterApiClients(AnItem());
+        var cut = Render();
+
+        ClickButtonSaying(cut, "Save");
+
+        Assert.Contains("\"product\":null", _lastSavedJson);
+    }
+
+    /// <summary>
+    /// Generating a storage asks what to build first: what it is called, and how the "Restock supplies"
+    /// list it keeps should behave. It used to be one click with no questions, and both answers then had
+    /// to be found and corrected on another screen.
+    /// </summary>
+    [Fact]
+    public void Generating_a_storage_asks_what_to_build()
+    {
+        RegisterApiClients(AnItem(kind: nameof(TaskItemKind.Inventory)));
+        var cut = Render();
+
+        OpenTheRailMenu(cut);
+        ClickButtonSaying(cut, "Generate inventory…");
+
+        Assert.NotEmpty(cut.FindAll(".form-overlay"));
+        // Nothing is built until the form is answered.
+        Assert.Null(_lastGenerateJson);
+    }
+
+    [Fact]
+    public void What_the_form_answers_is_what_gets_built()
+    {
+        RegisterApiClients(AnItem(kind: nameof(TaskItemKind.Inventory)));
+        var cut = Render();
+
+        OpenTheRailMenu(cut);
+        ClickButtonSaying(cut, "Generate inventory…");
+        cut.Find("#generatedInventoryName").Input("Pantry");
+        cut.Find("#generatedRestockChannel").Change("Email");
+        cut.Find("#generatedRestockScope").Change("true");
+        ClickButtonSaying(cut, "Generate");
+
+        Assert.Contains("\"name\":\"Pantry\"", _lastGenerateJson);
+        Assert.Contains("\"reminderChannel\":\"Email\"", _lastGenerateJson);
+        Assert.Contains("\"onlyCheckedRegularly\":true", _lastGenerateJson);
+        // And the list is written first, so the storage is built from what is on screen rather than from
+        // what was stored before somebody filled the entries in - see GenerateInventoryAsync.
+        Assert.NotNull(_lastSavedJson);
+    }
+
+    /// <summary>
+    /// The name box is left empty rather than pre-filled: an untouched box shows the list's title as its
+    /// placeholder, and a blank name is what the server reads as "call it what the list is called".
+    /// </summary>
+    [Fact]
+    public void The_storage_is_offered_the_lists_own_name()
+    {
+        RegisterApiClients(AnItem(kind: nameof(TaskItemKind.Inventory)));
+        var cut = Render();
+
+        OpenTheRailMenu(cut);
+        ClickButtonSaying(cut, "Generate inventory…");
+
+        Assert.Equal("Errands", cut.Find("#generatedInventoryName").GetAttribute("placeholder"));
+    }
+
+    /// <summary>
     /// The name and what is under it, as the one field they are written in holds them - see
     /// TitledDescription. Read through the surface rather than off the DOM: it is contenteditable driven
     /// from JS, which a test renderer has none of.
@@ -450,6 +546,12 @@ public sealed class TaskEditorItemFormTests : OrbitTestContext
         => RenderComponent<TaskEditor>(parameters => parameters.Add(editor => editor.Id, TaskListId));
 
     private static void ExpandTheOnlyItem(IRenderedFragment cut) => cut.Find(".editor-item-toggle").Click();
+
+    /// <summary>
+    /// The three-dot menu in the rail, where everything about the list as a whole lives - see
+    /// OverflowMenu, which draws nothing until it is opened.
+    /// </summary>
+    private static void OpenTheRailMenu(IRenderedFragment cut) => cut.Find(".overflow-menu-trigger").Click();
 
     private static void ClickButtonSaying(IRenderedFragment cut, string label)
         => ButtonSaying(cut, label).Click();
@@ -475,6 +577,11 @@ public sealed class TaskEditorItemFormTests : OrbitTestContext
 
     private string? _lastSavedJson;
 
+    /// <summary>What the page asked the server to build, when it asked - see GenerateInventoryOverlay.</summary>
+    private string? _lastGenerateJson;
+
+    private static readonly Guid GeneratedInventoryId = Guid.NewGuid();
+
     private void RegisterApiClients(TaskItemDto item)
     {
         var taskList = new TaskDto(
@@ -492,6 +599,14 @@ public sealed class TaskEditorItemFormTests : OrbitTestContext
             {
                 _lastSavedJson = request.Content!.ReadAsStringAsync().GetAwaiter().GetResult();
                 return new HttpResponseMessage(HttpStatusCode.NoContent);
+            }
+
+            // Turning this list into a storage - what the form in the rail's menu asks for before
+            // anything is built. See GenerateInventoryOverlay.
+            if (request.Method == HttpMethod.Post && path.EndsWith("/inventory", StringComparison.Ordinal))
+            {
+                _lastGenerateJson = request.Content!.ReadAsStringAsync().GetAwaiter().GetResult();
+                return JsonOf(GeneratedInventoryId);
             }
 
             if (path.Contains("/notifications", StringComparison.Ordinal))
@@ -539,6 +654,15 @@ public sealed class TaskEditorItemFormTests : OrbitTestContext
             if (_linkedInventory is { } storage && path.EndsWith($"/api/inventories/{storage.Id}", StringComparison.Ordinal))
             {
                 return JsonOf(storage);
+            }
+
+            // The storage the generation just built, which the page reads back to name it on screen.
+            if (path.EndsWith($"/api/inventories/{GeneratedInventoryId}", StringComparison.Ordinal))
+            {
+                return JsonOf(new InventoryDto(
+                    GeneratedInventoryId, "Spiżarnia", DateTimeOffset.UtcNow, DateTimeOffset.UtcNow,
+                    IsShared: false, SharedByUserName: null, AccessLevel: "CanEdit", LockedByUserName: null,
+                    OriginalOwnerUserId: null));
             }
 
             // Two other lists as well, so the "stands for these lists" picker has something to offer -

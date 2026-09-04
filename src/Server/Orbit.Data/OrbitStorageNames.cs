@@ -27,6 +27,7 @@ internal static class OrbitStorageNames
         [typeof(TaskEntity)] = new("OP_TASKS", "OP_T_"),
         [typeof(TaskItemEntity)] = new("OP_TASKS_ITEMS", "OP_TI_"),
         [typeof(TaskItemCategoryEntity)] = new("OP_TASKS_CATEGORIES", "OP_TC_"),
+        [typeof(TaskItemProductCategoryEntity)] = new("OP_TASKS_PRODUCT_CATEGORIES", "OP_TPC_"),
         [typeof(TaskShareEntity)] = new("OP_TASKS_SHARED", "OP_TS_"),
         [typeof(CalendarEventEntity)] = new("OP_EVENTS", "OP_E_"),
         [typeof(CalendarEventShareEntity)] = new("OP_EVENTS_SHARED", "OP_ES_"),

@@ -61,6 +61,20 @@ public static class PolishTranslations
         ["Inventory generated from this list."] = "Magazyn wygenerowany z tej listy.",
         ["Recalculate against the inventory"] = "Przelicz względem magazynu",
         ["Generate inventory"] = "Generuj magazyn",
+        ["Generate inventory…"] = "Generuj magazyn…",
+        ["Generate"] = "Generuj",
+        ["Restock supplies task"] = "Zadanie uzupełniania zapasów",
+        ["Said on"] = "Powiadamianie przez",
+        ["The list asks about"] = "Lista pyta o",
+        ["Everything running low"] = "Wszystko, czego brakuje",
+        ["Only the products marked \"Check every round\""] = "Tylko produkty oznaczone „Sprawdzaj co obchód”",
+        ["The list's own title unless you say otherwise. One product per distinct thing the list names goes on the shelf."] =
+            "Tytuł listy, o ile nie zmienisz. Na półkę trafi jeden produkt na każdą odrębną rzecz, którą lista nazywa.",
+        ["No list is created. Nothing on the shelf raises an errand."] = "Żadna lista nie powstanie. Nic z półki nie utworzy zadania.",
+        ["The list asks only about the products marked to look at every round. What is running low but not marked is left off."] =
+            "Lista pyta tylko o produkty oznaczone do sprawdzania co obchód. To, czego brakuje, ale nie jest oznaczone, zostaje pominięte.",
+        ["The list asks about everything it would otherwise ask about, marked or not."] =
+            "Lista pyta o wszystko, o co pytałaby normalnie - oznaczone czy nie.",
         ["More"] = "Więcej",
         ["Couldn't add those to the restock list."] = "Nie udało się dodać ich do listy uzupełnień.",
         ["{0} added to the restock list."] = "Dodano do listy uzupełnień: {0}.",
@@ -113,8 +127,8 @@ public static class PolishTranslations
         ["years"] = "lat",
         ["\"{0}\" is reminded daily, so it needs a time to be reminded at."] = "„{0}” ma przypomnienie dzienne, więc potrzebuje godziny.",
         ["On the shelf in {0}. Saving this list saves the change there too."] = "Na półce w: {0}. Zapis tej listy zapisuje też tę zmianę.",
-        ["Naming it is the whole of it: \"Generate inventory\" in the menu above makes one product per distinct name, counted in pieces, and the same name twice asks for two of it."] =
-            "Nazwanie to całość tej pozycji: „Wygeneruj magazyn” w menu powyżej tworzy jeden produkt na każdą odrębną nazwę, liczony w sztukach, a ta sama nazwa dwa razy oznacza prośbę o dwie sztuki.",
+        ["Goes on the shelf when \"Generate inventory\" builds one, named after this entry. Leave the minimum empty to have it counted instead: the same name twice asks for two of it."] =
+            "Trafi na półkę, gdy „Generuj magazyn” ją zbuduje, pod nazwą tej pozycji. Puste minimum zostanie policzone: ta sama nazwa dwa razy oznacza prośbę o dwie sztuki.",
         ["This entry isn't tied to a product yet, so there is nothing to edit here."] = "Ta pozycja nie jest jeszcze powiązana z produktem, więc nie ma tu czego edytować.",
         ["No other list yet"] = "Nie ma jeszcze innej listy",
         ["The list was saved, but the shelf couldn't be updated. Open the inventory and check it."] = "Lista została zapisana, ale nie udało się zaktualizować magazynu. Otwórz magazyn i sprawdź.",

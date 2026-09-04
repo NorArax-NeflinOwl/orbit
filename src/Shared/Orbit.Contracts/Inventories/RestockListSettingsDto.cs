@@ -12,12 +12,23 @@ namespace Orbit.Contracts.Inventories;
 /// </param>
 /// <param name="RemindDaily">Whether the list carries the standing daily "Update stock levels" reminder.</param>
 /// <param name="ListPriority">ItemPriority by name - "Low", "Normal" or "High".</param>
+/// <param name="OnlyCheckedRegularly">
+/// Whether the list asks only about the products marked to look at every round, rather than about
+/// everything the shelf says is running low. Defaulted false so a client that has not been taught about
+/// this field cannot narrow the list by omission.
+/// </param>
+/// <param name="ReminderChannel">
+/// Where the standing daily reminder is said - "None"/"Email"/"Push"/"Both", matching
+/// Orbit.Core.Notifications.NotificationChannel. Means nothing while RemindDaily is false.
+/// </param>
 public sealed record RestockListSettingsDto(
     bool OnlyLinkedWithDueDate,
     TimeOnly RefreshTimeOfDay,
     bool IsEnabled = true,
     bool RemindDaily = true,
-    string ListPriority = "Normal");
+    string ListPriority = "Normal",
+    bool OnlyCheckedRegularly = false,
+    string ReminderChannel = "Push");
 
 /// <summary>What rebuilding the list moved - see Orbit.Core.Inventories.RestockRefreshOutcome.</summary>
 public sealed record RestockRefreshResultDto(int AddedCount, int RemovedCount);
