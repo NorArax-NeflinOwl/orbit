@@ -163,8 +163,14 @@ closing it once the two agree. Merging that one is what deploys, so a run of fea
 production as one deploy rather than as many - which is the point, since a deploy is the expensive
 operation here.
 
+That workflow needs one repository setting to be on: **Settings > Actions > General > "Allow GitHub
+Actions to create and approve pull requests"**. It is off by default, and without it every run fails
+on `GitHub Actions is not permitted to create or approve pull requests` - the integration pull request
+then has to be opened by hand (`gh pr create --base main --head Coding --draft`).
+
 `Coding` is the repository's default branch, so a new pull request proposes it without anyone
-choosing. What holds the arrangement together beyond habit is `.github/workflows/guard-main.yml`,
+choosing. Being the default branch also decides which copy of a *scheduled* workflow runs: the nightly
+branch cleanup executes `Coding`'s version of `cleanup-merged-branches.yml`, not main's. What holds the arrangement together beyond habit is `.github/workflows/guard-main.yml`,
 which closes any pull request aimed at `main` from a branch other than `Coding` unless it carries the
 `hotfix` label. It exists in place of branch protection, which this repository cannot have: GitHub
 gates both classic protection and rulesets behind Pro for private repositories. A *direct push* to

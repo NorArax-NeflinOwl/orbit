@@ -11,6 +11,14 @@
 #
 # The description is rewritten on every push, so it always lists what is actually waiting, and the PR
 # is opened as a draft: a ready-for-review one would say "somebody looked at this", which nobody has.
+#
+# ONE REPOSITORY SETTING IS REQUIRED. Actions may not open a pull request unless "Allow GitHub Actions
+# to create and approve pull requests" is on (Settings > Actions > General > Workflow permissions).
+# It is off by default, and without it every run here fails on "GitHub Actions is not permitted to
+# create or approve pull requests". The step below says so rather than leaving the GraphQL error to be
+# deciphered:
+#
+#   gh api -X PUT repos/<owner>/<repo>/actions/permissions/workflow -F can_approve_pull_request_reviews=true
 name: Keep one pull request open from Coding to main
 
 on:
@@ -38,7 +46,7 @@ jobs:
       GH_TOKEN: ${{ github.token }}
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           fetch-depth: 0   # both branches in full - the commit list below is counted from them
 
@@ -96,11 +104,21 @@ jobs:
           } > "$RUNNER_TEMP/body.md"
 
           number=$(gh pr list --base main --head Coding --state open --json number --jq '.[0].number // empty')
-          if [ -z "$number" ]; then
-            gh pr create --base main --head Coding --draft \
-              --title "[Integration] Coding → main" --body-file "$RUNNER_TEMP/body.md"
-            echo "Opened the integration pull request."
-          else
+          if [ -n "$number" ]; then
             gh pr edit "$number" --body-file "$RUNNER_TEMP/body.md"
             echo "Updated #$number."
+            exit 0
           fi
+
+          # The one failure worth explaining rather than repeating: the repository setting named in the
+          # header. Everything else - a network blip, a branch deleted mid-run - is left to speak for
+          # itself, since a wrong explanation is worse than none.
+          if ! error=$(gh pr create --base main --head Coding --draft \
+                --title "[Integration] Coding → main" --body-file "$RUNNER_TEMP/body.md" 2>&1); then
+            echo "$error"
+            if echo "$error" | grep -q "not permitted to create or approve pull requests"; then
+              echo "::error::Actions may not open pull requests in this repository, so the integration pull request cannot be created. Turn on Settings > Actions > General > 'Allow GitHub Actions to create and approve pull requests', or run: gh api -X PUT repos/${{ github.repository }}/actions/permissions/workflow -F can_approve_pull_request_reviews=true - then re-run this workflow. Until then, open it by hand: gh pr create --base main --head Coding --draft --title '[Integration] Coding → main'"
+            fi
+            exit 1
+          fi
+          echo "Opened the integration pull request." 
