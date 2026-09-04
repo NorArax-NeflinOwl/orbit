@@ -16,7 +16,9 @@ Read one of them end to end before writing anything.
 1. Read `info/architecture.md` and `info/functionality.md` (what exists and how it is wired).
 2. Read the reference module end to end at every layer listed below.
 3. Confirm the scope of the first slice with the user. A module lands as a vertical slice
-   (one entity, one endpoint group, one page), not as a full feature. One slice = one PR.
+   (one entity, one endpoint group, one page), not as a full feature. One slice = one
+   commit; whether it also gets its own PR depends on what this session already has
+   open - see `pr-workflow`.
 
 ## The pattern, layer by layer
 
