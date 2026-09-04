@@ -33,8 +33,11 @@ Rules in this file are always in context. Longer procedures live in
    a feature branch and open the PR against `Coding`, which is where everything
    lands first. `Coding` reaches `main` through one integration PR that
    `.github/workflows/integration-pr.yml` keeps open on its own - merging *that* is
-   what deploys, so it is deliberately rare. Do not merge any PR yourself; the user
-   merges.
+   what deploys, so it is deliberately rare. A PR aimed at `main` from anywhere else
+   is closed automatically by `.github/workflows/guard-main.yml` (label it `hotfix`
+   to mean it on purpose). Branch protection would say this more firmly, but GitHub
+   gates it behind Pro for private repositories. Do not merge any PR yourself; the
+   user merges.
 3. Before the context fills up for the second time, start a new session and hand
    over the context. Name the new session like the current one with the numeric
    suffix incremented (`orbit-deploy-2` → `orbit-deploy-3`).

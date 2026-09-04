@@ -19,6 +19,14 @@ Nobody opens or merges that integration PR by hand: the workflow keeps it curren
 and merging it is the user's decision because it is the expensive one. When the two
 branches agree again, the workflow closes it.
 
+`Coding` is the repository's default branch, so `gh pr create` already proposes it.
+A PR aimed at `main` from any other branch is closed by `guard-main.yml` with a
+comment saying how to retarget it; a change that genuinely has to skip `Coding`
+carries the `hotfix` label, which says the deploy was a decision. That guard exists
+because branch protection does not: GitHub gates it behind Pro for private
+repositories, so nothing can stop a *direct push* to `main` - which is why rule 2
+still says never to do it.
+
 ## How many pull requests may be open
 
 - **One per session.** A session opens at most one, and everything it does

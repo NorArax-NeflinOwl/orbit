@@ -163,6 +163,14 @@ closing it once the two agree. Merging that one is what deploys, so a run of fea
 production as one deploy rather than as many - which is the point, since a deploy is the expensive
 operation here.
 
+`Coding` is the repository's default branch, so a new pull request proposes it without anyone
+choosing. What holds the arrangement together beyond habit is `.github/workflows/guard-main.yml`,
+which closes any pull request aimed at `main` from a branch other than `Coding` unless it carries the
+`hotfix` label. It exists in place of branch protection, which this repository cannot have: GitHub
+gates both classic protection and rulesets behind Pro for private repositories. A *direct push* to
+`main` therefore remains possible and still deploys - no workflow can intercept one, since it runs
+after the push has landed.
+
 `.github/workflows/main_orbit.yml` builds and deploys Orbit on every push to `main`, matching the
 local Docker Compose topology of two separate containers (rather than the single combined
 App Service the project started with):
