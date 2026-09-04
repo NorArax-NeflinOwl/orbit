@@ -8,7 +8,7 @@ Run the whole suite with:
 dotnet test Orbit.sln
 ```
 
-This also runs automatically in CI, on every pull request into `Coding` and on every push to `main` - so a
+This also runs automatically in CI, but only on a push to `main` - nothing runs on a pull request or on `Coding` - so a
 branch is checked before it lands rather than after. Documentation-only branches are skipped, and a
 pull request run is cancelled by the next push to the same branch. See
 [Architecture — Continuous integration](architecture.md#continuous-integration) for what that costs and

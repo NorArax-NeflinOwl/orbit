@@ -197,15 +197,14 @@ that broke `azure/login`'s OIDC federation the one time it was tried.
 
 ## Continuous integration
 
-`.github/workflows/main_orbit.yml` runs on pull requests into `Coding` and on pushes to `main` (and
-can be triggered manually); only its deploy job is restricted to `main`. Those two triggers are
-deliberate and were once four: a feature pull request, the push to `Coding` that merged it, and the
-integration pull request that push synchronised would each have run the same suite, three times for
-one change. Runner minutes are capped at 2000 a month and that arrangement spent them in four days,
-so one run is kept per stage - the pull request for review, the push to `main` as the gate before
-Azure is paid. Both ignore `info/**` and `**/*.md`. What it gives up: two branches green against
-`Coding` separately are not tested together until that push to `main`, which is still before anything
-deploys. Its
+`.github/workflows/main_orbit.yml` runs on pushes to `main` only (and can be triggered manually). It
+once also ran on every pull request, on every push to `Coding` and on the integration pull request
+those pushes synchronised - the same suite three and four times for one change - and runner minutes
+are capped at 2000 a month, which that arrangement spent in four days. So the suite now runs at the
+one point where it gates something: the merge of the integration pull request, the last step before
+Azure is paid. It ignores `info/**` and `**/*.md`. Everything on the way to `main` is checked on the
+developer's machine (`dotnet test Orbit.sln` before opening a pull request); a broken merge into
+`Coding` surfaces at the next push to `main`, before anything deploys. Its
 `test` job restores, builds (`Release` configuration), and runs the full test suite
 (`dotnet test Orbit.sln`) on `ubuntu-latest` with .NET SDK 10, then runs the two harnesses covering the
 parts of the client no .NET test can reach, since bUnit executes none of the browser APIs they are made

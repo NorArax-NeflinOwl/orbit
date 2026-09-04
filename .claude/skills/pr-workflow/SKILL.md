@@ -98,7 +98,8 @@ Add APPLICATIONINSIGHTS_CONNECTION_STRING to .env.example
 
 - No secrets in the diff (`git diff --cached | grep -i -E "connectionstring|instrumentationkey|password|token|secret"` should only show variable *names*).
 - New environment variable → added to `.env.example` with a placeholder.
-- `dotnet build` passes; relevant tests run and reported.
+- `dotnet test Orbit.sln` passes on this machine and the count is in the PR. Nothing
+  on GitHub runs the suite before `main`, so this is the only check the change gets.
 - No changes outside the task's scope. If you touched something incidental, revert it.
 
 ## Opening the PR
@@ -127,7 +128,8 @@ PR body template:
 - <anything spotted outside the task>
 ```
 
-Open as a draft (`--draft`) if CI has not been checked locally yet.
+Open as a draft (`--draft`) if the suite has not been run locally yet - there is no CI
+on a pull request to catch it.
 
 The title opens with this session's tag - `[Web]`, `[Android]`, `[DB]`, `[Docs]` -
 so a glance at the list says which session is behind which PR.
@@ -154,7 +156,8 @@ overwriting. Which sessions are live is what `ListAgents` answers.
 
 - Do not merge. The user merges.
 - Later work in this session goes on this same PR, whatever it touches.
-- If CI fails on the PR, fix it in the same branch — do not open a new PR.
-- When the user merges into `Coding`, nothing deploys - the suite runs and the
-  integration PR updates itself. Watch the deploy only when the user merges *that*
+- There is no CI on the PR. If the suite fails on the push to `main` after the
+  integration merge, the fix goes on a new branch into `Coding` like any other change.
+- When the user merges into `Coding`, nothing runs but the workflow that updates
+  the integration PR. Watch the suite and the deploy only when the user merges *that*
   one into `main`: `gh run watch`, and on failure switch to `azure-deploy-diagnose`.

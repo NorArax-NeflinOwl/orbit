@@ -45,9 +45,12 @@ Rules in this file are always in context. Longer procedures live in
 4. One logical change per commit. A session's PR usually carries several, so the
    commits - not the PR - are where that separation lives.
 5. Runner minutes are a monthly budget - 2000, and they ran out once in four days.
-   Every push to a PR branch runs the full suite, so push finished work rather than
-   every commit, and test locally first. Adding or widening a workflow trigger is a
-   decision made with skill `ci-pipeline` open, never "to be safe".
+   The suite runs on GitHub only when `main` is pushed, i.e. when the integration PR
+   merges; nothing runs on a feature branch, a pull request or a merge into `Coding`.
+   So `dotnet test Orbit.sln` on your own machine is the only check a change gets
+   before it reaches `Coding` - run it before opening the PR, not after. Adding or
+   widening a workflow trigger is a decision made with skill `ci-pipeline` open,
+   never "to be safe".
 
 ## Azure constraints (pay-as-you-go subscription)
 

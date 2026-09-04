@@ -14,20 +14,16 @@ them in four days. Measured afterwards: `main_orbit.yml` was 346 of 408 minutes
 across 100 runs. Before adding or widening a trigger, count how many times one
 change would run the same suite.
 
-`main_orbit.yml` therefore has exactly two triggers, one per stage:
+`main_orbit.yml` therefore has one trigger: the push to `main`, which is the merge
+of the integration PR - the last step before Azure is paid, and what the deploy job
+hangs off. It ignores `info/**` and `**/*.md`. Nothing runs on a feature branch, a
+pull request, or a merge into `Coding`.
 
-| Trigger | What it proves |
-| --- | --- |
-| `pull_request` into `Coding` | the tree as it will be once merged - what review needs |
-| `push` to `main` | the last gate before Azure is paid; the deploy job hangs off it |
-
-Both carry `paths-ignore` for `info/**` and `**/*.md`. What this gives up: two
-branches, each green against `Coding`, are not tested *together* until the push to
-`main` - caught there, before anything deploys, rather than twice per merge.
-
-The deploy job is gated on `main` alone (`github.ref == 'refs/heads/main'`), so a
-merge into `Coding` costs a build and only the integration PR reaching `main` costs
-a deploy. On a push to `main` it:
+What that means in practice: the full suite on the developer's machine is the only
+check a change gets before `Coding`. A broken merge into `Coding` is found at the
+next push to `main`, before anything deploys - and then it blocks the whole
+integration, so a failed run there is everybody's problem. Run `dotnet test
+Orbit.sln` before opening a PR; it is not optional. On a push to `main` it:
 
 1. Log in to Azure via OIDC (managed identity `identity-orbit`, no stored secret)
 2. `docker build` the `Orbit.Api` and `Orbit.Web` images on the runner
