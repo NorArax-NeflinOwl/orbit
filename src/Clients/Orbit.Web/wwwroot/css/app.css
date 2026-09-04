@@ -1959,7 +1959,10 @@ input.note-editor-title {
     cursor: pointer;
 }
 
-.name-suggestion-option:hover {
+.name-suggestion-option:hover,
+/* Where the arrow keys are standing. The same fill as hover, because it means the same thing - this is
+   the one Enter would take - and two different highlights on one list would ask which is which. */
+.name-suggestion-option.is-active {
     background: var(--bg-subtle);
 }
 

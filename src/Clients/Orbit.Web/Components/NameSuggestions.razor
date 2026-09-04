@@ -27,9 +27,14 @@
         {
             <span class="name-suggestion-warning">@T.Format("You already have \"{0}\".", duplicate.Name)</span>
         }
-        @foreach (var suggestion in _suggestions)
+        @* Each option carries an id so the field can point at the highlighted one through
+           aria-activedescendant: the focus stays in the box while the arrows move down the list, so
+           that attribute is the only thing telling a screen reader what is currently on offer. *@
+        @for (var index = 0; index < _suggestions.Count; index++)
         {
-            <button type="button" class="name-suggestion-option" role="option" aria-selected="false"
+            var suggestion = _suggestions[index];
+            <button type="button" id="@($"{_panelId}-{index}")" class="name-suggestion-option"
+                    role="option" aria-selected="false"
                     @onclick="() => ChooseAsync(suggestion)">@suggestion.Name</button>
         }
     </div>
@@ -65,6 +70,19 @@
     private ElementReference _panel;
 
     private IJSObjectReference? _anchoring;
+
+    /// <summary>
+    /// Handed to JS so Escape can reach back and close the list. Everything else the keys do - moving
+    /// the highlight, taking the highlighted name - happens in the DOM, where the keys already are.
+    /// </summary>
+    private DotNetObjectReference<NameSuggestions>? _self;
+
+    /// <summary>
+    /// Unique per instance, because several of these are on screen at once - one under every item row -
+    /// and an option's id is what the field points at while the arrows move. Ids that repeated would
+    /// point a screen reader at the first row's list whichever row was being typed into.
+    /// </summary>
+    private readonly string _panelId = $"name-suggestions-{Guid.NewGuid():N}";
 
     /// <summary>
     /// Every field this is offered under, as one selector: the item rows' own box, and the surface
@@ -175,6 +193,10 @@
         {
             _anchoring ??= await JSRuntime.InvokeAsync<IJSObjectReference>("import", "./js/menuAnchor.js");
             await _anchoring.InvokeVoidAsync("anchorToField", _panel, FieldSelector);
+            // Re-bound on every render, not only the first: Blazor hands out a fresh panel element each
+            // time the offered names change, and the keys have to act on the one now on screen.
+            _self ??= DotNetObjectReference.Create(this);
+            await _anchoring.InvokeVoidAsync("bindSuggestionKeys", _panel, FieldSelector, _self);
         }
         catch (JSException)
         {
@@ -184,6 +206,26 @@
         {
             // The page is going away with the panel open.
         }
+    }
+
+    /// <summary>
+    /// Escape: the list goes, and what was typed stays exactly as it is. Nothing is looked up again
+    /// until the typing changes - _lastLookedUp still holds this text - so the list stays shut rather
+    /// than springing back the moment the component redraws for something else.
+    /// </summary>
+    [JSInvokable]
+    public async Task DismissSuggestions()
+    {
+        if (_suggestions.Count == 0)
+        {
+            return;
+        }
+
+        await InvokeAsync(() =>
+        {
+            _suggestions = [];
+            StateHasChanged();
+        });
     }
 
     private async Task ChooseAsync(NameSuggestionDto suggestion)
@@ -208,6 +250,9 @@
         {
             try
             {
+                // Told to forget this panel before the reference it would call back through goes: a
+                // keystroke arriving after that would reach a disposed object.
+                await _anchoring.InvokeVoidAsync("unbindSuggestionKeys");
                 await _anchoring.DisposeAsync();
             }
             catch (JSDisconnectedException)
@@ -215,5 +260,7 @@
                 // Nothing left to release.
             }
         }
+
+        _self?.Dispose();
     }
 }
