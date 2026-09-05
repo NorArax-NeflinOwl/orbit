@@ -4416,6 +4416,69 @@ input.note-editor-title {
     top: -1px;
 }
 
+/* The screen Orbit shows itself on while Blazor is still starting - see index.html, which holds the
+   markup. It has to stand on its own: the runtime that would style anything else is exactly what it is
+   waiting for, so this is written against the tokens at the top of this file and nothing else.
+
+   Centred on the whole viewport, and dvh rather than vh so a phone's collapsing address bar does not
+   leave the lockup sitting above or below the middle. */
+.app-boot {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 28px;
+    min-height: 100dvh;
+    padding: 24px;
+}
+
+/* Mark and word together, the same pairing the top bar carries - so what somebody looks at while they
+   wait is what they arrive at. */
+.app-boot-lockup {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.app-boot-mark {
+    width: 56px;
+    height: 56px;
+}
+
+.app-boot-name {
+    color: var(--text-primary);
+    font-family: var(--font-display);
+    font-size: 34px;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    line-height: 1;
+}
+
+/* A ring with one lit quarter, turning. The same shape as the mark's own orbit, which is why it is a
+   ring rather than the three bouncing dots every other app uses. */
+.app-boot-spinner {
+    width: 22px;
+    height: 22px;
+    border: 2px solid var(--border);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: app-boot-turn 0.9s linear infinite;
+}
+
+@keyframes app-boot-turn {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+/* Slowed rather than stopped for somebody who asked for less movement: a spinner that does not move is
+   a page that has frozen, which is the opposite of what this says. */
+@media (prefers-reduced-motion: reduce) {
+    .app-boot-spinner {
+        animation-duration: 3s;
+    }
+}
+
 .visually-hidden {
     position: absolute;
     width: 1px;
