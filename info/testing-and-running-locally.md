@@ -105,7 +105,9 @@ little as possible:
 4. **`orbit-web` must serve a page**, and then **must actually boot in a browser**
    (`ci/verify-app-boots.mjs`). These are not the same check: nginx falls back to `index.html` for every
    path, so a client that dies on startup still answers `200`. Only loading it in a browser and waiting
-   for `#app` to stop saying "Loading…" tells the two apart.
+   for the start screen inside `#app` to be replaced tells the two apart - `.app-boot` is what the check
+   waits to disappear, since the screen shown before Blazor starts is now a real one (the mark, the name
+   and a spinner) rather than the bare word "Loading…".
 5. **After deploying**, both revisions must report `Healthy`, and the **deployed URL must boot** - same
    script, three attempts, against the real ingress. Container Apps reports `Healthy` when nginx is
    serving, which it does whether or not the app inside the page runs.

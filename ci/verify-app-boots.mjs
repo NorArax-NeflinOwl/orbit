@@ -50,19 +50,25 @@ try {
     await fail(`${url} could not be loaded at all: ${error.message}`);
 }
 
-// index.html ships <div id="app">Loading…</div>; Blazor replaces that content once it has started.
-// Waiting for the placeholder to go is the difference between "the server answered" and "the app runs".
+// index.html ships #app holding the start screen (`.app-boot` - the mark, the name and a spinner);
+// Blazor replaces that content once it has started. Waiting for it to go is the difference between
+// "the server answered" and "the app runs".
+//
+// The start screen is what this looks for rather than the words in #app: it used to wait for the text
+// to stop being exactly "Loading…", which was true the moment that placeholder grew any markup of its
+// own. A check that a nicer loading screen can satisfy is a check that would have passed while the
+// deployed app rendered nothing at all - the very failure this exists for, see PR #70.
 try {
     await page.waitForFunction(
         () => {
             const app = document.querySelector("#app");
-            return app !== null && app.textContent.trim() !== "Loading…" && app.children.length > 0;
+            return app !== null && app.children.length > 0 && app.querySelector(".app-boot") === null;
         },
         { timeout: timeoutMs },
     );
 } catch {
     await fail(
-        `${url} served a page, but the app never started - #app still shows the loading placeholder ` +
+        `${url} served a page, but the app never started - #app still shows the start screen ` +
         `after ${timeoutMs}ms. This is what a broken service graph, a failed module load, or a bad ` +
         `boot config looks like from outside.`,
     );
