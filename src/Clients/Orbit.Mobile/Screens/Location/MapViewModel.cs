@@ -126,6 +126,24 @@ public sealed partial class MapViewModel : ObservableObject
     /// <summary>Both halves have to hold: something to point at, and an account allowed to point at it.</summary>
     public bool CanOpenOwnPositionInGoogleMaps => HasGoogleExtras && _ownPosition is not null;
 
+    /// <summary>
+    /// Where to send the phone's own map app for a position somebody shared, or null when that share
+    /// carries no position to send it to (see ReceivedPosition.CannotBeOpened).
+    ///
+    /// The phone's *own* map app rather than Google Maps: this is the one thing on the screen that has
+    /// to work when Orbit cannot draw a map itself - a build with no map key, or a reader who has not
+    /// given Orbit their location - and it is also the answer to "where is that, then" on a phone, where
+    /// the map app already knows how to get you there. Google Maps stays what the reader's *own*
+    /// position offers, since that is a link Orbit hands over rather than a place it opens.
+    ///
+    /// A point rather than a launch: what to open is worth testing, and opening it is a platform call -
+    /// the same split OwnPositionInGoogleMapsUrl draws, and the reason either can be tested at all.
+    /// </summary>
+    public MapPoint? WhereToOpen(ReceivedPosition received)
+        => received.Position is { } position
+            ? new MapPoint(received.SharerDisplayName, position.Address, position.Latitude, position.Longitude, IsMine: false)
+            : null;
+
     public bool IsNotChoosing => !IsChoosingWhoToShareWith;
 
     [RelayCommand]

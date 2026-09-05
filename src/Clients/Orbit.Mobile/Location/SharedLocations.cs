@@ -12,6 +12,14 @@ public sealed record ReceivedPosition(Guid SharerUserId, string SharerDisplayNam
     public bool CannotBeOpened => Position is null;
 
     /// <summary>
+    /// The other way round, for the button that opens this position in the phone's own map app - see
+    /// MapViewModel.WhereToOpen. Its own property rather than a converter on the negative one: this is
+    /// the shape every other "is there something here" flag on these rows has (see HasRecordedAt), and
+    /// XAML has no "not".
+    /// </summary>
+    public bool CanBeOpened => Position is not null;
+
+    /// <summary>
     /// When this reading was taken, on the reader's own clock and in their language - see
     /// Translations.WhenItHappened. Set by MapViewModel, which has the language; empty for a position
     /// this device cannot open, which has no reading to show.
