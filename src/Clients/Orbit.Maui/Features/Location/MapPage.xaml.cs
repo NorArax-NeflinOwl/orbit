@@ -3,8 +3,10 @@ using Microsoft.Maui.Controls.Maps;
 using Microsoft.Maui.Maps;
 using Orbit.Maui.Platform;
 using Orbit.Mobile.Localization;
+using Orbit.Mobile.Location;
 using Orbit.Mobile.Screens.Location;
 using MapPoint = Orbit.Mobile.Screens.Location.MapPoint;
+using PhoneMaps = Microsoft.Maui.ApplicationModel.Map;
 using SensorLocation = Microsoft.Maui.Devices.Sensors.Location;
 
 namespace Orbit.Maui.Features.Location;
@@ -48,7 +50,9 @@ public partial class MapPage : ContentPage
 		_hasMap = false;
 		MapArea.Content = new Label
 		{
-			Text = translations["The map can't be shown in this build."],
+			// Says what still works, not only what does not: every position somebody has shared can be
+			// opened in the phone's own map app from the list below, map or no map.
+			Text = translations["The map can't be shown in this build. A shared position still opens in your phone's map app."],
 			FontSize = 12,
 			VerticalOptions = LayoutOptions.Center,
 			HorizontalTextAlignment = TextAlignment.Center,
@@ -58,6 +62,27 @@ public partial class MapPage : ContentPage
 
 	/// <summary>Typed so the list rows' bindings back up to the page can be compiled.</summary>
 	public MapViewModel ViewModel => _viewModel;
+
+	/// <summary>
+	/// Opens a position somebody shared in whatever this phone treats as Maps - what the button on each
+	/// "Shared with you" row does, and what tapping the pin's own callout does.
+	///
+	/// On the page rather than on the view model because leaving the app is a platform call, the same
+	/// split "Open in Google Maps" already draws: the view model answers *where* (see WhereToOpen), this
+	/// answers *how*. And the phone's own map app rather than a Google Maps URL, because this is the one
+	/// thing here that has to work when Orbit cannot draw a map itself.
+	/// </summary>
+	public Command<ReceivedPosition> OpenInMapsCommand => new(async received =>
+	{
+		if (_viewModel.WhereToOpen(received) is { } destination)
+		{
+			await OpenInPhoneMapsAsync(destination);
+		}
+	});
+
+	private static Task OpenInPhoneMapsAsync(MapPoint destination)
+		=> PhoneMaps.Default.OpenAsync(
+			destination.Latitude, destination.Longitude, new MapLaunchOptions { Name = destination.Label });
 
 	protected override void OnAppearing()
 	{
@@ -103,12 +128,17 @@ public partial class MapPage : ContentPage
 		PositionsMap.Pins.Clear();
 		foreach (var point in _viewModel.Points)
 		{
-			PositionsMap.Pins.Add(new Pin
+			var pin = new Pin
 			{
 				Label = point.Label,
 				Address = point.Description,
 				Location = new SensorLocation(point.Latitude, point.Longitude)
-			});
+			};
+			// Tapping the callout a pin opens hands the point to the phone's map app, which is where
+			// somebody who has just found a friend's position wants to be: Orbit draws where it is, and
+			// the map app is what knows how to get there.
+			pin.InfoWindowClicked += async (_, _) => await OpenInPhoneMapsAsync(point);
+			PositionsMap.Pins.Add(pin);
 		}
 
 		// Centred on the first point, which is the reader's own whenever they have one - see

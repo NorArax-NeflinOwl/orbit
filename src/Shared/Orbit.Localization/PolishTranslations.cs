@@ -537,8 +537,14 @@ public static class PolishTranslations
         ["Looking through your inventories…"] = "Przeszukuję magazyny…",
         ["Nothing on any shelf matches that."] = "Nic na żadnej półce nie pasuje.",
         ["Found in {0} of {1} inventories."] = "Znaleziono w {0} z {1} magazynów.",
+        // Two sentences for one answer, because the two clients word it differently: the web names the
+        // inventories it could not open at the end, the phone counts them at the front. The web's was
+        // reworded and its translation left behind - which is what the web's coverage sweep found the
+        // first time it ran - so both are kept until somebody decides the two should say the same thing.
         ["Found in {0} of {1} inventories. {2} could not be opened, so nothing in them was searched."] =
             "Znaleziono w {0} z {1} magazynów. {2} nie udało się otworzyć, więc nic w nich nie zostało przeszukane.",
+        ["Found in {0} of {1} inventories. These could not be opened, so nothing in them was searched: {2}"] =
+            "Znaleziono w {0} z {1} magazynów. Tych nie udało się otworzyć, więc nic w nich nie przeszukano: {2}",
         ["Move up"] = "Przenieś w górę",
         ["Move down"] = "Przenieś w dół",
         ["Show everything"] = "Pokaż wszystko",
@@ -1722,5 +1728,194 @@ public static class PolishTranslations
         ["No iPhone build has been published yet. iOS installs nothing a browser downloaded, so this will be a TestFlight invitation rather than a file."] =
             "Nie opublikowano jeszcze wersji na iPhone'a. iOS nie zainstaluje niczego, co pobrała przeglądarka, więc będzie to zaproszenie w TestFlight, a nie plik.",
         ["Orbit on your phone"] = "Orbit na telefonie",
+
+        // ---- The pages behind the footer: About, Privacy, Security, Docs, and the two dialogs. ----
+        ["Orbit — Docs"] = "Orbit — Dokumentacja",
+        ["Orbit — Privacy"] = "Orbit — Prywatność",
+        ["Orbit — Security"] = "Orbit — Bezpieczeństwo",
+        ["Docs"] = "Dokumentacja",
+        ["Privacy"] = "Prywatność",
+        ["Security"] = "Bezpieczeństwo",
+        ["About Orbit"] = "O Orbicie",
+        ["Manage cookies"] = "Zarządzaj ciasteczkami",
+        ["Do not share my personal information"] = "Nie udostępniaj moich danych osobowych",
+        ["The short version"] = "W skrócie",
+
+        // The Docs page: what Orbit does, read by somebody deciding whether to keep using it.
+        ["What Orbit does, and how the parts fit together."] = "Co robi Orbit i jak łączą się jego części.",
+        ["Two depths, everywhere"] = "Dwa poziomy, wszędzie",
+        ["Every kind of thing in Orbit is met at the same two depths. Pressing it opens what it is - a note read, a list to tick off, a shelf to look at - and a named press one step further in opens the form that changes it. Landing on the form would answer a question nobody asked; landing on the thing is what you came for."] =
+            "Każdą rzecz w Orbicie spotykasz na tych samych dwóch poziomach. Naciśnięcie otwiera to, czym ona jest — notatkę do przeczytania, listę do odhaczenia, półkę do obejrzenia — a nazwane naciśnięcie krok dalej otwiera formularz, który ją zmienia. Wejście od razu w formularz byłoby odpowiedzią na pytanie, którego nikt nie zadał; wejście w samą rzecz to po to przyszedłeś.",
+        ["The dashboard is the layer above both. Every card there opens what it names, and the menu at its top right decides which cards you see at all."] =
+            "Pulpit jest warstwą ponad obiema. Każdy kafel otwiera to, co nazywa, a menu w jego prawym górnym rogu decyduje, które kafle w ogóle widzisz.",
+        ["A note is a title and whatever follows it. Lines that start as checklist items can be ticked off while reading, without opening the editor. A note can be pinned, given a priority, shared, or marked private."] =
+            "Notatka to tytuł i wszystko, co po nim następuje. Wiersze zaczynające się jako pozycje listy kontrolnej można odhaczać w trakcie czytania, bez otwierania edytora. Notatkę można przypiąć, nadać jej priorytet, udostępnić albo oznaczyć jako prywatną.",
+        ["A task list holds entries of three kinds: something to do, something happening at a time and a place, and something that stands for another list - a group list is done when the lists it gathers are. Lists can be nested, read flat when the headings get in the way, sorted by hand, and collapsed."] =
+            "Lista zadań trzyma pozycje trzech rodzajów: coś do zrobienia, coś, co dzieje się o określonej porze i w określonym miejscu, oraz coś, co reprezentuje inną listę — lista grupująca jest ukończona wtedy, gdy ukończone są listy, które zbiera. Listy można zagnieżdżać, czytać płasko, gdy nagłówki przeszkadzają, sortować ręcznie i zwijać.",
+        ["An entry with a date shows up on the calendar and on the dashboard, and can remind you. An entry can also be measured against an inventory, which is what turns \"we are low on flour\" into a line on a shopping list."] =
+            "Pozycja z datą pojawia się w kalendarzu i na pulpicie, i może o sobie przypomnieć. Pozycję można też zestawić z magazynem — to właśnie zamienia „kończy nam się mąka” w wiersz na liście zakupów.",
+        ["Events, with a place, guests and reminders, alongside the deadlines your task lists carry - the two are shown together, because a day does not care which of the two something came from. Events can be shared, and handed off to Google Calendar if you want them there as well."] =
+            "Wydarzenia — z miejscem, gośćmi i przypomnieniami — obok terminów, które niosą Twoje listy zadań. Jedno i drugie pokazywane jest razem, bo dzień nie dba o to, z którego z nich coś pochodzi. Wydarzenia można udostępniać i przekazywać do Kalendarza Google, jeśli chcesz mieć je również tam.",
+        ["What is on your shelves: how much of each thing there is, what counts as running low, and when it goes off. An item under its minimum - or one you have said to check every round - is put on that inventory's restock list, which is an ordinary task list Orbit keeps up to date for you."] =
+            "Co masz na półkach: ile jest każdej rzeczy, co znaczy „kończy się” i kiedy traci ważność. Pozycja poniżej swojego minimum — albo taka, przy której powiedziałeś, żeby sprawdzać ją co obchód — trafia na listę uzupełnień tego magazynu, czyli zwykłą listę zadań, którą Orbit prowadzi za Ciebie.",
+        ["Several lists can be measured against one inventory. What that costs is said where you tick it: a shelf is split between everything asking for it."] =
+            "Kilka list można zestawić z jednym magazynem. Co to kosztuje, napisane jest tam, gdzie to zaznaczasz: półka dzieli się między wszystko, co się o nią upomina.",
+        ["Contacts, chat and the map"] = "Kontakty, czat i mapa",
+        ["Conversations with one person or with a group, sealed end to end. Contacts are people who have agreed to be found by you, and a conversation you are done with can be archived rather than deleted."] =
+            "Rozmowy z jedną osobą albo z grupą, szyfrowane od końca do końca. Kontakty to osoby, które zgodziły się, żebyś mógł je odnaleźć, a rozmowę, którą masz za sobą, można zarchiwizować zamiast usuwać.",
+        ["Your position can be sent once or shared live for a set time, and the map shows both yours and whatever anybody has shared with you. It stops on its own when the time you gave runs out."] =
+            "Swoje położenie możesz wysłać raz albo udostępniać na żywo przez określony czas, a mapa pokazuje zarówno Twoje, jak i to, co udostępnił Ci ktokolwiek inny. Udostępnianie kończy się samo, gdy wskazany przez Ciebie czas dobiegnie końca.",
+        ["Notes, task lists, events and inventories can be handed to a contact at one of four levels: read it, share it on, edit it, or edit it without being able to pass editing on. The invitation arrives in your chat with them. You can never grant more than you hold yourself."] =
+            "Notatki, listy zadań, wydarzenia i magazyny możesz przekazać kontaktowi na jednym z czterech poziomów: odczyt, udostępnianie dalej, edycja albo edycja bez prawa przekazywania edycji dalej. Zaproszenie przychodzi w czacie z tą osobą. Nigdy nie nadasz więcej uprawnień, niż masz sam.",
+        ["Two people editing the same thing take turns: whoever opens the editor holds a lock, and the other is told who is in there rather than losing their work to a silent overwrite."] =
+            "Dwie osoby edytujące to samo robią to na zmianę: kto otworzy edytor, trzyma blokadę, a druga osoba dowiaduje się, kto tam jest, zamiast tracić swoją pracę przez ciche nadpisanie.",
+        ["Anything marked private is the exception: it is sealed with a key only you have, which is also why it cannot be shared, cannot raise reminders, and does not survive a password reset."] =
+            "Wyjątkiem jest wszystko oznaczone jako prywatne: zamykamy to kluczem, który masz tylko Ty — i dlatego właśnie nie da się tego udostępnić, nie wywoła przypomnień i nie przetrwa zresetowania hasła.",
+        ["Options holds the account, the language, the theme and accent colour, which notifications reach you and how, and which parts of Orbit are unlocked for this account at all. What this browser is allowed to remember is under Manage cookies, at the bottom of any page."] =
+            "W Opcjach są: konto, język, motyw i kolor akcentu, to, które powiadomienia do Ciebie docierają i w jaki sposób, oraz to, które części Orbita są w ogóle odblokowane dla tego konta. Co wolno zapamiętać tej przeglądarce, znajdziesz w „Zarządzaj ciasteczkami”, na dole każdej strony.",
+
+        // The Privacy page.
+        ["What Orbit keeps, what leaves your device, and what nobody but you can read."] =
+            "Co Orbit przechowuje, co opuszcza Twoje urządzenie i czego nikt poza Tobą nie przeczyta.",
+        ["Orbit is a place to keep your own things. It does not sell anything about you, does not track you across other sites, and carries no advertising. Nothing you write is used to train anything. What it stores, it stores because Orbit cannot show it back to you otherwise."] =
+            "Orbit jest miejscem na Twoje własne rzeczy. Nie sprzedaje niczego na Twój temat, nie śledzi Cię po innych stronach i nie wyświetla reklam. Nic, co napiszesz, nie służy do trenowania czegokolwiek. To, co przechowuje, przechowuje dlatego, że inaczej nie mógłby Ci tego pokazać.",
+        ["What is stored on Orbit's server"] = "Co jest przechowywane na serwerze Orbita",
+        ["Your account: the email address you registered with, your username and display name, and a hash of your password - never the password itself. The hash is PBKDF2, so a stolen database cannot be turned back into passwords."] =
+            "Twoje konto: adres e-mail, na który się zarejestrowałeś, nazwa użytkownika i nazwa wyświetlana oraz skrót hasła — nigdy samo hasło. Skrót powstaje algorytmem PBKDF2, więc skradzionej bazy nie da się zamienić z powrotem w hasła.",
+        ["Your things: notes, task lists, calendar events, what is on your shelves, your contacts and your group memberships. These are stored as you wrote them, so that Orbit can search them, remind you about them and show them on another device."] =
+            "Twoje rzeczy: notatki, listy zadań, wydarzenia w kalendarzu, zawartość półek, kontakty i członkostwa w grupach. Przechowujemy je w takiej postaci, w jakiej je zapisałeś, żeby Orbit mógł je przeszukiwać, przypominać o nich i pokazywać je na innym urządzeniu.",
+        ["What Orbit's server cannot read"] = "Czego serwer Orbita nie przeczyta",
+        ["Messages between you and a contact are sealed in your browser before they are sent, with a key agreed between the two of you. The server stores and delivers them without ever holding a key that could open them."] =
+            "Wiadomości między Tobą a kontaktem są szyfrowane w Twojej przeglądarce, zanim zostaną wysłane, kluczem uzgodnionym między Wami dwojgiem. Serwer przechowuje je i dostarcza, nigdy nie mając klucza, który mógłby je otworzyć.",
+        ["A note, task list or inventory marked private is sealed the same way. What the server stores is the fact that it is private plus a block of ciphertext - the readable columns go empty, not merely unread. That is why a private item cannot be shared, raises no reminders, and is lost if you reset your password: the key is replaced along with it, and Orbit has no copy."] =
+            "Notatka, lista zadań albo magazyn oznaczone jako prywatne są szyfrowane tak samo. Serwer przechowuje sam fakt, że coś jest prywatne, plus blok szyfrogramu — czytelne kolumny zostają puste, a nie tylko nieprzeczytane. Dlatego prywatnej rzeczy nie da się udostępnić, nie wywołuje przypomnień i przepada przy zresetowaniu hasła: klucz zostaje wtedy wymieniony razem z nim, a Orbit nie ma kopii.",
+        ["A private inventory goes one step further. An inventory's items are rows of their own, so making one private deletes those rows - there is nothing left on the server to read."] =
+            "Prywatny magazyn idzie o krok dalej. Pozycje magazynu są osobnymi wierszami, więc oznaczenie magazynu jako prywatnego usuwa te wiersze — na serwerze nie zostaje nic do przeczytania.",
+        ["What this browser keeps"] = "Co przechowuje ta przeglądarka",
+        ["Orbit sets no cookies. It uses local storage instead - the same browser, a different drawer - for being signed in, the language you read it in, how you have arranged the pages, and the last errors it noticed on this device. None of it is sent anywhere on its own."] =
+            "Orbit nie ustawia ciasteczek. Zamiast nich używa pamięci lokalnej — ta sama przeglądarka, inna szuflada — na to, że jesteś zalogowany, na język, w którym go czytasz, na Twój układ stron oraz na ostatnie błędy zauważone na tym urządzeniu. Nic z tego nie jest samo z siebie nigdzie wysyłane.",
+        ["Manage cookies at the bottom of any page lists all of it by category, says how much of each there is, and lets you turn off everything that is not needed to stay signed in. Turning a category off clears what is already there, not only what would be written next."] =
+            "„Zarządzaj ciasteczkami” na dole każdej strony wypisuje to wszystko według kategorii, mówi, ile czego jest, i pozwala wyłączyć wszystko, co nie jest potrzebne do pozostania zalogowanym. Wyłączenie kategorii czyści to, co już tam jest, a nie tylko to, co zostałoby zapisane później.",
+        ["Who else is involved"] = "Kto jeszcze jest w to zaangażowany",
+        ["Some things reach other companies because you asked them to: signing in with Google, or adding an event to a Google calendar. Nothing you have written is sent with either, but your address is visible to whoever answers them."] =
+            "Część rzeczy trafia do innych firm dlatego, że o to poprosiłeś: logowanie przez Google albo dodanie wydarzenia do kalendarza Google. Nic z tego, co napisałeś, nie jest przy tym wysyłane, ale Twój adres jest widoczny dla tego, kto odbiera te żądania.",
+        ["One thing reaches another company without being asked for: a map fetches its background from OpenStreetMap, one square at a time, so opening one tells them roughly where you are looking. \"Do not share my personal information\", at the bottom of any page, turns that off - the map keeps its pins and its searching and loses the picture behind them - and keeps this account out of the trace Orbit records of what its own server was doing."] =
+            "Jedna rzecz trafia do innej firmy bez pytania: mapa pobiera swoje tło z OpenStreetMap, kwadrat po kwadracie, więc jej otwarcie mówi im z grubsza, gdzie patrzysz. „Nie udostępniaj moich danych osobowych” na dole każdej strony to wyłącza — mapa zachowuje pinezki i wyszukiwanie, a traci obraz pod nimi — oraz trzyma to konto poza zapisem, który Orbit prowadzi na temat pracy własnego serwera.",
+        ["The fonts and the map's own code used to be fetched from Google Fonts and from a public CDN, which told them the address of everybody who opened Orbit before they had agreed to anything. Orbit serves both itself now, so neither reaches anybody, whatever you choose above."] =
+            "Kroje pisma i kod samej mapy pobierane były kiedyś z Google Fonts i z publicznego CDN-u, co zdradzało im adres każdego, kto otworzył Orbita, zanim ten na cokolwiek się zgodził. Teraz Orbit serwuje jedno i drugie sam, więc nic z tego do nikogo nie trafia, cokolwiek wybierzesz powyżej.",
+        ["Getting rid of it"] = "Pozbycie się tego",
+        ["Options → Account deletes the account and everything under it. There is no soft copy kept afterwards, and it is the one action on that page that asks twice."] =
+            "Opcje → Konto usuwa konto i wszystko, co pod nim jest. Nie zostaje po tym żadna kopia, i jest to jedyne działanie na tej stronie, które pyta dwa razy.",
+        ["In the browser, everything Orbit keeps is listed under Manage cookies, and the diagnostics it records stay on the device unless you send them yourself."] =
+            "W przeglądarce wszystko, co Orbit przechowuje, wypisane jest w „Zarządzaj ciasteczkami”, a zapisywana diagnostyka zostaje na urządzeniu, o ile sam jej nie wyślesz.",
+
+        // The Security page, including the report-it-privately ask at its foot.
+        ["How Orbit protects what you put in it, and how to tell us when it does not."] =
+            "Jak Orbit chroni to, co mu powierzasz, i jak nam powiedzieć, kiedy tego nie robi.",
+        ["End-to-end encryption"] = "Szyfrowanie od końca do końca",
+        ["Chat messages, and anything you mark private, are sealed on your device and opened on your device. Keys are agreed with ECDH on the P-256 curve; the content is encrypted with AES-GCM using a 256-bit key."] =
+            "Wiadomości czatu i wszystko, co oznaczysz jako prywatne, są szyfrowane na Twoim urządzeniu i otwierane na Twoim urządzeniu. Klucze uzgadniamy przez ECDH na krzywej P-256; treść szyfrujemy algorytmem AES-GCM kluczem 256-bitowym.",
+        ["Your private key never leaves your devices readable. A backup is kept so that a new device can pick up your history, wrapped with a key derived from your password by PBKDF2-HMAC-SHA256 at 600,000 iterations - OWASP's current minimum. The iteration count is stored beside each backup rather than assumed, so raising it later does not strand the old ones."] =
+            "Twój klucz prywatny nigdy nie opuszcza urządzeń w czytelnej postaci. Przechowujemy kopię zapasową, żeby nowe urządzenie mogło podjąć Twoją historię — opakowaną kluczem wyprowadzonym z Twojego hasła przez PBKDF2-HMAC-SHA256 przy 600 000 iteracji, czyli obecnym minimum OWASP. Liczbę iteracji zapisujemy przy każdej kopii, zamiast ją zakładać, więc jej późniejsze podniesienie nie unieruchamia starych kopii.",
+        ["The consequence is deliberate and worth knowing before you rely on it: resetting your password replaces the key pair, and anything sealed under the old one - past messages, private notes - cannot be recovered by anybody, Orbit included."] =
+            "Konsekwencja jest zamierzona i warto ją znać, zanim na tym polegniesz: zresetowanie hasła wymienia parę kluczy, a niczego zaszyfrowanego starym kluczem — dawnych wiadomości, prywatnych notatek — nie odzyska już nikt, łącznie z Orbitem.",
+        ["Signing in"] = "Logowanie",
+        ["Passwords are stored as PBKDF2 hashes and never in the clear. Signing in returns a short-lived access token, refreshed behind the scenes by a long-lived one that can be used exactly once - redeeming it revokes it, so a stolen refresh token replayed after your own browser has used it is rejected. Only a hash of that token is stored."] =
+            "Hasła przechowujemy jako skróty PBKDF2, nigdy otwartym tekstem. Logowanie zwraca krótko żyjący token dostępu, odnawiany w tle długo żyjącym tokenem, którego można użyć dokładnie raz — wykorzystanie go równocześnie go unieważnia, więc skradziony token odświeżania odtworzony po tym, jak użyła go Twoja własna przeglądarka, zostaje odrzucony. Przechowujemy wyłącznie skrót tego tokenu.",
+        ["Signing in: a short-lived access token and a long-lived refresh token. Only a SHA-256 hash of the refresh token is kept, so a leaked database alone cannot be used to sign in as you."] =
+            "Logowanie: krótko żyjący token dostępu i długo żyjący token odświeżania. Przechowujemy wyłącznie skrót SHA-256 tokenu odświeżania, więc sama wyciekła baza nie pozwoli zalogować się jako Ty.",
+        ["Repeated attempts are rate-limited, and Orbit says so rather than telling you to try again - trying again is what keeps the window shut."] =
+            "Powtarzane próby są ograniczane, a Orbit mówi o tym wprost, zamiast prosić o kolejną próbę — to właśnie kolejne próby trzymają to okno zamknięte.",
+        ["Sharing something reaches exactly the people you name, at the level you choose, and can be withdrawn. Sharing your position is the same, and it stops on its own - a live position is shared for as long as you said and no longer."] =
+            "Udostępnienie czegoś dociera dokładnie do osób, które wskażesz, na wybranym przez Ciebie poziomie, i można je wycofać. Tak samo jest z udostępnianiem położenia, które w dodatku kończy się samo — położenie na żywo udostępniane jest tak długo, jak powiedziałeś, i ani chwili dłużej.",
+        ["A share names one person and one level: read, share on, edit, or edit without passing editing on. What you cannot do yourself you cannot grant - the rule is enforced on the server, and the client only hides what the server would refuse anyway."] =
+            "Udostępnienie wskazuje jedną osobę i jeden poziom: odczyt, udostępnianie dalej, edycję albo edycję bez prawa przekazywania edycji dalej. Czego sam nie możesz, tego nie nadasz — reguła jest egzekwowana na serwerze, a klient jedynie ukrywa to, czego serwer i tak by odmówił.",
+        ["Anything marked private cannot be shared at all, and an existing share stops granting the moment it becomes private."] =
+            "Niczego oznaczonego jako prywatne nie da się w ogóle udostępnić, a istniejące udostępnienie przestaje cokolwiek dawać w chwili, gdy rzecz staje się prywatna.",
+        ["This build"] = "Ta wersja",
+        ["The phone keeps private items sealed in its own database and opens them only for the screen showing them, so a handset that is picked up says no more than the server does. It also puts them behind the device lock - a face or a passcode - which is the physical half of a promise that otherwise only holds against the server."] =
+            "Telefon trzyma prywatne rzeczy zaszyfrowane we własnej bazie i otwiera je tylko dla ekranu, który je pokazuje, więc podniesiony przez kogoś aparat powie nie więcej niż serwer. Chowa je też za blokadą urządzenia — twarzą albo kodem — co jest fizyczną połową obietnicy, która inaczej broni się wyłącznie przed serwerem.",
+        ["Reporting something"] = "Zgłaszanie",
+        ["If you have found a way to read or change something that is not yours, please report it privately rather than opening a public issue: security advisories on the Orbit repository, or the address in the repository's README. Please include enough to reproduce it, and give us a chance to fix it before it is published."] =
+            "Jeśli znalazłeś sposób na odczytanie albo zmianę czegoś, co nie jest Twoje, zgłoś to prywatnie, zamiast zakładać publiczne zgłoszenie: przez security advisories w repozytorium Orbita albo pod adresem z pliku README repozytorium. Dołącz tyle, żeby dało się to odtworzyć, i daj nam szansę naprawić to, zanim zostanie opublikowane.",
+        ["Orbit is a small project run by one person. There is no bounty, and there may not be a reply the same day - but a real report will be read and acted on."] =
+            "Orbit to mały projekt prowadzony przez jedną osobę. Nie ma programu nagród i odpowiedź może nie przyjść tego samego dnia — ale prawdziwe zgłoszenie zostanie przeczytane i podjęte.",
+
+        // The About dialog, opened from the footer.
+        ["Orbit keeps notes, task lists, a calendar, what is on your shelves, where you are and who you are talking to - in one place, on the web and on a phone, and shareable with the people you choose."] =
+            "Orbit trzyma notatki, listy zadań, kalendarz, zawartość Twoich półek, Twoje położenie i to, z kim rozmawiasz — w jednym miejscu, w przeglądarce i na telefonie, do udostępnienia osobom, które wybierzesz.",
+        ["The server it is talking to"] = "Serwer, z którym rozmawia",
+
+        // The Manage cookies dialog - what this browser is allowed to remember.
+        ["Orbit sets no cookies. What it remembers about you in this browser is kept in local storage, which never leaves this device on its own, and this is where you decide how much of it there is."] =
+            "Orbit nie ustawia ciasteczek. To, co pamięta o Tobie w tej przeglądarce, trzyma w pamięci lokalnej, która sama z siebie nigdy nie opuszcza tego urządzenia — a tutaj decydujesz, ile tego jest.",
+        ["Strictly necessary"] = "Niezbędne",
+        ["Strictly necessary - always kept"] = "Niezbędne — zawsze przechowywane",
+        ["Being signed in, the language you read Orbit in, and the record of what you have chosen here. Turning this off would be indistinguishable from signing out."] =
+            "To, że jesteś zalogowany, język, w którym czytasz Orbita, oraz zapis tego, co tutaj wybrałeś. Wyłączenie tego byłoby nie do odróżnienia od wylogowania się.",
+        ["Preferences"] = "Preferencje",
+        ["How you have arranged Orbit: the theme and accent colour, what is pinned to the dashboard, what is put away, and how each list is sorted. Turning it off forgets the arranging, not the things themselves."] =
+            "Twój układ Orbita: motyw i kolor akcentu, to, co przypięte do pulpitu, to, co schowane, i sposób sortowania każdej listy. Wyłączenie tego zapomina układ, a nie same rzeczy.",
+        ["On this device"] = "Na tym urządzeniu",
+        ["The last errors Orbit noticed on this device. It stays on this device unless you send it yourself - see the Privacy page - but it still records what you were doing when something broke."] =
+            "Ostatnie błędy, które Orbit zauważył na tym urządzeniu. Zostają na tym urządzeniu, o ile sam ich nie wyślesz — zobacz stronę Prywatność — ale zapisują też, co robiłeś, gdy coś się zepsuło.",
+        ["Accept all"] = "Zaakceptuj wszystko",
+        ["Reject optional"] = "Odrzuć opcjonalne",
+        ["Save choices"] = "Zapisz wybory",
+        ["Saved. Anything you turned off has been cleared from this browser."] =
+            "Zapisano. Wszystko, co wyłączyłeś, zostało wyczyszczone z tej przeglądarki.",
+        ["1 thing kept"] = "1 zapamiętana rzecz",
+        ["Couldn't read that. Check your connection and try again."] =
+            "Nie udało się tego odczytać. Sprawdź połączenie i spróbuj ponownie.",
+        ["Couldn't save that. Check your connection and try again."] =
+            "Nie udało się tego zapisać. Sprawdź połączenie i spróbuj ponownie.",
+
+        // "Do not share my personal information", which is a setting on the account rather than on the browser.
+        ["Orbit does not sell anything about you and carries no advertising. What this switch is about is narrower and worth saying exactly: the other companies a page reaches while you are reading it."] =
+            "Orbit nie sprzedaje niczego na Twój temat i nie wyświetla reklam. Ten przełącznik dotyczy czegoś węższego i warto powiedzieć tego dokładnie: innych firm, do których strona sięga, gdy ją czytasz.",
+        ["Turning this on stops the map fetching its background from OpenStreetMap - the map still works, with its pins and its searching, but without the picture behind them. It also keeps this account out of the trace Orbit keeps of what its server was doing."] =
+            "Włączenie tego zatrzymuje pobieranie tła mapy z OpenStreetMap — mapa nadal działa, z pinezkami i wyszukiwaniem, ale bez obrazu pod nimi. Trzyma też to konto poza zapisem, który Orbit prowadzi na temat pracy swojego serwera.",
+        ["Two things it does not need to turn off any more: the fonts and the map's code used to be fetched from Google and from a public CDN, and are now served by Orbit itself - so they reach nobody, whatever this says. Signing in with Google, and handing an event to a Google calendar, are things you ask for one at a time and are unaffected."] =
+            "Dwie rzeczy, których nie musi już wyłączać: kroje pisma i kod mapy pobierane były kiedyś z Google i z publicznego CDN-u, a teraz serwuje je sam Orbit — więc nie trafiają do nikogo, cokolwiek tu ustawisz. Logowanie przez Google i przekazanie wydarzenia do kalendarza Google to rzeczy, o które prosisz pojedynczo, i one się nie zmieniają.",
+        ["It is remembered on your account rather than in this browser, so it follows you to your phone and to any other device you sign in on."] =
+            "Zapamiętujemy to na Twoim koncie, a nie w tej przeglądarce, więc idzie za Tobą na telefon i na każde inne urządzenie, na którym się zalogujesz.",
+        ["Saved. Nothing about you will reach another site from Orbit."] =
+            "Zapisano. Nic na Twój temat nie trafi z Orbita do innej witryny.",
+
+        // The phone's map screen: opening somebody else's shared position in the phone's own map app.
+        ["Open in Maps"] = "Otwórz w Mapach",
+        ["The map can't be shown in this build. A shared position still opens in your phone's map app."] =
+            "Ta wersja aplikacji nie potrafi pokazać mapy. Udostępnione położenie i tak otworzysz w aplikacji map na telefonie.",
+
+        // The last of the web left in English: the restock-list settings, the two suggestion panels,
+        // and a handful of lines nobody had swept up. See the coverage test that now keeps this closed.
+        ["Keep a restock list for this inventory"] = "Prowadź listę uzupełnień dla tego magazynu",
+        ["Remind me to update stock levels"] = "Przypominaj mi o aktualizacji stanów",
+        ["Priority of the restock list"] = "Priorytet listy uzupełnień",
+        ["How much the generated \"Restock supplies\" list matters, next to your own lists."] =
+            "Ile znaczy wygenerowana lista „Uzupełnienie zapasów” obok Twoich własnych list.",
+        ["Orbit keeps a \"Restock supplies\" list for this shelf and puts what is running low on it."] =
+            "Orbit prowadzi dla tej półki listę „Uzupełnienie zapasów” i wpisuje na nią to, czego zaczyna brakować.",
+        ["Turning this off deletes the restock list and everything on it. Turning it back on builds a new one."] =
+            "Wyłączenie tego usuwa listę uzupełnień razem ze wszystkim, co na niej jest. Ponowne włączenie tworzy nową.",
+        ["The standing \"Update stock levels\" entry comes back every day at this hour, and shows on the calendar for that day."] =
+            "Stała pozycja „Zaktualizuj stany” wraca codziennie o tej godzinie i pokazuje się w kalendarzu na ten dzień.",
+        ["Nothing arrives each day. Products dropping below their minimum still raise their own errands."] =
+            "Nic nie przychodzi codziennie. Produkty spadające poniżej swojego minimum nadal tworzą własne zadania.",
+        ["Add a category"] = "Dodaj kategorię",
+        ["Names you have already used"] = "Nazwy, których już używasz",
+        ["Words you have already used"] = "Słowa, których już używasz",
+        ["Delete task list"] = "Usuń listę zadań",
+        ["Also give them what was said before they joined"] =
+            "Przekaż im też to, co powiedziano przed ich dołączeniem",
+        ["Your device re-encrypts each message for them, so only messages it can open are passed on."] =
+            "Twoje urządzenie szyfruje każdą wiadomość na nowo dla nich, więc przekazywane są tylko te wiadomości, które potrafi otworzyć.",
+        ["Nothing here yet. Anything sent before you joined is only readable if somebody passed it on to you."] =
+            "Jeszcze nic tu nie ma. To, co wysłano przed Twoim dołączeniem, przeczytasz tylko wtedy, gdy ktoś Ci to przekazał.",
+        ["Remove {0}"] = "Usuń {0}",
+        ["through {0}"] = "przez {0}",
+        ["{0} (all day)"] = "{0} (cały dzień)",
+        ["{0} couldn't be invited to \"{1}\"."] = "Nie udało się zaprosić {0} do „{1}”.",
+        ["{0} things kept"] = "Zapamiętane rzeczy: {0}",
     };
 }

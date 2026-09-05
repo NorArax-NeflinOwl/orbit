@@ -1196,6 +1196,14 @@ twice - once on the list and once on the shelf. A request that says nothing abou
 is stored alone (`UpdateTaskListCommand.EntriesKeepingTheirProduct`), the same rule the categories follow,
 so the phone and older tabs can go on saving lists without emptying it.
 
+**A position somebody shared opens in the phone's own map app.** Each "Shared with you" row carries an
+Open in Maps button, and tapping a pin's own callout does the same (`MapViewModel.WhereToOpen` answers
+where, `MapPage` makes the platform call - the same split "Open in Google Maps" draws for the reader's
+own position). The phone's map app rather than a Google Maps link, because this is the one thing on that
+screen that has to work when Orbit cannot draw a map itself: an Android build with no maps key, or a
+reader who never gave Orbit their location. A share with no position in it offers no button - it still
+says it cannot be opened.
+
 Which storage a list is measured against is set in its editor, under **About this list**, for any list
 rather than only a group one - an entry describing a product has to be able to say which shelf it goes
 on. The picker offers every storage, the ones other lists already measure included - a store serves as many
