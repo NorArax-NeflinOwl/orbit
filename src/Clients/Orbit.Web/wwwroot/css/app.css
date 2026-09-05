@@ -5010,6 +5010,28 @@ input.note-editor-title {
     color: var(--text-primary);
 }
 
+/* The row the bell is talking about. A card marked "something happened here" over six rows still leaves
+   the reader to open all six; this says which one - the same colour the card's own edge takes, so the
+   two read as one thing pointing at the other (see .item-card-unseen).
+
+   An outline rather than a border: a row's only border is the divider under it, and giving it four
+   would move every row it sits above by a pixel. Drawn inside the row's own box (offset -1px) so it
+   cannot spill over the card's edge.
+
+   No pulse of its own, deliberately. The card around it is already pulsing, and two animations
+   breathing out of step is what a page looks like when it is trying too hard. */
+.list-row.row-unseen,
+.list-row-button.row-unseen {
+    outline: 1px solid var(--danger);
+    outline-offset: -1px;
+    border-radius: 6px;
+    background: color-mix(in oklch, var(--danger) 7%, transparent);
+}
+
+.list-row-button.row-unseen:hover {
+    background: color-mix(in oklch, var(--danger) 12%, transparent);
+}
+
 /* ============================================================================================
    The card every list is made of - see Components/ItemCard.razor for the anatomy and why it is
    fixed. One row per card, full width: a grid of small tiles reads as a wall, and the thing people

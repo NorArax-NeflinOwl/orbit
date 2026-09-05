@@ -44,6 +44,18 @@ public sealed class NotificationFeedState
         => _unreadEntries.Any(entry => string.Equals(entry.Url, url, StringComparison.OrdinalIgnoreCase));
 
     /// <summary>
+    /// Whether anything unread is about this thing - the entry pointing at exactly its page, or at a
+    /// page underneath it. What lets a list of things say *which* of them the bell is talking about:
+    /// the dashboard reads it per row (see Dashboard.razor), so a notification about one task list
+    /// marks that list rather than only the card it sits on.
+    ///
+    /// The same rule <see cref="UnreadUrlsSettledBy"/> reads the other way round, and matched at a
+    /// path-segment boundary for the same reason - see <see cref="Settles"/>.
+    /// </summary>
+    public bool HasNewsAbout(string url)
+        => _unreadEntries.Any(entry => entry.Url is { } entryUrl && Settles(url, entryUrl));
+
+    /// <summary>
     /// The unread entries reaching <paramref name="path"/> settles: the ones pointing at exactly this
     /// page, and the ones pointing at a page this one sits under. Opening a task list's editor is
     /// reaching that task list, even though the editor's path is longer (see the two editing levels) -
