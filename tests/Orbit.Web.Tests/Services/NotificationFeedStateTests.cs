@@ -21,6 +21,33 @@ public sealed class NotificationFeedStateTests
         return state;
     }
 
+    /// <summary>
+    /// What lets a list say which of its rows the bell means - see Dashboard.razor, which asks this per
+    /// row so a notification about one task list marks that list rather than only the card.
+    /// </summary>
+    [Fact]
+    public void A_thing_with_a_notification_pointing_at_it_has_news()
+        => Assert.True(WithUnread("/tasks/abc").HasNewsAbout("/tasks/abc"));
+
+    /// <summary>An entry pointing deeper is still about the thing it is under - an entry on a list is that list's news.</summary>
+    [Fact]
+    public void News_about_something_inside_it_is_news_about_it()
+        => Assert.True(WithUnread("/tasks/abc/items/xyz").HasNewsAbout("/tasks/abc"));
+
+    [Fact]
+    public void Another_things_notification_is_not_news_about_this_one()
+    {
+        var state = WithUnread("/tasks/abc");
+
+        Assert.False(state.HasNewsAbout("/tasks/def"));
+        // Matched at a path boundary, so a longer id starting with a shorter one is a different thing.
+        Assert.False(state.HasNewsAbout("/tasks/ab"));
+    }
+
+    [Fact]
+    public void Nothing_unread_is_news_about_nothing()
+        => Assert.False(new NotificationFeedState().HasNewsAbout("/tasks/abc"));
+
     [Fact]
     public void The_page_a_notification_points_at_settles_it()
     {

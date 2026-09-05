@@ -13,6 +13,7 @@ using Orbit.Contracts.Chat;
 using Orbit.Contracts.Inventories;
 using Orbit.Contracts.Users;
 using Orbit.Contracts.Notes;
+using Orbit.Contracts.Notifications;
 using Orbit.Contracts.Tasks;
 using Orbit.Web.Pages;
 using Orbit.Web.Services;
@@ -37,7 +38,19 @@ public sealed class DashboardTests : OrbitTestContext
         RegisterDashboardPins();
         RegisterDashboardCardPreferences();
         RegisterPermissions();
+        // The bell's shared unread set - MainLayout owns the polling, every badge reads it. Empty unless
+        // a test says otherwise, which is the ordinary page with nothing waiting.
+        Services.AddSingleton(_notifications);
     }
+
+    /// <summary>What the bell is currently holding - see NotificationFeedState.</summary>
+    private readonly NotificationFeedState _notifications = new();
+
+    /// <summary>Puts one unread notification about <paramref name="url"/> into the shared feed.</summary>
+    private void SomethingUnreadAbout(params string[] urls)
+        => _notifications.Set([.. urls.Select(url => new NotificationEntryDto(
+            Guid.NewGuid(), "TaskOverdue", "Overdue task", "Task \"x\" is overdue.", url,
+            DateTimeOffset.UtcNow, IsRead: false))]);
 
     /// <summary>
     /// The dashboard only asks for chats, groups and shared positions once this account has unlocked
@@ -85,6 +98,77 @@ public sealed class DashboardTests : OrbitTestContext
             .SetResult(filters is null ? [] : new Dictionary<string, string>(filters));
         module.SetupVoid("setCardFilters", _ => true);
         Services.AddScoped<DashboardCardPreferences>();
+    }
+
+    /// <summary>
+    /// The bell says a task is overdue; the dashboard has to say *which* task list it is on. A card
+    /// marked "something happened here" over six rows leaves the reader to open all six.
+    /// </summary>
+    [Fact]
+    public void The_task_list_a_notification_is_about_says_so_on_the_row()
+    {
+        var noticed = TaskList("Restock supplies - Test");
+        var quiet = TaskList("Errands");
+        RegisterTasksApiClient([noticed, quiet]);
+        RegisterChatApiClient([]);
+        SomethingUnreadAbout($"/tasks/{noticed.Id}");
+
+        var cut = RenderComponent<Dashboard>();
+
+        var rows = FindColumn(cut, "Tasks").QuerySelectorAll(".list-row-button");
+        var marked = rows.Single(row => row.ClassList.Contains("row-unseen"));
+        Assert.Contains("Restock supplies - Test", marked.TextContent);
+        Assert.DoesNotContain(rows, row => row.ClassList.Contains("row-unseen") && row.TextContent.Contains("Errands"));
+    }
+
+    /// <summary>And the card itself still says it, since a page of cards is read before a row is.</summary>
+    [Fact]
+    public void The_card_holding_it_says_something_happened_too()
+    {
+        var noticed = TaskList("Restock supplies - Test");
+        RegisterTasksApiClient([noticed]);
+        RegisterChatApiClient([]);
+        SomethingUnreadAbout($"/tasks/{noticed.Id}");
+
+        var cut = RenderComponent<Dashboard>();
+
+        Assert.Contains("item-card-unseen", FindColumn(cut, "Tasks").ClassList);
+    }
+
+    [Fact]
+    public void A_quiet_dashboard_marks_nothing()
+    {
+        RegisterTasksApiClient([TaskList("Errands")]);
+        RegisterChatApiClient([]);
+
+        var cut = RenderComponent<Dashboard>();
+
+        Assert.Empty(cut.FindAll(".row-unseen"));
+        Assert.DoesNotContain("item-card-unseen", FindColumn(cut, "Tasks").ClassList);
+    }
+
+    /// <summary>
+    /// The same mark for somebody who has written and is waiting - what the reader is being told about
+    /// is a row on this page either way, so it is pointed at the same way.
+    /// </summary>
+    [Fact]
+    public void A_contact_with_messages_waiting_is_marked_the_same_way()
+    {
+        var waiting = new ContactDto(
+            Guid.NewGuid(), "anna", "Anna Kowalska", "anna@example.com", "public-key", DateTimeOffset.UtcNow,
+            RequiresApprovalFromCurrentUser: false, IsPendingApprovalFromOtherParty: false, UnreadCount: 3);
+        var quiet = new ContactDto(
+            Guid.NewGuid(), "bartek", "Bartek Nowak", "bartek@example.com", "public-key", DateTimeOffset.UtcNow,
+            RequiresApprovalFromCurrentUser: false, IsPendingApprovalFromOtherParty: false);
+        RegisterChatApiClient([waiting, quiet]);
+
+        var cut = RenderComponent<Dashboard>();
+
+        var marked = FindColumn(cut, "Recent chats").QuerySelectorAll(".list-row-button")
+            .Single(row => row.ClassList.Contains("row-unseen"));
+        Assert.Contains("Anna Kowalska", marked.TextContent);
+        // And it keeps the weight the chat list gives such a row - the two say the same thing twice over.
+        Assert.Contains("unread", marked.ClassList);
     }
 
     [Fact]

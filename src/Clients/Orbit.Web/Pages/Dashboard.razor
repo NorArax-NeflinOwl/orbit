@@ -23,6 +23,7 @@
 @inject Translations T
 @inject DashboardPinService DashboardPins
 @inject DashboardCardPreferences CardPreferences
+@inject NotificationFeedState NotificationFeed
 
 <PageTitle>@T["Orbit — Dashboard"]</PageTitle>
 
@@ -115,6 +116,7 @@ else
         @if (_taskLists.Count > 0 && CardPreferences.IsVisible("tasks"))
         {
                         <ItemCard Name="@(T["Tasks"])" OnNameSelected='() => NavigationManager.NavigateTo("/tasks")'
+                      HasUnseenAction="@TaskListsToShow.Any(taskList => HasNewsAbout(taskList.Id, "/tasks"))"
                       ExtraClass="@(DashboardPins.IsPinned("tasks") ? "item-card-pinned" : null)">
                 <Pin>
                     <PinButton IsPinned='DashboardPins.IsPinned("tasks")' OnPinnedChanged='pinned => SetCardPinnedAsync("tasks", pinned)' />
@@ -135,7 +137,7 @@ else
                     @* Struck through where it is finished - which on this card means pinned, since an
                        unpinned finished list is not shown at all. See TaskListsToShow. *@
                     <Row Title="@Written(taskList.Title)" OnPressed="() => GoToTaskList(taskList.Id)"
-                         AdditionalClass="@(taskList.IsCompleted ? "completed" : null)">
+                         AdditionalClass="@RowClasses(taskList.IsCompleted ? "completed" : null, HasNewsAbout(taskList.Id, "/tasks"))">
                         <Trailing>
                             @RenderPriorityBadge(taskList.Priority)
                             @if (taskList.Items.Count > 0)
@@ -293,7 +295,7 @@ else
                 @foreach (var contact in _recentContacts.Take(6))
                 {
                     <Row Title="@contact.DisplayName" OnPressed="() => GoToChat(contact.UserId)"
-                         AdditionalClass="@(contact.UnreadCount > 0 ? "unread" : "")">
+                         AdditionalClass="@RowClasses(contact.UnreadCount > 0 ? "unread" : null, contact.UnreadCount > 0)">
                         <Leading><span class="avatar-sm" style="background:@AvatarHelper.AvatarColor(contact.UserId)">@AvatarHelper.GetInitials(contact.DisplayName)<UnreadBadge Count="contact.UnreadCount" /><PresenceDot Status="Conversation.PresenceOf(contact)" /></span></Leading>
                         <Trailing><span class="row-meta">@FormatRelative(contact.LastMessageAtUtc)</span></Trailing>
                     </Row>
@@ -582,6 +584,7 @@ else
         Logger.LogInformation("Dashboard opened, loading notes/task lists/events/contacts/groups");
         // Before the loads below, which each ask whether this account has unlocked what they are
         // for - asked too early, every gated card would be missing from a page that had them.
+        NotificationFeed.Changed += OnNotificationsChanged;
         await Permissions.EnsureLoadedAsync();
         await DashboardPins.InitializeAsync();
         await CardPreferences.InitializeAsync();
@@ -742,11 +745,38 @@ else
         return details.IsAllDay ? dayLabel : $"{dayLabel} {start:HH:mm}";
     }
 
+    /// <summary>
+    /// Whether the bell is talking about this particular thing - see NotificationFeedState.HasNewsAbout.
+    /// A card saying "something happened here" over a list of six rows leaves the reader to open all six;
+    /// this is what lets the row itself say it.
+    /// </summary>
+    private bool HasNewsAbout(Guid id, string section) => NotificationFeed.HasNewsAbout($"{section}/{id}");
+
+    /// <summary>
+    /// A row's own classes plus the mark for one with news waiting, dropping the blanks - two conditions
+    /// written into one attribute is how a row ended up with class="  unseen" and a rule that did not
+    /// match.
+    /// </summary>
+    private static string? RowClasses(string? existing, bool hasNews)
+    {
+        var classes = new[] { existing, hasNews ? "row-unseen" : null }.Where(name => !string.IsNullOrEmpty(name));
+        var joined = string.Join(' ', classes);
+        return joined.Length == 0 ? null : joined;
+    }
+
     public void Dispose()
     {
+        NotificationFeed.Changed -= OnNotificationsChanged;
         _pollCancellation?.Cancel();
         _pollTimer?.Dispose();
     }
+
+    /// <summary>
+    /// The bell's own poll lives in MainLayout, and every badge reads the same shared set (see
+    /// NotificationFeedState). Subscribing here is what makes a row light up the moment a notification
+    /// arrives, and go out the moment it is read, without this page asking the server anything of its own.
+    /// </summary>
+    private void OnNotificationsChanged() => InvokeAsync(StateHasChanged);
 
     /// <summary>
     /// The sharer's name from the contact list this page already loaded - somebody can only share a

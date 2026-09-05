@@ -2106,6 +2106,18 @@ anyway", and a pinned list that is finished is drawn struck through (`.list-row.
 a ticked checklist line is: the two are the same fact about two different things and should not read
 differently.
 
+**The bell says something happened; the dashboard says where.** A card whose things have unread
+notifications carries the red edge and the dot every card with news carries (`.item-card-unseen`), and
+**the row itself is outlined in the same red** (`.row-unseen`) - a card marked over six rows still leaves
+the reader to open all six. Which rows are marked comes from the notification's own `Url`
+(`NotificationFeedState.HasNewsAbout`, matched at a path boundary, so an entry pointing deeper - at an
+item on a list - is still that list's news), so nothing here polls: MainLayout owns the one poll and this
+page subscribes to the shared set, which is also why a mark goes out the moment the notification is read.
+A contact with messages waiting is marked the same way, from the unread count the chat list already
+carries - what the reader is being told about is a row on this page either way. The row's outline does
+not pulse: the card around it already does, and two animations out of step is what a page looks like
+when it is trying too hard.
+
 ### Deciding what the page shows
 
 Not everybody's dashboard is everybody's. The menu in the page's top right lists every part of it - the
