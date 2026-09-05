@@ -3867,6 +3867,20 @@ input.note-editor-title {
     color: var(--danger);
 }
 
+/* Taking a shared pin to the device's own map app - see mapApp.js. Beside the stop button and quiet in
+   the same way, but it takes the accent rather than the danger colour on hover: one of these two throws
+   a share away and the other takes you somewhere, and they should not look alike under the finger. */
+.map-share-open {
+    width: 24px;
+    height: 24px;
+    color: var(--text-tertiary);
+}
+
+.map-share-row:hover .map-share-open,
+.map-share-open:focus-visible {
+    color: var(--accent);
+}
+
 /* The map and the search across the top of it. */
 .map-canvas {
     display: flex;

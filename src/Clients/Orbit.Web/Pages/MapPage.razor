@@ -161,11 +161,22 @@ else
                    thing it names everywhere else in Orbit. The colour matches the pin on the map, which
                    is what says which pin is whose without clicking any of them. *@
                 <div class="map-share-row map-share-row-opens" role="button" tabindex="0"
-                     @onclick="() => FocusOnAsync(received)" @onkeydown="args => OpenOnEnterOrSpaceAsync(args, received)">
+                     @onclick="() => OpenSharedPositionAsync(received)" @onkeydown="args => OpenOnEnterOrSpaceAsync(args, received)">
                     <span class="row-title map-sharer-name" style="color:@AvatarHelper.AvatarColor(received.SharerUserId)">
                         @DisplayNameFor(received.SharerUserId)
                     </span>
                     <span class="row-meta">@(received.IsContinuous ? T["live"] : T["sent once"])</span>
+                    @* Where a shared pin becomes directions. Always offered rather than only when
+                       Orbit's own map cannot help - somebody who wants to be taken there wants it
+                       whatever this page can draw - and its own press, kept from the row around it.
+                       See mapApp.js, and MapAppHandoff for when the row itself does this too. *@
+                    <button type="button" class="icon-btn map-share-open" title="@(T["Open in Maps"])"
+                            aria-label="@(T["Open in Maps"])"
+                            @onclick="() => OpenInTheMapAppAsync(received)" @onclick:stopPropagation="true">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 20 20" fill="none"
+                             stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"
+                             aria-hidden="true"><path d="M10 17.5s5.5-5 5.5-9a5.5 5.5 0 1 0-11 0c0 4 5.5 9 5.5 9Z" /><circle cx="10" cy="8.5" r="2" /></svg>
+                    </button>
                     @* The other end of the same row. A share is an arrangement between two people, and
                        until now only one of them could end it - which left somebody's live position on
                        this map with nothing to do about it but ask them to stop. Its own press, kept
@@ -548,6 +559,11 @@ else
         }
 
         _isMapDrawnFor = true;
+        // Asked here rather than in OnInitializedAsync, which runs before there is a browser to ask:
+        // both are plain globals loaded with the page (see viewport.js and mapTiles.js), and neither
+        // answer changes while this page is open. What they decide is whether pressing a shared
+        // position centres this map or opens the device's own - see MapAppHandoff.
+        await ReadWhatThisDeviceCanDoAsync();
         try
         {
             _mapModule ??= await JSRuntime.InvokeAsync<IJSObjectReference>("import", "./js/locationMap.js");
@@ -559,6 +575,24 @@ else
             Logger.LogWarning(exception, "Failed to draw the location map");
             _hasFailed = true;
             _message = T["The map couldn't be drawn, but your location is recorded."];
+        }
+    }
+
+    /// <summary>
+    /// Best effort, like everything else this page asks a browser: a call that fails leaves both answers
+    /// as they are - a phone-sized screen unproven and the tiles assumed allowed - which is the pair
+    /// that keeps the ordinary centring, and so changes nothing about a page that already worked.
+    /// </summary>
+    private async Task ReadWhatThisDeviceCanDoAsync()
+    {
+        try
+        {
+            _isPhone = await JSRuntime.InvokeAsync<bool>("OrbitViewport.isMobile");
+            _mapTilesAllowed = await JSRuntime.InvokeAsync<bool>("OrbitMapTiles.areAllowed");
+        }
+        catch (JSException exception)
+        {
+            Logger.LogWarning(exception, "Could not read what this device can do with a map");
         }
     }
 
@@ -1119,6 +1153,45 @@ else
     /// Pans the map to where somebody is and opens their pin, without moving anything else - see
     /// RefreshMapMarkersAsync's own reasoning for why a press here must not reset the map.
     /// </summary>
+    /// <summary>
+    /// Whether this browser is a phone-sized one, and whether the map may draw its background - read
+    /// once, after the first render, because both are JS calls and neither changes while the page is
+    /// open. Null until then, which reads as "no" and so leaves the ordinary centring in place: a page
+    /// that handed off before it knew where it was would be worse than one that answered a moment late.
+    /// </summary>
+    private bool _isPhone;
+    private bool _mapTilesAllowed = true;
+
+    /// <summary>
+    /// Pressing a shared position. Ordinarily it centres Orbit's own map on that pin; on a phone whose
+    /// map cannot answer it opens the device's map app instead - see MapAppHandoff for which is which.
+    /// </summary>
+    private Task OpenSharedPositionAsync(ReceivedPosition received)
+        => MapAppHandoff.ShouldOpenTheMapApp(_isPhone, _mapTilesAllowed, _location is not null)
+            ? OpenInTheMapAppAsync(received)
+            : FocusOnAsync(received);
+
+    /// <summary>
+    /// Hands the position to whatever map app the device has - see mapApp.js for why that rather than a
+    /// Google Maps URL. The name is what the pin is called once it arrives.
+    /// </summary>
+    private async Task OpenInTheMapAppAsync(ReceivedPosition received)
+    {
+        try
+        {
+            await using var mapApp = await JSRuntime.InvokeAsync<IJSObjectReference>("import", "./js/mapApp.js");
+            await mapApp.InvokeVoidAsync(
+                "openPosition", received.Position.Latitude, received.Position.Longitude,
+                DisplayNameFor(received.SharerUserId));
+        }
+        catch (JSException exception)
+        {
+            // A device with no map app registered for the scheme does nothing at all, which is not
+            // something this page can fix or usefully say. The pin is still on the map behind it.
+            Logger.LogWarning(exception, "Could not open a shared position in the device's map app");
+        }
+    }
+
     private async Task FocusOnAsync(ReceivedPosition received)
     {
         try
@@ -1137,7 +1210,7 @@ else
     {
         if (args.Key is "Enter" or " ")
         {
-            await FocusOnAsync(received);
+            await OpenSharedPositionAsync(received);
         }
     }
 
