@@ -1204,6 +1204,19 @@ screen that has to work when Orbit cannot draw a map itself: an Android build wi
 reader who never gave Orbit their location. A share with no position in it offers no button - it still
 says it cannot be opened.
 
+**The web does the same on a phone.** Every "Sharing with you" row on `/map` carries the same Open in
+Maps, which hands the position to whatever map app the device has - `geo:` everywhere, `maps://` on iOS,
+which does not answer `geo:` (`wwwroot/js/mapApp.js`). A scheme rather than a Google Maps URL for the
+reason the phone chose one: this is the screen that must not add a third-party request, and the map app
+is already on the device.
+
+On a phone, pressing the **row itself** opens the map app too, rather than centring Orbit's own map -
+but only when that map cannot answer (`MapAppHandoff`): the tiles are withheld because the reader keeps
+third parties out, or Orbit has never been told where the reader is. Either way the map can show the pin
+and nothing about where it is from here, which is the question being asked. On a desktop, and on a phone
+whose map can answer, pressing the row still centres the map: there is usually no map app to open, and a
+press that navigated away from the page would be a surprise.
+
 Which storage a list is measured against is set in its editor, under **About this list**, for any list
 rather than only a group one - an entry describing a product has to be able to say which shelf it goes
 on. The picker offers every storage, the ones other lists already measure included - a store serves as many
