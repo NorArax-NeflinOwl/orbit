@@ -3867,6 +3867,20 @@ input.note-editor-title {
     color: var(--danger);
 }
 
+/* Taking a shared pin to the device's own map app - see mapApp.js. Beside the stop button and quiet in
+   the same way, but it takes the accent rather than the danger colour on hover: one of these two throws
+   a share away and the other takes you somewhere, and they should not look alike under the finger. */
+.map-share-open {
+    width: 24px;
+    height: 24px;
+    color: var(--text-tertiary);
+}
+
+.map-share-row:hover .map-share-open,
+.map-share-open:focus-visible {
+    color: var(--accent);
+}
+
 /* The map and the search across the top of it. */
 .map-canvas {
     display: flex;
@@ -4416,6 +4430,69 @@ input.note-editor-title {
     top: -1px;
 }
 
+/* The screen Orbit shows itself on while Blazor is still starting - see index.html, which holds the
+   markup. It has to stand on its own: the runtime that would style anything else is exactly what it is
+   waiting for, so this is written against the tokens at the top of this file and nothing else.
+
+   Centred on the whole viewport, and dvh rather than vh so a phone's collapsing address bar does not
+   leave the lockup sitting above or below the middle. */
+.app-boot {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 28px;
+    min-height: 100dvh;
+    padding: 24px;
+}
+
+/* Mark and word together, the same pairing the top bar carries - so what somebody looks at while they
+   wait is what they arrive at. */
+.app-boot-lockup {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.app-boot-mark {
+    width: 56px;
+    height: 56px;
+}
+
+.app-boot-name {
+    color: var(--text-primary);
+    font-family: var(--font-display);
+    font-size: 34px;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    line-height: 1;
+}
+
+/* A ring with one lit quarter, turning. The same shape as the mark's own orbit, which is why it is a
+   ring rather than the three bouncing dots every other app uses. */
+.app-boot-spinner {
+    width: 22px;
+    height: 22px;
+    border: 2px solid var(--border);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: app-boot-turn 0.9s linear infinite;
+}
+
+@keyframes app-boot-turn {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+/* Slowed rather than stopped for somebody who asked for less movement: a spinner that does not move is
+   a page that has frozen, which is the opposite of what this says. */
+@media (prefers-reduced-motion: reduce) {
+    .app-boot-spinner {
+        animation-duration: 3s;
+    }
+}
+
 .visually-hidden {
     position: absolute;
     width: 1px;
@@ -4945,6 +5022,28 @@ input.note-editor-title {
 .list-row-button.unread .row-title {
     font-weight: 700;
     color: var(--text-primary);
+}
+
+/* The row the bell is talking about. A card marked "something happened here" over six rows still leaves
+   the reader to open all six; this says which one - the same colour the card's own edge takes, so the
+   two read as one thing pointing at the other (see .item-card-unseen).
+
+   An outline rather than a border: a row's only border is the divider under it, and giving it four
+   would move every row it sits above by a pixel. Drawn inside the row's own box (offset -1px) so it
+   cannot spill over the card's edge.
+
+   No pulse of its own, deliberately. The card around it is already pulsing, and two animations
+   breathing out of step is what a page looks like when it is trying too hard. */
+.list-row.row-unseen,
+.list-row-button.row-unseen {
+    outline: 1px solid var(--danger);
+    outline-offset: -1px;
+    border-radius: 6px;
+    background: color-mix(in oklch, var(--danger) 7%, transparent);
+}
+
+.list-row-button.row-unseen:hover {
+    background: color-mix(in oklch, var(--danger) 12%, transparent);
 }
 
 /* ============================================================================================

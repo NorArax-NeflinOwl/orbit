@@ -1196,6 +1196,27 @@ twice - once on the list and once on the shelf. A request that says nothing abou
 is stored alone (`UpdateTaskListCommand.EntriesKeepingTheirProduct`), the same rule the categories follow,
 so the phone and older tabs can go on saving lists without emptying it.
 
+**A position somebody shared opens in the phone's own map app.** Each "Shared with you" row carries an
+Open in Maps button, and tapping a pin's own callout does the same (`MapViewModel.WhereToOpen` answers
+where, `MapPage` makes the platform call - the same split "Open in Google Maps" draws for the reader's
+own position). The phone's map app rather than a Google Maps link, because this is the one thing on that
+screen that has to work when Orbit cannot draw a map itself: an Android build with no maps key, or a
+reader who never gave Orbit their location. A share with no position in it offers no button - it still
+says it cannot be opened.
+
+**The web does the same on a phone.** Every "Sharing with you" row on `/map` carries the same Open in
+Maps, which hands the position to whatever map app the device has - `geo:` everywhere, `maps://` on iOS,
+which does not answer `geo:` (`wwwroot/js/mapApp.js`). A scheme rather than a Google Maps URL for the
+reason the phone chose one: this is the screen that must not add a third-party request, and the map app
+is already on the device.
+
+On a phone, pressing the **row itself** opens the map app too, rather than centring Orbit's own map -
+but only when that map cannot answer (`MapAppHandoff`): the tiles are withheld because the reader keeps
+third parties out, or Orbit has never been told where the reader is. Either way the map can show the pin
+and nothing about where it is from here, which is the question being asked. On a desktop, and on a phone
+whose map can answer, pressing the row still centres the map: there is usually no map app to open, and a
+press that navigated away from the page would be a surprise.
+
 Which storage a list is measured against is set in its editor, under **About this list**, for any list
 rather than only a group one - an entry describing a product has to be able to say which shelf it goes
 on. The picker offers every storage, the ones other lists already measure included - a store serves as many
@@ -2105,6 +2126,18 @@ up with work nobody has to think about again. Pinning is the way to say "keep th
 anyway", and a pinned list that is finished is drawn struck through (`.list-row.completed`), the same way
 a ticked checklist line is: the two are the same fact about two different things and should not read
 differently.
+
+**The bell says something happened; the dashboard says where.** A card whose things have unread
+notifications carries the red edge and the dot every card with news carries (`.item-card-unseen`), and
+**the row itself is outlined in the same red** (`.row-unseen`) - a card marked over six rows still leaves
+the reader to open all six. Which rows are marked comes from the notification's own `Url`
+(`NotificationFeedState.HasNewsAbout`, matched at a path boundary, so an entry pointing deeper - at an
+item on a list - is still that list's news), so nothing here polls: MainLayout owns the one poll and this
+page subscribes to the shared set, which is also why a mark goes out the moment the notification is read.
+A contact with messages waiting is marked the same way, from the unread count the chat list already
+carries - what the reader is being told about is a row on this page either way. The row's outline does
+not pulse: the card around it already does, and two animations out of step is what a page looks like
+when it is trying too hard.
 
 ### Deciding what the page shows
 

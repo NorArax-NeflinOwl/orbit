@@ -109,6 +109,49 @@ public sealed class MapScreenTests
         Assert.Empty(screen.Points);
     }
     /// <summary>
+    /// The way off this screen for somebody who has just been shown where a friend is: the phone's own
+    /// map app, which is the one thing here that still works when Orbit cannot draw a map itself - a
+    /// build with no map key, or a reader who never gave Orbit their location. The view model answers
+    /// where; opening it is the page's platform call. See MapViewModel.WhereToOpen.
+    /// </summary>
+    [Fact]
+    public async Task A_shared_position_can_be_opened_in_the_phones_own_map_app()
+    {
+        using var context = new MapContext();
+        await context.SomebodySharesTheirPositionAsync("Bob");
+        var screen = context.Open();
+
+        await screen.LoadCommand.ExecuteAsync(null);
+
+        var shared = Assert.Single(screen.SharedWithMe);
+        Assert.True(shared.CanBeOpened);
+        var destination = screen.WhereToOpen(shared);
+        Assert.NotNull(destination);
+        Assert.Equal(50.0647, destination.Latitude);
+        Assert.Equal(19.9450, destination.Longitude);
+        // Named after whoever shared it, so the map app's own pin says whose position this is.
+        Assert.Equal("Bob", destination.Label);
+    }
+
+    /// <summary>
+    /// And offered nowhere for a share with no position in it - a button that opened an empty map would
+    /// be worse than the line already saying it cannot be opened.
+    /// </summary>
+    [Fact]
+    public async Task A_position_that_cannot_be_opened_has_nowhere_to_open()
+    {
+        using var context = new MapContext();
+        context.SomebodySharesSomethingUnreadable("Bob");
+        var screen = context.Open();
+
+        await screen.LoadCommand.ExecuteAsync(null);
+
+        var shared = Assert.Single(screen.SharedWithMe);
+        Assert.False(shared.CanBeOpened);
+        Assert.Null(screen.WhereToOpen(shared));
+    }
+
+    /// <summary>
     /// A shared position says when it was taken on the reader's own clock, not in the UTC it is stored
     /// in. The map was the second screen handing a raw value to XAML to format, after the two
     /// conversation pages - see MessageTimestampTests for the same bug and the same fix.

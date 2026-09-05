@@ -124,6 +124,16 @@
                             <Label Text="{Binding Position.Address}" LineBreakMode="WordWrap" />
                             <Label Text="{Binding RecordedAt}" IsVisible="{Binding HasRecordedAt}"
                                    FontSize="11" TextColor="{AppThemeBinding Light={StaticResource SubtleTextLight}, Dark={StaticResource SubtleTextDark}}" />
+                            <!-- The way off this screen and onto a real map. A button rather than a
+                                 tappable line, for the same reason "Open in Google Maps" above is one -
+                                 and it is what makes a shared position reachable on a build that cannot
+                                 draw a map at all, or for a reader who never gave Orbit their location:
+                                 the phone's own map app knows where that is either way. -->
+                            <Button Text="{controls:Translate 'Open in Maps'}" HorizontalOptions="Start"
+                                    FontSize="14" Style="{StaticResource LinkButton}"
+                                    IsVisible="{Binding CanBeOpened}"
+                                    Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=OpenInMapsCommand, x:DataType=location:MapPage}"
+                                    CommandParameter="{Binding .}" />
                             <!-- Listed rather than dropped: that somebody is sharing and it cannot be
                                  opened is worth seeing. -->
                             <Label IsVisible="{Binding CannotBeOpened}"

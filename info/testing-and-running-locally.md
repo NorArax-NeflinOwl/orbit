@@ -74,6 +74,16 @@ check pass by finding nothing. (`Orbit.Web` no longer grants this project access
 grant existed only for this dictionary, which is public since it moved to `Orbit.Localization` for the
 phone clients to share.)
 
+**Everything the web asks to be translated has to be translated**, which
+`Orbit.Web.Tests`' own `TranslationCoverageTests` now checks the way the phone's has for months: it reads
+every `T["…"]` and `T.Format("…", …)` out of `Orbit.Web`'s markup and code and looks each one up. A
+missing translation is invisible by design — the English shows through, which is what makes it safe to
+translate a screen at a time — so nothing but a sweep finds one. Without it the four pages behind the
+footer sat entirely in English for as long as they existed, on a footer reachable from every screen; and
+the first run of the sweep also found a sentence whose English had been reworded on the page while its
+Polish stayed keyed to the old wording. Keys are compared as the *running app* asks for them, so an
+escaped quote in the source is unescaped first.
+
 **One English string means one thing.** Where two screens genuinely need different Polish for the same
 English word, the answer is a second English key, not a second entry: the phone's sync row says
 `No connection` ("Bez połączenia") rather than `Offline` ("Niedostępny", which is about a person), and
@@ -105,7 +115,9 @@ little as possible:
 4. **`orbit-web` must serve a page**, and then **must actually boot in a browser**
    (`ci/verify-app-boots.mjs`). These are not the same check: nginx falls back to `index.html` for every
    path, so a client that dies on startup still answers `200`. Only loading it in a browser and waiting
-   for `#app` to stop saying "Loading…" tells the two apart.
+   for the start screen inside `#app` to be replaced tells the two apart - `.app-boot` is what the check
+   waits to disappear, since the screen shown before Blazor starts is now a real one (the mark, the name
+   and a spinner) rather than the bare word "Loading…".
 5. **After deploying**, both revisions must report `Healthy`, and the **deployed URL must boot** - same
    script, three attempts, against the real ingress. Container Apps reports `Healthy` when nginx is
    serving, which it does whether or not the app inside the page runs.
