@@ -570,12 +570,11 @@ beside a task belongs here, not in that task's diff. A defect is the exception a
   rather than anything about that list. A list nobody described still gets the signpost. Addresses in it
   are pressable like every other description.
 
-- **Only the task pages carry "come back where you came from".** `ReturnTo` (2026-09-06) is general -
-  a query parameter, a safety rule, and two helpers - but only the task list's form reads it, because
-  that is the one that was reported. A note, an event and a storage opened from somewhere other than
-  their own section still finish on that section: `/notes`, `/calendar`, `/inventory`. The same three
-  lines would give each of them the same behaviour, and the callers that open them would each have to
-  name themselves.
+- ~~**Only the task pages carry "come back where you came from".**~~ Done: the note, the event and the
+  storage forms read `ReturnTo` too, their summaries pass it on, and the dashboard names itself so an
+  edit begun there ends there. What is still not wired is every caller that could name itself - a
+  notification opening a note, chat opening a shared thing - which each finish on their own section as
+  before. Adding one is a single `ReturnTo.Link` at the call site.
 
 - **The phone shows no links in a description either.** The addresses in a description are pressable on
   the web (`TextWithLinks`, 2026-09-06); the phone draws the same descriptions as plain labels. The

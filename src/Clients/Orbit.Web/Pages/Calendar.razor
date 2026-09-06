@@ -425,7 +425,7 @@
     private void GoToEditEvent(Guid eventId)
     {
         Logger.LogInformation("User clicked 'Edit' for calendar event {EventId}", eventId);
-        NavigationManager.NavigateTo($"/calendar/{eventId}/edit");
+        NavigationManager.NavigateTo(ReturnTo.Link($"/calendar/{eventId}/edit", "/calendar"));
     }
 
     /// <summary>

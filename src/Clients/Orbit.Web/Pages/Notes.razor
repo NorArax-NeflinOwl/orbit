@@ -197,7 +197,7 @@
     private void GoToEditNote(Guid noteId)
     {
         Logger.LogInformation("User clicked 'Edit' for note {NoteId}", noteId);
-        NavigationManager.NavigateTo($"/notes/{noteId}/edit");
+        NavigationManager.NavigateTo(ReturnTo.Link($"/notes/{noteId}/edit", "/notes"));
     }
 
     /// <summary>

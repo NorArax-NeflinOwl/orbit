@@ -1262,13 +1262,15 @@ fields arrive with the choice: picking Inventory on an open form shows them ther
 something else takes them away again - waiting for a save and a reopen made the feature unreachable
 without knowing it was there.
 
-**Finishing an edit returns the reader where they came from.** Saving, cancelling or deleting a task
-list used to land on `/tasks` whatever route reached the form, so an appointment opened from the calendar
-ended its edit two sections from where it started. The page that sends somebody in now says where it is,
-as a `returnTo` on the address (`ReturnTo`), and it is carried the whole way: the calendar names itself,
-the entry's own page and the checklist pass on what they were given rather than replacing it with
-themselves, and the form ends there. A form reached without one - somebody typing the address - still
-ends on `/tasks`, which is what every route did before.
+**Finishing an edit returns the reader where they came from.** Saving, cancelling or deleting used to
+land on the section the thing belongs to - `/tasks`, `/notes`, `/calendar`, `/inventory` - whatever route
+reached the form, so an appointment opened from the calendar ended its edit two sections from where it
+started. The page that sends somebody in now says where it is, as a `returnTo` on the address
+(`ReturnTo`), and it is carried the whole way: the calendar and the dashboard name themselves, and the
+pages between - a task entry's own page, a checklist, a note's or a storage's summary - pass on what they
+were given rather than replacing it with themselves, because they are stops on the way. **All four forms
+read it**: task list, note, calendar event and storage. A form reached without one - somebody typing the
+address - still ends on its own section, which is what every route did before.
 
 **Only a path on this site is ever followed.** The value comes off the address bar, so it is whatever
 anybody put there: an absolute URL, a protocol-relative `//host`, or anything holding a backslash (which

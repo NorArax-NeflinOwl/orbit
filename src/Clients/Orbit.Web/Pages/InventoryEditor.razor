@@ -383,7 +383,7 @@ else
     }
 
 </div>
-<EditorRail OnSave="SaveAsync" OnCancel="GoToInventories"
+<EditorRail OnSave="SaveAsync" OnCancel="GoBack"
             SaveDisabled="@(_isReadOnly || _lockedByUserName is not null || _isSaving || _formModel.Name.Trim().Length == 0)">
     @* Beside the button that failed rather than at the end of a shelf that is taller than the screen:
        a save that did not happen and an inventory somebody else is holding are both answers to "why has
@@ -407,6 +407,20 @@ else
 @code {
     [Parameter]
     public Guid? InventoryId { get; set; }
+
+    /// <summary>
+    /// The page that sent the reader here, so finishing returns them to it rather than to /inventory -
+    /// the same answer the task list's form gives, and the same rule about what may be followed. See
+    /// ReturnTo.
+    /// </summary>
+    [Parameter, SupplyParameterFromQuery(Name = ReturnTo.QueryName)]
+    public string? ComeBackTo { get; set; }
+
+    /// <summary>
+    /// Where saving, cancelling and deleting all end. /inventory when nobody said otherwise, which is
+    /// what every route here did before and is still right for somebody who typed the address.
+    /// </summary>
+    private string WhenFinished => ReturnTo.Or(ComeBackTo, "/inventory");
 
     /// <summary>Absent on "/inventory/new" - see IsNewInventory.</summary>
     private bool IsNewInventory => InventoryId is null;
@@ -514,7 +528,7 @@ else
             var inventory = await InventoryApiClient.GetInventoryByIdAsync(InventoryId!.Value);
             if (inventory is null)
             {
-                NavigationManager.NavigateTo("/inventory");
+                NavigationManager.NavigateTo(WhenFinished);
                 return;
             }
 
@@ -879,7 +893,8 @@ else
         _formModel.Items.Remove(item);
     }
 
-    private void GoToInventories() => NavigationManager.NavigateTo("/inventory");
+    /// <summary>Cancel, and every other way this form ends - see WhenFinished for where that is.</summary>
+    private void GoBack() => NavigationManager.NavigateTo(WhenFinished);
 
     private async Task SaveAsync()
     {
@@ -937,7 +952,7 @@ else
             _isSaving = false;
         }
 
-        NavigationManager.NavigateTo("/inventory");
+        NavigationManager.NavigateTo(WhenFinished);
     }
 
     private async Task AcquireLockAsync()

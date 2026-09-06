@@ -99,7 +99,7 @@ public sealed class InventorySummaryTests : OrbitTestContext
         cut.Find(".editor-rail .overflow-menu-trigger").Click();
         cut.FindAll(".avatar-dropdown-item").First(entry => entry.TextContent.Trim() == "Edit").Click();
 
-        Assert.EndsWith($"/inventory/{InventoryId}/edit", navigationManager.Uri);
+        Assert.EndsWith($"/inventory/{InventoryId}/edit", new Uri(navigationManager.Uri).AbsolutePath);
     }
 
     /// <summary>
@@ -178,7 +178,7 @@ public sealed class InventorySummaryTests : OrbitTestContext
 
         cut.Find(".card").Click();
 
-        Assert.EndsWith($"/inventory/{InventoryId}/edit", navigationManager.Uri);
+        Assert.EndsWith($"/inventory/{InventoryId}/edit", new Uri(navigationManager.Uri).AbsolutePath);
     }
 
     /// <summary>A shelf holding minus one of something is a number nobody can act on.</summary>

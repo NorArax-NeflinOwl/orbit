@@ -159,6 +159,20 @@ else
     [Parameter]
     public Guid? Id { get; set; }
 
+    /// <summary>
+    /// The page that sent the reader here, so finishing returns them to it rather than to /calendar -
+    /// the same answer the task list's form gives, and the same rule about what may be followed. See
+    /// ReturnTo.
+    /// </summary>
+    [Parameter, SupplyParameterFromQuery(Name = ReturnTo.QueryName)]
+    public string? ComeBackTo { get; set; }
+
+    /// <summary>
+    /// Where saving, cancelling and deleting all end. /calendar when nobody said otherwise, which is
+    /// what every route here did before and is still right for somebody who typed the address.
+    /// </summary>
+    private string WhenFinished => ReturnTo.Or(ComeBackTo, "/calendar");
+
     private bool IsNewEvent => Id is null;
 
     /// <summary>
@@ -596,7 +610,7 @@ else
                 }
             }
 
-            NavigationManager.NavigateTo("/calendar");
+            NavigationManager.NavigateTo(WhenFinished);
         }
         finally
         {
@@ -664,7 +678,7 @@ else
         try
         {
             await CalendarApiClient.DeleteCalendarEventAsync(Id!.Value);
-            NavigationManager.NavigateTo("/calendar");
+            NavigationManager.NavigateTo(WhenFinished);
         }
         catch (HttpRequestException exception)
         {
@@ -685,7 +699,7 @@ else
             await ReleaseLockAsync(eventId);
         }
 
-        NavigationManager.NavigateTo("/calendar");
+        NavigationManager.NavigateTo(WhenFinished);
     }
 
     /// <summary>Mirrors NoteEditor's method of the same name - see its comment.</summary>

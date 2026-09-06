@@ -98,6 +98,14 @@ else
 @code {
     [Parameter] public Guid Id { get; set; }
 
+    /// <summary>
+    /// The page that sent the reader here, passed on to the form rather than replaced with this one:
+    /// this page is a stop on the way, and somebody who arrived from elsewhere means elsewhere when they
+    /// say "back". See ReturnTo.
+    /// </summary>
+    [Parameter, SupplyParameterFromQuery(Name = ReturnTo.QueryName)]
+    public string? ComeBackTo { get; set; }
+
     private NoteDto? _note;
     private List<NoteContentLineDto> _lines = [];
     private bool _isLoading = true;
@@ -230,5 +238,10 @@ else
 
     private void GoToNotes() => NavigationManager.NavigateTo("/notes");
 
-    private void GoToEditor() => NavigationManager.NavigateTo($"/notes/{Id}/edit");
+    /// <summary>
+    /// The form, told where the reader came from so the edit ends there - what this page was given, or
+    /// this page's own section when it was opened directly. See ReturnTo.
+    /// </summary>
+    private void GoToEditor()
+        => NavigationManager.NavigateTo(ReturnTo.Link($"/notes/{Id}/edit", ReturnTo.Or(ComeBackTo, "/notes")));
 }

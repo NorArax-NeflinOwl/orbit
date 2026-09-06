@@ -241,6 +241,25 @@ public sealed class InventoryEditorTests : OrbitTestContext
     }
 
     /// <summary>
+    /// Where the form ends when something else opened it - the dashboard, say. It used to land on
+    /// /inventory whatever route reached it, which is two sections from where such a visit started.
+    /// See ReturnTo, which is also where "only a path on this site" is enforced.
+    /// </summary>
+    [Fact]
+    public void Saving_returns_to_the_page_that_sent_the_reader_here()
+    {
+        RegisterApiClientsForANewInventory();
+        var navigationManager = Services.GetRequiredService<NavigationManager>();
+        navigationManager.NavigateTo(navigationManager.GetUriWithQueryParameter(ReturnTo.QueryName, "/"));
+        var cut = RenderComponent<InventoryEditor>();
+
+        WriteTheName(cut, "Cellar");
+        cut.FindAll("button").First(button => button.GetAttribute("aria-label") == "Save").Click();
+
+        Assert.Equal("/", new Uri(navigationManager.Uri).PathAndQuery);
+    }
+
+    /// <summary>
     /// /inventory/new is a name-it-and-fill-it screen - its form's own button is "Add item" - so the
     /// rows it collected have to travel with the create. They used to, and the server refused them,
     /// which made naming an inventory and adding a row a save that could never succeed.
