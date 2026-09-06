@@ -371,9 +371,12 @@ worth adding:
 - **A link to what changed.** The version means nothing to somebody who has not been reading the
   commits. A release-notes page, or simply a link to the repository's releases, is what makes a version
   number worth showing at all.
-- **A health or status link.** Orbit already exposes `/health`, `/health/ready` and `/health/live`
-  (see [Architecture](architecture.md)). A footer is where people look when something is wrong, and a
-  link that answers "is it me or is it the server" belongs there rather than in a document.
+- ~~**A health or status link.**~~ Done, and it needed more than a link: nothing on the web origin
+  reached the report. nginx forwards `/api/` to the API *under* `/api/`, so `/api/health` arrived there
+  as `/api/health`, which is not where health lives. There is now an exact-match `= /health` location on
+  both nginx configs, and the footer's **Status** opens it in a new tab - which is also what stops the
+  Blazor router claiming the address. Publishing the report was a decision taken deliberately; what it
+  does and does not say is written down beside both the location and the writer.
 - **Privacy and data handling.** Not yet written, and it is the one entry here with a deadline attached
   to it: an application that ends up in a store needs one, and the store is the place that will ask.
   What it would have to describe is unusual and worth saying plainly - most of Orbit's content is sealed
@@ -478,11 +481,14 @@ beside a task belongs here, not in that task's diff. A defect is the exception a
 - **`setup-dotnet@v4`, `setup-java@v4` and `upload-artifact@v4`** carry the same Node 20 deprecation
   `actions/checkout` did. `dependency-submission.yml` already pins `setup-dotnet@v5`, so the bump is
   available whenever somebody wants it.
-- **`info/azure-setup.md` and `info/architecture.md` still call the subscription an Azure Free Trial**
-  when explaining why the pipeline builds images on the runner instead of using ACR Tasks. The
-  subscription has been pay-as-you-go for a while; the runner build is now kept because it is the
-  established, verified path, not because `az acr build` is blocked. The reasoning is recorded
-  correctly in the `ci-pipeline` skill, and only these two documents lag behind it.
+- ~~**`info/azure-setup.md` and `info/architecture.md` still call the subscription an Azure Free Trial**~~
+  Done. `azure-setup.md` had already stopped saying it by the time this was looked at - only
+  `architecture.md` still did, in the step explaining why the pipeline builds images on the runner. It
+  now says what the `ci-pipeline` skill says: ACR Tasks were blocked on the free trial, are not blocked
+  now, and the runner build stays because it is the verified path rather than because anything forbids
+  the alternative.
+
+
 - **`max-replicas` is still 1 on both Container Apps.** Nothing in the code assumes otherwise any more -
   the live update hub, the privacy choice cache and the rate limiter each count across instances now -
   but raising it is a deliberate act and a cost decision, and it has not been taken. Two things to know
