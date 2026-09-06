@@ -186,6 +186,51 @@ public sealed class AuthRateLimiterTests
     }
 
     /// <summary>
+    /// Health probes must never be refused. Container Apps decides whether a revision is alive by
+    /// probing them, so a 429 under load would have the platform restart the container - turning a busy
+    /// minute into an outage, which is the opposite of what a flood stop is for.
+    /// </summary>
+    [Fact]
+    public async Task A_flood_never_refuses_a_health_probe()
+    {
+        using var host = await StartHostAsync();
+        var client = host.GetTestClient();
+
+        // Comfortably past the per-caller flood limit, on one address, so anything not exempt is refused.
+        for (var attempt = 1; attempt <= 620; attempt++)
+        {
+            await client.GetAsync("/probe?from=203.0.113.9");
+        }
+
+        Assert.Equal(
+            HttpStatusCode.TooManyRequests,
+            (await client.GetAsync("/probe?from=203.0.113.9")).StatusCode);
+        Assert.Equal(
+            HttpStatusCode.OK,
+            (await client.GetAsync("/health?from=203.0.113.9")).StatusCode);
+    }
+
+    /// <summary>
+    /// An endpoint with no policy of its own is still not unlimited - 130 of the 147 have none, and the
+    /// global limiter is the only thing standing in front of them.
+    /// </summary>
+    [Fact]
+    public async Task An_endpoint_with_no_policy_of_its_own_is_still_bounded()
+    {
+        using var host = await StartHostAsync();
+        var client = host.GetTestClient();
+
+        var refused = false;
+        for (var attempt = 1; attempt <= 601 && !refused; attempt++)
+        {
+            var response = await client.GetAsync("/unlimited?from=198.51.100.9");
+            refused = response.StatusCode == HttpStatusCode.TooManyRequests;
+        }
+
+        Assert.True(refused, "An endpoint outside every named policy was never refused.");
+    }
+
+    /// <summary>
     /// A host carrying nothing but the real policies and two endpoints to spend them on. Each gets a
     /// window store of its own unless one is handed in, which is what lets a test stage two instances. The "user"
     /// query parameter stands in for a bearer token: the policy partitions on the "sub" claim, and
@@ -233,6 +278,11 @@ public sealed class AuthRateLimiterTests
                             .RequireRateLimiting(RateLimiterPolicyNames.Auth);
                         endpoints.MapGet("/public-probe", () => Results.Ok())
                             .RequireRateLimiting(RateLimiterPolicyNames.PublicShare);
+
+                        // No RequireRateLimiting: what 130 of Orbit's endpoints look like, and what
+                        // the global limiter is the only thing in front of.
+                        endpoints.MapGet("/unlimited", () => Results.Ok());
+                        endpoints.MapGet("/health", () => Results.Ok());
                     });
                 }))
             .StartAsync();

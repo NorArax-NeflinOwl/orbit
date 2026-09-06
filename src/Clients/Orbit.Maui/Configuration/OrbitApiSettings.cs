@@ -12,10 +12,12 @@ namespace Orbit.Maui.Configuration;
 ///
 /// <code>dotnet build ... -p:OrbitApiBaseAddress=https://orbit-web.example.azurecontainerapps.io/</code>
 ///
-/// That is orbit-web's address rather than orbit-api's, and deliberately: on Azure the API has internal
-/// ingress only and is reachable exclusively through the web client's nginx, which proxies /api/ to it
-/// (see src/Clients/Orbit.Web/nginx.azure.conf). Every client here asks for a relative path - "api/notes"
-/// and the like - so one base address serves the app the same way it serves the browser.
+/// That is orbit-api's own address. It was orbit-web's for as long as the API had internal ingress only,
+/// and the detour cost two things: every sync woke orbit-web, which is set to scale to zero and so never
+/// did, and the phone was coupled to a deploy of a client it does not use. Every client here asks for a
+/// relative path - "api/notes" and the like - so one base address serves the whole app either way.
+///
+/// The browser still goes through nginx, because a same-origin /api/ is what keeps it free of CORS.
 ///
 /// The development default has to differ per platform because "the machine running the server" is not
 /// the same address from each: the iOS simulator shares the development machine's loopback, while the
