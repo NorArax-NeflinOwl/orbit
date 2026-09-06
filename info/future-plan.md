@@ -503,6 +503,10 @@ matches and what does not. What that pass left:
   correctly and use the same palette, but their spacing and type were not walked line by line against
   app.css the way the list and detail screens were. The calendar's month and year cells in particular
   are the phone's own layout rather than `.calendar-month-grid-day`'s.
+- **A card's footnote says the whole timestamp.** A note card reads "Updated 9/2/2026 7:27 PM" where
+  the browser says "Today", "Yesterday", the weekday within the last week, and only then a date - see
+  `Notes.razor`'s `WhenLastChanged`. `NoteListItem.Updated` is where the phone builds it. Small, but it
+  is the line under every card on the screen.
 - **The `.item-card-unseen` pulse is a colour, not an animation.** The edge takes the danger colour and
   stays there. The browser breathes it, which is what catches an eye that was elsewhere.
 - **No screen hands `EditorRail` an `Extras` view yet.** The slot and the arrow that folds it away are
