@@ -483,20 +483,12 @@ beside a task belongs here, not in that task's diff. A defect is the exception a
   subscription has been pay-as-you-go for a while; the runner build is now kept because it is the
   established, verified path, not because `az acr build` is blocked. The reasoning is recorded
   correctly in the `ci-pipeline` skill, and only these two documents lag behind it.
-- **One thing still assumes a single API instance, and it fails quietly rather than loudly.** The live
-  update hub no longer does (see
-  [Functionality — Reaching every replica](functionality.md#reaching-every-replica)), and neither does
-  the privacy choice cache; this was found beside them and is what is left between the code and raising
-  `max-replicas`:
-  - **The rate limiter counts per process.** `RateLimiterPolicies` builds in-memory fixed windows, so
-    N replicas mean N times the limit that was written down: the `Auth` policy's 5 attempts a minute
-    per account becomes 5N, and `PublicShare`'s 30 a minute per IP becomes 30N. `Auth` guards
-    email-verification codes and permission codes, so this is a deliberate security control being
-    quietly loosened by a scaling decision made elsewhere. A window kept in PostgreSQL - a small
-    counter table keyed by partition and minute - would hold for the two low-volume policies that have
-    one, at the cost of a round trip on exactly those endpoints.
-- **`max-replicas` is still 1 on both Container Apps**, so none of the above is live today. Raising it
-  is a deliberate act and should follow the rate limiter, not precede it.
+- **`max-replicas` is still 1 on both Container Apps.** Nothing in the code assumes otherwise any more -
+  the live update hub, the privacy choice cache and the rate limiter each count across instances now -
+  but raising it is a deliberate act and a cost decision, and it has not been taken. Two things to know
+  before it is: `orbit-web` currently scales to zero when idle and will stop doing so once anybody holds
+  a live update connection open, and nothing above has ever run on more than one replica, so the first
+  time it does is the first real test of all three.
 - **Nothing enforces that work reaches `main` only through `Coding`.** `guard-main.yml` closes stray
   pull requests, but a direct push to `main` deploys before any workflow can run. Real branch
   protection needs GitHub Pro on a private repository.

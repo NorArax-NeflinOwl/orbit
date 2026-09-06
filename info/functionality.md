@@ -109,9 +109,32 @@ moment each redeemed the same single-use refresh token, and the loser's rejectio
 mid-use. It shows up in the server's log as a refresh answering 200 and another answering 401 a second
 later. The client is now registered as a singleton over a named `HttpClient`.
 
-`/api/auth/register`, `/api/auth/login`, `/api/auth/refresh`, and `/api/auth/logout` are all rate
-limited to 5 requests per minute per client IP address (no queueing — an excess request gets an
-immediate 429), as brute-force protection for login attempts in particular.
+`/api/auth/register` and `/api/auth/login` are rate limited to 5 requests per minute per caller (no
+queueing — an excess request gets an immediate 429), as brute-force protection for login attempts in
+particular. `/api/auth/refresh` and `/api/auth/logout` are deliberately outside that budget: both are
+gated by possession of a refresh token rather than by guessing, and spending the login budget on them
+would let a busy client lock itself out (see `AuthEndpoints`).
+
+**Per caller means per account whenever there is one**, and only per IP address when nobody is signed
+in. Behind an ingress proxy — which is how this runs in Azure Container Apps — every request carries the
+proxy's address, so an IP partition would be one shared bucket: five verification codes a minute for the
+whole installation, and a signed-in user locked out by strangers.
+
+**The budget is one budget however many replicas are running.** An in-memory window belongs to one
+process, so N replicas would each grant the whole 5 and the real limit would be 5N — set by a scaling
+decision rather than by `RateLimiterPolicies`. `SharedFixedWindowRateLimiter` therefore checks two gates
+in order: this instance's own fixed window, exactly the limiter that was always here, and then a window
+counted in `OS_RATE_LIMITS` that every instance spends from. The shared count is taken with a single
+`INSERT ... ON CONFLICT DO UPDATE ... RETURNING`, so two replicas asking at the same moment cannot both
+read four spent and both write five.
+
+Because the local gate comes first and is unchanged, this can only ever refuse more than the old
+behaviour, never less — **including when the database cannot be reached**, which is allowed rather than
+refused. That is the safe direction here and not the reckless one: the caller has already passed the
+per-instance limiter, so failing open falls back to exactly the protection these endpoints had before,
+while failing closed would answer 429 to every sign-in over a database hiccup — and every one of these
+endpoints needs that same database to do its work anyway. `RateLimitWindowRetentionBackgroundService`
+sweeps closed windows hourly, since a row is written per caller per window.
 
 The JWT signing key is a secret and is never checked into source control:
 

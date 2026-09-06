@@ -23,6 +23,7 @@ using Orbit.Api.Inventories;
 using Orbit.Api.Notes;
 using Orbit.Api.Notifications;
 using Orbit.Api.PushNotifications;
+using Orbit.Api.RateLimiting;
 using Orbit.Api.Suggestions;
 using Orbit.Api.Tasks;
 using Orbit.Api.Transfer;
@@ -267,6 +268,8 @@ try
     builder.Services.AddMemoryCache();
     builder.Services.AddSingleton<PrivacyChoiceCache>();
     builder.Services.AddSingleton<IInstanceNoticeHandler, PrivacyChoiceNoticeHandler>();
+    builder.Services.AddSingleton<IRateLimitWindows, PostgresRateLimitWindows>();
+    builder.Services.AddHostedService<RateLimitWindowRetentionBackgroundService>();
     builder.Services.AddRateLimiter(options => options.AddOrbitPolicies());
 
     // Traces every incoming HTTP request, every outgoing HttpClient call, and every command/query

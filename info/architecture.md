@@ -52,7 +52,7 @@ A table reads as `prefix_midfix[_postfix]`:
 | --- | --- | --- |
 | `OP_` | what the user works on | `OP_NOTES`, `OP_TASKS_ITEMS`, `OP_INVENTORIES_SHARED` |
 | `OL_` | rows that only join two of those tables | `OL_PUBLIC_SHARES`, `OL_CHATS_MEMBERS` |
-| `OS_` | accounts, permissions, settings, bookkeeping | `OS_USERS`, `OS_SYNC_TOMBSTONES` |
+| `OS_` | accounts, permissions, settings, bookkeeping | `OS_USERS`, `OS_SYNC_TOMBSTONES`, `OS_RATE_LIMITS` |
 
 A column repeats its table's prefix, shortens the midfix to initials, and ends with the property name
 in upper case: `OP_NOTES.OP_N_ID`, `OP_NOTES_SHARED.OP_NS_ACCESSLEVEL`. Initials are taken letter by
