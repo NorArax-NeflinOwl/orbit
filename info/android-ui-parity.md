@@ -47,10 +47,17 @@ Every number below is app.css's own. The phone reads them from
 | `.overflow-menu` | `Controls/OverflowMenu.xaml` + `ScreenMenu` + `Controls/MenuOverlay.xaml` | see below |
 | `.avatar-dropdown-item` | `MenuItemButton` | one entry in any of Orbit's menus |
 | `.editor-rail` | `Controls/EditorRail.xaml` | the bar along the foot |
+| `.card-badge` | `CardBadge` + `CardBadgeLabel` | a short fact about a card, quieter than a filter chip |
+| `.calendar-month-grid-day` | `CalendarDayCell` + `CalendarWeekday` | the lifted cell, today tinted, the days either side quiet |
+| `.chat-bubble` | the message template on both conversation screens | 70% of the thread, one corner squared off on the side it was written from |
+| `.options-card` / `.options-row` | `SettingsCard` + `Controls/SettingRow.xaml` | one setting, what it does underneath, the control at the far edge |
+| `.options-card-danger` | `DangerCard` | the one section where a wrong press cannot be undone |
+| `.options-tab` | `SettingsTab` | the chosen one underlined in the accent, on a row with a hairline |
+| `.map-panel-section` / `.map-panel-heading` | `PanelSection` + `PanelHeading` | one group on the map screen, as its own card |
 | `ObjectList.razor` | `Controls/ObjectList.xaml` | loading / empty / here-it-is |
 | `input`, `textarea`, `select` | `Platforms/Android/FieldBox.cs` | the box itself: 8px radius, a hairline, 9x12 inside |
 
-## The three places the phone cannot copy the browser, and what it does instead
+## Where the phone cannot copy the browser, and what it does instead
 
 **A menu cannot hang off the control that opened it.** In the browser the panel is positioned against
 its trigger and clamped to the window. On Android a panel drawn inside a card is clipped by the row it
@@ -73,6 +80,12 @@ see `Platforms/Android/FieldBox.cs`. A field that asks to be transparent is left
 Android's line too: a note's lines are written in `Entry`s so they can be corrected where they are
 read, and a note drawn as a stack of boxes is a form rather than a note.
 
+**A `BoxView` paints its `Color` and its `BackgroundColor` both.** The MAUI template's implicit style
+gave every one of them a grey, which showed wherever `Color` was left clear - a sheet of fog behind an
+open menu, a grey bar under every unchosen tab on the account screen. The implicit style now sets
+`Color` to transparent and no background at all; nothing in Orbit draws a `BoxView` without saying what
+colour it is.
+
 **A phone has no hover.** Everything app.css says with `:hover` - a card lighting up, a menu entry
 taking the primary text colour, a row's title turning accent - has no phone equivalent and is simply
 not drawn. What those rules signalled is said by shape instead, which the phone already had to do.
@@ -89,15 +102,31 @@ not drawn. What those rules signalled is said by shape instead, which the phone 
   lists it gathers should go too; the phone's local store deletes one list at a time and cannot carry
   that answer, so the group list goes and what it gathered stays - which is the browser's own answer
   when somebody cancels that question.
+- **A calendar card's menu holds Delete and nothing else**, for the same reason a note's does.
+- **The month grid carries a dot per day, not a chip per event.** app.css gives a day cell a 5.5rem
+  minimum and fills it with event chips; the phone's grid is a fraction of that height on purpose,
+  because it gets out of the way as the list beneath it is read (see `orbit-maui-plan.md` §14.1, which
+  is a decision about the phone rather than a gap). Everything else about the cell - the lifted
+  surface, the hairline, today tinted with the accent, the days either side on the quiet fill - is the
+  browser's.
+- **The phone keeps a map where the browser hides one.** Below 680px app.css sets
+  `.map-canvas { display: none }` outright: a Leaflet map at that width is a postage stamp somebody has
+  to pinch at, and it pushes the lists it illustrates off the screen. On Android the map is the
+  platform's own control - pinchable, and on the one device that actually has a location - so it stays,
+  in the rounded, hairline frame `.location-map-frame` gives it. This is the one place the phone
+  deliberately keeps something the browser's mobile view drops.
 - **The phone keeps one screen where the browser has two.** A note's lines are ticked where they are
   written; a shelf is counted up and down on the screen that edits it. This is recorded at length in
   future-plan.md's "Smaller identified follow-ups" and is the right answer for a phone, so the rail
   simply carries no Save on the screens that write as they go.
 - **The `.item-card-unseen` pulse is a colour here, not an animation.** The edge takes the danger
   colour; it does not breathe. Worth adding only if somebody misses it.
-- **Chat, the map, the account screen and the calendar's own grids have not had this pass.** They were
-  built against the same palette and read correctly, but their spacing and type were not walked against
-  app.css line by line the way the list and detail screens were.
+- **The chat screens were not walked on a device.** The emulator account has not unlocked Contacts, so
+  the navigation bar draws no way into them. They build and their view models are covered; the bubbles
+  and the menus want a walk on an account that can chat.
+- **Every screen has now had the pass.** What is left against the browser is the four differences
+  above, each of them a decision rather than a gap - and whatever the light theme turns up, which has
+  not been walked at all.
 
 ## How to check it
 
