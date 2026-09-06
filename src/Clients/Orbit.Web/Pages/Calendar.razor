@@ -80,11 +80,16 @@
                     {
                         @* An event a task list made is opened as that entry rather than as the event: the
                            list is where it is worked from, and the full event form is a different thing
-                           from ticking a step off. The entry itself is not listed - see _listedDueTasks. *@
+                           from ticking a step off. The entry itself is not listed - see _listedDueTasks.
+
+                           Struck through and greyed once that entry is ticked off (item-card-done), the
+                           same mark a done deadline carries below, so the two read alike where "show
+                           everything" puts them side by side. *@
                         <ItemCard Name="@calendarEvent.Details.Title"
                         OnNameSelected="() => OpenTheEvent(calendarEvent)"
                         OnBodySelected="() => OpenTheEvent(calendarEvent)"
                         AccentColour="@(string.IsNullOrWhiteSpace(calendarEvent.Details.Color) ? null : calendarEvent.Details.Color)"
+                        ExtraClass="@(IsTickedOff(calendarEvent) ? "item-card-done" : null)"
                         IsCollapsed="@(!IsEventExpanded(calendarEvent.Id))"
                         OnCollapseToggled="@(HasDetails(calendarEvent.Details) ? EventCallback.Factory.Create(this, () => ToggleEventExpanded(calendarEvent.Id)) : default)">
                         <Tags>
@@ -238,7 +243,27 @@
     /// Every list the due tasks came from, kept from that same read - it is what says which list a
     /// clicked deadline belongs to, and which list gathers that one (see GoToTaskList).
     /// </summary>
+    private IReadOnlyList<TaskDto> TaskLists
+    {
+        get => _taskLists;
+        set
+        {
+            _taskLists = value;
+            // Indexed on the way in rather than searched on the way out: TheEntryBehind is asked once
+            // per event while the list is filtered and again while each card is drawn, and walking every
+            // entry of every list each time is a scan per row of a page that redraws on every tick.
+            _entriesByEventId = value
+                .SelectMany(taskList => taskList.Items.Select(item => (taskList, item)))
+                .Where(pair => pair.item.LinkedCalendarEventId is not null)
+                .GroupBy(pair => pair.item.LinkedCalendarEventId!.Value)
+                .ToDictionary(byEvent => byEvent.Key, byEvent => byEvent.First());
+        }
+    }
+
     private IReadOnlyList<TaskDto> _taskLists = [];
+
+    /// <summary>The entry each event was made by, where a task list made it - see TheEntryBehind.</summary>
+    private Dictionary<Guid, (TaskDto TaskList, TaskItemDto Item)> _entriesByEventId = [];
     private IReadOnlyList<ContactDto> _contacts = [];
     private readonly CalendarViewState _viewState = new();
 
@@ -260,6 +285,13 @@
                 // An event that has already ended is over. Left out unless the reader asked for
                 // everything - see CalendarListOrder.ShowsEverything.
                 .Where(calendarEvent => ListOrder.ShowsEverything || calendarEvent.Details.EndUtc >= nowUtc)
+                // And so is one whose entry has been ticked off, whenever it happens to fall. A task
+                // list's appointment is a thing to do as much as a thing to be at, and one already done
+                // was staying on the list for as long as its date was still ahead - which is most of the
+                // time somebody would tick it off early. The deadlines beside it have always been
+                // filtered this way; only the events had nothing asking the question, because an event
+                // of its own has nothing to tick. See IsTickedOff.
+                .Where(calendarEvent => ListOrder.ShowsEverything || !IsTickedOff(calendarEvent))
                 .OrderBy(calendarEvent => calendarEvent.Details.StartUtc)];
         }
     }
@@ -328,7 +360,7 @@
     /// </summary>
     private async Task<IReadOnlyList<DueTaskDto>> LoadDueTasksAsync()
     {
-        _taskLists = await TasksApiClient.GetTaskListsAsync();
+        TaskLists = await TasksApiClient.GetTaskListsAsync();
         return _taskLists
             .SelectMany(taskList => taskList.Items.Select(item => (taskList, item)))
             .Where(pair => pair.item.DueDateUtc is not null)
@@ -411,14 +443,20 @@
     /// when it is - so it is not among them at all.
     /// </summary>
     private DueTaskDto? TheEntryBehind(CalendarEventDto calendarEvent)
-        => _taskLists
-            .SelectMany(taskList => taskList.Items.Select(item => (taskList, item)))
-            .Where(pair => pair.item.LinkedCalendarEventId == calendarEvent.Id)
-            .Select(pair => new DueTaskDto(
-                pair.taskList.Id, pair.item.Id, pair.taskList.Title, pair.item.Description,
-                pair.item.DueDateUtc ?? calendarEvent.Details.StartUtc, pair.item.IsCompleted,
-                HasPlace(pair.item), pair.item.LinkedCalendarEventId))
-            .FirstOrDefault();
+        => _entriesByEventId.TryGetValue(calendarEvent.Id, out var pair)
+            ? new DueTaskDto(
+                pair.TaskList.Id, pair.Item.Id, pair.TaskList.Title, pair.Item.Description,
+                pair.Item.DueDateUtc ?? calendarEvent.Details.StartUtc, pair.Item.IsCompleted,
+                HasPlace(pair.Item), pair.Item.LinkedCalendarEventId)
+            : null;
+
+    /// <summary>
+    /// Whether the entry that made this event has been ticked off. An event of its own has nothing to
+    /// tick, so it is never done - it is only ever over, which is a different question and a different
+    /// filter. See the list below.
+    /// </summary>
+    private bool IsTickedOff(CalendarEventDto calendarEvent)
+        => _entriesByEventId.TryGetValue(calendarEvent.Id, out var pair) && pair.Item.IsCompleted;
 
     /// <summary>
     /// Where an event leads from this list: to the entry that made it where there is one, and to the
@@ -531,7 +569,7 @@
         // Dropped from what is already loaded rather than fetched again, the way deleting an event
         // does: nothing else about the period changed, and a reload here would cost a round trip to
         // learn what this method already knows.
-        _taskLists = _taskLists
+        TaskLists = _taskLists
             .Select(list => list.Id == taskList.Id
                 ? list with { Items = [.. list.Items.Where(item => item.Id != dueTask.TaskItemId)] }
                 : list)

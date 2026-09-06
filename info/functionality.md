@@ -727,8 +727,16 @@ to change it, and a page of editable fields is the wrong answer to "what have we
 ### What the calendar's list leaves out
 
 The list beside the grid answers "what is coming", so it leaves out what is over: a deadline already
-ticked off, and an event that has already ended. An overdue deadline that is still not done **stays** -
-it is the one thing on the page that most needs saying, and hiding it would hide the work.
+ticked off, an event that has already ended, and an appointment a task list made whose entry has been
+ticked off - **whenever that one falls**. An overdue deadline that is still not done **stays** - it is
+the one thing on the page that most needs saying, and hiding it would hide the work.
+
+The appointment is the case that had nothing asking the question. An event of its own has nothing to
+tick; only the entry behind it does (`TaskItem.IsCompleted`, reached through `LinkedCalendarEventId`),
+and the list was asking events only whether they were *over*. So one ticked off ahead of time - which is
+most of the times anybody ticks one off - stayed on the list until its date passed. Asked for through the
+menu it comes back struck through and greyed (`item-card-done`), the same mark a finished deadline
+carries, so the two read alike where they are shown side by side.
 
 The grid never hides anything. A day with something in it should say so whether or not it has been, and
 a month drawn with holes in it would be a month that had not happened.
