@@ -326,6 +326,33 @@ public sealed class CalendarTests : OrbitTestContext
         Assert.Single(cut.FindAll(".item-card.item-card-done"));
     }
 
+    /// <summary>
+    /// The grid is the other half, and the half that was reported still wrong: it never hides anything -
+    /// a day with something in it should say so whether or not it has been - so a ticked-off appointment
+    /// stays and reads as done instead. Its chip had nothing at all, because an event has nothing to
+    /// tick and only the entry behind it does; a finished *deadline* has been struck through there all
+    /// along, which is the asymmetry.
+    /// </summary>
+    [Fact]
+    public void A_ticked_off_appointment_is_struck_through_on_the_month_grid()
+    {
+        var laterThisMonth = LastDayOfThisMonth().AddHours(10);
+        var done = CreateTimedEvent(laterThisMonth, laterThisMonth.AddHours(1), "Already been");
+        var stillToGo = CreateTimedEvent(laterThisMonth, laterThisMonth.AddHours(1), "Still to go");
+        RegisterCalendarApiClient([done, stillToGo]);
+        RegisterTasksApiClient([
+            TickedOff(TaskListWithAnEntryFor(done.Id, laterThisMonth, "Already been")),
+            TaskListWithAnEntryFor(stillToGo.Id, laterThisMonth, "Still to go")]);
+
+        var cut = RenderComponent<Calendar>();
+
+        // Both are still drawn - the grid hides nothing.
+        var chips = cut.FindAll(".calendar-event-chip");
+        Assert.Equal(2, chips.Count);
+        var marked = Assert.Single(chips, chip => chip.ClassList.Contains("calendar-chip-done"));
+        Assert.Contains("Already been", marked.TextContent);
+    }
+
     /// <summary>The guard on both: an appointment nobody has ticked off is listed as it always was.</summary>
     [Fact]
     public void An_appointment_still_outstanding_is_listed_as_it_always_was()

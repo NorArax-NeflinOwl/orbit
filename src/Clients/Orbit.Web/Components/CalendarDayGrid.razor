@@ -10,7 +10,7 @@
             <span class="calendar-day-grid-all-day-label">@T["All day"]</span>
             @foreach (var calendarEvent in Grid.AllDayEvents)
             {
-                <button type="button" class="calendar-event-chip" style="border-left-color:@EventColor(calendarEvent);"
+                <button type="button" class="calendar-event-chip @DoneClass(calendarEvent.Id)" style="border-left-color:@EventColor(calendarEvent);"
                         @onclick="() => EventSelectedAsync(calendarEvent.Id)">
                     <span class="calendar-event-chip-title">@RecurringPrefix(calendarEvent)@calendarEvent.Details.Title</span>
                 </button>
@@ -33,7 +33,7 @@
 
             @foreach (var placedEvent in Grid.TimedEvents)
             {
-                <button type="button" class="calendar-event-block" style="@PositionStyle(placedEvent) border-left-color:@EventColor(placedEvent.Event);"
+                <button type="button" class="calendar-event-block @DoneClass(placedEvent.Event.Id)" style="@PositionStyle(placedEvent) border-left-color:@EventColor(placedEvent.Event);"
                         @onclick="() => EventSelectedAsync(placedEvent.Event.Id)">
                     <span class="calendar-event-block-time">@FormatTimeRange(placedEvent.Event.Details)</span>
                     <span class="calendar-event-block-title">@RecurringPrefix(placedEvent.Event)@placedEvent.Event.Details.Title</span>
@@ -42,7 +42,7 @@
 
             @foreach (var placedDueTask in Grid.DueTasks)
             {
-                <button type="button" class="calendar-task-block @(placedDueTask.Task.IsCompleted ? "calendar-task-chip-completed" : "")"
+                <button type="button" class="calendar-task-block @(placedDueTask.Task.IsCompleted ? "calendar-chip-done" : "")"
                         style="@DueTaskPositionStyle(placedDueTask)" @onclick="() => TaskSelectedAsync(placedDueTask.Task)">
                     <span class="calendar-event-block-time">@FormatDueTime(placedDueTask.Task)</span>
                     <span class="calendar-event-block-title" title="@placedDueTask.Task.Label">@placedDueTask.Task.Label</span>
@@ -60,6 +60,18 @@
 
     [Parameter, EditorRequired]
     public DayGrid Grid { get; set; } = null!;
+
+    /// <summary>
+    /// The events whose entry on a task list has been ticked off. An event of its own has nothing to
+    /// tick - only the entry that made it does - so the grid has to be told, and is told by the page
+    /// that holds both (see Calendar.razor's TickedOffEventIds). Empty for a caller with no task lists
+    /// in hand, which draws exactly what it drew before.
+    /// </summary>
+    [Parameter]
+    public IReadOnlySet<Guid> TickedOffEventIds { get; set; } = new HashSet<Guid>();
+
+    /// <summary>Whether this appointment reads as done - see TickedOffEventIds.</summary>
+    private string DoneClass(Guid eventId) => TickedOffEventIds.Contains(eventId) ? "calendar-chip-done" : string.Empty;
 
     [Parameter]
     public EventCallback<Guid> OnEventSelected { get; set; }

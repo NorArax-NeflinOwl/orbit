@@ -7,13 +7,18 @@
     {
         <div class="calendar-year-grid-month">
             <h3 class="calendar-year-grid-month-name">@MonthName(month.Month)</h3>
-            <CalendarMonthGrid Weeks="month.Weeks" IsCompact="true" OnDaySelected="OnDaySelected" />
+            <CalendarMonthGrid Weeks="month.Weeks" IsCompact="true" OnDaySelected="OnDaySelected"
+                               TickedOffEventIds="TickedOffEventIds" />
         </div>
     }
 </div>
 
 @code {
 
+
+    /// <summary>Passed straight to each month it draws - see CalendarMonthGrid.TickedOffEventIds.</summary>
+    [Parameter]
+    public IReadOnlySet<Guid> TickedOffEventIds { get; set; } = new HashSet<Guid>();
 
     [Parameter, EditorRequired]
     public IReadOnlyList<YearGridMonth> Months { get; set; } = [];

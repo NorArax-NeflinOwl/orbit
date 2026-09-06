@@ -2978,8 +2978,17 @@ input.note-editor-title {
     width: 100%;
 }
 
-.calendar-task-chip-completed {
+/* Done, on any chip in the grid: a deadline ticked off, and an appointment whose entry on a task list
+   was. Struck through *and* greyed, the same two marks a finished row carries everywhere else in the app
+   (see .item-card-done) - struck alone left a completed chip as loud as an outstanding one, which on a
+   month view is where the difference matters most.
+
+   The grid still draws it. A day with something in it should say so whether or not it has been, and a
+   month drawn with holes in it would be a month that had not happened - the list beside it is the one
+   that hides what is over. */
+.calendar-chip-done {
     text-decoration: line-through;
+    color: var(--text-secondary);
 }
 
 /* CalendarYearGrid.razor: the 12 compact month grids, wrapping to fit the visualization panel's width. */

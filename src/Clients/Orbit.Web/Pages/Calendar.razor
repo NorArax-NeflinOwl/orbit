@@ -198,13 +198,13 @@
         @switch (_viewState.ViewMode)
         {
             case CalendarViewMode.Day:
-                <CalendarDayGrid Grid="CalendarGridBuilder.BuildDayGrid(_viewState.ReferenceDate, _events ?? [], _dueTasks ?? [])" OnEventSelected="OpenTheEvent" OnTaskSelected="GoToDueTask" />
+                <CalendarDayGrid Grid="CalendarGridBuilder.BuildDayGrid(_viewState.ReferenceDate, _events ?? [], _dueTasks ?? [])" OnEventSelected="OpenTheEvent" OnTaskSelected="GoToDueTask" TickedOffEventIds="TickedOffEventIds" />
                 break;
             case CalendarViewMode.Year:
-                <CalendarYearGrid Months="CalendarGridBuilder.BuildYearGrid(_viewState.ReferenceDate.Year, _events ?? [], _viewState.ShowDueTasksInYearView ? _dueTasks ?? [] : [])" OnDaySelected="GoToDay" />
+                <CalendarYearGrid Months="CalendarGridBuilder.BuildYearGrid(_viewState.ReferenceDate.Year, _events ?? [], _viewState.ShowDueTasksInYearView ? _dueTasks ?? [] : [])" OnDaySelected="GoToDay" TickedOffEventIds="TickedOffEventIds" />
                 break;
             default:
-                <CalendarMonthGrid Weeks="CalendarGridBuilder.BuildMonthGrid(_viewState.ReferenceDate, _events ?? [], _dueTasks ?? [])" OnDaySelected="GoToDay" />
+                <CalendarMonthGrid Weeks="CalendarGridBuilder.BuildMonthGrid(_viewState.ReferenceDate, _events ?? [], _dueTasks ?? [])" OnDaySelected="GoToDay" TickedOffEventIds="TickedOffEventIds" />
                 break;
         }
     </div>
@@ -449,6 +449,18 @@
                 pair.Item.DueDateUtc ?? calendarEvent.Details.StartUtc, pair.Item.IsCompleted,
                 HasPlace(pair.Item), pair.Item.LinkedCalendarEventId)
             : null;
+
+    /// <summary>
+    /// The events the grids should draw as done. The list beside them leaves such an appointment out
+    /// altogether; a grid never hides anything - a day with something in it should say so whether or
+    /// not it has been - so it strikes it through and greys it instead, the mark a finished deadline
+    /// has always carried there.
+    /// </summary>
+    private IReadOnlySet<Guid> TickedOffEventIds
+        => _entriesByEventId
+            .Where(pair => pair.Value.Item.IsCompleted)
+            .Select(pair => pair.Key)
+            .ToHashSet();
 
     /// <summary>
     /// Whether the entry that made this event has been ticked off. An event of its own has nothing to

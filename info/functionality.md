@@ -739,7 +739,12 @@ menu it comes back struck through and greyed (`item-card-done`), the same mark a
 carries, so the two read alike where they are shown side by side.
 
 The grid never hides anything. A day with something in it should say so whether or not it has been, and
-a month drawn with holes in it would be a month that had not happened.
+a month drawn with holes in it would be a month that had not happened. **It says which of them are done
+instead** - struck through and greyed (`.calendar-chip-done`). A finished deadline has read that way
+there all along; an appointment a task list made had nothing at all, for the same reason the list did
+not leave it out: an event of its own has nothing to tick, only the entry behind it does. The page hands
+the grids the set of events whose entry is ticked off (`Calendar.TickedOffEventIds`), and the day, month
+and year views all draw from it.
 
 **The phone draws the same line**, from the same menu the order is chosen in and kept beside it on the
 device (`CalendarListReading`). Its grid keeps everything too.
