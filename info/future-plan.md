@@ -616,18 +616,28 @@ matches and what does not. What that pass left:
   notification opening a note, chat opening a shared thing - which each finish on their own section as
   before. Adding one is a single `ReturnTo.Link` at the call site.
 
-- **No test anywhere asserts that a share notice is sent.** Sharing something is two halves: the server
-  records the share and raises a notification, and the sharer's *browser* posts an encrypted chat message
-  carrying the share's id, which is the only thing a recipient can press "Accept" on (see Chat.razor's
-  `TryParseShare`). Four places send that message - `NoteEditor`, `CalendarEventEditor`,
-  `ShareInventoryPanel` and `TaskEditor` - and **none of them is covered**, which is how the guest
-  invitation on a task entry's event came to send the first half and not the second for as long as it
-  did (fixed 2026-09-06).
+- **Two of the five screens that send a share notice are covered; three are not.** Sharing something is
+  two halves: the server records the share and raises a notification, and the sharer's *browser* posts an
+  encrypted chat message carrying the share's id, which is the only thing a recipient can press "Accept"
+  on (see Chat.razor's `TryParseShare`). The server cannot send that half - it holds no key to seal it
+  with - so a screen that forgets it shares something nobody can accept, which is exactly what the guest
+  invitation on a task entry's event did for as long as it did (fixed 2026-09-06).
 
-  What stops a test: the sealed payload's shape is a `private record` inside `EncryptedChatMessageSender`,
-  so a bUnit test cannot plan the JavaScript result without `InternalsVisibleTo` on `Orbit.Web` - which is
-  a bigger decision than one test and would open the whole assembly. The alternatives worth weighing are
-  making that one type public, or moving the "seal and send" step behind a seam a test can stand in for.
+  Covered since 2026-09-07: the guest invitation on a task entry's event
+  (`TaskEditorItemFormTests.Inviting_a_guest_to_an_entrys_event_puts_the_invitation_in_the_conversation`)
+  and the storage panel (`ShareInventoryPanelTests`). What unblocked them: the sealed payload's shape was
+  a `private record` inside `EncryptedChatMessageSender`, so a bUnit test could not plan the JavaScript
+  result; it is now `public` and nested there on purpose - `InternalsVisibleTo` was the alternative and it
+  would have opened the whole assembly for one type.
+
+  Still uncovered: `NoteEditor`, `CalendarEventEditor`, and the task list's own sharing block in
+  `TaskEditor` (a second call site on that page, separate from the guest one). Each needs the same three
+  things the two covered tests set up - a signed-in token, `./js/e2eeChat.js` answering `hasOwnPrivateKey`
+  / `ensureOwnPublicKey` / `encryptMessage`, and a stub answering `/api/users/{id}` with a contact who has
+  a public key - so copy `ShareInventoryPanelTests`, which is the smaller of the two. The task list's
+  block additionally wants `_canShare` (a permission the item-form tests deliberately grant nothing of)
+  and a `/api/chat/contacts` answer, which is why it was left with the other two rather than done
+  alongside the guest path.
 
 - **The phone shows no links in a description either.** The addresses in a description are pressable on
   the web (`TextWithLinks`, 2026-09-06); the phone draws the same descriptions as plain labels. The
