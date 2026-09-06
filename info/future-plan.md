@@ -483,6 +483,13 @@ beside a task belongs here, not in that task's diff. A defect is the exception a
   subscription has been pay-as-you-go for a while; the runner build is now kept because it is the
   established, verified path, not because `az acr build` is blocked. The reasoning is recorded
   correctly in the `ci-pipeline` skill, and only these two documents lag behind it.
+- **`ci/verify-diagrams.mjs` is not wired into the pipeline.** It parses every Mermaid block in
+  `info/uml/` and is what rule 17 leans on, but nothing runs it automatically, so a broken diagram
+  reaches `main` and renders as an error box until somebody opens the page. The `test` job in
+  `main_orbit.yml` already installs Playwright for `verify-browser-crypto.mjs` and
+  `verify-push-notifications.mjs`, so adding a third line there costs seconds rather than a runner -
+  the same argument those two were added on. Left out of the change that wrote the script because
+  touching a workflow is a decision made with skill `ci-pipeline` open (rule 5), not in passing.
 - **`max-replicas` is still 1 on both Container Apps.** Nothing in the code assumes otherwise any more -
   the live update hub, the privacy choice cache and the rate limiter each count across instances now -
   but raising it is a deliberate act and a cost decision, and it has not been taken. Two things to know

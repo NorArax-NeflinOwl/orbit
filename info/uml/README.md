@@ -53,3 +53,38 @@ in the repository to let rot, so:
 Each diagram was drawn from the code rather than from the other documents in `info/` — the entity
 properties, the `ProjectReference` graph, `OrbitStorageNames`, and the handlers and synchronisers named
 on each page.
+
+This is [rule 17](../../.claude/CLAUDE.md) — which lists the triggers, and is worth reading as the
+short version of this section.
+
+### Which file covers what
+
+| You changed | Edit |
+| --- | --- |
+| a `ProjectReference`, or what a project is for | [components.md](components.md) |
+| an aggregate, a value object, an enum the domain turns on | [domain-model.md](domain-model.md) |
+| an entity, a table, a column worth naming, a relationship | [database.md](database.md) |
+| the order of something, or a hosted service that coordinates | [flows.md](flows.md) |
+| an Azure resource, a port, a workflow trigger | [deployment.md](deployment.md) |
+
+A rename touches whichever files quote the old name. Grep for it — that is what naming things rather
+than describing them buys.
+
+### Checking that a diagram still draws
+
+A diagram that fails to parse renders on GitHub as an **error box**, not as nothing — worse than a
+missing diagram, because it looks like the page is broken. Mermaid's own parser is the only honest
+judge; reading the source and thinking it looks right is a different test, and it always passes.
+
+```bash
+npm install --no-save playwright@1 && npx playwright install chromium   # once
+node ci/verify-diagrams.mjs
+```
+
+It parses every block in this folder and exits non-zero on the first that would not draw. Nothing runs
+it automatically — it is not wired into the pipeline (see [future-plan](../future-plan.md)), so it is a
+thing to run before pushing a diagram change, alongside the solution's tests.
+
+**Parsing is not rendering.** A diagram can parse and still come out an unreadable tangle, which no
+script can assert. When one grows past a couple of dozen boxes, look at it — and split it rather than
+shrinking the labels, which is why the database is five diagrams and not one.
