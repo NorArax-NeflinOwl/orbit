@@ -12,7 +12,7 @@ namespace Orbit.Api.Tests.TestDoubles;
 /// exactly like the announcement that was never made.
 ///
 /// It stands in for the local delivery, which is the narrower of the two roles - so it can also be
-/// handed to PostgresLiveUpdateFanOut and PostgresLiveUpdateRelay, neither of which can be exercised
+/// handed to PostgresLiveUpdateFanOut and LiveUpdateNoticeHandler, neither of which can be exercised
 /// with a real SignalR hub behind them.
 /// </summary>
 public sealed class RecordingLiveUpdateFanOut : ILocalLiveUpdateFanOut

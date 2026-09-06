@@ -1,5 +1,6 @@
 using System.Text;
 using System.Text.Json;
+using Orbit.Api.Instances;
 using Orbit.Api.LiveUpdates;
 using Orbit.Api.Tests.TestDoubles;
 using Orbit.Core.LiveUpdates;
@@ -29,7 +30,7 @@ public sealed class LiveUpdateBackplaneTests
         var audience = Enumerable.Range(0, 250).Select(_ => Guid.NewGuid()).ToArray();
 
         var announcements = LiveUpdateAnnouncement
-            .ForAudience(Guid.NewGuid(), LiveUpdateMessages.ChatChanged, audience, [])
+            .ForAudience(LiveUpdateMessages.ChatChanged, audience, [])
             .ToArray();
 
         Assert.Equal(3, announcements.Length);
@@ -37,8 +38,11 @@ public sealed class LiveUpdateBackplaneTests
 
         foreach (var announcement in announcements)
         {
+            // Measured against what is left after the envelope the notice bus wraps it in, since that
+            // is what PostgreSQL actually receives.
             var payloadBytes = Encoding.UTF8.GetByteCount(JsonSerializer.Serialize(announcement));
-            Assert.True(payloadBytes < 8000, $"A payload of {payloadBytes} bytes would be refused.");
+            var budget = InstanceNotice.MaxPayloadBytes - InstanceNotice.EnvelopeBytes;
+            Assert.True(payloadBytes < budget, $"A body of {payloadBytes} bytes would not fit in {budget}.");
         }
     }
 
@@ -54,7 +58,7 @@ public sealed class LiveUpdateBackplaneTests
         var audience = Enumerable.Range(0, 250).Select(_ => Guid.NewGuid()).ToArray();
 
         var announcements = LiveUpdateAnnouncement
-            .ForAudience(Guid.NewGuid(), LiveUpdateMessages.PresenceChanged, audience, [subject])
+            .ForAudience(LiveUpdateMessages.PresenceChanged, audience, [subject])
             .ToArray();
 
         Assert.All(announcements, announcement =>
@@ -71,16 +75,14 @@ public sealed class LiveUpdateBackplaneTests
     {
         var subject = Guid.NewGuid();
         var audience = new[] { Guid.NewGuid(), Guid.NewGuid() };
-        var origin = Guid.NewGuid();
 
         var sent = LiveUpdateAnnouncement
-            .ForAudience(origin, LiveUpdateMessages.PresenceChanged, audience, [subject])
+            .ForAudience(LiveUpdateMessages.PresenceChanged, audience, [subject])
             .Single();
 
         var received = JsonSerializer.Deserialize<LiveUpdateAnnouncement>(JsonSerializer.Serialize(sent));
 
         Assert.NotNull(received);
-        Assert.Equal(origin, received.Origin);
         Assert.Equal(LiveUpdateMessages.PresenceChanged, received.Message);
         Assert.Equal(audience, received.UserIds);
         Assert.Equal(
@@ -89,24 +91,20 @@ public sealed class LiveUpdateBackplaneTests
     }
 
     /// <summary>
-    /// NOTIFY reaches every listener including the sender, and the sender delivered to its own
-    /// connections before it sent. The origin is what stops the instance that did the work from
-    /// announcing to its clients twice, so it has to survive the trip - see LiveUpdateInstance.
+    /// NOTIFY reaches every listener including the sender, and the sender has already acted by the time
+    /// it sends. The origin on the envelope is what stops an instance acting twice on its own notices,
+    /// so it has to survive the trip - see InstanceIdentity.
     /// </summary>
     [Fact]
-    public void An_announcement_says_which_instance_made_it()
+    public void A_notice_says_which_instance_made_it()
     {
-        var instance = new LiveUpdateInstance();
+        var instance = new InstanceIdentity();
 
-        var announcement = LiveUpdateAnnouncement
-            .ForAudience(instance.Id, LiveUpdateMessages.ChatChanged, [Guid.NewGuid()], [])
-            .Single();
-
-        var received = JsonSerializer.Deserialize<LiveUpdateAnnouncement>(
-            JsonSerializer.Serialize(announcement));
+        var received = JsonSerializer.Deserialize<InstanceNotice>(
+            JsonSerializer.Serialize(new InstanceNotice(instance.Id, "{}")));
 
         Assert.Equal(instance.Id, received!.Origin);
-        Assert.NotEqual(new LiveUpdateInstance().Id, received.Origin);
+        Assert.NotEqual(new InstanceIdentity().Id, received.Origin);
     }
 
     /// <summary>

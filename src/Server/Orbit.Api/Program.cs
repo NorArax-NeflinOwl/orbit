@@ -15,6 +15,7 @@ using Orbit.Api.Chat;
 using Orbit.Api.Config;
 using Orbit.Api.Diagnostics;
 using Orbit.Api.HealthChecks;
+using Orbit.Api.Instances;
 using Orbit.Api.Permissions;
 using Orbit.Api.Telemetry;
 using Orbit.Api.Sharing;
@@ -132,7 +133,8 @@ try
             .AllowAnyMethod());
     });
 
-    builder.Services.AddOrbitLiveUpdates(builder.Configuration);
+    builder.Services.AddOrbitInstanceNotices(builder.Configuration);
+    builder.Services.AddOrbitLiveUpdates();
     builder.Services.AddOrbitCore();
     builder.Services.AddOrbitData(builder.Configuration);
     builder.Services.AddOrbitHealthChecks(builder.Configuration);
@@ -263,6 +265,8 @@ try
 
     // Remembers, briefly, which accounts asked to be left out of the trace - see TraceOptOut.
     builder.Services.AddMemoryCache();
+    builder.Services.AddSingleton<PrivacyChoiceCache>();
+    builder.Services.AddSingleton<IInstanceNoticeHandler, PrivacyChoiceNoticeHandler>();
     builder.Services.AddRateLimiter(options => options.AddOrbitPolicies());
 
     // Traces every incoming HTTP request, every outgoing HttpClient call, and every command/query

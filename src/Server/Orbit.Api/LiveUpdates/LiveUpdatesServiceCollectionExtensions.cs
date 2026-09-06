@@ -1,5 +1,5 @@
 using Microsoft.AspNetCore.SignalR;
-using Npgsql;
+using Orbit.Api.Instances;
 using Orbit.Core.LiveUpdates;
 
 namespace Orbit.Api.LiveUpdates;
@@ -17,34 +17,18 @@ public static class LiveUpdatesServiceCollectionExtensions
     ///
     /// The announcements reach every API instance rather than only this one, because an IHubContext
     /// knows nothing of the connections another replica is holding - see
-    /// <see cref="PostgresLiveUpdateFanOut"/>. That is unconditional: it costs a NOTIFY per announcement
-    /// on a single replica, and the alternative is a setting whose wrong value shows up as chat that is
-    /// merely slow, on the day somebody raises the replica count.
+    /// <see cref="PostgresLiveUpdateFanOut"/>, and AddOrbitInstanceNotices for what carries them.
     /// </summary>
-    public static IServiceCollection AddOrbitLiveUpdates(
-        this IServiceCollection services, IConfiguration configuration)
+    public static IServiceCollection AddOrbitLiveUpdates(this IServiceCollection services)
     {
         services.AddSignalR();
         services.AddSingleton<IUserIdProvider, SubjectClaimUserIdProvider>();
 
-        services.AddSingleton<LiveUpdateInstance>();
         services.AddSingleton<ILocalLiveUpdateFanOut, SignalRLiveUpdateFanOut>();
-        services.AddSingleton(_ => new NpgsqlDataSourceBuilder(ConnectionString(configuration)).Build());
         services.AddSingleton<ILiveUpdateFanOut, PostgresLiveUpdateFanOut>();
         services.AddSingleton<ILiveUpdatePublisher, LiveUpdateAnnouncer>();
-        services.AddHostedService<PostgresLiveUpdateRelay>();
+        services.AddSingleton<IInstanceNoticeHandler, LiveUpdateNoticeHandler>();
 
         return services;
     }
-
-    /// <summary>
-    /// The same connection AddOrbitData insists on, read the same way. Missing is not handled here
-    /// because it cannot happen: AddOrbitData throws on it a line later, with the message that explains
-    /// how to set it.
-    /// </summary>
-    private static string ConnectionString(IConfiguration configuration)
-        => configuration.GetConnectionString("Orbit")
-            ?? throw new InvalidOperationException(
-                "ConnectionStrings:Orbit is not configured, and live updates need it to reach the "
-                + "other API instances. See AddOrbitData for how to set it.");
 }
