@@ -665,10 +665,14 @@
          screen here rather than a family resemblance. -->
 
     <!-- .icon-btn: a bare glyph with a press target around it, no fill and no edge. -->
-    <Style x:Key="IconButtonHost" TargetType="Grid">
+    <Style x:Key="IconButtonFrame" TargetType="Border">
         <Setter Property="WidthRequest" Value="30" />
         <Setter Property="HeightRequest" Value="30" />
+        <Setter Property="StrokeThickness" Value="0" />
         <Setter Property="BackgroundColor" Value="Transparent" />
+        <Setter Property="StrokeShape">
+            <RoundRectangle CornerRadius="7" />
+        </Setter>
     </Style>
 
     <!-- .icon-btn.page-action: an editor's own actions - Save and Cancel on the rail. Twice the size
@@ -698,6 +702,11 @@
         </Setter>
     </Style>
 
+    <!-- .page-action-primary: the same again, outlined in the accent. Save, and only Save. -->
+    <Style x:Key="PageActionPrimaryBorder" TargetType="Border" BasedOn="{StaticResource PageActionBorder}">
+        <Setter Property="Stroke" Value="{DynamicResource Accent}" />
+    </Style>
+
     <!-- The drawing inside an .icon-btn. Authored on the same 20x20 canvas the navigation bar's are. -->
     <Style x:Key="IconPath" TargetType="Path">
         <Setter Property="Stroke" Value="{AppThemeBinding Light={StaticResource TertiaryTextLight}, Dark={StaticResource TertiaryTextDark}}" />
@@ -710,6 +719,24 @@
         <Setter Property="HeightRequest" Value="18" />
         <Setter Property="HorizontalOptions" Value="Center" />
         <Setter Property="VerticalOptions" Value="Center" />
+    </Style>
+
+    <!-- The same drawing where the button it sits in is outlined in the accent: it takes the accent
+         too, or the edge and the glyph inside it disagree about how much the button matters. -->
+    <Style x:Key="IconPathAccent" TargetType="Path" BasedOn="{StaticResource IconPath}">
+        <Setter Property="Stroke" Value="{DynamicResource Accent}" />
+    </Style>
+
+    <!-- And both again at a page action's size - 24 inside 44, which is the desktop's 30-inside-60
+         brought down by the same breakpoint. -->
+    <Style x:Key="PageActionPath" TargetType="Path" BasedOn="{StaticResource IconPath}">
+        <Setter Property="StrokeThickness" Value="1.8" />
+        <Setter Property="WidthRequest" Value="24" />
+        <Setter Property="HeightRequest" Value="24" />
+    </Style>
+
+    <Style x:Key="PageActionPathPrimary" TargetType="Path" BasedOn="{StaticResource PageActionPath}">
+        <Setter Property="Stroke" Value="{DynamicResource Accent}" />
     </Style>
 
     <!-- .overflow-menu-dropdown: the panel a three-dot menu opens. -->

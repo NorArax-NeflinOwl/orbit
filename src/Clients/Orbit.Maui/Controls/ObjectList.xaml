@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<ContentView
+    x:Class="Orbit.Maui.Controls.ObjectList"
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    xmlns:controls="clr-namespace:Orbit.Maui.Controls"
+    x:Name="Root">
+
+    <!-- Whether there is anything to show yet - not loaded, loaded and empty, or here it is. The same
+         three-way question every list in Orbit asks, and it was worded slightly differently every time
+         it was asked by hand: a centred sentence here, nothing at all there. Orbit.Web's own
+         Components/ObjectList.razor asks it in exactly these three ways.
+
+         What "here it is" draws stays the caller's own - a column of cards, a grid, a page's own search
+         and filters above them. -->
+    <Grid>
+        <Label x:Name="LoadingLabel" IsVisible="False" Text="{controls:Translate 'Loading…'}" />
+        <Label x:Name="EmptyLabel" IsVisible="False" Style="{StaticResource EmptyHint}"
+               LineBreakMode="WordWrap"
+               Text="{Binding EmptyMessage, Source={x:Reference Root}, x:DataType=controls:ObjectList}" />
+        <ContentView x:Name="BodyHost" />
+    </Grid>
+</ContentView>

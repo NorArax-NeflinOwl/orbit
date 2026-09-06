@@ -6,12 +6,30 @@
     xmlns:controls="clr-namespace:Orbit.Maui.Controls"
     x:Name="Root">
 
-    <!-- What every screen in Orbit.Web opens with (.page-header): its name, and one line saying what
-         it holds. The phone had it on the dashboard only, so every other screen began mid-sentence. -->
-    <VerticalStackLayout Spacing="2" Margin="0,0,0,6">
-        <Label Text="{Binding Title, Source={x:Reference Root}, x:DataType=controls:PageHeader}"
-               Style="{StaticResource PageTitle}" />
-        <Label Text="{Binding Subtitle, Source={x:Reference Root}, x:DataType=controls:PageHeader}"
-               Style="{StaticResource PageSubtitle}" LineBreakMode="WordWrap" />
-    </VerticalStackLayout>
+    <!-- What every screen in Orbit.Web opens with (.page-header): the one control that makes another
+         of whatever the screen lists, the screen's name, one line saying what it holds, and whatever
+         belongs at the far end - a menu of how to read the page, usually.
+
+             [+] Notes                                              [...]
+             one line about what is here
+
+         The name is a row only where there is a leading control to sit beside it (.page-heading);
+         everything else stacks. Each part is left out rather than drawn empty, which is why a screen
+         with nothing to say for itself is just its name. -->
+    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12" Margin="0,0,0,16">
+
+        <VerticalStackLayout Grid.Column="0" Spacing="2">
+            <HorizontalStackLayout Spacing="10">
+                <ContentView x:Name="LeadingHost" IsVisible="False" VerticalOptions="Center" />
+                <Label Text="{Binding Title, Source={x:Reference Root}, x:DataType=controls:PageHeader}"
+                       Style="{StaticResource PageTitle}" VerticalOptions="Center" />
+            </HorizontalStackLayout>
+
+            <Label x:Name="SubtitleLabel" IsVisible="False"
+                   Text="{Binding Subtitle, Source={x:Reference Root}, x:DataType=controls:PageHeader}"
+                   Style="{StaticResource PageSubtitle}" LineBreakMode="WordWrap" />
+        </VerticalStackLayout>
+
+        <ContentView x:Name="ActionsHost" Grid.Column="1" IsVisible="False" VerticalOptions="Center" />
+    </Grid>
 </ContentView>

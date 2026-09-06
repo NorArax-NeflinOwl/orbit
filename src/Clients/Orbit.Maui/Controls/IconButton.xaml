@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<ContentView
+    x:Class="Orbit.Maui.Controls.IconButton"
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    xmlns:controls="clr-namespace:Orbit.Maui.Controls"
+    x:Name="Root">
+
+    <!-- Orbit.Web's .icon-btn: a drawing with a press target around it and nothing else - no fill, no
+         edge, no word. The edge appears only where the web gives it one - see IconButtonVariant.
+
+         A Border holding a Path, with a transparent Button over the pair, rather than a Button with an
+         image: the drawings are path data on the same 20x20 canvas the navigation bar uses, so they take
+         the theme and the reader's accent with them. -->
+    <Border x:Name="Frame" Style="{StaticResource IconButtonFrame}" Padding="0"
+            HorizontalOptions="Start" VerticalOptions="Center">
+        <Grid>
+            <Path x:Name="Glyph" Style="{StaticResource IconPath}" InputTransparent="True"
+                  Data="{Binding Data, Source={x:Reference Root}, x:DataType=controls:IconButton}" />
+
+            <Button x:Name="Press" BackgroundColor="Transparent" BorderWidth="0" Padding="0"
+                    MinimumHeightRequest="0" MinimumWidthRequest="0" />
+        </Grid>
+    </Border>
+</ContentView>
