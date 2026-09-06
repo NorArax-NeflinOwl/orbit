@@ -281,6 +281,83 @@ public sealed class CalendarTests : OrbitTestContext
     }
 
     /// <summary>
+    /// The same rule for an appointment a task list made, whenever it happens to fall. Its event has
+    /// nothing to tick - only the entry behind it does - so the list had nothing asking the question and
+    /// a ticked-off appointment stayed for as long as its date was still ahead, which is most of the time
+    /// somebody would tick one off. Ticked off *and* still in the future is the case that showed it.
+    /// </summary>
+    [Fact]
+    public void A_ticked_off_appointment_still_to_come_is_not_listed_until_everything_is_asked_for()
+    {
+        Services.AddSingleton(new CalendarListOrder(new StubJSRuntime()));
+        var laterThisMonth = LastDayOfThisMonth().AddHours(10);
+        var done = CreateTimedEvent(laterThisMonth, laterThisMonth.AddHours(1), "Already been");
+        var stillToGo = CreateTimedEvent(laterThisMonth, laterThisMonth.AddHours(1), "Still to go");
+        RegisterCalendarApiClient([done, stillToGo]);
+        RegisterTasksApiClient([
+            TickedOff(TaskListWithAnEntryFor(done.Id, laterThisMonth, "Already been")),
+            TaskListWithAnEntryFor(stillToGo.Id, laterThisMonth, "Still to go")]);
+
+        var cut = RenderComponent<Calendar>();
+
+        Assert.Equal(["Still to go"], ListedNames(cut));
+
+        ShowEverything(cut);
+
+        Assert.Equal(["Already been", "Still to go"], ListedNames(cut));
+    }
+
+    /// <summary>
+    /// And once it is asked for, it reads as done: struck through and greyed, the same mark a finished
+    /// deadline carries, so the two look alike where the menu puts them side by side.
+    /// </summary>
+    [Fact]
+    public void A_ticked_off_appointment_is_shown_struck_through()
+    {
+        Services.AddSingleton(new CalendarListOrder(new StubJSRuntime()));
+        var laterThisMonth = LastDayOfThisMonth().AddHours(10);
+        var done = CreateTimedEvent(laterThisMonth, laterThisMonth.AddHours(1), "Already been");
+        RegisterCalendarApiClient([done]);
+        RegisterTasksApiClient([TickedOff(TaskListWithAnEntryFor(done.Id, laterThisMonth, "Already been"))]);
+        var cut = RenderComponent<Calendar>();
+
+        ShowEverything(cut);
+
+        Assert.Single(cut.FindAll(".item-card.item-card-done"));
+    }
+
+    /// <summary>The guard on both: an appointment nobody has ticked off is listed as it always was.</summary>
+    [Fact]
+    public void An_appointment_still_outstanding_is_listed_as_it_always_was()
+    {
+        Services.AddSingleton(new CalendarListOrder(new StubJSRuntime()));
+        var laterThisMonth = LastDayOfThisMonth().AddHours(10);
+        var calendarEvent = CreateTimedEvent(laterThisMonth, laterThisMonth.AddHours(1), "Dentist");
+        RegisterCalendarApiClient([calendarEvent]);
+        RegisterTasksApiClient([TaskListWithAnEntryFor(calendarEvent.Id, laterThisMonth, "Dentist")]);
+
+        var cut = RenderComponent<Calendar>();
+
+        Assert.Equal(["Dentist"], ListedNames(cut));
+        Assert.Empty(cut.FindAll(".item-card-done"));
+    }
+
+    /// <summary>
+    /// Late enough in this month to be still ahead whenever the suite runs, and still inside the period
+    /// the list is showing - a time relative to "now" would fall outside it on the last day of a month.
+    /// </summary>
+    private static DateTime LastDayOfThisMonth()
+        => new(DateTime.Today.Year, DateTime.Today.Month, DateTime.DaysInMonth(DateTime.Today.Year, DateTime.Today.Month));
+
+    private static void ShowEverything(IRenderedFragment cut)
+    {
+        cut.Find(".page-header-actions .overflow-menu-trigger").Click();
+        cut.FindAll(".page-header-actions .avatar-dropdown-item")
+            .First(entry => entry.TextContent.Contains("Everything", StringComparison.Ordinal))
+            .Click();
+    }
+
+    /// <summary>
     /// An event that has already ended is over the same way. A deadline that has passed and is still not
     /// ticked off is not: it is the one thing on the page that most needs saying.
     /// </summary>
