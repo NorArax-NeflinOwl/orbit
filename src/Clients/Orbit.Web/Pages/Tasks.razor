@@ -800,8 +800,8 @@
     protected override async Task OnInitializedAsync()
     {
         Logger.LogInformation("Tasks page opened, loading task lists");
-        // MainLayout owns the polling; this only listens, so a reminder arriving while the page is open
-        // lights the card it is about without this page fetching anything of its own.
+        // MainLayout owns the polling; this only listens. A reminder arriving lights the card it is
+        // about, and a list somebody has just shared is *read* - see OnNotificationsChanged.
         NotificationFeedState.Changed += OnNotificationsChanged;
         await Arrangement.InitializeAsync();
         // Read before the cards are drawn: a pin that arrived a moment later would move a card somebody
@@ -823,7 +823,31 @@
         Logger.LogInformation("Loaded {TaskListCount} task lists", _taskLists.Count);
     }
 
-    private void OnNotificationsChanged() => InvokeAsync(StateHasChanged);
+    /// <summary>
+    /// Something reached the bell. Redrawing is not enough on its own: a list somebody has just shared
+    /// is a list this page has never read, so the mark would light a card that is not there. The lists
+    /// are read again, and only then redrawn.
+    ///
+    /// A read per notification is affordable because a notification is rare - one arrives when somebody
+    /// does something, not on a timer - and the alternative is a share that does not appear until the
+    /// reader happens to reload the page, which is what was reported.
+    /// </summary>
+    private void OnNotificationsChanged()
+        => InvokeAsync(async () =>
+        {
+            try
+            {
+                _taskLists = await TasksApiClient.GetTaskListsAsync();
+            }
+            catch (HttpRequestException exception)
+            {
+                // The page is already drawn and still correct about everything it knew a moment ago.
+                // Saying nothing is right here: nobody asked for this read.
+                Logger.LogWarning(exception, "Couldn't re-read the task lists after a notification");
+            }
+
+            StateHasChanged();
+        });
 
     public void Dispose() => NotificationFeedState.Changed -= OnNotificationsChanged;
 

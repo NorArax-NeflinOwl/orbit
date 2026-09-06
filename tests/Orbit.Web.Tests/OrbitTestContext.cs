@@ -32,6 +32,11 @@ public abstract class OrbitTestContext : TestContext
         // empty start - nothing is pinned until a test pins something.
         Services.AddSingleton(new ConversationPins(new StubJSRuntime()));
         Services.AddSingleton(new SharedItemPins(new StubJSRuntime()));
+        // The bell's shared unread set. Every section page listens to it now - a thing somebody has just
+        // shared is one the page has never read, so hearing about it is what makes it re-read - and a
+        // page cannot be rendered at all without one. Empty unless a test puts something in it, which is
+        // the right answer for a test that has not.
+        Services.AddSingleton(new NotificationFeedState());
         // The questions asked before a task list is deleted, which three pages now inject - see
         // TaskListDeletion. Registered here for the same reason Translations is: a test about what a
         // page shows should not fail on a service it never exercises. It resolves the TasksApiClient
