@@ -92,6 +92,13 @@ public sealed record CalendarListEntry
     public bool IsCopy => Event?.IsCopy ?? false;
 
     /// <summary>
+    /// The colour the event was given, painted along the card's own edge - see ItemCard, and
+    /// Orbit.Web's calendar, which colours the same card the same way. A deadline has none: it belongs
+    /// to a list rather than to a colour, and the badge already says which kind of thing it is.
+    /// </summary>
+    public string? Colour => Event?.Colour;
+
+    /// <summary>
     /// Struck through rather than hidden: a day whose errands are all ticked reads differently from an
     /// empty one. False for an appointment, which is not something to tick.
     /// </summary>

@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="UTF-8" ?>
+﻿<?xml version="1.0" encoding="UTF-8" ?>
 <ContentPage
     x:Class="Orbit.Maui.Features.Tasks.TaskListDetailPage"
     xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
@@ -14,7 +14,7 @@
     <Grid RowDefinitions="Auto,*,Auto">
 
 
-    <Grid Grid.Row="1" RowDefinitions="Auto,Auto,Auto,*,Auto,Auto" Padding="20" RowSpacing="10">
+    <Grid Grid.Row="1" RowDefinitions="Auto,Auto,Auto,*,Auto,Auto" Padding="16,16,16,28" RowSpacing="10">
 
         <!-- The list's own name, and the things it can do that are not "tick something off" - the two
              Orbit.Web keeps in its overflow menu. -->
@@ -35,7 +35,7 @@
                      is exactly where reading it off alphabetically helps. What it offers beyond that
                      depends on the list - see ShowListMenuAsync. -->
                 <Button Text="⋯" SemanticProperties.Description="{controls:Translate 'More'}" FontSize="18"
-                        WidthRequest="44" Padding="0" BackgroundColor="Transparent"
+                        WidthRequest="44" Padding="0" BackgroundColor="Transparent" BorderWidth="0"
                         TextColor="{AppThemeBinding Light={StaticResource SubtleTextLight}, Dark={StaticResource SubtleTextDark}}"
                         Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=ShowListMenuCommand, x:DataType=tasks:TaskListDetailPage}" />
             </controls:TitledDescription.Menu>
@@ -74,7 +74,7 @@
         <CollectionView x:Name="Checklist" Grid.Row="3" ItemsSource="{Binding Items}" IsVisible="{Binding IsShowingList}">
 
             <CollectionView.EmptyView>
-                <Label Text="{controls:Translate 'Nothing on this list yet.'}" Padding="24" HorizontalTextAlignment="Center" />
+                <Label Text="{controls:Translate 'Nothing on this list yet.'}" Padding="0,12" Style="{StaticResource EmptyHint}" />
             </CollectionView.EmptyView>
 
             <!-- RelativeSource walks the *visual* tree, so the ancestor named here has to be an element:
@@ -150,7 +150,7 @@
                             </FlexLayout>
                         </VerticalStackLayout>
                         <Button Grid.Column="2" Text="⋯" SemanticProperties.Description="{controls:Translate 'More'}" FontSize="18" WidthRequest="44" Padding="0"
-                                BackgroundColor="Transparent"
+                                BackgroundColor="Transparent" BorderWidth="0"
                                 TextColor="{AppThemeBinding Light={StaticResource SubtleTextLight}, Dark={StaticResource SubtleTextDark}}"
                                 Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=ShowItemMenuCommand, x:DataType=tasks:TaskListDetailPage}"
                                 CommandParameter="{Binding .}" />
@@ -314,7 +314,7 @@
                                 <Label Grid.Column="0" Text="{Binding Name}" VerticalOptions="Center"
                                        LineBreakMode="TailTruncation" />
                                 <Button Grid.Column="1" Text="✕" FontSize="14" WidthRequest="44" Padding="0"
-                                        BackgroundColor="Transparent"
+                                        BackgroundColor="Transparent" BorderWidth="0"
                                         SemanticProperties.Description="{controls:Translate 'Remove'}"
                                         TextColor="{AppThemeBinding Light={StaticResource SubtleTextLight}, Dark={StaticResource SubtleTextDark}}"
                                         Command="{Binding ViewModel.BeingEdited.UnlinkCommand, Source={RelativeSource AncestorType={x:Type ContentPage}}, x:DataType=tasks:TaskListDetailPage}"

@@ -1,0 +1,76 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<ContentView
+    x:Class="Orbit.Maui.Controls.MenuOverlay"
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    xmlns:controls="clr-namespace:Orbit.Maui.Controls"
+    xmlns:screens="clr-namespace:Orbit.Mobile.Screens;assembly=Orbit.Mobile"
+    x:DataType="screens:ScreenMenu"
+    IsVisible="{Binding IsOpen}">
+
+    <!-- The panel a three-dot menu opens - Orbit.Web's .overflow-menu-dropdown, at its own radius,
+         padding and minimum width. One per screen, placed last on the page and spanning its rows so it
+         covers everything: inside a card it would be clipped by the row it sits in, and a menu with
+         the list showing through it is not a menu.
+
+         Where it opens is the one thing that differs from the browser. There, the panel hangs off the
+         control that opened it and is then clamped to the window. Here it takes the edge that control
+         is nearest: a page header's menu hangs from the top, and a card's or the editing rail's opens
+         upwards from the foot of the screen - which is what app.css itself does to a rail menu at the
+         680px breakpoint, since a bar on the bottom edge would otherwise open into the ground. -->
+    <Grid>
+
+        <!-- Pressing anywhere else closes it, which is what a menu does everywhere. -->
+        <BoxView Color="Black" Opacity="0.35">
+            <BoxView.GestureRecognizers>
+                <TapGestureRecognizer Command="{Binding CloseCommand}" />
+            </BoxView.GestureRecognizers>
+        </BoxView>
+
+        <Border x:Name="Panel" Style="{StaticResource MenuPanel}" HorizontalOptions="End"
+                Margin="12,58,12,12" VerticalOptions="Start">
+            <VerticalStackLayout Spacing="0">
+                <Label Text="{Binding Heading}" Style="{StaticResource MenuHeading}"
+                       IsVisible="{Binding Heading, Converter={StaticResource IsNotEmpty}}" />
+
+                <VerticalStackLayout BindableLayout.ItemsSource="{Binding Entries}" Spacing="0">
+                    <BindableLayout.ItemTemplate>
+                        <DataTemplate x:DataType="screens:ScreenMenuEntry">
+                            <Grid ColumnDefinitions="12,*" ColumnSpacing="10" Padding="8,9">
+                                <!-- The tick's own column, kept whether or not this entry is the chosen
+                                     one, so the labels line up down the menu. -->
+                                <Label Grid.Column="0" Text="{Binding Mark}" FontSize="13.5"
+                                       TextColor="{DynamicResource Accent}" VerticalOptions="Center" />
+
+                                <!-- A Label with the press over it rather than a Button: a Button
+                                     centres its text and offers no way to say otherwise, and a menu of
+                                     centred entries is not a menu. -->
+                                <Label Grid.Column="1" Text="{Binding Label}" FontSize="13.5"
+                                       VerticalOptions="Center" LineBreakMode="WordWrap"
+                                       TextColor="{AppThemeBinding Light={StaticResource SubtleTextLight}, Dark={StaticResource SubtleTextDark}}">
+                                    <Label.Triggers>
+                                        <DataTrigger TargetType="Label" Binding="{Binding IsChosen}" Value="True">
+                                            <Setter Property="FontAttributes" Value="Bold" />
+                                            <Setter Property="TextColor"
+                                                    Value="{AppThemeBinding Light={StaticResource TextPrimaryLight}, Dark={StaticResource TextPrimaryDark}}" />
+                                        </DataTrigger>
+                                        <DataTrigger TargetType="Label" Binding="{Binding CanBeChosen}" Value="False">
+                                            <Setter Property="Opacity" Value="0.45" />
+                                        </DataTrigger>
+                                    </Label.Triggers>
+                                </Label>
+
+                                <Button Grid.Column="0" Grid.ColumnSpan="2" Padding="0"
+                                        BackgroundColor="Transparent" BorderWidth="0"
+                                        MinimumHeightRequest="0" MinimumWidthRequest="0"
+                                        Command="{Binding ChooseCommand}"
+                                        IsEnabled="{Binding CanBeChosen}"
+                                        SemanticProperties.Description="{Binding Label}" />
+                            </Grid>
+                        </DataTemplate>
+                    </BindableLayout.ItemTemplate>
+                </VerticalStackLayout>
+            </VerticalStackLayout>
+        </Border>
+    </Grid>
+</ContentView>

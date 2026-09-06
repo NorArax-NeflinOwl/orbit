@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="UTF-8" ?>
+﻿<?xml version="1.0" encoding="UTF-8" ?>
 <ContentPage
     x:Class="Orbit.Maui.Features.Chat.GroupsPage"
     xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
@@ -8,6 +8,7 @@
     xmlns:screens="clr-namespace:Orbit.Mobile.Screens.Chat;assembly=Orbit.Mobile"
     xmlns:chat="clr-namespace:Orbit.Maui.Features.Chat"
     x:DataType="screens:GroupsViewModel"
+    x:Name="Page"
     Title="{controls:Translate 'Groups'}">
 
     <ContentPage.Resources>
@@ -23,16 +24,25 @@
                                 Explanation="{Binding LockedExplanation}"
                                 OpenAccountCommand="{Binding OpenAccountCommand}" />
 
-    <Grid Grid.Row="1" RowDefinitions="Auto,Auto,Auto,*,Auto,Auto" Padding="20" RowSpacing="12"
+    <Grid Grid.Row="1" RowDefinitions="Auto,Auto,Auto,*,Auto,Auto" Padding="16,16,16,28" RowSpacing="12"
           IsVisible="{Binding IsUnlocked}">
 
+        <!-- The plus left of the name, where every other list screen keeps it and where Orbit.Web's
+             chat list keeps its own "new group". It opens the picker below rather than a screen: a
+             group is who is in it, and that is chosen from the same list this page already draws. -->
         <controls:PageHeader Grid.Row="0" Title="{controls:Translate 'Groups'}">
+            <controls:PageHeader.LeadingAction>
+                <controls:IconButton Variant="Add" Data="M10,4 V16 M4,10 H16"
+                                     IsVisible="{Binding IsNotCreating}"
+                                     Description="{controls:Translate 'New group'}"
+                                     Command="{Binding StartCreatingCommand}" />
+            </controls:PageHeader.LeadingAction>
             <controls:PageHeader.Subtitle>
                 <controls:Translate Text="Conversations with more than one other person." />
             </controls:PageHeader.Subtitle>
         </controls:PageHeader>
         <Label Grid.Row="1" Text="{Binding Message}" IsVisible="{Binding HasMessage}"
-               FontSize="12" TextColor="{AppThemeBinding Light={StaticResource SubtleTextLight}, Dark={StaticResource SubtleTextDark}}" LineBreakMode="WordWrap" />
+               LineBreakMode="WordWrap" Style="{StaticResource InfoLabel}" />
 
         <!-- Offered only once something has been put away - see ContactsPage for the rule. -->
         <Grid Grid.Row="2" ColumnDefinitions="*,Auto" ColumnSpacing="8" IsVisible="{Binding HasArchive}">
@@ -64,12 +74,9 @@
                             <controls:PersonRow.Menu>
                                 <!-- Putting a group away, bringing it back, and leaving it - see
                                      ContactsPage for why this is a button rather than a swipe. -->
-                                <Button Text="⋯" SemanticProperties.Description="{controls:Translate 'More'}"
-                                        FontSize="18" WidthRequest="44" Padding="0"
-                                        BackgroundColor="Transparent"
-                                        TextColor="{AppThemeBinding Light={StaticResource SubtleTextLight}, Dark={StaticResource SubtleTextDark}}"
-                                        Command="{Binding ShowGroupMenuCommand, Source={RelativeSource AncestorType={x:Type ContentPage}}, x:DataType=chat:GroupsPage}"
-                                        CommandParameter="{Binding .}" />
+                                <controls:OverflowMenu
+                                    Command="{Binding ShowGroupMenuCommand, Source={RelativeSource AncestorType={x:Type ContentPage}}, x:DataType=chat:GroupsPage}"
+                                    CommandParameter="{Binding .}" />
                             </controls:PersonRow.Menu>
                         </controls:PersonRow>
                     </DataTemplate>
@@ -102,19 +109,19 @@
              creating one, and in the row the picker fills it stretched to the picker's full height,
              putting a button over every name in it. -->
         <Grid Grid.Row="4" ColumnDefinitions="*,*" ColumnSpacing="8" IsVisible="{Binding IsCreating}">
-            <Button Grid.Column="0" Text="{controls:Translate 'Create'}" Command="{Binding CreateCommand}" />
+            <Button Grid.Column="0" Text="{controls:Translate 'Create'}" Style="{StaticResource PrimaryButton}"
+                    Command="{Binding CreateCommand}" />
             <Button Grid.Column="1" Text="{controls:Translate 'Cancel'}" Command="{Binding CancelCreatingCommand}"
                     Style="{StaticResource LinkButton}" />
         </Grid>
-
-        <Button Grid.Row="4" Text="{controls:Translate 'New group'}" Command="{Binding StartCreatingCommand}"
-                IsVisible="{Binding IsNotCreating}" />
 
         <Button Grid.Row="5" Text="{controls:Translate 'Back to chat'}" Command="{Binding GoBackCommand}"
                 Style="{StaticResource LinkButton}" />
 
     </Grid>
         <controls:NavigationBar Grid.Row="0" />
+        <controls:MenuOverlay Grid.Row="0" Grid.RowSpan="3"
+                              BindingContext="{Binding Menu, Source={x:Reference Page}, x:DataType=chat:GroupsPage}" />
         <controls:AvatarMenu Grid.Row="0" Grid.RowSpan="3" />
     </Grid>
 

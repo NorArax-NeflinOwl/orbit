@@ -397,6 +397,38 @@ public sealed class TasksScreenTests : IDisposable
     private static IReadOnlyList<string> Titles(TasksViewModel screen)
         => [.. screen.TaskLists.Select(row => row.Title)];
 
+    /// <summary>
+    /// The card's own menu, which is the only way a list leaves the screen without being opened first -
+    /// see TasksPage, which is where the question in front of it is asked.
+    /// </summary>
+    [Fact]
+    public async Task Deleting_a_list_from_its_card_takes_it_off_the_screen()
+    {
+        await AddAsync("Shopping");
+        var screen = await OpenAsync();
+
+        await screen.DeleteListCommand.ExecuteAsync(Assert.Single(screen.TaskLists));
+
+        Assert.Empty(screen.TaskLists);
+    }
+
+    /// <summary>
+    /// Guarded here as well as on the card. The card leaves the entry out, but a view model that took
+    /// the press anyway would delete somebody else's list the moment anything else called it - which
+    /// is the failure worth a test rather than the drawing.
+    /// </summary>
+    [Fact]
+    public async Task A_list_shared_with_me_is_not_this_readers_to_delete()
+    {
+        await AddAsync("Shopping");
+        var screen = await OpenAsync();
+        var theirs = Assert.Single(screen.TaskLists) with { IsSharedWithMe = true };
+
+        await screen.DeleteListCommand.ExecuteAsync(theirs);
+
+        Assert.Single(screen.TaskLists);
+    }
+
     private async Task AddAsync(params string[] titles)
     {
         foreach (var title in titles)

@@ -16,7 +16,7 @@
     <Grid RowDefinitions="Auto,*,Auto">
 
         <ScrollView Grid.Row="1">
-            <VerticalStackLayout Padding="20" Spacing="14">
+            <VerticalStackLayout Padding="16,16,16,28" Spacing="14">
 
                 <Label Text="{controls:Translate 'Dashboard'}" Style="{StaticResource PageTitle}" />
                 <!-- The page's own overflow, as Orbit.Web has it: which parts of the dashboard to show

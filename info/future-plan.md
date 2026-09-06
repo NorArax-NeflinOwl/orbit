@@ -540,6 +540,48 @@ beside a task belongs here, not in that task's diff. A defect is the exception a
   pull requests, but a direct push to `main` deploys before any workflow can run. Real branch
   protection needs GitHub Pro on a private repository.
 
+## What the Android head's look still owes Orbit.Web
+
+The phone was walked against `app.css` on 2026-09-06 and now shares its type scale, its button roles
+and its shared controls - see [`android-ui-parity.md`](android-ui-parity.md), which is the map of what
+matches and what does not. What that pass left:
+
+- ~~**A card has no overflow menu.**~~ Done: Notes, Tasks and Inventory cards each carry one, with the
+  actions lifted onto the list view models and the same refusals the browser applies - somebody else's
+  note is removed from your own list rather than deleted, a shared list or inventory is not yours to
+  delete, and a private or never-synced inventory is handed to nobody. Two things the browser has that
+  the phone deliberately does not: an "Edit" entry (its press and the card's press open the same screen
+  here) and the second question a group task list asks before deleting what it gathers (the local store
+  deletes one list at a time). See [`android-ui-parity.md`](android-ui-parity.md).
+- ~~**Chat and the calendar's grids have not had the pass.**~~ Done: the month grid's cells are
+  `.calendar-month-grid-day`'s (the lifted surface, a hairline, today tinted, the days either side
+  quiet), a calendar card carries its event's colour along its edge and its own Delete menu, and both
+  conversation screens draw messages as `.chat-bubble` does - the reader's own at the right in the
+  accent, everybody else's at the left, at most 70% of the thread's width. The four platform action
+  sheets in chat and on the calendar are Orbit's own panel now. What the grid deliberately does not
+  copy is the browser's 5.5rem cell full of event chips - see `android-ui-parity.md`.
+- ~~**The map and the account screen have not had the pass.**~~ Done: the map's groups are
+  `.map-panel-section` cards under `.map-panel-heading`s with the map itself in a rounded, hairline
+  frame, and the account screen is `.options-card`s of `.options-row`s - a title, what it does
+  underneath, the control at the far edge - with the tabs underlined in the accent and the delete
+  section in its own red frame. The map stays where the browser hides it below 680px; see
+  `android-ui-parity.md` for why that one rule is not copied.
+- **The chat screens are built but were not walked on a device.** The emulator account has not
+  unlocked Contacts, so the navigation bar draws no way into them and `FeatureLocked` is all those
+  screens show there. The bubbles, the message menus and the row menus want a walk on an account that
+  can chat before they are believed.
+- **A card's footnote says the whole timestamp.** A note card reads "Updated 9/2/2026 7:27 PM" where
+  the browser says "Today", "Yesterday", the weekday within the last week, and only then a date - see
+  `Notes.razor`'s `WhenLastChanged`. `NoteListItem.Updated` is where the phone builds it. Small, but it
+  is the line under every card on the screen.
+- **The `.item-card-unseen` pulse is a colour, not an animation.** The edge takes the danger colour and
+  stays there. The browser breathes it, which is what catches an eye that was elsewhere.
+- **No screen hands `EditorRail` an `Extras` view yet.** The slot and the arrow that folds it away are
+  built and the arrow is left out where nothing fills it, which is what the browser does too - but the
+  browser does fill it: a lock's explanation and the sentence saying why a save was refused are kept in
+  view there whatever the form is scrolled to, and on the phone those are still labels partway up the
+  page. `NoteDetailPage`'s read-only reason and `TaskListDetailPage`'s lock banner are the two to move.
+
 ## Smaller identified follow-ups
 
 - **The phone does not yet describe a product before the shelf exists, and does not ask what to build.**

@@ -1,6 +1,7 @@
 using System.Windows.Input;
 using Orbit.Mobile.Data;
 using Orbit.Mobile.Localization;
+using Orbit.Mobile.Screens;
 using Orbit.Mobile.Screens.Chat;
 
 namespace Orbit.Maui.Features.Chat;
@@ -15,7 +16,7 @@ public partial class GroupsPage : ContentPage
 		// Before InitializeComponent - see ContactsPage.
 		_viewModel = viewModel;
 		_translations = translations;
-		ShowGroupMenuCommand = new Command<LocalChatGroup>(group => _ = ShowGroupMenuAsync(group));
+		ShowGroupMenuCommand = new Command<LocalChatGroup>(ShowGroupMenu);
 
 		InitializeComponent();
 		BindingContext = viewModel;
@@ -24,47 +25,47 @@ public partial class GroupsPage : ContentPage
 	/// <summary>What a row's "⋯" opens: putting a group away, bringing it back, and leaving it.</summary>
 	public ICommand ShowGroupMenuCommand { get; }
 
+	/// <summary>The panel it draws - one per screen, above everything else on it.</summary>
+	public ScreenMenu Menu { get; } = new();
+
 	protected override void OnAppearing()
 	{
 		base.OnAppearing();
 		_viewModel.LoadCommand.Execute(null);
 	}
 
-	private async Task ShowGroupMenuAsync(LocalChatGroup? group)
+	private void ShowGroupMenu(LocalChatGroup? group)
 	{
 		if (group is null)
 		{
 			return;
 		}
 
-		var putAway = group.IsArchived ? _translations["Put back"] : _translations["Archive"];
-		var pin = group.IsPinned ? _translations["Unpin"] : _translations["Pin"];
-		var leave = _translations["Leave group"];
+		List<ScreenMenuEntry> entries = [];
 
-		// Leaving is marked as the destructive one: putting a group away changes nothing for anybody
-		// else, and leaving is seen by the whole group. Pinning is not offered on something put away -
-		// see ContactsPage.
-		string[] choices = group.IsArchived ? [putAway] : [pin, putAway];
-		var chosen = await DisplayActionSheet(group.Name, _translations["Cancel"], leave, choices);
-
-		if (chosen == pin)
+		// Pinning is not offered on something put away - see ContactsPage.
+		if (!group.IsArchived)
 		{
-			_viewModel.TogglePinCommand.Execute(group);
-			return;
+			entries.Add(new ScreenMenuEntry(
+				group.IsPinned ? _translations["Unpin"] : _translations["Pin"],
+				() => _viewModel.TogglePinCommand.Execute(group)));
 		}
 
-		if (chosen == putAway)
-		{
-			_viewModel.SetArchivedCommand.Execute(group);
-			return;
-		}
+		entries.Add(new ScreenMenuEntry(
+			group.IsArchived ? _translations["Put back"] : _translations["Archive"],
+			() => _viewModel.SetArchivedCommand.Execute(group)));
 
-		if (chosen != leave)
-		{
-			return;
-		}
+		// Last, because it is the one everybody else sees: putting a group away changes nothing for
+		// anybody but the reader, and leaving is seen by the whole group.
+		entries.Add(new ScreenMenuEntry(_translations["Leave group"], () => _ = LeaveAsync(group)));
 
-		var confirmed = await DisplayAlert(
+		Menu.Show(entries, group.Name, opensUpwards: true);
+	}
+
+	/// <summary>Asked before it happens, because the whole group sees the answer.</summary>
+	private async Task LeaveAsync(LocalChatGroup group)
+	{
+		var confirmed = await DisplayAlertAsync(
 			_translations["Leave group"],
 			_translations["You stop receiving what is posted, and the group sees you go."],
 			_translations["Leave group"], _translations["Cancel"]);

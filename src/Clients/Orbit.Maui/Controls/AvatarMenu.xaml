@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="UTF-8" ?>
+﻿<?xml version="1.0" encoding="UTF-8" ?>
 <ContentView
     x:Class="Orbit.Maui.Controls.AvatarMenu"
     xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
@@ -51,7 +51,7 @@
                             <Path Data="{StaticResource ReconnectIcon}" InputTransparent="True"
                                   Fill="{DynamicResource Accent}" HeightRequest="18" WidthRequest="18"
                                   Aspect="Uniform" HorizontalOptions="Center" VerticalOptions="Center" />
-                            <Button BackgroundColor="Transparent" Command="{Binding ReconnectCommand}"
+                            <Button BackgroundColor="Transparent" BorderWidth="0" Command="{Binding ReconnectCommand}"
                                     SemanticProperties.Description="{controls:Translate 'Reconnect'}" />
                         </Grid>
                     </Grid>
@@ -73,7 +73,7 @@
                     <Label Grid.Column="0" Text="{controls:Translate 'Status'}" VerticalOptions="Center" />
                     <Label Grid.Column="1" Text="{Binding ChosenDescription}" FontSize="12"
                            VerticalOptions="Center" Style="{StaticResource SubtleLabel}" />
-                    <Button Grid.Column="0" Grid.ColumnSpan="2" BackgroundColor="Transparent"
+                    <Button Grid.Column="0" Grid.ColumnSpan="2" BackgroundColor="Transparent" BorderWidth="0"
                             Command="{Binding ToggleStatusCommand}"
                             SemanticProperties.Description="{controls:Translate 'Status'}" />
                 </Grid>
@@ -91,7 +91,7 @@
                     <Label Grid.Column="0" Text="{controls:Translate 'Language'}" VerticalOptions="Center" />
                     <Label Grid.Column="1" Text="{Binding LanguageDescription}" FontSize="12"
                            VerticalOptions="Center" Style="{StaticResource SubtleLabel}" />
-                    <Button Grid.Column="0" Grid.ColumnSpan="2" BackgroundColor="Transparent"
+                    <Button Grid.Column="0" Grid.ColumnSpan="2" BackgroundColor="Transparent" BorderWidth="0"
                             Command="{Binding ToggleLanguageCommand}"
                             SemanticProperties.Description="{controls:Translate 'Language'}" />
                 </Grid>
@@ -122,7 +122,7 @@
                             <RoundRectangle CornerRadius="6" />
                         </Border.StrokeShape>
                     </Border>
-                    <Button Grid.Column="0" Grid.ColumnSpan="2" BackgroundColor="Transparent"
+                    <Button Grid.Column="0" Grid.ColumnSpan="2" BackgroundColor="Transparent" BorderWidth="0"
                             Command="{Binding GoToUpdateCommand}"
                             SemanticProperties.Description="{controls:Translate 'Update'}" />
                 </Grid>
@@ -142,14 +142,14 @@
                                TextColor="{AppThemeBinding Light={StaticResource White}, Dark={StaticResource PrimaryDarkText}}"
                                HorizontalOptions="Center" VerticalOptions="Center" />
                     </Border>
-                    <Button Grid.Column="0" Grid.ColumnSpan="2" BackgroundColor="Transparent"
+                    <Button Grid.Column="0" Grid.ColumnSpan="2" BackgroundColor="Transparent" BorderWidth="0"
                             Command="{Binding GoToCopyReviewCommand}"
                             SemanticProperties.Description="{controls:Translate 'Copies to review'}" />
                 </Grid>
 
                 <Grid>
                     <Label Text="{controls:Translate 'Settings'}" />
-                    <Button BackgroundColor="Transparent" Command="{Binding GoToAccountCommand}"
+                    <Button BackgroundColor="Transparent" BorderWidth="0" Command="{Binding GoToAccountCommand}"
                             SemanticProperties.Description="{controls:Translate 'Settings'}" />
                 </Grid>
 
@@ -158,7 +158,7 @@
                      default, like Status and Language above. -->
                 <Grid>
                     <Label Text="{controls:Translate 'About'}" />
-                    <Button BackgroundColor="Transparent" Command="{Binding ToggleAboutCommand}"
+                    <Button BackgroundColor="Transparent" BorderWidth="0" Command="{Binding ToggleAboutCommand}"
                             SemanticProperties.Description="{controls:Translate 'About'}" />
                 </Grid>
 
@@ -191,7 +191,7 @@
                 <Grid>
                     <Label Text="{controls:Translate 'Sign out'}"
                            TextColor="{AppThemeBinding Light={StaticResource WarningLight}, Dark={StaticResource WarningDark}}" />
-                    <Button BackgroundColor="Transparent" Command="{Binding SignOutCommand}"
+                    <Button BackgroundColor="Transparent" BorderWidth="0" Command="{Binding SignOutCommand}"
                             SemanticProperties.Description="{controls:Translate 'Sign out'}" />
                 </Grid>
             </VerticalStackLayout>

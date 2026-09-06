@@ -173,6 +173,46 @@ public sealed partial class TasksViewModel : ObservableObject
         }
     }
 
+    /// <summary>
+    /// Getting rid of a list from its own card, which is what Orbit.Web's Tasks card offers. Only for
+    /// a list this reader owns - a shared one is somebody else's, and the card leaves the entry out
+    /// rather than offering a press that would be refused.
+    ///
+    /// What the browser asks second - whether the other lists a group list gathers should go too - is
+    /// not asked here, because the phone's own delete cannot carry the answer: the local store takes
+    /// one list at a time. The group list goes and what it gathered stays, which is the browser's
+    /// answer when somebody cancels that second question.
+    ///
+    /// Asking at all is the page's job, not this one's: what a question looks like is a screen's
+    /// business, and there is nothing here to ask with.
+    /// </summary>
+    [RelayCommand]
+    private async Task DeleteListAsync(TaskListRow? row, CancellationToken cancellationToken)
+    {
+        if (row is not { IsSharedWithMe: false })
+        {
+            return;
+        }
+
+        var outcome = await _taskLists.DeleteAsync(row.LocalId, cancellationToken);
+        if (outcome.WasRefused())
+        {
+            Message = outcome.Explain(RefusalMessage, _translations);
+            return;
+        }
+
+        Message = string.Empty;
+        await ShowStoredListsAsync(cancellationToken);
+        await SynchroniseAsync(cancellationToken);
+    }
+
+    /// <summary>
+    /// The dictionary key, not the text itself - see <see cref="Translations"/>. The same sentence the
+    /// list's own screen uses, because it is the same refusal about the same list.
+    /// </summary>
+    private const string RefusalMessage =
+        "Somebody else can change this list, and Orbit can't be reached to check. It stays read-only until you're back online.";
+
     /// <inheritdoc cref="NotesViewModel.UnlockPrivateAsync"/>
     [RelayCommand]
     private async Task UnlockPrivateAsync(CancellationToken cancellationToken)

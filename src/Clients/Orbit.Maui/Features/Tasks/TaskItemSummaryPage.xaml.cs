@@ -1,8 +1,10 @@
 using System.ComponentModel;
+using System.Windows.Input;
 using Microsoft.Maui.Controls.Maps;
 using Microsoft.Maui.Maps;
 using Orbit.Maui.Platform;
 using Orbit.Mobile.Localization;
+using Orbit.Mobile.Screens;
 using Orbit.Mobile.Screens.Tasks;
 using SensorLocation = Microsoft.Maui.Devices.Sensors.Location;
 
@@ -17,12 +19,18 @@ public partial class TaskItemSummaryPage : ContentPage
 	private static readonly Distance InitialRadius = Distance.FromKilometers(1);
 
 	private readonly TaskItemSummaryViewModel _viewModel;
+	private readonly Translations _translations;
 
 	/// <summary>False when this build cannot show one, which makes the pin below pointless.</summary>
 	private bool _hasMap = true;
 
 	public TaskItemSummaryPage(TaskItemSummaryViewModel viewModel, Translations translations)
 	{
+		// Before InitializeComponent, not after: the rail's menu is bound from the static part of the
+		// tree, which reads a page's plain property exactly once - see CalendarEventDetailPage.
+		_translations = translations;
+		ShowEntryMenuCommand = new Command(ShowEntryMenu);
+
 		InitializeComponent();
 		BindingContext = _viewModel = viewModel;
 
@@ -31,6 +39,21 @@ public partial class TaskItemSummaryPage : ContentPage
 			SayThereIsNoMap(translations);
 		}
 	}
+
+	/// <summary>What the rail's three dots open.</summary>
+	public ICommand ShowEntryMenuCommand { get; }
+
+	/// <summary>The panel they draw - one per screen, above everything else on it.</summary>
+	public ScreenMenu Menu { get; } = new();
+
+	/// <summary>
+	/// The other place this entry can be met. Orbit.Web's own menu here is the same shape - two ways
+	/// out rather than the "all of these · edit · delete" every other object's menu carries, because an
+	/// entry belongs to a list rather than standing on its own.
+	/// </summary>
+	private void ShowEntryMenu() => Menu.Show(
+		[new ScreenMenuEntry(_translations["Show Tasks"], () => _viewModel.ShowTaskListCommand.Execute(null))],
+		opensUpwards: true);
 
 	/// <summary>
 	/// Takes the map out before anything renders it, for the reason MapPage gives: on Android a map

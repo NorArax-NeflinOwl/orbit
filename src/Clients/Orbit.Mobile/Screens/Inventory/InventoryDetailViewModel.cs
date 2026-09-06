@@ -407,7 +407,7 @@ public sealed partial class InventoryDetailViewModel : ObservableObject
 
     /// <summary>The dictionary key, not the text itself - see <see cref="Translations"/>.</summary>
     private const string RefusalMessage =
-        "Somebody else can change this warehouse, and Orbit can't be reached to check. "
+        "Somebody else can change this inventory, and Orbit can't be reached to check. "
         + "It stays read-only until you're back online.";
 
     private async Task SaveAsync(IReadOnlyList<InventoryItemRequest> items, CancellationToken cancellationToken)

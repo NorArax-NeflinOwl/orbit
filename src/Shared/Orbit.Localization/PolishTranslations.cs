@@ -1200,6 +1200,7 @@ public static class PolishTranslations
         ["{0} hr before"] = "{0} godz. wcześniej",
         ["{0} min before"] = "{0} min wcześniej",
         ["Delete \"{0}\"?"] = "Usunąć „{0}”?",
+        ["Delete event \"{0}\"?"] = "Usunąć wydarzenie „{0}”?",
         ["One more"] = "O jeden więcej",
         ["One fewer"] = "O jeden mniej",
         ["One more: {0}"] = "O jeden więcej: {0}",
@@ -1599,6 +1600,8 @@ public static class PolishTranslations
             "Ktoś inny może zmieniać to wydarzenie, a Orbit jest poza zasięgiem i nie da się tego sprawdzić. Zostaje tylko do odczytu, dopóki nie wrócisz online.",
         ["Somebody else can change this note, and Orbit can't be reached to check. It stays read-only until you're back online."] =
             "Ktoś inny może zmieniać tę notatkę, a Orbit jest poza zasięgiem i nie da się tego sprawdzić. Zostaje tylko do odczytu, dopóki nie wrócisz online.",
+        ["Somebody else can change this list, and Orbit can't be reached to check. It stays read-only until you're back online."] =
+            "Ktoś inny może zmieniać tę listę, a Orbit jest poza zasięgiem i nie da się tego sprawdzić. Zostaje tylko do odczytu, dopóki nie wrócisz online.",
         ["This note is private, and its words are sealed with a key this phone doesn't have."] =
             "Ta notatka jest prywatna, a jej treść jest zapieczętowana kluczem, którego ten telefon nie ma.",
         ["No earlier messages could be passed on - this device can't open any of them."] =
@@ -1909,6 +1912,7 @@ public static class PolishTranslations
         ["Names you have already used"] = "Nazwy, których już używasz",
         ["Words you have already used"] = "Słowa, których już używasz",
         ["Delete task list"] = "Usuń listę zadań",
+        ["Delete task list \"{0}\"?"] = "Usunąć listę zadań „{0}”?",
         ["Also give them what was said before they joined"] =
             "Przekaż im też to, co powiedziano przed ich dołączeniem",
         ["Your device re-encrypts each message for them, so only messages it can open are passed on."] =

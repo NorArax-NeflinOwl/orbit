@@ -22,7 +22,7 @@
                                 OpenAccountCommand="{Binding OpenAccountCommand}" />
 
     <ScrollView Grid.Row="1" IsVisible="{Binding IsUnlocked}">
-        <VerticalStackLayout Padding="20" Spacing="12">
+        <VerticalStackLayout Padding="16,16,16,28" Spacing="12">
 
             <controls:PageHeader Title="{controls:Translate 'Map'}">
                 <controls:PageHeader.Subtitle>
@@ -30,92 +30,120 @@
                 </controls:PageHeader.Subtitle>
             </controls:PageHeader>
             <Label Text="{Binding Message}" IsVisible="{Binding HasMessage}"
-                   FontSize="12" TextColor="{AppThemeBinding Light={StaticResource SubtleTextLight}, Dark={StaticResource SubtleTextDark}}" LineBreakMode="WordWrap" />
+                   LineBreakMode="WordWrap" Style="{StaticResource SectionSubtext}" />
 
             <!-- Pins are built in code-behind: the control's pin carries a platform Location, and
                  keeping that out of the view model is what lets the view model be tested at all.
                  Held in a container the code-behind can empty, because a build with no map key must
                  not create the control at all - see MapAvailability. -->
-            <ContentView x:Name="MapArea" HeightRequest="260">
-                <maps:Map x:Name="PositionsMap" IsShowingUser="False" />
-            </ContentView>
+            <!-- .location-map-frame: rounded and cut off at its own edge, so the tiles do not run
+                 into the page. Kept, unlike the browser, which hides the map outright below 680px -
+                 see info/android-ui-parity.md for why that one rule is not copied. -->
+            <Border StrokeThickness="1" Padding="0"
+                    Stroke="{AppThemeBinding Light={StaticResource CardStrokeLight}, Dark={StaticResource CardStrokeDark}}">
+                <Border.StrokeShape>
+                    <RoundRectangle CornerRadius="10" />
+                </Border.StrokeShape>
+                <ContentView x:Name="MapArea" HeightRequest="260">
+                    <maps:Map x:Name="PositionsMap" IsShowingUser="False" />
+                </ContentView>
+            </Border>
 
-            <Label Text="{controls:Translate 'Where you are'}" FontAttributes="Bold" />
-            <Label Text="{Binding OwnPositionDescription}" LineBreakMode="WordWrap" />
-            <!-- Orbit.Web turns the address itself into this link. A phone gets a button instead: a
-                 tappable line of text is not a target anyone aims at. Hidden unless the account
-                 qualifies - see GoogleIntegrationAccess. -->
-            <Button Text="{controls:Translate 'Open in Google Maps'}" HorizontalOptions="Start" FontSize="14"
-                    Style="{StaticResource LinkButton}"
-                    IsVisible="{Binding CanOpenOwnPositionInGoogleMaps}"
-                    Clicked="OnOpenInGoogleMapsClicked" />
-            <ActivityIndicator IsRunning="{Binding IsBusy}" IsVisible="{Binding IsBusy}" HorizontalOptions="Start" />
+            <!-- .map-panel-section: each group on this page is a card of its own, as the browser's
+                 panel draws them. -->
+            <Border Style="{StaticResource PanelSection}">
+                <VerticalStackLayout Spacing="8">
+                    <Label Text="{controls:Translate 'Where you are'}" Style="{StaticResource PanelHeading}" />
+                    <Label Text="{Binding OwnPositionDescription}" LineBreakMode="WordWrap" />
+                    <!-- Orbit.Web turns the address itself into this link. A phone gets a button instead: a
+                         tappable line of text is not a target anyone aims at. Hidden unless the account
+                         qualifies - see GoogleIntegrationAccess. -->
+                    <Button Text="{controls:Translate 'Open in Google Maps'}" HorizontalOptions="Start" FontSize="14"
+                            Style="{StaticResource LinkButton}"
+                            IsVisible="{Binding CanOpenOwnPositionInGoogleMaps}"
+                            Clicked="OnOpenInGoogleMapsClicked" />
+                    <ActivityIndicator IsRunning="{Binding IsBusy}" IsVisible="{Binding IsBusy}" HorizontalOptions="Start" />
 
-            <!-- Wrapping rather than truncating: a translated label is routinely longer than the
-                 English it replaces, and a button that reads "Odczytaj moje położen" is worse than one
-                 that takes two lines. -->
-            <Button Text="{controls:Translate 'Read my position'}" FontSize="14"
-                    LineBreakMode="WordWrap" IsVisible="{Binding IsNotChoosing}"
-                    Command="{Binding ReadMyPositionCommand}" />
+                    <!-- Wrapping rather than truncating: a translated label is routinely longer than the
+                         English it replaces, and a button that reads "Odczytaj moje położen" is worse than
+                         one that takes two lines. -->
+                    <Button Text="{controls:Translate 'Read my position'}" FontSize="14"
+                            LineBreakMode="WordWrap" IsVisible="{Binding IsNotChoosing}"
+                            Style="{StaticResource PrimaryButton}"
+                            Command="{Binding ReadMyPositionCommand}" />
 
-            <!-- Two ways to share, as Orbit.Web offers: the point read a moment ago, or that point and
-                 every one after it while this screen is open. A phone is the thing that moves, so the
-                 second is the one worth having here. -->
-            <Grid ColumnDefinitions="*,*" ColumnSpacing="8" IsVisible="{Binding IsNotChoosing}">
-                <Button Grid.Column="0" Text="{controls:Translate 'Send once'}" FontSize="14"
-                        LineBreakMode="WordWrap" Command="{Binding ShareOnceCommand}"
-                        Style="{StaticResource SecondaryButton}"
-                        IsEnabled="{Binding HasOwnPosition}" />
-                <Button Grid.Column="1" Text="{controls:Translate 'Keep sharing'}" FontSize="14"
-                        LineBreakMode="WordWrap" Command="{Binding KeepSharingCommand}"
-                        IsEnabled="{Binding HasOwnPosition}" />
-            </Grid>
+                    <!-- Two ways to share, as Orbit.Web offers: the point read a moment ago, or that point
+                         and every one after it while this screen is open. A phone is the thing that moves,
+                         so the second is the one worth having here. -->
+                    <Grid ColumnDefinitions="*,*" ColumnSpacing="8" IsVisible="{Binding IsNotChoosing}">
+                        <Button Grid.Column="0" Text="{controls:Translate 'Send once'}" FontSize="14"
+                                LineBreakMode="WordWrap" Command="{Binding ShareOnceCommand}"
+                                IsEnabled="{Binding HasOwnPosition}" />
+                        <!-- Both quiet: reading the position is what this panel is for and carries the
+                             fill, and two filled buttons side by side say neither is the one. On the web
+                             these two are not buttons at all - they are entries in a share's own menu. -->
+                        <Button Grid.Column="1" Text="{controls:Translate 'Keep sharing'}" FontSize="14"
+                                LineBreakMode="WordWrap" Command="{Binding KeepSharingCommand}"
+                                IsEnabled="{Binding HasOwnPosition}" />
+                    </Grid>
+                </VerticalStackLayout>
+            </Border>
 
             <!-- Choosing who to share with replaces the buttons above rather than stacking under them. -->
-            <VerticalStackLayout Spacing="8" IsVisible="{Binding IsChoosingWhoToShareWith}">
-                <Label Text="{controls:Translate 'Share with'}" FontAttributes="Bold" />
-                <CollectionView ItemsSource="{Binding Candidates}" HeightRequest="200">
-                    <CollectionView.ItemTemplate>
-                        <DataTemplate x:DataType="data:LocalContact">
-                            <Grid ColumnDefinitions="*,Auto" Padding="0,8" ColumnSpacing="8">
-                                <Label Grid.Column="0" Text="{Binding DisplayName}" VerticalOptions="Center" />
-                                <Button Grid.Column="1" Text="{controls:Translate 'Share'}" FontSize="13" Padding="14,4"
-                                        Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=ViewModel.ShareWithCommand, x:DataType=location:MapPage}"
-                                        CommandParameter="{Binding .}" />
-                            </Grid>
-                        </DataTemplate>
-                    </CollectionView.ItemTemplate>
-                </CollectionView>
-                <Button Text="{controls:Translate 'Cancel'}" Command="{Binding CancelSharingCommand}"
-                        Style="{StaticResource LinkButton}" />
-            </VerticalStackLayout>
+            <Border Style="{StaticResource PanelSection}" IsVisible="{Binding IsChoosingWhoToShareWith}">
+                <VerticalStackLayout Spacing="8">
+                    <Label Text="{controls:Translate 'Share with'}" Style="{StaticResource PanelHeading}" />
+                    <CollectionView ItemsSource="{Binding Candidates}" HeightRequest="200">
+                        <CollectionView.ItemTemplate>
+                            <DataTemplate x:DataType="data:LocalContact">
+                                <controls:Row Title="{Binding DisplayName}">
+                                    <controls:Row.Trailing>
+                                        <Button Text="{controls:Translate 'Share'}" FontSize="13" Padding="14,4"
+                                                Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=ViewModel.ShareWithCommand, x:DataType=location:MapPage}"
+                                                CommandParameter="{Binding .}" />
+                                    </controls:Row.Trailing>
+                                </controls:Row>
+                            </DataTemplate>
+                        </CollectionView.ItemTemplate>
+                    </CollectionView>
+                    <Button Text="{controls:Translate 'Cancel'}" Command="{Binding CancelSharingCommand}"
+                            HorizontalOptions="Start" Style="{StaticResource LinkButton}" />
+                </VerticalStackLayout>
+            </Border>
 
-            <Label Text="{controls:Translate 'Who can see you'}" FontAttributes="Bold" Margin="0,12,0,0" />
-            <CollectionView ItemsSource="{Binding SharingWith}" HeightRequest="180">
-                <CollectionView.EmptyView>
-                    <Label Text="{controls:Translate 'Nobody.'}" FontSize="12" TextColor="{AppThemeBinding Light={StaticResource SubtleTextLight}, Dark={StaticResource SubtleTextDark}}" />
-                </CollectionView.EmptyView>
-                <CollectionView.ItemTemplate>
-                    <DataTemplate x:DataType="screens:SharingWithRow">
-                        <Grid ColumnDefinitions="*,Auto" Padding="0,8" ColumnSpacing="8">
-                            <VerticalStackLayout Grid.Column="0" Spacing="2" VerticalOptions="Center">
-                                <Label Text="{Binding DisplayName}" FontSize="16" />
-                                <Label Text="{Binding Detail}" FontSize="11" TextColor="{AppThemeBinding Light={StaticResource SubtleTextLight}, Dark={StaticResource SubtleTextDark}}" />
-                            </VerticalStackLayout>
-                            <Button Grid.Column="1" Text="{controls:Translate 'Stop'}" FontSize="13" Padding="14,4"
-                                    Style="{StaticResource LinkButton}"
-                                    Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=ViewModel.StopSharingWithCommand, x:DataType=location:MapPage}"
-                                    CommandParameter="{Binding .}" />
-                        </Grid>
-                    </DataTemplate>
-                </CollectionView.ItemTemplate>
-            </CollectionView>
+            <Border Style="{StaticResource PanelSection}">
+                <VerticalStackLayout Spacing="8">
+                    <Label Text="{controls:Translate 'Who can see you'}" Style="{StaticResource PanelHeading}" />
+                    <CollectionView ItemsSource="{Binding SharingWith}" HeightRequest="180">
+                        <CollectionView.EmptyView>
+                            <Label Text="{controls:Translate 'Nobody.'}" Style="{StaticResource EmptyHint}" />
+                        </CollectionView.EmptyView>
+                        <CollectionView.ItemTemplate>
+                            <DataTemplate x:DataType="screens:SharingWithRow">
+                                <controls:Row Title="{Binding DisplayName}">
+                                    <controls:Row.Trailing>
+                                        <HorizontalStackLayout Spacing="8">
+                                            <Label Text="{Binding Detail}" Style="{StaticResource RowMeta}" />
+                                            <Button Text="{controls:Translate 'Stop'}" FontSize="13" Padding="14,4"
+                                                    Style="{StaticResource LinkButton}"
+                                                    Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=ViewModel.StopSharingWithCommand, x:DataType=location:MapPage}"
+                                                    CommandParameter="{Binding .}" />
+                                        </HorizontalStackLayout>
+                                    </controls:Row.Trailing>
+                                </controls:Row>
+                            </DataTemplate>
+                        </CollectionView.ItemTemplate>
+                    </CollectionView>
+                </VerticalStackLayout>
+            </Border>
 
-            <Label Text="{controls:Translate 'Shared with you'}" FontAttributes="Bold" Margin="0,12,0,0" />
+            <Border Style="{StaticResource PanelSection}">
+            <VerticalStackLayout Spacing="8">
+            <Label Text="{controls:Translate 'Shared with you'}" Style="{StaticResource PanelHeading}" />
             <CollectionView ItemsSource="{Binding SharedWithMe}" HeightRequest="200">
                 <CollectionView.EmptyView>
-                    <Label Text="{controls:Translate 'Nobody is sharing their position with you.'}" FontSize="12"
-                           TextColor="{AppThemeBinding Light={StaticResource SubtleTextLight}, Dark={StaticResource SubtleTextDark}}" LineBreakMode="WordWrap" />
+                    <Label Text="{controls:Translate 'Nobody is sharing their position with you.'}"
+                           LineBreakMode="WordWrap" Style="{StaticResource EmptyHint}" />
                 </CollectionView.EmptyView>
                 <CollectionView.ItemTemplate>
                     <DataTemplate x:DataType="mobile:ReceivedPosition">
@@ -146,7 +174,8 @@
                     </DataTemplate>
                 </CollectionView.ItemTemplate>
             </CollectionView>
-
+            </VerticalStackLayout>
+            </Border>
 
         </VerticalStackLayout>
     </ScrollView>

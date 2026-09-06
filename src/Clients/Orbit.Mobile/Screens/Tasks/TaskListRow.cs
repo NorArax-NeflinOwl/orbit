@@ -22,6 +22,11 @@ namespace Orbit.Mobile.Screens.Tasks;
 /// </param>
 /// <param name="IsHidden"><inheritdoc cref="NoteListItem.IsHidden" path="/summary"/></param>
 /// <param name="IsCopy"><inheritdoc cref="Notes.NoteListItem" path="/param[@name='IsCopy']/node()"/></param>
+/// <param name="IsSharedWithMe">
+/// Somebody else's list, on this reader's screen because they were given it. What the row's own menu
+/// may offer turns on this: deleting a list that is not yours is not this reader's to do, so the card
+/// does not offer it - the same guard Orbit.Web's Tasks card carries.
+/// </param>
 public sealed record TaskListRow(
     Guid LocalId, string Title, int ItemCount, int CompletedCount, bool IsPinned,
     DateTimeOffset UpdatedAtUtc, bool HasUnsentChanges, OfflineEditRefusal Refusal,
@@ -34,6 +39,12 @@ public sealed record TaskListRow(
 
     /// <inheritdoc cref="NoteListItem.CanBeOpened"/>
     public bool CanBeOpened => !IsHidden;
+
+    /// <summary>
+    /// <inheritdoc cref="NoteListItem.HasCardMenu" path="/summary/node()"/> A shared list has none:
+    /// deleting it is not this reader's to do, and that is the only thing the card offers.
+    /// </summary>
+    public bool HasCardMenu => !IsSharedWithMe;
 
     /// <param name="everyList">
     /// What else the phone holds, so a row that only points at another list can be looked up on the list

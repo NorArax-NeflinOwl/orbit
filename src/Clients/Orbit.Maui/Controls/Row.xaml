@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<ContentView
+    x:Class="Orbit.Maui.Controls.Row"
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    xmlns:controls="clr-namespace:Orbit.Maui.Controls"
+    x:Name="Root">
+
+    <!-- Orbit.Web's .list-row: a fact and its value, on one line, with a hairline under it. Where the
+         row opens something, the whole row is the target rather than only its title - the avatar, the
+         status dot and the meta text are part of the same thing, which is what a row looks like it
+         should do (.list-row-button).
+
+             [leading] Title .......................... [trailing]
+             ______________________________________________________
+
+         A title-less row is allowed, and draws no title column at all rather than an empty one: an
+         empty label still claims the width that pushes the row's one value to the far edge. -->
+    <Grid RowDefinitions="Auto,Auto">
+        <Grid Grid.Row="0" ColumnDefinitions="Auto,*,Auto" ColumnSpacing="10" Padding="4,10">
+            <ContentView x:Name="LeadingHost" Grid.Column="0" IsVisible="False" VerticalOptions="Center" />
+
+            <Label x:Name="TitleLabel" Grid.Column="1" Style="{StaticResource RowTitle}"
+                   Text="{Binding Title, Source={x:Reference Root}, x:DataType=controls:Row}" />
+
+            <ContentView x:Name="TrailingHost" Grid.Column="2" IsVisible="False" VerticalOptions="Center" />
+
+            <!-- Over the row rather than around it, so anything in Trailing with a press of its own -
+                 a member count that opens the roster - still takes the press first. -->
+            <Button x:Name="Press" Grid.Column="0" Grid.ColumnSpan="3" IsVisible="False" Padding="0"
+                    BackgroundColor="Transparent" BorderWidth="0"
+                    MinimumHeightRequest="0" MinimumWidthRequest="0" />
+        </Grid>
+
+        <BoxView x:Name="Divider" Grid.Row="1" Style="{StaticResource Hairline}" />
+    </Grid>
+</ContentView>

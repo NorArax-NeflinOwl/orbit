@@ -7,24 +7,29 @@
     xmlns:inventory="clr-namespace:Orbit.Maui.Features.Inventory"
     xmlns:screens="clr-namespace:Orbit.Mobile.Screens.Inventory;assembly=Orbit.Mobile"
     x:DataType="screens:InventoryViewModel"
+    x:Name="Page"
     Title="{controls:Translate 'Inventory'}">
 
     <Grid RowDefinitions="Auto,*,Auto">
 
 
-    <Grid Grid.Row="1" RowDefinitions="Auto,Auto,Auto,*,Auto" Padding="20" RowSpacing="10">
+    <Grid Grid.Row="1" RowDefinitions="Auto,Auto,Auto,*,Auto" Padding="16,16,16,28" RowSpacing="10">
 
 
+        <!-- The plus left of the name, as Orbit.Web's Inventory header has it. -->
         <controls:PageHeader Grid.Row="0" Title="{controls:Translate 'Inventory'}">
-            <controls:PageHeader.Subtitle>
-                <controls:Translate Text="Keep separate stocks in separate inventories, and share one with someone over chat." />
-            </controls:PageHeader.Subtitle>
+            <controls:PageHeader.LeadingAction>
+                <controls:IconButton x:Name="AddButton" Variant="Add" Data="M10,4 V16 M4,10 H16"
+                                     Description="{controls:Translate 'Add inventory'}" />
+            </controls:PageHeader.LeadingAction>
         </controls:PageHeader>
 
-        <Grid Grid.Row="1" ColumnDefinitions="*,Auto" ColumnSpacing="8">
-            <Entry Grid.Column="0" Placeholder="{controls:Translate 'New inventory'}" Text="{Binding NewInventoryName}"
+        <Grid x:Name="AddRow" IsVisible="False" Grid.Row="1" ColumnDefinitions="*,Auto" ColumnSpacing="8">
+            <Entry x:Name="AddField" Grid.Column="0" Placeholder="{controls:Translate 'New inventory'}"
+                   Text="{Binding NewInventoryName}"
                    ReturnType="Done" ReturnCommand="{Binding AddInventoryCommand}" />
-            <Button Grid.Column="1" Text="{controls:Translate 'Add'}" Command="{Binding AddInventoryCommand}" />
+            <Button Grid.Column="1" Text="{controls:Translate 'Add'}" Style="{StaticResource PrimaryButton}"
+                    Command="{Binding AddInventoryCommand}" />
         </Grid>
 
         <!-- "Which inventory is the flour in?" - the one question this page could not answer, since it
@@ -40,18 +45,27 @@
                             SelectionChangedCommandParameter="{Binding SelectedItem, Source={RelativeSource Self}, x:DataType=CollectionView}">
 
                 <CollectionView.EmptyView>
-                    <Label Text="{controls:Translate 'No inventories yet.'}" Padding="24" HorizontalTextAlignment="Center" />
+                    <Label Text="{controls:Translate 'No inventories yet.'}" Padding="0,12" Style="{StaticResource EmptyHint}" />
                 </CollectionView.EmptyView>
 
                 <CollectionView.ItemTemplate>
                     <DataTemplate x:DataType="screens:InventoryRow">
                         <!-- The same card every list of things is drawn with - see ItemCard. -->
                         <controls:ItemCard Name="{Binding DisplayName}">
+                            <controls:ItemCard.Menu>
+                                <!-- What can be done to the inventory without opening it, in the
+                                     corner every card keeps its menu in - see Orbit.Web's own
+                                     Inventory card, which offers the same two. -->
+                                <controls:OverflowMenu IsVisible="{Binding HasCardMenu}"
+                                                       Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=ShowCardMenuCommand, x:DataType=inventory:InventoryPage}"
+                                                       CommandParameter="{Binding .}" />
+                            </controls:ItemCard.Menu>
+
                             <controls:ItemCard.Tags>
                                 <!-- Two cards with the same name are otherwise indistinguishable, and
                                      the reader has no way of telling which one they wrote in. -->
                                 <Label Text="{controls:Translate 'copy'}" IsVisible="{Binding IsCopy}"
-                                       FontSize="11" Style="{StaticResource SubtleLabel}" />
+                                       Style="{StaticResource RowMeta}" />
                             </controls:ItemCard.Tags>
 
                             <controls:ItemCard.Body>
@@ -62,14 +76,15 @@
                                             FontSize="12" Padding="12,2" HorizontalOptions="Start"
                                             Style="{StaticResource LinkButton}"
                                             Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=ViewModel.UnlockPrivateCommand, x:DataType=inventory:InventoryPage}" />
-                                    <Label Text="{Binding Contents}" IsVisible="{Binding CanBeOpened}" FontSize="12"
-                                           Style="{StaticResource SubtleLabel}" />
+                                    <Label Text="{Binding Contents}" IsVisible="{Binding CanBeOpened}"
+                                           Style="{StaticResource ItemCardBody}" />
                                 </VerticalStackLayout>
                             </controls:ItemCard.Body>
 
                             <controls:ItemCard.Extras>
-                                <Label Text="{Binding Status}" IsVisible="{Binding HasStatus}" FontSize="12"
-                                       LineBreakMode="WordWrap" TextColor="{DynamicResource Accent}" />
+                                <Label Text="{Binding Status}" IsVisible="{Binding HasStatus}"
+                                       LineBreakMode="WordWrap" Style="{StaticResource ItemCardFooter}"
+                                       TextColor="{DynamicResource Accent}" />
                             </controls:ItemCard.Extras>
                         </controls:ItemCard>
                     </DataTemplate>
@@ -88,32 +103,43 @@
 
                 <CollectionView.EmptyView>
                     <Label Text="{controls:Translate 'Nothing on any shelf matches that.'}"
-                           Padding="24" HorizontalTextAlignment="Center" />
+                           Padding="0,12" Style="{StaticResource EmptyHint}" />
                 </CollectionView.EmptyView>
 
                 <CollectionView.ItemTemplate>
                     <DataTemplate x:DataType="screens:InventoryItemMatch">
-                        <Grid Padding="0,12" ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto" RowSpacing="2">
-                            <Label Grid.Row="0" Grid.Column="0" Text="{Binding Name}" FontSize="17" FontAttributes="Bold" />
-                            <Label Grid.Row="0" Grid.Column="1" Text="{Binding Amount}" FontSize="15" VerticalOptions="Center" />
-                            <!-- Where it is, which is what was asked. -->
-                            <Label Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="2" Text="{Binding InventoryName}"
-                                   FontSize="12" TextColor="{AppThemeBinding Light={StaticResource SubtleTextLight}, Dark={StaticResource SubtleTextDark}}" />
-                            <BoxView Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="2" HeightRequest="1" Margin="0,12,0,0" VerticalOptions="End"
-                                     Color="{AppThemeBinding Light={StaticResource CardStrokeLight}, Dark={StaticResource CardStrokeDark}}" />
-                        </Grid>
+                        <controls:Row Title="{Binding Name}">
+                            <controls:Row.Trailing>
+                                <!-- How much, and then where it is - which is what was asked. -->
+                                <HorizontalStackLayout Spacing="10">
+                                    <Label Text="{Binding Amount}" Style="{StaticResource RowMeta}" />
+                                    <Label Text="{Binding InventoryName}" Style="{StaticResource RowMeta}" />
+                                </HorizontalStackLayout>
+                            </controls:Row.Trailing>
+                        </controls:Row>
                     </DataTemplate>
                 </CollectionView.ItemTemplate>
 
             </CollectionView>
 
-            <Label Grid.Row="1" Text="{Binding ItemMatchSummary}" FontSize="12" LineBreakMode="WordWrap"
-                   IsVisible="{Binding IsSearchingItems}" Style="{StaticResource SubtleLabel}" />
+            <Label Grid.Row="1" Text="{Binding ItemMatchSummary}" LineBreakMode="WordWrap"
+                   IsVisible="{Binding IsSearchingItems}" Style="{StaticResource EmptyHint}" />
         </Grid>
 
+        <!-- Why a press could not do what it said, and the panel that offers one of these to somebody
+             else. The browser opens that panel inside the card it was asked from; one panel serves the
+             whole screen here, and it is told which inventory it is about when it opens - see
+             InventoryViewModel.OfferToShare. -->
+        <VerticalStackLayout Grid.Row="4" Spacing="8">
+            <Label Text="{Binding Message}" IsVisible="{Binding HasMessage}" LineBreakMode="WordWrap"
+                   Style="{StaticResource ErrorLabel}" />
+            <controls:SharePanel BindingContext="{Binding Share}" />
+        </VerticalStackLayout>
 
     </Grid>
         <controls:NavigationBar Grid.Row="0" />
+        <controls:MenuOverlay Grid.Row="0" Grid.RowSpan="3"
+                              BindingContext="{Binding Menu, Source={x:Reference Page}, x:DataType=inventory:InventoryPage}" />
         <controls:AvatarMenu Grid.Row="0" Grid.RowSpan="3" />
     </Grid>
 

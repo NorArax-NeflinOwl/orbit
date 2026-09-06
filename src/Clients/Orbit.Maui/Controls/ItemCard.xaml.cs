@@ -55,7 +55,25 @@ public partial class ItemCard : ContentView
 		nameof(Body), typeof(View), typeof(ItemCard), propertyChanged: (card, _, value) => Fill(card, "BodyHost", value));
 
 	public static readonly BindableProperty ExtrasProperty = BindableProperty.Create(
-		nameof(Extras), typeof(View), typeof(ItemCard), propertyChanged: (card, _, value) => Fill(card, "ExtrasHost", value));
+		nameof(Extras), typeof(View), typeof(ItemCard),
+		propertyChanged: (card, _, value) => ((ItemCard)card).Foot(value as View));
+
+	/// <summary>
+	/// A colour this card is about - an event's own. Taken as the string the event stores rather than
+	/// as a Color, because that is what travels: an event with none set has null here and the card
+	/// draws no strip at all, which is not the same as drawing one in the accent.
+	/// </summary>
+	public static readonly BindableProperty AccentColourProperty = BindableProperty.Create(
+		nameof(AccentColour), typeof(string), typeof(ItemCard),
+		propertyChanged: (card, _, value) => ((ItemCard)card).PaintTheEdge(value as string));
+
+	/// <summary>
+	/// Kept at the top of its list by the reader. Marked by its edge rather than by moving it
+	/// somewhere else - it has already moved to the top, and saying so twice is noise.
+	/// </summary>
+	public static readonly BindableProperty IsPinnedProperty = BindableProperty.Create(
+		nameof(IsPinned), typeof(bool), typeof(ItemCard), false,
+		propertyChanged: (card, _, _) => ((ItemCard)card).Edge());
 
 	public ItemCard() => InitializeComponent();
 
@@ -145,6 +163,20 @@ public partial class ItemCard : ContentView
 		set => SetValue(ExtrasProperty, value);
 	}
 
+	/// <inheritdoc cref="AccentColourProperty"/>
+	public string? AccentColour
+	{
+		get => (string?)GetValue(AccentColourProperty);
+		set => SetValue(AccentColourProperty, value);
+	}
+
+	/// <inheritdoc cref="IsPinnedProperty"/>
+	public bool IsPinned
+	{
+		get => (bool)GetValue(IsPinnedProperty);
+		set => SetValue(IsPinnedProperty, value);
+	}
+
 	private static void OnNameChanged(BindableObject bindable, object oldValue, object newValue)
 	{
 		var card = (ItemCard)bindable;
@@ -162,7 +194,69 @@ public partial class ItemCard : ContentView
 	}
 
 	private static void OnUnseenChanged(BindableObject bindable, object oldValue, object newValue)
-		=> ((ItemCard)bindable).ActionMark.IsVisible = newValue is true;
+	{
+		var card = (ItemCard)bindable;
+		card.ActionMark.IsVisible = newValue is true;
+		card.Edge();
+	}
+
+	/// <summary>
+	/// The card's own edge says what the marks inside it say, because a dot nine pixels across is easy
+	/// to miss on a page of cards. News first, then pinned: a pinned card with something on it is a
+	/// card with something on it.
+	/// </summary>
+	private void Edge()
+	{
+		if (HasUnseenAction)
+		{
+			Frame.SetAppTheme(Border.StrokeProperty, Look("DangerLight"), Look("DangerDark"));
+			return;
+		}
+
+		if (IsPinned)
+		{
+			Frame.SetDynamicResource(Border.StrokeProperty, "Accent");
+			return;
+		}
+
+		Frame.RemoveDynamicResource(Border.StrokeProperty);
+		Frame.SetAppTheme(Border.StrokeProperty, Look("CardStrokeLight"), Look("CardStrokeDark"));
+	}
+
+	private void PaintTheEdge(string? colour)
+	{
+		var known = !string.IsNullOrWhiteSpace(colour) && Color.TryParse(colour, out var parsed);
+		AccentEdge.IsVisible = known;
+
+		if (known)
+		{
+			AccentEdge.Color = Color.Parse(colour!);
+		}
+	}
+
+	private static Brush Look(string key)
+		=> Application.Current?.Resources.TryGetValue(key, out var value) is true && value is Color colour
+			? new SolidColorBrush(colour)
+			: Brush.Transparent;
+
+	/// <summary>
+	/// The footnote and the hairline above it go together: a card with nothing to say about itself
+	/// must not end in a line drawn under nothing.
+	/// </summary>
+	private void Foot(View? extras)
+	{
+		Slot.Fill(ExtrasHost, extras);
+		Footer.IsVisible = extras is not null;
+
+		if (extras is not null)
+		{
+			Footer.SetBinding(IsVisibleProperty, static (View held) => held.IsVisible, source: extras);
+		}
+		else
+		{
+			Footer.RemoveBinding(IsVisibleProperty);
+		}
+	}
 
 	private static void OnOpenChanged(BindableObject bindable, object oldValue, object newValue)
 	{

@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="UTF-8" ?>
+﻿<?xml version="1.0" encoding="UTF-8" ?>
 <ContentView
     x:Class="Orbit.Maui.Controls.PinButton"
     xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
@@ -32,7 +32,7 @@
         <!-- The tap lives on a Button rather than on the Grid: a Grid carrying a gesture is focusable
              to a screen reader but not clickable, so the double tap that activates a control does
              nothing to it. The drawn pin sits underneath and takes no input. -->
-        <Button x:Name="Tap" BackgroundColor="Transparent"
+        <Button x:Name="Tap" BackgroundColor="Transparent" BorderWidth="0"
                 Command="{Binding Command, Source={x:Reference Root}, x:DataType=controls:PinButton}"
                 CommandParameter="{Binding CommandParameter, Source={x:Reference Root}, x:DataType=controls:PinButton}" />
     </Grid>

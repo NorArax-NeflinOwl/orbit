@@ -12,7 +12,21 @@ public partial class PageHeader : ContentView
 		BindableProperty.Create(nameof(Title), typeof(string), typeof(PageHeader), string.Empty);
 
 	public static readonly BindableProperty SubtitleProperty =
-		BindableProperty.Create(nameof(Subtitle), typeof(string), typeof(PageHeader), string.Empty);
+		BindableProperty.Create(nameof(Subtitle), typeof(string), typeof(PageHeader), string.Empty,
+			propertyChanged: OnSubtitleChanged);
+
+	/// <summary>
+	/// The one control that makes another of whatever the screen lists, left of its name - see
+	/// Orbit.Web's PageHeader.LeadingAction and the four list screens that carry one.
+	/// </summary>
+	public static readonly BindableProperty LeadingActionProperty = BindableProperty.Create(
+		nameof(LeadingAction), typeof(View), typeof(PageHeader),
+		propertyChanged: (header, _, value) => Fill(header, "LeadingHost", value));
+
+	/// <summary>Whatever belongs at the header's other end - how the page is read, rather than what is on it.</summary>
+	public static readonly BindableProperty ActionsProperty = BindableProperty.Create(
+		nameof(Actions), typeof(View), typeof(PageHeader),
+		propertyChanged: (header, _, value) => Fill(header, "ActionsHost", value));
 
 	public PageHeader() => InitializeComponent();
 
@@ -28,4 +42,28 @@ public partial class PageHeader : ContentView
 		get => (string)GetValue(SubtitleProperty);
 		set => SetValue(SubtitleProperty, value);
 	}
+
+	/// <inheritdoc cref="LeadingActionProperty"/>
+	public View? LeadingAction
+	{
+		get => (View?)GetValue(LeadingActionProperty);
+		set => SetValue(LeadingActionProperty, value);
+	}
+
+	/// <inheritdoc cref="ActionsProperty"/>
+	public View? Actions
+	{
+		get => (View?)GetValue(ActionsProperty);
+		set => SetValue(ActionsProperty, value);
+	}
+
+	/// <summary>
+	/// A screen with nothing to say for itself is just its name: an empty subtitle used to leave a
+	/// blank line under every heading, which is the gap the web does not draw.
+	/// </summary>
+	private static void OnSubtitleChanged(BindableObject bindable, object oldValue, object newValue)
+		=> ((PageHeader)bindable).SubtitleLabel.IsVisible = !string.IsNullOrWhiteSpace(newValue as string);
+
+	private static void Fill(BindableObject bindable, string host, object? content)
+		=> Slot.Fill((ContentView)((PageHeader)bindable).FindByName(host), content);
 }
