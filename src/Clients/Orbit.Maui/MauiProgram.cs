@@ -75,6 +75,9 @@ public static class MauiProgram
 		// Orbit.Web's text box, on Android's own fields - see FieldBox for why it is a handler mapper
 		// rather than a Border around every one of them.
 		Orbit.Maui.Platform.FieldBox.DrawOnEveryField();
+		// And the track under a switch that is off, which Android paints near-white on the light theme -
+		// see SwitchTrack.
+		Orbit.Maui.Platform.SwitchTrack.DrawOnEverySwitch();
 #endif
 
 		RegisterPlatformServices(builder.Services);

@@ -520,6 +520,9 @@ matches and what does not. What that pass left:
   the browser says "Today", "Yesterday", the weekday within the last week, and only then a date - see
   `Notes.razor`'s `WhenLastChanged`. `NoteListItem.Updated` is where the phone builds it. Small, but it
   is the line under every card on the screen.
+- **A `Stepper`'s two buttons take Android's colours, not Orbit's.** MAUI exposes none for them, so
+  the two on the account screen are the one control there that does not look like the rest of the app.
+  A handler mapper could tint them the way `SwitchTrack` tints a switch's track.
 - **The `.item-card-unseen` pulse is a colour, not an animation.** The edge takes the danger colour and
   stays there. The browser breathes it, which is what catches an eye that was elsewhere.
 - **No screen hands `EditorRail` an `Extras` view yet.** The slot and the arrow that folds it away are

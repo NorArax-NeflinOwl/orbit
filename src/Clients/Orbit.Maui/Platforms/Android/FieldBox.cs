@@ -14,11 +14,7 @@ namespace Orbit.Maui.Platform;
 /// form that reads as a form in the browser read as a list of underlined words here.
 ///
 /// Applied through the handler mappers rather than by wrapping every field in a Border, because there
-/// are well over a hundred of them and one that was missed would be the odd one out. Resolved against
-/// the theme in force when the field is created: MAUI does not re-run a mapper when the theme changes,
-/// and it does not have to - AppNavigator replaces the page on every navigation, and the screen that
-/// changes the theme re-shows itself, which is the same argument TranslateExtension already makes for
-/// the language.
+/// are well over a hundred of them and one that was missed would be the odd one out.
 /// </summary>
 internal static class FieldBox
 {
@@ -30,12 +26,17 @@ internal static class FieldBox
 
 	public static void DrawOnEveryField()
 	{
-		EntryHandler.Mapper.AppendToMapping(nameof(FieldBox), (handler, view) => Box(handler.PlatformView, view));
-		EditorHandler.Mapper.AppendToMapping(nameof(FieldBox), (handler, view) => Box(handler.PlatformView, view));
-		SearchBarHandler.Mapper.AppendToMapping(nameof(FieldBox), (handler, view) => Box(handler.PlatformView, view));
-		PickerHandler.Mapper.AppendToMapping(nameof(FieldBox), (handler, view) => Box(handler.PlatformView, view));
-		DatePickerHandler.Mapper.AppendToMapping(nameof(FieldBox), (handler, view) => Box(handler.PlatformView, view));
-		TimePickerHandler.Mapper.AppendToMapping(nameof(FieldBox), (handler, view) => Box(handler.PlatformView, view));
+		// Appended under the background's own key rather than a name of ours: MAUI runs every key once
+		// when a field is created, and this one again whenever the background changes - which is what a
+		// theme switch is, since the implicit styles set it through an AppThemeBinding. Keyed to our own
+		// name instead, MAUI's MapBackground would paint over the box the moment the reader chose the
+		// other theme, and the field would show Android's line again until the screen was rebuilt.
+		EntryHandler.Mapper.AppendToMapping(nameof(IView.Background), (handler, view) => Box(handler.PlatformView, view));
+		EditorHandler.Mapper.AppendToMapping(nameof(IView.Background), (handler, view) => Box(handler.PlatformView, view));
+		SearchBarHandler.Mapper.AppendToMapping(nameof(IView.Background), (handler, view) => Box(handler.PlatformView, view));
+		PickerHandler.Mapper.AppendToMapping(nameof(IView.Background), (handler, view) => Box(handler.PlatformView, view));
+		DatePickerHandler.Mapper.AppendToMapping(nameof(IView.Background), (handler, view) => Box(handler.PlatformView, view));
+		TimePickerHandler.Mapper.AppendToMapping(nameof(IView.Background), (handler, view) => Box(handler.PlatformView, view));
 	}
 
 	private static void Box(Android.Views.View? field, IView asked)
