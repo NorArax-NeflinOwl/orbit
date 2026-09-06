@@ -487,18 +487,22 @@ beside a task belongs here, not in that task's diff. A defect is the exception a
   now says what the `ci-pipeline` skill says: ACR Tasks were blocked on the free trial, are not blocked
   now, and the runner build stays because it is the verified path rather than because anything forbids
   the alternative.
-- **Whether the Container Apps ingress sets `X-Forwarded-For` at all is still unmeasured.** It could not
-  be answered from outside, because until 2026-09-06 nothing in the system read or logged that header.
-  The throttling added that day is therefore built so that no answer can make things worse: nginx
-  derives the caller with `real_ip_recursive`, and logs the chain as `xff="..."`. **One look at
-  `az containerapp logs show -n orbit-web` after the next deploy settles it**, and the numbers can then
-  be set on evidence instead of caution:
-  - if the chain carries the caller, the per-client limits are real and the ceilings in
-    `RateLimiterPolicies` (120 anonymous auth attempts a minute, 600 public share reads) can come down;
-  - if it is absent, the per-client zones collapse into the global one and those ceilings are the only
-    thing working, which is why they were set generously;
-  - if it is forgeable, the ceilings are the bound - a spoofing caller gets 120 password attempts a
-    minute rather than no limit at all.
+- ~~**Whether the Container Apps ingress sets `X-Forwarded-For` at all is still unmeasured.**~~
+  **Measured on 2026-09-06, and it does.** A plain request to the deployment logged
+  `xff="46.205.200.84"` - the caller's own address. A request carrying a forged header logged
+  `xff="203.0.113.250,46.205.200.84"`: the forgery is on the left and **the ingress appends the real
+  address on the right**, which is exactly the shape `real_ip_recursive` is built for, since it walks
+  from the right and stops at the first untrusted entry.
+
+  So the per-caller limits are real and a client cannot choose its own bucket. What that measurement
+  also caught is that they were not working at all until `real_ip_header X-Forwarded-For` was added -
+  the module defaults to `X-Real-IP`, nothing sends that inbound, and `nginx -t` accepts the
+  configuration either way.
+
+  The ceilings in `RateLimiterPolicies` (120 anonymous auth attempts a minute, 600 public share reads)
+  were sized for the case where the address could be forged. That case is now measured not to apply, so
+  they can come down towards what honest traffic actually needs - a decision worth taking deliberately
+  rather than as part of the fix that made them measurable.
 - **17 of 147 endpoints carry a *named* rate limit.** The rest are now covered by
   `RateLimiterPolicies.FloodStop`, a coarse per-caller limit over everything, kept in memory rather than
   in the shared PostgreSQL window because that one costs a round trip per permitted request and this one
