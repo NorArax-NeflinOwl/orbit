@@ -483,29 +483,26 @@ beside a task belongs here, not in that task's diff. A defect is the exception a
   subscription has been pay-as-you-go for a while; the runner build is now kept because it is the
   established, verified path, not because `az acr build` is blocked. The reasoning is recorded
   correctly in the `ci-pipeline` skill, and only these two documents lag behind it.
-- **Nothing throttles the public surface, and one client can lock everybody out of signing in.**
-  Checked on 2026-09-06 against the deployed configuration, and worth taking in order:
-  - **`RemoteIpAddress` is never the caller's.** `Program.cs` does not call `UseForwardedHeaders`, so
-    behind the Container Apps ingress every request appears to come from the same address.
-    `RateLimiterPolicies` partitions the `Auth` policy by the `sub` claim *or*, failing that, by that
-    address - and an anonymous login, registration or password reset has no `sub`. So **every anonymous
-    auth attempt in the installation shares one bucket of five a minute**, and `PublicShare` shares one
-    bucket of thirty a minute for every shared link that exists. Roughly five requests a minute from
-    anywhere makes sign-in answer 429 for everyone. The comment in that file already names the proxy
-    problem for the signed-in case; the anonymous fallback is the same problem unhandled. Trusting
-    `X-Forwarded-For` is the fix and has to be done carefully - only from the known proxy, or the header
-    becomes a way to forge a partition and the limiter gets weaker rather than stronger.
-  - **There is no autoscaling.** Both apps are `max-replicas 1` with no scale rules, at 0.25 vCPU and
-    0.5 GiB, and `orbit-web` is the only thing on the internet - browser and phone both go through it,
-    since `orbit-api` has internal ingress only. Load cannot be spread even if somebody wanted it to be.
-  - **Nothing throttles at the edge.** No WAF, no Front Door, and no `limit_req`/`limit_conn` in
-    `nginx.azure.conf`. Azure's free DDoS protection is network-layer; an application-layer flood
-    reaches the container. nginx's own `limit_req` costs nothing and would be the first thing to add -
-    but it needs a real client address too, so it waits on the forwarded-headers fix above.
-  - **17 of 147 endpoints carry a rate limit.** The rest need a valid token, so they are not anonymous,
-    but nothing bounds what one account - or one leaked token - can ask for.
-  - Kestrel's default 30 MB request body applies everywhere except the diagnostic upload, which is the
-    one endpoint with an explicit `RequestSizeLimit`, on a container with 0.5 GiB of memory.
+- **Whether the Container Apps ingress sets `X-Forwarded-For` at all is still unmeasured.** It could not
+  be answered from outside, because until 2026-09-06 nothing in the system read or logged that header.
+  The throttling added that day is therefore built so that no answer can make things worse: nginx
+  derives the caller with `real_ip_recursive`, and logs the chain as `xff="..."`. **One look at
+  `az containerapp logs show -n orbit-web` after the next deploy settles it**, and the numbers can then
+  be set on evidence instead of caution:
+  - if the chain carries the caller, the per-client limits are real and the ceilings in
+    `RateLimiterPolicies` (120 anonymous auth attempts a minute, 600 public share reads) can come down;
+  - if it is absent, the per-client zones collapse into the global one and those ceilings are the only
+    thing working, which is why they were set generously;
+  - if it is forgeable, the ceilings are the bound - a spoofing caller gets 120 password attempts a
+    minute rather than no limit at all.
+- **17 of 147 endpoints carry a rate limit.** The rest need a valid token, so they are not anonymous,
+  but nothing bounds what one account - or one leaked token - can ask for. The edge limits in
+  `nginx.azure.conf` blunt a flood across all of them; they are not a per-account budget.
+- **Kestrel's default 30 MB request body applies everywhere** except the diagnostic upload, which is the
+  one endpoint with an explicit `RequestSizeLimit`, on a container with 0.5 GiB of memory.
+- **There is still no autoscaling and no WAF.** Both apps are `max-replicas 1` with no scale rules at
+  0.25 vCPU and 0.5 GiB, and nothing sits in front of `orbit-web`. The edge limits refuse a flood rather
+  than absorbing it, which is the cheap half of the problem; the expensive half is unchanged.
 - **`max-replicas` is still 1 on both Container Apps.** Nothing in the code assumes otherwise any more -
   the live update hub, the privacy choice cache and the rate limiter each count across instances now -
   but raising it is a deliberate act and a cost decision, and it has not been taken. Two things to know

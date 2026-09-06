@@ -28,6 +28,9 @@ public sealed class AuthRateLimiterTests
     /// <summary>The window's budget, restated here so a change to it fails this test rather than passing quietly.</summary>
     private const int AuthRequestsPerWindow = 5;
 
+    /// <summary>The same, for the bucket every anonymous caller shares - see RateLimitCeiling.</summary>
+    private const int AnonymousAuthCeiling = 120;
+
     [Fact]
     public async Task The_sixth_attempt_in_a_window_is_refused_rather_than_queued()
     {
@@ -76,6 +79,57 @@ public sealed class AuthRateLimiterTests
         }
 
         Assert.Equal(HttpStatusCode.OK, (await client.GetAsync("/probe")).StatusCode);
+    }
+
+    /// <summary>
+    /// The bug this fixes, and it was live: behind the Container Apps ingress every request carried the
+    /// ingress's own address, so anonymous callers all landed in one partition and about five requests a
+    /// minute from anywhere answered 429 to everybody trying to sign in. With the caller's real address
+    /// reaching the limiter, one person running out of attempts is one person.
+    /// </summary>
+    [Fact]
+    public async Task Two_anonymous_callers_from_different_addresses_do_not_share_a_budget()
+    {
+        using var host = await StartHostAsync();
+        var client = host.GetTestClient();
+
+        for (var attempt = 1; attempt <= AuthRequestsPerWindow + 1; attempt++)
+        {
+            await client.GetAsync("/probe?from=203.0.113.7");
+        }
+
+        Assert.Equal(
+            HttpStatusCode.TooManyRequests,
+            (await client.GetAsync("/probe?from=203.0.113.7")).StatusCode);
+        Assert.Equal(
+            HttpStatusCode.OK,
+            (await client.GetAsync("/probe?from=198.51.100.4")).StatusCode);
+    }
+
+    /// <summary>
+    /// The other half, and why the address alone is not enough to rest on. If a forwarded header can be
+    /// forged, every request arrives in a partition of its own and the per-caller budget bounds nothing
+    /// - so the anonymous callers share a ceiling as well as having their own budgets. It is generous
+    /// on purpose: it is what an attacker can spend to make others wait, so it must not be easy to meet.
+    /// </summary>
+    [Fact]
+    public async Task A_caller_inventing_a_new_address_each_time_still_meets_a_ceiling()
+    {
+        using var host = await StartHostAsync();
+        var client = host.GetTestClient();
+
+        var refusedAt = 0;
+        for (var attempt = 1; attempt <= AnonymousAuthCeiling + 1 && refusedAt == 0; attempt++)
+        {
+            // A different address every time, so the per-caller budget is never touched.
+            var response = await client.GetAsync($"/probe?from=203.0.113.{attempt % 256}");
+            if (response.StatusCode == HttpStatusCode.TooManyRequests)
+            {
+                refusedAt = attempt;
+            }
+        }
+
+        Assert.Equal(AnonymousAuthCeiling + 1, refusedAt);
     }
 
     /// <summary>
@@ -159,6 +213,13 @@ public sealed class AuthRateLimiterTests
                         {
                             context.User = new ClaimsPrincipal(
                                 new ClaimsIdentity([new Claim(JwtRegisteredClaimNames.Sub, userId)], "Test"));
+                        }
+
+                        // Stands in for what UseForwardedHeaders does in Program.cs: by the time the
+                        // limiter runs, RemoteIpAddress is the caller's rather than the proxy's.
+                        if (context.Request.Query["from"] is [{ } address, ..])
+                        {
+                            context.Connection.RemoteIpAddress = IPAddress.Parse(address);
                         }
 
                         await next();

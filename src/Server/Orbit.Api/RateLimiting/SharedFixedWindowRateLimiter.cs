@@ -19,6 +19,13 @@ namespace Orbit.Api.RateLimiting;
 /// A permit refused by the shared gate has already been spent on the local one. That is deliberate: a
 /// fixed window does not hand permits back, and counting an attempt that was made is the conservative
 /// reading of "attempts in a minute".
+///
+/// A <see cref="RateLimitCeiling"/> may be given as a third gate, and exists for one reason: the
+/// partition of an anonymous caller is only as trustworthy as the address it was built from. If a
+/// forwarded header can be forged, every request arrives in a partition of its own and the per-caller
+/// gate stops meaning anything - so a bucket shared by all of them bounds what that is worth. It is set
+/// far above what honest traffic looks like, because it is the thing an attacker can spend to make
+/// everybody wait; the per-caller gate is what ordinary use is measured against.
 /// </summary>
 internal sealed class SharedFixedWindowRateLimiter : RateLimiter
 {
@@ -30,9 +37,13 @@ internal sealed class SharedFixedWindowRateLimiter : RateLimiter
     private readonly int _permitLimit;
     private readonly TimeSpan _window;
 
+    private readonly RateLimitCeiling? _ceiling;
+
     public SharedFixedWindowRateLimiter(
-        string partition, int permitLimit, TimeSpan window, IRateLimitWindows shared)
+        string partition, int permitLimit, TimeSpan window, IRateLimitWindows shared,
+        RateLimitCeiling? ceiling = null)
     {
+        _ceiling = ceiling;
         _partition = partition;
         _permitLimit = permitLimit;
         _window = window;
@@ -66,10 +77,26 @@ internal sealed class SharedFixedWindowRateLimiter : RateLimiter
             return locally;
         }
 
-        var withinSharedBudget = await _shared.TryTakeAsync(
-            _partition, StartOfCurrentWindow(), _permitLimit, cancellationToken);
+        var windowStart = StartOfCurrentWindow();
 
-        return withinSharedBudget ? locally : Refused;
+        var withinSharedBudget = await _shared.TryTakeAsync(
+            _partition, windowStart, _permitLimit, cancellationToken);
+        if (!withinSharedBudget)
+        {
+            return Refused;
+        }
+
+        if (_ceiling is null)
+        {
+            return locally;
+        }
+
+        // Only spent by attempts the per-caller gate already allowed, so a caller sitting on 429s does
+        // not also drain everybody else's headroom.
+        var withinCeiling = await _shared.TryTakeAsync(
+            _ceiling.Partition, windowStart, _ceiling.PermitLimit, cancellationToken);
+
+        return withinCeiling ? locally : Refused;
     }
 
     /// <summary>
