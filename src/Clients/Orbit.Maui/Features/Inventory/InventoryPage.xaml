@@ -19,9 +19,8 @@
         <!-- The plus left of the name, as Orbit.Web's Inventory header has it. -->
         <controls:PageHeader Grid.Row="0" Title="{controls:Translate 'Inventory'}">
             <controls:PageHeader.LeadingAction>
-                <controls:IconButton Variant="Add" Data="M10,4 V16 M4,10 H16"
-                                     Description="{controls:Translate 'Add inventory'}"
-                                     Command="{Binding ToggleAddCommand, Source={x:Reference Page}, x:DataType=inventory:InventoryPage}" />
+                <controls:IconButton x:Name="AddButton" Variant="Add" Data="M10,4 V16 M4,10 H16"
+                                     Description="{controls:Translate 'Add inventory'}" />
             </controls:PageHeader.LeadingAction>
         </controls:PageHeader>
 

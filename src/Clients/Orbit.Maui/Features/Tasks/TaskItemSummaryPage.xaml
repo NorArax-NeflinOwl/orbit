@@ -7,7 +7,9 @@
     xmlns:calendar="clr-namespace:Orbit.Mobile.Screens.Calendar;assembly=Orbit.Mobile"
     xmlns:screens="clr-namespace:Orbit.Mobile.Screens.Tasks;assembly=Orbit.Mobile"
     xmlns:maps="clr-namespace:Microsoft.Maui.Controls.Maps;assembly=Microsoft.Maui.Controls.Maps"
+    xmlns:maui="clr-namespace:Orbit.Maui.Features.Tasks"
     x:DataType="screens:TaskItemSummaryViewModel"
+    x:Name="Page"
     Title="{Binding Description}">
 
     <Grid RowDefinitions="Auto,*,Auto">
@@ -43,8 +45,13 @@
                        IsVisible="{Binding HasGuests}" LineBreakMode="WordWrap" />
             </Grid>
 
-            <Label Text="{controls:Translate 'Already done.'}" IsVisible="{Binding IsCompleted}"
-                   FontSize="12" Style="{StaticResource SubtleLabel}" />
+            <!-- A row with no title at all - the one place Row's shape is a value on its own, which
+                 is how Orbit.Web draws this same line. -->
+            <controls:Row IsVisible="{Binding IsCompleted}" HasDivider="False">
+                <controls:Row.Trailing>
+                    <Label Text="{controls:Translate 'Already done.'}" Style="{StaticResource RowMeta}" />
+                </controls:Row.Trailing>
+            </controls:Row>
 
             <!-- Drawn only once there is somewhere to draw, and built in code-behind for the reason
                  MapPage gives: the control's pin carries a platform Location, and a build with no map
@@ -57,15 +64,20 @@
                    IsVisible="{Binding IsPlaceUnknown}" FontSize="12" LineBreakMode="WordWrap"
                    Style="{StaticResource SubtleLabel}" />
 
-            <Button Text="{controls:Translate 'Show Tasks'}" HorizontalOptions="Start"
-                    Command="{Binding ShowTaskListCommand}" />
-            <Button Text="{controls:Translate 'Back to Calendar'}" HorizontalOptions="Start"
-                    Style="{StaticResource LinkButton}" Command="{Binding GoBackCommand}" />
-
         </VerticalStackLayout>
     </ScrollView>
 
+        <!-- An entry is read here rather than filled in, so the bar carries no Save - only what leaves
+             the screen and the one other place this entry can be met. -->
+        <controls:EditorRail Grid.Row="2" CancelCommand="{Binding GoBackCommand}">
+            <controls:EditorRail.Child>
+                <controls:OverflowMenu Command="{Binding ShowEntryMenuCommand, Source={x:Reference Page}, x:DataType=maui:TaskItemSummaryPage}" />
+            </controls:EditorRail.Child>
+        </controls:EditorRail>
+
         <controls:NavigationBar Grid.Row="0" />
+        <controls:MenuOverlay Grid.Row="0" Grid.RowSpan="3"
+                              BindingContext="{Binding Menu, Source={x:Reference Page}, x:DataType=maui:TaskItemSummaryPage}" />
         <controls:AvatarMenu Grid.Row="0" Grid.RowSpan="3" />
     </Grid>
 

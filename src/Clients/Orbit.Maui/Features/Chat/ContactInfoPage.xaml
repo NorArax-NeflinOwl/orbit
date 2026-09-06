@@ -56,14 +56,18 @@
 
                 <!-- The one thing there is to do with a person. Offered only where there is a
                      conversation to open and this account may chat at all. -->
+                <!-- The one thing there is to do with a person, and the only thing this screen is
+                     for - so it is the filled button (.btn-primary), not one of three that look alike.
+                     Offered only where there is a conversation to open and this account may chat. -->
                 <Button Text="{controls:Translate 'Open chat'}" IsVisible="{Binding IsConversationOffered}"
+                        HorizontalOptions="Start" Style="{StaticResource PrimaryButton}"
                         Command="{Binding OpenConversationCommand}" />
-
-                <Button Text="{controls:Translate 'Back to chat'}" Command="{Binding GoBackCommand}"
-                        Style="{StaticResource LinkButton}" />
 
             </VerticalStackLayout>
         </ScrollView>
+
+        <!-- Read, never filled in, so the bar carries no Save - only the way out. -->
+        <controls:EditorRail Grid.Row="2" CancelCommand="{Binding GoBackCommand}" />
 
         <controls:NavigationBar Grid.Row="0" />
         <controls:AvatarMenu Grid.Row="0" Grid.RowSpan="3" />

@@ -13,15 +13,16 @@ public partial class TasksPage : ContentPage
 
 	public TasksPage(TasksViewModel viewModel, Translations translations)
 	{
+		// Before InitializeComponent, not after: it is bound from the static part of the tree, which is
+		// built there and reads a page's plain property exactly once - see CalendarEventDetailPage,
+		// where the same order matters for the same reason.
+		ShowSortMenuCommand = new Command(ShowSortMenu);
+
 		InitializeComponent();
 		BindingContext = _viewModel = viewModel;
 		_translations = translations;
-		ToggleAddCommand = NewItemForm.Toggling(AddRow, AddField);
-		ShowSortMenuCommand = new Command(ShowSortMenu);
+		AddButton.Command = NewItemForm.Toggling(AddRow, AddField);
 	}
-
-	/// <summary>What the plus in the header opens - see NewItemForm.</summary>
-	public ICommand ToggleAddCommand { get; }
 
 	/// <summary>What the three dots at the header's other end open.</summary>
 	public ICommand ShowSortMenuCommand { get; }

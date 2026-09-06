@@ -12,11 +12,15 @@ public partial class NoteDetailPage : ContentPage
 
 	public NoteDetailPage(NoteDetailViewModel viewModel, Translations translations)
 	{
+		// Before InitializeComponent, not after: the rail's menu is bound from the static part of the
+		// tree, which is built there and reads a page's plain property exactly once - see
+		// CalendarEventDetailPage, where the same order matters for the same reason.
+		ShowLineMenuCommand = new Command<NoteLineRow>(ShowLineMenu);
+		ShowNoteMenuCommand = new Command(ShowNoteMenu);
+
 		InitializeComponent();
 		BindingContext = _viewModel = viewModel;
 		_translations = translations;
-		ShowLineMenuCommand = new Command<NoteLineRow>(ShowLineMenu);
-		ShowNoteMenuCommand = new Command(ShowNoteMenu);
 	}
 
 	/// <summary>Typed so the navigator can hand the page its note without casting the binding context.</summary>

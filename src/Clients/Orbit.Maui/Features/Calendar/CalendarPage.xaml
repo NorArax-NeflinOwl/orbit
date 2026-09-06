@@ -22,9 +22,8 @@
                  end, which is where Orbit.Web's Calendar header keeps both. -->
             <controls:PageHeader Title="{controls:Translate 'Calendar'}">
                 <controls:PageHeader.LeadingAction>
-                    <controls:IconButton Variant="Add" Data="M10,4 V16 M4,10 H16"
-                                         Description="{controls:Translate 'Add event'}"
-                                         Command="{Binding ToggleAddCommand, Source={x:Reference Page}, x:DataType=calendar:CalendarPage}" />
+                    <controls:IconButton x:Name="AddButton" Variant="Add" Data="M10,4 V16 M4,10 H16"
+                                         Description="{controls:Translate 'Add event'}" />
                 </controls:PageHeader.LeadingAction>
                 <controls:PageHeader.Actions>
                     <controls:OverflowMenu Command="{Binding ChooseSortOrderCommand, Source={x:Reference Page}, x:DataType=calendar:CalendarPage}" />

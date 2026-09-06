@@ -842,6 +842,10 @@ Most of the time the web client is the answer and the phone follows it — see
 [Orbit.Web is the model](../CLAUDE.md) in spirit, and the parity notes above. These are the places
 where following it would be the wrong call.
 
+For the *look* rather than the behaviour, that following is written down separately:
+[`android-ui-parity.md`](android-ui-parity.md) says which of app.css's tokens and shared components the
+Android head carries, where each one lives, and the three places the platform will not allow a copy.
+
 ### 14.1 The calendar shrinks as you scroll
 
 Decided 2026-09-01, while the web calendar was being reshaped, and **the web deliberately does not do

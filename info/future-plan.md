@@ -486,6 +486,31 @@ beside a task belongs here, not in that task's diff. A defect is the exception a
   pull requests, but a direct push to `main` deploys before any workflow can run. Real branch
   protection needs GitHub Pro on a private repository.
 
+## What the Android head's look still owes Orbit.Web
+
+The phone was walked against `app.css` on 2026-09-06 and now shares its type scale, its button roles
+and its shared controls - see [`android-ui-parity.md`](android-ui-parity.md), which is the map of what
+matches and what does not. What that pass left:
+
+- **A card has no overflow menu.** In the browser every card on Notes, Tasks and Inventory offers
+  Edit-or-View, Share and Delete from its corner (`ObjectMenu.razor`); on the phone those live one
+  screen further in. The panel to draw one now exists (`ScreenMenu`, `MenuOverlay`, `OverflowMenu`), so
+  what is missing is the actions themselves: `NotesViewModel` and `InventoryViewModel` have no delete
+  or share to hand a menu, only `Open`, `TogglePin` and `UnlockPrivate`. Doing it means lifting those
+  from the detail view models onto the list ones, with the same refusals - a note somebody else owns is
+  removed from your list rather than deleted, a read-only share opens as View.
+- **Chat, the map, the account screen and the calendar's grids have not had the pass.** They read
+  correctly and use the same palette, but their spacing and type were not walked line by line against
+  app.css the way the list and detail screens were. The calendar's month and year cells in particular
+  are the phone's own layout rather than `.calendar-month-grid-day`'s.
+- **The `.item-card-unseen` pulse is a colour, not an animation.** The edge takes the danger colour and
+  stays there. The browser breathes it, which is what catches an eye that was elsewhere.
+- **No screen hands `EditorRail` an `Extras` view yet.** The slot and the arrow that folds it away are
+  built and the arrow is left out where nothing fills it, which is what the browser does too - but the
+  browser does fill it: a lock's explanation and the sentence saying why a save was refused are kept in
+  view there whatever the form is scrolled to, and on the phone those are still labels partway up the
+  page. `NoteDetailPage`'s read-only reason and `TaskListDetailPage`'s lock banner are the two to move.
+
 ## Smaller identified follow-ups
 
 - **The phone does not yet describe a product before the shelf exists, and does not ask what to build.**

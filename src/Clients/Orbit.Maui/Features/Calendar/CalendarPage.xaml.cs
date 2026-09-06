@@ -28,7 +28,7 @@ public partial class CalendarPage : ContentPage
 
 		InitializeComponent();
 		BindingContext = _viewModel = viewModel;
-		ToggleAddCommand = NewItemForm.Toggling(AddRow, AddField);
+		AddButton.Command = NewItemForm.Toggling(AddRow, AddField);
 		_viewModel.DayBlocks.CollectionChanged += OnTheDayChanged;
 		_viewModel.AllDayBlocks.CollectionChanged += OnTheDayChanged;
 	}
@@ -41,9 +41,6 @@ public partial class CalendarPage : ContentPage
 
 	/// <summary>What order the list under the grid is read in - see CalendarListEntry.</summary>
 	public ICommand ChooseSortOrderCommand { get; }
-
-	/// <summary>What the plus in the header opens - see NewItemForm.</summary>
-	public ICommand ToggleAddCommand { get; }
 
 	/// <summary>The panel the header's three dots draw - one per screen, above everything else on it.</summary>
 	public ScreenMenu Menu { get; } = new();
