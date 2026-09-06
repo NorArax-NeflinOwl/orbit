@@ -47,10 +47,11 @@ else
         <Row Title="@T["Where"]">
             <Trailing><span class="row-meta">@(_place.Length > 0 ? _place : T["No place set"])</span></Trailing>
         </Row>
-        @* What the appointment says about itself, and who is coming. Both live on the event rather than
-           on the entry - an entry that is an appointment keeps neither - so both appear only where
-           there is one. Above the map, because they are what the thing is; the map is where it is. *@
-        @if (_event?.Details.Description is { Length: > 0 } description)
+        @* What the entry says about itself. Every kind carries one now (TaskItem.Notes); a calendar
+           entry's is its event's, and an appointment written before entries had one of their own still
+           carries the answer over there, so the event is read when the entry has nothing. Above the
+           map, because this is what the thing is; the map is where it is. *@
+        @if (WhatItIsAbout() is { Length: > 0 } description)
         {
             <Row Title="@T["Description"]">
                 <Trailing><span class="row-meta">@description</span></Trailing>
@@ -177,6 +178,14 @@ else
     /// What to call a guest: their login. Falls back to the id, which is not useful to read but is
     /// honest about what is known - the alternative is a blank where a person should be.
     /// </summary>
+    /// <summary>
+    /// What this entry is about. The entry's own answer wherever there is one; for an appointment made
+    /// before entries carried one, the event still holds it, and reading that is what keeps such an
+    /// entry from looking as though its description had been lost.
+    /// </summary>
+    private string WhatItIsAbout()
+        => _item?.AllNotes is { Length: > 0 } notes ? notes : _event?.Details.Description ?? string.Empty;
+
     private string NameOfTheGuest(Guid guestUserId)
         => _guestNames.TryGetValue(guestUserId, out var name) ? name : guestUserId.ToString();
 

@@ -14,6 +14,18 @@ public sealed class TaskItem
 {
     public Guid Id { get; private set; }
     public string Description { get; private set; }
+
+    /// <summary>
+    /// The longer text about this entry - what it is really for, where the line above is what it is
+    /// called. Empty for an entry nobody has written one on, which is most of them.
+    ///
+    /// Called Notes rather than Description only because <see cref="Description"/> is already taken by
+    /// the entry's own line, which is really its title: a calendar entry's words are its event's title,
+    /// and a checklist line is the thing to do. On screen this is "Description", the same word the
+    /// calendar has always used for it - and for a calendar entry it *is* the event's description, so
+    /// there is one box rather than two copies drifting apart (see TaskEditor.razor).
+    /// </summary>
+    public string Notes { get; private set; }
     public DateTimeOffset? DueDateUtc { get; private set; }
     public bool IsCompleted { get; private set; }
 
@@ -108,10 +120,11 @@ public sealed class TaskItem
     private TaskItem(
         Guid id, string description, DateTimeOffset? dueDateUtc, bool isCompleted, IReadOnlyList<Guid>? linkedTaskListIds,
         TaskItemReminders? reminders, TaskItemSubject? subject, IReadOnlyList<string>? categories,
-        TaskItemProduct? product)
+        TaskItemProduct? product, string? notes)
     {
         Id = id;
         Description = description;
+        Notes = notes ?? string.Empty;
         DueDateUtc = dueDateUtc;
         IsCompleted = isCompleted;
         // Distinct and in order: naming the same list twice is one link written twice, not two steps,
@@ -184,6 +197,14 @@ public sealed class TaskItem
     public void KeepCategoriesOf(TaskItem stored) => Categories = stored.Categories;
 
     /// <summary>
+    /// Keeps the description this entry already has, for a caller that said nothing about it - the same
+    /// rule the categories and the product follow, and for the same reason: a client written before an
+    /// entry could carry one goes on saving lists without wiping what was typed on the web. See
+    /// UpdateTaskListCommand.EntriesKeepingTheirNotes.
+    /// </summary>
+    public void KeepNotesOf(TaskItem stored) => Notes = stored.Notes;
+
+    /// <summary>
     /// Points this entry at the shelf item it turned out to be about - what generating a storage from a
     /// list does to the entries it built that storage from (see
     /// GenerateInventoryFromTaskListCommandHandler). The description it carried is dropped in the same
@@ -213,12 +234,15 @@ public sealed class TaskItem
     public static TaskItem Create(
         string description, DateTimeOffset? dueDateUtc, bool isCompleted, IReadOnlyList<Guid>? linkedTaskListIds = null,
         TaskItemReminders? reminders = null, TaskItemSubject? subject = null, IReadOnlyList<string>? categories = null,
-        TaskItemProduct? product = null)
+        TaskItemProduct? product = null, string? notes = null)
     {
         // Here rather than in the constructor, which FromPersistence also uses: a row already stored
         // fits by definition, and rejecting one on the way back out would make an old entry unreadable
         // rather than telling anybody anything.
         StoredTextLimits.OrRefuse(description, StoredTextLimits.TaskDescription, "task entry");
+        // The same room a calendar event's description has, because on a calendar entry this is that
+        // description - see the property.
+        StoredTextLimits.OrRefuse(notes ?? string.Empty, StoredTextLimits.EventDescription, "task entry's description");
         // The place as the subject actually keeps it: an address too long to store is refused, and one
         // an entry of this kind does not keep at all was already dropped - see TaskItemSubject.
         StoredTextLimits.OrRefuse(subject?.Location ?? string.Empty, StoredTextLimits.Address, "place's address");
@@ -236,7 +260,7 @@ public sealed class TaskItem
         return new TaskItem(
             Guid.NewGuid(), description, dueDateUtc,
             (linkedTaskListIds is null || linkedTaskListIds.Count == 0) && isCompleted, linkedTaskListIds,
-            reminders, subject, categories, product);
+            reminders, subject, categories, product, notes);
     }
 
     /// <summary>
@@ -247,7 +271,7 @@ public sealed class TaskItem
     public TaskItem WithNewId()
         => new(
             Guid.NewGuid(), Description, DueDateUtc, IsCompleted, LinkedTaskListIds,
-            Reminders, Subject, Categories, Product);
+            Reminders, Subject, Categories, Product, Notes);
 
     /// <summary>
     /// Rebuilds a checklist entry from already-known values, bypassing the completion override above -
@@ -257,6 +281,6 @@ public sealed class TaskItem
     public static TaskItem FromPersistence(
         Guid id, string description, DateTimeOffset? dueDateUtc, bool isCompleted, IReadOnlyList<Guid>? linkedTaskListIds,
         TaskItemReminders? reminders, TaskItemSubject? subject = null, IReadOnlyList<string>? categories = null,
-        TaskItemProduct? product = null)
-        => new(id, description, dueDateUtc, isCompleted, linkedTaskListIds, reminders, subject, categories, product);
+        TaskItemProduct? product = null, string? notes = null)
+        => new(id, description, dueDateUtc, isCompleted, linkedTaskListIds, reminders, subject, categories, product, notes);
 }

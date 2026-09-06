@@ -10,6 +10,7 @@
 @inject CalendarApiClient CalendarApiClient
 @inject TaskListDeletion TaskListDeletion
 @inject TaskListArrangement Arrangement
+@inject SharedItemPins SharedPins
 @inject NotificationFeedState NotificationFeedState
 @inject NavigationManager NavigationManager
 @inject IJSRuntime JSRuntime
@@ -151,7 +152,7 @@
                           HasUnseenAction="@(UnreadCountFor(taskList) > 0)"
                           IsCollapsed="Arrangement.IsCollapsed(taskList.Id)"
                           OnCollapseToggled="() => ToggleCollapsedAsync(taskList)"
-                          ExtraClass="@(taskList.IsPinned ? "item-card-pinned" : null)">
+                          ExtraClass="@(IsPinned(taskList) ? "item-card-pinned" : null)">
                     @* Only where dragging means something: in every other order the cards are
                        arranged by an answer, and moving one by hand would not survive a redraw. *@
                     <Handle>
@@ -163,12 +164,20 @@
                                              CanMoveUp="CanMoveCard(taskList, -1)" CanMoveDown="CanMoveCard(taskList, 1)" />
                         }
                     </Handle>
-                    @* Only for a list you own: pinning moves the card on its owner's page, so a
-                       recipient pinning a shared list would be rearranging someone else's. *@
+                    @* Every card has one, and where the answer is kept depends on whose list it is.
+                       Your own list carries its pin on the server, because arranging it is yours to do.
+                       A list shared with you carries somebody else's there, so pinning it here would be
+                       rearranging their page - the reader's own answer is kept on this device instead.
+                       See SharedItemPins. *@
                     <Pin>
                         @if (!taskList.IsShared)
                         {
                             <PinButton IsPinned="taskList.IsPinned" OnPinnedChanged="_ => TogglePinnedAsync(taskList)" />
+                        }
+                        else
+                        {
+                            <PinButton IsPinned="SharedPins.IsPinned(taskList.Id)"
+                                       OnPinnedChanged="pinned => PinTheSharedListAsync(taskList, pinned)" />
                         }
                     </Pin>
                     <Menu>
@@ -191,9 +200,10 @@
                             <span class="card-badge card-badge-priority-@taskList.Priority.ToLowerInvariant()">@DescribePriority(ParsePriority(taskList))</span>
                         }
                         <span class="card-badge card-badge-status-@taskList.Status.ToLowerInvariant()">@DescribeStatus(ParseStatus(taskList))</span>
-                        @* Kept as a tag as well as an outline: the pin control is only offered on a
-                           list you own, so on a shared one the tag is the only thing that says so. *@
-                        @if (taskList.IsPinned)
+                        @* Kept as a tag as well as an outline, so the answer is readable rather than
+                           only visible - and on a shared list it is this reader's own answer, not the
+                           owner's, which is theirs and about their page. *@
+                        @if (IsPinned(taskList))
                         {
                             <span class="card-badge card-badge-pinned">@T["Pinned"]</span>
                         }
@@ -210,16 +220,33 @@
                        list is about, not to be worked from. *@
                     @if (NextThingLeftToDo(taskList) is { } next)
                     {
-                        <div class="list-row task-preview-row">
-                            <span class="task-preview-mark"></span>
-                            <span class="row-title">@Written(next.Description)</span>
-                            @if (next.OnList is { } onList)
-                            {
-                                @* Which member list it is on. Without it, a group's folded card names
-                                   an errand with no hint of where it came from. *@
-                                <span class="row-meta">@Written(onList)</span>
-                            }
-                        </div>
+                        @* Pressed, it opens the entry it names - the same thing the rows on an unfolded
+                           card do. It was a plain div, so the one line a folded card shows was the one
+                           line that answered nothing; folding a card should say "not this week", not
+                           "and now none of this is reachable". The entry may live on a member list, so
+                           the row opens it where it actually is. *@
+                        <Row Title="@Written(next.Description)"
+                             OnPressed="() => GoToEntry(next.TaskListId, next.Item.Id)"
+                             AdditionalClass="task-preview-row">
+                            <Leading>
+                                <span class="task-preview-mark"></span>
+                                @* An appointment's own colour, the same dot the unfolded card and the
+                                   dashboard's Upcoming card draw - see EventColourOf. A folded card was
+                                   the one place a row could not be told apart from a plain errand. *@
+                                @if (EventColourOf(next.Item) is { } colour)
+                                {
+                                    <span class="stat-dot" style="background:@colour" title="@(T["Appointment"])"></span>
+                                }
+                            </Leading>
+                            <Trailing>
+                                @if (next.OnList is { } onList)
+                                {
+                                    @* Which member list it is on. Without it, a group's folded card
+                                       names an errand with no hint of where it came from. *@
+                                    <span class="row-meta">@Written(onList)</span>
+                                }
+                            </Trailing>
+                        </Row>
                     }
                     else
                     {
@@ -367,7 +394,7 @@
             var visible = (_taskLists ?? [])
                 .Where(taskList => Matches(taskList, _filter) && _itemFilter.HasAMatch(taskList))
                 .ToList();
-            return Sort(visible, Arrangement);
+            return Sort(visible, Arrangement, IsPinned);
         }
     }
 
@@ -389,10 +416,15 @@
     /// only held under one sort order would not be worth setting. The order the reader dragged the cards
     /// into is the exception: it already says where every card goes, and pinning would contradict it.
     /// </summary>
-    private static IReadOnlyList<TaskDto> Sort(IReadOnlyList<TaskDto> taskLists, TaskListArrangement arrangement)
+    /// <param name="isPinned">
+    /// Whether a card leads, asked rather than read off the list: a list shared with this reader is
+    /// pinned by them on this device, not by the flag its owner set - see IsPinned.
+    /// </param>
+    private static IReadOnlyList<TaskDto> Sort(
+        IReadOnlyList<TaskDto> taskLists, TaskListArrangement arrangement, Func<TaskDto, bool> isPinned)
         => arrangement.SortOrder == TaskListSortOrder.Manual
             ? [.. AsArranged(taskLists, arrangement.ManualOrder)]
-            : [.. SortWithinPinning(taskLists, arrangement.SortOrder).OrderByDescending(taskList => taskList.IsPinned)];
+            : [.. SortWithinPinning(taskLists, arrangement.SortOrder).OrderByDescending(isPinned)];
 
     /// <summary>
     /// The reader's own order, with anything they have not placed yet - a list made or shared since the
@@ -424,6 +456,25 @@
 
     private int CountMatching(TaskListFilter filter)
         => (_taskLists ?? []).Count(taskList => Matches(taskList, filter));
+
+    /// <summary>
+    /// Whether this card sits at the top of *this* reader's page. Two answers behind one question: a
+    /// list you own carries its own, and one shared with you carries its owner's, which is about their
+    /// page rather than yours - see SharedItemPins.
+    /// </summary>
+    private bool IsPinned(TaskDto taskList)
+        => taskList.IsShared ? SharedPins.IsPinned(taskList.Id) : taskList.IsPinned;
+
+    /// <summary>
+    /// Pinning a list somebody else shared. Nothing is sent: the answer is this reader's and stays on
+    /// this device, so the page only has to re-sort around it.
+    /// </summary>
+    private async Task PinTheSharedListAsync(TaskDto taskList, bool isPinned)
+    {
+        Logger.LogInformation(
+            "User clicked '{Action}' for shared task list {TaskListId}", isPinned ? "Pin" : "Unpin", taskList.Id);
+        await SharedPins.SetPinnedAsync(taskList.Id, isPinned);
+    }
 
     /// <summary>
     /// Re-reads the lists afterwards rather than editing the one in hand: the server decides what a list
@@ -478,8 +529,17 @@
     }
 
     /// <summary>What a folded card says is still to be done.</summary>
+    /// <param name="Item">
+    /// The entry itself, not only its words: the row opens it, and asks it whether it is an appointment
+    /// so the colour dot can say so. It used to carry the description alone, which is why the row could
+    /// do neither.
+    /// </param>
+    /// <param name="TaskListId">The list the entry actually sits on, which is where the row opens it.</param>
     /// <param name="OnList">The member list it sits on, when it was found through a link - null when it is the card's own.</param>
-    private sealed record ThingLeftToDo(string Description, string? OnList);
+    private sealed record ThingLeftToDo(TaskItemDto Item, Guid TaskListId, string? OnList)
+    {
+        public string Description => Item.Description;
+    }
 
     /// <summary>
     /// The one row a folded card shows: what is still to be done. A row that only points at another list
@@ -492,7 +552,7 @@
         {
             if (item.AllLinkedTaskListIds.Count == 0)
             {
-                return new ThingLeftToDo(item.Description, OnList: null);
+                return new ThingLeftToDo(item, taskList.Id, OnList: null);
             }
 
             // An entry standing for several lists is looked through in order, so what comes back is the
@@ -503,12 +563,12 @@
                 // list's title, which still says more than nothing.
                 if (LinkedTaskList(linkedTaskListId) is not { } linkedTaskList)
                 {
-                    return new ThingLeftToDo(item.Description, OnList: null);
+                    return new ThingLeftToDo(item, taskList.Id, OnList: null);
                 }
 
                 if (linkedTaskList.Items.FirstOrDefault(linked => !linked.IsCompleted) is { } linkedItem)
                 {
-                    return new ThingLeftToDo(linkedItem.Description, linkedTaskList.Title);
+                    return new ThingLeftToDo(linkedItem, linkedTaskList.Id, linkedTaskList.Title);
                 }
             }
         }
@@ -744,6 +804,9 @@
         // lights the card it is about without this page fetching anything of its own.
         NotificationFeedState.Changed += OnNotificationsChanged;
         await Arrangement.InitializeAsync();
+        // Read before the cards are drawn: a pin that arrived a moment later would move a card somebody
+        // was already pointing at.
+        await SharedPins.InitializeAsync();
         try
         {
             _taskLists = await TasksApiClient.GetTaskListsAsync();

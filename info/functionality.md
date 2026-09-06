@@ -937,6 +937,28 @@ placed, rather than pushing the arrangement about.
 
 Pinned lists lead every order except that one, which already says where every card goes.
 
+**A folded card is still a card.** Minimising one says "not this week", and it used to also make the card
+unreachable: the one line it shows - what is still to be done - was drawn as a plain block, so the one
+thing a reader could point at answered nothing, and neither did the body around it. The line now opens
+the entry it names, on the list that entry actually sits on (a group card's line is usually a member
+list's errand), and the block around it opens the list, exactly as an unfolded card's body does. An
+appointment there carries its event's colour, the same dot the unfolded card and the dashboard's Upcoming
+card draw - a folded card was the one place an appointment could not be told from a plain errand.
+
+**A list somebody shared with you can be pinned too, and the answer is yours.** A list you own carries
+its pin on the server, because arranging it is yours to do — and only the owner may set it
+(`SetTaskListPinnedCommandHandler` refuses anybody else, since pinning moves a card on one person's
+page). That left a recipient with no pin at all, so a list sent to you could not be brought to the top of
+your own. The reader's own answer is now kept on this device instead (`SharedItemPins`, localStorage,
+the same category as the pinned-conversations list and the dashboard's layout), and the owner's flag no
+longer reaches the recipient's page: what is at the top of it is theirs to say. **Notes work the same
+way**, on the same store. Being on the device is the cost: the pin does not follow the reader to another
+browser or to the phone, which is what a per-reader column on the share would have bought.
+
+On the phone the pin on a shared list was offered and did nothing — it called the server, was turned down
+and said neither. It is left out there now, the way a shared note's already was
+(`TaskListRow.CanBePinned`, matching `NoteListItem.CanBePinned`).
+
 ### Finding one entry among every list
 
 Above the chips sit the two questions about what is *on* the lists rather than about the lists
@@ -1205,6 +1227,23 @@ happens on the entry's save rather than the list's, because that is the moment t
 fields arrive with the choice: picking Inventory on an open form shows them there and then, and picking
 something else takes them away again - waiting for a save and a reopen made the feature unreachable
 without knowing it was there.
+
+**Every entry can say what it is about, not only what it is called.** An entry's own line is its name -
+"Buy milk", "Dentist" - and there was nowhere to write the rest of it unless the entry was an
+appointment, which had a description on its event. Every kind carries one now (`TaskItem.Notes`, stored
+on `OP_TASKS_ITEMS`; called Notes only because `Description` was already taken by the line itself). It is
+a full-width box in the entry's own panel, labelled "Description", and it shows on the entry's reading
+page above the map.
+
+For a **calendar** entry it *is* the event's description: the appointment's own form leaves its copy out
+(`EventFields.ShowsDescription`) and the entry's answer is written onto the event when the list is saved,
+the same way the entry's words are already the event's title. Two boxes for one answer is two copies
+drifting apart. An appointment written before this carries the answer on the event, and the one box opens
+showing it, so a save cannot write a blank over it.
+
+A request that says nothing about it leaves what is stored alone (`UpdateTaskListCommand.EntriesKeepingTheirNotes`)
+— the third field to follow that rule, after the categories and the product, and for the third time the
+same reason: the phone has no box for it yet and must not erase what was typed on the web.
 
 **An entry describes a product whether or not a shelf exists yet.** On the web, an Inventory entry opens
 the same fields the inventory editor uses (`InventoryFields`) on any list: on one measured against a

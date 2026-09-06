@@ -246,5 +246,9 @@ public sealed class TaskListSynchronizer
             LinkedTaskListId: null, item.OverdueNotificationChannel, item.RemindDaily,
             item.DailyReminderNotificationChannel, item.DailyReminderTimeOfDay,
             item.Kind, item.Location, item.LinkedCalendarEventId, item.LinkedInventoryItemId,
-            item.AllLinkedTaskListIds, item.AllCategories, item.Product)).ToList();
+            item.AllLinkedTaskListIds, item.AllCategories, item.Product,
+            // Passed through as it came, null included: null means "nothing to say about it" and leaves
+            // the stored one alone, which is what this phone needs while it has no box to write one in.
+            // AllNotes would turn that into an empty string, and an empty string clears it.
+            item.Notes)).ToList();
 }

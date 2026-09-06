@@ -509,6 +509,22 @@ beside a task belongs here, not in that task's diff. A defect is the exception a
   sheet in front of `StockCheckPanel.GenerateInventoryAsync` asking the same six questions
   `GenerateInventoryOverlay` asks.
 
+- **The pin on a shared list or note stays on the browser that set it.** A reader's pin for something
+  somebody else owns is kept in localStorage (`SharedItemPins`, 2026-09-06), because the flag on the
+  object belongs to its owner and only they may set it. That is the same choice `ConversationPins`
+  makes and it needs no column anywhere - but it also means the pin does not follow the reader to
+  another browser or to the phone, where the control is simply left out. What it would take to make it
+  follow: a per-recipient flag on the share row (`TaskListShare`, `NoteShare`) with an endpoint and a
+  field on the DTO, which is a migration and a phone change rather than a screen one.
+
+- **The phone has no box for an entry's description.** Every task entry can carry one now
+  (`TaskItem.Notes`, 2026-09-06) and the phone neither shows nor writes it. Nothing is lost - its push
+  says nothing about the field and the server therefore keeps what is stored, which
+  `TaskListSyncTests.A_description_written_elsewhere_survives_a_push_from_the_phone` pins down - so this
+  is parity, not a defect. What it would take: a field on `TaskItemEditor` bound to `TaskItemDto.Notes`,
+  a box on the entry's sheet in `TaskListDetailPage.xaml`, and the same rule the web follows for a
+  calendar entry, whose description is its event's.
+
 - **The phone still asks twice what a shelf entry is filed under.** On the web an Inventory entry has one
   categories box, and what it says is what the row it stands for is filed under
   (`InventoryFields.ShowsCategories`, `TaskEditor.ProductAsked`, 2026-09-06). The phone's entry editor

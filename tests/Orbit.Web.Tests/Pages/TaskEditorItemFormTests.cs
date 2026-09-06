@@ -520,6 +520,69 @@ public sealed class TaskEditorItemFormTests : OrbitTestContext
             cut.FindAll(".tag-chip").Select(chip => chip.TextContent.Replace("✕", string.Empty).Trim()));
     }
 
+    /// <summary>
+    /// What the entry is about, as opposed to what it is called. Only an appointment ever had one, on
+    /// its event; a checklist line and a restock errand could be no longer than their own row.
+    /// </summary>
+    [Theory]
+    [InlineData(nameof(TaskItemKind.Checklist))]
+    [InlineData(nameof(TaskItemKind.Calendar))]
+    [InlineData(nameof(TaskItemKind.Inventory))]
+    public void Any_kind_of_entry_is_asked_what_it_is_about(string kind)
+    {
+        RegisterApiClients(AnItem(kind: kind));
+        var cut = Render();
+
+        ExpandTheOnlyItem(cut);
+
+        Assert.Single(cut.FindAll(".editor-item-details .editor-item-notes textarea"));
+    }
+
+    /// <summary>
+    /// And asked once. A calendar entry's description *is* its event's, so the appointment's own form
+    /// leaves its copy out - two boxes for one answer is two copies drifting apart, which is exactly
+    /// what the categories were doing. See EventFields.ShowsDescription.
+    /// </summary>
+    [Fact]
+    public void An_appointment_is_asked_what_it_is_about_once()
+    {
+        RegisterApiClients(AnItem(kind: nameof(TaskItemKind.Calendar)));
+        var cut = Render();
+
+        ExpandTheOnlyItem(cut);
+
+        Assert.Empty(cut.FindAll(".event-fields-description"));
+        Assert.Single(cut.FindAll(".editor-item-notes textarea"));
+    }
+
+    [Fact]
+    public void What_an_entry_is_about_is_saved_with_the_list()
+    {
+        RegisterApiClients(AnItem());
+        var cut = Render();
+        ExpandTheOnlyItem(cut);
+
+        cut.Find(".editor-item-notes textarea").Input("The blue one, not the green.");
+        ClickButtonSaying(cut, "Save");
+
+        Assert.Contains("\"notes\":\"The blue one, not the green.\"", _lastSavedJson);
+    }
+
+    /// <summary>
+    /// An entry that already carries one opens showing it, rather than blank - a blank box is saved
+    /// back as blank.
+    /// </summary>
+    [Fact]
+    public void An_entry_that_already_says_what_it_is_about_shows_it()
+    {
+        RegisterApiClients(AnItem() with { Notes = "The blue one." });
+        var cut = Render();
+
+        ExpandTheOnlyItem(cut);
+
+        Assert.Equal("The blue one.", cut.Find(".editor-item-notes textarea").GetAttribute("value"));
+    }
+
     /// <summary>A storage for the two tests that watch what a save writes back to a shelf.</summary>
     private void MeasuredAgainstAStorage()
         => _linkedInventory = new InventoryDto(

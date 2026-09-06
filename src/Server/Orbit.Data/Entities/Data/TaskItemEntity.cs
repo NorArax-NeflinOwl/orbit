@@ -16,6 +16,13 @@ public sealed class TaskItemEntity
     /// </summary>
     public int Position { get; set; }
     public string Description { get; set; } = string.Empty;
+
+    /// <summary>
+    /// The longer text about this entry - see Orbit.Core.Tasks.TaskItem.Notes for why it is not called
+    /// Description. Empty for an entry nobody wrote one on, which is most of them.
+    /// </summary>
+    public string Notes { get; set; } = string.Empty;
+
     public DateTimeOffset? DueDateUtc { get; set; }
     public bool IsCompleted { get; set; }
 

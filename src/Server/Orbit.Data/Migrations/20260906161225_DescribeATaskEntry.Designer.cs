@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using Orbit.Data;
@@ -11,9 +12,11 @@ using Orbit.Data;
 namespace Orbit.Data.Migrations
 {
     [DbContext(typeof(OrbitDbContext))]
-    partial class OrbitDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260906161225_DescribeATaskEntry")]
+    partial class DescribeATaskEntry
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -1204,26 +1207,6 @@ namespace Orbit.Data.Migrations
                     b.HasIndex("UserId");
 
                     b.ToTable("OS_PUSH_SUBSCRIPTIONS");
-                });
-
-            modelBuilder.Entity("Orbit.Data.Entities.RateLimitWindowEntity", b =>
-                {
-                    b.Property<string>("Partition")
-                        .HasMaxLength(128)
-                        .HasColumnType("character varying(128)")
-                        .HasColumnName("OS_RL_PARTITION");
-
-                    b.Property<DateTimeOffset>("WindowStart")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("OS_RL_WINDOWSTART");
-
-                    b.Property<int>("Count")
-                        .HasColumnType("integer")
-                        .HasColumnName("OS_RL_COUNT");
-
-                    b.HasKey("Partition", "WindowStart");
-
-                    b.ToTable("OS_RATE_LIMITS");
                 });
 
             modelBuilder.Entity("Orbit.Data.Entities.RefreshTokenEntity", b =>

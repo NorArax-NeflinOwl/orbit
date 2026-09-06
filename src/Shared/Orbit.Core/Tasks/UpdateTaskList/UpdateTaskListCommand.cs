@@ -24,5 +24,12 @@ public sealed record UpdateTaskListCommand(
     /// every older tab save lists without knowing an entry can describe a product, and a save about
     /// something else must not empty what was written on the web.
     /// </summary>
-    IReadOnlySet<Guid>? EntriesKeepingTheirProduct = null)
+    IReadOnlySet<Guid>? EntriesKeepingTheirProduct = null,
+    /// <summary>
+    /// The entries that said nothing about their own description, which keep the one they already
+    /// carry. The third field to follow this rule, for the third time the same reason: a client written
+    /// before an entry could carry a description saves lists without one, and that save must not wipe
+    /// what somebody typed on the web. An entry that sends an empty string is clearing it.
+    /// </summary>
+    IReadOnlySet<Guid>? EntriesKeepingTheirNotes = null)
     : IRequest<EditOutcome>;

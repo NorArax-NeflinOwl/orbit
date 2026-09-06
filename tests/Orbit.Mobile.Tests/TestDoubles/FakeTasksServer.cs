@@ -249,7 +249,7 @@ internal sealed class FakeTasksServer : HttpMessageHandler
         _taskLists[id] = existing with
         {
             Title = body!.Title,
-            Items = ToDtos(body.Items),
+            Items = ToDtos(body.Items, existing.Items),
             // Sent on every update and stored by the real endpoint - a fake that dropped it made
             // "this list is now a group list" look like a client that had not sent it. The priority
             // went the same way afterwards: the push carried it, the pull brought back the fake's own
@@ -286,8 +286,16 @@ internal sealed class FakeTasksServer : HttpMessageHandler
     /// does (see TaskEndpoints.ToDomainItem). Minting unconditionally would let a client that dropped
     /// entry ids pass its tests and lose them against a real server.
     /// </summary>
-    private static IReadOnlyList<TaskItemDto> ToDtos(IReadOnlyList<TaskItemRequest> items)
-        => items.Select(item => new TaskItemDto(
+    /// <param name="stored">
+    /// The entries as they are now, for the fields where "not sent" means "leave what is there" - see
+    /// UpdateTaskListCommand.EntriesKeepingTheirNotes. Empty when a list is being created, which has
+    /// nothing stored to keep.
+    /// </param>
+    private static IReadOnlyList<TaskItemDto> ToDtos(
+        IReadOnlyList<TaskItemRequest> items, IReadOnlyList<TaskItemDto>? stored = null)
+    {
+        var storedById = (stored ?? []).Where(item => item.Id != Guid.Empty).ToDictionary(item => item.Id);
+        return items.Select(item => new TaskItemDto(
             item.Id ?? Guid.NewGuid(), item.Description, item.DueDateUtc, item.IsCompleted,
             // Whichever shape the client sent, answered in both - what the real endpoint does, so a
             // client reading only the old field still works against this fake. See TaskEndpoints.ToDto.
@@ -301,7 +309,16 @@ internal sealed class FakeTasksServer : HttpMessageHandler
             item.AllLinkedTaskListIds,
             // Answered as sent. A fake that dropped them would let a client that never sends them pass,
             // and the reader would find their entries unfiled the next time the list was pulled.
-            item.AllCategories)).ToList();
+            item.AllCategories,
+            Product: null,
+            // Null means "nothing to say about it", and the real endpoint then keeps what is stored. A
+            // fake that wrote the null through would let a client that erases a description on every
+            // push look correct here - see fakes must refuse what the server refuses.
+            Notes: item.Notes
+                ?? (item.Id is { } id && storedById.TryGetValue(id, out var alreadyThere)
+                    ? alreadyThere.AllNotes
+                    : string.Empty))).ToList();
+    }
 
     private static Guid ReadId(string path) => Guid.Parse(path.Split('/')[^1]);
 

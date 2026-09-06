@@ -66,6 +66,44 @@ public sealed class TaskListSyncTests
     }
 
     /// <summary>
+    /// The same bug a third time, and quieter still. An entry can carry a description now, and this
+    /// phone has no box to write one in - so its push says nothing about it, and nothing said must mean
+    /// "leave it alone" rather than "clear it". Otherwise a description typed on the web would be gone
+    /// the next time somebody opened the list on their phone, with no screen anywhere showing it go.
+    /// See TaskItem.Notes and UpdateTaskListCommand.EntriesKeepingTheirNotes.
+    /// </summary>
+    [Fact]
+    public async Task A_description_written_elsewhere_survives_a_push_from_the_phone()
+    {
+        using var context = new TaskContext();
+        var entryId = Guid.NewGuid();
+        var onServer = context.Server.AddTaskList("Saturday");
+        context.Server.ReplaceForTest(onServer with
+        {
+            Items =
+            [
+                new(entryId, "Buy milk", null, false, null, "None", false, "None", new TimeOnly(9, 0),
+                    Notes: "The blue one, not the green.")
+            ]
+        });
+        await context.SynchroniseAsync();
+        var local = Assert.Single(await context.TaskLists.GetAllAsync());
+
+        // Saved back the way a client with no box for it would: the entry, without its description.
+        await context.TaskLists.UpdateAsync(
+            local.LocalId,
+            new TaskListContent(
+                "Sobota",
+                [new(entryId, "Buy milk", null, false, null, "None", false, "None", new TimeOnly(9, 0))],
+                IsGroup: false, "Normal"));
+        await context.SynchroniseAsync();
+
+        Assert.Equal(
+            "The blue one, not the green.",
+            Assert.Single(context.Server.ItemsIn(onServer.Id)).Notes);
+    }
+
+    /// <summary>
     /// The same bug one entry further along, and quieter: the push left the shelf item off every
     /// request, so a list holding a restock errand cut that errand loose from its product the first
     /// time the phone synced - TaskItem keeps LinkedInventoryItemId only for an Inventory entry, and

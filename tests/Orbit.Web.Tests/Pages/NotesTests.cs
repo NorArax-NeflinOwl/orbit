@@ -47,15 +47,40 @@ public sealed class NotesTests : OrbitTestContext
         Assert.Equal(["Ideas", "Shopping"], titles);
     }
 
+    /// <summary>
+    /// A recipient gets a pin of their own. The owner's is on the note and moves it on the owner's page,
+    /// so this one is kept on the reader's device instead - see SharedItemPins. What matters here is that
+    /// the control is offered at all: it used to be left out, and a note somebody sent you could not be
+    /// brought to the top of your own page.
+    /// </summary>
     [Fact]
-    public void A_note_shared_with_you_has_no_pin()
+    public void A_note_shared_with_you_can_be_pinned_by_the_reader()
     {
-        // Pinning a note moves it on its owner's page, so the control is not offered to a recipient.
         RegisterNotesApiClient([Note("Shopping") with { IsShared = true, SharedByUserName = "anna" }]);
 
         var cut = RenderComponent<Web.Pages.Notes>();
 
-        Assert.Empty(cut.FindAll(".pin-button"));
+        Assert.Single(cut.FindAll(".pin-button"));
+    }
+
+    /// <summary>
+    /// And it is the reader's answer that shows, not the owner's: a note its owner pinned on their page
+    /// arrives here unpinned, because where it sits on this page is this reader's to say.
+    /// </summary>
+    [Fact]
+    public void The_owners_pin_does_not_reach_a_reader_it_was_shared_with()
+    {
+        RegisterNotesApiClient(
+        [
+            Note("Shopping") with { IsShared = true, SharedByUserName = "anna", IsPinned = true },
+            Note("Ideas")
+        ]);
+
+        var cut = RenderComponent<Web.Pages.Notes>();
+
+        Assert.Empty(cut.FindAll(".item-card.item-card-pinned"));
+        var titles = cut.FindAll(".item-card-name").Select(element => element.TextContent.Trim()).ToList();
+        Assert.Equal(["Shopping", "Ideas"], titles);
     }
 
     [Fact]

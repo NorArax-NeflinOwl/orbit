@@ -31,6 +31,7 @@ public abstract class OrbitTestContext : TestContext
         // The contacts page reads which conversations this reader keeps at the top. Same storage, same
         // empty start - nothing is pinned until a test pins something.
         Services.AddSingleton(new ConversationPins(new StubJSRuntime()));
+        Services.AddSingleton(new SharedItemPins(new StubJSRuntime()));
         // The questions asked before a task list is deleted, which three pages now inject - see
         // TaskListDeletion. Registered here for the same reason Translations is: a test about what a
         // page shows should not fail on a service it never exercises. It resolves the TasksApiClient

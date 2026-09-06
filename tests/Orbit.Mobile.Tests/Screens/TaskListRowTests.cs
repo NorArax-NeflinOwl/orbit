@@ -89,6 +89,29 @@ public sealed class TaskListRowTests
         Assert.False(row.HasNothingLeftToDo);
     }
 
+    /// <summary>
+    /// Only the owner may pin, and the server turns anybody else down
+    /// (SetTaskListPinnedCommandHandler) - so the control has to be left out rather than offered and
+    /// refused. A recipient tapping it got no pin, no message and no reason. The same rule
+    /// NoteListItem.CanBePinned already followed.
+    /// </summary>
+    [Fact]
+    public void A_list_shared_with_this_reader_offers_no_pin()
+    {
+        var theirs = List("Groceries", Open("Buy bread"));
+        theirs.IsShared = true;
+
+        Assert.False(Show(theirs, [theirs]).CanBePinned);
+    }
+
+    [Fact]
+    public void A_list_of_this_readers_own_offers_one()
+    {
+        var mine = List("Groceries", Open("Buy bread"));
+
+        Assert.True(Show(mine, [mine]).CanBePinned);
+    }
+
     private static TaskListRow Show(LocalTaskList taskList, IReadOnlyList<LocalTaskList> everyList)
         => TaskListRow.From(
             taskList, everyList, hasUnsentChanges: false, FixedNetworkStatus.Online,
