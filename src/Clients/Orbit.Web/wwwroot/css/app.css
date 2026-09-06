@@ -741,9 +741,20 @@ input.note-editor-title {
     cursor: pointer;
 }
 
-.avatar-dropdown-item:hover {
+.avatar-dropdown-item:hover:not(:disabled) {
     background: var(--bg-subtle);
     color: var(--text-primary);
+}
+
+/* An entry the reader may not press: greyed, and not lit up by the pointer either - which is what the
+   :not(:disabled) above is for. Until now a disabled entry was drawn exactly like a working one and
+   quietly did nothing when pressed, everywhere this class is used (ObjectMenu's Delete has been one all
+   along). What it is greyed *for* is on the control's own title, where the pointer already is.
+
+   No cursor rule: a browser does not apply an author's cursor over a disabled form control, so writing
+   one here would be a line that reads as if it did something. Checked rather than assumed. */
+.avatar-dropdown-item:disabled {
+    color: var(--text-tertiary);
 }
 
 .notifications-panel {
@@ -1041,6 +1052,12 @@ input.note-editor-title {
     min-width: 0;
     overflow: hidden;
     text-overflow: ellipsis;
+}
+
+/* At the end of the row, so the names line up and the menu is always in the same place down the
+   roster - it used to be two buttons whose widths changed with the labels on them. */
+.group-member-menu {
+    margin-left: auto;
 }
 
 .group-member-badge {

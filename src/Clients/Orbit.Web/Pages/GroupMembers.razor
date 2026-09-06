@@ -43,20 +43,47 @@ else if (_errorMessage is not null)
                 {
                     <span class="card-badge group-member-badge">@T["Admin"]</span>
                 }
-                @if (IsOwnAdmin && member.UserId != _ownUserId)
-                {
-                    <button type="button" class="btn-secondary" disabled="@_isBusy"
-                            @onclick="() => ChangeRoleAsync(member.UserId, member.Role == AdminRole ? MemberRole : AdminRole)">
-                        @(member.Role == AdminRole ? T["Demote"] : T["Make admin"])
-                    </button>
-                    <button type="button" class="btn-secondary" disabled="@_isBusy" @onclick="() => RemoveMemberAsync(member.UserId)">@T["Remove"]</button>
-                }
-                @* Showing yourself out is not the same act as removing somebody, and needs no admin
-                   standing - see ChatGroup.RemoveMember. Without this there was no way out of a group. *@
-                @if (member.UserId == _ownUserId)
-                {
-                    <button type="button" class="btn-secondary" disabled="@_isBusy" @onclick="LeaveGroupAsync">@T["Leave group"]</button>
-                }
+                @* One menu rather than a row of buttons. A roster is read down the names, and two
+                   buttons per person made every row as wide as its widest control and the names the
+                   narrowest thing on it - the same three-dot menu every card in the app carries.
+
+                   What a reader may not do is drawn greyed rather than left out: an option that
+                   disappears looks like an option that does not exist, and "you are not an admin here"
+                   is worth saying. Each one says why it is greyed on the control itself, so the answer
+                   is where the pointer already is. *@
+                <span class="group-member-menu">
+                    <OverflowMenu>
+                        @* Promoting somebody, or taking it back. Never yourself: an admin who could
+                           demote themselves could leave a group with nobody able to change it - the
+                           server refuses it too, see ChatGroup. *@
+                        <button type="button" class="avatar-dropdown-item"
+                                disabled="@(_isBusy || !CanChangeRoleOf(member))"
+                                title="@WhyRoleCannotChange(member)"
+                                @onclick="() => ChangeRoleAsync(member.UserId, member.Role == AdminRole ? MemberRole : AdminRole)">
+                            @(member.Role == AdminRole ? T["Demote"] : T["Make admin"])
+                        </button>
+                        @* Who somebody is needs no standing at all, so it is the one entry never greyed.
+                           It leads to the same page a contact's own card does - a member who is not a
+                           contact resolves there too, see ContactInfo. *@
+                        <button type="button" class="avatar-dropdown-item"
+                                @onclick="() => GoToMemberInfo(member.UserId)">@T["Info"]</button>
+                        @* Showing yourself out is not the same act as removing somebody, and needs no
+                           admin standing - see ChatGroup.RemoveMember - so on your own row this is the
+                           way out of the group rather than a greyed "Remove". *@
+                        @if (member.UserId == _ownUserId)
+                        {
+                            <button type="button" class="avatar-dropdown-item" disabled="@_isBusy"
+                                    @onclick="LeaveGroupAsync">@T["Leave group"]</button>
+                        }
+                        else
+                        {
+                            <button type="button" class="avatar-dropdown-item"
+                                    disabled="@(_isBusy || !IsOwnAdmin)"
+                                    title="@(IsOwnAdmin ? null : T["Only a group admin can change who is in it."])"
+                                    @onclick="() => RemoveMemberAsync(member.UserId)">@T["Remove"]</button>
+                        }
+                    </OverflowMenu>
+                </span>
             </div>
         }
 
@@ -107,6 +134,36 @@ else if (_errorMessage is not null)
     private string? _historyShareMessage;
 
     private bool IsOwnAdmin => _group?.OwnRole == AdminRole;
+
+    /// <summary>
+    /// Whether this reader may promote or demote this member. Two answers in one: an admin may, and
+    /// nobody may do it to themselves - an admin who could demote themselves could leave a group with
+    /// nobody able to change it, which is why the server refuses that too.
+    /// </summary>
+    private bool CanChangeRoleOf(ChatGroupMemberDto member) => IsOwnAdmin && member.UserId != _ownUserId;
+
+    /// <summary>
+    /// Why the entry above is greyed, on the control itself - a greyed control that does not say why is
+    /// a dead end. Null when it is not greyed, so nothing is said about a control that works.
+    /// </summary>
+    private string? WhyRoleCannotChange(ChatGroupMemberDto member)
+    {
+        if (CanChangeRoleOf(member))
+        {
+            return null;
+        }
+
+        return member.UserId == _ownUserId
+            ? T["Your own standing in a group is not yours to change."]
+            : T["Only a group admin can change who is in it."];
+    }
+
+    /// <summary>Who this person is, on the same page a contact's own card opens - see ContactInfo.</summary>
+    private void GoToMemberInfo(Guid userId)
+    {
+        Logger.LogInformation("User opened the info for group member {MemberUserId}", userId);
+        NavigationManager.NavigateTo($"/contacts/{userId}");
+    }
 
     /// <summary>Contacts not already in this group - the only people an admin can usefully add.</summary>
     private IReadOnlyList<ContactDto> _addableContacts

@@ -362,11 +362,26 @@ conversation would be instead of on a separate form.
 The thread header carries **one menu in its corner** for the conversation itself. For a person it
 offers **Info**, which opens their card (`/contacts/{userId}`, `ContactInfo.razor` — the same page the
 contact list's "Info" button and the dashboard's contacts card open). For a group it offers **Members**
-(`/chat/groups/{id}/members`, `GroupMembers.razor` — the roster, with the add/remove/promote controls
-an admin gets and the "Leave group" button everybody gets) and **Info** (`/chat/groups/{id}/info`, name,
-size, when it started, and this reader's own role). The roster is a page rather than a panel folded into
-the thread: one row per person with two buttons each for an admin, above the messages, left the
-conversation itself below the fold on every visit.
+(`/chat/groups/{id}/members`, `GroupMembers.razor` — the roster) and **Info**
+(`/chat/groups/{id}/info`, name, size, when it started, and this reader's own role). The roster is a page
+rather than a panel folded into the thread: one row per person, above the messages, left the conversation
+itself below the fold on every visit.
+
+**Each member row carries one menu**, the same three-dot menu every card in the app has, rather than a
+row of buttons — a roster is read down the names, and buttons whose widths changed with their labels
+made the names the narrowest thing on it. It offers three things: **Make admin** / **Demote**, **Info**
+(the same `/contacts/{userId}` card everything else opens, which resolves for a member who is not a
+contact too), and **Remove** — or **Leave group** on your own row, since showing yourself out is not the
+same act as removing somebody and needs no admin standing.
+
+**What the reader may not do is greyed, not left out**, and says why on itself. An option that
+disappears looks like an option that does not exist, and "you are not an admin here" is worth saying;
+the reason sits on the control's own `title`, where the pointer already is. Two rules decide it: only an
+admin may promote, demote or remove, and **nobody changes their own standing** — an admin who could
+demote themselves could leave a group with nobody able to change it, which the server refuses as well.
+Info is never greyed: who somebody is needs no standing. A greyed entry is also drawn greyed now
+(`.avatar-dropdown-item:disabled`), which it was not — `ObjectMenu`'s disabled Delete had looked exactly
+like a working one all along.
 
 **A card for somebody who has gone unfindable says so, and says what it cannot know.** An account that
 has not unlocked `Contacts` is invisible in both directions, and a lookup for it answers exactly as a
