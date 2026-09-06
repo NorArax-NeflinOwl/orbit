@@ -178,19 +178,17 @@ version, so they aren't mistaken for oversights:
   [Azure setup](azure-setup.md#6-let-a-release-record-itself-as-the-newest-build) - and skips silently
   without it. `MinimumSupportedVersion` is the one that **blocks** an app and stays empty while this is
   a prototype.
-- **One test was removed because it could not be made to fail on demand.**
-  `NoteDetailScreenTests.Turning_private_off_puts_the_words_back_where_the_server_can_read_them` failed
-  about one full-suite run in ten and was never reproduced on its own - roughly fifty targeted runs,
-  including under load from a second test host, all passed. It needs the whole suite in flight, which
-  points at something about running the three assemblies together rather than at the unsealing it
-  covers.
+- ~~**One test was removed because it could not be made to fail on demand.**~~ Restored 2026-09-06, and
+  the parallelism question turned out to have been answered the day after the removal by somebody
+  fixing it for another reason. `NoteDetailScreenTests.Turning_private_off_puts_the_words_back_where_the_server_can_read_them`
+  was taken out on 2026-08-31 for failing about one full-suite run in ten and never on its own; on
+  2026-09-01, `afd0f7e2` "Give every local-store context a connection of its own" gave each test store a
+  database of its own, and says in its own words that sharing one connection made SQLite refuse EF's
+  user-function registration while a statement was open, so the failure "arrived only under load, on CI,
+  in a test about something else entirely". That is the shape this one had. Nobody came back for it.
 
-  Taken out rather than left red or "fixed" by guessing: a change that cannot be shown to address the
-  failure only hides it, and a test that fails one run in ten teaches everybody to re-run the build
-  instead of reading it. What is no longer asserted is the way *back* from private - that clearing the
-  switch puts the title and lines where the server can read them and drops the sealed payload. Turning
-  privacy on, and the refusal when the device holds no key, are still covered. Worth restoring once the
-  parallelism question is answered.
+  The lesson worth keeping: a test parked for flakiness needs somebody to own going back, or the fix
+  lands a day later and the coverage stays lost. This one was lost for a week.
 - **A timestamp is only as fine as the clock.** `NotificationChangeFeedTests` took its cursor from
   `DateTimeOffset.UtcNow` a moment before recording, and on a fast machine both reads land on the same
   tick - fixed by stamping its records at a fixed point in the past, which is the technique the other
