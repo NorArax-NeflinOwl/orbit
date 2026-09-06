@@ -49,16 +49,30 @@ touched carelessly.
 `orbit-api` had internal ingress only until the phone was pointed at it. The detour through nginx meant
 every sync woke `orbit-web`, which is set to scale to zero and therefore never did.
 
-**Switching that ingress is not a flag.** The FQDN changes - `orbit-api.internal.<suffix>` becomes
-`orbit-api.<suffix>` - and `nginx.azure.conf` names the upstream literally, so the web client is broken
-between the ingress change and the deploy that repoints nginx:
+**Switching that ingress changes the name.** `orbit-api.internal.<suffix>` becomes `orbit-api.<suffix>`,
+and `nginx.azure.conf` names the upstream literally in two places - the `/api/` proxy and the `/health`
+proxy - so both have to be repointed in the deploy that follows:
 
 ```bash
 az containerapp ingress update -n orbit-api -g Orbit --type external
 ```
 
-Do it immediately before the deploy that carries the matching `nginx.azure.conf`, not days earlier.
-`--type internal` reverses it, with the same window in the other direction.
+**What was actually observed when this was done on 2026-09-06**, because it is less alarming than
+expected and the difference matters: the switch took about fifteen seconds and *nothing broke*. The web
+client, its `/api/` proxy and its `/health` proxy all kept answering 200 immediately afterwards, with
+the old configuration still naming `orbit-api.internal`.
+
+**That is not proof that the internal name survives the switch.** The nginx replica answering those
+requests had started four and a half hours earlier, so it resolved the internal name before the change
+and was holding the result - `nginx.azure.conf` resolves its upstream once at startup, which is the
+whole point of the notes under [gotchas](#nginxazureconf-gotchas). Whether a *fresh* nginx start can
+still resolve `orbit-api.internal` was not established: `az containerapp exec` and
+`az containerapp revision restart` were both unavailable in the session that made the change.
+
+So the open question is a cold start, and `orbit-web` runs at `min-replicas 0`. Until the deploy
+carrying the repointed `nginx.azure.conf` is live, a scale to zero followed by a wake-up is the one
+event that could surface it. Get that deploy out rather than leaving it overnight, or run
+`--type internal` to put it back until the deploy is ready.
 
 ## First-time setup from zero
 
