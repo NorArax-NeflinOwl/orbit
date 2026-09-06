@@ -26,9 +26,8 @@
                  filled in before anything has been read. -->
             <controls:PageHeader Title="{controls:Translate 'Notes'}">
                 <controls:PageHeader.LeadingAction>
-                    <controls:IconButton Variant="Add" Data="M10,4 V16 M4,10 H16"
-                                         Description="{controls:Translate 'Add note'}"
-                                         Command="{Binding ToggleAddCommand, Source={x:Reference Page}, x:DataType=notes:NotesPage}" />
+                    <controls:IconButton x:Name="AddButton" Variant="Add" Data="M10,4 V16 M4,10 H16"
+                                         Description="{controls:Translate 'Add note'}" />
                 </controls:PageHeader.LeadingAction>
             </controls:PageHeader>
 
@@ -66,7 +65,7 @@
                         <!-- The card every list of things is drawn with - see ItemCard for its anatomy,
                              and Orbit.Web's own for where the shape came from. The row used to draw its
                              own stack of labels with a hairline under it. -->
-                        <controls:ItemCard Name="{Binding DisplayTitle}">
+                        <controls:ItemCard Name="{Binding DisplayTitle}" IsPinned="{Binding IsPinned}">
                             <controls:ItemCard.Pin>
                                 <!-- Filled when it is set, outlined when it is not, so the card says
                                      which without a word - and absent on a note somebody else owns,

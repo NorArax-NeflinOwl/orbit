@@ -25,9 +25,8 @@
              top of every visit. -->
         <controls:PageHeader Grid.Row="0" Title="{controls:Translate 'Tasks'}">
             <controls:PageHeader.LeadingAction>
-                <controls:IconButton Variant="Add" Data="M10,4 V16 M4,10 H16"
-                                     Description="{controls:Translate 'Add task list'}"
-                                     Command="{Binding ToggleAddCommand, Source={x:Reference Page}, x:DataType=tasks:TasksPage}" />
+                <controls:IconButton x:Name="AddButton" Variant="Add" Data="M10,4 V16 M4,10 H16"
+                                     Description="{controls:Translate 'Add task list'}" />
             </controls:PageHeader.LeadingAction>
             <controls:PageHeader.Actions>
                 <controls:OverflowMenu Command="{Binding ShowSortMenuCommand, Source={x:Reference Page}, x:DataType=tasks:TasksPage}" />
@@ -172,7 +171,7 @@
                 <CollectionView.ItemTemplate>
                     <DataTemplate x:DataType="screens:TaskListRow">
                         <!-- The same card every list of things is drawn with - see ItemCard. -->
-                        <controls:ItemCard Name="{Binding DisplayTitle}">
+                        <controls:ItemCard Name="{Binding DisplayTitle}" IsPinned="{Binding IsPinned}">
                             <!-- Only where the reader is sorting by the order they put the cards in:
                                  moving one under any other order would be undone by the sort. The web
                                  drags them, which is not a gesture a thumb can aim in a scrolling list. -->

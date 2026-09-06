@@ -16,14 +16,14 @@
 
          Everything except the name is optional and is left out rather than drawn empty. The same
          anatomy Orbit.Web settled on - see its Components/ItemCard.razor. -->
-    <Border StrokeThickness="1" Padding="14,12" Margin="0,4"
+    <Border x:Name="Frame" StrokeThickness="1" Padding="14,12" Margin="0,5"
             Stroke="{AppThemeBinding Light={StaticResource CardStrokeLight}, Dark={StaticResource CardStrokeDark}}"
             BackgroundColor="{AppThemeBinding Light={StaticResource SurfaceLight}, Dark={StaticResource SurfaceDark}}">
         <Border.StrokeShape>
             <RoundRectangle CornerRadius="12" />
         </Border.StrokeShape>
 
-        <VerticalStackLayout Spacing="6">
+        <VerticalStackLayout Spacing="8">
 
             <!-- No column spacing: the two marks before the name are optional, and a column that is
                  empty must cost nothing at all - spacing kept for a pin nobody can see pushed every
@@ -37,13 +37,13 @@
                     <!-- Something happened here that the reader has not seen. Before the name because
                          that is where the eye already is reading down a list, and it is about this card
                          rather than about the page. -->
-                    <Ellipse x:Name="ActionMark" WidthRequest="8" HeightRequest="8" IsVisible="False"
+                    <Ellipse x:Name="ActionMark" WidthRequest="9" HeightRequest="9" IsVisible="False"
                              VerticalOptions="Center" Margin="0,0,2,0"
                              Fill="{AppThemeBinding Light={StaticResource DangerLight}, Dark={StaticResource DangerDark}}" />
                 </HorizontalStackLayout>
 
                 <Grid Grid.Column="1">
-                    <Label x:Name="NameLabel" FontSize="17" FontAttributes="Bold"
+                    <Label x:Name="NameLabel" Style="{StaticResource ItemCardName}" MaxLines="2"
                            VerticalOptions="Center" LineBreakMode="TailTruncation" />
 
                     <!-- The name on its own opens what the card is a way into, where the card holds
@@ -63,7 +63,10 @@
                  took its spacing - see Fill, which turns a slot back on with what goes in it. -->
             <ContentView x:Name="TagsHost" IsVisible="False" />
             <ContentView x:Name="BodyHost" IsVisible="False" />
-            <ContentView x:Name="ExtrasHost" IsVisible="False" />
+            <VerticalStackLayout x:Name="Footer" IsVisible="False" Spacing="8">
+                <BoxView Style="{StaticResource Hairline}" />
+                <ContentView x:Name="ExtrasHost" />
+            </VerticalStackLayout>
 
             <!-- The whole card opens what it names, rather than only the words: on a card this size the
                  block is the target, and asking somebody to hit a word is the difference between one tap
