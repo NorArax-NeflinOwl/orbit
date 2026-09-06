@@ -239,6 +239,21 @@ public sealed class TaskList
     }
 
     /// <summary>
+    /// Says again whether everything on this list is done, for a caller that crossed entries off where
+    /// they stand rather than by handing in a new set of them - see
+    /// GenerateInventoryFromTaskListCommandHandler. <see cref="Update"/> asks the same question, and a
+    /// caller going through it does not need this.
+    ///
+    /// Stamps the list as changed, like every other answer that alters what it says, so the change feed
+    /// carries it to anybody else's copy.
+    /// </summary>
+    public void RecountWhatIsDone()
+    {
+        IsCompleted = ComputeIsCompleted(Items);
+        UpdatedAtUtc = DateTimeOffset.UtcNow;
+    }
+
+    /// <summary>
     /// Points this list at an inventory, or at none. Its own command rather than part of an update, for
     /// the same reason pinning is: it changes what the list is measured against, not what is on it.
     ///

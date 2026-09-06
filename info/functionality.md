@@ -1188,13 +1188,27 @@ the same fields the inventory editor uses (`InventoryFields`) on any list: on on
 storage they describe a product to put on that shelf, saved there with the list; on one with no storage
 they are kept on the entry itself (`TaskItemProduct`, stored on `OP_TASKS_ITEMS` with its categories in
 `OP_TASKS_PRODUCT_CATEGORIES`, and carried by `TaskItemDto.Product`) until "Generate inventory" turns
-them into rows. It is filed under as many words as apply, like the shelf item it becomes - and under its
-own words rather than the entry's: an errand filed under "shopping" can be asking for something filed
-under "baking". The description used to be
+them into rows. It is filed under as many words as apply, like the shelf item it becomes - and under the
+**entry's own** words: the product form had a categories box directly under the entry's, with the same
+label and the same placeholder and nothing saying which was which, so the entry's answer is now the
+product's too (`InventoryFields.ShowsCategories`, `TaskEditor.ProductAsked`). The box offers both
+vocabularies for that reason - what entries are filed under and what shelf items are - and an entry saved
+before there was one box opens showing what its product was filed under, so a save cannot write emptiness
+over it (`TaskEditor.CategoriesOf`). The description used to be
 possible only after a storage existed, which meant answering "how many, in what, how long does it keep"
 twice - once on the list and once on the shelf. A request that says nothing about the product leaves what
 is stored alone (`UpdateTaskListCommand.EntriesKeepingTheirProduct`), the same rule the categories follow,
 so the phone and older tabs can go on saving lists without emptying it.
+
+**An entry the shelf already answers crosses itself off.** Once an Inventory entry stands for a row on a
+shelf, that row is what knows whether the entry has been met, so an entry whose row holds at least what it
+asked to keep is completed without anybody ticking it (`StockedEntryCompletion`). It happens where the
+storage is generated - the rows are known there already, so nothing is read back - and on every later save
+of the list, which costs nothing for a list with no outstanding inventory entry. Only ever crossed off,
+never back: a tick somebody put there is theirs, and a crossed-off restock errand is what tells the shelf
+it was filled (`RestockCompletion`). Two rows answer nothing whatever their count says - one with no
+minimum, which was left to the counting rule, and one marked to be looked at every round, where crossing
+off answers "have you looked" (`InventoryItem.BelongsOnTheRestockList`).
 
 **A position somebody shared opens in the phone's own map app.** Each "Shared with you" row carries an
 Open in Maps button, and tapping a pin's own callout does the same (`MapViewModel.WhereToOpen` answers
@@ -1209,6 +1223,12 @@ Maps, which hands the position to whatever map app the device has - `geo:` every
 which does not answer `geo:` (`wwwroot/js/mapApp.js`). A scheme rather than a Google Maps URL for the
 reason the phone chose one: this is the screen that must not add a third-party request, and the map app
 is already on the device.
+
+The hand-over is a **link that gets clicked**, never the page being moved. Setting `location.href` to
+`maps://...` opens the app but leaves a navigation that can never finish, and the browser reports that as
+a failed page - "the address is invalid" - the next time somebody looks at it, which is on coming back
+from the map app. A browser tells the two apart by how the navigation started: an activated link is handed
+to the device and the page is left alone. The link is made, clicked and thrown away.
 
 On a phone, pressing the **row itself** opens the map app too, rather than centring Orbit's own map -
 but only when that map cannot answer (`MapAppHandoff`): the tiles are withheld because the reader keeps

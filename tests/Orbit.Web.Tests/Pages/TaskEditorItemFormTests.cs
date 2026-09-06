@@ -456,6 +456,127 @@ public sealed class TaskEditorItemFormTests : OrbitTestContext
         Assert.Contains("\"unit\":\"Kilogram\"", _lastSavedJson);
     }
 
+    /// <summary>
+    /// One box, not two. The entry has always had a categories box; the product form an Inventory entry
+    /// opens brought a second one, directly under it, with the same label and the same placeholder -
+    /// and nothing on the screen said which was which. See InventoryFields.ShowsCategories.
+    /// </summary>
+    [Fact]
+    public void An_inventory_entry_asks_what_it_is_filed_under_once()
+    {
+        RegisterApiClients(AnItem(kind: nameof(TaskItemKind.Inventory)));
+        var cut = Render();
+
+        ExpandTheOnlyItem(cut);
+
+        var details = cut.Find(".editor-item-details");
+        Assert.Single(details.QuerySelectorAll(".editor-item-tags"));
+        // The rest of the product form is still there - this took a box away, not the form.
+        Assert.Contains("Product type", details.TextContent);
+    }
+
+    /// <summary>
+    /// And that one box answers for both: the words on the entry are what the row it builds is filed
+    /// under, so nobody types "food" twice - see TaskEditor.ProductAsked.
+    /// </summary>
+    [Fact]
+    public void What_an_inventory_entry_is_filed_under_is_what_its_product_is_filed_under()
+    {
+        RegisterApiClients(AnItem(kind: nameof(TaskItemKind.Inventory)));
+        var cut = Render();
+        ExpandTheOnlyItem(cut);
+
+        cut.Find(".tag-field-input").Input("Dry goods");
+        cut.Find(".tag-field-add").Click();
+        ClickButtonSaying(cut, "Save");
+
+        Assert.Contains("\"categories\":[\"Dry goods\"]", _lastSavedJson);
+        // Twice over: once on the entry, and once inside what the entry asks for.
+        Assert.Equal(
+            2, _lastSavedJson!.Split("\"categories\":[\"Dry goods\"]").Length - 1);
+    }
+
+    /// <summary>
+    /// The other way round, for an entry saved before there was one box: what its product was filed
+    /// under is what the box opens showing. Without this the box would open empty and the save would
+    /// write that emptiness back over what was there - see TaskEditor.CategoriesOf.
+    /// </summary>
+    [Fact]
+    public void An_inventory_entry_filed_only_on_its_product_shows_those_words()
+    {
+        RegisterApiClients(AnItem(kind: nameof(TaskItemKind.Inventory)) with
+        {
+            Categories = [],
+            Product = new TaskItemProductDto(
+                "Food", ["Dry goods"], Quantity: 0, MinimumQuantity: null, Unit: "Piece", ExpiryDate: null,
+                ExpiryNotificationChannel: "None", IsCheckedRegularly: false)
+        });
+        var cut = Render();
+
+        ExpandTheOnlyItem(cut);
+
+        Assert.Equal(
+            ["Dry goods"],
+            cut.FindAll(".tag-chip").Select(chip => chip.TextContent.Replace("✕", string.Empty).Trim()));
+    }
+
+    /// <summary>A storage for the two tests that watch what a save writes back to a shelf.</summary>
+    private void MeasuredAgainstAStorage()
+        => _linkedInventory = new InventoryDto(
+            Guid.NewGuid(), "Pantry", DateTimeOffset.UtcNow, DateTimeOffset.UtcNow,
+            IsShared: false, SharedByUserName: null, AccessLevel: "CanEdit", LockedByUserName: null,
+            OriginalOwnerUserId: null);
+
+    private static InventoryItemDto AShelfRow(string name, string category, params string[] categories)
+        => new(
+            Guid.NewGuid(), name, "Dry goods", category, Quantity: 1, MinimumQuantity: 1, Unit: "Piece",
+            ExpiryDate: null, ExpiryNotificationChannel: "None", IsBelowMinimum: false,
+            HasPendingRestockTask: false, DateTimeOffset.UtcNow, DateTimeOffset.UtcNow,
+            IsCheckedRegularly: false, Categories: categories);
+
+    /// <summary>
+    /// The one box, all the way to the shelf: what the entry is filed under is what the row it puts on
+    /// that shelf is filed under. Before this the product form asked again, in a box that looked exactly
+    /// like the entry's, and the answer typed in the visible one never reached the storage.
+    /// </summary>
+    [Fact]
+    public void An_entrys_categories_are_what_its_new_shelf_row_is_filed_under()
+    {
+        MeasuredAgainstAStorage();
+        RegisterApiClients(AnItem(kind: nameof(TaskItemKind.Inventory)));
+        var cut = Render();
+        ExpandTheOnlyItem(cut);
+
+        cut.Find(".tag-field-input").Input("Dry goods");
+        cut.Find(".tag-field-add").Click();
+        ClickButtonSaying(cut, "Save");
+
+        Assert.Contains("\"name\":\"Buy milk\"", _lastShelfJson);
+        Assert.Contains("\"categories\":[\"Dry goods\"]", _lastShelfJson);
+    }
+
+    /// <summary>
+    /// A row this list never touched still travels through the save, and it has to come out filed under
+    /// everything it went in filed under. Leaving the list of words unsaid means "the sender does not
+    /// know about them", and the single old field was then read as the whole answer - so saving a task
+    /// list quietly filed a two-word row under one. See TaskEditor.SaveTheShelfAsync.
+    /// </summary>
+    [Fact]
+    public void A_shelf_row_this_list_never_touched_keeps_every_word_it_is_filed_under()
+    {
+        MeasuredAgainstAStorage();
+        _shelf = [AShelfRow("Mąka", "Baking", "Baking", "Dry goods")];
+        RegisterApiClients(AnItem(kind: nameof(TaskItemKind.Inventory)));
+        var cut = Render();
+        // Opened, because that is what puts this list's own entry on the shelf being written - a list
+        // nobody opened an inventory entry on writes no shelf at all. See TaskEditor.ShelfFieldsFor.
+        ExpandTheOnlyItem(cut);
+
+        ClickButtonSaying(cut, "Save");
+
+        Assert.Contains("\"categories\":[\"Baking\",\"Dry goods\"]", _lastShelfJson);
+    }
+
     /// <summary>An entry of another kind describes nothing, and says nothing about it - see TaskEditor.ProductAsked.</summary>
     [Fact]
     public void An_ordinary_entry_says_nothing_about_a_product()
@@ -580,6 +701,12 @@ public sealed class TaskEditorItemFormTests : OrbitTestContext
     /// <summary>What the page asked the server to build, when it asked - see GenerateInventoryOverlay.</summary>
     private string? _lastGenerateJson;
 
+    /// <summary>What the save wrote back to the storage this list is measured against - see SaveTheShelfAsync.</summary>
+    private string? _lastShelfJson;
+
+    /// <summary>What that storage already holds. Empty for the tests that only look at the list.</summary>
+    private IReadOnlyList<InventoryItemDto> _shelf = [];
+
     private static readonly Guid GeneratedInventoryId = Guid.NewGuid();
 
     private void RegisterApiClients(TaskItemDto item)
@@ -653,7 +780,24 @@ public sealed class TaskEditorItemFormTests : OrbitTestContext
 
             if (_linkedInventory is { } storage && path.EndsWith($"/api/inventories/{storage.Id}", StringComparison.Ordinal))
             {
+                // The shelf is written back by the same save that writes the list - see SaveTheShelfAsync.
+                if (request.Method == HttpMethod.Put)
+                {
+                    _lastShelfJson = request.Content!.ReadAsStringAsync().GetAwaiter().GetResult();
+                    return new HttpResponseMessage(HttpStatusCode.NoContent);
+                }
+
                 return JsonOf(storage);
+            }
+
+            if (_linkedInventory is { } shelved && path.EndsWith($"/api/inventories/{shelved.Id}/items", StringComparison.Ordinal))
+            {
+                return JsonOf(_shelf);
+            }
+
+            if (path.EndsWith("/restock-list/refresh", StringComparison.Ordinal))
+            {
+                return JsonOf(new RestockRefreshResultDto(0, 0));
             }
 
             // The storage the generation just built, which the page reads back to name it on screen.

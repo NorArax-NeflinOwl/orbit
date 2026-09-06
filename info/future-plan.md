@@ -502,6 +502,16 @@ beside a task belongs here, not in that task's diff. A defect is the exception a
   sheet in front of `StockCheckPanel.GenerateInventoryAsync` asking the same six questions
   `GenerateInventoryOverlay` asks.
 
+- **The phone still asks twice what a shelf entry is filed under.** On the web an Inventory entry has one
+  categories box, and what it says is what the row it stands for is filed under
+  (`InventoryFields.ShowsCategories`, `TaskEditor.ProductAsked`, 2026-09-06). The phone's entry editor
+  still has its own categories field *and* shows `ShelfProductFields` with a second one directly under it
+  (`TaskListDetailPage.xaml`, `IsShelfEntry`), so the two answers can disagree and the one somebody
+  typed on the entry never reaches the shelf. Nothing is lost either way - each field still saves what it
+  has always saved - so this is parity, not a defect. What it would take: hiding the categories row
+  inside `ShelfProductFields` when it is drawn on a task entry, and writing the entry's `Categories` onto
+  `Shelf.Product` where the entry is saved.
+
 - **Done, kept here as the map of it.** Orbit has two depths for the same thing: a shallow view for
   reading and doing, and a full form for changing what it is. Every object that can have both now does,
   and the pattern is the same one each time - land on what the thing is, with the fields a named press

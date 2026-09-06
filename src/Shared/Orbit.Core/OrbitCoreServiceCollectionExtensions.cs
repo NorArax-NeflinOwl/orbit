@@ -330,6 +330,7 @@ public static class OrbitCoreServiceCollectionExtensions
         // rows and the command that saves one - see InventoryItemsSaver.
         services.AddScoped<InventoryItemsSaver>();
         services.AddScoped<RestockCompletion>();
+        services.AddScoped<StockedEntryCompletion>();
         services.AddScoped<RestockListRefresh>();
 
         // How an inventory's restock list is built and when it comes round, plus the manual rebuild.

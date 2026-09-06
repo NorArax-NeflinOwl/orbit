@@ -190,7 +190,8 @@ public sealed class RestockCompletionTests
                 new TaskListAccessResolver(_context.TaskRepository, new InMemoryTaskListShareRepository(), new InMemoryUserRepository()),
                 _context.TaskRepository,
                 new TaskListLinkValidator(_context.TaskRepository),
-                ACompletion())
+                ACompletion(),
+                _context.StockedEntryCompletion)
             .HandleAsync(
                 new UpdateTaskListCommand(
                     _userId, taskListId, taskList.Title, ticked, IsGroup: false, IsPrivate: false, EncryptedContent: null),

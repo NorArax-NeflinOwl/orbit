@@ -42,11 +42,14 @@
 </label>
 @* As many as apply, the same control a task entry's categories get - a thing on a shelf is "baking"
    and "dry goods" at once, and the single box this replaced asked somebody to pick one. See TagField. *@
-<div class="editor-item-tags">
-    <span class="editor-item-tags-label">@T["Categories"]</span>
-    <TagField Values="Model.Categories" ValuesChanged="values => Model.Categories = [.. values]"
-              Known="KnownCategories" Placeholder="@(T["Add a category"])" AriaLabel="@(T["Categories"])" />
-</div>
+@if (ShowsCategories)
+{
+    <div class="editor-item-tags">
+        <span class="editor-item-tags-label">@T["Categories"]</span>
+        <TagField Values="Model.Categories" ValuesChanged="values => Model.Categories = [.. values]"
+                  Known="KnownCategories" Placeholder="@(T["Add a category"])" AriaLabel="@(T["Categories"])" />
+    </div>
+}
 @* How long it keeps rather than the day it stops keeping - see ExpiresInField. A date is still what
    gets stored; nobody stocking a shelf knows the 14th, they know "a fortnight". *@
 <label>@T["Expires in"]
@@ -80,6 +83,14 @@
 
     /// <summary>Whether it needs how much there is and how little is too little. See the markup.</summary>
     [Parameter] public bool ShowsAmounts { get; set; }
+
+    /// <summary>
+    /// Whether it needs the box for what this is filed under. False on a task list, where the entry
+    /// itself already has one and the two were asked side by side: two boxes with the same label, the
+    /// same placeholder and no way to tell which was which. The entry's answer is the product's there -
+    /// see TaskEditor.razor.
+    /// </summary>
+    [Parameter] public bool ShowsCategories { get; set; } = true;
 
     /// <summary>
     /// What this reader has already filed shelf items under, for the two boxes that offer it. Read by
