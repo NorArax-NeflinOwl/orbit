@@ -1289,6 +1289,9 @@ public static class PolishTranslations
         [" · Read"] = " · Przeczytane",
         [" · Sent"] = " · Wysłane",
         ["Make admin"] = "Nadaj uprawnienia",
+        ["Only a group admin can change who is in it."] = "Tylko administrator grupy może zmieniać jej skład.",
+        ["Your own standing in a group is not yours to change."] =
+            "Własnych uprawnień w grupie nie zmienia się samemu.",
         ["live"] = "na żywo",
         ["sent once"] = "wysłane raz",
         ["Hide this item's other settings"] = "Ukryj pozostałe ustawienia tej pozycji",

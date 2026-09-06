@@ -8,6 +8,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Orbit.Core.Permissions;
+using Orbit.Web.Components;
 using Orbit.Web.Pages;
 using Orbit.Web.Services;
 using Orbit.Web.Tests.TestDoubles;
@@ -87,11 +88,79 @@ public sealed class GroupConversationPagesTests : OrbitTestContext
     public void An_admin_can_change_who_is_in_it()
     {
         RegisterChatApi(ownRole: "Admin");
+        var cut = RenderMembers();
+
+        var menu = OpenTheMenuFor(cut, OtherUserId);
+
+        Assert.False(ItemSaying(menu, "Make admin").HasAttribute("disabled"));
+        Assert.False(ItemSaying(menu, "Remove").HasAttribute("disabled"));
+    }
+
+    /// <summary>
+    /// The roster is read down the names, so the actions live behind the same three-dot menu every card
+    /// in the app carries rather than as a row of buttons whose widths pushed the names about.
+    /// </summary>
+    [Fact]
+    public void A_members_actions_are_behind_one_menu_rather_than_buttons_on_the_row()
+    {
+        RegisterChatApi(ownRole: "Admin");
 
         var cut = RenderMembers();
 
-        Assert.Contains("Make admin", cut.Markup);
-        Assert.Contains("Remove", cut.Markup);
+        Assert.Empty(cut.FindAll(".group-member-row .btn-secondary"));
+        // One menu per member, and this group has two.
+        Assert.Equal(2, cut.FindAll(".group-member-menu .overflow-menu-trigger").Count);
+    }
+
+    /// <summary>
+    /// Greyed rather than left out: an option that disappears looks like an option that does not exist,
+    /// and "you are not an admin here" is worth saying. Each greyed entry carries the reason on itself,
+    /// where the pointer already is.
+    /// </summary>
+    [Fact]
+    public void Somebody_who_is_not_an_admin_sees_the_options_greyed_and_told_why()
+    {
+        RegisterChatApi(ownRole: "Member");
+        var cut = RenderMembers();
+
+        var menu = OpenTheMenuFor(cut, OtherUserId);
+
+        var promote = ItemSaying(menu, "Make admin");
+        var remove = ItemSaying(menu, "Remove");
+        Assert.True(promote.HasAttribute("disabled"));
+        Assert.True(remove.HasAttribute("disabled"));
+        Assert.Equal("Only a group admin can change who is in it.", promote.GetAttribute("title"));
+        Assert.Equal("Only a group admin can change who is in it.", remove.GetAttribute("title"));
+    }
+
+    /// <summary>
+    /// And nobody changes their own standing, admin or not - an admin who could demote themselves could
+    /// leave a group with nobody able to change it. The server refuses it too.
+    /// </summary>
+    [Fact]
+    public void An_admin_cannot_change_their_own_standing()
+    {
+        RegisterChatApi(ownRole: "Admin");
+        var cut = RenderMembers();
+
+        var menu = OpenTheMenuFor(cut, OwnUserId);
+
+        var demote = ItemSaying(menu, "Demote");
+        Assert.True(demote.HasAttribute("disabled"));
+        Assert.Equal("Your own standing in a group is not yours to change.", demote.GetAttribute("title"));
+    }
+
+    /// <summary>Who somebody is needs no standing, so it is the one entry never greyed.</summary>
+    [Fact]
+    public void Info_is_offered_whoever_is_reading()
+    {
+        RegisterChatApi(ownRole: "Member");
+        var cut = RenderMembers();
+
+        var menu = OpenTheMenuFor(cut, OtherUserId);
+        ItemSaying(menu, "Info").Click();
+
+        Assert.EndsWith($"/contacts/{OtherUserId}", Services.GetRequiredService<NavigationManager>().Uri);
     }
 
     [Fact]
@@ -124,11 +193,35 @@ public sealed class GroupConversationPagesTests : OrbitTestContext
     public void Anybody_can_show_themselves_out()
     {
         RegisterChatApi(ownRole: "Member");
-
         var cut = RenderMembers();
 
-        Assert.Contains("Leave group", cut.Markup);
+        var menu = OpenTheMenuFor(cut, OwnUserId);
+
+        // Showing yourself out is not the same act as removing somebody, so on your own row this is the
+        // way out of the group rather than a greyed "Remove".
+        Assert.False(ItemSaying(menu, "Leave group").HasAttribute("disabled"));
+        Assert.Empty(menu.QuerySelectorAll(".avatar-dropdown-item").Where(item => item.TextContent.Trim() == "Remove"));
     }
+
+    /// <summary>
+    /// The row for one member, with its menu opened. Found again after the press rather than kept: the
+    /// dropdown only exists once the menu is open, so the element read before it was there holds none
+    /// of the entries this asks about.
+    /// </summary>
+    private static AngleSharp.Dom.IElement OpenTheMenuFor(IRenderedFragment cut, Guid memberUserId)
+    {
+        RowFor(cut, memberUserId).QuerySelector(".overflow-menu-trigger")!.Click();
+        return RowFor(cut, memberUserId);
+    }
+
+    /// <summary>Which row is whose, by the colour their avatar is drawn in - see AvatarHelper.</summary>
+    private static AngleSharp.Dom.IElement RowFor(IRenderedFragment cut, Guid memberUserId)
+        => cut.FindAll(".group-member-row")
+            .First(candidate => candidate.QuerySelector(".avatar-sm")!
+                .GetAttribute("style")!.Contains(AvatarHelper.AvatarColor(memberUserId), StringComparison.Ordinal));
+
+    private static AngleSharp.Dom.IElement ItemSaying(AngleSharp.Dom.IElement menu, string label)
+        => menu.QuerySelectorAll(".avatar-dropdown-item").First(item => item.TextContent.Trim() == label);
 
     /// <summary>
     /// The roster's own heading and nothing else. The Back button that used to sit beside it did what

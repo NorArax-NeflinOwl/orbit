@@ -347,6 +347,15 @@ try
 
     app.UseSerilogRequestLogging(options =>
     {
+        // Whose request it was, to the nearest network rather than the nearest person - see
+        // ClientNetwork for why it is masked and for the question it exists to answer. Reads
+        // RemoteIpAddress after UseForwardedHeaders has run, which is the whole point: a constant value
+        // here means that middleware is resolving nothing and every per-caller limit is one bucket.
+        options.MessageTemplate =
+            "HTTP {RequestMethod} {RequestPath} responded {StatusCode} in {Elapsed:0.0000} ms from {ClientNetwork}";
+        options.EnrichDiagnosticContext = (diagnosticContext, httpContext) =>
+            diagnosticContext.Set("ClientNetwork", ClientNetwork.Of(httpContext.Connection.RemoteIpAddress));
+
         // The container probes /health/live every ten seconds for as long as it runs. A probe that
         // succeeded is not news, so it drops below both environments' minimum level and disappears; one
         // that failed says something, and stays.
