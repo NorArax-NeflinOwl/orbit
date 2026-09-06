@@ -511,6 +511,14 @@ beside a task belongs here, not in that task's diff. A defect is the exception a
   follow: a per-recipient flag on the share row (`TaskListShare`, `NoteShare`) with an endpoint and a
   field on the DTO, which is a migration and a phone change rather than a screen one.
 
+- **The phone has no box for an entry's description.** Every task entry can carry one now
+  (`TaskItem.Notes`, 2026-09-06) and the phone neither shows nor writes it. Nothing is lost - its push
+  says nothing about the field and the server therefore keeps what is stored, which
+  `TaskListSyncTests.A_description_written_elsewhere_survives_a_push_from_the_phone` pins down - so this
+  is parity, not a defect. What it would take: a field on `TaskItemEditor` bound to `TaskItemDto.Notes`,
+  a box on the entry's sheet in `TaskListDetailPage.xaml`, and the same rule the web follows for a
+  calendar entry, whose description is its event's.
+
 - **The phone still asks twice what a shelf entry is filed under.** On the web an Inventory entry has one
   categories box, and what it says is what the row it stands for is filed under
   (`InventoryFields.ShowsCategories`, `TaskEditor.ProductAsked`, 2026-09-06). The phone's entry editor

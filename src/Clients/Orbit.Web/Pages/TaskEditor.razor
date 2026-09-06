@@ -172,6 +172,19 @@ else
                                       AriaLabel="@(T["Categories"])"
                                       IsReadOnly="@(_isSharedReadOnly || _lockedByUserName is not null)" />
                         </div>
+                        @* What the entry is about, as opposed to what it is called. A calendar entry has
+                           always had one - it was the event's - and nothing else did, so a checklist
+                           line or a restock errand could only ever be as long as its own row. It is the
+                           same box for every kind now, and on a calendar entry it is still the event's:
+                           the appointment's own form leaves its copy out (EventFields.ShowsDescription)
+                           rather than asking twice. Prose, so a textarea rather than a line. *@
+                        <div class="field editor-item-notes">
+                            <label for="@($"item{_formModel.Items.IndexOf(item)}Notes")">@T["Description"]</label>
+                            <textarea id="@($"item{_formModel.Items.IndexOf(item)}Notes")" rows="2"
+                                      placeholder="@(T["What this is about"])" value="@item.Notes"
+                                      disabled="@(_isSharedReadOnly || _lockedByUserName is not null)"
+                                      @oninput="args => item.Notes = args.Value?.ToString() ?? string.Empty"></textarea>
+                        </div>
                         @* A day to be done by is a checklist entry's question and nobody else's: an
                            appointment already says when it is, in the event's own start and end below,
                            and a restock errand is about an amount rather than a date. Asking all three
@@ -209,6 +222,7 @@ else
                                there is no title box here. *@
                             <span class="field-break"></span>
                             <EventFields Model="item.Event" NotificationSettings="_notificationSettings"
+                                         ShowsDescription="false"
                                          OnMapRequested="() => OpenTheMapFor(item)"
                                          IdPrefix="@($"item{_formModel.Items.IndexOf(item)}")"
                                          CanInviteGuests="true" Contacts="_contacts"
@@ -897,6 +911,7 @@ else
                                 LinkedCalendarEventId = item.LinkedCalendarEventId?.ToString() ?? string.Empty,
                                 LinkedTaskListIds = [.. item.AllLinkedTaskListIds],
                                 Categories = [.. CategoriesOf(item)],
+                                Notes = item.AllNotes,
                                 OverdueNotificationChannel = item.OverdueNotificationChannel,
                                 RemindDaily = item.RemindDaily,
                                 DailyReminderNotificationChannel = item.DailyReminderNotificationChannel,
@@ -1175,6 +1190,14 @@ else
             // copy held, and an entry whose event had a place had it erased by somebody editing
             // something else entirely.
             item.Event = EventFormModel.FromDto(details);
+
+            // An appointment made before the entry had a description of its own carries the answer on
+            // the event. The one box has to open showing it rather than blank, or the next save would
+            // write the blank back over it.
+            if (item.Notes.Length == 0)
+            {
+                item.Notes = item.Event.Description;
+            }
         }
     }
 
@@ -1290,7 +1313,14 @@ else
     /// see EventFormModel.ToRequest.
     /// </summary>
     private static CalendarEventDetailsRequest EventDetailsFor(TaskItemFormModel item)
-        => item.Event.ToRequest(item.Description);
+    {
+        // The entry's own description is the appointment's: one box asks for it, on the entry, and the
+        // event's form leaves its copy out. Written here rather than kept in step as the box is typed
+        // in, so the answer on screen is the answer that is sent whatever order things happen in - the
+        // same rule ProductAsked follows for an inventory entry's categories.
+        item.Event.Description = item.Notes;
+        return item.Event.ToRequest(item.Description);
+    }
 
 
     /// <summary>
@@ -1811,7 +1841,8 @@ else
                 item.LinkedInventoryItemId,
                 item.LinkedTaskListIds,
                 item.Categories,
-                ProductAsked(item)))
+                ProductAsked(item),
+                item.Notes))
             .ToList();
 
     /// <summary>
@@ -2225,5 +2256,11 @@ else
         /// one sitting does not lose what was typed.
         /// </summary>
         public EventFormModel Event { get; set; } = new() { Color = "#7c6cf0" };
+
+        /// <summary>
+        /// What this entry is about, in as many words as it takes - see Orbit.Core.Tasks.TaskItem.Notes
+        /// for why the entry's own line is the Description above and this is not.
+        /// </summary>
+        public string Notes { get; set; } = string.Empty;
     }
 }

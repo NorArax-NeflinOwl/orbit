@@ -1197,6 +1197,23 @@ fields arrive with the choice: picking Inventory on an open form shows them ther
 something else takes them away again - waiting for a save and a reopen made the feature unreachable
 without knowing it was there.
 
+**Every entry can say what it is about, not only what it is called.** An entry's own line is its name -
+"Buy milk", "Dentist" - and there was nowhere to write the rest of it unless the entry was an
+appointment, which had a description on its event. Every kind carries one now (`TaskItem.Notes`, stored
+on `OP_TASKS_ITEMS`; called Notes only because `Description` was already taken by the line itself). It is
+a full-width box in the entry's own panel, labelled "Description", and it shows on the entry's reading
+page above the map.
+
+For a **calendar** entry it *is* the event's description: the appointment's own form leaves its copy out
+(`EventFields.ShowsDescription`) and the entry's answer is written onto the event when the list is saved,
+the same way the entry's words are already the event's title. Two boxes for one answer is two copies
+drifting apart. An appointment written before this carries the answer on the event, and the one box opens
+showing it, so a save cannot write a blank over it.
+
+A request that says nothing about it leaves what is stored alone (`UpdateTaskListCommand.EntriesKeepingTheirNotes`)
+— the third field to follow that rule, after the categories and the product, and for the third time the
+same reason: the phone has no box for it yet and must not erase what was typed on the web.
+
 **An entry describes a product whether or not a shelf exists yet.** On the web, an Inventory entry opens
 the same fields the inventory editor uses (`InventoryFields`) on any list: on one measured against a
 storage they describe a product to put on that shelf, saved there with the list; on one with no storage

@@ -181,6 +181,25 @@ public sealed class TaskEditorCalendarLocationTests : OrbitTestContext
         Assert.Equal(4, details.Recurrence.OccurrenceCount);
     }
 
+    /// <summary>
+    /// And the entry's own description is the event's. One box asks for it, on the entry, because a
+    /// second one on the appointment's form was a second copy of one answer - see
+    /// EventFields.ShowsDescription and TaskItem.Notes.
+    /// </summary>
+    [Fact]
+    public void The_entrys_own_description_is_the_events()
+    {
+        RegisterApiClients(Item("Dentist"));
+        var cut = Render();
+        ExpandTheOnlyItem(cut);
+        SayWhenItHappens(cut);
+
+        cut.Find(".editor-item-notes textarea").Input("Bring the X-rays.");
+        Save(cut);
+
+        Assert.Equal("Bring the X-rays.", Assert.Single(_created).Details.Description);
+    }
+
     /// <summary>The entry's own words are what the event is called - not a second title box.</summary>
     [Fact]
     public void The_entrys_own_words_are_the_events_title()

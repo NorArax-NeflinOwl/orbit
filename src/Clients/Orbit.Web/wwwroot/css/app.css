@@ -3460,6 +3460,26 @@ input.note-editor-title {
     flex: 0 0 auto;
 }
 
+/* What the entry is about, as opposed to what it is called. Prose, so it takes the whole row and grows
+   with what is written - the same shape the calendar's own description box has, because on a calendar
+   entry it is that box (see .event-fields-description). Its label sits above rather than beside it:
+   every other field here is one short value on a line, and a two-line box beside a label would hang
+   under the wrong thing. */
+.editor-item-notes {
+    flex: 1 1 100%;
+    min-width: 0;
+    font-size: 12.5px;
+    color: var(--text-secondary);
+}
+
+.editor-item-notes textarea {
+    width: 100%;
+    field-sizing: content;
+    min-height: 3em;
+    max-height: 40vh;
+    resize: vertical;
+}
+
 .tag-field {
     position: relative;
     display: flex;
