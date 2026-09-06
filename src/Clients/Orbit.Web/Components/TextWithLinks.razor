@@ -1,0 +1,27 @@
+@using Orbit.Web.Services
+
+@* A description, with the web addresses in it pressable instead of copied out by hand.
+   
+   Every run is added as content, never as markup: LinksInText hands back text and addresses, and
+   Blazor escapes both. That is what makes this safe to point at a description somebody else wrote and
+   shared - see LinksInText for why only http and https ever become an href.
+   
+   A new tab, because a description is read in the middle of doing something: following a link out of a
+   half-written list is the one thing nobody meant to do. rel="noopener noreferrer" with it, so the page
+   opened cannot reach back through window.opener and is not told where it was linked from. *@
+@foreach (var run in LinksInText.Split(Text))
+{
+    @if (run.Url is { } url)
+    {
+        <a href="@url" target="_blank" rel="noopener noreferrer">@run.Text</a>
+    }
+    else
+    {
+        @run.Text
+    }
+}
+
+@code {
+    /// <summary>What was written. Empty or null draws nothing at all, not an empty element.</summary>
+    [Parameter] public string? Text { get; set; }
+}

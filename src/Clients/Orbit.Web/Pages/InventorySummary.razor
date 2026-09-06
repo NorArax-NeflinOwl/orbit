@@ -24,7 +24,10 @@
 <div class="editor-page">
 <div class="editor-page-body">
 
-<PageHeader Subtitle="@Optional(_inventory is { Description.Length: > 0 } described ? described.Description : null)">
+@* Through OptionalWithLinks rather than Optional, so an address written in the description can be
+   pressed - see TextWithLinks. Not a child <Subtitle> tag: that fragment exists whether or not it draws
+   anything, so a storage nobody described would get an empty subtitle taking up its own line. *@
+<PageHeader Subtitle="@OptionalWithLinks(_inventory?.Description)">
     <Title>@(_inventory?.Name ?? T["Inventory"])</Title>
 </PageHeader>
 
