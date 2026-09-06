@@ -53,10 +53,17 @@ permissions:
   contents: read
 
 env:
-  # Where the app looks for Orbit. orbit-web's address rather than orbit-api's: the API has internal
-  # ingress only, and orbit-web's nginx is the only way in (see src/Clients/Orbit.Web/nginx.azure.conf).
+  # Where the app looks for Orbit: orbit-api's own address, so the phone talks to the API directly
+  # rather than through orbit-web's nginx.
+  #
+  # It used to be orbit-web's, because the API had internal ingress only. Two things came of the detour:
+  # every sync woke orbit-web, which is set to scale to zero and therefore never did, and the phone was
+  # coupled to a deploy of a client it does not use. Going direct fixes both and costs the edge limits
+  # in nginx.azure.conf, which now see browser traffic only - see RateLimiterPolicies.FloodStop, which
+  # is what stands in front of this path instead.
+  #
   # Public, like that file's own hostname, so it lives here rather than in a secret.
-  ORBIT_API_BASE_ADDRESS: https://orbit-web.victorioustree-36ad82ca.polandcentral.azurecontainerapps.io/
+  ORBIT_API_BASE_ADDRESS: https://orbit-api.victorioustree-36ad82ca.polandcentral.azurecontainerapps.io/
   # The base of the name. The version is glued on once it is known - see "Decide the version" - so a
   # download says which build it is without anybody opening it.
   APK_BASE_NAME: orbit-android

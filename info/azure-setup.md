@@ -30,19 +30,35 @@ password - visible as `"identity": "system"` under each app's `registries` confi
 ```
 Browser ──HTTPS──▶ orbit-web (external ingress, :80, TLS terminated by Container Apps)
                        │
-                       │ nginx proxies /api/* over the environment's internal network
+                       │ nginx proxies /api/* to orbit-api
                        ▼
-                    orbit-api (internal ingress, :8080)
+Phone ────HTTPS──▶ orbit-api (external ingress, :8080)
                        │
                        │ TCP 5432, TLS required
                        ▼
                  PostgreSQL Flexible Server (public endpoint, firewalled to Azure IPs only)
 ```
 
-`orbit-api` has no ingress reachable from outside the Container Apps environment - `orbit-web`'s own
-nginx (`src/Clients/Orbit.Web/nginx.azure.conf`) is the only path in, proxying `/api/*` to `orbit-api`'s
-internal FQDN. See [nginx.azure.conf gotchas](#nginxazureconf-gotchas) for three specific ways that
-proxy config breaks if touched carelessly.
+**Both apps have external ingress, and they are protected differently.** The browser goes through
+`orbit-web`'s nginx (`src/Clients/Orbit.Web/nginx.azure.conf`), which keeps `/api/` same-origin and
+applies the edge rate limits declared there. The phone calls `orbit-api` directly, so those limits never
+see it - `RateLimiterPolicies.FloodStop` in the application is what bounds that path instead. See
+[nginx.azure.conf gotchas](#nginxazureconf-gotchas) for three specific ways that proxy config breaks if
+touched carelessly.
+
+`orbit-api` had internal ingress only until the phone was pointed at it. The detour through nginx meant
+every sync woke `orbit-web`, which is set to scale to zero and therefore never did.
+
+**Switching that ingress is not a flag.** The FQDN changes - `orbit-api.internal.<suffix>` becomes
+`orbit-api.<suffix>` - and `nginx.azure.conf` names the upstream literally, so the web client is broken
+between the ingress change and the deploy that repoints nginx:
+
+```bash
+az containerapp ingress update -n orbit-api -g Orbit --type external
+```
+
+Do it immediately before the deploy that carries the matching `nginx.azure.conf`, not days earlier.
+`--type internal` reverses it, with the same window in the other direction.
 
 ## First-time setup from zero
 

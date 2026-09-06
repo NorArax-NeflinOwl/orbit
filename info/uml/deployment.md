@@ -12,7 +12,7 @@ flowchart TB
     subgraph azure["Azure — resource group Orbit, region polandcentral"]
         subgraph env["Container Apps environment: orbit-environment"]
             web["<b>orbit-web</b><br/>nginx, :80<br/>serves wwwroot, proxies /api/<br/><i>scales to zero when idle</i>"]
-            api["<b>orbit-api</b><br/>ASP.NET Core, :8080<br/><b>internal ingress only</b><br/><i>max-replicas 1</i>"]
+            api["<b>orbit-api</b><br/>ASP.NET Core, :8080<br/><b>external ingress</b><br/><i>max-replicas 1</i>"]
         end
         pg[("<b>PostgreSQL Flexible Server</b><br/>orbit-postgres-*")]
         acr["<b>orbitcontainerregistry</b><br/>images tagged by commit SHA"]
@@ -31,8 +31,8 @@ flowchart TB
     gh["GitHub Actions<br/><i>on push to main only</i>"]
 
     browser -->|HTTPS| web
-    phone -->|HTTPS| web
-    web -->|"/api/ → internal FQDN"| api
+    web -->|"/api/ → orbit-api"| api
+    phone -->|"HTTPS, direct"| api
     phone -.->|downloads updates| blob
 
     api --> pg
@@ -52,15 +52,21 @@ flowchart TB
 
 ## What the picture is trying to settle
 
-**Nothing reaches `orbit-api` from the internet.** Its ingress is internal to the Container Apps
-environment, so the only way in is nginx, which serves the web client and proxies `/api/` to the API's
-internal FQDN. The phone goes the same way and is built knowing it: `OrbitApiSettings` bakes in
-*`orbit-web`'s* address, not the API's, and every client asks for a relative path so one base address
-serves the app exactly as it serves the browser.
+**Two public surfaces, and they are protected differently.** The browser reaches nginx, which serves the
+web client and proxies `/api/` to the API — same-origin, so no CORS. The phone calls `orbit-api`
+directly: `OrbitApiSettings` bakes the API's own address into the build.
 
-That makes `orbit-web` the single public surface for everything, which is why a deploy is validated end
-to end through the proxy rather than against the API alone — and why the throttling that does not exist
-in front of it matters as much as it does (see [future-plan](../future-plan.md)).
+The phone went through nginx for as long as the API had internal ingress only. The detour cost two
+things: every sync woke `orbit-web`, which is set to scale to zero and therefore never did, and the
+phone was coupled to a deploy of a client it does not use.
+
+What it costs in return is that **the edge limits in `nginx.azure.conf` see browser traffic only**. The
+phone's path is bounded by the application instead — `RateLimiterPolicies.FloodStop`, a coarse
+per-caller limit over every endpoint, plus the named policies on the seventeen that have one. That
+split is the reason the flood stop exists at all, and why it is in the API rather than in nginx.
+
+A deploy is still validated end to end through the proxy, because that is the path the browser takes and
+the one with a hop that can break on its own.
 
 **`orbit-api` runs at `max-replicas 1` today.** Nothing in the code assumes that any more — live
 updates, the privacy choice cache and the rate limiter each count across instances — but the number has

@@ -22,6 +22,7 @@ public static class RateLimiterPolicies
     public static void AddOrbitPolicies(this RateLimiterOptions options)
     {
         options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+        options.GlobalLimiter = FloodStop();
         // Brute-force protection for /api/auth/register and /api/auth/login (see AuthEndpoints for why
         // /refresh and /logout don't use this policy) and for the signed-in endpoints that change an
         // account: 5 requests per minute per caller, with no queueing, so a caller that exceeds this
@@ -91,6 +92,63 @@ public static class RateLimiterPolicies
     /// </summary>
     private static string Caller(HttpContext httpContext)
         => httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+
+    /// <summary>
+    /// A coarse limit on everything, so the endpoints with no policy of their own - 130 of the 147 -
+    /// are not simply unlimited.
+    ///
+    /// **In memory, unlike the named policies, and that is not an oversight.** Those consult a window
+    /// shared through PostgreSQL, which costs a round trip per permitted request; that is right for the
+    /// handful of endpoints where the exact number matters and quite wrong for every request in Orbit.
+    /// What this has to do is blunt a flood, and a flood is orders of magnitude away from the limit, so
+    /// counting per instance is close enough. With more than one replica the effective limit is that
+    /// many times the number below, which for a flood stop changes nothing worth having.
+    ///
+    /// Two chained partitions. The first is per caller and is the one that does the work. The second is
+    /// keyed on nothing and is the floor under it, for the same reason RateLimitCeiling exists: where a
+    /// forwarded address can be forged, per-caller buckets stop bounding anything. It matters more here
+    /// than at the edge, because the phone talks to this application directly and nginx's own limits
+    /// never see that traffic.
+    ///
+    /// Both are far above real use. The deployment's access log shows an open browser costing under two
+    /// requests a second across every endpoint it touches.
+    /// </summary>
+    private static PartitionedRateLimiter<HttpContext> FloodStop()
+        => PartitionedRateLimiter.CreateChained(
+            PartitionedRateLimiter.Create<HttpContext, string>(httpContext =>
+                Exempt(httpContext)
+                    ? RateLimitPartition.GetNoLimiter("exempt")
+                    : RateLimitPartition.GetFixedWindowLimiter(
+                        $"flood:{Caller(httpContext)}",
+                        _ => new FixedWindowRateLimiterOptions
+                        {
+                            PermitLimit = FloodStopPerCaller,
+                            Window = Window,
+                            QueueLimit = 0
+                        })),
+            PartitionedRateLimiter.Create<HttpContext, string>(httpContext =>
+                Exempt(httpContext)
+                    ? RateLimitPartition.GetNoLimiter("exempt")
+                    : RateLimitPartition.GetFixedWindowLimiter(
+                        "flood:all",
+                        _ => new FixedWindowRateLimiterOptions
+                        {
+                            PermitLimit = FloodStopOverall,
+                            Window = Window,
+                            QueueLimit = 0
+                        })));
+
+    /// <summary>
+    /// The health endpoints, and nothing else. Container Apps decides whether this revision is alive by
+    /// probing them, so answering one with 429 under load would have the platform restart the container
+    /// - turning a busy minute into an outage, which is the exact opposite of what a flood stop is for.
+    /// </summary>
+    private static bool Exempt(HttpContext httpContext)
+        => httpContext.Request.Path.StartsWithSegments("/health");
+
+    private const int FloodStopPerCaller = 600;
+
+    private const int FloodStopOverall = 6000;
 
     private static readonly TimeSpan Window = TimeSpan.FromMinutes(1);
 

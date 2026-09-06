@@ -495,11 +495,17 @@ beside a task belongs here, not in that task's diff. A defect is the exception a
     thing working, which is why they were set generously;
   - if it is forgeable, the ceilings are the bound - a spoofing caller gets 120 password attempts a
     minute rather than no limit at all.
-- **17 of 147 endpoints carry a rate limit.** The rest need a valid token, so they are not anonymous,
-  but nothing bounds what one account - or one leaked token - can ask for. The edge limits in
-  `nginx.azure.conf` blunt a flood across all of them; they are not a per-account budget.
+- **17 of 147 endpoints carry a *named* rate limit.** The rest are now covered by
+  `RateLimiterPolicies.FloodStop`, a coarse per-caller limit over everything, kept in memory rather than
+  in the shared PostgreSQL window because that one costs a round trip per permitted request and this one
+  runs on every request in Orbit. It is a flood stop, not a per-account budget: nothing yet bounds what
+  one account, or one leaked token, can ask for over an hour.
 - **Kestrel's default 30 MB request body applies everywhere** except the diagnostic upload, which is the
   one endpoint with an explicit `RequestSizeLimit`, on a container with 0.5 GiB of memory.
+- **The phone talks to `orbit-api` directly, so nginx's edge limits never see it.** That was the
+  deliberate trade for letting `orbit-web` scale to zero again; `FloodStop` is what stands in front of
+  that path instead. A WAF in front of both is what would make the two surfaces equal, and is the
+  expensive half below.
 - **There is still no autoscaling and no WAF.** Both apps are `max-replicas 1` with no scale rules at
   0.25 vCPU and 0.5 GiB, and nothing sits in front of `orbit-web`. The edge limits refuse a flood rather
   than absorbing it, which is the cheap half of the problem; the expensive half is unchanged.
