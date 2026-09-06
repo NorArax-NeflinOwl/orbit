@@ -21,7 +21,10 @@
     <Grid>
 
         <!-- Pressing anywhere else closes it, which is what a menu does everywhere. -->
-        <BoxView Color="Black" Opacity="0.35">
+        <!-- BackgroundColor as well as Color: a BoxView paints both, and the implicit style gives
+             every one of them a light grey - which at 35% is a sheet of fog over the page rather than
+             the shadow the browser drops behind an open menu. -->
+        <BoxView Color="Black" BackgroundColor="Transparent" Opacity="0.35">
             <BoxView.GestureRecognizers>
                 <TapGestureRecognizer Command="{Binding CloseCommand}" />
             </BoxView.GestureRecognizers>
@@ -36,16 +39,36 @@
                 <VerticalStackLayout BindableLayout.ItemsSource="{Binding Entries}" Spacing="0">
                     <BindableLayout.ItemTemplate>
                         <DataTemplate x:DataType="screens:ScreenMenuEntry">
-                            <Grid ColumnDefinitions="12,*" ColumnSpacing="10">
+                            <Grid ColumnDefinitions="12,*" ColumnSpacing="10" Padding="8,9">
                                 <!-- The tick's own column, kept whether or not this entry is the chosen
                                      one, so the labels line up down the menu. -->
                                 <Label Grid.Column="0" Text="{Binding Mark}" FontSize="13.5"
                                        TextColor="{DynamicResource Accent}" VerticalOptions="Center" />
 
-                                <Button Grid.Column="0" Grid.ColumnSpan="2" Text="{Binding Label}"
-                                        Style="{StaticResource MenuItemButton}"
+                                <!-- A Label with the press over it rather than a Button: a Button
+                                     centres its text and offers no way to say otherwise, and a menu of
+                                     centred entries is not a menu. -->
+                                <Label Grid.Column="1" Text="{Binding Label}" FontSize="13.5"
+                                       VerticalOptions="Center" LineBreakMode="WordWrap"
+                                       TextColor="{AppThemeBinding Light={StaticResource SubtleTextLight}, Dark={StaticResource SubtleTextDark}}">
+                                    <Label.Triggers>
+                                        <DataTrigger TargetType="Label" Binding="{Binding IsChosen}" Value="True">
+                                            <Setter Property="FontAttributes" Value="Bold" />
+                                            <Setter Property="TextColor"
+                                                    Value="{AppThemeBinding Light={StaticResource TextPrimaryLight}, Dark={StaticResource TextPrimaryDark}}" />
+                                        </DataTrigger>
+                                        <DataTrigger TargetType="Label" Binding="{Binding CanBeChosen}" Value="False">
+                                            <Setter Property="Opacity" Value="0.45" />
+                                        </DataTrigger>
+                                    </Label.Triggers>
+                                </Label>
+
+                                <Button Grid.Column="0" Grid.ColumnSpan="2" Padding="0"
+                                        BackgroundColor="Transparent" BorderWidth="0"
+                                        MinimumHeightRequest="0" MinimumWidthRequest="0"
                                         Command="{Binding ChooseCommand}"
-                                        IsEnabled="{Binding CanBeChosen}" />
+                                        IsEnabled="{Binding CanBeChosen}"
+                                        SemanticProperties.Description="{Binding Label}" />
                             </Grid>
                         </DataTemplate>
                     </BindableLayout.ItemTemplate>

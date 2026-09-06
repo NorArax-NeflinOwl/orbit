@@ -751,19 +751,6 @@
         </Setter>
     </Style>
 
-    <!-- .avatar-dropdown-item: one entry in any of Orbit's menus. Flat, left-aligned, and quiet until
-         it is the chosen one. -->
-    <Style x:Key="MenuItemButton" TargetType="Button">
-        <Setter Property="BackgroundColor" Value="Transparent" />
-        <Setter Property="BorderWidth" Value="0" />
-        <Setter Property="CornerRadius" Value="7" />
-        <Setter Property="Padding" Value="8,9" />
-        <Setter Property="FontSize" Value="13.5" />
-        <Setter Property="FontAttributes" Value="None" />
-        <Setter Property="HorizontalOptions" Value="Fill" />
-        <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource SubtleTextLight}, Dark={StaticResource SubtleTextDark}}" />
-    </Style>
-
     <!-- .overflow-menu-heading: says what a menu of settings is about, above its entries. -->
     <Style x:Key="MenuHeading" TargetType="Label">
         <Setter Property="FontSize" Value="11" />

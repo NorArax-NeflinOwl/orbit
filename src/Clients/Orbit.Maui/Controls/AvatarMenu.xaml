@@ -20,8 +20,11 @@
          which is what keeps it out of the layout entirely rather than squeezing the page beneath it. -->
     <Grid>
 
-        <!-- Tapping anywhere else closes it, which is what a dropdown does everywhere. -->
-        <BoxView Color="Black" Opacity="0.35">
+        <!-- Tapping anywhere else closes it, which is what a dropdown does everywhere. BackgroundColor
+             as well as Color: a BoxView paints both, and the implicit style gives every one of them a
+             light grey - which at 35% was a sheet of fog over the page instead of a shadow behind the
+             menu. -->
+        <BoxView Color="Black" BackgroundColor="Transparent" Opacity="0.35">
             <BoxView.GestureRecognizers>
                 <TapGestureRecognizer Command="{Binding CloseMenuCommand}" />
             </BoxView.GestureRecognizers>

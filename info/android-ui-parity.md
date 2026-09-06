@@ -48,6 +48,7 @@ Every number below is app.css's own. The phone reads them from
 | `.avatar-dropdown-item` | `MenuItemButton` | one entry in any of Orbit's menus |
 | `.editor-rail` | `Controls/EditorRail.xaml` | the bar along the foot |
 | `ObjectList.razor` | `Controls/ObjectList.xaml` | loading / empty / here-it-is |
+| `input`, `textarea`, `select` | `Platforms/Android/FieldBox.cs` | the box itself: 8px radius, a hairline, 9x12 inside |
 
 ## The three places the phone cannot copy the browser, and what it does instead
 
@@ -65,6 +66,12 @@ the moment it is named, so that it is there offline and syncs afterwards. The fi
 and the plus at the head of the screen - where the web keeps its own - is what unfolds it (see
 `Controls/NewItemForm.cs`). A list screen at rest is then what the browser shows: its name and its
 cards.
+
+**Android draws a line under a field, not a box around it.** MAUI has no border on `Entry`, so this is
+done once through the handler mappers rather than by wrapping over a hundred fields in a `Border` -
+see `Platforms/Android/FieldBox.cs`. A field that asks to be transparent is left alone and loses
+Android's line too: a note's lines are written in `Entry`s so they can be corrected where they are
+read, and a note drawn as a stack of boxes is a form rather than a note.
 
 **A phone has no hover.** Everything app.css says with `:hover` - a card lighting up, a menu entry
 taking the primary text colour, a row's title turning accent - has no phone equivalent and is simply

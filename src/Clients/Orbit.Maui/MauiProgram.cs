@@ -71,6 +71,12 @@ public static class MauiProgram
 				fonts.AddFont("SpaceGrotesk-SemiBold.ttf", "OrbitDisplay");
 			});
 
+#if ANDROID
+		// Orbit.Web's text box, on Android's own fields - see FieldBox for why it is a handler mapper
+		// rather than a Border around every one of them.
+		Orbit.Maui.Platform.FieldBox.DrawOnEveryField();
+#endif
+
 		RegisterPlatformServices(builder.Services);
 		RegisterLocalStore(builder.Services);
 		RegisterHttpClients(builder.Services, OrbitApiSettings.Current);
