@@ -478,11 +478,14 @@ beside a task belongs here, not in that task's diff. A defect is the exception a
 - **`setup-dotnet@v4`, `setup-java@v4` and `upload-artifact@v4`** carry the same Node 20 deprecation
   `actions/checkout` did. `dependency-submission.yml` already pins `setup-dotnet@v5`, so the bump is
   available whenever somebody wants it.
-- **`info/azure-setup.md` and `info/architecture.md` still call the subscription an Azure Free Trial**
-  when explaining why the pipeline builds images on the runner instead of using ACR Tasks. The
-  subscription has been pay-as-you-go for a while; the runner build is now kept because it is the
-  established, verified path, not because `az acr build` is blocked. The reasoning is recorded
-  correctly in the `ci-pipeline` skill, and only these two documents lag behind it.
+- ~~**`info/azure-setup.md` and `info/architecture.md` still call the subscription an Azure Free Trial**~~
+  Done. `azure-setup.md` had already stopped saying it by the time this was looked at - only
+  `architecture.md` still did, in the step explaining why the pipeline builds images on the runner. It
+  now says what the `ci-pipeline` skill says: ACR Tasks were blocked on the free trial, are not blocked
+  now, and the runner build stays because it is the verified path rather than because anything forbids
+  the alternative.
+
+
 - **`max-replicas` is still 1 on both Container Apps.** Nothing in the code assumes otherwise any more -
   the live update hub, the privacy choice cache and the rate limiter each count across instances now -
   but raising it is a deliberate act and a cost decision, and it has not been taken. Two things to know
