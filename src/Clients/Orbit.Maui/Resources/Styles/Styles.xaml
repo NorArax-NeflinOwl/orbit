@@ -21,8 +21,12 @@
         <Setter Property="StrokeThickness" Value="1"/>
     </Style>
 
+    <!-- No background of its own. A BoxView paints its BackgroundColor *and* its Color, so a template's
+         grey behind an otherwise transparent box shows through wherever Color is left clear - which is
+         what put a sheet of fog over the page behind an open menu, and a grey bar under every unchosen
+         tab on the account screen. Nothing in Orbit draws a BoxView without saying what colour it is. -->
     <Style TargetType="BoxView">
-        <Setter Property="BackgroundColor" Value="{AppThemeBinding Light={StaticResource Gray950}, Dark={StaticResource Gray200}}" />
+        <Setter Property="Color" Value="Transparent" />
     </Style>
 
     <!-- Orbit.Web's plain <button>, which is the quiet one: the lifted surface, a hairline, and
@@ -667,6 +671,53 @@
         <Setter Property="FontAttributes" Value="Bold" />
         <Setter Property="HorizontalTextAlignment" Value="Center" />
         <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource SubtleTextLight}, Dark={StaticResource SubtleTextDark}}" />
+    </Style>
+
+    <!-- .options-card: the frame a run of settings sits in, with hairlines between the rows rather
+         than around each of them. Padding of its own is zero - a row carries its own. -->
+    <Style x:Key="SettingsCard" TargetType="Border" BasedOn="{StaticResource CardBorder}">
+        <Setter Property="Padding" Value="0" />
+    </Style>
+
+    <!-- .options-card-danger: the one section of a screen where a wrong press cannot be undone. -->
+    <Style x:Key="DangerCard" TargetType="Border" BasedOn="{StaticResource SettingsCard}">
+        <Setter Property="Stroke" Value="{AppThemeBinding Light={StaticResource DangerLight}, Dark={StaticResource DangerDark}}" />
+    </Style>
+
+    <!-- .options-tab: the four errands the account screen is divided into. The chosen one is underlined
+         in the accent rather than only coloured - a colour alone is one signal, and the row of them
+         scrolls sideways on a phone. -->
+    <Style x:Key="SettingsTab" TargetType="Button">
+        <Setter Property="BackgroundColor" Value="Transparent" />
+        <Setter Property="BorderWidth" Value="0" />
+        <Setter Property="CornerRadius" Value="0" />
+        <Setter Property="Padding" Value="16,10" />
+        <Setter Property="FontFamily" Value="OrbitDisplay" />
+        <Setter Property="FontSize" Value="13.5" />
+        <Setter Property="FontAttributes" Value="Bold" />
+        <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource SubtleTextLight}, Dark={StaticResource SubtleTextDark}}" />
+    </Style>
+
+    <!-- .map-panel-section: one group on the map screen, which is a card of its own rather than a
+         heading with things loose underneath it. -->
+    <Style x:Key="PanelSection" TargetType="Border">
+        <Setter Property="StrokeThickness" Value="1" />
+        <Setter Property="Stroke" Value="{AppThemeBinding Light={StaticResource CardStrokeLight}, Dark={StaticResource CardStrokeDark}}" />
+        <Setter Property="BackgroundColor" Value="{AppThemeBinding Light={StaticResource SurfaceLight}, Dark={StaticResource SurfaceDark}}" />
+        <Setter Property="Padding" Value="14,12" />
+        <Setter Property="StrokeShape">
+            <RoundRectangle CornerRadius="12" />
+        </Setter>
+    </Style>
+
+    <!-- .map-panel-heading: what a panel section is about, in small caps with wide tracking. -->
+    <Style x:Key="PanelHeading" TargetType="Label">
+        <Setter Property="FontFamily" Value="OrbitDisplay" />
+        <Setter Property="FontSize" Value="12" />
+        <Setter Property="FontAttributes" Value="Bold" />
+        <Setter Property="TextTransform" Value="Uppercase" />
+        <Setter Property="CharacterSpacing" Value="0.72" />
+        <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource TertiaryTextLight}, Dark={StaticResource TertiaryTextDark}}" />
     </Style>
 
     <!-- A form field's own name, above it. Orbit.Web sets these in small caps with wide tracking, which

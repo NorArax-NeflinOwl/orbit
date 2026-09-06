@@ -506,9 +506,12 @@ matches and what does not. What that pass left:
   accent, everybody else's at the left, at most 70% of the thread's width. The four platform action
   sheets in chat and on the calendar are Orbit's own panel now. What the grid deliberately does not
   copy is the browser's 5.5rem cell full of event chips - see `android-ui-parity.md`.
-- **The map and the account screen have not had the pass.** They read correctly and use the same
-  palette, but their spacing and type were not walked line by line against app.css the way the list,
-  detail, calendar and chat screens were.
+- ~~**The map and the account screen have not had the pass.**~~ Done: the map's groups are
+  `.map-panel-section` cards under `.map-panel-heading`s with the map itself in a rounded, hairline
+  frame, and the account screen is `.options-card`s of `.options-row`s - a title, what it does
+  underneath, the control at the far edge - with the tabs underlined in the accent and the delete
+  section in its own red frame. The map stays where the browser hides it below 680px; see
+  `android-ui-parity.md` for why that one rule is not copied.
 - **The chat screens are built but were not walked on a device.** The emulator account has not
   unlocked Contacts, so the navigation bar draws no way into them and `FeatureLocked` is all those
   screens show there. The bubbles, the message menus and the row menus want a walk on an account that

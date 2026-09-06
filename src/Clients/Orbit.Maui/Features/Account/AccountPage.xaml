@@ -13,7 +13,7 @@
     <Grid RowDefinitions="Auto,*,Auto">
 
     <ScrollView Grid.Row="1">
-        <VerticalStackLayout Padding="24" Spacing="18">
+        <VerticalStackLayout Padding="16,16,16,28" Spacing="18">
 
             <controls:PageHeader Title="{controls:Translate 'Settings'}">
                 <controls:PageHeader.Subtitle>
@@ -23,32 +23,44 @@
 
             <!-- Tabs rather than one long scroll, as Orbit.Web's Options page has: changing a password
                  and unlocking a feature are different errands. -->
-            <ScrollView Orientation="Horizontal" HorizontalScrollBarVisibility="Never">
-                <HorizontalStackLayout Spacing="6" BindableLayout.ItemsSource="{Binding Tabs}">
-                    <BindableLayout.ItemTemplate>
-                        <DataTemplate x:DataType="screens:AccountTabRow">
-                            <Button Text="{Binding Name}" FontSize="13" Padding="12,4" BackgroundColor="Transparent" BorderWidth="0"
-                                    TextColor="{AppThemeBinding Light={StaticResource SubtleTextLight}, Dark={StaticResource SubtleTextDark}}"
-                                    Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=ViewModel.ChooseTabCommand, x:DataType=account:AccountPage}"
-                                    CommandParameter="{Binding .}">
-                                <Button.Triggers>
-                                    <DataTrigger TargetType="Button" Binding="{Binding IsChosen}" Value="True">
-                                        <Setter Property="TextColor"
-                                                Value="{DynamicResource Accent}" />
-                                        <Setter Property="FontAttributes" Value="Bold" />
-                                    </DataTrigger>
-                                </Button.Triggers>
-                            </Button>
-                        </DataTemplate>
-                    </BindableLayout.ItemTemplate>
-                </HorizontalStackLayout>
-            </ScrollView>
+            <Grid RowDefinitions="Auto,Auto">
+                <ScrollView Grid.Row="0" Orientation="Horizontal" HorizontalScrollBarVisibility="Never">
+                    <HorizontalStackLayout Spacing="4" BindableLayout.ItemsSource="{Binding Tabs}">
+                        <BindableLayout.ItemTemplate>
+                            <DataTemplate x:DataType="screens:AccountTabRow">
+                                <!-- The chosen one is underlined as well as coloured, which is what
+                                     .options-tab.active does: colour alone is one signal, and this row
+                                     scrolls sideways on a phone so the reader may only see part of it. -->
+                                <Grid RowDefinitions="Auto,Auto">
+                                    <Button Grid.Row="0" Text="{Binding Name}" Style="{StaticResource SettingsTab}"
+                                            Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=ViewModel.ChooseTabCommand, x:DataType=account:AccountPage}"
+                                            CommandParameter="{Binding .}">
+                                        <Button.Triggers>
+                                            <DataTrigger TargetType="Button" Binding="{Binding IsChosen}" Value="True">
+                                                <Setter Property="TextColor" Value="{DynamicResource Accent}" />
+                                            </DataTrigger>
+                                        </Button.Triggers>
+                                    </Button>
+                                    <BoxView Grid.Row="1" HeightRequest="2" Color="Transparent">
+                                        <BoxView.Triggers>
+                                            <DataTrigger TargetType="BoxView" Binding="{Binding IsChosen}" Value="True">
+                                                <Setter Property="Color" Value="{DynamicResource Accent}" />
+                                            </DataTrigger>
+                                        </BoxView.Triggers>
+                                    </BoxView>
+                                </Grid>
+                            </DataTemplate>
+                        </BindableLayout.ItemTemplate>
+                    </HorizontalStackLayout>
+                </ScrollView>
+                <BoxView Grid.Row="1" Style="{StaticResource Hairline}" />
+            </Grid>
 
             <!-- How Orbit looks on this device. Kept here rather than on the server for the same reason
                  the web keeps it in the browser: a phone in a pocket and a browser at a desk want
                  different answers. The language stays in the avatar's menu, where it was asked for. -->
             <VerticalStackLayout Spacing="10" IsVisible="{Binding IsShowingAppearance}">
-                <Label Text="{controls:Translate 'Appearance'}" Style="{StaticResource FieldLabel}" />
+                <Label Text="{controls:Translate 'Appearance'}" Style="{StaticResource SectionHeading}" />
                 <Label Text="{controls:Translate 'Choose how Orbit looks on this device.'}" FontSize="12"
                        LineBreakMode="WordWrap" Style="{StaticResource SubtleLabel}" />
                 <Picker ItemsSource="{Binding Themes}" SelectedItem="{Binding ChosenThemeOption}"
@@ -58,10 +70,10 @@
                 <!-- The colour Orbit highlights things in, as swatches rather than a list of names:
                      what the reader is choosing is how it looks, and eight words would say less than
                      eight colours do. Orbit.Web offers the same eight the same way. -->
-                <Label Text="{controls:Translate 'Accent colour'}" Style="{StaticResource FieldLabel}"
+                <Label Text="{controls:Translate 'Accent colour'}" Style="{StaticResource SectionHeading}"
                        Margin="0,6,0,0" />
                 <Label Text="{controls:Translate 'The colour Orbit highlights things in. Kept on this device, like the theme.'}"
-                       FontSize="12" LineBreakMode="WordWrap" Style="{StaticResource SubtleLabel}" />
+                       LineBreakMode="WordWrap" Style="{StaticResource SectionSubtext}" />
                 <FlexLayout Wrap="Wrap" JustifyContent="Start" BindableLayout.ItemsSource="{Binding Accents}">
                     <BindableLayout.ItemTemplate>
                         <DataTemplate x:DataType="screens:AccentChoice">
@@ -93,101 +105,112 @@
                 <!-- How Orbit is allowed to interrupt, which Orbit.Web keeps in this same tab. -->
                 <VerticalStackLayout Spacing="14" Margin="0,10,0,0" BindingContext="{Binding Notifications}"
                                      x:DataType="notifications:NotificationSettingsViewModel">
-                    <Label Text="{controls:Translate 'Notifications'}" Style="{StaticResource FieldLabel}" />
+                    <Label Text="{controls:Translate 'Notifications'}" Style="{StaticResource SectionHeading}" />
                     <Label Text="{Binding Message}" IsVisible="{Binding HasMessage}" FontSize="12"
                            LineBreakMode="WordWrap" Style="{StaticResource SubtleLabel}" />
 
-                    <Grid ColumnDefinitions="*,Auto">
-                        <VerticalStackLayout Grid.Column="0">
-                            <Label Text="{controls:Translate 'Notify me'}" />
-                            <Label Text="{controls:Translate 'Off means nothing is recorded or sent at all.'}"
-                                   FontSize="12" LineBreakMode="WordWrap" Style="{StaticResource SubtleLabel}" />
-                        </VerticalStackLayout>
-                        <Switch Grid.Column="1" IsToggled="{Binding AllowNotifications}" VerticalOptions="Center"
-                                SemanticProperties.Description="{controls:Translate 'Notify me'}" />
-                    </Grid>
+                    <!-- .options-card: the settings in one frame with hairlines between them, rather
+                         than loose on the page. -->
+                    <Border Style="{StaticResource SettingsCard}">
+                        <VerticalStackLayout Spacing="0">
+                            <controls:SettingRow Title="{controls:Translate 'Notify me'}"
+                                                 Description="{controls:Translate 'Off means nothing is recorded or sent at all.'}">
+                                <controls:SettingRow.Trailing>
+                                    <Switch IsToggled="{Binding AllowNotifications}"
+                                            SemanticProperties.Description="{controls:Translate 'Notify me'}" />
+                                </controls:SettingRow.Trailing>
+                            </controls:SettingRow>
 
-                    <!-- Hidden rather than disabled: with the master switch off these do nothing at all,
-                         and a switch that can be moved without effect is worse than one not offered. -->
-                    <VerticalStackLayout Spacing="14" IsVisible="{Binding CanChooseChannels}">
-                        <Grid ColumnDefinitions="*,Auto">
-                            <Label Grid.Column="0" Text="{controls:Translate 'Push to this phone'}" VerticalOptions="Center" />
-                            <Switch Grid.Column="1" IsToggled="{Binding AllowPush}" VerticalOptions="Center"
-                                    SemanticProperties.Description="{controls:Translate 'Push to this phone'}" />
-                        </Grid>
+                            <!-- Hidden rather than disabled: with the master switch off these do nothing
+                                 at all, and a switch that can be moved without effect is worse than one
+                                 not offered. -->
+                            <VerticalStackLayout Spacing="0" IsVisible="{Binding CanChooseChannels}">
+                                <controls:SettingRow Title="{controls:Translate 'Push to this phone'}">
+                                    <controls:SettingRow.Trailing>
+                                        <Switch IsToggled="{Binding AllowPush}"
+                                                SemanticProperties.Description="{controls:Translate 'Push to this phone'}" />
+                                    </controls:SettingRow.Trailing>
+                                </controls:SettingRow>
 
-                        <Grid ColumnDefinitions="*,Auto">
-                            <Label Grid.Column="0" Text="{controls:Translate 'Email'}" VerticalOptions="Center" />
-                            <Switch Grid.Column="1" IsToggled="{Binding AllowEmail}" VerticalOptions="Center"
-                                    SemanticProperties.Description="{controls:Translate 'Email'}" />
-                        </Grid>
+                                <controls:SettingRow Title="{controls:Translate 'Email'}">
+                                    <controls:SettingRow.Trailing>
+                                        <Switch IsToggled="{Binding AllowEmail}"
+                                                SemanticProperties.Description="{controls:Translate 'Email'}" />
+                                    </controls:SettingRow.Trailing>
+                                </controls:SettingRow>
 
-                        <Grid ColumnDefinitions="*,Auto">
-                            <VerticalStackLayout Grid.Column="0">
-                                <Label Text="{controls:Translate 'When something is shared with me'}" />
-                                <Label Text="{controls:Translate 'It always appears in your notifications. This also pushes or emails.'}"
-                                       FontSize="12" LineBreakMode="WordWrap" Style="{StaticResource SubtleLabel}" />
+                                <controls:SettingRow Title="{controls:Translate 'When something is shared with me'}"
+                                                     Description="{controls:Translate 'It always appears in your notifications. This also pushes or emails.'}">
+                                    <controls:SettingRow.Trailing>
+                                        <Switch IsToggled="{Binding AllowShareNotifications}"
+                                                SemanticProperties.Description="{controls:Translate 'When something is shared with me'}" />
+                                    </controls:SettingRow.Trailing>
+                                </controls:SettingRow>
+
+                                <!-- The phone's own banner, which until now could only be turned on and
+                                     off from a browser - see ForegroundNotices for what obeys it. -->
+                                <controls:SettingRow Title="{controls:Translate 'Banner while Orbit is open'}"
+                                                     Description="{controls:Translate 'Shows what arrived at the top of the screen instead of only in the tray.'}">
+                                    <controls:SettingRow.Trailing>
+                                        <Switch IsToggled="{Binding AllowMobileBanner}"
+                                                SemanticProperties.Description="{controls:Translate 'Banner while Orbit is open'}" />
+                                    </controls:SettingRow.Trailing>
+                                </controls:SettingRow>
+
+                                <!-- Steppers rather than number fields: both settings are clamped rather
+                                     than refused (see BannerTiming), and a stepper cannot produce a value
+                                     to clamp. -->
+                                <VerticalStackLayout Spacing="0" IsVisible="{Binding CanChooseBannerTiming}">
+                                    <controls:SettingRow Title="{controls:Translate 'How long it stays'}">
+                                        <controls:SettingRow.Trailing>
+                                            <HorizontalStackLayout Spacing="8">
+                                                <Label Text="{Binding BannerVisibleSeconds, StringFormat='{0} s'}"
+                                                       VerticalOptions="Center" Style="{StaticResource RowMeta}" />
+                                                <Stepper Value="{Binding BannerVisibleSeconds}"
+                                                         Minimum="{Binding ShortestBannerSeconds}" Maximum="{Binding LongestBannerSeconds}"
+                                                         Increment="1" VerticalOptions="Center"
+                                                         SemanticProperties.Description="{controls:Translate 'How long it stays'}" />
+                                            </HorizontalStackLayout>
+                                        </controls:SettingRow.Trailing>
+                                    </controls:SettingRow>
+
+                                    <controls:SettingRow Title="{controls:Translate 'Quiet gap before the next one'}">
+                                        <controls:SettingRow.Trailing>
+                                            <HorizontalStackLayout Spacing="8">
+                                                <Label Text="{Binding BannerMinimumGapSeconds, StringFormat='{0} s'}"
+                                                       VerticalOptions="Center" Style="{StaticResource RowMeta}" />
+                                                <Stepper Value="{Binding BannerMinimumGapSeconds}"
+                                                         Minimum="{Binding ShortestBannerSeconds}" Maximum="{Binding LongestGapSeconds}"
+                                                         Increment="5" VerticalOptions="Center"
+                                                         SemanticProperties.Description="{controls:Translate 'Quiet gap before the next one'}" />
+                                            </HorizontalStackLayout>
+                                        </controls:SettingRow.Trailing>
+                                    </controls:SettingRow>
+                                </VerticalStackLayout>
                             </VerticalStackLayout>
-                            <Switch Grid.Column="1" IsToggled="{Binding AllowShareNotifications}" VerticalOptions="Center"
-                                    SemanticProperties.Description="{controls:Translate 'When something is shared with me'}" />
-                        </Grid>
 
-                        <!-- The phone's own banner, which until now could only be turned on and off from
-                             a browser - see ForegroundNotices for what obeys it. -->
-                        <Grid ColumnDefinitions="*,Auto">
-                            <VerticalStackLayout Grid.Column="0">
-                                <Label Text="{controls:Translate 'Banner while Orbit is open'}" />
-                                <Label Text="{controls:Translate 'Shows what arrived at the top of the screen instead of only in the tray.'}"
-                                       FontSize="12" LineBreakMode="WordWrap" Style="{StaticResource SubtleLabel}" />
-                            </VerticalStackLayout>
-                            <Switch Grid.Column="1" IsToggled="{Binding AllowMobileBanner}" VerticalOptions="Center"
-                                    SemanticProperties.Description="{controls:Translate 'Banner while Orbit is open'}" />
-                        </Grid>
-
-                        <!-- Steppers rather than number fields: both settings are clamped rather than
-                             refused (see BannerTiming), and a stepper cannot produce a value to clamp. -->
-                        <VerticalStackLayout Spacing="14" IsVisible="{Binding CanChooseBannerTiming}">
-                            <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="8">
-                                <Label Grid.Column="0" Text="{controls:Translate 'How long it stays'}" VerticalOptions="Center" />
-                                <Label Grid.Column="1" Text="{Binding BannerVisibleSeconds, StringFormat='{0} s'}"
-                                       VerticalOptions="Center" Style="{StaticResource SubtleLabel}" />
-                                <Stepper Grid.Column="2" Value="{Binding BannerVisibleSeconds}"
-                                         Minimum="{Binding ShortestBannerSeconds}" Maximum="{Binding LongestBannerSeconds}"
-                                         Increment="1" VerticalOptions="Center"
-                                         SemanticProperties.Description="{controls:Translate 'How long it stays'}" />
-                            </Grid>
-
-                            <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="8">
-                                <Label Grid.Column="0" Text="{controls:Translate 'Quiet gap before the next one'}"
-                                       VerticalOptions="Center" LineBreakMode="WordWrap" />
-                                <Label Grid.Column="1" Text="{Binding BannerMinimumGapSeconds, StringFormat='{0} s'}"
-                                       VerticalOptions="Center" Style="{StaticResource SubtleLabel}" />
-                                <Stepper Grid.Column="2" Value="{Binding BannerMinimumGapSeconds}"
-                                         Minimum="{Binding ShortestBannerSeconds}" Maximum="{Binding LongestGapSeconds}"
-                                         Increment="5" VerticalOptions="Center"
-                                         SemanticProperties.Description="{controls:Translate 'Quiet gap before the next one'}" />
-                            </Grid>
+                            <!-- Outside the master switch, as Orbit.Web has it: what is already in the
+                                 feed goes on ageing out whether or not anything new is being recorded.
+                                 Last in the card, so it draws no line under itself. -->
+                            <controls:SettingRow HasDivider="False"
+                                                 Title="{controls:Translate 'Keep notifications for'}"
+                                                 Description="{controls:Translate 'Clearing the panel only tidies them away. This is what deletes them for good.'}">
+                                <controls:SettingRow.Trailing>
+                                    <HorizontalStackLayout Spacing="8">
+                                        <Label Text="{Binding RetentionDays, StringFormat='{0} d'}"
+                                               VerticalOptions="Center" Style="{StaticResource RowMeta}" />
+                                        <Stepper Value="{Binding RetentionDays}"
+                                                 Minimum="{Binding FewestRetentionDays}" Maximum="{Binding MostRetentionDays}"
+                                                 Increment="1" VerticalOptions="Center"
+                                                 SemanticProperties.Description="{controls:Translate 'Keep notifications for'}" />
+                                    </HorizontalStackLayout>
+                                </controls:SettingRow.Trailing>
+                            </controls:SettingRow>
                         </VerticalStackLayout>
-                    </VerticalStackLayout>
-
-                    <!-- Outside the master switch, as Orbit.Web has it: what is already in the feed goes
-                         on ageing out whether or not anything new is being recorded. -->
-                    <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="8">
-                        <VerticalStackLayout Grid.Column="0">
-                            <Label Text="{controls:Translate 'Keep notifications for'}" />
-                            <Label Text="{controls:Translate 'Clearing the panel only tidies them away. This is what deletes them for good.'}"
-                                   FontSize="12" LineBreakMode="WordWrap" Style="{StaticResource SubtleLabel}" />
-                        </VerticalStackLayout>
-                        <Label Grid.Column="1" Text="{Binding RetentionDays, StringFormat='{0} d'}"
-                               VerticalOptions="Center" Style="{StaticResource SubtleLabel}" />
-                        <Stepper Grid.Column="2" Value="{Binding RetentionDays}"
-                                 Minimum="{Binding FewestRetentionDays}" Maximum="{Binding MostRetentionDays}"
-                                 Increment="1" VerticalOptions="Center"
-                                 SemanticProperties.Description="{controls:Translate 'Keep notifications for'}" />
-                    </Grid>
+                    </Border>
 
                     <Button Text="{controls:Translate 'Save'}" HorizontalOptions="Start" FontSize="13" Padding="14,6"
-                            Command="{Binding SaveCommand}" />
+                            Style="{StaticResource PrimaryButton}" Command="{Binding SaveCommand}" />
                 </VerticalStackLayout>
             </VerticalStackLayout>
 
@@ -200,7 +223,7 @@
             <Label Text="{Binding Message}" IsVisible="{Binding HasMessage}" LineBreakMode="WordWrap" />
 
             <VerticalStackLayout Spacing="8" IsEnabled="{Binding Connection.IsMet}" IsVisible="{Binding IsShowingAccount}">
-                <Label Text="{controls:Translate 'Login'}" Style="{StaticResource FieldLabel}" />
+                <Label Text="{controls:Translate 'Login'}" Style="{StaticResource SectionHeading}" />
                 <!-- See RegisterPage for why this is not the default text keyboard. -->
                 <Entry Placeholder="{controls:Translate 'New username'}" Text="{Binding UserName}" Keyboard="Plain" />
                 <Entry Placeholder="{controls:Translate 'Display name'}" Text="{Binding DisplayName}" />
@@ -208,7 +231,7 @@
             </VerticalStackLayout>
 
             <VerticalStackLayout Spacing="8" IsEnabled="{Binding Connection.IsMet}" IsVisible="{Binding IsShowingAccount}">
-                <Label Text="{controls:Translate 'Email address'}" Style="{StaticResource FieldLabel}" />
+                <Label Text="{controls:Translate 'Email address'}" Style="{StaticResource SectionHeading}" />
                 <!-- The address in use today and whether anybody has stood behind it, which Orbit.Web
                      shows above this same form. Read from the server rather than the session - see
                      AccountViewModel.ShowAccountAsync. -->
@@ -226,12 +249,12 @@
             <VerticalStackLayout Spacing="4" IsVisible="{Binding CanChooseGoogleExtras}">
                 <Grid ColumnDefinitions="*,Auto">
                     <Label Grid.Column="0" Text="{controls:Translate 'Google extras'}"
-                           Style="{StaticResource FieldLabel}" VerticalOptions="Center" />
+                           Style="{StaticResource SectionHeading}" VerticalOptions="Center" />
                     <Switch Grid.Column="1" IsToggled="{Binding AllowsGoogleExtras}"
                             SemanticProperties.Description="{controls:Translate 'Google extras'}" />
                 </Grid>
                 <Label Text="{controls:Translate 'Adds links that open Google Calendar or Google Maps with the details filled in. Orbit never writes to your calendar.'}"
-                       FontSize="12" LineBreakMode="WordWrap" Style="{StaticResource SubtleLabel}" />
+                       LineBreakMode="WordWrap" Style="{StaticResource SectionSubtext}" />
                 <Label Text="{controls:Translate 'Kept on this device.'}"
                        FontSize="12" Style="{StaticResource SubtleLabel}" />
             </VerticalStackLayout>
@@ -243,9 +266,9 @@
                 <VerticalStackLayout Spacing="8"
                                      BindingContext="{Binding GoogleLink}" x:DataType="screens:GoogleAccountLink"
                                      IsVisible="{Binding IsOffered}">
-                    <Label Text="Google" Style="{StaticResource FieldLabel}" />
+                    <Label Text="Google" Style="{StaticResource SectionHeading}" />
                     <Label Text="{controls:Translate 'Connecting Google lets you sign in with it as well as with your password.'}"
-                           FontSize="12" LineBreakMode="WordWrap" Style="{StaticResource SubtleLabel}" />
+                           LineBreakMode="WordWrap" Style="{StaticResource SectionSubtext}" />
                     <Label Text="{controls:Translate 'Your account has no password yet, so Google is currently the only way in - set one below before disconnecting.'}"
                            IsVisible="{Binding IsOnlyWayIn}" FontSize="12" LineBreakMode="WordWrap"
                            TextColor="{AppThemeBinding Light={StaticResource WarningLight}, Dark={StaticResource WarningDark}}" />
@@ -260,7 +283,7 @@
             </VerticalStackLayout>
 
             <VerticalStackLayout Spacing="8" IsEnabled="{Binding Connection.IsMet}" IsVisible="{Binding IsShowingAccount}">
-                <Label Text="{controls:Translate 'Password'}" Style="{StaticResource FieldLabel}" />
+                <Label Text="{controls:Translate 'Password'}" Style="{StaticResource SectionHeading}" />
                 <Entry Placeholder="{controls:Translate 'Current password'}" Text="{Binding CurrentPassword}" IsPassword="True" />
                 <Entry Placeholder="{controls:Translate 'New password'}" Text="{Binding NewPassword}" IsPassword="True" />
                 <!-- <inheritdoc cref="RegisterPage" /> - the same second answer, for the same reason. -->
@@ -268,7 +291,7 @@
                        IsPassword="True" />
                 <Button Text="{controls:Translate 'Change password'}" Command="{Binding ChangePasswordCommand}" />
                 <Label Text="{controls:Translate 'Changing it also re-encrypts your chat key backup, so your messages stay readable when you next sign in elsewhere.'}"
-                       FontSize="12" LineBreakMode="WordWrap" Style="{StaticResource SubtleLabel}" />
+                       LineBreakMode="WordWrap" Style="{StaticResource SectionSubtext}" />
                 <Button Text="{controls:Translate 'Chat key'}" Command="{Binding GoToChatKeyCommand}"
                         HorizontalOptions="Start" Style="{StaticResource LinkButton}" />
             </VerticalStackLayout>
@@ -276,41 +299,48 @@
             <!-- A file somebody keeps, not a copy the app maintains. Importing creates new things
                  rather than restoring old ones, so it never puts what is already here at risk. -->
             <VerticalStackLayout Spacing="8" IsVisible="{Binding IsShowingAccount}">
-                <Label Text="{controls:Translate 'Export'}" Style="{StaticResource FieldLabel}" />
+                <Label Text="{controls:Translate 'Export'}" Style="{StaticResource SectionHeading}" />
                 <Label Text="{controls:Translate 'Downloads what you choose below as one file. Things shared with you are left out, and a private item travels sealed.'}"
-                       FontSize="12" LineBreakMode="WordWrap" Style="{StaticResource SubtleLabel}" />
+                       LineBreakMode="WordWrap" Style="{StaticResource SectionSubtext}" />
 
                 <!-- All four to begin with, which is what an export meant before there was anything to
                      choose - see ExportChoice. -->
-                <VerticalStackLayout Spacing="2" BindingContext="{Binding Export}">
-                    <Grid ColumnDefinitions="*,Auto">
-                        <Label Grid.Column="0" Text="{controls:Translate 'Notes'}" VerticalOptions="Center" />
-                        <Switch Grid.Column="1" IsToggled="{Binding IncludesNotes}"
-                                SemanticProperties.Description="{controls:Translate 'Notes'}" />
-                    </Grid>
-                    <Grid ColumnDefinitions="*,Auto">
-                        <Label Grid.Column="0" Text="{controls:Translate 'Task lists'}" VerticalOptions="Center" />
-                        <Switch Grid.Column="1" IsToggled="{Binding IncludesTaskLists}"
-                                SemanticProperties.Description="{controls:Translate 'Task lists'}" />
-                    </Grid>
-                    <Grid ColumnDefinitions="*,Auto">
-                        <Label Grid.Column="0" Text="{controls:Translate 'Calendar events'}" VerticalOptions="Center" />
-                        <Switch Grid.Column="1" IsToggled="{Binding IncludesCalendarEvents}"
-                                SemanticProperties.Description="{controls:Translate 'Calendar events'}" />
-                    </Grid>
-                    <Grid ColumnDefinitions="*,Auto">
-                        <Label Grid.Column="0" Text="{controls:Translate 'Storages'}" VerticalOptions="Center" />
-                        <Switch Grid.Column="1" IsToggled="{Binding IncludesInventories}"
-                                SemanticProperties.Description="{controls:Translate 'Storages'}" />
-                    </Grid>
-                </VerticalStackLayout>
+                <Border Style="{StaticResource SettingsCard}" BindingContext="{Binding Export}">
+                    <VerticalStackLayout Spacing="0">
+                        <controls:SettingRow Title="{controls:Translate 'Notes'}">
+                            <controls:SettingRow.Trailing>
+                                <Switch IsToggled="{Binding IncludesNotes}"
+                                        SemanticProperties.Description="{controls:Translate 'Notes'}" />
+                            </controls:SettingRow.Trailing>
+                        </controls:SettingRow>
+                        <controls:SettingRow Title="{controls:Translate 'Task lists'}">
+                            <controls:SettingRow.Trailing>
+                                <Switch IsToggled="{Binding IncludesTaskLists}"
+                                        SemanticProperties.Description="{controls:Translate 'Task lists'}" />
+                            </controls:SettingRow.Trailing>
+                        </controls:SettingRow>
+                        <controls:SettingRow Title="{controls:Translate 'Calendar events'}">
+                            <controls:SettingRow.Trailing>
+                                <Switch IsToggled="{Binding IncludesCalendarEvents}"
+                                        SemanticProperties.Description="{controls:Translate 'Calendar events'}" />
+                            </controls:SettingRow.Trailing>
+                        </controls:SettingRow>
+                        <controls:SettingRow Title="{controls:Translate 'Storages'}" HasDivider="False">
+                            <controls:SettingRow.Trailing>
+                                <Switch IsToggled="{Binding IncludesInventories}"
+                                        SemanticProperties.Description="{controls:Translate 'Storages'}" />
+                            </controls:SettingRow.Trailing>
+                        </controls:SettingRow>
+                    </VerticalStackLayout>
+                </Border>
 
                 <Button Text="{controls:Translate 'Export'}" HorizontalOptions="Start"
+                        Style="{StaticResource PrimaryButton}"
                         IsEnabled="{Binding CanExport}" Command="{Binding ExportCommand}" />
 
-                <Label Text="{controls:Translate 'Import'}" Style="{StaticResource FieldLabel}" Margin="0,8,0,0" />
+                <Label Text="{controls:Translate 'Import'}" Style="{StaticResource SectionHeading}" Margin="0,8,0,0" />
                 <Label Text="{controls:Translate 'Adds everything in a file to this account. Nothing is replaced, so importing the same file twice leaves two copies.'}"
-                       FontSize="12" LineBreakMode="WordWrap" Style="{StaticResource SubtleLabel}" />
+                       LineBreakMode="WordWrap" Style="{StaticResource SectionSubtext}" />
                 <Button x:Name="ImportButton" Text="{controls:Translate 'Import'}" HorizontalOptions="Start"
                         IsEnabled="{Binding Connection.IsMet}" Clicked="OnImportClicked" />
 
@@ -323,37 +353,40 @@
                  quiet DestructiveButton the per-item deletes use, and asks for the password again on its
                  own line - see AccountViewModel.DeleteAccountPassword. The confirmation itself is the
                  page's job: it is a platform prompt. -->
-            <VerticalStackLayout Spacing="8" IsEnabled="{Binding Connection.IsMet}" IsVisible="{Binding IsShowingAccount}" Margin="0,8,0,0">
-                <Label Text="{controls:Translate 'Delete account'}" Style="{StaticResource FieldLabel}" />
-                <Label Text="{controls:Translate 'Permanently deletes your account and everything in it - notes, tasks, calendar events, inventory, and chat history. This cannot be undone.'}"
-                       FontSize="12" LineBreakMode="WordWrap" Style="{StaticResource SubtleLabel}" />
-                <Entry Placeholder="{controls:Translate 'Password'}" Text="{Binding DeleteAccountPassword}" IsPassword="True"
-                       IsVisible="{Binding RequiresPasswordToDelete}" />
-                <Button x:Name="DeleteAccountButton" Text="{controls:Translate 'Delete account'}" HorizontalOptions="Start"
-                        Style="{StaticResource DangerButton}" Clicked="OnDeleteAccountClicked" />
-            </VerticalStackLayout>
+            <Border Style="{StaticResource DangerCard}" Padding="18,16" Margin="0,8,0,0"
+                    IsEnabled="{Binding Connection.IsMet}" IsVisible="{Binding IsShowingAccount}">
+                <VerticalStackLayout Spacing="8">
+                    <Label Text="{controls:Translate 'Delete account'}" Style="{StaticResource SectionHeading}" />
+                    <Label Text="{controls:Translate 'Permanently deletes your account and everything in it - notes, tasks, calendar events, inventory, and chat history. This cannot be undone.'}"
+                           LineBreakMode="WordWrap" Style="{StaticResource SectionSubtext}" />
+                    <Entry Placeholder="{controls:Translate 'Password'}" Text="{Binding DeleteAccountPassword}" IsPassword="True"
+                           IsVisible="{Binding RequiresPasswordToDelete}" />
+                    <Button x:Name="DeleteAccountButton" Text="{controls:Translate 'Delete account'}" HorizontalOptions="Start"
+                            Style="{StaticResource DangerButton}" Clicked="OnDeleteAccountClicked" />
+                </VerticalStackLayout>
+            </Border>
 
             <!-- The same list Orbit.Web puts under Options, Permissions, and the same wording: what each
                  part of Orbit is, whether it is unlocked, and what it needs first when it is not. -->
             <VerticalStackLayout Spacing="10" IsVisible="{Binding IsShowingPermissions}">
-                <Label Text="{controls:Translate 'Permissions'}" Style="{StaticResource FieldLabel}" />
+                <Label Text="{controls:Translate 'Permissions'}" Style="{StaticResource SectionHeading}" />
 
-                <CollectionView ItemsSource="{Binding Permissions}" SelectionMode="None">
-                    <CollectionView.ItemTemplate>
-                        <DataTemplate x:DataType="screens:PermissionRow">
-                            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8" Padding="0,6">
-                                <VerticalStackLayout Grid.Column="0" Spacing="2">
-                                    <Label Text="{Binding Name}" FontSize="15" />
-                                    <Label Text="{Binding Explanation}" FontSize="12" LineBreakMode="WordWrap"
-                                           Style="{StaticResource SubtleLabel}" />
-                                </VerticalStackLayout>
-                                <Label Grid.Column="1" Text="{Binding Status}" IsVisible="{Binding HasStatus}"
-                                       FontSize="12" VerticalOptions="Center" LineBreakMode="WordWrap"
-                                       Style="{StaticResource SubtleLabel}" />
-                            </Grid>
-                        </DataTemplate>
-                    </CollectionView.ItemTemplate>
-                </CollectionView>
+                <!-- One row per part of Orbit, in the card the browser's own permissions table sits
+                     in - what it is, what it is for, and whether this account has it. -->
+                <Border Style="{StaticResource SettingsCard}">
+                    <CollectionView ItemsSource="{Binding Permissions}" SelectionMode="None">
+                        <CollectionView.ItemTemplate>
+                            <DataTemplate x:DataType="screens:PermissionRow">
+                                <controls:SettingRow Title="{Binding Name}" Description="{Binding Explanation}">
+                                    <controls:SettingRow.Trailing>
+                                        <Label Text="{Binding Status}" IsVisible="{Binding HasStatus}"
+                                               LineBreakMode="WordWrap" Style="{StaticResource RowMeta}" />
+                                    </controls:SettingRow.Trailing>
+                                </controls:SettingRow>
+                            </DataTemplate>
+                        </CollectionView.ItemTemplate>
+                    </CollectionView>
+                </Border>
 
                 <Label Text="{Binding PermissionMessage}" IsVisible="{Binding HasPermissionMessage}"
                        FontSize="12" LineBreakMode="WordWrap"
@@ -364,7 +397,7 @@
                            Text="{Binding PermissionCode}"
                            ReturnType="Go" ReturnCommand="{Binding RedeemCodeCommand}" />
                     <Button Grid.Column="1" Text="{controls:Translate 'Unlock'}"
-                            Command="{Binding RedeemCodeCommand}" />
+                            Style="{StaticResource PrimaryButton}" Command="{Binding RedeemCodeCommand}" />
                 </Grid>
             </VerticalStackLayout>
 
@@ -373,7 +406,7 @@
                  an ordinary thing to want, not a look inside Orbit, so it stays on the Account tab. -->
             <VerticalStackLayout Spacing="10" IsVisible="{Binding IsShowingDebug}">
                 <Label Text="{controls:Translate 'What Orbit reports about itself. Kept on this device.'}"
-                       FontSize="12" LineBreakMode="WordWrap" Style="{StaticResource SubtleLabel}" />
+                       LineBreakMode="WordWrap" Style="{StaticResource SectionSubtext}" />
                 <Button Text="{controls:Translate 'Diagnostics'}" Command="{Binding GoToDiagnosticsCommand}"
                         HorizontalOptions="Start" Style="{StaticResource LinkButton}" />
             </VerticalStackLayout>

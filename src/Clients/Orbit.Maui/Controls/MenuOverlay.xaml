@@ -21,10 +21,7 @@
     <Grid>
 
         <!-- Pressing anywhere else closes it, which is what a menu does everywhere. -->
-        <!-- BackgroundColor as well as Color: a BoxView paints both, and the implicit style gives
-             every one of them a light grey - which at 35% is a sheet of fog over the page rather than
-             the shadow the browser drops behind an open menu. -->
-        <BoxView Color="Black" BackgroundColor="Transparent" Opacity="0.35">
+        <BoxView Color="Black" Opacity="0.35">
             <BoxView.GestureRecognizers>
                 <TapGestureRecognizer Command="{Binding CloseCommand}" />
             </BoxView.GestureRecognizers>
