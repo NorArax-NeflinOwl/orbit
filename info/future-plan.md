@@ -499,6 +499,19 @@ beside a task belongs here, not in that task's diff. A defect is the exception a
   the module defaults to `X-Real-IP`, nothing sends that inbound, and `nginx -t` accepts the
   configuration either way.
 
+  **What is measured is the nginx half.** `$remote_addr` there is now the caller's, and a forged prefix
+  is ignored. Whether `orbit-api` itself receives that address is a separate question and was not
+  observable: `UseForwardedHeaders` trusts peers in `100.100.0.0/16`, which is the range the *web*
+  container's ingress uses, and the range the *API* container sees for its own peer was never checked.
+  If it differs, that middleware silently does nothing and the application's per-caller partitions are
+  still one bucket - the same shape of failure as the missing `real_ip_header`, valid and inert.
+
+  Every request now logs `from <network>` (see `ClientNetwork`), so **one look at
+  `az containerapp logs show -n orbit-api` after the next deploy settles it**: a value that is always
+  the same means the middleware is resolving nothing; values that vary mean it is. This matters more
+  since the phone talks to `orbit-api` directly, where the application's partitions are the only
+  per-caller mechanism there is.
+
   The ceilings in `RateLimiterPolicies` (120 anonymous auth attempts a minute, 600 public share reads)
   were sized for the case where the address could be forged. That case is now measured not to apply, so
   they can come down towards what honest traffic actually needs - a decision worth taking deliberately
