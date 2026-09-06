@@ -791,6 +791,86 @@ public sealed class TasksTests : OrbitTestContext
         Assert.DoesNotContain("Nothing left to do", row.TextContent);
     }
 
+    /// <summary>
+    /// Folding a card says "not this week"; it used to also say "and none of this is reachable". The one
+    /// line a folded card shows was a plain block, so the one thing a reader could point at answered
+    /// nothing - every other row in the app opens what it names.
+    /// </summary>
+    [Fact]
+    public void The_row_on_a_minimised_card_opens_the_entry_it_names()
+    {
+        var entry = Item("Buy flour");
+        var taskList = TaskList("Recipes", entry);
+        RegisterTasksApiClient([taskList]);
+        var navigationManager = Services.GetRequiredService<NavigationManager>();
+        var cut = RenderComponent<Web.Pages.Tasks>();
+        MinimiseTheCardFor(cut, "Recipes");
+
+        FoldedRowOf(cut, "Recipes").Click();
+
+        Assert.EndsWith($"/tasks/{taskList.Id}/items/{entry.Id}", navigationManager.Uri);
+    }
+
+    /// <summary>
+    /// And the block around it opens the list, exactly as an unfolded card's body does. Folding took
+    /// that press away too: the body was drawn without the role, the tab stop or the handler.
+    /// </summary>
+    [Fact]
+    public void The_body_of_a_minimised_card_opens_the_list()
+    {
+        var taskList = TaskList("Recipes", Item("Buy flour", isCompleted: true));
+        RegisterTasksApiClient([taskList]);
+        var navigationManager = Services.GetRequiredService<NavigationManager>();
+        var cut = RenderComponent<Web.Pages.Tasks>();
+        MinimiseTheCardFor(cut, "Recipes");
+
+        // Nothing left to do, so the body holds the sentence saying so and no row to press instead.
+        CardFor(cut, "Recipes").QuerySelector(".item-card-body")!.Click();
+
+        Assert.EndsWith($"/tasks/{taskList.Id}", navigationManager.Uri);
+    }
+
+    /// <summary>
+    /// And on a group card it opens the entry where it actually lives, which is the member list it was
+    /// found on rather than the card that names it.
+    /// </summary>
+    [Fact]
+    public void The_row_on_a_minimised_group_card_opens_the_entry_on_its_own_list()
+    {
+        var errand = Item("Buy flour");
+        var member = TaskList("Recipes", errand);
+        var group = TaskList("Cooking", LinkTo(member));
+        RegisterTasksApiClient([group, member]);
+        var navigationManager = Services.GetRequiredService<NavigationManager>();
+        var cut = RenderComponent<Web.Pages.Tasks>();
+        MinimiseTheCardFor(cut, "Cooking");
+
+        FoldedRowOf(cut, "Cooking").Click();
+
+        Assert.EndsWith($"/tasks/{member.Id}/items/{errand.Id}", navigationManager.Uri);
+    }
+
+    /// <summary>
+    /// The same dot the unfolded card draws. A folded card was the one place an appointment could not be
+    /// told from a plain errand - see Tasks.EventColourOf.
+    /// </summary>
+    [Fact]
+    public void An_appointment_on_a_minimised_card_carries_its_events_colour()
+    {
+        var eventId = Guid.NewGuid();
+        var appointment = Item("Dentist") with
+        {
+            Kind = nameof(TaskItemKind.Calendar), LinkedCalendarEventId = eventId
+        };
+        RegisterTasksApiClient([TaskList("Kitchen", appointment)], [AnEventColoured(eventId, "#ff0000")]);
+        var cut = RenderComponent<Web.Pages.Tasks>();
+
+        MinimiseTheCardFor(cut, "Kitchen");
+
+        var dot = FoldedRowOf(cut, "Kitchen").QuerySelector(".stat-dot")!;
+        Assert.Contains("#ff0000", dot.GetAttribute("style"));
+    }
+
     [Fact]
     public void A_minimised_group_card_with_nothing_left_anywhere_still_says_so()
     {

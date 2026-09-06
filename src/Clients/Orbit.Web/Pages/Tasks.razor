@@ -220,16 +220,33 @@
                        list is about, not to be worked from. *@
                     @if (NextThingLeftToDo(taskList) is { } next)
                     {
-                        <div class="list-row task-preview-row">
-                            <span class="task-preview-mark"></span>
-                            <span class="row-title">@Written(next.Description)</span>
-                            @if (next.OnList is { } onList)
-                            {
-                                @* Which member list it is on. Without it, a group's folded card names
-                                   an errand with no hint of where it came from. *@
-                                <span class="row-meta">@Written(onList)</span>
-                            }
-                        </div>
+                        @* Pressed, it opens the entry it names - the same thing the rows on an unfolded
+                           card do. It was a plain div, so the one line a folded card shows was the one
+                           line that answered nothing; folding a card should say "not this week", not
+                           "and now none of this is reachable". The entry may live on a member list, so
+                           the row opens it where it actually is. *@
+                        <Row Title="@Written(next.Description)"
+                             OnPressed="() => GoToEntry(next.TaskListId, next.Item.Id)"
+                             AdditionalClass="task-preview-row">
+                            <Leading>
+                                <span class="task-preview-mark"></span>
+                                @* An appointment's own colour, the same dot the unfolded card and the
+                                   dashboard's Upcoming card draw - see EventColourOf. A folded card was
+                                   the one place a row could not be told apart from a plain errand. *@
+                                @if (EventColourOf(next.Item) is { } colour)
+                                {
+                                    <span class="stat-dot" style="background:@colour" title="@(T["Appointment"])"></span>
+                                }
+                            </Leading>
+                            <Trailing>
+                                @if (next.OnList is { } onList)
+                                {
+                                    @* Which member list it is on. Without it, a group's folded card
+                                       names an errand with no hint of where it came from. *@
+                                    <span class="row-meta">@Written(onList)</span>
+                                }
+                            </Trailing>
+                        </Row>
                     }
                     else
                     {
@@ -512,8 +529,17 @@
     }
 
     /// <summary>What a folded card says is still to be done.</summary>
+    /// <param name="Item">
+    /// The entry itself, not only its words: the row opens it, and asks it whether it is an appointment
+    /// so the colour dot can say so. It used to carry the description alone, which is why the row could
+    /// do neither.
+    /// </param>
+    /// <param name="TaskListId">The list the entry actually sits on, which is where the row opens it.</param>
     /// <param name="OnList">The member list it sits on, when it was found through a link - null when it is the card's own.</param>
-    private sealed record ThingLeftToDo(string Description, string? OnList);
+    private sealed record ThingLeftToDo(TaskItemDto Item, Guid TaskListId, string? OnList)
+    {
+        public string Description => Item.Description;
+    }
 
     /// <summary>
     /// The one row a folded card shows: what is still to be done. A row that only points at another list
@@ -526,7 +552,7 @@
         {
             if (item.AllLinkedTaskListIds.Count == 0)
             {
-                return new ThingLeftToDo(item.Description, OnList: null);
+                return new ThingLeftToDo(item, taskList.Id, OnList: null);
             }
 
             // An entry standing for several lists is looked through in order, so what comes back is the
@@ -537,12 +563,12 @@
                 // list's title, which still says more than nothing.
                 if (LinkedTaskList(linkedTaskListId) is not { } linkedTaskList)
                 {
-                    return new ThingLeftToDo(item.Description, OnList: null);
+                    return new ThingLeftToDo(item, taskList.Id, OnList: null);
                 }
 
                 if (linkedTaskList.Items.FirstOrDefault(linked => !linked.IsCompleted) is { } linkedItem)
                 {
-                    return new ThingLeftToDo(linkedItem.Description, linkedTaskList.Title);
+                    return new ThingLeftToDo(linkedItem, linkedTaskList.Id, linkedTaskList.Title);
                 }
             }
         }

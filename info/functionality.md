@@ -914,6 +914,14 @@ placed, rather than pushing the arrangement about.
 
 Pinned lists lead every order except that one, which already says where every card goes.
 
+**A folded card is still a card.** Minimising one says "not this week", and it used to also make the card
+unreachable: the one line it shows - what is still to be done - was drawn as a plain block, so the one
+thing a reader could point at answered nothing, and neither did the body around it. The line now opens
+the entry it names, on the list that entry actually sits on (a group card's line is usually a member
+list's errand), and the block around it opens the list, exactly as an unfolded card's body does. An
+appointment there carries its event's colour, the same dot the unfolded card and the dashboard's Upcoming
+card draw - a folded card was the one place an appointment could not be told from a plain errand.
+
 **A list somebody shared with you can be pinned too, and the answer is yours.** A list you own carries
 its pin on the server, because arranging it is yours to do — and only the owner may set it
 (`SetTaskListPinnedCommandHandler` refuses anybody else, since pinning moves a card on one person's
