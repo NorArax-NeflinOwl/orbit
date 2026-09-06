@@ -12,7 +12,7 @@ flowchart TB
     subgraph azure["Azure — resource group Orbit, region polandcentral"]
         subgraph env["Container Apps environment: orbit-environment"]
             web["<b>orbit-web</b><br/>nginx, :80<br/>serves wwwroot, proxies /api/<br/><i>scales to zero when idle</i>"]
-            api["<b>orbit-api</b><br/>ASP.NET Core, :8080<br/><i>max-replicas 1 today</i>"]
+            api["<b>orbit-api</b><br/>ASP.NET Core, :8080<br/><b>internal ingress only</b><br/><i>max-replicas 1</i>"]
         end
         pg[("<b>PostgreSQL Flexible Server</b><br/>orbit-postgres-*")]
         acr["<b>orbitcontainerregistry</b><br/>images tagged by commit SHA"]
@@ -31,8 +31,8 @@ flowchart TB
     gh["GitHub Actions<br/><i>on push to main only</i>"]
 
     browser -->|HTTPS| web
+    phone -->|HTTPS| web
     web -->|"/api/ → internal FQDN"| api
-    phone -->|HTTPS, direct| api
     phone -.->|downloads updates| blob
 
     api --> pg
@@ -52,11 +52,15 @@ flowchart TB
 
 ## What the picture is trying to settle
 
-**The browser never talks to `orbit-api` directly; the phone always does.** The web client is served by
-nginx, which also proxies `/api/` to `orbit-api`'s internal address — so from the browser's point of
-view there is one origin. The phone has no such proxy and calls the API's public address itself. That
-asymmetry is why "it works on the web" and "it works on the phone" are two separate claims, and why a
-deploy is validated end to end through the proxy rather than against the API alone.
+**Nothing reaches `orbit-api` from the internet.** Its ingress is internal to the Container Apps
+environment, so the only way in is nginx, which serves the web client and proxies `/api/` to the API's
+internal FQDN. The phone goes the same way and is built knowing it: `OrbitApiSettings` bakes in
+*`orbit-web`'s* address, not the API's, and every client asks for a relative path so one base address
+serves the app exactly as it serves the browser.
+
+That makes `orbit-web` the single public surface for everything, which is why a deploy is validated end
+to end through the proxy rather than against the API alone — and why the throttling that does not exist
+in front of it matters as much as it does (see [future-plan](../future-plan.md)).
 
 **`orbit-api` runs at `max-replicas 1` today.** Nothing in the code assumes that any more — live
 updates, the privacy choice cache and the rate limiter each count across instances — but the number has

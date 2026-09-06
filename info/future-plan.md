@@ -487,8 +487,26 @@ beside a task belongs here, not in that task's diff. A defect is the exception a
   now says what the `ci-pipeline` skill says: ACR Tasks were blocked on the free trial, are not blocked
   now, and the runner build stays because it is the verified path rather than because anything forbids
   the alternative.
-
-
+- **Whether the Container Apps ingress sets `X-Forwarded-For` at all is still unmeasured.** It could not
+  be answered from outside, because until 2026-09-06 nothing in the system read or logged that header.
+  The throttling added that day is therefore built so that no answer can make things worse: nginx
+  derives the caller with `real_ip_recursive`, and logs the chain as `xff="..."`. **One look at
+  `az containerapp logs show -n orbit-web` after the next deploy settles it**, and the numbers can then
+  be set on evidence instead of caution:
+  - if the chain carries the caller, the per-client limits are real and the ceilings in
+    `RateLimiterPolicies` (120 anonymous auth attempts a minute, 600 public share reads) can come down;
+  - if it is absent, the per-client zones collapse into the global one and those ceilings are the only
+    thing working, which is why they were set generously;
+  - if it is forgeable, the ceilings are the bound - a spoofing caller gets 120 password attempts a
+    minute rather than no limit at all.
+- **17 of 147 endpoints carry a rate limit.** The rest need a valid token, so they are not anonymous,
+  but nothing bounds what one account - or one leaked token - can ask for. The edge limits in
+  `nginx.azure.conf` blunt a flood across all of them; they are not a per-account budget.
+- **Kestrel's default 30 MB request body applies everywhere** except the diagnostic upload, which is the
+  one endpoint with an explicit `RequestSizeLimit`, on a container with 0.5 GiB of memory.
+- **There is still no autoscaling and no WAF.** Both apps are `max-replicas 1` with no scale rules at
+  0.25 vCPU and 0.5 GiB, and nothing sits in front of `orbit-web`. The edge limits refuse a flood rather
+  than absorbing it, which is the cheap half of the problem; the expensive half is unchanged.
 - **`max-replicas` is still 1 on both Container Apps.** Nothing in the code assumes otherwise any more -
   the live update hub, the privacy choice cache and the rate limiter each count across instances now -
   but raising it is a deliberate act and a cost decision, and it has not been taken. Two things to know
