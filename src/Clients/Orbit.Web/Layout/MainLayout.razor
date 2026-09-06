@@ -262,6 +262,13 @@
             <a href="/privacy">@T["Privacy"]</a>
             <a href="/security">@T["Security"]</a>
             <a href="/docs">@T["Docs"]</a>
+            @* Whether the server is answering, from the one place somebody looks when it is not. The
+               app cannot report this itself once it is the thing that has stopped working, so this
+               leaves it: target="_blank" is what makes the browser fetch the address rather than the
+               Blazor router claiming it as a route it has never heard of - and a report is something
+               to glance at beside what you were doing, not instead of it. Proxied on this origin by
+               nginx, which is also where what it may say is decided - see nginx-app-locations.conf. *@
+            <a href="/health" target="_blank" rel="noopener">@T["Status"]</a>
             @* Orbit's own page rather than the file on GitHub: the licence is part of what this
                deployment says about itself, and a reader should not have to leave it to read it -
                see Pages/License.razor. *@

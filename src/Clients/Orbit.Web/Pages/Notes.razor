@@ -4,6 +4,7 @@
 @using Orbit.Core.Abstractions
 @using Orbit.Web.Services
 @inject NotesApiClient NotesApiClient
+@inject SharedItemPins SharedPins
 @inject NavigationManager NavigationManager
 @inject IJSRuntime JSRuntime
 @inject ILogger<Notes> Logger
@@ -37,13 +38,20 @@
             <ItemCard Name="@NameOf(note)"
                       OnNameSelected="() => OpenNote(note.Id)"
                       OnBodySelected="() => OpenNote(note.Id)"
-                      ExtraClass="@(note.IsPinned ? "item-card-pinned" : null)">
-                @* Only for a note you own: pinning moves it on its owner's page, so a recipient
-                   pinning a note shared with them would be rearranging someone else's list. *@
+                      ExtraClass="@(IsPinned(note) ? "item-card-pinned" : null)">
+                @* Every card has one, and where the answer is kept depends on whose note it is. Your own
+                   note carries its pin on the server, because arranging it is yours to do. A note shared
+                   with you carries somebody else's there, so pinning it here would be rearranging their
+                   page - the reader's own answer is kept on this device instead. See SharedItemPins. *@
                 <Pin>
                     @if (!note.IsShared)
                     {
                         <PinButton IsPinned="note.IsPinned" OnPinnedChanged="pinned => SetPinnedAsync(note, pinned)" />
+                    }
+                    else
+                    {
+                        <PinButton IsPinned="SharedPins.IsPinned(note.Id)"
+                                   OnPinnedChanged="pinned => PinTheSharedNoteAsync(note, pinned)" />
                     }
                 </Pin>
                 <Menu>
@@ -90,8 +98,27 @@
     private IReadOnlyList<NoteDto>? _notes;
 
     /// <summary>Pinned notes first, and the rest in the order the API sent them - most recently updated first.</summary>
-    private static IEnumerable<NoteDto> Ordered(IReadOnlyList<NoteDto> notes)
-        => notes.OrderByDescending(note => note.IsPinned);
+    private IEnumerable<NoteDto> Ordered(IReadOnlyList<NoteDto> notes)
+        => notes.OrderByDescending(IsPinned);
+
+    /// <summary>
+    /// Whether this card sits at the top of *this* reader's page. Two answers behind one question: a
+    /// note you own carries its own, and one shared with you carries its owner's, which is about their
+    /// page rather than yours - see SharedItemPins.
+    /// </summary>
+    private bool IsPinned(NoteDto note)
+        => note.IsShared ? SharedPins.IsPinned(note.Id) : note.IsPinned;
+
+    /// <summary>
+    /// Pinning a note somebody else shared. Nothing is sent: the answer is this reader's and stays on
+    /// this device, so the page only has to re-sort around it.
+    /// </summary>
+    private async Task PinTheSharedNoteAsync(NoteDto note, bool isPinned)
+    {
+        Logger.LogInformation(
+            "User clicked '{Action}' for shared note {NoteId}", isPinned ? "Pin" : "Unpin", note.Id);
+        await SharedPins.SetPinnedAsync(note.Id, isPinned);
+    }
 
     /// <summary>Joins a note's lines back into a single line of text for the list preview, since Content is now structured rather than a flat string.</summary>
     /// <summary>
@@ -130,6 +157,9 @@
     protected override async Task OnInitializedAsync()
     {
         Logger.LogInformation("Notes page opened, loading notes");
+        // Read before the cards are drawn: a pin that arrived a moment later would move a card somebody
+        // was already pointing at.
+        await SharedPins.InitializeAsync();
         try
         {
             _notes = await NotesApiClient.GetNotesAsync();

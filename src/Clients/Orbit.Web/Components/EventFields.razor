@@ -142,13 +142,16 @@
     <section class="event-section">
         <h3 class="event-section-heading">@T["Details"]</h3>
 
-        <div class="field">
-            <label for="@($"{IdPrefix}Description")">@T["Description"]</label>
-            @* Its own row and full width, because a description is prose - see .event-fields-description. *@
-            <textarea id="@($"{IdPrefix}Description")" class="event-fields-description" rows="2"
-                      placeholder="@(T["What this is about"])" value="@Model.Description"
-                      @oninput="args => Model.Description = args.Value?.ToString() ?? string.Empty"></textarea>
-        </div>
+        @if (ShowsDescription)
+        {
+            <div class="field">
+                <label for="@($"{IdPrefix}Description")">@T["Description"]</label>
+                @* Its own row and full width, because a description is prose - see .event-fields-description. *@
+                <textarea id="@($"{IdPrefix}Description")" class="event-fields-description" rows="2"
+                          placeholder="@(T["What this is about"])" value="@Model.Description"
+                          @oninput="args => Model.Description = args.Value?.ToString() ?? string.Empty"></textarea>
+            </div>
+        }
 
         <div class="field-row">
             <label>@T["Color"]<input type="color" @bind="Model.Color" /></label>
@@ -313,6 +316,13 @@
     /// Whether this screen can invite anybody. False where there is nobody to invite them to yet, or
     /// where the reader is not allowed to share what they are looking at.
     /// </summary>
+    /// <summary>
+    /// Whether this form asks what the appointment is about. False on a task list, where the entry has
+    /// a description of its own and that one *is* the event's - two boxes for one answer is two copies
+    /// drifting apart, which is what the entry's categories used to be. See TaskEditor.razor.
+    /// </summary>
+    [Parameter] public bool ShowsDescription { get; set; } = true;
+
     [Parameter] public bool CanInviteGuests { get; set; }
 
     [Parameter] public IReadOnlyList<ContactDto> Contacts { get; set; } = [];

@@ -15,10 +15,13 @@ public sealed class UpdateTaskListCommandHandlerTests
             new TaskListAccessResolver(taskRepository, taskListShareRepository ?? new InMemoryTaskListShareRepository(), new InMemoryUserRepository()),
             taskRepository,
             new TaskListLinkValidator(taskRepository),
-            // No inventory tracks these lists, so finishing an entry on one means nothing to a shelf.
+            // No inventory tracks these lists, so finishing an entry on one means nothing to a shelf,
+            // and no shelf answers an entry on one either.
             new RestockCompletion(
                 new InMemoryInventoryManagedTaskListRepository(), new InMemoryInventoryItemRepository(),
-                new InMemoryInventoryRepository(), new InMemoryTaskRepository()));
+                new InMemoryInventoryRepository(), new InMemoryTaskRepository()),
+            new StockedEntryCompletion(
+                new InMemoryInventoryRepository(), new InMemoryInventoryItemRepository()));
 
     [Fact]
     public async Task HandleAsync_updates_a_task_list_owned_by_the_requesting_user()

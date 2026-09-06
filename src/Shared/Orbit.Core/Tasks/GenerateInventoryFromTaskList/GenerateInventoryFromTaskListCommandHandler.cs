@@ -86,6 +86,10 @@ public sealed class GenerateInventoryFromTaskListCommandHandler : IRequestHandle
         // In the order the work asks for things rather than alphabetically: a shelf built from a
         // shopping list reads best in the order the list reads - see InventoryItem.Position.
         var shelfItemIdsByName = new Dictionary<string, Guid>(SameName);
+        // Which of the new rows already hold what they were asked to hold. Read off the rows being
+        // built rather than by reading the shelf back, which at this point is a shelf this request has
+        // only just written - see StockedEntryCompletion.Covers for the rule itself.
+        var coveredShelfItemIds = new HashSet<Guid>();
         foreach (var (requirement, position) in needed.Select((requirement, position) => (requirement, position)))
         {
             var product = described.GetValueOrDefault(requirement.Name);
@@ -107,6 +111,10 @@ public sealed class GenerateInventoryFromTaskListCommandHandler : IRequestHandle
                 product?.IsCheckedRegularly ?? false);
             await _inventoryItemRepository.AddAsync(shelfItem, cancellationToken);
             shelfItemIdsByName[requirement.Name] = shelfItem.Id;
+            if (StockedEntryCompletion.Covers(shelfItem))
+            {
+                coveredShelfItemIds.Add(shelfItem.Id);
+            }
         }
 
         // Each entry now stands for the row it asked for, rather than only sharing its wording. That link
@@ -122,9 +130,21 @@ public sealed class GenerateInventoryFromTaskListCommandHandler : IRequestHandle
                 && shelfItemIdsByName.TryGetValue(entry.Description.Trim(), out var shelfItemId))
             {
                 entry.PointAtShelfItem(shelfItemId);
+
+                // An entry that said "four of these, and keep two" has been answered by the row it just
+                // built: it is asking for nothing, so it is crossed off rather than left outstanding on
+                // a list where every other line still means something. Only ever crossed off - see
+                // StockedEntryCompletion, which is what does this on every later save.
+                if (coveredShelfItemIds.Contains(shelfItemId))
+                {
+                    entry.Complete();
+                }
             }
         }
 
+        // The list's own "everything here is done" follows what the loop above crossed off; nothing else
+        // here would say it again, and a generated list whose every line is covered should read as done.
+        taskList.RecountWhatIsDone();
         taskList.LinkToInventory(inventoryId);
         await _taskRepository.UpdateAsync(taskList, cancellationToken);
 

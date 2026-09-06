@@ -105,7 +105,15 @@ Rules in this file are always in context. Longer procedures live in
     update that document as part of the same change — do not leave it for later.
     New non-obvious knowledge (a gotcha, a procedure) belongs in the matching
     `info/` file, not only in the conversation.
-17. `PRZENOSINY.local.md` (repo root, gitignored, in Polish) is the user's
+17. **The diagrams in `info/uml/` are the part of rule 16 that gets forgotten**, because
+    nothing fails when one goes stale - no test covers them and a wrong one is still
+    believed. Adding a project reference, an entity, a table, a hosted service, an
+    endpoint group, or a new way for instances to talk to each other means editing the
+    matching diagram in the same commit; so does renaming anything they name, which is
+    why they quote physical names (`OP_CHATS`, `OS_RATE_LIMITS`, `PostgresLiveUpdateFanOut`)
+    rather than describing things - a stale name can be grepped for. `info/uml/README.md`
+    says which file covers what, and how to check that a diagram still parses.
+18. `PRZENOSINY.local.md` (repo root, gitignored, in Polish) is the user's
     machine-migration checklist of every gitignored file needed to work. Whenever
     a change introduces, moves, or renames such a file (secrets, machine-local
     config, certificates, keystores, user-secrets) or adds a `.gitignore` entry

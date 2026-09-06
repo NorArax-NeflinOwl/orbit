@@ -19,6 +19,22 @@ of the integration PR - the last step before Azure is paid, and what the deploy 
 hangs off. It ignores `info/**` and `**/*.md`. Nothing runs on a feature branch, a
 pull request, or a merge into `Coding`.
 
+`android-head.yml` compiles the MAUI Android head on the same trigger, narrowed by a
+`paths:` filter to the projects the phone is built from - the same list
+`android-release.yml` releases on, and the two must be kept in step. It is a separate
+workflow precisely so that filter exists: GitHub evaluates `paths:` before scheduling,
+so a merge touching nothing mobile starts no runner. As a job it could only decide that
+after starting, and a started job is billed a whole minute either way. It gates nothing
+(the Android head is not in `deploy`'s `needs`), which is why splitting it costs no gate.
+
+`verify-diagrams.yml` parses the Mermaid diagrams in `info/uml/` on the same trigger,
+filtered to `info/uml/**` and the script it runs. It is separate for a reason worth
+remembering before anybody "tidies" it into the suite: `main_orbit.yml` ignores
+`info/**` and `**/*.md`, so it would never run on a diagram-only merge - the change
+most likely to break a diagram. It also gates nothing, because a picture that will not
+draw is no reason to hold a deploy. It needs no browser (jsdom, not Chromium), so a run
+is one billed minute and no download.
+
 What that means in practice: the full suite on the developer's machine is the only
 check a change gets before `Coding`. A broken merge into `Coding` is found at the
 next push to `main`, before anything deploys - and then it blocks the whole

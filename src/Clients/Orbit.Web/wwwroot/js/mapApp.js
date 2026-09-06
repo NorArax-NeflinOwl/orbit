@@ -26,6 +26,26 @@ export function urlFor(apple, latitude, longitude, label) {
     return apple ? `maps://?ll=${point}&q=${name}` : `geo:${point}?q=${point}(${name})`;
 }
 
+/// Hands over by clicking a link, never by moving the page.
+///
+/// Moving it is what this used to do, and it left an alert behind: asking the main frame to load
+/// "maps://..." opens the app, but the load itself can never finish, so the browser holds a failed
+/// navigation and reports it - "the address is invalid" - the next time somebody looks at the page,
+/// which is on coming back from the map app. A browser tells the two apart by how the navigation
+/// started: a link that was activated is handed to the device and the page is left where it is, while
+/// a script setting the address is a page that failed to load.
+///
+/// The link is made, clicked and thrown away rather than kept in the markup, so nothing about the
+/// screen depends on it and the pin can be handed over from anywhere.
 export function openPosition(latitude, longitude, label) {
-    window.location.href = urlFor(isApple(), latitude, longitude, label);
+    const link = document.createElement('a');
+    link.href = urlFor(isApple(), latitude, longitude, label);
+    link.rel = 'noreferrer';
+    link.hidden = true;
+    document.body.appendChild(link);
+    try {
+        link.click();
+    } finally {
+        link.remove();
+    }
 }

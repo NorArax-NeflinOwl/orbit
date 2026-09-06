@@ -214,7 +214,8 @@ public sealed class TaskRepository : ITaskRepository
                 Enum.TryParse<TaskItemKind>(entity.Kind, out var kind) ? kind : TaskItemKind.Checklist,
                 entity.Location, entity.LinkedCalendarEventId, entity.LinkedInventoryItemId),
             [.. entity.Categories.OrderBy(category => category.Position).Select(category => category.Category)],
-            ToProductDomain(entity));
+            ToProductDomain(entity),
+            entity.Notes);
 
     /// <summary>
     /// What the entry asks for, when it asks for anything - see TaskItemEntity.ProductType for why the
@@ -266,6 +267,7 @@ public sealed class TaskRepository : ITaskRepository
             TaskId = taskId,
             Position = position,
             Description = item.Description,
+            Notes = item.Notes,
             DueDateUtc = item.DueDateUtc,
             IsCompleted = item.IsCompleted,
             LinkedTaskLists = [.. item.LinkedTaskListIds.Select((linkedId, linkPosition) =>

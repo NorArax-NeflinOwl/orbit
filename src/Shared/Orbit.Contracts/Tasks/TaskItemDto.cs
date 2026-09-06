@@ -47,7 +47,13 @@ public sealed record TaskItemDto(
     /// <see cref="TaskItemProductDto"/>. Null for every other entry, and for one that already has a
     /// shelf item behind it.
     /// </summary>
-    TaskItemProductDto? Product = null)
+    TaskItemProductDto? Product = null,
+    /// <summary>
+    /// The longer text about this entry, where the Description above is what it is called - see
+    /// Orbit.Core.Tasks.TaskItem.Notes for why the two are named this way round. Empty for an entry
+    /// nobody wrote one on; on the way out it is always sent.
+    /// </summary>
+    string? Notes = null)
 {
     /// <summary>
     /// Whichever shape the sender used, read as one. Needed on the way in as well as the way out: a
@@ -58,4 +64,7 @@ public sealed record TaskItemDto(
 
     /// <summary>The categories as something to read without a null check - see <see cref="Categories"/>.</summary>
     public IReadOnlyList<string> AllCategories => Categories ?? [];
+
+    /// <summary>The description as something to read without a null check - see <see cref="Notes"/>.</summary>
+    public string AllNotes => Notes ?? string.Empty;
 }

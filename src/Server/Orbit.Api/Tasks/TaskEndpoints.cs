@@ -90,7 +90,8 @@ public static class TaskEndpoints
                     GetUserId(user), id, request.Title, ToDomainItems(request.Items), request.IsGroup, request.IsPrivate,
                     ToDomainPayload(request.EncryptedContent), RequestEnum.Parse<ItemPriority>(request.Priority, "priority"),
                     request.Description, EntriesSayingNothingAboutTheirCategories(request.Items),
-                    EntriesSayingNothingAboutTheirProduct(request.Items)),
+                    EntriesSayingNothingAboutTheirProduct(request.Items),
+                    EntriesSayingNothingAboutTheirNotes(request.Items)),
                 cancellationToken);
             return ToApiResult(outcome);
         });
@@ -305,6 +306,17 @@ public static class TaskEndpoints
             .Select(item => item.Id!.Value)
             .ToHashSet();
 
+    /// <summary>
+    /// The entries that sent no description at all, which keep the one they already carry - the same
+    /// rule the categories and the product follow just above. An entry sending an empty string means
+    /// "none" and is not in here. See UpdateTaskListCommand.EntriesKeepingTheirNotes.
+    /// </summary>
+    private static IReadOnlySet<Guid> EntriesSayingNothingAboutTheirNotes(IReadOnlyList<TaskItemRequest> items)
+        => items
+            .Where(item => item.Notes is null && item.Id is not null)
+            .Select(item => item.Id!.Value)
+            .ToHashSet();
+
     private static TaskItemProduct? ToDomainProduct(TaskItemProductDto? product)
         => product is null
             ? null
@@ -359,7 +371,7 @@ public static class TaskEndpoints
         {
             return TaskItem.Create(
                 item.Description, item.DueDateUtc, item.IsCompleted, item.AllLinkedTaskListIds,
-                reminders, subject, item.AllCategories, product);
+                reminders, subject, item.AllCategories, product, item.Notes);
         }
 
         // Same override Create applies: a linked entry's completion follows the list it links to, so a
@@ -367,7 +379,7 @@ public static class TaskEndpoints
         return TaskItem.FromPersistence(
             existingId, item.Description, item.DueDateUtc,
             item.AllLinkedTaskListIds.Count == 0 && item.IsCompleted, item.AllLinkedTaskListIds,
-            reminders, subject, item.AllCategories, product);
+            reminders, subject, item.AllCategories, product, item.Notes);
     }
 
 
@@ -414,7 +426,8 @@ public static class TaskEndpoints
                     item.LinkedInventoryItemId,
                     item.LinkedTaskListIds,
                     item.Categories,
-                    ToDto(item.Product)))
+                    ToDto(item.Product),
+                    item.Notes))
                 .ToList(),
             taskList.IsCompleted,
             taskList.IsGroup,

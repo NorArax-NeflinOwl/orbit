@@ -89,7 +89,8 @@ Do not wrap two unrelated locals (a loop index and a flag) into an artificial ob
 
 Tables and columns are never left to EF's defaults. Every entity has an entry in
 `Orbit.Data.OrbitStorageNames`, which renames the model at the end of `OnModelCreating`; an entity
-missing from that map throws at startup. Adding an entity means adding its names there too.
+missing from that map throws at startup. Adding an entity means adding its names there too, and drawing the table into
+`info/uml/database.md` in the same change (rule 17).
 
 - Tables: `OP_` for what the user works on, `OL_` for rows that only join two of those, `OS_` for
   accounts, settings and bookkeeping - then the module (`NOTES`, `TASKS`, `INVENTORIES`, `CHATS`,

@@ -159,13 +159,31 @@ else
                            than making somebody pick the truest one. It was one box holding
                            "shopping, car", which asked the reader to know that the comma was the
                            separator; it is now a word at a time, with every category already in use on
-                           this account listed under the box - see TagField. *@
+                           this account listed under the box - see TagField.
+
+                           For an inventory entry this is also what the product it stands for is filed
+                           under: the shelf form below leaves its own box out, because the two sat one
+                           above the other with the same label and the same placeholder, and nothing
+                           said which was which. See KnownCategoriesFor and ProductAsked. *@
                         <div class="editor-item-tags">
                             <span class="editor-item-tags-label">@T["Categories"]</span>
                             <TagField Values="item.Categories" ValuesChanged="values => item.Categories = [.. values]"
-                                      Known="_knownCategories" Placeholder="@(T["Add a category"])"
+                                      Known="KnownCategoriesFor(item)" Placeholder="@(T["Add a category"])"
                                       AriaLabel="@(T["Categories"])"
                                       IsReadOnly="@(_isSharedReadOnly || _lockedByUserName is not null)" />
+                        </div>
+                        @* What the entry is about, as opposed to what it is called. A calendar entry has
+                           always had one - it was the event's - and nothing else did, so a checklist
+                           line or a restock errand could only ever be as long as its own row. It is the
+                           same box for every kind now, and on a calendar entry it is still the event's:
+                           the appointment's own form leaves its copy out (EventFields.ShowsDescription)
+                           rather than asking twice. Prose, so a textarea rather than a line. *@
+                        <div class="field editor-item-notes">
+                            <label for="@($"item{_formModel.Items.IndexOf(item)}Notes")">@T["Description"]</label>
+                            <textarea id="@($"item{_formModel.Items.IndexOf(item)}Notes")" rows="2"
+                                      placeholder="@(T["What this is about"])" value="@item.Notes"
+                                      disabled="@(_isSharedReadOnly || _lockedByUserName is not null)"
+                                      @oninput="args => item.Notes = args.Value?.ToString() ?? string.Empty"></textarea>
                         </div>
                         @* A day to be done by is a checklist entry's question and nobody else's: an
                            appointment already says when it is, in the event's own start and end below,
@@ -204,6 +222,7 @@ else
                                there is no title box here. *@
                             <span class="field-break"></span>
                             <EventFields Model="item.Event" NotificationSettings="_notificationSettings"
+                                         ShowsDescription="false"
                                          OnMapRequested="() => OpenTheMapFor(item)"
                                          IdPrefix="@($"item{_formModel.Items.IndexOf(item)}")"
                                          CanInviteGuests="true" Contacts="_contacts"
@@ -253,8 +272,8 @@ else
                                 <span class="field-break"></span>
                                 <InventoryFields Model="product.Product" NotificationSettings="_notificationSettings"
                                                  ShowsName="@(product.Product.Id is not null)" ShowsAmounts="true"
-                                                 KnownProductTypes="_knownProductTypes"
-                                                 KnownCategories="_knownShelfCategories" />
+                                                 ShowsCategories="false"
+                                                 KnownProductTypes="_knownProductTypes" />
                                 <span class="field-break"></span>
                                 <small>
                                     @(product.Product.Id is null
@@ -272,8 +291,8 @@ else
                                 <span class="field-break"></span>
                                 <InventoryFields Model="item.Product" NotificationSettings="_notificationSettings"
                                                  ShowsName="false" ShowsAmounts="true"
-                                                 KnownProductTypes="_knownProductTypes"
-                                                 KnownCategories="_knownShelfCategories" />
+                                                 ShowsCategories="false"
+                                                 KnownProductTypes="_knownProductTypes" />
                                 <span class="field-break"></span>
                                 <small>@T["Goes on the shelf when \"Generate inventory\" builds one, named after this entry. Leave the minimum empty to have it counted instead: the same name twice asks for two of it."]</small>
                             }
@@ -729,13 +748,32 @@ else
             ? _moveTargetTaskLists
             : [.. _moveTargetTaskLists.Where(candidate => !item.LinkedTaskListIds.Contains(candidate.Id))];
 
+    /// <summary>
+    /// What an entry is filed under, as the one box shows it. An inventory entry saved while the product
+    /// beside it had a box of its own answers with the product's words when it has none itself: the box
+    /// would otherwise open empty and then save that emptiness back over what was there.
+    /// </summary>
+    private static IReadOnlyList<string> CategoriesOf(TaskItemDto item)
+        => item.AllCategories.Count == 0 && item.Product is { } product ? product.AllCategories : item.AllCategories;
+
+    /// <summary>
+    /// What to offer under an entry's categories box. Two vocabularies used to answer this - what
+    /// entries are filed under, and what shelf items are - because two boxes asked it. One box asks it
+    /// now for an inventory entry, and it stands for both, so it offers both; every other kind of entry
+    /// has nothing to do with a shelf and is left with the words entries use.
+    /// </summary>
+    private IReadOnlyList<string> KnownCategoriesFor(TaskItemFormModel item)
+        => item.Kind == nameof(TaskItemKind.Inventory)
+            ? [.. _knownCategories.Concat(_knownShelfCategories).Distinct(StringComparer.CurrentCultureIgnoreCase)]
+            : _knownCategories;
+
     /// <summary>Every category this account already uses, offered as suggestions under each entry's box.</summary>
     private IReadOnlyList<string> _knownCategories = [];
 
     /// <summary>
-    /// What shelf items on this account are filed under, for the product fields an Inventory entry
-    /// opens. A different vocabulary from _knownCategories above, which is what *entries* are filed
-    /// under - the two boxes sit on the same row and mean different things.
+    /// What shelf items on this account are filed under. Once its own box on the product fields an
+    /// Inventory entry opens; now one half of what the entry's box offers, because an inventory entry
+    /// and the product it stands for are filed under the same words - see KnownCategoriesFor.
     /// </summary>
     private IReadOnlyList<string> _knownProductTypes = [];
     private IReadOnlyList<string> _knownShelfCategories = [];
@@ -872,7 +910,8 @@ else
                                 LinkedInventoryItemId = item.LinkedInventoryItemId,
                                 LinkedCalendarEventId = item.LinkedCalendarEventId?.ToString() ?? string.Empty,
                                 LinkedTaskListIds = [.. item.AllLinkedTaskListIds],
-                                Categories = [.. item.AllCategories],
+                                Categories = [.. CategoriesOf(item)],
+                                Notes = item.AllNotes,
                                 OverdueNotificationChannel = item.OverdueNotificationChannel,
                                 RemindDaily = item.RemindDaily,
                                 DailyReminderNotificationChannel = item.DailyReminderNotificationChannel,
@@ -1151,6 +1190,14 @@ else
             // copy held, and an entry whose event had a place had it erased by somebody editing
             // something else entirely.
             item.Event = EventFormModel.FromDto(details);
+
+            // An appointment made before the entry had a description of its own carries the answer on
+            // the event. The one box has to open showing it rather than blank, or the next save would
+            // write the blank back over it.
+            if (item.Notes.Length == 0)
+            {
+                item.Notes = item.Event.Description;
+            }
         }
     }
 
@@ -1266,7 +1313,14 @@ else
     /// see EventFormModel.ToRequest.
     /// </summary>
     private static CalendarEventDetailsRequest EventDetailsFor(TaskItemFormModel item)
-        => item.Event.ToRequest(item.Description);
+    {
+        // The entry's own description is the appointment's: one box asks for it, on the entry, and the
+        // event's form leaves its copy out. Written here rather than kept in step as the box is typed
+        // in, so the answer on screen is the answer that is sent whatever order things happen in - the
+        // same rule ProductAsked follows for an inventory entry's categories.
+        item.Event.Description = item.Notes;
+        return item.Event.ToRequest(item.Description);
+    }
 
 
     /// <summary>
@@ -1316,6 +1370,17 @@ else
         }
     }
 
+    /// <summary>
+    /// A product about to be written to a shelf, filed under what its entry is filed under. One box asks
+    /// the question on this screen - the entry's - and this is where its answer reaches the shelf.
+    /// </summary>
+    private static InventoryItemFormModel FiledUnderItsEntry(
+        (TaskItemFormModel Entry, InventoryFieldsFormModel Fields) pair)
+    {
+        pair.Fields.Product.Categories = [.. pair.Entry.Categories];
+        return pair.Fields.Product;
+    }
+
     private async Task SaveTheShelfAsync()
     {
         if (_shelves.Fields.Count == 0)
@@ -1323,7 +1388,7 @@ else
             return;
         }
 
-        foreach (var byInventory in _shelves.Fields.GroupBy(product => product.InventoryId))
+        foreach (var byInventory in _shelves.WithTheirEntries.GroupBy(pair => pair.Fields.InventoryId))
         {
             try
             {
@@ -1338,15 +1403,24 @@ else
                 // an entry describes on a list measured against this storage has none yet - it is
                 // being put there by this save, and its name is the entry's own words, which is what
                 // the stock check matches the two by.
+                //
+                // Each one is filed under what its entry says: the product form on this screen has no
+                // categories box of its own any more, and the entry's is the answer for both.
                 var edited = byInventory
-                    .Where(entry => entry.Product.Id is not null)
-                    .ToDictionary(entry => entry.Product.Id!.Value);
+                    .Where(pair => pair.Fields.Product.Id is not null)
+                    .ToDictionary(pair => pair.Fields.Product.Id!.Value, FiledUnderItsEntry);
                 var items = shelf
                     .Select(product => edited.TryGetValue(product.Id, out var changed)
-                        ? changed.Product.ToDto()
+                        ? changed.ToDto()
+                        // Everything it is filed under, not just the first word. A row this list never
+                        // touched still travels through the save, and leaving Categories unsaid means
+                        // "the sender does not know about the field" - so the server read the single
+                        // old Category as the whole answer and a shelf item filed under two words came
+                        // back filed under one. See InventoryItemRequest.AllCategories.
                         : new InventoryItemRequest(
                             product.Id, product.Name, product.ProductType, product.Category, product.Quantity,
-                            product.MinimumQuantity, product.Unit, product.ExpiryDate, product.ExpiryNotificationChannel))
+                            product.MinimumQuantity, product.Unit, product.ExpiryDate, product.ExpiryNotificationChannel,
+                            product.IsCheckedRegularly, product.AllCategories))
                     .ToList();
 
                 var alreadyThere = shelf.Select(product => product.Name.Trim()).ToHashSet(StringComparer.CurrentCultureIgnoreCase);
@@ -1363,7 +1437,7 @@ else
                     }
 
                     fields.Product.Name = name;
-                    items.Add(fields.Product.ToDto());
+                    items.Add(FiledUnderItsEntry((entry, fields)).ToDto());
                 }
 
                 await InventoryApiClient.UpdateInventoryAsync(
@@ -1410,6 +1484,13 @@ else
         /// <summary>What each errand on this list is about, for the save that writes the shelves back.</summary>
         public IReadOnlyCollection<InventoryFieldsFormModel> Fields => _fieldsByItem.Values;
 
+        /// <summary>
+        /// The same, with the entry each one belongs to. The save needs both halves: what is filed under
+        /// what is asked once, on the entry, and written onto the product from there.
+        /// </summary>
+        public IEnumerable<(TaskItemFormModel Entry, InventoryFieldsFormModel Fields)> WithTheirEntries
+            => _fieldsByItem.Select(pair => (pair.Key, pair.Value));
+
         public InventoryFieldsFormModel? FieldsFor(TaskItemFormModel item) => _fieldsByItem.GetValueOrDefault(item);
 
         public IReadOnlyList<InventoryItemDto> ShelfOf(Guid inventoryId)
@@ -1420,9 +1501,21 @@ else
         public void RememberShelf(Guid inventoryId, IReadOnlyList<InventoryItemDto> shelf)
             => _shelfByInventoryId[inventoryId] = shelf;
 
+        /// <summary>
+        /// Points an entry at a product already on a shelf. The entry takes that product's categories
+        /// when it has none of its own: one box asks for them now (see TaskEditor's markup), and it has
+        /// to open showing what the shelf says rather than blank - a blank box is saved back as blank.
+        /// </summary>
         public void ChooseProduct(
             TaskItemFormModel item, Guid inventoryId, InventoryItemDto product, string inventoryName)
-            => _fieldsByItem[item] = InventoryFieldsFormModel.From(product, inventoryId, inventoryName);
+        {
+            if (item.Categories.Count == 0)
+            {
+                item.Categories = [.. product.AllCategories];
+            }
+
+            _fieldsByItem[item] = InventoryFieldsFormModel.From(product, inventoryId, inventoryName);
+        }
 
         /// <summary>
         /// Fields for a product this entry describes and the shelf does not hold yet. No id, because
@@ -1748,7 +1841,8 @@ else
                 item.LinkedInventoryItemId,
                 item.LinkedTaskListIds,
                 item.Categories,
-                ProductAsked(item)))
+                ProductAsked(item),
+                item.Notes))
             .ToList();
 
     /// <summary>
@@ -1756,11 +1850,21 @@ else
     /// stand for a shelf item, which is the only case the server keeps it for (see TaskItem.Product).
     /// Null everywhere else, and null is what tells the server to leave a stored description alone, so
     /// an entry of another kind cannot empty one by being saved beside it.
+    ///
+    /// The categories are the entry's own, because there is only one box for them now - see the markup.
+    /// Taken here rather than kept in step as the box is typed in, so the two cannot drift apart
+    /// whatever order things happen in: the answer on screen is the answer that is sent.
     /// </summary>
     private static TaskItemProductDto? ProductAsked(TaskItemFormModel item)
-        => item.Kind == nameof(TaskItemKind.Inventory) && item.LinkedInventoryItemId is null
-            ? item.Product.ToTaskItemProduct()
-            : null;
+    {
+        if (item.Kind != nameof(TaskItemKind.Inventory) || item.LinkedInventoryItemId is not null)
+        {
+            return null;
+        }
+
+        item.Product.Categories = [.. item.Categories];
+        return item.Product.ToTaskItemProduct();
+    }
 
     private async Task SaveAsync()
     {
@@ -2152,5 +2256,11 @@ else
         /// one sitting does not lose what was typed.
         /// </summary>
         public EventFormModel Event { get; set; } = new() { Color = "#7c6cf0" };
+
+        /// <summary>
+        /// What this entry is about, in as many words as it takes - see Orbit.Core.Tasks.TaskItem.Notes
+        /// for why the entry's own line is the Description above and this is not.
+        /// </summary>
+        public string Notes { get; set; } = string.Empty;
     }
 }

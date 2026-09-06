@@ -2,7 +2,7 @@ namespace Orbit.Core.LiveUpdates;
 
 /// <summary>
 /// Tells whoever is connected right now that something they are looking at has changed, so a client can
-/// stop asking. Implemented outside Orbit.Core - see SignalRLiveUpdatePublisher - the same separation
+/// stop asking. Implemented outside Orbit.Core - see LiveUpdateAnnouncer - the same separation
 /// <see cref="Notifications.IPushNotificationSender"/> gives push delivery: the domain says what
 /// happened, and nothing here knows a WebSocket exists.
 ///

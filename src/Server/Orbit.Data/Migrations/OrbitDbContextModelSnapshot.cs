@@ -1206,6 +1206,26 @@ namespace Orbit.Data.Migrations
                     b.ToTable("OS_PUSH_SUBSCRIPTIONS");
                 });
 
+            modelBuilder.Entity("Orbit.Data.Entities.RateLimitWindowEntity", b =>
+                {
+                    b.Property<string>("Partition")
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)")
+                        .HasColumnName("OS_RL_PARTITION");
+
+                    b.Property<DateTimeOffset>("WindowStart")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("OS_RL_WINDOWSTART");
+
+                    b.Property<int>("Count")
+                        .HasColumnType("integer")
+                        .HasColumnName("OS_RL_COUNT");
+
+                    b.HasKey("Partition", "WindowStart");
+
+                    b.ToTable("OS_RATE_LIMITS");
+                });
+
             modelBuilder.Entity("Orbit.Data.Entities.RefreshTokenEntity", b =>
                 {
                     b.Property<Guid>("Id")
@@ -1518,6 +1538,14 @@ namespace Orbit.Data.Migrations
                         .HasColumnType("character varying(300)")
                         .HasDefaultValue("")
                         .HasColumnName("OP_TI_LOCATION");
+
+                    b.Property<string>("Notes")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)")
+                        .HasDefaultValue("")
+                        .HasColumnName("OP_TI_NOTES");
 
                     b.Property<string>("OverdueNotificationChannel")
                         .IsRequired()

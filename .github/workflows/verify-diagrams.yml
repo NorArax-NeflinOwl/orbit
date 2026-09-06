@@ -1,0 +1,55 @@
+# Parses the Mermaid diagrams in info/uml/ and fails on any that would not draw.
+#
+# Why a workflow of its own rather than a step in main_orbit.yml's test job, which already installs a
+# browser and runs the other two verifiers. Two reasons, and the first is decisive:
+#
+#   - **main_orbit.yml would never run on the change that breaks a diagram.** It ignores `info/**` and
+#     `**/*.md`, so a merge that only edits diagrams is skipped outright - and a diagram-only edit is
+#     exactly the change most likely to break one. A check that cannot see its own subject is not a
+#     check.
+#   - **A broken diagram must not stop a deploy.** The same argument that keeps the Android head out of
+#     `deploy`'s `needs`: what goes to Azure is the API and the web client, and a picture that will not
+#     draw is no reason to hold those back. Living here rather than in the job that gates the deploy is
+#     what makes that structural rather than a promise.
+#
+# Cost, counted the way the ci-pipeline skill asks. One change runs this once. The `paths:` filter is
+# evaluated before anything is scheduled, so a merge touching no diagram starts no runner at all, and a
+# merge that does touch one spends a single billed minute: there is no browser to download, because
+# ci/verify-diagrams.mjs parses under jsdom rather than driving Chromium.
+
+name: Verify the diagrams
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'info/uml/**'
+      - 'ci/verify-diagrams.mjs'
+      - '.github/workflows/verify-diagrams.yml'
+  workflow_dispatch:
+
+# Cancelled rather than queued, like the Android head and for the same reason: this produces nothing
+# anybody keeps, so when two merges land minutes apart the only answer worth paying for is the one
+# about the later commit.
+concurrency:
+  group: verify-diagrams
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      # No setup-node, matching the other verifiers: the runner's own Node is what they use too.
+      # --no-save, so no manifest or lockfile has to exist for a repository that is otherwise .NET.
+      - name: Install the parser
+        run: npm install --no-save mermaid@11 jsdom
+
+      - name: Verify the diagrams
+        run: node ci/verify-diagrams.mjs

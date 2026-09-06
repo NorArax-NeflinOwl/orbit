@@ -74,7 +74,15 @@
        its heading. *@
     @if (IsCollapsed && CollapsedBody is not null)
     {
-        <div class="item-card-body">@CollapsedBody</div>
+        @* Pressable like the unfolded one below, and for the same reason. It was a plain block, so
+           folding a card took away the one press its body answered: the line saying what is still to be
+           done sat there looking like every other row in the app and did nothing at all. *@
+        <div class="item-card-body @(OnBodySelected.HasDelegate ? "item-card-body-opens" : "")"
+             role="@(OnBodySelected.HasDelegate ? "button" : null)"
+             tabindex="@(OnBodySelected.HasDelegate ? 0 : null)"
+             @onclick="OnBodySelected" @onkeydown="OpenOnEnterOrSpaceAsync">
+            @CollapsedBody
+        </div>
     }
 
     @if (Body is not null && !IsCollapsed)

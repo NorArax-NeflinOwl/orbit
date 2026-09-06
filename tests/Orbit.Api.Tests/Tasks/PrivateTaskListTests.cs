@@ -148,7 +148,9 @@ public sealed class PrivateTaskListTests
                     Resolver, TaskRepository, new TaskListLinkValidator(TaskRepository),
                     new RestockCompletion(
                 new InMemoryInventoryManagedTaskListRepository(), new InMemoryInventoryItemRepository(),
-                new InMemoryInventoryRepository(), new InMemoryTaskRepository()))
+                new InMemoryInventoryRepository(), new InMemoryTaskRepository()),
+                    new StockedEntryCompletion(
+                new InMemoryInventoryRepository(), new InMemoryInventoryItemRepository()))
                 .HandleAsync(
                     new UpdateTaskListCommand(OwnerId, taskListId, title, items, IsGroup: false, isPrivate, encryptedContent),
                     CancellationToken.None);

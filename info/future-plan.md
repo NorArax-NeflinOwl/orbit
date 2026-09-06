@@ -371,9 +371,12 @@ worth adding:
 - **A link to what changed.** The version means nothing to somebody who has not been reading the
   commits. A release-notes page, or simply a link to the repository's releases, is what makes a version
   number worth showing at all.
-- **A health or status link.** Orbit already exposes `/health`, `/health/ready` and `/health/live`
-  (see [Architecture](architecture.md)). A footer is where people look when something is wrong, and a
-  link that answers "is it me or is it the server" belongs there rather than in a document.
+- ~~**A health or status link.**~~ Done, and it needed more than a link: nothing on the web origin
+  reached the report. nginx forwards `/api/` to the API *under* `/api/`, so `/api/health` arrived there
+  as `/api/health`, which is not where health lives. There is now an exact-match `= /health` location on
+  both nginx configs, and the footer's **Status** opens it in a new tab - which is also what stops the
+  Blazor router claiming the address. Publishing the report was a decision taken deliberately; what it
+  does and does not say is written down beside both the location and the writer.
 - **Privacy and data handling.** Not yet written, and it is the one entry here with a deadline attached
   to it: an application that ends up in a store needs one, and the store is the place that will ask.
   What it would have to describe is unusual and worth saying plainly - most of Orbit's content is sealed
@@ -478,10 +481,44 @@ beside a task belongs here, not in that task's diff. A defect is the exception a
 - **`setup-dotnet@v4`, `setup-java@v4` and `upload-artifact@v4`** carry the same Node 20 deprecation
   `actions/checkout` did. `dependency-submission.yml` already pins `setup-dotnet@v5`, so the bump is
   available whenever somebody wants it.
-- **The `android` job in `main_orbit.yml` starts a runner even when nothing mobile changed.** It
-  detects that in its first step and exits in seconds, but a started job is billed a whole minute -
-  about 29 of the 346 minutes measured. Moving the phone-head compile into its own workflow with a
-  `paths:` filter would skip the runner entirely on the pull requests that do not touch it.
+- ~~**`info/azure-setup.md` and `info/architecture.md` still call the subscription an Azure Free Trial**~~
+  Done. `azure-setup.md` had already stopped saying it by the time this was looked at - only
+  `architecture.md` still did, in the step explaining why the pipeline builds images on the runner. It
+  now says what the `ci-pipeline` skill says: ACR Tasks were blocked on the free trial, are not blocked
+  now, and the runner build stays because it is the verified path rather than because anything forbids
+  the alternative.
+- **Whether the Container Apps ingress sets `X-Forwarded-For` at all is still unmeasured.** It could not
+  be answered from outside, because until 2026-09-06 nothing in the system read or logged that header.
+  The throttling added that day is therefore built so that no answer can make things worse: nginx
+  derives the caller with `real_ip_recursive`, and logs the chain as `xff="..."`. **One look at
+  `az containerapp logs show -n orbit-web` after the next deploy settles it**, and the numbers can then
+  be set on evidence instead of caution:
+  - if the chain carries the caller, the per-client limits are real and the ceilings in
+    `RateLimiterPolicies` (120 anonymous auth attempts a minute, 600 public share reads) can come down;
+  - if it is absent, the per-client zones collapse into the global one and those ceilings are the only
+    thing working, which is why they were set generously;
+  - if it is forgeable, the ceilings are the bound - a spoofing caller gets 120 password attempts a
+    minute rather than no limit at all.
+- **17 of 147 endpoints carry a *named* rate limit.** The rest are now covered by
+  `RateLimiterPolicies.FloodStop`, a coarse per-caller limit over everything, kept in memory rather than
+  in the shared PostgreSQL window because that one costs a round trip per permitted request and this one
+  runs on every request in Orbit. It is a flood stop, not a per-account budget: nothing yet bounds what
+  one account, or one leaked token, can ask for over an hour.
+- **Kestrel's default 30 MB request body applies everywhere** except the diagnostic upload, which is the
+  one endpoint with an explicit `RequestSizeLimit`, on a container with 0.5 GiB of memory.
+- **The phone talks to `orbit-api` directly, so nginx's edge limits never see it.** That was the
+  deliberate trade for letting `orbit-web` scale to zero again; `FloodStop` is what stands in front of
+  that path instead. A WAF in front of both is what would make the two surfaces equal, and is the
+  expensive half below.
+- **There is still no autoscaling and no WAF.** Both apps are `max-replicas 1` with no scale rules at
+  0.25 vCPU and 0.5 GiB, and nothing sits in front of `orbit-web`. The edge limits refuse a flood rather
+  than absorbing it, which is the cheap half of the problem; the expensive half is unchanged.
+- **`max-replicas` is still 1 on both Container Apps.** Nothing in the code assumes otherwise any more -
+  the live update hub, the privacy choice cache and the rate limiter each count across instances now -
+  but raising it is a deliberate act and a cost decision, and it has not been taken. Two things to know
+  before it is: `orbit-web` currently scales to zero when idle and will stop doing so once anybody holds
+  a live update connection open, and nothing above has ever run on more than one replica, so the first
+  time it does is the first real test of all three.
 - **Nothing enforces that work reaches `main` only through `Coding`.** `guard-main.yml` closes stray
   pull requests, but a direct push to `main` deploys before any workflow can run. Real branch
   protection needs GitHub Pro on a private repository.
@@ -501,6 +538,32 @@ beside a task belongs here, not in that task's diff. A defect is the exception a
   editor's inventory fields shown for an unmeasured list too, bound to the entry's own product, and a
   sheet in front of `StockCheckPanel.GenerateInventoryAsync` asking the same six questions
   `GenerateInventoryOverlay` asks.
+
+- **The pin on a shared list or note stays on the browser that set it.** A reader's pin for something
+  somebody else owns is kept in localStorage (`SharedItemPins`, 2026-09-06), because the flag on the
+  object belongs to its owner and only they may set it. That is the same choice `ConversationPins`
+  makes and it needs no column anywhere - but it also means the pin does not follow the reader to
+  another browser or to the phone, where the control is simply left out. What it would take to make it
+  follow: a per-recipient flag on the share row (`TaskListShare`, `NoteShare`) with an endpoint and a
+  field on the DTO, which is a migration and a phone change rather than a screen one.
+
+- **The phone has no box for an entry's description.** Every task entry can carry one now
+  (`TaskItem.Notes`, 2026-09-06) and the phone neither shows nor writes it. Nothing is lost - its push
+  says nothing about the field and the server therefore keeps what is stored, which
+  `TaskListSyncTests.A_description_written_elsewhere_survives_a_push_from_the_phone` pins down - so this
+  is parity, not a defect. What it would take: a field on `TaskItemEditor` bound to `TaskItemDto.Notes`,
+  a box on the entry's sheet in `TaskListDetailPage.xaml`, and the same rule the web follows for a
+  calendar entry, whose description is its event's.
+
+- **The phone still asks twice what a shelf entry is filed under.** On the web an Inventory entry has one
+  categories box, and what it says is what the row it stands for is filed under
+  (`InventoryFields.ShowsCategories`, `TaskEditor.ProductAsked`, 2026-09-06). The phone's entry editor
+  still has its own categories field *and* shows `ShelfProductFields` with a second one directly under it
+  (`TaskListDetailPage.xaml`, `IsShelfEntry`), so the two answers can disagree and the one somebody
+  typed on the entry never reaches the shelf. Nothing is lost either way - each field still saves what it
+  has always saved - so this is parity, not a defect. What it would take: hiding the categories row
+  inside `ShelfProductFields` when it is drawn on a task entry, and writing the entry's `Categories` onto
+  `Shelf.Product` where the entry is saved.
 
 - **Done, kept here as the map of it.** Orbit has two depths for the same thing: a shallow view for
   reading and doing, and a full form for changing what it is. Every object that can have both now does,

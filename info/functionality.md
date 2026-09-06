@@ -109,9 +109,32 @@ moment each redeemed the same single-use refresh token, and the loser's rejectio
 mid-use. It shows up in the server's log as a refresh answering 200 and another answering 401 a second
 later. The client is now registered as a singleton over a named `HttpClient`.
 
-`/api/auth/register`, `/api/auth/login`, `/api/auth/refresh`, and `/api/auth/logout` are all rate
-limited to 5 requests per minute per client IP address (no queueing — an excess request gets an
-immediate 429), as brute-force protection for login attempts in particular.
+`/api/auth/register` and `/api/auth/login` are rate limited to 5 requests per minute per caller (no
+queueing — an excess request gets an immediate 429), as brute-force protection for login attempts in
+particular. `/api/auth/refresh` and `/api/auth/logout` are deliberately outside that budget: both are
+gated by possession of a refresh token rather than by guessing, and spending the login budget on them
+would let a busy client lock itself out (see `AuthEndpoints`).
+
+**Per caller means per account whenever there is one**, and only per IP address when nobody is signed
+in. Behind an ingress proxy — which is how this runs in Azure Container Apps — every request carries the
+proxy's address, so an IP partition would be one shared bucket: five verification codes a minute for the
+whole installation, and a signed-in user locked out by strangers.
+
+**The budget is one budget however many replicas are running.** An in-memory window belongs to one
+process, so N replicas would each grant the whole 5 and the real limit would be 5N — set by a scaling
+decision rather than by `RateLimiterPolicies`. `SharedFixedWindowRateLimiter` therefore checks two gates
+in order: this instance's own fixed window, exactly the limiter that was always here, and then a window
+counted in `OS_RATE_LIMITS` that every instance spends from. The shared count is taken with a single
+`INSERT ... ON CONFLICT DO UPDATE ... RETURNING`, so two replicas asking at the same moment cannot both
+read four spent and both write five.
+
+Because the local gate comes first and is unchanged, this can only ever refuse more than the old
+behaviour, never less — **including when the database cannot be reached**, which is allowed rather than
+refused. That is the safe direction here and not the reckless one: the caller has already passed the
+per-instance limiter, so failing open falls back to exactly the protection these endpoints had before,
+while failing closed would answer 429 to every sign-in over a database hiccup — and every one of these
+endpoints needs that same database to do its work anyway. `RateLimitWindowRetentionBackgroundService`
+sweeps closed windows hourly, since a row is written per caller per window.
 
 The JWT signing key is a secret and is never checked into source control:
 
@@ -704,8 +727,16 @@ to change it, and a page of editable fields is the wrong answer to "what have we
 ### What the calendar's list leaves out
 
 The list beside the grid answers "what is coming", so it leaves out what is over: a deadline already
-ticked off, and an event that has already ended. An overdue deadline that is still not done **stays** -
-it is the one thing on the page that most needs saying, and hiding it would hide the work.
+ticked off, an event that has already ended, and an appointment a task list made whose entry has been
+ticked off - **whenever that one falls**. An overdue deadline that is still not done **stays** - it is
+the one thing on the page that most needs saying, and hiding it would hide the work.
+
+The appointment is the case that had nothing asking the question. An event of its own has nothing to
+tick; only the entry behind it does (`TaskItem.IsCompleted`, reached through `LinkedCalendarEventId`),
+and the list was asking events only whether they were *over*. So one ticked off ahead of time - which is
+most of the times anybody ticks one off - stayed on the list until its date passed. Asked for through the
+menu it comes back struck through and greyed (`item-card-done`), the same mark a finished deadline
+carries, so the two read alike where they are shown side by side.
 
 The grid never hides anything. A day with something in it should say so whether or not it has been, and
 a month drawn with holes in it would be a month that had not happened.
@@ -913,6 +944,28 @@ dashboard's own layout). A list made or shared since the last drag sits after th
 placed, rather than pushing the arrangement about.
 
 Pinned lists lead every order except that one, which already says where every card goes.
+
+**A folded card is still a card.** Minimising one says "not this week", and it used to also make the card
+unreachable: the one line it shows - what is still to be done - was drawn as a plain block, so the one
+thing a reader could point at answered nothing, and neither did the body around it. The line now opens
+the entry it names, on the list that entry actually sits on (a group card's line is usually a member
+list's errand), and the block around it opens the list, exactly as an unfolded card's body does. An
+appointment there carries its event's colour, the same dot the unfolded card and the dashboard's Upcoming
+card draw - a folded card was the one place an appointment could not be told from a plain errand.
+
+**A list somebody shared with you can be pinned too, and the answer is yours.** A list you own carries
+its pin on the server, because arranging it is yours to do — and only the owner may set it
+(`SetTaskListPinnedCommandHandler` refuses anybody else, since pinning moves a card on one person's
+page). That left a recipient with no pin at all, so a list sent to you could not be brought to the top of
+your own. The reader's own answer is now kept on this device instead (`SharedItemPins`, localStorage,
+the same category as the pinned-conversations list and the dashboard's layout), and the owner's flag no
+longer reaches the recipient's page: what is at the top of it is theirs to say. **Notes work the same
+way**, on the same store. Being on the device is the cost: the pin does not follow the reader to another
+browser or to the phone, which is what a per-reader column on the share would have bought.
+
+On the phone the pin on a shared list was offered and did nothing — it called the server, was turned down
+and said neither. It is left out there now, the way a shared note's already was
+(`TaskListRow.CanBePinned`, matching `NoteListItem.CanBePinned`).
 
 ### Finding one entry among every list
 
@@ -1183,18 +1236,49 @@ fields arrive with the choice: picking Inventory on an open form shows them ther
 something else takes them away again - waiting for a save and a reopen made the feature unreachable
 without knowing it was there.
 
+**Every entry can say what it is about, not only what it is called.** An entry's own line is its name -
+"Buy milk", "Dentist" - and there was nowhere to write the rest of it unless the entry was an
+appointment, which had a description on its event. Every kind carries one now (`TaskItem.Notes`, stored
+on `OP_TASKS_ITEMS`; called Notes only because `Description` was already taken by the line itself). It is
+a full-width box in the entry's own panel, labelled "Description", and it shows on the entry's reading
+page above the map.
+
+For a **calendar** entry it *is* the event's description: the appointment's own form leaves its copy out
+(`EventFields.ShowsDescription`) and the entry's answer is written onto the event when the list is saved,
+the same way the entry's words are already the event's title. Two boxes for one answer is two copies
+drifting apart. An appointment written before this carries the answer on the event, and the one box opens
+showing it, so a save cannot write a blank over it.
+
+A request that says nothing about it leaves what is stored alone (`UpdateTaskListCommand.EntriesKeepingTheirNotes`)
+— the third field to follow that rule, after the categories and the product, and for the third time the
+same reason: the phone has no box for it yet and must not erase what was typed on the web.
+
 **An entry describes a product whether or not a shelf exists yet.** On the web, an Inventory entry opens
 the same fields the inventory editor uses (`InventoryFields`) on any list: on one measured against a
 storage they describe a product to put on that shelf, saved there with the list; on one with no storage
 they are kept on the entry itself (`TaskItemProduct`, stored on `OP_TASKS_ITEMS` with its categories in
 `OP_TASKS_PRODUCT_CATEGORIES`, and carried by `TaskItemDto.Product`) until "Generate inventory" turns
-them into rows. It is filed under as many words as apply, like the shelf item it becomes - and under its
-own words rather than the entry's: an errand filed under "shopping" can be asking for something filed
-under "baking". The description used to be
+them into rows. It is filed under as many words as apply, like the shelf item it becomes - and under the
+**entry's own** words: the product form had a categories box directly under the entry's, with the same
+label and the same placeholder and nothing saying which was which, so the entry's answer is now the
+product's too (`InventoryFields.ShowsCategories`, `TaskEditor.ProductAsked`). The box offers both
+vocabularies for that reason - what entries are filed under and what shelf items are - and an entry saved
+before there was one box opens showing what its product was filed under, so a save cannot write emptiness
+over it (`TaskEditor.CategoriesOf`). The description used to be
 possible only after a storage existed, which meant answering "how many, in what, how long does it keep"
 twice - once on the list and once on the shelf. A request that says nothing about the product leaves what
 is stored alone (`UpdateTaskListCommand.EntriesKeepingTheirProduct`), the same rule the categories follow,
 so the phone and older tabs can go on saving lists without emptying it.
+
+**An entry the shelf already answers crosses itself off.** Once an Inventory entry stands for a row on a
+shelf, that row is what knows whether the entry has been met, so an entry whose row holds at least what it
+asked to keep is completed without anybody ticking it (`StockedEntryCompletion`). It happens where the
+storage is generated - the rows are known there already, so nothing is read back - and on every later save
+of the list, which costs nothing for a list with no outstanding inventory entry. Only ever crossed off,
+never back: a tick somebody put there is theirs, and a crossed-off restock errand is what tells the shelf
+it was filled (`RestockCompletion`). Two rows answer nothing whatever their count says - one with no
+minimum, which was left to the counting rule, and one marked to be looked at every round, where crossing
+off answers "have you looked" (`InventoryItem.BelongsOnTheRestockList`).
 
 **A position somebody shared opens in the phone's own map app.** Each "Shared with you" row carries an
 Open in Maps button, and tapping a pin's own callout does the same (`MapViewModel.WhereToOpen` answers
@@ -1209,6 +1293,12 @@ Maps, which hands the position to whatever map app the device has - `geo:` every
 which does not answer `geo:` (`wwwroot/js/mapApp.js`). A scheme rather than a Google Maps URL for the
 reason the phone chose one: this is the screen that must not add a third-party request, and the map app
 is already on the device.
+
+The hand-over is a **link that gets clicked**, never the page being moved. Setting `location.href` to
+`maps://...` opens the app but leaves a navigation that can never finish, and the browser reports that as
+a failed page - "the address is invalid" - the next time somebody looks at it, which is on coming back
+from the map app. A browser tells the two apart by how the navigation started: an activated link is handed
+to the device and the page is left alone. The link is made, clicked and thrown away.
 
 On a phone, pressing the **row itself** opens the map app too, rather than centring Orbit's own map -
 but only when that map cannot answer (`MapAppHandoff`): the tiles are withheld because the reader keeps
@@ -1633,7 +1723,7 @@ the position always, the words only into a box nobody has written in.
 
 The line along the foot of every page used to be the version numbers and the licence. It answered
 "which build is this" for the few people who ask that, and nothing at all for everybody else - so it now
-reads `© 2026 Orbit · About · Privacy · Security · Docs · All Rights Reserved · Manage cookies`, modelled on
+reads `© 2026 Orbit · About · Privacy · Security · Docs · Status · All Rights Reserved · Manage cookies`, modelled on
 GitHub's own. Two of those open a dialog rather than a page and are drawn exactly like the links beside
 them: which of the two a reader is pressing is not a distinction they should have to make.
 
@@ -1646,6 +1736,25 @@ them: which of the two a reader is pressing is not a distinction they should hav
   sharing and authentication sections, Security from those plus the crypto in `e2eeChat.js`, Docs from
   the feature sections - rewritten for a reader using Orbit rather than building it. **When a rule here
   changes, those three pages are the other place it is written down.**
+- **Status** (`/health`) - whether the server is answering, which is the question a footer is read for
+  when something is wrong and the one the app cannot answer once it is the thing that has stopped
+  working. It opens in a new tab, and that is load-bearing twice over: a report is glanced at beside
+  what you were doing rather than instead of it, and `target="_blank"` is also what makes the browser
+  fetch the address rather than the Blazor router claiming `/health` as a route it has never heard of.
+
+  The address is the API's own report, proxied onto this origin by nginx - `/api/` would not reach it,
+  since that location forwards to the API *under* `/api/`, which is not where health lives. The
+  location is an exact match, so this publishes the report and nothing else: `/health/live` and
+  `/health/ready` are the container's own probes and say less, and `/health/services/{name}` fires an
+  outbound probe on demand, which is not something an anonymous caller should be able to ask for. Those
+  stay reachable only from inside the environment.
+
+  **What it says is public by decision.** Each check's status and how long it took, which optional
+  integrations are unconfigured and the *names* of the keys they are missing (never the values), free
+  disk against its threshold, and the background services' heartbeats. One field would say more:
+  `external-services` reports each configured service's URL, and that list is empty - configuring one
+  starts publishing its address. See `HealthEndpoints.WriteHealthReportAsync`, which says so where
+  somebody adding a check will read it.
 - **Manage cookies** (`ManageCookiesDialog`) - see below. Orbit sets no cookies at all; the link is
   named for what people go looking for, and the dialog's first line says so.
 - **Do not share my personal information** (`DoNotShareDialog`) - the other half of that one. Manage
@@ -1704,9 +1813,19 @@ the world and then blanked would be worse than either answer.
 Server-side it is `TraceOptOut`, a middleware after `UseAuthorization` that clears the `Recorded` flag on
 the request's own activity. The exporter is the wrong place to decide this - an activity starts before
 authentication has run, so the only moment both facts exist is there. The choice is cached for a minute
-per account, because otherwise this would be a database read on every request in Orbit; the endpoint
-that changes it clears that entry, so turning the switch **off** takes effect at once rather than
-waiting out a minute of nothing being recorded.
+per account (`PrivacyChoiceCache`), because otherwise this would be a database read on every request in
+Orbit; the endpoint that changes it clears that entry, so the new answer takes effect on the very next
+request rather than waiting the minute out.
+
+**Clearing it has to reach every instance, not just the one that served the change.** The entry lives in
+one process's memory, so on a second replica an account that has just asked to be left out would go on
+being traced by every other instance for up to a minute. That is the privacy guarantee itself rather
+than a stale read, so `PrivacyChoiceCache.ForgetEverywhereAsync` announces the change on the
+`orbit_privacy_choice_changed` channel of the notice bus (see
+[Telling the other instances](#telling-the-other-instances)) and `PrivacyChoiceNoticeHandler` drops it
+on each of the others. The notice is best-effort like everything on that bus; if it cannot be sent, the
+entry still expires within the minute, which is the behaviour it replaces rather than a new failure -
+so a request that has already saved the choice is never failed over it.
 
 What it deliberately does **not** touch: signing in with Google and handing an event to a Google
 calendar are things somebody asks for one at a time, and a standing switch that silently disabled them
@@ -2139,6 +2258,24 @@ carries - what the reader is being told about is a row on this page either way. 
 not pulse: the card around it already does, and two animations out of step is what a page looks like
 when it is trying too hard.
 
+**Which cards can say which row, and which can only say "here".** It depends on what the notification's
+address names, not on the card:
+
+| Card | Marked | Because the address is |
+| --- | --- | --- |
+| Tasks | the row | `/tasks/{list}` - a daily reminder and an overdue entry both name the list |
+| Groups | the row | `/chat/groups/{group}` - an invitation names the group |
+| Upcoming | the row | `/calendar/{event}` for an appointment, `/tasks/{list}` for a deadline |
+| Recent chats | the row | the unread count the chat list already carries |
+| Inventory | the card only | `/inventory` - something about to go off names no storage |
+| Shared with you | the card only | `/map` - a shared position names nobody |
+| Notes | nothing | no notification points at a note at all today |
+
+An appointment a task list made has **two** addresses: the row opens it as the entry on that list, while
+the reminder for it is the event's. Both are asked (`UpcomingEntry.NewsUrl`), because reading only the
+destination would leave exactly those rows unmarked. Where a card can only say "here", marking a row
+would mean picking one at random, which is worse than saying less.
+
 ### Deciding what the page shows
 
 Not everybody's dashboard is everybody's. The menu in the page's top right lists every part of it - the
@@ -2344,15 +2481,57 @@ way.
 A token in a URL is a token in access logs, so nginx stops logging the query string for that one path
 (`map $uri $orbit_logged_request`). Everything else still logs what it asked for.
 
-### Before this scales past one replica
+### Reaching every replica
 
-`orbit-api` runs at `max-replicas 1`, and the hub's delivery depends on it. SignalR keeps its connection
-registry in the process's own memory, so with two replicas an announcement raised on one reaches only the
-clients connected to that one — the rest hear nothing and fall back to their slow poll. Nothing errors.
+SignalR keeps its connection registry in the process's own memory, so an announcement raised on one
+replica reaches only the clients connected to that one. With `max-replicas 1` that was every client
+there was; it stops being true the moment a second replica runs, and it fails silently — the clients on
+the other replica hear nothing, fall back to their slow poll, and nothing errors anywhere.
 
-Raising `max-replicas` therefore needs a backplane (Azure SignalR Service, or Redis) added at the same
-time. There is also a cost consequence worth knowing: `orbit-web` is set to scale to zero when idle, and
-a client holding a connection open is not idle, so it will stop scaling to zero once this is in use.
+**`PostgresLiveUpdateFanOut`** closes that. Every announcement is delivered to this instance's own
+connections exactly as before, and then sent to the others over the notice bus described under
+[Telling the other instances](#telling-the-other-instances), on the `orbit_live_updates` channel;
+**`LiveUpdateNoticeHandler`** is the half that receives and hands it to its own connections.
+
+Three things about that arrangement are deliberate:
+
+- **Postgres rather than Redis or Azure SignalR Service.** The database is already here, already
+  reachable from every instance, and already paid for. An announcement is explicitly allowed to go
+  missing (see [Live updates](#live-updates)), which is the bar `LISTEN`/`NOTIFY` meets and the reason a
+  durable bus would be paying for a guarantee this feature does not want.
+- **Local first, then the wire.** The local delivery does not go through Postgres, so the common case —
+  the recipient is connected to the instance that did the work — keeps the latency and the reliability
+  it had before. A database that refuses the notification costs the *other* replicas a nudge; it cannot
+  make this instance worse than the single-replica deployment it replaces.
+- **It is not a general SignalR backplane.** There are no groups, no client-to-server invocations and no
+  return values to route — Orbit announces four things by account and nothing else — so what would be a
+  `HubLifetimeManager` elsewhere is a fan-out of names here.
+
+`NOTIFY` refuses a payload over 8000 bytes, so an audience larger than 100 accounts is sent as several
+announcements (`LiveUpdateAnnouncement.MaxUserIdsPerAnnouncement`). A large group conversation is the
+case that reaches it.
+
+A cost consequence worth knowing either way: `orbit-web` is set to scale to zero when idle, and a client
+holding a connection open is not idle, so it will stop scaling to zero once this is in use.
+
+### Telling the other instances
+
+Live updates are not the only thing that stops being true with a second replica, so what carries them is
+a small general channel rather than something the hub owns: **`PostgresInstanceNoticeSender`** sends,
+**`PostgresInstanceNoticeListener`** holds one PostgreSQL connection open `LISTEN`ing on every channel a
+handler asked for, and an **`IInstanceNoticeHandler`** claims one channel. One connection for all of
+them, because `LISTEN` is registered per connection and each channel would otherwise pin one of its own.
+
+Every notice is wrapped in an envelope carrying the sending instance's id
+(`InstanceIdentity`, a fresh Guid per process), and the listener drops its own. `NOTIFY` comes back to
+the sender, and a sender has by definition already done locally whatever it is telling the others to do,
+so without that check every instance would act twice on its own notices.
+
+**Nothing on this bus is durable, and that is the contract rather than a shortcut.** A notice sent while
+a listener was reconnecting is genuinely lost. So a notice may only ever be an optimisation over
+something that is already correct on its own — "you can stop waiting", or "what you cached is stale" —
+never a fact that exists nowhere else. Both of today's users are exactly that: live updates, and the
+privacy choice below.
 
 ## In-app notifications
 

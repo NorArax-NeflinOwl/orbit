@@ -1,5 +1,8 @@
 # Architecture
 
+> Diagrams of everything below — components, domain model, database, flows and deployment — are in
+> [`info/uml/`](uml/). This document is the prose; those are the pictures, drawn from the same code.
+
 The solution is split into three layers: a backend (`src/Server`), the client(s) (`src/Clients`), and
 code shared between them (`src/Shared`).
 
@@ -17,7 +20,10 @@ An ASP.NET Core minimal API exposing:
 - `/api/live` — a SignalR hub the web client holds open so it can be told what changed instead of
   polling for it. Announcements only, never content; see
   [Functionality — Live updates](functionality.md#live-updates). Authenticated from the query string,
-  because a browser cannot put a header on a WebSocket handshake, and only on this path.
+  because a browser cannot put a header on a WebSocket handshake, and only on this path. An
+  announcement reaches the clients connected to every API instance rather than only the one that raised
+  it, over PostgreSQL `LISTEN`/`NOTIFY` — see
+  [Functionality — Reaching every replica](functionality.md#reaching-every-replica).
 - `/health*` endpoints — liveness, readiness, and a full report covering the database, disk space,
   external services, and background services.
 
@@ -49,7 +55,7 @@ A table reads as `prefix_midfix[_postfix]`:
 | --- | --- | --- |
 | `OP_` | what the user works on | `OP_NOTES`, `OP_TASKS_ITEMS`, `OP_INVENTORIES_SHARED` |
 | `OL_` | rows that only join two of those tables | `OL_PUBLIC_SHARES`, `OL_CHATS_MEMBERS` |
-| `OS_` | accounts, permissions, settings, bookkeeping | `OS_USERS`, `OS_SYNC_TOMBSTONES` |
+| `OS_` | accounts, permissions, settings, bookkeeping | `OS_USERS`, `OS_SYNC_TOMBSTONES`, `OS_RATE_LIMITS` |
 
 A column repeats its table's prefix, shortens the midfix to initials, and ends with the property name
 in upper case: `OP_NOTES.OP_N_ID`, `OP_NOTES_SHARED.OP_NS_ACCESSLEVEL`. Initials are taken letter by
@@ -183,9 +189,11 @@ App Service the project started with):
 
 1. Logs into Azure via OIDC (`azure/login`) — no client secret is generated, stored, or rotated.
 2. Builds the `orbit-api` and `orbit-web` images directly on the GitHub Actions runner and pushes them
-   to Azure Container Registry, tagged both with the commit SHA and `latest` (ACR Tasks/`az acr build`
-   is blocked on the Azure Free Trial subscription this project runs on, regardless of role
-   assignments).
+   to Azure Container Registry, tagged both with the commit SHA and `latest`. ACR Tasks/`az acr build`
+   were blocked on the free-trial subscription this project started on, regardless of role assignments;
+   the subscription has been pay-as-you-go for a while and they are no longer blocked. The runner build
+   stays because it is the established, verified path, not because anything forbids the alternative -
+   moving it into ACR is a topology change and would be its own task.
 3. Updates the `orbit-api` and `orbit-web` Azure Container Apps to run the image tagged with the
    current commit SHA, so the deployed version is always traceable back to the workflow run that
    produced it.
@@ -213,13 +221,32 @@ of: `ci/verify-browser-crypto.mjs` for `wwwroot/js/e2eeChat.js` (Web Crypto and 
 (a registered service worker receiving real push events, and the Notification and Push APIs). Every
 later job depends on this one, so a failure here stops the deploy before an image is built.
 
-**The pull request trigger was removed once and put back.** It went because every minute is billed on a
-private repository and a day of ordinary work exhausted the allowance, stopping Actions outright; it
-came back because a branch unchecked until it lands stopped being theoretical - `main` sat red for a day
-with nobody told. What made it affordable is that a run now costs a fraction of what it did: the
-`android` job looks before it builds and does nothing when nothing it builds from changed, a pull
-request run is cancelled by the next push to the same branch, and documentation-only branches are
-skipped outright.
+**The pull request trigger was tried twice and removed twice**, both times because every minute is
+billed on a private repository and a day of ordinary work exhausted the allowance, stopping Actions
+outright. The check a branch gets instead is `dotnet test Orbit.sln` on the machine that wrote it.
+
+**The diagrams are parsed by `.github/workflows/verify-diagrams.yml`**, filtered to `info/uml/**`. A
+Mermaid block that will not parse renders on GitHub as an error box rather than as nothing, and nothing
+else in the repository reads these files. It is separate from the suite because `main_orbit.yml` ignores
+`info/**` and `**/*.md` and so would never see a diagram-only merge, and because a broken diagram must
+not stop a deploy. It parses under jsdom rather than a browser, so a run costs no download.
+
+**The Android head is compiled by `.github/workflows/android-head.yml`**, a second workflow on the same
+trigger. `Orbit.sln` cannot carry a MAUI head, so the suite above never touches it, and until this
+existed nothing checked that the phone still compiled - the two heads could drift apart and only a
+developer building one by hand would find out. It builds `Release`, which is the configuration that
+runs the linker, and it builds without `google-services.json` or `AndroidManifestOverlay.xml`, since
+both are gitignored - so it also proves the app packages without them.
+
+It is a separate workflow for one reason: a `paths:` filter. The Android build only matters when
+something the phone is built from changed, and GitHub evaluates `paths:` before it schedules anything,
+so on every other merge no runner starts. As a job inside `main_orbit.yml` it could only check that
+after starting, and a job that starts is billed a whole minute whether it builds or not - about 29 of
+the 346 minutes measured across 100 runs. The usual objection to a second workflow (it cannot gate the
+first, and the two drift) does not apply: this job was always kept out of `deploy`'s `needs` - what
+goes to Azure is the API and the web client, and a broken phone build is no reason to hold those back -
+so it gated nothing before the split either, and it duplicates no step of the suite. Its `paths:` list
+is the same one `android-release.yml` releases on, and the two must be kept in step.
 
 The `deploy` job stays out of it either way — guarded on the event as well as gated on the suite, so a
 branch stops at the tests rather than deploying itself. Running the suite locally before opening a pull
