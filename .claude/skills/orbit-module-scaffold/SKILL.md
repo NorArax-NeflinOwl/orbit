@@ -39,7 +39,9 @@ Read one of them end to end before writing anything.
 
 ### `src/Server/Orbit.Data/` — persistence (PostgreSQL via EF Core)
 
-- `Entities/<Thing>Entity.cs`, mapped in `OrbitDbContext`.
+- `Entities/<Thing>Entity.cs` under `Entities/Data|Links|Setups` to match its prefix, mapped in
+  `OrbitDbContext` and named in `OrbitStorageNames` - an entity missing from that map throws at
+  startup rather than taking EF's default name.
 - `Repositories/<Thing>Repository.cs` implementing the `Orbit.Core` interface (plus a
   `...EntityMapper.cs` beside it when the mapping is not trivial).
 - Register in `OrbitDataServiceCollectionExtensions.AddOrbitData`.
@@ -94,6 +96,10 @@ Read one of them end to end before writing anything.
 - Tests at every touched layer: handler tests with stub repositories and endpoint tests via
   `TestServer` in `tests/Orbit.Api.Tests/<Module>/`, bUnit in `tests/Orbit.Web.Tests`, view-model
   tests with the in-memory SQLite `LocalStore` in `tests/Orbit.Mobile.Tests`.
+- Diagrams updated in the same change (rule 17): a new table or entity into
+  `info/uml/database.md`, a new project reference into `components.md`, a new aggregate into
+  `domain-model.md`, a hosted service or an order that matters into `flows.md`. `node
+  ci/verify-diagrams.mjs` says whether they still draw.
 - Names follow `orbit-conventions`. Run the whole solution's tests before the PR.
 
 ## Module-specific notes

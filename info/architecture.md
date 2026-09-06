@@ -1,5 +1,8 @@
 # Architecture
 
+> Diagrams of everything below — components, domain model, database, flows and deployment — are in
+> [`info/uml/`](uml/). This document is the prose; those are the pictures, drawn from the same code.
+
 The solution is split into three layers: a backend (`src/Server`), the client(s) (`src/Clients`), and
 code shared between them (`src/Shared`).
 
