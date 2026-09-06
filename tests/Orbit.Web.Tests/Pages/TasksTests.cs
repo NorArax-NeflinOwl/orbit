@@ -695,21 +695,77 @@ public sealed class TasksTests : OrbitTestContext
         Assert.Empty(cut.FindAll(".item-card-menu .pin-button"));
     }
 
+    /// <summary>
+    /// A list somebody shared gets a pin too. Not the owner's - that one is on the list itself and moves
+    /// it on their page, and the server refuses anybody else setting it - but the reader's own, kept on
+    /// this device. It used to be left out altogether, so a list sent to you could not be brought to the
+    /// top of your own page. See SharedItemPins.
+    /// </summary>
     [Fact]
-    public void A_list_you_only_hold_a_share_of_offers_no_pin()
+    public void A_list_shared_with_you_can_be_pinned_by_the_reader()
     {
-        // Pinning moves the card on its owner's page, so a recipient pinning it would be rearranging
-        // someone else's.
-        var shared = TaskList("Theirs", "Normal", "New", DateTimeOffset.UtcNow) with
-        {
-            IsShared = true, SharedByUserName = "anna", AccessLevel = "ReadOnly"
-        };
-        RegisterTasksApiClient([shared]);
+        RegisterTasksApiClient([ASharedList("Theirs")]);
 
         var cut = RenderComponent<Web.Pages.Tasks>();
 
-        Assert.DoesNotContain("Pin", cut.Find(".item-card-menu").TextContent);
+        Assert.Single(cut.FindAll(".item-card-head .item-card-pin .pin-button"));
     }
+
+    /// <summary>
+    /// And pinning it says nothing to the server: the answer is the reader's, so nothing is sent and the
+    /// card simply leads the page.
+    /// </summary>
+    [Fact]
+    public void Pinning_a_shared_list_leads_the_page_without_telling_the_server()
+    {
+        // The shared one older, so that without a pin it sits second: the default order is by priority
+        // and then by when something last changed, and both of these are Normal.
+        RegisterTasksApiClient(
+        [
+            TaskList("Mine", "Normal", "New", DateTimeOffset.UtcNow),
+            ASharedList("Theirs", DateTimeOffset.UtcNow.AddDays(-1))
+        ]);
+        var cut = RenderComponent<Web.Pages.Tasks>();
+        var writesBefore = _requests.Count(request => request.Method != HttpMethod.Get);
+        Assert.Equal(["Mine", "Theirs"], CardTitles(cut));
+
+        PinTheCardFor(cut, "Theirs");
+
+        Assert.Equal(["Theirs", "Mine"], CardTitles(cut));
+        Assert.Equal(writesBefore, _requests.Count(request => request.Method != HttpMethod.Get));
+    }
+
+    /// <summary>
+    /// The owner's answer is about the owner's page. A list its owner pinned arrives here unpinned, and
+    /// stays where the reader's own sort order puts it.
+    /// </summary>
+    [Fact]
+    public void The_owners_pin_does_not_reach_a_reader_it_was_shared_with()
+    {
+        RegisterTasksApiClient(
+        [
+            ASharedList("Theirs") with { IsPinned = true },
+            TaskList("Mine", "Normal", "New", DateTimeOffset.UtcNow)
+        ]);
+
+        var cut = RenderComponent<Web.Pages.Tasks>();
+
+        Assert.Empty(cut.FindAll(".card-badge-pinned"));
+    }
+
+    /// <summary>A list somebody else owns and shared with this reader.</summary>
+    private static TaskDto ASharedList(string title, DateTimeOffset? createdAtUtc = null)
+        => TaskList(title, "Normal", "New", createdAtUtc ?? DateTimeOffset.UtcNow) with
+        {
+            IsShared = true, SharedByUserName = "anna", AccessLevel = "ReadOnly"
+        };
+
+    /// <summary>Presses the pin on the card with this title, whichever kind of pin that card carries.</summary>
+    private static void PinTheCardFor(IRenderedFragment cut, string title)
+        => cut.FindAll(".item-card")
+            .First(card => card.QuerySelector(".item-card-name")!.TextContent.Trim().StartsWith(title, StringComparison.Ordinal))
+            .QuerySelector(".pin-button")!
+            .Click();
 
     /// <summary>The card titles in the order they render, each still carrying its badges' text after the title itself.</summary>
     private static string[] CardTitles(IRenderedFragment cut)
@@ -790,11 +846,19 @@ public sealed class TasksTests : OrbitTestContext
     /// Tasks.EventColourOf. Empty unless a test is about that, and on its own stub because the task
     /// handler answers every request with task lists.
     /// </param>
+    /// <summary>Every request the page made through the tasks client, in order.</summary>
+    private readonly List<HttpRequestMessage> _requests = [];
+
     private void RegisterTasksApiClient(
         IReadOnlyList<TaskDto> taskLists, IReadOnlyList<CalendarEventDto>? events = null)
     {
-        var handler = new StubHttpMessageHandler(_ =>
-            new HttpResponseMessage(HttpStatusCode.OK) { Content = JsonContent.Create(taskLists) });
+        var handler = new StubHttpMessageHandler(request =>
+        {
+            // Kept so a test can say what the page did *not* send - see the shared pin, which is the
+            // reader's own answer and never leaves the device.
+            _requests.Add(request);
+            return new HttpResponseMessage(HttpStatusCode.OK) { Content = JsonContent.Create(taskLists) };
+        });
         Services.AddSingleton(new TasksApiClient(new HttpClient(handler) { BaseAddress = new Uri("https://example.test/") }));
 
         var calendarHandler = new StubHttpMessageHandler(_ =>

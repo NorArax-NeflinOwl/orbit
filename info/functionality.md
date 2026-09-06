@@ -914,6 +914,16 @@ placed, rather than pushing the arrangement about.
 
 Pinned lists lead every order except that one, which already says where every card goes.
 
+**A list somebody shared with you can be pinned too, and the answer is yours.** A list you own carries
+its pin on the server, because arranging it is yours to do — and only the owner may set it
+(`SetTaskListPinnedCommandHandler` refuses anybody else, since pinning moves a card on one person's
+page). That left a recipient with no pin at all, so a list sent to you could not be brought to the top of
+your own. The reader's own answer is now kept on this device instead (`SharedItemPins`, localStorage,
+the same category as the pinned-conversations list and the dashboard's layout), and the owner's flag no
+longer reaches the recipient's page: what is at the top of it is theirs to say. **Notes work the same
+way**, on the same store. Being on the device is the cost: the pin does not follow the reader to another
+browser or to the phone, which is what a per-reader column on the share would have bought.
+
 ### Finding one entry among every list
 
 Above the chips sit the two questions about what is *on* the lists rather than about the lists
