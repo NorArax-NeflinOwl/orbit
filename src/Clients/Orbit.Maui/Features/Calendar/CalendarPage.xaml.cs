@@ -2,6 +2,8 @@ using System.Collections.Specialized;
 using System.Windows.Input;
 using Orbit.Mobile.Localization;
 using Microsoft.Maui.Layouts;
+using Orbit.Maui.Controls;
+using Orbit.Mobile.Screens;
 using Orbit.Mobile.Screens.Calendar;
 
 namespace Orbit.Maui.Features.Calendar;
@@ -22,10 +24,11 @@ public partial class CalendarPage : ContentPage
 		_translations = translations;
 		// Assigned before InitializeComponent, which is where the binding to it is built - see
 		// TaskListDetailPage for the same order and why it matters.
-		ChooseSortOrderCommand = new Command(() => _ = ChooseSortOrderAsync());
+		ChooseSortOrderCommand = new Command(ShowSortMenu);
 
 		InitializeComponent();
 		BindingContext = _viewModel = viewModel;
+		ToggleAddCommand = NewItemForm.Toggling(AddRow, AddField);
 		_viewModel.DayBlocks.CollectionChanged += OnTheDayChanged;
 		_viewModel.AllDayBlocks.CollectionChanged += OnTheDayChanged;
 	}
@@ -39,40 +42,52 @@ public partial class CalendarPage : ContentPage
 	/// <summary>What order the list under the grid is read in - see CalendarListEntry.</summary>
 	public ICommand ChooseSortOrderCommand { get; }
 
-	private async Task ChooseSortOrderAsync()
+	/// <summary>What the plus in the header opens - see NewItemForm.</summary>
+	public ICommand ToggleAddCommand { get; }
+
+	/// <summary>The panel the header's three dots draw - one per screen, above everything else on it.</summary>
+	public ScreenMenu Menu { get; } = new();
+
+	/// <summary>
+	/// How to read the list under the grid, in Orbit's own panel rather than the platform's action
+	/// sheet - the same menu Orbit.Web hangs off its Calendar header. It stays open while a reader
+	/// tries one order and then another, and is asked again after each choice so the tick leaves
+	/// whichever entry was carrying it.
+	/// </summary>
+	private void ShowSortMenu()
 	{
 		// The one in force is marked, because a menu of three with no answer among them leaves the
 		// reader guessing what they are looking at.
-		var orders = new Dictionary<string, CalendarListSortOrder>
-		{
-			[Mark(_translations["By when"], CalendarListSortOrder.When)] = CalendarListSortOrder.When,
-			[Mark(_translations["By type"], CalendarListSortOrder.Type)] = CalendarListSortOrder.Type,
-			[Mark(_translations["Alphabetical"], CalendarListSortOrder.Alphabetical)] = CalendarListSortOrder.Alphabetical
-		};
+		List<ScreenMenuEntry> entries =
+		[
+			Order(_translations["By when"], CalendarListSortOrder.When),
+			Order(_translations["By type"], CalendarListSortOrder.Type),
+			Order(_translations["Alphabetical"], CalendarListSortOrder.Alphabetical),
 
-		// What is over is left out of the list unless it is asked for, as in the browser - so the same
-		// sheet that says how to read it also says how much of it to read.
-		var showEverything = _viewModel.ShowsEverything
-			? $"{_translations["Everything, including what is over"]} ✓"
-			: _translations["Everything, including what is over"];
+			// What is over is left out of the list unless it is asked for, as in the browser - so the
+			// same menu that says how to read it also says how much of it to read.
+			new(_translations["Everything, including what is over"],
+				() =>
+				{
+					_viewModel.ShowsEverything = !_viewModel.ShowsEverything;
+					ShowSortMenu();
+				},
+				_viewModel.ShowsEverything,
+				staysOpen: true)
+		];
 
-		var chosen = await DisplayActionSheet(
-			_translations["Sort"], _translations["Cancel"], destruction: null, [.. orders.Keys, showEverything]);
-
-		if (chosen == showEverything)
-		{
-			_viewModel.ShowsEverything = !_viewModel.ShowsEverything;
-			return;
-		}
-
-		if (chosen is not null && orders.TryGetValue(chosen, out var order))
-		{
-			_viewModel.SortOrder = order;
-		}
+		Menu.Show(entries, _translations["Sort"]);
 	}
 
-	private string Mark(string name, CalendarListSortOrder order)
-		=> _viewModel.SortOrder == order ? $"{name} ✓" : name;
+	private ScreenMenuEntry Order(string name, CalendarListSortOrder order) => new(
+		name,
+		() =>
+		{
+			_viewModel.SortOrder = order;
+			ShowSortMenu();
+		},
+		_viewModel.SortOrder == order,
+		staysOpen: true);
 
 	protected override void OnAppearing()
 	{

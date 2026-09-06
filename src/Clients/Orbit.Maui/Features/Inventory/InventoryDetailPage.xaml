@@ -15,7 +15,7 @@
     <Grid RowDefinitions="Auto,*,Auto">
 
 
-    <Grid Grid.Row="1" RowDefinitions="Auto,Auto,Auto,*,Auto,Auto" Padding="20" RowSpacing="10">
+    <Grid Grid.Row="1" RowDefinitions="Auto,Auto,Auto,*,Auto,Auto" Padding="16,16,16,28" RowSpacing="10">
 
         <controls:TitledDescription Grid.Row="0"
                                     Title="{Binding Name, Mode=TwoWay}" TitleLabel="{controls:Translate 'Name'}"
@@ -97,7 +97,7 @@
                 <!-- Bound rather than fixed: an empty shelf and a shelf narrowed down to nothing need
                      different words. See InventoryDetailViewModel.EmptyMessage. -->
                 <Label Text="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=ViewModel.EmptyMessage, x:DataType=inventory:InventoryDetailPage}"
-                       Padding="24" HorizontalTextAlignment="Center" LineBreakMode="WordWrap" />
+                       Padding="0,12" LineBreakMode="WordWrap" Style="{StaticResource EmptyHint}" />
             </CollectionView.EmptyView>
 
             <!-- RelativeSource walks the visual tree, so the ancestor has to be an element - the page,

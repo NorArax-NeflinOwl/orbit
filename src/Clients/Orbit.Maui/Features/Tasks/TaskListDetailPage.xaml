@@ -14,7 +14,7 @@
     <Grid RowDefinitions="Auto,*,Auto">
 
 
-    <Grid Grid.Row="1" RowDefinitions="Auto,Auto,Auto,*,Auto,Auto" Padding="20" RowSpacing="10">
+    <Grid Grid.Row="1" RowDefinitions="Auto,Auto,Auto,*,Auto,Auto" Padding="16,16,16,28" RowSpacing="10">
 
         <!-- The list's own name, and the things it can do that are not "tick something off" - the two
              Orbit.Web keeps in its overflow menu. -->
@@ -74,7 +74,7 @@
         <CollectionView x:Name="Checklist" Grid.Row="3" ItemsSource="{Binding Items}" IsVisible="{Binding IsShowingList}">
 
             <CollectionView.EmptyView>
-                <Label Text="{controls:Translate 'Nothing on this list yet.'}" Padding="24" HorizontalTextAlignment="Center" />
+                <Label Text="{controls:Translate 'Nothing on this list yet.'}" Padding="0,12" Style="{StaticResource EmptyHint}" />
             </CollectionView.EmptyView>
 
             <!-- RelativeSource walks the *visual* tree, so the ancestor named here has to be an element:

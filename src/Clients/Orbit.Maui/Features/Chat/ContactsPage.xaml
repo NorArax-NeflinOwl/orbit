@@ -23,7 +23,7 @@
                                 Explanation="{Binding LockedExplanation}"
                                 OpenAccountCommand="{Binding OpenAccountCommand}" />
 
-    <Grid Grid.Row="1" RowDefinitions="Auto,Auto,Auto,Auto,*,Auto,Auto" Padding="20" RowSpacing="12"
+    <Grid Grid.Row="1" RowDefinitions="Auto,Auto,Auto,Auto,*,Auto,Auto" Padding="16,16,16,28" RowSpacing="12"
           IsVisible="{Binding IsUnlocked}">
 
         <controls:PageHeader Grid.Row="0" Title="{controls:Translate 'Contacts'}">
@@ -77,7 +77,7 @@
                             SelectionChangedCommandParameter="{Binding SelectedItem, Source={RelativeSource Self}, x:DataType=CollectionView}">
 
                 <CollectionView.EmptyView>
-                    <Label Text="{Binding Message}" Padding="24" HorizontalTextAlignment="Center" LineBreakMode="WordWrap" />
+                    <Label Text="{Binding Message}" Padding="0,12" LineBreakMode="WordWrap" Style="{StaticResource EmptyHint}" />
                 </CollectionView.EmptyView>
 
                 <CollectionView.ItemTemplate>

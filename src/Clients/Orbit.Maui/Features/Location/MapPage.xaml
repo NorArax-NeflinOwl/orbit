@@ -22,7 +22,7 @@
                                 OpenAccountCommand="{Binding OpenAccountCommand}" />
 
     <ScrollView Grid.Row="1" IsVisible="{Binding IsUnlocked}">
-        <VerticalStackLayout Padding="20" Spacing="12">
+        <VerticalStackLayout Padding="16,16,16,28" Spacing="12">
 
             <controls:PageHeader Title="{controls:Translate 'Map'}">
                 <controls:PageHeader.Subtitle>

@@ -7,6 +7,7 @@
     xmlns:notes="clr-namespace:Orbit.Maui.Features.Notes"
     xmlns:screens="clr-namespace:Orbit.Mobile.Screens.Notes;assembly=Orbit.Mobile"
     x:DataType="screens:NotesViewModel"
+    x:Name="Page"
     Title="{controls:Translate 'Notes'}">
 
     <ContentPage.Resources>
@@ -15,28 +16,36 @@
     <Grid RowDefinitions="Auto,*,Auto">
 
 
-    <Grid Grid.Row="1" RowDefinitions="Auto,*,Auto" Padding="20" RowSpacing="10">
+    <Grid Grid.Row="1" RowDefinitions="Auto,*,Auto" Padding="16,16,16,28" RowSpacing="10">
 
         <VerticalStackLayout Grid.Row="0" Spacing="10">
+            <!-- The plus is where Orbit.Web puts it, left of the name, and it does what the web's
+                 does: it opens the form for a new one. The form is one field here rather than a screen
+                 of its own, so it unfolds under the header instead of navigating - but the screen at
+                 rest is what the web shows, its name and its cards, rather than a box asking to be
+                 filled in before anything has been read. -->
             <controls:PageHeader Title="{controls:Translate 'Notes'}">
-                <controls:PageHeader.Subtitle>
-                    <controls:Translate Text="Everything you have written down, and anything shared with you." />
-                </controls:PageHeader.Subtitle>
+                <controls:PageHeader.LeadingAction>
+                    <controls:IconButton Variant="Add" Data="M10,4 V16 M4,10 H16"
+                                         Description="{controls:Translate 'Add note'}"
+                                         Command="{Binding ToggleAddCommand, Source={x:Reference Page}, x:DataType=notes:NotesPage}" />
+                </controls:PageHeader.LeadingAction>
             </controls:PageHeader>
 
             <!-- The one thing this screen has to say for itself, which today is only about pinning.
                  It was set and never shown, so pinning with no connection did nothing and said
                  nothing - see NotesViewModel.HasMessage. -->
-            <Label Text="{Binding Message}" IsVisible="{Binding HasMessage}" FontSize="12"
-                   LineBreakMode="WordWrap" TextColor="{DynamicResource Accent}" />
+            <Label Text="{Binding Message}" IsVisible="{Binding HasMessage}"
+                   LineBreakMode="WordWrap" Style="{StaticResource InfoLabel}" />
 
-            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
-                <Entry Grid.Column="0"
+            <Grid x:Name="AddRow" IsVisible="False" ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                <Entry x:Name="AddField" Grid.Column="0"
                        Placeholder="{controls:Translate 'New note'}"
                        Text="{Binding NewNoteTitle}"
                        ReturnType="Done"
                        ReturnCommand="{Binding AddNoteCommand}" />
-                <Button Grid.Column="1" Text="{controls:Translate 'Add'}" Command="{Binding AddNoteCommand}" />
+                <Button Grid.Column="1" Text="{controls:Translate 'Add'}" Style="{StaticResource PrimaryButton}"
+                        Command="{Binding AddNoteCommand}" />
             </Grid>
         </VerticalStackLayout>
 
@@ -49,7 +58,7 @@
                             SelectionChangedCommandParameter="{Binding SelectedItem, Source={RelativeSource Self}, x:DataType=CollectionView}">
 
                 <CollectionView.EmptyView>
-                    <Label Text="{controls:Translate 'No notes yet.'}" Padding="24" HorizontalTextAlignment="Center" />
+                    <Label Text="{controls:Translate 'No notes.'}" Padding="0,12" Style="{StaticResource EmptyHint}" />
                 </CollectionView.EmptyView>
 
                 <CollectionView.ItemTemplate>
@@ -72,7 +81,7 @@
                                 <!-- Two cards with the same title are otherwise indistinguishable, and
                                      the reader has no way of telling which one they wrote in. -->
                                 <Label Text="{controls:Translate 'copy'}" IsVisible="{Binding IsCopy}"
-                                       FontSize="11" Style="{StaticResource SubtleLabel}" />
+                                       Style="{StaticResource RowMeta}" />
                             </controls:ItemCard.Tags>
 
                             <controls:ItemCard.Body>
@@ -86,11 +95,12 @@
 
                             <controls:ItemCard.Extras>
                                 <VerticalStackLayout Spacing="2">
-                                    <Label Text="{Binding Updated}" IsVisible="{Binding CanBeOpened}" FontSize="12"
-                                           Style="{StaticResource SubtleLabel}" />
+                                    <Label Text="{Binding Updated}" IsVisible="{Binding CanBeOpened}"
+                                           Style="{StaticResource ItemCardFooter}" />
                                     <!-- Why a note is waiting, or why it cannot be edited right now. -->
-                                    <Label Text="{Binding Status}" IsVisible="{Binding HasStatus}" FontSize="12"
-                                           LineBreakMode="WordWrap" TextColor="{DynamicResource Accent}" />
+                                    <Label Text="{Binding Status}" IsVisible="{Binding HasStatus}"
+                                           LineBreakMode="WordWrap" Style="{StaticResource ItemCardFooter}"
+                                           TextColor="{DynamicResource Accent}" />
                                 </VerticalStackLayout>
                             </controls:ItemCard.Extras>
                         </controls:ItemCard>

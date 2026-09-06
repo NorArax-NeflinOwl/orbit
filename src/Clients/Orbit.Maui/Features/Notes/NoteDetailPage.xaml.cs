@@ -1,5 +1,6 @@
 using System.Windows.Input;
 using Orbit.Mobile.Localization;
+using Orbit.Mobile.Screens;
 using Orbit.Mobile.Screens.Notes;
 
 namespace Orbit.Maui.Features.Notes;
@@ -14,17 +15,28 @@ public partial class NoteDetailPage : ContentPage
 		InitializeComponent();
 		BindingContext = _viewModel = viewModel;
 		_translations = translations;
-		ShowLineMenuCommand = new Command<NoteLineRow>(line => _ = ShowLineMenuAsync(line));
+		ShowLineMenuCommand = new Command<NoteLineRow>(ShowLineMenu);
+		ShowNoteMenuCommand = new Command(ShowNoteMenu);
 	}
 
 	/// <summary>Typed so the navigator can hand the page its note without casting the binding context.</summary>
 	public NoteDetailViewModel ViewModel => _viewModel;
 
 	/// <summary>
-	/// What a line's "⋯" opens. On the page rather than the view model because an action sheet is a
-	/// page's own presentation - the same reason ConversationPage keeps its message menu here.
+	/// Whatever menu is open on this screen - a line's, or the note's own from the rail. One per page,
+	/// because only one is ever open and the panel that draws it has to sit above everything else.
+	/// </summary>
+	public ScreenMenu Menu { get; } = new();
+
+	/// <summary>
+	/// What a line's "⋯" opens. On the page rather than the view model because which actions a menu
+	/// offers is what the screen shows, not what the note knows - the same reason ConversationPage
+	/// keeps its message menu here.
 	/// </summary>
 	public ICommand ShowLineMenuCommand { get; }
+
+	/// <summary>The same, for the note itself: what the rail's "⋯" opens.</summary>
+	public ICommand ShowNoteMenuCommand { get; }
 
 	protected override void OnAppearing()
 	{
@@ -39,28 +51,49 @@ public partial class NoteDetailPage : ContentPage
 		await _viewModel.CloseAsync();
 	}
 
-	private async Task ShowLineMenuAsync(NoteLineRow? line)
+	private void ShowLineMenu(NoteLineRow? line)
 	{
 		if (line is null)
 		{
 			return;
 		}
 
-		var makeOrUnmake = line.IsChecklistItem
-			? _translations["Make it an ordinary line"]
-			: _translations["Make it a checklist item"];
-		var remove = _translations["Delete line"];
+		Menu.Show(
+			[
+				new ScreenMenuEntry(
+					line.IsChecklistItem
+						? _translations["Make it an ordinary line"]
+						: _translations["Make it a checklist item"],
+					() => _viewModel.ToggleChecklistCommand.Execute(line)),
+				new ScreenMenuEntry(_translations["Delete line"], () => _viewModel.RemoveLineCommand.Execute(line))
+			],
+			_translations["Line options"],
+			opensUpwards: true);
+	}
 
-		var chosen = await DisplayActionSheet(
-			_translations["Line options"], _translations["Cancel"], remove, makeOrUnmake);
+	/// <summary>
+	/// The note's own actions, which used to be a row of words under the last line - out of reach on a
+	/// long note, which is the whole reason the rail exists.
+	/// </summary>
+	private void ShowNoteMenu()
+	{
+		List<ScreenMenuEntry> entries =
+		[
+			new(_translations["Back to notes"], () => _viewModel.GoBackCommand.Execute(null))
+		];
 
-		if (chosen == makeOrUnmake)
+		if (_viewModel.CanEdit)
 		{
-			_viewModel.ToggleChecklistCommand.Execute(line);
+			entries.Add(new ScreenMenuEntry(_translations["Delete note"], () => _viewModel.DeleteCommand.Execute(null)));
 		}
-		else if (chosen == remove)
+
+		// Only once there is one, and here rather than in the account's menu: a history belongs to the
+		// thing it is the history of.
+		if (_viewModel.HasHistory)
 		{
-			_viewModel.RemoveLineCommand.Execute(line);
+			entries.Add(new ScreenMenuEntry(_translations["History"], () => _viewModel.GoToHistoryCommand.Execute(null)));
 		}
+
+		Menu.Show(entries, opensUpwards: true);
 	}
 }

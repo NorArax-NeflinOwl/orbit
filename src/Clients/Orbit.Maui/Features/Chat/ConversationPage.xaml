@@ -14,7 +14,7 @@
     <Grid RowDefinitions="Auto,*,Auto">
 
 
-    <Grid Grid.Row="1" RowDefinitions="Auto,Auto,*,Auto,Auto" Padding="20" RowSpacing="10">
+    <Grid Grid.Row="1" RowDefinitions="Auto,Auto,*,Auto,Auto" Padding="16,16,16,28" RowSpacing="10">
 
         <Grid Grid.Row="0" ColumnDefinitions="*,Auto" ColumnSpacing="8">
             <Label Grid.Column="0" Text="{Binding Title}" FontSize="22" FontAttributes="Bold"
@@ -47,7 +47,7 @@
             <CollectionView ItemsSource="{Binding Messages}" ItemsUpdatingScrollMode="KeepLastItemInView">
 
                 <CollectionView.EmptyView>
-                    <Label Text="{controls:Translate 'No messages yet.'}" Padding="24" HorizontalTextAlignment="Center" />
+                    <Label Text="{controls:Translate 'No messages yet.'}" Padding="0,12" Style="{StaticResource EmptyHint}" />
                 </CollectionView.EmptyView>
 
                 <CollectionView.ItemTemplate>

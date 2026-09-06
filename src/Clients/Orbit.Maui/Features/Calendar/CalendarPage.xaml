@@ -7,30 +7,29 @@
     xmlns:calendar="clr-namespace:Orbit.Maui.Features.Calendar"
     xmlns:screens="clr-namespace:Orbit.Mobile.Screens.Calendar;assembly=Orbit.Mobile"
     x:DataType="screens:CalendarViewModel"
+    x:Name="Page"
     Title="{controls:Translate 'Calendar'}">
 
     <Grid RowDefinitions="Auto,*,Auto">
 
 
-    <Grid Grid.Row="1" RowDefinitions="Auto,Auto,Auto,Auto,*" Padding="20" RowSpacing="10">
+    <Grid Grid.Row="1" RowDefinitions="Auto,Auto,Auto,Auto,*" Padding="16,16,16,28" RowSpacing="10">
 
         <!-- The month at a glance, or the year. Orbit.Web offers day, month and year; the day here is
              this grid with one of its days chosen, so the switch beneath is the rest of it. -->
         <VerticalStackLayout Grid.Row="0" Spacing="6">
-            <Grid ColumnDefinitions="*,Auto">
-                <controls:PageHeader Grid.Column="0" Title="{controls:Translate 'Calendar'}">
-                    <controls:PageHeader.Subtitle>
-                        <controls:Translate Text="Your events, and the ones you have been invited to." />
-                    </controls:PageHeader.Subtitle>
-                </controls:PageHeader>
-
-                <!-- What order to read the list in, as Orbit.Web keeps it over the same list. An action
-                     sheet rather than a panel - one choice, then done. -->
-                <Button Grid.Column="1" Text="⋯" SemanticProperties.Description="{controls:Translate 'Sort'}"
-                        FontSize="20" Padding="12,0" HeightRequest="36" VerticalOptions="Start"
-                        Style="{StaticResource LinkButton}"
-                        Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=ChooseSortOrderCommand, x:DataType=calendar:CalendarPage}" />
-            </Grid>
+            <!-- The plus left of the name and the reading order behind the three dots at the other
+                 end, which is where Orbit.Web's Calendar header keeps both. -->
+            <controls:PageHeader Title="{controls:Translate 'Calendar'}">
+                <controls:PageHeader.LeadingAction>
+                    <controls:IconButton Variant="Add" Data="M10,4 V16 M4,10 H16"
+                                         Description="{controls:Translate 'Add event'}"
+                                         Command="{Binding ToggleAddCommand, Source={x:Reference Page}, x:DataType=calendar:CalendarPage}" />
+                </controls:PageHeader.LeadingAction>
+                <controls:PageHeader.Actions>
+                    <controls:OverflowMenu Command="{Binding ChooseSortOrderCommand, Source={x:Reference Page}, x:DataType=calendar:CalendarPage}" />
+                </controls:PageHeader.Actions>
+            </controls:PageHeader>
 
             <Grid ColumnDefinitions="Auto,*,Auto,Auto" ColumnSpacing="4">
                 <Button Grid.Column="0" Text="‹" SemanticProperties.Description="{controls:Translate 'Earlier'}" FontSize="20" Padding="10,0" Style="{StaticResource LinkButton}"
@@ -167,10 +166,12 @@
             </FlexLayout>
         </VerticalStackLayout>
 
-        <Grid Grid.Row="1" ColumnDefinitions="*,Auto" ColumnSpacing="8">
-            <Entry Grid.Column="0" Placeholder="{controls:Translate 'New event'}" Text="{Binding NewEventTitle}"
+        <Grid x:Name="AddRow" IsVisible="False" Grid.Row="1" ColumnDefinitions="*,Auto" ColumnSpacing="8">
+            <Entry x:Name="AddField" Grid.Column="0" Placeholder="{controls:Translate 'New event'}"
+                   Text="{Binding NewEventTitle}"
                    ReturnType="Done" ReturnCommand="{Binding AddEventCommand}" />
-            <Button Grid.Column="1" Text="{controls:Translate 'Add'}" Command="{Binding AddEventCommand}" />
+            <Button Grid.Column="1" Text="{controls:Translate 'Add'}" Style="{StaticResource PrimaryButton}"
+                    Command="{Binding AddEventCommand}" />
         </Grid>
 
         <Grid Grid.Row="2" ColumnDefinitions="*,*" ColumnSpacing="8">
@@ -211,7 +212,7 @@
                             SelectionChangedCommandParameter="{Binding SelectedItem, Source={RelativeSource Self}, x:DataType=CollectionView}">
 
                 <CollectionView.EmptyView>
-                    <Label Text="{controls:Translate 'Nothing coming up.'}" Padding="24" HorizontalTextAlignment="Center" />
+                    <Label Text="{controls:Translate 'Nothing coming up.'}" Padding="0,12" Style="{StaticResource EmptyHint}" />
                 </CollectionView.EmptyView>
 
                 <CollectionView.ItemTemplate>
@@ -259,6 +260,8 @@
 
     </Grid>
         <controls:NavigationBar Grid.Row="0" />
+        <controls:MenuOverlay Grid.Row="0" Grid.RowSpan="3"
+                              BindingContext="{Binding Menu, Source={x:Reference Page}, x:DataType=calendar:CalendarPage}" />
         <controls:AvatarMenu Grid.Row="0" Grid.RowSpan="3" />
     </Grid>
 

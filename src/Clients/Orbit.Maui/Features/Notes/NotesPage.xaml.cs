@@ -1,3 +1,5 @@
+using System.Windows.Input;
+using Orbit.Maui.Controls;
 using Orbit.Mobile.Screens.Notes;
 
 namespace Orbit.Maui.Features.Notes;
@@ -13,7 +15,11 @@ public partial class NotesPage : ContentPage
 	{
 		InitializeComponent();
 		BindingContext = _viewModel = viewModel;
+		ToggleAddCommand = NewItemForm.Toggling(AddRow, AddField);
 	}
+
+	/// <summary>What the plus in the header opens - see NewItemForm.</summary>
+	public ICommand ToggleAddCommand { get; }
 
 	protected override void OnAppearing()
 	{

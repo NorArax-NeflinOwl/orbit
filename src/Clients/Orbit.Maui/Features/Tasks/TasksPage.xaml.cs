@@ -1,4 +1,7 @@
+using System.Windows.Input;
+using Orbit.Maui.Controls;
 using Orbit.Mobile.Localization;
+using Orbit.Mobile.Screens;
 using Orbit.Mobile.Screens.Tasks;
 
 namespace Orbit.Maui.Features.Tasks;
@@ -13,7 +16,18 @@ public partial class TasksPage : ContentPage
 		InitializeComponent();
 		BindingContext = _viewModel = viewModel;
 		_translations = translations;
+		ToggleAddCommand = NewItemForm.Toggling(AddRow, AddField);
+		ShowSortMenuCommand = new Command(ShowSortMenu);
 	}
+
+	/// <summary>What the plus in the header opens - see NewItemForm.</summary>
+	public ICommand ToggleAddCommand { get; }
+
+	/// <summary>What the three dots at the header's other end open.</summary>
+	public ICommand ShowSortMenuCommand { get; }
+
+	/// <summary>The panel those dots draw - one per screen, above everything else on it.</summary>
+	public ScreenMenu Menu { get; } = new();
 
 	/// <summary>
 	/// The row template's pin needs a command that lives on the screen rather than on the row, and a
@@ -27,21 +41,28 @@ public partial class TasksPage : ContentPage
 		_viewModel.LoadCommand.Execute(null);
 	}
 
-	private async void OnSortClicked(object? sender, EventArgs e)
+	/// <summary>
+	/// What order to read the lists in. Orbit's own panel rather than the platform's action sheet, and
+	/// under a heading, because that is what Orbit.Web's Tasks header opens - and it stays open while a
+	/// reader tries one order and then another, which is the exception its OverflowMenu.StaysOpen makes.
+	/// </summary>
+	private void ShowSortMenu()
 	{
-		// The one in force is marked, as the dashboard's card filters mark theirs: the button says what
-		// the order is, but once the menu is covering it that answer is off screen.
-		var choices = _viewModel.SortChoices;
-		var names = choices
-			.Select(choice => choice.IsChosen ? $"{choice.Name} ✓" : choice.Name)
-			.ToArray();
+		// The one in force is marked, as the dashboard's card filters mark theirs: the menu covers the
+		// list it is about, so it has to say for itself which order that list is in.
+		Menu.Show(
+			_viewModel.SortChoices.Select(choice => new ScreenMenuEntry(
+				choice.Name,
+				() =>
+				{
+					_viewModel.ChooseSortOrderCommand.Execute(choice);
 
-		var chosen = await DisplayActionSheet(
-			_translations["Sort"], _translations["Cancel"], destruction: null, names);
-
-		if (Array.IndexOf(names, chosen) is var picked and >= 0)
-		{
-			_viewModel.ChooseSortOrderCommand.Execute(choices[picked]);
-		}
+					// Asked again rather than ticked here: the tick has to leave whichever entry was
+					// carrying it, and only the choices themselves know which that was.
+					ShowSortMenu();
+				},
+				choice.IsChosen,
+				staysOpen: true)),
+			_translations["Sort"]);
 	}
 }

@@ -7,6 +7,7 @@
     xmlns:tasks="clr-namespace:Orbit.Maui.Features.Tasks"
     xmlns:screens="clr-namespace:Orbit.Mobile.Screens.Tasks;assembly=Orbit.Mobile"
     x:DataType="screens:TasksViewModel"
+    x:Name="Page"
     Title="{controls:Translate 'Tasks'}">
 
     <ContentPage.Resources>
@@ -15,13 +16,22 @@
     <Grid RowDefinitions="Auto,*,Auto">
 
 
-    <Grid Grid.Row="1" RowDefinitions="Auto,Auto,Auto,Auto,Auto,*" Padding="20" RowSpacing="10">
+    <Grid Grid.Row="1" RowDefinitions="Auto,Auto,Auto,Auto,Auto,*" Padding="16,16,16,28" RowSpacing="10">
 
 
+        <!-- The plus left of the name and the reading order behind the three dots at the other end,
+             exactly where Orbit.Web's own Tasks header keeps them. The order is something a reader sets
+             once and then reads by, so it lives behind the menu rather than in a control taking up the
+             top of every visit. -->
         <controls:PageHeader Grid.Row="0" Title="{controls:Translate 'Tasks'}">
-            <controls:PageHeader.Subtitle>
-                <controls:Translate Text="Every list you own or someone shared with you." />
-            </controls:PageHeader.Subtitle>
+            <controls:PageHeader.LeadingAction>
+                <controls:IconButton Variant="Add" Data="M10,4 V16 M4,10 H16"
+                                     Description="{controls:Translate 'Add task list'}"
+                                     Command="{Binding ToggleAddCommand, Source={x:Reference Page}, x:DataType=tasks:TasksPage}" />
+            </controls:PageHeader.LeadingAction>
+            <controls:PageHeader.Actions>
+                <controls:OverflowMenu Command="{Binding ShowSortMenuCommand, Source={x:Reference Page}, x:DataType=tasks:TasksPage}" />
+            </controls:PageHeader.Actions>
         </controls:PageHeader>
 
         <!-- What the reader is looking for, above the chips that say which lists are on offer at all: a
@@ -89,7 +99,7 @@
 
         <!-- Chips and a stepping button rather than a dropdown: the web has room for a select, a phone
              has a thumb. Each chip carries what it would leave, which is what makes it worth tapping. -->
-        <Grid Grid.Row="2" ColumnDefinitions="*,Auto" ColumnSpacing="8">
+        <Grid Grid.Row="2">
             <!-- Scrolls sideways: five filters do not fit across a phone. A filled pill half off the
                  edge reads as "there is more this way", which the old text-only chips did not - they
                  just looked like a word had been cut in half. -->
@@ -130,21 +140,20 @@
                 </HorizontalStackLayout>
             </ScrollView>
 
-            <Button Grid.Column="1" Text="{Binding SortDescription}" FontSize="12" Padding="8,4"
-                    VerticalOptions="Start" Style="{StaticResource LinkButton}"
-                    Clicked="OnSortClicked" />
         </Grid>
 
         <!-- The one thing this screen has to say for itself, which today is only about pinning. It was
              set and never shown, so pinning with no connection did nothing and said nothing - see
              TasksViewModel.HasMessage. -->
-        <Label Grid.Row="3" Text="{Binding Message}" IsVisible="{Binding HasMessage}" FontSize="12"
-               LineBreakMode="WordWrap" TextColor="{DynamicResource Accent}" />
+        <Label Grid.Row="3" Text="{Binding Message}" IsVisible="{Binding HasMessage}"
+               LineBreakMode="WordWrap" Style="{StaticResource InfoLabel}" />
 
-        <Grid Grid.Row="4" ColumnDefinitions="*,Auto" ColumnSpacing="8">
-            <Entry Grid.Column="0" Placeholder="{controls:Translate 'New list'}" Text="{Binding NewListTitle}"
+        <Grid x:Name="AddRow" IsVisible="False" Grid.Row="4" ColumnDefinitions="*,Auto" ColumnSpacing="8">
+            <Entry x:Name="AddField" Grid.Column="0" Placeholder="{controls:Translate 'New list'}"
+                   Text="{Binding NewListTitle}"
                    ReturnType="Done" ReturnCommand="{Binding AddListCommand}" />
-            <Button Grid.Column="1" Text="{controls:Translate 'Add'}" Command="{Binding AddListCommand}" />
+            <Button Grid.Column="1" Text="{controls:Translate 'Add'}" Style="{StaticResource PrimaryButton}"
+                    Command="{Binding AddListCommand}" />
         </Grid>
 
         <RefreshView Grid.Row="5" IsRefreshing="{Binding IsRefreshing}" Command="{Binding LoadCommand}">
@@ -157,7 +166,7 @@
                     <!-- Which of the two emptied the screen, since they say different things about what
                          to do next - see TasksViewModel.NothingHereMessage. -->
                     <Label Text="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=ViewModel.NothingHereMessage, x:DataType=tasks:TasksPage}"
-                           Padding="24" HorizontalTextAlignment="Center" LineBreakMode="WordWrap" />
+                           Padding="0,12" LineBreakMode="WordWrap" Style="{StaticResource EmptyHint}" />
                 </CollectionView.EmptyView>
 
                 <CollectionView.ItemTemplate>
@@ -266,6 +275,8 @@
 
     </Grid>
         <controls:NavigationBar Grid.Row="0" />
+        <controls:MenuOverlay Grid.Row="0" Grid.RowSpan="3"
+                              BindingContext="{Binding Menu, Source={x:Reference Page}, x:DataType=tasks:TasksPage}" />
         <controls:AvatarMenu Grid.Row="0" Grid.RowSpan="3" />
     </Grid>
 

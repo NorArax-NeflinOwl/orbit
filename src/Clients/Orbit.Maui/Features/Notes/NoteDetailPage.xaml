@@ -8,11 +8,12 @@
     xmlns:screens="clr-namespace:Orbit.Mobile.Screens.Notes;assembly=Orbit.Mobile"
     xmlns:tasks="clr-namespace:Orbit.Mobile.Screens.Tasks;assembly=Orbit.Mobile"
     x:DataType="screens:NoteDetailViewModel"
+    x:Name="Page"
     Title="{Binding Title}">
 
     <Grid RowDefinitions="Auto,*,Auto">
 
-    <Grid Grid.Row="1" RowDefinitions="Auto,Auto,Auto,Auto,Auto,*,Auto,Auto" Padding="20" RowSpacing="10">
+    <Grid Grid.Row="1" RowDefinitions="Auto,Auto,Auto,Auto,Auto,*,Auto" Padding="16,16,16,12" RowSpacing="10">
 
         <!-- The title is the note's own, so it is edited in place rather than shown twice. -->
         <Entry Grid.Row="0" Text="{Binding Title}" FontSize="20" FontAttributes="Bold" IsReadOnly="{Binding IsReadOnly}"
@@ -56,7 +57,8 @@
             <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
                 <Entry Grid.Column="0" Placeholder="{controls:Translate 'New line'}" Text="{Binding NewLine}"
                        ReturnType="Done" ReturnCommand="{Binding AddLineCommand}" />
-                <Button Grid.Column="1" Text="{controls:Translate 'Add'}" Command="{Binding AddLineCommand}" />
+                <Button Grid.Column="1" Text="{controls:Translate 'Add'}" Style="{StaticResource PrimaryButton}"
+                        Command="{Binding AddLineCommand}" />
             </Grid>
             <Button Text="{controls:Translate 'Checklist item'}" HorizontalOptions="Start"
                     FontSize="12" Padding="12,6" Style="{StaticResource SecondaryButton}"
@@ -66,7 +68,8 @@
         <CollectionView Grid.Row="5" ItemsSource="{Binding Lines}">
 
             <CollectionView.EmptyView>
-                <Label Text="{controls:Translate 'Nothing written here yet.'}" Padding="24" HorizontalTextAlignment="Center" />
+                <Label Text="{controls:Translate 'Nothing written here yet.'}" Padding="0,12"
+                       Style="{StaticResource EmptyHint}" />
             </CollectionView.EmptyView>
 
             <!-- RelativeSource walks the visual tree, so the ancestor named here is the page, whose
@@ -89,9 +92,8 @@
                                IsReadOnly="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=ViewModel.IsReadOnly, x:DataType=notes:NoteDetailPage}"
                                ReturnCommand="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=ViewModel.SaveLinesCommand, x:DataType=notes:NoteDetailPage}" />
 
-                        <Button Grid.Column="2" Text="⋯" SemanticProperties.Description="{controls:Translate 'More'}" FontSize="18" Padding="10,0" BackgroundColor="Transparent" BorderWidth="0"
+                        <controls:OverflowMenu Grid.Column="2"
                                 IsVisible="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=ViewModel.CanEdit, x:DataType=notes:NoteDetailPage}"
-                                TextColor="{AppThemeBinding Light={StaticResource SubtleTextLight}, Dark={StaticResource SubtleTextDark}}"
                                 Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=ShowLineMenuCommand, x:DataType=notes:NoteDetailPage}"
                                 CommandParameter="{Binding .}" />
                     </Grid>
@@ -104,20 +106,20 @@
              readable copy on the server to hand anybody - see SharePanel.CanShare. -->
         <controls:SharePanel Grid.Row="6" BindingContext="{Binding Share}" Margin="0,4" />
 
-        <HorizontalStackLayout Grid.Row="7" Spacing="16">
-            <Button Text="{controls:Translate 'Back to notes'}" Command="{Binding GoBackCommand}"
-                    Style="{StaticResource LinkButton}" />
-            <Button Text="{controls:Translate 'Delete note'}" Command="{Binding DeleteCommand}"
-                    IsVisible="{Binding CanEdit}" Style="{StaticResource DestructiveButton}" />
-                <!-- Where this thing's own copies are found again - see CopyHistoryViewModel. Only
-                     once there is one, and here rather than in the account's menu: a history belongs to
-                     the thing it is the history of. -->
-                <Button Text="{controls:Translate 'History'}" IsVisible="{Binding HasHistory}"
-                        Command="{Binding GoToHistoryCommand}" Style="{StaticResource LinkButton}" />
-        </HorizontalStackLayout>
-
     </Grid>
+
+        <!-- No Save: a note is written down as it is written, line by line, so the bar carries what
+             leaves the screen and what else can be done to the note - deleting it, and where its own
+             copies are found again. -->
+        <controls:EditorRail Grid.Row="2" CancelCommand="{Binding GoBackCommand}">
+            <controls:EditorRail.Child>
+                <controls:OverflowMenu Command="{Binding ShowNoteMenuCommand, Source={x:Reference Page}, x:DataType=notes:NoteDetailPage}" />
+            </controls:EditorRail.Child>
+        </controls:EditorRail>
+
         <controls:NavigationBar Grid.Row="0" />
+        <controls:MenuOverlay Grid.Row="0" Grid.RowSpan="3"
+                              BindingContext="{Binding Menu, Source={x:Reference Page}, x:DataType=notes:NoteDetailPage}" />
         <controls:AvatarMenu Grid.Row="0" Grid.RowSpan="3" />
     </Grid>
 

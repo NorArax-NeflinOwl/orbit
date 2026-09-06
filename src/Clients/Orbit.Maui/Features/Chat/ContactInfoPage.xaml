@@ -11,7 +11,7 @@
     <Grid RowDefinitions="Auto,*,Auto">
 
         <ScrollView Grid.Row="1">
-            <VerticalStackLayout Padding="20" Spacing="14">
+            <VerticalStackLayout Padding="16,16,16,28" Spacing="14">
 
                 <controls:PageHeader Title="{Binding DisplayName}">
                     <controls:PageHeader.Subtitle>

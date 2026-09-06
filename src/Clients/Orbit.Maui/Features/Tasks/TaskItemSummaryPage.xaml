@@ -13,7 +13,7 @@
     <Grid RowDefinitions="Auto,*,Auto">
 
     <ScrollView Grid.Row="1">
-        <VerticalStackLayout Padding="20" Spacing="12">
+        <VerticalStackLayout Padding="16,16,16,28" Spacing="12">
 
             <controls:PageHeader Title="{Binding Description}" Subtitle="{Binding TaskListTitle}" />
 

@@ -14,7 +14,7 @@
     <Grid RowDefinitions="Auto,*,Auto">
 
     <ScrollView Grid.Row="1">
-        <VerticalStackLayout Padding="20" Spacing="12">
+        <VerticalStackLayout Padding="16,16,16,28" Spacing="12">
 
             <Entry Text="{Binding Title}" FontSize="20" FontAttributes="Bold" IsReadOnly="{Binding IsReadOnly}"
                    Placeholder="{controls:Translate 'Untitled event'}" />
