@@ -327,30 +327,77 @@ public sealed class CalendarTests : OrbitTestContext
     }
 
     /// <summary>
-    /// The grid is the other half, and the half that was reported still wrong: it never hides anything -
-    /// a day with something in it should say so whether or not it has been - so a ticked-off appointment
-    /// stays and reads as done instead. Its chip had nothing at all, because an event has nothing to
-    /// tick and only the entry behind it does; a finished *deadline* has been struck through there all
-    /// along, which is the asymmetry.
+    /// The grid gives the same answer as the list: what has been done leaves it, and the same menu
+    /// brings it back. It comes back struck through and greyed - an appointment whose entry is ticked
+    /// off had no mark at all before, because an event has nothing to tick and only the entry behind it
+    /// does, while a finished *deadline* has been struck through there all along.
     /// </summary>
     [Fact]
-    public void A_ticked_off_appointment_is_struck_through_on_the_month_grid()
+    public void A_ticked_off_appointment_leaves_the_month_grid_until_everything_is_asked_for()
     {
+        Services.AddSingleton(new CalendarListOrder(new StubJSRuntime()));
         var laterThisMonth = LastDayOfThisMonth().AddHours(10);
-        var done = CreateTimedEvent(laterThisMonth, laterThisMonth.AddHours(1), "Already been");
-        var stillToGo = CreateTimedEvent(laterThisMonth, laterThisMonth.AddHours(1), "Still to go");
+        var done = CreateTimedEvent(laterThisMonth, laterThisMonth.AddHours(1), "Dentist");
+        var stillToGo = CreateTimedEvent(laterThisMonth, laterThisMonth.AddHours(1), "Haircut");
         RegisterCalendarApiClient([done, stillToGo]);
         RegisterTasksApiClient([
-            TickedOff(TaskListWithAnEntryFor(done.Id, laterThisMonth, "Already been")),
-            TaskListWithAnEntryFor(stillToGo.Id, laterThisMonth, "Still to go")]);
+            TickedOff(TaskListWithAnEntryFor(done.Id, laterThisMonth, "Dentist")),
+            TaskListWithAnEntryFor(stillToGo.Id, laterThisMonth, "Haircut")]);
 
         var cut = RenderComponent<Calendar>();
 
-        // Both are still drawn - the grid hides nothing.
+        var chip = Assert.Single(cut.FindAll(".calendar-event-chip"));
+        Assert.Contains("Haircut", chip.TextContent);
+
+        ShowEverything(cut);
+
         var chips = cut.FindAll(".calendar-event-chip");
         Assert.Equal(2, chips.Count);
-        var marked = Assert.Single(chips, chip => chip.ClassList.Contains("calendar-chip-done"));
-        Assert.Contains("Already been", marked.TextContent);
+        var marked = Assert.Single(chips, entry => entry.ClassList.Contains("calendar-chip-done"));
+        Assert.Contains("Dentist", marked.TextContent);
+    }
+
+    /// <summary>A ticked-off deadline is the same fact about the other kind of thing, and leaves too.</summary>
+    [Fact]
+    public void A_ticked_off_deadline_leaves_the_month_grid_too()
+    {
+        Services.AddSingleton(new CalendarListOrder(new StubJSRuntime()));
+        var midMonth = new DateTime(DateTime.Today.Year, DateTime.Today.Month, 15, 10, 0, 0);
+        RegisterCalendarApiClient([]);
+        RegisterTasksApiClient([
+            CreateTaskListWithDueItem(midMonth, "Shopping"),
+            TickedOff(CreateTaskListWithDueItem(midMonth, "Laundry"))]);
+
+        var cut = RenderComponent<Calendar>();
+
+        var chip = Assert.Single(cut.FindAll(".calendar-task-chip"));
+        Assert.Contains("Shopping", chip.TextContent);
+
+        ShowEverything(cut);
+
+        Assert.Equal(2, cut.FindAll(".calendar-task-chip").Count);
+    }
+
+    /// <summary>
+    /// The one place the grid parts company with the list, and it is deliberate. The list answers "what
+    /// is coming", so an event that has ended stops being its subject; a grid is a picture of the
+    /// period, and a month with every past day empty would be a month that had not happened. Done is a
+    /// different fact from past, and only the first is somebody saying they are finished with it.
+    /// </summary>
+    [Fact]
+    public void An_event_that_has_merely_ended_is_still_drawn_on_the_grid()
+    {
+        Services.AddSingleton(new CalendarListOrder(new StubJSRuntime()));
+        var earlierToday = DateTime.Today;
+        RegisterCalendarApiClient([CreateTimedEvent(earlierToday, earlierToday, "Finished")]);
+        RegisterTasksApiClient([]);
+
+        var cut = RenderComponent<Calendar>();
+
+        // Gone from the list beside it, which is what that list is for...
+        Assert.Empty(ListedNames(cut));
+        // ...and still on the grid, which is a picture of the month rather than of what is left.
+        Assert.Contains("Finished", Assert.Single(cut.FindAll(".calendar-event-chip")).TextContent);
     }
 
     /// <summary>The guard on both: an appointment nobody has ticked off is listed as it always was.</summary>
