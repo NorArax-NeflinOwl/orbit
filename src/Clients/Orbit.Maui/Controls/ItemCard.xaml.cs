@@ -59,6 +59,15 @@ public partial class ItemCard : ContentView
 		propertyChanged: (card, _, value) => ((ItemCard)card).Foot(value as View));
 
 	/// <summary>
+	/// A colour this card is about - an event's own. Taken as the string the event stores rather than
+	/// as a Color, because that is what travels: an event with none set has null here and the card
+	/// draws no strip at all, which is not the same as drawing one in the accent.
+	/// </summary>
+	public static readonly BindableProperty AccentColourProperty = BindableProperty.Create(
+		nameof(AccentColour), typeof(string), typeof(ItemCard),
+		propertyChanged: (card, _, value) => ((ItemCard)card).PaintTheEdge(value as string));
+
+	/// <summary>
 	/// Kept at the top of its list by the reader. Marked by its edge rather than by moving it
 	/// somewhere else - it has already moved to the top, and saying so twice is noise.
 	/// </summary>
@@ -154,6 +163,13 @@ public partial class ItemCard : ContentView
 		set => SetValue(ExtrasProperty, value);
 	}
 
+	/// <inheritdoc cref="AccentColourProperty"/>
+	public string? AccentColour
+	{
+		get => (string?)GetValue(AccentColourProperty);
+		set => SetValue(AccentColourProperty, value);
+	}
+
 	/// <inheritdoc cref="IsPinnedProperty"/>
 	public bool IsPinned
 	{
@@ -205,6 +221,17 @@ public partial class ItemCard : ContentView
 
 		Frame.RemoveDynamicResource(Border.StrokeProperty);
 		Frame.SetAppTheme(Border.StrokeProperty, Look("CardStrokeLight"), Look("CardStrokeDark"));
+	}
+
+	private void PaintTheEdge(string? colour)
+	{
+		var known = !string.IsNullOrWhiteSpace(colour) && Color.TryParse(colour, out var parsed);
+		AccentEdge.IsVisible = known;
+
+		if (known)
+		{
+			AccentEdge.Color = Color.Parse(colour!);
+		}
 	}
 
 	private static Brush Look(string key)

@@ -542,7 +542,8 @@
     private async Task DeleteEventAsync(CalendarEventDto calendarEvent)
     {
         Logger.LogInformation("User clicked 'Delete' for calendar event {EventId}", calendarEvent.Id);
-        var confirmed = await JSRuntime.InvokeAsync<bool>("confirm", $"Delete event \"{calendarEvent.Details.Title}\"?");
+        var confirmed = await JSRuntime.InvokeAsync<bool>(
+            "confirm", T.Format("Delete event \"{0}\"?", calendarEvent.Details.Title));
         if (!confirmed)
         {
             return;

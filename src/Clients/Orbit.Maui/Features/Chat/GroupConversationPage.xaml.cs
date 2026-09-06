@@ -1,6 +1,7 @@
 using System.Windows.Input;
 using Orbit.Mobile.Chat;
 using Orbit.Mobile.Localization;
+using Orbit.Mobile.Screens;
 using Orbit.Mobile.Screens.Chat;
 
 namespace Orbit.Maui.Features.Chat;
@@ -13,20 +14,24 @@ public partial class GroupConversationPage : ContentPage
 
 	public GroupConversationPage(GroupConversationViewModel viewModel)
 	{
+		_translations = IPlatformApplication.Current!.Services.GetRequiredService<Translations>();
+		ShowMessageMenuCommand = new Command<ReadableChatMessage>(ShowMessageMenu);
+
 		InitializeComponent();
 		BindingContext = _viewModel = viewModel;
-		_translations = IPlatformApplication.Current!.Services.GetRequiredService<Translations>();
-		ShowMessageMenuCommand = new Command<ReadableChatMessage>(message => _ = ShowMessageMenuAsync(message));
 	}
 
 	/// <summary>
 	/// What a message's "⋯" opens, exactly as in a one-to-one conversation. On the page rather than the
-	/// view model because an action sheet is a page's own presentation - and keeping it here leaves the
-	/// view model, and the commands it carries, testable without one.
+	/// view model because which actions a menu offers is what the screen shows rather than what the
+	/// message knows - and keeping it here leaves the view model testable without one.
 	/// </summary>
 	public ICommand ShowMessageMenuCommand { get; }
 
-	private async Task ShowMessageMenuAsync(ReadableChatMessage? message)
+	/// <summary>The panel it draws - one per screen, above everything else on it.</summary>
+	public ScreenMenu Menu { get; } = new();
+
+	private void ShowMessageMenu(ReadableChatMessage? message)
 	{
 		if (message?.GroupMessageId is null)
 		{
@@ -35,37 +40,26 @@ public partial class GroupConversationPage : ContentPage
 
 		// "Who has read this" is offered for anybody's message; editing and deleting only for the
 		// reader's own - see ReadableChatMessage.CanBeChanged.
-		var actions = new List<string> { _translations["Who has read this"] };
+		List<ScreenMenuEntry> entries =
+		[
+			new(_translations["Who has read this"], () => _ = ShowReceiptsAsync(message))
+		];
+
 		if (message.CanBeChanged)
 		{
-			actions.Add(_translations["Edit"]);
-			actions.Add(_translations["Delete"]);
+			entries.Add(new ScreenMenuEntry(
+				_translations["Edit"], () => _viewModel.StartEditingCommand.Execute(message)));
+			entries.Add(new ScreenMenuEntry(
+				_translations["Delete"], () => _viewModel.DeleteCommand.Execute(message)));
 		}
 
 		if (message.CanBeRepliedTo)
 		{
-			actions.Add(_translations["Reply"]);
+			entries.Add(new ScreenMenuEntry(
+				_translations["Reply"], () => _viewModel.StartReplyingCommand.Execute(message)));
 		}
 
-		var chosen = await DisplayActionSheetAsync(
-			_translations["Message options"], _translations["Cancel"], destruction: null, [.. actions]);
-
-		if (chosen == _translations["Who has read this"])
-		{
-			await ShowReceiptsAsync(message);
-		}
-		else if (chosen == _translations["Edit"])
-		{
-			_viewModel.StartEditingCommand.Execute(message);
-		}
-		else if (chosen == _translations["Delete"])
-		{
-			_viewModel.DeleteCommand.Execute(message);
-		}
-		else if (chosen == _translations["Reply"])
-		{
-			_viewModel.StartReplyingCommand.Execute(message);
-		}
+		Menu.Show(entries, _translations["Message options"], opensUpwards: true);
 	}
 
 	private async Task ShowReceiptsAsync(ReadableChatMessage message)

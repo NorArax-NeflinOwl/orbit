@@ -25,6 +25,7 @@ public partial class CalendarPage : ContentPage
 		// Assigned before InitializeComponent, which is where the binding to it is built - see
 		// TaskListDetailPage for the same order and why it matters.
 		ChooseSortOrderCommand = new Command(ShowSortMenu);
+		ShowCardMenuCommand = new Command<CalendarListEntry>(ShowCardMenu);
 
 		InitializeComponent();
 		BindingContext = _viewModel = viewModel;
@@ -42,8 +43,44 @@ public partial class CalendarPage : ContentPage
 	/// <summary>What order the list under the grid is read in - see CalendarListEntry.</summary>
 	public ICommand ChooseSortOrderCommand { get; }
 
-	/// <summary>The panel the header's three dots draw - one per screen, above everything else on it.</summary>
+	/// <summary>What a card's three dots open. The same panel the header's do; only the entries differ.</summary>
+	public ICommand ShowCardMenuCommand { get; }
+
+	/// <summary>The panel both sets of dots draw - one per screen, above everything else on it.</summary>
 	public ScreenMenu Menu { get; } = new();
+
+	/// <summary>
+	/// What a card offers besides opening it, which on this list is one thing: taking it off the
+	/// calendar. No "Edit" entry, because on a phone pressing the card already opens what the browser's
+	/// Edit opens - see info/android-ui-parity.md.
+	/// </summary>
+	private void ShowCardMenu(CalendarListEntry? entry)
+	{
+		if (entry is null)
+		{
+			return;
+		}
+
+		Menu.Show(
+			[new ScreenMenuEntry(_translations["Delete"], () => _ = DeleteAsync(entry))],
+			opensUpwards: true);
+	}
+
+	/// <summary>
+	/// Asked first, as every delete in Orbit is. The two kinds are named differently because they are
+	/// different things: an appointment is deleted, and a deadline is an entry coming off its list.
+	/// </summary>
+	private async Task DeleteAsync(CalendarListEntry entry)
+	{
+		var question = entry.IsEvent
+			? _translations.Format("Delete event \"{0}\"?", entry.Name)
+			: _translations.Format("Delete \"{0}\"?", entry.Name);
+
+		if (await Confirmation.AskAsync(this, question, _translations["Delete"], _translations["Cancel"]))
+		{
+			await _viewModel.DeleteListedCommand.ExecuteAsync(entry);
+		}
+	}
 
 	/// <summary>
 	/// How to read the list under the grid, in Orbit's own panel rather than the platform's action

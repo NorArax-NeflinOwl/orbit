@@ -629,6 +629,46 @@
         <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource SubtleTextLight}, Dark={StaticResource SubtleTextDark}}" />
     </Style>
 
+    <!-- .card-badge: a short fact about a card - what kind of thing it is, who shared it, how much it
+         matters. Quieter and tighter than a filter chip, which is a control: this is a label. The phone
+         drew these with FilterChip, so a card carrying three of them read as a row of things to press. -->
+    <Style x:Key="CardBadge" TargetType="Border">
+        <Setter Property="StrokeThickness" Value="1" />
+        <Setter Property="Stroke" Value="{AppThemeBinding Light={StaticResource CardStrokeLight}, Dark={StaticResource CardStrokeDark}}" />
+        <Setter Property="BackgroundColor" Value="{AppThemeBinding Light={StaticResource SurfaceSubtleLight}, Dark={StaticResource SurfaceSubtleDark}}" />
+        <Setter Property="Padding" Value="7,1" />
+        <Setter Property="VerticalOptions" Value="Center" />
+        <Setter Property="StrokeShape">
+            <RoundRectangle CornerRadius="999" />
+        </Setter>
+    </Style>
+
+    <Style x:Key="CardBadgeLabel" TargetType="Label">
+        <Setter Property="FontSize" Value="11" />
+        <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource SubtleTextLight}, Dark={StaticResource SubtleTextDark}}" />
+    </Style>
+
+    <!-- A month grid's day cell (.calendar-month-grid-day): the lifted surface a card has, with a
+         hairline around it. The three states it can be in are triggers on the cell itself, because
+         "today" and "not this month" are about the day rather than about the number written in it. -->
+    <Style x:Key="CalendarDayCell" TargetType="Border">
+        <Setter Property="StrokeThickness" Value="1" />
+        <Setter Property="Stroke" Value="{AppThemeBinding Light={StaticResource CardStrokeLight}, Dark={StaticResource CardStrokeDark}}" />
+        <Setter Property="BackgroundColor" Value="{AppThemeBinding Light={StaticResource SurfaceLight}, Dark={StaticResource SurfaceDark}}" />
+        <Setter Property="Padding" Value="0" />
+        <Setter Property="StrokeShape">
+            <Rectangle />
+        </Setter>
+    </Style>
+
+    <!-- .calendar-month-grid-weekday: the seven names above the grid. -->
+    <Style x:Key="CalendarWeekday" TargetType="Label">
+        <Setter Property="FontSize" Value="12.5" />
+        <Setter Property="FontAttributes" Value="Bold" />
+        <Setter Property="HorizontalTextAlignment" Value="Center" />
+        <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource SubtleTextLight}, Dark={StaticResource SubtleTextDark}}" />
+    </Style>
+
     <!-- A form field's own name, above it. Orbit.Web sets these in small caps with wide tracking, which
          is most of what makes its forms read as forms. -->
     <Style x:Key="FieldLabel" TargetType="Label">

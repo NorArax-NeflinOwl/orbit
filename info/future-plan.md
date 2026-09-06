@@ -499,10 +499,20 @@ matches and what does not. What that pass left:
   the phone deliberately does not: an "Edit" entry (its press and the card's press open the same screen
   here) and the second question a group task list asks before deleting what it gathers (the local store
   deletes one list at a time). See [`android-ui-parity.md`](android-ui-parity.md).
-- **Chat, the map, the account screen and the calendar's grids have not had the pass.** They read
-  correctly and use the same palette, but their spacing and type were not walked line by line against
-  app.css the way the list and detail screens were. The calendar's month and year cells in particular
-  are the phone's own layout rather than `.calendar-month-grid-day`'s.
+- ~~**Chat and the calendar's grids have not had the pass.**~~ Done: the month grid's cells are
+  `.calendar-month-grid-day`'s (the lifted surface, a hairline, today tinted, the days either side
+  quiet), a calendar card carries its event's colour along its edge and its own Delete menu, and both
+  conversation screens draw messages as `.chat-bubble` does - the reader's own at the right in the
+  accent, everybody else's at the left, at most 70% of the thread's width. The four platform action
+  sheets in chat and on the calendar are Orbit's own panel now. What the grid deliberately does not
+  copy is the browser's 5.5rem cell full of event chips - see `android-ui-parity.md`.
+- **The map and the account screen have not had the pass.** They read correctly and use the same
+  palette, but their spacing and type were not walked line by line against app.css the way the list,
+  detail, calendar and chat screens were.
+- **The chat screens are built but were not walked on a device.** The emulator account has not
+  unlocked Contacts, so the navigation bar draws no way into them and `FeatureLocked` is all those
+  screens show there. The bubbles, the message menus and the row menus want a walk on an account that
+  can chat before they are believed.
 - **A card's footnote says the whole timestamp.** A note card reads "Updated 9/2/2026 7:27 PM" where
   the browser says "Today", "Yesterday", the weekday within the last week, and only then a date - see
   `Notes.razor`'s `WhenLastChanged`. `NoteListItem.Updated` is where the phone builds it. Small, but it

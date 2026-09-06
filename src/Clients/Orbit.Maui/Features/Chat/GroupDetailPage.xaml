@@ -77,16 +77,19 @@
             </Grid>
 
             <Grid ColumnDefinitions="*,*" ColumnSpacing="8">
-                <Button Grid.Column="0" Text="{controls:Translate 'Add'}" Command="{Binding AddSelectedCommand}" />
+                <Button Grid.Column="0" Text="{controls:Translate 'Add'}" Style="{StaticResource PrimaryButton}"
+                        Command="{Binding AddSelectedCommand}" />
                 <Button Grid.Column="1" Text="{controls:Translate 'Cancel'}" Command="{Binding CancelAddingCommand}"
                         Style="{StaticResource LinkButton}" />
             </Grid>
         </VerticalStackLayout>
 
-        <Button Grid.Row="4" Text="{controls:Translate 'Back to groups'}" Command="{Binding GoBackCommand}"
-                Style="{StaticResource LinkButton}" />
-
     </Grid>
+
+        <!-- Read rather than filled in, so the bar carries no Save - only the way out. The same bar
+             the note, the event and the contact screens carry. -->
+        <controls:EditorRail Grid.Row="2" CancelCommand="{Binding GoBackCommand}" />
+
         <controls:NavigationBar Grid.Row="0" />
         <controls:AvatarMenu Grid.Row="0" Grid.RowSpan="3" />
     </Grid>

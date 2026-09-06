@@ -65,7 +65,7 @@ internal static class FieldBox
 		box.SetShape(ShapeType.Rectangle);
 		box.SetCornerRadius(Radius * density);
 		box.SetStroke((int)Math.Round(BorderWidth * density), Look(isDark ? "CardStrokeDark" : "CardStrokeLight").ToPlatform());
-		box.SetColor(Look(isDark ? "SurfaceDark" : "SurfaceLight").ToPlatform());
+		box.SetColor((element.BackgroundColor ?? Look(isDark ? "SurfaceDark" : "SurfaceLight")).ToPlatform());
 
 		field.Background = box;
 

@@ -16,14 +16,22 @@
 
          Everything except the name is optional and is left out rather than drawn empty. The same
          anatomy Orbit.Web settled on - see its Components/ItemCard.razor. -->
-    <Border x:Name="Frame" StrokeThickness="1" Padding="14,12" Margin="0,5"
+    <Border x:Name="Frame" StrokeThickness="1" Padding="0" Margin="0,5"
             Stroke="{AppThemeBinding Light={StaticResource CardStrokeLight}, Dark={StaticResource CardStrokeDark}}"
             BackgroundColor="{AppThemeBinding Light={StaticResource SurfaceLight}, Dark={StaticResource SurfaceDark}}">
         <Border.StrokeShape>
             <RoundRectangle CornerRadius="12" />
         </Border.StrokeShape>
 
-        <VerticalStackLayout Spacing="8">
+        <!-- The strip down the left is a colour this card is *about* - an event's own. Painted along
+             the edge rather than shown as a dot beside the name: a dot is one more thing in a row
+             already holding badges, and the point of the colour is to be findable without reading,
+             which an edge does and a dot does not. Its own column rather than a border, because a
+             Border paints all four sides or none. -->
+        <Grid ColumnDefinitions="Auto,*">
+        <BoxView x:Name="AccentEdge" Grid.Column="0" WidthRequest="4" IsVisible="False" />
+
+        <VerticalStackLayout Grid.Column="1" Padding="14,12" Spacing="8">
 
             <!-- No column spacing: the two marks before the name are optional, and a column that is
                  empty must cost nothing at all - spacing kept for a pin nobody can see pushed every
@@ -74,6 +82,7 @@
                  declared after it in the visual tree and take the press first. -->
             <Button x:Name="OpenButton" BackgroundColor="Transparent" BorderWidth="0" IsVisible="False" />
         </VerticalStackLayout>
+        </Grid>
     </Border>
 
 </ContentView>

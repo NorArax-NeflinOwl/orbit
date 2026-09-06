@@ -285,6 +285,40 @@ public sealed class CalendarScreenTests
     }
 
     /// <summary>
+    /// The card's own menu, which is the only way something leaves the calendar without being opened
+    /// first - see CalendarPage, where the question in front of it is asked.
+    /// </summary>
+    [Fact]
+    public async Task Deleting_an_appointment_from_its_card_takes_it_off_the_calendar()
+    {
+        using var context = new ScreenContext();
+        await context.AddEventAsync("Dentist", new DateTime(2026, 8, 20, 15, 0, 0));
+        var screen = await context.OpenAsync();
+
+        await screen.DeleteListedCommand.ExecuteAsync(Assert.Single(screen.Listed));
+
+        Assert.Empty(screen.Listed);
+    }
+
+    /// <summary>
+    /// A deadline has no row of its own to delete: it is one entry on a task list, and what the press
+    /// does is take that entry off the list. The list itself stays, which is the part worth pinning
+    /// down - deleting the list instead would be the same gesture doing something far larger.
+    /// </summary>
+    [Fact]
+    public async Task Deleting_a_deadline_takes_the_entry_off_its_list_and_leaves_the_list()
+    {
+        using var context = new ScreenContext();
+        await context.AddDeadlineAsync("Groceries", "Buy milk", new DateTime(2026, 8, 19, 17, 0, 0));
+        var screen = await context.OpenAsync();
+
+        await screen.DeleteListedCommand.ExecuteAsync(Assert.Single(screen.Listed));
+
+        Assert.Empty(screen.Listed);
+        Assert.Single(await context.TaskLists.GetAllAsync());
+    }
+
+    /// <summary>
     /// The three orders Orbit.Web reads the same list in. By type is for a reader who came looking for
     /// one kind of thing in a period holding a lot of both; within each kind it is still soonest first.
     /// </summary>
@@ -647,6 +681,9 @@ public sealed class CalendarScreenTests
         private readonly FakeCalendarServer _server;
         private readonly LocalCalendarEventRepository _events;
         private readonly LocalTaskListRepository _taskLists;
+
+        /// <summary>So a test can check what a deletion left behind on the list a deadline sat on.</summary>
+        public LocalTaskListRepository TaskLists => _taskLists;
         private readonly CalendarEventSynchronizer _synchronizer;
 
         /// <param name="now">

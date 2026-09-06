@@ -1200,6 +1200,7 @@ public static class PolishTranslations
         ["{0} hr before"] = "{0} godz. wcześniej",
         ["{0} min before"] = "{0} min wcześniej",
         ["Delete \"{0}\"?"] = "Usunąć „{0}”?",
+        ["Delete event \"{0}\"?"] = "Usunąć wydarzenie „{0}”?",
         ["One more"] = "O jeden więcej",
         ["One fewer"] = "O jeden mniej",
         ["One more: {0}"] = "O jeden więcej: {0}",
