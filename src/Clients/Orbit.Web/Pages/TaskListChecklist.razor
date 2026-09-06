@@ -48,8 +48,20 @@ else
 
     <PageHeader>
         <Title>@Written(_sections[0].TaskList.Title)</Title>
+        @* What the list is for, in the words of whoever wrote it. Until now the editor asked for a
+           description and no page anywhere showed it - the one field in Orbit that could be written and
+           never read. It goes where a storage's goes, under the name, so the two read the same way.
+
+           It takes the place of the sentences below rather than sitting beside them. Those are a
+           signpost ("use Edit to change the list itself") and a count of sections that are drawn
+           directly underneath; somebody's own words about their list beat both. See TextWithLinks -
+           an address written in there can be pressed, like every other description. *@
         <Subtitle>
-            @if (_sections[0].TaskList.IsGroup)
+            @if (_sections[0].TaskList.Description is { Length: > 0 } description)
+            {
+                <TextWithLinks Text="@description" />
+            }
+            else if (_sections[0].TaskList.IsGroup)
             {
                 <text>@T.Format("Group list - {0} linked {1} shown below.", _sections.Count - 1, _sections.Count == 2 ? T["list"] : T["lists"])</text>
             }

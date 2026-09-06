@@ -41,6 +41,50 @@ public sealed class TaskListChecklistTests : OrbitTestContext
     }
 
     /// <summary>
+    /// The editor has always asked for a description and no page showed it - the one field in Orbit
+    /// that could be written and never read. It goes under the name on the list's own page, where a
+    /// storage's goes, so the two read the same way.
+    /// </summary>
+    [Fact]
+    public void A_list_says_what_it_is_for_under_its_name()
+    {
+        var taskList = TaskList("Errands", Item("Buy milk")) with { Description = "For the weekend trip." };
+        RegisterTasksApiClient([taskList]);
+
+        var cut = RenderComponent<TaskListChecklist>(parameters => parameters.Add(page => page.Id, taskList.Id));
+
+        Assert.Equal("For the weekend trip.", cut.Find(".page-subtitle").TextContent.Trim());
+    }
+
+    /// <summary>
+    /// It takes the place of the sentence that used to be there, which was a signpost rather than
+    /// anything about this particular list - somebody's own words beat it. A list nobody described
+    /// still gets the signpost.
+    /// </summary>
+    [Fact]
+    public void A_list_nobody_described_still_says_what_the_page_is_for()
+    {
+        var taskList = TaskList("Errands", Item("Buy milk"));
+        RegisterTasksApiClient([taskList]);
+
+        var cut = RenderComponent<TaskListChecklist>(parameters => parameters.Add(page => page.Id, taskList.Id));
+
+        Assert.Contains("Tick items off", cut.Find(".page-subtitle").TextContent);
+    }
+
+    /// <summary>An address written in it is pressable, like every other description - see TextWithLinks.</summary>
+    [Fact]
+    public void An_address_in_a_lists_description_can_be_pressed()
+    {
+        var taskList = TaskList("Errands", Item("Buy milk")) with { Description = "Menu at https://example.com/menu" };
+        RegisterTasksApiClient([taskList]);
+
+        var cut = RenderComponent<TaskListChecklist>(parameters => parameters.Add(page => page.Id, taskList.Id));
+
+        Assert.Equal("https://example.com/menu", cut.Find(".page-subtitle a").GetAttribute("href"));
+    }
+
+    /// <summary>
     /// The same marks the cards on /tasks carry. Somebody working through a list should see what an
     /// entry is about where the work is actually done, not only on the page they came from.
     /// </summary>
