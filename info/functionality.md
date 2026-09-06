@@ -1723,7 +1723,7 @@ the position always, the words only into a box nobody has written in.
 
 The line along the foot of every page used to be the version numbers and the licence. It answered
 "which build is this" for the few people who ask that, and nothing at all for everybody else - so it now
-reads `© 2026 Orbit · About · Privacy · Security · Docs · All Rights Reserved · Manage cookies`, modelled on
+reads `© 2026 Orbit · About · Privacy · Security · Docs · Status · All Rights Reserved · Manage cookies`, modelled on
 GitHub's own. Two of those open a dialog rather than a page and are drawn exactly like the links beside
 them: which of the two a reader is pressing is not a distinction they should have to make.
 
@@ -1736,6 +1736,25 @@ them: which of the two a reader is pressing is not a distinction they should hav
   sharing and authentication sections, Security from those plus the crypto in `e2eeChat.js`, Docs from
   the feature sections - rewritten for a reader using Orbit rather than building it. **When a rule here
   changes, those three pages are the other place it is written down.**
+- **Status** (`/health`) - whether the server is answering, which is the question a footer is read for
+  when something is wrong and the one the app cannot answer once it is the thing that has stopped
+  working. It opens in a new tab, and that is load-bearing twice over: a report is glanced at beside
+  what you were doing rather than instead of it, and `target="_blank"` is also what makes the browser
+  fetch the address rather than the Blazor router claiming `/health` as a route it has never heard of.
+
+  The address is the API's own report, proxied onto this origin by nginx - `/api/` would not reach it,
+  since that location forwards to the API *under* `/api/`, which is not where health lives. The
+  location is an exact match, so this publishes the report and nothing else: `/health/live` and
+  `/health/ready` are the container's own probes and say less, and `/health/services/{name}` fires an
+  outbound probe on demand, which is not something an anonymous caller should be able to ask for. Those
+  stay reachable only from inside the environment.
+
+  **What it says is public by decision.** Each check's status and how long it took, which optional
+  integrations are unconfigured and the *names* of the keys they are missing (never the values), free
+  disk against its threshold, and the background services' heartbeats. One field would say more:
+  `external-services` reports each configured service's URL, and that list is empty - configuring one
+  starts publishing its address. See `HealthEndpoints.WriteHealthReportAsync`, which says so where
+  somebody adding a check will read it.
 - **Manage cookies** (`ManageCookiesDialog`) - see below. Orbit sets no cookies at all; the link is
   named for what people go looking for, and the dialog's first line says so.
 - **Do not share my personal information** (`DoNotShareDialog`) - the other half of that one. Manage

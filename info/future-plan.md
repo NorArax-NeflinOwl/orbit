@@ -371,9 +371,12 @@ worth adding:
 - **A link to what changed.** The version means nothing to somebody who has not been reading the
   commits. A release-notes page, or simply a link to the repository's releases, is what makes a version
   number worth showing at all.
-- **A health or status link.** Orbit already exposes `/health`, `/health/ready` and `/health/live`
-  (see [Architecture](architecture.md)). A footer is where people look when something is wrong, and a
-  link that answers "is it me or is it the server" belongs there rather than in a document.
+- ~~**A health or status link.**~~ Done, and it needed more than a link: nothing on the web origin
+  reached the report. nginx forwards `/api/` to the API *under* `/api/`, so `/api/health` arrived there
+  as `/api/health`, which is not where health lives. There is now an exact-match `= /health` location on
+  both nginx configs, and the footer's **Status** opens it in a new tab - which is also what stops the
+  Blazor router claiming the address. Publishing the report was a decision taken deliberately; what it
+  does and does not say is written down beside both the location and the writer.
 - **Privacy and data handling.** Not yet written, and it is the one entry here with a deadline attached
   to it: an application that ends up in a store needs one, and the store is the place that will ask.
   What it would have to describe is unusual and worth saying plainly - most of Orbit's content is sealed
