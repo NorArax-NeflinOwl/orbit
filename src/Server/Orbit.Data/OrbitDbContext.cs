@@ -117,6 +117,10 @@ public sealed class OrbitDbContext : DbContext
         {
             entity.HasKey(item => item.Id);
             entity.Property(item => item.Description).IsRequired().HasMaxLength(StoredTextLimits.TaskDescription);
+            // The longer text about the entry. Defaulted so every row written before it existed reads as
+            // "nobody wrote one" rather than null - see TaskItemEntity.Notes.
+            entity.Property(item => item.Notes).IsRequired().HasMaxLength(StoredTextLimits.EventDescription)
+                .HasDefaultValue(string.Empty);
             entity.Property(item => item.OverdueNotificationChannel).HasMaxLength(20);
             entity.Property(item => item.DailyReminderNotificationChannel).HasMaxLength(20);
             // Every entry written before kinds existed is the ordinary sort, and has nowhere to be.

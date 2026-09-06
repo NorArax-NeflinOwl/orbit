@@ -54,7 +54,13 @@ public sealed record TaskItemRequest(
     /// <see cref="TaskItemProductDto"/>. Null for every other entry, and for one that already has a
     /// shelf item behind it.
     /// </summary>
-    TaskItemProductDto? Product = null)
+    TaskItemProductDto? Product = null,
+    /// <summary>
+    /// The longer text about this entry - see Orbit.Core.Tasks.TaskItem.Notes. <b>Null means "not
+    /// provided"</b> and leaves whatever is stored alone, which is what a client written before this
+    /// existed sends; an empty string means "none", and clears it.
+    /// </summary>
+    string? Notes = null)
 {
     /// <summary>Whichever shape the sender used, read as one - see <see cref="LinkedTaskListIds"/>.</summary>
     public IReadOnlyList<Guid> AllLinkedTaskListIds
@@ -91,5 +97,8 @@ public sealed record TaskItemRequest(
             item.LinkedInventoryItemId,
             item.AllLinkedTaskListIds,
             item.AllCategories,
-            item.Product);
+            item.Product,
+            // As it came, null included: this mapping exists to send an entry back unchanged, and null
+            // is how "unchanged" is said for this field.
+            item.Notes);
 }
