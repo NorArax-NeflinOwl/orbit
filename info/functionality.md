@@ -2239,6 +2239,24 @@ carries - what the reader is being told about is a row on this page either way. 
 not pulse: the card around it already does, and two animations out of step is what a page looks like
 when it is trying too hard.
 
+**Which cards can say which row, and which can only say "here".** It depends on what the notification's
+address names, not on the card:
+
+| Card | Marked | Because the address is |
+| --- | --- | --- |
+| Tasks | the row | `/tasks/{list}` - a daily reminder and an overdue entry both name the list |
+| Groups | the row | `/chat/groups/{group}` - an invitation names the group |
+| Upcoming | the row | `/calendar/{event}` for an appointment, `/tasks/{list}` for a deadline |
+| Recent chats | the row | the unread count the chat list already carries |
+| Inventory | the card only | `/inventory` - something about to go off names no storage |
+| Shared with you | the card only | `/map` - a shared position names nobody |
+| Notes | nothing | no notification points at a note at all today |
+
+An appointment a task list made has **two** addresses: the row opens it as the entry on that list, while
+the reminder for it is the event's. Both are asked (`UpcomingEntry.NewsUrl`), because reading only the
+destination would leave exactly those rows unmarked. Where a card can only say "here", marking a row
+would mean picking one at random, which is worse than saying less.
+
 ### Deciding what the page shows
 
 Not everybody's dashboard is everybody's. The menu in the page's top right lists every part of it - the

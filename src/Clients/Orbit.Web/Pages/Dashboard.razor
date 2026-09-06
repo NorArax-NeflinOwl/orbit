@@ -167,6 +167,7 @@ else
         @if (everythingUpcoming.Count > 0 && CardPreferences.IsVisible("upcoming"))
         {
                         <ItemCard Name="@(T["Upcoming"])" OnNameSelected='() => NavigationManager.NavigateTo("/calendar")'
+                      HasUnseenAction="@UpcomingToShow.Any(HasNewsAboutIt)"
                       ExtraClass="@(DashboardPins.IsPinned("upcoming") ? "item-card-pinned" : null)">
                 <Pin>
                     <PinButton IsPinned='DashboardPins.IsPinned("upcoming")' OnPinnedChanged='pinned => SetCardPinnedAsync("upcoming", pinned)' />
@@ -184,7 +185,11 @@ else
                 }
                 @foreach (var entry in UpcomingToShow.Take(6))
                 {
-                    <Row Title="@entry.Title" OnPressed="() => NavigationManager.NavigateTo(entry.Url)">
+                    @* A reminder about an appointment or a deadline points at the thing itself, so the
+                       row it is about carries the mark - see HasNewsAboutIt for why a row has two
+                       addresses. *@
+                    <Row Title="@entry.Title" OnPressed="() => NavigationManager.NavigateTo(entry.Url)"
+                         AdditionalClass="@RowClasses(null, HasNewsAboutIt(entry))">
                         <Leading><span class="stat-dot" style="background:@entry.Colour"></span></Leading>
                         <Trailing>
                             @RenderPriorityBadge(entry.Priority)
@@ -202,7 +207,10 @@ else
            inventory carries neither - so it has no filter menu, like the locations card below. *@
         @if (_inventories.Count > 0 && CardPreferences.IsVisible("inventories"))
         {
+            @* The card, not a row: something about to go off says "/inventory" and names no storage
+               (InventoryExpiryPushContent), so there is nothing here that could say which shelf. *@
             <ItemCard Name="@(T["Inventory"])" OnNameSelected='() => NavigationManager.NavigateTo("/inventory")'
+                      HasUnseenAction="@NotificationFeed.HasNewsAbout("/inventory")"
                       ExtraClass="@(DashboardPins.IsPinned("inventories") ? "item-card-pinned" : null)">
                 <Pin>
                     <PinButton IsPinned='DashboardPins.IsPinned("inventories")' OnPinnedChanged='pinned => SetCardPinnedAsync("inventories", pinned)' />
@@ -233,6 +241,7 @@ else
         @if (_groups.Count > 0 && CardPreferences.IsVisible("groups"))
         {
                         <ItemCard Name="@(T["Groups"])" OnNameSelected='() => NavigationManager.NavigateTo("/chat/groups")'
+                      HasUnseenAction="@_groups.Any(group => HasNewsAbout(group.Id, "/chat/groups"))"
                       ExtraClass="@(DashboardPins.IsPinned("groups") ? "item-card-pinned" : null)">
                 <Pin>
                     <PinButton IsPinned='DashboardPins.IsPinned("groups")' OnPinnedChanged='pinned => SetCardPinnedAsync("groups", pinned)' />
@@ -243,7 +252,11 @@ else
                 <Body>
                 @foreach (var group in _groups)
                 {
-                    <Row Title="@group.Name" OnPressed="() => GoToGroup(group.Id)">
+                    @* An invitation to a group points at that group (see ChatGroupInvitationPushContent),
+                       so the row it is about can say so rather than leaving the card to say it over all
+                       of them. *@
+                    <Row Title="@group.Name" OnPressed="() => GoToGroup(group.Id)"
+                         AdditionalClass="@RowClasses(null, HasNewsAbout(group.Id, "/chat/groups"))">
                         <Leading><span class="avatar-sm" style="background:@AvatarHelper.AvatarColor(group.Id)">@AvatarHelper.GetInitials(group.Name)</span></Leading>
                         <Trailing>
                             @if (group.OwnRole == AdminRole)
@@ -260,7 +273,10 @@ else
 
         @if (_sharedLocations!.Count > 0 && CardPreferences.IsVisible("locations"))
         {
+            @* The card again, and for the same reason: a shared position points at "/map" and names
+               nobody (SharedItemNotifier.UrlFor), so no row here can be the one it means. *@
             <ItemCard Name="@(T["Shared with you"])" OnNameSelected='() => NavigationManager.NavigateTo("/map")'
+                      HasUnseenAction="@NotificationFeed.HasNewsAbout("/map")"
                       ExtraClass="@(DashboardPins.IsPinned("locations") ? "item-card-pinned" : null)">
                 <Pin>
                     <PinButton IsPinned='DashboardPins.IsPinned("locations")' OnPinnedChanged='pinned => SetCardPinnedAsync("locations", pinned)' />
@@ -402,8 +418,15 @@ else
     /// beside events, and a card headed "Upcoming" that left them out was not what is coming up.
     /// </summary>
     /// <param name="When">Already written for reading; the sort happens on <paramref name="At"/>.</param>
+    /// <param name="Url">Where pressing the row goes.</param>
+    /// <param name="NewsUrl">
+    /// Where a notification about this row would point, which is not always where the row goes. An
+    /// appointment a task list made is opened as that entry - the list is where it is worked from - but
+    /// the reminder for it is the event's, and says so (EventReminderPushContent). Reading only the
+    /// destination would leave exactly those rows unmarked.
+    /// </param>
     private sealed record UpcomingEntry(
-        DateTimeOffset At, string Title, string When, string Colour, string Priority, string Url);
+        DateTimeOffset At, string Title, string When, string Colour, string Priority, string Url, string NewsUrl);
 
     /// <summary>
     /// Everything still ahead, soonest first. A recurring event is taken at its next occurrence rather
@@ -455,7 +478,8 @@ else
             FormatEventMeta(calendarEvent.Details),
             string.IsNullOrWhiteSpace(calendarEvent.Details.Color) ? "var(--accent)" : calendarEvent.Details.Color,
             calendarEvent.Details.Priority,
-            CalendarEventDestination.For(calendarEvent.Id, _taskLists));
+            CalendarEventDestination.For(calendarEvent.Id, _taskLists),
+            $"/calendar/{calendarEvent.Id}");
     }
 
     /// <summary>
@@ -475,6 +499,8 @@ else
                 pair.item.DueDateUtc!.Value.LocalDateTime.ToString("dd.MM.yyyy HH:mm"),
                 "var(--task)",
                 pair.taskList.Priority,
+                $"/tasks/{pair.taskList.Id}",
+                // A deadline's reminder points at the list it is on, which is where the row goes too.
                 $"/tasks/{pair.taskList.Id}"));
 
     /// <summary>
@@ -751,6 +777,14 @@ else
     /// this is what lets the row itself say it.
     /// </summary>
     private bool HasNewsAbout(Guid id, string section) => NotificationFeed.HasNewsAbout($"{section}/{id}");
+
+    /// <summary>
+    /// The same question for a row on Upcoming, which has two addresses - see UpcomingEntry.NewsUrl.
+    /// Both are asked: the destination catches a reminder about the list an entry sits on, and the
+    /// news address catches the one about the appointment itself.
+    /// </summary>
+    private bool HasNewsAboutIt(UpcomingEntry entry)
+        => NotificationFeed.HasNewsAbout(entry.Url) || NotificationFeed.HasNewsAbout(entry.NewsUrl);
 
     /// <summary>
     /// A row's own classes plus the mark for one with news waiting, dropping the blanks - two conditions
