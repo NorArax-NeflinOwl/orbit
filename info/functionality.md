@@ -924,6 +924,10 @@ longer reaches the recipient's page: what is at the top of it is theirs to say. 
 way**, on the same store. Being on the device is the cost: the pin does not follow the reader to another
 browser or to the phone, which is what a per-reader column on the share would have bought.
 
+On the phone the pin on a shared list was offered and did nothing — it called the server, was turned down
+and said neither. It is left out there now, the way a shared note's already was
+(`TaskListRow.CanBePinned`, matching `NoteListItem.CanBePinned`).
+
 ### Finding one entry among every list
 
 Above the chips sit the two questions about what is *on* the lists rather than about the lists

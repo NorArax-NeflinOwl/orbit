@@ -184,7 +184,7 @@
                             </controls:ItemCard.Handle>
 
                             <controls:ItemCard.Pin>
-                                <controls:PinButton IsPinned="{Binding IsPinned}" IsVisible="{Binding HasBadges}"
+                                <controls:PinButton IsPinned="{Binding IsPinned}" IsVisible="{Binding CanBePinned}"
                                                     Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=ViewModel.TogglePinCommand, x:DataType=tasks:TasksPage}"
                                                     CommandParameter="{Binding .}" />
                             </controls:ItemCard.Pin>

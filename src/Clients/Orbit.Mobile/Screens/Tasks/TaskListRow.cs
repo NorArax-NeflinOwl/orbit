@@ -26,7 +26,8 @@ public sealed record TaskListRow(
     Guid LocalId, string Title, int ItemCount, int CompletedCount, bool IsPinned,
     DateTimeOffset UpdatedAtUtc, bool HasUnsentChanges, OfflineEditRefusal Refusal,
     string Progress, string Status, string State, string NextThing, string NextThingOnList,
-    string Priority, bool IsHidden = false, string HiddenTitle = "Private", bool IsCopy = false)
+    string Priority, bool IsHidden = false, string HiddenTitle = "Private", bool IsCopy = false,
+    bool IsSharedWithMe = false)
 {
     /// <inheritdoc cref="NoteListItem.DisplayTitle"/>
     public string DisplayTitle => IsHidden ? HiddenTitle : Title;
@@ -58,7 +59,7 @@ public sealed record TaskListRow(
             next is { OnList: { } onList } ? translations.Written(onList) : string.Empty,
             PriorityChoice.For(taskList.Priority, translations).Name,
             IsHidden: taskList.IsPrivate && !privateItemsAreUnlocked, HiddenTitle: hiddenTitle,
-            IsCopy: taskList.CopyOfLocalId is not null)
+            IsCopy: taskList.CopyOfLocalId is not null, IsSharedWithMe: taskList.IsShared)
         {
             HasPriority = PriorityChoice.For(taskList.Priority, translations).IsWorthSaying
         };
@@ -105,6 +106,13 @@ public sealed record TaskListRow(
 
     /// <summary>What a hidden row offers instead of everything the heading would otherwise carry.</summary>
     public bool HasBadges => !IsHidden;
+
+    /// <summary>
+    /// Whether this row offers a pin at all - the same rule NoteListItem.CanBePinned follows. Only the
+    /// owner may pin, and the server refuses anybody else (SetTaskListPinnedCommandHandler), so a
+    /// recipient was left with a button that called the server, was turned down and said nothing.
+    /// </summary>
+    public bool CanBePinned => !IsHidden && !IsSharedWithMe;
 
     /// <inheritdoc cref="HasBadges"/>
     public bool HasPriorityBadge => HasPriority && !IsHidden;
