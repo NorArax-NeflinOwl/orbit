@@ -1188,9 +1188,13 @@ the same fields the inventory editor uses (`InventoryFields`) on any list: on on
 storage they describe a product to put on that shelf, saved there with the list; on one with no storage
 they are kept on the entry itself (`TaskItemProduct`, stored on `OP_TASKS_ITEMS` with its categories in
 `OP_TASKS_PRODUCT_CATEGORIES`, and carried by `TaskItemDto.Product`) until "Generate inventory" turns
-them into rows. It is filed under as many words as apply, like the shelf item it becomes - and under its
-own words rather than the entry's: an errand filed under "shopping" can be asking for something filed
-under "baking". The description used to be
+them into rows. It is filed under as many words as apply, like the shelf item it becomes - and under the
+**entry's own** words: the product form had a categories box directly under the entry's, with the same
+label and the same placeholder and nothing saying which was which, so the entry's answer is now the
+product's too (`InventoryFields.ShowsCategories`, `TaskEditor.ProductAsked`). The box offers both
+vocabularies for that reason - what entries are filed under and what shelf items are - and an entry saved
+before there was one box opens showing what its product was filed under, so a save cannot write emptiness
+over it (`TaskEditor.CategoriesOf`). The description used to be
 possible only after a storage existed, which meant answering "how many, in what, how long does it keep"
 twice - once on the list and once on the shelf. A request that says nothing about the product leaves what
 is stored alone (`UpdateTaskListCommand.EntriesKeepingTheirProduct`), the same rule the categories follow,
