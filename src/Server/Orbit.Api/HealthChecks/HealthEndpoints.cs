@@ -35,6 +35,20 @@ public static class HealthEndpoints
         app.MapGet("/health/services/{name}", CheckSingleExternalServiceAsync);
     }
 
+    /// <summary>
+    /// What the report says. <b>The full report at /health is published on the web origin</b> - nginx
+    /// proxies it so the footer's Status link can reach it (see nginx-app-locations.conf), which means
+    /// everything written here is readable by anyone, signed in or not.
+    ///
+    /// What that is today: each check's status and duration, which optional integrations are
+    /// unconfigured and the *names* of the keys they are missing (never the values), free disk against
+    /// its threshold, and the background services' heartbeats. All of it answers "is the server
+    /// working", which is the question the link exists for.
+    ///
+    /// The one thing to know before adding to it: <c>external-services</c> puts each configured
+    /// service's URL in its data, and that list is empty. Configuring one starts publishing its address
+    /// - which may be exactly right for a public dependency and exactly wrong for anything else.
+    /// </summary>
     // Internal rather than private so Orbit.Api.Tests can call these handlers directly (see the
     // InternalsVisibleTo entry in Orbit.Api.csproj) without going through a full HTTP round trip.
     internal static async Task WriteHealthReportAsync(HttpContext context, HealthReport report)

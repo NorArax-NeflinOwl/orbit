@@ -189,9 +189,11 @@ App Service the project started with):
 
 1. Logs into Azure via OIDC (`azure/login`) — no client secret is generated, stored, or rotated.
 2. Builds the `orbit-api` and `orbit-web` images directly on the GitHub Actions runner and pushes them
-   to Azure Container Registry, tagged both with the commit SHA and `latest` (ACR Tasks/`az acr build`
-   is blocked on the Azure Free Trial subscription this project runs on, regardless of role
-   assignments).
+   to Azure Container Registry, tagged both with the commit SHA and `latest`. ACR Tasks/`az acr build`
+   were blocked on the free-trial subscription this project started on, regardless of role assignments;
+   the subscription has been pay-as-you-go for a while and they are no longer blocked. The runner build
+   stays because it is the established, verified path, not because anything forbids the alternative -
+   moving it into ACR is a topology change and would be its own task.
 3. Updates the `orbit-api` and `orbit-web` Azure Container Apps to run the image tagged with the
    current commit SHA, so the deployed version is always traceable back to the workflow run that
    produced it.
