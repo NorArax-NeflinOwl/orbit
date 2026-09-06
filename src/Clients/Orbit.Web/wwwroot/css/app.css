@@ -1142,6 +1142,8 @@ input.note-editor-title {
     font-size: 13.5px;
     color: var(--text-secondary);
     margin: 4px 0 0 0;
+    /* A storage's description goes here, and it can hold a web address - see .note-summary-line. */
+    overflow-wrap: anywhere;
 }
 
 .btn-primary {
@@ -1486,6 +1488,23 @@ input.note-editor-title {
    far. Drawn as the text it already was rather than as a button, because the row is a list of facts and
    one of them turning into a control would read as a mistake; the accent and the underline on hover are
    what say it can be pressed. */
+/* A description is the one thing put in a row's trailing slot that is prose rather than a value: it is
+   as long as somebody wanted it to be, and now it can hold a web address, which is long and has no
+   spaces to break at. .row-meta's nowrap is right for "3/7", "sent once", a date - and wrong here,
+   where it pushed a long description off the side of the card. Words wrap normally; an address that is
+   wider than the row breaks wherever it has to rather than going over the edge. */
+.row-meta-prose {
+    white-space: normal;
+    overflow-wrap: anywhere;
+    text-align: left;
+    /* And it has to be allowed to shrink. .row-meta is flex: 0 0 auto - right for a value that should
+       never be squeezed - which keeps the box at its content's width, so the text is never asked to
+       wrap however it is allowed to. Changing white-space alone left a long address running off the
+       card exactly as before. */
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
 .row-meta-opens {
     padding: 0;
     background: transparent;
@@ -5341,6 +5360,9 @@ input.note-editor-title {
     margin: 0;
     padding: 2px 0;
     white-space: pre-wrap;
+    /* pre-wrap keeps the note's own spacing and wraps between words; this is for the run that has no
+       spaces to wrap between - a web address, which is now pressable and was going over the edge. */
+    overflow-wrap: anywhere;
 }
 
 .note-summary-break {

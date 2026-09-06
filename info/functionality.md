@@ -1236,6 +1236,27 @@ fields arrive with the choice: picking Inventory on an open form shows them ther
 something else takes them away again - waiting for a save and a reopen made the feature unreachable
 without knowing it was there.
 
+**A web address written in a description can be pressed.** Wherever a description is *read* - a calendar
+event's, a task entry's, a note's own lines, a storage's - the addresses in it are links
+(`TextWithLinks`, splitting by `LinksInText`). A new tab, with `rel="noopener noreferrer"`: a
+description is read in the middle of doing something, and following a link out of a half-written list
+is the one thing nobody meant to do.
+
+The splitter hands back **text and addresses, never markup**, and the component adds both as content, so
+Blazor escapes them - which is the whole security design, because a description can be written by
+whoever shared the thing it sits on. Only `http://` and `https://` become an `href`, plus a bare `www.`,
+which is written too often to ignore and is followed over https. Every other scheme stays words on
+purpose: `javascript:` and `data:` in an href are what turn a description into a way of running
+something, and a rule listing what is *allowed* cannot be widened by accident the way one listing what
+is forbidden can. Trailing punctuation stays outside the link, and a bracket the address itself opened
+stays inside it.
+
+Not linked, and each for a reason: the boxes these are **typed** into are text areas, where a link would
+be a thing you cannot edit; a note's **checklist** lines are pressable rows whose press is the tick, and
+a link inside one would fight it; and a **task list's own description** has no read view anywhere - it
+can be written in the editor and is displayed on no page, which is a gap of its own rather than
+something for this to solve.
+
 **Every entry can say what it is about, not only what it is called.** An entry's own line is its name -
 "Buy milk", "Dentist" - and there was nowhere to write the rest of it unless the entry was an
 appointment, which had a description on its event. Every kind carries one now (`TaskItem.Notes`, stored

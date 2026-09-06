@@ -547,6 +547,19 @@ beside a task belongs here, not in that task's diff. A defect is the exception a
   follow: a per-recipient flag on the share row (`TaskListShare`, `NoteShare`) with an endpoint and a
   field on the DTO, which is a migration and a phone change rather than a screen one.
 
+- **A task list's own description is written and never shown.** The editor asks for one
+  (`TitledDescription`, on `/tasks/{id}/edit`) and no page displays it: not the checklist, not the card
+  on `/tasks`, not a summary. A storage's description is shown as its summary page's subtitle, so the
+  shape exists - this is the one description with nowhere to be read. Found 2026-09-06 while making the
+  addresses in descriptions pressable, which is why it is written down rather than fixed in passing: it
+  is a decision about where a list says what it is for, not a defect in the linking.
+
+- **The phone shows no links in a description either.** The addresses in a description are pressable on
+  the web (`TextWithLinks`, 2026-09-06); the phone draws the same descriptions as plain labels. The
+  splitter behind it (`LinksInText`) is pure text-in, runs-out and has no web dependency, so the phone
+  would reuse it rather than write a second rule about what counts as an address - but a MAUI label
+  showing part of its text as a link is `FormattedString` and spans, which is its own piece of work.
+
 - **The phone has no box for an entry's description.** Every task entry can carry one now
   (`TaskItem.Notes`, 2026-09-06) and the phone neither shows nor writes it. Nothing is lost - its push
   says nothing about the field and the server therefore keeps what is stored, which
