@@ -1224,6 +1224,12 @@ which does not answer `geo:` (`wwwroot/js/mapApp.js`). A scheme rather than a Go
 reason the phone chose one: this is the screen that must not add a third-party request, and the map app
 is already on the device.
 
+The hand-over is a **link that gets clicked**, never the page being moved. Setting `location.href` to
+`maps://...` opens the app but leaves a navigation that can never finish, and the browser reports that as
+a failed page - "the address is invalid" - the next time somebody looks at it, which is on coming back
+from the map app. A browser tells the two apart by how the navigation started: an activated link is handed
+to the device and the page is left alone. The link is made, clicked and thrown away.
+
 On a phone, pressing the **row itself** opens the map app too, rather than centring Orbit's own map -
 but only when that map cannot answer (`MapAppHandoff`): the tiles are withheld because the reader keeps
 third parties out, or Orbit has never been told where the reader is. Either way the map can show the pin
