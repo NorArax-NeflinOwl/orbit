@@ -179,6 +179,20 @@ else
     [Parameter]
     public Guid? Id { get; set; }
 
+    /// <summary>
+    /// The page that sent the reader here, so finishing returns them to it rather than to /notes -
+    /// the same answer the task list's form gives, and the same rule about what may be followed. See
+    /// ReturnTo.
+    /// </summary>
+    [Parameter, SupplyParameterFromQuery(Name = ReturnTo.QueryName)]
+    public string? ComeBackTo { get; set; }
+
+    /// <summary>
+    /// Where saving, cancelling and deleting all end. /notes when nobody said otherwise, which is
+    /// what every route here did before and is still right for somebody who typed the address.
+    /// </summary>
+    private string WhenFinished => ReturnTo.Or(ComeBackTo, "/notes");
+
     private bool IsNewNote => Id is null;
     private bool _isLoading = true;
     private bool _isSaving;
@@ -359,7 +373,7 @@ else
             _isSaving = false;
         }
 
-        NavigationManager.NavigateTo("/notes");
+        NavigationManager.NavigateTo(WhenFinished);
     }
 
     /// <summary>
@@ -415,7 +429,7 @@ else
             await ReleaseLockAsync(noteId);
         }
 
-        NavigationManager.NavigateTo("/notes");
+        NavigationManager.NavigateTo(WhenFinished);
     }
 
     /// <summary>Starts a new checklist line in the editor - the actual line-splitting/marker logic lives in checklistTextEditor.js.</summary>

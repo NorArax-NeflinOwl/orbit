@@ -207,7 +207,8 @@
 
     private void OpenInventory(Guid inventoryId) => NavigationManager.NavigateTo($"/inventory/{inventoryId}");
 
-    private void EditInventory(Guid inventoryId) => NavigationManager.NavigateTo($"/inventory/{inventoryId}/edit");
+    private void EditInventory(Guid inventoryId)
+        => NavigationManager.NavigateTo(ReturnTo.Link($"/inventory/{inventoryId}/edit", "/inventory"));
 
     /// <summary>
     /// Answers "which inventory is this in". Read here rather than asked of the server, because a
