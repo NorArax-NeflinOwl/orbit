@@ -188,7 +188,7 @@ else
                     @* A reminder about an appointment or a deadline points at the thing itself, so the
                        row it is about carries the mark - see HasNewsAboutIt for why a row has two
                        addresses. *@
-                    <Row Title="@entry.Title" OnPressed="() => NavigationManager.NavigateTo(entry.Url)"
+                    <Row Title="@entry.Title" OnPressed="() => OpenUpcoming(entry)"
                          AdditionalClass="@RowClasses(null, HasNewsAboutIt(entry))">
                         <Leading><span class="stat-dot" style="background:@entry.Colour"></span></Leading>
                         <Trailing>
@@ -847,17 +847,25 @@ else
     /// These two were called GoToEditNote and GoToEditEvent long after they had stopped opening either
     /// editor, which was the only thing left saying a note behaved differently here from a task list.
     /// </summary>
+    /// <summary>
+    /// Opens what a row on Upcoming names - an appointment's entry, or the list a deadline is on -
+    /// saying the dashboard is where to come back to, so an edit begun here ends here rather than in
+    /// whichever section the thing belongs to. See ReturnTo.
+    /// </summary>
+    private void OpenUpcoming(UpcomingEntry entry)
+        => NavigationManager.NavigateTo(ReturnTo.Link(entry.Url, "/"));
+
     private void GoToNote(Guid noteId)
     {
         Logger.LogInformation("User clicked a note on the dashboard ({NoteId})", noteId);
-        NavigationManager.NavigateTo($"/notes/{noteId}");
+        NavigationManager.NavigateTo(ReturnTo.Link($"/notes/{noteId}", "/"));
     }
 
     /// <summary>Opens the checklist, which is what getting on with a list means - see GoToNote above.</summary>
     private void GoToTaskList(Guid taskListId)
     {
         Logger.LogInformation("User clicked a task list on the dashboard ({TaskListId})", taskListId);
-        NavigationManager.NavigateTo($"/tasks/{taskListId}");
+        NavigationManager.NavigateTo(ReturnTo.Link($"/tasks/{taskListId}", "/"));
     }
 
     private void GoToCalendar()
@@ -873,6 +881,6 @@ else
     private void GoToInventory(Guid inventoryId)
     {
         Logger.LogInformation("User clicked an inventory on the dashboard ({InventoryId})", inventoryId);
-        NavigationManager.NavigateTo($"/inventory/{inventoryId}");
+        NavigationManager.NavigateTo(ReturnTo.Link($"/inventory/{inventoryId}", "/"));
     }
 }

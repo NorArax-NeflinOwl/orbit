@@ -178,19 +178,17 @@ version, so they aren't mistaken for oversights:
   [Azure setup](azure-setup.md#6-let-a-release-record-itself-as-the-newest-build) - and skips silently
   without it. `MinimumSupportedVersion` is the one that **blocks** an app and stays empty while this is
   a prototype.
-- **One test was removed because it could not be made to fail on demand.**
-  `NoteDetailScreenTests.Turning_private_off_puts_the_words_back_where_the_server_can_read_them` failed
-  about one full-suite run in ten and was never reproduced on its own - roughly fifty targeted runs,
-  including under load from a second test host, all passed. It needs the whole suite in flight, which
-  points at something about running the three assemblies together rather than at the unsealing it
-  covers.
+- ~~**One test was removed because it could not be made to fail on demand.**~~ Restored 2026-09-06, and
+  the parallelism question turned out to have been answered the day after the removal by somebody
+  fixing it for another reason. `NoteDetailScreenTests.Turning_private_off_puts_the_words_back_where_the_server_can_read_them`
+  was taken out on 2026-08-31 for failing about one full-suite run in ten and never on its own; on
+  2026-09-01, `afd0f7e2` "Give every local-store context a connection of its own" gave each test store a
+  database of its own, and says in its own words that sharing one connection made SQLite refuse EF's
+  user-function registration while a statement was open, so the failure "arrived only under load, on CI,
+  in a test about something else entirely". That is the shape this one had. Nobody came back for it.
 
-  Taken out rather than left red or "fixed" by guessing: a change that cannot be shown to address the
-  failure only hides it, and a test that fails one run in ten teaches everybody to re-run the build
-  instead of reading it. What is no longer asserted is the way *back* from private - that clearing the
-  switch puts the title and lines where the server can read them and drops the sealed payload. Turning
-  privacy on, and the refusal when the device holds no key, are still covered. Worth restoring once the
-  parallelism question is answered.
+  The lesson worth keeping: a test parked for flakiness needs somebody to own going back, or the fix
+  lands a day later and the coverage stays lost. This one was lost for a week.
 - **A timestamp is only as fine as the clock.** `NotificationChangeFeedTests` took its cursor from
   `DateTimeOffset.UtcNow` a moment before recording, and on a fast machine both reads land on the same
   tick - fixed by stamping its records at a fixed point in the past, which is the technique the other
@@ -540,6 +538,48 @@ beside a task belongs here, not in that task's diff. A defect is the exception a
   pull requests, but a direct push to `main` deploys before any workflow can run. Real branch
   protection needs GitHub Pro on a private repository.
 
+## What the Android head's look still owes Orbit.Web
+
+The phone was walked against `app.css` on 2026-09-06 and now shares its type scale, its button roles
+and its shared controls - see [`android-ui-parity.md`](android-ui-parity.md), which is the map of what
+matches and what does not. What that pass left:
+
+- ~~**A card has no overflow menu.**~~ Done: Notes, Tasks and Inventory cards each carry one, with the
+  actions lifted onto the list view models and the same refusals the browser applies - somebody else's
+  note is removed from your own list rather than deleted, a shared list or inventory is not yours to
+  delete, and a private or never-synced inventory is handed to nobody. Two things the browser has that
+  the phone deliberately does not: an "Edit" entry (its press and the card's press open the same screen
+  here) and the second question a group task list asks before deleting what it gathers (the local store
+  deletes one list at a time). See [`android-ui-parity.md`](android-ui-parity.md).
+- ~~**Chat and the calendar's grids have not had the pass.**~~ Done: the month grid's cells are
+  `.calendar-month-grid-day`'s (the lifted surface, a hairline, today tinted, the days either side
+  quiet), a calendar card carries its event's colour along its edge and its own Delete menu, and both
+  conversation screens draw messages as `.chat-bubble` does - the reader's own at the right in the
+  accent, everybody else's at the left, at most 70% of the thread's width. The four platform action
+  sheets in chat and on the calendar are Orbit's own panel now. What the grid deliberately does not
+  copy is the browser's 5.5rem cell full of event chips - see `android-ui-parity.md`.
+- ~~**The map and the account screen have not had the pass.**~~ Done: the map's groups are
+  `.map-panel-section` cards under `.map-panel-heading`s with the map itself in a rounded, hairline
+  frame, and the account screen is `.options-card`s of `.options-row`s - a title, what it does
+  underneath, the control at the far edge - with the tabs underlined in the accent and the delete
+  section in its own red frame. The map stays where the browser hides it below 680px; see
+  `android-ui-parity.md` for why that one rule is not copied.
+- **The chat screens are built but were not walked on a device.** The emulator account has not
+  unlocked Contacts, so the navigation bar draws no way into them and `FeatureLocked` is all those
+  screens show there. The bubbles, the message menus and the row menus want a walk on an account that
+  can chat before they are believed.
+- **A card's footnote says the whole timestamp.** A note card reads "Updated 9/2/2026 7:27 PM" where
+  the browser says "Today", "Yesterday", the weekday within the last week, and only then a date - see
+  `Notes.razor`'s `WhenLastChanged`. `NoteListItem.Updated` is where the phone builds it. Small, but it
+  is the line under every card on the screen.
+- **The `.item-card-unseen` pulse is a colour, not an animation.** The edge takes the danger colour and
+  stays there. The browser breathes it, which is what catches an eye that was elsewhere.
+- **No screen hands `EditorRail` an `Extras` view yet.** The slot and the arrow that folds it away are
+  built and the arrow is left out where nothing fills it, which is what the browser does too - but the
+  browser does fill it: a lock's explanation and the sentence saying why a save was refused are kept in
+  view there whatever the form is scrolled to, and on the phone those are still labels partway up the
+  page. `NoteDetailPage`'s read-only reason and `TaskListDetailPage`'s lock banner are the two to move.
+
 ## Smaller identified follow-ups
 
 - **The phone does not yet describe a product before the shelf exists, and does not ask what to build.**
@@ -564,12 +604,30 @@ beside a task belongs here, not in that task's diff. A defect is the exception a
   follow: a per-recipient flag on the share row (`TaskListShare`, `NoteShare`) with an endpoint and a
   field on the DTO, which is a migration and a phone change rather than a screen one.
 
-- **A task list's own description is written and never shown.** The editor asks for one
-  (`TitledDescription`, on `/tasks/{id}/edit`) and no page displays it: not the checklist, not the card
-  on `/tasks`, not a summary. A storage's description is shown as its summary page's subtitle, so the
-  shape exists - this is the one description with nowhere to be read. Found 2026-09-06 while making the
-  addresses in descriptions pressable, which is why it is written down rather than fixed in passing: it
-  is a decision about where a list says what it is for, not a defect in the linking.
+- ~~**A task list's own description is written and never shown.**~~ Done. It goes under the name on the
+  list's own page (`TaskListChecklist`), which is where a storage's goes, so the two read the same way -
+  and it takes the place of the sentence that used to sit there, which was a signpost about the page
+  rather than anything about that list. A list nobody described still gets the signpost. Addresses in it
+  are pressable like every other description.
+
+- ~~**Only the task pages carry "come back where you came from".**~~ Done: the note, the event and the
+  storage forms read `ReturnTo` too, their summaries pass it on, and the dashboard names itself so an
+  edit begun there ends there. What is still not wired is every caller that could name itself - a
+  notification opening a note, chat opening a shared thing - which each finish on their own section as
+  before. Adding one is a single `ReturnTo.Link` at the call site.
+
+- **No test anywhere asserts that a share notice is sent.** Sharing something is two halves: the server
+  records the share and raises a notification, and the sharer's *browser* posts an encrypted chat message
+  carrying the share's id, which is the only thing a recipient can press "Accept" on (see Chat.razor's
+  `TryParseShare`). Four places send that message - `NoteEditor`, `CalendarEventEditor`,
+  `ShareInventoryPanel` and `TaskEditor` - and **none of them is covered**, which is how the guest
+  invitation on a task entry's event came to send the first half and not the second for as long as it
+  did (fixed 2026-09-06).
+
+  What stops a test: the sealed payload's shape is a `private record` inside `EncryptedChatMessageSender`,
+  so a bUnit test cannot plan the JavaScript result without `InternalsVisibleTo` on `Orbit.Web` - which is
+  a bigger decision than one test and would open the whole assembly. The alternatives worth weighing are
+  making that one type public, or moving the "seal and send" step behind a seam a test can stand in for.
 
 - **The phone shows no links in a description either.** The addresses in a description are pressable on
   the web (`TextWithLinks`, 2026-09-06); the phone draws the same descriptions as plain labels. The

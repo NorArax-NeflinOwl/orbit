@@ -1,4 +1,5 @@
 @page "/notes"
+@implements IDisposable
 @attribute [Authorize]
 @using Orbit.Contracts.Notes
 @using Orbit.Core.Abstractions
@@ -8,6 +9,7 @@
 @inject NavigationManager NavigationManager
 @inject IJSRuntime JSRuntime
 @inject ILogger<Notes> Logger
+@inject NotificationFeedState NotificationFeedState
 @inject Translations T
 
 <PageTitle>@T["Orbit — Notes"]</PageTitle>
@@ -156,6 +158,10 @@
 
     protected override async Task OnInitializedAsync()
     {
+        // MainLayout owns the polling; this only listens. A note somebody has just shared
+        // is one this page has never read, so hearing about it has to mean reading again - see
+        // OnNotificationsChanged.
+        NotificationFeedState.Changed += OnNotificationsChanged;
         Logger.LogInformation("Notes page opened, loading notes");
         // Read before the cards are drawn: a pin that arrived a moment later would move a card somebody
         // was already pointing at.
@@ -197,7 +203,7 @@
     private void GoToEditNote(Guid noteId)
     {
         Logger.LogInformation("User clicked 'Edit' for note {NoteId}", noteId);
-        NavigationManager.NavigateTo($"/notes/{noteId}/edit");
+        NavigationManager.NavigateTo(ReturnTo.Link($"/notes/{noteId}/edit", "/notes"));
     }
 
     /// <summary>
@@ -289,4 +295,31 @@
         _notes = _notes!.Where(existingNote => existingNote.Id != note.Id).ToList();
         Logger.LogInformation("Note {NoteId} deleted", note.Id);
     }
+    /// <summary>
+    /// Something reached the bell, so the notes are read again. Redrawing alone would not do: a note
+    /// somebody has just shared is one this page does not hold, and a share that only appears on the
+    /// next reload is a share that looks like it did not arrive.
+    ///
+    /// A read per notification is affordable because a notification is rare - one arrives when somebody
+    /// does something, not on a timer.
+    /// </summary>
+    private void OnNotificationsChanged()
+        => InvokeAsync(async () =>
+        {
+            try
+            {
+                _notes = await NotesApiClient.GetNotesAsync();
+            }
+            catch (HttpRequestException exception)
+            {
+                // Already drawn, and still correct about everything it knew a moment ago. Nobody asked
+                // for this read, so nothing is said about its failing.
+                Logger.LogWarning(exception, "Couldn't re-read the notes after a notification");
+            }
+
+            StateHasChanged();
+        });
+
+    public void Dispose() => NotificationFeedState.Changed -= OnNotificationsChanged;
+
 }

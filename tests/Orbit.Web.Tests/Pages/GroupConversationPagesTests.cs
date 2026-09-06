@@ -200,7 +200,7 @@ public sealed class GroupConversationPagesTests : OrbitTestContext
         // Showing yourself out is not the same act as removing somebody, so on your own row this is the
         // way out of the group rather than a greyed "Remove".
         Assert.False(ItemSaying(menu, "Leave group").HasAttribute("disabled"));
-        Assert.Empty(menu.QuerySelectorAll(".avatar-dropdown-item").Where(item => item.TextContent.Trim() == "Remove"));
+        Assert.DoesNotContain(menu.QuerySelectorAll(".avatar-dropdown-item"), item => item.TextContent.Trim() == "Remove");
     }
 
     /// <summary>

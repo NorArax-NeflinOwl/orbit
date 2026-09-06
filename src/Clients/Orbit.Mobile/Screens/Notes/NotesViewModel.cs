@@ -132,6 +132,35 @@ public sealed partial class NotesViewModel : ObservableObject
         }
     }
 
+    /// <summary>
+    /// Taking a note off the list, which the card's own menu offers - see NotesPage, and Orbit.Web's
+    /// Notes card, which offers exactly this. A note somebody else owns is not this reader's to
+    /// delete: the same press takes it off their own list and leaves the owner's alone, which is why
+    /// the card names it differently for a shared one.
+    ///
+    /// Asking first is the page's job, not this one's: what a question looks like is a screen's
+    /// business, and there is nothing here to ask with.
+    /// </summary>
+    [RelayCommand]
+    private async Task DeleteAsync(NoteListItem? row, CancellationToken cancellationToken)
+    {
+        if (row is null)
+        {
+            return;
+        }
+
+        var deletion = await _notes.DeleteAsync(row.LocalId, cancellationToken);
+        if (deletion.WasRefused())
+        {
+            Message = deletion.Explain(RefusalMessage, _translations);
+            return;
+        }
+
+        Message = string.Empty;
+        await ShowLocalNotesAsync(cancellationToken);
+        await SynchroniseAsync(cancellationToken);
+    }
+
     /// <summary>The way back to the dashboard, as every other list screen has - see NotesPage.</summary>
 
     [RelayCommand(CanExecute = nameof(CanAddNote))]
@@ -212,4 +241,11 @@ public sealed partial class NotesViewModel : ObservableObject
         _syncState.RecordFailed();
     }
     partial void OnNewNoteTitleChanged(string value) => AddNoteCommand.NotifyCanExecuteChanged();
+
+    /// <summary>
+    /// The dictionary key, not the text itself - see <see cref="Translations"/>. The same sentence the
+    /// note's own screen uses, because it is the same refusal about the same note.
+    /// </summary>
+    private const string RefusalMessage =
+        "Somebody else can change this note, and Orbit can't be reached to check. It stays read-only until you're back online.";
 }

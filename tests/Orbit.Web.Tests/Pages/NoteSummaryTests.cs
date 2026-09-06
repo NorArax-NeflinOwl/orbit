@@ -85,7 +85,7 @@ public sealed class NoteSummaryTests : OrbitTestContext
         cut.Find(".editor-rail .overflow-menu-trigger").Click();
         cut.FindAll(".avatar-dropdown-item").First(entry => entry.TextContent.Trim() == "Edit").Click();
 
-        Assert.EndsWith($"/notes/{NoteId}/edit", navigationManager.Uri);
+        Assert.EndsWith($"/notes/{NoteId}/edit", new Uri(navigationManager.Uri).AbsolutePath);
     }
 
     /// <summary>
@@ -100,7 +100,7 @@ public sealed class NoteSummaryTests : OrbitTestContext
 
         cut.Find(".card").Click();
 
-        Assert.EndsWith($"/notes/{NoteId}/edit", navigationManager.Uri);
+        Assert.EndsWith($"/notes/{NoteId}/edit", new Uri(navigationManager.Uri).AbsolutePath);
     }
 
     /// <summary>

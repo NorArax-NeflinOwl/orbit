@@ -12,7 +12,8 @@ namespace Orbit.Mobile.Screens.Calendar;
 /// </param>
 public sealed record CalendarEventRow(
     Guid LocalId, string Title, DateTimeOffset StartUtc, DateTimeOffset EndUtc, bool IsAllDay,
-    bool HasUnsentChanges, OfflineEditRefusal Refusal, string When, string Status, bool IsCopy = false)
+    bool HasUnsentChanges, OfflineEditRefusal Refusal, string When, string Status, bool IsCopy = false,
+    string? Colour = null)
 {
     public static CalendarEventRow From(
         LocalCalendarEvent calendarEvent, bool hasUnsentChanges, INetworkStatus networkStatus,
@@ -26,7 +27,7 @@ public sealed record CalendarEventRow(
             hasUnsentChanges, refusal,
             Describe(details.StartUtc, details.EndUtc, details.IsAllDay, translations),
             OfflineEditExplanation.For(calendarEvent, refusal, hasUnsentChanges, translations),
-            IsCopy: calendarEvent.CopyOfLocalId is not null);
+            IsCopy: calendarEvent.CopyOfLocalId is not null, Colour: details.Color);
     }
 
     public bool HasStatus => Status.Length > 0;

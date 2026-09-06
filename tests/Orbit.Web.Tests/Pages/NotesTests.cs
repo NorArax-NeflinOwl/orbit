@@ -153,7 +153,7 @@ public sealed class NotesTests : OrbitTestContext
         OpenTheCardMenu(cut);
         FindButton(cut, "Edit").Click();
 
-        Assert.EndsWith($"/notes/{note.Id}/edit", navigationManager.Uri);
+        Assert.EndsWith($"/notes/{note.Id}/edit", new Uri(navigationManager.Uri).AbsolutePath);
     }
 
     /// <summary>

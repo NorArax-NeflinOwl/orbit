@@ -289,7 +289,10 @@ public sealed class TasksTests : OrbitTestContext
         OpenTheCardMenu(cut);
         cut.FindAll(".item-card-menu button").First(button => button.TextContent.Trim() == "Edit").Click();
 
-        Assert.EndsWith($"/tasks/{taskList.Id}/edit", navigationManager.Uri);
+        // And the form knows to end back on this page rather than on /tasks by default - see ReturnTo.
+        Assert.EndsWith(
+            $"/tasks/{taskList.Id}/edit?{ReturnTo.QueryName}={Uri.EscapeDataString("/tasks")}",
+            navigationManager.Uri);
     }
 
     /// <summary>
@@ -767,6 +770,33 @@ public sealed class TasksTests : OrbitTestContext
             .QuerySelector(".pin-button")!
             .Click();
 
+    /// <summary>
+    /// A list somebody has just shared has to appear without a reload. The bell already heard about it -
+    /// the share records a notification - but the page only redrew what it was already holding, and a
+    /// list it had never read is not in that. So a share looked like it had not arrived until somebody
+    /// happened to reload the page, which is what was reported.
+    /// </summary>
+    [Fact]
+    public void A_list_shared_while_the_page_is_open_appears_without_a_reload()
+    {
+        RegisterTasksApiClient([TaskList("Mine", "Normal", "New", DateTimeOffset.UtcNow)]);
+        var feed = Services.GetRequiredService<NotificationFeedState>();
+        var cut = RenderComponent<Web.Pages.Tasks>();
+        Assert.Equal(["Mine"], CardTitles(cut));
+
+        // Somebody shares a list: it is on the server now, and the bell hears about it.
+        _servedTaskLists = [.. _servedTaskLists, ASharedList("Theirs")];
+        cut.InvokeAsync(() => feed.Set([SomethingUnread()]));
+
+        Assert.Contains("Theirs", CardTitles(cut));
+    }
+
+    /// <summary>One unread entry, of the shape the share notification has - see SharedItemNotifier.</summary>
+    private static NotificationEntryDto SomethingUnread()
+        => new(
+            Guid.NewGuid(), Kind: "SharedItem", Title: "Anna shared a task list with you",
+            Body: "Weekend trip", Url: $"/chat/{Guid.NewGuid()}", DateTimeOffset.UtcNow, IsRead: false);
+
     /// <summary>The card titles in the order they render, each still carrying its badges' text after the title itself.</summary>
     private static string[] CardTitles(IRenderedFragment cut)
         => cut.FindAll(".item-card-name").Select(title => title.TextContent.Trim()).ToArray();
@@ -929,15 +959,23 @@ public sealed class TasksTests : OrbitTestContext
     /// <summary>Every request the page made through the tasks client, in order.</summary>
     private readonly List<HttpRequestMessage> _requests = [];
 
+    /// <summary>
+    /// What the server answers with *now* - read on each request rather than captured, so a test can
+    /// change what is there between one read and the next. That is the whole subject of the shared-list
+    /// test below: the page has to read again, not redraw what it already had.
+    /// </summary>
+    private IReadOnlyList<TaskDto> _servedTaskLists = [];
+
     private void RegisterTasksApiClient(
         IReadOnlyList<TaskDto> taskLists, IReadOnlyList<CalendarEventDto>? events = null)
     {
+        _servedTaskLists = taskLists;
         var handler = new StubHttpMessageHandler(request =>
         {
             // Kept so a test can say what the page did *not* send - see the shared pin, which is the
             // reader's own answer and never leaves the device.
             _requests.Add(request);
-            return new HttpResponseMessage(HttpStatusCode.OK) { Content = JsonContent.Create(taskLists) };
+            return new HttpResponseMessage(HttpStatusCode.OK) { Content = JsonContent.Create(_servedTaskLists) };
         });
         Services.AddSingleton(new TasksApiClient(new HttpClient(handler) { BaseAddress = new Uri("https://example.test/") }));
 

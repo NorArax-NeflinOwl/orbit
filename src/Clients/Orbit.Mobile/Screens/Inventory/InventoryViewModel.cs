@@ -1,8 +1,11 @@
 using System.Collections.ObjectModel;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using Orbit.Core.Abstractions;
+using Orbit.Mobile.Chat;
 using Orbit.Mobile.Data;
 using Orbit.Mobile.Localization;
+using Orbit.Mobile.Screens.Sharing;
 using Orbit.Mobile.Security;
 using Orbit.Mobile.Sync;
 
@@ -39,9 +42,14 @@ public sealed partial class InventoryViewModel : ObservableObject
     /// </summary>
     private int _unsearchableInventoryCount;
 
+    /// <summary>Why the last press could not do what it said - empty while nothing needs saying.</summary>
+    [ObservableProperty]
+    private string _message = string.Empty;
+
     public InventoryViewModel(
         LocalInventoryRepository inventories, InventorySynchronizer synchronizer, INetworkStatus networkStatus,
-        PrivateItemGate privateItems, SyncState syncState, IScreenNavigator navigator, Translations translations)
+        PrivateItemGate privateItems, SyncState syncState, IScreenNavigator navigator, Translations translations,
+        SharePanel share)
     {
         _inventories = inventories;
         _synchronizer = synchronizer;
@@ -50,7 +58,20 @@ public sealed partial class InventoryViewModel : ObservableObject
         _syncState = syncState;
         _navigator = navigator;
         _translations = translations;
+        Share = share;
     }
+
+    /// <summary>
+    /// Offering one of these to somebody else, from its own card - see SharePanel, and Orbit.Web's
+    /// Inventory card, which opens its share panel in the same place. One panel for the screen rather
+    /// than one per card: only one is ever open, and it is told which inventory it is about when it is.
+    /// </summary>
+    public SharePanel Share { get; }
+
+    /// <inheritdoc cref="Notes.NotesViewModel.HasMessage"/>
+    public bool HasMessage => Message.Length > 0;
+
+    partial void OnMessageChanged(string value) => OnPropertyChanged(nameof(HasMessage));
 
     public ObservableCollection<InventoryRow> Inventories { get; } = [];
 
@@ -166,6 +187,63 @@ public sealed partial class InventoryViewModel : ObservableObject
             _navigator.ShowInventory(row.LocalId);
         }
     }
+
+    /// <summary>
+    /// Getting rid of an inventory from its own card, which is what Orbit.Web's Inventory card offers.
+    /// Only for one this reader owns; a shared one is somebody else's.
+    ///
+    /// Asking first is the page's job, not this one's: what a question looks like is a screen's
+    /// business, and there is nothing here to ask with.
+    /// </summary>
+    [RelayCommand]
+    private async Task DeleteAsync(InventoryRow? row, CancellationToken cancellationToken)
+    {
+        if (row is not { IsSharedWithMe: false })
+        {
+            return;
+        }
+
+        var outcome = await _inventories.DeleteAsync(row.LocalId, cancellationToken);
+        if (outcome.WasRefused())
+        {
+            Message = outcome.Explain(RefusalMessage, _translations);
+            return;
+        }
+
+        Message = string.Empty;
+        await ShowStoredInventoriesAsync(cancellationToken);
+        await SynchroniseAsync(cancellationToken);
+    }
+
+    /// <summary>
+    /// Opens the share panel on the inventory the card names. A private one is offered to nobody - the
+    /// server holds no readable copy to hand over, which is what makes it private - and one the server
+    /// has not seen yet cannot be offered either, since there is no id to share.
+    /// </summary>
+    [RelayCommand]
+    private void OfferToShare(InventoryRow? row)
+    {
+        if (row is not { CanBeShared: true }
+            || _stored.FirstOrDefault(inventory => inventory.LocalId == row.LocalId) is not
+                { ServerId: { } serverId } stored)
+        {
+            return;
+        }
+
+        Share.Describes(
+            SharedItemKind.Inventory, serverId, stored.Name,
+            stored.AccessLevel == "CanEdit" ? null : stored.OwnerUserId);
+        Share.IsOpen = true;
+        Message = string.Empty;
+    }
+
+    /// <summary>
+    /// The dictionary key, not the text itself - see <see cref="Translations"/>. The same sentence the
+    /// inventory's own screen uses, because it is the same refusal about the same inventory.
+    /// </summary>
+    private const string RefusalMessage =
+        "Somebody else can change this inventory, and Orbit can't be reached to check. "
+        + "It stays read-only until you're back online.";
 
     /// <inheritdoc cref="Notes.NotesViewModel.UnlockPrivateAsync"/>
     [RelayCommand]

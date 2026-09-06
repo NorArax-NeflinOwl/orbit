@@ -1,6 +1,7 @@
 using System.Windows.Input;
 using Orbit.Mobile.Data;
 using Orbit.Mobile.Localization;
+using Orbit.Mobile.Screens;
 using Orbit.Mobile.Screens.Chat;
 
 namespace Orbit.Maui.Features.Chat;
@@ -16,7 +17,7 @@ public partial class ContactsPage : ContentPage
 		// the command once, as the tree is built, and one assigned afterwards is read as null.
 		_viewModel = viewModel;
 		_translations = translations;
-		ShowContactMenuCommand = new Command<LocalContact>(contact => _ = ShowContactMenuAsync(contact));
+		ShowContactMenuCommand = new Command<LocalContact>(ShowContactMenu);
 
 		InitializeComponent();
 		BindingContext = viewModel;
@@ -34,57 +35,55 @@ public partial class ContactsPage : ContentPage
 	/// </summary>
 	public ICommand ShowContactMenuCommand { get; }
 
+	/// <summary>The panel it draws - one per screen, above everything else on it.</summary>
+	public ScreenMenu Menu { get; } = new();
+
 	protected override void OnAppearing()
 	{
 		base.OnAppearing();
 		_viewModel.LoadCommand.Execute(null);
 	}
 
-	private async Task ShowContactMenuAsync(LocalContact? contact)
+	private void ShowContactMenu(LocalContact? contact)
 	{
 		if (contact is null)
 		{
 			return;
 		}
 
-		var info = _translations["Info"];
-		var pin = contact.IsPinned ? _translations["Unpin"] : _translations["Pin"];
-		var putAway = contact.IsArchived ? _translations["Put back"] : _translations["Archive"];
-		// Offered only where somebody has already decided they are done with the conversation, which is
-		// the one place Orbit.Web offers it too.
-		var clear = _translations["Delete chat history"];
+		List<ScreenMenuEntry> entries =
+		[
+			new(_translations["Info"], () => _viewModel.OpenContactInfoCommand.Execute(contact.UserId))
+		];
+
 		// Not offered on something put away: pinning keeps a conversation at the top of the day, which
 		// is the opposite of what archiving said - see ContactsViewModel.InReadingOrder.
-		string[] choices = contact.IsArchived ? [info, putAway, clear] : [info, pin, putAway];
-
-		var chosen = await DisplayActionSheet(
-			contact.DisplayName, _translations["Cancel"], destruction: null, choices);
-
-		if (chosen == pin)
+		if (!contact.IsArchived)
 		{
-			_viewModel.TogglePinCommand.Execute(contact);
-			return;
+			entries.Add(new ScreenMenuEntry(
+				contact.IsPinned ? _translations["Unpin"] : _translations["Pin"],
+				() => _viewModel.TogglePinCommand.Execute(contact)));
 		}
 
-		if (chosen == info)
+		entries.Add(new ScreenMenuEntry(
+			contact.IsArchived ? _translations["Put back"] : _translations["Archive"],
+			() => _viewModel.SetArchivedCommand.Execute(contact)));
+
+		// Offered only where somebody has already decided they are done with the conversation, which is
+		// the one place Orbit.Web offers it too.
+		if (contact.IsArchived)
 		{
-			_viewModel.OpenContactInfoCommand.Execute(contact.UserId);
-			return;
+			entries.Add(new ScreenMenuEntry(
+				_translations["Delete chat history"], () => _ = ClearHistoryAsync(contact)));
 		}
 
-		if (chosen == putAway)
-		{
-			_viewModel.SetArchivedCommand.Execute(contact);
-			return;
-		}
+		Menu.Show(entries, contact.DisplayName, opensUpwards: true);
+	}
 
-		if (chosen != clear)
-		{
-			return;
-		}
-
-		// Asked before it happens: nothing on this phone or the server brings those words back.
-		var confirmed = await DisplayAlert(
+	/// <summary>Asked before it happens: nothing on this phone or the server brings those words back.</summary>
+	private async Task ClearHistoryAsync(LocalContact contact)
+	{
+		var confirmed = await DisplayAlertAsync(
 			_translations["Delete chat history"],
 			_translations["Everything in this conversation goes, on your side only. This cannot be undone."],
 			_translations["Delete"], _translations["Cancel"]);

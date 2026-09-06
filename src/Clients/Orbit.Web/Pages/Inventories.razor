@@ -1,4 +1,5 @@
 @page "/inventory"
+@implements IDisposable
 @attribute [Authorize]
 @using System.Globalization
 @using System.Text.Json
@@ -13,6 +14,7 @@
 @inject NavigationManager NavigationManager
 @inject IJSRuntime JSRuntime
 @inject ILogger<Inventories> Logger
+@inject NotificationFeedState NotificationFeedState
 @inject Translations T
 @inject InventoryArrangement Arrangement
 
@@ -160,6 +162,10 @@
 
     protected override async Task OnInitializedAsync()
     {
+        // MainLayout owns the polling; this only listens. A storage somebody has just shared
+        // is one this page has never read, so hearing about it has to mean reading again - see
+        // OnNotificationsChanged.
+        NotificationFeedState.Changed += OnNotificationsChanged;
         await Arrangement.InitializeAsync();
         var currentUserId = await AuthenticationStateProvider.TryGetCurrentUserIdAsync();
         if (currentUserId is null)
@@ -207,7 +213,8 @@
 
     private void OpenInventory(Guid inventoryId) => NavigationManager.NavigateTo($"/inventory/{inventoryId}");
 
-    private void EditInventory(Guid inventoryId) => NavigationManager.NavigateTo($"/inventory/{inventoryId}/edit");
+    private void EditInventory(Guid inventoryId)
+        => NavigationManager.NavigateTo(ReturnTo.Link($"/inventory/{inventoryId}/edit", "/inventory"));
 
     /// <summary>
     /// Answers "which inventory is this in". Read here rather than asked of the server, because a
@@ -372,4 +379,31 @@
 
         _inventories = _inventories!.Where(existing => existing.Id != inventory.Id).ToList();
     }
+    /// <summary>
+    /// Something reached the bell, so the storages are read again. Redrawing alone would not do: a storage
+    /// somebody has just shared is one this page does not hold, and a share that only appears on the
+    /// next reload is a share that looks like it did not arrive.
+    ///
+    /// A read per notification is affordable because a notification is rare - one arrives when somebody
+    /// does something, not on a timer.
+    /// </summary>
+    private void OnNotificationsChanged()
+        => InvokeAsync(async () =>
+        {
+            try
+            {
+                _inventories = await InventoryApiClient.GetInventoriesAsync();
+            }
+            catch (HttpRequestException exception)
+            {
+                // Already drawn, and still correct about everything it knew a moment ago. Nobody asked
+                // for this read, so nothing is said about its failing.
+                Logger.LogWarning(exception, "Couldn't re-read the storages after a notification");
+            }
+
+            StateHasChanged();
+        });
+
+    public void Dispose() => NotificationFeedState.Changed -= OnNotificationsChanged;
+
 }

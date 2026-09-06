@@ -1,4 +1,5 @@
 @page "/calendar"
+@implements IDisposable
 @attribute [Authorize]
 @using System.Globalization
 @using Orbit.Contracts.Calendar
@@ -16,6 +17,7 @@
 @inject GoogleIntegrationAccess GoogleIntegrationAccess
 @inject IJSRuntime JSRuntime
 @inject ILogger<Calendar> Logger
+@inject NotificationFeedState NotificationFeedState
 @inject Translations T
 
 <PageTitle>@T["Orbit — Calendar"]</PageTitle>
@@ -327,6 +329,10 @@
     protected override async Task OnInitializedAsync()
     {
         Logger.LogInformation("Calendar page opened, loading events");
+        // MainLayout owns the polling; this only listens. An appointment somebody has just shared is
+        // one this page has never read, so hearing about it has to mean reading again - see
+        // OnNotificationsChanged.
+        NotificationFeedState.Changed += OnNotificationsChanged;
         // Before the first render, so the panels come back open rather than opening a moment later, and
         // the list is in the order it was left in rather than jumping into it.
         await Panels.InitializeAsync();
@@ -425,7 +431,7 @@
     private void GoToEditEvent(Guid eventId)
     {
         Logger.LogInformation("User clicked 'Edit' for calendar event {EventId}", eventId);
-        NavigationManager.NavigateTo($"/calendar/{eventId}/edit");
+        NavigationManager.NavigateTo(ReturnTo.Link($"/calendar/{eventId}/edit", "/calendar"));
     }
 
     /// <summary>
@@ -505,7 +511,16 @@
     /// </summary>
     private void OpenTheEvent(Guid calendarEventId)
     {
+        // "Come back here" only where the press leads out of the calendar. An appointment a task list
+        // made opens as its entry, and the edit that follows used to end on /tasks (see ReturnTo); an
+        // event of its own opens the calendar's own form, which ends here anyway - saying so again
+        // would be an address carrying a parameter nothing reads.
         var destination = CalendarEventDestination.For(calendarEventId, _taskLists);
+        if (CalendarEventDestination.RaisedBy(calendarEventId, _taskLists) is not null)
+        {
+            destination = ReturnTo.Link(destination, "/calendar");
+        }
+
         Logger.LogInformation(
             "User opened calendar event {EventId} from the calendar, going to {Destination}", calendarEventId, destination);
         NavigationManager.NavigateTo(destination);
@@ -517,7 +532,10 @@
         {
             Logger.LogInformation(
                 "User opened the summary of task item {TaskItemId} from the calendar", dueTask.TaskItemId);
-            NavigationManager.NavigateTo($"/tasks/{dueTask.TaskListId}/items/{dueTask.TaskItemId}");
+            // Saying where this came from, so finishing the edit comes back to the calendar rather
+            // than ending on /tasks - see ReturnTo.
+            NavigationManager.NavigateTo(ReturnTo.Link(
+                $"/tasks/{dueTask.TaskListId}/items/{dueTask.TaskItemId}", "/calendar"));
             return;
         }
 
@@ -534,7 +552,7 @@
         Logger.LogInformation(
             "User clicked a due-task entry on the calendar for task list {TaskListId}, opening {OpenedTaskListId}",
             taskListId, opened);
-        NavigationManager.NavigateTo($"/tasks/{opened}");
+        NavigationManager.NavigateTo(ReturnTo.Link($"/tasks/{opened}", "/calendar"));
     }
 
     /// <summary>
@@ -614,7 +632,8 @@
     private async Task DeleteEventAsync(CalendarEventDto calendarEvent)
     {
         Logger.LogInformation("User clicked 'Delete' for calendar event {EventId}", calendarEvent.Id);
-        var confirmed = await JSRuntime.InvokeAsync<bool>("confirm", $"Delete event \"{calendarEvent.Details.Title}\"?");
+        var confirmed = await JSRuntime.InvokeAsync<bool>(
+            "confirm", T.Format("Delete event \"{0}\"?", calendarEvent.Details.Title));
         if (!confirmed)
         {
             return;
@@ -868,4 +887,33 @@
             _ => ReferenceDate
         };
     }
+    /// <summary>
+    /// Something reached the bell, so what this page draws is read again - the events and the deadlines
+    /// both, since either can be the thing that was shared. Redrawing alone would not do: an appointment
+    /// somebody has just shared is one this page does not hold, and a share that only appears on the
+    /// next reload is a share that looks like it did not arrive.
+    ///
+    /// A read per notification is affordable because a notification is rare - one arrives when somebody
+    /// does something, not on a timer.
+    /// </summary>
+    private void OnNotificationsChanged()
+        => InvokeAsync(async () =>
+        {
+            try
+            {
+                _events = await CalendarApiClient.GetCalendarEventsAsync();
+                _dueTasks = await LoadDueTasksAsync();
+            }
+            catch (HttpRequestException exception)
+            {
+                // Already drawn, and still correct about everything it knew a moment ago. Nobody asked
+                // for this read, so nothing is said about its failing.
+                Logger.LogWarning(exception, "Couldn't re-read the calendar after a notification");
+            }
+
+            StateHasChanged();
+        });
+
+    public void Dispose() => NotificationFeedState.Changed -= OnNotificationsChanged;
+
 }

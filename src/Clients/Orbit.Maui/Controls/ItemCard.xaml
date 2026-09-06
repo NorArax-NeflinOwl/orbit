@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="UTF-8" ?>
+﻿<?xml version="1.0" encoding="UTF-8" ?>
 <ContentView
     x:Class="Orbit.Maui.Controls.ItemCard"
     xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
@@ -16,14 +16,22 @@
 
          Everything except the name is optional and is left out rather than drawn empty. The same
          anatomy Orbit.Web settled on - see its Components/ItemCard.razor. -->
-    <Border StrokeThickness="1" Padding="14,12" Margin="0,4"
+    <Border x:Name="Frame" StrokeThickness="1" Padding="0" Margin="0,5"
             Stroke="{AppThemeBinding Light={StaticResource CardStrokeLight}, Dark={StaticResource CardStrokeDark}}"
             BackgroundColor="{AppThemeBinding Light={StaticResource SurfaceLight}, Dark={StaticResource SurfaceDark}}">
         <Border.StrokeShape>
             <RoundRectangle CornerRadius="12" />
         </Border.StrokeShape>
 
-        <VerticalStackLayout Spacing="6">
+        <!-- The strip down the left is a colour this card is *about* - an event's own. Painted along
+             the edge rather than shown as a dot beside the name: a dot is one more thing in a row
+             already holding badges, and the point of the colour is to be findable without reading,
+             which an edge does and a dot does not. Its own column rather than a border, because a
+             Border paints all four sides or none. -->
+        <Grid ColumnDefinitions="Auto,*">
+        <BoxView x:Name="AccentEdge" Grid.Column="0" WidthRequest="4" IsVisible="False" />
+
+        <VerticalStackLayout Grid.Column="1" Padding="14,12" Spacing="8">
 
             <!-- No column spacing: the two marks before the name are optional, and a column that is
                  empty must cost nothing at all - spacing kept for a pin nobody can see pushed every
@@ -37,19 +45,19 @@
                     <!-- Something happened here that the reader has not seen. Before the name because
                          that is where the eye already is reading down a list, and it is about this card
                          rather than about the page. -->
-                    <Ellipse x:Name="ActionMark" WidthRequest="8" HeightRequest="8" IsVisible="False"
+                    <Ellipse x:Name="ActionMark" WidthRequest="9" HeightRequest="9" IsVisible="False"
                              VerticalOptions="Center" Margin="0,0,2,0"
                              Fill="{AppThemeBinding Light={StaticResource DangerLight}, Dark={StaticResource DangerDark}}" />
                 </HorizontalStackLayout>
 
                 <Grid Grid.Column="1">
-                    <Label x:Name="NameLabel" FontSize="17" FontAttributes="Bold"
+                    <Label x:Name="NameLabel" Style="{StaticResource ItemCardName}" MaxLines="2"
                            VerticalOptions="Center" LineBreakMode="TailTruncation" />
 
                     <!-- The name on its own opens what the card is a way into, where the card holds
                          entries with targets of their own and pressing the whole block would take the
                          press away from them - the dashboard's columns. See NameCommand. -->
-                    <Button x:Name="NameButton" BackgroundColor="Transparent" IsVisible="False" />
+                    <Button x:Name="NameButton" BackgroundColor="Transparent" BorderWidth="0" IsVisible="False" />
                 </Grid>
 
                 <HorizontalStackLayout Grid.Column="2" Spacing="0" VerticalOptions="Center">
@@ -63,14 +71,18 @@
                  took its spacing - see Fill, which turns a slot back on with what goes in it. -->
             <ContentView x:Name="TagsHost" IsVisible="False" />
             <ContentView x:Name="BodyHost" IsVisible="False" />
-            <ContentView x:Name="ExtrasHost" IsVisible="False" />
+            <VerticalStackLayout x:Name="Footer" IsVisible="False" Spacing="8">
+                <BoxView Style="{StaticResource Hairline}" />
+                <ContentView x:Name="ExtrasHost" />
+            </VerticalStackLayout>
 
             <!-- The whole card opens what it names, rather than only the words: on a card this size the
                  block is the target, and asking somebody to hit a word is the difference between one tap
                  and three. Over everything, so the pin and the menu keep their own presses - they are
                  declared after it in the visual tree and take the press first. -->
-            <Button x:Name="OpenButton" BackgroundColor="Transparent" IsVisible="False" />
+            <Button x:Name="OpenButton" BackgroundColor="Transparent" BorderWidth="0" IsVisible="False" />
         </VerticalStackLayout>
+        </Grid>
     </Border>
 
 </ContentView>

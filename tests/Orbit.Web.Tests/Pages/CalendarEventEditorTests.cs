@@ -15,6 +15,7 @@ using Orbit.Contracts.Notifications;
 using Orbit.Contracts.Tasks;
 using Orbit.Contracts.Users;
 using Orbit.Web.Pages;
+using Microsoft.AspNetCore.Components;
 using Orbit.Web.Services;
 using Orbit.Web.Tests.TestDoubles;
 using Orbit.Web.Tests;
@@ -319,6 +320,24 @@ public sealed class CalendarEventEditorTests : OrbitTestContext
     }
 
     /// <summary>Save is an icon at the head of the page now - see EditorActions.razor.</summary>
+    /// <summary>
+    /// Where the form ends when something else opened it - the dashboard's Upcoming row, say. It used
+    /// to land on /calendar whatever route reached it. See ReturnTo.
+    /// </summary>
+    [Fact]
+    public void Saving_returns_to_the_page_that_sent_the_reader_here()
+    {
+        _taskListsJson = OneTaskListCalled(Guid.NewGuid(), "Errands");
+        RegisterChatApiClient([]);
+        var navigationManager = Services.GetRequiredService<NavigationManager>();
+        navigationManager.NavigateTo(navigationManager.GetUriWithQueryParameter(ReturnTo.QueryName, "/"));
+        var cut = RenderComponent<CalendarEventEditor>();
+
+        ClickSave(cut);
+
+        Assert.Equal("/", new Uri(navigationManager.Uri).PathAndQuery);
+    }
+
     private static void ClickSave(IRenderedFragment cut)
         => cut.FindAll("button")
             .First(button => string.Equals(button.GetAttribute("aria-label"), "Save", StringComparison.Ordinal))

@@ -1262,8 +1262,31 @@ fields arrive with the choice: picking Inventory on an open form shows them ther
 something else takes them away again - waiting for a save and a reopen made the feature unreachable
 without knowing it was there.
 
-**A web address written in a description can be pressed.** Wherever a description is *read* - a calendar
-event's, a task entry's, a note's own lines, a storage's - the addresses in it are links
+**Finishing an edit returns the reader where they came from.** Saving, cancelling or deleting used to
+land on the section the thing belongs to - `/tasks`, `/notes`, `/calendar`, `/inventory` - whatever route
+reached the form, so an appointment opened from the calendar ended its edit two sections from where it
+started. The page that sends somebody in now says where it is, as a `returnTo` on the address
+(`ReturnTo`), and it is carried the whole way: the calendar and the dashboard name themselves, and the
+pages between - a task entry's own page, a checklist, a note's or a storage's summary - pass on what they
+were given rather than replacing it with themselves, because they are stops on the way. **All four forms
+read it**: task list, note, calendar event and storage. A form reached without one - somebody typing the
+address - still ends on its own section, which is what every route did before.
+
+**Only a path on this site is ever followed.** The value comes off the address bar, so it is whatever
+anybody put there: an absolute URL, a protocol-relative `//host`, or anything holding a backslash (which
+a browser may read as the slash that makes one) is refused and the fallback answers instead. Without that
+rule a link to Orbit could carry somebody to another site with Orbit's own **Save** as the thing that
+took them, which is the ordinary shape of an open redirect.
+
+**A list says what it is for, under its name.** The editor has always asked a task list for a description
+and no page showed it - the one field in Orbit that could be written and never read. It is the checklist's
+subtitle now, where a storage's description already sat, and it takes the place of the sentence that used
+to be there ("Tick items off; use Edit to change the list itself.", or the count of a group's linked
+lists): those are a signpost about the page and a pointer at sections drawn directly below it, and
+somebody's own words about their list beat both. A list nobody described still gets the signpost.
+
+**A web address written in a description can be pressed.** Wherever a description is *read* - a task
+list's, a calendar event's, a task entry's, a note's own lines, a storage's - the addresses in it are links
 (`TextWithLinks`, splitting by `LinksInText`). A new tab, with `rel="noopener noreferrer"`: a
 description is read in the middle of doing something, and following a link out of a half-written list
 is the one thing nobody meant to do.
@@ -2292,6 +2315,26 @@ up with work nobody has to think about again. Pinning is the way to say "keep th
 anyway", and a pinned list that is finished is drawn struck through (`.list-row.completed`), the same way
 a ticked checklist line is: the two are the same fact about two different things and should not read
 differently.
+
+**An invitation is two halves, and both have to be sent.** Sharing something records the share on the
+server and raises a notification; what the recipient presses **Accept** on is a separate encrypted chat
+message carrying the share's id, posted by the sharer's own browser because the server has no key to seal
+one with (`EncryptedChatMessageSender`, read back by `Chat.razor`'s `TryParseShare`). That is also why the
+notification leads to the conversation rather than to the thing: the thing is not the recipient's to open
+until it has been accepted, and Accept lives on the message.
+
+Inviting a guest to a **calendar entry on a task list** sent only the first half until 2026-09-06, so the
+invitation arrived, said somebody had shared an event, and led to a conversation with nothing in it and
+no way to accept. The calendar's own editor had always sent both.
+
+**A thing somebody shares arrives without a reload.** The share records a notification, the live
+connection carries it, and every section page - `/tasks`, `/notes`, `/calendar`, `/inventory` - now
+*reads again* when the bell changes rather than only redrawing. Redrawing was not enough on its own: a
+list somebody has just shared is one the page has never read, so the page redrew what it already held
+and the share looked as though it had not arrived until somebody happened to reload. A read per
+notification is affordable because a notification is rare - one arrives when somebody does something,
+not on a timer - and a failed read says nothing, since nobody asked for it and the page is still correct
+about everything it knew a moment ago.
 
 **The bell says something happened; the dashboard says where.** A card whose things have unread
 notifications carries the red edge and the dot every card with news carries (`.item-card-unseen`), and

@@ -106,6 +106,14 @@ else
     [Parameter] public Guid InventoryId { get; set; }
 
     /// <summary>
+    /// The page that sent the reader here, passed on to the form rather than replaced with this one:
+    /// this page is a stop on the way, and somebody who arrived from elsewhere means elsewhere when they
+    /// say "back". See ReturnTo.
+    /// </summary>
+    [Parameter, SupplyParameterFromQuery(Name = ReturnTo.QueryName)]
+    public string? ComeBackTo { get; set; }
+
+    /// <summary>
     /// Which row was pointed at, when this page was opened from somewhere that meant one - a task
     /// entry's errand names the product it is about. Mirrors InventoryEditor's parameter of the same
     /// name, so a link written for one still lands on the other.
@@ -261,6 +269,7 @@ else
     private void GoToEditor()
     {
         Logger.LogInformation("User opened the editor for inventory {InventoryId}", InventoryId);
-        NavigationManager.NavigateTo($"/inventory/{InventoryId}/edit");
+        NavigationManager.NavigateTo(
+            ReturnTo.Link($"/inventory/{InventoryId}/edit", ReturnTo.Or(ComeBackTo, "/inventory")));
     }
 }

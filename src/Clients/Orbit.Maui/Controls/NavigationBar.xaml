@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="UTF-8" ?>
+﻿<?xml version="1.0" encoding="UTF-8" ?>
 <ContentView
     x:Class="Orbit.Maui.Controls.NavigationBar"
     xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
@@ -43,10 +43,10 @@
             </VerticalStackLayout>
 
             <!-- The banner is the button, as a notification row is: tapping it opens what it names. -->
-            <Button Grid.Column="0" BackgroundColor="Transparent" Command="{Binding OpenBannerCommand}"
+            <Button Grid.Column="0" BackgroundColor="Transparent" BorderWidth="0" Command="{Binding OpenBannerCommand}"
                     SemanticProperties.Description="{Binding BannerTitle}" />
 
-            <Button Grid.Column="1" Text="✕" FontSize="13" Padding="8,0" BackgroundColor="Transparent"
+            <Button Grid.Column="1" Text="✕" FontSize="13" Padding="8,0" BackgroundColor="Transparent" BorderWidth="0"
                     TextColor="{AppThemeBinding Light={StaticResource SubtleTextLight}, Dark={StaticResource SubtleTextDark}}"
                     Command="{Binding DismissBannerCommand}"
                     SemanticProperties.Description="{controls:Translate 'Dismiss'}" />
@@ -59,7 +59,7 @@
         <!-- The logo is the way back to the dashboard, exactly as it is on the web at this width. -->
         <Grid Grid.Column="0" WidthRequest="44" HeightRequest="44" VerticalOptions="Center">
             <controls:OrbitMark MarkSize="26" HorizontalOptions="Center" VerticalOptions="Center" InputTransparent="True" />
-            <Button Command="{Binding GoToDashboardCommand}" BackgroundColor="Transparent"
+            <Button Command="{Binding GoToDashboardCommand}" BackgroundColor="Transparent" BorderWidth="0"
                     SemanticProperties.Description="{controls:Translate 'Dashboard'}" />
         </Grid>
 
@@ -68,34 +68,34 @@
             <HorizontalStackLayout Spacing="2">
                 <Grid Style="{StaticResource NavigationBarIcon}">
                     <Path Data="{StaticResource NotesIcon}" Style="{StaticResource NavigationBarIconPath}" InputTransparent="True" />
-                    <Button Command="{Binding GoToNotesCommand}" BackgroundColor="Transparent"
+                    <Button Command="{Binding GoToNotesCommand}" BackgroundColor="Transparent" BorderWidth="0"
                             SemanticProperties.Description="{controls:Translate 'Notes'}" />
                 </Grid>
                 <Grid Style="{StaticResource NavigationBarIcon}">
                     <Path Data="{StaticResource TasksIcon}" Style="{StaticResource NavigationBarIconPath}" InputTransparent="True" />
-                    <Button Command="{Binding GoToTasksCommand}" BackgroundColor="Transparent"
+                    <Button Command="{Binding GoToTasksCommand}" BackgroundColor="Transparent" BorderWidth="0"
                             SemanticProperties.Description="{controls:Translate 'Tasks'}" />
                 </Grid>
                 <Grid Style="{StaticResource NavigationBarIcon}">
                     <Path Data="{StaticResource CalendarIcon}" Style="{StaticResource NavigationBarIconPath}" InputTransparent="True" />
-                    <Button Command="{Binding GoToCalendarCommand}" BackgroundColor="Transparent"
+                    <Button Command="{Binding GoToCalendarCommand}" BackgroundColor="Transparent" BorderWidth="0"
                             SemanticProperties.Description="{controls:Translate 'Calendar'}" />
                 </Grid>
                 <Grid Style="{StaticResource NavigationBarIcon}">
                     <Path Data="{StaticResource InventoryIcon}" Style="{StaticResource NavigationBarIconPath}" InputTransparent="True" />
-                    <Button Command="{Binding GoToInventoryCommand}" BackgroundColor="Transparent"
+                    <Button Command="{Binding GoToInventoryCommand}" BackgroundColor="Transparent" BorderWidth="0"
                             SemanticProperties.Description="{controls:Translate 'Inventory'}" />
                 </Grid>
                 <!-- Hidden rather than shown-and-refused, as the web's sidebar does it: a link that
                      only ever leads to "not unlocked" is not a link. -->
                 <Grid Style="{StaticResource NavigationBarIcon}" IsVisible="{Binding CanUseLocation}">
                     <Path Data="{StaticResource MapIcon}" Style="{StaticResource NavigationBarIconPath}" InputTransparent="True" />
-                    <Button Command="{Binding GoToMapCommand}" BackgroundColor="Transparent"
+                    <Button Command="{Binding GoToMapCommand}" BackgroundColor="Transparent" BorderWidth="0"
                             SemanticProperties.Description="{controls:Translate 'Map'}" />
                 </Grid>
                 <Grid Style="{StaticResource NavigationBarIcon}" IsVisible="{Binding CanUseConversations}">
                     <Path Data="{StaticResource ContactsIcon}" Style="{StaticResource NavigationBarIconPath}" InputTransparent="True" />
-                    <Button Command="{Binding GoToContactsCommand}" BackgroundColor="Transparent"
+                    <Button Command="{Binding GoToContactsCommand}" BackgroundColor="Transparent" BorderWidth="0"
                             SemanticProperties.Description="{controls:Translate 'Contacts'}" />
                 </Grid>
             </HorizontalStackLayout>
@@ -119,7 +119,7 @@
                        FontSize="10" FontAttributes="Bold" HorizontalOptions="Center" VerticalOptions="Center" />
             </Border>
 
-            <Button Command="{Binding GoToNotificationsCommand}" BackgroundColor="Transparent"
+            <Button Command="{Binding GoToNotificationsCommand}" BackgroundColor="Transparent" BorderWidth="0"
                     SemanticProperties.Description="{controls:Translate 'Notifications'}" />
         </Grid>
 
@@ -147,7 +147,7 @@
             <!-- Over the initials, the badge and the presence dot rather than around them: a Grid with a
                  gesture on it is focusable to a screen reader but not clickable, so the double tap that
                  activates a control does nothing to it. A Button is both. -->
-            <Button Command="{Binding ToggleMenuCommand}" BackgroundColor="Transparent"
+            <Button Command="{Binding ToggleMenuCommand}" BackgroundColor="Transparent" BorderWidth="0"
                     SemanticProperties.Description="{controls:Translate 'Account menu'}" />
         </Grid>
     </Grid>

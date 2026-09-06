@@ -42,6 +42,10 @@ public sealed partial class CalendarViewModel : ObservableObject
     [ObservableProperty]
     private bool _isRefreshing;
 
+    /// <summary>Why the last press could not do what it said - empty while nothing needs saying.</summary>
+    [ObservableProperty]
+    private string _message = string.Empty;
+
     public CalendarViewModel(
         LocalCalendarEventRepository events, CalendarEventSynchronizer synchronizer, INetworkStatus networkStatus,
         TimeProvider timeProvider, SyncState syncState, IScreenNavigator navigator, Translations translations,
@@ -333,6 +337,79 @@ public sealed partial class CalendarViewModel : ObservableObject
     }
 
     private bool CanAddEvent => NewEventTitle.Trim().Length > 0;
+
+    /// <summary>
+    /// Taking something off the calendar from its own card, which is what Orbit.Web's calendar cards
+    /// offer. Two different writes behind one press, because the list holds two kinds of thing: an
+    /// appointment is deleted, and a deadline is the entry it stands for being taken off the list it
+    /// sits on - the row itself is not a thing the calendar owns.
+    ///
+    /// Asking first is the page's job, not this one's: what a question looks like is a screen's
+    /// business, and there is nothing here to ask with.
+    /// </summary>
+    [RelayCommand]
+    private async Task DeleteListedAsync(CalendarListEntry? entry, CancellationToken cancellationToken)
+    {
+        var outcome = entry switch
+        {
+            { Event: { } calendarEvent } => await _events.DeleteAsync(calendarEvent.LocalId, cancellationToken),
+            { Deadline: { } deadline } => await TakeTheEntryOffItsListAsync(deadline, cancellationToken),
+            _ => (LocalWriteOutcome?)null
+        };
+
+        if (outcome is null)
+        {
+            return;
+        }
+
+        if (outcome.Value.WasRefused())
+        {
+            Message = outcome.Value.Explain(RefusalMessage, _translations);
+            return;
+        }
+
+        Message = string.Empty;
+        await ShowStoredEventsAsync(cancellationToken);
+        await SynchroniseAsync(cancellationToken);
+    }
+
+    /// <summary>
+    /// A deadline has no row of its own to delete: it is one entry on a task list, and the list is
+    /// what gets written back without it. Saved as the whole list because that is what the store's
+    /// update takes - see LocalTaskListRepository.
+    /// </summary>
+    private async Task<LocalWriteOutcome> TakeTheEntryOffItsListAsync(
+        CalendarDeadline deadline, CancellationToken cancellationToken)
+    {
+        if (await _taskLists.FindAsync(deadline.TaskListLocalId, cancellationToken) is not { } taskList)
+        {
+            return LocalWriteOutcome.NotFound;
+        }
+
+        return await _taskLists.UpdateAsync(
+            taskList.LocalId,
+            new TaskListContent(
+                taskList.Title,
+                [.. taskList.Items.Where(item => item.Id != deadline.ItemId)],
+                taskList.IsGroup,
+                taskList.Priority,
+                taskList.IsPrivate,
+                taskList.Description),
+            cancellationToken);
+    }
+
+    /// <summary>
+    /// The dictionary key, not the text itself - see <see cref="Translations"/>. Worded for an
+    /// appointment because that is what this list is mostly made of, and a deadline refused offline is
+    /// refused for the same reason.
+    /// </summary>
+    private const string RefusalMessage =
+        "Somebody else can change this event, and Orbit can't be reached to check. It stays read-only until you're back online.";
+
+    /// <inheritdoc cref="Notes.NotesViewModel.HasMessage"/>
+    public bool HasMessage => Message.Length > 0;
+
+    partial void OnMessageChanged(string value) => OnPropertyChanged(nameof(HasMessage));
 
     /// <summary>Opens one event, as the notes list opens one note.</summary>
     [RelayCommand]

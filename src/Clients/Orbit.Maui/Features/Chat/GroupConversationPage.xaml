@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="UTF-8" ?>
+﻿<?xml version="1.0" encoding="UTF-8" ?>
 <ContentPage
     x:Class="Orbit.Maui.Features.Chat.GroupConversationPage"
     xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
@@ -8,39 +8,42 @@
     xmlns:chat="clr-namespace:Orbit.Maui.Features.Chat"
     xmlns:screens="clr-namespace:Orbit.Mobile.Screens.Chat;assembly=Orbit.Mobile"
     x:DataType="screens:GroupConversationViewModel"
+    x:Name="Page"
     Title="{Binding Title}">
 
     <ContentPage.Resources>
         <controls:GroupDeliveryConverter x:Key="GroupDelivery" />
+        <controls:WidthFractionConverter x:Key="WidthFraction" />
     </ContentPage.Resources>
 
     <Grid RowDefinitions="Auto,*,Auto">
 
 
-    <Grid Grid.Row="1" RowDefinitions="Auto,Auto,Auto,*,Auto,Auto" Padding="20" RowSpacing="10">
+    <Grid Grid.Row="1" RowDefinitions="Auto,Auto,Auto,*,Auto,Auto" Padding="16,16,16,28" RowSpacing="10">
 
-        <Label Grid.Row="0" Text="{Binding Title}" FontSize="22" FontAttributes="Bold" />
+        <Label Grid.Row="0" Text="{Binding Title}" FontFamily="OrbitDisplay" FontSize="15"
+               FontAttributes="Bold" LineBreakMode="TailTruncation" />
         <!-- The member list is also the way into managing it. Drawn as a link rather than as the caption
              it replaced: Orbit.Web offers a button labelled "Members", and a tappable line of names in
              subtitle grey looks like neither. The names stay because they are worth seeing at a glance;
              what it does is said to a screen reader, which otherwise heard only the names. -->
         <Button Grid.Row="1" Text="{Binding Members}" Command="{Binding OpenMembersCommand}"
                 SemanticProperties.Description="{controls:Translate 'Members'}"
-                FontSize="12" Style="{StaticResource LinkButton}" BackgroundColor="Transparent"
+                FontSize="12" Style="{StaticResource LinkButton}" BackgroundColor="Transparent" BorderWidth="0"
                 Padding="0" HorizontalOptions="Start" LineBreakMode="TailTruncation" />
         <Label Grid.Row="2" Text="{Binding Status}" IsVisible="{Binding HasStatus}"
                FontSize="12" TextColor="{AppThemeBinding Light={StaticResource SubtleTextLight}, Dark={StaticResource SubtleTextDark}}" LineBreakMode="WordWrap" />
 
         <RefreshView Grid.Row="3" IsRefreshing="{Binding IsRefreshing}" Command="{Binding LoadCommand}">
-            <CollectionView ItemsSource="{Binding Messages}" ItemsUpdatingScrollMode="KeepLastItemInView">
+            <CollectionView x:Name="Thread" ItemsSource="{Binding Messages}" ItemsUpdatingScrollMode="KeepLastItemInView">
 
                 <CollectionView.EmptyView>
-                    <Label Text="{controls:Translate 'No messages yet.'}" Padding="24" HorizontalTextAlignment="Center" />
+                    <Label Text="{controls:Translate 'No messages yet.'}" Padding="0,12" Style="{StaticResource EmptyHint}" />
                 </CollectionView.EmptyView>
 
                 <CollectionView.ItemTemplate>
                     <DataTemplate x:DataType="mobile:ReadableChatMessage">
-                        <VerticalStackLayout Padding="0,8" Spacing="2">
+                        <VerticalStackLayout Spacing="2">
 
                             <!-- A line nobody wrote: somebody joined, and whether the past came with
                                  them. Centred and quiet so it reads as the thread saying something
@@ -49,44 +52,88 @@
                                    FontSize="12" LineBreakMode="WordWrap" HorizontalTextAlignment="Center"
                                    Margin="0,4" Style="{StaticResource SubtleLabel}" />
 
-                            <VerticalStackLayout Spacing="2" IsVisible="{Binding IsNotAnnouncement}">
-                            <!-- Who wrote it, which a one-to-one conversation gets from the title. -->
-                            <Label Text="{Binding SenderName}" IsVisible="{Binding HasSenderName}"
-                                   FontSize="12" FontAttributes="Bold" TextColor="{DynamicResource Accent}" />
-                            <!-- What this message is answering - see ConversationPage's own quote. -->
-                            <Border IsVisible="{Binding IsReply}" Padding="8,4" Margin="0,0,0,2"
-                                    StrokeThickness="0"
-                                    BackgroundColor="{DynamicResource AccentSubtle}">
-                                <Label Text="{Binding QuotedPreview}" FontSize="12" LineBreakMode="TailTruncation"
-                                       MaxLines="2" Style="{StaticResource SubtleLabel}" />
-                            </Border>
-                            <Label Text="{Binding Text}" LineBreakMode="WordWrap" />
-                            <Label IsVisible="{Binding CannotBeOpened}"
-                                   FontSize="12" TextColor="{AppThemeBinding Light={StaticResource SubtleTextLight}, Dark={StaticResource SubtleTextDark}}">
-                                <Label.Text>
-                                    <controls:Translate Text="This message can't be opened on this device." />
-                                </Label.Text>
-                            </Label>
-                            <Label Text="{Binding SentAt}"
-                                   FontSize="11" TextColor="{AppThemeBinding Light={StaticResource SubtleTextLight}, Dark={StaticResource SubtleTextDark}}" />
-                            <Label Text="{controls:Translate 'Waiting to send'}" IsVisible="{Binding IsWaitingToSend}"
-                                   FontSize="11" TextColor="{DynamicResource Accent}" />
-                            <!-- How far this got. Read means every other member has seen it - one still
-                                 behind and it is only delivered, which is the honest reading. -->
-                            <Label IsVisible="{Binding HasGroupDelivery}" FontSize="11"
-                                   Text="{Binding IsReadByTheWholeGroup, Converter={StaticResource GroupDelivery}}"
-                                   TextColor="{AppThemeBinding Light={StaticResource SubtleTextLight}, Dark={StaticResource SubtleTextDark}}" />
-                            <!-- One trigger rather than a row of buttons, as the web's group chat now
-                                 does it and as a one-to-one conversation here already did. Only on the
-                                 reader's own messages, and only once the server has one - see
-                                 ReadableChatMessage.CanBeChanged. -->
-                            <!-- On anybody's message, not only the reader's own: "who has read this"
-                                 is worth asking about a message somebody else wrote too. -->
-                            <Button Text="⋯" SemanticProperties.Description="{controls:Translate 'More'}" FontSize="18" Padding="10,0" BackgroundColor="Transparent"
-                                    HorizontalOptions="Start" IsVisible="{Binding IsInAGroup}"
-                                    TextColor="{DynamicResource Accent}"
-                                    Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=ShowMessageMenuCommand, x:DataType=chat:GroupConversationPage}"
-                                    CommandParameter="{Binding .}" />
+                            <!-- One message, as a bubble on the side of the thread it belongs to - see
+                                 ConversationPage, which draws the same one for the same reasons. -->
+                            <VerticalStackLayout Spacing="3" Margin="0,0,0,10" HorizontalOptions="Start"
+                                                 IsVisible="{Binding IsNotAnnouncement}"
+                                                 MaximumWidthRequest="{Binding Width, Source={x:Reference Thread}, Converter={StaticResource WidthFraction}, ConverterParameter=0.7, x:DataType=CollectionView}">
+                                <VerticalStackLayout.Triggers>
+                                    <DataTrigger TargetType="VerticalStackLayout" Binding="{Binding IsMine}" Value="True">
+                                        <Setter Property="HorizontalOptions" Value="End" />
+                                    </DataTrigger>
+                                </VerticalStackLayout.Triggers>
+
+                                <!-- Who wrote it, which a one-to-one conversation gets from the title.
+                                     Above the bubble rather than in it, as .chat-bubble-sender is. -->
+                                <Label Text="{Binding SenderName}" IsVisible="{Binding HasSenderName}"
+                                       FontSize="12" FontAttributes="Bold" TextColor="{DynamicResource Accent}" />
+
+                                <!-- What this message is answering - see ConversationPage's own quote. -->
+                                <Border IsVisible="{Binding IsReply}" Padding="8,4" StrokeThickness="0"
+                                        BackgroundColor="{DynamicResource AccentSubtle}">
+                                    <Border.StrokeShape>
+                                        <RoundRectangle CornerRadius="8" />
+                                    </Border.StrokeShape>
+                                    <Label Text="{Binding QuotedPreview}" FontSize="12" LineBreakMode="TailTruncation"
+                                           MaxLines="2" Style="{StaticResource SubtleLabel}" />
+                                </Border>
+
+                                <Border Padding="13,9" StrokeThickness="0" HorizontalOptions="Start"
+                                        BackgroundColor="{AppThemeBinding Light={StaticResource SurfaceSubtleLight}, Dark={StaticResource SurfaceSubtleDark}}">
+                                    <Border.StrokeShape>
+                                        <RoundRectangle CornerRadius="14,14,4,14" />
+                                    </Border.StrokeShape>
+                                    <Border.Triggers>
+                                        <DataTrigger TargetType="Border" Binding="{Binding IsMine}" Value="True">
+                                            <Setter Property="HorizontalOptions" Value="End" />
+                                            <Setter Property="BackgroundColor" Value="{DynamicResource Accent}" />
+                                            <Setter Property="StrokeShape">
+                                                <RoundRectangle CornerRadius="14,14,14,4" />
+                                            </Setter>
+                                        </DataTrigger>
+                                    </Border.Triggers>
+
+                                    <VerticalStackLayout Spacing="4">
+                                        <Label Text="{Binding Text}" FontSize="13.5" LineBreakMode="WordWrap">
+                                            <Label.Triggers>
+                                                <DataTrigger TargetType="Label" Binding="{Binding IsMine}" Value="True">
+                                                    <Setter Property="TextColor" Value="{DynamicResource AccentOn}" />
+                                                </DataTrigger>
+                                            </Label.Triggers>
+                                        </Label>
+
+                                        <Label IsVisible="{Binding CannotBeOpened}" FontSize="12"
+                                               Style="{StaticResource SubtleLabel}">
+                                            <Label.Text>
+                                                <controls:Translate Text="This message can't be opened on this device." />
+                                            </Label.Text>
+                                        </Label>
+                                    </VerticalStackLayout>
+                                </Border>
+
+                                <HorizontalStackLayout Spacing="8">
+                                    <HorizontalStackLayout.Triggers>
+                                        <DataTrigger TargetType="HorizontalStackLayout" Binding="{Binding IsMine}" Value="True">
+                                            <Setter Property="HorizontalOptions" Value="End" />
+                                        </DataTrigger>
+                                    </HorizontalStackLayout.Triggers>
+
+                                    <Label Text="{Binding SentAt}" FontSize="10.5" VerticalOptions="Center"
+                                           TextColor="{AppThemeBinding Light={StaticResource TertiaryTextLight}, Dark={StaticResource TertiaryTextDark}}" />
+                                    <Label Text="{controls:Translate 'Waiting to send'}" IsVisible="{Binding IsWaitingToSend}"
+                                           FontSize="10.5" VerticalOptions="Center" TextColor="{DynamicResource Accent}" />
+                                    <!-- How far this got. Read means every other member has seen it - one
+                                         still behind and it is only delivered, which is the honest reading. -->
+                                    <Label IsVisible="{Binding HasGroupDelivery}" FontSize="10.5" VerticalOptions="Center"
+                                           Text="{Binding IsReadByTheWholeGroup, Converter={StaticResource GroupDelivery}}"
+                                           TextColor="{AppThemeBinding Light={StaticResource TertiaryTextLight}, Dark={StaticResource TertiaryTextDark}}" />
+
+                                    <!-- On anybody's message, not only the reader's own: "who has read
+                                         this" is worth asking about a message somebody else wrote too. -->
+                                    <controls:OverflowMenu IsVisible="{Binding IsInAGroup}"
+                                                           Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=ShowMessageMenuCommand, x:DataType=chat:GroupConversationPage}"
+                                                           CommandParameter="{Binding .}" />
+                                </HorizontalStackLayout>
                             </VerticalStackLayout>
                         </VerticalStackLayout>
                     </DataTemplate>
@@ -108,8 +155,10 @@
 
             <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="8">
                 <Entry Grid.Column="0" Placeholder="{controls:Translate 'Message'}" Text="{Binding Draft}"
+                       BackgroundColor="{AppThemeBinding Light={StaticResource SurfaceSubtleLight}, Dark={StaticResource SurfaceSubtleDark}}"
                        ReturnType="Send" ReturnCommand="{Binding SendCommand}" />
-                <Button Grid.Column="1" Text="{controls:Translate 'Send'}" Command="{Binding SendCommand}" />
+                <Button Grid.Column="1" Text="{controls:Translate 'Send'}" Style="{StaticResource PrimaryButton}"
+                        Command="{Binding SendCommand}" />
                 <Button Grid.Column="2" Text="{controls:Translate 'Cancel'}" IsVisible="{Binding IsEditing}"
                         Command="{Binding CancelEditingCommand}"
                         Style="{StaticResource LinkButton}" />
@@ -121,6 +170,8 @@
 
     </Grid>
         <controls:NavigationBar Grid.Row="0" />
+        <controls:MenuOverlay Grid.Row="0" Grid.RowSpan="3"
+                              BindingContext="{Binding Menu, Source={x:Reference Page}, x:DataType=chat:GroupConversationPage}" />
         <controls:AvatarMenu Grid.Row="0" Grid.RowSpan="3" />
     </Grid>
 

@@ -12,7 +12,7 @@
         <controls:NavigationBar Grid.Row="0" />
 
         <ScrollView Grid.Row="1">
-            <VerticalStackLayout Padding="20" Spacing="14">
+            <VerticalStackLayout Padding="16,16,16,28" Spacing="14">
 
                 <ActivityIndicator IsRunning="{Binding IsLoading}" IsVisible="{Binding IsLoading}"
                                    HorizontalOptions="Center" />
