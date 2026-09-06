@@ -576,6 +576,14 @@ beside a task belongs here, not in that task's diff. A defect is the exception a
   notification opening a note, chat opening a shared thing - which each finish on their own section as
   before. Adding one is a single `ReturnTo.Link` at the call site.
 
+- **Nothing is written into the conversation when something is shared.** A share records a notification
+  whose address is the conversation with the sharer (`SharedItemNotifier.UrlFor`), so pressing it opens a
+  chat that says nothing about what happened. The obvious fix is not available to the server: a
+  conversation is end-to-end encrypted, so the server cannot compose a message it has no key to seal.
+  The sharer's *browser* could send one, since it holds the key - but that is Orbit writing a message in
+  somebody's name, which is a product decision rather than a defect. Reported 2026-09-06 alongside the
+  share not appearing without a reload, which was a defect and is fixed.
+
 - **The phone shows no links in a description either.** The addresses in a description are pressable on
   the web (`TextWithLinks`, 2026-09-06); the phone draws the same descriptions as plain labels. The
   splitter behind it (`LinksInText`) is pure text-in, runs-out and has no web dependency, so the phone
