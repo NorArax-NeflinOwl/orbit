@@ -151,6 +151,28 @@ What used to be on this list and no longer is: push notifications end to end
 listener, `VapidPushNotificationSenderTests` against a stub transport), and `wwwroot/js/e2eeChat.js` —
 see below. `Contacts` is covered by `ContactsGateTests` and `ContactInfoTests`.
 
+### What one API instance cannot prove: run these by hand
+
+Three things only make sense with a second replica, and all three fail *silently* when broken - live
+updates crossing instances, a changed privacy choice clearing everywhere, and one rate limit budget
+rather than one per process. What they rest on is PostgreSQL's own behaviour: `LISTEN`/`NOTIFY`
+delivering to a listener on a different connection, and `INSERT ... ON CONFLICT DO UPDATE` counting
+atomically under one row lock. A test double that accepted both would prove none of it.
+
+So those tests live in the suite but **do nothing unless `ORBIT_TEST_POSTGRES` names a database**, and
+report as passed while skipping. That keeps `dotnet test` a suite that needs no services - which is what
+lets it be the check a change gets before `Coding` - at the price that **a green suite is not evidence
+about any of this**. This is:
+
+```bash
+docker compose -p orbit up -d postgres
+ORBIT_TEST_POSTGRES="Host=localhost;Port=5432;Database=orbit;Username=orbit;Password=<POSTGRES_PASSWORD>" \
+  dotnet test tests/Orbit.Api.Tests --filter "FullyQualifiedName~PostgresLiveUpdateBackplane|FullyQualifiedName~PostgresRateLimitWindows"
+```
+
+Run it when touching `Orbit.Api.Instances`, `Orbit.Api.RateLimiting`, or the live update fan-out. The
+database needs the migrations applied first (see [Database migrations](#database-migrations)).
+
 ### The browser-side encryption, in a real browser
 
 `ci/verify-browser-crypto.mjs` runs `Orbit.Web/wwwroot/js/e2eeChat.js` itself in headless Chromium. It

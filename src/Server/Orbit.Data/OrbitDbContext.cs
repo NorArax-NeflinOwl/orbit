@@ -42,6 +42,7 @@ public sealed class OrbitDbContext : DbContext
     public DbSet<PublicShareLinkEntity> PublicShareLinks => Set<PublicShareLinkEntity>();
     public DbSet<UserPermissionEntity> UserPermissions => Set<UserPermissionEntity>();
     public DbSet<PermissionCodeEntity> PermissionCodes => Set<PermissionCodeEntity>();
+    public DbSet<RateLimitWindowEntity> RateLimitWindows => Set<RateLimitWindowEntity>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -57,6 +58,18 @@ public sealed class OrbitDbContext : DbContext
             entity.HasKey(code => code.Permission);
             entity.Property(code => code.Permission).HasMaxLength(32);
             entity.Property(code => code.Code).IsRequired().HasMaxLength(32);
+        });
+
+        modelBuilder.Entity<RateLimitWindowEntity>(entity =>
+        {
+            // The pair is the identity, and it is what makes taking a permit a single statement: an
+            // INSERT that conflicts on this key becomes the increment, so two replicas racing for the
+            // same window cannot both read 4 and both write 5.
+            entity.HasKey(window => new { window.Partition, window.WindowStart });
+
+            // Long enough for the longest partition the policies build - a policy name and a Guid, or a
+            // policy name and an IPv6 address - and bounded so the key stays indexable.
+            entity.Property(window => window.Partition).IsRequired().HasMaxLength(128);
         });
 
         modelBuilder.Entity<UserPermissionEntity>(entity =>

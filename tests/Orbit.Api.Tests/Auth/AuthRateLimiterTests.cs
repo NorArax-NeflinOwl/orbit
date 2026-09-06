@@ -8,6 +8,8 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.IdentityModel.JsonWebTokens;
 using Orbit.Api;
+using Orbit.Api.RateLimiting;
+using Orbit.Api.Tests.TestDoubles;
 using Xunit;
 
 namespace Orbit.Api.Tests.Auth;
@@ -77,11 +79,65 @@ public sealed class AuthRateLimiterTests
     }
 
     /// <summary>
-    /// A host carrying nothing but the real policies and two endpoints to spend them on. The "user"
+    /// The reason this whole mechanism exists. Two hosts are two API instances, and a budget of five a
+    /// minute has to mean five between them - not five each. With an in-memory window per process it
+    /// meant five each, so the number in RateLimiterPolicies was really that number times however many
+    /// replicas happened to be running.
+    /// </summary>
+    [Fact]
+    public async Task Two_instances_share_one_budget_rather_than_getting_one_each()
+    {
+        var shared = new InMemoryRateLimitWindows();
+        using var first = await StartHostAsync(shared);
+        using var second = await StartHostAsync(shared);
+
+        // Spent alternately, so neither instance's own window is what refuses: each sees only three
+        // attempts of its own, which is well inside the five it would have allowed on its own.
+        var clients = new[] { first.GetTestClient(), second.GetTestClient() };
+        for (var attempt = 0; attempt < AuthRequestsPerWindow; attempt++)
+        {
+            Assert.Equal(
+                HttpStatusCode.OK,
+                (await clients[attempt % 2].GetAsync("/probe?user=shared")).StatusCode);
+        }
+
+        Assert.Equal(
+            HttpStatusCode.TooManyRequests,
+            (await clients[0].GetAsync("/probe?user=shared")).StatusCode);
+        Assert.Equal(
+            HttpStatusCode.TooManyRequests,
+            (await clients[1].GetAsync("/probe?user=shared")).StatusCode);
+    }
+
+    /// <summary>
+    /// A database that cannot be reached must not lock everybody out. The shared window is the second of
+    /// two gates and the first one is the limiter this replica has always had, so losing the shared
+    /// count falls back to the old behaviour rather than below it - or, just as importantly, rather than
+    /// answering 429 to every sign-in because of a database hiccup.
+    /// </summary>
+    [Fact]
+    public async Task An_unreachable_shared_window_falls_back_to_this_instance_rather_than_refusing()
+    {
+        var unreachable = new InMemoryRateLimitWindows { PretendTheDatabaseIsUnreachable = true };
+        using var host = await StartHostAsync(unreachable);
+        var client = host.GetTestClient();
+
+        for (var attempt = 1; attempt <= AuthRequestsPerWindow; attempt++)
+        {
+            Assert.Equal(HttpStatusCode.OK, (await client.GetAsync("/probe")).StatusCode);
+        }
+
+        // Still refused at this instance's own budget - the fallback is the old limiter, not no limiter.
+        Assert.Equal(HttpStatusCode.TooManyRequests, (await client.GetAsync("/probe")).StatusCode);
+    }
+
+    /// <summary>
+    /// A host carrying nothing but the real policies and two endpoints to spend them on. Each gets a
+    /// window store of its own unless one is handed in, which is what lets a test stage two instances. The "user"
     /// query parameter stands in for a bearer token: the policy partitions on the "sub" claim, and
     /// putting one there directly keeps the test about the limiter rather than about token validation.
     /// </summary>
-    private static async Task<IHost> StartHostAsync()
+    private static async Task<IHost> StartHostAsync(IRateLimitWindows? sharedWindows = null)
     {
         var host = await new HostBuilder()
             .ConfigureWebHost(webHost => webHost
@@ -89,6 +145,10 @@ public sealed class AuthRateLimiterTests
                 .ConfigureServices(services =>
                 {
                     services.AddRouting();
+
+                    // Singleton, as in Program.cs - the policies capture it when a partition is first
+                    // opened and keep it, so a scoped one would be used out of a disposed scope.
+                    services.AddSingleton(sharedWindows ?? new InMemoryRateLimitWindows());
                     services.AddRateLimiter(options => options.AddOrbitPolicies());
                 })
                 .Configure(app =>

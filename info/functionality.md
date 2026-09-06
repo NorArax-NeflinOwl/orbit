@@ -109,9 +109,32 @@ moment each redeemed the same single-use refresh token, and the loser's rejectio
 mid-use. It shows up in the server's log as a refresh answering 200 and another answering 401 a second
 later. The client is now registered as a singleton over a named `HttpClient`.
 
-`/api/auth/register`, `/api/auth/login`, `/api/auth/refresh`, and `/api/auth/logout` are all rate
-limited to 5 requests per minute per client IP address (no queueing — an excess request gets an
-immediate 429), as brute-force protection for login attempts in particular.
+`/api/auth/register` and `/api/auth/login` are rate limited to 5 requests per minute per caller (no
+queueing — an excess request gets an immediate 429), as brute-force protection for login attempts in
+particular. `/api/auth/refresh` and `/api/auth/logout` are deliberately outside that budget: both are
+gated by possession of a refresh token rather than by guessing, and spending the login budget on them
+would let a busy client lock itself out (see `AuthEndpoints`).
+
+**Per caller means per account whenever there is one**, and only per IP address when nobody is signed
+in. Behind an ingress proxy — which is how this runs in Azure Container Apps — every request carries the
+proxy's address, so an IP partition would be one shared bucket: five verification codes a minute for the
+whole installation, and a signed-in user locked out by strangers.
+
+**The budget is one budget however many replicas are running.** An in-memory window belongs to one
+process, so N replicas would each grant the whole 5 and the real limit would be 5N — set by a scaling
+decision rather than by `RateLimiterPolicies`. `SharedFixedWindowRateLimiter` therefore checks two gates
+in order: this instance's own fixed window, exactly the limiter that was always here, and then a window
+counted in `OS_RATE_LIMITS` that every instance spends from. The shared count is taken with a single
+`INSERT ... ON CONFLICT DO UPDATE ... RETURNING`, so two replicas asking at the same moment cannot both
+read four spent and both write five.
+
+Because the local gate comes first and is unchanged, this can only ever refuse more than the old
+behaviour, never less — **including when the database cannot be reached**, which is allowed rather than
+refused. That is the safe direction here and not the reckless one: the caller has already passed the
+per-instance limiter, so failing open falls back to exactly the protection these endpoints had before,
+while failing closed would answer 429 to every sign-in over a database hiccup — and every one of these
+endpoints needs that same database to do its work anyway. `RateLimitWindowRetentionBackgroundService`
+sweeps closed windows hourly, since a row is written per caller per window.
 
 The JWT signing key is a secret and is never checked into source control:
 
@@ -1724,9 +1747,19 @@ the world and then blanked would be worse than either answer.
 Server-side it is `TraceOptOut`, a middleware after `UseAuthorization` that clears the `Recorded` flag on
 the request's own activity. The exporter is the wrong place to decide this - an activity starts before
 authentication has run, so the only moment both facts exist is there. The choice is cached for a minute
-per account, because otherwise this would be a database read on every request in Orbit; the endpoint
-that changes it clears that entry, so turning the switch **off** takes effect at once rather than
-waiting out a minute of nothing being recorded.
+per account (`PrivacyChoiceCache`), because otherwise this would be a database read on every request in
+Orbit; the endpoint that changes it clears that entry, so the new answer takes effect on the very next
+request rather than waiting the minute out.
+
+**Clearing it has to reach every instance, not just the one that served the change.** The entry lives in
+one process's memory, so on a second replica an account that has just asked to be left out would go on
+being traced by every other instance for up to a minute. That is the privacy guarantee itself rather
+than a stale read, so `PrivacyChoiceCache.ForgetEverywhereAsync` announces the change on the
+`orbit_privacy_choice_changed` channel of the notice bus (see
+[Telling the other instances](#telling-the-other-instances)) and `PrivacyChoiceNoticeHandler` drops it
+on each of the others. The notice is best-effort like everything on that bus; if it cannot be sent, the
+entry still expires within the minute, which is the behaviour it replaces rather than a new failure -
+so a request that has already saved the choice is never failed over it.
 
 What it deliberately does **not** touch: signing in with Google and handing an event to a Google
 calendar are things somebody asks for one at a time, and a standing switch that silently disabled them
@@ -2364,15 +2397,57 @@ way.
 A token in a URL is a token in access logs, so nginx stops logging the query string for that one path
 (`map $uri $orbit_logged_request`). Everything else still logs what it asked for.
 
-### Before this scales past one replica
+### Reaching every replica
 
-`orbit-api` runs at `max-replicas 1`, and the hub's delivery depends on it. SignalR keeps its connection
-registry in the process's own memory, so with two replicas an announcement raised on one reaches only the
-clients connected to that one — the rest hear nothing and fall back to their slow poll. Nothing errors.
+SignalR keeps its connection registry in the process's own memory, so an announcement raised on one
+replica reaches only the clients connected to that one. With `max-replicas 1` that was every client
+there was; it stops being true the moment a second replica runs, and it fails silently — the clients on
+the other replica hear nothing, fall back to their slow poll, and nothing errors anywhere.
 
-Raising `max-replicas` therefore needs a backplane (Azure SignalR Service, or Redis) added at the same
-time. There is also a cost consequence worth knowing: `orbit-web` is set to scale to zero when idle, and
-a client holding a connection open is not idle, so it will stop scaling to zero once this is in use.
+**`PostgresLiveUpdateFanOut`** closes that. Every announcement is delivered to this instance's own
+connections exactly as before, and then sent to the others over the notice bus described under
+[Telling the other instances](#telling-the-other-instances), on the `orbit_live_updates` channel;
+**`LiveUpdateNoticeHandler`** is the half that receives and hands it to its own connections.
+
+Three things about that arrangement are deliberate:
+
+- **Postgres rather than Redis or Azure SignalR Service.** The database is already here, already
+  reachable from every instance, and already paid for. An announcement is explicitly allowed to go
+  missing (see [Live updates](#live-updates)), which is the bar `LISTEN`/`NOTIFY` meets and the reason a
+  durable bus would be paying for a guarantee this feature does not want.
+- **Local first, then the wire.** The local delivery does not go through Postgres, so the common case —
+  the recipient is connected to the instance that did the work — keeps the latency and the reliability
+  it had before. A database that refuses the notification costs the *other* replicas a nudge; it cannot
+  make this instance worse than the single-replica deployment it replaces.
+- **It is not a general SignalR backplane.** There are no groups, no client-to-server invocations and no
+  return values to route — Orbit announces four things by account and nothing else — so what would be a
+  `HubLifetimeManager` elsewhere is a fan-out of names here.
+
+`NOTIFY` refuses a payload over 8000 bytes, so an audience larger than 100 accounts is sent as several
+announcements (`LiveUpdateAnnouncement.MaxUserIdsPerAnnouncement`). A large group conversation is the
+case that reaches it.
+
+A cost consequence worth knowing either way: `orbit-web` is set to scale to zero when idle, and a client
+holding a connection open is not idle, so it will stop scaling to zero once this is in use.
+
+### Telling the other instances
+
+Live updates are not the only thing that stops being true with a second replica, so what carries them is
+a small general channel rather than something the hub owns: **`PostgresInstanceNoticeSender`** sends,
+**`PostgresInstanceNoticeListener`** holds one PostgreSQL connection open `LISTEN`ing on every channel a
+handler asked for, and an **`IInstanceNoticeHandler`** claims one channel. One connection for all of
+them, because `LISTEN` is registered per connection and each channel would otherwise pin one of its own.
+
+Every notice is wrapped in an envelope carrying the sending instance's id
+(`InstanceIdentity`, a fresh Guid per process), and the listener drops its own. `NOTIFY` comes back to
+the sender, and a sender has by definition already done locally whatever it is telling the others to do,
+so without that check every instance would act twice on its own notices.
+
+**Nothing on this bus is durable, and that is the contract rather than a shortcut.** A notice sent while
+a listener was reconnecting is genuinely lost. So a notice may only ever be an optimisation over
+something that is already correct on its own — "you can stop waiting", or "what you cached is stale" —
+never a fact that exists nowhere else. Both of today's users are exactly that: live updates, and the
+privacy choice below.
 
 ## In-app notifications
 

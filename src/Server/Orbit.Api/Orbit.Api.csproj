@@ -10,6 +10,10 @@
 
   <ItemGroup>
     <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="10.0.0" />
+    <!-- Referenced outright rather than leant on through Npgsql.EntityFrameworkCore.PostgreSQL: the
+         live update backplane uses NpgsqlConnection and LISTEN/NOTIFY directly, which is not EF Core's
+         to provide, and a transitive dependency can be dropped by a version bump that compiles. -->
+    <PackageReference Include="Npgsql" Version="10.0.3" />
     <!-- Design-time only: the EF Core Tools (`dotnet ef migrations add`, `dotnet ef database update`)
          require this on the startup project, not just on the project the DbContext lives in
          (Orbit.Data) - see the matching reference and comment there. -->

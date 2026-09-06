@@ -17,7 +17,10 @@ An ASP.NET Core minimal API exposing:
 - `/api/live` — a SignalR hub the web client holds open so it can be told what changed instead of
   polling for it. Announcements only, never content; see
   [Functionality — Live updates](functionality.md#live-updates). Authenticated from the query string,
-  because a browser cannot put a header on a WebSocket handshake, and only on this path.
+  because a browser cannot put a header on a WebSocket handshake, and only on this path. An
+  announcement reaches the clients connected to every API instance rather than only the one that raised
+  it, over PostgreSQL `LISTEN`/`NOTIFY` — see
+  [Functionality — Reaching every replica](functionality.md#reaching-every-replica).
 - `/health*` endpoints — liveness, readiness, and a full report covering the database, disk space,
   external services, and background services.
 
@@ -49,7 +52,7 @@ A table reads as `prefix_midfix[_postfix]`:
 | --- | --- | --- |
 | `OP_` | what the user works on | `OP_NOTES`, `OP_TASKS_ITEMS`, `OP_INVENTORIES_SHARED` |
 | `OL_` | rows that only join two of those tables | `OL_PUBLIC_SHARES`, `OL_CHATS_MEMBERS` |
-| `OS_` | accounts, permissions, settings, bookkeeping | `OS_USERS`, `OS_SYNC_TOMBSTONES` |
+| `OS_` | accounts, permissions, settings, bookkeeping | `OS_USERS`, `OS_SYNC_TOMBSTONES`, `OS_RATE_LIMITS` |
 
 A column repeats its table's prefix, shortens the midfix to initials, and ends with the property name
 in upper case: `OP_NOTES.OP_N_ID`, `OP_NOTES_SHARED.OP_NS_ACCESSLEVEL`. Initials are taken letter by

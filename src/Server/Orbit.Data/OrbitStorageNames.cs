@@ -63,6 +63,7 @@ internal static class OrbitStorageNames
         [typeof(TaskDailyReminderDeliveryEntity)] = new("OS_TASKS_REMINDERS", "OS_TR_"),
         [typeof(TaskOverdueNotificationDeliveryEntity)] = new("OS_TASKS_OVERDUE", "OS_TO_"),
         [typeof(InventoryExpiryNotificationDeliveryEntity)] = new("OS_INVENTORIES_EXPIRY", "OS_IE_"),
+        [typeof(RateLimitWindowEntity)] = new("OS_RATE_LIMITS", "OS_RL_"),
     };
 
     /// <summary>
