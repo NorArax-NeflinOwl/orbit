@@ -164,7 +164,8 @@ trip, a per-message nonce, a tampered message refusing to open, a stranger's key
 accounts in one browser not sharing a key, the password-wrapped backup and its restore, and a key
 surviving a page reload.
 
-It runs in the `test` job of `main_orbit.yml`, so it gates every pull request rather than only a deploy.
+It runs in the `test` job of `main_orbit.yml`, so it gates the merge to `main` alongside the suite,
+before any image is built.
 Running it by hand needs the browser installed once:
 
 ```bash

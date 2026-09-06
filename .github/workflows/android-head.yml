@@ -1,0 +1,94 @@
+# Compiles the Android head of the MAUI client. Split out of main_orbit.yml, where it was the `android`
+# job, so that a merge which touches nothing mobile does not start a runner at all.
+#
+# Why it is a workflow of its own now. The job already looked before it built: its first step compared
+# the pushed range and skipped every later step when nothing the phone is built from had changed. That
+# saved the five minutes of the build, but not the runner - a job that starts is billed a whole minute
+# even when it exits in seconds, which came to about 29 of the 346 minutes measured across 100 runs.
+# A `paths:` filter is evaluated by GitHub before anything is scheduled, so on those merges nothing
+# starts and nothing is billed. The filter answers the same question the deleted step did, against the
+# same list of paths, one layer earlier.
+#
+# The comment at the top of main_orbit.yml argues against splitting workflows, and it still holds for
+# what it was about: the suite used to run there and again in a separate ci.yml, the two drifted, and a
+# red ci.yml did not stop a deploy because one workflow cannot gate another. None of that applies here.
+# This job was deliberately kept out of the deploy job's `needs` - what goes to Azure is the API and the
+# web client, and a broken phone build is no reason to hold those back - so it gated nothing before the
+# split and gates nothing after it. It duplicates no step of the suite either, so there is nothing for
+# the two files to disagree about.
+#
+# The paths are the same list android-release.yml releases on, because the question is the same one: is
+# this a different app? Keep the two in step - a project added to the phone's build and to only one of
+# these lists is either released without being compiled here, or compiled and never released.
+
+name: Build the Android head
+
+# The merge to main, like the suite it was split from - see main_orbit.yml for why that is the one
+# trigger. workflow_dispatch is here for the case the paths filter is the thing in doubt: it ignores
+# `paths` and builds whatever is on the branch.
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'src/Clients/Orbit.Maui/**'
+      - 'src/Clients/Orbit.Mobile/**'
+      - 'src/Shared/Orbit.Contracts/**'
+      - 'src/Shared/Orbit.Core/**'
+      - 'src/Shared/Orbit.Localization/**'
+      - '.github/workflows/android-head.yml'
+  workflow_dispatch:
+
+# Cancelled rather than queued, which is the opposite of the deploy workflow's choice and right for the
+# opposite reason. A deploy interrupted halfway leaves a state nobody chose; this builds nothing anybody
+# keeps, and when two merges land minutes apart the only answer worth paying for is the one about the
+# later commit.
+concurrency:
+  group: android-head
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    # The Android app head, which Orbit.sln cannot carry and so the suite in main_orbit.yml never
+    # touches. That exclusion is right for iOS - a Linux runner has no Xcode and cannot build
+    # net10.0-ios at all - but it was never right for Android, which builds here perfectly well. Until
+    # this existed nothing checked it, so the two heads could drift apart and only a developer building
+    # one by hand would find out.
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Setup .NET SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+          cache: true
+          cache-dependency-path: '**/*.csproj'
+
+      # .NET for Android compiles the Java half with a JDK, and the runner ships several. Naming one
+      # keeps the build off whichever happens to be the default that week.
+      - name: Setup JDK
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      # Two separate things, and neither substitutes for the other: the workload is the .NET side, and
+      # the platform the project compiles against has to exist in the Android SDK. Same list as the
+      # Prerequisites section of src/Clients/Orbit.Maui/README.md.
+      - name: Install the Android workload
+        run: dotnet workload install maui-android
+
+      - name: Install the Android platform the head compiles against
+        run: yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platforms;android-36" "build-tools;36.0.0"
+
+      # Release rather than Debug on purpose: it is the configuration that runs the linker, which is
+      # where a reflection-driven dependency stops resolving. Neither google-services.json nor
+      # AndroidManifestOverlay.xml exists here - both are gitignored - so this is also the build that
+      # proves the app still compiles and packages without them.
+      - name: Build the Android head
+        run: dotnet build src/Clients/Orbit.Maui/Orbit.Maui.csproj --framework net10.0-android --configuration Release
