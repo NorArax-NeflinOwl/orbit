@@ -135,6 +135,72 @@ public sealed class DashboardTests : OrbitTestContext
         Assert.Contains("item-card-unseen", FindColumn(cut, "Tasks").ClassList);
     }
 
+    /// <summary>
+    /// An invitation to a group points at that group, so the row it is about carries the mark - the
+    /// Groups card was saying "something happened here" over every group somebody belongs to. See
+    /// ChatGroupInvitationPushContent for the address it points at.
+    /// </summary>
+    [Fact]
+    public void The_group_a_notification_is_about_says_so_on_the_row()
+    {
+        var invited = Group("Cooking club", 3);
+        var quiet = Group("Neighbours", 2);
+        RegisterTasksApiClient([]);
+        RegisterChatApiClient([], [invited, quiet]);
+        SomethingUnreadAbout($"/chat/groups/{invited.Id}");
+
+        var cut = RenderComponent<Dashboard>();
+
+        var card = FindColumn(cut, "Groups");
+        var marked = card.QuerySelectorAll(".list-row-button").Single(row => row.ClassList.Contains("row-unseen"));
+        Assert.Contains("Cooking club", marked.TextContent);
+        Assert.Contains("item-card-unseen", card.ClassList);
+    }
+
+    /// <summary>
+    /// And a reminder for an appointment marks the row on Upcoming. The address it points at is the
+    /// event's own, which is not always where the row leads - see UpcomingEntry.NewsUrl - so both are
+    /// asked.
+    /// </summary>
+    [Fact]
+    public void The_appointment_a_reminder_is_about_says_so_on_the_row()
+    {
+        var soon = Event("Dentist", DateTimeOffset.UtcNow.AddHours(2));
+        var later = Event("Haircut", DateTimeOffset.UtcNow.AddHours(4));
+        RegisterTasksApiClient([]);
+        RegisterChatApiClient([]);
+        RegisterCalendarApiClient([soon, later]);
+        SomethingUnreadAbout($"/calendar/{soon.Id}");
+
+        var cut = RenderComponent<Dashboard>();
+
+        var card = FindColumn(cut, "Upcoming");
+        var marked = card.QuerySelectorAll(".list-row-button").Single(row => row.ClassList.Contains("row-unseen"));
+        Assert.Contains("Dentist", marked.TextContent);
+        Assert.Contains("item-card-unseen", card.ClassList);
+    }
+
+    /// <summary>
+    /// The Inventory card is marked, and none of its rows are - deliberately. Something about to go off
+    /// says "/inventory" and names no storage (InventoryExpiryPushContent), so nothing here knows which
+    /// shelf it means, and marking one at random would be worse than marking the card. The shared
+    /// locations card is the same shape for the same reason.
+    /// </summary>
+    [Fact]
+    public void An_expiry_marks_the_inventory_card_and_none_of_its_rows()
+    {
+        RegisterTasksApiClient([]);
+        RegisterChatApiClient([]);
+        RegisterInventoryApiClient([Inventory("Pantry"), Inventory("Garage")]);
+        SomethingUnreadAbout("/inventory");
+
+        var cut = RenderComponent<Dashboard>();
+
+        var card = FindColumn(cut, "Inventory");
+        Assert.Contains("item-card-unseen", card.ClassList);
+        Assert.Empty(card.QuerySelectorAll(".row-unseen"));
+    }
+
     [Fact]
     public void A_quiet_dashboard_marks_nothing()
     {
