@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="UTF-8" ?>
+﻿<?xml version="1.0" encoding="UTF-8" ?>
 <ContentPage
     x:Class="Orbit.Maui.Features.Tasks.TasksPage"
     xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
@@ -67,7 +67,7 @@
                                     </Label>
                                 </Border>
                                 <!-- The tap is a Button over the chip - see the status chips below for why. -->
-                                <Button BackgroundColor="Transparent"
+                                <Button BackgroundColor="Transparent" BorderWidth="0"
                                         Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=ViewModel.ToggleCategoryCommand, x:DataType=tasks:TasksPage}"
                                         CommandParameter="{Binding .}"
                                         SemanticProperties.Description="{Binding Name}" />
@@ -120,7 +120,7 @@
                                 <!-- The tap is a Button over the chip rather than a gesture on it: a Border
                                      carrying a gesture is not a clickable node to Android, so a screen
                                      reader could neither reach the filters nor use them. -->
-                                <Button BackgroundColor="Transparent"
+                                <Button BackgroundColor="Transparent" BorderWidth="0"
                                         Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=ViewModel.FilterByCommand, x:DataType=tasks:TasksPage}"
                                         CommandParameter="{Binding .}"
                                         SemanticProperties.Description="{Binding Label}" />

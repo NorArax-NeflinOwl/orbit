@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="UTF-8" ?>
+﻿<?xml version="1.0" encoding="UTF-8" ?>
 <ContentPage
     x:Class="Orbit.Maui.Features.Chat.GroupConversationPage"
     xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
@@ -26,7 +26,7 @@
              what it does is said to a screen reader, which otherwise heard only the names. -->
         <Button Grid.Row="1" Text="{Binding Members}" Command="{Binding OpenMembersCommand}"
                 SemanticProperties.Description="{controls:Translate 'Members'}"
-                FontSize="12" Style="{StaticResource LinkButton}" BackgroundColor="Transparent"
+                FontSize="12" Style="{StaticResource LinkButton}" BackgroundColor="Transparent" BorderWidth="0"
                 Padding="0" HorizontalOptions="Start" LineBreakMode="TailTruncation" />
         <Label Grid.Row="2" Text="{Binding Status}" IsVisible="{Binding HasStatus}"
                FontSize="12" TextColor="{AppThemeBinding Light={StaticResource SubtleTextLight}, Dark={StaticResource SubtleTextDark}}" LineBreakMode="WordWrap" />
@@ -82,7 +82,7 @@
                                  ReadableChatMessage.CanBeChanged. -->
                             <!-- On anybody's message, not only the reader's own: "who has read this"
                                  is worth asking about a message somebody else wrote too. -->
-                            <Button Text="⋯" SemanticProperties.Description="{controls:Translate 'More'}" FontSize="18" Padding="10,0" BackgroundColor="Transparent"
+                            <Button Text="⋯" SemanticProperties.Description="{controls:Translate 'More'}" FontSize="18" Padding="10,0" BackgroundColor="Transparent" BorderWidth="0"
                                     HorizontalOptions="Start" IsVisible="{Binding IsInAGroup}"
                                     TextColor="{DynamicResource Accent}"
                                     Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=ShowMessageMenuCommand, x:DataType=chat:GroupConversationPage}"

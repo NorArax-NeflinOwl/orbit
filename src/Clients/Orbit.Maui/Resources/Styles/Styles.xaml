@@ -25,24 +25,36 @@
         <Setter Property="BackgroundColor" Value="{AppThemeBinding Light={StaticResource Gray950}, Dark={StaticResource Gray200}}" />
     </Style>
 
+    <!-- Orbit.Web's plain <button>, which is the quiet one: the lifted surface, a hairline, and
+         secondary text - not the accent. The phone had it the other way round, so a screen with four
+         ordinary buttons on it read as four things worth pressing and the one that mattered did not
+         stand out at all. The filled look is PrimaryButton below, asked for by name exactly where the
+         web writes .btn-primary.
+
+         13.5/600 at 15x8 are app.css's own numbers; MinimumHeightRequest keeps the 44pt tap target a
+         phone needs and a pointer does not. -->
     <Style TargetType="Button">
-        <Setter Property="TextColor" Value="{DynamicResource AccentOn}" />
-        <Setter Property="BackgroundColor" Value="{DynamicResource Accent}" />
+        <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource SubtleTextLight}, Dark={StaticResource SubtleTextDark}}" />
+        <Setter Property="BackgroundColor" Value="{AppThemeBinding Light={StaticResource SurfaceLight}, Dark={StaticResource SurfaceDark}}" />
+        <Setter Property="BorderColor" Value="{AppThemeBinding Light={StaticResource CardStrokeLight}, Dark={StaticResource CardStrokeDark}}" />
         <Setter Property="FontFamily" Value="OrbitBody"/>
-        <Setter Property="FontSize" Value="14"/>
-        <Setter Property="BorderWidth" Value="0"/>
+        <Setter Property="FontSize" Value="13.5"/>
+        <Setter Property="FontAttributes" Value="Bold"/>
+        <Setter Property="BorderWidth" Value="1"/>
         <Setter Property="CornerRadius" Value="8"/>
-        <Setter Property="Padding" Value="14,10"/>
+        <Setter Property="Padding" Value="15,8"/>
         <Setter Property="MinimumHeightRequest" Value="44"/>
         <Setter Property="MinimumWidthRequest" Value="44"/>
         <Setter Property="VisualStateManager.VisualStateGroups">
             <VisualStateGroupList>
                 <VisualStateGroup x:Name="CommonStates">
                     <VisualState x:Name="Normal" />
+                    <!-- button:disabled on the web is the same button at .55 opacity, which keeps the
+                         shape and only takes the strength out of it. Opacity rather than a grey pair,
+                         so it reads the same whichever look the button has. -->
                     <VisualState x:Name="Disabled">
                         <VisualState.Setters>
-                            <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource Gray950}, Dark={StaticResource Gray200}}" />
-                            <Setter Property="BackgroundColor" Value="{AppThemeBinding Light={StaticResource Gray200}, Dark={StaticResource Gray600}}" />
+                            <Setter Property="Opacity" Value="0.55" />
                         </VisualState.Setters>
                     </VisualState>
                     <VisualState x:Name="PointerOver" />
@@ -73,7 +85,7 @@
         <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource TextPrimaryLight}, Dark={StaticResource TextPrimaryDark}}" />
         <Setter Property="BackgroundColor" Value="{AppThemeBinding Light={StaticResource SurfaceLight}, Dark={StaticResource SurfaceDark}}" />
         <Setter Property="FontFamily" Value="OrbitBody"/>
-        <Setter Property="FontSize" Value="14"/>
+        <Setter Property="FontSize" Value="13.5"/>
         <Setter Property="MinimumHeightRequest" Value="44"/>
         <Setter Property="MinimumWidthRequest" Value="44"/>
         <Setter Property="VisualStateManager.VisualStateGroups">
@@ -94,7 +106,7 @@
         <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource TextPrimaryLight}, Dark={StaticResource TextPrimaryDark}}" />
         <Setter Property="BackgroundColor" Value="{AppThemeBinding Light={StaticResource SurfaceLight}, Dark={StaticResource SurfaceDark}}" />
         <Setter Property="FontFamily" Value="OrbitBody"/>
-        <Setter Property="FontSize" Value="14" />
+        <Setter Property="FontSize" Value="13.5" />
         <Setter Property="PlaceholderColor" Value="{AppThemeBinding Light={StaticResource TertiaryTextLight}, Dark={StaticResource TertiaryTextDark}}" />
         <Setter Property="MinimumHeightRequest" Value="44"/>
         <Setter Property="MinimumWidthRequest" Value="44"/>
@@ -116,7 +128,7 @@
         <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource TextPrimaryLight}, Dark={StaticResource TextPrimaryDark}}" />
         <Setter Property="BackgroundColor" Value="{AppThemeBinding Light={StaticResource SurfaceLight}, Dark={StaticResource SurfaceDark}}" />
         <Setter Property="FontFamily" Value="OrbitBody"/>
-        <Setter Property="FontSize" Value="14" />
+        <Setter Property="FontSize" Value="13.5" />
         <Setter Property="PlaceholderColor" Value="{AppThemeBinding Light={StaticResource TertiaryTextLight}, Dark={StaticResource TertiaryTextDark}}" />
         <Setter Property="MinimumHeightRequest" Value="44"/>
         <Setter Property="MinimumWidthRequest" Value="44"/>
@@ -160,7 +172,7 @@
         <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource TextPrimaryLight}, Dark={StaticResource TextPrimaryDark}}" />
         <Setter Property="BackgroundColor" Value="Transparent" />
         <Setter Property="FontFamily" Value="OrbitBody" />
-        <Setter Property="FontSize" Value="14" />
+        <Setter Property="FontSize" Value="13.5" />
         <Setter Property="VisualStateManager.VisualStateGroups">
             <VisualStateGroupList>
                 <VisualStateGroup x:Name="CommonStates">
@@ -194,7 +206,7 @@
         <Setter Property="TitleColor" Value="{AppThemeBinding Light={StaticResource TertiaryTextLight}, Dark={StaticResource TertiaryTextDark}}" />
         <Setter Property="BackgroundColor" Value="{AppThemeBinding Light={StaticResource SurfaceLight}, Dark={StaticResource SurfaceDark}}" />
         <Setter Property="FontFamily" Value="OrbitBody"/>
-        <Setter Property="FontSize" Value="14" />
+        <Setter Property="FontSize" Value="13.5" />
         <Setter Property="MinimumHeightRequest" Value="44"/>
         <Setter Property="MinimumWidthRequest" Value="44"/>
         <Setter Property="VisualStateManager.VisualStateGroups">
@@ -232,7 +244,7 @@
         <Setter Property="BackgroundColor" Value="Transparent"/>
         <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource TextPrimaryLight}, Dark={StaticResource TextPrimaryDark}}" />
         <Setter Property="FontFamily" Value="OrbitBody"/>
-        <Setter Property="FontSize" Value="14"/>
+        <Setter Property="FontSize" Value="13.5"/>
         <Setter Property="MinimumHeightRequest" Value="44"/>
         <Setter Property="MinimumWidthRequest" Value="44"/>
         <Setter Property="VisualStateManager.VisualStateGroups">
@@ -259,7 +271,7 @@
         <Setter Property="CancelButtonColor" Value="{StaticResource Gray500}" />
         <Setter Property="BackgroundColor" Value="Transparent" />
         <Setter Property="FontFamily" Value="OrbitBody" />
-        <Setter Property="FontSize" Value="14" />
+        <Setter Property="FontSize" Value="13.5" />
         <Setter Property="MinimumHeightRequest" Value="44"/>
         <Setter Property="MinimumWidthRequest" Value="44"/>
         <Setter Property="VisualStateManager.VisualStateGroups">
@@ -282,7 +294,7 @@
         <Setter Property="PlaceholderColor" Value="{StaticResource Gray500}" />
         <Setter Property="BackgroundColor" Value="Transparent" />
         <Setter Property="FontFamily" Value="OrbitBody" />
-        <Setter Property="FontSize" Value="14" />
+        <Setter Property="FontSize" Value="13.5" />
         <Setter Property="VisualStateManager.VisualStateGroups">
             <VisualStateGroupList>
                 <VisualStateGroup x:Name="CommonStates">
@@ -365,7 +377,7 @@
         <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource TextPrimaryLight}, Dark={StaticResource TextPrimaryDark}}" />
         <Setter Property="BackgroundColor" Value="Transparent"/>
         <Setter Property="FontFamily" Value="OrbitBody"/>
-        <Setter Property="FontSize" Value="14"/>
+        <Setter Property="FontSize" Value="13.5"/>
         <Setter Property="MinimumHeightRequest" Value="44"/>
         <Setter Property="MinimumWidthRequest" Value="44"/>
         <Setter Property="VisualStateManager.VisualStateGroups">
@@ -465,6 +477,7 @@
     <!-- A button that reads as a link: no fill, accent text. Back buttons and the like. -->
     <Style x:Key="LinkButton" TargetType="Button">
         <Setter Property="BackgroundColor" Value="Transparent" />
+        <Setter Property="BorderWidth" Value="0" />
         <Setter Property="TextColor" Value="{DynamicResource Accent}" />
         <Setter Property="VisualStateManager.VisualStateGroups">
             <VisualStateGroupList>
@@ -486,6 +499,7 @@
     <!-- The same, for something that destroys data. -->
     <Style x:Key="DestructiveButton" TargetType="Button">
         <Setter Property="BackgroundColor" Value="Transparent" />
+        <Setter Property="BorderWidth" Value="0" />
         <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource WarningLight}, Dark={StaticResource WarningDark}}" />
         <Setter Property="VisualStateManager.VisualStateGroups">
             <VisualStateGroupList>
@@ -517,12 +531,12 @@
         </Setter>
     </Style>
 
-    <!-- The heading on a card (.card-title): the display face, as on the web. Larger than its 14.5,
-         because a card on a phone is read at arm's length and the heading is the thing that has to be
-         findable while scrolling past. -->
+    <!-- The heading on a card (.card-title): the display face at the size app.css sets. The phone
+         used to draw it at 17 "because a card is read at arm's length", which is exactly the kind of
+         local improvement that makes one product look like two. -->
     <Style x:Key="CardTitle" TargetType="Label">
         <Setter Property="FontFamily" Value="OrbitDisplay" />
-        <Setter Property="FontSize" Value="17" />
+        <Setter Property="FontSize" Value="14.5" />
         <Setter Property="FontAttributes" Value="Bold" />
     </Style>
 
@@ -538,7 +552,7 @@
     </Style>
 
     <Style x:Key="CardCountLabel" TargetType="Label">
-        <Setter Property="FontSize" Value="12" />
+        <Setter Property="FontSize" Value="11.5" />
         <Setter Property="FontAttributes" Value="Bold" />
         <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource TertiaryTextLight}, Dark={StaticResource TertiaryTextDark}}" />
     </Style>
@@ -551,8 +565,17 @@
     </Style>
 
     <Style x:Key="PageSubtitle" TargetType="Label">
-        <Setter Property="FontSize" Value="14" />
+        <Setter Property="FontSize" Value="13.5" />
         <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource SubtleTextLight}, Dark={StaticResource SubtleTextDark}}" />
+    </Style>
+
+    <!-- .btn-primary: the one thing a screen is for - Save, Send, Sign in. Filled with the accent and
+         a shade wider than the quiet default, exactly as app.css has it (9x16 against 8x15). -->
+    <Style x:Key="PrimaryButton" TargetType="Button">
+        <Setter Property="BackgroundColor" Value="{DynamicResource Accent}" />
+        <Setter Property="TextColor" Value="{DynamicResource AccentOn}" />
+        <Setter Property="BorderWidth" Value="0" />
+        <Setter Property="Padding" Value="16,9" />
     </Style>
 
     <!-- .btn-secondary: the second choice beside a filled one - a bordered box, not a bare word. -->
@@ -567,6 +590,8 @@
     <Style x:Key="DangerButton" TargetType="Button">
         <Setter Property="BackgroundColor" Value="{AppThemeBinding Light={StaticResource DangerLight}, Dark={StaticResource DangerDark}}" />
         <Setter Property="TextColor" Value="{DynamicResource AccentOn}" />
+        <Setter Property="BorderWidth" Value="0" />
+        <Setter Property="Padding" Value="16,9" />
     </Style>
 
     <!-- The web's inputs are boxes: a hairline and the same lifted background a card has. MAUI's Entry
@@ -592,14 +617,14 @@
         <Setter Property="StrokeThickness" Value="1" />
         <Setter Property="Stroke" Value="{AppThemeBinding Light={StaticResource CardStrokeLight}, Dark={StaticResource CardStrokeDark}}" />
         <Setter Property="BackgroundColor" Value="{AppThemeBinding Light={StaticResource SurfaceLight}, Dark={StaticResource SurfaceDark}}" />
-        <Setter Property="Padding" Value="12,6" />
+        <Setter Property="Padding" Value="12,5" />
         <Setter Property="StrokeShape">
             <RoundRectangle CornerRadius="999" />
         </Setter>
     </Style>
 
     <Style x:Key="FilterChipLabel" TargetType="Label">
-        <Setter Property="FontSize" Value="12" />
+        <Setter Property="FontSize" Value="12.5" />
         <Setter Property="FontAttributes" Value="Bold" />
         <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource SubtleTextLight}, Dark={StaticResource SubtleTextDark}}" />
     </Style>
@@ -607,10 +632,10 @@
     <!-- A form field's own name, above it. Orbit.Web sets these in small caps with wide tracking, which
          is most of what makes its forms read as forms. -->
     <Style x:Key="FieldLabel" TargetType="Label">
-        <Setter Property="FontSize" Value="12" />
+        <Setter Property="FontSize" Value="12.5" />
         <Setter Property="FontAttributes" Value="Bold" />
         <Setter Property="TextTransform" Value="Uppercase" />
-        <Setter Property="CharacterSpacing" Value="0.5" />
+        <Setter Property="CharacterSpacing" Value="0.13" />
         <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource TertiaryTextLight}, Dark={StaticResource TertiaryTextDark}}" />
     </Style>
 
@@ -632,6 +657,163 @@
         <Setter Property="HeightRequest" Value="21" />
         <Setter Property="HorizontalOptions" Value="Center" />
         <Setter Property="VerticalOptions" Value="Center" />
+    </Style>
+
+    <!-- ========================================================================================
+         The rest of Orbit.Web's shared vocabulary, ported by name. Every size, radius and padding
+         below is the number app.css writes, so a screen a reader knows from the browser is the same
+         screen here rather than a family resemblance. -->
+
+    <!-- .icon-btn: a bare glyph with a press target around it, no fill and no edge. -->
+    <Style x:Key="IconButtonHost" TargetType="Grid">
+        <Setter Property="WidthRequest" Value="30" />
+        <Setter Property="HeightRequest" Value="30" />
+        <Setter Property="BackgroundColor" Value="Transparent" />
+    </Style>
+
+    <!-- .icon-btn.page-action: an editor's own actions - Save and Cancel on the rail. Twice the size
+         of an ordinary icon button and drawn with an edge, because these are what the screen is for.
+         44 rather than the desktop's 60: app.css halves them at the 680px breakpoint. -->
+    <Style x:Key="PageActionBorder" TargetType="Border">
+        <Setter Property="WidthRequest" Value="44" />
+        <Setter Property="HeightRequest" Value="44" />
+        <Setter Property="StrokeThickness" Value="1" />
+        <Setter Property="Stroke" Value="{AppThemeBinding Light={StaticResource CardStrokeLight}, Dark={StaticResource CardStrokeDark}}" />
+        <Setter Property="BackgroundColor" Value="Transparent" />
+        <Setter Property="StrokeShape">
+            <RoundRectangle CornerRadius="12" />
+        </Setter>
+    </Style>
+
+    <!-- .page-add: the one control that makes another of whatever a list holds. Outlined in the accent,
+         because as a bare glyph beside a 26pt heading it disappears. -->
+    <Style x:Key="PageAddBorder" TargetType="Border">
+        <Setter Property="WidthRequest" Value="30" />
+        <Setter Property="HeightRequest" Value="30" />
+        <Setter Property="StrokeThickness" Value="1" />
+        <Setter Property="Stroke" Value="{DynamicResource Accent}" />
+        <Setter Property="BackgroundColor" Value="Transparent" />
+        <Setter Property="StrokeShape">
+            <RoundRectangle CornerRadius="7" />
+        </Setter>
+    </Style>
+
+    <!-- The drawing inside an .icon-btn. Authored on the same 20x20 canvas the navigation bar's are. -->
+    <Style x:Key="IconPath" TargetType="Path">
+        <Setter Property="Stroke" Value="{AppThemeBinding Light={StaticResource TertiaryTextLight}, Dark={StaticResource TertiaryTextDark}}" />
+        <Setter Property="StrokeThickness" Value="1.6" />
+        <Setter Property="StrokeLineCap" Value="Round" />
+        <Setter Property="StrokeLineJoin" Value="Round" />
+        <Setter Property="Fill" Value="Transparent" />
+        <Setter Property="Aspect" Value="Uniform" />
+        <Setter Property="WidthRequest" Value="18" />
+        <Setter Property="HeightRequest" Value="18" />
+        <Setter Property="HorizontalOptions" Value="Center" />
+        <Setter Property="VerticalOptions" Value="Center" />
+    </Style>
+
+    <!-- .overflow-menu-dropdown: the panel a three-dot menu opens. -->
+    <Style x:Key="MenuPanel" TargetType="Border">
+        <Setter Property="StrokeThickness" Value="1" />
+        <Setter Property="Stroke" Value="{AppThemeBinding Light={StaticResource CardStrokeLight}, Dark={StaticResource CardStrokeDark}}" />
+        <Setter Property="BackgroundColor" Value="{AppThemeBinding Light={StaticResource SurfaceLight}, Dark={StaticResource SurfaceDark}}" />
+        <Setter Property="Padding" Value="6" />
+        <Setter Property="MinimumWidthRequest" Value="220" />
+        <Setter Property="StrokeShape">
+            <RoundRectangle CornerRadius="10" />
+        </Setter>
+    </Style>
+
+    <!-- .avatar-dropdown-item: one entry in any of Orbit's menus. Flat, left-aligned, and quiet until
+         it is the chosen one. -->
+    <Style x:Key="MenuItemButton" TargetType="Button">
+        <Setter Property="BackgroundColor" Value="Transparent" />
+        <Setter Property="BorderWidth" Value="0" />
+        <Setter Property="CornerRadius" Value="7" />
+        <Setter Property="Padding" Value="8,9" />
+        <Setter Property="FontSize" Value="13.5" />
+        <Setter Property="FontAttributes" Value="None" />
+        <Setter Property="HorizontalOptions" Value="Fill" />
+        <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource SubtleTextLight}, Dark={StaticResource SubtleTextDark}}" />
+    </Style>
+
+    <!-- .overflow-menu-heading: says what a menu of settings is about, above its entries. -->
+    <Style x:Key="MenuHeading" TargetType="Label">
+        <Setter Property="FontSize" Value="11" />
+        <Setter Property="FontAttributes" Value="Bold" />
+        <Setter Property="TextTransform" Value="Uppercase" />
+        <Setter Property="CharacterSpacing" Value="0.44" />
+        <Setter Property="Padding" Value="8,6,8,4" />
+        <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource TertiaryTextLight}, Dark={StaticResource TertiaryTextDark}}" />
+    </Style>
+
+    <!-- .row-title and .row-meta: the two halves of a .list-row - a fact and its value. -->
+    <Style x:Key="RowTitle" TargetType="Label">
+        <Setter Property="FontSize" Value="13.5" />
+        <Setter Property="LineBreakMode" Value="TailTruncation" />
+        <Setter Property="VerticalOptions" Value="Center" />
+        <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource TextPrimaryLight}, Dark={StaticResource TextPrimaryDark}}" />
+    </Style>
+
+    <Style x:Key="RowMeta" TargetType="Label">
+        <Setter Property="FontSize" Value="12" />
+        <Setter Property="VerticalOptions" Value="Center" />
+        <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource TertiaryTextLight}, Dark={StaticResource TertiaryTextDark}}" />
+    </Style>
+
+    <!-- .empty-hint: what a list says when there is nothing in it. -->
+    <Style x:Key="EmptyHint" TargetType="Label">
+        <Setter Property="FontSize" Value="13" />
+        <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource TertiaryTextLight}, Dark={StaticResource TertiaryTextDark}}" />
+    </Style>
+
+    <!-- .error and .info: something refused, and something that turned out to be already done. -->
+    <Style x:Key="ErrorLabel" TargetType="Label">
+        <Setter Property="FontSize" Value="13" />
+        <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource DangerLight}, Dark={StaticResource DangerDark}}" />
+    </Style>
+
+    <Style x:Key="InfoLabel" TargetType="Label">
+        <Setter Property="FontSize" Value="13" />
+        <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource SuccessLight}, Dark={StaticResource SuccessDark}}" />
+    </Style>
+
+    <!-- .options-heading and .options-subtext: one section of a long screen of settings. -->
+    <Style x:Key="SectionHeading" TargetType="Label">
+        <Setter Property="FontFamily" Value="OrbitDisplay" />
+        <Setter Property="FontSize" Value="16" />
+        <Setter Property="FontAttributes" Value="Bold" />
+    </Style>
+
+    <Style x:Key="SectionSubtext" TargetType="Label">
+        <Setter Property="FontSize" Value="13" />
+        <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource SubtleTextLight}, Dark={StaticResource SubtleTextDark}}" />
+    </Style>
+
+    <!-- The three sizes an ItemCard is written in: .item-card-name, .item-card-body and the footnote
+         under the hairline. -->
+    <Style x:Key="ItemCardName" TargetType="Label">
+        <Setter Property="FontFamily" Value="OrbitDisplay" />
+        <Setter Property="FontSize" Value="15" />
+        <Setter Property="FontAttributes" Value="Bold" />
+        <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource TextPrimaryLight}, Dark={StaticResource TextPrimaryDark}}" />
+    </Style>
+
+    <Style x:Key="ItemCardBody" TargetType="Label">
+        <Setter Property="FontSize" Value="13.5" />
+        <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource SubtleTextLight}, Dark={StaticResource SubtleTextDark}}" />
+    </Style>
+
+    <Style x:Key="ItemCardFooter" TargetType="Label">
+        <Setter Property="FontSize" Value="12.5" />
+        <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource SubtleTextLight}, Dark={StaticResource SubtleTextDark}}" />
+    </Style>
+
+    <!-- The hairline app.css draws with a 1px border: under a .list-row, and above an item card's
+         footnote. One colour, one thickness, wherever a line separates two things. -->
+    <Style x:Key="Hairline" TargetType="BoxView">
+        <Setter Property="HeightRequest" Value="1" />
+        <Setter Property="Color" Value="{AppThemeBinding Light={StaticResource CardStrokeLight}, Dark={StaticResource CardStrokeDark}}" />
     </Style>
 
 </ResourceDictionary>

@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="UTF-8" ?>
+﻿<?xml version="1.0" encoding="UTF-8" ?>
 <ContentPage
     x:Class="Orbit.Maui.Features.Account.AccountPage"
     xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
@@ -27,7 +27,7 @@
                 <HorizontalStackLayout Spacing="6" BindableLayout.ItemsSource="{Binding Tabs}">
                     <BindableLayout.ItemTemplate>
                         <DataTemplate x:DataType="screens:AccountTabRow">
-                            <Button Text="{Binding Name}" FontSize="13" Padding="12,4" BackgroundColor="Transparent"
+                            <Button Text="{Binding Name}" FontSize="13" Padding="12,4" BackgroundColor="Transparent" BorderWidth="0"
                                     TextColor="{AppThemeBinding Light={StaticResource SubtleTextLight}, Dark={StaticResource SubtleTextDark}}"
                                     Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=ViewModel.ChooseTabCommand, x:DataType=account:AccountPage}"
                                     CommandParameter="{Binding .}">
@@ -81,7 +81,7 @@
                                 </Border.Triggers>
                                 <!-- The tap is a Button inside the swatch rather than a gesture on it: a
                                      Border carrying a gesture is not a clickable node to Android. -->
-                                <Button BackgroundColor="Transparent" CornerRadius="22"
+                                <Button BackgroundColor="Transparent" BorderWidth="0" CornerRadius="22"
                                         Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=ViewModel.ChooseAccentCommand, x:DataType=account:AccountPage}"
                                         CommandParameter="{Binding .}"
                                         SemanticProperties.Description="{Binding Name}" />

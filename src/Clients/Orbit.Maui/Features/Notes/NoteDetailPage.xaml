@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="UTF-8" ?>
+﻿<?xml version="1.0" encoding="UTF-8" ?>
 <ContentPage
     x:Class="Orbit.Maui.Features.Notes.NoteDetailPage"
     xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
@@ -79,7 +79,7 @@
                          behind one "⋯", the way a chat message's options are. -->
                     <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="4" Padding="0,4">
                         <Button Grid.Column="0" Text="{Binding CompletionMark}" WidthRequest="36" FontSize="17"
-                                Padding="0" BackgroundColor="Transparent" IsVisible="{Binding IsChecklistItem}"
+                                Padding="0" BackgroundColor="Transparent" BorderWidth="0" IsVisible="{Binding IsChecklistItem}"
                                 TextColor="{DynamicResource Accent}"
                                 Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=ViewModel.ToggleCheckedCommand, x:DataType=notes:NoteDetailPage}"
                                 CommandParameter="{Binding .}" />
@@ -89,7 +89,7 @@
                                IsReadOnly="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=ViewModel.IsReadOnly, x:DataType=notes:NoteDetailPage}"
                                ReturnCommand="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=ViewModel.SaveLinesCommand, x:DataType=notes:NoteDetailPage}" />
 
-                        <Button Grid.Column="2" Text="⋯" SemanticProperties.Description="{controls:Translate 'More'}" FontSize="18" Padding="10,0" BackgroundColor="Transparent"
+                        <Button Grid.Column="2" Text="⋯" SemanticProperties.Description="{controls:Translate 'More'}" FontSize="18" Padding="10,0" BackgroundColor="Transparent" BorderWidth="0"
                                 IsVisible="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=ViewModel.CanEdit, x:DataType=notes:NoteDetailPage}"
                                 TextColor="{AppThemeBinding Light={StaticResource SubtleTextLight}, Dark={StaticResource SubtleTextDark}}"
                                 Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=ShowLineMenuCommand, x:DataType=notes:NoteDetailPage}"

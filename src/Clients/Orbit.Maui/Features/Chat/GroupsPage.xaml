@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="UTF-8" ?>
+﻿<?xml version="1.0" encoding="UTF-8" ?>
 <ContentPage
     x:Class="Orbit.Maui.Features.Chat.GroupsPage"
     xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
@@ -66,7 +66,7 @@
                                      ContactsPage for why this is a button rather than a swipe. -->
                                 <Button Text="⋯" SemanticProperties.Description="{controls:Translate 'More'}"
                                         FontSize="18" WidthRequest="44" Padding="0"
-                                        BackgroundColor="Transparent"
+                                        BackgroundColor="Transparent" BorderWidth="0"
                                         TextColor="{AppThemeBinding Light={StaticResource SubtleTextLight}, Dark={StaticResource SubtleTextDark}}"
                                         Command="{Binding ShowGroupMenuCommand, Source={RelativeSource AncestorType={x:Type ContentPage}}, x:DataType=chat:GroupsPage}"
                                         CommandParameter="{Binding .}" />
