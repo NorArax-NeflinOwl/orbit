@@ -576,13 +576,18 @@ beside a task belongs here, not in that task's diff. A defect is the exception a
   notification opening a note, chat opening a shared thing - which each finish on their own section as
   before. Adding one is a single `ReturnTo.Link` at the call site.
 
-- **Nothing is written into the conversation when something is shared.** A share records a notification
-  whose address is the conversation with the sharer (`SharedItemNotifier.UrlFor`), so pressing it opens a
-  chat that says nothing about what happened. The obvious fix is not available to the server: a
-  conversation is end-to-end encrypted, so the server cannot compose a message it has no key to seal.
-  The sharer's *browser* could send one, since it holds the key - but that is Orbit writing a message in
-  somebody's name, which is a product decision rather than a defect. Reported 2026-09-06 alongside the
-  share not appearing without a reload, which was a defect and is fixed.
+- **No test anywhere asserts that a share notice is sent.** Sharing something is two halves: the server
+  records the share and raises a notification, and the sharer's *browser* posts an encrypted chat message
+  carrying the share's id, which is the only thing a recipient can press "Accept" on (see Chat.razor's
+  `TryParseShare`). Four places send that message - `NoteEditor`, `CalendarEventEditor`,
+  `ShareInventoryPanel` and `TaskEditor` - and **none of them is covered**, which is how the guest
+  invitation on a task entry's event came to send the first half and not the second for as long as it
+  did (fixed 2026-09-06).
+
+  What stops a test: the sealed payload's shape is a `private record` inside `EncryptedChatMessageSender`,
+  so a bUnit test cannot plan the JavaScript result without `InternalsVisibleTo` on `Orbit.Web` - which is
+  a bigger decision than one test and would open the whole assembly. The alternatives worth weighing are
+  making that one type public, or moving the "seal and send" step behind a seam a test can stand in for.
 
 - **The phone shows no links in a description either.** The addresses in a description are pressable on
   the web (`TextWithLinks`, 2026-09-06); the phone draws the same descriptions as plain labels. The

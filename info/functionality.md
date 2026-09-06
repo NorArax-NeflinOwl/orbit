@@ -2316,6 +2316,17 @@ anyway", and a pinned list that is finished is drawn struck through (`.list-row.
 a ticked checklist line is: the two are the same fact about two different things and should not read
 differently.
 
+**An invitation is two halves, and both have to be sent.** Sharing something records the share on the
+server and raises a notification; what the recipient presses **Accept** on is a separate encrypted chat
+message carrying the share's id, posted by the sharer's own browser because the server has no key to seal
+one with (`EncryptedChatMessageSender`, read back by `Chat.razor`'s `TryParseShare`). That is also why the
+notification leads to the conversation rather than to the thing: the thing is not the recipient's to open
+until it has been accepted, and Accept lives on the message.
+
+Inviting a guest to a **calendar entry on a task list** sent only the first half until 2026-09-06, so the
+invitation arrived, said somebody had shared an event, and led to a conversation with nothing in it and
+no way to accept. The calendar's own editor had always sent both.
+
 **A thing somebody shares arrives without a reload.** The share records a notification, the live
 connection carries it, and every section page - `/tasks`, `/notes`, `/calendar`, `/inventory` - now
 *reads again* when the bell changes rather than only redrawing. Redrawing was not enough on its own: a

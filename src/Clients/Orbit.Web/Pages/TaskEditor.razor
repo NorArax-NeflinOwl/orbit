@@ -1309,9 +1309,24 @@ else
         {
             try
             {
-                await CalendarApiClient.ShareCalendarEventAsync(calendarEventId, userId, accessLevel);
+                var result = await CalendarApiClient.ShareCalendarEventAsync(calendarEventId, userId, accessLevel);
+                if (result is null)
+                {
+                    _saveErrorMessage = T.Format("{0} couldn't be invited to \"{1}\".", GuestName(userId), item.Description);
+                    continue;
+                }
+
+                // And the notice that makes it acceptable. Sharing on the server is only half of an
+                // invitation: what a guest presses "Accept" on is an encrypted chat message carrying the
+                // share's id (see Chat.razor's TryParseShare), and this path sent the half that raises a
+                // notification without the half that can be answered - so the invitation arrived, said
+                // somebody had shared an event, and led to a conversation with nothing in it. The
+                // calendar's own editor has always sent both; this is the same two lines.
+                var payloadJson = JsonSerializer.Serialize(
+                    new EventShareMessagePayload(result.ShareId, item.Description));
+                await EncryptedChatMessageSender.SendAsync(_ownUserId, userId, payloadJson, isShareInvitation: true);
             }
-            catch (HttpRequestException exception)
+            catch (Exception exception) when (exception is not OperationCanceledException)
             {
                 Logger.LogWarning(exception, "Couldn't invite a guest to a task entry's event");
                 _saveErrorMessage = T.Format("{0} couldn't be invited to \"{1}\".", GuestName(userId), item.Description);
