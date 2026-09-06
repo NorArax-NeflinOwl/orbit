@@ -198,13 +198,13 @@
         @switch (_viewState.ViewMode)
         {
             case CalendarViewMode.Day:
-                <CalendarDayGrid Grid="CalendarGridBuilder.BuildDayGrid(_viewState.ReferenceDate, _events ?? [], _dueTasks ?? [])" OnEventSelected="OpenTheEvent" OnTaskSelected="GoToDueTask" />
+                <CalendarDayGrid Grid="CalendarGridBuilder.BuildDayGrid(_viewState.ReferenceDate, EventsOnTheGrid, DueTasksOnTheGrid)" OnEventSelected="OpenTheEvent" OnTaskSelected="GoToDueTask" TickedOffEventIds="TickedOffEventIds" />
                 break;
             case CalendarViewMode.Year:
-                <CalendarYearGrid Months="CalendarGridBuilder.BuildYearGrid(_viewState.ReferenceDate.Year, _events ?? [], _viewState.ShowDueTasksInYearView ? _dueTasks ?? [] : [])" OnDaySelected="GoToDay" />
+                <CalendarYearGrid Months="CalendarGridBuilder.BuildYearGrid(_viewState.ReferenceDate.Year, EventsOnTheGrid, _viewState.ShowDueTasksInYearView ? DueTasksOnTheGrid : [])" OnDaySelected="GoToDay" TickedOffEventIds="TickedOffEventIds" />
                 break;
             default:
-                <CalendarMonthGrid Weeks="CalendarGridBuilder.BuildMonthGrid(_viewState.ReferenceDate, _events ?? [], _dueTasks ?? [])" OnDaySelected="GoToDay" />
+                <CalendarMonthGrid Weeks="CalendarGridBuilder.BuildMonthGrid(_viewState.ReferenceDate, EventsOnTheGrid, DueTasksOnTheGrid)" OnDaySelected="GoToDay" TickedOffEventIds="TickedOffEventIds" />
                 break;
         }
     </div>
@@ -449,6 +449,40 @@
                 pair.Item.DueDateUtc ?? calendarEvent.Details.StartUtc, pair.Item.IsCompleted,
                 HasPlace(pair.Item), pair.Item.LinkedCalendarEventId)
             : null;
+
+    /// <summary>
+    /// What the grids draw: everything on the calendar, less what has been done. An appointment whose
+    /// entry on a task list is ticked off, and a deadline that is ticked off, both leave - the same
+    /// answer the list beside them gives, and the same menu brings them back.
+    ///
+    /// **What is merely *over* stays.** That is the one place this parts company with the list, and it
+    /// is deliberate: the list answers "what is coming", so an event that has ended is no longer its
+    /// subject, while a grid is a picture of the period - a month drawn with every past day empty would
+    /// be a month that had not happened. Done is a different fact from past, and only the first of them
+    /// is somebody saying "I am finished with this".
+    /// </summary>
+    private IReadOnlyList<CalendarEventDto> EventsOnTheGrid
+        => ListOrder.ShowsEverything
+            ? _events ?? []
+            : [.. (_events ?? []).Where(calendarEvent => !IsTickedOff(calendarEvent))];
+
+    /// <inheritdoc cref="EventsOnTheGrid"/>
+    private IReadOnlyList<DueTaskDto> DueTasksOnTheGrid
+        => ListOrder.ShowsEverything
+            ? _dueTasks ?? []
+            : [.. (_dueTasks ?? []).Where(dueTask => !dueTask.IsCompleted)];
+
+    /// <summary>
+    /// The events the grids draw as done. Only reached when the reader has asked for everything: by
+    /// default such an appointment is not on the grid at all (see EventsOnTheGrid), and this is what it
+    /// looks like when it comes back - struck through and greyed, the mark a finished deadline has
+    /// always carried there.
+    /// </summary>
+    private IReadOnlySet<Guid> TickedOffEventIds
+        => _entriesByEventId
+            .Where(pair => pair.Value.Item.IsCompleted)
+            .Select(pair => pair.Key)
+            .ToHashSet();
 
     /// <summary>
     /// Whether the entry that made this event has been ticked off. An event of its own has nothing to

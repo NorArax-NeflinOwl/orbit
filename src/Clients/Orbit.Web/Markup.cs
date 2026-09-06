@@ -28,4 +28,26 @@ public static class Markup
     /// </summary>
     public static RenderFragment? Optional(string? text)
         => string.IsNullOrEmpty(text) ? null : builder => builder.AddContent(0, text);
+
+    /// <summary>
+    /// The same, for a line somebody wrote themselves: the web addresses in it come back pressable -
+    /// see <see cref="Services.LinksInText"/> and TextWithLinks.
+    ///
+    /// Its own helper rather than a change to <see cref="Optional"/>, which most callers hand a
+    /// sentence Orbit composed - "Shared by Anna", "Nothing written yet". Those hold no addresses, and
+    /// a general helper that quietly went looking for some in every line would be doing something its
+    /// name does not say.
+    ///
+    /// Still null for nothing, which is the whole reason both of these exist: a subtitle given an empty
+    /// fragment is still a subtitle, and draws an empty line that takes up its own space.
+    /// </summary>
+    public static RenderFragment? OptionalWithLinks(string? text)
+        => string.IsNullOrEmpty(text)
+            ? null
+            : builder =>
+            {
+                builder.OpenComponent<Components.TextWithLinks>(0);
+                builder.AddComponentParameter(1, nameof(Components.TextWithLinks.Text), text);
+                builder.CloseComponent();
+            };
 }

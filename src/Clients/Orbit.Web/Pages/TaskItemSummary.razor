@@ -54,7 +54,7 @@ else
         @if (WhatItIsAbout() is { Length: > 0 } description)
         {
             <Row Title="@T["Description"]">
-                <Trailing><span class="row-meta">@description</span></Trailing>
+                <Trailing><span class="row-meta row-meta-prose"><TextWithLinks Text="@description" /></span></Trailing>
             </Row>
         }
         @if (_event is { Details.Guests.Count: > 0 } withGuests)

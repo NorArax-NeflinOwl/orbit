@@ -54,7 +54,7 @@
                                    "which day", and the day view is where a particular entry is picked
                                    out. A button inside a clickable cell also gave two targets a
                                    keyboard had to tell apart for one thing. *@
-                                <span class="calendar-event-chip" title="@calendarEvent.Details.Title"
+                                <span class="calendar-event-chip @DoneClass(calendarEvent.Id)" title="@calendarEvent.Details.Title"
                                       style="border-left-color:@EventColor(calendarEvent);">
                                     <span class="calendar-event-chip-title">@RecurringPrefix(calendarEvent)@Shortened(calendarEvent.Details.Title)</span>
                                 </span>
@@ -65,7 +65,7 @@
                             }
                             @foreach (var dueTask in day.DueTasks.Take(MaxVisibleDueTasks))
                             {
-                                <span class="calendar-task-chip @(dueTask.IsCompleted ? "calendar-task-chip-completed" : "")"
+                                <span class="calendar-task-chip @(dueTask.IsCompleted ? "calendar-chip-done" : "")"
                                       title="@dueTask.Label">
                                     @* What the entry says, not the list it is on. A task's label reads
                                        "Errands: buy milk", so two words of it would be the list's name
@@ -111,6 +111,18 @@
 
     [Parameter, EditorRequired]
     public IReadOnlyList<MonthGridWeek> Weeks { get; set; } = [];
+
+    /// <summary>
+    /// The events whose entry on a task list has been ticked off. An event of its own has nothing to
+    /// tick - only the entry that made it does - so the grid has to be told, and is told by the page
+    /// that holds both (see Calendar.razor's TickedOffEventIds). Empty for a caller with no task lists
+    /// in hand, which draws exactly what it drew before.
+    /// </summary>
+    [Parameter]
+    public IReadOnlySet<Guid> TickedOffEventIds { get; set; } = new HashSet<Guid>();
+
+    /// <summary>Whether this appointment reads as done - see TickedOffEventIds.</summary>
+    private string DoneClass(Guid eventId) => TickedOffEventIds.Contains(eventId) ? "calendar-chip-done" : string.Empty;
 
     /// <summary>
     /// As much of a name as a month cell can hold: the first two words, and an ellipsis when there was
