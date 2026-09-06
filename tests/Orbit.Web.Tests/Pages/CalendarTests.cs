@@ -400,6 +400,25 @@ public sealed class CalendarTests : OrbitTestContext
         Assert.Contains("Finished", Assert.Single(cut.FindAll(".calendar-event-chip")).TextContent);
     }
 
+    /// <summary>
+    /// The first hop of the case that was reported. Pressing a deadline here opens it as its entry on a
+    /// task list, and the form beyond that used to end on /tasks - so the calendar says where it is,
+    /// and the address is carried the rest of the way. See ReturnTo.
+    /// </summary>
+    [Fact]
+    public void Opening_a_deadline_says_the_calendar_is_where_to_come_back_to()
+    {
+        var midMonth = new DateTime(DateTime.Today.Year, DateTime.Today.Month, 15, 10, 0, 0);
+        RegisterCalendarApiClient([]);
+        RegisterTasksApiClient([CreateTaskListWithDueItem(midMonth, "Buy milk")]);
+        var navigationManager = Services.GetRequiredService<NavigationManager>();
+        var cut = RenderComponent<Calendar>();
+
+        cut.Find(".item-card-name").Click();
+
+        Assert.Contains($"{ReturnTo.QueryName}=%2Fcalendar", navigationManager.Uri);
+    }
+
     /// <summary>The guard on both: an appointment nobody has ticked off is listed as it always was.</summary>
     [Fact]
     public void An_appointment_still_outstanding_is_listed_as_it_always_was()
@@ -503,7 +522,9 @@ public sealed class CalendarTests : OrbitTestContext
 
         cut.Find(".item-card-name").Click();
 
-        Assert.EndsWith($"/tasks/{taskList.Id}/items/{taskList.Items[0].Id}", navigationManager.Uri);
+        Assert.EndsWith(
+            $"/tasks/{taskList.Id}/items/{taskList.Items[0].Id}?{ReturnTo.QueryName}=%2Fcalendar",
+            navigationManager.Uri);
         Assert.DoesNotContain("/calendar/", navigationManager.Uri);
     }
 

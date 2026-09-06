@@ -102,6 +102,14 @@ else
 @code {
     [Parameter] public Guid TaskListId { get; set; }
 
+    /// <summary>
+    /// The page that sent the reader here - the calendar, usually, since an appointment a task list
+    /// made opens as its entry rather than as the event. Carried on to the editor so finishing the edit
+    /// returns them to it and not to /tasks, two sections from where they started. See ReturnTo.
+    /// </summary>
+    [Parameter, SupplyParameterFromQuery(Name = ReturnTo.QueryName)]
+    public string? ComeBackTo { get; set; }
+
     [Parameter] public Guid ItemId { get; set; }
 
     private bool _isLoading = true;
@@ -246,7 +254,9 @@ else
     /// The form for this one entry, which is the list's form opened on it - see TaskEditor's item
     /// parameter. An entry has no editor of its own yet.
     /// </summary>
-    private void GoToEditor() => NavigationManager.NavigateTo($"/tasks/{TaskListId}/items/{ItemId}/edit");
+    private void GoToEditor()
+        => NavigationManager.NavigateTo(
+            ReturnTo.Link($"/tasks/{TaskListId}/items/{ItemId}/edit", ComeBackTo));
 
     private string Written(string name) => OrbitWrittenNames.Translate(key => T[key], name);
 

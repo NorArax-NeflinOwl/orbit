@@ -837,7 +837,7 @@
     private void GoToEditTaskList(Guid taskListId)
     {
         Logger.LogInformation("User clicked 'Edit' for task list {TaskListId}", taskListId);
-        NavigationManager.NavigateTo($"/tasks/{taskListId}/edit");
+        NavigationManager.NavigateTo(ReturnTo.Link($"/tasks/{taskListId}/edit", "/tasks"));
     }
 
     /// <summary>What opening a list means, here and everywhere else - see TaskListChecklist.razor.</summary>

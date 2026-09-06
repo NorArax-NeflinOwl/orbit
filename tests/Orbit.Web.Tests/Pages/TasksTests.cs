@@ -289,7 +289,10 @@ public sealed class TasksTests : OrbitTestContext
         OpenTheCardMenu(cut);
         cut.FindAll(".item-card-menu button").First(button => button.TextContent.Trim() == "Edit").Click();
 
-        Assert.EndsWith($"/tasks/{taskList.Id}/edit", navigationManager.Uri);
+        // And the form knows to end back on this page rather than on /tasks by default - see ReturnTo.
+        Assert.EndsWith(
+            $"/tasks/{taskList.Id}/edit?{ReturnTo.QueryName}={Uri.EscapeDataString("/tasks")}",
+            navigationManager.Uri);
     }
 
     /// <summary>

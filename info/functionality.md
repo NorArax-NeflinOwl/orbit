@@ -1262,8 +1262,29 @@ fields arrive with the choice: picking Inventory on an open form shows them ther
 something else takes them away again - waiting for a save and a reopen made the feature unreachable
 without knowing it was there.
 
-**A web address written in a description can be pressed.** Wherever a description is *read* - a calendar
-event's, a task entry's, a note's own lines, a storage's - the addresses in it are links
+**Finishing an edit returns the reader where they came from.** Saving, cancelling or deleting a task
+list used to land on `/tasks` whatever route reached the form, so an appointment opened from the calendar
+ended its edit two sections from where it started. The page that sends somebody in now says where it is,
+as a `returnTo` on the address (`ReturnTo`), and it is carried the whole way: the calendar names itself,
+the entry's own page and the checklist pass on what they were given rather than replacing it with
+themselves, and the form ends there. A form reached without one - somebody typing the address - still
+ends on `/tasks`, which is what every route did before.
+
+**Only a path on this site is ever followed.** The value comes off the address bar, so it is whatever
+anybody put there: an absolute URL, a protocol-relative `//host`, or anything holding a backslash (which
+a browser may read as the slash that makes one) is refused and the fallback answers instead. Without that
+rule a link to Orbit could carry somebody to another site with Orbit's own **Save** as the thing that
+took them, which is the ordinary shape of an open redirect.
+
+**A list says what it is for, under its name.** The editor has always asked a task list for a description
+and no page showed it - the one field in Orbit that could be written and never read. It is the checklist's
+subtitle now, where a storage's description already sat, and it takes the place of the sentence that used
+to be there ("Tick items off; use Edit to change the list itself.", or the count of a group's linked
+lists): those are a signpost about the page and a pointer at sections drawn directly below it, and
+somebody's own words about their list beat both. A list nobody described still gets the signpost.
+
+**A web address written in a description can be pressed.** Wherever a description is *read* - a task
+list's, a calendar event's, a task entry's, a note's own lines, a storage's - the addresses in it are links
 (`TextWithLinks`, splitting by `LinksInText`). A new tab, with `rel="noopener noreferrer"`: a
 description is read in the middle of doing something, and following a link out of a half-written list
 is the one thing nobody meant to do.

@@ -726,6 +726,64 @@ public sealed class TaskEditorItemFormTests : OrbitTestContext
             .GetAwaiter().GetResult();
     }
 
+    /// <summary>
+    /// Where an editor sends the reader when it is finished. Saving used to land on /tasks whatever
+    /// route reached the form, so an entry opened from the calendar ended its edit two sections away
+    /// from where it started - see ReturnTo.
+    /// </summary>
+    [Theory]
+    [InlineData("/calendar", "/calendar")]
+    [InlineData(null, "/tasks")]
+    // Refused, so the fallback answers: the value comes off the address bar, and Orbit's own Save must
+    // never be what takes somebody to another site.
+    [InlineData("https://example.com", "/tasks")]
+    [InlineData("//example.com", "/tasks")]
+    public void Saving_returns_to_the_page_that_sent_the_reader_here(string? comeBackTo, string expected)
+    {
+        RegisterApiClients(AnItem());
+        var cut = RenderAskedToComeBackTo(comeBackTo);
+
+        ClickButtonSaying(cut, "Save");
+
+        Assert.Equal(expected, WhereItEnded());
+    }
+
+    /// <summary>Cancelling goes back the same way - it is the same question about the same visit.</summary>
+    [Fact]
+    public void Cancelling_returns_there_too()
+    {
+        RegisterApiClients(AnItem());
+        var cut = RenderAskedToComeBackTo("/calendar");
+
+        ClickButtonSaying(cut, "Cancel");
+
+        Assert.Equal("/calendar", WhereItEnded());
+    }
+
+    /// <summary>
+    /// The editor, opened the way a link opens it. A query parameter cannot be handed in as a component
+    /// parameter - it has to come off the address, which is the whole point of carrying it there.
+    /// </summary>
+    private IRenderedComponent<TaskEditor> RenderAskedToComeBackTo(string? comeBackTo)
+    {
+        if (comeBackTo is not null)
+        {
+            var navigationManager = Services.GetRequiredService<NavigationManager>();
+            navigationManager.NavigateTo(
+                navigationManager.GetUriWithQueryParameter(ReturnTo.QueryName, comeBackTo));
+        }
+
+        return Render();
+    }
+
+    /// <summary>
+    /// The path the page ended on, without the query - which matters here, because the address it was
+    /// opened at holds the destination as a *parameter* and a test looking at the whole URI would pass
+    /// before anything had been pressed.
+    /// </summary>
+    private string WhereItEnded()
+        => new Uri(Services.GetRequiredService<NavigationManager>().Uri).PathAndQuery;
+
     private IRenderedComponent<TaskEditor> Render()
         => RenderComponent<TaskEditor>(parameters => parameters.Add(editor => editor.Id, TaskListId));
 

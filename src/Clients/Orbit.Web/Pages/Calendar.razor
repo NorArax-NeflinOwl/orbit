@@ -505,7 +505,16 @@
     /// </summary>
     private void OpenTheEvent(Guid calendarEventId)
     {
+        // "Come back here" only where the press leads out of the calendar. An appointment a task list
+        // made opens as its entry, and the edit that follows used to end on /tasks (see ReturnTo); an
+        // event of its own opens the calendar's own form, which ends here anyway - saying so again
+        // would be an address carrying a parameter nothing reads.
         var destination = CalendarEventDestination.For(calendarEventId, _taskLists);
+        if (CalendarEventDestination.RaisedBy(calendarEventId, _taskLists) is not null)
+        {
+            destination = ReturnTo.Link(destination, "/calendar");
+        }
+
         Logger.LogInformation(
             "User opened calendar event {EventId} from the calendar, going to {Destination}", calendarEventId, destination);
         NavigationManager.NavigateTo(destination);
@@ -517,7 +526,10 @@
         {
             Logger.LogInformation(
                 "User opened the summary of task item {TaskItemId} from the calendar", dueTask.TaskItemId);
-            NavigationManager.NavigateTo($"/tasks/{dueTask.TaskListId}/items/{dueTask.TaskItemId}");
+            // Saying where this came from, so finishing the edit comes back to the calendar rather
+            // than ending on /tasks - see ReturnTo.
+            NavigationManager.NavigateTo(ReturnTo.Link(
+                $"/tasks/{dueTask.TaskListId}/items/{dueTask.TaskItemId}", "/calendar"));
             return;
         }
 
@@ -534,7 +546,7 @@
         Logger.LogInformation(
             "User clicked a due-task entry on the calendar for task list {TaskListId}, opening {OpenedTaskListId}",
             taskListId, opened);
-        NavigationManager.NavigateTo($"/tasks/{opened}");
+        NavigationManager.NavigateTo(ReturnTo.Link($"/tasks/{opened}", "/calendar"));
     }
 
     /// <summary>
