@@ -31,6 +31,15 @@ public static class SharedItemAccess
         => !item.IsShared || LevelOf(item).AllowsEditing();
 
     /// <summary>
+    /// Whether it can be handed on to somebody else. True for the reader's own item; for one that
+    /// arrived through a share, only where that share permits granting anything at all - a read-only
+    /// recipient shares nothing. The same rule Orbit.Web's own SharedItemAccess.CanShare asks, and it
+    /// asks Orbit.Core rather than comparing strings for the reason the class comment gives.
+    /// </summary>
+    public static bool AllowsSharing(ISharedState item)
+        => !item.IsShared || LevelOf(item).CanGrant(ShareAccessLevel.ReadOnly);
+
+    /// <summary>
     /// Why it cannot be changed, or empty when it can. One wording for all four kinds: what it says is
     /// about the share rather than about the thing, and the reader's own next step is the same either
     /// way - see SharePanel's "Ask to edit this", which is offered beside it.

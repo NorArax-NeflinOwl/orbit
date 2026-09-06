@@ -3,6 +3,7 @@ using Microsoft.Extensions.Time.Testing;
 using Orbit.Contracts.Inventories;
 using Orbit.Core.Inventories;
 using Orbit.Mobile.Api;
+using Orbit.Mobile.Chat;
 using Orbit.Mobile.Data;
 using Orbit.Mobile.Localization;
 using Orbit.Mobile.Screens.Inventory;
@@ -188,6 +189,55 @@ public sealed class InventorySearchTests
         string name, decimal quantity = 1, string unit = nameof(InventoryUnit.Piece))
         => new(Guid.NewGuid(), name, string.Empty, string.Empty, quantity, null, unit, null, "None");
 
+    /// <summary>
+    /// The card's own menu, which is the only way an inventory leaves the screen without being opened
+    /// first - see InventoryPage, which is where the question in front of it is asked.
+    /// </summary>
+    [Fact]
+    public async Task Deleting_an_inventory_from_its_card_takes_it_off_the_screen()
+    {
+        using var context = new ScreenContext();
+        await context.AddInventoryAsync("Kitchen", Item("Flour"));
+        var screen = await context.OpenInventoryAsync();
+
+        await screen.DeleteCommand.ExecuteAsync(Assert.Single(screen.Inventories));
+
+        Assert.Empty(screen.Inventories);
+    }
+
+    /// <summary>
+    /// Guarded here as well as on the card: a view model that took the press anyway would delete
+    /// somebody else's shelf, and the card's own drawing is not what stops that.
+    /// </summary>
+    [Fact]
+    public async Task An_inventory_shared_with_me_is_not_this_readers_to_delete()
+    {
+        using var context = new ScreenContext();
+        await context.AddInventoryAsync("Kitchen", Item("Flour"));
+        var screen = await context.OpenInventoryAsync();
+        var theirs = Assert.Single(screen.Inventories) with { IsSharedWithMe = true };
+
+        await screen.DeleteCommand.ExecuteAsync(theirs);
+
+        Assert.Single(screen.Inventories);
+    }
+
+    /// <summary>
+    /// Sharing from the card opens the one panel the screen carries, on the inventory the card names.
+    /// The panel itself is SharePanelTests' subject; what matters here is that it is told which shelf.
+    /// </summary>
+    [Fact]
+    public async Task Sharing_from_a_card_opens_the_panel_on_that_inventory()
+    {
+        using var context = new ScreenContext();
+        await context.AddInventoryAsync("Kitchen", Item("Flour"));
+        var screen = await context.OpenInventoryAsync();
+
+        screen.OfferToShareCommand.Execute(Assert.Single(screen.Inventories));
+
+        Assert.True(screen.Share.IsOpen);
+    }
+
     private sealed class ScreenContext : IDisposable
     {
         private readonly LocalStore _localStore = new();
@@ -230,7 +280,8 @@ public sealed class InventorySearchTests
             var screen = new InventoryViewModel(
                 _inventories, _synchronizer, FixedNetworkStatus.Online,
                 new PrivateItemGate(new FixedDeviceAuthentication()),
-                new SyncState(FixedNetworkStatus.Online, _clock), Navigator, translations);
+                new SyncState(FixedNetworkStatus.Online, _clock), Navigator, translations,
+                ShareTestPanel.For(_localStore, new ChatRepository(_localStore, _clock)));
 
             await screen.LoadCommand.ExecuteAsync(null);
             return screen;

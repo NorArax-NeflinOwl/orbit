@@ -208,6 +208,14 @@
                                         CommandParameter="{Binding .}" />
                             </controls:ItemCard.Collapse>
 
+                            <controls:ItemCard.Menu>
+                                <!-- What can be done to the list without opening it, in the corner
+                                     every card keeps its menu in - see Orbit.Web's own Tasks card. -->
+                                <controls:OverflowMenu IsVisible="{Binding HasCardMenu}"
+                                                       Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=ShowCardMenuCommand, x:DataType=tasks:TasksPage}"
+                                                       CommandParameter="{Binding .}" />
+                            </controls:ItemCard.Menu>
+
                             <controls:ItemCard.Tags>
                                 <HorizontalStackLayout Spacing="6">
                                     <!-- Two cards with the same title are otherwise indistinguishable. -->

@@ -79,11 +79,16 @@ not drawn. What those rules signalled is said by shape instead, which the phone 
 
 ## What is still not the same, deliberately or not
 
-- **A card carries no overflow menu yet.** In the browser every card on Notes, Tasks and Inventory
-  offers Edit-or-View, Share and Delete from the corner (`ObjectMenu.razor`). On the phone those live
-  one screen further in, on the thing's own page - the list view models have no delete or share to
-  offer. Giving a card its menu is view-model work, not markup, and is queued in
-  [`future-plan.md`](future-plan.md).
+- **A card's menu offers no "Edit".** The browser's card menu opens with it, because there a card's
+  press opens the thing to be *read* and Edit is one press further in, at the form. The phone keeps one
+  screen for both - a note's lines are ticked where they are written - so an Edit entry would do
+  exactly what pressing the card already does, and an entry that repeats the press is noise. What the
+  menu does carry is everything the press cannot reach: Delete (or "Remove from my list" for somebody
+  else's note), and Share on an inventory.
+- **A group task list is deleted without its second question.** The browser asks whether the other
+  lists it gathers should go too; the phone's local store deletes one list at a time and cannot carry
+  that answer, so the group list goes and what it gathered stays - which is the browser's own answer
+  when somebody cancels that question.
 - **The phone keeps one screen where the browser has two.** A note's lines are ticked where they are
   written; a shelf is counted up and down on the screen that edits it. This is recorded at length in
   future-plan.md's "Smaller identified follow-ups" and is the right answer for a phone, so the rail

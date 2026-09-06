@@ -76,6 +76,14 @@
                                                     CommandParameter="{Binding .}" />
                             </controls:ItemCard.Pin>
 
+                            <controls:ItemCard.Menu>
+                                <!-- What can be done to the note without opening it, in the corner
+                                     every card keeps its menu in - see Orbit.Web's own Notes card. -->
+                                <controls:OverflowMenu IsVisible="{Binding HasCardMenu}"
+                                                       Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=ShowCardMenuCommand, x:DataType=notes:NotesPage}"
+                                                       CommandParameter="{Binding .}" />
+                            </controls:ItemCard.Menu>
+
                             <controls:ItemCard.Tags>
                                 <!-- Two cards with the same title are otherwise indistinguishable, and
                                      the reader has no way of telling which one they wrote in. -->
@@ -112,6 +120,8 @@
 
     </Grid>
         <controls:NavigationBar Grid.Row="0" />
+        <controls:MenuOverlay Grid.Row="0" Grid.RowSpan="3"
+                              BindingContext="{Binding Menu, Source={x:Reference Page}, x:DataType=notes:NotesPage}" />
         <controls:AvatarMenu Grid.Row="0" Grid.RowSpan="3" />
     </Grid>
 

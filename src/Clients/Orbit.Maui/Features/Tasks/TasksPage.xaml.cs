@@ -17,6 +17,7 @@ public partial class TasksPage : ContentPage
 		// built there and reads a page's plain property exactly once - see CalendarEventDetailPage,
 		// where the same order matters for the same reason.
 		ShowSortMenuCommand = new Command(ShowSortMenu);
+		ShowCardMenuCommand = new Command<TaskListRow>(ShowCardMenu);
 
 		InitializeComponent();
 		BindingContext = _viewModel = viewModel;
@@ -26,6 +27,9 @@ public partial class TasksPage : ContentPage
 
 	/// <summary>What the three dots at the header's other end open.</summary>
 	public ICommand ShowSortMenuCommand { get; }
+
+	/// <summary>And what a card's own three dots open. The same panel; only the entries differ.</summary>
+	public ICommand ShowCardMenuCommand { get; }
 
 	/// <summary>The panel those dots draw - one per screen, above everything else on it.</summary>
 	public ScreenMenu Menu { get; } = new();
@@ -40,6 +44,36 @@ public partial class TasksPage : ContentPage
 	{
 		base.OnAppearing();
 		_viewModel.LoadCommand.Execute(null);
+	}
+
+	/// <summary>
+	/// What a card offers besides opening it. One entry, and only on a list this reader owns: a shared
+	/// one is somebody else's to delete, so its card carries no menu at all rather than a spent one.
+	/// </summary>
+	private void ShowCardMenu(TaskListRow? row)
+	{
+		if (row is not { HasCardMenu: true })
+		{
+			return;
+		}
+
+		Menu.Show(
+			[new ScreenMenuEntry(_translations["Delete"], () => _ = DeleteAsync(row))],
+			opensUpwards: true);
+	}
+
+	/// <summary>
+	/// Asked first, as every delete in Orbit is - and named, so the question says which list. What the
+	/// browser asks second, about the other lists a group list gathers, is not asked: the phone's own
+	/// delete takes one list at a time and cannot carry that answer - see TasksViewModel.
+	/// </summary>
+	private async Task DeleteAsync(TaskListRow row)
+	{
+		var question = _translations.Format("Delete task list \"{0}\"?", row.DisplayTitle);
+		if (await Confirmation.AskAsync(this, question, _translations["Delete"], _translations["Cancel"]))
+		{
+			_viewModel.DeleteListCommand.Execute(row);
+		}
 	}
 
 	/// <summary>

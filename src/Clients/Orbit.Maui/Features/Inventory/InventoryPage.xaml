@@ -52,6 +52,15 @@
                     <DataTemplate x:DataType="screens:InventoryRow">
                         <!-- The same card every list of things is drawn with - see ItemCard. -->
                         <controls:ItemCard Name="{Binding DisplayName}">
+                            <controls:ItemCard.Menu>
+                                <!-- What can be done to the inventory without opening it, in the
+                                     corner every card keeps its menu in - see Orbit.Web's own
+                                     Inventory card, which offers the same two. -->
+                                <controls:OverflowMenu IsVisible="{Binding HasCardMenu}"
+                                                       Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=ShowCardMenuCommand, x:DataType=inventory:InventoryPage}"
+                                                       CommandParameter="{Binding .}" />
+                            </controls:ItemCard.Menu>
+
                             <controls:ItemCard.Tags>
                                 <!-- Two cards with the same name are otherwise indistinguishable, and
                                      the reader has no way of telling which one they wrote in. -->
@@ -117,9 +126,20 @@
                    IsVisible="{Binding IsSearchingItems}" Style="{StaticResource EmptyHint}" />
         </Grid>
 
+        <!-- Why a press could not do what it said, and the panel that offers one of these to somebody
+             else. The browser opens that panel inside the card it was asked from; one panel serves the
+             whole screen here, and it is told which inventory it is about when it opens - see
+             InventoryViewModel.OfferToShare. -->
+        <VerticalStackLayout Grid.Row="4" Spacing="8">
+            <Label Text="{Binding Message}" IsVisible="{Binding HasMessage}" LineBreakMode="WordWrap"
+                   Style="{StaticResource ErrorLabel}" />
+            <controls:SharePanel BindingContext="{Binding Share}" />
+        </VerticalStackLayout>
 
     </Grid>
         <controls:NavigationBar Grid.Row="0" />
+        <controls:MenuOverlay Grid.Row="0" Grid.RowSpan="3"
+                              BindingContext="{Binding Menu, Source={x:Reference Page}, x:DataType=inventory:InventoryPage}" />
         <controls:AvatarMenu Grid.Row="0" Grid.RowSpan="3" />
     </Grid>
 

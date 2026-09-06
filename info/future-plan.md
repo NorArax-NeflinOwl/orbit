@@ -492,13 +492,13 @@ The phone was walked against `app.css` on 2026-09-06 and now shares its type sca
 and its shared controls - see [`android-ui-parity.md`](android-ui-parity.md), which is the map of what
 matches and what does not. What that pass left:
 
-- **A card has no overflow menu.** In the browser every card on Notes, Tasks and Inventory offers
-  Edit-or-View, Share and Delete from its corner (`ObjectMenu.razor`); on the phone those live one
-  screen further in. The panel to draw one now exists (`ScreenMenu`, `MenuOverlay`, `OverflowMenu`), so
-  what is missing is the actions themselves: `NotesViewModel` and `InventoryViewModel` have no delete
-  or share to hand a menu, only `Open`, `TogglePin` and `UnlockPrivate`. Doing it means lifting those
-  from the detail view models onto the list ones, with the same refusals - a note somebody else owns is
-  removed from your list rather than deleted, a read-only share opens as View.
+- ~~**A card has no overflow menu.**~~ Done: Notes, Tasks and Inventory cards each carry one, with the
+  actions lifted onto the list view models and the same refusals the browser applies - somebody else's
+  note is removed from your own list rather than deleted, a shared list or inventory is not yours to
+  delete, and a private or never-synced inventory is handed to nobody. Two things the browser has that
+  the phone deliberately does not: an "Edit" entry (its press and the card's press open the same screen
+  here) and the second question a group task list asks before deleting what it gathers (the local store
+  deletes one list at a time). See [`android-ui-parity.md`](android-ui-parity.md).
 - **Chat, the map, the account screen and the calendar's grids have not had the pass.** They read
   correctly and use the same palette, but their spacing and type were not walked line by line against
   app.css the way the list and detail screens were. The calendar's month and year cells in particular
