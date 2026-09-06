@@ -115,7 +115,11 @@ public sealed class TaskListChecklistTests : OrbitTestContext
 
         cut.Find(".check-row-text").Click();
 
-        Assert.EndsWith($"/tasks/{taskList.Id}/items/{taskList.Items[0].Id}/edit", navigationManager.Uri);
+        // With where to come back to: this page opened the form, so the form ends here - see ReturnTo.
+        Assert.EndsWith(
+            $"/tasks/{taskList.Id}/items/{taskList.Items[0].Id}/edit"
+                + $"?{ReturnTo.QueryName}={Uri.EscapeDataString($"/tasks/{taskList.Id}")}",
+            navigationManager.Uri);
     }
 
     [Fact]

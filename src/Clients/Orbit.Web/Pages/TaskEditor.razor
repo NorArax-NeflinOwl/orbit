@@ -570,6 +570,20 @@ else
     [Parameter]
     public Guid? Id { get; set; }
 
+    /// <summary>
+    /// The page that sent the reader here, so finishing returns them to it rather than to /tasks. An
+    /// entry opened from the calendar used to end the edit two sections away from where it started -
+    /// see ReturnTo, which is also where "only a path on this site" is enforced.
+    /// </summary>
+    [Parameter, SupplyParameterFromQuery(Name = ReturnTo.QueryName)]
+    public string? ComeBackTo { get; set; }
+
+    /// <summary>
+    /// Where saving, cancelling and deleting all end. The list of lists when nobody said otherwise,
+    /// which is what every route here did before and is still right for somebody who typed the address.
+    /// </summary>
+    private string WhenFinished => ReturnTo.Or(ComeBackTo, "/tasks");
+
     private bool IsNewTaskList => Id is null;
 
     /// <summary>
@@ -1950,7 +1964,7 @@ else
             _isSaving = false;
         }
 
-        NavigationManager.NavigateTo("/tasks");
+        NavigationManager.NavigateTo(WhenFinished);
     }
 
     private async Task CancelAsync()
@@ -1961,7 +1975,7 @@ else
             await ReleaseLockAsync(taskListId);
         }
 
-        NavigationManager.NavigateTo("/tasks");
+        NavigationManager.NavigateTo(WhenFinished);
     }
 
     /// <summary>Whether the delete is in flight, so the menu entry cannot be pressed a second time.</summary>
@@ -2002,7 +2016,7 @@ else
         }
 
         await ReleaseLockAsync(taskListId);
-        NavigationManager.NavigateTo("/tasks");
+        NavigationManager.NavigateTo(WhenFinished);
     }
 
     /// <summary>Mirrors NoteEditor's method of the same name - see its comment.</summary>

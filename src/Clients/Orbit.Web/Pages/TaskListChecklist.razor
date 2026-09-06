@@ -382,6 +382,18 @@ else
     [Parameter, SupplyParameterFromQuery(Name = "highlight")]
     public Guid? Highlight { get; set; }
 
+    /// <summary>
+    /// The page that sent the reader here, passed on to the form beyond rather than replaced with this
+    /// one: somebody who reached a list from the calendar means the calendar when they say "back", and
+    /// this page is a stop on the way. A list opened from anywhere that said nothing names itself, so
+    /// the form still ends on the list it was opened from. See ReturnTo.
+    /// </summary>
+    [Parameter, SupplyParameterFromQuery(Name = ReturnTo.QueryName)]
+    public string? ComeBackTo { get; set; }
+
+    /// <summary>Where the form opened from here should end - what this page was given, or this page.</summary>
+    private string WhereTheFormShouldEnd => ReturnTo.Or(ComeBackTo, $"/tasks/{Id}");
+
     private bool _isLoading = true;
     private string? _errorMessage;
     private bool _isDeleting;
@@ -709,7 +721,8 @@ else
     /// and this is the way there from the line itself.
     /// </summary>
     private void GoToEditItem(Guid taskListId, Guid itemId)
-        => NavigationManager.NavigateTo($"/tasks/{taskListId}/items/{itemId}/edit");
+        => NavigationManager.NavigateTo(
+            ReturnTo.Link($"/tasks/{taskListId}/items/{itemId}/edit", WhereTheFormShouldEnd));
 
     /// <summary>Whether this entry is ordinary work rather than an appointment or a restock errand.</summary>
     private static bool IsAChecklistEntry(TaskItemDto item)
@@ -829,7 +842,7 @@ else
     private void GoToDeepEditor()
     {
         _menu?.Close();
-        NavigationManager.NavigateTo($"/tasks/{Id}/edit");
+        NavigationManager.NavigateTo(ReturnTo.Link($"/tasks/{Id}/edit", WhereTheFormShouldEnd));
     }
 
     private void GoToTaskLists() => NavigationManager.NavigateTo("/tasks");

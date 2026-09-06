@@ -105,6 +105,26 @@ public sealed class TaskItemSummaryTests : OrbitTestContext
         Assert.EndsWith($"/tasks/{TaskListId}/items/{ItemId}/edit", navigationManager.Uri);
     }
 
+    /// <summary>
+    /// And it carries where the reader came from with it, so the edit ends back there. This page is the
+    /// middle hop of the case that was reported: an appointment pressed on the calendar opens as its
+    /// entry here, and saving from the form beyond used to land on /tasks. See ReturnTo.
+    /// </summary>
+    [Fact]
+    public void Edit_carries_the_page_the_reader_came_from()
+    {
+        RegisterClients(Item("Dentist", DateTimeOffset.UtcNow.AddDays(1), location: "Przychodnia"));
+        var navigationManager = Services.GetRequiredService<NavigationManager>();
+        navigationManager.NavigateTo(navigationManager.GetUriWithQueryParameter(ReturnTo.QueryName, "/calendar"));
+        var cut = Render();
+
+        cut.Find(".editor-rail .overflow-menu-trigger").Click();
+        cut.FindAll(".editor-rail .avatar-dropdown-item").First(entry => entry.TextContent.Contains("Edit")).Click();
+
+        Assert.EndsWith(
+            $"/tasks/{TaskListId}/items/{ItemId}/edit?{ReturnTo.QueryName}=%2Fcalendar", navigationManager.Uri);
+    }
+
     /// <summary>The one press that leaves without opening a menu goes back to the list it is on.</summary>
     [Fact]
     public void Cancel_goes_back_to_the_list()
