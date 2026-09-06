@@ -27,6 +27,14 @@ so a merge touching nothing mobile starts no runner. As a job it could only deci
 after starting, and a started job is billed a whole minute either way. It gates nothing
 (the Android head is not in `deploy`'s `needs`), which is why splitting it costs no gate.
 
+`verify-diagrams.yml` parses the Mermaid diagrams in `info/uml/` on the same trigger,
+filtered to `info/uml/**` and the script it runs. It is separate for a reason worth
+remembering before anybody "tidies" it into the suite: `main_orbit.yml` ignores
+`info/**` and `**/*.md`, so it would never run on a diagram-only merge - the change
+most likely to break a diagram. It also gates nothing, because a picture that will not
+draw is no reason to hold a deploy. It needs no browser (jsdom, not Chromium), so a run
+is one billed minute and no download.
+
 What that means in practice: the full suite on the developer's machine is the only
 check a change gets before `Coding`. A broken merge into `Coding` is found at the
 next push to `main`, before anything deploys - and then it blocks the whole

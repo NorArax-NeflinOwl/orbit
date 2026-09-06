@@ -151,6 +151,20 @@ What used to be on this list and no longer is: push notifications end to end
 listener, `VapidPushNotificationSenderTests` against a stub transport), and `wwwroot/js/e2eeChat.js` —
 see below. `Contacts` is covered by `ContactsGateTests` and `ContactInfoTests`.
 
+### The diagrams
+
+`info/uml/` has no .NET test either, and a Mermaid block that will not parse renders on GitHub as an
+error box rather than as nothing. `ci/verify-diagrams.mjs` parses every one of them:
+
+```bash
+npm install --no-save mermaid@11 jsdom
+node ci/verify-diagrams.mjs
+```
+
+No browser, unlike the two verifiers below - Mermaid's parser wants a DOM but not a renderer, and jsdom
+is enough. `.github/workflows/verify-diagrams.yml` runs it on merges to `main` that touch `info/uml/`;
+see [info/uml/README.md](uml/README.md) for why that is a workflow of its own.
+
 ### What one API instance cannot prove: run these by hand
 
 Three things only make sense with a second replica, and all three fail *silently* when broken - live

@@ -839,7 +839,7 @@ developer account and signing key of §12, and no longer the hardware.
 ## 14. Where the phone is meant to differ from the web
 
 Most of the time the web client is the answer and the phone follows it — see
-[Orbit.Web is the model](../CLAUDE.md) in spirit, and the parity notes above. These are the places
+[Orbit.Web is the model](../.claude/CLAUDE.md) in spirit, and the parity notes above. These are the places
 where following it would be the wrong call.
 
 ### 14.1 The calendar shrinks as you scroll
