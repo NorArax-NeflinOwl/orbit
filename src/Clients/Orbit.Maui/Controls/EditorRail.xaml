@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<ContentView
+    x:Class="Orbit.Maui.Controls.EditorRail"
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    xmlns:controls="clr-namespace:Orbit.Maui.Controls"
+    x:Name="Root">
+
+    <!-- The bar along the foot of every editing screen - Orbit.Web's EditorRail as it draws itself at
+         the 680px breakpoint, where the column beside the form becomes a bar under the thumb.
+
+             [v]                                    [check] [cross] [...]
+             whatever this screen keeps in view, folded away behind the arrow
+
+         What lives here is what has to be reachable from anywhere in a form: a form has no fixed
+         height, and buttons at its end sit wherever the writing happens to stop - which on a long note
+         or a full shelf is off the screen.
+
+         A screen that is only read carries the same bar with no Save in it. What leaves the screen and
+         what else it can do belong in the same place whether or not there is anything to write. -->
+    <Grid RowDefinitions="Auto,Auto" RowSpacing="8" Padding="12,8"
+          BackgroundColor="{AppThemeBinding Light={StaticResource SurfaceLight}, Dark={StaticResource SurfaceDark}}">
+
+        <!-- The bar's top edge is its only one: it sits on the foot of the window, so the other three
+             would be drawing a box around the screen. -->
+        <BoxView Grid.Row="0" Style="{StaticResource Hairline}" VerticalOptions="Start" Margin="-12,-8,-12,0" />
+
+        <!-- On its own line above the buttons rather than beside them, and only once the arrow has been
+             pressed: a bar tall enough to hold fields as well would be most of a phone. -->
+        <ContentView x:Name="ExtrasHost" Grid.Row="0" IsVisible="False" Margin="0,4,0,0" />
+
+        <Grid Grid.Row="1" ColumnDefinitions="Auto,*,Auto">
+            <controls:IconButton x:Name="Toggle" Grid.Column="0" IsVisible="False"
+                                 Data="M6,8 L10,12 L14,8" />
+
+            <HorizontalStackLayout Grid.Column="2" Spacing="10">
+                <controls:IconButton x:Name="SaveAction" IsVisible="False" Variant="ActionPrimary"
+                                     Data="M4,10.5 L8,14.5 L16,5.5" />
+                <controls:IconButton x:Name="CancelAction" Variant="Action"
+                                     Data="M5,5 L15,15 M15,5 L5,15" />
+                <ContentView x:Name="ChildHost" IsVisible="False" VerticalOptions="Center" />
+            </HorizontalStackLayout>
+        </Grid>
+    </Grid>
+</ContentView>

@@ -19,6 +19,7 @@ public partial class CalendarEventDetailPage : ContentPage
 		// which is not built until a row exists.)
 		_viewModel = viewModel;
 		_translations = translations;
+		ShowEventMenuCommand = new Command(ShowEventMenu);
 		ChooseReminderCommand = new Command(() => _ = ChooseReminderAsync());
 		ChooseReminderChannelCommand = new Command(() => _ = ChooseChannelAsync(
 			_translations["Notification as the event approaches"],
@@ -30,6 +31,38 @@ public partial class CalendarEventDetailPage : ContentPage
 
 	/// <summary>Typed so the navigator can hand the page its event without casting the binding context.</summary>
 	public CalendarEventDetailViewModel ViewModel => _viewModel;
+
+	/// <summary>What the rail's three dots open.</summary>
+	public ICommand ShowEventMenuCommand { get; }
+
+	/// <summary>The panel they draw - one per screen, above everything else on it.</summary>
+	public ScreenMenu Menu { get; } = new();
+
+	/// <summary>
+	/// What else can be done to the event, which used to be a row of words at the end of a long form -
+	/// out of reach wherever the reading happened to stop, which is the whole reason the rail exists.
+	/// </summary>
+	private void ShowEventMenu()
+	{
+		List<ScreenMenuEntry> entries =
+		[
+			new(_translations["Back to calendar"], () => _viewModel.GoBackCommand.Execute(null))
+		];
+
+		if (_viewModel.CanEdit)
+		{
+			entries.Add(new ScreenMenuEntry(_translations["Delete event"], () => _viewModel.DeleteCommand.Execute(null)));
+		}
+
+		// Only once there is one, and here rather than in the account's menu: a history belongs to the
+		// thing it is the history of.
+		if (_viewModel.HasHistory)
+		{
+			entries.Add(new ScreenMenuEntry(_translations["History"], () => _viewModel.GoToHistoryCommand.Execute(null)));
+		}
+
+		Menu.Show(entries, opensUpwards: true);
+	}
 
 	/// <summary>
 	/// The three choices this form offers, each as a sheet. Not pickers: iOS docks a picker's wheel at

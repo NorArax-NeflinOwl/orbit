@@ -71,6 +71,17 @@ public static class MauiProgram
 				fonts.AddFont("SpaceGrotesk-SemiBold.ttf", "OrbitDisplay");
 			});
 
+#if ANDROID
+		// Orbit.Web's text box, on Android's own fields - see FieldBox for why it is a handler mapper
+		// rather than a Border around every one of them.
+		Orbit.Maui.Platform.FieldBox.DrawOnEveryField();
+		// And the track under a switch that is off, which Android paints near-white on the light theme -
+		// see SwitchTrack.
+		Orbit.Maui.Platform.SwitchTrack.DrawOnEverySwitch();
+		// And a stepper's two buttons, which MAUI offers no colours for at all - see StepperButtons.
+		Orbit.Maui.Platform.StepperButtons.DrawOnEveryStepper();
+#endif
+
 		RegisterPlatformServices(builder.Services);
 		RegisterLocalStore(builder.Services);
 		RegisterHttpClients(builder.Services, OrbitApiSettings.Current);

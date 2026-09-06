@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="UTF-8" ?>
+﻿<?xml version="1.0" encoding="UTF-8" ?>
 <ContentPage
     x:Class="Orbit.Maui.Features.Chat.ChatKeyGatePage"
     xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
@@ -43,7 +43,7 @@
                 <Button Text="{controls:Translate 'I forgot my password'}"
                         Command="{Binding StartResetCommand}"
                         IsVisible="{Binding CanReset}"
-                        BackgroundColor="Transparent"
+                        BackgroundColor="Transparent" BorderWidth="0"
                         TextColor="{DynamicResource Accent}" />
             </VerticalStackLayout>
 

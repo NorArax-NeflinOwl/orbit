@@ -55,6 +55,12 @@ public sealed record NoteListItem(
     /// <summary>Only a hidden row offers to unlock; every other row opens.</summary>
     public bool CanBeOpened => !IsHidden;
 
+    /// <summary>
+    /// Whether the card's three dots have anything behind them. Every note does: one this reader owns
+    /// can be deleted, and one shared with them can be taken off their own list.
+    /// </summary>
+    public bool HasCardMenu => true;
+
     public bool IsEditable => Refusal is OfflineEditRefusal.None;
 
     public bool HasStatus => Status.Length > 0;

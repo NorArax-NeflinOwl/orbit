@@ -32,6 +32,35 @@ public sealed class NotesScreenTests
         Assert.Contains(screen.Notes, row => !row.IsCopy);
     }
 
+    /// <summary>
+    /// The card's own menu, which is the only way a note leaves the list without being opened first -
+    /// see NotesPage, which is where the question in front of it is asked.
+    /// </summary>
+    [Fact]
+    public async Task Deleting_a_note_from_its_card_takes_it_off_the_list()
+    {
+        using var context = new ListContext();
+        await context.AddNoteAsync("Team shopping");
+        var screen = await context.OpenAsync();
+
+        await screen.DeleteCommand.ExecuteAsync(Assert.Single(screen.Notes));
+
+        Assert.Empty(screen.Notes);
+    }
+
+    /// <summary>Nothing to delete is not a crash: the menu hands back whatever row it was opened on.</summary>
+    [Fact]
+    public async Task Deleting_nothing_does_nothing()
+    {
+        using var context = new ListContext();
+        await context.AddNoteAsync("Team shopping");
+        var screen = await context.OpenAsync();
+
+        await screen.DeleteCommand.ExecuteAsync(null);
+
+        Assert.Single(screen.Notes);
+    }
+
     private sealed class ListContext : IDisposable
     {
         private readonly LocalStore _localStore = new();

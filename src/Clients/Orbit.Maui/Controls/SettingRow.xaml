@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<ContentView
+    x:Class="Orbit.Maui.Controls.SettingRow"
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    xmlns:controls="clr-namespace:Orbit.Maui.Controls"
+    x:Name="Root">
+
+    <!-- Orbit.Web's .options-row: one setting, what it does said underneath it, and the control that
+         changes it at the far edge - with a hairline between it and the next one.
+
+             Notify me                                                  [ o]
+             Off means nothing is recorded or sent at all.
+             _________________________________________________________________
+
+         Not the same thing as Row, which is a fact and its value on one line: this one has room for
+         the sentence that says what a switch costs, which is the whole reason a settings screen is
+         readable at all. -->
+    <Grid RowDefinitions="Auto,Auto">
+        <Grid Grid.Row="0" ColumnDefinitions="*,Auto" ColumnSpacing="20" Padding="18,16">
+            <VerticalStackLayout Grid.Column="0" Spacing="2" VerticalOptions="Center">
+                <Label Text="{Binding Title, Source={x:Reference Root}, x:DataType=controls:SettingRow}"
+                       FontSize="13.5" FontAttributes="Bold" LineBreakMode="WordWrap" />
+                <Label x:Name="DescriptionLabel" IsVisible="False" LineBreakMode="WordWrap"
+                       Text="{Binding Description, Source={x:Reference Root}, x:DataType=controls:SettingRow}"
+                       FontSize="12.5"
+                       TextColor="{AppThemeBinding Light={StaticResource TertiaryTextLight}, Dark={StaticResource TertiaryTextDark}}" />
+            </VerticalStackLayout>
+
+            <ContentView x:Name="TrailingHost" Grid.Column="1" IsVisible="False" VerticalOptions="Center" />
+        </Grid>
+
+        <BoxView x:Name="Divider" Grid.Row="1" Style="{StaticResource Hairline}" />
+    </Grid>
+</ContentView>

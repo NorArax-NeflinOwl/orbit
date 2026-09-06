@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="UTF-8" ?>
+﻿<?xml version="1.0" encoding="UTF-8" ?>
 <ContentPage
     x:Class="Orbit.Maui.Features.Chat.ContactsPage"
     xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
@@ -8,6 +8,7 @@
     xmlns:chat="clr-namespace:Orbit.Maui.Features.Chat"
     xmlns:screens="clr-namespace:Orbit.Mobile.Screens.Chat;assembly=Orbit.Mobile"
     x:DataType="screens:ContactsViewModel"
+    x:Name="Page"
     Title="{controls:Translate 'Chat'}">
 
     <ContentPage.Resources>
@@ -23,7 +24,7 @@
                                 Explanation="{Binding LockedExplanation}"
                                 OpenAccountCommand="{Binding OpenAccountCommand}" />
 
-    <Grid Grid.Row="1" RowDefinitions="Auto,Auto,Auto,Auto,*,Auto,Auto" Padding="20" RowSpacing="12"
+    <Grid Grid.Row="1" RowDefinitions="Auto,Auto,Auto,Auto,*,Auto,Auto" Padding="16,16,16,28" RowSpacing="12"
           IsVisible="{Binding IsUnlocked}">
 
         <controls:PageHeader Grid.Row="0" Title="{controls:Translate 'Contacts'}">
@@ -39,14 +40,13 @@
                    Text="{Binding SearchQuery}" Keyboard="Email"
                    ReturnType="Search" ReturnCommand="{Binding SearchCommand}" />
             <Button Grid.Column="1" Text="{controls:Translate 'Find'}" IsEnabled="{Binding Connection.IsMet}"
-                    Command="{Binding SearchCommand}" />
+                    Style="{StaticResource PrimaryButton}" Command="{Binding SearchCommand}" />
         </Grid>
 
         <Grid Grid.Row="2" ColumnDefinitions="*,Auto" ColumnSpacing="8" IsVisible="{Binding HasFoundSomebody}">
             <VerticalStackLayout Grid.Column="0" Spacing="2" VerticalOptions="Center">
-                <Label Text="{Binding FoundPerson.DisplayName}" FontSize="17" FontAttributes="Bold" />
-                <Label Text="{Binding FoundPerson.UserName, StringFormat='@{0}'}" FontSize="12"
-                       TextColor="{AppThemeBinding Light={StaticResource SubtleTextLight}, Dark={StaticResource SubtleTextDark}}" />
+                <Label Text="{Binding FoundPerson.DisplayName}" Style="{StaticResource ItemCardName}" />
+                <Label Text="{Binding FoundPerson.UserName, StringFormat='@{0}'}" Style="{StaticResource RowMeta}" />
             </VerticalStackLayout>
             <HorizontalStackLayout Grid.Column="1" Spacing="4" VerticalOptions="Center">
                 <!-- Who they are, before deciding whether to write to them at all. -->
@@ -54,7 +54,7 @@
                         Style="{StaticResource LinkButton}"
                         Command="{Binding OpenContactInfoCommand}"
                         CommandParameter="{Binding FoundPerson.UserId}" />
-                <Button Text="{controls:Translate 'Message'}"
+                <Button Text="{controls:Translate 'Message'}" Style="{StaticResource PrimaryButton}"
                         Command="{Binding OpenConversationCommand}"
                         CommandParameter="{Binding FoundPerson}" />
             </HorizontalStackLayout>
@@ -77,7 +77,7 @@
                             SelectionChangedCommandParameter="{Binding SelectedItem, Source={RelativeSource Self}, x:DataType=CollectionView}">
 
                 <CollectionView.EmptyView>
-                    <Label Text="{Binding Message}" Padding="24" HorizontalTextAlignment="Center" LineBreakMode="WordWrap" />
+                    <Label Text="{Binding Message}" Padding="0,12" LineBreakMode="WordWrap" Style="{StaticResource EmptyHint}" />
                 </CollectionView.EmptyView>
 
                 <CollectionView.ItemTemplate>
@@ -100,12 +100,9 @@
                                          the browser keeps behind a row's own menu. Its own button rather
                                          than a swipe: a swipe is undiscoverable and this list is also
                                          read by somebody who cannot see it. -->
-                                    <Button Text="⋯" SemanticProperties.Description="{controls:Translate 'More'}"
-                                            FontSize="18" WidthRequest="44" Padding="0"
-                                            BackgroundColor="Transparent"
-                                            TextColor="{AppThemeBinding Light={StaticResource SubtleTextLight}, Dark={StaticResource SubtleTextDark}}"
-                                            Command="{Binding ShowContactMenuCommand, Source={RelativeSource AncestorType={x:Type ContentPage}}, x:DataType=chat:ContactsPage}"
-                                            CommandParameter="{Binding .}" />
+                                    <controls:OverflowMenu
+                                        Command="{Binding ShowContactMenuCommand, Source={RelativeSource AncestorType={x:Type ContentPage}}, x:DataType=chat:ContactsPage}"
+                                        CommandParameter="{Binding .}" />
                                 </controls:PersonRow.Menu>
                             </controls:PersonRow>
 
@@ -123,6 +120,7 @@
                             <Button Text="{controls:Translate 'Accept'}"
                                     IsVisible="{Binding RequiresApprovalFromCurrentUser}"
                                     HorizontalOptions="Start" Padding="16,4" FontSize="13"
+                                    Style="{StaticResource PrimaryButton}"
                                     Command="{Binding ViewModel.AcceptCommand, Source={RelativeSource AncestorType={x:Type ContentPage}}, x:DataType=chat:ContactsPage}"
                                     CommandParameter="{Binding .}" />
                         </VerticalStackLayout>
@@ -137,6 +135,8 @@
 
     </Grid>
         <controls:NavigationBar Grid.Row="0" />
+        <controls:MenuOverlay Grid.Row="0" Grid.RowSpan="3"
+                              BindingContext="{Binding Menu, Source={x:Reference Page}, x:DataType=chat:ContactsPage}" />
         <controls:AvatarMenu Grid.Row="0" Grid.RowSpan="3" />
     </Grid>
 
