@@ -70,14 +70,15 @@ public static class UserEndpoints
         // User.KeepsThirdPartiesOut, and the mirror the browser keeps so the first paint can honour it.
         users.MapPut("/me/privacy", async (
             SetPrivacyChoiceRequest request, ClaimsPrincipal user, IDispatcher dispatcher,
-            IMemoryCache cache, CancellationToken cancellationToken) =>
+            PrivacyChoiceCache privacyChoices, CancellationToken cancellationToken) =>
         {
             var callerId = GetUserId(user);
             var updated = await dispatcher.SendAsync(
                 new SetPrivacyChoiceCommand(callerId, request.KeepsThirdPartiesOut), cancellationToken);
-            // So the answer takes effect on the very next request rather than when the cache expires -
-            // see TraceOptOut.Forget for why that matters in one direction more than the other.
-            TraceOptOut.Forget(cache, callerId);
+            // So the answer takes effect on the very next request rather than when the cache expires,
+            // and on every instance rather than only the one that happened to serve this request - see
+            // PrivacyChoiceCache.ForgetEverywhereAsync.
+            await privacyChoices.ForgetEverywhereAsync(callerId, cancellationToken);
             return updated ? Results.NoContent() : Results.NotFound();
         });
 
