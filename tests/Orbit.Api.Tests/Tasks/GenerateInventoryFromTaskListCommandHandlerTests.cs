@@ -334,6 +334,64 @@ public sealed class GenerateInventoryFromTaskListCommandHandlerTests
     }
 
     /// <summary>
+    /// An entry that says "there are four and I want to keep two" has answered itself: the row it built
+    /// is not asking for anything, so the line is crossed off rather than left outstanding on a list
+    /// where every other line still means something. See StockedEntryCompletion.
+    /// </summary>
+    [Fact]
+    public async Task An_entry_the_new_shelf_already_covers_is_crossed_off()
+    {
+        var shopping = Store(
+            "Zakupy", isGroup: false,
+            Asking("Zupka Buldog", TaskItemProduct.Default with { Quantity = 4, MinimumQuantity = 2 }));
+
+        var inventoryId = await AHandler().HandleAsync(
+            new GenerateInventoryFromTaskListCommand(_userId, shopping.Id), CancellationToken.None);
+
+        var stored = await _context.TaskRepository.GetByIdAsync(_userId, shopping.Id, CancellationToken.None);
+        Assert.True(Assert.Single(stored!.Items).IsCompleted);
+        // And the list itself, which is what the tasks page counts by - see TaskList.RecountWhatIsDone.
+        Assert.True(stored.IsCompleted);
+        Assert.Single(await ProductsIn(inventoryId!.Value));
+    }
+
+    [Fact]
+    public async Task An_entry_the_new_shelf_falls_short_of_stays_outstanding()
+    {
+        var shopping = Store(
+            "Zakupy", isGroup: false,
+            Asking("Zupka Buldog", TaskItemProduct.Default with { Quantity = 1, MinimumQuantity = 2 }));
+
+        await AHandler().HandleAsync(
+            new GenerateInventoryFromTaskListCommand(_userId, shopping.Id), CancellationToken.None);
+
+        var stored = await _context.TaskRepository.GetByIdAsync(_userId, shopping.Id, CancellationToken.None);
+        Assert.False(Assert.Single(stored!.Items).IsCompleted);
+        Assert.False(stored.IsCompleted);
+    }
+
+    /// <summary>
+    /// Nobody counts the milk; they look. A row to be looked at every round is asking to be looked at
+    /// however much of it there is, so the line stays - see InventoryItem.BelongsOnTheRestockList.
+    /// </summary>
+    [Fact]
+    public async Task An_entry_to_be_looked_at_every_round_stays_outstanding_however_much_there_is()
+    {
+        var shopping = Store(
+            "Zakupy", isGroup: false,
+            Asking("Mleko", TaskItemProduct.Default with
+            {
+                Quantity = 9, MinimumQuantity = 1, IsCheckedRegularly = true
+            }));
+
+        await AHandler().HandleAsync(
+            new GenerateInventoryFromTaskListCommand(_userId, shopping.Id), CancellationToken.None);
+
+        var stored = await _context.TaskRepository.GetByIdAsync(_userId, shopping.Id, CancellationToken.None);
+        Assert.False(Assert.Single(stored!.Items).IsCompleted);
+    }
+
+    /// <summary>
     /// Routes the one command the handler sends to the real handler behind it, so what a generated
     /// inventory is called and who owns it is exercised rather than stubbed.
     /// </summary>

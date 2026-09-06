@@ -9,15 +9,18 @@ public sealed class UpdateTaskListCommandHandler : IRequestHandler<UpdateTaskLis
     private readonly ITaskRepository _taskRepository;
     private readonly TaskListLinkValidator _taskListLinkValidator;
     private readonly RestockCompletion _restockCompletion;
+    private readonly StockedEntryCompletion _stockedEntryCompletion;
 
     public UpdateTaskListCommandHandler(
         TaskListAccessResolver taskListAccessResolver, ITaskRepository taskRepository,
-        TaskListLinkValidator taskListLinkValidator, RestockCompletion restockCompletion)
+        TaskListLinkValidator taskListLinkValidator, RestockCompletion restockCompletion,
+        StockedEntryCompletion stockedEntryCompletion)
     {
         _taskListAccessResolver = taskListAccessResolver;
         _taskRepository = taskRepository;
         _taskListLinkValidator = taskListLinkValidator;
         _restockCompletion = restockCompletion;
+        _stockedEntryCompletion = stockedEntryCompletion;
     }
 
     /// <summary>Mirrors Orbit.Core.Notes.UpdateNote.UpdateNoteCommandHandler - see its class comment for what NotFound/Locked mean here.</summary>
@@ -55,6 +58,13 @@ public sealed class UpdateTaskListCommandHandler : IRequestHandler<UpdateTaskLis
 
         KeepTheCategoriesOfEntriesThatSaidNothing(identity.Items, taskList, request.EntriesKeepingTheirCategories);
         KeepWhatEntriesThatSaidNothingAlreadyAskFor(identity.Items, taskList, request.EntriesKeepingTheirProduct);
+
+        // An entry the shelf already answers is crossed off before the list is written, so it takes one
+        // save rather than two - see StockedEntryCompletion, which reads nothing for the ordinary lists
+        // this handler mostly saves. The owner's shelves, not the caller's: somebody editing through a
+        // share is asking about the list's own storages.
+        await _stockedEntryCompletion.CrossOffWhatTheShelfCoversAsync(
+            taskList.UserId, identity.Items, cancellationToken);
 
         // A caller that said nothing about the description keeps the one that is stored. That is what
         // lets a client which has not learned about the field - the phone, an older tab - go on saving

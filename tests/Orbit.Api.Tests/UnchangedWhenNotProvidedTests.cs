@@ -33,7 +33,9 @@ public sealed class UnchangedWhenNotProvidedTests
             new TaskListLinkValidator(tasks),
             new RestockCompletion(
                 new InMemoryInventoryManagedTaskListRepository(), new InMemoryInventoryItemRepository(),
-                new InMemoryInventoryRepository(), new InMemoryTaskRepository()));
+                new InMemoryInventoryRepository(), new InMemoryTaskRepository()),
+            new StockedEntryCompletion(
+                new InMemoryInventoryRepository(), new InMemoryInventoryItemRepository()));
 
     private static async Task<(InMemoryTaskRepository Tasks, Guid Id)> ADescribedListAsync()
     {

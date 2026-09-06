@@ -1200,6 +1200,16 @@ twice - once on the list and once on the shelf. A request that says nothing abou
 is stored alone (`UpdateTaskListCommand.EntriesKeepingTheirProduct`), the same rule the categories follow,
 so the phone and older tabs can go on saving lists without emptying it.
 
+**An entry the shelf already answers crosses itself off.** Once an Inventory entry stands for a row on a
+shelf, that row is what knows whether the entry has been met, so an entry whose row holds at least what it
+asked to keep is completed without anybody ticking it (`StockedEntryCompletion`). It happens where the
+storage is generated - the rows are known there already, so nothing is read back - and on every later save
+of the list, which costs nothing for a list with no outstanding inventory entry. Only ever crossed off,
+never back: a tick somebody put there is theirs, and a crossed-off restock errand is what tells the shelf
+it was filled (`RestockCompletion`). Two rows answer nothing whatever their count says - one with no
+minimum, which was left to the counting rule, and one marked to be looked at every round, where crossing
+off answers "have you looked" (`InventoryItem.BelongsOnTheRestockList`).
+
 **A position somebody shared opens in the phone's own map app.** Each "Shared with you" row carries an
 Open in Maps button, and tapping a pin's own callout does the same (`MapViewModel.WhereToOpen` answers
 where, `MapPage` makes the platform call - the same split "Open in Google Maps" draws for the reader's

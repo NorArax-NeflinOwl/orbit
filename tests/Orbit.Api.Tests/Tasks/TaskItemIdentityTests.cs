@@ -124,7 +124,9 @@ public sealed class TaskItemIdentityTests
                     new TaskListLinkValidator(_taskRepository),
                     new RestockCompletion(
                         new InMemoryInventoryManagedTaskListRepository(), new InMemoryInventoryItemRepository(),
-                        new InMemoryInventoryRepository(), new InMemoryTaskRepository()))
+                        new InMemoryInventoryRepository(), new InMemoryTaskRepository()),
+                    new StockedEntryCompletion(
+                        new InMemoryInventoryRepository(), new InMemoryInventoryItemRepository()))
                 .HandleAsync(
                     new UpdateTaskListCommand(
                         _userId, listId, "Saturday", items, IsGroup: false, IsPrivate: false, null),
