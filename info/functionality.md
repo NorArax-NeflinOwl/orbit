@@ -1262,8 +1262,15 @@ fields arrive with the choice: picking Inventory on an open form shows them ther
 something else takes them away again - waiting for a save and a reopen made the feature unreachable
 without knowing it was there.
 
-**A web address written in a description can be pressed.** Wherever a description is *read* - a calendar
-event's, a task entry's, a note's own lines, a storage's - the addresses in it are links
+**A list says what it is for, under its name.** The editor has always asked a task list for a description
+and no page showed it - the one field in Orbit that could be written and never read. It is the checklist's
+subtitle now, where a storage's description already sat, and it takes the place of the sentence that used
+to be there ("Tick items off; use Edit to change the list itself.", or the count of a group's linked
+lists): those are a signpost about the page and a pointer at sections drawn directly below it, and
+somebody's own words about their list beat both. A list nobody described still gets the signpost.
+
+**A web address written in a description can be pressed.** Wherever a description is *read* - a task
+list's, a calendar event's, a task entry's, a note's own lines, a storage's - the addresses in it are links
 (`TextWithLinks`, splitting by `LinksInText`). A new tab, with `rel="noopener noreferrer"`: a
 description is read in the middle of doing something, and following a link out of a half-written list
 is the one thing nobody meant to do.
