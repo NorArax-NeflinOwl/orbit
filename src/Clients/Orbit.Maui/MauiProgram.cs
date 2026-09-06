@@ -78,6 +78,8 @@ public static class MauiProgram
 		// And the track under a switch that is off, which Android paints near-white on the light theme -
 		// see SwitchTrack.
 		Orbit.Maui.Platform.SwitchTrack.DrawOnEverySwitch();
+		// And a stepper's two buttons, which MAUI offers no colours for at all - see StepperButtons.
+		Orbit.Maui.Platform.StepperButtons.DrawOnEveryStepper();
 #endif
 
 		RegisterPlatformServices(builder.Services);

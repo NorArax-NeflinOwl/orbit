@@ -57,6 +57,7 @@ Every number below is app.css's own. The phone reads them from
 | `ObjectList.razor` | `Controls/ObjectList.xaml` | loading / empty / here-it-is |
 | `input`, `textarea`, `select` | `Platforms/Android/FieldBox.cs` | the box itself: 8px radius, a hairline, 9x12 inside |
 | `.switch` | `Platforms/Android/SwitchTrack.cs` | the track a switch that is off sits in, which Android leaves near-white |
+| `.options-number-input` | `Platforms/Android/StepperButtons.cs` | the phone has a stepper where the browser has a number box; its two buttons take Orbit's quiet look |
 
 ## Where the phone cannot copy the browser, and what it does instead
 
@@ -81,8 +82,8 @@ see `Platforms/Android/FieldBox.cs`. A field that asks to be transparent is left
 Android's line too: a note's lines are written in `Entry`s so they can be corrected where they are
 read, and a note drawn as a stack of boxes is a form rather than a note.
 
-**A handler mapper has to be keyed to the property it redraws.** `FieldBox` and `SwitchTrack` are
-appended under `Background` and `TrackColor` rather than under a name of their own: MAUI runs every key
+**A handler mapper has to be keyed to the property it redraws.** `FieldBox`, `SwitchTrack` and
+`StepperButtons` are appended under `Background` and `TrackColor` rather than under a name of their own: MAUI runs every key
 once when a control is created and again whenever that property changes - and a theme switch *is* such
 a change, since the implicit styles set those through an `AppThemeBinding`. Keyed to a name of ours
 they would run once, and MAUI's own mapper would paint over them the moment the reader chose the other
@@ -130,9 +131,6 @@ not drawn. What those rules signalled is said by shape instead, which the phone 
   simply carries no Save on the screens that write as they go.
 - **The `.item-card-unseen` pulse is a colour here, not an animation.** The edge takes the danger
   colour; it does not breathe. Worth adding only if somebody misses it.
-- **A `Stepper`'s two buttons are the platform's, not Orbit's.** MAUI exposes no colours for them, so
-  they take Android's own - which is legible in both themes but is the one control on a settings screen
-  that does not look like the rest of the app.
 - **The chat screens were not walked on a device.** The emulator account has not unlocked Contacts, so
   the navigation bar draws no way into them. They build and their view models are covered; the bubbles
   and the menus want a walk on an account that can chat.

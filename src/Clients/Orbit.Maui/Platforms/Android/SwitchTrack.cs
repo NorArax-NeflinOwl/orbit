@@ -27,18 +27,11 @@ internal static class SwitchTrack
 			return;
 		}
 
-		var isDark = Application.Current?.RequestedTheme == AppTheme.Dark;
-
 		track.TrackTintList = new ColorStateList(
 			[[Android.Resource.Attribute.StateChecked], []],
 			[
-				Look("Accent").ToPlatform(),
-				Look(isDark ? "CardStrokeDark" : "CardStrokeLight").ToPlatform()
+				ThemeColours.Look("Accent").ToPlatform(),
+				ThemeColours.Hairline.ToPlatform()
 			]);
 	}
-
-	private static Color Look(string key)
-		=> Application.Current?.Resources.TryGetValue(key, out var value) is true && value is Color colour
-			? colour
-			: Colors.Transparent;
 }

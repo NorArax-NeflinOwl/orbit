@@ -41,32 +41,31 @@ internal static class FieldBox
 
 	private static void Box(Android.Views.View? field, IView asked)
 	{
-		// A field asked to be transparent has already said it is not a box: a note's lines are written
-		// in Entries so they can be corrected where they are read, and a note drawn as a stack of boxes
-		// is a form, not a note. Transparency rather than "has a background of its own" - the implicit
-		// Entry style gives every field the lifted surface, so having one says nothing, and IsSet does
-		// not tell a style's value from a local one.
 		if (field is null || asked is not VisualElement element)
 		{
 			return;
 		}
 
+		// A field asked to be transparent has already said it is not a box: a note's lines are written
+		// in Entries so they can be corrected where they are read, and a note drawn as a stack of boxes
+		// is a form, not a note. Transparency rather than "has a background of its own" - the implicit
+		// Entry style gives every field the lifted surface, so having one says nothing, and IsSet does
+		// not tell a style's value from a local one.
+		//
+		// Such a field gets nothing at all, not even Android's line: the browser draws no box and no
+		// rule under a note's line either.
 		if (element.BackgroundColor is { Alpha: 0 })
 		{
-			// Nothing at all, not even Android's line: a note's line is text somebody can correct, and
-			// the browser draws no box and no rule under it either.
 			field.Background = null;
 			return;
 		}
 
 		var density = field.Context?.Resources?.DisplayMetrics?.Density ?? 1;
-		var isDark = Application.Current?.RequestedTheme == AppTheme.Dark;
-
 		var box = new GradientDrawable();
 		box.SetShape(ShapeType.Rectangle);
 		box.SetCornerRadius(Radius * density);
-		box.SetStroke((int)Math.Round(BorderWidth * density), Look(isDark ? "CardStrokeDark" : "CardStrokeLight").ToPlatform());
-		box.SetColor((element.BackgroundColor ?? Look(isDark ? "SurfaceDark" : "SurfaceLight")).ToPlatform());
+		box.SetStroke((int)Math.Round(BorderWidth * density), ThemeColours.Hairline.ToPlatform());
+		box.SetColor((element.BackgroundColor ?? ThemeColours.Surface).ToPlatform());
 
 		field.Background = box;
 
@@ -82,8 +81,4 @@ internal static class FieldBox
 		}
 	}
 
-	private static Color Look(string key)
-		=> Application.Current?.Resources.TryGetValue(key, out var value) is true && value is Color colour
-			? colour
-			: Colors.Transparent;
 }

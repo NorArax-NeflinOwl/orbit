@@ -345,6 +345,13 @@
         <Setter Property="BackgroundColor" Value="{AppThemeBinding Light={StaticResource White}, Dark={StaticResource Black}}" />
     </Style>
 
+    <!-- The stepper sits on a card, so it takes the card's own surface - and having a background at
+         all is what lets StepperButtons redraw its two buttons when the theme changes, since that is
+         the property the mapper is keyed to. -->
+    <Style TargetType="Stepper">
+        <Setter Property="BackgroundColor" Value="{AppThemeBinding Light={StaticResource SurfaceLight}, Dark={StaticResource SurfaceDark}}" />
+    </Style>
+
     <Style TargetType="Switch">
         <Setter Property="OnColor" Value="{DynamicResource Accent}" />
         <Setter Property="ThumbColor" Value="{StaticResource White}" />
