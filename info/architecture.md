@@ -213,13 +213,26 @@ of: `ci/verify-browser-crypto.mjs` for `wwwroot/js/e2eeChat.js` (Web Crypto and 
 (a registered service worker receiving real push events, and the Notification and Push APIs). Every
 later job depends on this one, so a failure here stops the deploy before an image is built.
 
-**The pull request trigger was removed once and put back.** It went because every minute is billed on a
-private repository and a day of ordinary work exhausted the allowance, stopping Actions outright; it
-came back because a branch unchecked until it lands stopped being theoretical - `main` sat red for a day
-with nobody told. What made it affordable is that a run now costs a fraction of what it did: the
-`android` job looks before it builds and does nothing when nothing it builds from changed, a pull
-request run is cancelled by the next push to the same branch, and documentation-only branches are
-skipped outright.
+**The pull request trigger was tried twice and removed twice**, both times because every minute is
+billed on a private repository and a day of ordinary work exhausted the allowance, stopping Actions
+outright. The check a branch gets instead is `dotnet test Orbit.sln` on the machine that wrote it.
+
+**The Android head is compiled by `.github/workflows/android-head.yml`**, a second workflow on the same
+trigger. `Orbit.sln` cannot carry a MAUI head, so the suite above never touches it, and until this
+existed nothing checked that the phone still compiled - the two heads could drift apart and only a
+developer building one by hand would find out. It builds `Release`, which is the configuration that
+runs the linker, and it builds without `google-services.json` or `AndroidManifestOverlay.xml`, since
+both are gitignored - so it also proves the app packages without them.
+
+It is a separate workflow for one reason: a `paths:` filter. The Android build only matters when
+something the phone is built from changed, and GitHub evaluates `paths:` before it schedules anything,
+so on every other merge no runner starts. As a job inside `main_orbit.yml` it could only check that
+after starting, and a job that starts is billed a whole minute whether it builds or not - about 29 of
+the 346 minutes measured across 100 runs. The usual objection to a second workflow (it cannot gate the
+first, and the two drift) does not apply: this job was always kept out of `deploy`'s `needs` - what
+goes to Azure is the API and the web client, and a broken phone build is no reason to hold those back -
+so it gated nothing before the split either, and it duplicates no step of the suite. Its `paths:` list
+is the same one `android-release.yml` releases on, and the two must be kept in step.
 
 The `deploy` job stays out of it either way — guarded on the event as well as gated on the suite, so a
 branch stops at the tests rather than deploying itself. Running the suite locally before opening a pull

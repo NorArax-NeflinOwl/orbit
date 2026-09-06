@@ -11,23 +11,14 @@
 
 name: Build, test and deploy Orbit to Azure Container Apps
 
-# Merges, and pull requests into main.
+# The pull request trigger was tried twice and is gone both times: every minute is billed on a private
+# repository, and a day of ordinary work exhausted the account's allowance and stopped Actions outright.
+# What replaced it is not a cheaper trigger but a different place to check - see below.
 #
-# The pull request trigger was removed once already: every minute is billed on a private repository, and
-# a day of ordinary work exhausted the account's allowance and stopped Actions outright. It is back
-# because leaving a branch unchecked until it lands stopped being theoretical - main sat red for a day
-# with nobody told - and because two things since have made a pull request run cost a fraction of what
-# it did then:
-#
-#   - The android job looks before it builds and does nothing when nothing it builds from changed, so
-#     the five minutes it used to spend go only on branches that touch the phone.
-#   - A pull request run is now cancelled by the next push to the same branch (see `concurrency`). A
-#     branch pushed five times used to cost five full runs; it costs one.
-#
-# Documentation-only branches are skipped outright: a change to info/ cannot break a build, and paying a
-# runner to prove it is the kind of spend that exhausted the allowance in the first place.
-#
-# The deploy job stays out of it either way - it is guarded on the event as well as gated on the suite.
+# The Android head used to be a second job here and now lives in android-head.yml. It gated nothing (it
+# was deliberately kept out of the deploy job's `needs`), so moving it costs no gate, and a `paths:`
+# filter there skips the runner entirely on a merge that touches nothing mobile - which a step-level
+# check inside a job could not do, because a job that starts is billed whether it builds or not.
 #
 # One trigger, and it is the merge to main. Runner minutes are 2000 a month and a pipeline that also
 # ran on pull requests, on pushes to Coding and on the integration pull request they synchronised spent
@@ -112,87 +103,6 @@ jobs:
       # never sent, so this is not a failure anybody would report.
       - name: Verify push notifications in a browser
         run: node ci/verify-push-notifications.mjs
-
-  android:
-    # The Android app head, which Orbit.sln cannot carry and so the job above never touches. That
-    # exclusion is right for iOS - a Linux runner has no Xcode and cannot build net10.0-ios at all -
-    # but it was never right for Android, which builds here perfectly well. Until this job existed
-    # nothing checked it, so the two heads could drift apart and only a developer building one by hand
-    # would find out.
-    #
-    # In this file rather than a workflow of its own, for the reason at the top: two workflows cannot
-    # gate each other and drift instead. But deliberately *not* in the deploy job's `needs` - what goes
-    # to Azure is the API and the web client, and a broken phone build is no reason to hold those back.
-    # This is a check on the merge, not a gate on the release.
-    #
-    # Five of those minutes were spent on every merge, including the ones that only touched the web
-    # client or the API, where the phone build could not possibly differ. The job now looks first and
-    # does nothing when nothing it builds from changed - the same list android-release.yml releases on,
-    # since the question is the same one: is this a different app?
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v7
-
-      - name: Decide whether the phone app changed
-        id: changed
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          BEFORE="${{ github.event.before }}"
-
-          # A run with nothing to compare against - a manual dispatch, or the first push to a branch,
-          # where "before" is all zeroes. Build, rather than skip on a question that was never asked.
-          if [ -z "$BEFORE" ] || [ "$BEFORE" = "0000000000000000000000000000000000000000" ]; then
-            echo "value=true" >> "$GITHUB_OUTPUT"
-            exit 0
-          fi
-
-          FILES=$(gh api "repos/${{ github.repository }}/compare/$BEFORE...${{ github.sha }}" \
-            --jq '.files[].filename')
-
-          if echo "$FILES" | grep -qE '^(src/Clients/Orbit\.(Maui|Mobile)/|src/Shared/Orbit\.(Contracts|Core|Localization)/)'; then
-            echo "value=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "value=false" >> "$GITHUB_OUTPUT"
-            echo "::notice::Nothing the phone app is built from changed. Not building it."
-          fi
-
-      - name: Setup .NET SDK
-        if: steps.changed.outputs.value == 'true'
-        uses: actions/setup-dotnet@v4
-        with:
-          dotnet-version: '10.0.x'
-          cache: true
-          cache-dependency-path: '**/*.csproj'
-
-      # .NET for Android compiles the Java half with a JDK, and the runner ships several. Naming one
-      # keeps the build off whichever happens to be the default that week.
-      - name: Setup JDK
-        if: steps.changed.outputs.value == 'true'
-        uses: actions/setup-java@v4
-        with:
-          distribution: temurin
-          java-version: '17'
-
-      # Two separate things, and neither substitutes for the other: the workload is the .NET side, and
-      # the platform the project compiles against has to exist in the Android SDK. Same list as the
-      # Prerequisites section of src/Clients/Orbit.Maui/README.md.
-      - name: Install the Android workload
-        if: steps.changed.outputs.value == 'true'
-        run: dotnet workload install maui-android
-
-      - name: Install the Android platform the head compiles against
-        if: steps.changed.outputs.value == 'true'
-        run: yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platforms;android-36" "build-tools;36.0.0"
-
-      # Release rather than Debug on purpose: it is the configuration that runs the linker, which is
-      # where a reflection-driven dependency stops resolving. Neither google-services.json nor
-      # AndroidManifestOverlay.xml exists here - both are gitignored - so this is also the build that
-      # proves the app still compiles and packages without them.
-      - name: Build the Android head
-        if: steps.changed.outputs.value == 'true'
-        run: dotnet build src/Clients/Orbit.Maui/Orbit.Maui.csproj --framework net10.0-android --configuration Release
 
   deploy:
     # The gate the old arrangement only looked like it had: nothing below runs until the suite is green.

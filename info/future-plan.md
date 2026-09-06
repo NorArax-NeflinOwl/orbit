@@ -478,10 +478,11 @@ beside a task belongs here, not in that task's diff. A defect is the exception a
 - **`setup-dotnet@v4`, `setup-java@v4` and `upload-artifact@v4`** carry the same Node 20 deprecation
   `actions/checkout` did. `dependency-submission.yml` already pins `setup-dotnet@v5`, so the bump is
   available whenever somebody wants it.
-- **The `android` job in `main_orbit.yml` starts a runner even when nothing mobile changed.** It
-  detects that in its first step and exits in seconds, but a started job is billed a whole minute -
-  about 29 of the 346 minutes measured. Moving the phone-head compile into its own workflow with a
-  `paths:` filter would skip the runner entirely on the pull requests that do not touch it.
+- **`info/azure-setup.md` and `info/architecture.md` still call the subscription an Azure Free Trial**
+  when explaining why the pipeline builds images on the runner instead of using ACR Tasks. The
+  subscription has been pay-as-you-go for a while; the runner build is now kept because it is the
+  established, verified path, not because `az acr build` is blocked. The reasoning is recorded
+  correctly in the `ci-pipeline` skill, and only these two documents lag behind it.
 - **Nothing enforces that work reaches `main` only through `Coding`.** `guard-main.yml` closes stray
   pull requests, but a direct push to `main` deploys before any workflow can run. Real branch
   protection needs GitHub Pro on a private repository.
