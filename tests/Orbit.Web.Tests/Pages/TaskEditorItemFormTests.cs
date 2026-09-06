@@ -10,7 +10,9 @@ using Microsoft.Extensions.Logging.Abstractions;
 using Orbit.Contracts.Chat;
 using Orbit.Contracts.Inventories;
 using Orbit.Contracts.Notifications;
+using Orbit.Contracts.Sharing;
 using Orbit.Contracts.Tasks;
+using Orbit.Contracts.Users;
 using Orbit.Core.Tasks;
 using Orbit.Web.Pages;
 using Orbit.Web.Services;
@@ -583,6 +585,53 @@ public sealed class TaskEditorItemFormTests : OrbitTestContext
         Assert.Equal("The blue one.", cut.Find(".editor-item-notes textarea").GetAttribute("value"));
     }
 
+    /// <summary>
+    /// Sharing something is two halves, and this is the one that had no coverage anywhere: the server
+    /// records the share and raises a notification, and the sharer's browser posts an encrypted chat
+    /// message carrying the share's id - the only thing a recipient can press "Accept" on, because the
+    /// server holds no key to seal a message with (see Chat.razor's TryParseShare).
+    ///
+    /// Inviting a guest to an appointment on a task list sent only the first half until 2026-09-06, so
+    /// the invitation arrived, said somebody had shared an event, led to a conversation with nothing in
+    /// it, and could not be accepted at all. Nothing caught it because none of the four screens that
+    /// send this message was covered.
+    /// </summary>
+    [Fact]
+    public void Inviting_a_guest_to_an_entrys_event_puts_the_invitation_in_the_conversation()
+    {
+        TheBrowserCanSeal();
+        RegisterApiClients(AnItem(kind: nameof(TaskItemKind.Calendar)));
+        var cut = Render();
+        ExpandTheOnlyItem(cut);
+        // A calendar entry needs a day before the list can be saved at all - see WhatIsWrongWithTheItems.
+        cut.FindAll(".date-field-input").First(field => field.GetAttribute("aria-label") == "Start")
+            .Change("09.03.2026");
+
+        cut.Find("#guestContactSelect").Change(GuestUserId.ToString());
+        cut.Find("#addGuestFromContactButton").Click();
+        ClickButtonSaying(cut, "Save");
+
+        Assert.NotNull(_lastChatMessageJson);
+        // Marked as an invitation, which is what makes the chat draw it with an Accept beside it rather
+        // than as an ordinary message.
+        Assert.Contains("\"isShareInvitation\":true", _lastChatMessageJson);
+    }
+
+    /// <summary>
+    /// The browser's half of the encryption, stood in for: this device holds a key, and sealing answers
+    /// with something. What is asserted is that the sealed thing was sent, not what it contains - the
+    /// crypto itself is checked in a real browser by ci/verify-browser-crypto.mjs.
+    /// </summary>
+    private void TheBrowserCanSeal()
+    {
+        JSInterop.Mode = JSRuntimeMode.Loose;
+        var crypto = JSInterop.SetupModule("./js/e2eeChat.js");
+        crypto.Setup<bool>("hasOwnPrivateKey", _ => true).SetResult(true);
+        crypto.Setup<string>("ensureOwnPublicKey", _ => true).SetResult("a-public-key");
+        crypto.Setup<EncryptedChatMessageSender.EncryptedPayload>("encryptMessage", _ => true)
+            .SetResult(new EncryptedChatMessageSender.EncryptedPayload("sealed", "nonce"));
+    }
+
     /// <summary>A storage for the two tests that watch what a save writes back to a shelf.</summary>
     private void MeasuredAgainstAStorage()
         => _linkedInventory = new InventoryDto(
@@ -825,6 +874,16 @@ public sealed class TaskEditorItemFormTests : OrbitTestContext
     /// <summary>What the save wrote back to the storage this list is measured against - see SaveTheShelfAsync.</summary>
     private string? _lastShelfJson;
 
+    /// <summary>
+    /// The last message posted to a conversation. Sharing something is two halves - the server records
+    /// it, and the sharer's browser posts an encrypted message carrying the share's id, which is the
+    /// only thing a recipient can press "Accept" on - and this watches the second.
+    /// </summary>
+    private string? _lastChatMessageJson;
+
+    /// <summary>The contact a test invites to an entry's event.</summary>
+    private static readonly Guid GuestUserId = Guid.NewGuid();
+
     /// <summary>What that storage already holds. Empty for the tests that only look at the list.</summary>
     private IReadOnlyList<InventoryItemDto> _shelf = [];
 
@@ -857,6 +916,18 @@ public sealed class TaskEditorItemFormTests : OrbitTestContext
                 return JsonOf(GeneratedInventoryId);
             }
 
+            // The event a calendar entry becomes when the list is saved, and the share that invites a
+            // guest to it - see InviteTheGuestsAsync.
+            if (request.Method == HttpMethod.Post && path.EndsWith("/api/calendar-events", StringComparison.Ordinal))
+            {
+                return JsonOf(Guid.NewGuid());
+            }
+
+            if (request.Method == HttpMethod.Post && path.EndsWith("/shares", StringComparison.Ordinal))
+            {
+                return JsonOf(new ShareResultDto(Guid.NewGuid(), AlreadyShared: false));
+            }
+
             if (path.Contains("/notifications", StringComparison.Ordinal))
             {
                 return Json(new NotificationSettingsDto(
@@ -871,7 +942,7 @@ public sealed class TaskEditorItemFormTests : OrbitTestContext
                 return Json(new[]
                 {
                     new ContactDto(
-                        Guid.NewGuid(), "anna", "Anna Kowalska", "anna@example.com", "public-key",
+                        GuestUserId, "anna", "Anna Kowalska", "anna@example.com", "public-key",
                         DateTimeOffset.UtcNow, RequiresApprovalFromCurrentUser: false,
                         IsPendingApprovalFromOtherParty: false)
                 });
@@ -974,15 +1045,37 @@ public sealed class TaskEditorItemFormTests : OrbitTestContext
         Services.AddSingleton<AuthenticationStateProvider>(provider);
         Services.AddAuthorizationCore();
 
-        // The editor injects the chat sender for the sharing block, whether or not that block renders.
+        // The editor injects the chat sender for the sharing block and for the guest invitations on a
+        // calendar entry. Both post the message that carries an "Accept"; _lastChatMessageJson watches it.
         var jsRuntime = JSInterop.JSRuntime;
-        var usersApiClient = new UsersApiClient(new HttpClient { BaseAddress = new Uri("https://example.test/") });
+        var chatStack = new HttpClient(new StubHttpMessageHandler(request =>
+        {
+            var path = request.RequestUri!.AbsolutePath;
+
+            // Somebody who has signed in at least once, so there is a key to seal an invitation with.
+            if (path.StartsWith("/api/users/", StringComparison.Ordinal))
+            {
+                return JsonOf(new UserSearchResultDto(GuestUserId, "anna", "Anna Kowalska", "a-public-key"));
+            }
+
+            if (request.Method == HttpMethod.Post && path.EndsWith("/api/chat/messages", StringComparison.Ordinal))
+            {
+                _lastChatMessageJson = request.Content!.ReadAsStringAsync().GetAwaiter().GetResult();
+                return new HttpResponseMessage(HttpStatusCode.NoContent);
+            }
+
+            return new HttpResponseMessage(HttpStatusCode.NoContent);
+        }))
+        {
+            BaseAddress = new Uri("https://example.test/")
+        };
+        var usersApiClient = new UsersApiClient(chatStack);
         Services.AddSingleton(usersApiClient);
         Services.AddSingleton(new EncryptedChatMessageSender(
             jsRuntime,
             new OwnEncryptionKeyProvider(jsRuntime, usersApiClient, provider),
             usersApiClient,
-            new ChatApiClient(new HttpClient { BaseAddress = new Uri("https://example.test/") })));
+            new ChatApiClient(chatStack)));
     }
 
     private void RegisterPermissions()
