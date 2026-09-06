@@ -17,7 +17,10 @@ An ASP.NET Core minimal API exposing:
 - `/api/live` — a SignalR hub the web client holds open so it can be told what changed instead of
   polling for it. Announcements only, never content; see
   [Functionality — Live updates](functionality.md#live-updates). Authenticated from the query string,
-  because a browser cannot put a header on a WebSocket handshake, and only on this path.
+  because a browser cannot put a header on a WebSocket handshake, and only on this path. An
+  announcement reaches the clients connected to every API instance rather than only the one that raised
+  it, over PostgreSQL `LISTEN`/`NOTIFY` — see
+  [Functionality — Reaching every replica](functionality.md#reaching-every-replica).
 - `/health*` endpoints — liveness, readiness, and a full report covering the database, disk space,
   external services, and background services.
 

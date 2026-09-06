@@ -132,7 +132,7 @@ try
             .AllowAnyMethod());
     });
 
-    builder.Services.AddOrbitLiveUpdates();
+    builder.Services.AddOrbitLiveUpdates(builder.Configuration);
     builder.Services.AddOrbitCore();
     builder.Services.AddOrbitData(builder.Configuration);
     builder.Services.AddOrbitHealthChecks(builder.Configuration);

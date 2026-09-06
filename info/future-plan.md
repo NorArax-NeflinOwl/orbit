@@ -483,6 +483,27 @@ beside a task belongs here, not in that task's diff. A defect is the exception a
   subscription has been pay-as-you-go for a while; the runner build is now kept because it is the
   established, verified path, not because `az acr build` is blocked. The reasoning is recorded
   correctly in the `ci-pipeline` skill, and only these two documents lag behind it.
+- **Two things still assume one API instance, and both fail quietly rather than loudly.** The live
+  update hub no longer does (see
+  [Functionality — Reaching every replica](functionality.md#reaching-every-replica)), but these were
+  found beside it and are what stands between the code and raising `max-replicas`:
+  - **The rate limiter counts per process.** `RateLimiterPolicies` builds in-memory fixed windows, so
+    N replicas mean N times the limit that was written down: the `Auth` policy's 5 attempts a minute
+    per account becomes 5N, and `PublicShare`'s 30 a minute per IP becomes 30N. `Auth` guards
+    email-verification codes and permission codes, so this is a deliberate security control being
+    quietly loosened by a scaling decision made elsewhere. A window kept in PostgreSQL - a small
+    counter table keyed by partition and minute - would hold for the two low-volume policies that have
+    one, at the cost of a round trip on exactly those endpoints.
+  - **`TraceOptOut` caches the privacy choice per process for a minute, and only one replica is told
+    when it changes.** `TraceOptOut.Forget` exists so that turning "Do not share my personal
+    information" *on* takes effect on the very next request instead of waiting the cache out; with
+    several replicas, only the one that handled the PUT forgets, and the others keep tracing that
+    account for up to a minute. The comment on `Forget` explains why that direction is the one that
+    matters, which is what makes this a privacy guarantee rather than a stale read. Either announce the
+    change to the other instances (the live update backplane is the obvious carrier) or drop the cache
+    for this and read the row.
+- **`max-replicas` is still 1 on both Container Apps**, so none of the above is live today. Raising it
+  is a deliberate act and should follow the two fixes above, not precede them.
 - **Nothing enforces that work reaches `main` only through `Coding`.** `guard-main.yml` closes stray
   pull requests, but a direct push to `main` deploys before any workflow can run. Real branch
   protection needs GitHub Pro on a private repository.

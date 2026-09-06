@@ -2364,15 +2364,40 @@ way.
 A token in a URL is a token in access logs, so nginx stops logging the query string for that one path
 (`map $uri $orbit_logged_request`). Everything else still logs what it asked for.
 
-### Before this scales past one replica
+### Reaching every replica
 
-`orbit-api` runs at `max-replicas 1`, and the hub's delivery depends on it. SignalR keeps its connection
-registry in the process's own memory, so with two replicas an announcement raised on one reaches only the
-clients connected to that one — the rest hear nothing and fall back to their slow poll. Nothing errors.
+SignalR keeps its connection registry in the process's own memory, so an announcement raised on one
+replica reaches only the clients connected to that one. With `max-replicas 1` that was every client
+there was; it stops being true the moment a second replica runs, and it fails silently — the clients on
+the other replica hear nothing, fall back to their slow poll, and nothing errors anywhere.
 
-Raising `max-replicas` therefore needs a backplane (Azure SignalR Service, or Redis) added at the same
-time. There is also a cost consequence worth knowing: `orbit-web` is set to scale to zero when idle, and
-a client holding a connection open is not idle, so it will stop scaling to zero once this is in use.
+**`PostgresLiveUpdateFanOut`** closes that. Every announcement is delivered to this instance's own
+connections exactly as before, and then sent to the others over PostgreSQL's `LISTEN`/`NOTIFY` on the
+`orbit_live_updates` channel; **`PostgresLiveUpdateRelay`** is the half that listens and hands what
+arrives to its own connections. Each instance stamps its announcements with a per-process id
+(`LiveUpdateInstance`) and ignores its own coming back, since `NOTIFY` reaches the sender too and the
+sender has already delivered.
+
+Three things about that arrangement are deliberate:
+
+- **Postgres rather than Redis or Azure SignalR Service.** The database is already here, already
+  reachable from every instance, and already paid for. An announcement is explicitly allowed to go
+  missing (see [Live updates](#live-updates)), which is the bar `LISTEN`/`NOTIFY` meets and the reason a
+  durable bus would be paying for a guarantee this feature does not want.
+- **Local first, then the wire.** The local delivery does not go through Postgres, so the common case —
+  the recipient is connected to the instance that did the work — keeps the latency and the reliability
+  it had before. A database that refuses the notification costs the *other* replicas a nudge; it cannot
+  make this instance worse than the single-replica deployment it replaces.
+- **It is not a general SignalR backplane.** There are no groups, no client-to-server invocations and no
+  return values to route — Orbit announces four things by account and nothing else — so what would be a
+  `HubLifetimeManager` elsewhere is a fan-out of names here.
+
+`NOTIFY` refuses a payload over 8000 bytes, so an audience larger than 100 accounts is sent as several
+announcements (`LiveUpdateAnnouncement.MaxUserIdsPerAnnouncement`). A large group conversation is the
+case that reaches it.
+
+A cost consequence worth knowing either way: `orbit-web` is set to scale to zero when idle, and a client
+holding a connection open is not idle, so it will stop scaling to zero once this is in use.
 
 ## In-app notifications
 

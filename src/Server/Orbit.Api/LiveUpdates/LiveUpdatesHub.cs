@@ -11,7 +11,7 @@ namespace Orbit.Api.LiveUpdates;
 /// it asking four times a second.
 ///
 /// Deliberately almost empty. Everything the server has to say goes out through
-/// <see cref="SignalRLiveUpdatePublisher"/> as a bare announcement, and the client answers it by
+/// <see cref="LiveUpdateAnnouncer"/> as a bare announcement, and the client answers it by
 /// fetching over the API it already uses - so nothing that was end-to-end encrypted takes a new route,
 /// and no read path exists here that the HTTP endpoints do not already guard.
 ///
