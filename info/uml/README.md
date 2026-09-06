@@ -77,13 +77,22 @@ missing diagram, because it looks like the page is broken. Mermaid's own parser 
 judge; reading the source and thinking it looks right is a different test, and it always passes.
 
 ```bash
-npm install --no-save playwright@1 && npx playwright install chromium   # once
+npm install --no-save mermaid@11 jsdom
 node ci/verify-diagrams.mjs
 ```
 
-It parses every block in this folder and exits non-zero on the first that would not draw. Nothing runs
-it automatically — it is not wired into the pipeline (see [future-plan](../future-plan.md)), so it is a
-thing to run before pushing a diagram change, alongside the solution's tests.
+It parses every block in this folder and exits non-zero on the first that would not draw. Unlike the
+other two verifiers in `ci/` it needs **no browser** — Mermaid's parser wants a DOM but not a renderer,
+and jsdom is enough — so it costs seconds rather than a Chromium download.
+
+`.github/workflows/verify-diagrams.yml` runs it on every merge to `main` that touches `info/uml/`. It
+is a workflow of its own rather than a step in the suite for two reasons: `main_orbit.yml` ignores
+`info/**` and `**/*.md`, so it would never run on a diagram-only change — exactly the change most
+likely to break one — and a broken diagram must not stop a deploy, the same argument that keeps the
+Android head out of the deploy's `needs`.
+
+Nothing checks a pull request, here or anywhere else in this repository, so run it before pushing a
+diagram change the same way you run the solution's tests.
 
 **Parsing is not rendering.** A diagram can parse and still come out an unreadable tangle, which no
 script can assert. When one grows past a couple of dozen boxes, look at it — and split it rather than

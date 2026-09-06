@@ -223,6 +223,12 @@ later job depends on this one, so a failure here stops the deploy before an imag
 billed on a private repository and a day of ordinary work exhausted the allowance, stopping Actions
 outright. The check a branch gets instead is `dotnet test Orbit.sln` on the machine that wrote it.
 
+**The diagrams are parsed by `.github/workflows/verify-diagrams.yml`**, filtered to `info/uml/**`. A
+Mermaid block that will not parse renders on GitHub as an error box rather than as nothing, and nothing
+else in the repository reads these files. It is separate from the suite because `main_orbit.yml` ignores
+`info/**` and `**/*.md` and so would never see a diagram-only merge, and because a broken diagram must
+not stop a deploy. It parses under jsdom rather than a browser, so a run costs no download.
+
 **The Android head is compiled by `.github/workflows/android-head.yml`**, a second workflow on the same
 trigger. `Orbit.sln` cannot carry a MAUI head, so the suite above never touches it, and until this
 existed nothing checked that the phone still compiled - the two heads could drift apart and only a

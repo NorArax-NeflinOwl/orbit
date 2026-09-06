@@ -5,17 +5,21 @@
 // than as nothing, which is worse than a missing diagram. Mermaid's own parser is the only honest
 // judge; reading the source and thinking it looks right is a different test that always passes.
 //
+// Unlike the other two verifiers in this folder it needs no browser. Mermaid's parser wants a DOM but
+// not a renderer, and jsdom is enough for it - which keeps this to an npm install rather than a
+// hundred-megabyte Chromium download on every run that touches a diagram.
+//
 // It parses rather than renders, deliberately. Rendering would need a size to be right about, and
 // "readable" is not a thing a script can assert - see info/uml/README.md, which says to look at a
 // diagram that has grown rather than trust this exit code.
 //
-// README.md is skipped: it is the index, holds no diagrams, and quotes this file's own extraction
+// README.md is skipped: it is the index, holds no diagrams, and describes this file's own extraction
 // pattern, which would otherwise match itself.
 //
 // Usage: node ci/verify-diagrams.mjs [directory]
 import { readFileSync, readdirSync } from "node:fs";
 import { join, resolve } from "node:path";
-import { chromium } from "playwright";
+import { JSDOM } from "jsdom";
 
 const directory = resolve(process.argv[2] ?? "info/uml");
 
@@ -30,33 +34,24 @@ if (blocks.length === 0) {
   process.exit(1);
 }
 
-const browser = await chromium.launch();
-try {
-  const page = await browser.newPage();
-  await page.setContent("<body>");
-  await page.addScriptTag({ url: "https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js" });
+// Mermaid reads these at import time. Assigning globalThis.navigator throws on modern Node - it is
+// getter-only - and mermaid does not need it, so only these two are provided.
+const dom = new JSDOM("<!doctype html><body></body>", { pretendToBeVisual: true });
+globalThis.window = dom.window;
+globalThis.document = dom.window.document;
 
-  let failed = 0;
-  for (const block of blocks) {
-    const error = await page.evaluate(async code => {
-      try {
-        await mermaid.parse(code);
-        return null;
-      } catch (thrown) {
-        return String(thrown?.message ?? thrown);
-      }
-    }, block.code);
+const mermaid = (await import("mermaid")).default;
 
-    if (error) {
-      failed++;
-      console.error(`FAIL ${block.name}: ${error.split("\n")[0]}`);
-    } else {
-      console.log(`OK   ${block.name}`);
-    }
+let failed = 0;
+for (const block of blocks) {
+  try {
+    await mermaid.parse(block.code);
+    console.log(`OK   ${block.name}`);
+  } catch (thrown) {
+    failed++;
+    console.error(`FAIL ${block.name}: ${String(thrown?.message ?? thrown).split("\n")[0]}`);
   }
-
-  console.log(`${blocks.length} diagrams, ${failed} failed`);
-  process.exit(failed ? 1 : 0);
-} finally {
-  await browser.close();
 }
+
+console.log(`${blocks.length} diagrams, ${failed} failed`);
+process.exit(failed ? 1 : 0);
