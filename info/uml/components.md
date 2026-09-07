@@ -71,7 +71,8 @@ are reconciled by the synchronisers rather than by sharing an interface (see [fl
 
 ## `Orbit.Maui` and `Orbit.Mobile`, and why they are two
 
-`Orbit.Sln` cannot carry a MAUI head into an ordinary test project, so everything that could otherwise
+A MAUI head cannot be reached by an ordinary test project (and `Orbit.CI.slnf`, the filter the suite
+builds, leaves it out entirely), so everything that could otherwise
 sit in the head — view models, the local store, the sync spine, crypto, the API client — lives in
 `Orbit.Mobile`, which is a plain `net10.0` library and therefore testable. `Orbit.Maui` is left with the
 XAML and the platform code, which is the part no unit test would reach anyway.

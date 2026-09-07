@@ -84,7 +84,7 @@ flowchart LR
     main -->|"push triggers it"| suite["test + build + deploy"]
     suite --> deployed["orbit-api, orbit-web updated"]
 
-    local["dotnet test Orbit.sln<br/><i>on the developer's machine</i>"] -.->|the only check before Coding| branch
+    local["dotnet test Orbit.CI.slnf<br/><i>on the developer's machine</i>"] -.->|the only check before Coding| branch
 ```
 
 Runner minutes are a monthly budget of 2000, and a pipeline that ran on pull requests, on pushes to
@@ -93,7 +93,7 @@ suite three and four times for one change. So **the suite runs at the one point 
 something**: the push to `main`, which is the merge of the integration PR and the last step before Azure
 is paid.
 
-The trade this makes deliberately: `dotnet test Orbit.sln` on the machine that wrote the change is the
+The trade this makes deliberately: `dotnet test Orbit.CI.slnf` on the machine that wrote the change is the
 only check it gets before `Coding`. A broken merge there is found at the next push to `main`, before
 anything deploys — and then it blocks everybody's integration, which is why running the suite locally is
 a rule rather than a courtesy.

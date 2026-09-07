@@ -5,8 +5,14 @@
 Run the whole suite with:
 
 ```
-dotnet test Orbit.sln
+dotnet test Orbit.CI.slnf
 ```
+
+`Orbit.CI.slnf` is `Orbit.sln` minus `Orbit.Maui`: the solution carries the MAUI project so Visual
+Studio can open and debug it, but building it needs the MAUI workloads and adds nothing to the suite
+(the mobile logic under test lives in `Orbit.Mobile`, which the filter keeps). CI builds the same
+filter. A project added to `Orbit.sln` belongs in the filter too, unless it genuinely cannot build
+everywhere the suite runs.
 
 This also runs automatically in CI, but only on a push to `main` - nothing runs on a pull request or on `Coding` - so a
 branch is checked before it lands rather than after. Documentation-only branches are skipped, and a
@@ -367,6 +373,60 @@ Set the JWT signing key via `dotnet user-secrets` too (see
 [Functionality — Authentication](functionality.md#authentication)); optionally configure SMTP and/or a
 VAPID key pair the same way if you want to actually see reminder emails and push notifications locally
 — see the two sections right below.
+
+### Debugging from Visual Studio: the four F5 modes
+
+Visual Studio's multi-project launch profiles (the dropdown next to the Start button) give one-keypress
+debugging of a client together with Orbit.Api. The profiles are shared through `Orbit.slnLaunch` beside
+the solution, which is committed — every machine gets the four modes with the clone. (A gitignored
+`Orbit.slnLaunch.user` beside it holds any per-machine edits Visual Studio makes on top.) If the
+dropdown does not show them, enable *Tools > Options > Preview Features > Enable Multi Launch
+Profiles* and reopen the solution. All four start Orbit.Api under the debugger on
+`https://localhost:7080` (plus `http://localhost:5080`, which is the address the Android emulator's
+`10.0.2.2:5080` reaches); the pairs differ only in which client starts beside it and which database
+the API opens:
+
+| Mode | Client | Database |
+| --- | --- | --- |
+| `Orbit.Web local` | Orbit.Web dev server (`https://localhost:7081`) | local Postgres (`ConnectionStrings:Orbit`) |
+| `Orbit.Web azure` | Orbit.Web dev server (`https://localhost:7081`) | Azure Postgres (`ConnectionStrings:OrbitAzure`) |
+| `Android local` | Orbit.Maui on the Android emulator | local Postgres (`ConnectionStrings:Orbit`) |
+| `Android azure` | Orbit.Maui on the Android emulator | Azure Postgres (`ConnectionStrings:OrbitAzure`) |
+
+The azure pair works through the `https (Azure DB)` launch profile, which sets
+`Database__ConnectionStringName=OrbitAzure` — `AddOrbitData` then reads that connection string instead
+of `Orbit`, so the Azure credentials sit in user secrets next to the local ones and never in a tracked
+file:
+
+```
+dotnet user-secrets set "ConnectionStrings:OrbitAzure" "Host=<server>.postgres.database.azure.com;Port=5432;Database=orbit;Username=orbit;Password=<password>;Ssl Mode=Require" --project src/Server/Orbit.Api
+```
+
+Two things the modes rely on:
+
+- The Android emulator reaches the host's `localhost:5080` through `10.0.2.2:5080`, which is the MAUI
+  debug build's baked-in default (see `OrbitApiSettings`); no extra configuration. A cold emulator is
+  booted by Visual Studio as part of deploying — pick the device once in Orbit.Maui's debug-target
+  dropdown and it sticks.
+- The Azure Postgres server's firewall allows Azure IPs only, so the azure modes additionally need a
+  firewall rule for your machine's public IP
+  (`az postgres flexible-server firewall-rule create -g Orbit --server-name <server> --name <your-name> --start-ip-address <your-ip> --end-ip-address <your-ip>`)
+  — and remember [the local database honesty rule](#keeping-the-local-database-honest): the azure modes
+  point a development server at production data, so they are for reproducing production-shaped issues,
+  not for routine work.
+- The azure profile also sets `Database__ApplyMigrations=false`, so a debug session never changes the
+  production schema. The flip side: a branch whose model is ahead of the deployed schema will fail its
+  queries against the missing columns — that is the intended failure, not a bug. (Without the flag the
+  first such session applies its branch's migrations to production on startup, which happened once,
+  2026-09-07, with the additive folders migration.)
+
+`Orbit.slnLaunch` holds four entries, each starting
+`src\Server\Orbit.Api\Orbit.Api.csproj` (`DebugTarget` `https` for local, `https (Azure DB)` for azure)
+plus either `src\Clients\Orbit.Web\Orbit.Web.csproj` (`DebugTarget` `https`) or
+`src\Clients\Orbit.Maui\Orbit.Maui.csproj` (no `DebugTarget`, so the project's own device selection
+applies). Editing the modes through *Configure Startup Projects… > Launch Profiles* updates the same
+list — keep the *Share profile* box ticked so the change lands in the committed file rather than a
+per-machine one.
 
 ### Configuring SMTP for local development
 

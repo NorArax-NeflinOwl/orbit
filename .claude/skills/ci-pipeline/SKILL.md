@@ -39,7 +39,9 @@ What that means in practice: the full suite on the developer's machine is the on
 check a change gets before `Coding`. A broken merge into `Coding` is found at the
 next push to `main`, before anything deploys - and then it blocks the whole
 integration, so a failed run there is everybody's problem. Run `dotnet test
-Orbit.sln` before opening a PR; it is not optional. On a push to `main` it:
+Orbit.CI.slnf` before opening a PR (the solution filter without Orbit.Maui - the
+full Orbit.sln also builds the Android head, which the suite does not need);
+it is not optional. On a push to `main` it:
 
 1. Log in to Azure via OIDC (managed identity `identity-orbit`, no stored secret)
 2. `docker build` the `Orbit.Api` and `Orbit.Web` images on the runner

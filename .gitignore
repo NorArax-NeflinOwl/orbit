@@ -22,8 +22,11 @@ _to_delete/
 /src/Server/Orbit.Api/logs/
 /logs/
 
-# Per-developer IDE settings; not shared across the team.
+# Per-developer IDE settings; not shared across the team. The shared F5 modes live in the committed
+# Orbit.slnLaunch (see info/testing-and-running-locally.md); a *.slnLaunch.user beside it is Visual
+# Studio's per-machine overlay on top of that and stays local.
 *.csproj.user
+*.slnLaunch.user
 
 # Secrets and credentials - never commit these.
 .env

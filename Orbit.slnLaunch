@@ -1,0 +1,60 @@
+[
+  {
+    "Name": "Orbit.Web local",
+    "Projects": [
+      {
+        "Path": "src\\Server\\Orbit.Api\\Orbit.Api.csproj",
+        "Action": "Start",
+        "DebugTarget": "https"
+      },
+      {
+        "Path": "src\\Clients\\Orbit.Web\\Orbit.Web.csproj",
+        "Action": "Start",
+        "DebugTarget": "https"
+      }
+    ]
+  },
+  {
+    "Name": "Orbit.Web azure",
+    "Projects": [
+      {
+        "Path": "src\\Server\\Orbit.Api\\Orbit.Api.csproj",
+        "Action": "Start",
+        "DebugTarget": "https (Azure DB)"
+      },
+      {
+        "Path": "src\\Clients\\Orbit.Web\\Orbit.Web.csproj",
+        "Action": "Start",
+        "DebugTarget": "https"
+      }
+    ]
+  },
+  {
+    "Name": "Android local",
+    "Projects": [
+      {
+        "Path": "src\\Server\\Orbit.Api\\Orbit.Api.csproj",
+        "Action": "Start",
+        "DebugTarget": "https"
+      },
+      {
+        "Path": "src\\Clients\\Orbit.Maui\\Orbit.Maui.csproj",
+        "Action": "Start"
+      }
+    ]
+  },
+  {
+    "Name": "Android azure",
+    "Projects": [
+      {
+        "Path": "src\\Server\\Orbit.Api\\Orbit.Api.csproj",
+        "Action": "Start",
+        "DebugTarget": "https (Azure DB)"
+      },
+      {
+        "Path": "src\\Clients\\Orbit.Maui\\Orbit.Maui.csproj",
+        "Action": "Start"
+      }
+    ]
+  }
+]
