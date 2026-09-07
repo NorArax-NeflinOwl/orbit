@@ -434,7 +434,6 @@ public sealed class DashboardScreenTests
         var screen = context.Open();
         await screen.LoadCommand.ExecuteAsync(null);
 
-        screen.ToggleCardChoicesCommand.Execute(null);
         screen.ToggleCardShownCommand.Execute(
             screen.CardChoices.Single(choice => choice.Kind == DashboardCardKind.Notes));
 
@@ -458,8 +457,6 @@ public sealed class DashboardScreenTests
         var screen = context.Open();
         await screen.LoadCommand.ExecuteAsync(null);
 
-        screen.ToggleCardChoicesCommand.Execute(null);
-
         Assert.Equal(Enum.GetValues<DashboardCardKind>().Length, screen.CardChoices.Count);
         Assert.All(screen.CardChoices, choice => Assert.True(choice.IsShown));
     }
@@ -472,14 +469,144 @@ public sealed class DashboardScreenTests
         await context.AddNoteAsync("Shopping");
         var screen = context.Open();
         await screen.LoadCommand.ExecuteAsync(null);
-        screen.ToggleCardChoicesCommand.Execute(null);
-
         var notes = screen.CardChoices.Single(choice => choice.Kind == DashboardCardKind.Notes);
         screen.ToggleCardShownCommand.Execute(notes);
         screen.ToggleCardShownCommand.Execute(
             screen.CardChoices.Single(choice => choice.Kind == DashboardCardKind.Notes));
 
         Assert.Contains(screen.Cards, card => card.Kind == DashboardCardKind.Notes);
+    }
+
+    /// <summary>
+    /// The mark Orbit.Web puts on the row itself, not only on the card over it - a card saying
+    /// "something happened here" above six rows leaves the reader to open all six.
+    /// </summary>
+    [Fact]
+    public async Task An_unread_notification_marks_the_row_it_names_and_the_card_over_it()
+    {
+        using var context = new DashboardContext();
+        var errands = await context.AddTaskListAsync("Errands", ("Sugar", null, false));
+        await context.AddTaskListAsync("Move house", ("Boxes", null, false));
+        var serverId = await context.SynchroniseAsync(errands);
+        await context.NoteAsUnreadAsync($"/tasks/{serverId}");
+        var screen = context.Open();
+
+        await screen.LoadCommand.ExecuteAsync(null);
+
+        var tasks = Assert.Single(screen.Cards, card => card.Kind == DashboardCardKind.Tasks);
+        Assert.True(tasks.HasUnseenAction);
+        Assert.True(Assert.Single(tasks.Rows, row => row.Title == "Errands").HasNews);
+        Assert.False(Assert.Single(tasks.Rows, row => row.Title == "Move house").HasNews);
+    }
+
+    /// <summary>
+    /// And a card with nothing unread about it carries no mark, on itself or on any of its rows - the
+    /// state everything is in almost all of the time.
+    /// </summary>
+    [Fact]
+    public async Task A_card_with_nothing_unread_about_it_is_not_marked()
+    {
+        using var context = new DashboardContext();
+        await context.SynchroniseAsync(await context.AddTaskListAsync("Errands", ("Sugar", null, false)));
+        var screen = context.Open();
+
+        await screen.LoadCommand.ExecuteAsync(null);
+
+        var tasks = Assert.Single(screen.Cards, card => card.Kind == DashboardCardKind.Tasks);
+        Assert.False(tasks.HasUnseenAction);
+        Assert.All(tasks.Rows, row => Assert.False(row.HasNews));
+    }
+
+    /// <summary>
+    /// A shelf about to go off points at "/inventory" and a shared position at "/map" - neither names
+    /// the thing it is about, so the card is the only place the mark can go. The rows stay clean.
+    /// </summary>
+    [Fact]
+    public async Task News_that_names_nothing_marks_the_card_and_none_of_its_rows()
+    {
+        using var context = new DashboardContext();
+        context.SomebodySharesTheirPosition("Alice");
+        await context.NoteAsUnreadAsync("/map");
+        var screen = context.Open();
+
+        await screen.LoadCommand.ExecuteAsync(null);
+
+        var shared = Assert.Single(screen.Cards, card => card.Kind == DashboardCardKind.SharedLocations);
+        Assert.True(shared.HasUnseenAction);
+        Assert.All(shared.Rows, row => Assert.False(row.HasNews));
+    }
+
+    /// <summary>
+    /// The hairline goes under every row but the last, which is how Orbit.Web's .list-row:last-child
+    /// rules its own list - a line under the last one would be a line drawn under nothing.
+    /// </summary>
+    [Fact]
+    public async Task Every_row_but_the_last_carries_the_hairline()
+    {
+        using var context = new DashboardContext();
+        await context.AddNoteAsync("Shopping");
+        await context.AddNoteAsync("Rent");
+        var screen = context.Open();
+
+        await screen.LoadCommand.ExecuteAsync(null);
+
+        var rows = Assert.Single(screen.Cards, card => card.Kind == DashboardCardKind.Notes).Rows;
+        Assert.Equal(2, rows.Count);
+        Assert.True(rows[0].HasDividerUnder);
+        Assert.False(rows[^1].HasDividerUnder);
+    }
+
+    /// <summary>
+    /// A standing "0 new chat requests" is not news, so the line is left out rather than shown at
+    /// nought - which is what Orbit.Web's today strip does.
+    /// </summary>
+    [Fact]
+    public async Task The_today_strip_says_nothing_about_chat_requests_when_nobody_is_waiting()
+    {
+        using var context = new DashboardContext();
+        await context.AddNoteAsync("Shopping");
+        var screen = context.Open();
+
+        await screen.LoadCommand.ExecuteAsync(null);
+
+        Assert.Equal(0, screen.Today.PendingChatRequests);
+        Assert.False(screen.Today.HasChatRequests);
+    }
+
+    /// <summary>
+    /// A card its filter has emptied stays on the page and says so. It has to: the menu that narrowed it
+    /// lives in its own header, so a card that vanished would take away the only way to widen it again.
+    /// Orbit.Web settled this the same way, after the same bug.
+    /// </summary>
+    [Fact]
+    public async Task A_card_narrowed_to_nothing_stays_on_the_page_and_says_why_it_is_empty()
+    {
+        using var context = new DashboardContext();
+        await context.AddNoteAsync("Shopping");
+        var screen = context.Open();
+        await screen.LoadCommand.ExecuteAsync(null);
+
+        await screen.ChooseFilterCommand.ExecuteAsync(
+            screen.FilterChoicesFor(DashboardCardKind.Notes)
+                .Single(choice => choice.Filter == DashboardCardFilter.Pinned));
+
+        var notes = Assert.Single(screen.Cards, card => card.Kind == DashboardCardKind.Notes);
+        Assert.Empty(notes.Rows);
+        Assert.True(notes.HasNothingMatching);
+        Assert.True(notes.CanBeFiltered);
+    }
+
+    /// <summary>And a card with nothing in it at all is still left off the page entirely.</summary>
+    [Fact]
+    public async Task A_card_with_nothing_in_it_is_not_drawn()
+    {
+        using var context = new DashboardContext();
+        await context.AddNoteAsync("Shopping");
+        var screen = context.Open();
+
+        await screen.LoadCommand.ExecuteAsync(null);
+
+        Assert.DoesNotContain(screen.Cards, card => card.Kind == DashboardCardKind.Tasks);
     }
 
     /// <summary>
@@ -822,10 +949,20 @@ public sealed class DashboardScreenTests
         /// <summary>One for the whole context, so a test can unlock private things before opening.</summary>
         public PrivateItemGate PrivateItems { get; } = new(new FixedDeviceAuthentication());
 
+        /// <summary>What the bell is holding - see NoteAsUnreadAsync, which is how a test puts one here.</summary>
+        public LocalNotificationRepository Notifications => new(_localStore);
+
         public DashboardViewModel Open()
             => new(_notes, _taskLists, _calendarEvents, _chat, _clock, new Translations(new InMemoryLanguageStore()),
                 PrivateItems, _synchronizer, _syncState, _permissions,
-                Pins, Visibility, SharedPositions(), Navigator);
+                Pins, Visibility, SharedPositions(), Notifications, Navigator);
+
+        /// <summary>
+        /// An unread notification pointing somewhere, which is how everything on this page learns that
+        /// something happened - see UnreadNews.
+        /// </summary>
+        public Task NoteAsUnreadAsync(string url)
+            => Notifications.RaiseAsync("Test", "Something happened", "About {0}", url, Now, [url]);
 
         public async Task<Guid> AddNoteAsync(string title)
             => (await _notes.CreateAsync(title, [new NoteContentLineDto("Body", false, false)])).LocalId;
@@ -860,6 +997,29 @@ public sealed class DashboardScreenTests
             }
 
             await dbContext.SaveChangesAsync();
+        }
+
+        /// <summary>
+        /// Gives something the id the server knows it by, which is what a notification points at. A
+        /// locally-made row has none until it has been synchronised, and a row with no address cannot
+        /// be the one the bell means.
+        /// </summary>
+        public async Task<Guid> SynchroniseAsync(Guid localId)
+        {
+            var serverId = Guid.NewGuid();
+            await using var dbContext = _localStore.CreateDbContext();
+            if (dbContext.TaskLists.FirstOrDefault(list => list.LocalId == localId) is { } taskList)
+            {
+                taskList.ServerId = serverId;
+            }
+
+            if (dbContext.CalendarEvents.FirstOrDefault(calendarEvent => calendarEvent.LocalId == localId) is { } stored)
+            {
+                stored.ServerId = serverId;
+            }
+
+            await dbContext.SaveChangesAsync();
+            return serverId;
         }
 
         /// <summary>Keeps a note at the top, which is what the "Pinned" card filter narrows to.</summary>

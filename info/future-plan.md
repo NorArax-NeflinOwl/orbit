@@ -568,6 +568,28 @@ matches and what does not. What that pass left:
   unlocked Contacts, so the navigation bar draws no way into them and `FeatureLocked` is all those
   screens show there. The bubbles, the message menus and the row menus want a walk on an account that
   can chat before they are believed.
+- ~~**The dashboard was never given the pass.**~~ Done on 2026-09-07, and it was the last screen
+  still speaking the old vocabulary: it now opens with `PageHeader`, both of its "⋯" are the shared
+  `OverflowMenu` filling the screen's one `ScreenMenu` (the page's parts menu stays open as
+  Orbit.Web's does, a card's filter closes after one pick), its rows are `Row`s, and every card and
+  every row that a notification can name carries the mark - `.item-card-unseen` on the card and
+  `.list-row.row-unseen` on the row, which is what stops a card saying "something happened here" over
+  six rows and leaving the reader to open all six. The strip of today's counts is the way to the
+  calendar, as it is there, and drops its chat-request line at nought. Two defects came out of it: a
+  card narrowed to nothing vanished and took its own filter menu with it, so the choice could not be
+  undone (the bug Orbit.Web had already fixed), and the coloured dot beside an event had never once
+  been drawn - see `android-ui-parity.md` for why.
+- **The dashboard's rows carry no avatar, and there is no Inventory card.** Both are Orbit.Web's and
+  both are what the phone's dashboard still owes it. The avatars are the smaller half: an initials
+  circle before every name on Groups, Recent chats and Shared with you, plus the unread badge and the
+  presence dot on the first of those - the rows are `Row`s now, so the `Leading` slot is there, and
+  `PersonRow` already knows how to draw the circle. The Inventory card is a card that does not exist:
+  `DashboardCardKind` has no value for it, so it wants a row builder, a destination and a place in the
+  parts menu, and the shelves are exactly what a phone standing in a shop wants beside the lists that
+  feed them.
+- **`ContactsPage.xaml` declares a `PresenceColor` converter it never uses.** One dead line, noticed
+  while chasing the event dot; harmless, and it is here rather than done because the Contacts screen
+  was not otherwise being touched.
 - ~~**A card's footnote says the whole timestamp.**~~ Done: `LastChanged` gives the four answers
   `Notes.razor`'s `WhenLastChanged` gives - today, yesterday, the weekday within the week, a date past
   it - against the injected clock rather than the machine's, so a test about the wording is a test

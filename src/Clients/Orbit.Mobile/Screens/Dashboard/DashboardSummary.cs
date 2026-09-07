@@ -7,6 +7,12 @@ namespace Orbit.Mobile.Screens.Dashboard;
 public sealed record TodaySummary(string Date, int TasksDueToday, int EventsToday, int PendingChatRequests)
 {
     public static readonly TodaySummary Nothing = new(string.Empty, 0, 0, 0);
+
+    /// <summary>
+    /// Whether anybody is waiting to be answered. A standing "0 new chat requests" is not news, so the
+    /// line is left out rather than shown at nought - which is what Orbit.Web's today strip does.
+    /// </summary>
+    public bool HasChatRequests => PendingChatRequests > 0;
 }
 
 /// <summary>
@@ -22,11 +28,11 @@ public sealed record TodaySummary(string Date, int TasksDueToday, int EventsToda
 public sealed record DashboardRow(Guid LocalId, string Title, string Detail)
 {
     /// <summary>
-    /// Whether a hairline is drawn above this row. Set where the card is assembled rather than where
-    /// the rows are described, because it is about a row's neighbours and not about the row - and it is
-    /// true for all but the first, which is how Orbit.Web's .list-row rules its own list.
+    /// Whether a hairline is drawn under this row. Set where the card is assembled rather than where the
+    /// rows are described, because it is about a row's neighbours and not about the row - and it is true
+    /// for all but the last, which is how Orbit.Web's .list-row:last-child rules its own list.
     /// </summary>
-    public bool ShowsSeparator { get; init; }
+    public bool HasDividerUnder { get; init; }
 
     /// <summary>
     /// How much the list matters, when that is worth saying - Orbit.Web badges the same rows. Empty
@@ -58,6 +64,14 @@ public sealed record DashboardRow(Guid LocalId, string Title, string Detail)
 
     /// <summary>How much of the list is done, from 0 to 1. Meaningless unless <see cref="HasProgress"/>.</summary>
     public double Progress { get; init; }
+
+    /// <summary>
+    /// Something unread is about this particular row - Orbit.Web's .list-row.row-unseen. Said on the row
+    /// as well as on the card because a card saying "something happened here" over six rows leaves the
+    /// reader to open all six. Only where a notification can name the thing at all: nothing ever points
+    /// at one note or one contact, so those rows are never marked.
+    /// </summary>
+    public bool HasNews { get; init; }
 }
 
 /// <summary>
@@ -90,6 +104,20 @@ public sealed record DashboardCard(
     /// two never disagree - see DashboardViewModel.FilterChoicesFor.
     /// </summary>
     public bool CanBeFiltered { get; init; }
+
+    /// <summary>
+    /// Something unread is about something on this card - Orbit.Web's HasUnseenAction on the same card.
+    /// Where the rows can carry the mark themselves this is simply whether any of them does; where they
+    /// cannot - a shelf about to go off names no shelf - the card is the only place it can be said.
+    /// </summary>
+    public bool HasUnseenAction { get; init; }
+
+    /// <summary>
+    /// The card is on the page because it holds something, and its filter has left none of it. Said in
+    /// place of the rows, as Orbit.Web says it - the menu that narrowed the card is in its own header,
+    /// so this is a state a reader can get out of.
+    /// </summary>
+    public bool HasNothingMatching => Rows.Count == 0;
 }
 
 /// <summary>

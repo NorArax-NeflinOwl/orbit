@@ -42,6 +42,7 @@ public sealed partial class DashboardViewModel : ObservableObject
     private readonly IDashboardPinStore _pins;
     private readonly IDashboardCardPreferenceStore _visibility;
     private readonly SharedLocations _sharedLocations;
+    private readonly LocalNotificationRepository _notifications;
     private readonly IScreenNavigator _navigator;
 
     [ObservableProperty]
@@ -56,7 +57,7 @@ public sealed partial class DashboardViewModel : ObservableObject
         Translations translations, PrivateItemGate privateItems, EverythingSynchronizer synchronizer,
         SyncState syncState, UserPermissions permissions, IDashboardPinStore pins,
         IDashboardCardPreferenceStore visibility, SharedLocations sharedLocations,
-        IScreenNavigator navigator)
+        LocalNotificationRepository notifications, IScreenNavigator navigator)
     {
         _notes = notes;
         _taskLists = taskLists;
@@ -73,7 +74,7 @@ public sealed partial class DashboardViewModel : ObservableObject
         _hidden = [.. visibility.ReadHidden()];
         _filters = visibility.ReadFilters().ToDictionary(filter => filter.Key, filter => filter.Value);
         _sharedLocations = sharedLocations;
-
+        _notifications = notifications;
         _navigator = navigator;
     }
 
@@ -137,26 +138,49 @@ public sealed partial class DashboardViewModel : ObservableObject
             ? await ReadSharedPositionsAsync(cancellationToken)
             : [];
 
+        // Where the bell is pointing, read once for the whole page. Every card and every row then asks
+        // the same set whether any of it means them - see UnreadNews, which Orbit.Web's dashboard asks
+        // the same question of.
+        _unreadUrls = UnreadNews.AddressesIn(await _notifications.GetUnreadAsync(cancellationToken));
+
+        // Kept current rather than filled when the menu opens: the menu is a panel the page hands over
+        // the moment its three dots are pressed, and one filled on the way past would be empty the
+        // first time.
+        ShowCardChoices();
+
         Today = SummariseToday(taskLists, events, contacts);
 
         _built.Clear();
         // An empty card is worse than no card: it takes up a phone's screen to say nothing. Each is
         // added only when it has something in it, which is also how the web's dashboard behaves.
         // Filtered before both the rows and the count, so a card that says "3" is showing three - the
-        // same as Orbit.Web, whose count is of what it is about to draw rather than of everything.
+        // same as Orbit.Web, whose count is of what it is about to draw rather than of everything. What
+        // the filter itself empties is the exception - see AddCardIfAnything.
         var shownNotes = notes.Where(note => Passes(DashboardCardKind.Notes, note.IsPinned)).ToList();
         var shownTaskLists = taskLists.Where(list => Passes(DashboardCardKind.Tasks, list.IsPinned)).ToList();
         var shownEvents = events.Where(PassesPriority).ToList();
 
+        // Gated on whether the card has anything at all, not on what survives its filter - the same
+        // rule Orbit.Web settled on, and for the reason its own comment gives: a card narrowed to
+        // nothing would take its filter menu off the page with it, so the choice that emptied it could
+        // not be undone from the page that made it.
         AddCardIfAnything(
-            DashboardCardKind.Notes, _translations["Notes"], DescribeNotes(shownNotes), shownNotes.Count(CanBeShown));
+            DashboardCardKind.Notes, _translations["Notes"], DescribeNotes(shownNotes), shownNotes.Count(CanBeShown),
+            notes.Any(CanBeShown));
         AddCardIfAnything(
-            DashboardCardKind.Tasks, _translations["Tasks"], DescribeTaskLists(shownTaskLists), shownTaskLists.Count(CanBeShown));
-        AddCardIfAnything(DashboardCardKind.Upcoming, _translations["Upcoming"], DescribeEvents(shownEvents), shownEvents.Count);
+            DashboardCardKind.Tasks, _translations["Tasks"], DescribeTaskLists(shownTaskLists), shownTaskLists.Count(CanBeShown),
+            taskLists.Any(CanBeShown));
+        AddCardIfAnything(
+            DashboardCardKind.Upcoming, _translations["Upcoming"], DescribeEvents(shownEvents), shownEvents.Count,
+            events.Count > 0);
         AddCardIfAnything(DashboardCardKind.Groups, _translations["Groups"], DescribeGroups(groups), groups.Count);
+        // The one card whose news no row can carry: a position points at "/map" and names nobody
+        // (SharedItemNotifier.UrlFor), so the card says it over the lot - which is Orbit.Web's answer
+        // on the same card, for the same reason.
         AddCardIfAnything(
             DashboardCardKind.SharedLocations, _translations["Shared with you"],
-            DescribeSharedPositions(sharedPositions), sharedPositions.Count);
+            DescribeSharedPositions(sharedPositions), sharedPositions.Count,
+            ownNews: UnreadNews.About(_unreadUrls, "/map"));
         AddCardIfAnything(DashboardCardKind.RecentChats, _translations["Recent chats"], DescribeRecentChats(contacts), contacts.Count);
         AddCardIfAnything(DashboardCardKind.Contacts, _translations["Contacts"], DescribeDirectory(contacts), DirectoryOf(contacts).Count);
 
@@ -246,17 +270,33 @@ public sealed partial class DashboardViewModel : ObservableObject
     /// Cards are built in the order Orbit.Web lays them out, then the pinned ones are lifted to the top
     /// - so pinning changes where a card sits without changing the order of everything else.
     /// </summary>
-    private void AddCardIfAnything(DashboardCardKind kind, string title, IReadOnlyList<DashboardRow> rows, int total)
+    /// <param name="anythingAtAll">
+    /// Whether the card has anything before its filter is applied. Null where the card has no filter to
+    /// apply, which is the same question as whether it has rows.
+    /// </param>
+    /// <param name="ownNews">
+    /// News the card carries itself, for a card whose rows cannot carry any. Everywhere else the card's
+    /// mark is simply whether one of its rows has one - a card that says something happened and has no
+    /// row saying where leaves the reader to open all of them.
+    /// </param>
+    private void AddCardIfAnything(
+        DashboardCardKind kind, string title, IReadOnlyList<DashboardRow> rows, int total,
+        bool? anythingAtAll = null, bool ownNews = false)
     {
-        if (rows.Count == 0)
+        // An empty card is worth its place on a phone's screen only where a filter is what emptied it,
+        // because the way to widen that filter again is in its own header.
+        if (!(anythingAtAll ?? rows.Count > 0))
         {
             return;
         }
 
-        var ruled = rows.Select((row, position) => row with { ShowsSeparator = position > 0 }).ToList();
+        var ruled = rows
+            .Select((row, position) => row with { HasDividerUnder = position < rows.Count - 1 })
+            .ToList();
         _built.Add(new DashboardCard(kind, title, total.ToString(), ruled, _pins.Read().Contains(kind))
         {
-            CanBeFiltered = OptionsFor(kind).Count > 0
+            CanBeFiltered = OptionsFor(kind).Count > 0,
+            HasUnseenAction = ownNews || ruled.Any(row => row.HasNews)
         });
     }
 
@@ -342,6 +382,9 @@ public sealed partial class DashboardViewModel : ObservableObject
         await ShowStoredSummaryAsync(cancellationToken);
     }
 
+    /// <summary>Where everything unread points, so a card or a row can ask whether any of it means it.</summary>
+    private IReadOnlyList<string> _unreadUrls = [];
+
     /// <summary>Which parts this reader has put away - see IDashboardCardPreferenceStore.</summary>
     private readonly HashSet<DashboardCardKind> _hidden;
 
@@ -354,20 +397,6 @@ public sealed partial class DashboardViewModel : ObservableObject
     /// otherwise have no way back.
     /// </summary>
     public ObservableCollection<DashboardCardChoice> CardChoices { get; } = [];
-
-    [ObservableProperty]
-    private bool _isChoosingCards;
-
-    /// <summary>Opens and closes the menu. It stays open while several are changed, as the web's does.</summary>
-    [RelayCommand]
-    private void ToggleCardChoices()
-    {
-        IsChoosingCards = !IsChoosingCards;
-        if (IsChoosingCards)
-        {
-            ShowCardChoices();
-        }
-    }
 
     /// <summary>
     /// Puts a part of the dashboard away, or brings it back. Written through at once rather than on
@@ -462,6 +491,13 @@ public sealed partial class DashboardViewModel : ObservableObject
         }
     }
 
+    /// <summary>
+    /// Where the strip of today's counts leads. It is a summary of a day, and the page that shows a day
+    /// is the calendar - which is what Orbit.Web's own today strip is a button for.
+    /// </summary>
+    [RelayCommand]
+    private void OpenCalendar() => _navigator.ShowCalendar();
+
     /// <summary>Keeps a card at the top of this page on this device, or lets it back down.</summary>
     [RelayCommand]
     private void TogglePin(DashboardCard? card)
@@ -550,7 +586,11 @@ public sealed partial class DashboardViewModel : ObservableObject
                 Progress = MeasureProgress(list),
                 Priority = Tasks.PriorityChoice.For(list.Priority, _translations) is { IsWorthSaying: true } priority
                     ? priority.Name
-                    : string.Empty
+                    : string.Empty,
+                // A deadline and an overdue entry both point at the list they sit on
+                // (DailyTaskReminderPushContent, OverdueTaskPushContent), so the row that names that
+                // list is the one that can say so. A list the server has never seen has no address.
+                HasNews = list.ServerId is { } serverId && UnreadNews.About(_unreadUrls, $"/tasks/{serverId}")
             })
             .ToList();
 
@@ -575,7 +615,10 @@ public sealed partial class DashboardViewModel : ObservableObject
                 Priority = Tasks.PriorityChoice.For(calendarEvent.Details.Priority, _translations)
                     is { IsWorthSaying: true } priority
                     ? priority.Name
-                    : string.Empty
+                    : string.Empty,
+                // A reminder is the event's own and says so - see EventReminderPushContent.
+                HasNews = calendarEvent.ServerId is { } serverId
+                    && UnreadNews.About(_unreadUrls, $"/calendar/{serverId}")
             })
             .ToList();
 
@@ -600,7 +643,13 @@ public sealed partial class DashboardViewModel : ObservableObject
             .Select(contact => new DashboardRow(
                 contact.UserId,
                 contact.DisplayName,
-                contact.RequiresApprovalFromCurrentUser ? _translations["Wants to chat"] : Ago(contact.LastMessageAtUtc)))
+                contact.RequiresApprovalFromCurrentUser ? _translations["Wants to chat"] : Ago(contact.LastMessageAtUtc))
+            {
+                // Orbit.Web marks this row from the unread count it keeps per conversation; the phone's
+                // contact row carries no such count, and a message notification points at whoever sent
+                // it (ChatMessagePushContent), which is the same fact read off what the phone has.
+                HasNews = UnreadNews.About(_unreadUrls, $"/chat/{contact.UserId}")
+            })
             .ToList();
 
     /// <summary>
@@ -623,7 +672,11 @@ public sealed partial class DashboardViewModel : ObservableObject
         => groups
             .OrderByDescending(group => group.CreatedAtUtc)
             .Take(RowsPerCard)
-            .Select(group => new DashboardRow(group.Id, group.Name, string.Empty))
+            .Select(group => new DashboardRow(group.Id, group.Name, string.Empty)
+            {
+                // An invitation points at the group it is to - see ChatGroupInvitationPushContent.
+                HasNews = UnreadNews.About(_unreadUrls, $"/chat/groups/{group.Id}")
+            })
             .ToList();
 
     /// <summary>

@@ -40,6 +40,9 @@ Every number below is app.css's own. The phone reads them from
 | `.item-card` | `Controls/ItemCard.xaml` | radius 12, padding 14x12, name 15 in the display face over two lines, a hairline above its footnote |
 | `.item-card-list` | the cards' own `Margin="0,5"` | a 10 gap between cards |
 | `.list-row` | `Controls/Row.xaml` | title 13.5, meta 12, a hairline under it |
+| `.list-row.row-unseen` | `Row.HasNews` | the danger colour as a hairline around one row over a 7% wash of it, and no pulse of its own |
+| `.today-strip` | the strip at the head of the dashboard | the whole of it is the way to the calendar, and the chat-request line is left out at nought |
+| `CardFilterMenu.razor` | `DashboardPage.ShowCardFilter` | what one dashboard card is narrowed to, under the heading "Show" |
 | `.card` | `CardBorder` | radius 14, padding 18 |
 | `.filter-chip` | `FilterChip` + `FilterChipLabel` | a bordered pill, filled with the accent when it is the chosen one |
 | `.empty-hint` | `EmptyHint` | a quiet line where the reading starts, not centred in the middle of the screen |
@@ -90,6 +93,16 @@ a change, since the implicit styles set those through an `AppThemeBinding`. Keye
 they would run once, and MAUI's own mapper would paint over them the moment the reader chose the other
 theme. That is exactly what happened the first time the light theme was walked: every field lost its
 box and showed Android's line again.
+
+**A converter feeding a shape has to hand over a brush.** XAML converts a `Color` written into the
+markup into a `Brush` on its way to a `Shape.Fill`; a *binding* hands the value straight over, so a
+converter returning a `Color` there leaves the shape unpainted and says nothing about it. And a
+converter that throws does the same: `Application.Current.Resources[key]` throws on a key that is not
+there. `EventColourConverter` did both - it returned a colour, and its fallback asked for a
+`PrimaryDark` that has never existed - so the dot beside a dashboard event took up its place in the row
+and drew nothing at all, in the dark theme, which is the one it was always looked at in. It hands over
+a `SolidColorBrush` now, and falls back to `Accent`, the key App keeps current for whichever theme and
+palette are in force.
 
 **A dynamic resource outlives the value set over it.** `SetDynamicResource` registers the property
 against the dictionary and keeps it registered: a later `SetAppTheme` on the same property paints the
@@ -142,8 +155,16 @@ not drawn. What those rules signalled is said by shape instead, which the phone 
 - **The chat screens were not walked on a device.** The emulator account has not unlocked Contacts, so
   the navigation bar draws no way into them. They build and their view models are covered; the bubbles
   and the menus want a walk on an account that can chat.
-- **Every screen has now had the pass, in both themes.** What is left against the browser is the
-  differences above, each of them a decision rather than a gap.
+- **The dashboard's cards carry no avatar.** Orbit.Web puts an initials circle before every name on
+  Groups, Recent chats and Shared with you, and an unread badge and a presence dot on the first of
+  those. The phone draws these rows with `Row` now, so the slot is there and the initials helper is
+  already on `PersonRow`; what is missing is handing one over. Recorded in future-plan.md.
+- **The dashboard has no Inventory card.** Orbit.Web puts the shelves beside the lists they feed;
+  `DashboardCardKind` has no such value. That is a card missing rather than a card that looks wrong,
+  so it is in future-plan.md rather than here.
+- **Every screen has now had the pass, in both themes**, the dashboard included as of 2026-09-07.
+  What is left against the browser is the differences above, each of them a decision rather than a
+  gap - apart from the two just named, which are gaps and are written down.
 
 ## How to check it
 
