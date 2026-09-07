@@ -57,12 +57,15 @@ public sealed class LinkedTaskCompletionResolver
         // rebuild is on the path of every read, so a field left out of it is a field that is stored,
         // works in the handler that reads the row directly, and comes back null to the client.
         //
-        // IsShared/SharedByUserName/AccessLevel and IsSharedWithOthers are not persisted at all: they
-        // are stamped separately per caller (see TaskList's class comment) and would otherwise be lost
-        // here - and IsSharedWithOthers is what the phone decides offline editing by, so losing it let
-        // a list somebody else can change be edited on a device that cannot hold a lock.
+        // IsShared/SharedByUserName/AccessLevel, IsSharedWithOthers and the caller's own pin are not
+        // persisted at all: they are stamped separately per caller (see TaskList's class comment) and
+        // would otherwise be lost here - and IsSharedWithOthers is what the phone decides offline
+        // editing by, so losing it let a list somebody else can change be edited on a device that
+        // cannot hold a lock. IsPinnedForCaller falls back to the stored flag when nothing stamped it,
+        // so carrying it over is right for an owner's list as well as a recipient's.
         resolvedTaskList.SetAccessContext(taskList.IsShared, taskList.SharedByUserName, taskList.AccessLevel);
         resolvedTaskList.SetSharedWithOthers(taskList.IsSharedWithOthers);
+        resolvedTaskList.SetPinnedForCaller(taskList.IsPinnedForCaller);
         context.Resolved[taskListId] = resolvedTaskList;
         context.Visiting.Remove(taskListId);
         return resolvedTaskList;

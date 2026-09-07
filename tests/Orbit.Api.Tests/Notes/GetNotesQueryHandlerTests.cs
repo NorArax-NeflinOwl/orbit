@@ -89,7 +89,7 @@ public sealed class GetNotesQueryHandlerTests
 
         var notes = await handler.HandleAsync(new GetNotesQuery(recipientId), CancellationToken.None);
 
-        Assert.False(Assert.Single(notes).IsPinned);
+        Assert.False(Assert.Single(notes).IsPinnedForCaller);
     }
 
     /// <summary>And the recipient's own answer does reach them, which is what makes the pin worth having.</summary>
@@ -113,6 +113,39 @@ public sealed class GetNotesQueryHandlerTests
 
         var notes = await handler.HandleAsync(new GetNotesQuery(recipientId), CancellationToken.None);
 
-        Assert.True(Assert.Single(notes).IsPinned);
+        Assert.True(Assert.Single(notes).IsPinnedForCaller);
+    }
+
+    /// <summary>
+    /// And the stamp must not survive into a save. The resolver feeds the *write* paths too - a note is
+    /// resolved before it is updated - so a recipient's pin written over the stored flag would have been
+    /// saved onto the owner's row the next time that recipient changed a word, silently rearranging
+    /// somebody else's page. That is why IsPinnedForCaller is a field of its own rather than an
+    /// overwrite of IsPinned.
+    /// </summary>
+    [Fact]
+    public async Task A_recipient_saving_a_shared_note_leaves_the_owners_pin_alone()
+    {
+        var noteRepository = new InMemoryNoteRepository();
+        var noteShareRepository = new InMemoryNoteShareRepository();
+        var userRepository = new InMemoryUserRepository();
+        var resolver = new NoteAccessResolver(noteRepository, noteShareRepository, userRepository);
+
+        var owner = User.Create("owner@example.com", "owner", "Owner", "hash");
+        await userRepository.AddAsync(owner, CancellationToken.None);
+        var recipientId = Guid.NewGuid();
+        var sharedNote = Note.Create(owner.Id, "Shared with me", [NoteContentLine.PlainText("Content")]);
+        sharedNote.SetPinned(true);
+        await noteRepository.AddAsync(sharedNote, CancellationToken.None);
+        var share = NoteShare.Create(sharedNote.Id, owner.Id, recipientId, ShareAccessLevel.CanEdit);
+        share.MarkAccepted();
+        await noteShareRepository.AddAsync(share, CancellationToken.None);
+
+        // What UpdateNoteCommandHandler does: resolve for the caller, change something, save.
+        var resolved = (await resolver.ResolveAsync(recipientId, sharedNote.Id, CancellationToken.None))!;
+        resolved.Update("Shared with me", [NoteContentLine.PlainText("Milk")], isPrivate: false, null, ItemPriority.Normal);
+        await noteRepository.UpdateAsync(resolved, CancellationToken.None);
+
+        Assert.True((await noteRepository.GetByIdAsync(owner.Id, sharedNote.Id, CancellationToken.None))!.IsPinned);
     }
 }
