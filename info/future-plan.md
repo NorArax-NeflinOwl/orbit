@@ -556,6 +556,26 @@ inventory lists, the contacts tabs, the chat menus - is built and needs no schem
 
 ## Noticed while working
 
+- **The invitation page treats "any other kind" as an inventory.** `ShareInvitation.AcceptAsync` and
+  `DescribeKind` both end in a `_` that means Inventory, and `SharedItemKind` has a fifth member -
+  `Location`. Nothing is broken today and this is written down rather than fixed for exactly that
+  reason: a location share passes `SharedItemLink.TheMap`, which carries no pending share id, so
+  `SharedItemNotifier.UrlFor` sends it to `/map` and it never reaches this page. What makes it worth
+  recording is what happens if that ever changes, or if a sixth kind arrives: pressing **Accept** would
+  post the share's id to the *inventory* accept endpoint, which answers "no such share", and the page
+  would say the invitation is no longer there - a wrong answer that reads like a plausible one. The page
+  already has the right branch for this ("something this version of Orbit doesn't know about"); the fix
+  whenever somebody is in there is to name Inventory explicitly and send everything else down it.
+  Noticed 2026-09-07 while reviewing what the invitation page does with each kind.
+
+- **The checklist matches entries by position when it no longer has to.** `ToggleItemAsync` saves the
+  whole list back and finds the entry it changed by its index, on the grounds that "a save regenerates
+  item ids". That stopped being true when `TaskItemRequest.Id` was added - `TaskEndpoints.ToDomainItem`
+  keeps the id it is sent - and the comment saying otherwise stood for as long as it had been wrong.
+  Position still works and nothing is broken by it, so this is a tidy-up rather than a defect: matching
+  by id is what somebody in there anyway should switch it to. Found while fixing the ids private lists
+  seal (2026-09-07).
+
 Written down rather than fixed on the spot, per rule 14 in `.claude/CLAUDE.md`: work that turns up
 beside a task belongs here, not in that task's diff. A defect is the exception and is fixed when found.
 

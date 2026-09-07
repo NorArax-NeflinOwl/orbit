@@ -752,7 +752,10 @@ else
     /// <summary>
     /// Saves the whole list back with just this item's completion changed - the update endpoint replaces
     /// the list wholesale, so everything else has to be sent along unchanged. Items are matched by
-    /// position rather than id because a save regenerates item ids (see TaskEndpoints.ToDomainItems).
+    /// position rather than id, which is left as it is rather than because it has to be: a save keeps an
+    /// entry's id now (TaskItemRequest.Id, TaskEndpoints.ToDomainItem), and this comment said the
+    /// opposite for as long as that had been true. Position still works, and matching by id would be
+    /// the tidier answer whenever somebody is in here anyway.
     /// </summary>
     private async Task ToggleItemAsync(TaskDto taskList, TaskItemDto item, bool isCompleted)
     {

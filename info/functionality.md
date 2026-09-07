@@ -610,6 +610,17 @@ dashboard, the checklist view and the calendar all receive a readable DTO withou
 happened. Content that can no longer be opened renders with an "Unreadable — encrypted with an older
 key" title rather than throwing, so one lost item doesn't take a whole list down.
 
+**A private list's entries carry ids of their own, and until 2026-09-07 they did not.** Everything
+inside the payload was sealed with `Guid.Empty` for its id, which cost nothing while nothing addressed
+an entry: the server keeps no item rows for a private list, so there was nothing for an id to point at.
+It stopped being free the day an entry got a page of its own — `/tasks/{listId}/items/{itemId}` finds
+the *first* entry when they all share one id, so pressing the third entry of a private list opened the
+first, on the checklist, the calendar and the dashboard alike. `SealIfPrivateAsync` seals the entry's
+own id now (minting one only for an entry that has never been saved — a request carries no id for
+those), and anything sealed before that is given an id derived from the list and the entry's position
+as it is opened, so an address stays the same across reads and reloads rather than being invented
+afresh each time.
+
 **Both clients do all of this**, and to the same bytes: what goes inside the ciphertext is JSON, so the
 payload shapes (`SealedNote`, `SealedTaskList`, `SealedInventory`) live in `Orbit.Contracts` and are
 serialized with the same property names on either side — `SealedContentTests` pins the phone's
