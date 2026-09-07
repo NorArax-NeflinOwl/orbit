@@ -91,6 +91,15 @@ they would run once, and MAUI's own mapper would paint over them the moment the 
 theme. That is exactly what happened the first time the light theme was walked: every field lost its
 box and showed Android's line again.
 
+**A dynamic resource outlives the value set over it.** `SetDynamicResource` registers the property
+against the dictionary and keeps it registered: a later `SetAppTheme` on the same property paints the
+colour asked for, and then the dictionary is read again - on load, on a theme switch - and the resource
+paints itself back. `ItemCard.Edge` sets a card's stroke three ways (danger when there is news, the
+accent when it is pinned, the hairline otherwise), so it now takes the resource off before it decides
+rather than only on the branch that does not want one. Without that, a card that was pinned first and
+got its news afterwards kept the accent edge: the red dot and the breathing halo were both there, and
+the edge under them was blue.
+
 **A `BoxView` paints its `Color` and its `BackgroundColor` both.** The MAUI template's implicit style
 gave every one of them a grey, which showed wherever `Color` was left clear - a sheet of fog behind an
 open menu, a grey bar under every unchosen tab on the account screen. The implicit style now sets
@@ -133,9 +142,8 @@ not drawn. What those rules signalled is said by shape instead, which the phone 
 - **The chat screens were not walked on a device.** The emulator account has not unlocked Contacts, so
   the navigation bar draws no way into them. They build and their view models are covered; the bubbles
   and the menus want a walk on an account that can chat.
-- **Every screen has now had the pass.** What is left against the browser is the four differences
-  above, each of them a decision rather than a gap - and whatever the light theme turns up, which has
-  not been walked at all.
+- **Every screen has now had the pass, in both themes.** What is left against the browser is the
+  differences above, each of them a decision rather than a gap.
 
 ## How to check it
 
@@ -143,3 +151,11 @@ There is no test that can see a screen, so the check is the emulator and the bro
 browser narrowed to a phone's width. `info/testing-and-running-locally.md` has both halves of that, and
 [`build.md`](build.md) has the Android build itself. The traps in driving the emulator by `adb` are
 worth reading before starting.
+
+Something that moves cannot be checked by looking at one screenshot, and an eye is a poor judge of a
+halo eight pixels wide at a fifth of its opacity. The pulse was read off the pixels instead: a burst of
+`adb exec-out screencap -p`, and the average colour of a band just outside the card's edge compared
+against the same band beside a card with no news. The halo swells from the background exactly (27,20,16
+on the dark theme) to about six points redder and back; the control band never moves. With
+`settings put global animator_duration_scale 0` the band is flat in every frame and the danger stroke
+stays - which is the whole of what `Pulse` promises. Set the scale back to `1` afterwards.

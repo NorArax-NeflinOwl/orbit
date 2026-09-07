@@ -220,6 +220,12 @@ public partial class ItemCard : ContentView
 	/// </summary>
 	private void Edge()
 	{
+		// Taken off before anything is decided, not only on the way past a pinned card. A dynamic
+		// resource stays registered against the property until it is removed and paints itself back on
+		// every time the dictionary is read again - so a card that was pinned first and got its news
+		// afterwards kept the accent edge, and the danger one set below never showed.
+		Frame.RemoveDynamicResource(Border.StrokeProperty);
+
 		if (HasUnseenAction)
 		{
 			Frame.SetAppTheme(Border.StrokeProperty, Look("DangerLight"), Look("DangerDark"));
@@ -236,7 +242,6 @@ public partial class ItemCard : ContentView
 			return;
 		}
 
-		Frame.RemoveDynamicResource(Border.StrokeProperty);
 		Frame.SetAppTheme(Border.StrokeProperty, Look("CardStrokeLight"), Look("CardStrokeDark"));
 	}
 
