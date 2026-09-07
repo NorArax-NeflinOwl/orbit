@@ -663,6 +663,38 @@ public sealed class TaskEditorItemFormTests : OrbitTestContext
     /// with something. What is asserted is that the sealed thing was sent, not what it contains - the
     /// crypto itself is checked in a real browser by ci/verify-browser-crypto.mjs.
     /// </summary>
+    /// <summary>
+    /// The list's own sharing block, which is the second thing on this page that posts an invitation -
+    /// the guest one above is the first. Both halves again: the share the server records, and the sealed
+    /// message carrying its id, which is the only thing a recipient can press "Accept" on.
+    /// </summary>
+    [Fact]
+    public void Sharing_the_list_itself_puts_the_invitation_in_the_conversation()
+    {
+        TheBrowserCanSeal();
+        RegisterApiClients(AnItem());
+        var cut = Render();
+
+        cut.Find("#shareContactSelect").Change(GuestUserId.ToString());
+        cut.Find("#shareTaskListButton").Click();
+
+        Assert.NotNull(_lastChatMessageJson);
+        Assert.Contains("\"isShareInvitation\":true", _lastChatMessageJson);
+    }
+
+    /// <summary>Nobody chosen is nothing to send - the guard the button's own handler starts with.</summary>
+    [Fact]
+    public void Sharing_the_list_with_nobody_sends_nothing()
+    {
+        TheBrowserCanSeal();
+        RegisterApiClients(AnItem());
+        var cut = Render();
+
+        cut.Find("#shareTaskListButton").Click();
+
+        Assert.Null(_lastChatMessageJson);
+    }
+
     private void TheBrowserCanSeal()
     {
         JSInterop.Mode = JSRuntimeMode.Loose;
