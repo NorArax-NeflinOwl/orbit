@@ -188,14 +188,44 @@ public sealed class TasksApiClient
             return taskList with { Title = Translated(UnreadableTaskListTitle) };
         }
 
+        var items = WithAnIdEach(taskList.Id, content.Items);
         return taskList with
         {
             Title = content.Title,
-            Items = content.Items,
+            Items = items,
             // Recomputed here for the same reason the domain derives it: the server saw no items to
             // derive it from, so what it sent back is meaningless for a private list.
-            IsCompleted = content.Items.Count > 0 && content.Items.All(item => item.IsCompleted)
+            IsCompleted = items.Count > 0 && items.All(item => item.IsCompleted)
         };
+    }
+
+    /// <summary>
+    /// Gives an entry sealed before ids were kept one it can be addressed by. Everything sealed until
+    /// 2026-09-07 carries Guid.Empty for every entry (see SealIfPrivateAsync), which made a private
+    /// list's entries indistinguishable: pressing the third opened the first, because that is what a
+    /// lookup by id finds when they all share one.
+    ///
+    /// Derived from the list and the entry's position rather than minted, so it is the same id on the
+    /// next read and after a reload - an address that changed each time would be worse than none. The
+    /// list's own save replaces these with real ids and this stops applying to it.
+    /// </summary>
+    private static IReadOnlyList<TaskItemDto> WithAnIdEach(Guid taskListId, IReadOnlyList<TaskItemDto> items)
+    {
+        if (items.All(item => item.Id != Guid.Empty))
+        {
+            return items;
+        }
+
+        return [.. items.Select((item, position) =>
+            item.Id == Guid.Empty ? item with { Id = PositionalId(taskListId, position) } : item)];
+    }
+
+    /// <summary>The list's own id with its last four bytes replaced by the position, so no two collide.</summary>
+    private static Guid PositionalId(Guid taskListId, int position)
+    {
+        var bytes = taskListId.ToByteArray();
+        BitConverter.TryWriteBytes(bytes.AsSpan(bytes.Length - sizeof(int)), position);
+        return new Guid(bytes);
     }
 
     /// <summary>Mirrors NotesApiClient.SealIfPrivateAsync - see its comment.</summary>
@@ -214,7 +244,13 @@ public sealed class TasksApiClient
 
         var sealedItems = items
             .Select(item => new TaskItemDto(
-                Guid.Empty, item.Description, item.DueDateUtc, item.IsCompleted,
+                // The entry's own id, sealed with it. It used to be Guid.Empty for every entry, which
+                // made a private list's entries indistinguishable from one another: nothing points at
+                // one server-side (a private list stores no item rows at all), but the *client* does -
+                // an entry's own page is addressed by id, so pressing the third entry on a private list
+                // opened the first. A new entry gets one minted here, since a request carries no id for
+                // something that has never been saved. See TaskItemRequest.Id.
+                item.Id ?? Guid.NewGuid(), item.Description, item.DueDateUtc, item.IsCompleted,
                 // Sealed from whichever shape the caller used, and written into the new field: the
                 // single one carries only the first, and a private list would silently lose the rest.
                 LinkedTaskListId: null,

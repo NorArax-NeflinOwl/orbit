@@ -556,6 +556,14 @@ inventory lists, the contacts tabs, the chat menus - is built and needs no schem
 
 ## Noticed while working
 
+- **The checklist matches entries by position when it no longer has to.** `ToggleItemAsync` saves the
+  whole list back and finds the entry it changed by its index, on the grounds that "a save regenerates
+  item ids". That stopped being true when `TaskItemRequest.Id` was added - `TaskEndpoints.ToDomainItem`
+  keeps the id it is sent - and the comment saying otherwise stood for as long as it had been wrong.
+  Position still works and nothing is broken by it, so this is a tidy-up rather than a defect: matching
+  by id is what somebody in there anyway should switch it to. Found while fixing the ids private lists
+  seal (2026-09-07).
+
 Written down rather than fixed on the spot, per rule 14 in `.claude/CLAUDE.md`: work that turns up
 beside a task belongs here, not in that task's diff. A defect is the exception and is fixed when found.
 

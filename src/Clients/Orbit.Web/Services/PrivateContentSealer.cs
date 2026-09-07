@@ -73,5 +73,11 @@ public sealed class PrivateContentSealer
         => _jsRuntime.InvokeAsync<IJSObjectReference>("import", "./js/e2eeChat.js");
 
     /// <summary>Shape returned by e2eeChat.js's encryptForSelf - matched by camelCase property name.</summary>
-    private sealed record SealedContent(string CiphertextBase64, string NonceBase64);
+    /// <summary>
+    /// What e2eeChat.js hands back. Public and nested here on purpose, the same way
+    /// EncryptedChatMessageSender.EncryptedPayload is: a bUnit test cannot plan the result of a
+    /// JavaScript call whose type it cannot name, and InternalsVisibleTo would open the whole assembly
+    /// for one record. See PrivateTaskListItemIdTests.
+    /// </summary>
+    public sealed record SealedContent(string CiphertextBase64, string NonceBase64);
 }
