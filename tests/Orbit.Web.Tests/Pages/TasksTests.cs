@@ -702,10 +702,10 @@ public sealed class TasksTests : OrbitTestContext
     }
 
     /// <summary>
-    /// A list somebody shared gets a pin too. Not the owner's - that one is on the list itself and moves
-    /// it on their page, and the server refuses anybody else setting it - but the reader's own, kept on
-    /// this device. It used to be left out altogether, so a list sent to you could not be brought to the
-    /// top of your own page. See SharedItemPins.
+    /// A list somebody shared gets a pin too - the reader's own, which travels on their share row rather
+    /// than on the list, so the owner's arrangement is left alone. It used to be left out altogether, so
+    /// a list sent to you could not be brought to the top of your own page. See
+    /// TaskListShare.IsPinnedByRecipient.
     /// </summary>
     [Fact]
     public void A_list_shared_with_you_can_be_pinned_by_the_reader()
@@ -718,45 +718,43 @@ public sealed class TasksTests : OrbitTestContext
     }
 
     /// <summary>
-    /// And pinning it says nothing to the server: the answer is the reader's, so nothing is sent and the
-    /// card simply leads the page.
+    /// And pinning it goes to the server on the same request an owned list's does. It used to be kept in
+    /// this browser's localStorage and sent nowhere, which is exactly why it did not follow the reader
+    /// to a second browser or to the phone.
     /// </summary>
     [Fact]
-    public void Pinning_a_shared_list_leads_the_page_without_telling_the_server()
+    public void Pinning_a_shared_list_tells_the_server_the_way_pinning_your_own_does()
     {
-        // The shared one older, so that without a pin it sits second: the default order is by priority
-        // and then by when something last changed, and both of these are Normal.
-        RegisterTasksApiClient(
-        [
-            TaskList("Mine", "Normal", "New", DateTimeOffset.UtcNow),
-            ASharedList("Theirs", DateTimeOffset.UtcNow.AddDays(-1))
-        ]);
+        RegisterTasksApiClient([ASharedList("Theirs")]);
         var cut = RenderComponent<Web.Pages.Tasks>();
-        var writesBefore = _requests.Count(request => request.Method != HttpMethod.Get);
-        Assert.Equal(["Mine", "Theirs"], CardTitles(cut));
+        var theList = _servedTaskLists[0];
 
         PinTheCardFor(cut, "Theirs");
 
-        Assert.Equal(["Theirs", "Mine"], CardTitles(cut));
-        Assert.Equal(writesBefore, _requests.Count(request => request.Method != HttpMethod.Get));
+        Assert.Contains(
+            _requests,
+            request => request.Method == HttpMethod.Put
+                && request.RequestUri!.AbsolutePath.EndsWith($"/api/tasks/{theList.Id}/pinned", StringComparison.Ordinal));
     }
 
     /// <summary>
-    /// The owner's answer is about the owner's page. A list its owner pinned arrives here unpinned, and
-    /// stays where the reader's own sort order puts it.
+    /// A shared list that arrives pinned leads the page. Which reader's answer that flag carries is the
+    /// server's to decide and is pinned down there (TaskListPinTests); this page reads one flag and asks
+    /// no question about whose it is, which is the whole point of moving it.
     /// </summary>
     [Fact]
-    public void The_owners_pin_does_not_reach_a_reader_it_was_shared_with()
+    public void A_shared_list_this_reader_pinned_leads_the_page()
     {
         RegisterTasksApiClient(
         [
-            ASharedList("Theirs") with { IsPinned = true },
-            TaskList("Mine", "Normal", "New", DateTimeOffset.UtcNow)
+            TaskList("Mine", "Normal", "New", DateTimeOffset.UtcNow),
+            ASharedList("Theirs", DateTimeOffset.UtcNow.AddDays(-1)) with { IsPinned = true }
         ]);
 
         var cut = RenderComponent<Web.Pages.Tasks>();
 
-        Assert.Empty(cut.FindAll(".card-badge-pinned"));
+        Assert.Equal(["Theirs", "Mine"], CardTitles(cut));
+        Assert.Single(cut.FindAll(".card-badge-pinned"));
     }
 
     /// <summary>A list somebody else owns and shared with this reader.</summary>
@@ -1013,8 +1011,8 @@ public sealed class TasksTests : OrbitTestContext
         _servedTaskLists = taskLists;
         var handler = new StubHttpMessageHandler(request =>
         {
-            // Kept so a test can say what the page did *not* send - see the shared pin, which is the
-            // reader's own answer and never leaves the device.
+            // Kept so a test can say what the page sent as well as what it drew - see the shared pin,
+            // which travels to the server on the same request an owned list's does.
             _requests.Add(request);
             return new HttpResponseMessage(HttpStatusCode.OK) { Content = JsonContent.Create(_servedTaskLists) };
         });

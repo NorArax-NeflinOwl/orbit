@@ -753,11 +753,6 @@ else
     }
 
     /// <summary>
-    /// Signs the user out and sends them back to the login page, where a fresh sign-in runs
-    /// OwnEncryptionKeyProvider.UnlockOrCreateAsync with the password needed to restore this browser's
-    /// private key from its server-side backup.
-    /// </summary>
-    /// <summary>
     /// Called by the password gate once this browser holds a usable key again - clears the lock and lets
     /// the normal load path run, so the user lands straight in the conversation instead of reloading.
     /// </summary>
@@ -770,6 +765,11 @@ else
         await LoadConversationForCurrentUserAsync();
     }
 
+    /// <summary>
+    /// Signs the user out and sends them back to the login page, where a fresh sign-in runs
+    /// OwnEncryptionKeyProvider.UnlockOrCreateAsync with the password needed to restore this browser's
+    /// private key from its server-side backup.
+    /// </summary>
     private async Task ReauthenticateAsync()
     {
         await AuthApiClient.LogoutAsync();

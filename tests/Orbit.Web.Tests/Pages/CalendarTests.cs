@@ -478,6 +478,29 @@ public sealed class CalendarTests : OrbitTestContext
         Assert.Contains($"{ReturnTo.QueryName}=%2Fcalendar", navigationManager.Uri);
     }
 
+    /// <summary>
+    /// And it opens as the entry, whether or not that entry is anywhere. It used to fork on that: a
+    /// deadline with a place opened as itself and one without opened as the *list* it sits on, so the
+    /// same press on the same list of cards meant two different objects, decided by a field no card
+    /// mentions. Ticking it off is still done on the list, which the entry's page leads to.
+    /// </summary>
+    [Fact]
+    public void A_deadline_with_nowhere_to_be_opens_as_the_entry_too()
+    {
+        var midMonth = new DateTime(DateTime.Today.Year, DateTime.Today.Month, 15, 10, 0, 0);
+        var taskList = CreateTaskListWithDueItem(midMonth, "Buy milk");
+        RegisterCalendarApiClient([]);
+        RegisterTasksApiClient([taskList]);
+        var navigationManager = Services.GetRequiredService<NavigationManager>();
+        var cut = RenderComponent<Calendar>();
+
+        cut.Find(".item-card-name").Click();
+
+        Assert.EndsWith(
+            $"/tasks/{taskList.Id}/items/{taskList.Items[0].Id}?{ReturnTo.QueryName}=%2Fcalendar",
+            navigationManager.Uri);
+    }
+
     /// <summary>The guard on both: an appointment nobody has ticked off is listed as it always was.</summary>
     [Fact]
     public void An_appointment_still_outstanding_is_listed_as_it_always_was()

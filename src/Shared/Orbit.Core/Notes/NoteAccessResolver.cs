@@ -54,6 +54,7 @@ public sealed class NoteAccessResolver
 
         var owner = await _userRepository.GetByIdAsync(grant.OwnerUserId, cancellationToken);
         note.SetAccessContext(isShared: true, owner?.UserName, grant.AccessLevel);
+        PinTheWayTheRecipientLeftIt(note, grant);
         return note;
     }
 
@@ -82,9 +83,20 @@ public sealed class NoteAccessResolver
 
             var owner = await _userRepository.GetByIdAsync(grant.OwnerUserId, cancellationToken);
             note.SetAccessContext(isShared: true, owner?.UserName, grant.AccessLevel);
+            PinTheWayTheRecipientLeftIt(note, grant);
             granted.Add(note);
         }
 
         return owned.Concat(granted).ToList();
     }
+
+    /// <summary>
+    /// A shared note carries the *recipient's* pin, not its owner's. The row's own IsPinned says where
+    /// it sits on the owner's page, which is a different question with the same name - and handing it
+    /// over unchanged meant a note somebody else had pinned arrived at the top of this reader's list,
+    /// which is what the phone was doing until this. Not persisted, exactly like the access context
+    /// stamped beside it: which pin is the right one depends on who is asking.
+    /// </summary>
+    private static void PinTheWayTheRecipientLeftIt(Note note, NoteShare grant)
+        => note.SetPinnedForCaller(grant.IsPinnedByRecipient);
 }

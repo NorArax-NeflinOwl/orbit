@@ -121,6 +121,7 @@ erDiagram
         uuid OP_NS_RECIPIENTUSERID FK
         text OP_NS_ACCESSLEVEL
         timestamptz OP_NS_ACCEPTEDATUTC "null until accepted"
+        boolean OP_NS_ISPINNEDBYRECIPIENT "the recipient pin, not the owner one"
     }
     OL_PUBLIC_SHARES {
         uuid OL_PS_ID PK
@@ -132,8 +133,17 @@ erDiagram
     }
 ```
 
-`OP_TASKS_SHARED`, `OP_EVENTS_SHARED` and `OP_INVENTORIES_SHARED` are the same five columns over a
-different source id, so only one is drawn.
+`OP_TASKS_SHARED`, `OP_EVENTS_SHARED` and `OP_INVENTORIES_SHARED` are the same columns over a different
+source id, so only one is drawn. One exception, and it is the only place they differ:
+`OP_NS_ISPINNEDBYRECIPIENT` has a twin in `OP_TS_ISPINNEDBYRECIPIENT` and no equivalent on the other
+two, because only a note and a task list are drawn as a card that can be pinned.
+
+**Why the pin is here rather than on the thing.** `OP_N_ISPINNED` belongs to whoever owns the note and
+says where it sits on *their* page; a recipient writing there would rearrange somebody else's. The
+grant row is the recipient's own relationship to that note - one per recipient, gone when their access
+is - so their answer lives on it, and the resolver hands it over in place of the owner's when it loads
+the note for them (`NoteAccessResolver`, `TaskListAccessResolver`). Nothing is stored twice: the DTO
+carries one `IsPinned`, and which row it came from depends on who asked.
 
 **`OP_FOLDERS` holds only the folders somebody made.** Three more exist without a row - Public, Private
 and Finished (`Orbit.Core.Folders.BuiltInFolder`) - and which of them something is in is decided from

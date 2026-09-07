@@ -5,9 +5,18 @@ rest of the documentation already flags as "not implemented yet," a deliberate f
 cut, or an identified follow-up. It is not a committed roadmap with dates — it is the current honest
 picture of what's left.
 
-**Last checked against the code on 2026-09-04.** A plan is only worth reading if it describes the
-present. Anything below that says "not started" or "no coverage" was checked against the repository on
-that date rather than carried forward on trust.
+**Last checked against the code on 2026-09-04, and in part again on 2026-09-07.** A plan is only worth
+reading if it describes the present. Anything below that says "not started" or "no coverage" was checked
+against the repository on that date rather than carried forward on trust.
+
+The 2026-09-07 pass was partial and it is worth knowing which parts, so the rest is not read as freshly
+verified: [Testing gaps](#testing-gaps), [What the footer could grow into](#what-the-footer-could-grow-into)
+and the entry about a card's body under [Smaller identified follow-ups](#smaller-identified-follow-ups).
+Two of the three had drifted - the footer section described a footer two changes old and called a page
+"not yet written" that has been serving since, and the card entry named a note behaving in a way it had
+stopped behaving in `7e1504f5`. **Both were stale in the direction that costs a session**: each named
+work that was already done, and a session choosing what to do next reads this file first. Everything
+outside those three sections still carries its 2026-09-04 date.
 
 Since the last pass: every table and column was renamed to the Orbit convention and a storage is an
 *inventory* everywhere, which is what stops a 0.2.x Android build (see
@@ -328,8 +337,25 @@ since been closed; what is left is recorded below with the same honesty about wh
   bad ones a push service can still deliver. The C# half is `PushNotificationManagerTests`. Two things
   are still out of reach and are named in the script: `notificationclick`, since nothing outside the
   operating system can click a system notification, and subscribing for real, which needs a push service.
-- **The chat thread still has no coverage.** It is a polling component whose interesting behaviour is
-  timing.
+- ~~**The chat thread still has no coverage.**~~ Done, and the reason it was open turned out to be the
+  reason to do it: what a polling component decides is invisible from the screen either way. A poll that
+  stops honouring the tab's visibility costs money and battery and looks identical; a poll that reads the
+  whole roster on every tick was two thirds of this page's traffic and looked identical too.
+  `ChatThreadTests` pins both, plus the two ways the loop has to stop and the `Chat` page's own
+  explanation for an account the API will not resolve - which was the *other* entry on the not-covered
+  list, held open by the cost of standing this page up under bUnit at all. Each was checked by removing
+  the behaviour and watching its own test go red.
+
+  The technique is what is worth keeping, and it is written up under
+  [The chat thread](testing-and-running-locally.md#the-chat-thread): the tests wait for the loop's own
+  ticks rather than for the clock, counted off the visibility question it asks before deciding anything
+  else - because "nothing was polled" is also true of a loop that never started. bUnit's
+  `WaitForAssertion` is no use for it: it re-checks on a render, and a tick behind a hidden tab renders
+  nothing.
+
+  Still out of reach, and named in the class: `OnChatAnnounced`, since `LiveUpdatesConnection` raises
+  its events from inside itself and nothing outside can, so the live-connection half of the pace
+  (`ConnectedPollInterval`) is reasoned about rather than driven.
 - ~~**Nothing runs on a pull request.**~~ Put back, cheaply. The trigger was removed because every
   billed minute counted and a day of ordinary work exhausted the allowance; what changed is that a run
   now costs a fraction of what it did. The android job looks before it builds and does nothing when
@@ -395,11 +421,15 @@ since been closed; what is left is recorded below with the same honesty about wh
 
 ## What the footer could grow into
 
-The footer at the bottom of every page - and the phone's About row, which says the same three things -
-currently carries the copyright year, the version, and a link to the licence
-(`OrbitRelease` for the copyright and the licence, `OrbitVersion` for the build - see
-[Functionality](functionality.md#which-build-this-is)). What it is missing, roughly in the order it would be
-worth adding:
+**Re-read against the code on 2026-09-07, and most of this section had already happened.** What it
+described - a footer carrying the copyright year, the version and a link to the licence - is two
+changes out of date. The numbers moved into a dialog (`AboutDialog`: this build, the *server's* build
+beside it, and the licence), and the footer kept words instead: About, Privacy, Security, Docs, Status,
+the licence, Manage cookies, and Do not share my personal information. `OrbitRelease` holds the
+copyright and the licence name, `OrbitVersion` the build - see
+[Functionality](functionality.md#which-build-this-is).
+
+What it is still missing, roughly in the order it would be worth adding:
 
 - ~~**The build, not just the version.**~~ Done: the footer reads `ver:0.1.17+gitHash:51536f3`, and
   pressing it grows the rest of the hash - see
@@ -408,24 +438,34 @@ worth adding:
 - **When it was deployed.** The year is a constant maintained by hand, which is honest but coarse: it
   answers "roughly when was this written", not "is what I am looking at the thing that was merged this
   morning". A build timestamp answers the second, and the second is the question people actually ask -
-  though the commit hash now answers most of what it was wanted for.
+  though the commit hash now answers most of what it was wanted for, and the About dialog answers the
+  rest of it from the other side by showing the **server's** build beside the client's, which is what
+  catches a browser holding a cached client. What is left for a timestamp to add is small enough that
+  it is worth weighing against where it would have to come from: the stamp is made by
+  `ci/compute-version.sh` at build time, so this is a change to the build rather than to a page.
 - **A link to what changed.** The version means nothing to somebody who has not been reading the
   commits. A release-notes page, or simply a link to the repository's releases, is what makes a version
-  number worth showing at all.
+  number worth showing at all. One thing settles which of those two it has to be: **the repository is
+  private**, so a link to its releases is a 404 for everybody but its owner - and there are no releases
+  cut there anyway, since a deploy is a merge of the integration pull request. A page Orbit serves
+  itself is the only version of this that works, the same reasoning that put the licence on `/license`
+  rather than linking the file on GitHub.
 - ~~**A health or status link.**~~ Done, and it needed more than a link: nothing on the web origin
   reached the report. nginx forwards `/api/` to the API *under* `/api/`, so `/api/health` arrived there
   as `/api/health`, which is not where health lives. There is now an exact-match `= /health` location on
   both nginx configs, and the footer's **Status** opens it in a new tab - which is also what stops the
   Blazor router claiming the address. Publishing the report was a decision taken deliberately; what it
   does and does not say is written down beside both the location and the writer.
-- **Privacy and data handling.** Not yet written, and it is the one entry here with a deadline attached
-  to it: an application that ends up in a store needs one, and the store is the place that will ask.
-  What it would have to describe is unusual and worth saying plainly - most of Orbit's content is sealed
-  client-side, so a large part of the answer is "the server cannot read it".
-- **Making it reachable rather than only visible.** The footer sits at the end of the scrolling content,
-  which is right for something read once. If it grows past three items it stops being a footer and
-  becomes an About page, and the honest move at that point is to give it one and leave a single link
-  behind - the phone has already made that choice, since it has no footer to put anything in.
+- ~~**Privacy and data handling.**~~ Written: `/privacy`, linked from the footer and deliberately
+  carrying no `[Authorize]` - what a service does with what you give it is a question somebody is
+  entitled to an answer to *before* handing anything over, so the sign-in page's footer reaches it too.
+  It says the unusual part plainly, which was the point: most of Orbit's content is sealed in the
+  browser, so a large part of the answer is that the server cannot read it. `/security` and `/docs`
+  went the same way. The deadline this entry carried - a store will ask for one - is met.
+- ~~**Making it reachable rather than only visible.**~~ Answered, and not the way this predicted. It has
+  grown well past three items, and rather than becoming an About *page* the numbers became an About
+  *dialog*: what build this is has no address worth sharing and is read in the middle of doing
+  something else. The footer kept the words, which is the shape the phone's own About row already had.
 
 Deliberately not there: a language switch (it is in the avatar menu, where the rest of the account's
 settings are), and anything that has to be fetched. A footer that waits on a request is a footer that
@@ -723,13 +763,26 @@ matches and what does not. What that pass left:
   sheet in front of `StockCheckPanel.GenerateInventoryAsync` asking the same six questions
   `GenerateInventoryOverlay` asks.
 
-- **The pin on a shared list or note stays on the browser that set it.** A reader's pin for something
-  somebody else owns is kept in localStorage (`SharedItemPins`, 2026-09-06), because the flag on the
-  object belongs to its owner and only they may set it. That is the same choice `ConversationPins`
-  makes and it needs no column anywhere - but it also means the pin does not follow the reader to
-  another browser or to the phone, where the control is simply left out. What it would take to make it
-  follow: a per-recipient flag on the share row (`TaskListShare`, `NoteShare`) with an endpoint and a
-  field on the DTO, which is a migration and a phone change rather than a screen one.
+- ~~**The pin on a shared list or note stays on the browser that set it.**~~ Done on 2026-09-07, the way
+  this predicted except for the DTO: a per-recipient flag on the share row
+  (`NoteShare.IsPinnedByRecipient`, `TaskListShare.IsPinnedByRecipient`, migration
+  `PinASharedThingForItsRecipient`), and **no new field anywhere**. The existing `IsPinned` already meant
+  "sorts this above the others on every client that shows a list of them", so a shared item is simply
+  handed over carrying the recipient's answer in it - stamped by the access resolvers, the way the
+  access context beside it already was. The endpoint did not change either: `PUT .../pinned` picks
+  between the two rows by which one the caller has. `SharedItemPins` is gone; `DevicePins` stays, since
+  `ConversationPins` still uses it.
+
+  **It also closed a defect nothing had recorded.** The browser overrode the owner's flag locally, so
+  nobody saw it there - but the phone sorts straight by `IsPinned` and had no second answer to prefer,
+  so a note or list *its owner* had pinned arrived at the top of the recipient's list. Both halves are
+  pinned down in `GetNotesQueryHandlerTests` and `GetTaskListsQueryHandlerTests`, including that the
+  stamp does not touch `UpdatedAtUtc` - a value depending on who is asking must not make the row look
+  changed, because that timestamp is what the phone syncs against.
+
+  **What is left, and it is the phone's:** the pin control for a shared item is still left out there
+  (`TaskListRow.CanBePinned`, `NoteListItem.CanBePinned`), from when the server refused a recipient
+  outright. The server takes it now, so putting the control back is a screen change and nothing else.
 
 - ~~**A task list's own description is written and never shown.**~~ Done. It goes under the name on the
   list's own page (`TaskListChecklist`), which is where a storage's goes, so the two read the same way -
@@ -810,10 +863,33 @@ matches and what does not. What that pass left:
   as part of the screen-ladder pass. A contact and a group are the deliberate exception - they are read
   and never edited as objects, so there is no second depth to give them.
 
-  One thing is still wrong with it, and it is the smaller half: the shallow view and the full form are
-  reached inconsistently. `OnBodySelected` opens the *full* editor for a note and the *shallow* view for
-  an entry, which is the same gesture meaning two different things. Worth settling what a card's body is
-  for across all of them before adding a sixth answer.
+  ~~One thing is still wrong with it, and it is the smaller half: the shallow view and the full form are
+  reached inconsistently.~~ Settled on 2026-09-07. The note half of it had already gone by the time this
+  was read again - `OnBodySelected` on `/notes` has opened `/notes/{id}` since `7e1504f5`, so what was
+  left was the **task entry**, which four pages answered three different ways:
+
+  - the checklist opened the list's own **form** with that entry unfolded, skipping the entry's page;
+  - the calendar forked on whether the entry had a place - one that did opened as itself, one that did
+    not opened as the **list** it sits on, which is a different object, decided by a field no card
+    mentions (`DueTaskDto.HasPlace`, now gone with the fork, along with `Calendar.razor`'s
+    `GoToTaskList` and the walk up the tree of group lists it used);
+  - the dashboard's Upcoming named an entry, "Shopping: Milk", and opened Shopping;
+  - only `/tasks` opened the entry itself.
+
+  All four open `/tasks/{listId}/items/{itemId}` now, and the rule they were settled into is written
+  down under [Two editing levels](functionality.md#two-editing-levels): **a press opens the thing that
+  was pressed, at its reading depth; the form is a named press further in.** Nothing was lost - ticking
+  an entry off is the checkbox's job, which sits on the row beside the words, and the entry's page leads
+  back to the list. The flat reading of a checklist was folded in on the way: its rows were `<label>`s,
+  so pressing what an entry said crossed it off there while the same words on the grouped view opened it
+  (`CheckRow.OnTitlePressed`).
+
+  **The phone still forks the way the calendar used to** (`CalendarViewModel.OpenDeadline`,
+  `CalendarDeadline.IsSomewhere`): a deadline with somewhere to be opens its own screen, one without
+  opens the list. Nothing is broken by it - both screens exist and both are reachable - so it is parity
+  rather than a defect, and it is the only place left where pressing an entry can open something else.
+  What it would take: dropping the `if` in `OpenDeadline`, then `IsSomewhere` and
+  `IsSomewhereAsWellAsAtSomeTime` with it, since nothing else reads either.
 
 
 - ~~**Reordering by hand needs a mouse.**~~ Done: each handle now carries a pair of move-up/move-down

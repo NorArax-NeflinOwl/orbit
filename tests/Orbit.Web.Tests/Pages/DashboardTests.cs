@@ -929,6 +929,29 @@ public sealed class DashboardTests : OrbitTestContext
         Assert.Contains("Shopping: Milk", FindColumn(cut, "Upcoming").TextContent);
     }
 
+    /// <summary>
+    /// And the row leads to the entry it names. It used to open the list instead, so a row saying
+    /// "Shopping: Milk" landed on Shopping - the one press on this page that opened something other
+    /// than the thing it was pressed on.
+    /// </summary>
+    [Fact]
+    public void Pressing_a_deadline_on_upcoming_opens_the_entry_it_names()
+    {
+        RegisterChatApiClient([]);
+        RegisterEmptyNotesApiClient();
+        RegisterEmptyCalendarApiClient();
+        var taskList = TaskList("Shopping", DueItem("Milk", DateTimeOffset.UtcNow.AddDays(1)));
+        RegisterTasksApiClient([taskList]);
+        var navigationManager = Services.GetRequiredService<NavigationManager>();
+        var cut = RenderComponent<Dashboard>();
+
+        FindColumn(cut, "Upcoming").QuerySelectorAll(".list-row-button")
+            .First(row => row.TextContent.Contains("Shopping: Milk"))
+            .Click();
+
+        Assert.Contains($"/tasks/{taskList.Id}/items/{taskList.Items[0].Id}", navigationManager.Uri);
+    }
+
     [Fact]
     public void A_deadline_already_ticked_off_is_not_upcoming()
     {
