@@ -519,6 +519,19 @@ inventory lists, the contacts tabs, the chat menus - is built and needs no schem
 Written down rather than fixed on the spot, per rule 14 in `.claude/CLAUDE.md`: work that turns up
 beside a task belongs here, not in that task's diff. A defect is the exception and is fixed when found.
 
+- ~~**A two-person group's messages leaked into that pair's one-to-one conversation.**~~ Found on
+  2026-09-07 while walking the phone's chat screens, and fixed the same day — a defect, so fixed rather
+  than only recorded. A group message is sealed pairwise, one copy per member (`ChatMessage.CreateForGroup`),
+  so in a group of two the copy carries the same sender/recipient pair as an ordinary one-to-one message
+  between them. The server's `ChatMessageRepository.GetConversationAsync` matched only on that pair, so it
+  handed those copies back on the one-to-one endpoint too, and both clients drew them in the private
+  thread — the phone made it visible because it also stamps each such row with `OtherUserId`. Fixed at the
+  source with a `GroupId == null` clause on the one-to-one query (a group is read by `GroupId`), mirrored
+  in `InMemoryChatMessageRepository` so the fake refuses what the server refuses, and defended on the
+  phone in `ChatRepository.GetConversationAsync` and `LatestMessageAtAsync` — which already held that
+  invariant in `DeleteConversationAsync` and had simply not carried it to the read and the cursor.
+  Covered by `GetConversationQueryHandlerTests` and `GroupChatTests` on both sides.
+
 - ~~**The web client went into a loop once, on 2026-09-05 at 11:06Z, right after approving a
   conversation.**~~ **Cause found and fixed on 2026-09-07**, and it was not a render loop: it was two
   open chat windows announcing at each other. Marking a conversation read published a live "chat
@@ -634,10 +647,18 @@ matches and what does not. What that pass left:
   underneath, the control at the far edge - with the tabs underlined in the accent and the delete
   section in its own red frame. The map stays where the browser hides it below 680px; see
   `android-ui-parity.md` for why that one rule is not copied.
-- **The chat screens are built but were not walked on a device.** The emulator account has not
-  unlocked Contacts, so the navigation bar draws no way into them and `FeatureLocked` is all those
-  screens show there. The bubbles, the message menus and the row menus want a walk on an account that
-  can chat before they are believed.
+- ~~**The chat screens are built but were not walked on a device.**~~ Walked on 2026-09-07, on the
+  Windows emulator, against the docker API — two throwaway accounts (`chatweb` in Orbit.Web, `chatphone`
+  on the phone) each with a real published key, so a real E2EE conversation could be had rather than
+  staged. Both conversation screens hold: the one-to-one and the group each decrypt, draw the reader's
+  own bubbles at the right in the accent and everybody else's at the left, label a group message with
+  who wrote it, and open Orbit's own panel — not a platform action sheet — for the message menu (own:
+  Edit/Delete/Forward/Reply one-to-one, and *Who has read this* in place of Forward in a group; other
+  people's: Forward/Reply) and the conversation menu (Info → the read-only contact card; a group's
+  member roster with roles and Leave). The contact row's incoming-request Accept, the avatar's
+  top-right presence dot and the row's unseen mark were all seen on the way in. **A defect came out of
+  the walk** and is recorded under [Noticed while working](#noticed-while-working): a two-person group's
+  messages leaked into that pair's one-to-one thread.
 - ~~**The dashboard was never given the pass.**~~ Done on 2026-09-07, and it was the last screen
   still speaking the old vocabulary: it now opens with `PageHeader`, both of its "⋯" are the shared
   `OverflowMenu` filling the screen's one `ScreenMenu` (the page's parts menu stays open as
