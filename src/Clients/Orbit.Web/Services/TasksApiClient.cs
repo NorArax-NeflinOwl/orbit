@@ -3,6 +3,7 @@ using System.Net.Http.Json;
 using Microsoft.Extensions.Logging.Abstractions;
 using Orbit.Contracts;
 using Orbit.Contracts.Sharing;
+using Orbit.Contracts.Folders;
 using Orbit.Contracts.Tasks;
 using Orbit.Core.Abstractions;
 using Orbit.Web.Services.Logging;
@@ -43,6 +44,14 @@ public sealed class TasksApiClient
     {
         var response = await _httpClient.PutAsJsonAsync(
             $"api/tasks/{taskListId}/pinned", new SetTaskListPinnedRequest(isPinned), cancellationToken);
+        return response.IsSuccessStatusCode;
+    }
+
+    /// <summary>Mirrors NotesApiClient.MoveToFolderAsync - see it.</summary>
+    public async Task<bool> MoveToFolderAsync(Guid taskListId, Guid? folderId, CancellationToken cancellationToken = default)
+    {
+        var response = await _httpClient.PutAsJsonAsync(
+            $"api/tasks/{taskListId}/folder", new MoveToFolderRequest(folderId), cancellationToken);
         return response.IsSuccessStatusCode;
     }
 

@@ -15,7 +15,7 @@ public sealed class CreateNoteCommandHandler : IRequestHandler<CreateNoteCommand
     {
         var note = Note.Create(
             request.UserId, request.Title, request.Content, request.IsPrivate, request.EncryptedContent,
-            isPinned: false, request.Priority);
+            isPinned: false, request.Priority, request.FolderId);
         await _noteRepository.AddAsync(note, cancellationToken);
         return note.Id;
     }

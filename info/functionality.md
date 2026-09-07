@@ -189,6 +189,53 @@ same thing on the wire, in the database and in a log line. It sorts the task lis
 a badge, and is what the dashboard's per-card filter reads. Rows written before the column existed read
 as `Normal`, so nothing has to be revisited.
 
+## Folders
+
+Every page made of cards - the dashboard, the notes and the task lists - is read under a **row of
+tabs**, and the tabs are the same three everywhere plus whatever the reader has made. A folder is a
+place rather than one page's filter, so the tab stays open when they step from the notes to the task
+lists (`FolderState`, one scoped state shared by the three pages).
+
+**Three folders exist without a row of their own** (`Orbit.Core.Folders.BuiltInFolder`). Which one
+something is in is decided from what it already is, and the first that applies wins:
+
+1. **Finished** - a task list with every entry ticked off, even when its owner filed it somewhere else.
+   It goes there on its own and comes back out the moment something on it is reopened. A note is never
+   in it, having nothing to finish.
+2. **Private** - a sealed item nobody filed anywhere (see [Private notes and task
+   lists](#private-notes-and-task-lists)).
+3. **Public** - everything else, and where a page opens.
+
+Deciding it rather than storing it is what let folders arrive with **no migration of existing rows and
+nothing to repair**: every note and list that existed before them was already in the right one. It also
+means the two can never disagree - there is no way to be filed as private without being sealed, or to
+sit in Finished with work left on it.
+
+**A folder somebody made is none of the three** and holds whatever they put in it, private things
+included: filing something is not the same decision as sealing it. Only these are rows
+(`OP_FOLDERS`), and `GET/POST/PUT/DELETE /api/folders` is the whole of managing them. **Deleting a
+folder deletes nothing that was in it** - `FolderRepository.DeleteAsync` empties it first, so every note
+and list under it goes back to the built-in folder its own privacy decides.
+
+Filing something travels on **its own request** - `PUT /api/notes/{id}/folder` and `PUT
+/api/tasks/{id}/folder`, both taking `{ folderId }` where null means "in no folder of its own". It is
+not a field on the update for the reason [Saying nothing about a field](#saying-nothing-about-a-field)
+gives: an update carries the whole item, so a client that had never heard of folders would empty it on
+every save. Creating one *is* allowed to name a folder (`folderId` on `POST /api/notes` and `POST
+/api/tasks`), since there is nothing to preserve yet - and the web editors send the tab the reader is
+standing on, so a note made while reading "Work" is in Work.
+
+A folder is **never shared**. It is a place on its owner's own pages, so a list shared with a second
+person sits in whichever folder each of them filed it under - and a shared item's `folderId` is sent as
+null to the recipient, since the owner's id names a tab that does not exist for them.
+
+Two consequences worth stating, because they changed how a page behaves:
+
+- The task list page no longer offers a **Completed** chip. A finished list is in Finished now, so the
+  chip could only have found nothing under every other tab and everything under that one.
+- The dashboard's task card used to keep a finished list when it was **pinned**. Pinning orders cards
+  within a tab rather than lifting one out of the tab it belongs to; Finished is where they are read now.
+
 ## Notes
 
 

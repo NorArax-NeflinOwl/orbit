@@ -15,6 +15,11 @@ using Orbit.Core.Calendar.Reminders;
 using Orbit.Core.Calendar.ShareCalendarEvent;
 using Orbit.Core.Calendar.UpdateCalendarEvent;
 using Orbit.Core.Chat.ClearConversationHistory;
+using Orbit.Core.Folders;
+using Orbit.Core.Folders.CreateFolder;
+using Orbit.Core.Folders.DeleteFolder;
+using Orbit.Core.Folders.GetFolders;
+using Orbit.Core.Folders.RenameFolder;
 using Orbit.Core.Chat.Groups.LeaveChatGroup;
 using Orbit.Core.Chat.Groups.SetGroupArchived;
 using Orbit.Core.Chat.SetConversationArchived;
@@ -67,6 +72,7 @@ using Orbit.Core.Notes.DeleteNote;
 using Orbit.Core.Notes.GetNoteById;
 using Orbit.Core.Notes.GetNoteShareStatus;
 using Orbit.Core.Notes.GetNotes;
+using Orbit.Core.Notes.MoveNoteToFolder;
 using Orbit.Core.Notes.ReleaseNoteLock;
 using Orbit.Core.Notes.SetNotePinned;
 using Orbit.Core.Notes.ShareNote;
@@ -101,6 +107,7 @@ using Orbit.Core.Tasks.DeleteTaskList;
 using Orbit.Core.Tasks.GetTaskListById;
 using Orbit.Core.Tasks.GetTaskListShareStatus;
 using Orbit.Core.Tasks.GetTaskLists;
+using Orbit.Core.Tasks.MoveTaskListToFolder;
 using Orbit.Core.Tasks.LinkCalendarEventToTaskList;
 using Orbit.Core.Tasks.MoveTaskItem;
 using Orbit.Core.Tasks.OverdueNotifications;
@@ -169,6 +176,13 @@ public static class OrbitCoreServiceCollectionExtensions
         services.AddScoped<IRequestHandler<GetNoteShareStatusQuery, bool?>, GetNoteShareStatusQueryHandler>();
         services.AddScoped<IRequestHandler<AcquireNoteLockCommand, EditOutcome>, AcquireNoteLockCommandHandler>();
         services.AddScoped<IRequestHandler<ReleaseNoteLockCommand, bool>, ReleaseNoteLockCommandHandler>();
+        services.AddScoped<IRequestHandler<MoveNoteToFolderCommand, bool>, MoveNoteToFolderCommandHandler>();
+
+        // The tabs every page made of cards is drawn under - see Orbit.Core.Folders.Folder.
+        services.AddScoped<IRequestHandler<GetFoldersQuery, IReadOnlyList<Folder>>, GetFoldersQueryHandler>();
+        services.AddScoped<IRequestHandler<CreateFolderCommand, Folder>, CreateFolderCommandHandler>();
+        services.AddScoped<IRequestHandler<RenameFolderCommand, bool>, RenameFolderCommandHandler>();
+        services.AddScoped<IRequestHandler<DeleteFolderCommand, bool>, DeleteFolderCommandHandler>();
 
         // Depends on ITaskRepository/ITaskListShareRepository/IUserRepository (all scoped), so it must
         // be scoped too - mirrors NoteAccessResolver's registration above.
@@ -178,6 +192,7 @@ public static class OrbitCoreServiceCollectionExtensions
         // and claiming a public link.
         services.AddScoped<TaskListShareCascade>();
         services.AddScoped<IRequestHandler<CreateTaskListCommand, Guid>, CreateTaskListCommandHandler>();
+        services.AddScoped<IRequestHandler<MoveTaskListToFolderCommand, bool>, MoveTaskListToFolderCommandHandler>();
         services.AddScoped<IRequestHandler<UpdateTaskListCommand, EditOutcome>, UpdateTaskListCommandHandler>();
         services.AddScoped<IRequestHandler<MoveTaskItemCommand, EditOutcome>, MoveTaskItemCommandHandler>();
         services.AddScoped<IRequestHandler<LinkCalendarEventToTaskListCommand, EditOutcome>, LinkCalendarEventToTaskListCommandHandler>();

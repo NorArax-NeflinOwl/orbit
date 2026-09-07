@@ -9,9 +9,11 @@
 @using Orbit.Contracts.Inventories
 @using Orbit.Contracts.Notes
 @using Orbit.Contracts.Tasks
+@using Orbit.Core.Folders
 @using Orbit.Core.Permissions
 @using Orbit.Web.Services
 @inject NotesApiClient NotesApiClient
+@inject FolderState Folders
 @inject InventoryApiClient InventoryApiClient
 @inject TasksApiClient TasksApiClient
 @inject CalendarApiClient CalendarApiClient
@@ -80,6 +82,11 @@ else
             }
         </button>
     }
+
+    @* The same row of tabs the notes and the task lists carry, above the two cards it narrows: notes
+       and lists are the things that live in folders. Everything else on this page - the day, what is
+       coming up, the people - is not filed anywhere and is left alone by it. *@
+    <FolderTabs />
 
     <div class="card-grid">
         @if (_notes.Count > 0 && CardPreferences.IsVisible("notes"))
@@ -395,7 +402,12 @@ else
     ];
 
     private IReadOnlyList<NoteDto> NotesToShow =>
-        [.. (_notes ?? []).Where(note => Matches("notes", note.IsPinned, note.Priority))];
+        [.. (_notes ?? [])
+            .Where(note => Folders.ShowsUnderTheChosenTab(note.FolderId, note.IsPrivate))
+            .Where(note => Matches("notes", note.IsPinned, note.Priority))];
+
+    /// <summary>Whether the folder being read is the one finished lists gather in - see BuiltInFolder.</summary>
+    private bool IsReadingWhatIsFinished => Folders.Chosen == FolderKey.Of(BuiltInFolder.Finished);
 
     /// <summary>
     /// A finished list is off this card unless it has been pinned. The dashboard is what is still on
@@ -406,7 +418,10 @@ else
     /// </summary>
     private IReadOnlyList<TaskDto> TaskListsToShow =>
         [.. (_taskLists ?? [])
-            .Where(taskList => !taskList.IsCompleted || taskList.IsPinned)
+            .Where(taskList => Folders.ShowsUnderTheChosenTab(taskList.FolderId, taskList.IsPrivate, taskList.IsCompleted))
+            // Except under Finished, which is the whole point of that tab: opening it is asking for
+            // them, and the card would otherwise answer with nothing at all.
+            .Where(taskList => IsReadingWhatIsFinished || !taskList.IsCompleted || taskList.IsPinned)
             .Where(taskList => Matches("tasks", taskList.IsPinned, taskList.Priority))];
 
     private IReadOnlyList<UpcomingEntry> UpcomingToShow =>
@@ -611,6 +626,9 @@ else
         // Before the loads below, which each ask whether this account has unlocked what they are
         // for - asked too early, every gated card would be missing from a page that had them.
         NotificationFeed.Changed += OnNotificationsChanged;
+        // The tabs are shared with the notes and the task lists - pressing one there re-filters the two
+        // cards here that hold folderable things.
+        Folders.Changed += OnFoldersChanged;
         await Permissions.EnsureLoadedAsync();
         await DashboardPins.InitializeAsync();
         await CardPreferences.InitializeAsync();
@@ -798,9 +816,12 @@ else
         return joined.Length == 0 ? null : joined;
     }
 
+    private void OnFoldersChanged() => InvokeAsync(StateHasChanged);
+
     public void Dispose()
     {
         NotificationFeed.Changed -= OnNotificationsChanged;
+        Folders.Changed -= OnFoldersChanged;
         _pollCancellation?.Cancel();
         _pollTimer?.Dispose();
     }

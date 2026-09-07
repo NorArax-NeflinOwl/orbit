@@ -20,6 +20,7 @@
 @using Orbit.Core.Suggestions
 @using Orbit.Web.Services
 @inject TasksApiClient TasksApiClient
+@inject FolderState Folders
 @inject TaskListDeletion TaskListDeletion
 @inject NameSuggestionsApiClient NameSuggestionsApiClient
 @inject InventoryApiClient InventoryApiClient
@@ -432,6 +433,13 @@ else
                 </select>
                 <small>@T["An inventory entry then describes a product to put on that shelf."]</small>
             </div>
+        }
+
+        @* Where it will be found. Only the owner files a list - see NoteEditor, which says the same. *@
+        @if (!_isShared)
+        {
+            <FolderField Value="_formModel.FolderId" ValueChanged="folderId => _formModel.FolderId = folderId"
+                         Hint="@(T["Without one it is in Public, or in Private when it is sealed. A list with everything ticked off moves to Finished on its own."])" />
         }
 
         <div class="field">
@@ -911,6 +919,7 @@ else
                         IsGroup = taskList.IsGroup,
                         IsPrivate = taskList.IsPrivate,
                         Priority = taskList.Priority,
+                        FolderId = taskList.FolderId,
                         Items = taskList.Items
                             .Select(item => new TaskItemFormModel
                             {
@@ -947,6 +956,7 @@ else
                             })
                             .ToList()
                     };
+                    _savedFolderId = taskList.FolderId;
                     _isShared = taskList.IsShared;
                     _access = SharedItemAccess.For(taskList.IsShared, taskList.AccessLevel);
                     _isSharedReadOnly = taskList.IsShared && !_access.CanEdit;
@@ -970,6 +980,9 @@ else
             else
             {
                 Logger.LogInformation("Task list editor opened for a new task list");
+                // Made where the reader is standing - see NoteEditor, which does the same and says why.
+                await Folders.EnsureLoadedAsync();
+                _formModel.FolderId = Folders.Chosen.FolderId;
                 StartFromTheChosenPlaceIfThereIsOne();
             }
         }
@@ -1895,6 +1908,9 @@ else
         return item.Product.ToTaskItemProduct();
     }
 
+    /// <summary>The folder the list was in when it was read, so a save knows whether it has been moved.</summary>
+    private Guid? _savedFolderId;
+
     private async Task SaveAsync()
     {
         Logger.LogInformation(
@@ -1925,7 +1941,8 @@ else
             {
                 var newTaskListId = await TasksApiClient.CreateTaskListAsync(new CreateTaskRequest(
                     _formModel.Title, items, _formModel.IsGroup, _formModel.IsPrivate,
-                    Priority: _formModel.Priority, Description: _formModel.Description));
+                    Priority: _formModel.Priority, Description: _formModel.Description,
+                    FolderId: _formModel.FolderId));
                 Logger.LogInformation("Task list {TaskListId} created", newTaskListId);
             }
             else
@@ -1955,6 +1972,14 @@ else
                 }
 
                 Logger.LogInformation("Task list {TaskListId} updated", Id);
+
+                // Filing travels separately from the list itself - see MoveToFolderRequest - so it is
+                // sent only when it actually changed.
+                if (_formModel.FolderId != _savedFolderId)
+                {
+                    await TasksApiClient.MoveToFolderAsync(Id.Value, _formModel.FolderId);
+                    _savedFolderId = _formModel.FolderId;
+                }
 
                 // The shelf second, and the list's own rebuild with it: editing a product from here is
                 // only useful if the change reaches the inventory, and a corrected amount can settle an
@@ -2183,6 +2208,10 @@ else
 
         /// <summary>Encrypt this list so only its owner can read it - see PrivateContentSealer.</summary>
         public bool IsPrivate { get; set; }
+
+        /// <summary>The folder it is filed under, or null for none - see TaskDto.FolderId.</summary>
+        public Guid? FolderId { get; set; }
+
         public List<TaskItemFormModel> Items { get; set; } = [];
     }
 

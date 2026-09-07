@@ -80,6 +80,8 @@ builder.Services.AddHttpClient<InventoryApiClient>(httpClient => httpClient.Base
     .AddHttpMessageHandler<AuthorizationMessageHandler>();
 builder.Services.AddHttpClient<NameSuggestionsApiClient>(httpClient => httpClient.BaseAddress = new Uri(apiBaseAddress))
     .AddHttpMessageHandler<AuthorizationMessageHandler>();
+builder.Services.AddHttpClient<FoldersApiClient>(httpClient => httpClient.BaseAddress = new Uri(apiBaseAddress))
+    .AddHttpMessageHandler<AuthorizationMessageHandler>();
 builder.Services.AddHttpClient<CalendarApiClient>(httpClient => httpClient.BaseAddress = new Uri(apiBaseAddress))
     .AddHttpMessageHandler<AuthorizationMessageHandler>();
 builder.Services.AddHttpClient<AuthApiClient>(httpClient => httpClient.BaseAddress = new Uri(apiBaseAddress))
@@ -154,6 +156,9 @@ builder.Services.AddSingleton<Translations>();
 // Shared unread state so the avatar badge, the nav-section badges, and Chat's contact avatars all read
 // the same poll (MainLayout owns it) instead of each fetching their own.
 builder.Services.AddScoped<NotificationFeedState>();
+// The tabs, and which one is open, shared by the dashboard, the notes and the task lists - a folder is
+// a place rather than a per-page view setting. See FolderState.
+builder.Services.AddScoped<FolderState>();
 builder.Services.AddScoped<ClientExceptionLog>();
 
 // Where the phone builds are published, if they are - see MobileAppDownloads. Read once here rather

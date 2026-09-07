@@ -698,6 +698,26 @@ public static class PolishTranslations
         ["Show places already past"] = "Pokaż miejsca już minione",
         ["somewhere with no street"] = "gdzieś bez adresu",
 
+        // ---- Folders ----
+        // The tabs every page made of cards is read under - see Orbit.Core.Folders.BuiltInFolder. The
+        // finished one is keyed "Finished" rather than "Done", which already means "Gotowe" elsewhere.
+        ["Folders"] = "Foldery",
+        ["Folder"] = "Folder",
+        ["Folder name"] = "Nazwa folderu",
+        ["Public"] = "Publiczne",
+        ["Finished"] = "Ukończone",
+        ["New folder"] = "Nowy folder",
+        ["Rename folder"] = "Zmień nazwę folderu",
+        ["Delete folder"] = "Usuń folder",
+        ["Delete this folder?"] = "Usunąć ten folder?",
+        ["Nothing in it is deleted - everything goes back to Public, or to Private if it is sealed."] =
+            "Nic z niego nie zostanie usunięte - wszystko wróci do Publicznych, a rzeczy zaszyfrowane do Prywatnych.",
+        ["Nothing in this folder."] = "Nic w tym folderze.",
+        ["Without one it is in Public, or in Private when it is sealed."] =
+            "Bez folderu trafia do Publicznych, a jeśli jest zaszyfrowane - do Prywatnych.",
+        ["Without one it is in Public, or in Private when it is sealed. A list with everything ticked off moves to Finished on its own."] =
+            "Bez folderu trafia do Publicznych, a jeśli jest zaszyfrowane - do Prywatnych. Lista z odhaczonymi wszystkimi pozycjami sama trafia do Ukończonych.",
+
         // ---- Options ----
         ["Appearance"] = "Wygląd",
         ["Accent colour"] = "Kolor wiodący",

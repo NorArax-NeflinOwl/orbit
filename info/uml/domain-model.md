@@ -59,6 +59,11 @@ answered.
 classDiagram
     direction LR
 
+    class Folder {
+        +Guid Id
+        +Guid UserId
+        +string Name
+    }
     class Note {
         +Guid Id
         +Guid UserId
@@ -66,6 +71,7 @@ classDiagram
         +IReadOnlyList~NoteContentLine~ Content
         +bool IsPinned
         +ItemPriority Priority
+        +Guid? FolderId
     }
     class TaskList {
         +Guid Id
@@ -75,6 +81,7 @@ classDiagram
         +bool IsCompleted
         +bool IsGroup
         +Guid? LinkedInventoryId
+        +Guid? FolderId
     }
     class TaskItem {
         +Guid Id
@@ -160,6 +167,9 @@ classDiagram
     User "1" *-- "0..1" WrappedPrivateKey
     User "1" *-- "1" UserPresence
     User "1" *-- "0..1" UserLocation
+    User "1" --> "0..*" Folder : owns
+    Note "0..*" --> "0..1" Folder : filed under
+    TaskList "0..*" --> "0..1" Folder : filed under
     User "1" --> "0..*" Note : owns
     User "1" --> "0..*" TaskList : owns
     User "1" --> "0..*" CalendarEvent : owns
@@ -167,6 +177,11 @@ classDiagram
     ChatMessage "0..*" --> "1" User : sender
     ChatMessage "0..*" --> "1" User : recipient
 ```
+
+`Folder` is the one aggregate here that is never shared, locked or sealed: it is a place on its owner's
+own pages, so a note handed to somebody else sits in whichever folder each of them filed it under. A
+null `FolderId` is not "no folder" - it means one of the three that have no rows at all (`BuiltInFolder`:
+Public, Private, Finished), chosen from what the item already is.
 
 `Note`, `TaskList`, `CalendarEvent` and `Inventory` each carry the `Shareable`, `Lockable` and
 `Sealable` facets above in full. They are left off this diagram only so the relationships stay

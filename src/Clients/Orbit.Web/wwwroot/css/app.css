@@ -4307,6 +4307,65 @@ input.note-editor-title {
     gap: 6px;
 }
 
+/* The folder tabs, above the cards on every page made of them - see FolderTabs.razor. Tabs rather than
+   chips because they answer a different question: a chip narrows what is in front of you, a tab says
+   which set you are looking at at all. Hence the shared underline they sit on and the mark under the
+   open one, rather than the pill shape the filters use a row below. */
+.folder-tabs {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    flex-wrap: wrap;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 14px;
+}
+
+.folder-tab {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 14px;
+    border: none;
+    /* Sits on top of the row's own line, so the open tab's mark replaces it rather than doubling it. */
+    border-bottom: 2px solid transparent;
+    margin-bottom: -1px;
+    background: transparent;
+    color: var(--text-secondary);
+    font-family: var(--font-body);
+    font-size: 13.5px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: color 120ms ease, border-color 120ms ease;
+}
+
+.folder-tab:hover {
+    color: var(--text-primary);
+}
+
+.folder-tab.on {
+    color: var(--accent);
+    border-bottom-color: var(--accent);
+}
+
+.folder-tab-count {
+    font-size: 11px;
+    font-weight: 700;
+    opacity: 0.7;
+}
+
+/* The plus at the end of the row. Quieter than the tabs: making a folder is rarer than reading one. */
+.folder-tab-add {
+    color: var(--text-tertiary);
+    padding: 8px 10px;
+}
+
+/* Naming one, in the place the tab itself will be - so what is being typed is where the answer lands. */
+.folder-tab-name {
+    width: 160px;
+    margin: 2px 4px;
+    font-size: 13.5px;
+}
+
 .filter-chip {
     display: inline-flex;
     align-items: center;

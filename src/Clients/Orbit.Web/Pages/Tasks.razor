@@ -7,6 +7,7 @@
 @using Orbit.Core.Tasks
 @using Orbit.Web.Services
 @inject TasksApiClient TasksApiClient
+@inject FolderState Folders
 @inject CalendarApiClient CalendarApiClient
 @inject TaskListDeletion TaskListDeletion
 @inject TaskListArrangement Arrangement
@@ -66,6 +67,10 @@
 {
     <p class="error">@_errorMessage</p>
 }
+
+@* The folder being read, and the same row of tabs the notes and the dashboard carry - see FolderTabs.
+   Above the search and the chips, because those narrow what is in a folder rather than choosing one. *@
+<FolderTabs CountIn="CountIn" />
 
 <ObjectList IsLoading="_taskLists is null" IsEmpty="_taskLists is { Count: 0 }" EmptyMessage="@T["No task lists yet."]">
     @* What the reader is looking for, above the chips that say which lists are on offer at all: a word
@@ -371,10 +376,17 @@
     private IReadOnlyList<TaskItemDto> EntriesToShow(TaskDto taskList)
         => _itemFilter.IsActive ? [.. taskList.Items.Where(_itemFilter.Matches)] : taskList.Items;
 
-    /// <summary>What the chips offer, in the order a list moves through its statuses - with "shared" after them, since it is about where a list came from rather than how far along it is.</summary>
+    /// <summary>
+    /// What the chips offer, in the order a list moves through its statuses - with "shared" after them,
+    /// since it is about where a list came from rather than how far along it is.
+    ///
+    /// Completed is not among them any more: a finished list is in the Finished folder now (see
+    /// BuiltInFolder), so the chip could only ever have found nothing under every other tab and
+    /// everything under that one. The tab above is the same question, asked once.
+    /// </summary>
     private static readonly TaskListFilter[] SelectableFilters =
     [
-        TaskListFilter.New, TaskListFilter.Pending, TaskListFilter.Overdue, TaskListFilter.Completed,
+        TaskListFilter.New, TaskListFilter.Pending, TaskListFilter.Overdue,
         TaskListFilter.Shared, TaskListFilter.Group
     ];
 
@@ -392,11 +404,24 @@
         get
         {
             var visible = (_taskLists ?? [])
+                .Where(InTheOpenFolder)
                 .Where(taskList => Matches(taskList, _filter) && _itemFilter.HasAMatch(taskList))
                 .ToList();
             return Sort(visible, Arrangement, IsPinned);
         }
     }
+
+    /// <summary>
+    /// Whether this list is in the folder that is open. A finished list gathers under Finished wherever its owner
+    /// filed it - see FolderPlacement, which is the same rule the notes and the dashboard read.
+    /// </summary>
+    private bool InTheOpenFolder(TaskDto taskList)
+        => Folders.ShowsUnderTheChosenTab(taskList.FolderId, taskList.IsPrivate, taskList.IsCompleted);
+
+    /// <summary>How many lists are under each tab, drawn on the tab itself.</summary>
+    private int CountIn(FolderKey folder)
+        => (_taskLists ?? []).Count(taskList =>
+            FolderPlacement.Of(taskList.FolderId, taskList.IsPrivate, taskList.IsCompleted, Folders.KnownFolderIds) == folder);
 
     /// <summary>
     /// A status chip matches the status the list is in; "Shared" matches where it came from and "Group"
@@ -803,6 +828,8 @@
         // MainLayout owns the polling; this only listens. A reminder arriving lights the card it is
         // about, and a list somebody has just shared is *read* - see OnNotificationsChanged.
         NotificationFeedState.Changed += OnNotificationsChanged;
+        // The tabs are shared, so pressing one on another page re-filters this one too.
+        Folders.Changed += OnFoldersChanged;
         await Arrangement.InitializeAsync();
         // Read before the cards are drawn: a pin that arrived a moment later would move a card somebody
         // was already pointing at.
@@ -849,7 +876,13 @@
             StateHasChanged();
         });
 
-    public void Dispose() => NotificationFeedState.Changed -= OnNotificationsChanged;
+    private void OnFoldersChanged() => InvokeAsync(StateHasChanged);
+
+    public void Dispose()
+    {
+        NotificationFeedState.Changed -= OnNotificationsChanged;
+        Folders.Changed -= OnFoldersChanged;
+    }
 
     private void GoToAddTaskList()
     {

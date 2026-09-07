@@ -1,0 +1,47 @@
+@using Orbit.Web.Services
+@implements IDisposable
+@inject FolderState Folders
+@inject Translations T
+
+@* Which tab this thing will be found under, on the form that makes it. Only folders somebody made are
+   offered: the built-in three are decided from what the thing already is, so choosing one here would be
+   a promise this form cannot keep - see Orbit.Core.Folders.BuiltInFolder. *@
+<div class="field">
+    <label for="folderSelect">@T["Folder"]</label>
+    <select id="folderSelect" value="@(Value?.ToString() ?? string.Empty)"
+            @onchange="OnChosenAsync" aria-label="@(T["Folder"])">
+        <option value="">@T["None"]</option>
+        @foreach (var folder in Folders.Folders)
+        {
+            <option value="@folder.Id">@folder.Name</option>
+        }
+    </select>
+    <small>@Hint</small>
+</div>
+
+@code {
+    /// <summary>The folder it is filed under, or null for none - which is a built-in folder, not nowhere.</summary>
+    [Parameter] public Guid? Value { get; set; }
+
+    [Parameter] public EventCallback<Guid?> ValueChanged { get; set; }
+
+    /// <summary>What "none" means for this kind of thing, which is not the same sentence for a note and a list.</summary>
+    [Parameter, EditorRequired] public string Hint { get; set; } = string.Empty;
+
+    private async Task OnChosenAsync(ChangeEventArgs args)
+    {
+        var chosen = Guid.TryParse(args.Value?.ToString(), out var folderId) ? folderId : (Guid?)null;
+        Value = chosen;
+        await ValueChanged.InvokeAsync(chosen);
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        Folders.Changed += OnFoldersChanged;
+        await Folders.EnsureLoadedAsync();
+    }
+
+    private void OnFoldersChanged() => InvokeAsync(StateHasChanged);
+
+    public void Dispose() => Folders.Changed -= OnFoldersChanged;
+}

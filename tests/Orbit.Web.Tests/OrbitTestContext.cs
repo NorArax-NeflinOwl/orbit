@@ -32,6 +32,17 @@ public abstract class OrbitTestContext : TestContext
         // empty start - nothing is pinned until a test pins something.
         Services.AddSingleton(new ConversationPins(new StubJSRuntime()));
         Services.AddSingleton(new SharedItemPins(new StubJSRuntime()));
+        // The tabs every page made of cards is drawn under. Nobody has made a folder, which is what a
+        // fresh account looks like: the three built-in ones are still there, and everything is in the
+        // one that opens. A test about folders registers its own over this - see FolderState.
+        Services.AddSingleton(new FolderState(new FoldersApiClient(
+            new HttpClient(new StubHttpMessageHandler(_ => new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StringContent("[]", Encoding.UTF8, "application/json")
+            }))
+            {
+                BaseAddress = new Uri("https://example.test/")
+            })));
         // The bell's shared unread set. Every section page listens to it now - a thing somebody has just
         // shared is one the page has never read, so hearing about it is what makes it re-read - and a
         // page cannot be rendered at all without one. Empty unless a test puts something in it, which is

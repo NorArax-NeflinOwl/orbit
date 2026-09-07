@@ -7,6 +7,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Orbit.Contracts.Notes;
+using Orbit.Core.Folders;
 using Orbit.Web.Services;
 using Orbit.Web.Tests.TestDoubles;
 using Orbit.Web.Tests;
@@ -167,6 +168,8 @@ public sealed class NotesTests : OrbitTestContext
         var note = Note("Shopping") with { IsPrivate = true };
         RegisterNotesApiClient([note]);
         var navigationManager = Services.GetRequiredService<NavigationManager>();
+        // A sealed note is in Private, which is where somebody looking for it goes - see BuiltInFolder.
+        Services.GetRequiredService<FolderState>().Choose(FolderKey.Of(BuiltInFolder.Private));
         var cut = RenderComponent<Web.Pages.Notes>();
 
         cut.Find(".item-card-body").Click();

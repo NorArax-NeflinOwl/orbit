@@ -16,6 +16,7 @@ using Orbit.Contracts.Notes;
 using Orbit.Contracts.Notifications;
 using Orbit.Contracts.Tasks;
 using Orbit.Web.Pages;
+using Orbit.Core.Folders;
 using Orbit.Web.Services;
 using Orbit.Web.Tests.TestDoubles;
 using Orbit.Web.Tests;
@@ -725,16 +726,21 @@ public sealed class DashboardTests : OrbitTestContext
         Assert.Contains("Shopping", tasksColumn);
     }
 
+    /// <summary>
+    /// A finished list is in Finished, and that is where it is read - pinned or not. Pinning orders cards
+    /// within a tab rather than lifting one out of the tab it belongs to; before folders it was the only
+    /// way to keep a finished list in front of you, and Done is now the place that keeps all of them.
+    /// It is still drawn as what it is rather than looking like work still to do.
+    /// </summary>
     [Fact]
-    public void A_finished_task_list_that_was_pinned_stays_and_is_struck_through()
+    public void A_finished_task_list_is_read_under_Done_and_is_struck_through()
     {
         RegisterChatApiClient([]);
         RegisterTasksApiClient([Finished(TaskList("Moving out")) with { IsPinned = true }]);
+        Services.GetRequiredService<FolderState>().Choose(FolderKey.Of(BuiltInFolder.Finished));
 
         var cut = RenderComponent<Dashboard>();
 
-        // Pinning is the way to say "keep this in front of me anyway" - so it stays, drawn as what it
-        // is rather than looking like work still to do.
         var row = FindColumn(cut, "Tasks").QuerySelector(".list-row");
         Assert.NotNull(row);
         Assert.Contains("Moving out", row!.TextContent);
