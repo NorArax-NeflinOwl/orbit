@@ -98,7 +98,8 @@ public sealed class NoteRepository : INoteRepository
             ToEncryptedPayload(entity.EncryptedCiphertext, entity.EncryptedNonce),
             entity.CreatedAtUtc, entity.UpdatedAtUtc,
             entity.LockedByUserId, entity.LockedByUserName, entity.LockExpiresAtUtc, entity.IsPinned,
-            Enum.TryParse<ItemPriority>(entity.Priority, out var priority) ? priority : ItemPriority.Normal);
+            Enum.TryParse<ItemPriority>(entity.Priority, out var priority) ? priority : ItemPriority.Normal,
+            entity.FolderId);
 
     private static NoteEntity ToEntity(Note note)
         => new()
@@ -115,6 +116,7 @@ public sealed class NoteRepository : INoteRepository
             LockedByUserId = note.LockedByUserId,
             LockedByUserName = note.LockedByUserName,
             LockExpiresAtUtc = note.LockExpiresAtUtc,
+            FolderId = note.FolderId,
             CreatedAtUtc = note.CreatedAtUtc,
             UpdatedAtUtc = note.UpdatedAtUtc
         };

@@ -80,7 +80,8 @@ public sealed class TaskListShareRepository : ITaskListShareRepository
     private static TaskListShare ToDomain(TaskShareEntity entity)
         => TaskListShare.FromPersistence(
             entity.Id, entity.SourceTaskListId, entity.OwnerUserId, entity.RecipientUserId,
-            Enum.Parse<ShareAccessLevel>(entity.AccessLevel), entity.CreatedAtUtc, entity.AcceptedAtUtc);
+            Enum.Parse<ShareAccessLevel>(entity.AccessLevel), entity.CreatedAtUtc, entity.AcceptedAtUtc,
+            entity.IsPinnedByRecipient);
 
     private static TaskShareEntity ToEntity(TaskListShare share)
         => new()
@@ -91,7 +92,8 @@ public sealed class TaskListShareRepository : ITaskListShareRepository
             RecipientUserId = share.RecipientUserId,
             AccessLevel = share.AccessLevel.ToString(),
             CreatedAtUtc = share.CreatedAtUtc,
-            AcceptedAtUtc = share.AcceptedAtUtc
+            AcceptedAtUtc = share.AcceptedAtUtc,
+            IsPinnedByRecipient = share.IsPinnedByRecipient
         };
     public async Task RemoveAcceptedGrantAsync(Guid sourceId, Guid recipientUserId, CancellationToken cancellationToken)
     {

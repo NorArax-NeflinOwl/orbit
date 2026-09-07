@@ -102,11 +102,13 @@ public sealed class TaskListChecklistTests : OrbitTestContext
     }
 
     /// <summary>
-    /// The row is for ticking; reading what an entry actually is or changing it is the press on its own
-    /// text - to the entry's own address, the same one TaskItemSummary's Edit leads to.
+    /// The row is for ticking; reading what an entry actually is, is the press on its own text - to the
+    /// entry's own page, which is where pressing a thing lands everywhere else in Orbit. It used to skip
+    /// that page and open the list's form on this entry, so the same press meant "read this" on /tasks
+    /// and "rewrite this" here.
     /// </summary>
     [Fact]
-    public void Pressing_an_entrys_text_opens_its_own_form()
+    public void Pressing_an_entrys_text_opens_the_entry_itself()
     {
         var taskList = TaskList("Errands", Item("Buy milk"));
         RegisterTasksApiClient([taskList]);
@@ -115,11 +117,52 @@ public sealed class TaskListChecklistTests : OrbitTestContext
 
         cut.Find(".check-row-text").Click();
 
-        // With where to come back to: this page opened the form, so the form ends here - see ReturnTo.
+        // With where to come back to: it travels through that page onto the form beyond it, so an edit
+        // begun here still ends here - see ReturnTo.
         Assert.EndsWith(
-            $"/tasks/{taskList.Id}/items/{taskList.Items[0].Id}/edit"
+            $"/tasks/{taskList.Id}/items/{taskList.Items[0].Id}"
                 + $"?{ReturnTo.QueryName}={Uri.EscapeDataString($"/tasks/{taskList.Id}")}",
             navigationManager.Uri);
+    }
+
+    /// <summary>
+    /// And read flat, where the same words used to tick the entry off instead: the row was a label, so
+    /// the one gesture meant two different things on the two views of one page.
+    /// </summary>
+    [Fact]
+    public void Pressing_an_entrys_text_opens_it_when_the_list_is_read_flat()
+    {
+        var tree = ARenovationTree();
+        RegisterTasksApiClient(tree);
+        var navigationManager = Services.GetRequiredService<NavigationManager>();
+        var cut = RenderComponent<TaskListChecklist>(parameters => parameters.Add(page => page.Id, tree[0].Id));
+
+        ChooseInMenu(cut, "Show single items");
+        cut.FindAll(".check-row-text").First(row => row.TextContent.Contains("Grout")).Click();
+
+        // Grout is on Tiling, two lists down the tree - the entry's own address is the list it is
+        // actually on, not the group being read.
+        var tiling = tree.Single(taskList => taskList.Title == "Tiling");
+        Assert.Contains($"/tasks/{tiling.Id}/items/{tiling.Items[0].Id}", navigationManager.Uri);
+    }
+
+    /// <summary>
+    /// Ticking is still the box's own job there. It is worth pinning down because the row stopped being
+    /// a label to make room for the press: a box inside one takes its name from the words beside it, and
+    /// this one now has to say what it ticks itself.
+    /// </summary>
+    [Fact]
+    public void The_box_beside_it_still_names_what_it_ticks_when_the_list_is_read_flat()
+    {
+        var tree = ARenovationTree();
+        RegisterTasksApiClient(tree);
+        var cut = RenderComponent<TaskListChecklist>(parameters => parameters.Add(page => page.Id, tree[0].Id));
+
+        ChooseInMenu(cut, "Show single items");
+
+        Assert.Contains(
+            cut.FindAll(".check-row input[type=checkbox]"),
+            box => box.GetAttribute("aria-label") == "Done: Grout");
     }
 
     [Fact]

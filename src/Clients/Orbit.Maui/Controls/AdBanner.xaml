@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<ContentView
+    x:Class="Orbit.Maui.Controls.AdBanner"
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    xmlns:controls="clr-namespace:Orbit.Maui.Controls"
+    x:Name="Root">
+
+    <!-- Across the foot of the screen, where Orbit.Web puts the same thing on a narrow window - see
+         .ad-banner in app.css. What it shows is Orbit's own (Orbit.Core.Advertising.HouseAds), so it
+         costs no request to anybody else and works with the phone offline, which is the whole shape of
+         this client. It says "Ad" out loud for the reason the web's does: a reader is entitled to know
+         which part of a screen is one. -->
+    <Border Padding="12,8" Margin="0" StrokeThickness="0"
+            BackgroundColor="{AppThemeBinding Light={StaticResource SurfaceLight}, Dark={StaticResource SurfaceDark}}"
+            IsVisible="{Binding HasAdvert, Source={x:Reference Root}, x:DataType=controls:AdBanner}">
+        <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10">
+            <Label Grid.Column="0" Text="{controls:Translate 'Ad'}" FontSize="10" FontAttributes="Bold"
+                   VerticalOptions="Center" Style="{StaticResource SubtleLabel}" />
+            <VerticalStackLayout Grid.Column="1" Spacing="1">
+                <Label Text="{Binding Title, Source={x:Reference Root}, x:DataType=controls:AdBanner}"
+                       FontAttributes="Bold" FontSize="13" LineBreakMode="TailTruncation" />
+                <Label Text="{Binding Body, Source={x:Reference Root}, x:DataType=controls:AdBanner}"
+                       FontSize="12" LineBreakMode="TailTruncation" Style="{StaticResource SubtleLabel}" />
+            </VerticalStackLayout>
+        </Grid>
+    </Border>
+</ContentView>

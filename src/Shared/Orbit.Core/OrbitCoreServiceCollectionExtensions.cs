@@ -15,6 +15,11 @@ using Orbit.Core.Calendar.Reminders;
 using Orbit.Core.Calendar.ShareCalendarEvent;
 using Orbit.Core.Calendar.UpdateCalendarEvent;
 using Orbit.Core.Chat.ClearConversationHistory;
+using Orbit.Core.Folders;
+using Orbit.Core.Folders.CreateFolder;
+using Orbit.Core.Folders.DeleteFolder;
+using Orbit.Core.Folders.GetFolders;
+using Orbit.Core.Folders.RenameFolder;
 using Orbit.Core.Chat.Groups.LeaveChatGroup;
 using Orbit.Core.Chat.Groups.SetGroupArchived;
 using Orbit.Core.Chat.SetConversationArchived;
@@ -67,6 +72,7 @@ using Orbit.Core.Notes.DeleteNote;
 using Orbit.Core.Notes.GetNoteById;
 using Orbit.Core.Notes.GetNoteShareStatus;
 using Orbit.Core.Notes.GetNotes;
+using Orbit.Core.Notes.MoveNoteToFolder;
 using Orbit.Core.Notes.ReleaseNoteLock;
 using Orbit.Core.Notes.SetNotePinned;
 using Orbit.Core.Notes.ShareNote;
@@ -81,6 +87,7 @@ using Orbit.Core.Notifications.GetNotificationHistory;
 using Orbit.Core.Notifications.MarkNotificationsAtUrlRead;
 using Orbit.Core.Sharing;
 using Orbit.Core.Sharing.ClaimPublicShareLink;
+using Orbit.Core.Sharing.GetShareOffer;
 using Orbit.Core.Sharing.CreatePublicShareLink;
 using Orbit.Core.Sharing.GetPublicSharedItem;
 using Orbit.Core.Sharing.RevokePublicShareLink;
@@ -95,12 +102,14 @@ using Orbit.Core.PushNotifications.UnsubscribeFromPush;
 using Orbit.Core.Tasks;
 using Orbit.Core.Tasks.AcceptTaskListShare;
 using Orbit.Core.Tasks.AcquireTaskListLock;
+using Orbit.Core.Tasks.CopyTaskItem;
 using Orbit.Core.Tasks.CreateTaskList;
 using Orbit.Core.Tasks.DailyReminders;
 using Orbit.Core.Tasks.DeleteTaskList;
 using Orbit.Core.Tasks.GetTaskListById;
 using Orbit.Core.Tasks.GetTaskListShareStatus;
 using Orbit.Core.Tasks.GetTaskLists;
+using Orbit.Core.Tasks.MoveTaskListToFolder;
 using Orbit.Core.Tasks.LinkCalendarEventToTaskList;
 using Orbit.Core.Tasks.MoveTaskItem;
 using Orbit.Core.Tasks.OverdueNotifications;
@@ -169,6 +178,13 @@ public static class OrbitCoreServiceCollectionExtensions
         services.AddScoped<IRequestHandler<GetNoteShareStatusQuery, bool?>, GetNoteShareStatusQueryHandler>();
         services.AddScoped<IRequestHandler<AcquireNoteLockCommand, EditOutcome>, AcquireNoteLockCommandHandler>();
         services.AddScoped<IRequestHandler<ReleaseNoteLockCommand, bool>, ReleaseNoteLockCommandHandler>();
+        services.AddScoped<IRequestHandler<MoveNoteToFolderCommand, bool>, MoveNoteToFolderCommandHandler>();
+
+        // The tabs every page made of cards is drawn under - see Orbit.Core.Folders.Folder.
+        services.AddScoped<IRequestHandler<GetFoldersQuery, IReadOnlyList<Folder>>, GetFoldersQueryHandler>();
+        services.AddScoped<IRequestHandler<CreateFolderCommand, Folder>, CreateFolderCommandHandler>();
+        services.AddScoped<IRequestHandler<RenameFolderCommand, bool>, RenameFolderCommandHandler>();
+        services.AddScoped<IRequestHandler<DeleteFolderCommand, bool>, DeleteFolderCommandHandler>();
 
         // Depends on ITaskRepository/ITaskListShareRepository/IUserRepository (all scoped), so it must
         // be scoped too - mirrors NoteAccessResolver's registration above.
@@ -178,8 +194,10 @@ public static class OrbitCoreServiceCollectionExtensions
         // and claiming a public link.
         services.AddScoped<TaskListShareCascade>();
         services.AddScoped<IRequestHandler<CreateTaskListCommand, Guid>, CreateTaskListCommandHandler>();
+        services.AddScoped<IRequestHandler<MoveTaskListToFolderCommand, bool>, MoveTaskListToFolderCommandHandler>();
         services.AddScoped<IRequestHandler<UpdateTaskListCommand, EditOutcome>, UpdateTaskListCommandHandler>();
         services.AddScoped<IRequestHandler<MoveTaskItemCommand, EditOutcome>, MoveTaskItemCommandHandler>();
+        services.AddScoped<IRequestHandler<CopyTaskItemCommand, EditOutcome>, CopyTaskItemCommandHandler>();
         services.AddScoped<IRequestHandler<LinkCalendarEventToTaskListCommand, EditOutcome>, LinkCalendarEventToTaskListCommandHandler>();
         services.AddScoped<IRequestHandler<DeleteTaskListCommand, bool>, DeleteTaskListCommandHandler>();
         services.AddScoped<IRequestHandler<GetTaskListsQuery, IReadOnlyList<TaskList>>, GetTaskListsQueryHandler>();
@@ -309,6 +327,12 @@ public static class OrbitCoreServiceCollectionExtensions
         services.AddScoped<IRequestHandler<GetChangedNotificationsQuery, IReadOnlyList<NotificationEntry>>, GetChangedNotificationsQueryHandler>();
 
         services.AddScoped<PublicSharedItemReader>();
+
+        // What a shared thing is called, for the page an invitation's notification leads to.
+
+        services.AddScoped<SharedItemName>();
+
+        services.AddScoped<IRequestHandler<GetShareOfferQuery, ShareOffer?>, GetShareOfferQueryHandler>();
         services.AddScoped<IRequestHandler<CreatePublicShareLinkCommand, PublicShareLink?>, CreatePublicShareLinkCommandHandler>();
         services.AddScoped<IRequestHandler<RevokePublicShareLinkCommand, bool>, RevokePublicShareLinkCommandHandler>();
         services.AddScoped<IRequestHandler<GetPublicSharedItemQuery, PublicSharedItem?>, GetPublicSharedItemQueryHandler>();

@@ -12,6 +12,7 @@
 @using Orbit.Contracts.Chat
 @using Orbit.Contracts.Users
 @using Orbit.Core.Users
+@using Orbit.Core.Notifications
 @using Orbit.Core.Permissions
 @using Orbit.Web.Services
 @inject ChatApiClient ChatApiClient
@@ -20,6 +21,7 @@
 @inject TasksApiClient TasksApiClient
 @inject InventoryApiClient InventoryApiClient
 @inject NotificationFeedState NotificationFeedState
+@inject NewsSettler NewsSettler
 @inject PageVisibility PageVisibility
 @inject PanelPreferences Panels
 @inject NotificationsApiClient NotificationsApiClient
@@ -751,11 +753,6 @@ else
     }
 
     /// <summary>
-    /// Signs the user out and sends them back to the login page, where a fresh sign-in runs
-    /// OwnEncryptionKeyProvider.UnlockOrCreateAsync with the password needed to restore this browser's
-    /// private key from its server-side backup.
-    /// </summary>
-    /// <summary>
     /// Called by the password gate once this browser holds a usable key again - clears the lock and lets
     /// the normal load path run, so the user lands straight in the conversation instead of reloading.
     /// </summary>
@@ -768,6 +765,11 @@ else
         await LoadConversationForCurrentUserAsync();
     }
 
+    /// <summary>
+    /// Signs the user out and sends them back to the login page, where a fresh sign-in runs
+    /// OwnEncryptionKeyProvider.UnlockOrCreateAsync with the password needed to restore this browser's
+    /// private key from its server-side backup.
+    /// </summary>
     private async Task ReauthenticateAsync()
     {
         await AuthApiClient.LogoutAsync();
@@ -1439,7 +1441,7 @@ else
         if (TryDeserialize<EventShareMessagePayload>(plainText) is { Type: EventShareMessagePayload.MessageType } eventShare)
         {
             return new ShareNotice(
-                eventShare.ShareId, $"Shared an event: {eventShare.EventTitle}",
+                eventShare.ShareId, SharedItemKind.CalendarEvent, $"Shared an event: {eventShare.EventTitle}",
                 () => CalendarApiClient.GetCalendarEventShareStatusAsync(eventShare.ShareId),
                 () => CalendarApiClient.AcceptCalendarEventShareAsync(eventShare.ShareId));
         }
@@ -1447,7 +1449,7 @@ else
         if (TryDeserialize<NoteShareMessagePayload>(plainText) is { Type: NoteShareMessagePayload.MessageType } noteShare)
         {
             return new ShareNotice(
-                noteShare.ShareId, $"Shared a note: {noteShare.NoteTitle}",
+                noteShare.ShareId, SharedItemKind.Note, $"Shared a note: {noteShare.NoteTitle}",
                 () => NotesApiClient.GetNoteShareStatusAsync(noteShare.ShareId),
                 () => NotesApiClient.AcceptNoteShareAsync(noteShare.ShareId));
         }
@@ -1455,7 +1457,7 @@ else
         if (TryDeserialize<TaskListShareMessagePayload>(plainText) is { Type: TaskListShareMessagePayload.MessageType } taskListShare)
         {
             return new ShareNotice(
-                taskListShare.ShareId, $"Shared a task list: {taskListShare.TaskListTitle}",
+                taskListShare.ShareId, SharedItemKind.TaskList, $"Shared a task list: {taskListShare.TaskListTitle}",
                 () => TasksApiClient.GetTaskListShareStatusAsync(taskListShare.ShareId),
                 () => TasksApiClient.AcceptTaskListShareAsync(taskListShare.ShareId));
         }
@@ -1463,7 +1465,7 @@ else
         if (TryDeserialize<InventoryShareMessagePayload>(plainText) is { Type: InventoryShareMessagePayload.MessageType } inventoryShare)
         {
             return new ShareNotice(
-                inventoryShare.ShareId, $"Shared an inventory: {inventoryShare.InventoryName}",
+                inventoryShare.ShareId, SharedItemKind.Inventory, $"Shared an inventory: {inventoryShare.InventoryName}",
                 () => InventoryApiClient.GetInventoryShareStatusAsync(inventoryShare.ShareId),
                 () => InventoryApiClient.AcceptInventoryShareAsync(inventoryShare.ShareId));
         }
@@ -1540,6 +1542,11 @@ else
             if (await shareNotice.AcceptAsync())
             {
                 _acceptedShareIds.Add(shareNotice.ShareId);
+                // The notification about this offer names the invitation page, not this conversation -
+                // so taking it up here has to settle it, or the bell keeps an entry for something
+                // already answered. See NewsSettler and SharedItemNotifier's own path.
+                await NewsSettler.SettleAsync(
+                    $"/invitation/{SharedItemPath.For(shareNotice.Kind)}/{shareNotice.ShareId}/{UserId}");
             }
         }
         catch (HttpRequestException exception) when (exception.StatusCode == HttpStatusCode.Unauthorized)
@@ -1564,8 +1571,13 @@ else
     /// message-rendering loop and AcceptShareAsync don't need to know which kind they're looking at - see
     /// TryParseShare.
     /// </summary>
+    /// <param name="Kind">
+    /// Which kind of thing was offered. Carried only so that accepting here settles the notification
+    /// about it, which names the offer by kind and id - see AcceptShareAsync and SharedItemNotifier.
+    /// </param>
     private sealed record ShareNotice(
-        Guid ShareId, string Description, Func<Task<bool?>> GetStatusAsync, Func<Task<bool>> AcceptAsync);
+        Guid ShareId, SharedItemKind Kind, string Description, Func<Task<bool?>> GetStatusAsync,
+        Func<Task<bool>> AcceptAsync);
 
     /// <summary>
     /// Somebody asking the owner to let them edit something (see EditAccessRequestPayload). Unlike a

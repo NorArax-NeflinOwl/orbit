@@ -37,6 +37,9 @@ public sealed class AccountDeletionRepository : IAccountDeletionRepository
 
         await _dbContext.Inventories.Where(inventory => inventory.UserId == userId).ExecuteDeleteAsync(cancellationToken);
         await _dbContext.Notes.Where(note => note.UserId == userId).ExecuteDeleteAsync(cancellationToken);
+        // After the notes and before nothing in particular: a folder holds no rows of its own, so
+        // whatever was filed in it is already gone by the time this runs.
+        await _dbContext.Folders.Where(folder => folder.UserId == userId).ExecuteDeleteAsync(cancellationToken);
         await _dbContext.Tasks.Where(task => task.UserId == userId).ExecuteDeleteAsync(cancellationToken);
         await _dbContext.CalendarEvents.Where(calendarEvent => calendarEvent.UserId == userId).ExecuteDeleteAsync(cancellationToken);
         await _dbContext.RefreshTokens.Where(refreshToken => refreshToken.UserId == userId).ExecuteDeleteAsync(cancellationToken);

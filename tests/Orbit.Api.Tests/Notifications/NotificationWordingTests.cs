@@ -45,7 +45,8 @@ public sealed class NotificationWordingTests
             EventReminderPushContent.Build(details, Guid.NewGuid(), 15),
             ChatGroupInvitationPushContent.Build(Guid.NewGuid(), "Weekend trip", "Bea"),
             InventoryExpiryPushContent.Build(new DueExpiryReminder(
-                Guid.NewGuid(), Guid.NewGuid(), "Milk", DateTimeOffset.UtcNow, NotificationChannel.Push)),
+                Guid.NewGuid(), InventoryId: Guid.NewGuid(), Guid.NewGuid(), "Milk", DateTimeOffset.UtcNow,
+                NotificationChannel.Push)),
             DailyTaskReminderPushContent.Build(new DueDailyTaskReminder(
                 Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), "Groceries", "Buy milk", null,
                 NotificationChannel.Push, DateOnly.FromDateTime(DateTime.UtcNow))),
@@ -126,7 +127,9 @@ public sealed class NotificationWordingTests
                 NullLogger<SharedItemNotifier>.Instance);
 
             var recipientId = Guid.NewGuid();
-            notifier.NotifyAsync(recipientId, sharer.Id, kind, "Shopping", CancellationToken.None)
+            notifier.NotifyAsync(
+                    recipientId, sharer.Id, kind, "Shopping", SharedItemLink.ToAccept(Guid.NewGuid()),
+                    CancellationToken.None)
                 .GetAwaiter().GetResult();
 
             var entry = entryRepository.GetRecentAsync(recipientId, 1, CancellationToken.None)

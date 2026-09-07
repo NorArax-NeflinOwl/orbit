@@ -9,9 +9,11 @@
 @using Orbit.Contracts.Inventories
 @using Orbit.Contracts.Notes
 @using Orbit.Contracts.Tasks
+@using Orbit.Core.Folders
 @using Orbit.Core.Permissions
 @using Orbit.Web.Services
 @inject NotesApiClient NotesApiClient
+@inject FolderState Folders
 @inject InventoryApiClient InventoryApiClient
 @inject TasksApiClient TasksApiClient
 @inject CalendarApiClient CalendarApiClient
@@ -80,6 +82,11 @@ else
             }
         </button>
     }
+
+    @* The same row of tabs the notes and the task lists carry, above the two cards it narrows: notes
+       and lists are the things that live in folders. Everything else on this page - the day, what is
+       coming up, the people - is not filed anywhere and is left alone by it. *@
+    <FolderTabs />
 
     <div class="card-grid">
         @if (_notes.Count > 0 && CardPreferences.IsVisible("notes"))
@@ -207,8 +214,9 @@ else
            inventory carries neither - so it has no filter menu, like the locations card below. *@
         @if (_inventories.Count > 0 && CardPreferences.IsVisible("inventories"))
         {
-            @* The card, not a row: something about to go off says "/inventory" and names no storage
-               (InventoryExpiryPushContent), so there is nothing here that could say which shelf. *@
+            @* The row as well as the card: something about to go off names the storage it is on now
+               (InventoryExpiryPushContent), so this says which shelf rather than leaving the reader to
+               open all of them. *@
             <ItemCard Name="@(T["Inventory"])" OnNameSelected='() => NavigationManager.NavigateTo("/inventory")'
                       HasUnseenAction="@NotificationFeed.HasNewsAbout("/inventory")"
                       ExtraClass="@(DashboardPins.IsPinned("inventories") ? "item-card-pinned" : null)">
@@ -221,7 +229,8 @@ else
                 <Body>
                 @foreach (var inventory in _inventories)
                 {
-                    <Row Title="@inventory.Name" OnPressed="() => GoToInventory(inventory.Id)">
+                    <Row Title="@inventory.Name" OnPressed="() => GoToInventory(inventory.Id)"
+                         AdditionalClass="@RowClasses(null, HasNewsAbout(inventory.Id, "/inventory"))">
                         <Trailing>
                             @if (inventory.IsPrivate)
                             {
@@ -395,7 +404,12 @@ else
     ];
 
     private IReadOnlyList<NoteDto> NotesToShow =>
-        [.. (_notes ?? []).Where(note => Matches("notes", note.IsPinned, note.Priority))];
+        [.. (_notes ?? [])
+            .Where(note => Folders.ShowsUnderTheChosenTab(note.FolderId, note.IsPrivate))
+            .Where(note => Matches("notes", note.IsPinned, note.Priority))];
+
+    /// <summary>Whether the folder being read is the one finished lists gather in - see BuiltInFolder.</summary>
+    private bool IsReadingWhatIsFinished => Folders.Chosen == FolderKey.Of(BuiltInFolder.Finished);
 
     /// <summary>
     /// A finished list is off this card unless it has been pinned. The dashboard is what is still on
@@ -406,7 +420,10 @@ else
     /// </summary>
     private IReadOnlyList<TaskDto> TaskListsToShow =>
         [.. (_taskLists ?? [])
-            .Where(taskList => !taskList.IsCompleted || taskList.IsPinned)
+            .Where(taskList => Folders.ShowsUnderTheChosenTab(taskList.FolderId, taskList.IsPrivate, taskList.IsCompleted))
+            // Except under Finished, which is the whole point of that tab: opening it is asking for
+            // them, and the card would otherwise answer with nothing at all.
+            .Where(taskList => IsReadingWhatIsFinished || !taskList.IsCompleted || taskList.IsPinned)
             .Where(taskList => Matches("tasks", taskList.IsPinned, taskList.Priority))];
 
     private IReadOnlyList<UpcomingEntry> UpcomingToShow =>
@@ -439,12 +456,26 @@ else
     {
         var nowUtc = DateTimeOffset.UtcNow;
         var entries = (_events ?? [])
+            .Where(IsStillToDo)
             .Select(calendarEvent => NextOccurrenceOf(calendarEvent, nowUtc))
             .OfType<CalendarEventDto>()
             .Select(ToUpcomingEntry)
             .Concat(UpcomingDeadlines(nowUtc));
         return entries.OrderBy(entry => entry.At);
     }
+
+    /// <summary>
+    /// Whether an appointment is still ahead of the reader rather than done with. An appointment a task
+    /// list raised is finished when that entry is ticked off - the entry is where the work is, and the
+    /// event is when it happens - so this card was listing appointments somebody had already crossed
+    /// off, which is exactly what a card headed "what is coming up" must not do. The calendar's own list
+    /// has left them out since 2026-09-06 (see Calendar.IsTickedOff); this asks the same question of the
+    /// same lookup.
+    ///
+    /// A deadline is filtered where it is built - see UpcomingDeadlines.
+    /// </summary>
+    private bool IsStillToDo(CalendarEventDto calendarEvent)
+        => CalendarEventDestination.RaisedBy(calendarEvent.Id, _taskLists) is not { Entry.IsCompleted: true };
 
     /// <summary>
     /// How far ahead a repeat is looked for. A year covers what the calendar's own year view shows, and
@@ -486,6 +517,11 @@ else
     /// The deadlines on task lists, named the way the calendar names them - "Shopping: Milk", since a
     /// card gathering things from everywhere has to say where each one came from. Finished ones are left
     /// out: this is what is still ahead, and something already ticked off is not.
+    ///
+    /// A row leads to the entry it names rather than to the list it sits on, which is what pressing a
+    /// thing means everywhere else - the row said "Shopping: Milk" and opened Shopping. The reminder
+    /// behind it still points at the list, so the two addresses differ here and both are carried: see
+    /// NewsUrl, which is what decides whether the row is marked.
     /// </summary>
     private IEnumerable<UpcomingEntry> UpcomingDeadlines(DateTimeOffset nowUtc)
         => (_taskLists ?? [])
@@ -499,8 +535,8 @@ else
                 pair.item.DueDateUtc!.Value.LocalDateTime.ToString("dd.MM.yyyy HH:mm"),
                 "var(--task)",
                 pair.taskList.Priority,
-                $"/tasks/{pair.taskList.Id}",
-                // A deadline's reminder points at the list it is on, which is where the row goes too.
+                $"/tasks/{pair.taskList.Id}/items/{pair.item.Id}",
+                // A deadline's reminder points at the list it is on, not at the entry the row opens.
                 $"/tasks/{pair.taskList.Id}"));
 
     /// <summary>
@@ -611,6 +647,9 @@ else
         // Before the loads below, which each ask whether this account has unlocked what they are
         // for - asked too early, every gated card would be missing from a page that had them.
         NotificationFeed.Changed += OnNotificationsChanged;
+        // The tabs are shared with the notes and the task lists - pressing one there re-filters the two
+        // cards here that hold folderable things.
+        Folders.Changed += OnFoldersChanged;
         await Permissions.EnsureLoadedAsync();
         await DashboardPins.InitializeAsync();
         await CardPreferences.InitializeAsync();
@@ -780,8 +819,9 @@ else
 
     /// <summary>
     /// The same question for a row on Upcoming, which has two addresses - see UpcomingEntry.NewsUrl.
-    /// Both are asked: the destination catches a reminder about the list an entry sits on, and the
-    /// news address catches the one about the appointment itself.
+    /// Both are asked, because for both kinds of row the thing it opens and the thing a reminder about
+    /// it names are two different addresses: an appointment a list raised opens as that entry while its
+    /// reminder is the event's, and a deadline opens as its entry while its reminder is the list's.
     /// </summary>
     private bool HasNewsAboutIt(UpcomingEntry entry)
         => NotificationFeed.HasNewsAbout(entry.Url) || NotificationFeed.HasNewsAbout(entry.NewsUrl);
@@ -798,9 +838,12 @@ else
         return joined.Length == 0 ? null : joined;
     }
 
+    private void OnFoldersChanged() => InvokeAsync(StateHasChanged);
+
     public void Dispose()
     {
         NotificationFeed.Changed -= OnNotificationsChanged;
+        Folders.Changed -= OnFoldersChanged;
         _pollCancellation?.Cancel();
         _pollTimer?.Dispose();
     }

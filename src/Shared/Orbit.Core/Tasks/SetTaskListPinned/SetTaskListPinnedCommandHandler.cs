@@ -2,30 +2,41 @@ using Orbit.Core.Abstractions;
 
 namespace Orbit.Core.Tasks.SetTaskListPinned;
 
-/// <summary>
-/// Only the list's owner can pin it. Pinning is about where a card sits on one person's own page, so a
-/// recipient pinning a shared list would be moving it for its owner instead of for themselves - a
-/// per-reader pin is a different feature, and a worse one to arrive at by accident.
-/// </summary>
+/// <inheritdoc cref="Orbit.Core.Notes.SetNotePinned.SetNotePinnedCommandHandler"/>
 public sealed class SetTaskListPinnedCommandHandler : IRequestHandler<SetTaskListPinnedCommand, bool>
 {
     private readonly ITaskRepository _taskRepository;
+    private readonly ITaskListShareRepository _taskListShareRepository;
 
-    public SetTaskListPinnedCommandHandler(ITaskRepository taskRepository)
+    public SetTaskListPinnedCommandHandler(
+        ITaskRepository taskRepository, ITaskListShareRepository taskListShareRepository)
     {
         _taskRepository = taskRepository;
+        _taskListShareRepository = taskListShareRepository;
     }
 
     public async Task<bool> HandleAsync(SetTaskListPinnedCommand request, CancellationToken cancellationToken)
     {
         var taskList = await _taskRepository.GetByIdAsync(request.UserId, request.TaskListId, cancellationToken);
-        if (taskList is null || taskList.UserId != request.UserId)
+        if (taskList is not null && taskList.UserId == request.UserId)
+        {
+            taskList.SetPinned(request.IsPinned);
+            await _taskRepository.UpdateAsync(taskList, cancellationToken);
+            return true;
+        }
+
+        var grant = await _taskListShareRepository.FindAcceptedGrantAsync(
+            request.TaskListId, request.UserId, cancellationToken);
+        if (grant is null)
         {
             return false;
         }
 
-        taskList.SetPinned(request.IsPinned);
-        await _taskRepository.UpdateAsync(taskList, cancellationToken);
+        if (grant.SetPinnedByRecipient(request.IsPinned))
+        {
+            await _taskListShareRepository.UpdateAsync(grant, cancellationToken);
+        }
+
         return true;
     }
 }

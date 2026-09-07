@@ -21,11 +21,16 @@ public sealed class ChatMessageRepository : IChatMessageRepository
         // limitation of a provider this app no longer uses. Against PostgreSQL the column is a
         // timestamptz and Npgsql translates both, so a chat window polling once a second stopped asking
         // for its entire history on every tick.
+        // GroupId == null keeps group messages out of the one-to-one conversation. A group message is
+        // sealed pairwise, one copy per member (see ChatMessage.CreateForGroup), so in a two-person group
+        // a copy has exactly the same sender/recipient pair as a one-to-one message between the two - and
+        // without this clause it would surface in their one-to-one thread. Groups are read by GroupId.
         var query = _dbContext.ChatMessages
             .AsNoTracking()
             .Where(message =>
-                (message.SenderUserId == userId && message.RecipientUserId == otherUserId) ||
-                (message.SenderUserId == otherUserId && message.RecipientUserId == userId));
+                message.GroupId == null &&
+                ((message.SenderUserId == userId && message.RecipientUserId == otherUserId) ||
+                 (message.SenderUserId == otherUserId && message.RecipientUserId == userId)));
 
         if (sinceUtc is not null)
         {
@@ -105,7 +110,7 @@ public sealed class ChatMessageRepository : IChatMessageRepository
         await _dbContext.SaveChangesAsync(cancellationToken);
     }
 
-    public async Task MarkConversationAsReadAsync(
+    public async Task<bool> MarkConversationAsReadAsync(
         Guid readerUserId, Guid otherUserId, DateTimeOffset readAtUtc, CancellationToken cancellationToken)
     {
         var unreadEntities = await _dbContext.ChatMessages
@@ -115,7 +120,7 @@ public sealed class ChatMessageRepository : IChatMessageRepository
 
         if (unreadEntities.Count == 0)
         {
-            return;
+            return false;
         }
 
         foreach (var entity in unreadEntities)
@@ -124,6 +129,7 @@ public sealed class ChatMessageRepository : IChatMessageRepository
         }
 
         await _dbContext.SaveChangesAsync(cancellationToken);
+        return true;
     }
 
     public async Task<DateTimeOffset?> GetReadUpToUtcAsync(Guid senderUserId, Guid recipientUserId, CancellationToken cancellationToken)
@@ -186,13 +192,17 @@ public sealed class ChatMessageRepository : IChatMessageRepository
 
         return entities.Select(ToDomain).ToList();
     }
-    public async Task MarkGroupConversationAsReadAsync(
+    public async Task<bool> MarkGroupConversationAsReadAsync(
         Guid readerUserId, Guid groupId, DateTimeOffset readAtUtc, CancellationToken cancellationToken)
     {
-        await _dbContext.ChatMessages
+        // The row count is the answer: ExecuteUpdate hands back how many it touched, which is exactly
+        // "was there anything to read" without a second query for it.
+        var marked = await _dbContext.ChatMessages
             .Where(message =>
                 message.GroupId == groupId && message.RecipientUserId == readerUserId && message.ReadAtUtc == null)
             .ExecuteUpdateAsync(update => update.SetProperty(message => message.ReadAtUtc, readAtUtc), cancellationToken);
+
+        return marked > 0;
     }
 
     public async Task<IReadOnlyDictionary<Guid, IReadOnlyList<GroupMessageReceipt>>> GetGroupReceiptsAsync(

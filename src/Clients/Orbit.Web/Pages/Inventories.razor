@@ -88,7 +88,11 @@
         {
             <div @key="inventory.Id" class="@(_cardOrder.IsDragging(inventory) ? "dragging" : "")"
                  @ondragover:preventDefault="true" @ondrop="() => DropCardOnAsync(inventory)">
-                <ItemCard Name="@inventory.Name" OnNameSelected="() => OpenInventory(inventory.Id)">
+                @* Which storage the bell is talking about. An expiry warning names the storage it is
+                   on now (InventoryExpiryPushContent), so this page can mark the card rather than
+                   leaving a reader to open all of them. *@
+                <ItemCard Name="@inventory.Name" OnNameSelected="() => OpenInventory(inventory.Id)"
+                          HasUnseenAction="@HasNewsAbout(inventory)">
                     <Handle>
                         <ReorderControls OnDragStart="() => _cardOrder.Start(inventory)" OnDragEnd="_cardOrder.Finish"
                                          OnMoveUp="() => MoveCardAsync(inventory, -1)"
@@ -403,6 +407,13 @@
 
             StateHasChanged();
         });
+
+    /// <summary>
+    /// Whether anything unread is about this storage - see NotificationFeedState.HasNewsAbout, matched
+    /// at a path boundary, so a warning about an item on it counts as news about the storage.
+    /// </summary>
+    private bool HasNewsAbout(InventoryDto inventory)
+        => NotificationFeedState.HasNewsAbout($"/inventory/{inventory.Id}");
 
     public void Dispose() => NotificationFeedState.Changed -= OnNotificationsChanged;
 

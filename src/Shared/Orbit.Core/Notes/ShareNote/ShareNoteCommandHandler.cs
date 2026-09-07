@@ -76,7 +76,8 @@ public sealed class ShareNoteCommandHandler : IRequestHandler<ShareNoteCommand, 
         var share = NoteShare.Create(note.Id, note.UserId, request.RecipientUserId, request.AccessLevel);
         await _noteShareRepository.AddAsync(share, cancellationToken);
         await _sharedItemNotifier.NotifyAsync(
-            request.RecipientUserId, request.OwnerUserId, SharedItemKind.Note, note.Title, cancellationToken);
+            request.RecipientUserId, request.OwnerUserId, SharedItemKind.Note, note.Title,
+            SharedItemLink.ToAccept(share.Id), cancellationToken);
         return new ShareOutcome(share.Id, AlreadyShared: false);
     }
 }

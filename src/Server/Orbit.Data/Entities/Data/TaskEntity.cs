@@ -30,6 +30,12 @@ public sealed class TaskEntity
     /// <summary>The inventory this list's work is measured against, if any - see Orbit.Core.Tasks.TaskList.LinkedInventoryId.</summary>
     public Guid? LinkedInventoryId { get; set; }
 
+    /// <summary>
+    /// The folder the owner filed it under - see <see cref="FolderEntity"/>, and NoteEntity.FolderId,
+    /// which is the same column on the other kind of card.
+    /// </summary>
+    public Guid? FolderId { get; set; }
+
     /// <summary>Stored by name, like every other enum here - see Orbit.Core.Abstractions.ItemPriority.</summary>
     public string Priority { get; set; } = nameof(Orbit.Core.Abstractions.ItemPriority.Normal);
     public bool IsPinned { get; set; }

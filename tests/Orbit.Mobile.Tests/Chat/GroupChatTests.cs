@@ -1,3 +1,4 @@
+using Orbit.Contracts.Chat;
 using Orbit.Mobile.Chat;
 using Xunit;
 
@@ -78,6 +79,33 @@ public sealed class GroupChatTests
 
         Assert.Equal(1, sent.Sent);
         Assert.Equal(2, context.Server.GroupMessageCopies.Count);
+    }
+
+    [Fact]
+    public async Task A_group_message_does_not_leak_into_the_one_to_one_conversation_with_the_same_person()
+    {
+        // A two-person group's messages are sealed pairwise, so the server hands the same copy back on the
+        // one-to-one pull as well as the group pull - the local row ends up carrying both an OtherUserId
+        // and a GroupId. The one-to-one conversation must still leave it out, or the group's words show up
+        // in the pair's private thread (found on a device, 2026-09-07).
+        using var context = new ChatContext();
+        var otherUserId = context.OtherUserId;
+        var oneToOne = new ChatMessageDto(
+            Guid.NewGuid(), otherUserId, context.OwnUserId, "cipher", "nonce", context.Clock.GetUtcNow(),
+            IsEdited: false, EditedAtUtc: null);
+        var groupCopy = new ChatMessageDto(
+            Guid.NewGuid(), otherUserId, context.OwnUserId, "group-cipher", "nonce",
+            context.Clock.GetUtcNow().AddMinutes(1), IsEdited: false, EditedAtUtc: null, GroupMessageId: Guid.NewGuid());
+
+        await context.Repository.StoreAsync(otherUserId, [oneToOne], CancellationToken.None);
+        // The two sync paths both store the group copy: the one-to-one pull sets its OtherUserId, the
+        // group pull sets its GroupId - the same row the device carried.
+        await context.Repository.StoreAsync(otherUserId, [groupCopy], CancellationToken.None);
+        await context.Repository.StoreGroupMessagesAsync(Guid.NewGuid(), [groupCopy], CancellationToken.None);
+
+        var conversation = await context.Repository.GetConversationAsync(otherUserId, CancellationToken.None);
+
+        Assert.Equal([oneToOne.Id], conversation.Select(message => message.Id));
     }
 
     [Fact]

@@ -32,13 +32,21 @@ public sealed class MarkGroupConversationAsReadCommandHandler
             return false;
         }
 
-        await _chatMessageRepository.MarkGroupConversationAsReadAsync(
+        var anythingWasUnread = await _chatMessageRepository.MarkGroupConversationAsReadAsync(
             request.ReaderUserId, request.GroupId, DateTimeOffset.UtcNow, cancellationToken);
 
-        // Everyone else in the group, who are the ones showing receipts for what they sent.
-        await _liveUpdatePublisher.ChatChangedAsync(
-            [.. group.Members.Select(member => member.UserId).Where(userId => userId != request.ReaderUserId)],
-            cancellationToken);
+        // Everyone else in the group, who are the ones showing receipts for what they sent - and only
+        // when something was actually read. A read that did not happen, announced, is news the other
+        // windows answer by polling and marking read, which announces again: see
+        // MarkConversationAsReadCommandHandler, where the same shape ran for a minute at sixteen
+        // requests a second between two people. In a group it would be everybody at once.
+        if (anythingWasUnread)
+        {
+            await _liveUpdatePublisher.ChatChangedAsync(
+                [.. group.Members.Select(member => member.UserId).Where(userId => userId != request.ReaderUserId)],
+                cancellationToken);
+        }
+
         return true;
     }
 }

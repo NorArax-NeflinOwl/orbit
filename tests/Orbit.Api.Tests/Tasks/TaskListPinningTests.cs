@@ -96,9 +96,42 @@ public sealed class TaskListPinningTests
         Assert.True(taskList.IsPinned);
     }
 
+    /// <summary>
+    /// A recipient's answer goes on their own grant, leaving the owner's list exactly as it was. This
+    /// used to be refused outright and the browser kept the answer in localStorage instead, where it did
+    /// not follow the reader to a second browser or to their phone.
+    /// </summary>
+    [Fact]
+    public async Task A_recipient_pins_a_shared_list_on_their_own_grant()
+    {
+        var context = new PinningTestContext();
+        var taskListId = await context.AddListAsync("Shopping");
+        var recipientId = await context.ShareWithSomebodyAsync(taskListId);
+
+        var pinned = await context.SetPinnedAsync(recipientId, taskListId, isPinned: true);
+
+        Assert.True(pinned);
+        Assert.True((await context.GrantFor(taskListId, recipientId))!.IsPinnedByRecipient);
+        Assert.False((await context.GetAsync(taskListId))!.IsPinned);
+    }
+
+    /// <summary>Somebody with neither the list nor a grant has nothing on their page to arrange.</summary>
+    [Fact]
+    public async Task A_stranger_still_cannot_pin_a_list_at_all()
+    {
+        var context = new PinningTestContext();
+        var taskListId = await context.AddListAsync("Shopping");
+
+        var pinned = await context.SetPinnedAsync(Guid.NewGuid(), taskListId, isPinned: true);
+
+        Assert.False(pinned);
+        Assert.False((await context.GetAsync(taskListId))!.IsPinned);
+    }
+
     private sealed class PinningTestContext
     {
         private readonly InMemoryTaskRepository _taskRepository = new();
+        private readonly InMemoryTaskListShareRepository _shareRepository = new();
 
         public Guid OwnerId { get; } = Guid.NewGuid();
 
@@ -109,8 +142,21 @@ public sealed class TaskListPinningTests
             return taskList.Id;
         }
 
+        /// <summary>Shares the list and takes the offer up, since only an accepted grant is access.</summary>
+        public async Task<Guid> ShareWithSomebodyAsync(Guid taskListId)
+        {
+            var recipientId = Guid.NewGuid();
+            var grant = TaskListShare.Create(taskListId, OwnerId, recipientId);
+            grant.MarkAccepted();
+            await _shareRepository.AddAsync(grant, CancellationToken.None);
+            return recipientId;
+        }
+
+        public Task<TaskListShare?> GrantFor(Guid taskListId, Guid recipientId)
+            => _shareRepository.FindAcceptedGrantAsync(taskListId, recipientId, CancellationToken.None);
+
         public Task<bool> SetPinnedAsync(Guid callerId, Guid taskListId, bool isPinned)
-            => new SetTaskListPinnedCommandHandler(_taskRepository)
+            => new SetTaskListPinnedCommandHandler(_taskRepository, _shareRepository)
                 .HandleAsync(new SetTaskListPinnedCommand(callerId, taskListId, isPinned), CancellationToken.None);
 
         public Task<TaskList?> GetAsync(Guid taskListId) => _taskRepository.GetByIdAsync(OwnerId, taskListId, CancellationToken.None);

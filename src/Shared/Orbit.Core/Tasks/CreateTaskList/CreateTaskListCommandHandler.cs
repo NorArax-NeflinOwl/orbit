@@ -27,7 +27,7 @@ public sealed class CreateTaskListCommandHandler : IRequestHandler<CreateTaskLis
 
         var taskList = TaskList.Create(
             request.UserId, request.Title, identity.Items, request.IsGroup, request.IsPrivate, request.EncryptedContent,
-            request.Priority, description: request.Description ?? string.Empty);
+            request.Priority, description: request.Description ?? string.Empty, folderId: request.FolderId);
 
         if (identity.ListsToSaveToo.Count > 0)
         {

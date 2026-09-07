@@ -500,7 +500,7 @@
                         </tr>
                     </thead>
                     <tbody>
-                        @foreach (var permission in Enum.GetValues<ApplicationPermission>())
+                        @foreach (var permission in ListedPermissions)
                         {
                             <tr>
                                 <td>
@@ -662,6 +662,20 @@
     private bool IsOffered(OptionsTab tab)
         => tab != OptionsTab.Debug || Permissions.Has(ApplicationPermission.Debug);
 
+    /// <summary>
+    /// The parts of Orbit this table names - see PermissionListing, which the phone's own list reads
+    /// too. Debugger is not among them until it has been unlocked.
+    /// </summary>
+    private IEnumerable<ApplicationPermission> ListedPermissions
+        => Enum.GetValues<ApplicationPermission>()
+            .Where(permission => PermissionListing.IsListed(permission, Permissions.Granted));
+
+    /// <summary>
+    /// Whether the code box has nothing left to unlock. Asked of every permission there is, including
+    /// the one the table above does not list: the box is the only way Debugger can ever be unlocked, so
+    /// hiding it from an account that has unlocked everything else - exactly the account somebody hands
+    /// that code to - would make the code impossible to use.
+    /// </summary>
     private bool HasEverythingUnlocked => Enum.GetValues<ApplicationPermission>().All(Permissions.Has);
 
     /// <summary>What the reader has typed into the unlock field, and how the last attempt went.</summary>

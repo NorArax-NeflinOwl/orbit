@@ -509,6 +509,14 @@ public sealed partial class AccountViewModel : ObservableObject
         Permissions.Clear();
         foreach (var permission in Enum.GetValues<ApplicationPermission>())
         {
+            // Debugger is not listed until it has been unlocked - see PermissionListing, the one rule
+            // this and Orbit.Web's own table both read. The code box below is always here, which is
+            // what the code for it is typed into.
+            if (!PermissionListing.IsListed(permission, granted))
+            {
+                continue;
+            }
+
             Permissions.Add(PermissionRow.For(permission, granted, _translations));
         }
 

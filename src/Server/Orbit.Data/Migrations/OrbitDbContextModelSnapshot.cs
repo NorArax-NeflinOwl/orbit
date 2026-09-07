@@ -532,6 +532,38 @@ namespace Orbit.Data.Migrations
                     b.ToTable("OS_EVENTS_REMINDERS");
                 });
 
+            modelBuilder.Entity("Orbit.Data.Entities.FolderEntity", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("OP_F_ID");
+
+                    b.Property<DateTimeOffset>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("OP_F_CREATEDATUTC");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("OP_F_NAME");
+
+                    b.Property<DateTimeOffset>("UpdatedAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("OP_F_UPDATEDATUTC");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("OP_F_USERID");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UserId");
+
+                    b.ToTable("OP_FOLDERS");
+                });
+
             modelBuilder.Entity("Orbit.Data.Entities.InventoryEntity", b =>
                 {
                     b.Property<Guid>("Id")
@@ -866,6 +898,10 @@ namespace Orbit.Data.Migrations
                         .HasColumnType("text")
                         .HasColumnName("OP_N_ENCRYPTEDNONCE");
 
+                    b.Property<Guid?>("FolderId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("OP_N_FOLDERID");
+
                     b.Property<bool>("IsPinned")
                         .HasColumnType("boolean")
                         .HasColumnName("OP_N_ISPINNED");
@@ -941,6 +977,10 @@ namespace Orbit.Data.Migrations
                     b.Property<DateTimeOffset>("CreatedAtUtc")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("OP_NS_CREATEDATUTC");
+
+                    b.Property<bool>("IsPinnedByRecipient")
+                        .HasColumnType("boolean")
+                        .HasColumnName("OP_NS_ISPINNEDBYRECIPIENT");
 
                     b.Property<Guid>("OwnerUserId")
                         .HasColumnType("uuid")
@@ -1394,6 +1434,10 @@ namespace Orbit.Data.Migrations
                         .HasColumnType("text")
                         .HasColumnName("OP_T_ENCRYPTEDNONCE");
 
+                    b.Property<Guid?>("FolderId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("OP_T_FOLDERID");
+
                     b.Property<bool>("IsCompleted")
                         .HasColumnType("boolean")
                         .HasColumnName("OP_T_ISCOMPLETED");
@@ -1691,6 +1735,10 @@ namespace Orbit.Data.Migrations
                     b.Property<DateTimeOffset>("CreatedAtUtc")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("OP_TS_CREATEDATUTC");
+
+                    b.Property<bool>("IsPinnedByRecipient")
+                        .HasColumnType("boolean")
+                        .HasColumnName("OP_TS_ISPINNEDBYRECIPIENT");
 
                     b.Property<Guid>("OwnerUserId")
                         .HasColumnType("uuid")

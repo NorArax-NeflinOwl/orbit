@@ -23,9 +23,12 @@ internal sealed class InMemoryChatMessageRepository : IChatMessageRepository
     public Task<IReadOnlyList<ChatMessage>> GetConversationAsync(
         Guid userId, Guid otherUserId, DateTimeOffset? sinceUtc, CancellationToken cancellationToken)
     {
+        // Mirrors the real repository: a one-to-one conversation excludes group messages, whose pairwise
+        // copies would otherwise match this sender/recipient filter in a two-person group.
         var messages = _messages.Where(message =>
-            (message.SenderUserId == userId && message.RecipientUserId == otherUserId) ||
-            (message.SenderUserId == otherUserId && message.RecipientUserId == userId));
+            message.GroupId is null &&
+            ((message.SenderUserId == userId && message.RecipientUserId == otherUserId) ||
+             (message.SenderUserId == otherUserId && message.RecipientUserId == userId)));
 
         if (sinceUtc is not null)
         {
@@ -51,9 +54,15 @@ internal sealed class InMemoryChatMessageRepository : IChatMessageRepository
         return Task.CompletedTask;
     }
 
-    public Task MarkConversationAsReadAsync(
+    /// <summary>
+    /// Answers whether anything was actually marked, the way the real one does - which is what the
+    /// handler publishes on, and so the difference between a read receipt and two windows announcing at
+    /// each other. See MarkConversationAsReadCommandHandler.
+    /// </summary>
+    public Task<bool> MarkConversationAsReadAsync(
         Guid readerUserId, Guid otherUserId, DateTimeOffset readAtUtc, CancellationToken cancellationToken)
     {
+        var anythingWasUnread = false;
         foreach (var message in _messages)
         {
             var isUnreadFromOtherParty =
@@ -61,10 +70,11 @@ internal sealed class InMemoryChatMessageRepository : IChatMessageRepository
             if (isUnreadFromOtherParty)
             {
                 _readAtUtcByMessageId[message.Id] = readAtUtc;
+                anythingWasUnread = true;
             }
         }
 
-        return Task.CompletedTask;
+        return Task.FromResult(anythingWasUnread);
     }
 
     public Task<DateTimeOffset?> GetReadUpToUtcAsync(Guid senderUserId, Guid recipientUserId, CancellationToken cancellationToken)
@@ -127,16 +137,18 @@ internal sealed class InMemoryChatMessageRepository : IChatMessageRepository
         Guid groupMessageId, CancellationToken cancellationToken)
         => Task.FromResult<IReadOnlyList<ChatMessage>>(
             _messages.Where(message => message.GroupMessageId == groupMessageId).ToList());
-    public Task MarkGroupConversationAsReadAsync(
+    /// <summary>The group's own, and the same answer - see MarkConversationAsReadAsync above.</summary>
+    public Task<bool> MarkGroupConversationAsReadAsync(
         Guid readerUserId, Guid groupId, DateTimeOffset readAtUtc, CancellationToken cancellationToken)
     {
+        var anythingWasUnread = false;
         foreach (var message in _messages.Where(message =>
                      message.GroupId == groupId && message.RecipientUserId == readerUserId))
         {
-            _readAtUtcByMessageId.TryAdd(message.Id, readAtUtc);
+            anythingWasUnread |= _readAtUtcByMessageId.TryAdd(message.Id, readAtUtc);
         }
 
-        return Task.CompletedTask;
+        return Task.FromResult(anythingWasUnread);
     }
 
     public Task<IReadOnlyDictionary<Guid, IReadOnlyList<GroupMessageReceipt>>> GetGroupReceiptsAsync(

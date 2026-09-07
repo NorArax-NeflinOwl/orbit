@@ -35,8 +35,52 @@ public sealed class LiveUpdateAnnouncementTests
         var announcements = new RecordingLiveUpdatePublisher();
         var readerId = Guid.NewGuid();
         var otherPartyId = Guid.NewGuid();
+        var messages = new InMemoryChatMessageRepository();
+        await messages.AddAsync(
+            ChatMessage.Create(otherPartyId, readerId, "ciphertext", "nonce"), CancellationToken.None);
+        var handler = new MarkConversationAsReadCommandHandler(messages, announcements);
+
+        await handler.HandleAsync(new MarkConversationAsReadCommand(readerId, otherPartyId), CancellationToken.None);
+
+        Assert.Equal([otherPartyId], announcements.ChatToldAbout);
+    }
+
+    /// <summary>
+    /// And nothing at all when there was nothing to read. This is not a saving - it is what makes the
+    /// thing terminate. An open chat window marks the conversation read on every poll and on every
+    /// announcement it hears, so announcing a read that did not happen means the other window hears
+    /// news, polls, marks read, announces back, and the two do that to each other for as long as they
+    /// are both open. It ran for a minute on 2026-09-05 at sixteen requests a second: 4,332 from one
+    /// caller, against two ids.
+    /// </summary>
+    [Fact]
+    public async Task Reading_a_conversation_with_nothing_unread_in_it_tells_nobody()
+    {
+        var announcements = new RecordingLiveUpdatePublisher();
         var handler = new MarkConversationAsReadCommandHandler(new InMemoryChatMessageRepository(), announcements);
 
+        await handler.HandleAsync(
+            new MarkConversationAsReadCommand(Guid.NewGuid(), Guid.NewGuid()), CancellationToken.None);
+
+        Assert.Empty(announcements.ChatToldAbout);
+    }
+
+    /// <summary>
+    /// The second read of the same conversation says nothing either, which is the case the loop was
+    /// actually made of: both windows were marking messages that had already been marked.
+    /// </summary>
+    [Fact]
+    public async Task Reading_the_same_conversation_twice_announces_it_once()
+    {
+        var announcements = new RecordingLiveUpdatePublisher();
+        var readerId = Guid.NewGuid();
+        var otherPartyId = Guid.NewGuid();
+        var messages = new InMemoryChatMessageRepository();
+        await messages.AddAsync(
+            ChatMessage.Create(otherPartyId, readerId, "ciphertext", "nonce"), CancellationToken.None);
+        var handler = new MarkConversationAsReadCommandHandler(messages, announcements);
+
+        await handler.HandleAsync(new MarkConversationAsReadCommand(readerId, otherPartyId), CancellationToken.None);
         await handler.HandleAsync(new MarkConversationAsReadCommand(readerId, otherPartyId), CancellationToken.None);
 
         Assert.Equal([otherPartyId], announcements.ChatToldAbout);
@@ -85,13 +129,40 @@ public sealed class LiveUpdateAnnouncementTests
         group.AddMember(readerId, secondMemberId);
         var groupRepository = new InMemoryChatGroupRepository();
         await groupRepository.AddAsync(group, CancellationToken.None);
+        var messages = new InMemoryChatMessageRepository();
+        await messages.AddAsync(
+            ChatMessage.CreateForGroup(
+                group.Id, Guid.NewGuid(), secondMemberId, readerId, "ciphertext", "nonce", DateTimeOffset.UtcNow),
+            CancellationToken.None);
+        var handler = new MarkGroupConversationAsReadCommandHandler(groupRepository, messages, announcements);
+
+        await handler.HandleAsync(
+            new MarkGroupConversationAsReadCommand(readerId, group.Id), CancellationToken.None);
+
+        Assert.Equal([secondMemberId], announcements.ChatToldAbout);
+    }
+
+    /// <summary>
+    /// And nobody when there was nothing to read - which matters more in a group than anywhere: the
+    /// announcement goes to every other member, so each of them would answer it, and each answer would
+    /// announce again. See Reading_a_conversation_with_nothing_unread_in_it_tells_nobody.
+    /// </summary>
+    [Fact]
+    public async Task Reading_a_group_with_nothing_unread_in_it_tells_nobody()
+    {
+        var announcements = new RecordingLiveUpdatePublisher();
+        var readerId = Guid.NewGuid();
+        var group = ChatGroup.Create(readerId, "Weekend trip");
+        group.AddMember(readerId, Guid.NewGuid());
+        var groupRepository = new InMemoryChatGroupRepository();
+        await groupRepository.AddAsync(group, CancellationToken.None);
         var handler = new MarkGroupConversationAsReadCommandHandler(
             groupRepository, new InMemoryChatMessageRepository(), announcements);
 
         await handler.HandleAsync(
             new MarkGroupConversationAsReadCommand(readerId, group.Id), CancellationToken.None);
 
-        Assert.Equal([secondMemberId], announcements.ChatToldAbout);
+        Assert.Empty(announcements.ChatToldAbout);
     }
 
     /// <summary>

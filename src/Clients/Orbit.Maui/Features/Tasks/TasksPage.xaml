@@ -282,6 +282,9 @@
 
 
     </Grid>
+        <!-- Across the foot, under everything the page itself draws - see AdBanner, and .ad-banner
+             in Orbit.Web's app.css, which is the same bar on a narrow window. -->
+        <controls:AdBanner Grid.Row="2" />
         <controls:NavigationBar Grid.Row="0" />
         <controls:MenuOverlay Grid.Row="0" Grid.RowSpan="3"
                               BindingContext="{Binding Menu, Source={x:Reference Page}, x:DataType=tasks:TasksPage}" />

@@ -191,6 +191,38 @@ public sealed class InventoriesTests : OrbitTestContext
         return cut.Find(".item-card-menu").TextContent;
     }
 
+    /// <summary>
+    /// Which storage the bell is talking about. A warning that something is about to go off names the
+    /// storage it is on now (InventoryExpiryPushContent) - before that it named only the section, so
+    /// this page could say something was expiring somewhere and nothing about where.
+    /// </summary>
+    [Fact]
+    public void The_storage_the_bell_is_talking_about_is_marked()
+    {
+        var pantry = Inventory("Pantry");
+        RegisterApiClients([pantry, Inventory("Garage")]);
+        Services.GetRequiredService<NotificationFeedState>().Set(
+            [new Orbit.Contracts.Notifications.NotificationEntryDto(
+                Guid.NewGuid(), "InventoryExpiry", "Expiring soon", "\"Milk\" is nearing its expiry date.",
+                $"/inventory/{pantry.Id}", DateTimeOffset.UtcNow, IsRead: false)]);
+
+        var cut = RenderComponent<Web.Pages.Inventories>();
+
+        var marked = cut.FindAll(".item-card-unseen").Select(card => card.TextContent).ToList();
+        Assert.Contains(marked, text => text.Contains("Pantry", StringComparison.Ordinal));
+        Assert.DoesNotContain(marked, text => text.Contains("Garage", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void Nothing_is_marked_when_the_bell_is_holding_nothing()
+    {
+        RegisterApiClients([Inventory("Pantry")]);
+
+        var cut = RenderComponent<Web.Pages.Inventories>();
+
+        Assert.Empty(cut.FindAll(".item-card-unseen"));
+    }
+
     private static InventoryDto Inventory(
         string name, bool isPrivate = false, bool isShared = false, string? sharedByUserName = null,
         string accessLevel = "CanEdit", string? lockedByUserName = null)

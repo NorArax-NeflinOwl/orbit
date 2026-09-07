@@ -62,4 +62,57 @@ public sealed class GetNotesQueryHandlerTests
         Assert.True(shared.IsShared);
         Assert.Equal(ShareAccessLevel.ReadOnly, shared.AccessLevel);
     }
+
+    /// <summary>
+    /// A shared note arrives carrying the *recipient's* pin, not its owner's. The owner's says where it
+    /// sits on the owner's page, and handing that over unchanged put a note somebody else had pinned at
+    /// the top of this reader's list - which is what the phone was doing, since it sorts by this flag
+    /// and had no second answer to prefer. See NoteAccessResolver.
+    /// </summary>
+    [Fact]
+    public async Task HandleAsync_hands_a_recipient_their_own_pin_rather_than_the_owners()
+    {
+        var noteRepository = new InMemoryNoteRepository();
+        var noteShareRepository = new InMemoryNoteShareRepository();
+        var userRepository = new InMemoryUserRepository();
+        var handler = new GetNotesQueryHandler(new NoteAccessResolver(noteRepository, noteShareRepository, userRepository));
+
+        var owner = User.Create("owner@example.com", "owner", "Owner", "hash");
+        await userRepository.AddAsync(owner, CancellationToken.None);
+        var recipientId = Guid.NewGuid();
+        var sharedNote = Note.Create(owner.Id, "Shared with me", [NoteContentLine.PlainText("Content")]);
+        sharedNote.SetPinned(true);
+        await noteRepository.AddAsync(sharedNote, CancellationToken.None);
+        var share = NoteShare.Create(sharedNote.Id, owner.Id, recipientId, ShareAccessLevel.ReadOnly);
+        share.MarkAccepted();
+        await noteShareRepository.AddAsync(share, CancellationToken.None);
+
+        var notes = await handler.HandleAsync(new GetNotesQuery(recipientId), CancellationToken.None);
+
+        Assert.False(Assert.Single(notes).IsPinned);
+    }
+
+    /// <summary>And the recipient's own answer does reach them, which is what makes the pin worth having.</summary>
+    [Fact]
+    public async Task HandleAsync_hands_a_recipient_the_pin_they_set_themselves()
+    {
+        var noteRepository = new InMemoryNoteRepository();
+        var noteShareRepository = new InMemoryNoteShareRepository();
+        var userRepository = new InMemoryUserRepository();
+        var handler = new GetNotesQueryHandler(new NoteAccessResolver(noteRepository, noteShareRepository, userRepository));
+
+        var owner = User.Create("owner@example.com", "owner", "Owner", "hash");
+        await userRepository.AddAsync(owner, CancellationToken.None);
+        var recipientId = Guid.NewGuid();
+        var sharedNote = Note.Create(owner.Id, "Shared with me", [NoteContentLine.PlainText("Content")]);
+        await noteRepository.AddAsync(sharedNote, CancellationToken.None);
+        var share = NoteShare.Create(sharedNote.Id, owner.Id, recipientId, ShareAccessLevel.ReadOnly);
+        share.MarkAccepted();
+        share.SetPinnedByRecipient(true);
+        await noteShareRepository.AddAsync(share, CancellationToken.None);
+
+        var notes = await handler.HandleAsync(new GetNotesQuery(recipientId), CancellationToken.None);
+
+        Assert.True(Assert.Single(notes).IsPinned);
+    }
 }

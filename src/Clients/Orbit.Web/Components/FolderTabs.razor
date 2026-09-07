@@ -1,0 +1,221 @@
+@using Orbit.Core.Folders
+@using Orbit.Web.Services
+@implements IDisposable
+@inject FolderState Folders
+@inject ILogger<FolderTabs> Logger
+@inject Translations T
+
+@* The row of tabs every page made of cards is read under - the dashboard, the notes and the task
+   lists. Three of them are always there and have nothing stored behind them (see BuiltInFolder); the
+   rest are whatever the reader made. The state is shared, so the tab is still open on the next page. *@
+<div class="folder-tabs" role="tablist" aria-label="@(T["Folders"])">
+    @foreach (var tab in Tabs)
+    {
+        var isChosen = tab == Folders.Chosen;
+        @if (_folderBeingRenamed == tab.FolderId && tab.FolderId is not null)
+        {
+            <input class="folder-tab-name" @bind="_name" @bind:event="oninput"
+                   @onkeydown="args => OnNamingKeyDownAsync(args)" @onblur="StopNaming"
+                   aria-label="@(T["Folder name"])" @ref="_nameBox" />
+        }
+        else
+        {
+            <button type="button" role="tab" aria-selected="@(isChosen ? "true" : "false")"
+                    class="folder-tab @(isChosen ? "on" : "")" @onclick="() => Choose(tab)">
+                @NameOf(tab)
+                @if (CountIn is not null)
+                {
+                    <span class="folder-tab-count">@CountIn(tab)</span>
+                }
+            </button>
+        }
+    }
+
+    @if (_isNaming && _folderBeingRenamed is null)
+    {
+        <input class="folder-tab-name" placeholder="@(T["Folder name"])" @bind="_name" @bind:event="oninput"
+               @onkeydown="args => OnNamingKeyDownAsync(args)" @onblur="StopNaming"
+               aria-label="@(T["Folder name"])" @ref="_nameBox" />
+    }
+    else
+    {
+        <button type="button" class="folder-tab folder-tab-add" title="@(T["New folder"])"
+                aria-label="@(T["New folder"])" @onclick="StartNaming">
+            <svg viewBox="0 0 20 20" width="14" height="14" aria-hidden="true" fill="none"
+                 stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M10 4v12M4 10h12" /></svg>
+        </button>
+    }
+
+    @* Only about a folder somebody made: the built-in three are not theirs to rename or throw away.
+       Beside the row rather than on the tab itself, because a menu inside a button is neither a button
+       nor a menu. *@
+    @if (Folders.Chosen.FolderId is { } chosenFolderId)
+    {
+        <OverflowMenu>
+            <button type="button" class="avatar-dropdown-item" @onclick="() => StartRenaming(chosenFolderId)">
+                @T["Rename folder"]
+            </button>
+            <button type="button" class="avatar-dropdown-item" @onclick="() => DeleteAsync(chosenFolderId)">
+                @T["Delete folder"]
+            </button>
+        </OverflowMenu>
+    }
+</div>
+
+@if (_isDeleting)
+{
+    @* Asked, because a tab full of things looks exactly like a tab about to lose them. What actually
+       happens is said in the question, since it is not what the word "delete" suggests: nothing in it
+       is deleted. *@
+    <Dialog Title="@(T["Delete this folder?"])" OnClosed="() => _isDeleting = false">
+        <ChildContent>
+            <p>@T["Nothing in it is deleted - everything goes back to Public, or to Private if it is sealed."]</p>
+        </ChildContent>
+        <Footer>
+            <button type="button" class="btn-secondary" @onclick="() => _isDeleting = false">@T["Cancel"]</button>
+            <button type="button" class="btn-primary" @onclick="ConfirmDeleteAsync">@T["Delete folder"]</button>
+        </Footer>
+    </Dialog>
+}
+
+@code {
+    /// <summary>
+    /// How many cards are under each tab, when the page has an answer - the notes and the task lists
+    /// do, and the dashboard, which shows two kinds at once, does not. Null draws no counts at all
+    /// rather than zeros, which would be a number that is not true.
+    /// </summary>
+    [Parameter] public Func<FolderKey, int>? CountIn { get; set; }
+
+    private bool _isNaming;
+    private bool _isDeleting;
+    private Guid? _folderBeingRenamed;
+    private Guid? _folderToDelete;
+    private string _name = string.Empty;
+    private ElementReference? _nameBox;
+    private bool _isWaitingToFocusTheNameBox;
+
+    /// <summary>
+    /// The built-in three first, in the order somebody reads them - what is still open, what is sealed,
+    /// what is finished - and then whatever they made, oldest first.
+    /// </summary>
+    private IEnumerable<FolderKey> Tabs
+        => new[] { FolderKey.Of(BuiltInFolder.Public), FolderKey.Of(BuiltInFolder.Private), FolderKey.Of(BuiltInFolder.Finished) }
+            .Concat(Folders.Folders.Select(folder => FolderKey.Of(folder.Id)));
+
+    private string NameOf(FolderKey tab) => Folders.NameOf(tab, DescribeBuiltIn);
+
+    private string DescribeBuiltIn(BuiltInFolder builtIn) => builtIn switch
+    {
+        BuiltInFolder.Private => T["Private"],
+        BuiltInFolder.Finished => T["Finished"],
+        _ => T["Public"]
+    };
+
+    private void Choose(FolderKey tab)
+    {
+        Logger.LogInformation("User opened folder tab {Folder}", tab.BuiltIn?.ToString() ?? tab.FolderId?.ToString());
+        Folders.Choose(tab);
+    }
+
+    private void StartNaming()
+    {
+        _folderBeingRenamed = null;
+        _name = string.Empty;
+        _isNaming = true;
+        _isWaitingToFocusTheNameBox = true;
+    }
+
+    private void StartRenaming(Guid folderId)
+    {
+        _folderBeingRenamed = folderId;
+        _name = Folders.Folders.FirstOrDefault(folder => folder.Id == folderId)?.Name ?? string.Empty;
+        _isNaming = true;
+        _isWaitingToFocusTheNameBox = true;
+    }
+
+    /// <summary>
+    /// Enter makes or renames it, Escape leaves everything as it was. Losing the box without pressing
+    /// either does the same as Escape - a name half typed and then clicked away from is not an answer.
+    /// </summary>
+    private async Task OnNamingKeyDownAsync(KeyboardEventArgs args)
+    {
+        if (args.Key == "Escape")
+        {
+            StopNaming();
+            return;
+        }
+
+        if (args.Key != "Enter")
+        {
+            return;
+        }
+
+        var name = _name.Trim();
+        if (name.Length == 0)
+        {
+            StopNaming();
+            return;
+        }
+
+        if (_folderBeingRenamed is { } folderId)
+        {
+            Logger.LogInformation("User renamed folder {FolderId}", folderId);
+            await Folders.RenameAsync(folderId, name);
+        }
+        else
+        {
+            Logger.LogInformation("User created a folder");
+            await Folders.CreateAsync(name);
+        }
+
+        StopNaming();
+    }
+
+    private void StopNaming()
+    {
+        _isNaming = false;
+        _folderBeingRenamed = null;
+        _name = string.Empty;
+    }
+
+    private void DeleteAsync(Guid folderId)
+    {
+        _folderToDelete = folderId;
+        _isDeleting = true;
+    }
+
+    private async Task ConfirmDeleteAsync()
+    {
+        _isDeleting = false;
+        if (_folderToDelete is not { } folderId)
+        {
+            return;
+        }
+
+        Logger.LogInformation("User deleted folder {FolderId}", folderId);
+        await Folders.DeleteAsync(folderId);
+        _folderToDelete = null;
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        Folders.Changed += OnFoldersChanged;
+        await Folders.EnsureLoadedAsync();
+    }
+
+    /// <summary>A box that appears to be typed in and then has to be found and clicked is a box nobody uses.</summary>
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!_isWaitingToFocusTheNameBox || _nameBox is not { } box)
+        {
+            return;
+        }
+
+        _isWaitingToFocusTheNameBox = false;
+        await box.FocusAsync();
+    }
+
+    private void OnFoldersChanged() => InvokeAsync(StateHasChanged);
+
+    public void Dispose() => Folders.Changed -= OnFoldersChanged;
+}
