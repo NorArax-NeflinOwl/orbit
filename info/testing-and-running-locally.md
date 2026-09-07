@@ -323,6 +323,50 @@ Set the JWT signing key via `dotnet user-secrets` too (see
 VAPID key pair the same way if you want to actually see reminder emails and push notifications locally
 — see the two sections right below.
 
+### Debugging from Visual Studio: the four F5 modes
+
+Visual Studio's multi-project launch profiles (the dropdown next to the Start button) give one-keypress
+debugging of a client together with Orbit.Api. The profiles live in `Orbit.slnLaunch.user` beside the
+solution — gitignored like every `*.user` file, so each machine writes its own; the content to paste is
+below. All four start Orbit.Api under the debugger on `http://localhost:5080`; the pairs differ only in
+which client starts beside it and which database the API opens:
+
+| Mode | Client | Database |
+| --- | --- | --- |
+| `Orbit.Web local` | Orbit.Web dev server (`http://localhost:5081`) | local Postgres (`ConnectionStrings:Orbit`) |
+| `Orbit.Web azure` | Orbit.Web dev server (`http://localhost:5081`) | Azure Postgres (`ConnectionStrings:OrbitAzure`) |
+| `Android local` | Orbit.Maui on the Android emulator | local Postgres (`ConnectionStrings:Orbit`) |
+| `Android azure` | Orbit.Maui on the Android emulator | Azure Postgres (`ConnectionStrings:OrbitAzure`) |
+
+The azure pair works through the `http (Azure DB)` launch profile, which sets
+`Database__ConnectionStringName=OrbitAzure` — `AddOrbitData` then reads that connection string instead
+of `Orbit`, so the Azure credentials sit in user secrets next to the local ones and never in a tracked
+file:
+
+```
+dotnet user-secrets set "ConnectionStrings:OrbitAzure" "Host=<server>.postgres.database.azure.com;Port=5432;Database=orbit;Username=orbit;Password=<password>;Ssl Mode=Require" --project src/Server/Orbit.Api
+```
+
+Two things the modes rely on:
+
+- The Android emulator reaches the host's `localhost:5080` through `10.0.2.2:5080`, which is the MAUI
+  debug build's baked-in default (see `OrbitApiSettings`); no extra configuration. A cold emulator is
+  booted by Visual Studio as part of deploying — pick the device once in Orbit.Maui's debug-target
+  dropdown and it sticks.
+- The Azure Postgres server's firewall allows Azure IPs only, so the azure modes additionally need a
+  firewall rule for your machine's public IP
+  (`az postgres flexible-server firewall-rule create -g Orbit --name <server> --rule-name <your-name> --start-ip-address <your-ip> --end-ip-address <your-ip>`)
+  — and remember [the local database honesty rule](#keeping-the-local-database-honest): the azure modes
+  point a development server at production data, so they are for reproducing production-shaped issues,
+  not for routine work.
+
+The `Orbit.slnLaunch.user` content: four entries, each starting
+`src\Server\Orbit.Api\Orbit.Api.csproj` (`DebugTarget` `http` for local, `http (Azure DB)` for azure)
+plus either `src\Clients\Orbit.Web\Orbit.Web.csproj` (`DebugTarget` `http`) or
+`src\Clients\Orbit.Maui\Orbit.Maui.csproj` (no `DebugTarget`, so the project's own device selection
+applies). Editing the same list through *Configure Startup Projects… > Launch Profiles* writes the
+identical file.
+
 ### Configuring SMTP for local development
 
 `dotnet run`/VS Code's debugger set `ASPNETCORE_ENVIRONMENT=Development` (see the launch profiles in

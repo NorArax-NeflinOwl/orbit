@@ -10,6 +10,16 @@
         "ASPNETCORE_ENVIRONMENT": "Development"
       }
     },
+    "http (Azure DB)": {
+      "commandName": "Project",
+      "dotnetRunMessages": true,
+      "launchBrowser": false,
+      "applicationUrl": "http://localhost:5080",
+      "environmentVariables": {
+        "ASPNETCORE_ENVIRONMENT": "Development",
+        "Database__ConnectionStringName": "OrbitAzure"
+      }
+    },
     "https": {
       "commandName": "Project",
       "dotnetRunMessages": true,

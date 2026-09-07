@@ -22,8 +22,11 @@ _to_delete/
 /src/Server/Orbit.Api/logs/
 /logs/
 
-# Per-developer IDE settings; not shared across the team.
+# Per-developer IDE settings; not shared across the team. The .slnLaunch.user file is Visual Studio's
+# multi-project launch profiles (the F5 modes) - see info/testing-and-running-locally.md for what to
+# put in it.
 *.csproj.user
+*.slnLaunch.user
 
 # Secrets and credentials - never commit these.
 .env
