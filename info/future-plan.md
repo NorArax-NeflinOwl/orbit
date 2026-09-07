@@ -780,9 +780,10 @@ matches and what does not. What that pass left:
   stamp does not touch `UpdatedAtUtc` - a value depending on who is asking must not make the row look
   changed, because that timestamp is what the phone syncs against.
 
-  **What is left, and it is the phone's:** the pin control for a shared item is still left out there
-  (`TaskListRow.CanBePinned`, `NoteListItem.CanBePinned`), from when the server refused a recipient
-  outright. The server takes it now, so putting the control back is a screen change and nothing else.
+  **The phone's half went in the same day.** Its pin control for a shared item had been left out
+  (`TaskListRow.CanBePinned`, `NoteListItem.CanBePinned`) while the server refused a recipient outright;
+  the rest of that path already existed and already went through the server, so lifting the gate was the
+  whole change. A sealed row nobody has unlocked still offers no pin, which is what the gate is left for.
 
 - ~~**A task list's own description is written and never shown.**~~ Done. It goes under the name on the
   list's own page (`TaskListChecklist`), which is where a storage's goes, so the two read the same way -

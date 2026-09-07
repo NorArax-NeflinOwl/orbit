@@ -66,11 +66,15 @@ public sealed record NoteListItem(
     public bool HasStatus => Status.Length > 0;
 
     /// <summary>
-    /// Whether this row offers a pin at all. Only the owner may pin - pinning moves a card on one
-    /// person's page, so a recipient pinning a note shared with them would be rearranging its owner's
-    /// list - and a hidden row offers nothing until it is unlocked.
+    /// Whether this row offers a pin at all. Every row does, except a hidden one, which offers nothing
+    /// until it is unlocked.
+    ///
+    /// A note shared with this reader used to be left out: pinning moves a card on one person's page, so
+    /// a recipient writing to the note's own flag would have rearranged its owner's list, and the server
+    /// refused them for exactly that reason. Their answer goes on their own grant now
+    /// (NoteShare.IsPinnedByRecipient), which is theirs to set and invisible to the owner.
     /// </summary>
-    public bool CanBePinned => !IsHidden && !IsSharedWithMe;
+    public bool CanBePinned => !IsHidden;
 
     /// <summary>A new note starts with one empty line, which is what the editor and the server expect.</summary>
     public static IReadOnlyList<NoteContentLineDto> EmptyContent => [new NoteContentLineDto(string.Empty, false, false)];

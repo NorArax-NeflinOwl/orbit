@@ -43,6 +43,29 @@ public sealed class PrivateNoteTests
         Assert.Equal("Shopping", row.DisplayTitle);
     }
 
+    /// <summary>
+    /// A note shared with this reader offers a pin like any other. It used to be left out, because the
+    /// server refused anybody but the owner - a recipient's answer goes on their own grant now
+    /// (NoteShare.IsPinnedByRecipient), so there is something for the control to write. The same change
+    /// on the task list side is TaskListRowTests.
+    /// </summary>
+    [Fact]
+    public void A_note_shared_with_this_reader_offers_a_pin_of_its_own()
+    {
+        var row = Describe(new LocalNote { Title = "Shopping", IsShared = true }, privateItemsAreUnlocked: true);
+
+        Assert.True(row.CanBePinned);
+    }
+
+    /// <summary>And a locked row still offers nothing at all, which is the one thing the gate is left for.</summary>
+    [Fact]
+    public void A_private_note_nobody_has_unlocked_offers_no_pin()
+    {
+        var row = Describe(new LocalNote { Title = "Bank details", IsPrivate = true }, privateItemsAreUnlocked: false);
+
+        Assert.False(row.CanBePinned);
+    }
+
     private static NoteListItem Describe(LocalNote note, bool privateItemsAreUnlocked)
         => NoteListItem.From(
             note, hasUnsentChanges: false, FixedNetworkStatus.Online, privateItemsAreUnlocked,

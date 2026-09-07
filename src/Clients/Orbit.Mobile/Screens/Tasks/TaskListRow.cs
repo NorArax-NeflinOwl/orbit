@@ -126,11 +126,15 @@ public sealed record TaskListRow(
     public bool HasBadges => !IsHidden;
 
     /// <summary>
-    /// Whether this row offers a pin at all - the same rule NoteListItem.CanBePinned follows. Only the
-    /// owner may pin, and the server refuses anybody else (SetTaskListPinnedCommandHandler), so a
-    /// recipient was left with a button that called the server, was turned down and said nothing.
+    /// Whether this row offers a pin at all - the same rule NoteListItem.CanBePinned follows. Every row
+    /// does, except a hidden one, which offers the lock instead.
+    ///
+    /// A list shared with this reader used to be left out, because the server refused anybody but the
+    /// owner and the button called it, was turned down and said nothing. It takes a recipient's answer
+    /// now and keeps it on their own grant (SetTaskListPinnedCommandHandler,
+    /// TaskListShare.IsPinnedByRecipient), so the control is theirs to use like any other.
     /// </summary>
-    public bool CanBePinned => !IsHidden && !IsSharedWithMe;
+    public bool CanBePinned => !IsHidden;
 
     /// <inheritdoc cref="HasBadges"/>
     public bool HasPriorityBadge => HasPriority && !IsHidden;

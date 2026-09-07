@@ -90,18 +90,18 @@ public sealed class TaskListRowTests
     }
 
     /// <summary>
-    /// Only the owner may pin, and the server turns anybody else down
-    /// (SetTaskListPinnedCommandHandler) - so the control has to be left out rather than offered and
-    /// refused. A recipient tapping it got no pin, no message and no reason. The same rule
-    /// NoteListItem.CanBePinned already followed.
+    /// A list shared with this reader offers a pin like any other. It used to be left out, because the
+    /// server refused anybody but the owner and the button called it, was turned down and said nothing.
+    /// A recipient's answer goes on their own grant now (TaskListShare.IsPinnedByRecipient), so there is
+    /// something for the control to write and it belongs back on the row.
     /// </summary>
     [Fact]
-    public void A_list_shared_with_this_reader_offers_no_pin()
+    public void A_list_shared_with_this_reader_offers_a_pin_of_its_own()
     {
         var theirs = List("Groceries", Open("Buy bread"));
         theirs.IsShared = true;
 
-        Assert.False(Show(theirs, [theirs]).CanBePinned);
+        Assert.True(Show(theirs, [theirs]).CanBePinned);
     }
 
     [Fact]

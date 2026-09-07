@@ -1100,9 +1100,11 @@ phone sorts straight by `IsPinned` and had no second answer to prefer, so a note
 had pinned arrived at the top of the recipient's list — the browser overrode that locally and the phone
 had nothing to override it with.
 
-The phone's pin control for a shared item is still left out (`TaskListRow.CanBePinned`, matching
-`NoteListItem.CanBePinned`), from when the server refused a recipient outright. The server takes it now,
-so putting the control back is a phone change and nothing else.
+**The phone offers the control too**, on the same rows and through the same endpoint
+(`TaskListRow.CanBePinned`, `NoteListItem.CanBePinned`). It was left out there while the server refused a
+recipient outright - the button called it, was turned down and said nothing - and came back the day the
+server started taking the answer. The one row that still offers no pin is a sealed one nobody has
+unlocked, which offers nothing at all until it is.
 
 ### Finding one entry among every list
 
