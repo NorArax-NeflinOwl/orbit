@@ -195,7 +195,9 @@ node ci/verify-diagrams.mjs
 ```
 
 No browser, unlike the two verifiers below - Mermaid's parser wants a DOM but not a renderer, and jsdom
-is enough. `.github/workflows/verify-diagrams.yml` runs it on merges to `main` that touch `info/uml/`;
+is enough. A machine with no node at all can still run it through Docker, and on a Windows checkout the
+CRLF line endings matter to it: both are written up in
+[info/uml/README.md](uml/README.md). `.github/workflows/verify-diagrams.yml` runs it on merges to `main` that touch `info/uml/`;
 see [info/uml/README.md](uml/README.md) for why that is a workflow of its own.
 
 ### The links between the documents

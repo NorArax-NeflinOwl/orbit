@@ -85,6 +85,23 @@ It parses every block in this folder and exits non-zero on the first that would 
 other two verifiers in `ci/` it needs **no browser** — Mermaid's parser wants a DOM but not a renderer,
 and jsdom is enough — so it costs seconds rather than a Chromium download.
 
+**No node on the machine?** Docker is enough, and this needs nothing installed:
+
+```bash
+docker run --rm -v "$PWD:/w:ro" node:22-alpine sh -c \
+  "cp -r /w/ci /w/info /app/ 2>/dev/null || (mkdir -p /app && cp -r /w/ci /app/ci && cp -r /w/info /app/info); \
+   cd /app && npm install --no-save mermaid@11 jsdom >/dev/null 2>&1 && node ci/verify-diagrams.mjs info/uml"
+```
+
+The repository is mounted **read-only** and the work happens on a copy inside the container, so nothing
+is installed and no `node_modules` is left behind. On Windows, pass the path as
+`-v "E:\path\to\worktree:/w:ro"` rather than `$PWD`.
+
+**The fences are matched with `\r?\n` for a reason.** A checkout on Windows has CRLF, and without that
+the extraction matched *nothing* — every diagram silently unread, on the platform where somebody is
+most likely to be running this by hand rather than in CI. The "no diagrams found" guard is what turned
+that into a message instead of a green run; it had been telling the reader to check the path.
+
 `.github/workflows/verify-diagrams.yml` runs it on every merge to `main` that touches `info/uml/`. It
 is a workflow of its own rather than a step in the suite for two reasons: `main_orbit.yml` ignores
 `info/**` and `**/*.md`, so it would never run on a diagram-only change — exactly the change most
