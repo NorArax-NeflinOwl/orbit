@@ -26,7 +26,7 @@ public sealed class SharesApiClient
     public async Task<ShareOfferDto?> GetOfferAsync(
         SharedItemKind kind, Guid shareId, CancellationToken cancellationToken = default)
     {
-        var response = await _httpClient.GetAsync($"api/shares/{PathFor(kind)}/{shareId}", cancellationToken);
+        var response = await _httpClient.GetAsync($"api/shares/{SharedItemPath.For(kind)}/{shareId}", cancellationToken);
         if (response.StatusCode == HttpStatusCode.NotFound)
         {
             return null;
@@ -35,14 +35,4 @@ public sealed class SharesApiClient
         response.EnsureSuccessStatusCode();
         return await response.Content.ReadFromJsonAsync<ShareOfferDto>(cancellationToken: cancellationToken);
     }
-
-    /// <summary>The names the notification's own path uses - see SharedItemInvitation, which reads them back.</summary>
-    private static string PathFor(SharedItemKind kind) => kind switch
-    {
-        SharedItemKind.Note => "note",
-        SharedItemKind.TaskList => "tasklist",
-        SharedItemKind.CalendarEvent => "event",
-        SharedItemKind.Inventory => "inventory",
-        _ => "location"
-    };
 }

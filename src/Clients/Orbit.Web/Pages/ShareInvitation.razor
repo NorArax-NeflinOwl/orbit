@@ -98,7 +98,7 @@
     protected override async Task OnParametersSetAsync()
     {
         _isLoading = true;
-        _kind = SharedItemInvitation.KindOf(Kind);
+        _kind = SharedItemPath.KindOf(Kind);
         if (_kind is not { } kind)
         {
             _isLoading = false;

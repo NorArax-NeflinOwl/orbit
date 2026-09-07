@@ -27,7 +27,7 @@ public static class ShareOfferEndpoints
         offers.MapGet("/{kind}/{shareId:guid}", async (
             string kind, Guid shareId, ClaimsPrincipal user, IDispatcher dispatcher, CancellationToken cancellationToken) =>
         {
-            if (KindOf(kind) is not { } sharedItemKind)
+            if (SharedItemPath.KindOf(kind) is not { } sharedItemKind)
             {
                 // A kind this build does not know, which is a client newer than the server - answered
                 // as "no such offer" rather than as a bad request: the reader is not at fault and the
@@ -43,20 +43,6 @@ public static class ShareOfferEndpoints
                 : Results.Ok(new ShareOfferDto(offer.ItemId, offer.ItemTitle, offer.IsAccepted));
         });
     }
-
-    /// <summary>
-    /// The names SharedItemNotifier writes into a notification's path. Stable: they sit in rows already
-    /// written and in paths already handed to a phone, so renaming one orphans every invitation that
-    /// carried it.
-    /// </summary>
-    private static SharedItemKind? KindOf(string kind) => kind.ToLowerInvariant() switch
-    {
-        "note" => SharedItemKind.Note,
-        "tasklist" => SharedItemKind.TaskList,
-        "event" => SharedItemKind.CalendarEvent,
-        "inventory" => SharedItemKind.Inventory,
-        _ => null
-    };
 
     private static Guid GetUserId(ClaimsPrincipal user)
     {

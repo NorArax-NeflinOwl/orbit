@@ -3,25 +3,12 @@ using Orbit.Core.Notifications;
 namespace Orbit.Web.Services;
 
 /// <summary>
-/// What kind of thing an invitation is about, read off its own address. The names are the ones
-/// SharedItemNotifier writes into a notification's path, and they are stable: rows already written and
-/// paths already handed to a phone carry them, so renaming one orphans every invitation that used it.
-///
-/// Its own class rather than a switch on the page: the same four names decide which endpoint answers,
-/// which one accepts, and where the reader goes afterwards, and those are one fact rather than three.
+/// Where an invitation's thing is read once it is the reader's. The kind itself is read off the address
+/// by SharedItemPath, which both clients and the server share; this is the web's own half - the routes
+/// each kind lives at, which only this client knows.
 /// </summary>
 public static class SharedItemInvitation
 {
-    /// <summary>The kind that path segment names, or null for anything this build does not know.</summary>
-    public static SharedItemKind? KindOf(string? path) => path?.ToLowerInvariant() switch
-    {
-        "note" => SharedItemKind.Note,
-        "tasklist" => SharedItemKind.TaskList,
-        "event" => SharedItemKind.CalendarEvent,
-        "inventory" => SharedItemKind.Inventory,
-        _ => null
-    };
-
     /// <summary>Where the thing is read once it is the reader's - and where accepting leads.</summary>
     public static string SectionFor(SharedItemKind kind) => kind switch
     {

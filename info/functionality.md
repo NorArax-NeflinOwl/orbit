@@ -2477,6 +2477,13 @@ share, for one, drags the lists it gathers along with it. Something deleted betw
 reading of it comes back with an empty name and the offer still standing, so the page falls back to
 saying what kind of thing it was.
 
+**Accepting in the conversation settles the same notification.** The offer can be taken up in either
+place, and the notification names the invitation page - so the conversation's own Accept settles that
+address explicitly (`NewsSettler`), or the bell would keep an entry for something already answered. What
+each kind is called inside those addresses lives in one place, `SharedItemPath`, which the notifier, the
+endpoint, the page, the client and the conversation all read: five copies of one mapping is how three of
+them come to disagree.
+
 Three states, and the page says which: waiting, already taken up (with the way in), and no longer there.
 The last covers a withdrawn offer and one that was never this reader's, which the server deliberately
 does not tell apart - answering differently would say whether a share id exists.

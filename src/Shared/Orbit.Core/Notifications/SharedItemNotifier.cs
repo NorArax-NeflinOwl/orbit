@@ -139,24 +139,10 @@ public sealed class SharedItemNotifier : ISharedItemNotifier
     /// </summary>
     private static string UrlFor(SharedItemKind kind, Guid sharerUserId, SharedItemLink link)
         => link.PendingShareId is { } shareId
-            ? $"/invitation/{PathFor(kind)}/{shareId}/{sharerUserId}"
+            ? $"/invitation/{SharedItemPath.For(kind)}/{shareId}/{sharerUserId}"
             : link.ItemId is { } itemId
                 ? $"{SectionFor(kind)}/{itemId}"
                 : "/map";
-
-    /// <summary>
-    /// What each kind is called in a path. Lower case and stable: these strings are in notification rows
-    /// already written and in paths already handed to a phone, so renaming one orphans them - the same
-    /// rule SharedItemType follows (see OL_PS_ITEMTYPE).
-    /// </summary>
-    private static string PathFor(SharedItemKind kind) => kind switch
-    {
-        SharedItemKind.Note => "note",
-        SharedItemKind.TaskList => "tasklist",
-        SharedItemKind.CalendarEvent => "event",
-        SharedItemKind.Inventory => "inventory",
-        _ => "location"
-    };
 
     /// <summary>Where one of these is read once it is the recipient's - the client's own routes.</summary>
     private static string SectionFor(SharedItemKind kind) => kind switch
