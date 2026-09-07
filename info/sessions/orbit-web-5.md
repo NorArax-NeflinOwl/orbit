@@ -79,12 +79,26 @@ the merged diff, not by anything failing.
 ## Still failing / unknown
 
 - **Nothing was checked in a signed-in browser or on a device**, for anything this session did. Every
-  page it touched is behind a login. The private-list defect in particular cannot be reproduced here at
-  all: it needs a signed-in account with a key.
-- **`ci/verify-diagrams.mjs` has never been run on this machine — there is no `node` installed.**
-  `info/uml/database.md` gained one attribute line in an existing `erDiagram` (written to the shape of
-  the lines around it, and with the one apostrophe removed deliberately so nothing needs escaping), but
-  it is unverified. Worth running from a machine that has node.
+  page it touched is behind a login. The private-list defect in particular cannot be reproduced without
+  a signed-in account holding a key.
+
+  Two independent things block an agent from closing this, and both were hit on 2026-09-07 rather than
+  assumed. Signing in or creating an account is not something this assistant does - that is the user's
+  to type, whoever asks. And **the browser pane refuses to navigate to `localhost` at all**: every form
+  of it (`https://localhost:8443`, `http://localhost:8080`, `https://127.0.0.1:8443`) comes back
+  "denied or failed" while the pane itself is open. So even a screen needing no login cannot be looked
+  at from here.
+
+  What *can* be done from here, and was: the stack was rebuilt from this worktree and started, and the
+  whole chain answered - `https://localhost:8443/health` returns the API's own JSON through nginx's
+  exact-match `= /health` location, which is rule 10's "a working request" for the proxy. The app shell
+  serves 200. Everything past that is client-side routing, so `curl` cannot tell one page from another.
+- ~~**`ci/verify-diagrams.mjs` has never been run on this machine.**~~ Run on 2026-09-07 - **16
+  diagrams, 0 failed**, the first time from this machine - and it found a defect in itself on the way:
+  the fences were matched with `` ```mermaid\n ``, a Windows checkout has CRLF, so it read *nothing*.
+  Its own "no diagrams found" guard is what turned that into a message rather than a green run. Fixed
+  with `\r?`, and the Docker recipe for a machine with no node is in
+  [info/uml/README.md](../uml/README.md).
 - `OnChatAnnounced` is uncovered and unreachable from a test: `LiveUpdatesConnection` raises its events
   from inside itself, so the live-connection half of the chat poll's pace (`ConnectedPollInterval`) is
   reasoned about rather than driven.
@@ -126,7 +140,15 @@ over twice.
   postgres` fails, that role does not exist).
 - `dotnet ef migrations add` and `database update` both work from this worktree; the
   `HostAbortedException` they finish with is normal.
-- **There is no `node` on this machine**, so `ci/verify-diagrams.mjs` and the two browser verifiers
-  cannot be run here.
+- **There is no `node` on this machine**, but Docker is enough for `ci/verify-diagrams.mjs` - see
+  [info/uml/README.md](../uml/README.md) for the one-liner, which installs nothing and leaves nothing
+  behind. The two *browser* verifiers still need a real node with Playwright.
+- **The local stack runs from this worktree** like this, and was left running on 2026-09-07:
+  `docker compose -p orbit -f <worktree>/docker-compose.yml --env-file E:\Git\orbit\.env up -d --build
+  postgres orbit-api orbit-web`. The `-p orbit` and the main checkout's `.env` are both required, and
+  building from the worktree's own compose file is what makes the image carry *this branch's* code
+  rather than the main checkout's. It answers on **https://localhost:8443** with a self-signed
+  certificate; 8080 is plain HTTP and redirects there.
+- `docker ps` prints nothing through the Bash tool here but works through PowerShell.
 - Line endings are CRLF here: a `perl -0pi -e` substitution written with `\n` silently matches nothing.
   Several edits looked applied and were not. Use the Edit tool, or `sed` line by line.
