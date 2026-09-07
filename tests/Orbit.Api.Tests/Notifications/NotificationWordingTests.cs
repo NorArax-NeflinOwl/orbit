@@ -45,7 +45,8 @@ public sealed class NotificationWordingTests
             EventReminderPushContent.Build(details, Guid.NewGuid(), 15),
             ChatGroupInvitationPushContent.Build(Guid.NewGuid(), "Weekend trip", "Bea"),
             InventoryExpiryPushContent.Build(new DueExpiryReminder(
-                Guid.NewGuid(), Guid.NewGuid(), "Milk", DateTimeOffset.UtcNow, NotificationChannel.Push)),
+                Guid.NewGuid(), InventoryId: Guid.NewGuid(), Guid.NewGuid(), "Milk", DateTimeOffset.UtcNow,
+                NotificationChannel.Push)),
             DailyTaskReminderPushContent.Build(new DueDailyTaskReminder(
                 Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), "Groceries", "Buy milk", null,
                 NotificationChannel.Push, DateOnly.FromDateTime(DateTime.UtcNow))),

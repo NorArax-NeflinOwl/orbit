@@ -153,6 +153,10 @@ public sealed class NotificationOpeningTests
     [Theory]
     [InlineData("/calendar/00000000-0000-0000-0000-000000000001", "ShowCalendar")]
     [InlineData("/inventory", "ShowInventory")]
+    // An expiry warning names the storage it is on now. The phone opens a storage by its *local* id,
+    // which this is not, so it lands on the list of them - which is where it landed before the path
+    // said which one, and better than a tap that goes nowhere.
+    [InlineData("/inventory/00000000-0000-0000-0000-000000000002", "ShowInventory")]
     [InlineData("/map", "ShowMap")]
     public async Task The_destinations_that_need_nothing_looked_up_open_straight_away(string url, string expected)
     {

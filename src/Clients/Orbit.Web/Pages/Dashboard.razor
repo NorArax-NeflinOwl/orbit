@@ -214,8 +214,9 @@ else
            inventory carries neither - so it has no filter menu, like the locations card below. *@
         @if (_inventories.Count > 0 && CardPreferences.IsVisible("inventories"))
         {
-            @* The card, not a row: something about to go off says "/inventory" and names no storage
-               (InventoryExpiryPushContent), so there is nothing here that could say which shelf. *@
+            @* The row as well as the card: something about to go off names the storage it is on now
+               (InventoryExpiryPushContent), so this says which shelf rather than leaving the reader to
+               open all of them. *@
             <ItemCard Name="@(T["Inventory"])" OnNameSelected='() => NavigationManager.NavigateTo("/inventory")'
                       HasUnseenAction="@NotificationFeed.HasNewsAbout("/inventory")"
                       ExtraClass="@(DashboardPins.IsPinned("inventories") ? "item-card-pinned" : null)">
@@ -228,7 +229,8 @@ else
                 <Body>
                 @foreach (var inventory in _inventories)
                 {
-                    <Row Title="@inventory.Name" OnPressed="() => GoToInventory(inventory.Id)">
+                    <Row Title="@inventory.Name" OnPressed="() => GoToInventory(inventory.Id)"
+                         AdditionalClass="@RowClasses(null, HasNewsAbout(inventory.Id, "/inventory"))">
                         <Trailing>
                             @if (inventory.IsPrivate)
                             {

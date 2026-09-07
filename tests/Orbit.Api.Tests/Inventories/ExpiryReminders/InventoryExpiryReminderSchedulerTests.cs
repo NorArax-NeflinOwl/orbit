@@ -61,5 +61,5 @@ public sealed class InventoryExpiryReminderSchedulerTests
     }
 
     private static DueExpiryReminder CreateCandidate(DateTimeOffset expiryDate)
-        => new(Guid.NewGuid(), Guid.NewGuid(), "Milk", expiryDate, NotificationChannel.Push);
+        => new(Guid.NewGuid(), InventoryId: Guid.NewGuid(), Guid.NewGuid(), "Milk", expiryDate, NotificationChannel.Push);
 }

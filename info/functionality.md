@@ -2495,7 +2495,7 @@ address names, not on the card:
 | Groups | the row | `/chat/groups/{group}` - an invitation names the group |
 | Upcoming | the row | `/calendar/{event}` for an appointment, `/tasks/{list}` for a deadline |
 | Recent chats | the row | the unread count the chat list already carries |
-| Inventory | the card only | `/inventory` - something about to go off names no storage |
+| Inventory | the row | `/inventory/{storage}` - something about to go off names the storage it is on |
 | Shared with you | the card only | `/map` - a shared position names nobody |
 | Notes | nothing | no notification points at a note at all today |
 
@@ -2503,6 +2503,13 @@ An appointment a task list made has **two** addresses: the row opens it as the e
 the reminder for it is the event's. Both are asked (`UpcomingEntry.NewsUrl`), because reading only the
 destination would leave exactly those rows unmarked. Where a card can only say "here", marking a row
 would mean picking one at random, which is worse than saying less.
+
+**The storage list says it too.** `/inventory` marks the card of the storage a warning is about
+(`Inventories.HasNewsAbout`). That warning named only the section until 2026-09-07 - so every page that
+read it could say something was about to go off and none of them could say where - and it names the
+storage now (`InventoryExpiryPushContent`). The phone reads the same path and still opens its list of
+storages, which is where it landed before: it opens one by its own local id, which a server id is not
+(`NotificationDestination`, `NotificationOpener`).
 
 **The calendar's own list says it too.** Every card on `/calendar` - appointments and deadlines alike -
 carries the same red edge when the bell is talking about it (`Calendar.HasNewsAbout`). Without it the
