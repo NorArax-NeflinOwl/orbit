@@ -1,0 +1,31 @@
+@using Orbit.Core.Advertising
+@using Orbit.Web.Services
+@inject Translations T
+
+@* The one advert that interrupts. Shown once a visit and only to accounts without the Debugger
+   permission - see MainLayout, which decides that; this only draws it. Everything about it is Orbit's
+   own, like the slots beside the page. *@
+@if (Advert is { } advert)
+{
+    <Dialog Title="@(T[advert.Title])" OnClosed="OnClosed" AdditionalClass="ad-dialog">
+        <ChildContent>
+            <span class="ad-mark">@T["Ad"]</span>
+            <p class="ad-body">@T[advert.Body]</p>
+        </ChildContent>
+        <Footer>
+            @* The way out first, and named for what it does. An advert nobody can leave is the thing
+               everybody hates about them, so the plain way out is a real button rather than a cross
+               hidden in a corner - the cross and Escape both work too, as on every other dialog. *@
+            <button type="button" class="btn-secondary" @onclick="OnClosed">@T["No thanks"]</button>
+            <a class="btn-primary" href="@advert.Url" @onclick="OnClosed">@T[advert.ActionLabel]</a>
+        </Footer>
+    </Dialog>
+}
+
+@code {
+    [Parameter] public int Slot { get; set; }
+
+    [Parameter] public EventCallback OnClosed { get; set; }
+
+    private HouseAd? Advert => HouseAds.ForSlot(Slot);
+}

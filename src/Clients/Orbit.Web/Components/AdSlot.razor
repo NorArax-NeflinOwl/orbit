@@ -1,0 +1,42 @@
+@using Orbit.Core.Advertising
+@using Orbit.Web.Services
+@inject Translations T
+
+@* Where Orbit advertises itself. Two of them, drawn from one component and told apart by the window's
+   own width rather than by asking JavaScript how wide it is: a rail down the right on a screen with
+   room beside the page, and a bar across the foot of a narrow one, which is where a phone expects it.
+   Exactly one is ever visible - see .ad-rail and .ad-banner in app.css.
+
+   What they show is Orbit's own (see HouseAds): nothing is fetched from anywhere else, so a slot costs
+   no third-party request and tells nobody that this reader was here. *@
+@if (Advert is { } advert)
+{
+    <aside class="ad-rail" aria-label="@(T["Advertisement"])">
+        <div class="ad-card">
+            <span class="ad-mark">@T["Ad"]</span>
+            <strong class="ad-title">@T[advert.Title]</strong>
+            <p class="ad-body">@T[advert.Body]</p>
+            <a class="btn-secondary ad-action" href="@advert.Url">@T[advert.ActionLabel]</a>
+        </div>
+    </aside>
+
+    <div class="ad-banner" role="complementary" aria-label="@(T["Advertisement"])">
+        <span class="ad-mark">@T["Ad"]</span>
+        <span class="ad-banner-text">
+            <strong class="ad-title">@T[advert.Title]</strong>
+            <span class="ad-body">@T[advert.Body]</span>
+        </span>
+        <a class="btn-secondary ad-action" href="@advert.Url">@T[advert.ActionLabel]</a>
+    </div>
+}
+
+@code {
+    /// <summary>
+    /// Which of the adverts to show. A number the caller keeps rather than a draw made here, so the
+    /// same page rendered twice shows the same thing - a slot that picked at random would change every
+    /// time anything at all on the page re-rendered.
+    /// </summary>
+    [Parameter] public int Slot { get; set; }
+
+    private HouseAd? Advert => HouseAds.ForSlot(Slot);
+}

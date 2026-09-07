@@ -189,6 +189,39 @@ same thing on the wire, in the database and in a log line. It sorts the task lis
 a badge, and is what the dashboard's per-card filter reads. Rows written before the column existed read
 as `Normal`, so nothing has to be revisited.
 
+## Advertising
+
+Orbit advertises **itself**, in three places:
+
+- a **rail down the right** of a browser window wide enough to have room beside the page (≥1200px);
+- a **bar across the foot** of a narrower one, and of every main screen in the Android app;
+- one **dialog**, shown once a visit.
+
+What they show comes from `Orbit.Core.Advertising.HouseAds` - Orbit's own pages, written in English
+there and translated like every other string. Every advert leads to a path on this Orbit, never to
+another site, and **nothing is fetched from a third party**. That is deliberate rather than a stage on
+the way to a real network: Orbit already asks before it allows the single outside request it makes (the
+map's tiles, withheld from a reader who has said not to share their information), and an advertising
+network is that decision several times over - somebody else's script, running in the reader's browser,
+told who they are by being there at all. Putting one behind these slots is its own piece of work, with
+its own consent question, an account somebody has to open and keys to keep; see
+[Future Plan](future-plan.md). What exists now is the slot, the frame, and the rule about who sees what.
+
+**Every slot says "Ad".** A house advert that read as Orbit talking would be the one kind worth
+objecting to.
+
+**The dialog is the only one that interrupts, and it is not shown to an account holding the Debugger
+permission** (`AdInterruption`). Whoever holds that is looking at Orbit's own internals, which means
+they are working on Orbit rather than reading it. It is shown once a visit; the rail and the bar are
+shown to everybody and simply sit there.
+
+Which advert a visit shows is picked once, from a number the layout keeps (`HouseAds.ForSlot`), so it
+cannot change under the reader's eye as pages re-render. The Android bar shows only adverts worth
+showing inside the app (`HouseAd.ShowsOnAPhone`) - "get Orbit on your phone", read on a phone that
+already has it, is the one advert that makes its reader trust the rest of them less - and it is not
+tappable: the adverts point at pages the app does not have, and the app is told the API's address but
+never the web client's.
+
 ## Folders
 
 Every page made of cards - the dashboard, the notes and the task lists - is read under a **row of

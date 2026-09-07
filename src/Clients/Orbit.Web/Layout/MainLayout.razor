@@ -229,6 +229,10 @@
             </header>
     }
 
+    @* The page and the advertising rail beside it, as one row - which is the only reason this wrapper
+       exists. The rail is only ever drawn on a window wide enough to have room next to the page; on a
+       narrow one the same component draws a bar across the foot instead. See AdSlot. *@
+    <div class="app-body">
     <main class="main-content" @onclick="CloseAvatarMenu">
         @* The page in a box of its own, so the footer under it can be given the height nobody else
            wanted - see .main-content-page. *@
@@ -296,6 +300,21 @@
             <DoNotShareDialog OnClosed="() => _isDoNotShareOpen = false" />
         }
     </main>
+
+    @if (_isAuthenticated)
+    {
+        <AdSlot Slot="_adSlot" />
+    }
+    </div>
+
+    @* Once a visit, and never for an account holding the Debugger permission: whoever is looking at
+       Orbit's own internals is working on it rather than reading it, and an advert over the top of that
+       is an interruption with nothing to offer. Everybody else sees it once and then not again until
+       they come back - see _hasShownTheInterruption. *@
+    @if (_isAdDialogOpen)
+    {
+        <AdDialog Slot="_adSlot" OnClosed="CloseTheAdDialog" />
+    }
 </div>
 
 @code {
@@ -318,6 +337,36 @@
             Logger.LogWarning(exception, "Couldn't mirror the privacy choice into this browser");
         }
     }
+
+    /// <summary>
+    /// Which advert the slots beside the page and the one that interrupts are showing. Drawn once when
+    /// the app loads rather than per render, so a slot does not change under somebody's eye every time
+    /// anything on the page re-renders - and differs between visits, which is the whole point of having
+    /// more than one. See HouseAds.ForSlot.
+    /// </summary>
+    private readonly int _adSlot = Random.Shared.Next();
+
+    /// <summary>
+    /// The interrupting advert, and whether this visit has had it. Once, because an advert that comes
+    /// back on every navigation is the thing that makes people leave - and never at all for an account
+    /// holding the Debugger permission, which is the one that says somebody is working on Orbit rather
+    /// than using it.
+    /// </summary>
+    private bool _isAdDialogOpen;
+    private bool _hasShownTheInterruption;
+
+    private void ShowTheAdvertOnceThisVisit()
+    {
+        if (!AdInterruption.ShouldShow(Permissions, _hasShownTheInterruption))
+        {
+            return;
+        }
+
+        _hasShownTheInterruption = true;
+        _isAdDialogOpen = true;
+    }
+
+    private void CloseTheAdDialog() => _isAdDialogOpen = false;
 
     /// <summary>Which of the footer's dialogs is open, if any - see AboutDialog, ManageCookiesDialog and DoNotShareDialog.</summary>
     private bool _isAboutOpen;
@@ -633,6 +682,7 @@
 
         await Presence.StartAsync();
         await Permissions.RefreshAsync();
+        ShowTheAdvertOnceThisVisit();
         await MirrorThePrivacyChoiceAsync();
         // Forgotten now that there is somebody to ask as: how much of its version the server answers
         // with depends on what this account may see (see ConfigEndpoints), so the answer cached while

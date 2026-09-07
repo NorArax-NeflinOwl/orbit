@@ -100,6 +100,34 @@ from everywhere they get typed. What this pass found and did **not** fix is in
   load). A small hosted model in Azure AI Foundry costs cents a month at this size. Ollama stays, for
   local development only.
 
+## What a real advertising network would take
+
+The slots exist and are filled by Orbit itself - see [Advertising](functionality.md#advertising). Putting
+somebody else's adverts in them is a bigger decision than swapping the source, and these are the parts
+of it:
+
+- **Consent, first.** Orbit withholds the map's tiles from a reader who has said not to share their
+  information (`mapTiles.js`), and that is one request to one host that is told nothing but a tile
+  coordinate. An advertising script is told who is looking, from where, and on which page, and it runs
+  in the reader's browser. It belongs behind the same gate at least, which means `DoNotShareDialog` and
+  the account-level flag behind it grow a third answer, and a slot that draws nothing when the answer is
+  no - not a slot that quietly draws a house advert instead, which would make the two indistinguishable.
+- **A content security policy.** Orbit serves its own scripts and nothing else today. Loading one from a
+  network means naming that host in nginx's CSP (`nginx-app-locations.conf`), and every host it in turn
+  loads from - which for most networks is a list nobody can enumerate in advance.
+- **An account, and keys.** A publisher id is configuration, so it follows the rule every secret here
+  follows: an environment variable or a Container Apps secret, never a tracked file, and
+  `.env.example` updated with it.
+- **The phone is a separate integration.** The web's script does nothing in a MAUI app; that is a
+  platform SDK, an Android permission review and a second account.
+- **What the slots would then be worth measuring.** Nothing here counts an impression or a press. That
+  is fine while Orbit is advertising itself, and it is the first thing a network asks for.
+
+Two smaller things are owed even without a network: the Android bar is **not tappable** (the adverts
+point at web pages the app does not have, and the app is told the API's address but never the web
+client's - see `OrbitApiSettings`), and there is **no interrupting advert on the phone** at all, only
+the bar.
+
 ## What real Google Calendar sync would take
 
 **Waiting on infrastructure, deliberately, as of 2 September 2026.** Google's review of a sensitive scope

@@ -726,6 +726,26 @@ public static class PolishTranslations
         ["Without one it is in Public, or in Private when it is sealed. A list with everything ticked off moves to Finished on its own."] =
             "Bez folderu trafia do Publicznych, a jeśli jest zaszyfrowane - do Prywatnych. Lista z odhaczonymi wszystkimi pozycjami sama trafia do Ukończonych.",
 
+        // ---- Advertising ----
+        // The slots beside the page and the one that interrupts - see Orbit.Core.Advertising.HouseAds.
+        // The adverts themselves are written in English there and translated by their key, like every
+        // other string in Orbit.
+        ["Ad"] = "Reklama",
+        ["Advertisement"] = "Reklama",
+        ["No thanks"] = "Nie, dziękuję",
+        // "Orbit on your phone" and "Get the app" are already translated for the download page, and one
+        // English string has one Polish one - see PolishTranslationsTests.
+        ["The same notes, lists and calendar, offline and in your pocket."] =
+            "Te same notatki, listy i kalendarz — offline i w kieszeni.",
+        ["Everything Orbit can do"] = "Wszystko, co potrafi Orbit",
+        ["The parts you have not unlocked yet, and what each of them is for."] =
+            "Części, których jeszcze nie odblokowałeś, i do czego każda służy.",
+        ["Read the docs"] = "Przeczytaj dokumentację",
+        ["Nothing here is read by anybody else"] = "Nikt inny tego nie czyta",
+        ["What Orbit keeps, what it sends, and what it seals so even the server cannot open it."] =
+            "Co Orbit przechowuje, co wysyła i co szyfruje tak, że nawet serwer tego nie otworzy.",
+        ["How that works"] = "Jak to działa",
+
         // ---- Options ----
         ["Appearance"] = "Wygląd",
         ["Accent colour"] = "Kolor wiodący",

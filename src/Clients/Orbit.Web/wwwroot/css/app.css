@@ -435,6 +435,116 @@ input.note-editor-title {
     min-height: 100vh;
 }
 
+/* The page and the advertising rail beside it, as one row - see MainLayout. Only a wrapper: the page
+   keeps its own centring and its own cap, and on a window too narrow for a rail there is nothing beside
+   it and this behaves exactly as the page did on its own. */
+.app-body {
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+    flex: 1 0 auto;
+    width: 100%;
+    min-width: 0;
+}
+
+/* Down the right of a window with room for it. Sticky rather than scrolling away, because a slot that
+   is only there at the top of a long page is a slot nobody sees - and hidden entirely below the width
+   where the page itself would have to give up room for it, where the bar at the foot takes over. */
+.ad-rail {
+    display: none;
+    position: sticky;
+    top: 76px;
+    flex: 0 0 200px;
+    width: 200px;
+    margin: 24px 16px 0 0;
+}
+
+@media (min-width: 1200px) {
+    .ad-rail {
+        display: block;
+    }
+}
+
+/* Across the foot of a narrow window, where a phone expects one. Fixed, so it stays while the page
+   scrolls; the page is given the height back as padding below, so nothing ends up underneath it. */
+.ad-banner {
+    display: none;
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 40;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 12px;
+    background: var(--bg-elevated);
+    border-top: 1px solid var(--border);
+}
+
+@media (max-width: 1199px) {
+    .ad-banner {
+        display: flex;
+    }
+}
+
+.ad-card {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 6px;
+    padding: 14px;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    background: var(--bg-elevated);
+}
+
+/* Said out loud, on every slot: a reader is entitled to know which part of a page is an advert, and a
+   house advert that looked like Orbit talking would be the one kind worth objecting to. */
+.ad-mark {
+    display: inline-block;
+    padding: 1px 6px;
+    border-radius: 999px;
+    background: var(--bg-subtle);
+    color: var(--text-tertiary);
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+}
+
+.ad-title {
+    font-family: var(--font-display);
+    font-size: 13.5px;
+    color: var(--text-primary);
+}
+
+.ad-body {
+    margin: 0;
+    font-size: 12.5px;
+    color: var(--text-secondary);
+}
+
+.ad-action {
+    text-decoration: none;
+    white-space: nowrap;
+}
+
+/* The bar's own middle, which is the part that has to give way first on a narrow phone: the mark and
+   the way in are fixed, the words shrink. */
+.ad-banner-text {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    flex: 1 1 auto;
+}
+
+.ad-banner-text .ad-title,
+.ad-banner-text .ad-body {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
 /* Every page's content sits inside this, and it needs room on both sides: with only the narrow-screen
    rule below, a wide window drew cards flush against the glass on the left and the right. The width is
    capped as well - a dashboard stretched across a very wide monitor puts its three columns so far
@@ -464,6 +574,15 @@ input.note-editor-title {
     /* Air between the last thing on the page and the footer's hairline, which the footer itself can no
        longer hold as a margin. */
     padding-bottom: 40px;
+}
+
+/* Room for the bar across the foot, so the last thing on the page and the footer's own row are both
+   reachable rather than sitting under it. After .main-content's own padding, which it overrides - a
+   media query does not win on its own. */
+@media (max-width: 1199px) {
+    .main-content {
+        padding-bottom: 96px;
+    }
 }
 
 /* Except the map, which is the one page whose content is the width it is given - see MapPage.razor,
