@@ -579,14 +579,22 @@ matches and what does not. What that pass left:
   card narrowed to nothing vanished and took its own filter menu with it, so the choice could not be
   undone (the bug Orbit.Web had already fixed), and the coloured dot beside an event had never once
   been drawn - see `android-ui-parity.md` for why.
-- **The dashboard's rows carry no avatar, and there is no Inventory card.** Both are Orbit.Web's and
-  both are what the phone's dashboard still owes it. The avatars are the smaller half: an initials
-  circle before every name on Groups, Recent chats and Shared with you, plus the unread badge and the
-  presence dot on the first of those - the rows are `Row`s now, so the `Leading` slot is there, and
-  `PersonRow` already knows how to draw the circle. The Inventory card is a card that does not exist:
-  `DashboardCardKind` has no value for it, so it wants a row builder, a destination and a place in the
-  parts menu, and the shelves are exactly what a phone standing in a shop wants beside the lists that
-  feed them.
+- ~~**The dashboard's rows carry no avatar, and there is no Inventory card.**~~ Done on 2026-09-07.
+  The circle came out of `PersonRow` into `Controls/AvatarCircle.xaml` on the way, so the chat list,
+  the contact list and the dashboard draw one avatar rather than three - and the presence dot moved to
+  the top-right edge, which is where app.css has always put it. `DashboardCardKind.Inventories` sits
+  between what is coming up and who is around, as Orbit.Web orders them; a shelf says how much is on it
+  and whether it is private or shared, a private one is hidden while private things are locked, and the
+  card carries the news because a shelf about to go off names no shelf. Two smaller things came with
+  it: putting every part away now says so instead of telling a full account to add a note, and pressing
+  a shelf opens that shelf.
+- **A conversation still shows no count of what is waiting.** The one part of Orbit.Web's avatar the
+  phone does not draw, and it is missing for want of a number rather than a control: `UnreadBadge`
+  reads a per-conversation unread count, `LocalContact` has none, and nothing on the device derives one
+  - `LocalChatMessage.IsReadByEveryone` is about messages this reader *sent*. What it would take is a
+  read mark per conversation that survives a restart, which is a chat feature rather than a look, and
+  the phone already says the smaller thing in the row's own mark: something unread points at that
+  person.
 - **`ContactsPage.xaml` declares a `PresenceColor` converter it never uses.** One dead line, noticed
   while chasing the event dot; harmless, and it is here rather than done because the Contacts screen
   was not otherwise being touched.

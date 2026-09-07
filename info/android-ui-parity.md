@@ -41,6 +41,7 @@ Every number below is app.css's own. The phone reads them from
 | `.item-card-list` | the cards' own `Margin="0,5"` | a 10 gap between cards |
 | `.list-row` | `Controls/Row.xaml` | title 13.5, meta 12, a hairline under it |
 | `.list-row.row-unseen` | `Row.HasNews` | the danger colour as a hairline around one row over a 7% wash of it, and no pulse of its own |
+| `.avatar` / `.avatar-sm` | `Controls/AvatarCircle.xaml` | initials on the person's own hue, 36 in a list and 26 on a dashboard row, with `.presence-dot` on its top-right edge |
 | `.today-strip` | the strip at the head of the dashboard | the whole of it is the way to the calendar, and the chat-request line is left out at nought |
 | `CardFilterMenu.razor` | `DashboardPage.ShowCardFilter` | what one dashboard card is narrowed to, under the heading "Show" |
 | `.card` | `CardBorder` | radius 14, padding 18 |
@@ -155,16 +156,16 @@ not drawn. What those rules signalled is said by shape instead, which the phone 
 - **The chat screens were not walked on a device.** The emulator account has not unlocked Contacts, so
   the navigation bar draws no way into them. They build and their view models are covered; the bubbles
   and the menus want a walk on an account that can chat.
-- **The dashboard's cards carry no avatar.** Orbit.Web puts an initials circle before every name on
-  Groups, Recent chats and Shared with you, and an unread badge and a presence dot on the first of
-  those. The phone draws these rows with `Row` now, so the slot is there and the initials helper is
-  already on `PersonRow`; what is missing is handing one over. Recorded in future-plan.md.
-- **The dashboard has no Inventory card.** Orbit.Web puts the shelves beside the lists they feed;
-  `DashboardCardKind` has no such value. That is a card missing rather than a card that looks wrong,
-  so it is in future-plan.md rather than here.
-- **Every screen has now had the pass, in both themes**, the dashboard included as of 2026-09-07.
-  What is left against the browser is the differences above, each of them a decision rather than a
-  gap - apart from the two just named, which are gaps and are written down.
+- **A conversation shows no count of what is waiting.** Orbit.Web draws `UnreadBadge` on the avatar
+  wherever a person appears, from the per-conversation unread count its contact list carries. The
+  phone's `LocalContact` has no such count and nothing on the device derives one - `IsReadByEveryone`
+  is about messages this reader *sent* - so the badge is the one part of the avatar that is missing,
+  and it is missing for want of a number rather than for want of a control. What the phone does say,
+  in the row's own mark, is that something unread points at that person. Recorded in future-plan.md.
+- **Every screen has now had the pass, in both themes**, the dashboard included as of 2026-09-07 -
+  and the dashboard has the same cards Orbit.Web has, the shelves among them. What is left against the
+  browser is the differences above, each of them a decision rather than a gap, apart from the unread
+  count just named.
 
 ## How to check it
 

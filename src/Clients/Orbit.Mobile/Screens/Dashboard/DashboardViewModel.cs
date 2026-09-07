@@ -32,6 +32,7 @@ public sealed partial class DashboardViewModel : ObservableObject
     private readonly LocalNoteRepository _notes;
     private readonly LocalTaskListRepository _taskLists;
     private readonly LocalCalendarEventRepository _calendarEvents;
+    private readonly LocalInventoryRepository _inventories;
     private readonly ChatRepository _chat;
     private readonly TimeProvider _timeProvider;
     private readonly Translations _translations;
@@ -51,9 +52,18 @@ public sealed partial class DashboardViewModel : ObservableObject
     [ObservableProperty]
     private bool _hasNothing;
 
+    /// <summary>
+    /// Every part has been put away, which is not the same as having nothing - and telling somebody
+    /// with a full account to "add a note to get started" is telling them the app has lost their work.
+    /// Orbit.Web says which of the two it is in the same place; the phone said the first for both.
+    /// </summary>
+    [ObservableProperty]
+    private bool _everythingIsHidden;
+
     public DashboardViewModel(
         LocalNoteRepository notes, LocalTaskListRepository taskLists,
-        LocalCalendarEventRepository calendarEvents, ChatRepository chat, TimeProvider timeProvider,
+        LocalCalendarEventRepository calendarEvents, LocalInventoryRepository inventories,
+        ChatRepository chat, TimeProvider timeProvider,
         Translations translations, PrivateItemGate privateItems, EverythingSynchronizer synchronizer,
         SyncState syncState, UserPermissions permissions, IDashboardPinStore pins,
         IDashboardCardPreferenceStore visibility, SharedLocations sharedLocations,
@@ -62,6 +72,7 @@ public sealed partial class DashboardViewModel : ObservableObject
         _notes = notes;
         _taskLists = taskLists;
         _calendarEvents = calendarEvents;
+        _inventories = inventories;
         _chat = chat;
         _timeProvider = timeProvider;
         _translations = translations;
@@ -122,6 +133,7 @@ public sealed partial class DashboardViewModel : ObservableObject
         var notes = await _notes.GetAllAsync(cancellationToken);
         var taskLists = await _taskLists.GetAllAsync(cancellationToken);
         var events = await _calendarEvents.GetAllAsync(cancellationToken);
+        var inventories = await _inventories.GetAllAsync(cancellationToken);
         // Nothing conversational is shown to an account that cannot hold a conversation, as the web's
         // dashboard does it - a card whose every row leads to "not unlocked" is worse than no card.
         var contacts = _permissions.Has(ApplicationPermission.Contacts)
@@ -173,6 +185,12 @@ public sealed partial class DashboardViewModel : ObservableObject
         AddCardIfAnything(
             DashboardCardKind.Upcoming, _translations["Upcoming"], DescribeEvents(shownEvents), shownEvents.Count,
             events.Count > 0);
+        // Between what is coming up and who is around, which is where Orbit.Web puts it. The card
+        // rather than a row carries the news: something about to go off says "/inventory" and names no
+        // shelf (InventoryExpiryPushContent), so there is nothing here that could say which.
+        AddCardIfAnything(
+            DashboardCardKind.Inventories, _translations["Inventory"], DescribeInventories(inventories),
+            inventories.Count(CanBeShown), ownNews: UnreadNews.About(_unreadUrls, "/inventory"));
         AddCardIfAnything(DashboardCardKind.Groups, _translations["Groups"], DescribeGroups(groups), groups.Count);
         // The one card whose news no row can carry: a position points at "/map" and names nobody
         // (SharedItemNotifier.UrlFor), so the card says it over the lot - which is Orbit.Web's answer
@@ -229,6 +247,10 @@ public sealed partial class DashboardViewModel : ObservableObject
 
             case DashboardCardKind.Upcoming:
                 _navigator.ShowCalendar();
+                break;
+
+            case DashboardCardKind.Inventories:
+                _navigator.ShowInventory(row.LocalId);
                 break;
 
             // A position is a pin, and the map is the only place one can be looked at.
@@ -434,6 +456,7 @@ public sealed partial class DashboardViewModel : ObservableObject
         DashboardCardKind.Notes => _translations["Notes"],
         DashboardCardKind.Tasks => _translations["Tasks"],
         DashboardCardKind.Upcoming => _translations["Upcoming"],
+        DashboardCardKind.Inventories => _translations["Inventory"],
         DashboardCardKind.Groups => _translations["Groups"],
         DashboardCardKind.RecentChats => _translations["Recent chats"],
         DashboardCardKind.SharedLocations => _translations["Shared with you"],
@@ -455,7 +478,8 @@ public sealed partial class DashboardViewModel : ObservableObject
             Cards.Add(card);
         }
 
-        HasNothing = Cards.Count == 0;
+        EverythingIsHidden = Cards.Count == 0 && _built.Count > 0;
+        HasNothing = Cards.Count == 0 && !EverythingIsHidden;
     }
 
     /// <summary>
@@ -477,6 +501,9 @@ public sealed partial class DashboardViewModel : ObservableObject
                 break;
             case DashboardCardKind.Upcoming:
                 _navigator.ShowCalendar();
+                break;
+            case DashboardCardKind.Inventories:
+                _navigator.ShowInventory();
                 break;
             case DashboardCardKind.Groups:
                 _navigator.ShowGroups();
@@ -530,6 +557,8 @@ public sealed partial class DashboardViewModel : ObservableObject
     private bool CanBeShown(LocalNote note) => !note.IsPrivate || _privateItems.IsUnlocked;
 
     private bool CanBeShown(LocalTaskList list) => !list.IsPrivate || _privateItems.IsUnlocked;
+
+    private bool CanBeShown(LocalInventory inventory) => !inventory.IsPrivate || _privateItems.IsUnlocked;
 
     private TodaySummary SummariseToday(
         IReadOnlyList<LocalTaskList> taskLists, IReadOnlyList<LocalCalendarEvent> events,
@@ -622,6 +651,39 @@ public sealed partial class DashboardViewModel : ObservableObject
             })
             .ToList();
 
+    /// <summary>
+    /// The shelves, newest change first, each saying what is on it and whether it is one this reader
+    /// keeps to themselves or one somebody handed over - the two words Orbit.Web badges the same rows
+    /// with. A sealed shelf is named "Private" rather than "Untitled": it has a name, and this device
+    /// cannot read it.
+    /// </summary>
+    private IReadOnlyList<DashboardRow> DescribeInventories(IReadOnlyList<LocalInventory> inventories)
+        => inventories
+            .OrderByDescending(inventory => inventory.UpdatedAtUtc)
+            .Take(RowsPerCard)
+            .Where(CanBeShown)
+            .Select(inventory => new DashboardRow(
+                inventory.LocalId,
+                NameOf(inventory.IsSealed, inventory.Name, _translations["Untitled"]),
+                DescribeShelf(inventory)))
+            .ToList();
+
+    /// <summary>
+    /// What a shelf says for itself at a glance. How much is on it first, because that is what the card
+    /// is for; then the one thing worth knowing about who it belongs to, where there is one.
+    /// </summary>
+    private string DescribeShelf(LocalInventory inventory)
+    {
+        var count = _translations.Format("Items: {0}", inventory.Items.Count);
+
+        return inventory switch
+        {
+            { IsShared: true } => $"{count} · {_translations["Shared"]}",
+            { IsPrivate: true } => $"{count} · {_translations["Private"]}",
+            _ => count
+        };
+    }
+
     /// <summary>Who was last talking, most recent first, with anybody waiting on an answer at the top.</summary>
     /// <summary>
     /// Who is sharing where they are, and whether it keeps coming or was sent once - the same two words
@@ -633,7 +695,12 @@ public sealed partial class DashboardViewModel : ObservableObject
             .Select(position => new DashboardRow(
                 position.SharerUserId,
                 position.SharerDisplayName,
-                _translations[position.IsContinuous ? "live" : "sent once"]))];
+                _translations[position.IsContinuous ? "live" : "sent once"])
+            {
+                // Whose position it is, drawn as they are drawn everywhere else. No dot: the row is
+                // about a pin on the map, not about whether they are around to be written to.
+                HasAvatar = true
+            })];
 
     private IReadOnlyList<DashboardRow> DescribeRecentChats(IReadOnlyList<LocalContact> contacts)
         => contacts
@@ -648,7 +715,9 @@ public sealed partial class DashboardViewModel : ObservableObject
                 // Orbit.Web marks this row from the unread count it keeps per conversation; the phone's
                 // contact row carries no such count, and a message notification points at whoever sent
                 // it (ChatMessagePushContent), which is the same fact read off what the phone has.
-                HasNews = UnreadNews.About(_unreadUrls, $"/chat/{contact.UserId}")
+                HasNews = UnreadNews.About(_unreadUrls, $"/chat/{contact.UserId}"),
+                HasAvatar = true,
+                Presence = contact.PresenceStatus
             })
             .ToList();
 
@@ -659,7 +728,11 @@ public sealed partial class DashboardViewModel : ObservableObject
     private IReadOnlyList<DashboardRow> DescribeDirectory(IReadOnlyList<LocalContact> contacts)
         => DirectoryOf(contacts)
             .Take(RowsPerCard)
-            .Select(contact => new DashboardRow(contact.UserId, contact.DisplayName, string.Empty))
+            .Select(contact => new DashboardRow(contact.UserId, contact.DisplayName, string.Empty)
+            {
+                HasAvatar = true,
+                Presence = contact.PresenceStatus
+            })
             .ToList();
 
     private static IReadOnlyList<LocalContact> DirectoryOf(IReadOnlyList<LocalContact> contacts)
@@ -675,7 +748,9 @@ public sealed partial class DashboardViewModel : ObservableObject
             .Select(group => new DashboardRow(group.Id, group.Name, string.Empty)
             {
                 // An invitation points at the group it is to - see ChatGroupInvitationPushContent.
-                HasNews = UnreadNews.About(_unreadUrls, $"/chat/groups/{group.Id}")
+                HasNews = UnreadNews.About(_unreadUrls, $"/chat/groups/{group.Id}"),
+                // The circle, but never a presence dot on it: a group is not somewhere anybody is.
+                HasAvatar = true
             })
             .ToList();
 

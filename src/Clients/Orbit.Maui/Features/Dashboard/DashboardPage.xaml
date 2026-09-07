@@ -79,6 +79,12 @@
                        IsVisible="{Binding HasNothing}" TextColor="{AppThemeBinding Light={StaticResource SubtleTextLight}, Dark={StaticResource SubtleTextDark}}"
                        HorizontalOptions="Center" Margin="0,20" LineBreakMode="WordWrap" />
 
+                <!-- Which is a different thing from having nothing, and Orbit.Web says so in the same
+                     place: an account full of work told to add a note reads as work that has been lost. -->
+                <Label Text="{controls:Translate 'Everything here is hidden. The menu at the top right brings it back.'}"
+                       IsVisible="{Binding EverythingIsHidden}" Style="{StaticResource EmptyHint}"
+                       HorizontalOptions="Center" Margin="0,20" LineBreakMode="WordWrap" />
+
                 <VerticalStackLayout Spacing="14" BindableLayout.ItemsSource="{Binding Cards}">
                     <BindableLayout.ItemTemplate>
                         <DataTemplate x:DataType="screens:DashboardCard">
@@ -129,12 +135,26 @@
                                                                   HasDivider="False"
                                                                   PressedCommand="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=ViewModel.OpenCommand, x:DataType=dashboard:DashboardPage}"
                                                                   PressedCommandParameter="{Binding .}">
-                                                        <!-- The event's own colour, as Orbit.Web shows
-                                                             it beside the same row. -->
+                                                        <!-- Either the event's own colour or the circle
+                                                             whoever the row names is drawn as - Orbit.Web
+                                                             leads the same rows with the same two things,
+                                                             and no row has both. Stacked rather than put in
+                                                             two columns: the slot is one place, and a
+                                                             column left empty still claims its width. -->
                                                         <controls:Row.Leading>
-                                                            <Ellipse WidthRequest="8" HeightRequest="8"
-                                                                     IsVisible="{Binding HasColourDot}"
-                                                                     Fill="{Binding Colour, Converter={StaticResource EventColour}}" />
+                                                            <Grid>
+                                                                <Ellipse WidthRequest="8" HeightRequest="8"
+                                                                         VerticalOptions="Center"
+                                                                         IsVisible="{Binding HasColourDot}"
+                                                                         Fill="{Binding Colour, Converter={StaticResource EventColour}}" />
+                                                                <!-- 26 across, which is what .avatar-sm is:
+                                                                     a dashboard row is a glance, not a place. -->
+                                                                <controls:AvatarCircle Diameter="26"
+                                                                                       IsVisible="{Binding HasAvatar}"
+                                                                                       Id="{Binding LocalId}"
+                                                                                       Name="{Binding Title}"
+                                                                                       Status="{Binding Presence}" />
+                                                            </Grid>
                                                         </controls:Row.Leading>
 
                                                         <controls:Row.Trailing>

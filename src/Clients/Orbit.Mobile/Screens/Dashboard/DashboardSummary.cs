@@ -72,6 +72,20 @@ public sealed record DashboardRow(Guid LocalId, string Title, string Detail)
     /// at one note or one contact, so those rows are never marked.
     /// </summary>
     public bool HasNews { get; init; }
+
+    /// <summary>
+    /// Whether the row leads with the circle a person or a group is drawn as - Orbit.Web's .avatar-sm
+    /// in the same place. True only where <see cref="LocalId"/> is somebody: a note's id is not a
+    /// person, and a circle made of it would be a colour that means nothing.
+    /// </summary>
+    public bool HasAvatar { get; init; }
+
+    /// <summary>
+    /// Where somebody is, by the server's PresenceStatus name. Empty for a group and for whoever
+    /// shared a position: a group is not somewhere anybody is or is not, and a position is a pin
+    /// rather than a person to be found.
+    /// </summary>
+    public string Presence { get; init; } = string.Empty;
 }
 
 /// <summary>
@@ -84,6 +98,13 @@ public enum DashboardCardKind
     Notes,
     Tasks,
     Upcoming,
+
+    /// <summary>
+    /// The shelves themselves, beside the lists they feed - Orbit.Web's own card, in the same place in
+    /// the order. Everything else the dashboard draws was reachable from it and this was not, so the
+    /// one part of Orbit that answers "have we run out" could only be found through the navigation bar.
+    /// </summary>
+    Inventories,
     Groups,
     RecentChats,
     Contacts,
