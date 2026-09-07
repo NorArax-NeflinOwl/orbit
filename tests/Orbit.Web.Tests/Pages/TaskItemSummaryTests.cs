@@ -1,5 +1,6 @@
 using System.Net;
 using System.Net.Http.Json;
+using System.Text.Json;
 using Bunit;
 using Microsoft.AspNetCore.Components;
 using Microsoft.Extensions.DependencyInjection;
@@ -241,6 +242,48 @@ public sealed class TaskItemSummaryTests : OrbitTestContext
         Assert.Contains("No date set", cut.Markup);
     }
 
+    /// <summary>
+    /// Pressing an appointment on the calendar opens it as the entry that raised it, while the reminder
+    /// for it points at the event - so nothing in this page's own address settles that notification and
+    /// the bell stayed lit over something the reader was looking at. See NewsSettler.
+    /// </summary>
+    [Fact]
+    public void Opening_the_entry_settles_the_notification_about_its_appointment()
+    {
+        var eventId = Guid.NewGuid();
+        // Registered before anything is resolved: bUnit freezes the container the moment a service is
+        // read out of it.
+        RegisterClients(Item("Dentist", dueDateUtc: null, "", eventId), CalendarEvent(eventId, "Rynek Główny 1"));
+        var feed = Services.GetRequiredService<NotificationFeedState>();
+        feed.Set([new Orbit.Contracts.Notifications.NotificationEntryDto(
+            Guid.NewGuid(), "EventReminder", "Coming up", "Dentist at 10:00.", $"/calendar/{eventId}",
+            DateTimeOffset.UtcNow, IsRead: false)]);
+
+        Render();
+
+        Assert.Equal(0, feed.UnreadCount);
+        Assert.Contains(_markedReadAt, url => url == $"/calendar/{eventId}");
+    }
+
+    /// <summary>An entry that stands for no appointment settles nothing that is not its own.</summary>
+    [Fact]
+    public void An_entry_with_no_appointment_settles_nothing_of_its_own()
+    {
+        RegisterClients(Item("Pay the rent", DateTimeOffset.UtcNow, ""));
+        var feed = Services.GetRequiredService<NotificationFeedState>();
+        feed.Set([new Orbit.Contracts.Notifications.NotificationEntryDto(
+            Guid.NewGuid(), "EventReminder", "Coming up", "Something else.", $"/calendar/{Guid.NewGuid()}",
+            DateTimeOffset.UtcNow, IsRead: false)]);
+
+        Render();
+
+        Assert.Equal(1, feed.UnreadCount);
+        Assert.Empty(_markedReadAt);
+    }
+
+    /// <summary>Every address this page asked the server to mark read.</summary>
+    private readonly List<string> _markedReadAt = [];
+
     private static TaskItemDto Item(
         string description, DateTimeOffset? dueDateUtc, string location, Guid? linkedCalendarEventId = null)
         => new(
@@ -279,6 +322,24 @@ public sealed class TaskItemSummaryTests : OrbitTestContext
         };
         Services.AddSingleton(new TasksApiClient(httpClient));
         Services.AddSingleton(new CalendarApiClient(httpClient));
+        // Over the base context's own, so a test can say which address this page settled - see
+        // NewsSettler, and Opening_the_entry_settles_the_notification_about_its_appointment.
+        var notifications = new NotificationsApiClient(new HttpClient(new StubHttpMessageHandler(request =>
+        {
+            if (request.RequestUri!.AbsolutePath.EndsWith("/notifications/read-at", StringComparison.Ordinal))
+            {
+                var body = request.Content!.ReadAsStringAsync().GetAwaiter().GetResult();
+                _markedReadAt.Add(
+                    JsonDocument.Parse(body).RootElement.GetProperty("url").GetString() ?? string.Empty);
+            }
+
+            return new HttpResponseMessage(HttpStatusCode.NoContent);
+        }))
+        {
+            BaseAddress = new Uri("https://example.test/")
+        });
+        Services.AddSingleton(notifications);
+        Services.AddScoped(services => new NewsSettler(notifications, services.GetRequiredService<NotificationFeedState>()));
         // Who is coming, when an appointment has guests. The same transport: it answers contacts with
         // the list below and anything else with the task list, which no assertion here reads.
         Services.AddSingleton(new ChatApiClient(httpClient));

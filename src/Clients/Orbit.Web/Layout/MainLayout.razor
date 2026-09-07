@@ -17,6 +17,7 @@
 @inject NotificationsApiClient NotificationsApiClient
 @inject ClientFlagsApiClient ClientFlagsApiClient
 @inject NotificationFeedState NotificationFeedState
+@inject NewsSettler NewsSettler
 @inject ClientExceptionLog ClientExceptionLog
 @inject ThemeService ThemeService
 @inject AccentColorService AccentColorService
@@ -725,24 +726,9 @@
         var path = new Uri(location, UriKind.Absolute).AbsolutePath;
         // Not just this exact path: a page can settle a notification pointing at the page it sits under,
         // which is how opening a task list's deep editor clears a reminder about the list - see
-        // NotificationFeedState.UnreadUrlsSettledBy.
-        var settled = NotificationFeedState.UnreadUrlsSettledBy(path);
-        if (settled.Count == 0)
-        {
-            return;
-        }
-
-        var anyMarked = false;
-        foreach (var url in settled)
-        {
-            if (await NotificationsApiClient.MarkReadAtUrlAsync(url))
-            {
-                NotificationFeedState.MarkReadFor(url);
-                anyMarked = true;
-            }
-        }
-
-        if (anyMarked)
+        // NotificationFeedState.UnreadUrlsSettledBy. A page that stands for a second address settles
+        // that one itself, which the address bar cannot say - see NewsSettler.
+        if (await NewsSettler.SettleAsync(path))
         {
             StateHasChanged();
         }

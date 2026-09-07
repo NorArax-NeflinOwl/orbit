@@ -942,6 +942,49 @@ public sealed class DashboardTests : OrbitTestContext
         Assert.DoesNotContain(cut.FindAll(".item-card"), card => card.QuerySelector(".item-card-name")!.TextContent == "Upcoming");
     }
 
+    /// <summary>
+    /// An appointment a task list raised is finished when that entry is ticked off - the entry is where
+    /// the work is, and the event is only when it happens. This card was listing appointments somebody
+    /// had already crossed off, which is exactly what "what is coming up" must not show; the calendar's
+    /// own list has left them out since 2026-09-06.
+    /// </summary>
+    [Fact]
+    public void An_appointment_whose_entry_is_ticked_off_is_not_upcoming()
+    {
+        var appointment = Event("Dentist", DateTimeOffset.UtcNow.AddDays(1));
+        RegisterChatApiClient([]);
+        RegisterEmptyNotesApiClient();
+        RegisterCalendarApiClient([appointment]);
+        RegisterTasksApiClient([TaskList("Health", EntryFor(appointment.Id, isCompleted: true))]);
+
+        var cut = RenderComponent<Dashboard>();
+
+        Assert.DoesNotContain(cut.FindAll(".item-card"), card => card.QuerySelector(".item-card-name")!.TextContent == "Upcoming");
+    }
+
+    /// <summary>The same appointment, not yet ticked off, is still what is coming up.</summary>
+    [Fact]
+    public void An_appointment_whose_entry_is_still_open_is_upcoming()
+    {
+        var appointment = Event("Dentist", DateTimeOffset.UtcNow.AddDays(1));
+        RegisterChatApiClient([]);
+        RegisterEmptyNotesApiClient();
+        RegisterCalendarApiClient([appointment]);
+        RegisterTasksApiClient([TaskList("Health", EntryFor(appointment.Id, isCompleted: false))]);
+
+        var cut = RenderComponent<Dashboard>();
+
+        Assert.Contains("Dentist", FindColumn(cut, "Upcoming").TextContent);
+    }
+
+    /// <summary>An entry that stands for an appointment - what the task editor writes for a Calendar row.</summary>
+    private static TaskItemDto EntryFor(Guid calendarEventId, bool isCompleted)
+        => new(
+            Guid.NewGuid(), "Dentist", DueDateUtc: null, isCompleted, LinkedTaskListId: null,
+            OverdueNotificationChannel: "None", RemindDaily: false,
+            DailyReminderNotificationChannel: "None", DailyReminderTimeOfDay: new TimeOnly(9, 0),
+            Kind: "Calendar", Location: "", LinkedCalendarEventId: calendarEventId);
+
     [Fact]
     public void A_row_that_matters_more_than_the_rest_says_so()
     {

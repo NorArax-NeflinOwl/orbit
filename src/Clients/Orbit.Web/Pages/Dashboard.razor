@@ -456,12 +456,26 @@ else
     {
         var nowUtc = DateTimeOffset.UtcNow;
         var entries = (_events ?? [])
+            .Where(IsStillToDo)
             .Select(calendarEvent => NextOccurrenceOf(calendarEvent, nowUtc))
             .OfType<CalendarEventDto>()
             .Select(ToUpcomingEntry)
             .Concat(UpcomingDeadlines(nowUtc));
         return entries.OrderBy(entry => entry.At);
     }
+
+    /// <summary>
+    /// Whether an appointment is still ahead of the reader rather than done with. An appointment a task
+    /// list raised is finished when that entry is ticked off - the entry is where the work is, and the
+    /// event is when it happens - so this card was listing appointments somebody had already crossed
+    /// off, which is exactly what a card headed "what is coming up" must not do. The calendar's own list
+    /// has left them out since 2026-09-06 (see Calendar.IsTickedOff); this asks the same question of the
+    /// same lookup.
+    ///
+    /// A deadline is filtered where it is built - see UpcomingDeadlines.
+    /// </summary>
+    private bool IsStillToDo(CalendarEventDto calendarEvent)
+        => CalendarEventDestination.RaisedBy(calendarEvent.Id, _taskLists) is not { Entry.IsCompleted: true };
 
     /// <summary>
     /// How far ahead a repeat is looked for. A year covers what the calendar's own year view shows, and

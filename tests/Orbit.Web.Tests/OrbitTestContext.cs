@@ -48,6 +48,18 @@ public abstract class OrbitTestContext : TestContext
         // page cannot be rendered at all without one. Empty unless a test puts something in it, which is
         // the right answer for a test that has not.
         Services.AddSingleton(new NotificationFeedState());
+        // Marking the bell's entries read once a page is reached. Registered here for the same reason
+        // Translations is: several pages settle their own news now, and a test about what a page shows
+        // should not fail on a service it never exercises. It answers every request with "nothing to
+        // mark", which is what a page with an empty bell in front of it should see - a test that is
+        // about the settling registers its own.
+        Services.AddScoped(services => new NewsSettler(
+            new NotificationsApiClient(new HttpClient(
+                new StubHttpMessageHandler(_ => new HttpResponseMessage(HttpStatusCode.NoContent)))
+            {
+                BaseAddress = new Uri("https://example.test/")
+            }),
+            services.GetRequiredService<NotificationFeedState>()));
         // The questions asked before a task list is deleted, which three pages now inject - see
         // TaskListDeletion. Registered here for the same reason Translations is: a test about what a
         // page shows should not fail on a service it never exercises. It resolves the TasksApiClient

@@ -6,6 +6,7 @@
 @using Orbit.Core.Tasks
 @using Orbit.Web.Services
 @inject TasksApiClient TasksApiClient
+@inject NewsSettler NewsSettler
 @inject CalendarApiClient CalendarApiClient
 @inject ChatApiClient ChatApiClient
 @inject UsersApiClient UsersApiClient
@@ -159,6 +160,14 @@ else
         }
 
         _event = _item.LinkedCalendarEventId is { } eventId ? await LoadEventAsync(eventId) : null;
+        // Reaching this entry is reaching the appointment it stands for, and the reminder for one points
+        // at the event rather than here (EventReminderPushContent) - so nothing in this page's own
+        // address settles it, and pressing the event on the calendar left its notification lit. See
+        // NewsSettler, which the layout uses for the address bar's own half of this.
+        if (_item.LinkedCalendarEventId is { } appointmentId)
+        {
+            await NewsSettler.SettleAsync($"/calendar/{appointmentId}");
+        }
         if (_event is { Details.Guests.Count: > 0 })
         {
             await NameTheGuestsAsync();

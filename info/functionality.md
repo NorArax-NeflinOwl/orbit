@@ -2465,6 +2465,13 @@ Inviting a guest to a **calendar entry on a task list** sent only the first half
 invitation arrived, said somebody had shared an event, and led to a conversation with nothing in it and
 no way to accept. The calendar's own editor had always sent both.
 
+**Reaching what a notification is about settles it - including by the other address.** The layout marks
+read whatever the address bar reaches on every navigation (`NewsSettler`, called from MainLayout), and a
+page settles what it *is* beyond its own address: an appointment a task list raised opens as that list's
+entry, while the reminder for it points at the event, so nothing in the entry page's path said anything
+about it and pressing the appointment on the calendar left its own notification lit
+(`TaskItemSummary`). Both halves go through one place, so what "reaching" means is decided once.
+
 **A thing somebody shares arrives without a reload.** The share records a notification, the live
 connection carries it, and every section page - `/tasks`, `/notes`, `/calendar`, `/inventory` - now
 *reads again* when the bell changes rather than only redrawing. Redrawing was not enough on its own: a

@@ -159,6 +159,9 @@ builder.Services.AddScoped<NotificationFeedState>();
 // The tabs, and which one is open, shared by the dashboard, the notes and the task lists - a folder is
 // a place rather than a per-page view setting. See FolderState.
 builder.Services.AddScoped<FolderState>();
+// Marks the bell's entries read once the reader has reached what they are about - the layout settles
+// the address bar, and a page settles what it is beyond its address. See NewsSettler.
+builder.Services.AddScoped<NewsSettler>();
 builder.Services.AddScoped<ClientExceptionLog>();
 
 // Where the phone builds are published, if they are - see MobileAppDownloads. Read once here rather

@@ -1473,7 +1473,7 @@ input.note-editor-title {
 /* One pin, shared by notes, task lists and dashboard cards - see Components/PinButton.razor. Quiet until
    it matters: dimmed while unpinned, full strength once it is holding something at the top. */
 .pin-button {
-    color: var(--text-muted);
+    color: var(--text-tertiary);
     opacity: 0.55;
 }
 
@@ -2275,7 +2275,11 @@ input.note-editor-title {
     max-height: 240px;
     overflow-y: auto;
     padding: 4px;
-    background: var(--surface);
+    /* The same fill every other floating panel takes - see .overflow-menu-dropdown. It asked for a
+       --surface, which this stylesheet has never defined: the panel therefore had no background at all
+       and the page showed straight through it, which reads as a list of words scattered over whatever
+       was underneath. */
+    background: var(--bg-elevated);
     border: 1px solid var(--border);
     border-radius: 8px;
     box-shadow: 0 8px 24px rgba(0, 0, 0, 0.28);
@@ -5333,7 +5337,7 @@ input.note-editor-title {
     display: flex;
     align-items: center;
     flex: 0 0 auto;
-    color: var(--text-muted);
+    color: var(--text-tertiary);
     cursor: grab;
 }
 
@@ -5869,7 +5873,7 @@ input.note-editor-title {
 }
 
 .icon-btn.page-action-primary:disabled {
-    color: var(--text-muted);
+    color: var(--text-tertiary);
 }
 
 /* Two task lists to a row, and one on a narrow screen. Wider than the single column a page of notes
@@ -6183,7 +6187,9 @@ span.calendar-task-chip {
     align-items: center;
     gap: 4px;
     padding: 3px 4px 3px 10px;
-    background: var(--surface);
+    /* Quieter than the card it sits on, which is what a chip on a card should be - and defined, unlike
+       the --surface it used to ask for. */
+    background: var(--bg-subtle);
     border: 1px solid var(--border);
     border-radius: 999px;
     font-size: 13px;
