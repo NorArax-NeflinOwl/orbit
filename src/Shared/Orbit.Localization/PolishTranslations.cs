@@ -55,6 +55,14 @@ public static class PolishTranslations
         ["That note was already gone. The list has been brought up to date."] = "Tej notatki już nie było. Lista została odświeżona.",
         ["Orbit refused that change."] = "Orbit odrzucił tę zmianę.",
         ["Can't move this item right now - {0} is editing one of the lists."] = "Nie można teraz przenieść tej pozycji — {0} edytuje jedną z list.",
+        ["This entry is shared along with the whole list it is on, so it can't be moved out of it."] =
+            "Ta pozycja jest udostępniona razem z całą listą, na której się znajduje, więc nie można jej z niej przenieść.",
+        // The way round a move refused because the entry is shared with its whole list - see CopyTaskItemCommand.
+        ["Copy it to \"{0}\" instead"] = "Skopiuj ją zamiast tego do „{0}”",
+        ["Copied to \"{0}\". This one stays here, and the two are separate from now on."] =
+            "Skopiowano do „{0}”. Ta pozostaje tutaj, a od teraz obie są osobne.",
+        ["Can't copy this entry right now - {0} is editing that list."] = "Nie można teraz skopiować tej pozycji — {0} edytuje tamtą listę.",
+        ["Failed to copy this entry. Try again."] = "Nie udało się skopiować tej pozycji. Spróbuj ponownie.",
         ["Couldn't recalculate against the inventory."] = "Nie udało się przeliczyć względem magazynu.",
         ["This list isn't measured against an inventory."] = "Ta lista nie jest porównywana z żadnym magazynem.",
         ["Couldn't generate an inventory from this list."] = "Nie udało się wygenerować magazynu z tej listy.",

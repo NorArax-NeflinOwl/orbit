@@ -7,6 +7,7 @@ using Microsoft.AspNetCore.Components.Authorization;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
+using Orbit.Contracts;
 using Orbit.Contracts.Chat;
 using Orbit.Contracts.Inventories;
 using Orbit.Contracts.Notifications;
@@ -339,6 +340,46 @@ public sealed class TaskEditorItemFormTests : OrbitTestContext
         Assert.Null(amounts[1].GetAttribute("value"));
         Assert.Equal("Piece", cut.Find(".editor-item-unit").GetAttribute("value"));
     }
+
+    /// <summary>
+    /// An entry on a list somebody shared cannot leave it - it belongs to the list and travels with it,
+    /// so taking it out would take it from everybody else the list was shared with. The page says that
+    /// in the reader's own language rather than passing the server's English through, and offers the
+    /// way round it in the same breath.
+    /// </summary>
+    [Fact]
+    public void An_entry_that_cannot_be_moved_says_why_and_offers_a_copy_instead()
+    {
+        RegisterApiClients(AnItem());
+        var cut = Render();
+        ExpandTheOnlyItem(cut);
+
+        MoveTheEntryToKitchen(cut);
+
+        Assert.Contains("shared along with the whole list", cut.Find(".editor-item-details p.error").TextContent);
+        Assert.Contains(cut.FindAll("button"), button => button.TextContent.Contains("Copy it to"));
+    }
+
+    [Fact]
+    public void Taking_the_offer_copies_the_entry_to_the_list_the_move_was_aimed_at()
+    {
+        RegisterApiClients(AnItem());
+        var cut = Render();
+        ExpandTheOnlyItem(cut);
+        MoveTheEntryToKitchen(cut);
+
+        cut.FindAll("button").First(button => button.TextContent.Contains("Copy it to")).Click();
+
+        Assert.EndsWith($"/api/tasks/{TaskListId}/items/{ItemId}/copy", _copiedToPath);
+        // The entry is still on this list, because that is the whole difference from a move.
+        Assert.Contains("Buy milk", cut.Markup);
+        Assert.Contains("Copied to", cut.Find(".editor-item-details p.info").TextContent);
+    }
+
+    private static void MoveTheEntryToKitchen(IRenderedFragment cut)
+        => cut.FindAll("select")
+            .First(box => box.QuerySelectorAll("option").Any(option => option.TextContent.Trim() == "Kitchen"))
+            .Change(OtherTaskListId.ToString());
 
     /// <summary>
     /// An entry cannot link to the list it belongs to, so a list it already stands for is not somewhere
@@ -889,6 +930,9 @@ public sealed class TaskEditorItemFormTests : OrbitTestContext
 
     private static readonly Guid GeneratedInventoryId = Guid.NewGuid();
 
+    /// <summary>Where the page asked for a copy, if it did - see the move above.</summary>
+    private string? _copiedToPath;
+
     private void RegisterApiClients(TaskItemDto item)
     {
         var taskList = new TaskDto(
@@ -910,6 +954,24 @@ public sealed class TaskEditorItemFormTests : OrbitTestContext
 
             // Turning this list into a storage - what the form in the rail's menu asks for before
             // anything is built. See GenerateInventoryOverlay.
+            // A move the server refuses because the entry is shared along with the whole list it is on -
+            // see MoveTaskItemCommandHandler. A copy is what it offers instead, and _copiedToPath is
+            // what says the page actually asked for one.
+            if (request.Method == HttpMethod.Post && path.EndsWith("/move", StringComparison.Ordinal))
+            {
+                return new HttpResponseMessage(HttpStatusCode.Forbidden)
+                {
+                    Content = JsonContent.Create(new RefusalDto(
+                        "This entry is shared along with the whole list it is on, so it can't be moved out of it. Copy it instead."))
+                };
+            }
+
+            if (request.Method == HttpMethod.Post && path.EndsWith("/copy", StringComparison.Ordinal))
+            {
+                _copiedToPath = path;
+                return new HttpResponseMessage(HttpStatusCode.NoContent);
+            }
+
             if (request.Method == HttpMethod.Post && path.EndsWith("/inventory", StringComparison.Ordinal))
             {
                 _lastGenerateJson = request.Content!.ReadAsStringAsync().GetAwaiter().GetResult();

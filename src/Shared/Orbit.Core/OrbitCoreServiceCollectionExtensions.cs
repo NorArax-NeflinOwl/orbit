@@ -101,6 +101,7 @@ using Orbit.Core.PushNotifications.UnsubscribeFromPush;
 using Orbit.Core.Tasks;
 using Orbit.Core.Tasks.AcceptTaskListShare;
 using Orbit.Core.Tasks.AcquireTaskListLock;
+using Orbit.Core.Tasks.CopyTaskItem;
 using Orbit.Core.Tasks.CreateTaskList;
 using Orbit.Core.Tasks.DailyReminders;
 using Orbit.Core.Tasks.DeleteTaskList;
@@ -195,6 +196,7 @@ public static class OrbitCoreServiceCollectionExtensions
         services.AddScoped<IRequestHandler<MoveTaskListToFolderCommand, bool>, MoveTaskListToFolderCommandHandler>();
         services.AddScoped<IRequestHandler<UpdateTaskListCommand, EditOutcome>, UpdateTaskListCommandHandler>();
         services.AddScoped<IRequestHandler<MoveTaskItemCommand, EditOutcome>, MoveTaskItemCommandHandler>();
+        services.AddScoped<IRequestHandler<CopyTaskItemCommand, EditOutcome>, CopyTaskItemCommandHandler>();
         services.AddScoped<IRequestHandler<LinkCalendarEventToTaskListCommand, EditOutcome>, LinkCalendarEventToTaskListCommandHandler>();
         services.AddScoped<IRequestHandler<DeleteTaskListCommand, bool>, DeleteTaskListCommandHandler>();
         services.AddScoped<IRequestHandler<GetTaskListsQuery, IReadOnlyList<TaskList>>, GetTaskListsQueryHandler>();

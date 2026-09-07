@@ -14,6 +14,7 @@ using Orbit.Core.Sync;
 using Orbit.Core.Tasks;
 using Orbit.Core.Tasks.AcceptTaskListShare;
 using Orbit.Core.Tasks.AcquireTaskListLock;
+using Orbit.Core.Tasks.CopyTaskItem;
 using Orbit.Core.Tasks.CreateTaskList;
 using Orbit.Core.Tasks.DeleteTaskList;
 using Orbit.Core.Tasks.GetTaskListById;
@@ -217,6 +218,18 @@ public static class TaskEndpoints
         {
             var outcome = await dispatcher.SendAsync(
                 new MoveTaskItemCommand(GetUserId(user), id, itemId, request.TargetTaskListId), cancellationToken);
+            return ToApiResult(outcome);
+        });
+
+        // The way round a move that is refused because the entry is shared along with its list - see
+        // CopyTaskItemCommand. Its own endpoint rather than a flag on the move above, because it is a
+        // different act: nothing leaves the list it came from.
+        tasks.MapPost("/{id:guid}/items/{itemId:guid}/copy", async (
+            Guid id, Guid itemId, CopyTaskItemRequest request, ClaimsPrincipal user, IDispatcher dispatcher,
+            CancellationToken cancellationToken) =>
+        {
+            var outcome = await dispatcher.SendAsync(
+                new CopyTaskItemCommand(GetUserId(user), id, itemId, request.TargetTaskListId), cancellationToken);
             return ToApiResult(outcome);
         });
 

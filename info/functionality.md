@@ -1488,7 +1488,8 @@ from the entries as they are stored and this is exactly the moment somebody has 
 `POST /api/tasks/{sourceListId}/items/{itemId}/move` (`{ targetTaskListId }`) moves a single item out of
 one task list and into another of the caller's own lists — a separate operation from `linkedTaskListId`
 above, which mirrors another list's completion state without the item ever changing which list it
-belongs to. Both lists must resolve to `CanEdit` access for the caller and share the same owner; the
+belongs to. Both lists must resolve to `CanEdit` access for the caller and share the same owner - when
+they do not, the refusal names the way round it (see below); the
 item, its due date, notification settings, etc. are otherwise unchanged, just relocated.
 `MoveTaskItemCommandHandler` persists both lists in a single `ITaskRepository.UpdateManyAsync` call so a
 mid-operation failure can't duplicate or drop the item across the two lists. In the Blazor client, the
@@ -1496,6 +1497,34 @@ task editor's "Move to list" dropdown (next to the existing "Link to list" one, 
 item) triggers the move immediately rather than waiting for the form's own Save, since it reaches beyond
 the one task list this editor page otherwise touches; a freshly added, not-yet-saved item has no dropdown
 since there's nothing persisted yet to move.
+
+### When it can't be moved: copy it instead
+
+Two lists a reader can edit that have **different owners** means one of them was shared with them, and
+an entry there belongs to the list and travels with it: moving it out would take it from everybody else
+the list is shared with, and moving one in would hand them something they never agreed to. That is
+refused - and **refused with a reason** (`EditOutcomeKind.Refused`, 403) rather than the `NotFound` it
+used to answer, since both lists are plainly on the reader's own screen and "no such list" sends them
+looking for a mistake they did not make.
+
+`POST /api/tasks/{sourceListId}/items/{itemId}/copy` (`{ targetTaskListId }`) is the way round it: a
+second entry saying the same thing on a list of their own, with the first left exactly where it is.
+Weaker rules than a move, deliberately - the caller only has to be able to **read** the source and
+**edit** the target, so a list shared read-only can still be copied out of, because nothing about it
+changes. A private list at either end is still refused: a sealed list keeps nothing readable on the
+server to copy from or into.
+
+**The copy carries every field the entry had** - what it is called, its description, its due date,
+whether it is done, its kind, the place it names, what it is filed under, what it asks for, and its
+reminders - under a new id. What it deliberately does not carry is the three things that are references
+rather than fields: the appointment, the shelf item, and the lists the entry stands for. Two entries
+pointing at one appointment is the drift that link exists to prevent, and after a copy across a share
+those rows belong to the other account anyway - the reader would be handed a link to something they
+cannot open. The place is text and does come across, so a copied appointment still says where it was.
+
+In the Blazor editor the refusal is shown under the entry in the reader's own language (the server
+answers in English) with **"Copy it to …​ instead"** beside it; taking the offer leaves the entry on
+screen, because it is still on this list, and says where the copy went.
 
 ## Inventory
 

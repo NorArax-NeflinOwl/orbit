@@ -296,6 +296,33 @@ public sealed class TasksApiClient
     }
 
     /// <summary>
+    /// Writes a second entry saying the same thing onto another list, leaving the first where it is -
+    /// what is offered when a move is refused because the entry is shared along with its list. See
+    /// CopyTaskItemCommand for what the copy carries and what it deliberately leaves behind.
+    /// </summary>
+    public async Task<EditOutcome> CopyTaskItemAsync(
+        Guid sourceTaskListId, Guid itemId, Guid targetTaskListId, CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            var response = await _httpClient.PostAsJsonAsync(
+                $"api/tasks/{sourceTaskListId}/items/{itemId}/copy", new CopyTaskItemRequest(targetTaskListId), cancellationToken);
+            var outcome = await ToEditOutcomeAsync(response, cancellationToken);
+            if (outcome.Kind == EditOutcomeKind.Success)
+            {
+                _logger.LogActionCompleted(ClientActionCategory.Save, "Copy task item");
+            }
+
+            return outcome;
+        }
+        catch (Exception exception)
+        {
+            _logger.LogActionFailed(ClientActionCategory.Save, "Copy task item", exception);
+            throw;
+        }
+    }
+
+    /// <summary>
     /// Puts an event on a task list as an entry that points at it. One request rather than a whole-list
     /// save, so nothing else on the list is at risk - see LinkCalendarEventToTaskListCommand.
     /// </summary>
