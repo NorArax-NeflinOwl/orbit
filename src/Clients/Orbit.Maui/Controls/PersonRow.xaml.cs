@@ -1,6 +1,3 @@
-using System.Globalization;
-using Orbit.Mobile.Screens;
-
 namespace Orbit.Maui.Controls;
 
 /// <summary>
@@ -49,8 +46,6 @@ public partial class PersonRow : ContentView
 		nameof(Menu), typeof(View), typeof(PersonRow),
 		propertyChanged: (row, _, value) => Slot.Fill(((PersonRow)row).MenuHost, value));
 
-	private readonly PresenceColorConverter _presenceColors = new();
-
 	public PersonRow() => InitializeComponent();
 
 	public Guid Id
@@ -95,22 +90,14 @@ public partial class PersonRow : ContentView
 		set => SetValue(MenuProperty, value);
 	}
 
-	/// <summary>
-	/// The name and the id arrive one after the other as the row is bound, and the avatar is made of
-	/// both, so it is drawn again whichever of them lands second.
-	/// </summary>
+	/// <summary>The row's own name, beside the circle that is made of the same two things.</summary>
 	private static void OnWhoChanged(BindableObject bindable, object oldValue, object newValue)
 	{
 		var row = (PersonRow)bindable;
-		var avatar = Avatar.Of(row.Id, row.Name);
 
 		row.NameLabel.Text = row.Name;
-		row.InitialsLabel.Text = avatar.Initials;
-
-		// The hue the browser picks for this person, in the colour space this client draws in. Not the
-		// same numbers as its oklch, but the same person is the same colour on the same screen, which
-		// is what the colour is for.
-		row.AvatarCircle.BackgroundColor = Color.FromHsla(avatar.Hue / 360.0, 0.5, 0.55);
+		row.Face.Id = row.Id;
+		row.Face.Name = row.Name;
 	}
 
 	private static void OnSubtitleChanged(BindableObject bindable, object oldValue, object newValue)
@@ -121,12 +108,5 @@ public partial class PersonRow : ContentView
 	}
 
 	private static void OnStatusChanged(BindableObject bindable, object oldValue, object newValue)
-	{
-		var row = (PersonRow)bindable;
-		var status = newValue as string ?? string.Empty;
-
-		row.PresenceDot.IsVisible = status.Length > 0;
-		row.PresenceDot.BackgroundColor =
-			(Color)row._presenceColors.Convert(status, typeof(Color), null, CultureInfo.CurrentCulture);
-	}
+		=> ((PersonRow)bindable).Face.Status = newValue as string ?? string.Empty;
 }

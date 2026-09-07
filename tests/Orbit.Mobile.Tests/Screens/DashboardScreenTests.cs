@@ -434,7 +434,6 @@ public sealed class DashboardScreenTests
         var screen = context.Open();
         await screen.LoadCommand.ExecuteAsync(null);
 
-        screen.ToggleCardChoicesCommand.Execute(null);
         screen.ToggleCardShownCommand.Execute(
             screen.CardChoices.Single(choice => choice.Kind == DashboardCardKind.Notes));
 
@@ -458,8 +457,6 @@ public sealed class DashboardScreenTests
         var screen = context.Open();
         await screen.LoadCommand.ExecuteAsync(null);
 
-        screen.ToggleCardChoicesCommand.Execute(null);
-
         Assert.Equal(Enum.GetValues<DashboardCardKind>().Length, screen.CardChoices.Count);
         Assert.All(screen.CardChoices, choice => Assert.True(choice.IsShown));
     }
@@ -472,14 +469,294 @@ public sealed class DashboardScreenTests
         await context.AddNoteAsync("Shopping");
         var screen = context.Open();
         await screen.LoadCommand.ExecuteAsync(null);
-        screen.ToggleCardChoicesCommand.Execute(null);
-
         var notes = screen.CardChoices.Single(choice => choice.Kind == DashboardCardKind.Notes);
         screen.ToggleCardShownCommand.Execute(notes);
         screen.ToggleCardShownCommand.Execute(
             screen.CardChoices.Single(choice => choice.Kind == DashboardCardKind.Notes));
 
         Assert.Contains(screen.Cards, card => card.Kind == DashboardCardKind.Notes);
+    }
+
+    /// <summary>
+    /// The shelves, beside the lists they feed - Orbit.Web's own card. Everything else this page draws
+    /// was reachable from it and this was not, so the one part of Orbit that answers "have we run out"
+    /// could only be found through the navigation bar.
+    /// </summary>
+    [Fact]
+    public async Task The_shelves_are_on_the_dashboard()
+    {
+        using var context = new DashboardContext();
+        await context.AddInventoryAsync("Kitchen");
+        var screen = context.Open();
+
+        await screen.LoadCommand.ExecuteAsync(null);
+
+        var shelves = Assert.Single(screen.Cards, card => card.Kind == DashboardCardKind.Inventories);
+        Assert.Equal("Kitchen", Assert.Single(shelves.Rows).Title);
+        Assert.Equal("1", shelves.Count);
+    }
+
+    /// <summary>Between what is coming up and who is around, which is where Orbit.Web puts it.</summary>
+    [Fact]
+    public async Task The_shelves_sit_between_what_is_coming_up_and_who_is_around()
+    {
+        using var context = new DashboardContext();
+        await context.AddEventAsync("Standup", Now.AddHours(1));
+        await context.AddInventoryAsync("Kitchen");
+        context.SomebodySharesTheirPosition("Bob");
+        var screen = context.Open();
+
+        await screen.LoadCommand.ExecuteAsync(null);
+
+        Assert.Equal(
+            [DashboardCardKind.Upcoming, DashboardCardKind.Inventories, DashboardCardKind.SharedLocations],
+            screen.Cards.Select(card => card.Kind));
+    }
+
+    /// <summary>
+    /// A shelf about to go off says "/inventory" and names no shelf (InventoryExpiryPushContent), so
+    /// the card is the only place the mark can go.
+    /// </summary>
+    [Fact]
+    public async Task News_about_the_shelves_marks_their_card()
+    {
+        using var context = new DashboardContext();
+        await context.AddInventoryAsync("Kitchen");
+        await context.NoteAsUnreadAsync("/inventory");
+        var screen = context.Open();
+
+        await screen.LoadCommand.ExecuteAsync(null);
+
+        var shelves = Assert.Single(screen.Cards, card => card.Kind == DashboardCardKind.Inventories);
+        Assert.True(shelves.HasUnseenAction);
+        Assert.All(shelves.Rows, row => Assert.False(row.HasNews));
+    }
+
+    /// <summary>Pressing a shelf opens that shelf, as pressing the card's name opens the section.</summary>
+    [Fact]
+    public async Task Opening_a_shelf_goes_to_that_shelf()
+    {
+        using var context = new DashboardContext();
+        var localId = await context.AddInventoryAsync("Kitchen");
+        var screen = context.Open();
+        await screen.LoadCommand.ExecuteAsync(null);
+
+        var shelves = screen.Cards.Single(card => card.Kind == DashboardCardKind.Inventories);
+        await screen.OpenCommand.ExecuteAsync(Assert.Single(shelves.Rows));
+
+        Assert.Equal("ShowInventory", context.Navigator.LastDestination);
+        Assert.Equal(localId, context.Navigator.LastInventoryId);
+    }
+
+    /// <summary>
+    /// The circle a person or a group is drawn as, on the rows Orbit.Web leads with one - and on no
+    /// other: a note's id is not a person, and a circle made of it would be a colour meaning nothing.
+    /// </summary>
+    [Fact]
+    public async Task Only_the_rows_that_name_somebody_lead_with_a_circle()
+    {
+        using var context = new DashboardContext();
+        await context.AddNoteAsync("Shopping");
+        await context.AddInventoryAsync("Kitchen");
+        context.SomebodySharesTheirPosition("Bob");
+        var screen = context.Open();
+
+        await screen.LoadCommand.ExecuteAsync(null);
+
+        Assert.All(
+            screen.Cards.Single(card => card.Kind == DashboardCardKind.Notes).Rows,
+            row => Assert.False(row.HasAvatar));
+        Assert.All(
+            screen.Cards.Single(card => card.Kind == DashboardCardKind.Inventories).Rows,
+            row => Assert.False(row.HasAvatar));
+        Assert.All(
+            screen.Cards.Single(card => card.Kind == DashboardCardKind.SharedLocations).Rows,
+            row => Assert.True(row.HasAvatar));
+    }
+
+    /// <summary>
+    /// And no presence dot where the row is not about whether somebody is around: a position is a pin
+    /// on the map, and a group is not somewhere anybody is or is not.
+    /// </summary>
+    [Fact]
+    public async Task A_shared_position_carries_a_circle_and_no_presence_dot()
+    {
+        using var context = new DashboardContext();
+        context.SomebodySharesTheirPosition("Bob");
+        var screen = context.Open();
+
+        await screen.LoadCommand.ExecuteAsync(null);
+
+        var row = Assert.Single(
+            screen.Cards.Single(card => card.Kind == DashboardCardKind.SharedLocations).Rows);
+        Assert.True(row.HasAvatar);
+        Assert.Equal(string.Empty, row.Presence);
+    }
+
+    /// <summary>
+    /// Every part put away is not the same as having nothing, and the page has to say which - telling
+    /// somebody with a full account to add a note reads as work the app has lost.
+    /// </summary>
+    [Fact]
+    public async Task Putting_every_part_away_is_not_the_same_as_having_nothing()
+    {
+        using var context = new DashboardContext();
+        await context.AddNoteAsync("Shopping");
+        var screen = context.Open();
+        await screen.LoadCommand.ExecuteAsync(null);
+
+        foreach (var choice in screen.CardChoices.ToList())
+        {
+            screen.ToggleCardShownCommand.Execute(choice);
+        }
+
+        Assert.Empty(screen.Cards);
+        Assert.True(screen.EverythingIsHidden);
+        Assert.False(screen.HasNothing);
+    }
+
+    [Fact]
+    public async Task An_account_with_nothing_in_it_is_not_reported_as_hidden()
+    {
+        using var context = new DashboardContext();
+        var screen = context.Open();
+
+        await screen.LoadCommand.ExecuteAsync(null);
+
+        Assert.True(screen.HasNothing);
+        Assert.False(screen.EverythingIsHidden);
+    }
+
+    /// <summary>
+    /// The mark Orbit.Web puts on the row itself, not only on the card over it - a card saying
+    /// "something happened here" above six rows leaves the reader to open all six.
+    /// </summary>
+    [Fact]
+    public async Task An_unread_notification_marks_the_row_it_names_and_the_card_over_it()
+    {
+        using var context = new DashboardContext();
+        var errands = await context.AddTaskListAsync("Errands", ("Sugar", null, false));
+        await context.AddTaskListAsync("Move house", ("Boxes", null, false));
+        var serverId = await context.SynchroniseAsync(errands);
+        await context.NoteAsUnreadAsync($"/tasks/{serverId}");
+        var screen = context.Open();
+
+        await screen.LoadCommand.ExecuteAsync(null);
+
+        var tasks = Assert.Single(screen.Cards, card => card.Kind == DashboardCardKind.Tasks);
+        Assert.True(tasks.HasUnseenAction);
+        Assert.True(Assert.Single(tasks.Rows, row => row.Title == "Errands").HasNews);
+        Assert.False(Assert.Single(tasks.Rows, row => row.Title == "Move house").HasNews);
+    }
+
+    /// <summary>
+    /// And a card with nothing unread about it carries no mark, on itself or on any of its rows - the
+    /// state everything is in almost all of the time.
+    /// </summary>
+    [Fact]
+    public async Task A_card_with_nothing_unread_about_it_is_not_marked()
+    {
+        using var context = new DashboardContext();
+        await context.SynchroniseAsync(await context.AddTaskListAsync("Errands", ("Sugar", null, false)));
+        var screen = context.Open();
+
+        await screen.LoadCommand.ExecuteAsync(null);
+
+        var tasks = Assert.Single(screen.Cards, card => card.Kind == DashboardCardKind.Tasks);
+        Assert.False(tasks.HasUnseenAction);
+        Assert.All(tasks.Rows, row => Assert.False(row.HasNews));
+    }
+
+    /// <summary>
+    /// A shelf about to go off points at "/inventory" and a shared position at "/map" - neither names
+    /// the thing it is about, so the card is the only place the mark can go. The rows stay clean.
+    /// </summary>
+    [Fact]
+    public async Task News_that_names_nothing_marks_the_card_and_none_of_its_rows()
+    {
+        using var context = new DashboardContext();
+        context.SomebodySharesTheirPosition("Alice");
+        await context.NoteAsUnreadAsync("/map");
+        var screen = context.Open();
+
+        await screen.LoadCommand.ExecuteAsync(null);
+
+        var shared = Assert.Single(screen.Cards, card => card.Kind == DashboardCardKind.SharedLocations);
+        Assert.True(shared.HasUnseenAction);
+        Assert.All(shared.Rows, row => Assert.False(row.HasNews));
+    }
+
+    /// <summary>
+    /// The hairline goes under every row but the last, which is how Orbit.Web's .list-row:last-child
+    /// rules its own list - a line under the last one would be a line drawn under nothing.
+    /// </summary>
+    [Fact]
+    public async Task Every_row_but_the_last_carries_the_hairline()
+    {
+        using var context = new DashboardContext();
+        await context.AddNoteAsync("Shopping");
+        await context.AddNoteAsync("Rent");
+        var screen = context.Open();
+
+        await screen.LoadCommand.ExecuteAsync(null);
+
+        var rows = Assert.Single(screen.Cards, card => card.Kind == DashboardCardKind.Notes).Rows;
+        Assert.Equal(2, rows.Count);
+        Assert.True(rows[0].HasDividerUnder);
+        Assert.False(rows[^1].HasDividerUnder);
+    }
+
+    /// <summary>
+    /// A standing "0 new chat requests" is not news, so the line is left out rather than shown at
+    /// nought - which is what Orbit.Web's today strip does.
+    /// </summary>
+    [Fact]
+    public async Task The_today_strip_says_nothing_about_chat_requests_when_nobody_is_waiting()
+    {
+        using var context = new DashboardContext();
+        await context.AddNoteAsync("Shopping");
+        var screen = context.Open();
+
+        await screen.LoadCommand.ExecuteAsync(null);
+
+        Assert.Equal(0, screen.Today.PendingChatRequests);
+        Assert.False(screen.Today.HasChatRequests);
+    }
+
+    /// <summary>
+    /// A card its filter has emptied stays on the page and says so. It has to: the menu that narrowed it
+    /// lives in its own header, so a card that vanished would take away the only way to widen it again.
+    /// Orbit.Web settled this the same way, after the same bug.
+    /// </summary>
+    [Fact]
+    public async Task A_card_narrowed_to_nothing_stays_on_the_page_and_says_why_it_is_empty()
+    {
+        using var context = new DashboardContext();
+        await context.AddNoteAsync("Shopping");
+        var screen = context.Open();
+        await screen.LoadCommand.ExecuteAsync(null);
+
+        await screen.ChooseFilterCommand.ExecuteAsync(
+            screen.FilterChoicesFor(DashboardCardKind.Notes)
+                .Single(choice => choice.Filter == DashboardCardFilter.Pinned));
+
+        var notes = Assert.Single(screen.Cards, card => card.Kind == DashboardCardKind.Notes);
+        Assert.Empty(notes.Rows);
+        Assert.True(notes.HasNothingMatching);
+        Assert.True(notes.CanBeFiltered);
+    }
+
+    /// <summary>And a card with nothing in it at all is still left off the page entirely.</summary>
+    [Fact]
+    public async Task A_card_with_nothing_in_it_is_not_drawn()
+    {
+        using var context = new DashboardContext();
+        await context.AddNoteAsync("Shopping");
+        var screen = context.Open();
+
+        await screen.LoadCommand.ExecuteAsync(null);
+
+        Assert.DoesNotContain(screen.Cards, card => card.Kind == DashboardCardKind.Tasks);
     }
 
     /// <summary>
@@ -682,6 +959,7 @@ public sealed class DashboardScreenTests
         private readonly LocalNoteRepository _notes;
         private readonly LocalTaskListRepository _taskLists;
         private readonly LocalCalendarEventRepository _calendarEvents;
+        private readonly LocalInventoryRepository _inventories;
         private readonly ChatRepository _chat;
         private readonly EverythingSynchronizer _synchronizer;
         private readonly SyncState _syncState;
@@ -695,6 +973,7 @@ public sealed class DashboardScreenTests
             _notes = new LocalNoteRepository(_localStore, _clock, network, PrivateContent.WithoutAKey());
             _taskLists = new LocalTaskListRepository(_localStore, _clock, network, PrivateContent.WithoutAKey());
             _calendarEvents = new LocalCalendarEventRepository(_localStore, _clock, network);
+            _inventories = new LocalInventoryRepository(_localStore, _clock, network, PrivateContent.WithoutAKey());
             _chat = new ChatRepository(_localStore, _clock);
             _syncState = new SyncState(network, _clock);
             NotesServer = new FakeNotesServer(_clock);
@@ -822,10 +1101,20 @@ public sealed class DashboardScreenTests
         /// <summary>One for the whole context, so a test can unlock private things before opening.</summary>
         public PrivateItemGate PrivateItems { get; } = new(new FixedDeviceAuthentication());
 
+        /// <summary>What the bell is holding - see NoteAsUnreadAsync, which is how a test puts one here.</summary>
+        public LocalNotificationRepository Notifications => new(_localStore);
+
         public DashboardViewModel Open()
-            => new(_notes, _taskLists, _calendarEvents, _chat, _clock, new Translations(new InMemoryLanguageStore()),
+            => new(_notes, _taskLists, _calendarEvents, _inventories, _chat, _clock, new Translations(new InMemoryLanguageStore()),
                 PrivateItems, _synchronizer, _syncState, _permissions,
-                Pins, Visibility, SharedPositions(), Navigator);
+                Pins, Visibility, SharedPositions(), Notifications, Navigator);
+
+        /// <summary>
+        /// An unread notification pointing somewhere, which is how everything on this page learns that
+        /// something happened - see UnreadNews.
+        /// </summary>
+        public Task NoteAsUnreadAsync(string url)
+            => Notifications.RaiseAsync("Test", "Something happened", "About {0}", url, Now, [url]);
 
         public async Task<Guid> AddNoteAsync(string title)
             => (await _notes.CreateAsync(title, [new NoteContentLineDto("Body", false, false)])).LocalId;
@@ -861,6 +1150,33 @@ public sealed class DashboardScreenTests
 
             await dbContext.SaveChangesAsync();
         }
+
+        /// <summary>
+        /// Gives something the id the server knows it by, which is what a notification points at. A
+        /// locally-made row has none until it has been synchronised, and a row with no address cannot
+        /// be the one the bell means.
+        /// </summary>
+        public async Task<Guid> SynchroniseAsync(Guid localId)
+        {
+            var serverId = Guid.NewGuid();
+            await using var dbContext = _localStore.CreateDbContext();
+            if (dbContext.TaskLists.FirstOrDefault(list => list.LocalId == localId) is { } taskList)
+            {
+                taskList.ServerId = serverId;
+            }
+
+            if (dbContext.CalendarEvents.FirstOrDefault(calendarEvent => calendarEvent.LocalId == localId) is { } stored)
+            {
+                stored.ServerId = serverId;
+            }
+
+            await dbContext.SaveChangesAsync();
+            return serverId;
+        }
+
+        /// <summary>A shelf, as the Inventory screen makes one.</summary>
+        public async Task<Guid> AddInventoryAsync(string name)
+            => (await _inventories.CreateAsync(name)).LocalId;
 
         /// <summary>Keeps a note at the top, which is what the "Pinned" card filter narrows to.</summary>
         public Task PinNoteAsync(Guid localId) => _notes.MarkPinnedAsync(localId, isPinned: true);

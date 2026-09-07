@@ -47,6 +47,14 @@ public partial class EditorRail : ContentView
 
 	private bool _isOpen;
 
+	/// <summary>
+	/// Watched rather than only held: a screen hands this over once and lets it hide itself - a note's
+	/// read-only reason is a Label that appears when the note turns out to be somebody else's. The
+	/// arrow has to come and go with it, or every screen carrying the slot draws an arrow that opens an
+	/// empty line.
+	/// </summary>
+	private View? _extras;
+
 	public EditorRail()
 	{
 		InitializeComponent();
@@ -93,17 +101,38 @@ public partial class EditorRail : ContentView
 
 	private void Hold(View? extras)
 	{
+		if (_extras is not null)
+		{
+			_extras.PropertyChanged -= OnExtrasChanged;
+		}
+
+		_extras = extras;
 		ExtrasHost.Content = extras;
 
-		// The arrow is drawn only where there is something folded behind it: one that opens an empty
-		// line is a control that does nothing.
-		Toggle.IsVisible = extras is not null;
+		if (extras is not null)
+		{
+			extras.PropertyChanged += OnExtrasChanged;
+		}
+
 		Fold(false);
+	}
+
+	private void OnExtrasChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs args)
+	{
+		if (args.PropertyName == nameof(IsVisible))
+		{
+			Fold(_isOpen);
+		}
 	}
 
 	private void Fold(bool open)
 	{
-		_isOpen = open && ExtrasHost.Content is not null;
+		// The arrow is drawn only where there is something behind it to unfold: one that opens an empty
+		// line is a control that does nothing.
+		var hasSomethingToSay = _extras is { IsVisible: true };
+		Toggle.IsVisible = hasSomethingToSay;
+
+		_isOpen = open && hasSomethingToSay;
 		ExtrasHost.IsVisible = _isOpen;
 
 		var translations = IPlatformApplication.Current?.Services.GetService<Translations>();

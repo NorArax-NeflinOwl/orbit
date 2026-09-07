@@ -171,7 +171,8 @@
                 <CollectionView.ItemTemplate>
                     <DataTemplate x:DataType="screens:TaskListRow">
                         <!-- The same card every list of things is drawn with - see ItemCard. -->
-                        <controls:ItemCard Name="{Binding DisplayTitle}" IsPinned="{Binding IsPinned}">
+                        <controls:ItemCard Name="{Binding DisplayTitle}" IsPinned="{Binding IsPinned}"
+                                           HasUnseenAction="{Binding HasUnseenAction}">
                             <!-- Only where the reader is sorting by the order they put the cards in:
                                  moving one under any other order would be undone by the sort. The web
                                  drags them, which is not a gesture a thumb can aim in a scrolling list. -->

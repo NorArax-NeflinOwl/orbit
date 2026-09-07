@@ -1,5 +1,6 @@
 using System.Windows.Input;
 using Orbit.Mobile.Localization;
+using Orbit.Mobile.Screens;
 using Orbit.Mobile.Screens.Dashboard;
 
 namespace Orbit.Maui.Features.Dashboard;
@@ -11,20 +12,28 @@ public partial class DashboardPage : ContentPage
 
 	public DashboardPage(DashboardViewModel viewModel, Translations translations)
 	{
+		// Before InitializeComponent, not after: both are bound from the static part of the tree, which
+		// is built there and reads a page's plain property exactly once - see CalendarEventDetailPage,
+		// where the same order matters for the same reason.
+		_translations = translations;
+		ShowPartsMenuCommand = new Command(ShowPartsMenu);
+		ShowCardFilterCommand = new Command<DashboardCard>(ShowCardFilter);
+
 		InitializeComponent();
 		BindingContext = _viewModel = viewModel;
-		_translations = translations;
-		ShowCardFilterCommand = new Command<DashboardCard>(card => _ = ShowCardFilterAsync(card));
 	}
 
 	/// <summary>Typed so the card rows' bindings back up to the page can be compiled.</summary>
 	public DashboardViewModel ViewModel => _viewModel;
 
-	/// <summary>
-	/// What a card's "⋯" opens. On the page rather than the view model because an action sheet is a
-	/// page's own presentation - the same split as the note editor's line menu.
-	/// </summary>
+	/// <summary>What the three dots at the header's other end open - which parts of the page are wanted.</summary>
+	public ICommand ShowPartsMenuCommand { get; }
+
+	/// <summary>And what a card's own three dots open: what that card is narrowed to.</summary>
 	public ICommand ShowCardFilterCommand { get; }
+
+	/// <summary>The panel both of them draw - one per screen, above everything else on it.</summary>
+	public ScreenMenu Menu { get; } = new();
 
 	/// <summary>
 	/// Reloaded every time. This reads the local store, which every synchroniser writes to behind the
@@ -36,7 +45,31 @@ public partial class DashboardPage : ContentPage
 		_viewModel.LoadCommand.Execute(null);
 	}
 
-	private async Task ShowCardFilterAsync(DashboardCard? card)
+	/// <summary>
+	/// Which parts of the dashboard are wanted at all. A menu of settings rather than of actions, so it
+	/// stays open while several are changed - which is the exception Orbit.Web's OverflowMenu.StaysOpen
+	/// makes for exactly this menu.
+	/// </summary>
+	private void ShowPartsMenu() => Menu.Show(
+		_viewModel.CardChoices.Select(choice => new ScreenMenuEntry(
+			choice.Name,
+			() =>
+			{
+				_viewModel.ToggleCardShownCommand.Execute(choice);
+
+				// Asked again rather than ticked here: putting a part away rebuilds the choices, so the
+				// entries this menu is holding are no longer the ones that know their own answer.
+				ShowPartsMenu();
+			},
+			choice.IsShown,
+			staysOpen: true)),
+		_translations["Show on the dashboard"]);
+
+	/// <summary>
+	/// What one card is showing of what it could show - Orbit.Web's CardFilterMenu, under the same
+	/// heading. One choice and then done, unlike the page's menu above.
+	/// </summary>
+	private void ShowCardFilter(DashboardCard? card)
 	{
 		if (card is null || _viewModel.FilterChoicesFor(card.Kind) is not { Count: > 0 } choices)
 		{
@@ -45,14 +78,12 @@ public partial class DashboardPage : ContentPage
 
 		// The one in force is marked, because a menu of four with no answer among them leaves the
 		// reader guessing what the card is currently showing.
-		var names = choices
-			.Select(choice => choice.IsChosen ? $"{choice.Name} ✓" : choice.Name)
-			.ToArray();
-
-		var chosen = await DisplayActionSheet(card.Title, _translations["Cancel"], destruction: null, names);
-		if (Array.IndexOf(names, chosen) is var picked and >= 0)
-		{
-			await _viewModel.ChooseFilterCommand.ExecuteAsync(choices[picked]);
-		}
+		Menu.Show(
+			choices.Select(choice => new ScreenMenuEntry(
+				choice.Name,
+				() => _ = _viewModel.ChooseFilterCommand.ExecuteAsync(choice),
+				choice.IsChosen)),
+			_translations["Show"],
+			opensUpwards: true);
 	}
 }

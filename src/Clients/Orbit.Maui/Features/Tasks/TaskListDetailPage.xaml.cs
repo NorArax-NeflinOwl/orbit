@@ -1,6 +1,8 @@
 using Orbit.Mobile.Localization;
 using System.ComponentModel;
 using System.Windows.Input;
+using Orbit.Maui.Controls;
+using Orbit.Mobile.Screens;
 using Orbit.Mobile.Screens.Tasks;
 
 namespace Orbit.Maui.Features.Tasks;
@@ -24,7 +26,7 @@ public partial class TaskListDetailPage : ContentPage
 		_translations = translations;
 		_viewModel = viewModel;
 		ShowItemMenuCommand = new Command<TaskItemRow>(item => _ = ShowItemMenuAsync(item));
-		ShowListMenuCommand = new Command(() => _ = ShowListMenuAsync());
+		ShowListMenuCommand = new Command(ShowListMenu);
 		ChooseInventoryCommand = new Command(() => _ = ChooseInventoryAsync());
 		ChooseStockOrderCommand = new Command(() => _ = ChooseStockOrderAsync());
 
@@ -33,10 +35,13 @@ public partial class TaskListDetailPage : ContentPage
 	}
 
 	/// <summary>
-	/// What the list's "⋯" opens: the two things Orbit.Web keeps in its overflow menu, which are about
-	/// the list as a whole rather than about any one entry.
+	/// What the rail's "⋯" opens: how to read the list, and what can be done to the list as a whole -
+	/// one menu holding both, which is where Orbit.Web's checklist keeps them too.
 	/// </summary>
 	public ICommand ShowListMenuCommand { get; }
+
+	/// <summary>The panel it draws - one per screen, above everything else on it.</summary>
+	public ScreenMenu Menu { get; } = new();
 
 	/// <summary>Which shelf this list's work is measured against - see StockCheckPanel.</summary>
 	public ICommand ChooseInventoryCommand { get; }
@@ -75,48 +80,78 @@ public partial class TaskListDetailPage : ContentPage
 		}
 	}
 
-	private async Task ShowListMenuAsync()
+	/// <summary>
+	/// What order to read the entries in, then what can be done to the list - one menu holding both, as
+	/// Orbit.Web's checklist keeps them. The order in force is marked, because a menu of three with no
+	/// answer among them leaves the reader guessing what they are looking at, and the order stays open
+	/// while somebody tries one and then another.
+	/// </summary>
+	private void ShowListMenu()
 	{
-		// What order to read the entries in, then what to do to the list - one menu holding both, as
-		// Orbit.Web's checklist keeps them. The order in force is marked, because a menu of three with
-		// no answer among them leaves the reader guessing what they are looking at.
-		var orders = new Dictionary<string, ChecklistOrder>
-		{
-			[Mark(_translations["In list order"], ChecklistOrder.AsArranged)] = ChecklistOrder.AsArranged,
-			[Mark(_translations["A to Z"], ChecklistOrder.Alphabetical)] = ChecklistOrder.Alphabetical,
-			[Mark(_translations["Left to do first"], ChecklistOrder.UndoneFirst)] = ChecklistOrder.UndoneFirst
-		};
+		List<ScreenMenuEntry> entries =
+		[
+			Order(_translations["In list order"], ChecklistOrder.AsArranged),
+			Order(_translations["A to Z"], ChecklistOrder.Alphabetical),
+			Order(_translations["Left to do first"], ChecklistOrder.UndoneFirst)
+		];
 
 		// The two that price a list against a shelf are only worth offering where there is a shelf to
 		// price it against - the panel below appears by the same rule.
-		var generate = _translations["Generate inventory"];
-		var refresh = _translations["Refresh the restock list"];
-		string[] choices = _viewModel.StockCheck.IsOffered
-			? [.. orders.Keys, generate, refresh]
-			: [.. orders.Keys];
-
-		var chosen = await DisplayActionSheet(
-			_translations["List options"], _translations["Cancel"], destruction: null, choices);
-
-		if (chosen is not null && orders.TryGetValue(chosen, out var order))
+		if (_viewModel.StockCheck.IsOffered)
 		{
-			_viewModel.ItemOrder = order;
+			entries.Add(new ScreenMenuEntry(
+				_translations["Generate inventory"],
+				() => _viewModel.StockCheck.GenerateInventoryCommand.Execute(null)));
+			entries.Add(new ScreenMenuEntry(
+				_translations["Refresh the restock list"],
+				() => _viewModel.StockCheck.RefreshFromTheInventoryCommand.Execute(null)));
 		}
-		else if (chosen == generate)
+
+		// What used to be a row of words under the last entry, which on a long list is nowhere near the
+		// thumb. Deleting is offered only where this reader may change the list at all.
+		if (_viewModel.CanEdit)
 		{
-			_viewModel.StockCheck.GenerateInventoryCommand.Execute(null);
+			entries.Add(new ScreenMenuEntry(
+				_translations["Delete list"], () => _ = DeleteAsync()));
 		}
-		else if (chosen == refresh)
+
+		// Where this thing's own copies are found again - see CopyHistoryViewModel. Only once there is
+		// one, and here rather than in the account's menu: a history belongs to the thing it is the
+		// history of.
+		if (_viewModel.HasHistory)
 		{
-			_viewModel.StockCheck.RefreshFromTheInventoryCommand.Execute(null);
+			entries.Add(new ScreenMenuEntry(
+				_translations["History"], () => _viewModel.GoToHistoryCommand.Execute(null)));
+		}
+
+		Menu.Show(entries, _translations["List options"], opensUpwards: true);
+	}
+
+	/// <summary>Asked first, as every delete in Orbit is - and named, so the question says which list.</summary>
+	private async Task DeleteAsync()
+	{
+		var question = _translations.Format("Delete task list \"{0}\"?", _viewModel.Title);
+		if (await Confirmation.AskAsync(this, question, _translations["Delete"], _translations["Cancel"]))
+		{
+			_viewModel.DeleteListCommand.Execute(null);
 		}
 	}
 
+	private ScreenMenuEntry Order(string name, ChecklistOrder order) => new(
+		name,
+		() =>
+		{
+			_viewModel.ItemOrder = order;
+
+			// Asked again rather than ticked here: the tick has to leave whichever entry was carrying
+			// it, and only the choices themselves know which that was.
+			ShowListMenu();
+		},
+		_viewModel.ItemOrder == order,
+		staysOpen: true);
+
 	private string MarkStock(string name, StockCheckOrder order)
 		=> _viewModel.StockCheck.Order == order ? $"{name} ✓" : name;
-
-	private string Mark(string name, ChecklistOrder order)
-		=> _viewModel.ItemOrder == order ? $"{name} ✓" : name;
 
 	protected override void OnAppearing()
 	{

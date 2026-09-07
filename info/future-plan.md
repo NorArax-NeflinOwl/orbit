@@ -582,17 +582,53 @@ matches and what does not. What that pass left:
   unlocked Contacts, so the navigation bar draws no way into them and `FeatureLocked` is all those
   screens show there. The bubbles, the message menus and the row menus want a walk on an account that
   can chat before they are believed.
-- **A card's footnote says the whole timestamp.** A note card reads "Updated 9/2/2026 7:27 PM" where
-  the browser says "Today", "Yesterday", the weekday within the last week, and only then a date - see
-  `Notes.razor`'s `WhenLastChanged`. `NoteListItem.Updated` is where the phone builds it. Small, but it
-  is the line under every card on the screen.
-- **The `.item-card-unseen` pulse is a colour, not an animation.** The edge takes the danger colour and
-  stays there. The browser breathes it, which is what catches an eye that was elsewhere.
-- **No screen hands `EditorRail` an `Extras` view yet.** The slot and the arrow that folds it away are
-  built and the arrow is left out where nothing fills it, which is what the browser does too - but the
-  browser does fill it: a lock's explanation and the sentence saying why a save was refused are kept in
-  view there whatever the form is scrolled to, and on the phone those are still labels partway up the
-  page. `NoteDetailPage`'s read-only reason and `TaskListDetailPage`'s lock banner are the two to move.
+- ~~**The dashboard was never given the pass.**~~ Done on 2026-09-07, and it was the last screen
+  still speaking the old vocabulary: it now opens with `PageHeader`, both of its "⋯" are the shared
+  `OverflowMenu` filling the screen's one `ScreenMenu` (the page's parts menu stays open as
+  Orbit.Web's does, a card's filter closes after one pick), its rows are `Row`s, and every card and
+  every row that a notification can name carries the mark - `.item-card-unseen` on the card and
+  `.list-row.row-unseen` on the row, which is what stops a card saying "something happened here" over
+  six rows and leaving the reader to open all six. The strip of today's counts is the way to the
+  calendar, as it is there, and drops its chat-request line at nought. Two defects came out of it: a
+  card narrowed to nothing vanished and took its own filter menu with it, so the choice could not be
+  undone (the bug Orbit.Web had already fixed), and the coloured dot beside an event had never once
+  been drawn - see `android-ui-parity.md` for why.
+- ~~**The dashboard's rows carry no avatar, and there is no Inventory card.**~~ Done on 2026-09-07.
+  The circle came out of `PersonRow` into `Controls/AvatarCircle.xaml` on the way, so the chat list,
+  the contact list and the dashboard draw one avatar rather than three - and the presence dot moved to
+  the top-right edge, which is where app.css has always put it. `DashboardCardKind.Inventories` sits
+  between what is coming up and who is around, as Orbit.Web orders them; a shelf says how much is on it
+  and whether it is private or shared, a private one is hidden while private things are locked, and the
+  card carries the news because a shelf about to go off names no shelf. Two smaller things came with
+  it: putting every part away now says so instead of telling a full account to add a note, and pressing
+  a shelf opens that shelf.
+- **A conversation still shows no count of what is waiting.** The one part of Orbit.Web's avatar the
+  phone does not draw, and it is missing for want of a number rather than a control: `UnreadBadge`
+  reads a per-conversation unread count, `LocalContact` has none, and nothing on the device derives one
+  - `LocalChatMessage.IsReadByEveryone` is about messages this reader *sent*. What it would take is a
+  read mark per conversation that survives a restart, which is a chat feature rather than a look, and
+  the phone already says the smaller thing in the row's own mark: something unread points at that
+  person.
+- **`ContactsPage.xaml` declares a `PresenceColor` converter it never uses.** One dead line, noticed
+  while chasing the event dot; harmless, and it is here rather than done because the Contacts screen
+  was not otherwise being touched.
+- ~~**A card's footnote says the whole timestamp.**~~ Done: `LastChanged` gives the four answers
+  `Notes.razor`'s `WhenLastChanged` gives - today, yesterday, the weekday within the week, a date past
+  it - against the injected clock rather than the machine's, so a test about the wording is a test
+  about the wording.
+- ~~**The `.item-card-unseen` pulse is a colour, not an animation.**~~ Done, and with it the thing
+  that made it visible at all: nothing on the phone had ever set `HasUnseenAction`, so neither the mark
+  nor the edge could appear. A task list card now asks whether anything unread points at it, matching
+  on the `/tasks/{id}` a notification carries exactly as Orbit.Web's card does, and the edge breathes
+  the halo `card-with-news` draws - called off where the reader has asked the phone for less motion,
+  which is the platform's answer to `prefers-reduced-motion`.
+- ~~**No screen hands `EditorRail` an `Extras` view yet.**~~ Done: the note's and the task list's
+  read-only reasons are in it, where they stay in view however far the screen is scrolled. The task
+  list gained the rail itself in the same change - its menu moved off the title and onto the bar, as
+  Orbit.Web's checklist keeps it, taking Delete and History with it, so the row of words under the last
+  entry is gone. The arrow now follows what it hides rather than merely whether a slot was filled: a
+  screen hands over a label that hides itself, and an arrow that opens an empty line is a control that
+  does nothing.
 
 ## Smaller identified follow-ups
 

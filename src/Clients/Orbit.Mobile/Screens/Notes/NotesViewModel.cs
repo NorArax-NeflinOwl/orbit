@@ -27,6 +27,9 @@ public sealed partial class NotesViewModel : ObservableObject
     private readonly SyncState _syncState;
     private readonly IScreenNavigator _navigator;
 
+    /// <summary>What "today" is, so a card's footnote says it against the clock the tests hand over.</summary>
+    private readonly TimeProvider _clock;
+
 
     [ObservableProperty]
     private string _newNoteTitle = string.Empty;
@@ -43,8 +46,9 @@ public sealed partial class NotesViewModel : ObservableObject
         LocalNoteRepository notes, NoteSynchronizer synchronizer, NotesClient notesClient,
         INetworkStatus networkStatus,
         Translations translations, PrivateItemGate privateItems,
-        SyncState syncState, IScreenNavigator navigator)
+        SyncState syncState, IScreenNavigator navigator, TimeProvider clock)
     {
+        _clock = clock;
         _notes = notes;
         _synchronizer = synchronizer;
         _notesClient = notesClient;
@@ -185,7 +189,7 @@ public sealed partial class NotesViewModel : ObservableObject
         {
             Notes.Add(NoteListItem.From(
                 note, pending.Contains(note.LocalId), _networkStatus, _privateItems.IsUnlocked,
-                _translations, _translations["Private"]));
+                _translations, _clock.GetUtcNow(), _translations["Private"]));
         }
     }
 

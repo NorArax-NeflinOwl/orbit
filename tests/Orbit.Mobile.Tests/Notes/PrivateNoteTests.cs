@@ -46,5 +46,5 @@ public sealed class PrivateNoteTests
     private static NoteListItem Describe(LocalNote note, bool privateItemsAreUnlocked)
         => NoteListItem.From(
             note, hasUnsentChanges: false, FixedNetworkStatus.Online, privateItemsAreUnlocked,
-            new Translations(new InMemoryLanguageStore()));
+            new Translations(new InMemoryLanguageStore()), DateTimeOffset.UtcNow);
 }

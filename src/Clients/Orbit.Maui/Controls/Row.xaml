@@ -14,23 +14,35 @@
              [leading] Title .......................... [trailing]
              ______________________________________________________
 
+         A row something unread is about is outlined in the danger colour over a wash of it
+         (.list-row.row-unseen) and does not breathe: the card around it already is, and two
+         animations out of step is what a page looks like when it is trying too hard.
+
          A title-less row is allowed, and draws no title column at all rather than an empty one: an
          empty label still claims the width that pushes the row's one value to the far edge. -->
     <Grid RowDefinitions="Auto,Auto">
-        <Grid Grid.Row="0" ColumnDefinitions="Auto,*,Auto" ColumnSpacing="10" Padding="4,10">
-            <ContentView x:Name="LeadingHost" Grid.Column="0" IsVisible="False" VerticalOptions="Center" />
+        <!-- The frame is always drawn and always a pixel thick, so a row that gains its mark does not
+             shove the rest of the list sideways - which is what app.css buys with outline-offset. -->
+        <Border x:Name="Frame" Grid.Row="0" StrokeThickness="1" Stroke="Transparent" BackgroundColor="Transparent"
+                Padding="0">
+            <Border.StrokeShape>
+                <RoundRectangle CornerRadius="6" />
+            </Border.StrokeShape>
+            <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="10" Padding="4,10">
+                <ContentView x:Name="LeadingHost" Grid.Column="0" IsVisible="False" VerticalOptions="Center" />
 
-            <Label x:Name="TitleLabel" Grid.Column="1" Style="{StaticResource RowTitle}"
-                   Text="{Binding Title, Source={x:Reference Root}, x:DataType=controls:Row}" />
+                <Label x:Name="TitleLabel" Grid.Column="1" Style="{StaticResource RowTitle}"
+                       Text="{Binding Title, Source={x:Reference Root}, x:DataType=controls:Row}" />
 
-            <ContentView x:Name="TrailingHost" Grid.Column="2" IsVisible="False" VerticalOptions="Center" />
+                <ContentView x:Name="TrailingHost" Grid.Column="2" IsVisible="False" VerticalOptions="Center" />
 
-            <!-- Over the row rather than around it, so anything in Trailing with a press of its own -
-                 a member count that opens the roster - still takes the press first. -->
-            <Button x:Name="Press" Grid.Column="0" Grid.ColumnSpan="3" IsVisible="False" Padding="0"
-                    BackgroundColor="Transparent" BorderWidth="0"
-                    MinimumHeightRequest="0" MinimumWidthRequest="0" />
-        </Grid>
+                <!-- Over the row rather than around it, so anything in Trailing with a press of its own -
+                     a member count that opens the roster - still takes the press first. -->
+                <Button x:Name="Press" Grid.Column="0" Grid.ColumnSpan="3" IsVisible="False" Padding="0"
+                        BackgroundColor="Transparent" BorderWidth="0"
+                        MinimumHeightRequest="0" MinimumWidthRequest="0" />
+            </Grid>
+        </Border>
 
         <BoxView x:Name="Divider" Grid.Row="1" Style="{StaticResource Hairline}" />
     </Grid>

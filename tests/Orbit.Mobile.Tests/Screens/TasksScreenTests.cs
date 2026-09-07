@@ -20,6 +20,9 @@ namespace Orbit.Mobile.Tests.Screens;
 public sealed class TasksScreenTests : IDisposable
 {
     private readonly LocalStore _localStore = new();
+
+    /// <summary>What the bell is holding, which is what marks a card "something happened here".</summary>
+    private LocalNotificationRepository Notifications => new(_localStore);
     private readonly FakeTimeProvider _clock = new(DateTimeOffset.Parse("2026-08-29T10:00:00Z"));
     private readonly FakeTasksServer _server;
     private readonly LocalTaskListRepository _taskLists;
@@ -429,6 +432,44 @@ public sealed class TasksScreenTests : IDisposable
         Assert.Single(screen.TaskLists);
     }
 
+    /// <summary>
+    /// Which card the bell is talking about. A notification carries the in-app page it came from, so a
+    /// card asks whether anything unread points at it - the same match Orbit.Web makes.
+    /// </summary>
+    [Fact]
+    public async Task A_list_with_something_unread_about_it_says_so()
+    {
+        await AddAsync("Shopping", "Errands");
+        await OpenAsync();
+
+        await Notifications.RaiseAsync(
+            "TaskListShared", "Shared with you", "Somebody shared a list",
+            $"/tasks/{_server.TaskLists.Single(list => list.Title == "Shopping").Id}", _clock.GetUtcNow());
+        var screen = await OpenAsync();
+
+        Assert.True(screen.TaskLists.Single(row => row.Title == "Shopping").HasUnseenAction);
+        Assert.False(screen.TaskLists.Single(row => row.Title == "Errands").HasUnseenAction);
+    }
+
+    /// <summary>
+    /// And stops saying it once they are read - which is what the mark is for. Read rather than
+    /// dismissed: the entry stays in the feed, it is only no longer news.
+    /// </summary>
+    [Fact]
+    public async Task It_stops_saying_so_once_the_notifications_are_read()
+    {
+        await AddAsync("Shopping");
+        await OpenAsync();
+        await Notifications.RaiseAsync(
+            "TaskListShared", "Shared with you", "Somebody shared a list",
+            $"/tasks/{_server.TaskLists.Single(list => list.Title == "Shopping").Id}", _clock.GetUtcNow());
+
+        await Notifications.MarkEverythingReadAsync();
+        var screen = await OpenAsync();
+
+        Assert.False(Assert.Single(screen.TaskLists).HasUnseenAction);
+    }
+
     private async Task AddAsync(params string[] titles)
     {
         foreach (var title in titles)
@@ -474,7 +515,7 @@ public sealed class TasksScreenTests : IDisposable
             new TasksClient(_server.ToHttpClient()), FixedNetworkStatus.Online, Arrangement,
             new PrivateItemGate(new FixedDeviceAuthentication()),
             new SyncState(FixedNetworkStatus.Online, _clock), new RecordingScreenNavigator(),
-            new Translations(new InMemoryLanguageStore()));
+            new Translations(new InMemoryLanguageStore()), Notifications);
 
         await screen.LoadCommand.ExecuteAsync(null);
         return screen;

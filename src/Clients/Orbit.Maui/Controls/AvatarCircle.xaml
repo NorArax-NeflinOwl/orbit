@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<ContentView
+    x:Class="Orbit.Maui.Controls.AvatarCircle"
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    xmlns:shapes="clr-namespace:Microsoft.Maui.Controls.Shapes;assembly=Microsoft.Maui.Controls">
+
+    <!-- How somebody is drawn where there is no picture to draw them with - Orbit.Web's .avatar and
+         .avatar-sm: up to two initials on a circle whose colour is theirs and stays theirs, with a
+         presence dot on its edge where the thing it stands for is somewhere at all.
+
+         One control rather than a shape each list draws for itself, because the same person appears on
+         the chat list, the contact list and the dashboard, and an avatar that is one colour on one
+         screen and another elsewhere is not an avatar. What the initials and the hue are is settled
+         further in still - see Orbit.Mobile's Avatar, which Orbit.Web's AvatarHelper agrees with. -->
+    <Grid x:Name="Frame">
+        <Border x:Name="Circle" StrokeThickness="0" HorizontalOptions="Center" VerticalOptions="Center">
+            <Border.StrokeShape>
+                <shapes:RoundRectangle x:Name="Round" />
+            </Border.StrokeShape>
+            <!-- White rather than the accent's own contrast colour: the circle is not the accent, it is
+                 this person's hue at a fixed middle lightness, and AccentOn follows the palette - on a
+                 light accent it is nearly black, which on a mid-red circle is barely there. -->
+            <Label x:Name="InitialsLabel" FontAttributes="Bold" TextColor="{StaticResource White}"
+                   HorizontalOptions="Center" VerticalOptions="Center" />
+        </Border>
+
+        <!-- Top right, which is where app.css puts it on both sizes of circle, and the same 10 across
+             at both - a dot that grew with the circle would sit over the initials on the small one.
+             Ringed in the surface behind it so a dark dot on a dark avatar still reads as a separate
+             thing: the 2 of stroke is the ring app.css draws with a box-shadow, and MAUI draws a
+             border inwards, so 14 across leaves the 10 the browser fills. It hangs over the edge, as
+             app.css hangs its own over by a pixel - inside the circle its ring clipped the second
+             initial on the small size. -->
+        <Border x:Name="PresenceDot" HeightRequest="14" WidthRequest="14" StrokeThickness="2" IsVisible="False"
+                Stroke="{AppThemeBinding Light={StaticResource SurfaceLight}, Dark={StaticResource SurfaceDark}}"
+                Margin="0,-2,-2,0" HorizontalOptions="End" VerticalOptions="Start">
+            <Border.StrokeShape>
+                <shapes:RoundRectangle CornerRadius="7" />
+            </Border.StrokeShape>
+        </Border>
+    </Grid>
+
+</ContentView>

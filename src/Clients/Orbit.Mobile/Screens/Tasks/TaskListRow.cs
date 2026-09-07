@@ -103,6 +103,13 @@ public sealed record TaskListRow(
     public bool HasNextOrMatched => NextOrMatched.Length > 0;
 
     /// <summary>
+    /// Whether something has happened on this list that the reader has not seen - an unread
+    /// notification pointing at it. The card says so twice, as Orbit.Web's does: a mark beside the
+    /// name, and its own edge, which breathes. Both go out when the notifications are read.
+    /// </summary>
+    public bool HasUnseenAction { get; init; }
+
+    /// <summary>
     /// Whether this card is folded down to its heading. Folded rather than filtered away: a list
     /// somebody is not working on this week is still one they want to see is there.
     /// </summary>
