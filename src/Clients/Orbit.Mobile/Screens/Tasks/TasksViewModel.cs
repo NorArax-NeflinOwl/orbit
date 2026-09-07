@@ -266,10 +266,7 @@ public sealed partial class TasksViewModel : ObservableObject
         // Which lists the bell is talking about. Read here rather than per row: one pass over what is
         // unread answers it for every card, and a card asking the database for itself would be one
         // round trip per list on a screen that exists to be scrolled.
-        _unreadUrls = [.. (await _notifications.GetUnreadAsync(cancellationToken))
-            .Select(entry => entry.Url)
-            .Where(url => !string.IsNullOrEmpty(url))
-            .Select(url => url!)];
+        _unreadUrls = UnreadNews.AddressesIn(await _notifications.GetUnreadAsync(cancellationToken));
 
         ShowArrangedLists();
     }
@@ -282,12 +279,12 @@ public sealed partial class TasksViewModel : ObservableObject
 
     /// <summary>
     /// Whether anything unread points at this list. Matched on the url a notification carries, which is
-    /// the in-app page it came from - the same "/tasks/{id}" prefix Orbit.Web matches on. A list the
-    /// server has never seen has no id to be pointed at, and so no news.
+    /// the in-app page it came from - the same address, and now the same matching rule, Orbit.Web reads
+    /// it by (see UnreadNews). A list the server has never seen has no id to be pointed at, and so no
+    /// news.
     /// </summary>
     private bool HasNewsAbout(LocalTaskList taskList)
-        => taskList.ServerId is { } serverId
-            && _unreadUrls.Any(url => url.StartsWith($"/tasks/{serverId}", StringComparison.OrdinalIgnoreCase));
+        => taskList.ServerId is { } serverId && UnreadNews.About(_unreadUrls, $"/tasks/{serverId}");
 
     /// <summary>
     /// Re-arranges what is already held rather than re-reading it. Choosing a filter is a question about
