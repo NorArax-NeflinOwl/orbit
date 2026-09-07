@@ -3946,6 +3946,21 @@ input.note-editor-title {
     color: var(--accent);
 }
 
+/* The pin's own colour, on the row that names it - see MapPage.razor's PlacedPlan. The same job the
+   sharer's coloured name does above it: which pin is which, without pressing any of them. */
+.map-place-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    flex: 0 0 auto;
+}
+
+/* Something that has already happened, when the reader has asked to see those too. Quietened rather
+   than struck through: it is still a place they went, not a thing they finished with. */
+.map-place-past {
+    color: var(--text-tertiary);
+}
+
 /* The map and the search across the top of it. */
 .map-canvas {
     display: flex;

@@ -320,6 +320,50 @@ public sealed class MapPageTests : OrbitTestContext
     private readonly List<string> _deletedPaths = [];
 
     /// <summary>
+    /// The reader's calendar and their lists - empty unless a test puts something in them. Written as
+    /// JSON rather than built from the DTOs because the whole file answers the wire this way, and a page
+    /// reading a field it was never sent is exactly what a hand-built DTO would hide.
+    /// </summary>
+    private string _calendarEventsJson = "[]";
+    private string _taskListsJson = "[]";
+
+    private static readonly Guid PlacedEventId = Guid.NewGuid();
+    private static readonly Guid TaskListId = Guid.NewGuid();
+    private static readonly Guid TaskItemId = Guid.NewGuid();
+
+    /// <summary>
+    /// One appointment that says where it happens. <paramref name="startsInDays"/> decides whether it is
+    /// ahead or behind - the panel leaves the past out until it is asked for it.
+    /// </summary>
+    private static string OneEventAtAPlace(string title, int startsInDays, bool hasAPlace = true)
+    {
+        var start = DateTimeOffset.UtcNow.AddDays(startsInDays);
+        var location = hasAPlace
+            ? "{\"address\":\"Wały Piastowskie 1, Gdańsk\",\"latitude\":54.35,\"longitude\":18.65}"
+            : "null";
+        return "[{\"id\":\"" + PlacedEventId + "\",\"details\":{\"title\":\"" + title + "\","
+            + "\"description\":null,\"location\":" + location + ",\"color\":\"#ff8800\","
+            + "\"startUtc\":\"" + start.ToString("O") + "\",\"endUtc\":\"" + start.AddHours(1).ToString("O") + "\","
+            + "\"isAllDay\":false,\"recurrence\":null,\"guests\":[],\"reminderMinutesBeforeStart\":[],"
+            + "\"reminderNotificationChannel\":\"None\",\"priority\":\"Normal\",\"notifyAtStart\":false},"
+            + "\"createdAtUtc\":\"2026-08-01T10:00:00+00:00\",\"updatedAtUtc\":\"2026-08-01T10:00:00+00:00\","
+            + "\"isShared\":false,\"sharedByUserName\":null,\"accessLevel\":\"CanEdit\",\"originalOwnerUserId\":null}]";
+    }
+
+    /// <summary>One list whose entry raised the appointment above - see CalendarEventDestination.</summary>
+    private static string OneListWhoseEntryRaisedTheEvent(string listTitle, string entryTitle)
+        => "[{\"id\":\"" + TaskListId + "\",\"title\":\"" + listTitle + "\",\"items\":["
+            + "{\"id\":\"" + TaskItemId + "\",\"description\":\"" + entryTitle + "\",\"dueDateUtc\":null,"
+            + "\"isCompleted\":false,\"linkedTaskListId\":null,\"overdueNotificationChannel\":\"None\","
+            + "\"remindDaily\":false,\"dailyReminderNotificationChannel\":\"None\","
+            + "\"dailyReminderTimeOfDay\":\"09:00:00\",\"kind\":\"Calendar\",\"location\":\"\","
+            + "\"linkedCalendarEventId\":\"" + PlacedEventId + "\"}],"
+            + "\"isCompleted\":false,\"isGroup\":false,\"isPrivate\":false,\"encryptedContent\":null,"
+            + "\"createdAtUtc\":\"2026-08-01T10:00:00+00:00\",\"updatedAtUtc\":\"2026-08-01T10:00:00+00:00\","
+            + "\"isShared\":false,\"sharedByUserName\":null,\"accessLevel\":\"CanEdit\","
+            + "\"originalOwnerUserId\":null}]";
+
+    /// <summary>
     /// One position this reader is sharing. Listed as it comes off the wire - unlike a position shared
     /// *with* somebody, which only opens with a pairwise key no test renderer can make, which is why
     /// the other end of this is covered where the rule itself lives: Orbit.Api.Tests' SharedLocationTests.
@@ -349,6 +393,91 @@ public sealed class MapPageTests : OrbitTestContext
         // rather than waiting for the once-a-minute timer to get to it.
         Assert.Contains("isn't allowed to use your location", cut.Markup);
     }
+
+    /// <summary>
+    /// The map used to know where people were and nothing about where the reader was going. An
+    /// appointment that says where it happens is a row in the panel and a pin beside the rest.
+    /// </summary>
+    [Fact]
+    public void An_appointment_that_says_where_it_happens_is_listed()
+    {
+        GrantLocations();
+        _calendarEventsJson = OneEventAtAPlace("Dentist", startsInDays: 2);
+
+        var cut = RenderComponent<MapPage>();
+
+        Assert.Contains(PlaceRows(cut), row => row.TextContent.Contains("Dentist", StringComparison.Ordinal));
+    }
+
+    /// <summary>An appointment with no address is not a place, and nothing on this page can draw it.</summary>
+    [Fact]
+    public void An_appointment_with_no_address_is_not_listed()
+    {
+        GrantLocations();
+        _calendarEventsJson = OneEventAtAPlace("A call", startsInDays: 2, hasAPlace: false);
+
+        var cut = RenderComponent<MapPage>();
+
+        Assert.Empty(PlaceRows(cut));
+    }
+
+    /// <summary>
+    /// An appointment a list raised is named for that list and opens as its entry - the same rule the
+    /// calendar and the dashboard follow, see CalendarEventDestination. It also comes back here
+    /// afterwards, which is what ReturnTo is for.
+    /// </summary>
+    [Fact]
+    public void An_appointment_a_list_raised_is_named_for_it_and_opens_as_its_entry()
+    {
+        GrantLocations();
+        _calendarEventsJson = OneEventAtAPlace("Pick up the keys", startsInDays: 1);
+        _taskListsJson = OneListWhoseEntryRaisedTheEvent("Moving", "Pick up the keys");
+
+        var cut = RenderComponent<MapPage>();
+
+        var row = Assert.Single(PlaceRows(cut));
+        Assert.Contains("Moving: Pick up the keys", row.TextContent);
+        Assert.Equal(
+            $"/tasks/{TaskListId}/items/{TaskItemId}?returnTo=%2Fmap",
+            row.QuerySelector("a")!.GetAttribute("href"));
+    }
+
+    /// <summary>An appointment of its own opens the event itself, and comes back here too.</summary>
+    [Fact]
+    public void An_appointment_of_its_own_opens_the_event()
+    {
+        GrantLocations();
+        _calendarEventsJson = OneEventAtAPlace("Dentist", startsInDays: 2);
+
+        var cut = RenderComponent<MapPage>();
+
+        Assert.Equal(
+            $"/calendar/{PlacedEventId}?returnTo=%2Fmap",
+            Assert.Single(PlaceRows(cut)).QuerySelector("a")!.GetAttribute("href"));
+    }
+
+    /// <summary>
+    /// A map is about where somebody is going, so what has already happened is off until it is asked
+    /// for - and then it is there, rather than gone for good.
+    /// </summary>
+    [Fact]
+    public void What_has_already_happened_is_left_out_until_the_menu_asks_for_it()
+    {
+        GrantLocations();
+        _calendarEventsJson = OneEventAtAPlace("Last week's dentist", startsInDays: -7);
+
+        var cut = RenderComponent<MapPage>();
+        Assert.Empty(PlaceRows(cut));
+
+        cut.Find(".overflow-menu-trigger").Click();
+        ButtonSaying(cut, "Show places already past").Click();
+
+        Assert.Contains(PlaceRows(cut), row => row.TextContent.Contains("Last week's dentist", StringComparison.Ordinal));
+    }
+
+    /// <summary>The rows of the "Where your plans are" section, which is the last one in the panel.</summary>
+    private static IReadOnlyList<AngleSharp.Dom.IElement> PlaceRows(IRenderedFragment cut)
+        => [.. cut.FindAll(".map-panel-section").Last().QuerySelectorAll(".map-share-row")];
 
     private void RegisterEverythingThePageAsksFor()
     {
@@ -402,6 +531,18 @@ public sealed class MapPageTests : OrbitTestContext
                 return Text("[]");
             }
 
+            // What the reader has planned. Nothing at all unless a test has said otherwise, which is
+            // what an account with an empty calendar looks like.
+            if (path.EndsWith("/calendar-events", StringComparison.Ordinal))
+            {
+                return Text(_calendarEventsJson);
+            }
+
+            if (path.EndsWith("/tasks", StringComparison.Ordinal))
+            {
+                return Text(_taskListsJson);
+            }
+
             // The account itself, with whatever location a test has set up for it.
             return Text(
                 "{\"id\":\"" + OwnUserId + "\",\"email\":\"owner@example.com\",\"userName\":\"owner\","
@@ -421,6 +562,8 @@ public sealed class MapPageTests : OrbitTestContext
         Services.AddSingleton(usersApiClient);
         Services.AddSingleton(chatApiClient);
         Services.AddSingleton(new GeocodingApiClient(httpClient));
+        Services.AddSingleton(new CalendarApiClient(httpClient));
+        Services.AddSingleton(new TasksApiClient(httpClient));
         Services.AddSingleton(new SharedLocationSender(usersApiClient, ownEncryptionKeyProvider, jsRuntime));
         Services.AddSingleton(new EncryptedChatMessageSender(
             jsRuntime, ownEncryptionKeyProvider, usersApiClient, chatApiClient));

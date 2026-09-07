@@ -631,6 +631,28 @@ follows: a position is not something to be able to push at a stranger who never 
 The Map page shows the viewer's own position and everyone sharing with them on **one** map, framed to fit
 them all.
 
+### Where your plans are
+
+Beside the people, the map draws **the reader's own plans**: every calendar event that names a place,
+and every task entry that raised one. The panel lists them soonest first and the map pins them; pressing
+a row centres the map on its pin, and the arrow on the row opens the thing itself.
+
+The two are read together because they are the same thing seen from two ends - a calendar entry on a
+task list keeps its appointment in the calendar, so reading only the calendar would list a shopping trip
+as an appointment nobody recognises, and reading only the lists would miss every appointment made in the
+calendar itself. `CalendarEventDestination` decides which it is, the same rule the calendar's own list
+and the dashboard's "Upcoming" already follow: an event a list raised is named `List: entry`, opens as
+that entry, and comes back to `/map` afterwards (`ReturnTo`).
+
+A pin takes the appointment's own colour, so a place on the map and its chip in the calendar are the
+same colour; one with no colour of its own is drawn in `--task`. A repeating event is shown at its next
+occurrence, the way the dashboard already shows one - the place is the same every week, and the date
+beside it should be the one coming.
+
+**What has already happened is left out**, because a map is mostly about where somebody is going. It is
+a filter rather than a rule: "Show places already past" in the page's own menu brings it back, pins
+included. An event with no address is not a place and is never listed - there is nothing to draw.
+
 ### Planning something at a place
 
 The map is where people already go to point at somewhere, so it is also where pointing at somewhere and

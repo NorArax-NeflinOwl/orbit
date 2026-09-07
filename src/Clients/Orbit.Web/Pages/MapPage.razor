@@ -3,12 +3,16 @@
 @implements IAsyncDisposable
 @using System.Globalization
 @using System.Text.Json
+@using Orbit.Contracts.Calendar
 @using Orbit.Contracts.Chat
+@using Orbit.Contracts.Tasks
 @using Orbit.Contracts.Users
 @using Orbit.Core.Permissions
 @using Orbit.Web.Services
 @inject UsersApiClient UsersApiClient
 @inject GeocodingApiClient GeocodingApiClient
+@inject CalendarApiClient CalendarApiClient
+@inject TasksApiClient TasksApiClient
 @inject ChatApiClient ChatApiClient
 @inject SharedLocationSender SharedLocationSender
 @inject EncryptedChatMessageSender EncryptedChatMessageSender
@@ -46,6 +50,14 @@ else
                 <OverflowMenu>
                     <button type="button" class="avatar-dropdown-item" disabled="@(_isBusy || _location is null)"
                             @onclick="RecordCurrentLocationAsync">@T["Update to where I am now"]</button>
+                    @* A map is mostly about where somebody is going, so what has already happened is off
+                       by default rather than absent - the same ✓ every other filter in Orbit is marked
+                       with. *@
+                    <button type="button" class="avatar-dropdown-item @(_showsPastPlaces ? "chosen" : "")"
+                            @onclick="ShowOrHidePastPlaces">
+                        <span class="card-filter-mark">@(_showsPastPlaces ? "✓" : "")</span>
+                        @T["Show places already past"]
+                    </button>
                 </OverflowMenu>
             </div>
             <p class="page-subtitle">@T["Where you are, who you are sharing it with, and who is sharing theirs."]</p>
@@ -184,6 +196,40 @@ else
                     <button type="button" class="icon-btn map-share-stop" disabled="@_isBusy"
                             title="@(T["Stop receiving"])" aria-label="@(T["Stop receiving"])"
                             @onclick="() => StopReceivingAsync(received.SharerUserId)" @onclick:stopPropagation="true">✕</button>
+                </div>
+            }
+        </section>
+
+        @* Everything with an address on it, which until now the map knew nothing about: a page showing
+           where people are and nothing about where the reader is going. Pressing a row centres the map
+           on its pin, the same press a name in the list above answers to. *@
+        <section class="map-panel-section">
+            <h2 class="map-panel-heading">@T["Where your plans are"]</h2>
+            @if (_placed.Count == 0)
+            {
+                <p class="empty-hint">
+                    @(_showsPastPlaces
+                        ? T["Nothing in your calendar or your lists says where it happens."]
+                        : T["Nothing coming up says where it happens. Past ones are in the menu above."])
+                </p>
+            }
+            @foreach (var placed in _placed)
+            {
+                <div class="map-share-row map-share-row-opens" role="button" tabindex="0"
+                     @onclick="() => FocusOnPlaceAsync(placed)"
+                     @onkeydown="args => FocusOnPlaceOnEnterOrSpaceAsync(args, placed)">
+                    @* The same colour as its pin, which is what says which pin is which without
+                       pressing any of them - the sharers' names above are coloured for the same reason. *@
+                    <span class="map-place-dot" style="background:@placed.Color" aria-hidden="true"></span>
+                    <span class="row-title @(placed.HasPassed ? "map-place-past" : "")">@placed.Title</span>
+                    <span class="row-meta">@placed.When</span>
+                    @* Where the thing itself is opened, and it comes back here afterwards - see ReturnTo. *@
+                    <a class="icon-btn map-share-open" href="@placed.OpenUrl" title="@(T["Open"])"
+                       aria-label="@(T["Open"])" @onclick:stopPropagation="true">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 20 20" fill="none"
+                             stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"
+                             aria-hidden="true"><path d="M8 4h8v8" /><path d="M16 4 8 12" /><path d="M14 12v4H4V6h4" /></svg>
+                    </a>
                 </div>
             }
         </section>
@@ -496,6 +542,22 @@ else
     private readonly Dictionary<Guid, string> _sharerNames = [];
 
     /// <summary>
+    /// Everything in the reader's own calendar and lists that says where it happens, soonest first, and
+    /// the whole of it - what the panel shows is <see cref="_placed"/>, which is this without whatever
+    /// has already been and gone. Both are kept so that changing one's mind about the past is a filter
+    /// rather than another round of calls.
+    /// </summary>
+    private IReadOnlyList<PlacedPlan> _allPlaced = [];
+    private IReadOnlyList<PlacedPlan> _placed = [];
+
+    /// <summary>
+    /// Whether what has already happened is drawn as well. Off, because a map is mostly about where
+    /// somebody is going - and the last thing a page about that should be is a screen full of pins for
+    /// places nobody is going to again.
+    /// </summary>
+    private bool _showsPastPlaces;
+
+    /// <summary>
     /// Refreshes every live share while this page is open. Deliberately tied to the page rather than
     /// running in the background: sharing a position is something someone is doing on purpose, and a
     /// timer that outlived the page would keep broadcasting after they had moved on from it.
@@ -627,6 +689,18 @@ else
             color = AvatarHelper.AvatarColor(received.SharerUserId)
         }));
 
+        // What the reader has planned, drawn in whatever colour the appointment itself is written in -
+        // see PlacedPlan. Only what the panel is listing: hiding the past has to take its pins with it,
+        // or the map keeps pins nothing on the page names any more.
+        points.AddRange(_placed.Select(plan => (object)new
+        {
+            key = plan.Key,
+            latitude = plan.Latitude,
+            longitude = plan.Longitude,
+            label = $"{plan.Title} · {plan.When} · {plan.Address}",
+            color = plan.Color
+        }));
+
         if (_foundPlace is { } found)
         {
             // Its own colour, and not anybody's: this pin is a question rather than a person.
@@ -670,6 +744,7 @@ else
             _ownShares = await UsersApiClient.GetOwnLocationSharesAsync();
             _receivedPositions = await OpenReceivedPositionsAsync();
             await NameTheSharersAsync();
+            await ReadWhatHasAPlaceAsync();
         }
         catch (HttpRequestException exception) when (exception.StatusCode == HttpStatusCode.Unauthorized)
         {
@@ -1192,16 +1267,161 @@ else
         }
     }
 
-    private async Task FocusOnAsync(ReceivedPosition received)
+    /// <summary>
+    /// One thing in the reader's calendar or on one of their lists that says where it happens - an
+    /// appointment, or the entry on a list that raised one. Everything about drawing it is worked out
+    /// once, when it is read, so neither the panel nor the map has to think about where it came from.
+    /// </summary>
+    /// <param name="Key">
+    /// What its pin is drawn under, so a refresh moves the marker it already has rather than replacing
+    /// it - see MapPoints.
+    /// </param>
+    /// <param name="OpenUrl">
+    /// Where pressing Open goes, which is the same place the calendar and the dashboard send an event:
+    /// its own summary, or the entry behind it where a list raised it - see CalendarEventDestination.
+    /// </param>
+    private sealed record PlacedPlan(
+        string Key, string Title, string When, string Address, double Latitude, double Longitude,
+        string Color, DateTimeOffset At, bool HasPassed, string OpenUrl);
+
+    /// <summary>
+    /// Everything with an address on it, soonest first: every appointment that names a place, and every
+    /// task entry that raised one. The two are read together rather than separately because they are the
+    /// same thing seen from two ends - an entry on a list keeps its appointment in the calendar - so
+    /// reading only the calendar would list a shopping trip as an event nobody recognises, and reading
+    /// only the lists would miss every appointment that came from the calendar itself.
+    ///
+    /// A repeating event is taken at its next occurrence, the way the dashboard and the calendar already
+    /// draw one: the place is the same every week, and the date beside it should be the one coming.
+    /// </summary>
+    private async Task ReadWhatHasAPlaceAsync()
+    {
+        var nowUtc = DateTimeOffset.UtcNow;
+        var taskLists = await TasksApiClient.GetTaskListsAsync();
+        var placed = new List<PlacedPlan>();
+
+        foreach (var calendarEvent in await CalendarApiClient.GetCalendarEventsAsync())
+        {
+            if (calendarEvent.Details.Location is not { } place)
+            {
+                continue;
+            }
+
+            // The occurrence to show, and the stored event when every occurrence is behind us - a
+            // weekly standup that ended in June is a place somebody went to, and belongs with the rest
+            // of the past rather than nowhere.
+            var shown = NextOccurrenceOf(calendarEvent, nowUtc) ?? calendarEvent;
+            var raisedBy = CalendarEventDestination.RaisedBy(calendarEvent.Id, taskLists);
+            placed.Add(new PlacedPlan(
+                Key: $"plan:{calendarEvent.Id}",
+                // Named for the list where one raised it, the way the dashboard names the same thing:
+                // "Shopping: Milk" says where an entry came from, and an appointment of its own has
+                // nowhere to have come from.
+                Title: raisedBy is { } origin
+                    ? $"{origin.List.Title}: {calendarEvent.Details.Title}"
+                    : calendarEvent.Details.Title,
+                When: WhenItHappens(shown.Details),
+                Address: place.Address ?? T["somewhere with no street"],
+                place.Latitude,
+                place.Longitude,
+                // Its own colour where it has one, so a pin and the chip for the same appointment in the
+                // calendar are the same colour. The fallback is the colour Orbit writes work in.
+                Color: string.IsNullOrWhiteSpace(calendarEvent.Details.Color) ? "var(--task)" : calendarEvent.Details.Color,
+                At: shown.Details.StartUtc,
+                HasPassed: shown.Details.EndUtc < nowUtc,
+                OpenUrl: ReturnTo.Link(CalendarEventDestination.For(calendarEvent.Id, taskLists), "/map")));
+        }
+
+        _allPlaced = [.. placed.OrderBy(plan => plan.At)];
+        ChooseWhichPlacesAreShown();
+    }
+
+    /// <summary>
+    /// The next time a repeating event happens, or the event itself when it does not repeat and has not
+    /// finished. Null when everything about it is in the past - mirrors Dashboard.NextOccurrenceOf,
+    /// which answers the same question for the Upcoming card.
+    /// </summary>
+    private static CalendarEventDto? NextOccurrenceOf(CalendarEventDto calendarEvent, DateTimeOffset nowUtc)
+        => calendarEvent.Details.Recurrence is null
+            ? calendarEvent.Details.EndUtc >= nowUtc ? calendarEvent : null
+            : CalendarEventOccurrenceExpander
+                .ExpandOccurrences(calendarEvent, nowUtc, nowUtc + OccurrenceWindow)
+                .FirstOrDefault(occurrence => occurrence.Details.EndUtc >= nowUtc);
+
+    /// <summary>How far ahead a repeat is looked for - a year, which is what the dashboard uses.</summary>
+    private static readonly TimeSpan OccurrenceWindow = TimeSpan.FromDays(365);
+
+    /// <summary>"Today 10:00" / "Tomorrow 15:30" / "Fri 12 09:00" - matches the dashboard's own rows.</summary>
+    private string WhenItHappens(CalendarEventDetailsDto details)
+    {
+        var start = details.StartUtc.ToLocalTime();
+        var today = DateTime.Today;
+        var day = start.Date == today ? T["Today"]
+            : start.Date == today.AddDays(1) ? T["Tomorrow"]
+            : start.ToString("ddd d MMM", T.DisplayCulture);
+        return details.IsAllDay ? day : $"{day} {start:HH:mm}";
+    }
+
+    private void ShowOrHidePastPlaces()
+    {
+        _showsPastPlaces = !_showsPastPlaces;
+        ChooseWhichPlacesAreShown();
+        // The map draws what the list shows, so the pins for what is no longer listed have to go with
+        // it - otherwise hiding the past leaves its pins behind with nothing naming them.
+        _ = RefreshMapMarkersAsync();
+    }
+
+    private void ChooseWhichPlacesAreShown()
+        => _placed = _showsPastPlaces ? _allPlaced : [.. _allPlaced.Where(plan => !plan.HasPassed)];
+
+    /// <summary>
+    /// Pressing a plan. The same rule a shared position follows: Orbit's own map centres on it, unless
+    /// this is a phone whose map cannot answer, where the device's map app can - see MapAppHandoff.
+    /// </summary>
+    private Task FocusOnPlaceAsync(PlacedPlan plan)
+        => MapAppHandoff.ShouldOpenTheMapApp(_isPhone, _mapTilesAllowed, _location is not null)
+            ? OpenPlaceInTheMapAppAsync(plan)
+            : FocusTheMapOnAsync(plan.Key, "a place something happens at");
+
+    private async Task FocusOnPlaceOnEnterOrSpaceAsync(KeyboardEventArgs args, PlacedPlan plan)
+    {
+        if (args.Key is "Enter" or " ")
+        {
+            await FocusOnPlaceAsync(plan);
+        }
+    }
+
+    private async Task OpenPlaceInTheMapAppAsync(PlacedPlan plan)
+    {
+        try
+        {
+            await using var mapApp = await JSRuntime.InvokeAsync<IJSObjectReference>("import", "./js/mapApp.js");
+            await mapApp.InvokeVoidAsync("openPosition", plan.Latitude, plan.Longitude, plan.Title);
+        }
+        catch (JSException exception)
+        {
+            Logger.LogWarning(exception, "Could not open a plan's place in the device's map app");
+        }
+    }
+
+    private Task FocusOnAsync(ReceivedPosition received)
+        => FocusTheMapOnAsync(SharerMapKey(received.SharerUserId), "a shared position");
+
+    /// <summary>
+    /// Pans the map to one pin and opens it, whichever list the press came from - somebody sharing
+    /// their position, or something in the reader's own calendar. <paramref name="what"/> only names it
+    /// in the log, for the same reason the two callers used to have a message each.
+    /// </summary>
+    private async Task FocusTheMapOnAsync(string key, string what)
     {
         try
         {
             _mapModule ??= await JSRuntime.InvokeAsync<IJSObjectReference>("import", "./js/locationMap.js");
-            await _mapModule.InvokeVoidAsync("focusOn", MapElementId, SharerMapKey(received.SharerUserId));
+            await _mapModule.InvokeVoidAsync("focusOn", MapElementId, key);
         }
         catch (JSException exception)
         {
-            Logger.LogWarning(exception, "Could not focus the map on a shared position");
+            Logger.LogWarning(exception, "Could not focus the map on {What}", what);
         }
     }
 

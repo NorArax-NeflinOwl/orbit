@@ -690,6 +690,13 @@ public static class PolishTranslations
         ["A task list starting here"] = "Lista zadań zaczynająca się tutaj",
         ["Orbit isn't allowed to use your location. Turn it on in Options first."] =
             "Orbit nie ma zgody na korzystanie z Twojego położenia. Włącz ją najpierw w Opcjach.",
+        ["Where your plans are"] = "Gdzie są Twoje plany",
+        ["Nothing coming up says where it happens. Past ones are in the menu above."] =
+            "Nic z tego, co przed Tobą, nie mówi, gdzie się odbywa. Minione znajdziesz w menu powyżej.",
+        ["Nothing in your calendar or your lists says where it happens."] =
+            "Nic w Twoim kalendarzu ani na listach nie mówi, gdzie się odbywa.",
+        ["Show places already past"] = "Pokaż miejsca już minione",
+        ["somewhere with no street"] = "gdzieś bez adresu",
 
         // ---- Options ----
         ["Appearance"] = "Wygląd",
