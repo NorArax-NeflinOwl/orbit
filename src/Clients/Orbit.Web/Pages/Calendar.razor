@@ -245,7 +245,7 @@
 
     /// <summary>
     /// Every list the due tasks came from, kept from that same read - it is what says which list a
-    /// clicked deadline belongs to, and which list gathers that one (see GoToTaskList).
+    /// pressed deadline belongs to, and which entry an appointment was made by (see TheEntryBehind).
     /// </summary>
     private IReadOnlyList<TaskDto> TaskLists
     {
@@ -374,7 +374,7 @@
             .Where(pair => pair.item.DueDateUtc is not null)
             .Select(pair => new DueTaskDto(
                 pair.taskList.Id, pair.item.Id, pair.taskList.Title, pair.item.Description,
-                pair.item.DueDateUtc!.Value, pair.item.IsCompleted, HasPlace(pair.item),
+                pair.item.DueDateUtc!.Value, pair.item.IsCompleted,
                 pair.item.LinkedCalendarEventId))
             .OrderBy(dueTask => dueTask.DueDateUtc)
             .ToList();
@@ -437,20 +437,6 @@
     }
 
     /// <summary>
-    /// Opens the checklist rather than the deep editor: clicking a deadline on a calendar is a move
-    /// towards ticking it off, not towards rewriting the list it is on.
-    /// </summary>
-    /// <summary>
-    /// What clicking a deadline opens. Somewhere to be opens as its own summary, with the time and a map
-    /// - the checklist is the right landing for something to tick off and the wrong one for something
-    /// you have to get to. Everything else opens as the list, at the shallow level.
-    /// </summary>
-    /// <summary>
-    /// The task entry this event is, when a task list made it. Read from the lists themselves rather
-    /// than from the due tasks: an appointment on a list carries no due date of its own - the event says
-    /// when it is - so it is not among them at all.
-    /// </summary>
-    /// <summary>
     /// Whether the bell is talking about this appointment. Two addresses, because an appointment a task
     /// list raised is opened as that entry while the reminder for it is the event's and says so (see
     /// EventReminderPushContent) - reading only one of them left exactly those cards unmarked. The same
@@ -468,12 +454,17 @@
         => NotificationFeedState.HasNewsAbout($"/tasks/{dueTask.TaskListId}/items/{dueTask.TaskItemId}")
             || NotificationFeedState.HasNewsAbout($"/tasks/{dueTask.TaskListId}");
 
+    /// <summary>
+    /// The task entry this event is, when a task list made it. Read from the lists themselves rather
+    /// than from the due tasks: an appointment on a list carries no due date of its own - the event says
+    /// when it is - so it is not among them at all.
+    /// </summary>
     private DueTaskDto? TheEntryBehind(CalendarEventDto calendarEvent)
         => _entriesByEventId.TryGetValue(calendarEvent.Id, out var pair)
             ? new DueTaskDto(
                 pair.TaskList.Id, pair.Item.Id, pair.TaskList.Title, pair.Item.Description,
                 pair.Item.DueDateUtc ?? calendarEvent.Details.StartUtc, pair.Item.IsCompleted,
-                HasPlace(pair.Item), pair.Item.LinkedCalendarEventId)
+                pair.Item.LinkedCalendarEventId)
             : null;
 
     /// <summary>
@@ -546,58 +537,23 @@
         NavigationManager.NavigateTo(destination);
     }
 
+    /// <summary>
+    /// What pressing a deadline opens: the entry itself, whatever kind of entry it is. It used to fork
+    /// on whether the entry had somewhere to be - one with a place opened as itself, one without opened
+    /// as the *list* it sits on - so the same press on this one list meant two different objects, and
+    /// which one you got depended on a field nothing on the card mentions. The entry's own page answers
+    /// for both: when, where, what it is about, who is coming, and whether it is already done. Ticking
+    /// it off is still done on the list, which that page's way out leads to.
+    /// </summary>
     private void GoToDueTask(DueTaskDto dueTask)
     {
-        if (dueTask.HasPlace)
-        {
-            Logger.LogInformation(
-                "User opened the summary of task item {TaskItemId} from the calendar", dueTask.TaskItemId);
-            // Saying where this came from, so finishing the edit comes back to the calendar rather
-            // than ending on /tasks - see ReturnTo.
-            NavigationManager.NavigateTo(ReturnTo.Link(
-                $"/tasks/{dueTask.TaskListId}/items/{dueTask.TaskItemId}", "/calendar"));
-            return;
-        }
-
-        GoToTaskList(dueTask.TaskListId);
-    }
-
-    /// <summary>Whether this entry is somewhere as well as at some time - see TaskItemKind.</summary>
-    private static bool HasPlace(TaskItemDto item)
-        => item.LinkedCalendarEventId is not null || item.Location.Length > 0;
-
-    private void GoToTaskList(Guid taskListId)
-    {
-        var opened = WhicheverListGathersIt(taskListId);
         Logger.LogInformation(
-            "User clicked a due-task entry on the calendar for task list {TaskListId}, opening {OpenedTaskListId}",
-            taskListId, opened);
-        NavigationManager.NavigateTo(ReturnTo.Link($"/tasks/{opened}", "/calendar"));
+            "User opened the summary of task item {TaskItemId} from the calendar", dueTask.TaskItemId);
+        // Saying where this came from, so finishing the edit comes back to the calendar rather
+        // than ending on /tasks - see ReturnTo.
+        NavigationManager.NavigateTo(ReturnTo.Link(
+            $"/tasks/{dueTask.TaskListId}/items/{dueTask.TaskItemId}", "/calendar"));
     }
-
-    /// <summary>
-    /// The list to actually open: one gathered by a group list is read as part of that group, so the
-    /// group opens instead - and the group's own group above that, up to the top of the tree. A list
-    /// nothing gathers is its own answer.
-    ///
-    /// The already-seen set is what stops a pair of lists that gather each other from looping forever.
-    /// </summary>
-    private Guid WhicheverListGathersIt(Guid taskListId)
-    {
-        var alreadySeen = new HashSet<Guid> { taskListId };
-        while (Gatherer(taskListId) is { } gatherer && alreadySeen.Add(gatherer))
-        {
-            taskListId = gatherer;
-        }
-
-        return taskListId;
-    }
-
-    private Guid? Gatherer(Guid taskListId)
-        => _taskLists
-            .FirstOrDefault(candidate => candidate.IsGroup
-                && candidate.Items.Any(item => item.AllLinkedTaskListIds.Contains(taskListId)))
-            ?.Id;
 
     /// <summary>
     /// Removes one deadline from the list it lives on. There is no endpoint for a single entry - a list

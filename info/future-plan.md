@@ -789,10 +789,33 @@ matches and what does not. What that pass left:
   as part of the screen-ladder pass. A contact and a group are the deliberate exception - they are read
   and never edited as objects, so there is no second depth to give them.
 
-  One thing is still wrong with it, and it is the smaller half: the shallow view and the full form are
-  reached inconsistently. `OnBodySelected` opens the *full* editor for a note and the *shallow* view for
-  an entry, which is the same gesture meaning two different things. Worth settling what a card's body is
-  for across all of them before adding a sixth answer.
+  ~~One thing is still wrong with it, and it is the smaller half: the shallow view and the full form are
+  reached inconsistently.~~ Settled on 2026-09-07. The note half of it had already gone by the time this
+  was read again - `OnBodySelected` on `/notes` has opened `/notes/{id}` since `7e1504f5`, so what was
+  left was the **task entry**, which four pages answered three different ways:
+
+  - the checklist opened the list's own **form** with that entry unfolded, skipping the entry's page;
+  - the calendar forked on whether the entry had a place - one that did opened as itself, one that did
+    not opened as the **list** it sits on, which is a different object, decided by a field no card
+    mentions (`DueTaskDto.HasPlace`, now gone with the fork, along with `Calendar.razor`'s
+    `GoToTaskList` and the walk up the tree of group lists it used);
+  - the dashboard's Upcoming named an entry, "Shopping: Milk", and opened Shopping;
+  - only `/tasks` opened the entry itself.
+
+  All four open `/tasks/{listId}/items/{itemId}` now, and the rule they were settled into is written
+  down under [Two editing levels](functionality.md#two-editing-levels): **a press opens the thing that
+  was pressed, at its reading depth; the form is a named press further in.** Nothing was lost - ticking
+  an entry off is the checkbox's job, which sits on the row beside the words, and the entry's page leads
+  back to the list. The flat reading of a checklist was folded in on the way: its rows were `<label>`s,
+  so pressing what an entry said crossed it off there while the same words on the grouped view opened it
+  (`CheckRow.OnTitlePressed`).
+
+  **The phone still forks the way the calendar used to** (`CalendarViewModel.OpenDeadline`,
+  `CalendarDeadline.IsSomewhere`): a deadline with somewhere to be opens its own screen, one without
+  opens the list. Nothing is broken by it - both screens exist and both are reachable - so it is parity
+  rather than a defect, and it is the only place left where pressing an entry can open something else.
+  What it would take: dropping the `if` in `OpenDeadline`, then `IsSomewhere` and
+  `IsSomewhereAsWellAsAtSomeTime` with it, since nothing else reads either.
 
 
 - ~~**Reordering by hand needs a mouse.**~~ Done: each handle now carries a pair of move-up/move-down

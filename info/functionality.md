@@ -1190,23 +1190,30 @@ names the number it is sure of and says the rest goes with them.
 
 **The shallow level is what opening a list means.** It owns the plain `/tasks/{id}` route, so every way
 into a list lands there whether or not the code that sent you thought about it: the card on the task
-list page, a deadline clicked on the calendar, a row on the dashboard, an overdue-task or daily-reminder
-notification, a bookmark, a push notification already sitting on somebody's phone. Ticking something off
-is what somebody opening a list nearly always came to do; reworking the list itself is a named click
-from there. `/tasks/{id}/checklist` is kept as a second route on the same page, so links written before
-that was true still work.
+list page, a row on the dashboard, an overdue-task or daily-reminder notification, a bookmark, a push
+notification already sitting on somebody's phone. Ticking something off is what somebody opening a list
+nearly always came to do; reworking the list itself is a named click from there.
+`/tasks/{id}/checklist` is kept as a second route on the same page, so links written before that was
+true still work.
 
 Rows that can't be ticked by hand render as disabled checkboxes: items whose completion follows a
 linked list (see above), and any list reached through a read-only share.
 
-There is a third depth, reached only from the calendar: **the summary of a single entry**
-(`/tasks/{taskListId}/items/{itemId}`, `TaskItemSummary.razor`). An entry that has both a due date and a
-place is an appointment rather than something to tick off, so clicking it on the calendar opens that one
-entry — its name, the list it is on, when it is, where it is, and a Leaflet map with a pin — instead of
-the whole checklist. Two buttons lead back out: **Back to Calendar** and **Show Tasks**, the latter to
-the shallow level of the list. A deadline with no place still opens the checklist, since there would be
-nothing on such a page the list does not already show. `Calendar.razor`'s `GoToDueTask` makes that
-choice, from the `HasPlace` flag `DueTaskDto` carries.
+**An entry has a page of its own** (`/tasks/{taskListId}/items/{itemId}`, `TaskItemSummary.razor`): its
+name, the list it is on, when it is, where it is, what it is about, who is coming, whether it is already
+done, and a Leaflet map with a pin where the address resolves. **Every press on an entry lands there**,
+whatever kind of entry it is and wherever it was pressed — a row on a list's card on `/tasks`, an
+entry's words on the checklist, a deadline or an appointment on the calendar, a plan on the map. Two
+buttons lead back out: **Back to Calendar** and **Show Tasks**, the latter to the shallow level of the
+list; the form is behind the menu, one named press further in.
+
+That was three answers until 2026-09-07, and this is the one rule they were settled into.
+`Calendar.razor` forked on whether the entry had a place: one that did opened as itself, one that did
+not opened as the *list* it sits on — so the same press on one list of cards led to two different
+objects, decided by a field no card mentions. The checklist skipped the page altogether and opened the
+list's own form with that entry unfolded, so pressing what an entry said meant "read this" on `/tasks`
+and "rewrite this" one screen further in. Nothing was lost by settling both: ticking an entry off is the
+checkbox's job, which sits on the row beside the words, and the entry's page leads to the list.
 
 **When it happens is read off the appointment, not off the entry.** A calendar entry's day and hour live
 on the event the editor writes them into, so the entry's own `DueDateUtc` is empty for exactly the
@@ -2533,16 +2540,18 @@ address names, not on the card:
 | --- | --- | --- |
 | Tasks | the row | `/tasks/{list}` - a daily reminder and an overdue entry both name the list |
 | Groups | the row | `/chat/groups/{group}` - an invitation names the group |
-| Upcoming | the row | `/calendar/{event}` for an appointment, `/tasks/{list}` for a deadline |
+| Upcoming | the row | `/calendar/{event}` for an appointment, `/tasks/{list}` for a deadline - neither is the page the row opens |
 | Recent chats | the row | the unread count the chat list already carries |
 | Inventory | the row | `/inventory/{storage}` - something about to go off names the storage it is on |
 | Shared with you | the card only | `/map` - a shared position names nobody |
 | Notes | nothing | no notification points at a note at all today |
 
-An appointment a task list made has **two** addresses: the row opens it as the entry on that list, while
-the reminder for it is the event's. Both are asked (`UpcomingEntry.NewsUrl`), because reading only the
-destination would leave exactly those rows unmarked. Where a card can only say "here", marking a row
-would mean picking one at random, which is worse than saying less.
+Every row on Upcoming has **two** addresses, because what it opens and what a reminder about it names
+are not the same page: an appointment a task list made opens as the entry on that list while the
+reminder for it is the event's, and a deadline opens as its own entry while the reminder for it is the
+list's. Both are asked (`UpcomingEntry.NewsUrl`), because reading only the destination would leave
+exactly those rows unmarked. Where a card can only say "here", marking a row would mean picking one at
+random, which is worse than saying less.
 
 **The storage list says it too.** `/inventory` marks the card of the storage a warning is about
 (`Inventories.HasNewsAbout`). That warning named only the section until 2026-09-07 - so every page that

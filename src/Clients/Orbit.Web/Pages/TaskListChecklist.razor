@@ -190,9 +190,14 @@ else
             }
             @foreach (var entry in FlatItemsToShow)
             {
+                @* The words open the entry and the box ticks it, which is what the grouped view below
+                   has always done. Reading this list flat used to mean the opposite: pressing what an
+                   entry said crossed it off, because the row was a label. *@
                 <CheckRow Title="@Written(entry.Item.Description)" IsTicked="@entry.Item.IsCompleted"
                           IsDisabled="@IsItemLocked(entry.Section, entry.Item)"
+                          AriaLabel="@T.Format("Done: {0}", Written(entry.Item.Description))"
                           AdditionalClass="@(entry.Item.IsCompleted ? "completed" : null)"
+                          OnTitlePressed="() => GoToEntry(entry.Section.TaskList.Id, entry.Item.Id)"
                           OnTicked="ticked => ToggleItemAsync(entry.Section.TaskList, entry.Item, ticked)">
                     <Trailing>
                         @* What it is about, the same marks the cards on /tasks carry - see TaskItem.Categories. *@
@@ -243,11 +248,11 @@ else
                                @onclick="() => AskAboutTheListsBehind(item)"
                                @onclick:preventDefault="item.AllLinkedTaskListIds.Count > 0"
                                @onchange="args => ToggleItemAsync(section.TaskList, item, (bool)args.Value!)" />
-                        @* Opens the entry to be worked on rather than ticking it off. Ticking is the
+                        @* Opens the entry to be read rather than ticking it off. Ticking is the
                            checkbox's job, and it was doing both: the row was a <label>, so reading a
                            line by tapping it completed it. *@
                         <button type="button" class="check-row-text check-row-text-opens"
-                                @onclick="() => GoToEditItem(section.TaskList.Id, item.Id)">@Written(item.Description)</button>
+                                @onclick="() => GoToEntry(section.TaskList.Id, item.Id)">@Written(item.Description)</button>
                         @* What it is about, the same marks the cards on /tasks carry - see TaskItem.Categories. *@
                         @foreach (var category in item.AllCategories)
                         {
@@ -391,7 +396,11 @@ else
     [Parameter, SupplyParameterFromQuery(Name = ReturnTo.QueryName)]
     public string? ComeBackTo { get; set; }
 
-    /// <summary>Where the form opened from here should end - what this page was given, or this page.</summary>
+    /// <summary>
+    /// Where the form opened from here should end - what this page was given, or this page. An entry's
+    /// form is reached through the entry's own page now (see GoToEntry), so this is handed to that page
+    /// and passed on from there rather than going straight onto the form's address.
+    /// </summary>
     private string WhereTheFormShouldEnd => ReturnTo.Or(ComeBackTo, $"/tasks/{Id}");
 
     private bool _isLoading = true;
@@ -716,13 +725,19 @@ else
     private void GoTo(string href) => NavigationManager.NavigateTo(href);
 
     /// <summary>
-    /// Opens the deep editor with this entry already unfolded. The checklist is for ticking things off;
-    /// changing what an entry actually is - its day, its place, what it is about - is the editor's job,
-    /// and this is the way there from the line itself.
+    /// Opens the entry itself - what it is, when, where - which is what pressing a thing means
+    /// everywhere else in Orbit. It used to skip that and land on the list's own form with this entry
+    /// unfolded, so the same press meant "read this" on /tasks and "rewrite this" here. Changing what
+    /// the entry is stays one named press further in, from the entry's own page (TaskItemSummary),
+    /// which leads to exactly the address this used to jump to. Nothing is lost by the extra rung:
+    /// the box that ticks the entry off is on this row, beside the words.
+    ///
+    /// Where the form opened beyond it should end travels along, so a checklist reached from the
+    /// calendar still sends an edit back to the calendar rather than to /tasks.
     /// </summary>
-    private void GoToEditItem(Guid taskListId, Guid itemId)
+    private void GoToEntry(Guid taskListId, Guid itemId)
         => NavigationManager.NavigateTo(
-            ReturnTo.Link($"/tasks/{taskListId}/items/{itemId}/edit", WhereTheFormShouldEnd));
+            ReturnTo.Link($"/tasks/{taskListId}/items/{itemId}", WhereTheFormShouldEnd));
 
     /// <summary>Whether this entry is ordinary work rather than an appointment or a restock errand.</summary>
     private static bool IsAChecklistEntry(TaskItemDto item)

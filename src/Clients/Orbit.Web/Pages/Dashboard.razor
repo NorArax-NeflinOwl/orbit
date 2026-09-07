@@ -517,6 +517,11 @@ else
     /// The deadlines on task lists, named the way the calendar names them - "Shopping: Milk", since a
     /// card gathering things from everywhere has to say where each one came from. Finished ones are left
     /// out: this is what is still ahead, and something already ticked off is not.
+    ///
+    /// A row leads to the entry it names rather than to the list it sits on, which is what pressing a
+    /// thing means everywhere else - the row said "Shopping: Milk" and opened Shopping. The reminder
+    /// behind it still points at the list, so the two addresses differ here and both are carried: see
+    /// NewsUrl, which is what decides whether the row is marked.
     /// </summary>
     private IEnumerable<UpcomingEntry> UpcomingDeadlines(DateTimeOffset nowUtc)
         => (_taskLists ?? [])
@@ -530,8 +535,8 @@ else
                 pair.item.DueDateUtc!.Value.LocalDateTime.ToString("dd.MM.yyyy HH:mm"),
                 "var(--task)",
                 pair.taskList.Priority,
-                $"/tasks/{pair.taskList.Id}",
-                // A deadline's reminder points at the list it is on, which is where the row goes too.
+                $"/tasks/{pair.taskList.Id}/items/{pair.item.Id}",
+                // A deadline's reminder points at the list it is on, not at the entry the row opens.
                 $"/tasks/{pair.taskList.Id}"));
 
     /// <summary>
@@ -814,8 +819,9 @@ else
 
     /// <summary>
     /// The same question for a row on Upcoming, which has two addresses - see UpcomingEntry.NewsUrl.
-    /// Both are asked: the destination catches a reminder about the list an entry sits on, and the
-    /// news address catches the one about the appointment itself.
+    /// Both are asked, because for both kinds of row the thing it opens and the thing a reminder about
+    /// it names are two different addresses: an appointment a list raised opens as that entry while its
+    /// reminder is the event's, and a deadline opens as its entry while its reminder is the list's.
     /// </summary>
     private bool HasNewsAboutIt(UpcomingEntry entry)
         => NotificationFeed.HasNewsAbout(entry.Url) || NotificationFeed.HasNewsAbout(entry.NewsUrl);
