@@ -334,18 +334,21 @@ VAPID key pair the same way if you want to actually see reminder emails and push
 Visual Studio's multi-project launch profiles (the dropdown next to the Start button) give one-keypress
 debugging of a client together with Orbit.Api. The profiles are shared through `Orbit.slnLaunch` beside
 the solution, which is committed — every machine gets the four modes with the clone. (A gitignored
-`Orbit.slnLaunch.user` beside it holds any per-machine edits Visual Studio makes on top.) All four
-start Orbit.Api under the debugger on `http://localhost:5080`; the pairs differ only in which client
-starts beside it and which database the API opens:
+`Orbit.slnLaunch.user` beside it holds any per-machine edits Visual Studio makes on top.) If the
+dropdown does not show them, enable *Tools > Options > Preview Features > Enable Multi Launch
+Profiles* and reopen the solution. All four start Orbit.Api under the debugger on
+`https://localhost:7080` (plus `http://localhost:5080`, which is the address the Android emulator's
+`10.0.2.2:5080` reaches); the pairs differ only in which client starts beside it and which database
+the API opens:
 
 | Mode | Client | Database |
 | --- | --- | --- |
-| `Orbit.Web local` | Orbit.Web dev server (`http://localhost:5081`) | local Postgres (`ConnectionStrings:Orbit`) |
-| `Orbit.Web azure` | Orbit.Web dev server (`http://localhost:5081`) | Azure Postgres (`ConnectionStrings:OrbitAzure`) |
+| `Orbit.Web local` | Orbit.Web dev server (`https://localhost:7081`) | local Postgres (`ConnectionStrings:Orbit`) |
+| `Orbit.Web azure` | Orbit.Web dev server (`https://localhost:7081`) | Azure Postgres (`ConnectionStrings:OrbitAzure`) |
 | `Android local` | Orbit.Maui on the Android emulator | local Postgres (`ConnectionStrings:Orbit`) |
 | `Android azure` | Orbit.Maui on the Android emulator | Azure Postgres (`ConnectionStrings:OrbitAzure`) |
 
-The azure pair works through the `http (Azure DB)` launch profile, which sets
+The azure pair works through the `https (Azure DB)` launch profile, which sets
 `Database__ConnectionStringName=OrbitAzure` — `AddOrbitData` then reads that connection string instead
 of `Orbit`, so the Azure credentials sit in user secrets next to the local ones and never in a tracked
 file:
@@ -368,8 +371,8 @@ Two things the modes rely on:
   not for routine work.
 
 `Orbit.slnLaunch` holds four entries, each starting
-`src\Server\Orbit.Api\Orbit.Api.csproj` (`DebugTarget` `http` for local, `http (Azure DB)` for azure)
-plus either `src\Clients\Orbit.Web\Orbit.Web.csproj` (`DebugTarget` `http`) or
+`src\Server\Orbit.Api\Orbit.Api.csproj` (`DebugTarget` `https` for local, `https (Azure DB)` for azure)
+plus either `src\Clients\Orbit.Web\Orbit.Web.csproj` (`DebugTarget` `https`) or
 `src\Clients\Orbit.Maui\Orbit.Maui.csproj` (no `DebugTarget`, so the project's own device selection
 applies). Editing the modes through *Configure Startup Projects… > Launch Profiles* updates the same
 list — keep the *Share profile* box ticked so the change lands in the committed file rather than a
