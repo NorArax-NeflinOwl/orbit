@@ -467,7 +467,7 @@ public static class TaskEndpoints
             taskList.IsShared ? taskList.UserId : null,
             taskList.Priority.ToString(),
             taskList.Status.ToString(),
-            taskList.IsPinned, taskList.IsSharedWithOthers, taskList.LinkedInventoryId, taskList.Description,
+            taskList.IsPinnedForCaller, taskList.IsSharedWithOthers, taskList.LinkedInventoryId, taskList.Description,
             // The owner's filing, and only theirs - see NoteEndpoints.ToDto, which says why a recipient
             // is told nothing about it.
             taskList.IsShared ? null : taskList.FolderId);

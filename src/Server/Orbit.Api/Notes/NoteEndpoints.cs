@@ -193,7 +193,7 @@ public static class NoteEndpoints
             note.Id, note.Title, note.Content.Select(ToDto).ToList(), note.IsPrivate, ToDto(note.EncryptedContent),
             note.CreatedAtUtc, note.UpdatedAtUtc,
             note.IsShared, note.SharedByUserName, note.AccessLevel.ToString(), note.IsShared ? note.UserId : null,
-            note.IsSharedWithOthers, note.IsPinned, note.Priority.ToString(),
+            note.IsSharedWithOthers, note.IsPinnedForCaller, note.Priority.ToString(),
             // Filing is the owner's own, so a recipient is told nothing about it: the id would name a
             // folder that does not exist on their pages, and a card filed under a tab they cannot see
             // is a card that has vanished.

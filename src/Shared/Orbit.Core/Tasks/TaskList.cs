@@ -52,8 +52,16 @@ public sealed class TaskList
     /// Priority on purpose: priority says how much something matters, pinning says "keep this where I
     /// can see it", and the two are not the same wish - a low-priority list can still be the one being
     /// worked on today.
+    ///
+    /// This is the stored flag and it belongs to **the owner**; a recipient's answer is on their own
+    /// grant. Read <see cref="IsPinnedForCaller"/> to draw a list, and this one only to write it.
     /// </summary>
     public bool IsPinned { get; private set; }
+
+    /// <inheritdoc cref="Orbit.Core.Notes.Note.IsPinnedForCaller"/>
+    public bool IsPinnedForCaller => _isPinnedForCaller ?? IsPinned;
+
+    private bool? _isPinnedForCaller;
 
     /// <summary>
     /// Marks this list as one that gathers other lists: the lists its items link to are its members,
@@ -167,7 +175,7 @@ public sealed class TaskList
     public void SetSharedWithOthers(bool isSharedWithOthers) => IsSharedWithOthers = isSharedWithOthers;
 
     /// <inheritdoc cref="Orbit.Core.Notes.Note.SetPinnedForCaller"/>
-    public void SetPinnedForCaller(bool isPinned) => IsPinned = isPinned;
+    public void SetPinnedForCaller(bool isPinned) => _isPinnedForCaller = isPinned;
 
     /// <summary>Stamps how the current caller relates to this task list - see the class comment. Not persisted.</summary>
     public void SetAccessContext(bool isShared, string? sharedByUserName, ShareAccessLevel accessLevel)

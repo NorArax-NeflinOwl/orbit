@@ -29,10 +29,23 @@ public sealed class Note
     public bool IsPrivate { get; private set; }
 
     /// <summary>
-    /// Whether this note sits at the top of its owner's list. Only the owner's pin counts - see
-    /// SetNotePinnedCommandHandler for why a recipient cannot pin a note shared with them.
+    /// Whether this note sits at the top of **its owner's** list. This is the stored flag and it is the
+    /// owner's alone; a recipient's answer is on their own grant. Read
+    /// <see cref="IsPinnedForCaller"/> to draw a list, and this one only to write it.
     /// </summary>
     public bool IsPinned { get; private set; }
+
+    /// <summary>
+    /// The pin belonging to whoever this note was loaded for: the stored one for its owner, and the
+    /// recipient's own where NoteAccessResolver has stamped it from their grant. Never persisted, and
+    /// deliberately a field of its own rather than an overwrite of <see cref="IsPinned"/> - the resolver
+    /// also feeds the *write* paths (UpdateNoteCommandHandler resolves before it saves), so stamping
+    /// over the stored flag would have let a recipient with edit access save their pin onto the owner's
+    /// row the next time they changed a word.
+    /// </summary>
+    public bool IsPinnedForCaller => _isPinnedForCaller ?? IsPinned;
+
+    private bool? _isPinnedForCaller;
 
     /// <summary>How much this note matters, for sorting and for filtering a crowded page. See <see cref="ItemPriority"/>.</summary>
     public ItemPriority Priority { get; private set; }
@@ -146,14 +159,10 @@ public sealed class Note
 
     /// <summary>
     /// Where the *caller* keeps this note on their own page, when the caller is not its owner. Stamped
-    /// by NoteAccessResolver from their own grant, never persisted - the stored IsPinned belongs to the
-    /// owner and answers the same question about a different page.
-    ///
-    /// Separate from <see cref="SetPinned"/> on purpose, and the reason is easier to see on a task
-    /// list, where the equivalent stamps UpdatedAtUtc: a value that only depends on who is asking must
-    /// not make the row look changed, because that timestamp is what a phone syncs against.
+    /// by NoteAccessResolver from their own grant - see <see cref="IsPinnedForCaller"/>, which is what
+    /// it fills in, and why it is not <see cref="IsPinned"/>.
     /// </summary>
-    public void SetPinnedForCaller(bool isPinned) => IsPinned = isPinned;
+    public void SetPinnedForCaller(bool isPinned) => _isPinnedForCaller = isPinned;
 
     /// <summary>
     /// Files this note under a folder, or under none - which puts it back in whichever built-in folder

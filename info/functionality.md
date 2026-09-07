@@ -1089,10 +1089,19 @@ list's own flag belongs to whoever owns it and a recipient writing there would r
 page. `SetTaskListPinnedCommandHandler` picks between them and refuses anybody holding neither;
 **notes work the same way**.
 
-Nothing new reaches the client for it: a shared list is handed over with its `IsPinned` replaced by the
-recipient's, stamped by `TaskListAccessResolver` the way the access context beside it already was. So
-the DTO carries one pin meaning one thing — *this reader's* — and every client sorts by it without
-asking whose it is.
+Nothing new reaches the client for it: a shared list is handed over with the recipient's answer in the
+`IsPinned` the DTO already had, stamped by `TaskListAccessResolver` the way the access context beside it
+already was. So the DTO carries one pin meaning one thing — *this reader's* — and every client sorts by
+it without asking whose it is.
+
+**The stamp is a field of its own, and that is not tidiness.** `IsPinnedForCaller` sits beside the
+stored `IsPinned` rather than overwriting it, because the same resolver feeds the **write** paths: a
+note or list is resolved for its caller and then saved (`UpdateNoteCommandHandler`,
+`UpdateTaskListCommandHandler`, and the copy and calendar-link handlers). Stamped over the stored flag,
+a recipient with edit access would have saved their own pin onto the owner's row the next time they
+changed a word — silently rearranging somebody else's page. Two tests hold it, one per object.
+`LinkedTaskCompletionResolver` has to carry it across its rebuild for the same reason it already carries
+the access context: what is stamped per caller is lost when a list is rebuilt from its persisted fields.
 
 This replaced a per-browser answer (`SharedItemPins`, localStorage) that went nowhere: it did not follow
 the reader to a second browser or to the phone. It also settled a defect the browser was hiding. The
@@ -1100,9 +1109,11 @@ phone sorts straight by `IsPinned` and had no second answer to prefer, so a note
 had pinned arrived at the top of the recipient's list — the browser overrode that locally and the phone
 had nothing to override it with.
 
-The phone's pin control for a shared item is still left out (`TaskListRow.CanBePinned`, matching
-`NoteListItem.CanBePinned`), from when the server refused a recipient outright. The server takes it now,
-so putting the control back is a phone change and nothing else.
+**The phone offers the control too**, on the same rows and through the same endpoint
+(`TaskListRow.CanBePinned`, `NoteListItem.CanBePinned`). It was left out there while the server refused a
+recipient outright - the button called it, was turned down and said nothing - and came back the day the
+server started taking the answer. The one row that still offers no pin is a sealed one nobody has
+unlocked, which offers nothing at all until it is.
 
 ### Finding one entry among every list
 
