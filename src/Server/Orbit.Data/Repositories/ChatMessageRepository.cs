@@ -105,7 +105,7 @@ public sealed class ChatMessageRepository : IChatMessageRepository
         await _dbContext.SaveChangesAsync(cancellationToken);
     }
 
-    public async Task MarkConversationAsReadAsync(
+    public async Task<bool> MarkConversationAsReadAsync(
         Guid readerUserId, Guid otherUserId, DateTimeOffset readAtUtc, CancellationToken cancellationToken)
     {
         var unreadEntities = await _dbContext.ChatMessages
@@ -115,7 +115,7 @@ public sealed class ChatMessageRepository : IChatMessageRepository
 
         if (unreadEntities.Count == 0)
         {
-            return;
+            return false;
         }
 
         foreach (var entity in unreadEntities)
@@ -124,6 +124,7 @@ public sealed class ChatMessageRepository : IChatMessageRepository
         }
 
         await _dbContext.SaveChangesAsync(cancellationToken);
+        return true;
     }
 
     public async Task<DateTimeOffset?> GetReadUpToUtcAsync(Guid senderUserId, Guid recipientUserId, CancellationToken cancellationToken)
@@ -186,13 +187,17 @@ public sealed class ChatMessageRepository : IChatMessageRepository
 
         return entities.Select(ToDomain).ToList();
     }
-    public async Task MarkGroupConversationAsReadAsync(
+    public async Task<bool> MarkGroupConversationAsReadAsync(
         Guid readerUserId, Guid groupId, DateTimeOffset readAtUtc, CancellationToken cancellationToken)
     {
-        await _dbContext.ChatMessages
+        // The row count is the answer: ExecuteUpdate hands back how many it touched, which is exactly
+        // "was there anything to read" without a second query for it.
+        var marked = await _dbContext.ChatMessages
             .Where(message =>
                 message.GroupId == groupId && message.RecipientUserId == readerUserId && message.ReadAtUtc == null)
             .ExecuteUpdateAsync(update => update.SetProperty(message => message.ReadAtUtc, readAtUtc), cancellationToken);
+
+        return marked > 0;
     }
 
     public async Task<IReadOnlyDictionary<Guid, IReadOnlyList<GroupMessageReceipt>>> GetGroupReceiptsAsync(

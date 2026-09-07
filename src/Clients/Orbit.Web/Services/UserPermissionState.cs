@@ -23,6 +23,12 @@ public sealed class UserPermissionState(UsersApiClient usersApiClient)
 
     public bool Has(ApplicationPermission permission) => _granted.Contains(permission);
 
+    /// <summary>
+    /// Everything this account holds, for a rule that asks about the set rather than about one
+    /// permission - see Orbit.Core.Permissions.PermissionListing, which decides what a screen lists.
+    /// </summary>
+    public IReadOnlySet<ApplicationPermission> Granted => _granted;
+
     /// <summary>Loads the permissions once. Awaited by every page that gates on them before it decides anything.</summary>
     public Task EnsureLoadedAsync() => _firstRead ??= RefreshAsync();
 

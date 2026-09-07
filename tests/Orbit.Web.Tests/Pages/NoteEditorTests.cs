@@ -9,6 +9,8 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Orbit.Contracts.Chat;
 using Orbit.Contracts.Notes;
+using Orbit.Contracts.Sharing;
+using Orbit.Contracts.Users;
 using Orbit.Web.Pages;
 using Orbit.Web.Services;
 using Orbit.Web.Tests.TestDoubles;
@@ -26,6 +28,9 @@ public sealed class NoteEditorTests : OrbitTestContext
 {
     private static readonly Guid OwnUserId = Guid.NewGuid();
     private static readonly Guid ContactUserId = Guid.NewGuid();
+
+    /// <summary>Who is signed in, kept so a client built later can be given it without resolving anything.</summary>
+    private readonly OrbitAuthenticationStateProvider _authenticationStateProvider;
 
     private static readonly ContactDto Contact =
         new(ContactUserId, "anna", "Anna Kowalska", "anna@example.com", "public-key", DateTimeOffset.UtcNow,
@@ -59,6 +64,7 @@ public sealed class NoteEditorTests : OrbitTestContext
         };
         var authenticationStateProvider = new OrbitAuthenticationStateProvider(
             tokenStore, new TokenRefreshService(tokenStore, refreshHttpClient));
+        _authenticationStateProvider = authenticationStateProvider;
         Services.AddSingleton(authenticationStateProvider);
         Services.AddSingleton<AuthenticationStateProvider>(authenticationStateProvider);
         Services.AddAuthorizationCore();
@@ -105,6 +111,45 @@ public sealed class NoteEditorTests : OrbitTestContext
 
         Assert.Contains("Sharing", cut.Markup);
         Assert.Contains("Anna Kowalska", cut.Markup);
+    }
+
+    /// <summary>
+    /// Both halves of handing a note over: the share the server records, and the sealed message that
+    /// carries its id - the only thing a recipient can press "Accept" on (see Chat.razor's
+    /// TryParseShare). The server cannot send the second, holding no key to seal it with, so a screen
+    /// that forgets it shares something nobody can accept - which is exactly what one of the five
+    /// screens that send it did for as long as it did.
+    /// </summary>
+    [Fact]
+    public void Sharing_a_note_records_it_and_puts_the_invitation_in_the_conversation()
+    {
+        TheBrowserCanSeal();
+        var note = Note("Shopping");
+        RegisterApiClients(note, [Contact]);
+        var cut = RenderComponent<NoteEditor>(parameters => parameters.Add(editor => editor.Id, note.Id));
+
+        cut.Find("#shareContactSelect").Change(ContactUserId.ToString());
+        cut.Find("#shareNoteButton").Click();
+
+        Assert.True(_wasShared);
+        Assert.NotNull(_lastChatMessageJson);
+        // Marked as an invitation, which is what makes the chat draw it with an Accept beside it.
+        Assert.Contains("\"isShareInvitation\":true", _lastChatMessageJson);
+    }
+
+    /// <summary>Nobody chosen is nothing to send, and nothing shared either.</summary>
+    [Fact]
+    public void Sharing_a_note_with_nobody_sends_nothing()
+    {
+        TheBrowserCanSeal();
+        var note = Note("Shopping");
+        RegisterApiClients(note, [Contact]);
+        var cut = RenderComponent<NoteEditor>(parameters => parameters.Add(editor => editor.Id, note.Id));
+
+        cut.Find("#shareNoteButton").Click();
+
+        Assert.False(_wasShared);
+        Assert.Null(_lastChatMessageJson);
     }
 
     [Fact]
@@ -284,6 +329,33 @@ public sealed class NoteEditorTests : OrbitTestContext
         {
             var path = request.RequestUri!.AbsolutePath;
 
+            // Handing the note to somebody: the share itself, and the sealed message that carries the
+            // "Accept" - see EncryptedChatMessageSender, and the note about what the server cannot do.
+            if (request.Method == HttpMethod.Post && path.EndsWith("/shares", StringComparison.Ordinal))
+            {
+                _wasShared = true;
+                return new HttpResponseMessage(HttpStatusCode.OK)
+                {
+                    Content = JsonContent.Create(new ShareResultDto(Guid.NewGuid(), AlreadyShared: false))
+                };
+            }
+
+            if (request.Method == HttpMethod.Post && path.EndsWith("/chat/messages", StringComparison.Ordinal))
+            {
+                _lastChatMessageJson = request.Content!.ReadAsStringAsync().GetAwaiter().GetResult();
+                return new HttpResponseMessage(HttpStatusCode.NoContent);
+            }
+
+            // Somebody who has signed in at least once, so there is a key to seal an invitation with.
+            if (path.StartsWith("/api/users/", StringComparison.Ordinal))
+            {
+                return new HttpResponseMessage(HttpStatusCode.OK)
+                {
+                    Content = JsonContent.Create(
+                        new UserSearchResultDto(ContactUserId, "anna", "Anna Kowalska", "a-public-key"))
+                };
+            }
+
             if (path.EndsWith("/lock", StringComparison.Ordinal))
             {
                 return lockedByUserName is null
@@ -315,6 +387,33 @@ public sealed class NoteEditorTests : OrbitTestContext
         Services.AddSingleton(new NotesApiClient(httpClient));
         Services.AddSingleton(new PublicShareApiClient(httpClient));
         Services.AddSingleton(new ChatApiClient(httpClient));
+        // Over the one the constructor registered, so the sealed message goes somewhere a test can read
+        // it rather than at a client with no handler behind it at all.
+        var usersApiClient = new UsersApiClient(httpClient);
+        Services.AddSingleton(new EncryptedChatMessageSender(
+            JSInterop.JSRuntime,
+            new OwnEncryptionKeyProvider(JSInterop.JSRuntime, usersApiClient, _authenticationStateProvider),
+            usersApiClient,
+            new ChatApiClient(httpClient)));
+    }
+
+    /// <summary>What the share wrote into the conversation, and whether the share itself was recorded.</summary>
+    private string? _lastChatMessageJson;
+    private bool _wasShared;
+
+    /// <summary>
+    /// The browser's half of the encryption, stood in for: this device holds a key, and sealing answers
+    /// with something. Mirrors ShareInventoryPanelTests, where the same three calls are planned - the
+    /// crypto itself is checked in a real browser by ci/verify-browser-crypto.mjs.
+    /// </summary>
+    private void TheBrowserCanSeal()
+    {
+        JSInterop.Mode = JSRuntimeMode.Loose;
+        var crypto = JSInterop.SetupModule("./js/e2eeChat.js");
+        crypto.Setup<bool>("hasOwnPrivateKey", _ => true).SetResult(true);
+        crypto.Setup<string>("ensureOwnPublicKey", _ => true).SetResult("a-public-key");
+        crypto.Setup<EncryptedChatMessageSender.EncryptedPayload>("encryptMessage", _ => true)
+            .SetResult(new EncryptedChatMessageSender.EncryptedPayload("sealed", "nonce"));
     }
 
     /// <summary>Mirrors CalendarEventEditorTests - a real header and payload with a dummy signature the client never checks.</summary>

@@ -12,6 +12,7 @@ public sealed class OrbitDbContext : DbContext
 
     public DbSet<NoteEntity> Notes => Set<NoteEntity>();
     public DbSet<NoteShareEntity> NoteShares => Set<NoteShareEntity>();
+    public DbSet<FolderEntity> Folders => Set<FolderEntity>();
     public DbSet<TaskEntity> Tasks => Set<TaskEntity>();
     public DbSet<TaskShareEntity> TaskShares => Set<TaskShareEntity>();
     public DbSet<CalendarEventEntity> CalendarEvents => Set<CalendarEventEntity>();
@@ -93,6 +94,14 @@ public sealed class OrbitDbContext : DbContext
             // the default rather than as an unparseable empty string.
             entity.Property(row => row.Priority).IsRequired().HasMaxLength(10)
                 .HasDefaultValue(nameof(Orbit.Core.Abstractions.ItemPriority.Normal));
+        });
+
+        modelBuilder.Entity<FolderEntity>(entity =>
+        {
+            entity.HasKey(folder => folder.Id);
+            entity.Property(folder => folder.Name).IsRequired().HasMaxLength(StoredTextLimits.Title);
+            // Folders are only ever read one account at a time - the tabs on that account's own pages.
+            entity.HasIndex(folder => folder.UserId);
         });
 
         modelBuilder.Entity<NoteShareEntity>(entity =>

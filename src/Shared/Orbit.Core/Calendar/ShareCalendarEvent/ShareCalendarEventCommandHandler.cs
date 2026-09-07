@@ -55,7 +55,8 @@ public sealed class ShareCalendarEventCommandHandler : IRequestHandler<ShareCale
         var share = CalendarEventShare.Create(calendarEvent.Id, calendarEvent.UserId, request.RecipientUserId, request.AccessLevel);
         await _calendarEventShareRepository.AddAsync(share, cancellationToken);
         await _sharedItemNotifier.NotifyAsync(
-            request.RecipientUserId, request.OwnerUserId, SharedItemKind.CalendarEvent, calendarEvent.Details.Title, cancellationToken);
+            request.RecipientUserId, request.OwnerUserId, SharedItemKind.CalendarEvent, calendarEvent.Details.Title,
+            SharedItemLink.ToAccept(share.Id), cancellationToken);
         return new ShareOutcome(share.Id, AlreadyShared: false);
     }
 }

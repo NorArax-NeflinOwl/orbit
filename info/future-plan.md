@@ -100,6 +100,49 @@ from everywhere they get typed. What this pass found and did **not** fix is in
   load). A small hosted model in Azure AI Foundry costs cents a month at this size. Ollama stays, for
   local development only.
 
+## What the invitation page still owes
+
+Done on 2026-09-07, as asked for on 2026-09-06: a share's notification leads to **what was shared**
+rather than to the conversation - see [In-app notifications](functionality.md#in-app-notifications) and
+`ShareInvitation.razor`. Two things about it are worth knowing:
+
+- ~~**It does not name the thing.**~~ Done the same day: `GET /api/shares/{kind}/{shareId}` answers with
+  the offer - the item, its name and whether it has been taken up - so the page says which note, and
+  accepting lands on the thing itself rather than on the list it appears in. One endpoint for all four
+  kinds; accepting stayed on each section's own, where that kind's rules are.
+- **The phone still has no invitation screen.** It reads the same path, takes the sharer's id off the
+  end and opens the conversation, which is where its own Accept sits (`SharedItemAcceptance`) - so
+  nothing is lost there, but a phone cannot take up an offer whose chat message it cannot read, which is
+  exactly the case the web page now covers.
+
+## What a real advertising network would take
+
+The slots exist and are filled by Orbit itself - see [Advertising](functionality.md#advertising). Putting
+somebody else's adverts in them is a bigger decision than swapping the source, and these are the parts
+of it:
+
+- **Consent, first.** Orbit withholds the map's tiles from a reader who has said not to share their
+  information (`mapTiles.js`), and that is one request to one host that is told nothing but a tile
+  coordinate. An advertising script is told who is looking, from where, and on which page, and it runs
+  in the reader's browser. It belongs behind the same gate at least, which means `DoNotShareDialog` and
+  the account-level flag behind it grow a third answer, and a slot that draws nothing when the answer is
+  no - not a slot that quietly draws a house advert instead, which would make the two indistinguishable.
+- **A content security policy.** Orbit serves its own scripts and nothing else today. Loading one from a
+  network means naming that host in nginx's CSP (`nginx-app-locations.conf`), and every host it in turn
+  loads from - which for most networks is a list nobody can enumerate in advance.
+- **An account, and keys.** A publisher id is configuration, so it follows the rule every secret here
+  follows: an environment variable or a Container Apps secret, never a tracked file, and
+  `.env.example` updated with it.
+- **The phone is a separate integration.** The web's script does nothing in a MAUI app; that is a
+  platform SDK, an Android permission review and a second account.
+- **What the slots would then be worth measuring.** Nothing here counts an impression or a press. That
+  is fine while Orbit is advertising itself, and it is the first thing a network asks for.
+
+Two smaller things are owed even without a network: the Android bar is **not tappable** (the adverts
+point at web pages the app does not have, and the app is told the API's address but never the web
+client's - see `OrbitApiSettings`), and there is **no interrupting advert on the phone** at all, only
+the bar.
+
 ## What real Google Calendar sync would take
 
 **Waiting on infrastructure, deliberately, as of 2 September 2026.** Google's review of a sensitive scope
@@ -476,15 +519,28 @@ inventory lists, the contacts tabs, the chat menus - is built and needs no schem
 Written down rather than fixed on the spot, per rule 14 in `.claude/CLAUDE.md`: work that turns up
 beside a task belongs here, not in that task's diff. A defect is the exception and is fixed when found.
 
-- **The web client went into a loop once, on 2026-09-05 at 11:06Z, right after approving a
-  conversation.** In one minute it made the same four chat calls - `conversations/{id}/access`,
+- ~~**The web client went into a loop once, on 2026-09-05 at 11:06Z, right after approving a
+  conversation.**~~ **Cause found and fixed on 2026-09-07**, and it was not a render loop: it was two
+  open chat windows announcing at each other. Marking a conversation read published a live "chat
+  changed" to the other party **whether or not anything had actually been read**; the other window
+  answers an announcement by polling, a poll marks the conversation read, and that announced back. Two
+  windows therefore ran the same four calls - `conversations/{id}/access`, `messages/{id}`,
+  `messages/{id}/read`, `messages/{id}/read-receipt` - at network speed for as long as both were open,
+  which is exactly the shape of what was measured. Approving is what started it because it is the moment
+  both sides open the same conversation at once. Both handlers now publish only when a row actually
+  changed (`MarkConversationAsReadCommandHandler`, `MarkGroupConversationAsReadCommandHandler`, and the
+  repository methods that now answer whether they marked anything), so the exchange dies after one
+  round: a read receipt still travels, a read that did not happen says nothing. In a group it was worse
+  by the size of the group, since the announcement goes to every other member.
+
+  The original measurement, kept because it is what made the cause findable: In one minute it made the same four chat calls - `conversations/{id}/access`,
   `messages/{id}`, `messages/{id}/read`, `messages/{id}/read-receipt` - about 987 times each against
   only **two** ids, plus `chat/contacts` 201 times and `chat/groups` 109 times: 4,332 requests from one
   caller, sixteen a second, and the busiest minute in the month by fifteen times. A render-and-refetch
-  loop, not bulk work. It has not recurred, and several web changes have landed since, so it may already
-  be gone; if it is not, `FloodStopPerCaller` (600 a minute) now cuts it off after ten seconds, which is
-  the right outcome and also the way it will be noticed - a burst of 429s on those four paths in the
-  request log. Worth a look at what the approve flow re-renders before assuming it is fixed.
+  loop, it was read at the time - and reading it that way is what kept it unexplained, since nothing in
+  the approve flow re-renders anything. `FloodStopPerCaller` (600 a minute) would have cut it off after
+  ten seconds had it existed then, and a burst of 429s on those four paths is still how a recurrence
+  would announce itself.
 - **`setup-dotnet@v4`, `setup-java@v4` and `upload-artifact@v4`** carry the same Node 20 deprecation
   `actions/checkout` did. `dependency-submission.yml` already pins `setup-dotnet@v5`, so the bump is
   available whenever somebody wants it.
@@ -666,28 +722,28 @@ matches and what does not. What that pass left:
   notification opening a note, chat opening a shared thing - which each finish on their own section as
   before. Adding one is a single `ReturnTo.Link` at the call site.
 
-- **Two of the five screens that send a share notice are covered; three are not.** Sharing something is
-  two halves: the server records the share and raises a notification, and the sharer's *browser* posts an
-  encrypted chat message carrying the share's id, which is the only thing a recipient can press "Accept"
-  on (see Chat.razor's `TryParseShare`). The server cannot send that half - it holds no key to seal it
-  with - so a screen that forgets it shares something nobody can accept, which is exactly what the guest
-  invitation on a task entry's event did for as long as it did (fixed 2026-09-06).
+- ~~**Two of the five screens that send a share notice are covered; three are not.**~~ Done, all five.
+  Sharing something is two halves: the server records the share and raises a notification, and the
+  sharer's *browser* posts an encrypted chat message carrying the share's id, which is the only thing a
+  recipient can press "Accept" on (see Chat.razor's `TryParseShare`). The server cannot send that half -
+  it holds no key to seal it with - so a screen that forgets it shares something nobody can accept,
+  which is exactly what the guest invitation on a task entry's event did for as long as it did (fixed
+  2026-09-06, covered 2026-09-07).
 
-  Covered since 2026-09-07: the guest invitation on a task entry's event
-  (`TaskEditorItemFormTests.Inviting_a_guest_to_an_entrys_event_puts_the_invitation_in_the_conversation`)
-  and the storage panel (`ShareInventoryPanelTests`). What unblocked them: the sealed payload's shape was
-  a `private record` inside `EncryptedChatMessageSender`, so a bUnit test could not plan the JavaScript
-  result; it is now `public` and nested there on purpose - `InternalsVisibleTo` was the alternative and it
-  would have opened the whole assembly for one type.
+  The five, and where each is pinned down: the guest invitation on a task entry's event and the task
+  list's own sharing block (`TaskEditorItemFormTests`), the storage panel (`ShareInventoryPanelTests`),
+  the note (`NoteEditorTests`) and the calendar event's guests (`CalendarEventEditorTests`). Each was
+  checked against the mechanism rather than only run: removing the `SendAsync` call turns its own test
+  red. Each also has the negative beside it - sharing with nobody chosen sends nothing - which is what
+  keeps the positive from passing on a page that posts to everybody.
 
-  Still uncovered: `NoteEditor`, `CalendarEventEditor`, and the task list's own sharing block in
-  `TaskEditor` (a second call site on that page, separate from the guest one). Each needs the same three
-  things the two covered tests set up - a signed-in token, `./js/e2eeChat.js` answering `hasOwnPrivateKey`
-  / `ensureOwnPublicKey` / `encryptMessage`, and a stub answering `/api/users/{id}` with a contact who has
-  a public key - so copy `ShareInventoryPanelTests`, which is the smaller of the two. The task list's
-  block additionally wants `_canShare` (a permission the item-form tests deliberately grant nothing of)
-  and a `/api/chat/contacts` answer, which is why it was left with the other two rather than done
-  alongside the guest path.
+  What unblocked them: the sealed payload's shape was a `private record` inside
+  `EncryptedChatMessageSender`, so a bUnit test could not plan the JavaScript result; it is `public` now
+  and nested there on purpose - `InternalsVisibleTo` was the alternative and would have opened the whole
+  assembly for one type. The recipe, if a sixth screen ever sends one: a signed-in token,
+  `./js/e2eeChat.js` answering `hasOwnPrivateKey` / `ensureOwnPublicKey` / `encryptMessage`, and a stub
+  answering `/api/users/{id}` with a contact who has a public key. `ShareInventoryPanelTests` is the
+  smallest of the five to copy.
 
 - **The phone shows no links in a description either.** The addresses in a description are pressable on
   the web (`TextWithLinks`, 2026-09-06); the phone draws the same descriptions as plain labels. The

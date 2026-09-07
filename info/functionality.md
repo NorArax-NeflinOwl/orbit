@@ -189,6 +189,86 @@ same thing on the wire, in the database and in a log line. It sorts the task lis
 a badge, and is what the dashboard's per-card filter reads. Rows written before the column existed read
 as `Normal`, so nothing has to be revisited.
 
+## Advertising
+
+Orbit advertises **itself**, in three places:
+
+- a **rail down the right** of a browser window wide enough to have room beside the page (≥1200px);
+- a **bar across the foot** of a narrower one, and of every main screen in the Android app;
+- one **dialog**, shown once a visit.
+
+What they show comes from `Orbit.Core.Advertising.HouseAds` - Orbit's own pages, written in English
+there and translated like every other string. Every advert leads to a path on this Orbit, never to
+another site, and **nothing is fetched from a third party**. That is deliberate rather than a stage on
+the way to a real network: Orbit already asks before it allows the single outside request it makes (the
+map's tiles, withheld from a reader who has said not to share their information), and an advertising
+network is that decision several times over - somebody else's script, running in the reader's browser,
+told who they are by being there at all. Putting one behind these slots is its own piece of work, with
+its own consent question, an account somebody has to open and keys to keep; see
+[Future Plan](future-plan.md). What exists now is the slot, the frame, and the rule about who sees what.
+
+**Every slot says "Ad".** A house advert that read as Orbit talking would be the one kind worth
+objecting to.
+
+**The dialog is the only one that interrupts, and it is not shown to an account holding the Debugger
+permission** (`AdInterruption`). Whoever holds that is looking at Orbit's own internals, which means
+they are working on Orbit rather than reading it. It is shown once a visit; the rail and the bar are
+shown to everybody and simply sit there.
+
+Which advert a visit shows is picked once, from a number the layout keeps (`HouseAds.ForSlot`), so it
+cannot change under the reader's eye as pages re-render. The Android bar shows only adverts worth
+showing inside the app (`HouseAd.ShowsOnAPhone`) - "get Orbit on your phone", read on a phone that
+already has it, is the one advert that makes its reader trust the rest of them less - and it is not
+tappable: the adverts point at pages the app does not have, and the app is told the API's address but
+never the web client's.
+
+## Folders
+
+Every page made of cards - the dashboard, the notes and the task lists - is read under a **row of
+tabs**, and the tabs are the same three everywhere plus whatever the reader has made. A folder is a
+place rather than one page's filter, so the tab stays open when they step from the notes to the task
+lists (`FolderState`, one scoped state shared by the three pages).
+
+**Three folders exist without a row of their own** (`Orbit.Core.Folders.BuiltInFolder`). Which one
+something is in is decided from what it already is, and the first that applies wins:
+
+1. **Finished** - a task list with every entry ticked off, even when its owner filed it somewhere else.
+   It goes there on its own and comes back out the moment something on it is reopened. A note is never
+   in it, having nothing to finish.
+2. **Private** - a sealed item nobody filed anywhere (see [Private notes and task
+   lists](#private-notes-and-task-lists)).
+3. **Public** - everything else, and where a page opens.
+
+Deciding it rather than storing it is what let folders arrive with **no migration of existing rows and
+nothing to repair**: every note and list that existed before them was already in the right one. It also
+means the two can never disagree - there is no way to be filed as private without being sealed, or to
+sit in Finished with work left on it.
+
+**A folder somebody made is none of the three** and holds whatever they put in it, private things
+included: filing something is not the same decision as sealing it. Only these are rows
+(`OP_FOLDERS`), and `GET/POST/PUT/DELETE /api/folders` is the whole of managing them. **Deleting a
+folder deletes nothing that was in it** - `FolderRepository.DeleteAsync` empties it first, so every note
+and list under it goes back to the built-in folder its own privacy decides.
+
+Filing something travels on **its own request** - `PUT /api/notes/{id}/folder` and `PUT
+/api/tasks/{id}/folder`, both taking `{ folderId }` where null means "in no folder of its own". It is
+not a field on the update for the reason [Saying nothing about a field](#saying-nothing-about-a-field)
+gives: an update carries the whole item, so a client that had never heard of folders would empty it on
+every save. Creating one *is* allowed to name a folder (`folderId` on `POST /api/notes` and `POST
+/api/tasks`), since there is nothing to preserve yet - and the web editors send the tab the reader is
+standing on, so a note made while reading "Work" is in Work.
+
+A folder is **never shared**. It is a place on its owner's own pages, so a list shared with a second
+person sits in whichever folder each of them filed it under - and a shared item's `folderId` is sent as
+null to the recipient, since the owner's id names a tab that does not exist for them.
+
+Two consequences worth stating, because they changed how a page behaves:
+
+- The task list page no longer offers a **Completed** chip. A finished list is in Finished now, so the
+  chip could only have found nothing under every other tab and everything under that one.
+- The dashboard's task card used to keep a finished list when it was **pinned**. Pinning orders cards
+  within a tab rather than lifting one out of the tab it belongs to; Finished is where they are read now.
+
 ## Notes
 
 
@@ -630,6 +710,28 @@ follows: a position is not something to be able to push at a stranger who never 
 
 The Map page shows the viewer's own position and everyone sharing with them on **one** map, framed to fit
 them all.
+
+### Where your plans are
+
+Beside the people, the map draws **the reader's own plans**: every calendar event that names a place,
+and every task entry that raised one. The panel lists them soonest first and the map pins them; pressing
+a row centres the map on its pin, and the arrow on the row opens the thing itself.
+
+The two are read together because they are the same thing seen from two ends - a calendar entry on a
+task list keeps its appointment in the calendar, so reading only the calendar would list a shopping trip
+as an appointment nobody recognises, and reading only the lists would miss every appointment made in the
+calendar itself. `CalendarEventDestination` decides which it is, the same rule the calendar's own list
+and the dashboard's "Upcoming" already follow: an event a list raised is named `List: entry`, opens as
+that entry, and comes back to `/map` afterwards (`ReturnTo`).
+
+A pin takes the appointment's own colour, so a place on the map and its chip in the calendar are the
+same colour; one with no colour of its own is drawn in `--task`. A repeating event is shown at its next
+occurrence, the way the dashboard already shows one - the place is the same every week, and the date
+beside it should be the one coming.
+
+**What has already happened is left out**, because a map is mostly about where somebody is going. It is
+a filter rather than a rule: "Show places already past" in the page's own menu brings it back, pins
+included. An event with no address is not a place and is never listed - there is nothing to draw.
 
 ### Planning something at a place
 
@@ -1106,6 +1208,13 @@ the shallow level of the list. A deadline with no place still opens the checklis
 nothing on such a page the list does not already show. `Calendar.razor`'s `GoToDueTask` makes that
 choice, from the `HasPlace` flag `DueTaskDto` carries.
 
+**When it happens is read off the appointment, not off the entry.** A calendar entry's day and hour live
+on the event the editor writes them into, so the entry's own `DueDateUtc` is empty for exactly the
+entries this page exists to show - and the page, reading only the entry, said "No date set" about an
+appointment that plainly had one. It asks the appointment first now and falls back to the entry's own
+date for a deadline that has no event behind it (`EventWhen`, the one wording the calendar's list uses
+too).
+
 **An entry tied to an event is not drawn twice on the day that event is on.** It *is* that event, so a
 deadline row beside it is the same appointment written out a second time, one line under the other. The
 grid leaves it off whenever the event it names is on the same day — asked of the occurrence rather than
@@ -1419,7 +1528,8 @@ from the entries as they are stored and this is exactly the moment somebody has 
 `POST /api/tasks/{sourceListId}/items/{itemId}/move` (`{ targetTaskListId }`) moves a single item out of
 one task list and into another of the caller's own lists — a separate operation from `linkedTaskListId`
 above, which mirrors another list's completion state without the item ever changing which list it
-belongs to. Both lists must resolve to `CanEdit` access for the caller and share the same owner; the
+belongs to. Both lists must resolve to `CanEdit` access for the caller and share the same owner - when
+they do not, the refusal names the way round it (see below); the
 item, its due date, notification settings, etc. are otherwise unchanged, just relocated.
 `MoveTaskItemCommandHandler` persists both lists in a single `ITaskRepository.UpdateManyAsync` call so a
 mid-operation failure can't duplicate or drop the item across the two lists. In the Blazor client, the
@@ -1427,6 +1537,34 @@ task editor's "Move to list" dropdown (next to the existing "Link to list" one, 
 item) triggers the move immediately rather than waiting for the form's own Save, since it reaches beyond
 the one task list this editor page otherwise touches; a freshly added, not-yet-saved item has no dropdown
 since there's nothing persisted yet to move.
+
+### When it can't be moved: copy it instead
+
+Two lists a reader can edit that have **different owners** means one of them was shared with them, and
+an entry there belongs to the list and travels with it: moving it out would take it from everybody else
+the list is shared with, and moving one in would hand them something they never agreed to. That is
+refused - and **refused with a reason** (`EditOutcomeKind.Refused`, 403) rather than the `NotFound` it
+used to answer, since both lists are plainly on the reader's own screen and "no such list" sends them
+looking for a mistake they did not make.
+
+`POST /api/tasks/{sourceListId}/items/{itemId}/copy` (`{ targetTaskListId }`) is the way round it: a
+second entry saying the same thing on a list of their own, with the first left exactly where it is.
+Weaker rules than a move, deliberately - the caller only has to be able to **read** the source and
+**edit** the target, so a list shared read-only can still be copied out of, because nothing about it
+changes. A private list at either end is still refused: a sealed list keeps nothing readable on the
+server to copy from or into.
+
+**The copy carries every field the entry had** - what it is called, its description, its due date,
+whether it is done, its kind, the place it names, what it is filed under, what it asks for, and its
+reminders - under a new id. What it deliberately does not carry is the three things that are references
+rather than fields: the appointment, the shelf item, and the lists the entry stands for. Two entries
+pointing at one appointment is the drift that link exists to prevent, and after a copy across a share
+those rows belong to the other account anyway - the reader would be handed a link to something they
+cannot open. The place is text and does come across, so a copied appointment still says where it was.
+
+In the Blazor editor the refusal is shown under the entry in the reader's own language (the server
+answers in English) with **"Copy it to …​ instead"** beside it; taking the offer leaves the entry on
+screen, because it is still on this list, and says where the copy went.
 
 ## Inventory
 
@@ -2317,15 +2455,55 @@ a ticked checklist line is: the two are the same fact about two different things
 differently.
 
 **An invitation is two halves, and both have to be sent.** Sharing something records the share on the
-server and raises a notification; what the recipient presses **Accept** on is a separate encrypted chat
-message carrying the share's id, posted by the sharer's own browser because the server has no key to seal
-one with (`EncryptedChatMessageSender`, read back by `Chat.razor`'s `TryParseShare`). That is also why the
-notification leads to the conversation rather than to the thing: the thing is not the recipient's to open
-until it has been accepted, and Accept lives on the message.
+server and raises a notification; what the recipient presses **Accept** on in the conversation is a
+separate encrypted chat message carrying the share's id, posted by the sharer's own browser because the
+server has no key to seal one with (`EncryptedChatMessageSender`, read back by `Chat.razor`'s
+`TryParseShare`).
+
+**The notification leads to what was shared** (`/invitation/{kind}/{shareId}/{sharerUserId}`,
+`ShareInvitation.razor`) rather than to the conversation, which is where it used to lead because Accept
+lived only there. The thing itself is still not the recipient's to open until it has been accepted - so
+the address it leads to is the *offer*, and taking it up on that page puts them where the thing now is.
+The offer is the server's own record, so this page needs **no key**: an invitation can be taken up on a
+device that has never unlocked chat, which the conversation's own Accept cannot do. Both ways of
+accepting call the same four endpoints, and either one leaves the other reading "already accepted".
+
+It **names what was offered** and lands on it. `GET /api/shares/{kind}/{shareId}` answers with the
+offer - what was offered, what it is called, and whether it has been taken up (`GetShareOfferQuery`,
+scoped to the reader, so an offer made to somebody else reads exactly like one that was withdrawn). One
+endpoint for all four kinds rather than a fifth on each section, and accepting stays where it already
+is: each section's own `shares/{id}/accept`, which is where that kind's rules live - a task list's
+share, for one, drags the lists it gathers along with it. Something deleted between the offer and the
+reading of it comes back with an empty name and the offer still standing, so the page falls back to
+saying what kind of thing it was.
+
+**Accepting in the conversation settles the same notification.** The offer can be taken up in either
+place, and the notification names the invitation page - so the conversation's own Accept settles that
+address explicitly (`NewsSettler`), or the bell would keep an entry for something already answered. What
+each kind is called inside those addresses lives in one place, `SharedItemPath`, which the notifier, the
+endpoint, the page, the client and the conversation all read: five copies of one mapping is how three of
+them come to disagree.
+
+Three states, and the page says which: waiting, already taken up (with the way in), and no longer there.
+The last covers a withdrawn offer and one that was never this reader's, which the server deliberately
+does not tell apart - answering differently would say whether a share id exists.
+
+The **sharer's id is in the path** as well as the share's. The page names them without a second lookup,
+and the phone - which reads a closed set of notification paths and has no invitation screen - takes that
+last segment and opens the conversation, which is where its own Accept sits and where this notification
+landed before. Claiming a **public link** is the exception on both counts: the grant is immediate, so
+there is nothing to accept and its notification opens the thing itself.
 
 Inviting a guest to a **calendar entry on a task list** sent only the first half until 2026-09-06, so the
 invitation arrived, said somebody had shared an event, and led to a conversation with nothing in it and
 no way to accept. The calendar's own editor had always sent both.
+
+**Reaching what a notification is about settles it - including by the other address.** The layout marks
+read whatever the address bar reaches on every navigation (`NewsSettler`, called from MainLayout), and a
+page settles what it *is* beyond its own address: an appointment a task list raised opens as that list's
+entry, while the reminder for it points at the event, so nothing in the entry page's path said anything
+about it and pressing the appointment on the calendar left its own notification lit
+(`TaskItemSummary`). Both halves go through one place, so what "reaching" means is decided once.
 
 **A thing somebody shares arrives without a reload.** The share records a notification, the live
 connection carries it, and every section page - `/tasks`, `/notes`, `/calendar`, `/inventory` - now
@@ -2357,7 +2535,7 @@ address names, not on the card:
 | Groups | the row | `/chat/groups/{group}` - an invitation names the group |
 | Upcoming | the row | `/calendar/{event}` for an appointment, `/tasks/{list}` for a deadline |
 | Recent chats | the row | the unread count the chat list already carries |
-| Inventory | the card only | `/inventory` - something about to go off names no storage |
+| Inventory | the row | `/inventory/{storage}` - something about to go off names the storage it is on |
 | Shared with you | the card only | `/map` - a shared position names nobody |
 | Notes | nothing | no notification points at a note at all today |
 
@@ -2365,6 +2543,21 @@ An appointment a task list made has **two** addresses: the row opens it as the e
 the reminder for it is the event's. Both are asked (`UpcomingEntry.NewsUrl`), because reading only the
 destination would leave exactly those rows unmarked. Where a card can only say "here", marking a row
 would mean picking one at random, which is worse than saying less.
+
+**The storage list says it too.** `/inventory` marks the card of the storage a warning is about
+(`Inventories.HasNewsAbout`). That warning named only the section until 2026-09-07 - so every page that
+read it could say something was about to go off and none of them could say where - and it names the
+storage now (`InventoryExpiryPushContent`). The phone reads the same path and still opens its list of
+storages, which is where it landed before: it opens one by its own local id, which a server id is not
+(`NotificationDestination`, `NotificationOpener`).
+
+**The calendar's own list says it too.** Every card on `/calendar` - appointments and deadlines alike -
+carries the same red edge when the bell is talking about it (`Calendar.HasNewsAbout`). Without it the
+one page a reminder is *about* was the one page that never showed which thing it meant: the bell counted
+it, and the list looked exactly as it had a moment before. Both addresses are asked for an appointment,
+for the reason above; a deadline is asked at its entry's own page and at the list it is on, which is
+where a reminder about one points. The same mark is on the map's "Where your plans are" rows, which are
+the same things seen from the other end.
 
 ### Deciding what the page shows
 
@@ -2520,6 +2713,16 @@ sent to the wrong account raises nothing anywhere, and the client that needed it
 its slow poll. Two are easy to get backwards. A **read receipt** is the *other* party's news - the
 reader already knows they read it. A **removal from a group** goes to the person removed as well as to
 the people left, because otherwise the group stays in their list and they will write to it.
+
+**An announcement is only made when something actually changed** - which is not a saving but what keeps
+the exchange finite. A window answers an announcement by polling, and a poll marks the conversation read;
+so a read that changed nothing, announced anyway, is news the other window answers by marking read and
+announcing back. Two open windows did exactly that on 2026-09-05 at sixteen requests a second - four
+calls each way, 4,332 from one caller in a minute - and the fix is that
+`MarkConversationAsReadCommandHandler` (and its group counterpart) publish only when a row was actually
+marked. A read receipt still travels the moment it exists; a re-read of an already-read conversation says
+nothing. In a group the same shape would have been worse by the size of the group, since the
+announcement goes to every other member.
 
 Presence keeps its old rule exactly: the beat stops while the tab is in the background, because a tab
 left open behind thirty others is not somebody there to answer. The connection staying open does **not**

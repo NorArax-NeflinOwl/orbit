@@ -228,6 +228,27 @@ public sealed class AccountScreenTests
     }
 
     /// <summary>
+    /// Debugger is not named at all until it has been unlocked - see PermissionListing, which
+    /// Orbit.Web's own table reads too. A row saying "Locked" beside the others advertises that there
+    /// is a code somewhere for it, to every account, on a screen everybody visits.
+    /// </summary>
+    [Fact]
+    public async Task The_Debugger_permission_is_not_listed_until_it_is_unlocked()
+    {
+        using var context = new ScreenContext
+        {
+            Holding = [ApplicationPermission.Contacts, ApplicationPermission.Chat]
+        };
+        var screen = context.Open();
+
+        await screen.LoadCommand.ExecuteAsync(null);
+
+        Assert.DoesNotContain(screen.Permissions, permission => permission.Name == "Debugger");
+        // Everything else is still named, held or not: "Locked" is the answer to "can I use this".
+        Assert.Contains(screen.Permissions, permission => permission.Name == "Location");
+    }
+
+    /// <summary>
     /// The section answers to the permission as well as to the tab, so an account that never held it
     /// reads nothing even if something else puts the screen on that tab.
     /// </summary>

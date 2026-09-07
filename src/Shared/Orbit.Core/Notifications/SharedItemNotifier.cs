@@ -7,7 +7,8 @@ namespace Orbit.Core.Notifications;
 public interface ISharedItemNotifier
 {
     Task NotifyAsync(
-        Guid recipientUserId, Guid sharerUserId, SharedItemKind kind, string? itemTitle, CancellationToken cancellationToken);
+        Guid recipientUserId, Guid sharerUserId, SharedItemKind kind, string? itemTitle, SharedItemLink link,
+        CancellationToken cancellationToken);
 }
 
 /// <summary>
@@ -53,7 +54,8 @@ public sealed class SharedItemNotifier : ISharedItemNotifier
     /// to announce it must not turn a successful share into a failed request. Callers treat it that way.
     /// </summary>
     public async Task NotifyAsync(
-        Guid recipientUserId, Guid sharerUserId, SharedItemKind kind, string? itemTitle, CancellationToken cancellationToken)
+        Guid recipientUserId, Guid sharerUserId, SharedItemKind kind, string? itemTitle, SharedItemLink link,
+        CancellationToken cancellationToken)
     {
         var sharer = await _userRepository.GetByIdAsync(sharerUserId, cancellationToken);
         var sharerName = sharer?.DisplayName ?? "Someone";
@@ -68,7 +70,7 @@ public sealed class SharedItemNotifier : ISharedItemNotifier
             // name yet, the heading again rather than a blank line.
             string.IsNullOrWhiteSpace(itemTitle) ? TitleFor(kind) : "{0}",
             [string.IsNullOrWhiteSpace(itemTitle) ? sharerName : itemTitle],
-            UrlFor(kind, sharerUserId));
+            UrlFor(kind, sharerUserId, link));
 
         var result = await _notificationRecorder.RecordAndFilterAsync(
             recipientUserId, settings.ChannelForShares(), NotificationEntryKind.SharedWithYou,
@@ -81,7 +83,7 @@ public sealed class SharedItemNotifier : ISharedItemNotifier
 
         if (result.AllowedChannel.HasFlag(NotificationChannel.Email))
         {
-            await EmailTheInvitationAsync(recipientUserId, sharerUserId, kind, sharerName, itemTitle, cancellationToken);
+            await EmailTheInvitationAsync(recipientUserId, sharerUserId, kind, sharerName, itemTitle, link, cancellationToken);
         }
     }
 
@@ -93,7 +95,7 @@ public sealed class SharedItemNotifier : ISharedItemNotifier
     /// </summary>
     private async Task EmailTheInvitationAsync(
         Guid recipientUserId, Guid sharerUserId, SharedItemKind kind, string sharerName, string? itemTitle,
-        CancellationToken cancellationToken)
+        SharedItemLink link, CancellationToken cancellationToken)
     {
         try
         {
@@ -105,7 +107,7 @@ public sealed class SharedItemNotifier : ISharedItemNotifier
                 return;
             }
 
-            var itemUrl = _webClientLinks.For(UrlFor(kind, sharerUserId));
+            var itemUrl = _webClientLinks.For(UrlFor(kind, sharerUserId, link));
             var (subject, body) = SharedItemEmailContent.Build(kind, sharerName, itemTitle, itemUrl);
             await _emailSender.SendAsync(recipient.Email, subject, body, cancellationToken);
         }
@@ -126,13 +128,31 @@ public sealed class SharedItemNotifier : ISharedItemNotifier
     };
 
     /// <summary>
-    /// Where the notification takes the recipient. A shared note, list, event or inventory has to be
-    /// accepted before it is theirs to open, and the Accept action lives in the conversation with
-    /// whoever sent it - so pointing at the item itself would land on a "not found". A shared position
-    /// needs no accepting and shows up on the map.
+    /// Where the notification takes the recipient - see <see cref="SharedItemLink"/> for the three
+    /// states a share arrives in. It used to lead to the conversation with whoever sent it, because
+    /// that is where Accept lived; it leads to what was shared now, and the invitation page is what
+    /// carries the Accept for something not yet taken up.
+    ///
+    /// The sharer's id travels in the path as well as the share's. The web page names them without a
+    /// lookup, and the phone - which reads a closed set of paths and has no invitation screen - takes
+    /// that last segment and opens the conversation, which is exactly where it landed before.
     /// </summary>
-    private static string UrlFor(SharedItemKind kind, Guid sharerUserId)
-        => kind == SharedItemKind.Location ? "/map" : $"/chat/{sharerUserId}";
+    private static string UrlFor(SharedItemKind kind, Guid sharerUserId, SharedItemLink link)
+        => link.PendingShareId is { } shareId
+            ? $"/invitation/{SharedItemPath.For(kind)}/{shareId}/{sharerUserId}"
+            : link.ItemId is { } itemId
+                ? $"{SectionFor(kind)}/{itemId}"
+                : "/map";
+
+    /// <summary>Where one of these is read once it is the recipient's - the client's own routes.</summary>
+    private static string SectionFor(SharedItemKind kind) => kind switch
+    {
+        SharedItemKind.Note => "/notes",
+        SharedItemKind.TaskList => "/tasks",
+        SharedItemKind.CalendarEvent => "/calendar",
+        SharedItemKind.Inventory => "/inventory",
+        _ => "/map"
+    };
 }
 
 /// <summary>What was shared - decides the wording and where the notification leads.</summary>

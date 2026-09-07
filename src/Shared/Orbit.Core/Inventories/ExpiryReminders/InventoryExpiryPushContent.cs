@@ -11,6 +11,9 @@ public static class InventoryExpiryPushContent
         return new PushNotificationPayload(
             "Expiring soon", "\"{0}\" is nearing its expiry date ({1}).",
             [reminder.Name, reminder.ExpiryDate.LocalDateTime.ToString("dd.MM.yyyy", CultureInfo.InvariantCulture)],
-            "/inventory");
+            // The storage it is on, not the section: every page that reads this can then say *which*
+            // one is about to lose something rather than only that something is - which is the
+            // difference between a mark on a card and a mark on a page.
+            $"/inventory/{reminder.InventoryId}");
     }
 }

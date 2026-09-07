@@ -532,6 +532,38 @@ namespace Orbit.Data.Migrations
                     b.ToTable("OS_EVENTS_REMINDERS");
                 });
 
+            modelBuilder.Entity("Orbit.Data.Entities.FolderEntity", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("OP_F_ID");
+
+                    b.Property<DateTimeOffset>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("OP_F_CREATEDATUTC");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("OP_F_NAME");
+
+                    b.Property<DateTimeOffset>("UpdatedAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("OP_F_UPDATEDATUTC");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("OP_F_USERID");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UserId");
+
+                    b.ToTable("OP_FOLDERS");
+                });
+
             modelBuilder.Entity("Orbit.Data.Entities.InventoryEntity", b =>
                 {
                     b.Property<Guid>("Id")
@@ -865,6 +897,10 @@ namespace Orbit.Data.Migrations
                     b.Property<string>("EncryptedNonce")
                         .HasColumnType("text")
                         .HasColumnName("OP_N_ENCRYPTEDNONCE");
+
+                    b.Property<Guid?>("FolderId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("OP_N_FOLDERID");
 
                     b.Property<bool>("IsPinned")
                         .HasColumnType("boolean")
@@ -1393,6 +1429,10 @@ namespace Orbit.Data.Migrations
                     b.Property<string>("EncryptedNonce")
                         .HasColumnType("text")
                         .HasColumnName("OP_T_ENCRYPTEDNONCE");
+
+                    b.Property<Guid?>("FolderId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("OP_T_FOLDERID");
 
                     b.Property<bool>("IsCompleted")
                         .HasColumnType("boolean")

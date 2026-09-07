@@ -39,7 +39,8 @@ public sealed class ShareLocationCommandHandler : IRequestHandler<ShareLocationC
             // Only the first time. A live share refreshes once a minute, and announcing each refresh
             // would turn one act of sharing into a notification every minute.
             await _sharedItemNotifier.NotifyAsync(
-                request.RecipientUserId, request.SharerUserId, SharedItemKind.Location, itemTitle: null, cancellationToken);
+                request.RecipientUserId, request.SharerUserId, SharedItemKind.Location, itemTitle: null,
+                SharedItemLink.TheMap, cancellationToken);
             return true;
         }
 

@@ -3,6 +3,7 @@ using System.Net.Http.Json;
 using Microsoft.Extensions.Logging.Abstractions;
 using Orbit.Contracts;
 using Orbit.Contracts.Sharing;
+using Orbit.Contracts.Folders;
 using Orbit.Contracts.Tasks;
 using Orbit.Core.Abstractions;
 using Orbit.Web.Services.Logging;
@@ -43,6 +44,14 @@ public sealed class TasksApiClient
     {
         var response = await _httpClient.PutAsJsonAsync(
             $"api/tasks/{taskListId}/pinned", new SetTaskListPinnedRequest(isPinned), cancellationToken);
+        return response.IsSuccessStatusCode;
+    }
+
+    /// <summary>Mirrors NotesApiClient.MoveToFolderAsync - see it.</summary>
+    public async Task<bool> MoveToFolderAsync(Guid taskListId, Guid? folderId, CancellationToken cancellationToken = default)
+    {
+        var response = await _httpClient.PutAsJsonAsync(
+            $"api/tasks/{taskListId}/folder", new MoveToFolderRequest(folderId), cancellationToken);
         return response.IsSuccessStatusCode;
     }
 
@@ -282,6 +291,33 @@ public sealed class TasksApiClient
         catch (Exception exception)
         {
             _logger.LogActionFailed(ClientActionCategory.Edit, "Move task item", exception);
+            throw;
+        }
+    }
+
+    /// <summary>
+    /// Writes a second entry saying the same thing onto another list, leaving the first where it is -
+    /// what is offered when a move is refused because the entry is shared along with its list. See
+    /// CopyTaskItemCommand for what the copy carries and what it deliberately leaves behind.
+    /// </summary>
+    public async Task<EditOutcome> CopyTaskItemAsync(
+        Guid sourceTaskListId, Guid itemId, Guid targetTaskListId, CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            var response = await _httpClient.PostAsJsonAsync(
+                $"api/tasks/{sourceTaskListId}/items/{itemId}/copy", new CopyTaskItemRequest(targetTaskListId), cancellationToken);
+            var outcome = await ToEditOutcomeAsync(response, cancellationToken);
+            if (outcome.Kind == EditOutcomeKind.Success)
+            {
+                _logger.LogActionCompleted(ClientActionCategory.Save, "Copy task item");
+            }
+
+            return outcome;
+        }
+        catch (Exception exception)
+        {
+            _logger.LogActionFailed(ClientActionCategory.Save, "Copy task item", exception);
             throw;
         }
     }

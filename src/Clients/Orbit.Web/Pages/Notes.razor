@@ -5,6 +5,7 @@
 @using Orbit.Core.Abstractions
 @using Orbit.Web.Services
 @inject NotesApiClient NotesApiClient
+@inject FolderState Folders
 @inject SharedItemPins SharedPins
 @inject NavigationManager NavigationManager
 @inject IJSRuntime JSRuntime
@@ -33,9 +34,17 @@
     <p class="info">@_deleteMessage</p>
 }
 
+@* Which folder is being read, and the same row of tabs the task lists and the dashboard carry - a
+   folder is a place rather than one page's filter, so stepping between the three keeps it. *@
+<FolderTabs CountIn="CountIn" />
+
 <ObjectList IsLoading="_notes is null" IsEmpty="_notes is { Count: 0 }" EmptyMessage="@T["No notes."]">
+    @if (_notes is { Count: > 0 } && VisibleNotes.Count == 0)
+    {
+        <p class="empty-hint">@T["Nothing in this folder."]</p>
+    }
     <div class="item-card-list">
-        @foreach (var note in Ordered(_notes!))
+        @foreach (var note in Ordered(VisibleNotes))
         {
             <ItemCard Name="@NameOf(note)"
                       OnNameSelected="() => OpenNote(note.Id)"
@@ -98,6 +107,22 @@
 
 @code {
     private IReadOnlyList<NoteDto>? _notes;
+
+    /// <summary>
+    /// The notes in the folder that is open. A note nobody filed is still in one - Public, or Private
+    /// when it is sealed - see FolderPlacement, which decides it for every page made of cards.
+    /// </summary>
+    private IReadOnlyList<NoteDto> VisibleNotes
+        => [.. (_notes ?? []).Where(note => Folders.ShowsUnderTheChosenTab(note.FolderId, note.IsPrivate))];
+
+    /// <summary>
+    /// How many notes are under each tab, drawn on the tab itself. Notes are never finished, so Done is
+    /// always empty of them - which is worth showing rather than hiding, since the tab also holds task
+    /// lists on the pages that have both.
+    /// </summary>
+    private int CountIn(FolderKey folder)
+        => (_notes ?? []).Count(note =>
+            FolderPlacement.Of(note.FolderId, note.IsPrivate, isFinished: false, Folders.KnownFolderIds) == folder);
 
     /// <summary>Pinned notes first, and the rest in the order the API sent them - most recently updated first.</summary>
     private IEnumerable<NoteDto> Ordered(IReadOnlyList<NoteDto> notes)
@@ -162,6 +187,8 @@
         // is one this page has never read, so hearing about it has to mean reading again - see
         // OnNotificationsChanged.
         NotificationFeedState.Changed += OnNotificationsChanged;
+        // The tabs are shared, so pressing one anywhere re-filters this page too.
+        Folders.Changed += OnFoldersChanged;
         Logger.LogInformation("Notes page opened, loading notes");
         // Read before the cards are drawn: a pin that arrived a moment later would move a card somebody
         // was already pointing at.
@@ -320,6 +347,12 @@
             StateHasChanged();
         });
 
-    public void Dispose() => NotificationFeedState.Changed -= OnNotificationsChanged;
+    private void OnFoldersChanged() => InvokeAsync(StateHasChanged);
+
+    public void Dispose()
+    {
+        NotificationFeedState.Changed -= OnNotificationsChanged;
+        Folders.Changed -= OnFoldersChanged;
+    }
 
 }

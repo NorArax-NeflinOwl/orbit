@@ -16,4 +16,9 @@ namespace Orbit.Contracts.Tasks;
     /// </param>
 public sealed record CreateTaskRequest(
     string Title, IReadOnlyList<TaskItemRequest> Items, bool IsGroup = false, bool IsPrivate = false,
-    EncryptedContentDto? EncryptedContent = null, string Priority = "Normal", string? Description = null);
+    EncryptedContentDto? EncryptedContent = null, string Priority = "Normal", string? Description = null,
+    /// <summary>
+    /// The folder to file it under, or null to leave it in the built-in one - see
+    /// Orbit.Contracts.Notes.CreateNoteRequest.FolderId, which says the same.
+    /// </summary>
+    Guid? FolderId = null);

@@ -4,6 +4,7 @@ using Orbit.Contracts.Sharing;
 using Orbit.Api.Permissions;
 using Orbit.Contracts;
 using Orbit.Contracts.Inventories;
+using Orbit.Contracts.Folders;
 using Orbit.Contracts.Tasks;
 using Orbit.Core.Abstractions;
 using Orbit.Core.Inventories;
@@ -13,11 +14,13 @@ using Orbit.Core.Sync;
 using Orbit.Core.Tasks;
 using Orbit.Core.Tasks.AcceptTaskListShare;
 using Orbit.Core.Tasks.AcquireTaskListLock;
+using Orbit.Core.Tasks.CopyTaskItem;
 using Orbit.Core.Tasks.CreateTaskList;
 using Orbit.Core.Tasks.DeleteTaskList;
 using Orbit.Core.Tasks.GetTaskListById;
 using Orbit.Core.Tasks.GetTaskListShareStatus;
 using Orbit.Core.Tasks.GetTaskLists;
+using Orbit.Core.Tasks.MoveTaskListToFolder;
 using Orbit.Core.Tasks.LinkCalendarEventToTaskList;
 using Orbit.Core.Tasks.MoveTaskItem;
 using Orbit.Core.Tasks.ReleaseTaskListLock;
@@ -77,7 +80,7 @@ public static class TaskEndpoints
                 new CreateTaskListCommand(
                     GetUserId(user), request.Title, ToDomainItems(request.Items), request.IsGroup, request.IsPrivate,
                     ToDomainPayload(request.EncryptedContent), RequestEnum.Parse<ItemPriority>(request.Priority, "priority"),
-                    request.Description),
+                    request.Description, request.FolderId),
                 cancellationToken);
             return Results.Created($"/api/tasks/{id}", id);
         });
@@ -100,6 +103,17 @@ public static class TaskEndpoints
         // A query parameter rather than a body: this is still a DELETE of one list, and which of the two
         // it means is a modifier on it rather than a second thing being sent. Absent reads as false,
         // which is what every caller written before this asked for.
+        // Filing, its own endpoint for the reason MoveTaskListToFolderCommand gives - and mirroring
+        // the note's own, which was written first.
+        tasks.MapPut("/{id:guid}/folder", async (
+            Guid id, MoveToFolderRequest request, ClaimsPrincipal user, IDispatcher dispatcher,
+            CancellationToken cancellationToken) =>
+        {
+            var moved = await dispatcher.SendAsync(
+                new MoveTaskListToFolderCommand(GetUserId(user), id, request.FolderId), cancellationToken);
+            return moved ? Results.NoContent() : Results.NotFound();
+        });
+
         tasks.MapDelete("/{id:guid}", async (
             Guid id, bool? deleteTheListsItGathers, ClaimsPrincipal user, IDispatcher dispatcher,
             CancellationToken cancellationToken) =>
@@ -204,6 +218,18 @@ public static class TaskEndpoints
         {
             var outcome = await dispatcher.SendAsync(
                 new MoveTaskItemCommand(GetUserId(user), id, itemId, request.TargetTaskListId), cancellationToken);
+            return ToApiResult(outcome);
+        });
+
+        // The way round a move that is refused because the entry is shared along with its list - see
+        // CopyTaskItemCommand. Its own endpoint rather than a flag on the move above, because it is a
+        // different act: nothing leaves the list it came from.
+        tasks.MapPost("/{id:guid}/items/{itemId:guid}/copy", async (
+            Guid id, Guid itemId, CopyTaskItemRequest request, ClaimsPrincipal user, IDispatcher dispatcher,
+            CancellationToken cancellationToken) =>
+        {
+            var outcome = await dispatcher.SendAsync(
+                new CopyTaskItemCommand(GetUserId(user), id, itemId, request.TargetTaskListId), cancellationToken);
             return ToApiResult(outcome);
         });
 
@@ -441,7 +467,10 @@ public static class TaskEndpoints
             taskList.IsShared ? taskList.UserId : null,
             taskList.Priority.ToString(),
             taskList.Status.ToString(),
-            taskList.IsPinned, taskList.IsSharedWithOthers, taskList.LinkedInventoryId, taskList.Description);
+            taskList.IsPinned, taskList.IsSharedWithOthers, taskList.LinkedInventoryId, taskList.Description,
+            // The owner's filing, and only theirs - see NoteEndpoints.ToDto, which says why a recipient
+            // is told nothing about it.
+            taskList.IsShared ? null : taskList.FolderId);
 
     /// <summary>Maps an EditOutcome onto the corresponding HTTP response - shared by the update and lock-acquire endpoints above.</summary>
     private static IResult ToApiResult(EditOutcome outcome) => outcome.Kind switch

@@ -20,6 +20,7 @@ using Orbit.Api.Permissions;
 using Orbit.Api.Telemetry;
 using Orbit.Api.Sharing;
 using Orbit.Api.Inventories;
+using Orbit.Api.Folders;
 using Orbit.Api.Notes;
 using Orbit.Api.Notifications;
 using Orbit.Api.PushNotifications;
@@ -382,6 +383,7 @@ try
     app.MapUserEndpoints();
     app.MapChatEndpoints();
     app.MapNoteEndpoints();
+    app.MapFolderEndpoints();
     app.MapTaskEndpoints();
     app.MapCalendarEndpoints();
     app.MapInventoryEndpoints();
@@ -391,6 +393,7 @@ try
     app.MapConfigEndpoints();
     app.MapDiagnosticLogEndpoints();
     app.MapPublicShareEndpoints();
+    app.MapShareOfferEndpoints();
     app.MapTransferEndpoints();
     app.MapAssistantEndpoints();
     app.MapHealthEndpoints();

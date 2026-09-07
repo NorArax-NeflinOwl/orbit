@@ -10,6 +10,7 @@ using Orbit.Contracts.Notifications;
 using Orbit.Contracts.Calendar;
 using Orbit.Core.Tasks;
 using Orbit.Contracts.Tasks;
+using Orbit.Core.Folders;
 using Orbit.Web.Services;
 using Orbit.Web.Tests.TestDoubles;
 using Orbit.Web.Tests;
@@ -455,9 +456,11 @@ public sealed class TasksTests : OrbitTestContext
         var cut = RenderComponent<Web.Pages.Tasks>();
 
         Assert.Contains("Overdue", cut.Markup);
-        // All, the four statuses, and the two chips that are about what a list is rather than how far
-        // along it is: where it came from, and whether it gathers other lists.
-        Assert.Equal(7, cut.FindAll(".filter-chip").Count);
+        // All, the three statuses a list can still be working through, and the two chips about what a
+        // list is rather than how far along it is: where it came from, and whether it gathers other
+        // lists. Finished is not among them - it is the folder tab above now (see BuiltInFolder), and
+        // asking the same question twice on one page is how the two answers come to disagree.
+        Assert.Equal(6, cut.FindAll(".filter-chip").Count);
     }
 
     [Fact]
@@ -640,7 +643,7 @@ public sealed class TasksTests : OrbitTestContext
         RegisterTasksApiClient([TaskList("Kitchen", "Normal", "New", DateTimeOffset.UtcNow)]);
         var cut = RenderComponent<Web.Pages.Tasks>();
 
-        cut.FindAll(".filter-chip").First(chip => chip.TextContent.Contains("Done")).Click();
+        cut.FindAll(".filter-chip").First(chip => chip.TextContent.Contains("Overdue")).Click();
 
         Assert.Contains("No lists are", cut.Markup);
     }
@@ -965,6 +968,44 @@ public sealed class TasksTests : OrbitTestContext
     /// test below: the page has to read again, not redraw what it already had.
     /// </summary>
     private IReadOnlyList<TaskDto> _servedTaskLists = [];
+
+    /// <summary>
+    /// A list with everything ticked off gathers under Finished on its own - see BuiltInFolder. It is
+    /// not on the tab the page opens on, which is what "automatically" has to mean.
+    /// </summary>
+    [Fact]
+    public void A_finished_list_is_read_under_Finished_rather_than_where_the_page_opens()
+    {
+        var finished = TaskList("Moving out") with { IsCompleted = true };
+        RegisterTasksApiClient([finished, TaskList("Shopping")]);
+        var folders = Services.GetRequiredService<FolderState>();
+
+        var cut = RenderComponent<Web.Pages.Tasks>();
+        Assert.DoesNotContain("Moving out", CardTitles(cut));
+
+        folders.Choose(FolderKey.Of(BuiltInFolder.Finished));
+        cut.Render();
+
+        Assert.Contains("Moving out", CardTitles(cut));
+        Assert.DoesNotContain("Shopping", CardTitles(cut));
+    }
+
+    /// <summary>A sealed list is in Private until its owner files it somewhere else.</summary>
+    [Fact]
+    public void A_sealed_list_is_read_under_Private()
+    {
+        var sealedList = TaskList("Sealed") with { IsPrivate = true };
+        RegisterTasksApiClient([sealedList]);
+        var folders = Services.GetRequiredService<FolderState>();
+
+        var cut = RenderComponent<Web.Pages.Tasks>();
+        Assert.DoesNotContain("Sealed", CardTitles(cut));
+
+        folders.Choose(FolderKey.Of(BuiltInFolder.Private));
+        cut.Render();
+
+        Assert.Contains("Sealed", CardTitles(cut));
+    }
 
     private void RegisterTasksApiClient(
         IReadOnlyList<TaskDto> taskLists, IReadOnlyList<CalendarEventDto>? events = null)

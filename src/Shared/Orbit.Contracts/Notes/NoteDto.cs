@@ -24,4 +24,10 @@ public sealed record NoteDto(
     bool IsSharedWithOthers = false,
     bool IsPinned = false,
     /// <summary>ItemPriority by name - "Low", "Normal" or "High".</summary>
-    string Priority = "Normal");
+    string Priority = "Normal",
+    /// <summary>
+    /// The folder its owner filed it under, or null for one filed nowhere - which is a built-in folder
+    /// rather than none at all, see Orbit.Core.Folders.BuiltInFolder. Only ever the owner's own filing:
+    /// a note shared with somebody else carries the owner's folder id, which means nothing to them.
+    /// </summary>
+    Guid? FolderId = null);

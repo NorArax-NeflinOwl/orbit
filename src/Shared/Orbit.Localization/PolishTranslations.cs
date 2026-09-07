@@ -55,6 +55,14 @@ public static class PolishTranslations
         ["That note was already gone. The list has been brought up to date."] = "Tej notatki już nie było. Lista została odświeżona.",
         ["Orbit refused that change."] = "Orbit odrzucił tę zmianę.",
         ["Can't move this item right now - {0} is editing one of the lists."] = "Nie można teraz przenieść tej pozycji — {0} edytuje jedną z list.",
+        ["This entry is shared along with the whole list it is on, so it can't be moved out of it."] =
+            "Ta pozycja jest udostępniona razem z całą listą, na której się znajduje, więc nie można jej z niej przenieść.",
+        // The way round a move refused because the entry is shared with its whole list - see CopyTaskItemCommand.
+        ["Copy it to \"{0}\" instead"] = "Skopiuj ją zamiast tego do „{0}”",
+        ["Copied to \"{0}\". This one stays here, and the two are separate from now on."] =
+            "Skopiowano do „{0}”. Ta pozostaje tutaj, a od teraz obie są osobne.",
+        ["Can't copy this entry right now - {0} is editing that list."] = "Nie można teraz skopiować tej pozycji — {0} edytuje tamtą listę.",
+        ["Failed to copy this entry. Try again."] = "Nie udało się skopiować tej pozycji. Spróbuj ponownie.",
         ["Couldn't recalculate against the inventory."] = "Nie udało się przeliczyć względem magazynu.",
         ["This list isn't measured against an inventory."] = "Ta lista nie jest porównywana z żadnym magazynem.",
         ["Couldn't generate an inventory from this list."] = "Nie udało się wygenerować magazynu z tej listy.",
@@ -690,6 +698,72 @@ public static class PolishTranslations
         ["A task list starting here"] = "Lista zadań zaczynająca się tutaj",
         ["Orbit isn't allowed to use your location. Turn it on in Options first."] =
             "Orbit nie ma zgody na korzystanie z Twojego położenia. Włącz ją najpierw w Opcjach.",
+        ["Where your plans are"] = "Gdzie są Twoje plany",
+        ["Nothing coming up says where it happens. Past ones are in the menu above."] =
+            "Nic z tego, co przed Tobą, nie mówi, gdzie się odbywa. Minione znajdziesz w menu powyżej.",
+        ["Nothing in your calendar or your lists says where it happens."] =
+            "Nic w Twoim kalendarzu ani na listach nie mówi, gdzie się odbywa.",
+        ["Show places already past"] = "Pokaż miejsca już minione",
+        ["somewhere with no street"] = "gdzieś bez adresu",
+
+        // ---- Folders ----
+        // The tabs every page made of cards is read under - see Orbit.Core.Folders.BuiltInFolder. The
+        // finished one is keyed "Finished" rather than "Done", which already means "Gotowe" elsewhere.
+        ["Folders"] = "Foldery",
+        ["Folder"] = "Folder",
+        ["Folder name"] = "Nazwa folderu",
+        ["Public"] = "Publiczne",
+        ["Finished"] = "Ukończone",
+        ["New folder"] = "Nowy folder",
+        ["Rename folder"] = "Zmień nazwę folderu",
+        ["Delete folder"] = "Usuń folder",
+        ["Delete this folder?"] = "Usunąć ten folder?",
+        ["Nothing in it is deleted - everything goes back to Public, or to Private if it is sealed."] =
+            "Nic z niego nie zostanie usunięte - wszystko wróci do Publicznych, a rzeczy zaszyfrowane do Prywatnych.",
+        ["Nothing in this folder."] = "Nic w tym folderze.",
+        ["Without one it is in Public, or in Private when it is sealed."] =
+            "Bez folderu trafia do Publicznych, a jeśli jest zaszyfrowane - do Prywatnych.",
+        ["Without one it is in Public, or in Private when it is sealed. A list with everything ticked off moves to Finished on its own."] =
+            "Bez folderu trafia do Publicznych, a jeśli jest zaszyfrowane - do Prywatnych. Lista z odhaczonymi wszystkimi pozycjami sama trafia do Ukończonych.",
+
+        // ---- The invitation page ----
+        // Where a notification about something shared leads - see Orbit.Web's ShareInvitation.razor.
+        // "a note" / "a task list" / "an event" / "an inventory" are already translated above, as the
+        // accusative these sentences need.
+        ["Orbit — Shared with you"] = "Orbit — Udostępnione Tobie",
+        ["{0} shared {1} with you."] = "{0} udostępnił(a) Ci {1}.",
+        ["{0} shared \"{1}\" with you."] = "{0} udostępnił(a) Ci „{1}”.",
+        ["Until you take it up it stays theirs - accepting is what puts it on your own pages."] =
+            "Dopóki tego nie przyjmiesz, pozostaje ich - dopiero przyjęcie umieszcza to na Twoich stronach.",
+        ["{0} is yours already - you took this up before."] = "{0} już jest Twoje - przyjąłeś(-aś) to wcześniej.",
+        ["Open it"] = "Otwórz",
+        ["This invitation is no longer there. Whoever sent it may have taken it back."] =
+            "Tego zaproszenia już nie ma. Osoba, która je wysłała, mogła je wycofać.",
+        ["Go to it anyway"] = "Przejdź tam mimo to",
+        ["This invitation is for something this version of Orbit doesn't know about."] =
+            "To zaproszenie dotyczy czegoś, czego ta wersja Orbita nie zna.",
+        ["Couldn't read this invitation. Try again."] = "Nie udało się odczytać tego zaproszenia. Spróbuj ponownie.",
+        ["Couldn't accept this invitation. Try again."] = "Nie udało się przyjąć tego zaproszenia. Spróbuj ponownie.",
+
+        // ---- Advertising ----
+        // The slots beside the page and the one that interrupts - see Orbit.Core.Advertising.HouseAds.
+        // The adverts themselves are written in English there and translated by their key, like every
+        // other string in Orbit.
+        ["Ad"] = "Reklama",
+        ["Advertisement"] = "Reklama",
+        ["No thanks"] = "Nie, dziękuję",
+        // "Orbit on your phone" and "Get the app" are already translated for the download page, and one
+        // English string has one Polish one - see PolishTranslationsTests.
+        ["The same notes, lists and calendar, offline and in your pocket."] =
+            "Te same notatki, listy i kalendarz — offline i w kieszeni.",
+        ["Everything Orbit can do"] = "Wszystko, co potrafi Orbit",
+        ["The parts you have not unlocked yet, and what each of them is for."] =
+            "Części, których jeszcze nie odblokowałeś, i do czego każda służy.",
+        ["Read the docs"] = "Przeczytaj dokumentację",
+        ["Nothing here is read by anybody else"] = "Nikt inny tego nie czyta",
+        ["What Orbit keeps, what it sends, and what it seals so even the server cannot open it."] =
+            "Co Orbit przechowuje, co wysyła i co szyfruje tak, że nawet serwer tego nie otworzy.",
+        ["How that works"] = "Jak to działa",
 
         // ---- Options ----
         ["Appearance"] = "Wygląd",

@@ -70,8 +70,11 @@ public sealed class ClaimPublicShareLinkCommandHandler : IRequestHandler<ClaimPu
         var alreadyHeld = await GrantReadOnlyAccessAsync(link, request.ClaimingUserId, cancellationToken);
         if (!alreadyHeld)
         {
+            // Straight to the thing: claiming a link grants access there and then, so there is nothing
+            // to accept and nothing an invitation page could offer.
             await _sharedItemNotifier.NotifyAsync(
-                request.ClaimingUserId, link.OwnerUserId, ToSharedItemKind(link.ItemType), item.Title, cancellationToken);
+                request.ClaimingUserId, link.OwnerUserId, ToSharedItemKind(link.ItemType), item.Title,
+                SharedItemLink.StraightToIt(link.ItemId), cancellationToken);
         }
 
         return new ClaimPublicShareLinkResult(Claimed: true, link.ItemType, link.ItemId, alreadyHeld);

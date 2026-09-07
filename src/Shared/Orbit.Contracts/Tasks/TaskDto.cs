@@ -24,4 +24,9 @@ public sealed record TaskDto(
     /// What the list is about, under its title. Always sent - empty for a list nobody described, and
     /// for a private one, whose description is sealed with the rest of it.
     /// </summary>
-    string Description = "");
+    string Description = "",
+    /// <summary>
+    /// The folder its owner filed it under, or null for one filed nowhere - see NoteDto.FolderId, which
+    /// says the same about the other kind of card.
+    /// </summary>
+    Guid? FolderId = null);
