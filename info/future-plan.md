@@ -742,13 +742,26 @@ matches and what does not. What that pass left:
   sheet in front of `StockCheckPanel.GenerateInventoryAsync` asking the same six questions
   `GenerateInventoryOverlay` asks.
 
-- **The pin on a shared list or note stays on the browser that set it.** A reader's pin for something
-  somebody else owns is kept in localStorage (`SharedItemPins`, 2026-09-06), because the flag on the
-  object belongs to its owner and only they may set it. That is the same choice `ConversationPins`
-  makes and it needs no column anywhere - but it also means the pin does not follow the reader to
-  another browser or to the phone, where the control is simply left out. What it would take to make it
-  follow: a per-recipient flag on the share row (`TaskListShare`, `NoteShare`) with an endpoint and a
-  field on the DTO, which is a migration and a phone change rather than a screen one.
+- ~~**The pin on a shared list or note stays on the browser that set it.**~~ Done on 2026-09-07, the way
+  this predicted except for the DTO: a per-recipient flag on the share row
+  (`NoteShare.IsPinnedByRecipient`, `TaskListShare.IsPinnedByRecipient`, migration
+  `PinASharedThingForItsRecipient`), and **no new field anywhere**. The existing `IsPinned` already meant
+  "sorts this above the others on every client that shows a list of them", so a shared item is simply
+  handed over carrying the recipient's answer in it - stamped by the access resolvers, the way the
+  access context beside it already was. The endpoint did not change either: `PUT .../pinned` picks
+  between the two rows by which one the caller has. `SharedItemPins` is gone; `DevicePins` stays, since
+  `ConversationPins` still uses it.
+
+  **It also closed a defect nothing had recorded.** The browser overrode the owner's flag locally, so
+  nobody saw it there - but the phone sorts straight by `IsPinned` and had no second answer to prefer,
+  so a note or list *its owner* had pinned arrived at the top of the recipient's list. Both halves are
+  pinned down in `GetNotesQueryHandlerTests` and `GetTaskListsQueryHandlerTests`, including that the
+  stamp does not touch `UpdatedAtUtc` - a value depending on who is asking must not make the row look
+  changed, because that timestamp is what the phone syncs against.
+
+  **What is left, and it is the phone's:** the pin control for a shared item is still left out there
+  (`TaskListRow.CanBePinned`, `NoteListItem.CanBePinned`), from when the server refused a recipient
+  outright. The server takes it now, so putting the control back is a screen change and nothing else.
 
 - ~~**A task list's own description is written and never shown.**~~ Done. It goes under the name on the
   list's own page (`TaskListChecklist`), which is where a storage's goes, so the two read the same way -

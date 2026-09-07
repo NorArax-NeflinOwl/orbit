@@ -145,6 +145,17 @@ public sealed class Note
     public void SetSharedWithOthers(bool isSharedWithOthers) => IsSharedWithOthers = isSharedWithOthers;
 
     /// <summary>
+    /// Where the *caller* keeps this note on their own page, when the caller is not its owner. Stamped
+    /// by NoteAccessResolver from their own grant, never persisted - the stored IsPinned belongs to the
+    /// owner and answers the same question about a different page.
+    ///
+    /// Separate from <see cref="SetPinned"/> on purpose, and the reason is easier to see on a task
+    /// list, where the equivalent stamps UpdatedAtUtc: a value that only depends on who is asking must
+    /// not make the row look changed, because that timestamp is what a phone syncs against.
+    /// </summary>
+    public void SetPinnedForCaller(bool isPinned) => IsPinned = isPinned;
+
+    /// <summary>
     /// Files this note under a folder, or under none - which puts it back in whichever built-in folder
     /// its privacy says (see Orbit.Core.Folders.BuiltInFolder). Its own command rather than part of
     /// Update, for the same reason pinning is: an update replaces the whole note, so a client that had

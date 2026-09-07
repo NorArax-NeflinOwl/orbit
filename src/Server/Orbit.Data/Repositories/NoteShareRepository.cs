@@ -80,7 +80,8 @@ public sealed class NoteShareRepository : INoteShareRepository
     private static NoteShare ToDomain(NoteShareEntity entity)
         => NoteShare.FromPersistence(
             entity.Id, entity.SourceNoteId, entity.OwnerUserId, entity.RecipientUserId,
-            Enum.Parse<ShareAccessLevel>(entity.AccessLevel), entity.CreatedAtUtc, entity.AcceptedAtUtc);
+            Enum.Parse<ShareAccessLevel>(entity.AccessLevel), entity.CreatedAtUtc, entity.AcceptedAtUtc,
+            entity.IsPinnedByRecipient);
 
     private static NoteShareEntity ToEntity(NoteShare share)
         => new()
@@ -91,7 +92,8 @@ public sealed class NoteShareRepository : INoteShareRepository
             RecipientUserId = share.RecipientUserId,
             AccessLevel = share.AccessLevel.ToString(),
             CreatedAtUtc = share.CreatedAtUtc,
-            AcceptedAtUtc = share.AcceptedAtUtc
+            AcceptedAtUtc = share.AcceptedAtUtc,
+            IsPinnedByRecipient = share.IsPinnedByRecipient
         };
     public async Task RemoveAcceptedGrantAsync(Guid sourceId, Guid recipientUserId, CancellationToken cancellationToken)
     {

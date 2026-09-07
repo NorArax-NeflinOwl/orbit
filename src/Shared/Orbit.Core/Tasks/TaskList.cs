@@ -163,10 +163,13 @@ public sealed class TaskList
         return taskList;
     }
 
-    /// <summary>Stamps how the current caller relates to this task list - see the class comment. Not persisted.</summary>
     /// <summary>Tells the owner that somebody else holds accepted access - the mirror of <see cref="IsShared"/>.</summary>
     public void SetSharedWithOthers(bool isSharedWithOthers) => IsSharedWithOthers = isSharedWithOthers;
 
+    /// <inheritdoc cref="Orbit.Core.Notes.Note.SetPinnedForCaller"/>
+    public void SetPinnedForCaller(bool isPinned) => IsPinned = isPinned;
+
+    /// <summary>Stamps how the current caller relates to this task list - see the class comment. Not persisted.</summary>
     public void SetAccessContext(bool isShared, string? sharedByUserName, ShareAccessLevel accessLevel)
     {
         IsShared = isShared;

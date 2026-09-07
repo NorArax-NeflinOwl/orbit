@@ -31,7 +31,6 @@ public abstract class OrbitTestContext : TestContext
         // The contacts page reads which conversations this reader keeps at the top. Same storage, same
         // empty start - nothing is pinned until a test pins something.
         Services.AddSingleton(new ConversationPins(new StubJSRuntime()));
-        Services.AddSingleton(new SharedItemPins(new StubJSRuntime()));
         // The tabs every page made of cards is drawn under. Nobody has made a folder, which is what a
         // fresh account looks like: the three built-in ones are still there, and everything is in the
         // one that opens. A test about folders registers its own over this - see FolderState.

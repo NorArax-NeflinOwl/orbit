@@ -1081,19 +1081,28 @@ list's errand), and the block around it opens the list, exactly as an unfolded c
 appointment there carries its event's colour, the same dot the unfolded card and the dashboard's Upcoming
 card draw - a folded card was the one place an appointment could not be told from a plain errand.
 
-**A list somebody shared with you can be pinned too, and the answer is yours.** A list you own carries
-its pin on the server, because arranging it is yours to do — and only the owner may set it
-(`SetTaskListPinnedCommandHandler` refuses anybody else, since pinning moves a card on one person's
-page). That left a recipient with no pin at all, so a list sent to you could not be brought to the top of
-your own. The reader's own answer is now kept on this device instead (`SharedItemPins`, localStorage,
-the same category as the pinned-conversations list and the dashboard's layout), and the owner's flag no
-longer reaches the recipient's page: what is at the top of it is theirs to say. **Notes work the same
-way**, on the same store. Being on the device is the cost: the pin does not follow the reader to another
-browser or to the phone, which is what a per-reader column on the share would have bought.
+**A list somebody shared with you can be pinned too, and the answer is yours — everywhere.** Two rows
+behind one question, chosen by which of them the caller has. A list you own carries its pin on the list
+itself. A list shared with you carries yours on **your own grant**
+(`OP_TASKS_SHARED.OP_TS_ISPINNEDBYRECIPIENT`, `OP_NOTES_SHARED.OP_NS_ISPINNEDBYRECIPIENT`), because the
+list's own flag belongs to whoever owns it and a recipient writing there would rearrange somebody else's
+page. `SetTaskListPinnedCommandHandler` picks between them and refuses anybody holding neither;
+**notes work the same way**.
 
-On the phone the pin on a shared list was offered and did nothing — it called the server, was turned down
-and said neither. It is left out there now, the way a shared note's already was
-(`TaskListRow.CanBePinned`, matching `NoteListItem.CanBePinned`).
+Nothing new reaches the client for it: a shared list is handed over with its `IsPinned` replaced by the
+recipient's, stamped by `TaskListAccessResolver` the way the access context beside it already was. So
+the DTO carries one pin meaning one thing — *this reader's* — and every client sorts by it without
+asking whose it is.
+
+This replaced a per-browser answer (`SharedItemPins`, localStorage) that went nowhere: it did not follow
+the reader to a second browser or to the phone. It also settled a defect the browser was hiding. The
+phone sorts straight by `IsPinned` and had no second answer to prefer, so a note or list **its owner**
+had pinned arrived at the top of the recipient's list — the browser overrode that locally and the phone
+had nothing to override it with.
+
+The phone's pin control for a shared item is still left out (`TaskListRow.CanBePinned`, matching
+`NoteListItem.CanBePinned`), from when the server refused a recipient outright. The server takes it now,
+so putting the control back is a phone change and nothing else.
 
 ### Finding one entry among every list
 
