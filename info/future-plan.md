@@ -503,9 +503,9 @@ beside a task belongs here, not in that task's diff. A defect is the exception a
   every request through nginx logged `from 20.215.81.0`, the environment's egress NAT, because nginx had
   been pointed at the API's *public* name and the request left the environment and came back in. Fixed
   by returning nginx to `orbit-api.internal` and letting the API walk two hops (`ForwardedCaller`); the
-  chains, and that failure, are pinned in `ForwardedCallerTests`. What remains to confirm on the
-  deployment is that a freshly started nginx resolves the internal name with the API's ingress external
-  - `info/azure-setup.md` has the one-line check to run from inside the environment.
+  chains, and that failure, are pinned in `ForwardedCallerTests`. The last dependency - that a freshly
+  started nginx resolves the internal name with the API's ingress external - was confirmed from inside a
+  newly created `orbit-web` replica the same day; `info/azure-setup.md` keeps the one-line check.
 
   **`orbit-web` now really scales to zero, and the first request after idle takes over fifteen
   seconds.** Measured by accident: a probe answered `000` while the container was being created

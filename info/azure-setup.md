@@ -71,18 +71,20 @@ the switch: the nginx replica answering had started four and a half hours earlie
 resolution made before the change (nginx resolves its upstream once at startup - see
 [gotchas](#nginxazureconf-gotchas)).
 
-**Whether a fresh nginx can still resolve `orbit-api.internal` with the ingress external is the one
-thing to check before a deploy that relies on it**, and it is a one-liner from inside the environment:
+**A fresh nginx does resolve `orbit-api.internal` with the ingress external - measured on 2026-09-07**,
+from inside a newly created `orbit-web` replica (a different one from the morning's, so a real cold
+start, not a cached resolution): the internal ingress answered `{"status":"Healthy"}`. The check is a
+one-liner from inside the environment, and it is the thing to run again if the ingress is ever changed:
 
 ```bash
 az containerapp exec -n orbit-web -g Orbit --command "wget -qO- https://orbit-api.internal.victorioustree-36ad82ca.polandcentral.azurecontainerapps.io/health/live"
 ```
 
-`Healthy` back means the name resolves and the internal ingress answers; a DNS error means it does not,
-and the alternative is not the public name but a `KnownIPNetworks` entry for a stable egress address -
-which this environment does not have (`staticIp` is inbound only), so the answer would have to be a
-VNet-integrated environment. `--type internal` reverses the switch, with the phone losing its direct
-route.
+`Healthy` back means the name resolves and the internal ingress answers. Should that ever stop being
+true, the alternative is not the public name - that collapses every browser user into the egress NAT
+address, see above - but a VNet-integrated environment with a stable egress that `KnownIPNetworks`
+could name; this environment has none (`staticIp` is inbound only). `--type internal` reverses the
+switch, with the phone losing its direct route.
 
 ## First-time setup from zero
 
