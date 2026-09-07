@@ -2681,6 +2681,16 @@ its slow poll. Two are easy to get backwards. A **read receipt** is the *other* 
 reader already knows they read it. A **removal from a group** goes to the person removed as well as to
 the people left, because otherwise the group stays in their list and they will write to it.
 
+**An announcement is only made when something actually changed** - which is not a saving but what keeps
+the exchange finite. A window answers an announcement by polling, and a poll marks the conversation read;
+so a read that changed nothing, announced anyway, is news the other window answers by marking read and
+announcing back. Two open windows did exactly that on 2026-09-05 at sixteen requests a second - four
+calls each way, 4,332 from one caller in a minute - and the fix is that
+`MarkConversationAsReadCommandHandler` (and its group counterpart) publish only when a row was actually
+marked. A read receipt still travels the moment it exists; a re-read of an already-read conversation says
+nothing. In a group the same shape would have been worse by the size of the group, since the
+announcement goes to every other member.
+
 Presence keeps its old rule exactly: the beat stops while the tab is in the background, because a tab
 left open behind thirty others is not somebody there to answer. The connection staying open does **not**
 on its own keep an account looking available — the client reports being at the keyboard, and declining to

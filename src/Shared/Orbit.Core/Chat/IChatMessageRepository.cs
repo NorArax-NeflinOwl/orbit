@@ -52,7 +52,13 @@ public interface IChatMessageRepository
     /// A no-op for messages already marked read, so it's safe to call on every poll tick rather than
     /// only once.
     /// </summary>
-    Task MarkConversationAsReadAsync(Guid readerUserId, Guid otherUserId, DateTimeOffset readAtUtc, CancellationToken cancellationToken);
+    /// <summary>
+    /// Marks everything the other party sent this reader as read, and answers whether anything actually
+    /// changed. The answer matters: telling the other side about a read that did not happen is what
+    /// makes two open windows announce at each other for as long as they are both open - see
+    /// MarkConversationAsReadCommandHandler.
+    /// </summary>
+    Task<bool> MarkConversationAsReadAsync(Guid readerUserId, Guid otherUserId, DateTimeOffset readAtUtc, CancellationToken cancellationToken);
 
     /// <summary>
     /// The latest SentAtUtc among senderUserId's messages to recipientUserId that recipientUserId has
@@ -67,11 +73,12 @@ public interface IChatMessageRepository
     /// </summary>
     Task<IReadOnlyDictionary<Guid, int>> GetUnreadCountsBySenderAsync(Guid readerUserId, CancellationToken cancellationToken);
     /// <summary>
-    /// Marks every copy addressed to readerUserId in this group as read. The group counterpart of
-    /// <see cref="MarkConversationAsReadAsync"/>, and a no-op for copies already marked, so it is safe
-    /// to call on every poll tick rather than only once.
+    /// Marks every copy addressed to readerUserId in this group as read, and answers whether anything
+    /// actually changed. The group counterpart of <see cref="MarkConversationAsReadAsync"/>, and a no-op
+    /// for copies already marked, so it is safe to call on every poll tick rather than only once - the
+    /// answer is what keeps a no-op from being announced to the rest of the group as news.
     /// </summary>
-    Task MarkGroupConversationAsReadAsync(
+    Task<bool> MarkGroupConversationAsReadAsync(
         Guid readerUserId, Guid groupId, DateTimeOffset readAtUtc, CancellationToken cancellationToken);
 
     /// <summary>

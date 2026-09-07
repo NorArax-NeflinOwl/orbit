@@ -536,15 +536,28 @@ inventory lists, the contacts tabs, the chat menus - is built and needs no schem
 Written down rather than fixed on the spot, per rule 14 in `.claude/CLAUDE.md`: work that turns up
 beside a task belongs here, not in that task's diff. A defect is the exception and is fixed when found.
 
-- **The web client went into a loop once, on 2026-09-05 at 11:06Z, right after approving a
-  conversation.** In one minute it made the same four chat calls - `conversations/{id}/access`,
+- ~~**The web client went into a loop once, on 2026-09-05 at 11:06Z, right after approving a
+  conversation.**~~ **Cause found and fixed on 2026-09-07**, and it was not a render loop: it was two
+  open chat windows announcing at each other. Marking a conversation read published a live "chat
+  changed" to the other party **whether or not anything had actually been read**; the other window
+  answers an announcement by polling, a poll marks the conversation read, and that announced back. Two
+  windows therefore ran the same four calls - `conversations/{id}/access`, `messages/{id}`,
+  `messages/{id}/read`, `messages/{id}/read-receipt` - at network speed for as long as both were open,
+  which is exactly the shape of what was measured. Approving is what started it because it is the moment
+  both sides open the same conversation at once. Both handlers now publish only when a row actually
+  changed (`MarkConversationAsReadCommandHandler`, `MarkGroupConversationAsReadCommandHandler`, and the
+  repository methods that now answer whether they marked anything), so the exchange dies after one
+  round: a read receipt still travels, a read that did not happen says nothing. In a group it was worse
+  by the size of the group, since the announcement goes to every other member.
+
+  The original measurement, kept because it is what made the cause findable: In one minute it made the same four chat calls - `conversations/{id}/access`,
   `messages/{id}`, `messages/{id}/read`, `messages/{id}/read-receipt` - about 987 times each against
   only **two** ids, plus `chat/contacts` 201 times and `chat/groups` 109 times: 4,332 requests from one
   caller, sixteen a second, and the busiest minute in the month by fifteen times. A render-and-refetch
-  loop, not bulk work. It has not recurred, and several web changes have landed since, so it may already
-  be gone; if it is not, `FloodStopPerCaller` (600 a minute) now cuts it off after ten seconds, which is
-  the right outcome and also the way it will be noticed - a burst of 429s on those four paths in the
-  request log. Worth a look at what the approve flow re-renders before assuming it is fixed.
+  loop, it was read at the time - and reading it that way is what kept it unexplained, since nothing in
+  the approve flow re-renders anything. `FloodStopPerCaller` (600 a minute) would have cut it off after
+  ten seconds had it existed then, and a burst of 429s on those four paths is still how a recurrence
+  would announce itself.
 - **`setup-dotnet@v4`, `setup-java@v4` and `upload-artifact@v4`** carry the same Node 20 deprecation
   `actions/checkout` did. `dependency-submission.yml` already pins `setup-dotnet@v5`, so the bump is
   available whenever somebody wants it.
