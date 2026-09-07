@@ -5,13 +5,16 @@ Date: 2026-09-07
 
 ## Branch and PR
 
-- Branch: `fix/one-meaning-for-pressing-an-entry`, rebased onto `origin/Coding` twice as the user
-  merged out from under it.
-- Open PR: **none of this session's own.** #253 and #256 were both opened by it and both merged. Only
-  the integration PR (#251) is open, so two slots are free and the new session may open one.
-- Uncommitted changes: none. **One commit is unmerged and unproposed**: `Give a private list's entries
-  ids of their own`, sitting on the branch above with no PR. See "Next step" - it fixes a defect that is
-  on `Coding` right now.
+- Branch: `fix/one-meaning-for-pressing-an-entry`, rebased onto `origin/Coding` twice as the user merged
+  out from under it. Everything on it is merged; there is nothing left to pull off it.
+- Open PR: **none of this session's own.** #253, #256 and #257 were all opened by it and all merged.
+  Only the integration PR (#251) is open, so two slots are free and the new session may open one.
+- Uncommitted changes: none. Nothing unmerged either.
+
+**Worth knowing, because it caught this session out twice:** all three PRs were merged *while further
+commits were still being written*, so a commit did not go in with the PR it was written for - twice it
+was left behind on the branch, once fixing a defect that was live on `Coding`. Check
+`gh pr view <n> --json state` rather than assuming.
 
 ## Goal of the work
 
@@ -121,15 +124,23 @@ the merged diff, not by anything failing.
 
 ## Next step
 
-**Open a PR for the one unmerged commit on this branch** (`Give a private list's entries ids of their
-own`) against `Coding`, and say in the description that it fixes a defect currently on `Coding`. The
-branch is already rebased onto the current `Coding` and the suite passes on that base; the work is done,
-only the PR is missing. Both previous PRs were merged while further commits were still being written, so
-**check `gh pr view <n> --json state` before assuming a commit went in with its PR.**
+**Ask the user what four screens look like**, or watch them yourself if you can reach the app. The local
+stack is running with this branch's code on https://localhost:8443 and the user was signed in on it at
+the end of the session, holding this checklist and having reported nothing back yet:
 
-After that, `info/future-plan.md`'s remaining web items need a decision rather than more work - the ones
-that do not are done. The phone's invitation screen has now been offered to the user twice and passed
-over twice.
+1. `/tasks/{id}`, tree view - pressing an entry's *words* should open the entry's own page, not the
+   list's form; the box beside them should still tick.
+2. The same list read flat ("Show single items", needs a tree deeper than one level) - the words should
+   open the entry. They used to **tick it off**, which is the change.
+3. The calendar, a deadline with no place - should open the entry, not the list it sits on. This is the
+   one judgement call in the session and is one line to put back if the user prefers the old landing.
+4. A **private** list with two or more entries - pressing the second entry's words should open the
+   *second*. Opening the first is the defect #257 fixed; it is worth trying an older private list too,
+   where a different path gives the id.
+
+Nothing else is owed. `info/future-plan.md`'s remaining web items need a decision from the user rather
+than more work - the ones that did not are done. The phone's invitation screen has been offered twice
+and passed over twice; do not offer it a third time unprompted.
 
 ## Environment facts confirmed this session
 
