@@ -301,10 +301,22 @@ try
     // an existing one up to date on later runs. Unlike EnsureCreated (the previous approach here), this
     // requires migration files to exist under Orbit.Data/Migrations; see README.md for the
     // `dotnet ef migrations add` command to run after changing the EF Core model.
-    using (var scope = app.Services.CreateScope())
+    //
+    // Database:ApplyMigrations=false turns this off. The "(Azure DB)" debug launch profiles set it,
+    // because they point a development server - whose branch may carry migrations production has not
+    // deployed yet - at the production database, and a debug session must not change that schema.
+    // (Learned the hard way on 2026-09-07, when the first such session applied the folders migration.)
+    if (builder.Configuration.GetValue("Database:ApplyMigrations", true))
     {
+        using var scope = app.Services.CreateScope();
         var dbContext = scope.ServiceProvider.GetRequiredService<OrbitDbContext>();
         dbContext.Database.Migrate();
+    }
+    else
+    {
+        app.Logger.LogWarning(
+            "Skipping EF Core migrations: Database:ApplyMigrations is false. Pending model changes "
+            + "will surface as query errors rather than schema changes.");
     }
 
     // Every permission gets a code the first time this deployment starts without one. Starting again

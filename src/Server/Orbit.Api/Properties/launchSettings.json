@@ -26,7 +26,8 @@
       "applicationUrl": "https://localhost:7080;http://localhost:5080",
       "environmentVariables": {
         "ASPNETCORE_ENVIRONMENT": "Development",
-        "Database__ConnectionStringName": "OrbitAzure"
+        "Database__ConnectionStringName": "OrbitAzure",
+        "Database__ApplyMigrations": "false"
       }
     }
   }

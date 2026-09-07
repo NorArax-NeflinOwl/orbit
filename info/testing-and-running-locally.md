@@ -365,10 +365,15 @@ Two things the modes rely on:
   dropdown and it sticks.
 - The Azure Postgres server's firewall allows Azure IPs only, so the azure modes additionally need a
   firewall rule for your machine's public IP
-  (`az postgres flexible-server firewall-rule create -g Orbit --name <server> --rule-name <your-name> --start-ip-address <your-ip> --end-ip-address <your-ip>`)
+  (`az postgres flexible-server firewall-rule create -g Orbit --server-name <server> --name <your-name> --start-ip-address <your-ip> --end-ip-address <your-ip>`)
   — and remember [the local database honesty rule](#keeping-the-local-database-honest): the azure modes
   point a development server at production data, so they are for reproducing production-shaped issues,
   not for routine work.
+- The azure profile also sets `Database__ApplyMigrations=false`, so a debug session never changes the
+  production schema. The flip side: a branch whose model is ahead of the deployed schema will fail its
+  queries against the missing columns — that is the intended failure, not a bug. (Without the flag the
+  first such session applies its branch's migrations to production on startup, which happened once,
+  2026-09-07, with the additive folders migration.)
 
 `Orbit.slnLaunch` holds four entries, each starting
 `src\Server\Orbit.Api\Orbit.Api.csproj` (`DebugTarget` `https` for local, `https (Azure DB)` for azure)
