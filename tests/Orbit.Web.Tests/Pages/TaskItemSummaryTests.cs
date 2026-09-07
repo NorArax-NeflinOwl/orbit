@@ -190,8 +190,59 @@ public sealed class TaskItemSummaryTests : OrbitTestContext
         Assert.Contains("anna", cut.Markup);
     }
 
+    /// <summary>
+    /// The day and the hour of a calendar entry live on its appointment, not on the entry - the editor
+    /// writes them there. This page read only the entry, so it said "no date set" about an appointment
+    /// that plainly had one, on the very page somebody opens to find out when to set off.
+    /// </summary>
+    [Fact]
+    public void An_appointment_says_when_it_happens_rather_than_that_it_has_no_date()
+    {
+        var eventId = Guid.NewGuid();
+        var start = new DateTimeOffset(2026, 3, 15, 10, 0, 0, TimeSpan.Zero);
+        var calendarEvent = CalendarEvent(eventId, "Rynek Główny 1") with
+        {
+            Details = CalendarEvent(eventId, "Rynek Główny 1").Details with
+            {
+                StartUtc = start,
+                EndUtc = start.AddHours(1)
+            }
+        };
+        // The entry carries no due date of its own, which is what an appointment made in the task
+        // editor actually looks like.
+        RegisterClients(Item("Dentist", dueDateUtc: null, "", eventId), calendarEvent);
+
+        var cut = Render();
+
+        Assert.DoesNotContain("No date set", cut.Markup);
+        Assert.Contains(start.LocalDateTime.ToString("dd.MM.yyyy"), cut.Markup);
+        Assert.Contains(start.LocalDateTime.ToString("HH:mm"), cut.Markup);
+    }
+
+    /// <summary>A deadline with no appointment behind it still shows its own date.</summary>
+    [Fact]
+    public void A_deadline_of_its_own_still_says_when_it_is_due()
+    {
+        var due = new DateTimeOffset(2026, 3, 15, 10, 0, 0, TimeSpan.Zero);
+        RegisterClients(Item("Pay the rent", due, ""));
+
+        var cut = Render();
+
+        Assert.Contains(due.LocalDateTime.ToString("dd.MM.yyyy HH:mm"), cut.Markup);
+    }
+
+    [Fact]
+    public void An_entry_with_no_date_anywhere_says_so()
+    {
+        RegisterClients(Item("Pay the rent", dueDateUtc: null, ""));
+
+        var cut = Render();
+
+        Assert.Contains("No date set", cut.Markup);
+    }
+
     private static TaskItemDto Item(
-        string description, DateTimeOffset dueDateUtc, string location, Guid? linkedCalendarEventId = null)
+        string description, DateTimeOffset? dueDateUtc, string location, Guid? linkedCalendarEventId = null)
         => new(
             ItemId, description, dueDateUtc, IsCompleted: false, LinkedTaskListId: null,
             OverdueNotificationChannel: "None", RemindDaily: false,

@@ -92,6 +92,7 @@
                         OnBodySelected="() => OpenTheEvent(calendarEvent)"
                         AccentColour="@(string.IsNullOrWhiteSpace(calendarEvent.Details.Color) ? null : calendarEvent.Details.Color)"
                         ExtraClass="@(IsTickedOff(calendarEvent) ? "item-card-done" : null)"
+                        HasUnseenAction="@HasNewsAbout(calendarEvent)"
                         IsCollapsed="@(!IsEventExpanded(calendarEvent.Id))"
                         OnCollapseToggled="@(HasDetails(calendarEvent.Details) ? EventCallback.Factory.Create(this, () => ToggleEventExpanded(calendarEvent.Id)) : default)">
                         <Tags>
@@ -158,6 +159,7 @@
                         <ItemCard Name="@Written(dueTask.Description)"
                                   OnNameSelected="() => GoToDueTask(dueTask)"
                                   OnBodySelected="() => GoToDueTask(dueTask)"
+                                  HasUnseenAction="@HasNewsAbout(dueTask)"
                                   ExtraClass="@(dueTask.IsCompleted ? "item-card-done" : null)">
                             @* The same two actions an event carries. A deadline is a thing on this list
                                like any other, and having to go and find the list it lives on to change
@@ -448,6 +450,24 @@
     /// than from the due tasks: an appointment on a list carries no due date of its own - the event says
     /// when it is - so it is not among them at all.
     /// </summary>
+    /// <summary>
+    /// Whether the bell is talking about this appointment. Two addresses, because an appointment a task
+    /// list raised is opened as that entry while the reminder for it is the event's and says so (see
+    /// EventReminderPushContent) - reading only one of them left exactly those cards unmarked. The same
+    /// pair the dashboard's Upcoming card asks about the same things.
+    /// </summary>
+    private bool HasNewsAbout(CalendarEventDto calendarEvent)
+        => NotificationFeedState.HasNewsAbout($"/calendar/{calendarEvent.Id}")
+            || (TheEntryBehind(calendarEvent) is { } entry && HasNewsAbout(entry));
+
+    /// <summary>
+    /// The same question for a deadline, which is a task entry - so it is asked at the entry's own page
+    /// and at the list it is on, the way a notification about either one points.
+    /// </summary>
+    private bool HasNewsAbout(DueTaskDto dueTask)
+        => NotificationFeedState.HasNewsAbout($"/tasks/{dueTask.TaskListId}/items/{dueTask.TaskItemId}")
+            || NotificationFeedState.HasNewsAbout($"/tasks/{dueTask.TaskListId}");
+
     private DueTaskDto? TheEntryBehind(CalendarEventDto calendarEvent)
         => _entriesByEventId.TryGetValue(calendarEvent.Id, out var pair)
             ? new DueTaskDto(
@@ -701,22 +721,8 @@
     /// "01.09.2026 19:30 – 20:30". Printing the date twice for a one-hour appointment is most of the
     /// line spent saying the same thing again.
     /// </summary>
-    private string WhenItHappens(CalendarEventDetailsDto details)
-    {
-        var start = details.StartUtc.LocalDateTime;
-        var end = details.EndUtc.LocalDateTime;
-
-        if (details.IsAllDay)
-        {
-            return start.Date == end.Date
-                ? T.Format("{0} (all day)", start.ToString("dd.MM.yyyy"))
-                : $"{start:dd.MM.yyyy} – {end:dd.MM.yyyy}";
-        }
-
-        return start.Date == end.Date
-            ? $"{start:dd.MM.yyyy} {start:HH:mm} – {end:HH:mm}"
-            : $"{start:dd.MM.yyyy HH:mm} – {end:dd.MM.yyyy HH:mm}";
-    }
+    /// <summary>The one wording, shared with the entry's own page - see EventWhen.</summary>
+    private string WhenItHappens(CalendarEventDetailsDto details) => EventWhen.Reads(details, T);
 
     /// <summary>When a deadline falls. One instant, so there is no range to shorten.</summary>
     private static string WhenItIsDue(DueTaskDto dueTask)

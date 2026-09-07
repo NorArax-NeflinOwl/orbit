@@ -25,6 +25,7 @@
 @inject NavigationManager NavigationManager
 @inject ILogger<MapPage> Logger
 @inject UserPermissionState Permissions
+@inject NotificationFeedState NotificationFeed
 @inject Translations T
 
 <PageTitle>@T["Orbit — Map"]</PageTitle>
@@ -215,7 +216,11 @@ else
             }
             @foreach (var placed in _placed)
             {
-                <div class="map-share-row map-share-row-opens" role="button" tabindex="0"
+                @* The mark for a row the bell is talking about - the same outline a dashboard row takes,
+                   see .row-unseen. Without it this list said what was planned and nothing about which
+                   of them somebody had just been told something about. *@
+                <div class="map-share-row map-share-row-opens @(HasNewsAbout(placed) ? "row-unseen" : "")"
+                     role="button" tabindex="0"
                      @onclick="() => FocusOnPlaceAsync(placed)"
                      @onkeydown="args => FocusOnPlaceOnEnterOrSpaceAsync(args, placed)">
                     @* The same colour as its pin, which is what says which pin is which without
@@ -600,6 +605,9 @@ else
         }
 
         StartRefreshLoop();
+        // MainLayout owns the poll; this only listens, so a notification arriving while the page is
+        // open marks the row it is about without anything being read again.
+        NotificationFeed.Changed += OnNotificationsChanged;
     }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
@@ -1280,9 +1288,18 @@ else
     /// Where pressing Open goes, which is the same place the calendar and the dashboard send an event:
     /// its own summary, or the entry behind it where a list raised it - see CalendarEventDestination.
     /// </param>
+    /// <param name="Destination">
+    /// Where pressing Open goes, without the "come back here" attached - what a notification about this
+    /// plan would point at, which is not the same string as <paramref name="OpenUrl"/>.
+    /// </param>
+    /// <param name="NewsUrl">
+    /// The other address a notification about it could carry. An appointment a task list raised is
+    /// opened as that entry, but the reminder for it is the event's and says so - reading only the
+    /// destination would leave exactly those rows unmarked. Mirrors Dashboard's UpcomingEntry.
+    /// </param>
     private sealed record PlacedPlan(
         string Key, string Title, string When, string Address, double Latitude, double Longitude,
-        string Color, DateTimeOffset At, bool HasPassed, string OpenUrl);
+        string Color, DateTimeOffset At, bool HasPassed, string OpenUrl, string Destination, string NewsUrl);
 
     /// <summary>
     /// Everything with an address on it, soonest first: every appointment that names a place, and every
@@ -1312,6 +1329,7 @@ else
             // of the past rather than nowhere.
             var shown = NextOccurrenceOf(calendarEvent, nowUtc) ?? calendarEvent;
             var raisedBy = CalendarEventDestination.RaisedBy(calendarEvent.Id, taskLists);
+            var destination = CalendarEventDestination.For(calendarEvent.Id, taskLists);
             placed.Add(new PlacedPlan(
                 Key: $"plan:{calendarEvent.Id}",
                 // Named for the list where one raised it, the way the dashboard names the same thing:
@@ -1329,7 +1347,9 @@ else
                 Color: string.IsNullOrWhiteSpace(calendarEvent.Details.Color) ? "var(--task)" : calendarEvent.Details.Color,
                 At: shown.Details.StartUtc,
                 HasPassed: shown.Details.EndUtc < nowUtc,
-                OpenUrl: ReturnTo.Link(CalendarEventDestination.For(calendarEvent.Id, taskLists), "/map")));
+                OpenUrl: ReturnTo.Link(destination, "/map"),
+                Destination: destination,
+                NewsUrl: $"/calendar/{calendarEvent.Id}"));
         }
 
         _allPlaced = [.. placed.OrderBy(plan => plan.At)];
@@ -1361,6 +1381,22 @@ else
             : start.ToString("ddd d MMM", T.DisplayCulture);
         return details.IsAllDay ? day : $"{day} {start:HH:mm}";
     }
+
+    /// <summary>
+    /// Whether the bell is talking about this plan. Both addresses are asked, for the reason
+    /// PlacedPlan.NewsUrl gives: an appointment a task list raised is opened as that entry while the
+    /// reminder for it is the event's. See NotificationFeedState.HasNewsAbout, which the dashboard and
+    /// every section page read the same way.
+    /// </summary>
+    private bool HasNewsAbout(PlacedPlan plan)
+        => NotificationFeed.HasNewsAbout(plan.Destination) || NotificationFeed.HasNewsAbout(plan.NewsUrl);
+
+    /// <summary>
+    /// Something reached the bell, so the marks are drawn again. Only a redraw: what is on the map has
+    /// not changed, and re-reading the calendar on every notification would be a page that reloads
+    /// itself whenever anybody does anything.
+    /// </summary>
+    private void OnNotificationsChanged() => InvokeAsync(StateHasChanged);
 
     private void ShowOrHidePastPlaces()
     {
@@ -1439,6 +1475,7 @@ else
 
     public async ValueTask DisposeAsync()
     {
+        NotificationFeed.Changed -= OnNotificationsChanged;
         // Leaving the page ends live sharing's refresh loop - see _refreshTimer's comment.
         _refreshCancellation?.Cancel();
         _refreshTimer?.Dispose();

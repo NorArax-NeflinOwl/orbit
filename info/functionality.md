@@ -1208,6 +1208,13 @@ the shallow level of the list. A deadline with no place still opens the checklis
 nothing on such a page the list does not already show. `Calendar.razor`'s `GoToDueTask` makes that
 choice, from the `HasPlace` flag `DueTaskDto` carries.
 
+**When it happens is read off the appointment, not off the entry.** A calendar entry's day and hour live
+on the event the editor writes them into, so the entry's own `DueDateUtc` is empty for exactly the
+entries this page exists to show - and the page, reading only the entry, said "No date set" about an
+appointment that plainly had one. It asks the appointment first now and falls back to the entry's own
+date for a deadline that has no event behind it (`EventWhen`, the one wording the calendar's list uses
+too).
+
 **An entry tied to an event is not drawn twice on the day that event is on.** It *is* that event, so a
 deadline row beside it is the same appointment written out a second time, one line under the other. The
 grid leaves it off whenever the event it names is on the same day — asked of the occurrence rather than
@@ -2496,6 +2503,14 @@ An appointment a task list made has **two** addresses: the row opens it as the e
 the reminder for it is the event's. Both are asked (`UpcomingEntry.NewsUrl`), because reading only the
 destination would leave exactly those rows unmarked. Where a card can only say "here", marking a row
 would mean picking one at random, which is worse than saying less.
+
+**The calendar's own list says it too.** Every card on `/calendar` - appointments and deadlines alike -
+carries the same red edge when the bell is talking about it (`Calendar.HasNewsAbout`). Without it the
+one page a reminder is *about* was the one page that never showed which thing it meant: the bell counted
+it, and the list looked exactly as it had a moment before. Both addresses are asked for an appointment,
+for the reason above; a deadline is asked at its entry's own page and at the list it is on, which is
+where a reminder about one points. The same mark is on the map's "Where your plans are" rows, which are
+the same things seen from the other end.
 
 ### Deciding what the page shows
 

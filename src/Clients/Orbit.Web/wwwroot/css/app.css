@@ -5293,7 +5293,10 @@ input.note-editor-title {
    No pulse of its own, deliberately. The card around it is already pulsing, and two animations
    breathing out of step is what a page looks like when it is trying too hard. */
 .list-row.row-unseen,
-.list-row-button.row-unseen {
+.list-row-button.row-unseen,
+/* The map's own rows are built differently and take the same mark - see MapPage's "Where your plans
+   are", where a row is a plan rather than a list row. */
+.map-share-row.row-unseen {
     outline: 1px solid var(--danger);
     outline-offset: -1px;
     border-radius: 6px;

@@ -224,6 +224,65 @@ public sealed class CalendarTests : OrbitTestContext
         Services.AddSingleton(new ChatApiClient(httpClient));
     }
 
+    /// <summary>
+    /// The list said what was on the calendar and nothing about which of it somebody had just been told
+    /// something about - so a reminder arrived, the bell counted it, and the list it was about looked
+    /// exactly as it had a moment before. The same mark every other list in Orbit carries.
+    /// </summary>
+    [Fact]
+    public void An_event_the_bell_is_talking_about_is_marked_on_the_list()
+    {
+        var midMonth = new DateTime(DateTime.Today.Year, DateTime.Today.Month, 15, 10, 0, 0);
+        var dentist = CreateTimedEvent(midMonth, midMonth.AddHours(1), "Dentist");
+        RegisterCalendarApiClient([dentist, CreateTimedEvent(midMonth, midMonth.AddHours(1), "Haircut")]);
+        SomethingUnreadAbout($"/calendar/{dentist.Id}");
+
+        var cut = RenderComponent<Calendar>();
+
+        var marked = cut.FindAll(".item-card-unseen").Select(card => card.TextContent).ToList();
+        Assert.Contains(marked, text => text.Contains("Dentist", StringComparison.Ordinal));
+        Assert.DoesNotContain(marked, text => text.Contains("Haircut", StringComparison.Ordinal));
+    }
+
+    /// <summary>Nothing waiting, nothing marked - the mark has to mean something to be worth having.</summary>
+    [Fact]
+    public void Nothing_is_marked_when_the_bell_is_holding_nothing()
+    {
+        var midMonth = new DateTime(DateTime.Today.Year, DateTime.Today.Month, 15, 10, 0, 0);
+        RegisterCalendarApiClient([CreateTimedEvent(midMonth, midMonth.AddHours(1), "Dentist")]);
+
+        var cut = RenderComponent<Calendar>();
+
+        Assert.Empty(cut.FindAll(".item-card-unseen"));
+    }
+
+    /// <summary>
+    /// A deadline is a task entry, and a reminder about one points at the list it is on - see
+    /// Dashboard's UpcomingDeadlines, which addresses it the same way.
+    /// </summary>
+    [Fact]
+    public void A_deadline_the_bell_is_talking_about_is_marked_too()
+    {
+        var midMonth = new DateTime(DateTime.Today.Year, DateTime.Today.Month, 15, 10, 0, 0);
+        var taskList = CreateTaskListWithDueItem(midMonth, "Pay the rent");
+        RegisterCalendarApiClient([]);
+        RegisterTasksApiClient([taskList]);
+        SomethingUnreadAbout($"/tasks/{taskList.Id}");
+
+        var cut = RenderComponent<Calendar>();
+
+        Assert.Contains(
+            cut.FindAll(".item-card-unseen"),
+            card => card.TextContent.Contains("Pay the rent", StringComparison.Ordinal));
+    }
+
+    /// <summary>What the bell is holding in a given test - see NotificationFeedState.</summary>
+    private void SomethingUnreadAbout(params string[] urls)
+        => Services.GetRequiredService<NotificationFeedState>().Set(
+            [.. urls.Select(url => new Orbit.Contracts.Notifications.NotificationEntryDto(
+                Guid.NewGuid(), "EventReminder", "Coming up", "Dentist at 10:00.", url,
+                DateTimeOffset.UtcNow, IsRead: false))]);
+
     private void RegisterCalendarApiClient(IReadOnlyList<CalendarEventDto> events)
     {
         var httpClient = new HttpClient(new StubHttpMessageHandler(_ => JsonResponse(events))) { BaseAddress = new Uri("https://example.test/") };

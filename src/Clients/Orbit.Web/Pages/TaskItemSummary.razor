@@ -42,7 +42,7 @@ else
 {
     <div class="card">
         <Row Title="@T["When"]">
-            <Trailing><span class="row-meta">@(_item.DueDateUtc is { } dueDate ? dueDate.LocalDateTime.ToString("dd.MM.yyyy HH:mm") : T["No date set"])</span></Trailing>
+            <Trailing><span class="row-meta">@WhenItIs()</span></Trailing>
         </Row>
         <Row Title="@T["Where"]">
             <Trailing><span class="row-meta">@(_place.Length > 0 ? _place : T["No place set"])</span></Trailing>
@@ -191,6 +191,21 @@ else
     /// before entries carried one, the event still holds it, and reading that is what keeps such an
     /// entry from looking as though its description had been lost.
     /// </summary>
+    /// <summary>
+    /// When it happens. The appointment behind the entry is asked first, because for a calendar entry
+    /// that is where the day and the hour actually live - the editor writes them into the event, so the
+    /// entry's own due date is empty for exactly the entries this page exists to show. Reading only the
+    /// entry is how this row came to say "no date set" about an appointment that plainly had one.
+    ///
+    /// A deadline with no appointment behind it still has its own date, and that is what it shows.
+    /// </summary>
+    private string WhenItIs()
+        => _event is { } appointment
+            ? EventWhen.Reads(appointment.Details, T)
+            : _item?.DueDateUtc is { } dueDate
+                ? dueDate.LocalDateTime.ToString("dd.MM.yyyy HH:mm")
+                : T["No date set"];
+
     private string WhatItIsAbout()
         => _item?.AllNotes is { Length: > 0 } notes ? notes : _event?.Details.Description ?? string.Empty;
 
