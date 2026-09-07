@@ -153,9 +153,14 @@ not drawn. What those rules signalled is said by shape instead, which the phone 
   written; a shelf is counted up and down on the screen that edits it. This is recorded at length in
   future-plan.md's "Smaller identified follow-ups" and is the right answer for a phone, so the rail
   simply carries no Save on the screens that write as they go.
-- **The chat screens were not walked on a device.** The emulator account has not unlocked Contacts, so
-  the navigation bar draws no way into them. They build and their view models are covered; the bubbles
-  and the menus want a walk on an account that can chat.
+- **The chat screens were walked on a device on 2026-09-07** — on the Windows emulator, against the
+  docker API, with two throwaway accounts each holding a real published key so the conversation was a
+  genuine E2EE one rather than staged. Both the one-to-one and the group decrypt and draw as
+  `.chat-bubble` does (own at the right in the accent, others at the left, a group message labelled with
+  its sender); the message and conversation menus are Orbit's own panel; the incoming-request Accept, the
+  avatar's top-right presence dot and the row's unseen mark all showed. The walk turned up one defect — a
+  two-person group's messages surfacing in that pair's one-to-one thread — fixed the same day at the
+  server's `GetConversationAsync` and defended on the phone; see future-plan.md's "Noticed while working".
 - **A conversation shows no count of what is waiting.** Orbit.Web draws `UnreadBadge` on the avatar
   wherever a person appears, from the per-conversation unread count its contact list carries. The
   phone's `LocalContact` has no such count and nothing on the device derives one - `IsReadByEveryone`

@@ -23,9 +23,12 @@ internal sealed class InMemoryChatMessageRepository : IChatMessageRepository
     public Task<IReadOnlyList<ChatMessage>> GetConversationAsync(
         Guid userId, Guid otherUserId, DateTimeOffset? sinceUtc, CancellationToken cancellationToken)
     {
+        // Mirrors the real repository: a one-to-one conversation excludes group messages, whose pairwise
+        // copies would otherwise match this sender/recipient filter in a two-person group.
         var messages = _messages.Where(message =>
-            (message.SenderUserId == userId && message.RecipientUserId == otherUserId) ||
-            (message.SenderUserId == otherUserId && message.RecipientUserId == userId));
+            message.GroupId is null &&
+            ((message.SenderUserId == userId && message.RecipientUserId == otherUserId) ||
+             (message.SenderUserId == otherUserId && message.RecipientUserId == userId)));
 
         if (sinceUtc is not null)
         {
