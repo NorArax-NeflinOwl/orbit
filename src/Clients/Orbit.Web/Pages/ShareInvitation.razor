@@ -1,7 +1,9 @@
 @page "/invitation/{Kind}/{ShareId:guid}/{SharedByUserId:guid}"
 @attribute [Authorize]
+@using Orbit.Contracts.Sharing
 @using Orbit.Core.Notifications
 @using Orbit.Web.Services
+@inject SharesApiClient SharesApiClient
 @inject NotesApiClient NotesApiClient
 @inject TasksApiClient TasksApiClient
 @inject CalendarApiClient CalendarApiClient
@@ -42,11 +44,11 @@
         else if (_state == OfferState.Accepted)
         {
             <p>@T.Format("{0} is yours already - you took this up before.", DescribeKind(kind))</p>
-            <a class="btn-primary" href="@SharedItemInvitation.SectionFor(kind)">@T["Open it"]</a>
+            <a class="btn-primary" href="@WhereItIs(kind)">@T["Open it"]</a>
         }
         else
         {
-            <p>@T.Format("{0} shared {1} with you.", _sharedByName, DescribeKind(kind))</p>
+            <p>@Offered(kind)</p>
             <p class="page-subtitle">@T["Until you take it up it stays theirs - accepting is what puts it on your own pages."]</p>
             @if (_errorMessage is not null)
             {
@@ -108,7 +110,10 @@
             // "Somebody" rather than a failure: whose offer it is matters less than whether it is still
             // open, and an account that has since been deleted must not take the offer down with it.
             _sharedByName = (await UsersApiClient.GetUserAsync(SharedByUserId))?.DisplayName ?? T["Somebody"];
-            _state = await ReadTheOfferAsync(kind);
+            _offer = await SharesApiClient.GetOfferAsync(kind, ShareId);
+            _state = _offer is null
+                ? OfferState.Gone
+                : _offer.IsAccepted ? OfferState.Accepted : OfferState.Waiting;
         }
         catch (HttpRequestException exception) when (exception.StatusCode == HttpStatusCode.Unauthorized)
         {
@@ -125,27 +130,30 @@
     }
 
     /// <summary>
-    /// Whether the offer is still open. Null from the server means it is not this reader's to take up -
-    /// withdrawn, or never theirs - which reads the same either way and is deliberately not told apart:
-    /// answering differently would say whether a share id exists.
+    /// What was offered, once it has been read. Null while loading, and for an offer that is not this
+    /// reader's to take up - withdrawn, or never theirs - which the server deliberately does not tell
+    /// apart, since answering differently would say whether a share id exists.
     /// </summary>
-    private async Task<OfferState> ReadTheOfferAsync(SharedItemKind kind)
-    {
-        var isAccepted = kind switch
-        {
-            SharedItemKind.Note => await NotesApiClient.GetNoteShareStatusAsync(ShareId),
-            SharedItemKind.TaskList => await TasksApiClient.GetTaskListShareStatusAsync(ShareId),
-            SharedItemKind.CalendarEvent => await CalendarApiClient.GetCalendarEventShareStatusAsync(ShareId),
-            _ => await InventoryApiClient.GetInventoryShareStatusAsync(ShareId)
-        };
+    private ShareOfferDto? _offer;
 
-        return isAccepted switch
-        {
-            true => OfferState.Accepted,
-            false => OfferState.Waiting,
-            null => OfferState.Gone
-        };
-    }
+    /// <summary>
+    /// Who offered what, by name where the thing still has one. Something deleted since it was offered
+    /// comes back with an empty name and the offer still standing, so the sentence falls back to what
+    /// kind of thing it was rather than to a blank.
+    /// </summary>
+    private string Offered(SharedItemKind kind)
+        => _offer is { ItemTitle.Length: > 0 } named
+            ? T.Format("{0} shared \"{1}\" with you.", _sharedByName, named.ItemTitle)
+            : T.Format("{0} shared {1} with you.", _sharedByName, DescribeKind(kind));
+
+    /// <summary>
+    /// Where the thing itself is read, once it is the reader's. Falls back to the list it appears in
+    /// for an offer whose item is not known - which is what "no longer there" looks like.
+    /// </summary>
+    private string WhereItIs(SharedItemKind kind)
+        => _offer is { } offer
+            ? $"{SharedItemInvitation.SectionFor(kind)}/{offer.ItemId}"
+            : SharedItemInvitation.SectionFor(kind);
 
     /// <summary>
     /// Takes it up, and goes where it now is. The same four endpoints the conversation's own Accept
@@ -177,7 +185,9 @@
             }
 
             Logger.LogInformation("User accepted a {Kind} share from the invitation page", kind);
-            NavigationManager.NavigateTo(SharedItemInvitation.SectionFor(kind));
+            // The thing itself, not the list it is now in: the reader pressed a notification about one
+            // particular thing, and finishing on a page of everything makes them look for it again.
+            NavigationManager.NavigateTo(WhereItIs(kind));
         }
         catch (HttpRequestException exception) when (exception.StatusCode == HttpStatusCode.Unauthorized)
         {

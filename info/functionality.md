@@ -2468,6 +2468,15 @@ The offer is the server's own record, so this page needs **no key**: an invitati
 device that has never unlocked chat, which the conversation's own Accept cannot do. Both ways of
 accepting call the same four endpoints, and either one leaves the other reading "already accepted".
 
+It **names what was offered** and lands on it. `GET /api/shares/{kind}/{shareId}` answers with the
+offer - what was offered, what it is called, and whether it has been taken up (`GetShareOfferQuery`,
+scoped to the reader, so an offer made to somebody else reads exactly like one that was withdrawn). One
+endpoint for all four kinds rather than a fifth on each section, and accepting stays where it already
+is: each section's own `shares/{id}/accept`, which is where that kind's rules live - a task list's
+share, for one, drags the lists it gathers along with it. Something deleted between the offer and the
+reading of it comes back with an empty name and the offer still standing, so the page falls back to
+saying what kind of thing it was.
+
 Three states, and the page says which: waiting, already taken up (with the way in), and no longer there.
 The last covers a withdrawn offer and one that was never this reader's, which the server deliberately
 does not tell apart - answering differently would say whether a share id exists.

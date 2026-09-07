@@ -87,6 +87,7 @@ using Orbit.Core.Notifications.GetNotificationHistory;
 using Orbit.Core.Notifications.MarkNotificationsAtUrlRead;
 using Orbit.Core.Sharing;
 using Orbit.Core.Sharing.ClaimPublicShareLink;
+using Orbit.Core.Sharing.GetShareOffer;
 using Orbit.Core.Sharing.CreatePublicShareLink;
 using Orbit.Core.Sharing.GetPublicSharedItem;
 using Orbit.Core.Sharing.RevokePublicShareLink;
@@ -326,6 +327,12 @@ public static class OrbitCoreServiceCollectionExtensions
         services.AddScoped<IRequestHandler<GetChangedNotificationsQuery, IReadOnlyList<NotificationEntry>>, GetChangedNotificationsQueryHandler>();
 
         services.AddScoped<PublicSharedItemReader>();
+
+        // What a shared thing is called, for the page an invitation's notification leads to.
+
+        services.AddScoped<SharedItemName>();
+
+        services.AddScoped<IRequestHandler<GetShareOfferQuery, ShareOffer?>, GetShareOfferQueryHandler>();
         services.AddScoped<IRequestHandler<CreatePublicShareLinkCommand, PublicShareLink?>, CreatePublicShareLinkCommandHandler>();
         services.AddScoped<IRequestHandler<RevokePublicShareLinkCommand, bool>, RevokePublicShareLinkCommandHandler>();
         services.AddScoped<IRequestHandler<GetPublicSharedItemQuery, PublicSharedItem?>, GetPublicSharedItemQueryHandler>();

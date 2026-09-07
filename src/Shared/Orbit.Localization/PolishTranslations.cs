@@ -732,6 +732,7 @@ public static class PolishTranslations
         // accusative these sentences need.
         ["Orbit — Shared with you"] = "Orbit — Udostępnione Tobie",
         ["{0} shared {1} with you."] = "{0} udostępnił(a) Ci {1}.",
+        ["{0} shared \"{1}\" with you."] = "{0} udostępnił(a) Ci „{1}”.",
         ["Until you take it up it stays theirs - accepting is what puts it on your own pages."] =
             "Dopóki tego nie przyjmiesz, pozostaje ich - dopiero przyjęcie umieszcza to na Twoich stronach.",
         ["{0} is yours already - you took this up before."] = "{0} już jest Twoje - przyjąłeś(-aś) to wcześniej.",

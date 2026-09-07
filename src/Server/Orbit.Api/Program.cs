@@ -393,6 +393,7 @@ try
     app.MapConfigEndpoints();
     app.MapDiagnosticLogEndpoints();
     app.MapPublicShareEndpoints();
+    app.MapShareOfferEndpoints();
     app.MapTransferEndpoints();
     app.MapAssistantEndpoints();
     app.MapHealthEndpoints();

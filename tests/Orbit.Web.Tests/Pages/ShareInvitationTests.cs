@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Components;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
+using Orbit.Contracts.Sharing;
 using Orbit.Contracts.Users;
 using Orbit.Web.Pages;
 using Orbit.Web.Services;
@@ -26,6 +27,8 @@ public sealed class ShareInvitationTests : OrbitTestContext
 
     /// <summary>Null stands for an offer the server says nothing about - withdrawn, or never this reader's.</summary>
     private bool? _isAccepted;
+    private string _itemTitle = "Shopping";
+    private static readonly Guid ItemId = Guid.NewGuid();
     private readonly List<string> _postedTo = [];
 
     public ShareInvitationTests()
@@ -35,13 +38,29 @@ public sealed class ShareInvitationTests : OrbitTestContext
     }
 
     [Fact]
-    public void An_open_offer_says_who_sent_it_and_what_it_is()
+    public void An_open_offer_says_who_sent_it_and_names_the_thing()
     {
         _isAccepted = false;
 
         var cut = Render("note");
 
         Assert.Contains("Anna Kowalska", cut.Markup);
+        Assert.Contains("Shopping", cut.Markup);
+        Assert.Contains(cut.FindAll("button"), button => button.TextContent.Contains("Accept"));
+    }
+
+    /// <summary>
+    /// Something deleted between the offer and the reading of it comes back with no name and the offer
+    /// still standing - so the sentence says what kind of thing it was rather than leaving a gap.
+    /// </summary>
+    [Fact]
+    public void An_offer_whose_thing_is_gone_still_says_what_kind_it_was()
+    {
+        _isAccepted = false;
+        _itemTitle = string.Empty;
+
+        var cut = Render("note");
+
         Assert.Contains("a note", cut.Markup);
         Assert.Contains(cut.FindAll("button"), button => button.TextContent.Contains("Accept"));
     }
@@ -60,7 +79,9 @@ public sealed class ShareInvitationTests : OrbitTestContext
         cut.FindAll("button").First(button => button.TextContent.Contains("Accept")).Click();
 
         Assert.Contains(_postedTo, path => path == $"/api/tasks/shares/{ShareId}/accept");
-        Assert.EndsWith("/tasks", navigationManager.Uri);
+        // The thing itself, not the list it is now in: the reader pressed a notification about one
+        // particular thing, and a page of everything makes them look for it again.
+        Assert.EndsWith($"/tasks/{ItemId}", navigationManager.Uri);
     }
 
     /// <summary>Each kind is taken up at its own endpoint - the four the conversation's Accept already uses.</summary>
@@ -92,7 +113,7 @@ public sealed class ShareInvitationTests : OrbitTestContext
 
         Assert.Contains("yours already", cut.Markup);
         Assert.DoesNotContain(cut.FindAll("button"), button => button.TextContent.Contains("Accept"));
-        Assert.Equal("/notes", cut.Find("a.btn-primary").GetAttribute("href"));
+        Assert.Equal($"/notes/{ItemId}", cut.Find("a.btn-primary").GetAttribute("href"));
     }
 
     /// <summary>
@@ -148,16 +169,20 @@ public sealed class ShareInvitationTests : OrbitTestContext
                 };
             }
 
-            // The share's own status: whether it has been accepted, or nothing at all for an offer that
-            // is not this reader's.
+            // The offer itself: what was offered, what it is called, and whether it has been taken up -
+            // or nothing at all for an offer that is not this reader's.
             return _isAccepted is { } isAccepted
-                ? new HttpResponseMessage(HttpStatusCode.OK) { Content = JsonContent.Create(isAccepted) }
+                ? new HttpResponseMessage(HttpStatusCode.OK)
+                {
+                    Content = JsonContent.Create(new ShareOfferDto(ItemId, _itemTitle, isAccepted))
+                }
                 : new HttpResponseMessage(HttpStatusCode.NotFound);
         }))
         {
             BaseAddress = new Uri("https://example.test/")
         };
 
+        Services.AddSingleton(new SharesApiClient(httpClient));
         Services.AddSingleton(new NotesApiClient(httpClient));
         Services.AddSingleton(new TasksApiClient(httpClient));
         Services.AddSingleton(new CalendarApiClient(httpClient));

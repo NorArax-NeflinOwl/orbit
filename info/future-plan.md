@@ -106,11 +106,10 @@ Done on 2026-09-07, as asked for on 2026-09-06: a share's notification leads to 
 rather than to the conversation - see [In-app notifications](functionality.md#in-app-notifications) and
 `ShareInvitation.razor`. Two things about it are worth knowing:
 
-- **It does not name the thing.** "Anna shared a note with you" - not which note. The page reads the
-  share's *status* endpoint, which answers a bare `true`/`false`/nothing, and the notification's own body
-  carries the title but the page never sees it. Naming it means a query per kind returning the offer
-  (title, item id, who made it), which would also let Accept land on the **item** rather than on its
-  section. The four status endpoints are the place for it.
+- ~~**It does not name the thing.**~~ Done the same day: `GET /api/shares/{kind}/{shareId}` answers with
+  the offer - the item, its name and whether it has been taken up - so the page says which note, and
+  accepting lands on the thing itself rather than on the list it appears in. One endpoint for all four
+  kinds; accepting stayed on each section's own, where that kind's rules are.
 - **The phone still has no invitation screen.** It reads the same path, takes the sharer's id off the
   end and opens the conversation, which is where its own Accept sits (`SharedItemAcceptance`) - so
   nothing is lost there, but a phone cannot take up an offer whose chat message it cannot read, which is

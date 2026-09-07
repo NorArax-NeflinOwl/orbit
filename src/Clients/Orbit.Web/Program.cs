@@ -82,6 +82,8 @@ builder.Services.AddHttpClient<NameSuggestionsApiClient>(httpClient => httpClien
     .AddHttpMessageHandler<AuthorizationMessageHandler>();
 builder.Services.AddHttpClient<FoldersApiClient>(httpClient => httpClient.BaseAddress = new Uri(apiBaseAddress))
     .AddHttpMessageHandler<AuthorizationMessageHandler>();
+builder.Services.AddHttpClient<SharesApiClient>(httpClient => httpClient.BaseAddress = new Uri(apiBaseAddress))
+    .AddHttpMessageHandler<AuthorizationMessageHandler>();
 builder.Services.AddHttpClient<CalendarApiClient>(httpClient => httpClient.BaseAddress = new Uri(apiBaseAddress))
     .AddHttpMessageHandler<AuthorizationMessageHandler>();
 builder.Services.AddHttpClient<AuthApiClient>(httpClient => httpClient.BaseAddress = new Uri(apiBaseAddress))
