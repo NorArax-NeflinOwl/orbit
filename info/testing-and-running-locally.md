@@ -5,8 +5,14 @@
 Run the whole suite with:
 
 ```
-dotnet test Orbit.sln
+dotnet test Orbit.CI.slnf
 ```
+
+`Orbit.CI.slnf` is `Orbit.sln` minus `Orbit.Maui`: the solution carries the MAUI project so Visual
+Studio can open and debug it, but building it needs the MAUI workloads and adds nothing to the suite
+(the mobile logic under test lives in `Orbit.Mobile`, which the filter keeps). CI builds the same
+filter. A project added to `Orbit.sln` belongs in the filter too, unless it genuinely cannot build
+everywhere the suite runs.
 
 This also runs automatically in CI, but only on a push to `main` - nothing runs on a pull request or on `Coding` - so a
 branch is checked before it lands rather than after. Documentation-only branches are skipped, and a
@@ -326,10 +332,11 @@ VAPID key pair the same way if you want to actually see reminder emails and push
 ### Debugging from Visual Studio: the four F5 modes
 
 Visual Studio's multi-project launch profiles (the dropdown next to the Start button) give one-keypress
-debugging of a client together with Orbit.Api. The profiles live in `Orbit.slnLaunch.user` beside the
-solution — gitignored like every `*.user` file, so each machine writes its own; the content to paste is
-below. All four start Orbit.Api under the debugger on `http://localhost:5080`; the pairs differ only in
-which client starts beside it and which database the API opens:
+debugging of a client together with Orbit.Api. The profiles are shared through `Orbit.slnLaunch` beside
+the solution, which is committed — every machine gets the four modes with the clone. (A gitignored
+`Orbit.slnLaunch.user` beside it holds any per-machine edits Visual Studio makes on top.) All four
+start Orbit.Api under the debugger on `http://localhost:5080`; the pairs differ only in which client
+starts beside it and which database the API opens:
 
 | Mode | Client | Database |
 | --- | --- | --- |
@@ -360,12 +367,13 @@ Two things the modes rely on:
   point a development server at production data, so they are for reproducing production-shaped issues,
   not for routine work.
 
-The `Orbit.slnLaunch.user` content: four entries, each starting
+`Orbit.slnLaunch` holds four entries, each starting
 `src\Server\Orbit.Api\Orbit.Api.csproj` (`DebugTarget` `http` for local, `http (Azure DB)` for azure)
 plus either `src\Clients\Orbit.Web\Orbit.Web.csproj` (`DebugTarget` `http`) or
 `src\Clients\Orbit.Maui\Orbit.Maui.csproj` (no `DebugTarget`, so the project's own device selection
-applies). Editing the same list through *Configure Startup Projects… > Launch Profiles* writes the
-identical file.
+applies). Editing the modes through *Configure Startup Projects… > Launch Profiles* updates the same
+list — keep the *Share profile* box ticked so the change lands in the committed file rather than a
+per-machine one.
 
 ### Configuring SMTP for local development
 

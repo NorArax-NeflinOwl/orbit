@@ -110,7 +110,7 @@ Add APPLICATIONINSIGHTS_CONNECTION_STRING to .env.example
 
 - No secrets in the diff (`git diff --cached | grep -i -E "connectionstring|instrumentationkey|password|token|secret"` should only show variable *names*).
 - New environment variable → added to `.env.example` with a placeholder.
-- `dotnet test Orbit.sln` passes on this machine and the count is in the PR. Nothing
+- `dotnet test Orbit.CI.slnf` passes on this machine and the count is in the PR. Nothing
   on GitHub runs the suite before `main`, so this is the only check the change gets.
 - No changes outside the task's scope. If you touched something incidental, revert it.
 
