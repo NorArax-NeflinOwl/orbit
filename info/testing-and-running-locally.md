@@ -192,6 +192,24 @@ No browser, unlike the two verifiers below - Mermaid's parser wants a DOM but no
 is enough. `.github/workflows/verify-diagrams.yml` runs it on merges to `main` that touch `info/uml/`;
 see [info/uml/README.md](uml/README.md) for why that is a workflow of its own.
 
+### The links between the documents
+
+The same problem in a second place, and `DocumentationLinkTests` closes it: nothing fails when a
+cross-reference in `info/` goes stale, and a wrong one is still believed. A link to a section that has
+been renamed renders on GitHub as an ordinary link, lands the reader at the top of the page, and leaves
+them concluding the section does not exist. It runs in the ordinary suite - no browser, no npm - and
+checks two things: that every `.md` a document links to is there, and that every `#section` names a real
+heading, slugged the way GitHub slugs one.
+
+It found two the day it was written, both the same mistake: a link to "§6" for a section since
+renumbered to 7, and a link to a **bold paragraph** as though bold text made an anchor. It does not -
+only a heading does, which is the trap worth knowing about before writing the next one.
+
+It is deliberately narrow. It checks links between documents, **not** the code names the documents
+quote: those name things deliberately removed ("`GoToTaskList`, now gone") and things not built yet
+("`tests/Orbit.Maui.Tests` does not exist", which is the sentence saying so). A test refusing either
+would be one nobody could keep green honestly, and both classes were real when this was measured.
+
 ### What one API instance cannot prove: run these by hand
 
 Three things only make sense with a second replica, and all three fail *silently* when broken - live

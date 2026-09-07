@@ -750,8 +750,8 @@ form they chose with the place already filled in:
   place is filled in and whose day is not is not finished.
 
 Either way the **pin** travels, not only the address: the calendar keeps places as coordinates with a
-label (see [`EventLocation`](#the-place-is-stored-once)), so an address on its own could not be shown on
-a map or turned into a Google Maps link.
+label (see "A confirmed pin keeps its position, not only its name" under [Tasks](#tasks)), so an address
+on its own could not be shown on a map or turned into a Google Maps link.
 
 The place travels in a scoped `ChosenPlace` rather than in the address bar. `/calendar/new?lat=52.2&lon=21.0`
 would write where somebody is going into their browser history and into anything that later reads a URL,

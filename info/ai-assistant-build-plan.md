@@ -7,7 +7,7 @@ Ollama on the laptop - are made there and are not reopened here. This document i
 
 Step 1 (trigram suggestions) is done. Step 2 (merging duplicates) is **not** a prerequisite for anything
 below except the one tool that merges two items; that tool waits for step 2 rather than the other way
-round - see [§6](#6-phase-d--tools-as-proposals).
+round - see [§7](#7-phase-d--tools-as-proposals-old-step-6).
 
 ## 1. The library, and the one decision it forces
 

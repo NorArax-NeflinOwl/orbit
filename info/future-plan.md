@@ -5,9 +5,18 @@ rest of the documentation already flags as "not implemented yet," a deliberate f
 cut, or an identified follow-up. It is not a committed roadmap with dates — it is the current honest
 picture of what's left.
 
-**Last checked against the code on 2026-09-04.** A plan is only worth reading if it describes the
-present. Anything below that says "not started" or "no coverage" was checked against the repository on
-that date rather than carried forward on trust.
+**Last checked against the code on 2026-09-04, and in part again on 2026-09-07.** A plan is only worth
+reading if it describes the present. Anything below that says "not started" or "no coverage" was checked
+against the repository on that date rather than carried forward on trust.
+
+The 2026-09-07 pass was partial and it is worth knowing which parts, so the rest is not read as freshly
+verified: [Testing gaps](#testing-gaps), [What the footer could grow into](#what-the-footer-could-grow-into)
+and the entry about a card's body under [Smaller identified follow-ups](#smaller-identified-follow-ups).
+Two of the three had drifted - the footer section described a footer two changes old and called a page
+"not yet written" that has been serving since, and the card entry named a note behaving in a way it had
+stopped behaving in `7e1504f5`. **Both were stale in the direction that costs a session**: each named
+work that was already done, and a session choosing what to do next reads this file first. Everything
+outside those three sections still carries its 2026-09-04 date.
 
 Since the last pass: every table and column was renamed to the Orbit convention and a storage is an
 *inventory* everywhere, which is what stops a 0.2.x Android build (see
@@ -412,11 +421,15 @@ since been closed; what is left is recorded below with the same honesty about wh
 
 ## What the footer could grow into
 
-The footer at the bottom of every page - and the phone's About row, which says the same three things -
-currently carries the copyright year, the version, and a link to the licence
-(`OrbitRelease` for the copyright and the licence, `OrbitVersion` for the build - see
-[Functionality](functionality.md#which-build-this-is)). What it is missing, roughly in the order it would be
-worth adding:
+**Re-read against the code on 2026-09-07, and most of this section had already happened.** What it
+described - a footer carrying the copyright year, the version and a link to the licence - is two
+changes out of date. The numbers moved into a dialog (`AboutDialog`: this build, the *server's* build
+beside it, and the licence), and the footer kept words instead: About, Privacy, Security, Docs, Status,
+the licence, Manage cookies, and Do not share my personal information. `OrbitRelease` holds the
+copyright and the licence name, `OrbitVersion` the build - see
+[Functionality](functionality.md#which-build-this-is).
+
+What it is still missing, roughly in the order it would be worth adding:
 
 - ~~**The build, not just the version.**~~ Done: the footer reads `ver:0.1.17+gitHash:51536f3`, and
   pressing it grows the rest of the hash - see
@@ -425,24 +438,34 @@ worth adding:
 - **When it was deployed.** The year is a constant maintained by hand, which is honest but coarse: it
   answers "roughly when was this written", not "is what I am looking at the thing that was merged this
   morning". A build timestamp answers the second, and the second is the question people actually ask -
-  though the commit hash now answers most of what it was wanted for.
+  though the commit hash now answers most of what it was wanted for, and the About dialog answers the
+  rest of it from the other side by showing the **server's** build beside the client's, which is what
+  catches a browser holding a cached client. What is left for a timestamp to add is small enough that
+  it is worth weighing against where it would have to come from: the stamp is made by
+  `ci/compute-version.sh` at build time, so this is a change to the build rather than to a page.
 - **A link to what changed.** The version means nothing to somebody who has not been reading the
   commits. A release-notes page, or simply a link to the repository's releases, is what makes a version
-  number worth showing at all.
+  number worth showing at all. One thing settles which of those two it has to be: **the repository is
+  private**, so a link to its releases is a 404 for everybody but its owner - and there are no releases
+  cut there anyway, since a deploy is a merge of the integration pull request. A page Orbit serves
+  itself is the only version of this that works, the same reasoning that put the licence on `/license`
+  rather than linking the file on GitHub.
 - ~~**A health or status link.**~~ Done, and it needed more than a link: nothing on the web origin
   reached the report. nginx forwards `/api/` to the API *under* `/api/`, so `/api/health` arrived there
   as `/api/health`, which is not where health lives. There is now an exact-match `= /health` location on
   both nginx configs, and the footer's **Status** opens it in a new tab - which is also what stops the
   Blazor router claiming the address. Publishing the report was a decision taken deliberately; what it
   does and does not say is written down beside both the location and the writer.
-- **Privacy and data handling.** Not yet written, and it is the one entry here with a deadline attached
-  to it: an application that ends up in a store needs one, and the store is the place that will ask.
-  What it would have to describe is unusual and worth saying plainly - most of Orbit's content is sealed
-  client-side, so a large part of the answer is "the server cannot read it".
-- **Making it reachable rather than only visible.** The footer sits at the end of the scrolling content,
-  which is right for something read once. If it grows past three items it stops being a footer and
-  becomes an About page, and the honest move at that point is to give it one and leave a single link
-  behind - the phone has already made that choice, since it has no footer to put anything in.
+- ~~**Privacy and data handling.**~~ Written: `/privacy`, linked from the footer and deliberately
+  carrying no `[Authorize]` - what a service does with what you give it is a question somebody is
+  entitled to an answer to *before* handing anything over, so the sign-in page's footer reaches it too.
+  It says the unusual part plainly, which was the point: most of Orbit's content is sealed in the
+  browser, so a large part of the answer is that the server cannot read it. `/security` and `/docs`
+  went the same way. The deadline this entry carried - a store will ask for one - is met.
+- ~~**Making it reachable rather than only visible.**~~ Answered, and not the way this predicted. It has
+  grown well past three items, and rather than becoming an About *page* the numbers became an About
+  *dialog*: what build this is has no address worth sharing and is read in the middle of doing
+  something else. The footer kept the words, which is the shape the phone's own About row already had.
 
 Deliberately not there: a language switch (it is in the avatar menu, where the rest of the account's
 settings are), and anything that has to be fetched. A footer that waits on a request is a footer that
