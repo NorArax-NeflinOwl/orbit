@@ -31,7 +31,7 @@ flowchart TB
     gh["GitHub Actions<br/><i>on push to main only</i>"]
 
     browser -->|HTTPS| web
-    web -->|"/api/ → orbit-api"| api
+    web -->|"/api/ → orbit-api, internal FQDN"| api
     phone -->|"HTTPS, direct"| api
     phone -.->|downloads updates| blob
 

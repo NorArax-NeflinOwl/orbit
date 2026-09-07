@@ -497,18 +497,22 @@ beside a task belongs here, not in that task's diff. A defect is the exception a
   the module defaults to `X-Real-IP`, nothing sends that inbound, and `nginx -t` accepts the
   configuration either way.
 
-  **What is measured is the nginx half.** `$remote_addr` there is now the caller's, and a forged prefix
-  is ignored. Whether `orbit-api` itself receives that address is a separate question and was not
-  observable: `UseForwardedHeaders` trusts peers in `100.100.0.0/16`, which is the range the *web*
-  container's ingress uses, and the range the *API* container sees for its own peer was never checked.
-  If it differs, that middleware silently does nothing and the application's per-caller partitions are
-  still one bucket - the same shape of failure as the missing `real_ip_header`, valid and inert.
+  **Measured on both paths on 2026-09-07, once the request log carried `from <network>`.** The phone's
+  path is right: a direct request logs the caller's own network, and one carrying a forged
+  `X-Forwarded-For` logs the same - the forgery is never reached. The browser's path was **wrong**:
+  every request through nginx logged `from 20.215.81.0`, the environment's egress NAT, because nginx had
+  been pointed at the API's *public* name and the request left the environment and came back in. Fixed
+  by returning nginx to `orbit-api.internal` and letting the API walk two hops (`ForwardedCaller`); the
+  chains, and that failure, are pinned in `ForwardedCallerTests`. What remains to confirm on the
+  deployment is that a freshly started nginx resolves the internal name with the API's ingress external
+  - `info/azure-setup.md` has the one-line check to run from inside the environment.
 
-  Every request now logs `from <network>` (see `ClientNetwork`), so **one look at
-  `az containerapp logs show -n orbit-api` after the next deploy settles it**: a value that is always
-  the same means the middleware is resolving nothing; values that vary mean it is. This matters more
-  since the phone talks to `orbit-api` directly, where the application's partitions are the only
-  per-caller mechanism there is.
+  **`orbit-web` now really scales to zero, and the first request after idle takes over fifteen
+  seconds.** Measured by accident: a probe answered `000` while the container was being created
+  (`ContainerCreated` fourteen seconds after the request). Until the phone was pointed at the API
+  directly its syncs kept the web container warm; that was the cost being saved, and this is what it
+  bought. Whether a cold start of that length is acceptable for the first browser visit of the day, or
+  worth `min-replicas 1` on `orbit-web` (a recurring cost), is a decision, not a defect.
 
   The ceilings in `RateLimiterPolicies` (120 anonymous auth attempts a minute, 600 public share reads)
   were sized for the case where the address could be forged. That case is now measured not to apply, so
