@@ -135,8 +135,16 @@ public sealed class EncryptedChatMessageSender
         return copies;
     }
 
-    /// <summary>Shape returned by e2eeChat.js's encryptMessage - matched by camelCase property name.</summary>
-    private sealed record EncryptedPayload(string CiphertextBase64, string NonceBase64);
+    /// <summary>
+    /// Shape returned by e2eeChat.js's encryptMessage - matched by camelCase property name.
+    ///
+    /// Public, and nested here on purpose: it is part of this class's contract with that script rather
+    /// than an internal detail, and a test standing in for the browser has to be able to name what the
+    /// browser answers with. Sending a share invitation is the one thing on this path that no test
+    /// reached, which is how one of the four screens that send them came to send only half an
+    /// invitation - see info/future-plan.md.
+    /// </summary>
+    public sealed record EncryptedPayload(string CiphertextBase64, string NonceBase64);
 }
 
 /// <summary>One past group message, opened on the sharer's device and ready to be sealed again for somebody else.</summary>

@@ -14,8 +14,6 @@ using Orbit.Api.Calendar;
 using Orbit.Api.Chat;
 using Orbit.Api.Config;
 using Orbit.Api.Diagnostics;
-using System.Net;
-using Microsoft.AspNetCore.HttpOverrides;
 using Orbit.Api.HealthChecks;
 using Orbit.Api.Instances;
 using Orbit.Api.Permissions;
@@ -324,26 +322,10 @@ try
     }
 
     // First, because everything after it that looks at who is calling - the request log, the rate
-    // limiter's partitions - would otherwise see the proxy instead. On Azure this container is reached
-    // only through orbit-web's nginx (its own ingress is internal), and nginx appends the address it
-    // derived from the forwarded chain; see nginx.azure.conf, which explains how that address is
-    // arrived at and why it is trustworthy only from a known proxy.
-    //
-    // KnownNetworks is the Container Apps internal range, measured from the ingress address in
-    // orbit-web's access log rather than assumed. Restricting it is the whole point: a request whose
-    // immediate peer is not on that list is left with its own address, so X-Forwarded-For from an
-    // arbitrary caller cannot decide which rate-limit bucket that caller lands in. If the header is
-    // absent or the peer unrecognised, this does nothing and behaviour is exactly what it was before.
-    var forwardedHeaders = new ForwardedHeadersOptions
-    {
-        ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto,
-        // One hop: nginx appends exactly one address, its own view of the caller, at the right-hand end.
-        ForwardLimit = 1
-    };
-    forwardedHeaders.KnownIPNetworks.Clear();
-    forwardedHeaders.KnownProxies.Clear();
-    forwardedHeaders.KnownIPNetworks.Add(new System.Net.IPNetwork(IPAddress.Parse("100.100.0.0"), 16));
-    app.UseForwardedHeaders(forwardedHeaders);
+    // limiter's partitions - would otherwise see the ingress instead. Which header entry to believe, and
+    // why two hops, is worked out in ForwardedCaller; the configuration lives there so that
+    // ForwardedCallerTests runs the one that ships.
+    app.UseForwardedHeaders(ForwardedCaller.Options());
 
     app.UseSerilogRequestLogging(options =>
     {

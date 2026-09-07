@@ -497,18 +497,22 @@ beside a task belongs here, not in that task's diff. A defect is the exception a
   the module defaults to `X-Real-IP`, nothing sends that inbound, and `nginx -t` accepts the
   configuration either way.
 
-  **What is measured is the nginx half.** `$remote_addr` there is now the caller's, and a forged prefix
-  is ignored. Whether `orbit-api` itself receives that address is a separate question and was not
-  observable: `UseForwardedHeaders` trusts peers in `100.100.0.0/16`, which is the range the *web*
-  container's ingress uses, and the range the *API* container sees for its own peer was never checked.
-  If it differs, that middleware silently does nothing and the application's per-caller partitions are
-  still one bucket - the same shape of failure as the missing `real_ip_header`, valid and inert.
+  **Measured on both paths on 2026-09-07, once the request log carried `from <network>`.** The phone's
+  path is right: a direct request logs the caller's own network, and one carrying a forged
+  `X-Forwarded-For` logs the same - the forgery is never reached. The browser's path was **wrong**:
+  every request through nginx logged `from 20.215.81.0`, the environment's egress NAT, because nginx had
+  been pointed at the API's *public* name and the request left the environment and came back in. Fixed
+  by returning nginx to `orbit-api.internal` and letting the API walk two hops (`ForwardedCaller`); the
+  chains, and that failure, are pinned in `ForwardedCallerTests`. The last dependency - that a freshly
+  started nginx resolves the internal name with the API's ingress external - was confirmed from inside a
+  newly created `orbit-web` replica the same day; `info/azure-setup.md` keeps the one-line check.
 
-  Every request now logs `from <network>` (see `ClientNetwork`), so **one look at
-  `az containerapp logs show -n orbit-api` after the next deploy settles it**: a value that is always
-  the same means the middleware is resolving nothing; values that vary mean it is. This matters more
-  since the phone talks to `orbit-api` directly, where the application's partitions are the only
-  per-caller mechanism there is.
+  **`orbit-web` now really scales to zero, and the first request after idle takes over fifteen
+  seconds.** Measured by accident: a probe answered `000` while the container was being created
+  (`ContainerCreated` fourteen seconds after the request). Until the phone was pointed at the API
+  directly its syncs kept the web container warm; that was the cost being saved, and this is what it
+  bought. Whether a cold start of that length is acceptable for the first browser visit of the day, or
+  worth `min-replicas 1` on `orbit-web` (a recurring cost), is a decision, not a defect.
 
   The ceilings in `RateLimiterPolicies` (120 anonymous auth attempts a minute, 600 public share reads)
   were sized for the case where the address could be forged. That case is now measured not to apply, so
@@ -616,18 +620,28 @@ matches and what does not. What that pass left:
   notification opening a note, chat opening a shared thing - which each finish on their own section as
   before. Adding one is a single `ReturnTo.Link` at the call site.
 
-- **No test anywhere asserts that a share notice is sent.** Sharing something is two halves: the server
-  records the share and raises a notification, and the sharer's *browser* posts an encrypted chat message
-  carrying the share's id, which is the only thing a recipient can press "Accept" on (see Chat.razor's
-  `TryParseShare`). Four places send that message - `NoteEditor`, `CalendarEventEditor`,
-  `ShareInventoryPanel` and `TaskEditor` - and **none of them is covered**, which is how the guest
-  invitation on a task entry's event came to send the first half and not the second for as long as it
-  did (fixed 2026-09-06).
+- **Two of the five screens that send a share notice are covered; three are not.** Sharing something is
+  two halves: the server records the share and raises a notification, and the sharer's *browser* posts an
+  encrypted chat message carrying the share's id, which is the only thing a recipient can press "Accept"
+  on (see Chat.razor's `TryParseShare`). The server cannot send that half - it holds no key to seal it
+  with - so a screen that forgets it shares something nobody can accept, which is exactly what the guest
+  invitation on a task entry's event did for as long as it did (fixed 2026-09-06).
 
-  What stops a test: the sealed payload's shape is a `private record` inside `EncryptedChatMessageSender`,
-  so a bUnit test cannot plan the JavaScript result without `InternalsVisibleTo` on `Orbit.Web` - which is
-  a bigger decision than one test and would open the whole assembly. The alternatives worth weighing are
-  making that one type public, or moving the "seal and send" step behind a seam a test can stand in for.
+  Covered since 2026-09-07: the guest invitation on a task entry's event
+  (`TaskEditorItemFormTests.Inviting_a_guest_to_an_entrys_event_puts_the_invitation_in_the_conversation`)
+  and the storage panel (`ShareInventoryPanelTests`). What unblocked them: the sealed payload's shape was
+  a `private record` inside `EncryptedChatMessageSender`, so a bUnit test could not plan the JavaScript
+  result; it is now `public` and nested there on purpose - `InternalsVisibleTo` was the alternative and it
+  would have opened the whole assembly for one type.
+
+  Still uncovered: `NoteEditor`, `CalendarEventEditor`, and the task list's own sharing block in
+  `TaskEditor` (a second call site on that page, separate from the guest one). Each needs the same three
+  things the two covered tests set up - a signed-in token, `./js/e2eeChat.js` answering `hasOwnPrivateKey`
+  / `ensureOwnPublicKey` / `encryptMessage`, and a stub answering `/api/users/{id}` with a contact who has
+  a public key - so copy `ShareInventoryPanelTests`, which is the smaller of the two. The task list's
+  block additionally wants `_canShare` (a permission the item-form tests deliberately grant nothing of)
+  and a `/api/chat/contacts` answer, which is why it was left with the other two rather than done
+  alongside the guest path.
 
 - **The phone shows no links in a description either.** The addresses in a description are pressable on
   the web (`TextWithLinks`, 2026-09-06); the phone draws the same descriptions as plain labels. The

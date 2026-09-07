@@ -49,30 +49,42 @@ touched carelessly.
 `orbit-api` had internal ingress only until the phone was pointed at it. The detour through nginx meant
 every sync woke `orbit-web`, which is set to scale to zero and therefore never did.
 
-**Switching that ingress changes the name.** `orbit-api.internal.<suffix>` becomes `orbit-api.<suffix>`,
-and `nginx.azure.conf` names the upstream literally in two places - the `/api/` proxy and the `/health`
-proxy - so both have to be repointed in the deploy that follows:
+**nginx must reach the API by its `.internal` name, and that is load-bearing.** For one deploy it used
+the public name instead, and the effect was measured in the API's request log: every browser user was
+`from 20.215.81.0`. Leaving the environment and coming back in through the public ingress makes the
+egress NAT address the "caller", the forwarded-header walk stops on it, and every per-caller limit in the
+application collapses into one bucket for everybody using a browser - the exact failure the whole
+forwarded-address work exists to prevent. Inside the environment the internal ingress appends the nginx
+pod instead, which the API knows to walk past (`ForwardedCaller`, `ForwardLimit = 2`; the chains are
+pinned in `ForwardedCallerTests`). The phone, which calls the API directly, was correct either way.
+
+The ingress switch itself:
 
 ```bash
 az containerapp ingress update -n orbit-api -g Orbit --type external
 ```
 
-**What was actually observed when this was done on 2026-09-06**, because it is less alarming than
-expected and the difference matters: the switch took about fifteen seconds and *nothing broke*. The web
-client, its `/api/` proxy and its `/health` proxy all kept answering 200 immediately afterwards, with
-the old configuration still naming `orbit-api.internal`.
+**What was actually observed when this was done on 2026-09-06:** the switch took about fifteen seconds
+and *nothing broke* - the web client, its `/api/` proxy and its `/health` proxy all kept answering 200
+with `nginx.azure.conf` still naming `orbit-api.internal`. That was not proof the internal name survives
+the switch: the nginx replica answering had started four and a half hours earlier and was holding a
+resolution made before the change (nginx resolves its upstream once at startup - see
+[gotchas](#nginxazureconf-gotchas)).
 
-**That is not proof that the internal name survives the switch.** The nginx replica answering those
-requests had started four and a half hours earlier, so it resolved the internal name before the change
-and was holding the result - `nginx.azure.conf` resolves its upstream once at startup, which is the
-whole point of the notes under [gotchas](#nginxazureconf-gotchas). Whether a *fresh* nginx start can
-still resolve `orbit-api.internal` was not established: `az containerapp exec` and
-`az containerapp revision restart` were both unavailable in the session that made the change.
+**A fresh nginx does resolve `orbit-api.internal` with the ingress external - measured on 2026-09-07**,
+from inside a newly created `orbit-web` replica (a different one from the morning's, so a real cold
+start, not a cached resolution): the internal ingress answered `{"status":"Healthy"}`. The check is a
+one-liner from inside the environment, and it is the thing to run again if the ingress is ever changed:
 
-So the open question is a cold start, and `orbit-web` runs at `min-replicas 0`. Until the deploy
-carrying the repointed `nginx.azure.conf` is live, a scale to zero followed by a wake-up is the one
-event that could surface it. Get that deploy out rather than leaving it overnight, or run
-`--type internal` to put it back until the deploy is ready.
+```bash
+az containerapp exec -n orbit-web -g Orbit --command "wget -qO- https://orbit-api.internal.victorioustree-36ad82ca.polandcentral.azurecontainerapps.io/health/live"
+```
+
+`Healthy` back means the name resolves and the internal ingress answers. Should that ever stop being
+true, the alternative is not the public name - that collapses every browser user into the egress NAT
+address, see above - but a VNet-integrated environment with a stable egress that `KnownIPNetworks`
+could name; this environment has none (`staticIp` is inbound only). `--type internal` reverses the
+switch, with the phone losing its direct route.
 
 ## First-time setup from zero
 
