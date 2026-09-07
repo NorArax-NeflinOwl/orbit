@@ -134,22 +134,49 @@ node ci/verify-app-boots.mjs https://your-orbit-web-url/ 60000
 See [Future Plan — Testing gaps](future-plan.md#testing-gaps) for the reasoning behind each of these
 and what closing them would take:
 
-- The `Chat` page saying why a conversation cannot be opened (an account the API will not resolve),
-  which is checked by hand in a browser: the message on screen and the `Warning` it writes to this
-  browser's own log. Rendering that page under bUnit means standing up seventeen injected services and
-  the browser crypto behind them.
 - `notificationclick` in `wwwroot/service-worker.js` — whether clicking a notification reuses an open
   Orbit tab or opens a new one. Nothing outside the operating system can raise a real click on a system
   notification, and Chrome DevTools has no command for it either, so this one branch is checked by hand.
   The rest of that file, and of `pushNotifications.js`, is covered — see below.
-- The chat thread, whose interesting behaviour is timing: it is a polling component.
+- The `Warning` the `Chat` page writes to the browser's own log when an account will not resolve. What
+  the reader is *told* is covered (`ChatThreadTests`); the log line beside it is still read by hand.
 
-What used to be on this list and no longer is: push notifications end to end
+What used to be on this list and no longer is: the chat thread and the `Chat` page's own explanation
+for an account the API will not resolve (`ChatThreadTests` — see [The chat thread](#the-chat-thread)
+below), push notifications end to end
 (`ci/verify-push-notifications.mjs` and `PushNotificationManagerTests`, below), the `/api/auth/*` rate limiter
 (`AuthRateLimiterTests`, against the very policies `Program.cs` installs), sending through
 `SmtpEmailSender` and `VapidPushNotificationSender` (`SmtpEmailSenderTests` against a loopback SMTP
 listener, `VapidPushNotificationSenderTests` against a stub transport), and `wwwroot/js/e2eeChat.js` —
 see below. `Contacts` is covered by `ContactsGateTests` and `ContactInfoTests`.
+
+### The chat thread
+
+`ChatThreadTests` is the one test class in this project that **waits real seconds**, and it is worth
+knowing why before anybody tries to speed it up. The thread's interesting behaviour is its poll loop,
+which runs on a real one-second `PeriodicTimer`. There is no seam to shorten it, and adding one would
+mean the tests exercised the seam rather than what is deployed. About fourteen seconds of the suite is
+this class; the solution's wall clock does not change, because `dotnet test Orbit.sln` runs the three
+projects side by side and `Orbit.Mobile.Tests` takes longer than that on its own.
+
+Two things it does that are worth copying if this loop ever grows a sibling:
+
+- **It waits for the loop, not for the clock.** A tick is counted off the one thing the loop does
+  before deciding anything else - asking `./js/presence.js` whether the tab is in front of somebody -
+  so a tick that went on to fetch nothing counts the same. That matters because "nothing was polled" is
+  also true of a loop that never started, and a fixed delay cannot tell the two apart.
+- **It does its own waiting.** bUnit's `WaitForAssertion` re-checks when the component renders, and a
+  tick behind a hidden tab renders nothing at all - which is exactly the case being tested.
+
+What it covers: nothing is polled behind a hidden tab and something is when the tab is in front; the
+conversation list is read twice in ten ticks rather than on every one, while the messages are read on
+each; leaving the page and opening a group each stop the loop; and an account the API will not resolve
+is explained rather than opened as an empty thread. Each was checked by removing the behaviour from
+`Chat.razor` and watching its own test go red.
+
+What it deliberately leaves out: `OnChatAnnounced`, because `LiveUpdatesConnection` raises its events
+from inside itself and nothing outside can; and the encryption, which is checked in a real browser by
+`ci/verify-browser-crypto.mjs`.
 
 ### The diagrams
 

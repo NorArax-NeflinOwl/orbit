@@ -328,8 +328,25 @@ since been closed; what is left is recorded below with the same honesty about wh
   bad ones a push service can still deliver. The C# half is `PushNotificationManagerTests`. Two things
   are still out of reach and are named in the script: `notificationclick`, since nothing outside the
   operating system can click a system notification, and subscribing for real, which needs a push service.
-- **The chat thread still has no coverage.** It is a polling component whose interesting behaviour is
-  timing.
+- ~~**The chat thread still has no coverage.**~~ Done, and the reason it was open turned out to be the
+  reason to do it: what a polling component decides is invisible from the screen either way. A poll that
+  stops honouring the tab's visibility costs money and battery and looks identical; a poll that reads the
+  whole roster on every tick was two thirds of this page's traffic and looked identical too.
+  `ChatThreadTests` pins both, plus the two ways the loop has to stop and the `Chat` page's own
+  explanation for an account the API will not resolve - which was the *other* entry on the not-covered
+  list, held open by the cost of standing this page up under bUnit at all. Each was checked by removing
+  the behaviour and watching its own test go red.
+
+  The technique is what is worth keeping, and it is written up under
+  [The chat thread](testing-and-running-locally.md#the-chat-thread): the tests wait for the loop's own
+  ticks rather than for the clock, counted off the visibility question it asks before deciding anything
+  else - because "nothing was polled" is also true of a loop that never started. bUnit's
+  `WaitForAssertion` is no use for it: it re-checks on a render, and a tick behind a hidden tab renders
+  nothing.
+
+  Still out of reach, and named in the class: `OnChatAnnounced`, since `LiveUpdatesConnection` raises
+  its events from inside itself and nothing outside can, so the live-connection half of the pace
+  (`ConnectedPollInterval`) is reasoned about rather than driven.
 - ~~**Nothing runs on a pull request.**~~ Put back, cheaply. The trigger was removed because every
   billed minute counted and a day of ordinary work exhausted the allowance; what changed is that a run
   now costs a fraction of what it did. The android job looks before it builds and does nothing when
