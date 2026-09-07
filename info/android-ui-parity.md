@@ -54,6 +54,7 @@ Every number below is app.css's own. The phone reads them from
 | `.options-card-danger` | `DangerCard` | the one section where a wrong press cannot be undone |
 | `.options-tab` | `SettingsTab` | the chosen one underlined in the accent, on a row with a hairline |
 | `.map-panel-section` / `.map-panel-heading` | `PanelSection` + `PanelHeading` | one group on the map screen, as its own card |
+| `card-with-news` | `ItemCard.Pulse` | the halo an unseen card breathes, called off where the phone is set to animate less |
 | `ObjectList.razor` | `Controls/ObjectList.xaml` | loading / empty / here-it-is |
 | `input`, `textarea`, `select` | `Platforms/Android/FieldBox.cs` | the box itself: 8px radius, a hairline, 9x12 inside |
 | `.switch` | `Platforms/Android/SwitchTrack.cs` | the track a switch that is off sits in, which Android leaves near-white |
@@ -129,8 +130,6 @@ not drawn. What those rules signalled is said by shape instead, which the phone 
   written; a shelf is counted up and down on the screen that edits it. This is recorded at length in
   future-plan.md's "Smaller identified follow-ups" and is the right answer for a phone, so the rail
   simply carries no Save on the screens that write as they go.
-- **The `.item-card-unseen` pulse is a colour here, not an animation.** The edge takes the danger
-  colour; it does not breathe. Worth adding only if somebody misses it.
 - **The chat screens were not walked on a device.** The emulator account has not unlocked Contacts, so
   the navigation bar draws no way into them. They build and their view models are covered; the bubbles
   and the menus want a walk on an account that can chat.

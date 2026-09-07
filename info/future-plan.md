@@ -568,17 +568,23 @@ matches and what does not. What that pass left:
   unlocked Contacts, so the navigation bar draws no way into them and `FeatureLocked` is all those
   screens show there. The bubbles, the message menus and the row menus want a walk on an account that
   can chat before they are believed.
-- **A card's footnote says the whole timestamp.** A note card reads "Updated 9/2/2026 7:27 PM" where
-  the browser says "Today", "Yesterday", the weekday within the last week, and only then a date - see
-  `Notes.razor`'s `WhenLastChanged`. `NoteListItem.Updated` is where the phone builds it. Small, but it
-  is the line under every card on the screen.
-- **The `.item-card-unseen` pulse is a colour, not an animation.** The edge takes the danger colour and
-  stays there. The browser breathes it, which is what catches an eye that was elsewhere.
-- **No screen hands `EditorRail` an `Extras` view yet.** The slot and the arrow that folds it away are
-  built and the arrow is left out where nothing fills it, which is what the browser does too - but the
-  browser does fill it: a lock's explanation and the sentence saying why a save was refused are kept in
-  view there whatever the form is scrolled to, and on the phone those are still labels partway up the
-  page. `NoteDetailPage`'s read-only reason and `TaskListDetailPage`'s lock banner are the two to move.
+- ~~**A card's footnote says the whole timestamp.**~~ Done: `LastChanged` gives the four answers
+  `Notes.razor`'s `WhenLastChanged` gives - today, yesterday, the weekday within the week, a date past
+  it - against the injected clock rather than the machine's, so a test about the wording is a test
+  about the wording.
+- ~~**The `.item-card-unseen` pulse is a colour, not an animation.**~~ Done, and with it the thing
+  that made it visible at all: nothing on the phone had ever set `HasUnseenAction`, so neither the mark
+  nor the edge could appear. A task list card now asks whether anything unread points at it, matching
+  on the `/tasks/{id}` a notification carries exactly as Orbit.Web's card does, and the edge breathes
+  the halo `card-with-news` draws - called off where the reader has asked the phone for less motion,
+  which is the platform's answer to `prefers-reduced-motion`.
+- ~~**No screen hands `EditorRail` an `Extras` view yet.**~~ Done: the note's and the task list's
+  read-only reasons are in it, where they stay in view however far the screen is scrolled. The task
+  list gained the rail itself in the same change - its menu moved off the title and onto the bar, as
+  Orbit.Web's checklist keeps it, taking Delete and History with it, so the row of words under the last
+  entry is gone. The arrow now follows what it hides rather than merely whether a slot was filled: a
+  screen hands over a label that hides itself, and an arrow that opens an empty line is a control that
+  does nothing.
 
 ## Smaller identified follow-ups
 

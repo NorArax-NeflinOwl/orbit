@@ -18,6 +18,9 @@ namespace Orbit.Mobile.Screens.Tasks;
 public sealed partial class TasksViewModel : ObservableObject
 {
     private readonly LocalTaskListRepository _taskLists;
+
+    /// <summary>What the bell is holding, so a card can say the news is about it.</summary>
+    private readonly LocalNotificationRepository _notifications;
     private readonly TaskListSynchronizer _synchronizer;
     private readonly TasksClient _tasksClient;
     private readonly INetworkStatus _networkStatus;
@@ -117,8 +120,10 @@ public sealed partial class TasksViewModel : ObservableObject
     public TasksViewModel(
         LocalTaskListRepository taskLists, TaskListSynchronizer synchronizer, TasksClient tasksClient,
         INetworkStatus networkStatus, ITaskListArrangementStore arrangements, PrivateItemGate privateItems,
-        SyncState syncState, IScreenNavigator navigator, Translations translations)
+        SyncState syncState, IScreenNavigator navigator, Translations translations,
+        LocalNotificationRepository notifications)
     {
+        _notifications = notifications;
         _taskLists = taskLists;
         _synchronizer = synchronizer;
         _tasksClient = tasksClient;
@@ -257,11 +262,32 @@ public sealed partial class TasksViewModel : ObservableObject
 
         _stored = stored;
         _pending = pending;
+
+        // Which lists the bell is talking about. Read here rather than per row: one pass over what is
+        // unread answers it for every card, and a card asking the database for itself would be one
+        // round trip per list on a screen that exists to be scrolled.
+        _unreadUrls = [.. (await _notifications.GetUnreadAsync(cancellationToken))
+            .Select(entry => entry.Url)
+            .Where(url => !string.IsNullOrEmpty(url))
+            .Select(url => url!)];
+
         ShowArrangedLists();
     }
 
     private IReadOnlyList<LocalTaskList> _stored = [];
     private IReadOnlySet<Guid> _pending = new HashSet<Guid>();
+
+    /// <summary>Where everything unread points, so a card can ask whether any of it means itself.</summary>
+    private IReadOnlyList<string> _unreadUrls = [];
+
+    /// <summary>
+    /// Whether anything unread points at this list. Matched on the url a notification carries, which is
+    /// the in-app page it came from - the same "/tasks/{id}" prefix Orbit.Web matches on. A list the
+    /// server has never seen has no id to be pointed at, and so no news.
+    /// </summary>
+    private bool HasNewsAbout(LocalTaskList taskList)
+        => taskList.ServerId is { } serverId
+            && _unreadUrls.Any(url => url.StartsWith($"/tasks/{serverId}", StringComparison.OrdinalIgnoreCase));
 
     /// <summary>
     /// Re-arranges what is already held rather than re-reading it. Choosing a filter is a question about
@@ -283,6 +309,7 @@ public sealed partial class TasksViewModel : ObservableObject
                 with
                 {
                     CanBeMoved = SortOrder == TaskListSortOrder.Manual,
+                    HasUnseenAction = HasNewsAbout(taskList),
                     IsCollapsed = _collapsed.Contains(taskList.LocalId),
                     FoldDescription = _collapsed.Contains(taskList.LocalId)
                         ? _translations["Expand"]

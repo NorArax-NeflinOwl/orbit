@@ -11,8 +11,9 @@ namespace Orbit.Mobile.Screens.Notes;
 /// can be changed at all right now.
 /// </summary>
 /// <param name="Updated">
-/// When it last changed, already in the reader's language and their calendar's culture rather than the
-/// phone's - reading an interface in Polish and being told "Monday, March 3" is only half a translation.
+/// When it last changed, in as few words as it takes - see <see cref="LastChanged"/>. Already in the
+/// reader's language and their calendar's culture rather than the phone's: reading an interface in
+/// Polish and being told "Monday, March 3" is only half a translation.
 /// </param>
 /// <param name="IsHidden">
 /// A private note while private things are locked. The row still appears - a note vanishing from the
@@ -35,15 +36,14 @@ public sealed record NoteListItem(
 {
     public static NoteListItem From(
         LocalNote note, bool hasUnsentChanges, INetworkStatus networkStatus, bool privateItemsAreUnlocked,
-        Translations translations, string hiddenTitle = "Private")
+        Translations translations, DateTimeOffset nowUtc, string hiddenTitle = "Private")
     {
         var refusal = OfflineEditPolicy.Evaluate(note, networkStatus);
 
         return new(
             note.LocalId, note.IsSealed ? hiddenTitle : note.Title, note.UpdatedAtUtc, hasUnsentChanges, refusal,
             OfflineEditExplanation.For(note, refusal, hasUnsentChanges, translations),
-            translations.Format(
-                "Updated {0}", note.UpdatedAtUtc.ToLocalTime().ToString("g", translations.DisplayCulture)),
+            LastChanged.Describe(note.UpdatedAtUtc, nowUtc, translations),
             note.IsPinned, note.IsShared,
             IsHidden: note.IsPrivate && !privateItemsAreUnlocked, HiddenTitle: hiddenTitle,
             IsCopy: note.CopyOfLocalId is not null);
