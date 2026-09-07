@@ -29,7 +29,7 @@ public sealed class AuthRateLimiterTests
     private const int AuthRequestsPerWindow = 5;
 
     /// <summary>The same, for the bucket every anonymous caller shares - see RateLimitCeiling.</summary>
-    private const int AnonymousAuthCeiling = 120;
+    private const int AnonymousAuthCeiling = 30;
 
     [Fact]
     public async Task The_sixth_attempt_in_a_window_is_refused_rather_than_queued()

@@ -69,16 +69,26 @@ public static class RateLimiterPolicies
     }
 
     /// <summary>
-    /// 24 and 20 times the per-caller budgets. Deliberately far above honest traffic: the access log of
-    /// the deployment shows an open browser costing under two requests a second across every endpoint,
-    /// and anonymous sign-ins are a handful a minute. What these bound is the case where the forwarded
-    /// address can be forged and every request lands in a partition of its own - 120 password attempts a
-    /// minute rather than no limit at all. They cannot be tightened much further without becoming a
-    /// denial of service in their own right, which is the trade RateLimitCeiling describes.
+    /// Sized to measured traffic, not to caution. Thirty days of the deployment's request log
+    /// (2026-08-08 to 2026-09-07; 2,464 minutes carried any API traffic at all): anonymous sign-ins,
+    /// registrations and password resets peaked at **4 in one minute** and totalled 34 for the month;
+    /// public share links were opened **0 times** outside one deliberate probe.
+    ///
+    /// So 30 is six callers each spending their whole per-caller budget in the same minute, and seven
+    /// times the busiest minute ever seen; 150 is five callers' worth of public share reads. They were
+    /// 120 and 600 while the forwarded address was still possibly forgeable - the case they were built
+    /// for - and that case is now measured not to apply (ForwardedCallerTests), which leaves them one
+    /// job: bounding a distributed guess, many addresses each under its own 5 a minute. The smaller the
+    /// ceiling, the tighter that bound - and the closer to the day honest traffic outgrows it and 429s
+    /// everybody at once. Grow these with the user count, from the measurement below, not on a hunch:
+    ///
+    ///   traces | where message startswith 'HTTP POST /api/auth/'
+    ///          | where message has 'login' or message has 'register' or message has 'password-reset'
+    ///          | summarize n=count() by bin(timestamp, 1m) | summarize max(n), percentile(n, 99)
     /// </summary>
-    private const int AnonymousAuthCeiling = 120;
+    private const int AnonymousAuthCeiling = 30;
 
-    private const int PublicShareCeiling = 600;
+    private const int PublicShareCeiling = 150;
 
     /// <summary>
     /// Who to count this against when nobody is signed in.
@@ -110,8 +120,13 @@ public static class RateLimiterPolicies
     /// than at the edge, because the phone talks to this application directly and nginx's own limits
     /// never see that traffic.
     ///
-    /// Both are far above real use. The deployment's access log shows an open browser costing under two
-    /// requests a second across every endpoint it touches.
+    /// Both sized from thirty days of the request log. An open browser costs under two requests a second
+    /// across every endpoint it touches; the busiest single caller in any minute was 123. Across every
+    /// caller together, the median minute is 65 requests, the 99th percentile 205, and the busiest
+    /// ordinary minute 287 - so the overall floor is ten times that. (One minute in the month reached
+    /// 4,332, from one caller running the same four chat calls sixteen times a second; that is the
+    /// per-caller limit's job, and it is recorded in info/future-plan.md.) Grow the overall number with
+    /// the user count: it is a floor under many callers, and 65 a minute is what one or two cost.
     /// </summary>
     private static PartitionedRateLimiter<HttpContext> FloodStop()
         => PartitionedRateLimiter.CreateChained(
@@ -148,7 +163,7 @@ public static class RateLimiterPolicies
 
     private const int FloodStopPerCaller = 600;
 
-    private const int FloodStopOverall = 6000;
+    private const int FloodStopOverall = 3000;
 
     private static readonly TimeSpan Window = TimeSpan.FromMinutes(1);
 

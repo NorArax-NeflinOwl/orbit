@@ -476,6 +476,15 @@ inventory lists, the contacts tabs, the chat menus - is built and needs no schem
 Written down rather than fixed on the spot, per rule 14 in `.claude/CLAUDE.md`: work that turns up
 beside a task belongs here, not in that task's diff. A defect is the exception and is fixed when found.
 
+- **The web client went into a loop once, on 2026-09-05 at 11:06Z, right after approving a
+  conversation.** In one minute it made the same four chat calls - `conversations/{id}/access`,
+  `messages/{id}`, `messages/{id}/read`, `messages/{id}/read-receipt` - about 987 times each against
+  only **two** ids, plus `chat/contacts` 201 times and `chat/groups` 109 times: 4,332 requests from one
+  caller, sixteen a second, and the busiest minute in the month by fifteen times. A render-and-refetch
+  loop, not bulk work. It has not recurred, and several web changes have landed since, so it may already
+  be gone; if it is not, `FloodStopPerCaller` (600 a minute) now cuts it off after ten seconds, which is
+  the right outcome and also the way it will be noticed - a burst of 429s on those four paths in the
+  request log. Worth a look at what the approve flow re-renders before assuming it is fixed.
 - **`setup-dotnet@v4`, `setup-java@v4` and `upload-artifact@v4`** carry the same Node 20 deprecation
   `actions/checkout` did. `dependency-submission.yml` already pins `setup-dotnet@v5`, so the bump is
   available whenever somebody wants it.
@@ -514,10 +523,11 @@ beside a task belongs here, not in that task's diff. A defect is the exception a
   bought. Whether a cold start of that length is acceptable for the first browser visit of the day, or
   worth `min-replicas 1` on `orbit-web` (a recurring cost), is a decision, not a defect.
 
-  The ceilings in `RateLimiterPolicies` (120 anonymous auth attempts a minute, 600 public share reads)
-  were sized for the case where the address could be forged. That case is now measured not to apply, so
-  they can come down towards what honest traffic actually needs - a decision worth taking deliberately
-  rather than as part of the fix that made them measurable.
+  ~~The ceilings in `RateLimiterPolicies` were sized for a forgeable address and can come down.~~ Done
+  on 2026-09-07, from thirty days of the request log (2,464 minutes with traffic): anonymous sign-ins
+  peaked at 4 a minute, public share links were opened 0 times outside a probe, the busiest ordinary
+  minute overall was 287. Now 30 / 150 / 3,000 a minute and 50 a second at the edge - each with the
+  measurement and the growth rule written beside the number.
 - **17 of 147 endpoints carry a *named* rate limit.** The rest are now covered by
   `RateLimiterPolicies.FloodStop`, a coarse per-caller limit over everything, kept in memory rather than
   in the shared PostgreSQL window because that one costs a round trip per permitted request and this one
