@@ -21,11 +21,16 @@ public sealed class ChatMessageRepository : IChatMessageRepository
         // limitation of a provider this app no longer uses. Against PostgreSQL the column is a
         // timestamptz and Npgsql translates both, so a chat window polling once a second stopped asking
         // for its entire history on every tick.
+        // GroupId == null keeps group messages out of the one-to-one conversation. A group message is
+        // sealed pairwise, one copy per member (see ChatMessage.CreateForGroup), so in a two-person group
+        // a copy has exactly the same sender/recipient pair as a one-to-one message between the two - and
+        // without this clause it would surface in their one-to-one thread. Groups are read by GroupId.
         var query = _dbContext.ChatMessages
             .AsNoTracking()
             .Where(message =>
-                (message.SenderUserId == userId && message.RecipientUserId == otherUserId) ||
-                (message.SenderUserId == otherUserId && message.RecipientUserId == userId));
+                message.GroupId == null &&
+                ((message.SenderUserId == userId && message.RecipientUserId == otherUserId) ||
+                 (message.SenderUserId == otherUserId && message.RecipientUserId == userId)));
 
         if (sinceUtc is not null)
         {
