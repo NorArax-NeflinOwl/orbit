@@ -70,6 +70,12 @@ public sealed record NotificationDestination(NotificationTarget Target, Guid? Id
         {
             ["chat", "groups", var groupId] => ForId(NotificationTarget.GroupConversation, groupId),
             ["chat", var userId] => ForId(NotificationTarget.Conversation, userId),
+            // Something shared, waiting to be taken up. The browser opens its own invitation page,
+            // which this app has no equivalent of - so it takes the last segment, which is who offered
+            // it, and opens the conversation: that is where this app's own Accept lives (see
+            // SharedItemAcceptance and the conversation screen), and where this notification landed
+            // before the path said anything more.
+            ["invitation", _, _, var sharerUserId] => ForId(NotificationTarget.Conversation, sharerUserId),
             ["tasks", var taskListId] => ForId(NotificationTarget.TaskList, taskListId),
             // The path names the event, but the app has no screen for one event on its own, so the id
             // is deliberately dropped rather than carried to somewhere that cannot use it.

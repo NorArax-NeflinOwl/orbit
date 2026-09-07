@@ -69,7 +69,8 @@ public sealed class ShareInventoryCommandHandler : IRequestHandler<ShareInventor
         var share = InventoryShare.Create(inventory.Id, inventory.UserId, request.RecipientUserId, request.AccessLevel);
         await _inventoryShareRepository.AddAsync(share, cancellationToken);
         await _sharedItemNotifier.NotifyAsync(
-            request.RecipientUserId, request.OwnerUserId, SharedItemKind.Inventory, inventory.Name, cancellationToken);
+            request.RecipientUserId, request.OwnerUserId, SharedItemKind.Inventory, inventory.Name,
+            SharedItemLink.ToAccept(share.Id), cancellationToken);
         return new ShareOutcome(share.Id, AlreadyShared: false);
     }
 }

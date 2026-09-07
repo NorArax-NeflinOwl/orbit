@@ -2455,11 +2455,28 @@ a ticked checklist line is: the two are the same fact about two different things
 differently.
 
 **An invitation is two halves, and both have to be sent.** Sharing something records the share on the
-server and raises a notification; what the recipient presses **Accept** on is a separate encrypted chat
-message carrying the share's id, posted by the sharer's own browser because the server has no key to seal
-one with (`EncryptedChatMessageSender`, read back by `Chat.razor`'s `TryParseShare`). That is also why the
-notification leads to the conversation rather than to the thing: the thing is not the recipient's to open
-until it has been accepted, and Accept lives on the message.
+server and raises a notification; what the recipient presses **Accept** on in the conversation is a
+separate encrypted chat message carrying the share's id, posted by the sharer's own browser because the
+server has no key to seal one with (`EncryptedChatMessageSender`, read back by `Chat.razor`'s
+`TryParseShare`).
+
+**The notification leads to what was shared** (`/invitation/{kind}/{shareId}/{sharerUserId}`,
+`ShareInvitation.razor`) rather than to the conversation, which is where it used to lead because Accept
+lived only there. The thing itself is still not the recipient's to open until it has been accepted - so
+the address it leads to is the *offer*, and taking it up on that page puts them where the thing now is.
+The offer is the server's own record, so this page needs **no key**: an invitation can be taken up on a
+device that has never unlocked chat, which the conversation's own Accept cannot do. Both ways of
+accepting call the same four endpoints, and either one leaves the other reading "already accepted".
+
+Three states, and the page says which: waiting, already taken up (with the way in), and no longer there.
+The last covers a withdrawn offer and one that was never this reader's, which the server deliberately
+does not tell apart - answering differently would say whether a share id exists.
+
+The **sharer's id is in the path** as well as the share's. The page names them without a second lookup,
+and the phone - which reads a closed set of notification paths and has no invitation screen - takes that
+last segment and opens the conversation, which is where its own Accept sits and where this notification
+landed before. Claiming a **public link** is the exception on both counts: the grant is immediate, so
+there is nothing to accept and its notification opens the thing itself.
 
 Inviting a guest to a **calendar entry on a task list** sent only the first half until 2026-09-06, so the
 invitation arrived, said somebody had shared an event, and led to a conversation with nothing in it and

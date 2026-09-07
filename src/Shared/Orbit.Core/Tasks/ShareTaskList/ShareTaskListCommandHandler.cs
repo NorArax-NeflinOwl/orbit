@@ -76,7 +76,8 @@ public sealed class ShareTaskListCommandHandler : IRequestHandler<ShareTaskListC
             taskList.UserId, taskList.Id, request.RecipientUserId, request.AccessLevel,
             acceptImmediately: false, cancellationToken);
         await _sharedItemNotifier.NotifyAsync(
-            request.RecipientUserId, request.OwnerUserId, SharedItemKind.TaskList, taskList.Title, cancellationToken);
+            request.RecipientUserId, request.OwnerUserId, SharedItemKind.TaskList, taskList.Title,
+            SharedItemLink.ToAccept(share.Id), cancellationToken);
         return new ShareOutcome(share.Id, AlreadyShared: false);
     }
 }

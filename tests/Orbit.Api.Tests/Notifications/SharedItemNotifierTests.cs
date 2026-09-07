@@ -75,16 +75,58 @@ public sealed class SharedItemNotifierTests
         Assert.Empty(context.PushNotificationSender.SentNotifications);
     }
 
+    /// <summary>
+    /// The invitation page, which is where an offer can be taken up. It used to lead to the conversation
+    /// with whoever sent it, because that is where Accept lived - the item itself is still not the
+    /// recipient's to open until they accept, so pointing at it would land on a "not found".
+    ///
+    /// The sharer's id is in the path as well as the share's: the page names them without a lookup, and
+    /// the phone - which reads a closed set of paths and has no invitation screen - takes that last
+    /// segment and opens the conversation, exactly where it landed before.
+    /// </summary>
     [Fact]
-    public async Task An_invitation_leads_to_the_conversation_that_can_accept_it()
+    public async Task An_invitation_leads_to_the_page_that_can_accept_it()
     {
         var context = new SharedItemNotifierTestContext();
 
         await context.NotifyAsync(SharedItemKind.Inventory, "Pantry");
 
-        // The item isn't the recipient's to open until they accept, and Accept lives in the chat with
-        // whoever sent it - pointing at the inventory itself would land on a "not found".
-        Assert.Equal($"/chat/{context.SharerId}", Assert.Single(await context.RecipientEntriesAsync()).Url);
+        Assert.Equal(
+            $"/invitation/inventory/{SharedItemNotifierTestContext.ShareId}/{context.SharerId}",
+            Assert.Single(await context.RecipientEntriesAsync()).Url);
+    }
+
+    /// <summary>
+    /// Each kind is named in the path, and the names are stable: they sit in notification rows already
+    /// written and in paths already handed to a phone.
+    /// </summary>
+    [Theory]
+    [InlineData(SharedItemKind.Note, "note")]
+    [InlineData(SharedItemKind.TaskList, "tasklist")]
+    [InlineData(SharedItemKind.CalendarEvent, "event")]
+    [InlineData(SharedItemKind.Inventory, "inventory")]
+    public async Task Every_kind_of_offer_names_itself_in_the_path(SharedItemKind kind, string expected)
+    {
+        var context = new SharedItemNotifierTestContext();
+
+        await context.NotifyAsync(kind, "Something");
+
+        Assert.StartsWith($"/invitation/{expected}/", Assert.Single(await context.RecipientEntriesAsync()).Url);
+    }
+
+    /// <summary>
+    /// Something the recipient already holds opens the thing itself - which is what claiming a public
+    /// link produces: the grant is immediate, so there is nothing an invitation page could offer.
+    /// </summary>
+    [Fact]
+    public async Task Something_already_granted_leads_straight_to_it()
+    {
+        var context = new SharedItemNotifierTestContext();
+        var noteId = Guid.NewGuid();
+
+        await context.NotifyAsync(SharedItemKind.Note, "Shopping", SharedItemLink.StraightToIt(noteId));
+
+        Assert.Equal($"/notes/{noteId}", Assert.Single(await context.RecipientEntriesAsync()).Url);
     }
 
     [Fact]
@@ -92,7 +134,7 @@ public sealed class SharedItemNotifierTests
     {
         var context = new SharedItemNotifierTestContext();
 
-        await context.NotifyAsync(SharedItemKind.Location, itemTitle: null);
+        await context.NotifyAsync(SharedItemKind.Location, itemTitle: null, SharedItemLink.TheMap);
 
         var entry = Assert.Single(await context.RecipientEntriesAsync());
         Assert.Equal("/map", entry.Url);
@@ -137,7 +179,9 @@ public sealed class SharedItemNotifierTests
         await context.NotifyAsync(SharedItemKind.Inventory, "Pantry");
 
         var email = Assert.Single(context.EmailSender.SentEmails);
-        Assert.Contains($"https://orbit.example/chat/{context.SharerId}", email.Body);
+        Assert.Contains(
+            $"https://orbit.example/invitation/inventory/{SharedItemNotifierTestContext.ShareId}/{context.SharerId}",
+            email.Body);
     }
 
     /// <summary>No address configured is the common case on a fresh checkout - see IWebClientLinks.</summary>
@@ -230,8 +274,15 @@ public sealed class SharedItemNotifierTests
                 NullLogger<SharedItemNotifier>.Instance);
         }
 
+        /// <summary>An offer waiting to be taken up, which is what every share but a position is.</summary>
         public Task NotifyAsync(SharedItemKind kind, string? itemTitle)
-            => _notifier.NotifyAsync(RecipientId, SharerId, kind, itemTitle, CancellationToken.None);
+            => NotifyAsync(kind, itemTitle, SharedItemLink.ToAccept(ShareId));
+
+        public Task NotifyAsync(SharedItemKind kind, string? itemTitle, SharedItemLink link)
+            => _notifier.NotifyAsync(RecipientId, SharerId, kind, itemTitle, link, CancellationToken.None);
+
+        /// <summary>The offer these tests announce, so a test can say where the notification led.</summary>
+        public static readonly Guid ShareId = Guid.NewGuid();
 
         public Task<IReadOnlyList<NotificationEntry>> RecipientEntriesAsync()
             => _entryRepository.GetRecentAsync(RecipientId, 10, CancellationToken.None);

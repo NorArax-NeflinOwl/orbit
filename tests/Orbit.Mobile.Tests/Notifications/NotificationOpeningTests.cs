@@ -168,6 +168,24 @@ public sealed class NotificationOpeningTests
         Assert.Equal(expected, context.Navigator.LastDestination);
     }
 
+    /// <summary>
+    /// An invitation opens the conversation with whoever sent it. The browser has a page for taking one
+    /// up; this app has not, and its own Accept sits on the offer in the conversation - which is also
+    /// where this notification landed before its path said which offer it was about.
+    /// </summary>
+    [Fact]
+    public async Task An_invitation_opens_the_conversation_with_whoever_sent_it()
+    {
+        using var context = new OpeningContext();
+        var sharerId = await context.AddKnownContactAsync("Anna");
+
+        var outcome = await context.Opener.OpenAsync($"/invitation/note/{Guid.NewGuid()}/{sharerId}");
+
+        Assert.Equal(NotificationOpenOutcome.Opened, outcome);
+        Assert.Equal("ShowConversation", context.Navigator.LastDestination);
+        Assert.Equal(sharerId, context.Navigator.LastContact!.UserId);
+    }
+
     [Fact]
     public async Task A_destination_this_build_does_not_know_goes_nowhere_without_failing()
     {

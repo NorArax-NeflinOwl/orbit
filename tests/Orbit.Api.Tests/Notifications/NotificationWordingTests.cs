@@ -127,7 +127,9 @@ public sealed class NotificationWordingTests
                 NullLogger<SharedItemNotifier>.Instance);
 
             var recipientId = Guid.NewGuid();
-            notifier.NotifyAsync(recipientId, sharer.Id, kind, "Shopping", CancellationToken.None)
+            notifier.NotifyAsync(
+                    recipientId, sharer.Id, kind, "Shopping", SharedItemLink.ToAccept(Guid.NewGuid()),
+                    CancellationToken.None)
                 .GetAwaiter().GetResult();
 
             var entry = entryRepository.GetRecentAsync(recipientId, 1, CancellationToken.None)

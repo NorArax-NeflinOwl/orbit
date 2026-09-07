@@ -100,37 +100,21 @@ from everywhere they get typed. What this pass found and did **not** fix is in
   load). A small hosted model in Azure AI Foundry costs cents a month at this size. Ollama stays, for
   local development only.
 
-## A share's notification still leads to the conversation
+## What the invitation page still owes
 
-Asked for on 2026-09-06: **a notification about something shared should lead to the thing, not to the
-chat**. It still leads to `/chat/{sharer}` (`SharedItemNotifier.UrlFor`), and the reason is not
-stubbornness - it is that **Accept lives on the message**. The share's id travels in an encrypted chat
-message the sharer's own browser posts, because the server holds no key to seal one with; until it is
-accepted the item is not the recipient's to open, so a notification pointing at `/notes/{id}` would land
-them on "that note no longer exists".
+Done on 2026-09-07, as asked for on 2026-09-06: a share's notification leads to **what was shared**
+rather than to the conversation - see [In-app notifications](functionality.md#in-app-notifications) and
+`ShareInvitation.razor`. Two things about it are worth knowing:
 
-Everything needed to fix it properly already exists on the server: each kind has
-`POST /api/{kind}/shares/{shareId}/accept` and a status query, and the *server* knows the share id when
-it writes the notification. So the shape is:
-
-- **An invitation page** at, say, `/invitation/{kind}/{shareId}`: reads the status, says who shared what,
-  offers Accept, and goes on to the thing. That also makes accepting possible in a browser that does not
-  hold this account's key, which the chat route cannot do.
-- **The notification names it** (`SharedItemNotifier` takes the share id; the public-link claim already
-  knows the item id and can point straight at the item, since that grant is immediate).
-- **The phone has to be taught the path too.** `NotificationDestination.Parse` reads a closed set of
-  paths and answers `NowhereToGo` for anything else - so without a matching case a share notification
-  would stop being tappable there, which is worse than landing in a conversation. The phone has no
-  invitation screen and no per-note screen at all, so the honest minimum is a case that opens the
-  conversation with the sharer, which means the path has to carry the sharer's id as well as the
-  share's.
-- **What it would cost elsewhere:** the Chat nav badge stops counting share invitations (they would
-  count against the section instead), and `Chat.razor`'s own Accept stays where it is - two ways to
-  accept the same offer is fine, but they have to agree about what "already accepted" looks like.
-
-Until that lands, the notes list is the one section page that can never mark a card
-(`NotificationFeedState.HasNewsAbout` has nothing to match), because a share is the only thing that
-notifies about a note.
+- **It does not name the thing.** "Anna shared a note with you" - not which note. The page reads the
+  share's *status* endpoint, which answers a bare `true`/`false`/nothing, and the notification's own body
+  carries the title but the page never sees it. Naming it means a query per kind returning the offer
+  (title, item id, who made it), which would also let Accept land on the **item** rather than on its
+  section. The four status endpoints are the place for it.
+- **The phone still has no invitation screen.** It reads the same path, takes the sharer's id off the
+  end and opens the conversation, which is where its own Accept sits (`SharedItemAcceptance`) - so
+  nothing is lost there, but a phone cannot take up an offer whose chat message it cannot read, which is
+  exactly the case the web page now covers.
 
 ## What a real advertising network would take
 

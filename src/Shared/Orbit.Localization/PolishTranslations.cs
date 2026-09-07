@@ -726,6 +726,24 @@ public static class PolishTranslations
         ["Without one it is in Public, or in Private when it is sealed. A list with everything ticked off moves to Finished on its own."] =
             "Bez folderu trafia do Publicznych, a jeśli jest zaszyfrowane - do Prywatnych. Lista z odhaczonymi wszystkimi pozycjami sama trafia do Ukończonych.",
 
+        // ---- The invitation page ----
+        // Where a notification about something shared leads - see Orbit.Web's ShareInvitation.razor.
+        // "a note" / "a task list" / "an event" / "an inventory" are already translated above, as the
+        // accusative these sentences need.
+        ["Orbit — Shared with you"] = "Orbit — Udostępnione Tobie",
+        ["{0} shared {1} with you."] = "{0} udostępnił(a) Ci {1}.",
+        ["Until you take it up it stays theirs - accepting is what puts it on your own pages."] =
+            "Dopóki tego nie przyjmiesz, pozostaje ich - dopiero przyjęcie umieszcza to na Twoich stronach.",
+        ["{0} is yours already - you took this up before."] = "{0} już jest Twoje - przyjąłeś(-aś) to wcześniej.",
+        ["Open it"] = "Otwórz",
+        ["This invitation is no longer there. Whoever sent it may have taken it back."] =
+            "Tego zaproszenia już nie ma. Osoba, która je wysłała, mogła je wycofać.",
+        ["Go to it anyway"] = "Przejdź tam mimo to",
+        ["This invitation is for something this version of Orbit doesn't know about."] =
+            "To zaproszenie dotyczy czegoś, czego ta wersja Orbita nie zna.",
+        ["Couldn't read this invitation. Try again."] = "Nie udało się odczytać tego zaproszenia. Spróbuj ponownie.",
+        ["Couldn't accept this invitation. Try again."] = "Nie udało się przyjąć tego zaproszenia. Spróbuj ponownie.",
+
         // ---- Advertising ----
         // The slots beside the page and the one that interrupts - see Orbit.Core.Advertising.HouseAds.
         // The adverts themselves are written in English there and translated by their key, like every
