@@ -8,7 +8,7 @@ using Orbit.Mobile.Screens.Calendar;
 
 namespace Orbit.Maui.Features.Calendar;
 
-public partial class CalendarPage : ContentPage
+public partial class CalendarPage : ContentPage, ITitleMenu
 {
 	/// <summary>
 	/// How tall an hour is drawn. Twenty-four of these is the whole clock, which scrolls inside its own
@@ -24,7 +24,7 @@ public partial class CalendarPage : ContentPage
 		_translations = translations;
 		// Assigned before InitializeComponent, which is where the binding to it is built - see
 		// TaskListDetailPage for the same order and why it matters.
-		ChooseSortOrderCommand = new Command(ShowSortMenu);
+		ShowTitleMenuCommand = new Command(ShowSortMenu);
 		ShowCardMenuCommand = new Command<CalendarListEntry>(ShowCardMenu);
 
 		InitializeComponent();
@@ -41,7 +41,7 @@ public partial class CalendarPage : ContentPage
 	public CalendarViewModel ViewModel => _viewModel;
 
 	/// <summary>What order the list under the grid is read in - see CalendarListEntry.</summary>
-	public ICommand ChooseSortOrderCommand { get; }
+	public ICommand ShowTitleMenuCommand { get; }
 
 	/// <summary>What a card's three dots open. The same panel the header's do; only the entries differ.</summary>
 	public ICommand ShowCardMenuCommand { get; }

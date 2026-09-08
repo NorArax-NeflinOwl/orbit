@@ -13,7 +13,7 @@
     <Grid RowDefinitions="Auto,*,Auto">
 
 
-    <Grid Grid.Row="1" RowDefinitions="Auto,Auto,Auto,*,Auto" Padding="16,16,16,28" RowSpacing="10">
+    <Grid Grid.Row="1" RowDefinitions="Auto,Auto,Auto,*,Auto" Padding="20,14,20,0" RowSpacing="10">
 
 
         <!-- The plus left of the name, as Orbit.Web's Inventory header has it. -->

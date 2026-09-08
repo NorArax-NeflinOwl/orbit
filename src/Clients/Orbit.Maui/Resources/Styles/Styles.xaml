@@ -667,16 +667,18 @@
         <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource SubtleTextLight}, Dark={StaticResource SubtleTextDark}}" />
     </Style>
 
-    <!-- A month grid's day cell (.calendar-month-grid-day): the lifted surface a card has, with a
-         hairline around it. The three states it can be in are triggers on the cell itself, because
-         "today" and "not this month" are about the day rather than about the number written in it. -->
+    <!-- A month grid's day cell. Open, in this design: no surface, no edge, and the number sitting on
+         the page like everything else. What a day is - today, chosen, not this month, something on it -
+         is said by a tint, a ring, a quieter number or a dot, all of which read on an open grid and
+         none of which needs a box. The old cell was a lifted surface with a hairline all round, which
+         drew 42 boxes above every calendar. -->
     <Style x:Key="CalendarDayCell" TargetType="Border">
         <Setter Property="StrokeThickness" Value="1" />
-        <Setter Property="Stroke" Value="{AppThemeBinding Light={StaticResource CardStrokeLight}, Dark={StaticResource CardStrokeDark}}" />
-        <Setter Property="BackgroundColor" Value="{AppThemeBinding Light={StaticResource SurfaceLight}, Dark={StaticResource SurfaceDark}}" />
+        <Setter Property="Stroke" Value="Transparent" />
+        <Setter Property="BackgroundColor" Value="Transparent" />
         <Setter Property="Padding" Value="0" />
         <Setter Property="StrokeShape">
-            <Rectangle />
+            <RoundRectangle CornerRadius="4" />
         </Setter>
     </Style>
 
