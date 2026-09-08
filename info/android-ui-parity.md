@@ -1,188 +1,153 @@
-# The Android head against Orbit.Web's mobile UI
+# The phone's own look, and what it still shares with Orbit.Web
 
-Orbit is one product with two faces. The browser's is the settled one - it is where the look is
-decided, and `src/Clients/Orbit.Web/wwwroot/css/app.css` is where that decision is written down. This
-document says what the phone takes from it, where the two are now the same thing, and the handful of
-places where they cannot be and why.
+Orbit is one product with two faces, and until 2026-09-08 the phone's was a copy of the browser's. This
+document used to say so: it recorded the pass of 2026-09-06 that pulled the Android head to Orbit.Web's
+mobile view at `app.css`'s own numbers, down to a card heading at 14.5.
 
-Read it with [`orbit-maui-plan.md`](orbit-maui-plan.md), which is about what the phone *does*; this one
-is about what it *looks like*.
+That is no longer the arrangement. The user designed a mobile-specific look in Claude Design — the
+**Classical** system, an editorial one — and the phone is being redrawn in it. The two clients now share
+what a colour *means* and what a screen *does*; they no longer share what either looks like.
 
-## What "the web's mobile UI" is
+Read this with [`orbit-maui-plan.md`](orbit-maui-plan.md), which is about what the phone does; this one
+is about what it looks like.
 
-Below `680px` app.css turns the browser into a phone, and that state - not the desktop one - is what
-the Android head copies. Three rules make most of it:
+## What is still shared, and why
 
-- **The sidebar becomes the bar along the top.** Logo, then the section icons without their labels,
-  then the notification bell and the avatar pushed to the far right. `NavigationBar.xaml` is that bar.
-- **The page gets 16px either side** (`.main-content`, 24/32 on a wide window) and every screen opens
-  with `.page-header`: an optional leading control, the screen's name at 26px in the display face, an
-  optional line under it, and an optional menu at the other end.
-- **The column beside a form becomes a bar along the foot of the window** (`.editor-rail`), because a
-  form has no fixed height and buttons at its end sit wherever the writing happens to stop.
+**The roles.** Accent, task, success, danger, away, and the four presence colours are Orbit's, identical
+to the hex in both clients (`Resources/Styles/Colors.xaml`). Red means the same thing in a browser and
+on a phone; so does the amber that means "away". A reader who uses both learns one vocabulary of
+meaning even while looking at two surfaces.
 
-## The vocabulary, and where each part lives on the phone
+**The accent is the reader's.** `App.ApplyAccent` writes the four accent keys at runtime from the hue
+chosen on the account screen, and everything that paints with them asks by `DynamicResource`. The
+design named a dark-theme accent of its own (`#9F8DE8`); it is not used, because it would break the
+picker and it is within a shade of what `AccentPalette` works out for hue 288 anyway (`#A79DF8`).
 
-Every number below is app.css's own. The phone reads them from
+**The copy.** Every string is the app's own, and the design's prototype used them — it was written
+against the real screens. Nothing here changed what a screen says, only how it is set.
+
+**The behaviour.** Where a mobile question has no obvious answer, Orbit.Web is still the place to look:
+it is the shipped, settled client. Two decided that way and still standing: a menu is closed on *any*
+navigation rather than by the back gesture (`AppNavigator`), and the status bar takes the colour of
+whatever Orbit draws under it.
+
+## What the phone now decides for itself
+
+| | Orbit.Web | The phone |
+| --- | --- | --- |
+| Type | IBM Plex Sans over Space Grotesk | **Lora over Cormorant Garamond** |
+| Ground | warm — `#FAF6F2` / `#1B1410` | neutral — `#F3F2F2` / `#1C1A19` |
+| Text and rules | separate greys per role | the ink at 62%, 45% and 16% of itself |
+| Colour | fills — a filled primary button, a filled danger button | **stroke** — every button is an outline; the accent is an edge, never a block |
+| Radius | 7 / 8 / 10 / 12 / 14 / 999 | **4**, everywhere |
+| Sections | a sidebar, which becomes six icons in the top bar below 680px | a **drawer**, with the names back beside the icons |
+| The top bar | logo, six icons, a bell, an avatar | `[≡ or ‹]`, the screen's name, the avatar |
+| A screen's menu | three dots in the page header, or on the editing rail | one dropdown **under the screen's name** |
+| Adding | a `+` beside the page heading | a **floating button** over the foot of the list |
+| Editing screens | a rail along the foot | nothing; the way out is the bar's back arrow |
+| A list | cards | **rows**, separated by hairlines |
+
+### The vocabulary, and where each part lives
+
+Every number below is the design's. The phone reads them from
 `src/Clients/Orbit.Maui/Resources/Styles/Styles.xaml`, which is the one place they are written.
 
-| Orbit.Web | The phone | Notes |
+| Part | Where it lives | Notes |
 | --- | --- | --- |
-| the `:root` palette | `Resources/Styles/Colors.xaml` | the oklch tokens converted to hex, one Light/Dark pair per role |
-| `button` (the plain one) | the implicit `Button` style | quiet: the lifted surface, a hairline, secondary text, 13.5/600 at 15x8 |
-| `.btn-primary` | `PrimaryButton` | filled with the accent at 16x9. Asked for by name, so a screen says which of its buttons is the one it is for |
-| `.btn-secondary` | `SecondaryButton` | the same as the default, kept for a screen that wants to say so |
-| `.btn-danger` | `DangerButton` | |
-| `.icon-btn` | `Controls/IconButton.xaml`, `IconButtonVariant.Plain` | 30 across, no edge |
-| `.page-add` | `IconButtonVariant.Add` | the same size, outlined in the accent |
-| `.icon-btn.page-action` | `IconButtonVariant.Action` / `.ActionPrimary` | 44 across with an edge - the desktop's 60, halved by the breakpoint |
-| `.page-header` | `Controls/PageHeader.xaml` | `LeadingAction` / `Title` / `Subtitle` / `Actions` |
-| `.item-card` | `Controls/ItemCard.xaml` | radius 12, padding 14x12, name 15 in the display face over two lines, a hairline above its footnote |
-| `.item-card-list` | the cards' own `Margin="0,5"` | a 10 gap between cards |
-| `.list-row` | `Controls/Row.xaml` | title 13.5, meta 12, a hairline under it |
-| `.list-row.row-unseen` | `Row.HasNews` | the danger colour as a hairline around one row over a 7% wash of it, and no pulse of its own |
-| `.avatar` / `.avatar-sm` | `Controls/AvatarCircle.xaml` | initials on the person's own hue, 36 in a list and 26 on a dashboard row, with `.presence-dot` on its top-right edge |
-| `.today-strip` | the strip at the head of the dashboard | the whole of it is the way to the calendar, and the chat-request line is left out at nought |
-| `CardFilterMenu.razor` | `DashboardPage.ShowCardFilter` | what one dashboard card is narrowed to, under the heading "Show" |
-| `.card` | `CardBorder` | radius 14, padding 18 |
-| `.filter-chip` | `FilterChip` + `FilterChipLabel` | a bordered pill, filled with the accent when it is the chosen one |
-| `.empty-hint` | `EmptyHint` | a quiet line where the reading starts, not centred in the middle of the screen |
-| `.error` / `.info` | `ErrorLabel` / `InfoLabel` | |
-| `.overflow-menu` | `Controls/OverflowMenu.xaml` + `ScreenMenu` + `Controls/MenuOverlay.xaml` | see below |
-| `.avatar-dropdown-item` | `MenuItemButton` | one entry in any of Orbit's menus |
-| `.editor-rail` | `Controls/EditorRail.xaml` | the bar along the foot |
-| `.card-badge` | `CardBadge` + `CardBadgeLabel` | a short fact about a card, quieter than a filter chip |
-| `.calendar-month-grid-day` | `CalendarDayCell` + `CalendarWeekday` | the lifted cell, today tinted, the days either side quiet |
-| `.chat-bubble` | the message template on both conversation screens | 70% of the thread, one corner squared off on the side it was written from |
-| `.options-card` / `.options-row` | `SettingsCard` + `Controls/SettingRow.xaml` | one setting, what it does underneath, the control at the far edge |
-| `.options-card-danger` | `DangerCard` | the one section where a wrong press cannot be undone |
-| `.options-tab` | `SettingsTab` | the chosen one underlined in the accent, on a row with a hairline |
-| `.map-panel-section` / `.map-panel-heading` | `PanelSection` + `PanelHeading` | one group on the map screen, as its own card |
-| `card-with-news` | `ItemCard.Pulse` | the halo an unseen card breathes, called off where the phone is set to animate less |
-| `ObjectList.razor` | `Controls/ObjectList.xaml` | loading / empty / here-it-is |
-| `input`, `textarea`, `select` | `Platforms/Android/FieldBox.cs` | the box itself: 8px radius, a hairline, 9x12 inside |
-| `.switch` | `Platforms/Android/SwitchTrack.cs` | the track a switch that is off sits in, which Android leaves near-white |
-| `.options-number-input` | `Platforms/Android/StepperButtons.cs` | the phone has a stepper where the browser has a number box; its two buttons take Orbit's quiet look |
+| the palette | `Resources/Styles/Colors.xaml` | roles, one Light/Dark pair each; the three ink levels carry alpha |
+| the faces | `MauiProgram.cs` | `OrbitBody` (Lora), `OrbitBodySemibold`, `OrbitDisplay` (Cormorant SemiBold), `OrbitDisplayLight` (its normal cut, for display sizes) |
+| the quiet button | the implicit `Button` style | no fill, a hairline, secondary text, set in the display face at 14/600 |
+| the important one | `PrimaryButton` | the same shape outlined in the accent. Asked for by name, so a screen says which of its buttons it is for |
+| the irreversible one | `DangerButton` | outlined in the danger colour |
+| the top bar | `Controls/NavigationBar.xaml` | three things wide; the name is bound from the page's own `Title` |
+| the drawer | `Controls/Drawer.xaml`, `Controls/DrawerEntry.xaml` | 280 across, the eight sections, the notification count, About at its foot |
+| a screen's own menu | `Controls/ITitleMenu.cs` + `ScreenMenu` + `Controls/MenuOverlay.xaml` | centred under the name |
+| a row's menu | `Controls/OverflowMenu.xaml` | stays on the row; opens upwards out of the foot |
+| the add button | `Controls/Fab.xaml` | 56 across, above the ad bar where there is one |
+| a card, and a row | `Controls/ItemCard.xaml` (`IsBordered`) | one anatomy, two shapes |
+| a plain row | `Controls/Row.xaml` | title 14, meta 12, a hairline under it |
+| the avatar | `Controls/AvatarCircle.xaml` | initials on an outline, with the presence dot on its top-right edge |
+| a settings section | `SettingsCard` + `Controls/SettingRow.xaml` | |
+| the hairline | `Hairline` | the most-drawn thing in the app: it carries the structure cards used to |
+| a field | `Platforms/Android/FieldBox.cs` | 4px radius, a hairline, 9x12 inside, and no fill |
+| a bare field | `Controls/BareField.cs` | a note's lines, which are writing rather than a form |
 
-## Where the phone cannot copy the browser, and what it does instead
+## Where the phone cannot do what the design draws
 
-**A menu cannot hang off the control that opened it.** In the browser the panel is positioned against
-its trigger and clamped to the window. On Android a panel drawn inside a card is clipped by the row it
-sits in, and a row in a `CollectionView` cannot draw outside itself. So the trigger and the panel are
-split: `OverflowMenu` fills the screen's one `ScreenMenu`, and the single `MenuOverlay` the page carries
-draws it above everything, taking the edge the trigger is nearest - a header's menu hangs from the top,
-a card's or the rail's opens upwards from the foot. That last one is app.css's own rule for a rail menu
-at the breakpoint, for the same reason: a bar on the bottom edge would otherwise open into the ground.
+**A menu cannot hang off the control that opened it.** In a browser the panel is positioned against its
+trigger and clamped to the window. On Android a panel drawn inside a card is clipped by the row it sits
+in, and a row in a `CollectionView` cannot draw outside itself. So the trigger and the panel are split:
+the page carries one `MenuOverlay`, and whatever fills it says where it hangs from
+(`MenuPlacement`) — a screen's own menu centred under its name, a row's opening upwards out of the foot,
+because a menu hung off a row low down the page would open into the ground.
 
-**A list is made from one field, not from a form on a route of its own.** The web's four list screens
-open `/notes/new` and the rest. The phone has no such route, and should not: a local row has to exist
-the moment it is named, so that it is there offline and syncs afterwards. The field stays, folded away,
-and the plus at the head of the screen - where the web keeps its own - is what unfolds it (see
-`Controls/NewItemForm.cs`). A list screen at rest is then what the browser shows: its name and its
-cards.
+**Android draws a line under a field, not a box around it.** MAUI has no border on `Entry`, so the box
+is drawn once through the handler mappers rather than by wrapping over a hundred fields in a `Border` —
+see `Platforms/Android/FieldBox.cs`.
 
-**Android draws a line under a field, not a box around it.** MAUI has no border on `Entry`, so this is
-done once through the handler mappers rather than by wrapping over a hundred fields in a `Border` -
-see `Platforms/Android/FieldBox.cs`. A field that asks to be transparent is left alone and loses
-Android's line too: a note's lines are written in `Entry`s so they can be corrected where they are
-read, and a note drawn as a stack of boxes is a form rather than a note.
+**A handler mapper has to be keyed to a property that actually changes.** `FieldBox`, `SwitchTrack` and
+`StepperButtons` are appended under properties of the control's own rather than a name of ours: MAUI
+runs every key once when a control is created and again whenever that property changes, and a theme
+switch *is* such a change. `FieldBox` is keyed to `TextColor` as well as `Background`, and that is the
+half that works: the background is a flat `Transparent` now and never changes, so it can no longer
+carry the news that the hairline needs redrawing in the other theme's colour.
 
-**A handler mapper has to be keyed to the property it redraws.** `FieldBox`, `SwitchTrack` and
-`StepperButtons` are appended under `Background` and `TrackColor` rather than under a name of their own: MAUI runs every key
-once when a control is created and again whenever that property changes - and a theme switch *is* such
-a change, since the implicit styles set those through an `AppThemeBinding`. Keyed to a name of ours
-they would run once, and MAUI's own mapper would paint over them the moment the reader chose the other
-theme. That is exactly what happened the first time the light theme was walked: every field lost its
-box and showed Android's line again.
-
-**A converter feeding a shape has to hand over a brush.** XAML converts a `Color` written into the
-markup into a `Brush` on its way to a `Shape.Fill`; a *binding* hands the value straight over, so a
-converter returning a `Color` there leaves the shape unpainted and says nothing about it. And a
-converter that throws does the same: `Application.Current.Resources[key]` throws on a key that is not
-there. `EventColourConverter` did both - it returned a colour, and its fallback asked for a
-`PrimaryDark` that has never existed - so the dot beside a dashboard event took up its place in the row
-and drew nothing at all, in the dark theme, which is the one it was always looked at in. It hands over
-a `SolidColorBrush` now, and falls back to `Accent`, the key App keeps current for whichever theme and
-palette are in force.
+**A converter feeding a shape has to hand over a brush.** XAML converts a `Color` written into markup
+into a `Brush` on its way to a `Shape.Fill`; a *binding* hands the value straight over, so a converter
+returning a `Color` there leaves the shape unpainted and says nothing about it. And a converter that
+throws does the same. `EventColourConverter` hands over a `SolidColorBrush` and falls back to `Accent`.
 
 **A dynamic resource outlives the value set over it.** `SetDynamicResource` registers the property
 against the dictionary and keeps it registered: a later `SetAppTheme` on the same property paints the
-colour asked for, and then the dictionary is read again - on load, on a theme switch - and the resource
-paints itself back. `ItemCard.Edge` sets a card's stroke three ways (danger when there is news, the
-accent when it is pinned, the hairline otherwise), so it now takes the resource off before it decides
-rather than only on the branch that does not want one. Without that, a card that was pinned first and
-got its news afterwards kept the accent edge: the red dot and the breathing halo were both there, and
-the edge under them was blue.
+colour asked for, and then the dictionary is read again — on load, on a theme switch — and the resource
+paints itself back. `ItemCard.Edge` and `DrawerEntry.Redraw` both take the resource off before deciding
+rather than only on the branch that does not want one.
 
-**A `BoxView` paints its `Color` and its `BackgroundColor` both.** The MAUI template's implicit style
-gave every one of them a grey, which showed wherever `Color` was left clear - a sheet of fog behind an
-open menu, a grey bar under every unchosen tab on the account screen. The implicit style now sets
-`Color` to transparent and no background at all; nothing in Orbit draws a `BoxView` without saying what
-colour it is.
+**A `BoxView` paints its `Color` and its `BackgroundColor` both.** The implicit style sets `Color` to
+transparent and no background at all; nothing in Orbit draws a `BoxView` without saying what colour it
+is.
 
-**A phone has no hover.** Everything app.css says with `:hover` - a card lighting up, a menu entry
-taking the primary text colour, a row's title turning accent - has no phone equivalent and is simply
-not drawn. What those rules signalled is said by shape instead, which the phone already had to do.
+**A press target must not set a row's height.** The implicit `Button` style asks for 44, which is the
+tap target a phone needs. A button laid *over* a row has to take its height from the row instead, or
+every drawer entry is 68 tall and every note in the list a third taller than it should be. Those
+buttons ask for 0 and let what they cover decide.
 
-## What is still not the same, deliberately or not
+**A phone has no hover.** Everything the design says with a hover state is simply not drawn.
 
-- **A card's menu offers no "Edit".** The browser's card menu opens with it, because there a card's
-  press opens the thing to be *read* and Edit is one press further in, at the form. The phone keeps one
-  screen for both - a note's lines are ticked where they are written - so an Edit entry would do
-  exactly what pressing the card already does, and an entry that repeats the press is noise. What the
-  menu does carry is everything the press cannot reach: Delete (or "Remove from my list" for somebody
-  else's note), and Share on an inventory.
-- **A group task list is deleted without its second question.** The browser asks whether the other
-  lists it gathers should go too; the phone's local store deletes one list at a time and cannot carry
-  that answer, so the group list goes and what it gathered stays - which is the browser's own answer
-  when somebody cancels that question.
-- **A calendar card's menu holds Delete and nothing else**, for the same reason a note's does.
-- **The month grid carries a dot per day, not a chip per event.** app.css gives a day cell a 5.5rem
-  minimum and fills it with event chips; the phone's grid is a fraction of that height on purpose,
-  because it gets out of the way as the list beneath it is read (see `orbit-maui-plan.md` §14.1, which
-  is a decision about the phone rather than a gap). Everything else about the cell - the lifted
-  surface, the hairline, today tinted with the accent, the days either side on the quiet fill - is the
-  browser's.
-- **The phone keeps a map where the browser hides one.** Below 680px app.css sets
-  `.map-canvas { display: none }` outright: a Leaflet map at that width is a postage stamp somebody has
-  to pinch at, and it pushes the lists it illustrates off the screen. On Android the map is the
-  platform's own control - pinchable, and on the one device that actually has a location - so it stays,
-  in the rounded, hairline frame `.location-map-frame` gives it. This is the one place the phone
-  deliberately keeps something the browser's mobile view drops.
-- **The phone keeps one screen where the browser has two.** A note's lines are ticked where they are
-  written; a shelf is counted up and down on the screen that edits it. This is recorded at length in
-  future-plan.md's "Smaller identified follow-ups" and is the right answer for a phone, so the rail
-  simply carries no Save on the screens that write as they go.
-- **The chat screens were walked on a device on 2026-09-07** — on the Windows emulator, against the
-  docker API, with two throwaway accounts each holding a real published key so the conversation was a
-  genuine E2EE one rather than staged. Both the one-to-one and the group decrypt and draw as
-  `.chat-bubble` does (own at the right in the accent, others at the left, a group message labelled with
-  its sender); the message and conversation menus are Orbit's own panel; the incoming-request Accept, the
-  avatar's top-right presence dot and the row's unseen mark all showed. The walk turned up one defect — a
-  two-person group's messages surfacing in that pair's one-to-one thread — fixed the same day at the
-  server's `GetConversationAsync` and defended on the phone; see future-plan.md's "Noticed while working".
-- **A conversation shows no count of what is waiting.** Orbit.Web draws `UnreadBadge` on the avatar
-  wherever a person appears, from the per-conversation unread count its contact list carries. The
-  phone's `LocalContact` has no such count and nothing on the device derives one - `IsReadByEveryone`
-  is about messages this reader *sent* - so the badge is the one part of the avatar that is missing,
-  and it is missing for want of a number rather than for want of a control. What the phone does say,
-  in the row's own mark, is that something unread points at that person. Recorded in future-plan.md.
-- **Every screen has now had the pass, in both themes**, the dashboard included as of 2026-09-07 -
-  and the dashboard has the same cards Orbit.Web has, the shelves among them. What is left against the
-  browser is the differences above, each of them a decision rather than a gap, apart from the unread
-  count just named.
+## What is done, and what is not
+
+Redrawn: the shell (bar, drawer, title menu, floating button, back arrow), the dashboard, the notes
+list, the note screen, the tasks list. Everything else carries the new palette, type and shapes — the
+tokens are global — but still has its old layout, and is queued in
+[`future-plan.md`](future-plan.md) under "Redrawing the rest of the phone".
+
+Deliberately not copied from the design:
+
+- **A note in the list has no preview line.** The design shows one; `NoteListItem` carries no preview
+  and nothing on the phone derives one. It is missing for want of a sentence, not a control.
+- **A card's menu offers no "Edit".** The phone keeps one screen for reading and writing, so an Edit
+  entry would do exactly what pressing the row already does.
+- **A group task list is deleted without its second question**, because the local store deletes one
+  list at a time.
+- **The month grid carries a dot per day, not a chip per event** — see `orbit-maui-plan.md` §14.1.
+- **The phone keeps a map** where Orbit.Web hides one below 680px: on Android it is the platform's own
+  control, pinchable, on the one device that actually has a location.
+- **A conversation shows no count of what is waiting.** `LocalContact` has no unread count and nothing
+  on the device derives one.
 
 ## How to check it
 
-There is no test that can see a screen, so the check is the emulator and the browser side by side, the
-browser narrowed to a phone's width. `info/testing-and-running-locally.md` has both halves of that, and
-[`build.md`](build.md) has the Android build itself. The traps in driving the emulator by `adb` are
-worth reading before starting.
+There is no test that can see a screen. The check is the emulator and the design side by side:
+`Orbit_Pixel_8_API_36` is 412×892 in device points, which is the frame the design was drawn in, so the
+two can be compared by measuring rather than by impression.
+[`testing-and-running-locally.md`](testing-and-running-locally.md) has the setup and
+[`build.md`](build.md) the Android build. `Orbit.Maui` is **not** in `Orbit.CI.slnf`, so nothing in CI
+compiles this markup: a local `dotnet build -c Release` is the only build check, and the only automated
+guards are the four tests in `tests/Orbit.Mobile.Tests` that read the XAML off disk
+(`SpokenNameTests`, `TranslationCoverageTests`, `AvatarMenuBindingTests`, `CalendarMonthLayoutTests`).
 
-Something that moves cannot be checked by looking at one screenshot, and an eye is a poor judge of a
-halo eight pixels wide at a fifth of its opacity. The pulse was read off the pixels instead: a burst of
-`adb exec-out screencap -p`, and the average colour of a band just outside the card's edge compared
-against the same band beside a card with no news. The halo swells from the background exactly (27,20,16
-on the dark theme) to about six points redder and back; the control band never moves. With
+Something that moves cannot be checked by looking at one screenshot. The card pulse was read off the
+pixels instead: a burst of `adb exec-out screencap -p`, and the average colour of a band just outside
+the card's edge compared against the same band beside a card with no news. With
 `settings put global animator_duration_scale 0` the band is flat in every frame and the danger stroke
-stays - which is the whole of what `Pulse` promises. Set the scale back to `1` afterwards.
+stays. Set the scale back to `1` afterwards.

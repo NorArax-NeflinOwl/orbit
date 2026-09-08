@@ -681,11 +681,47 @@ beside a task belongs here, not in that task's diff. A defect is the exception a
   pull requests, but a direct push to `main` deploys before any workflow can run. Real branch
   protection needs GitHub Pro on a private repository.
 
-## What the Android head's look still owes Orbit.Web
+## Redrawing the rest of the phone
 
-The phone was walked against `app.css` on 2026-09-06 and now shares its type scale, its button roles
-and its shared controls - see [`android-ui-parity.md`](android-ui-parity.md), which is the map of what
-matches and what does not. What that pass left:
+**Superseded 2026-09-08.** The section below was about pulling the Android head to `app.css`; the
+phone now has a look of its own - the Classical system, designed in Claude Design and handed over as a
+prototype of nineteen screens. See [`android-ui-parity.md`](android-ui-parity.md), which is now the map
+of what the two clients still share (the roles, the copy, the behaviour) and what the phone decides for
+itself (the type, the ground, the shapes, the shell).
+
+The tokens are global, so every screen already carries the new palette, faces and radius. What is left
+is the layout of each screen, in the order the passes are planned:
+
+1. ~~Foundations - fonts, palette, styles, the Android colour resources.~~ Done 2026-09-08.
+2. ~~The shell - the bar, the drawer, the title menu, the floating button, the navigation stack.~~
+   Done 2026-09-08.
+3. ~~The first four screens - dashboard, notes list, note, tasks list.~~ Done 2026-09-08.
+4. **Tasks detail and a task entry.** The rail goes, as the note's did; its menu hangs under the name.
+5. **Calendar and an event.** The month grid is a plain 44pt cell with a dot rather than a lifted
+   surface with a hairline; the event screen gets the design's pair of floating buttons in place of the
+   rail's Save and Cancel. `CalendarMonthLayoutTests` reads `FlexLayout.Basis` out of this markup and
+   will need care.
+6. **Inventory and a shelf**, whose rows carry the design's stepper.
+7. **Chat** - contacts, both conversations, both detail screens, the key gate.
+8. **Map** and the place picker.
+9. **The account screen** - the theme picker is a platform dialog and the design wants Orbit's own
+   segmented control; the accent swatches want the design's ring rather than a filled disc; the
+   switches want an outlined track.
+10. **Notifications, copies, update, diagnostics, the shared link, sign-in and register.**
+
+Two smaller things noticed while doing the first three:
+
+- **A note in the list has no preview line.** The design shows one under the title;
+  `NoteListItem` carries no preview and nothing on the phone derives one, so the rows are airier than
+  the design's. It needs a sentence off the note's first lines, not a control.
+- **The tick in a menu is a character, not a drawing.** `ScreenMenuEntry.Mark` is `"✓"`, and neither
+  Lora nor Cormorant Garamond has that glyph - Android substitutes a system face for it, where IBM Plex
+  used to carry it. Worth drawing as a `Path` if it reads as the wrong tick on a device.
+
+### The pass this replaced
+
+The phone was walked against `app.css` on 2026-09-06 and shared its type scale, its button roles and
+its shared controls. What that pass left, all of it now overtaken:
 
 - ~~**A card has no overflow menu.**~~ Done: Notes, Tasks and Inventory cards each carry one, with the
   actions lifted onto the list view models and the same refusals the browser applies - somebody else's
