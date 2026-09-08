@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<ContentView
+    x:Class="Orbit.Maui.Controls.CheckCircle"
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    x:Name="Root">
+
+    <!-- Ticking something off. A drawn circle rather than a character - the two the app used, "○ ✓" on
+         an errand and "☐ ☑" on a note's line, are glyphs neither Lora nor Cormorant Garamond carries,
+         so Android substituted a system face for them and the two screens ticked in two different
+         hands. Drawn, it takes the accent, the theme and the size it is asked for.
+
+         An Ellipse rather than a rounded Border, and this is not a preference: a Border draws its
+         Stroke from a colour resource happily and then ignores the same resource on its Background, so
+         a ticked circle came out as an accent ring with nothing inside it. A shape's Fill is a brush
+         property that behaves, and one shape doing both the ring and the fill is what a circle wants
+         anyway. -->
+    <Grid>
+        <!-- Neither Fill nor Stroke is written here on purpose: a value set in the markup is a *local*
+             value, and in MAUI a local value beats a dynamic resource - so the accent could never get
+             in, and a ticked circle stayed hollow. Redraw decides both, clearing whatever it set last
+             time first. -->
+        <Ellipse x:Name="Ring" StrokeThickness="1.5" />
+
+        <!-- Drawn in the page's own ground, so it reads as the circle cut away rather than as a mark
+             laid on top of it. -->
+        <Path x:Name="Tick" Data="M5,12 L10,17 L19,7" IsVisible="False" Aspect="Uniform"
+              StrokeThickness="3" StrokeLineCap="Round" StrokeLineJoin="Round" Fill="Transparent"
+              HorizontalOptions="Center" VerticalOptions="Center"
+              Stroke="{AppThemeBinding Light={StaticResource PageBackgroundLight}, Dark={StaticResource PageBackgroundDark}}" />
+
+        <Button x:Name="Press" BackgroundColor="Transparent" BorderWidth="0" Padding="0"
+                MinimumHeightRequest="0" MinimumWidthRequest="0" />
+    </Grid>
+</ContentView>

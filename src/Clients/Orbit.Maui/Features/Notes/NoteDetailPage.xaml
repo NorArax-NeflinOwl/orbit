@@ -85,11 +85,12 @@
                          written once and never corrected. Everything else a line can have done to it is
                          behind one "⋯", the way a chat message's options are. -->
                     <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="4" Padding="0,4">
-                        <Button Grid.Column="0" Text="{Binding CompletionMark}" WidthRequest="36" FontSize="17"
-                                Padding="0" BackgroundColor="Transparent" BorderWidth="0" IsVisible="{Binding IsChecklistItem}"
-                                TextColor="{DynamicResource Accent}"
-                                Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=ViewModel.ToggleCheckedCommand, x:DataType=notes:NoteDetailPage}"
-                                CommandParameter="{Binding .}" />
+                        <controls:CheckCircle Grid.Column="0" Diameter="20" Margin="0,3,6,0"
+                                              VerticalOptions="Start" IsVisible="{Binding IsChecklistItem}"
+                                              IsChecked="{Binding IsChecked}"
+                                              Description="{Binding Text}"
+                                              Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=ViewModel.ToggleCheckedCommand, x:DataType=notes:NoteDetailPage}"
+                                              CommandParameter="{Binding .}" />
 
                         <!-- A line of the note, not a field on a form - so it is drawn bare, with neither
                              Orbit's hairline box nor Android's own line under it. See BareField. -->
