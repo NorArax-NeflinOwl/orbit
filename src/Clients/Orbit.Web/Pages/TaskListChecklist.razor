@@ -321,7 +321,7 @@ else
 @* Everything this screen offers that is not "tick something off" - one menu rather than a row of
    buttons, because none of it is what somebody came here to do. It stays open while they set how the
    page reads, and the entries that act close it. *@
-<EditorRail OnCancel="GoToTaskLists">
+<EditorRail OnCancel="GoToTaskLists" OnEdit="GoToDeepEditor">
     <OverflowMenu @ref="_menu" StaysOpen="true">
         <span class="overflow-menu-heading">@T["Sort"]</span>
         @* What order to read the items in. Offered whatever the list looks like: a single long
@@ -348,7 +348,7 @@ else
                 @onclick="SaveViewAsync">
             @(_savedReading == _reading ? T["View saved"] : T["Save view"])
         </button>
-        <button type="button" class="avatar-dropdown-item" @onclick="GoToDeepEditor">@T["Edit"]</button>
+        @* No Edit in here: it is a button of its own on the panel now - see EditorRail.OnEdit. *@
         @* Deleting the list from the list itself. A note, an inventory and a calendar event have all
            been deletable from the screen that reads them; a task list was the one that could only be
            deleted from the page of cards, which meant leaving the thing to get rid of it. Offered only

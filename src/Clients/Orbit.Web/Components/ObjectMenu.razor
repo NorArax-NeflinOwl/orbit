@@ -8,7 +8,10 @@
     {
         <button type="button" class="avatar-dropdown-item" @onclick="OnAll">@AllLabel</button>
     }
-    <button type="button" class="avatar-dropdown-item" @onclick="OnEdit">@EditLabel</button>
+    @if (EditLabel is not null)
+    {
+        <button type="button" class="avatar-dropdown-item" @onclick="OnEdit">@EditLabel</button>
+    }
     @if (ShareLabel is not null)
     {
         <button type="button" class="avatar-dropdown-item" @onclick="OnShare">@ShareLabel</button>
@@ -26,7 +29,13 @@
 
     [Parameter] public EventCallback OnAll { get; set; }
 
-    [Parameter, EditorRequired] public string EditLabel { get; set; } = default!;
+    /// <summary>
+    /// "Edit", or "View" where the reader may look at the form but not write in it. Left out - like
+    /// every other slot here - by the screens that read one object, where Edit is a button of its own on
+    /// the panel rather than a line in this menu (see EditorRail.OnEdit). A card still carries it here:
+    /// a card has no panel to put it on.
+    /// </summary>
+    [Parameter] public string? EditLabel { get; set; }
 
     [Parameter] public EventCallback OnEdit { get; set; }
 

@@ -42,10 +42,30 @@
                      stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m4 10.5 4 4 8-9" /></svg>
             </button>
         }
-        <button type="button" class="icon-btn page-action" title="@T["Cancel"]" aria-label="@T["Cancel"]"
+        @* Between Save and the way out, because that is the order the three are reached in: write it,
+           change what it is, leave. It used to live in the overflow menu on all five screens that read
+           an object - one press to open the menu and another to find it, for the single thing somebody
+           is most likely to want after reading. The menu keeps everything else. *@
+        @if (OnEdit.HasDelegate)
+        {
+            <button type="button" class="icon-btn page-action" title="@EditLabel" aria-label="@EditLabel"
+                    @onclick="OnEdit">
+                <svg viewBox="0 0 20 20" width="30" height="30" aria-hidden="true" fill="none"
+                     stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M4 16v-3l9-9 3 3-9 9H4Z" /><path d="m11.5 5.5 3 3" />
+                </svg>
+            </button>
+        }
+        @* An arrow rather than a cross. A cross says "discard", and this button says no such thing on
+           four of the six screens that carry it: they are read rather than filled in, and it simply
+           leaves. Naming it Back rather than Cancel is the same correction - what it does is go back,
+           and on a form that happens to mean the writing is not kept. *@
+        <button type="button" class="icon-btn page-action" title="@T["Back"]" aria-label="@T["Back"]"
                 @onclick="OnCancel">
             <svg viewBox="0 0 20 20" width="30" height="30" aria-hidden="true" fill="none"
-                 stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="m5 5 10 10M15 5 5 15" /></svg>
+                 stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M16 10H4" /><path d="m9 5-5 5 5 5" />
+            </svg>
         </button>
         @ChildContent
     </div>
@@ -60,6 +80,20 @@
 
     /// <summary>Leaving the screen: back to the list on a page that is read, out of the form on one that is filled in.</summary>
     [Parameter] public EventCallback OnCancel { get; set; }
+
+    /// <summary>
+    /// Opening the form for whatever this screen is reading. Set by the five screens that read an
+    /// object and have a form one press further in; left unset by the forms themselves, which are
+    /// already there.
+    /// </summary>
+    [Parameter] public EventCallback OnEdit { get; set; }
+
+    /// <summary>
+    /// What that button is called - "Edit", or "View" where the reader may look at the form but not
+    /// change anything, which is what a read-only share gets. The pages decide it, because whether this
+    /// reader may write is their question rather than this panel's.
+    /// </summary>
+    [Parameter] public string EditLabel { get; set; } = "Edit";
 
     [Parameter] public bool SaveDisabled { get; set; }
 

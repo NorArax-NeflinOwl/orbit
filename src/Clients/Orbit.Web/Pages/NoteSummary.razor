@@ -76,7 +76,8 @@ else
 </div>
 @if (_note is not null)
 {
-    <EditorRail OnSave="SaveAsync" OnCancel="GoToNotes" SaveDisabled="@(!_hasChanges || _isSaving)">
+    <EditorRail OnSave="SaveAsync" OnCancel="GoToNotes" SaveDisabled="@(!_hasChanges || _isSaving)"
+                OnEdit="GoToEditor" EditLabel="@(_isReadOnly ? T["View"] : T["Edit"])">
         @* Beside the button that failed: a save that did not happen and a note somebody else is holding
            are both answers to "why has Save done nothing", and this page is read by scrolling - an
            answer at the top of it is an answer nobody scrolls back to. *@
@@ -87,8 +88,8 @@ else
             }
         </Extras>
         <ChildContent>
+            @* No Edit in here: it is a button of its own on the panel now - see EditorRail.OnEdit. *@
             <ObjectMenu AllLabel="@T["All notes"]" OnAll="GoToNotes"
-                        EditLabel="@(_isReadOnly ? T["View"] : T["Edit"])" OnEdit="GoToEditor"
                         DeleteLabel="@(!_note.IsShared ? T["Delete"] : null)" OnDelete="DeleteAsync" />
         </ChildContent>
     </EditorRail>
