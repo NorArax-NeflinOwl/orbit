@@ -35,4 +35,10 @@ public sealed class ChatMessageEntity
     /// a backfill does not turn a sender's read message back into an unread one.
     /// </summary>
     public bool IsSharedHistory { get; set; }
+
+    /// <summary>When this message was deleted, or null - see Orbit.Core.Chat.ChatMessage.DeletedAtUtc.</summary>
+    public DateTimeOffset? DeletedAtUtc { get; set; }
+
+    /// <summary>Who deleted it, which is not always its sender - see the domain property.</summary>
+    public Guid? DeletedByUserId { get; set; }
 }

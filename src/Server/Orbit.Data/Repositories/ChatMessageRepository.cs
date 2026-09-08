@@ -66,9 +66,23 @@ public sealed class ChatMessageRepository : IChatMessageRepository
         return entities.Select(ToDomain).ToList();
     }
 
-    public async Task DeleteAsync(Guid messageId, CancellationToken cancellationToken)
+    /// <summary>
+    /// The ciphertext and the nonce go with the flag, in one statement: a row still holding readable
+    /// bytes is not deleted whatever it is marked, and two statements would leave a window where it was
+    /// marked and still readable.
+    /// </summary>
+    public async Task MarkDeletedAsync(
+        Guid messageId, Guid deletedByUserId, DateTimeOffset deletedAtUtc, CancellationToken cancellationToken)
     {
-        await _dbContext.ChatMessages.Where(message => message.Id == messageId).ExecuteDeleteAsync(cancellationToken);
+        await _dbContext.ChatMessages
+            .Where(message => message.Id == messageId && message.DeletedAtUtc == null)
+            .ExecuteUpdateAsync(
+                message => message
+                    .SetProperty(stored => stored.CiphertextBase64, string.Empty)
+                    .SetProperty(stored => stored.NonceBase64, string.Empty)
+                    .SetProperty(stored => stored.DeletedAtUtc, deletedAtUtc)
+                    .SetProperty(stored => stored.DeletedByUserId, deletedByUserId),
+                cancellationToken);
     }
 
     /// <summary>
@@ -83,9 +97,19 @@ public sealed class ChatMessageRepository : IChatMessageRepository
             .ExecuteDeleteAsync(cancellationToken);
     }
 
-    public async Task DeleteGroupMessageAsync(Guid groupMessageId, CancellationToken cancellationToken)
+    /// <inheritdoc cref="MarkDeletedAsync"/>
+    public async Task MarkGroupMessageDeletedAsync(
+        Guid groupMessageId, Guid deletedByUserId, DateTimeOffset deletedAtUtc, CancellationToken cancellationToken)
     {
-        await _dbContext.ChatMessages.Where(message => message.GroupMessageId == groupMessageId).ExecuteDeleteAsync(cancellationToken);
+        await _dbContext.ChatMessages
+            .Where(message => message.GroupMessageId == groupMessageId && message.DeletedAtUtc == null)
+            .ExecuteUpdateAsync(
+                message => message
+                    .SetProperty(stored => stored.CiphertextBase64, string.Empty)
+                    .SetProperty(stored => stored.NonceBase64, string.Empty)
+                    .SetProperty(stored => stored.DeletedAtUtc, deletedAtUtc)
+                    .SetProperty(stored => stored.DeletedByUserId, deletedByUserId),
+                cancellationToken);
     }
 
     public async Task<ChatMessage?> GetByIdAsync(Guid messageId, CancellationToken cancellationToken)
@@ -150,7 +174,8 @@ public sealed class ChatMessageRepository : IChatMessageRepository
     private static ChatMessage ToDomain(ChatMessageEntity entity)
         => ChatMessage.FromPersistence(
             entity.Id, entity.SenderUserId, entity.RecipientUserId, entity.CiphertextBase64, entity.NonceBase64, entity.SentAtUtc,
-            entity.IsEdited, entity.EditedAtUtc, entity.GroupId, entity.GroupMessageId, entity.IsSharedHistory);
+            entity.IsEdited, entity.EditedAtUtc, entity.GroupId, entity.GroupMessageId, entity.IsSharedHistory,
+            entity.DeletedAtUtc, entity.DeletedByUserId);
 
     private static ChatMessageEntity ToEntity(ChatMessage message)
         => new()

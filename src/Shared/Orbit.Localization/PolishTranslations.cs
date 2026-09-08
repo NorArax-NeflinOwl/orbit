@@ -1695,6 +1695,7 @@ public static class PolishTranslations
         ["{0} joined {1}"] = "{0} dołączył(a) do grupy {1}",
         ["{0} shared the conversation so far"] = "{0} udostępnił(a) dotychczasową rozmowę",
         ["Somebody"] = "Ktoś",
+        ["{0} deleted the message"] = "{0} usunął wiadomość",
         ["A daily reminder needs a time to arrive at."] =
             "Codzienne przypomnienie potrzebuje godziny, o której ma przyjść.",
         ["Choose a time"] = "Wybierz godzinę",

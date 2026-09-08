@@ -5015,6 +5015,14 @@ input.note-editor-title {
     margin-bottom: 2px;
 }
 
+/* What a message says once it has been taken back. Quieter and italic, because it is the conversation
+   speaking rather than the person: the line is there so a message that vanished does not read as a bug,
+   not to be read as something somebody wrote. */
+.chat-bubble-deleted {
+    font-style: italic;
+    color: var(--text-tertiary);
+}
+
 .contact-info-identity {
     display: flex;
     align-items: center;

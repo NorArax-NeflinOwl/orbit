@@ -60,7 +60,18 @@
                             {
                                 <span class="chat-bubble-sender">@DisplayNameFor(message.SenderUserId)</span>
                             }
-                            @(_plainTextByMessageId.GetValueOrDefault(message.Id) ?? T["[couldn't decrypt]"])
+                            @* Taken back rather than never readable - see Chat.razor, which says the
+                               same thing about the same two facts. Named from the roster this component
+                               already holds, so an admin who deleted somebody else's message is named
+                               rather than mistaken for its sender. *@
+                            @if (message.DeletedByUserId is { } deletedBy)
+                            {
+                                <span class="chat-bubble-deleted">@T.Format("{0} deleted the message", DisplayNameFor(deletedBy))</span>
+                            }
+                            else
+                            {
+                                @(_plainTextByMessageId.GetValueOrDefault(message.Id) ?? T["[couldn't decrypt]"])
+                            }
                         </p>
                         <div class="chat-bubble-menu">
                             <button type="button" class="icon-btn chat-bubble-menu-trigger" title="@(T["Message options"])"
@@ -80,7 +91,11 @@
                                     {
                                         <button type="button" class="avatar-dropdown-item" @onclick="() => ShowInfoAsync(message)">@T["Info"]</button>
                                     }
-                                    <button type="button" class="avatar-dropdown-item" @onclick="() => StartForwarding(message)">@T["Forward"]</button>
+                                    @* Nothing left to pass on once a message has been taken back. *@
+                                    @if (!message.IsDeleted)
+                                    {
+                                        <button type="button" class="avatar-dropdown-item" @onclick="() => StartForwarding(message)">@T["Forward"]</button>
+                                    }
                                     @if (CanDelete(message))
                                     {
                                         <button type="button" class="avatar-dropdown-item" @onclick="() => DeleteMessageAsync(message)">@T["Delete"]</button>
@@ -420,14 +435,14 @@
 
     /// <summary>The same rule the server enforces (ChatGroup.CanDeleteMessageFrom), so the button only appears when it would work.</summary>
     private bool CanDelete(ChatMessageDto message)
-        => message.SenderUserId == OwnUserId || IsOwnAdmin;
+        => !message.IsDeleted && (message.SenderUserId == OwnUserId || IsOwnAdmin);
 
     /// <summary>
     /// Editing needs both the sender's own hand and something to address every copy by - a message
     /// stored before GroupMessageId existed has no way to reach its siblings.
     /// </summary>
     private bool CanEdit(ChatMessageDto message)
-        => message.SenderUserId == OwnUserId && message.GroupMessageId is not null;
+        => !message.IsDeleted && message.SenderUserId == OwnUserId && message.GroupMessageId is not null;
 
     private void ToggleMessageMenu(Guid messageId)
         => _openMessageMenuId = _openMessageMenuId == messageId ? null : messageId;

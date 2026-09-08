@@ -133,8 +133,10 @@ public sealed class GroupMessagingTests
         Assert.True(await context.DeleteAsync(context.AdminId, oneCopy.Id));
 
         // Deleting one person's copy would leave the message standing for everyone else - not what
-        // "delete" means anywhere else in the app.
-        Assert.Empty(context.MessageRepository.All);
+        // "delete" means anywhere else in the app. The rows stay and are emptied rather than removed,
+        // so the conversation can say a message was here - see ChatMessage.Delete.
+        Assert.All(context.MessageRepository.All, message => Assert.True(message.IsDeleted));
+        Assert.All(context.MessageRepository.All, message => Assert.Empty(message.CiphertextBase64));
     }
 
     [Fact]
@@ -147,9 +149,11 @@ public sealed class GroupMessagingTests
         Assert.True(await context.DeleteAsync(context.MemberId, ownMessage.Id));
 
         await context.SendAsync(context.SecondMemberId, [context.AdminId, context.MemberId]);
-        var someoneElses = context.MessageRepository.All[0];
+        // Found by sender rather than by position: a deleted message keeps its row, so the first one is
+        // still the message just deleted.
+        var someoneElses = context.MessageRepository.All.First(message => message.SenderUserId == context.SecondMemberId);
         Assert.False(await context.DeleteAsync(context.MemberId, someoneElses.Id));
-        Assert.NotEmpty(context.MessageRepository.All);
+        Assert.False(someoneElses.IsDeleted);
     }
 
     [Fact]
@@ -159,7 +163,7 @@ public sealed class GroupMessagingTests
         await context.SendAsync(context.MemberId, [context.AdminId, context.SecondMemberId]);
 
         Assert.True(await context.DeleteAsync(context.AdminId, context.MessageRepository.All[0].Id));
-        Assert.Empty(context.MessageRepository.All);
+        Assert.All(context.MessageRepository.All, message => Assert.True(message.IsDeleted));
     }
 
     [Fact]
@@ -172,6 +176,45 @@ public sealed class GroupMessagingTests
         // Being sent something doesn't give you the right to erase it from the sender's own history.
         Assert.False(await context.DeleteAsync(context.MemberId, direct.Id));
         Assert.True(await context.DeleteAsync(context.AdminId, direct.Id));
+    }
+
+    /// <summary>
+    /// A deleted message keeps its row and loses its words. Both halves matter and for different
+    /// reasons: the row is what lets the conversation say a message was here rather than leaving a hole
+    /// where a line used to be, and the emptied ciphertext is what makes "deleted" true of the stored
+    /// bytes rather than only of what some client chooses to draw.
+    /// </summary>
+    [Fact]
+    public async Task A_deleted_message_keeps_its_row_and_loses_its_words()
+    {
+        var context = new GroupMessagingTestContext();
+        var direct = ChatMessage.Create(context.AdminId, context.MemberId, "ciphertext", "nonce");
+        await context.MessageRepository.AddAsync(direct, CancellationToken.None);
+
+        Assert.True(await context.DeleteAsync(context.AdminId, direct.Id));
+
+        var stored = Assert.Single(context.MessageRepository.All, message => message.Id == direct.Id);
+        Assert.True(stored.IsDeleted);
+        Assert.Empty(stored.CiphertextBase64);
+        Assert.Empty(stored.NonceBase64);
+        // Who, because it is not always the sender: an admin may take back anybody's message in a group,
+        // and "the sender deleted this" would then be untrue.
+        Assert.Equal(context.AdminId, stored.DeletedByUserId);
+    }
+
+    /// <summary>Deleting the same message twice is harmless and does not move the first answer.</summary>
+    [Fact]
+    public async Task Deleting_a_message_that_is_already_deleted_changes_nothing()
+    {
+        var context = new GroupMessagingTestContext();
+        var direct = ChatMessage.Create(context.AdminId, context.MemberId, "ciphertext", "nonce");
+        await context.MessageRepository.AddAsync(direct, CancellationToken.None);
+        await context.DeleteAsync(context.AdminId, direct.Id);
+        var deletedAt = context.MessageRepository.All.Single(message => message.Id == direct.Id).DeletedAtUtc;
+
+        await context.DeleteAsync(context.AdminId, direct.Id);
+
+        Assert.Equal(deletedAt, context.MessageRepository.All.Single(message => message.Id == direct.Id).DeletedAtUtc);
     }
 
 

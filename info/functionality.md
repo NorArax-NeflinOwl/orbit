@@ -598,6 +598,19 @@ Deleting a message removes it **for everyone**, not just for the person asking: 
 recipient, and removing only your own copy would leave the message standing for everybody else. The same
 endpoint covers one-to-one messages, where only the sender may delete — being sent something doesn't
 give you the right to erase it from the sender's own history.
+
+**A deleted message leaves a line saying so**, rather than a hole: *"Anna deleted the message"*, in
+place of the words it no longer has. The row stays and its ciphertext and nonce are emptied in the same
+statement (`ChatMessage.Delete`, `ChatMessageRepository.MarkDeletedAsync`), so what "deleted" means is
+unchanged — there is nothing left to read whatever a client chooses to draw. Before this, the row went
+and the other person's screen simply had one fewer line than a moment ago, with nothing saying why,
+which reads as a bug or as never having been sent.
+
+Who deleted it is stored beside when (`OP_C_DELETEDBYUSERID`), because **it is not always the sender**:
+an admin may take back anybody's message in a group, and "the sender deleted this" would be untrue. The
+clients name them from the roster they already hold — a one-to-one conversation has only two people in
+it, and a group has its members — so nothing is asked of the server for the name. Nothing on a deleted
+message can be edited, forwarded or replied to: there is no longer anything there to act on.
 ## Private notes and task lists
 
 A note or task list can be marked **private**, which means exactly one thing: only its creator can ever

@@ -248,6 +248,8 @@ erDiagram
         timestamptz OP_C_READATUTC
         uuid OP_C_GROUPID FK
         bool OP_C_ISSHAREDHISTORY
+        timestamptz OP_C_DELETEDATUTC "the row stays, the words go"
+        uuid OP_C_DELETEDBYUSERID FK "not always the sender"
     }
     OL_CHATS_ACCESS {
         uuid OL_CA_ID PK
