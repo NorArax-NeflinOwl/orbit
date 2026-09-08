@@ -10,6 +10,11 @@
     x:DataType="screens:AccountViewModel"
     Title="{controls:Translate 'Settings'}">
 
+    <ContentPage.Resources>
+        <!-- Hands over a SolidColorBrush rather than a Color - see the swatches below. -->
+        <controls:EventColourConverter x:Key="EventColour" />
+    </ContentPage.Resources>
+
     <Grid RowDefinitions="Auto,*,Auto">
 
     <ScrollView Grid.Row="1">
@@ -82,21 +87,26 @@
                                  colour is a stroke until something is chosen. Eight solid discs in a
                                  row were the loudest thing on the settings screen, and the chosen one
                                  was told apart by a second ring drawn round it. -->
-                            <Border Margin="0,0,10,10" WidthRequest="40" HeightRequest="40"
-                                    BackgroundColor="Transparent" StrokeThickness="1.5"
-                                    StrokeShape="RoundRectangle 20" Padding="0"
-                                    Stroke="{Binding Swatch}"
-                                    AutomationProperties.Name="{Binding Name}">
+                            <!-- Both the ring and the fill go through EventColour, which hands over a
+                                 SolidColorBrush. Stroke and Fill are brush properties, and a *binding*
+                                 to a colour string hands the string straight over - the shape is then
+                                 left unpainted and says nothing about it. That is exactly how the
+                                 first draft of this swatch came out as an empty gap on the screen. -->
+                            <Grid Margin="0,0,10,10" WidthRequest="40" HeightRequest="40"
+                                  AutomationProperties.Name="{Binding Name}">
+                                <Ellipse StrokeThickness="1.5" Fill="Transparent"
+                                         Stroke="{Binding Swatch, Converter={StaticResource EventColour}}" />
                                 <Ellipse WidthRequest="24" HeightRequest="24" IsVisible="{Binding IsChosen}"
                                          HorizontalOptions="Center" VerticalOptions="Center"
-                                         Fill="{Binding Swatch}" />
-                                <!-- The tap is a Button inside the swatch rather than a gesture on it: a
-                                     Border carrying a gesture is not a clickable node to Android. -->
-                                <Button BackgroundColor="Transparent" BorderWidth="0" CornerRadius="22"
+                                         Fill="{Binding Swatch, Converter={StaticResource EventColour}}" />
+                                <!-- The tap is a Button over the swatch rather than a gesture on it: a
+                                     shape carrying a gesture is not a clickable node to Android. -->
+                                <Button BackgroundColor="Transparent" BorderWidth="0" Padding="0"
+                                        MinimumHeightRequest="0" MinimumWidthRequest="0"
                                         Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=ViewModel.ChooseAccentCommand, x:DataType=account:AccountPage}"
                                         CommandParameter="{Binding .}"
                                         SemanticProperties.Description="{Binding Name}" />
-                            </Border>
+                            </Grid>
                         </DataTemplate>
                     </BindableLayout.ItemTemplate>
                 </FlexLayout>
