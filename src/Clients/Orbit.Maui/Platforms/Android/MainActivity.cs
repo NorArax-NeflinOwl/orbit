@@ -7,6 +7,7 @@ using Android.Views;
 using AndroidX.Activity;
 using AndroidX.Core.View;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Maui.Platform;
 using Orbit.Mobile.Notifications;
 using Orbit.Mobile.Screens.Navigation;
 
@@ -125,9 +126,11 @@ public class MainActivity : MauiAppCompatActivity
 
 		if (!OperatingSystem.IsAndroidVersionAtLeast(35))
 		{
-			// The two surface colours from Resources/Styles/Colors.xaml, which the values/colors.xml pair
-			// mirrors - see the comments there.
-			window.SetStatusBarColor(isDark ? Android.Graphics.Color.ParseColor("#1C1C1E") : Android.Graphics.Color.White);
+			// Read off Colors.xaml rather than written out here. It used to be two literals, and they had
+			// drifted from the palette they claimed to mirror - as had the values/colors.xml pair, which
+			// is the one copy that cannot be read this way (a theme colour is resolved when the activity
+			// inflates, before there is an Application to ask).
+			window.SetStatusBarColor(Orbit.Maui.Platform.ThemeColours.PageBackground.ToPlatform());
 		}
 	}
 

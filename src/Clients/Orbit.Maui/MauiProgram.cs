@@ -63,12 +63,20 @@ public static class MauiProgram
 			.UseMauiMaps()
 			.ConfigureFonts(fonts =>
 			{
-				// The two faces Orbit.Web loads (see its index.html): IBM Plex Sans for anything read as
-				// text, Space Grotesk for headings. Same faces in both clients, which is the difference
-				// between two products that share a palette and one product.
-				fonts.AddFont("IBMPlexSans-Regular.ttf", "OrbitBody");
-				fonts.AddFont("IBMPlexSans-SemiBold.ttf", "OrbitBodySemibold");
-				fonts.AddFont("SpaceGrotesk-SemiBold.ttf", "OrbitDisplay");
+				// The phone's own pair, from the Classical system the redesign is built on: Lora carries
+				// the reading, Cormorant Garamond heads it. Orbit.Web keeps IBM Plex Sans and Space
+				// Grotesk - see info/android-ui-parity.md for where the two faces of the product now
+				// deliberately differ, and where they still do not.
+				//
+				// The alias names are roles rather than faces, which is why nothing else in the app had
+				// to change when the faces did: a style asks for the body or the display face, not for
+				// Lora. OrbitDisplayLight is the display face at its normal cut - the design sets the
+				// biggest text lightest (the dashboard's date, the wordmark), and semibold at that size
+				// reads as shouting.
+				fonts.AddFont("Lora-Regular.ttf", "OrbitBody");
+				fonts.AddFont("Lora-SemiBold.ttf", "OrbitBodySemibold");
+				fonts.AddFont("CormorantGaramond-SemiBold.ttf", "OrbitDisplay");
+				fonts.AddFont("CormorantGaramond-Regular.ttf", "OrbitDisplayLight");
 			});
 
 #if ANDROID

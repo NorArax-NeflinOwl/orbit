@@ -3,9 +3,21 @@
     xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
     xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml">
 
-    <!-- Orbit.Web's palette, converted from its oklch tokens (see wwwroot/css/app.css's :root) to the
-         hex MAUI reads. Same colours in both clients, so a person who uses Orbit in a browser and on
-         their phone is looking at one product rather than two.
+    <!-- The phone's palette. Two halves with two different origins, which is the whole story of this
+         file:
+
+         The **roles that mean something** - accent, task, success, danger, away, and the presence dots
+         drawn from them - are Orbit's, shared with Orbit.Web to the hex. Red means the same thing in
+         both clients, and a person who uses Orbit in a browser and on their phone is not learning two
+         vocabularies.
+
+         The **ground it is all drawn on** is the phone's own, from the Classical system the mobile
+         redesign is built on (see info/android-ui-parity.md). Where the web is warm - a paper white
+         over a warm near-black - the phone is a neutral near-white, and its text and hairlines are the
+         ink at a fraction of itself rather than separate greys. That is why the three ink levels below
+         carry alpha: #9E is 62% of the ink, #73 is 45%, #29 is 16%. Written that way they hold their
+         relationship on any surface, which a flattened grey does not - the same line has to read on the
+         page, inside a card and over the ad bar.
 
          Roles, not shades: every one is a Light/Dark pair, because a screen asking for "subtle text"
          should get something legible either way rather than asking for a grey and being unreadable on
@@ -34,28 +46,30 @@
     <!-- accent-on: what is legible written on the accent. -->
     <Color x:Key="AccentOn">#FBFBFF</Color>
 
-    <!-- bg: what the whole page sits on. Warm rather than pure white or pure black, which is most of
-         why the web looks like itself. -->
-    <Color x:Key="PageBackgroundLight">#FAF6F2</Color>
-    <Color x:Key="PageBackgroundDark">#1B1410</Color>
-    <!-- bg-elevated: a card or panel lifted off that background. -->
-    <Color x:Key="SurfaceLight">#FFFDFB</Color>
-    <Color x:Key="SurfaceDark">#251D19</Color>
-    <!-- bg-subtle: a quiet fill inside a card - a count pill, a chosen row. -->
-    <Color x:Key="SurfaceSubtleLight">#F2EEE7</Color>
-    <Color x:Key="SurfaceSubtleDark">#312823</Color>
-    <!-- border -->
-    <Color x:Key="CardStrokeLight">#DFDAD2</Color>
-    <Color x:Key="CardStrokeDark">#3C332E</Color>
+    <!-- bg: what the whole page sits on. Neutral rather than pure white or pure black. -->
+    <Color x:Key="PageBackgroundLight">#F3F2F2</Color>
+    <Color x:Key="PageBackgroundDark">#1C1A19</Color>
+    <!-- bg-elevated: the one thing drawn on a surface of its own rather than an outline - the bar
+         along the foot. Everything else that used to be a filled card is a hairline now. -->
+    <Color x:Key="SurfaceLight">#EAE9E9</Color>
+    <Color x:Key="SurfaceDark">#282524</Color>
+    <!-- bg-subtle: a quiet fill inside a card - a count pill, a chosen row. One step further from the
+         page than the surface, so the two are told apart when they meet. -->
+    <Color x:Key="SurfaceSubtleLight">#E1E0E0</Color>
+    <Color x:Key="SurfaceSubtleDark">#322F2D</Color>
+    <!-- border: the ink at 16%. Hairlines carry the structure that filled cards used to, so this is
+         the most-drawn colour in the app and the one that must not harden into a box. -->
+    <Color x:Key="CardStrokeLight">#29201F1D</Color>
+    <Color x:Key="CardStrokeDark">#29F1EEEA</Color>
 
-    <!-- text-primary / text-secondary / text-tertiary. SubtleText is the secondary one: the line
+    <!-- The ink, and it twice more at 62% and 45% of itself. SubtleText is the secondary one: the line
          under a title, which is what the phone reaches for most. -->
-    <Color x:Key="TextPrimaryLight">#251E19</Color>
+    <Color x:Key="TextPrimaryLight">#201F1D</Color>
     <Color x:Key="TextPrimaryDark">#F1EEEA</Color>
-    <Color x:Key="SubtleTextLight">#60564F</Color>
-    <Color x:Key="SubtleTextDark">#BCB6AF</Color>
-    <Color x:Key="TertiaryTextLight">#8D847E</Color>
-    <Color x:Key="TertiaryTextDark">#7F7973</Color>
+    <Color x:Key="SubtleTextLight">#9E201F1D</Color>
+    <Color x:Key="SubtleTextDark">#9EF1EEEA</Color>
+    <Color x:Key="TertiaryTextLight">#73201F1D</Color>
+    <Color x:Key="TertiaryTextDark">#73F1EEEA</Color>
 
     <!-- task: the colour tasks are marked in, distinct from the accent. -->
     <Color x:Key="TaskLight">#A34D00</Color>

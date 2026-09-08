@@ -84,8 +84,10 @@
                                 Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=ViewModel.ToggleCheckedCommand, x:DataType=notes:NoteDetailPage}"
                                 CommandParameter="{Binding .}" />
 
+                        <!-- A line of the note, not a field on a form - so it is drawn bare, with neither
+                             Orbit's hairline box nor Android's own line under it. See BareField. -->
                         <Entry Grid.Column="1" Text="{Binding Text}" VerticalOptions="Center"
-                               BackgroundColor="Transparent" ReturnType="Done"
+                               controls:BareField.IsBare="True" ReturnType="Done"
                                IsReadOnly="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=ViewModel.IsReadOnly, x:DataType=notes:NoteDetailPage}"
                                ReturnCommand="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=ViewModel.SaveLinesCommand, x:DataType=notes:NoteDetailPage}" />
 
