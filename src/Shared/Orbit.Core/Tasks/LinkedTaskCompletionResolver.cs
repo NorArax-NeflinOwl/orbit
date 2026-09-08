@@ -52,10 +52,16 @@ public sealed class LinkedTaskCompletionResolver
             taskList.Id, taskList.UserId, taskList.Title, resolvedItems, taskList.IsGroup, taskList.IsPrivate, taskList.EncryptedContent,
             taskList.CreatedAtUtc, taskList.UpdatedAtUtc,
             taskList.LockedByUserId, taskList.LockedByUserName, taskList.LockExpiresAtUtc, taskList.Priority, taskList.IsPinned,
-            taskList.LinkedInventoryId, taskList.Description);
+            taskList.LinkedInventoryId, taskList.Description, taskList.FolderId);
         // Every persisted field has to be named above, and every new one has to be added here too - this
         // rebuild is on the path of every read, so a field left out of it is a field that is stored,
         // works in the handler that reads the row directly, and comes back null to the client.
+        //
+        // FolderId is what that warning was written about and then happened to anyway. It was left off,
+        // so every list came back filed nowhere: the folder saved correctly, the tab it belonged under
+        // never showed it, and the editor reopened with Folder set to None - which reads exactly like a
+        // Save that did not save. Reported as "Save does not save the Folder field", and it was not the
+        // save. FolderPlacementTests now walks a list through this rebuild rather than around it.
         //
         // IsShared/SharedByUserName/AccessLevel, IsSharedWithOthers and the caller's own pin are not
         // persisted at all: they are stamped separately per caller (see TaskList's class comment) and
