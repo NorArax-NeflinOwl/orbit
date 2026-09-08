@@ -69,7 +69,9 @@ public sealed class TaskItemSummaryTests : OrbitTestContext
         var offered = cut.FindAll(".editor-rail .avatar-dropdown-item").Select(entry => entry.TextContent.Trim()).ToList();
         Assert.Contains("Back to Calendar", offered);
         Assert.Contains("Show Tasks", offered);
-        Assert.Contains("Edit", offered);
+        // Edit is not among them: it is a button of its own on the panel now - see EditorRail.OnEdit.
+        Assert.DoesNotContain("Edit", offered);
+        Assert.Single(cut.FindAll(".editor-rail button[aria-label=Edit]"));
         // Nothing on this screen can be written, so the panel carries no Save.
         Assert.Empty(cut.FindAll(".editor-rail .page-action-primary"));
     }
@@ -101,7 +103,7 @@ public sealed class TaskItemSummaryTests : OrbitTestContext
         var cut = Render();
 
         cut.Find(".editor-rail .overflow-menu-trigger").Click();
-        cut.FindAll(".editor-rail .avatar-dropdown-item").First(entry => entry.TextContent.Contains("Edit")).Click();
+        cut.FindAll(".editor-rail button").First(button => button.GetAttribute("aria-label") == "Edit").Click();
 
         Assert.EndsWith($"/tasks/{TaskListId}/items/{ItemId}/edit", navigationManager.Uri);
     }
@@ -120,7 +122,7 @@ public sealed class TaskItemSummaryTests : OrbitTestContext
         var cut = Render();
 
         cut.Find(".editor-rail .overflow-menu-trigger").Click();
-        cut.FindAll(".editor-rail .avatar-dropdown-item").First(entry => entry.TextContent.Contains("Edit")).Click();
+        cut.FindAll(".editor-rail button").First(button => button.GetAttribute("aria-label") == "Edit").Click();
 
         Assert.EndsWith(
             $"/tasks/{TaskListId}/items/{ItemId}/edit?{ReturnTo.QueryName}=%2Fcalendar", navigationManager.Uri);
@@ -134,7 +136,7 @@ public sealed class TaskItemSummaryTests : OrbitTestContext
         var navigationManager = Services.GetRequiredService<NavigationManager>();
         var cut = Render();
 
-        cut.FindAll("button").First(button => button.GetAttribute("aria-label") == "Cancel").Click();
+        cut.FindAll("button").First(button => button.GetAttribute("aria-label") == "Back").Click();
 
         Assert.EndsWith($"/tasks/{TaskListId}", navigationManager.Uri);
     }

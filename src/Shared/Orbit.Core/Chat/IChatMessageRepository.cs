@@ -20,11 +20,16 @@ public interface IChatMessageRepository
     Task<IReadOnlyList<ChatMessage>> GetGroupConversationAsync(
         Guid groupId, Guid userId, DateTimeOffset? sinceUtc, CancellationToken cancellationToken);
 
-    /// <summary>Removes one message row. No-op when it no longer exists.</summary>
-    Task DeleteAsync(Guid messageId, CancellationToken cancellationToken);
+    /// <summary>
+    /// Takes one message's words away and leaves its row, so the conversation can say something was
+    /// here - see ChatMessage.Delete. No-op when the message no longer exists. Named for what it does
+    /// rather than "Delete": the row survives, and a caller expecting the row to go would be wrong.
+    /// </summary>
+    Task MarkDeletedAsync(Guid messageId, Guid deletedByUserId, DateTimeOffset deletedAtUtc, CancellationToken cancellationToken);
 
-    /// <summary>Removes every per-recipient copy of one group posting - see ChatMessage.GroupMessageId.</summary>
-    Task DeleteGroupMessageAsync(Guid groupMessageId, CancellationToken cancellationToken);
+    /// <summary>The same for every per-recipient copy of one group posting - see ChatMessage.GroupMessageId.</summary>
+    Task MarkGroupMessageDeletedAsync(
+        Guid groupMessageId, Guid deletedByUserId, DateTimeOffset deletedAtUtc, CancellationToken cancellationToken);
 
     /// <summary>
     /// Removes the copies of a group's messages that are addressed to one member - what that member

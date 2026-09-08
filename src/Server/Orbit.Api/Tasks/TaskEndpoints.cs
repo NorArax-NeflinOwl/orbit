@@ -94,7 +94,7 @@ public static class TaskEndpoints
                     ToDomainPayload(request.EncryptedContent), RequestEnum.Parse<ItemPriority>(request.Priority, "priority"),
                     request.Description, EntriesSayingNothingAboutTheirCategories(request.Items),
                     EntriesSayingNothingAboutTheirProduct(request.Items),
-                    EntriesSayingNothingAboutTheirNotes(request.Items)),
+                    EntriesSayingNothingAboutTheirNotes(request.Items), request.IsMarkedCompleted),
                 cancellationToken);
             return ToApiResult(outcome);
         });
@@ -470,7 +470,8 @@ public static class TaskEndpoints
             taskList.IsPinnedForCaller, taskList.IsSharedWithOthers, taskList.LinkedInventoryId, taskList.Description,
             // The owner's filing, and only theirs - see NoteEndpoints.ToDto, which says why a recipient
             // is told nothing about it.
-            taskList.IsShared ? null : taskList.FolderId);
+            taskList.IsShared ? null : taskList.FolderId,
+            taskList.IsMarkedCompleted);
 
     /// <summary>Maps an EditOutcome onto the corresponding HTTP response - shared by the update and lock-acquire endpoints above.</summary>
     private static IResult ToApiResult(EditOutcome outcome) => outcome.Kind switch

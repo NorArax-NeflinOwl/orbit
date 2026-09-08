@@ -103,15 +103,32 @@ internal sealed class InMemoryChatMessageRepository : IChatMessageRepository
         return Task.FromResult<IReadOnlyList<ChatMessage>>(messages.OrderBy(message => message.SentAtUtc).ToList());
     }
 
-    public Task DeleteAsync(Guid messageId, CancellationToken cancellationToken)
+    /// <summary>
+    /// Keeps the row and empties it, which is what the real one does - see ChatMessage.Delete. A double
+    /// that removed the row instead would let a handler pass here and leave a hole in production, which
+    /// is the failure this project has already been bitten by twice (see the memory on test doubles
+    /// refusing what the server refuses).
+    /// </summary>
+    public Task MarkDeletedAsync(
+        Guid messageId, Guid deletedByUserId, DateTimeOffset deletedAtUtc, CancellationToken cancellationToken)
     {
-        _messages.RemoveAll(message => message.Id == messageId);
+        foreach (var message in _messages.Where(message => message.Id == messageId))
+        {
+            message.Delete(deletedByUserId, deletedAtUtc);
+        }
+
         return Task.CompletedTask;
     }
 
-    public Task DeleteGroupMessageAsync(Guid groupMessageId, CancellationToken cancellationToken)
+    /// <inheritdoc cref="MarkDeletedAsync"/>
+    public Task MarkGroupMessageDeletedAsync(
+        Guid groupMessageId, Guid deletedByUserId, DateTimeOffset deletedAtUtc, CancellationToken cancellationToken)
     {
-        _messages.RemoveAll(message => message.GroupMessageId == groupMessageId);
+        foreach (var message in _messages.Where(message => message.GroupMessageId == groupMessageId))
+        {
+            message.Delete(deletedByUserId, deletedAtUtc);
+        }
+
         return Task.CompletedTask;
     }
 

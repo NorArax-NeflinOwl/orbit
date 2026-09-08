@@ -83,7 +83,8 @@ else
    - see EditorRail. This page changes what is on a shelf now, so it needs a save. *@
 @if (_inventory is not null)
 {
-    <EditorRail OnSave="SaveAsync" OnCancel="GoToInventories" SaveDisabled="@(!_hasChanges || _isSaving)">
+    <EditorRail OnSave="SaveAsync" OnCancel="GoToInventories" SaveDisabled="@(!_hasChanges || _isSaving)"
+                OnEdit="GoToEditor" EditLabel="@(_isReadOnly ? T["View"] : T["Edit"])">
         @* Beside the button that failed: a save that did not happen and a shelf somebody else is
            holding are both answers to "why has Save done nothing", and a long shelf is read by
            scrolling - an answer at the top of it is an answer nobody scrolls back to. *@
@@ -94,8 +95,8 @@ else
             }
         </Extras>
         <ChildContent>
+            @* No Edit in here: it is a button of its own on the panel now - see EditorRail.OnEdit. *@
             <ObjectMenu AllLabel="@T["All inventories"]" OnAll="GoToInventories"
-                        EditLabel="@(_isReadOnly ? T["View"] : T["Edit"])" OnEdit="GoToEditor"
                         DeleteLabel="@(!_inventory!.IsShared ? T["Delete"] : null)" OnDelete="DeleteAsync" />
         </ChildContent>
     </EditorRail>

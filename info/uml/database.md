@@ -177,6 +177,7 @@ erDiagram
         uuid OP_T_FOLDERID FK "null = a built-in folder"
         text OP_T_TITLE
         bool OP_T_ISCOMPLETED "decides the Finished folder"
+        bool OP_T_ISMARKEDCOMPLETED "finished because somebody said so"
         bool OP_T_ISPRIVATE
     }
     OP_TASKS_ITEMS {
@@ -247,6 +248,8 @@ erDiagram
         timestamptz OP_C_READATUTC
         uuid OP_C_GROUPID FK
         bool OP_C_ISSHAREDHISTORY
+        timestamptz OP_C_DELETEDATUTC "the row stays, the words go"
+        uuid OP_C_DELETEDBYUSERID FK "not always the sender"
     }
     OL_CHATS_ACCESS {
         uuid OL_CA_ID PK

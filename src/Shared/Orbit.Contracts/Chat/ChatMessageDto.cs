@@ -14,7 +14,18 @@ public sealed record ChatMessageDto(
     /// for a one-to-one message, which reports its read state through the read-receipt endpoint instead.
     /// Two ticks are drawn from this: one member still behind and it is not "read" yet.
     /// </summary>
-    bool? ReadByEveryone = null);
+    bool? ReadByEveryone = null,
+    /// <summary>
+    /// Who took this message back, or null for one still standing. A deleted message arrives with its
+    /// ciphertext empty - there is nothing to decrypt - and the clients draw a line saying so, named
+    /// from the roster they already hold. Not always the sender: an admin may delete anybody's message
+    /// in a group. See Orbit.Core.Chat.ChatMessage.DeletedAtUtc.
+    /// </summary>
+    Guid? DeletedByUserId = null)
+{
+    /// <summary>Whether this message was taken back - see <see cref="DeletedByUserId"/>.</summary>
+    public bool IsDeleted => DeletedByUserId is not null;
+}
 
 /// <summary>
 /// What became of one group message for one member. Delivered means the message reached the server

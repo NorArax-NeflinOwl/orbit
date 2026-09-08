@@ -14,7 +14,7 @@ namespace Orbit.Web.Tests.Components;
 public sealed class EditorRailTests : OrbitTestContext
 {
     [Fact]
-    public void It_carries_the_two_actions_and_whatever_the_page_puts_beside_them()
+    public void It_carries_the_actions_and_whatever_the_page_puts_beside_them()
     {
         var saved = false;
         var cancelled = false;
@@ -24,12 +24,59 @@ public sealed class EditorRailTests : OrbitTestContext
             .AddChildContent("<button type=\"button\" class=\"beside\">Delete</button>"));
 
         cut.FindAll(".editor-rail-actions button").First(button => button.GetAttribute("aria-label") == "Save").Click();
-        cut.FindAll(".editor-rail-actions button").First(button => button.GetAttribute("aria-label") == "Cancel").Click();
+        cut.FindAll(".editor-rail-actions button").First(button => button.GetAttribute("aria-label") == "Back").Click();
 
         Assert.True(saved);
         Assert.True(cancelled);
-        // Beside the two rather than anywhere else on the page: it is the same panel and the same edge.
+        // Beside the rest rather than anywhere else on the page: it is the same panel and the same edge.
         Assert.Single(cut.FindAll(".editor-rail-actions .beside"));
+    }
+
+    /// <summary>
+    /// Edit sits between Save and the way out, on the screens that read an object. It used to be a line
+    /// in the overflow menu on all five of them - one press to open the menu and another to find it, for
+    /// the single thing somebody is most likely to want after reading.
+    /// </summary>
+    [Fact]
+    public void Edit_sits_between_saving_and_leaving()
+    {
+        var cut = RenderComponent<EditorRail>(parameters => parameters
+            .Add(rail => rail.OnSave, () => { })
+            .Add(rail => rail.OnEdit, () => { })
+            .Add(rail => rail.OnCancel, () => { }));
+
+        Assert.Equal(
+            ["Save", "Edit", "Back"],
+            cut.FindAll(".editor-rail-actions button").Select(button => button.GetAttribute("aria-label")));
+    }
+
+    /// <summary>
+    /// And a screen with no form behind it carries no Edit at all, the same way one with nothing to
+    /// write carries no Save - a button that does nothing is worse than no button.
+    /// </summary>
+    [Fact]
+    public void A_screen_with_no_form_behind_it_carries_no_edit()
+    {
+        var cut = RenderComponent<EditorRail>(parameters => parameters.Add(rail => rail.OnCancel, () => { }));
+
+        Assert.DoesNotContain(
+            cut.FindAll(".editor-rail-actions button"),
+            button => button.GetAttribute("aria-label") == "Edit");
+    }
+
+    /// <summary>
+    /// What that button says is the page's to decide: a read-only share may open the form to look at it
+    /// and not to write in it, and calling that "Edit" promises something it cannot keep.
+    /// </summary>
+    [Fact]
+    public void A_reader_who_may_not_write_is_offered_View()
+    {
+        var cut = RenderComponent<EditorRail>(parameters => parameters
+            .Add(rail => rail.OnEdit, () => { })
+            .Add(rail => rail.EditLabel, "View")
+            .Add(rail => rail.OnCancel, () => { }));
+
+        Assert.Single(cut.FindAll("button[aria-label=View]"));
     }
 
     /// <summary>
@@ -57,7 +104,7 @@ public sealed class EditorRailTests : OrbitTestContext
         var cut = RenderComponent<EditorRail>(parameters => parameters.Add(rail => rail.OnCancel, () => { }));
 
         Assert.Empty(cut.FindAll(".page-action-primary"));
-        Assert.Single(cut.FindAll("button[aria-label=Cancel]"));
+        Assert.Single(cut.FindAll("button[aria-label=Back]"));
     }
 
     /// <summary>

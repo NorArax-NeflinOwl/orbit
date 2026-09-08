@@ -31,5 +31,11 @@ public sealed record UpdateTaskListCommand(
     /// before an entry could carry a description saves lists without one, and that save must not wipe
     /// what somebody typed on the web. An entry that sends an empty string is clearing it.
     /// </summary>
-    IReadOnlySet<Guid>? EntriesKeepingTheirNotes = null)
+    IReadOnlySet<Guid>? EntriesKeepingTheirNotes = null,
+    /// <summary>
+    /// Whether the reader says the list is finished, whatever is still on it. Null means the caller said
+    /// nothing and the stored answer stands - the same rule the three fields above follow, and the
+    /// reason is the same: the phone saves lists without knowing this exists.
+    /// </summary>
+    bool? IsMarkedCompleted = null)
     : IRequest<EditOutcome>;

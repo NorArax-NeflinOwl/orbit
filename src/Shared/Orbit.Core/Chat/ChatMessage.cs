@@ -34,6 +34,27 @@ public sealed class ChatMessage
     /// </summary>
     public bool IsSharedHistory { get; private set; }
 
+    /// <summary>
+    /// When this message was deleted, or null for one still standing. A deleted message keeps its row
+    /// and loses its words: <see cref="CiphertextBase64"/> and <see cref="NonceBase64"/> are emptied, so
+    /// "deleted" is true of the stored bytes rather than only of what is drawn.
+    ///
+    /// Kept rather than removed so the conversation can say a message was here and is not any more.
+    /// Deleting the row outright left a hole - the other person's screen simply had one fewer line than
+    /// a moment ago, with nothing saying why, which reads as a bug or as never having been sent.
+    /// </summary>
+    public DateTimeOffset? DeletedAtUtc { get; private set; }
+
+    /// <summary>
+    /// Who deleted it. Not always the sender: an admin may delete anybody's message in a group (see
+    /// ChatGroup.CanDeleteMessageFrom), and "the sender deleted this" would then be untrue. The clients
+    /// name them from the roster they already hold.
+    /// </summary>
+    public Guid? DeletedByUserId { get; private set; }
+
+    /// <summary>Whether this message has been deleted - see <see cref="DeletedAtUtc"/>.</summary>
+    public bool IsDeleted => DeletedAtUtc is not null;
+
     private ChatMessage(
         Guid id, Guid senderUserId, Guid recipientUserId, string ciphertextBase64, string nonceBase64, DateTimeOffset sentAtUtc,
         bool isEdited, DateTimeOffset? editedAtUtc, Guid? groupId, Guid? groupMessageId, bool isSharedHistory)
@@ -99,10 +120,37 @@ public sealed class ChatMessage
     public static ChatMessage FromPersistence(
         Guid id, Guid senderUserId, Guid recipientUserId, string ciphertextBase64, string nonceBase64, DateTimeOffset sentAtUtc,
         bool isEdited, DateTimeOffset? editedAtUtc, Guid? groupId = null, Guid? groupMessageId = null,
-        bool isSharedHistory = false)
-        => new(
+        bool isSharedHistory = false, DateTimeOffset? deletedAtUtc = null, Guid? deletedByUserId = null)
+    {
+        var message = new ChatMessage(
             id, senderUserId, recipientUserId, ciphertextBase64, nonceBase64, sentAtUtc, isEdited, editedAtUtc, groupId,
             groupMessageId, isSharedHistory);
+        message.DeletedAtUtc = deletedAtUtc;
+        message.DeletedByUserId = deletedByUserId;
+        return message;
+    }
+
+    /// <summary>
+    /// Takes the message back: the words go and the row stays, so the conversation can say something was
+    /// here. Emptying the ciphertext is what makes this a deletion rather than a flag - a message nobody
+    /// can decrypt is deleted whatever any client chooses to draw.
+    ///
+    /// Says whether anything changed, so deleting the same message twice is harmless and announces
+    /// nothing the second time.
+    /// </summary>
+    public bool Delete(Guid deletedByUserId, DateTimeOffset deletedAtUtc)
+    {
+        if (IsDeleted)
+        {
+            return false;
+        }
+
+        CiphertextBase64 = string.Empty;
+        NonceBase64 = string.Empty;
+        DeletedAtUtc = deletedAtUtc;
+        DeletedByUserId = deletedByUserId;
+        return true;
+    }
 
     /// <summary>
     /// Replaces this message's ciphertext with a re-encrypted edit - only the sender is ever allowed to

@@ -877,7 +877,7 @@ public sealed class TaskEditorItemFormTests : OrbitTestContext
         RegisterApiClients(AnItem());
         var cut = RenderAskedToComeBackTo("/calendar");
 
-        ClickButtonSaying(cut, "Cancel");
+        ClickButtonSaying(cut, "Back");
 
         Assert.Equal("/calendar", WhereItEnded());
     }
