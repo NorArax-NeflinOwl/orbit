@@ -5,8 +5,14 @@
 Run the whole suite with:
 
 ```
-dotnet test Orbit.sln
+dotnet test Orbit.CI.slnf
 ```
+
+`Orbit.CI.slnf` is `Orbit.sln` minus `Orbit.Maui`: the solution carries the MAUI project so Visual
+Studio can open and debug it, but building it needs the MAUI workloads and adds nothing to the suite
+(the mobile logic under test lives in `Orbit.Mobile`, which the filter keeps). CI builds the same
+filter. A project added to `Orbit.sln` belongs in the filter too, unless it genuinely cannot build
+everywhere the suite runs.
 
 This also runs automatically in CI, but only on a push to `main` - nothing runs on a pull request or on `Coding` - so a
 branch is checked before it lands rather than after. Documentation-only branches are skipped, and a
@@ -134,22 +140,49 @@ node ci/verify-app-boots.mjs https://your-orbit-web-url/ 60000
 See [Future Plan — Testing gaps](future-plan.md#testing-gaps) for the reasoning behind each of these
 and what closing them would take:
 
-- The `Chat` page saying why a conversation cannot be opened (an account the API will not resolve),
-  which is checked by hand in a browser: the message on screen and the `Warning` it writes to this
-  browser's own log. Rendering that page under bUnit means standing up seventeen injected services and
-  the browser crypto behind them.
 - `notificationclick` in `wwwroot/service-worker.js` — whether clicking a notification reuses an open
   Orbit tab or opens a new one. Nothing outside the operating system can raise a real click on a system
   notification, and Chrome DevTools has no command for it either, so this one branch is checked by hand.
   The rest of that file, and of `pushNotifications.js`, is covered — see below.
-- The chat thread, whose interesting behaviour is timing: it is a polling component.
+- The `Warning` the `Chat` page writes to the browser's own log when an account will not resolve. What
+  the reader is *told* is covered (`ChatThreadTests`); the log line beside it is still read by hand.
 
-What used to be on this list and no longer is: push notifications end to end
+What used to be on this list and no longer is: the chat thread and the `Chat` page's own explanation
+for an account the API will not resolve (`ChatThreadTests` — see [The chat thread](#the-chat-thread)
+below), push notifications end to end
 (`ci/verify-push-notifications.mjs` and `PushNotificationManagerTests`, below), the `/api/auth/*` rate limiter
 (`AuthRateLimiterTests`, against the very policies `Program.cs` installs), sending through
 `SmtpEmailSender` and `VapidPushNotificationSender` (`SmtpEmailSenderTests` against a loopback SMTP
 listener, `VapidPushNotificationSenderTests` against a stub transport), and `wwwroot/js/e2eeChat.js` —
 see below. `Contacts` is covered by `ContactsGateTests` and `ContactInfoTests`.
+
+### The chat thread
+
+`ChatThreadTests` is the one test class in this project that **waits real seconds**, and it is worth
+knowing why before anybody tries to speed it up. The thread's interesting behaviour is its poll loop,
+which runs on a real one-second `PeriodicTimer`. There is no seam to shorten it, and adding one would
+mean the tests exercised the seam rather than what is deployed. About fourteen seconds of the suite is
+this class; the solution's wall clock does not change, because `dotnet test Orbit.sln` runs the three
+projects side by side and `Orbit.Mobile.Tests` takes longer than that on its own.
+
+Two things it does that are worth copying if this loop ever grows a sibling:
+
+- **It waits for the loop, not for the clock.** A tick is counted off the one thing the loop does
+  before deciding anything else - asking `./js/presence.js` whether the tab is in front of somebody -
+  so a tick that went on to fetch nothing counts the same. That matters because "nothing was polled" is
+  also true of a loop that never started, and a fixed delay cannot tell the two apart.
+- **It does its own waiting.** bUnit's `WaitForAssertion` re-checks when the component renders, and a
+  tick behind a hidden tab renders nothing at all - which is exactly the case being tested.
+
+What it covers: nothing is polled behind a hidden tab and something is when the tab is in front; the
+conversation list is read twice in ten ticks rather than on every one, while the messages are read on
+each; leaving the page and opening a group each stop the loop; and an account the API will not resolve
+is explained rather than opened as an empty thread. Each was checked by removing the behaviour from
+`Chat.razor` and watching its own test go red.
+
+What it deliberately leaves out: `OnChatAnnounced`, because `LiveUpdatesConnection` raises its events
+from inside itself and nothing outside can; and the encryption, which is checked in a real browser by
+`ci/verify-browser-crypto.mjs`.
 
 ### The diagrams
 
@@ -162,8 +195,28 @@ node ci/verify-diagrams.mjs
 ```
 
 No browser, unlike the two verifiers below - Mermaid's parser wants a DOM but not a renderer, and jsdom
-is enough. `.github/workflows/verify-diagrams.yml` runs it on merges to `main` that touch `info/uml/`;
+is enough. A machine with no node at all can still run it through Docker, and on a Windows checkout the
+CRLF line endings matter to it: both are written up in
+[info/uml/README.md](uml/README.md). `.github/workflows/verify-diagrams.yml` runs it on merges to `main` that touch `info/uml/`;
 see [info/uml/README.md](uml/README.md) for why that is a workflow of its own.
+
+### The links between the documents
+
+The same problem in a second place, and `DocumentationLinkTests` closes it: nothing fails when a
+cross-reference in `info/` goes stale, and a wrong one is still believed. A link to a section that has
+been renamed renders on GitHub as an ordinary link, lands the reader at the top of the page, and leaves
+them concluding the section does not exist. It runs in the ordinary suite - no browser, no npm - and
+checks two things: that every `.md` a document links to is there, and that every `#section` names a real
+heading, slugged the way GitHub slugs one.
+
+It found two the day it was written, both the same mistake: a link to "§6" for a section since
+renumbered to 7, and a link to a **bold paragraph** as though bold text made an anchor. It does not -
+only a heading does, which is the trap worth knowing about before writing the next one.
+
+It is deliberately narrow. It checks links between documents, **not** the code names the documents
+quote: those name things deliberately removed ("`GoToTaskList`, now gone") and things not built yet
+("`tests/Orbit.Maui.Tests` does not exist", which is the sentence saying so). A test refusing either
+would be one nobody could keep green honestly, and both classes were real when this was measured.
 
 ### What one API instance cannot prove: run these by hand
 
@@ -322,6 +375,60 @@ Set the JWT signing key via `dotnet user-secrets` too (see
 [Functionality — Authentication](functionality.md#authentication)); optionally configure SMTP and/or a
 VAPID key pair the same way if you want to actually see reminder emails and push notifications locally
 — see the two sections right below.
+
+### Debugging from Visual Studio: the four F5 modes
+
+Visual Studio's multi-project launch profiles (the dropdown next to the Start button) give one-keypress
+debugging of a client together with Orbit.Api. The profiles are shared through `Orbit.slnLaunch` beside
+the solution, which is committed — every machine gets the four modes with the clone. (A gitignored
+`Orbit.slnLaunch.user` beside it holds any per-machine edits Visual Studio makes on top.) If the
+dropdown does not show them, enable *Tools > Options > Preview Features > Enable Multi Launch
+Profiles* and reopen the solution. All four start Orbit.Api under the debugger on
+`https://localhost:7080` (plus `http://localhost:5080`, which is the address the Android emulator's
+`10.0.2.2:5080` reaches); the pairs differ only in which client starts beside it and which database
+the API opens:
+
+| Mode | Client | Database |
+| --- | --- | --- |
+| `Orbit.Web local` | Orbit.Web dev server (`https://localhost:7081`) | local Postgres (`ConnectionStrings:Orbit`) |
+| `Orbit.Web azure` | Orbit.Web dev server (`https://localhost:7081`) | Azure Postgres (`ConnectionStrings:OrbitAzure`) |
+| `Android local` | Orbit.Maui on the Android emulator | local Postgres (`ConnectionStrings:Orbit`) |
+| `Android azure` | Orbit.Maui on the Android emulator | Azure Postgres (`ConnectionStrings:OrbitAzure`) |
+
+The azure pair works through the `https (Azure DB)` launch profile, which sets
+`Database__ConnectionStringName=OrbitAzure` — `AddOrbitData` then reads that connection string instead
+of `Orbit`, so the Azure credentials sit in user secrets next to the local ones and never in a tracked
+file:
+
+```
+dotnet user-secrets set "ConnectionStrings:OrbitAzure" "Host=<server>.postgres.database.azure.com;Port=5432;Database=orbit;Username=orbit;Password=<password>;Ssl Mode=Require" --project src/Server/Orbit.Api
+```
+
+Two things the modes rely on:
+
+- The Android emulator reaches the host's `localhost:5080` through `10.0.2.2:5080`, which is the MAUI
+  debug build's baked-in default (see `OrbitApiSettings`); no extra configuration. A cold emulator is
+  booted by Visual Studio as part of deploying — pick the device once in Orbit.Maui's debug-target
+  dropdown and it sticks.
+- The Azure Postgres server's firewall allows Azure IPs only, so the azure modes additionally need a
+  firewall rule for your machine's public IP
+  (`az postgres flexible-server firewall-rule create -g Orbit --server-name <server> --name <your-name> --start-ip-address <your-ip> --end-ip-address <your-ip>`)
+  — and remember [the local database honesty rule](#keeping-the-local-database-honest): the azure modes
+  point a development server at production data, so they are for reproducing production-shaped issues,
+  not for routine work.
+- The azure profile also sets `Database__ApplyMigrations=false`, so a debug session never changes the
+  production schema. The flip side: a branch whose model is ahead of the deployed schema will fail its
+  queries against the missing columns — that is the intended failure, not a bug. (Without the flag the
+  first such session applies its branch's migrations to production on startup, which happened once,
+  2026-09-07, with the additive folders migration.)
+
+`Orbit.slnLaunch` holds four entries, each starting
+`src\Server\Orbit.Api\Orbit.Api.csproj` (`DebugTarget` `https` for local, `https (Azure DB)` for azure)
+plus either `src\Clients\Orbit.Web\Orbit.Web.csproj` (`DebugTarget` `https`) or
+`src\Clients\Orbit.Maui\Orbit.Maui.csproj` (no `DebugTarget`, so the project's own device selection
+applies). Editing the modes through *Configure Startup Projects… > Launch Profiles* updates the same
+list — keep the *Share profile* box ticked so the change lands in the committed file rather than a
+per-machine one.
 
 ### Configuring SMTP for local development
 

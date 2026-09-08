@@ -1,4 +1,5 @@
 using Orbit.Api.Tests.TestDoubles;
+using Orbit.Core.Abstractions;
 using Orbit.Core.Tasks;
 using Orbit.Core.Tasks.GetTaskLists;
 using Xunit;
@@ -74,5 +75,84 @@ public sealed class GetTaskListsQueryHandlerTests
 
         Assert.Equal(2, taskLists.Count);
         Assert.Contains(taskLists, taskList => taskList.Title == "Shared with me" && taskList.IsShared);
+    }
+
+    /// <summary>
+    /// A shared list arrives carrying the *recipient's* pin. The owner's says where it sits on the
+    /// owner's page, and handing that over unchanged put a list somebody else had pinned at the top of
+    /// this reader's - see TaskListAccessResolver, and the same pair of tests on the notes side.
+    /// </summary>
+    [Fact]
+    public async Task HandleAsync_hands_a_recipient_their_own_pin_rather_than_the_owners()
+    {
+        var taskRepository = new InMemoryTaskRepository();
+        var taskListShareRepository = new InMemoryTaskListShareRepository();
+        var handler = CreateHandler(taskRepository, taskListShareRepository);
+        var ownerId = Guid.NewGuid();
+        var recipientId = Guid.NewGuid();
+        var sharedList = TaskList.Create(ownerId, "Shared with me", [], isPinned: true);
+        await taskRepository.AddAsync(sharedList, CancellationToken.None);
+        var share = TaskListShare.Create(sharedList.Id, ownerId, recipientId);
+        share.MarkAccepted();
+        await taskListShareRepository.AddAsync(share, CancellationToken.None);
+
+        var taskLists = await handler.HandleAsync(new GetTaskListsQuery(recipientId), CancellationToken.None);
+
+        Assert.False(Assert.Single(taskLists).IsPinnedForCaller);
+    }
+
+    /// <summary>
+    /// And the recipient's own does reach them - stamped rather than stored, so it must not make the
+    /// list look freshly changed either: that timestamp is what the phone syncs against.
+    /// </summary>
+    [Fact]
+    public async Task HandleAsync_hands_a_recipient_their_own_pin_without_making_the_list_look_changed()
+    {
+        var taskRepository = new InMemoryTaskRepository();
+        var taskListShareRepository = new InMemoryTaskListShareRepository();
+        var handler = CreateHandler(taskRepository, taskListShareRepository);
+        var ownerId = Guid.NewGuid();
+        var recipientId = Guid.NewGuid();
+        var sharedList = TaskList.Create(ownerId, "Shared with me", []);
+        await taskRepository.AddAsync(sharedList, CancellationToken.None);
+        var updatedBefore = sharedList.UpdatedAtUtc;
+        var share = TaskListShare.Create(sharedList.Id, ownerId, recipientId);
+        share.MarkAccepted();
+        share.SetPinnedByRecipient(true);
+        await taskListShareRepository.AddAsync(share, CancellationToken.None);
+
+        var taskLists = await handler.HandleAsync(new GetTaskListsQuery(recipientId), CancellationToken.None);
+
+        var resolved = Assert.Single(taskLists);
+        Assert.True(resolved.IsPinnedForCaller);
+        Assert.Equal(updatedBefore, resolved.UpdatedAtUtc);
+    }
+
+    /// <summary>
+    /// And the stamp must not survive into a save - the notes side has the same test and the same
+    /// reason. The resolver feeds the write paths too (UpdateTaskListCommandHandler resolves before it
+    /// saves), so a recipient's pin written over the stored flag would be saved onto the owner's row the
+    /// next time that recipient changed anything.
+    /// </summary>
+    [Fact]
+    public async Task A_recipient_saving_a_shared_list_leaves_the_owners_pin_alone()
+    {
+        var taskRepository = new InMemoryTaskRepository();
+        var taskListShareRepository = new InMemoryTaskListShareRepository();
+        var resolver = new TaskListAccessResolver(
+            taskRepository, taskListShareRepository, new InMemoryUserRepository());
+        var ownerId = Guid.NewGuid();
+        var recipientId = Guid.NewGuid();
+        var sharedList = TaskList.Create(ownerId, "Shared with me", [], isPinned: true);
+        await taskRepository.AddAsync(sharedList, CancellationToken.None);
+        var share = TaskListShare.Create(sharedList.Id, ownerId, recipientId, ShareAccessLevel.CanEdit);
+        share.MarkAccepted();
+        await taskListShareRepository.AddAsync(share, CancellationToken.None);
+
+        var resolved = (await resolver.ResolveAsync(recipientId, sharedList.Id, CancellationToken.None))!;
+        resolved.Update("Shared with me", [], isGroup: false, isPrivate: false, null, ItemPriority.Normal);
+        await taskRepository.UpdateAsync(resolved, CancellationToken.None);
+
+        Assert.True((await taskRepository.GetByIdAsync(ownerId, sharedList.Id, CancellationToken.None))!.IsPinned);
     }
 }

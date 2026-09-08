@@ -23,14 +23,20 @@ import { JSDOM } from "jsdom";
 
 const directory = resolve(process.argv[2] ?? "info/uml");
 
+// \r? on both fences, because a checkout on Windows has CRLF and this found *nothing* there - every
+// diagram silently unread, on the one platform where somebody is most likely to be running it by hand
+// rather than in CI. The guard below is what turned that into a message rather than a green run, but
+// the message it gives ("a broken path") sends the reader looking in the wrong place, so the fix
+// belongs here rather than in the wording.
 const blocks = readdirSync(directory)
   .filter(file => file.endsWith(".md") && file !== "README.md")
   .flatMap(file =>
-    [...readFileSync(join(directory, file), "utf8").matchAll(/```mermaid\n([\s\S]*?)```/g)]
+    [...readFileSync(join(directory, file), "utf8").matchAll(/```mermaid\r?\n([\s\S]*?)```/g)]
       .map((match, index) => ({ name: `${file} #${index + 1}`, code: match[1] })));
 
 if (blocks.length === 0) {
-  console.error(`No diagrams found in ${directory}. That is almost certainly a broken path.`);
+  console.error(
+    `No diagrams found in ${directory}. Either the path is wrong, or the fences are not being matched.`);
   process.exit(1);
 }
 

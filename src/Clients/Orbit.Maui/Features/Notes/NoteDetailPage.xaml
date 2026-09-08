@@ -13,25 +13,22 @@
 
     <Grid RowDefinitions="Auto,*,Auto">
 
-    <Grid Grid.Row="1" RowDefinitions="Auto,Auto,Auto,Auto,Auto,*,Auto" Padding="16,16,16,12" RowSpacing="10">
+    <Grid Grid.Row="1" RowDefinitions="Auto,Auto,Auto,Auto,*,Auto" Padding="16,16,16,12" RowSpacing="10">
 
         <!-- The title is the note's own, so it is edited in place rather than shown twice. -->
         <Entry Grid.Row="0" Text="{Binding Title}" FontSize="20" FontAttributes="Bold" IsReadOnly="{Binding IsReadOnly}"
                Placeholder="{controls:Translate 'Untitled'}"
                ReturnType="Done" ReturnCommand="{Binding RenameCommand}" />
 
-        <Label Grid.Row="1" Text="{Binding ReadOnlyReason}" IsVisible="{Binding IsReadOnly}"
-               FontSize="12" LineBreakMode="WordWrap" Style="{StaticResource SubtleLabel}" />
-
-        <controls:CopyOffer Grid.Row="2" IsOffered="{Binding IsCopyOffered}"
+        <controls:CopyOffer Grid.Row="1" IsOffered="{Binding IsCopyOffered}"
                             TakeCommand="{Binding CopyForEditingCommand}"
                             DeclineCommand="{Binding DeclineCopyCommand}" />
 
-        <Label Grid.Row="3" Text="{Binding Status}" IsVisible="{Binding HasStatus}"
+        <Label Grid.Row="2" Text="{Binding Status}" IsVisible="{Binding HasStatus}"
                FontSize="12" LineBreakMode="WordWrap"
                TextColor="{DynamicResource Accent}" />
 
-        <VerticalStackLayout Grid.Row="4" Spacing="8" IsVisible="{Binding CanEdit}">
+        <VerticalStackLayout Grid.Row="3" Spacing="8" IsVisible="{Binding CanEdit}">
             <!-- How much this note matters. The phone's own dashboard filters by it and there was no
                  way to set one here - see PriorityChoice. -->
             <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
@@ -65,7 +62,7 @@
                     Command="{Binding AddChecklistItemCommand}" />
         </VerticalStackLayout>
 
-        <CollectionView Grid.Row="5" ItemsSource="{Binding Lines}">
+        <CollectionView Grid.Row="4" ItemsSource="{Binding Lines}">
 
             <CollectionView.EmptyView>
                 <Label Text="{controls:Translate 'Nothing written here yet.'}" Padding="0,12"
@@ -104,7 +101,7 @@
 
         <!-- The panel hides itself for a private note, as Orbit.Web's editor hides it: there is no
              readable copy on the server to hand anybody - see SharePanel.CanShare. -->
-        <controls:SharePanel Grid.Row="6" BindingContext="{Binding Share}" Margin="0,4" />
+        <controls:SharePanel Grid.Row="5" BindingContext="{Binding Share}" Margin="0,4" />
 
     </Grid>
 
@@ -112,6 +109,13 @@
              leaves the screen and what else can be done to the note - deleting it, and where its own
              copies are found again. -->
         <controls:EditorRail Grid.Row="2" CancelCommand="{Binding GoBackCommand}">
+            <controls:EditorRail.Extras>
+                <!-- Kept in view however far the note is scrolled, which is what the slot is for: why
+                     this note cannot be changed is the answer to every press that does nothing, and it
+                     used to sit above a screenful of lines. -->
+                <Label Text="{Binding ReadOnlyReason}" IsVisible="{Binding IsReadOnly}"
+                       LineBreakMode="WordWrap" Style="{StaticResource ItemCardFooter}" />
+            </controls:EditorRail.Extras>
             <controls:EditorRail.Child>
                 <controls:OverflowMenu Command="{Binding ShowNoteMenuCommand, Source={x:Reference Page}, x:DataType=notes:NoteDetailPage}" />
             </controls:EditorRail.Child>

@@ -70,11 +70,21 @@ public sealed record NotificationDestination(NotificationTarget Target, Guid? Id
         {
             ["chat", "groups", var groupId] => ForId(NotificationTarget.GroupConversation, groupId),
             ["chat", var userId] => ForId(NotificationTarget.Conversation, userId),
+            // Something shared, waiting to be taken up. The browser opens its own invitation page,
+            // which this app has no equivalent of - so it takes the last segment, which is who offered
+            // it, and opens the conversation: that is where this app's own Accept lives (see
+            // SharedItemAcceptance and the conversation screen), and where this notification landed
+            // before the path said anything more.
+            ["invitation", _, _, var sharerUserId] => ForId(NotificationTarget.Conversation, sharerUserId),
             ["tasks", var taskListId] => ForId(NotificationTarget.TaskList, taskListId),
             // The path names the event, but the app has no screen for one event on its own, so the id
             // is deliberately dropped rather than carried to somewhere that cannot use it.
             ["calendar", _] or ["calendar"] => new NotificationDestination(NotificationTarget.Calendar),
             ["inventory"] => new NotificationDestination(NotificationTarget.Inventory),
+            // The path names the storage now (InventoryExpiryPushContent), and the phone opens one by
+            // its *local* id rather than the server's - so the id is carried and the opener decides
+            // whether it can be used, the same shape the task list already has.
+            ["inventory", var inventoryId] => ForId(NotificationTarget.Inventory, inventoryId),
             ["copies"] => new NotificationDestination(NotificationTarget.CopyReview),
             // The id names which copy the notice is about, so answering that one can take its notice
             // away again. The window itself shows them all, so the opener has no use for it.

@@ -3,6 +3,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Orbit.Core.Calendar;
 using Orbit.Core.Diagnostics;
+using Orbit.Core.Folders;
 using Orbit.Core.Calendar.Reminders;
 using Orbit.Core.Chat;
 using Orbit.Core.Suggestions;
@@ -31,18 +32,26 @@ public static class OrbitDataServiceCollectionExtensions
     /// </summary>
     public static IServiceCollection AddOrbitData(this IServiceCollection services, IConfiguration configuration)
     {
-        var connectionString = configuration.GetConnectionString("Orbit")
+        // Which ConnectionStrings:* entry to read - "Orbit" unless the launch profile says otherwise.
+        // The "(Azure DB)" launch profiles set Database__ConnectionStringName=OrbitAzure, so one
+        // machine keeps both the local and the Azure connection in user secrets and F5 picks between
+        // them; the value itself never appears in a committed file.
+        var connectionStringName = configuration["Database:ConnectionStringName"] ?? "Orbit";
+        var connectionString = configuration.GetConnectionString(connectionStringName)
             ?? throw new InvalidOperationException(
-                "ConnectionStrings:Orbit is not configured. docker-compose.yml sets this from " +
-                "POSTGRES_PASSWORD (see .env.example) when running via Docker Compose. For local " +
-                "`dotnet run` against that same container, run `dotnet user-secrets set " +
-                "\"ConnectionStrings:Orbit\" \"Host=localhost;Port=5432;Database=orbit;Username=orbit;" +
-                "Password=<the POSTGRES_PASSWORD from your .env>\"`.");
+                $"ConnectionStrings:{connectionStringName} is not configured. docker-compose.yml sets " +
+                "ConnectionStrings:Orbit from POSTGRES_PASSWORD (see .env.example) when running via " +
+                "Docker Compose. For local `dotnet run`, run `dotnet user-secrets set " +
+                $"\"ConnectionStrings:{connectionStringName}\" \"Host=<host>;Port=5432;Database=orbit;" +
+                "Username=orbit;Password=<password>\"` in src/Server/Orbit.Api (localhost with the " +
+                "POSTGRES_PASSWORD from your .env for the local database; the Azure server's FQDN and " +
+                "password for OrbitAzure).");
 
         services.AddDbContext<OrbitDbContext>(options => options.UseNpgsql(connectionString));
         services.AddScoped<IUserPermissionRepository, UserPermissionRepository>();
         services.AddScoped<IPermissionCodeRepository, PermissionCodeRepository>();
         services.AddScoped<INoteRepository, NoteRepository>();
+        services.AddScoped<IFolderRepository, FolderRepository>();
         services.AddScoped<INoteShareRepository, NoteShareRepository>();
         services.AddScoped<ITaskRepository, TaskRepository>();
         services.AddScoped<ITaskListShareRepository, TaskListShareRepository>();

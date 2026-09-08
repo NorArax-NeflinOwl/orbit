@@ -25,12 +25,12 @@ public sealed class InventoryExpiryNotificationRepository : IInventoryExpiryNoti
                 _dbContext.Inventories.AsNoTracking(),
                 item => item.InventoryId,
                 inventory => inventory.Id,
-                (item, inventory) => new { Item = item, inventory.UserId })
+                (item, inventory) => new { Item = item, InventoryId = inventory.Id, inventory.UserId })
             .ToListAsync(cancellationToken);
 
         return rows
             .Select(row => new DueExpiryReminder(
-                row.Item.Id, row.UserId, row.Item.Name, row.Item.ExpiryDate!.Value,
+                row.Item.Id, row.InventoryId, row.UserId, row.Item.Name, row.Item.ExpiryDate!.Value,
                 Enum.Parse<NotificationChannel>(row.Item.ExpiryNotificationChannel, ignoreCase: true)))
             .ToList();
     }

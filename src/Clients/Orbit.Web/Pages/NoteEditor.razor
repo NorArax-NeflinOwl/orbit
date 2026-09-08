@@ -10,6 +10,7 @@
 @using Orbit.Core.Abstractions
 @using Orbit.Web.Services
 @inject NotesApiClient NotesApiClient
+@inject FolderState Folders
 @inject ChatApiClient ChatApiClient
 @inject EncryptedChatMessageSender EncryptedChatMessageSender
 @inject OrbitAuthenticationStateProvider AuthenticationStateProvider
@@ -83,6 +84,14 @@ else
                 </InputSelect>
                 <small>@T["Sorts this note against the others, and is what the dashboard's filter reads."]</small>
             </div>
+
+            @* Where it will be found. Only the owner files a note: one reached through a share sits in
+               its owner's folder on their page, and this reader's tabs are their own. *@
+            @if (!_isShared)
+            {
+                <FolderField Value="_formModel.FolderId" ValueChanged="folderId => _formModel.FolderId = folderId"
+                             Hint="@(T["Without one it is in Public, or in Private when it is sealed."])" />
+            }
 
             @* Only the owner may turn this on: a note reached through a share belongs to someone else,
                and "private" means private to its creator. *@
@@ -265,8 +274,10 @@ else
                         // rest after it. Not a checklist line - a title is not something to tick off.
                         Lines = [new NoteContentLineDto(note.Title, false, false), .. note.Content],
                         IsPrivate = note.IsPrivate,
-                        Priority = note.Priority
+                        Priority = note.Priority,
+                        FolderId = note.FolderId
                     };
+                    _savedFolderId = note.FolderId;
                     _isShared = note.IsShared;
                     _access = SharedItemAccess.For(note.IsShared, note.AccessLevel);
                     _isSharedReadOnly = note.IsShared && !_access.CanEdit;
@@ -300,6 +311,12 @@ else
         else
         {
             Logger.LogInformation("Note editor opened for a new note");
+            // Made where the reader is standing: somebody who pressed the plus while reading their
+            // "Work" tab means this note to be in Work, and having to file it afterwards is a step that
+            // only ever gets skipped. The built-in tabs file nothing - which one a note is in follows
+            // from what it is, so there is nothing to carry over from them.
+            await Folders.EnsureLoadedAsync();
+            _formModel.FolderId = Folders.Chosen.FolderId;
         }
 
         _isLoading = false;
@@ -312,6 +329,9 @@ else
     private bool HasSomethingToSave
         => _formModel.IsPrivate
             || _formModel.Lines.Any(line => !string.IsNullOrWhiteSpace(line.Text));
+
+    /// <summary>The folder the note was in when it was read, so a save knows whether it has been moved.</summary>
+    private Guid? _savedFolderId;
 
     private async Task SaveAsync()
     {
@@ -327,7 +347,9 @@ else
         {
             if (IsNewNote)
             {
-                var newNoteId = await NotesApiClient.CreateNoteAsync(new CreateNoteRequest(_formModel.Title, _formModel.Content, _formModel.IsPrivate, Priority: _formModel.Priority));
+                var newNoteId = await NotesApiClient.CreateNoteAsync(new CreateNoteRequest(
+                    _formModel.Title, _formModel.Content, _formModel.IsPrivate, Priority: _formModel.Priority,
+                    FolderId: _formModel.FolderId));
                 Logger.LogInformation("Note {NoteId} created", newNoteId);
             }
             else
@@ -354,6 +376,14 @@ else
                 }
 
                 Logger.LogInformation("Note {NoteId} updated", Id);
+                // Filing travels separately from the note itself - see MoveToFolderRequest - so it is
+                // sent only when it actually changed, rather than on every save.
+                if (_formModel.FolderId != _savedFolderId)
+                {
+                    await NotesApiClient.MoveToFolderAsync(Id.Value, _formModel.FolderId);
+                    _savedFolderId = _formModel.FolderId;
+                }
+
                 await ReleaseLockAsync(Id.Value);
             }
         }
@@ -553,5 +583,8 @@ else
 
         /// <summary>ItemPriority by name, the way the API takes it - see NoteDto.Priority.</summary>
         public string Priority { get; set; } = "Normal";
+
+        /// <summary>The folder it is filed under, or null for none - see NoteDto.FolderId.</summary>
+        public Guid? FolderId { get; set; }
     }
 }

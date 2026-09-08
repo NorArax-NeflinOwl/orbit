@@ -20,6 +20,7 @@
 @using Orbit.Core.Suggestions
 @using Orbit.Web.Services
 @inject TasksApiClient TasksApiClient
+@inject FolderState Folders
 @inject TaskListDeletion TaskListDeletion
 @inject NameSuggestionsApiClient NameSuggestionsApiClient
 @inject InventoryApiClient InventoryApiClient
@@ -363,6 +364,23 @@ else
                         {
                             <span class="field-break"></span>
                             <p class="error">@_moveErrorMessage</p>
+                            @* The way round it, offered where the refusal is read rather than left for
+                               the reader to work out: an entry on a shared list cannot leave it, but
+                               nothing stops a second one saying the same thing on a list of their own.
+                               See CopyTaskItemCommand for what the copy carries. *@
+                            @if (_copyTargetTaskListId is { } copyTargetTaskListId)
+                            {
+                                <span class="field-break"></span>
+                                <button type="button" class="btn-secondary" disabled="@_isMovingItem"
+                                        @onclick="() => CopyItemAsync(movedItemId, copyTargetTaskListId)">
+                                    @T.Format("Copy it to \"{0}\" instead", Written(TitleOfTaskList(copyTargetTaskListId)))
+                                </button>
+                            }
+                        }
+                        @if (_copyMessage is not null && item.Id is { } copiedItemId && _moveErrorMessageForItemId == copiedItemId)
+                        {
+                            <span class="field-break"></span>
+                            <p class="info">@_copyMessage</p>
                         }
                         @* Last, and behind the toggle with everything else: taking an entry off the list
                            is not something to have one click away from the box somebody is typing in. *@
@@ -432,6 +450,13 @@ else
                 </select>
                 <small>@T["An inventory entry then describes a product to put on that shelf."]</small>
             </div>
+        }
+
+        @* Where it will be found. Only the owner files a list - see NoteEditor, which says the same. *@
+        @if (!_isShared)
+        {
+            <FolderField Value="_formModel.FolderId" ValueChanged="folderId => _formModel.FolderId = folderId"
+                         Hint="@(T["Without one it is in Public, or in Private when it is sealed. A list with everything ticked off moves to Finished on its own."])" />
         }
 
         <div class="field">
@@ -706,6 +731,15 @@ else
     private bool _isMovingItem;
     private string? _moveErrorMessage;
     private Guid? _moveErrorMessageForItemId;
+
+    /// <summary>
+    /// The list a refused move was aimed at, while a copy there is still on offer - see MoveItemAsync.
+    /// Null whenever there is nothing to offer, which is every refusal a copy could not answer either.
+    /// </summary>
+    private Guid? _copyTargetTaskListId;
+
+    /// <summary>What to say after a copy was made, beside the entry it was made from.</summary>
+    private string? _copyMessage;
     private TaskListFormModel _formModel = new();
 
     /// <summary>The row being dragged to a new place, while one is - see RowArrangement.</summary>
@@ -761,6 +795,67 @@ else
         => item.LinkedTaskListIds.Count == 0
             ? _moveTargetTaskLists
             : [.. _moveTargetTaskLists.Where(candidate => !item.LinkedTaskListIds.Contains(candidate.Id))];
+
+    /// <summary>
+    /// Whether a copy into that list could work where the move did not. Asked here rather than of the
+    /// server, from what this page already holds: the one refusal a copy cannot answer is a private list
+    /// at either end, since a sealed list keeps nothing readable for the server to copy from or into
+    /// (see CopyTaskItemCommandHandler). Offering a copy that would be refused in turn is worse than
+    /// not offering one.
+    /// </summary>
+    private bool ACopyCouldGoTo(Guid targetTaskListId)
+        => !_formModel.IsPrivate
+            && _moveTargetTaskLists.FirstOrDefault(candidate => candidate.Id == targetTaskListId) is { IsPrivate: false };
+
+    /// <summary>
+    /// Writes a second entry saying the same thing onto the list the move was aimed at, and leaves this
+    /// one where it is - what is offered when an entry cannot leave a list it is shared on. The entry
+    /// stays on screen, because it is still on this list.
+    /// </summary>
+    private async Task CopyItemAsync(Guid itemId, Guid targetTaskListId)
+    {
+        if (Id is not { } sourceTaskListId)
+        {
+            return;
+        }
+
+        Logger.LogInformation(
+            "User clicked 'Copy it instead' for task item {ItemId} into task list {TargetTaskListId}", itemId, targetTaskListId);
+        _isMovingItem = true;
+        try
+        {
+            var outcome = await TasksApiClient.CopyTaskItemAsync(sourceTaskListId, itemId, targetTaskListId);
+            if (outcome.Kind != EditOutcomeKind.Success)
+            {
+                _moveErrorMessage = outcome.Kind switch
+                {
+                    EditOutcomeKind.Locked => T.Format("Can't copy this entry right now - {0} is editing that list.", outcome.LockedByUserName),
+                    EditOutcomeKind.Refused => outcome.Reason,
+                    _ => T["Failed to copy this entry. Try again."]
+                };
+                return;
+            }
+
+            _moveErrorMessage = null;
+            _copyTargetTaskListId = null;
+            _copyMessage = T.Format(
+                "Copied to \"{0}\". This one stays here, and the two are separate from now on.",
+                Written(TitleOfTaskList(targetTaskListId)));
+        }
+        catch (HttpRequestException exception) when (exception.StatusCode == HttpStatusCode.Unauthorized)
+        {
+            NavigationManager.NavigateTo("/login");
+        }
+        catch (HttpRequestException exception)
+        {
+            Logger.LogError(exception, "Failed to copy task item {ItemId} to task list {TargetTaskListId}", itemId, targetTaskListId);
+            _moveErrorMessage = T["Failed to copy this entry. Try again."];
+        }
+        finally
+        {
+            _isMovingItem = false;
+        }
+    }
 
     /// <summary>
     /// What an entry is filed under, as the one box shows it. An inventory entry saved while the product
@@ -911,6 +1006,7 @@ else
                         IsGroup = taskList.IsGroup,
                         IsPrivate = taskList.IsPrivate,
                         Priority = taskList.Priority,
+                        FolderId = taskList.FolderId,
                         Items = taskList.Items
                             .Select(item => new TaskItemFormModel
                             {
@@ -947,6 +1043,7 @@ else
                             })
                             .ToList()
                     };
+                    _savedFolderId = taskList.FolderId;
                     _isShared = taskList.IsShared;
                     _access = SharedItemAccess.For(taskList.IsShared, taskList.AccessLevel);
                     _isSharedReadOnly = taskList.IsShared && !_access.CanEdit;
@@ -970,6 +1067,9 @@ else
             else
             {
                 Logger.LogInformation("Task list editor opened for a new task list");
+                // Made where the reader is standing - see NoteEditor, which does the same and says why.
+                await Folders.EnsureLoadedAsync();
+                _formModel.FolderId = Folders.Chosen.FolderId;
                 StartFromTheChosenPlaceIfThereIsOne();
             }
         }
@@ -1810,20 +1910,29 @@ else
 
         _isMovingItem = true;
         _moveErrorMessage = null;
+        _copyTargetTaskListId = null;
+        _copyMessage = null;
         try
         {
             var outcome = await TasksApiClient.MoveTaskItemAsync(sourceTaskListId, itemId, targetTaskListId);
             if (outcome.Kind != EditOutcomeKind.Success)
             {
-                // A refusal carries its own reason - "items can't be moved into a private task list"
-                // is the answer, and "try again" is not.
+                // The one refusal there is a way round: the entry is shared along with the whole list
+                // it sits on, so it cannot leave - but a copy on a list of this reader's own can. Said
+                // in the reader's own language rather than passed through from the server, which
+                // answers in English; every other refusal still carries the server's own reason, which
+                // is the answer where "try again" is not.
+                var aCopyIsOnOffer = outcome.Kind == EditOutcomeKind.Refused && ACopyCouldGoTo(targetTaskListId);
                 _moveErrorMessage = outcome.Kind switch
                 {
                     EditOutcomeKind.Locked => T.Format("Can't move this item right now - {0} is editing one of the lists.", outcome.LockedByUserName),
+                    EditOutcomeKind.Refused when aCopyIsOnOffer =>
+                        T["This entry is shared along with the whole list it is on, so it can't be moved out of it."],
                     EditOutcomeKind.Refused => outcome.Reason,
                     _ => T["Failed to move this item. Try again."]
                 };
                 _moveErrorMessageForItemId = itemId;
+                _copyTargetTaskListId = aCopyIsOnOffer ? targetTaskListId : null;
                 return;
             }
 
@@ -1895,6 +2004,9 @@ else
         return item.Product.ToTaskItemProduct();
     }
 
+    /// <summary>The folder the list was in when it was read, so a save knows whether it has been moved.</summary>
+    private Guid? _savedFolderId;
+
     private async Task SaveAsync()
     {
         Logger.LogInformation(
@@ -1925,7 +2037,8 @@ else
             {
                 var newTaskListId = await TasksApiClient.CreateTaskListAsync(new CreateTaskRequest(
                     _formModel.Title, items, _formModel.IsGroup, _formModel.IsPrivate,
-                    Priority: _formModel.Priority, Description: _formModel.Description));
+                    Priority: _formModel.Priority, Description: _formModel.Description,
+                    FolderId: _formModel.FolderId));
                 Logger.LogInformation("Task list {TaskListId} created", newTaskListId);
             }
             else
@@ -1955,6 +2068,14 @@ else
                 }
 
                 Logger.LogInformation("Task list {TaskListId} updated", Id);
+
+                // Filing travels separately from the list itself - see MoveToFolderRequest - so it is
+                // sent only when it actually changed.
+                if (_formModel.FolderId != _savedFolderId)
+                {
+                    await TasksApiClient.MoveToFolderAsync(Id.Value, _formModel.FolderId);
+                    _savedFolderId = _formModel.FolderId;
+                }
 
                 // The shelf second, and the list's own rebuild with it: editing a product from here is
                 // only useful if the change reaches the inventory, and a corrected amount can settle an
@@ -2183,6 +2304,10 @@ else
 
         /// <summary>Encrypt this list so only its owner can read it - see PrivateContentSealer.</summary>
         public bool IsPrivate { get; set; }
+
+        /// <summary>The folder it is filed under, or null for none - see TaskDto.FolderId.</summary>
+        public Guid? FolderId { get; set; }
+
         public List<TaskItemFormModel> Items { get; set; } = [];
     }
 

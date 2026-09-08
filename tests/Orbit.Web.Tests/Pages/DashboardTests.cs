@@ -16,6 +16,7 @@ using Orbit.Contracts.Notes;
 using Orbit.Contracts.Notifications;
 using Orbit.Contracts.Tasks;
 using Orbit.Web.Pages;
+using Orbit.Core.Folders;
 using Orbit.Web.Services;
 using Orbit.Web.Tests.TestDoubles;
 using Orbit.Web.Tests;
@@ -725,16 +726,21 @@ public sealed class DashboardTests : OrbitTestContext
         Assert.Contains("Shopping", tasksColumn);
     }
 
+    /// <summary>
+    /// A finished list is in Finished, and that is where it is read - pinned or not. Pinning orders cards
+    /// within a tab rather than lifting one out of the tab it belongs to; before folders it was the only
+    /// way to keep a finished list in front of you, and Done is now the place that keeps all of them.
+    /// It is still drawn as what it is rather than looking like work still to do.
+    /// </summary>
     [Fact]
-    public void A_finished_task_list_that_was_pinned_stays_and_is_struck_through()
+    public void A_finished_task_list_is_read_under_Done_and_is_struck_through()
     {
         RegisterChatApiClient([]);
         RegisterTasksApiClient([Finished(TaskList("Moving out")) with { IsPinned = true }]);
+        Services.GetRequiredService<FolderState>().Choose(FolderKey.Of(BuiltInFolder.Finished));
 
         var cut = RenderComponent<Dashboard>();
 
-        // Pinning is the way to say "keep this in front of me anyway" - so it stays, drawn as what it
-        // is rather than looking like work still to do.
         var row = FindColumn(cut, "Tasks").QuerySelector(".list-row");
         Assert.NotNull(row);
         Assert.Contains("Moving out", row!.TextContent);
@@ -923,6 +929,29 @@ public sealed class DashboardTests : OrbitTestContext
         Assert.Contains("Shopping: Milk", FindColumn(cut, "Upcoming").TextContent);
     }
 
+    /// <summary>
+    /// And the row leads to the entry it names. It used to open the list instead, so a row saying
+    /// "Shopping: Milk" landed on Shopping - the one press on this page that opened something other
+    /// than the thing it was pressed on.
+    /// </summary>
+    [Fact]
+    public void Pressing_a_deadline_on_upcoming_opens_the_entry_it_names()
+    {
+        RegisterChatApiClient([]);
+        RegisterEmptyNotesApiClient();
+        RegisterEmptyCalendarApiClient();
+        var taskList = TaskList("Shopping", DueItem("Milk", DateTimeOffset.UtcNow.AddDays(1)));
+        RegisterTasksApiClient([taskList]);
+        var navigationManager = Services.GetRequiredService<NavigationManager>();
+        var cut = RenderComponent<Dashboard>();
+
+        FindColumn(cut, "Upcoming").QuerySelectorAll(".list-row-button")
+            .First(row => row.TextContent.Contains("Shopping: Milk"))
+            .Click();
+
+        Assert.Contains($"/tasks/{taskList.Id}/items/{taskList.Items[0].Id}", navigationManager.Uri);
+    }
+
     [Fact]
     public void A_deadline_already_ticked_off_is_not_upcoming()
     {
@@ -935,6 +964,49 @@ public sealed class DashboardTests : OrbitTestContext
 
         Assert.DoesNotContain(cut.FindAll(".item-card"), card => card.QuerySelector(".item-card-name")!.TextContent == "Upcoming");
     }
+
+    /// <summary>
+    /// An appointment a task list raised is finished when that entry is ticked off - the entry is where
+    /// the work is, and the event is only when it happens. This card was listing appointments somebody
+    /// had already crossed off, which is exactly what "what is coming up" must not show; the calendar's
+    /// own list has left them out since 2026-09-06.
+    /// </summary>
+    [Fact]
+    public void An_appointment_whose_entry_is_ticked_off_is_not_upcoming()
+    {
+        var appointment = Event("Dentist", DateTimeOffset.UtcNow.AddDays(1));
+        RegisterChatApiClient([]);
+        RegisterEmptyNotesApiClient();
+        RegisterCalendarApiClient([appointment]);
+        RegisterTasksApiClient([TaskList("Health", EntryFor(appointment.Id, isCompleted: true))]);
+
+        var cut = RenderComponent<Dashboard>();
+
+        Assert.DoesNotContain(cut.FindAll(".item-card"), card => card.QuerySelector(".item-card-name")!.TextContent == "Upcoming");
+    }
+
+    /// <summary>The same appointment, not yet ticked off, is still what is coming up.</summary>
+    [Fact]
+    public void An_appointment_whose_entry_is_still_open_is_upcoming()
+    {
+        var appointment = Event("Dentist", DateTimeOffset.UtcNow.AddDays(1));
+        RegisterChatApiClient([]);
+        RegisterEmptyNotesApiClient();
+        RegisterCalendarApiClient([appointment]);
+        RegisterTasksApiClient([TaskList("Health", EntryFor(appointment.Id, isCompleted: false))]);
+
+        var cut = RenderComponent<Dashboard>();
+
+        Assert.Contains("Dentist", FindColumn(cut, "Upcoming").TextContent);
+    }
+
+    /// <summary>An entry that stands for an appointment - what the task editor writes for a Calendar row.</summary>
+    private static TaskItemDto EntryFor(Guid calendarEventId, bool isCompleted)
+        => new(
+            Guid.NewGuid(), "Dentist", DueDateUtc: null, isCompleted, LinkedTaskListId: null,
+            OverdueNotificationChannel: "None", RemindDaily: false,
+            DailyReminderNotificationChannel: "None", DailyReminderTimeOfDay: new TimeOnly(9, 0),
+            Kind: "Calendar", Location: "", LinkedCalendarEventId: calendarEventId);
 
     [Fact]
     public void A_row_that_matters_more_than_the_rest_says_so()

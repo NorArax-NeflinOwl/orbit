@@ -1,0 +1,220 @@
+@page "/invitation/{Kind}/{ShareId:guid}/{SharedByUserId:guid}"
+@attribute [Authorize]
+@using Orbit.Contracts.Sharing
+@using Orbit.Core.Notifications
+@using Orbit.Web.Services
+@inject SharesApiClient SharesApiClient
+@inject NotesApiClient NotesApiClient
+@inject TasksApiClient TasksApiClient
+@inject CalendarApiClient CalendarApiClient
+@inject InventoryApiClient InventoryApiClient
+@inject UsersApiClient UsersApiClient
+@inject NavigationManager NavigationManager
+@inject ILogger<ShareInvitation> Logger
+@inject Translations T
+
+<PageTitle>@T["Orbit — Shared with you"]</PageTitle>
+
+@* Where a notification about something shared leads. The offer is the server's - it knows who made it
+   and what it is for - so this page can show it whatever this browser holds: unlike the same offer in
+   the conversation, it needs no key, which means an invitation can be taken up on a device that has
+   never unlocked chat. Accepting is what makes the thing the reader's; until then it is not theirs to
+   open, which is why this page exists at all rather than the notification pointing at the item. *@
+<PageHeader>
+    <Title>@T["Shared with you"]</Title>
+</PageHeader>
+
+<div class="prose-page">
+    <div class="card">
+        @if (_isLoading)
+        {
+            <p>@T["Loading…"]</p>
+        }
+        else if (_kind is not { } kind)
+        {
+            @* A path this build does not know - an older client against a newer server. It says so
+               rather than showing an empty card. *@
+            <p>@T["This invitation is for something this version of Orbit doesn't know about."]</p>
+        }
+        else if (_state == OfferState.Gone)
+        {
+            <p>@T["This invitation is no longer there. Whoever sent it may have taken it back."]</p>
+            <a class="btn-secondary" href="@SharedItemInvitation.SectionFor(kind)">@T["Go to it anyway"]</a>
+        }
+        else if (_state == OfferState.Accepted)
+        {
+            <p>@T.Format("{0} is yours already - you took this up before.", DescribeKind(kind))</p>
+            <a class="btn-primary" href="@WhereItIs(kind)">@T["Open it"]</a>
+        }
+        else
+        {
+            <p>@Offered(kind)</p>
+            <p class="page-subtitle">@T["Until you take it up it stays theirs - accepting is what puts it on your own pages."]</p>
+            @if (_errorMessage is not null)
+            {
+                <p class="error">@_errorMessage</p>
+            }
+            <div class="form-actions">
+                <button type="button" class="btn-primary" disabled="@_isAccepting" @onclick="AcceptAsync">@T["Accept"]</button>
+                @* The way out, named for what it does: nothing is refused or thrown away, the offer
+                   simply stays where it is. *@
+                <button type="button" class="btn-secondary" disabled="@_isAccepting" @onclick="LeaveItForNow">@T["Not now"]</button>
+            </div>
+        }
+    </div>
+</div>
+
+@code {
+    /// <summary>Which kind of thing this is about, as SharedItemNotifier writes it into the path.</summary>
+    [Parameter] public string Kind { get; set; } = string.Empty;
+
+    [Parameter] public Guid ShareId { get; set; }
+
+    /// <summary>
+    /// Who offered it. In the path rather than looked up from the share, because the server's own share
+    /// endpoints answer only "has this been accepted" - and because the phone reads the same path and
+    /// takes this segment to open the conversation, which is where its own Accept lives.
+    /// </summary>
+    [Parameter] public Guid SharedByUserId { get; set; }
+
+    private enum OfferState
+    {
+        /// <summary>Open, and waiting to be taken up.</summary>
+        Waiting,
+
+        Accepted,
+
+        /// <summary>No such offer for this reader - withdrawn, or never theirs.</summary>
+        Gone
+    }
+
+    private bool _isLoading = true;
+    private bool _isAccepting;
+    private OfferState _state = OfferState.Waiting;
+    private SharedItemKind? _kind;
+    private string _sharedByName = string.Empty;
+    private string? _errorMessage;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        _isLoading = true;
+        _kind = SharedItemPath.KindOf(Kind);
+        if (_kind is not { } kind)
+        {
+            _isLoading = false;
+            return;
+        }
+
+        try
+        {
+            // "Somebody" rather than a failure: whose offer it is matters less than whether it is still
+            // open, and an account that has since been deleted must not take the offer down with it.
+            _sharedByName = (await UsersApiClient.GetUserAsync(SharedByUserId))?.DisplayName ?? T["Somebody"];
+            _offer = await SharesApiClient.GetOfferAsync(kind, ShareId);
+            _state = _offer is null
+                ? OfferState.Gone
+                : _offer.IsAccepted ? OfferState.Accepted : OfferState.Waiting;
+        }
+        catch (HttpRequestException exception) when (exception.StatusCode == HttpStatusCode.Unauthorized)
+        {
+            NavigationManager.NavigateTo("/login");
+            return;
+        }
+        catch (HttpRequestException exception)
+        {
+            Logger.LogWarning(exception, "Could not read the share offer {ShareId}", ShareId);
+            _errorMessage = T["Couldn't read this invitation. Try again."];
+        }
+
+        _isLoading = false;
+    }
+
+    /// <summary>
+    /// What was offered, once it has been read. Null while loading, and for an offer that is not this
+    /// reader's to take up - withdrawn, or never theirs - which the server deliberately does not tell
+    /// apart, since answering differently would say whether a share id exists.
+    /// </summary>
+    private ShareOfferDto? _offer;
+
+    /// <summary>
+    /// Who offered what, by name where the thing still has one. Something deleted since it was offered
+    /// comes back with an empty name and the offer still standing, so the sentence falls back to what
+    /// kind of thing it was rather than to a blank.
+    /// </summary>
+    private string Offered(SharedItemKind kind)
+        => _offer is { ItemTitle.Length: > 0 } named
+            ? T.Format("{0} shared \"{1}\" with you.", _sharedByName, named.ItemTitle)
+            : T.Format("{0} shared {1} with you.", _sharedByName, DescribeKind(kind));
+
+    /// <summary>
+    /// Where the thing itself is read, once it is the reader's. Falls back to the list it appears in
+    /// for an offer whose item is not known - which is what "no longer there" looks like.
+    /// </summary>
+    private string WhereItIs(SharedItemKind kind)
+        => _offer is { } offer
+            ? $"{SharedItemInvitation.SectionFor(kind)}/{offer.ItemId}"
+            : SharedItemInvitation.SectionFor(kind);
+
+    /// <summary>
+    /// Takes it up, and goes where it now is. The same four endpoints the conversation's own Accept
+    /// calls - what differs is only that this one needs no key to have read the offer.
+    /// </summary>
+    private async Task AcceptAsync()
+    {
+        if (_kind is not { } kind)
+        {
+            return;
+        }
+
+        _isAccepting = true;
+        _errorMessage = null;
+        try
+        {
+            var accepted = kind switch
+            {
+                SharedItemKind.Note => await NotesApiClient.AcceptNoteShareAsync(ShareId),
+                SharedItemKind.TaskList => await TasksApiClient.AcceptTaskListShareAsync(ShareId),
+                SharedItemKind.CalendarEvent => await CalendarApiClient.AcceptCalendarEventShareAsync(ShareId),
+                _ => await InventoryApiClient.AcceptInventoryShareAsync(ShareId)
+            };
+
+            if (!accepted)
+            {
+                _state = OfferState.Gone;
+                return;
+            }
+
+            Logger.LogInformation("User accepted a {Kind} share from the invitation page", kind);
+            // The thing itself, not the list it is now in: the reader pressed a notification about one
+            // particular thing, and finishing on a page of everything makes them look for it again.
+            NavigationManager.NavigateTo(WhereItIs(kind));
+        }
+        catch (HttpRequestException exception) when (exception.StatusCode == HttpStatusCode.Unauthorized)
+        {
+            NavigationManager.NavigateTo("/login");
+        }
+        catch (HttpRequestException exception)
+        {
+            Logger.LogError(exception, "Failed to accept the share {ShareId}", ShareId);
+            _errorMessage = T["Couldn't accept this invitation. Try again."];
+        }
+        finally
+        {
+            _isAccepting = false;
+        }
+    }
+
+    /// <summary>
+    /// Leaves the offer where it is and goes back to the dashboard. Nothing is refused: the invitation
+    /// stays in the conversation and in the feed, so "not now" is not "never".
+    /// </summary>
+    private void LeaveItForNow() => NavigationManager.NavigateTo("/");
+
+    private string DescribeKind(SharedItemKind kind) => kind switch
+    {
+        SharedItemKind.Note => T["a note"],
+        SharedItemKind.TaskList => T["a task list"],
+        SharedItemKind.CalendarEvent => T["an event"],
+        _ => T["an inventory"]
+    };
+}

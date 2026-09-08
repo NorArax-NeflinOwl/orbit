@@ -101,8 +101,10 @@ Two things it does that the API deliberately has no part in:
 
 The mobile client, split in two. `Orbit.Mobile` (`net10.0`) holds everything decided without a device
 — view models, the local SQLite store, the outbox and sync spine, the crypto — and is in `Orbit.sln`,
-so tests reach it. `Orbit.Maui` (`net10.0-android`, `net10.0-ios`) holds the two app heads and is
-deliberately outside the solution: CI runs on `ubuntu-latest`, which can build neither.
+so tests reach it. `Orbit.Maui` (`net10.0-android`, `net10.0-ios`) holds the two app heads. It sits in
+`Orbit.sln` so Visual Studio can open and debug it, but deliberately outside `Orbit.CI.slnf`, the
+solution filter CI and the local suite build: `ubuntu-latest` can build neither head, and the suite
+needs neither.
 
 It encrypts the same things Orbit.Web does, against the same wire format — a message sealed in one
 opens in the other. See [Orbit.Maui — Plan](orbit-maui-plan.md) and
@@ -211,10 +213,10 @@ those pushes synchronised - the same suite three and four times for one change -
 are capped at 2000 a month, which that arrangement spent in four days. So the suite now runs at the
 one point where it gates something: the merge of the integration pull request, the last step before
 Azure is paid. It ignores `info/**` and `**/*.md`. Everything on the way to `main` is checked on the
-developer's machine (`dotnet test Orbit.sln` before opening a pull request); a broken merge into
+developer's machine (`dotnet test Orbit.CI.slnf` before opening a pull request); a broken merge into
 `Coding` surfaces at the next push to `main`, before anything deploys. Its
 `test` job restores, builds (`Release` configuration), and runs the full test suite
-(`dotnet test Orbit.sln`) on `ubuntu-latest` with .NET SDK 10, then runs the two harnesses covering the
+(`dotnet test Orbit.CI.slnf`) on `ubuntu-latest` with .NET SDK 10, then runs the two harnesses covering the
 parts of the client no .NET test can reach, since bUnit executes none of the browser APIs they are made
 of: `ci/verify-browser-crypto.mjs` for `wwwroot/js/e2eeChat.js` (Web Crypto and IndexedDB) and
 `ci/verify-push-notifications.mjs` for `wwwroot/service-worker.js` and `wwwroot/js/pushNotifications.js`
@@ -223,7 +225,7 @@ later job depends on this one, so a failure here stops the deploy before an imag
 
 **The pull request trigger was tried twice and removed twice**, both times because every minute is
 billed on a private repository and a day of ordinary work exhausted the allowance, stopping Actions
-outright. The check a branch gets instead is `dotnet test Orbit.sln` on the machine that wrote it.
+outright. The check a branch gets instead is `dotnet test Orbit.CI.slnf` on the machine that wrote it.
 
 **The diagrams are parsed by `.github/workflows/verify-diagrams.yml`**, filtered to `info/uml/**`. A
 Mermaid block that will not parse renders on GitHub as an error box rather than as nothing, and nothing
@@ -232,7 +234,7 @@ else in the repository reads these files. It is separate from the suite because 
 not stop a deploy. It parses under jsdom rather than a browser, so a run costs no download.
 
 **The Android head is compiled by `.github/workflows/android-head.yml`**, a second workflow on the same
-trigger. `Orbit.sln` cannot carry a MAUI head, so the suite above never touches it, and until this
+trigger. `Orbit.CI.slnf` leaves the MAUI head out, so the suite above never touches it, and until this
 existed nothing checked that the phone still compiled - the two heads could drift apart and only a
 developer building one by hand would find out. It builds `Release`, which is the configuration that
 runs the linker, and it builds without `google-services.json` or `AndroidManifestOverlay.xml`, since

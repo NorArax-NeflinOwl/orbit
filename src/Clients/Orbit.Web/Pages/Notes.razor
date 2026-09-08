@@ -5,7 +5,7 @@
 @using Orbit.Core.Abstractions
 @using Orbit.Web.Services
 @inject NotesApiClient NotesApiClient
-@inject SharedItemPins SharedPins
+@inject FolderState Folders
 @inject NavigationManager NavigationManager
 @inject IJSRuntime JSRuntime
 @inject ILogger<Notes> Logger
@@ -33,28 +33,28 @@
     <p class="info">@_deleteMessage</p>
 }
 
+@* Which folder is being read, and the same row of tabs the task lists and the dashboard carry - a
+   folder is a place rather than one page's filter, so stepping between the three keeps it. *@
+<FolderTabs CountIn="CountIn" />
+
 <ObjectList IsLoading="_notes is null" IsEmpty="_notes is { Count: 0 }" EmptyMessage="@T["No notes."]">
+    @if (_notes is { Count: > 0 } && VisibleNotes.Count == 0)
+    {
+        <p class="empty-hint">@T["Nothing in this folder."]</p>
+    }
     <div class="item-card-list">
-        @foreach (var note in Ordered(_notes!))
+        @foreach (var note in Ordered(VisibleNotes))
         {
             <ItemCard Name="@NameOf(note)"
                       OnNameSelected="() => OpenNote(note.Id)"
                       OnBodySelected="() => OpenNote(note.Id)"
-                      ExtraClass="@(IsPinned(note) ? "item-card-pinned" : null)">
-                @* Every card has one, and where the answer is kept depends on whose note it is. Your own
-                   note carries its pin on the server, because arranging it is yours to do. A note shared
-                   with you carries somebody else's there, so pinning it here would be rearranging their
-                   page - the reader's own answer is kept on this device instead. See SharedItemPins. *@
+                      ExtraClass="@(note.IsPinned ? "item-card-pinned" : null)">
+                @* Every card has one, and one control for both cases: the note's pin is this reader's
+                   own either way. A note you own carries it on the note; one shared with you carries it
+                   on your grant, which is what stops a recipient rearranging the owner's page - see
+                   NoteShare.IsPinnedByRecipient. Both travel on the same request. *@
                 <Pin>
-                    @if (!note.IsShared)
-                    {
-                        <PinButton IsPinned="note.IsPinned" OnPinnedChanged="pinned => SetPinnedAsync(note, pinned)" />
-                    }
-                    else
-                    {
-                        <PinButton IsPinned="SharedPins.IsPinned(note.Id)"
-                                   OnPinnedChanged="pinned => PinTheSharedNoteAsync(note, pinned)" />
-                    }
+                    <PinButton IsPinned="note.IsPinned" OnPinnedChanged="pinned => SetPinnedAsync(note, pinned)" />
                 </Pin>
                 <Menu>
                     @* The card opens the note to be read; changing what it says is a named press, the
@@ -99,30 +99,30 @@
 @code {
     private IReadOnlyList<NoteDto>? _notes;
 
-    /// <summary>Pinned notes first, and the rest in the order the API sent them - most recently updated first.</summary>
+    /// <summary>
+    /// The notes in the folder that is open. A note nobody filed is still in one - Public, or Private
+    /// when it is sealed - see FolderPlacement, which decides it for every page made of cards.
+    /// </summary>
+    private IReadOnlyList<NoteDto> VisibleNotes
+        => [.. (_notes ?? []).Where(note => Folders.ShowsUnderTheChosenTab(note.FolderId, note.IsPrivate))];
+
+    /// <summary>
+    /// How many notes are under each tab, drawn on the tab itself. Notes are never finished, so Done is
+    /// always empty of them - which is worth showing rather than hiding, since the tab also holds task
+    /// lists on the pages that have both.
+    /// </summary>
+    private int CountIn(FolderKey folder)
+        => (_notes ?? []).Count(note =>
+            FolderPlacement.Of(note.FolderId, note.IsPrivate, isFinished: false, Folders.KnownFolderIds) == folder);
+
+    /// <summary>
+    /// Pinned notes first, and the rest in the order the API sent them - most recently updated first.
+    /// One question with one answer now: a shared note arrives carrying *this* reader's pin, stamped
+    /// off their own grant, so there is nothing here to choose between.
+    /// </summary>
     private IEnumerable<NoteDto> Ordered(IReadOnlyList<NoteDto> notes)
-        => notes.OrderByDescending(IsPinned);
+        => notes.OrderByDescending(note => note.IsPinned);
 
-    /// <summary>
-    /// Whether this card sits at the top of *this* reader's page. Two answers behind one question: a
-    /// note you own carries its own, and one shared with you carries its owner's, which is about their
-    /// page rather than yours - see SharedItemPins.
-    /// </summary>
-    private bool IsPinned(NoteDto note)
-        => note.IsShared ? SharedPins.IsPinned(note.Id) : note.IsPinned;
-
-    /// <summary>
-    /// Pinning a note somebody else shared. Nothing is sent: the answer is this reader's and stays on
-    /// this device, so the page only has to re-sort around it.
-    /// </summary>
-    private async Task PinTheSharedNoteAsync(NoteDto note, bool isPinned)
-    {
-        Logger.LogInformation(
-            "User clicked '{Action}' for shared note {NoteId}", isPinned ? "Pin" : "Unpin", note.Id);
-        await SharedPins.SetPinnedAsync(note.Id, isPinned);
-    }
-
-    /// <summary>Joins a note's lines back into a single line of text for the list preview, since Content is now structured rather than a flat string.</summary>
     /// <summary>
     /// The first line that has anything on it, or null for a note with nothing written in it yet. Used
     /// instead of the whole body glued together: a preview that prints everything is not a preview.
@@ -162,10 +162,9 @@
         // is one this page has never read, so hearing about it has to mean reading again - see
         // OnNotificationsChanged.
         NotificationFeedState.Changed += OnNotificationsChanged;
+        // The tabs are shared, so pressing one anywhere re-filters this page too.
+        Folders.Changed += OnFoldersChanged;
         Logger.LogInformation("Notes page opened, loading notes");
-        // Read before the cards are drawn: a pin that arrived a moment later would move a card somebody
-        // was already pointing at.
-        await SharedPins.InitializeAsync();
         try
         {
             _notes = await NotesApiClient.GetNotesAsync();
@@ -320,6 +319,12 @@
             StateHasChanged();
         });
 
-    public void Dispose() => NotificationFeedState.Changed -= OnNotificationsChanged;
+    private void OnFoldersChanged() => InvokeAsync(StateHasChanged);
+
+    public void Dispose()
+    {
+        NotificationFeedState.Changed -= OnNotificationsChanged;
+        Folders.Changed -= OnFoldersChanged;
+    }
 
 }

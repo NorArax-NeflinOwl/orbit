@@ -75,7 +75,20 @@ public partial class ItemCard : ContentView
 		nameof(IsPinned), typeof(bool), typeof(ItemCard), false,
 		propertyChanged: (card, _, _) => ((ItemCard)card).Edge());
 
-	public ItemCard() => InitializeComponent();
+	/// <summary>
+	/// The name the breathing edge is committed under, so it can be called off again - see Pulse.
+	/// </summary>
+	private const string NewsPulse = "card-with-news";
+
+	public ItemCard()
+	{
+		InitializeComponent();
+
+		// A card scrolled out of the list goes on breathing otherwise: a CollectionView keeps its cells
+		// alive and reuses them, and an animation nobody can see is a frame budget nobody gets back.
+		Unloaded += (_, _) => this.AbortAnimation(NewsPulse);
+		Loaded += (_, _) => Edge();
+	}
 
 	/// <summary>The one part every card has.</summary>
 	public string Name
@@ -207,11 +220,21 @@ public partial class ItemCard : ContentView
 	/// </summary>
 	private void Edge()
 	{
+		// Taken off before anything is decided, not only on the way past a pinned card. A dynamic
+		// resource stays registered against the property until it is removed and paints itself back on
+		// every time the dictionary is read again - so a card that was pinned first and got its news
+		// afterwards kept the accent edge, and the danger one set below never showed.
+		Frame.RemoveDynamicResource(Border.StrokeProperty);
+
 		if (HasUnseenAction)
 		{
 			Frame.SetAppTheme(Border.StrokeProperty, Look("DangerLight"), Look("DangerDark"));
+			Pulse();
 			return;
 		}
+
+		this.AbortAnimation(NewsPulse);
+		Frame.Shadow = null;
 
 		if (IsPinned)
 		{
@@ -219,7 +242,6 @@ public partial class ItemCard : ContentView
 			return;
 		}
 
-		Frame.RemoveDynamicResource(Border.StrokeProperty);
 		Frame.SetAppTheme(Border.StrokeProperty, Look("CardStrokeLight"), Look("CardStrokeDark"));
 	}
 
@@ -233,6 +255,63 @@ public partial class ItemCard : ContentView
 			AccentEdge.Color = Color.Parse(colour!);
 		}
 	}
+
+	/// <summary>
+	/// The edge breathes, which is what catches an eye that was elsewhere - app.css's card-with-news,
+	/// as a halo that swells and fades rather than a box-shadow spread MAUI has no equivalent of. The
+	/// colour is there whether or not anything moves; this is only what makes it noticed.
+	///
+	/// Called off where the reader has asked for less motion. An edge that never stops moving is
+	/// exactly what somebody turns that setting on to be rid of - the same rule app.css writes under
+	/// prefers-reduced-motion, asked of the platform here because there is no media query to read.
+	/// </summary>
+	private void Pulse()
+	{
+		this.AbortAnimation(NewsPulse);
+
+		if (!MotionIsWanted)
+		{
+			Frame.Shadow = null;
+			return;
+		}
+
+		var halo = new Shadow
+		{
+			Brush = Look(Application.Current?.RequestedTheme == AppTheme.Dark ? "DangerDark" : "DangerLight"),
+			Offset = Point.Zero,
+			Radius = 0,
+			Opacity = 0
+		};
+
+		Frame.Shadow = halo;
+
+		// Out and back rather than out and jump: a halo that snaps to nothing every 2.4 seconds reads
+		// as a glitch rather than as breathing.
+		var pulse = new Animation();
+		pulse.Add(0, 0.5, new Animation(Swell, 0, 1, Easing.SinInOut));
+		pulse.Add(0.5, 1, new Animation(Swell, 1, 0, Easing.SinInOut));
+		pulse.Commit(this, NewsPulse, length: 2400, repeat: () => true);
+
+		void Swell(double much)
+		{
+			halo.Radius = (float)(much * 8);
+			halo.Opacity = (float)(much * 0.22);
+		}
+	}
+
+	/// <summary>
+	/// Whether the phone has been asked to animate at all. Android says so by scaling every animation
+	/// to nothing, which is the setting a reader turns on for exactly this kind of thing.
+	/// </summary>
+	private static bool MotionIsWanted =>
+#if ANDROID
+		Android.Provider.Settings.Global.GetFloat(
+			Android.App.Application.Context.ContentResolver,
+			Android.Provider.Settings.Global.AnimatorDurationScale,
+			1f) > 0f;
+#else
+		true;
+#endif
 
 	private static Brush Look(string key)
 		=> Application.Current?.Resources.TryGetValue(key, out var value) is true && value is Color colour

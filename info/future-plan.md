@@ -5,9 +5,18 @@ rest of the documentation already flags as "not implemented yet," a deliberate f
 cut, or an identified follow-up. It is not a committed roadmap with dates — it is the current honest
 picture of what's left.
 
-**Last checked against the code on 2026-09-04.** A plan is only worth reading if it describes the
-present. Anything below that says "not started" or "no coverage" was checked against the repository on
-that date rather than carried forward on trust.
+**Last checked against the code on 2026-09-04, and in part again on 2026-09-07.** A plan is only worth
+reading if it describes the present. Anything below that says "not started" or "no coverage" was checked
+against the repository on that date rather than carried forward on trust.
+
+The 2026-09-07 pass was partial and it is worth knowing which parts, so the rest is not read as freshly
+verified: [Testing gaps](#testing-gaps), [What the footer could grow into](#what-the-footer-could-grow-into)
+and the entry about a card's body under [Smaller identified follow-ups](#smaller-identified-follow-ups).
+Two of the three had drifted - the footer section described a footer two changes old and called a page
+"not yet written" that has been serving since, and the card entry named a note behaving in a way it had
+stopped behaving in `7e1504f5`. **Both were stale in the direction that costs a session**: each named
+work that was already done, and a session choosing what to do next reads this file first. Everything
+outside those three sections still carries its 2026-09-04 date.
 
 Since the last pass: every table and column was renamed to the Orbit convention and a storage is an
 *inventory* everywhere, which is what stops a 0.2.x Android build (see
@@ -99,6 +108,49 @@ from everywhere they get typed. What this pass found and did **not** fix is in
   correct, and its latency had no floor when the machine was busy (181 s for a 39-token reply under
   load). A small hosted model in Azure AI Foundry costs cents a month at this size. Ollama stays, for
   local development only.
+
+## What the invitation page still owes
+
+Done on 2026-09-07, as asked for on 2026-09-06: a share's notification leads to **what was shared**
+rather than to the conversation - see [In-app notifications](functionality.md#in-app-notifications) and
+`ShareInvitation.razor`. Two things about it are worth knowing:
+
+- ~~**It does not name the thing.**~~ Done the same day: `GET /api/shares/{kind}/{shareId}` answers with
+  the offer - the item, its name and whether it has been taken up - so the page says which note, and
+  accepting lands on the thing itself rather than on the list it appears in. One endpoint for all four
+  kinds; accepting stayed on each section's own, where that kind's rules are.
+- **The phone still has no invitation screen.** It reads the same path, takes the sharer's id off the
+  end and opens the conversation, which is where its own Accept sits (`SharedItemAcceptance`) - so
+  nothing is lost there, but a phone cannot take up an offer whose chat message it cannot read, which is
+  exactly the case the web page now covers.
+
+## What a real advertising network would take
+
+The slots exist and are filled by Orbit itself - see [Advertising](functionality.md#advertising). Putting
+somebody else's adverts in them is a bigger decision than swapping the source, and these are the parts
+of it:
+
+- **Consent, first.** Orbit withholds the map's tiles from a reader who has said not to share their
+  information (`mapTiles.js`), and that is one request to one host that is told nothing but a tile
+  coordinate. An advertising script is told who is looking, from where, and on which page, and it runs
+  in the reader's browser. It belongs behind the same gate at least, which means `DoNotShareDialog` and
+  the account-level flag behind it grow a third answer, and a slot that draws nothing when the answer is
+  no - not a slot that quietly draws a house advert instead, which would make the two indistinguishable.
+- **A content security policy.** Orbit serves its own scripts and nothing else today. Loading one from a
+  network means naming that host in nginx's CSP (`nginx-app-locations.conf`), and every host it in turn
+  loads from - which for most networks is a list nobody can enumerate in advance.
+- **An account, and keys.** A publisher id is configuration, so it follows the rule every secret here
+  follows: an environment variable or a Container Apps secret, never a tracked file, and
+  `.env.example` updated with it.
+- **The phone is a separate integration.** The web's script does nothing in a MAUI app; that is a
+  platform SDK, an Android permission review and a second account.
+- **What the slots would then be worth measuring.** Nothing here counts an impression or a press. That
+  is fine while Orbit is advertising itself, and it is the first thing a network asks for.
+
+Two smaller things are owed even without a network: the Android bar is **not tappable** (the adverts
+point at web pages the app does not have, and the app is told the API's address but never the web
+client's - see `OrbitApiSettings`), and there is **no interrupting advert on the phone** at all, only
+the bar.
 
 ## What real Google Calendar sync would take
 
@@ -285,8 +337,25 @@ since been closed; what is left is recorded below with the same honesty about wh
   bad ones a push service can still deliver. The C# half is `PushNotificationManagerTests`. Two things
   are still out of reach and are named in the script: `notificationclick`, since nothing outside the
   operating system can click a system notification, and subscribing for real, which needs a push service.
-- **The chat thread still has no coverage.** It is a polling component whose interesting behaviour is
-  timing.
+- ~~**The chat thread still has no coverage.**~~ Done, and the reason it was open turned out to be the
+  reason to do it: what a polling component decides is invisible from the screen either way. A poll that
+  stops honouring the tab's visibility costs money and battery and looks identical; a poll that reads the
+  whole roster on every tick was two thirds of this page's traffic and looked identical too.
+  `ChatThreadTests` pins both, plus the two ways the loop has to stop and the `Chat` page's own
+  explanation for an account the API will not resolve - which was the *other* entry on the not-covered
+  list, held open by the cost of standing this page up under bUnit at all. Each was checked by removing
+  the behaviour and watching its own test go red.
+
+  The technique is what is worth keeping, and it is written up under
+  [The chat thread](testing-and-running-locally.md#the-chat-thread): the tests wait for the loop's own
+  ticks rather than for the clock, counted off the visibility question it asks before deciding anything
+  else - because "nothing was polled" is also true of a loop that never started. bUnit's
+  `WaitForAssertion` is no use for it: it re-checks on a render, and a tick behind a hidden tab renders
+  nothing.
+
+  Still out of reach, and named in the class: `OnChatAnnounced`, since `LiveUpdatesConnection` raises
+  its events from inside itself and nothing outside can, so the live-connection half of the pace
+  (`ConnectedPollInterval`) is reasoned about rather than driven.
 - ~~**Nothing runs on a pull request.**~~ Put back, cheaply. The trigger was removed because every
   billed minute counted and a day of ordinary work exhausted the allowance; what changed is that a run
   now costs a fraction of what it did. The android job looks before it builds and does nothing when
@@ -352,11 +421,15 @@ since been closed; what is left is recorded below with the same honesty about wh
 
 ## What the footer could grow into
 
-The footer at the bottom of every page - and the phone's About row, which says the same three things -
-currently carries the copyright year, the version, and a link to the licence
-(`OrbitRelease` for the copyright and the licence, `OrbitVersion` for the build - see
-[Functionality](functionality.md#which-build-this-is)). What it is missing, roughly in the order it would be
-worth adding:
+**Re-read against the code on 2026-09-07, and most of this section had already happened.** What it
+described - a footer carrying the copyright year, the version and a link to the licence - is two
+changes out of date. The numbers moved into a dialog (`AboutDialog`: this build, the *server's* build
+beside it, and the licence), and the footer kept words instead: About, Privacy, Security, Docs, Status,
+the licence, Manage cookies, and Do not share my personal information. `OrbitRelease` holds the
+copyright and the licence name, `OrbitVersion` the build - see
+[Functionality](functionality.md#which-build-this-is).
+
+What it is still missing, roughly in the order it would be worth adding:
 
 - ~~**The build, not just the version.**~~ Done: the footer reads `ver:0.1.17+gitHash:51536f3`, and
   pressing it grows the rest of the hash - see
@@ -365,24 +438,34 @@ worth adding:
 - **When it was deployed.** The year is a constant maintained by hand, which is honest but coarse: it
   answers "roughly when was this written", not "is what I am looking at the thing that was merged this
   morning". A build timestamp answers the second, and the second is the question people actually ask -
-  though the commit hash now answers most of what it was wanted for.
+  though the commit hash now answers most of what it was wanted for, and the About dialog answers the
+  rest of it from the other side by showing the **server's** build beside the client's, which is what
+  catches a browser holding a cached client. What is left for a timestamp to add is small enough that
+  it is worth weighing against where it would have to come from: the stamp is made by
+  `ci/compute-version.sh` at build time, so this is a change to the build rather than to a page.
 - **A link to what changed.** The version means nothing to somebody who has not been reading the
   commits. A release-notes page, or simply a link to the repository's releases, is what makes a version
-  number worth showing at all.
+  number worth showing at all. One thing settles which of those two it has to be: **the repository is
+  private**, so a link to its releases is a 404 for everybody but its owner - and there are no releases
+  cut there anyway, since a deploy is a merge of the integration pull request. A page Orbit serves
+  itself is the only version of this that works, the same reasoning that put the licence on `/license`
+  rather than linking the file on GitHub.
 - ~~**A health or status link.**~~ Done, and it needed more than a link: nothing on the web origin
   reached the report. nginx forwards `/api/` to the API *under* `/api/`, so `/api/health` arrived there
   as `/api/health`, which is not where health lives. There is now an exact-match `= /health` location on
   both nginx configs, and the footer's **Status** opens it in a new tab - which is also what stops the
   Blazor router claiming the address. Publishing the report was a decision taken deliberately; what it
   does and does not say is written down beside both the location and the writer.
-- **Privacy and data handling.** Not yet written, and it is the one entry here with a deadline attached
-  to it: an application that ends up in a store needs one, and the store is the place that will ask.
-  What it would have to describe is unusual and worth saying plainly - most of Orbit's content is sealed
-  client-side, so a large part of the answer is "the server cannot read it".
-- **Making it reachable rather than only visible.** The footer sits at the end of the scrolling content,
-  which is right for something read once. If it grows past three items it stops being a footer and
-  becomes an About page, and the honest move at that point is to give it one and leave a single link
-  behind - the phone has already made that choice, since it has no footer to put anything in.
+- ~~**Privacy and data handling.**~~ Written: `/privacy`, linked from the footer and deliberately
+  carrying no `[Authorize]` - what a service does with what you give it is a question somebody is
+  entitled to an answer to *before* handing anything over, so the sign-in page's footer reaches it too.
+  It says the unusual part plainly, which was the point: most of Orbit's content is sealed in the
+  browser, so a large part of the answer is that the server cannot read it. `/security` and `/docs`
+  went the same way. The deadline this entry carried - a store will ask for one - is met.
+- ~~**Making it reachable rather than only visible.**~~ Answered, and not the way this predicted. It has
+  grown well past three items, and rather than becoming an About *page* the numbers became an About
+  *dialog*: what build this is has no address worth sharing and is read in the middle of doing
+  something else. The footer kept the words, which is the shape the phone's own About row already had.
 
 Deliberately not there: a language switch (it is in the avatar menu, where the rest of the account's
 settings are), and anything that has to be fetched. A footer that waits on a request is a footer that
@@ -473,9 +556,64 @@ inventory lists, the contacts tabs, the chat menus - is built and needs no schem
 
 ## Noticed while working
 
+- **The invitation page treats "any other kind" as an inventory.** `ShareInvitation.AcceptAsync` and
+  `DescribeKind` both end in a `_` that means Inventory, and `SharedItemKind` has a fifth member -
+  `Location`. Nothing is broken today and this is written down rather than fixed for exactly that
+  reason: a location share passes `SharedItemLink.TheMap`, which carries no pending share id, so
+  `SharedItemNotifier.UrlFor` sends it to `/map` and it never reaches this page. What makes it worth
+  recording is what happens if that ever changes, or if a sixth kind arrives: pressing **Accept** would
+  post the share's id to the *inventory* accept endpoint, which answers "no such share", and the page
+  would say the invitation is no longer there - a wrong answer that reads like a plausible one. The page
+  already has the right branch for this ("something this version of Orbit doesn't know about"); the fix
+  whenever somebody is in there is to name Inventory explicitly and send everything else down it.
+  Noticed 2026-09-07 while reviewing what the invitation page does with each kind.
+
+- **The checklist matches entries by position when it no longer has to.** `ToggleItemAsync` saves the
+  whole list back and finds the entry it changed by its index, on the grounds that "a save regenerates
+  item ids". That stopped being true when `TaskItemRequest.Id` was added - `TaskEndpoints.ToDomainItem`
+  keeps the id it is sent - and the comment saying otherwise stood for as long as it had been wrong.
+  Position still works and nothing is broken by it, so this is a tidy-up rather than a defect: matching
+  by id is what somebody in there anyway should switch it to. Found while fixing the ids private lists
+  seal (2026-09-07).
+
 Written down rather than fixed on the spot, per rule 14 in `.claude/CLAUDE.md`: work that turns up
 beside a task belongs here, not in that task's diff. A defect is the exception and is fixed when found.
 
+- ~~**A two-person group's messages leaked into that pair's one-to-one conversation.**~~ Found on
+  2026-09-07 while walking the phone's chat screens, and fixed the same day — a defect, so fixed rather
+  than only recorded. A group message is sealed pairwise, one copy per member (`ChatMessage.CreateForGroup`),
+  so in a group of two the copy carries the same sender/recipient pair as an ordinary one-to-one message
+  between them. The server's `ChatMessageRepository.GetConversationAsync` matched only on that pair, so it
+  handed those copies back on the one-to-one endpoint too, and both clients drew them in the private
+  thread — the phone made it visible because it also stamps each such row with `OtherUserId`. Fixed at the
+  source with a `GroupId == null` clause on the one-to-one query (a group is read by `GroupId`), mirrored
+  in `InMemoryChatMessageRepository` so the fake refuses what the server refuses, and defended on the
+  phone in `ChatRepository.GetConversationAsync` and `LatestMessageAtAsync` — which already held that
+  invariant in `DeleteConversationAsync` and had simply not carried it to the read and the cursor.
+  Covered by `GetConversationQueryHandlerTests` and `GroupChatTests` on both sides.
+
+- ~~**The web client went into a loop once, on 2026-09-05 at 11:06Z, right after approving a
+  conversation.**~~ **Cause found and fixed on 2026-09-07**, and it was not a render loop: it was two
+  open chat windows announcing at each other. Marking a conversation read published a live "chat
+  changed" to the other party **whether or not anything had actually been read**; the other window
+  answers an announcement by polling, a poll marks the conversation read, and that announced back. Two
+  windows therefore ran the same four calls - `conversations/{id}/access`, `messages/{id}`,
+  `messages/{id}/read`, `messages/{id}/read-receipt` - at network speed for as long as both were open,
+  which is exactly the shape of what was measured. Approving is what started it because it is the moment
+  both sides open the same conversation at once. Both handlers now publish only when a row actually
+  changed (`MarkConversationAsReadCommandHandler`, `MarkGroupConversationAsReadCommandHandler`, and the
+  repository methods that now answer whether they marked anything), so the exchange dies after one
+  round: a read receipt still travels, a read that did not happen says nothing. In a group it was worse
+  by the size of the group, since the announcement goes to every other member.
+
+  The original measurement, kept because it is what made the cause findable: In one minute it made the same four chat calls - `conversations/{id}/access`,
+  `messages/{id}`, `messages/{id}/read`, `messages/{id}/read-receipt` - about 987 times each against
+  only **two** ids, plus `chat/contacts` 201 times and `chat/groups` 109 times: 4,332 requests from one
+  caller, sixteen a second, and the busiest minute in the month by fifteen times. A render-and-refetch
+  loop, it was read at the time - and reading it that way is what kept it unexplained, since nothing in
+  the approve flow re-renders anything. `FloodStopPerCaller` (600 a minute) would have cut it off after
+  ten seconds had it existed then, and a burst of 429s on those four paths is still how a recurrence
+  would announce itself.
 - **`setup-dotnet@v4`, `setup-java@v4` and `upload-artifact@v4`** carry the same Node 20 deprecation
   `actions/checkout` did. `dependency-submission.yml` already pins `setup-dotnet@v5`, so the bump is
   available whenever somebody wants it.
@@ -514,10 +652,11 @@ beside a task belongs here, not in that task's diff. A defect is the exception a
   bought. Whether a cold start of that length is acceptable for the first browser visit of the day, or
   worth `min-replicas 1` on `orbit-web` (a recurring cost), is a decision, not a defect.
 
-  The ceilings in `RateLimiterPolicies` (120 anonymous auth attempts a minute, 600 public share reads)
-  were sized for the case where the address could be forged. That case is now measured not to apply, so
-  they can come down towards what honest traffic actually needs - a decision worth taking deliberately
-  rather than as part of the fix that made them measurable.
+  ~~The ceilings in `RateLimiterPolicies` were sized for a forgeable address and can come down.~~ Done
+  on 2026-09-07, from thirty days of the request log (2,464 minutes with traffic): anonymous sign-ins
+  peaked at 4 a minute, public share links were opened 0 times outside a probe, the busiest ordinary
+  minute overall was 287. Now 30 / 150 / 3,000 a minute and 50 a second at the edge - each with the
+  measurement and the growth rule written beside the number.
 - **17 of 147 endpoints carry a *named* rate limit.** The rest are now covered by
   `RateLimiterPolicies.FloodStop`, a coarse per-caller limit over everything, kept in memory rather than
   in the shared PostgreSQL window because that one costs a round trip per permitted request and this one
@@ -568,21 +707,65 @@ matches and what does not. What that pass left:
   underneath, the control at the far edge - with the tabs underlined in the accent and the delete
   section in its own red frame. The map stays where the browser hides it below 680px; see
   `android-ui-parity.md` for why that one rule is not copied.
-- **The chat screens are built but were not walked on a device.** The emulator account has not
-  unlocked Contacts, so the navigation bar draws no way into them and `FeatureLocked` is all those
-  screens show there. The bubbles, the message menus and the row menus want a walk on an account that
-  can chat before they are believed.
-- **A card's footnote says the whole timestamp.** A note card reads "Updated 9/2/2026 7:27 PM" where
-  the browser says "Today", "Yesterday", the weekday within the last week, and only then a date - see
-  `Notes.razor`'s `WhenLastChanged`. `NoteListItem.Updated` is where the phone builds it. Small, but it
-  is the line under every card on the screen.
-- **The `.item-card-unseen` pulse is a colour, not an animation.** The edge takes the danger colour and
-  stays there. The browser breathes it, which is what catches an eye that was elsewhere.
-- **No screen hands `EditorRail` an `Extras` view yet.** The slot and the arrow that folds it away are
-  built and the arrow is left out where nothing fills it, which is what the browser does too - but the
-  browser does fill it: a lock's explanation and the sentence saying why a save was refused are kept in
-  view there whatever the form is scrolled to, and on the phone those are still labels partway up the
-  page. `NoteDetailPage`'s read-only reason and `TaskListDetailPage`'s lock banner are the two to move.
+- ~~**The chat screens are built but were not walked on a device.**~~ Walked on 2026-09-07, on the
+  Windows emulator, against the docker API — two throwaway accounts (`chatweb` in Orbit.Web, `chatphone`
+  on the phone) each with a real published key, so a real E2EE conversation could be had rather than
+  staged. Both conversation screens hold: the one-to-one and the group each decrypt, draw the reader's
+  own bubbles at the right in the accent and everybody else's at the left, label a group message with
+  who wrote it, and open Orbit's own panel — not a platform action sheet — for the message menu (own:
+  Edit/Delete/Forward/Reply one-to-one, and *Who has read this* in place of Forward in a group; other
+  people's: Forward/Reply) and the conversation menu (Info → the read-only contact card; a group's
+  member roster with roles and Leave). The contact row's incoming-request Accept, the avatar's
+  top-right presence dot and the row's unseen mark were all seen on the way in. **A defect came out of
+  the walk** and is recorded under [Noticed while working](#noticed-while-working): a two-person group's
+  messages leaked into that pair's one-to-one thread.
+- ~~**The dashboard was never given the pass.**~~ Done on 2026-09-07, and it was the last screen
+  still speaking the old vocabulary: it now opens with `PageHeader`, both of its "⋯" are the shared
+  `OverflowMenu` filling the screen's one `ScreenMenu` (the page's parts menu stays open as
+  Orbit.Web's does, a card's filter closes after one pick), its rows are `Row`s, and every card and
+  every row that a notification can name carries the mark - `.item-card-unseen` on the card and
+  `.list-row.row-unseen` on the row, which is what stops a card saying "something happened here" over
+  six rows and leaving the reader to open all six. The strip of today's counts is the way to the
+  calendar, as it is there, and drops its chat-request line at nought. Two defects came out of it: a
+  card narrowed to nothing vanished and took its own filter menu with it, so the choice could not be
+  undone (the bug Orbit.Web had already fixed), and the coloured dot beside an event had never once
+  been drawn - see `android-ui-parity.md` for why.
+- ~~**The dashboard's rows carry no avatar, and there is no Inventory card.**~~ Done on 2026-09-07.
+  The circle came out of `PersonRow` into `Controls/AvatarCircle.xaml` on the way, so the chat list,
+  the contact list and the dashboard draw one avatar rather than three - and the presence dot moved to
+  the top-right edge, which is where app.css has always put it. `DashboardCardKind.Inventories` sits
+  between what is coming up and who is around, as Orbit.Web orders them; a shelf says how much is on it
+  and whether it is private or shared, a private one is hidden while private things are locked, and the
+  card carries the news because a shelf about to go off names no shelf. Two smaller things came with
+  it: putting every part away now says so instead of telling a full account to add a note, and pressing
+  a shelf opens that shelf.
+- **A conversation still shows no count of what is waiting.** The one part of Orbit.Web's avatar the
+  phone does not draw, and it is missing for want of a number rather than a control: `UnreadBadge`
+  reads a per-conversation unread count, `LocalContact` has none, and nothing on the device derives one
+  - `LocalChatMessage.IsReadByEveryone` is about messages this reader *sent*. What it would take is a
+  read mark per conversation that survives a restart, which is a chat feature rather than a look, and
+  the phone already says the smaller thing in the row's own mark: something unread points at that
+  person.
+- **`ContactsPage.xaml` declares a `PresenceColor` converter it never uses.** One dead line, noticed
+  while chasing the event dot; harmless, and it is here rather than done because the Contacts screen
+  was not otherwise being touched.
+- ~~**A card's footnote says the whole timestamp.**~~ Done: `LastChanged` gives the four answers
+  `Notes.razor`'s `WhenLastChanged` gives - today, yesterday, the weekday within the week, a date past
+  it - against the injected clock rather than the machine's, so a test about the wording is a test
+  about the wording.
+- ~~**The `.item-card-unseen` pulse is a colour, not an animation.**~~ Done, and with it the thing
+  that made it visible at all: nothing on the phone had ever set `HasUnseenAction`, so neither the mark
+  nor the edge could appear. A task list card now asks whether anything unread points at it, matching
+  on the `/tasks/{id}` a notification carries exactly as Orbit.Web's card does, and the edge breathes
+  the halo `card-with-news` draws - called off where the reader has asked the phone for less motion,
+  which is the platform's answer to `prefers-reduced-motion`.
+- ~~**No screen hands `EditorRail` an `Extras` view yet.**~~ Done: the note's and the task list's
+  read-only reasons are in it, where they stay in view however far the screen is scrolled. The task
+  list gained the rail itself in the same change - its menu moved off the title and onto the bar, as
+  Orbit.Web's checklist keeps it, taking Delete and History with it, so the row of words under the last
+  entry is gone. The arrow now follows what it hides rather than merely whether a slot was filled: a
+  screen hands over a label that hides itself, and an arrow that opens an empty line is a control that
+  does nothing.
 
 ## Smaller identified follow-ups
 
@@ -600,13 +783,27 @@ matches and what does not. What that pass left:
   sheet in front of `StockCheckPanel.GenerateInventoryAsync` asking the same six questions
   `GenerateInventoryOverlay` asks.
 
-- **The pin on a shared list or note stays on the browser that set it.** A reader's pin for something
-  somebody else owns is kept in localStorage (`SharedItemPins`, 2026-09-06), because the flag on the
-  object belongs to its owner and only they may set it. That is the same choice `ConversationPins`
-  makes and it needs no column anywhere - but it also means the pin does not follow the reader to
-  another browser or to the phone, where the control is simply left out. What it would take to make it
-  follow: a per-recipient flag on the share row (`TaskListShare`, `NoteShare`) with an endpoint and a
-  field on the DTO, which is a migration and a phone change rather than a screen one.
+- ~~**The pin on a shared list or note stays on the browser that set it.**~~ Done on 2026-09-07, the way
+  this predicted except for the DTO: a per-recipient flag on the share row
+  (`NoteShare.IsPinnedByRecipient`, `TaskListShare.IsPinnedByRecipient`, migration
+  `PinASharedThingForItsRecipient`), and **no new field anywhere**. The existing `IsPinned` already meant
+  "sorts this above the others on every client that shows a list of them", so a shared item is simply
+  handed over carrying the recipient's answer in it - stamped by the access resolvers, the way the
+  access context beside it already was. The endpoint did not change either: `PUT .../pinned` picks
+  between the two rows by which one the caller has. `SharedItemPins` is gone; `DevicePins` stays, since
+  `ConversationPins` still uses it.
+
+  **It also closed a defect nothing had recorded.** The browser overrode the owner's flag locally, so
+  nobody saw it there - but the phone sorts straight by `IsPinned` and had no second answer to prefer,
+  so a note or list *its owner* had pinned arrived at the top of the recipient's list. Both halves are
+  pinned down in `GetNotesQueryHandlerTests` and `GetTaskListsQueryHandlerTests`, including that the
+  stamp does not touch `UpdatedAtUtc` - a value depending on who is asking must not make the row look
+  changed, because that timestamp is what the phone syncs against.
+
+  **The phone's half went in the same day.** Its pin control for a shared item had been left out
+  (`TaskListRow.CanBePinned`, `NoteListItem.CanBePinned`) while the server refused a recipient outright;
+  the rest of that path already existed and already went through the server, so lifting the gate was the
+  whole change. A sealed row nobody has unlocked still offers no pin, which is what the gate is left for.
 
 - ~~**A task list's own description is written and never shown.**~~ Done. It goes under the name on the
   list's own page (`TaskListChecklist`), which is where a storage's goes, so the two read the same way -
@@ -620,28 +817,28 @@ matches and what does not. What that pass left:
   notification opening a note, chat opening a shared thing - which each finish on their own section as
   before. Adding one is a single `ReturnTo.Link` at the call site.
 
-- **Two of the five screens that send a share notice are covered; three are not.** Sharing something is
-  two halves: the server records the share and raises a notification, and the sharer's *browser* posts an
-  encrypted chat message carrying the share's id, which is the only thing a recipient can press "Accept"
-  on (see Chat.razor's `TryParseShare`). The server cannot send that half - it holds no key to seal it
-  with - so a screen that forgets it shares something nobody can accept, which is exactly what the guest
-  invitation on a task entry's event did for as long as it did (fixed 2026-09-06).
+- ~~**Two of the five screens that send a share notice are covered; three are not.**~~ Done, all five.
+  Sharing something is two halves: the server records the share and raises a notification, and the
+  sharer's *browser* posts an encrypted chat message carrying the share's id, which is the only thing a
+  recipient can press "Accept" on (see Chat.razor's `TryParseShare`). The server cannot send that half -
+  it holds no key to seal it with - so a screen that forgets it shares something nobody can accept,
+  which is exactly what the guest invitation on a task entry's event did for as long as it did (fixed
+  2026-09-06, covered 2026-09-07).
 
-  Covered since 2026-09-07: the guest invitation on a task entry's event
-  (`TaskEditorItemFormTests.Inviting_a_guest_to_an_entrys_event_puts_the_invitation_in_the_conversation`)
-  and the storage panel (`ShareInventoryPanelTests`). What unblocked them: the sealed payload's shape was
-  a `private record` inside `EncryptedChatMessageSender`, so a bUnit test could not plan the JavaScript
-  result; it is now `public` and nested there on purpose - `InternalsVisibleTo` was the alternative and it
-  would have opened the whole assembly for one type.
+  The five, and where each is pinned down: the guest invitation on a task entry's event and the task
+  list's own sharing block (`TaskEditorItemFormTests`), the storage panel (`ShareInventoryPanelTests`),
+  the note (`NoteEditorTests`) and the calendar event's guests (`CalendarEventEditorTests`). Each was
+  checked against the mechanism rather than only run: removing the `SendAsync` call turns its own test
+  red. Each also has the negative beside it - sharing with nobody chosen sends nothing - which is what
+  keeps the positive from passing on a page that posts to everybody.
 
-  Still uncovered: `NoteEditor`, `CalendarEventEditor`, and the task list's own sharing block in
-  `TaskEditor` (a second call site on that page, separate from the guest one). Each needs the same three
-  things the two covered tests set up - a signed-in token, `./js/e2eeChat.js` answering `hasOwnPrivateKey`
-  / `ensureOwnPublicKey` / `encryptMessage`, and a stub answering `/api/users/{id}` with a contact who has
-  a public key - so copy `ShareInventoryPanelTests`, which is the smaller of the two. The task list's
-  block additionally wants `_canShare` (a permission the item-form tests deliberately grant nothing of)
-  and a `/api/chat/contacts` answer, which is why it was left with the other two rather than done
-  alongside the guest path.
+  What unblocked them: the sealed payload's shape was a `private record` inside
+  `EncryptedChatMessageSender`, so a bUnit test could not plan the JavaScript result; it is `public` now
+  and nested there on purpose - `InternalsVisibleTo` was the alternative and would have opened the whole
+  assembly for one type. The recipe, if a sixth screen ever sends one: a signed-in token,
+  `./js/e2eeChat.js` answering `hasOwnPrivateKey` / `ensureOwnPublicKey` / `encryptMessage`, and a stub
+  answering `/api/users/{id}` with a contact who has a public key. `ShareInventoryPanelTests` is the
+  smallest of the five to copy.
 
 - **The phone shows no links in a description either.** The addresses in a description are pressable on
   the web (`TextWithLinks`, 2026-09-06); the phone draws the same descriptions as plain labels. The
@@ -687,10 +884,33 @@ matches and what does not. What that pass left:
   as part of the screen-ladder pass. A contact and a group are the deliberate exception - they are read
   and never edited as objects, so there is no second depth to give them.
 
-  One thing is still wrong with it, and it is the smaller half: the shallow view and the full form are
-  reached inconsistently. `OnBodySelected` opens the *full* editor for a note and the *shallow* view for
-  an entry, which is the same gesture meaning two different things. Worth settling what a card's body is
-  for across all of them before adding a sixth answer.
+  ~~One thing is still wrong with it, and it is the smaller half: the shallow view and the full form are
+  reached inconsistently.~~ Settled on 2026-09-07. The note half of it had already gone by the time this
+  was read again - `OnBodySelected` on `/notes` has opened `/notes/{id}` since `7e1504f5`, so what was
+  left was the **task entry**, which four pages answered three different ways:
+
+  - the checklist opened the list's own **form** with that entry unfolded, skipping the entry's page;
+  - the calendar forked on whether the entry had a place - one that did opened as itself, one that did
+    not opened as the **list** it sits on, which is a different object, decided by a field no card
+    mentions (`DueTaskDto.HasPlace`, now gone with the fork, along with `Calendar.razor`'s
+    `GoToTaskList` and the walk up the tree of group lists it used);
+  - the dashboard's Upcoming named an entry, "Shopping: Milk", and opened Shopping;
+  - only `/tasks` opened the entry itself.
+
+  All four open `/tasks/{listId}/items/{itemId}` now, and the rule they were settled into is written
+  down under [Two editing levels](functionality.md#two-editing-levels): **a press opens the thing that
+  was pressed, at its reading depth; the form is a named press further in.** Nothing was lost - ticking
+  an entry off is the checkbox's job, which sits on the row beside the words, and the entry's page leads
+  back to the list. The flat reading of a checklist was folded in on the way: its rows were `<label>`s,
+  so pressing what an entry said crossed it off there while the same words on the grouped view opened it
+  (`CheckRow.OnTitlePressed`).
+
+  **The phone still forks the way the calendar used to** (`CalendarViewModel.OpenDeadline`,
+  `CalendarDeadline.IsSomewhere`): a deadline with somewhere to be opens its own screen, one without
+  opens the list. Nothing is broken by it - both screens exist and both are reachable - so it is parity
+  rather than a defect, and it is the only place left where pressing an entry can open something else.
+  What it would take: dropping the `if` in `OpenDeadline`, then `IsSomewhere` and
+  `IsSomewhereAsWellAsAtSomeTime` with it, since nothing else reads either.
 
 
 - ~~**Reordering by hand needs a mouse.**~~ Done: each handle now carries a pair of move-up/move-down

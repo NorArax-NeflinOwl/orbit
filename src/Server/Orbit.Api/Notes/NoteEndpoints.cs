@@ -2,6 +2,7 @@ using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using Orbit.Api.Permissions;
 using Orbit.Contracts;
+using Orbit.Contracts.Folders;
 using Orbit.Contracts.Notes;
 using Orbit.Contracts.Sharing;
 using Orbit.Core.Abstractions;
@@ -15,6 +16,7 @@ using Orbit.Core.Notes.DeleteNote;
 using Orbit.Core.Notes.GetNoteById;
 using Orbit.Core.Notes.GetNoteShareStatus;
 using Orbit.Core.Notes.GetNotes;
+using Orbit.Core.Notes.MoveNoteToFolder;
 using Orbit.Core.Notes.ReleaseNoteLock;
 using Orbit.Core.Notes.SetNotePinned;
 using Orbit.Core.Notes.ShareNote;
@@ -65,7 +67,8 @@ public static class NoteEndpoints
             var id = await dispatcher.SendAsync(
                 new CreateNoteCommand(
                     GetUserId(user), request.Title, ToDomainContent(request.Content), request.IsPrivate,
-                    ToDomainPayload(request.EncryptedContent), RequestEnum.Parse<ItemPriority>(request.Priority, "priority")),
+                    ToDomainPayload(request.EncryptedContent), RequestEnum.Parse<ItemPriority>(request.Priority, "priority"),
+                    request.FolderId),
                 cancellationToken);
             return Results.Created($"/api/notes/{id}", id);
         });
@@ -90,6 +93,18 @@ public static class NoteEndpoints
             var pinned = await dispatcher.SendAsync(
                 new SetNotePinnedCommand(GetUserId(user), id, request.IsPinned), cancellationToken);
             return pinned ? Results.NoContent() : Results.NotFound();
+        });
+
+        // Filing, which is its own endpoint for the same reason pinning is - and for one more: an
+        // update carries the whole note, so a folder sent with it would be emptied by every client that
+        // has not heard of folders. See MoveNoteToFolderCommand.
+        notes.MapPut("/{id:guid}/folder", async (
+            Guid id, MoveToFolderRequest request, ClaimsPrincipal user, IDispatcher dispatcher,
+            CancellationToken cancellationToken) =>
+        {
+            var moved = await dispatcher.SendAsync(
+                new MoveNoteToFolderCommand(GetUserId(user), id, request.FolderId), cancellationToken);
+            return moved ? Results.NoContent() : Results.NotFound();
         });
 
         notes.MapDelete("/{id:guid}", async (Guid id, ClaimsPrincipal user, IDispatcher dispatcher, CancellationToken cancellationToken) =>
@@ -178,7 +193,11 @@ public static class NoteEndpoints
             note.Id, note.Title, note.Content.Select(ToDto).ToList(), note.IsPrivate, ToDto(note.EncryptedContent),
             note.CreatedAtUtc, note.UpdatedAtUtc,
             note.IsShared, note.SharedByUserName, note.AccessLevel.ToString(), note.IsShared ? note.UserId : null,
-            note.IsSharedWithOthers, note.IsPinned, note.Priority.ToString());
+            note.IsSharedWithOthers, note.IsPinnedForCaller, note.Priority.ToString(),
+            // Filing is the owner's own, so a recipient is told nothing about it: the id would name a
+            // folder that does not exist on their pages, and a card filed under a tab they cannot see
+            // is a card that has vanished.
+            note.IsShared ? null : note.FolderId);
 
     /// <summary>Maps an EditOutcome onto the corresponding HTTP response - shared by the update and lock-acquire endpoints above.</summary>
     private static IResult ToApiResult(EditOutcome outcome) => outcome.Kind switch

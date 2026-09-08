@@ -7,6 +7,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Orbit.Contracts.Notes;
+using Orbit.Core.Folders;
 using Orbit.Web.Services;
 using Orbit.Web.Tests.TestDoubles;
 using Orbit.Web.Tests;
@@ -48,10 +49,10 @@ public sealed class NotesTests : OrbitTestContext
     }
 
     /// <summary>
-    /// A recipient gets a pin of their own. The owner's is on the note and moves it on the owner's page,
-    /// so this one is kept on the reader's device instead - see SharedItemPins. What matters here is that
-    /// the control is offered at all: it used to be left out, and a note somebody sent you could not be
-    /// brought to the top of your own page.
+    /// A recipient gets a pin of their own, and the same control the owner gets: the answer travels on
+    /// the share row rather than on the note, so the page has one control and one flag to read - see
+    /// NoteShare.IsPinnedByRecipient. What matters here is that it is offered at all: it used to be left
+    /// out, and a note somebody sent you could not be brought to the top of your own page.
     /// </summary>
     [Fact]
     public void A_note_shared_with_you_can_be_pinned_by_the_reader()
@@ -64,21 +65,23 @@ public sealed class NotesTests : OrbitTestContext
     }
 
     /// <summary>
-    /// And it is the reader's answer that shows, not the owner's: a note its owner pinned on their page
-    /// arrives here unpinned, because where it sits on this page is this reader's to say.
+    /// And a shared note that arrives pinned leads the page like any other. Which reader's answer that
+    /// flag carries is the server's to decide and is pinned down there
+    /// (NotePinTests.A_recipients_pin_is_theirs_and_the_owner_is_not_told_about_it); this page reads one
+    /// flag and asks no question about whose it is, which is the whole point of moving it.
     /// </summary>
     [Fact]
-    public void The_owners_pin_does_not_reach_a_reader_it_was_shared_with()
+    public void A_shared_note_this_reader_pinned_leads_the_page()
     {
         RegisterNotesApiClient(
         [
-            Note("Shopping") with { IsShared = true, SharedByUserName = "anna", IsPinned = true },
-            Note("Ideas")
+            Note("Ideas"),
+            Note("Shopping") with { IsShared = true, SharedByUserName = "anna", IsPinned = true }
         ]);
 
         var cut = RenderComponent<Web.Pages.Notes>();
 
-        Assert.Empty(cut.FindAll(".item-card.item-card-pinned"));
+        Assert.Single(cut.FindAll(".item-card.item-card-pinned"));
         var titles = cut.FindAll(".item-card-name").Select(element => element.TextContent.Trim()).ToList();
         Assert.Equal(["Shopping", "Ideas"], titles);
     }
@@ -167,6 +170,8 @@ public sealed class NotesTests : OrbitTestContext
         var note = Note("Shopping") with { IsPrivate = true };
         RegisterNotesApiClient([note]);
         var navigationManager = Services.GetRequiredService<NavigationManager>();
+        // A sealed note is in Private, which is where somebody looking for it goes - see BuiltInFolder.
+        Services.GetRequiredService<FolderState>().Choose(FolderKey.Of(BuiltInFolder.Private));
         var cut = RenderComponent<Web.Pages.Notes>();
 
         cut.Find(".item-card-body").Click();

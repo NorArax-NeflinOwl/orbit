@@ -27,7 +27,7 @@ name: Build, test and deploy Orbit to Azure Container Apps
 # So the suite runs at the one point where it gates something: the push to main, which is the last
 # step before Azure is paid, and what the deploy job hangs off. Work on the way there - a feature
 # branch, its pull request, the merge into Coding - is checked where it is written: `dotnet test
-# Orbit.sln` on the machine that made the change, before the pull request is opened. That is a rule
+# Orbit.CI.slnf` on the machine that made the change, before the pull request is opened. That is a rule
 # in .claude/CLAUDE.md, not a hope, and it is the trade this file makes on purpose: a broken merge to
 # Coding is found at the next push to main, before anything deploys, rather than paid for on every
 # branch on the way.
@@ -73,16 +73,21 @@ jobs:
           cache: true
           cache-dependency-path: '**/*.csproj'
 
-      # Orbit.sln, capitalised: the runner's filesystem is case-sensitive and a developer's Mac is not,
-      # so a name that is only wrong in its case passes locally and fails only here.
+      # Orbit.CI.slnf, capitalised: the runner's filesystem is case-sensitive and a developer's Mac is
+      # not, so a name that is only wrong in its case passes locally and fails only here.
+      #
+      # The filter, not Orbit.sln: the solution carries Orbit.Maui so Visual Studio can open and debug
+      # it, but its net10.0-android/-ios frameworks fail *restore* on a runner with no MAUI workloads.
+      # The filter is the same solution minus that one project - the Android head has its own workflow
+      # (android-head.yml) which installs the workload it needs.
       - name: Restore
-        run: dotnet restore Orbit.sln
+        run: dotnet restore Orbit.CI.slnf
 
       - name: Build
-        run: dotnet build Orbit.sln --configuration Release --no-restore
+        run: dotnet build Orbit.CI.slnf --configuration Release --no-restore
 
       - name: Test
-        run: dotnet test Orbit.sln --configuration Release --no-build
+        run: dotnet test Orbit.CI.slnf --configuration Release --no-build
 
       # Everything in Orbit.Web's e2eeChat.js is Web Crypto and IndexedDB, and bUnit executes neither -
       # so the one file the chat's confidentiality rests on was reachable by no test above. This runs it

@@ -17,6 +17,12 @@ public sealed class NoteEntity
     /// <summary>Whether the owner has pinned this note to the top of their list - see Orbit.Core.Notes.Note.IsPinned.</summary>
     public bool IsPinned { get; set; }
 
+    /// <summary>
+    /// The folder the owner filed it under - see <see cref="FolderEntity"/>. Null for one filed nowhere,
+    /// which is a built-in folder rather than none at all (Orbit.Core.Folders.BuiltInFolder).
+    /// </summary>
+    public Guid? FolderId { get; set; }
+
     /// <summary>Stored by name, like every other enum here - see Orbit.Core.Abstractions.ItemPriority.</summary>
     public string Priority { get; set; } = nameof(Orbit.Core.Abstractions.ItemPriority.Normal);
 

@@ -103,6 +103,13 @@ public sealed record TaskListRow(
     public bool HasNextOrMatched => NextOrMatched.Length > 0;
 
     /// <summary>
+    /// Whether something has happened on this list that the reader has not seen - an unread
+    /// notification pointing at it. The card says so twice, as Orbit.Web's does: a mark beside the
+    /// name, and its own edge, which breathes. Both go out when the notifications are read.
+    /// </summary>
+    public bool HasUnseenAction { get; init; }
+
+    /// <summary>
     /// Whether this card is folded down to its heading. Folded rather than filtered away: a list
     /// somebody is not working on this week is still one they want to see is there.
     /// </summary>
@@ -119,11 +126,15 @@ public sealed record TaskListRow(
     public bool HasBadges => !IsHidden;
 
     /// <summary>
-    /// Whether this row offers a pin at all - the same rule NoteListItem.CanBePinned follows. Only the
-    /// owner may pin, and the server refuses anybody else (SetTaskListPinnedCommandHandler), so a
-    /// recipient was left with a button that called the server, was turned down and said nothing.
+    /// Whether this row offers a pin at all - the same rule NoteListItem.CanBePinned follows. Every row
+    /// does, except a hidden one, which offers the lock instead.
+    ///
+    /// A list shared with this reader used to be left out, because the server refused anybody but the
+    /// owner and the button called it, was turned down and said nothing. It takes a recipient's answer
+    /// now and keeps it on their own grant (SetTaskListPinnedCommandHandler,
+    /// TaskListShare.IsPinnedByRecipient), so the control is theirs to use like any other.
     /// </summary>
-    public bool CanBePinned => !IsHidden && !IsSharedWithMe;
+    public bool CanBePinned => !IsHidden;
 
     /// <inheritdoc cref="HasBadges"/>
     public bool HasPriorityBadge => HasPriority && !IsHidden;

@@ -1,6 +1,7 @@
 using System.Net;
 using System.Net.Http.Json;
 using Microsoft.Extensions.Logging.Abstractions;
+using Orbit.Contracts.Folders;
 using Orbit.Contracts.Notes;
 using Orbit.Contracts;
 using Orbit.Contracts.Sharing;
@@ -159,6 +160,18 @@ public sealed class NotesApiClient
     {
         var response = await _httpClient.PutAsJsonAsync(
             $"api/notes/{noteId}/pinned", new SetNotePinnedRequest(isPinned), cancellationToken);
+        return response.IsSuccessStatusCode;
+    }
+
+    /// <summary>
+    /// Files a note under a folder, or under none - which puts it back in the built-in folder its
+    /// privacy decides. Its own call rather than a field on the update, for the reason
+    /// MoveToFolderRequest gives.
+    /// </summary>
+    public async Task<bool> MoveToFolderAsync(Guid noteId, Guid? folderId, CancellationToken cancellationToken = default)
+    {
+        var response = await _httpClient.PutAsJsonAsync(
+            $"api/notes/{noteId}/folder", new MoveToFolderRequest(folderId), cancellationToken);
         return response.IsSuccessStatusCode;
     }
 

@@ -80,6 +80,10 @@ builder.Services.AddHttpClient<InventoryApiClient>(httpClient => httpClient.Base
     .AddHttpMessageHandler<AuthorizationMessageHandler>();
 builder.Services.AddHttpClient<NameSuggestionsApiClient>(httpClient => httpClient.BaseAddress = new Uri(apiBaseAddress))
     .AddHttpMessageHandler<AuthorizationMessageHandler>();
+builder.Services.AddHttpClient<FoldersApiClient>(httpClient => httpClient.BaseAddress = new Uri(apiBaseAddress))
+    .AddHttpMessageHandler<AuthorizationMessageHandler>();
+builder.Services.AddHttpClient<SharesApiClient>(httpClient => httpClient.BaseAddress = new Uri(apiBaseAddress))
+    .AddHttpMessageHandler<AuthorizationMessageHandler>();
 builder.Services.AddHttpClient<CalendarApiClient>(httpClient => httpClient.BaseAddress = new Uri(apiBaseAddress))
     .AddHttpMessageHandler<AuthorizationMessageHandler>();
 builder.Services.AddHttpClient<AuthApiClient>(httpClient => httpClient.BaseAddress = new Uri(apiBaseAddress))
@@ -134,7 +138,6 @@ builder.Services.AddScoped(services => new LiveUpdatesConnection(
     services.GetRequiredService<ILogger<LiveUpdatesConnection>>()));
 builder.Services.AddScoped<InventoryArrangement>();
 builder.Services.AddScoped<ConversationPins>();
-builder.Services.AddScoped<SharedItemPins>();
 builder.Services.AddScoped<PresenceService>();
 // Asked by the chat poll before every tick - see PageVisibility for why polling behind thirty other
 // tabs is waste rather than diligence.
@@ -154,6 +157,12 @@ builder.Services.AddSingleton<Translations>();
 // Shared unread state so the avatar badge, the nav-section badges, and Chat's contact avatars all read
 // the same poll (MainLayout owns it) instead of each fetching their own.
 builder.Services.AddScoped<NotificationFeedState>();
+// The tabs, and which one is open, shared by the dashboard, the notes and the task lists - a folder is
+// a place rather than a per-page view setting. See FolderState.
+builder.Services.AddScoped<FolderState>();
+// Marks the bell's entries read once the reader has reached what they are about - the layout settles
+// the address bar, and a page settles what it is beyond its address. See NewsSettler.
+builder.Services.AddScoped<NewsSettler>();
 builder.Services.AddScoped<ClientExceptionLog>();
 
 // Where the phone builds are published, if they are - see MobileAppDownloads. Read once here rather

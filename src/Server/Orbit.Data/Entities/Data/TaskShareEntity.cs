@@ -15,4 +15,7 @@ public sealed class TaskShareEntity
     public string AccessLevel { get; set; } = "ReadOnly";
     public DateTimeOffset CreatedAtUtc { get; set; }
     public DateTimeOffset? AcceptedAtUtc { get; set; }
+
+    /// <inheritdoc cref="Orbit.Core.Notes.NoteShare.IsPinnedByRecipient" />
+    public bool IsPinnedByRecipient { get; set; }
 }

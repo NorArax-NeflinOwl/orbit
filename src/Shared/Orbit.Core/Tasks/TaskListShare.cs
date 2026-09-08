@@ -16,11 +16,14 @@ public sealed class TaskListShare
     public DateTimeOffset CreatedAtUtc { get; private set; }
     public DateTimeOffset? AcceptedAtUtc { get; private set; }
 
+    /// <inheritdoc cref="Orbit.Core.Notes.NoteShare.IsPinnedByRecipient"/>
+    public bool IsPinnedByRecipient { get; private set; }
+
     public bool IsAccepted => AcceptedAtUtc is not null;
 
     private TaskListShare(
         Guid id, Guid sourceTaskListId, Guid ownerUserId, Guid recipientUserId, ShareAccessLevel accessLevel,
-        DateTimeOffset createdAtUtc, DateTimeOffset? acceptedAtUtc)
+        DateTimeOffset createdAtUtc, DateTimeOffset? acceptedAtUtc, bool isPinnedByRecipient)
     {
         Id = id;
         SourceTaskListId = sourceTaskListId;
@@ -29,17 +32,34 @@ public sealed class TaskListShare
         AccessLevel = accessLevel;
         CreatedAtUtc = createdAtUtc;
         AcceptedAtUtc = acceptedAtUtc;
+        IsPinnedByRecipient = isPinnedByRecipient;
     }
 
     public static TaskListShare Create(
         Guid sourceTaskListId, Guid ownerUserId, Guid recipientUserId, ShareAccessLevel accessLevel = ShareAccessLevel.ReadOnly)
-        => new(Guid.NewGuid(), sourceTaskListId, ownerUserId, recipientUserId, accessLevel, DateTimeOffset.UtcNow, acceptedAtUtc: null);
+        => new(
+            Guid.NewGuid(), sourceTaskListId, ownerUserId, recipientUserId, accessLevel, DateTimeOffset.UtcNow,
+            acceptedAtUtc: null, isPinnedByRecipient: false);
 
     /// <summary>Rebuilds a share from already-persisted values, bypassing creation rules.</summary>
     public static TaskListShare FromPersistence(
         Guid id, Guid sourceTaskListId, Guid ownerUserId, Guid recipientUserId, ShareAccessLevel accessLevel,
-        DateTimeOffset createdAtUtc, DateTimeOffset? acceptedAtUtc)
-        => new(id, sourceTaskListId, ownerUserId, recipientUserId, accessLevel, createdAtUtc, acceptedAtUtc);
+        DateTimeOffset createdAtUtc, DateTimeOffset? acceptedAtUtc, bool isPinnedByRecipient = false)
+        => new(
+            id, sourceTaskListId, ownerUserId, recipientUserId, accessLevel, createdAtUtc, acceptedAtUtc,
+            isPinnedByRecipient);
+
+    /// <inheritdoc cref="Orbit.Core.Notes.NoteShare.SetPinnedByRecipient"/>
+    public bool SetPinnedByRecipient(bool isPinned)
+    {
+        if (IsPinnedByRecipient == isPinned)
+        {
+            return false;
+        }
+
+        IsPinnedByRecipient = isPinned;
+        return true;
+    }
 
     /// <summary>No-op if already accepted, so accepting the same share twice (e.g. a duplicate click) is harmless.</summary>
     public void MarkAccepted()

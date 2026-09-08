@@ -20,11 +20,22 @@ public sealed class NoteShare
     public DateTimeOffset CreatedAtUtc { get; private set; }
     public DateTimeOffset? AcceptedAtUtc { get; private set; }
 
+    /// <summary>
+    /// Whether the *recipient* keeps this note at the top of their own page. The note's own IsPinned
+    /// belongs to its owner and says where it sits on theirs, which is a different question with the
+    /// same name - so a recipient's answer had nowhere on the server to live and was kept in one
+    /// browser's localStorage, where it did not follow them to a second browser or to the phone.
+    ///
+    /// It lives here because this row *is* the recipient's relationship to that note: one per
+    /// recipient, gone when their access is, and never visible to the owner.
+    /// </summary>
+    public bool IsPinnedByRecipient { get; private set; }
+
     public bool IsAccepted => AcceptedAtUtc is not null;
 
     private NoteShare(
         Guid id, Guid sourceNoteId, Guid ownerUserId, Guid recipientUserId, ShareAccessLevel accessLevel,
-        DateTimeOffset createdAtUtc, DateTimeOffset? acceptedAtUtc)
+        DateTimeOffset createdAtUtc, DateTimeOffset? acceptedAtUtc, bool isPinnedByRecipient)
     {
         Id = id;
         SourceNoteId = sourceNoteId;
@@ -33,17 +44,37 @@ public sealed class NoteShare
         AccessLevel = accessLevel;
         CreatedAtUtc = createdAtUtc;
         AcceptedAtUtc = acceptedAtUtc;
+        IsPinnedByRecipient = isPinnedByRecipient;
     }
 
     public static NoteShare Create(
         Guid sourceNoteId, Guid ownerUserId, Guid recipientUserId, ShareAccessLevel accessLevel = ShareAccessLevel.ReadOnly)
-        => new(Guid.NewGuid(), sourceNoteId, ownerUserId, recipientUserId, accessLevel, DateTimeOffset.UtcNow, acceptedAtUtc: null);
+        => new(
+            Guid.NewGuid(), sourceNoteId, ownerUserId, recipientUserId, accessLevel, DateTimeOffset.UtcNow,
+            acceptedAtUtc: null, isPinnedByRecipient: false);
 
     /// <summary>Rebuilds a share from already-persisted values, bypassing creation rules.</summary>
     public static NoteShare FromPersistence(
         Guid id, Guid sourceNoteId, Guid ownerUserId, Guid recipientUserId, ShareAccessLevel accessLevel,
-        DateTimeOffset createdAtUtc, DateTimeOffset? acceptedAtUtc)
-        => new(id, sourceNoteId, ownerUserId, recipientUserId, accessLevel, createdAtUtc, acceptedAtUtc);
+        DateTimeOffset createdAtUtc, DateTimeOffset? acceptedAtUtc, bool isPinnedByRecipient = false)
+        => new(
+            id, sourceNoteId, ownerUserId, recipientUserId, accessLevel, createdAtUtc, acceptedAtUtc,
+            isPinnedByRecipient);
+
+    /// <summary>
+    /// Where the recipient wants this note on their own page. Says whether anything changed, so a press
+    /// that sets it to what it already was writes nothing.
+    /// </summary>
+    public bool SetPinnedByRecipient(bool isPinned)
+    {
+        if (IsPinnedByRecipient == isPinned)
+        {
+            return false;
+        }
+
+        IsPinnedByRecipient = isPinned;
+        return true;
+    }
 
     /// <summary>No-op if already accepted, so accepting the same share twice (e.g. a duplicate click) is harmless.</summary>
     public void MarkAccepted()

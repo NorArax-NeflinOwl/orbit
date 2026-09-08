@@ -40,11 +40,37 @@ public partial class Row : ContentView
 		nameof(HasDivider), typeof(bool), typeof(Row), true,
 		propertyChanged: (row, _, value) => ((Row)row).Divider.IsVisible = value is true);
 
+	/// <summary>
+	/// Something unread is about this row - Orbit.Web's .list-row.row-unseen: the danger colour as a
+	/// hairline around it over a wash of the same, and deliberately no pulse of its own.
+	/// </summary>
+	public static readonly BindableProperty HasNewsProperty = BindableProperty.Create(
+		nameof(HasNews), typeof(bool), typeof(Row), false,
+		propertyChanged: (row, _, _) => ((Row)row).Mark());
+
 	public Row()
 	{
 		InitializeComponent();
 		TitleLabel.IsVisible = false;
+
+		// The mark's colours are read from the theme in force, so it has to be drawn again when the
+		// reader changes it - the same reason the platform mappers hang off the property they paint.
+		// Listened to only while the row is on screen: a CollectionView makes and drops these by the
+		// dozen, and a subscription nobody takes off is a row that never goes away.
+		Loaded += Watch;
+		Unloaded += Forget;
 	}
+
+	private void Watch(object? sender, EventArgs arguments)
+	{
+		Application.Current!.RequestedThemeChanged += Redraw;
+		Mark();
+	}
+
+	private void Forget(object? sender, EventArgs arguments)
+		=> Application.Current!.RequestedThemeChanged -= Redraw;
+
+	private void Redraw(object? sender, AppThemeChangedEventArgs arguments) => Mark();
 
 	public string Title
 	{
@@ -84,6 +110,39 @@ public partial class Row : ContentView
 	{
 		get => (bool)GetValue(HasDividerProperty);
 		set => SetValue(HasDividerProperty, value);
+	}
+
+	/// <inheritdoc cref="HasNewsProperty"/>
+	public bool HasNews
+	{
+		get => (bool)GetValue(HasNewsProperty);
+		set => SetValue(HasNewsProperty, value);
+	}
+
+	/// <summary>
+	/// The mark itself. The wash is app.css's own 7% of the danger colour; the frame is always there and
+	/// always a pixel thick, so gaining the mark cannot move the row or its neighbours.
+	/// </summary>
+	private void Mark()
+	{
+		if (!HasNews)
+		{
+			Frame.Stroke = Brush.Transparent;
+			Frame.BackgroundColor = Colors.Transparent;
+			return;
+		}
+
+		var danger = Danger();
+		Frame.Stroke = new SolidColorBrush(danger);
+		Frame.BackgroundColor = danger.WithAlpha(0.07f);
+	}
+
+	private static Color Danger()
+	{
+		var key = Application.Current?.RequestedTheme == AppTheme.Dark ? "DangerDark" : "DangerLight";
+		return Application.Current?.Resources.TryGetValue(key, out var value) is true && value is Color colour
+			? colour
+			: Colors.Transparent;
 	}
 
 	/// <summary>

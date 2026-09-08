@@ -7,10 +7,10 @@
 @using Orbit.Core.Tasks
 @using Orbit.Web.Services
 @inject TasksApiClient TasksApiClient
+@inject FolderState Folders
 @inject CalendarApiClient CalendarApiClient
 @inject TaskListDeletion TaskListDeletion
 @inject TaskListArrangement Arrangement
-@inject SharedItemPins SharedPins
 @inject NotificationFeedState NotificationFeedState
 @inject NavigationManager NavigationManager
 @inject IJSRuntime JSRuntime
@@ -66,6 +66,10 @@
 {
     <p class="error">@_errorMessage</p>
 }
+
+@* The folder being read, and the same row of tabs the notes and the dashboard carry - see FolderTabs.
+   Above the search and the chips, because those narrow what is in a folder rather than choosing one. *@
+<FolderTabs CountIn="CountIn" />
 
 <ObjectList IsLoading="_taskLists is null" IsEmpty="_taskLists is { Count: 0 }" EmptyMessage="@T["No task lists yet."]">
     @* What the reader is looking for, above the chips that say which lists are on offer at all: a word
@@ -152,7 +156,7 @@
                           HasUnseenAction="@(UnreadCountFor(taskList) > 0)"
                           IsCollapsed="Arrangement.IsCollapsed(taskList.Id)"
                           OnCollapseToggled="() => ToggleCollapsedAsync(taskList)"
-                          ExtraClass="@(IsPinned(taskList) ? "item-card-pinned" : null)">
+                          ExtraClass="@(taskList.IsPinned ? "item-card-pinned" : null)">
                     @* Only where dragging means something: in every other order the cards are
                        arranged by an answer, and moving one by hand would not survive a redraw. *@
                     <Handle>
@@ -164,21 +168,12 @@
                                              CanMoveUp="CanMoveCard(taskList, -1)" CanMoveDown="CanMoveCard(taskList, 1)" />
                         }
                     </Handle>
-                    @* Every card has one, and where the answer is kept depends on whose list it is.
-                       Your own list carries its pin on the server, because arranging it is yours to do.
-                       A list shared with you carries somebody else's there, so pinning it here would be
-                       rearranging their page - the reader's own answer is kept on this device instead.
-                       See SharedItemPins. *@
+                    @* Every card has one, and one control for both cases: the list's pin is this
+                       reader's own either way. A list you own carries it on the list; one shared with
+                       you carries it on your grant, which is what stops a recipient rearranging the
+                       owner's page - see TaskListShare.IsPinnedByRecipient. *@
                     <Pin>
-                        @if (!taskList.IsShared)
-                        {
-                            <PinButton IsPinned="taskList.IsPinned" OnPinnedChanged="_ => TogglePinnedAsync(taskList)" />
-                        }
-                        else
-                        {
-                            <PinButton IsPinned="SharedPins.IsPinned(taskList.Id)"
-                                       OnPinnedChanged="pinned => PinTheSharedListAsync(taskList, pinned)" />
-                        }
+                        <PinButton IsPinned="taskList.IsPinned" OnPinnedChanged="_ => TogglePinnedAsync(taskList)" />
                     </Pin>
                     <Menu>
                         @* Somebody else's shared list is not this reader's to delete - the same rule
@@ -203,7 +198,7 @@
                         @* Kept as a tag as well as an outline, so the answer is readable rather than
                            only visible - and on a shared list it is this reader's own answer, not the
                            owner's, which is theirs and about their page. *@
-                        @if (IsPinned(taskList))
+                        @if (taskList.IsPinned)
                         {
                             <span class="card-badge card-badge-pinned">@T["Pinned"]</span>
                         }
@@ -371,10 +366,17 @@
     private IReadOnlyList<TaskItemDto> EntriesToShow(TaskDto taskList)
         => _itemFilter.IsActive ? [.. taskList.Items.Where(_itemFilter.Matches)] : taskList.Items;
 
-    /// <summary>What the chips offer, in the order a list moves through its statuses - with "shared" after them, since it is about where a list came from rather than how far along it is.</summary>
+    /// <summary>
+    /// What the chips offer, in the order a list moves through its statuses - with "shared" after them,
+    /// since it is about where a list came from rather than how far along it is.
+    ///
+    /// Completed is not among them any more: a finished list is in the Finished folder now (see
+    /// BuiltInFolder), so the chip could only ever have found nothing under every other tab and
+    /// everything under that one. The tab above is the same question, asked once.
+    /// </summary>
     private static readonly TaskListFilter[] SelectableFilters =
     [
-        TaskListFilter.New, TaskListFilter.Pending, TaskListFilter.Overdue, TaskListFilter.Completed,
+        TaskListFilter.New, TaskListFilter.Pending, TaskListFilter.Overdue,
         TaskListFilter.Shared, TaskListFilter.Group
     ];
 
@@ -392,11 +394,24 @@
         get
         {
             var visible = (_taskLists ?? [])
+                .Where(InTheOpenFolder)
                 .Where(taskList => Matches(taskList, _filter) && _itemFilter.HasAMatch(taskList))
                 .ToList();
-            return Sort(visible, Arrangement, IsPinned);
+            return Sort(visible, Arrangement);
         }
     }
+
+    /// <summary>
+    /// Whether this list is in the folder that is open. A finished list gathers under Finished wherever its owner
+    /// filed it - see FolderPlacement, which is the same rule the notes and the dashboard read.
+    /// </summary>
+    private bool InTheOpenFolder(TaskDto taskList)
+        => Folders.ShowsUnderTheChosenTab(taskList.FolderId, taskList.IsPrivate, taskList.IsCompleted);
+
+    /// <summary>How many lists are under each tab, drawn on the tab itself.</summary>
+    private int CountIn(FolderKey folder)
+        => (_taskLists ?? []).Count(taskList =>
+            FolderPlacement.Of(taskList.FolderId, taskList.IsPrivate, taskList.IsCompleted, Folders.KnownFolderIds) == folder);
 
     /// <summary>
     /// A status chip matches the status the list is in; "Shared" matches where it came from and "Group"
@@ -415,16 +430,15 @@
     /// Pinned lists lead whatever the reader is sorting by - that is what pinning is for, and a pin that
     /// only held under one sort order would not be worth setting. The order the reader dragged the cards
     /// into is the exception: it already says where every card goes, and pinning would contradict it.
+    ///
+    /// The flag is read straight off the list. It used to be asked through a delegate, because a shared
+    /// list carried its <em>owner's</em> pin there while this reader's lived in their own browser; one
+    /// arrives carrying this reader's own now - see TaskListShare.IsPinnedByRecipient.
     /// </summary>
-    /// <param name="isPinned">
-    /// Whether a card leads, asked rather than read off the list: a list shared with this reader is
-    /// pinned by them on this device, not by the flag its owner set - see IsPinned.
-    /// </param>
-    private static IReadOnlyList<TaskDto> Sort(
-        IReadOnlyList<TaskDto> taskLists, TaskListArrangement arrangement, Func<TaskDto, bool> isPinned)
+    private static IReadOnlyList<TaskDto> Sort(IReadOnlyList<TaskDto> taskLists, TaskListArrangement arrangement)
         => arrangement.SortOrder == TaskListSortOrder.Manual
             ? [.. AsArranged(taskLists, arrangement.ManualOrder)]
-            : [.. SortWithinPinning(taskLists, arrangement.SortOrder).OrderByDescending(isPinned)];
+            : [.. SortWithinPinning(taskLists, arrangement.SortOrder).OrderByDescending(taskList => taskList.IsPinned)];
 
     /// <summary>
     /// The reader's own order, with anything they have not placed yet - a list made or shared since the
@@ -456,25 +470,6 @@
 
     private int CountMatching(TaskListFilter filter)
         => (_taskLists ?? []).Count(taskList => Matches(taskList, filter));
-
-    /// <summary>
-    /// Whether this card sits at the top of *this* reader's page. Two answers behind one question: a
-    /// list you own carries its own, and one shared with you carries its owner's, which is about their
-    /// page rather than yours - see SharedItemPins.
-    /// </summary>
-    private bool IsPinned(TaskDto taskList)
-        => taskList.IsShared ? SharedPins.IsPinned(taskList.Id) : taskList.IsPinned;
-
-    /// <summary>
-    /// Pinning a list somebody else shared. Nothing is sent: the answer is this reader's and stays on
-    /// this device, so the page only has to re-sort around it.
-    /// </summary>
-    private async Task PinTheSharedListAsync(TaskDto taskList, bool isPinned)
-    {
-        Logger.LogInformation(
-            "User clicked '{Action}' for shared task list {TaskListId}", isPinned ? "Pin" : "Unpin", taskList.Id);
-        await SharedPins.SetPinnedAsync(taskList.Id, isPinned);
-    }
 
     /// <summary>
     /// Re-reads the lists afterwards rather than editing the one in hand: the server decides what a list
@@ -803,10 +798,9 @@
         // MainLayout owns the polling; this only listens. A reminder arriving lights the card it is
         // about, and a list somebody has just shared is *read* - see OnNotificationsChanged.
         NotificationFeedState.Changed += OnNotificationsChanged;
+        // The tabs are shared, so pressing one on another page re-filters this one too.
+        Folders.Changed += OnFoldersChanged;
         await Arrangement.InitializeAsync();
-        // Read before the cards are drawn: a pin that arrived a moment later would move a card somebody
-        // was already pointing at.
-        await SharedPins.InitializeAsync();
         try
         {
             _taskLists = await TasksApiClient.GetTaskListsAsync();
@@ -849,7 +843,13 @@
             StateHasChanged();
         });
 
-    public void Dispose() => NotificationFeedState.Changed -= OnNotificationsChanged;
+    private void OnFoldersChanged() => InvokeAsync(StateHasChanged);
+
+    public void Dispose()
+    {
+        NotificationFeedState.Changed -= OnNotificationsChanged;
+        Folders.Changed -= OnFoldersChanged;
+    }
 
     private void GoToAddTaskList()
     {

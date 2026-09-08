@@ -8,12 +8,13 @@ namespace Orbit.Api.Tests.TestDoubles;
 /// </summary>
 internal sealed class RecordingSharedItemNotifier : ISharedItemNotifier
 {
-    public List<(Guid RecipientUserId, Guid SharerUserId, SharedItemKind Kind, string? ItemTitle)> Announced { get; } = [];
+    public List<(Guid RecipientUserId, Guid SharerUserId, SharedItemKind Kind, string? ItemTitle, SharedItemLink Link)> Announced { get; } = [];
 
     public Task NotifyAsync(
-        Guid recipientUserId, Guid sharerUserId, SharedItemKind kind, string? itemTitle, CancellationToken cancellationToken)
+        Guid recipientUserId, Guid sharerUserId, SharedItemKind kind, string? itemTitle, SharedItemLink link,
+        CancellationToken cancellationToken)
     {
-        Announced.Add((recipientUserId, sharerUserId, kind, itemTitle));
+        Announced.Add((recipientUserId, sharerUserId, kind, itemTitle, link));
         return Task.CompletedTask;
     }
 }

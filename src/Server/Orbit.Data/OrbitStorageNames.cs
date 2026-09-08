@@ -40,6 +40,7 @@ internal static class OrbitStorageNames
         [typeof(InventoryItemCategoryEntity)] = new("OP_INVENTORIES_CATEGORIES", "OP_IC_"),
         [typeof(InventoryShareEntity)] = new("OP_INVENTORIES_SHARED", "OP_IS_"),
         [typeof(NotificationEntryEntity)] = new("OP_NOTIFICATIONS", "OP_NTF_"),
+        [typeof(FolderEntity)] = new("OP_FOLDERS", "OP_F_"),
 
         // OL_ - rows that exist to join two of the tables above.
         [typeof(TaskItemTaskListLinkEntity)] = new("OL_TASKS_ITEMS", "OL_TI_"),

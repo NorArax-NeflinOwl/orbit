@@ -29,13 +29,37 @@ public sealed class Note
     public bool IsPrivate { get; private set; }
 
     /// <summary>
-    /// Whether this note sits at the top of its owner's list. Only the owner's pin counts - see
-    /// SetNotePinnedCommandHandler for why a recipient cannot pin a note shared with them.
+    /// Whether this note sits at the top of **its owner's** list. This is the stored flag and it is the
+    /// owner's alone; a recipient's answer is on their own grant. Read
+    /// <see cref="IsPinnedForCaller"/> to draw a list, and this one only to write it.
     /// </summary>
     public bool IsPinned { get; private set; }
 
+    /// <summary>
+    /// The pin belonging to whoever this note was loaded for: the stored one for its owner, and the
+    /// recipient's own where NoteAccessResolver has stamped it from their grant. Never persisted, and
+    /// deliberately a field of its own rather than an overwrite of <see cref="IsPinned"/> - the resolver
+    /// also feeds the *write* paths (UpdateNoteCommandHandler resolves before it saves), so stamping
+    /// over the stored flag would have let a recipient with edit access save their pin onto the owner's
+    /// row the next time they changed a word.
+    /// </summary>
+    public bool IsPinnedForCaller => _isPinnedForCaller ?? IsPinned;
+
+    private bool? _isPinnedForCaller;
+
     /// <summary>How much this note matters, for sorting and for filtering a crowded page. See <see cref="ItemPriority"/>.</summary>
     public ItemPriority Priority { get; private set; }
+
+    /// <summary>
+    /// The folder its owner filed it under, or null for one they have not filed anywhere - which is not
+    /// "nowhere": a note with no folder is in Public, or in Private when it is sealed, without a row
+    /// saying so. See Orbit.Core.Folders.BuiltInFolder.
+    ///
+    /// The owner's, and only theirs. A note shared with somebody else is one row, so a recipient filing
+    /// it would be moving it on its owner's own page - the same reason a recipient cannot pin one (see
+    /// SetNotePinnedCommandHandler).
+    /// </summary>
+    public Guid? FolderId { get; private set; }
 
     /// <summary>The sealed title and lines of a private note; null for an ordinary one. See <see cref="EncryptedPayload"/>.</summary>
     public EncryptedPayload? EncryptedContent { get; private set; }
@@ -88,7 +112,8 @@ public sealed class Note
 
     public static Note Create(
         Guid userId, string title, IReadOnlyList<NoteContentLine> content, bool isPrivate = false,
-        EncryptedPayload? encryptedContent = null, bool isPinned = false, ItemPriority priority = ItemPriority.Normal)
+        EncryptedPayload? encryptedContent = null, bool isPinned = false, ItemPriority priority = ItemPriority.Normal,
+        Guid? folderId = null)
     {
         EnsureSealedWhenPrivate(isPrivate, encryptedContent);
         EnsureSomethingToRead(title, content, isPrivate);
@@ -96,7 +121,10 @@ public sealed class Note
         var now = DateTimeOffset.UtcNow;
         return new Note(
             Guid.NewGuid(), userId, title, content, isPrivate, encryptedContent, now, now,
-            lockedByUserId: null, lockedByUserName: null, lockExpiresAtUtc: null, isPinned, priority);
+            lockedByUserId: null, lockedByUserName: null, lockExpiresAtUtc: null, isPinned, priority)
+        {
+            FolderId = folderId
+        };
     }
 
     /// <summary>Rebuilds a note from already-persisted values, bypassing creation rules.</summary>
@@ -104,9 +132,12 @@ public sealed class Note
         Guid id, Guid userId, string title, IReadOnlyList<NoteContentLine> content, bool isPrivate, EncryptedPayload? encryptedContent,
         DateTimeOffset createdAtUtc, DateTimeOffset updatedAtUtc,
         Guid? lockedByUserId, string? lockedByUserName, DateTimeOffset? lockExpiresAtUtc, bool isPinned = false,
-        ItemPriority priority = ItemPriority.Normal)
+        ItemPriority priority = ItemPriority.Normal, Guid? folderId = null)
         => new(id, userId, title, content, isPrivate, encryptedContent, createdAtUtc, updatedAtUtc,
-            lockedByUserId, lockedByUserName, lockExpiresAtUtc, isPinned, priority);
+            lockedByUserId, lockedByUserName, lockExpiresAtUtc, isPinned, priority)
+        {
+            FolderId = folderId
+        };
 
     /// <summary>
     /// Stamps how the current caller relates to this note - see the class comment. Called exactly once,
@@ -125,6 +156,30 @@ public sealed class Note
     /// NoteAccessResolver rather than stored, because both depend on who is asking.
     /// </summary>
     public void SetSharedWithOthers(bool isSharedWithOthers) => IsSharedWithOthers = isSharedWithOthers;
+
+    /// <summary>
+    /// Where the *caller* keeps this note on their own page, when the caller is not its owner. Stamped
+    /// by NoteAccessResolver from their own grant - see <see cref="IsPinnedForCaller"/>, which is what
+    /// it fills in, and why it is not <see cref="IsPinned"/>.
+    /// </summary>
+    public void SetPinnedForCaller(bool isPinned) => _isPinnedForCaller = isPinned;
+
+    /// <summary>
+    /// Files this note under a folder, or under none - which puts it back in whichever built-in folder
+    /// its privacy says (see Orbit.Core.Folders.BuiltInFolder). Its own command rather than part of
+    /// Update, for the same reason pinning is: an update replaces the whole note, so a client that had
+    /// not heard of folders would empty this field every time it saved.
+    /// </summary>
+    public void MoveToFolder(Guid? folderId)
+    {
+        if (FolderId == folderId)
+        {
+            return;
+        }
+
+        FolderId = folderId;
+        UpdatedAtUtc = DateTimeOffset.UtcNow;
+    }
 
     /// <summary>
     /// Callers are expected to have already checked <see cref="AccessLevel"/> is CanEdit and that

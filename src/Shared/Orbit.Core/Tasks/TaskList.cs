@@ -52,8 +52,16 @@ public sealed class TaskList
     /// Priority on purpose: priority says how much something matters, pinning says "keep this where I
     /// can see it", and the two are not the same wish - a low-priority list can still be the one being
     /// worked on today.
+    ///
+    /// This is the stored flag and it belongs to **the owner**; a recipient's answer is on their own
+    /// grant. Read <see cref="IsPinnedForCaller"/> to draw a list, and this one only to write it.
     /// </summary>
     public bool IsPinned { get; private set; }
+
+    /// <inheritdoc cref="Orbit.Core.Notes.Note.IsPinnedForCaller"/>
+    public bool IsPinnedForCaller => _isPinnedForCaller ?? IsPinned;
+
+    private bool? _isPinnedForCaller;
 
     /// <summary>
     /// Marks this list as one that gathers other lists: the lists its items link to are its members,
@@ -68,6 +76,13 @@ public sealed class TaskList
     /// StockRequirementCounter. Null for a list nobody has asked that question of.
     /// </summary>
     public Guid? LinkedInventoryId { get; private set; }
+
+    /// <summary>
+    /// The folder its owner filed it under, or null for one they have not filed anywhere - which is not
+    /// "nowhere": a list with no folder is in Public, or in Private when it is sealed, without a row
+    /// saying so. See Orbit.Core.Folders.BuiltInFolder, and Note.FolderId, which says the same.
+    /// </summary>
+    public Guid? FolderId { get; private set; }
 
     /// <summary>The user id currently holding the edit lock, if any - see AcquireLock/ReleaseLock.</summary>
     public Guid? LockedByUserId { get; private set; }
@@ -120,7 +135,7 @@ public sealed class TaskList
     public static TaskList Create(
         Guid userId, string title, IReadOnlyList<TaskItem> items, bool isGroup = false,
         bool isPrivate = false, EncryptedPayload? encryptedContent = null, ItemPriority priority = ItemPriority.Normal,
-        bool isPinned = false, string description = "")
+        bool isPinned = false, string description = "", Guid? folderId = null)
     {
         EnsureSealedWhenPrivate(isPrivate, encryptedContent);
         StoredTextLimits.OrRefuse(title, StoredTextLimits.Title, "task list's title");
@@ -130,7 +145,8 @@ public sealed class TaskList
             Guid.NewGuid(), userId, title, items, isGroup, isPrivate, encryptedContent, priority, isPinned, now, now,
             lockedByUserId: null, lockedByUserName: null, lockExpiresAtUtc: null)
         {
-            Description = description
+            Description = description,
+            FolderId = folderId
         };
     }
 
@@ -144,19 +160,24 @@ public sealed class TaskList
         Guid id, Guid userId, string title, IReadOnlyList<TaskItem> items, bool isGroup, bool isPrivate, EncryptedPayload? encryptedContent,
         DateTimeOffset createdAtUtc, DateTimeOffset updatedAtUtc,
         Guid? lockedByUserId, string? lockedByUserName, DateTimeOffset? lockExpiresAtUtc,
-        ItemPriority priority, bool isPinned, Guid? linkedInventoryId = null, string description = "")
+        ItemPriority priority, bool isPinned, Guid? linkedInventoryId = null, string description = "",
+        Guid? folderId = null)
     {
         var taskList = new TaskList(id, userId, title, items, isGroup, isPrivate, encryptedContent, priority, isPinned,
             createdAtUtc, updatedAtUtc, lockedByUserId, lockedByUserName, lockExpiresAtUtc);
         taskList.LinkedInventoryId = linkedInventoryId;
         taskList.Description = description;
+        taskList.FolderId = folderId;
         return taskList;
     }
 
-    /// <summary>Stamps how the current caller relates to this task list - see the class comment. Not persisted.</summary>
     /// <summary>Tells the owner that somebody else holds accepted access - the mirror of <see cref="IsShared"/>.</summary>
     public void SetSharedWithOthers(bool isSharedWithOthers) => IsSharedWithOthers = isSharedWithOthers;
 
+    /// <inheritdoc cref="Orbit.Core.Notes.Note.SetPinnedForCaller"/>
+    public void SetPinnedForCaller(bool isPinned) => _isPinnedForCaller = isPinned;
+
+    /// <summary>Stamps how the current caller relates to this task list - see the class comment. Not persisted.</summary>
     public void SetAccessContext(bool isShared, string? sharedByUserName, ShareAccessLevel accessLevel)
     {
         IsShared = isShared;
@@ -278,6 +299,21 @@ public sealed class TaskList
     /// without loading, editing and saving the whole thing - and so it never collides with someone
     /// else's edit lock, which is about the content rather than where the card sits.
     /// </summary>
+    /// <summary>
+    /// Files this list under a folder, or under none - see Note.MoveToFolder, which is the same move on
+    /// the other kind of card, and says why it is its own command rather than part of an update.
+    /// </summary>
+    public void MoveToFolder(Guid? folderId)
+    {
+        if (FolderId == folderId)
+        {
+            return;
+        }
+
+        FolderId = folderId;
+        UpdatedAtUtc = DateTimeOffset.UtcNow;
+    }
+
     public void SetPinned(bool isPinned)
     {
         if (IsPinned == isPinned)

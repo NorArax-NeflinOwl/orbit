@@ -43,6 +43,7 @@ public sealed class TaskListAccessResolver
 
         var owner = await _userRepository.GetByIdAsync(grant.OwnerUserId, cancellationToken);
         taskList.SetAccessContext(isShared: true, owner?.UserName, grant.AccessLevel);
+        PinTheWayTheRecipientLeftIt(taskList, grant);
         return taskList;
     }
 
@@ -71,9 +72,14 @@ public sealed class TaskListAccessResolver
 
             var owner = await _userRepository.GetByIdAsync(grant.OwnerUserId, cancellationToken);
             taskList.SetAccessContext(isShared: true, owner?.UserName, grant.AccessLevel);
+            PinTheWayTheRecipientLeftIt(taskList, grant);
             granted.Add(taskList);
         }
 
         return owned.Concat(granted).ToList();
     }
+
+    /// <inheritdoc cref="Orbit.Core.Notes.NoteAccessResolver.PinTheWayTheRecipientLeftIt"/>
+    private static void PinTheWayTheRecipientLeftIt(TaskList taskList, TaskListShare grant)
+        => taskList.SetPinnedForCaller(grant.IsPinnedByRecipient);
 }

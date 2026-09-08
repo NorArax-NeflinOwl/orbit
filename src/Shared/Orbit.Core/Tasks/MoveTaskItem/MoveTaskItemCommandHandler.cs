@@ -37,9 +37,24 @@ public sealed class MoveTaskItemCommandHandler : IRequestHandler<MoveTaskItemCom
         }
 
         var targetList = await _taskListAccessResolver.ResolveAsync(request.UserId, request.TargetTaskListId, cancellationToken);
-        if (targetList is null || !targetList.AccessLevel.AllowsEditing() || targetList.UserId != sourceList.UserId)
+        if (targetList is null || !targetList.AccessLevel.AllowsEditing())
         {
             return EditOutcome.NotFound;
+        }
+
+        if (targetList.UserId != sourceList.UserId)
+        {
+            // Two lists with different owners, which for a reader who can edit both means one of them
+            // was shared with them. An entry belongs to its list and travels with it, so moving one out
+            // would take it away from everybody else the list was shared with - and moving one in would
+            // hand them something they never agreed to.
+            //
+            // Refused rather than NotFound, which is what this used to answer: both lists are on the
+            // reader's own screen, so "no such list" sends them looking for a mistake they did not
+            // make. The reason names the way round it can be done - a copy, which is theirs and leaves
+            // the shared list alone. See CopyTaskItemCommand.
+            return EditOutcome.RefusedBecause(
+                "This entry is shared along with the whole list it is on, so it can't be moved out of it. Copy it instead.");
         }
 
         if (sourceList.IsPrivate || targetList.IsPrivate)

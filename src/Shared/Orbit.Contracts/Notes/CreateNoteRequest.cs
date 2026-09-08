@@ -7,4 +7,10 @@ namespace Orbit.Contracts.Notes;
 /// </summary>
 public sealed record CreateNoteRequest(
     string Title, IReadOnlyList<NoteContentLineDto> Content, bool IsPrivate = false, EncryptedContentDto? EncryptedContent = null,
-    string Priority = "Normal");
+    string Priority = "Normal",
+    /// <summary>
+    /// The folder to file it under, or null to leave it in the built-in one its privacy decides - see
+    /// Orbit.Core.Folders.BuiltInFolder. Only on the way in: moving an existing note is its own request
+    /// (MoveToFolderRequest), for the reason that one gives.
+    /// </summary>
+    Guid? FolderId = null);

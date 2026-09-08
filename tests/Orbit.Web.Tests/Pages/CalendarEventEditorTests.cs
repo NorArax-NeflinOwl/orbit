@@ -12,6 +12,7 @@ using Microsoft.JSInterop;
 using Orbit.Contracts.Calendar;
 using Orbit.Contracts.Chat;
 using Orbit.Contracts.Notifications;
+using Orbit.Contracts.Sharing;
 using Orbit.Contracts.Tasks;
 using Orbit.Contracts.Users;
 using Orbit.Web.Pages;
@@ -56,6 +57,26 @@ public sealed class CalendarEventEditorTests : OrbitTestContext
             if (_existingEvent is { } existingEvent && path == $"/api/calendar-events/{existingEvent.Id}")
             {
                 return new HttpResponseMessage(HttpStatusCode.OK) { Content = JsonContent.Create(existingEvent) };
+            }
+
+            // Inviting a guest is two things - the share the server records, and the sealed message
+            // carrying its id, which is the only thing the guest can press "Accept" on.
+            if (request.Method == HttpMethod.Post && path.EndsWith("/shares", StringComparison.Ordinal))
+            {
+                _wasShared = true;
+                return JsonResponse(new ShareResultDto(Guid.NewGuid(), AlreadyShared: false));
+            }
+
+            if (request.Method == HttpMethod.Post && path.EndsWith("/chat/messages", StringComparison.Ordinal))
+            {
+                _lastChatMessageJson = request.Content!.ReadAsStringAsync().GetAwaiter().GetResult();
+                return new HttpResponseMessage(HttpStatusCode.NoContent);
+            }
+
+            // Somebody who has signed in at least once, so there is a key to seal an invitation with.
+            if (path.StartsWith("/api/users/", StringComparison.Ordinal))
+            {
+                return JsonResponse(new UserSearchResultDto(ContactUserId, "anna", "Anna Kowalska", "a-public-key"));
             }
 
             // The edit lock an existing event takes on opening - nobody else holds it here.
@@ -115,11 +136,13 @@ public sealed class CalendarEventEditorTests : OrbitTestContext
         // resolving a service from Services here would lock the container against further registrations
         // below, since bUnit treats that as "the component tree has started rendering".
         var jsRuntime = JSInterop.JSRuntime;
-        var usersApiClient = new UsersApiClient(new HttpClient { BaseAddress = new Uri("https://example.test/") });
+        // Through the same transport the writes go through, so the invitation a save sends is something
+        // a test can read - see Inviting_a_guest_puts_the_invitation_in_the_conversation.
+        var usersApiClient = new UsersApiClient(writes);
         Services.AddSingleton(usersApiClient);
         var ownEncryptionKeyProvider = new OwnEncryptionKeyProvider(jsRuntime, usersApiClient, authenticationStateProvider);
-        var chatApiClientForSender = new ChatApiClient(new HttpClient { BaseAddress = new Uri("https://example.test/") });
-        Services.AddSingleton(new EncryptedChatMessageSender(jsRuntime, ownEncryptionKeyProvider, usersApiClient, chatApiClientForSender));
+        Services.AddSingleton(new EncryptedChatMessageSender(
+            jsRuntime, ownEncryptionKeyProvider, usersApiClient, new ChatApiClient(writes)));
     }
 
     /// <summary>
@@ -336,6 +359,62 @@ public sealed class CalendarEventEditorTests : OrbitTestContext
         ClickSave(cut);
 
         Assert.Equal("/", new Uri(navigationManager.Uri).PathAndQuery);
+    }
+
+    /// <summary>
+    /// Both halves of inviting somebody: the share the server records, and the sealed message that
+    /// carries its id - the only thing a guest can press "Accept" on (see Chat.razor's TryParseShare).
+    /// The server cannot send the second, holding no key to seal it with, so a screen that forgets it
+    /// invites somebody to something they cannot accept - which is what the same path on a task entry
+    /// did for as long as it did.
+    /// </summary>
+    [Fact]
+    public void Inviting_a_guest_puts_the_invitation_in_the_conversation()
+    {
+        TheBrowserCanSeal();
+        RegisterChatApiClient([Contact]);
+        var cut = RenderComponent<CalendarEventEditor>();
+
+        cut.Find("#guestContactSelect").Change(ContactUserId.ToString());
+        cut.Find("#addGuestFromContactButton").Click();
+        ClickSave(cut);
+
+        Assert.True(_wasShared);
+        Assert.NotNull(_lastChatMessageJson);
+        Assert.Contains("\"isShareInvitation\":true", _lastChatMessageJson);
+    }
+
+    /// <summary>An event saved with nobody invited writes into nobody's conversation.</summary>
+    [Fact]
+    public void An_event_with_no_guests_writes_into_nobodys_conversation()
+    {
+        TheBrowserCanSeal();
+        RegisterChatApiClient([Contact]);
+        var cut = RenderComponent<CalendarEventEditor>();
+
+        ClickSave(cut);
+
+        Assert.False(_wasShared);
+        Assert.Null(_lastChatMessageJson);
+    }
+
+    /// <summary>What the invitation wrote, and whether the share itself was recorded.</summary>
+    private string? _lastChatMessageJson;
+    private bool _wasShared;
+
+    /// <summary>
+    /// The browser's half of the encryption, stood in for - mirrors ShareInventoryPanelTests, where the
+    /// same three calls are planned. The crypto itself is checked in a real browser by
+    /// ci/verify-browser-crypto.mjs.
+    /// </summary>
+    private void TheBrowserCanSeal()
+    {
+        JSInterop.Mode = JSRuntimeMode.Loose;
+        var crypto = JSInterop.SetupModule("./js/e2eeChat.js");
+        crypto.Setup<bool>("hasOwnPrivateKey", _ => true).SetResult(true);
+        crypto.Setup<string>("ensureOwnPublicKey", _ => true).SetResult("a-public-key");
+        crypto.Setup<EncryptedChatMessageSender.EncryptedPayload>("encryptMessage", _ => true)
+            .SetResult(new EncryptedChatMessageSender.EncryptedPayload("sealed", "nonce"));
     }
 
     private static void ClickSave(IRenderedFragment cut)

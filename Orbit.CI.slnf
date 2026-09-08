@@ -1,0 +1,18 @@
+{
+  "solution": {
+    "path": "Orbit.sln",
+    "projects": [
+      "src\\Clients\\Orbit.Mobile\\Orbit.Mobile.csproj",
+      "src\\Clients\\Orbit.Web\\Orbit.Web.csproj",
+      "src\\Server\\Orbit.Api\\Orbit.Api.csproj",
+      "src\\Server\\Orbit.Data\\Orbit.Data.csproj",
+      "src\\Server\\Orbit.GoogleIntegration\\Orbit.GoogleIntegration.csproj",
+      "src\\Shared\\Orbit.Contracts\\Orbit.Contracts.csproj",
+      "src\\Shared\\Orbit.Core\\Orbit.Core.csproj",
+      "src\\Shared\\Orbit.Localization\\Orbit.Localization.csproj",
+      "tests\\Orbit.Api.Tests\\Orbit.Api.Tests.csproj",
+      "tests\\Orbit.Mobile.Tests\\Orbit.Mobile.Tests.csproj",
+      "tests\\Orbit.Web.Tests\\Orbit.Web.Tests.csproj"
+    ]
+  }
+}

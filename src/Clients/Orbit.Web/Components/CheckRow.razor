@@ -1,19 +1,38 @@
-@* One line in a list that is ticked rather than opened: a box, what it is called, and whatever follows.
-   Row's sibling rather than a mode of it - the two look identical and are not the same thing. A Row is
-   a <div> or a <button>; this is a <label>, so the whole line hands its press to the box inside it, and
-   a <button> may not contain one at all. Four pages wrote it out by hand, and the only differences
-   between them were which of the trailing spans they added.
+@* One line in a list that is ticked: a box, what it is called, and whatever follows. Row's sibling
+   rather than a mode of it - the two look identical and are not the same thing. Four pages wrote it out
+   by hand, and the only differences between them were which of the trailing spans they added.
 
-   The press stops here. A tick row can sit inside something else that is pressable - see NoteSummary,
-   whose whole card opens the editor - and ticking a line there means ticking that line, not opening the
-   note to write in. Nothing is lost where there is nothing above to reach: the other three sit in plain
-   cards. *@
-<label class="check-row @AdditionalClass" @onclick="() => { }" @onclick:stopPropagation="true">
-    <input type="checkbox" checked="@IsTicked" disabled="@IsDisabled" aria-label="@AriaLabel"
-           @onchange="args => OnTicked.InvokeAsync((bool)args.Value!)" />
-    <span class="check-row-text">@Title</span>
-    @Trailing
-</label>
+   Two shapes, because the words either open something or they do not:
+
+   - Nothing to open: a <label>, so the whole line hands its press to the box inside it. A <button> may
+     not sit inside a label at all, which is why the shape has to change rather than the title alone.
+   - Something to open: a <div>, with the title as its own <button> beside the box. Then the box takes
+     the tick and the words take the press, which is the one meaning a press has anywhere else in Orbit
+     - see TaskListChecklist, whose grouped view has drawn its rows this way all along and whose flat
+     view used to tick when the same words were pressed there.
+
+   The press stops here either way. A tick row can sit inside something else that is pressable - see
+   NoteSummary, whose whole card opens the editor - and ticking a line there means ticking that line,
+   not opening the note to write in. Nothing is lost where there is nothing above to reach: the other
+   three sit in plain cards. *@
+@if (OnTitlePressed.HasDelegate)
+{
+    <div class="check-row @AdditionalClass" @onclick="() => { }" @onclick:stopPropagation="true">
+        <input type="checkbox" checked="@IsTicked" disabled="@IsDisabled" aria-label="@AriaLabel"
+               @onchange="args => OnTicked.InvokeAsync((bool)args.Value!)" />
+        <button type="button" class="check-row-text check-row-text-opens" @onclick="OnTitlePressed">@Title</button>
+        @Trailing
+    </div>
+}
+else
+{
+    <label class="check-row @AdditionalClass" @onclick="() => { }" @onclick:stopPropagation="true">
+        <input type="checkbox" checked="@IsTicked" disabled="@IsDisabled" aria-label="@AriaLabel"
+               @onchange="args => OnTicked.InvokeAsync((bool)args.Value!)" />
+        <span class="check-row-text">@Title</span>
+        @Trailing
+    </label>
+}
 
 @code {
     [Parameter, EditorRequired] public string Title { get; set; } = string.Empty;
@@ -25,8 +44,16 @@
     /// <summary>
     /// What the box alone says, for a reader who never sees the words beside it. Left off where the
     /// title already reads as the whole question - a contact's name in a list of who to add to a group.
+    /// Worth giving wherever <see cref="OnTitlePressed"/> is: that shape is not a label, so the box no
+    /// longer takes its name from the words next to it and would otherwise have none.
     /// </summary>
     [Parameter] public string? AriaLabel { get; set; }
+
+    /// <summary>
+    /// Opening whatever this row names. Without one the row is a label and its words tick the box;
+    /// with one the words are their own control and the box keeps the tick to itself.
+    /// </summary>
+    [Parameter] public EventCallback OnTitlePressed { get; set; }
 
     /// <summary>Whatever follows the title - a category mark, a meta span, several of each. Row's own Trailing, and for the same reason: how many and which vary by row.</summary>
     [Parameter] public RenderFragment? Trailing { get; set; }

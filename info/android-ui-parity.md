@@ -40,6 +40,10 @@ Every number below is app.css's own. The phone reads them from
 | `.item-card` | `Controls/ItemCard.xaml` | radius 12, padding 14x12, name 15 in the display face over two lines, a hairline above its footnote |
 | `.item-card-list` | the cards' own `Margin="0,5"` | a 10 gap between cards |
 | `.list-row` | `Controls/Row.xaml` | title 13.5, meta 12, a hairline under it |
+| `.list-row.row-unseen` | `Row.HasNews` | the danger colour as a hairline around one row over a 7% wash of it, and no pulse of its own |
+| `.avatar` / `.avatar-sm` | `Controls/AvatarCircle.xaml` | initials on the person's own hue, 36 in a list and 26 on a dashboard row, with `.presence-dot` on its top-right edge |
+| `.today-strip` | the strip at the head of the dashboard | the whole of it is the way to the calendar, and the chat-request line is left out at nought |
+| `CardFilterMenu.razor` | `DashboardPage.ShowCardFilter` | what one dashboard card is narrowed to, under the heading "Show" |
 | `.card` | `CardBorder` | radius 14, padding 18 |
 | `.filter-chip` | `FilterChip` + `FilterChipLabel` | a bordered pill, filled with the accent when it is the chosen one |
 | `.empty-hint` | `EmptyHint` | a quiet line where the reading starts, not centred in the middle of the screen |
@@ -54,6 +58,7 @@ Every number below is app.css's own. The phone reads them from
 | `.options-card-danger` | `DangerCard` | the one section where a wrong press cannot be undone |
 | `.options-tab` | `SettingsTab` | the chosen one underlined in the accent, on a row with a hairline |
 | `.map-panel-section` / `.map-panel-heading` | `PanelSection` + `PanelHeading` | one group on the map screen, as its own card |
+| `card-with-news` | `ItemCard.Pulse` | the halo an unseen card breathes, called off where the phone is set to animate less |
 | `ObjectList.razor` | `Controls/ObjectList.xaml` | loading / empty / here-it-is |
 | `input`, `textarea`, `select` | `Platforms/Android/FieldBox.cs` | the box itself: 8px radius, a hairline, 9x12 inside |
 | `.switch` | `Platforms/Android/SwitchTrack.cs` | the track a switch that is off sits in, which Android leaves near-white |
@@ -89,6 +94,25 @@ a change, since the implicit styles set those through an `AppThemeBinding`. Keye
 they would run once, and MAUI's own mapper would paint over them the moment the reader chose the other
 theme. That is exactly what happened the first time the light theme was walked: every field lost its
 box and showed Android's line again.
+
+**A converter feeding a shape has to hand over a brush.** XAML converts a `Color` written into the
+markup into a `Brush` on its way to a `Shape.Fill`; a *binding* hands the value straight over, so a
+converter returning a `Color` there leaves the shape unpainted and says nothing about it. And a
+converter that throws does the same: `Application.Current.Resources[key]` throws on a key that is not
+there. `EventColourConverter` did both - it returned a colour, and its fallback asked for a
+`PrimaryDark` that has never existed - so the dot beside a dashboard event took up its place in the row
+and drew nothing at all, in the dark theme, which is the one it was always looked at in. It hands over
+a `SolidColorBrush` now, and falls back to `Accent`, the key App keeps current for whichever theme and
+palette are in force.
+
+**A dynamic resource outlives the value set over it.** `SetDynamicResource` registers the property
+against the dictionary and keeps it registered: a later `SetAppTheme` on the same property paints the
+colour asked for, and then the dictionary is read again - on load, on a theme switch - and the resource
+paints itself back. `ItemCard.Edge` sets a card's stroke three ways (danger when there is news, the
+accent when it is pinned, the hairline otherwise), so it now takes the resource off before it decides
+rather than only on the branch that does not want one. Without that, a card that was pinned first and
+got its news afterwards kept the accent edge: the red dot and the breathing halo were both there, and
+the edge under them was blue.
 
 **A `BoxView` paints its `Color` and its `BackgroundColor` both.** The MAUI template's implicit style
 gave every one of them a grey, which showed wherever `Color` was left clear - a sheet of fog behind an
@@ -129,14 +153,24 @@ not drawn. What those rules signalled is said by shape instead, which the phone 
   written; a shelf is counted up and down on the screen that edits it. This is recorded at length in
   future-plan.md's "Smaller identified follow-ups" and is the right answer for a phone, so the rail
   simply carries no Save on the screens that write as they go.
-- **The `.item-card-unseen` pulse is a colour here, not an animation.** The edge takes the danger
-  colour; it does not breathe. Worth adding only if somebody misses it.
-- **The chat screens were not walked on a device.** The emulator account has not unlocked Contacts, so
-  the navigation bar draws no way into them. They build and their view models are covered; the bubbles
-  and the menus want a walk on an account that can chat.
-- **Every screen has now had the pass.** What is left against the browser is the four differences
-  above, each of them a decision rather than a gap - and whatever the light theme turns up, which has
-  not been walked at all.
+- **The chat screens were walked on a device on 2026-09-07** — on the Windows emulator, against the
+  docker API, with two throwaway accounts each holding a real published key so the conversation was a
+  genuine E2EE one rather than staged. Both the one-to-one and the group decrypt and draw as
+  `.chat-bubble` does (own at the right in the accent, others at the left, a group message labelled with
+  its sender); the message and conversation menus are Orbit's own panel; the incoming-request Accept, the
+  avatar's top-right presence dot and the row's unseen mark all showed. The walk turned up one defect — a
+  two-person group's messages surfacing in that pair's one-to-one thread — fixed the same day at the
+  server's `GetConversationAsync` and defended on the phone; see future-plan.md's "Noticed while working".
+- **A conversation shows no count of what is waiting.** Orbit.Web draws `UnreadBadge` on the avatar
+  wherever a person appears, from the per-conversation unread count its contact list carries. The
+  phone's `LocalContact` has no such count and nothing on the device derives one - `IsReadByEveryone`
+  is about messages this reader *sent* - so the badge is the one part of the avatar that is missing,
+  and it is missing for want of a number rather than for want of a control. What the phone does say,
+  in the row's own mark, is that something unread points at that person. Recorded in future-plan.md.
+- **Every screen has now had the pass, in both themes**, the dashboard included as of 2026-09-07 -
+  and the dashboard has the same cards Orbit.Web has, the shelves among them. What is left against the
+  browser is the differences above, each of them a decision rather than a gap, apart from the unread
+  count just named.
 
 ## How to check it
 
@@ -144,3 +178,11 @@ There is no test that can see a screen, so the check is the emulator and the bro
 browser narrowed to a phone's width. `info/testing-and-running-locally.md` has both halves of that, and
 [`build.md`](build.md) has the Android build itself. The traps in driving the emulator by `adb` are
 worth reading before starting.
+
+Something that moves cannot be checked by looking at one screenshot, and an eye is a poor judge of a
+halo eight pixels wide at a fifth of its opacity. The pulse was read off the pixels instead: a burst of
+`adb exec-out screencap -p`, and the average colour of a band just outside the card's edge compared
+against the same band beside a card with no news. The halo swells from the background exactly (27,20,16
+on the dark theme) to about six points redder and back; the control band never moves. With
+`settings put global animator_duration_scale 0` the band is flat in every frame and the danger stroke
+stays - which is the whole of what `Pulse` promises. Set the scale back to `1` afterwards.

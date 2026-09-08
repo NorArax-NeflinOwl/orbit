@@ -153,6 +153,10 @@ public sealed class NotificationOpeningTests
     [Theory]
     [InlineData("/calendar/00000000-0000-0000-0000-000000000001", "ShowCalendar")]
     [InlineData("/inventory", "ShowInventory")]
+    // An expiry warning names the storage it is on now. The phone opens a storage by its *local* id,
+    // which this is not, so it lands on the list of them - which is where it landed before the path
+    // said which one, and better than a tap that goes nowhere.
+    [InlineData("/inventory/00000000-0000-0000-0000-000000000002", "ShowInventory")]
     [InlineData("/map", "ShowMap")]
     public async Task The_destinations_that_need_nothing_looked_up_open_straight_away(string url, string expected)
     {
@@ -162,6 +166,24 @@ public sealed class NotificationOpeningTests
 
         Assert.Equal(NotificationOpenOutcome.Opened, outcome);
         Assert.Equal(expected, context.Navigator.LastDestination);
+    }
+
+    /// <summary>
+    /// An invitation opens the conversation with whoever sent it. The browser has a page for taking one
+    /// up; this app has not, and its own Accept sits on the offer in the conversation - which is also
+    /// where this notification landed before its path said which offer it was about.
+    /// </summary>
+    [Fact]
+    public async Task An_invitation_opens_the_conversation_with_whoever_sent_it()
+    {
+        using var context = new OpeningContext();
+        var sharerId = await context.AddKnownContactAsync("Anna");
+
+        var outcome = await context.Opener.OpenAsync($"/invitation/note/{Guid.NewGuid()}/{sharerId}");
+
+        Assert.Equal(NotificationOpenOutcome.Opened, outcome);
+        Assert.Equal("ShowConversation", context.Navigator.LastDestination);
+        Assert.Equal(sharerId, context.Navigator.LastContact!.UserId);
     }
 
     [Fact]

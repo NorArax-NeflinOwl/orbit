@@ -47,7 +47,7 @@ Rules in this file are always in context. Longer procedures live in
 5. Runner minutes are a monthly budget - 2000, and they ran out once in four days.
    The suite runs on GitHub only when `main` is pushed, i.e. when the integration PR
    merges; nothing runs on a feature branch, a pull request or a merge into `Coding`.
-   So `dotnet test Orbit.sln` on your own machine is the only check a change gets
+   So `dotnet test Orbit.CI.slnf` on your own machine is the only check a change gets
    before it reaches `Coding` - run it before opening the PR, not after. Adding or
    widening a workflow trigger is a decision made with skill `ci-pipeline` open,
    never "to be safe".

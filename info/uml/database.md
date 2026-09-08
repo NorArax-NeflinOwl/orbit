@@ -92,10 +92,20 @@ erDiagram
     OP_EVENTS ||--o{ OP_EVENTS_SHARED : "shared as"
     OP_INVENTORIES ||--o{ OP_INVENTORIES_SHARED : "shared as"
     OS_USERS ||--o{ OL_PUBLIC_SHARES : "published"
+    OS_USERS ||--o{ OP_FOLDERS : owns
+    OP_FOLDERS ||--o{ OP_NOTES : "files"
+    OP_FOLDERS ||--o{ OP_TASKS : "files"
 
+    OP_FOLDERS {
+        uuid OP_F_ID PK
+        uuid OP_F_USERID FK
+        text OP_F_NAME
+        timestamptz OP_F_CREATEDATUTC "tabs are drawn in this order"
+    }
     OP_NOTES {
         uuid OP_N_ID PK
         uuid OP_N_USERID FK
+        uuid OP_N_FOLDERID FK "null = a built-in folder"
         text OP_N_TITLE
         bool OP_N_ISPRIVATE
         text OP_N_ENCRYPTEDCIPHERTEXT "set when private"
@@ -111,6 +121,7 @@ erDiagram
         uuid OP_NS_RECIPIENTUSERID FK
         text OP_NS_ACCESSLEVEL
         timestamptz OP_NS_ACCEPTEDATUTC "null until accepted"
+        boolean OP_NS_ISPINNEDBYRECIPIENT "the recipient pin, not the owner one"
     }
     OL_PUBLIC_SHARES {
         uuid OL_PS_ID PK
@@ -122,8 +133,25 @@ erDiagram
     }
 ```
 
-`OP_TASKS_SHARED`, `OP_EVENTS_SHARED` and `OP_INVENTORIES_SHARED` are the same five columns over a
-different source id, so only one is drawn.
+`OP_TASKS_SHARED`, `OP_EVENTS_SHARED` and `OP_INVENTORIES_SHARED` are the same columns over a different
+source id, so only one is drawn. One exception, and it is the only place they differ:
+`OP_NS_ISPINNEDBYRECIPIENT` has a twin in `OP_TS_ISPINNEDBYRECIPIENT` and no equivalent on the other
+two, because only a note and a task list are drawn as a card that can be pinned.
+
+**Why the pin is here rather than on the thing.** `OP_N_ISPINNED` belongs to whoever owns the note and
+says where it sits on *their* page; a recipient writing there would rearrange somebody else's. The
+grant row is the recipient's own relationship to that note - one per recipient, gone when their access
+is - so their answer lives on it, and the resolver hands it over in place of the owner's when it loads
+the note for them (`NoteAccessResolver`, `TaskListAccessResolver`). Nothing is stored twice: the DTO
+carries one `IsPinned`, and which row it came from depends on who asked.
+
+**`OP_FOLDERS` holds only the folders somebody made.** Three more exist without a row - Public, Private
+and Finished (`Orbit.Core.Folders.BuiltInFolder`) - and which of them something is in is decided from
+what it already is: a finished list is in Finished, an unfiled sealed one in Private, everything else
+unfiled in Public. Nothing about them is stored, which is why folders arrived without a backfill and why
+`OP_N_FOLDERID`/`OP_T_FOLDERID` are nullable rather than defaulted. There is no foreign-key cascade
+either: `FolderRepository.DeleteAsync` empties the folder first (both columns back to null) and then
+removes the row, so deleting a tab can never delete what was under it.
 
 **`OL_PS_ITEMTYPE` stores an enum by name and must never be renamed.** It sits in rows already written
 and inside chat payloads already delivered; renaming the member orphans every share link that used it.
@@ -143,6 +171,14 @@ erDiagram
     OP_INVENTORIES ||--o{ OL_INVENTORIES_TASKS : "restocked through"
     OP_TASKS ||--o{ OL_INVENTORIES_TASKS : "restocks"
 
+    OP_TASKS {
+        uuid OP_T_ID PK
+        uuid OP_T_USERID FK
+        uuid OP_T_FOLDERID FK "null = a built-in folder"
+        text OP_T_TITLE
+        bool OP_T_ISCOMPLETED "decides the Finished folder"
+        bool OP_T_ISPRIVATE
+    }
     OP_TASKS_ITEMS {
         uuid OP_TI_ID PK
         uuid OP_TI_TASKID FK

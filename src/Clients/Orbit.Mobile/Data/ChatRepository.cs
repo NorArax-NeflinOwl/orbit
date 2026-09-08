@@ -104,7 +104,7 @@ public sealed class ChatRepository
         await using var dbContext = await _dbContextFactory.CreateDbContextAsync(cancellationToken);
         return await dbContext.ChatMessages
             .AsNoTracking()
-            .Where(message => message.OtherUserId == otherUserId)
+            .Where(message => message.OtherUserId == otherUserId && message.GroupId == null)
             .OrderBy(message => message.SentAtUtc)
             .ToListAsync(cancellationToken);
     }
@@ -129,7 +129,8 @@ public sealed class ChatRepository
     public async Task<DateTimeOffset?> LatestMessageAtAsync(Guid otherUserId, CancellationToken cancellationToken = default)
     {
         await using var dbContext = await _dbContextFactory.CreateDbContextAsync(cancellationToken);
-        var conversation = dbContext.ChatMessages.Where(message => message.OtherUserId == otherUserId);
+        var conversation = dbContext.ChatMessages
+            .Where(message => message.OtherUserId == otherUserId && message.GroupId == null);
         return await conversation.AnyAsync(cancellationToken)
             ? await conversation.MaxAsync(message => message.SentAtUtc, cancellationToken)
             : null;
