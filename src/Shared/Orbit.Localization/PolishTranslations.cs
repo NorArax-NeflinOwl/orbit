@@ -1066,6 +1066,10 @@ public static class PolishTranslations
         ["Failed to save the event. Try again."] = "Nie udało się zapisać wydarzenia. Spróbuj ponownie.",
         ["Failed to save the note. Try again."] = "Nie udało się zapisać notatki. Spróbuj ponownie.",
         ["Failed to save the task list. Try again."] = "Nie udało się zapisać listy zadań. Spróbuj ponownie.",
+        ["The list was saved, but it couldn't be filed under that folder. Choose it again."] =
+            "Lista została zapisana, ale nie udało się umieścić jej w tym folderze. Wybierz go ponownie.",
+        ["The note was saved, but it couldn't be filed under that folder. Choose it again."] =
+            "Notatka została zapisana, ale nie udało się umieścić jej w tym folderze. Wybierz go ponownie.",
         ["Failed to save the inventory. Try again."] = "Nie udało się zapisać magazynu. Spróbuj ponownie.",
         ["Couldn't save that change. Try again."] = "Nie udało się zapisać tej zmiany. Spróbuj ponownie.",
         ["Couldn't save your profile. Try again."] = "Nie udało się zapisać profilu. Spróbuj ponownie.",

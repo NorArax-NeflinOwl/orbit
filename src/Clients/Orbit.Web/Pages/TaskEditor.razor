@@ -2071,10 +2071,27 @@ else
 
                 // Filing travels separately from the list itself - see MoveToFolderRequest - so it is
                 // sent only when it actually changed.
+                //
+                // The answer is read, and that is the whole point of this block. It used to be thrown
+                // away and _savedFolderId stamped as though the move had happened, so a refusal - a
+                // folder that is not this account's, one deleted in another tab - left the list exactly
+                // where it was, said nothing, and made the *next* Save skip the move entirely because
+                // the page now believed it was already filed there. "Save does not save the folder"
+                // with nothing on screen is what that looks like from the outside.
                 if (_formModel.FolderId != _savedFolderId)
                 {
-                    await TasksApiClient.MoveToFolderAsync(Id.Value, _formModel.FolderId);
-                    _savedFolderId = _formModel.FolderId;
+                    if (await TasksApiClient.MoveToFolderAsync(Id.Value, _formModel.FolderId))
+                    {
+                        _savedFolderId = _formModel.FolderId;
+                    }
+                    else
+                    {
+                        Logger.LogWarning(
+                            "Task list {TaskListId} was saved but could not be filed under folder {FolderId}",
+                            Id, _formModel.FolderId);
+                        _saveErrorMessage = T["The list was saved, but it couldn't be filed under that folder. Choose it again."];
+                        return;
+                    }
                 }
 
                 // The shelf second, and the list's own rebuild with it: editing a product from here is
