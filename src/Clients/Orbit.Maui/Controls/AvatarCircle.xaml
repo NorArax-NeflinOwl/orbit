@@ -14,14 +14,16 @@
          screen and another elsewhere is not an avatar. What the initials and the hue are is settled
          further in still - see Orbit.Mobile's Avatar, which Orbit.Web's AvatarHelper agrees with. -->
     <Grid x:Name="Frame">
-        <Border x:Name="Circle" StrokeThickness="0" HorizontalOptions="Center" VerticalOptions="Center">
+        <!-- Outlined in this person's hue with the initials written in it, rather than filled with it
+             and the initials in white. Colour is stroke everywhere else in this design, and an avatar
+             is the one place it was still a solid disc - a list of six conversations was six coloured
+             blobs down its left edge. The hue is still theirs and still the one the web gives them. -->
+        <Border x:Name="Circle" StrokeThickness="1" BackgroundColor="Transparent"
+                HorizontalOptions="Center" VerticalOptions="Center">
             <Border.StrokeShape>
                 <shapes:RoundRectangle x:Name="Round" />
             </Border.StrokeShape>
-            <!-- White rather than the accent's own contrast colour: the circle is not the accent, it is
-                 this person's hue at a fixed middle lightness, and AccentOn follows the palette - on a
-                 light accent it is nearly black, which on a mid-red circle is barely there. -->
-            <Label x:Name="InitialsLabel" FontAttributes="Bold" TextColor="{StaticResource White}"
+            <Label x:Name="InitialsLabel" FontFamily="OrbitDisplay" FontAttributes="Bold"
                    HorizontalOptions="Center" VerticalOptions="Center" />
         </Border>
 
@@ -33,7 +35,7 @@
              app.css hangs its own over by a pixel - inside the circle its ring clipped the second
              initial on the small size. -->
         <Border x:Name="PresenceDot" HeightRequest="14" WidthRequest="14" StrokeThickness="2" IsVisible="False"
-                Stroke="{AppThemeBinding Light={StaticResource SurfaceLight}, Dark={StaticResource SurfaceDark}}"
+                Stroke="{AppThemeBinding Light={StaticResource PageBackgroundLight}, Dark={StaticResource PageBackgroundDark}}"
                 Margin="0,-2,-2,0" HorizontalOptions="End" VerticalOptions="Start">
             <Border.StrokeShape>
                 <shapes:RoundRectangle CornerRadius="7" />

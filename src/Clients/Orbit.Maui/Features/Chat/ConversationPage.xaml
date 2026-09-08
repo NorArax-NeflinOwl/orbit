@@ -97,30 +97,33 @@
                             <!-- The bubble itself. One corner is squared off on the side it was written
                                  from, which is the whole of what says which way a message is going -
                                  see .chat-bubble's border-bottom-*-radius. -->
-                            <Border Padding="13,9" StrokeThickness="0"
-                                    HorizontalOptions="Start"
-                                    BackgroundColor="{AppThemeBinding Light={StaticResource SurfaceSubtleLight}, Dark={StaticResource SurfaceSubtleDark}}">
+                            <!-- Outlined, not filled, like everything else this design colours: a
+                                 message of yours is edged in the accent over a wash of it, and
+                                 everybody else's is edged in the hairline over nothing. A filled
+                                 accent bubble was the one solid block of colour left in the app, and
+                                 on a screen that is nothing but bubbles it was most of the screen. -->
+                            <Border Padding="13,9" StrokeThickness="1"
+                                    HorizontalOptions="Start" BackgroundColor="Transparent"
+                                    Stroke="{AppThemeBinding Light={StaticResource CardStrokeLight}, Dark={StaticResource CardStrokeDark}}">
                                 <Border.StrokeShape>
-                                    <RoundRectangle CornerRadius="14,14,4,14" />
+                                    <RoundRectangle CornerRadius="10,10,2,10" />
                                 </Border.StrokeShape>
                                 <Border.Triggers>
                                     <DataTrigger TargetType="Border" Binding="{Binding IsMine}" Value="True">
                                         <Setter Property="HorizontalOptions" Value="End" />
-                                        <Setter Property="BackgroundColor" Value="{DynamicResource Accent}" />
+                                        <Setter Property="Stroke" Value="{DynamicResource Accent}" />
+                                        <Setter Property="BackgroundColor" Value="{DynamicResource AccentSubtle}" />
                                         <Setter Property="StrokeShape">
-                                            <RoundRectangle CornerRadius="14,14,14,4" />
+                                            <RoundRectangle CornerRadius="10,10,10,2" />
                                         </Setter>
                                     </DataTrigger>
                                 </Border.Triggers>
 
                                 <VerticalStackLayout Spacing="4">
-                                    <Label Text="{Binding Text}" FontSize="13.5" LineBreakMode="WordWrap">
-                                        <Label.Triggers>
-                                            <DataTrigger TargetType="Label" Binding="{Binding IsMine}" Value="True">
-                                                <Setter Property="TextColor" Value="{DynamicResource AccentOn}" />
-                                            </DataTrigger>
-                                        </Label.Triggers>
-                                    </Label>
+                                    <!-- One ink for both sides now. The reader's own messages used to
+                                         be written in "what is legible on the accent", which was right
+                                         while the bubble was filled with it and is wrong on a tint. -->
+                                    <Label Text="{Binding Text}" FontSize="14" LineBreakMode="WordWrap" />
 
                                     <!-- Somebody asking to be allowed to change something of yours. Nothing to
                                          accept in one tap: widening access means sharing it again. -->

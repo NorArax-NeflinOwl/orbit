@@ -93,23 +93,16 @@ public partial class IconButton : ContentView
 	}
 
 	/// <summary>
-	/// Which of the four looks this is, as the two styles that draw it. Styles rather than properties
+	/// Which of the two looks this is, as the two styles that draw it. Styles rather than properties
 	/// set here, because the accent is a resource the reader can change while a screen is open - and
 	/// only a DynamicResource inside a style follows it.
 	/// </summary>
 	private void Redraw()
 	{
-		var isOutlined = Variant is IconButtonVariant.Add or IconButtonVariant.ActionPrimary;
-		var isAction = Variant is IconButtonVariant.Action or IconButtonVariant.ActionPrimary;
-		var isAccented = isOutlined && IsEnabledForPress;
+		var isAccented = Variant is IconButtonVariant.Add && IsEnabledForPress;
 
-		Frame.Style = Look<Style>(isAction
-			? isAccented ? "PageActionPrimaryBorder" : "PageActionBorder"
-			: isAccented ? "PageAddBorder" : "IconButtonFrame");
-
-		Glyph.Style = Look<Style>(isAction
-			? isAccented ? "PageActionPathPrimary" : "PageActionPath"
-			: isAccented ? "IconPathAccent" : "IconPath");
+		Frame.Style = Look<Style>(isAccented ? "PageAddBorder" : "IconButtonFrame");
+		Glyph.Style = Look<Style>(isAccented ? "IconPathAccent" : "IconPath");
 
 		Press.IsEnabled = IsEnabledForPress;
 		Opacity = IsEnabledForPress ? 1 : 0.55;

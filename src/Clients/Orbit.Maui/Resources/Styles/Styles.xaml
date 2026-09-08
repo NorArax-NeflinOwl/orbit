@@ -783,19 +783,6 @@
         </Setter>
     </Style>
 
-    <!-- .icon-btn.page-action: an editor's own actions - Save and Cancel on the rail. Twice the size
-         of an ordinary icon button and drawn with an edge, because these are what the screen is for.
-         44 rather than the desktop's 60: app.css halves them at the 680px breakpoint. -->
-    <Style x:Key="PageActionBorder" TargetType="Border">
-        <Setter Property="WidthRequest" Value="44" />
-        <Setter Property="HeightRequest" Value="44" />
-        <Setter Property="StrokeThickness" Value="1" />
-        <Setter Property="Stroke" Value="{AppThemeBinding Light={StaticResource CardStrokeLight}, Dark={StaticResource CardStrokeDark}}" />
-        <Setter Property="BackgroundColor" Value="Transparent" />
-        <Setter Property="StrokeShape">
-            <RoundRectangle CornerRadius="4" />
-        </Setter>
-    </Style>
 
     <!-- .page-add: the one control that makes another of whatever a list holds. Outlined in the accent,
          because as a bare glyph beside a 26pt heading it disappears. -->
@@ -810,10 +797,6 @@
         </Setter>
     </Style>
 
-    <!-- .page-action-primary: the same again, outlined in the accent. Save, and only Save. -->
-    <Style x:Key="PageActionPrimaryBorder" TargetType="Border" BasedOn="{StaticResource PageActionBorder}">
-        <Setter Property="Stroke" Value="{DynamicResource Accent}" />
-    </Style>
 
     <!-- The drawing inside an .icon-btn. Authored on the same 20x20 canvas the navigation bar's are. -->
     <Style x:Key="IconPath" TargetType="Path">
@@ -835,17 +818,7 @@
         <Setter Property="Stroke" Value="{DynamicResource Accent}" />
     </Style>
 
-    <!-- And both again at a page action's size - 24 inside 44, which is the desktop's 30-inside-60
-         brought down by the same breakpoint. -->
-    <Style x:Key="PageActionPath" TargetType="Path" BasedOn="{StaticResource IconPath}">
-        <Setter Property="StrokeThickness" Value="1.8" />
-        <Setter Property="WidthRequest" Value="24" />
-        <Setter Property="HeightRequest" Value="24" />
-    </Style>
 
-    <Style x:Key="PageActionPathPrimary" TargetType="Path" BasedOn="{StaticResource PageActionPath}">
-        <Setter Property="Stroke" Value="{DynamicResource Accent}" />
-    </Style>
 
     <!-- .overflow-menu-dropdown: the panel a three-dot menu opens. -->
     <Style x:Key="MenuPanel" TargetType="Border">
