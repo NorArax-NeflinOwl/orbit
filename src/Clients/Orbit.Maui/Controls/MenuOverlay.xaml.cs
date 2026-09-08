@@ -39,20 +39,27 @@ public partial class MenuOverlay : ContentView
 
 	private void OnMenuChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs args)
 	{
-		if (args.PropertyName is nameof(ScreenMenu.OpensUpwards) or nameof(ScreenMenu.IsOpen))
+		if (args.PropertyName is nameof(ScreenMenu.Placement) or nameof(ScreenMenu.IsOpen))
 		{
 			Place();
 		}
 	}
 
+	/// <summary>
+	/// The two shapes a menu takes. A screen's own menu is centred under its name in the bar, at the
+	/// width the design gives it; a row's opens upwards out of the foot of the screen, full width,
+	/// because hanging it off a row low down the page would open it into the ground.
+	///
+	/// 56 clears the bar; 20 keeps the foot menu off the very bottom edge, where a thumb resting on the
+	/// phone would be over the first entry.
+	/// </summary>
 	private void Place()
 	{
-		var upwards = _menu?.OpensUpwards is true;
-		Panel.VerticalOptions = upwards ? LayoutOptions.End : LayoutOptions.Start;
+		var fromTheFoot = _menu?.Placement is MenuPlacement.FromTheFoot;
 
-		// Clear of the bar along the top when it hangs from there, and clear of the rail when it opens
-		// upwards out of one - the same 4px gap the web leaves between a trigger and its panel, plus
-		// the height of the furniture it has to clear.
-		Panel.Margin = upwards ? new Thickness(12, 12, 12, 68) : new Thickness(12, 58, 12, 12);
+		Panel.VerticalOptions = fromTheFoot ? LayoutOptions.End : LayoutOptions.Start;
+		Panel.HorizontalOptions = fromTheFoot ? LayoutOptions.Fill : LayoutOptions.Center;
+		Panel.WidthRequest = fromTheFoot ? -1 : 264;
+		Panel.Margin = fromTheFoot ? new Thickness(12, 12, 12, 20) : new Thickness(12, 56, 12, 12);
 	}
 }

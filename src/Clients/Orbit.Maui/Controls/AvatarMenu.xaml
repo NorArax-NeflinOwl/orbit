@@ -29,9 +29,9 @@
 
         <Border Style="{StaticResource CardBorder}" Margin="0,58,12,0" Padding="0"
                 WidthRequest="250" HorizontalOptions="End" VerticalOptions="Start"
-                BackgroundColor="{AppThemeBinding Light={StaticResource SurfaceLight}, Dark={StaticResource SurfaceDark}}">
+                BackgroundColor="{AppThemeBinding Light={StaticResource PageBackgroundLight}, Dark={StaticResource PageBackgroundDark}}">
             <Border.StrokeShape>
-                <RoundRectangle CornerRadius="12" />
+                <RoundRectangle CornerRadius="4" />
             </Border.StrokeShape>
 
             <VerticalStackLayout Padding="14" Spacing="10">

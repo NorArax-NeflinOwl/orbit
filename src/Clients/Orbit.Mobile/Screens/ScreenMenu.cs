@@ -5,13 +5,13 @@ using CommunityToolkit.Mvvm.Input;
 namespace Orbit.Mobile.Screens;
 
 /// <summary>
-/// The extra actions a screen has but does not want in its main row - Orbit.Web's OverflowMenu, which
-/// is the same three-dot menu on a card, in a page header and on an editing screen's rail.
+/// The extra actions a screen has but does not want in its main row: the menu that hangs under the
+/// screen's name, and the three-dot menu on a card, a person, a message or a line of a note.
 ///
 /// One of these per screen rather than one per card: only one menu is ever open, and the panel that
 /// draws it has to sit above everything else on the page - inside a card it would be clipped by the
-/// row it is in. Whoever opens it says what is in it, so the same panel serves a card's Edit/Share/
-/// Delete and a header's "how am I reading this today".
+/// row it is in. Whoever opens it says what is in it, so the same panel serves a card's Delete and the
+/// title's "how am I reading this today".
 /// </summary>
 public sealed partial class ScreenMenu : ObservableObject
 {
@@ -22,13 +22,9 @@ public sealed partial class ScreenMenu : ObservableObject
     [ObservableProperty]
     private string? _heading;
 
-    /// <summary>
-    /// Whether the panel hangs downwards from what opened it or upwards out of it. A menu opened from
-    /// the bar along the foot of an editing screen would otherwise open into the ground - which is the
-    /// rule app.css writes for .editor-rail .overflow-menu-dropdown at the 680px breakpoint.
-    /// </summary>
+    /// <summary>Where the panel hangs from - see <see cref="MenuPlacement"/>.</summary>
     [ObservableProperty]
-    private bool _opensUpwards;
+    private MenuPlacement _placement;
 
     public ObservableCollection<ScreenMenuEntry> Entries { get; } = [];
 
@@ -36,7 +32,10 @@ public sealed partial class ScreenMenu : ObservableObject
     /// Opens the menu on a fresh set of entries. Everything about the menu is replaced, heading
     /// included, so a menu opened from somewhere else cannot show the last one's leftovers.
     /// </summary>
-    public void Show(IEnumerable<ScreenMenuEntry> entries, string? heading = null, bool opensUpwards = false)
+    public void Show(
+        IEnumerable<ScreenMenuEntry> entries,
+        string? heading = null,
+        MenuPlacement placement = MenuPlacement.UnderTheTitle)
     {
         Entries.Clear();
         foreach (var entry in entries)
@@ -46,12 +45,29 @@ public sealed partial class ScreenMenu : ObservableObject
         }
 
         Heading = heading;
-        OpensUpwards = opensUpwards;
+        Placement = placement;
         IsOpen = Entries.Count > 0;
     }
 
     [RelayCommand]
     private void Close() => IsOpen = false;
+}
+
+/// <summary>
+/// Where a menu's panel hangs from. The browser positions a panel against the control that opened it
+/// and clamps it to the window; on Android a panel drawn inside a card is clipped by the row it sits
+/// in, so there is one panel per screen and it is told which edge to take.
+/// </summary>
+public enum MenuPlacement
+{
+    /// <summary>Centred under the screen's name in the top bar, which is where a screen's own menu lives.</summary>
+    UnderTheTitle,
+
+    /// <summary>
+    /// Upwards out of the foot of the screen. What a menu opened from a row low down the page has to
+    /// do: hanging downwards from the row it belongs to would open into the ground.
+    /// </summary>
+    FromTheFoot
 }
 
 /// <summary>

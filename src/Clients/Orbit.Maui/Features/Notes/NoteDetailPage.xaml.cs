@@ -72,7 +72,7 @@ public partial class NoteDetailPage : ContentPage
 				new ScreenMenuEntry(_translations["Delete line"], () => _viewModel.RemoveLineCommand.Execute(line))
 			],
 			_translations["Line options"],
-			opensUpwards: true);
+			placement: MenuPlacement.FromTheFoot);
 	}
 
 	/// <summary>
@@ -98,6 +98,6 @@ public partial class NoteDetailPage : ContentPage
 			entries.Add(new ScreenMenuEntry(_translations["History"], () => _viewModel.GoToHistoryCommand.Execute(null)));
 		}
 
-		Menu.Show(entries, opensUpwards: true);
+		Menu.Show(entries, placement: MenuPlacement.FromTheFoot);
 	}
 }

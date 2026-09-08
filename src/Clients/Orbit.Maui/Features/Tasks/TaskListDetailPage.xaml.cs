@@ -124,7 +124,7 @@ public partial class TaskListDetailPage : ContentPage
 				_translations["History"], () => _viewModel.GoToHistoryCommand.Execute(null)));
 		}
 
-		Menu.Show(entries, _translations["List options"], opensUpwards: true);
+		Menu.Show(entries, _translations["List options"], placement: MenuPlacement.FromTheFoot);
 	}
 
 	/// <summary>Asked first, as every delete in Orbit is - and named, so the question says which list.</summary>

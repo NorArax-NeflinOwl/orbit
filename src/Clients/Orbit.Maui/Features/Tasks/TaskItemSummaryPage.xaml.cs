@@ -53,7 +53,7 @@ public partial class TaskItemSummaryPage : ContentPage
 	/// </summary>
 	private void ShowEntryMenu() => Menu.Show(
 		[new ScreenMenuEntry(_translations["Show Tasks"], () => _viewModel.ShowTaskListCommand.Execute(null))],
-		opensUpwards: true);
+		placement: MenuPlacement.FromTheFoot);
 
 	/// <summary>
 	/// Takes the map out before anything renders it, for the reason MapPage gives: on Android a map

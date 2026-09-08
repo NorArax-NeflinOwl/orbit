@@ -20,7 +20,7 @@
         <VerticalStackLayout Grid.Row="0" Spacing="6">
             <!-- The plus left of the name and the reading order behind the three dots at the other
                  end, which is where Orbit.Web's Calendar header keeps both. -->
-            <controls:PageHeader Title="{controls:Translate 'Calendar'}">
+            <controls:PageHeader>
                 <controls:PageHeader.LeadingAction>
                     <controls:IconButton x:Name="AddButton" Variant="Add" Data="M10,4 V16 M4,10 H16"
                                          Description="{controls:Translate 'Add event'}" />
@@ -301,6 +301,7 @@
         <controls:MenuOverlay Grid.Row="0" Grid.RowSpan="3"
                               BindingContext="{Binding Menu, Source={x:Reference Page}, x:DataType=calendar:CalendarPage}" />
         <controls:AvatarMenu Grid.Row="0" Grid.RowSpan="3" />
+        <controls:Drawer Grid.Row="0" Grid.RowSpan="3" />
     </Grid>
 
 </ContentPage>

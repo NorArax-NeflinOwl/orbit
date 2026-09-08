@@ -84,6 +84,6 @@ public partial class DashboardPage : ContentPage
 				() => _ = _viewModel.ChooseFilterCommand.ExecuteAsync(choice),
 				choice.IsChosen)),
 			_translations["Show"],
-			opensUpwards: true);
+			placement: MenuPlacement.FromTheFoot);
 	}
 }

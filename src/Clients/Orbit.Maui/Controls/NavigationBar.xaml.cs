@@ -32,6 +32,37 @@ public partial class NavigationBar : ContentView
 	}
 
 	/// <summary>
+	/// Takes the screen's name and its menu from the page the bar is sitting in.
+	///
+	/// Bound here rather than in the markup because the bar's own binding context is the shared view
+	/// model, which knows nothing about which page it is on - and because the title has to keep
+	/// following a page whose name changes as it is read (a conversation is named after whoever is in
+	/// it, the calendar after the day being looked at), so it is a binding rather than a copied string.
+	///
+	/// A page that offers no menu of its own gets no chevron and no press - see ITitleMenu, which is
+	/// what lets the screens be converted one at a time.
+	/// </summary>
+	private void FollowThePage()
+	{
+		if (PageAround(this) is not { } page)
+		{
+			return;
+		}
+
+		TitleLabel.SetBinding(Label.TextProperty, new Binding(nameof(Page.Title), source: page));
+
+		if (page is not ITitleMenu withMenu)
+		{
+			return;
+		}
+
+		TitleChevron.IsVisible = true;
+		TitlePress.IsVisible = true;
+		TitlePress.Command = withMenu.ShowTitleMenuCommand;
+		SemanticProperties.SetDescription(TitlePress, page.Title ?? string.Empty);
+	}
+
+	/// <summary>
 	/// Loaded rather than the page's OnAppearing: a ContentView has no appearing of its own, and the
 	/// unread badge is worth refreshing every time the bar comes back on screen.
 	/// </summary>
@@ -48,8 +79,26 @@ public partial class NavigationBar : ContentView
 			return;
 		}
 
+		FollowThePage();
 		_viewModel.LoadCommand.Execute(null);
 		StartWatchingForIdleness();
+	}
+
+	/// <summary>
+	/// The page this bar was placed on. Walked rather than asked for: a ContentView is handed no page,
+	/// and the bar is pasted into the markup of every screen rather than wrapped around them.
+	/// </summary>
+	private static Page? PageAround(Element element)
+	{
+		for (var parent = element.Parent; parent is not null; parent = parent.Parent)
+		{
+			if (parent is Page page)
+			{
+				return page;
+			}
+		}
+
+		return null;
 	}
 
 	private void StartWatchingForIdleness()

@@ -24,7 +24,7 @@
                  of its own, so it unfolds under the header instead of navigating - but the screen at
                  rest is what the web shows, its name and its cards, rather than a box asking to be
                  filled in before anything has been read. -->
-            <controls:PageHeader Title="{controls:Translate 'Notes'}">
+            <controls:PageHeader>
                 <controls:PageHeader.LeadingAction>
                     <controls:IconButton x:Name="AddButton" Variant="Add" Data="M10,4 V16 M4,10 H16"
                                          Description="{controls:Translate 'Add note'}" />
@@ -126,6 +126,7 @@
         <controls:MenuOverlay Grid.Row="0" Grid.RowSpan="3"
                               BindingContext="{Binding Menu, Source={x:Reference Page}, x:DataType=notes:NotesPage}" />
         <controls:AvatarMenu Grid.Row="0" Grid.RowSpan="3" />
+        <controls:Drawer Grid.Row="0" Grid.RowSpan="3" />
     </Grid>
 
 </ContentPage>

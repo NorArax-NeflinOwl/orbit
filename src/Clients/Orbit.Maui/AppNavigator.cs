@@ -20,14 +20,16 @@ using Orbit.Mobile.Screens.Navigation;
 namespace Orbit.Maui;
 
 /// <summary>
-/// Moves the app between its three top-level screens by replacing the window's page outright. The one
-/// implementation of <see cref="IScreenNavigator"/> - which exists so the view models, which need only
-/// this, do not need a MAUI project to be tested in.
+/// Moves the app between screens by replacing the window's page outright. The one implementation of
+/// <see cref="IScreenNavigator"/> - which exists so the view models, which need only this, do not need
+/// a MAUI project to be tested in.
 ///
-/// Deliberately not Shell navigation: these are destinations that replace each other, never a stack.
-/// Signing in must not leave the sign-in screen behind a back gesture, and - the reason this matters -
-/// a build the server has retired must have no navigation stack at all to be swiped past. A blocked app
-/// simply *is* the startup screen.
+/// Still not Shell or NavigationPage navigation: one page is on screen at a time and Orbit draws its
+/// own bar over it, so a second set of platform chrome would have to be fought rather than used. What
+/// there now *is* is a history - see <see cref="ScreenHistory"/>, which every method below tells how it
+/// arrived. Signing in still leaves nothing behind it, because that is a root arrival and a root
+/// clears; and a build the server has retired still has nothing at all to be swiped past, because a
+/// blocked app never leaves the startup screen and so never joins the history.
 /// </summary>
 public sealed class AppNavigator : IScreenNavigator
 {
@@ -49,83 +51,103 @@ public sealed class AppNavigator : IScreenNavigator
 		};
 	}
 
-	public void ShowSignIn() => ShowAsRoot<SignInPage>(Screen.SignIn);
+	public void ShowSignIn() => Show<SignInPage>(Screen.SignIn, ScreenHistory.Arrival.Root, ShowSignIn);
 
-	public void ShowRegister() => ShowAsRoot<RegisterPage>(Screen.Register);
+	public void ShowRegister() => Show<RegisterPage>(Screen.Register, ScreenHistory.Arrival.Detail, ShowRegister);
 
-	public void ShowPasswordReset() => ShowAsRoot<PasswordResetPage>(Screen.PasswordReset);
+	public void ShowPasswordReset() => Show<PasswordResetPage>(Screen.PasswordReset, ScreenHistory.Arrival.Detail, ShowPasswordReset);
 
-	public void ShowAccount() => ShowAsRoot<AccountPage>(Screen.Account);
+	public void ShowAccount() => Show<AccountPage>(Screen.Account, ScreenHistory.Arrival.Section, ShowAccount);
 
-	public void ShowChatKeyGate() => ShowAsRoot<ChatKeyGatePage>(Screen.ChatKeyGate);
+	public void ShowChatKeyGate() => Show<ChatKeyGatePage>(Screen.ChatKeyGate, ScreenHistory.Arrival.Detail, ShowChatKeyGate);
 
-	public void ShowContacts() => ShowAsRoot<ContactsPage>(Screen.Contacts);
+	public void ShowContacts() => Show<ContactsPage>(Screen.Contacts, ScreenHistory.Arrival.Section, ShowContacts);
 
-	public void ShowTasks() => ShowAsRoot<TasksPage>(Screen.Tasks);
+	public void ShowTasks() => Show<TasksPage>(Screen.Tasks, ScreenHistory.Arrival.Section, ShowTasks);
 
-	public void ShowCalendar() => ShowAsRoot<CalendarPage>(Screen.Calendar);
+	public void ShowCalendar() => Show<CalendarPage>(Screen.Calendar, ScreenHistory.Arrival.Section, ShowCalendar);
 
-	public void ShowInventory() => ShowAsRoot<InventoryPage>(Screen.Inventories);
+	public void ShowInventory() => Show<InventoryPage>(Screen.Inventories, ScreenHistory.Arrival.Section, ShowInventory);
 
-	public void ShowMap() => ShowAsRoot<MapPage>(Screen.Map);
+	public void ShowMap() => Show<MapPage>(Screen.Map, ScreenHistory.Arrival.Section, ShowMap);
 
 	public void ShowInventory(Guid localId, Guid? productId = null)
-		=> ShowAsRoot<InventoryDetailPage>(Screen.Inventory, page => page.ViewModel.Open(localId, productId));
+		=> Show<InventoryDetailPage>(Screen.Inventory, ScreenHistory.Arrival.Detail,
+			() => ShowInventory(localId, productId), page => page.ViewModel.Open(localId, productId));
 
-	public void ShowNotifications() => ShowAsRoot<NotificationFeedPage>(Screen.Notifications);
+	public void ShowNotifications() => Show<NotificationFeedPage>(Screen.Notifications, ScreenHistory.Arrival.Section, ShowNotifications);
 
 	public void ShowSharedLink(string token)
-		=> ShowAsRoot<SharedLinkPage>(Screen.SharedLink, page => page.ViewModel.Open(token));
+		=> Show<SharedLinkPage>(Screen.SharedLink, ScreenHistory.Arrival.Detail,
+			() => ShowSharedLink(token), page => page.ViewModel.Open(token));
 
-	public void ShowUpdate() => ShowAsRoot<UpdatePage>(Screen.Update);
+	public void ShowUpdate() => Show<UpdatePage>(Screen.Update, ScreenHistory.Arrival.Section, ShowUpdate);
 
 	// No ShowNotificationSettings any more: the settings moved onto the account screen - see
 	// AccountPage's notification section - so there is no page of their own left to navigate to.
-	public void ShowDiagnostics() => ShowAsRoot<DiagnosticsPage>(Screen.Diagnostics);
+	public void ShowDiagnostics() => Show<DiagnosticsPage>(Screen.Diagnostics, ScreenHistory.Arrival.Detail, ShowDiagnostics);
 
 	public void ShowTaskList(Guid localId)
-		=> ShowAsRoot<TaskListDetailPage>(Screen.TaskList, page => page.ViewModel.Open(localId));
+		=> Show<TaskListDetailPage>(Screen.TaskList, ScreenHistory.Arrival.Detail,
+			() => ShowTaskList(localId), page => page.ViewModel.Open(localId));
 
 	public void ShowTaskItem(Guid taskListLocalId, Guid itemId)
-		=> ShowAsRoot<TaskItemSummaryPage>(Screen.TaskItem, page => page.ViewModel.Open(taskListLocalId, itemId));
+		=> Show<TaskItemSummaryPage>(Screen.TaskItem, ScreenHistory.Arrival.Detail,
+			() => ShowTaskItem(taskListLocalId, itemId), page => page.ViewModel.Open(taskListLocalId, itemId));
 
 	public void ShowNote(Guid localId)
-		=> ShowAsRoot<NoteDetailPage>(Screen.Note, page => page.ViewModel.Open(localId));
+		=> Show<NoteDetailPage>(Screen.Note, ScreenHistory.Arrival.Detail,
+			() => ShowNote(localId), page => page.ViewModel.Open(localId));
 
-	public void ShowCopyReview() => ShowAsRoot<CopyReviewPage>(Screen.CopyReview);
+	public void ShowCopyReview() => Show<CopyReviewPage>(Screen.CopyReview, ScreenHistory.Arrival.Detail, ShowCopyReview);
 
 	public void ShowCopyHistory(CopyKind kind, Guid localId)
-		=> ShowAsRoot<CopyHistoryPage>(Screen.CopyHistory, page => page.ViewModel.Open(kind, localId));
+		=> Show<CopyHistoryPage>(Screen.CopyHistory, ScreenHistory.Arrival.Detail,
+			() => ShowCopyHistory(kind, localId), page => page.ViewModel.Open(kind, localId));
 
 	public void ShowCalendarEvent(Guid localId)
-		=> ShowAsRoot<CalendarEventDetailPage>(Screen.CalendarEvent, page => page.ViewModel.Open(localId));
+		=> Show<CalendarEventDetailPage>(Screen.CalendarEvent, ScreenHistory.Arrival.Detail,
+			() => ShowCalendarEvent(localId), page => page.ViewModel.Open(localId));
 
 	/// <summary>
 	/// A conversation needs to know whose it is, and these screens are resolved from the container rather
 	/// than constructed - so the page is told after it exists, before it is shown.
 	/// </summary>
 	public void ShowConversation(LocalContact contact)
-		=> ShowAsRoot<ConversationPage>(Screen.Conversation, page => page.ViewModel.Open(contact));
+		=> Show<ConversationPage>(Screen.Conversation, ScreenHistory.Arrival.Detail,
+			() => ShowConversation(contact), page => page.ViewModel.Open(contact));
 
 	/// <inheritdoc cref="ShowConversation"/>
 	public void ShowContactInfo(Guid userId)
-		=> ShowAsRoot<ContactInfoPage>(Screen.ContactInfo, page => page.ViewModel.Open(userId));
+		=> Show<ContactInfoPage>(Screen.ContactInfo, ScreenHistory.Arrival.Detail,
+			() => ShowContactInfo(userId), page => page.ViewModel.Open(userId));
 
-	public void ShowGroups() => ShowAsRoot<GroupsPage>(Screen.Groups);
+	public void ShowGroups() => Show<GroupsPage>(Screen.Groups, ScreenHistory.Arrival.Detail, ShowGroups);
 
 	/// <inheritdoc cref="ShowConversation"/>
 	public void ShowGroupConversation(LocalChatGroup group)
-		=> ShowAsRoot<GroupConversationPage>(Screen.GroupConversation, page => page.ViewModel.Open(group));
+		=> Show<GroupConversationPage>(Screen.GroupConversation, ScreenHistory.Arrival.Detail,
+			() => ShowGroupConversation(group), page => page.ViewModel.Open(group));
 
 	/// <inheritdoc cref="ShowConversation"/>
 	public void ShowGroupDetail(LocalChatGroup group)
-		=> ShowAsRoot<GroupDetailPage>(Screen.GroupDetail, page => page.ViewModel.Open(group));
+		=> Show<GroupDetailPage>(Screen.GroupDetail, ScreenHistory.Arrival.Detail,
+			() => ShowGroupDetail(group), page => page.ViewModel.Open(group));
 
-	public void ShowDashboard() => ShowAsRoot<DashboardPage>(Screen.Dashboard);
+	public void ShowDashboard() => Show<DashboardPage>(Screen.Dashboard, ScreenHistory.Arrival.Section, ShowDashboard);
 
-	public void ShowNotes() => ShowAsRoot<NotesPage>(Screen.Notes);
+	public void ShowNotes() => Show<NotesPage>(Screen.Notes, ScreenHistory.Arrival.Section, ShowNotes);
 
-	private void ShowAsRoot<TPage>(Screen screen, Action<TPage>? prepare = null) where TPage : Page
+	/// <summary>
+	/// Shows one screen. <paramref name="arrival"/> says how it joins the history, and
+	/// <paramref name="again"/> is what will be run to bring it back - the same call with the same
+	/// argument, which is why the parameterised screens above pass a lambda rather than a method group.
+	/// </summary>
+	private void Show<TPage>(
+		Screen screen,
+		ScreenHistory.Arrival arrival,
+		Action again,
+		Action<TPage>? prepare = null) where TPage : Page
 		=> MainThread.BeginInvokeOnMainThread(() =>
 		{
 			if (Application.Current?.Windows.FirstOrDefault() is not { } window)
@@ -137,10 +159,10 @@ public sealed class AppNavigator : IScreenNavigator
 			prepare?.Invoke(page);
 			window.Page = page;
 
-			// Resolved here rather than taken in the constructor because UpNavigation needs this class:
+			// Resolved here rather than taken in the constructor because ScreenHistory needs this class:
 			// asking for it up front is a cycle the container cannot build. Everything else this method
 			// uses is resolved the same way, so it is the shape this class already has.
-			_services.GetRequiredService<UpNavigation>().Showing(screen);
+			_services.GetRequiredService<ScreenHistory>().Arrived(screen, arrival, again);
 
 			// The navigation bar is one instance shared by every page, so a menu opened over the screen
 			// being left would still be open over the one arriving. Orbit.Web closes it on every route

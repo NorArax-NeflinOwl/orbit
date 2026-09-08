@@ -59,7 +59,7 @@ public partial class TasksPage : ContentPage
 
 		Menu.Show(
 			[new ScreenMenuEntry(_translations["Delete"], () => _ = DeleteAsync(row))],
-			opensUpwards: true);
+			placement: MenuPlacement.FromTheFoot);
 	}
 
 	/// <summary>

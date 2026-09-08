@@ -195,9 +195,11 @@ public class MainActivity : MauiAppCompatActivity
 	}
 
 	/// <summary>
-	/// Answers the phone's back gesture with the screen hierarchy, because there is no stack to pop -
-	/// see <see cref="UpNavigation"/>. Without this, back leaves the app from every screen, including
-	/// the ones a reader opened from a list and expects to come back out of.
+	/// Answers the phone's back gesture with the screen the reader came from - see
+	/// <see cref="ScreenHistory"/>, which the top bar's own back arrow pops too, so the gesture and the
+	/// button are one behaviour rather than two answers to the same question. Without this, back leaves
+	/// the app from every screen, including the ones a reader opened from a list and expects to come
+	/// back out of.
 	///
 	/// Through OnBackPressedDispatcher rather than by overriding OnBackPressed, which Android deprecated
 	/// in favour of it, and which the predictive back gesture does not call at all.
@@ -210,7 +212,7 @@ public class MainActivity : MauiAppCompatActivity
 
 		public override void HandleOnBackPressed()
 		{
-			if (IPlatformApplication.Current?.Services.GetService<UpNavigation>()?.GoUp() == true)
+			if (IPlatformApplication.Current?.Services.GetService<ScreenHistory>()?.GoBack() == true)
 			{
 				return;
 			}

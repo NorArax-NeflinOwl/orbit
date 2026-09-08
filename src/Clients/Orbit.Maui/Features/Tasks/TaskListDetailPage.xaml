@@ -480,6 +480,7 @@
         <controls:MenuOverlay Grid.Row="0" Grid.RowSpan="3"
                               BindingContext="{Binding Menu, Source={x:Reference Page}, x:DataType=tasks:TaskListDetailPage}" />
         <controls:AvatarMenu Grid.Row="0" Grid.RowSpan="3" />
+        <controls:Drawer Grid.Row="0" Grid.RowSpan="3" />
     </Grid>
 
 </ContentPage>

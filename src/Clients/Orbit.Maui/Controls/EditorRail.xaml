@@ -19,7 +19,7 @@
          A screen that is only read carries the same bar with no Save in it. What leaves the screen and
          what else it can do belong in the same place whether or not there is anything to write. -->
     <Grid RowDefinitions="Auto,Auto" RowSpacing="8" Padding="12,8"
-          BackgroundColor="{AppThemeBinding Light={StaticResource SurfaceLight}, Dark={StaticResource SurfaceDark}}">
+          BackgroundColor="{AppThemeBinding Light={StaticResource PageBackgroundLight}, Dark={StaticResource PageBackgroundDark}}">
 
         <!-- The bar's top edge is its only one: it sits on the foot of the window, so the other three
              would be drawing a box around the screen. -->

@@ -61,7 +61,7 @@ public partial class CalendarEventDetailPage : ContentPage
 			entries.Add(new ScreenMenuEntry(_translations["History"], () => _viewModel.GoToHistoryCommand.Execute(null)));
 		}
 
-		Menu.Show(entries, opensUpwards: true);
+		Menu.Show(entries, placement: MenuPlacement.FromTheFoot);
 	}
 
 	/// <summary>

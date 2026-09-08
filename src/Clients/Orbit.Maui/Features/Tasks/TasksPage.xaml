@@ -23,7 +23,7 @@
              exactly where Orbit.Web's own Tasks header keeps them. The order is something a reader sets
              once and then reads by, so it lives behind the menu rather than in a control taking up the
              top of every visit. -->
-        <controls:PageHeader Grid.Row="0" Title="{controls:Translate 'Tasks'}">
+        <controls:PageHeader Grid.Row="0">
             <controls:PageHeader.LeadingAction>
                 <controls:IconButton x:Name="AddButton" Variant="Add" Data="M10,4 V16 M4,10 H16"
                                      Description="{controls:Translate 'Add task list'}" />
@@ -289,6 +289,7 @@
         <controls:MenuOverlay Grid.Row="0" Grid.RowSpan="3"
                               BindingContext="{Binding Menu, Source={x:Reference Page}, x:DataType=tasks:TasksPage}" />
         <controls:AvatarMenu Grid.Row="0" Grid.RowSpan="3" />
+        <controls:Drawer Grid.Row="0" Grid.RowSpan="3" />
     </Grid>
 
 </ContentPage>

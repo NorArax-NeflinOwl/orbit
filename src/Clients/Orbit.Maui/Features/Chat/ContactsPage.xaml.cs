@@ -77,7 +77,7 @@ public partial class ContactsPage : ContentPage
 				_translations["Delete chat history"], () => _ = ClearHistoryAsync(contact)));
 		}
 
-		Menu.Show(entries, contact.DisplayName, opensUpwards: true);
+		Menu.Show(entries, contact.DisplayName, placement: MenuPlacement.FromTheFoot);
 	}
 
 	/// <summary>Asked before it happens: nothing on this phone or the server brings those words back.</summary>

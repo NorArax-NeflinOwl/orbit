@@ -14,7 +14,7 @@
         <Grid Grid.Row="1" RowDefinitions="Auto,*" Padding="16,16,16,28" RowSpacing="12">
 
             <VerticalStackLayout Grid.Row="0" Spacing="10">
-                <controls:PageHeader Title="{controls:Translate 'Copies to review'}">
+                <controls:PageHeader>
                     <controls:PageHeader.Subtitle>
                         <controls:Translate Text="What you wrote while you were offline, beside what it came from." />
                     </controls:PageHeader.Subtitle>
@@ -119,5 +119,6 @@
 
         <controls:NavigationBar Grid.Row="0" />
         <controls:AvatarMenu Grid.Row="0" Grid.RowSpan="3" />
+        <controls:Drawer Grid.Row="0" Grid.RowSpan="3" />
     </Grid>
 </ContentPage>

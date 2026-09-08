@@ -18,9 +18,9 @@
          anatomy Orbit.Web settled on - see its Components/ItemCard.razor. -->
     <Border x:Name="Frame" StrokeThickness="1" Padding="0" Margin="0,5"
             Stroke="{AppThemeBinding Light={StaticResource CardStrokeLight}, Dark={StaticResource CardStrokeDark}}"
-            BackgroundColor="{AppThemeBinding Light={StaticResource SurfaceLight}, Dark={StaticResource SurfaceDark}}">
+            BackgroundColor="Transparent">
         <Border.StrokeShape>
-            <RoundRectangle CornerRadius="12" />
+            <RoundRectangle CornerRadius="4" />
         </Border.StrokeShape>
 
         <!-- The strip down the left is a colour this card is *about* - an event's own. Painted along

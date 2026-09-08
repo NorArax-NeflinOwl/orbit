@@ -21,7 +21,7 @@
 
                 <!-- The screen's name, what it holds, and at the other end which parts of it are wanted
                      at all - exactly the header Orbit.Web's dashboard opens with. -->
-                <controls:PageHeader Title="{controls:Translate 'Dashboard'}"
+                <controls:PageHeader
                                      Subtitle="{controls:Translate 'Everything on your plate, in one place.'}">
                     <controls:PageHeader.Actions>
                         <controls:OverflowMenu Command="{Binding ShowPartsMenuCommand, Source={x:Reference Page}, x:DataType=dashboard:DashboardPage}" />
@@ -210,5 +210,6 @@
         <controls:MenuOverlay Grid.Row="0" Grid.RowSpan="3"
                               BindingContext="{Binding Menu, Source={x:Reference Page}, x:DataType=dashboard:DashboardPage}" />
         <controls:AvatarMenu Grid.Row="0" Grid.RowSpan="3" />
+        <controls:Drawer Grid.Row="0" Grid.RowSpan="3" />
     </Grid>
 </ContentPage>

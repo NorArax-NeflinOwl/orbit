@@ -17,7 +17,7 @@
     <ScrollView Grid.Row="1">
         <VerticalStackLayout Padding="16,16,16,28" Spacing="12">
 
-            <controls:PageHeader Title="{Binding Description}" Subtitle="{Binding TaskListTitle}" />
+            <controls:PageHeader Subtitle="{Binding TaskListTitle}" />
 
             <!-- When and where, the two things this screen exists to answer, as Orbit.Web lays them
                  out on the same page. -->
@@ -79,6 +79,7 @@
         <controls:MenuOverlay Grid.Row="0" Grid.RowSpan="3"
                               BindingContext="{Binding Menu, Source={x:Reference Page}, x:DataType=maui:TaskItemSummaryPage}" />
         <controls:AvatarMenu Grid.Row="0" Grid.RowSpan="3" />
+        <controls:Drawer Grid.Row="0" Grid.RowSpan="3" />
     </Grid>
 
 </ContentPage>

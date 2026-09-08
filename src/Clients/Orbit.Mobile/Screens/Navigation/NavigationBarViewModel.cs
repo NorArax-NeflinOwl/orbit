@@ -16,15 +16,19 @@ using Orbit.Mobile.Update;
 namespace Orbit.Mobile.Screens.Navigation;
 
 /// <summary>
-/// The bar across the top of every signed-in screen: the way to each section, and who is signed in.
+/// The bar across the top of every signed-in screen, and the two panels that hang off it.
 ///
-/// Mirrors what Orbit.Web shows on a narrow window, where the sidebar becomes exactly this - a logo
-/// standing in for the Dashboard link, the section icons without their labels, and the avatar pushed to
-/// the far right (see app.css's 680px breakpoint). Matching it is the point: somebody who uses both
-/// should not have to learn the app twice.
+/// Three things wide: a way out on the left, the screen's name in the middle, the account on the right.
+/// It used to carry a logo, six section icons, a bell and the avatar, which is what Orbit.Web shows at
+/// its narrow breakpoint - and on a phone that is eight targets in a row nobody can hit, with the
+/// screen's own name nowhere on it. The sections moved into a drawer where their labels fit, the bell
+/// went in with them, and what the bar says now is where you are.
 ///
-/// One shared instance rather than one per page: the bar and the menu the avatar opens are two
-/// controls that have to agree about whether that menu is open, and only one page is ever on screen.
+/// The left-hand control is the drawer's three lines, or the back arrow when there is somewhere to go
+/// back to - see <see cref="ScreenHistory"/>, which is also what the arrow pops.
+///
+/// One shared instance rather than one per page: the bar, the drawer and the avatar's menu all have to
+/// agree about which of them is open, and only one page is ever on screen.
 /// </summary>
 public sealed partial class NavigationBarViewModel : ObservableObject
 {
@@ -40,6 +44,7 @@ public sealed partial class NavigationBarViewModel : ObservableObject
     private readonly INetworkStatus _networkStatus;
     private readonly MobileVersionGate _versionGate;
     private readonly IScreenNavigator _navigator;
+    private readonly ScreenHistory _history;
 
     /// <summary>The signed-in reader's initials, which is what the avatar shows - there are no pictures in Orbit.</summary>
     [ObservableProperty]
@@ -117,11 +122,16 @@ public sealed partial class NavigationBarViewModel : ObservableObject
         AuthenticationClient authenticationClient, Presence.Presence presence, Translations translations,
         LocalStoreReset localStore, UserPermissions permissions, SyncState syncState,
         MobileVersionGate versionGate, ServerVersionClient serverVersion, IScreenNavigator navigator,
-        EverythingSynchronizer synchronizer, INetworkStatus networkStatus,
+        ScreenHistory history, EverythingSynchronizer synchronizer, INetworkStatus networkStatus,
         IEnumerable<Data.ICopyReviewStore> copyStores, Live.ILiveUpdates liveUpdates,
         Orbit.Mobile.Notifications.ForegroundNotices foregroundNotices, Orbit.Mobile.Notifications.NotificationOpener notificationOpener)
     {
         _notificationOpener = notificationOpener;
+        _history = history;
+        // Where the reader is decides two things the bar draws: whether its first control is the back
+        // arrow or the drawer's three lines, and which entry the drawer marks. Both are answers about
+        // the app rather than about this screen, which is why the bar is told rather than asked.
+        _history.Changed += ShowWhereTheReaderIs;
         _foregroundNotices = foregroundNotices;
         _foregroundNotices.Changed += ShowTheBanner;
         _copyStores = [.. copyStores];
@@ -357,6 +367,80 @@ public sealed partial class NavigationBarViewModel : ObservableObject
 
     [RelayCommand]
     private void GoToContacts() => _navigator.ShowContacts();
+
+    /// <summary>
+    /// Whether the top bar's first control is the back arrow rather than the drawer's three lines. Both
+    /// cannot be there at once - there is room for one, and a screen that offers a way out and a way
+    /// sideways in the same corner is asking the reader to aim.
+    /// </summary>
+    public bool CanGoBack => _history.CanGoBack;
+
+    /// <summary>The drawer is what the bar shows when there is nowhere to go back to.</summary>
+    public bool CanOpenDrawer => !_history.CanGoBack;
+
+    /// <summary>Which drawer entry is marked - see <see cref="Sections"/> for why it is not just the screen.</summary>
+    public Screen Section => Sections.For(_history.Current);
+
+    public bool IsOnDashboard => Section is Screen.Dashboard;
+
+    public bool IsOnNotes => Section is Screen.Notes;
+
+    public bool IsOnTasks => Section is Screen.Tasks;
+
+    public bool IsOnCalendar => Section is Screen.Calendar;
+
+    public bool IsOnInventory => Section is Screen.Inventories;
+
+    public bool IsOnMap => Section is Screen.Map;
+
+    public bool IsOnContacts => Section is Screen.Contacts;
+
+    public bool IsOnNotifications => Section is Screen.Notifications;
+
+    /// <summary>
+    /// Whether the drawer is showing. Held here rather than on a page because the bar is one shared
+    /// instance and the drawer is drawn by every page that carries it - the same reason
+    /// <see cref="IsMenuOpen"/> lives here.
+    /// </summary>
+    [ObservableProperty]
+    private bool _isDrawerOpen;
+
+    private void ShowWhereTheReaderIs()
+    {
+        // Anything left open belongs to the screen being left - see CloseMenu for the same rule.
+        IsDrawerOpen = false;
+
+        foreach (var name in new[]
+        {
+            nameof(CanGoBack), nameof(CanOpenDrawer), nameof(Section), nameof(IsOnDashboard),
+            nameof(IsOnNotes), nameof(IsOnTasks), nameof(IsOnCalendar), nameof(IsOnInventory),
+            nameof(IsOnMap), nameof(IsOnContacts), nameof(IsOnNotifications)
+        })
+        {
+            OnPropertyChanged(name);
+        }
+    }
+
+    [RelayCommand]
+    private void ToggleDrawer()
+    {
+        _presence.MarkActive();
+        // The two panels are alternatives: opening either closes the other, or a reader who opened both
+        // would be looking at a menu through a drawer.
+        IsMenuOpen = false;
+        IsDrawerOpen = !IsDrawerOpen;
+    }
+
+    [RelayCommand]
+    private void CloseDrawer() => IsDrawerOpen = false;
+
+    /// <summary>
+    /// The bar's own back arrow, which pops the same history Android's gesture does - see
+    /// <see cref="ScreenHistory"/>. iOS has no system gesture, so on that head this is the only way out
+    /// of a screen that was opened from a list.
+    /// </summary>
+    [RelayCommand]
+    private void GoBack() => _history.GoBack();
 
     /// <summary>
     /// The avatar opens a menu rather than going anywhere, the same as Orbit.Web's: the account, the

@@ -13,11 +13,9 @@
          covers everything: inside a card it would be clipped by the row it sits in, and a menu with
          the list showing through it is not a menu.
 
-         Where it opens is the one thing that differs from the browser. There, the panel hangs off the
-         control that opened it and is then clamped to the window. Here it takes the edge that control
-         is nearest: a page header's menu hangs from the top, and a card's or the editing rail's opens
-         upwards from the foot of the screen - which is what app.css itself does to a rail menu at the
-         680px breakpoint, since a bar on the bottom edge would otherwise open into the ground. -->
+         Where it opens is decided in the code-behind - see Place. A screen's own menu is centred under
+         its name in the top bar; a row's opens upwards out of the foot of the screen, because hanging
+         it off a row low down the page would open it into the ground. -->
     <Grid>
 
         <!-- Pressing anywhere else closes it, which is what a menu does everywhere. -->
@@ -27,8 +25,8 @@
             </BoxView.GestureRecognizers>
         </BoxView>
 
-        <Border x:Name="Panel" Style="{StaticResource MenuPanel}" HorizontalOptions="End"
-                Margin="12,58,12,12" VerticalOptions="Start">
+        <Border x:Name="Panel" Style="{StaticResource MenuPanel}" HorizontalOptions="Center"
+                WidthRequest="264" Margin="12,56,12,12" VerticalOptions="Start">
             <VerticalStackLayout Spacing="0">
                 <Label Text="{Binding Heading}" Style="{StaticResource MenuHeading}"
                        IsVisible="{Binding Heading, Converter={StaticResource IsNotEmpty}}" />

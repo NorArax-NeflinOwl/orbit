@@ -15,7 +15,7 @@
     <Grid Grid.Row="1" RowDefinitions="Auto,*" Padding="16,16,16,28" RowSpacing="12">
 
         <VerticalStackLayout Grid.Row="0" Spacing="12">
-            <controls:PageHeader Title="{controls:Translate 'Notifications'}">
+            <controls:PageHeader>
                 <controls:PageHeader.Subtitle>
                     <controls:Translate Text="Everything Orbit has told you, newest first." />
                 </controls:PageHeader.Subtitle>
@@ -83,6 +83,7 @@
         <controls:AdBanner Grid.Row="2" />
         <controls:NavigationBar Grid.Row="0" />
         <controls:AvatarMenu Grid.Row="0" Grid.RowSpan="3" />
+        <controls:Drawer Grid.Row="0" Grid.RowSpan="3" />
     </Grid>
 
 </ContentPage>

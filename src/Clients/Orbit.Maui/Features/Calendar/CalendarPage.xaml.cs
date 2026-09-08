@@ -63,7 +63,7 @@ public partial class CalendarPage : ContentPage
 
 		Menu.Show(
 			[new ScreenMenuEntry(_translations["Delete"], () => _ = DeleteAsync(entry))],
-			opensUpwards: true);
+			placement: MenuPlacement.FromTheFoot);
 	}
 
 	/// <summary>
