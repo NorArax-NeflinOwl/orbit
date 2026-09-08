@@ -1066,6 +1066,8 @@ public static class PolishTranslations
         ["Failed to save the event. Try again."] = "Nie udało się zapisać wydarzenia. Spróbuj ponownie.",
         ["Failed to save the note. Try again."] = "Nie udało się zapisać notatki. Spróbuj ponownie.",
         ["Failed to save the task list. Try again."] = "Nie udało się zapisać listy zadań. Spróbuj ponownie.",
+        ["Marks the whole list done even with entries still open, and moves it to Finished. Untick it and the entries decide again."] =
+            "Oznacza całą listę jako zrobioną, nawet z otwartymi pozycjami, i przenosi ją do Zakończonych. Odznacz, a znów zdecydują pozycje.",
         ["The list was saved, but it couldn't be filed under that folder. Choose it again."] =
             "Lista została zapisana, ale nie udało się umieścić jej w tym folderze. Wybierz go ponownie.",
         ["The note was saved, but it couldn't be filed under that folder. Choose it again."] =

@@ -232,17 +232,25 @@ lists (`FolderState`, one scoped state shared by the three pages).
 **Three folders exist without a row of their own** (`Orbit.Core.Folders.BuiltInFolder`). Which one
 something is in is decided from what it already is, and the first that applies wins:
 
-1. **Finished** - a task list with every entry ticked off, even when its owner filed it somewhere else.
-   It goes there on its own and comes back out the moment something on it is reopened. A note is never
-   in it, having nothing to finish.
+1. **Finished** - a task list that is done, even when its owner filed it somewhere else. Two ways to be
+   done, and both put it here: every entry ticked off, which happens on its own and comes back out the
+   moment something is reopened, or **its owner saying so** with the Completed box in the list's form
+   (`TaskList.IsMarkedCompleted`, `OP_T_ISMARKEDCOMPLETED`). A note is never in it, having nothing to
+   finish.
 2. **Private** - a sealed item nobody filed anywhere (see [Private notes and task
    lists](#private-notes-and-task-lists)).
 3. **Public** - everything else, and where a page opens.
 
 Deciding it rather than storing it is what let folders arrive with **no migration of existing rows and
-nothing to repair**: every note and list that existed before them was already in the right one. It also
-means the two can never disagree - there is no way to be filed as private without being sealed, or to
-sit in Finished with work left on it.
+nothing to repair**: every note and list that existed before them was already in the right one. There is
+still no way to be filed as private without being sealed.
+
+**A list can sit in Finished with work left on it**, which is the one thing that changed. That was the
+ordinary case the old rule could not say: a list whose last two entries stopped mattering, or were done
+somewhere else. The only way to close it used to be ticking those entries off, which is a claim about
+the entries rather than about the list. Marking it survives an edit - adding an entry to a list somebody
+closed does not quietly reopen it - and unticking the box hands the question back to the entries rather
+than forcing "not done", so a list whose entries are all ticked stays finished either way.
 
 **A folder somebody made is none of the three** and holds whatever they put in it, private things
 included: filing something is not the same decision as sealing it. Only these are rows

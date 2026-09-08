@@ -29,4 +29,10 @@ public sealed record TaskDto(
     /// The folder its owner filed it under, or null for one filed nowhere - see NoteDto.FolderId, which
     /// says the same about the other kind of card.
     /// </summary>
-    Guid? FolderId = null);
+    Guid? FolderId = null,
+    /// <summary>
+    /// Whether the reader marked this list finished themselves, as opposed to it being finished because
+    /// every entry is - see Orbit.Core.Tasks.TaskList.IsMarkedCompleted. IsCompleted above is the
+    /// answer either way; this is the half a checkbox is bound to.
+    /// </summary>
+    bool IsMarkedCompleted = false);

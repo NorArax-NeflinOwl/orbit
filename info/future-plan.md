@@ -556,6 +556,14 @@ inventory lists, the contacts tabs, the chat menus - is built and needs no schem
 
 ## Noticed while working
 
+- **The phone cannot mark a list finished.** A task list can be closed with work still on it since
+  2026-09-08 (`TaskList.IsMarkedCompleted`), and the phone neither shows the box nor sends the field.
+  Nothing is lost by it: `UpdateTaskRequest.IsMarkedCompleted` is null-means-not-provided, so a save
+  from the phone leaves a list somebody closed in a browser closed - `MarkingAListFinishedTests` and
+  the field's own comment both say so. The phone does read the *result*: `IsCompleted` arrives already
+  answered, so a marked list sorts and files as finished there. This is parity, not a defect. What it
+  would take: the box on the list's own screen, and the field on the phone's update request.
+
 - **The invitation page treats "any other kind" as an inventory.** `ShareInvitation.AcceptAsync` and
   `DescribeKind` both end in a `_` that means Inventory, and `SharedItemKind` has a fifth member -
   `Location`. Nothing is broken today and this is written down rather than fixed for exactly that
