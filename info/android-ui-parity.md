@@ -45,6 +45,9 @@ whatever Orbit draws under it.
 | A screen's menu | three dots in the page header, or on the editing rail | one dropdown **under the screen's name** |
 | Adding | a `+` beside the page heading | a **floating button** over the foot of the list |
 | Editing screens | a rail along the foot | nothing; the way out is the bar's back arrow |
+| A message | filled - the accent for yours, a grey for everybody else's | outlined - the accent over a wash of it, or a hairline over nothing |
+| An avatar | a disc filled with the person's hue | a ring in it, with the initials written in it |
+| A tick | the characters `○ ✓` and `☐ ☑` | one drawn circle - see `Controls/CheckCircle.xaml` |
 | A list | cards | **rows**, separated by hairlines |
 
 ### The vocabulary, and where each part lives
@@ -64,6 +67,7 @@ Every number below is the design's. The phone reads them from
 | a screen's own menu | `Controls/ITitleMenu.cs` + `ScreenMenu` + `Controls/MenuOverlay.xaml` | centred under the name |
 | a row's menu | `Controls/OverflowMenu.xaml` | stays on the row; opens upwards out of the foot |
 | the add button | `Controls/Fab.xaml` | 56 across, above the ad bar where there is one |
+| a tick | `Controls/CheckCircle.xaml` | a ring when open, the accent filled with the ground cut through it when done |
 | a card, and a row | `Controls/ItemCard.xaml` (`IsBordered`) | one anatomy, two shapes |
 | a plain row | `Controls/Row.xaml` | title 14, meta 12, a hairline under it |
 | the avatar | `Controls/AvatarCircle.xaml` | initials on an outline, with the presence dot on its top-right edge |
@@ -107,6 +111,16 @@ rather than only on the branch that does not want one.
 transparent and no background at all; nothing in Orbit draws a `BoxView` without saying what colour it
 is.
 
+**A `Border` fills from `Background`, and will not take a colour resource there.** It takes one on
+`Stroke` happily, so the first ticked circle came out as an accent ring with nothing inside it. A
+shape's `Fill` is the brush property that behaves - `CheckCircle` is an `Ellipse` for that reason, and
+one shape doing both the ring and the fill is what a circle wants anyway.
+
+**A value written in the markup is a *local* value, and a local value beats a dynamic resource.**
+`Fill="Transparent"` on that same circle meant the accent could never get in afterwards. Anything a
+control decides at runtime is left out of its XAML, and `ClearValue` follows `RemoveDynamicResource`
+before the decision is made.
+
 **A press target must not set a row's height.** The implicit `Button` style asks for 44, which is the
 tap target a phone needs. A button laid *over* a row has to take its height from the row instead, or
 every drawer entry is 68 tall and every note in the list a third taller than it should be. Those
@@ -116,10 +130,14 @@ buttons ask for 0 and let what they cover decide.
 
 ## What is done, and what is not
 
-Redrawn: the shell (bar, drawer, title menu, floating button, back arrow), the dashboard, the notes
-list, the note screen, the tasks list. Everything else carries the new palette, type and shapes — the
-tokens are global — but still has its old layout, and is queued in
-[`future-plan.md`](future-plan.md) under "Redrawing the rest of the phone".
+Redrawn: the shell (bar, drawer, title menu, floating button, back arrow) and every screen the design
+covers — the dashboard, both list-and-detail pairs for notes and tasks, the calendar and an event, the
+inventory and a shelf, the chat screens, the notification feed, sign-in and the account screen. The
+`EditorRail` is gone from the codebase, not only from the screens: nothing drew one any more.
+
+What is left is the screens the design does not cover — copies, diagnostics, the update screen, the
+shared-link page, the place picker. They carry the new palette, type and shapes, because the tokens are
+global, and their layout is unchanged.
 
 Deliberately not copied from the design:
 

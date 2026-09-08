@@ -93,6 +93,7 @@ flowchart LR
         avatar["AvatarMenu<br/><i>status, language, settings, sign out</i>"]
         overlay["MenuOverlay<br/><i>draws whichever ScreenMenu is open</i>"]
         fab["Fab<br/><i>makes another of what the screen lists</i>"]
+        tick["CheckCircle<br/><i>ticking an errand or a line off</i>"]
         title["ITitleMenu<br/><i>a page's own menu, under its name</i>"]
     end
     subgraph mobile["Orbit.Mobile (Screens.Navigation)"]
