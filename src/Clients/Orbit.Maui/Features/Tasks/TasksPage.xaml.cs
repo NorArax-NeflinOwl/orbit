@@ -6,7 +6,7 @@ using Orbit.Mobile.Screens.Tasks;
 
 namespace Orbit.Maui.Features.Tasks;
 
-public partial class TasksPage : ContentPage
+public partial class TasksPage : ContentPage, ITitleMenu
 {
 	private readonly TasksViewModel _viewModel;
 	private readonly Translations _translations;
@@ -16,7 +16,7 @@ public partial class TasksPage : ContentPage
 		// Before InitializeComponent, not after: it is bound from the static part of the tree, which is
 		// built there and reads a page's plain property exactly once - see CalendarEventDetailPage,
 		// where the same order matters for the same reason.
-		ShowSortMenuCommand = new Command(ShowSortMenu);
+		ShowTitleMenuCommand = new Command(ShowSortMenu);
 		ShowCardMenuCommand = new Command<TaskListRow>(ShowCardMenu);
 
 		InitializeComponent();
@@ -25,8 +25,11 @@ public partial class TasksPage : ContentPage
 		AddButton.Command = NewItemForm.Toggling(AddRow, AddField);
 	}
 
-	/// <summary>What the three dots at the header's other end open.</summary>
-	public ICommand ShowSortMenuCommand { get; }
+	/// <summary>
+	/// What the screen's name in the top bar opens: how this list of lists is read. It used to be three
+	/// dots at the other end of a header that no longer exists - see ITitleMenu.
+	/// </summary>
+	public ICommand ShowTitleMenuCommand { get; }
 
 	/// <summary>And what a card's own three dots open. The same panel; only the entries differ.</summary>
 	public ICommand ShowCardMenuCommand { get; }

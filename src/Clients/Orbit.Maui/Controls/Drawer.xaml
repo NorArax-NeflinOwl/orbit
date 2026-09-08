@@ -107,13 +107,44 @@
                                           Command="{Binding GoToNotificationsCommand}" />
                 </VerticalStackLayout>
 
+                <!-- What Orbit.Web says in its footer, said in the drawer's footer: the two are the
+                     same place on the page. It used to be a row in the avatar's menu, which is where a
+                     phone's version number ended up for want of anywhere better - the menu behind the
+                     avatar is about the account, and which build this is has nothing to do with who is
+                     signed in. Settings is still there, where the account's own things are.
+
+                     Folded by default: most visits to the drawer are on the way to a section. -->
                 <VerticalStackLayout Grid.Row="2" Padding="22,14,22,0" Spacing="6">
                     <BoxView Style="{StaticResource Hairline}" Margin="0,0,0,8" />
-                    <Button Text="{controls:Translate 'Settings'}" Style="{StaticResource LinkButton}"
+                    <Button Text="{controls:Translate 'About'}" Style="{StaticResource LinkButton}"
                             FontSize="13" Padding="0" HorizontalOptions="Start" MinimumHeightRequest="0"
-                            Command="{Binding GoToAccountCommand}" />
-                    <Label Text="{Binding AboutVersion}" Style="{StaticResource RowMeta}" FontSize="11"
-                           LineBreakMode="WordWrap" />
+                            Command="{Binding ToggleAboutCommand}" />
+
+                    <VerticalStackLayout Spacing="2" IsVisible="{Binding IsAboutExpanded}">
+                        <Label Text="{Binding AboutCopyright}" FontSize="12" Style="{StaticResource SubtleLabel}" />
+                        <!-- Tapped, it grows the rest of the commit hash - the same thing the web footer
+                             does, and for the same reason: the short form is what anybody reads, the
+                             whole one is what a checkout takes. -->
+                        <Label Text="{Binding AboutVersion}" FontSize="12" LineBreakMode="CharacterWrap"
+                               Style="{StaticResource SubtleLabel}">
+                            <Label.GestureRecognizers>
+                                <TapGestureRecognizer Command="{Binding ShowTheWholeCommitCommand}" />
+                            </Label.GestureRecognizers>
+                        </Label>
+                        <!-- The server's own build, beside the app's. The two drift by design here: the
+                             phone is updated whenever its owner chooses. Hidden while the server has not
+                             answered - an offline About row should say nothing rather than guess. -->
+                        <Label Text="{Binding AboutServerVersion}" IsVisible="{Binding HasServerVersion}"
+                               FontSize="12" LineBreakMode="CharacterWrap" Style="{StaticResource SubtleLabel}" />
+                        <!-- Tapped rather than shown as a URL: the licence is a document to read, and
+                             the address of it is not the information anybody came for. -->
+                        <Label x:Name="LicenseLink" Text="{Binding LicenseName}" FontSize="12"
+                               TextDecorations="Underline" Style="{StaticResource SubtleLabel}">
+                            <Label.GestureRecognizers>
+                                <TapGestureRecognizer Tapped="OnLicenseTapped" />
+                            </Label.GestureRecognizers>
+                        </Label>
+                    </VerticalStackLayout>
                 </VerticalStackLayout>
             </Grid>
         </Border>

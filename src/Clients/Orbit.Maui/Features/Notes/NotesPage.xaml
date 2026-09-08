@@ -16,21 +16,12 @@
     <Grid RowDefinitions="Auto,*,Auto">
 
 
-    <Grid Grid.Row="1" RowDefinitions="Auto,*,Auto" Padding="16,16,16,28" RowSpacing="10">
+    <!-- The screen at rest is what the design shows: a column of notes and nothing above them. The
+         name is in the bar, the plus is the button over the foot of the list, and the field that plus
+         unfolds is the only thing that ever sits between the two. -->
+    <Grid Grid.Row="1" RowDefinitions="Auto,*,Auto" Padding="20,6,20,0" RowSpacing="10">
 
         <VerticalStackLayout Grid.Row="0" Spacing="10">
-            <!-- The plus is where Orbit.Web puts it, left of the name, and it does what the web's
-                 does: it opens the form for a new one. The form is one field here rather than a screen
-                 of its own, so it unfolds under the header instead of navigating - but the screen at
-                 rest is what the web shows, its name and its cards, rather than a box asking to be
-                 filled in before anything has been read. -->
-            <controls:PageHeader>
-                <controls:PageHeader.LeadingAction>
-                    <controls:IconButton x:Name="AddButton" Variant="Add" Data="M10,4 V16 M4,10 H16"
-                                         Description="{controls:Translate 'Add note'}" />
-                </controls:PageHeader.LeadingAction>
-            </controls:PageHeader>
-
             <!-- The one thing this screen has to say for itself, which today is only about pinning.
                  It was set and never shown, so pinning with no connection did nothing and said
                  nothing - see NotesViewModel.HasMessage. -->
@@ -62,10 +53,11 @@
 
                 <CollectionView.ItemTemplate>
                     <DataTemplate x:DataType="screens:NoteListItem">
-                        <!-- The card every list of things is drawn with - see ItemCard for its anatomy,
-                             and Orbit.Web's own for where the shape came from. The row used to draw its
-                             own stack of labels with a hairline under it. -->
-                        <controls:ItemCard Name="{Binding DisplayTitle}" IsPinned="{Binding IsPinned}">
+                        <!-- A row rather than a card - see ItemCard.IsBordered. A list of boxes reads as
+                             a list of things kept apart; a column of rules reads as one list, which is
+                             what a page of notes is. -->
+                        <controls:ItemCard IsBordered="False"
+                                           Name="{Binding DisplayTitle}" IsPinned="{Binding IsPinned}">
                             <controls:ItemCard.Pin>
                                 <!-- Filled when it is set, outlined when it is not, so the card says
                                      which without a word - and absent on a note somebody else owns,
@@ -114,6 +106,14 @@
                     </DataTemplate>
                 </CollectionView.ItemTemplate>
 
+                <!-- The rule under the last row. Without it the column stops mid-air, which reads as a
+                     list that has been cut off rather than one that has ended. In the footer rather
+                     than in a row of the page's grid, so that it follows the last note instead of
+                     sitting at the bottom of the screen with a field of nothing above it. -->
+                <CollectionView.Footer>
+                    <BoxView Style="{StaticResource Hairline}" IsVisible="{Binding HasNotes}" />
+                </CollectionView.Footer>
+
             </CollectionView>
         </RefreshView>
 
@@ -122,6 +122,8 @@
         <!-- Across the foot, under everything the page itself draws - see AdBanner, and .ad-banner
              in Orbit.Web's app.css, which is the same bar on a narrow window. -->
         <controls:AdBanner Grid.Row="2" />
+        <controls:Fab x:Name="AddButton" Grid.Row="1" IsAboveAdBar="True"
+                      Description="{controls:Translate 'Add note'}" />
         <controls:NavigationBar Grid.Row="0" />
         <controls:MenuOverlay Grid.Row="0" Grid.RowSpan="3"
                               BindingContext="{Binding Menu, Source={x:Reference Page}, x:DataType=notes:NotesPage}" />

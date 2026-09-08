@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<ContentView
+    x:Class="Orbit.Maui.Controls.Fab"
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    x:Name="Root"
+    HorizontalOptions="End" VerticalOptions="End" Margin="0,0,18,20">
+
+    <!-- The one control that makes another of whatever the screen lists.
+         It used to be a 30pt outline beside the screen's name, at the top of the page, which is the
+         corner a thumb reaches last - and the name is not on the page any more anyway. 56 across, over
+         the foot of the list, outlined in the accent like everything else this design colours.
+
+         Placed by the page, last in its Grid and spanning the rows, so it floats over the list rather
+         than taking a row of its own. -->
+    <Border x:Name="Ring" WidthRequest="56" HeightRequest="56" StrokeThickness="1" Padding="0"
+            Stroke="{DynamicResource Accent}"
+            BackgroundColor="{AppThemeBinding Light={StaticResource PageBackgroundLight}, Dark={StaticResource PageBackgroundDark}}">
+        <Border.StrokeShape>
+            <RoundRectangle CornerRadius="28" />
+        </Border.StrokeShape>
+
+        <Grid>
+            <Path x:Name="Glyph" Data="M12,5 V19 M5,12 H19" Style="{StaticResource IconPathAccent}"
+                  WidthRequest="24" HeightRequest="24" StrokeThickness="1.6" InputTransparent="True" />
+            <Button x:Name="Press" BackgroundColor="Transparent" BorderWidth="0" Padding="0"
+                    MinimumHeightRequest="0" MinimumWidthRequest="0" />
+        </Grid>
+    </Border>
+</ContentView>

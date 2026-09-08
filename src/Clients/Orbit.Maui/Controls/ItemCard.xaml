@@ -4,10 +4,14 @@
     xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
     xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml">
 
-    <!-- One card, used by every list that shows things - notes, task lists, events, inventories. The
-         shape is fixed so that a reader who learns it once knows where to look on every screen: the name
-         is always in the same place, the menu is always in the same corner, and what a card carries
-         beyond that is what differs between them.
+    <!-- One anatomy, used by every list that shows things - notes, task lists, events, inventories -
+         and drawn two ways. The shape is fixed so that a reader who learns it once knows where to look
+         on every screen: the name is always in the same place, the menu is always in the same corner,
+         and what a card carries beyond that is what differs between them.
+
+         Bordered, it is a card, which is what the dashboard's sections are. Unbordered, it is a row
+         with a hairline above it and nothing else - which is what the lists are now, because a screenful
+         of boxes inside boxes is what the redesign set out to be rid of. See IsBordered.
 
              [handle][pin][action][name ....................][collapse][menu]
              [tags .................................................]
@@ -28,10 +32,15 @@
              already holding badges, and the point of the colour is to be findable without reading,
              which an edge does and a dot does not. Its own column rather than a border, because a
              Border paints all four sides or none. -->
-        <Grid ColumnDefinitions="Auto,*">
+        <Grid RowDefinitions="Auto,Auto">
+        <!-- What separates one row from the next where the cards have been taken away - see IsBordered.
+             Hidden on a card, which has an edge all the way round instead. -->
+        <BoxView x:Name="TopRule" Grid.Row="0" Style="{StaticResource Hairline}" IsVisible="False" />
+
+        <Grid Grid.Row="1" ColumnDefinitions="Auto,*">
         <BoxView x:Name="AccentEdge" Grid.Column="0" WidthRequest="4" IsVisible="False" />
 
-        <VerticalStackLayout Grid.Column="1" Padding="14,12" Spacing="8">
+        <VerticalStackLayout x:Name="Inside" Grid.Column="1" Padding="14,12" Spacing="8">
 
             <!-- No column spacing: the two marks before the name are optional, and a column that is
                  empty must cost nothing at all - spacing kept for a pin nobody can see pushed every
@@ -57,7 +66,8 @@
                     <!-- The name on its own opens what the card is a way into, where the card holds
                          entries with targets of their own and pressing the whole block would take the
                          press away from them - the dashboard's columns. See NameCommand. -->
-                    <Button x:Name="NameButton" BackgroundColor="Transparent" BorderWidth="0" IsVisible="False" />
+                    <Button x:Name="NameButton" BackgroundColor="Transparent" BorderWidth="0" IsVisible="False"
+                            MinimumHeightRequest="0" MinimumWidthRequest="0" />
                 </Grid>
 
                 <HorizontalStackLayout Grid.Column="2" Spacing="0" VerticalOptions="Center">
@@ -72,7 +82,10 @@
             <ContentView x:Name="TagsHost" IsVisible="False" />
             <ContentView x:Name="BodyHost" IsVisible="False" />
             <VerticalStackLayout x:Name="Footer" IsVisible="False" Spacing="8">
-                <BoxView Style="{StaticResource Hairline}" />
+                <!-- The line between what a card says and its footnote. A row does not draw it: it
+                     already has a hairline above it, and a second one four lines down turns one row
+                     into two. -->
+                <BoxView x:Name="FooterRule" Style="{StaticResource Hairline}" />
                 <ContentView x:Name="ExtrasHost" />
             </VerticalStackLayout>
 
@@ -80,8 +93,13 @@
                  block is the target, and asking somebody to hit a word is the difference between one tap
                  and three. Over everything, so the pin and the menu keep their own presses - they are
                  declared after it in the visual tree and take the press first. -->
-            <Button x:Name="OpenButton" BackgroundColor="Transparent" BorderWidth="0" IsVisible="False" />
+            <!-- MinimumHeightRequest of 0 against the implicit Button style's 44: this button is laid
+                 over the whole card and must take its height from it, not give it one. On a row - which
+                 has no padding to spare - the difference was a third of the height again. -->
+            <Button x:Name="OpenButton" BackgroundColor="Transparent" BorderWidth="0" IsVisible="False"
+                    MinimumHeightRequest="0" MinimumWidthRequest="0" />
         </VerticalStackLayout>
+        </Grid>
         </Grid>
     </Border>
 

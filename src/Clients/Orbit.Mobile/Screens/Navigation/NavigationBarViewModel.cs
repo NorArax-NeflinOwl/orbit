@@ -372,11 +372,15 @@ public sealed partial class NavigationBarViewModel : ObservableObject
     /// Whether the top bar's first control is the back arrow rather than the drawer's three lines. Both
     /// cannot be there at once - there is room for one, and a screen that offers a way out and a way
     /// sideways in the same corner is asking the reader to aim.
+    ///
+    /// Which of the two it is depends on the screen rather than on the history: a section always offers
+    /// the drawer, because that is the only way sideways and back is on the phone's own gesture anyway.
+    /// See <see cref="Sections.InTheDrawer"/>.
     /// </summary>
-    public bool CanGoBack => _history.CanGoBack;
+    public bool CanGoBack => !CanOpenDrawer && _history.CanGoBack;
 
-    /// <summary>The drawer is what the bar shows when there is nowhere to go back to.</summary>
-    public bool CanOpenDrawer => !_history.CanGoBack;
+    /// <inheritdoc cref="CanGoBack"/>
+    public bool CanOpenDrawer => Sections.IsInTheDrawer(_history.Current);
 
     /// <summary>Which drawer entry is marked - see <see cref="Sections"/> for why it is not just the screen.</summary>
     public Screen Section => Sections.For(_history.Current);

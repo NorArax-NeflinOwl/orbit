@@ -1,11 +1,12 @@
 using System.Windows.Input;
 using Orbit.Mobile.Localization;
+using Orbit.Maui.Controls;
 using Orbit.Mobile.Screens;
 using Orbit.Mobile.Screens.Dashboard;
 
 namespace Orbit.Maui.Features.Dashboard;
 
-public partial class DashboardPage : ContentPage
+public partial class DashboardPage : ContentPage, ITitleMenu
 {
 	private readonly DashboardViewModel _viewModel;
 	private readonly Translations _translations;
@@ -16,7 +17,7 @@ public partial class DashboardPage : ContentPage
 		// is built there and reads a page's plain property exactly once - see CalendarEventDetailPage,
 		// where the same order matters for the same reason.
 		_translations = translations;
-		ShowPartsMenuCommand = new Command(ShowPartsMenu);
+		ShowTitleMenuCommand = new Command(ShowPartsMenu);
 		ShowCardFilterCommand = new Command<DashboardCard>(ShowCardFilter);
 
 		InitializeComponent();
@@ -27,7 +28,7 @@ public partial class DashboardPage : ContentPage
 	public DashboardViewModel ViewModel => _viewModel;
 
 	/// <summary>What the three dots at the header's other end open - which parts of the page are wanted.</summary>
-	public ICommand ShowPartsMenuCommand { get; }
+	public ICommand ShowTitleMenuCommand { get; }
 
 	/// <summary>And what a card's own three dots open: what that card is narrowed to.</summary>
 	public ICommand ShowCardFilterCommand { get; }

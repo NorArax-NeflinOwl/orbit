@@ -19,23 +19,22 @@
         <ScrollView Grid.Row="1">
             <VerticalStackLayout Padding="16,16,16,28" Spacing="14">
 
-                <!-- The screen's name, what it holds, and at the other end which parts of it are wanted
-                     at all - exactly the header Orbit.Web's dashboard opens with. -->
-                <controls:PageHeader
-                                     Subtitle="{controls:Translate 'Everything on your plate, in one place.'}">
-                    <controls:PageHeader.Actions>
-                        <controls:OverflowMenu Command="{Binding ShowPartsMenuCommand, Source={x:Reference Page}, x:DataType=dashboard:DashboardPage}" />
-                    </controls:PageHeader.Actions>
-                </controls:PageHeader>
+                <!-- What is happening today, rather than how much there is in total. The whole strip is
+                     the way to the calendar: it is a summary of a day, and the page that shows a day is
+                     the calendar.
 
-                <!-- What is happening today, rather than how much there is in total - the same counts
-                     Orbit.Web puts in its "today strip", and like it the whole strip is the way to the
-                     calendar: it is a summary of a day, and the page that shows a day is the calendar. -->
-                <Grid Margin="0,4">
-                    <Border Style="{StaticResource CardBorder}" Padding="18,16">
-                        <VerticalStackLayout Spacing="8" BindingContext="{Binding Today}"
+                     It opens the screen rather than sitting under a heading, because the heading is in
+                     the bar now - and the date set large in the display face is what the design puts
+                     first on this screen. No card around it: a rule under the date carries the same
+                     separation for none of the weight. -->
+                <Grid Margin="0,4,0,0">
+                    <Border Style="{StaticResource CardBorder}" StrokeThickness="0" Padding="0">
+                        <VerticalStackLayout Spacing="10" BindingContext="{Binding Today}"
                                              x:DataType="screens:TodaySummary">
-                            <Label Text="{Binding Date}" FontSize="15" FontAttributes="Bold" />
+                            <Label Text="{controls:Translate 'Today'}" Style="{StaticResource PanelHeading}"
+                                   TextColor="{DynamicResource Accent}" />
+                            <Label Text="{Binding Date}" FontFamily="OrbitDisplayLight" FontSize="34" />
+                            <BoxView Style="{StaticResource Hairline}" Margin="0,2,0,4" />
 
                             <!-- A dot, the count, then what it counts - the shape of Orbit.Web's today
                                  strip. Three across there, stacked here, because a phone is not that wide. -->

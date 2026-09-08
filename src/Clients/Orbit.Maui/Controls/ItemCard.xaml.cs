@@ -88,6 +88,42 @@ public partial class ItemCard : ContentView
 		// alive and reuses them, and an animation nobody can see is a frame budget nobody gets back.
 		Unloaded += (_, _) => this.AbortAnimation(NewsPulse);
 		Loaded += (_, _) => Edge();
+		Shape();
+	}
+
+	/// <summary>
+	/// Whether this is a card or a row.
+	///
+	/// A card has an edge all the way round and sits in its own space; a row has a hairline above it
+	/// and nothing else, and the list it is in reads as one column of writing rather than a stack of
+	/// boxes. The dashboard's sections are cards - they are containers, and each holds a list of its
+	/// own. Everything a list is *made of* is a row.
+	/// </summary>
+	public static readonly BindableProperty IsBorderedProperty =
+		BindableProperty.Create(nameof(IsBordered), typeof(bool), typeof(ItemCard), true,
+			propertyChanged: (card, _, _) => ((ItemCard)card).Shape());
+
+	/// <inheritdoc cref="IsBorderedProperty"/>
+	public bool IsBordered
+	{
+		get => (bool)GetValue(IsBorderedProperty);
+		set => SetValue(IsBorderedProperty, value);
+	}
+
+	/// <summary>
+	/// A row gives back everything a card spends on being a box: the side and bottom edges, the corner
+	/// radius, the gap between one and the next, and the padding that kept the writing off the edge.
+	/// What is left is the hairline above it, which is the only thing separating two rows.
+	/// </summary>
+	private void Shape()
+	{
+		TopRule.IsVisible = !IsBordered;
+		FooterRule.IsVisible = IsBordered;
+		Frame.StrokeThickness = IsBordered ? 1 : 0;
+		Frame.Margin = IsBordered ? new Thickness(0, 5) : new Thickness(0);
+		Inside.Padding = IsBordered ? new Thickness(14, 12) : new Thickness(0, 14);
+		// A card's parts are separated; a row's are one paragraph, so they sit closer together.
+		Inside.Spacing = IsBordered ? 8 : 5;
 	}
 
 	/// <summary>The one part every card has.</summary>
@@ -220,6 +256,17 @@ public partial class ItemCard : ContentView
 	/// </summary>
 	private void Edge()
 	{
+		if (!IsBordered)
+		{
+			// Nothing to paint: a row's only line is the hairline above it, and colouring that would
+			// mark the gap between two rows rather than either of them. The red dot before the name and
+			// the pin beside it are what a row says instead - a card only needs the edge because its
+			// marks sit inside a box that is competing with them. Nothing to undo either: the halo is
+			// only ever set by Pulse, which this branch never reaches.
+			this.AbortAnimation(NewsPulse);
+			return;
+		}
+
 		// Taken off before anything is decided, not only on the way past a pinned card. A dynamic
 		// resource stays registered against the property until it is removed and paints itself back on
 		// every time the dictionary is read again - so a card that was pinned first and got its news
