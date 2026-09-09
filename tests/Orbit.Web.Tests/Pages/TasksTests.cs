@@ -981,7 +981,7 @@ public sealed class TasksTests : OrbitTestContext
         var cut = RenderComponent<Web.Pages.Tasks>();
         Assert.DoesNotContain("Moving out", CardTitles(cut));
 
-        folders.Choose(FolderKey.Of(BuiltInFolder.Finished));
+        folders.Choose(FolderPage.Tasks, FolderKey.Of(BuiltInFolder.Finished));
         cut.Render();
 
         Assert.Contains("Moving out", CardTitles(cut));
@@ -999,7 +999,7 @@ public sealed class TasksTests : OrbitTestContext
         var cut = RenderComponent<Web.Pages.Tasks>();
         Assert.DoesNotContain("Sealed", CardTitles(cut));
 
-        folders.Choose(FolderKey.Of(BuiltInFolder.Private));
+        folders.Choose(FolderPage.Tasks, FolderKey.Of(BuiltInFolder.Private));
         cut.Render();
 
         Assert.Contains("Sealed", CardTitles(cut));
@@ -1053,7 +1053,7 @@ public sealed class TasksTests : OrbitTestContext
         var folders = Services.GetRequiredService<FolderState>();
 
         var cut = RenderComponent<Web.Pages.Tasks>();
-        folders.Choose(FolderKey.Of(BuiltInFolder.Finished));
+        folders.Choose(FolderPage.Tasks, FolderKey.Of(BuiltInFolder.Finished));
         cut.Render();
 
         Assert.Contains("Nothing is in this folder yet.", cut.Markup);

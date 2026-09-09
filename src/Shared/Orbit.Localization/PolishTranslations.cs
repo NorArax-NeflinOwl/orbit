@@ -86,7 +86,6 @@ public static class PolishTranslations
         ["The list asks about everything it would otherwise ask about, marked or not."] =
             "Lista pyta o wszystko, o co pytałaby normalnie - oznaczone czy nie.",
         ["More"] = "Więcej",
-        ["Menu"] = "Menu",
         ["Couldn't add those to the restock list."] = "Nie udało się dodać ich do listy uzupełnień.",
         ["{0} added to the restock list."] = "Dodano do listy uzupełnień: {0}.",
         ["Everything short was already on the restock list."] = "Wszystkie braki już były na liście uzupełnień.",
@@ -732,8 +731,8 @@ public static class PolishTranslations
         ["Nothing in this folder."] = "Nic w tym folderze.",
         ["Without one it is in Public, or in Private when it is sealed."] =
             "Bez folderu trafia do Publicznych, a jeśli jest zaszyfrowane - do Prywatnych.",
-        ["Without one it is in Public, or in Private when it is sealed. A list with everything ticked off moves to Finished on its own."] =
-            "Bez folderu trafia do Publicznych, a jeśli jest zaszyfrowane - do Prywatnych. Lista z odhaczonymi wszystkimi pozycjami sama trafia do Ukończonych.",
+        ["Without one it is in Public, or in Private when it is sealed - and it moves to Finished on its own once everything is ticked off. A list you file somewhere stays in that folder, finished or not."] =
+            "Bez folderu trafia do Publicznych, a jeśli jest zaszyfrowane - do Prywatnych, i sama przechodzi do Ukończonych, gdy wszystkie pozycje zostaną odhaczone. Lista włożona do folderu zostaje w nim, ukończona czy nie.",
 
         // ---- The invitation page ----
         // Where a notification about something shared leads - see Orbit.Web's ShareInvitation.razor.

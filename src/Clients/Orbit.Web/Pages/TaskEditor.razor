@@ -466,8 +466,8 @@ else
         @* Where it will be found. Only the owner files a list - see NoteEditor, which says the same. *@
         @if (!_isShared)
         {
-            <FolderField Value="_formModel.FolderId" ValueChanged="folderId => _formModel.FolderId = folderId"
-                         Hint="@(T["Without one it is in Public, or in Private when it is sealed. A list with everything ticked off moves to Finished on its own."])" />
+            <FolderField Page="FolderPage.Tasks" Value="_formModel.FolderId" ValueChanged="folderId => _formModel.FolderId = folderId"
+                         Hint="@(T["Without one it is in Public, or in Private when it is sealed - and it moves to Finished on its own once everything is ticked off. A list you file somewhere stays in that folder, finished or not."])" />
         }
 
         <div class="field">
@@ -1081,7 +1081,7 @@ else
                 Logger.LogInformation("Task list editor opened for a new task list");
                 // Made where the reader is standing - see NoteEditor, which does the same and says why.
                 await Folders.EnsureLoadedAsync();
-                _formModel.FolderId = Folders.Chosen.FolderId;
+                _formModel.FolderId = Folders.ChosenOn(FolderPage.Tasks).FolderId;
                 StartFromTheChosenPlaceIfThereIsOne();
             }
         }

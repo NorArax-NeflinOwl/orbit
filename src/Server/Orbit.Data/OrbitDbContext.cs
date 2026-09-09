@@ -100,6 +100,11 @@ public sealed class OrbitDbContext : DbContext
         {
             entity.HasKey(folder => folder.Id);
             entity.Property(folder => folder.Name).IsRequired().HasMaxLength(StoredTextLimits.Title);
+            // Matches FolderScope.Tasks, so a row written before folders belonged to a page reads back
+            // as a task-list tab rather than as an unparseable empty string - the migration that added
+            // this column moves the ones that were holding notes.
+            entity.Property(folder => folder.Scope).IsRequired().HasMaxLength(16)
+                .HasDefaultValue(nameof(Orbit.Core.Folders.FolderScope.Tasks));
             // Folders are only ever read one account at a time - the tabs on that account's own pages.
             entity.HasIndex(folder => folder.UserId);
         });

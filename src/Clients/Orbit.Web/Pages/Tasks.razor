@@ -4,6 +4,7 @@
 @using Orbit.Contracts.Calendar
 @using Orbit.Contracts.Tasks
 @using Orbit.Core.Abstractions
+@using Orbit.Core.Folders
 @using Orbit.Core.Tasks
 @using Orbit.Web.Services
 @inject TasksApiClient TasksApiClient
@@ -74,7 +75,7 @@
    On a phone the lot folds into one Menu button - see PhoneToolbar, which is nothing at all on a wider
    screen. *@
 <PhoneToolbar>
-    <FolderTabs CountIn="CountIn" />
+    <FolderTabs Page="FolderPage.Tasks" CountIn="CountIn" />
 
     @* Only once there is something to narrow, and only about the folder that is open: a search box
        over an empty tab offers to find something on a list that is not there, and the chips would be
@@ -387,15 +388,29 @@
     /// What the chips offer, in the order a list moves through its statuses - with "shared" after them,
     /// since it is about where a list came from rather than how far along it is.
     ///
-    /// Completed is not among them any more: a finished list is in the Finished folder now (see
-    /// BuiltInFolder), so the chip could only ever have found nothing under every other tab and
-    /// everything under that one. The tab above is the same question, asked once.
+    /// Completed is not among them any more: a finished list nobody filed is in the Finished folder now
+    /// (see BuiltInFolder), so the chip would be the tab above asked a second time.
     /// </summary>
-    private static readonly TaskListFilter[] SelectableFilters =
+    private static readonly TaskListFilter[] EverySelectableFilter =
     [
         TaskListFilter.New, TaskListFilter.Pending, TaskListFilter.Overdue,
         TaskListFilter.Shared, TaskListFilter.Group
     ];
+
+    /// <summary>
+    /// The two chips that still mean something about a finished list: where it came from, and what kind
+    /// of list it is. How far along it is no longer varies under that tab - everything there is done -
+    /// so "Not started", "In progress" and "Overdue" could only read zero, and pressing one showed an
+    /// empty tab with no chip on screen saying why.
+    /// </summary>
+    private static readonly TaskListFilter[] FiltersUnderFinished = [TaskListFilter.Shared, TaskListFilter.Group];
+
+    /// <summary>Whether the tab being read is the one finished lists gather in - see BuiltInFolder.</summary>
+    private bool IsReadingWhatIsFinished
+        => Folders.ChosenOn(FolderPage.Tasks) == FolderKey.Of(BuiltInFolder.Finished);
+
+    private IReadOnlyList<TaskListFilter> SelectableFilters
+        => IsReadingWhatIsFinished ? FiltersUnderFinished : EverySelectableFilter;
 
     private TaskListFilter _filter = TaskListFilter.All;
 
@@ -430,16 +445,17 @@
     private IReadOnlyList<TaskDto> TaskListsInTheOpenFolder => [.. (_taskLists ?? []).Where(InTheOpenFolder)];
 
     /// <summary>
-    /// Whether this list is in the folder that is open. A finished list gathers under Finished wherever its owner
-    /// filed it - see FolderPlacement, which is the same rule the notes and the dashboard read.
+    /// Whether this list is in the folder that is open. A finished list nobody filed gathers under
+    /// Finished; one its owner put in a folder of their own stays there, finished or not - see
+    /// FolderPlacement, which is the same rule the notes and the dashboard read.
     /// </summary>
     private bool InTheOpenFolder(TaskDto taskList)
-        => Folders.ShowsUnderTheChosenTab(taskList.FolderId, taskList.IsPrivate, taskList.IsCompleted);
+        => Folders.ShowsUnderTheChosenTab(FolderPage.Tasks, taskList.FolderId, taskList.IsPrivate, taskList.IsCompleted);
 
     /// <summary>How many lists are under each tab, drawn on the tab itself.</summary>
     private int CountIn(FolderKey folder)
         => (_taskLists ?? []).Count(taskList =>
-            FolderPlacement.Of(taskList.FolderId, taskList.IsPrivate, taskList.IsCompleted, Folders.KnownFolderIds) == folder);
+            Folders.PlacementOn(FolderPage.Tasks, taskList.FolderId, taskList.IsPrivate, taskList.IsCompleted) == folder);
 
     /// <summary>
     /// A status chip matches the status the list is in; "Shared" matches where it came from and "Group"
@@ -871,7 +887,22 @@
             StateHasChanged();
         });
 
-    private void OnFoldersChanged() => InvokeAsync(StateHasChanged);
+    /// <summary>
+    /// A tab was pressed. The chips are not the same on every tab - Finished offers only the two that
+    /// still vary there (see SelectableFilters) - so a chip the new tab does not draw is dropped rather
+    /// than left holding the page down: the reader would otherwise arrive at "Overdue", which Finished
+    /// has no chip for, see nothing, and have nothing on screen to press to get out of it.
+    /// </summary>
+    private void OnFoldersChanged()
+        => InvokeAsync(() =>
+        {
+            if (_filter != TaskListFilter.All && !SelectableFilters.Contains(_filter))
+            {
+                _filter = TaskListFilter.All;
+            }
+
+            StateHasChanged();
+        });
 
     public void Dispose()
     {

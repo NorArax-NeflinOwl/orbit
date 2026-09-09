@@ -72,8 +72,15 @@ public sealed class FolderRepository : IFolderRepository
         await _dbContext.SaveChangesAsync(cancellationToken);
     }
 
+    /// <summary>A scope this server doesn't recognise reads as Tasks - the same rule every other stored enum follows.</summary>
     private static Folder ToDomain(FolderEntity entity)
-        => Folder.FromPersistence(entity.Id, entity.UserId, entity.Name, entity.CreatedAtUtc, entity.UpdatedAtUtc);
+        => Folder.FromPersistence(
+            entity.Id,
+            entity.UserId,
+            entity.Name,
+            Enum.TryParse<FolderScope>(entity.Scope, out var scope) ? scope : FolderScope.Tasks,
+            entity.CreatedAtUtc,
+            entity.UpdatedAtUtc);
 
     private static FolderEntity ToEntity(Folder folder)
         => new()
@@ -81,6 +88,7 @@ public sealed class FolderRepository : IFolderRepository
             Id = folder.Id,
             UserId = folder.UserId,
             Name = folder.Name,
+            Scope = folder.Scope.ToString(),
             CreatedAtUtc = folder.CreatedAtUtc,
             UpdatedAtUtc = folder.UpdatedAtUtc
         };

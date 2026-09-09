@@ -33,11 +33,11 @@
     <p class="info">@_deleteMessage</p>
 }
 
-@* Which folder is being read, and the same row of tabs the task lists and the dashboard carry - a
-   folder is a place rather than one page's filter, so stepping between the three keeps it. On a phone
-   it folds into one Menu button - see PhoneToolbar, which is nothing at all on a wider screen. *@
+@* Which folder is being read. The notes' own folders, and only those: a folder belongs to one page, so
+   the tab called "Work" here is not the tab called "Work" on the task lists - see FolderScope. On a
+   phone it folds into one Menu button - see PhoneToolbar, which is nothing at all on a wider screen. *@
 <PhoneToolbar>
-    <FolderTabs CountIn="CountIn" />
+    <FolderTabs Page="FolderPage.Notes" CountIn="CountIn" />
 </PhoneToolbar>
 
 <ObjectList IsLoading="_notes is null" IsEmpty="_notes is { Count: 0 }" EmptyMessage="@T["No notes."]">
@@ -107,16 +107,16 @@
     /// when it is sealed - see FolderPlacement, which decides it for every page made of cards.
     /// </summary>
     private IReadOnlyList<NoteDto> VisibleNotes
-        => [.. (_notes ?? []).Where(note => Folders.ShowsUnderTheChosenTab(note.FolderId, note.IsPrivate))];
+        => [.. (_notes ?? []).Where(note => Folders.ShowsUnderTheChosenTab(FolderPage.Notes, note.FolderId, note.IsPrivate))];
 
     /// <summary>
-    /// How many notes are under each tab, drawn on the tab itself. Notes are never finished, so Done is
-    /// always empty of them - which is worth showing rather than hiding, since the tab also holds task
-    /// lists on the pages that have both.
+    /// How many notes are under each tab, drawn on the tab itself. There is no Finished tab here: a
+    /// note has nothing to finish, so the tab could only ever have read zero - see
+    /// FolderPages.HasAFinishedTab.
     /// </summary>
     private int CountIn(FolderKey folder)
         => (_notes ?? []).Count(note =>
-            FolderPlacement.Of(note.FolderId, note.IsPrivate, isFinished: false, Folders.KnownFolderIds) == folder);
+            Folders.PlacementOn(FolderPage.Notes, note.FolderId, note.IsPrivate) == folder);
 
     /// <summary>
     /// Pinned notes first, and the rest in the order the API sent them - most recently updated first.

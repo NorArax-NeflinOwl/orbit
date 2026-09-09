@@ -1,6 +1,11 @@
 namespace Orbit.Contracts.Folders;
 
-public sealed record CreateFolderRequest(string Name);
+/// <param name="Scope">
+/// The page the tab is being made on - "Notes" or "Tasks", see Orbit.Core.Folders.FolderScope. It has
+/// no default: a folder made without saying which page it is on would be a tab nothing on that page
+/// could ever be filed into, and guessing one of the two would put half of them on the wrong page.
+/// </param>
+public sealed record CreateFolderRequest(string Name, string Scope);
 
 public sealed record RenameFolderRequest(string Name);
 

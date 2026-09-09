@@ -100,6 +100,7 @@ erDiagram
         uuid OP_F_ID PK
         uuid OP_F_USERID FK
         text OP_F_NAME
+        text OP_F_SCOPE "FolderScope, stored by name - the page it is a tab on"
         timestamptz OP_F_CREATEDATUTC "tabs are drawn in this order"
     }
     OP_NOTES {
@@ -145,10 +146,12 @@ is - so their answer lives on it, and the resolver hands it over in place of the
 the note for them (`NoteAccessResolver`, `TaskListAccessResolver`). Nothing is stored twice: the DTO
 carries one `IsPinned`, and which row it came from depends on who asked.
 
-**`OP_FOLDERS` holds only the folders somebody made.** Three more exist without a row - Public, Private
+**`OP_FOLDERS` holds only the folders somebody made**, each on exactly one page (`OP_F_SCOPE` -
+`Orbit.Core.Folders.FolderScope`, `Notes` or `Tasks`). Three more exist without a row - Public, Private
 and Finished (`Orbit.Core.Folders.BuiltInFolder`) - and which of them something is in is decided from
-what it already is: a finished list is in Finished, an unfiled sealed one in Private, everything else
-unfiled in Public. Nothing about them is stored, which is why folders arrived without a backfill and why
+what it already is: something filed under one of this page's folders is in that folder finished or not,
+an unfiled finished list is in Finished, an unfiled sealed one in Private, everything else unfiled in
+Public. Nothing about them is stored, which is why folders arrived without a backfill and why
 `OP_N_FOLDERID`/`OP_T_FOLDERID` are nullable rather than defaulted. There is no foreign-key cascade
 either: `FolderRepository.DeleteAsync` empties the folder first (both columns back to null) and then
 removes the row, so deleting a tab can never delete what was under it.

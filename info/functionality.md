@@ -232,9 +232,15 @@ never the web client's.
 ## Folders
 
 Every page made of cards - the dashboard, the notes and the task lists - is read under a **row of
-tabs**, and the tabs are the same three everywhere plus whatever the reader has made. A folder is a
-place rather than one page's filter, so the tab stays open when they step from the notes to the task
-lists (`FolderState`, one scoped state shared by the three pages).
+tabs**: the built-in ones plus whatever the reader has made on that page.
+
+**A folder belongs to one page** (`Orbit.Core.Folders.FolderScope`, `OP_F_SCOPE`, stored by name). A tab
+called "Work" on the notes and a tab called "Work" on the task lists are two folders, not one seen
+twice - which is what makes the tab worth pressing, since a folder made for notes was otherwise an empty
+tab on a page that could never file anything into it. The **dashboard has no scope of its own**: it
+shows both kinds of card, so it draws both pages' tabs and offers no way to make, rename or delete one
+(`FolderPage`, `FolderPages` on the client). Which tab is open is the page's own answer as well
+(`FolderState.ChosenOn`), for the same reason.
 
 **On a phone the tabs fold into one Menu button**, and so does everything else a page is narrowed by:
 on the task lists that is the search box and both rows of chips as well (`PhoneToolbar`). Three rows of
@@ -244,17 +250,25 @@ to do it — on anything wider the wrapper is `display: contents`, so the contro
 always did and only the button is hidden. The obvious alternative, one copy for each width hidden by a
 media query, gives a page two sets of folder tabs, and the hidden set still answers a press.
 
-**Three folders exist without a row of their own** (`Orbit.Core.Folders.BuiltInFolder`). Which one
+**Built-in folders exist without a row of their own** (`Orbit.Core.Folders.BuiltInFolder`). Which one
 something is in is decided from what it already is, and the first that applies wins:
 
-1. **Finished** - a task list that is done, even when its owner filed it somewhere else. Two ways to be
-   done, and both put it here: every entry ticked off, which happens on its own and comes back out the
-   moment something is reopened, or **its owner saying so** with the Completed box in the list's form
+1. **The folder its owner filed it under**, finished or not. Filing beats finishing: where something
+   goes is a decision somebody made, and finishing the work is not a decision to file it somewhere else.
+   A list put in "Renovation" used to leave that tab the moment its last entry was ticked off, which
+   reads as the list having been lost. A folder id belonging to another page counts as no folder here,
+   and falls through to the rest.
+2. **Finished** - a task list that is done and that nobody filed anywhere. Two ways to be done, and both
+   put it here: every entry ticked off, which happens on its own and comes back out the moment something
+   is reopened, or **its owner saying so** with the Completed box in the list's form
    (`TaskList.IsMarkedCompleted`, `OP_T_ISMARKEDCOMPLETED`). A note is never in it, having nothing to
-   finish.
-2. **Private** - a sealed item nobody filed anywhere (see [Private notes and task
+   finish - so **the notes page has no Finished tab at all**, and neither does the dashboard, which
+   stops showing a finished list rather than filing it somewhere (`FolderPages.HasAFinishedTab`). A page
+   without the tab does not merely hide it: it never asks whether something is finished, so a finished
+   list is placed there by its folder and its privacy like anything else.
+3. **Private** - a sealed item nobody filed anywhere (see [Private notes and task
    lists](#private-notes-and-task-lists)).
-3. **Public** - everything else, and where a page opens.
+4. **Public** - everything else, and where a page opens.
 
 **A closed list stops being owed.** Filing it under Finished is not all that saying so does: an entry
 on it is done whatever its own tick says, so its deadlines leave the calendar's list and its grid marks
@@ -264,9 +278,12 @@ phone (`CalendarDeadline`, `DashboardViewModel`). Saying "no more of this" and t
 every morning would be the app arguing with the reader. A list finished the other way — every entry
 ticked off — was already answered by the entries themselves; this is only ever about the box.
 
-Deciding it rather than storing it is what let folders arrive with **no migration of existing rows and
-nothing to repair**: every note and list that existed before them was already in the right one. There is
-still no way to be filed as private without being sealed.
+Deciding the built-in ones rather than storing them is what let folders arrive with **no migration of
+existing rows and nothing to repair**: every note and list that existed before them was already in the
+right one. There is still no way to be filed as private without being sealed. Giving a folder a page did
+need one - `FoldersBelongToOnePage` - and it does more than default the column: a folder that held notes
+is moved to the notes, and one that held both kinds becomes two folders with the notes moved into the
+copy, so nothing that was filed somewhere falls back to Public.
 
 **A list can sit in Finished with work left on it**, which is the one thing that changed. That was the
 ordinary case the old rule could not say: a list whose last two entries stopped mattering, or were done
@@ -293,12 +310,16 @@ A folder is **never shared**. It is a place on its owner's own pages, so a list 
 person sits in whichever folder each of them filed it under - and a shared item's `folderId` is sent as
 null to the recipient, since the owner's id names a tab that does not exist for them.
 
-Two consequences worth stating, because they changed how a page behaves:
+Three consequences worth stating, because they changed how a page behaves:
 
-- The task list page no longer offers a **Completed** chip. A finished list is in Finished now, so the
-  chip could only have found nothing under every other tab and everything under that one.
-- The dashboard's task card used to keep a finished list when it was **pinned**. Pinning orders cards
-  within a tab rather than lifting one out of the tab it belongs to; Finished is where they are read now.
+- The task list page no longer offers a **Completed** chip. A finished list nobody filed is in Finished
+  now, so the chip would be the tab above asked a second time.
+- Under **Finished** that page offers only **All**, **Shared** and **Group**. How far along a list is no
+  longer varies there, so "Not started", "In progress" and "Overdue" could read nothing but zero; a chip
+  the new tab does not draw is dropped when the tab changes, or the reader would sit on an empty page
+  with nothing on screen to press to get out of it.
+- The dashboard's task card keeps a finished list only when it is **pinned**, and reads it under the tab
+  it was filed under - this page has no Finished tab to ask for the rest back.
 
 ## Notes
 

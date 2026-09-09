@@ -89,7 +89,7 @@ else
                its owner's folder on their page, and this reader's tabs are their own. *@
             @if (!_isShared)
             {
-                <FolderField Value="_formModel.FolderId" ValueChanged="folderId => _formModel.FolderId = folderId"
+                <FolderField Page="FolderPage.Notes" Value="_formModel.FolderId" ValueChanged="folderId => _formModel.FolderId = folderId"
                              Hint="@(T["Without one it is in Public, or in Private when it is sealed."])" />
             }
 
@@ -316,7 +316,7 @@ else
             // only ever gets skipped. The built-in tabs file nothing - which one a note is in follows
             // from what it is, so there is nothing to carry over from them.
             await Folders.EnsureLoadedAsync();
-            _formModel.FolderId = Folders.Chosen.FolderId;
+            _formModel.FolderId = Folders.ChosenOn(FolderPage.Notes).FolderId;
         }
 
         _isLoading = false;
