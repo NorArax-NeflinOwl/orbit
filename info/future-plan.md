@@ -217,6 +217,18 @@ rather than meets, and what has to be decided before any of it starts - is in
 Explicitly called out in the functionality documentation as deliberate limitations of this first
 version, so they aren't mistaken for oversights:
 
+- **Calendar events are not filed in folders, and will not be.** Decided by the user on 2026-09-09,
+  when folders were given a page of their own (`FolderScope`). A folder holds notes and task lists;
+  an event is found by when it happens, which is what the calendar is. Written down because it looks
+  like an omission from the outside - the Finished tab's own wording used to say it "concerns tasks and
+  events" - and because the change is not a small one: `OP_EVENTS` has no folder column, so this would
+  be a migration, a third `FolderScope`, and a field on the event form.
+- **The month and year calendar views stay filtered to what is still to come.** Also confirmed by the
+  user on 2026-09-09, alongside making the week account for everything the way a day does (see
+  `Calendar.ShowsEverythingInThisView`). They are read to find something rather than to account for a
+  stretch, so a month drawn full of struck-through appointments is the thing being avoided rather than
+  a gap. "Show → Everything, including what is over" still reaches it on both.
+
 - ~~**`pg_trgm` may not be allowed on the deployed database.**~~ It was allowed: the deploy on
   2026-08-31 applied the migration and `orbit-api` came up healthy, with `azure.extensions` empty. The
   warning was over-stated - the allowlist is not the absolute gate it is usually described as, at least
@@ -564,13 +576,17 @@ inventory lists, the contacts tabs, the chat menus - is built and needs no schem
   `OutgoingChatMessage` and the queue row behind it, since the phone sends by enqueueing rather than by
   calling the API where the share id is still in hand.
 
-- **The phone cannot mark a list finished.** A task list can be closed with work still on it since
-  2026-09-08 (`TaskList.IsMarkedCompleted`), and the phone neither shows the box nor sends the field.
-  Nothing is lost by it: `UpdateTaskRequest.IsMarkedCompleted` is null-means-not-provided, so a save
-  from the phone leaves a list somebody closed in a browser closed - `MarkingAListFinishedTests` and
-  the field's own comment both say so. The phone does read the *result*: `IsCompleted` arrives already
-  answered, so a marked list sorts and files as finished there. This is parity, not a defect. What it
-  would take: the box on the list's own screen, and the field on the phone's update request.
+- **The phone cannot answer whether a list is finished.** A task list can be closed with work still on
+  it since 2026-09-08, and said to be *unfinished* with every entry ticked off since 2026-09-09
+  (`TaskList.Completion`, `TaskListCompletion`, `OP_T_COMPLETION`) - the phone neither shows the box nor
+  sends the field. Nothing is lost by it: `UpdateTaskRequest.Completion` is null-means-not-provided, so
+  a save from the phone leaves whatever was answered in a browser alone - `MarkingAListFinishedTests`
+  and the field's own comment both say so. The phone does read the *result*: `IsCompleted` arrives
+  already answered, so a closed list sorts and files as finished there. This is parity, not a defect.
+  What it would take: the box on the list's own screen (ticking itself once every entry is ticked, the
+  way the web's does) and the field on the phone's update request. The phone already *names* the new
+  status - `TaskListView.Describe` says "Not finished" - but it is not among `TaskListView.Statuses`, so
+  no status chip finds one; it is reachable under "all", the same as on the web.
 
 - **The invitation page treats "any other kind" as an inventory.** `ShareInvitation.AcceptAsync` and
   `DescribeKind` both end in a `_` that means Inventory, and `SharedItemKind` has a fifth member -

@@ -424,14 +424,18 @@ else
             </small>
         </div>
 
-        @* Finishing a list without finishing its entries, which is the ordinary case for a list whose
-           last two things stopped mattering. Ticking every entry still finishes a list nobody marked -
-           this is a second way to the same state, not a replacement for the first. *@
+        @* Whether the list is finished, asked once for both ways of being it. The box ticks itself once
+           every entry is ticked, which is what the reader already means by that; pressing it says so
+           about the list rather than about its entries, and unticking it with everything done is the
+           answer the box could not give before - see TaskListCompletion. *@
         <div class="field">
             <label>
-                <InputCheckbox @bind-Value="_formModel.IsMarkedCompleted" />@T["Completed"]</label>
+                <input type="checkbox" checked="@IsMarkedCompleted"
+                       @onchange="args => SetCompleted(args.Value is true)" />@T["Completed"]</label>
             <small>
-                @T["Marks the whole list done even with entries still open, and moves it to Finished. Untick it and the entries decide again."]
+                @(EveryEntryIsTickedOff
+                    ? T["Ticked on its own because every entry is. Untick it to say the list itself is not done yet - it reads as \"not finished\" then."]
+                    : T["Marks the whole list done even with entries still open, and moves it to Finished. It ticks itself once every entry is."])
             </small>
         </div>
 
@@ -466,8 +470,8 @@ else
         @* Where it will be found. Only the owner files a list - see NoteEditor, which says the same. *@
         @if (!_isShared)
         {
-            <FolderField Value="_formModel.FolderId" ValueChanged="folderId => _formModel.FolderId = folderId"
-                         Hint="@(T["Without one it is in Public, or in Private when it is sealed. A list with everything ticked off moves to Finished on its own."])" />
+            <FolderField Page="FolderPage.Tasks" Value="_formModel.FolderId" ValueChanged="folderId => _formModel.FolderId = folderId"
+                         Hint="@(T["Without one it is in Public, or in Private when it is sealed - and it moves to Finished on its own once everything is ticked off. A list you file somewhere stays in that folder, finished or not."])" />
         }
 
         <div class="field">
@@ -1015,7 +1019,7 @@ else
                         Title = taskList.Title,
                         Description = taskList.Description,
                         IsGroup = taskList.IsGroup,
-                        IsMarkedCompleted = taskList.IsMarkedCompleted,
+                        Completion = ParseCompletion(taskList.Completion),
                         IsPrivate = taskList.IsPrivate,
                         Priority = taskList.Priority,
                         FolderId = taskList.FolderId,
@@ -1081,7 +1085,7 @@ else
                 Logger.LogInformation("Task list editor opened for a new task list");
                 // Made where the reader is standing - see NoteEditor, which does the same and says why.
                 await Folders.EnsureLoadedAsync();
-                _formModel.FolderId = Folders.Chosen.FolderId;
+                _formModel.FolderId = Folders.ChosenOn(FolderPage.Tasks).FolderId;
                 StartFromTheChosenPlaceIfThereIsOne();
             }
         }
@@ -2059,7 +2063,7 @@ else
                 var outcome = await TasksApiClient.UpdateTaskListAsync(Id!.Value, new UpdateTaskRequest(
                     _formModel.Title, items, _formModel.IsGroup, _formModel.IsPrivate,
                     Priority: _formModel.Priority, Description: _formModel.Description,
-                    IsMarkedCompleted: _formModel.IsMarkedCompleted));
+                    Completion: _formModel.Completion.ToString()));
                 if (outcome.Kind == EditOutcomeKind.Locked)
                 {
                     _lockedByUserName = outcome.LockedByUserName;
@@ -2322,6 +2326,42 @@ else
             ? new DateTimeOffset(dueDate.ToDateTime(item.DueTime ?? TimeOnly.MinValue, DateTimeKind.Local)).ToUniversalTime()
             : null;
 
+    /// <summary>
+    /// Whether every entry on the form is ticked off. Read off the form rather than off the list that
+    /// was loaded, so the box answers what is on screen: ticking the last entry ticks the box in the
+    /// same keystroke, which is what "automatically" has to mean on a form nobody has saved yet.
+    /// An empty list has nothing ticked and nothing to tick, so it is not finished by its entries.
+    /// </summary>
+    private bool EveryEntryIsTickedOff
+        => _formModel.Items.Count > 0 && _formModel.Items.All(item => item.IsCompleted);
+
+    /// <summary>
+    /// Whether the Completed box is drawn ticked - the list's own answer where the reader has given
+    /// one, and the entries' otherwise. Mirrors TaskList.IsCompleted, which is the same three cases.
+    /// </summary>
+    private bool IsMarkedCompleted => _formModel.Completion switch
+    {
+        TaskListCompletion.Finished => true,
+        TaskListCompletion.Unfinished => false,
+        _ => EveryEntryIsTickedOff
+    };
+
+    /// <summary>
+    /// Pressing the box. It always records an answer of the reader's own, never "the entries decide":
+    /// unticking a box that only the entries had ticked has to mean something, and the only thing it can
+    /// mean is that the list is not done even though its work is - see TaskListCompletion.Unfinished.
+    /// </summary>
+    private void SetCompleted(bool isCompleted)
+    {
+        _formModel.Completion = isCompleted ? TaskListCompletion.Finished : TaskListCompletion.Unfinished;
+        Logger.LogInformation(
+            "User set task list completion to {Completion}", _formModel.Completion);
+    }
+
+    /// <summary>An answer this browser doesn't recognise reads as "the entries decide", which is where every list starts.</summary>
+    private static TaskListCompletion ParseCompletion(string completion)
+        => Enum.TryParse<TaskListCompletion>(completion, out var parsed) ? parsed : TaskListCompletion.FromTheEntries;
+
     private sealed class TaskListFormModel
     {
         public string Title { get; set; } = string.Empty;
@@ -2331,8 +2371,12 @@ else
 
         public bool IsGroup { get; set; }
 
-        /// <summary>The reader saying the list is finished, whatever is still on it - see TaskList.IsMarkedCompleted.</summary>
-        public bool IsMarkedCompleted { get; set; }
+        /// <summary>
+        /// What the reader has said about whether the list is finished, which is not the same question
+        /// as what its entries say - see Orbit.Core.Tasks.TaskListCompletion. FromTheEntries until they
+        /// press the box, which is where every list starts.
+        /// </summary>
+        public TaskListCompletion Completion { get; set; }
 
         /// <summary>One of "Low", "Normal", "High" - kept as the wire's own string so the form binds straight to it.</summary>
         public string Priority { get; set; } = "Normal";

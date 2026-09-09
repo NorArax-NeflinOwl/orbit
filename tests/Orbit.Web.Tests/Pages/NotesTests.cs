@@ -171,7 +171,7 @@ public sealed class NotesTests : OrbitTestContext
         RegisterNotesApiClient([note]);
         var navigationManager = Services.GetRequiredService<NavigationManager>();
         // A sealed note is in Private, which is where somebody looking for it goes - see BuiltInFolder.
-        Services.GetRequiredService<FolderState>().Choose(FolderKey.Of(BuiltInFolder.Private));
+        Services.GetRequiredService<FolderState>().Choose(FolderPage.Notes, FolderKey.Of(BuiltInFolder.Private));
         var cut = RenderComponent<Web.Pages.Notes>();
 
         cut.Find(".item-card-body").Click();

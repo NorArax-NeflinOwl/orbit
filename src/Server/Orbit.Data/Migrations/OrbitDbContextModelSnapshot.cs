@@ -563,6 +563,14 @@ namespace Orbit.Data.Migrations
                         .HasColumnType("character varying(200)")
                         .HasColumnName("OP_F_NAME");
 
+                    b.Property<string>("Scope")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)")
+                        .HasDefaultValue("Tasks")
+                        .HasColumnName("OP_F_SCOPE");
+
                     b.Property<DateTimeOffset>("UpdatedAtUtc")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("OP_F_UPDATEDATUTC");
@@ -1428,6 +1436,14 @@ namespace Orbit.Data.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("OP_T_ID");
 
+                    b.Property<string>("Completion")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)")
+                        .HasDefaultValue("FromTheEntries")
+                        .HasColumnName("OP_T_COMPLETION");
+
                     b.Property<DateTimeOffset>("CreatedAtUtc")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("OP_T_CREATEDATUTC");
@@ -1459,10 +1475,6 @@ namespace Orbit.Data.Migrations
                     b.Property<bool>("IsGroup")
                         .HasColumnType("boolean")
                         .HasColumnName("OP_T_ISGROUP");
-
-                    b.Property<bool>("IsMarkedCompleted")
-                        .HasColumnType("boolean")
-                        .HasColumnName("OP_T_ISMARKEDCOMPLETED");
 
                     b.Property<bool>("IsPinned")
                         .HasColumnType("boolean")

@@ -232,9 +232,15 @@ never the web client's.
 ## Folders
 
 Every page made of cards - the dashboard, the notes and the task lists - is read under a **row of
-tabs**, and the tabs are the same three everywhere plus whatever the reader has made. A folder is a
-place rather than one page's filter, so the tab stays open when they step from the notes to the task
-lists (`FolderState`, one scoped state shared by the three pages).
+tabs**: the built-in ones plus whatever the reader has made on that page.
+
+**A folder belongs to one page** (`Orbit.Core.Folders.FolderScope`, `OP_F_SCOPE`, stored by name). A tab
+called "Work" on the notes and a tab called "Work" on the task lists are two folders, not one seen
+twice - which is what makes the tab worth pressing, since a folder made for notes was otherwise an empty
+tab on a page that could never file anything into it. The **dashboard has no scope of its own**: it
+shows both kinds of card, so it draws both pages' tabs and offers no way to make, rename or delete one
+(`FolderPage`, `FolderPages` on the client). Which tab is open is the page's own answer as well
+(`FolderState.ChosenOn`), for the same reason.
 
 **On a phone the tabs fold into one Menu button**, and so does everything else a page is narrowed by:
 on the task lists that is the search box and both rows of chips as well (`PhoneToolbar`). Three rows of
@@ -244,36 +250,70 @@ to do it — on anything wider the wrapper is `display: contents`, so the contro
 always did and only the button is hidden. The obvious alternative, one copy for each width hidden by a
 media query, gives a page two sets of folder tabs, and the hidden set still answers a press.
 
-**Three folders exist without a row of their own** (`Orbit.Core.Folders.BuiltInFolder`). Which one
+**Built-in folders exist without a row of their own** (`Orbit.Core.Folders.BuiltInFolder`). Which one
 something is in is decided from what it already is, and the first that applies wins:
 
-1. **Finished** - a task list that is done, even when its owner filed it somewhere else. Two ways to be
-   done, and both put it here: every entry ticked off, which happens on its own and comes back out the
-   moment something is reopened, or **its owner saying so** with the Completed box in the list's form
-   (`TaskList.IsMarkedCompleted`, `OP_T_ISMARKEDCOMPLETED`). A note is never in it, having nothing to
-   finish.
-2. **Private** - a sealed item nobody filed anywhere (see [Private notes and task
+1. **The folder its owner filed it under**, finished or not. Filing beats finishing: where something
+   goes is a decision somebody made, and finishing the work is not a decision to file it somewhere else.
+   A list put in "Renovation" used to leave that tab the moment its last entry was ticked off, which
+   reads as the list having been lost. A folder id belonging to another page counts as no folder here,
+   and falls through to the rest.
+2. **Finished** - a task list that is done and that nobody filed anywhere. Two ways to be done, and both
+   put it here: every entry ticked off, which happens on its own and comes back out the moment something
+   is reopened, or **its owner saying so** with the Completed box in the list's form
+   (`TaskList.Completion`, `OP_T_COMPLETION` - see below). A note is never in it, having nothing to
+   finish - so **the notes page has no Finished tab at all**, and neither does the dashboard, which
+   stops showing a finished list rather than filing it somewhere (`FolderPages.HasAFinishedTab`). A page
+   without the tab does not merely hide it: it never asks whether something is finished, so a finished
+   list is placed there by its folder and its privacy like anything else.
+3. **Private** - a sealed item nobody filed anywhere (see [Private notes and task
    lists](#private-notes-and-task-lists)).
-3. **Public** - everything else, and where a page opens.
+4. **Public** - everything else, and where a page opens.
+
+**Only notes and task lists are filed at all.** A calendar event is not, and is not going to be
+(decided 2026-09-09) - an event is found by when it happens, which is what the calendar is for. It is
+written down in [the scope cuts](future-plan.md#known-scope-cuts-and-rough-edges) because it reads like
+an omission rather than a decision, and because undoing it would be a migration rather than a checkbox.
 
 **A closed list stops being owed.** Filing it under Finished is not all that saying so does: an entry
 on it is done whatever its own tick says, so its deadlines leave the calendar's list and its grid marks
 (`Calendar.LoadDueTasksAsync`, `Calendar.IsTickedOff`), the dashboard's "Upcoming" card and the count of
 what is due today (`Dashboard.UpcomingDeadlines`, `TasksDueTodayCount`), and the same two places on the
 phone (`CalendarDeadline`, `DashboardViewModel`). Saying "no more of this" and then being reminded of it
-every morning would be the app arguing with the reader. A list finished the other way — every entry
-ticked off — was already answered by the entries themselves; this is only ever about the box.
+every morning would be the app arguing with the reader.
 
-Deciding it rather than storing it is what let folders arrive with **no migration of existing rows and
-nothing to repair**: every note and list that existed before them was already in the right one. There is
-still no way to be filed as private without being sealed.
+**And nothing announces itself about it either.** The three background services that say what is owed
+ask their repositories, and each of them now leaves finished work out
+(`OverdueTaskNotificationRepository`, `DailyTaskReminderRepository`, `EventReminderRepository`): no
+overdue notice for an entry on a closed list, no daily reminder from one, and **no reminder for an
+appointment whose entry has been ticked off** - the shopping was done on Tuesday for a slot booked on
+Friday, and reminding about Friday is reminding somebody of work they have already reported doing. A
+daily errand's own tick is still ignored, being done today and due again tomorrow; the list's is a
+different question. The rule lives in the query rather than in the scheduler, so the tests for it use
+the real repositories (`NothingIsAnnouncedAboutFinishedWorkTests`) - an in-memory double hands back
+whatever it was seeded with, and a filter that was never written passes there.
 
-**A list can sit in Finished with work left on it**, which is the one thing that changed. That was the
-ordinary case the old rule could not say: a list whose last two entries stopped mattering, or were done
-somewhere else. The only way to close it used to be ticking those entries off, which is a claim about
-the entries rather than about the list. Marking it survives an edit - adding an entry to a list somebody
-closed does not quietly reopen it - and unticking the box hands the question back to the entries rather
-than forcing "not done", so a list whose entries are all ticked stays finished either way.
+Deciding the built-in ones rather than storing them is what let folders arrive with **no migration of
+existing rows and nothing to repair**: every note and list that existed before them was already in the
+right one. There is still no way to be filed as private without being sealed. Giving a folder a page did
+need one - `FoldersBelongToOnePage` - and it does more than default the column: a folder that held notes
+is moved to the notes, and one that held both kinds becomes two folders with the notes moved into the
+copy, so nothing that was filed somewhere falls back to Public.
+
+**The Completed box has three answers, not two** (`Orbit.Core.Tasks.TaskListCompletion`,
+`OP_T_COMPLETION`, stored by name). A list starts at `FromTheEntries` - nobody has said, so the entries
+decide, and the box **ticks itself once every entry is ticked**, which is what a reader already means by
+that. Pressing it records an answer of the reader's own instead:
+
+- `Finished` - **a list can sit in Finished with work left on it**. That is the ordinary case the
+  entries could not say: a list whose last two stopped mattering, or were done somewhere else. It
+  survives an edit - adding an entry to a list somebody closed does not quietly reopen it.
+- `Unfinished` - **every entry ticked off and the list still open**, which the old yes/no box could not
+  say either: unticking it handed the question straight back to the entries, which answered "finished"
+  again and put the tick back. The list reads as **Not finished** then
+  (`TaskListStatus.Incomplete`) - its own status, because "in progress" over a column of ticks describes
+  neither of the two true things about it. With work still left the status is whatever the work says;
+  Incomplete is only ever about the gap between the entries and the list.
 
 **A folder somebody made is none of the three** and holds whatever they put in it, private things
 included: filing something is not the same decision as sealing it. Only these are rows
@@ -293,12 +333,53 @@ A folder is **never shared**. It is a place on its owner's own pages, so a list 
 person sits in whichever folder each of them filed it under - and a shared item's `folderId` is sent as
 null to the recipient, since the owner's id names a tab that does not exist for them.
 
-Two consequences worth stating, because they changed how a page behaves:
+Three consequences worth stating, because they changed how a page behaves:
 
-- The task list page no longer offers a **Completed** chip. A finished list is in Finished now, so the
-  chip could only have found nothing under every other tab and everything under that one.
-- The dashboard's task card used to keep a finished list when it was **pinned**. Pinning orders cards
-  within a tab rather than lifting one out of the tab it belongs to; Finished is where they are read now.
+- The task list page no longer offers a **Completed** chip. A finished list nobody filed is in Finished
+  now, so the chip would be the tab above asked a second time.
+- Under **Finished** that page offers only **All**, **Shared** and **Group**. How far along a list is no
+  longer varies there, so "Not started", "In progress" and "Overdue" could read nothing but zero; a chip
+  the new tab does not draw is dropped when the tab changes, or the reader would sit on an empty page
+  with nothing on screen to press to get out of it.
+- The dashboard's task card keeps a finished list only when it is **pinned**, and reads it under the tab
+  it was filed under - this page has no Finished tab to ask for the rest back.
+
+## Duplicating something
+
+**Duplicate** is in the menu on a note, a task list, an inventory and a calendar event
+(`POST /api/{kind}/{id}/duplicate`, one `DuplicateRequest` for all four). It makes a second one with
+everything that was on it: a note's lines, a list's entries, a storage's shelves, an appointment's time,
+place, colour, repeat and reminders.
+
+**Only an owner may.** Something reached through a share belongs to somebody else, and a copy would put
+a card on this reader's page that its author never wrote there - the repositories are scoped to the
+owner, which is what answers 404, and the menu leaves the entry out on a shared card.
+
+**The client names the copy** — `"{0} (copy)"` in the reader's own language. The server would have to
+write that in a language it does not know they are reading (see `OrbitWrittenNames` for the other half
+of the same problem), and null means "keep the original's name". Null is also the only possible answer
+for a **sealed** item: its real name is inside a payload the server cannot open, so a copy of one is
+named exactly what the original was. Sealed items are copied ciphertext and all, and open with the same
+key, having the same owner.
+
+Four things a copy deliberately does not carry, each for a reason the copy cannot get around:
+
+- **the pin**, which says where a card sits on this reader's page - two cards cannot both be the one
+  being kept in front of them;
+- **the reader's own answer about being finished** (`TaskListCompletion`) - they said that about the
+  other list. Its entries carry their own ticks, so a copy of a done list still reads as done;
+- **the appointment an entry stands for**. An event is raised by exactly one entry
+  (`CalendarEventDestination.RaisedBy` returns the first it finds), so a second entry pointing at the
+  same one would make which of them owns it a matter of iteration order. The entry is copied as ordinary
+  work, keeping the place written on it where it had one;
+- **an event's guests**. A guest list is a set of people who were asked to something, and copying it
+  would invite them all again to an appointment nobody has told them about, from a press that said
+  "duplicate" and nothing about sending anything.
+
+A storage's rows are copied through the same `InventoryItemsSaver` a save uses, each with a null id -
+which is what tells it "create this" rather than "update that" - so they land with their positions and
+their restock tasks exactly as they would on the next save. An item's open restock errand is therefore
+not copied, and should not be: the errand is about the shelf it was raised from.
 
 ## Notes
 
@@ -845,9 +926,25 @@ same colour; one with no colour of its own is drawn in `--task`. A repeating eve
 occurrence, the way the dashboard already shows one - the place is the same every week, and the date
 beside it should be the one coming.
 
-**What has already happened is left out**, because a map is mostly about where somebody is going. It is
-a filter rather than a rule: "Show places already past" in the page's own menu brings it back, pins
-included. An event with no address is not a place and is never listed - there is nothing to draw.
+**What is already behind the reader is left out**, because a map is mostly about where somebody is
+going. Two ways to be behind them, and both count: the time has passed, or **the entry that raised it has
+been ticked off**. An appointment a list made is done when its entry is, whatever the clock says - the
+shopping was done on Tuesday for a slot booked on Friday - and the map used to go on drawing a pin for
+it until Friday came and went.
+
+It is a filter rather than a rule: "Show places already past" in the page's own menu brings it back,
+pins included, and **"Show from"** then appears above the list to say how far back to go. Empty is all of
+it, which is what the option meant before there was anywhere to say otherwise - on an account with a year
+of appointments in it, that answer buried the two the reader wanted. An event with no address is not a
+place and is never listed - there is nothing to draw.
+
+**Each of the two lists has an eye on its heading** that takes its pins off the map without taking the
+list off the page (`MapPinVisibility`, remembered by the browser like `PanelPreferences`). A map covered
+in other people's pins is a map the reader cannot find their own plans on, and until now the only way to
+clear either was to stop the shares or delete the plans. The list stays, so there is still something to
+press to get the pins back and the reader can still read what they hid. **The eye is not undone by the
+past filter**: somebody who hid their plans and then asked to see past ones meant to be shown nothing,
+not to have the whole lot come back.
 
 ### Planning something at a place
 
@@ -1015,11 +1112,15 @@ device (`CalendarListReading`). Its grid keeps everything too.
 the device the way the list's order is (`CalendarListOrder`, localStorage - it describes one page for
 one reader on one screen).
 
-**The day view shows everything whatever that says** (`Calendar.ShowsEverythingInThisView`). Opening one
-particular day is asking what happened on it, and half an answer to that is worse than none: a day
-showing three of the five things on it looks like a day with three things on it, with nothing saying
-otherwise. The menu entry is ticked and greyed there, with the reason on it — an unticked box over a
-screen full of finished work would be the control lying about what is in front of somebody.
+**The day and week views show everything whatever that says** (`Calendar.ShowsEverythingInThisView`).
+Opening one particular day - or one particular week - is asking what happened in it, and half an answer
+to that is worse than none: a day showing three of the five things on it looks like a day with three
+things on it, with nothing saying otherwise, and a week does the same over seven columns. The month and
+the year are not the same question: they are read to find something rather than to account for a
+stretch, and a month drawn full of struck-through appointments is exactly what the default keeps out of
+the way. The menu entry is ticked and greyed on the two that override it, with the reason on it — an
+unticked box over a screen full of finished work would be the control lying about what is in front of
+somebody.
 
 ## Refusing a request
 

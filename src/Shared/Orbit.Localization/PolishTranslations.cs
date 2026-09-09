@@ -86,7 +86,6 @@ public static class PolishTranslations
         ["The list asks about everything it would otherwise ask about, marked or not."] =
             "Lista pyta o wszystko, o co pytałaby normalnie - oznaczone czy nie.",
         ["More"] = "Więcej",
-        ["Menu"] = "Menu",
         ["Couldn't add those to the restock list."] = "Nie udało się dodać ich do listy uzupełnień.",
         ["{0} added to the restock list."] = "Dodano do listy uzupełnień: {0}.",
         ["Everything short was already on the restock list."] = "Wszystkie braki już były na liście uzupełnień.",
@@ -630,7 +629,7 @@ public static class PolishTranslations
         ["Day"] = "Dzień",
         ["Week"] = "Tydzień",
         ["Month"] = "Miesiąc",
-        ["A day shows everything that fell on it."] = "Dzień pokazuje wszystko, co na niego przypadło.",
+        ["A day and a week show everything that fell in them."] = "Dzień i tydzień pokazują wszystko, co na nie przypadło.",
         ["Year"] = "Rok",
         ["Today"] = "Dziś",
         ["Yesterday"] = "Wczoraj",
@@ -726,6 +725,11 @@ public static class PolishTranslations
         ["Nothing in your calendar or your lists says where it happens."] =
             "Nic w Twoim kalendarzu ani na listach nie mówi, gdzie się odbywa.",
         ["Show places already past"] = "Pokaż miejsca już minione",
+        // The eye on a map panel's heading, and the day to show the past from - see MapPinVisibility.
+        ["Show these on the map"] = "Pokaż je na mapie",
+        ["Hide these from the map"] = "Ukryj je z mapy",
+        ["Show from"] = "Pokazuj od",
+        ["Leave it empty for everything that has been and gone."] = "Zostaw puste, aby pokazać wszystko, co już minęło.",
         ["somewhere with no street"] = "gdzieś bez adresu",
 
         // ---- Folders ----
@@ -743,10 +747,22 @@ public static class PolishTranslations
         ["Nothing in it is deleted - everything goes back to Public, or to Private if it is sealed."] =
             "Nic z niego nie zostanie usunięte - wszystko wróci do Publicznych, a rzeczy zaszyfrowane do Prywatnych.",
         ["Nothing in this folder."] = "Nic w tym folderze.",
+        // Making a second one of something, and what the copy is called - see Orbit.Contracts.DuplicateRequest.
+        ["Duplicate"] = "Duplikuj",
+        ["{0} (copy)"] = "{0} (kopia)",
+        ["Couldn't make a copy. Try again."] = "Nie udało się zrobić kopii. Spróbuj ponownie.",
+        // Everything ticked off and the list still open, because its owner said so - see
+        // Orbit.Core.Tasks.TaskListStatus.Incomplete. "Niezakończona" rather than "nieukończona": the
+        // work is finished and the list is not, and the two words carry that difference in Polish.
+        ["Not finished"] = "Niezakończona",
+        ["Marks the whole list done even with entries still open, and moves it to Finished. It ticks itself once every entry is."] =
+            "Oznacza całą listę jako zrobioną, nawet jeśli są na niej otwarte pozycje, i przenosi ją do Ukończonych. Zaznacza się sama, gdy wszystkie pozycje zostaną odhaczone.",
+        ["Ticked on its own because every entry is. Untick it to say the list itself is not done yet - it reads as \"not finished\" then."] =
+            "Zaznaczone samo, bo wszystkie pozycje są odhaczone. Odznacz, aby powiedzieć, że sama lista nie jest jeszcze gotowa - dostanie wtedy status \"niezakończona\".",
         ["Without one it is in Public, or in Private when it is sealed."] =
             "Bez folderu trafia do Publicznych, a jeśli jest zaszyfrowane - do Prywatnych.",
-        ["Without one it is in Public, or in Private when it is sealed. A list with everything ticked off moves to Finished on its own."] =
-            "Bez folderu trafia do Publicznych, a jeśli jest zaszyfrowane - do Prywatnych. Lista z odhaczonymi wszystkimi pozycjami sama trafia do Ukończonych.",
+        ["Without one it is in Public, or in Private when it is sealed - and it moves to Finished on its own once everything is ticked off. A list you file somewhere stays in that folder, finished or not."] =
+            "Bez folderu trafia do Publicznych, a jeśli jest zaszyfrowane - do Prywatnych, i sama przechodzi do Ukończonych, gdy wszystkie pozycje zostaną odhaczone. Lista włożona do folderu zostaje w nim, ukończona czy nie.",
 
         // ---- The invitation page ----
         // Where a notification about something shared leads - see Orbit.Web's ShareInvitation.razor.

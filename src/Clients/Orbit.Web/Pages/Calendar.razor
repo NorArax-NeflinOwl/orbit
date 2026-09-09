@@ -50,14 +50,14 @@
                already ticked off, an event that has already ended. The grid beside it still draws them -
                a day with something in it should say so whether or not it has been - and this is how the
                list is asked for them too. *@
-            @* Ticked and unpressable in the day view, which shows everything whatever this says - see
-               ShowsEverythingInThisView. A mark that read "off" while a finished appointment sat on the
-               screen would be the control lying about what is in front of somebody; greyed with a
-               reason on it says which it is. *@
+            @* Ticked and unpressable in the day and week views, which show everything whatever this
+               says - see ShowsEverythingInThisView. A mark that read "off" while a finished appointment
+               sat on the screen would be the control lying about what is in front of somebody; greyed
+               with a reason on it says which it is. *@
             <span class="overflow-menu-heading">@T["Show"]</span>
             <button type="button" class="avatar-dropdown-item @(ShowsEverythingInThisView ? "chosen" : "")"
-                    disabled="@(_viewState.ViewMode == CalendarViewMode.Day)"
-                    title="@(_viewState.ViewMode == CalendarViewMode.Day ? T["A day shows everything that fell on it."] : null)"
+                    disabled="@IsAStretchToAccountFor"
+                    title="@(IsAStretchToAccountFor ? T["A day and a week show everything that fell in them."] : null)"
                     @onclick="ToggleShowsEverythingAsync">
                 <span class="card-filter-mark">@(ShowsEverythingInThisView ? "✓" : "")</span>
                 @T["Everything, including what is over"]
@@ -116,10 +116,14 @@
                             }
                         </Tags>
                         <Menu>
-                        <OverflowMenu>
-                        <button type="button" class="avatar-dropdown-item" @onclick="() => GoToEditEvent(calendarEvent.Id)">@(calendarEvent.IsShared ? T["View"] : T["Edit"])</button>
-                        <button type="button" class="avatar-dropdown-item" @onclick="() => DeleteEventAsync(calendarEvent)">@T["Delete"]</button>
-                        </OverflowMenu>
+                        @* An event reached through a share is somebody else's, so there is nothing here
+                           to duplicate: a copy would be an appointment in this reader's calendar that
+                           its owner never put there - see DuplicateCalendarEventCommand. *@
+                        <ObjectMenu EditLabel="@(calendarEvent.IsShared ? T["View"] : T["Edit"])"
+                                    OnEdit="() => GoToEditEvent(calendarEvent.Id)"
+                                    DuplicateLabel="@(calendarEvent.IsShared ? null : T["Duplicate"])"
+                                    OnDuplicate="() => DuplicateEventAsync(calendarEvent)"
+                                    DeleteLabel="@T["Delete"]" OnDelete="() => DeleteEventAsync(calendarEvent)" />
                         </Menu>
                         <Body>
                             @* When, first: it is the one thing every row on this list has, and the
@@ -554,12 +558,21 @@
     /// (CalendarListOrder.ShowsEverything) - a calendar is mostly read forwards, so a finished
     /// appointment and a ticked-off deadline are out of the way by default.
     ///
-    /// The day view is the exception, whatever that choice says. Opening one particular day is asking
-    /// what happened on it, and half an answer to that is worse than none: a day showing three of the
-    /// five things on it looks like a day with three things on it, with nothing saying otherwise.
+    /// The day and the week are the exception, whatever that choice says. Opening one particular day -
+    /// or one particular week - is asking what happened in it, and half an answer to that is worse than
+    /// none: a day showing three of the five things on it looks like a day with three things on it,
+    /// with nothing saying otherwise, and a week does the same over seven columns.
+    ///
+    /// The month and the year are not the same question. They are read to find something rather than to
+    /// account for a stretch, and a month drawn full of struck-through appointments is exactly what the
+    /// default is keeping out of the way.
     /// </summary>
     private bool ShowsEverythingInThisView
-        => ListOrder.ShowsEverything || _viewState.ViewMode == CalendarViewMode.Day;
+        => ListOrder.ShowsEverything || IsAStretchToAccountFor;
+
+    /// <summary>A view small enough that what it leaves out would not be noticed - see ShowsEverythingInThisView.</summary>
+    private bool IsAStretchToAccountFor
+        => _viewState.ViewMode is CalendarViewMode.Day or CalendarViewMode.Week;
 
     private IReadOnlyList<CalendarEventDto> EventsOnTheGrid
         => ShowsEverythingInThisView
@@ -687,6 +700,27 @@
                 : list)
             .ToList();
         _dueTasks = _dueTasks?.Where(due => due.TaskItemId != dueTask.TaskItemId).ToList();
+    }
+
+    /// <summary>
+    /// A second appointment saying the same thing, named for the one it came from and with nobody
+    /// invited - see DuplicateCalendarEventCommandHandler for why the guests are left behind. The whole
+    /// calendar is read again afterwards: the copy has to land in the grid as well as in the list, and
+    /// where it lands is not this page's to work out.
+    /// </summary>
+    private async Task DuplicateEventAsync(CalendarEventDto calendarEvent)
+    {
+        Logger.LogInformation("User clicked 'Duplicate' for calendar event {EventId}", calendarEvent.Id);
+        try
+        {
+            await CalendarApiClient.DuplicateCalendarEventAsync(
+                calendarEvent.Id, T.Format("{0} (copy)", calendarEvent.Details.Title));
+            _events = await CalendarApiClient.GetCalendarEventsAsync();
+        }
+        catch (HttpRequestException exception)
+        {
+            Logger.LogError(exception, "Failed to duplicate calendar event {EventId}", calendarEvent.Id);
+        }
     }
 
     private async Task DeleteEventAsync(CalendarEventDto calendarEvent)

@@ -18,7 +18,7 @@ public sealed class CreateFolderCommandHandler : IRequestHandler<CreateFolderCom
 
     public async Task<Folder> HandleAsync(CreateFolderCommand request, CancellationToken cancellationToken)
     {
-        var folder = Folder.Create(request.UserId, request.Name);
+        var folder = Folder.Create(request.UserId, request.Name, request.Scope);
         await _folderRepository.AddAsync(folder, cancellationToken);
         return folder;
     }

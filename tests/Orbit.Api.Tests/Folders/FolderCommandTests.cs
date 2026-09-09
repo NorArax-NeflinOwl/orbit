@@ -22,7 +22,7 @@ public sealed class FolderCommandTests
     public async Task A_folder_is_made_for_the_account_that_asked_for_it()
     {
         var folder = await new CreateFolderCommandHandler(_folders).HandleAsync(
-            new CreateFolderCommand(OwnerUserId, "Work"), CancellationToken.None);
+            new CreateFolderCommand(OwnerUserId, "Work", FolderScope.Tasks), CancellationToken.None);
 
         Assert.Equal("Work", folder.Name);
         Assert.Equal(OwnerUserId, folder.UserId);
@@ -34,14 +34,14 @@ public sealed class FolderCommandTests
     public async Task A_folder_with_nothing_but_spaces_for_a_name_is_refused()
     {
         await Assert.ThrowsAsync<InvalidRequestException>(() => new CreateFolderCommandHandler(_folders).HandleAsync(
-            new CreateFolderCommand(OwnerUserId, "   "), CancellationToken.None));
+            new CreateFolderCommand(OwnerUserId, "   ", FolderScope.Tasks), CancellationToken.None));
     }
 
     [Fact]
     public async Task A_name_is_stored_trimmed_so_two_tabs_cannot_look_alike()
     {
         var folder = await new CreateFolderCommandHandler(_folders).HandleAsync(
-            new CreateFolderCommand(OwnerUserId, "  Work  "), CancellationToken.None);
+            new CreateFolderCommand(OwnerUserId, "  Work  ", FolderScope.Tasks), CancellationToken.None);
 
         Assert.Equal("Work", folder.Name);
     }
@@ -50,7 +50,7 @@ public sealed class FolderCommandTests
     public async Task Renaming_says_no_when_the_folder_is_somebody_elses()
     {
         var folder = await new CreateFolderCommandHandler(_folders).HandleAsync(
-            new CreateFolderCommand(OwnerUserId, "Work"), CancellationToken.None);
+            new CreateFolderCommand(OwnerUserId, "Work", FolderScope.Tasks), CancellationToken.None);
 
         var renamed = await new RenameFolderCommandHandler(_folders).HandleAsync(
             new RenameFolderCommand(Guid.NewGuid(), folder.Id, "Mine now"), CancellationToken.None);

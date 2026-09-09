@@ -2,6 +2,7 @@ using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using Orbit.Api.Permissions;
 using Orbit.Contracts;
+using Orbit.Core.Inventories.DuplicateInventory;
 using Orbit.Contracts.Inventories;
 using Orbit.Contracts.Sharing;
 using Orbit.Core.Abstractions;
@@ -87,6 +88,17 @@ public static class InventoryEndpoints
                     request.IsPrivate, ToDomainPayload(request.EncryptedContent), request.Description),
                 cancellationToken);
             return ToApiResult(outcome);
+        });
+
+        // A second storage holding the same things - see DuplicateInventoryCommand. The body is
+        // optional, and a caller that sends none keeps the original's name.
+        inventories.MapPost("/{inventoryId:guid}/duplicate", async (
+            Guid inventoryId, DuplicateRequest? request, ClaimsPrincipal user, IDispatcher dispatcher,
+            CancellationToken cancellationToken) =>
+        {
+            var copyId = await dispatcher.SendAsync(
+                new DuplicateInventoryCommand(GetUserId(user), inventoryId, request?.Name), cancellationToken);
+            return copyId is { } newId ? Results.Created($"/api/inventories/{newId}", newId) : Results.NotFound();
         });
 
         inventories.MapDelete("/{inventoryId:guid}", async (

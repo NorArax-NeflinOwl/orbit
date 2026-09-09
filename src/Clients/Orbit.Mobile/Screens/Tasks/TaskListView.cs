@@ -101,12 +101,21 @@ public static class TaskListView
         return taskLists.OrderBy(taskList => placeByLocalId.GetValueOrDefault(taskList.LocalId, int.MaxValue));
     }
 
+    /// <summary>
+    /// A list's status in the reader's language. Every status is named, and what is left over reads as
+    /// **New** rather than as Completed: the catch-all used to be Completed, so a status this build had
+    /// never heard of was labelled the one thing it is most costly to be wrong about - which is exactly
+    /// what happened when the server learned to say "Incomplete" (every entry ticked off and the list
+    /// still open, see Orbit.Core.Tasks.TaskListStatus). Mirrors Orbit.Web's own rule: a status this
+    /// client does not know is not one it should invent a meaning for.
+    /// </summary>
     public static string Describe(string status, Translations translations) => status switch
     {
-        "New" => translations["New"],
         "Pending" => translations["Pending"],
         "Overdue" => translations["Overdue"],
-        _ => translations["Completed"]
+        "Completed" => translations["Completed"],
+        "Incomplete" => translations["Not finished"],
+        _ => translations["New"]
     };
 
     public static string Describe(TaskListSortOrder order, Translations translations) => order switch

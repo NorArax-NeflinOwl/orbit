@@ -77,9 +77,9 @@ public sealed class UpdateTaskListCommandHandler : IRequestHandler<UpdateTaskLis
         // After Update, which rebuilds the items and therefore the derived half of completion. Said
         // only when the caller said it: null is "not provided", and a save from a client that has never
         // heard of this must not reopen a list somebody closed.
-        if (request.IsMarkedCompleted is { } isMarkedCompleted)
+        if (request.Completion is { } completion)
         {
-            taskList.SetMarkedCompleted(isMarkedCompleted);
+            taskList.SetCompletion(completion);
         }
 
         // One save when another list had to be renamed too, so a failure cannot leave two entries

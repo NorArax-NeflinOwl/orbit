@@ -1,6 +1,7 @@
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using Orbit.Contracts;
+using Orbit.Core.Calendar.DuplicateCalendarEvent;
 using Orbit.Api.Permissions;
 using Orbit.Contracts.Calendar;
 using Orbit.Contracts.Sharing;
@@ -72,6 +73,17 @@ public static class CalendarEndpoints
             var outcome = await dispatcher.SendAsync(
                 new UpdateCalendarEventCommand(GetUserId(user), id, ToDomainDetails(request.Details)), cancellationToken);
             return ToApiResult(outcome);
+        });
+
+        // A second appointment saying the same thing, with nobody invited - see
+        // DuplicateCalendarEventCommand. The body is optional, and a caller that sends none keeps the title.
+        calendarEvents.MapPost("/{id:guid}/duplicate", async (
+            Guid id, DuplicateRequest? request, ClaimsPrincipal user, IDispatcher dispatcher,
+            CancellationToken cancellationToken) =>
+        {
+            var copyId = await dispatcher.SendAsync(
+                new DuplicateCalendarEventCommand(GetUserId(user), id, request?.Name), cancellationToken);
+            return copyId is { } newId ? Results.Created($"/api/calendar-events/{newId}", newId) : Results.NotFound();
         });
 
         calendarEvents.MapDelete("/{id:guid}", async (Guid id, ClaimsPrincipal user, IDispatcher dispatcher, CancellationToken cancellationToken) =>

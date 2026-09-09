@@ -39,23 +39,25 @@ public sealed class TaskList
     public EncryptedPayload? EncryptedContent { get; private set; }
 
     /// <summary>
-    /// Whether this list is done. Two ways for it to be, and the second is why this is derived rather
-    /// than stored: every item ticked off, which is what it always meant, or the reader saying so - see
-    /// <see cref="IsMarkedCompleted"/>. An empty list nobody has marked is never done.
+    /// Whether this list is done. Derived rather than stored, because the answer has two sources: the
+    /// reader's own, where they have given one, and the entries otherwise - see
+    /// <see cref="Completion"/>. An empty list nobody has answered for is never done.
     /// </summary>
-    public bool IsCompleted => IsMarkedCompleted || ComputeIsCompleted(Items);
+    public bool IsCompleted => Completion switch
+    {
+        TaskListCompletion.Finished => true,
+        TaskListCompletion.Unfinished => false,
+        _ => ComputeIsCompleted(Items)
+    };
 
     /// <summary>
-    /// The reader's own answer, kept apart from the derived one so the two cannot be confused. A list is
-    /// often finished with work still on it - the last two things stopped mattering, or were done
-    /// somewhere else - and until this existed the only way to say so was to tick entries off as though
-    /// they had been done, which is a different claim.
-    ///
-    /// It survives everything else: adding an entry to a list somebody has marked finished does not
-    /// quietly reopen it, because they said the list was done rather than that its entries were.
-    /// Unmarking it hands the question back to the entries.
+    /// The reader's own answer, kept apart from the derived one so the two cannot be confused - see
+    /// <see cref="TaskListCompletion"/> for what each of the three means. A list is often finished with
+    /// work still on it, and just as often not finished with none: both are things the entries cannot
+    /// say, and until this existed the only way to say either was to tick entries off as though they had
+    /// been done, which is a different claim.
     /// </summary>
-    public bool IsMarkedCompleted { get; private set; }
+    public TaskListCompletion Completion { get; private set; }
 
     /// <summary>How much this list matters, for sorting and for the reader's own sense of it. See <see cref="ItemPriority"/>.</summary>
     public ItemPriority Priority { get; private set; }
@@ -174,14 +176,14 @@ public sealed class TaskList
         DateTimeOffset createdAtUtc, DateTimeOffset updatedAtUtc,
         Guid? lockedByUserId, string? lockedByUserName, DateTimeOffset? lockExpiresAtUtc,
         ItemPriority priority, bool isPinned, Guid? linkedInventoryId = null, string description = "",
-        Guid? folderId = null, bool isMarkedCompleted = false)
+        Guid? folderId = null, TaskListCompletion completion = TaskListCompletion.FromTheEntries)
     {
         var taskList = new TaskList(id, userId, title, items, isGroup, isPrivate, encryptedContent, priority, isPinned,
             createdAtUtc, updatedAtUtc, lockedByUserId, lockedByUserName, lockExpiresAtUtc);
         taskList.LinkedInventoryId = linkedInventoryId;
         taskList.Description = description;
         taskList.FolderId = folderId;
-        taskList.IsMarkedCompleted = isMarkedCompleted;
+        taskList.Completion = completion;
         return taskList;
     }
 
@@ -329,18 +331,18 @@ public sealed class TaskList
     }
 
     /// <summary>
-    /// The reader saying this list is finished, or taking that back - see
-    /// <see cref="IsMarkedCompleted"/>. Says whether anything changed, so a save that repeats what is
+    /// The reader saying this list is finished, saying it is not, or taking both back - see
+    /// <see cref="TaskListCompletion"/>. Says whether anything changed, so a save that repeats what is
     /// already there does not stamp the list as touched.
     /// </summary>
-    public bool SetMarkedCompleted(bool isMarkedCompleted)
+    public bool SetCompletion(TaskListCompletion completion)
     {
-        if (IsMarkedCompleted == isMarkedCompleted)
+        if (Completion == completion)
         {
             return false;
         }
 
-        IsMarkedCompleted = isMarkedCompleted;
+        Completion = completion;
         UpdatedAtUtc = DateTimeOffset.UtcNow;
         return true;
     }
@@ -376,7 +378,7 @@ public sealed class TaskList
     {
         // The reader's own answer outranks the entries, the same way IsCompleted reads it - a list
         // somebody has marked finished is finished, whatever is still written on it.
-        if (IsMarkedCompleted)
+        if (Completion == TaskListCompletion.Finished)
         {
             return TaskListStatus.Completed;
         }
@@ -388,7 +390,12 @@ public sealed class TaskList
 
         if (items.All(item => item.IsCompleted))
         {
-            return TaskListStatus.Completed;
+            // Everything is ticked and the reader has said the list still is not done - see
+            // TaskListStatus.Incomplete, which exists so that this is legible rather than reading as
+            // "in progress" over a column of ticks.
+            return Completion == TaskListCompletion.Unfinished
+                ? TaskListStatus.Incomplete
+                : TaskListStatus.Completed;
         }
 
         if (items.Any(item => !item.IsCompleted && item.DueDateUtc is { } dueDateUtc && dueDateUtc < nowUtc))

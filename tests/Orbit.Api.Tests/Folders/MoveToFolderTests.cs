@@ -60,7 +60,7 @@ public sealed class MoveToFolderTests
     public async Task A_note_is_not_filed_under_somebody_elses_folder()
     {
         var theirFolder = await new CreateFolderCommandHandler(_folders).HandleAsync(
-            new CreateFolderCommand(Guid.NewGuid(), "Theirs"), CancellationToken.None);
+            new CreateFolderCommand(Guid.NewGuid(), "Theirs", FolderScope.Notes), CancellationToken.None);
         var note = Note.Create(OwnerUserId, "Shopping", [NoteContentLine.PlainText("Milk")]);
         await _notes.AddAsync(note, CancellationToken.None);
 
@@ -101,5 +101,5 @@ public sealed class MoveToFolderTests
 
     private Task<Folder> AFolderCalled(string name)
         => new CreateFolderCommandHandler(_folders).HandleAsync(
-            new CreateFolderCommand(OwnerUserId, name), CancellationToken.None);
+            new CreateFolderCommand(OwnerUserId, name, FolderScope.Notes), CancellationToken.None);
 }

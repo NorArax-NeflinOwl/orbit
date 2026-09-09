@@ -29,11 +29,12 @@ public sealed class TaskEntity
     public bool IsCompleted { get; set; }
 
     /// <summary>
-    /// The half of the above the reader set themselves - see Orbit.Core.Tasks.TaskList.IsMarkedCompleted.
-    /// Stored separately because it cannot be derived back out of IsCompleted: a list with everything
-    /// ticked off reads as completed whether or not anybody said so.
+    /// What the reader said about the above themselves, stored by name like every other enum here - see
+    /// Orbit.Core.Tasks.TaskListCompletion. Stored separately because it cannot be derived back out of
+    /// IsCompleted: a list with everything ticked off reads as completed whether or not anybody said so,
+    /// and one whose owner says it is still open reads as not completed with every entry ticked.
     /// </summary>
-    public bool IsMarkedCompleted { get; set; }
+    public string Completion { get; set; } = nameof(Orbit.Core.Tasks.TaskListCompletion.FromTheEntries);
 
     /// <summary>Whether this list gathers other lists - see Orbit.Core.Tasks.TaskList.IsGroup.</summary>
     public bool IsGroup { get; set; }

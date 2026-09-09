@@ -4,14 +4,16 @@
 @inject Translations T
 
 @* Which tab this thing will be found under, on the form that makes it. Only folders somebody made are
-   offered: the built-in three are decided from what the thing already is, so choosing one here would be
-   a promise this form cannot keep - see Orbit.Core.Folders.BuiltInFolder. *@
+   offered, and only the ones belonging to the page this thing is read on: the built-in ones are decided
+   from what the thing already is, so choosing one here would be a promise this form cannot keep - see
+   Orbit.Core.Folders.BuiltInFolder - and a note filed under a task-list folder would be filed under a
+   tab the notes page does not draw. *@
 <div class="field">
     <label for="folderSelect">@T["Folder"]</label>
     <select id="folderSelect" value="@(Value?.ToString() ?? string.Empty)"
             @onchange="OnChosenAsync" aria-label="@(T["Folder"])">
         <option value="">@T["None"]</option>
-        @foreach (var folder in Folders.Folders)
+        @foreach (var folder in Folders.FoldersOn(Page))
         {
             <option value="@folder.Id">@folder.Name</option>
         }
@@ -24,6 +26,9 @@
     [Parameter] public Guid? Value { get; set; }
 
     [Parameter] public EventCallback<Guid?> ValueChanged { get; set; }
+
+    /// <summary>The page this thing is read on, which is the only page whose folders it can be filed into.</summary>
+    [Parameter, EditorRequired] public FolderPage Page { get; set; }
 
     /// <summary>What "none" means for this kind of thing, which is not the same sentence for a note and a list.</summary>
     [Parameter, EditorRequired] public string Hint { get; set; } = string.Empty;

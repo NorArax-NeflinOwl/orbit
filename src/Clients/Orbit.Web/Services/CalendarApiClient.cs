@@ -128,6 +128,20 @@ public sealed class CalendarApiClient
         return EditOutcome.Success;
     }
 
+    /// <inheritdoc cref="TasksApiClient.DuplicateTaskListAsync"/>
+    public async Task<Guid?> DuplicateCalendarEventAsync(Guid id, string? name, CancellationToken cancellationToken = default)
+    {
+        var response = await _httpClient.PostAsJsonAsync(
+            $"api/calendar-events/{id}/duplicate", new DuplicateRequest(name), cancellationToken);
+        if (response.StatusCode == HttpStatusCode.NotFound)
+        {
+            return null;
+        }
+
+        response.EnsureSuccessStatusCode();
+        return await response.Content.ReadFromJsonAsync<Guid>(cancellationToken: cancellationToken);
+    }
+
     public async Task DeleteCalendarEventAsync(Guid id, CancellationToken cancellationToken = default)
     {
         var response = await _httpClient.DeleteAsync($"api/calendar-events/{id}", cancellationToken);

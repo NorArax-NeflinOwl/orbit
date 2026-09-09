@@ -22,7 +22,11 @@ public sealed class OverdueTaskNotificationRepository : IOverdueTaskNotification
         var rows = await (
             from item in _dbContext.Set<TaskItemEntity>().AsNoTracking()
             join task in _dbContext.Tasks.AsNoTracking() on item.TaskId equals task.Id
-            where !item.IsCompleted && item.DueDateUtc != null && !item.LinkedTaskLists.Any()
+            // Neither the entry nor the list it is on may be done. The entry's own tick was always
+            // checked; the list's was not, so a list somebody closed with an overdue entry still on it
+            // went on saying so every day - which is the app arguing with a decision the reader made.
+            // See TaskList.IsCompleted, which is what OP_T_ISCOMPLETED stores.
+            where !item.IsCompleted && !task.IsCompleted && item.DueDateUtc != null && !item.LinkedTaskLists.Any()
                 && item.OverdueNotificationChannel != "None"
             select new
             {

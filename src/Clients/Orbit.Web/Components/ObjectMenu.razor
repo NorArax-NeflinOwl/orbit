@@ -1,4 +1,4 @@
-@* All X · Edit-or-View · Share · Delete, in that order - the shape six menus wrote out by hand as
+@* All X · Edit-or-View · Duplicate · Share · Delete, in that order - the shape six menus wrote out by hand as
    plain avatar-dropdown-item buttons inside an OverflowMenu. A page hands each slot the label its own
    rules already chose - whether it reads "Edit" or "View", whether Share or Delete belongs at all -
    nothing here decides that; a slot left null is left out rather than drawn disabled, the same rule
@@ -11,6 +11,10 @@
     @if (EditLabel is not null)
     {
         <button type="button" class="avatar-dropdown-item" @onclick="OnEdit">@EditLabel</button>
+    }
+    @if (DuplicateLabel is not null)
+    {
+        <button type="button" class="avatar-dropdown-item" @onclick="OnDuplicate">@DuplicateLabel</button>
     }
     @if (ShareLabel is not null)
     {
@@ -38,6 +42,16 @@
     [Parameter] public string? EditLabel { get; set; }
 
     [Parameter] public EventCallback OnEdit { get; set; }
+
+    /// <summary>
+    /// "Duplicate" - a second one of this, with everything on it. After Edit and before Share, which is
+    /// the order the three are reached for: change this one, make another like it, hand it to somebody.
+    /// Left out where there is nothing to duplicate - something reached through a share is somebody
+    /// else's, and copying it is not this reader's to do.
+    /// </summary>
+    [Parameter] public string? DuplicateLabel { get; set; }
+
+    [Parameter] public EventCallback OnDuplicate { get; set; }
 
     [Parameter] public string? ShareLabel { get; set; }
 
