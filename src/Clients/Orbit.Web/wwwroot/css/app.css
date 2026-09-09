@@ -1698,15 +1698,42 @@ input.note-editor-title {
 /* Chat.razor: contact list (left) + active thread (right); on mobile the list becomes an off-canvas
    drawer instead of stacking above the thread, since a whole conversation's worth of vertical space
    is scarce on a phone. */
+/* The chat is the other page whose content is the size it is given rather than the size it wants: a
+   conversation has no natural height, and the message list scrolls inside it. The height below is the
+   fallback for a browser without :has() - the rule under it measures instead of guessing. */
 .chat-layout {
     display: flex;
     height: calc(100vh - 220px);
-    min-height: 420px;
+    min-height: 320px;
     border: 1px solid var(--border);
     border-radius: 14px;
     overflow: hidden;
     background: var(--bg-elevated);
     position: relative;
+}
+
+/* Nothing is guessed here. The page box is already exactly what the window left after the bar and the
+   footer (see .main-content-page), so making it a column and letting the conversation take whatever
+   the heading above it does not is the same answer measured rather than estimated - which the guess
+   above got wrong in the direction that hurts: it was short, so the composer sat below the fold and
+   the whole page had to be scrolled to reach it.
+
+   Said by what the page renders rather than by which route it is, the way the map's own exception is -
+   see .main-content:has(.map-page). */
+.main-content-page:has(.chat-layout) {
+    display: flex;
+    flex-direction: column;
+    /* A flex item does not shrink past its content unless told it may, and this one holds a panel that
+       is allowed to get small and scroll inside itself. */
+    min-height: 0;
+}
+
+.main-content-page:has(.chat-layout) .chat-layout {
+    flex: 1 1 auto;
+    height: auto;
+    /* Below this a conversation stops being one, so a window too short for it scrolls the page rather
+       than squashing the messages into a strip. */
+    min-height: 320px;
 }
 
 .chat-list {
@@ -2496,8 +2523,11 @@ input.note-editor-title {
 }
 
 @media (max-width: 680px) {
+    /* The same fallback as above, for a browser without :has(): less chrome above the page on a phone,
+       so less of the window is already spent. A browser that has :has() measures instead - see
+       .main-content-page:has(.chat-layout). */
     .chat-layout {
-        height: calc(100vh - 170px);
+        height: calc(100dvh - 170px);
     }
 
     .chat-list-toggle {
