@@ -419,5 +419,13 @@ public static class MauiProgram
 		services.AddTransient<NotificationSettingsViewModel>();
 		services.AddTransient<DiagnosticsPage>();
 		services.AddTransient<DiagnosticsViewModel>();
+		services.AddTransient<Features.About.AboutPage>();
+		services.AddTransient<Orbit.Mobile.Screens.About.AboutViewModel>();
+		// Where this build's own web client is, which is the only thing the About screen needs from the
+		// app head - see OrbitWebSettings. A build told no address hands over the licence and nothing
+		// else, and the screen leaves the other rows out.
+		services.AddSingleton(OrbitWebSettings.Current.BaseAddress is { } web
+			? Orbit.Mobile.Screens.About.OrbitDocumentLinks.Under(web)
+			: Orbit.Mobile.Screens.About.OrbitDocumentLinks.NoneButTheLicence);
 	}
 }

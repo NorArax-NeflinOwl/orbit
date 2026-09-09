@@ -48,5 +48,8 @@ public enum Screen
     SharedLink,
     Account,
     Update,
-    Diagnostics
+    Diagnostics,
+
+    /// <summary>What Orbit is, which build this one is, and where its documents are - see AboutViewModel.</summary>
+    About
 }

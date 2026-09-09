@@ -1,3 +1,4 @@
+using Orbit.Maui.Features.About;
 using Orbit.Maui.Features.Account;
 using Orbit.Maui.Features.Authentication;
 using Orbit.Maui.Features.Calendar;
@@ -82,6 +83,10 @@ public sealed class AppNavigator : IScreenNavigator
 			() => ShowSharedLink(token), page => page.ViewModel.Open(token));
 
 	public void ShowUpdate() => Show<UpdatePage>(Screen.Update, ScreenHistory.Arrival.Section, ShowUpdate);
+
+	// A drawer destination like the sections above it, so arriving resets the stack to [Dashboard, About]
+	// rather than piling up behind whatever the reader was reading - see ScreenHistory.Arrival.
+	public void ShowAbout() => Show<AboutPage>(Screen.About, ScreenHistory.Arrival.Section, ShowAbout);
 
 	// No ShowNotificationSettings any more: the settings moved onto the account screen - see
 	// AccountPage's notification section - so there is no page of their own left to navigate to.

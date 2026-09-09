@@ -35,34 +35,25 @@
             </Border.StrokeShape>
 
             <VerticalStackLayout Padding="14" Spacing="10">
-                <!-- Who this is, and whether their phone is in step. The second used to sit in the
-                     bottom-left corner of every screen; it is a fact about the account, so it lives
-                     with the account. -->
-                <VerticalStackLayout Spacing="2">
-                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="6">
-                        <Label Grid.Column="0" Text="{Binding DisplayName}" FontAttributes="Bold"
-                               LineBreakMode="TailTruncation" VerticalOptions="Center" />
+                <!-- Who this is, and nothing else. Whether the phone is in step used to be said here
+                     too and is said in the drawer's own header now - one fact in two panels is one
+                     panel's worth of noise, and the drawer is where the app's own state belongs. -->
+                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="6">
+                    <Label Grid.Column="0" Text="{Binding DisplayName}" FontAttributes="Bold"
+                           LineBreakMode="TailTruncation" VerticalOptions="Center" />
 
-                        <!-- Only while the phone believes it is offline: online there is nothing to
-                             reconnect, and a button that is always there invites tapping at a working
-                             app. An icon rather than a word, beside the name it belongs to. -->
-                        <Grid Grid.Column="1" WidthRequest="32" HeightRequest="32"
-                              IsVisible="{Binding CanReconnect}">
-                            <Path Data="{StaticResource ReconnectIcon}" InputTransparent="True"
-                                  Fill="{DynamicResource Accent}" HeightRequest="18" WidthRequest="18"
-                                  Aspect="Uniform" HorizontalOptions="Center" VerticalOptions="Center" />
-                            <Button BackgroundColor="Transparent" BorderWidth="0" Command="{Binding ReconnectCommand}"
-                                    SemanticProperties.Description="{controls:Translate 'Reconnect'}" />
-                        </Grid>
+                    <!-- Only while the phone believes it is offline: online there is nothing to
+                         reconnect, and a button that is always there invites tapping at a working
+                         app. An icon rather than a word, beside the name it belongs to. -->
+                    <Grid Grid.Column="1" WidthRequest="32" HeightRequest="32"
+                          IsVisible="{Binding CanReconnect}">
+                        <Path Data="{StaticResource ReconnectIcon}" InputTransparent="True"
+                              Fill="{DynamicResource Accent}" HeightRequest="18" WidthRequest="18"
+                              Aspect="Uniform" HorizontalOptions="Center" VerticalOptions="Center" />
+                        <Button BackgroundColor="Transparent" BorderWidth="0" Command="{Binding ReconnectCommand}"
+                                SemanticProperties.Description="{controls:Translate 'Reconnect'}" />
                     </Grid>
-
-                    <HorizontalStackLayout Spacing="6">
-                        <ActivityIndicator IsRunning="{Binding IsSyncing}" IsVisible="{Binding IsSyncing}"
-                                           HeightRequest="10" WidthRequest="10" VerticalOptions="Center" />
-                        <Label Text="{Binding SyncLabel}" FontSize="11" VerticalOptions="Center"
-                               Style="{StaticResource SubtleLabel}" />
-                    </HorizontalStackLayout>
-                </VerticalStackLayout>
+                </Grid>
 
                 <BoxView HeightRequest="1"
                          Color="{AppThemeBinding Light={StaticResource CardStrokeLight}, Dark={StaticResource CardStrokeDark}}" />
@@ -106,12 +97,17 @@
                 <BoxView HeightRequest="1"
                          Color="{AppThemeBinding Light={StaticResource CardStrokeLight}, Dark={StaticResource CardStrokeDark}}" />
 
-                <!-- Notifications used to be here and is now a button of its own in the bar - see
-                     NavigationBar. What is left in this menu are the places somebody goes once, to set
-                     something up or to look Orbit over. -->
+                <!-- What is left in this menu are the places somebody goes once, to set something up or
+                     to look Orbit over. Settings first, then Update - the order the design writes. -->
+                <Grid>
+                    <Label Text="{controls:Translate 'Settings'}" />
+                    <Button BackgroundColor="Transparent" BorderWidth="0" Command="{Binding GoToAccountCommand}"
+                            SemanticProperties.Description="{controls:Translate 'Settings'}" />
+                </Grid>
+
                 <!-- Orbit.Web's "Get the app", which on a phone is an update rather than a download.
-                     Badged like Notifications above and for the same reason: startup says it once in a
-                     prompt the reader may dismiss, and this is what is left standing afterwards. -->
+                     Badged because startup says it once in a prompt the reader may dismiss, and this is
+                     what is left standing afterwards. -->
                 <Grid ColumnDefinitions="*,Auto">
                     <Label Grid.Column="0" Text="{controls:Translate 'Update'}" VerticalOptions="Center" />
                     <!-- A dot rather than a count: there is one newer version, not a number of them. -->
@@ -127,9 +123,11 @@
                             SemanticProperties.Description="{controls:Translate 'Update'}" />
                 </Grid>
 
-                <!-- What was written offline and has not been decided on yet. Here rather than on one
-                     of the lists, because a copy can be of any of the four kinds and no single list is
-                     the right place to wait for it. Badged like Notifications above. -->
+                <!-- What was written offline and has not been decided on yet. Not one of the four rows
+                     the design lists, and it is here anyway because it is the only way to reach a
+                     decision the reader has already been asked for: it appears only while something is
+                     actually waiting, and there is no list it could belong to - a copy can be of any of
+                     the four kinds. Badged like Update above. -->
                 <Grid ColumnDefinitions="*,Auto" IsVisible="{Binding HasCopiesAwaitingReview}">
                     <Label Grid.Column="0" Text="{controls:Translate 'Copies to review'}" VerticalOptions="Center" />
                     <Border Grid.Column="1" StrokeThickness="0" HeightRequest="18" MinimumWidthRequest="18"
@@ -147,11 +145,8 @@
                             SemanticProperties.Description="{controls:Translate 'Copies to review'}" />
                 </Grid>
 
-                <Grid>
-                    <Label Text="{controls:Translate 'Settings'}" />
-                    <Button BackgroundColor="Transparent" BorderWidth="0" Command="{Binding GoToAccountCommand}"
-                            SemanticProperties.Description="{controls:Translate 'Settings'}" />
-                </Grid>
+                <BoxView HeightRequest="1"
+                         Color="{AppThemeBinding Light={StaticResource CardStrokeLight}, Dark={StaticResource CardStrokeDark}}" />
 
                 <Grid>
                     <Label Text="{controls:Translate 'Sign out'}"

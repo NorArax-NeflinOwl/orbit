@@ -51,6 +51,12 @@ public partial class NavigationBar : ContentView
 
 		TitleLabel.SetBinding(Label.TextProperty, new Binding(nameof(Page.Title), source: page));
 
+		if (page is ITitleSteps series)
+		{
+			Step(PreviousStep, PreviousPress, series.PreviousCommand, series.PreviousDescription);
+			Step(NextStep, NextPress, series.NextCommand, series.NextDescription);
+		}
+
 		if (page is not ITitleMenu withMenu)
 		{
 			return;
@@ -60,6 +66,23 @@ public partial class NavigationBar : ContentView
 		TitlePress.IsVisible = true;
 		TitlePress.Command = withMenu.ShowTitleMenuCommand;
 		SemanticProperties.SetDescription(TitlePress, page.Title ?? string.Empty);
+	}
+
+	/// <summary>
+	/// One of the two arrows beside the name. Left out entirely where the page offers no command for
+	/// it: an arrow that does nothing is worse than no arrow, and the centre of the bar is the width
+	/// the name has to fit in.
+	/// </summary>
+	private static void Step(Grid host, Button press, System.Windows.Input.ICommand? command, string description)
+	{
+		if (command is null)
+		{
+			return;
+		}
+
+		host.IsVisible = true;
+		press.Command = command;
+		SemanticProperties.SetDescription(press, description);
 	}
 
 	/// <summary>

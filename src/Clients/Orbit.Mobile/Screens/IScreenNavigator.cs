@@ -105,4 +105,12 @@ public interface IScreenNavigator
 
     /// <summary>The app's own log, and the one way it leaves the phone - see DiagnosticsViewModel.</summary>
     void ShowDiagnostics();
+
+    /// <summary>
+    /// What Orbit is, which build this one is, and where the documents about it are - see
+    /// AboutViewModel. A screen of its own rather than a fold-out at the foot of the drawer, which is
+    /// where it used to be: it is one of the drawer's entries, and an entry that expands in place is
+    /// the only one that does not take the reader anywhere.
+    /// </summary>
+    void ShowAbout();
 }

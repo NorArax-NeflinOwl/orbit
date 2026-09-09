@@ -1935,6 +1935,11 @@ public static class PolishTranslations
             "Orbit trzyma notatki, listy zadań, kalendarz, zawartość Twoich półek, Twoje położenie i to, z kim rozmawiasz — w jednym miejscu, w przeglądarce i na telefonie, do udostępnienia osobom, które wybierzesz.",
         ["The server it is talking to"] = "Serwer, z którym rozmawia",
 
+        // The phone's About screen, which says the same thing in fewer words - it is one line at the
+        // head of a screen rather than the first paragraph of a dialog.
+        ["Orbit keeps notes, task lists, a calendar and what is on your shelves, and lets you talk and share - in one place."] =
+            "Orbit trzyma notatki, listy zadań, kalendarz, zawartość Twoich półek, umożliwia komunikację i udostępnianie — w jednym miejscu.",
+
         // The Manage cookies dialog - what this browser is allowed to remember.
         ["Orbit sets no cookies. What it remembers about you in this browser is kept in local storage, which never leaves this device on its own, and this is where you decide how much of it there is."] =
             "Orbit nie ustawia ciasteczek. To, co pamięta o Tobie w tej przeglądarce, trzyma w pamięci lokalnej, która sama z siebie nigdy nie opuszcza tego urządzenia — a tutaj decydujesz, ile tego jest.",
