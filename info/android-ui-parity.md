@@ -192,7 +192,14 @@ the two note screens, the three task screens, the calendar and an event, contact
 inventory screens. Those are done.
 
 These are the ones it has not reached. They are listed here rather than guessed at, because guessing at
-the last one is exactly what produced the rejected version:
+the last one is exactly what produced the rejected version.
+
+**Six of them need not be guessed at after all.** Read as a specification of composition rather than as
+a style guide, the Classical prototype does draw sign-in, create-an-account, one entry on its own, the
+map's two lists, a conversation and Settings - and it corrects a dozen things about the screens that
+were built from the written spec. All of it is set out in
+[`android-design-deltas.md`](android-design-deltas.md), which also lists the six places the design and
+the written spec disagree and says which of the two wins (the spec, every time).
 
 | screen | what it is now |
 |---|---|
