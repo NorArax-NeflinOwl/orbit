@@ -616,7 +616,7 @@ public static class PolishTranslations
         ["Day"] = "Dzień",
         ["Week"] = "Tydzień",
         ["Month"] = "Miesiąc",
-        ["A day shows everything that fell on it."] = "Dzień pokazuje wszystko, co na niego przypadło.",
+        ["A day and a week show everything that fell in them."] = "Dzień i tydzień pokazują wszystko, co na nie przypadło.",
         ["Year"] = "Rok",
         ["Today"] = "Dziś",
         ["Yesterday"] = "Wczoraj",

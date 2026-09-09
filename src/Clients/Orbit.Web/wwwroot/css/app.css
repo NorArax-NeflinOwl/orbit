@@ -561,6 +561,13 @@ input.note-editor-title {
     /* Fills whatever the bar above it leaves, and lays its two children out down the page, so that the
        footer can be told to take the space nobody else wanted - see .app-footer. */
     flex: 1 0 auto;
+    /* And it has to be as tall as the row it sits in, or there is no space going spare for the footer
+       to take. .app-body holds this beside the advertising rail and aligns its children to the top -
+       which the rail wants and this does not: it left the page exactly as tall as its content, so on a
+       short page the footer sat directly under the last line with the rest of the window empty below
+       it, reading as a page that had failed to load the rest. Stretched here rather than by changing
+       the row's own alignment, so the rail keeps sitting at the top where it belongs. */
+    align-self: stretch;
     display: flex;
     flex-direction: column;
 }

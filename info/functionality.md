@@ -1107,11 +1107,15 @@ device (`CalendarListReading`). Its grid keeps everything too.
 the device the way the list's order is (`CalendarListOrder`, localStorage - it describes one page for
 one reader on one screen).
 
-**The day view shows everything whatever that says** (`Calendar.ShowsEverythingInThisView`). Opening one
-particular day is asking what happened on it, and half an answer to that is worse than none: a day
-showing three of the five things on it looks like a day with three things on it, with nothing saying
-otherwise. The menu entry is ticked and greyed there, with the reason on it — an unticked box over a
-screen full of finished work would be the control lying about what is in front of somebody.
+**The day and week views show everything whatever that says** (`Calendar.ShowsEverythingInThisView`).
+Opening one particular day - or one particular week - is asking what happened in it, and half an answer
+to that is worse than none: a day showing three of the five things on it looks like a day with three
+things on it, with nothing saying otherwise, and a week does the same over seven columns. The month and
+the year are not the same question: they are read to find something rather than to account for a
+stretch, and a month drawn full of struck-through appointments is exactly what the default keeps out of
+the way. The menu entry is ticked and greyed on the two that override it, with the reason on it — an
+unticked box over a screen full of finished work would be the control lying about what is in front of
+somebody.
 
 ## Refusing a request
 
