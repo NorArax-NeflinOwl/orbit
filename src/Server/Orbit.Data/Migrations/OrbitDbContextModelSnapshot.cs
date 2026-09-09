@@ -1589,6 +1589,10 @@ namespace Orbit.Data.Migrations
                         .HasColumnType("boolean")
                         .HasColumnName("OP_TI_ISCOMPLETED");
 
+                    b.Property<bool>("IsFailed")
+                        .HasColumnType("boolean")
+                        .HasColumnName("OP_TI_ISFAILED");
+
                     b.Property<string>("Kind")
                         .IsRequired()
                         .ValueGeneratedOnAdd()
@@ -1700,6 +1704,27 @@ namespace Orbit.Data.Migrations
                     b.HasIndex("Category");
 
                     b.ToTable("OP_TASKS_PRODUCT_CATEGORIES");
+                });
+
+            modelBuilder.Entity("Orbit.Data.Entities.TaskItemStepEntity", b =>
+                {
+                    b.Property<Guid>("TaskItemId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("OL_TS_TASKITEMID");
+
+                    b.Property<Guid>("WaitsForTaskItemId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("OL_TS_WAITSFORTASKITEMID");
+
+                    b.Property<int>("Position")
+                        .HasColumnType("integer")
+                        .HasColumnName("OL_TS_POSITION");
+
+                    b.HasKey("TaskItemId", "WaitsForTaskItemId");
+
+                    b.HasIndex("WaitsForTaskItemId");
+
+                    b.ToTable("OL_TASKS_STEPS");
                 });
 
             modelBuilder.Entity("Orbit.Data.Entities.TaskItemTaskListLinkEntity", b =>
@@ -2023,6 +2048,15 @@ namespace Orbit.Data.Migrations
                         .IsRequired();
                 });
 
+            modelBuilder.Entity("Orbit.Data.Entities.TaskItemStepEntity", b =>
+                {
+                    b.HasOne("Orbit.Data.Entities.TaskItemEntity", null)
+                        .WithMany("Steps")
+                        .HasForeignKey("TaskItemId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("Orbit.Data.Entities.TaskItemTaskListLinkEntity", b =>
                 {
                     b.HasOne("Orbit.Data.Entities.TaskItemEntity", null)
@@ -2054,6 +2088,8 @@ namespace Orbit.Data.Migrations
                     b.Navigation("LinkedTaskLists");
 
                     b.Navigation("ProductCategories");
+
+                    b.Navigation("Steps");
                 });
 #pragma warning restore 612, 618
         }

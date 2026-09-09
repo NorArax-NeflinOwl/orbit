@@ -29,7 +29,11 @@
                                              x:DataType="screens:TodaySummary">
                             <Label Text="{controls:Translate 'Today'}" Style="{StaticResource PanelHeading}"
                                    TextColor="{DynamicResource Accent}" />
-                            <Label Text="{Binding Date}" FontFamily="OrbitDisplayLight" FontSize="34" />
+                            <!-- 28, not the design's 34: the design was drawn in Cormorant Garamond,
+                                 which is a narrow face, and Space Grotesk at 34 breaks
+                                 "Wednesday, 9 September" over two lines - the biggest thing on the
+                                 app's first screen, wrapping. -->
+                            <Label Text="{Binding Date}" FontFamily="OrbitDisplayLight" FontSize="28" />
                             <BoxView Style="{StaticResource Hairline}" Margin="0,2,0,4" />
 
                             <!-- One row across, not a column: the counts are a glance, and three lines
@@ -38,7 +42,7 @@
                                  the design draws and which fits three of them in 412 points. -->
                             <HorizontalStackLayout Spacing="18">
                                 <VerticalStackLayout Spacing="0">
-                                    <Label Text="{Binding TasksDueToday}" FontFamily="OrbitDisplay" FontSize="20"
+                                    <Label Text="{Binding TasksDueTodayReads}" FontFamily="OrbitDisplay" FontSize="20"
                                            FontAttributes="Bold"
                                            TextColor="{AppThemeBinding Light={StaticResource TaskLight}, Dark={StaticResource TaskDark}}" />
                                     <Label Text="{controls:Translate 'tasks due today'}"
@@ -46,7 +50,7 @@
                                 </VerticalStackLayout>
 
                                 <VerticalStackLayout Spacing="0">
-                                    <Label Text="{Binding EventsToday}" FontFamily="OrbitDisplay" FontSize="20"
+                                    <Label Text="{Binding EventsTodayReads}" FontFamily="OrbitDisplay" FontSize="20"
                                            FontAttributes="Bold" TextColor="{DynamicResource Accent}" />
                                     <Label Text="{controls:Translate 'events today'}"
                                            Style="{StaticResource PanelHeading}" />

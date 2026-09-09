@@ -2,6 +2,7 @@ using System.Windows.Input;
 using Orbit.Mobile.Localization;
 using Orbit.Maui.Controls;
 using Orbit.Mobile.Screens;
+using Orbit.Mobile.Screens.Navigation;
 using Orbit.Mobile.Screens.Notes;
 using Orbit.Mobile.Screens.Tasks;
 
@@ -34,13 +35,18 @@ public partial class NoteDetailPage : ContentPage, ITitleMenu
 	/// </summary>
 	private NoteLineRow? _toFocus;
 
-	public NoteDetailPage(NoteDetailViewModel viewModel, Translations translations)
+	private readonly ScreenHistory _history;
+
+	public NoteDetailPage(NoteDetailViewModel viewModel, Translations translations, ScreenHistory history)
 	{
+		_history = history;
+
 		// Before InitializeComponent, not after: the menu is bound from the static part of the tree,
 		// which is built there and reads a page's plain property exactly once - see
 		// CalendarEventDetailPage, where the same order matters for the same reason.
 		ShowTitleMenuCommand = new Command(ShowNoteMenu);
 		JoinTheLineAboveCommand = new Command<Entry>(JoinTheLineAbove);
+		OpenForWritingCommand = new Command<NoteLineRow>(OpenForWriting);
 
 		InitializeComponent();
 		BindingContext = _viewModel = viewModel;
@@ -70,17 +76,50 @@ public partial class NoteDetailPage : ContentPage, ITitleMenu
 	/// </summary>
 	public ICommand JoinTheLineAboveCommand { get; }
 
+	/// <summary>
+	/// What pressing a ticked line does: opens the field in the struck-through Label's place and puts
+	/// the caret in it. Bound from the template - see the Label in NoteDetailPage.xaml, which is the
+	/// only thing a ticked line draws until this runs.
+	/// </summary>
+	public ICommand OpenForWritingCommand { get; }
+
 	protected override void OnAppearing()
 	{
 		base.OnAppearing();
 		_viewModel.LoadCommand.Execute(null);
+
+		// Back is the way out of this screen - the bar has no arrow - and this screen is the one that
+		// throws work away when it is used, because the note is written by Save and by nothing else.
+		_history.AskBeforeLeaving(MayLeaveAsync);
 	}
 
 	/// <summary>Lets go of the note's edit lock as the screen leaves - see EditLock.</summary>
 	protected override async void OnDisappearing()
 	{
 		base.OnDisappearing();
+		_history.StopAskingBeforeLeaving(MayLeaveAsync);
 		await _viewModel.CloseAsync();
+	}
+
+	/// <summary>
+	/// Asked as back takes this screen away, and only where there is something to lose: a note that was
+	/// read and not written in leaves without a word, which is most of the times it is opened.
+	///
+	/// Named for what each button does rather than "OK" and "Cancel" - the press that loses the writing
+	/// says so, which is the same rule every delete in Orbit follows.
+	/// </summary>
+	private async Task<bool> MayLeaveAsync()
+	{
+		if (!_viewModel.HasUnsavedChanges)
+		{
+			return true;
+		}
+
+		return await Confirmation.AskAsync(
+			this,
+			_translations["Leave without saving? What you have written will be lost."],
+			_translations["Discard changes"],
+			_translations["Keep writing"]);
 	}
 
 	/// <summary>
@@ -123,6 +162,13 @@ public partial class NoteDetailPage : ContentPage, ITitleMenu
 			return;
 		}
 
+		// A ticked line is drawn as a struck-through Label and its field is hidden, so asking a hidden
+		// field for the caret does nothing at all and the caret stays wherever it was - which is how
+		// pressing Enter on the name of a note whose first line was ticked appended to the name instead
+		// of going into the note. Opening it first is what gives the caret somewhere to land; leaving
+		// the line closes it again - see OnLineUnfocused.
+		line.IsBeingWrittenIn = true;
+
 		if (!_fields.TryGetValue(line, out var field))
 		{
 			_toFocus = line;
@@ -139,6 +185,42 @@ public partial class NoteDetailPage : ContentPage, ITitleMenu
 		{
 			_beingWrittenIn = row;
 		}
+	}
+
+	/// <summary>
+	/// A ticked line closes again as the caret leaves it, so it goes back to being struck through
+	/// rather than staying open as a plain-looking field somebody has finished with.
+	/// </summary>
+	private void OnLineUnfocused(object? sender, FocusEventArgs eventArgs)
+	{
+		if ((sender as Entry)?.BindingContext is NoteLineRow row)
+		{
+			row.IsBeingWrittenIn = false;
+		}
+	}
+
+	/// <inheritdoc cref="OpenForWritingCommand"/>
+	private void OpenForWriting(NoteLineRow? row)
+	{
+		if (_viewModel.CanEdit)
+		{
+			PutTheCaretIn(row);
+		}
+	}
+
+	/// <summary>
+	/// The key at the end of the note's name goes on into the note, which is what Enter does at the end
+	/// of any line here - the name is the first line of the writing, not a field to finish. A note with
+	/// nothing under its name yet gets a line to carry the caret.
+	/// </summary>
+	private void OnTitleCompleted(object? sender, EventArgs eventArgs)
+	{
+		if (!_viewModel.CanEdit)
+		{
+			return;
+		}
+
+		PutTheCaretIn(_viewModel.Lines.FirstOrDefault() ?? _viewModel.AddLineAfter(null));
 	}
 
 	/// <summary>
@@ -191,15 +273,22 @@ public partial class NoteDetailPage : ContentPage, ITitleMenu
 
 		_fields.Remove(row);
 
+		// The line it lands in may itself be ticked, and a ticked line's field is hidden until it is
+		// opened - so the caret would have nowhere to go.
+		landing.Line.IsBeingWrittenIn = true;
+
 		if (!_fields.TryGetValue(landing.Line, out var above))
 		{
 			return;
 		}
 
-		above.Focus();
-		// Where the two lines met, so carrying on typing carries on where the reader left off rather
-		// than at the end of what they have just pulled up.
-		above.CursorPosition = Math.Min(landing.Caret, above.Text?.Length ?? 0);
+		Dispatcher.Dispatch(() =>
+		{
+			above.Focus();
+			// Where the two lines met, so carrying on typing carries on where the reader left off rather
+			// than at the end of what they have just pulled up.
+			above.CursorPosition = Math.Min(landing.Caret, above.Text?.Length ?? 0);
+		});
 	}
 
 	/// <summary>

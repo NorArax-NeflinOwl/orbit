@@ -80,6 +80,7 @@
                                  Margin="0,-8,0,0" />
                         <controls:CheckCircle Grid.Column="0" Diameter="22" VerticalOptions="Center"
                                               IsChecked="{Binding IsCompleted}"
+                                              IsFailed="{Binding IsFailed}"
                                               Description="{Binding Description}"
                                               Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=ViewModel.ToggleItemCommand, x:DataType=tasks:TaskListDetailPage}"
                                               CommandParameter="{Binding .}" />
@@ -96,7 +97,9 @@
                                     <!-- Struck through and quietened once it is done, which is what the
                                          design does and what a paper list does. The circle says the
                                          same thing; a reader scanning a long list reads the line. -->
-                                    <DataTrigger TargetType="Label" Binding="{Binding IsCompleted}" Value="True">
+                                    <!-- Struck through once it is finished with, either way: the circle
+                                         says which of the two it was. -->
+                                    <DataTrigger TargetType="Label" Binding="{Binding IsResolved}" Value="True">
                                         <Setter Property="TextDecorations" Value="Strikethrough" />
                                         <Setter Property="TextColor"
                                                 Value="{AppThemeBinding Light={StaticResource TertiaryTextLight}, Dark={StaticResource TertiaryTextDark}}" />
@@ -400,9 +403,15 @@
 
                 <controls:ItemCard.Menu>
                     <!-- What order the rows are read in, as Orbit.Web keeps it behind this card's own
-                         menu. An action sheet rather than a panel - one choice, then done. -->
-                    <Button Text="⋯" SemanticProperties.Description="{controls:Translate 'Sort'}" FontSize="18" Padding="8,0"
-                            HeightRequest="32" WidthRequest="36" Style="{StaticResource LinkButton}"
+                         menu. An action sheet rather than a panel - one choice, then done.
+
+                         The drawn three dots, like every other menu in the app. It used to write the
+                         character "⋯", which neither text face carries - IBM Plex Sans and Space
+                         Grotesk both lack U+22EF - so Android was substituting a system font for it,
+                         and this was the last place in the app a menu was a character rather than a
+                         drawing. -->
+                    <controls:OverflowMenu VerticalOptions="Center"
+                            SemanticProperties.Description="{controls:Translate 'Sort'}"
                             Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=ChooseStockOrderCommand, x:DataType=tasks:TaskListDetailPage}" />
                 </controls:ItemCard.Menu>
 

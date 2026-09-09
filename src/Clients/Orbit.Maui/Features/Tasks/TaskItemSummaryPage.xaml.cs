@@ -115,6 +115,12 @@ public partial class TaskItemSummaryPage : ContentPage, ITitleMenu
 
 		var where = new SensorLocation(point.Latitude, point.Longitude);
 		PlaceMap.Pins.Add(new Pin { Label = point.Label, Address = point.Description, Location = where });
-		PlaceMap.MoveToRegion(MapSpan.FromCenterAndRadius(where, InitialRadius));
+
+		// Moved on the next turn of the loop, not now: the pin arriving is also what makes the map
+		// visible - MapArea is bound to HasPin - so at this moment the map has not been laid out yet and
+		// Google's own view drops the move without a word. The screen was left showing the whole
+		// Atlantic with the pin somewhere off it, which reads as a map that failed to find the place
+		// rather than one that was told where to go too early.
+		Dispatcher.Dispatch(() => PlaceMap.MoveToRegion(MapSpan.FromCenterAndRadius(where, InitialRadius)));
 	}
 }

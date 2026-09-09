@@ -34,9 +34,8 @@
          matters by which colour it is *outlined* in, so PrimaryButton below differs from this one by a
          stroke rather than by a block of accent.
 
-         Set in the display face, which is the Classical system's own rule for buttons: a button is a
-         small piece of typography rather than a label on a box, and at 14/600 Cormorant it reads as
-         one. MinimumHeightRequest keeps the 44pt tap target a phone needs and a pointer does not. -->
+         Set in the display face: a button is a small piece of typography rather than a label on a box.
+         MinimumHeightRequest keeps the 44pt tap target a phone needs and a pointer does not. -->
     <Style TargetType="Button">
         <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource SubtleTextLight}, Dark={StaticResource SubtleTextDark}}" />
         <Setter Property="BackgroundColor" Value="Transparent" />

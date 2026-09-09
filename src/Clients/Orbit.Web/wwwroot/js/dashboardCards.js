@@ -36,3 +36,21 @@ export function getCardFilters() {
 export function setCardFilters(filters) {
     window.localStorage.setItem(FILTER_KEY, JSON.stringify(filters ?? {}));
 }
+
+// Which folders this reader has taken off the dashboard - see FolderTabs' own menu. Stored here beside
+// the cards because it is the same kind of answer: what one person wants on one page on one device. The
+// folders themselves are the account's and are untouched; only the dashboard stops drawing their tab.
+const HIDDEN_FOLDERS_KEY = 'orbit-dashboard-hidden-folders';
+
+export function getHiddenFolders() {
+    try {
+        const stored = JSON.parse(window.localStorage.getItem(HIDDEN_FOLDERS_KEY) ?? '[]');
+        return Array.isArray(stored) ? stored.filter(id => typeof id === 'string') : [];
+    } catch {
+        return [];
+    }
+}
+
+export function setHiddenFolders(ids) {
+    window.localStorage.setItem(HIDDEN_FOLDERS_KEY, JSON.stringify(ids ?? []));
+}

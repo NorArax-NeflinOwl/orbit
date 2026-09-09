@@ -1,0 +1,63 @@
+@using Orbit.Core.Abstractions
+@using Orbit.Web.Services
+@inject Translations T
+
+@* The box a checklist entry or a note's line is answered in, with the three answers there are: nothing
+   yet, done, and given up on - see TickState. One press moves to the next, which is what makes the
+   third reachable with a thumb and no menu; the cost, taking a tick back being two presses rather than
+   one, is the everyday act staying a single tap.
+
+   A <button> rather than <input type="checkbox">, because a checkbox has two states and cannot draw a
+   cross. It says what it is to a screen reader through role="checkbox" and aria-checked, which carries
+   "mixed" for the third - the one value that exists for exactly this. *@
+<button type="button" class="tick-box @StateClass @AdditionalClass" role="checkbox"
+        aria-checked="@Announced" aria-label="@AriaLabel" title="@AriaLabel" disabled="@IsDisabled"
+        @onclick="Cycle" @onclick:stopPropagation="true">
+    @if (State == TickState.Completed)
+    {
+        <svg viewBox="0 0 20 20" width="13" height="13" aria-hidden="true" fill="none" stroke="currentColor"
+             stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="m4 10.5 4 4 8-9" /></svg>
+    }
+    else if (State == TickState.Failed)
+    {
+        <svg viewBox="0 0 20 20" width="13" height="13" aria-hidden="true" fill="none" stroke="currentColor"
+             stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 5l10 10M15 5 5 15" /></svg>
+    }
+</button>
+
+@code {
+    [Parameter] public TickState State { get; set; }
+
+    /// <summary>What this box now says, after the press - the caller saves it.</summary>
+    [Parameter] public EventCallback<TickState> StateChanged { get; set; }
+
+    [Parameter] public bool IsDisabled { get; set; }
+
+    /// <summary>
+    /// What the box alone says, for a reader who never sees the words beside it. The state is announced
+    /// separately - see the aria-checked above - so this is the thing being ticked, not the tick.
+    /// </summary>
+    [Parameter] public string? AriaLabel { get; set; }
+
+    [Parameter] public string? AdditionalClass { get; set; }
+
+    private string StateClass => State switch
+    {
+        TickState.Completed => "tick-box-done",
+        TickState.Failed => "tick-box-failed",
+        _ => string.Empty
+    };
+
+    /// <summary>
+    /// "mixed" for the cross: it is neither unanswered nor done, and mixed is the only third value
+    /// aria-checked has. Reading it as "partially checked" is closer than either of the other two.
+    /// </summary>
+    private string Announced => State switch
+    {
+        TickState.Completed => "true",
+        TickState.Failed => "mixed",
+        _ => "false"
+    };
+
+    private Task Cycle() => StateChanged.InvokeAsync(State.Next());
+}

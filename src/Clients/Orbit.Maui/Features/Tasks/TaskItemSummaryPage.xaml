@@ -20,20 +20,23 @@
             <!-- The entry itself, at the head and at the size of the thing the screen is about: its tick
                  state and its name on one line, which is how the design meets a single entry.
 
-                 The circle says whether it is done and does not offer to change it - this screen is
-                 reached from the calendar and reads an entry rather than filling it in, and the list it
-                 is on is where it can be ticked off. That is Orbit.Web's own division, and it is why the
-                 menu under the name offers one way out rather than the "edit · delete" every other
-                 object carries. -->
+                 The circle is pressed here as well as on the list. It used to say whether the entry was
+                 done and offer nothing, so the one screen about this entry was the one place it could
+                 not be finished - a reader who opened it to see when something was due had to go back
+                 to the list to cross it off. Orbit.Web's own entry page ticks it the same way now.
+                 The menu under the name still offers one way out rather than the "edit · delete" every
+                 other object carries: an entry belongs to a list rather than standing on its own. -->
             <Grid ColumnDefinitions="Auto,*" ColumnSpacing="14">
                 <controls:CheckCircle Grid.Column="0" Diameter="26" Margin="0,6,0,0"
                                       VerticalOptions="Start" IsChecked="{Binding IsCompleted}"
-                                      Description="{Binding Description}" />
+                                      IsFailed="{Binding IsFailed}"
+                                      Description="{Binding Description}"
+                                      Command="{Binding TickCommand}" />
                 <Label Grid.Column="1" Text="{Binding Description}" FontFamily="OrbitDisplay"
                        FontSize="28" FontAttributes="Bold" LineBreakMode="WordWrap"
                        VerticalOptions="Center">
                     <Label.Triggers>
-                        <DataTrigger TargetType="Label" Binding="{Binding IsCompleted}" Value="True">
+                        <DataTrigger TargetType="Label" Binding="{Binding IsResolved}" Value="True">
                             <Setter Property="TextDecorations" Value="Strikethrough" />
                             <Setter Property="TextColor"
                                     Value="{AppThemeBinding Light={StaticResource SubtleTextLight}, Dark={StaticResource SubtleTextDark}}" />
@@ -41,6 +44,12 @@
                     </Label.Triggers>
                 </Label>
             </Grid>
+
+            <!-- What a tick came to, when it came to anything worth saying: a refusal the store made -
+                 a list shared to read, or a shared one with no connection to take a lock over - or a
+                 save this phone is still holding. Said under the entry, where the press was made. -->
+            <Label Text="{Binding Status}" IsVisible="{Binding HasStatus}" FontSize="12"
+                   TextColor="{DynamicResource Accent}" LineBreakMode="WordWrap" />
 
             <!-- What is known about it, as hairline rows: the name of the fact on the left in small
                  caps, the fact itself on the right. When and where are the two this screen exists to
@@ -69,8 +78,10 @@
                     <BoxView Grid.Column="0" Grid.ColumnSpan="2" Style="{StaticResource Hairline}" VerticalOptions="Start" Margin="0,-12,0,0" />
                     <Label Grid.Column="0" Text="{controls:Translate 'Description'}"
                            Style="{StaticResource FieldLabel}" VerticalOptions="Center" />
-                    <Label Grid.Column="1" Text="{Binding AppointmentDescription}" LineBreakMode="WordWrap"
-                           HorizontalTextAlignment="End" VerticalOptions="Center" />
+                    <!-- What the appointment says about itself, with the addresses in it pressable -
+                         see LinkedLabel, which shares the browser's own rule about what counts as one. -->
+                    <controls:LinkedLabel Grid.Column="1" Words="{Binding AppointmentDescription}" LineBreakMode="WordWrap"
+                                          HorizontalTextAlignment="End" VerticalOptions="Center" />
                 </Grid>
 
                 <Grid ColumnDefinitions="Auto,*" ColumnSpacing="16" Padding="0,12" MinimumHeightRequest="46"

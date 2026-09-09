@@ -24,7 +24,8 @@ public sealed class EventReminderRepository : IEventReminderRepository
         var alreadyDone =
             from item in _dbContext.Set<TaskItemEntity>().AsNoTracking()
             join task in _dbContext.Tasks.AsNoTracking() on item.TaskId equals task.Id
-            where item.LinkedCalendarEventId != null && (item.IsCompleted || task.IsCompleted)
+            // Given up on counts as finished with, the same way a tick does - see TaskItem.IsFailed.
+            where item.LinkedCalendarEventId != null && (item.IsCompleted || item.IsFailed || task.IsCompleted)
             select item.LinkedCalendarEventId!.Value;
 
         // Cheap SQL-side prefilter (RemindersJson is either "[]" or a JSON array with entries) so events

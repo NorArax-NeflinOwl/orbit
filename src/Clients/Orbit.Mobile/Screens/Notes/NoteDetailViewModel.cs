@@ -242,18 +242,24 @@ public sealed partial class NoteDetailViewModel : ObservableObject
         IsWritingAChecklist = row.IsChecklistItem;
     }
 
+    /// <summary>
+    /// Moves a line to the next of the three answers - nothing, done, given up on - which is the same
+    /// cycle the browser's own box follows. See <see cref="NoteLineRow.Press"/> and TickState.
+    ///
+    /// Ticked in place and **not** written down: a tick is a change to the note like any other on this
+    /// screen, and the note is written by Save and by nothing else - see <see cref="CloseAsync"/>. It
+    /// used to write immediately, which meant a tick survived leaving the screen while the words typed
+    /// beside it did not.
+    /// </summary>
     [RelayCommand]
-    private Task ToggleCheckedAsync(NoteLineRow? row, CancellationToken cancellationToken)
+    private void ToggleChecked(NoteLineRow? row)
     {
         if (row is not { IsChecklistItem: true } || IsReadOnly)
         {
-            return Task.CompletedTask;
+            return;
         }
 
-        // Ticked in place and written down, rather than saved and read back: reading it back rebuilds
-        // every line, which on this screen means dropping whatever was being typed elsewhere.
-        row.IsChecked = !row.IsChecked;
-        return WriteAsync(cancellationToken);
+        row.Press();
     }
 
     /// <summary>Renaming saves the whole note, because the API's update takes the whole note.</summary>
@@ -323,6 +329,9 @@ public sealed partial class NoteDetailViewModel : ObservableObject
             _navigator.ShowChatKeyGate();
             return false;
         }
+
+        // Written down, so leaving no longer has anything to ask about.
+        RememberWhatIsWrittenDown();
 
         await SynchroniseAsync(cancellationToken);
         return true;
@@ -400,7 +409,35 @@ public sealed partial class NoteDetailViewModel : ObservableObject
         {
             AddLineAfter(null);
         }
+
+        RememberWhatIsWrittenDown();
     }
+
+    /// <summary>
+    /// What the note said the last time it was read or written, so that leaving can tell an edit from a
+    /// note somebody only looked at - see <see cref="HasUnsavedChanges"/>.
+    /// </summary>
+    private string _writtenDown = string.Empty;
+
+    /// <summary>
+    /// Everything a Save would send, as one string. Compared rather than tracked with a flag: a flag
+    /// says "something was touched", and something touched and put back is not a change - typing a
+    /// letter and deleting it would leave a note asking to be saved with nothing to save.
+    /// </summary>
+    private string WhatIsOnTheScreen()
+        => string.Join(
+            '\u001f',
+            Lines
+                .Select(line => $"{line.Text}\u001e{line.IsChecklistItem}\u001e{line.IsChecked}")
+                .Prepend(Title));
+
+    private void RememberWhatIsWrittenDown() => _writtenDown = WhatIsOnTheScreen();
+
+    /// <summary>
+    /// Whether leaving now would lose something. False on a note nobody can edit, and false once Save
+    /// has been pressed - which is the whole of what the question at the door needs to know.
+    /// </summary>
+    public bool HasUnsavedChanges => CanEdit && WhatIsOnTheScreen() != _writtenDown;
 
     /// <summary>
     /// Watches one line for the mark that makes it tickable.
@@ -495,14 +532,16 @@ public sealed partial class NoteDetailViewModel : ObservableObject
     }
 
     /// <summary>
-    /// Lets the note go when the screen does, rather than leaving it claimed for a minute - and writes
-    /// down anything typed into a line and not otherwise saved before letting go of it.
+    /// Lets the note go when the screen does, rather than leaving it claimed for a minute.
+    ///
+    /// It does **not** write anything down. Leaving used to save whatever had been typed, which made the
+    /// button in the corner mean nothing: the note was already written by the time anybody could press
+    /// it, and there was no way to try a change and then decide against it. The writing is committed by
+    /// Save and by nothing else, so leaving is how a reader abandons an edit. Every other detail screen
+    /// in the app already closes this way - see TaskListDetailViewModel, CalendarEventDetailViewModel
+    /// and InventoryDetailViewModel, whose CloseAsync releases the lock and stops.
     /// </summary>
-    public async Task CloseAsync()
-    {
-        await SaveLinesAsync(CancellationToken.None);
-        await _editLock.ReleaseAsync();
-    }
+    public Task CloseAsync() => _editLock.ReleaseAsync();
 
     /// <summary>
     /// Pushes what was just queued, and says so if it could not go. Nothing is lost either way - the

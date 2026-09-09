@@ -333,8 +333,10 @@ textarea {
 
 /* NoteEditor.razor: a note's title/content are the whole point of the page, so they get noticeably
    larger fields than a generic .editor-form text input instead of the same cramped default size. */
+/* Uncapped, unlike the other forms: what is on this side of the screen is one field, and a note asked
+   to fill the panel cannot also stop at 760px. */
 .note-editor-form {
-    max-width: 760px;
+    max-width: none;
 }
 
 /* input/textarea specificity note: the base rules above match via `input:not([type])`/`textarea`, and
@@ -362,9 +364,9 @@ input.note-editor-title {
 }
 
 /* A note nobody may write to. contenteditable="false" stops the typing; the tick boxes in it are real
-   <input>s, which a non-editable surface does not disable, so they are stopped here. Text stays
+   buttons, which a non-editable surface does not disable, so they are stopped here. Text stays
    selectable on purpose - a note that can be read should be one that can be copied. */
-.note-editor-content-readonly .note-line-checkbox {
+.note-editor-content-readonly .note-line-tick {
     pointer-events: none;
 }
 
@@ -393,9 +395,161 @@ input.note-editor-title {
     outline-offset: -1px;
 }
 
-.note-editor-toolbar {
+/* NoteEditor.razor: three columns on a wide screen - the notes in this folder, then the note itself
+   with its own pair. A fifth of the width for the column, which is what the note app it is modelled on
+   gives it, and the rest to the note. */
+.note-workspace {
     display: flex;
-    margin-bottom: 8px;
+    align-items: flex-start;
+    gap: 20px;
+}
+
+.note-workspace > .editor-page {
+    flex: 1 1 auto;
+    /* min-width, because a flex item's floor is the width of its widest content - without this a long
+       line in the note would push the column of notes off the screen instead of wrapping. */
+    min-width: 0;
+}
+
+.note-workspace-list {
+    flex: 0 0 20%;
+    max-width: 20%;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    /* It belongs to the page it stands beside, so it stays put as the note scrolls - the same rule
+       .editor-rail follows on the other side, and the same measured-in-numbers top. */
+    position: sticky;
+    top: 76px;
+    max-height: calc(100vh - 96px);
+    overflow-y: auto;
+}
+
+.note-workspace-list-heading {
+    margin: 0 0 6px;
+    font-size: 12px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--text-secondary);
+}
+
+.note-workspace-row {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    width: 100%;
+    padding: 8px 10px;
+    border: none;
+    border-radius: 8px;
+    background: transparent;
+    color: var(--text-primary);
+    text-align: left;
+    font: inherit;
+    cursor: pointer;
+}
+
+.note-workspace-row:hover {
+    background: var(--bg-subtle);
+}
+
+/* The one being written in. Marked rather than left out: a column that hides the note you are reading
+   is a column that answers "where am I" with nothing. */
+.note-workspace-row.chosen {
+    background: var(--accent-subtle);
+}
+
+.note-workspace-row-title {
+    font-weight: 600;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* No room for a third column: a fifth of a narrow window is too little to name a note in, and the
+   writing needs everything there is. The note is reached from /notes there, as it always was. */
+@media (max-width: 1100px) {
+    .note-workspace-list {
+        display: none;
+    }
+}
+
+/* NoteEditor.razor: the writing, and nothing else on this side of the screen. The tools sit over its
+   own bottom corner - see .note-editor-tools - so this is the positioning context for them. */
+.note-editor-surface {
+    position: relative;
+}
+
+/* A note is a page to write on, so it is given the page. The height is what is left of the window
+   under the bar and the note's own heading; the surface scrolls inside it rather than growing the page,
+   which is what keeps the tools in the corner where they were put. */
+.note-editor-page {
+    min-height: calc(100vh - 230px);
+}
+
+/* Over the corner of the writing rather than above it: a toolbar at the top of a note is a strip of
+   the page given to controls before a word has been written. The phone puts the same thing in the same
+   corner as a round button - see NoteDetailPage's Fab. */
+.note-editor-tools {
+    position: absolute;
+    left: 14px;
+    bottom: 14px;
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    padding: 4px;
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    background: var(--bg-elevated);
+    box-shadow: 0 6px 18px rgb(0 0 0 / 18%);
+}
+
+.note-tool {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 30px;
+    padding: 0;
+    border: none;
+    border-radius: 999px;
+    background: transparent;
+    color: var(--text-primary);
+    cursor: pointer;
+}
+
+.note-tool:hover {
+    background: var(--bg-subtle);
+}
+
+.note-tool-letters {
+    font-family: var(--font-display);
+    font-size: 15px;
+    font-weight: 600;
+}
+
+/* What a tool that does not exist yet says when it is pressed. Over the row rather than beside it,
+   because the row sits at the left edge of the writing and a bubble to its side would hang off it. */
+.note-tool-bubble {
+    position: absolute;
+    left: 0;
+    bottom: calc(100% + 8px);
+    white-space: nowrap;
+    padding: 5px 9px;
+    border-radius: 8px;
+    background: var(--text-primary);
+    color: var(--bg-elevated);
+    font-size: 12px;
+}
+
+/* What the note is rather than what is in it, in the panel's menu - see NoteEditor.razor. Wider than
+   a menu of actions because these are fields: a select squeezed to the width of "Priority" is a
+   control nobody can read the chosen value in. */
+.note-settings-menu {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    min-width: 250px;
+    padding: 4px 2px;
 }
 
 .note-line {
@@ -408,10 +562,50 @@ input.note-editor-title {
     gap: 8px;
 }
 
-.note-line-checkbox {
+/* TickBox.razor - the box an errand or a note's line is answered in. A drawn box rather than a native
+   checkbox, because a checkbox has two states and cannot carry the cross: done fills it in the app's
+   own accent, given up on in the colour everything else that went wrong is drawn in. */
+.tick-box {
     flex: 0 0 auto;
-    margin-top: 0.35em;
-    accent-color: var(--accent);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 17px;
+    height: 17px;
+    padding: 0;
+    border: 1.5px solid var(--text-tertiary);
+    border-radius: 5px;
+    background: transparent;
+    color: var(--accent-on);
+    cursor: pointer;
+}
+
+.tick-box:disabled {
+    cursor: default;
+    opacity: 0.6;
+}
+
+.tick-box-done {
+    background: var(--accent);
+    border-color: var(--accent);
+}
+
+.tick-box-failed {
+    background: var(--danger);
+    border-color: var(--danger);
+}
+
+/* A row somebody gave up on: struck through like a finished one - both are finished with - and told
+   apart by the colour of its box. .completed carries the strike; this quiets the words further, so a
+   column of crosses does not read as work that was done. */
+.check-row.failed .check-row-text {
+    color: var(--text-tertiary);
+}
+
+/* The same box inside the note's own writing surface, where it sits at the head of a line - see
+   checklistTextEditor.js, which builds it by hand rather than through the component. */
+.note-line-tick {
+    margin-top: 0.3em;
 }
 
 .note-line-text {
@@ -421,7 +615,10 @@ input.note-editor-title {
     overflow-wrap: break-word;
 }
 
-.note-line-done .note-line-text {
+/* Finished with, either way - a line somebody gave up on is struck through like a done one, and told
+   apart by the colour of its box rather than by its text. */
+.note-line-done .note-line-text,
+.note-line-failed .note-line-text {
     color: var(--text-tertiary);
     text-decoration: line-through;
 }
@@ -559,8 +756,15 @@ input.note-editor-title {
     margin: 0 auto;
     padding: 24px 32px 40px 32px;
     /* Fills whatever the bar above it leaves, and lays its two children out down the page, so that the
-       footer can be told to take the space nobody else wanted - see .app-footer. */
-    flex: 1 0 auto;
+       footer can be told to take the space nobody else wanted - see .app-footer.
+
+       It shrinks, which it did not: with flex-shrink at 0 and a basis of "auto" over width:100%, the
+       page claimed the whole row and the advertising rail beside it was pushed off the right edge of
+       the window. Every screen between 1200px - where the rail is meant to appear - and about 1500px
+       showed no rail at all, which is most laptops. min-width:0 with it, or a long line inside the page
+       would put the floor back. */
+    flex: 1 1 auto;
+    min-width: 0;
     /* And it has to be as tall as the row it sits in, or there is no space going spare for the footer
        to take. .app-body holds this beside the advertising rail and aligns its children to the top -
        which the rail wants and this does not: it left the page exactly as tall as its content, so on a
@@ -5806,13 +6010,6 @@ input.note-editor-title {
     font-weight: 600;
     letter-spacing: -0.01em;
     margin-bottom: 6px;
-}
-
-/* What the note is about rather than what is in it - priority, private - under the writing. */
-.note-editor-settings fieldset {
-    border: none;
-    margin: 0;
-    padding: 0;
 }
 
 /* An editing screen: what is being filled in on the left, and the panel that does not move on the

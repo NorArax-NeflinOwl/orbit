@@ -35,7 +35,7 @@ whatever Orbit draws under it.
 
 | | Orbit.Web | The phone |
 | --- | --- | --- |
-| Type | IBM Plex Sans over Space Grotesk | **Lora over Cormorant Garamond** |
+| ~~Type~~ | IBM Plex Sans over Space Grotesk | **the same** - see below |
 | Ground | warm — `#FAF6F2` / `#1B1410` | neutral — `#F3F2F2` / `#1C1A19` |
 | Text and rules | separate greys per role | the ink at 62%, 45% and 16% of itself |
 | Colour | fills — a filled primary button, a filled danger button | **stroke** — every button is an outline; the accent is an edge, never a block |
@@ -48,6 +48,7 @@ whatever Orbit draws under it.
 | A message | filled - the accent for yours, a grey for everybody else's | outlined - the accent over a wash of it, or a hairline over nothing |
 | An avatar | a disc filled with the person's hue | a ring in it, with the initials written in it |
 | A tick | the characters `○ ✓` and `☐ ☑` | one drawn circle - see `Controls/CheckCircle.xaml` |
+| Writing a note | saved as it is typed | **written by Save and by nothing else** - leaving the screen abandons the edit, ticks included, which is what makes the button in the corner mean anything. See below. |
 | A list | cards | **rows**, separated by hairlines |
 
 ### The vocabulary, and where each part lives
@@ -259,6 +260,79 @@ logo, which may not be covered at all. This is a deliberate departure from the d
 button bottom-right - the design's map is a placeholder tile with no furniture of its own, so it never
 had to share the corner. The card that says where you were last read to be gives the button room
 (`Margin="12,10,80,10"`), or a long address runs underneath it.
+
+## The type is one system again, and so is the dialog (2026-09-09)
+
+**Both clients are IBM Plex Sans over Space Grotesk.** The phone had a pair of its own for a day - Lora
+over Cormorant Garamond, from the Classical system - and no longer does. The `.ttf` files came back out
+of the commit that removed them (`4722ced1`), so these are the same faces the browser serves rather than
+a fresh download, and the Lora and Cormorant files are gone rather than left unused.
+
+Nothing else changed, because `MauiProgram` registers faces under **role** names - `OrbitBody`,
+`OrbitDisplay` - and no style anywhere names a font. Two things worth knowing:
+
+- **`OrbitDisplayLight` is the same file as `OrbitDisplay`, and that is not an oversight.** Space Grotesk
+  is carried at 500, 600 and 700 and at no lighter weight - see `wwwroot/fonts/orbit-fonts.css` - so the
+  display face has no normal cut on either client. The role is kept so the places that ask for it (the
+  dashboard's date, the wordmark on sign-in) still say what they mean.
+- **The menu tick renders now.** `ScreenMenuEntry.Mark` is the character `✓`, which neither Lora nor
+  Cormorant carried - `future-plan.md` recorded it as a thing to fix. IBM Plex Sans has it, so the
+  problem went with the faces. The box glyphs `☐ ☑` are still missing from both faces, which is why
+  `CheckCircle` draws its circle rather than writing one.
+
+**Walking every screen after the swap found three things, all of them the new faces being wider.**
+Cormorant Garamond is narrow and small on the body; Space Grotesk is wide with a large x-height, so the
+same point size is much bigger text. What that broke:
+
+- **The bar came apart on a long screen name.** "Restock supplies - Workshop" pushed the menu button
+  against the left edge and clipped the avatar off the right. The name sits in an `Auto` column inside
+  a cluster that is centred by being sized to its contents, and an `Auto` column grows to whatever is
+  in it - so the label never truncated, it just shoved its neighbours out of the bar. Capped at 200,
+  which is what a 411-wide bar has left once the menu, the avatar, their padding, both optional arrows
+  and the chevron have taken theirs.
+- **The dashboard's date wrapped.** 34 was drawn in Cormorant; it is 28 now, and
+  "Wednesday, 9 September" is one line again.
+- **One menu was still a character.** `TaskListDetailPage`'s stock-check card wrote `⋯`, and **neither
+  face carries U+22EF** - it is the drawn three dots (`OverflowMenu`) like every other menu now.
+
+Everything else read correctly: the calendar grid's digits, the inventory stepper at three digits, the
+settings tabs, both sign-in screens, the note editor, the menus and the drawer. A list of long names
+wraps more often than it did, which is the face and not a fault.
+
+**The question every irreversible press asks is Orbit's own panel now**, not Android's alert - see
+`Controls/ConfirmationDialog.xaml`. The platform alert was a grey slab in the system font with two blue
+words in it, the one thing left in the app that looked like somebody else's product, and it turned up at
+exactly the moment a reader is being asked to be careful. It is the same parts as the menu panel it sits
+over: a scrim, a hairline at the app's one radius, the page's own ground, and the app's own buttons -
+the danger outline on the press that cannot be undone. All six screens that ask a question got it from
+the one helper. A page not built on a `Grid` still falls back to the platform alert: a question that
+cannot be drawn must still be asked.
+
+## The note editor: what a press does, and when the note is written
+
+Three things the user found by using it, on 2026-09-09, all fixed:
+
+- **Enter on the note's name went nowhere.** A single-line field says "Done" to Android, so the
+  keyboard's own key was a tick and pressing it closed the keyboard. The name is the note's first line,
+  so the key goes on into the writing - `ReturnType="Next"` and `OnTitleCompleted`, which makes a line
+  if the note has none yet.
+- **A ticked line could not be reached by the keyboard at all.** It is drawn as a struck-through Label,
+  because MAUI puts `TextDecorations` on a Label and nowhere else, and its field is hidden - so there
+  was nothing to put a caret in and backspace on one did nothing. Pressing it opens the field in the
+  Label's place (`NoteLineRow.IsBeingWrittenIn`), which is what the design has: there every line is a
+  field, ticked or not, and only its decoration changes. **Anything that asks for the caret opens the
+  line first** - `PutTheCaretIn` - because the same hidden-field trap caught Enter on the name and
+  backspace merging up into a ticked line.
+- **The note saved itself, so Save meant nothing.** Leaving the screen wrote whatever had been typed,
+  and there was no way to try a change and decide against it. `CloseAsync` releases the edit lock and
+  writes nothing, which is what every other detail screen already did. Ticking a line no longer writes
+  either: a tick is a change to the note like any other, and it used to survive leaving while the words
+  typed beside it did not.
+
+What still writes on its own is the note's **menu** - priority, private, share - because each of those
+is a command somebody chose, and sealing needs a server round-trip and a read-back rather than a pending
+edit. Nothing warns a reader that leaving will lose what they typed; a "discard changes?" question is
+the usual guard and is not built.
 
 ## How to check it
 

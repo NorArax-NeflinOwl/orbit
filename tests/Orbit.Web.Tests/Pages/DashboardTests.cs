@@ -12,6 +12,7 @@ using Orbit.Contracts.Calendar;
 using Orbit.Contracts.Chat;
 using Orbit.Contracts.Inventories;
 using Orbit.Contracts.Users;
+using Orbit.Contracts.Folders;
 using Orbit.Contracts.Notes;
 using Orbit.Contracts.Notifications;
 using Orbit.Contracts.Tasks;
@@ -99,6 +100,10 @@ public sealed class DashboardTests : OrbitTestContext
         module.Setup<Dictionary<string, string>>("getCardFilters")
             .SetResult(filters is null ? [] : new Dictionary<string, string>(filters));
         module.SetupVoid("setCardFilters", _ => true);
+        // Which folders this device keeps off the dashboard - see FolderTabs' own menu. None, unless a
+        // test hides one through the component itself.
+        module.Setup<string[]>("getHiddenFolders").SetResult([]);
+        module.SetupVoid("setHiddenFolders", _ => true);
         Services.AddScoped<DashboardCardPreferences>();
     }
 
@@ -558,6 +563,44 @@ public sealed class DashboardTests : OrbitTestContext
     private static IReadOnlyList<string> RowTitlesIn(IRenderedComponent<Dashboard> cut, string heading)
         => [.. FindColumn(cut, heading).QuerySelectorAll(".row-title").Select(row => row.TextContent.Trim())];
 
+    /// <summary>
+    /// A folder somebody made belongs to one kind of thing - recipes are task lists, receipts are notes
+    /// - so opening its tab leaves that card standing and nothing else. The dashboard used to answer
+    /// "show me this folder" with the whole page and one card narrowed inside it.
+    /// </summary>
+    [Fact]
+    public void Opening_a_folder_leaves_only_the_card_it_is_about()
+    {
+        var recipes = Guid.NewGuid();
+        RegisterChatApiClient([]);
+        RegisterEmptyCalendarApiClient();
+        RegisterNotesApiClient([Note("Passport", "Normal")]);
+        RegisterTasksApiClient([TaskList("Pierogi") with { FolderId = recipes }]);
+        RegisterFolders(new FolderDto(
+            recipes, "Recipes", nameof(FolderScope.Tasks), DateTimeOffset.UtcNow, DateTimeOffset.UtcNow));
+        var cut = RenderComponent<Dashboard>();
+        Assert.Contains("Notes", CardNames(cut));
+
+        cut.FindAll(".folder-tab").First(tab => tab.TextContent.Contains("Recipes", StringComparison.Ordinal)).Click();
+
+        Assert.Equal(["Tasks"], CardNames(cut));
+    }
+
+    /// <summary>The names of the cards on the page, in the order they are drawn.</summary>
+    private static IReadOnlyList<string> CardNames(IRenderedFragment cut)
+        => [.. cut.FindAll(".item-card .item-card-name").Select(name => name.TextContent.Trim())];
+
+    /// <summary>The folders this account has made, which the row of tabs above the cards reads.</summary>
+    private void RegisterFolders(params FolderDto[] folders)
+        => Services.AddSingleton(new FolderState(new FoldersApiClient(
+            new HttpClient(new StubHttpMessageHandler(_ => new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = JsonContent.Create(folders)
+            }))
+            {
+                BaseAddress = new Uri("https://example.test/")
+            })));
+
     private static NoteDto Note(string title, string priority, bool isPinned = false)
         => new(
             Guid.NewGuid(), title, [], IsPrivate: false, EncryptedContent: null,
@@ -986,7 +1029,12 @@ public sealed class DashboardTests : OrbitTestContext
         Assert.DoesNotContain(cut.FindAll(".item-card"), card => card.QuerySelector(".item-card-name")!.TextContent == "Upcoming");
     }
 
-    /// <summary>And it is not owed today either - the strip counts the same work the card lists.</summary>
+    /// <summary>
+    /// And it is not owed today either - the strip counts the same work the card lists. Asked as
+    /// "closed while work was still unticked on it" rather than as "finished", which is also true of a
+    /// list whose entries simply all got ticked - and those are exactly the entries the fraction beside
+    /// the date exists to show.
+    /// </summary>
     [Fact]
     public void A_deadline_on_a_closed_list_is_not_counted_as_due_today()
     {
@@ -999,10 +1047,58 @@ public sealed class DashboardTests : OrbitTestContext
 
         var cut = RenderComponent<Dashboard>();
 
-        var tasksDueToday = cut.Find(".today-strip").QuerySelectorAll(".today-stat")
-            .Single(stat => stat.TextContent.Contains("tasks due today", StringComparison.Ordinal));
-        Assert.Equal("0", tasksDueToday.QuerySelector("strong")!.TextContent);
+        Assert.Equal("0/0", TodayStat(cut, "tasks due today"));
     }
+
+    /// <summary>
+    /// The strip says how far through the day the reader is, which is the question a row of numbers
+    /// over a date is asked. It used to say only what was left, so a day whose work was all ticked off
+    /// read "0 tasks due today" - three tasks that disappeared rather than three that were done.
+    /// </summary>
+    [Fact]
+    public void The_day_is_counted_as_what_is_done_over_what_is_due()
+    {
+        RegisterChatApiClient([]);
+        RegisterEmptyNotesApiClient();
+        RegisterEmptyCalendarApiClient();
+        var today = DateTimeOffset.Now.Date.AddHours(20);
+        RegisterTasksApiClient([TaskList(
+            "Shopping",
+            DueItem("Milk", today) with { IsCompleted = true },
+            DueItem("Bread", today),
+            DueItem("Last week", DateTimeOffset.Now.AddDays(-7)))]);
+
+        var cut = RenderComponent<Dashboard>();
+
+        // The overdue one belongs to its own list rather than to today's count; the finished one is
+        // half of what the fraction is for.
+        Assert.Equal("1/2", TodayStat(cut, "tasks due today"));
+    }
+
+    /// <summary>
+    /// An appointment carries no tick of its own, so "done" is the clock's answer - one that has ended
+    /// is one nobody has to get to any more.
+    /// </summary>
+    [Fact]
+    public void An_appointment_that_has_ended_counts_as_one_that_is_behind_the_reader()
+    {
+        RegisterChatApiClient([]);
+        RegisterEmptyNotesApiClient();
+        RegisterCalendarApiClient([
+            Event("Standup", DateTimeOffset.Now.AddHours(-3)),
+            Event("Retro", DateTimeOffset.Now.AddHours(3))]);
+        RegisterTasksApiClient([]);
+
+        var cut = RenderComponent<Dashboard>();
+
+        Assert.Equal("1/2", TodayStat(cut, "events today"));
+    }
+
+    /// <summary>What one of the strip's counts reads, by the words beside it.</summary>
+    private static string TodayStat(IRenderedComponent<Dashboard> cut, string named)
+        => cut.Find(".today-strip").QuerySelectorAll(".today-stat")
+            .Single(stat => stat.TextContent.Contains(named, StringComparison.Ordinal))
+            .QuerySelector("strong")!.TextContent;
 
     /// <summary>
     /// An appointment a task list raised is finished when that entry is ticked off - the entry is where

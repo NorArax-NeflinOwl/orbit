@@ -287,9 +287,10 @@
                        the dashboard's rows have opened what they name all along. The press stops here
                        rather than reaching the card behind it, which opens the whole checklist. *@
                     <Row Title="@Written(item.Description)" OnPressed="() => GoToEntry(taskList.Id, item.Id)"
-                         AdditionalClass="@($"task-preview-row {(item.IsCompleted ? "completed" : "")}")">
+                         AdditionalClass="@($"task-preview-row {(item.IsCompleted || item.IsFailed ? "completed" : "")}")">
                         <Leading>
-                            <span class="task-preview-mark">@(item.IsCompleted ? "✓" : "")</span>
+                            @* A tick, a cross, or nothing - the three answers an entry gives, see TickState. *@
+                            <span class="task-preview-mark">@(item.IsCompleted ? "✓" : item.IsFailed ? "✗" : "")</span>
                             @* An appointment's own colour, the same dot the dashboard's Upcoming card
                                draws - see EventColourOf. Only for an entry that is one: a thing to tick
                                off and a restock errand have no event and so no colour. *@
@@ -620,7 +621,7 @@
     /// nothing but such rows, and used to fold down to "Nothing left to do." with six errands still open.
     /// </summary>
     private ThingLeftToDo? NextThingLeftToDo(TaskDto taskList)
-        => FirstEntryOn(taskList, item => !item.IsCompleted);
+        => FirstEntryOn(taskList, item => !item.IsCompleted && !item.IsFailed);
 
     private ThingLeftToDo? FirstEntryOn(TaskDto taskList, Func<TaskItemDto, bool> wanted)
     {

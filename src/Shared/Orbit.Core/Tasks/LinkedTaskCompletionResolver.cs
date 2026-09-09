@@ -44,7 +44,7 @@ public sealed class LinkedTaskCompletionResolver
             .Select(item => item.IsALinkToOtherLists
                 ? TaskItem.FromPersistence(
                     item.Id, item.Description, item.DueDateUtc, IsEveryLinkedListDone(item, context), item.LinkedTaskListIds,
-                    item.Reminders)
+                    item.Reminders, waitsForTaskItemIds: item.WaitsForTaskItemIds)
                 : item)
             .ToList();
 

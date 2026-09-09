@@ -15,7 +15,8 @@ public sealed record PublicSharedItemDto(
     string OwnerDisplayName,
     DateTimeOffset UpdatedAtUtc);
 
-public sealed record PublicSharedItemLineDto(string Text, bool IsChecklistItem, bool IsChecked, string? Detail);
+/// <param name="IsFailed">Crossed out rather than ticked - see Orbit.Core.Tasks.TaskItem.IsFailed.</param>
+public sealed record PublicSharedItemLineDto(string Text, bool IsChecklistItem, bool IsChecked, string? Detail, bool IsFailed = false);
 
 /// <param name="AlreadyHeld">The caller already had access, so nothing new was granted.</param>
 public sealed record ClaimPublicShareLinkResponse(string ItemType, Guid ItemId, bool AlreadyHeld);

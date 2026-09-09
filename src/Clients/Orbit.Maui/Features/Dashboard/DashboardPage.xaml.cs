@@ -47,52 +47,48 @@ public partial class DashboardPage : ContentPage, ITitleMenu
 	}
 
 	/// <summary>
-	/// What hangs under the screen's name: how the page is arranged, and what is on it. Two entries
-	/// that open the two sets rather than one panel holding both - the second is a list of every card
-	/// Orbit has, and a menu that long with an order at the top of it is a menu nobody reads.
+	/// What hangs under the screen's name: what is on the page, and what order it is in - one panel of
+	/// two named groups, which is what the design draws.
+	///
+	/// It used to be two entries that opened the two sets in turn, on the reasoning that the parts list
+	/// is every card Orbit has and a menu that long with an order at the top of it is a menu nobody
+	/// reads. A menu is groups now, each under its own heading, so the length is legible and both halves
+	/// are on screen at once.
+	///
+	/// Rebuilt from scratch on every choice that leaves it open, rather than ticking the entry that was
+	/// pressed: putting a part away rebuilds the choices, so the entries this menu is holding are no
+	/// longer the ones that know their own answer.
 	/// </summary>
-	private void ShowTheDashboardMenu() => Menu.Show(
+	private void ShowTheDashboardMenu() => Menu.ShowGroups(
 		[
-			new ScreenMenuEntry(_translations["Sort"], ShowTheOrderMenu),
-			new ScreenMenuEntry(_translations["Show on the dashboard"], ShowPartsMenu)
+			// Which parts of the dashboard are wanted at all. Settings rather than actions, so they stay
+			// open while several are changed - the exception Orbit.Web's OverflowMenu.StaysOpen makes
+			// for exactly this menu.
+			new ScreenMenuGroup(
+				_translations["Show on the dashboard"],
+				_viewModel.CardChoices.Select(choice => new ScreenMenuEntry(
+					choice.Name,
+					() =>
+					{
+						_viewModel.ToggleCardShownCommand.Execute(choice);
+						ShowTheDashboardMenu();
+					},
+					choice.IsShown,
+					staysOpen: true))),
+
+			// What order the cards are in under the pins - which stay at the top whatever is chosen, so
+			// the heading says so rather than leaving the reader to notice.
+			new ScreenMenuGroup(
+				_translations["Sort - pinned stay on top"],
+				[
+					new(_translations["Orbit's order"],
+						() => _viewModel.ArrangeCommand.Execute(DashboardCardOrder.Standard),
+						_viewModel.Order is DashboardCardOrder.Standard),
+					new(_translations["Name"],
+						() => _viewModel.ArrangeCommand.Execute(DashboardCardOrder.Name),
+						_viewModel.Order is DashboardCardOrder.Name)
+				])
 		]);
-
-	/// <summary>
-	/// What order the cards are in under the pins - which stay at the top whatever is chosen, so the
-	/// heading says so rather than leaving the reader to notice.
-	/// </summary>
-	private void ShowTheOrderMenu() => Menu.Show(
-		[
-			new ScreenMenuEntry(
-				_translations["Orbit's order"],
-				() => _viewModel.ArrangeCommand.Execute(DashboardCardOrder.Standard),
-				_viewModel.Order is DashboardCardOrder.Standard),
-			new ScreenMenuEntry(
-				_translations["Name"],
-				() => _viewModel.ArrangeCommand.Execute(DashboardCardOrder.Name),
-				_viewModel.Order is DashboardCardOrder.Name)
-		],
-		_translations["Sort - pinned stay on top"]);
-
-	/// <summary>
-	/// Which parts of the dashboard are wanted at all. A menu of settings rather than of actions, so it
-	/// stays open while several are changed - which is the exception Orbit.Web's OverflowMenu.StaysOpen
-	/// makes for exactly this menu.
-	/// </summary>
-	private void ShowPartsMenu() => Menu.Show(
-		_viewModel.CardChoices.Select(choice => new ScreenMenuEntry(
-			choice.Name,
-			() =>
-			{
-				_viewModel.ToggleCardShownCommand.Execute(choice);
-
-				// Asked again rather than ticked here: putting a part away rebuilds the choices, so the
-				// entries this menu is holding are no longer the ones that know their own answer.
-				ShowPartsMenu();
-			},
-			choice.IsShown,
-			staysOpen: true)),
-		_translations["Show on the dashboard"]);
 
 	/// <summary>
 	/// What one card is showing of what it could show - Orbit.Web's CardFilterMenu, under the same

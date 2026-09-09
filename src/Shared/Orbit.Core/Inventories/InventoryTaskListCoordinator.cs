@@ -195,7 +195,9 @@ public sealed class InventoryTaskListCoordinator
         if (item.PendingRestockTaskItemId is { } trackedTaskItemId)
         {
             var tracked = taskList.Items.First(candidate => candidate.Id == trackedTaskItemId);
-            if (!tracked.IsCompleted)
+            // Finished with either way: an errand somebody gave up on is not one still waiting, so a
+            // shelf that is still low raises it again rather than sitting behind a crossed-out line.
+            if (!tracked.IsResolved)
             {
                 return item;
             }
@@ -263,7 +265,7 @@ public sealed class InventoryTaskListCoordinator
         // for eight of it are the same errand, and a changed minimum must not put a second copy on the
         // list beside the first.
         var alreadyWaiting = taskList.Items
-            .Where(item => !item.IsCompleted)
+            .Where(item => !item.IsResolved)
             .Select(item => RestockTaskNaming.ProductIn(item.Description))
             .ToHashSet(StringComparer.CurrentCultureIgnoreCase);
 

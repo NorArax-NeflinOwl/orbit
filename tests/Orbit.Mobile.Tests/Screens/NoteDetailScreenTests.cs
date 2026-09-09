@@ -106,11 +106,12 @@ public sealed class NoteDetailScreenTests
     }
 
     /// <summary>
-    /// Leaving the screen is the other way an edit ends, and the one that used to lose it: every other
-    /// action here saves the whole note, so only a line typed and then left alone was at risk.
+    /// Leaving the screen abandons the edit, which is how a reader decides against a change: the button
+    /// in the corner is what writes the note down, and it used to mean nothing because leaving saved
+    /// anyway. Every other detail screen already closes without writing.
     /// </summary>
     [Fact]
-    public async Task A_line_edited_and_left_alone_is_still_written_down()
+    public async Task A_line_edited_and_left_alone_is_not_written_down()
     {
         using var context = new ScreenContext();
         var note = await context.AddNoteAsync("Shopping", "mikl");
@@ -120,6 +121,81 @@ public sealed class NoteDetailScreenTests
         await screen.CloseAsync();
 
         var reopened = await context.OpenAsync(note.LocalId);
+        Assert.Equal(["mikl"], reopened.Lines.Select(line => line.Text));
+    }
+
+    /// <summary>And the same for the name, which Save writes along with the lines.</summary>
+    [Fact]
+    public async Task A_name_edited_and_left_alone_is_not_written_down_either()
+    {
+        using var context = new ScreenContext();
+        var note = await context.AddNoteAsync("Shopping", "milk");
+        var screen = await context.OpenAsync(note.LocalId);
+
+        screen.Title = "Shopping list";
+        await screen.CloseAsync();
+
+        Assert.Equal("Shopping", (await context.OpenAsync(note.LocalId)).Title);
+    }
+
+    /// <summary>
+    /// What the question at the door reads - see NoteDetailPage.MayLeaveAsync. Compared against what
+    /// was last written rather than tracked with a flag, so a letter typed and deleted again leaves
+    /// nothing to ask about.
+    /// </summary>
+    [Fact]
+    public async Task A_note_knows_whether_leaving_would_lose_anything()
+    {
+        using var context = new ScreenContext();
+        var note = await context.AddNoteAsync("Shopping", "milk");
+        var screen = await context.OpenAsync(note.LocalId);
+
+        Assert.False(screen.HasUnsavedChanges);
+
+        screen.Lines[0].Text = "milk and bread";
+        Assert.True(screen.HasUnsavedChanges);
+
+        screen.Lines[0].Text = "milk";
+        Assert.False(screen.HasUnsavedChanges);
+
+        screen.Title = "Shopping list";
+        Assert.True(screen.HasUnsavedChanges);
+
+        await screen.SaveLinesCommand.ExecuteAsync(null);
+        Assert.False(screen.HasUnsavedChanges);
+    }
+
+    /// <summary>A tick is a change like any other, and it is not written until Save either.</summary>
+    [Fact]
+    public async Task Ticking_a_line_is_something_leaving_would_lose()
+    {
+        using var context = new ScreenContext();
+        var note = await context.AddNoteAsync("Shopping", "milk");
+        var screen = await context.OpenAsync(note.LocalId);
+        screen.ToggleChecklistCommand.Execute(screen.Lines[0]);
+        await screen.SaveLinesCommand.ExecuteAsync(null);
+
+        screen.ToggleCheckedCommand.Execute(screen.Lines[0]);
+
+        Assert.True(screen.HasUnsavedChanges);
+        await screen.CloseAsync();
+        Assert.False((await context.OpenAsync(note.LocalId)).Lines[0].IsChecked);
+    }
+
+    /// <summary>Pressing Save is what commits both of them.</summary>
+    [Fact]
+    public async Task Save_writes_the_name_and_the_lines_together()
+    {
+        using var context = new ScreenContext();
+        var note = await context.AddNoteAsync("Shopping", "mikl");
+        var screen = await context.OpenAsync(note.LocalId);
+
+        screen.Title = "Shopping list";
+        screen.Lines[0].Text = "milk";
+        await screen.SaveLinesCommand.ExecuteAsync(null);
+
+        var reopened = await context.OpenAsync(note.LocalId);
+        Assert.Equal("Shopping list", reopened.Title);
         Assert.Equal(["milk"], reopened.Lines.Select(line => line.Text));
     }
 
@@ -135,10 +211,31 @@ public sealed class NoteDetailScreenTests
         var screen = await context.OpenAsync(note.LocalId);
 
         screen.ToggleChecklistCommand.Execute(screen.Lines[0]);
-        await screen.ToggleCheckedCommand.ExecuteAsync(screen.Lines[0]);
+        screen.ToggleCheckedCommand.Execute(screen.Lines[0]);
 
         Assert.True(screen.Lines[0].IsChecked);
         Assert.False(screen.Lines[1].IsChecklistItem);
+    }
+
+    /// <summary>
+    /// A line gives the same three answers an errand does: nothing, done, given up on - see TickState.
+    /// A line somebody gave up on is finished with and not done, which is why it is not simply ticked.
+    /// </summary>
+    [Fact]
+    public async Task A_line_can_be_crossed_out_rather_than_ticked_off()
+    {
+        using var context = new ScreenContext();
+        var note = await context.AddNoteAsync("Shopping", "milk");
+        var screen = await context.OpenAsync(note.LocalId);
+        screen.ToggleChecklistCommand.Execute(screen.Lines[0]);
+
+        screen.ToggleCheckedCommand.Execute(screen.Lines[0]);
+        screen.ToggleCheckedCommand.Execute(screen.Lines[0]);
+
+        Assert.False(screen.Lines[0].IsChecked);
+        Assert.True(screen.Lines[0].IsFailed);
+        // Struck through either way: the circle beside it says which of the two it was.
+        Assert.True(screen.Lines[0].IsCompleted);
     }
 
     /// <summary>
@@ -167,7 +264,7 @@ public sealed class NoteDetailScreenTests
         var screen = await context.OpenAsync(note.LocalId);
 
         screen.ToggleChecklistCommand.Execute(screen.Lines[0]);
-        await screen.ToggleCheckedCommand.ExecuteAsync(screen.Lines[0]);
+        screen.ToggleCheckedCommand.Execute(screen.Lines[0]);
 
         Assert.True(screen.Lines[0].IsChecklistItem);
         Assert.True(screen.Lines[0].IsChecked);
@@ -184,7 +281,7 @@ public sealed class NoteDetailScreenTests
         var note = await context.AddNoteAsync("Shopping", "milk");
         var screen = await context.OpenAsync(note.LocalId);
 
-        await screen.ToggleCheckedCommand.ExecuteAsync(screen.Lines[0]);
+        screen.ToggleCheckedCommand.Execute(screen.Lines[0]);
 
         Assert.False(screen.Lines[0].IsChecked);
     }

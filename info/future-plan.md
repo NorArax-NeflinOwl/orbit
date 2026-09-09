@@ -764,11 +764,11 @@ Every screen the design covers has now been redrawn. The passes were:
 
 One thing the design showed up that is not fixed:
 
-- **The tick in a menu is a character, not a drawing.** `ScreenMenuEntry.Mark` is `"✓"`, and neither
-  Lora nor Cormorant Garamond has that glyph - Android substitutes a system face for it, where IBM Plex
-  used to carry it. The same problem on the task and note screens was solved by drawing the tick
-  (`Controls/CheckCircle.xaml`); a menu's own tick is one `Mark` string in Orbit.Mobile and would need
-  the entry to carry a bool instead, so it was left.
+- ~~**The tick in a menu is a character, not a drawing.**~~ **Went on 2026-09-09 without being fixed.**
+  `ScreenMenuEntry.Mark` is still the character `"✓"`, but the faces are IBM Plex Sans over Space
+  Grotesk again and IBM Plex Sans carries that glyph, so nothing is substituted any more. It is worth
+  remembering that the string is still a glyph and not a drawing: a third change of face would bring it
+  back. The box glyphs `☐ ☑` are carried by neither face, which is why `CheckCircle` draws its circle.
 
 ### The pass this replaced
 
@@ -928,11 +928,21 @@ its shared controls. What that pass left, all of it now overtaken:
   answering `/api/users/{id}` with a contact who has a public key. `ShareInventoryPanelTests` is the
   smallest of the five to copy.
 
-- **The phone shows no links in a description either.** The addresses in a description are pressable on
-  the web (`TextWithLinks`, 2026-09-06); the phone draws the same descriptions as plain labels. The
-  splitter behind it (`LinksInText`) is pure text-in, runs-out and has no web dependency, so the phone
-  would reuse it rather than write a second rule about what counts as an address - but a MAUI label
-  showing part of its text as a link is `FormattedString` and spans, which is its own piece of work.
+- **The phone cannot choose what an entry waits for.** An entry can wait for other entries of the same
+  list since 2026-09-09 (`TaskListSteps`), and the phone honours it in full - it refuses the tick and
+  names what is still outstanding, and its pushes carry the steps through untouched - but the picker
+  that *sets* them is only in the browser's editor. What it would take: the shape `TaskItemEditor`
+  already has for the lists an entry stands for, offering the other entries of this list instead, and
+  the same settle-after-the-picker dance `TaskListDetailPage.OnLinkedTaskListPicked` does.
+
+- **The phone shows links in some of what it draws, not all of it** (2026-09-09). The splitter moved to
+  `Orbit.Core.Text.LinksInText`, so both clients share one rule about what counts as an address, and
+  `LinkedLabel` is the phone's half of `TextWithLinks` - a `Label` that writes `FormattedText`, since a
+  Span is the only thing in MAUI that can carry a gesture of its own. It is drawn in **chat messages**,
+  in both a conversation and a group, and on **a task entry's appointment description**. Still plain
+  labels: every other read-only description the phone shows (a list's, a shelf's, an event's), and a
+  note's own lines - those are `Entry` boxes being written in, and a text box cannot hold a link at all.
+  What it would take: swapping the labels, one screen at a time; there is nothing left to design.
 
 - **The phone has no box for an entry's description.** Every task entry can carry one now
   (`TaskItem.Notes`, 2026-09-06) and the phone neither shows nor writes it. Nothing is lost - its push
@@ -960,7 +970,7 @@ its shared controls. What that pass left, all of it now overtaken:
   | Object | Shallow view | Full form |
   | --- | --- | --- |
   | Task list | `/tasks/{id}` - the checklist: tick items, see the tree of lists it stands for, measure it against a storage | `/tasks/{id}/edit` |
-  | Task entry | `/tasks/{listId}/items/{itemId}` - `TaskItemSummary`: when, where, what the appointment is about, who is coming, and a map | the entry's own row in the list's editor |
+  | Task entry | `/tasks/{listId}/items/{itemId}` - `TaskItemSummary`: when, where, what the appointment is about, who is coming, a map, and a Done box that crosses it off | the entry's own row in the list's editor |
   | Note | `/notes/{id}` - `NoteSummary`: the note read, with the checklist lines in it tickable | `/notes/{id}/edit` |
   | Calendar event | `/calendar/{id}` - `CalendarEventSummary`: when, where, what it is about, who is coming, its reminders, and the place on a map | `/calendar/{id}/edit` |
   | Storage | `/inventory/{id}` - the shelf read rather than edited, one row per batch: what it is, how much, when it arrived, how long it keeps | `/inventory/{id}/edit` |
@@ -992,6 +1002,13 @@ its shared controls. What that pass left, all of it now overtaken:
   back to the list. The flat reading of a checklist was folded in on the way: its rows were `<label>`s,
   so pressing what an entry said crossed it off there while the same words on the grouped view opened it
   (`CheckRow.OnTitlePressed`).
+
+  The entry's page ticks it off itself since 2026-09-09, on both clients - the light doing that belongs
+  to the thing it reads, which it was the one shallow view without. Both web screens tick through
+  `TaskItemCompletion`; the phone's `TaskItemSummaryViewModel` writes it to the phone and queues it.
+  What is left of the old note above still holds: the checkbox on the checklist row is where an entry is
+  crossed off *while reading the list*, and the entry's page is where it is crossed off while reading
+  the entry.
 
   **The phone still forks the way the calendar used to** (`CalendarViewModel.OpenDeadline`,
   `CalendarDeadline.IsSomewhere`): a deadline with somewhere to be opens its own screen, one without

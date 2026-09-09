@@ -64,7 +64,7 @@ public sealed class SharedItemPageTests : OrbitTestContext
         var cut = RenderComponent<SharedItemPage>(parameters => parameters.Add(page => page.Token, "a-token"));
 
         // The reader can see what is done without being offered a control that would do nothing.
-        Assert.True(cut.Find("input[type=checkbox]").HasAttribute("disabled"));
+        Assert.True(cut.Find(".tick-box").HasAttribute("disabled"));
     }
 
     [Fact]

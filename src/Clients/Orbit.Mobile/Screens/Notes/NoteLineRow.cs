@@ -1,5 +1,6 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using Orbit.Contracts.Notes;
+using Orbit.Core.Abstractions;
 
 namespace Orbit.Mobile.Screens.Notes;
 
@@ -24,32 +25,77 @@ public sealed partial class NoteLineRow : ObservableObject
     [ObservableProperty]
     private bool _isChecked;
 
-    public static NoteLineRow From(NoteContentLineDto line)
-        => new() { Text = line.Text, IsChecklistItem = line.IsChecklistItem, IsChecked = line.IsChecked };
+    /// <summary>Crossed out rather than ticked off - see Orbit.Core.Notes.NoteContentLine.IsFailed.</summary>
+    [ObservableProperty]
+    private bool _isFailed;
 
-    public NoteContentLineDto ToDto() => new(Text, IsChecklistItem, IsChecked);
+    public static NoteLineRow From(NoteContentLineDto line)
+        => new()
+        {
+            Text = line.Text,
+            IsChecklistItem = line.IsChecklistItem,
+            IsChecked = line.IsChecked,
+            IsFailed = line.IsFailed
+        };
+
+    public NoteContentLineDto ToDto() => new(Text, IsChecklistItem, IsChecked, IsFailed);
+
+    /// <summary>What the box says, as the three answers there are - see TickState.</summary>
+    public TickState Tick => Ticks.Read(IsChecked, IsFailed);
+
+    /// <summary>What one press makes of it: nothing, done, given up on, nothing again.</summary>
+    public void Press()
+    {
+        var next = Tick.Next();
+        IsChecked = next.IsCompleted();
+        IsFailed = next.IsFailed();
+    }
 
     /// <summary>What the tick box shows: empty, ticked, or nothing at all for prose.</summary>
     public string CompletionMark => !IsChecklistItem ? string.Empty : IsChecked ? "☑" : "☐";
 
-    public bool IsCompleted => IsChecklistItem && IsChecked;
+    /// <summary>
+    /// Finished with, either way - what the line is drawn struck through for. The circle beside it says
+    /// which of the two it was.
+    /// </summary>
+    public bool IsCompleted => IsChecklistItem && (IsChecked || IsFailed);
+
+    /// <summary>
+    /// Set while the reader has the caret in this line, and only ever true for a ticked one.
+    ///
+    /// A ticked line is drawn struck through, which a text box cannot do - MAUI puts TextDecorations on
+    /// a Label and nowhere else - so the two are separate controls. Drawn as a Label and nothing else, a
+    /// ticked line cannot be reached by the keyboard at all: there is no field to put a caret in, so
+    /// backspace on it did nothing and the only way to get rid of one was to untick it first. Pressing
+    /// it opens the field in the Label's place, which is what the design has - there every line is a
+    /// field, ticked or not, and only its decoration changes.
+    /// </summary>
+    [ObservableProperty]
+    private bool _isBeingWrittenIn;
 
     /// <summary>
     /// Whether the editor shows this line as something to write in rather than as something already
-    /// done. A ticked line is drawn struck through, which a text box cannot do - MAUI puts
-    /// TextDecorations on a Label and nowhere else - so the two are separate controls and this is which
-    /// of them is showing. Untick it to write in it again, which is also what it means.
+    /// done - which of the two controls is showing. A ticked line opens while it is being written in.
     /// </summary>
-    public bool IsOpenForWriting => !IsCompleted;
+    public bool IsOpenForWriting => !IsCompleted || IsBeingWrittenIn;
+
+    /// <summary>Struck through: done, and not currently being written in.</summary>
+    public bool IsStruckThrough => IsCompleted && !IsBeingWrittenIn;
 
     partial void OnIsChecklistItemChanged(bool value) => SayHowItIsDrawn();
 
     partial void OnIsCheckedChanged(bool value) => SayHowItIsDrawn();
+
+    partial void OnIsFailedChanged(bool value) => SayHowItIsDrawn();
+
+    partial void OnIsBeingWrittenInChanged(bool value) => SayHowItIsDrawn();
 
     private void SayHowItIsDrawn()
     {
         OnPropertyChanged(nameof(CompletionMark));
         OnPropertyChanged(nameof(IsCompleted));
         OnPropertyChanged(nameof(IsOpenForWriting));
+        OnPropertyChanged(nameof(IsStruckThrough));
+        OnPropertyChanged(nameof(Tick));
     }
 }

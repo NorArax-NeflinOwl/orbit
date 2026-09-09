@@ -259,7 +259,12 @@ else
                                             }
                                             else
                                             {
-                                                @(_decryptedContentByMessageId.GetValueOrDefault(message.Id) ?? T["[couldn't decrypt]"])
+                                                @* The addresses in it pressable rather than copied out by
+                                                   hand - the same splitter every other place somebody's
+                                                   own words are shown uses, and the same reason it hands
+                                                   back text rather than markup: this is a message written
+                                                   by somebody else. See LinksInText. *@
+                                                <TextWithLinks Text="@(_decryptedContentByMessageId.GetValueOrDefault(message.Id) ?? T["[couldn't decrypt]"])" />
                                             }
                                         </p>
                                         @if (canEdit || canForward)

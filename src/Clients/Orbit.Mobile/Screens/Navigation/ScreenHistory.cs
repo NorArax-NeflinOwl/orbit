@@ -106,8 +106,35 @@ public sealed class ScreenHistory
     }
 
     /// <summary>
+    /// What the screen on top wants asked before back takes it away - answering true to let it go and
+    /// false to stay. Null on every screen that has nothing to lose, which is nearly all of them: the
+    /// note editor sets one because it is written by Save and by nothing else, so leaving it with
+    /// something typed would throw the typing away without a word.
+    ///
+    /// One at a time, and identified by the delegate itself when it is taken down, so a screen cannot
+    /// clear a question that a later one put up.
+    /// </summary>
+    private Func<Task<bool>>? _mayLeave;
+
+    /// <inheritdoc cref="_mayLeave"/>
+    public void AskBeforeLeaving(Func<Task<bool>> ask) => _mayLeave = ask;
+
+    /// <inheritdoc cref="_mayLeave"/>
+    public void StopAskingBeforeLeaving(Func<Task<bool>> ask)
+    {
+        if (_mayLeave == ask)
+        {
+            _mayLeave = null;
+        }
+    }
+
+    /// <summary>
     /// Goes back one screen. False when there is nothing behind this one, which the caller answers by
     /// letting the platform do what it would have done - on Android, leaving the app.
+    ///
+    /// True also means "this press has been dealt with" rather than "the screen has changed": where the
+    /// screen on top has a question to ask first, back is answered here and the going happens later, if
+    /// at all. The alternative is an async back press, which Android's own callback cannot wait for.
     /// </summary>
     public bool GoBack()
     {
@@ -116,6 +143,26 @@ public sealed class ScreenHistory
             return false;
         }
 
+        if (_mayLeave is { } ask)
+        {
+            _ = LeaveIfAllowedAsync(ask);
+            return true;
+        }
+
+        Pop();
+        return true;
+    }
+
+    private async Task LeaveIfAllowedAsync(Func<Task<bool>> ask)
+    {
+        if (await ask() && CanGoBack)
+        {
+            Pop();
+        }
+    }
+
+    private void Pop()
+    {
         _stack.RemoveAt(_stack.Count - 1);
         var back = _stack[^1];
 
@@ -124,6 +171,5 @@ public sealed class ScreenHistory
         // for ever after.
         _stack.RemoveAt(_stack.Count - 1);
         back.Show();
-        return true;
     }
 }

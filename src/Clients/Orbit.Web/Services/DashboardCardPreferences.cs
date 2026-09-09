@@ -28,11 +28,18 @@ public sealed class DashboardCardPreferences(IJSRuntime jsRuntime)
 {
     private HashSet<string> _hiddenCardKeys = [];
     private Dictionary<string, DashboardCardFilter> _filterByCardKey = [];
+    private HashSet<Guid> _hiddenFolderIds = [];
 
     public async Task InitializeAsync()
     {
         await using var module = await ImportModuleAsync();
         _hiddenCardKeys = [.. await module.InvokeAsync<string[]>("getHiddenCards")];
+        _hiddenFolderIds =
+        [
+            .. (await module.InvokeAsync<string[]>("getHiddenFolders"))
+                .Select(id => Guid.TryParse(id, out var folderId) ? folderId : (Guid?)null)
+                .OfType<Guid>()
+        ];
         var storedFilters = await module.InvokeAsync<Dictionary<string, string>>("getCardFilters");
         _filterByCardKey = storedFilters
             .Where(stored => Enum.TryParse<DashboardCardFilter>(stored.Value, out _))
@@ -57,6 +64,31 @@ public sealed class DashboardCardPreferences(IJSRuntime jsRuntime)
 
         await using var module = await ImportModuleAsync();
         await module.InvokeVoidAsync("setHiddenCards", _hiddenCardKeys);
+    }
+
+    /// <summary>
+    /// Whether a folder somebody made is drawn on the dashboard at all. Shown unless they said
+    /// otherwise: a tab that had to be turned on would be a tab nobody found.
+    ///
+    /// It hides the tab rather than the folder - the folder is still there on the page it belongs to,
+    /// with everything in it - and the dashboard shows what is under the tab that is open, so a folder
+    /// with no tab here is one the dashboard stops drawing.
+    /// </summary>
+    public bool IsFolderShown(Guid folderId) => !_hiddenFolderIds.Contains(folderId);
+
+    public async Task SetFolderShownAsync(Guid folderId, bool isShown)
+    {
+        if (isShown)
+        {
+            _hiddenFolderIds.Remove(folderId);
+        }
+        else
+        {
+            _hiddenFolderIds.Add(folderId);
+        }
+
+        await using var module = await ImportModuleAsync();
+        await module.InvokeVoidAsync("setHiddenFolders", _hiddenFolderIds.Select(id => id.ToString()));
     }
 
     /// <summary>What this card is filtered to - everything, unless the reader has said otherwise.</summary>
