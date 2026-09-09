@@ -351,10 +351,10 @@ public sealed class MapPageTests : OrbitTestContext
     }
 
     /// <summary>One list whose entry raised the appointment above - see CalendarEventDestination.</summary>
-    private static string OneListWhoseEntryRaisedTheEvent(string listTitle, string entryTitle)
+    private static string OneListWhoseEntryRaisedTheEvent(string listTitle, string entryTitle, bool isEntryDone = false)
         => "[{\"id\":\"" + TaskListId + "\",\"title\":\"" + listTitle + "\",\"items\":["
             + "{\"id\":\"" + TaskItemId + "\",\"description\":\"" + entryTitle + "\",\"dueDateUtc\":null,"
-            + "\"isCompleted\":false,\"linkedTaskListId\":null,\"overdueNotificationChannel\":\"None\","
+            + "\"isCompleted\":" + (isEntryDone ? "true" : "false") + ",\"linkedTaskListId\":null,\"overdueNotificationChannel\":\"None\","
             + "\"remindDaily\":false,\"dailyReminderNotificationChannel\":\"None\","
             + "\"dailyReminderTimeOfDay\":\"09:00:00\",\"kind\":\"Calendar\",\"location\":\"\","
             + "\"linkedCalendarEventId\":\"" + PlacedEventId + "\"}],"
@@ -475,6 +475,121 @@ public sealed class MapPageTests : OrbitTestContext
         Assert.Contains(PlaceRows(cut), row => row.TextContent.Contains("Last week's dentist", StringComparison.Ordinal));
     }
 
+    /// <summary>
+    /// An appointment a list raised is done when its entry is ticked off, whatever the clock says - the
+    /// shopping was done on Tuesday for a slot booked on Friday. The map went on drawing a pin for it
+    /// until Friday came and went, which is a pin for somewhere nobody is going.
+    /// </summary>
+    [Fact]
+    public void An_appointment_whose_entry_is_ticked_off_is_behind_you_before_its_time_comes()
+    {
+        GrantLocations();
+        _calendarEventsJson = OneEventAtAPlace("Pick up the keys", startsInDays: 3);
+        _taskListsJson = OneListWhoseEntryRaisedTheEvent("Moving", "Pick up the keys", isEntryDone: true);
+
+        var cut = RenderComponent<MapPage>();
+        Assert.Empty(PlaceRows(cut));
+
+        // And it is there when the past is asked for, rather than gone for good.
+        ShowPastPlaces(cut);
+
+        Assert.Contains(PlaceRows(cut), row => row.TextContent.Contains("Pick up the keys", StringComparison.Ordinal));
+    }
+
+    /// <summary>
+    /// How far back "show me the past" goes. Everything until a day is named, because that is what the
+    /// option meant before there was anywhere to say otherwise - and on an account with a year of
+    /// appointments in it, that answer buried the two the reader wanted.
+    /// </summary>
+    [Fact]
+    public void The_past_can_be_asked_for_from_a_day_rather_than_from_the_beginning()
+    {
+        GrantLocations();
+        _calendarEventsJson = OneEventAtAPlace("Last week's dentist", startsInDays: -7);
+
+        var cut = RenderComponent<MapPage>();
+        ShowPastPlaces(cut);
+        Assert.Single(PlaceRows(cut));
+
+        cut.Find("#mapPastFrom").Change(DateTime.Today.AddDays(-2).ToString("yyyy-MM-dd"));
+
+        Assert.Empty(PlaceRows(cut));
+    }
+
+    /// <summary>And the box is only there while the past is being shown, being a question about the past.</summary>
+    [Fact]
+    public void The_day_to_show_from_is_only_asked_while_the_past_is_shown()
+    {
+        GrantLocations();
+
+        var cut = RenderComponent<MapPage>();
+        Assert.Empty(cut.FindAll("#mapPastFrom"));
+
+        ShowPastPlaces(cut);
+
+        Assert.Single(cut.FindAll("#mapPastFrom"));
+    }
+
+    /// <summary>
+    /// The eye takes a list's pins off the map without taking the list off the page - so there is still
+    /// something to press to get them back, and the reader can still read what they hid.
+    /// </summary>
+    [Fact]
+    public void Hiding_a_lists_pins_leaves_the_list_where_it_is()
+    {
+        GrantLocations();
+        _calendarEventsJson = OneEventAtAPlace("Dentist", startsInDays: 2);
+        var cut = RenderComponent<MapPage>();
+
+        PinToggleFor(cut, "Where your plans are").Click();
+
+        Assert.Single(PlaceRows(cut));
+        Assert.Contains("off", PinToggleFor(cut, "Where your plans are").ClassName);
+    }
+
+    /// <summary>
+    /// And it is not undone by asking for the past. Somebody who hid their plans and then asked to see
+    /// past ones meant to be shown nothing, not to have the whole lot come back.
+    /// </summary>
+    [Fact]
+    public void Asking_for_the_past_does_not_bring_hidden_pins_back()
+    {
+        GrantLocations();
+        _calendarEventsJson = OneEventAtAPlace("Dentist", startsInDays: 2);
+        var cut = RenderComponent<MapPage>();
+        PinToggleFor(cut, "Where your plans are").Click();
+
+        ShowPastPlaces(cut);
+
+        Assert.Contains("off", PinToggleFor(cut, "Where your plans are").ClassName);
+    }
+
+    /// <summary>Both lists have one, and each answers for its own pins.</summary>
+    [Fact]
+    public void Each_list_has_its_own_eye()
+    {
+        GrantLocations();
+
+        var cut = RenderComponent<MapPage>();
+
+        PinToggleFor(cut, "Sharing with you").Click();
+
+        Assert.Contains("off", PinToggleFor(cut, "Sharing with you").ClassName);
+        Assert.DoesNotContain("off", PinToggleFor(cut, "Where your plans are").ClassName);
+    }
+
+    private static void ShowPastPlaces(IRenderedFragment cut)
+    {
+        cut.Find(".overflow-menu-trigger").Click();
+        ButtonSaying(cut, "Show places already past").Click();
+    }
+
+    /// <summary>The eye on the heading of the section named this - see MapPinVisibility.</summary>
+    private static AngleSharp.Dom.IElement PinToggleFor(IRenderedFragment cut, string heading)
+        => cut.FindAll(".map-panel-section")
+            .First(section => section.QuerySelector(".map-panel-heading")?.TextContent.Contains(heading, StringComparison.Ordinal) == true)
+            .QuerySelector(".map-pin-toggle")!;
+
     /// <summary>The rows of the "Where your plans are" section, which is the last one in the panel.</summary>
     private static IReadOnlyList<AngleSharp.Dom.IElement> PlaceRows(IRenderedFragment cut)
         => [.. cut.FindAll(".map-panel-section").Last().QuerySelectorAll(".map-share-row")];
@@ -569,6 +684,9 @@ public sealed class MapPageTests : OrbitTestContext
             jsRuntime, ownEncryptionKeyProvider, usersApiClient, chatApiClient));
         Services.AddSingleton(new EncryptedChatMessageReader(usersApiClient, ownEncryptionKeyProvider, jsRuntime));
         Services.AddSingleton(new DevicePreferences(jsRuntime));
+        // Which groups of pins the map draws. The stub runtime answers localStorage with null, so both
+        // groups are shown - which is what a browser nobody has hidden anything on looks like.
+        Services.AddSingleton(new MapPinVisibility(jsRuntime));
         Services.AddSingleton(new GoogleIntegrationAccess(
             usersApiClient, new DevicePreferences(jsRuntime), NullLogger<GoogleIntegrationAccess>.Instance));
         Services.AddSingleton(new UserPermissionState(usersApiClient));

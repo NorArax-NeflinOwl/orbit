@@ -22,6 +22,7 @@
 @inject IJSRuntime JSRuntime
 @inject ChosenPlace ChosenPlace
 @inject DevicePreferences DevicePreferences
+@inject MapPinVisibility MapPins
 @inject NavigationManager NavigationManager
 @inject ILogger<MapPage> Logger
 @inject UserPermissionState Permissions
@@ -171,7 +172,12 @@ else
         </section>
 
         <section class="map-panel-section">
-            <h2 class="map-panel-heading">@T["Sharing with you"]</h2>
+            @* The heading, and the eye that takes this list's pins off the map without taking the list
+               off the page - see MapPinVisibility. *@
+            <div class="map-panel-heading-row">
+                <h2 class="map-panel-heading">@T["Sharing with you"]</h2>
+                @RenderPinToggle(MapPinVisibility.PinGroup.SharedWithYou, T["Show these on the map"], T["Hide these from the map"])
+            </div>
             @if (_receivedPositions.Count == 0)
             {
                 <p class="empty-hint">@T["Nobody yet."]</p>
@@ -213,7 +219,22 @@ else
            where people are and nothing about where the reader is going. Pressing a row centres the map
            on its pin, the same press a name in the list above answers to. *@
         <section class="map-panel-section">
-            <h2 class="map-panel-heading">@T["Where your plans are"]</h2>
+            <div class="map-panel-heading-row">
+                <h2 class="map-panel-heading">@T["Where your plans are"]</h2>
+                @RenderPinToggle(MapPinVisibility.PinGroup.YourPlans, T["Show these on the map"], T["Hide these from the map"])
+            </div>
+            @* Only while the past is being shown at all, because it is a question about the past: how
+               far back to go. Without it, asking for what is behind you on an account with a year of
+               appointments in it buries the two that were worth seeing. *@
+            @if (_showsPastPlaces)
+            {
+                <div class="field">
+                    <label for="mapPastFrom">@T["Show from"]</label>
+                    <input type="date" id="mapPastFrom" value="@(_showsPastPlacesFrom?.ToString("yyyy-MM-dd"))"
+                           @onchange="OnShowPastFromChanged" aria-label="@(T["Show from"])" />
+                    <small>@T["Leave it empty for everything that has been and gone."]</small>
+                </div>
+            }
             @if (_placed.Count == 0)
             {
                 <p class="empty-hint">
@@ -234,7 +255,7 @@ else
                     @* The same colour as its pin, which is what says which pin is which without
                        pressing any of them - the sharers' names above are coloured for the same reason. *@
                     <span class="map-place-dot" style="background:@placed.Color" aria-hidden="true"></span>
-                    <span class="row-title @(placed.HasPassed ? "map-place-past" : "")">@placed.Title</span>
+                    <span class="row-title @(placed.IsBehindYou ? "map-place-past" : "")">@placed.Title</span>
                     <span class="row-meta">@placed.When</span>
                     @* Where the thing itself is opened, and it comes back here afterwards - see ReturnTo. *@
                     <a class="icon-btn map-share-open" href="@placed.OpenUrl" title="@(T["Open"])"
@@ -564,11 +585,19 @@ else
     private IReadOnlyList<PlacedPlan> _placed = [];
 
     /// <summary>
-    /// Whether what has already happened is drawn as well. Off, because a map is mostly about where
-    /// somebody is going - and the last thing a page about that should be is a screen full of pins for
-    /// places nobody is going to again.
+    /// Whether what is already behind the reader is drawn as well - what has been and gone, and what
+    /// has been done (see PlacedPlan.IsDone). Off, because a map is mostly about where somebody is
+    /// going - and the last thing a page about that should be is a screen full of pins for places nobody
+    /// is going to again.
     /// </summary>
     private bool _showsPastPlaces;
+
+    /// <summary>
+    /// The day to show the past from, while the past is being shown at all. Null is "all of it", which
+    /// is what the option did before there was anywhere to say otherwise - and on an account with a year
+    /// of appointments in it, that answer buried the two the reader actually wanted.
+    /// </summary>
+    private DateTime? _showsPastPlacesFrom;
 
     /// <summary>
     /// Refreshes every live share while this page is open. Deliberately tied to the page rather than
@@ -603,6 +632,9 @@ else
 
         _ownUserId = await AuthenticationStateProvider.TryGetCurrentUserIdAsync() ?? Guid.Empty;
         _hasGoogleExtras = await GoogleIntegrationAccess.IsAvailableAsync();
+        // Before anything is drawn, or a reader who hid a group of pins last time watches them appear
+        // and then go again.
+        await MapPins.InitializeAsync();
         await LoadAsync();
         // A live share left running from a previous visit shows whatever was last saved until the timer
         // below ticks for the first time, up to a minute away - reusing the same tick early means
@@ -696,26 +728,36 @@ else
             });
         }
 
-        points.AddRange(_receivedPositions.Select(received => (object)new
+        // Both of the lists below can be taken off the map without being taken off the page - see
+        // MapPinVisibility, and the eye on each panel's heading. A map covered in other people's pins is
+        // a map the reader cannot find their own plans on, and until now the only way to clear either
+        // was to stop the shares or delete the plans.
+        if (MapPins.IsShown(MapPinVisibility.PinGroup.SharedWithYou))
         {
-            key = SharerMapKey(received.SharerUserId),
-            latitude = received.Position.Latitude,
-            longitude = received.Position.Longitude,
-            label = $"{DisplayNameFor(received.SharerUserId)} · {received.Position.Address ?? T["shared a position"]}",
-            color = AvatarHelper.AvatarColor(received.SharerUserId)
-        }));
+            points.AddRange(_receivedPositions.Select(received => (object)new
+            {
+                key = SharerMapKey(received.SharerUserId),
+                latitude = received.Position.Latitude,
+                longitude = received.Position.Longitude,
+                label = $"{DisplayNameFor(received.SharerUserId)} · {received.Position.Address ?? T["shared a position"]}",
+                color = AvatarHelper.AvatarColor(received.SharerUserId)
+            }));
+        }
 
         // What the reader has planned, drawn in whatever colour the appointment itself is written in -
         // see PlacedPlan. Only what the panel is listing: hiding the past has to take its pins with it,
         // or the map keeps pins nothing on the page names any more.
-        points.AddRange(_placed.Select(plan => (object)new
+        if (MapPins.IsShown(MapPinVisibility.PinGroup.YourPlans))
         {
-            key = plan.Key,
-            latitude = plan.Latitude,
-            longitude = plan.Longitude,
-            label = $"{plan.Title} · {plan.When} · {plan.Address}",
-            color = plan.Color
-        }));
+            points.AddRange(_placed.Select(plan => (object)new
+            {
+                key = plan.Key,
+                latitude = plan.Latitude,
+                longitude = plan.Longitude,
+                label = $"{plan.Title} · {plan.When} · {plan.Address}",
+                color = plan.Color
+            }));
+        }
 
         if (_foundPlace is { } found)
         {
@@ -745,6 +787,55 @@ else
         }
 
         return points;
+    }
+
+    /// <summary>
+    /// The eye on a panel's heading: whether this list's pins are drawn. Struck through while they are
+    /// not, so the button says which of the two states the map is in rather than only what pressing it
+    /// will do - a lone eye is read both ways by different people.
+    /// </summary>
+    private RenderFragment RenderPinToggle(MapPinVisibility.PinGroup group, string showLabel, string hideLabel)
+        => @<button type="button" class="icon-btn map-pin-toggle @(MapPins.IsShown(group) ? "" : "off")"
+                    title="@(MapPins.IsShown(group) ? hideLabel : showLabel)"
+                    aria-label="@(MapPins.IsShown(group) ? hideLabel : showLabel)"
+                    aria-pressed="@(MapPins.IsShown(group) ? "true" : "false")"
+                    @onclick="() => TogglePinsAsync(group)">
+            <svg viewBox="0 0 20 20" width="16" height="16" aria-hidden="true" fill="none"
+                 stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M1.5 10S4.5 4.5 10 4.5 18.5 10 18.5 10 15.5 15.5 10 15.5 1.5 10 1.5 10Z" />
+                <circle cx="10" cy="10" r="2.5" />
+                @if (!MapPins.IsShown(group))
+                {
+                    <path d="M4 16 16 4" />
+                }
+            </svg>
+        </button>;
+
+    /// <summary>
+    /// Pressing it. The map is redrawn rather than the page rebuilt: what is on the page has not
+    /// changed, only which of it is drawn - and rebuilding would reset the pan, the zoom and any open
+    /// popup, which is the thing RefreshMapMarkersAsync exists to avoid.
+    /// </summary>
+    private async Task TogglePinsAsync(MapPinVisibility.PinGroup group)
+    {
+        var isShown = !MapPins.IsShown(group);
+        Logger.LogInformation("User {Action} the {Group} pins on the map", isShown ? "showed" : "hid", group);
+        await MapPins.SetShownAsync(group, isShown);
+        await RefreshMapMarkersAsync();
+    }
+
+    /// <summary>
+    /// The day to show the past from. An unreadable or empty box is "all of it", which is what the
+    /// option meant before there was anywhere to say otherwise.
+    /// </summary>
+    private void OnShowPastFromChanged(ChangeEventArgs args)
+    {
+        _showsPastPlacesFrom = DateTime.TryParse(args.Value?.ToString(), out var from) ? from : null;
+        Logger.LogInformation(
+            "User asked the map for past places from {From}", _showsPastPlacesFrom?.ToString("yyyy-MM-dd") ?? "the beginning");
+        ChooseWhichPlacesAreShown();
+        // The map draws what the list shows, so the pins for what is no longer listed have to go with it.
+        _ = RefreshMapMarkersAsync();
     }
 
     /// <summary>The key a sharer's own marker is drawn under - see MapPoints and FocusOnAsync.</summary>
@@ -1305,9 +1396,20 @@ else
     /// opened as that entry, but the reminder for it is the event's and says so - reading only the
     /// destination would leave exactly those rows unmarked. Mirrors Dashboard's UpcomingEntry.
     /// </param>
+    /// <param name="IsDone">
+    /// Whether the entry that raised it has been ticked off. An appointment a task list made is done
+    /// when its entry is, whatever the clock says - the shopping was done on Tuesday for a slot booked
+    /// on Friday - and the map went on drawing a pin for it until Friday came and went. Counted with
+    /// what has already been and gone rather than as a fourth thing: both are "behind you", and a reader
+    /// asking to see the past means both.
+    /// </param>
     private sealed record PlacedPlan(
         string Key, string Title, string When, string Address, double Latitude, double Longitude,
-        string Color, DateTimeOffset At, bool HasPassed, string OpenUrl, string Destination, string NewsUrl);
+        string Color, DateTimeOffset At, bool HasPassed, bool IsDone, string OpenUrl, string Destination, string NewsUrl)
+    {
+        /// <summary>Nothing more is going to happen here - see <see cref="IsDone"/>.</summary>
+        public bool IsBehindYou => HasPassed || IsDone;
+    }
 
     /// <summary>
     /// Everything with an address on it, soonest first: every appointment that names a place, and every
@@ -1355,6 +1457,9 @@ else
                 Color: string.IsNullOrWhiteSpace(calendarEvent.Details.Color) ? "var(--task)" : calendarEvent.Details.Color,
                 At: shown.Details.StartUtc,
                 HasPassed: shown.Details.EndUtc < nowUtc,
+                // The same question the dashboard's Upcoming card asks of the same appointment - see
+                // Dashboard.IsStillToDo. An event nothing raised has no entry to have been ticked off.
+                IsDone: raisedBy is { Entry.IsCompleted: true },
                 OpenUrl: ReturnTo.Link(destination, "/map"),
                 Destination: destination,
                 NewsUrl: $"/calendar/{calendarEvent.Id}"));
@@ -1415,8 +1520,29 @@ else
         _ = RefreshMapMarkersAsync();
     }
 
+    /// <summary>
+    /// What the panel lists. Everything still ahead of the reader, plus - while they have asked for the
+    /// past - as much of what is behind them as the day they named lets through.
+    ///
+    /// Whether those become pins is a separate question, asked in MapPoints: the eye on the panel is
+    /// about the map, and a list that emptied itself when somebody cleared the map would leave them
+    /// nothing to press to get it back.
+    /// </summary>
     private void ChooseWhichPlacesAreShown()
-        => _placed = _showsPastPlaces ? _allPlaced : [.. _allPlaced.Where(plan => !plan.HasPassed)];
+        => _placed = _showsPastPlaces
+            ? [.. _allPlaced.Where(plan => !plan.IsBehindYou || IsRecentEnough(plan))]
+            : [.. _allPlaced.Where(plan => !plan.IsBehindYou)];
+
+    /// <summary>
+    /// Whether something behind the reader is recent enough to be worth drawing. Everything, until they
+    /// name a day to show from: "show me the past" with a year of it on the map is a screen full of pins
+    /// nobody is going to again, which is what the option was worth turning off for in the first place.
+    ///
+    /// Read against the local day the reader picked, and inclusive of it - somebody who types today's
+    /// date means today.
+    /// </summary>
+    private bool IsRecentEnough(PlacedPlan plan)
+        => _showsPastPlacesFrom is not { } from || plan.At.ToLocalTime().Date >= from.Date;
 
     /// <summary>
     /// Pressing a plan. The same rule a shared position follows: Orbit's own map centres on it, unless

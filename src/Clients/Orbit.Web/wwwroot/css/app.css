@@ -3993,6 +3993,22 @@ input.note-editor-title {
     border-radius: 12px;
 }
 
+/* A panel's name with its own control at the far edge - the eye that takes that list's pins off the
+   map. Same shape as every other heading-plus-action row in the app: the name leads, the control sits
+   against the right margin. */
+.map-panel-heading-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+}
+
+/* Struck through while the pins are hidden, so the button says which state the map is in rather than
+   only what pressing it will do. */
+.map-pin-toggle.off {
+    color: var(--text-tertiary);
+}
+
 .map-panel-heading {
     margin: 0;
     font-family: var(--font-display);

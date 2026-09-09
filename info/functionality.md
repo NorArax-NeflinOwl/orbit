@@ -874,9 +874,25 @@ same colour; one with no colour of its own is drawn in `--task`. A repeating eve
 occurrence, the way the dashboard already shows one - the place is the same every week, and the date
 beside it should be the one coming.
 
-**What has already happened is left out**, because a map is mostly about where somebody is going. It is
-a filter rather than a rule: "Show places already past" in the page's own menu brings it back, pins
-included. An event with no address is not a place and is never listed - there is nothing to draw.
+**What is already behind the reader is left out**, because a map is mostly about where somebody is
+going. Two ways to be behind them, and both count: the time has passed, or **the entry that raised it has
+been ticked off**. An appointment a list made is done when its entry is, whatever the clock says - the
+shopping was done on Tuesday for a slot booked on Friday - and the map used to go on drawing a pin for
+it until Friday came and went.
+
+It is a filter rather than a rule: "Show places already past" in the page's own menu brings it back,
+pins included, and **"Show from"** then appears above the list to say how far back to go. Empty is all of
+it, which is what the option meant before there was anywhere to say otherwise - on an account with a year
+of appointments in it, that answer buried the two the reader wanted. An event with no address is not a
+place and is never listed - there is nothing to draw.
+
+**Each of the two lists has an eye on its heading** that takes its pins off the map without taking the
+list off the page (`MapPinVisibility`, remembered by the browser like `PanelPreferences`). A map covered
+in other people's pins is a map the reader cannot find their own plans on, and until now the only way to
+clear either was to stop the shares or delete the plans. The list stays, so there is still something to
+press to get the pins back and the reader can still read what they hid. **The eye is not undone by the
+past filter**: somebody who hid their plans and then asked to see past ones meant to be shown nothing,
+not to have the whole lot come back.
 
 ### Planning something at a place
 

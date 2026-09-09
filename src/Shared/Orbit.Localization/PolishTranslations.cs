@@ -712,6 +712,11 @@ public static class PolishTranslations
         ["Nothing in your calendar or your lists says where it happens."] =
             "Nic w Twoim kalendarzu ani na listach nie mówi, gdzie się odbywa.",
         ["Show places already past"] = "Pokaż miejsca już minione",
+        // The eye on a map panel's heading, and the day to show the past from - see MapPinVisibility.
+        ["Show these on the map"] = "Pokaż je na mapie",
+        ["Hide these from the map"] = "Ukryj je z mapy",
+        ["Show from"] = "Pokazuj od",
+        ["Leave it empty for everything that has been and gone."] = "Zostaw puste, aby pokazać wszystko, co już minęło.",
         ["somewhere with no street"] = "gdzieś bez adresu",
 
         // ---- Folders ----
