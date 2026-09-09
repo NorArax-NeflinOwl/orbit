@@ -128,7 +128,7 @@ public sealed class RestockListRefresh
             {
                 var isDatedProductErrand =
                     entry.Kind == TaskItemKind.Inventory
-                    && !entry.IsCompleted
+                    && !entry.IsResolved
                     && entry.DueDateUtc is not null
                     && entry.LinkedInventoryItemId is { } inventoryItemId
                     && onThisShelf.Contains(inventoryItemId);

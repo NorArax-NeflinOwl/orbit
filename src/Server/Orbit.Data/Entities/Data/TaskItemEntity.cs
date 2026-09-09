@@ -27,6 +27,13 @@ public sealed class TaskItemEntity
     public bool IsCompleted { get; set; }
 
     /// <summary>
+    /// Closed without being done - see Orbit.Core.Tasks.TaskItem.IsFailed. Its own column beside the
+    /// tick rather than a status replacing it: every query that asks whether an entry is ticked still
+    /// means the same thing by it, and an existing row reads as "not failed" without being rewritten.
+    /// </summary>
+    public bool IsFailed { get; set; }
+
+    /// <summary>
     /// The lists this entry references instead of being independently completable - see
     /// <see cref="Orbit.Core.Tasks.LinkedTaskCompletionResolver"/>. Empty for an ordinary entry.
     /// </summary>

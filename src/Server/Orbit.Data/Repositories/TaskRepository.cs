@@ -218,7 +218,8 @@ public sealed class TaskRepository : ITaskRepository
                 entity.Location, entity.LinkedCalendarEventId, entity.LinkedInventoryItemId),
             [.. entity.Categories.OrderBy(category => category.Position).Select(category => category.Category)],
             ToProductDomain(entity),
-            entity.Notes);
+            entity.Notes,
+            entity.IsFailed);
 
     /// <summary>
     /// What the entry asks for, when it asks for anything - see TaskItemEntity.ProductType for why the
@@ -275,6 +276,7 @@ public sealed class TaskRepository : ITaskRepository
             Notes = item.Notes,
             DueDateUtc = item.DueDateUtc,
             IsCompleted = item.IsCompleted,
+            IsFailed = item.IsFailed,
             LinkedTaskLists = [.. item.LinkedTaskListIds.Select((linkedId, linkPosition) =>
                 new TaskItemTaskListLinkEntity
                 {

@@ -259,7 +259,9 @@ public sealed class TaskList
         // An entry standing for another list is completed by that list being finished, not by this -
         // see TaskItem.Complete - so what moved is asked of the items rather than assumed.
         var crossedOff = false;
-        foreach (var item in Items.Where(item => !item.IsCompleted))
+        // An entry somebody crossed out is finished with, and "everything is done" is not a reason to
+        // overwrite that answer with a tick - see TaskItem.IsFailed.
+        foreach (var item in Items.Where(item => !item.IsResolved))
         {
             item.Complete();
             crossedOff |= item.IsCompleted;
@@ -388,7 +390,7 @@ public sealed class TaskList
             return TaskListStatus.New;
         }
 
-        if (items.All(item => item.IsCompleted))
+        if (items.All(item => item.IsResolved))
         {
             // Everything is ticked and the reader has said the list still is not done - see
             // TaskListStatus.Incomplete, which exists so that this is legible rather than reading as
@@ -398,12 +400,12 @@ public sealed class TaskList
                 : TaskListStatus.Completed;
         }
 
-        if (items.Any(item => !item.IsCompleted && item.DueDateUtc is { } dueDateUtc && dueDateUtc < nowUtc))
+        if (items.Any(item => !item.IsResolved && item.DueDateUtc is { } dueDateUtc && dueDateUtc < nowUtc))
         {
             return TaskListStatus.Overdue;
         }
 
-        return items.Any(item => item.IsCompleted) ? TaskListStatus.Pending : TaskListStatus.New;
+        return items.Any(item => item.IsResolved) ? TaskListStatus.Pending : TaskListStatus.New;
     }
 
     /// <summary>Mirrors Note.ReadableOrSealed - see its comment for why this is enforced rather than trusted.</summary>
@@ -443,6 +445,11 @@ public sealed class TaskList
         LockExpiresAtUtc = null;
     }
 
+    /// <summary>
+    /// A list is finished when nothing on it is still owed. Asked of <see cref="TaskItem.IsResolved"/>
+    /// rather than of the ticks alone: an entry somebody gave up on is finished with, so a list whose
+    /// last entry was crossed out rather than ticked off is closed too - it is just not all *done*.
+    /// </summary>
     private static bool ComputeIsCompleted(IReadOnlyList<TaskItem> items)
-        => items.Count > 0 && items.All(item => item.IsCompleted);
+        => items.Count > 0 && items.All(item => item.IsResolved);
 }

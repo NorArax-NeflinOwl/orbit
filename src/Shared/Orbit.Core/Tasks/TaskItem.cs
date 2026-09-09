@@ -30,6 +30,26 @@ public sealed class TaskItem
     public bool IsCompleted { get; private set; }
 
     /// <summary>
+    /// Whether this entry was closed <b>without</b> being done - the cross beside the tick. It is not a
+    /// third kind of "still to do": a failed entry is finished with, so it stops being owed exactly the
+    /// way a completed one does (see <see cref="IsResolved"/>, which is the question everything asking
+    /// "is this still on somebody's plate" asks). What it is not is <em>done</em>, so it never counts
+    /// towards how much of a list is finished, and nothing that acts on work having been done - a shelf
+    /// topped up by a restock errand, most of all - acts on it.
+    ///
+    /// Never true at the same time as <see cref="IsCompleted"/>: the two are one answer with three
+    /// values, kept as two flags because everything that already asked "is this ticked" still means the
+    /// same thing by it. The constructor is where that is enforced.
+    /// </summary>
+    public bool IsFailed { get; private set; }
+
+    /// <summary>
+    /// Whether this entry is finished with, either way - ticked off or given up on. The question every
+    /// count of what is still owed asks: reminders, a list's own completion, what is due today.
+    /// </summary>
+    public bool IsResolved => IsCompleted || IsFailed;
+
+    /// <summary>
     /// The other task lists this entry stands for, in the order somebody put them in. Empty for an
     /// ordinary entry, which is the usual case.
     ///
@@ -120,13 +140,17 @@ public sealed class TaskItem
     private TaskItem(
         Guid id, string description, DateTimeOffset? dueDateUtc, bool isCompleted, IReadOnlyList<Guid>? linkedTaskListIds,
         TaskItemReminders? reminders, TaskItemSubject? subject, IReadOnlyList<string>? categories,
-        TaskItemProduct? product, string? notes)
+        TaskItemProduct? product, string? notes, bool isFailed = false)
     {
         Id = id;
         Description = description;
         Notes = notes ?? string.Empty;
         DueDateUtc = dueDateUtc;
         IsCompleted = isCompleted;
+        // Three states out of two flags, settled in the one place every entry is built: a tick wins over
+        // a cross, so nothing downstream has to decide what an entry claiming both would mean. A linked
+        // entry has neither of its own - its completion follows the lists it stands for.
+        IsFailed = isFailed && !isCompleted;
         // Distinct and in order: naming the same list twice is one link written twice, not two steps,
         // and it would make the entry look like it stands for more work than it does.
         LinkedTaskListIds = linkedTaskListIds is null ? [] : [.. linkedTaskListIds.Distinct()];
@@ -172,6 +196,9 @@ public sealed class TaskItem
         if (!IsALinkToOtherLists)
         {
             IsCompleted = false;
+            // A cross is a way of being finished with something, so bringing the entry back as work
+            // clears it too - a reopened entry nobody has answered yet is neither done nor given up on.
+            IsFailed = false;
         }
     }
 
@@ -187,6 +214,7 @@ public sealed class TaskItem
         if (!IsALinkToOtherLists)
         {
             IsCompleted = true;
+            IsFailed = false;
         }
     }
 
@@ -234,7 +262,7 @@ public sealed class TaskItem
     public static TaskItem Create(
         string description, DateTimeOffset? dueDateUtc, bool isCompleted, IReadOnlyList<Guid>? linkedTaskListIds = null,
         TaskItemReminders? reminders = null, TaskItemSubject? subject = null, IReadOnlyList<string>? categories = null,
-        TaskItemProduct? product = null, string? notes = null)
+        TaskItemProduct? product = null, string? notes = null, bool isFailed = false)
     {
         // Here rather than in the constructor, which FromPersistence also uses: a row already stored
         // fits by definition, and rejecting one on the way back out would make an old entry unreadable
@@ -257,10 +285,10 @@ public sealed class TaskItem
             StoredTextLimits.OrRefuse(category, StoredTextLimits.Category, "product's category");
         }
 
+        var standsOnItsOwn = linkedTaskListIds is null || linkedTaskListIds.Count == 0;
         return new TaskItem(
-            Guid.NewGuid(), description, dueDateUtc,
-            (linkedTaskListIds is null || linkedTaskListIds.Count == 0) && isCompleted, linkedTaskListIds,
-            reminders, subject, categories, product, notes);
+            Guid.NewGuid(), description, dueDateUtc, standsOnItsOwn && isCompleted, linkedTaskListIds,
+            reminders, subject, categories, product, notes, standsOnItsOwn && isFailed);
     }
 
     /// <summary>
@@ -271,7 +299,7 @@ public sealed class TaskItem
     public TaskItem WithNewId()
         => new(
             Guid.NewGuid(), Description, DueDateUtc, IsCompleted, LinkedTaskListIds,
-            Reminders, Subject, Categories, Product, Notes);
+            Reminders, Subject, Categories, Product, Notes, IsFailed);
 
     /// <summary>
     /// Rebuilds a checklist entry from already-known values, bypassing the completion override above -
@@ -281,6 +309,6 @@ public sealed class TaskItem
     public static TaskItem FromPersistence(
         Guid id, string description, DateTimeOffset? dueDateUtc, bool isCompleted, IReadOnlyList<Guid>? linkedTaskListIds,
         TaskItemReminders? reminders, TaskItemSubject? subject = null, IReadOnlyList<string>? categories = null,
-        TaskItemProduct? product = null, string? notes = null)
-        => new(id, description, dueDateUtc, isCompleted, linkedTaskListIds, reminders, subject, categories, product, notes);
+        TaskItemProduct? product = null, string? notes = null, bool isFailed = false)
+        => new(id, description, dueDateUtc, isCompleted, linkedTaskListIds, reminders, subject, categories, product, notes, isFailed);
 }

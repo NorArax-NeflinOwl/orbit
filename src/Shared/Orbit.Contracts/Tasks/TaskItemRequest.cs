@@ -60,7 +60,14 @@ public sealed record TaskItemRequest(
     /// provided"</b> and leaves whatever is stored alone, which is what a client written before this
     /// existed sends; an empty string means "none", and clears it.
     /// </summary>
-    string? Notes = null)
+    string? Notes = null,
+    /// <summary>
+    /// Closed without being done - see Orbit.Core.Tasks.TaskItem.IsFailed. False rather than nullable:
+    /// unlike the fields above it, a client that has not learned about the cross cannot have one to
+    /// preserve - it would have had to draw it to set it - so "not said" and "not failed" are the same
+    /// answer here. A tick wins over a cross wherever both arrive.
+    /// </summary>
+    bool IsFailed = false)
 {
     /// <summary>Whichever shape the sender used, read as one - see <see cref="LinkedTaskListIds"/>.</summary>
     public IReadOnlyList<Guid> AllLinkedTaskListIds
@@ -100,5 +107,6 @@ public sealed record TaskItemRequest(
             item.Product,
             // As it came, null included: this mapping exists to send an entry back unchanged, and null
             // is how "unchanged" is said for this field.
-            item.Notes);
+            item.Notes,
+            item.IsFailed);
 }

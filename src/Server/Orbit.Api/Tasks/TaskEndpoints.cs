@@ -410,7 +410,7 @@ public static class TaskEndpoints
         {
             return TaskItem.Create(
                 item.Description, item.DueDateUtc, item.IsCompleted, item.AllLinkedTaskListIds,
-                reminders, subject, item.AllCategories, product, item.Notes);
+                reminders, subject, item.AllCategories, product, item.Notes, item.IsFailed);
         }
 
         // Same override Create applies: a linked entry's completion follows the list it links to, so a
@@ -418,7 +418,8 @@ public static class TaskEndpoints
         return TaskItem.FromPersistence(
             existingId, item.Description, item.DueDateUtc,
             item.AllLinkedTaskListIds.Count == 0 && item.IsCompleted, item.AllLinkedTaskListIds,
-            reminders, subject, item.AllCategories, product, item.Notes);
+            reminders, subject, item.AllCategories, product, item.Notes,
+            item.AllLinkedTaskListIds.Count == 0 && item.IsFailed);
     }
 
 
@@ -466,7 +467,8 @@ public static class TaskEndpoints
                     item.LinkedTaskListIds,
                     item.Categories,
                     ToDto(item.Product),
-                    item.Notes))
+                    item.Notes,
+                    item.IsFailed))
                 .ToList(),
             taskList.IsCompleted,
             taskList.IsGroup,
