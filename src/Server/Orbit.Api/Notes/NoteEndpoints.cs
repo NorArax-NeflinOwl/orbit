@@ -13,6 +13,7 @@ using Orbit.Core.Notes.AcceptNoteShare;
 using Orbit.Core.Notes.AcquireNoteLock;
 using Orbit.Core.Notes.CreateNote;
 using Orbit.Core.Notes.DeleteNote;
+using Orbit.Core.Notes.DuplicateNote;
 using Orbit.Core.Notes.GetNoteById;
 using Orbit.Core.Notes.GetNoteShareStatus;
 using Orbit.Core.Notes.GetNotes;
@@ -105,6 +106,17 @@ public static class NoteEndpoints
             var moved = await dispatcher.SendAsync(
                 new MoveNoteToFolderCommand(GetUserId(user), id, request.FolderId), cancellationToken);
             return moved ? Results.NoContent() : Results.NotFound();
+        });
+
+        // A second note saying the same thing - see DuplicateNoteCommand. The body is optional, and a
+        // caller that sends none keeps the original's title.
+        notes.MapPost("/{id:guid}/duplicate", async (
+            Guid id, DuplicateRequest? request, ClaimsPrincipal user, IDispatcher dispatcher,
+            CancellationToken cancellationToken) =>
+        {
+            var copyId = await dispatcher.SendAsync(
+                new DuplicateNoteCommand(GetUserId(user), id, request?.Name), cancellationToken);
+            return copyId is { } newId ? Results.Created($"/api/notes/{newId}", newId) : Results.NotFound();
         });
 
         notes.MapDelete("/{id:guid}", async (Guid id, ClaimsPrincipal user, IDispatcher dispatcher, CancellationToken cancellationToken) =>

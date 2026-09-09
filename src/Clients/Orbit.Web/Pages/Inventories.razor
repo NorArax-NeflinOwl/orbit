@@ -104,6 +104,8 @@
                            the same as a task list's - unless a share below CanEdit means there is
                            nothing to press it into changing, the same question Notes.razor asks. *@
                         <ObjectMenu EditLabel="@(CanBeChanged(inventory) ? T["Edit"] : T["View"])" OnEdit="() => EditInventory(inventory.Id)"
+                                    DuplicateLabel="@(!inventory.IsShared ? T["Duplicate"] : null)"
+                                    OnDuplicate="() => DuplicateInventoryAsync(inventory)"
                                     ShareLabel="@(CanShare(inventory) ? T["Share"] : null)" OnShare="() => ToggleSharePanel(inventory.Id)"
                                     DeleteLabel="@(!inventory.IsShared ? T["Delete"] : null)" OnDelete="() => DeleteInventoryAsync(inventory)" />
                     </Menu>
@@ -355,6 +357,31 @@
 
     private bool CanMoveCard(InventoryDto inventory, int offset)
         => RowArrangement<InventoryDto>.CanMove(ArrangedInventories.ToList(), inventory, offset);
+
+    /// <summary>
+    /// A second storage holding the same things, named for the one it came from. The whole set is read
+    /// again afterwards rather than the copy being appended here: the shelves are filled on the server
+    /// (see DuplicateInventoryCommandHandler), and this page has no way to guess what came out of it.
+    ///
+    /// A sealed storage keeps its name, because that name is inside a payload the browser would have to
+    /// re-seal to change - see DuplicateRequest.Name.
+    /// </summary>
+    private async Task DuplicateInventoryAsync(InventoryDto inventory)
+    {
+        Logger.LogInformation("User clicked 'Duplicate' for inventory {InventoryId}", inventory.Id);
+        _errorMessage = null;
+        try
+        {
+            await InventoryApiClient.DuplicateInventoryAsync(
+                inventory.Id, inventory.IsPrivate ? null : T.Format("{0} (copy)", inventory.Name));
+            _inventories = await InventoryApiClient.GetInventoriesAsync();
+        }
+        catch (HttpRequestException exception)
+        {
+            Logger.LogError(exception, "Failed to duplicate inventory {InventoryId}", inventory.Id);
+            _errorMessage = T["Couldn't make a copy. Try again."];
+        }
+    }
 
     private async Task DeleteInventoryAsync(InventoryDto inventory)
     {

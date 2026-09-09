@@ -116,10 +116,14 @@
                             }
                         </Tags>
                         <Menu>
-                        <OverflowMenu>
-                        <button type="button" class="avatar-dropdown-item" @onclick="() => GoToEditEvent(calendarEvent.Id)">@(calendarEvent.IsShared ? T["View"] : T["Edit"])</button>
-                        <button type="button" class="avatar-dropdown-item" @onclick="() => DeleteEventAsync(calendarEvent)">@T["Delete"]</button>
-                        </OverflowMenu>
+                        @* An event reached through a share is somebody else's, so there is nothing here
+                           to duplicate: a copy would be an appointment in this reader's calendar that
+                           its owner never put there - see DuplicateCalendarEventCommand. *@
+                        <ObjectMenu EditLabel="@(calendarEvent.IsShared ? T["View"] : T["Edit"])"
+                                    OnEdit="() => GoToEditEvent(calendarEvent.Id)"
+                                    DuplicateLabel="@(calendarEvent.IsShared ? null : T["Duplicate"])"
+                                    OnDuplicate="() => DuplicateEventAsync(calendarEvent)"
+                                    DeleteLabel="@T["Delete"]" OnDelete="() => DeleteEventAsync(calendarEvent)" />
                         </Menu>
                         <Body>
                             @* When, first: it is the one thing every row on this list has, and the
@@ -687,6 +691,27 @@
                 : list)
             .ToList();
         _dueTasks = _dueTasks?.Where(due => due.TaskItemId != dueTask.TaskItemId).ToList();
+    }
+
+    /// <summary>
+    /// A second appointment saying the same thing, named for the one it came from and with nobody
+    /// invited - see DuplicateCalendarEventCommandHandler for why the guests are left behind. The whole
+    /// calendar is read again afterwards: the copy has to land in the grid as well as in the list, and
+    /// where it lands is not this page's to work out.
+    /// </summary>
+    private async Task DuplicateEventAsync(CalendarEventDto calendarEvent)
+    {
+        Logger.LogInformation("User clicked 'Duplicate' for calendar event {EventId}", calendarEvent.Id);
+        try
+        {
+            await CalendarApiClient.DuplicateCalendarEventAsync(
+                calendarEvent.Id, T.Format("{0} (copy)", calendarEvent.Details.Title));
+            _events = await CalendarApiClient.GetCalendarEventsAsync();
+        }
+        catch (HttpRequestException exception)
+        {
+            Logger.LogError(exception, "Failed to duplicate calendar event {EventId}", calendarEvent.Id);
+        }
     }
 
     private async Task DeleteEventAsync(CalendarEventDto calendarEvent)

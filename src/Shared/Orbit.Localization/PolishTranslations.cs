@@ -734,6 +734,10 @@ public static class PolishTranslations
         ["Nothing in it is deleted - everything goes back to Public, or to Private if it is sealed."] =
             "Nic z niego nie zostanie usunięte - wszystko wróci do Publicznych, a rzeczy zaszyfrowane do Prywatnych.",
         ["Nothing in this folder."] = "Nic w tym folderze.",
+        // Making a second one of something, and what the copy is called - see Orbit.Contracts.DuplicateRequest.
+        ["Duplicate"] = "Duplikuj",
+        ["{0} (copy)"] = "{0} (kopia)",
+        ["Couldn't make a copy. Try again."] = "Nie udało się zrobić kopii. Spróbuj ponownie.",
         // Everything ticked off and the list still open, because its owner said so - see
         // Orbit.Core.Tasks.TaskListStatus.Incomplete. "Niezakończona" rather than "nieukończona": the
         // work is finished and the list is not, and the two words carry that difference in Polish.

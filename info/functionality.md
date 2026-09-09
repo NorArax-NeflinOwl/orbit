@@ -339,6 +339,43 @@ Three consequences worth stating, because they changed how a page behaves:
 - The dashboard's task card keeps a finished list only when it is **pinned**, and reads it under the tab
   it was filed under - this page has no Finished tab to ask for the rest back.
 
+## Duplicating something
+
+**Duplicate** is in the menu on a note, a task list, an inventory and a calendar event
+(`POST /api/{kind}/{id}/duplicate`, one `DuplicateRequest` for all four). It makes a second one with
+everything that was on it: a note's lines, a list's entries, a storage's shelves, an appointment's time,
+place, colour, repeat and reminders.
+
+**Only an owner may.** Something reached through a share belongs to somebody else, and a copy would put
+a card on this reader's page that its author never wrote there - the repositories are scoped to the
+owner, which is what answers 404, and the menu leaves the entry out on a shared card.
+
+**The client names the copy** — `"{0} (copy)"` in the reader's own language. The server would have to
+write that in a language it does not know they are reading (see `OrbitWrittenNames` for the other half
+of the same problem), and null means "keep the original's name". Null is also the only possible answer
+for a **sealed** item: its real name is inside a payload the server cannot open, so a copy of one is
+named exactly what the original was. Sealed items are copied ciphertext and all, and open with the same
+key, having the same owner.
+
+Four things a copy deliberately does not carry, each for a reason the copy cannot get around:
+
+- **the pin**, which says where a card sits on this reader's page - two cards cannot both be the one
+  being kept in front of them;
+- **the reader's own answer about being finished** (`TaskListCompletion`) - they said that about the
+  other list. Its entries carry their own ticks, so a copy of a done list still reads as done;
+- **the appointment an entry stands for**. An event is raised by exactly one entry
+  (`CalendarEventDestination.RaisedBy` returns the first it finds), so a second entry pointing at the
+  same one would make which of them owns it a matter of iteration order. The entry is copied as ordinary
+  work, keeping the place written on it where it had one;
+- **an event's guests**. A guest list is a set of people who were asked to something, and copying it
+  would invite them all again to an appointment nobody has told them about, from a press that said
+  "duplicate" and nothing about sending anything.
+
+A storage's rows are copied through the same `InventoryItemsSaver` a save uses, each with a null id -
+which is what tells it "create this" rather than "update that" - so they land with their positions and
+their restock tasks exactly as they would on the next save. An item's open restock errand is therefore
+not copied, and should not be: the errand is about the shelf it was raised from.
+
 ## Notes
 
 

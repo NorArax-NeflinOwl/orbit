@@ -197,6 +197,8 @@
                         @* Somebody else's shared list is not this reader's to delete - the same rule
                            the note and inventory cards already follow. *@
                         <ObjectMenu EditLabel="@T["Edit"]" OnEdit="() => GoToEditTaskList(taskList.Id)"
+                                    DuplicateLabel="@(!taskList.IsShared ? T["Duplicate"] : null)"
+                                    OnDuplicate="() => DuplicateTaskListAsync(taskList)"
                                     DeleteLabel="@(!taskList.IsShared ? T["Delete"] : null)" OnDelete="() => DeleteTaskListAsync(taskList)" />
                     </Menu>
                     <Tags>
@@ -975,6 +977,33 @@
     /// page knows: the whole set is read again afterwards, because deleting a group list may have taken
     /// the lists it gathered with it and this page is showing those too.
     /// </summary>
+    /// <summary>
+    /// A second list with the same entries on it, named for the one it came from - see
+    /// DuplicateTaskListCommand for what a copy deliberately leaves behind. The whole set is read again
+    /// afterwards rather than the copy being appended here: the server decides what a list looks like,
+    /// and the page has to re-sort around the new one anyway.
+    ///
+    /// A sealed list keeps its name, because that name is inside a payload the browser would have to
+    /// re-seal to change - see DuplicateRequest.Name.
+    /// </summary>
+    private async Task DuplicateTaskListAsync(TaskDto taskList)
+    {
+        Logger.LogInformation("User clicked 'Duplicate' for task list {TaskListId}", taskList.Id);
+        _errorMessage = null;
+        try
+        {
+            await TasksApiClient.DuplicateTaskListAsync(
+                taskList.Id, taskList.IsPrivate ? null : T.Format("{0} (copy)", Written(taskList.Title)));
+            _taskLists = await TasksApiClient.GetTaskListsAsync();
+        }
+        catch (HttpRequestException exception)
+        {
+            // Said on screen rather than only in the log - see this page's own _errorMessage.
+            Logger.LogWarning(exception, "Couldn't duplicate task list {TaskListId}", taskList.Id);
+            _errorMessage = T["Couldn't make a copy. Try again."];
+        }
+    }
+
     private async Task DeleteTaskListAsync(TaskDto taskList)
     {
         Logger.LogInformation("User clicked 'Delete' for task list {TaskListId}", taskList.Id);

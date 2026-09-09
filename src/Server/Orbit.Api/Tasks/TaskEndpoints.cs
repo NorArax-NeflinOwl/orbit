@@ -3,6 +3,7 @@ using System.Security.Claims;
 using Orbit.Contracts.Sharing;
 using Orbit.Api.Permissions;
 using Orbit.Contracts;
+using Orbit.Core.Tasks.DuplicateTaskList;
 using Orbit.Contracts.Inventories;
 using Orbit.Contracts.Folders;
 using Orbit.Contracts.Tasks;
@@ -113,6 +114,17 @@ public static class TaskEndpoints
             var moved = await dispatcher.SendAsync(
                 new MoveTaskListToFolderCommand(GetUserId(user), id, request.FolderId), cancellationToken);
             return moved ? Results.NoContent() : Results.NotFound();
+        });
+
+        // A second list with the same entries on it - see DuplicateTaskListCommand for what is
+        // deliberately left behind. The body is optional, and a caller that sends none keeps the title.
+        tasks.MapPost("/{id:guid}/duplicate", async (
+            Guid id, DuplicateRequest? request, ClaimsPrincipal user, IDispatcher dispatcher,
+            CancellationToken cancellationToken) =>
+        {
+            var copyId = await dispatcher.SendAsync(
+                new DuplicateTaskListCommand(GetUserId(user), id, request?.Name), cancellationToken);
+            return copyId is { } newId ? Results.Created($"/api/tasks/{newId}", newId) : Results.NotFound();
         });
 
         tasks.MapDelete("/{id:guid}", async (

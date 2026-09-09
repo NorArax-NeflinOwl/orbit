@@ -175,6 +175,20 @@ public sealed class NotesApiClient
         return response.IsSuccessStatusCode;
     }
 
+    /// <inheritdoc cref="TasksApiClient.DuplicateTaskListAsync"/>
+    public async Task<Guid?> DuplicateNoteAsync(Guid id, string? name, CancellationToken cancellationToken = default)
+    {
+        var response = await _httpClient.PostAsJsonAsync(
+            $"api/notes/{id}/duplicate", new DuplicateRequest(name), cancellationToken);
+        if (response.StatusCode == HttpStatusCode.NotFound)
+        {
+            return null;
+        }
+
+        response.EnsureSuccessStatusCode();
+        return await response.Content.ReadFromJsonAsync<Guid>(cancellationToken: cancellationToken);
+    }
+
     public async Task DeleteNoteAsync(Guid id, CancellationToken cancellationToken = default)
     {
         var response = await _httpClient.DeleteAsync($"api/notes/{id}", cancellationToken);

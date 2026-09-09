@@ -67,6 +67,8 @@
                        note. Somebody else's note is not this reader's to delete: pressing that takes it
                        off their list and leaves the owner's alone, so it says that rather than "Delete". *@
                     <ObjectMenu EditLabel="@(CanBeChanged(note) ? T["Edit"] : T["View"])" OnEdit="() => GoToEditNote(note.Id)"
+                                DuplicateLabel="@(note.IsShared ? null : T["Duplicate"])"
+                                OnDuplicate="() => DuplicateNoteAsync(note)"
                                 DeleteLabel="@(note.IsShared ? T["Remove from my list"] : T["Delete"])"
                                 OnDelete="() => DeleteNoteAsync(note)" DeleteDisabled="@(_deletingNoteId == note.Id)" />
                 </Menu>
@@ -243,6 +245,35 @@
 
     /// <summary>What to say about the last delete - empty while nothing needs saying.</summary>
     private string? _deleteMessage;
+
+    /// <summary>
+    /// A second note saying the same thing, named for the one it came from. The whole list is read
+    /// again afterwards rather than the copy being appended here: the server decides what a note looks
+    /// like, and the page has to re-sort around the new one anyway.
+    ///
+    /// A sealed note keeps its name, because that name is inside a payload the browser would have to
+    /// re-seal to change - see DuplicateRequest.Name.
+    /// </summary>
+    private async Task DuplicateNoteAsync(NoteDto note)
+    {
+        Logger.LogInformation("User clicked 'Duplicate' for note {NoteId}", note.Id);
+        _deleteMessage = null;
+        try
+        {
+            await NotesApiClient.DuplicateNoteAsync(note.Id, note.IsPrivate ? null : CopyOf(note.Title));
+            _notes = await NotesApiClient.GetNotesAsync();
+        }
+        catch (HttpRequestException exception)
+        {
+            // Said on screen rather than only in the log: a press that copied nothing and said nothing
+            // reads as a press that never registered.
+            Logger.LogWarning(exception, "Couldn't duplicate note {NoteId}", note.Id);
+            _deleteMessage = T["Couldn't make a copy. Try again."];
+        }
+    }
+
+    /// <summary>What a copy is called - see DuplicateRequest.Name for why the client names it and not the server.</summary>
+    private string CopyOf(string name) => T.Format("{0} (copy)", name);
 
     private async Task DeleteNoteAsync(NoteDto note)
     {
