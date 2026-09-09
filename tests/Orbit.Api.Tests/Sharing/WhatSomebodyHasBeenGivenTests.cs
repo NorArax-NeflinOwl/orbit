@@ -178,7 +178,10 @@ public sealed class WhatSomebodyHasBeenGivenTests
 
         await context.RevokeAsync(SharedItemKind.Note, shareId);
 
-        Assert.Equal([OwnerId, RecipientId], context.LiveUpdates.ChatToldAbout.Order());
+        // As a set: two ids made by Guid.NewGuid() sort into whichever order they happen to sort into,
+        // and which of the two was told first is not a fact about this.
+        Assert.Equal<IReadOnlySet<Guid>>(
+            new HashSet<Guid> { OwnerId, RecipientId }, context.LiveUpdates.ChatToldAbout.ToHashSet());
     }
 
     /// <summary>

@@ -949,6 +949,29 @@ fields themselves is a named press further in (`/inventory/{id}/edit`) - the sam
 has, for the same reason: opening an inventory to see what is in it is a different thing from opening it
 to change it, and a page of editable fields is the wrong answer to "what have we got".
 
+### The four views, and the week among them
+
+**Day, week, month and year.** The week is the month grid with one row in it
+(`CalendarGridBuilder.BuildWeekGrid`), which is the point of it: a week reads as a row of a month rather
+than as a fourth thing to learn, the same chips in the same cells, and pressing a day opens that day.
+The one thing it does differently is use the room a single row has — taller cells, and ten chips before
+a day says how many more there are rather than four. Nothing in a week is dimmed: the flag that dims a
+cell means "this day belongs to the month either side of the one you asked for", and in a week nobody
+asked for a month, so a week straddling the 1st would otherwise arrive half greyed.
+
+**The list beside the grid covers whatever the grid is showing** — that day, that week, that month, that
+year. The day view used to list the whole month around the day instead, on the grounds that one day's
+worth is too little to be worth a panel; it is not, now that a day shows everything that fell on it.
+
+**A link can name the view and the day**: `/calendar?view=day&on=2026-09-09`. It is obeyed once rather
+than on every render, or pressing **Month** on a page reached that way would put the view straight back.
+A view name this version of Orbit does not know opens the month, the way a link with no view opens it —
+a link is a thing somebody may have kept.
+
+That is how **the dashboard's summary of today** arrives at today rather than at the month today is in.
+The strip is a count of one day — two tasks due, one event — and the month view answers a different
+question from the one that was pressed.
+
 ### What the calendar's list leaves out
 
 The list beside the grid answers "what is coming", so it leaves out what is over: a deadline already
@@ -969,7 +992,7 @@ as they leave the list, and the same menu brings them back - struck through and 
 (`.calendar-chip-done`). A finished deadline has read that way there all along; an appointment had no
 mark at all, for the same reason the list did not leave it out either: an event of its own has nothing
 to tick, only the entry behind it does, so the page has to tell the grids which
-(`Calendar.EventsOnTheGrid`, `Calendar.TickedOffEventIds`). Day, month and year views all read from it.
+(`Calendar.EventsOnTheGrid`, `Calendar.TickedOffEventIds`). All four views read from it.
 
 **What is merely *over* stays on the grid.** That is the one place the two part company, and it is
 deliberate: the list answers "what is coming", so an event that has ended stops being its subject, while
@@ -983,6 +1006,12 @@ device (`CalendarListReading`). Its grid keeps everything too.
 **Show → "Everything, including what is over"** in the page's menu puts them back, and is remembered by
 the device the way the list's order is (`CalendarListOrder`, localStorage - it describes one page for
 one reader on one screen).
+
+**The day view shows everything whatever that says** (`Calendar.ShowsEverythingInThisView`). Opening one
+particular day is asking what happened on it, and half an answer to that is worse than none: a day
+showing three of the five things on it looks like a day with three things on it, with nothing saying
+otherwise. The menu entry is ticked and greyed there, with the reason on it — an unticked box over a
+screen full of finished work would be the control lying about what is in front of somebody.
 
 ## Refusing a request
 

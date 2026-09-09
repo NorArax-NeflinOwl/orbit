@@ -1023,8 +1023,13 @@ public sealed class DashboardTests : OrbitTestContext
         Assert.Equal("High", badge.TextContent);
     }
 
+    /// <summary>
+    /// At today, not at the month today is in. The strip is a count of one day, and the month view
+    /// answers a different question than the one that was pressed - somebody who wanted to know which
+    /// of the four weeks had them would not have pressed a summary of today.
+    /// </summary>
     [Fact]
-    public void Todays_summary_opens_the_calendar()
+    public void Todays_summary_opens_the_calendar_on_today()
     {
         RegisterChatApiClient([]);
         RegisterEmptyNotesApiClient();
@@ -1035,7 +1040,9 @@ public sealed class DashboardTests : OrbitTestContext
         cut.Find(".today-strip").Click();
 
         // It is a summary of a day, and the page that shows a day is the calendar.
-        Assert.EndsWith("/calendar", Services.GetRequiredService<NavigationManager>().Uri);
+        Assert.EndsWith(
+            $"/calendar?view=day&on={DateTime.Today:yyyy-MM-dd}",
+            Services.GetRequiredService<NavigationManager>().Uri);
     }
 
     private static TaskItemDto DueItem(string description, DateTimeOffset dueDateUtc, bool isCompleted = false)

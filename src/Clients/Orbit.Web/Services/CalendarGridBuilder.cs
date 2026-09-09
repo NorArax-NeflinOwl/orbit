@@ -37,6 +37,29 @@ public static class CalendarGridBuilder
         return weeks;
     }
 
+    /// <summary>
+    /// The Monday-to-Sunday week containing weekReferenceDate, shaped as a month grid of exactly one
+    /// row - which is what makes a week read as a row of a month rather than as a fourth thing to
+    /// learn. CalendarMonthGrid draws it unchanged.
+    ///
+    /// Every day is marked as in the displayed month, whatever month it is actually in: the dimming
+    /// that flag drives says "this day belongs to the month either side of the one you asked for", and
+    /// in a week nobody asked for a month. A week straddling the 1st would otherwise arrive half greyed.
+    /// </summary>
+    public static IReadOnlyList<MonthGridWeek> BuildWeekGrid(
+        DateOnly weekReferenceDate, IReadOnlyList<CalendarEventDto> events, IReadOnlyList<DueTaskDto> dueTasks)
+    {
+        var weekStart = StartOfWeek(weekReferenceDate);
+        var expandedEvents = ExpandRecurringEvents(events, weekStart, weekStart.AddDays(6));
+        var days = Enumerable.Range(0, 7)
+            .Select(dayOffset => BuildWeekGridDay(weekStart.AddDays(dayOffset), expandedEvents, dueTasks))
+            .ToList();
+        return [new MonthGridWeek(days)];
+    }
+
+    /// <summary>The Monday on or before date - the day every grid here starts its weeks on.</summary>
+    public static DateOnly StartOfWeek(DateOnly date) => date.AddDays(-DaysSinceMonday(date.DayOfWeek));
+
     /// <summary>Builds all 12 of a year's month grids in one call, for the year view.</summary>
     public static IReadOnlyList<YearGridMonth> BuildYearGrid(int year, IReadOnlyList<CalendarEventDto> events, IReadOnlyList<DueTaskDto> dueTasks)
         => Enumerable.Range(1, 12)
@@ -96,6 +119,18 @@ public static class CalendarGridBuilder
             .ToList();
         return new MonthGridDay(
             date, date.Month == displayedMonth, eventsOnDay, DueTasksOnDate(dueTasks, date, eventsOnDay));
+    }
+
+    /// <inheritdoc cref="BuildMonthGridDay"/>
+    private static MonthGridDay BuildWeekGridDay(
+        DateOnly date, IReadOnlyList<CalendarEventDto> events, IReadOnlyList<DueTaskDto> dueTasks)
+    {
+        var eventsOnDay = events
+            .Where(calendarEvent => OccursOnDate(calendarEvent.Details, date))
+            .OrderBy(calendarEvent => calendarEvent.Details.IsAllDay)
+            .ThenBy(calendarEvent => calendarEvent.Details.StartUtc.LocalDateTime.TimeOfDay)
+            .ToList();
+        return new MonthGridDay(date, IsInDisplayedMonth: true, eventsOnDay, DueTasksOnDate(dueTasks, date, eventsOnDay));
     }
 
     /// <summary>Whether details' [StartUtc, EndUtc] range - compared by local calendar date - covers date.</summary>

@@ -50,10 +50,16 @@
                already ticked off, an event that has already ended. The grid beside it still draws them -
                a day with something in it should say so whether or not it has been - and this is how the
                list is asked for them too. *@
+            @* Ticked and unpressable in the day view, which shows everything whatever this says - see
+               ShowsEverythingInThisView. A mark that read "off" while a finished appointment sat on the
+               screen would be the control lying about what is in front of somebody; greyed with a
+               reason on it says which it is. *@
             <span class="overflow-menu-heading">@T["Show"]</span>
-            <button type="button" class="avatar-dropdown-item @(ListOrder.ShowsEverything ? "chosen" : "")"
+            <button type="button" class="avatar-dropdown-item @(ShowsEverythingInThisView ? "chosen" : "")"
+                    disabled="@(_viewState.ViewMode == CalendarViewMode.Day)"
+                    title="@(_viewState.ViewMode == CalendarViewMode.Day ? T["A day shows everything that fell on it."] : null)"
                     @onclick="ToggleShowsEverythingAsync">
-                <span class="card-filter-mark">@(ListOrder.ShowsEverything ? "✓" : "")</span>
+                <span class="card-filter-mark">@(ShowsEverythingInThisView ? "✓" : "")</span>
                 @T["Everything, including what is over"]
             </button>
         </OverflowMenu>
@@ -194,6 +200,7 @@
             </div>
             <div class="calendar-view-switch">
                 <button aria-pressed="@AriaPressed(CalendarViewMode.Day)" @onclick="() => SwitchView(CalendarViewMode.Day)">@T["Day"]</button>
+                <button aria-pressed="@AriaPressed(CalendarViewMode.Week)" @onclick="() => SwitchView(CalendarViewMode.Week)">@T["Week"]</button>
                 <button aria-pressed="@AriaPressed(CalendarViewMode.Month)" @onclick="() => SwitchView(CalendarViewMode.Month)">@T["Month"]</button>
                 <button aria-pressed="@AriaPressed(CalendarViewMode.Year)" @onclick="() => SwitchView(CalendarViewMode.Year)">@T["Year"]</button>
             </div>
@@ -203,6 +210,11 @@
         {
             case CalendarViewMode.Day:
                 <CalendarDayGrid Grid="CalendarGridBuilder.BuildDayGrid(_viewState.ReferenceDate, EventsOnTheGrid, DueTasksOnTheGrid)" OnEventSelected="OpenTheEvent" OnTaskSelected="GoToDueTask" TickedOffEventIds="TickedOffEventIds" />
+                break;
+            @* The month grid with one row in it, so a week reads as a row of a month rather than as a
+               fourth thing to learn - see CalendarGridBuilder.BuildWeekGrid. *@
+            case CalendarViewMode.Week:
+                <CalendarMonthGrid Weeks="CalendarGridBuilder.BuildWeekGrid(_viewState.ReferenceDate, EventsOnTheGrid, DueTasksOnTheGrid)" OnDaySelected="GoToDay" TickedOffEventIds="TickedOffEventIds" IsRoomy="true" />
                 break;
             case CalendarViewMode.Year:
                 <CalendarYearGrid Months="CalendarGridBuilder.BuildYearGrid(_viewState.ReferenceDate.Year, EventsOnTheGrid, _viewState.ShowDueTasksInYearView ? DueTasksOnTheGrid : [])" OnDaySelected="GoToDay" TickedOffEventIds="TickedOffEventIds" />
@@ -223,6 +235,29 @@
 }
 
 @code {
+    /// <summary>
+    /// Which view to open in, named the way the buttons above are - "day", "week", "month", "year".
+    /// Anything else, including nothing, opens the month the page has always opened in.
+    ///
+    /// It exists so a page that has already narrowed something down can hand that over rather than
+    /// making somebody narrow it again: the dashboard's summary of today is a count of today, and
+    /// pressing it used to arrive at the month with today somewhere in it.
+    /// </summary>
+    [SupplyParameterFromQuery(Name = "view")] public string? View { get; set; }
+
+    /// <summary>
+    /// The day to open on, defaulting to today. Read alongside <see cref="View"/> - "the week of the
+    /// 3rd" needs both, and either alone is half a request.
+    /// </summary>
+    [SupplyParameterFromQuery(Name = "on")] public DateOnly? On { get; set; }
+
+    /// <summary>
+    /// What the query string last asked for, so it is obeyed once rather than on every render. Without
+    /// it, pressing Month on a page reached as ?view=day would put the view straight back to day: the
+    /// parameters are still what they were, and nothing distinguishes "asked again" from "still there".
+    /// </summary>
+    private (string? View, DateOnly? On)? _openedAs;
+
     /// <summary>Event ids whose location/repeat/guest lines are unfolded. Independent per event here: unlike an editor, this is for reading, and comparing two days' events at once is the point.</summary>
     private readonly HashSet<Guid> _expandedEventIds = [];
 
@@ -288,14 +323,14 @@
                     && DateOnly.FromDateTime(calendarEvent.Details.EndUtc.LocalDateTime) >= from)
                 // An event that has already ended is over. Left out unless the reader asked for
                 // everything - see CalendarListOrder.ShowsEverything.
-                .Where(calendarEvent => ListOrder.ShowsEverything || calendarEvent.Details.EndUtc >= nowUtc)
+                .Where(calendarEvent => ShowsEverythingInThisView || calendarEvent.Details.EndUtc >= nowUtc)
                 // And so is one whose entry has been ticked off, whenever it happens to fall. A task
                 // list's appointment is a thing to do as much as a thing to be at, and one already done
                 // was staying on the list for as long as its date was still ahead - which is most of the
                 // time somebody would tick it off early. The deadlines beside it have always been
                 // filtered this way; only the events had nothing asking the question, because an event
                 // of its own has nothing to tick. See IsTickedOff.
-                .Where(calendarEvent => ListOrder.ShowsEverything || !IsTickedOff(calendarEvent))
+                .Where(calendarEvent => ShowsEverythingInThisView || !IsTickedOff(calendarEvent))
                 .OrderBy(calendarEvent => calendarEvent.Details.StartUtc)];
         }
     }
@@ -316,7 +351,7 @@
                 .Where(dueTask => dueTask.LinkedCalendarEventId is not { } eventId || !listedEventIds.Contains(eventId))
                 // Done is done. A deadline that has passed and is still not ticked off stays: it is the
                 // one thing on this page that most needs saying, and hiding it would hide the work.
-                .Where(dueTask => ListOrder.ShowsEverything || !dueTask.IsCompleted)
+                .Where(dueTask => ShowsEverythingInThisView || !dueTask.IsCompleted)
                 .OrderBy(dueTask => dueTask.DueDateUtc)];
         }
     }
@@ -327,6 +362,38 @@
     /// ResolveMissingGuestDisplayNamesAsync.
     /// </summary>
     private readonly Dictionary<Guid, string> _resolvedGuestUserNames = [];
+
+    /// <summary>
+    /// Obeys the query string, once per thing it asks for - see <see cref="_openedAs"/>. Before the
+    /// first render, so the page draws the view it was asked for rather than the month and then the
+    /// view a moment later.
+    /// </summary>
+    protected override void OnParametersSet()
+    {
+        if (_openedAs == (View, On))
+        {
+            return;
+        }
+
+        _openedAs = (View, On);
+        if (On is { } date)
+        {
+            _viewState.ReferenceDate = date;
+        }
+
+        if (ViewModeNamed(View) is { } viewMode)
+        {
+            _viewState.SwitchView(viewMode);
+        }
+    }
+
+    /// <summary>
+    /// The view one of the query string's names asks for, or null for a name this version of Orbit does
+    /// not know - which opens the month, the way a link with no view at all does. A link is a thing
+    /// somebody may have kept; one naming a view that has since gone should still open the calendar.
+    /// </summary>
+    private static CalendarViewMode? ViewModeNamed(string? name)
+        => Enum.TryParse<CalendarViewMode>(name, ignoreCase: true, out var viewMode) ? viewMode : null;
 
     protected override async Task OnInitializedAsync()
     {
@@ -478,14 +545,26 @@
     /// be a month that had not happened. Done is a different fact from past, and only the first of them
     /// is somebody saying "I am finished with this".
     /// </summary>
+    /// <summary>
+    /// Whether what is over is drawn alongside what is still to come. Normally the reader's own choice
+    /// (CalendarListOrder.ShowsEverything) - a calendar is mostly read forwards, so a finished
+    /// appointment and a ticked-off deadline are out of the way by default.
+    ///
+    /// The day view is the exception, whatever that choice says. Opening one particular day is asking
+    /// what happened on it, and half an answer to that is worse than none: a day showing three of the
+    /// five things on it looks like a day with three things on it, with nothing saying otherwise.
+    /// </summary>
+    private bool ShowsEverythingInThisView
+        => ListOrder.ShowsEverything || _viewState.ViewMode == CalendarViewMode.Day;
+
     private IReadOnlyList<CalendarEventDto> EventsOnTheGrid
-        => ListOrder.ShowsEverything
+        => ShowsEverythingInThisView
             ? _events ?? []
             : [.. (_events ?? []).Where(calendarEvent => !IsTickedOff(calendarEvent))];
 
     /// <inheritdoc cref="EventsOnTheGrid"/>
     private IReadOnlyList<DueTaskDto> DueTasksOnTheGrid
-        => ListOrder.ShowsEverything
+        => ShowsEverythingInThisView
             ? _dueTasks ?? []
             : [.. (_dueTasks ?? []).Where(dueTask => !dueTask.IsCompleted)];
 
@@ -783,6 +862,7 @@
     private enum CalendarViewMode
     {
         Day,
+        Week,
         Month,
         Year
     }
@@ -811,15 +891,33 @@
         public string PeriodLabel(CultureInfo displayCulture) => ViewMode switch
         {
             CalendarViewMode.Day => ReferenceDate.ToDateTime(TimeOnly.MinValue).ToString("d MMMM yyyy", displayCulture),
+            CalendarViewMode.Week => WeekLabel(displayCulture),
             CalendarViewMode.Month => ReferenceDate.ToDateTime(TimeOnly.MinValue).ToString("MMMM yyyy", displayCulture),
             CalendarViewMode.Year => ReferenceDate.Year.ToString(CultureInfo.InvariantCulture),
             _ => string.Empty
         };
 
         /// <summary>
-        /// The stretch of time the lists beside the grid cover. A year in the year view, and the whole
-        /// month otherwise - including the day view, where a single day's worth is usually too little to
-        /// be worth a panel and the month around it is what somebody is actually planning against.
+        /// Both ends of the week, with the month named once when both ends share it - "8 - 14 September
+        /// 2026" rather than "8 September 2026 - 14 September 2026", which is the same fact written
+        /// twice. A week straddling a month or a year says both, because then they differ.
+        /// </summary>
+        private string WeekLabel(CultureInfo displayCulture)
+        {
+            var start = CalendarGridBuilder.StartOfWeek(ReferenceDate);
+            var end = start.AddDays(6);
+            var startFormat = start.Year != end.Year ? "d MMMM yyyy" : start.Month != end.Month ? "d MMMM" : "d";
+            return $"{start.ToDateTime(TimeOnly.MinValue).ToString(startFormat, displayCulture)} - "
+                + $"{end.ToDateTime(TimeOnly.MinValue).ToString("d MMMM yyyy", displayCulture)}";
+        }
+
+        /// <summary>
+        /// The stretch of time the lists beside the grid cover: whatever the grid itself is showing.
+        ///
+        /// The day view used to list the whole month around the day instead, on the grounds that one
+        /// day's worth is too little to be worth a panel. It is not, now that a day shows everything
+        /// that fell on it (see ShowsEverythingInThisView): somebody who opened a particular day asked
+        /// about that day, and the month around it buries the answer in four weeks of other days.
         /// </summary>
         public (DateOnly From, DateOnly ToExclusive) ListedPeriod()
         {
@@ -827,6 +925,17 @@
             {
                 var yearStart = new DateOnly(ReferenceDate.Year, 1, 1);
                 return (yearStart, yearStart.AddYears(1));
+            }
+
+            if (ViewMode == CalendarViewMode.Day)
+            {
+                return (ReferenceDate, ReferenceDate.AddDays(1));
+            }
+
+            if (ViewMode == CalendarViewMode.Week)
+            {
+                var weekStart = CalendarGridBuilder.StartOfWeek(ReferenceDate);
+                return (weekStart, weekStart.AddDays(7));
             }
 
             var monthStart = new DateOnly(ReferenceDate.Year, ReferenceDate.Month, 1);
@@ -844,6 +953,7 @@
         private DateOnly Step(int direction) => ViewMode switch
         {
             CalendarViewMode.Day => ReferenceDate.AddDays(direction),
+            CalendarViewMode.Week => ReferenceDate.AddDays(7 * direction),
             CalendarViewMode.Month => ReferenceDate.AddMonths(direction),
             CalendarViewMode.Year => ReferenceDate.AddYears(direction),
             _ => ReferenceDate

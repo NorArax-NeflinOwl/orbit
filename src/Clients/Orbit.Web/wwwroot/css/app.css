@@ -3016,6 +3016,13 @@ input.note-editor-title {
     vertical-align: top;
 }
 
+/* One week, drawn by the month grid so a week reads as a row of a month rather than as a fourth thing
+   to learn - see CalendarGridBuilder.BuildWeekGrid. The only difference is the height: a single row
+   has the page to itself, so a day shows what is on it instead of saying "+6 more". */
+.calendar-month-grid-one-week .calendar-month-grid-day {
+    min-height: 22rem;
+}
+
 .calendar-month-grid-day-outside {
     background: var(--bg-subtle);
     color: var(--text-tertiary);

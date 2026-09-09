@@ -914,10 +914,16 @@ else
         NavigationManager.NavigateTo(ReturnTo.Link($"/tasks/{taskListId}", "/"));
     }
 
+    /// <summary>
+    /// Straight to today, not to the month today is in. The strip is a count of one day - two tasks
+    /// due, one event - and the month view answers a different question than the one that was pressed:
+    /// somebody who wanted to know which of the four weeks had them would not have pressed a summary of
+    /// today.
+    /// </summary>
     private void GoToCalendar()
     {
         Logger.LogInformation("User clicked today's summary on the dashboard");
-        NavigationManager.NavigateTo("/calendar");
+        NavigationManager.NavigateTo($"/calendar?view=day&on={DateTime.Today:yyyy-MM-dd}");
     }
 
     /// <summary>
