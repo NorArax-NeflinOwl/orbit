@@ -64,6 +64,11 @@ public abstract class OrbitTestContext : TestContext
         // page shows should not fail on a service it never exercises. It resolves the TasksApiClient
         // the test itself registered, so a test that does exercise it still drives its own stub.
         Services.AddScoped<TaskListDeletion>();
+        // Ticking one entry of a task list off, which the checklist and the entry's own page both do
+        // through this now - see TaskItemCompletion. Registered here for the same reason
+        // TaskListDeletion is: it resolves the TasksApiClient the test itself registered, so a test
+        // that does tick something still drives its own stub.
+        Services.AddScoped<TaskItemCompletion>();
         // Every overflow menu asks JS to place it inside the viewport when it opens - see
         // OverflowMenu and menuAnchor.js. There is no layout to measure here, so it answers and does
         // nothing; without it any test that opens a menu fails on the interop call rather than on
