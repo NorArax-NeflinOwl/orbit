@@ -652,6 +652,7 @@ public static class PolishTranslations
         ["Find an entry on any list"] = "Znajdź element na dowolnej liście",
         ["Entries in every chosen category"] = "Elementy w każdej wybranej kategorii",
         ["Nothing on any list matches that."] = "Nic na żadnej liście tego nie pasuje.",
+        ["Nothing is in this folder yet."] = "W tym folderze jeszcze nic nie ma.",
         ["Expires"] = "Termin ważności",
         ["Private - encrypted, and only you can read it"] = "Prywatne — zaszyfrowane, czyta to tylko Ty",
         ["There is less of this than the minimum you set"] = "Zostało tego mniej niż ustawione minimum",

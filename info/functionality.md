@@ -1263,6 +1263,15 @@ underneath it (`TaskItem.Categories`, `CategoryText`). One errand is often two s
 being made to pick the single truest one is how a category stops being written at all. Every kind of
 entry carries them: an appointment is about something the same way an errand is.
 
+**All of it is about the folder that is open** (`Tasks.TaskListsInTheOpenFolder`) — which chips exist,
+the number on each of them, the number on "All", and what the search looks through. A folder is a place
+rather than one more filter, so a chip is about what is in the place somebody is standing in. Counting
+the whole account instead is what this page used to do, and it showed: a tab holding two lists had an
+"All" chip saying twelve, and a category chip could offer a word that appears only on a list filed
+somewhere else — pressing it emptied the page, leaving the reader to work out that the word belonged to
+a tab they were not on. An empty tab now says it is empty, rather than "no lists are all", which blames
+a chip nobody pressed.
+
 The search matches a word anywhere in an entry's own words. The chips are built from what entries are
 actually filed under, each with how many carry it. Several can be chosen: **any of them** by default,
 because that is usually what picking a second one means, and a checkbox appears once a second is chosen

@@ -1005,6 +1005,63 @@ public sealed class TasksTests : OrbitTestContext
         Assert.Contains("Sealed", CardTitles(cut));
     }
 
+    /// <summary>
+    /// The chips are about the folder that is open. Offering a category that only exists on a list
+    /// filed somewhere else is offering to find nothing: pressing it empties the page, and the reader
+    /// is left to work out that the word belongs to a tab they are not on.
+    /// </summary>
+    [Fact]
+    public void A_category_from_another_folder_is_not_offered()
+    {
+        RegisterTasksApiClient([
+            TaskList("Kitchen", Item("Buy milk") with { Categories = ["shopping"] }),
+            TaskList("Diary", Item("Ring the bank") with { Categories = ["money"] }) with { IsPrivate = true }]);
+
+        var cut = RenderComponent<Web.Pages.Tasks>();
+
+        var chips = cut.FindAll(".filter-chip").Select(chip => chip.TextContent).ToList();
+        Assert.Contains(chips, chip => chip.Contains("shopping", StringComparison.Ordinal));
+        Assert.DoesNotContain(chips, chip => chip.Contains("money", StringComparison.Ordinal));
+    }
+
+    /// <summary>
+    /// And so are the counts on them. "All 12" over a tab holding two lists is the page describing a
+    /// page other than the one in front of the reader.
+    /// </summary>
+    [Fact]
+    public void The_counts_on_the_chips_count_the_open_folder()
+    {
+        RegisterTasksApiClient([
+            TaskList("Kitchen"),
+            TaskList("Diary") with { IsPrivate = true },
+            TaskList("Moving out") with { IsCompleted = true }]);
+
+        var cut = RenderComponent<Web.Pages.Tasks>();
+
+        var all = cut.FindAll(".filter-chip").First(chip => chip.TextContent.Contains("All", StringComparison.Ordinal));
+        Assert.Equal("1", all.QuerySelector(".filter-chip-count")!.TextContent.Trim());
+    }
+
+    /// <summary>
+    /// An empty tab says it is empty. It used to say "no lists are all", which blames a chip nobody
+    /// pressed for a page that is empty because of where the reader is standing.
+    /// </summary>
+    [Fact]
+    public void An_empty_folder_says_so_rather_than_blaming_a_chip()
+    {
+        RegisterTasksApiClient([TaskList("Kitchen")]);
+        var folders = Services.GetRequiredService<FolderState>();
+
+        var cut = RenderComponent<Web.Pages.Tasks>();
+        folders.Choose(FolderKey.Of(BuiltInFolder.Finished));
+        cut.Render();
+
+        Assert.Contains("Nothing is in this folder yet.", cut.Markup);
+        // And nothing to narrow it with: a search box over an empty tab offers to find something on a
+        // list that is not there.
+        Assert.Empty(cut.FindAll(".filter-chip"));
+    }
+
     private void RegisterTasksApiClient(
         IReadOnlyList<TaskDto> taskLists, IReadOnlyList<CalendarEventDto>? events = null)
     {
