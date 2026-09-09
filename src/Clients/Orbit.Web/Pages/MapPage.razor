@@ -56,7 +56,7 @@ else
                        by default rather than absent - the same ✓ every other filter in Orbit is marked
                        with. *@
                     <button type="button" class="avatar-dropdown-item @(_showsPastPlaces ? "chosen" : "")"
-                            @onclick="ShowOrHidePastPlaces">
+                            @onclick="ShowOrHidePastPlacesAsync">
                         <span class="card-filter-mark">@(_showsPastPlaces ? "✓" : "")</span>
                         @T["Show places already past"]
                     </button>
@@ -231,7 +231,7 @@ else
                 <div class="field">
                     <label for="mapPastFrom">@T["Show from"]</label>
                     <input type="date" id="mapPastFrom" value="@(_showsPastPlacesFrom?.ToString("yyyy-MM-dd"))"
-                           @onchange="OnShowPastFromChanged" aria-label="@(T["Show from"])" />
+                           @onchange="OnShowPastFromChangedAsync" aria-label="@(T["Show from"])" />
                     <small>@T["Leave it empty for everything that has been and gone."]</small>
                 </div>
             }
@@ -633,8 +633,12 @@ else
         _ownUserId = await AuthenticationStateProvider.TryGetCurrentUserIdAsync() ?? Guid.Empty;
         _hasGoogleExtras = await GoogleIntegrationAccess.IsAvailableAsync();
         // Before anything is drawn, or a reader who hid a group of pins last time watches them appear
-        // and then go again.
+        // and then go again. The same store answers whether the past is being shown, and from when -
+        // both were forgotten the moment the page was left, so the option had to be found and pressed
+        // again on every visit.
         await MapPins.InitializeAsync();
+        _showsPastPlaces = MapPins.ShowsPastPlaces;
+        _showsPastPlacesFrom = MapPins.PastPlacesFrom;
         await LoadAsync();
         // A live share left running from a previous visit shows whatever was last saved until the timer
         // below ticks for the first time, up to a minute away - reusing the same tick early means
@@ -828,11 +832,12 @@ else
     /// The day to show the past from. An unreadable or empty box is "all of it", which is what the
     /// option meant before there was anywhere to say otherwise.
     /// </summary>
-    private void OnShowPastFromChanged(ChangeEventArgs args)
+    private async Task OnShowPastFromChangedAsync(ChangeEventArgs args)
     {
         _showsPastPlacesFrom = DateTime.TryParse(args.Value?.ToString(), out var from) ? from : null;
         Logger.LogInformation(
             "User asked the map for past places from {From}", _showsPastPlacesFrom?.ToString("yyyy-MM-dd") ?? "the beginning");
+        await MapPins.SetPastPlacesAsync(_showsPastPlaces, _showsPastPlacesFrom);
         ChooseWhichPlacesAreShown();
         // The map draws what the list shows, so the pins for what is no longer listed have to go with it.
         _ = RefreshMapMarkersAsync();
@@ -1511,9 +1516,10 @@ else
     /// </summary>
     private void OnNotificationsChanged() => InvokeAsync(StateHasChanged);
 
-    private void ShowOrHidePastPlaces()
+    private async Task ShowOrHidePastPlacesAsync()
     {
         _showsPastPlaces = !_showsPastPlaces;
+        await MapPins.SetPastPlacesAsync(_showsPastPlaces, _showsPastPlacesFrom);
         ChooseWhichPlacesAreShown();
         // The map draws what the list shows, so the pins for what is no longer listed have to go with
         // it - otherwise hiding the past leaves its pins behind with nothing naming them.

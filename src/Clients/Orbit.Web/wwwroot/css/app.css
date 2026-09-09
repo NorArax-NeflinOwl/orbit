@@ -756,8 +756,15 @@ input.note-editor-title {
     margin: 0 auto;
     padding: 24px 32px 40px 32px;
     /* Fills whatever the bar above it leaves, and lays its two children out down the page, so that the
-       footer can be told to take the space nobody else wanted - see .app-footer. */
-    flex: 1 0 auto;
+       footer can be told to take the space nobody else wanted - see .app-footer.
+
+       It shrinks, which it did not: with flex-shrink at 0 and a basis of "auto" over width:100%, the
+       page claimed the whole row and the advertising rail beside it was pushed off the right edge of
+       the window. Every screen between 1200px - where the rail is meant to appear - and about 1500px
+       showed no rail at all, which is most laptops. min-width:0 with it, or a long line inside the page
+       would put the floor back. */
+    flex: 1 1 auto;
+    min-width: 0;
     /* And it has to be as tall as the row it sits in, or there is no space going spare for the footer
        to take. .app-body holds this beside the advertising rail and aligns its children to the top -
        which the rail wants and this does not: it left the page exactly as tall as its content, so on a
