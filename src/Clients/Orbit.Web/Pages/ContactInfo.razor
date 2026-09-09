@@ -88,6 +88,12 @@ else
             <Row Title="@T["Status"]">
                 <Trailing><span class="row-meta">@T[PresenceLabel(contact)]</span></Trailing>
             </Row>
+            @* Beside the status rather than instead of it: "Away" says they cannot be reached right
+               now, and this says how long that has been true - which is the difference between somebody
+               who stepped out and somebody who has not opened Orbit since March. *@
+            <Row Title="@T["Last active"]">
+                <Trailing><span class="row-meta">@LastActive(contact)</span></Trailing>
+            </Row>
             <Row Title="@T["Last message"]">
                 <Trailing><span class="row-meta">@contact.LastMessageAtUtc.LocalDateTime.ToString("dd.MM.yyyy HH:mm")</span></Trailing>
             </Row>
@@ -220,6 +226,16 @@ else
     }
 
     /// <summary>The English label for what the presence dot is showing, translated like any other text.</summary>
+    /// <summary>
+    /// To the minute, which is all the server sends - see ContactDto.LastSeenAtUtc. An account nobody
+    /// has ever seen says so rather than showing a blank: a row with nothing in it reads as a value
+    /// that failed to load.
+    /// </summary>
+    private string LastActive(ContactDto contact)
+        => contact.LastSeenAtUtc is { } lastSeen
+            ? lastSeen.LocalDateTime.ToString("dd.MM.yyyy HH:mm")
+            : T["Never"];
+
     private static string PresenceLabel(ContactDto contact)
         => Conversation.PresenceOf(contact) switch
         {

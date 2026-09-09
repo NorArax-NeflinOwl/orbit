@@ -478,6 +478,15 @@ Info is never greyed: who somebody is needs no standing. A greyed entry is also 
 (`.avatar-dropdown-item:disabled`), which it was not — `ObjectMenu`'s disabled Delete had looked exactly
 like a working one all along.
 
+**The card says when they were last here**, beside the status rather than instead of it. "Away" answers
+"can I reach them now", which is a question about this second and ages the moment it arrives; **Last
+active** answers "when were they last here", which stays true — and it is the difference between
+somebody who stepped out for coffee and somebody who has not opened Orbit since spring. It is shown, and
+sent, **to the minute**: `UserPresence.LastSeenToTheMinuteUtc` is what reaches `ContactDto`, while the
+stored instant keeps its seconds because the away and offline thresholds are measured against it —
+rounded down, somebody last seen at 10:00:59 would turn "away" five seconds later. An account nobody has
+ever seen reads "Never" rather than blank, since an empty row reads as a value that failed to load.
+
 **A card for somebody who has gone unfindable says so, and says what it cannot know.** An account that
 has not unlocked `Contacts` is invisible in both directions, and a lookup for it answers exactly as a
 lookup for nobody does — "found, but hidden" would be finding them (`UserVisibility`). So the card

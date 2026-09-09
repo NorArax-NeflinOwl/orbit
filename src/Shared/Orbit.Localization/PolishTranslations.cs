@@ -580,6 +580,7 @@ public static class PolishTranslations
         ["Who this is, and how to reach them."] = "Kto to jest i jak się z nim skontaktować.",
         ["Status"] = "Status",
         ["Last message"] = "Ostatnia wiadomość",
+        ["Last active"] = "Ostatnio aktywny",
         ["They asked to chat with you. Open the conversation to allow it."] = "Ta osoba prosi o rozmowę. Otwórz konwersację, aby na nią pozwolić.",
         ["Waiting for them to allow this conversation."] = "Czekamy, aż ta osoba zgodzi się na rozmowę.",
         ["No conversation with them yet."] = "Nie ma jeszcze rozmowy z tą osobą.",
