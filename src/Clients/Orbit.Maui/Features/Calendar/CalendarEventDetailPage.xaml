@@ -265,9 +265,9 @@
                         SemanticProperties.Description="{controls:Translate 'Also when it starts'}" />
             </Grid>
 
-            <Button Text="{controls:Translate 'Save'}" Command="{Binding SaveCommand}" />
-
-            <controls:SharePanel BindingContext="{Binding Share}" />
+            <!-- Opened from the event's own menu rather than standing at the foot of the form: sharing
+                 is something somebody does once, and this form is long enough already. -->
+            <controls:SharePanel x:Name="Sharing" IsVisible="False" BindingContext="{Binding Share}" />
 
             <!-- Hands the event to Google Calendar as a filled-in form, which is what Orbit.Web offers
                  here too - a link rather than an API call, see GoogleCalendarEventLink. Hidden unless
@@ -280,15 +280,18 @@
         </VerticalStackLayout>
     </ScrollView>
 
-        <!-- What leaves the screen and what else can be done to the event, on the bar along its foot -
-             where Orbit.Web puts them on a narrow window. No Save: the event is written down as it is
-             changed. -->
-        <!-- No rail. What the event can have done to it hangs under its name; the way out is the
-             bar's back arrow; and saving is the one floating button the design gives this screen,
-             because it is the only screen in the app that writes on a Save rather than as it goes. -->
+        <!-- What the event can have done to it hangs under its name in the bar. The two answers this
+             form takes are drawn as buttons over its foot, one in each corner: the tick on the right,
+             where the thumb is, and leaving it alone on the left. Words before, at the end of a form
+             long enough that neither was on screen while anybody was filling it in - this is the one
+             screen in the app that writes on a Save rather than as it goes. -->
         <controls:Fab Grid.Row="1" IsAboveAdBar="False" Data="M5,12 L10,17 L19,7"
                       Description="{controls:Translate 'Save'}"
                       Command="{Binding SaveCommand}" />
+        <controls:Fab Grid.Row="1" IsAboveAdBar="False" IsOnTheLeft="True" Diameter="44"
+                      Data="M6,6 L18,18 M18,6 L6,18"
+                      Description="{controls:Translate 'Cancel'}"
+                      Command="{Binding GoBackCommand}" />
 
         <controls:NavigationBar Grid.Row="0" />
         <controls:MenuOverlay Grid.Row="0" Grid.RowSpan="3"

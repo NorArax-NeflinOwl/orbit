@@ -8,64 +8,76 @@
     xmlns:screens="clr-namespace:Orbit.Mobile.Screens.Calendar;assembly=Orbit.Mobile"
     x:DataType="screens:CalendarViewModel"
     x:Name="Page"
-    Title="{controls:Translate 'Calendar'}">
+    Title="{Binding PeriodLabel}">
 
     <Grid RowDefinitions="Auto,*,Auto">
 
 
     <Grid Grid.Row="1" RowDefinitions="Auto,Auto,Auto,Auto,*" Padding="20,14,20,0" RowSpacing="10">
 
-        <!-- The month at a glance, or the year. Orbit.Web offers day, month and year; the day here is
-             this grid with one of its days chosen, so the switch beneath is the rest of it. -->
+        <!-- One row of controls and then the calendar itself. Which of the four is showing on the left,
+             and where in it on the right - the design's own first line, and what used to be two rows: a
+             period name with arrows either side, and the view switch under it. The period name is in
+             the bar now, where the screen's name goes. -->
         <VerticalStackLayout Grid.Row="0" Spacing="6">
-            <Grid ColumnDefinitions="Auto,*,Auto,Auto" ColumnSpacing="4">
-                <Button Grid.Column="0" Text="‹" SemanticProperties.Description="{controls:Translate 'Earlier'}" FontSize="20" Padding="10,0" Style="{StaticResource LinkButton}"
-                        Command="{Binding ShowEarlierCommand}" />
-                <Label Grid.Column="1" Text="{Binding PeriodLabel}" FontSize="17" FontAttributes="Bold"
-                       HorizontalTextAlignment="Center" VerticalOptions="Center" />
-                <Button Grid.Column="2" Text="›" SemanticProperties.Description="{controls:Translate 'Later'}" FontSize="20" Padding="10,0" Style="{StaticResource LinkButton}"
-                        Command="{Binding ShowLaterCommand}" />
-                <Button Grid.Column="3" Text="{controls:Translate 'Today'}" FontSize="12" Padding="8,0"
-                        Style="{StaticResource LinkButton}" Command="{Binding ShowTodayCommand}" />
-            </Grid>
+            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                <!-- The ones not showing go quiet, the way the days either side of the month do - bold
+                     alone is too fine a difference at this size to read. -->
+                <HorizontalStackLayout Grid.Column="0" Spacing="10">
+                    <Button Text="{controls:Translate 'Day'}" FontSize="13" Padding="2,0"
+                            Style="{StaticResource LinkButton}" Command="{Binding ShowDayCommand}"
+                            Opacity="0.4">
+                        <Button.Triggers>
+                            <DataTrigger TargetType="Button" Binding="{Binding IsShowingDay}" Value="True">
+                                <Setter Property="Opacity" Value="1" />
+                            </DataTrigger>
+                        </Button.Triggers>
+                    </Button>
+                    <Button Text="{controls:Translate 'Week'}" FontSize="13" Padding="2,0"
+                            Style="{StaticResource LinkButton}" Command="{Binding ShowWeekCommand}"
+                            Opacity="0.4">
+                        <Button.Triggers>
+                            <DataTrigger TargetType="Button" Binding="{Binding IsShowingWeek}" Value="True">
+                                <Setter Property="Opacity" Value="1" />
+                            </DataTrigger>
+                        </Button.Triggers>
+                    </Button>
+                    <Button Text="{controls:Translate 'Month'}" FontSize="13" Padding="2,0"
+                            Style="{StaticResource LinkButton}" Command="{Binding ShowMonthCommand}"
+                            Opacity="0.4">
+                        <Button.Triggers>
+                            <DataTrigger TargetType="Button" Binding="{Binding IsShowingMonth}" Value="True">
+                                <Setter Property="Opacity" Value="1" />
+                            </DataTrigger>
+                        </Button.Triggers>
+                    </Button>
+                    <Button Text="{controls:Translate 'Year'}" FontSize="13" Padding="2,0"
+                            Style="{StaticResource LinkButton}" Command="{Binding ShowYearCommand}"
+                            Opacity="0.4">
+                        <Button.Triggers>
+                            <DataTrigger TargetType="Button" Binding="{Binding IsShowingYear}" Value="True">
+                                <Setter Property="Opacity" Value="1" />
+                            </DataTrigger>
+                        </Button.Triggers>
+                    </Button>
+                </HorizontalStackLayout>
 
-            <!-- Which of the three is showing, the same three the browser offers. The ones not showing
-                 go quiet, the way the days either side of the month do - bold alone is too fine a
-                 difference at this size to read. -->
-            <HorizontalStackLayout Spacing="14" HorizontalOptions="Center">
-                <Button Text="{controls:Translate 'Day'}" FontSize="13" Padding="4,0"
-                        Style="{StaticResource LinkButton}" Command="{Binding ShowDayCommand}"
-                        Opacity="0.4">
-                    <Button.Triggers>
-                        <DataTrigger TargetType="Button" Binding="{Binding IsShowingDay}" Value="True">
-                            <Setter Property="Opacity" Value="1" />
-                        </DataTrigger>
-                    </Button.Triggers>
-                </Button>
-                <Button Text="{controls:Translate 'Month'}" FontSize="13" Padding="4,0"
-                        Style="{StaticResource LinkButton}" Command="{Binding ShowMonthCommand}"
-                        Opacity="0.4">
-                    <Button.Triggers>
-                        <DataTrigger TargetType="Button" Binding="{Binding IsShowingMonth}" Value="True">
-                            <Setter Property="Opacity" Value="1" />
-                        </DataTrigger>
-                    </Button.Triggers>
-                </Button>
-                <Button Text="{controls:Translate 'Year'}" FontSize="13" Padding="4,0"
-                        Style="{StaticResource LinkButton}" Command="{Binding ShowYearCommand}"
-                        Opacity="0.4">
-                    <Button.Triggers>
-                        <DataTrigger TargetType="Button" Binding="{Binding IsShowingYear}" Value="True">
-                            <Setter Property="Opacity" Value="1" />
-                        </DataTrigger>
-                    </Button.Triggers>
-                </Button>
-            </HorizontalStackLayout>
+                <HorizontalStackLayout Grid.Column="1" Spacing="0">
+                    <Button Text="‹" SemanticProperties.Description="{controls:Translate 'Earlier'}"
+                            FontSize="20" Padding="8,0" Style="{StaticResource LinkButton}"
+                            Command="{Binding ShowEarlierCommand}" />
+                    <Button Text="{controls:Translate 'Today'}" FontSize="12" Padding="4,0"
+                            Style="{StaticResource LinkButton}" Command="{Binding ShowTodayCommand}" />
+                    <Button Text="›" SemanticProperties.Description="{controls:Translate 'Later'}"
+                            FontSize="20" Padding="8,0" Style="{StaticResource LinkButton}"
+                            Command="{Binding ShowLaterCommand}" />
+                </HorizontalStackLayout>
+            </Grid>
 
             <!-- A seventh of the row each, for both the names and the days beneath them - see the day
                  cell below for why this is a fraction rather than a width. -->
             <FlexLayout Wrap="Wrap" Direction="Row" BindableLayout.ItemsSource="{Binding WeekdayNames}"
-                        IsVisible="{Binding IsShowingMonth}">
+                        IsVisible="{Binding IsShowingAGrid}">
                 <BindableLayout.ItemTemplate>
                     <DataTemplate x:DataType="x:String">
                         <Label Text="{Binding .}" FlexLayout.Basis="14.28%"
@@ -74,8 +86,10 @@
                 </BindableLayout.ItemTemplate>
             </FlexLayout>
 
+            <!-- Six rows of it for a month, one for a week - the same cells either way, which is what
+                 makes stepping between the two views read as one calendar rather than two. -->
             <FlexLayout Wrap="Wrap" Direction="Row" BindableLayout.ItemsSource="{Binding Days}"
-                        IsVisible="{Binding IsShowingMonth}">
+                        IsVisible="{Binding IsShowingAGrid}">
                 <BindableLayout.ItemTemplate>
                     <DataTemplate x:DataType="screens:CalendarDay">
                         <!-- A seventh of the row, not a fixed 46. A week is seven days by construction;
@@ -192,7 +206,6 @@
              is a layout measurement, and keeping that out of the view model is what leaves the
              placement testable - see CalendarDayTimeline. -->
         <VerticalStackLayout Grid.Row="3" Spacing="6" IsVisible="{Binding HasDayTimeline}">
-                <FlexLayout x:Name="AllDayRow" Wrap="Wrap" Direction="Row" />
                 <!-- The hours down the left, the day itself beside them. Blocks are placed with
                      proportional widths, because how wide a lane is depends on a measurement this page
                      does not have until it is laid out. As tall as the day needs and no taller - see
@@ -201,6 +214,9 @@
                     <Grid x:Name="HourLabels" Grid.Column="0" />
                     <AbsoluteLayout x:Name="DayBlocks" Grid.Column="1" />
                 </Grid>
+                <!-- What has no hour, under the clock rather than over it: the clock is what the day
+                     view is, and a row of all-day things above it pushed the morning off the screen. -->
+                <FlexLayout x:Name="AllDayRow" Wrap="Wrap" Direction="Row" />
         </VerticalStackLayout>
 
         <Label Grid.Row="3" Text="{Binding Message}" IsVisible="{Binding HasMessage}"
@@ -212,7 +228,6 @@
              calendar draws them together for the same reason - see CalendarListEntry. -->
         <RefreshView Grid.Row="4" IsRefreshing="{Binding IsRefreshing}" Command="{Binding LoadCommand}">
             <CollectionView ItemsSource="{Binding Listed}"
-                            Scrolled="OnListScrolled"
                             SelectionMode="Single"
                             SelectionChangedCommand="{Binding OpenListedCommand}"
                             SelectionChangedCommandParameter="{Binding SelectedItem, Source={RelativeSource Self}, x:DataType=CollectionView}">

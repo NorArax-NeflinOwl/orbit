@@ -626,6 +626,7 @@ public static class PolishTranslations
         ["Your events, and the ones you have been invited to."] = "Twoje wydarzenia i te, na które Cię zaproszono.",
         ["No events."] = "Brak wydarzeń.",
         ["Day"] = "Dzień",
+        ["Week"] = "Tydzień",
         ["Month"] = "Miesiąc",
         ["Year"] = "Rok",
         ["Today"] = "Dziś",
