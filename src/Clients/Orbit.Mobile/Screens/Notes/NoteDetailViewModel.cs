@@ -252,7 +252,10 @@ public sealed partial class NoteDetailViewModel : ObservableObject
 
         // Ticked in place and written down, rather than saved and read back: reading it back rebuilds
         // every line, which on this screen means dropping whatever was being typed elsewhere.
-        row.IsChecked = !row.IsChecked;
+        //
+        // One press moves to the next of the three answers - nothing, done, given up on - which is the
+        // same cycle the browser's own box follows. See NoteLineRow.Press and TickState.
+        row.Press();
         return WriteAsync(cancellationToken);
     }
 

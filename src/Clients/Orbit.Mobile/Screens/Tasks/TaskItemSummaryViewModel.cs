@@ -4,6 +4,7 @@ using CommunityToolkit.Mvvm.Input;
 using Orbit.Mobile.Data;
 using Orbit.Mobile.Localization;
 using Orbit.Mobile.Location;
+using Orbit.Core.Abstractions;
 using Orbit.Mobile.Crypto;
 using Orbit.Mobile.Screens.Calendar;
 using Orbit.Mobile.Screens.Location;
@@ -84,6 +85,10 @@ public sealed partial class TaskItemSummaryViewModel : ObservableObject
     [ObservableProperty]
     private bool _isCompleted;
 
+    /// <summary>Crossed out rather than ticked off - see Orbit.Core.Tasks.TaskItem.IsFailed.</summary>
+    [ObservableProperty]
+    private bool _isFailed;
+
     /// <summary>
     /// What the last tick came to, when it came to anything worth saying - a refusal, or a save this
     /// phone is still holding on to. Empty the rest of the time, which is most of it.
@@ -92,6 +97,9 @@ public sealed partial class TaskItemSummaryViewModel : ObservableObject
     private string _status = string.Empty;
 
     public bool HasStatus => Status.Length > 0;
+
+    /// <summary>Finished with, either way - what the entry's name is struck through for.</summary>
+    public bool IsResolved => IsCompleted || IsFailed;
 
     /// <summary>
     /// Where the pin goes, or null when there is nowhere to put one. An address nobody can find stays
@@ -125,6 +133,7 @@ public sealed partial class TaskItemSummaryViewModel : ObservableObject
         TaskListTitle = taskList.Title;
         Description = item.Description;
         IsCompleted = item.IsCompleted;
+        IsFailed = item.IsFailed;
         When = item.DueDateUtc is { } due
             ? due.LocalDateTime.ToString("g", _translations.DisplayCulture)
             : _translations["No date set"];
@@ -236,9 +245,12 @@ public sealed partial class TaskItemSummaryViewModel : ObservableObject
             return;
         }
 
+        // One press moves to the next of the three answers - nothing, done, given up on. See TickState,
+        // which is the same cycle the list screen and the browser follow.
+        var next = Ticks.Read(item.IsCompleted, item.IsFailed).Next();
         var items = taskList.Items
             .Select(candidate => candidate.Id == _itemId
-                ? candidate with { IsCompleted = !item.IsCompleted }
+                ? candidate with { IsCompleted = next.IsCompleted(), IsFailed = next.IsFailed() }
                 : candidate)
             .ToList();
 
@@ -266,7 +278,8 @@ public sealed partial class TaskItemSummaryViewModel : ObservableObject
             return;
         }
 
-        IsCompleted = !item.IsCompleted;
+        IsCompleted = next.IsCompleted();
+        IsFailed = next.IsFailed();
         await SynchroniseAsync(cancellationToken);
     }
 
@@ -324,4 +337,8 @@ public sealed partial class TaskItemSummaryViewModel : ObservableObject
     partial void OnWhereChanged(string value) => OnPropertyChanged(nameof(IsPlaceUnknown));
 
     partial void OnStatusChanged(string value) => OnPropertyChanged(nameof(HasStatus));
+
+    partial void OnIsCompletedChanged(bool value) => OnPropertyChanged(nameof(IsResolved));
+
+    partial void OnIsFailedChanged(bool value) => OnPropertyChanged(nameof(IsResolved));
 }

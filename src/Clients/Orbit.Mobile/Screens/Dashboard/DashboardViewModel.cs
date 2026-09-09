@@ -625,7 +625,7 @@ public sealed partial class DashboardViewModel : ObservableObject
     private static IReadOnlyList<Orbit.Contracts.Tasks.TaskItemDto> EntriesDueOn(
         IReadOnlyList<LocalTaskList> taskLists, DateTime day)
         => [.. taskLists
-            .Where(list => !(list.IsCompleted && list.Items.Any(item => !item.IsCompleted)))
+            .Where(list => !(list.IsCompleted && list.Items.Any(item => !item.IsCompleted && !item.IsFailed)))
             .SelectMany(list => list.Items)
             .Where(item => item.DueDateUtc?.Date == day)];
 

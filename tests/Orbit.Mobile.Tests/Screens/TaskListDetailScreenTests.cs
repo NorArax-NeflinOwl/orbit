@@ -104,6 +104,35 @@ public sealed class TaskListDetailScreenTests
     }
 
     /// <summary>
+    /// The third answer: an entry that is not going to happen is crossed out rather than left sitting
+    /// there or lied about with a tick. One press further round than done - see TickState - and it
+    /// travels to the server as its own flag, so nothing counts it as work that was done.
+    /// </summary>
+    [Fact]
+    public async Task An_entry_can_be_crossed_out_rather_than_ticked_off()
+    {
+        using var context = new ScreenContext();
+        var screen = context.OpenTaskList("Groceries");
+        screen.NewItemDescription = "Buy milk";
+        await screen.AddItemCommand.ExecuteAsync(null);
+
+        await screen.ToggleItemCommand.ExecuteAsync(Assert.Single(screen.Items));
+        await screen.ToggleItemCommand.ExecuteAsync(Assert.Single(screen.Items));
+
+        var crossedOut = Assert.Single(context.Server.TaskLists.Single().Items);
+        Assert.False(crossedOut.IsCompleted);
+        Assert.True(crossedOut.IsFailed);
+        Assert.True(Assert.Single(screen.Items).IsFailed);
+
+        // And once more brings it back as work: three answers, and the third press is the way out.
+        await screen.ToggleItemCommand.ExecuteAsync(Assert.Single(screen.Items));
+
+        var cleared = Assert.Single(context.Server.TaskLists.Single().Items);
+        Assert.False(cleared.IsCompleted);
+        Assert.False(cleared.IsFailed);
+    }
+
+    /// <summary>
     /// What an entry is about, typed as one line of words - the same box a shelf item's category is
     /// typed in, holding as many as apply. The tasks page finds an entry among every list by these.
     /// </summary>

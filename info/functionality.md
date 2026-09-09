@@ -309,6 +309,31 @@ need one - `FoldersBelongToOnePage` - and it does more than default the column: 
 is moved to the notes, and one that held both kinds becomes two folders with the notes moved into the
 copy, so nothing that was filed somewhere falls back to Public.
 
+**An entry's own box has three answers too** (`OP_TI_ISFAILED`, `Orbit.Core.Tasks.TaskItem.IsFailed`,
+2026-09-09): nothing, **done**, and **given up on** - one press moves to the next, and the third press
+clears it (`Orbit.Core.Abstractions.TickState`, which both clients cycle through so a box means the same
+thing in a browser and on a phone). A cross rather than a tick, drawn in the colour everything that went
+wrong is drawn in; a note's checklist line carries the same three (`NoteContentLine.IsFailed`).
+
+Why a third state at all: a list with something on it that is never going to happen could only be closed
+by lying about it with a tick or by leaving it open for ever. So **given up on means finished with, and
+not done** (`TaskItem.IsResolved`) - the two are different questions and each place asks the one it
+means:
+
+- *Still owed?* asks `IsResolved`. A list is complete when nothing on it is still owed; no overdue
+  notice and no event reminder goes out for a crossed-out entry; what a list still needs against a shelf
+  does not count it; a deadline somebody gave up on leaves the calendar's list and the dashboard's
+  Upcoming card. A daily errand still comes round again the next morning, which is what it already did
+  for a tick - being crossed out today says nothing about tomorrow.
+- *Done?* asks `IsCompleted`. The fraction beside a list ("2/5"), the day's count on the dashboard, and
+  everything that acts on work having actually been done: a restock errand somebody gave up on tops up
+  no shelf, and crossing out "Update stock levels" does not offer to finish the whole round.
+
+It is stored as its own flag beside the tick rather than as a status replacing it, so every query that
+asked "is this ticked" still means the same thing by it and existing rows read as "not failed" without
+being rewritten. **A tick wins wherever both arrive**, settled in `TaskItem`'s constructor; an entry
+standing for other lists has neither of its own, since its answer follows the lists it stands for.
+
 **The Completed box has three answers, not two** (`Orbit.Core.Tasks.TaskListCompletion`,
 `OP_T_COMPLETION`, stored by name). A list starts at `FromTheEntries` - nobody has said, so the entries
 decide, and the box **ticks itself once every entry is ticked**, which is what a reader already means by

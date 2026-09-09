@@ -449,7 +449,8 @@
                 // a list finished with work still on it is a way of saying "no more of this" (see
                 // TaskList.IsMarkedCompleted), and the calendar would otherwise keep the deadlines it
                 // was closed to be rid of.
-                pair.item.DueDateUtc!.Value, pair.item.IsCompleted || pair.taskList.IsCompleted,
+                // Finished with either way: a deadline somebody gave up on has stopped being owed.
+                pair.item.DueDateUtc!.Value, pair.item.IsCompleted || pair.item.IsFailed || pair.taskList.IsCompleted,
                 pair.item.LinkedCalendarEventId))
             .OrderBy(dueTask => dueTask.DueDateUtc)
             .ToList();
@@ -538,7 +539,7 @@
         => _entriesByEventId.TryGetValue(calendarEvent.Id, out var pair)
             ? new DueTaskDto(
                 pair.TaskList.Id, pair.Item.Id, pair.TaskList.Title, pair.Item.Description,
-                pair.Item.DueDateUtc ?? calendarEvent.Details.StartUtc, pair.Item.IsCompleted,
+                pair.Item.DueDateUtc ?? calendarEvent.Details.StartUtc, pair.Item.IsCompleted || pair.Item.IsFailed,
                 pair.Item.LinkedCalendarEventId)
             : null;
 
@@ -593,7 +594,7 @@
     /// </summary>
     private IReadOnlySet<Guid> TickedOffEventIds
         => _entriesByEventId
-            .Where(pair => pair.Value.Item.IsCompleted || pair.Value.TaskList.IsCompleted)
+            .Where(pair => pair.Value.Item.IsCompleted || pair.Value.Item.IsFailed || pair.Value.TaskList.IsCompleted)
             .Select(pair => pair.Key)
             .ToHashSet();
 

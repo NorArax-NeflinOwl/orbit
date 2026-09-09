@@ -29,13 +29,14 @@
             <Grid ColumnDefinitions="Auto,*" ColumnSpacing="14">
                 <controls:CheckCircle Grid.Column="0" Diameter="26" Margin="0,6,0,0"
                                       VerticalOptions="Start" IsChecked="{Binding IsCompleted}"
+                                      IsFailed="{Binding IsFailed}"
                                       Description="{Binding Description}"
                                       Command="{Binding TickCommand}" />
                 <Label Grid.Column="1" Text="{Binding Description}" FontFamily="OrbitDisplay"
                        FontSize="28" FontAttributes="Bold" LineBreakMode="WordWrap"
                        VerticalOptions="Center">
                     <Label.Triggers>
-                        <DataTrigger TargetType="Label" Binding="{Binding IsCompleted}" Value="True">
+                        <DataTrigger TargetType="Label" Binding="{Binding IsResolved}" Value="True">
                             <Setter Property="TextDecorations" Value="Strikethrough" />
                             <Setter Property="TextColor"
                                     Value="{AppThemeBinding Light={StaticResource SubtleTextLight}, Dark={StaticResource SubtleTextDark}}" />

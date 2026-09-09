@@ -233,6 +233,25 @@ public sealed class TaskItemSummaryScreenTests
     }
 
     /// <summary>
+    /// The third answer: an entry that is not going to happen is crossed out rather than ticked off.
+    /// One press further round than done - see TickState, which both clients cycle through.
+    /// </summary>
+    [Fact]
+    public async Task The_entry_can_be_crossed_out_rather_than_ticked_off()
+    {
+        using var context = new ScreenContext();
+        var opened = await context.AddEntryAsync("Collect the parcel", isCompleted: true);
+        var screen = await context.OpenAsync(opened);
+
+        await screen.TickCommand.ExecuteAsync(null);
+
+        Assert.False(screen.IsCompleted);
+        Assert.True(screen.IsFailed);
+        Assert.True(screen.IsResolved);
+        Assert.True((await context.StoredEntryAsync(opened)).IsFailed);
+    }
+
+    /// <summary>
     /// A list shared to be read is refused by the store, wherever the write is made from - so the press
     /// is answered with why rather than with nothing, which would read as a press that never registered.
     /// </summary>

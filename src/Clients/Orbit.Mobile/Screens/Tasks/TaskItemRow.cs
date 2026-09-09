@@ -32,8 +32,9 @@ public sealed record TaskItemRow(
         => new(
             item,
             Describe(item, translations),
-            // Only worth saying about something still to do: a finished entry cannot be late any more.
-            !item.IsCompleted && item.DueDateUtc is { } due && due < nowUtc,
+            // Only worth saying about something still to do: an entry that is finished with - ticked
+            // off or crossed out - cannot be late any more.
+            !item.IsCompleted && !item.IsFailed && item.DueDateUtc is { } due && due < nowUtc,
             references ?? [],
             isWaitingToReachTheServer,
             translations.Written(item.Description));
@@ -47,6 +48,15 @@ public sealed record TaskItemRow(
     public string Description => WrittenDescription.Length > 0 ? WrittenDescription : Item.Description;
 
     public bool IsCompleted => Item.IsCompleted;
+
+    /// <summary>Crossed out rather than ticked off - see Orbit.Core.Tasks.TaskItem.IsFailed.</summary>
+    public bool IsFailed => Item.IsFailed;
+
+    /// <summary>
+    /// Finished with, either way: what the row is struck through for. The circle beside it says which
+    /// of the two it was.
+    /// </summary>
+    public bool IsResolved => IsCompleted || IsFailed;
 
     /// <summary>
     /// What the entry is filed under, on the row itself: the page filters by these, and a filter whose

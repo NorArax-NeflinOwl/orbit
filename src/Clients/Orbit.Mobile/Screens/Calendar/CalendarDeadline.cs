@@ -63,7 +63,8 @@ public sealed record CalendarDeadline(
                     // this" (Orbit.Core.Tasks.TaskList.IsMarkedCompleted), and the calendar would
                     // otherwise keep the deadlines it was closed to be rid of. The same rule Orbit.Web
                     // applies - see its Calendar.LoadDueTasksAsync.
-                    item.IsCompleted || taskList.IsCompleted, IsSomewhereAsWellAsAtSomeTime(item))))
+                    // Finished with either way: a deadline somebody gave up on has stopped being owed.
+                    item.IsCompleted || item.IsFailed || taskList.IsCompleted, IsSomewhereAsWellAsAtSomeTime(item))))
             .OrderBy(deadline => deadline.DueLocalDate)];
     }
 

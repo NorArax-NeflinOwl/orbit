@@ -482,7 +482,7 @@ else
     /// A deadline is filtered where it is built - see UpcomingDeadlines.
     /// </summary>
     private bool IsStillToDo(CalendarEventDto calendarEvent)
-        => CalendarEventDestination.RaisedBy(calendarEvent.Id, _taskLists) is not ({ Entry.IsCompleted: true }
+        => CalendarEventDestination.RaisedBy(calendarEvent.Id, _taskLists) is not ({ Entry.IsCompleted: true } or { Entry.IsFailed: true }
             or { List.IsCompleted: true });
 
     /// <summary>
@@ -538,7 +538,7 @@ else
             // with work still on it is a way of saying "no more of this" (TaskList.IsMarkedCompleted),
             // and a card headed "what is coming up" that kept listing its deadlines would be arguing.
             .Where(pair => !pair.taskList.IsCompleted)
-            .Where(pair => !pair.item.IsCompleted
+            .Where(pair => !pair.item.IsCompleted && !pair.item.IsFailed
                 && pair.item.AllLinkedTaskListIds.Count == 0
                 && pair.item.DueDateUtc is { } dueDate && dueDate >= nowUtc)
             .Select(pair => new UpcomingEntry(
@@ -659,7 +659,7 @@ else
     /// this way - see EntriesDueToday.
     /// </summary>
     private static bool ClosedWithWorkLeft(TaskDto taskList)
-        => taskList.IsCompleted && taskList.Items.Any(item => !item.IsCompleted);
+        => taskList.IsCompleted && taskList.Items.Any(item => !item.IsCompleted && !item.IsFailed);
 
     private int EventsTodayCount => EventsToday.Count();
 

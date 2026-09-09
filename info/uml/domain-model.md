@@ -88,6 +88,8 @@ classDiagram
         +string Description
         +DateTimeOffset? DueDateUtc
         +bool IsCompleted
+        +bool IsFailed
+        +bool IsResolved
         +IReadOnlyList~Guid~ LinkedTaskListIds
         +IReadOnlyList~string~ Categories
     }

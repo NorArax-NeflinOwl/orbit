@@ -317,7 +317,11 @@ internal sealed class FakeTasksServer : HttpMessageHandler
             Notes: item.Notes
                 ?? (item.Id is { } id && storedById.TryGetValue(id, out var alreadyThere)
                     ? alreadyThere.AllNotes
-                    : string.Empty))).ToList();
+                    : string.Empty),
+            // A tick wins over a cross, and an entry standing for other lists has neither of its own -
+            // both are TaskItem's own rules, applied here so a client that sends a contradiction is
+            // answered the way the real server would answer it.
+            IsFailed: item.IsFailed && !item.IsCompleted && item.AllLinkedTaskListIds.Count == 0)).ToList();
     }
 
     private static Guid ReadId(string path) => Guid.Parse(path.Split('/')[^1]);

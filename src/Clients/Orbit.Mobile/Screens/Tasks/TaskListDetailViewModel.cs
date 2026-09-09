@@ -4,6 +4,7 @@ using CommunityToolkit.Mvvm.Input;
 using Orbit.Contracts.Calendar;
 using Orbit.Contracts.Inventories;
 using Orbit.Contracts.Tasks;
+using Orbit.Core.Abstractions;
 using Orbit.Core.Tasks;
 using Orbit.Core.Inventories;
 using Orbit.Mobile.Api;
@@ -808,7 +809,8 @@ public sealed partial class TaskListDetailViewModel : ObservableObject
             return Task.CompletedTask;
         }
 
-        if (!row.IsCompleted && ClosesARestockRound(row))
+        // Only a tick claims the whole round is done - crossing the reminder out says the opposite.
+        if (!row.IsCompleted && !row.IsFailed && ClosesARestockRound(row))
         {
             RestockTickBeingAsked = row;
             return Task.CompletedTask;
@@ -863,12 +865,23 @@ public sealed partial class TaskListDetailViewModel : ObservableObject
 
     private bool ClosesARestockRound(TaskItemRow row)
         => row.Description == RestockTaskNaming.UpdateStockReminderDescription
-            && _items.Any(other => other.Id != row.Id && !other.IsCompleted);
+            && _items.Any(other => other.Id != row.Id && !other.IsCompleted && !other.IsFailed);
 
+    /// <summary>
+    /// One press moves the entry to the next of its three answers - nothing, done, given up on - which
+    /// is the same cycle the browser's own box follows. See TickState.
+    /// </summary>
     private Task TickAsync(TaskItemRow row, CancellationToken cancellationToken)
-        => SaveAsync(
-            _items.Select(item => item.Id == row.Id ? item with { IsCompleted = !item.IsCompleted } : item).ToList(),
+    {
+        var next = Ticks.Read(row.IsCompleted, row.IsFailed).Next();
+        return SaveAsync(
+            _items
+                .Select(item => item.Id == row.Id
+                    ? item with { IsCompleted = next.IsCompleted(), IsFailed = next.IsFailed() }
+                    : item)
+                .ToList(),
             cancellationToken);
+    }
 
     /// <summary>"No" - the one tick the reader asked for, and the rest of the list left alone.</summary>
     [RelayCommand]
@@ -1102,8 +1115,10 @@ public sealed partial class TaskListDetailViewModel : ObservableObject
         {
             ChecklistOrder.Alphabetical =>
                 items.OrderBy(item => item.Description, StringComparer.CurrentCultureIgnoreCase),
+            // What is left to do first, and everything finished with after it - a crossed-out entry
+            // belongs with the done ones rather than with the work.
             ChecklistOrder.UndoneFirst => items
-                .OrderBy(item => item.IsCompleted)
+                .OrderBy(item => item.IsCompleted || item.IsFailed)
                 .ThenBy(item => item.Description, StringComparer.CurrentCultureIgnoreCase),
             _ => items.AsEnumerable()
         };

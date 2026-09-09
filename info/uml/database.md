@@ -190,6 +190,7 @@ erDiagram
         text OP_TI_DESCRIPTION
         timestamptz OP_TI_DUEDATEUTC
         bool OP_TI_ISCOMPLETED
+        bool OP_TI_ISFAILED "crossed out rather than ticked - never both"
         text OP_TI_KIND
         uuid OP_TI_LINKEDCALENDAREVENTID
         uuid OP_TI_LINKEDINVENTORYITEMID
