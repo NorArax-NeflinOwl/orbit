@@ -948,6 +948,12 @@ public static class PolishTranslations
         ["Notification as the event approaches"] = "Powiadomienie przed wydarzeniem",
         ["This event was shared by"] = "To wydarzenie udostępnił",
         ["Checklist item"] = "Pozycja listy",
+        // The row of tools over the corner of a note - see NoteEditor. Three of the four are drawn for
+        // the design that has them rather than for anything they do yet, and say so when pressed.
+        ["Text style"] = "Styl tekstu",
+        ["Table"] = "Tabela",
+        ["Attachment"] = "Załącznik",
+        ["{0}: not implemented yet."] = "{0}: jeszcze niezaimplementowane.",
         ["This note was shared by"] = "Tę notatkę udostępnił",
         ["Add item"] = "Dodaj pozycję",
         ["Item description"] = "Opis pozycji",

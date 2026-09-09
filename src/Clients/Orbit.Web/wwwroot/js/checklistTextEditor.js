@@ -21,6 +21,10 @@ export function initialize(container, dotNetHelper, initialLinesJson) {
 
     state.onInput = () => {
         repairStrayText(container);
+        // Typing "[]" at the head of a line is the way to a tick box that needs no toolbar at all.
+        const selection = window.getSelection();
+        const line = selection && selection.anchorNode ? closestLine(selection.anchorNode, container) : null;
+        interpretMarker(line);
         notifyChanged(container, dotNetHelper);
     };
     state.onKeyDown = (event) => {
@@ -72,27 +76,53 @@ export function setLines(container, linesJson) {
 
 /// Called from the toolbar button - ends the current line (if not already empty) and starts a new
 /// checklist line, with focus moved into it.
+// A line that starts "[]" (or "[ ]") is a tick box, and the marker itself is eaten. The phone's note
+// screen has had exactly this rule and no toolbar at all - see NoteDetailPage - and it is why the
+// button in the corner types the marker rather than reaching past it: one way in, whether it was
+// pressed or typed.
+const CHECKLIST_MARKER = /^\[[ \t]?\][ \t]?/;
+
 export function insertChecklistItem(container) {
     const selection = window.getSelection();
     let currentLine = selection && selection.anchorNode ? closestLine(selection.anchorNode, container) : null;
     currentLine ??= container.lastElementChild;
 
     if (currentLine && lineText(currentLine).length === 0 && !currentLine.classList.contains('note-line-checklist')) {
-        // The current line is already empty plain text (e.g. a brand new note) - turn it into the
-        // checklist line instead of leaving a blank line behind it. replaceWithChecklistLine detaches
-        // currentLine from the document, so focus has to move to the replacement it returns, not to
-        // the now-detached original.
-        const replacement = replaceWithChecklistLine(currentLine, '');
-        focusLine(replacement);
+        // The current line is already empty plain text (e.g. a brand new note) - the marker goes on it
+        // rather than leaving a blank line behind it.
+        setLineText(currentLine, '[]');
+        interpretMarker(currentLine);
     } else {
-        const newLine = createLineElement({ text: '', isChecklistItem: true, isChecked: false });
+        const newLine = createLineElement({ text: '[]', isChecklistItem: false, isChecked: false });
         if (currentLine && currentLine.parentElement === container) {
             currentLine.after(newLine);
         } else {
             container.appendChild(newLine);
         }
-        focusLine(newLine);
+        interpretMarker(newLine);
     }
+}
+
+/// Turns a line that begins with the marker into a tick box, and puts the caret where the marker was.
+/// Answers whether it did anything, so the caller can tell an edit that changed the shape of a line
+/// from one that only changed its text.
+function interpretMarker(line) {
+    if (!line || line.classList.contains('note-line-checklist')) {
+        return false;
+    }
+
+    const text = lineText(line);
+    const marker = text.match(CHECKLIST_MARKER);
+    if (!marker) {
+        return false;
+    }
+
+    const rest = text.slice(marker[0].length);
+    // replaceWithChecklistLine detaches the line from the document, so focus has to move to the
+    // replacement it returns rather than to the now-detached original.
+    const replacement = replaceWithChecklistLine(line, rest);
+    focusLine(replacement, /* atStart */ rest.length === 0);
+    return true;
 }
 
 function onClick(event, container, dotNetHelper) {

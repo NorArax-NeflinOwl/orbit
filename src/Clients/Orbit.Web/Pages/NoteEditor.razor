@@ -24,6 +24,33 @@
    from the top down and the form has no fixed height, so the buttons used to be wherever the writing
    happened to end - which on a long note is off the screen. Icons, because two words there would
    compete with the one thing the page is called. *@
+@* Three columns on a wide screen, not two: the notes in this folder on the far left, then the note
+   itself with its own pair - the writing, and the panel that does not scroll. The column of notes is
+   how a note app is read: what is being written is one of a set, and moving between them should not
+   mean going back to a page of cards each time. It is dropped below 1100px, where a fifth of the width
+   is too narrow to name a note in and the writing needs everything there is. *@
+<div class="note-workspace">
+@if (!_isLoading)
+{
+    <aside class="note-workspace-list">
+        @* Most recently changed first, which is the order the notes page itself opens in - the one being
+           written in is nearly always the one at the top. *@
+        <h2 class="note-workspace-list-heading">@T["Notes"]</h2>
+        @if (_notesBeside.Count == 0)
+        {
+            <p class="empty-hint">@T["No notes yet."]</p>
+        }
+        @foreach (var note in _notesBeside)
+        {
+            <button type="button" class="note-workspace-row @(note.Id == Id ? "chosen" : null)"
+                    @onclick="() => GoToNote(note.Id)">
+                <span class="note-workspace-row-title">@NameOf(note)</span>
+                <span class="row-meta">@note.UpdatedAtUtc.LocalDateTime.ToString("dd.MM.yyyy HH:mm")</span>
+            </button>
+        }
+    </aside>
+}
+
 @* Two panels: the form on the left, which scrolls, and the panel on the right, which does not - see
    EditorRail. On a narrow screen the right one becomes a bar along the foot of the window. *@
 <div class="editor-page">
@@ -53,60 +80,59 @@ else
 
     <EditForm Model="_formModel" OnValidSubmit="SaveAsync" class="editor-form note-editor-form">
         <fieldset disabled="@(_isSharedReadOnly || _lockedByUserName is not null || _isSaving)">
-            @* One field for the whole note. The first line is its title and is drawn as one - a
-               separate title box asked twice for something people write once, and left the two able
-               to disagree about what the note is called. *@
-            <div class="field">
-                <div class="note-editor-toolbar">
-                    <button type="button" class="btn-secondary" @onclick="InsertChecklistItemAsync">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="14" height="14" rx="3" /><path d="M6.5 10.2l2.3 2.3L13.5 7.8" /></svg>@T["Checklist item"]</button>
-                </div>
-                <ChecklistTextEditor @ref="_checklistEditorRef" CssClass="note-editor-content note-editor-titled"
+            @* One field for the whole note, and nothing else on this side of the screen. The first line
+               is its title and is drawn as one - a separate title box asked twice for something people
+               write once, and left the two able to disagree about what the note is called. The phone's
+               note screen is the same surface; this is that shape brought back to the browser. *@
+            <div class="note-editor-surface">
+                <ChecklistTextEditor @ref="_checklistEditorRef" CssClass="note-editor-content note-editor-titled note-editor-page"
                                      IsReadOnly="@(_isSharedReadOnly || _lockedByUserName is not null)"
                                      @bind-Lines="_formModel.Lines" />
+
+                @* Over the corner of the writing rather than above it: a toolbar at the top of a note
+                   is a strip of the page given to controls before a word has been written. Only the
+                   tick box does anything today - the other three are drawn because the row they belong
+                   to is the row this design has, and each says so when it is pressed rather than being
+                   greyed out with nothing to explain it. *@
+                @if (!_isSharedReadOnly && _lockedByUserName is null)
+                {
+                    <div class="note-editor-tools">
+                        @if (_toolBeingExplained is { } explained)
+                        {
+                            <span class="note-tool-bubble" role="status">@explained</span>
+                        }
+                        <button type="button" class="note-tool note-tool-letters" title="@TextStyleLabel"
+                                aria-label="@TextStyleLabel" @onclick="() => NotImplementedYet(TextStyleLabel)">Aa</button>
+                        @* The one that works: it types "[]", which the surface turns into a tick box -
+                           the same way somebody who never finds this row gets one. *@
+                        <button type="button" class="note-tool" title="@T["Checklist item"]"
+                                aria-label="@T["Checklist item"]" @onclick="InsertChecklistItemAsync">
+                            <svg viewBox="0 0 20 20" width="17" height="17" aria-hidden="true" fill="none" stroke="currentColor"
+                                 stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+                                <circle cx="5" cy="6" r="2.6" /><path d="m3.6 6 1 1 1.8-2" /><path d="M10 6h7" />
+                                <circle cx="5" cy="14" r="2.6" /><path d="M10 14h7" />
+                            </svg>
+                        </button>
+                        <button type="button" class="note-tool" title="@TableLabel" aria-label="@TableLabel"
+                                @onclick="() => NotImplementedYet(TableLabel)">
+                            <svg viewBox="0 0 20 20" width="17" height="17" aria-hidden="true" fill="none" stroke="currentColor"
+                                 stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+                                <rect x="2.5" y="4" width="15" height="12" rx="1.5" /><path d="M2.5 8.5h15" /><path d="M10 8.5V16" />
+                            </svg>
+                        </button>
+                        <button type="button" class="note-tool" title="@AttachmentLabel" aria-label="@AttachmentLabel"
+                                @onclick="() => NotImplementedYet(AttachmentLabel)">
+                            <svg viewBox="0 0 20 20" width="17" height="17" aria-hidden="true" fill="none" stroke="currentColor"
+                                 stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M14.5 9.5 9 15a3 3 0 0 1-4.2-4.2l6.4-6.4a2 2 0 0 1 2.8 2.8l-6.4 6.4a1 1 0 0 1-1.4-1.4l5.7-5.7" />
+                            </svg>
+                        </button>
+                    </div>
+                }
             </div>
 
         </fieldset>
     </EditForm>
-
-    @* Everything that is about the note rather than in it, in one place under the writing: how much it
-       matters, who may read it, and how it is reached. They used to sit above the content, so a page
-       opened to write on began with three questions nobody had an answer to yet. *@
-    <h2>@T["About this note"]</h2>
-    <div class="note-editor-settings">
-        <fieldset disabled="@(_isSharedReadOnly || _lockedByUserName is not null || _isSaving)">
-            <div class="field">
-                <label for="notePrioritySelect">@T["Priority"]</label>
-                <InputSelect id="notePrioritySelect" @bind-Value="_formModel.Priority">
-                    <option value="Low">@T["Low"]</option>
-                    <option value="Normal">@T["Normal"]</option>
-                    <option value="High">@T["High"]</option>
-                </InputSelect>
-                <small>@T["Sorts this note against the others, and is what the dashboard's filter reads."]</small>
-            </div>
-
-            @* Where it will be found. Only the owner files a note: one reached through a share sits in
-               its owner's folder on their page, and this reader's tabs are their own. *@
-            @if (!_isShared)
-            {
-                <FolderField Page="FolderPage.Notes" Value="_formModel.FolderId" ValueChanged="folderId => _formModel.FolderId = folderId"
-                             Hint="@(T["Without one it is in Public, or in Private when it is sealed."])" />
-            }
-
-            @* Only the owner may turn this on: a note reached through a share belongs to someone else,
-               and "private" means private to its creator. *@
-            @if (!_isShared)
-            {
-                <div class="field">
-                    <label>
-                        <InputCheckbox @bind-Value="_formModel.IsPrivate" />@T["Private"]</label>
-                    <small>
-                        @T["Encrypted in this browser, so Orbit can't read it. It can't be shared, and losing your password loses it."]
-                    </small>
-                </div>
-            }
-        </fieldset>
-    </div>
 
     @if (!IsNewNote && !_formModel.IsPrivate && Id is { } noteId)
     {
@@ -180,8 +206,56 @@ else
                 <p class="error">@_saveErrorMessage</p>
             }
         </Extras>
+        <ChildContent>
+            @* Everything that is about the note rather than in it: how much it matters, where it will
+               be found, and who may read it. They used to sit under the writing, which is a form
+               somebody had to scroll past to reach the end of what they were writing - and before that
+               above it, so a page opened to write on began with three questions nobody had an answer to
+               yet. In the panel they are one press from anywhere in the note and out of the way until
+               then. Stays open, because it is a menu of settings rather than of actions: closing after
+               each one would make changing two a chore. *@
+            <OverflowMenu StaysOpen="true">
+                <div class="note-settings-menu">
+                    @* Plain controls rather than the EditForm's own: this panel sits outside the form,
+                       and InputSelect/InputCheckbox need its EditContext to exist at all. *@
+                    <div class="field">
+                        <label for="notePrioritySelect">@T["Priority"]</label>
+                        <select id="notePrioritySelect" value="@_formModel.Priority" disabled="@IsSettingsDisabled"
+                                @onchange="OnPriorityChosen">
+                            <option value="Low">@T["Low"]</option>
+                            <option value="Normal">@T["Normal"]</option>
+                            <option value="High">@T["High"]</option>
+                        </select>
+                        <small>@T["Sorts this note against the others, and is what the dashboard's filter reads."]</small>
+                    </div>
+
+                    @* Where it will be found. Only the owner files a note: one reached through a share
+                       sits in its owner's folder on their page, and this reader's tabs are their own. *@
+                    @if (!_isShared)
+                    {
+                        <FolderField Page="FolderPage.Notes" Value="_formModel.FolderId" ValueChanged="folderId => _formModel.FolderId = folderId"
+                                     Hint="@(T["Without one it is in Public, or in Private when it is sealed."])" />
+                    }
+
+                    @* Only the owner may turn this on: a note reached through a share belongs to someone
+                       else, and "private" means private to its creator. *@
+                    @if (!_isShared)
+                    {
+                        <div class="field">
+                            <label>
+                                <input type="checkbox" checked="@_formModel.IsPrivate" disabled="@IsSettingsDisabled"
+                                       @onchange="args => _formModel.IsPrivate = args.Value is true" />@T["Private"]</label>
+                            <small>
+                                @T["Encrypted in this browser, so Orbit can't read it. It can't be shared, and losing your password loses it."]
+                            </small>
+                        </div>
+                    }
+                </div>
+            </OverflowMenu>
+        </ChildContent>
     </EditorRail>
 }
+</div>
 </div>
 
 @code {
@@ -224,6 +298,30 @@ else
     private Guid _ownUserId;
     private ChecklistTextEditor? _checklistEditorRef;
 
+    /// <summary>Whether the note's own settings may be changed - the same answer the writing surface gets.</summary>
+    private bool IsSettingsDisabled => _isSharedReadOnly || _lockedByUserName is not null || _isSaving;
+
+    /// <summary>
+    /// What the last press of a tool that does not exist yet was about, in the reader's language. Null
+    /// while nothing has been pressed. Said rather than greyed: a row of three dead buttons explains
+    /// nothing, and the row is the row this design draws.
+    /// </summary>
+    private string? _toolBeingExplained;
+
+    private void OnPriorityChosen(ChangeEventArgs args)
+        => _formModel.Priority = args.Value?.ToString() is { Length: > 0 } chosen ? chosen : NoteFormModel.NormalPriority;
+
+    private void NotImplementedYet(string tool)
+        => _toolBeingExplained = T.Format("{0}: not implemented yet.", tool);
+
+    @* Read once each rather than written into the attributes: a string in quotes inside an attribute's
+       own quotes is what Razor cannot parse - see the same trap in the task editor. *@
+    private string TextStyleLabel => T["Text style"];
+
+    private string TableLabel => T["Table"];
+
+    private string AttachmentLabel => T["Attachment"];
+
     /// <summary>Who else currently holds the edit lock, if anyone - see AcquireLockAsync. Null means this browser holds it (or the note isn't editable at all, so no lock was ever sought).</summary>
     private string? _lockedByUserName;
     private PeriodicTimer? _lockHeartbeatTimer;
@@ -250,7 +348,58 @@ else
     /// <summary>Explains what the current user can do with this shared copy, for the "shared by X" banner.</summary>
     private string SharedAccessDescription => T[_access.Description];
 
-    protected override async Task OnInitializedAsync()
+    /// <summary>
+    /// Which note is on the surface, so opening another one from the list beside it actually swaps the
+    /// note. Blazor keeps the component when only a route parameter changes, so a page that loaded in
+    /// OnInitializedAsync would have shown the first note under the second one's address - see
+    /// OnParametersSetAsync.
+    /// </summary>
+    private Guid? _loadedId;
+
+    private bool _hasLoaded;
+
+    /// <summary>
+    /// Whether the writing surface is still showing the note before this one. It owns its content from
+    /// the moment it appears and nothing about a changed parameter reaches it, so a swap has to be
+    /// handed over - see ChecklistTextEditor.SetLinesAsync.
+    /// </summary>
+    private bool _surfaceNeedsTheNote;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (_hasLoaded && _loadedId == Id)
+        {
+            return;
+        }
+
+        // The note being left behind is not being edited any more, and somebody else may want it.
+        if (_hasLoaded && _loadedId is { } previousNoteId)
+        {
+            await ReleaseLockAsync(previousNoteId);
+        }
+
+        _hasLoaded = true;
+        _loadedId = Id;
+        _isLoading = true;
+        _formModel = new NoteFormModel();
+        _isShared = false;
+        _isSharedReadOnly = false;
+        _canShare = false;
+        _canGrantCanEdit = false;
+        _canGrantEditOnly = false;
+        _access = new SharedItemAccess(IsShared: false, ShareAccessLevel.CanEdit);
+        _originalOwnerUserId = null;
+        _sharedByUserName = null;
+        _lockedByUserName = null;
+        _saveErrorMessage = null;
+        _shareErrorMessage = null;
+        _shareInfoMessage = null;
+        _toolBeingExplained = null;
+        await LoadTheNoteAsync();
+        _surfaceNeedsTheNote = true;
+    }
+
+    private async Task LoadTheNoteAsync()
     {
         var currentUserId = await AuthenticationStateProvider.TryGetCurrentUserIdAsync();
         if (currentUserId is null)
@@ -320,6 +469,65 @@ else
         }
 
         _isLoading = false;
+        await ListTheNotesBesideItAsync();
+    }
+
+    /// <summary>
+    /// The other notes in the same folder as this one, most recently changed first - the column beside
+    /// the writing. Read from the same list the notes page reads: the folder is the only thing that
+    /// narrows it, so a note filed nowhere is listed beside the other notes filed nowhere.
+    ///
+    /// Best effort: a list that will not load leaves the column empty rather than taking the note being
+    /// written down with it.
+    /// </summary>
+    private async Task ListTheNotesBesideItAsync()
+    {
+        try
+        {
+            _notesBeside =
+            [
+                .. (await NotesApiClient.GetNotesAsync())
+                    .Where(note => note.FolderId == _formModel.FolderId)
+                    .OrderByDescending(note => note.UpdatedAtUtc)
+            ];
+        }
+        catch (HttpRequestException exception)
+        {
+            Logger.LogWarning(exception, "Couldn't list the notes beside the one being edited");
+            _notesBeside = [];
+        }
+    }
+
+    /// <summary>The notes in this note's folder - see ListTheNotesBesideItAsync.</summary>
+    private IReadOnlyList<NoteDto> _notesBeside = [];
+
+    /// <summary>
+    /// What to call a note in the column. A private one travels with its title empty - the real one is
+    /// sealed inside its payload - so it is named for what it is rather than shown as a blank row, the
+    /// same way the notes page names it.
+    /// </summary>
+    private string NameOf(NoteDto note)
+        => note.IsPrivate || string.IsNullOrWhiteSpace(note.Title) ? T["Private note"] : note.Title;
+
+    /// <summary>
+    /// Opens another note from the column. An ordinary navigation, so it means exactly what pressing
+    /// Back and then opening that note would: whatever has not been saved here is not kept.
+    /// </summary>
+    private void GoToNote(Guid noteId) => NavigationManager.NavigateTo(ReturnTo.Link($"/notes/{noteId}/edit", ComeBackTo));
+
+    /// <summary>
+    /// Hands the note to the writing surface after a swap. It cannot be done where the note is loaded:
+    /// the surface is a child component and does not exist yet on the first pass.
+    /// </summary>
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!_surfaceNeedsTheNote || _checklistEditorRef is null)
+        {
+            return;
+        }
+
+        _surfaceNeedsTheNote = false;
+        await _checklistEditorRef.SetLinesAsync(_formModel.Lines);
     }
 
     /// <summary>
@@ -477,6 +685,8 @@ else
     /// <summary>Starts a new checklist line in the editor - the actual line-splitting/marker logic lives in checklistTextEditor.js.</summary>
     private async Task InsertChecklistItemAsync()
     {
+        // The one tool that works, so nothing is left being explained.
+        _toolBeingExplained = null;
         if (_checklistEditorRef is not null)
         {
             await _checklistEditorRef.InsertChecklistItemAsync();
@@ -593,8 +803,11 @@ else
         /// <summary>Encrypt this note so only its owner can read it - see PrivateContentSealer.</summary>
         public bool IsPrivate { get; set; }
 
+        /// <summary>What a note is worth unless somebody says otherwise - see ItemPriority.</summary>
+        public const string NormalPriority = "Normal";
+
         /// <summary>ItemPriority by name, the way the API takes it - see NoteDto.Priority.</summary>
-        public string Priority { get; set; } = "Normal";
+        public string Priority { get; set; } = NormalPriority;
 
         /// <summary>The folder it is filed under, or null for none - see NoteDto.FolderId.</summary>
         public Guid? FolderId { get; set; }

@@ -402,6 +402,37 @@ than `"[ ]"`/`"[x]"` text every client would have to parse back out, and it is p
 ownership rule as every other endpoint; the Blazor client's notes page asks for confirmation before
 calling it.
 
+### Writing a note in the browser
+
+`NoteEditor.razor` is **one field and nothing else on that side of the screen** (2026-09-09), which is
+the shape the phone's note screen has had since the redesign: the first line is the note's title and is
+drawn as one, everything under it is the note, and there is no separate title box for the two to
+disagree in.
+
+- **The tools sit over the writing's bottom-left corner**, not above it - a toolbar at the top of a note
+  is a strip of the page given to controls before a word has been written. Four of them, as the design
+  draws: text style, checklist, table, attachment. **Only the checklist one does anything**; the other
+  three answer a press with "*Text style*: not implemented yet." rather than being greyed out, because a
+  dead button explains nothing and a row of them explains less.
+- **The checklist tool types `[]`**, which the surface then turns into a tick box
+  (`checklistTextEditor.js`, `CHECKLIST_MARKER`). Typing the same two characters at the head of a line
+  does the same thing, so the button is a shortcut into the rule rather than a second way in - which is
+  how the phone has always done it (`NoteDetailPage`, "Type [] for a checkbox").
+- **How much it matters, where it is filed and whether it is sealed live in the panel's menu**, above
+  Save and Back (`EditorRail`'s `ChildContent`, an `OverflowMenu` that stays open because these are
+  settings rather than actions). They used to sit under the writing, which is a form somebody had to
+  scroll past to reach the end of what they were writing. They are plain `<select>`/`<input>` rather than
+  `InputSelect`/`InputCheckbox`: the panel is outside the `EditForm`, and those need its `EditContext`.
+- **The notes in the same folder stand beside it**, a fifth of the width, most recently changed first,
+  with the one being written marked. What is being written is one of a set, and moving between them
+  should not mean going back to the page of cards each time. Pressing one is an ordinary navigation and
+  means exactly what Back-then-open means: whatever has not been saved is not kept. Below 1100px the
+  column is dropped - a fifth of a narrow window cannot name a note, and the writing needs the room.
+  Because a route parameter changing does not remake a Blazor component, the editor loads in
+  `OnParametersSetAsync` keyed by the note's id, releases the previous note's edit lock on the way, and
+  hands the new lines to the writing surface itself (`ChecklistTextEditor.SetLinesAsync`), which owns its
+  own content and hears nothing about a changed parameter.
+
 ### Sharing notes and task lists
 
 Notes and task lists can be shared with another user, on the same offer/accept mechanism as calendar
