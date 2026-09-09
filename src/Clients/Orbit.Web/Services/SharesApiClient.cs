@@ -35,4 +35,23 @@ public sealed class SharesApiClient
         response.EnsureSuccessStatusCode();
         return await response.Content.ReadFromJsonAsync<ShareOfferDto>(cancellationToken: cancellationToken);
     }
+
+    /// <summary>
+    /// Everything this reader has handed one person, of every kind, newest first - what the contact's
+    /// own page lists. Empty for somebody they have given nothing.
+    /// </summary>
+    public async Task<IReadOnlyList<SharedWithContactDto>> GetSharedWithAsync(
+        Guid recipientUserId, CancellationToken cancellationToken = default)
+        => await _httpClient.GetFromJsonAsync<List<SharedWithContactDto>>(
+            $"api/shares/with/{recipientUserId}", cancellationToken) ?? [];
+
+    /// <summary>
+    /// Takes one back. False when it was not this reader's to take back or has already gone - the
+    /// server does not tell those apart, and neither does the page.
+    /// </summary>
+    public async Task<bool> RevokeAsync(string kind, Guid shareId, CancellationToken cancellationToken = default)
+    {
+        var response = await _httpClient.DeleteAsync($"api/shares/{kind}/{shareId}", cancellationToken);
+        return response.IsSuccessStatusCode;
+    }
 }

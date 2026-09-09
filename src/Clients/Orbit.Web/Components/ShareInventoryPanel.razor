@@ -101,7 +101,8 @@
             }
 
             var payloadJson = JsonSerializer.Serialize(new InventoryShareMessagePayload(result.ShareId, Inventory.Name));
-            await EncryptedChatMessageSender.SendAsync(OwnUserId, recipientUserId, payloadJson, isShareInvitation: true);
+            await EncryptedChatMessageSender.SendAsync(
+                OwnUserId, recipientUserId, payloadJson, isShareInvitation: true, announcesShareId: result.ShareId);
             _infoMessage = result.AlreadyShared
                 ? T["Already shared with that contact - sent a reminder."]
                 : T["Shared - they'll see it in your chat."];

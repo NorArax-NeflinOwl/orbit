@@ -121,6 +121,25 @@ internal sealed class InMemoryChatMessageRepository : IChatMessageRepository
     }
 
     /// <inheritdoc cref="MarkDeletedAsync"/>
+    public Task<IReadOnlyList<Guid>> MarkShareAnnouncementsDeletedAsync(
+        Guid shareId, Guid deletedByUserId, DateTimeOffset deletedAtUtc, CancellationToken cancellationToken)
+    {
+        var announcements = _messages
+            .Where(message => message.AnnouncesShareId == shareId && !message.IsDeleted)
+            .ToList();
+        foreach (var message in announcements)
+        {
+            message.Delete(deletedByUserId, deletedAtUtc);
+        }
+
+        IReadOnlyList<Guid> everybodyInvolved = announcements
+            .SelectMany(message => new[] { message.SenderUserId, message.RecipientUserId })
+            .Distinct()
+            .ToList();
+        return Task.FromResult(everybodyInvolved);
+    }
+
+    /// <inheritdoc cref="MarkDeletedAsync"/>
     public Task MarkGroupMessageDeletedAsync(
         Guid groupMessageId, Guid deletedByUserId, DateTimeOffset deletedAtUtc, CancellationToken cancellationToken)
     {

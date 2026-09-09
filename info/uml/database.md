@@ -250,6 +250,7 @@ erDiagram
         bool OP_C_ISSHAREDHISTORY
         timestamptz OP_C_DELETEDATUTC "the row stays, the words go"
         uuid OP_C_DELETEDBYUSERID FK "not always the sender"
+        uuid OP_C_ANNOUNCESSHAREID "which share this invites to, if any"
     }
     OL_CHATS_ACCESS {
         uuid OL_CA_ID PK
@@ -280,6 +281,12 @@ erDiagram
 
 `OP_CHATS` has **no column for message content**. `OP_C_CIPHERTEXTBASE64` is the message, and nothing on
 the server can open it — see [flows](flows.md#chat-that-the-server-cannot-read).
+
+`OP_C_ANNOUNCESSHAREID` is the one thing a share invitation says in the clear. The share id it points at
+is inside the sealed payload too, where only the recipient can read it — which is no use to the server
+when the owner withdraws the share and its invitation has to be taken down with it. It matches no single
+table on purpose: which of `OP_NOTES_SHARED`, `OP_TASKS_SHARED`, `OP_EVENTS_SHARED` and
+`OP_INVENTORIES_SHARED` the id belongs to is only knowable from the payload, so there is no foreign key.
 
 `OL_CHATS_ACCESS` is the row that makes a conversation a conversation: until
 `OL_CA_APPROVEDATUTC` is set, one person has asked and the other has not agreed.

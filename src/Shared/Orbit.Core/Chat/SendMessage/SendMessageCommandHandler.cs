@@ -58,7 +58,9 @@ public sealed class SendMessageCommandHandler : IRequestHandler<SendMessageComma
 
         await _chatConversationAccessRepository.EnsureCreatedAsync(request.SenderUserId, request.RecipientUserId, cancellationToken);
 
-        var message = ChatMessage.Create(request.SenderUserId, request.RecipientUserId, request.CiphertextBase64, request.NonceBase64);
+        var message = ChatMessage.Create(
+            request.SenderUserId, request.RecipientUserId, request.CiphertextBase64, request.NonceBase64,
+            request.AnnouncesShareId);
         await _chatMessageRepository.AddAsync(message, cancellationToken);
 
         await _contactRepository.EnsureContactAsync(request.SenderUserId, request.RecipientUserId, message.SentAtUtc, cancellationToken);

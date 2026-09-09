@@ -1436,7 +1436,8 @@ else
                 // calendar's own editor has always sent both; this is the same two lines.
                 var payloadJson = JsonSerializer.Serialize(
                     new EventShareMessagePayload(result.ShareId, item.Description));
-                await EncryptedChatMessageSender.SendAsync(_ownUserId, userId, payloadJson, isShareInvitation: true);
+                await EncryptedChatMessageSender.SendAsync(
+                    _ownUserId, userId, payloadJson, isShareInvitation: true, announcesShareId: result.ShareId);
             }
             catch (Exception exception) when (exception is not OperationCanceledException)
             {
@@ -2292,7 +2293,8 @@ else
             }
 
             var payloadJson = JsonSerializer.Serialize(new TaskListShareMessagePayload(result.ShareId, _formModel.Title));
-            await EncryptedChatMessageSender.SendAsync(_ownUserId, recipientUserId, payloadJson, isShareInvitation: true);
+            await EncryptedChatMessageSender.SendAsync(
+                _ownUserId, recipientUserId, payloadJson, isShareInvitation: true, announcesShareId: result.ShareId);
             _shareInfoMessage = result.AlreadyShared ? T["Already shared with that contact - sent a reminder."] : null;
             _selectedContactUserId = string.Empty;
         }

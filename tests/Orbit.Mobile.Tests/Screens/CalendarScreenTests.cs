@@ -264,6 +264,27 @@ public sealed class CalendarScreenTests
     }
 
     /// <summary>
+    /// A deadline on a list its owner has closed is done, whatever its own tick says - so it leaves the
+    /// list, the same way one that was ticked off does. Marking a list finished with work still on it is
+    /// a way of saying "no more of this", and the calendar would otherwise keep the deadlines it was
+    /// closed to be rid of. The same rule Orbit.Web applies.
+    ///
+    /// Compare What_falls_due_is_shown_beside_the_events above, which is the same entry on a list
+    /// nobody closed.
+    /// </summary>
+    [Fact]
+    public async Task A_deadline_on_a_closed_list_is_done_with()
+    {
+        using var context = new ScreenContext();
+        var listId = await context.AddDeadlineAsync("Groceries", "Buy milk", new DateTime(2026, 8, 20, 17, 0, 0));
+        await context.CloseTheListAsync(listId);
+
+        var screen = await context.OpenAsync();
+
+        Assert.Empty(Deadlines(screen));
+    }
+
+    /// <summary>
     /// One list, whatever kind of thing is on it: two lists one under the other made the reader merge
     /// them by eye, in a period where they interleave by definition. Soonest first is what a calendar is
     /// asked for, so a deadline in the morning comes before an appointment in the afternoon.
@@ -706,6 +727,19 @@ public sealed class CalendarScreenTests
             ]);
 
             return created.LocalId;
+        }
+
+        /// <summary>
+        /// Marks a list finished the way its owner would, with work still on it - see
+        /// Orbit.Core.Tasks.TaskList.IsMarkedCompleted. Written straight to the store because the phone
+        /// has no control for it yet; what is being tested is what the phone does with the answer.
+        /// </summary>
+        public async Task CloseTheListAsync(Guid localId)
+        {
+            await using var dbContext = _localStore.CreateDbContext();
+            var stored = dbContext.TaskLists.Single(candidate => candidate.LocalId == localId);
+            stored.IsCompleted = true;
+            await dbContext.SaveChangesAsync();
         }
 
         /// <summary>

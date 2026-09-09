@@ -58,7 +58,12 @@ public sealed record CalendarDeadline(
                     taskList.LocalId, item.Id, taskList.Title, item.Description,
                     item.DueDateUtc!.Value.ToLocalTime().Date,
                     item.DueDateUtc!.Value.ToLocalTime().ToString("g", translations.DisplayCulture),
-                    item.IsCompleted, IsSomewhereAsWellAsAtSomeTime(item))))
+                    // An entry on a list its owner has closed is done, whatever its own tick says:
+                    // marking a list finished with work still on it is a way of saying "no more of
+                    // this" (Orbit.Core.Tasks.TaskList.IsMarkedCompleted), and the calendar would
+                    // otherwise keep the deadlines it was closed to be rid of. The same rule Orbit.Web
+                    // applies - see its Calendar.LoadDueTasksAsync.
+                    item.IsCompleted || taskList.IsCompleted, IsSomewhereAsWellAsAtSomeTime(item))))
             .OrderBy(deadline => deadline.DueLocalDate)];
     }
 

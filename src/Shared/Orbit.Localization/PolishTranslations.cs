@@ -86,6 +86,7 @@ public static class PolishTranslations
         ["The list asks about everything it would otherwise ask about, marked or not."] =
             "Lista pyta o wszystko, o co pytałaby normalnie - oznaczone czy nie.",
         ["More"] = "Więcej",
+        ["Menu"] = "Menu",
         ["Couldn't add those to the restock list."] = "Nie udało się dodać ich do listy uzupełnień.",
         ["{0} added to the restock list."] = "Dodano do listy uzupełnień: {0}.",
         ["Everything short was already on the restock list."] = "Wszystkie braki już były na liście uzupełnień.",
@@ -595,6 +596,7 @@ public static class PolishTranslations
         ["Who this is, and how to reach them."] = "Kto to jest i jak się z nim skontaktować.",
         ["Status"] = "Status",
         ["Last message"] = "Ostatnia wiadomość",
+        ["Last active"] = "Ostatnio aktywny",
         ["They asked to chat with you. Open the conversation to allow it."] = "Ta osoba prosi o rozmowę. Otwórz konwersację, aby na nią pozwolić.",
         ["Waiting for them to allow this conversation."] = "Czekamy, aż ta osoba zgodzi się na rozmowę.",
         ["No conversation with them yet."] = "Nie ma jeszcze rozmowy z tą osobą.",
@@ -628,6 +630,7 @@ public static class PolishTranslations
         ["Day"] = "Dzień",
         ["Week"] = "Tydzień",
         ["Month"] = "Miesiąc",
+        ["A day shows everything that fell on it."] = "Dzień pokazuje wszystko, co na niego przypadło.",
         ["Year"] = "Rok",
         ["Today"] = "Dziś",
         ["Yesterday"] = "Wczoraj",
@@ -664,6 +667,7 @@ public static class PolishTranslations
         ["Find an entry on any list"] = "Znajdź element na dowolnej liście",
         ["Entries in every chosen category"] = "Elementy w każdej wybranej kategorii",
         ["Nothing on any list matches that."] = "Nic na żadnej liście tego nie pasuje.",
+        ["Nothing is in this folder yet."] = "W tym folderze jeszcze nic nie ma.",
         ["Expires"] = "Termin ważności",
         ["Private - encrypted, and only you can read it"] = "Prywatne — zaszyfrowane, czyta to tylko Ty",
         ["There is less of this than the minimum you set"] = "Zostało tego mniej niż ustawione minimum",
@@ -696,6 +700,8 @@ public static class PolishTranslations
         // ---- Map ----
         ["Where you are, who you are sharing it with, and who is sharing theirs."] =
             "Gdzie jesteś, komu to udostępniasz i kto udostępnia swoje położenie Tobie.",
+        ["Recording where you are, and sharing it, don't work on a phone yet - open Orbit on a computer for those."] =
+            "Zapisywanie położenia i udostępnianie go nie działają jeszcze na telefonie - otwórz Orbit na komputerze.",
         ["Start recording"] = "Zacznij zapisywać",
         ["Stop recording"] = "Przestań zapisywać",
         ["Share where you are"] = "Udostępnij swoje położenie",
@@ -1043,6 +1049,10 @@ public static class PolishTranslations
         ["Share link"] = "Link do udostępnienia",
         ["Copy link"] = "Kopiuj link",
         ["Stop sharing"] = "Przestań udostępniać",
+        ["Not taken up yet"] = "Jeszcze nieprzyjęte",
+        ["Shared with {0}"] = "Udostępnione: {0}",
+        ["Couldn't stop sharing that. Check your connection and try again."] =
+            "Nie udało się zakończyć tego udostępniania. Sprawdź połączenie i spróbuj ponownie.",
         ["Ask to edit this"] = "Poproś o możliwość edycji",
         ["Save to my account"] = "Zapisz na moim koncie",
         ["Sign in to save this"] = "Zaloguj się, żeby to zapisać",

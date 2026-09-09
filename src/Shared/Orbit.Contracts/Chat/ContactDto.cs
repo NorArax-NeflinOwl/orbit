@@ -25,4 +25,15 @@ public sealed record ContactDto(
     /// with Google - see Orbit.Core.Users.User.GoogleSubjectId. Guards what Orbit hands to Google:
     /// an invitation in GoogleCalendarEventLink only carries the guests Google can actually reach.
     /// </summary>
-    bool HasGoogleVerifiedEmail = false);
+    bool HasGoogleVerifiedEmail = false,
+    /// <summary>
+    /// When this person was last heard from, or null for an account that has never been seen - see
+    /// Orbit.Core.Users.UserPresence.LastSeenAtUtc. Cut down to the minute it fell in: the exact second
+    /// somebody's browser last beat is not a thing anybody needs to know about them, and the minute is
+    /// what the card shows.
+    ///
+    /// Alongside PresenceStatus rather than instead of it. The status answers "can I reach them now",
+    /// which is a question about the present and ages the moment it arrives; this answers "when were
+    /// they last here", which stays true.
+    /// </summary>
+    DateTimeOffset? LastSeenAtUtc = null);

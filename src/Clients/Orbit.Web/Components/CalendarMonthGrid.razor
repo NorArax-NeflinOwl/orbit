@@ -2,7 +2,7 @@
 @using Orbit.Web.Services
 @inject Translations T
 
-<div class="calendar-month-grid @(IsCompact ? "calendar-month-grid-compact" : "")">
+<div class="calendar-month-grid @(IsCompact ? "calendar-month-grid-compact" : "") @(IsRoomy ? "calendar-month-grid-one-week" : "")">
     <div class="calendar-month-grid-weekday-row">
         @foreach (var weekdayName in WeekdayNames)
         {
@@ -87,9 +87,17 @@
 </div>
 
 @code {
-    private const int MaxVisibleEvents = 4;
-    private const int MaxVisibleDueTasks = 4;
     private const int MaxCompactDots = 3;
+
+    /// <summary>
+    /// How many chips a cell shows before it says how many more there are. Four in a month, where a
+    /// cell is a fifth of the grid's height; more in a week, where one row has the whole page and a
+    /// day that says "+6 more" is a day whose room went unused - see IsRoomy.
+    /// </summary>
+    private int MaxVisibleEvents => IsRoomy ? 10 : 4;
+
+    /// <inheritdoc cref="MaxVisibleEvents"/>
+    private int MaxVisibleDueTasks => IsRoomy ? 10 : 4;
 
     /// <summary>
     /// Day names taken from the reader's language rather than written out here - a Polish calendar
@@ -139,6 +147,14 @@
     /// <summary>Renders a dot per event instead of a full time/title chip - used for the 12-months-at-once year view.</summary>
     [Parameter]
     public bool IsCompact { get; set; }
+
+    /// <summary>
+    /// Taller cells showing more of what is on each day - for the week view, which is this same grid
+    /// with one row in it (see CalendarGridBuilder.BuildWeekGrid). A week reads as a row of a month on
+    /// purpose; the only thing it does differently is use the room a single row has.
+    /// </summary>
+    [Parameter]
+    public bool IsRoomy { get; set; }
 
     [Parameter]
     public EventCallback<DateOnly> OnDaySelected { get; set; }

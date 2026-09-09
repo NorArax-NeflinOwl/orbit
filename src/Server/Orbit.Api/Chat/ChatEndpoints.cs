@@ -66,7 +66,8 @@ public static class ChatEndpoints
         {
             var result = await dispatcher.SendAsync(
                 new SendMessageCommand(
-                    GetUserId(user), request.RecipientUserId, request.CiphertextBase64, request.NonceBase64, request.IsShareInvitation),
+                    GetUserId(user), request.RecipientUserId, request.CiphertextBase64, request.NonceBase64,
+                    request.IsShareInvitation, request.AnnouncesShareId),
                 cancellationToken);
 
             return result.Outcome switch
@@ -355,7 +356,7 @@ public static class ChatEndpoints
             contact.User.Id, contact.User.UserName, contact.User.DisplayName, contact.User.Email, contact.User.PublicKeyBase64,
             contact.LastMessageAtUtc, contact.RequiresApprovalFromCurrentUser, contact.IsPendingApprovalFromOtherParty,
             contact.UnreadCount, contact.User.Presence.StatusAt(DateTimeOffset.UtcNow).ToString(),
-            contact.IsArchived, contact.User.GoogleSubjectId is not null);
+            contact.IsArchived, contact.User.GoogleSubjectId is not null, contact.User.Presence.LastSeenToTheMinuteUtc);
 
     private static ChatMessageDto ToDto(GroupConversationEntry entry)
         => ToDto(entry.Message) with { ReadByEveryone = entry.ReadByEveryone };

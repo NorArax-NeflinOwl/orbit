@@ -72,4 +72,38 @@ public sealed class UserPresenceTests
         // showing as offline until the next heartbeat - a status nobody would see.
         Assert.Equal(PresenceStatus.DoNotDisturb, user.Presence.StatusAt(Now));
     }
+
+    /// <summary>
+    /// What a contact's card shows, and all of last-seen that leaves the server - the exact second
+    /// somebody's browser last beat is not a thing anybody needs to know about them.
+    /// </summary>
+    [Fact]
+    public void What_a_contact_is_told_is_the_minute_somebody_was_last_here()
+    {
+        var presence = new UserPresence(
+            PresenceAvailability.Available, new DateTimeOffset(2026, 8, 1, 9, 47, 53, TimeSpan.Zero));
+
+        Assert.Equal(new DateTimeOffset(2026, 8, 1, 9, 47, 0, TimeSpan.Zero), presence.LastSeenToTheMinuteUtc);
+    }
+
+    /// <summary>
+    /// And the stored instant keeps its seconds, because the away threshold is measured against it:
+    /// rounded down, somebody last seen at 10:00:59 would turn "away" five seconds later, having been
+    /// at the keyboard the whole time.
+    /// </summary>
+    [Fact]
+    public void Rounding_what_is_shown_does_not_round_what_status_is_measured_against()
+    {
+        var lastSeen = new DateTimeOffset(2026, 8, 1, 10, 0, 59, TimeSpan.Zero);
+        var presence = new UserPresence(PresenceAvailability.Available, lastSeen);
+
+        Assert.Equal(lastSeen, presence.LastSeenAtUtc);
+        Assert.Equal(PresenceStatus.Available, presence.StatusAt(lastSeen.AddSeconds(5)));
+    }
+
+    [Fact]
+    public void An_account_nobody_has_ever_seen_has_no_minute_to_show()
+    {
+        Assert.Null(UserPresence.NeverSeen.LastSeenToTheMinuteUtc);
+    }
 }

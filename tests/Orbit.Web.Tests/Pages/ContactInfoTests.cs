@@ -150,15 +150,50 @@ public sealed class ContactInfoTests : OrbitTestContext
         Assert.EndsWith($"/chat/{ContactUserId}", navigationManager.Uri);
     }
 
+    /// <summary>
+    /// "Away" says they cannot be reached right now; this says how long that has been true, which is
+    /// the difference between somebody who stepped out and somebody who has not opened Orbit in months.
+    /// </summary>
+    [Fact]
+    public void It_says_when_they_were_last_here()
+    {
+        RegisterClients(
+            userJson: $$"""{"id":"{{ContactUserId}}","userName":"anna","displayName":"Anna Kowalska","publicKeyBase64":"key"}""",
+            contactsJson: ContactListJson("Away", lastSeenAtUtc: "2026-08-01T09:47:00+00:00"));
+
+        var cut = Render();
+
+        Assert.Contains("Last active", cut.Markup);
+        Assert.Contains(
+            new DateTimeOffset(2026, 8, 1, 9, 47, 0, TimeSpan.Zero).LocalDateTime.ToString("dd.MM.yyyy HH:mm"),
+            cut.Markup);
+    }
+
+    /// <summary>
+    /// An account nobody has ever seen says so. A blank row reads as a value that failed to load, which
+    /// is a different thing from a person who has never been here.
+    /// </summary>
+    [Fact]
+    public void Somebody_never_seen_says_never_rather_than_nothing()
+    {
+        RegisterClients(
+            userJson: $$"""{"id":"{{ContactUserId}}","userName":"anna","displayName":"Anna Kowalska","publicKeyBase64":"key"}""",
+            contactsJson: ContactListJson("Offline"));
+
+        var cut = Render();
+
+        Assert.Contains("Never", cut.Markup);
+    }
+
     private IRenderedComponent<ContactInfo> Render()
         => RenderComponent<ContactInfo>(parameters => parameters.Add(page => page.UserId, ContactUserId));
 
-    private static string ContactListJson(string presenceStatus)
+    private static string ContactListJson(string presenceStatus, string? lastSeenAtUtc = null)
         => $$"""
         [{"userId":"{{ContactUserId}}","userName":"anna","displayName":"Anna Kowalska","email":"anna@example.com",
           "publicKeyBase64":"key","lastMessageAtUtc":"2026-08-01T10:00:00+00:00",
           "requiresApprovalFromCurrentUser":false,"isPendingApprovalFromOtherParty":false,"unreadCount":0,
-          "presenceStatus":"{{presenceStatus}}"}]
+          "presenceStatus":"{{presenceStatus}}","lastSeenAtUtc":{{(lastSeenAtUtc is null ? "null" : $"\"{lastSeenAtUtc}\"")}}}]
         """;
 
     /// <param name="userJson">Null stands for an account the API has nothing for - a 404 from /api/users.</param>

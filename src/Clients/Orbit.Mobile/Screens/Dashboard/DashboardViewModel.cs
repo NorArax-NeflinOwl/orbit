@@ -598,6 +598,9 @@ public sealed partial class DashboardViewModel : ObservableObject
             // before saying what is in it.
             today.ToString("dddd, d MMMM", _translations.DisplayCulture),
             taskLists
+                // A list its owner has closed owes nothing, whatever is still unticked on it - see
+                // CalendarDeadline, and Orbit.Web's own today strip.
+                .Where(list => !list.IsCompleted)
                 .SelectMany(list => list.Items)
                 .Count(item => !item.IsCompleted && item.DueDateUtc?.Date == today),
             events.Count(calendarEvent => calendarEvent.Details.StartUtc.Date == today),
