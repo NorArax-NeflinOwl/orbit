@@ -76,6 +76,13 @@ public interface IScreenNavigator
 
     void ShowCalendar();
 
+    /// <summary>
+    /// The calendar opened on today, by the hour. Where the dashboard's own summary of the day leads:
+    /// it counts what is happening today, so pressing it should show today rather than the month it
+    /// happens to be in.
+    /// </summary>
+    void ShowCalendarDay();
+
     /// <summary>One event, opened from the calendar - see CalendarEventDetailViewModel.</summary>
     void ShowCalendarEvent(Guid localId);
 
@@ -105,4 +112,20 @@ public interface IScreenNavigator
 
     /// <summary>The app's own log, and the one way it leaves the phone - see DiagnosticsViewModel.</summary>
     void ShowDiagnostics();
+
+    /// <summary>
+    /// What Orbit is, which build this one is, and where the documents about it are - see
+    /// AboutViewModel. A screen of its own rather than a fold-out at the foot of the drawer, which is
+    /// where it used to be: it is one of the drawer's entries, and an entry that expands in place is
+    /// the only one that does not take the reader anywhere.
+    /// </summary>
+    void ShowAbout();
+
+    /// <summary>
+    /// One of the map's two lists of people: who can see where the reader is, or who is letting the
+    /// reader see where they are. A screen of its own, because a list of names drawn over the map
+    /// covers the thing it is about - see MapViewModel.
+    /// </summary>
+    /// <param name="theirs">True for the positions shared with this reader; false for their own shares.</param>
+    void ShowLocationShares(bool theirs);
 }

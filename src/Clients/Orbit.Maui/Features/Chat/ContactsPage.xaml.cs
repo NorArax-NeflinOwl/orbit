@@ -1,4 +1,5 @@
 using System.Windows.Input;
+using Orbit.Maui.Controls;
 using Orbit.Mobile.Data;
 using Orbit.Mobile.Localization;
 using Orbit.Mobile.Screens;
@@ -6,7 +7,7 @@ using Orbit.Mobile.Screens.Chat;
 
 namespace Orbit.Maui.Features.Chat;
 
-public partial class ContactsPage : ContentPage
+public partial class ContactsPage : ContentPage, ITitleMenu
 {
 	private readonly ContactsViewModel _viewModel;
 	private readonly Translations _translations;
@@ -18,10 +19,35 @@ public partial class ContactsPage : ContentPage
 		_viewModel = viewModel;
 		_translations = translations;
 		ShowContactMenuCommand = new Command<LocalContact>(ShowContactMenu);
+		ShowTitleMenuCommand = new Command(ShowTheListMenu);
 
 		InitializeComponent();
 		BindingContext = viewModel;
 	}
+
+	/// <inheritdoc cref="ITitleMenu.ShowTitleMenuCommand"/>
+	public ICommand ShowTitleMenuCommand { get; }
+
+	/// <summary>
+	/// How this list is read: everybody, or what has been put away. It was a switch above the list,
+	/// which spent a row of the screen on a question most readers never ask - and offered only once
+	/// something had been archived, so the row appeared and disappeared under them.
+	/// </summary>
+	private void ShowTheListMenu() => Menu.Show(
+		[
+			new ScreenMenuEntry(
+				_translations["Conversations"],
+				() => _viewModel.IsShowingArchive = false,
+				!_viewModel.IsShowingArchive),
+			// Nothing to come back to means nothing to offer: an empty archive answers "nothing" to
+			// somebody who had to go there to find out. Orbit.Web hides its own tab by the same rule.
+			new ScreenMenuEntry(
+				_translations["Show what is put away"],
+				() => _viewModel.IsShowingArchive = true,
+				_viewModel.IsShowingArchive,
+				canBeChosen: _viewModel.HasArchive)
+		],
+		_translations["Show"]);
 
 	/// <summary>
 	/// Typed so the row template's binding back up to the page can be compiled - see the comment in the

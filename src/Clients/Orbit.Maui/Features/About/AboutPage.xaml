@@ -1,0 +1,74 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<ContentPage
+    x:Class="Orbit.Maui.Features.About.AboutPage"
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    xmlns:controls="clr-namespace:Orbit.Maui.Controls"
+    xmlns:about="clr-namespace:Orbit.Maui.Features.About"
+    xmlns:screens="clr-namespace:Orbit.Mobile.Screens.About;assembly=Orbit.Mobile"
+    x:DataType="screens:AboutViewModel"
+    x:Name="Page"
+    Title="{controls:Translate 'About'}">
+
+    <Grid RowDefinitions="Auto,*,Auto">
+
+        <!-- Writing, and nothing to press but the documents. The one screen in Orbit that is only
+             information, which is why it carries no menu under its name and no button over its foot. -->
+        <ScrollView Grid.Row="1">
+            <VerticalStackLayout Padding="20,18,20,28" Spacing="18">
+
+                <Label Text="{Binding Description}" LineBreakMode="WordWrap" FontSize="15" />
+
+                <VerticalStackLayout Spacing="4">
+                    <Label Text="{controls:Translate 'This build'}" Style="{StaticResource PanelHeading}" />
+                    <!-- Tapped, it grows the rest of the commit hash - the same thing the web's About
+                         dialog does, and only for a reader who is shown a commit at all. -->
+                    <Label Text="{Binding Version}" LineBreakMode="CharacterWrap"
+                           Style="{StaticResource SubtleLabel}">
+                        <Label.GestureRecognizers>
+                            <TapGestureRecognizer Command="{Binding ShowTheWholeCommitCommand}" />
+                        </Label.GestureRecognizers>
+                    </Label>
+                    <!-- The server's own build, beside the app's. The two drift by design here: the
+                         phone is updated whenever its owner chooses. Hidden while the server has not
+                         answered - an offline screen should say nothing rather than guess. -->
+                    <Label Text="{Binding ServerBuild}" IsVisible="{Binding HasServerBuild}"
+                           LineBreakMode="CharacterWrap" Style="{StaticResource SubtleLabel}" />
+                </VerticalStackLayout>
+
+                <BoxView Style="{StaticResource Hairline}" />
+
+                <!-- What this deployment publishes about itself, in the order Orbit.Web's footer lists
+                     them. Each opens outside the app: they are pages of the web client and a file in
+                     the repository, and the phone holds no copy of either. -->
+                <VerticalStackLayout Spacing="0" BindableLayout.ItemsSource="{Binding Documents}">
+                    <BindableLayout.ItemTemplate>
+                        <DataTemplate x:DataType="screens:AboutDocument">
+                            <Grid Padding="0,12">
+                                <BoxView Style="{StaticResource Hairline}" VerticalOptions="End"
+                                         Margin="0,0,0,-12" />
+                                <Label Text="{Binding Name}" VerticalOptions="Center" />
+                                <Button BackgroundColor="Transparent" BorderWidth="0" Padding="0"
+                                        MinimumHeightRequest="0" MinimumWidthRequest="0"
+                                        SemanticProperties.Description="{Binding Name}"
+                                        Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=OpenDocumentCommand, x:DataType=about:AboutPage}"
+                                        CommandParameter="{Binding .}" />
+                            </Grid>
+                        </DataTemplate>
+                    </BindableLayout.ItemTemplate>
+                </VerticalStackLayout>
+
+                <Label Text="{Binding Copyright}" Margin="0,10,0,0" Style="{StaticResource SubtleLabel}" />
+
+            </VerticalStackLayout>
+        </ScrollView>
+
+        <!-- Across the foot, under everything the page itself draws - see AdBanner, and .ad-banner
+             in Orbit.Web's app.css, which is the same bar on a narrow window. -->
+        <controls:AdBanner Grid.Row="2" />
+        <controls:NavigationBar Grid.Row="0" />
+        <controls:AvatarMenu Grid.Row="0" Grid.RowSpan="3" />
+        <controls:Drawer Grid.Row="0" Grid.RowSpan="3" />
+    </Grid>
+
+</ContentPage>

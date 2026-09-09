@@ -131,30 +131,10 @@ public partial class CalendarPage : ContentPage, ITitleMenu
 
 	private void OnTheDayChanged(object? sender, NotifyCollectionChangedEventArgs eventArgs) => DrawTheDay();
 
-	/// <summary>
-	/// The calendar gets out of the way as the list under it is read, and comes back when the reader
-	/// returns to the top - see MinimisedCalendar for what is left of it. The offset rather than the
-	/// first visible item: an item is a whole event row, and the grid should start standing aside as
-	/// soon as the list moves at all.
-	/// </summary>
-	private void OnListScrolled(object? sender, ItemsViewScrolledEventArgs eventArgs)
-	{
-		var minimised = eventArgs.VerticalOffset > ScrollBeforeMinimising;
-		if (minimised == _viewModel.IsMinimised)
-		{
-			return;
-		}
-
-		_viewModel.IsMinimised = minimised;
-		DrawTheDay();
-	}
-
-	/// <summary>
-	/// How far the list travels before the calendar stands aside. Enough that a thumb resting on the
-	/// list does not flip it back and forth, and little enough that it is out of the way by the time
-	/// anybody is reading.
-	/// </summary>
-	private const double ScrollBeforeMinimising = 24;
+	// The calendar used to shrink to one week as the list beneath it was scrolled past, and grow back
+	// at the top. It does not any more: the week is one of the four views the reader asks for by name,
+	// so a grid that changed size on its own was a second, silent answer to the same question - and one
+	// nobody could ask for or refuse. See CalendarViewMode.
 
 	/// <summary>
 	/// Draws the chosen day: an hour rule behind, and every block where its placement says. Built here

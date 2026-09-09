@@ -27,12 +27,15 @@ public sealed class NavigationBarTests
 {
     /// <summary>
     /// The commit is detail about Orbit's own inside, so it goes to the accounts holding Debug and to
-    /// nobody else - the rule the server and the browser's footer already apply, and the phone's About
-    /// row was the half still showing it to everybody. The number itself stays: "which Orbit is this"
+    /// nobody else - the rule the server and the browser's footer already apply, and the phone's version
+    /// line was the half still showing it to everybody. The number itself stays: "which Orbit is this"
     /// is everybody's question.
+    ///
+    /// The drawer's line is the short form either way; the whole hash is on the About screen, where
+    /// there is room for it - see AboutScreenTests.
     /// </summary>
     [Fact]
-    public async Task The_about_row_keeps_the_commit_from_an_account_without_debug()
+    public async Task The_version_line_keeps_the_commit_from_an_account_without_debug()
     {
         var context = new BarContext("Ala");
         var bar = context.Open(await UnlockedPermissions.LockedTo(context.LocalStore, ApplicationPermission.Contacts));
@@ -40,8 +43,6 @@ public sealed class NavigationBarTests
 
         Assert.DoesNotContain("gitHash", bar.AboutVersion);
         Assert.Contains("ver:", bar.AboutVersion);
-        // Nothing to reveal, so the row is text rather than something that looks pressable.
-        Assert.False(bar.CanShowTheWholeCommit);
 
         // And the same build does say it to somebody holding Debug - without this the test above would
         // pass just as well on a build carrying no commit at all.
@@ -560,9 +561,6 @@ public sealed class NavigationBarTests
                     // Unreachable on purpose: the bar reads what is remembered and asks nobody.
                     StubHttpMessageHandler.Unreachable().ToHttpClient(), Versions,
                     NullLogger<MobileVersionGate>.Instance),
-                // Unreachable too: the About row asks for the server's version and leaves it unsaid when
-                // nobody answers, which is the ordinary case on a phone.
-                new ServerVersionClient(StubHttpMessageHandler.Unreachable().ToHttpClient()),
                 Navigator,
                 History,
                 Synchronizers.AgainstNobody(

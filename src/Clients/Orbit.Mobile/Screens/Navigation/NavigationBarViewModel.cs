@@ -24,8 +24,10 @@ namespace Orbit.Mobile.Screens.Navigation;
 /// screen's own name nowhere on it. The sections moved into a drawer where their labels fit, the bell
 /// went in with them, and what the bar says now is where you are.
 ///
-/// The left-hand control is the drawer's three lines, or the back arrow when there is somewhere to go
-/// back to - see <see cref="ScreenHistory"/>, which is also what the arrow pops.
+/// The left-hand control is the drawer's three lines, on every screen without exception. It shared that
+/// corner with a back arrow until the design settled it: going back is the navigation stack's job and
+/// the phone's own gesture pops it - see <see cref="ScreenHistory"/> - so a second control for the same
+/// thing was taking the only way sideways off half the screens in the app.
 ///
 /// One shared instance rather than one per page: the bar, the drawer and the avatar's menu all have to
 /// agree about which of them is open, and only one page is ever on screen.
@@ -121,16 +123,15 @@ public sealed partial class NavigationBarViewModel : ObservableObject
         SessionStore sessionStore, NotificationsClient notificationsClient,
         AuthenticationClient authenticationClient, Presence.Presence presence, Translations translations,
         LocalStoreReset localStore, UserPermissions permissions, SyncState syncState,
-        MobileVersionGate versionGate, ServerVersionClient serverVersion, IScreenNavigator navigator,
+        MobileVersionGate versionGate, IScreenNavigator navigator,
         ScreenHistory history, EverythingSynchronizer synchronizer, INetworkStatus networkStatus,
         IEnumerable<Data.ICopyReviewStore> copyStores, Live.ILiveUpdates liveUpdates,
         Orbit.Mobile.Notifications.ForegroundNotices foregroundNotices, Orbit.Mobile.Notifications.NotificationOpener notificationOpener)
     {
         _notificationOpener = notificationOpener;
         _history = history;
-        // Where the reader is decides two things the bar draws: whether its first control is the back
-        // arrow or the drawer's three lines, and which entry the drawer marks. Both are answers about
-        // the app rather than about this screen, which is why the bar is told rather than asked.
+        // Where the reader is decides which entry the drawer marks - an answer about the app rather
+        // than about this screen, which is why the bar is told rather than asked.
         _history.Changed += ShowWhereTheReaderIs;
         _foregroundNotices = foregroundNotices;
         _foregroundNotices.Changed += ShowTheBanner;
@@ -138,7 +139,6 @@ public sealed partial class NavigationBarViewModel : ObservableObject
         // The badge is the one thing on this bar that changes because of somebody else, so it is the one
         // thing worth being told about rather than asked about - see ILiveUpdates.
         liveUpdates.NotificationsChanged += () => _ = ShowUnreadAsync(CancellationToken.None);
-        _serverVersion = serverVersion;
         _sessionStore = sessionStore;
         _notificationsClient = notificationsClient;
         _authenticationClient = authenticationClient;
@@ -211,10 +211,8 @@ public sealed partial class NavigationBarViewModel : ObservableObject
         CanUseConversations = _permissions.Has(ApplicationPermission.Chat)
             || _permissions.Has(ApplicationPermission.Contacts);
 
-        // The About row says a different thing to an account holding Debug - see Shown.
+        // The version line says a different thing to an account holding Debug - see Shown.
         OnPropertyChanged(nameof(AboutVersion));
-        OnPropertyChanged(nameof(CanShowTheWholeCommit));
-        ShowTheWholeCommitCommand.NotifyCanExecuteChanged();
     }
 
     /// <summary>
@@ -368,20 +366,6 @@ public sealed partial class NavigationBarViewModel : ObservableObject
     [RelayCommand]
     private void GoToContacts() => _navigator.ShowContacts();
 
-    /// <summary>
-    /// Whether the top bar's first control is the back arrow rather than the drawer's three lines. Both
-    /// cannot be there at once - there is room for one, and a screen that offers a way out and a way
-    /// sideways in the same corner is asking the reader to aim.
-    ///
-    /// Which of the two it is depends on the screen rather than on the history: a section always offers
-    /// the drawer, because that is the only way sideways and back is on the phone's own gesture anyway.
-    /// See <see cref="Sections.InTheDrawer"/>.
-    /// </summary>
-    public bool CanGoBack => !CanOpenDrawer && _history.CanGoBack;
-
-    /// <inheritdoc cref="CanGoBack"/>
-    public bool CanOpenDrawer => Sections.IsInTheDrawer(_history.Current);
-
     /// <summary>Which drawer entry is marked - see <see cref="Sections"/> for why it is not just the screen.</summary>
     public Screen Section => Sections.For(_history.Current);
 
@@ -401,6 +385,8 @@ public sealed partial class NavigationBarViewModel : ObservableObject
 
     public bool IsOnNotifications => Section is Screen.Notifications;
 
+    public bool IsOnAbout => Section is Screen.About;
+
     /// <summary>
     /// Whether the drawer is showing. Held here rather than on a page because the bar is one shared
     /// instance and the drawer is drawn by every page that carries it - the same reason
@@ -416,9 +402,9 @@ public sealed partial class NavigationBarViewModel : ObservableObject
 
         foreach (var name in new[]
         {
-            nameof(CanGoBack), nameof(CanOpenDrawer), nameof(Section), nameof(IsOnDashboard),
+            nameof(Section), nameof(IsOnDashboard),
             nameof(IsOnNotes), nameof(IsOnTasks), nameof(IsOnCalendar), nameof(IsOnInventory),
-            nameof(IsOnMap), nameof(IsOnContacts), nameof(IsOnNotifications)
+            nameof(IsOnMap), nameof(IsOnContacts), nameof(IsOnNotifications), nameof(IsOnAbout)
         })
         {
             OnPropertyChanged(name);
@@ -437,14 +423,6 @@ public sealed partial class NavigationBarViewModel : ObservableObject
 
     [RelayCommand]
     private void CloseDrawer() => IsDrawerOpen = false;
-
-    /// <summary>
-    /// The bar's own back arrow, which pops the same history Android's gesture does - see
-    /// <see cref="ScreenHistory"/>. iOS has no system gesture, so on that head this is the only way out
-    /// of a screen that was opened from a list.
-    /// </summary>
-    [RelayCommand]
-    private void GoBack() => _history.GoBack();
 
     /// <summary>
     /// The avatar opens a menu rather than going anywhere, the same as Orbit.Web's: the account, the
@@ -523,66 +501,19 @@ public sealed partial class NavigationBarViewModel : ObservableObject
     private void GoToAccount() => LeaveMenuFor(_navigator.ShowAccount);
 
     /// <summary>
-    /// Which build this is, when it was made, and under what licence - the phone's answer to Orbit.Web's
-    /// footer. Folded into the menu rather than given a screen of its own, the way Status and Language
-    /// already are: it is three lines somebody reads once, and a page for it would be a page nobody
-    /// navigates back from having learned anything more.
+    /// What Orbit is, and which build this one is. A screen of its own now rather than a fold-out at
+    /// the foot of the drawer - see <see cref="About.AboutViewModel"/>. What the drawer keeps is the
+    /// entry that opens it and the version number beside it, which is the one line anybody reads
+    /// without opening anything.
     /// </summary>
-    [ObservableProperty]
-    private bool _isAboutExpanded;
-
     [RelayCommand]
-    private async Task ToggleAboutAsync()
-    {
-        IsAboutExpanded = !IsAboutExpanded;
-        if (IsAboutExpanded)
-        {
-            await ReadTheServerVersionAsync();
-        }
-    }
-
-    public string AboutCopyright => OrbitRelease.Copyright;
+    private void GoToAbout() => _navigator.ShowAbout();
 
     /// <summary>
     /// This build, read off this assembly rather than off Orbit.Core's - the number is per client, and
     /// the shared project is compiled into three of them. See OrbitVersion.
     /// </summary>
     private static readonly OrbitVersion Build = OrbitVersion.ReadFrom(typeof(NavigationBarViewModel).Assembly);
-
-    private readonly ServerVersionClient _serverVersion;
-
-    /// <summary>
-    /// Which build of the server this app is talking to, once it has been asked. Empty until then and
-    /// when it cannot be reached - see ServerVersionClient, and ServerVersionDto for why the two versions
-    /// are worth showing separately.
-    /// </summary>
-    [ObservableProperty]
-    private string _aboutServerVersion = string.Empty;
-
-    public bool HasServerVersion => AboutServerVersion.Length > 0;
-
-    /// <summary>
-    /// Asked when the About row is opened rather than at startup: it is one line in a menu, and paying
-    /// for it on every launch would be paying for something most launches never show.
-    /// </summary>
-    private async Task ReadTheServerVersionAsync()
-    {
-        if (HasServerVersion || await _serverVersion.GetAsync() is not { } server)
-        {
-            return;
-        }
-
-        AboutServerVersion = server.CommitHash.Length == 0
-            ? $"api ver:{server.Version}"
-            : $"api ver:{server.Version}+gitHash:{Shorten(server.CommitHash)}";
-        OnPropertyChanged(nameof(HasServerVersion));
-    }
-
-    private static string Shorten(string commitHash) => commitHash.Length > 7 ? commitHash[..7] : commitHash;
-
-    /// <summary>Whether the row is showing the whole commit hash rather than the first seven of it.</summary>
-    [ObservableProperty]
-    private bool _isWholeCommitShown;
 
     /// <summary>
     /// What this build says about itself. The commit is detail about Orbit's own inside, so it goes to
@@ -594,30 +525,8 @@ public sealed partial class NavigationBarViewModel : ObservableObject
         ? Build
         : Build.WithoutTheCommit();
 
-    public string AboutVersion => IsWholeCommitShown ? Shown.Full : Shown.Short;
-
-    /// <summary>
-    /// Whether tapping the version does anything. False for a build carrying no commit, and for a
-    /// reader who is not shown one - the row would otherwise look pressable and do nothing.
-    /// </summary>
-    public bool CanShowTheWholeCommit => Shown.CanShowTheWholeCommit;
-
-    /// <summary>
-    /// Tapping the version grows the rest of the hash while debugging. The short form is what anybody
-    /// reads; the whole one is what a `git checkout` takes, and asking for it should not mean going
-    /// somewhere else.
-    /// </summary>
-    [RelayCommand(CanExecute = nameof(CanShowTheWholeCommit))]
-    private void ShowTheWholeCommit()
-    {
-        IsWholeCommitShown = !IsWholeCommitShown;
-        OnPropertyChanged(nameof(AboutVersion));
-    }
-
-    public string LicenseName => _translations[OrbitRelease.LicenseName];
-
-    /// <summary>Where the licence itself can be read - opened outside the app, see AvatarMenu's code-behind.</summary>
-    public string LicenseUrl => OrbitRelease.LicenseUrl;
+    /// <summary>The drawer's last line. The whole commit is on the About screen, where there is room.</summary>
+    public string AboutVersion => Shown.Short;
 
     [RelayCommand]
     private void GoToNotifications() => LeaveMenuFor(_navigator.ShowNotifications);
@@ -680,6 +589,7 @@ public sealed partial class NavigationBarViewModel : ObservableObject
         IsMenuOpen = false;
         show();
     }
+
 
     /// <summary>
     /// Capped the way the web caps it: past a certain point the exact number stops being information

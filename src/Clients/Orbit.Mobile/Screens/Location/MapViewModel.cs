@@ -117,6 +117,25 @@ public sealed partial class MapViewModel : ObservableObject
     public bool HasOwnPosition => _ownPosition is not null;
 
     /// <summary>
+    /// Whether the card over the map has anything on it. The map takes the whole screen now, so writing
+    /// on it costs the reader a piece of what they came for - it is drawn only when there is something
+    /// worth covering the ground with.
+    /// </summary>
+    public bool HasSomethingToSay => HasOwnPosition || HasMessage || IsBusy;
+
+    /// <summary>
+    /// Who this reader is sharing their position with, and who is sharing theirs - each on a screen of
+    /// its own, opened from the menu under the map's name. Lists of people are lists of people; drawing
+    /// one over the map means covering the thing it is about.
+    /// </summary>
+    [RelayCommand]
+    private void OpenSharingWith() => _navigator.ShowLocationShares(theirs: false);
+
+    /// <inheritdoc cref="OpenSharingWith"/>
+    [RelayCommand]
+    private void OpenSharedWithMe() => _navigator.ShowLocationShares(theirs: true);
+
+    /// <summary>
     /// The recorded position, opened in Google Maps. Null when there is nothing to point at - the URL is
     /// built here rather than in the page so it can be tested; opening it is the page's platform call.
     /// </summary>
@@ -207,6 +226,7 @@ public sealed partial class MapViewModel : ObservableObject
                 reading.Latitude, reading.Longitude, reading.Address, DateTimeOffset.UtcNow);
             OwnPositionDescription = Describe(_ownPosition);
             OnPropertyChanged(nameof(HasOwnPosition));
+            OnPropertyChanged(nameof(HasSomethingToSay));
             OnPropertyChanged(nameof(OwnPositionInGoogleMapsUrl));
             OnPropertyChanged(nameof(CanOpenOwnPositionInGoogleMaps));
             ShowPointsOnMap();
@@ -508,7 +528,13 @@ public sealed partial class MapViewModel : ObservableObject
             ? address
             : $"{position.Latitude:F5}, {position.Longitude:F5}";
 
-    partial void OnMessageChanged(string value) => OnPropertyChanged(nameof(HasMessage));
+    partial void OnMessageChanged(string value)
+    {
+        OnPropertyChanged(nameof(HasMessage));
+        OnPropertyChanged(nameof(HasSomethingToSay));
+    }
+
+    partial void OnIsBusyChanged(bool value) => OnPropertyChanged(nameof(HasSomethingToSay));
 
     partial void OnIsChoosingWhoToShareWithChanged(bool value) => OnPropertyChanged(nameof(IsNotChoosing));
 

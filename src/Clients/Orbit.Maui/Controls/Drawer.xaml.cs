@@ -20,16 +20,4 @@ public partial class Drawer : ContentView
 		InitializeComponent();
 		BindingContext = IPlatformApplication.Current!.Services.GetRequiredService<NavigationBarViewModel>();
 	}
-
-	/// <summary>
-	/// The licence, opened in whatever the phone uses to read a page. A handler rather than a command,
-	/// because opening a URL is the platform's job rather than the view model's.
-	/// </summary>
-	private async void OnLicenseTapped(object? sender, TappedEventArgs eventArgs)
-	{
-		if (BindingContext is NavigationBarViewModel viewModel)
-		{
-			await Launcher.Default.OpenAsync(viewModel.LicenseUrl);
-		}
-	}
 }

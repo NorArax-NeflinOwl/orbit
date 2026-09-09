@@ -16,123 +16,30 @@
     <Grid RowDefinitions="Auto,*,Auto">
 
 
-    <!-- The screen at rest is the search field and the lists under it. Its name is in the bar and the
-         reading order hangs under that name (see ShowTitleMenuCommand); the plus is the button over the
-         foot of the list. -->
-    <Grid Grid.Row="1" RowDefinitions="Auto,Auto,Auto,Auto,Auto,*" Padding="20,14,20,0" RowSpacing="10">
+    <!-- The screen is a search field and the lists under it, and nothing else. Its name is in the bar;
+         what order the lists are in, what they are narrowed to and which categories are wanted all hang
+         under that name (see ShowTitleMenuCommand), where they were two rows of chips taking a third of
+         the screen before anybody had read a word of it. The plus is over the foot of the list. -->
+    <Grid Grid.Row="1" RowDefinitions="Auto,Auto,Auto,*" Padding="20,14,20,0" RowSpacing="10">
 
-
-        <!-- What the reader is looking for, above the chips that say which lists are on offer at all: a
-             word from an entry, and the categories entries are filed under. Both narrow to lists that
+        <!-- What the reader is looking for: a word from an entry on any list. It narrows to lists that
              still hold something worth reading, and the cards then say what matched rather than what is
              next - a list shown for a match nobody can see reads as a bug. -->
-        <VerticalStackLayout Grid.Row="1" Spacing="8">
-            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
-                <Entry Grid.Column="0" Placeholder="{controls:Translate 'Find an entry on any list'}"
-                       Text="{Binding ItemSearch}" ClearButtonVisibility="WhileEditing" ReturnType="Search" />
-                <Button Grid.Column="1" Text="{controls:Translate 'Clear'}" IsVisible="{Binding IsLookingForAnEntry}"
-                        FontSize="12" Padding="8,4" Style="{StaticResource LinkButton}"
-                        Command="{Binding ClearItemFilterCommand}" />
-            </Grid>
-
-            <ScrollView Orientation="Horizontal" HorizontalScrollBarVisibility="Never"
-                        IsVisible="{Binding HasCategories}">
-                <HorizontalStackLayout Spacing="6" BindableLayout.ItemsSource="{Binding Categories}">
-                    <BindableLayout.ItemTemplate>
-                        <DataTemplate x:DataType="screens:TaskCategoryChoice">
-                            <Grid>
-                                <Border Style="{StaticResource FilterChip}">
-                                    <Border.Triggers>
-                                        <DataTrigger TargetType="Border" Binding="{Binding IsChosen}" Value="True">
-                                            <Setter Property="Stroke" Value="{DynamicResource Accent}" />
-                                        </DataTrigger>
-                                    </Border.Triggers>
-
-                                    <Label Style="{StaticResource FilterChipLabel}">
-                                        <Label.FormattedText>
-                                            <FormattedString>
-                                                <Span Text="{Binding Name}" />
-                                                <Span Text=" " />
-                                                <Span Text="{Binding Count}" />
-                                            </FormattedString>
-                                        </Label.FormattedText>
-                                        <Label.Triggers>
-                                            <DataTrigger TargetType="Label" Binding="{Binding IsChosen}" Value="True">
-                                                <Setter Property="TextColor" Value="{DynamicResource Accent}" />
-                                            </DataTrigger>
-                                        </Label.Triggers>
-                                    </Label>
-                                </Border>
-                                <!-- The tap is a Button over the chip - see the status chips below for why. -->
-                                <Button BackgroundColor="Transparent" BorderWidth="0"
-                                        Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=ViewModel.ToggleCategoryCommand, x:DataType=tasks:TasksPage}"
-                                        CommandParameter="{Binding .}"
-                                        SemanticProperties.Description="{Binding Name}" />
-                            </Grid>
-                        </DataTemplate>
-                    </BindableLayout.ItemTemplate>
-                </HorizontalStackLayout>
-            </ScrollView>
-
-            <!-- Only worth asking once two are chosen: with one, "any of them" and "all of them" are the
-                 same question. -->
-            <Grid ColumnDefinitions="*,Auto" IsVisible="{Binding IsCategoryRuleWorthAsking}">
-                <Label Grid.Column="0" Text="{controls:Translate 'Entries in every chosen category'}"
-                       FontSize="12" VerticalOptions="Center" LineBreakMode="WordWrap" />
-                <Switch Grid.Column="1" IsToggled="{Binding MatchesEveryCategory}" VerticalOptions="Center"
-                        SemanticProperties.Description="{controls:Translate 'Entries in every chosen category'}" />
-            </Grid>
-        </VerticalStackLayout>
-
-        <!-- Chips and a stepping button rather than a dropdown: the web has room for a select, a phone
-             has a thumb. Each chip carries what it would leave, which is what makes it worth tapping. -->
-        <Grid Grid.Row="2">
-            <!-- Scrolls sideways: five filters do not fit across a phone. A filled pill half off the
-                 edge reads as "there is more this way", which the old text-only chips did not - they
-                 just looked like a word had been cut in half. -->
-            <ScrollView Grid.Column="0" Orientation="Horizontal" HorizontalScrollBarVisibility="Never">
-                <HorizontalStackLayout Spacing="6" BindableLayout.ItemsSource="{Binding Filters}">
-                    <BindableLayout.ItemTemplate>
-                        <DataTemplate x:DataType="screens:TaskListFilter">
-                            <Grid>
-                                <Border Style="{StaticResource FilterChip}">
-                                    <Border.Triggers>
-                                        <DataTrigger TargetType="Border" Binding="{Binding IsChosen}" Value="True">
-                                            <Setter Property="Stroke" Value="{DynamicResource Accent}" />
-                                        </DataTrigger>
-                                    </Border.Triggers>
-
-                                    <Label Text="{Binding Label}" Style="{StaticResource FilterChipLabel}">
-                                        <Label.Triggers>
-                                            <DataTrigger TargetType="Label" Binding="{Binding IsChosen}" Value="True">
-                                                <Setter Property="TextColor"
-                                                        Value="{DynamicResource AccentOn}" />
-                                            </DataTrigger>
-                                        </Label.Triggers>
-                                    </Label>
-                                </Border>
-                                <!-- The tap is a Button over the chip rather than a gesture on it: a Border
-                                     carrying a gesture is not a clickable node to Android, so a screen
-                                     reader could neither reach the filters nor use them. -->
-                                <Button BackgroundColor="Transparent" BorderWidth="0"
-                                        Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=ViewModel.FilterByCommand, x:DataType=tasks:TasksPage}"
-                                        CommandParameter="{Binding .}"
-                                        SemanticProperties.Description="{Binding Label}" />
-                            </Grid>
-                        </DataTemplate>
-                    </BindableLayout.ItemTemplate>
-                </HorizontalStackLayout>
-            </ScrollView>
-
+        <Grid Grid.Row="0" ColumnDefinitions="*,Auto" ColumnSpacing="8">
+            <Entry Grid.Column="0" Placeholder="{controls:Translate 'Find an entry on any list'}"
+                   Text="{Binding ItemSearch}" ClearButtonVisibility="WhileEditing" ReturnType="Search" />
+            <Button Grid.Column="1" Text="{controls:Translate 'Clear'}" IsVisible="{Binding IsLookingForAnEntry}"
+                    FontSize="12" Padding="8,4" Style="{StaticResource LinkButton}"
+                    Command="{Binding ClearItemFilterCommand}" />
         </Grid>
 
         <!-- The one thing this screen has to say for itself, which today is only about pinning. It was
              set and never shown, so pinning with no connection did nothing and said nothing - see
              TasksViewModel.HasMessage. -->
-        <Label Grid.Row="3" Text="{Binding Message}" IsVisible="{Binding HasMessage}"
+        <Label Grid.Row="1" Text="{Binding Message}" IsVisible="{Binding HasMessage}"
                LineBreakMode="WordWrap" Style="{StaticResource InfoLabel}" />
 
-        <Grid x:Name="AddRow" IsVisible="False" Grid.Row="4" ColumnDefinitions="*,Auto" ColumnSpacing="8">
+        <Grid x:Name="AddRow" IsVisible="False" Grid.Row="2" ColumnDefinitions="*,Auto" ColumnSpacing="8">
             <Entry x:Name="AddField" Grid.Column="0" Placeholder="{controls:Translate 'New list'}"
                    Text="{Binding NewListTitle}"
                    ReturnType="Done" ReturnCommand="{Binding AddListCommand}" />
@@ -140,7 +47,7 @@
                     Command="{Binding AddListCommand}" />
         </Grid>
 
-        <RefreshView Grid.Row="5" IsRefreshing="{Binding IsRefreshing}" Command="{Binding LoadCommand}">
+        <RefreshView Grid.Row="3" IsRefreshing="{Binding IsRefreshing}" Command="{Binding LoadCommand}">
             <CollectionView ItemsSource="{Binding TaskLists}"
                             SelectionMode="Single"
                             SelectionChangedCommand="{Binding OpenListCommand}"

@@ -16,4 +16,10 @@ internal sealed class InMemoryDashboardCardPreferenceStore : IDashboardCardPrefe
 
     public void WriteFilters(IReadOnlyDictionary<DashboardCardKind, DashboardCardFilter> filters)
         => _filters = filters.ToDictionary(filter => filter.Key, filter => filter.Value);
+
+    public DashboardCardOrder ReadOrder() => _order;
+
+    public void WriteOrder(DashboardCardOrder order) => _order = order;
+
+    private DashboardCardOrder _order;
 }

@@ -256,6 +256,7 @@ public static class PolishTranslations
             "Nie udało się przeliczyć względem magazynu. Spróbuj ponownie.",
         ["Hide"] = "Ukryj",
         ["Show on the dashboard"] = "Pokaż na pulpicie",
+        ["Orbit's order"] = "Kolejność Orbita",
         ["Show"] = "Pokaż",
         ["Search conversations"] = "Szukaj rozmów",
         ["Orbit can't reach that account, so this conversation can't be opened right now."] =
@@ -326,6 +327,18 @@ public static class PolishTranslations
         ["Low"] = "Niski",
         ["Normal"] = "Zwykły",
         ["High"] = "Wysoki",
+        // The two arrows beside a screen's name, where it is one of a series - see ITitleSteps.
+        ["Previous"] = "Poprzedni",
+        ["Next"] = "Następny",
+
+        // The two menus a list screen hangs under its own name - see ListMenus.
+        ["Filter"] = "Filtruj",
+        ["Sort - pinned stay on top"] = "Sortowanie — przypięte zawsze na górze",
+        ["Last changed"] = "Ostatnia zmiana",
+        ["Everything"] = "Wszystko",
+        ["High priority"] = "Wysoki priorytet",
+        ["Normal priority"] = "Zwykły priorytet",
+        ["Low priority"] = "Niski priorytet",
         ["Read-only"] = "Tylko do odczytu",
         ["Can share"] = "Może udostępniać",
         ["Can edit"] = "Może edytować",
@@ -1945,6 +1958,11 @@ public static class PolishTranslations
         ["Orbit keeps notes, task lists, a calendar, what is on your shelves, where you are and who you are talking to - in one place, on the web and on a phone, and shareable with the people you choose."] =
             "Orbit trzyma notatki, listy zadań, kalendarz, zawartość Twoich półek, Twoje położenie i to, z kim rozmawiasz — w jednym miejscu, w przeglądarce i na telefonie, do udostępnienia osobom, które wybierzesz.",
         ["The server it is talking to"] = "Serwer, z którym rozmawia",
+
+        // The phone's About screen, which says the same thing in fewer words - it is one line at the
+        // head of a screen rather than the first paragraph of a dialog.
+        ["Orbit keeps notes, task lists, a calendar and what is on your shelves, and lets you talk and share - in one place."] =
+            "Orbit trzyma notatki, listy zadań, kalendarz, zawartość Twoich półek, umożliwia komunikację i udostępnianie — w jednym miejscu.",
 
         // The Manage cookies dialog - what this browser is allowed to remember.
         ["Orbit sets no cookies. What it remembers about you in this browser is kept in local storage, which never leaves this device on its own, and this is where you decide how much of it there is."] =

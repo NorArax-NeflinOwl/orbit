@@ -1,4 +1,4 @@
-﻿<?xml version="1.0" encoding="UTF-8" ?>
+<?xml version="1.0" encoding="UTF-8" ?>
 <ContentPage
     x:Class="Orbit.Maui.Features.Notes.NoteDetailPage"
     xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
@@ -6,119 +6,102 @@
     xmlns:controls="clr-namespace:Orbit.Maui.Controls"
     xmlns:notes="clr-namespace:Orbit.Maui.Features.Notes"
     xmlns:screens="clr-namespace:Orbit.Mobile.Screens.Notes;assembly=Orbit.Mobile"
-    xmlns:tasks="clr-namespace:Orbit.Mobile.Screens.Tasks;assembly=Orbit.Mobile"
     x:DataType="screens:NoteDetailViewModel"
     x:Name="Page"
     Title="{Binding Title}">
 
     <Grid RowDefinitions="Auto,*,Auto">
 
-    <Grid Grid.Row="1" RowDefinitions="Auto,Auto,Auto,Auto,*,Auto" Padding="16,16,16,12" RowSpacing="10">
+    <Grid Grid.Row="1" RowDefinitions="Auto,Auto,*" Padding="20,10,20,0" RowSpacing="8">
 
-        <!-- The title is the note's own, so it is edited in place rather than shown twice. -->
-        <Entry Grid.Row="0" Text="{Binding Title}" FontSize="20" FontAttributes="Bold" IsReadOnly="{Binding IsReadOnly}"
-               Placeholder="{controls:Translate 'Untitled'}"
-               ReturnType="Done" ReturnCommand="{Binding RenameCommand}" />
+        <VerticalStackLayout Grid.Row="0" Spacing="6">
+            <controls:CopyOffer IsOffered="{Binding IsCopyOffered}"
+                                TakeCommand="{Binding CopyForEditingCommand}"
+                                DeclineCommand="{Binding DeclineCopyCommand}" />
 
-        <controls:CopyOffer Grid.Row="1" IsOffered="{Binding IsCopyOffered}"
-                            TakeCommand="{Binding CopyForEditingCommand}"
-                            DeclineCommand="{Binding DeclineCopyCommand}" />
-
-        <VerticalStackLayout Grid.Row="2" Spacing="4">
             <Label Text="{Binding Status}" IsVisible="{Binding HasStatus}"
                    FontSize="12" LineBreakMode="WordWrap"
                    TextColor="{DynamicResource Accent}" />
-            <!-- Why this note cannot be changed, which is the answer to every press that does nothing.
-                 It was kept in view by the rail; with the rail gone it belongs at the head of the note,
-                 where the reader is before they try. -->
+            <!-- Why this note cannot be changed, which is the answer to every press that does nothing. -->
             <Label Text="{Binding ReadOnlyReason}" IsVisible="{Binding IsReadOnly}"
                    LineBreakMode="WordWrap" Style="{StaticResource ItemCardFooter}" />
         </VerticalStackLayout>
 
-        <VerticalStackLayout Grid.Row="3" Spacing="8" IsVisible="{Binding CanEdit}">
-            <!-- How much this note matters. The phone's own dashboard filters by it and there was no
-                 way to set one here - see PriorityChoice. -->
-            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
-                <Label Grid.Column="0" Text="{controls:Translate 'Priority'}" VerticalOptions="Center" />
-                <Picker Grid.Column="1" WidthRequest="160" ItemsSource="{Binding Priorities}"
-                        SelectedItem="{Binding ChosenPriority}"
-                        ItemDisplayBinding="{Binding Name, x:DataType=tasks:PriorityChoice}"
-                        SemanticProperties.Description="{controls:Translate 'Priority'}" />
-            </Grid>
+        <!-- Opened from the note's own menu rather than standing at the foot of every note: sharing is
+             something somebody does once, and the design gives the screen to what the note says. -->
+        <controls:SharePanel Grid.Row="1" x:Name="Sharing" IsVisible="False"
+                             BindingContext="{Binding Share}" />
 
-            <!-- The same checkbox Orbit.Web's note editor has: what it turns on is real encryption, so
-                 the row says what it costs rather than only what it is. -->
-            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
-                <VerticalStackLayout Grid.Column="0">
-                    <Label Text="{controls:Translate 'Private'}" />
-                    <Label Text="{controls:Translate 'Only you can read it, and it cannot be shared.'}"
-                           FontSize="12" LineBreakMode="WordWrap" Style="{StaticResource SubtleLabel}" />
+        <!-- One surface. The first line is the note's name, set larger and bold, and everything under it
+             is the note - which is what the design draws, and what anybody who has written a note on a
+             phone expects. It is a column of bare fields rather than one text box because a line can
+             carry a real tick box and no text box can hold a control; nothing else about it is meant to
+             read as a list - no rules, no spacing, no boxes.
+
+             Enter starts the next line, keeping the indentation of the one above; backspace at the very
+             start of a line joins it to the one above, as it would anywhere else - see NoteLineKeys.
+             Typing "[]" at the head of a line turns it into a tick box, which is the design's own way in
+             and the reason there is no toolbar. -->
+        <ScrollView Grid.Row="2">
+            <VerticalStackLayout Spacing="0" Padding="0,4,0,96">
+                <Entry x:Name="TitleField" Text="{Binding Title}" FontFamily="OrbitDisplay"
+                       FontSize="22" FontAttributes="Bold" IsReadOnly="{Binding IsReadOnly}"
+                       Placeholder="{controls:Translate 'Untitled'}"
+                       controls:BareField.IsBare="True" Margin="0,0,0,6" />
+
+                <VerticalStackLayout Spacing="0" BindableLayout.ItemsSource="{Binding Lines}">
+                    <BindableLayout.ItemTemplate>
+                        <DataTemplate x:DataType="screens:NoteLineRow">
+                            <Grid ColumnDefinitions="Auto,*">
+                                <controls:CheckCircle Grid.Column="0" Diameter="19" Margin="0,9,8,0"
+                                                      VerticalOptions="Start" IsVisible="{Binding IsChecklistItem}"
+                                                      IsChecked="{Binding IsChecked}"
+                                                      Description="{Binding Text}"
+                                                      Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=ViewModel.ToggleCheckedCommand, x:DataType=notes:NoteDetailPage}"
+                                                      CommandParameter="{Binding .}" />
+
+                                <Entry Grid.Column="1" Text="{Binding Text}" VerticalOptions="Center"
+                                       IsVisible="{Binding IsOpenForWriting}"
+                                       controls:BareField.IsBare="True" ReturnType="Next"
+                                       IsReadOnly="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=ViewModel.IsReadOnly, x:DataType=notes:NoteDetailPage}"
+                                       Completed="OnLineCompleted" Focused="OnLineFocused" Loaded="OnLineLoaded" />
+
+                                <!-- A ticked line is struck through, from its box rightwards - which on
+                                     a line whose box is at its head is the whole line. A Label rather
+                                     than the field above, because MAUI puts TextDecorations on a Label
+                                     and on nothing else; untick it to write in it again, which is what
+                                     unticking means anyway. -->
+                                <Label Grid.Column="1" Text="{Binding Text}" VerticalOptions="Center"
+                                       IsVisible="{Binding IsCompleted}" Margin="0,10"
+                                       TextDecorations="Strikethrough" LineBreakMode="WordWrap"
+                                       Style="{StaticResource SubtleLabel}" />
+                            </Grid>
+                        </DataTemplate>
+                    </BindableLayout.ItemTemplate>
                 </VerticalStackLayout>
-                <Switch Grid.Column="1" IsToggled="{Binding IsPrivate}"
-                        SemanticProperties.Description="{controls:Translate 'Private'}" />
-            </Grid>
-
-            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
-                <Entry Grid.Column="0" Placeholder="{controls:Translate 'New line'}" Text="{Binding NewLine}"
-                       ReturnType="Done" ReturnCommand="{Binding AddLineCommand}" />
-                <Button Grid.Column="1" Text="{controls:Translate 'Add'}" Style="{StaticResource PrimaryButton}"
-                        Command="{Binding AddLineCommand}" />
-            </Grid>
-            <Button Text="{controls:Translate 'Checklist item'}" HorizontalOptions="Start"
-                    FontSize="12" Padding="12,6" Style="{StaticResource SecondaryButton}"
-                    Command="{Binding AddChecklistItemCommand}" />
-        </VerticalStackLayout>
-
-        <CollectionView Grid.Row="4" ItemsSource="{Binding Lines}">
-
-            <CollectionView.EmptyView>
-                <Label Text="{controls:Translate 'Nothing written here yet.'}" Padding="0,12"
-                       Style="{StaticResource EmptyHint}" />
-            </CollectionView.EmptyView>
-
-            <!-- RelativeSource walks the visual tree, so the ancestor named here is the page, whose
-                 BindingContext is the view model - see TaskListDetailPage for the same note. -->
-            <CollectionView.ItemTemplate>
-                <DataTemplate x:DataType="screens:NoteLineRow">
-                    <!-- The tick box leads the line, as it does in Orbit.Web's editor, and the line
-                         itself is written in rather than read: it was a label here, so a line could be
-                         written once and never corrected. Everything else a line can have done to it is
-                         behind one "⋯", the way a chat message's options are. -->
-                    <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="4" Padding="0,4">
-                        <controls:CheckCircle Grid.Column="0" Diameter="20" Margin="0,3,6,0"
-                                              VerticalOptions="Start" IsVisible="{Binding IsChecklistItem}"
-                                              IsChecked="{Binding IsChecked}"
-                                              Description="{Binding Text}"
-                                              Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=ViewModel.ToggleCheckedCommand, x:DataType=notes:NoteDetailPage}"
-                                              CommandParameter="{Binding .}" />
-
-                        <!-- A line of the note, not a field on a form - so it is drawn bare, with neither
-                             Orbit's hairline box nor Android's own line under it. See BareField. -->
-                        <Entry Grid.Column="1" Text="{Binding Text}" VerticalOptions="Center"
-                               controls:BareField.IsBare="True" ReturnType="Done"
-                               IsReadOnly="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=ViewModel.IsReadOnly, x:DataType=notes:NoteDetailPage}"
-                               ReturnCommand="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=ViewModel.SaveLinesCommand, x:DataType=notes:NoteDetailPage}" />
-
-                        <controls:OverflowMenu Grid.Column="2"
-                                IsVisible="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=ViewModel.CanEdit, x:DataType=notes:NoteDetailPage}"
-                                Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=ShowLineMenuCommand, x:DataType=notes:NoteDetailPage}"
-                                CommandParameter="{Binding .}" />
-                    </Grid>
-                </DataTemplate>
-            </CollectionView.ItemTemplate>
-
-        </CollectionView>
-
-        <!-- The panel hides itself for a private note, as Orbit.Web's editor hides it: there is no
-             readable copy on the server to hand anybody - see SharePanel.CanShare. -->
-        <controls:SharePanel Grid.Row="5" BindingContext="{Binding Share}" Margin="0,4" />
+            </VerticalStackLayout>
+        </ScrollView>
 
     </Grid>
 
-        <!-- No rail along the foot any more: the way out is the back arrow in the bar, and what else
-             can be done to the note - deleting it, where its copies are found - hangs under the note's
-             own name up there. See ITitleMenu. Still no Save: a note is written down as it is written,
-             line by line. -->
+        <!-- Across the foot, under everything the page itself draws. -->
+        <controls:AdBanner Grid.Row="2" />
+
+        <!-- Two buttons over the foot of the note, which is the one screen in Orbit with a button in
+             each corner. Save on the right, where the thumb is: this screen is prose being typed, so it
+             is written down when the writer says so rather than line by line. The tick box on the left,
+             smaller because it is the lesser of the two - pressed, it puts a box on the line being
+             written in and keeps putting one on each new line until it is pressed again. -->
+        <controls:Fab x:Name="SaveButton" Grid.Row="1" IsAboveAdBar="True"
+                      IsVisible="{Binding CanEdit}"
+                      Data="M5,12 L10,17 L19,7"
+                      Command="{Binding SaveLinesCommand}"
+                      Description="{controls:Translate 'Save'}" />
+        <controls:Fab x:Name="ChecklistButton" Grid.Row="1" IsAboveAdBar="True" IsOnTheLeft="True"
+                      Diameter="44" IsVisible="{Binding CanEdit}"
+                      IsOn="{Binding IsWritingAChecklist}"
+                      Data="M4,5 H20 M4,5 V19 H20 V5 M8,12 L11,15 L16,9"
+                      Description="{controls:Translate 'Checklist item'}" />
 
         <controls:NavigationBar Grid.Row="0" />
         <controls:MenuOverlay Grid.Row="0" Grid.RowSpan="3"

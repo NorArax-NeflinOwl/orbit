@@ -78,12 +78,20 @@
 		somebody is going to install has to be told where Orbit actually lives, because there is nothing
 		to configure it with once it is on the phone.
 
-		It is orbit-web's address rather than orbit-api's: the API has internal ingress only on Azure and
-		is reached through the web client's nginx - see src/Clients/Orbit.Web/nginx.azure.conf.
+		It is orbit-api's own address. It was orbit-web's for as long as the API had internal ingress
+		only and was reached through that client's nginx - see OrbitApiSettings for what the detour cost.
 
 		  dotnet publish src/Clients/Orbit.Maui/Orbit.Maui.csproj -f net10.0-android -c Release \
-		    -p:OrbitApiBaseAddress=https://orbit-web.example.azurecontainerapps.io/ -->
+		    -p:OrbitApiBaseAddress=https://orbit-api.example.azurecontainerapps.io/ -->
 		<OrbitApiBaseAddress Condition="'$(OrbitApiBaseAddress)' == ''"></OrbitApiBaseAddress>
+
+		<!-- Where the web client of the same deployment is, which is where the privacy, security and
+		documentation pages the About screen lists are served from - see OrbitWebSettings. Not derived
+		from the API address: on Azure the two are different container apps, and the API host serves no
+		pages at all. Empty leaves those rows off the About screen rather than pointing them at nothing.
+
+		  dotnet publish ... -p:OrbitWebBaseAddress=https://orbit-web.example.azurecontainerapps.io/ -->
+		<OrbitWebBaseAddress Condition="'$(OrbitWebBaseAddress)' == ''"></OrbitWebBaseAddress>
 
 		<!-- The host public share links are served from, which is what lets Android hand one to Orbit
 		instead of opening a browser (see MainActivity's intent filter and info/functionality.md's
@@ -123,6 +131,13 @@
 						   Condition="'$(OrbitApiBaseAddress)' != ''">
 			<_Parameter1>OrbitApiBaseAddress</_Parameter1>
 			<_Parameter2>$(OrbitApiBaseAddress)</_Parameter2>
+		</AssemblyAttribute>
+		<!-- <inheritdoc cref="OrbitApiBaseAddress"/> - absent means "this build has no web client to
+		point at", which is not the same as an empty string. -->
+		<AssemblyAttribute Include="System.Reflection.AssemblyMetadataAttribute"
+						   Condition="'$(OrbitWebBaseAddress)' != ''">
+			<_Parameter1>OrbitWebBaseAddress</_Parameter1>
+			<_Parameter2>$(OrbitWebBaseAddress)</_Parameter2>
 		</AssemblyAttribute>
 	</ItemGroup>
 

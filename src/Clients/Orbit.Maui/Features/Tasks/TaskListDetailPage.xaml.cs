@@ -7,7 +7,7 @@ using Orbit.Mobile.Screens.Tasks;
 
 namespace Orbit.Maui.Features.Tasks;
 
-public partial class TaskListDetailPage : ContentPage, ITitleMenu
+public partial class TaskListDetailPage : ContentPage, ITitleMenu, ITitleSteps
 {
 	/// <summary>
 	/// Typed so the item template's bindings back up to the page can be compiled - see the comment in
@@ -32,7 +32,22 @@ public partial class TaskListDetailPage : ContentPage, ITitleMenu
 
 		InitializeComponent();
 		BindingContext = viewModel;
+		AddButton.Command = NewItemForm.Toggling(AddRow, AddField);
 	}
+
+	/// <summary>
+	/// The two arrows beside the screen's name. They step between entries while one is open, and are
+	/// off the bar entirely while the list is showing - there is nothing to step through then, and the
+	/// bar hides an arrow whose command has nothing to do. See ITitleSteps.
+	/// </summary>
+	public ICommand PreviousCommand => _viewModel.EditPreviousItemCommand;
+
+	/// <inheritdoc cref="PreviousCommand"/>
+	public ICommand NextCommand => _viewModel.EditNextItemCommand;
+
+	public string PreviousDescription => _translations["Previous"];
+
+	public string NextDescription => _translations["Next"];
 
 	/// <summary>
 	/// What the rail's "⋯" opens: how to read the list, and what can be done to the list as a whole -
@@ -106,6 +121,25 @@ public partial class TaskListDetailPage : ContentPage, ITitleMenu
 				_translations["Refresh the restock list"],
 				() => _viewModel.StockCheck.RefreshFromTheInventoryCommand.Execute(null)));
 		}
+
+		// The list's own fields - its name, what it is, how much it matters - which stood at the top of
+		// the page and are now behind this: the screen is the entries, and those fields are for the one
+		// reader in a hundred who came to change the list rather than to tick something off it.
+		if (_viewModel.CanEdit)
+		{
+			entries.Add(new ScreenMenuEntry(
+				_translations["Edit"],
+				() => ListFields.IsVisible = ListSettings.IsVisible = !ListSettings.IsVisible,
+				ListSettings.IsVisible));
+		}
+
+		// The same, for offering it to somebody else. Absent for a private list, which has no readable
+		// copy on the server to hand anybody - see SharePanel.CanShare.
+		entries.Add(new ScreenMenuEntry(
+			_translations["Share"],
+			() => Sharing.IsVisible = !Sharing.IsVisible,
+			Sharing.IsVisible,
+			canBeChosen: !_viewModel.IsPrivate));
 
 		// What used to be a row of words under the last entry, which on a long list is nowhere near the
 		// thumb. Deleting is offered only where this reader may change the list at all.

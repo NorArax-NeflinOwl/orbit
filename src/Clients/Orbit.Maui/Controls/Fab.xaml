@@ -14,6 +14,7 @@
          Placed by the page, last in its Grid and spanning the rows, so it floats over the list rather
          than taking a row of its own. -->
     <Border x:Name="Ring" WidthRequest="56" HeightRequest="56" StrokeThickness="1" Padding="0"
+            VerticalOptions="End" HorizontalOptions="Center"
             Stroke="{DynamicResource Accent}"
             BackgroundColor="{AppThemeBinding Light={StaticResource PageBackgroundLight}, Dark={StaticResource PageBackgroundDark}}">
         <Border.StrokeShape>
@@ -21,6 +22,9 @@
         </Border.StrokeShape>
 
         <Grid>
+            <!-- Filled only while the button is a switch that is on - see IsOn. An Ellipse rather than
+                 the Border's own background, which ignores a colour resource. -->
+            <Ellipse x:Name="Wash" IsVisible="False" Opacity="0.18" InputTransparent="True" />
             <Path x:Name="Glyph" Data="M12,5 V19 M5,12 H19" Style="{StaticResource IconPathAccent}"
                   WidthRequest="24" HeightRequest="24" StrokeThickness="1.6" InputTransparent="True" />
             <Button x:Name="Press" BackgroundColor="Transparent" BorderWidth="0" Padding="0"

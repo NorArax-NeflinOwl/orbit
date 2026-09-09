@@ -32,6 +32,10 @@ public sealed class NoteDetailScreenTests
         Assert.Equal(["milk", "bread"], screen.Lines.Select(line => line.Text));
     }
 
+    /// <summary>
+    /// Enter at the end of a line starts the next one, which is what the editor is: one surface being
+    /// typed on rather than a field with an Add button beside it.
+    /// </summary>
     [Fact]
     public async Task A_line_added_is_kept()
     {
@@ -39,10 +43,48 @@ public sealed class NoteDetailScreenTests
         var note = await context.AddNoteAsync("Shopping", "milk");
         var screen = await context.OpenAsync(note.LocalId);
 
-        screen.NewLine = "eggs";
-        await screen.AddLineCommand.ExecuteAsync(null);
+        screen.AddLineAfter(screen.Lines[0]).Text = "eggs";
+        await screen.SaveLinesCommand.ExecuteAsync(null);
 
         Assert.Equal(["milk", "eggs"], screen.Lines.Select(line => line.Text));
+        Assert.Equal(["milk", "eggs"], (await context.Notes.FindAsync(note.LocalId))!.Content.Select(line => line.Text));
+    }
+
+    /// <summary>
+    /// A new line keeps the indentation of the one above it. A list stays a list when a line is added
+    /// to the middle of it, which is the first thing an editor doing anything else gets wrong.
+    /// </summary>
+    [Fact]
+    public async Task A_new_line_starts_where_the_one_above_it_starts()
+    {
+        using var context = new ScreenContext();
+        var note = await context.AddNoteAsync("Shopping", "\t\tmilk");
+        var screen = await context.OpenAsync(note.LocalId);
+
+        Assert.Equal("\t\t", screen.AddLineAfter(screen.Lines[0]).Text);
+    }
+
+    /// <summary>
+    /// The design gives this editor no toolbar: the reader types "[]" where they want a box and gets
+    /// one. The mark comes back out of the text, because what it meant is now carried by the line.
+    /// </summary>
+    [Theory]
+    [InlineData("[]milk", "milk")]
+    [InlineData("[] milk", "milk")]
+    [InlineData("[ ] milk", "milk")]
+    [InlineData("\t[] milk", "\tmilk")]
+    public async Task Typing_a_pair_of_brackets_puts_a_tick_box_on_the_line(string typed, string left)
+    {
+        using var context = new ScreenContext();
+        var note = await context.AddNoteAsync("Shopping", string.Empty);
+        var screen = await context.OpenAsync(note.LocalId);
+
+        screen.Lines[0].Text = typed;
+
+        Assert.True(screen.Lines[0].IsChecklistItem);
+        Assert.Equal(left, screen.Lines[0].Text);
+        // And the next line carries on the list, which is what somebody writing one wants.
+        Assert.True(screen.IsWritingAChecklist);
     }
 
     /// <summary>
@@ -92,26 +134,29 @@ public sealed class NoteDetailScreenTests
         var note = await context.AddNoteAsync("Shopping", "milk", "milk");
         var screen = await context.OpenAsync(note.LocalId);
 
-        await screen.ToggleChecklistCommand.ExecuteAsync(screen.Lines[0]);
+        screen.ToggleChecklistCommand.Execute(screen.Lines[0]);
         await screen.ToggleCheckedCommand.ExecuteAsync(screen.Lines[0]);
 
         Assert.True(screen.Lines[0].IsChecked);
         Assert.False(screen.Lines[1].IsChecklistItem);
     }
 
-    /// <summary>Orbit.Web's "Checklist item" button starts a tickable line rather than converting one.</summary>
+    /// <summary>
+    /// The button in the editor's bottom-left corner is a switch: while it is on, every line started
+    /// begins with an empty box. Pressing it is what turns it on - see NoteDetailPage.
+    /// </summary>
     [Fact]
-    public async Task A_checklist_item_can_be_started_directly()
+    public async Task While_the_tick_box_button_is_on_every_new_line_starts_with_a_box()
     {
         using var context = new ScreenContext();
-        var note = await context.AddNoteAsync("Shopping");
+        var note = await context.AddNoteAsync("Shopping", "milk");
         var screen = await context.OpenAsync(note.LocalId);
 
-        screen.NewLine = "eggs";
-        await screen.AddChecklistItemCommand.ExecuteAsync(null);
+        screen.ToggleChecklistCommand.Execute(screen.Lines[0]);
+        var next = screen.AddLineAfter(screen.Lines[0]);
 
-        Assert.True(screen.Lines.Single().IsChecklistItem);
-        Assert.False(screen.Lines.Single().IsChecked);
+        Assert.True(next.IsChecklistItem);
+        Assert.False(next.IsChecked);
     }
 
     [Fact]
@@ -121,7 +166,7 @@ public sealed class NoteDetailScreenTests
         var note = await context.AddNoteAsync("Shopping", "milk");
         var screen = await context.OpenAsync(note.LocalId);
 
-        await screen.ToggleChecklistCommand.ExecuteAsync(screen.Lines[0]);
+        screen.ToggleChecklistCommand.Execute(screen.Lines[0]);
         await screen.ToggleCheckedCommand.ExecuteAsync(screen.Lines[0]);
 
         Assert.True(screen.Lines[0].IsChecklistItem);
@@ -144,16 +189,34 @@ public sealed class NoteDetailScreenTests
         Assert.False(screen.Lines[0].IsChecked);
     }
 
+    /// <summary>
+    /// Backspace at the head of a line joins it to the one above, which is how a line is got rid of on
+    /// a surface with no per-line menu - and what any text field does. The caret lands where the two
+    /// met rather than at the end of what was pulled up.
+    /// </summary>
     [Fact]
-    public async Task A_line_removed_is_gone()
+    public async Task Backspace_at_the_head_of_a_line_joins_it_to_the_one_above()
     {
         using var context = new ScreenContext();
         var note = await context.AddNoteAsync("Shopping", "milk", "bread");
         var screen = await context.OpenAsync(note.LocalId);
 
-        await screen.RemoveLineCommand.ExecuteAsync(screen.Lines[0]);
+        var landing = screen.MergeIntoTheLineAbove(screen.Lines[1]);
 
-        Assert.Equal(["bread"], screen.Lines.Select(line => line.Text));
+        Assert.Equal(["milkbread"], screen.Lines.Select(line => line.Text));
+        Assert.Equal(4, landing!.Value.Caret);
+    }
+
+    /// <summary>And it means nothing on the first line, which has nothing above it to join.</summary>
+    [Fact]
+    public async Task Backspace_on_the_first_line_does_nothing()
+    {
+        using var context = new ScreenContext();
+        var note = await context.AddNoteAsync("Shopping", "milk", "bread");
+        var screen = await context.OpenAsync(note.LocalId);
+
+        Assert.Null(screen.MergeIntoTheLineAbove(screen.Lines[0]));
+        Assert.Equal(["milk", "bread"], screen.Lines.Select(line => line.Text));
     }
 
     /// <summary>
@@ -408,8 +471,8 @@ public sealed class NoteDetailScreenTests
         var copy = Assert.Single(await context.Notes.GetCopiesOfAsync(note.LocalId));
 
         var copyScreen = await context.OpenAsync(copy.LocalId);
-        copyScreen.NewLine = "bread";
-        await copyScreen.AddLineCommand.ExecuteAsync(null);
+        copyScreen.AddLineAfter(copyScreen.Lines[^1]).Text = "bread";
+        await copyScreen.SaveLinesCommand.ExecuteAsync(null);
 
         Assert.False(copyScreen.IsReadOnly);
         Assert.Equal(["milk", "bread"], copyScreen.Lines.Select(line => line.Text));

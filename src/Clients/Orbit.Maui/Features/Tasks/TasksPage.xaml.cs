@@ -16,7 +16,7 @@ public partial class TasksPage : ContentPage, ITitleMenu
 		// Before InitializeComponent, not after: it is bound from the static part of the tree, which is
 		// built there and reads a page's plain property exactly once - see CalendarEventDetailPage,
 		// where the same order matters for the same reason.
-		ShowTitleMenuCommand = new Command(ShowSortMenu);
+		ShowTitleMenuCommand = new Command(ShowTheListMenu);
 		ShowCardMenuCommand = new Command<TaskListRow>(ShowCardMenu);
 
 		InitializeComponent();
@@ -77,6 +77,79 @@ public partial class TasksPage : ContentPage, ITitleMenu
 		{
 			_viewModel.DeleteListCommand.Execute(row);
 		}
+	}
+
+	/// <summary>
+	/// What hangs under the screen's name: how the lists are read. Three entries that open three sets,
+	/// which is what the design draws - these were two rows of chips across the top of the page, and a
+	/// screen for finding a list opened with a third of itself given over to settings.
+	/// </summary>
+	private void ShowTheListMenu()
+	{
+		List<ScreenMenuEntry> entries =
+		[
+			new(_translations["Sort"], ShowSortMenu),
+			new(_translations["Filter"], ShowStateMenu)
+		];
+
+		// Only where anything is filed under one. Categories are the reader's own words and most
+		// accounts have none, so the entry appears when there is something behind it.
+		if (_viewModel.HasCategories)
+		{
+			entries.Add(new ScreenMenuEntry(_translations["Categories"], ShowCategoryMenu));
+		}
+
+		Menu.Show(entries);
+	}
+
+	/// <summary>
+	/// Where a list stands - what the chips along the top used to say. One choice and then done, unlike
+	/// the two menus around it: a list is in one state at a time.
+	/// </summary>
+	private void ShowStateMenu() => Menu.Show(
+		_viewModel.Filters.Select(filter => new ScreenMenuEntry(
+			filter.Label,
+			() => _viewModel.FilterByCommand.Execute(filter),
+			filter.IsChosen)),
+		_translations["Show"]);
+
+	/// <summary>
+	/// Which categories the entries have to be filed under. Several at once, so it stays open - and the
+	/// question of whether an entry needs all of them or any of them is the last row of the same menu,
+	/// asked only once two are chosen: with one, the two questions have the same answer.
+	/// </summary>
+	private void ShowCategoryMenu()
+	{
+		List<ScreenMenuEntry> entries =
+		[
+			.. _viewModel.Categories.Select(category => new ScreenMenuEntry(
+				$"{category.Name} {category.Count}",
+				() =>
+				{
+					_viewModel.ToggleCategoryCommand.Execute(category);
+
+					// Asked again rather than ticked here: choosing one rebuilds the categories, so the
+					// entries this menu is holding are no longer the ones that know their own answer.
+					ShowCategoryMenu();
+				},
+				category.IsChosen,
+				staysOpen: true))
+		];
+
+		if (_viewModel.IsCategoryRuleWorthAsking)
+		{
+			entries.Add(new ScreenMenuEntry(
+				_translations["Entries in every chosen category"],
+				() =>
+				{
+					_viewModel.MatchesEveryCategory = !_viewModel.MatchesEveryCategory;
+					ShowCategoryMenu();
+				},
+				_viewModel.MatchesEveryCategory,
+				staysOpen: true));
+		}
+
+		Menu.Show(entries, _translations["Categories"]);
 	}
 
 	/// <summary>

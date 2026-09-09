@@ -17,7 +17,7 @@ public partial class DashboardPage : ContentPage, ITitleMenu
 		// is built there and reads a page's plain property exactly once - see CalendarEventDetailPage,
 		// where the same order matters for the same reason.
 		_translations = translations;
-		ShowTitleMenuCommand = new Command(ShowPartsMenu);
+		ShowTitleMenuCommand = new Command(ShowTheDashboardMenu);
 		ShowCardFilterCommand = new Command<DashboardCard>(ShowCardFilter);
 
 		InitializeComponent();
@@ -45,6 +45,34 @@ public partial class DashboardPage : ContentPage, ITitleMenu
 		base.OnAppearing();
 		_viewModel.LoadCommand.Execute(null);
 	}
+
+	/// <summary>
+	/// What hangs under the screen's name: how the page is arranged, and what is on it. Two entries
+	/// that open the two sets rather than one panel holding both - the second is a list of every card
+	/// Orbit has, and a menu that long with an order at the top of it is a menu nobody reads.
+	/// </summary>
+	private void ShowTheDashboardMenu() => Menu.Show(
+		[
+			new ScreenMenuEntry(_translations["Sort"], ShowTheOrderMenu),
+			new ScreenMenuEntry(_translations["Show on the dashboard"], ShowPartsMenu)
+		]);
+
+	/// <summary>
+	/// What order the cards are in under the pins - which stay at the top whatever is chosen, so the
+	/// heading says so rather than leaving the reader to notice.
+	/// </summary>
+	private void ShowTheOrderMenu() => Menu.Show(
+		[
+			new ScreenMenuEntry(
+				_translations["Orbit's order"],
+				() => _viewModel.ArrangeCommand.Execute(DashboardCardOrder.Standard),
+				_viewModel.Order is DashboardCardOrder.Standard),
+			new ScreenMenuEntry(
+				_translations["Name"],
+				() => _viewModel.ArrangeCommand.Execute(DashboardCardOrder.Name),
+				_viewModel.Order is DashboardCardOrder.Name)
+		],
+		_translations["Sort - pinned stay on top"]);
 
 	/// <summary>
 	/// Which parts of the dashboard are wanted at all. A menu of settings rather than of actions, so it

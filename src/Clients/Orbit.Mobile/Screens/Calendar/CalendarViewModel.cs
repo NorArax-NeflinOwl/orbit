@@ -93,18 +93,10 @@ public sealed partial class CalendarViewModel : ObservableObject
     private bool _showsEverything;
 
     /// <summary>
-    /// The month grid - six weeks of seven days, whatever month it is, or the one week the reader is
-    /// standing on once the calendar has been minimised. See CalendarMonth and MinimisedCalendar.
+    /// The grid: six weeks of seven days for a month, or the one week the reader is standing on in the
+    /// week view. See CalendarMonth, and CalendarWeek for which week that is.
     /// </summary>
     public ObservableCollection<CalendarDay> Days { get; } = [];
-
-    /// <summary>
-    /// Whether the calendar has got out of the way, which the page turns on as the list beneath it is
-    /// scrolled past it. Android only, and decided as such: a desktop window has room for the grid and
-    /// the list at once - see info/future-plan.md.
-    /// </summary>
-    [ObservableProperty]
-    private bool _isMinimised;
 
     /// <summary>Everything the grid holds, whatever is being shown of it right now.</summary>
     private IReadOnlyList<CalendarDay> _wholeMonth = [];
@@ -118,7 +110,7 @@ public sealed partial class CalendarViewModel : ObservableObject
     /// </summary>
     public ObservableCollection<DayBlock> DayBlocks { get; } = [];
 
-    /// <summary>What has no hour to be drawn at, in a row of its own above the clock.</summary>
+    /// <summary>What has no hour to be drawn at, in a row of its own under the clock.</summary>
     public ObservableCollection<DayBlock> AllDayBlocks { get; } = [];
 
     /// <summary>Nothing on a day is worth an empty clock: the list beneath already says so.</summary>
@@ -129,39 +121,27 @@ public sealed partial class CalendarViewModel : ObservableObject
 
     public IReadOnlyList<string> WeekdayNames => CalendarMonth.WeekdayNames(_translations);
 
-    /// <summary>
-    /// The stretch of the clock the day view draws - see CalendarDayTimeline. One hour of it once the
-    /// calendar has been minimised, which is the day's answer to the week the month keeps.
-    /// </summary>
-    public (int FirstHour, int LastHour) HoursOnShow
-        => IsMinimised
-            ? MinimisedCalendar.HourOf(DayBlocks, SelectedDay ?? Month, _timeProvider.GetUtcNow().LocalDateTime)
-            : CalendarDayTimeline.HoursWorthDrawing(DayBlocks);
-
-    partial void OnIsMinimisedChanged(bool value)
-    {
-        ShowTheGrid();
-        OnPropertyChanged(nameof(HoursOnShow));
-    }
+    /// <summary>The stretch of the clock the day view draws - see CalendarDayTimeline.</summary>
+    public (int FirstHour, int LastHour) HoursOnShow => CalendarDayTimeline.HoursWorthDrawing(DayBlocks);
 
     /// <summary>
-    /// Fills the grid from what was last read, taking the minimising into account - so getting out of
-    /// the way and coming back is a redraw rather than another read of the store.
+    /// Fills the grid from what was last read - so switching between the week and the month is a redraw
+    /// rather than another read of the store.
     /// </summary>
     private void ShowTheGrid()
     {
         var today = _timeProvider.GetUtcNow().LocalDateTime;
 
         Days.Clear();
-        foreach (var day in IsMinimised
-            ? MinimisedCalendar.WeekOf(_wholeMonth, SelectedDay, today)
+        foreach (var day in IsShowingWeek
+            ? CalendarWeek.Of(_wholeMonth, Month, today)
             : _wholeMonth)
         {
             Days.Add(day);
         }
 
         Months.Clear();
-        foreach (var month in IsMinimised ? MinimisedCalendar.MonthOf(_wholeYear, Month) : _wholeYear)
+        foreach (var month in _wholeYear)
         {
             Months.Add(month);
         }
@@ -189,18 +169,50 @@ public sealed partial class CalendarViewModel : ObservableObject
     [ObservableProperty]
     private CalendarViewMode _viewMode = CalendarViewMode.Month;
 
-    /// <summary>What the header says above the grid: the day, the month, or the year that is showing.</summary>
+    /// <summary>
+    /// What the bar calls this screen: the day, the week, the month or the year that is showing. It is
+    /// the screen's name now rather than a heading inside it - the design puts the period being read in
+    /// the bar, with the menu hanging off it, and a page that says "Calendar" above a grid of March is
+    /// spending its first line on a word the drawer already said.
+    /// </summary>
     public string PeriodLabel
         => ViewMode switch
         {
             CalendarViewMode.Year => CalendarYear.Describe(Month.Year),
             CalendarViewMode.Day => (SelectedDay ?? Month).ToString("d MMMM yyyy", _translations.DisplayCulture),
+            CalendarViewMode.Week => DescribeTheWeek(),
             _ => CalendarMonth.Describe(Month, _translations)
         };
+
+    /// <summary>
+    /// "3 - 9 March" for a week inside one month, and "30 March - 5 April" for one that straddles two.
+    /// The year is left off: it is on screen in every other mode and a week is read as "which week of
+    /// the one I am in", not as a date.
+    /// </summary>
+    private string DescribeTheWeek()
+    {
+        if (Days.Count == 0)
+        {
+            return (SelectedDay ?? Month).ToString("d MMMM yyyy", _translations.DisplayCulture);
+        }
+
+        var first = Days[0].Date;
+        var last = Days[^1].Date;
+        var culture = _translations.DisplayCulture;
+
+        return first.Month == last.Month
+            ? $"{first:%d} - {last.ToString("d MMMM yyyy", culture)}"
+            : $"{first.ToString("d MMMM", culture)} - {last.ToString("d MMMM yyyy", culture)}";
+    }
 
     public bool IsShowingYear => ViewMode is CalendarViewMode.Year;
 
     public bool IsShowingMonth => ViewMode is CalendarViewMode.Month;
+
+    public bool IsShowingWeek => ViewMode is CalendarViewMode.Week;
+
+    /// <summary>Whether the grid of days is on screen at all - the week and the month both draw it.</summary>
+    public bool IsShowingAGrid => ViewMode is CalendarViewMode.Week or CalendarViewMode.Month;
 
     public bool IsShowingDay => ViewMode is CalendarViewMode.Day;
 
@@ -219,9 +231,9 @@ public sealed partial class CalendarViewModel : ObservableObject
 
     private Task StepAsync(int direction, CancellationToken cancellationToken)
     {
-        // A step means one of whatever is on screen: a day in the day view, a month in the month grid,
-        // a year in the overview. Stepping a month while showing one day was the old behaviour and read
-        // as the arrows being broken.
+        // A step means one of whatever is on screen: a day in the day view, a week in the week, a month
+        // in the month grid, a year in the overview. Stepping a month while showing one day was the old
+        // behaviour and read as the arrows being broken.
         if (ViewMode is CalendarViewMode.Day)
         {
             SelectedDay = (SelectedDay ?? Month).AddDays(direction);
@@ -229,9 +241,30 @@ public sealed partial class CalendarViewModel : ObservableObject
             return ShowStoredEventsAsync(cancellationToken);
         }
 
+        // A week steps by seven days and stays a week: nothing is chosen inside it, so the list beneath
+        // goes on showing all seven.
+        if (ViewMode is CalendarViewMode.Week)
+        {
+            Month = Month.AddDays(7 * direction);
+            SelectedDay = null;
+            return ShowStoredEventsAsync(cancellationToken);
+        }
+
         Month = ViewMode is CalendarViewMode.Year ? Month.AddYears(direction) : Month.AddMonths(direction);
         SelectedDay = null;
         return ShowStoredEventsAsync(cancellationToken);
+    }
+
+    /// <summary>
+    /// Opens the calendar on today, by the hour - what the dashboard's summary of the day leads to.
+    /// Told before the screen appears rather than commanded afterwards, so it never draws the month
+    /// first and swaps a moment later.
+    /// </summary>
+    public void OpenOnToday()
+    {
+        SelectedDay = _timeProvider.GetUtcNow().LocalDateTime.Date;
+        Month = SelectedDay.Value;
+        ViewMode = CalendarViewMode.Day;
     }
 
     /// <summary>
@@ -260,6 +293,26 @@ public sealed partial class CalendarViewModel : ObservableObject
     private Task ShowMonthAsync(CancellationToken cancellationToken)
     {
         ViewMode = CalendarViewMode.Month;
+        return ShowStoredEventsAsync(cancellationToken);
+    }
+
+    /// <summary>
+    /// One week: the row of the grid the reader is standing on, and everything happening in it. It used
+    /// to arrive by accident, as what was left of the month once the list beneath it had been scrolled
+    /// past - so a reader who wanted one week had to scroll to get it and could not ask for it.
+    ///
+    /// A week is not one day, so it clears the chosen day: the list beneath shows the whole week, and a
+    /// day still chosen from the month grid would have narrowed it back to that day.
+    /// </summary>
+    [RelayCommand]
+    private Task ShowWeekAsync(CancellationToken cancellationToken)
+    {
+        // Which week it is travels in Month, as it does in every other mode; the chosen day is cleared
+        // because a week is not one day, and a day still chosen from the month grid would have narrowed
+        // the list beneath back to it.
+        Month = SelectedDay ?? Month;
+        SelectedDay = null;
+        ViewMode = CalendarViewMode.Week;
         return ShowStoredEventsAsync(cancellationToken);
     }
 
@@ -586,6 +639,14 @@ public sealed partial class CalendarViewModel : ObservableObject
             return date == chosen.Date;
         }
 
+        // The week is the seven days the grid is showing, which is where a week straddling two months
+        // is settled: the grid already holds the days either side, so the list follows it rather than
+        // working the boundary out a second time.
+        if (ViewMode is CalendarViewMode.Week)
+        {
+            return Days.Count > 0 && date >= Days[0].Date && date <= Days[^1].Date;
+        }
+
         return ViewMode is CalendarViewMode.Year
             ? date.Year == Month.Year
             : date.Month == Month.Month && date.Year == Month.Year;
@@ -595,6 +656,8 @@ public sealed partial class CalendarViewModel : ObservableObject
     {
         OnPropertyChanged(nameof(PeriodLabel));
         OnPropertyChanged(nameof(IsShowingMonth));
+        OnPropertyChanged(nameof(IsShowingWeek));
+        OnPropertyChanged(nameof(IsShowingAGrid));
         OnPropertyChanged(nameof(IsShowingYear));
         OnPropertyChanged(nameof(IsShowingDay));
     }

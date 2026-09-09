@@ -64,6 +64,10 @@ env:
   #
   # Public, like that file's own hostname, so it lives here rather than in a secret.
   ORBIT_API_BASE_ADDRESS: https://orbit-api.victorioustree-36ad82ca.polandcentral.azurecontainerapps.io/
+  # The web client of the same deployment, which is where the privacy, security and documentation pages
+  # the About screen links to are served from. A separate address on purpose: the API host above serves
+  # no pages - see OrbitWebSettings.
+  ORBIT_WEB_BASE_ADDRESS: https://orbit-web.victorioustree-36ad82ca.polandcentral.azurecontainerapps.io/
   # The base of the name. The version is glued on once it is known - see "Decide the version" - so a
   # download says which build it is without anybody opening it.
   APK_BASE_NAME: orbit-android
@@ -220,6 +224,7 @@ jobs:
             --framework net10.0-android \
             --configuration Release \
             -p:OrbitApiBaseAddress="$ORBIT_API_BASE_ADDRESS" \
+            -p:OrbitWebBaseAddress="$ORBIT_WEB_BASE_ADDRESS" \
             -p:ApplicationDisplayVersion="${{ steps.version.outputs.value }}" \
             -p:ApplicationVersion="${{ github.run_number }}" \
             -p:InformationalVersion="${{ steps.version.outputs.value }}+${{ steps.version.outputs.commit }}" \

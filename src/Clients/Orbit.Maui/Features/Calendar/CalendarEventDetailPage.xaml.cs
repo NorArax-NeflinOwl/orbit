@@ -49,7 +49,12 @@ public partial class CalendarEventDetailPage : ContentPage, ITitleMenu
 		// No "Back" among them: the bar's arrow is the way out of every detail screen since the
 		// navigation stack landed, and a second one inside the menu is the same duplicate the pages
 		// themselves were carrying.
-		List<ScreenMenuEntry> entries = [];
+		List<ScreenMenuEntry> entries =
+		[
+			// Offering the event to somebody else, which stood at the foot of the form and is behind
+			// this now - see the panel's own IsVisible.
+			new(_translations["Share"], () => Sharing.IsVisible = !Sharing.IsVisible, Sharing.IsVisible)
+		];
 
 		if (_viewModel.CanEdit)
 		{

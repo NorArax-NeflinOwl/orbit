@@ -53,9 +53,18 @@
 
                 <CollectionView.ItemTemplate>
                     <DataTemplate x:DataType="screens:NoteListItem">
-                        <!-- A row rather than a card - see ItemCard.IsBordered. A list of boxes reads as
+                        <!-- The row the design draws, and nothing else on it:
+                                 [pin] Shopping                              HIGH
+                                 Flour, rice, olive oil
+                                 yesterday
+                             A row rather than a card - see ItemCard.IsBordered. A list of boxes reads as
                              a list of things kept apart; a column of rules reads as one list, which is
-                             what a page of notes is. -->
+                             what a page of notes is.
+
+                             No "⋯" here any more. Deleting a note, or taking somebody else's off your own
+                             list, is under the note's own name once it is open - which is where the design
+                             puts everything that can be done to a thing, and it took a control off every
+                             row in the list to say so. -->
                         <controls:ItemCard IsBordered="False"
                                            Name="{Binding DisplayTitle}" IsPinned="{Binding IsPinned}">
                             <controls:ItemCard.Pin>
@@ -68,13 +77,14 @@
                                                     CommandParameter="{Binding .}" />
                             </controls:ItemCard.Pin>
 
-                            <controls:ItemCard.Menu>
-                                <!-- What can be done to the note without opening it, in the corner
-                                     every card keeps its menu in - see Orbit.Web's own Notes card. -->
-                                <controls:OverflowMenu IsVisible="{Binding HasCardMenu}"
-                                                       Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=ShowCardMenuCommand, x:DataType=notes:NotesPage}"
-                                                       CommandParameter="{Binding .}" />
-                            </controls:ItemCard.Menu>
+                            <controls:ItemCard.Trailing>
+                                <!-- The one tag the design puts at the end of the name's line. Only
+                                     where it says something - see PriorityChoice.IsWorthSaying. -->
+                                <Border Style="{StaticResource FilterChip}" Padding="7,2"
+                                        IsVisible="{Binding HasPriority}">
+                                    <Label Text="{Binding Priority}" Style="{StaticResource FilterChipLabel}" />
+                                </Border>
+                            </controls:ItemCard.Trailing>
 
                             <controls:ItemCard.Tags>
                                 <!-- Two cards with the same title are otherwise indistinguishable, and
@@ -84,12 +94,21 @@
                             </controls:ItemCard.Tags>
 
                             <controls:ItemCard.Body>
-                                <!-- A hidden card keeps its place - a note vanishing from the list would
-                                     look deleted - but says nothing about itself until unlocked. -->
-                                <Button Text="{controls:Translate 'Unlock'}" IsVisible="{Binding IsHidden}"
-                                        FontSize="12" Padding="12,2" HorizontalOptions="Start"
-                                        Style="{StaticResource LinkButton}"
-                                        Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=ViewModel.UnlockPrivateCommand, x:DataType=notes:NotesPage}" />
+                                <VerticalStackLayout Spacing="6">
+                                    <!-- The note's first line, which is the only thing on the row that
+                                         says what the note is about. One line and truncated: a preview
+                                         that wraps turns a list into a page of paragraphs. -->
+                                    <Label Text="{Binding Preview}" IsVisible="{Binding HasPreview}"
+                                           FontSize="13" MaxLines="1" LineBreakMode="TailTruncation"
+                                           Style="{StaticResource SubtleLabel}" />
+                                    <!-- A hidden card keeps its place - a note vanishing from the list
+                                         would look deleted - but says nothing about itself until
+                                         unlocked. -->
+                                    <Button Text="{controls:Translate 'Unlock'}" IsVisible="{Binding IsHidden}"
+                                            FontSize="12" Padding="12,2" HorizontalOptions="Start"
+                                            Style="{StaticResource LinkButton}"
+                                            Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=ViewModel.UnlockPrivateCommand, x:DataType=notes:NotesPage}" />
+                                </VerticalStackLayout>
                             </controls:ItemCard.Body>
 
                             <controls:ItemCard.Extras>

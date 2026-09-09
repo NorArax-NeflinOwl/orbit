@@ -120,10 +120,16 @@ flowchart LR
 `AppNavigator` replaces the window's page outright - there is no `NavigationPage` and no `Shell`,
 because Orbit draws its own bar and a second set of platform chrome would have to be fought rather than
 used. What there *is* is a history: every navigation tells `ScreenHistory` how it arrived (a root
-clears, a drawer destination resets to the dashboard and itself, anything else pushes), and both the
-bar's back arrow and Android's gesture pop the same stack. This replaced `UpNavigation`, which answered
-back from a fixed map of parents - right while every editing screen had a rail saying "Back to notes",
-and wrong once that rail was taken away.
+clears, a drawer destination resets to the dashboard and itself, anything else pushes), and Android's
+own gesture pops it. This replaced `UpNavigation`, which answered back from a fixed map of parents -
+right while every editing screen had a rail saying "Back to notes", and wrong once that rail was taken
+away.
+
+The bar carries no back arrow of its own. It shared that corner with the drawer's three lines until the
+design settled it: going back is the stack's job and the gesture already does it, so a second control
+for the same thing was taking the only way sideways off half the screens in the app. What the bar can
+carry beside a screen's name instead is a pair of arrows to the previous and next *of the same kind* -
+see `Controls/ITitleSteps.cs`, and `TaskListDetailPage`, which offers them while one entry is open.
 
 ## Test projects
 

@@ -41,10 +41,10 @@ whatever Orbit draws under it.
 | Colour | fills — a filled primary button, a filled danger button | **stroke** — every button is an outline; the accent is an edge, never a block |
 | Radius | 7 / 8 / 10 / 12 / 14 / 999 | **4**, everywhere |
 | Sections | a sidebar, which becomes six icons in the top bar below 680px | a **drawer**, with the names back beside the icons |
-| The top bar | logo, six icons, a bell, an avatar | `[≡ or ‹]`, the screen's name, the avatar |
+| The top bar | logo, six icons, a bell, an avatar | `[≡]`, `‹` the screen's name `›`, the avatar |
 | A screen's menu | three dots in the page header, or on the editing rail | one dropdown **under the screen's name** |
 | Adding | a `+` beside the page heading | a **floating button** over the foot of the list |
-| Editing screens | a rail along the foot | nothing; the way out is the bar's back arrow |
+| Editing screens | a rail along the foot | nothing; the way out is the navigation stack, popped by the phone's own gesture |
 | A message | filled - the accent for yours, a grey for everybody else's | outlined - the accent over a wash of it, or a hairline over nothing |
 | An avatar | a disc filled with the person's hue | a ring in it, with the initials written in it |
 | A tick | the characters `○ ✓` and `☐ ☑` | one drawn circle - see `Controls/CheckCircle.xaml` |
@@ -130,7 +130,8 @@ buttons ask for 0 and let what they cover decide.
 
 ## What is done, and what is not
 
-Redrawn: the shell (bar, drawer, title menu, floating button, back arrow) and every screen the design
+Redrawn: the shell (bar, drawer, title menu, floating button, the two optional arrows beside a screen's
+name) and every screen the design
 covers — the dashboard, both list-and-detail pairs for notes and tasks, the calendar and an event, the
 inventory and a shelf, the chat screens, the notification feed, sign-in and the account screen. The
 `EditorRail` is gone from the codebase, not only from the screens: nothing drew one any more.
@@ -182,6 +183,33 @@ Deliberately not copied from the design:
   control, pinchable, on the one device that actually has a location.
 - **A conversation shows no count of what is waiting.** `LocalContact` has no unread count and nothing
   on the device derives one.
+
+## The screens the written spec does not describe yet
+
+The Classical prototype was rejected as built on 2026-09-09, and what replaced it is a written,
+screen-by-screen description in the user's own words - the shell, the dashboard, notifications, About,
+the two note screens, the three task screens, the calendar and an event, contacts, the map, and the two
+inventory screens. Those are done.
+
+These are the ones it has not reached. They are listed here rather than guessed at, because guessing at
+the last one is exactly what produced the rejected version:
+
+| screen | what it is now |
+|---|---|
+| Sign in, Register, Forgotten password | named as a group, never described. They carry no bar and no drawer today - nobody is signed in - and no ad bar either |
+| Account (the avatar menu's **Settings**) | theme, accent, language, notification settings, permissions, Google, the encryption key |
+| A conversation, and a group's | the two chat screens: bubbles, the composer, a message's own menu |
+| A group's details | who is in it, and what can be done to it |
+| Contact info | who somebody is, apart from what they have said |
+| The encryption key gate | what it asks and what it offers to reset |
+| One entry on its own | `TaskItemSummaryPage`, opened from the calendar rather than from its list - distinct from the entry form inside a task list, which *is* described |
+| Copies to review, and a thing's copy history | the two screens behind the offline-copy offer |
+| Update | where a newer Orbit comes from |
+| Diagnostics | the app's own log, behind the Debug permission |
+| A shared link | what somebody sees following a public link into the app |
+| The place picker | choosing where an entry happens, on a map |
+| Startup | the screen the app opens on before it knows whether it may run |
+| The map's two lists | who can see you, and who is sharing with you - **new on 2026-09-09**, invented to satisfy "the lists open as their own page", so worth confirming rather than assuming |
 
 ## How to check it
 
