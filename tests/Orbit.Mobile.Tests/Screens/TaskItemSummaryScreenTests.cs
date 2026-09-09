@@ -1,11 +1,14 @@
+using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Time.Testing;
 using Orbit.Contracts.Calendar;
 using Orbit.Contracts.Chat;
 using Orbit.Contracts.Tasks;
 using Orbit.Mobile.Data;
+using Orbit.Mobile.Api;
 using Orbit.Mobile.Localization;
 using Orbit.Mobile.Location;
 using Orbit.Mobile.Screens.Tasks;
+using Orbit.Mobile.Sync;
 using Orbit.Mobile.Tests.TestDoubles;
 using Xunit;
 
@@ -182,7 +185,7 @@ public sealed class TaskItemSummaryScreenTests
         Assert.Empty(screen.Description);
     }
 
-    /// <summary>The list is where it gets ticked off, which is the one thing this screen cannot do.</summary>
+    /// <summary>The list is where the rest of the entry is changed - the tick is made here.</summary>
     [Fact]
     public async Task It_leads_back_to_the_list_the_entry_is_on()
     {
@@ -193,6 +196,98 @@ public sealed class TaskItemSummaryScreenTests
         screen.ShowTaskListCommand.Execute(null);
 
         Assert.Equal(opened.TaskListLocalId, context.Navigator.LastTaskListId);
+    }
+
+    /// <summary>
+    /// The entry is crossed off where it is read. This screen used to draw the circle and offer no
+    /// press, so the one screen about this entry was the one place it could not be finished - somebody
+    /// who opened it from the calendar to see when something was due had to go back to the list to tick
+    /// it. Written to this phone first, like every other task write, and sent from there.
+    /// </summary>
+    [Fact]
+    public async Task The_entry_is_crossed_off_where_it_is_read()
+    {
+        using var context = new ScreenContext();
+        var opened = await context.AddEntryAsync("Collect the parcel");
+        var screen = await context.OpenAsync(opened);
+
+        await screen.TickCommand.ExecuteAsync(null);
+
+        Assert.True(screen.IsCompleted);
+        Assert.True((await context.StoredEntryAsync(opened)).IsCompleted);
+        Assert.Empty(screen.Status);
+    }
+
+    /// <summary>A tick is a tick either way round - a box that only fills in is a trap for a misread row.</summary>
+    [Fact]
+    public async Task A_tick_can_be_taken_back_here_too()
+    {
+        using var context = new ScreenContext();
+        var opened = await context.AddEntryAsync("Collect the parcel", isCompleted: true);
+        var screen = await context.OpenAsync(opened);
+
+        await screen.TickCommand.ExecuteAsync(null);
+
+        Assert.False(screen.IsCompleted);
+        Assert.False((await context.StoredEntryAsync(opened)).IsCompleted);
+    }
+
+    /// <summary>
+    /// A list shared to be read is refused by the store, wherever the write is made from - so the press
+    /// is answered with why rather than with nothing, which would read as a press that never registered.
+    /// </summary>
+    [Fact]
+    public async Task A_tick_on_a_list_shared_to_read_is_refused_and_said()
+    {
+        using var context = new ScreenContext();
+        var opened = await context.AddEntryAsync("Collect the parcel");
+        await context.ShareToReadAsync(opened.TaskListLocalId);
+        var screen = await context.OpenAsync(opened);
+
+        await screen.TickCommand.ExecuteAsync(null);
+
+        Assert.NotEmpty(screen.Status);
+        Assert.True(screen.HasStatus);
+        Assert.False((await context.StoredEntryAsync(opened)).IsCompleted);
+    }
+
+    /// <summary>
+    /// An entry standing for another list is done when that list is (see LinkedTaskCompletionResolver),
+    /// so nothing is written here: the press is taken and answered with where the tick belongs, which
+    /// is what the list screen and the browser both answer it with.
+    /// </summary>
+    [Fact]
+    public async Task An_entry_that_stands_for_another_list_says_where_the_tick_belongs()
+    {
+        using var context = new ScreenContext();
+        var kitchen = await context.AddTaskListAsync("Kitchen");
+        var opened = await context.AddEntryAsync("Kitchen done", standingFor: kitchen);
+        var screen = await context.OpenAsync(opened);
+
+        await screen.TickCommand.ExecuteAsync(null);
+
+        Assert.Contains("Kitchen", screen.Status);
+        Assert.False(screen.IsCompleted);
+        Assert.False((await context.StoredEntryAsync(opened)).IsCompleted);
+    }
+
+    /// <summary>
+    /// Crossing something off with no connection still crosses it off - it is written here and queued -
+    /// but a reader whose list is shared should know that nobody else can see it yet.
+    /// </summary>
+    [Fact]
+    public async Task A_tick_that_could_not_be_sent_yet_says_it_is_only_on_this_phone()
+    {
+        using var context = new ScreenContext();
+        var opened = await context.AddEntryAsync("Collect the parcel");
+        var screen = await context.OpenAsync(opened);
+        context.Server.IsUnreachable = true;
+
+        await screen.TickCommand.ExecuteAsync(null);
+
+        Assert.True(screen.IsCompleted);
+        Assert.True((await context.StoredEntryAsync(opened)).IsCompleted);
+        Assert.NotEmpty(screen.Status);
     }
 
     private sealed class ScreenContext : IDisposable
@@ -207,7 +302,16 @@ public sealed class TaskItemSummaryScreenTests
         {
             _taskLists = new LocalTaskListRepository(_localStore, _clock, FixedNetworkStatus.Online, PrivateContent.WithoutAKey());
             _events = new LocalCalendarEventRepository(_localStore, _clock, FixedNetworkStatus.Online);
+            Server = new FakeTasksServer(_clock);
+            _synchronizer = new TaskListSynchronizer(
+                _localStore, new TasksClient(Server.ToHttpClient()), _clock, new SyncGate(),
+                NullLogger<TaskListSynchronizer>.Instance);
         }
+
+        /// <summary>Where a tick goes once it is written down - see SynchroniseAsync.</summary>
+        public FakeTasksServer Server { get; }
+
+        private readonly TaskListSynchronizer _synchronizer;
 
         public RecordingScreenNavigator Navigator { get; } = new();
 
@@ -217,8 +321,13 @@ public sealed class TaskItemSummaryScreenTests
         /// <summary>How many times the address was looked up, so "it did not have to be" can be asserted.</summary>
         public int LookupCount => _nominatim?.ReceivedRequests.Count ?? 0;
 
+        /// <param name="standingFor">
+        /// The list this entry stands for, by the server id such a tie is stored as - an entry with one
+        /// is done when that list is, and is not ticked here at all.
+        /// </param>
         public async Task<(Guid TaskListLocalId, Guid ItemId)> AddEntryAsync(
-            string description, DateTime? due = null, string at = "", Guid? tiedTo = null)
+            string description, DateTime? due = null, string at = "", Guid? tiedTo = null,
+            bool isCompleted = false, Guid? standingFor = null)
         {
             var itemId = Guid.NewGuid();
             var dueUtc = due is { } localDue
@@ -228,12 +337,41 @@ public sealed class TaskItemSummaryScreenTests
             var created = await _taskLists.CreateAsync("Errands",
             [
                 new TaskItemDto(
-                    itemId, description, dueUtc, false, null, "None", false, "None", new TimeOnly(9, 0),
+                    itemId, description, dueUtc, isCompleted, standingFor, "None", false, "None", new TimeOnly(9, 0),
                     "Checklist", at, tiedTo)
             ]);
 
             return (created.LocalId, itemId);
         }
+
+        /// <summary>Another list of this account's, already known to the server - what an entry can stand for.</summary>
+        public async Task<Guid> AddTaskListAsync(string title)
+        {
+            var created = await _taskLists.CreateAsync(title, []);
+            await using var dbContext = _localStore.CreateDbContext();
+            var stored = dbContext.TaskLists.Single(candidate => candidate.LocalId == created.LocalId);
+            stored.ServerId = Guid.NewGuid();
+            await dbContext.SaveChangesAsync();
+            return stored.ServerId.Value;
+        }
+
+        /// <summary>
+        /// Turns the list into one somebody handed over to be read - which the store refuses writes to,
+        /// wherever they are made from. Written onto the row the way NoteDetailScreenTests does it.
+        /// </summary>
+        public async Task ShareToReadAsync(Guid taskListLocalId)
+        {
+            await using var dbContext = _localStore.CreateDbContext();
+            var stored = dbContext.TaskLists.Single(candidate => candidate.LocalId == taskListLocalId);
+            stored.IsShared = true;
+            stored.AccessLevel = "ReadOnly";
+            await dbContext.SaveChangesAsync();
+        }
+
+        /// <summary>The entry as this phone now holds it - what a tick has to have changed.</summary>
+        public async Task<TaskItemDto> StoredEntryAsync((Guid TaskListLocalId, Guid ItemId) opened)
+            => (await _taskLists.FindAsync(opened.TaskListLocalId))!
+                .Items.Single(item => item.Id == opened.ItemId);
 
         /// <summary>
         /// An event the server knows about, which is what an entry's tie points at - the tie is stored
@@ -261,7 +399,7 @@ public sealed class TaskItemSummaryScreenTests
             var screen = new TaskItemSummaryViewModel(
                 _taskLists, _events, new PlaceSearch(_nominatim.ToHttpClient()),
                 new Translations(new InMemoryLanguageStore()), Navigator,
-                new ChatRepository(_localStore, _clock));
+                new ChatRepository(_localStore, _clock), _synchronizer);
 
             screen.Open(opened.TaskListLocalId, opened.ItemId);
             await screen.LoadCommand.ExecuteAsync(null);

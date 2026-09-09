@@ -4,8 +4,10 @@ using CommunityToolkit.Mvvm.Input;
 using Orbit.Mobile.Data;
 using Orbit.Mobile.Localization;
 using Orbit.Mobile.Location;
+using Orbit.Mobile.Crypto;
 using Orbit.Mobile.Screens.Calendar;
 using Orbit.Mobile.Screens.Location;
+using Orbit.Mobile.Sync;
 
 namespace Orbit.Mobile.Screens.Tasks;
 
@@ -17,6 +19,10 @@ namespace Orbit.Mobile.Screens.Tasks;
 /// Read from the phone's own store rather than asked for, as every other task screen is. Only the pin
 /// needs the network, and only for an entry carrying an address of its own: an entry tied to an event
 /// takes the place from the event, which is where the coordinates already live.
+///
+/// The one thing it changes is the tick. Written to this phone first and queued from there, like every
+/// other task write - so crossing something off works with no connection - and refused by the store
+/// rather than by this screen, which then says what the refusal was.
 /// </summary>
 public sealed partial class TaskItemSummaryViewModel : ObservableObject
 {
@@ -24,6 +30,7 @@ public sealed partial class TaskItemSummaryViewModel : ObservableObject
     private readonly LocalCalendarEventRepository _calendarEvents;
     private readonly ChatRepository _contacts;
     private readonly PlaceSearch _places;
+    private readonly TaskListSynchronizer _synchronizer;
     private readonly Translations _translations;
     private readonly IScreenNavigator _navigator;
 
@@ -32,12 +39,14 @@ public sealed partial class TaskItemSummaryViewModel : ObservableObject
 
     public TaskItemSummaryViewModel(
         LocalTaskListRepository taskLists, LocalCalendarEventRepository calendarEvents, PlaceSearch places,
-        Translations translations, IScreenNavigator navigator, ChatRepository contacts)
+        Translations translations, IScreenNavigator navigator, ChatRepository contacts,
+        TaskListSynchronizer synchronizer)
     {
         _taskLists = taskLists;
         _calendarEvents = calendarEvents;
         _contacts = contacts;
         _places = places;
+        _synchronizer = synchronizer;
         _translations = translations;
         _navigator = navigator;
     }
@@ -74,6 +83,15 @@ public sealed partial class TaskItemSummaryViewModel : ObservableObject
 
     [ObservableProperty]
     private bool _isCompleted;
+
+    /// <summary>
+    /// What the last tick came to, when it came to anything worth saying - a refusal, or a save this
+    /// phone is still holding on to. Empty the rest of the time, which is most of it.
+    /// </summary>
+    [ObservableProperty]
+    private string _status = string.Empty;
+
+    public bool HasStatus => Status.Length > 0;
 
     /// <summary>
     /// Where the pin goes, or null when there is nowhere to put one. An address nobody can find stays
@@ -187,7 +205,110 @@ public sealed partial class TaskItemSummaryViewModel : ObservableObject
 
     partial void OnGuestsChanged(string value) => OnPropertyChanged(nameof(HasGuests));
 
-    /// <summary>The list this entry is on, which is where it can be ticked off.</summary>
+    /// <summary>
+    /// Crosses this entry off, or takes the tick back - the light doing that belongs to the thing this
+    /// screen reads. It used to belong to the list alone, so the one screen about this entry was the one
+    /// place it could not be finished; Orbit.Web's own entry page ticks it the same way now.
+    ///
+    /// Written to this phone and queued from there, like every other task write. Whether it may be
+    /// written at all is the store's answer rather than this screen's - see LocalWriteOutcome - so a
+    /// read-only share and a shared list with no connection are refused in one place and said here.
+    /// </summary>
+    [RelayCommand]
+    private async Task TickAsync(CancellationToken cancellationToken)
+    {
+        Status = string.Empty;
+        if (await _taskLists.FindAsync(_taskListLocalId, cancellationToken) is not { } taskList
+            || taskList.Items.FirstOrDefault(candidate => candidate.Id == _itemId) is not { } item)
+        {
+            // Gone underneath the reader, as LoadAsync answers the same case.
+            _navigator.ShowCalendar();
+            return;
+        }
+
+        // An entry standing for other lists is done when they are (see LinkedTaskCompletionResolver),
+        // so there is nothing here to write: the press is taken and answered with where the tick
+        // belongs, which is what the list screen and the browser both answer it with.
+        if (item.AllLinkedTaskListIds.Count > 0)
+        {
+            Status = _translations.Format(
+                "This is done when {0} is.", await NameTheListsBehindAsync(item, cancellationToken));
+            return;
+        }
+
+        var items = taskList.Items
+            .Select(candidate => candidate.Id == _itemId
+                ? candidate with { IsCompleted = !item.IsCompleted }
+                : candidate)
+            .ToList();
+
+        LocalWriteOutcome outcome;
+        try
+        {
+            outcome = await _taskLists.UpdateAsync(
+                _taskListLocalId,
+                new TaskListContent(
+                    taskList.Title, items, taskList.IsGroup, taskList.Priority, taskList.IsPrivate,
+                    taskList.Description),
+                cancellationToken);
+        }
+        catch (EncryptionKeyLockedException)
+        {
+            // Sealing needs the account's own key, and this device has not got it - the same gate the
+            // list screen sends the reader to for the same reason.
+            _navigator.ShowChatKeyGate();
+            return;
+        }
+
+        if (outcome.WasRefused())
+        {
+            Status = outcome.Explain(RefusalMessage, _translations);
+            return;
+        }
+
+        IsCompleted = !item.IsCompleted;
+        await SynchroniseAsync(cancellationToken);
+    }
+
+    /// <summary>The dictionary key, not the text itself - see <see cref="Translations"/>.</summary>
+    private const string RefusalMessage =
+        "Somebody else can change this list, and Orbit can't be reached to check. It stays read-only until you're back online.";
+
+    /// <summary>
+    /// The lists this entry stands for, named and joined. A list this phone has not synced, or one
+    /// somebody stopped sharing, is "another list" - the same name Orbit.Web gives one it cannot name.
+    /// </summary>
+    private async Task<string> NameTheListsBehindAsync(
+        Orbit.Contracts.Tasks.TaskItemDto item, CancellationToken cancellationToken)
+    {
+        var taskLists = await _taskLists.GetAllAsync(cancellationToken);
+        return string.Join(
+            ", ",
+            item.AllLinkedTaskListIds.Select(linkedServerId =>
+                taskLists.FirstOrDefault(candidate => candidate.ServerId == linkedServerId) is { } named
+                    ? named.Title
+                    : _translations["another list"]));
+    }
+
+    /// <summary>
+    /// Sends what was just written, and says so when it could not go out - a tick that is only on this
+    /// phone still counts, but a reader who has crossed something off on a shared list should know that
+    /// nobody else can see it yet. See TaskListDetailViewModel, which says it in the same words.
+    /// </summary>
+    private async Task SynchroniseAsync(CancellationToken cancellationToken)
+    {
+        try
+        {
+            var result = await _synchronizer.SynchroniseAsync(cancellationToken);
+            Status = result.ReachedTheServer ? string.Empty : _translations["Saved on this phone - it will sync later"];
+        }
+        catch (Exception exception) when (exception is HttpRequestException or OperationCanceledException)
+        {
+            Status = _translations["Saved on this phone - it will sync later"];
+        }
+    }
+
+    /// <summary>The list this entry is on, which is where the rest of it can be changed.</summary>
     [RelayCommand]
     private void ShowTaskList() => _navigator.ShowTaskList(_taskListLocalId);
 
@@ -201,4 +322,6 @@ public sealed partial class TaskItemSummaryViewModel : ObservableObject
     }
 
     partial void OnWhereChanged(string value) => OnPropertyChanged(nameof(IsPlaceUnknown));
+
+    partial void OnStatusChanged(string value) => OnPropertyChanged(nameof(HasStatus));
 }
