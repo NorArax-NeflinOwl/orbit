@@ -4593,6 +4593,14 @@ input.note-editor-title {
     color: var(--success);
 }
 
+/* Every entry ticked off and the list still open, because its owner said so - see
+   Orbit.Core.Tasks.TaskListStatus.Incomplete. The work's colour rather than success or danger: nothing
+   has gone wrong and nothing is finished, and this is the one status that says both at once. */
+.card-badge-status-incomplete {
+    background: color-mix(in oklch, var(--task) 16%, transparent);
+    color: var(--task);
+}
+
 .card-badge-priority-high {
     background: color-mix(in oklch, var(--task) 18%, transparent);
     color: var(--task);

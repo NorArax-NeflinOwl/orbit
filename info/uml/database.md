@@ -180,7 +180,7 @@ erDiagram
         uuid OP_T_FOLDERID FK "null = a built-in folder"
         text OP_T_TITLE
         bool OP_T_ISCOMPLETED "decides the Finished folder"
-        bool OP_T_ISMARKEDCOMPLETED "finished because somebody said so"
+        text OP_T_COMPLETION "TaskListCompletion by name - what its owner said, if anything"
         bool OP_T_ISPRIVATE
     }
     OP_TASKS_ITEMS {

@@ -9,6 +9,7 @@ using Microsoft.Extensions.Logging.Abstractions;
 using Orbit.Contracts.Calendar;
 using Orbit.Contracts.Chat;
 using Orbit.Contracts.Tasks;
+using Orbit.Core.Tasks;
 using Orbit.Contracts.Users;
 using Orbit.Web.Pages;
 using Orbit.Web.Services;
@@ -742,7 +743,7 @@ public sealed class CalendarTests : OrbitTestContext
         RegisterTasksApiClient([
             CreateTaskListWithDueItem(midMonth, "Still to do"),
             CreateTaskListWithDueItem(midMonth, "On a closed list")
-                with { IsCompleted = true, IsMarkedCompleted = true }]);
+                with { IsCompleted = true, Completion = nameof(TaskListCompletion.Finished) }]);
 
         var cut = RenderComponent<Calendar>();
 

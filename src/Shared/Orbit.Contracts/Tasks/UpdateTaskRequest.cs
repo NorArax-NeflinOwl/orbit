@@ -18,9 +18,11 @@ public sealed record UpdateTaskRequest(
     string Title, IReadOnlyList<TaskItemRequest> Items, bool IsGroup = false, bool IsPrivate = false,
     EncryptedContentDto? EncryptedContent = null, string Priority = "Normal", string? Description = null,
     /// <summary>
-    /// Whether the reader says this list is finished, whatever is still on it. <b>Null means "not
-    /// provided"</b> and leaves the stored answer alone, the same rule Description above follows and for
-    /// the same reason: the phone does not know about this field yet, and a save from it must not
-    /// quietly reopen a list somebody closed in a browser.
+    /// What the reader says about whether this list is finished - "FromTheEntries", "Finished" or
+    /// "Unfinished", see Orbit.Core.Tasks.TaskListCompletion. <b>Null means "not provided"</b> and
+    /// leaves the stored answer alone, the same rule Description above follows and for the same reason:
+    /// the phone does not know about this field yet, and a save from it must not quietly reopen a list
+    /// somebody closed in a browser. "FromTheEntries" is a real answer rather than the absence of one -
+    /// it hands the question back to the entries.
     /// </summary>
-    bool? IsMarkedCompleted = null);
+    string? Completion = null);

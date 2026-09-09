@@ -15,6 +15,7 @@ using Orbit.Contracts.Users;
 using Orbit.Contracts.Notes;
 using Orbit.Contracts.Notifications;
 using Orbit.Contracts.Tasks;
+using Orbit.Core.Tasks;
 using Orbit.Web.Pages;
 using Orbit.Core.Folders;
 using Orbit.Web.Services;
@@ -977,7 +978,7 @@ public sealed class DashboardTests : OrbitTestContext
         RegisterEmptyNotesApiClient();
         RegisterEmptyCalendarApiClient();
         var closed = TaskList("Shopping", DueItem("Milk", DateTimeOffset.UtcNow.AddDays(1)))
-            with { IsCompleted = true, IsMarkedCompleted = true };
+            with { IsCompleted = true, Completion = nameof(TaskListCompletion.Finished) };
         RegisterTasksApiClient([closed]);
 
         var cut = RenderComponent<Dashboard>();
@@ -993,7 +994,7 @@ public sealed class DashboardTests : OrbitTestContext
         RegisterEmptyNotesApiClient();
         RegisterEmptyCalendarApiClient();
         var closed = TaskList("Shopping", DueItem("Milk", DateTimeOffset.Now.Date.AddHours(23)))
-            with { IsCompleted = true, IsMarkedCompleted = true };
+            with { IsCompleted = true, Completion = nameof(TaskListCompletion.Finished) };
         RegisterTasksApiClient([closed]);
 
         var cut = RenderComponent<Dashboard>();

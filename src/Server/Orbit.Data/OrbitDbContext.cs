@@ -127,6 +127,11 @@ public sealed class OrbitDbContext : DbContext
                 .HasMaxLength(StoredTextLimits.EventDescription).HasDefaultValue(string.Empty);
             // Matches UserEntity.UserName's max length, since this is always copied from there.
             entity.Property(task => task.LockedByUserName).HasMaxLength(64);
+            // Matches TaskListCompletion.FromTheEntries, so a row written before the reader could
+            // disagree with its own entries reads back as "the entries decide", which is what the
+            // boolean this replaced meant when it was false.
+            entity.Property(task => task.Completion).IsRequired().HasMaxLength(16)
+                .HasDefaultValue(nameof(Orbit.Core.Tasks.TaskListCompletion.FromTheEntries));
             // Every task list query is scoped to a single user's task lists; this is the index that
             // makes those lookups fast instead of scanning the whole table.
             entity.HasIndex(task => task.UserId);

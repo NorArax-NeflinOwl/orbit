@@ -725,6 +725,10 @@
         TaskListStatus.Pending => T["In progress"],
         TaskListStatus.Completed => T["Done"],
         TaskListStatus.Overdue => T["Overdue"],
+        // Everything on it is ticked and its owner says the list itself is not - see
+        // TaskListCompletion.Unfinished. Named for the list rather than for its work, which is the whole
+        // distinction: "in progress" over a column of ticks describes neither of the two true things.
+        TaskListStatus.Incomplete => T["Not finished"],
         _ => T["Not started"]
     };
 

@@ -285,12 +285,20 @@ need one - `FoldersBelongToOnePage` - and it does more than default the column: 
 is moved to the notes, and one that held both kinds becomes two folders with the notes moved into the
 copy, so nothing that was filed somewhere falls back to Public.
 
-**A list can sit in Finished with work left on it**, which is the one thing that changed. That was the
-ordinary case the old rule could not say: a list whose last two entries stopped mattering, or were done
-somewhere else. The only way to close it used to be ticking those entries off, which is a claim about
-the entries rather than about the list. Marking it survives an edit - adding an entry to a list somebody
-closed does not quietly reopen it - and unticking the box hands the question back to the entries rather
-than forcing "not done", so a list whose entries are all ticked stays finished either way.
+**The Completed box has three answers, not two** (`Orbit.Core.Tasks.TaskListCompletion`,
+`OP_T_COMPLETION`, stored by name). A list starts at `FromTheEntries` - nobody has said, so the entries
+decide, and the box **ticks itself once every entry is ticked**, which is what a reader already means by
+that. Pressing it records an answer of the reader's own instead:
+
+- `Finished` - **a list can sit in Finished with work left on it**. That is the ordinary case the
+  entries could not say: a list whose last two stopped mattering, or were done somewhere else. It
+  survives an edit - adding an entry to a list somebody closed does not quietly reopen it.
+- `Unfinished` - **every entry ticked off and the list still open**, which the old yes/no box could not
+  say either: unticking it handed the question straight back to the entries, which answered "finished"
+  again and put the tick back. The list reads as **Not finished** then
+  (`TaskListStatus.Incomplete`) - its own status, because "in progress" over a column of ticks describes
+  neither of the two true things about it. With work still left the status is whatever the work says;
+  Incomplete is only ever about the gap between the entries and the list.
 
 **A folder somebody made is none of the three** and holds whatever they put in it, private things
 included: filing something is not the same decision as sealing it. Only these are rows

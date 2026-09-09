@@ -729,6 +729,14 @@ public static class PolishTranslations
         ["Nothing in it is deleted - everything goes back to Public, or to Private if it is sealed."] =
             "Nic z niego nie zostanie usunięte - wszystko wróci do Publicznych, a rzeczy zaszyfrowane do Prywatnych.",
         ["Nothing in this folder."] = "Nic w tym folderze.",
+        // Everything ticked off and the list still open, because its owner said so - see
+        // Orbit.Core.Tasks.TaskListStatus.Incomplete. "Niezakończona" rather than "nieukończona": the
+        // work is finished and the list is not, and the two words carry that difference in Polish.
+        ["Not finished"] = "Niezakończona",
+        ["Marks the whole list done even with entries still open, and moves it to Finished. It ticks itself once every entry is."] =
+            "Oznacza całą listę jako zrobioną, nawet jeśli są na niej otwarte pozycje, i przenosi ją do Ukończonych. Zaznacza się sama, gdy wszystkie pozycje zostaną odhaczone.",
+        ["Ticked on its own because every entry is. Untick it to say the list itself is not done yet - it reads as \"not finished\" then."] =
+            "Zaznaczone samo, bo wszystkie pozycje są odhaczone. Odznacz, aby powiedzieć, że sama lista nie jest jeszcze gotowa - dostanie wtedy status \"niezakończona\".",
         ["Without one it is in Public, or in Private when it is sealed."] =
             "Bez folderu trafia do Publicznych, a jeśli jest zaszyfrowane - do Prywatnych.",
         ["Without one it is in Public, or in Private when it is sealed - and it moves to Finished on its own once everything is ticked off. A list you file somewhere stays in that folder, finished or not."] =

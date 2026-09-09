@@ -31,8 +31,9 @@ public sealed record TaskDto(
     /// </summary>
     Guid? FolderId = null,
     /// <summary>
-    /// Whether the reader marked this list finished themselves, as opposed to it being finished because
-    /// every entry is - see Orbit.Core.Tasks.TaskList.IsMarkedCompleted. IsCompleted above is the
-    /// answer either way; this is the half a checkbox is bound to.
+    /// What the reader said about whether this list is finished, as opposed to what its entries say -
+    /// one of "FromTheEntries", "Finished", "Unfinished", see Orbit.Core.Tasks.TaskListCompletion.
+    /// IsCompleted above is the answer either way; this is the half a checkbox is bound to, and the half
+    /// that says whether a list with every entry ticked off is finished or only looks it.
     /// </summary>
-    bool IsMarkedCompleted = false);
+    string Completion = "FromTheEntries");
