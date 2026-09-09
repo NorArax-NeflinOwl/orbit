@@ -109,9 +109,10 @@ public partial class TasksPage : ContentPage, ITitleMenu
 			// Where a list stands - what the chips along the top used to say. One choice and then done,
 			// unlike the two groups around it: a list is in one state at a time.
 			new(_translations["Show"], _viewModel.Filters.Select(filter => new ScreenMenuEntry(
-				filter.Label,
+				filter.Name,
 				() => _viewModel.FilterByCommand.Execute(filter),
-				filter.IsChosen)))
+				filter.IsChosen,
+				count: ScreenMenuEntry.CountOf(filter.Count))))
 		];
 
 		// Only where anything is filed under one. Categories are the reader's own words and most
@@ -133,7 +134,7 @@ public partial class TasksPage : ContentPage, ITitleMenu
 					},
 					category.IsChosen,
 					staysOpen: true,
-					count: category.Count.ToString()))
+					count: ScreenMenuEntry.CountOf(category.Count)))
 			];
 
 			if (_viewModel.IsCategoryRuleWorthAsking)

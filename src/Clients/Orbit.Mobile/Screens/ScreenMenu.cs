@@ -1,4 +1,5 @@
 using System.Collections.ObjectModel;
+using System.Globalization;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 
@@ -155,6 +156,14 @@ public sealed partial class ScreenMenuEntry : ObservableObject
 
     /// <summary>Kept for the markup, which cannot ask whether a string is empty on its own.</summary>
     public bool HasCount => !string.IsNullOrWhiteSpace(Count);
+
+    /// <summary>
+    /// How many, or nothing at all where there are none. A standing "0" beside a filter nothing matches
+    /// is not news - the same rule the dashboard's chat-request counter follows - and an entry that
+    /// counts nothing should not leave a number hanging at the end of its line.
+    /// </summary>
+    public static string? CountOf(int howMany)
+        => howMany == 0 ? null : howMany.ToString(CultureInfo.CurrentCulture);
 
     /// <summary>
     /// The one currently in force, in a menu of settings. Drawn with a tick in the column the web

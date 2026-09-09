@@ -87,10 +87,10 @@ public partial class MapPage : ContentPage, Orbit.Maui.Controls.ITitleMenu
 			[
 				new(_translations["Who can see you"],
 					() => _viewModel.OpenSharingWithCommand.Execute(null),
-					count: CountOrNothing(_viewModel.SharingWith.Count)),
+					count: Orbit.Mobile.Screens.ScreenMenuEntry.CountOf(_viewModel.SharingWith.Count)),
 				new(_translations["Shared with you"],
 					() => _viewModel.OpenSharedWithMeCommand.Execute(null),
-					count: CountOrNothing(_viewModel.SharedWithMe.Count))
+					count: Orbit.Mobile.Screens.ScreenMenuEntry.CountOf(_viewModel.SharedWithMe.Count))
 			])
 		];
 
@@ -109,10 +109,6 @@ public partial class MapPage : ContentPage, Orbit.Maui.Controls.ITitleMenu
 
 		Menu.ShowGroups(groups);
 	}
-
-	/// <summary>How many, or nothing at all where there are none - see the menu above.</summary>
-	private static string? CountOrNothing(int howMany)
-		=> howMany == 0 ? null : howMany.ToString(System.Globalization.CultureInfo.CurrentCulture);
 
 	/// <summary>
 	/// Takes the map out of the page before anything renders it, which is the only moment that helps:

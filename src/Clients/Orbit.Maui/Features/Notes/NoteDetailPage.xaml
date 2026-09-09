@@ -44,9 +44,14 @@
              and the reason there is no toolbar. -->
         <ScrollView Grid.Row="2">
             <VerticalStackLayout Spacing="0" Padding="0,4,0,96">
+                <!-- The name is the note's first line, so the key at the end of it goes on into the
+                     writing rather than finishing anything. Left to itself a single-line field says
+                     "Done" and the keyboard's own key is a tick, which is what pressing Enter here
+                     looked like it did: it closed the keyboard and the note stayed as it was. -->
                 <Entry x:Name="TitleField" Text="{Binding Title}" FontFamily="OrbitDisplay"
                        FontSize="22" FontAttributes="Bold" IsReadOnly="{Binding IsReadOnly}"
-                       Placeholder="{controls:Translate 'Untitled'}"
+                       Placeholder="{controls:Translate 'Untitled'}" ReturnType="Next"
+                       Completed="OnTitleCompleted"
                        controls:BareField.IsBare="True" Margin="0,0,0,6" />
 
                 <VerticalStackLayout Spacing="0" BindableLayout.ItemsSource="{Binding Lines}">
@@ -66,17 +71,28 @@
                                        controls:BareField.IsBare="True" ReturnType="Next"
                                        IsReadOnly="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=ViewModel.IsReadOnly, x:DataType=notes:NoteDetailPage}"
                                        controls:NoteLineKeys.JoinsTheLineAbove="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=JoinTheLineAboveCommand, x:DataType=notes:NoteDetailPage}"
-                                       Completed="OnLineCompleted" Focused="OnLineFocused" Loaded="OnLineLoaded" />
+                                       Completed="OnLineCompleted" Focused="OnLineFocused"
+                                       Unfocused="OnLineUnfocused" Loaded="OnLineLoaded" />
 
                                 <!-- A ticked line is struck through, from its box rightwards - which on
                                      a line whose box is at its head is the whole line. A Label rather
                                      than the field above, because MAUI puts TextDecorations on a Label
-                                     and on nothing else; untick it to write in it again, which is what
-                                     unticking means anyway. -->
+                                     and on nothing else.
+
+                                     Pressing it opens the field in its place. Without that a ticked line
+                                     cannot be reached by the keyboard at all - there is no field to put
+                                     a caret in - so backspace did nothing on one and the only way to be
+                                     rid of it was to untick it first. -->
                                 <Label Grid.Column="1" Text="{Binding Text}" VerticalOptions="Center"
-                                       IsVisible="{Binding IsCompleted}" Margin="0,10"
+                                       IsVisible="{Binding IsStruckThrough}" Margin="0,10"
                                        TextDecorations="Strikethrough" LineBreakMode="WordWrap"
-                                       Style="{StaticResource SubtleLabel}" />
+                                       Style="{StaticResource SubtleLabel}">
+                                    <Label.GestureRecognizers>
+                                        <TapGestureRecognizer
+                                            Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=OpenForWritingCommand, x:DataType=notes:NoteDetailPage}"
+                                            CommandParameter="{Binding .}" />
+                                    </Label.GestureRecognizers>
+                                </Label>
                             </Grid>
                         </DataTemplate>
                     </BindableLayout.ItemTemplate>

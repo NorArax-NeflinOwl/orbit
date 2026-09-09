@@ -87,31 +87,40 @@ public partial class CalendarPage : ContentPage, ITitleMenu
 	/// sheet - the same menu Orbit.Web hangs off its Calendar header. It stays open while a reader
 	/// tries one order and then another, and is asked again after each choice so the tick leaves
 	/// whichever entry was carrying it.
+	///
+	/// Two groups, because it has always asked two different questions and used to run them together
+	/// under one heading: what order to read the list in, and how much of it to read. The design draws
+	/// a calendar menu of two groups as well, but names things this screen does not have - layers to
+	/// switch on and off, and sharing a day - so it is the shape that is taken from it and not the
+	/// entries, which would have to be invented.
 	/// </summary>
-	private void ShowSortMenu()
-	{
-		// The one in force is marked, because a menu of three with no answer among them leaves the
-		// reader guessing what they are looking at.
-		List<ScreenMenuEntry> entries =
+	private void ShowSortMenu() => Menu.ShowGroups(
 		[
-			Order(_translations["By when"], CalendarListSortOrder.When),
-			Order(_translations["By type"], CalendarListSortOrder.Type),
-			Order(_translations["Alphabetical"], CalendarListSortOrder.Alphabetical),
+			// The one in force is marked, because a menu of three with no answer among them leaves the
+			// reader guessing what they are looking at.
+			new ScreenMenuGroup(
+				_translations["Sort"],
+				[
+					Order(_translations["By when"], CalendarListSortOrder.When),
+					Order(_translations["By type"], CalendarListSortOrder.Type),
+					Order(_translations["Alphabetical"], CalendarListSortOrder.Alphabetical)
+				]),
 
 			// What is over is left out of the list unless it is asked for, as in the browser - so the
 			// same menu that says how to read it also says how much of it to read.
-			new(_translations["Everything, including what is over"],
-				() =>
-				{
-					_viewModel.ShowsEverything = !_viewModel.ShowsEverything;
-					ShowSortMenu();
-				},
-				_viewModel.ShowsEverything,
-				staysOpen: true)
-		];
-
-		Menu.Show(entries, _translations["Sort"]);
-	}
+			new ScreenMenuGroup(
+				_translations["Show"],
+				[
+					new(_translations["Everything, including what is over"],
+						() =>
+						{
+							_viewModel.ShowsEverything = !_viewModel.ShowsEverything;
+							ShowSortMenu();
+						},
+						_viewModel.ShowsEverything,
+						staysOpen: true)
+				])
+		]);
 
 	private ScreenMenuEntry Order(string name, CalendarListSortOrder order) => new(
 		name,

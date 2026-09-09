@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<ContentView
+    x:Class="Orbit.Maui.Controls.ConfirmationDialog"
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml">
+
+    <!-- The question every irreversible press asks first, drawn by Orbit rather than by Android.
+         The platform's own alert is a grey slab in the system font with two blue words in it - the one
+         thing left in the app that looked like somebody else's product, and it turned up at exactly the
+         moment a reader is being asked to be careful.
+
+         Same parts as the menu panel it sits over: a scrim, a hairline border at the app's one radius,
+         the page's own ground, and the two buttons the app draws everywhere - the outline in the danger
+         colour on the press that cannot be undone, the quiet one beside it on the way out. -->
+    <Grid>
+        <BoxView Color="Black" Opacity="0.35" />
+
+        <Border Style="{StaticResource MenuPanel}" Padding="20,18" Margin="32"
+                MaximumWidthRequest="340" HorizontalOptions="Center" VerticalOptions="Center">
+            <VerticalStackLayout Spacing="18">
+                <Label x:Name="Question" LineBreakMode="WordWrap" FontSize="15" />
+
+                <!-- The way out first and the deed second, reading left to right: the button that does
+                     something irreversible is the one the thumb should have to travel to. -->
+                <HorizontalStackLayout Spacing="10" HorizontalOptions="End">
+                    <Button x:Name="CancelButton" Style="{StaticResource SecondaryButton}" />
+                    <Button x:Name="GoAheadButton" Style="{StaticResource DangerButton}" />
+                </HorizontalStackLayout>
+            </VerticalStackLayout>
+        </Border>
+    </Grid>
+
+</ContentView>

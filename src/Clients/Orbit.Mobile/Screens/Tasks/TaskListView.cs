@@ -156,11 +156,12 @@ public static class TaskListView
 /// One filter chip: what it filters to, what it is called, how many it would leave, and whether it is
 /// the one currently chosen. A null <paramref name="Status"/> is "all of them".
 /// </summary>
-public sealed record TaskListFilter(string? Status, string Name, int Count, bool IsChosen)
-{
-    /// <summary>What the chip says. The count is what makes it worth tapping - or worth not tapping.</summary>
-    public string Label => $"{Name} {Count}";
-}
+/// <remarks>
+/// The count used to be written into the name - "All 4", "Pending 0" - which put the number in the same
+/// size and weight as the words and gave a filter with nothing behind it a "0" to say. A menu entry has
+/// a column of its own for it now; see <see cref="ScreenMenuEntry.Count"/>.
+/// </remarks>
+public sealed record TaskListFilter(string? Status, string Name, int Count, bool IsChosen);
 
 /// <summary>
 /// One order the lists can be put in, as the menu offers it: what it is, what it is called, and whether
