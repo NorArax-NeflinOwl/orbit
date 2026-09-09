@@ -77,15 +77,16 @@ public partial class NoteDetailPage : ContentPage, ITitleMenu
 	}
 
 	/// <summary>
-	/// The note's own actions, which used to be a row of words under the last line - out of reach on a
-	/// long note, which is the whole reason the rail exists.
+	/// The note's own actions. They used to be a row of words under the last line, out of reach on a
+	/// long note; they hang under the note's own name now, which is in the bar and therefore always
+	/// where the reader can see it.
 	/// </summary>
 	private void ShowNoteMenu()
 	{
-		List<ScreenMenuEntry> entries =
-		[
-			new(_translations["Back to notes"], () => _viewModel.GoBackCommand.Execute(null))
-		];
+		// No "Back" among them: the bar's arrow is the way out of every detail screen since the
+		// navigation stack landed, and a second one inside the menu is the same duplicate the pages
+		// themselves were carrying.
+		List<ScreenMenuEntry> entries = [];
 
 		if (_viewModel.CanEdit)
 		{

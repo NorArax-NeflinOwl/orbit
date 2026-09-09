@@ -40,15 +40,16 @@ public partial class CalendarEventDetailPage : ContentPage, ITitleMenu
 	public ScreenMenu Menu { get; } = new();
 
 	/// <summary>
-	/// What else can be done to the event, which used to be a row of words at the end of a long form -
-	/// out of reach wherever the reading happened to stop, which is the whole reason the rail exists.
+	/// What else can be done to the event. It used to be a row of words at the end of a long form, out
+	/// of reach wherever the reading happened to stop; it hangs under the event's own name now, which
+	/// is in the bar and therefore always where the reader can see it.
 	/// </summary>
 	private void ShowEventMenu()
 	{
-		List<ScreenMenuEntry> entries =
-		[
-			new(_translations["Back to calendar"], () => _viewModel.GoBackCommand.Execute(null))
-		];
+		// No "Back" among them: the bar's arrow is the way out of every detail screen since the
+		// navigation stack landed, and a second one inside the menu is the same duplicate the pages
+		// themselves were carrying.
+		List<ScreenMenuEntry> entries = [];
 
 		if (_viewModel.CanEdit)
 		{

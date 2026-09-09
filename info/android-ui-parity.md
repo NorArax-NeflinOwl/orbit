@@ -163,7 +163,8 @@ such a build took the app down. It guards now like the other two, and what is le
 question the screen exists for: an address can be searched for and confirmed; only pointing at the map
 is gone, because there is no map to point at. Found by trying to screenshot the redrawn screen.
 
-Six "Back" buttons went at the same time, and this was a defect rather than a preference: they were
+Eight "Back" ways out went at the same time - six buttons under the content, and two entries at the
+head of a title menu - and this was a defect rather than a preference: they were
 right while screens replaced each other, and the navigation stack gave every detail screen an arrow in
 the bar. `ConversationPage`'s even carried a comment explaining that there was no bar to go back
 through - which had stopped being true.
