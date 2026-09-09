@@ -224,14 +224,24 @@
                     @* How far along, always at the end of the tag row - see ItemCard. *@
                     <Extras>
                         <span class="card-count">@CompletionSummary(taskList)</span>
+                        @* And, on a folded card with nothing left on it, that there is nothing left. It
+                           used to be the card's only line, so a finished list folded down to a sentence
+                           about itself and said nothing about what it was: the footer is where a card
+                           says things about itself, and the row above is free to name an entry again. *@
+                        @if (Arrangement.IsCollapsed(taskList.Id) && NothingLeftToDoNote(taskList) is { } note)
+                        {
+                            <span class="row-meta">@note</span>
+                        }
                     </Extras>
                     <CollapsedBody>
                 @if (Arrangement.IsCollapsed(taskList.Id))
                 {
-                    @* One line, and the one worth having: what is still to be done on this list. A folded
-                       card is somebody saying "not this week" - the row is there to remind them what the
-                       list is about, not to be worked from. *@
-                    @if (NextThingLeftToDo(taskList) is { } next)
+                    @* One line, and the one worth having: what is still to be done on this list, or -
+                       on a list with nothing left - its first entry, so the card still names something.
+                       A folded card is somebody saying "not this week"; the row is there to remind them
+                       what the list is about, not to be worked from. That there is nothing left is said
+                       in the footer, where a card says things about itself. *@
+                    @if (OneRowForAFoldedCard(taskList) is { } next)
                     {
                         @* Pressed, it opens the entry it names - the same thing the rows on an unfolded
                            card do. It was a plain div, so the one line a folded card shows was the one
@@ -240,9 +250,9 @@
                            the row opens it where it actually is. *@
                         <Row Title="@Written(next.Description)"
                              OnPressed="() => GoToEntry(next.TaskListId, next.Item.Id)"
-                             AdditionalClass="task-preview-row">
+                             AdditionalClass="@($"task-preview-row {(next.Item.IsCompleted ? "completed" : "")}")">
                             <Leading>
-                                <span class="task-preview-mark"></span>
+                                <span class="task-preview-mark">@(next.Item.IsCompleted ? "✓" : "")</span>
                                 @* An appointment's own colour, the same dot the unfolded card and the
                                    dashboard's Upcoming card draw - see EventColourOf. A folded card was
                                    the one place a row could not be told apart from a plain errand. *@
@@ -260,12 +270,6 @@
                                 }
                             </Trailing>
                         </Row>
-                    }
-                    else
-                    {
-                        <div class="list-row">
-                            <span class="row-meta">@(taskList.Items.Count == 0 ? T["No items on this list."] : T["Nothing left to do."])</span>
-                        </div>
                     }
                 }
                     </CollapsedBody>
@@ -581,13 +585,44 @@
     }
 
     /// <summary>
+    /// The one row a folded card draws. What is still to be done where there is any, and the first entry
+    /// on the list where there is not: a finished list used to fold down to the sentence "Nothing left to
+    /// do." and nothing else, which is a card saying something about itself in the one place it had to
+    /// say what it was. The sentence is in the footer now - see NothingLeftToDoNote - and this row names
+    /// an entry either way. Only a list with no entries at all draws no row, having none to name.
+    /// </summary>
+    private ThingLeftToDo? OneRowForAFoldedCard(TaskDto taskList)
+        => NextThingLeftToDo(taskList) ?? FirstEntryOn(taskList);
+
+    /// <summary>
+    /// What a folded card says about itself once nothing is left on it, or null while something is. The
+    /// two sentences are not the same news: a list nobody has written anything on yet is not a list
+    /// somebody has finished.
+    /// </summary>
+    private string? NothingLeftToDoNote(TaskDto taskList)
+        => NextThingLeftToDo(taskList) is not null
+            ? null
+            : taskList.Items.Count == 0 ? T["No items on this list."] : T["Nothing left to do."];
+
+    /// <summary>
+    /// The first entry on the list, ticked off or not - the same walk NextThingLeftToDo makes, without
+    /// the "not done" it filters on, so a group list still names an entry on the list it gathers rather
+    /// than the row that only points at it.
+    /// </summary>
+    private ThingLeftToDo? FirstEntryOn(TaskDto taskList)
+        => FirstEntryOn(taskList, item => true);
+
+    /// <summary>
     /// The one row a folded card shows: what is still to be done. A row that only points at another list
     /// is not work itself, so what it stands for is looked up on the list it points at. A group's card is
     /// nothing but such rows, and used to fold down to "Nothing left to do." with six errands still open.
     /// </summary>
     private ThingLeftToDo? NextThingLeftToDo(TaskDto taskList)
+        => FirstEntryOn(taskList, item => !item.IsCompleted);
+
+    private ThingLeftToDo? FirstEntryOn(TaskDto taskList, Func<TaskItemDto, bool> wanted)
     {
-        foreach (var item in taskList.Items.Where(item => !item.IsCompleted))
+        foreach (var item in taskList.Items.Where(wanted))
         {
             if (item.AllLinkedTaskListIds.Count == 0)
             {
@@ -605,7 +640,7 @@
                     return new ThingLeftToDo(item, taskList.Id, OnList: null);
                 }
 
-                if (linkedTaskList.Items.FirstOrDefault(linked => !linked.IsCompleted) is { } linkedItem)
+                if (linkedTaskList.Items.FirstOrDefault(wanted) is { } linkedItem)
                 {
                     return new ThingLeftToDo(linkedItem, linkedTaskList.Id, linkedTaskList.Title);
                 }

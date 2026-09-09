@@ -855,7 +855,6 @@ public sealed class TasksTests : OrbitTestContext
         var cut = RenderComponent<Web.Pages.Tasks>();
         MinimiseTheCardFor(cut, "Recipes");
 
-        // Nothing left to do, so the body holds the sentence saying so and no row to press instead.
         CardFor(cut, "Recipes").QuerySelector(".item-card-body")!.Click();
 
         Assert.EndsWith($"/tasks/{taskList.Id}", navigationManager.Uri);
@@ -913,7 +912,52 @@ public sealed class TasksTests : OrbitTestContext
 
         MinimiseTheCardFor(cut, "Cooking");
 
-        Assert.Contains("Nothing left to do", FoldedRowOf(cut, "Cooking").TextContent);
+        Assert.Contains("Nothing left to do", FooterOf(cut, "Cooking").TextContent);
+    }
+
+    /// <summary>
+    /// A finished list folded down to the sentence "Nothing left to do." and nothing else, so the one
+    /// place the card had to say what it was said something about itself instead. The sentence belongs
+    /// in the footer, where a card says things about itself; the row above names an entry either way.
+    /// </summary>
+    [Fact]
+    public void A_minimised_finished_card_still_names_an_entry_and_says_so_in_the_footer()
+    {
+        RegisterTasksApiClient([TaskList("Recipes", Item("Buy flour", isCompleted: true))]);
+        var cut = RenderComponent<Web.Pages.Tasks>();
+
+        MinimiseTheCardFor(cut, "Recipes");
+
+        var row = FoldedRowOf(cut, "Recipes");
+        Assert.Contains("Buy flour", row.TextContent);
+        // Drawn as what it is rather than as work still to do.
+        Assert.Contains("completed", row.ClassName);
+        Assert.DoesNotContain("Nothing left to do", row.TextContent);
+        Assert.Contains("Nothing left to do", FooterOf(cut, "Recipes").TextContent);
+    }
+
+    /// <summary>A list nobody has written anything on yet is not a list somebody has finished.</summary>
+    [Fact]
+    public void A_minimised_empty_card_says_it_is_empty_rather_than_finished()
+    {
+        RegisterTasksApiClient([TaskList("Recipes")]);
+        var cut = RenderComponent<Web.Pages.Tasks>();
+
+        MinimiseTheCardFor(cut, "Recipes");
+
+        Assert.Contains("No items on this list.", FooterOf(cut, "Recipes").TextContent);
+        Assert.Null(CardFor(cut, "Recipes").QuerySelector(".list-row"));
+    }
+
+    /// <summary>An unfolded card says nothing of the sort - the rows are right there saying it.</summary>
+    [Fact]
+    public void An_unfolded_finished_card_says_nothing_about_having_nothing_left()
+    {
+        RegisterTasksApiClient([TaskList("Recipes", Item("Buy flour", isCompleted: true))]);
+
+        var cut = RenderComponent<Web.Pages.Tasks>();
+
+        Assert.DoesNotContain("Nothing left to do", FooterOf(cut, "Recipes").TextContent);
     }
 
     [Fact]
@@ -939,6 +983,10 @@ public sealed class TasksTests : OrbitTestContext
 
     private static IElement FoldedRowOf(IRenderedFragment cut, string title)
         => CardFor(cut, title).QuerySelector(".list-row")!;
+
+    /// <summary>Where a card says things about itself - how far along it is, and whether anything is left.</summary>
+    private static IElement FooterOf(IRenderedFragment cut, string title)
+        => CardFor(cut, title).QuerySelector(".item-card-footer")!;
 
     private static IElement CardFor(IRenderedFragment cut, string title)
         => cut.FindAll(".item-card")
