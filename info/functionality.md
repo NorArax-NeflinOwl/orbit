@@ -1771,11 +1771,23 @@ something, and a rule listing what is *allowed* cannot be widened by accident th
 is forbidden can. Trailing punctuation stays outside the link, and a bracket the address itself opened
 stays inside it.
 
+**A chat message's addresses are pressed the same way** (2026-09-09), on both clients: a message is the
+place people paste a link most often, and it was the one place they had to be copied out by hand. The
+same splitter, and the same reason it hands back text rather than markup - a message is written by
+somebody else.
+
 Not linked, and each for a reason: the boxes these are **typed** into are text areas, where a link would
 be a thing you cannot edit; a note's **checklist** lines are pressable rows whose press is the tick, and
 a link inside one would fight it; and a **task list's own description** has no read view anywhere - it
 can be written in the editor and is displayed on no page, which is a gap of its own rather than
 something for this to solve.
+
+**The phone shares the rule and draws it in fewer places.** `LinksInText` lives in `Orbit.Core.Text` so
+there is one answer about what counts as an address, and `LinkedLabel` is the phone's half of
+`TextWithLinks` - a `Label` writing `FormattedText`, because a `Span` is the only thing in MAUI that can
+carry a gesture of its own. It draws chat messages and a task entry's appointment description today; the
+rest of the phone's read-only descriptions are still plain labels, which is written down under
+[the scope cuts](future-plan.md#known-scope-cuts-and-rough-edges).
 
 **Every entry can say what it is about, not only what it is called.** An entry's own line is its name -
 "Buy milk", "Dentist" - and there was nowhere to write the rest of it unless the entry was an

@@ -928,11 +928,14 @@ its shared controls. What that pass left, all of it now overtaken:
   answering `/api/users/{id}` with a contact who has a public key. `ShareInventoryPanelTests` is the
   smallest of the five to copy.
 
-- **The phone shows no links in a description either.** The addresses in a description are pressable on
-  the web (`TextWithLinks`, 2026-09-06); the phone draws the same descriptions as plain labels. The
-  splitter behind it (`LinksInText`) is pure text-in, runs-out and has no web dependency, so the phone
-  would reuse it rather than write a second rule about what counts as an address - but a MAUI label
-  showing part of its text as a link is `FormattedString` and spans, which is its own piece of work.
+- **The phone shows links in some of what it draws, not all of it** (2026-09-09). The splitter moved to
+  `Orbit.Core.Text.LinksInText`, so both clients share one rule about what counts as an address, and
+  `LinkedLabel` is the phone's half of `TextWithLinks` - a `Label` that writes `FormattedText`, since a
+  Span is the only thing in MAUI that can carry a gesture of its own. It is drawn in **chat messages**,
+  in both a conversation and a group, and on **a task entry's appointment description**. Still plain
+  labels: every other read-only description the phone shows (a list's, a shelf's, an event's), and a
+  note's own lines - those are `Entry` boxes being written in, and a text box cannot hold a link at all.
+  What it would take: swapping the labels, one screen at a time; there is nothing left to design.
 
 - **The phone has no box for an entry's description.** Every task entry can carry one now
   (`TaskItem.Notes`, 2026-09-06) and the phone neither shows nor writes it. Nothing is lost - its push

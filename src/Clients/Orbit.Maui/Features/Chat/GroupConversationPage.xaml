@@ -99,7 +99,9 @@
 
                                     <VerticalStackLayout Spacing="4">
                                         <!-- One ink for both sides - see ConversationPage. -->
-                                        <Label Text="{Binding Text}" FontSize="14" LineBreakMode="WordWrap" />
+                                        <!-- Pressable addresses, as in a one-to-one conversation - see
+                                             LinkedLabel. -->
+                                        <controls:LinkedLabel Words="{Binding Text}" FontSize="14" LineBreakMode="WordWrap" />
 
                                         <Label IsVisible="{Binding CannotBeOpened}" FontSize="12"
                                                Style="{StaticResource SubtleLabel}">

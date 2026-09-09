@@ -31,7 +31,7 @@ public static class Markup
 
     /// <summary>
     /// The same, for a line somebody wrote themselves: the web addresses in it come back pressable -
-    /// see <see cref="Services.LinksInText"/> and TextWithLinks.
+    /// see <see cref="Orbit.Core.Text.LinksInText"/> and TextWithLinks.
     ///
     /// Its own helper rather than a change to <see cref="Optional"/>, which most callers hand a
     /// sentence Orbit composed - "Shared by Anna", "Nothing written yet". Those hold no addresses, and
