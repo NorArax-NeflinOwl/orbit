@@ -34,9 +34,12 @@
 <div class="app-shell">
     @if (_isBannerVisible && _bannerEntry is not null)
     {
+        @* Said the same way the bell says it - see NotificationWording. It used to print the entry's
+           two fields straight, so a reminder that read properly in the panel slid past the top of the
+           screen with its holes still in it. *@
         <div class="notification-banner" role="status">
-            <strong>@_bannerEntry.Title</strong>
-            <span>@_bannerEntry.Body</span>
+            <strong>@NotificationWording.Title(T, _bannerEntry)</strong>
+            <span>@NotificationWording.Body(T, _bannerEntry)</span>
         </div>
     }
     @if (_isAuthenticated)
