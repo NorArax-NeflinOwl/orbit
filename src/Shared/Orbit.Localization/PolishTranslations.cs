@@ -84,6 +84,7 @@ public static class PolishTranslations
         ["The list asks about everything it would otherwise ask about, marked or not."] =
             "Lista pyta o wszystko, o co pytałaby normalnie - oznaczone czy nie.",
         ["More"] = "Więcej",
+        ["Menu"] = "Menu",
         ["Couldn't add those to the restock list."] = "Nie udało się dodać ich do listy uzupełnień.",
         ["{0} added to the restock list."] = "Dodano do listy uzupełnień: {0}.",
         ["Everything short was already on the restock list."] = "Wszystkie braki już były na liście uzupełnień.",

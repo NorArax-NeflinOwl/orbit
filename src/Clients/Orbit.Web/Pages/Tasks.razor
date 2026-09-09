@@ -67,67 +67,77 @@
     <p class="error">@_errorMessage</p>
 }
 
-@* The folder being read, and the same row of tabs the notes and the dashboard carry - see FolderTabs.
-   Above the search and the chips, because those narrow what is in a folder rather than choosing one. *@
-<FolderTabs CountIn="CountIn" />
+@* Everything this page is narrowed by, in the order the questions are asked: which folder is open,
+   then a word from an entry, then the chips that say which lists are on offer at all - see FolderTabs.
+   The folder comes first because the rest narrow what is in a folder rather than choosing one.
 
-<ObjectList IsLoading="_taskLists is null" IsEmpty="_taskLists is { Count: 0 }" EmptyMessage="@T["No task lists yet."]">
-    @* What the reader is looking for, above the chips that say which lists are on offer at all: a word
-       from an entry, and the categories entries are filed under. Both narrow to lists that still hold
-       something worth reading, and the cards then show what matched rather than their first few rows -
-       a list shown for a match nobody can see reads as a bug. *@
-    <div class="task-search">
-        <input type="search" value="@_itemFilter.Search"
-               @oninput="changeArgs => _itemFilter.Search = changeArgs.Value?.ToString() ?? string.Empty"
-               placeholder="@(T["Find an entry on any list"])" aria-label="@(T["Find an entry on any list"])" />
-        @if (_itemFilter.IsActive)
-        {
-            <button type="button" class="btn-secondary" @onclick="_itemFilter.Clear">@T["Clear"]</button>
-        }
-    </div>
+   On a phone the lot folds into one Menu button - see PhoneToolbar, which is nothing at all on a wider
+   screen. *@
+<PhoneToolbar>
+    <FolderTabs CountIn="CountIn" />
 
-    @if (KnownCategories.Count > 0)
+    @* Only once there is something to narrow. A search box over "No task lists yet." offers to find
+       something on a list that does not exist, and the chips count lists there are none of. *@
+    @if (_taskLists is { Count: > 0 })
     {
+        @* Both narrow to lists that still hold something worth reading, and the cards then show what
+           matched rather than their first few rows - a list shown for a match nobody can see reads as
+           a bug. *@
+        <div class="task-search">
+            <input type="search" value="@_itemFilter.Search"
+                   @oninput="changeArgs => _itemFilter.Search = changeArgs.Value?.ToString() ?? string.Empty"
+                   placeholder="@(T["Find an entry on any list"])" aria-label="@(T["Find an entry on any list"])" />
+            @if (_itemFilter.IsActive)
+            {
+                <button type="button" class="btn-secondary" @onclick="_itemFilter.Clear">@T["Clear"]</button>
+            }
+        </div>
+
+        @if (KnownCategories.Count > 0)
+        {
+            <div class="list-controls">
+                <div class="list-filters">
+                    @foreach (var category in KnownCategories)
+                    {
+                        <button type="button" class="filter-chip @(_itemFilter.IsChosen(category) ? "on" : "")"
+                                @onclick="() => _itemFilter.Toggle(category)">
+                            @category <span class="filter-chip-count">@CountEntriesIn(category)</span>
+                        </button>
+                    }
+                </div>
+                @* Only worth asking once two are chosen: with one, "any of them" and "all of them" are
+                   the same question. *@
+                @if (_itemFilter.Categories.Count > 1)
+                {
+                    <label class="task-category-rule">
+                        <input type="checkbox" checked="@_itemFilter.MatchesEveryCategory"
+                               @onchange="changeArgs => _itemFilter.MatchesEveryCategory = changeArgs.Value is true" />
+                        @T["Entries in every chosen category"]
+                    </label>
+                }
+            </div>
+        }
+
         <div class="list-controls">
             <div class="list-filters">
-                @foreach (var category in KnownCategories)
+                @* "All" is a filter like the rest rather than a way of clearing them, so there is
+                   always exactly one answer to "what am I looking at". *@
+                <button type="button" class="filter-chip @(_filter == TaskListFilter.All ? "on" : "")"
+                        @onclick="() => SetFilter(TaskListFilter.All)">@T["All"]<span class="filter-chip-count">@_taskLists.Count</span>
+                </button>
+                @foreach (var filter in SelectableFilters)
                 {
-                    <button type="button" class="filter-chip @(_itemFilter.IsChosen(category) ? "on" : "")"
-                            @onclick="() => _itemFilter.Toggle(category)">
-                        @category <span class="filter-chip-count">@CountEntriesIn(category)</span>
+                    <button type="button" class="filter-chip @(_filter == filter ? "on" : "")"
+                            @onclick="() => SetFilter(filter)">
+                        @DescribeFilter(filter) <span class="filter-chip-count">@CountMatching(filter)</span>
                     </button>
                 }
             </div>
-            @* Only worth asking once two are chosen: with one, "any of them" and "all of them" are the
-               same question. *@
-            @if (_itemFilter.Categories.Count > 1)
-            {
-                <label class="task-category-rule">
-                    <input type="checkbox" checked="@_itemFilter.MatchesEveryCategory"
-                           @onchange="changeArgs => _itemFilter.MatchesEveryCategory = changeArgs.Value is true" />
-                    @T["Entries in every chosen category"]
-                </label>
-            }
         </div>
     }
+</PhoneToolbar>
 
-    <div class="list-controls">
-        <div class="list-filters">
-            @* "All" is a filter like the rest rather than a way of clearing them, so there is always
-               exactly one answer to "what am I looking at". *@
-            <button type="button" class="filter-chip @(_filter == TaskListFilter.All ? "on" : "")"
-                    @onclick="() => SetFilter(TaskListFilter.All)">@T["All"]<span class="filter-chip-count">@_taskLists!.Count</span>
-            </button>
-            @foreach (var filter in SelectableFilters)
-            {
-                <button type="button" class="filter-chip @(_filter == filter ? "on" : "")"
-                        @onclick="() => SetFilter(filter)">
-                    @DescribeFilter(filter) <span class="filter-chip-count">@CountMatching(filter)</span>
-                </button>
-            }
-        </div>
-    </div>
-
+<ObjectList IsLoading="_taskLists is null" IsEmpty="_taskLists is { Count: 0 }" EmptyMessage="@T["No task lists yet."]">
     @if (VisibleTaskLists.Count == 0)
     {
         @* Which of the two narrowed everything away, since they say different things about what to do

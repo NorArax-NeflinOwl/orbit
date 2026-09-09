@@ -236,6 +236,14 @@ tabs**, and the tabs are the same three everywhere plus whatever the reader has 
 place rather than one page's filter, so the tab stays open when they step from the notes to the task
 lists (`FolderState`, one scoped state shared by the three pages).
 
+**On a phone the tabs fold into one Menu button**, and so does everything else a page is narrowed by:
+on the task lists that is the search box and both rows of chips as well (`PhoneToolbar`). Three rows of
+controls above the cards was most of a phone screen spent on the question rather than the answer, and
+the tabs alone wrapped onto three lines once somebody had made a folder or two. Nothing is drawn twice
+to do it — on anything wider the wrapper is `display: contents`, so the controls sit exactly where they
+always did and only the button is hidden. The obvious alternative, one copy for each width hidden by a
+media query, gives a page two sets of folder tabs, and the hidden set still answers a press.
+
 **Three folders exist without a row of their own** (`Orbit.Core.Folders.BuiltInFolder`). Which one
 something is in is decided from what it already is, and the first that applies wins:
 

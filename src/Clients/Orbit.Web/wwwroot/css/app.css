@@ -6295,3 +6295,69 @@ span.calendar-task-chip {
     justify-content: flex-end;
     gap: 8px;
 }
+
+/* ---- The controls a page is narrowed by, folded into one button on a phone (PhoneToolbar.razor) ---- */
+
+/* On anything wider than a phone the wrapper is not there as far as layout goes: display:contents
+   takes it out of the box tree, so the folder tabs and the filter chips inside it sit exactly where
+   they sat before, and only the button and its backdrop are hidden. */
+.phone-toolbar,
+.phone-toolbar-panel {
+    display: contents;
+}
+
+.phone-toolbar-trigger,
+.phone-toolbar-backdrop {
+    display: none;
+}
+
+@media (max-width: 680px) {
+    .phone-toolbar {
+        display: block;
+        position: relative;
+        margin-bottom: 14px;
+    }
+
+    .phone-toolbar-trigger {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+    /* Closed, the controls are not merely invisible: display:none takes them out of the tab order too,
+       so nothing behind the button can be reached by keyboard while it is shut. */
+    .phone-toolbar-panel {
+        display: none;
+    }
+
+    .phone-toolbar.open .phone-toolbar-panel {
+        display: block;
+        position: absolute;
+        top: calc(100% + 6px);
+        left: 0;
+        right: 0;
+        max-height: 70vh;
+        overflow-y: auto;
+        padding: 10px 12px;
+        background: var(--bg-elevated);
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        box-shadow: 0 8px 24px oklch(20% 0.02 60 / 0.15);
+        z-index: 30;
+    }
+
+    /* Inside the panel the tabs have a whole width to themselves and nothing beside them, so the rule
+       they share on a wide screen only draws a line under the last row. */
+    .phone-toolbar.open .folder-tabs {
+        border-bottom: none;
+        margin-bottom: 8px;
+    }
+
+    .phone-toolbar-backdrop {
+        display: block;
+        position: fixed;
+        inset: 0;
+        /* Under the panel and over everything else: it is there to be pressed, not to be seen. */
+        z-index: 29;
+    }
+}
