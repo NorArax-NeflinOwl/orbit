@@ -326,6 +326,10 @@ public static class PolishTranslations
         ["Low"] = "Niski",
         ["Normal"] = "Zwykły",
         ["High"] = "Wysoki",
+        // The two arrows beside a screen's name, where it is one of a series - see ITitleSteps.
+        ["Previous"] = "Poprzedni",
+        ["Next"] = "Następny",
+
         // The two menus a list screen hangs under its own name - see ListMenus.
         ["Filter"] = "Filtruj",
         ["Sort - pinned stay on top"] = "Sortowanie — przypięte zawsze na górze",

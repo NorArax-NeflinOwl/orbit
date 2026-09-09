@@ -306,6 +306,7 @@ public sealed partial class TaskListDetailViewModel : ObservableObject
     {
         if (row is not null && CanEdit)
         {
+            _rowBeingEdited = row;
             BeingEdited = TaskItemEditor.For(
                 row.Item, _translations, AppointmentFor(row.Item), LinkTargets, _nameSuggestions,
                 ShelfProductFor(row.Item),
@@ -1231,11 +1232,63 @@ public sealed partial class TaskListDetailViewModel : ObservableObject
             OfferNamesToTheQuickAddBox();
         }
 
+        if (value is null)
+        {
+            _rowBeingEdited = null;
+        }
+
         OnPropertyChanged(nameof(IsEditingItem));
         OnPropertyChanged(nameof(IsShowingList));
         OnPropertyChanged(nameof(CanMoveItem));
+        OnPropertyChanged(nameof(ScreenName));
         // What the entry stands for decides where it can go - see MoveTargetsForTheEntry.
         OnPropertyChanged(nameof(MoveTargetsForTheEntry));
+        EditPreviousItemCommand.NotifyCanExecuteChanged();
+        EditNextItemCommand.NotifyCanExecuteChanged();
+    }
+
+    /// <summary>
+    /// Which row the open form belongs to. Kept so the two arrows in the top bar can step to its
+    /// neighbours - the design puts an entry on a screen of its own, one of a series, and a series is
+    /// something you can walk through without going back to the list between each one.
+    /// </summary>
+    private TaskItemRow? _rowBeingEdited;
+
+    /// <summary>
+    /// What the bar calls this screen: the list, or the entry that is open on it. One page draws both -
+    /// the entry's form stands in place of the list rather than beside it - so the name has to move
+    /// with what is showing, or the bar would name the list over a form about one line of it.
+    /// </summary>
+    public string ScreenName
+        => BeingEdited is null
+            ? Title
+            : BeingEdited.Description.Trim() is { Length: > 0 } written
+                ? written
+                : _translations["Checklist item"];
+
+    [RelayCommand(CanExecute = nameof(CanEditThePreviousItem))]
+    private void EditPreviousItem() => EditItemCommand.Execute(Neighbour(-1));
+
+    [RelayCommand(CanExecute = nameof(CanEditTheNextItem))]
+    private void EditNextItem() => EditItemCommand.Execute(Neighbour(1));
+
+    private bool CanEditThePreviousItem => Neighbour(-1) is not null;
+
+    private bool CanEditTheNextItem => Neighbour(1) is not null;
+
+    /// <summary>
+    /// The entry before or after the one being edited, or null where there is none - and null whenever
+    /// no entry is open at all, which is what keeps the arrows off the bar while the list is showing.
+    /// </summary>
+    private TaskItemRow? Neighbour(int direction)
+    {
+        if (_rowBeingEdited is null || Items.IndexOf(_rowBeingEdited) is var index && index < 0)
+        {
+            return null;
+        }
+
+        var next = index + direction;
+        return next >= 0 && next < Items.Count ? Items[next] : null;
     }
 
     partial void OnRestockTickBeingAskedChanged(TaskItemRow? value)
@@ -1254,7 +1307,11 @@ public sealed partial class TaskListDetailViewModel : ObservableObject
         Suggestions.ShowFor(value);
     }
 
-    partial void OnTitleChanged(string value) => TitleSuggestions.ShowFor(value);
+    partial void OnTitleChanged(string value)
+    {
+        TitleSuggestions.ShowFor(value);
+        OnPropertyChanged(nameof(ScreenName));
+    }
 
     /// <summary>Why it cannot be changed right now - empty when it can, which is the common case.</summary>
     [ObservableProperty]

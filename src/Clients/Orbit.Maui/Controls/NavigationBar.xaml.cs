@@ -80,9 +80,14 @@ public partial class NavigationBar : ContentView
 			return;
 		}
 
-		host.IsVisible = true;
 		press.Command = command;
 		SemanticProperties.SetDescription(press, description);
+
+		// Shown while the command has something to do, and absent otherwise - a button bound to a
+		// command already follows its CanExecute in IsEnabled, and an arrow that is there but spent
+		// reads as an arrow that is broken. This is what lets a screen offer the pair only some of the
+		// time: a task list has a previous entry only while an entry is open.
+		host.SetBinding(IsVisibleProperty, static (Button button) => button.IsEnabled, source: press);
 	}
 
 	/// <summary>
