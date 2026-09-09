@@ -618,6 +618,32 @@ an admin may take back anybody's message in a group, and "the sender deleted thi
 clients name them from the roster they already hold — a one-to-one conversation has only two people in
 it, and a group has its members — so nothing is asked of the server for the name. Nothing on a deleted
 message can be edited, forwarded or replied to: there is no longer anything there to act on.
+### What you have given somebody, and taking it back
+
+A contact's own card lists **everything this reader has shared with that person** — notes, task lists,
+events and shelves together, newest first (`GET /api/shares/with/{userId}`). Until it did, the only way
+to answer "what have I given them" was to open every one of those in turn and read its sharing panel,
+and there was no way at all to withdraw one from the owner's end: a share could be dropped by its
+*recipient*, taking it off their list, and by nobody else.
+
+Pressing a row opens the thing where its own section reads it. The cross beside it stops the sharing
+(`DELETE /api/shares/{kind}/{shareId}`), and the row leaves the list — what the card lists is what they
+currently have, and a row for something they no longer have would be a fourth state to explain.
+
+Three things are worth knowing about what it shows:
+
+- **An offer nobody has taken up is listed**, and says so. It is still access somebody has been given,
+  and withdrawing it before it is accepted is the likeliest reason to be here at all.
+- **Something private, or deleted since it was shared, is named by its kind** rather than drawn blank:
+  the server holds no readable title for either, so "Note" is the whole of what it can honestly say.
+- **A shared position is not here.** It is not a share row - it lives in its own table and is withdrawn
+  from the map, where it was offered. `RevokeShareCommandHandler` names that case rather than letting it
+  fall into a default, so a fifth kind that *does* have a row cannot be quietly answered "nothing to do".
+
+Both ends are scoped to the owner, so this can only ever list or withdraw what the caller themselves
+gave. A share that belongs to somebody else answers exactly as one that has already gone — telling those
+apart would say whether a share id exists.
+
 ## Private notes and task lists
 
 A note or task list can be marked **private**, which means exactly one thing: only its creator can ever

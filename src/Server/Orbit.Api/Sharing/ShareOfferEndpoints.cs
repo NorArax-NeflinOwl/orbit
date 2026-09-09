@@ -4,6 +4,8 @@ using Orbit.Contracts.Sharing;
 using Orbit.Core.Abstractions;
 using Orbit.Core.Notifications;
 using Orbit.Core.Sharing.GetShareOffer;
+using Orbit.Core.Sharing.GetSharesWith;
+using Orbit.Core.Sharing.RevokeShare;
 
 namespace Orbit.Api.Sharing;
 
@@ -41,6 +43,35 @@ public static class ShareOfferEndpoints
             return offer is null
                 ? Results.NotFound()
                 : Results.Ok(new ShareOfferDto(offer.ItemId, offer.ItemTitle, offer.IsAccepted));
+        });
+
+        // Everything the caller has given one person, of every kind - what the contact's own page lists.
+        // Scoped to the caller as the owner, so this can only ever say what they gave away.
+        offers.MapGet("/with/{recipientUserId:guid}", async (
+            Guid recipientUserId, ClaimsPrincipal user, IDispatcher dispatcher, CancellationToken cancellationToken) =>
+        {
+            var shares = await dispatcher.SendAsync(
+                new GetSharesWithQuery(GetUserId(user), recipientUserId), cancellationToken);
+
+            return Results.Ok(shares.Select(share => new SharedWithContactDto(
+                SharedItemPath.For(share.Kind), share.ShareId, share.ItemId, share.ItemTitle,
+                share.IsAccepted, share.SharedAtUtc)));
+        });
+
+        // Taking one back. A DELETE on the share itself, addressed the way the read above is, and
+        // scoped to the owner - a share that is not theirs answers exactly as one that is already gone.
+        offers.MapDelete("/{kind}/{shareId:guid}", async (
+            string kind, Guid shareId, ClaimsPrincipal user, IDispatcher dispatcher, CancellationToken cancellationToken) =>
+        {
+            if (SharedItemPath.KindOf(kind) is not { } sharedItemKind)
+            {
+                return Results.NotFound();
+            }
+
+            var revoked = await dispatcher.SendAsync(
+                new RevokeShareCommand(GetUserId(user), sharedItemKind, shareId), cancellationToken);
+
+            return revoked ? Results.NoContent() : Results.NotFound();
         });
     }
 

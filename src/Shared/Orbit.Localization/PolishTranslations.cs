@@ -1027,6 +1027,10 @@ public static class PolishTranslations
         ["Share link"] = "Link do udostępnienia",
         ["Copy link"] = "Kopiuj link",
         ["Stop sharing"] = "Przestań udostępniać",
+        ["Not taken up yet"] = "Jeszcze nieprzyjęte",
+        ["Shared with {0}"] = "Udostępnione: {0}",
+        ["Couldn't stop sharing that. Check your connection and try again."] =
+            "Nie udało się zakończyć tego udostępniania. Sprawdź połączenie i spróbuj ponownie.",
         ["Ask to edit this"] = "Poproś o możliwość edycji",
         ["Save to my account"] = "Zapisz na moim koncie",
         ["Sign in to save this"] = "Zaloguj się, żeby to zapisać",

@@ -65,4 +65,19 @@ internal sealed class InMemoryCalendarEventShareRepository : ICalendarEventShare
             share.SourceCalendarEventId == sourceId && share.RecipientUserId == recipientUserId && share.IsAccepted);
         return Task.CompletedTask;
     }
+
+    /// <summary>Everything this owner handed that recipient, oldest first - the real one orders the same way.</summary>
+    public Task<IReadOnlyList<CalendarEventShare>> GetSharesToAsync(Guid ownerUserId, Guid recipientUserId, CancellationToken cancellationToken)
+    {
+        IReadOnlyList<CalendarEventShare> shares = _shares
+            .Where(share => share.OwnerUserId == ownerUserId && share.RecipientUserId == recipientUserId)
+            .OrderBy(share => share.CreatedAtUtc)
+            .ToList();
+
+        return Task.FromResult(shares);
+    }
+
+    /// <summary>Scoped to the owner, exactly as the real one is: a share that is not theirs does not go.</summary>
+    public Task<bool> RemoveAsync(Guid ownerUserId, Guid shareId, CancellationToken cancellationToken)
+        => Task.FromResult(_shares.RemoveAll(share => share.Id == shareId && share.OwnerUserId == ownerUserId) > 0);
 }
