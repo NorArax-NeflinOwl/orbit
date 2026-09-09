@@ -966,6 +966,44 @@ public sealed class DashboardTests : OrbitTestContext
     }
 
     /// <summary>
+    /// A list somebody closed is closed, whatever is still unticked on it. Marking one finished with
+    /// work still on it is a way of saying "no more of this" (TaskList.IsMarkedCompleted), and a card
+    /// headed "what is coming up" that kept listing its deadlines would be arguing with the reader.
+    /// </summary>
+    [Fact]
+    public void A_deadline_on_a_list_its_owner_closed_is_not_upcoming()
+    {
+        RegisterChatApiClient([]);
+        RegisterEmptyNotesApiClient();
+        RegisterEmptyCalendarApiClient();
+        var closed = TaskList("Shopping", DueItem("Milk", DateTimeOffset.UtcNow.AddDays(1)))
+            with { IsCompleted = true, IsMarkedCompleted = true };
+        RegisterTasksApiClient([closed]);
+
+        var cut = RenderComponent<Dashboard>();
+
+        Assert.DoesNotContain(cut.FindAll(".item-card"), card => card.QuerySelector(".item-card-name")!.TextContent == "Upcoming");
+    }
+
+    /// <summary>And it is not owed today either - the strip counts the same work the card lists.</summary>
+    [Fact]
+    public void A_deadline_on_a_closed_list_is_not_counted_as_due_today()
+    {
+        RegisterChatApiClient([]);
+        RegisterEmptyNotesApiClient();
+        RegisterEmptyCalendarApiClient();
+        var closed = TaskList("Shopping", DueItem("Milk", DateTimeOffset.Now.Date.AddHours(23)))
+            with { IsCompleted = true, IsMarkedCompleted = true };
+        RegisterTasksApiClient([closed]);
+
+        var cut = RenderComponent<Dashboard>();
+
+        var tasksDueToday = cut.Find(".today-strip").QuerySelectorAll(".today-stat")
+            .Single(stat => stat.TextContent.Contains("tasks due today", StringComparison.Ordinal));
+        Assert.Equal("0", tasksDueToday.QuerySelector("strong")!.TextContent);
+    }
+
+    /// <summary>
     /// An appointment a task list raised is finished when that entry is ticked off - the entry is where
     /// the work is, and the event is only when it happens. This card was listing appointments somebody
     /// had already crossed off, which is exactly what "what is coming up" must not show; the calendar's

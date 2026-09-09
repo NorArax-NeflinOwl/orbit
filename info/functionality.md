@@ -256,6 +256,14 @@ something is in is decided from what it already is, and the first that applies w
    lists](#private-notes-and-task-lists)).
 3. **Public** - everything else, and where a page opens.
 
+**A closed list stops being owed.** Filing it under Finished is not all that saying so does: an entry
+on it is done whatever its own tick says, so its deadlines leave the calendar's list and its grid marks
+(`Calendar.LoadDueTasksAsync`, `Calendar.IsTickedOff`), the dashboard's "Upcoming" card and the count of
+what is due today (`Dashboard.UpcomingDeadlines`, `TasksDueTodayCount`), and the same two places on the
+phone (`CalendarDeadline`, `DashboardViewModel`). Saying "no more of this" and then being reminded of it
+every morning would be the app arguing with the reader. A list finished the other way — every entry
+ticked off — was already answered by the entries themselves; this is only ever about the box.
+
 Deciding it rather than storing it is what let folders arrive with **no migration of existing rows and
 nothing to repair**: every note and list that existed before them was already in the right one. There is
 still no way to be filed as private without being sealed.

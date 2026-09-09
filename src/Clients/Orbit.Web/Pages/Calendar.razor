@@ -441,7 +441,11 @@
             .Where(pair => pair.item.DueDateUtc is not null)
             .Select(pair => new DueTaskDto(
                 pair.taskList.Id, pair.item.Id, pair.taskList.Title, pair.item.Description,
-                pair.item.DueDateUtc!.Value, pair.item.IsCompleted,
+                // An entry on a list its owner has closed is done, whatever its own tick says: marking
+                // a list finished with work still on it is a way of saying "no more of this" (see
+                // TaskList.IsMarkedCompleted), and the calendar would otherwise keep the deadlines it
+                // was closed to be rid of.
+                pair.item.DueDateUtc!.Value, pair.item.IsCompleted || pair.taskList.IsCompleted,
                 pair.item.LinkedCalendarEventId))
             .OrderBy(dueTask => dueTask.DueDateUtc)
             .ToList();
@@ -576,7 +580,7 @@
     /// </summary>
     private IReadOnlySet<Guid> TickedOffEventIds
         => _entriesByEventId
-            .Where(pair => pair.Value.Item.IsCompleted)
+            .Where(pair => pair.Value.Item.IsCompleted || pair.Value.TaskList.IsCompleted)
             .Select(pair => pair.Key)
             .ToHashSet();
 
@@ -586,7 +590,8 @@
     /// filter. See the list below.
     /// </summary>
     private bool IsTickedOff(CalendarEventDto calendarEvent)
-        => _entriesByEventId.TryGetValue(calendarEvent.Id, out var pair) && pair.Item.IsCompleted;
+        => _entriesByEventId.TryGetValue(calendarEvent.Id, out var pair)
+            && (pair.Item.IsCompleted || pair.TaskList.IsCompleted);
 
     /// <summary>
     /// Where an event leads from this list: to the entry that made it where there is one, and to the

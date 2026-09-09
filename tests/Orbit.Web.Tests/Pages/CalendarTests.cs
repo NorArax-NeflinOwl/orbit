@@ -729,6 +729,27 @@ public sealed class CalendarTests : OrbitTestContext
     }
 
     /// <summary>
+    /// A deadline on a list its owner has closed is done, whatever its own tick says. Marking a list
+    /// finished with work still on it is a way of saying "no more of this" (TaskList.IsMarkedCompleted),
+    /// and the calendar would otherwise keep the deadlines it was closed to be rid of.
+    /// </summary>
+    [Fact]
+    public void A_deadline_on_a_list_its_owner_closed_reads_as_done()
+    {
+        Services.AddSingleton(new CalendarListOrder(new StubJSRuntime()));
+        var midMonth = new DateTime(DateTime.Today.Year, DateTime.Today.Month, 15, 10, 0, 0);
+        RegisterCalendarApiClient([]);
+        RegisterTasksApiClient([
+            CreateTaskListWithDueItem(midMonth, "Still to do"),
+            CreateTaskListWithDueItem(midMonth, "On a closed list")
+                with { IsCompleted = true, IsMarkedCompleted = true }]);
+
+        var cut = RenderComponent<Calendar>();
+
+        Assert.Equal(["Still to do"], ListedNames(cut));
+    }
+
+    /// <summary>
     /// A week is the month grid with one row in it, so what it draws is the same chips in the same
     /// cells - what is its own is which seven days those are.
     /// </summary>
