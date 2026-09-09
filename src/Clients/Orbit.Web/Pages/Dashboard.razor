@@ -97,7 +97,7 @@ else
     </PhoneToolbar>
 
     <div class="card-grid">
-        @if (_notes.Count > 0 && CardPreferences.IsVisible("notes"))
+        @if (_notes.Count > 0 && ShowsCard("notes"))
         {
             <ItemCard Name="@(T["Notes"])" OnNameSelected='() => NavigationManager.NavigateTo("/notes")'
                       ExtraClass="@(DashboardPins.IsPinned("notes") ? "item-card-pinned" : null)">
@@ -128,7 +128,7 @@ else
             </ItemCard>
         }
 
-        @if (_taskLists.Count > 0 && CardPreferences.IsVisible("tasks"))
+        @if (_taskLists.Count > 0 && ShowsCard("tasks"))
         {
                         <ItemCard Name="@(T["Tasks"])" OnNameSelected='() => NavigationManager.NavigateTo("/tasks")'
                       HasUnseenAction="@TaskListsToShow.Any(taskList => HasNewsAbout(taskList.Id, "/tasks"))"
@@ -179,7 +179,7 @@ else
            "High" with nothing high coming up removed the whole card, and the filter menu lives in its
            header - so the choice could not be undone from the page that made it. All three cards
            follow the same rule now. *@
-        @if (everythingUpcoming.Count > 0 && CardPreferences.IsVisible("upcoming"))
+        @if (everythingUpcoming.Count > 0 && ShowsCard("upcoming"))
         {
                         <ItemCard Name="@(T["Upcoming"])" OnNameSelected='() => NavigationManager.NavigateTo("/calendar")'
                       HasUnseenAction="@UpcomingToShow.Any(HasNewsAboutIt)"
@@ -220,7 +220,7 @@ else
            reachable from it and this was not, so the one part of Orbit that answers "have we run out"
            could only be found through the side navigation. Nothing here is pinned or prioritised - an
            inventory carries neither - so it has no filter menu, like the locations card below. *@
-        @if (_inventories.Count > 0 && CardPreferences.IsVisible("inventories"))
+        @if (_inventories.Count > 0 && ShowsCard("inventories"))
         {
             @* The row as well as the card: something about to go off names the storage it is on now
                (InventoryExpiryPushContent), so this says which shelf rather than leaving the reader to
@@ -255,7 +255,7 @@ else
             </ItemCard>
         }
 
-        @if (_groups.Count > 0 && CardPreferences.IsVisible("groups"))
+        @if (_groups.Count > 0 && ShowsCard("groups"))
         {
                         <ItemCard Name="@(T["Groups"])" OnNameSelected='() => NavigationManager.NavigateTo("/chat/groups")'
                       HasUnseenAction="@_groups.Any(group => HasNewsAbout(group.Id, "/chat/groups"))"
@@ -288,7 +288,7 @@ else
             </ItemCard>
         }
 
-        @if (_sharedLocations!.Count > 0 && CardPreferences.IsVisible("locations"))
+        @if (_sharedLocations!.Count > 0 && ShowsCard("locations"))
         {
             @* The card again, and for the same reason: a shared position points at "/map" and names
                nobody (SharedItemNotifier.UrlFor), so no row here can be the one it means. *@
@@ -313,7 +313,7 @@ else
             </ItemCard>
         }
 
-        @if (_contacts.Count > 0 && CardPreferences.IsVisible("chats"))
+        @if (_contacts.Count > 0 && ShowsCard("chats"))
         {
             <ItemCard Name="@(T["Recent chats"])" OnNameSelected='() => NavigationManager.NavigateTo("/contacts")'
                       HasUnseenAction="@_recentContacts.Any(contact => contact.UnreadCount > 0)"
@@ -337,7 +337,7 @@ else
             </ItemCard>
         }
 
-        @if (_contacts.Count > 0 && CardPreferences.IsVisible("contacts"))
+        @if (_contacts.Count > 0 && ShowsCard("contacts"))
         {
             <ItemCard Name="@(T["Contacts"])" OnNameSelected='() => NavigationManager.NavigateTo("/contacts")'
                       ExtraClass="@(DashboardPins.IsPinned("contacts") ? "item-card-pinned" : null)">
@@ -631,6 +631,38 @@ else
         => (_contacts ?? [])
         .Where(contact => contact is { RequiresApprovalFromCurrentUser: false, IsPendingApprovalFromOtherParty: false })
         .OrderBy(contact => contact.DisplayName, StringComparer.CurrentCultureIgnoreCase);
+
+    /// <summary>
+    /// Whether a card is drawn at all. Two answers in one: whether this reader has put it away
+    /// (see DashboardCardPreferences), and whether the tab they have open is about it.
+    ///
+    /// A tab that is a folder somebody made belongs to one kind of thing - recipes are task lists,
+    /// receipts are notes - so opening it leaves the card of that kind standing and nothing else. Every
+    /// other card is about something the folder cannot hold, and a page that kept drawing them answered
+    /// "show me this folder" with the whole dashboard and one card narrowed inside it.
+    ///
+    /// The built-in tabs are not about one kind and change nothing here: Public and Private are what
+    /// everything is in unless it was filed somewhere.
+    /// </summary>
+    private bool ShowsCard(string cardKey)
+        => CardPreferences.IsVisible(cardKey) && IsAboutTheOpenTab(cardKey);
+
+    private bool IsAboutTheOpenTab(string cardKey)
+    {
+        if (Folders.ChosenOn(FolderPage.Dashboard).FolderId is not { } folderId)
+        {
+            return true;
+        }
+
+        // A stale id - a folder deleted on its own page while the dashboard held it open - narrows to
+        // nothing rather than quietly to the task lists. The row of tabs drops it on the next render.
+        return Folders.ScopeOf(folderId) switch
+        {
+            FolderScope.Notes => cardKey == "notes",
+            FolderScope.Tasks => cardKey == "tasks",
+            _ => false
+        };
+    }
 
     /// <summary>
     /// Everything due today, done or not - the denominator of the strip's fraction. It used to count

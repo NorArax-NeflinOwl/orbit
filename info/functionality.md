@@ -349,6 +349,22 @@ that. Pressing it records an answer of the reader's own instead:
   neither of the two true things about it. With work still left the status is whatever the work says;
   Incomplete is only ever about the gap between the entries and the list.
 
+**The dashboard narrows to one card when a made folder is open** (2026-09-09). A folder belongs to one
+kind of thing - recipes are task lists, receipts are notes - so pressing its tab leaves that card
+standing and takes the rest of the page away: everything else on it is about something the folder cannot
+hold, and the page used to answer "show me this folder" with the whole dashboard and one card narrowed
+inside it. The built-in tabs change nothing, being what everything is in unless it was filed somewhere.
+The strip of counts above the tabs stays either way - it is about the day rather than about what is
+filed.
+
+**And a folder can be taken off the dashboard**, from its own menu on the page it was made on ("Hide on
+the dashboard", `DashboardCardPreferences.IsFolderShown`). The dashboard borrows both pages' tabs, which
+is how a folder for recipes ends up between Public and Private on the page somebody opens to see what is
+on their plate. It hides the tab there and nothing else - the folder is still on its own page with
+everything in it - and it is kept on the device, beside the cards that are put away the same way, since
+it says nothing about what the folders hold. A tab that goes while it is open falls back to Public, so a
+page can never be filtered to a folder nobody can see.
+
 **A folder somebody made is none of the three** and holds whatever they put in it, private things
 included: filing something is not the same decision as sealing it. Only these are rows
 (`OP_FOLDERS`), and `GET/POST/PUT/DELETE /api/folders` is the whole of managing them. **Deleting a

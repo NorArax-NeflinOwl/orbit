@@ -12,6 +12,7 @@ using Orbit.Contracts.Calendar;
 using Orbit.Contracts.Chat;
 using Orbit.Contracts.Inventories;
 using Orbit.Contracts.Users;
+using Orbit.Contracts.Folders;
 using Orbit.Contracts.Notes;
 using Orbit.Contracts.Notifications;
 using Orbit.Contracts.Tasks;
@@ -99,6 +100,10 @@ public sealed class DashboardTests : OrbitTestContext
         module.Setup<Dictionary<string, string>>("getCardFilters")
             .SetResult(filters is null ? [] : new Dictionary<string, string>(filters));
         module.SetupVoid("setCardFilters", _ => true);
+        // Which folders this device keeps off the dashboard - see FolderTabs' own menu. None, unless a
+        // test hides one through the component itself.
+        module.Setup<string[]>("getHiddenFolders").SetResult([]);
+        module.SetupVoid("setHiddenFolders", _ => true);
         Services.AddScoped<DashboardCardPreferences>();
     }
 
@@ -557,6 +562,44 @@ public sealed class DashboardTests : OrbitTestContext
 
     private static IReadOnlyList<string> RowTitlesIn(IRenderedComponent<Dashboard> cut, string heading)
         => [.. FindColumn(cut, heading).QuerySelectorAll(".row-title").Select(row => row.TextContent.Trim())];
+
+    /// <summary>
+    /// A folder somebody made belongs to one kind of thing - recipes are task lists, receipts are notes
+    /// - so opening its tab leaves that card standing and nothing else. The dashboard used to answer
+    /// "show me this folder" with the whole page and one card narrowed inside it.
+    /// </summary>
+    [Fact]
+    public void Opening_a_folder_leaves_only_the_card_it_is_about()
+    {
+        var recipes = Guid.NewGuid();
+        RegisterChatApiClient([]);
+        RegisterEmptyCalendarApiClient();
+        RegisterNotesApiClient([Note("Passport", "Normal")]);
+        RegisterTasksApiClient([TaskList("Pierogi") with { FolderId = recipes }]);
+        RegisterFolders(new FolderDto(
+            recipes, "Recipes", nameof(FolderScope.Tasks), DateTimeOffset.UtcNow, DateTimeOffset.UtcNow));
+        var cut = RenderComponent<Dashboard>();
+        Assert.Contains("Notes", CardNames(cut));
+
+        cut.FindAll(".folder-tab").First(tab => tab.TextContent.Contains("Recipes", StringComparison.Ordinal)).Click();
+
+        Assert.Equal(["Tasks"], CardNames(cut));
+    }
+
+    /// <summary>The names of the cards on the page, in the order they are drawn.</summary>
+    private static IReadOnlyList<string> CardNames(IRenderedFragment cut)
+        => [.. cut.FindAll(".item-card .item-card-name").Select(name => name.TextContent.Trim())];
+
+    /// <summary>The folders this account has made, which the row of tabs above the cards reads.</summary>
+    private void RegisterFolders(params FolderDto[] folders)
+        => Services.AddSingleton(new FolderState(new FoldersApiClient(
+            new HttpClient(new StubHttpMessageHandler(_ => new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = JsonContent.Create(folders)
+            }))
+            {
+                BaseAddress = new Uri("https://example.test/")
+            })));
 
     private static NoteDto Note(string title, string priority, bool isPinned = false)
         => new(

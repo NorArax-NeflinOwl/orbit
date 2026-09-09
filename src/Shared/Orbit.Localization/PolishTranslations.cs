@@ -742,6 +742,8 @@ public static class PolishTranslations
         ["Finished"] = "Ukończone",
         ["New folder"] = "Nowy folder",
         ["Rename folder"] = "Zmień nazwę folderu",
+        // Takes the folder's tab off the dashboard and nothing else - see FolderTabs.
+        ["Hide on the dashboard"] = "Ukryj na pulpicie",
         ["Delete folder"] = "Usuń folder",
         ["Delete this folder?"] = "Usunąć ten folder?",
         ["Nothing in it is deleted - everything goes back to Public, or to Private if it is sealed."] =
