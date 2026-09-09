@@ -1,6 +1,7 @@
 using Orbit.Api.Tests.TestDoubles;
 using Orbit.Core.Abstractions;
 using Orbit.Core.Calendar;
+using Orbit.Core.Chat;
 using Orbit.Core.Inventories;
 using Orbit.Core.Notes;
 using Orbit.Core.Notifications;
@@ -129,9 +130,78 @@ public sealed class WhatSomebodyHasBeenGivenTests
         Assert.False(await context.RevokeAsync(SharedItemKind.Location, Guid.NewGuid()));
     }
 
+    /// <summary>
+    /// The invitation goes with the access. What the recipient pressed "Accept" on is a chat message,
+    /// and leaving it behind leaves an offer in the conversation that now leads nowhere.
+    /// </summary>
+    [Fact]
+    public async Task Taking_one_back_takes_its_invitation_out_of_the_conversation()
+    {
+        var context = new SharingTestContext();
+        var shareId = await context.ShareANoteAsync();
+        var invitation = await context.AnnounceTheShareInChatAsync(shareId);
+
+        await context.RevokeAsync(SharedItemKind.Note, shareId);
+
+        Assert.True(invitation.IsDeleted);
+        Assert.Equal(OwnerId, invitation.DeletedByUserId);
+        // And the words are actually gone, not only marked - see ChatMessage.Delete.
+        Assert.Equal(string.Empty, invitation.CiphertextBase64);
+    }
+
+    /// <summary>
+    /// Somebody else's message, sent in the same conversation, is not swept up with it. Only the one
+    /// that named this share goes.
+    /// </summary>
+    [Fact]
+    public async Task An_ordinary_message_in_the_same_conversation_is_left_alone()
+    {
+        var context = new SharingTestContext();
+        var shareId = await context.ShareANoteAsync();
+        var chatter = await context.SaySomethingInChatAsync();
+
+        await context.RevokeAsync(SharedItemKind.Note, shareId);
+
+        Assert.False(chatter.IsDeleted);
+    }
+
+    /// <summary>
+    /// The recipient is told, or the withdrawn invitation sits on their screen still offering an
+    /// "Accept" until the slow poll comes round.
+    /// </summary>
+    [Fact]
+    public async Task Both_ends_of_the_conversation_hear_about_it()
+    {
+        var context = new SharingTestContext();
+        var shareId = await context.ShareANoteAsync();
+        await context.AnnounceTheShareInChatAsync(shareId);
+
+        await context.RevokeAsync(SharedItemKind.Note, shareId);
+
+        Assert.Equal([OwnerId, RecipientId], context.LiveUpdates.ChatToldAbout.Order());
+    }
+
+    /// <summary>
+    /// A share offered before invitations recorded which share they announced has no message to match,
+    /// and one offered from a client that does not say so has none either. The access still goes, which
+    /// is what was asked for, and nobody is told about a chat that did not change.
+    /// </summary>
+    [Fact]
+    public async Task A_share_whose_invitation_cannot_be_found_is_still_withdrawn()
+    {
+        var context = new SharingTestContext();
+        var shareId = await context.ShareANoteAsync();
+
+        Assert.True(await context.RevokeAsync(SharedItemKind.Note, shareId));
+
+        Assert.Empty(context.LiveUpdates.ChatToldAbout);
+    }
+
     private sealed class SharingTestContext
     {
         public InMemoryNoteShareRepository NoteShares { get; } = new();
+        public InMemoryChatMessageRepository Messages { get; } = new();
+        public RecordingLiveUpdatePublisher LiveUpdates { get; } = new();
         private readonly InMemoryTaskListShareRepository _taskListShares = new();
         private readonly InMemoryCalendarEventShareRepository _calendarEventShares = new();
         private readonly InMemoryInventoryShareRepository _inventoryShares = new();
@@ -183,8 +253,24 @@ public sealed class WhatSomebodyHasBeenGivenTests
                     new SharedItemName(_notes, _taskLists, _events, _inventories))
                 .HandleAsync(new GetSharesWithQuery(OwnerId, RecipientId), CancellationToken.None);
 
+        /// <summary>The message the editors send right after sharing - see EncryptedChatMessageSender.</summary>
+        public async Task<ChatMessage> AnnounceTheShareInChatAsync(Guid shareId)
+        {
+            var invitation = ChatMessage.Create(OwnerId, RecipientId, "sealed", "nonce", shareId);
+            await Messages.AddAsync(invitation, CancellationToken.None);
+            return invitation;
+        }
+
+        public async Task<ChatMessage> SaySomethingInChatAsync()
+        {
+            var message = ChatMessage.Create(OwnerId, RecipientId, "sealed", "nonce");
+            await Messages.AddAsync(message, CancellationToken.None);
+            return message;
+        }
+
         public Task<bool> RevokeAsync(SharedItemKind kind, Guid shareId)
-            => new RevokeShareCommandHandler(NoteShares, _taskListShares, _calendarEventShares, _inventoryShares)
+            => new RevokeShareCommandHandler(
+                    NoteShares, _taskListShares, _calendarEventShares, _inventoryShares, Messages, LiveUpdates)
                 .HandleAsync(new RevokeShareCommand(OwnerId, kind, shareId), CancellationToken.None);
     }
 }

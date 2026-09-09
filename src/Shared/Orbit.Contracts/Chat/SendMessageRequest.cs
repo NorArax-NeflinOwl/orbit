@@ -4,5 +4,9 @@ namespace Orbit.Contracts.Chat;
 /// True for the structured message that carries a share's "Accept" action rather than something the
 /// sender typed - see SendMessageCommand.
 /// </param>
+/// <param name="AnnouncesShareId">
+/// Which share this message is the invitation to, when it is one - see SendMessageCommand.
+/// </param>
 public sealed record SendMessageRequest(
-    Guid RecipientUserId, string CiphertextBase64, string NonceBase64, bool IsShareInvitation = false);
+    Guid RecipientUserId, string CiphertextBase64, string NonceBase64, bool IsShareInvitation = false,
+    Guid? AnnouncesShareId = null);

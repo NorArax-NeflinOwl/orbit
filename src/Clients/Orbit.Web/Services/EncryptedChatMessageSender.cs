@@ -32,7 +32,7 @@ public sealed class EncryptedChatMessageSender
     /// </summary>
     public async Task SendAsync(
         Guid ownUserId, Guid recipientUserId, string plainTextContent, bool isShareInvitation = false,
-        CancellationToken cancellationToken = default)
+        Guid? announcesShareId = null, CancellationToken cancellationToken = default)
     {
         var recipient = await _usersApiClient.GetUserAsync(recipientUserId, cancellationToken);
         if (recipient?.PublicKeyBase64 is null)
@@ -46,7 +46,9 @@ public sealed class EncryptedChatMessageSender
             "encryptMessage", ownUserId, recipient.PublicKeyBase64, plainTextContent);
 
         await _chatApiClient.SendMessageAsync(
-            new SendMessageRequest(recipientUserId, payload.CiphertextBase64, payload.NonceBase64, isShareInvitation), cancellationToken);
+            new SendMessageRequest(
+                recipientUserId, payload.CiphertextBase64, payload.NonceBase64, isShareInvitation, announcesShareId),
+            cancellationToken);
     }
 
 

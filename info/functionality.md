@@ -644,6 +644,19 @@ Both ends are scoped to the owner, so this can only ever list or withdraw what t
 gave. A share that belongs to somebody else answers exactly as one that has already gone — telling those
 apart would say whether a share id exists.
 
+**The invitation goes with the access.** What the recipient pressed "Accept" on is a chat message, and
+withdrawing the grant while leaving that message in the conversation leaves an offer that now leads
+nowhere. So the message is taken back the same way its sender taking it back would: the words go, the
+line stays, and it reads "{name} deleted the message". The recipient's screen is told at once, or the
+withdrawn invitation sits there still offering an "Accept" until the slow poll comes round.
+
+The server cannot work out which message that is by reading it — the message is sealed and the share id
+is inside the sealed payload — so the sender says it in the clear when sending: `SendMessageRequest`
+carries `AnnouncesShareId` alongside the ciphertext, stored as `OP_C_ANNOUNCESSHAREID`. Usually one
+message matches; more when the same share was offered again as a reminder, which reuses the share rather
+than making a second one, and all of them go. A share offered before this existed matches nothing, and
+the access is still withdrawn — which is what was asked for.
+
 ## Private notes and task lists
 
 A note or task list can be marked **private**, which means exactly one thing: only its creator can ever

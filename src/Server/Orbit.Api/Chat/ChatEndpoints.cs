@@ -66,7 +66,8 @@ public static class ChatEndpoints
         {
             var result = await dispatcher.SendAsync(
                 new SendMessageCommand(
-                    GetUserId(user), request.RecipientUserId, request.CiphertextBase64, request.NonceBase64, request.IsShareInvitation),
+                    GetUserId(user), request.RecipientUserId, request.CiphertextBase64, request.NonceBase64,
+                    request.IsShareInvitation, request.AnnouncesShareId),
                 cancellationToken);
 
             return result.Outcome switch

@@ -27,6 +27,19 @@ public interface IChatMessageRepository
     /// </summary>
     Task MarkDeletedAsync(Guid messageId, Guid deletedByUserId, DateTimeOffset deletedAtUtc, CancellationToken cancellationToken);
 
+    /// <summary>
+    /// The same for every message that announced one share - the invitation the owner has just taken
+    /// back, which would otherwise sit in the conversation offering an "Accept" that leads nowhere.
+    /// Usually one message; more when the same share was offered again as a reminder, which reuses the
+    /// share rather than making a second one.
+    ///
+    /// Answers everybody who was in one of those conversations, so the withdrawal can be announced to
+    /// the screens showing it. The caller has only the share id: which two people it reached is a fact
+    /// about the messages, not about the command.
+    /// </summary>
+    Task<IReadOnlyList<Guid>> MarkShareAnnouncementsDeletedAsync(
+        Guid shareId, Guid deletedByUserId, DateTimeOffset deletedAtUtc, CancellationToken cancellationToken);
+
     /// <summary>The same for every per-recipient copy of one group posting - see ChatMessage.GroupMessageId.</summary>
     Task MarkGroupMessageDeletedAsync(
         Guid groupMessageId, Guid deletedByUserId, DateTimeOffset deletedAtUtc, CancellationToken cancellationToken);
