@@ -38,8 +38,12 @@
 
         <!-- Over the tiles rather than under them, and only where there is something to say: where the
              reader was last read to be, and whatever the last press could not do. A card, because
-             writing straight onto a map is unreadable over half the maps there are. -->
-        <Border Style="{StaticResource CardBorder}" Margin="12,10" VerticalOptions="Start"
+             writing straight onto a map is unreadable over half the maps there are.
+
+             It stops short on the right - 80 rather than 12 - because the crosshair is up here now, and
+             a card the full width of the screen runs underneath it. A long address is what shows that:
+             the button is 56 across and keeps 18 off the edge, so the card ends 8 before it starts. -->
+        <Border Style="{StaticResource CardBorder}" Margin="12,10,80,10" VerticalOptions="Start"
                 IsVisible="{Binding HasSomethingToSay}"
                 BackgroundColor="{AppThemeBinding Light={StaticResource PageBackgroundLight}, Dark={StaticResource PageBackgroundDark}}">
             <VerticalStackLayout Spacing="4">
@@ -80,10 +84,11 @@
         <!-- Across the foot, under everything the page itself draws - see AdBanner, and .ad-banner
              in Orbit.Web's app.css, which is the same bar on a narrow window. -->
         <controls:AdBanner Grid.Row="2" />
-        <!-- The one thing this screen is for, within reach of a thumb: reading where the phone is. A
-             crosshair, which is what every map app puts in this corner - clearing the zoom buttons the
-             map draws in the same corner, which it was covering and stealing the presses of. -->
-        <controls:Fab Grid.Row="1" IsAboveAdBar="True" IsAboveMapControls="True" IsVisible="{Binding IsUnlocked}"
+        <!-- The one thing this screen is for: reading where the phone is. At the top right, which is the
+             one corner of a map that is ours - Android draws the zoom buttons along the bottom right and
+             Google's logo along the bottom left, both itself, and the crosshair was covering the zoom
+             buttons and taking their presses. -->
+        <controls:Fab Grid.Row="1" IsAtTheTop="True" IsVisible="{Binding IsUnlocked}"
                       Data="M12,2 V5 M12,19 V22 M2,12 H5 M19,12 H22 M8,12 A4,4 0 1 1 16,12 A4,4 0 1 1 8,12 Z"
                       Description="{controls:Translate 'Read my position'}"
                       Command="{Binding ReadMyPositionCommand}" />

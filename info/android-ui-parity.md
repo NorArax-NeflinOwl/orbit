@@ -244,9 +244,14 @@ Docs, "Do not share my personal information", the licence - and pressing one ope
 The fourth thing the walk found was on the map: **the crosshair button covered Android's own zoom
 buttons and took their presses.** Nothing in the markup knows those buttons are there - the map draws
 them itself, at its bottom-right, which is the corner the design gives the button - so a tap well inside
-the visible `+` read the phone's position instead of zooming in. The button clears them now
-(`Fab.IsAboveMapControls`) rather than covering them; the left corner was not an option, because that is
-Google's logo and it may not be covered at all.
+the visible `+` read the phone's position instead of zooming in.
+
+The crosshair is at the **top right** now (`Fab.IsAtTheTop`), which is the one corner of a map that is
+the app's to use: Android owns the bottom right with the zoom buttons and the bottom left with Google's
+logo, which may not be covered at all. This is a deliberate departure from the design, which draws the
+button bottom-right - the design's map is a placeholder tile with no furniture of its own, so it never
+had to share the corner. The card that says where you were last read to be gives the button room
+(`Margin="12,10,80,10"`), or a long address runs underneath it.
 
 ## How to check it
 
