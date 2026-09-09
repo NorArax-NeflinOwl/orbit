@@ -54,7 +54,7 @@ public sealed class StockedEntryCompletion
     {
         var waiting = items
             .Where(item =>
-                item.Kind == TaskItemKind.Inventory && !item.IsCompleted && item.LinkedInventoryItemId is not null)
+                item.Kind == TaskItemKind.Inventory && !item.IsResolved && item.LinkedInventoryItemId is not null)
             .ToList();
         if (waiting.Count == 0)
         {

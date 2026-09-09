@@ -96,6 +96,7 @@ public static class TaskEndpoints
                     request.Description, EntriesSayingNothingAboutTheirCategories(request.Items),
                     EntriesSayingNothingAboutTheirProduct(request.Items),
                     EntriesSayingNothingAboutTheirNotes(request.Items),
+                    EntriesSayingNothingAboutTheirSteps(request.Items),
                     request.Completion is null ? null : RequestEnum.Parse<TaskListCompletion>(request.Completion, "completion")),
                 cancellationToken);
             return ToApiResult(outcome);
@@ -356,6 +357,17 @@ public static class TaskEndpoints
             .Select(item => item.Id!.Value)
             .ToHashSet();
 
+    /// <summary>
+    /// The entries that said nothing about what they wait for, which keep the steps they already have -
+    /// the fourth field to follow this rule. An entry sending an empty list means "none" and is not in
+    /// here. See UpdateTaskListCommand.EntriesKeepingTheirSteps.
+    /// </summary>
+    private static IReadOnlySet<Guid> EntriesSayingNothingAboutTheirSteps(IReadOnlyList<TaskItemRequest> items)
+        => items
+            .Where(item => item.WaitsForTaskItemIds is null && item.Id is not null)
+            .Select(item => item.Id!.Value)
+            .ToHashSet();
+
     private static TaskItemProduct? ToDomainProduct(TaskItemProductDto? product)
         => product is null
             ? null
@@ -410,7 +422,8 @@ public static class TaskEndpoints
         {
             return TaskItem.Create(
                 item.Description, item.DueDateUtc, item.IsCompleted, item.AllLinkedTaskListIds,
-                reminders, subject, item.AllCategories, product, item.Notes);
+                reminders, subject, item.AllCategories, product, item.Notes, item.IsFailed,
+                item.WaitsForTaskItemIds);
         }
 
         // Same override Create applies: a linked entry's completion follows the list it links to, so a
@@ -418,7 +431,9 @@ public static class TaskEndpoints
         return TaskItem.FromPersistence(
             existingId, item.Description, item.DueDateUtc,
             item.AllLinkedTaskListIds.Count == 0 && item.IsCompleted, item.AllLinkedTaskListIds,
-            reminders, subject, item.AllCategories, product, item.Notes);
+            reminders, subject, item.AllCategories, product, item.Notes,
+            item.AllLinkedTaskListIds.Count == 0 && item.IsFailed,
+            item.WaitsForTaskItemIds);
     }
 
 
@@ -466,7 +481,9 @@ public static class TaskEndpoints
                     item.LinkedTaskListIds,
                     item.Categories,
                     ToDto(item.Product),
-                    item.Notes))
+                    item.Notes,
+                    item.IsFailed,
+                    item.WaitsForTaskItemIds))
                 .ToList(),
             taskList.IsCompleted,
             taskList.IsGroup,

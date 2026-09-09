@@ -56,10 +56,11 @@ else
                 @* Its own press, kept from the card around it: a tick is what this row is for, and
                    opening the whole note to write in instead would be answering a different question.
                    CheckRow stops the press itself - see the note at the top of it. *@
-                <CheckRow Title="@line.Text" IsTicked="@line.IsChecked" IsDisabled="@_isReadOnly"
+                <CheckRow Title="@line.Text" State="@Ticks.Read(line.IsChecked, line.IsFailed)"
+                          IsDisabled="@_isReadOnly"
                           AriaLabel="@T.Format("Done: {0}", line.Text)"
-                          AdditionalClass="@(line.IsChecked ? "completed" : null)"
-                          OnTicked="ticked => Tick(line, ticked)" />
+                          AdditionalClass="@LineMark(line)"
+                          OnCycled="state => Tick(line, state)" />
             }
             else if (line.Text.Length > 0)
             {
@@ -155,7 +156,14 @@ else
     /// Ticks a line, or unticks it. Nothing is written until Save: a note is read by scrolling, and a
     /// page that saved on every press would be writing while somebody is only passing through.
     /// </summary>
-    private void Tick(NoteContentLineDto line, bool isChecked)
+    /// <summary>
+    /// How a line is marked: struck through when it is finished with, either way, and told apart so a
+    /// line somebody gave up on does not read as one that was done - see .check-row.failed.
+    /// </summary>
+    private static string? LineMark(NoteContentLineDto line)
+        => line.IsChecked ? "completed" : line.IsFailed ? "completed failed" : null;
+
+    private void Tick(NoteContentLineDto line, TickState state)
     {
         var at = _lines.IndexOf(line);
         if (at < 0)
@@ -163,7 +171,7 @@ else
             return;
         }
 
-        _lines[at] = line with { IsChecked = isChecked };
+        _lines[at] = line with { IsChecked = state.IsCompleted(), IsFailed = state.IsFailed() };
         _hasChanges = true;
         _message = null;
     }

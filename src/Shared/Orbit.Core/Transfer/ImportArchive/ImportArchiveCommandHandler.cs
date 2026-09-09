@@ -60,7 +60,7 @@ public sealed class ImportArchiveCommandHandler : IRequestHandler<ImportArchiveC
         {
             var note = Note.Create(
                 userId, archived.Title,
-                archived.Content.Select(line => new NoteContentLine(line.Text, line.IsChecklistItem, line.IsChecked)).ToList(),
+                archived.Content.Select(line => new NoteContentLine(line.Text, line.IsChecklistItem, line.IsChecked, line.IsFailed)).ToList(),
                 archived.IsPrivate, ToPayload(archived.EncryptedContent));
             await _noteRepository.AddAsync(note, cancellationToken);
         }
@@ -175,7 +175,8 @@ public sealed class ImportArchiveCommandHandler : IRequestHandler<ImportArchiveC
                 item.RemindDaily,
                 ParseChannel(item.DailyReminderNotificationChannel),
                 item.DailyReminderTimeOfDay),
-            categories: item.AllCategories);
+            categories: item.AllCategories,
+            isFailed: item.IsFailed);
 
     /// <summary>An unrecognised channel reads as None: a file should not be able to switch on notifications this account never asked for.</summary>
     private static NotificationChannel ParseChannel(string channel)

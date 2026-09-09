@@ -33,7 +33,8 @@ public sealed record OrbitArchive(
 public sealed record ArchivedNote(
     string Title, IReadOnlyList<ArchivedNoteLine> Content, bool IsPrivate, ArchivedEncryptedContent? EncryptedContent);
 
-public sealed record ArchivedNoteLine(string Text, bool IsChecklistItem, bool IsChecked);
+/// <param name="IsFailed">Crossed out rather than ticked - see Orbit.Core.Notes.NoteContentLine.IsFailed.</param>
+public sealed record ArchivedNoteLine(string Text, bool IsChecklistItem, bool IsChecked, bool IsFailed = false);
 
 public sealed record ArchivedTaskList(
     string Title, IReadOnlyList<ArchivedTaskItem> Items, bool IsGroup, bool IsPrivate,
@@ -61,7 +62,13 @@ public sealed record ArchivedTaskItem(
     /// the same reason the titles above are: an archive written before categories existed says nothing
     /// here, and reads as an entry nobody has filed.
     /// </summary>
-    IReadOnlyList<string>? Categories = null)
+    IReadOnlyList<string>? Categories = null,
+    /// <summary>
+    /// Closed without being done - see Orbit.Core.Tasks.TaskItem.IsFailed. Defaulted and last for the
+    /// same reason everything above it is: a file written before the cross existed says nothing here,
+    /// and reads as an entry that was simply not done.
+    /// </summary>
+    bool IsFailed = false)
 {
     /// <summary>The categories as something to read without a null check.</summary>
     public IReadOnlyList<string> AllCategories => Categories ?? [];

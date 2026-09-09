@@ -72,8 +72,12 @@ else
         <button type="button" class="today-strip today-strip-button" title="@(T["Open the calendar"])"
                 @onclick="GoToCalendar">
             <span class="today-strip-date">@DateTime.Today.ToString("dddd, d MMMM", T.DisplayCulture)</span>
-            <span class="today-stat"><span class="stat-dot" style="background:var(--task)"></span><strong>@TasksDueTodayCount</strong>@T["tasks due today"]</span>
-            <span class="today-stat"><span class="stat-dot" style="background:var(--accent)"></span><strong>@EventsTodayCount</strong>@T["events today"]</span>
+            @* Both counts read "done of all" rather than "how many are left". A bare number answered
+               "how much is there" and never "how far through it am I", which is the question somebody
+               glancing at a day actually has - and a day whose work is finished says 3/3 rather than
+               falling silent. *@
+            <span class="today-stat"><span class="stat-dot" style="background:var(--task)"></span><strong>@TasksDoneTodayCount/@TasksDueTodayCount</strong>@T["tasks due today"]</span>
+            <span class="today-stat"><span class="stat-dot" style="background:var(--accent)"></span><strong>@EventsOverTodayCount/@EventsTodayCount</strong>@T["events today"]</span>
             @* Only when somebody is actually waiting to be answered. A standing "0 new chat requests" is
                not news, and an account that cannot be found by anyone will never have one. *@
             @if (PendingChatRequestCount > 0)
@@ -93,7 +97,7 @@ else
     </PhoneToolbar>
 
     <div class="card-grid">
-        @if (_notes.Count > 0 && CardPreferences.IsVisible("notes"))
+        @if (_notes.Count > 0 && ShowsCard("notes"))
         {
             <ItemCard Name="@(T["Notes"])" OnNameSelected='() => NavigationManager.NavigateTo("/notes")'
                       ExtraClass="@(DashboardPins.IsPinned("notes") ? "item-card-pinned" : null)">
@@ -124,7 +128,7 @@ else
             </ItemCard>
         }
 
-        @if (_taskLists.Count > 0 && CardPreferences.IsVisible("tasks"))
+        @if (_taskLists.Count > 0 && ShowsCard("tasks"))
         {
                         <ItemCard Name="@(T["Tasks"])" OnNameSelected='() => NavigationManager.NavigateTo("/tasks")'
                       HasUnseenAction="@TaskListsToShow.Any(taskList => HasNewsAbout(taskList.Id, "/tasks"))"
@@ -175,7 +179,7 @@ else
            "High" with nothing high coming up removed the whole card, and the filter menu lives in its
            header - so the choice could not be undone from the page that made it. All three cards
            follow the same rule now. *@
-        @if (everythingUpcoming.Count > 0 && CardPreferences.IsVisible("upcoming"))
+        @if (everythingUpcoming.Count > 0 && ShowsCard("upcoming"))
         {
                         <ItemCard Name="@(T["Upcoming"])" OnNameSelected='() => NavigationManager.NavigateTo("/calendar")'
                       HasUnseenAction="@UpcomingToShow.Any(HasNewsAboutIt)"
@@ -216,7 +220,7 @@ else
            reachable from it and this was not, so the one part of Orbit that answers "have we run out"
            could only be found through the side navigation. Nothing here is pinned or prioritised - an
            inventory carries neither - so it has no filter menu, like the locations card below. *@
-        @if (_inventories.Count > 0 && CardPreferences.IsVisible("inventories"))
+        @if (_inventories.Count > 0 && ShowsCard("inventories"))
         {
             @* The row as well as the card: something about to go off names the storage it is on now
                (InventoryExpiryPushContent), so this says which shelf rather than leaving the reader to
@@ -251,7 +255,7 @@ else
             </ItemCard>
         }
 
-        @if (_groups.Count > 0 && CardPreferences.IsVisible("groups"))
+        @if (_groups.Count > 0 && ShowsCard("groups"))
         {
                         <ItemCard Name="@(T["Groups"])" OnNameSelected='() => NavigationManager.NavigateTo("/chat/groups")'
                       HasUnseenAction="@_groups.Any(group => HasNewsAbout(group.Id, "/chat/groups"))"
@@ -284,7 +288,7 @@ else
             </ItemCard>
         }
 
-        @if (_sharedLocations!.Count > 0 && CardPreferences.IsVisible("locations"))
+        @if (_sharedLocations!.Count > 0 && ShowsCard("locations"))
         {
             @* The card again, and for the same reason: a shared position points at "/map" and names
                nobody (SharedItemNotifier.UrlFor), so no row here can be the one it means. *@
@@ -309,7 +313,7 @@ else
             </ItemCard>
         }
 
-        @if (_contacts.Count > 0 && CardPreferences.IsVisible("chats"))
+        @if (_contacts.Count > 0 && ShowsCard("chats"))
         {
             <ItemCard Name="@(T["Recent chats"])" OnNameSelected='() => NavigationManager.NavigateTo("/contacts")'
                       HasUnseenAction="@_recentContacts.Any(contact => contact.UnreadCount > 0)"
@@ -333,7 +337,7 @@ else
             </ItemCard>
         }
 
-        @if (_contacts.Count > 0 && CardPreferences.IsVisible("contacts"))
+        @if (_contacts.Count > 0 && ShowsCard("contacts"))
         {
             <ItemCard Name="@(T["Contacts"])" OnNameSelected='() => NavigationManager.NavigateTo("/contacts")'
                       ExtraClass="@(DashboardPins.IsPinned("contacts") ? "item-card-pinned" : null)">
@@ -478,7 +482,7 @@ else
     /// A deadline is filtered where it is built - see UpcomingDeadlines.
     /// </summary>
     private bool IsStillToDo(CalendarEventDto calendarEvent)
-        => CalendarEventDestination.RaisedBy(calendarEvent.Id, _taskLists) is not ({ Entry.IsCompleted: true }
+        => CalendarEventDestination.RaisedBy(calendarEvent.Id, _taskLists) is not ({ Entry.IsCompleted: true } or { Entry.IsFailed: true }
             or { List.IsCompleted: true });
 
     /// <summary>
@@ -534,7 +538,7 @@ else
             // with work still on it is a way of saying "no more of this" (TaskList.IsMarkedCompleted),
             // and a card headed "what is coming up" that kept listing its deadlines would be arguing.
             .Where(pair => !pair.taskList.IsCompleted)
-            .Where(pair => !pair.item.IsCompleted
+            .Where(pair => !pair.item.IsCompleted && !pair.item.IsFailed
                 && pair.item.AllLinkedTaskListIds.Count == 0
                 && pair.item.DueDateUtc is { } dueDate && dueDate >= nowUtc)
             .Select(pair => new UpcomingEntry(
@@ -629,17 +633,77 @@ else
         .OrderBy(contact => contact.DisplayName, StringComparer.CurrentCultureIgnoreCase);
 
     /// <summary>
-    /// What is still owed today. A list its owner has closed owes nothing, whatever is unticked on it -
-    /// the same answer the Upcoming card gives, and for the same reason.
+    /// Whether a card is drawn at all. Two answers in one: whether this reader has put it away
+    /// (see DashboardCardPreferences), and whether the tab they have open is about it.
+    ///
+    /// A tab that is a folder somebody made belongs to one kind of thing - recipes are task lists,
+    /// receipts are notes - so opening it leaves the card of that kind standing and nothing else. Every
+    /// other card is about something the folder cannot hold, and a page that kept drawing them answered
+    /// "show me this folder" with the whole dashboard and one card narrowed inside it.
+    ///
+    /// The built-in tabs are not about one kind and change nothing here: Public and Private are what
+    /// everything is in unless it was filed somewhere.
     /// </summary>
-    private int TasksDueTodayCount => (_taskLists ?? [])
-        .Where(taskList => !taskList.IsCompleted)
+    private bool ShowsCard(string cardKey)
+        => CardPreferences.IsVisible(cardKey) && IsAboutTheOpenTab(cardKey);
+
+    private bool IsAboutTheOpenTab(string cardKey)
+    {
+        if (Folders.ChosenOn(FolderPage.Dashboard).FolderId is not { } folderId)
+        {
+            return true;
+        }
+
+        // A stale id - a folder deleted on its own page while the dashboard held it open - narrows to
+        // nothing rather than quietly to the task lists. The row of tabs drops it on the next render.
+        return Folders.ScopeOf(folderId) switch
+        {
+            FolderScope.Notes => cardKey == "notes",
+            FolderScope.Tasks => cardKey == "tasks",
+            _ => false
+        };
+    }
+
+    /// <summary>
+    /// Everything due today, done or not - the denominator of the strip's fraction. It used to count
+    /// only what was still owed, which answered "how much is there" and never "how far through it am
+    /// I": a day whose work was all ticked off read "0 tasks due today", which is three tasks that
+    /// disappeared rather than three that were done.
+    ///
+    /// A list closed <b>while work was still unticked on it</b> owes nothing, whatever is left on it -
+    /// the same answer the Upcoming card gives. Asked that way round rather than of IsCompleted alone,
+    /// which is also true of a list whose entries simply all got ticked - and those are exactly the
+    /// entries this fraction exists to show. The phone works it out from the same two facts, which is
+    /// why it is not asked of Completion: nothing hands that to the phone.
+    /// </summary>
+    private int TasksDueTodayCount => EntriesDueToday.Count();
+
+    /// <summary>How many of those are crossed off - the numerator.</summary>
+    private int TasksDoneTodayCount => EntriesDueToday.Count(item => item.IsCompleted);
+
+    private IEnumerable<TaskItemDto> EntriesDueToday => (_taskLists ?? [])
+        .Where(taskList => !ClosedWithWorkLeft(taskList))
         .SelectMany(taskList => taskList.Items)
-        .Count(item => !item.IsCompleted && item.DueDateUtc is { } due && due.ToLocalTime().Date == DateTime.Today);
+        .Where(item => item.DueDateUtc is { } due && due.ToLocalTime().Date == DateTime.Today);
 
+    /// <summary>
+    /// Whether the reader has closed this list over entries that are still open. Both clients ask it
+    /// this way - see EntriesDueToday.
+    /// </summary>
+    private static bool ClosedWithWorkLeft(TaskDto taskList)
+        => taskList.IsCompleted && taskList.Items.Any(item => !item.IsCompleted && !item.IsFailed);
 
-    private int EventsTodayCount => (_events ?? [])
-        .Count(calendarEvent => calendarEvent.Details.StartUtc.ToLocalTime().Date == DateTime.Today);
+    private int EventsTodayCount => EventsToday.Count();
+
+    /// <summary>
+    /// How many of today's appointments are behind the reader. An event carries no tick of its own, so
+    /// "done" is the clock's answer: one that has ended is one nobody has to get to any more.
+    /// </summary>
+    private int EventsOverTodayCount
+        => EventsToday.Count(calendarEvent => calendarEvent.Details.EndUtc.ToLocalTime() <= DateTime.Now);
+
+    private IEnumerable<CalendarEventDto> EventsToday => (_events ?? [])
+        .Where(calendarEvent => calendarEvent.Details.StartUtc.ToLocalTime().Date == DateTime.Today);
 
     /// <summary>
     /// How many conversations somebody else has started and this reader has not answered yet. Zero for

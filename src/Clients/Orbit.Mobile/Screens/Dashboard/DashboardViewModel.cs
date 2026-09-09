@@ -591,23 +591,43 @@ public sealed partial class DashboardViewModel : ObservableObject
         IReadOnlyList<LocalTaskList> taskLists, IReadOnlyList<LocalCalendarEvent> events,
         IReadOnlyList<LocalContact> contacts)
     {
-        var today = _timeProvider.GetUtcNow().Date;
+        var now = _timeProvider.GetUtcNow();
+        var today = now.Date;
+        var dueToday = EntriesDueOn(taskLists, today);
+        var eventsToday = events
+            .Where(calendarEvent => calendarEvent.Details.StartUtc.Date == today)
+            .ToList();
 
         return new TodaySummary(
             // "Thursday, 27 August", as Orbit.Web's today strip opens - it says what "today" means
             // before saying what is in it.
             today.ToString("dddd, d MMMM", _translations.DisplayCulture),
-            taskLists
-                // A list its owner has closed owes nothing, whatever is still unticked on it - see
-                // CalendarDeadline, and Orbit.Web's own today strip.
-                .Where(list => !list.IsCompleted)
-                .SelectMany(list => list.Items)
-                .Count(item => !item.IsCompleted && item.DueDateUtc?.Date == today),
-            events.Count(calendarEvent => calendarEvent.Details.StartUtc.Date == today),
+            dueToday.Count,
+            eventsToday.Count,
             // Only requests waiting on the reader. One they sent and nobody has answered is not
             // something they can act on, so counting it would be asking them to do nothing.
-            contacts.Count(contact => contact.RequiresApprovalFromCurrentUser));
+            contacts.Count(contact => contact.RequiresApprovalFromCurrentUser),
+            dueToday.Count(item => item.IsCompleted),
+            eventsToday.Count(calendarEvent => calendarEvent.Details.EndUtc <= now));
     }
+
+    /// <summary>
+    /// The day's entries, done and not - what the strip counts over. It used to count only what was
+    /// still owed, which answered "how much is there" and never "how far through it am I": a day whose
+    /// work was all ticked off read "0 tasks due today", which is three tasks that disappeared rather
+    /// than three that were done. Orbit.Web's own strip changed the same way.
+    ///
+    /// A list closed <b>while work was still unticked on it</b> owes nothing, whatever is left on it -
+    /// see CalendarDeadline. Asked that way round rather than of IsCompleted alone, which is also true
+    /// of a list whose entries simply all got ticked, and those are exactly the entries the fraction
+    /// exists to show.
+    /// </summary>
+    private static IReadOnlyList<Orbit.Contracts.Tasks.TaskItemDto> EntriesDueOn(
+        IReadOnlyList<LocalTaskList> taskLists, DateTime day)
+        => [.. taskLists
+            .Where(list => !(list.IsCompleted && list.Items.Any(item => !item.IsCompleted && !item.IsFailed)))
+            .SelectMany(list => list.Items)
+            .Where(item => item.DueDateUtc?.Date == day)];
 
     /// <summary>
     /// A private note's title is the thing the gate hides, and the dashboard shows titles - so leaving

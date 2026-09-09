@@ -112,6 +112,59 @@ public sealed class FolderTabsTests : OrbitTestContext
     }
 
     /// <summary>
+    /// A folder somebody made can be taken off the dashboard - a tab for recipes or receipts between
+    /// Public and Private on the page you open to see what is on your plate. The menu that offers it is
+    /// the folder's own, on the page the folder belongs to.
+    /// </summary>
+    [Fact]
+    public void Hiding_a_folder_on_the_dashboard_is_offered_in_its_own_menu()
+    {
+        RegisterFolders([AFolderCalled("Recipes", FolderScope.Tasks)]);
+        Services.GetRequiredService<FolderState>().Choose(FolderPage.Tasks, FolderKey.Of(WorkFolderId));
+        var cut = RenderTabs(FolderPage.Tasks);
+
+        cut.Find(".overflow-menu-trigger").Click();
+        cut.FindAll(".avatar-dropdown-item")
+            .First(entry => entry.TextContent.Contains("Hide on the dashboard", StringComparison.Ordinal)).Click();
+
+        // What was written down, which is what the dashboard reads on its next render.
+        var written = JSInterop.Invocations["setHiddenFolders"].Single();
+        Assert.Contains(WorkFolderId.ToString(), Assert.IsAssignableFrom<IEnumerable<string>>(written.Arguments[0]!));
+    }
+
+    /// <summary>And it is then not a tab there, while staying one on the page it was made on.</summary>
+    [Fact]
+    public void A_folder_hidden_on_the_dashboard_is_not_a_tab_there()
+    {
+        RegisterFolders([AFolderCalled("Recipes", FolderScope.Tasks)]);
+        HiddenOnTheDashboard(WorkFolderId);
+
+        Assert.DoesNotContain("Recipes", TabNames(RenderTabs(FolderPage.Dashboard)));
+        Assert.Contains("Recipes", TabNames(RenderTabs(FolderPage.Tasks)));
+    }
+
+    /// <summary>
+    /// And the dashboard leaves a tab it can no longer draw: a page filtered to a folder nobody can see
+    /// shows nothing and offers no way out of it.
+    /// </summary>
+    [Fact]
+    public void The_dashboard_falls_back_to_Public_when_the_open_folder_is_hidden()
+    {
+        RegisterFolders([AFolderCalled("Recipes", FolderScope.Tasks)]);
+        HiddenOnTheDashboard(WorkFolderId);
+        var folders = Services.GetRequiredService<FolderState>();
+        folders.Choose(FolderPage.Dashboard, FolderKey.Of(WorkFolderId));
+
+        RenderTabs(FolderPage.Dashboard);
+
+        Assert.Equal(FolderKey.Default, folders.ChosenOn(FolderPage.Dashboard));
+    }
+
+    /// <summary>What this device has taken off the dashboard, as the stored answer the row reads.</summary>
+    private void HiddenOnTheDashboard(params Guid[] folderIds)
+        => DashboardCards.Setup<string[]>("getHiddenFolders").SetResult([.. folderIds.Select(id => id.ToString())]);
+
+    /// <summary>
     /// Making one is typed where the tab will be, and Enter is what says it is finished - a box that
     /// only answered a button somewhere else would be a box people press Enter in and wait.
     /// </summary>

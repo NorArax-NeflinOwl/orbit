@@ -123,7 +123,10 @@
                                     <!-- One ink for both sides now. The reader's own messages used to
                                          be written in "what is legible on the accent", which was right
                                          while the bubble was filled with it and is wrong on a tint. -->
-                                    <Label Text="{Binding Text}" FontSize="14" LineBreakMode="WordWrap" />
+                                    <!-- The addresses in a message are pressed rather than copied out
+                                         by hand - see LinkedLabel, which shares the browser's own rule
+                                         about what counts as one. -->
+                                    <controls:LinkedLabel Words="{Binding Text}" FontSize="14" LineBreakMode="WordWrap" />
 
                                     <!-- Somebody asking to be allowed to change something of yours. Nothing to
                                          accept in one tap: widening access means sharing it again. -->

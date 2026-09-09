@@ -3,6 +3,7 @@ using System.Net.Http.Json;
 using System.Text;
 using System.Text.Json;
 using Bunit;
+using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Authorization;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
@@ -172,7 +173,9 @@ public sealed class NoteEditorTests : OrbitTestContext
         var cut = RenderComponent<NoteEditor>(parameters => parameters.Add(editor => editor.Id, note.Id));
         Assert.Contains("Sharing", cut.Markup);
 
-        cut.Find("input[type=checkbox]").Change(true);
+        // What the note is rather than what is in it lives in the panel's menu now - see NoteEditor.
+        cut.Find(".editor-rail .overflow-menu-trigger").Click();
+        cut.Find(".note-settings-menu input[type=checkbox]").Change(true);
 
         // Before saving, not after: the point is that the two are mutually exclusive, and the page says
         // so as soon as the choice is made rather than once the server has been told.
@@ -320,10 +323,97 @@ public sealed class NoteEditorTests : OrbitTestContext
     }
 
     /// <summary>
+    /// The row of tools sits over the corner of the writing rather than above it, and three of its four
+    /// are drawn for a design that has them rather than for anything they do yet. Each says so when it
+    /// is pressed: a greyed-out button explains nothing, and a row of them explains less.
+    /// </summary>
+    [Fact]
+    public void The_tools_over_the_writing_say_when_there_is_nothing_behind_them()
+    {
+        var note = Note("Shopping");
+        RegisterApiClients(note);
+        var cut = RenderComponent<NoteEditor>(parameters => parameters.Add(editor => editor.Id, note.Id));
+
+        Assert.Equal(4, cut.FindAll(".note-editor-tools .note-tool").Count);
+        Assert.Empty(cut.FindAll(".note-tool-bubble"));
+
+        cut.FindAll(".note-editor-tools .note-tool")
+            .First(tool => tool.GetAttribute("aria-label") == "Table").Click();
+
+        Assert.Contains("not implemented yet", cut.Find(".note-tool-bubble").TextContent);
+    }
+
+    /// <summary>
+    /// What the note is rather than what is in it - how much it matters, where it is filed, whether it
+    /// is sealed - is in the panel's menu, above Save and Back. It used to sit under the writing, which
+    /// is a form somebody had to scroll past to reach the end of what they were writing.
+    /// </summary>
+    [Fact]
+    public void What_the_note_is_lives_in_the_panels_menu()
+    {
+        var note = Note("Shopping");
+        RegisterApiClients(note);
+        var cut = RenderComponent<NoteEditor>(parameters => parameters.Add(editor => editor.Id, note.Id));
+
+        Assert.Empty(cut.FindAll(".note-settings-menu"));
+
+        cut.Find(".editor-rail .overflow-menu-trigger").Click();
+
+        var menu = cut.Find(".editor-rail .note-settings-menu");
+        Assert.Contains("Priority", menu.TextContent);
+        Assert.Contains("Folder", menu.TextContent);
+        Assert.Contains("Private", menu.TextContent);
+    }
+
+    /// <summary>
+    /// The notes in the same folder stand beside the one being written, most recently changed first -
+    /// what is being written is one of a set, and moving between them should not mean going back to a
+    /// page of cards each time. A note filed somewhere else is not in that set.
+    /// </summary>
+    [Fact]
+    public void The_notes_in_the_same_folder_stand_beside_the_one_being_written()
+    {
+        var folderId = Guid.NewGuid();
+        var note = Note("Shopping") with { FolderId = folderId, UpdatedAtUtc = DateTimeOffset.UtcNow.AddDays(-1) };
+        var newer = Note("Packing") with { FolderId = folderId, UpdatedAtUtc = DateTimeOffset.UtcNow };
+        var elsewhere = Note("Work") with { FolderId = Guid.NewGuid() };
+        RegisterApiClients(note, alsoInTheList: [newer, elsewhere]);
+
+        var cut = RenderComponent<NoteEditor>(parameters => parameters.Add(editor => editor.Id, note.Id));
+
+        var rows = cut.FindAll(".note-workspace-row");
+        Assert.Equal(["Packing", "Shopping"], rows.Select(row => row.QuerySelector(".note-workspace-row-title")!.TextContent));
+        // The one being written in is marked rather than left out: a column that hides the note you are
+        // reading answers "where am I" with nothing.
+        Assert.Contains("chosen", rows.First(row => row.TextContent.Contains("Shopping")).ClassList);
+    }
+
+    [Fact]
+    public void Pressing_a_note_beside_the_writing_opens_it()
+    {
+        var folderId = Guid.NewGuid();
+        var note = Note("Shopping") with { FolderId = folderId };
+        var other = Note("Packing") with { FolderId = folderId };
+        RegisterApiClients(note, alsoInTheList: [other]);
+        var navigationManager = Services.GetRequiredService<NavigationManager>();
+        var cut = RenderComponent<NoteEditor>(parameters => parameters.Add(editor => editor.Id, note.Id));
+
+        cut.FindAll(".note-workspace-row").First(row => row.TextContent.Contains("Packing")).Click();
+
+        Assert.EndsWith($"/notes/{other.Id}/edit", navigationManager.Uri);
+    }
+
+    /// <summary>
     /// Answers the editor's whole load sequence from one place: the note itself, the lock it tries to
     /// take, and the contacts the sharing picker offers.
     /// </summary>
-    private void RegisterApiClients(NoteDto? note, IReadOnlyList<ContactDto>? contacts = null, string? lockedByUserName = null)
+    /// <param name="alsoInTheList">
+    /// The account's other notes, for the column beside the writing - see NoteEditor's
+    /// ListTheNotesBesideItAsync. Left out by every test that is not about that column.
+    /// </param>
+    private void RegisterApiClients(
+        NoteDto? note, IReadOnlyList<ContactDto>? contacts = null, string? lockedByUserName = null,
+        IReadOnlyList<NoteDto>? alsoInTheList = null)
     {
         var handler = new StubHttpMessageHandler(request =>
         {
@@ -371,6 +461,19 @@ public sealed class NoteEditorTests : OrbitTestContext
             if (path.StartsWith("/api/share-links", StringComparison.Ordinal))
             {
                 return new HttpResponseMessage(HttpStatusCode.NoContent);
+            }
+
+            // The column of notes beside the writing asks for the lot - see NoteEditor's
+            // ListTheNotesBesideItAsync. Answered as a list rather than as the one note, the way the
+            // server answers it: a fake that hands a single object back where an array is expected
+            // fails the page for a reason no reader would ever see.
+            if (path.TrimEnd('/').EndsWith("/api/notes", StringComparison.Ordinal))
+            {
+                return new HttpResponseMessage(HttpStatusCode.OK)
+                {
+                    Content = JsonContent.Create<IReadOnlyList<NoteDto>>(
+                        [.. note is null ? [] : new[] { note }, .. alsoInTheList ?? []])
+                };
             }
 
             if (path.StartsWith("/api/notes", StringComparison.Ordinal))

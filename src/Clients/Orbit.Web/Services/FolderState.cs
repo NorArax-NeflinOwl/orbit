@@ -161,6 +161,13 @@ public sealed class FolderState
             ? builtInName(builtIn)
             : _folders.FirstOrDefault(stored => stored.Id == folder.FolderId)?.Name ?? string.Empty;
 
+    /// <summary>
+    /// Which kind of thing a folder somebody made holds - see FolderScope. Null for an id this browser
+    /// has no folder for, which is what a stale one reads as.
+    /// </summary>
+    public FolderScope? ScopeOf(Guid folderId)
+        => _folders.FirstOrDefault(folder => folder.Id == folderId) is { } stored ? ScopeOf(stored) : null;
+
     /// <summary>A scope this browser doesn't recognise reads as Tasks - the same fallback the server applies.</summary>
     private static FolderScope ScopeOf(FolderDto folder)
         => Enum.TryParse<FolderScope>(folder.Scope, out var scope) ? scope : FolderScope.Tasks;

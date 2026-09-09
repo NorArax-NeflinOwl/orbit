@@ -742,6 +742,8 @@ public static class PolishTranslations
         ["Finished"] = "Ukończone",
         ["New folder"] = "Nowy folder",
         ["Rename folder"] = "Zmień nazwę folderu",
+        // Takes the folder's tab off the dashboard and nothing else - see FolderTabs.
+        ["Hide on the dashboard"] = "Ukryj na pulpicie",
         ["Delete folder"] = "Usuń folder",
         ["Delete this folder?"] = "Usunąć ten folder?",
         ["Nothing in it is deleted - everything goes back to Public, or to Private if it is sealed."] =
@@ -948,6 +950,12 @@ public static class PolishTranslations
         ["Notification as the event approaches"] = "Powiadomienie przed wydarzeniem",
         ["This event was shared by"] = "To wydarzenie udostępnił",
         ["Checklist item"] = "Pozycja listy",
+        // The row of tools over the corner of a note - see NoteEditor. Three of the four are drawn for
+        // the design that has them rather than for anything they do yet, and say so when pressed.
+        ["Text style"] = "Styl tekstu",
+        ["Table"] = "Tabela",
+        ["Attachment"] = "Załącznik",
+        ["{0}: not implemented yet."] = "{0}: jeszcze niezaimplementowane.",
         ["This note was shared by"] = "Tę notatkę udostępnił",
         ["Add item"] = "Dodaj pozycję",
         ["Item description"] = "Opis pozycji",
@@ -1306,6 +1314,10 @@ public static class PolishTranslations
         ["Unreadable - encrypted with an older key"] = "Nieczytelne — zaszyfrowane starszym kluczem",
         ["another list"] = "inną listą",
         ["This is done when {0} is."] = "To jest zrobione, gdy zrobione jest: {0}.",
+        // An entry waiting on other entries of its own list - see TaskListSteps.
+        ["Waits for"] = "Czeka na",
+        ["Waiting for {0}."] = "Czeka na: {0}.",
+        ["an entry that is no longer here"] = "pozycję, której już tu nie ma",
         ["Yes"] = "Tak",
         ["That inventory no longer exists."] = "Tego magazynu już nie ma.",
         ["Nothing on this shelf yet."] = "Na tej półce nic jeszcze nie ma.",

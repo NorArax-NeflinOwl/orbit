@@ -1,4 +1,4 @@
-using Orbit.Web.Services;
+using Orbit.Core.Text;
 using Xunit;
 
 namespace Orbit.Web.Tests.Services;

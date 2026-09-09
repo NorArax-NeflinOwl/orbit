@@ -187,10 +187,11 @@ public static class NoteEndpoints
     }
 
     private static IReadOnlyList<NoteContentLine> ToDomainContent(IReadOnlyList<NoteContentLineDto> content)
-        => content.Select(line => new NoteContentLine(line.Text, line.IsChecklistItem, line.IsChecked)).ToList();
+        => content.Select(line => new NoteContentLine(
+            line.Text, line.IsChecklistItem, line.IsChecked, line.IsFailed && !line.IsChecked)).ToList();
 
     private static NoteContentLineDto ToDto(NoteContentLine line)
-        => new(line.Text, line.IsChecklistItem, line.IsChecked);
+        => new(line.Text, line.IsChecklistItem, line.IsChecked, line.IsFailed);
 
 
     /// <summary>Both halves travel together or not at all, so a request carrying only one is treated as carrying neither.</summary>
