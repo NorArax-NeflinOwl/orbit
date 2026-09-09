@@ -279,7 +279,16 @@ an omission rather than a decision, and because undoing it would be a migration 
 on it is done whatever its own tick says, so its deadlines leave the calendar's list and its grid marks
 (`Calendar.LoadDueTasksAsync`, `Calendar.IsTickedOff`), the dashboard's "Upcoming" card and the count of
 what is due today (`Dashboard.UpcomingDeadlines`, `TasksDueTodayCount`), and the same two places on the
-phone (`CalendarDeadline`, `DashboardViewModel`). Saying "no more of this" and then being reminded of it
+phone (`CalendarDeadline`, `DashboardViewModel`). The day's count asks this as **closed while work was
+still unticked on it**, rather than as "finished": a list is also finished when its entries simply all
+got ticked, and those are exactly the entries the fraction below exists to show.
+
+**The day is counted as a fraction: "1/3 tasks due today", "1/2 events today"** (both clients, since
+2026-09-09). A bare number answered "how much is there" and never "how far through it am I", which is
+the question a row of counts over a date is asked - and because it counted only what was left, a day
+whose work had all been ticked off read "0 tasks due today", which is three tasks that disappeared
+rather than three that were done. An appointment carries no tick of its own, so the events half asks
+the clock instead: one that has ended is one nobody has to get to any more. Saying "no more of this" and then being reminded of it
 every morning would be the app arguing with the reader.
 
 **And nothing announces itself about it either.** The three background services that say what is owed

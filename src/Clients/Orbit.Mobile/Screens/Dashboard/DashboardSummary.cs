@@ -4,9 +4,25 @@ namespace Orbit.Mobile.Screens.Dashboard;
 /// The counts along the top of the dashboard - what is actually happening today, rather than how much
 /// there is in total. Mirrors Orbit.Web's "today strip".
 /// </summary>
-public sealed record TodaySummary(string Date, int TasksDueToday, int EventsToday, int PendingChatRequests)
+/// <param name="TasksDoneToday">
+/// How many of the day's entries are crossed off, which is what the strip says over the total - see
+/// <see cref="TasksDueTodayReads"/>. Both counts are needed rather than one: a bare number answered
+/// "how much is there" and never "how far through it am I".
+/// </param>
+/// <param name="EventsOverToday">
+/// How many of today's appointments are behind the reader. An appointment carries no tick of its own,
+/// so "done" is the clock's answer: one that has ended is one nobody has to get to any more.
+/// </param>
+public sealed record TodaySummary(
+    string Date, int TasksDueToday, int EventsToday, int PendingChatRequests,
+    int TasksDoneToday = 0, int EventsOverToday = 0)
 {
     public static readonly TodaySummary Nothing = new(string.Empty, 0, 0, 0);
+
+    /// <summary>"1/3", as Orbit.Web's today strip reads it. Formatted here rather than in the XAML, which cannot join two bindings.</summary>
+    public string TasksDueTodayReads => $"{TasksDoneToday}/{TasksDueToday}";
+
+    public string EventsTodayReads => $"{EventsOverToday}/{EventsToday}";
 
     /// <summary>
     /// Whether anybody is waiting to be answered. A standing "0 new chat requests" is not news, so the
