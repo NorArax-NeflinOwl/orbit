@@ -5,7 +5,7 @@ Date: 2026-09-09
 
 ## Branch and PR
 
-- Branch: `claude/orbit-mobile-continue-131a2c`, cut from `origin/Coding`.
+- Branch: `claude/mobile-design-continued`, cut from `origin/Coding`.
 - Open PR: **#267 — [Mobile] Walk the written spec on a device, and fix the three things that were
   dead**, against `Coding`. The new session inherits it: further work goes on that branch and #267's
   description is extended so it still documents everything it carries. The other open PRs are **#264**
@@ -29,8 +29,8 @@ heading, and nine of the twelve it specifies are grouped; `ScreenMenu` could dra
 list, so four screens made the reader open a *second* panel to reach the second half of the same
 question. `Groups` + `ShowGroups` carry it, an empty group is left out rather than drawn as a heading
 over nothing, and `Entries` stays as the flattened list. `ScreenMenuEntry.Count` is a quiet column at the
-end of the line. Converted and device-verified: **notes, tasks, map, note**. Still flat and named in the
-design as grouped: **dashboard** ("Show" + "Sort") and **calendar** ("Show" + "Calendar").
+end of the line. Every menu the design names as grouped is now grouped and device-verified: **notes, tasks, map, note,
+dashboard, calendar**.
 
 **The note editor's first two behaviours** (`2d11d96e`). Enter carries what follows the caret onto the new
 line; a checklist continues until a line is left empty. Backspace at the head of a line with a box takes
@@ -42,7 +42,7 @@ the box off, and only a second press joins upwards. The editor gained its foot -
 `info/android-design-deltas.md` is the whole list, screen by screen, with what is done marked. Its own
 recommended order, with the first two items now partly done:
 
-1. ~~Groups and counts in `ScreenMenu`~~ - **finish it**: the dashboard and calendar menus are still flat.
+1. ~~Groups and counts in `ScreenMenu`~~ - **done**, all six menus.
 2. The note editor - two of four done. **Arrow up/down between lines** is the next one and wants the
    Android key hook `NoteLineBackspace` already owns (same file, one more key). The foot's left half is
    deliberately not built.

@@ -105,9 +105,15 @@ about them is under "Screens already built" below.
   `ScreenMenu.Groups` and `ShowGroups` now carry it (named rather than overloaded: an empty collection
   expression fits both signatures, so `Show([])` would not compile), an empty group is left out rather
   than drawn as a heading over nothing, and `Entries` stays as the flattened list of everything in the
-  menu. **Converted so far**: notes, tasks, the map and a note - each of which lost a second press.
-  **Still flat, and named in the design as grouped**: the dashboard ("Show" and "Sort") and the calendar
-  ("Show" and "Calendar").
+  menu. **Every menu the design names as grouped is grouped**: notes, tasks, the map, a note, the
+  dashboard and the calendar. Four of them lost a second press the reader used to have to make.
+
+  Two of the six do not carry the design's own entries, and deliberately. The map has no "Off" in its
+  Sharing group - sharing is not a state that screen is in but a set of people it is shared with. And
+  the calendar's two groups are *Sort* and *Show* rather than the design's *Show* (layers) and
+  *Calendar* (go to today, share this day…): the layers do not exist, "go to today" is already a button
+  on the page, and sharing a day is not built. What was taken from the design there is the shape - it
+  had always asked two different questions under one heading.
 - **The counts on folder entries.** Notes and Tasks list their folders in the menu with the number of
   things in each. Nothing in `ScreenMenuEntry` can carry that. *(Done 2026-09-09: `ScreenMenuEntry.Count`
   is its own quiet column at the end of the line. Folders themselves are still not built on the phone.)*
