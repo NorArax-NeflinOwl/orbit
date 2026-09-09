@@ -36,6 +36,70 @@ public sealed class ScreenHistoryTests
         return (history, new Trail(history));
     }
 
+    /// <summary>
+    /// A screen with something to lose is asked first - the note editor, which is written by Save and
+    /// by nothing else. Answering no leaves the reader where they were.
+    ///
+    /// GoBack still says true, because true means "this press has been dealt with" rather than "the
+    /// screen has changed": Android's back callback cannot wait for an answer, so the question is asked
+    /// after it returns.
+    /// </summary>
+    [Fact]
+    public async Task A_screen_that_asks_before_leaving_stays_put_when_the_answer_is_no()
+    {
+        var (history, trail) = Fresh();
+        trail.Go(Screen.Notes, ScreenHistory.Arrival.Section);
+        trail.Go(Screen.Note, ScreenHistory.Arrival.Detail);
+        var asked = 0;
+        history.AskBeforeLeaving(() => { asked++; return Task.FromResult(false); });
+
+        Assert.True(history.GoBack());
+        await Task.Yield();
+
+        Assert.Equal(1, asked);
+        Assert.Empty(trail.Shown);
+        Assert.True(history.CanGoBack);
+    }
+
+    [Fact]
+    public async Task A_screen_that_asks_before_leaving_goes_when_the_answer_is_yes()
+    {
+        var (history, trail) = Fresh();
+        trail.Go(Screen.Notes, ScreenHistory.Arrival.Section);
+        trail.Go(Screen.Note, ScreenHistory.Arrival.Detail);
+        history.AskBeforeLeaving(() => Task.FromResult(true));
+
+        Assert.True(history.GoBack());
+        await Task.Yield();
+
+        Assert.Equal([Screen.Notes], trail.Shown);
+    }
+
+    /// <summary>
+    /// The question comes down with the screen that put it up, so the next screen is not asked what the
+    /// last one wanted to know - and a screen cannot take down a question a later one put up.
+    /// </summary>
+    [Fact]
+    public async Task A_question_is_only_taken_down_by_whoever_put_it_up()
+    {
+        var (history, trail) = Fresh();
+        trail.Go(Screen.Notes, ScreenHistory.Arrival.Section);
+        trail.Go(Screen.Note, ScreenHistory.Arrival.Detail);
+        Func<Task<bool>> theNote = () => Task.FromResult(false);
+        Func<Task<bool>> somebodyElse = () => Task.FromResult(false);
+
+        history.AskBeforeLeaving(theNote);
+        history.StopAskingBeforeLeaving(somebodyElse);
+        Assert.True(history.GoBack());
+        await Task.Yield();
+        Assert.Empty(trail.Shown);
+
+        history.StopAskingBeforeLeaving(theNote);
+        Assert.True(history.GoBack());
+        await Task.Yield();
+        Assert.Equal([Screen.Notes], trail.Shown);
+    }
+
     [Fact]
     public void A_detail_goes_back_to_wherever_it_was_opened_from()
     {

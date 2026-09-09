@@ -2,6 +2,7 @@ using System.Windows.Input;
 using Orbit.Mobile.Localization;
 using Orbit.Maui.Controls;
 using Orbit.Mobile.Screens;
+using Orbit.Mobile.Screens.Navigation;
 using Orbit.Mobile.Screens.Notes;
 using Orbit.Mobile.Screens.Tasks;
 
@@ -34,8 +35,12 @@ public partial class NoteDetailPage : ContentPage, ITitleMenu
 	/// </summary>
 	private NoteLineRow? _toFocus;
 
-	public NoteDetailPage(NoteDetailViewModel viewModel, Translations translations)
+	private readonly ScreenHistory _history;
+
+	public NoteDetailPage(NoteDetailViewModel viewModel, Translations translations, ScreenHistory history)
 	{
+		_history = history;
+
 		// Before InitializeComponent, not after: the menu is bound from the static part of the tree,
 		// which is built there and reads a page's plain property exactly once - see
 		// CalendarEventDetailPage, where the same order matters for the same reason.
@@ -82,13 +87,39 @@ public partial class NoteDetailPage : ContentPage, ITitleMenu
 	{
 		base.OnAppearing();
 		_viewModel.LoadCommand.Execute(null);
+
+		// Back is the way out of this screen - the bar has no arrow - and this screen is the one that
+		// throws work away when it is used, because the note is written by Save and by nothing else.
+		_history.AskBeforeLeaving(MayLeaveAsync);
 	}
 
 	/// <summary>Lets go of the note's edit lock as the screen leaves - see EditLock.</summary>
 	protected override async void OnDisappearing()
 	{
 		base.OnDisappearing();
+		_history.StopAskingBeforeLeaving(MayLeaveAsync);
 		await _viewModel.CloseAsync();
+	}
+
+	/// <summary>
+	/// Asked as back takes this screen away, and only where there is something to lose: a note that was
+	/// read and not written in leaves without a word, which is most of the times it is opened.
+	///
+	/// Named for what each button does rather than "OK" and "Cancel" - the press that loses the writing
+	/// says so, which is the same rule every delete in Orbit follows.
+	/// </summary>
+	private async Task<bool> MayLeaveAsync()
+	{
+		if (!_viewModel.HasUnsavedChanges)
+		{
+			return true;
+		}
+
+		return await Confirmation.AskAsync(
+			this,
+			_translations["Leave without saving? What you have written will be lost."],
+			_translations["Discard changes"],
+			_translations["Keep writing"]);
 	}
 
 	/// <summary>

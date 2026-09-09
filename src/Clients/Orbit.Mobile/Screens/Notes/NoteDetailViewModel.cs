@@ -327,6 +327,9 @@ public sealed partial class NoteDetailViewModel : ObservableObject
             return false;
         }
 
+        // Written down, so leaving no longer has anything to ask about.
+        RememberWhatIsWrittenDown();
+
         await SynchroniseAsync(cancellationToken);
         return true;
     }
@@ -403,7 +406,35 @@ public sealed partial class NoteDetailViewModel : ObservableObject
         {
             AddLineAfter(null);
         }
+
+        RememberWhatIsWrittenDown();
     }
+
+    /// <summary>
+    /// What the note said the last time it was read or written, so that leaving can tell an edit from a
+    /// note somebody only looked at - see <see cref="HasUnsavedChanges"/>.
+    /// </summary>
+    private string _writtenDown = string.Empty;
+
+    /// <summary>
+    /// Everything a Save would send, as one string. Compared rather than tracked with a flag: a flag
+    /// says "something was touched", and something touched and put back is not a change - typing a
+    /// letter and deleting it would leave a note asking to be saved with nothing to save.
+    /// </summary>
+    private string WhatIsOnTheScreen()
+        => string.Join(
+            '\u001f',
+            Lines
+                .Select(line => $"{line.Text}\u001e{line.IsChecklistItem}\u001e{line.IsChecked}")
+                .Prepend(Title));
+
+    private void RememberWhatIsWrittenDown() => _writtenDown = WhatIsOnTheScreen();
+
+    /// <summary>
+    /// Whether leaving now would lose something. False on a note nobody can edit, and false once Save
+    /// has been pressed - which is the whole of what the question at the door needs to know.
+    /// </summary>
+    public bool HasUnsavedChanges => CanEdit && WhatIsOnTheScreen() != _writtenDown;
 
     /// <summary>
     /// Watches one line for the mark that makes it tickable.

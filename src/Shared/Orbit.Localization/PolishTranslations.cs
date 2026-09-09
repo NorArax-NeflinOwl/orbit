@@ -1583,6 +1583,12 @@ public static class PolishTranslations
         ["Updated {0}"] = "Zmieniono {0}",
         ["{0} · all day"] = "{0} · cały dzień",
         ["{0} – {1}"] = "{0} – {1}",
+        // Asked as back takes the note editor away with something typed and not saved - see
+        // NoteDetailPage.MayLeaveAsync. Both buttons say what they do rather than "OK" and "Cancel".
+        ["Leave without saving? What you have written will be lost."] =
+            "Wyjść bez zapisania? To, co napisałeś, przepadnie.",
+        ["Discard changes"] = "Porzuć zmiany",
+        ["Keep writing"] = "Pisz dalej",
         // Under the heading on the registration screen: one account, both clients.
         ["One account for the browser and this phone."] = "Jedno konto dla przeglądarki i tego telefonu.",
         // The one place the note editor says where a tick box comes from - see NoteDetailPage's foot.

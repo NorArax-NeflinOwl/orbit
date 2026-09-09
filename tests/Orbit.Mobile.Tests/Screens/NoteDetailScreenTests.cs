@@ -138,6 +138,50 @@ public sealed class NoteDetailScreenTests
         Assert.Equal("Shopping", (await context.OpenAsync(note.LocalId)).Title);
     }
 
+    /// <summary>
+    /// What the question at the door reads - see NoteDetailPage.MayLeaveAsync. Compared against what
+    /// was last written rather than tracked with a flag, so a letter typed and deleted again leaves
+    /// nothing to ask about.
+    /// </summary>
+    [Fact]
+    public async Task A_note_knows_whether_leaving_would_lose_anything()
+    {
+        using var context = new ScreenContext();
+        var note = await context.AddNoteAsync("Shopping", "milk");
+        var screen = await context.OpenAsync(note.LocalId);
+
+        Assert.False(screen.HasUnsavedChanges);
+
+        screen.Lines[0].Text = "milk and bread";
+        Assert.True(screen.HasUnsavedChanges);
+
+        screen.Lines[0].Text = "milk";
+        Assert.False(screen.HasUnsavedChanges);
+
+        screen.Title = "Shopping list";
+        Assert.True(screen.HasUnsavedChanges);
+
+        await screen.SaveLinesCommand.ExecuteAsync(null);
+        Assert.False(screen.HasUnsavedChanges);
+    }
+
+    /// <summary>A tick is a change like any other, and it is not written until Save either.</summary>
+    [Fact]
+    public async Task Ticking_a_line_is_something_leaving_would_lose()
+    {
+        using var context = new ScreenContext();
+        var note = await context.AddNoteAsync("Shopping", "milk");
+        var screen = await context.OpenAsync(note.LocalId);
+        screen.ToggleChecklistCommand.Execute(screen.Lines[0]);
+        await screen.SaveLinesCommand.ExecuteAsync(null);
+
+        screen.ToggleCheckedCommand.Execute(screen.Lines[0]);
+
+        Assert.True(screen.HasUnsavedChanges);
+        await screen.CloseAsync();
+        Assert.False((await context.OpenAsync(note.LocalId)).Lines[0].IsChecked);
+    }
+
     /// <summary>Pressing Save is what commits both of them.</summary>
     [Fact]
     public async Task Save_writes_the_name_and_the_lines_together()
