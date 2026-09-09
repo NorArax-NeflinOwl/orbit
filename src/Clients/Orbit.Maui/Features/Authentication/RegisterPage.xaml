@@ -8,36 +8,67 @@
     x:DataType="screens:RegisterViewModel"
     Title="{controls:Translate 'Create an account'}">
 
-    <ScrollView>
-        <VerticalStackLayout Padding="32" Spacing="16" VerticalOptions="Center">
+    <!-- A heading and five named boxes. Ranged left rather than centred: this is a form to work down,
+         and centred labels over left-aligned boxes make a column that reads as neither.
 
-            <Label Text="{controls:Translate 'Create an account'}" FontSize="28" FontAttributes="Bold" HorizontalOptions="Center" />
+         Five, where the design draws four - it has no Login, and this account has one. A display name
+         is what other people see and a login is what you sign in with; dropping the box would not
+         simplify the form, it would make the account unreachable. -->
+    <ScrollView>
+        <VerticalStackLayout Padding="32,40" Spacing="14" VerticalOptions="Center">
+
+            <Label Text="{controls:Translate 'Create an account'}" FontFamily="OrbitDisplay"
+                   FontSize="32" FontAttributes="Bold" />
+
+            <Label Text="{controls:Translate 'One account for the browser and this phone.'}"
+                   Style="{StaticResource SubtleLabel}" FontSize="13" LineBreakMode="WordWrap"
+                   Margin="0,0,0,8" />
 
             <!-- Said up front rather than after four fields have been filled in. -->
             <Label Text="{controls:Translate 'Creating an account needs a connection to Orbit.'}"
                    IsVisible="{Binding IsOffline}"
                    TextColor="{AppThemeBinding Light={StaticResource WarningLight}, Dark={StaticResource WarningDark}}"
-                   HorizontalTextAlignment="Center"
                    LineBreakMode="WordWrap" />
 
-            <Entry Placeholder="{controls:Translate 'Email address'}" Text="{Binding EmailAddress}" Keyboard="Email" IsSpellCheckEnabled="False" />
-            <!-- Plain, not the default text keyboard: iOS capitalises the first letter of a sentence,
-                 which silently turns a typed username into a different one. -->
-            <Entry Placeholder="{controls:Translate 'Login'}" Text="{Binding UserName}" Keyboard="Plain" />
-            <Entry Placeholder="{controls:Translate 'Display name'}" Text="{Binding DisplayName}" />
-            <Entry Placeholder="{controls:Translate 'Password'}" Text="{Binding Password}" IsPassword="True" />
-            <!-- Asked a second time, as the browser's form asks: a password nobody can read back is a
-                 password nobody can check, and one mistyped here locks somebody out of the account they
-                 are making. -->
-            <Entry Placeholder="{controls:Translate 'Repeat password'}" Text="{Binding RepeatedPassword}"
-                   IsPassword="True" ReturnType="Go" ReturnCommand="{Binding RegisterCommand}" />
+            <VerticalStackLayout Spacing="5">
+                <Label Text="{controls:Translate 'Display name'}" Style="{StaticResource FormFieldLabel}" />
+                <Entry Text="{Binding DisplayName}" />
+            </VerticalStackLayout>
+
+            <VerticalStackLayout Spacing="5">
+                <Label Text="{controls:Translate 'Email address'}" Style="{StaticResource FormFieldLabel}" />
+                <Entry Text="{Binding EmailAddress}" Keyboard="Email" IsSpellCheckEnabled="False" />
+            </VerticalStackLayout>
+
+            <VerticalStackLayout Spacing="5">
+                <Label Text="{controls:Translate 'Login'}" Style="{StaticResource FormFieldLabel}" />
+                <!-- Plain, not the default text keyboard: iOS capitalises the first letter of a sentence,
+                     which silently turns a typed username into a different one. -->
+                <Entry Text="{Binding UserName}" Keyboard="Plain" />
+            </VerticalStackLayout>
+
+            <VerticalStackLayout Spacing="5">
+                <Label Text="{controls:Translate 'Password'}" Style="{StaticResource FormFieldLabel}" />
+                <Entry Text="{Binding Password}" IsPassword="True" />
+            </VerticalStackLayout>
+
+            <VerticalStackLayout Spacing="5">
+                <!-- Asked a second time, as the browser's form asks: a password nobody can read back is a
+                     password nobody can check, and one mistyped here locks somebody out of the account
+                     they are making. -->
+                <Label Text="{controls:Translate 'Repeat password'}" Style="{StaticResource FormFieldLabel}" />
+                <Entry Text="{Binding RepeatedPassword}" IsPassword="True"
+                       ReturnType="Go" ReturnCommand="{Binding RegisterCommand}" />
+            </VerticalStackLayout>
 
             <Label Text="{Binding ErrorMessage}"
                    IsVisible="{Binding HasError}"
                    TextColor="{AppThemeBinding Light={StaticResource WarningLight}, Dark={StaticResource WarningDark}}"
                    LineBreakMode="WordWrap" />
 
-            <Button Text="{controls:Translate 'Create account'}" Command="{Binding RegisterCommand}" />
+            <!-- The one thing this screen is for, so it is outlined in the accent as sign-in's is. -->
+            <Button Text="{controls:Translate 'Create account'}" Style="{StaticResource PrimaryButton}"
+                    Command="{Binding RegisterCommand}" Margin="0,6,0,0" />
 
             <ActivityIndicator IsRunning="{Binding RegisterCommand.IsRunning}"
                                IsVisible="{Binding RegisterCommand.IsRunning}"
@@ -45,7 +76,7 @@
 
             <Button Text="{controls:Translate 'I already have an account'}"
                     Command="{Binding GoToSignInCommand}"
-                    Style="{StaticResource LinkButton}" />
+                    Style="{StaticResource LinkButton}" HorizontalOptions="Center" />
 
         </VerticalStackLayout>
     </ScrollView>

@@ -8,24 +8,34 @@
     x:DataType="screens:SignInViewModel"
     Title="{controls:Translate 'Sign in'}">
 
+    <!-- The mark, the name, two named boxes, and the one button this screen is for. No bar and no ad
+         bar: nobody is signed in, so there is no drawer to open and nothing to sell to an account that
+         does not exist yet. Centred down the page rather than sitting at the top, because a form of two
+         fields at the head of an empty screen reads as a screen that failed to load. -->
     <ScrollView>
-        <VerticalStackLayout Padding="32" Spacing="20" VerticalOptions="Center">
+        <VerticalStackLayout Padding="32,40" Spacing="16" VerticalOptions="Center">
 
-            <controls:OrbitMark MarkSize="80" HorizontalOptions="Center" />
+            <controls:OrbitMark MarkSize="72" HorizontalOptions="Center" />
 
-            <Label Text="{controls:Translate 'Orbit'}" FontSize="40" FontAttributes="Bold" HorizontalOptions="Center" />
+            <!-- The name in the display face at its lightest, which is the one place in the app the word
+                 "Orbit" is set as a wordmark rather than as a heading. -->
+            <Label Text="{controls:Translate 'Orbit'}" FontFamily="OrbitDisplayLight" FontSize="44"
+                   HorizontalOptions="Center" Margin="0,0,0,8" />
 
-            <Entry Placeholder="{controls:Translate 'Email or login'}"
-                   Text="{Binding EmailOrUserName}"
-                   Keyboard="Email"
-                   IsSpellCheckEnabled="False"
-                   ReturnType="Next" />
+            <!-- Named above the box rather than inside it. A placeholder is gone the moment somebody
+                 types, so a half-filled form stops saying what its boxes are - which matters most on the
+                 one screen where getting it wrong means not getting in. -->
+            <VerticalStackLayout Spacing="5">
+                <Label Text="{controls:Translate 'Email or login'}" Style="{StaticResource FormFieldLabel}" />
+                <Entry Text="{Binding EmailOrUserName}" Keyboard="Email"
+                       IsSpellCheckEnabled="False" ReturnType="Next" />
+            </VerticalStackLayout>
 
-            <Entry Placeholder="{controls:Translate 'Password'}"
-                   Text="{Binding Password}"
-                   IsPassword="True"
-                   ReturnType="Go"
-                   ReturnCommand="{Binding SignInCommand}" />
+            <VerticalStackLayout Spacing="5">
+                <Label Text="{controls:Translate 'Password'}" Style="{StaticResource FormFieldLabel}" />
+                <Entry Text="{Binding Password}" IsPassword="True" ReturnType="Go"
+                       ReturnCommand="{Binding SignInCommand}" />
+            </VerticalStackLayout>
 
             <Label Text="{Binding ErrorMessage}"
                    IsVisible="{Binding HasError}"
@@ -38,24 +48,35 @@
 
             <!-- Absent rather than disabled where the deployment has no Google client id for this app:
                  there is nothing behind the button then, and offering one would only ever waste a tap.
-                 Below the password sign-in and not above it, as on the web's login page. -->
-            <Label Text="{controls:Translate 'or'}" IsVisible="{Binding IsGoogleOffered}"
-                   HorizontalOptions="Center" FontSize="12" Style="{StaticResource SubtleLabel}" />
+                 Below the password sign-in and not above it, as on the web's login page.
+
+                 The word sits in a gap in the rule rather than alone on a line, so the two ways in read
+                 as two halves of one choice instead of as a heading over the second. -->
+            <Grid ColumnDefinitions="*,Auto,*" ColumnSpacing="12" IsVisible="{Binding IsGoogleOffered}">
+                <BoxView Grid.Column="0" Style="{StaticResource Hairline}" VerticalOptions="Center" />
+                <Label Grid.Column="1" Text="{controls:Translate 'or'}" FontSize="12"
+                       Style="{StaticResource SubtleLabel}" VerticalOptions="Center" />
+                <BoxView Grid.Column="2" Style="{StaticResource Hairline}" VerticalOptions="Center" />
+            </Grid>
 
             <Button Text="{controls:Translate 'Continue with Google'}"
                     IsVisible="{Binding IsGoogleOffered}"
                     Command="{Binding SignInWithGoogleCommand}"
                     Style="{StaticResource SecondaryButton}" />
 
-            <!-- The one way back in for somebody who cannot get past this screen. It was reachable
-                 only from the chat key gate, which is behind signing in. -->
-            <Button Text="{controls:Translate 'Forgotten your password?'}"
-                    Command="{Binding GoToPasswordResetCommand}"
-                    Style="{StaticResource LinkButton}" />
+            <!-- Side by side under the form, not stacked: they are the two ways off this screen and
+                 neither is the thing it is for, so together they take one line instead of two.
+                 "Forgotten your password?" is the one way back in for somebody who cannot get past this
+                 screen - it was reachable only from the chat key gate, which is behind signing in. -->
+            <HorizontalStackLayout Spacing="22" HorizontalOptions="Center" Margin="0,8,0,0">
+                <Button Text="{controls:Translate 'Forgotten your password?'}"
+                        Command="{Binding GoToPasswordResetCommand}"
+                        Style="{StaticResource LinkButton}" />
 
-            <Button Text="{controls:Translate 'Create an account'}"
-                    Command="{Binding GoToRegisterCommand}"
-                    Style="{StaticResource LinkButton}" />
+                <Button Text="{controls:Translate 'Create an account'}"
+                        Command="{Binding GoToRegisterCommand}"
+                        Style="{StaticResource LinkButton}" />
+            </HorizontalStackLayout>
 
             <ActivityIndicator IsRunning="{Binding SignInCommand.IsRunning}"
                                IsVisible="{Binding SignInCommand.IsRunning}"

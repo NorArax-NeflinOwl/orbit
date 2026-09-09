@@ -1566,6 +1566,8 @@ public static class PolishTranslations
         ["Updated {0}"] = "Zmieniono {0}",
         ["{0} · all day"] = "{0} · cały dzień",
         ["{0} – {1}"] = "{0} – {1}",
+        // Under the heading on the registration screen: one account, both clients.
+        ["One account for the browser and this phone."] = "Jedno konto dla przeglądarki i tego telefonu.",
         // The one place the note editor says where a tick box comes from - see NoteDetailPage's foot.
         ["Type [] for a checkbox"] = "Wpisz [], aby dodać pole",
         ["Untitled"] = "Bez tytułu",

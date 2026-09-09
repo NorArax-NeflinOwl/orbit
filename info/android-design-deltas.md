@@ -48,6 +48,10 @@ never sees it. Its label is the misleading part, not its existence.
 This is the larger half of what the design is worth. `android-ui-parity.md` lists the screens the spec
 does not describe; the design describes six of them, so they no longer have to be guessed at.
 
+***All three of the screens below were redrawn on 2026-09-09.*** They existed already - this was their
+composition, not their plumbing. Sign in and create-an-account are device-verified; the entry screen is
+not, for the reason under its own heading.
+
 **Sign in.** No bar, no ad bar. Centred column: the Orbit mark at 72, "Orbit" at 44 in Cormorant
 regular, a gap, "Email or login" and "Password" as labelled fields (12px label above a 44-tall box),
 the accent-outlined "Sign in", an "or" rule with the word in the middle, "Continue with Google" outlined
@@ -62,6 +66,21 @@ a centred "Already have an account? Sign in".
 on one row; a bordered "Add a note to this item" text area; then hairline label/value rows in small
 caps on the left and the value on the right; and a foot line of *list name — hairline — position in the
 list*. Its title menu: Mark as done/open, Move to another list…, Duplicate, Delete item.
+
+*Redrawn as far as the screen goes, which is less than the design draws.* The design's entry is
+**editable** - a live tick box, a typed name, a note field - and this screen is deliberately not: it is
+reached from the calendar, reads one entry, and says so ("an entry is read here rather than filled in";
+the list it is on is where it can be ticked off, which is Orbit.Web's own division). So it got the
+composition and none of the editing: the tick circle and the name at 28 as one row at the head, the
+facts as hairline label/value rows, and the list's name moved from over the head of the screen into the
+foot. Not built, and not invented: the note field, the tick being pressable, "Move to another list…",
+"Duplicate", "Delete item", and the position in the list - **nothing hands this screen the list to
+count within**, so "2 of 5" has no source.
+
+**It is the one thing this session did not walk on the device.** `TaskItemSummaryPage` opens from the
+calendar only for a deadline that `IsSomewhere` (see `CalendarViewModel.OpenDeadline`); every other tap
+lands on the task list instead. Giving an entry a place did not bring it into reach in the time
+available. The XAML compiles, which is the only automated guard `Orbit.Maui` has.
 
 **The map's two lists.** These were invented on 9 September to satisfy "the lists open as their own
 page", and the design has them after all - so they are worth checking against it rather than keeping.

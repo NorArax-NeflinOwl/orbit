@@ -46,9 +46,12 @@ recommended order, with the first two items now partly done:
 2. The note editor - two of four done. **Arrow up/down between lines** is the next one and wants the
    Android key hook `NoteLineBackspace` already owns (same file, one more key). The foot's left half is
    deliberately not built.
-3. The three screens the spec never reached that the design draws: **sign in**, **create an account**,
-   **one entry on its own**. These are the biggest single win left - the design describes them fully.
-4. The per-screen corrections, independent of each other.
+3. ~~The three screens the spec never reached that the design draws.~~ **Done 2026-09-09** - all three
+   existed already, so this was composition rather than plumbing. Sign in and create-an-account are
+   device-verified. `TaskItemSummaryPage` got the composition and **none of the editing the design
+   draws**, because that screen is deliberately read-only, and it is **the one thing not walked on the
+   device** - see `android-design-deltas.md` under its own heading for why it is hard to reach.
+4. The per-screen corrections, independent of each other. This is what is left.
 
 ## Rules that came from the user this session, and are not negotiable
 
@@ -62,8 +65,12 @@ recommended order, with the first two items now partly done:
 
 ## Still failing / unknown
 
-- **Nothing about the design's own screens has been built yet** (sign in, register, one entry on its
-  own). Item 3 above is untouched.
+- **`TaskItemSummaryPage` has not been seen running.** It opens from the calendar only for a deadline
+  that `IsSomewhere`; every other tap lands on the task list. Switching an entry's Type to Calendar and
+  giving it a place did not bring it into reach quickly enough. Walk it first.
+- **Left on the emulator, and harmless**: "Update stock levels" on *Restock supplies - Workshop* was
+  switched to a Calendar type and given the place "Marszalkowska 1, Warszawa" while trying to reach that
+  screen.
 - **The task list's filters still write their count into their label** - "All 4", "Pending 0",
   "Overdue 3" come out of `TaskListFilter.Label` as one string, so the number is the same size as the
   words and a filter with nothing behind it says "0". `ScreenMenuEntry.Count` exists for this now; the
