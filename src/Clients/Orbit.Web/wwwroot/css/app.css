@@ -5849,6 +5849,17 @@ input.note-editor-title {
         padding-bottom: 96px;
     }
 
+    /* The foot belongs to the editor here. Both are position:fixed at bottom:0 and the banner's
+       z-index is the higher of the two, so it sat *over* Save, Back and the menu - on a phone, on the
+       one screen whose whole purpose is a button. There is no stacking either: two fixed bars is most
+       of a phone's height, on the screen somebody is typing into.
+
+       Only below 680px, which is where the panel becomes a bar. Between 681px and 1199px the banner
+       shows and the panel is a column beside the page, so nothing overlaps and the slot is kept. */
+    .app-body:has(.editor-rail) .ad-banner {
+        display: none;
+    }
+
     /* Half the size, because a bar that is 60px tall on a phone is a bar and a half. */
     .icon-btn.page-action {
         width: 44px;

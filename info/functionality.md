@@ -197,6 +197,13 @@ Orbit advertises **itself**, in three places:
 - a **bar across the foot** of a narrower one, and of every main screen in the Android app;
 - one **dialog**, shown once a visit.
 
+**The bar gives way to an editor's own bar.** Below 680px the editing screens' panel becomes a bar
+across the foot too (see `EditorRail`), and both are fixed to the bottom edge - so the advert sat over
+Save, Back and the menu, on a phone, on the screens whose whole purpose is those buttons. The banner is
+left out where a panel is on screen. Not stacked: two bars is most of a phone's height, on the screen
+somebody is typing into. Between 681px and 1199px the panel is a column beside the page instead, so
+nothing overlaps and the slot is kept.
+
 What they show comes from `Orbit.Core.Advertising.HouseAds` - Orbit's own pages, written in English
 there and translated like every other string. Every advert leads to a path on this Orbit, never to
 another site, and **nothing is fetched from a third party**. That is deliberate rather than a stage on
