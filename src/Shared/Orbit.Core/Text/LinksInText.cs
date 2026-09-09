@@ -1,6 +1,6 @@
 using System.Text.RegularExpressions;
 
-namespace Orbit.Web.Services;
+namespace Orbit.Core.Text;
 
 /// <summary>
 /// One piece of a description: either words, or a web address somebody wrote in the middle of them.
@@ -13,7 +13,9 @@ namespace Orbit.Web.Services;
 public sealed record TextRun(string Text, string? Url);
 
 /// <summary>
-/// Finds the web addresses in a description so they can be pressed instead of copied out by hand.
+/// Finds the web addresses in what somebody wrote, so they can be pressed instead of copied out by
+/// hand. Shared rather than the browser's own: the phone draws the same words and would otherwise need
+/// a second rule about what counts as an address, which is exactly the kind of pair that drifts.
 ///
 /// A splitter rather than something that produces HTML, and that is the whole security design: what
 /// comes back is text and addresses, and the component that draws it hands both to Blazor, which

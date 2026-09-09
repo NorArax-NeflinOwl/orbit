@@ -100,7 +100,7 @@ public sealed class PublicSharedItemReader
         }
 
         var lines = note.Content
-            .Select(line => new PublicSharedItemLine(line.Text, line.IsChecklistItem, line.IsChecked, Detail: null))
+            .Select(line => new PublicSharedItemLine(line.Text, line.IsChecklistItem, line.IsChecked, Detail: null, line.IsFailed))
             .ToList();
 
         return new PublicSharedItem(
@@ -117,7 +117,7 @@ public sealed class PublicSharedItemReader
 
         var lines = taskList.Items
             .Select(item => new PublicSharedItemLine(
-                item.Description, IsChecklistItem: true, item.IsCompleted, FormatDueDate(item.DueDateUtc)))
+                item.Description, IsChecklistItem: true, item.IsCompleted, FormatDueDate(item.DueDateUtc), item.IsFailed))
             .ToList();
 
         var completedCount = taskList.Items.Count(item => item.IsCompleted);

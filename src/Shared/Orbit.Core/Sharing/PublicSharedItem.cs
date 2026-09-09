@@ -19,4 +19,5 @@ public sealed record PublicSharedItem(
     DateTimeOffset UpdatedAtUtc);
 
 /// <param name="Detail">A due date, a quantity, a location - whatever the line's own kind adds beneath the text.</param>
-public sealed record PublicSharedItemLine(string Text, bool IsChecklistItem, bool IsChecked, string? Detail);
+/// <param name="IsFailed">Crossed out rather than ticked - a line, or an entry, somebody gave up on.</param>
+public sealed record PublicSharedItemLine(string Text, bool IsChecklistItem, bool IsChecked, string? Detail, bool IsFailed = false);

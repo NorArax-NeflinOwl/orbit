@@ -243,10 +243,13 @@ public sealed partial class NoteDetailViewModel : ObservableObject
     }
 
     /// <summary>
-    /// Ticks a line off, or puts it back. Ticked in place and **not** written down: a tick is a change
-    /// to the note like any other on this screen, and the note is written by Save and by nothing else -
-    /// see <see cref="CloseAsync"/>. It used to write immediately, which meant a tick survived leaving
-    /// the screen while the words typed beside it did not.
+    /// Moves a line to the next of the three answers - nothing, done, given up on - which is the same
+    /// cycle the browser's own box follows. See <see cref="NoteLineRow.Press"/> and TickState.
+    ///
+    /// Ticked in place and **not** written down: a tick is a change to the note like any other on this
+    /// screen, and the note is written by Save and by nothing else - see <see cref="CloseAsync"/>. It
+    /// used to write immediately, which meant a tick survived leaving the screen while the words typed
+    /// beside it did not.
     /// </summary>
     [RelayCommand]
     private void ToggleChecked(NoteLineRow? row)
@@ -256,7 +259,7 @@ public sealed partial class NoteDetailViewModel : ObservableObject
             return;
         }
 
-        row.IsChecked = !row.IsChecked;
+        row.Press();
     }
 
     /// <summary>Renaming saves the whole note, because the API's update takes the whole note.</summary>

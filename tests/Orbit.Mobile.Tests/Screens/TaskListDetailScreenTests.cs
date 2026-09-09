@@ -104,6 +104,98 @@ public sealed class TaskListDetailScreenTests
     }
 
     /// <summary>
+    /// An entry can wait for another entry of the same list - "hang the door" after "fit the hinges" -
+    /// and cannot be ticked until that one is done. The phone says what it is waiting for rather than
+    /// answering the press with nothing; the server keeps the same rule whatever is sent to it.
+    /// </summary>
+    [Fact]
+    public async Task An_entry_waiting_on_another_cannot_be_ticked_until_that_one_is_done()
+    {
+        using var context = new ScreenContext();
+        var screen = context.OpenTaskList("Fitting the door");
+        screen.NewItemDescription = "Fit the hinges";
+        await screen.AddItemCommand.ExecuteAsync(null);
+        screen.NewItemDescription = "Hang the door";
+        await screen.AddItemCommand.ExecuteAsync(null);
+        var hinges = screen.Items.Single(row => row.Description == "Fit the hinges");
+        var door = screen.Items.Single(row => row.Description == "Hang the door");
+        await context.WaitForAsync(door.Id, hinges.Id);
+        await screen.LoadCommand.ExecuteAsync(null);
+
+        var waiting = screen.Items.Single(row => row.Description == "Hang the door");
+        await screen.ToggleItemCommand.ExecuteAsync(waiting);
+
+        Assert.False(screen.Items.Single(row => row.Description == "Hang the door").IsCompleted);
+        Assert.Contains("Fit the hinges", screen.Status);
+
+        // Once the step is done, the tick goes through.
+        await screen.ToggleItemCommand.ExecuteAsync(screen.Items.Single(row => row.Description == "Fit the hinges"));
+        await screen.ToggleItemCommand.ExecuteAsync(screen.Items.Single(row => row.Description == "Hang the door"));
+
+        Assert.True(screen.Items.Single(row => row.Description == "Hang the door").IsCompleted);
+    }
+
+    /// <summary>
+    /// Building a storage out of a list is only offered where there is something on it a shelf could be
+    /// about - see GeneratedInventorySource, which Orbit.Web's own menu asks the same question of.
+    /// </summary>
+    [Fact]
+    public async Task A_list_of_plain_errands_has_nothing_to_build_a_storage_from()
+    {
+        using var context = new ScreenContext();
+        var screen = context.OpenTaskList("Chores");
+        screen.NewItemDescription = "Post the parcel";
+        await screen.AddItemCommand.ExecuteAsync(null);
+
+        Assert.False(screen.HasSomethingToBuildAStorageFrom);
+    }
+
+    [Fact]
+    public async Task A_product_on_the_list_is_something_to_build_a_storage_from()
+    {
+        using var context = new ScreenContext();
+        var screen = context.OpenTaskList("Shopping");
+        screen.NewItemDescription = "Milk";
+        await screen.AddItemCommand.ExecuteAsync(null);
+
+        // The entry becomes an inventory errand the way the screen makes one: through its own editor.
+        screen.EditItemCommand.Execute(Assert.Single(screen.Items));
+        screen.BeingEdited!.ChosenKind = screen.BeingEdited.Kinds.Single(kind => kind.Value == nameof(TaskItemKind.Inventory));
+        await screen.SaveItemCommand.ExecuteAsync(null);
+
+        Assert.True(screen.HasSomethingToBuildAStorageFrom);
+    }
+
+    /// <summary>
+    /// The third answer: an entry that is not going to happen is crossed out rather than left sitting
+    /// there or lied about with a tick. One press further round than done - see TickState - and it
+    /// travels to the server as its own flag, so nothing counts it as work that was done.
+    /// </summary>
+    [Fact]
+    public async Task An_entry_can_be_crossed_out_rather_than_ticked_off()
+    {
+        using var context = new ScreenContext();
+        var screen = context.OpenTaskList("Groceries");
+        screen.NewItemDescription = "Buy milk";
+        await screen.AddItemCommand.ExecuteAsync(null);
+
+        await screen.ToggleItemCommand.ExecuteAsync(Assert.Single(screen.Items));
+        await screen.ToggleItemCommand.ExecuteAsync(Assert.Single(screen.Items));
+
+        var crossedOut = Assert.Single(context.Server.TaskLists.Single().Items);
+        Assert.False(crossedOut.IsCompleted);
+        Assert.True(crossedOut.IsFailed);
+        Assert.True(Assert.Single(screen.Items).IsFailed);
+
+        // And once more brings it back as work: three answers, and the third press is the way out.
+        await screen.ToggleItemCommand.ExecuteAsync(Assert.Single(screen.Items));
+
+        var cleared = Assert.Single(context.Server.TaskLists.Single().Items);
+        Assert.False(cleared.IsCompleted);
+        Assert.False(cleared.IsFailed);
+    }
+
+    /// <summary>
     /// What an entry is about, typed as one line of words - the same box a shelf item's category is
     /// typed in, holding as many as apply. The tasks page finds an entry among every list by these.
     /// </summary>
@@ -1993,6 +2085,24 @@ public sealed class TaskListDetailScreenTests
                     stored.IsGroup,
                     stored.Priority));
         }
+        /// <summary>
+        /// Makes one entry wait for another, the way the browser's editor does - the phone has no picker
+        /// for it yet, so it is written onto the stored list here. See TaskListSteps.
+        /// </summary>
+        public async Task WaitForAsync(Guid waitingItemId, Guid stepItemId)
+        {
+            var stored = await _taskLists.FindAsync(_openedListId);
+            await _taskLists.UpdateAsync(
+                _openedListId,
+                new TaskListContent(
+                    stored!.Title,
+                    [.. stored.Items.Select(item => item.Id == waitingItemId
+                        ? item with { WaitsForTaskItemIds = [stepItemId] }
+                        : item)],
+                    stored.IsGroup,
+                    stored.Priority));
+        }
+
         private readonly FakeTimeProvider _clock = new(DateTimeOffset.Parse("2026-08-26T10:00:00Z"));
         private readonly LocalTaskListRepository _taskLists;
 

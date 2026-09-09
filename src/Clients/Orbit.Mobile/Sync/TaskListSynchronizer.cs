@@ -250,5 +250,11 @@ public sealed class TaskListSynchronizer
             // Passed through as it came, null included: null means "nothing to say about it" and leaves
             // the stored one alone, which is what this phone needs while it has no box to write one in.
             // AllNotes would turn that into an empty string, and an empty string clears it.
-            item.Notes)).ToList();
+            item.Notes,
+            // The cross, which this phone can now set - see TickState.
+            item.IsFailed,
+            // The order the work has to be done in, sent as it came. This phone has no picker for it
+            // yet, and passing it through is what keeps a push from undoing what was arranged on the
+            // web - the same reason the product above travels untouched.
+            item.AllWaitsForTaskItemIds)).ToList();
 }

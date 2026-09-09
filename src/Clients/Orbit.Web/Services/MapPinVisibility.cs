@@ -10,9 +10,11 @@ namespace Orbit.Web.Services;
 /// Kept on the device, like PanelPreferences and the Tasks page's arrangement: it is how one person
 /// reads one map on one screen, not something an account carries between them.
 ///
-/// Deliberately separate from "show places already past", which is a question about time. Somebody who
-/// hid their plans and then asked to see past ones meant to be shown nothing, not to have the whole lot
-/// come back - so the eye wins, and the past filter narrows what the eye has already let through.
+/// It remembers "show places already past" as well, which is a question about time rather than about a
+/// group of pins - kept apart in what it *means*, and together in where it is kept: both are how one
+/// person reads one map on one screen. The eye still wins, and the past filter narrows what the eye has
+/// already let through. Somebody who hid their plans and then asked to see past ones meant to be shown
+/// nothing, not to have the whole lot come back.
 /// </summary>
 public sealed class MapPinVisibility
 {
@@ -44,20 +46,62 @@ public sealed class MapPinVisibility
     /// </summary>
     public bool IsShown(PinGroup group) => _shown.GetValueOrDefault(group, true);
 
+    /// <summary>
+    /// Whether what is already behind the reader is drawn as well. Off unless they said otherwise - a
+    /// map is mostly about where somebody is going, and a screen full of pins for places nobody is going
+    /// to again is the last thing a page about that should open as.
+    /// </summary>
+    public bool ShowsPastPlaces { get; private set; }
+
+    /// <summary>
+    /// The day the past is shown from, while it is shown at all. Null is "all of it", which is what the
+    /// option meant before there was anywhere to say otherwise.
+    /// </summary>
+    public DateTime? PastPlacesFrom { get; private set; }
+
     public async Task InitializeAsync()
     {
         foreach (var group in Enum.GetValues<PinGroup>())
         {
             _shown[group] = await ReadAsync(group) != "false";
         }
+
+        ShowsPastPlaces = await ReadAsync(PastKey) == "true";
+        // A day that will not parse is read as "all of it", which is the answer a browser that has
+        // never been asked gives - a stored value nobody can read must not leave the option stuck.
+        PastPlacesFrom = DateTime.TryParse(await ReadAsync(PastFromKey), out var from) ? from : null;
+    }
+
+    /// <summary>
+    /// Remembers whether the past is being shown, and from when. Both together, because they are one
+    /// answer with two halves: a day means nothing while the past is hidden.
+    /// </summary>
+    public async Task SetPastPlacesAsync(bool isShown, DateTime? from)
+    {
+        ShowsPastPlaces = isShown;
+        PastPlacesFrom = from;
+        await WriteAsync(PastKey, isShown ? "true" : "false");
+        await WriteAsync(PastFromKey, from?.ToString("yyyy-MM-dd"));
     }
 
     public async Task SetShownAsync(PinGroup group, bool isShown)
     {
         _shown[group] = isShown;
+        await WriteAsync(StorageKey(group), isShown ? "true" : "false");
+    }
+
+    /// <summary>Null clears the entry, which is how "nothing was said" is stored rather than as a word meaning it.</summary>
+    private async Task WriteAsync(string key, string? value)
+    {
         try
         {
-            await _jsRuntime.InvokeVoidAsync("localStorage.setItem", StorageKey(group), isShown ? "true" : "false");
+            if (value is null)
+            {
+                await _jsRuntime.InvokeVoidAsync("localStorage.removeItem", key);
+                return;
+            }
+
+            await _jsRuntime.InvokeVoidAsync("localStorage.setItem", key, value);
         }
         catch (JSException)
         {
@@ -66,11 +110,13 @@ public sealed class MapPinVisibility
     }
 
     /// <summary>Mirrors PanelPreferences: a browser with storage blocked outright throws here, and the right answer then is the default.</summary>
-    private async Task<string?> ReadAsync(PinGroup group)
+    private Task<string?> ReadAsync(PinGroup group) => ReadAsync(StorageKey(group));
+
+    private async Task<string?> ReadAsync(string key)
     {
         try
         {
-            return await _jsRuntime.InvokeAsync<string?>("localStorage.getItem", StorageKey(group));
+            return await _jsRuntime.InvokeAsync<string?>("localStorage.getItem", key);
         }
         catch (JSException)
         {
@@ -79,4 +125,8 @@ public sealed class MapPinVisibility
     }
 
     private static string StorageKey(PinGroup group) => $"orbit-map-pins-{group}";
+
+    private const string PastKey = "orbit-map-past";
+
+    private const string PastFromKey = "orbit-map-past-from";
 }

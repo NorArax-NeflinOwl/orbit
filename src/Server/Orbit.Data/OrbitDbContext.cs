@@ -180,6 +180,13 @@ public sealed class OrbitDbContext : DbContext
                 .WithOne()
                 .HasForeignKey(category => category.TaskItemId)
                 .OnDelete(DeleteBehavior.Cascade);
+
+            // What it waits for on its own list, owned by the entry that waits rather than by the one
+            // being waited for - see TaskItemStepEntity.
+            entity.HasMany(item => item.Steps)
+                .WithOne()
+                .HasForeignKey(step => step.TaskItemId)
+                .OnDelete(DeleteBehavior.Cascade);
         });
 
         modelBuilder.Entity<TaskItemCategoryEntity>(entity =>
@@ -221,6 +228,16 @@ public sealed class OrbitDbContext : DbContext
             // reads as "not completed" rather than as a failure (see LinkedTaskCompletionResolver), and
             // a constraint here would instead refuse the delete or silently take the entry with it.
             entity.HasIndex(link => link.LinkedTaskListId);
+        });
+
+        modelBuilder.Entity<TaskItemStepEntity>(entity =>
+        {
+            entity.HasKey(step => new { step.TaskItemId, step.WaitsForTaskItemId });
+
+            // No foreign key to the entry being waited for, for the reason the links above have none:
+            // a step whose entry is gone reads as a step that was dropped (see TaskListSteps), and a
+            // constraint here would refuse the delete or take the waiting entry with it.
+            entity.HasIndex(step => step.WaitsForTaskItemId);
         });
 
         modelBuilder.Entity<CalendarEventEntity>(entity =>

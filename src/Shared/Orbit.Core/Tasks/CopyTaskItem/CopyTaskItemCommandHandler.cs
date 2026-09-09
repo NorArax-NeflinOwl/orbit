@@ -84,5 +84,6 @@ public sealed class CopyTaskItemCommandHandler : IRequestHandler<CopyTaskItemCom
             new TaskItemSubject(item.Kind, item.Location),
             item.Categories,
             item.Product,
-            item.Notes);
+            item.Notes,
+            item.IsFailed);
 }

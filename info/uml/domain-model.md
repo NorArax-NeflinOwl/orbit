@@ -88,7 +88,10 @@ classDiagram
         +string Description
         +DateTimeOffset? DueDateUtc
         +bool IsCompleted
+        +bool IsFailed
+        +bool IsResolved
         +IReadOnlyList~Guid~ LinkedTaskListIds
+        +IReadOnlyList~Guid~ WaitsForTaskItemIds
         +IReadOnlyList~string~ Categories
     }
     class TaskItemSubject {

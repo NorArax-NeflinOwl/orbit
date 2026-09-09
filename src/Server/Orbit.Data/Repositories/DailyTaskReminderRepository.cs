@@ -121,7 +121,10 @@ public sealed class DailyTaskReminderRepository : IDailyTaskReminderRepository
             return;
         }
 
+        // Neither ticked nor crossed out: a daily errand comes round again whatever yesterday's
+        // answer was - see TaskItem.Reopen, which clears the same two.
         item.IsCompleted = false;
+        item.IsFailed = false;
 
         // Only an entry that already carried a due date gets a new one - see the interface for why.
         if (item.DueDateUtc is not null)

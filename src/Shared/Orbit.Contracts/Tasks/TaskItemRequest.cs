@@ -60,7 +60,21 @@ public sealed record TaskItemRequest(
     /// provided"</b> and leaves whatever is stored alone, which is what a client written before this
     /// existed sends; an empty string means "none", and clears it.
     /// </summary>
-    string? Notes = null)
+    string? Notes = null,
+    /// <summary>
+    /// Closed without being done - see Orbit.Core.Tasks.TaskItem.IsFailed. False rather than nullable:
+    /// unlike the fields above it, a client that has not learned about the cross cannot have one to
+    /// preserve - it would have had to draw it to set it - so "not said" and "not failed" are the same
+    /// answer here. A tick wins over a cross wherever both arrive.
+    /// </summary>
+    bool IsFailed = false,
+    /// <summary>
+    /// The entries on the same list this one waits for - see
+    /// Orbit.Core.Tasks.TaskItem.WaitsForTaskItemIds. <b>Null means "not provided"</b> and leaves what
+    /// is stored alone, which is what a client written before steps existed sends; an empty list means
+    /// "none", and clears them. The same rule the categories and the description follow.
+    /// </summary>
+    IReadOnlyList<Guid>? WaitsForTaskItemIds = null)
 {
     /// <summary>Whichever shape the sender used, read as one - see <see cref="LinkedTaskListIds"/>.</summary>
     public IReadOnlyList<Guid> AllLinkedTaskListIds
@@ -100,5 +114,7 @@ public sealed record TaskItemRequest(
             item.Product,
             // As it came, null included: this mapping exists to send an entry back unchanged, and null
             // is how "unchanged" is said for this field.
-            item.Notes);
+            item.Notes,
+            item.IsFailed,
+            item.AllWaitsForTaskItemIds);
 }

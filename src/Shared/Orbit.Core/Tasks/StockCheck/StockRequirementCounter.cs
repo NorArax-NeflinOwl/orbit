@@ -78,7 +78,8 @@ public static class StockRequirementCounter
                 required[key] += 1;
             }
 
-            if (item.IsCompleted)
+            // Crossed out counts as finished with: what a list still needs is what is still owed.
+            if (item.IsResolved)
             {
                 done[key] += 1;
             }

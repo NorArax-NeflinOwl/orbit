@@ -80,7 +80,7 @@ public sealed class ExportArchiveQueryHandler : IRequestHandler<ExportArchiveQue
     private static ArchivedNote ToArchived(Note note)
         => new(
             note.Title,
-            note.Content.Select(line => new ArchivedNoteLine(line.Text, line.IsChecklistItem, line.IsChecked)).ToList(),
+            note.Content.Select(line => new ArchivedNoteLine(line.Text, line.IsChecklistItem, line.IsChecked, line.IsFailed)).ToList(),
             note.IsPrivate,
             ToArchived(note.EncryptedContent));
 
@@ -99,7 +99,8 @@ public sealed class ExportArchiveQueryHandler : IRequestHandler<ExportArchiveQue
                 item.DailyReminderNotificationChannel.ToString(),
                 item.DailyReminderTimeOfDay,
                 TitlesOf(item, taskListTitlesById),
-                item.Categories)).ToList(),
+                item.Categories,
+                item.IsFailed)).ToList(),
             taskList.IsGroup,
             taskList.IsPrivate,
             ToArchived(taskList.EncryptedContent),

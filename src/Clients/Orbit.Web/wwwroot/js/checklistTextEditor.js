@@ -21,6 +21,10 @@ export function initialize(container, dotNetHelper, initialLinesJson) {
 
     state.onInput = () => {
         repairStrayText(container);
+        // Typing "[]" at the head of a line is the way to a tick box that needs no toolbar at all.
+        const selection = window.getSelection();
+        const line = selection && selection.anchorNode ? closestLine(selection.anchorNode, container) : null;
+        interpretMarker(line);
         notifyChanged(container, dotNetHelper);
     };
     state.onKeyDown = (event) => {
@@ -72,35 +76,98 @@ export function setLines(container, linesJson) {
 
 /// Called from the toolbar button - ends the current line (if not already empty) and starts a new
 /// checklist line, with focus moved into it.
+// A line that starts "[]" (or "[ ]") is a tick box, and the marker itself is eaten. The phone's note
+// screen has had exactly this rule and no toolbar at all - see NoteDetailPage - and it is why the
+// button in the corner types the marker rather than reaching past it: one way in, whether it was
+// pressed or typed.
+const CHECKLIST_MARKER = /^\[[ \t]?\][ \t]?/;
+
 export function insertChecklistItem(container) {
     const selection = window.getSelection();
     let currentLine = selection && selection.anchorNode ? closestLine(selection.anchorNode, container) : null;
     currentLine ??= container.lastElementChild;
 
     if (currentLine && lineText(currentLine).length === 0 && !currentLine.classList.contains('note-line-checklist')) {
-        // The current line is already empty plain text (e.g. a brand new note) - turn it into the
-        // checklist line instead of leaving a blank line behind it. replaceWithChecklistLine detaches
-        // currentLine from the document, so focus has to move to the replacement it returns, not to
-        // the now-detached original.
-        const replacement = replaceWithChecklistLine(currentLine, '');
-        focusLine(replacement);
+        // The current line is already empty plain text (e.g. a brand new note) - the marker goes on it
+        // rather than leaving a blank line behind it.
+        setLineText(currentLine, '[]');
+        interpretMarker(currentLine);
     } else {
-        const newLine = createLineElement({ text: '', isChecklistItem: true, isChecked: false });
+        const newLine = createLineElement({ text: '[]', isChecklistItem: false, isChecked: false });
         if (currentLine && currentLine.parentElement === container) {
             currentLine.after(newLine);
         } else {
             container.appendChild(newLine);
         }
-        focusLine(newLine);
+        interpretMarker(newLine);
     }
 }
 
-function onClick(event, container, dotNetHelper) {
-    if (event.target instanceof HTMLInputElement && event.target.type === 'checkbox') {
-        const line = event.target.closest('.note-line');
-        line.classList.toggle('note-line-done', event.target.checked);
-        notifyChanged(container, dotNetHelper);
+/// Turns a line that begins with the marker into a tick box, and puts the caret where the marker was.
+/// Answers whether it did anything, so the caller can tell an edit that changed the shape of a line
+/// from one that only changed its text.
+function interpretMarker(line) {
+    if (!line || line.classList.contains('note-line-checklist')) {
+        return false;
     }
+
+    const text = lineText(line);
+    const marker = text.match(CHECKLIST_MARKER);
+    if (!marker) {
+        return false;
+    }
+
+    const rest = text.slice(marker[0].length);
+    // replaceWithChecklistLine detaches the line from the document, so focus has to move to the
+    // replacement it returns rather than to the now-detached original.
+    const replacement = replaceWithChecklistLine(line, rest);
+    focusLine(replacement, /* atStart */ rest.length === 0);
+    return true;
+}
+
+function onClick(event, container, dotNetHelper) {
+    const tick = event.target.closest ? event.target.closest('.note-line-tick') : null;
+    if (!tick) {
+        return;
+    }
+
+    // Three answers, one press at a time: nothing, done, given up on - the same cycle the browser's
+    // own TickBox and the phone's CheckCircle follow, see Orbit.Core.Abstractions.TickState.
+    event.preventDefault();
+    setTick(tick.closest('.note-line'), nextState(stateOf(tick)));
+    notifyChanged(container, dotNetHelper);
+}
+
+const TICK_NONE = 'none';
+const TICK_DONE = 'done';
+const TICK_FAILED = 'failed';
+
+function stateOf(tick) {
+    return tick.dataset.state || TICK_NONE;
+}
+
+function nextState(state) {
+    return state === TICK_NONE ? TICK_DONE : state === TICK_DONE ? TICK_FAILED : TICK_NONE;
+}
+
+/// Draws one of the three answers on a line's box. The mark is an SVG rather than a character for the
+/// reason the phone's own circle gives: the faces this app is set in carry neither a tick nor a cross.
+function setTick(line, state) {
+    const tick = line.querySelector('.note-line-tick');
+    if (!tick) {
+        return;
+    }
+
+    tick.dataset.state = state;
+    tick.className = `tick-box note-line-tick${state === TICK_DONE ? ' tick-box-done' : state === TICK_FAILED ? ' tick-box-failed' : ''}`;
+    tick.setAttribute('aria-checked', state === TICK_DONE ? 'true' : state === TICK_FAILED ? 'mixed' : 'false');
+    tick.innerHTML = state === TICK_DONE
+        ? '<svg viewBox="0 0 20 20" width="13" height="13" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="m4 10.5 4 4 8-9"/></svg>'
+        : state === TICK_FAILED
+            ? '<svg viewBox="0 0 20 20" width="13" height="13" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 5l10 10M15 5 5 15"/></svg>'
+            : '';
+    line.classList.toggle('note-line-done', state === TICK_DONE);
+    line.classList.toggle('note-line-failed', state === TICK_FAILED);
 }
 
 function onKeyDown(event, container, dotNetHelper) {
@@ -207,22 +274,25 @@ function createLineElement(line) {
 
     if (line.isChecklistItem) {
         div.classList.add('note-line-checklist');
-        if (line.isChecked) {
-            div.classList.add('note-line-done');
-        }
 
-        const checkbox = document.createElement('input');
-        checkbox.type = 'checkbox';
-        checkbox.checked = !!line.isChecked;
-        checkbox.contentEditable = 'false';
-        checkbox.className = 'note-line-checkbox';
-        div.appendChild(checkbox);
+        // A button rather than <input type="checkbox">: a checkbox has two states and cannot carry the
+        // cross a line somebody gave up on is drawn with. contenteditable="false" keeps it out of the
+        // text run, exactly as the checkbox before it was kept out.
+        const tick = document.createElement('button');
+        tick.type = 'button';
+        tick.contentEditable = 'false';
+        tick.setAttribute('role', 'checkbox');
+        tick.className = 'tick-box note-line-tick';
+        div.appendChild(tick);
     }
 
     const text = document.createElement('span');
     text.className = 'note-line-text';
     div.appendChild(text);
     setLineText(div, line.text || '');
+    if (line.isChecklistItem) {
+        setTick(div, line.isChecked ? TICK_DONE : line.isFailed ? TICK_FAILED : TICK_NONE);
+    }
 
     return div;
 }
@@ -257,11 +327,13 @@ function setLineText(line, text) {
 
 function extractLines(container) {
     return Array.from(container.children).map((line) => {
-        const checkbox = line.querySelector('input[type=checkbox]');
+        const tick = line.querySelector('.note-line-tick');
+        const state = tick ? stateOf(tick) : TICK_NONE;
         return {
             text: lineText(line) || '',
-            isChecklistItem: !!checkbox,
-            isChecked: checkbox ? checkbox.checked : false
+            isChecklistItem: !!tick,
+            isChecked: state === TICK_DONE,
+            isFailed: state === TICK_FAILED
         };
     });
 }
@@ -295,7 +367,7 @@ function repairStrayText(container) {
 }
 
 function repairLineDom(line) {
-    const checkbox = line.querySelector('input[type=checkbox]');
+    const tick = line.querySelector('.note-line-tick');
     let span = line.querySelector('.note-line-text');
     if (!span) {
         span = document.createElement('span');
@@ -303,7 +375,7 @@ function repairLineDom(line) {
         line.appendChild(span);
     }
 
-    const strayNodes = Array.from(line.childNodes).filter((node) => node !== checkbox && node !== span);
+    const strayNodes = Array.from(line.childNodes).filter((node) => node !== tick && node !== span);
     if (strayNodes.length === 0) {
         if (span.childNodes.length === 0) {
             span.appendChild(document.createTextNode(''));

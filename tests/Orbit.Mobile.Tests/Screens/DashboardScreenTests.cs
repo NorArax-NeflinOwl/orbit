@@ -70,10 +70,75 @@ public sealed class DashboardScreenTests
 
         await screen.LoadCommand.ExecuteAsync(null);
 
-        // Only what is due today and still outstanding: a finished task is not on anybody's plate, and
-        // an overdue one belongs to its own list rather than to today's count.
-        Assert.Equal(1, screen.Today.TasksDueToday);
+        // Everything due today, done and not - an overdue entry belongs to its own list rather than to
+        // today's count, but one that was finished today is half of what the strip is for.
+        Assert.Equal(2, screen.Today.TasksDueToday);
+        Assert.Equal(1, screen.Today.TasksDoneToday);
+        Assert.Equal("1/2", screen.Today.TasksDueTodayReads);
         Assert.Equal(1, screen.Today.EventsToday);
+    }
+
+    /// <summary>
+    /// The count says how far through the day the reader is, which is the question a strip of numbers
+    /// over a date is asked. It used to say only what was left, so a day whose work was all ticked off
+    /// read "0 tasks due today" - three tasks that disappeared rather than three that were done.
+    /// </summary>
+    [Fact]
+    public async Task A_day_whose_work_is_all_done_says_so_rather_than_falling_silent()
+    {
+        using var context = new DashboardContext();
+        await context.AddTaskListAsync("Errands", ("Post the parcel", Now, true), ("Call the dentist", Now, true));
+        var screen = context.Open();
+
+        await screen.LoadCommand.ExecuteAsync(null);
+
+        Assert.Equal("2/2", screen.Today.TasksDueTodayReads);
+    }
+
+    /// <summary>
+    /// A list closed while work was still unticked on it owes nothing, whatever is left on it - see
+    /// CalendarDeadline. Asked that way round rather than of "is the list finished" alone, which is
+    /// also true of a list whose entries simply all got ticked.
+    /// </summary>
+    [Fact]
+    public async Task A_list_closed_over_unticked_work_is_not_counted_as_due_today()
+    {
+        using var context = new DashboardContext();
+        // Put on the server rather than written here: a local save works a list's completion out from
+        // its entries, so "closed with work left" is a fact only the server can state.
+        var closed = context.TasksServer.AddTaskList("Errands");
+        context.TasksServer.ReplaceForTest(closed with
+        {
+            IsCompleted = true,
+            Completion = nameof(Orbit.Core.Tasks.TaskListCompletion.Finished),
+            Items =
+            [
+                new TaskItemDto(
+                    Guid.NewGuid(), "Post the parcel", Now, false, null, "None", false, "None", new TimeOnly(9, 0))
+            ]
+        });
+        var screen = context.Open();
+
+        await screen.LoadCommand.ExecuteAsync(null);
+
+        Assert.Equal("0/0", screen.Today.TasksDueTodayReads);
+    }
+
+    /// <summary>
+    /// An appointment carries no tick of its own, so "done" is the clock's answer - one that has ended
+    /// is one nobody has to get to any more.
+    /// </summary>
+    [Fact]
+    public async Task An_appointment_that_has_ended_counts_as_one_that_is_behind_the_reader()
+    {
+        using var context = new DashboardContext();
+        await context.AddEventAsync("Standup", Now.AddHours(-3));
+        await context.AddEventAsync("Retro", Now.AddHours(3));
+        var screen = context.Open();
+
+        await screen.LoadCommand.ExecuteAsync(null);
+
+        Assert.Equal("1/2", screen.Today.EventsTodayReads);
     }
 
     [Fact]
@@ -982,11 +1047,19 @@ public sealed class DashboardScreenTests
                 Enum.GetValues<ApplicationPermission>().Select(permission => permission.ToString()));
             _permissions = UnlockedPermissions.For(_localStore, _permissionServer);
             LocationServer = new FakeLocationServer(_clock) { CallerUserId = _ownUserId };
+            TasksServer = new FakeTasksServer(_clock);
             _synchronizer = AssembleSynchronizer();
         }
 
         /// <summary>The one server a test reaches into, to put something on it the phone has not seen.</summary>
         public FakeNotesServer NotesServer { get; }
+
+        /// <summary>
+        /// The task lists as the server holds them. Reached into for the one fact a phone cannot learn
+        /// anywhere else: a list its owner closed over work still on it. A local save works completion
+        /// out from the entries, so nothing written here could say it.
+        /// </summary>
+        public FakeTasksServer TasksServer { get; }
 
         public SyncState SyncState => _syncState;
 
@@ -1035,7 +1108,7 @@ public sealed class DashboardScreenTests
                     _localStore, new NotesClient(NotesServer.ToHttpClient()), _clock, gate,
                     NullLogger<NoteSynchronizer>.Instance),
                 new TaskListSynchronizer(
-                    _localStore, new TasksClient(new FakeTasksServer(_clock).ToHttpClient()), _clock, gate,
+                    _localStore, new TasksClient(TasksServer.ToHttpClient()), _clock, gate,
                     NullLogger<TaskListSynchronizer>.Instance),
                 new CalendarEventSynchronizer(
                     _localStore, new CalendarClient(new FakeCalendarServer(_clock).ToHttpClient()), _clock, gate,

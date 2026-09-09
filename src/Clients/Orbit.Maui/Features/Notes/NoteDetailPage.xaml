@@ -61,6 +61,7 @@
                                 <controls:CheckCircle Grid.Column="0" Diameter="19" Margin="0,9,8,0"
                                                       VerticalOptions="Start" IsVisible="{Binding IsChecklistItem}"
                                                       IsChecked="{Binding IsChecked}"
+                                                      IsFailed="{Binding IsFailed}"
                                                       Description="{Binding Text}"
                                                       Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=ViewModel.ToggleCheckedCommand, x:DataType=notes:NoteDetailPage}"
                                                       CommandParameter="{Binding .}" />

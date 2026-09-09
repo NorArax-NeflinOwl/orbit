@@ -516,6 +516,29 @@ public sealed class MapPageTests : OrbitTestContext
         Assert.Empty(PlaceRows(cut));
     }
 
+    /// <summary>
+    /// And both halves of it are remembered on this device. They were held by the page alone, so a
+    /// reader who asked for the past had to find the option and press it again on every visit - and the
+    /// day they narrowed it to went with it. See MapPinVisibility, which keeps the eyes beside them.
+    /// </summary>
+    [Fact]
+    public void Asking_for_the_past_is_remembered_for_the_next_visit()
+    {
+        GrantLocations();
+        _calendarEventsJson = OneEventAtAPlace("Last week's dentist", startsInDays: -7);
+        var cut = RenderComponent<MapPage>();
+
+        ShowPastPlaces(cut);
+        cut.Find("#mapPastFrom").Change(DateTime.Today.AddDays(-10).ToString("yyyy-MM-dd"));
+
+        // The same browser, the page opened again: the stub's localStorage is what carries it over.
+        var reopened = RenderComponent<MapPage>();
+
+        Assert.Single(PlaceRows(reopened));
+        Assert.Equal(
+            DateTime.Today.AddDays(-10).ToString("yyyy-MM-dd"), reopened.Find("#mapPastFrom").GetAttribute("value"));
+    }
+
     /// <summary>And the box is only there while the past is being shown, being a question about the past.</summary>
     [Fact]
     public void The_day_to_show_from_is_only_asked_while_the_past_is_shown()

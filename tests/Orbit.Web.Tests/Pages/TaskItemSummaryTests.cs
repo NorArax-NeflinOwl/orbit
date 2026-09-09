@@ -283,6 +283,117 @@ public sealed class TaskItemSummaryTests : OrbitTestContext
         Assert.Empty(_markedReadAt);
     }
 
+    /// <summary>
+    /// The entry's own screen crosses it off. It used to say "Already done." and nothing else, so the
+    /// one screen about this entry was the one place the entry could not be finished - a reader who
+    /// opened it to check when something was due had to go back to the list to tick it.
+    ///
+    /// Written the moment the box is filled in, the way the checklist writes it: the endpoint replaces
+    /// the list wholesale, so the whole list goes back with this one entry changed.
+    /// </summary>
+    [Fact]
+    public void The_entry_is_crossed_off_where_it_is_read()
+    {
+        RegisterClients(Item("Pay the rent", DateTimeOffset.UtcNow, ""));
+        var cut = Render();
+
+        cut.Find(".check-row .tick-box").Click();
+
+        var saved = JsonDocument.Parse(Assert.Single(_savedLists)).RootElement;
+        Assert.Equal("Errands", saved.GetProperty("title").GetString());
+        Assert.True(saved.GetProperty("items")[0].GetProperty("isCompleted").GetBoolean());
+        // And the box says so afterwards, because the page re-read the list it had just written.
+        Assert.Contains("tick-box-done", cut.Find(".check-row .tick-box").ClassList);
+    }
+
+    /// <summary>
+    /// The box gives three answers, one press at a time: done, given up on, and nothing again - see
+    /// TickState. Taking a tick back is the third press, which is the price of the cross being reachable
+    /// without a menu.
+    /// </summary>
+    [Fact]
+    public void The_box_goes_round_done_then_given_up_on_then_back()
+    {
+        RegisterClients(Item("Pay the rent", DateTimeOffset.UtcNow, "") with { IsCompleted = true });
+        var cut = Render();
+
+        cut.Find(".check-row .tick-box").Click();
+
+        var crossedOut = JsonDocument.Parse(_savedLists[^1]).RootElement.GetProperty("items")[0];
+        Assert.False(crossedOut.GetProperty("isCompleted").GetBoolean());
+        Assert.True(crossedOut.GetProperty("isFailed").GetBoolean());
+        Assert.Contains("tick-box-failed", cut.Find(".check-row .tick-box").ClassList);
+
+        cut.Find(".check-row .tick-box").Click();
+
+        var cleared = JsonDocument.Parse(_savedLists[^1]).RootElement.GetProperty("items")[0];
+        Assert.False(cleared.GetProperty("isCompleted").GetBoolean());
+        Assert.False(cleared.GetProperty("isFailed").GetBoolean());
+        Assert.DoesNotContain("tick-box-done", cut.Find(".check-row .tick-box").ClassList);
+        Assert.DoesNotContain("tick-box-failed", cut.Find(".check-row .tick-box").ClassList);
+    }
+
+    /// <summary>
+    /// A list handed over to be read says what it says and offers nothing. The server refuses the save
+    /// anyway; a box that answers a press with a refusal is worse than one that never offered.
+    /// </summary>
+    [Fact]
+    public void A_list_shared_to_read_shows_the_tick_without_offering_it()
+    {
+        RegisterClients(Item("Pay the rent", DateTimeOffset.UtcNow, ""), accessLevel: "ReadOnly");
+
+        var cut = Render();
+
+        Assert.True(cut.Find(".check-row .tick-box").HasAttribute("disabled"));
+    }
+
+    /// <summary>
+    /// An entry standing for other lists is done when they are (see LinkedTaskCompletionResolver), so
+    /// there is no box to fill in here at all - the row names the list the answer is on and offers to
+    /// go there, which is what the checklist answers a press on such a box with.
+    /// </summary>
+    [Fact]
+    public void An_entry_that_stands_for_another_list_says_where_the_tick_belongs()
+    {
+        var kitchen = new TaskDto(
+            Guid.NewGuid(), "Kitchen", [], IsCompleted: false, IsGroup: false, IsPrivate: false,
+            EncryptedContent: null, DateTimeOffset.UtcNow, DateTimeOffset.UtcNow, IsShared: false,
+            SharedByUserName: null, AccessLevel: "CanEdit", OriginalOwnerUserId: null);
+        RegisterClients(
+            Item("Kitchen done", null, "") with { LinkedTaskListId = kitchen.Id }, otherLists: [kitchen]);
+        var navigationManager = Services.GetRequiredService<NavigationManager>();
+        var cut = Render();
+
+        Assert.Empty(cut.FindAll(".check-row .tick-box"));
+        Assert.Contains("This is done when Kitchen is.", cut.Markup);
+
+        cut.FindAll("button").First(button => button.TextContent.Trim() == "Kitchen").Click();
+
+        Assert.EndsWith($"/tasks/{kitchen.Id}", navigationManager.Uri);
+    }
+
+    /// <summary>
+    /// A tick the server would not take is said on the page rather than swallowed: somebody else is in
+    /// the list's form, and a box that snaps back with no word for it reads as a press that never
+    /// registered.
+    /// </summary>
+    [Fact]
+    public void A_tick_the_server_refuses_is_said_on_the_page()
+    {
+        RegisterClients(Item("Pay the rent", DateTimeOffset.UtcNow, ""));
+        _answerToATick = () => new HttpResponseMessage(HttpStatusCode.Conflict)
+        {
+            Content = JsonContent.Create(new { LockedByUserName = "anna" })
+        };
+        var cut = Render();
+
+        cut.Find(".check-row .tick-box").Click();
+
+        Assert.Contains("anna is currently editing", cut.Find(".error").TextContent);
+        // And the box is back to what the server holds rather than left standing ticked.
+        Assert.DoesNotContain("tick-box-done", cut.Find(".check-row .tick-box").ClassList);
+    }
+
     /// <summary>Every address this page asked the server to mark read.</summary>
     private readonly List<string> _markedReadAt = [];
 
@@ -304,21 +415,62 @@ public sealed class TaskItemSummaryTests : OrbitTestContext
             DateTimeOffset.UtcNow, DateTimeOffset.UtcNow,
             IsShared: false, SharedByUserName: null, AccessLevel: "CanEdit", OriginalOwnerUserId: null);
 
-    private void RegisterClients(TaskItemDto? taskItem, CalendarEventDto? calendarEvent = null)
+    /// <summary>What every tick sent, in the order it was sent - see The_entry_is_crossed_off_here.</summary>
+    private readonly List<string> _savedLists = [];
+
+    /// <summary>
+    /// What the server answers a tick with. NoContent unless a test says otherwise, which is what a
+    /// save that went through looks like.
+    /// </summary>
+    private Func<HttpResponseMessage> _answerToATick =
+        () => new HttpResponseMessage(HttpStatusCode.NoContent);
+
+    /// <param name="accessLevel">
+    /// What this reader may do with the list the entry is on - "ReadOnly" for one shared to be read.
+    /// </param>
+    /// <param name="otherLists">
+    /// The other lists this account has, which is what an entry standing for one is named from - see
+    /// the page's own NameTheListsBehindTheEntryAsync.
+    /// </param>
+    private void RegisterClients(
+        TaskItemDto? taskItem, CalendarEventDto? calendarEvent = null, string accessLevel = "CanEdit",
+        IReadOnlyList<TaskDto>? otherLists = null)
     {
         var taskList = new TaskDto(
             TaskListId, "Errands", taskItem is null ? [] : [taskItem], IsCompleted: false, IsGroup: false,
             IsPrivate: false, EncryptedContent: null, DateTimeOffset.UtcNow, DateTimeOffset.UtcNow,
-            IsShared: false, SharedByUserName: null, AccessLevel: "CanEdit", OriginalOwnerUserId: null);
+            IsShared: false, SharedByUserName: null, AccessLevel: accessLevel, OriginalOwnerUserId: null);
+        // What the server holds, which a tick changes: a page that re-reads the list after saving
+        // should see what it just wrote, the way it would against the real thing.
+        var stored = taskList;
         var httpClient = new HttpClient(new StubHttpMessageHandler(request =>
-            new HttpResponseMessage(HttpStatusCode.OK)
+        {
+            if (request.Method == HttpMethod.Put)
+            {
+                var body = request.Content!.ReadAsStringAsync().GetAwaiter().GetResult();
+                _savedLists.Add(body);
+                var answer = _answerToATick();
+                if (answer.IsSuccessStatusCode)
+                {
+                    stored = Ticked(stored, body);
+                }
+
+                return answer;
+            }
+
+            return new HttpResponseMessage(HttpStatusCode.OK)
             {
                 Content = request.RequestUri!.AbsolutePath.Contains("/calendar", StringComparison.Ordinal)
                     ? JsonContent.Create(calendarEvent)
                     : request.RequestUri!.AbsolutePath.EndsWith("/chat/contacts", StringComparison.Ordinal)
                         ? JsonContent.Create(_contacts)
-                        : JsonContent.Create(taskList)
-            }))
+                        // "api/tasks" is every list this account has; "api/tasks/{id}" is the one the
+                        // entry is on. The first is what names a list this entry stands for.
+                        : request.RequestUri!.AbsolutePath.TrimEnd('/').EndsWith("/api/tasks", StringComparison.Ordinal)
+                            ? JsonContent.Create<IReadOnlyList<TaskDto>>([stored, .. otherLists ?? []])
+                            : JsonContent.Create(stored)
+            };
+        }))
         {
             BaseAddress = new Uri("https://example.test/")
         };
@@ -354,5 +506,25 @@ public sealed class TaskItemSummaryTests : OrbitTestContext
                 Content = JsonContent.Create(Array.Empty<object>())
             }))
             { BaseAddress = new Uri("https://geocode.test/") }));
+    }
+
+    /// <summary>
+    /// The list as a save left it: what was sent back is what the server would now hold. Only the two
+    /// completion flags are taken from the request, which is all a tick changes.
+    /// </summary>
+    private static TaskDto Ticked(TaskDto taskList, string saved)
+    {
+        var items = JsonDocument.Parse(saved).RootElement.GetProperty("items");
+        return taskList with
+        {
+            Items =
+            [
+                .. taskList.Items.Select((item, index) => item with
+                {
+                    IsCompleted = items[index].GetProperty("isCompleted").GetBoolean(),
+                    IsFailed = items[index].GetProperty("isFailed").GetBoolean()
+                })
+            ]
+        };
     }
 }

@@ -68,12 +68,14 @@ caps on the left and the value on the right; and a foot line of *list name — h
 list*. Its title menu: Mark as done/open, Move to another list…, Duplicate, Delete item.
 
 *Redrawn as far as the screen goes, which is less than the design draws.* The design's entry is
-**editable** - a live tick box, a typed name, a note field - and this screen is deliberately not: it is
-reached from the calendar, reads one entry, and says so ("an entry is read here rather than filled in";
-the list it is on is where it can be ticked off, which is Orbit.Web's own division). So it got the
-composition and none of the editing: the tick circle and the name at 28 as one row at the head, the
-facts as hairline label/value rows, and the list's name moved from over the head of the screen into the
-foot. Not built, and not invented: the note field, the tick being pressable, "Move to another list…",
+**editable** - a live tick box, a typed name, a note field - and this screen took the composition first
+and the editing since: the tick circle and the name at 28 as one row at the head, the facts as hairline
+label/value rows, and the list's name moved from over the head of the screen into the foot. **The tick
+is pressable as of 2026-09-09**, on this screen and on Orbit.Web's own entry page - the division that
+kept it read-only ("the list it is on is where it can be ticked off") is gone, because the one screen
+about an entry was the one place the entry could not be finished. It writes to this phone and queues
+from there, and says under the entry when a list shared to read refuses it or the save is still waiting
+to go out. Still not built, and still not invented: the note field, "Move to another list…",
 "Duplicate", "Delete item", and the position in the list - **nothing hands this screen the list to
 count within**, so "2 of 5" has no source.
 

@@ -20,6 +20,7 @@
 @inject ChecklistViewPreference ChecklistViewPreference
 @inject InventoryApiClient InventoryApiClient
 @inject TaskListDeletion TaskListDeletion
+@inject TaskItemCompletion TaskItemCompletion
 @inject IJSRuntime JSRuntime
 @inject ILogger<TaskListChecklist> Logger
 @inject Translations T
@@ -193,12 +194,12 @@ else
                 @* The words open the entry and the box ticks it, which is what the grouped view below
                    has always done. Reading this list flat used to mean the opposite: pressing what an
                    entry said crossed it off, because the row was a label. *@
-                <CheckRow Title="@Written(entry.Item.Description)" IsTicked="@entry.Item.IsCompleted"
+                <CheckRow Title="@Written(entry.Item.Description)" State="@TickOf(entry.Item)"
                           IsDisabled="@IsItemLocked(entry.Section, entry.Item)"
                           AriaLabel="@T.Format("Done: {0}", Written(entry.Item.Description))"
-                          AdditionalClass="@(entry.Item.IsCompleted ? "completed" : null)"
+                          AdditionalClass="@RowMark(entry.Item)"
                           OnTitlePressed="() => GoToEntry(entry.Section.TaskList.Id, entry.Item.Id)"
-                          OnTicked="ticked => ToggleItemAsync(entry.Section.TaskList, entry.Item, ticked)">
+                          OnCycled="state => PressAsync(entry.Section.TaskList, entry.Item, state)">
                     <Trailing>
                         @* What it is about, the same marks the cards on /tasks carry - see TaskItem.Categories. *@
                         @foreach (var category in entry.Item.AllCategories)
@@ -213,6 +214,14 @@ else
                         }
                     </Trailing>
                 </CheckRow>
+                @* The same answer the grouped view gives, under the same row - see PressAsync. *@
+                @if (_waitingOn == entry.Item.Id)
+                {
+                    <div class="check-row-asks">
+                        <span>@T.Format("Waiting for {0}.", WhatItWaitsForNamed(entry.Section.TaskList, entry.Item))</span>
+                        <button type="button" class="btn-secondary" @onclick="() => _waitingOn = null">@T["OK"]</button>
+                    </div>
+                }
             }
         </div>
     }
@@ -237,17 +246,15 @@ else
             {
                 @foreach (var item in ItemsToShow(section.TaskList))
                 {
-                    <div class="check-row @(item.IsCompleted ? "completed" : "") @(Highlight == item.Id ? "highlighted" : "")">
+                    <div class="check-row @RowMark(item) @(Highlight == item.Id ? "highlighted" : "")">
                         @* An entry standing for other lists is not ticked here - it is done when they
                            are. Pressed rather than refused: the box takes the press, says which list
-                           the answer is on, and offers to go there. Prevented rather than disabled,
-                           because a disabled box takes no press at all and had nothing to say. *@
-                        <input type="checkbox" checked="@item.IsCompleted"
-                               aria-label="@T.Format("Done: {0}", Written(item.Description))"
-                               disabled="@IsItemLocked(section, item)"
-                               @onclick="() => AskAboutTheListsBehind(item)"
-                               @onclick:preventDefault="item.AllLinkedTaskListIds.Count > 0"
-                               @onchange="args => ToggleItemAsync(section.TaskList, item, (bool)args.Value!)" />
+                           the answer is on, and offers to go there. That is why such an entry's box is
+                           not disabled - a disabled box takes no press at all and had nothing to say. *@
+                        <TickBox State="@TickOf(item)"
+                                 AriaLabel="@T.Format("Done: {0}", Written(item.Description))"
+                                 IsDisabled="@IsItemLocked(section, item)"
+                                 StateChanged="state => PressAsync(section.TaskList, item, state)" />
                         @* Opens the entry to be read rather than ticking it off. Ticking is the
                            checkbox's job, and it was doing both: the row was a <label>, so reading a
                            line by tapping it completed it. *@
@@ -292,6 +299,16 @@ else
                             <span class="row-meta">@T.Format("due {0}", dueDate.LocalDateTime.ToString("dd.MM.yyyy HH:mm"))</span>
                         }
                     </div>
+                    @* What an entry that waits on other entries answers a press with. Said rather than
+                       refused silently: the box looks exactly like every other one, and a press that
+                       did nothing would read as a page that had stopped working. See TaskListSteps. *@
+                    @if (_waitingOn == item.Id)
+                    {
+                        <div class="check-row-asks">
+                            <span>@T.Format("Waiting for {0}.", WhatItWaitsForNamed(section.TaskList, item))</span>
+                            <button type="button" class="btn-secondary" @onclick="() => _waitingOn = null">@T["OK"]</button>
+                        </div>
+                    }
                     @if (_askedAbout == item.Id)
                     {
                         @* Under the row rather than in a dialog over the page: it is about this line,
@@ -552,7 +569,7 @@ else
     /// (see LinkedTaskCompletionResolver), but the press is worth taking - see AskAboutTheListsBehind.
     /// </summary>
     private static bool IsItemLocked(ChecklistSection section, TaskItemDto item)
-        => section.TaskList.AccessLevel != nameof(ShareAccessLevel.CanEdit);
+        => !TaskItemCompletion.CanBeTicked(section.TaskList);
 
     /// <summary>The entry whose lists are being offered right now, if any - see the prompt under the row.</summary>
     private Guid? _askedAbout;
@@ -750,54 +767,70 @@ else
         => $"{taskList.Items.Count(item => item.IsCompleted)}/{taskList.Items.Count}";
 
     /// <summary>
-    /// Saves the whole list back with just this item's completion changed - the update endpoint replaces
-    /// the list wholesale, so everything else has to be sent along unchanged. Items are matched by
-    /// position rather than id, which is left as it is rather than because it has to be: a save keeps an
-    /// entry's id now (TaskItemRequest.Id, TaskEndpoints.ToDomainItem), and this comment said the
-    /// opposite for as long as that had been true. Position still works, and matching by id would be
-    /// the tidier answer whenever somebody is in here anyway.
+    /// Ticks one entry off, through the same service the entry's own page ticks it off with - see
+    /// TaskItemCompletion, which holds the save, the restock question and the wording of both refusals.
     /// </summary>
-    private async Task ToggleItemAsync(TaskDto taskList, TaskItemDto item, bool isCompleted)
+    /// <summary>What an entry's box says right now - see TickState.</summary>
+    private static TickState TickOf(TaskItemDto item) => Ticks.Read(item.IsCompleted, item.IsFailed);
+
+    /// <summary>
+    /// What a row is marked with: struck through when it is finished with, either way, and told apart
+    /// so the two do not read alike - see .check-row.failed.
+    /// </summary>
+    private static string RowMark(TaskItemDto item)
+        => item.IsCompleted ? "completed" : item.IsFailed ? "completed failed" : string.Empty;
+
+    /// <summary>
+    /// A press on the grouped view's box, which takes it even where the entry cannot be ticked here:
+    /// an entry standing for other lists answers with where the tick belongs instead - see
+    /// AskAboutTheListsBehind.
+    /// </summary>
+    private Task PressAsync(TaskDto taskList, TaskItemDto item, TickState state)
+    {
+        if (item.AllLinkedTaskListIds.Count > 0)
+        {
+            AskAboutTheListsBehind(item);
+            return Task.CompletedTask;
+        }
+
+        // Only the tick is held back. Crossing the entry out is giving up on it, which is exactly what
+        // somebody held up by a step that is never going to happen needs - see TaskListSteps.
+        if (state == TickState.Completed && WhatItWaitsFor(taskList, item).Count > 0)
+        {
+            _waitingOn = item.Id;
+            return Task.CompletedTask;
+        }
+
+        _waitingOn = null;
+        return ToggleItemAsync(taskList, item, state);
+    }
+
+    /// <summary>The entry whose steps are being named right now, if any - see the panel under the row.</summary>
+    private Guid? _waitingOn;
+
+    /// <summary>
+    /// The entries this one is still waiting on. The same rule the server keeps (TaskListSteps): a step
+    /// is what it says it is - crossed out counts as not done, because that is what a cross says.
+    /// </summary>
+    private static IReadOnlyList<TaskItemDto> WhatItWaitsFor(TaskDto taskList, TaskItemDto item)
+        => [.. item.AllWaitsForTaskItemIds
+            .Select(stepId => taskList.Items.FirstOrDefault(candidate => candidate.Id == stepId))
+            .OfType<TaskItemDto>()
+            .Where(step => !step.IsCompleted)];
+
+    private string WhatItWaitsForNamed(TaskDto taskList, TaskItemDto item)
+        => string.Join(", ", WhatItWaitsFor(taskList, item).Select(step => Written(step.Description)));
+
+    private async Task ToggleItemAsync(TaskDto taskList, TaskItemDto item, TickState state)
     {
         _errorMessage = null;
-        if (isCompleted && await AskedToFinishTheWholeRestockAsync(taskList, item))
+        if (await TaskItemCompletion.TickAsync(taskList, item, state) == TaskItemTickOutcome.SignedOut)
         {
             return;
         }
 
-        var toggledIndex = taskList.Items.ToList().IndexOf(item);
-        // Everything as it already is, with one item's completion changed - see TaskItemRequest.From on
-        // why the fields are not listed here.
-        var items = taskList.Items
-            .Select((existingItem, index) => TaskItemRequest.From(existingItem) with
-            {
-                IsCompleted = index == toggledIndex ? isCompleted : existingItem.IsCompleted
-            })
-            .ToList();
-
-        try
-        {
-            var outcome = await TasksApiClient.UpdateTaskListAsync(
-                taskList.Id, new UpdateTaskRequest(taskList.Title, items, taskList.IsGroup));
-            if (outcome.Kind == EditOutcomeKind.Locked)
-            {
-                _errorMessage = T.Format("{0} is currently editing \"{1}\" - try again in a moment.", outcome.LockedByUserName, taskList.Title);
-            }
-            else if (outcome.Kind == EditOutcomeKind.NotFound)
-            {
-                _errorMessage = T.Format("\"{0}\" is no longer available to you.", taskList.Title);
-            }
-        }
-        catch (HttpRequestException exception) when (exception.StatusCode == HttpStatusCode.Unauthorized)
-        {
-            NavigationManager.NavigateTo("/login");
-            return;
-        }
-        catch (HttpRequestException exception)
-        {
-            Logger.LogError(exception, "Failed to toggle an item on task list {TaskListId}", taskList.Id);
-            _errorMessage = T["Couldn't save that change. Try again."];
-        }
+        _errorMessage = TaskItemCompletion.FailureMessage;
+        _shortfallMessage = TaskItemCompletion.Note ?? _shortfallMessage;
 
         // Reloads even after a failure, so a checkbox that didn't save snaps back to what the server
         // actually holds - and after a success, so a group's linked items pick up their new completion.
@@ -1002,44 +1035,6 @@ else
         {
             _isRaisingShortfalls = false;
         }
-    }
-
-    /// <summary>
-    /// Crossing off "Update stock levels" while errands are still open on the same list is either the
-    /// end of a round of restocking or a tick on one reminder. Only the reader knows which, so they are
-    /// asked - and answering yes finishes the rest and brings the shelf up to its minimums in one go.
-    /// Answers whether it handled the tick, so the ordinary save is skipped when it did.
-    /// </summary>
-    private async Task<bool> AskedToFinishTheWholeRestockAsync(TaskDto taskList, TaskItemDto item)
-    {
-        if (item.Description != RestockTaskNaming.UpdateStockReminderDescription
-            || !taskList.Items.Any(other => other.Id != item.Id && !other.IsCompleted))
-        {
-            return false;
-        }
-
-        if (!await JSRuntime.InvokeAsync<bool>(
-                "confirm", T["Finish this list and set every item in the inventory to its minimum?"]))
-        {
-            return false;
-        }
-
-        try
-        {
-            var toppedUp = await TasksApiClient.FinishRestockingAsync(taskList.Id);
-            Logger.LogInformation(
-                "User finished restocking from task list {TaskListId}, topping up {ToppedUpCount} items", taskList.Id, toppedUp);
-            _shortfallMessage = T.Format("{0} brought up to their minimum.", toppedUp);
-        }
-        catch (HttpRequestException exception)
-        {
-            Logger.LogError(exception, "Failed to finish restocking from task list {TaskListId}", taskList.Id);
-            _errorMessage = T["Couldn't finish the restocking. Try again."];
-            return true;
-        }
-
-        await LoadAsync();
-        return true;
     }
 
     private void ToggleView()

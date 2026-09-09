@@ -67,5 +67,6 @@ public sealed class DuplicateTaskListCommandHandler : IRequestHandler<DuplicateT
             new TaskItemSubject(item.Subject.Kind, item.Subject.Location, linkedCalendarEventId: null, item.Subject.LinkedInventoryItemId),
             item.Categories,
             item.Product,
-            item.Notes);
+            item.Notes,
+            item.IsFailed);
 }

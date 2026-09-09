@@ -53,7 +53,20 @@ public sealed record TaskItemDto(
     /// Orbit.Core.Tasks.TaskItem.Notes for why the two are named this way round. Empty for an entry
     /// nobody wrote one on; on the way out it is always sent.
     /// </summary>
-    string? Notes = null)
+    string? Notes = null,
+    /// <summary>
+    /// Closed without being done - see Orbit.Core.Tasks.TaskItem.IsFailed. Never true together with
+    /// <paramref name="IsCompleted"/>, and never true for an entry standing for other lists. A client
+    /// written before the cross existed reads such an entry as one still to do, which is the safest
+    /// thing it can be wrong about.
+    /// </summary>
+    bool IsFailed = false,
+    /// <summary>
+    /// The entries <b>on the same list</b> this one waits for - see
+    /// Orbit.Core.Tasks.TaskItem.WaitsForTaskItemIds. Empty for nearly every entry. An entry waiting on
+    /// something unfinished cannot be ticked off, which the server enforces however it is asked.
+    /// </summary>
+    IReadOnlyList<Guid>? WaitsForTaskItemIds = null)
 {
     /// <summary>
     /// Whichever shape the sender used, read as one. Needed on the way in as well as the way out: a
@@ -67,4 +80,7 @@ public sealed record TaskItemDto(
 
     /// <summary>The description as something to read without a null check - see <see cref="Notes"/>.</summary>
     public string AllNotes => Notes ?? string.Empty;
+
+    /// <summary>The steps as something to read without a null check - see <see cref="WaitsForTaskItemIds"/>.</summary>
+    public IReadOnlyList<Guid> AllWaitsForTaskItemIds => WaitsForTaskItemIds ?? [];
 }

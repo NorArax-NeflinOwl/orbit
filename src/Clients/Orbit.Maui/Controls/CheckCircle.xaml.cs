@@ -18,6 +18,15 @@ public partial class CheckCircle : ContentView
 			propertyChanged: (circle, _, _) => ((CheckCircle)circle).Redraw());
 
 	/// <summary>
+	/// Crossed out rather than ticked off: the entry, or the line, was finished with and not done - see
+	/// Orbit.Core.Tasks.TaskItem.IsFailed. Drawn in the colour everything that went wrong is drawn in,
+	/// with a cross in place of the tick, so the two are told apart at a glance down a list.
+	/// </summary>
+	public static readonly BindableProperty IsFailedProperty =
+		BindableProperty.Create(nameof(IsFailed), typeof(bool), typeof(CheckCircle), false,
+			propertyChanged: (circle, _, _) => ((CheckCircle)circle).Redraw());
+
+	/// <summary>
 	/// How big the circle is. 22 on a list of errands, 26 on the one entry a screen is about, 20 on a
 	/// note's line - the design sizes it by how much the thing being ticked matters.
 	/// </summary>
@@ -61,6 +70,13 @@ public partial class CheckCircle : ContentView
 		set => SetValue(IsCheckedProperty, value);
 	}
 
+	/// <inheritdoc cref="IsFailedProperty"/>
+	public bool IsFailed
+	{
+		get => (bool)GetValue(IsFailedProperty);
+		set => SetValue(IsFailedProperty, value);
+	}
+
 	/// <inheritdoc cref="DiameterProperty"/>
 	public double Diameter
 	{
@@ -94,11 +110,16 @@ public partial class CheckCircle : ContentView
 		Ring.WidthRequest = Diameter;
 		Ring.HeightRequest = Diameter;
 
-		// The tick is a little over half the circle, which is what keeps it looking drawn rather than
+		// The mark is a little over half the circle, which is what keeps it looking drawn rather than
 		// cropped at every size the three screens ask for.
 		Tick.WidthRequest = Diameter * 0.55;
 		Tick.HeightRequest = Diameter * 0.55;
-		Tick.IsVisible = IsChecked;
+		Tick.IsVisible = IsChecked || IsFailed;
+		// Two marks out of one Path: a tick, or the cross of something given up on. Drawn rather than
+		// written for the reason the class comment gives - neither glyph exists in the faces this app
+		// is set in.
+		Tick.Data = (Geometry)new PathGeometryConverter().ConvertFromInvariantString(
+			IsChecked ? TickMark : CrossMark)!;
 
 		// Both cleared first, every time. Two different traps meet on these two properties:
 		//
@@ -121,9 +142,24 @@ public partial class CheckCircle : ContentView
 			return;
 		}
 
+		if (IsFailed)
+		{
+			// The theme's own warning colour rather than the accent: done and given up on must not be
+			// the same circle with a different mark inside it.
+			Ring.SetAppTheme(Shape.FillProperty, Look("WarningLight"), Look("WarningDark"));
+			Ring.SetAppTheme(Shape.StrokeProperty, Look("WarningLight"), Look("WarningDark"));
+			return;
+		}
+
 		Ring.Fill = Brush.Transparent;
 		Ring.SetAppTheme(Shape.StrokeProperty, Look("TertiaryTextLight"), Look("TertiaryTextDark"));
 	}
+
+	/// <summary>The tick, as the XAML draws it - see CheckCircle.xaml.</summary>
+	private const string TickMark = "M5,12 L10,17 L19,7";
+
+	/// <summary>The cross, on the same 24-wide box the tick is drawn in.</summary>
+	private const string CrossMark = "M6,6 L18,18 M18,6 L6,18";
 
 	private static Color Look(string key)
 		=> Application.Current?.Resources.TryGetValue(key, out var value) is true && value is Color colour

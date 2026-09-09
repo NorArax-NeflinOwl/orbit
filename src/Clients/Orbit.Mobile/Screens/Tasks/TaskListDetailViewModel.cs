@@ -4,6 +4,7 @@ using CommunityToolkit.Mvvm.Input;
 using Orbit.Contracts.Calendar;
 using Orbit.Contracts.Inventories;
 using Orbit.Contracts.Tasks;
+using Orbit.Core.Abstractions;
 using Orbit.Core.Tasks;
 using Orbit.Core.Inventories;
 using Orbit.Mobile.Api;
@@ -458,6 +459,22 @@ public sealed partial class TaskListDetailViewModel : ObservableObject
         new Dictionary<Guid, TaskItemReference>();
 
     /// <summary>
+    /// Whether building a storage out of this list is worth offering at all - see
+    /// GeneratedInventorySource, which Orbit.Web's own menu asks the same question of. A list of plain
+    /// errands has nothing a shelf would be about, and offering it there was an offer to build an empty
+    /// storage and quietly point the list at it.
+    /// </summary>
+    public bool HasSomethingToBuildAStorageFrom
+        => GeneratedInventorySource.HasSomethingToBuildFrom(
+            [.. _items.Select(Summarise)],
+            serverId => _linkedTaskLists.TryGetValue(serverId, out var linked)
+                ? [.. linked.Items.Select(Summarise)]
+                : null);
+
+    private static TaskEntrySummary Summarise(TaskItemDto item)
+        => new(item.Kind == nameof(TaskItemKind.Inventory), item.AllLinkedTaskListIds);
+
+    /// <summary>
     /// Read with the list rather than when an entry is opened, for the reason Orbit.Web's editor gives:
     /// the picker offering them has to be filled before anybody opens an entry, not after. The local
     /// store rather than the API, so it is there with no connection like everything else on this screen.
@@ -808,7 +825,18 @@ public sealed partial class TaskListDetailViewModel : ObservableObject
             return Task.CompletedTask;
         }
 
-        if (!row.IsCompleted && ClosesARestockRound(row))
+        // An entry waiting on unfinished work cannot be ticked - and only the tick is held back, since
+        // crossing it out is what somebody stuck behind a step that will never happen needs. The server
+        // keeps the same rule whatever is sent to it; this is so the phone says why. See TaskListSteps.
+        if (!row.IsCompleted && !row.IsFailed && WhatItWaitsFor(row) is { Count: > 0 } steps)
+        {
+            Status = _translations.Format(
+                "Waiting for {0}.", string.Join(", ", steps.Select(step => _translations.Written(step.Description))));
+            return Task.CompletedTask;
+        }
+
+        // Only a tick claims the whole round is done - crossing the reminder out says the opposite.
+        if (!row.IsCompleted && !row.IsFailed && ClosesARestockRound(row))
         {
             RestockTickBeingAsked = row;
             return Task.CompletedTask;
@@ -861,14 +889,35 @@ public sealed partial class TaskListDetailViewModel : ObservableObject
     [RelayCommand]
     private void LeaveTheListBehind() => LinkedTickBeingAsked = null;
 
+    /// <summary>
+    /// The entries this one is still waiting on. The same rule the server keeps: a step crossed out
+    /// counts as not done, because that is what a cross says. See TaskListSteps.
+    /// </summary>
+    private IReadOnlyList<TaskItemDto> WhatItWaitsFor(TaskItemRow row)
+        => [.. row.WaitsForTaskItemIds
+            .Select(stepId => _items.FirstOrDefault(candidate => candidate.Id == stepId))
+            .Where(step => step is { IsCompleted: false })
+            .OfType<TaskItemDto>()];
+
     private bool ClosesARestockRound(TaskItemRow row)
         => row.Description == RestockTaskNaming.UpdateStockReminderDescription
-            && _items.Any(other => other.Id != row.Id && !other.IsCompleted);
+            && _items.Any(other => other.Id != row.Id && !other.IsCompleted && !other.IsFailed);
 
+    /// <summary>
+    /// One press moves the entry to the next of its three answers - nothing, done, given up on - which
+    /// is the same cycle the browser's own box follows. See TickState.
+    /// </summary>
     private Task TickAsync(TaskItemRow row, CancellationToken cancellationToken)
-        => SaveAsync(
-            _items.Select(item => item.Id == row.Id ? item with { IsCompleted = !item.IsCompleted } : item).ToList(),
+    {
+        var next = Ticks.Read(row.IsCompleted, row.IsFailed).Next();
+        return SaveAsync(
+            _items
+                .Select(item => item.Id == row.Id
+                    ? item with { IsCompleted = next.IsCompleted(), IsFailed = next.IsFailed() }
+                    : item)
+                .ToList(),
             cancellationToken);
+    }
 
     /// <summary>"No" - the one tick the reader asked for, and the rest of the list left alone.</summary>
     [RelayCommand]
@@ -1102,8 +1151,10 @@ public sealed partial class TaskListDetailViewModel : ObservableObject
         {
             ChecklistOrder.Alphabetical =>
                 items.OrderBy(item => item.Description, StringComparer.CurrentCultureIgnoreCase),
+            // What is left to do first, and everything finished with after it - a crossed-out entry
+            // belongs with the done ones rather than with the work.
             ChecklistOrder.UndoneFirst => items
-                .OrderBy(item => item.IsCompleted)
+                .OrderBy(item => item.IsCompleted || item.IsFailed)
                 .ThenBy(item => item.Description, StringComparer.CurrentCultureIgnoreCase),
             _ => items.AsEnumerable()
         };

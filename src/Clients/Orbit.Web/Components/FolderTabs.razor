@@ -2,6 +2,7 @@
 @using Orbit.Web.Services
 @implements IDisposable
 @inject FolderState Folders
+@inject DashboardCardPreferences CardPreferences
 @inject ILogger<FolderTabs> Logger
 @inject Translations T
 
@@ -58,9 +59,19 @@
            the dashboard borrows these tabs and does not own them. *@
         @if (Folders.ChosenOn(Page).FolderId is { } chosenFolderId)
         {
-            <OverflowMenu>
+            <OverflowMenu StaysOpen="true">
                 <button type="button" class="avatar-dropdown-item" @onclick="() => StartRenaming(chosenFolderId)">
                     @T["Rename folder"]
+                </button>
+                @* A folder is made where the things in it are, and the dashboard borrows every one of
+                   them - which is how a tab for recipes or receipts ends up between Public and Private
+                   on the page somebody opens to see what is on their plate. Hiding it takes the tab off
+                   the dashboard and nothing else: the folder is still here, with everything in it. Kept
+                   on the device beside the cards it is put away with - see DashboardCardPreferences. *@
+                <button type="button" class="avatar-dropdown-item"
+                        @onclick="() => SetShownOnTheDashboardAsync(chosenFolderId, !CardPreferences.IsFolderShown(chosenFolderId))">
+                    <span class="card-filter-mark">@(CardPreferences.IsFolderShown(chosenFolderId) ? "" : "✓")</span>
+                    @T["Hide on the dashboard"]
                 </button>
                 <button type="button" class="avatar-dropdown-item" @onclick="() => DeleteAsync(chosenFolderId)">
                     @T["Delete folder"]
@@ -130,7 +141,12 @@
                 builtIn.Add(FolderKey.Of(BuiltInFolder.Finished));
             }
 
-            return builtIn.Concat(Folders.FoldersOn(Page).Select(folder => FolderKey.Of(folder.Id)));
+            // A folder somebody took off the dashboard is not a tab there - see
+            // DashboardCardPreferences.IsFolderShown. Only here: the page the folder belongs to keeps
+            // drawing it, because that is where the folder is for.
+            var made = Folders.FoldersOn(Page)
+                .Where(folder => Page != FolderPage.Dashboard || CardPreferences.IsFolderShown(folder.Id));
+            return builtIn.Concat(made.Select(folder => FolderKey.Of(folder.Id)));
         }
     }
 
@@ -231,10 +247,39 @@
         _folderToDelete = null;
     }
 
+    /// <summary>
+    /// Takes a folder off the dashboard's row of tabs, or puts it back. Read again on the dashboard
+    /// itself, which stops drawing what is under a tab it no longer has.
+    /// </summary>
+    private async Task SetShownOnTheDashboardAsync(Guid folderId, bool isShown)
+    {
+        Logger.LogInformation(
+            "User {Action} folder {FolderId} on the dashboard", isShown ? "showed" : "hid", folderId);
+        await CardPreferences.SetFolderShownAsync(folderId, isShown);
+    }
+
     protected override async Task OnInitializedAsync()
     {
         Folders.Changed += OnFoldersChanged;
+        // The row asks what this device has put away, and the pages that carry this row are not all the
+        // dashboard - so it is read here rather than relying on that page having been opened first.
+        await CardPreferences.InitializeAsync();
         await Folders.EnsureLoadedAsync();
+        LeaveATabThatIsNoLongerThere();
+    }
+
+    /// <summary>
+    /// Falls back to Public where the tab that was open is a folder this row no longer draws - one
+    /// hidden from the dashboard since, or deleted on another page. A page filtered to a tab nobody can
+    /// see shows nothing and offers no way out of it.
+    /// </summary>
+    private void LeaveATabThatIsNoLongerThere()
+    {
+        var chosen = Folders.ChosenOn(Page);
+        if (chosen.FolderId is not null && !Tabs.Contains(chosen))
+        {
+            Folders.Choose(Page, FolderKey.Default);
+        }
     }
 
     /// <summary>A box that appears to be typed in and then has to be found and clicked is a box nobody uses.</summary>

@@ -295,7 +295,7 @@ internal sealed class FakeTasksServer : HttpMessageHandler
         IReadOnlyList<TaskItemRequest> items, IReadOnlyList<TaskItemDto>? stored = null)
     {
         var storedById = (stored ?? []).Where(item => item.Id != Guid.Empty).ToDictionary(item => item.Id);
-        return items.Select(item => new TaskItemDto(
+        return InTheOrderTheyCanBeDone(items.Select(item => new TaskItemDto(
             item.Id ?? Guid.NewGuid(), item.Description, item.DueDateUtc, item.IsCompleted,
             // Whichever shape the client sent, answered in both - what the real endpoint does, so a
             // client reading only the old field still works against this fake. See TaskEndpoints.ToDto.
@@ -317,7 +317,41 @@ internal sealed class FakeTasksServer : HttpMessageHandler
             Notes: item.Notes
                 ?? (item.Id is { } id && storedById.TryGetValue(id, out var alreadyThere)
                     ? alreadyThere.AllNotes
-                    : string.Empty))).ToList();
+                    : string.Empty),
+            // A tick wins over a cross, and an entry standing for other lists has neither of its own -
+            // both are TaskItem's own rules, applied here so a client that sends a contradiction is
+            // answered the way the real server would answer it.
+            IsFailed: item.IsFailed && !item.IsCompleted && item.AllLinkedTaskListIds.Count == 0,
+            // The order the work has to be done in, as sent - what it *means* is applied below, once
+            // every entry is known.
+            WaitsForTaskItemIds: item.WaitsForTaskItemIds
+                ?? (item.Id is { } waiting && storedById.TryGetValue(waiting, out var asStored)
+                    ? asStored.AllWaitsForTaskItemIds
+                    : []))).ToList());
+    }
+
+    /// <summary>
+    /// The rule the real server keeps about the order work is done in, kept here too: a step that is
+    /// not an entry on this list is dropped, and an entry waiting on unfinished work cannot carry a
+    /// tick. A fake that took the tick would let a client which never checks look correct here and be
+    /// contradicted by the server - see TaskListSteps, and "fakes must refuse what the server refuses".
+    /// </summary>
+    private static IReadOnlyList<TaskItemDto> InTheOrderTheyCanBeDone(IReadOnlyList<TaskItemDto> items)
+    {
+        var byId = items.ToDictionary(item => item.Id);
+        return
+        [
+            .. items.Select(item =>
+            {
+                var steps = item.AllWaitsForTaskItemIds.Where(byId.ContainsKey).ToList();
+                var isClearToStart = steps.All(step => byId[step].IsCompleted);
+                return item with
+                {
+                    WaitsForTaskItemIds = steps,
+                    IsCompleted = item.IsCompleted && isClearToStart
+                };
+            })
+        ];
     }
 
     private static Guid ReadId(string path) => Guid.Parse(path.Split('/')[^1]);

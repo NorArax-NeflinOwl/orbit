@@ -218,6 +218,27 @@ public sealed class NoteDetailScreenTests
     }
 
     /// <summary>
+    /// A line gives the same three answers an errand does: nothing, done, given up on - see TickState.
+    /// A line somebody gave up on is finished with and not done, which is why it is not simply ticked.
+    /// </summary>
+    [Fact]
+    public async Task A_line_can_be_crossed_out_rather_than_ticked_off()
+    {
+        using var context = new ScreenContext();
+        var note = await context.AddNoteAsync("Shopping", "milk");
+        var screen = await context.OpenAsync(note.LocalId);
+        screen.ToggleChecklistCommand.Execute(screen.Lines[0]);
+
+        screen.ToggleCheckedCommand.Execute(screen.Lines[0]);
+        screen.ToggleCheckedCommand.Execute(screen.Lines[0]);
+
+        Assert.False(screen.Lines[0].IsChecked);
+        Assert.True(screen.Lines[0].IsFailed);
+        // Struck through either way: the circle beside it says which of the two it was.
+        Assert.True(screen.Lines[0].IsCompleted);
+    }
+
+    /// <summary>
     /// The button in the editor's bottom-left corner is a switch: while it is on, every line started
     /// begins with an empty box. Pressing it is what turns it on - see NoteDetailPage.
     /// </summary>

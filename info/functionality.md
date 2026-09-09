@@ -279,7 +279,16 @@ an omission rather than a decision, and because undoing it would be a migration 
 on it is done whatever its own tick says, so its deadlines leave the calendar's list and its grid marks
 (`Calendar.LoadDueTasksAsync`, `Calendar.IsTickedOff`), the dashboard's "Upcoming" card and the count of
 what is due today (`Dashboard.UpcomingDeadlines`, `TasksDueTodayCount`), and the same two places on the
-phone (`CalendarDeadline`, `DashboardViewModel`). Saying "no more of this" and then being reminded of it
+phone (`CalendarDeadline`, `DashboardViewModel`). The day's count asks this as **closed while work was
+still unticked on it**, rather than as "finished": a list is also finished when its entries simply all
+got ticked, and those are exactly the entries the fraction below exists to show.
+
+**The day is counted as a fraction: "1/3 tasks due today", "1/2 events today"** (both clients, since
+2026-09-09). A bare number answered "how much is there" and never "how far through it am I", which is
+the question a row of counts over a date is asked - and because it counted only what was left, a day
+whose work had all been ticked off read "0 tasks due today", which is three tasks that disappeared
+rather than three that were done. An appointment carries no tick of its own, so the events half asks
+the clock instead: one that has ended is one nobody has to get to any more. Saying "no more of this" and then being reminded of it
 every morning would be the app arguing with the reader.
 
 **And nothing announces itself about it either.** The three background services that say what is owed
@@ -300,6 +309,52 @@ need one - `FoldersBelongToOnePage` - and it does more than default the column: 
 is moved to the notes, and one that held both kinds becomes two folders with the notes moved into the
 copy, so nothing that was filed somewhere falls back to Public.
 
+**An entry can wait for other entries of the same list** (2026-09-09, `OL_TASKS_STEPS`,
+`TaskItem.WaitsForTaskItemIds`, the rule in `TaskListSteps`): "hang the door" after "fit the hinges".
+Chosen in the entry's own panel in the list's editor, from a picker offering the other entries on that
+list - a different field from **Stands for these lists** above it, which is one entry meaning whole other
+lists rather than the order the work here has to be done in.
+
+**An entry waiting on unfinished work cannot be ticked.** Not refused with an error: the tick is taken
+back wherever a list is built or saved, the same way a linked entry's completion is ignored rather than
+briefly believed - so a client that never checks cannot store one. Both clients check anyway and say
+what it is waiting for, because a box that answers a press with nothing reads as a page that has stopped
+working. **Only the tick is held back**: crossing the entry out is still allowed, which is exactly what
+somebody held up by a step that is never going to happen needs. A step that was itself crossed out
+blocks, since what a cross says is that the work was not done.
+
+Two rules keep it honest: a step that is not an entry on this list is dropped (ids outlive the entries
+they name - a step deleted in the same save, an id from another list), and an entry cannot wait for
+itself. A request that says nothing about an entry's steps leaves the stored ones alone
+(`UpdateTaskListCommand.EntriesKeepingTheirSteps`) - the fourth field to follow that rule, and for the
+same reason as the first three: the phone has no picker for it yet and must not undo what was arranged
+on the web.
+
+**An entry's own box has three answers too** (`OP_TI_ISFAILED`, `Orbit.Core.Tasks.TaskItem.IsFailed`,
+2026-09-09): nothing, **done**, and **given up on** - one press moves to the next, and the third press
+clears it (`Orbit.Core.Abstractions.TickState`, which both clients cycle through so a box means the same
+thing in a browser and on a phone). A cross rather than a tick, drawn in the colour everything that went
+wrong is drawn in; a note's checklist line carries the same three (`NoteContentLine.IsFailed`).
+
+Why a third state at all: a list with something on it that is never going to happen could only be closed
+by lying about it with a tick or by leaving it open for ever. So **given up on means finished with, and
+not done** (`TaskItem.IsResolved`) - the two are different questions and each place asks the one it
+means:
+
+- *Still owed?* asks `IsResolved`. A list is complete when nothing on it is still owed; no overdue
+  notice and no event reminder goes out for a crossed-out entry; what a list still needs against a shelf
+  does not count it; a deadline somebody gave up on leaves the calendar's list and the dashboard's
+  Upcoming card. A daily errand still comes round again the next morning, which is what it already did
+  for a tick - being crossed out today says nothing about tomorrow.
+- *Done?* asks `IsCompleted`. The fraction beside a list ("2/5"), the day's count on the dashboard, and
+  everything that acts on work having actually been done: a restock errand somebody gave up on tops up
+  no shelf, and crossing out "Update stock levels" does not offer to finish the whole round.
+
+It is stored as its own flag beside the tick rather than as a status replacing it, so every query that
+asked "is this ticked" still means the same thing by it and existing rows read as "not failed" without
+being rewritten. **A tick wins wherever both arrive**, settled in `TaskItem`'s constructor; an entry
+standing for other lists has neither of its own, since its answer follows the lists it stands for.
+
 **The Completed box has three answers, not two** (`Orbit.Core.Tasks.TaskListCompletion`,
 `OP_T_COMPLETION`, stored by name). A list starts at `FromTheEntries` - nobody has said, so the entries
 decide, and the box **ticks itself once every entry is ticked**, which is what a reader already means by
@@ -314,6 +369,22 @@ that. Pressing it records an answer of the reader's own instead:
   (`TaskListStatus.Incomplete`) - its own status, because "in progress" over a column of ticks describes
   neither of the two true things about it. With work still left the status is whatever the work says;
   Incomplete is only ever about the gap between the entries and the list.
+
+**The dashboard narrows to one card when a made folder is open** (2026-09-09). A folder belongs to one
+kind of thing - recipes are task lists, receipts are notes - so pressing its tab leaves that card
+standing and takes the rest of the page away: everything else on it is about something the folder cannot
+hold, and the page used to answer "show me this folder" with the whole dashboard and one card narrowed
+inside it. The built-in tabs change nothing, being what everything is in unless it was filed somewhere.
+The strip of counts above the tabs stays either way - it is about the day rather than about what is
+filed.
+
+**And a folder can be taken off the dashboard**, from its own menu on the page it was made on ("Hide on
+the dashboard", `DashboardCardPreferences.IsFolderShown`). The dashboard borrows both pages' tabs, which
+is how a folder for recipes ends up between Public and Private on the page somebody opens to see what is
+on their plate. It hides the tab there and nothing else - the folder is still on its own page with
+everything in it - and it is kept on the device, beside the cards that are put away the same way, since
+it says nothing about what the folders hold. A tab that goes while it is open falls back to Public, so a
+page can never be filtered to a folder nobody can see.
 
 **A folder somebody made is none of the three** and holds whatever they put in it, private things
 included: filing something is not the same decision as sealing it. Only these are rows
@@ -392,6 +463,37 @@ than `"[ ]"`/`"[x]"` text every client would have to parse back out, and it is p
 `id`, `createdAtUtc`, and `updatedAtUtc`. `DELETE /api/notes/{id}` deletes a note, 404ing under the same
 ownership rule as every other endpoint; the Blazor client's notes page asks for confirmation before
 calling it.
+
+### Writing a note in the browser
+
+`NoteEditor.razor` is **one field and nothing else on that side of the screen** (2026-09-09), which is
+the shape the phone's note screen has had since the redesign: the first line is the note's title and is
+drawn as one, everything under it is the note, and there is no separate title box for the two to
+disagree in.
+
+- **The tools sit over the writing's bottom-left corner**, not above it - a toolbar at the top of a note
+  is a strip of the page given to controls before a word has been written. Four of them, as the design
+  draws: text style, checklist, table, attachment. **Only the checklist one does anything**; the other
+  three answer a press with "*Text style*: not implemented yet." rather than being greyed out, because a
+  dead button explains nothing and a row of them explains less.
+- **The checklist tool types `[]`**, which the surface then turns into a tick box
+  (`checklistTextEditor.js`, `CHECKLIST_MARKER`). Typing the same two characters at the head of a line
+  does the same thing, so the button is a shortcut into the rule rather than a second way in - which is
+  how the phone has always done it (`NoteDetailPage`, "Type [] for a checkbox").
+- **How much it matters, where it is filed and whether it is sealed live in the panel's menu**, above
+  Save and Back (`EditorRail`'s `ChildContent`, an `OverflowMenu` that stays open because these are
+  settings rather than actions). They used to sit under the writing, which is a form somebody had to
+  scroll past to reach the end of what they were writing. They are plain `<select>`/`<input>` rather than
+  `InputSelect`/`InputCheckbox`: the panel is outside the `EditForm`, and those need its `EditContext`.
+- **The notes in the same folder stand beside it**, a fifth of the width, most recently changed first,
+  with the one being written marked. What is being written is one of a set, and moving between them
+  should not mean going back to the page of cards each time. Pressing one is an ordinary navigation and
+  means exactly what Back-then-open means: whatever has not been saved is not kept. Below 1100px the
+  column is dropped - a fifth of a narrow window cannot name a note, and the writing needs the room.
+  Because a route parameter changing does not remake a Blazor component, the editor loads in
+  `OnParametersSetAsync` keyed by the note's id, releases the previous note's edit lock on the way, and
+  hands the new lines to the writing surface itself (`ChecklistTextEditor.SetLinesAsync`), which owns its
+  own content and hears nothing about a changed parameter.
 
 ### Sharing notes and task lists
 
@@ -1472,11 +1574,12 @@ nearly always came to do; reworking the list itself is a named click from there.
 true still work.
 
 Rows that can't be ticked by hand render as disabled checkboxes: items whose completion follows a
-linked list (see above), and any list reached through a read-only share.
+linked list (see above), and any list reached through a read-only share. The entry's own page draws the
+same two the same way - see **The entry is crossed off on its own page too** below.
 
 **An entry has a page of its own** (`/tasks/{taskListId}/items/{itemId}`, `TaskItemSummary.razor`): its
-name, the list it is on, when it is, where it is, what it is about, who is coming, whether it is already
-done, and a Leaflet map with a pin where the address resolves. **Every press on an entry lands there**,
+name, the list it is on, when it is, where it is, what it is about, who is coming, a **Done** box that
+crosses it off, and a Leaflet map with a pin where the address resolves. **Every press on an entry lands there**,
 whatever kind of entry it is and wherever it was pressed — a row on a list's card on `/tasks`, an
 entry's words on the checklist, a deadline or an appointment on the calendar, a plan on the map. Two
 buttons lead back out: **Back to Calendar** and **Show Tasks**, the latter to the shallow level of the
@@ -1489,6 +1592,20 @@ objects, decided by a field no card mentions. The checklist skipped the page alt
 list's own form with that entry unfolded, so pressing what an entry said meant "read this" on `/tasks`
 and "rewrite this" one screen further in. Nothing was lost by settling both: ticking an entry off is the
 checkbox's job, which sits on the row beside the words, and the entry's page leads to the list.
+
+**The entry is crossed off on its own page too**, since 2026-09-09. Until then that page said "Already
+done." or nothing at all, so the one screen about an entry was the one place the entry could not be
+finished - somebody who opened it from the calendar to see when something was due had to go back to the
+list to tick it. The box is written the moment it is filled in, as the checklist writes it: there is no
+Save on a screen whose one change is a tick, and no edit lock either, for the reason the shallow level
+takes none. The same two rows that cannot be ticked on the checklist cannot be ticked here - a read-only
+share draws the box disabled, and an entry standing for other lists gets no box at all but a row naming
+each list and offering to open it. Both screens tick through one service (`TaskItemCompletion`), which
+holds the save, the restock question below, and the wording of every refusal: a save the server answers
+409, 404 or 403 to is said on the page and the box goes back to what the server holds. The phone does
+the same on `TaskItemSummaryPage`: the circle at the head of the entry is pressed rather than only
+drawn, written to that phone and queued from there, with a read-only share or an unreachable server
+answered in the line under the entry.
 
 **When it happens is read off the appointment, not off the entry.** A calendar entry's day and hour live
 on the event the editor writes them into, so the entry's own `DueDateUtc` is empty for exactly the
@@ -1691,11 +1808,23 @@ something, and a rule listing what is *allowed* cannot be widened by accident th
 is forbidden can. Trailing punctuation stays outside the link, and a bracket the address itself opened
 stays inside it.
 
+**A chat message's addresses are pressed the same way** (2026-09-09), on both clients: a message is the
+place people paste a link most often, and it was the one place they had to be copied out by hand. The
+same splitter, and the same reason it hands back text rather than markup - a message is written by
+somebody else.
+
 Not linked, and each for a reason: the boxes these are **typed** into are text areas, where a link would
 be a thing you cannot edit; a note's **checklist** lines are pressable rows whose press is the tick, and
 a link inside one would fight it; and a **task list's own description** has no read view anywhere - it
 can be written in the editor and is displayed on no page, which is a gap of its own rather than
 something for this to solve.
+
+**The phone shares the rule and draws it in fewer places.** `LinksInText` lives in `Orbit.Core.Text` so
+there is one answer about what counts as an address, and `LinkedLabel` is the phone's half of
+`TextWithLinks` - a `Label` writing `FormattedText`, because a `Span` is the only thing in MAUI that can
+carry a gesture of its own. It draws chat messages and a task entry's appointment description today; the
+rest of the phone's read-only descriptions are still plain labels, which is written down under
+[the scope cuts](future-plan.md#known-scope-cuts-and-rough-edges).
 
 **Every entry can say what it is about, not only what it is called.** An entry's own line is its name -
 "Buy milk", "Dentist" - and there was nowhere to write the rest of it unless the entry was an
@@ -1777,6 +1906,13 @@ last bag is theirs (see `StockRequirementCounter.ShareOfTheShelf`). The tie can 
 an inventory's editor carries a checklist of the lists measured against it. "Generate inventory" is still
 refused to a list that already has one: it would build a second and quietly move the list onto it,
 leaving the first with nothing pointing at it.
+
+**And it is only offered where there is something on the list a shelf could be about** (2026-09-09,
+`GeneratedInventorySource`, asked by both clients): an entry describing a product, or one standing for a
+list that has one, however deep that goes. On a list of plain errands the menu entry was an offer to
+build an empty storage and quietly point the list at it. The rule lives on the clients rather than in the
+endpoint, which still builds a shelf out of whatever the work names - so a list of errands can still be
+turned into one by anything that calls it, it is simply not *offered* any more.
 
 `POST /api/tasks/{id}/inventory` goes the other way: it builds the shelf the work needs - one entry per
 distinct thing, **each carrying how many the job needs as its minimum**, and starting with whatever the

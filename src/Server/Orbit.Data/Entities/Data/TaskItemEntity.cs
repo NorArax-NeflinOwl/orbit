@@ -27,10 +27,23 @@ public sealed class TaskItemEntity
     public bool IsCompleted { get; set; }
 
     /// <summary>
+    /// Closed without being done - see Orbit.Core.Tasks.TaskItem.IsFailed. Its own column beside the
+    /// tick rather than a status replacing it: every query that asks whether an entry is ticked still
+    /// means the same thing by it, and an existing row reads as "not failed" without being rewritten.
+    /// </summary>
+    public bool IsFailed { get; set; }
+
+    /// <summary>
     /// The lists this entry references instead of being independently completable - see
     /// <see cref="Orbit.Core.Tasks.LinkedTaskCompletionResolver"/>. Empty for an ordinary entry.
     /// </summary>
     public List<TaskItemTaskListLinkEntity> LinkedTaskLists { get; set; } = [];
+
+    /// <summary>
+    /// The entries of the same list this one waits for - see Orbit.Core.Tasks.TaskItem.WaitsForTaskItemIds.
+    /// Empty for an ordinary entry, which is nearly all of them.
+    /// </summary>
+    public List<TaskItemStepEntity> Steps { get; set; } = [];
 
     /// <summary>What this entry is filed under - see Orbit.Core.Tasks.TaskItem.Categories. Empty for one nobody has filed.</summary>
     public List<TaskItemCategoryEntity> Categories { get; set; } = [];

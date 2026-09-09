@@ -42,7 +42,7 @@
                                  the design draws and which fits three of them in 412 points. -->
                             <HorizontalStackLayout Spacing="18">
                                 <VerticalStackLayout Spacing="0">
-                                    <Label Text="{Binding TasksDueToday}" FontFamily="OrbitDisplay" FontSize="20"
+                                    <Label Text="{Binding TasksDueTodayReads}" FontFamily="OrbitDisplay" FontSize="20"
                                            FontAttributes="Bold"
                                            TextColor="{AppThemeBinding Light={StaticResource TaskLight}, Dark={StaticResource TaskDark}}" />
                                     <Label Text="{controls:Translate 'tasks due today'}"
@@ -50,7 +50,7 @@
                                 </VerticalStackLayout>
 
                                 <VerticalStackLayout Spacing="0">
-                                    <Label Text="{Binding EventsToday}" FontFamily="OrbitDisplay" FontSize="20"
+                                    <Label Text="{Binding EventsTodayReads}" FontFamily="OrbitDisplay" FontSize="20"
                                            FontAttributes="Bold" TextColor="{DynamicResource Accent}" />
                                     <Label Text="{controls:Translate 'events today'}"
                                            Style="{StaticResource PanelHeading}" />

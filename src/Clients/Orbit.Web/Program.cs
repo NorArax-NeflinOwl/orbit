@@ -147,6 +147,9 @@ builder.Services.AddScoped<ChecklistViewPreference>();
 builder.Services.AddScoped<TaskListArrangement>();
 // The questions asked before a task list is deleted, shared by the three screens that offer it.
 builder.Services.AddScoped<TaskListDeletion>();
+// Ticking one entry off, shared by the two screens an entry can be crossed off on - the checklist and
+// the entry's own page. See TaskItemCompletion.
+builder.Services.AddScoped<TaskItemCompletion>();
 builder.Services.AddScoped<PanelPreferences>();
 // Which groups of pins the map draws, remembered by this browser - see MapPinVisibility.
 builder.Services.AddScoped<MapPinVisibility>();

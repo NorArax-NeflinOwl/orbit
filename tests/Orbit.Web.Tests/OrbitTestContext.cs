@@ -17,6 +17,13 @@ namespace Orbit.Web.Tests;
 /// </summary>
 public abstract class OrbitTestContext : TestContext
 {
+    /// <summary>
+    /// The module the dashboard's layout is stored through - see DashboardCardPreferences. Held rather
+    /// than set up and forgotten, so a test that wants a different stored answer can say so: setting the
+    /// module up a second time replaces this one and takes the rest of its answers with it.
+    /// </summary>
+    protected BunitJSModuleInterop DashboardCards { get; private set; } = null!;
+
     protected OrbitTestContext()
     {
         Services.AddSingleton(new Translations(new StubJSRuntime()));
@@ -64,6 +71,23 @@ public abstract class OrbitTestContext : TestContext
         // page shows should not fail on a service it never exercises. It resolves the TasksApiClient
         // the test itself registered, so a test that does exercise it still drives its own stub.
         Services.AddScoped<TaskListDeletion>();
+        // Ticking one entry of a task list off, which the checklist and the entry's own page both do
+        // through this now - see TaskItemCompletion. Registered here for the same reason
+        // TaskListDeletion is: it resolves the TasksApiClient the test itself registered, so a test
+        // that does tick something still drives its own stub.
+        Services.AddScoped<TaskItemCompletion>();
+        // Which parts of the dashboard this device has put away, and which folders it keeps off it -
+        // the row of folder tabs asks the second on every page that carries it, so a test about the
+        // tabs should not fail on a service it never exercises. Nothing is hidden here, which is what a
+        // fresh browser looks like; the dashboard's own tests register theirs over this one.
+        DashboardCards = JSInterop.SetupModule("./js/dashboardCards.js");
+        DashboardCards.Setup<string[]>("getHiddenCards").SetResult([]);
+        DashboardCards.SetupVoid("setHiddenCards", _ => true).SetVoidResult();
+        DashboardCards.Setup<Dictionary<string, string>>("getCardFilters").SetResult([]);
+        DashboardCards.SetupVoid("setCardFilters", _ => true).SetVoidResult();
+        DashboardCards.Setup<string[]>("getHiddenFolders").SetResult([]);
+        DashboardCards.SetupVoid("setHiddenFolders", _ => true).SetVoidResult();
+        Services.AddScoped<DashboardCardPreferences>();
         // Every overflow menu asks JS to place it inside the viewport when it opens - see
         // OverflowMenu and menuAnchor.js. There is no layout to measure here, so it answers and does
         // nothing; without it any test that opens a menu fails on the interop call rather than on

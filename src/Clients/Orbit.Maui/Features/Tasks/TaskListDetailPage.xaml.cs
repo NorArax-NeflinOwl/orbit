@@ -114,9 +114,15 @@ public partial class TaskListDetailPage : ContentPage, ITitleMenu, ITitleSteps
 		// price it against - the panel below appears by the same rule.
 		if (_viewModel.StockCheck.IsOffered)
 		{
-			entries.Add(new ScreenMenuEntry(
-				_translations["Generate inventory"],
-				() => _viewModel.StockCheck.GenerateInventoryCommand.Execute(null)));
+			// And building one is only worth offering where there is something on the list a shelf
+			// would be about - see GeneratedInventorySource, which the browser's own menu asks too.
+			if (_viewModel.HasSomethingToBuildAStorageFrom)
+			{
+				entries.Add(new ScreenMenuEntry(
+					_translations["Generate inventory"],
+					() => _viewModel.StockCheck.GenerateInventoryCommand.Execute(null)));
+			}
+
 			entries.Add(new ScreenMenuEntry(
 				_translations["Refresh the restock list"],
 				() => _viewModel.StockCheck.RefreshFromTheInventoryCommand.Execute(null)));
