@@ -6,12 +6,13 @@
 @inject Translations T
 
 @* The row of tabs every page made of cards is read under - the dashboard, the notes and the task
-   lists. Three of them are always there and have nothing stored behind them (see BuiltInFolder); the
-   rest are whatever the reader made. The state is shared, so the tab is still open on the next page. *@
+   lists. Two or three of them are always there and have nothing stored behind them (see BuiltInFolder);
+   the rest are whatever the reader made on this page. What the row offers is the page's own answer
+   rather than one answer given three times - see FolderPages. *@
 <div class="folder-tabs" role="tablist" aria-label="@(T["Folders"])">
     @foreach (var tab in Tabs)
     {
-        var isChosen = tab == Folders.Chosen;
+        var isChosen = tab == Folders.ChosenOn(Page);
         @if (_folderBeingRenamed == tab.FolderId && tab.FolderId is not null)
         {
             <input class="folder-tab-name" @bind="_name" @bind:event="oninput"
@@ -31,34 +32,41 @@
         }
     }
 
-    @if (_isNaming && _folderBeingRenamed is null)
+    @* Only where a folder made here would have something that could go in it. The dashboard shows
+       notes and task lists at once and files neither, so it reads the other pages' tabs and offers no
+       way to add to them - see FolderPages.MakesFoldersIn. *@
+    @if (Page.MakesFoldersIn() is not null)
     {
-        <input class="folder-tab-name" placeholder="@(T["Folder name"])" @bind="_name" @bind:event="oninput"
-               @onkeydown="args => OnNamingKeyDownAsync(args)" @onblur="StopNaming"
-               aria-label="@(T["Folder name"])" @ref="_nameBox" />
-    }
-    else
-    {
-        <button type="button" class="folder-tab folder-tab-add" title="@(T["New folder"])"
-                aria-label="@(T["New folder"])" @onclick="StartNaming">
-            <svg viewBox="0 0 20 20" width="14" height="14" aria-hidden="true" fill="none"
-                 stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M10 4v12M4 10h12" /></svg>
-        </button>
-    }
+        @if (_isNaming && _folderBeingRenamed is null)
+        {
+            <input class="folder-tab-name" placeholder="@(T["Folder name"])" @bind="_name" @bind:event="oninput"
+                   @onkeydown="args => OnNamingKeyDownAsync(args)" @onblur="StopNaming"
+                   aria-label="@(T["Folder name"])" @ref="_nameBox" />
+        }
+        else
+        {
+            <button type="button" class="folder-tab folder-tab-add" title="@(T["New folder"])"
+                    aria-label="@(T["New folder"])" @onclick="StartNaming">
+                <svg viewBox="0 0 20 20" width="14" height="14" aria-hidden="true" fill="none"
+                     stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M10 4v12M4 10h12" /></svg>
+            </button>
+        }
 
-    @* Only about a folder somebody made: the built-in three are not theirs to rename or throw away.
-       Beside the row rather than on the tab itself, because a menu inside a button is neither a button
-       nor a menu. *@
-    @if (Folders.Chosen.FolderId is { } chosenFolderId)
-    {
-        <OverflowMenu>
-            <button type="button" class="avatar-dropdown-item" @onclick="() => StartRenaming(chosenFolderId)">
-                @T["Rename folder"]
-            </button>
-            <button type="button" class="avatar-dropdown-item" @onclick="() => DeleteAsync(chosenFolderId)">
-                @T["Delete folder"]
-            </button>
-        </OverflowMenu>
+        @* Only about a folder somebody made: the built-in ones are not theirs to rename or throw away.
+           Beside the row rather than on the tab itself, because a menu inside a button is neither a
+           button nor a menu. On the page the folder belongs to, for the same reason as the plus above:
+           the dashboard borrows these tabs and does not own them. *@
+        @if (Folders.ChosenOn(Page).FolderId is { } chosenFolderId)
+        {
+            <OverflowMenu>
+                <button type="button" class="avatar-dropdown-item" @onclick="() => StartRenaming(chosenFolderId)">
+                    @T["Rename folder"]
+                </button>
+                <button type="button" class="avatar-dropdown-item" @onclick="() => DeleteAsync(chosenFolderId)">
+                    @T["Delete folder"]
+                </button>
+            </OverflowMenu>
+        }
     }
 </div>
 
@@ -80,6 +88,12 @@
 
 @code {
     /// <summary>
+    /// The page this row is on. It decides which stored folders are tabs here, whether one can be made,
+    /// and whether Finished is among the built-in ones - see FolderPages.
+    /// </summary>
+    [Parameter, EditorRequired] public FolderPage Page { get; set; }
+
+    /// <summary>
     /// How many cards are under each tab, when the page has an answer - the notes and the task lists
     /// do, and the dashboard, which shows two kinds at once, does not. Null draws no counts at all
     /// rather than zeros, which would be a number that is not true.
@@ -95,12 +109,30 @@
     private bool _isWaitingToFocusTheNameBox;
 
     /// <summary>
-    /// The built-in three first, in the order somebody reads them - what is still open, what is sealed,
-    /// what is finished - and then whatever they made, oldest first.
+    /// The built-in ones first, in the order somebody reads them - what is still open, what is sealed,
+    /// and, where the page has one, what is finished - and then whatever they made here, oldest first.
+    ///
+    /// Finished is not on every page. A note has nothing to finish, so the tab on the notes was a tab
+    /// that could only ever be empty, and the dashboard stops showing a finished list rather than
+    /// filing it somewhere - see FolderPages.HasAFinishedTab.
     /// </summary>
     private IEnumerable<FolderKey> Tabs
-        => new[] { FolderKey.Of(BuiltInFolder.Public), FolderKey.Of(BuiltInFolder.Private), FolderKey.Of(BuiltInFolder.Finished) }
-            .Concat(Folders.Folders.Select(folder => FolderKey.Of(folder.Id)));
+    {
+        get
+        {
+            var builtIn = new List<FolderKey>
+            {
+                FolderKey.Of(BuiltInFolder.Public),
+                FolderKey.Of(BuiltInFolder.Private)
+            };
+            if (Page.HasAFinishedTab())
+            {
+                builtIn.Add(FolderKey.Of(BuiltInFolder.Finished));
+            }
+
+            return builtIn.Concat(Folders.FoldersOn(Page).Select(folder => FolderKey.Of(folder.Id)));
+        }
+    }
 
     private string NameOf(FolderKey tab) => Folders.NameOf(tab, DescribeBuiltIn);
 
@@ -113,8 +145,10 @@
 
     private void Choose(FolderKey tab)
     {
-        Logger.LogInformation("User opened folder tab {Folder}", tab.BuiltIn?.ToString() ?? tab.FolderId?.ToString());
-        Folders.Choose(tab);
+        Logger.LogInformation(
+            "User opened folder tab {Folder} on the {Page} page",
+            tab.BuiltIn?.ToString() ?? tab.FolderId?.ToString(), Page);
+        Folders.Choose(Page, tab);
     }
 
     private void StartNaming()
@@ -164,8 +198,8 @@
         }
         else
         {
-            Logger.LogInformation("User created a folder");
-            await Folders.CreateAsync(name);
+            Logger.LogInformation("User created a folder on the {Page} page", Page);
+            await Folders.CreateAsync(Page, name);
         }
 
         StopNaming();
@@ -193,7 +227,7 @@
         }
 
         Logger.LogInformation("User deleted folder {FolderId}", folderId);
-        await Folders.DeleteAsync(folderId);
+        await Folders.DeleteAsync(Page, folderId);
         _folderToDelete = null;
     }
 

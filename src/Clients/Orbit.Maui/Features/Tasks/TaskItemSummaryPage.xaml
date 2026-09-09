@@ -15,46 +15,76 @@
     <Grid RowDefinitions="Auto,*,Auto">
 
     <ScrollView Grid.Row="1">
-        <VerticalStackLayout Padding="20,18,20,28" Spacing="12">
+        <VerticalStackLayout Padding="20,22,20,28" Spacing="18">
 
-            <!-- Which list this entry belongs to, said once at the head. Its own name is in the bar. -->
-            <Label Text="{Binding TaskListTitle}" Style="{StaticResource PanelHeading}" />
+            <!-- The entry itself, at the head and at the size of the thing the screen is about: its tick
+                 state and its name on one line, which is how the design meets a single entry.
 
-            <!-- When and where, the two things this screen exists to answer, as Orbit.Web lays them
-                 out on the same page. -->
-            <Grid ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto,Auto,Auto" ColumnSpacing="16" RowSpacing="0">
-                <Label Grid.Row="0" Grid.Column="0" Text="{controls:Translate 'When'}"
-                       Style="{StaticResource FieldLabel}" VerticalOptions="Center" Margin="0,14" />
-                <Label Grid.Row="0" Grid.Column="1" Text="{Binding When}" LineBreakMode="WordWrap"
-                       VerticalOptions="Center" Margin="0,14" />
-                <Label Grid.Row="1" Grid.Column="0" Text="{controls:Translate 'Where'}"
-                       Style="{StaticResource FieldLabel}" VerticalOptions="Center" Margin="0,14" />
-                <Label Grid.Row="1" Grid.Column="1" Text="{Binding Where}" LineBreakMode="WordWrap"
-                       VerticalOptions="Center" Margin="0,14" />
-
-                <!-- What the appointment says about itself, and who is coming. Both live on the event
-                     rather than on the entry, so both are absent for an entry that is only a deadline -
-                     which is why each row hides itself rather than standing empty. Above the map, as in
-                     the browser: they are what the thing is, and the map is where it is. -->
-                <Label Grid.Row="2" Grid.Column="0" Text="{controls:Translate 'Description'}"
-                       IsVisible="{Binding HasAppointmentDescription}"
-                       Style="{StaticResource SubtleLabel}" FontSize="13" />
-                <Label Grid.Row="2" Grid.Column="1" Text="{Binding AppointmentDescription}"
-                       IsVisible="{Binding HasAppointmentDescription}" LineBreakMode="WordWrap" />
-                <Label Grid.Row="3" Grid.Column="0" Text="{controls:Translate 'Guests:'}"
-                       IsVisible="{Binding HasGuests}"
-                       Style="{StaticResource SubtleLabel}" FontSize="13" />
-                <Label Grid.Row="3" Grid.Column="1" Text="{Binding Guests}"
-                       IsVisible="{Binding HasGuests}" LineBreakMode="WordWrap" />
+                 The circle says whether it is done and does not offer to change it - this screen is
+                 reached from the calendar and reads an entry rather than filling it in, and the list it
+                 is on is where it can be ticked off. That is Orbit.Web's own division, and it is why the
+                 menu under the name offers one way out rather than the "edit · delete" every other
+                 object carries. -->
+            <Grid ColumnDefinitions="Auto,*" ColumnSpacing="14">
+                <controls:CheckCircle Grid.Column="0" Diameter="26" Margin="0,6,0,0"
+                                      VerticalOptions="Start" IsChecked="{Binding IsCompleted}"
+                                      Description="{Binding Description}" />
+                <Label Grid.Column="1" Text="{Binding Description}" FontFamily="OrbitDisplay"
+                       FontSize="28" FontAttributes="Bold" LineBreakMode="WordWrap"
+                       VerticalOptions="Center">
+                    <Label.Triggers>
+                        <DataTrigger TargetType="Label" Binding="{Binding IsCompleted}" Value="True">
+                            <Setter Property="TextDecorations" Value="Strikethrough" />
+                            <Setter Property="TextColor"
+                                    Value="{AppThemeBinding Light={StaticResource SubtleTextLight}, Dark={StaticResource SubtleTextDark}}" />
+                        </DataTrigger>
+                    </Label.Triggers>
+                </Label>
             </Grid>
 
-            <!-- A row with no title at all - the one place Row's shape is a value on its own, which
-                 is how Orbit.Web draws this same line. -->
-            <controls:Row IsVisible="{Binding IsCompleted}" HasDivider="False">
-                <controls:Row.Trailing>
-                    <Label Text="{controls:Translate 'Already done.'}" Style="{StaticResource RowMeta}" />
-                </controls:Row.Trailing>
-            </controls:Row>
+            <!-- What is known about it, as hairline rows: the name of the fact on the left in small
+                 caps, the fact itself on the right. When and where are the two this screen exists to
+                 answer; what the appointment says about itself and who is coming live on the event
+                 rather than on the entry, so both are absent for an entry that is only a deadline -
+                 which is why each row hides itself rather than standing empty. -->
+            <VerticalStackLayout Spacing="0">
+                <Grid ColumnDefinitions="Auto,*" ColumnSpacing="16" Padding="0,12" MinimumHeightRequest="46">
+                    <BoxView Grid.Column="0" Grid.ColumnSpan="2" Style="{StaticResource Hairline}" VerticalOptions="Start" Margin="0,-12,0,0" />
+                    <Label Grid.Column="0" Text="{controls:Translate 'When'}"
+                           Style="{StaticResource FieldLabel}" VerticalOptions="Center" />
+                    <Label Grid.Column="1" Text="{Binding When}" LineBreakMode="WordWrap"
+                           HorizontalTextAlignment="End" VerticalOptions="Center" />
+                </Grid>
+
+                <Grid ColumnDefinitions="Auto,*" ColumnSpacing="16" Padding="0,12" MinimumHeightRequest="46">
+                    <BoxView Grid.Column="0" Grid.ColumnSpan="2" Style="{StaticResource Hairline}" VerticalOptions="Start" Margin="0,-12,0,0" />
+                    <Label Grid.Column="0" Text="{controls:Translate 'Where'}"
+                           Style="{StaticResource FieldLabel}" VerticalOptions="Center" />
+                    <Label Grid.Column="1" Text="{Binding Where}" LineBreakMode="WordWrap"
+                           HorizontalTextAlignment="End" VerticalOptions="Center" />
+                </Grid>
+
+                <Grid ColumnDefinitions="Auto,*" ColumnSpacing="16" Padding="0,12" MinimumHeightRequest="46"
+                      IsVisible="{Binding HasAppointmentDescription}">
+                    <BoxView Grid.Column="0" Grid.ColumnSpan="2" Style="{StaticResource Hairline}" VerticalOptions="Start" Margin="0,-12,0,0" />
+                    <Label Grid.Column="0" Text="{controls:Translate 'Description'}"
+                           Style="{StaticResource FieldLabel}" VerticalOptions="Center" />
+                    <Label Grid.Column="1" Text="{Binding AppointmentDescription}" LineBreakMode="WordWrap"
+                           HorizontalTextAlignment="End" VerticalOptions="Center" />
+                </Grid>
+
+                <Grid ColumnDefinitions="Auto,*" ColumnSpacing="16" Padding="0,12" MinimumHeightRequest="46"
+                      IsVisible="{Binding HasGuests}">
+                    <BoxView Grid.Column="0" Grid.ColumnSpan="2" Style="{StaticResource Hairline}" VerticalOptions="Start" Margin="0,-12,0,0" />
+                    <Label Grid.Column="0" Text="{controls:Translate 'Guests:'}"
+                           Style="{StaticResource FieldLabel}" VerticalOptions="Center" />
+                    <Label Grid.Column="1" Text="{Binding Guests}" LineBreakMode="WordWrap"
+                           HorizontalTextAlignment="End" VerticalOptions="Center" />
+                </Grid>
+
+                <!-- And one more under the last, which is the shape every list in this app draws. -->
+                <BoxView Style="{StaticResource Hairline}" />
+            </VerticalStackLayout>
 
             <!-- Drawn only once there is somewhere to draw, and built in code-behind for the reason
                  MapPage gives: the control's pin carries a platform Location, and a build with no map
@@ -66,6 +96,19 @@
             <Label Text="{controls:Translate 'That place could not be found on the map.'}"
                    IsVisible="{Binding IsPlaceUnknown}" FontSize="12" LineBreakMode="WordWrap"
                    Style="{StaticResource SubtleLabel}" />
+
+            <!-- Which list this entry belongs to, in the foot rather than over the head of the screen:
+                 the entry is what the reader came for and its own name is in the bar, so the list it
+                 came from is a footnote about where it lives.
+
+                 The design puts its position in the list on the right of the same line ("2 of 5"). This
+                 screen does not know it - it is opened from the calendar, one entry at a time, and
+                 nothing hands it the list to count within. -->
+            <Grid ColumnDefinitions="Auto,*" ColumnSpacing="8" Margin="0,6,0,0">
+                <Label Grid.Column="0" Text="{Binding TaskListTitle}"
+                       Style="{StaticResource ItemCardFooter}" VerticalOptions="Center" />
+                <BoxView Grid.Column="1" Style="{StaticResource Hairline}" VerticalOptions="Center" />
+            </Grid>
 
         </VerticalStackLayout>
     </ScrollView>

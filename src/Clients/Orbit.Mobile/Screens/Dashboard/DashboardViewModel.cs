@@ -84,6 +84,7 @@ public sealed partial class DashboardViewModel : ObservableObject
         _visibility = visibility;
         _hidden = [.. visibility.ReadHidden()];
         _filters = visibility.ReadFilters().ToDictionary(filter => filter.Key, filter => filter.Value);
+        _order = visibility.ReadOrder();
         _sharedLocations = sharedLocations;
         _notifications = notifications;
         _navigator = navigator;
@@ -473,13 +474,39 @@ public sealed partial class DashboardViewModel : ObservableObject
         Cards.Clear();
         // Put-away parts are dropped here rather than never built: the menu has to be able to bring one
         // back without reloading everything from the store.
-        foreach (var card in _built.Where(card => !_hidden.Contains(card.Kind)).OrderByDescending(card => card.IsPinned))
+        var shown = _built.Where(card => !_hidden.Contains(card.Kind));
+
+        // Pinned first, always - a pin is the reader saying "this one, above the rest", and an order
+        // that moved it back down would be answering a question they did not ask. The same rule the
+        // list screens follow, said in the same words - see ListSortOrder.
+        var ordered = shown.OrderByDescending(card => card.IsPinned);
+
+        foreach (var card in Order is DashboardCardOrder.Name
+            ? ordered.ThenBy(card => card.Title, StringComparer.CurrentCultureIgnoreCase)
+            : ordered)
         {
             Cards.Add(card);
         }
 
         EverythingIsHidden = Cards.Count == 0 && _built.Count > 0;
         HasNothing = Cards.Count == 0 && !EverythingIsHidden;
+    }
+
+    /// <summary>
+    /// What order the cards are in under the pins. Orbit's own by default, which is the order Orbit.Web
+    /// lays them out in and the order a reader learns the page by; by name for somebody who would
+    /// rather look one up than remember where it sits.
+    /// </summary>
+    [ObservableProperty]
+    private DashboardCardOrder _order;
+
+    /// <summary>Chosen from the menu under the screen's name, and written down as it is chosen.</summary>
+    [RelayCommand]
+    private void Arrange(DashboardCardOrder order)
+    {
+        Order = order;
+        _visibility.WriteOrder(order);
+        ShowCards();
     }
 
     /// <summary>
@@ -523,7 +550,7 @@ public sealed partial class DashboardViewModel : ObservableObject
     /// is the calendar - which is what Orbit.Web's own today strip is a button for.
     /// </summary>
     [RelayCommand]
-    private void OpenCalendar() => _navigator.ShowCalendar();
+    private void OpenCalendar() => _navigator.ShowCalendarDay();
 
     /// <summary>Keeps a card at the top of this page on this device, or lets it back down.</summary>
     [RelayCommand]
@@ -571,6 +598,9 @@ public sealed partial class DashboardViewModel : ObservableObject
             // before saying what is in it.
             today.ToString("dddd, d MMMM", _translations.DisplayCulture),
             taskLists
+                // A list its owner has closed owes nothing, whatever is still unticked on it - see
+                // CalendarDeadline, and Orbit.Web's own today strip.
+                .Where(list => !list.IsCompleted)
                 .SelectMany(list => list.Items)
                 .Count(item => !item.IsCompleted && item.DueDateUtc?.Date == today),
             events.Count(calendarEvent => calendarEvent.Details.StartUtc.Date == today),

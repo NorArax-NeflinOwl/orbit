@@ -52,13 +52,26 @@ public sealed class ChatMessage
     /// </summary>
     public Guid? DeletedByUserId { get; private set; }
 
+    /// <summary>
+    /// The share this message is the invitation to, or null for anything else. Written by the sender,
+    /// because nobody else can know: the message is sealed and the share id sits inside the sealed
+    /// payload - see SendMessageCommand.AnnouncesShareId.
+    ///
+    /// What it is for is the other direction. When the owner takes the share back, the invitation is
+    /// still sitting in the conversation with an "Accept" on it that now leads nowhere, and this is the
+    /// only way the server can find it.
+    /// </summary>
+    public Guid? AnnouncesShareId { get; private set; }
+
     /// <summary>Whether this message has been deleted - see <see cref="DeletedAtUtc"/>.</summary>
     public bool IsDeleted => DeletedAtUtc is not null;
 
     private ChatMessage(
         Guid id, Guid senderUserId, Guid recipientUserId, string ciphertextBase64, string nonceBase64, DateTimeOffset sentAtUtc,
-        bool isEdited, DateTimeOffset? editedAtUtc, Guid? groupId, Guid? groupMessageId, bool isSharedHistory)
+        bool isEdited, DateTimeOffset? editedAtUtc, Guid? groupId, Guid? groupMessageId, bool isSharedHistory,
+        Guid? announcesShareId)
     {
+        AnnouncesShareId = announcesShareId;
         GroupId = groupId;
         GroupMessageId = groupMessageId;
         IsSharedHistory = isSharedHistory;
@@ -72,10 +85,11 @@ public sealed class ChatMessage
         EditedAtUtc = editedAtUtc;
     }
 
-    public static ChatMessage Create(Guid senderUserId, Guid recipientUserId, string ciphertextBase64, string nonceBase64)
+    public static ChatMessage Create(
+        Guid senderUserId, Guid recipientUserId, string ciphertextBase64, string nonceBase64, Guid? announcesShareId = null)
         => new(
             Guid.NewGuid(), senderUserId, recipientUserId, ciphertextBase64, nonceBase64, DateTimeOffset.UtcNow,
-            isEdited: false, editedAtUtc: null, groupId: null, groupMessageId: null, isSharedHistory: false);
+            isEdited: false, editedAtUtc: null, groupId: null, groupMessageId: null, isSharedHistory: false, announcesShareId);
 
     /// <summary>
     /// One recipient's copy of a group message. Groups reuse the pairwise encryption people already
@@ -96,7 +110,7 @@ public sealed class ChatMessage
         DateTimeOffset sentAtUtc)
         => new(
             Guid.NewGuid(), senderUserId, recipientUserId, ciphertextBase64, nonceBase64, sentAtUtc,
-            isEdited: false, editedAtUtc: null, groupId, groupMessageId, isSharedHistory: false);
+            isEdited: false, editedAtUtc: null, groupId, groupMessageId, isSharedHistory: false, announcesShareId: null);
 
     /// <summary>
     /// A copy of an already-posted group message, re-encrypted for somebody who joined afterwards. The
@@ -112,7 +126,8 @@ public sealed class ChatMessage
         ChatMessage original, Guid recipientUserId, string ciphertextBase64, string nonceBase64)
         => new(
             Guid.NewGuid(), original.SenderUserId, recipientUserId, ciphertextBase64, nonceBase64, original.SentAtUtc,
-            original.IsEdited, original.EditedAtUtc, original.GroupId, original.GroupMessageId, isSharedHistory: true);
+            original.IsEdited, original.EditedAtUtc, original.GroupId, original.GroupMessageId, isSharedHistory: true,
+            original.AnnouncesShareId);
 
     /// <summary>
     /// Rebuilds a message from already-persisted values, bypassing creation rules.
@@ -120,11 +135,12 @@ public sealed class ChatMessage
     public static ChatMessage FromPersistence(
         Guid id, Guid senderUserId, Guid recipientUserId, string ciphertextBase64, string nonceBase64, DateTimeOffset sentAtUtc,
         bool isEdited, DateTimeOffset? editedAtUtc, Guid? groupId = null, Guid? groupMessageId = null,
-        bool isSharedHistory = false, DateTimeOffset? deletedAtUtc = null, Guid? deletedByUserId = null)
+        bool isSharedHistory = false, DateTimeOffset? deletedAtUtc = null, Guid? deletedByUserId = null,
+        Guid? announcesShareId = null)
     {
         var message = new ChatMessage(
             id, senderUserId, recipientUserId, ciphertextBase64, nonceBase64, sentAtUtc, isEdited, editedAtUtc, groupId,
-            groupMessageId, isSharedHistory);
+            groupMessageId, isSharedHistory, announcesShareId);
         message.DeletedAtUtc = deletedAtUtc;
         message.DeletedByUserId = deletedByUserId;
         return message;

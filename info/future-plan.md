@@ -217,6 +217,18 @@ rather than meets, and what has to be decided before any of it starts - is in
 Explicitly called out in the functionality documentation as deliberate limitations of this first
 version, so they aren't mistaken for oversights:
 
+- **Calendar events are not filed in folders, and will not be.** Decided by the user on 2026-09-09,
+  when folders were given a page of their own (`FolderScope`). A folder holds notes and task lists;
+  an event is found by when it happens, which is what the calendar is. Written down because it looks
+  like an omission from the outside - the Finished tab's own wording used to say it "concerns tasks and
+  events" - and because the change is not a small one: `OP_EVENTS` has no folder column, so this would
+  be a migration, a third `FolderScope`, and a field on the event form.
+- **The month and year calendar views stay filtered to what is still to come.** Also confirmed by the
+  user on 2026-09-09, alongside making the week account for everything the way a day does (see
+  `Calendar.ShowsEverythingInThisView`). They are read to find something rather than to account for a
+  stretch, so a month drawn full of struck-through appointments is the thing being avoided rather than
+  a gap. "Show → Everything, including what is over" still reaches it on both.
+
 - ~~**`pg_trgm` may not be allowed on the deployed database.**~~ It was allowed: the deploy on
   2026-08-31 applied the migration and `orbit-api` came up healthy, with `azure.extensions` empty. The
   warning was over-stated - the allowlist is not the absolute gate it is usually described as, at least
@@ -498,34 +510,21 @@ of that change rather than missed.
 Scaling `orbit-api` past one replica needs a backplane before any of this survives it - see
 [Azure setup](azure-setup.md#5-confirm-ingress).
 
-## The calendar that shrinks as you scroll - Android, not the web
+## The calendar that shrank as you scrolled - withdrawn 2026-09-09
 
-Decided 2026-09-01, while the web calendar was being reshaped. **The web keeps what it has**: side by
-side on a wide screen, and stacked - calendar above, list below - once there is no room for that. It
-does not shrink as the page scrolls, and it is not meant to.
+Decided 2026-09-01, shipped 2026-09-02, taken out again on 2026-09-09. On Android the calendar stayed
+pinned while the list under it was read and minimised to a single row as soon as the reader scrolled
+past it - one hour of the day, one week of the month, one month of the year - and came back whole at
+the top. The web never did this and was never going to.
 
-**The phone does, as of 2026-09-02.** On Android the calendar stays pinned while the list under it is
-read, and minimises to a single row as soon as the reader scrolls past it:
+**Why it is gone.** The week is one of four views the reader now asks for by name (Day, Week, Month,
+Year, in a row across the top of the page), so a grid that shrank on its own was a second and silent
+answer to the same question - one nobody could ask for, and one nobody could refuse. `MinimisedCalendar`
+became `CalendarWeek`, which still picks the week out of the month grid that was already built; the
+year's month and the day's hour went with the gesture that caused them.
 
-| view | what is left when it is minimised |
-|---|---|
-| Day | one hour row |
-| Month | one week row |
-| Year | the month's name, and nothing else |
-
-Why there and not here: a phone has one column and a thumb, so the calendar is either taking the
-screen or getting out of the way, and the row that survives is the one the reader is standing on.
-A desktop window has room for both at once, so nothing has to move - and a grid that resized itself
-while somebody scrolled a list beside it would be motion answering a question nobody asked.
-
-Not attempted on the web deliberately. It is scroll-and-viewport behaviour, which no test in this
-project can cover, and the web has no problem for it to solve.
-
-What is testable was kept out of the page: which row survives is a rule (`MinimisedCalendar`,
-`CalendarViewModel.IsMinimised`, `HoursOnShow`) and is covered; the page owns only the scroll offset
-that turns it on and the redraw that follows. The hour rule is the one worth restating: today keeps the
-hour it is now, held inside the stretch there is to draw, and any other day keeps the hour its first
-thing starts in - an empty row above everything the day holds would be the wrong answer.
+What is worth keeping from the reasoning: a phone has one column and a thumb, so the row worth reading
+is the one the reader is standing on. That is what the week view is for. Nothing about scrolling.
 
 ## What the UI pass still needs a migration for
 
@@ -556,13 +555,38 @@ inventory lists, the contacts tabs, the chat menus - is built and needs no schem
 
 ## Noticed while working
 
-- **The phone cannot mark a list finished.** A task list can be closed with work still on it since
-  2026-09-08 (`TaskList.IsMarkedCompleted`), and the phone neither shows the box nor sends the field.
-  Nothing is lost by it: `UpdateTaskRequest.IsMarkedCompleted` is null-means-not-provided, so a save
-  from the phone leaves a list somebody closed in a browser closed - `MarkingAListFinishedTests` and
-  the field's own comment both say so. The phone does read the *result*: `IsCompleted` arrives already
-  answered, so a marked list sorts and files as finished there. This is parity, not a defect. What it
-  would take: the box on the list's own screen, and the field on the phone's update request.
+- **Nobody has found out why the map's Start and Share do nothing on a phone.** Both are hidden below
+  680px as of 2026-09-09 (`.map-panel-start`, `.map-panel-share`), on a report that pressing them
+  achieves nothing there, and the page says so in one line instead. That is a cover, not a fix: the
+  code path is the same one a desktop browser runs, and every way it can fail already puts a message on
+  the screen - `RecordCurrentLocationAsync` refuses outright when `DevicePreferences.AllowLocation` is
+  off, and shows `BrowserPosition.Error` verbatim otherwise. So the likeliest causes are worth ruling
+  out in order: the Options switch never turned on for that device, a browser that refuses geolocation
+  to a self-signed certificate on `https://localhost:8443`, and a permission the phone's browser denied
+  once and now denies silently. What it needs is somebody watching the console on the actual device;
+  until then the hiding stays, and it should come off the moment the cause is known.
+
+- **The phone does not say which share its invitations announce.** Withdrawing a share now takes its
+  chat invitation down with it (`SendMessageRequest.AnnouncesShareId`, `OP_C_ANNOUNCESSHAREID`), but
+  only invitations sent from Orbit.Web carry the field. `SharedItemSharing` on the phone sends the same
+  announcement through the queued sender and sets neither `AnnouncesShareId` nor the older
+  `IsShareInvitation`, so a share offered from a phone and withdrawn from anywhere leaves its invitation
+  in the conversation, still offering an "Accept" that answers "no such share". Nothing regressed - this
+  is the new capability not reaching the phone yet. What it would take: both fields on
+  `OutgoingChatMessage` and the queue row behind it, since the phone sends by enqueueing rather than by
+  calling the API where the share id is still in hand.
+
+- **The phone cannot answer whether a list is finished.** A task list can be closed with work still on
+  it since 2026-09-08, and said to be *unfinished* with every entry ticked off since 2026-09-09
+  (`TaskList.Completion`, `TaskListCompletion`, `OP_T_COMPLETION`) - the phone neither shows the box nor
+  sends the field. Nothing is lost by it: `UpdateTaskRequest.Completion` is null-means-not-provided, so
+  a save from the phone leaves whatever was answered in a browser alone - `MarkingAListFinishedTests`
+  and the field's own comment both say so. The phone does read the *result*: `IsCompleted` arrives
+  already answered, so a closed list sorts and files as finished there. This is parity, not a defect.
+  What it would take: the box on the list's own screen (ticking itself once every entry is ticked, the
+  way the web's does) and the field on the phone's update request. The phone already *names* the new
+  status - `TaskListView.Describe` says "Not finished" - but it is not among `TaskListView.Statuses`, so
+  no status chip finds one; it is reachable under "all", the same as on the web.
 
 - **The invitation page treats "any other kind" as an inventory.** `ShareInvitation.AcceptAsync` and
   `DescribeKind` both end in a `_` that means Inventory, and `SharedItemKind` has a fifth member -
@@ -710,16 +734,36 @@ Every screen the design covers has now been redrawn. The passes were:
 8. ~~The notification feed~~ (its three actions moved under the title), ~~sign-in~~ and ~~the account
    screen's accent swatches~~.
 
-What the design does not cover, and what therefore still has its old layout under the new palette and
-type: **copies** (the review and history screens), **diagnostics**, **the update screen**, **the
-shared-link page**, and **the place picker**. Each is a single-purpose screen the prototype never drew,
-and none of them looks wrong - they simply have not been reconsidered.
+9. ~~The five screens the design never drew~~ - copies (the review and history screens), diagnostics,
+   the update screen, the shared-link page and the place picker. The prototype covers none of them, so
+   they were redrawn by applying its rules rather than by copying a picture: no page heading where the
+   bar already says the name, one quiet line of context where the screen needs one, hairline rows with
+   the rule above rather than below, the accent outline on the one thing a screen is for and the danger
+   outline on what cannot be undone, and a bordered group where three answers are one choice.
 
-Two things the design showed up that are not fixed:
+   Six leftover "Back" buttons went with them. They were right while screens replaced each other; the
+   navigation stack gave every detail screen an arrow in the bar, and drawing a second way out under
+   the content had become a duplicate that also contradicted its own comment.
 
-- **A note in the list has no preview line.** The design shows one under the title;
-  `NoteListItem` carries no preview and nothing on the phone derives one, so the rows are airier than
-  the design's. It needs a sentence off the note's first lines, not a control.
+10. ~~The written spec, 2026-09-09~~ - the design was rejected as built, and the answer was a
+    screen-by-screen description in the user's own words. What it changed: the bar lost its back arrow
+    and gained an optional pair of arrows beside a screen's name; About became a screen; every list
+    screen's settings moved under its name and left the page to its rows; the note editor became one
+    surface; the calendar gained a week view and lost the grid that shrank on its own; the map took the
+    whole screen. What it did **not** cover, and is still owed a description: see the list at the foot
+    of [`android-ui-parity.md`](android-ui-parity.md).
+
+11. **The design read again, 2026-09-09** - not as a style guide this time but as a specification of
+    composition, which is what it always was. It turns out to draw six of the screens the written spec
+    never reached, and to correct a dozen things about the screens built from the spec. The whole of it
+    is in [`android-design-deltas.md`](android-design-deltas.md), screen by screen, with the six
+    disagreements between design and spec listed first and settled in the spec's favour. Nothing there
+    is a defect; it is the list of what is still owed if the design is taken as the specification for
+    the rest. The one structural piece everything else waits on: a title menu is *groups* with headings
+    and counts, and `ScreenMenu` can only draw a flat list with one heading.
+
+One thing the design showed up that is not fixed:
+
 - **The tick in a menu is a character, not a drawing.** `ScreenMenuEntry.Mark` is `"✓"`, and neither
   Lora nor Cormorant Garamond has that glyph - Android substitutes a system face for it, where IBM Plex
   used to carry it. The same problem on the task and note screens was solved by drawing the tick

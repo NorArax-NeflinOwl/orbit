@@ -3,6 +3,7 @@ using System.Security.Claims;
 using Orbit.Contracts.Sharing;
 using Orbit.Api.Permissions;
 using Orbit.Contracts;
+using Orbit.Core.Tasks.DuplicateTaskList;
 using Orbit.Contracts.Inventories;
 using Orbit.Contracts.Folders;
 using Orbit.Contracts.Tasks;
@@ -94,7 +95,8 @@ public static class TaskEndpoints
                     ToDomainPayload(request.EncryptedContent), RequestEnum.Parse<ItemPriority>(request.Priority, "priority"),
                     request.Description, EntriesSayingNothingAboutTheirCategories(request.Items),
                     EntriesSayingNothingAboutTheirProduct(request.Items),
-                    EntriesSayingNothingAboutTheirNotes(request.Items), request.IsMarkedCompleted),
+                    EntriesSayingNothingAboutTheirNotes(request.Items),
+                    request.Completion is null ? null : RequestEnum.Parse<TaskListCompletion>(request.Completion, "completion")),
                 cancellationToken);
             return ToApiResult(outcome);
         });
@@ -112,6 +114,17 @@ public static class TaskEndpoints
             var moved = await dispatcher.SendAsync(
                 new MoveTaskListToFolderCommand(GetUserId(user), id, request.FolderId), cancellationToken);
             return moved ? Results.NoContent() : Results.NotFound();
+        });
+
+        // A second list with the same entries on it - see DuplicateTaskListCommand for what is
+        // deliberately left behind. The body is optional, and a caller that sends none keeps the title.
+        tasks.MapPost("/{id:guid}/duplicate", async (
+            Guid id, DuplicateRequest? request, ClaimsPrincipal user, IDispatcher dispatcher,
+            CancellationToken cancellationToken) =>
+        {
+            var copyId = await dispatcher.SendAsync(
+                new DuplicateTaskListCommand(GetUserId(user), id, request?.Name), cancellationToken);
+            return copyId is { } newId ? Results.Created($"/api/tasks/{newId}", newId) : Results.NotFound();
         });
 
         tasks.MapDelete("/{id:guid}", async (
@@ -471,7 +484,7 @@ public static class TaskEndpoints
             // The owner's filing, and only theirs - see NoteEndpoints.ToDto, which says why a recipient
             // is told nothing about it.
             taskList.IsShared ? null : taskList.FolderId,
-            taskList.IsMarkedCompleted);
+            taskList.Completion.ToString());
 
     /// <summary>Maps an EditOutcome onto the corresponding HTTP response - shared by the update and lock-acquire endpoints above.</summary>
     private static IResult ToApiResult(EditOutcome outcome) => outcome.Kind switch

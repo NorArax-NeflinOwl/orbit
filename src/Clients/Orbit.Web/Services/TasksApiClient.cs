@@ -429,6 +429,28 @@ public sealed class TasksApiClient
         return EditOutcome.Success;
     }
 
+    /// <summary>
+    /// A second one of these, with everything that was on it. The id of the copy, or null where there
+    /// was nothing to copy - which is what a list somebody else owns looks like from here, since only
+    /// an owner may duplicate their own things.
+    /// </summary>
+    /// <param name="name">
+    /// What to call the copy, or null to keep the original's name. The client names it: the server would
+    /// have to write "(copy)" in a language it does not know the reader is using - see DuplicateRequest.
+    /// </param>
+    public async Task<Guid?> DuplicateTaskListAsync(Guid id, string? name, CancellationToken cancellationToken = default)
+    {
+        var response = await _httpClient.PostAsJsonAsync(
+            $"api/tasks/{id}/duplicate", new DuplicateRequest(name), cancellationToken);
+        if (response.StatusCode == HttpStatusCode.NotFound)
+        {
+            return null;
+        }
+
+        response.EnsureSuccessStatusCode();
+        return await response.Content.ReadFromJsonAsync<Guid>(cancellationToken: cancellationToken);
+    }
+
     /// <param name="deleteTheListsItGathers">
     /// Whether the lists a group list stands for go with it. Left false by every caller that has not
     /// asked the reader which they meant - see DeleteTaskListCommand for why that is the safe default.

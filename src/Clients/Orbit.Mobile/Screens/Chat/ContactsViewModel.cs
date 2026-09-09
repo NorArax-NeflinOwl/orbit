@@ -211,10 +211,37 @@ public sealed partial class ContactsViewModel : ObservableObject
             Contacts.Add(contact);
         }
 
-        Message = Contacts.Count == 0
+        await ShowCachedGroupsAsync(cancellationToken);
+
+        Message = Contacts.Count == 0 && Groups.Count == 0
             ? IsShowingArchive ? _translations["Nothing put away."] : _translations["No conversations yet."]
             : string.Empty;
     }
+
+    /// <summary>
+    /// The groups this reader is in, on the same screen as the people. The design puts contacts and
+    /// groups in one column: they are the same question - who can I talk to - and having them on two
+    /// screens meant a button at the foot of this one leading to a page with a list on it.
+    ///
+    /// Left out entirely while the archive is showing: a group is not something that gets put away, so
+    /// a list of them under "what is put away" would be answering about the wrong thing.
+    /// </summary>
+    private async Task ShowCachedGroupsAsync(CancellationToken cancellationToken)
+    {
+        Groups.Clear();
+        if (IsShowingArchive)
+        {
+            return;
+        }
+
+        foreach (var group in await _chatRepository.GetGroupsAsync(cancellationToken))
+        {
+            Groups.Add(group);
+        }
+    }
+
+    /// <inheritdoc cref="ShowCachedGroupsAsync"/>
+    public ObservableCollection<LocalChatGroup> Groups { get; } = [];
 
     /// <summary>
     /// Pinned first, and the archive left as it is: putting something away is the opposite of keeping
@@ -363,6 +390,16 @@ public sealed partial class ContactsViewModel : ObservableObject
 
     [RelayCommand]
     private void OpenGroups() => _navigator.ShowGroups();
+
+    /// <summary>Opens one group's conversation, as tapping a person opens theirs.</summary>
+    [RelayCommand]
+    private void OpenGroup(LocalChatGroup? group)
+    {
+        if (group is not null)
+        {
+            _navigator.ShowGroupConversation(group);
+        }
+    }
 
     [RelayCommand]
     private void OpenAccount() => _navigator.ShowAccount();

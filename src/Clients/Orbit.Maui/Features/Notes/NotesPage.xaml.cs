@@ -6,7 +6,7 @@ using Orbit.Mobile.Screens.Notes;
 
 namespace Orbit.Maui.Features.Notes;
 
-public partial class NotesPage : ContentPage
+public partial class NotesPage : ContentPage, ITitleMenu
 {
 	private readonly NotesViewModel _viewModel;
 	private readonly Translations _translations;
@@ -16,21 +16,21 @@ public partial class NotesPage : ContentPage
 
 	public NotesPage(NotesViewModel viewModel, Translations translations)
 	{
-		// Before InitializeComponent, not after: a card's menu is bound from a DataTemplate, which is
-		// not built until there is a row - but the overlay that draws it is in the static tree, which
-		// reads a page's plain property exactly once. See CalendarEventDetailPage.
+		// Before InitializeComponent, not after: the menu is bound from the static part of the tree,
+		// which is built there and reads a page's plain property exactly once. See
+		// CalendarEventDetailPage.
 		_translations = translations;
-		ShowCardMenuCommand = new Command<NoteListItem>(ShowCardMenu);
+		ShowTitleMenuCommand = new Command(ShowTheListMenu);
 
 		InitializeComponent();
 		BindingContext = _viewModel = viewModel;
 		AddButton.Command = NewItemForm.Toggling(AddRow, AddField);
 	}
 
-	/// <summary>What a card's three dots open.</summary>
-	public ICommand ShowCardMenuCommand { get; }
+	/// <inheritdoc cref="ITitleMenu.ShowTitleMenuCommand"/>
+	public ICommand ShowTitleMenuCommand { get; }
 
-	/// <summary>The panel they draw - one per screen, above everything else on it.</summary>
+	/// <summary>The panel it draws - one per screen, above everything else on it.</summary>
 	public ScreenMenu Menu { get; } = new();
 
 	protected override void OnAppearing()
@@ -40,40 +40,29 @@ public partial class NotesPage : ContentPage
 	}
 
 	/// <summary>
-	/// What a card offers besides opening it. One entry today, and it is named for what it will
-	/// actually do: somebody else's note is not this reader's to delete, so pressing it takes the note
-	/// off their own list and leaves the owner's alone - which is what Orbit.Web's card says too.
+	/// What hangs under the screen's name: how the list is read, in one panel of two named groups.
+	///
+	/// It used to be two entries that opened the two sets in turn, on the reasoning that eight choices
+	/// under two silent headings is a menu nobody reads. The headings are not silent any more - a menu
+	/// is groups now, each under its own, which is what the design draws - so the second press is gone
+	/// and both halves are on screen at once. The sort heading still says the pins stay on top
+	/// whatever is chosen, rather than leaving the reader to notice.
 	/// </summary>
-	private void ShowCardMenu(NoteListItem? row)
-	{
-		if (row is not { HasCardMenu: true })
-		{
-			return;
-		}
+	private void ShowTheListMenu() => Menu.ShowGroups(
+		[
+			new ScreenMenuGroup(
+				_translations["Sort - pinned stay on top"],
+				ListMenus.SortOrders(_translations).Select(order => new ScreenMenuEntry(
+					order.Name,
+					() => Arrange(_viewModel.Arrangement with { SortOrder = order.Value }),
+					order.Value == _viewModel.Arrangement.SortOrder))),
+			new ScreenMenuGroup(
+				_translations["Show"],
+				ListMenus.Filters(_translations).Select(filter => new ScreenMenuEntry(
+					filter.Name,
+					() => Arrange(_viewModel.Arrangement with { Filter = filter.Value }),
+					filter.Value == _viewModel.Arrangement.Filter)))
+		]);
 
-		Menu.Show(
-			[
-				new ScreenMenuEntry(
-					row.IsSharedWithMe ? _translations["Remove from my list"] : _translations["Delete"],
-					() => _ = DeleteAsync(row))
-			],
-			placement: MenuPlacement.FromTheFoot);
-	}
-
-	/// <summary>
-	/// Asked first, as every delete in Orbit is - and named, so the question says which note and what
-	/// will happen to it.
-	/// </summary>
-	private async Task DeleteAsync(NoteListItem row)
-	{
-		var goAhead = row.IsSharedWithMe ? _translations["Remove from my list"] : _translations["Delete"];
-		var question = row.IsSharedWithMe
-			? _translations.Format("Remove \"{0}\" from your list? The owner keeps it.", row.DisplayTitle)
-			: _translations.Format("Delete note \"{0}\"?", row.DisplayTitle);
-
-		if (await Confirmation.AskAsync(this, question, goAhead, _translations["Cancel"]))
-		{
-			_viewModel.DeleteCommand.Execute(row);
-		}
-	}
+	private void Arrange(ListArrangement arrangement) => _viewModel.ArrangeCommand.Execute(arrangement);
 }

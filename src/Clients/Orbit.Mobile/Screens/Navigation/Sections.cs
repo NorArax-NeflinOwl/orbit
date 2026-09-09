@@ -30,20 +30,13 @@ public static class Sections
     public static Screen For(Screen screen) => Of.TryGetValue(screen, out var section) ? section : screen;
 
     /// <summary>
-    /// The drawer's own eight entries, in its order.
-    ///
-    /// These are the screens whose bar offers the drawer rather than a back arrow. Both cannot be in
-    /// that corner at once, and on a section the drawer is the more useful of the two: it is the only
-    /// way sideways, whereas back is also on the phone's own gesture. On anything else - a note, a
-    /// conversation, the settings - the arrow wins, because it is the way out of somewhere the reader
-    /// stepped into and there is nothing sideways to go to.
+    /// The drawer's own entries, in its order - the sections, then the notifications, then what the
+    /// product is. Every screen offers the drawer now, so this is what it lists rather than which
+    /// screens may open it.
     /// </summary>
     public static IReadOnlyList<Screen> InTheDrawer { get; } =
     [
         Screen.Dashboard, Screen.Notes, Screen.Tasks, Screen.Calendar,
-        Screen.Inventories, Screen.Map, Screen.Contacts, Screen.Notifications
+        Screen.Inventories, Screen.Contacts, Screen.Map, Screen.Notifications, Screen.About
     ];
-
-    /// <inheritdoc cref="InTheDrawer"/>
-    public static bool IsInTheDrawer(Screen screen) => InTheDrawer.Contains(screen);
 }

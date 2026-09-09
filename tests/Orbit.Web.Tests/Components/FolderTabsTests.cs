@@ -1,6 +1,5 @@
 using System.Net;
 using System.Net.Http.Json;
-using System.Text;
 using Bunit;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
@@ -15,14 +14,14 @@ using Xunit;
 namespace Orbit.Web.Tests.Components;
 
 /// <summary>
-/// The row of tabs the dashboard, the notes and the task lists are read under. The three built-in ones
-/// are drawn here rather than fetched - they have no rows at all (see BuiltInFolder) - and the rest are
-/// whatever the reader has made.
+/// The row of tabs the dashboard, the notes and the task lists are read under. The built-in ones are
+/// drawn here rather than fetched - they have no rows at all (see BuiltInFolder) - and the rest are
+/// whatever the reader has made on that page.
 /// </summary>
 public sealed class FolderTabsTests : OrbitTestContext
 {
     private static readonly Guid WorkFolderId = Guid.NewGuid();
-    private string? _createdFolderName;
+    private CreateFolderRequest? _created;
     private readonly List<string> _deletedPaths = [];
 
     public FolderTabsTests()
@@ -31,23 +30,57 @@ public sealed class FolderTabsTests : OrbitTestContext
     }
 
     [Fact]
-    public void The_three_built_in_folders_are_there_before_anybody_makes_one()
+    public void The_built_in_folders_are_there_before_anybody_makes_one()
     {
         RegisterFolders([]);
 
-        var cut = RenderComponent<FolderTabs>();
+        var cut = RenderTabs(FolderPage.Tasks);
 
         Assert.Equal(["Public", "Private", "Finished"], TabNames(cut));
+    }
+
+    /// <summary>
+    /// A note has nothing to finish, so the tab could only ever have been empty there - which is what
+    /// it was, and it read as a folder that had lost everything somebody put in it.
+    /// </summary>
+    [Fact]
+    public void Only_the_task_lists_have_a_Finished_tab()
+    {
+        RegisterFolders([]);
+
+        Assert.Equal(["Public", "Private"], TabNames(RenderTabs(FolderPage.Notes)));
+        Assert.Equal(["Public", "Private"], TabNames(RenderTabs(FolderPage.Dashboard)));
     }
 
     [Fact]
     public void A_folder_somebody_made_is_a_tab_after_the_built_in_ones()
     {
-        RegisterFolders([AFolderCalled("Work")]);
+        RegisterFolders([AFolderCalled("Work", FolderScope.Tasks)]);
 
-        var cut = RenderComponent<FolderTabs>();
+        var cut = RenderTabs(FolderPage.Tasks);
 
         Assert.Equal(["Public", "Private", "Finished", "Work"], TabNames(cut));
+    }
+
+    /// <summary>A folder belongs to one page, so the other page does not draw it - see FolderScope.</summary>
+    [Fact]
+    public void A_folder_made_on_one_page_is_not_a_tab_on_the_other()
+    {
+        RegisterFolders([AFolderCalled("Work", FolderScope.Notes)]);
+
+        Assert.Equal(["Public", "Private", "Work"], TabNames(RenderTabs(FolderPage.Notes)));
+        Assert.Equal(["Public", "Private", "Finished"], TabNames(RenderTabs(FolderPage.Tasks)));
+    }
+
+    /// <summary>The dashboard shows both kinds of card, so it is read under both pages' tabs.</summary>
+    [Fact]
+    public void The_dashboard_draws_both_pages_folders()
+    {
+        RegisterFolders([AFolderCalled("Work", FolderScope.Notes), AnotherFolderCalled("Renovation", FolderScope.Tasks)]);
+
+        var cut = RenderTabs(FolderPage.Dashboard);
+
+        Assert.Equal(["Public", "Private", "Work", "Renovation"], TabNames(cut));
     }
 
     /// <summary>Public until somebody presses another - see FolderKey.Default.</summary>
@@ -56,22 +89,26 @@ public sealed class FolderTabsTests : OrbitTestContext
     {
         RegisterFolders([]);
 
-        var cut = RenderComponent<FolderTabs>();
+        var cut = RenderTabs(FolderPage.Tasks);
 
         Assert.Equal("Public", cut.Find(".folder-tab.on").TextContent.Trim());
     }
 
+    /// <summary>
+    /// The tab is the page's own now. It used to be shared, so opening "Work" on the notes also opened
+    /// a "Work" on the task lists that was a different folder holding different things.
+    /// </summary>
     [Fact]
-    public void Pressing_a_tab_opens_it_for_every_page_at_once()
+    public void Pressing_a_tab_opens_it_on_that_page_only()
     {
-        RegisterFolders([AFolderCalled("Work")]);
+        RegisterFolders([AFolderCalled("Work", FolderScope.Tasks)]);
         var folders = Services.GetRequiredService<FolderState>();
-        var cut = RenderComponent<FolderTabs>();
+        var cut = RenderTabs(FolderPage.Tasks);
 
         cut.FindAll(".folder-tab").First(tab => tab.TextContent.Contains("Work")).Click();
 
-        // The state is shared, which is what makes the tab still open on the next page - see FolderState.
-        Assert.Equal(FolderKey.Of(WorkFolderId), folders.Chosen);
+        Assert.Equal(FolderKey.Of(WorkFolderId), folders.ChosenOn(FolderPage.Tasks));
+        Assert.Equal(FolderKey.Default, folders.ChosenOn(FolderPage.Notes));
     }
 
     /// <summary>
@@ -79,38 +116,55 @@ public sealed class FolderTabsTests : OrbitTestContext
     /// only answered a button somewhere else would be a box people press Enter in and wait.
     /// </summary>
     [Fact]
-    public void Naming_a_new_folder_and_pressing_Enter_makes_it()
+    public void Naming_a_new_folder_and_pressing_Enter_makes_it_on_this_page()
     {
         RegisterFolders([]);
-        var cut = RenderComponent<FolderTabs>();
+        var cut = RenderTabs(FolderPage.Notes);
 
         cut.Find(".folder-tab-add").Click();
         cut.Find(".folder-tab-name").Input("Work");
         cut.Find(".folder-tab-name").KeyDown(Key.Enter);
 
-        Assert.Equal("Work", _createdFolderName);
+        Assert.Equal("Work", _created?.Name);
+        Assert.Equal(nameof(FolderScope.Notes), _created?.Scope);
     }
 
     [Fact]
     public void A_name_that_is_only_spaces_makes_nothing()
     {
         RegisterFolders([]);
-        var cut = RenderComponent<FolderTabs>();
+        var cut = RenderTabs(FolderPage.Tasks);
 
         cut.Find(".folder-tab-add").Click();
         cut.Find(".folder-tab-name").Input("   ");
         cut.Find(".folder-tab-name").KeyDown(Key.Enter);
 
-        Assert.Null(_createdFolderName);
+        Assert.Null(_created);
     }
 
-    /// <summary>The built-in three are nobody's to rename or throw away, so the menu is not offered on them.</summary>
+    /// <summary>
+    /// Nothing on the dashboard is filed from the dashboard, so a folder made there would be a tab
+    /// nothing could ever go into - see FolderPages.MakesFoldersIn.
+    /// </summary>
+    [Fact]
+    public void The_dashboard_offers_no_way_to_make_a_folder()
+    {
+        RegisterFolders([AFolderCalled("Work", FolderScope.Notes)]);
+
+        var cut = RenderTabs(FolderPage.Dashboard);
+        cut.FindAll(".folder-tab").First(tab => tab.TextContent.Contains("Work")).Click();
+
+        Assert.Empty(cut.FindAll(".folder-tab-add"));
+        Assert.Empty(cut.FindAll(".overflow-menu-trigger"));
+    }
+
+    /// <summary>The built-in ones are nobody's to rename or throw away, so the menu is not offered on them.</summary>
     [Fact]
     public void A_built_in_folder_has_no_menu()
     {
-        RegisterFolders([AFolderCalled("Work")]);
+        RegisterFolders([AFolderCalled("Work", FolderScope.Tasks)]);
 
-        var cut = RenderComponent<FolderTabs>();
+        var cut = RenderTabs(FolderPage.Tasks);
 
         Assert.Empty(cut.FindAll(".overflow-menu-trigger"));
     }
@@ -118,8 +172,8 @@ public sealed class FolderTabsTests : OrbitTestContext
     [Fact]
     public void A_folder_somebody_made_can_be_renamed_or_deleted()
     {
-        RegisterFolders([AFolderCalled("Work")]);
-        var cut = RenderComponent<FolderTabs>();
+        RegisterFolders([AFolderCalled("Work", FolderScope.Tasks)]);
+        var cut = RenderTabs(FolderPage.Tasks);
 
         cut.FindAll(".folder-tab").First(tab => tab.TextContent.Contains("Work")).Click();
 
@@ -133,8 +187,8 @@ public sealed class FolderTabsTests : OrbitTestContext
     [Fact]
     public void Deleting_a_folder_asks_first_and_then_removes_only_the_tab()
     {
-        RegisterFolders([AFolderCalled("Work")]);
-        var cut = RenderComponent<FolderTabs>();
+        RegisterFolders([AFolderCalled("Work", FolderScope.Tasks)]);
+        var cut = RenderTabs(FolderPage.Tasks);
         cut.FindAll(".folder-tab").First(tab => tab.TextContent.Contains("Work")).Click();
 
         cut.Find(".overflow-menu-trigger").Click();
@@ -146,11 +200,17 @@ public sealed class FolderTabsTests : OrbitTestContext
         Assert.Contains(_deletedPaths, path => path.EndsWith($"/api/folders/{WorkFolderId}", StringComparison.Ordinal));
     }
 
+    private IRenderedComponent<FolderTabs> RenderTabs(FolderPage page)
+        => RenderComponent<FolderTabs>(parameters => parameters.Add(tabs => tabs.Page, page));
+
     private static IReadOnlyList<string> TabNames(IRenderedFragment cut)
         => [.. cut.FindAll(".folder-tab:not(.folder-tab-add)").Select(tab => tab.TextContent.Trim())];
 
-    private static FolderDto AFolderCalled(string name)
-        => new(WorkFolderId, name, DateTimeOffset.UtcNow, DateTimeOffset.UtcNow);
+    private static FolderDto AFolderCalled(string name, FolderScope scope)
+        => new(WorkFolderId, name, scope.ToString(), DateTimeOffset.UtcNow, DateTimeOffset.UtcNow);
+
+    private static FolderDto AnotherFolderCalled(string name, FolderScope scope)
+        => new(Guid.NewGuid(), name, scope.ToString(), DateTimeOffset.UtcNow.AddMinutes(1), DateTimeOffset.UtcNow);
 
     private void RegisterFolders(IReadOnlyList<FolderDto> folders)
     {
@@ -164,11 +224,11 @@ public sealed class FolderTabsTests : OrbitTestContext
 
             if (request.Method == HttpMethod.Post)
             {
-                _createdFolderName = request.Content!.ReadFromJsonAsync<CreateFolderRequest>()
-                    .GetAwaiter().GetResult()?.Name;
+                _created = request.Content!.ReadFromJsonAsync<CreateFolderRequest>().GetAwaiter().GetResult();
                 return new HttpResponseMessage(HttpStatusCode.Created)
                 {
-                    Content = JsonContent.Create(AFolderCalled(_createdFolderName ?? string.Empty))
+                    Content = JsonContent.Create(
+                        AFolderCalled(_created?.Name ?? string.Empty, FolderScope.Tasks))
                 };
             }
 

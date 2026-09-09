@@ -164,9 +164,6 @@
             </Grid>
         </VerticalStackLayout>
 
-        <Button Grid.Row="5" Text="{controls:Translate 'Back to groups'}" Command="{Binding GoBackCommand}"
-                Style="{StaticResource LinkButton}" />
-
     </Grid>
         <controls:NavigationBar Grid.Row="0" />
         <controls:MenuOverlay Grid.Row="0" Grid.RowSpan="3"

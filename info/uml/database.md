@@ -100,6 +100,7 @@ erDiagram
         uuid OP_F_ID PK
         uuid OP_F_USERID FK
         text OP_F_NAME
+        text OP_F_SCOPE "FolderScope, stored by name - the page it is a tab on"
         timestamptz OP_F_CREATEDATUTC "tabs are drawn in this order"
     }
     OP_NOTES {
@@ -145,10 +146,12 @@ is - so their answer lives on it, and the resolver hands it over in place of the
 the note for them (`NoteAccessResolver`, `TaskListAccessResolver`). Nothing is stored twice: the DTO
 carries one `IsPinned`, and which row it came from depends on who asked.
 
-**`OP_FOLDERS` holds only the folders somebody made.** Three more exist without a row - Public, Private
+**`OP_FOLDERS` holds only the folders somebody made**, each on exactly one page (`OP_F_SCOPE` -
+`Orbit.Core.Folders.FolderScope`, `Notes` or `Tasks`). Three more exist without a row - Public, Private
 and Finished (`Orbit.Core.Folders.BuiltInFolder`) - and which of them something is in is decided from
-what it already is: a finished list is in Finished, an unfiled sealed one in Private, everything else
-unfiled in Public. Nothing about them is stored, which is why folders arrived without a backfill and why
+what it already is: something filed under one of this page's folders is in that folder finished or not,
+an unfiled finished list is in Finished, an unfiled sealed one in Private, everything else unfiled in
+Public. Nothing about them is stored, which is why folders arrived without a backfill and why
 `OP_N_FOLDERID`/`OP_T_FOLDERID` are nullable rather than defaulted. There is no foreign-key cascade
 either: `FolderRepository.DeleteAsync` empties the folder first (both columns back to null) and then
 removes the row, so deleting a tab can never delete what was under it.
@@ -177,7 +180,7 @@ erDiagram
         uuid OP_T_FOLDERID FK "null = a built-in folder"
         text OP_T_TITLE
         bool OP_T_ISCOMPLETED "decides the Finished folder"
-        bool OP_T_ISMARKEDCOMPLETED "finished because somebody said so"
+        text OP_T_COMPLETION "TaskListCompletion by name - what its owner said, if anything"
         bool OP_T_ISPRIVATE
     }
     OP_TASKS_ITEMS {
@@ -250,6 +253,7 @@ erDiagram
         bool OP_C_ISSHAREDHISTORY
         timestamptz OP_C_DELETEDATUTC "the row stays, the words go"
         uuid OP_C_DELETEDBYUSERID FK "not always the sender"
+        uuid OP_C_ANNOUNCESSHAREID "which share this invites to, if any"
     }
     OL_CHATS_ACCESS {
         uuid OL_CA_ID PK
@@ -280,6 +284,12 @@ erDiagram
 
 `OP_CHATS` has **no column for message content**. `OP_C_CIPHERTEXTBASE64` is the message, and nothing on
 the server can open it — see [flows](flows.md#chat-that-the-server-cannot-read).
+
+`OP_C_ANNOUNCESSHAREID` is the one thing a share invitation says in the clear. The share id it points at
+is inside the sealed payload too, where only the recipient can read it — which is no use to the server
+when the owner withdraws the share and its invitation has to be taken down with it. It matches no single
+table on purpose: which of `OP_NOTES_SHARED`, `OP_TASKS_SHARED`, `OP_EVENTS_SHARED` and
+`OP_INVENTORIES_SHARED` the id belongs to is only knowable from the payload, so there is no foreign key.
 
 `OL_CHATS_ACCESS` is the row that makes a conversation a conversation: until
 `OL_CA_APPROVEDATUTC` is set, one person has asked and the other has not agreed.

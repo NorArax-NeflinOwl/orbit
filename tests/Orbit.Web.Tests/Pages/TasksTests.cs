@@ -855,7 +855,6 @@ public sealed class TasksTests : OrbitTestContext
         var cut = RenderComponent<Web.Pages.Tasks>();
         MinimiseTheCardFor(cut, "Recipes");
 
-        // Nothing left to do, so the body holds the sentence saying so and no row to press instead.
         CardFor(cut, "Recipes").QuerySelector(".item-card-body")!.Click();
 
         Assert.EndsWith($"/tasks/{taskList.Id}", navigationManager.Uri);
@@ -913,7 +912,52 @@ public sealed class TasksTests : OrbitTestContext
 
         MinimiseTheCardFor(cut, "Cooking");
 
-        Assert.Contains("Nothing left to do", FoldedRowOf(cut, "Cooking").TextContent);
+        Assert.Contains("Nothing left to do", FooterOf(cut, "Cooking").TextContent);
+    }
+
+    /// <summary>
+    /// A finished list folded down to the sentence "Nothing left to do." and nothing else, so the one
+    /// place the card had to say what it was said something about itself instead. The sentence belongs
+    /// in the footer, where a card says things about itself; the row above names an entry either way.
+    /// </summary>
+    [Fact]
+    public void A_minimised_finished_card_still_names_an_entry_and_says_so_in_the_footer()
+    {
+        RegisterTasksApiClient([TaskList("Recipes", Item("Buy flour", isCompleted: true))]);
+        var cut = RenderComponent<Web.Pages.Tasks>();
+
+        MinimiseTheCardFor(cut, "Recipes");
+
+        var row = FoldedRowOf(cut, "Recipes");
+        Assert.Contains("Buy flour", row.TextContent);
+        // Drawn as what it is rather than as work still to do.
+        Assert.Contains("completed", row.ClassName);
+        Assert.DoesNotContain("Nothing left to do", row.TextContent);
+        Assert.Contains("Nothing left to do", FooterOf(cut, "Recipes").TextContent);
+    }
+
+    /// <summary>A list nobody has written anything on yet is not a list somebody has finished.</summary>
+    [Fact]
+    public void A_minimised_empty_card_says_it_is_empty_rather_than_finished()
+    {
+        RegisterTasksApiClient([TaskList("Recipes")]);
+        var cut = RenderComponent<Web.Pages.Tasks>();
+
+        MinimiseTheCardFor(cut, "Recipes");
+
+        Assert.Contains("No items on this list.", FooterOf(cut, "Recipes").TextContent);
+        Assert.Null(CardFor(cut, "Recipes").QuerySelector(".list-row"));
+    }
+
+    /// <summary>An unfolded card says nothing of the sort - the rows are right there saying it.</summary>
+    [Fact]
+    public void An_unfolded_finished_card_says_nothing_about_having_nothing_left()
+    {
+        RegisterTasksApiClient([TaskList("Recipes", Item("Buy flour", isCompleted: true))]);
+
+        var cut = RenderComponent<Web.Pages.Tasks>();
+
+        Assert.DoesNotContain("Nothing left to do", FooterOf(cut, "Recipes").TextContent);
     }
 
     [Fact]
@@ -939,6 +983,10 @@ public sealed class TasksTests : OrbitTestContext
 
     private static IElement FoldedRowOf(IRenderedFragment cut, string title)
         => CardFor(cut, title).QuerySelector(".list-row")!;
+
+    /// <summary>Where a card says things about itself - how far along it is, and whether anything is left.</summary>
+    private static IElement FooterOf(IRenderedFragment cut, string title)
+        => CardFor(cut, title).QuerySelector(".item-card-footer")!;
 
     private static IElement CardFor(IRenderedFragment cut, string title)
         => cut.FindAll(".item-card")
@@ -981,7 +1029,7 @@ public sealed class TasksTests : OrbitTestContext
         var cut = RenderComponent<Web.Pages.Tasks>();
         Assert.DoesNotContain("Moving out", CardTitles(cut));
 
-        folders.Choose(FolderKey.Of(BuiltInFolder.Finished));
+        folders.Choose(FolderPage.Tasks, FolderKey.Of(BuiltInFolder.Finished));
         cut.Render();
 
         Assert.Contains("Moving out", CardTitles(cut));
@@ -999,10 +1047,67 @@ public sealed class TasksTests : OrbitTestContext
         var cut = RenderComponent<Web.Pages.Tasks>();
         Assert.DoesNotContain("Sealed", CardTitles(cut));
 
-        folders.Choose(FolderKey.Of(BuiltInFolder.Private));
+        folders.Choose(FolderPage.Tasks, FolderKey.Of(BuiltInFolder.Private));
         cut.Render();
 
         Assert.Contains("Sealed", CardTitles(cut));
+    }
+
+    /// <summary>
+    /// The chips are about the folder that is open. Offering a category that only exists on a list
+    /// filed somewhere else is offering to find nothing: pressing it empties the page, and the reader
+    /// is left to work out that the word belongs to a tab they are not on.
+    /// </summary>
+    [Fact]
+    public void A_category_from_another_folder_is_not_offered()
+    {
+        RegisterTasksApiClient([
+            TaskList("Kitchen", Item("Buy milk") with { Categories = ["shopping"] }),
+            TaskList("Diary", Item("Ring the bank") with { Categories = ["money"] }) with { IsPrivate = true }]);
+
+        var cut = RenderComponent<Web.Pages.Tasks>();
+
+        var chips = cut.FindAll(".filter-chip").Select(chip => chip.TextContent).ToList();
+        Assert.Contains(chips, chip => chip.Contains("shopping", StringComparison.Ordinal));
+        Assert.DoesNotContain(chips, chip => chip.Contains("money", StringComparison.Ordinal));
+    }
+
+    /// <summary>
+    /// And so are the counts on them. "All 12" over a tab holding two lists is the page describing a
+    /// page other than the one in front of the reader.
+    /// </summary>
+    [Fact]
+    public void The_counts_on_the_chips_count_the_open_folder()
+    {
+        RegisterTasksApiClient([
+            TaskList("Kitchen"),
+            TaskList("Diary") with { IsPrivate = true },
+            TaskList("Moving out") with { IsCompleted = true }]);
+
+        var cut = RenderComponent<Web.Pages.Tasks>();
+
+        var all = cut.FindAll(".filter-chip").First(chip => chip.TextContent.Contains("All", StringComparison.Ordinal));
+        Assert.Equal("1", all.QuerySelector(".filter-chip-count")!.TextContent.Trim());
+    }
+
+    /// <summary>
+    /// An empty tab says it is empty. It used to say "no lists are all", which blames a chip nobody
+    /// pressed for a page that is empty because of where the reader is standing.
+    /// </summary>
+    [Fact]
+    public void An_empty_folder_says_so_rather_than_blaming_a_chip()
+    {
+        RegisterTasksApiClient([TaskList("Kitchen")]);
+        var folders = Services.GetRequiredService<FolderState>();
+
+        var cut = RenderComponent<Web.Pages.Tasks>();
+        folders.Choose(FolderPage.Tasks, FolderKey.Of(BuiltInFolder.Finished));
+        cut.Render();
+
+        Assert.Contains("Nothing is in this folder yet.", cut.Markup);
+        // And nothing to narrow it with: a search box over an empty tab offers to find something on a
+        // list that is not there.
+        Assert.Empty(cut.FindAll(".filter-chip"));
     }
 
     private void RegisterTasksApiClient(

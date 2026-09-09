@@ -15,6 +15,7 @@ using Orbit.Contracts.Users;
 using Orbit.Contracts.Notes;
 using Orbit.Contracts.Notifications;
 using Orbit.Contracts.Tasks;
+using Orbit.Core.Tasks;
 using Orbit.Web.Pages;
 using Orbit.Core.Folders;
 using Orbit.Web.Services;
@@ -727,17 +728,17 @@ public sealed class DashboardTests : OrbitTestContext
     }
 
     /// <summary>
-    /// A finished list is in Finished, and that is where it is read - pinned or not. Pinning orders cards
-    /// within a tab rather than lifting one out of the tab it belongs to; before folders it was the only
-    /// way to keep a finished list in front of you, and Done is now the place that keeps all of them.
-    /// It is still drawn as what it is rather than looking like work still to do.
+    /// This page has no Finished tab - see FolderPages.HasAFinishedTab - so a finished list is placed
+    /// by its folder and its privacy like anything else, and a pinned one is read where it already was.
+    /// Pinning is what keeps it on this page at all: an unpinned finished list is off the card, since
+    /// the dashboard is what is still on your plate. It is still drawn as what it is rather than looking
+    /// like work still to do.
     /// </summary>
     [Fact]
-    public void A_finished_task_list_is_read_under_Done_and_is_struck_through()
+    public void A_pinned_finished_task_list_stays_where_it_was_filed_and_is_struck_through()
     {
         RegisterChatApiClient([]);
         RegisterTasksApiClient([Finished(TaskList("Moving out")) with { IsPinned = true }]);
-        Services.GetRequiredService<FolderState>().Choose(FolderKey.Of(BuiltInFolder.Finished));
 
         var cut = RenderComponent<Dashboard>();
 
@@ -966,6 +967,44 @@ public sealed class DashboardTests : OrbitTestContext
     }
 
     /// <summary>
+    /// A list somebody closed is closed, whatever is still unticked on it. Marking one finished with
+    /// work still on it is a way of saying "no more of this" (TaskList.IsMarkedCompleted), and a card
+    /// headed "what is coming up" that kept listing its deadlines would be arguing with the reader.
+    /// </summary>
+    [Fact]
+    public void A_deadline_on_a_list_its_owner_closed_is_not_upcoming()
+    {
+        RegisterChatApiClient([]);
+        RegisterEmptyNotesApiClient();
+        RegisterEmptyCalendarApiClient();
+        var closed = TaskList("Shopping", DueItem("Milk", DateTimeOffset.UtcNow.AddDays(1)))
+            with { IsCompleted = true, Completion = nameof(TaskListCompletion.Finished) };
+        RegisterTasksApiClient([closed]);
+
+        var cut = RenderComponent<Dashboard>();
+
+        Assert.DoesNotContain(cut.FindAll(".item-card"), card => card.QuerySelector(".item-card-name")!.TextContent == "Upcoming");
+    }
+
+    /// <summary>And it is not owed today either - the strip counts the same work the card lists.</summary>
+    [Fact]
+    public void A_deadline_on_a_closed_list_is_not_counted_as_due_today()
+    {
+        RegisterChatApiClient([]);
+        RegisterEmptyNotesApiClient();
+        RegisterEmptyCalendarApiClient();
+        var closed = TaskList("Shopping", DueItem("Milk", DateTimeOffset.Now.Date.AddHours(23)))
+            with { IsCompleted = true, Completion = nameof(TaskListCompletion.Finished) };
+        RegisterTasksApiClient([closed]);
+
+        var cut = RenderComponent<Dashboard>();
+
+        var tasksDueToday = cut.Find(".today-strip").QuerySelectorAll(".today-stat")
+            .Single(stat => stat.TextContent.Contains("tasks due today", StringComparison.Ordinal));
+        Assert.Equal("0", tasksDueToday.QuerySelector("strong")!.TextContent);
+    }
+
+    /// <summary>
     /// An appointment a task list raised is finished when that entry is ticked off - the entry is where
     /// the work is, and the event is only when it happens. This card was listing appointments somebody
     /// had already crossed off, which is exactly what "what is coming up" must not show; the calendar's
@@ -1023,8 +1062,13 @@ public sealed class DashboardTests : OrbitTestContext
         Assert.Equal("High", badge.TextContent);
     }
 
+    /// <summary>
+    /// At today, not at the month today is in. The strip is a count of one day, and the month view
+    /// answers a different question than the one that was pressed - somebody who wanted to know which
+    /// of the four weeks had them would not have pressed a summary of today.
+    /// </summary>
     [Fact]
-    public void Todays_summary_opens_the_calendar()
+    public void Todays_summary_opens_the_calendar_on_today()
     {
         RegisterChatApiClient([]);
         RegisterEmptyNotesApiClient();
@@ -1035,7 +1079,9 @@ public sealed class DashboardTests : OrbitTestContext
         cut.Find(".today-strip").Click();
 
         // It is a summary of a day, and the page that shows a day is the calendar.
-        Assert.EndsWith("/calendar", Services.GetRequiredService<NavigationManager>().Uri);
+        Assert.EndsWith(
+            $"/calendar?view=day&on={DateTime.Today:yyyy-MM-dd}",
+            Services.GetRequiredService<NavigationManager>().Uri);
     }
 
     private static TaskItemDto DueItem(string description, DateTimeOffset dueDateUtc, bool isCompleted = false)

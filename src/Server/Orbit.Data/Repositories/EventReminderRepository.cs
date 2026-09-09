@@ -16,6 +16,17 @@ public sealed class EventReminderRepository : IEventReminderRepository
 
     public async Task<IReadOnlyList<CalendarEvent>> GetAllWithRemindersConfiguredAsync(CancellationToken cancellationToken)
     {
+        // An appointment a task list raised is done when its entry is ticked off, whatever the clock
+        // says - the shopping was done on Tuesday for a slot booked on Friday - and so is one on a list
+        // its owner has closed. Reminding somebody about either is reminding them of work they have
+        // already reported doing. An event of its own has no entry to have been ticked off and is never
+        // in here.
+        var alreadyDone =
+            from item in _dbContext.Set<TaskItemEntity>().AsNoTracking()
+            join task in _dbContext.Tasks.AsNoTracking() on item.TaskId equals task.Id
+            where item.LinkedCalendarEventId != null && (item.IsCompleted || task.IsCompleted)
+            select item.LinkedCalendarEventId!.Value;
+
         // Cheap SQL-side prefilter (RemindersJson is either "[]" or a JSON array with entries) so events
         // with no reminders configured, or with "approaching event" notifications turned off for every
         // channel, are never even loaded into memory. NotifyAtStart counts as one configured: it is a
@@ -23,7 +34,8 @@ public sealed class EventReminderRepository : IEventReminderRepository
         var entities = await _dbContext.CalendarEvents
             .AsNoTracking()
             .Where(entity => (entity.RemindersJson != "[]" || entity.NotifyAtStart)
-                && entity.ReminderNotificationChannel != "None")
+                && entity.ReminderNotificationChannel != "None"
+                && !alreadyDone.Contains(entity.Id))
             .ToListAsync(cancellationToken);
 
         return entities.Select(CalendarEventEntityMapper.ToDomain).ToList();

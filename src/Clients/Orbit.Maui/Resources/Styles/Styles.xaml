@@ -747,6 +747,15 @@
         <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource TertiaryTextLight}, Dark={StaticResource TertiaryTextDark}}" />
     </Style>
 
+    <!-- The name of a box somebody types in, sitting above it. Quieter and plainer than FieldLabel,
+         which is the small-caps heading over a *group* of things: a form asks "Email or login", in the
+         words the reader would use, and shouting it in capitals over every box makes a form of six of
+         them unreadable. Sign-in and registration are where the design uses it. -->
+    <Style x:Key="FormFieldLabel" TargetType="Label">
+        <Setter Property="FontSize" Value="12" />
+        <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource SubtleTextLight}, Dark={StaticResource SubtleTextDark}}" />
+    </Style>
+
     <!-- One section on the navigation bar. 44pt is Apple's minimum tap target, and it is what lets six
          of them sit on a phone without becoming a row of things nobody can hit. -->
     <Style x:Key="NavigationBarIcon" TargetType="Grid">

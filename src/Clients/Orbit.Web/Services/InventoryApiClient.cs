@@ -178,6 +178,20 @@ public sealed class InventoryApiClient
         return EditOutcome.Success;
     }
 
+    /// <inheritdoc cref="TasksApiClient.DuplicateTaskListAsync"/>
+    public async Task<Guid?> DuplicateInventoryAsync(Guid inventoryId, string? name, CancellationToken cancellationToken = default)
+    {
+        var response = await _httpClient.PostAsJsonAsync(
+            $"api/inventories/{inventoryId}/duplicate", new DuplicateRequest(name), cancellationToken);
+        if (response.StatusCode == HttpStatusCode.NotFound)
+        {
+            return null;
+        }
+
+        response.EnsureSuccessStatusCode();
+        return await response.Content.ReadFromJsonAsync<Guid>(cancellationToken: cancellationToken);
+    }
+
     public async Task DeleteInventoryAsync(Guid inventoryId, CancellationToken cancellationToken = default)
     {
         var response = await _httpClient.DeleteAsync($"api/inventories/{inventoryId}", cancellationToken);

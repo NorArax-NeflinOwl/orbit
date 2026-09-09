@@ -15,6 +15,13 @@ public sealed class FolderEntity
 
     public string Name { get; set; } = string.Empty;
 
+    /// <summary>
+    /// The page it is a tab on, stored by name like every other enum here - see
+    /// Orbit.Core.Folders.FolderScope. Task lists rather than notes for a row written before this
+    /// column existed, which is what the migration that added it backfills around.
+    /// </summary>
+    public string Scope { get; set; } = nameof(Orbit.Core.Folders.FolderScope.Tasks);
+
     public DateTimeOffset CreatedAtUtc { get; set; }
     public DateTimeOffset UpdatedAtUtc { get; set; }
 }

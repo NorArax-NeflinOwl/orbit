@@ -11,8 +11,8 @@
         <controls:PresenceColorConverter x:Key="PresenceColor" />
     </ContentView.Resources>
 
-    <!-- Three things wide, and no more: a way out, where you are, who you are.
-             [≡ or ‹]            Notes ▾                              [AK]
+    <!-- Three things wide, and no more: the way sideways, where you are, who you are.
+             [≡]            ‹ Notes ▾ ›                               [AK]
          The six section icons that used to sit between them are in the drawer now, where their names
          fit beside them - eight targets in a 412px row is a row nobody can hit, and it left the screen
          with no name on it at all. -->
@@ -49,37 +49,52 @@
         <BoxView Grid.Column="0" Grid.ColumnSpan="3" Style="{StaticResource Hairline}"
                  VerticalOptions="End" Margin="-6,0,-6,-6" />
 
-        <!-- One control, two jobs, never both at once. The drawer's three lines where this is a screen
-             in its own right; the back arrow where the reader stepped into something and has somewhere
-             to come back out to - see ScreenHistory, which Android's own gesture pops as well, so the
-             two are one behaviour rather than two answers. -->
+        <!-- The drawer's three lines, on every screen without exception. There used to be a back arrow
+             here instead on anything that was not a section, and there is none any more: going back is
+             the navigation stack's job and the phone's own gesture pops it - see ScreenHistory. A
+             second way to do the same thing, in the corner the only way sideways lives in, was one
+             control too many. -->
         <Grid Grid.Column="0" WidthRequest="44" HeightRequest="44" VerticalOptions="Center">
             <Path Data="M4,6 H20 M4,12 H20 M4,18 H20" Style="{StaticResource NavigationBarIconPath}"
-                  InputTransparent="True" IsVisible="{Binding CanOpenDrawer}" />
-            <Button Command="{Binding ToggleDrawerCommand}" IsVisible="{Binding CanOpenDrawer}"
+                  InputTransparent="True" />
+            <Button Command="{Binding ToggleDrawerCommand}"
                     BackgroundColor="Transparent" BorderWidth="0"
                     SemanticProperties.Description="{controls:Translate 'Menu'}" />
-
-            <Path Data="M15,18 L9,12 L15,6" Style="{StaticResource NavigationBarIconPath}"
-                  InputTransparent="True" IsVisible="{Binding CanGoBack}" />
-            <Button Command="{Binding GoBackCommand}" IsVisible="{Binding CanGoBack}"
-                    BackgroundColor="Transparent" BorderWidth="0"
-                    SemanticProperties.Description="{controls:Translate 'Back'}" />
         </Grid>
 
-        <!-- The screen's name, and its own menu hanging off it where it has one. The text is bound in
-             the code-behind to the page's Title, so a screen named after what it is showing - a
-             conversation, a chosen day - says that rather than a fixed word. -->
-        <Grid Grid.Column="1" HorizontalOptions="Center" VerticalOptions="Center">
-            <HorizontalStackLayout Spacing="6" InputTransparent="True" VerticalOptions="Center">
-                <Label x:Name="TitleLabel" FontFamily="OrbitDisplay" FontSize="22" FontAttributes="Bold"
-                       LineBreakMode="TailTruncation" VerticalOptions="Center" />
-                <Path x:Name="TitleChevron" Data="M6,9 L12,15 L18,9" IsVisible="False"
-                      Style="{StaticResource IconPathAccent}" WidthRequest="14" HeightRequest="14"
-                      VerticalOptions="Center" />
-            </HorizontalStackLayout>
-            <Button x:Name="TitlePress" IsVisible="False" BackgroundColor="Transparent" BorderWidth="0"
-                    MinimumHeightRequest="44" />
+        <!-- [previous] [the screen's name and its menu] [next]. The name is bound in the code-behind to
+             the page's Title, so a screen named after what it is showing - a conversation, a chosen day
+             - says that rather than a fixed word; the two arrows are the page's own, and are there only
+             where the screen is one of a series. See ITitleSteps and ITitleMenu. -->
+        <Grid Grid.Column="1" ColumnDefinitions="Auto,Auto,Auto" ColumnSpacing="2"
+              HorizontalOptions="Center" VerticalOptions="Center">
+            <Grid x:Name="PreviousStep" Grid.Column="0" WidthRequest="32" HeightRequest="40"
+                  IsVisible="False" VerticalOptions="Center">
+                <Path Data="M15,18 L9,12 L15,6" Style="{StaticResource NavigationBarIconPath}"
+                      WidthRequest="16" HeightRequest="16" InputTransparent="True" />
+                <Button x:Name="PreviousPress" BackgroundColor="Transparent" BorderWidth="0" Padding="0"
+                        MinimumHeightRequest="0" MinimumWidthRequest="0" />
+            </Grid>
+
+            <Grid Grid.Column="1">
+                <HorizontalStackLayout Spacing="6" InputTransparent="True" VerticalOptions="Center">
+                    <Label x:Name="TitleLabel" FontFamily="OrbitDisplay" FontSize="22" FontAttributes="Bold"
+                           LineBreakMode="TailTruncation" VerticalOptions="Center" />
+                    <Path x:Name="TitleChevron" Data="M6,9 L12,15 L18,9" IsVisible="False"
+                          Style="{StaticResource IconPathAccent}" WidthRequest="14" HeightRequest="14"
+                          VerticalOptions="Center" />
+                </HorizontalStackLayout>
+                <Button x:Name="TitlePress" IsVisible="False" BackgroundColor="Transparent" BorderWidth="0"
+                        MinimumHeightRequest="44" />
+            </Grid>
+
+            <Grid x:Name="NextStep" Grid.Column="2" WidthRequest="32" HeightRequest="40"
+                  IsVisible="False" VerticalOptions="Center">
+                <Path Data="M9,6 L15,12 L9,18" Style="{StaticResource NavigationBarIconPath}"
+                      WidthRequest="16" HeightRequest="16" InputTransparent="True" />
+                <Button x:Name="NextPress" BackgroundColor="Transparent" BorderWidth="0" Padding="0"
+                        MinimumHeightRequest="0" MinimumWidthRequest="0" />
+            </Grid>
         </Grid>
 
         <!-- Initials rather than a picture: Orbit has no avatars to show. Outlined in the accent, like

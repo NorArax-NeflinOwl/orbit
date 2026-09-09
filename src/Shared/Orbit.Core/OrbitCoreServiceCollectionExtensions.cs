@@ -6,6 +6,7 @@ using Orbit.Core.Calendar;
 using Orbit.Core.Calendar.AcceptCalendarEventShare;
 using Orbit.Core.Calendar.AcquireCalendarEventLock;
 using Orbit.Core.Calendar.CreateCalendarEvent;
+using Orbit.Core.Calendar.DuplicateCalendarEvent;
 using Orbit.Core.Calendar.DeleteCalendarEvent;
 using Orbit.Core.Calendar.GetCalendarEventById;
 using Orbit.Core.Calendar.GetCalendarEvents;
@@ -54,6 +55,7 @@ using Orbit.Core.Inventories.AcceptInventoryShare;
 using Orbit.Core.Inventories.AcquireInventoryLock;
 using Orbit.Core.Inventories.ReleaseInventoryLock;
 using Orbit.Core.Inventories.CreateInventory;
+using Orbit.Core.Inventories.DuplicateInventory;
 using Orbit.Core.Inventories.DeleteInventory;
 using Orbit.Core.Inventories.GetInventoryById;
 using Orbit.Core.Inventories.GetInventories;
@@ -68,6 +70,7 @@ using Orbit.Core.Permissions.RedeemPermissionCode;
 using Orbit.Core.Notes.AcceptNoteShare;
 using Orbit.Core.Notes.AcquireNoteLock;
 using Orbit.Core.Notes.CreateNote;
+using Orbit.Core.Notes.DuplicateNote;
 using Orbit.Core.Notes.DeleteNote;
 using Orbit.Core.Notes.GetNoteById;
 using Orbit.Core.Notes.GetNoteShareStatus;
@@ -88,6 +91,8 @@ using Orbit.Core.Notifications.MarkNotificationsAtUrlRead;
 using Orbit.Core.Sharing;
 using Orbit.Core.Sharing.ClaimPublicShareLink;
 using Orbit.Core.Sharing.GetShareOffer;
+using Orbit.Core.Sharing.GetSharesWith;
+using Orbit.Core.Sharing.RevokeShare;
 using Orbit.Core.Sharing.CreatePublicShareLink;
 using Orbit.Core.Sharing.GetPublicSharedItem;
 using Orbit.Core.Sharing.RevokePublicShareLink;
@@ -104,6 +109,7 @@ using Orbit.Core.Tasks.AcceptTaskListShare;
 using Orbit.Core.Tasks.AcquireTaskListLock;
 using Orbit.Core.Tasks.CopyTaskItem;
 using Orbit.Core.Tasks.CreateTaskList;
+using Orbit.Core.Tasks.DuplicateTaskList;
 using Orbit.Core.Tasks.DailyReminders;
 using Orbit.Core.Tasks.DeleteTaskList;
 using Orbit.Core.Tasks.GetTaskListById;
@@ -169,6 +175,7 @@ public static class OrbitCoreServiceCollectionExtensions
         // how the calling user relates to a note (owner vs. shared-with, and at what access level).
         services.AddScoped<NoteAccessResolver>();
         services.AddScoped<IRequestHandler<CreateNoteCommand, Guid>, CreateNoteCommandHandler>();
+        services.AddScoped<IRequestHandler<DuplicateNoteCommand, Guid?>, DuplicateNoteCommandHandler>();
         services.AddScoped<IRequestHandler<UpdateNoteCommand, EditOutcome>, UpdateNoteCommandHandler>();
         services.AddScoped<IRequestHandler<DeleteNoteCommand, bool>, DeleteNoteCommandHandler>();
         services.AddScoped<IRequestHandler<GetNotesQuery, IReadOnlyList<Note>>, GetNotesQueryHandler>();
@@ -194,6 +201,7 @@ public static class OrbitCoreServiceCollectionExtensions
         // and claiming a public link.
         services.AddScoped<TaskListShareCascade>();
         services.AddScoped<IRequestHandler<CreateTaskListCommand, Guid>, CreateTaskListCommandHandler>();
+        services.AddScoped<IRequestHandler<DuplicateTaskListCommand, Guid?>, DuplicateTaskListCommandHandler>();
         services.AddScoped<IRequestHandler<MoveTaskListToFolderCommand, bool>, MoveTaskListToFolderCommandHandler>();
         services.AddScoped<IRequestHandler<UpdateTaskListCommand, EditOutcome>, UpdateTaskListCommandHandler>();
         services.AddScoped<IRequestHandler<MoveTaskItemCommand, EditOutcome>, MoveTaskItemCommandHandler>();
@@ -240,6 +248,7 @@ public static class OrbitCoreServiceCollectionExtensions
         // scoped), so it must be scoped too - mirrors NoteAccessResolver's registration above.
         services.AddScoped<CalendarEventAccessResolver>();
         services.AddScoped<IRequestHandler<CreateCalendarEventCommand, Guid>, CreateCalendarEventCommandHandler>();
+        services.AddScoped<IRequestHandler<DuplicateCalendarEventCommand, Guid?>, DuplicateCalendarEventCommandHandler>();
         services.AddScoped<IRequestHandler<UpdateCalendarEventCommand, EditOutcome>, UpdateCalendarEventCommandHandler>();
         services.AddScoped<IRequestHandler<DeleteCalendarEventCommand, bool>, DeleteCalendarEventCommandHandler>();
         services.AddScoped<IRequestHandler<GetCalendarEventsQuery, IReadOnlyList<CalendarEvent>>, GetCalendarEventsQueryHandler>();
@@ -333,6 +342,8 @@ public static class OrbitCoreServiceCollectionExtensions
         services.AddScoped<SharedItemName>();
 
         services.AddScoped<IRequestHandler<GetShareOfferQuery, ShareOffer?>, GetShareOfferQueryHandler>();
+        services.AddScoped<IRequestHandler<GetSharesWithQuery, IReadOnlyList<SharedWithSomebody>>, GetSharesWithQueryHandler>();
+        services.AddScoped<IRequestHandler<RevokeShareCommand, bool>, RevokeShareCommandHandler>();
         services.AddScoped<IRequestHandler<CreatePublicShareLinkCommand, PublicShareLink?>, CreatePublicShareLinkCommandHandler>();
         services.AddScoped<IRequestHandler<RevokePublicShareLinkCommand, bool>, RevokePublicShareLinkCommandHandler>();
         services.AddScoped<IRequestHandler<GetPublicSharedItemQuery, PublicSharedItem?>, GetPublicSharedItemQueryHandler>();
@@ -376,6 +387,7 @@ public static class OrbitCoreServiceCollectionExtensions
         // Inventories - the container inventory items now belong to, with Notes-style sharing on top.
         services.AddScoped<InventoryAccessResolver>();
         services.AddScoped<IRequestHandler<CreateInventoryCommand, Guid>, CreateInventoryCommandHandler>();
+        services.AddScoped<IRequestHandler<DuplicateInventoryCommand, Guid?>, DuplicateInventoryCommandHandler>();
         services.AddScoped<IRequestHandler<GetInventoriesQuery, IReadOnlyList<Inventory>>, GetInventoriesQueryHandler>();
         services.AddScoped<IRequestHandler<GetInventoryByIdQuery, Inventory?>, GetInventoryByIdQueryHandler>();
         services.AddScoped<IRequestHandler<UpdateInventoryCommand, EditOutcome>, UpdateInventoryCommandHandler>();

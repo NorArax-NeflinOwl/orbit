@@ -48,6 +48,9 @@ public partial class ItemCard : ContentView
 	public static readonly BindableProperty MenuProperty = BindableProperty.Create(
 		nameof(Menu), typeof(View), typeof(ItemCard), propertyChanged: (card, _, value) => Fill(card, "MenuHost", value));
 
+	public static readonly BindableProperty TrailingProperty = BindableProperty.Create(
+		nameof(Trailing), typeof(View), typeof(ItemCard), propertyChanged: (card, _, value) => Fill(card, "TrailingHost", value));
+
 	public static readonly BindableProperty TagsProperty = BindableProperty.Create(
 		nameof(Tags), typeof(View), typeof(ItemCard), propertyChanged: (card, _, value) => Fill(card, "TagsHost", value));
 
@@ -189,6 +192,13 @@ public partial class ItemCard : ContentView
 	{
 		get => (View?)GetValue(MenuProperty);
 		set => SetValue(MenuProperty, value);
+	}
+
+	/// <inheritdoc cref="TrailingProperty"/>
+	public View? Trailing
+	{
+		get => (View?)GetValue(TrailingProperty);
+		set => SetValue(TrailingProperty, value);
 	}
 
 	/// <summary>Short facts about the thing - how much it matters, who shared it.</summary>

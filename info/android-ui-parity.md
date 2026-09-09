@@ -41,10 +41,10 @@ whatever Orbit draws under it.
 | Colour | fills — a filled primary button, a filled danger button | **stroke** — every button is an outline; the accent is an edge, never a block |
 | Radius | 7 / 8 / 10 / 12 / 14 / 999 | **4**, everywhere |
 | Sections | a sidebar, which becomes six icons in the top bar below 680px | a **drawer**, with the names back beside the icons |
-| The top bar | logo, six icons, a bell, an avatar | `[≡ or ‹]`, the screen's name, the avatar |
+| The top bar | logo, six icons, a bell, an avatar | `[≡]`, `‹` the screen's name `›`, the avatar |
 | A screen's menu | three dots in the page header, or on the editing rail | one dropdown **under the screen's name** |
 | Adding | a `+` beside the page heading | a **floating button** over the foot of the list |
-| Editing screens | a rail along the foot | nothing; the way out is the bar's back arrow |
+| Editing screens | a rail along the foot | nothing; the way out is the navigation stack, popped by the phone's own gesture |
 | A message | filled - the accent for yours, a grey for everybody else's | outlined - the accent over a wash of it, or a hairline over nothing |
 | An avatar | a disc filled with the person's hue | a ring in it, with the initials written in it |
 | A tick | the characters `○ ✓` and `☐ ☑` | one drawn circle - see `Controls/CheckCircle.xaml` |
@@ -130,14 +130,45 @@ buttons ask for 0 and let what they cover decide.
 
 ## What is done, and what is not
 
-Redrawn: the shell (bar, drawer, title menu, floating button, back arrow) and every screen the design
+Redrawn: the shell (bar, drawer, title menu, floating button, the two optional arrows beside a screen's
+name) and every screen the design
 covers — the dashboard, both list-and-detail pairs for notes and tasks, the calendar and an event, the
 inventory and a shelf, the chat screens, the notification feed, sign-in and the account screen. The
 `EditorRail` is gone from the codebase, not only from the screens: nothing drew one any more.
 
-What is left is the screens the design does not cover — copies, diagnostics, the update screen, the
-shared-link page, the place picker. They carry the new palette, type and shapes, because the tokens are
-global, and their layout is unchanged.
+The five screens the design does not cover — the two copy screens, diagnostics, the update screen, the
+shared-link page and the place picker — were redrawn by applying its rules rather than by copying a
+picture. There was no picture: the prototype never drew them. What that meant in practice:
+
+- **No page heading where the bar already carries the name.** Diagnostics was the last screen still
+  writing its own name at 26pt under a bar that had just said it.
+- **One quiet line of context** (12px, secondary) where a screen needs one, which is what the design
+  gives the settings screen. Everything else was a `PageHeader`, and that control no longer draws a
+  title.
+- **Hairlines above a row, and one more under the last** — the shape `ItemCard` draws for every list.
+  The copy-history rows drew theirs underneath, which leaves a rule hanging under a list that has
+  ended.
+- **The accent outline on the one thing a screen is for**, and the danger outline on what cannot be
+  undone: "Send to Orbit" against "Clear", "Save to my account", "Download for Android".
+- **A bordered group where several answers are one choice** — the same idiom as the calendar's
+  Day/Month/Year and the shelf's stepper. Keep mine / Keep theirs / Keep both is one decision, and
+  three separate link buttons read as three separate things to press.
+- **Orbit's own tick rather than the platform's.** The shared-link screen was the last `CheckBox` in
+  the app; it draws a `CheckCircle` now, with no command, so it is read as a state rather than
+  offered as a control.
+
+**The place picker was crashing, and nobody had opened it.** `MapPage` and the task entry both take
+their map out of the page when the build has no Google Maps key - on Android a map built without one
+throws from inside Play Services and ends the process. The place picker never did, so opening it on
+such a build took the app down. It guards now like the other two, and what is left still answers the
+question the screen exists for: an address can be searched for and confirmed; only pointing at the map
+is gone, because there is no map to point at. Found by trying to screenshot the redrawn screen.
+
+Eight "Back" ways out went at the same time - six buttons under the content, and two entries at the
+head of a title menu - and this was a defect rather than a preference: they were
+right while screens replaced each other, and the navigation stack gave every detail screen an arrow in
+the bar. `ConversationPage`'s even carried a comment explaining that there was no bar to go back
+through - which had stopped being true.
 
 Deliberately not copied from the design:
 
@@ -152,6 +183,82 @@ Deliberately not copied from the design:
   control, pinchable, on the one device that actually has a location.
 - **A conversation shows no count of what is waiting.** `LocalContact` has no unread count and nothing
   on the device derives one.
+
+## The screens the written spec does not describe yet
+
+The Classical prototype was rejected as built on 2026-09-09, and what replaced it is a written,
+screen-by-screen description in the user's own words - the shell, the dashboard, notifications, About,
+the two note screens, the three task screens, the calendar and an event, contacts, the map, and the two
+inventory screens. Those are done.
+
+These are the ones it has not reached. They are listed here rather than guessed at, because guessing at
+the last one is exactly what produced the rejected version.
+
+**Six of them need not be guessed at after all.** Read as a specification of composition rather than as
+a style guide, the Classical prototype does draw sign-in, create-an-account, one entry on its own, the
+map's two lists, a conversation and Settings - and it corrects a dozen things about the screens that
+were built from the written spec. All of it is set out in
+[`android-design-deltas.md`](android-design-deltas.md), which also lists the six places the design and
+the written spec disagree and says which of the two wins (the spec, every time).
+
+| screen | what it is now |
+|---|---|
+| Sign in, Register, Forgotten password | named as a group, never described. They carry no bar and no drawer today - nobody is signed in - and no ad bar either |
+| Account (the avatar menu's **Settings**) | theme, accent, language, notification settings, permissions, Google, the encryption key |
+| A conversation, and a group's | the two chat screens: bubbles, the composer, a message's own menu |
+| A group's details | who is in it, and what can be done to it |
+| Contact info | who somebody is, apart from what they have said |
+| The encryption key gate | what it asks and what it offers to reset |
+| One entry on its own | `TaskItemSummaryPage`, opened from the calendar rather than from its list - distinct from the entry form inside a task list, which *is* described |
+| Copies to review, and a thing's copy history | the two screens behind the offline-copy offer |
+| Update | where a newer Orbit comes from |
+| Diagnostics | the app's own log, behind the Debug permission |
+| A shared link | what somebody sees following a public link into the app |
+| The place picker | choosing where an entry happens, on a map |
+| Startup | the screen the app opens on before it knows whether it may run |
+| The map's two lists | who can see you, and who is sharing with you - **new on 2026-09-09**, invented to satisfy "the lists open as their own page", so worth confirming rather than assuming |
+
+## What the first walk against the written spec found (2026-09-09)
+
+The spec was built without anything being run: it compiled, the suite was green, and none of that says
+whether a screen behaves. Walked on `Orbit_Pixel_8_API_36` against a local API, four things were wrong,
+and **no test could have caught any of them** - two were platform ordering, one was a value copied
+where a binding was meant, and one was two controls fighting over the same corner.
+
+- **Backspace at the head of a line never joined it to the line above.** `NoteLineBackspace` decides
+  whether to listen for the key while the field's handler is being built; `NoteDetailPage` attached the
+  command in the field's `Loaded`, which is later. It read null every time and listened to nothing.
+  The command is bound in the template now - see `NoteLineKeys`, which says so out loud.
+- **Enter started the next line but left the caret behind.** The caret was to be put in the new line
+  when its field raised `Loaded`, but a `BindableLayout` builds that field while `AddLineAfter` is still
+  running, so `Loaded` had come and gone before there was a row to match it against. Nothing asked for
+  the caret, and Android's own answer to `ReturnType="Next"` moved focus on to the tick-box button in
+  the corner. The ask is made where the line is made, and honoured on the next turn of the loop.
+- **The bar spoke a name it was no longer showing.** `NavigationBar` binds the title *label* to the
+  page's Title and copied the *spoken* name once, so the calendar went on announcing the month it opened
+  on however far the reader had moved. Bound now, like the label.
+
+Verified on the device afterwards: Enter keeps the caret, backspace joins two lines and leaves the caret
+where they met, a typed `[]` becomes a real tick box, ticking strikes the line through, the tick-box
+button carries a box onto each new line, the drawer and the note's own menu read as the spec describes,
+Sort and Filter hang under the screen's name, the week view starts on Monday and writes a straddling
+week as "28 September - 4 October 2026", and the map fills the screen with its panels under its name.
+
+About was walked both ways round: a build told nothing lists the licence alone, and one built with
+`-p:OrbitWebBaseAddress=https://…/` lists the whole row Orbit.Web's footer carries - Privacy, Security,
+Docs, "Do not share my personal information", the licence - and pressing one opens the browser on it.
+
+The fourth thing the walk found was on the map: **the crosshair button covered Android's own zoom
+buttons and took their presses.** Nothing in the markup knows those buttons are there - the map draws
+them itself, at its bottom-right, which is the corner the design gives the button - so a tap well inside
+the visible `+` read the phone's position instead of zooming in.
+
+The crosshair is at the **top right** now (`Fab.IsAtTheTop`), which is the one corner of a map that is
+the app's to use: Android owns the bottom right with the zoom buttons and the bottom left with Google's
+logo, which may not be covered at all. This is a deliberate departure from the design, which draws the
+button bottom-right - the design's map is a placeholder tile with no furniture of its own, so it never
+had to share the corner. The card that says where you were last read to be gives the button room
+(`Margin="12,10,80,10"`), or a long address runs underneath it.
 
 ## How to check it
 

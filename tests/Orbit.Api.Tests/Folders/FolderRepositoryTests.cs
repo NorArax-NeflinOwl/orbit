@@ -30,7 +30,7 @@ public sealed class FolderRepositoryTests : IDisposable
     public async Task Deleting_a_folder_keeps_what_was_in_it_and_only_unfiles_it()
     {
         var repository = new FolderRepository(_dbContext);
-        var folder = Folder.Create(OwnerUserId, "Work");
+        var folder = Folder.Create(OwnerUserId, "Work", FolderScope.Tasks);
         await repository.AddAsync(folder, CancellationToken.None);
         var noteId = await ANoteFiledUnderAsync(folder.Id);
         var taskListId = AListFiledUnder(folder.Id);
@@ -53,8 +53,8 @@ public sealed class FolderRepositoryTests : IDisposable
     public async Task Deleting_one_folder_leaves_what_is_filed_in_another_alone()
     {
         var repository = new FolderRepository(_dbContext);
-        var goingAway = Folder.Create(OwnerUserId, "Work");
-        var staying = Folder.Create(OwnerUserId, "Home");
+        var goingAway = Folder.Create(OwnerUserId, "Work", FolderScope.Tasks);
+        var staying = Folder.Create(OwnerUserId, "Home", FolderScope.Tasks);
         await repository.AddAsync(goingAway, CancellationToken.None);
         await repository.AddAsync(staying, CancellationToken.None);
         var noteId = await ANoteFiledUnderAsync(staying.Id);
@@ -71,7 +71,7 @@ public sealed class FolderRepositoryTests : IDisposable
     public async Task A_folder_belonging_to_somebody_else_is_not_deleted()
     {
         var repository = new FolderRepository(_dbContext);
-        var theirs = Folder.Create(Guid.NewGuid(), "Theirs");
+        var theirs = Folder.Create(Guid.NewGuid(), "Theirs", FolderScope.Tasks);
         await repository.AddAsync(theirs, CancellationToken.None);
 
         await repository.DeleteAsync(OwnerUserId, theirs.Id, CancellationToken.None);

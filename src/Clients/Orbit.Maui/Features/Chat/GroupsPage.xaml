@@ -115,9 +115,6 @@
                     Style="{StaticResource LinkButton}" />
         </Grid>
 
-        <Button Grid.Row="5" Text="{controls:Translate 'Back to chat'}" Command="{Binding GoBackCommand}"
-                Style="{StaticResource LinkButton}" />
-
     </Grid>
         <!-- Across the foot, under everything the page itself draws - see AdBanner, and .ad-banner
              in Orbit.Web's app.css, which is the same bar on a narrow window. -->

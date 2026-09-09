@@ -20,6 +20,7 @@
         <x:String x:Key="MapIcon">M20,10 C20,16 12,22 12,22 C12,22 4,16 4,10 A8,8 0 0 1 20,10 Z M9,10 A3,3 0 1 1 15,10 A3,3 0 1 1 9,10 Z</x:String>
         <x:String x:Key="ContactsIcon">M16,21 V19 A4,4 0 0 0 12,15 H6 A4,4 0 0 0 2,19 V21 M5,7 A4,4 0 1 1 13,7 A4,4 0 1 1 5,7 Z M22,21 V19 A4,4 0 0 0 19,15.1 M16,3.1 A4,4 0 0 1 16,10.9</x:String>
         <x:String x:Key="NotificationsIcon">M6,8 A6,6 0 0 1 18,8 C18,15 21,17 21,17 H3 C3,17 6,15 6,8 Z M10.3,21 A1.9,1.9 0 0 0 13.7,21</x:String>
+        <x:String x:Key="AboutIcon">M3,12 A9,9 0 1 1 21,12 A9,9 0 1 1 3,12 Z M12,16 V11 M12,8 H12.01</x:String>
     </ContentView.Resources>
 
     <!-- Every section, with its name back beside it. These were six unlabelled icons in the top bar
@@ -87,16 +88,16 @@
                                           Command="{Binding GoToInventoryCommand}" />
                     <!-- Hidden rather than shown-and-refused, as the old bar had it: a way in that only
                          ever leads to "not unlocked" is not a way in. -->
-                    <controls:DrawerEntry Icon="{StaticResource MapIcon}"
-                                          Text="{controls:Translate 'Map'}"
-                                          IsVisible="{Binding CanUseLocation}"
-                                          IsChosen="{Binding IsOnMap}"
-                                          Command="{Binding GoToMapCommand}" />
                     <controls:DrawerEntry Icon="{StaticResource ContactsIcon}"
                                           Text="{controls:Translate 'Contacts'}"
                                           IsVisible="{Binding CanUseConversations}"
                                           IsChosen="{Binding IsOnContacts}"
                                           Command="{Binding GoToContactsCommand}" />
+                    <controls:DrawerEntry Icon="{StaticResource MapIcon}"
+                                          Text="{controls:Translate 'Map'}"
+                                          IsVisible="{Binding CanUseLocation}"
+                                          IsChosen="{Binding IsOnMap}"
+                                          Command="{Binding GoToMapCommand}" />
                     <!-- At the foot of the list with its count beside it, where the design puts it. It
                          had a button of its own in the old bar; a drawer entry carrying the number says
                          the same thing and gives back the space. -->
@@ -111,40 +112,21 @@
                      same place on the page. It used to be a row in the avatar's menu, which is where a
                      phone's version number ended up for want of anywhere better - the menu behind the
                      avatar is about the account, and which build this is has nothing to do with who is
-                     signed in. Settings is still there, where the account's own things are.
+                     signed in.
 
-                     Folded by default: most visits to the drawer are on the way to a section. -->
-                <VerticalStackLayout Grid.Row="2" Padding="22,14,22,0" Spacing="6">
-                    <BoxView Style="{StaticResource Hairline}" Margin="0,0,0,8" />
-                    <Button Text="{controls:Translate 'About'}" Style="{StaticResource LinkButton}"
-                            FontSize="13" Padding="0" HorizontalOptions="Start" MinimumHeightRequest="0"
-                            Command="{Binding ToggleAboutCommand}" />
-
-                    <VerticalStackLayout Spacing="2" IsVisible="{Binding IsAboutExpanded}">
-                        <Label Text="{Binding AboutCopyright}" FontSize="12" Style="{StaticResource SubtleLabel}" />
-                        <!-- Tapped, it grows the rest of the commit hash - the same thing the web footer
-                             does, and for the same reason: the short form is what anybody reads, the
-                             whole one is what a checkout takes. -->
-                        <Label Text="{Binding AboutVersion}" FontSize="12" LineBreakMode="CharacterWrap"
-                               Style="{StaticResource SubtleLabel}">
-                            <Label.GestureRecognizers>
-                                <TapGestureRecognizer Command="{Binding ShowTheWholeCommitCommand}" />
-                            </Label.GestureRecognizers>
-                        </Label>
-                        <!-- The server's own build, beside the app's. The two drift by design here: the
-                             phone is updated whenever its owner chooses. Hidden while the server has not
-                             answered - an offline About row should say nothing rather than guess. -->
-                        <Label Text="{Binding AboutServerVersion}" IsVisible="{Binding HasServerVersion}"
-                               FontSize="12" LineBreakMode="CharacterWrap" Style="{StaticResource SubtleLabel}" />
-                        <!-- Tapped rather than shown as a URL: the licence is a document to read, and
-                             the address of it is not the information anybody came for. -->
-                        <Label x:Name="LicenseLink" Text="{Binding LicenseName}" FontSize="12"
-                               TextDecorations="Underline" Style="{StaticResource SubtleLabel}">
-                            <Label.GestureRecognizers>
-                                <TapGestureRecognizer Tapped="OnLicenseTapped" />
-                            </Label.GestureRecognizers>
-                        </Label>
-                    </VerticalStackLayout>
+                     About is an entry like the sections above it now rather than a fold-out. Every other
+                     entry in this drawer takes the reader somewhere and that one did not, and three
+                     lines squeezed under a menu left no room for the documents the web's footer carries
+                     - see AboutViewModel. What stays here is the version, which is the one line anybody
+                     reads without opening anything. -->
+                <VerticalStackLayout Grid.Row="2" Padding="12,10,12,0" Spacing="2">
+                    <BoxView Style="{StaticResource Hairline}" Margin="10,0,10,8" />
+                    <controls:DrawerEntry Icon="{StaticResource AboutIcon}"
+                                          Text="{controls:Translate 'About'}"
+                                          IsChosen="{Binding IsOnAbout}"
+                                          Command="{Binding GoToAboutCommand}" />
+                    <Label Text="{Binding AboutVersion}" Margin="10,2,10,0" FontSize="12"
+                           LineBreakMode="CharacterWrap" Style="{StaticResource SubtleLabel}" />
                 </VerticalStackLayout>
             </Grid>
         </Border>

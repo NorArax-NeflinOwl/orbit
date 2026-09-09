@@ -22,9 +22,11 @@ public sealed class DailyTaskReminderRepository : IDailyTaskReminderRepository
         var rows = await (
             from item in _dbContext.Set<TaskItemEntity>().AsNoTracking()
             join task in _dbContext.Tasks.AsNoTracking() on item.TaskId equals task.Id
-            // No !IsCompleted here on purpose: a finished item is due again tomorrow, and is reopened
-            // by ReopenAsync when its reminder fires.
-            where item.RemindDaily && !item.LinkedTaskLists.Any()
+            // No !item.IsCompleted here on purpose: a finished item is due again tomorrow, and is
+            // reopened by ReopenAsync when its reminder fires. The *list* is a different matter - a
+            // list somebody closed is not owed any more, so it stops asking. Saying "no more of this"
+            // and then being reminded of it every morning is the app arguing with the reader.
+            where item.RemindDaily && !task.IsCompleted && !item.LinkedTaskLists.Any()
                 && item.DailyReminderNotificationChannel != "None"
             select new
             {

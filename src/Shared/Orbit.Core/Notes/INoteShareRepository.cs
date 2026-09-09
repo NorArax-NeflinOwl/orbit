@@ -47,4 +47,18 @@ public interface INoteShareRepository
     /// access. A no-op when there is no such grant.
     /// </summary>
     Task RemoveAcceptedGrantAsync(Guid sourceId, Guid recipientUserId, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Everything ownerUserId has handed to recipientUserId, offered or taken up. Scoped to the owner,
+    /// because this answers "what have I given this person" - the question the contact's own page asks,
+    /// and the one an owner needs before they can take any of it back.
+    /// </summary>
+    Task<IReadOnlyList<NoteShare>> GetSharesToAsync(Guid ownerUserId, Guid recipientUserId, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Withdraws one share the owner made, whether or not it had been accepted. Scoped to the owner, so
+    /// it can only ever remove access somebody gave. Says whether a row actually went, so a caller can
+    /// tell a withdrawal from a share that was not theirs or is already gone.
+    /// </summary>
+    Task<bool> RemoveAsync(Guid ownerUserId, Guid shareId, CancellationToken cancellationToken);
 }

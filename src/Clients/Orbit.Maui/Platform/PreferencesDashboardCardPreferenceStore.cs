@@ -11,6 +11,7 @@ public sealed class PreferencesDashboardCardPreferenceStore : IDashboardCardPref
 {
 	private const string HiddenKey = "orbit.dashboard.hidden";
 	private const string FiltersKey = "orbit.dashboard.filters";
+	private const string OrderKey = "orbit.dashboard.order";
 
 	private readonly IPreferences _preferences;
 
@@ -48,4 +49,12 @@ public sealed class PreferencesDashboardCardPreferenceStore : IDashboardCardPref
 		=> _preferences.Set(
 			FiltersKey,
 			string.Join(',', filters.Select(filter => $"{filter.Key}={filter.Value}")));
+
+	/// <summary>An order written by a build that offered a different set reads as Orbit's own.</summary>
+	public DashboardCardOrder ReadOrder()
+		=> Enum.TryParse<DashboardCardOrder>(_preferences.Get<string?>(OrderKey, null), out var stored)
+			? stored
+			: DashboardCardOrder.Standard;
+
+	public void WriteOrder(DashboardCardOrder order) => _preferences.Set(OrderKey, order.ToString());
 }

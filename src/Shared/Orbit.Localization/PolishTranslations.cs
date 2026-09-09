@@ -255,6 +255,7 @@ public static class PolishTranslations
             "Nie udało się przeliczyć względem magazynu. Spróbuj ponownie.",
         ["Hide"] = "Ukryj",
         ["Show on the dashboard"] = "Pokaż na pulpicie",
+        ["Orbit's order"] = "Kolejność Orbita",
         ["Show"] = "Pokaż",
         ["Search conversations"] = "Szukaj rozmów",
         ["Orbit can't reach that account, so this conversation can't be opened right now."] =
@@ -325,6 +326,18 @@ public static class PolishTranslations
         ["Low"] = "Niski",
         ["Normal"] = "Zwykły",
         ["High"] = "Wysoki",
+        // The two arrows beside a screen's name, where it is one of a series - see ITitleSteps.
+        ["Previous"] = "Poprzedni",
+        ["Next"] = "Następny",
+
+        // The two menus a list screen hangs under its own name - see ListMenus.
+        ["Filter"] = "Filtruj",
+        ["Sort - pinned stay on top"] = "Sortowanie — przypięte zawsze na górze",
+        ["Last changed"] = "Ostatnia zmiana",
+        ["Everything"] = "Wszystko",
+        ["High priority"] = "Wysoki priorytet",
+        ["Normal priority"] = "Zwykły priorytet",
+        ["Low priority"] = "Niski priorytet",
         ["Read-only"] = "Tylko do odczytu",
         ["Can share"] = "Może udostępniać",
         ["Can edit"] = "Może edytować",
@@ -582,6 +595,7 @@ public static class PolishTranslations
         ["Who this is, and how to reach them."] = "Kto to jest i jak się z nim skontaktować.",
         ["Status"] = "Status",
         ["Last message"] = "Ostatnia wiadomość",
+        ["Last active"] = "Ostatnio aktywny",
         ["They asked to chat with you. Open the conversation to allow it."] = "Ta osoba prosi o rozmowę. Otwórz konwersację, aby na nią pozwolić.",
         ["Waiting for them to allow this conversation."] = "Czekamy, aż ta osoba zgodzi się na rozmowę.",
         ["No conversation with them yet."] = "Nie ma jeszcze rozmowy z tą osobą.",
@@ -613,7 +627,9 @@ public static class PolishTranslations
         ["Your events, and the ones you have been invited to."] = "Twoje wydarzenia i te, na które Cię zaproszono.",
         ["No events."] = "Brak wydarzeń.",
         ["Day"] = "Dzień",
+        ["Week"] = "Tydzień",
         ["Month"] = "Miesiąc",
+        ["A day and a week show everything that fell in them."] = "Dzień i tydzień pokazują wszystko, co na nie przypadło.",
         ["Year"] = "Rok",
         ["Today"] = "Dziś",
         ["Yesterday"] = "Wczoraj",
@@ -650,6 +666,7 @@ public static class PolishTranslations
         ["Find an entry on any list"] = "Znajdź element na dowolnej liście",
         ["Entries in every chosen category"] = "Elementy w każdej wybranej kategorii",
         ["Nothing on any list matches that."] = "Nic na żadnej liście tego nie pasuje.",
+        ["Nothing is in this folder yet."] = "W tym folderze jeszcze nic nie ma.",
         ["Expires"] = "Termin ważności",
         ["Private - encrypted, and only you can read it"] = "Prywatne — zaszyfrowane, czyta to tylko Ty",
         ["There is less of this than the minimum you set"] = "Zostało tego mniej niż ustawione minimum",
@@ -682,6 +699,8 @@ public static class PolishTranslations
         // ---- Map ----
         ["Where you are, who you are sharing it with, and who is sharing theirs."] =
             "Gdzie jesteś, komu to udostępniasz i kto udostępnia swoje położenie Tobie.",
+        ["Recording where you are, and sharing it, don't work on a phone yet - open Orbit on a computer for those."] =
+            "Zapisywanie położenia i udostępnianie go nie działają jeszcze na telefonie - otwórz Orbit na komputerze.",
         ["Start recording"] = "Zacznij zapisywać",
         ["Stop recording"] = "Przestań zapisywać",
         ["Share where you are"] = "Udostępnij swoje położenie",
@@ -706,6 +725,11 @@ public static class PolishTranslations
         ["Nothing in your calendar or your lists says where it happens."] =
             "Nic w Twoim kalendarzu ani na listach nie mówi, gdzie się odbywa.",
         ["Show places already past"] = "Pokaż miejsca już minione",
+        // The eye on a map panel's heading, and the day to show the past from - see MapPinVisibility.
+        ["Show these on the map"] = "Pokaż je na mapie",
+        ["Hide these from the map"] = "Ukryj je z mapy",
+        ["Show from"] = "Pokazuj od",
+        ["Leave it empty for everything that has been and gone."] = "Zostaw puste, aby pokazać wszystko, co już minęło.",
         ["somewhere with no street"] = "gdzieś bez adresu",
 
         // ---- Folders ----
@@ -723,10 +747,22 @@ public static class PolishTranslations
         ["Nothing in it is deleted - everything goes back to Public, or to Private if it is sealed."] =
             "Nic z niego nie zostanie usunięte - wszystko wróci do Publicznych, a rzeczy zaszyfrowane do Prywatnych.",
         ["Nothing in this folder."] = "Nic w tym folderze.",
+        // Making a second one of something, and what the copy is called - see Orbit.Contracts.DuplicateRequest.
+        ["Duplicate"] = "Duplikuj",
+        ["{0} (copy)"] = "{0} (kopia)",
+        ["Couldn't make a copy. Try again."] = "Nie udało się zrobić kopii. Spróbuj ponownie.",
+        // Everything ticked off and the list still open, because its owner said so - see
+        // Orbit.Core.Tasks.TaskListStatus.Incomplete. "Niezakończona" rather than "nieukończona": the
+        // work is finished and the list is not, and the two words carry that difference in Polish.
+        ["Not finished"] = "Niezakończona",
+        ["Marks the whole list done even with entries still open, and moves it to Finished. It ticks itself once every entry is."] =
+            "Oznacza całą listę jako zrobioną, nawet jeśli są na niej otwarte pozycje, i przenosi ją do Ukończonych. Zaznacza się sama, gdy wszystkie pozycje zostaną odhaczone.",
+        ["Ticked on its own because every entry is. Untick it to say the list itself is not done yet - it reads as \"not finished\" then."] =
+            "Zaznaczone samo, bo wszystkie pozycje są odhaczone. Odznacz, aby powiedzieć, że sama lista nie jest jeszcze gotowa - dostanie wtedy status \"niezakończona\".",
         ["Without one it is in Public, or in Private when it is sealed."] =
             "Bez folderu trafia do Publicznych, a jeśli jest zaszyfrowane - do Prywatnych.",
-        ["Without one it is in Public, or in Private when it is sealed. A list with everything ticked off moves to Finished on its own."] =
-            "Bez folderu trafia do Publicznych, a jeśli jest zaszyfrowane - do Prywatnych. Lista z odhaczonymi wszystkimi pozycjami sama trafia do Ukończonych.",
+        ["Without one it is in Public, or in Private when it is sealed - and it moves to Finished on its own once everything is ticked off. A list you file somewhere stays in that folder, finished or not."] =
+            "Bez folderu trafia do Publicznych, a jeśli jest zaszyfrowane - do Prywatnych, i sama przechodzi do Ukończonych, gdy wszystkie pozycje zostaną odhaczone. Lista włożona do folderu zostaje w nim, ukończona czy nie.",
 
         // ---- The invitation page ----
         // Where a notification about something shared leads - see Orbit.Web's ShareInvitation.razor.
@@ -1029,6 +1065,10 @@ public static class PolishTranslations
         ["Share link"] = "Link do udostępnienia",
         ["Copy link"] = "Kopiuj link",
         ["Stop sharing"] = "Przestań udostępniać",
+        ["Not taken up yet"] = "Jeszcze nieprzyjęte",
+        ["Shared with {0}"] = "Udostępnione: {0}",
+        ["Couldn't stop sharing that. Check your connection and try again."] =
+            "Nie udało się zakończyć tego udostępniania. Sprawdź połączenie i spróbuj ponownie.",
         ["Ask to edit this"] = "Poproś o możliwość edycji",
         ["Save to my account"] = "Zapisz na moim koncie",
         ["Sign in to save this"] = "Zaloguj się, żeby to zapisać",
@@ -1464,6 +1504,8 @@ public static class PolishTranslations
             "W przeciwnym razie tylko ostrzeżenia i błędy. Po następnym uruchomieniu wraca do tego ustawienia.",
         ["When something is shared with me"] = "Gdy ktoś mi coś udostępni",
         ["Where you are"] = "Gdzie jesteś",
+        // The heading over the map menu's two lists - who can see you, and who is sharing with you.
+        ["Locations"] = "Lokalizacje",
         ["Who can see you"] = "Kto Cię widzi",
         ["Who is in it"] = "Kto należy do grupy",
         ["Couldn't sync"] = "Nie udało się zsynchronizować",
@@ -1541,6 +1583,10 @@ public static class PolishTranslations
         ["Updated {0}"] = "Zmieniono {0}",
         ["{0} · all day"] = "{0} · cały dzień",
         ["{0} – {1}"] = "{0} – {1}",
+        // Under the heading on the registration screen: one account, both clients.
+        ["One account for the browser and this phone."] = "Jedno konto dla przeglądarki i tego telefonu.",
+        // The one place the note editor says where a tick box comes from - see NoteDetailPage's foot.
+        ["Type [] for a checkbox"] = "Wpisz [], aby dodać pole",
         ["Untitled"] = "Bez tytułu",
         ["Someone"] = "Ktoś",
         ["Live · updated {0}"] = "Na żywo · zaktualizowano {0}",
@@ -1935,6 +1981,11 @@ public static class PolishTranslations
             "Orbit trzyma notatki, listy zadań, kalendarz, zawartość Twoich półek, Twoje położenie i to, z kim rozmawiasz — w jednym miejscu, w przeglądarce i na telefonie, do udostępnienia osobom, które wybierzesz.",
         ["The server it is talking to"] = "Serwer, z którym rozmawia",
 
+        // The phone's About screen, which says the same thing in fewer words - it is one line at the
+        // head of a screen rather than the first paragraph of a dialog.
+        ["Orbit keeps notes, task lists, a calendar and what is on your shelves, and lets you talk and share - in one place."] =
+            "Orbit trzyma notatki, listy zadań, kalendarz, zawartość Twoich półek, umożliwia komunikację i udostępnianie — w jednym miejscu.",
+
         // The Manage cookies dialog - what this browser is allowed to remember.
         ["Orbit sets no cookies. What it remembers about you in this browser is kept in local storage, which never leaves this device on its own, and this is where you decide how much of it there is."] =
             "Orbit nie ustawia ciasteczek. To, co pamięta o Tobie w tej przeglądarce, trzyma w pamięci lokalnej, która sama z siebie nigdy nie opuszcza tego urządzenia — a tutaj decydujesz, ile tego jest.",
@@ -1975,6 +2026,9 @@ public static class PolishTranslations
         ["Open in Maps"] = "Otwórz w Mapach",
         ["The map can't be shown in this build. A shared position still opens in your phone's map app."] =
             "Ta wersja aplikacji nie potrafi pokazać mapy. Udostępnione położenie i tak otworzysz w aplikacji map na telefonie.",
+        // And the same on the screen where a place is pointed at, which can still be searched for.
+        ["The map can't be shown in this build. Search for the address instead."] =
+            "Ta wersja aplikacji nie potrafi pokazać mapy. Zamiast tego wyszukaj adres.",
 
         // The last of the web left in English: the restock-list settings, the two suggestion panels,
         // and a handful of lines nobody had swept up. See the coverage test that now keeps this closed.

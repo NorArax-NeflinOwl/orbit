@@ -34,7 +34,10 @@ public static class FolderEndpoints
         folders.MapPost("/", async (
             CreateFolderRequest request, ClaimsPrincipal user, IDispatcher dispatcher, CancellationToken cancellationToken) =>
         {
-            var folder = await dispatcher.SendAsync(new CreateFolderCommand(GetUserId(user), request.Name), cancellationToken);
+            var folder = await dispatcher.SendAsync(
+                new CreateFolderCommand(
+                    GetUserId(user), request.Name, RequestEnum.Parse<FolderScope>(request.Scope, "scope")),
+                cancellationToken);
             // The whole folder rather than its id: the page that asked for it has a tab to draw, and it
             // would only have to ask again for the name it just sent.
             return Results.Created($"/api/folders/{folder.Id}", ToDto(folder));
@@ -58,7 +61,7 @@ public static class FolderEndpoints
     }
 
     private static FolderDto ToDto(Folder folder)
-        => new(folder.Id, folder.Name, folder.CreatedAtUtc, folder.UpdatedAtUtc);
+        => new(folder.Id, folder.Name, folder.Scope.ToString(), folder.CreatedAtUtc, folder.UpdatedAtUtc);
 
     private static Guid GetUserId(ClaimsPrincipal user)
     {

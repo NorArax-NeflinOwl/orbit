@@ -46,17 +46,12 @@ else
 
 @code {
     /// <summary>
-    /// A notification in the reader's language. The server sends the English sentence and what fills
-    /// its holes rather than a finished one, because it has no idea what language this browser is set
-    /// to - it is a preference the device keeps for itself. See Orbit.Core's PushNotificationPayload.
-    ///
-    /// An entry with no arguments is looked up whole: that is what a phrase like "New message" is, and
-    /// what every entry written before the server split them apart looks like.
+    /// A notification in the reader's language. The rule itself moved to NotificationWording, because
+    /// it lived here and the banner along the top of the screen did not have it - so the same reminder
+    /// read properly in this panel and slid past the top with its holes still in it.
     /// </summary>
     private string Say(string format, IReadOnlyList<string>? arguments)
-        => arguments is { Count: > 0 }
-            ? T.Format(format, [.. arguments])
-            : T[format];
+        => NotificationWording.Say(T, format, arguments);
 
     [Parameter]
     public bool IsLoading { get; set; }

@@ -26,6 +26,7 @@ public sealed partial class NotesViewModel : ObservableObject
     private readonly PrivateItemGate _privateItems;
     private readonly SyncState _syncState;
     private readonly IScreenNavigator _navigator;
+    private readonly IListArrangementStore _arrangements;
 
     /// <summary>What "today" is, so a card's footnote says it against the clock the tests hand over.</summary>
     private readonly TimeProvider _clock;
@@ -46,9 +47,12 @@ public sealed partial class NotesViewModel : ObservableObject
         LocalNoteRepository notes, NoteSynchronizer synchronizer, NotesClient notesClient,
         INetworkStatus networkStatus,
         Translations translations, PrivateItemGate privateItems,
-        SyncState syncState, IScreenNavigator navigator, TimeProvider clock)
+        SyncState syncState, IScreenNavigator navigator, TimeProvider clock,
+        IListArrangementStore arrangements)
     {
         _clock = clock;
+        _arrangements = arrangements;
+        _arrangement = arrangements.Read(ListSection.Notes);
         _notes = notes;
         _synchronizer = synchronizer;
         _notesClient = notesClient;
@@ -193,14 +197,44 @@ public sealed partial class NotesViewModel : ObservableObject
         var stored = await _notes.GetAllAsync(cancellationToken);
         var pending = await _notes.GetPendingNoteLocalIdsAsync(cancellationToken);
 
+        var rows = stored.Select(note => NoteListItem.From(
+            note, pending.Contains(note.LocalId), _networkStatus, _privateItems.IsUnlocked,
+            _translations, _clock.GetUtcNow(), _translations["Private"]));
+
         Notes.Clear();
-        foreach (var note in stored)
+        foreach (var row in ListArrangements.Apply(rows, Arrangement, Describe))
         {
-            Notes.Add(NoteListItem.From(
-                note, pending.Contains(note.LocalId), _networkStatus, _privateItems.IsUnlocked,
-                _translations, _clock.GetUtcNow(), _translations["Private"]));
+            Notes.Add(row);
         }
     }
+
+    /// <summary>
+    /// How this screen is being read - what order, and what it is narrowed to. Held on the device, so
+    /// coming back to the notes finds them the way they were left. See <see cref="ListArrangement"/>.
+    /// </summary>
+    [ObservableProperty]
+    private ListArrangement _arrangement;
+
+    /// <summary>
+    /// Chosen from the menu under the screen's name - see NotesPage. Written down as it is chosen, the
+    /// way every other setting on the phone is.
+    /// </summary>
+    [RelayCommand]
+    private async Task ArrangeAsync(ListArrangement? arrangement, CancellationToken cancellationToken)
+    {
+        if (arrangement is null || arrangement == Arrangement)
+        {
+            return;
+        }
+
+        Arrangement = arrangement;
+        _arrangements.Write(ListSection.Notes, arrangement);
+        await ShowLocalNotesAsync(cancellationToken);
+    }
+
+    /// <summary>What the shared ordering needs to know about one row - see ListArrangements.</summary>
+    private static ListRowFacts Describe(NoteListItem row)
+        => new(row.DisplayTitle, row.UpdatedAtUtc, row.IsPinned, row.PriorityValue);
 
     private async Task SynchroniseAsync(CancellationToken cancellationToken)
     {

@@ -1,6 +1,7 @@
 using System.Net;
 using System.Net.Http.Json;
 using System.Text;
+using AngleSharp.Dom;
 using Bunit;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Authorization;
@@ -236,6 +237,61 @@ public sealed class TaskEditorItemFormTests : OrbitTestContext
 
         Assert.DoesNotContain("Link to list", cut.Find(".editor-item-details").TextContent);
     }
+
+    /// <summary>
+    /// The Completed box answers what is on the form rather than what was loaded, so ticking the last
+    /// entry ticks it in the same keystroke - which is what "automatically" has to mean on a form nobody
+    /// has saved yet.
+    /// </summary>
+    [Fact]
+    public void The_Completed_box_ticks_itself_once_every_entry_is_ticked()
+    {
+        RegisterApiClients(AnItem());
+        var cut = Render();
+        Assert.False(CompletedBox(cut).IsChecked());
+
+        TickTheOnlyItem(cut);
+
+        Assert.True(CompletedBox(cut).IsChecked());
+    }
+
+    /// <summary>
+    /// And unticking it then says something the box could not say before: the work is all done and the
+    /// list itself is not - see TaskListCompletion.Unfinished. It used to hand the question back to the
+    /// entries, which answered "finished" again and put the tick straight back.
+    /// </summary>
+    [Fact]
+    public void Unticking_it_with_everything_done_says_the_list_is_unfinished()
+    {
+        RegisterApiClients(AnItem(isCompleted: true));
+        var cut = Render();
+        Assert.True(CompletedBox(cut).IsChecked());
+
+        CompletedBox(cut).Change(false);
+        ClickButtonSaying(cut, "Save");
+
+        Assert.Contains("\"completion\":\"Unfinished\"", _lastSavedJson);
+    }
+
+    [Fact]
+    public void Ticking_it_with_work_left_says_the_list_is_finished()
+    {
+        RegisterApiClients(AnItem());
+        var cut = Render();
+
+        CompletedBox(cut).Change(true);
+        ClickButtonSaying(cut, "Save");
+
+        Assert.Contains("\"completion\":\"Finished\"", _lastSavedJson);
+    }
+
+    /// <summary>The box the list's own form carries, which is not one of the boxes its entries carry.</summary>
+    private static IElement CompletedBox(IRenderedFragment cut)
+        => cut.FindAll(".field label").First(label => label.TextContent.Contains("Completed", StringComparison.Ordinal))
+            .QuerySelector("input[type=checkbox]")!;
+
+    private static void TickTheOnlyItem(IRenderedFragment cut)
+        => cut.FindAll(".editor-item input[type=checkbox]").First().Change(true);
 
     [Fact]
     public void A_daily_reminder_with_no_hour_is_refused_rather_than_sent_at_midnight()
@@ -933,9 +989,9 @@ public sealed class TaskEditorItemFormTests : OrbitTestContext
 
     private static TaskItemDto AnItem(
         string kind = nameof(TaskItemKind.Checklist), DateTimeOffset? dueDateUtc = null, bool remindDaily = false,
-        TimeOnly dailyReminderTimeOfDay = default)
+        TimeOnly dailyReminderTimeOfDay = default, bool isCompleted = false)
         => new(
-            ItemId, "Buy milk", dueDateUtc, IsCompleted: false, LinkedTaskListId: null,
+            ItemId, "Buy milk", dueDateUtc, isCompleted, LinkedTaskListId: null,
             OverdueNotificationChannel: "None", remindDaily, DailyReminderNotificationChannel: "Push",
             dailyReminderTimeOfDay, kind);
 

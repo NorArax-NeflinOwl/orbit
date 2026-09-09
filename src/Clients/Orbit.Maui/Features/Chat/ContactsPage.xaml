@@ -24,18 +24,15 @@
                                 Explanation="{Binding LockedExplanation}"
                                 OpenAccountCommand="{Binding OpenAccountCommand}" />
 
-    <Grid Grid.Row="1" RowDefinitions="Auto,Auto,Auto,Auto,*,Auto,Auto" Padding="20,14,20,0" RowSpacing="12"
+    <!-- A search field and the column of everybody this reader can talk to - people and groups in one
+         list, which is the same question asked twice otherwise. What is put away is behind the menu
+         under the screen's name, where it is a way of reading the list rather than a switch above it. -->
+    <Grid Grid.Row="1" RowDefinitions="Auto,Auto,*" Padding="20,14,20,0" RowSpacing="12"
           IsVisible="{Binding IsUnlocked}">
-
-        <controls:PageHeader Grid.Row="0">
-            <controls:PageHeader.Subtitle>
-                <controls:Translate Text="Search for someone and start a conversation." />
-            </controls:PageHeader.Subtitle>
-        </controls:PageHeader>
 
         <!-- The list below only holds people already spoken to, so without this there is no way to
              start a conversation at all from this device. -->
-        <Grid Grid.Row="1" ColumnDefinitions="*,Auto" ColumnSpacing="8">
+        <Grid Grid.Row="0" ColumnDefinitions="*,Auto" ColumnSpacing="8">
             <Entry Grid.Column="0" Placeholder="{controls:Translate 'Email address or login'}"
                    Text="{Binding SearchQuery}" Keyboard="Email"
                    ReturnType="Search" ReturnCommand="{Binding SearchCommand}" />
@@ -43,7 +40,7 @@
                     Style="{StaticResource PrimaryButton}" Command="{Binding SearchCommand}" />
         </Grid>
 
-        <Grid Grid.Row="2" ColumnDefinitions="*,Auto" ColumnSpacing="8" IsVisible="{Binding HasFoundSomebody}">
+        <Grid Grid.Row="1" ColumnDefinitions="*,Auto" ColumnSpacing="8" IsVisible="{Binding HasFoundSomebody}">
             <VerticalStackLayout Grid.Column="0" Spacing="2" VerticalOptions="Center">
                 <Label Text="{Binding FoundPerson.DisplayName}" Style="{StaticResource ItemCardName}" />
                 <Label Text="{Binding FoundPerson.UserName, StringFormat='@{0}'}" Style="{StaticResource RowMeta}" />
@@ -60,17 +57,7 @@
             </HorizontalStackLayout>
         </Grid>
 
-        <!-- Offered only once something has been put away: an empty archive is a place that answers
-             "nothing" to somebody who had to go there to find out. Orbit.Web hides its tab by the same
-             rule. -->
-        <Grid Grid.Row="3" ColumnDefinitions="*,Auto" ColumnSpacing="8" Margin="0,4"
-              IsVisible="{Binding HasArchive}">
-            <Label Grid.Column="0" Text="{controls:Translate 'Show what is put away'}" VerticalOptions="Center" />
-            <Switch Grid.Column="1" IsToggled="{Binding IsShowingArchive}" VerticalOptions="Center"
-                    SemanticProperties.Description="{controls:Translate 'Show what is put away'}" />
-        </Grid>
-
-        <RefreshView Grid.Row="4" IsRefreshing="{Binding IsRefreshing}" Command="{Binding LoadCommand}">
+        <RefreshView Grid.Row="2" IsRefreshing="{Binding IsRefreshing}" Command="{Binding LoadCommand}">
             <CollectionView ItemsSource="{Binding Contacts}"
                             SelectionMode="Single"
                             SelectionChangedCommand="{Binding OpenConversationCommand}"
@@ -127,11 +114,34 @@
                     </DataTemplate>
                 </CollectionView.ItemTemplate>
 
+                <!-- The groups this reader is in, under the people, in the same column and scrolling
+                     with them - the design puts contacts and groups in one list, and they were two
+                     screens with a button between them. In the footer rather than in a list of their
+                     own so the column reads as one thing. -->
+                <CollectionView.Footer>
+                    <VerticalStackLayout Spacing="0" Padding="0,4,0,0"
+                                         BindableLayout.ItemsSource="{Binding Groups}">
+                        <BindableLayout.ItemTemplate>
+                            <DataTemplate x:DataType="data:LocalChatGroup">
+                                <!-- The press is a Button over the row rather than a gesture on it: a
+                                     layout carrying a gesture is focusable to a screen reader but not
+                                     clickable, so the double tap that activates a control does nothing
+                                     to it. See ItemCard, which does the same over its whole card. -->
+                                <Grid>
+                                    <controls:PersonRow Id="{Binding Id}" Name="{Binding Name}" />
+                                    <Button BackgroundColor="Transparent" BorderWidth="0" Padding="0"
+                                            MinimumHeightRequest="0" MinimumWidthRequest="0"
+                                            SemanticProperties.Description="{Binding Name}"
+                                            Command="{Binding ViewModel.OpenGroupCommand, Source={RelativeSource AncestorType={x:Type ContentPage}}, x:DataType=chat:ContactsPage}"
+                                            CommandParameter="{Binding .}" />
+                                </Grid>
+                            </DataTemplate>
+                        </BindableLayout.ItemTemplate>
+                    </VerticalStackLayout>
+                </CollectionView.Footer>
+
             </CollectionView>
         </RefreshView>
-
-        <Button Grid.Row="5" Text="{controls:Translate 'Groups'}" Command="{Binding OpenGroupsCommand}" />
-
 
     </Grid>
         <!-- Across the foot, under everything the page itself draws - see AdBanner, and .ad-banner

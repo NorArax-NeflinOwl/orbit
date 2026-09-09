@@ -27,47 +27,67 @@
 
         <Border x:Name="Panel" Style="{StaticResource MenuPanel}" HorizontalOptions="Center"
                 WidthRequest="264" Margin="12,56,12,12" VerticalOptions="Start">
-            <VerticalStackLayout Spacing="0">
-                <Label Text="{Binding Heading}" Style="{StaticResource MenuHeading}"
-                       IsVisible="{Binding Heading, Converter={StaticResource IsNotEmpty}}" />
+            <!-- One group after another. A menu is usually two things at once - how a list is sorted
+                 and what it is filtered to, where you are shared and with whom - and the design draws
+                 both in the one panel, each under its own heading, rather than making the reader open
+                 a second menu to reach the second half. -->
+            <VerticalStackLayout BindableLayout.ItemsSource="{Binding Groups}" Spacing="0">
+                <BindableLayout.ItemTemplate>
+                    <DataTemplate x:DataType="screens:ScreenMenuGroup">
+                        <VerticalStackLayout Spacing="0">
+                            <!-- The rule belongs to the heading, so the groups after the first are told
+                                 apart by it and a menu with no headings at all is an unbroken list. -->
+                            <BoxView Style="{StaticResource Hairline}" Margin="0,4,0,0"
+                                     IsVisible="{Binding HasHeading}" />
+                            <Label Text="{Binding Heading}" Style="{StaticResource MenuHeading}"
+                                   IsVisible="{Binding HasHeading}" />
 
-                <VerticalStackLayout BindableLayout.ItemsSource="{Binding Entries}" Spacing="0">
-                    <BindableLayout.ItemTemplate>
-                        <DataTemplate x:DataType="screens:ScreenMenuEntry">
-                            <Grid ColumnDefinitions="12,*" ColumnSpacing="10" Padding="8,9">
-                                <!-- The tick's own column, kept whether or not this entry is the chosen
-                                     one, so the labels line up down the menu. -->
-                                <Label Grid.Column="0" Text="{Binding Mark}" FontSize="13.5"
-                                       TextColor="{DynamicResource Accent}" VerticalOptions="Center" />
+                            <VerticalStackLayout BindableLayout.ItemsSource="{Binding Entries}" Spacing="0">
+                                <BindableLayout.ItemTemplate>
+                                    <DataTemplate x:DataType="screens:ScreenMenuEntry">
+                                        <Grid ColumnDefinitions="12,*,Auto" ColumnSpacing="10" Padding="8,9">
+                                            <!-- The tick's own column, kept whether or not this entry is
+                                                 the chosen one, so the labels line up down the menu. -->
+                                            <Label Grid.Column="0" Text="{Binding Mark}" FontSize="13.5"
+                                                   TextColor="{DynamicResource Accent}" VerticalOptions="Center" />
 
-                                <!-- A Label with the press over it rather than a Button: a Button
-                                     centres its text and offers no way to say otherwise, and a menu of
-                                     centred entries is not a menu. -->
-                                <Label Grid.Column="1" Text="{Binding Label}" FontSize="13.5"
-                                       VerticalOptions="Center" LineBreakMode="WordWrap"
-                                       TextColor="{AppThemeBinding Light={StaticResource SubtleTextLight}, Dark={StaticResource SubtleTextDark}}">
-                                    <Label.Triggers>
-                                        <DataTrigger TargetType="Label" Binding="{Binding IsChosen}" Value="True">
-                                            <Setter Property="FontAttributes" Value="Bold" />
-                                            <Setter Property="TextColor"
-                                                    Value="{AppThemeBinding Light={StaticResource TextPrimaryLight}, Dark={StaticResource TextPrimaryDark}}" />
-                                        </DataTrigger>
-                                        <DataTrigger TargetType="Label" Binding="{Binding CanBeChosen}" Value="False">
-                                            <Setter Property="Opacity" Value="0.45" />
-                                        </DataTrigger>
-                                    </Label.Triggers>
-                                </Label>
+                                            <!-- A Label with the press over it rather than a Button: a
+                                                 Button centres its text and offers no way to say
+                                                 otherwise, and a menu of centred entries is not a menu. -->
+                                            <Label Grid.Column="1" Text="{Binding Label}" FontSize="13.5"
+                                                   VerticalOptions="Center" LineBreakMode="WordWrap"
+                                                   TextColor="{AppThemeBinding Light={StaticResource SubtleTextLight}, Dark={StaticResource SubtleTextDark}}">
+                                                <Label.Triggers>
+                                                    <DataTrigger TargetType="Label" Binding="{Binding IsChosen}" Value="True">
+                                                        <Setter Property="FontAttributes" Value="Bold" />
+                                                        <Setter Property="TextColor"
+                                                                Value="{AppThemeBinding Light={StaticResource TextPrimaryLight}, Dark={StaticResource TextPrimaryDark}}" />
+                                                    </DataTrigger>
+                                                    <DataTrigger TargetType="Label" Binding="{Binding CanBeChosen}" Value="False">
+                                                        <Setter Property="Opacity" Value="0.45" />
+                                                    </DataTrigger>
+                                                </Label.Triggers>
+                                            </Label>
 
-                                <Button Grid.Column="0" Grid.ColumnSpan="2" Padding="0"
-                                        BackgroundColor="Transparent" BorderWidth="0"
-                                        MinimumHeightRequest="0" MinimumWidthRequest="0"
-                                        Command="{Binding ChooseCommand}"
-                                        IsEnabled="{Binding CanBeChosen}"
-                                        SemanticProperties.Description="{Binding Label}" />
-                            </Grid>
-                        </DataTemplate>
-                    </BindableLayout.ItemTemplate>
-                </VerticalStackLayout>
+                                            <!-- How many things the entry stands for, at the end of its
+                                                 line and quieter than the label - see ScreenMenuEntry.Count. -->
+                                            <Label Grid.Column="2" Text="{Binding Count}" FontSize="11"
+                                                   IsVisible="{Binding HasCount}" VerticalOptions="Center"
+                                                   Style="{StaticResource SubtleLabel}" />
+
+                                            <Button Grid.Column="0" Grid.ColumnSpan="3" Padding="0"
+                                                    BackgroundColor="Transparent" BorderWidth="0"
+                                                    MinimumHeightRequest="0" MinimumWidthRequest="0"
+                                                    Command="{Binding ChooseCommand}"
+                                                    IsEnabled="{Binding CanBeChosen}"
+                                                    SemanticProperties.Description="{Binding Label}" />
+                                        </Grid>
+                                    </DataTemplate>
+                                </BindableLayout.ItemTemplate>
+                            </VerticalStackLayout>
+                        </VerticalStackLayout>
+                    </DataTemplate>
+                </BindableLayout.ItemTemplate>
             </VerticalStackLayout>
         </Border>
     </Grid>

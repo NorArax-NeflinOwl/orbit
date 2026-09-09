@@ -34,15 +34,22 @@ public sealed partial class NoteLineRow : ObservableObject
 
     public bool IsCompleted => IsChecklistItem && IsChecked;
 
-    partial void OnIsChecklistItemChanged(bool value)
-    {
-        OnPropertyChanged(nameof(CompletionMark));
-        OnPropertyChanged(nameof(IsCompleted));
-    }
+    /// <summary>
+    /// Whether the editor shows this line as something to write in rather than as something already
+    /// done. A ticked line is drawn struck through, which a text box cannot do - MAUI puts
+    /// TextDecorations on a Label and nowhere else - so the two are separate controls and this is which
+    /// of them is showing. Untick it to write in it again, which is also what it means.
+    /// </summary>
+    public bool IsOpenForWriting => !IsCompleted;
 
-    partial void OnIsCheckedChanged(bool value)
+    partial void OnIsChecklistItemChanged(bool value) => SayHowItIsDrawn();
+
+    partial void OnIsCheckedChanged(bool value) => SayHowItIsDrawn();
+
+    private void SayHowItIsDrawn()
     {
         OnPropertyChanged(nameof(CompletionMark));
         OnPropertyChanged(nameof(IsCompleted));
+        OnPropertyChanged(nameof(IsOpenForWriting));
     }
 }

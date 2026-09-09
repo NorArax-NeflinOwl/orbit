@@ -556,9 +556,11 @@ rather than redefining anything the server already declares.
   chrome would have to be fought rather than used. `AppNavigator` swaps `Window.Page` and tells
   `ScreenHistory` how the screen arrived: a *root* (signing in, registering) clears everything behind
   it, a *drawer destination* resets to the dashboard and itself so hopping sections cannot pile up, and
-  anything else pushes. The bar's back arrow and Android's own gesture pop that one stack, so they
-  cannot give two answers. This replaced `UpNavigation`'s fixed map of parents, which was the right
-  model only while every editing screen carried a rail with "Back to notes" written on it.
+  anything else pushes. Android's own gesture pops that one stack, and it is the only thing that does:
+  the bar's back arrow was taken out when the design settled it, because going back is the stack's job
+  and a second control for it was sharing a corner with the only way sideways. This replaced
+  `UpNavigation`'s fixed map of parents, which was the right model only while every editing screen
+  carried a rail with "Back to notes" written on it.
 - **Networking:** the typed clients (§4.4) behind a `DelegatingHandler` that attaches the access token
   and refreshes on 401 — the same shape as `Orbit.Web`'s `AuthorizationMessageHandler`, and reusable
   if the clients move to a shared project. **Refresh must be single-flight** — the server rotates
@@ -856,25 +858,21 @@ behaviour — and what the phone now decides for itself is written down in
 [`android-ui-parity.md`](android-ui-parity.md), along with the places the platform will not allow what
 the design draws.
 
-### 14.1 The calendar shrinks as you scroll
+### 14.1 The calendar shrank as you scrolled, and does not any more
 
-Decided 2026-09-01, while the web calendar was being reshaped, and **the web deliberately does not do
-this**: there it sits side by side with the list on a wide screen, stacks above it under 900px, and
-stays put.
+Decided 2026-09-01 and **reversed 2026-09-09**. The calendar used to stay pinned while the list beneath
+it was read and minimise to a single row as soon as the reader scrolled past it — one hour of the day,
+one week of the month, one month of the year. The web deliberately never did this.
 
-On the phone it should stay pinned while the list beneath it is read, and minimise to a single row as
-soon as the reader scrolls past it:
+It is gone. The week is one of four views the reader asks for by name now — Day, Week, Month, Year, in
+a row across the top of the page — so a grid that shrank on its own was a second, silent answer to the
+same question, and one nobody could ask for or refuse. `MinimisedCalendar` became
+[`CalendarWeek`](../src/Clients/Orbit.Mobile/Screens/Calendar/CalendarWeek.cs), which still picks the
+week out of the month grid that was already built; the year's month and the day's hour went with the
+gesture that caused them.
 
-| view | what is left when minimised |
-|---|---|
-| Day | one hour row |
-| Month | one week row |
-| Year | the month's name, and nothing else |
-
-A phone has one column and a thumb, so the calendar is either taking the screen or getting out of the
-way, and the row worth keeping is the one the reader is standing on. A desktop window fits both at
-once, so nothing has to move — and a grid resizing itself while somebody scrolls a list beside it is
-motion answering a question nobody asked.
+What survives of the reasoning is why the week exists at all: a phone has one column and a thumb, and
+the row worth reading is the one the reader is standing on.
 
 The web's own calendar was rebuilt at the same time and the rest of that work **does** apply here: one
 list rather than two, each row tagged as an event or a task, a date said once when something starts and

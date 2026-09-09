@@ -11,35 +11,32 @@
 
     <Grid RowDefinitions="Auto,*,Auto">
 
-        <Grid Grid.Row="1" RowDefinitions="Auto,*" Padding="16,16,16,28" RowSpacing="12">
+        <Grid Grid.Row="1" RowDefinitions="Auto,*" Padding="20,14,20,0" RowSpacing="12">
 
             <VerticalStackLayout Grid.Row="0" Spacing="10">
-                <controls:PageHeader>
-                    <controls:PageHeader.Subtitle>
-                        <controls:Translate Text="What you wrote while you were offline, beside what it came from." />
-                    </controls:PageHeader.Subtitle>
-                </controls:PageHeader>
+                <!-- One line about what the screen holds, in the voice the settings screen uses for the
+                     same job. The screen's name is in the bar, and the way out is its back arrow - this
+                     page used to draw both again for itself. -->
+                <Label Text="{controls:Translate 'What you wrote while you were offline, beside what it came from.'}"
+                       FontSize="12" LineBreakMode="WordWrap" Style="{StaticResource SubtleLabel}" />
 
                 <Label Text="{Binding Message}" IsVisible="{Binding HasMessage}" FontSize="12"
                        LineBreakMode="WordWrap" TextColor="{DynamicResource Accent}" />
 
                 <Label Text="{controls:Translate 'Nothing to review.'}" IsVisible="{Binding HasNothingToReview}"
-                       Style="{StaticResource SubtleLabel}" HorizontalOptions="Center" Margin="0,20,0,0" />
-
-                <Button Text="{controls:Translate 'Back'}" FontSize="13" Padding="8,4" HorizontalOptions="Start"
-                        Style="{StaticResource LinkButton}" Command="{Binding GoBackCommand}" />
+                       Style="{StaticResource EmptyHint}" HorizontalOptions="Center" Margin="0,20,0,0" />
             </VerticalStackLayout>
 
             <CollectionView Grid.Row="1" ItemsSource="{Binding Reviews}">
                 <CollectionView.ItemTemplate>
                     <DataTemplate x:DataType="screens:CopyReviewRow">
-                        <Border Style="{StaticResource CardBorder}" Margin="0,0,0,12" Padding="14">
+                        <Border Style="{StaticResource CardBorder}" Margin="0,0,0,12" Padding="16,14">
                             <VerticalStackLayout Spacing="8">
                                 <!-- One screen holds all four kinds, so each card says which it is - and
                                      tapping the title opens the copy, for a reader who wants to read the
                                      whole of it before choosing. -->
                                 <VerticalStackLayout Spacing="1">
-                                    <Label Text="{Binding Title}" FontSize="17" FontAttributes="Bold" />
+                                    <Label Text="{Binding Title}" Style="{StaticResource CardTitle}" />
                                     <Label Text="{Binding KindDescription}" FontSize="11"
                                            Style="{StaticResource SubtleLabel}" />
                                     <VerticalStackLayout.GestureRecognizers>
@@ -61,8 +58,7 @@
                                        IsVisible="{Binding IsOriginalGone}" FontSize="12" LineBreakMode="WordWrap"
                                        TextColor="{AppThemeBinding Light={StaticResource WarningLight}, Dark={StaticResource WarningDark}}" />
 
-                                <Label Text="{controls:Translate 'Your copy'}" FontSize="12" FontAttributes="Bold"
-                                       Style="{StaticResource SubtleLabel}" />
+                                <Label Text="{controls:Translate 'Your copy'}" Style="{StaticResource FieldLabel}" />
                                 <VerticalStackLayout BindableLayout.ItemsSource="{Binding MyChanges}">
                                     <BindableLayout.ItemTemplate>
                                         <DataTemplate x:DataType="screens:DiffLine">
@@ -72,8 +68,8 @@
                                     </BindableLayout.ItemTemplate>
                                 </VerticalStackLayout>
 
-                                <Label Text="{controls:Translate 'Changed elsewhere'}" FontSize="12" FontAttributes="Bold"
-                                       IsVisible="{Binding HasTheirChanges}" Style="{StaticResource SubtleLabel}" />
+                                <Label Text="{controls:Translate 'Changed elsewhere'}" Style="{StaticResource FieldLabel}"
+                                       IsVisible="{Binding HasTheirChanges}" />
                                 <VerticalStackLayout BindableLayout.ItemsSource="{Binding TheirChanges}"
                                                      IsVisible="{Binding HasTheirChanges}">
                                     <BindableLayout.ItemTemplate>
@@ -84,32 +80,48 @@
                                     </BindableLayout.ItemTemplate>
                                 </VerticalStackLayout>
 
-                                <!-- Three answers and no more, which is the whole of the decision. Link
-                                     buttons: they are the point of the card, but three solid blocks of
-                                     accent colour under every card would read as the content. -->
                                 <!-- One answer when there is nothing to compare against. It keeps the
                                      copy, which then stands on its own - tagged, and still in that
                                      thing's history so its past is not lost with the original. -->
                                 <Button Text="{controls:Translate 'Keep my copy'}" IsVisible="{Binding IsOriginalGone}"
-                                        FontSize="12" Padding="6,4" HorizontalOptions="Start"
-                                        Style="{StaticResource LinkButton}"
+                                        FontSize="13" Padding="12,7" HorizontalOptions="Start"
+                                        Style="{StaticResource PrimaryButton}"
                                         Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=ViewModel.KeepBothCommand, x:DataType=copies:CopyReviewPage}"
                                         CommandParameter="{Binding .}" />
 
-                                <Grid ColumnDefinitions="*,*,*" ColumnSpacing="6" IsVisible="{Binding IsDecidable}">
-                                    <Button Grid.Column="0" Text="{controls:Translate 'Keep mine'}" FontSize="12"
-                                            Padding="6,4" LineBreakMode="WordWrap" Style="{StaticResource LinkButton}"
-                                            Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=ViewModel.KeepMineCommand, x:DataType=copies:CopyReviewPage}"
-                                            CommandParameter="{Binding .}" />
-                                    <Button Grid.Column="1" Text="{controls:Translate 'Keep theirs'}" FontSize="12"
-                                            Padding="6,4" LineBreakMode="WordWrap" Style="{StaticResource LinkButton}"
-                                            Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=ViewModel.KeepTheirsCommand, x:DataType=copies:CopyReviewPage}"
-                                            CommandParameter="{Binding .}" />
-                                    <Button Grid.Column="2" Text="{controls:Translate 'Keep both'}" FontSize="12"
-                                            Padding="6,4" LineBreakMode="WordWrap" Style="{StaticResource LinkButton}"
-                                            Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=ViewModel.KeepBothCommand, x:DataType=copies:CopyReviewPage}"
-                                            CommandParameter="{Binding .}" />
-                                </Grid>
+                                <!-- Three answers and no more, which is the whole of the decision - so
+                                     they are drawn as one thing to choose from rather than three
+                                     separate things to press. The same bordered group the calendar's
+                                     Day/Month/Year takes and the shelf's stepper: this design says
+                                     "one of these" with a box divided by hairlines. -->
+                                <Border IsVisible="{Binding IsDecidable}" StrokeThickness="1" Padding="0"
+                                        HorizontalOptions="Start" BackgroundColor="Transparent"
+                                        Stroke="{AppThemeBinding Light={StaticResource CardStrokeLight}, Dark={StaticResource CardStrokeDark}}">
+                                    <Border.StrokeShape>
+                                        <RoundRectangle CornerRadius="4" />
+                                    </Border.StrokeShape>
+                                    <Grid ColumnDefinitions="Auto,1,Auto,1,Auto">
+                                        <Button Grid.Column="0" Text="{controls:Translate 'Keep mine'}" FontSize="13"
+                                                Padding="14,8" BorderWidth="0" MinimumWidthRequest="0"
+                                                TextColor="{DynamicResource Accent}"
+                                                Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=ViewModel.KeepMineCommand, x:DataType=copies:CopyReviewPage}"
+                                                CommandParameter="{Binding .}" />
+                                        <BoxView Grid.Column="1" WidthRequest="1"
+                                                 Color="{AppThemeBinding Light={StaticResource CardStrokeLight}, Dark={StaticResource CardStrokeDark}}" />
+                                        <Button Grid.Column="2" Text="{controls:Translate 'Keep theirs'}" FontSize="13"
+                                                Padding="14,8" BorderWidth="0" MinimumWidthRequest="0"
+                                                TextColor="{DynamicResource Accent}"
+                                                Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=ViewModel.KeepTheirsCommand, x:DataType=copies:CopyReviewPage}"
+                                                CommandParameter="{Binding .}" />
+                                        <BoxView Grid.Column="3" WidthRequest="1"
+                                                 Color="{AppThemeBinding Light={StaticResource CardStrokeLight}, Dark={StaticResource CardStrokeDark}}" />
+                                        <Button Grid.Column="4" Text="{controls:Translate 'Keep both'}" FontSize="13"
+                                                Padding="14,8" BorderWidth="0" MinimumWidthRequest="0"
+                                                TextColor="{DynamicResource Accent}"
+                                                Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=ViewModel.KeepBothCommand, x:DataType=copies:CopyReviewPage}"
+                                                CommandParameter="{Binding .}" />
+                                    </Grid>
+                                </Border>
                             </VerticalStackLayout>
                         </Border>
                     </DataTemplate>

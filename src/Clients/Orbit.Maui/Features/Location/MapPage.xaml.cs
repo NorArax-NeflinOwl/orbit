@@ -11,7 +11,7 @@ using SensorLocation = Microsoft.Maui.Devices.Sensors.Location;
 
 namespace Orbit.Maui.Features.Location;
 
-public partial class MapPage : ContentPage
+public partial class MapPage : ContentPage, Orbit.Maui.Controls.ITitleMenu
 {
 	/// <summary>
 	/// How much ground the map shows when it first has something to point at. Wide enough to place a
@@ -27,8 +27,15 @@ public partial class MapPage : ContentPage
 	/// <summary>False when this build cannot show one, which makes every pin below pointless.</summary>
 	private bool _hasMap = true;
 
+	private readonly Translations _translations;
+
 	public MapPage(MapViewModel viewModel, Translations translations)
 	{
+		// Before InitializeComponent, not after: the menu is bound from the static part of the tree,
+		// which is built there and reads a page's plain property exactly once - see CalendarEventDetailPage.
+		_translations = translations;
+		ShowTitleMenuCommand = new Command(ShowTheMapMenu);
+
 		InitializeComponent();
 		BindingContext = _viewModel = viewModel;
 		_viewModel.Points.CollectionChanged += OnPointsChanged;
@@ -38,6 +45,74 @@ public partial class MapPage : ContentPage
 			SayThereIsNoMap(translations);
 		}
 	}
+
+	/// <inheritdoc cref="Orbit.Maui.Controls.ITitleMenu.ShowTitleMenuCommand"/>
+	public System.Windows.Input.ICommand ShowTitleMenuCommand { get; }
+
+	/// <summary>The panel it draws - one per screen, above everything else on it.</summary>
+	public Orbit.Mobile.Screens.ScreenMenu Menu { get; } = new();
+
+	/// <summary>
+	/// What can be done about where the reader is, and who else is on this map. All of it was a column
+	/// of panels under a map a sixth of the screen tall; the map takes the screen now and this is where
+	/// the panels went.
+	///
+	/// The two lists open as screens of their own rather than unfolding here: a list of people is a list
+	/// of people, and drawing one over a map means covering the thing it is about.
+	/// </summary>
+	private void ShowTheMapMenu()
+	{
+		List<Orbit.Mobile.Screens.ScreenMenuGroup> groups =
+		[
+			// Two ways to share, as Orbit.Web offers: the point read a moment ago, or that point and
+			// every one after it while this screen is open. A phone is the thing that moves, so the
+			// second is the one worth having here. Neither means anything until a position has been read.
+			//
+			// The design offers a third, "Off", above these two. There is nothing here for it to mean:
+			// sharing is not a state this screen is in but a set of people it is shared with, and
+			// stopping is per person, on the list screen - which is where the design puts it too.
+			new(_translations["Sharing"],
+			[
+				new(_translations["Send once"],
+					() => _viewModel.ShareOnceCommand.Execute(null),
+					canBeChosen: _viewModel.HasOwnPosition),
+				new(_translations["Keep sharing"],
+					() => _viewModel.KeepSharingCommand.Execute(null),
+					canBeChosen: _viewModel.HasOwnPosition)
+			]),
+
+			// How many, where there are any: a standing "0" beside a list nobody is on is not news, the
+			// same rule the dashboard's chat-request counter follows.
+			new(_translations["Locations"],
+			[
+				new(_translations["Who can see you"],
+					() => _viewModel.OpenSharingWithCommand.Execute(null),
+					count: CountOrNothing(_viewModel.SharingWith.Count)),
+				new(_translations["Shared with you"],
+					() => _viewModel.OpenSharedWithMeCommand.Execute(null),
+					count: CountOrNothing(_viewModel.SharedWithMe.Count))
+			])
+		];
+
+		// Hidden unless the account qualifies - see GoogleIntegrationAccess. Orbit.Web turns the address
+		// itself into this link; here it is an entry, because there is no address written on the screen.
+		// Under no heading of its own: it belongs to neither of the two above, and one loose action at
+		// the foot of a menu is what a row's menu looks like anyway.
+		if (_viewModel.CanOpenOwnPositionInGoogleMaps)
+		{
+			groups.Add(new Orbit.Mobile.Screens.ScreenMenuGroup(
+				null,
+				[
+					new(_translations["Open in Google Maps"], () => _ = OpenInGoogleMapsAsync())
+				]));
+		}
+
+		Menu.ShowGroups(groups);
+	}
+
+	/// <summary>How many, or nothing at all where there are none - see the menu above.</summary>
+	private static string? CountOrNothing(int howMany)
+		=> howMany == 0 ? null : howMany.ToString(System.Globalization.CultureInfo.CurrentCulture);
 
 	/// <summary>
 	/// Takes the map out of the page before anything renders it, which is the only moment that helps:
@@ -108,7 +183,7 @@ public partial class MapPage : ContentPage
 	/// Leaving the app is a platform call, so the page makes it. The view model built the URL, which is
 	/// the half worth testing - the same split as the action sheets on the detail screens.
 	/// </summary>
-	private async void OnOpenInGoogleMapsClicked(object? sender, EventArgs e)
+	private async Task OpenInGoogleMapsAsync()
 	{
 		if (_viewModel.OwnPositionInGoogleMapsUrl is { } url)
 		{

@@ -16,7 +16,7 @@ public partial class TasksPage : ContentPage, ITitleMenu
 		// Before InitializeComponent, not after: it is bound from the static part of the tree, which is
 		// built there and reads a page's plain property exactly once - see CalendarEventDetailPage,
 		// where the same order matters for the same reason.
-		ShowTitleMenuCommand = new Command(ShowSortMenu);
+		ShowTitleMenuCommand = new Command(ShowTheListMenu);
 		ShowCardMenuCommand = new Command<TaskListRow>(ShowCardMenu);
 
 		InitializeComponent();
@@ -80,27 +80,78 @@ public partial class TasksPage : ContentPage, ITitleMenu
 	}
 
 	/// <summary>
-	/// What order to read the lists in. Orbit's own panel rather than the platform's action sheet, and
-	/// under a heading, because that is what Orbit.Web's Tasks header opens - and it stays open while a
-	/// reader tries one order and then another, which is the exception its OverflowMenu.StaysOpen makes.
+	/// What hangs under the screen's name: how the lists are read - the order, the state, and the
+	/// reader's own categories, in one panel of named groups. These were two rows of chips across the
+	/// top of the page, and a screen for finding a list opened with a third of itself given over to
+	/// settings; then three entries that opened three panels in turn. The design draws one panel, and
+	/// a menu is groups now, so that is what this is.
+	///
+	/// Rebuilt from scratch on every choice that leaves it open, rather than ticking the entry that was
+	/// pressed: choosing one rebuilds the categories and moves the tick off whichever entry was
+	/// carrying it, and only the choices themselves know which that was.
 	/// </summary>
-	private void ShowSortMenu()
+	private void ShowTheListMenu()
 	{
-		// The one in force is marked, as the dashboard's card filters mark theirs: the menu covers the
-		// list it is about, so it has to say for itself which order that list is in.
-		Menu.Show(
-			_viewModel.SortChoices.Select(choice => new ScreenMenuEntry(
+		List<ScreenMenuGroup> groups =
+		[
+			// The one in force is marked, as the dashboard's card filters mark theirs: the menu covers
+			// the list it is about, so it has to say for itself which order that list is in.
+			new(_translations["Sort"], _viewModel.SortChoices.Select(choice => new ScreenMenuEntry(
 				choice.Name,
 				() =>
 				{
 					_viewModel.ChooseSortOrderCommand.Execute(choice);
-
-					// Asked again rather than ticked here: the tick has to leave whichever entry was
-					// carrying it, and only the choices themselves know which that was.
-					ShowSortMenu();
+					ShowTheListMenu();
 				},
 				choice.IsChosen,
-				staysOpen: true)),
-			_translations["Sort"]);
+				staysOpen: true))),
+
+			// Where a list stands - what the chips along the top used to say. One choice and then done,
+			// unlike the two groups around it: a list is in one state at a time.
+			new(_translations["Show"], _viewModel.Filters.Select(filter => new ScreenMenuEntry(
+				filter.Label,
+				() => _viewModel.FilterByCommand.Execute(filter),
+				filter.IsChosen)))
+		];
+
+		// Only where anything is filed under one. Categories are the reader's own words and most
+		// accounts have none, so the group appears when there is something behind it - which is also
+		// why Show leaves an empty group out rather than drawing a heading over nothing.
+		if (_viewModel.HasCategories)
+		{
+			// Several at once, so they stay open - and the question of whether an entry needs all of
+			// them or any of them is the last row of the same group, asked only once two are chosen:
+			// with one, the two questions have the same answer.
+			List<ScreenMenuEntry> categories =
+			[
+				.. _viewModel.Categories.Select(category => new ScreenMenuEntry(
+					category.Name,
+					() =>
+					{
+						_viewModel.ToggleCategoryCommand.Execute(category);
+						ShowTheListMenu();
+					},
+					category.IsChosen,
+					staysOpen: true,
+					count: category.Count.ToString()))
+			];
+
+			if (_viewModel.IsCategoryRuleWorthAsking)
+			{
+				categories.Add(new ScreenMenuEntry(
+					_translations["Entries in every chosen category"],
+					() =>
+					{
+						_viewModel.MatchesEveryCategory = !_viewModel.MatchesEveryCategory;
+						ShowTheListMenu();
+					},
+					_viewModel.MatchesEveryCategory,
+					staysOpen: true));
+			}
+
+			groups.Add(new ScreenMenuGroup(_translations["Categories"], categories));
+		}
+
+		Menu.ShowGroups(groups);
 	}
 }

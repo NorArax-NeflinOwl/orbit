@@ -148,6 +148,8 @@ builder.Services.AddScoped<TaskListArrangement>();
 // The questions asked before a task list is deleted, shared by the three screens that offer it.
 builder.Services.AddScoped<TaskListDeletion>();
 builder.Services.AddScoped<PanelPreferences>();
+// Which groups of pins the map draws, remembered by this browser - see MapPinVisibility.
+builder.Services.AddScoped<MapPinVisibility>();
 builder.Services.AddScoped<CalendarListOrder>();
 // Singleton rather than scoped: PersistentLoggerProvider is registered as a singleton and reads the log
 // level from this on every line it considers.

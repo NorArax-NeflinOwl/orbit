@@ -9,6 +9,7 @@ using Microsoft.Extensions.Logging.Abstractions;
 using Orbit.Contracts.Calendar;
 using Orbit.Contracts.Chat;
 using Orbit.Contracts.Tasks;
+using Orbit.Core.Tasks;
 using Orbit.Contracts.Users;
 using Orbit.Web.Pages;
 using Orbit.Web.Services;
@@ -726,5 +727,136 @@ public sealed class CalendarTests : OrbitTestContext
         Assert.Contains("This month", cut.Markup);
         Assert.Contains("December", cut.Markup);
         Assert.DoesNotContain("Next year", cut.Markup);
+    }
+
+    /// <summary>
+    /// A deadline on a list its owner has closed is done, whatever its own tick says. Marking a list
+    /// finished with work still on it is a way of saying "no more of this" (TaskList.IsMarkedCompleted),
+    /// and the calendar would otherwise keep the deadlines it was closed to be rid of.
+    /// </summary>
+    [Fact]
+    public void A_deadline_on_a_list_its_owner_closed_reads_as_done()
+    {
+        Services.AddSingleton(new CalendarListOrder(new StubJSRuntime()));
+        var midMonth = new DateTime(DateTime.Today.Year, DateTime.Today.Month, 15, 10, 0, 0);
+        RegisterCalendarApiClient([]);
+        RegisterTasksApiClient([
+            CreateTaskListWithDueItem(midMonth, "Still to do"),
+            CreateTaskListWithDueItem(midMonth, "On a closed list")
+                with { IsCompleted = true, Completion = nameof(TaskListCompletion.Finished) }]);
+
+        var cut = RenderComponent<Calendar>();
+
+        Assert.Equal(["Still to do"], ListedNames(cut));
+    }
+
+    /// <summary>
+    /// A week is the month grid with one row in it, so what it draws is the same chips in the same
+    /// cells - what is its own is which seven days those are.
+    /// </summary>
+    [Fact]
+    public void The_week_view_lists_its_own_week_and_not_the_month_around_it()
+    {
+        var monday = CalendarGridBuilder.StartOfWeek(DateOnly.FromDateTime(DateTime.Today));
+        var thisWeek = monday.AddDays(2).ToDateTime(new TimeOnly(10, 0));
+        var nextWeek = monday.AddDays(9).ToDateTime(new TimeOnly(10, 0));
+        RegisterCalendarApiClient([
+            CreateTimedEvent(thisWeek, thisWeek.AddHours(1), "This week"),
+            CreateTimedEvent(nextWeek, nextWeek.AddHours(1), "Next week")]);
+        RegisterTasksApiClient([]);
+        var cut = RenderComponent<Calendar>();
+
+        FindViewSwitchButton(cut, "Week").Click();
+
+        // One row of seven, drawn by the same grid the month is - see CalendarGridBuilder.BuildWeekGrid.
+        Assert.Single(cut.FindAll(".calendar-month-grid-week"));
+        Assert.Equal(["This week"], ListedNames(cut));
+    }
+
+    /// <summary>
+    /// Opening one particular day is asking what happened on it, and half an answer to that is worse
+    /// than none - a day showing one of the two things on it looks like a day with one thing on it.
+    /// So the day view shows what is over whatever the menu says, and says so on the menu.
+    /// </summary>
+    [Fact]
+    public void The_day_view_shows_what_is_already_finished_whatever_the_menu_says()
+    {
+        Services.AddSingleton(new CalendarListOrder(new StubJSRuntime()));
+        var todayMorning = new DateTime(DateTime.Today.Year, DateTime.Today.Month, DateTime.Today.Day, 10, 0, 0);
+        RegisterCalendarApiClient([]);
+        RegisterTasksApiClient([
+            CreateTaskListWithDueItem(todayMorning, "Still to do"),
+            TickedOff(CreateTaskListWithDueItem(todayMorning, "Already done"))]);
+        var cut = RenderComponent<Calendar>();
+
+        Assert.Equal(["Still to do"], ListedNames(cut));
+
+        FindViewSwitchButton(cut, "Day").Click();
+
+        Assert.Equal(["Still to do", "Already done"], ListedNames(cut));
+    }
+
+    /// <summary>
+    /// And the menu says so rather than showing an unticked box over a screen full of finished work,
+    /// which would be the control lying about what is in front of somebody.
+    /// </summary>
+    [Fact]
+    public void The_day_view_marks_the_menu_entry_it_is_overriding()
+    {
+        Services.AddSingleton(new CalendarListOrder(new StubJSRuntime()));
+        RegisterCalendarApiClient([]);
+        RegisterTasksApiClient([]);
+        var cut = RenderComponent<Calendar>();
+
+        FindViewSwitchButton(cut, "Day").Click();
+        cut.Find(".page-header-actions .overflow-menu-trigger").Click();
+
+        var entry = cut.FindAll(".page-header-actions .avatar-dropdown-item")
+            .First(item => item.TextContent.Contains("Everything", StringComparison.Ordinal));
+        Assert.Contains("chosen", entry.ClassList);
+        Assert.True(entry.HasAttribute("disabled"));
+    }
+
+    /// <summary>
+    /// A link can name the view and the day, which is how the dashboard's summary of today arrives at
+    /// today rather than at the month today is in - see Dashboard.razor's GoToCalendar.
+    /// </summary>
+    [Fact]
+    public void A_link_can_ask_for_one_particular_day()
+    {
+        var yesterday = DateTime.Today.AddDays(-1);
+        RegisterCalendarApiClient([]);
+        RegisterTasksApiClient([]);
+        Services.GetRequiredService<NavigationManager>()
+            .NavigateTo($"https://example.test/calendar?view=day&on={yesterday:yyyy-MM-dd}");
+
+        var cut = RenderComponent<Calendar>();
+
+        Assert.Equal("true", FindViewSwitchButton(cut, "Day").GetAttribute("aria-pressed"));
+        // In the culture the page writes dates in, not the one the machine running the test happens to
+        // be set to - the label is built with Translations.DisplayCulture, so a Polish Mac reading an
+        // English page would otherwise be comparing "8 września" against "8 September".
+        var displayCulture = Services.GetRequiredService<Translations>().DisplayCulture;
+        Assert.Contains(
+            yesterday.ToString("d MMMM yyyy", displayCulture),
+            cut.Find(".calendar-period-label").TextContent);
+    }
+
+    /// <summary>
+    /// And is obeyed once. Without that, pressing Month on a page reached by such a link puts the view
+    /// straight back: the parameters are still what they were, and nothing tells "asked again" from
+    /// "still there".
+    /// </summary>
+    [Fact]
+    public void A_link_that_asked_for_a_day_does_not_keep_asking()
+    {
+        RegisterCalendarApiClient([]);
+        RegisterTasksApiClient([]);
+        Services.GetRequiredService<NavigationManager>().NavigateTo("https://example.test/calendar?view=day");
+        var cut = RenderComponent<Calendar>();
+
+        FindViewSwitchButton(cut, "Month").Click();
+
+        Assert.Equal("true", FindViewSwitchButton(cut, "Month").GetAttribute("aria-pressed"));
     }
 }

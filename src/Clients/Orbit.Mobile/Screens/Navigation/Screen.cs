@@ -44,9 +44,15 @@ public enum Screen
     Map,
     Notifications,
 
+    /// <summary>Who can see where the reader is, or who is letting them see - see MapViewModel.</summary>
+    LocationShares,
+
     /// <summary>Something somebody sent a link to, read without being in the account - see SharedLinkViewModel.</summary>
     SharedLink,
     Account,
     Update,
-    Diagnostics
+    Diagnostics,
+
+    /// <summary>What Orbit is, which build this one is, and where its documents are - see AboutViewModel.</summary>
+    About
 }

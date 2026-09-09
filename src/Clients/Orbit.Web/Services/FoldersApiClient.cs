@@ -1,6 +1,7 @@
 using System.Net;
 using System.Net.Http.Json;
 using Orbit.Contracts.Folders;
+using Orbit.Core.Folders;
 
 namespace Orbit.Web.Services;
 
@@ -20,9 +21,12 @@ public sealed class FoldersApiClient
     public async Task<IReadOnlyList<FolderDto>> GetFoldersAsync(CancellationToken cancellationToken = default)
         => await _httpClient.GetFromJsonAsync<List<FolderDto>>("api/folders", cancellationToken) ?? [];
 
-    public async Task<FolderDto?> CreateFolderAsync(string name, CancellationToken cancellationToken = default)
+    /// <summary>The scope is the page it is a tab on, and it is fixed here - see Orbit.Core.Folders.FolderScope.</summary>
+    public async Task<FolderDto?> CreateFolderAsync(
+        string name, FolderScope scope, CancellationToken cancellationToken = default)
     {
-        var response = await _httpClient.PostAsJsonAsync("api/folders", new CreateFolderRequest(name), cancellationToken);
+        var response = await _httpClient.PostAsJsonAsync(
+            "api/folders", new CreateFolderRequest(name, scope.ToString()), cancellationToken);
         response.EnsureSuccessStatusCode();
         return await response.Content.ReadFromJsonAsync<FolderDto>(cancellationToken: cancellationToken);
     }

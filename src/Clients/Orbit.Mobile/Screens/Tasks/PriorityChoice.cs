@@ -33,6 +33,14 @@ public sealed record PriorityChoice(string Value, string Name)
     public bool IsWorthSaying => !string.Equals(Value, nameof(ItemPriority.Normal), StringComparison.OrdinalIgnoreCase);
 
     /// <summary>
+    /// The word a row shows for this priority, or nothing where it is not worth saying - what a list
+    /// row's tag is. Here rather than at each call site so that "which priorities earn a badge" is
+    /// answered in one place, beside <see cref="IsWorthSaying"/>, which is the rule.
+    /// </summary>
+    public static string WorthSaying(string value, Translations translations)
+        => For(value, translations) is { IsWorthSaying: true } chosen ? chosen.Name : string.Empty;
+
+    /// <summary>
     /// The one whose wire value this is. An unrecognised value reads as Normal, which is what a list
     /// saved by a newer client should look like rather than blank.
     /// </summary>

@@ -29,25 +29,53 @@ namespace Orbit.Mobile.Screens.Notes;
 /// otherwise indistinguishable, and the reader has no way of telling which one they have been writing
 /// in - so the copy says so.
 /// </param>
+/// <param name="Preview">
+/// The note's first line, which is what the design puts under its name - the one thing that tells two
+/// notes called the same thing apart, and the reason a list of names is not a list of notes. Empty for
+/// a note that is only a title, and for a hidden one, whose words are sealed with everything else.
+/// </param>
+/// <param name="Priority">
+/// How much it matters, when that is worth saying - the tag at the right-hand end of the name's line.
+/// Empty for a Normal one, which is what everything is unless somebody said otherwise.
+/// </param>
 public sealed record NoteListItem(
     Guid LocalId, string Title, DateTimeOffset UpdatedAtUtc, bool HasUnsentChanges, OfflineEditRefusal Refusal,
     string Status = "", string Updated = "", bool IsPinned = false, bool IsSharedWithMe = false,
-    bool IsHidden = false, string HiddenTitle = "Private", bool IsCopy = false)
+    bool IsHidden = false, string HiddenTitle = "Private", bool IsCopy = false,
+    string Preview = "", string Priority = "", string PriorityValue = "Normal")
 {
     public static NoteListItem From(
         LocalNote note, bool hasUnsentChanges, INetworkStatus networkStatus, bool privateItemsAreUnlocked,
         Translations translations, DateTimeOffset nowUtc, string hiddenTitle = "Private")
     {
         var refusal = OfflineEditPolicy.Evaluate(note, networkStatus);
+        var isHidden = note.IsPrivate && !privateItemsAreUnlocked;
 
         return new(
             note.LocalId, note.IsSealed ? hiddenTitle : note.Title, note.UpdatedAtUtc, hasUnsentChanges, refusal,
             OfflineEditExplanation.For(note, refusal, hasUnsentChanges, translations),
             LastChanged.Describe(note.UpdatedAtUtc, nowUtc, translations),
             note.IsPinned, note.IsShared,
-            IsHidden: note.IsPrivate && !privateItemsAreUnlocked, HiddenTitle: hiddenTitle,
-            IsCopy: note.CopyOfLocalId is not null);
+            IsHidden: isHidden, HiddenTitle: hiddenTitle,
+            IsCopy: note.CopyOfLocalId is not null,
+            Preview: isHidden || note.IsSealed ? string.Empty : FirstLineOf(note),
+            Priority: Tasks.PriorityChoice.WorthSaying(note.Priority, translations),
+            PriorityValue: note.Priority);
     }
+
+    /// <summary>
+    /// The first line that says anything. A note often opens with a blank line - the editor keeps one
+    /// under the title - and showing that as the preview would leave the row looking like a note with
+    /// nothing in it.
+    /// </summary>
+    private static string FirstLineOf(LocalNote note)
+        => note.Content.FirstOrDefault(line => line.Text.Trim().Length > 0)?.Text.Trim() ?? string.Empty;
+
+    /// <inheritdoc cref="Preview"/>
+    public bool HasPreview => Preview.Length > 0;
+
+    /// <inheritdoc cref="Priority"/>
+    public bool HasPriority => Priority.Length > 0;
 
     /// <summary>What the row shows instead of the title while it is hidden.</summary>
     public string DisplayTitle => IsHidden ? HiddenTitle : Title;

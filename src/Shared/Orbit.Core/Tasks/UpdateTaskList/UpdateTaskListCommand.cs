@@ -33,9 +33,9 @@ public sealed record UpdateTaskListCommand(
     /// </summary>
     IReadOnlySet<Guid>? EntriesKeepingTheirNotes = null,
     /// <summary>
-    /// Whether the reader says the list is finished, whatever is still on it. Null means the caller said
-    /// nothing and the stored answer stands - the same rule the three fields above follow, and the
-    /// reason is the same: the phone saves lists without knowing this exists.
+    /// What the reader says about whether the list is finished - see TaskListCompletion. Null means the
+    /// caller said nothing and the stored answer stands - the same rule the three fields above follow,
+    /// and the reason is the same: the phone saves lists without knowing this exists.
     /// </summary>
-    bool? IsMarkedCompleted = null)
+    TaskListCompletion? Completion = null)
     : IRequest<EditOutcome>;

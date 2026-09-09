@@ -10,16 +10,18 @@
     xmlns:calendar="clr-namespace:Orbit.Mobile.Screens.Calendar;assembly=Orbit.Mobile"
     x:DataType="screens:TaskListDetailViewModel"
     x:Name="Page"
-    Title="{Binding Title}">
+    Title="{Binding ScreenName}">
 
     <Grid RowDefinitions="Auto,*,Auto">
 
 
     <Grid Grid.Row="1" RowDefinitions="Auto,Auto,Auto,*,Auto" Padding="20,14,20,0" RowSpacing="10">
 
-        <!-- The list's own name, and the things it can do that are not "tick something off" - the two
-             Orbit.Web keeps in its overflow menu. -->
-        <controls:TitledDescription Grid.Row="0"
+        <!-- The list's own name and what it is, behind "Edit" in the menu under the screen's name. The
+             screen is the entries and nothing else at rest - this was three fields and a switch above
+             them, which is a form for the reader who is changing the list and clutter for the ninety-
+             nine who are ticking something off it. -->
+        <controls:TitledDescription Grid.Row="0" x:Name="ListFields" IsVisible="False"
                                     Title="{Binding Title, Mode=TwoWay}" TitleLabel="{controls:Translate 'Title'}"
                                     TitlePlaceholder="{controls:Translate 'Untitled'}"
                                     SaveTitleCommand="{Binding SaveListCommand}"
@@ -41,13 +43,13 @@
                                 DeclineCommand="{Binding DeclineCopyCommand}" />
         </VerticalStackLayout>
 
-        <VerticalStackLayout Grid.Row="2" Spacing="6" IsVisible="{Binding IsShowingList}">
-            <!-- Gated on CanEdit like every other control on this page. It was the one that was not, so a
-                 list somebody else can change offered a box to type into and an Add that could only
-                 refuse - the outer stack asks whether an item is being edited, which is a different
-                 question from whether this list may be. -->
+        <!-- Unfolded by the plus over the foot of the list, like every other screen's add form - see
+             NewItemForm. Gated on CanEdit like every other control on this page: a list somebody else
+             can change must not offer a box to type into and an Add that can only refuse. -->
+        <VerticalStackLayout x:Name="AddRow" Grid.Row="2" Spacing="6" IsVisible="False">
             <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8" IsVisible="{Binding CanEdit}">
-                <Entry Grid.Column="0" Placeholder="{controls:Translate 'New item'}" Text="{Binding NewItemDescription}"
+                <Entry x:Name="AddField" Grid.Column="0" Placeholder="{controls:Translate 'New item'}"
+                       Text="{Binding NewItemDescription}"
                        ReturnType="Done" ReturnCommand="{Binding AddItemCommand}" />
                 <Button Grid.Column="1" Text="{controls:Translate 'Add'}" Command="{Binding AddItemCommand}" />
             </Grid>
@@ -345,9 +347,11 @@
             </HorizontalStackLayout>
         </VerticalStackLayout>
 
-        <!-- The panel's own BindingContext would decide its IsVisible too, so the visibility lives on a
-             wrapper that still reads the view model. -->
-        <VerticalStackLayout Grid.Row="4" Spacing="10" IsVisible="{Binding IsShowingList}">
+        <!-- What the list itself is, rather than what is on it - behind "Edit" in the menu under the
+             screen's name, with the fields at the top of the page. The panel's own BindingContext would
+             decide its IsVisible too, so the visibility lives on a wrapper that still reads the view
+             model. -->
+        <VerticalStackLayout x:Name="ListSettings" Grid.Row="4" Spacing="10" IsVisible="False">
 
             <!-- Orbit.Web's "Group list": a list that gathers the lists its items link to rather than
                  holding work of its own. It is also what makes the stock check below worth asking. -->
@@ -467,19 +471,24 @@
                 </controls:ItemCard.Extras>
             </controls:ItemCard>
 
-            <!-- The panel hides itself for a private list, as Orbit.Web's editor hides it: there is no
-                 readable copy on the server to hand anybody - see SharePanel.CanShare. -->
-            <controls:SharePanel BindingContext="{Binding Share}" Margin="0,4" />
         </VerticalStackLayout>
+
+        <!-- Opened from the list's own menu rather than standing at the foot of every list: sharing is
+             something somebody does once. It hides itself for a private list, as Orbit.Web's editor
+             hides it - there is no readable copy on the server to hand anybody, see SharePanel. -->
+        <controls:SharePanel Grid.Row="4" x:Name="Sharing" IsVisible="False"
+                             BindingContext="{Binding Share}" Margin="0,4" />
 
     </Grid>
 
         <!-- No Save: a tick is written the moment it is made, which is what a checklist is for. So the
              bar carries the way out, whatever this list has to say for itself, and one menu holding
-             both how to read it and what can be done to it - the same rail Orbit.Web's checklist has. -->
-        <!-- No rail: the way out is the bar's back arrow, and what else can be done to this list -
-             its order, generating an inventory, deleting it - hangs under its name. See ITitleMenu. -->
+             both how to read it and what can be done to it - the same rail Orbit.Web's checklist has.
+             What else can be done to this list - its order, generating an inventory, its own fields,
+             sharing it, deleting it - hangs under its name. See ITitleMenu. -->
 
+        <controls:Fab x:Name="AddButton" Grid.Row="1" IsVisible="{Binding IsShowingList}"
+                      Description="{controls:Translate 'New item'}" />
         <controls:NavigationBar Grid.Row="0" />
         <controls:MenuOverlay Grid.Row="0" Grid.RowSpan="3"
                               BindingContext="{Binding Menu, Source={x:Reference Page}, x:DataType=tasks:TaskListDetailPage}" />

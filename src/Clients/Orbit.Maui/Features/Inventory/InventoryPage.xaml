@@ -16,20 +16,21 @@
     <Grid Grid.Row="1" RowDefinitions="Auto,Auto,Auto,*,Auto" Padding="20,14,20,0" RowSpacing="10">
 
 
-        <!-- The plus left of the name, as Orbit.Web's Inventory header has it. -->
+        <!-- The search field first and the shelves under it, which is what this screen is: the same
+             shape the tasks page has, so a reader who has learnt one has learnt the other. "Which
+             inventory is the flour in?" was the one question this page could not answer, since it
+             lists shelves and not what is on them. -->
+        <Entry Grid.Row="0" Placeholder="{controls:Translate 'Find an item in any inventory'}"
+               Text="{Binding SearchedItemName}" ClearButtonVisibility="WhileEditing" ReturnType="Search" />
 
-        <Grid x:Name="AddRow" IsVisible="False" Grid.Row="1" ColumnDefinitions="*,Auto" ColumnSpacing="8">
+        <!-- Unfolded by the plus over the foot of the list - see NewItemForm. -->
+        <Grid x:Name="AddRow" IsVisible="False" Grid.Row="2" ColumnDefinitions="*,Auto" ColumnSpacing="8">
             <Entry x:Name="AddField" Grid.Column="0" Placeholder="{controls:Translate 'New inventory'}"
                    Text="{Binding NewInventoryName}"
                    ReturnType="Done" ReturnCommand="{Binding AddInventoryCommand}" />
             <Button Grid.Column="1" Text="{controls:Translate 'Add'}" Style="{StaticResource PrimaryButton}"
                     Command="{Binding AddInventoryCommand}" />
         </Grid>
-
-        <!-- "Which inventory is the flour in?" - the one question this page could not answer, since it
-             lists shelves and not what is on them. -->
-        <Entry Grid.Row="2" Placeholder="{controls:Translate 'Find an item in any inventory'}"
-               Text="{Binding SearchedItemName}" ClearButtonVisibility="WhileEditing" ReturnType="Search" />
 
         <RefreshView Grid.Row="3" IsRefreshing="{Binding IsRefreshing}" Command="{Binding LoadCommand}"
                      IsVisible="{Binding IsShowingInventories}">

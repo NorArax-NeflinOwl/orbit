@@ -33,9 +33,12 @@
     <p class="info">@_deleteMessage</p>
 }
 
-@* Which folder is being read, and the same row of tabs the task lists and the dashboard carry - a
-   folder is a place rather than one page's filter, so stepping between the three keeps it. *@
-<FolderTabs CountIn="CountIn" />
+@* Which folder is being read. The notes' own folders, and only those: a folder belongs to one page, so
+   the tab called "Work" here is not the tab called "Work" on the task lists - see FolderScope. On a
+   phone it folds into one Menu button - see PhoneToolbar, which is nothing at all on a wider screen. *@
+<PhoneToolbar>
+    <FolderTabs Page="FolderPage.Notes" CountIn="CountIn" />
+</PhoneToolbar>
 
 <ObjectList IsLoading="_notes is null" IsEmpty="_notes is { Count: 0 }" EmptyMessage="@T["No notes."]">
     @if (_notes is { Count: > 0 } && VisibleNotes.Count == 0)
@@ -64,6 +67,8 @@
                        note. Somebody else's note is not this reader's to delete: pressing that takes it
                        off their list and leaves the owner's alone, so it says that rather than "Delete". *@
                     <ObjectMenu EditLabel="@(CanBeChanged(note) ? T["Edit"] : T["View"])" OnEdit="() => GoToEditNote(note.Id)"
+                                DuplicateLabel="@(note.IsShared ? null : T["Duplicate"])"
+                                OnDuplicate="() => DuplicateNoteAsync(note)"
                                 DeleteLabel="@(note.IsShared ? T["Remove from my list"] : T["Delete"])"
                                 OnDelete="() => DeleteNoteAsync(note)" DeleteDisabled="@(_deletingNoteId == note.Id)" />
                 </Menu>
@@ -104,16 +109,16 @@
     /// when it is sealed - see FolderPlacement, which decides it for every page made of cards.
     /// </summary>
     private IReadOnlyList<NoteDto> VisibleNotes
-        => [.. (_notes ?? []).Where(note => Folders.ShowsUnderTheChosenTab(note.FolderId, note.IsPrivate))];
+        => [.. (_notes ?? []).Where(note => Folders.ShowsUnderTheChosenTab(FolderPage.Notes, note.FolderId, note.IsPrivate))];
 
     /// <summary>
-    /// How many notes are under each tab, drawn on the tab itself. Notes are never finished, so Done is
-    /// always empty of them - which is worth showing rather than hiding, since the tab also holds task
-    /// lists on the pages that have both.
+    /// How many notes are under each tab, drawn on the tab itself. There is no Finished tab here: a
+    /// note has nothing to finish, so the tab could only ever have read zero - see
+    /// FolderPages.HasAFinishedTab.
     /// </summary>
     private int CountIn(FolderKey folder)
         => (_notes ?? []).Count(note =>
-            FolderPlacement.Of(note.FolderId, note.IsPrivate, isFinished: false, Folders.KnownFolderIds) == folder);
+            Folders.PlacementOn(FolderPage.Notes, note.FolderId, note.IsPrivate) == folder);
 
     /// <summary>
     /// Pinned notes first, and the rest in the order the API sent them - most recently updated first.
@@ -240,6 +245,35 @@
 
     /// <summary>What to say about the last delete - empty while nothing needs saying.</summary>
     private string? _deleteMessage;
+
+    /// <summary>
+    /// A second note saying the same thing, named for the one it came from. The whole list is read
+    /// again afterwards rather than the copy being appended here: the server decides what a note looks
+    /// like, and the page has to re-sort around the new one anyway.
+    ///
+    /// A sealed note keeps its name, because that name is inside a payload the browser would have to
+    /// re-seal to change - see DuplicateRequest.Name.
+    /// </summary>
+    private async Task DuplicateNoteAsync(NoteDto note)
+    {
+        Logger.LogInformation("User clicked 'Duplicate' for note {NoteId}", note.Id);
+        _deleteMessage = null;
+        try
+        {
+            await NotesApiClient.DuplicateNoteAsync(note.Id, note.IsPrivate ? null : CopyOf(note.Title));
+            _notes = await NotesApiClient.GetNotesAsync();
+        }
+        catch (HttpRequestException exception)
+        {
+            // Said on screen rather than only in the log: a press that copied nothing and said nothing
+            // reads as a press that never registered.
+            Logger.LogWarning(exception, "Couldn't duplicate note {NoteId}", note.Id);
+            _deleteMessage = T["Couldn't make a copy. Try again."];
+        }
+    }
+
+    /// <summary>What a copy is called - see DuplicateRequest.Name for why the client names it and not the server.</summary>
+    private string CopyOf(string name) => T.Format("{0} (copy)", name);
 
     private async Task DeleteNoteAsync(NoteDto note)
     {

@@ -122,7 +122,8 @@ public sealed class LinkedTaskCompletionResolverRebuildTests
             lockedByUserId: Guid.NewGuid(), lockedByUserName: "someone",
             lockExpiresAtUtc: new DateTimeOffset(2026, 3, 3, 0, 0, 0, TimeSpan.Zero),
             ItemPriority.High, isPinned: true, linkedInventoryId: Guid.NewGuid(),
-            description: "What this list is for", folderId: Guid.NewGuid(), isMarkedCompleted: true);
+            description: "What this list is for", folderId: Guid.NewGuid(),
+            completion: TaskListCompletion.Finished);
         taskList.SetAccessContext(isShared: true, sharedByUserName: "anna", ShareAccessLevel.ReadOnly);
         // Every field set to something other than its default, or the walk below compares two defaults
         // and passes on a field the rebuild drops - which is how Description and IsSharedWithOthers both
