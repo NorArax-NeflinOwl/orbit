@@ -7,9 +7,9 @@ namespace Orbit.Maui.Controls;
 /// The circle an errand or a checklist line is ticked off in.
 ///
 /// One control for both, because they were two: an errand marked itself with "○ ✓" and a note's line
-/// with "☐ ☑", each at whatever size its screen happened to set. Neither pair survives the redesign's
-/// faces - Lora and Cormorant Garamond have none of those four glyphs, so Android was substituting a
-/// system font and the same act looked different on two screens.
+/// with "☐ ☑", each at whatever size its screen happened to set. The text faces carry almost none of
+/// those glyphs - IBM Plex Sans has the tick and neither box, Space Grotesk has none of them - so
+/// Android was substituting a system font and the same act looked different on two screens.
 /// </summary>
 public partial class CheckCircle : ContentView
 {

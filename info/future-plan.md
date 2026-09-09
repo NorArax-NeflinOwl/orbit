@@ -764,11 +764,11 @@ Every screen the design covers has now been redrawn. The passes were:
 
 One thing the design showed up that is not fixed:
 
-- **The tick in a menu is a character, not a drawing.** `ScreenMenuEntry.Mark` is `"✓"`, and neither
-  Lora nor Cormorant Garamond has that glyph - Android substitutes a system face for it, where IBM Plex
-  used to carry it. The same problem on the task and note screens was solved by drawing the tick
-  (`Controls/CheckCircle.xaml`); a menu's own tick is one `Mark` string in Orbit.Mobile and would need
-  the entry to carry a bool instead, so it was left.
+- ~~**The tick in a menu is a character, not a drawing.**~~ **Went on 2026-09-09 without being fixed.**
+  `ScreenMenuEntry.Mark` is still the character `"✓"`, but the faces are IBM Plex Sans over Space
+  Grotesk again and IBM Plex Sans carries that glyph, so nothing is substituted any more. It is worth
+  remembering that the string is still a glyph and not a drawing: a third change of face would bring it
+  back. The box glyphs `☐ ☑` are carried by neither face, which is why `CheckCircle` draws its circle.
 
 ### The pass this replaced
 

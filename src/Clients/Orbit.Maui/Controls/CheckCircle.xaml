@@ -6,9 +6,10 @@
     x:Name="Root">
 
     <!-- Ticking something off. A drawn circle rather than a character - the two the app used, "○ ✓" on
-         an errand and "☐ ☑" on a note's line, are glyphs neither Lora nor Cormorant Garamond carries,
-         so Android substituted a system face for them and the two screens ticked in two different
-         hands. Drawn, it takes the accent, the theme and the size it is asked for.
+         an errand and "☐ ☑" on a note's line, are glyphs the text faces do not carry (IBM Plex Sans has
+         the tick and neither box; Space Grotesk has none of them), so Android substituted a system face
+         and the two screens ticked in two different hands. Drawn, it takes the accent, the theme and
+         the size it is asked for.
 
          An Ellipse rather than a rounded Border, and this is not a preference: a Border draws its
          Stroke from a colour resource happily and then ignores the same resource on its Background, so

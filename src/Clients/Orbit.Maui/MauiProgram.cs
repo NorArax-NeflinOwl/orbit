@@ -63,20 +63,28 @@ public static class MauiProgram
 			.UseMauiMaps()
 			.ConfigureFonts(fonts =>
 			{
-				// The phone's own pair, from the Classical system the redesign is built on: Lora carries
-				// the reading, Cormorant Garamond heads it. Orbit.Web keeps IBM Plex Sans and Space
-				// Grotesk - see info/android-ui-parity.md for where the two faces of the product now
-				// deliberately differ, and where they still do not.
+				// One pair across both clients: IBM Plex Sans carries the reading and Space Grotesk
+				// heads it, which is what Orbit.Web serves. The phone had a pair of its own - Lora over
+				// Cormorant Garamond, from the Classical system - and no longer does; see
+				// info/android-ui-parity.md for what the two clients still decide separately.
 				//
 				// The alias names are roles rather than faces, which is why nothing else in the app had
-				// to change when the faces did: a style asks for the body or the display face, not for
-				// Lora. OrbitDisplayLight is the display face at its normal cut - the design sets the
-				// biggest text lightest (the dashboard's date, the wordmark), and semibold at that size
-				// reads as shouting.
-				fonts.AddFont("Lora-Regular.ttf", "OrbitBody");
-				fonts.AddFont("Lora-SemiBold.ttf", "OrbitBodySemibold");
-				fonts.AddFont("CormorantGaramond-SemiBold.ttf", "OrbitDisplay");
-				fonts.AddFont("CormorantGaramond-Regular.ttf", "OrbitDisplayLight");
+				// to change when the faces did twice: a style asks for the body or the display face,
+				// never for a font by name.
+				//
+				// The faces are Orbit.Web's again - IBM Plex Sans over Space Grotesk, the same files
+				// the browser serves. The phone had its own pair for a day; one type system across both
+				// clients is the decision now.
+				//
+				// OrbitDisplayLight is the same file as OrbitDisplay, and that is not an oversight:
+				// Space Grotesk is carried at 500, 600 and 700 and at no lighter weight - see
+				// wwwroot/fonts/orbit-fonts.css - so the display face has no normal cut on either
+				// client. The role is kept so the places that ask for it (the dashboard's date, the
+				// wordmark on sign-in) still say what they mean and can be given one if it ever exists.
+				fonts.AddFont("IBMPlexSans-Regular.ttf", "OrbitBody");
+				fonts.AddFont("IBMPlexSans-SemiBold.ttf", "OrbitBodySemibold");
+				fonts.AddFont("SpaceGrotesk-SemiBold.ttf", "OrbitDisplay");
+				fonts.AddFont("SpaceGrotesk-SemiBold.ttf", "OrbitDisplayLight");
 			});
 
 #if ANDROID

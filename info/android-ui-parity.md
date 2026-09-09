@@ -35,7 +35,7 @@ whatever Orbit draws under it.
 
 | | Orbit.Web | The phone |
 | --- | --- | --- |
-| Type | IBM Plex Sans over Space Grotesk | **Lora over Cormorant Garamond** |
+| ~~Type~~ | IBM Plex Sans over Space Grotesk | **the same** - see below |
 | Ground | warm — `#FAF6F2` / `#1B1410` | neutral — `#F3F2F2` / `#1C1A19` |
 | Text and rules | separate greys per role | the ink at 62%, 45% and 16% of itself |
 | Colour | fills — a filled primary button, a filled danger button | **stroke** — every button is an outline; the accent is an edge, never a block |
@@ -260,6 +260,34 @@ logo, which may not be covered at all. This is a deliberate departure from the d
 button bottom-right - the design's map is a placeholder tile with no furniture of its own, so it never
 had to share the corner. The card that says where you were last read to be gives the button room
 (`Margin="12,10,80,10"`), or a long address runs underneath it.
+
+## The type is one system again, and so is the dialog (2026-09-09)
+
+**Both clients are IBM Plex Sans over Space Grotesk.** The phone had a pair of its own for a day - Lora
+over Cormorant Garamond, from the Classical system - and no longer does. The `.ttf` files came back out
+of the commit that removed them (`4722ced1`), so these are the same faces the browser serves rather than
+a fresh download, and the Lora and Cormorant files are gone rather than left unused.
+
+Nothing else changed, because `MauiProgram` registers faces under **role** names - `OrbitBody`,
+`OrbitDisplay` - and no style anywhere names a font. Two things worth knowing:
+
+- **`OrbitDisplayLight` is the same file as `OrbitDisplay`, and that is not an oversight.** Space Grotesk
+  is carried at 500, 600 and 700 and at no lighter weight - see `wwwroot/fonts/orbit-fonts.css` - so the
+  display face has no normal cut on either client. The role is kept so the places that ask for it (the
+  dashboard's date, the wordmark on sign-in) still say what they mean.
+- **The menu tick renders now.** `ScreenMenuEntry.Mark` is the character `✓`, which neither Lora nor
+  Cormorant carried - `future-plan.md` recorded it as a thing to fix. IBM Plex Sans has it, so the
+  problem went with the faces. The box glyphs `☐ ☑` are still missing from both faces, which is why
+  `CheckCircle` draws its circle rather than writing one.
+
+**The question every irreversible press asks is Orbit's own panel now**, not Android's alert - see
+`Controls/ConfirmationDialog.xaml`. The platform alert was a grey slab in the system font with two blue
+words in it, the one thing left in the app that looked like somebody else's product, and it turned up at
+exactly the moment a reader is being asked to be careful. It is the same parts as the menu panel it sits
+over: a scrim, a hairline at the app's one radius, the page's own ground, and the app's own buttons -
+the danger outline on the press that cannot be undone. All six screens that ask a question got it from
+the one helper. A page not built on a `Grid` still falls back to the platform alert: a question that
+cannot be drawn must still be asked.
 
 ## The note editor: what a press does, and when the note is written
 
