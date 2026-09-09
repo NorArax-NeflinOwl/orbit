@@ -58,6 +58,12 @@ public sealed partial class DiagnosticsViewModel : ObservableObject
     public bool HasNothing => Preview.Length == 0;
 
     /// <summary>
+    /// Its opposite, which the screen needs as well: the log is drawn in a hairline box, and an empty
+    /// box under the words "Nothing has been logged yet" is a frame around nothing.
+    /// </summary>
+    public bool HasSomething => Preview.Length > 0;
+
+    /// <summary>
     /// Whether everything is being written down rather than only warnings and worse. Not remembered
     /// across launches on purpose - see DiagnosticLogVerbosity.
     /// </summary>
@@ -77,7 +83,11 @@ public sealed partial class DiagnosticsViewModel : ObservableObject
 
     partial void OnMessageChanged(string value) => OnPropertyChanged(nameof(HasMessage));
 
-    partial void OnPreviewChanged(string value) => OnPropertyChanged(nameof(HasNothing));
+    partial void OnPreviewChanged(string value)
+    {
+        OnPropertyChanged(nameof(HasNothing));
+        OnPropertyChanged(nameof(HasSomething));
+    }
 
     [RelayCommand]
     private void Load() => ShowTail();

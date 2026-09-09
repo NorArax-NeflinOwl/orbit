@@ -7,7 +7,7 @@
     xmlns:maps="clr-namespace:Microsoft.Maui.Controls.Maps;assembly=Microsoft.Maui.Controls.Maps"
     Title="{controls:Translate 'Pick a place'}">
 
-    <Grid RowDefinitions="Auto,*,Auto" Padding="16,16,16,28" RowSpacing="12">
+    <Grid RowDefinitions="Auto,*,Auto" Padding="20,18,20,28" RowSpacing="12">
 
         <VerticalStackLayout Grid.Row="0" Spacing="8">
             <Label Text="{controls:Translate 'Tap the map to drop a pin.'}" FontSize="13"
@@ -19,7 +19,7 @@
                 <Entry x:Name="SearchBox" Grid.Column="0" ReturnType="Search"
                        Placeholder="{controls:Translate 'Search for an address'}" Completed="OnSearchRequested" />
                 <Button Grid.Column="1" Text="{controls:Translate 'Search'}" FontSize="13"
-                        Clicked="OnSearchRequested" />
+                        Padding="14,8" Clicked="OnSearchRequested" />
             </Grid>
 
             <Label x:Name="SearchStatusLabel" FontSize="12" IsVisible="False" LineBreakMode="WordWrap"
@@ -32,7 +32,13 @@
 
         <!-- The pin is built in code-behind: the control's pin carries a platform Location, and keeping
              that out of the view model is what lets the view model be tested at all. -->
-        <maps:Map x:Name="PlaceMap" Grid.Row="1" IsShowingUser="False" MapClicked="OnMapClicked" />
+        <Border Grid.Row="1" StrokeThickness="1" Padding="0"
+                Stroke="{AppThemeBinding Light={StaticResource CardStrokeLight}, Dark={StaticResource CardStrokeDark}}">
+            <Border.StrokeShape>
+                <RoundRectangle CornerRadius="4" />
+            </Border.StrokeShape>
+            <maps:Map x:Name="PlaceMap" IsShowingUser="False" MapClicked="OnMapClicked" />
+        </Border>
 
         <VerticalStackLayout Grid.Row="2" Spacing="10">
             <!-- Nothing is written back until the reader says yes: a stray tap on a map must not
@@ -41,7 +47,7 @@
 
             <HorizontalStackLayout Spacing="16">
                 <Button x:Name="UseButton" Text="{controls:Translate 'Yes, use it'}" IsEnabled="False"
-                        Clicked="OnUseClicked" />
+                        Style="{StaticResource PrimaryButton}" Clicked="OnUseClicked" />
                 <Button Text="{controls:Translate 'Cancel'}" Style="{StaticResource LinkButton}"
                         Clicked="OnCancelClicked" />
             </HorizontalStackLayout>

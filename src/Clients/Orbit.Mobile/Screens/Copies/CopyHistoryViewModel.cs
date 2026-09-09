@@ -59,6 +59,13 @@ public sealed partial class CopyHistoryViewModel : ObservableObject
 
     public bool HasNothing => Rows.Count == 0;
 
+    /// <summary>
+    /// The other half of it, which the screen needs as well as its opposite: every list in this design
+    /// draws a hairline above each row and one more below the last, and that closing line is the one
+    /// thing that must not be drawn under an empty list.
+    /// </summary>
+    public bool HasAny => Rows.Count > 0;
+
     /// <summary>What the thing is called, so the window says whose history this is.</summary>
     [ObservableProperty]
     private string _subjectTitle = string.Empty;
@@ -88,6 +95,7 @@ public sealed partial class CopyHistoryViewModel : ObservableObject
         }
 
         OnPropertyChanged(nameof(HasNothing));
+        OnPropertyChanged(nameof(HasAny));
     }
 
     /// <summary>The row is the button, as everywhere else - tapping a copy opens it.</summary>

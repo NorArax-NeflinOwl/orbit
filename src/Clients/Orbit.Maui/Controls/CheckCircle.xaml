@@ -30,6 +30,6 @@
               Stroke="{AppThemeBinding Light={StaticResource PageBackgroundLight}, Dark={StaticResource PageBackgroundDark}}" />
 
         <Button x:Name="Press" BackgroundColor="Transparent" BorderWidth="0" Padding="0"
-                MinimumHeightRequest="0" MinimumWidthRequest="0" />
+                IsEnabled="False" MinimumHeightRequest="0" MinimumWidthRequest="0" />
     </Grid>
 </ContentView>

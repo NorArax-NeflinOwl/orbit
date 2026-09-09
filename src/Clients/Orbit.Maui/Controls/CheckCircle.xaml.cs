@@ -25,9 +25,19 @@ public partial class CheckCircle : ContentView
 		BindableProperty.Create(nameof(Diameter), typeof(double), typeof(CheckCircle), 22d,
 			propertyChanged: (circle, _, _) => ((CheckCircle)circle).Redraw());
 
+	/// <summary>
+	/// What ticking it does. A circle given none - a line of somebody else's shared list, which is
+	/// shown rather than offered - keeps its drawing and loses its press, so a screen reader reads it
+	/// as a state and does not announce it as something to activate.
+	/// </summary>
 	public static readonly BindableProperty CommandProperty =
 		BindableProperty.Create(nameof(Command), typeof(ICommand), typeof(CheckCircle),
-			propertyChanged: (circle, _, value) => ((CheckCircle)circle).Press.Command = value as ICommand);
+			propertyChanged: (circle, _, value) =>
+			{
+				var press = ((CheckCircle)circle).Press;
+				press.Command = value as ICommand;
+				press.IsEnabled = value is not null;
+			});
 
 	public static readonly BindableProperty CommandParameterProperty =
 		BindableProperty.Create(nameof(CommandParameter), typeof(object), typeof(CheckCircle),
