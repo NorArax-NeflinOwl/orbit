@@ -214,9 +214,9 @@ the last one is exactly what produced the rejected version:
 ## What the first walk against the written spec found (2026-09-09)
 
 The spec was built without anything being run: it compiled, the suite was green, and none of that says
-whether a screen behaves. Walked on `Orbit_Pixel_8_API_36` against a local API, three things were wrong,
+whether a screen behaves. Walked on `Orbit_Pixel_8_API_36` against a local API, four things were wrong,
 and **no test could have caught any of them** - two were platform ordering, one was a value copied
-where a binding was meant.
+where a binding was meant, and one was two controls fighting over the same corner.
 
 - **Backspace at the head of a line never joined it to the line above.** `NoteLineBackspace` decides
   whether to listen for the key while the field's handler is being built; `NoteDetailPage` attached the
@@ -241,9 +241,12 @@ About was walked both ways round: a build told nothing lists the licence alone, 
 `-p:OrbitWebBaseAddress=https://…/` lists the whole row Orbit.Web's footer carries - Privacy, Security,
 Docs, "Do not share my personal information", the licence - and pressing one opens the browser on it.
 
-One defect is left deliberately unfixed because fixing it decides something about the screen: the map's
-crosshair button covers Google's zoom-in button and takes its taps. See `future-plan.md`,
-"Noticed while working".
+The fourth thing the walk found was on the map: **the crosshair button covered Android's own zoom
+buttons and took their presses.** Nothing in the markup knows those buttons are there - the map draws
+them itself, at its bottom-right, which is the corner the design gives the button - so a tap well inside
+the visible `+` read the phone's position instead of zooming in. The button clears them now
+(`Fab.IsAboveMapControls`) rather than covering them; the left corner was not an option, because that is
+Google's logo and it may not be covered at all.
 
 ## How to check it
 

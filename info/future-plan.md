@@ -543,19 +543,6 @@ inventory lists, the contacts tabs, the chat menus - is built and needs no schem
 
 ## Noticed while working
 
-- **"Read my position" sits on top of Google's zoom buttons, and wins the tap.** Found on the emulator
-  on 2026-09-09, on the first build where the map was walked over real tiles. Now the map takes the
-  whole screen, the crosshair FAB lands in the same corner Android's own map control draws its `+`/`-`
-  in: the FAB is `[889,1865][1031,2007]`, "Zoom in" is `[944,1946][1054,2051]`, and a tap at
-  `(990,1975)` - well inside the visible `+` - raises the location permission prompt instead of zooming.
-  So the top-left of the zoom-in button cannot be pressed at all. Left alone deliberately, because every
-  way of fixing it decides something about the screen and the screen is the user's to decide: turn the
-  platform zoom buttons off, as Google Maps itself does on a phone and as pinch already covers; pad the
-  map on Android (`GoogleMap.SetPadding`, through a handler mapper like `NoteLineBackspace`) so its
-  controls and its logo move out from under the FAB; or move the FAB out of the corner, which the markup
-  says is the one place it belongs. Orbit.Web is no guide here - Leaflet draws its zoom control top-left
-  and collides with nothing, so parity says keep the buttons and move something else.
-
 - **Nobody has found out why the map's Start and Share do nothing on a phone.** Both are hidden below
   680px as of 2026-09-09 (`.map-panel-start`, `.map-panel-share`), on a report that pressing them
   achieves nothing there, and the page says so in one line instead. That is a cover, not a fix: the

@@ -81,8 +81,9 @@
              in Orbit.Web's app.css, which is the same bar on a narrow window. -->
         <controls:AdBanner Grid.Row="2" />
         <!-- The one thing this screen is for, within reach of a thumb: reading where the phone is. A
-             crosshair, which is what every map app puts in this corner. -->
-        <controls:Fab Grid.Row="1" IsAboveAdBar="True" IsVisible="{Binding IsUnlocked}"
+             crosshair, which is what every map app puts in this corner - clearing the zoom buttons the
+             map draws in the same corner, which it was covering and stealing the presses of. -->
+        <controls:Fab Grid.Row="1" IsAboveAdBar="True" IsAboveMapControls="True" IsVisible="{Binding IsUnlocked}"
                       Data="M12,2 V5 M12,19 V22 M2,12 H5 M19,12 H22 M8,12 A4,4 0 1 1 16,12 A4,4 0 1 1 8,12 Z"
                       Description="{controls:Translate 'Read my position'}"
                       Command="{Binding ReadMyPositionCommand}" />
