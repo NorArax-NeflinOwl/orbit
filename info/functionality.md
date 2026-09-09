@@ -1472,11 +1472,12 @@ nearly always came to do; reworking the list itself is a named click from there.
 true still work.
 
 Rows that can't be ticked by hand render as disabled checkboxes: items whose completion follows a
-linked list (see above), and any list reached through a read-only share.
+linked list (see above), and any list reached through a read-only share. The entry's own page draws the
+same two the same way - see **The entry is crossed off on its own page too** below.
 
 **An entry has a page of its own** (`/tasks/{taskListId}/items/{itemId}`, `TaskItemSummary.razor`): its
-name, the list it is on, when it is, where it is, what it is about, who is coming, whether it is already
-done, and a Leaflet map with a pin where the address resolves. **Every press on an entry lands there**,
+name, the list it is on, when it is, where it is, what it is about, who is coming, a **Done** box that
+crosses it off, and a Leaflet map with a pin where the address resolves. **Every press on an entry lands there**,
 whatever kind of entry it is and wherever it was pressed — a row on a list's card on `/tasks`, an
 entry's words on the checklist, a deadline or an appointment on the calendar, a plan on the map. Two
 buttons lead back out: **Back to Calendar** and **Show Tasks**, the latter to the shallow level of the
@@ -1489,6 +1490,20 @@ objects, decided by a field no card mentions. The checklist skipped the page alt
 list's own form with that entry unfolded, so pressing what an entry said meant "read this" on `/tasks`
 and "rewrite this" one screen further in. Nothing was lost by settling both: ticking an entry off is the
 checkbox's job, which sits on the row beside the words, and the entry's page leads to the list.
+
+**The entry is crossed off on its own page too**, since 2026-09-09. Until then that page said "Already
+done." or nothing at all, so the one screen about an entry was the one place the entry could not be
+finished - somebody who opened it from the calendar to see when something was due had to go back to the
+list to tick it. The box is written the moment it is filled in, as the checklist writes it: there is no
+Save on a screen whose one change is a tick, and no edit lock either, for the reason the shallow level
+takes none. The same two rows that cannot be ticked on the checklist cannot be ticked here - a read-only
+share draws the box disabled, and an entry standing for other lists gets no box at all but a row naming
+each list and offering to open it. Both screens tick through one service (`TaskItemCompletion`), which
+holds the save, the restock question below, and the wording of every refusal: a save the server answers
+409, 404 or 403 to is said on the page and the box goes back to what the server holds. The phone does
+the same on `TaskItemSummaryPage`: the circle at the head of the entry is pressed rather than only
+drawn, written to that phone and queued from there, with a read-only share or an unreachable server
+answered in the line under the entry.
 
 **When it happens is read off the appointment, not off the entry.** A calendar entry's day and hour live
 on the event the editor writes them into, so the entry's own `DueDateUtc` is empty for exactly the

@@ -960,7 +960,7 @@ its shared controls. What that pass left, all of it now overtaken:
   | Object | Shallow view | Full form |
   | --- | --- | --- |
   | Task list | `/tasks/{id}` - the checklist: tick items, see the tree of lists it stands for, measure it against a storage | `/tasks/{id}/edit` |
-  | Task entry | `/tasks/{listId}/items/{itemId}` - `TaskItemSummary`: when, where, what the appointment is about, who is coming, and a map | the entry's own row in the list's editor |
+  | Task entry | `/tasks/{listId}/items/{itemId}` - `TaskItemSummary`: when, where, what the appointment is about, who is coming, a map, and a Done box that crosses it off | the entry's own row in the list's editor |
   | Note | `/notes/{id}` - `NoteSummary`: the note read, with the checklist lines in it tickable | `/notes/{id}/edit` |
   | Calendar event | `/calendar/{id}` - `CalendarEventSummary`: when, where, what it is about, who is coming, its reminders, and the place on a map | `/calendar/{id}/edit` |
   | Storage | `/inventory/{id}` - the shelf read rather than edited, one row per batch: what it is, how much, when it arrived, how long it keeps | `/inventory/{id}/edit` |
@@ -992,6 +992,13 @@ its shared controls. What that pass left, all of it now overtaken:
   back to the list. The flat reading of a checklist was folded in on the way: its rows were `<label>`s,
   so pressing what an entry said crossed it off there while the same words on the grouped view opened it
   (`CheckRow.OnTitlePressed`).
+
+  The entry's page ticks it off itself since 2026-09-09, on both clients - the light doing that belongs
+  to the thing it reads, which it was the one shallow view without. Both web screens tick through
+  `TaskItemCompletion`; the phone's `TaskItemSummaryViewModel` writes it to the phone and queues it.
+  What is left of the old note above still holds: the checkbox on the checklist row is where an entry is
+  crossed off *while reading the list*, and the entry's page is where it is crossed off while reading
+  the entry.
 
   **The phone still forks the way the calendar used to** (`CalendarViewModel.OpenDeadline`,
   `CalendarDeadline.IsSomewhere`): a deadline with somewhere to be opens its own screen, one without
