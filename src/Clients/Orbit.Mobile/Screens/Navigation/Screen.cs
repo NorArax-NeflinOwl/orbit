@@ -44,6 +44,9 @@ public enum Screen
     Map,
     Notifications,
 
+    /// <summary>Who can see where the reader is, or who is letting them see - see MapViewModel.</summary>
+    LocationShares,
+
     /// <summary>Something somebody sent a link to, read without being in the account - see SharedLinkViewModel.</summary>
     SharedLink,
     Account,

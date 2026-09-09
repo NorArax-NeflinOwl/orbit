@@ -76,6 +76,10 @@ public sealed class AppNavigator : IScreenNavigator
 
 	public void ShowMap() => Show<MapPage>(Screen.Map, ScreenHistory.Arrival.Section, ShowMap);
 
+	public void ShowLocationShares(bool theirs)
+		=> Show<LocationSharesPage>(Screen.LocationShares, ScreenHistory.Arrival.Detail,
+			() => ShowLocationShares(theirs), page => page.Show(theirs));
+
 	public void ShowInventory(Guid localId, Guid? productId = null)
 		=> Show<InventoryDetailPage>(Screen.Inventory, ScreenHistory.Arrival.Detail,
 			() => ShowInventory(localId, productId), page => page.ViewModel.Open(localId, productId));

@@ -150,4 +150,13 @@ internal sealed class RecordingScreenNavigator : IScreenNavigator
     public void ShowDiagnostics() => _destinations.Add(nameof(ShowDiagnostics));
 
     public void ShowAbout() => _destinations.Add(nameof(ShowAbout));
+
+    public void ShowLocationShares(bool theirs)
+    {
+        LastLocationSharesWereTheirs = theirs;
+        _destinations.Add(nameof(ShowLocationShares));
+    }
+
+    /// <summary>Which of the map's two lists it was sent to - not just that it was sent.</summary>
+    public bool? LastLocationSharesWereTheirs { get; private set; }
 }

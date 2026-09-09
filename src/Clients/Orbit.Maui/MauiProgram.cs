@@ -423,6 +423,7 @@ public static class MauiProgram
 		services.AddTransient<NotificationSettingsViewModel>();
 		services.AddTransient<DiagnosticsPage>();
 		services.AddTransient<DiagnosticsViewModel>();
+		services.AddTransient<Orbit.Maui.Features.Location.LocationSharesPage>();
 		services.AddTransient<Features.About.AboutPage>();
 		services.AddTransient<Orbit.Mobile.Screens.About.AboutViewModel>();
 		// Where this build's own web client is, which is the only thing the About screen needs from the

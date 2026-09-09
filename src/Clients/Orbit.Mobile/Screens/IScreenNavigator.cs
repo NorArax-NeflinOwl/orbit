@@ -120,4 +120,12 @@ public interface IScreenNavigator
     /// the only one that does not take the reader anywhere.
     /// </summary>
     void ShowAbout();
+
+    /// <summary>
+    /// One of the map's two lists of people: who can see where the reader is, or who is letting the
+    /// reader see where they are. A screen of its own, because a list of names drawn over the map
+    /// covers the thing it is about - see MapViewModel.
+    /// </summary>
+    /// <param name="theirs">True for the positions shared with this reader; false for their own shares.</param>
+    void ShowLocationShares(bool theirs);
 }
