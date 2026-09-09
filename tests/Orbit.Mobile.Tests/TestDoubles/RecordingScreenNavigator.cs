@@ -118,6 +118,8 @@ internal sealed class RecordingScreenNavigator : IScreenNavigator
 
     public void ShowCalendar() => _destinations.Add(nameof(ShowCalendar));
 
+    public void ShowCalendarDay() => _destinations.Add(nameof(ShowCalendarDay));
+
     /// <summary>Which event was opened, so a test can check the calendar led to the right one.</summary>
     public Guid? LastCalendarEventId { get; private set; }
 

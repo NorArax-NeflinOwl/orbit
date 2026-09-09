@@ -76,6 +76,13 @@ public interface IScreenNavigator
 
     void ShowCalendar();
 
+    /// <summary>
+    /// The calendar opened on today, by the hour. Where the dashboard's own summary of the day leads:
+    /// it counts what is happening today, so pressing it should show today rather than the month it
+    /// happens to be in.
+    /// </summary>
+    void ShowCalendarDay();
+
     /// <summary>One event, opened from the calendar - see CalendarEventDetailViewModel.</summary>
     void ShowCalendarEvent(Guid localId);
 

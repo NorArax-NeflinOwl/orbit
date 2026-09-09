@@ -255,6 +255,7 @@ public static class PolishTranslations
             "Nie udało się przeliczyć względem magazynu. Spróbuj ponownie.",
         ["Hide"] = "Ukryj",
         ["Show on the dashboard"] = "Pokaż na pulpicie",
+        ["Orbit's order"] = "Kolejność Orbita",
         ["Show"] = "Pokaż",
         ["Search conversations"] = "Szukaj rozmów",
         ["Orbit can't reach that account, so this conversation can't be opened right now."] =

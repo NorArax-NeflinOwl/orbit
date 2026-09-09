@@ -193,4 +193,22 @@ public interface IDashboardCardPreferenceStore
     IReadOnlyDictionary<DashboardCardKind, DashboardCardFilter> ReadFilters();
 
     void WriteFilters(IReadOnlyDictionary<DashboardCardKind, DashboardCardFilter> filters);
+
+    /// <summary>What order the cards are in under the pins - see <see cref="DashboardCardOrder"/>.</summary>
+    DashboardCardOrder ReadOrder();
+
+    void WriteOrder(DashboardCardOrder order);
+}
+
+/// <summary>
+/// What order the dashboard's cards are in. <b>Whatever is chosen, what is pinned comes first</b> - the
+/// same rule the list screens follow, see ListSortOrder.
+/// </summary>
+public enum DashboardCardOrder
+{
+    /// <summary>Orbit's own, which is the order Orbit.Web lays the cards out in.</summary>
+    Standard,
+
+    /// <summary>By name, for somebody who would rather look a card up than remember where it sits.</summary>
+    Name
 }

@@ -235,6 +235,18 @@ public sealed partial class CalendarViewModel : ObservableObject
     }
 
     /// <summary>
+    /// Opens the calendar on today, by the hour - what the dashboard's summary of the day leads to.
+    /// Told before the screen appears rather than commanded afterwards, so it never draws the month
+    /// first and swaps a moment later.
+    /// </summary>
+    public void OpenOnToday()
+    {
+        SelectedDay = _timeProvider.GetUtcNow().LocalDateTime.Date;
+        Month = SelectedDay.Value;
+        ViewMode = CalendarViewMode.Day;
+    }
+
+    /// <summary>
     /// One day on its own - the browser's Day view, which the phone had no way to reach. Opens on
     /// whichever day was chosen in the grid, or today when none was.
     /// </summary>

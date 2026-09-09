@@ -68,6 +68,10 @@ public sealed class AppNavigator : IScreenNavigator
 
 	public void ShowCalendar() => Show<CalendarPage>(Screen.Calendar, ScreenHistory.Arrival.Section, ShowCalendar);
 
+	public void ShowCalendarDay()
+		=> Show<CalendarPage>(Screen.Calendar, ScreenHistory.Arrival.Section, ShowCalendarDay,
+			page => page.ViewModel.OpenOnToday());
+
 	public void ShowInventory() => Show<InventoryPage>(Screen.Inventories, ScreenHistory.Arrival.Section, ShowInventory);
 
 	public void ShowMap() => Show<MapPage>(Screen.Map, ScreenHistory.Arrival.Section, ShowMap);
