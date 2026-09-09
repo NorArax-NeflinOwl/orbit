@@ -211,6 +211,40 @@ the last one is exactly what produced the rejected version:
 | Startup | the screen the app opens on before it knows whether it may run |
 | The map's two lists | who can see you, and who is sharing with you - **new on 2026-09-09**, invented to satisfy "the lists open as their own page", so worth confirming rather than assuming |
 
+## What the first walk against the written spec found (2026-09-09)
+
+The spec was built without anything being run: it compiled, the suite was green, and none of that says
+whether a screen behaves. Walked on `Orbit_Pixel_8_API_36` against a local API, three things were wrong,
+and **no test could have caught any of them** - two were platform ordering, one was a value copied
+where a binding was meant.
+
+- **Backspace at the head of a line never joined it to the line above.** `NoteLineBackspace` decides
+  whether to listen for the key while the field's handler is being built; `NoteDetailPage` attached the
+  command in the field's `Loaded`, which is later. It read null every time and listened to nothing.
+  The command is bound in the template now - see `NoteLineKeys`, which says so out loud.
+- **Enter started the next line but left the caret behind.** The caret was to be put in the new line
+  when its field raised `Loaded`, but a `BindableLayout` builds that field while `AddLineAfter` is still
+  running, so `Loaded` had come and gone before there was a row to match it against. Nothing asked for
+  the caret, and Android's own answer to `ReturnType="Next"` moved focus on to the tick-box button in
+  the corner. The ask is made where the line is made, and honoured on the next turn of the loop.
+- **The bar spoke a name it was no longer showing.** `NavigationBar` binds the title *label* to the
+  page's Title and copied the *spoken* name once, so the calendar went on announcing the month it opened
+  on however far the reader had moved. Bound now, like the label.
+
+Verified on the device afterwards: Enter keeps the caret, backspace joins two lines and leaves the caret
+where they met, a typed `[]` becomes a real tick box, ticking strikes the line through, the tick-box
+button carries a box onto each new line, the drawer and the note's own menu read as the spec describes,
+Sort and Filter hang under the screen's name, the week view starts on Monday and writes a straddling
+week as "28 September - 4 October 2026", and the map fills the screen with its panels under its name.
+
+About was walked both ways round: a build told nothing lists the licence alone, and one built with
+`-p:OrbitWebBaseAddress=https://…/` lists the whole row Orbit.Web's footer carries - Privacy, Security,
+Docs, "Do not share my personal information", the licence - and pressing one opens the browser on it.
+
+One defect is left deliberately unfixed because fixing it decides something about the screen: the map's
+crosshair button covers Google's zoom-in button and takes its taps. See `future-plan.md`,
+"Noticed while working".
+
 ## How to check it
 
 There is no test that can see a screen. The check is the emulator and the design side by side:
