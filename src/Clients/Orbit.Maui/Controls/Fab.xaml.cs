@@ -41,9 +41,22 @@ public partial class Fab : ContentView
 			propertyChanged: (fab, _, _) => ((Fab)fab).Place());
 
 	/// <summary>
-	/// Which bottom corner it sits in. The right one by default, which is where the thumb of the hand
-	/// holding the phone is - the note editor is the one screen with a button in each, and the one on
-	/// the left is the lesser of the two, so it is drawn smaller as well.
+	/// Whether it sits at the top of the screen instead of over its foot.
+	///
+	/// The foot is where this button belongs on a list, and where the thumb is. A map is the exception:
+	/// Android draws its own furniture along the bottom of a map and draws it itself, so nothing in the
+	/// markup knows it is there - a column of zoom buttons at the bottom-right, which the crosshair was
+	/// covering and taking the presses of, and Google's logo at the bottom-left, which may not be
+	/// covered at all. The top-right is the one corner of a map that is the app's to use.
+	/// </summary>
+	public static readonly BindableProperty IsAtTheTopProperty =
+		BindableProperty.Create(nameof(IsAtTheTop), typeof(bool), typeof(Fab), false,
+			propertyChanged: (fab, _, _) => ((Fab)fab).Place());
+
+	/// <summary>
+	/// Which side it sits on. The right one by default, which is where the thumb of the hand holding
+	/// the phone is - the note editor is the one screen with a button in each, and the one on the left
+	/// is the lesser of the two, so it is drawn smaller as well.
 	/// </summary>
 	public static readonly BindableProperty IsOnTheLeftProperty =
 		BindableProperty.Create(nameof(IsOnTheLeft), typeof(bool), typeof(Fab), false,
@@ -62,13 +75,26 @@ public partial class Fab : ContentView
 
 	/// <summary>
 	/// Which corner, and how far off the edges. The bar along the foot is 52 tall where there is one,
-	/// and the button sits above the list rather than above the bar.
+	/// and the button sits above the list rather than above the bar. At the top it keeps the same 18
+	/// off the side and 12 off the bar above it, and the ad bar is somebody else's problem.
 	/// </summary>
 	private void Place()
 	{
+		var across = IsOnTheLeft ? LayoutOptions.Start : LayoutOptions.End;
+		HorizontalOptions = across;
+
+		if (IsAtTheTop)
+		{
+			Margin = IsOnTheLeft ? new Thickness(18, 12, 0, 0) : new Thickness(0, 12, 18, 0);
+			VerticalOptions = LayoutOptions.Start;
+			Ring.VerticalOptions = LayoutOptions.Start;
+			return;
+		}
+
 		var down = IsAboveAdBar ? 72 : 20;
 		Margin = IsOnTheLeft ? new Thickness(18, 0, 0, down) : new Thickness(0, 0, 18, down);
-		HorizontalOptions = IsOnTheLeft ? LayoutOptions.Start : LayoutOptions.End;
+		VerticalOptions = LayoutOptions.End;
+		Ring.VerticalOptions = LayoutOptions.End;
 	}
 
 	private void Size(double diameter)
@@ -119,6 +145,13 @@ public partial class Fab : ContentView
 	{
 		get => (bool)GetValue(IsAboveAdBarProperty);
 		set => SetValue(IsAboveAdBarProperty, value);
+	}
+
+	/// <inheritdoc cref="IsAtTheTopProperty"/>
+	public bool IsAtTheTop
+	{
+		get => (bool)GetValue(IsAtTheTopProperty);
+		set => SetValue(IsAtTheTopProperty, value);
 	}
 
 	/// <inheritdoc cref="IsOnTheLeftProperty"/>

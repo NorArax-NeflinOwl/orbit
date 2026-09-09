@@ -64,6 +64,7 @@
                                        IsVisible="{Binding IsOpenForWriting}"
                                        controls:BareField.IsBare="True" ReturnType="Next"
                                        IsReadOnly="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=ViewModel.IsReadOnly, x:DataType=notes:NoteDetailPage}"
+                                       controls:NoteLineKeys.JoinsTheLineAbove="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=JoinTheLineAboveCommand, x:DataType=notes:NoteDetailPage}"
                                        Completed="OnLineCompleted" Focused="OnLineFocused" Loaded="OnLineLoaded" />
 
                                 <!-- A ticked line is struck through, from its box rightwards - which on
@@ -79,6 +80,19 @@
                         </DataTemplate>
                     </BindableLayout.ItemTemplate>
                 </VerticalStackLayout>
+
+                <!-- Under the writing, quiet, and the only place the trick is written down: typing "[]"
+                     at the head of a line turns it into a tick box, which is the design's own way in and
+                     the reason there is no toolbar. A reader who never finds that never finds it at all.
+
+                     The hairline runs between the two so the line reads as a foot rather than as another
+                     line of the note. -->
+                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8" Margin="0,24,0,0"
+                      IsVisible="{Binding CanEdit}">
+                    <BoxView Grid.Column="0" Style="{StaticResource Hairline}" VerticalOptions="Center" />
+                    <Label Grid.Column="1" Text="{controls:Translate 'Type [] for a checkbox'}"
+                           Style="{StaticResource ItemCardFooter}" VerticalOptions="Center" />
+                </Grid>
             </VerticalStackLayout>
         </ScrollView>
 

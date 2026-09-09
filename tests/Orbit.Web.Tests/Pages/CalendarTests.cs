@@ -833,7 +833,13 @@ public sealed class CalendarTests : OrbitTestContext
         var cut = RenderComponent<Calendar>();
 
         Assert.Equal("true", FindViewSwitchButton(cut, "Day").GetAttribute("aria-pressed"));
-        Assert.Contains(yesterday.ToString("d MMMM yyyy"), cut.Find(".calendar-period-label").TextContent);
+        // In the culture the page writes dates in, not the one the machine running the test happens to
+        // be set to - the label is built with Translations.DisplayCulture, so a Polish Mac reading an
+        // English page would otherwise be comparing "8 września" against "8 September".
+        var displayCulture = Services.GetRequiredService<Translations>().DisplayCulture;
+        Assert.Contains(
+            yesterday.ToString("d MMMM yyyy", displayCulture),
+            cut.Find(".calendar-period-label").TextContent);
     }
 
     /// <summary>

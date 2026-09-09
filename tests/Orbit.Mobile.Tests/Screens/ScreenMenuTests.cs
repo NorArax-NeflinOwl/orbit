@@ -31,8 +31,59 @@ public sealed class ScreenMenuTests
 
         menu.Show([new ScreenMenuEntry("By when", () => { })], "Sort");
 
-        Assert.Equal("Sort", menu.Heading);
+        Assert.Equal("Sort", Assert.Single(menu.Groups).Heading);
         Assert.Equal("By when", Assert.Single(menu.Entries).Label);
+    }
+
+    /// <summary>
+    /// A menu is usually two questions at once, and Entries is what it holds whichever group a thing is
+    /// in - so a caller that only wants to know what is in the menu need not walk the groups.
+    /// </summary>
+    [Fact]
+    public void Groups_are_drawn_in_order_and_their_entries_read_as_one_list()
+    {
+        var menu = new ScreenMenu();
+
+        menu.ShowGroups(
+        [
+            new ScreenMenuGroup("Sort", [new ScreenMenuEntry("By when", () => { })]),
+            new ScreenMenuGroup("Show", [new ScreenMenuEntry("Pinned", () => { }), new ScreenMenuEntry("All", () => { })])
+        ]);
+
+        Assert.Equal(["Sort", "Show"], menu.Groups.Select(group => group.Heading));
+        Assert.Equal(["By when", "Pinned", "All"], menu.Entries.Select(entry => entry.Label));
+    }
+
+    /// <summary>
+    /// What lets a screen offer a group only sometimes - the tasks list has no Categories group until
+    /// something is filed under one - without every caller having to build its list conditionally.
+    /// </summary>
+    [Fact]
+    public void A_group_with_nothing_in_it_is_left_out_rather_than_drawn_over_nothing()
+    {
+        var menu = new ScreenMenu();
+
+        menu.ShowGroups(
+        [
+            new ScreenMenuGroup("Sort", [new ScreenMenuEntry("By when", () => { })]),
+            new ScreenMenuGroup("Categories", [])
+        ]);
+
+        Assert.Equal("Sort", Assert.Single(menu.Groups).Heading);
+    }
+
+    /// <summary>
+    /// The count is drawn only where there is one, so an entry that stands for nothing countable does
+    /// not leave a gap at the end of its line.
+    /// </summary>
+    [Fact]
+    public void An_entry_says_whether_it_has_a_count_at_all()
+    {
+        var counted = new ScreenMenuEntry("Home", () => { }, count: "2");
+        var plain = new ScreenMenuEntry("Delete", () => { });
+
+        Assert.True(counted.HasCount);
+        Assert.False(plain.HasCount);
     }
 
     [Fact]

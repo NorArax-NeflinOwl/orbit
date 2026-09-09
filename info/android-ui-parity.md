@@ -192,7 +192,14 @@ the two note screens, the three task screens, the calendar and an event, contact
 inventory screens. Those are done.
 
 These are the ones it has not reached. They are listed here rather than guessed at, because guessing at
-the last one is exactly what produced the rejected version:
+the last one is exactly what produced the rejected version.
+
+**Six of them need not be guessed at after all.** Read as a specification of composition rather than as
+a style guide, the Classical prototype does draw sign-in, create-an-account, one entry on its own, the
+map's two lists, a conversation and Settings - and it corrects a dozen things about the screens that
+were built from the written spec. All of it is set out in
+[`android-design-deltas.md`](android-design-deltas.md), which also lists the six places the design and
+the written spec disagree and says which of the two wins (the spec, every time).
 
 | screen | what it is now |
 |---|---|
@@ -210,6 +217,48 @@ the last one is exactly what produced the rejected version:
 | The place picker | choosing where an entry happens, on a map |
 | Startup | the screen the app opens on before it knows whether it may run |
 | The map's two lists | who can see you, and who is sharing with you - **new on 2026-09-09**, invented to satisfy "the lists open as their own page", so worth confirming rather than assuming |
+
+## What the first walk against the written spec found (2026-09-09)
+
+The spec was built without anything being run: it compiled, the suite was green, and none of that says
+whether a screen behaves. Walked on `Orbit_Pixel_8_API_36` against a local API, four things were wrong,
+and **no test could have caught any of them** - two were platform ordering, one was a value copied
+where a binding was meant, and one was two controls fighting over the same corner.
+
+- **Backspace at the head of a line never joined it to the line above.** `NoteLineBackspace` decides
+  whether to listen for the key while the field's handler is being built; `NoteDetailPage` attached the
+  command in the field's `Loaded`, which is later. It read null every time and listened to nothing.
+  The command is bound in the template now - see `NoteLineKeys`, which says so out loud.
+- **Enter started the next line but left the caret behind.** The caret was to be put in the new line
+  when its field raised `Loaded`, but a `BindableLayout` builds that field while `AddLineAfter` is still
+  running, so `Loaded` had come and gone before there was a row to match it against. Nothing asked for
+  the caret, and Android's own answer to `ReturnType="Next"` moved focus on to the tick-box button in
+  the corner. The ask is made where the line is made, and honoured on the next turn of the loop.
+- **The bar spoke a name it was no longer showing.** `NavigationBar` binds the title *label* to the
+  page's Title and copied the *spoken* name once, so the calendar went on announcing the month it opened
+  on however far the reader had moved. Bound now, like the label.
+
+Verified on the device afterwards: Enter keeps the caret, backspace joins two lines and leaves the caret
+where they met, a typed `[]` becomes a real tick box, ticking strikes the line through, the tick-box
+button carries a box onto each new line, the drawer and the note's own menu read as the spec describes,
+Sort and Filter hang under the screen's name, the week view starts on Monday and writes a straddling
+week as "28 September - 4 October 2026", and the map fills the screen with its panels under its name.
+
+About was walked both ways round: a build told nothing lists the licence alone, and one built with
+`-p:OrbitWebBaseAddress=https://…/` lists the whole row Orbit.Web's footer carries - Privacy, Security,
+Docs, "Do not share my personal information", the licence - and pressing one opens the browser on it.
+
+The fourth thing the walk found was on the map: **the crosshair button covered Android's own zoom
+buttons and took their presses.** Nothing in the markup knows those buttons are there - the map draws
+them itself, at its bottom-right, which is the corner the design gives the button - so a tap well inside
+the visible `+` read the phone's position instead of zooming in.
+
+The crosshair is at the **top right** now (`Fab.IsAtTheTop`), which is the one corner of a map that is
+the app's to use: Android owns the bottom right with the zoom buttons and the bottom left with Google's
+logo, which may not be covered at all. This is a deliberate departure from the design, which draws the
+button bottom-right - the design's map is a placeholder tile with no furniture of its own, so it never
+had to share the corner. The card that says where you were last read to be gives the button room
+(`Margin="12,10,80,10"`), or a long address runs underneath it.
 
 ## How to check it
 

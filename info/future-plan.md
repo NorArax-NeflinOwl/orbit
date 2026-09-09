@@ -753,6 +753,15 @@ Every screen the design covers has now been redrawn. The passes were:
     whole screen. What it did **not** cover, and is still owed a description: see the list at the foot
     of [`android-ui-parity.md`](android-ui-parity.md).
 
+11. **The design read again, 2026-09-09** - not as a style guide this time but as a specification of
+    composition, which is what it always was. It turns out to draw six of the screens the written spec
+    never reached, and to correct a dozen things about the screens built from the spec. The whole of it
+    is in [`android-design-deltas.md`](android-design-deltas.md), screen by screen, with the six
+    disagreements between design and spec listed first and settled in the spec's favour. Nothing there
+    is a defect; it is the list of what is still owed if the design is taken as the specification for
+    the rest. The one structural piece everything else waits on: a title menu is *groups* with headings
+    and counts, and `ScreenMenu` can only draw a flat list with one heading.
+
 One thing the design showed up that is not fixed:
 
 - **The tick in a menu is a character, not a drawing.** `ScreenMenuEntry.Mark` is `"✓"`, and neither
