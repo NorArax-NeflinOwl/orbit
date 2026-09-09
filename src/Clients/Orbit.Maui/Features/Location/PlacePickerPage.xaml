@@ -10,7 +10,7 @@
     <Grid RowDefinitions="Auto,*,Auto" Padding="20,18,20,28" RowSpacing="12">
 
         <VerticalStackLayout Grid.Row="0" Spacing="8">
-            <Label Text="{controls:Translate 'Tap the map to drop a pin.'}" FontSize="13"
+            <Label x:Name="TapHint" Text="{controls:Translate 'Tap the map to drop a pin.'}" FontSize="13"
                    LineBreakMode="WordWrap" Style="{StaticResource SubtleLabel}" />
 
             <!-- Knowing the address and not where it sits on a map is the ordinary case, which a map
@@ -37,7 +37,12 @@
             <Border.StrokeShape>
                 <RoundRectangle CornerRadius="4" />
             </Border.StrokeShape>
-            <maps:Map x:Name="PlaceMap" IsShowingUser="False" MapClicked="OnMapClicked" />
+            <!-- Hosted in a ContentView so the map can be taken out before anything renders it - see
+                 the code-behind, and MapPage, which has had to do the same since the first build
+                 without a Maps key. -->
+            <ContentView x:Name="MapArea">
+                <maps:Map x:Name="PlaceMap" IsShowingUser="False" MapClicked="OnMapClicked" />
+            </ContentView>
         </Border>
 
         <VerticalStackLayout Grid.Row="2" Spacing="10">

@@ -156,6 +156,13 @@ picture. There was no picture: the prototype never drew them. What that meant in
   the app; it draws a `CheckCircle` now, with no command, so it is read as a state rather than
   offered as a control.
 
+**The place picker was crashing, and nobody had opened it.** `MapPage` and the task entry both take
+their map out of the page when the build has no Google Maps key - on Android a map built without one
+throws from inside Play Services and ends the process. The place picker never did, so opening it on
+such a build took the app down. It guards now like the other two, and what is left still answers the
+question the screen exists for: an address can be searched for and confirmed; only pointing at the map
+is gone, because there is no map to point at. Found by trying to screenshot the redrawn screen.
+
 Six "Back" buttons went at the same time, and this was a defect rather than a preference: they were
 right while screens replaced each other, and the navigation stack gave every detail screen an arrow in
 the bar. `ConversationPage`'s even carried a comment explaining that there was no bar to go back

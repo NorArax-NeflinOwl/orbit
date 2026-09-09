@@ -1,5 +1,6 @@
 using Microsoft.Maui.Controls.Maps;
 using Microsoft.Maui.Maps;
+using Orbit.Maui.Platform;
 using Orbit.Mobile.Localization;
 using Orbit.Mobile.Location;
 using SensorLocation = Microsoft.Maui.Devices.Sensors.Location;
@@ -32,11 +33,48 @@ public partial class PlacePickerPage : ContentPage
 	/// <summary>Where the pin is, which the event needs - an address alone cannot be put on a map.</summary>
 	private SensorLocation? _pin;
 
+	/// <summary>False when this build cannot show one - see <see cref="SayThereIsNoMap"/>.</summary>
+	private bool _hasMap = true;
+
 	public PlacePickerPage(Translations translations, PlaceSearch placeSearch)
 	{
 		InitializeComponent();
 		_translations = translations;
 		_placeSearch = placeSearch;
+
+		if (!MapAvailability.CanShowMap)
+		{
+			SayThereIsNoMap();
+		}
+	}
+
+	/// <summary>
+	/// Takes the map out of the page before anything renders it, which is the only moment that helps:
+	/// on Android a map built without a key throws from inside Play Services and ends the process. This
+	/// screen was the one place that never did it - MapPage and the task entry both have since the
+	/// first keyless build - so opening it took the app down rather than showing a picture it could
+	/// not draw.
+	///
+	/// What is left still answers the question the screen exists for: searching an address gives a
+	/// place with coordinates, and confirming it writes the same answer back. Only pointing at the map
+	/// is gone, because there is no map to point at.
+	/// </summary>
+	private void SayThereIsNoMap()
+	{
+		_hasMap = false;
+
+		// "Tap the map to drop a pin" is an instruction nobody can follow once there is no map.
+		TapHint.IsVisible = false;
+
+		MapArea.Content = new Label
+		{
+			Text = _translations["The map can't be shown in this build. Search for the address instead."],
+			LineBreakMode = LineBreakMode.WordWrap,
+			HorizontalTextAlignment = TextAlignment.Center,
+			VerticalOptions = LayoutOptions.Center,
+			Padding = new Thickness(20),
+			Style = Application.Current?.Resources["EmptyHint"] as Style
+		};
 	}
 
 	/// <summary>Completes when the reader confirms a pin or backs out, whichever happens first.</summary>
@@ -56,7 +94,7 @@ public partial class PlacePickerPage : ContentPage
 		try
 		{
 			var found = (await Geocoding.Default.GetLocationsAsync(address)).FirstOrDefault();
-			if (found is not null)
+			if (found is not null && _hasMap)
 			{
 				PlaceMap.MoveToRegion(MapSpan.FromCenterAndRadius(found, InitialRadius));
 			}
@@ -144,7 +182,11 @@ public partial class PlacePickerPage : ContentPage
 		SearchResults.IsVisible = false;
 
 		var location = new SensorLocation(match.Latitude, match.Longitude);
-		PlaceMap.MoveToRegion(MapSpan.FromCenterAndRadius(location, InitialRadius));
+		if (_hasMap)
+		{
+			PlaceMap.MoveToRegion(MapSpan.FromCenterAndRadius(location, InitialRadius));
+		}
+
 		await DropPinAtAsync(location, match.Name);
 	}
 
@@ -154,13 +196,16 @@ public partial class PlacePickerPage : ContentPage
 	/// </param>
 	private async Task DropPinAtAsync(SensorLocation location, string? named = null)
 	{
-		PlaceMap.Pins.Clear();
-		PlaceMap.Pins.Add(new Pin
+		if (_hasMap)
 		{
-			Label = _translations["Pick a place"],
-			Location = location,
-			Type = PinType.Place
-		});
+			PlaceMap.Pins.Clear();
+			PlaceMap.Pins.Add(new Pin
+			{
+				Label = _translations["Pick a place"],
+				Location = location,
+				Type = PinType.Place
+			});
+		}
 
 		_pin = location;
 		PlaceLabel.IsVisible = true;
