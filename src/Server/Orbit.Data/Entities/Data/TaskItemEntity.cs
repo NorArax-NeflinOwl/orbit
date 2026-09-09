@@ -39,6 +39,12 @@ public sealed class TaskItemEntity
     /// </summary>
     public List<TaskItemTaskListLinkEntity> LinkedTaskLists { get; set; } = [];
 
+    /// <summary>
+    /// The entries of the same list this one waits for - see Orbit.Core.Tasks.TaskItem.WaitsForTaskItemIds.
+    /// Empty for an ordinary entry, which is nearly all of them.
+    /// </summary>
+    public List<TaskItemStepEntity> Steps { get; set; } = [];
+
     /// <summary>What this entry is filed under - see Orbit.Core.Tasks.TaskItem.Categories. Empty for one nobody has filed.</summary>
     public List<TaskItemCategoryEntity> Categories { get; set; } = [];
 

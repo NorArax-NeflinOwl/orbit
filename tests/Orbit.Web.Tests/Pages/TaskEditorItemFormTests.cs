@@ -838,6 +838,30 @@ public sealed class TaskEditorItemFormTests : OrbitTestContext
     }
 
     /// <summary>
+    /// An entry can be made to wait for another entry of the same list - "hang the door" after "fit the
+    /// hinges". A different field from the lists it stands for: that is one entry meaning whole lists,
+    /// this is the order the work on one list has to be done in. See TaskListSteps.
+    /// </summary>
+    [Fact]
+    public void An_entry_can_be_made_to_wait_for_another_entry_of_the_same_list()
+    {
+        RegisterApiClients(AnItem());
+        var cut = Render();
+
+        // A second entry, which the form unfolds as it adds - see AddItem.
+        ClickButtonSaying(cut, "Add item");
+
+        cut.FindAll("select").Last(select => select.GetAttribute("aria-label") == "Waits for")
+            .Change(ItemId.ToString());
+        ClickButtonSaying(cut, "Save");
+
+        var items = JsonDocument.Parse(_lastSavedJson!).RootElement.GetProperty("items");
+        Assert.Equal(
+            ItemId,
+            items[1].GetProperty("waitsForTaskItemIds")[0].GetGuid());
+    }
+
+    /// <summary>
     /// Only a list with something on it a shelf could be about is offered one - see
     /// GeneratedInventorySource. On a list of plain errands the entry was an offer to build an empty
     /// storage and quietly point the list at it.

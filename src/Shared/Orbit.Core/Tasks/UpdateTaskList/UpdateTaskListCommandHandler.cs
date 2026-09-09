@@ -59,6 +59,7 @@ public sealed class UpdateTaskListCommandHandler : IRequestHandler<UpdateTaskLis
         KeepTheCategoriesOfEntriesThatSaidNothing(identity.Items, taskList, request.EntriesKeepingTheirCategories);
         KeepWhatEntriesThatSaidNothingAlreadyAskFor(identity.Items, taskList, request.EntriesKeepingTheirProduct);
         KeepTheDescriptionOfEntriesThatSaidNothing(identity.Items, taskList, request.EntriesKeepingTheirNotes);
+        KeepTheStepsOfEntriesThatSaidNothing(identity.Items, taskList, request.EntriesKeepingTheirSteps);
 
         // An entry the shelf already answers is crossed off before the list is written, so it takes one
         // save rather than two - see StockedEntryCompletion, which reads nothing for the ordinary lists
@@ -108,6 +109,28 @@ public sealed class UpdateTaskListCommandHandler : IRequestHandler<UpdateTaskLis
     /// categories or the product, because each is separately omitted: the phone sends categories and
     /// neither of the other two.
     /// </summary>
+    /// <summary>
+    /// An entry that said nothing about what it waits for keeps its steps - see
+    /// UpdateTaskListCommand.EntriesKeepingTheirSteps.
+    /// </summary>
+    private static void KeepTheStepsOfEntriesThatSaidNothing(
+        IReadOnlyList<TaskItem> incoming, TaskList stored, IReadOnlySet<Guid>? entriesKeepingTheirSteps)
+    {
+        if (entriesKeepingTheirSteps is not { Count: > 0 })
+        {
+            return;
+        }
+
+        var storedById = stored.Items.ToDictionary(item => item.Id);
+        foreach (var item in incoming.Where(item => entriesKeepingTheirSteps.Contains(item.Id)))
+        {
+            if (storedById.TryGetValue(item.Id, out var storedItem))
+            {
+                item.KeepStepsOf(storedItem);
+            }
+        }
+    }
+
     private static void KeepTheDescriptionOfEntriesThatSaidNothing(
         IReadOnlyList<TaskItem> incoming, TaskList stored, IReadOnlySet<Guid>? entriesKeepingTheirNotes)
     {

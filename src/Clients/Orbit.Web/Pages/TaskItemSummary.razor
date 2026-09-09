@@ -69,6 +69,15 @@ else
         @* The tick that finishes this entry, offered where the entry is read. It used to say "Already
            done." and nothing else, so the one screen about this entry was the one place it could not be
            crossed off - see TaskItemCompletion, which both this screen and the checklist tick through. *@
+        @* What an entry waiting on other entries of its list answers a press with - see TaskListSteps.
+           Said rather than refused silently, and only about the tick: crossing it out is giving up on
+           it, which somebody held up by a step that will never happen has to be able to do. *@
+        @if (_waitingOn is { Length: > 0 } waitingFor)
+        {
+            <Row Title="@T["Done"]">
+                <Trailing><span class="row-meta">@T.Format("Waiting for {0}.", waitingFor)</span></Trailing>
+            </Row>
+        }
         @if (TaskItemCompletion.IsTickedElsewhere(_item))
         {
             @* No box at all: an entry standing for other lists is done when they are (see
@@ -160,6 +169,21 @@ else
     /// <summary>Why the last tick saved nothing. Null until one fails - see TaskItemCompletion.</summary>
     private string? _tickMessage;
 
+    /// <summary>The steps this entry is still waiting on, named, while it has just been pressed. Null otherwise.</summary>
+    private string? _waitingOn;
+
+    /// <summary>
+    /// The entries of this list it waits for that are not done. The same rule the server keeps
+    /// (TaskListSteps): a step crossed out counts as not done, because that is what a cross says.
+    /// </summary>
+    private IReadOnlyList<TaskItemDto> WhatItWaitsFor()
+        => _item is null || _taskList is null
+            ? []
+            : [.. _item.AllWaitsForTaskItemIds
+                .Select(stepId => _taskList.Items.FirstOrDefault(candidate => candidate.Id == stepId))
+                .OfType<TaskItemDto>()
+                .Where(step => !step.IsCompleted)];
+
     /// <summary>What finishing a round of restocking did to the shelf - see TaskItemCompletion.Note.</summary>
     private string? _restockMessage;
 
@@ -235,6 +259,15 @@ else
     {
         if (_taskList is null || _item is null || _isTicking)
         {
+            return;
+        }
+
+        // Only the tick is held back: an entry waiting on unfinished work can still be crossed out, which
+        // is what somebody held up by a step that is never going to happen needs. See TaskListSteps.
+        _waitingOn = null;
+        if (state == TickState.Completed && WhatItWaitsFor() is { Count: > 0 } steps)
+        {
+            _waitingOn = string.Join(", ", steps.Select(step => Written(step.Description)));
             return;
         }
 

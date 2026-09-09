@@ -825,6 +825,16 @@ public sealed partial class TaskListDetailViewModel : ObservableObject
             return Task.CompletedTask;
         }
 
+        // An entry waiting on unfinished work cannot be ticked - and only the tick is held back, since
+        // crossing it out is what somebody stuck behind a step that will never happen needs. The server
+        // keeps the same rule whatever is sent to it; this is so the phone says why. See TaskListSteps.
+        if (!row.IsCompleted && !row.IsFailed && WhatItWaitsFor(row) is { Count: > 0 } steps)
+        {
+            Status = _translations.Format(
+                "Waiting for {0}.", string.Join(", ", steps.Select(step => _translations.Written(step.Description))));
+            return Task.CompletedTask;
+        }
+
         // Only a tick claims the whole round is done - crossing the reminder out says the opposite.
         if (!row.IsCompleted && !row.IsFailed && ClosesARestockRound(row))
         {
@@ -878,6 +888,16 @@ public sealed partial class TaskListDetailViewModel : ObservableObject
     /// <summary>"No" - the question dropped, and the entry left as it was.</summary>
     [RelayCommand]
     private void LeaveTheListBehind() => LinkedTickBeingAsked = null;
+
+    /// <summary>
+    /// The entries this one is still waiting on. The same rule the server keeps: a step crossed out
+    /// counts as not done, because that is what a cross says. See TaskListSteps.
+    /// </summary>
+    private IReadOnlyList<TaskItemDto> WhatItWaitsFor(TaskItemRow row)
+        => [.. row.WaitsForTaskItemIds
+            .Select(stepId => _items.FirstOrDefault(candidate => candidate.Id == stepId))
+            .Where(step => step is { IsCompleted: false })
+            .OfType<TaskItemDto>()];
 
     private bool ClosesARestockRound(TaskItemRow row)
         => row.Description == RestockTaskNaming.UpdateStockReminderDescription

@@ -199,7 +199,7 @@ else
                           AriaLabel="@T.Format("Done: {0}", Written(entry.Item.Description))"
                           AdditionalClass="@RowMark(entry.Item)"
                           OnTitlePressed="() => GoToEntry(entry.Section.TaskList.Id, entry.Item.Id)"
-                          OnCycled="state => ToggleItemAsync(entry.Section.TaskList, entry.Item, state)">
+                          OnCycled="state => PressAsync(entry.Section.TaskList, entry.Item, state)">
                     <Trailing>
                         @* What it is about, the same marks the cards on /tasks carry - see TaskItem.Categories. *@
                         @foreach (var category in entry.Item.AllCategories)
@@ -214,6 +214,14 @@ else
                         }
                     </Trailing>
                 </CheckRow>
+                @* The same answer the grouped view gives, under the same row - see PressAsync. *@
+                @if (_waitingOn == entry.Item.Id)
+                {
+                    <div class="check-row-asks">
+                        <span>@T.Format("Waiting for {0}.", WhatItWaitsForNamed(entry.Section.TaskList, entry.Item))</span>
+                        <button type="button" class="btn-secondary" @onclick="() => _waitingOn = null">@T["OK"]</button>
+                    </div>
+                }
             }
         </div>
     }
@@ -291,6 +299,16 @@ else
                             <span class="row-meta">@T.Format("due {0}", dueDate.LocalDateTime.ToString("dd.MM.yyyy HH:mm"))</span>
                         }
                     </div>
+                    @* What an entry that waits on other entries answers a press with. Said rather than
+                       refused silently: the box looks exactly like every other one, and a press that
+                       did nothing would read as a page that had stopped working. See TaskListSteps. *@
+                    @if (_waitingOn == item.Id)
+                    {
+                        <div class="check-row-asks">
+                            <span>@T.Format("Waiting for {0}.", WhatItWaitsForNamed(section.TaskList, item))</span>
+                            <button type="button" class="btn-secondary" @onclick="() => _waitingOn = null">@T["OK"]</button>
+                        </div>
+                    }
                     @if (_askedAbout == item.Id)
                     {
                         @* Under the row rather than in a dialog over the page: it is about this line,
@@ -775,8 +793,33 @@ else
             return Task.CompletedTask;
         }
 
+        // Only the tick is held back. Crossing the entry out is giving up on it, which is exactly what
+        // somebody held up by a step that is never going to happen needs - see TaskListSteps.
+        if (state == TickState.Completed && WhatItWaitsFor(taskList, item).Count > 0)
+        {
+            _waitingOn = item.Id;
+            return Task.CompletedTask;
+        }
+
+        _waitingOn = null;
         return ToggleItemAsync(taskList, item, state);
     }
+
+    /// <summary>The entry whose steps are being named right now, if any - see the panel under the row.</summary>
+    private Guid? _waitingOn;
+
+    /// <summary>
+    /// The entries this one is still waiting on. The same rule the server keeps (TaskListSteps): a step
+    /// is what it says it is - crossed out counts as not done, because that is what a cross says.
+    /// </summary>
+    private static IReadOnlyList<TaskItemDto> WhatItWaitsFor(TaskDto taskList, TaskItemDto item)
+        => [.. item.AllWaitsForTaskItemIds
+            .Select(stepId => taskList.Items.FirstOrDefault(candidate => candidate.Id == stepId))
+            .OfType<TaskItemDto>()
+            .Where(step => !step.IsCompleted)];
+
+    private string WhatItWaitsForNamed(TaskDto taskList, TaskItemDto item)
+        => string.Join(", ", WhatItWaitsFor(taskList, item).Select(step => Written(step.Description)));
 
     private async Task ToggleItemAsync(TaskDto taskList, TaskItemDto item, TickState state)
     {

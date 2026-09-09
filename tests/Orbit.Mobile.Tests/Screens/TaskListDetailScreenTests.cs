@@ -104,6 +104,38 @@ public sealed class TaskListDetailScreenTests
     }
 
     /// <summary>
+    /// An entry can wait for another entry of the same list - "hang the door" after "fit the hinges" -
+    /// and cannot be ticked until that one is done. The phone says what it is waiting for rather than
+    /// answering the press with nothing; the server keeps the same rule whatever is sent to it.
+    /// </summary>
+    [Fact]
+    public async Task An_entry_waiting_on_another_cannot_be_ticked_until_that_one_is_done()
+    {
+        using var context = new ScreenContext();
+        var screen = context.OpenTaskList("Fitting the door");
+        screen.NewItemDescription = "Fit the hinges";
+        await screen.AddItemCommand.ExecuteAsync(null);
+        screen.NewItemDescription = "Hang the door";
+        await screen.AddItemCommand.ExecuteAsync(null);
+        var hinges = screen.Items.Single(row => row.Description == "Fit the hinges");
+        var door = screen.Items.Single(row => row.Description == "Hang the door");
+        await context.WaitForAsync(door.Id, hinges.Id);
+        await screen.LoadCommand.ExecuteAsync(null);
+
+        var waiting = screen.Items.Single(row => row.Description == "Hang the door");
+        await screen.ToggleItemCommand.ExecuteAsync(waiting);
+
+        Assert.False(screen.Items.Single(row => row.Description == "Hang the door").IsCompleted);
+        Assert.Contains("Fit the hinges", screen.Status);
+
+        // Once the step is done, the tick goes through.
+        await screen.ToggleItemCommand.ExecuteAsync(screen.Items.Single(row => row.Description == "Fit the hinges"));
+        await screen.ToggleItemCommand.ExecuteAsync(screen.Items.Single(row => row.Description == "Hang the door"));
+
+        Assert.True(screen.Items.Single(row => row.Description == "Hang the door").IsCompleted);
+    }
+
+    /// <summary>
     /// Building a storage out of a list is only offered where there is something on it a shelf could be
     /// about - see GeneratedInventorySource, which Orbit.Web's own menu asks the same question of.
     /// </summary>
@@ -2053,6 +2085,24 @@ public sealed class TaskListDetailScreenTests
                     stored.IsGroup,
                     stored.Priority));
         }
+        /// <summary>
+        /// Makes one entry wait for another, the way the browser's editor does - the phone has no picker
+        /// for it yet, so it is written onto the stored list here. See TaskListSteps.
+        /// </summary>
+        public async Task WaitForAsync(Guid waitingItemId, Guid stepItemId)
+        {
+            var stored = await _taskLists.FindAsync(_openedListId);
+            await _taskLists.UpdateAsync(
+                _openedListId,
+                new TaskListContent(
+                    stored!.Title,
+                    [.. stored.Items.Select(item => item.Id == waitingItemId
+                        ? item with { WaitsForTaskItemIds = [stepItemId] }
+                        : item)],
+                    stored.IsGroup,
+                    stored.Priority));
+        }
+
         private readonly FakeTimeProvider _clock = new(DateTimeOffset.Parse("2026-08-26T10:00:00Z"));
         private readonly LocalTaskListRepository _taskLists;
 

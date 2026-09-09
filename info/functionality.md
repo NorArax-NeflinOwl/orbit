@@ -309,6 +309,27 @@ need one - `FoldersBelongToOnePage` - and it does more than default the column: 
 is moved to the notes, and one that held both kinds becomes two folders with the notes moved into the
 copy, so nothing that was filed somewhere falls back to Public.
 
+**An entry can wait for other entries of the same list** (2026-09-09, `OL_TASKS_STEPS`,
+`TaskItem.WaitsForTaskItemIds`, the rule in `TaskListSteps`): "hang the door" after "fit the hinges".
+Chosen in the entry's own panel in the list's editor, from a picker offering the other entries on that
+list - a different field from **Stands for these lists** above it, which is one entry meaning whole other
+lists rather than the order the work here has to be done in.
+
+**An entry waiting on unfinished work cannot be ticked.** Not refused with an error: the tick is taken
+back wherever a list is built or saved, the same way a linked entry's completion is ignored rather than
+briefly believed - so a client that never checks cannot store one. Both clients check anyway and say
+what it is waiting for, because a box that answers a press with nothing reads as a page that has stopped
+working. **Only the tick is held back**: crossing the entry out is still allowed, which is exactly what
+somebody held up by a step that is never going to happen needs. A step that was itself crossed out
+blocks, since what a cross says is that the work was not done.
+
+Two rules keep it honest: a step that is not an entry on this list is dropped (ids outlive the entries
+they name - a step deleted in the same save, an id from another list), and an entry cannot wait for
+itself. A request that says nothing about an entry's steps leaves the stored ones alone
+(`UpdateTaskListCommand.EntriesKeepingTheirSteps`) - the fourth field to follow that rule, and for the
+same reason as the first three: the phone has no picker for it yet and must not undo what was arranged
+on the web.
+
 **An entry's own box has three answers too** (`OP_TI_ISFAILED`, `Orbit.Core.Tasks.TaskItem.IsFailed`,
 2026-09-09): nothing, **done**, and **given up on** - one press moves to the next, and the third press
 clears it (`Orbit.Core.Abstractions.TickState`, which both clients cycle through so a box means the same

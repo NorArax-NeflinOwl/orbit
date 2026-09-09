@@ -66,6 +66,21 @@ public sealed class TaskItem
     /// </summary>
     public bool IsALinkToOtherLists => LinkedTaskListIds.Count > 0;
 
+    /// <summary>
+    /// The entries <b>on this same list</b> that have to be done before this one can be - "hang the
+    /// door" after "fit the hinges". Empty for an ordinary entry, which is nearly all of them.
+    ///
+    /// Only ever entries of its own list, which is what makes it a different thing from
+    /// <see cref="LinkedTaskListIds"/>: that is one entry standing for whole other lists, this is the
+    /// order the work on one list has to be done in. Kept as ids in the order they were chosen, and
+    /// what they mean is enforced where a list is built - see <see cref="TaskListSteps"/>, which drops
+    /// an id that is not an entry here and refuses the tick while any of them is unfinished.
+    /// </summary>
+    public IReadOnlyList<Guid> WaitsForTaskItemIds { get; private set; }
+
+    /// <summary>Whether anything has to happen before this entry can be crossed off.</summary>
+    public bool WaitsForAnything => WaitsForTaskItemIds.Count > 0;
+
     /// <summary>What this entry is and what it stands for - see <see cref="TaskItemSubject"/>.</summary>
     public TaskItemSubject Subject { get; private set; }
 
@@ -140,7 +155,8 @@ public sealed class TaskItem
     private TaskItem(
         Guid id, string description, DateTimeOffset? dueDateUtc, bool isCompleted, IReadOnlyList<Guid>? linkedTaskListIds,
         TaskItemReminders? reminders, TaskItemSubject? subject, IReadOnlyList<string>? categories,
-        TaskItemProduct? product, string? notes, bool isFailed = false)
+        TaskItemProduct? product, string? notes, bool isFailed = false,
+        IReadOnlyList<Guid>? waitsForTaskItemIds = null)
     {
         Id = id;
         Description = description;
@@ -154,6 +170,11 @@ public sealed class TaskItem
         // Distinct and in order: naming the same list twice is one link written twice, not two steps,
         // and it would make the entry look like it stands for more work than it does.
         LinkedTaskListIds = linkedTaskListIds is null ? [] : [.. linkedTaskListIds.Distinct()];
+        // The same rule, and one more: an entry cannot wait for itself, which is a step that could
+        // never be taken rather than an ordering anybody meant.
+        WaitsForTaskItemIds = waitsForTaskItemIds is null
+            ? []
+            : [.. waitsForTaskItemIds.Distinct().Where(waitedFor => waitedFor != id)];
         Reminders = reminders ?? TaskItemReminders.Default;
         Subject = subject ?? TaskItemSubject.PlainWork;
         Categories = TidyCategories(categories);
@@ -225,6 +246,14 @@ public sealed class TaskItem
     public void KeepCategoriesOf(TaskItem stored) => Categories = stored.Categories;
 
     /// <summary>
+    /// Keeps the steps this entry already waits for, for a caller that said nothing about them - the
+    /// same rule the categories, the product and the description follow, and for the same reason: a
+    /// client written before steps existed goes on saving lists without dropping the order somebody
+    /// arranged on the web. See UpdateTaskListCommand.EntriesKeepingTheirSteps.
+    /// </summary>
+    public void KeepStepsOf(TaskItem stored) => WaitsForTaskItemIds = stored.WaitsForTaskItemIds;
+
+    /// <summary>
     /// Keeps the description this entry already has, for a caller that said nothing about it - the same
     /// rule the categories and the product follow, and for the same reason: a client written before an
     /// entry could carry one goes on saving lists without wiping what was typed on the web. See
@@ -262,7 +291,8 @@ public sealed class TaskItem
     public static TaskItem Create(
         string description, DateTimeOffset? dueDateUtc, bool isCompleted, IReadOnlyList<Guid>? linkedTaskListIds = null,
         TaskItemReminders? reminders = null, TaskItemSubject? subject = null, IReadOnlyList<string>? categories = null,
-        TaskItemProduct? product = null, string? notes = null, bool isFailed = false)
+        TaskItemProduct? product = null, string? notes = null, bool isFailed = false,
+        IReadOnlyList<Guid>? waitsForTaskItemIds = null)
     {
         // Here rather than in the constructor, which FromPersistence also uses: a row already stored
         // fits by definition, and rejecting one on the way back out would make an old entry unreadable
@@ -288,7 +318,7 @@ public sealed class TaskItem
         var standsOnItsOwn = linkedTaskListIds is null || linkedTaskListIds.Count == 0;
         return new TaskItem(
             Guid.NewGuid(), description, dueDateUtc, standsOnItsOwn && isCompleted, linkedTaskListIds,
-            reminders, subject, categories, product, notes, standsOnItsOwn && isFailed);
+            reminders, subject, categories, product, notes, standsOnItsOwn && isFailed, waitsForTaskItemIds);
     }
 
     /// <summary>
@@ -299,7 +329,7 @@ public sealed class TaskItem
     public TaskItem WithNewId()
         => new(
             Guid.NewGuid(), Description, DueDateUtc, IsCompleted, LinkedTaskListIds,
-            Reminders, Subject, Categories, Product, Notes, IsFailed);
+            Reminders, Subject, Categories, Product, Notes, IsFailed, WaitsForTaskItemIds);
 
     /// <summary>
     /// Rebuilds a checklist entry from already-known values, bypassing the completion override above -
@@ -309,6 +339,22 @@ public sealed class TaskItem
     public static TaskItem FromPersistence(
         Guid id, string description, DateTimeOffset? dueDateUtc, bool isCompleted, IReadOnlyList<Guid>? linkedTaskListIds,
         TaskItemReminders? reminders, TaskItemSubject? subject = null, IReadOnlyList<string>? categories = null,
-        TaskItemProduct? product = null, string? notes = null, bool isFailed = false)
-        => new(id, description, dueDateUtc, isCompleted, linkedTaskListIds, reminders, subject, categories, product, notes, isFailed);
+        TaskItemProduct? product = null, string? notes = null, bool isFailed = false,
+        IReadOnlyList<Guid>? waitsForTaskItemIds = null)
+        => new(
+            id, description, dueDateUtc, isCompleted, linkedTaskListIds, reminders, subject, categories, product,
+            notes, isFailed, waitsForTaskItemIds);
+
+    /// <summary>
+    /// Takes the tick back off an entry that may not carry one yet, because something it waits for is
+    /// unfinished - see TaskListSteps, which is the only caller and where the rule itself lives.
+    /// </summary>
+    internal void CannotBeDoneYet() => IsCompleted = false;
+
+    /// <summary>
+    /// Keeps only the steps that are entries on this list, dropping an id that names nothing here - a
+    /// step deleted since, or a client naming an entry of another list. See TaskListSteps.
+    /// </summary>
+    internal void WaitsOnlyFor(IReadOnlySet<Guid> idsOnThisList)
+        => WaitsForTaskItemIds = [.. WaitsForTaskItemIds.Where(idsOnThisList.Contains)];
 }

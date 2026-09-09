@@ -328,6 +328,44 @@ public sealed class TaskListChecklistTests : OrbitTestContext
     }
 
     /// <summary>
+    /// An entry can wait for another entry of the same list - "hang the door" after "fit the hinges" -
+    /// and cannot be ticked until that one is done. The press is taken and answered with what it is
+    /// waiting for, the way an entry standing for other lists is: a box that did nothing would read as
+    /// a page that had stopped working. See TaskListSteps.
+    /// </summary>
+    [Fact]
+    public void An_entry_waiting_on_another_says_so_instead_of_being_ticked()
+    {
+        var hinges = Item("Fit the hinges");
+        var door = Item("Hang the door") with { WaitsForTaskItemIds = [hinges.Id] };
+        var taskList = TaskList("Fitting the door", hinges, door);
+        RegisterTasksApiClient([taskList]);
+        var cut = RenderComponent<TaskListChecklist>(parameters => parameters.Add(page => page.Id, taskList.Id));
+
+        cut.FindAll(".check-row .tick-box").ToArray()[1].Click();
+
+        Assert.Contains("Waiting for Fit the hinges.", cut.Markup);
+        Assert.DoesNotContain(_requests, request => request.Method == HttpMethod.Put);
+    }
+
+    /// <summary>And it goes through once the step is done, which is the whole point of naming one.</summary>
+    [Fact]
+    public void An_entry_whose_step_is_done_is_ticked_as_any_other()
+    {
+        var hinges = Item("Fit the hinges", isCompleted: true);
+        var door = Item("Hang the door") with { WaitsForTaskItemIds = [hinges.Id] };
+        var taskList = TaskList("Fitting the door", hinges, door);
+        RegisterTasksApiClient([taskList]);
+        var cut = RenderComponent<TaskListChecklist>(parameters => parameters.Add(page => page.Id, taskList.Id));
+
+        cut.FindAll(".check-row .tick-box").ToArray()[1].Click();
+
+        var update = _requests.Single(request => request.Method == HttpMethod.Put);
+        var items = JsonDocument.Parse(_requestBodies[_requests.IndexOf(update)]).RootElement.GetProperty("items");
+        Assert.True(items[1].GetProperty("isCompleted").GetBoolean());
+    }
+
+    /// <summary>
     /// The third answer: an entry that is not going to happen is crossed out rather than left sitting
     /// there or lied about with a tick. One press further round than done - see TickState - and it is
     /// saved as its own flag, so what a list still needs does not count it and no reminder goes out.

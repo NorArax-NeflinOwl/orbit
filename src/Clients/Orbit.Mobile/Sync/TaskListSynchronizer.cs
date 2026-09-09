@@ -252,5 +252,9 @@ public sealed class TaskListSynchronizer
             // AllNotes would turn that into an empty string, and an empty string clears it.
             item.Notes,
             // The cross, which this phone can now set - see TickState.
-            item.IsFailed)).ToList();
+            item.IsFailed,
+            // The order the work has to be done in, sent as it came. This phone has no picker for it
+            // yet, and passing it through is what keeps a push from undoing what was arranged on the
+            // web - the same reason the product above travels untouched.
+            item.AllWaitsForTaskItemIds)).ToList();
 }

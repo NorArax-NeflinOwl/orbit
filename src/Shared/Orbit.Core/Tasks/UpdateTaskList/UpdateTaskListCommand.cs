@@ -33,6 +33,13 @@ public sealed record UpdateTaskListCommand(
     /// </summary>
     IReadOnlySet<Guid>? EntriesKeepingTheirNotes = null,
     /// <summary>
+    /// The entries that said nothing about what they wait for, which keep the steps they already have.
+    /// The fourth field to follow this rule, and the reason has not changed: a client written before
+    /// steps existed saves lists without them, and that save must not undo the order somebody arranged
+    /// somewhere else. An entry that sends an empty list is clearing them.
+    /// </summary>
+    IReadOnlySet<Guid>? EntriesKeepingTheirSteps = null,
+    /// <summary>
     /// What the reader says about whether the list is finished - see TaskListCompletion. Null means the
     /// caller said nothing and the stored answer stands - the same rule the three fields above follow,
     /// and the reason is the same: the phone saves lists without knowing this exists.

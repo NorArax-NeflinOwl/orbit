@@ -44,6 +44,7 @@ internal static class OrbitStorageNames
 
         // OL_ - rows that exist to join two of the tables above.
         [typeof(TaskItemTaskListLinkEntity)] = new("OL_TASKS_ITEMS", "OL_TI_"),
+        [typeof(TaskItemStepEntity)] = new("OL_TASKS_STEPS", "OL_TS_"),
         [typeof(InventoryManagedTaskListEntity)] = new("OL_INVENTORIES_TASKS", "OL_IT_"),
         [typeof(ChatGroupMemberEntity)] = new("OL_CHATS_MEMBERS", "OL_CM_"),
         [typeof(ChatConversationAccessEntity)] = new("OL_CHATS_ACCESS", "OL_CA_"),

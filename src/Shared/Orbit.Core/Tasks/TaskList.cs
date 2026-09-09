@@ -409,12 +409,24 @@ public sealed class TaskList
     }
 
     /// <summary>Mirrors Note.ReadableOrSealed - see its comment for why this is enforced rather than trusted.</summary>
+    /// <summary>
+    /// The entries as they may be stored: the order the work has to be done in applied to them, so a
+    /// tick on something still waiting is taken back rather than saved - see TaskListSteps, where the
+    /// rule and the reason live. Sealed lists have no readable entries at all, and nothing to apply it
+    /// to.
+    /// </summary>
+    private static IReadOnlyList<TaskItem> InTheOrderTheyCanBeDone(IReadOnlyList<TaskItem> items)
+    {
+        TaskListSteps.Apply(items);
+        return items;
+    }
+
     private static (string Title, IReadOnlyList<TaskItem> Items, bool IsPrivate, EncryptedPayload? EncryptedContent) ReadableOrSealed(
         string title, IReadOnlyList<TaskItem> items, bool isPrivate, EncryptedPayload? encryptedContent)
     {
         if (!isPrivate)
         {
-            return (title, items, false, null);
+            return (title, InTheOrderTheyCanBeDone(items), false, null);
         }
 
         // No check for a missing payload here - see EnsureSealedWhenPrivate for where that lives and why.

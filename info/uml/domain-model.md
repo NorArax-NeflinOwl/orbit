@@ -91,6 +91,7 @@ classDiagram
         +bool IsFailed
         +bool IsResolved
         +IReadOnlyList~Guid~ LinkedTaskListIds
+        +IReadOnlyList~Guid~ WaitsForTaskItemIds
         +IReadOnlyList~string~ Categories
     }
     class TaskItemSubject {

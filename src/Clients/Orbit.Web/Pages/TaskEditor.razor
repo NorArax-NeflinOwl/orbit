@@ -334,6 +334,37 @@ else
                                     }
                                 </ul>
                             }
+                            @* And an entry can wait for other entries of this same list - "hang the
+                               door" after "fit the hinges". A different thing from standing for other
+                               lists above it: that is one entry meaning whole lists, this is the order
+                               the work here has to be done in. It cannot be ticked until every step it
+                               names is - see TaskListSteps, which is where the rule is kept. *@
+                            <span class="field-break"></span>
+                            <label>@T["Waits for"]
+                                <select value="" @onchange="args => WaitForTheEntry(item, args.Value)"
+                                        aria-label="@(T["Waits for"])">
+                                    <option value="">@(item.WaitsForTaskItemIds.Count > 0 ? T["Add another…"] : T["None"])</option>
+                                    @foreach (var step in StepsAvailableTo(item))
+                                    {
+                                        <option value="@step.Id">@Written(DescriptionOfEntry(step))</option>
+                                    }
+                                </select>
+                            </label>
+                            @if (item.WaitsForTaskItemIds.Count > 0)
+                            {
+                                <span class="field-break"></span>
+                                <ul class="linked-list-chips">
+                                    @foreach (var stepId in item.WaitsForTaskItemIds)
+                                    {
+                                        <li>
+                                            <span>@Written(DescriptionOfEntry(stepId))</span>
+                                            <button type="button" class="icon-btn" title="@(T["Remove"])"
+                                                    aria-label="@(T["Remove"])"
+                                                    @onclick="() => StopWaitingForTheEntry(item, stepId)">✕</button>
+                                        </li>
+                                    }
+                                </ul>
+                            }
                             <label>@T["Overdue notification"]<select @bind="item.OverdueNotificationChannel">
                                     @foreach (var option in NotificationChannelOption.All)
                                     {
@@ -826,6 +857,41 @@ else
         => item.LinkedTaskListIds.Remove(taskListId);
 
     /// <summary>
+    /// The entries this one could wait for: the others on this list, minus the ones it already waits
+    /// for and minus itself. Nothing is checked for a chain that comes back round - an entry waiting on
+    /// something that waits on it can never be ticked, and neither can be ticked to begin with, so the
+    /// list simply says so rather than a save being refused.
+    /// </summary>
+    private IReadOnlyList<TaskItemFormModel> StepsAvailableTo(TaskItemFormModel item)
+        => [.. _formModel.Items.Where(candidate =>
+            candidate != item && !item.WaitsForTaskItemIds.Contains(candidate.Id ?? Guid.Empty)
+            && candidate.Id is not null)];
+
+    private static void WaitForTheEntry(TaskItemFormModel item, object? chosenValue)
+    {
+        if (Guid.TryParse(chosenValue?.ToString(), out var stepId) && !item.WaitsForTaskItemIds.Contains(stepId))
+        {
+            item.WaitsForTaskItemIds.Add(stepId);
+        }
+    }
+
+    private static void StopWaitingForTheEntry(TaskItemFormModel item, Guid stepId)
+        => item.WaitsForTaskItemIds.Remove(stepId);
+
+    /// <summary>
+    /// What an entry on this list says. An id nothing on the form answers to - a step whose entry has
+    /// just been removed - reads as a line that is no longer here rather than as a blank chip; the save
+    /// drops it either way, see TaskListSteps.
+    /// </summary>
+    private string DescriptionOfEntry(Guid stepId)
+        => _formModel.Items.FirstOrDefault(candidate => candidate.Id == stepId) is { } step
+            ? DescriptionOfEntry(step)
+            : T["an entry that is no longer here"];
+
+    private static string DescriptionOfEntry(TaskItemFormModel item)
+        => item.Description.Trim().Length > 0 ? item.Description : "…";
+
+    /// <summary>
     /// What a linked list is called. A list this reader can no longer see - shared and then unshared,
     /// say - is named by its id rather than left blank: a row saying nothing looks like a bug, and the
     /// id is at least something to recognise it by after a save fails.
@@ -1074,6 +1140,7 @@ else
                                 DueTime = item.DueDateUtc is { } dueTimeUtc ? TimeOnly.FromDateTime(dueTimeUtc.LocalDateTime) : null,
                                 IsCompleted = item.IsCompleted,
                                 IsFailed = item.IsFailed,
+                                WaitsForTaskItemIds = [.. item.AllWaitsForTaskItemIds],
                                 Kind = item.Kind,
                                 Location = item.Location,
                                 LinkedInventoryItemId = item.LinkedInventoryItemId,
@@ -2041,7 +2108,8 @@ else
                 item.Categories,
                 ProductAsked(item),
                 item.Notes,
-                item.IsFailed))
+                item.IsFailed,
+                item.WaitsForTaskItemIds))
             .ToList();
 
     /// <summary>
@@ -2446,6 +2514,13 @@ else
 
         /// <summary>Crossed out rather than ticked off - see Orbit.Core.Tasks.TaskItem.IsFailed.</summary>
         public bool IsFailed { get; set; }
+
+        /// <summary>
+        /// The entries of this same list this one waits for - see
+        /// Orbit.Core.Tasks.TaskItem.WaitsForTaskItemIds. A list rather than a set for the same reason
+        /// the linked lists are one: the order they were chosen in is the order they are read in.
+        /// </summary>
+        public List<Guid> WaitsForTaskItemIds { get; set; } = [];
 
         /// <summary>
         /// The two above as the one answer the box gives, which is how the form reads and writes them -

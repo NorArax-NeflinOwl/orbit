@@ -248,6 +248,16 @@ public sealed partial class TaskItemSummaryViewModel : ObservableObject
         // One press moves to the next of the three answers - nothing, done, given up on. See TickState,
         // which is the same cycle the list screen and the browser follow.
         var next = Ticks.Read(item.IsCompleted, item.IsFailed).Next();
+
+        // An entry waiting on unfinished work cannot be ticked, and only the tick is held back - see
+        // TaskListSteps, which is the rule the server keeps whatever is sent to it.
+        if (next == TickState.Completed && WhatItWaitsFor(item, taskList) is { Count: > 0 } steps)
+        {
+            Status = _translations.Format(
+                "Waiting for {0}.", string.Join(", ", steps.Select(step => _translations.Written(step.Description))));
+            return;
+        }
+
         var items = taskList.Items
             .Select(candidate => candidate.Id == _itemId
                 ? candidate with { IsCompleted = next.IsCompleted(), IsFailed = next.IsFailed() }
@@ -282,6 +292,17 @@ public sealed partial class TaskItemSummaryViewModel : ObservableObject
         IsFailed = next.IsFailed();
         await SynchroniseAsync(cancellationToken);
     }
+
+    /// <summary>
+    /// The entries of this list it is still waiting on. The same rule the server keeps: a step crossed
+    /// out counts as not done, because that is what a cross says. See TaskListSteps.
+    /// </summary>
+    private static IReadOnlyList<Orbit.Contracts.Tasks.TaskItemDto> WhatItWaitsFor(
+        Orbit.Contracts.Tasks.TaskItemDto item, LocalTaskList taskList)
+        => [.. item.AllWaitsForTaskItemIds
+            .Select(stepId => taskList.Items.FirstOrDefault(candidate => candidate.Id == stepId))
+            .Where(step => step is { IsCompleted: false })
+            .OfType<Orbit.Contracts.Tasks.TaskItemDto>()];
 
     /// <summary>The dictionary key, not the text itself - see <see cref="Translations"/>.</summary>
     private const string RefusalMessage =

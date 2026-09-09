@@ -53,6 +53,12 @@ public sealed record TaskItemRow(
     public bool IsFailed => Item.IsFailed;
 
     /// <summary>
+    /// The entries of this same list that have to be done before this one - see
+    /// Orbit.Core.Tasks.TaskItem.WaitsForTaskItemIds. Empty for nearly every entry.
+    /// </summary>
+    public IReadOnlyList<Guid> WaitsForTaskItemIds => Item.AllWaitsForTaskItemIds;
+
+    /// <summary>
     /// Finished with, either way: what the row is struck through for. The circle beside it says which
     /// of the two it was.
     /// </summary>

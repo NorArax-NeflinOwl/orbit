@@ -1314,6 +1314,10 @@ public static class PolishTranslations
         ["Unreadable - encrypted with an older key"] = "Nieczytelne — zaszyfrowane starszym kluczem",
         ["another list"] = "inną listą",
         ["This is done when {0} is."] = "To jest zrobione, gdy zrobione jest: {0}.",
+        // An entry waiting on other entries of its own list - see TaskListSteps.
+        ["Waits for"] = "Czeka na",
+        ["Waiting for {0}."] = "Czeka na: {0}.",
+        ["an entry that is no longer here"] = "pozycję, której już tu nie ma",
         ["Yes"] = "Tak",
         ["That inventory no longer exists."] = "Tego magazynu już nie ma.",
         ["Nothing on this shelf yet."] = "Na tej półce nic jeszcze nie ma.",

@@ -168,6 +168,7 @@ erDiagram
     OP_TASKS_ITEMS ||--o{ OP_TASKS_CATEGORIES : "tagged"
     OP_TASKS_ITEMS ||--o{ OP_TASKS_PRODUCT_CATEGORIES : "product tagged"
     OP_TASKS_ITEMS ||--o{ OL_TASKS_ITEMS : "links to lists"
+    OP_TASKS_ITEMS ||--o{ OL_TASKS_STEPS : "waits for entries"
     OP_TASKS ||--o{ OL_TASKS_ITEMS : "linked from items"
     OP_INVENTORIES ||--o{ OP_INVENTORIES_ITEMS : contains
     OP_INVENTORIES_ITEMS ||--o{ OP_INVENTORIES_CATEGORIES : "tagged"
@@ -195,6 +196,11 @@ erDiagram
         uuid OP_TI_LINKEDCALENDAREVENTID
         uuid OP_TI_LINKEDINVENTORYITEMID
         bool OP_TI_REMINDDAILY
+    }
+    OL_TASKS_STEPS {
+        uuid OL_TS_TASKITEMID PK "the entry that waits"
+        uuid OL_TS_WAITSFORTASKITEMID PK "an entry of the same list, no FK - see TaskListSteps"
+        int OL_TS_POSITION
     }
     OP_INVENTORIES_ITEMS {
         uuid OP_II_ID PK

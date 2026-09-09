@@ -24,6 +24,7 @@ public sealed class TaskRepository : ITaskRepository
             .Include(task => task.Items).ThenInclude(item => item.LinkedTaskLists)
             .Include(task => task.Items).ThenInclude(item => item.Categories)
             .Include(task => task.Items).ThenInclude(item => item.ProductCategories)
+            .Include(task => task.Items).ThenInclude(item => item.Steps)
             .Where(task => task.UserId == userId);
 
         // Narrowed in the database when the caller only wants what changed. A client catching up asks
@@ -48,6 +49,7 @@ public sealed class TaskRepository : ITaskRepository
             .Include(task => task.Items).ThenInclude(item => item.LinkedTaskLists)
             .Include(task => task.Items).ThenInclude(item => item.Categories)
             .Include(task => task.Items).ThenInclude(item => item.ProductCategories)
+            .Include(task => task.Items).ThenInclude(item => item.Steps)
             .FirstOrDefaultAsync(task => task.Id == id && task.UserId == userId, cancellationToken);
 
         return entity is null ? null : ToDomain(entity);
@@ -66,6 +68,7 @@ public sealed class TaskRepository : ITaskRepository
             .Include(task => task.Items).ThenInclude(item => item.LinkedTaskLists)
             .Include(task => task.Items).ThenInclude(item => item.Categories)
             .Include(task => task.Items).ThenInclude(item => item.ProductCategories)
+            .Include(task => task.Items).ThenInclude(item => item.Steps)
             .Where(task => task.UserId == userId
                 && task.Id != exceptListId
                 && task.Items.Any(item => itemIds.Contains(item.Id)))
@@ -136,6 +139,7 @@ public sealed class TaskRepository : ITaskRepository
             .Include(item => item.LinkedTaskLists)
             .Include(item => item.Categories)
             .Include(item => item.ProductCategories)
+            .Include(item => item.Steps)
             .Where(item => item.TaskId == taskList.Id)
             .ToListAsync(cancellationToken);
         _dbContext.RemoveRange(existingItems);
@@ -219,7 +223,8 @@ public sealed class TaskRepository : ITaskRepository
             [.. entity.Categories.OrderBy(category => category.Position).Select(category => category.Category)],
             ToProductDomain(entity),
             entity.Notes,
-            entity.IsFailed);
+            entity.IsFailed,
+            [.. entity.Steps.OrderBy(step => step.Position).Select(step => step.WaitsForTaskItemId)]);
 
     /// <summary>
     /// What the entry asks for, when it asks for anything - see TaskItemEntity.ProductType for why the
@@ -283,6 +288,13 @@ public sealed class TaskRepository : ITaskRepository
                     TaskItemId = item.Id,
                     LinkedTaskListId = linkedId,
                     Position = linkPosition
+                })],
+            Steps = [.. item.WaitsForTaskItemIds.Select((waitsFor, stepPosition) =>
+                new TaskItemStepEntity
+                {
+                    TaskItemId = item.Id,
+                    WaitsForTaskItemId = waitsFor,
+                    Position = stepPosition
                 })],
             OverdueNotificationChannel = item.OverdueNotificationChannel.ToString(),
             RemindDaily = item.RemindDaily,
