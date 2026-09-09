@@ -6,6 +6,7 @@
 @using Orbit.Core.Tasks
 @using Orbit.Web.Services
 @inject TasksApiClient TasksApiClient
+@inject TaskItemCompletion TaskItemCompletion
 @inject NewsSettler NewsSettler
 @inject CalendarApiClient CalendarApiClient
 @inject ChatApiClient ChatApiClient
@@ -22,8 +23,8 @@
 <PageTitle>@(_item is null ? T["Task"] : Written(_item.Description))</PageTitle>
 
 @* Two panels, as every screen that reads one object has: the entry on the left, and the panel that
-   does not scroll on the right - see EditorRail. No Save: the tick that finishes this entry is made on
-   the list it is on, which is where the whole list is in front of the reader. *@
+   does not scroll on the right - see EditorRail. No Save: the one thing this screen changes is the tick,
+   and a tick is written the moment it is made - the same rule the checklist follows. *@
 <div class="editor-page">
 <div class="editor-page-body">
 
@@ -64,13 +65,44 @@ else
                 <Trailing><span class="row-meta">@string.Join(", ", withGuests.Details.Guests.Select(NameOfTheGuest))</span></Trailing>
             </Row>
         }
-        @if (_item.IsCompleted)
+        @* The tick that finishes this entry, offered where the entry is read. It used to say "Already
+           done." and nothing else, so the one screen about this entry was the one place it could not be
+           crossed off - see TaskItemCompletion, which both this screen and the checklist tick through. *@
+        @if (TaskItemCompletion.IsTickedElsewhere(_item))
         {
-            <Row>
-                <Trailing><span class="row-meta">@T["Already done."]</span></Trailing>
+            @* No box at all: an entry standing for other lists is done when they are (see
+               LinkedTaskCompletionResolver), so the row says which list the answer is on and offers to
+               go there. The checklist answers a press on such a box with the same sentence. *@
+            <Row Title="@T["Done"]">
+                <Trailing>
+                    <span class="row-meta">@T.Format("This is done when {0} is.", LinkedTaskListTitles())</span>
+                    @foreach (var linked in _listsBehindTheEntry)
+                    {
+                        <button type="button" class="row-meta-opens"
+                                @onclick="() => GoToLinkedList(linked.Id)">@Written(linked.Title)</button>
+                    }
+                </Trailing>
             </Row>
         }
+        else
+        {
+            <CheckRow Title="@T["Done"]" IsTicked="@_item.IsCompleted"
+                      IsDisabled="@(_isTicking || _isReadOnly)"
+                      AriaLabel="@T.Format("Done: {0}", Written(_item.Description))"
+                      OnTicked="TickAsync" />
+        }
     </div>
+
+    @* Beside the box that failed rather than at the top of the page: this screen is read by scrolling,
+       and a tick that saved nothing reads as a press that never registered. *@
+    @if (_tickMessage is not null)
+    {
+        <p class="error">@_tickMessage</p>
+    }
+    @if (_restockMessage is not null)
+    {
+        <p class="info">@_restockMessage</p>
+    }
 
     @* Drawn only once there is somewhere to draw. An address nobody could find stays as the words
        somebody typed rather than becoming a pin in the wrong country - see GeocodingApiClient. *@
@@ -115,6 +147,27 @@ else
     private TaskDto? _taskList;
     private TaskItemDto? _item;
 
+    /// <summary>
+    /// Whether this list was handed over to read rather than to change. Its own field, set where the
+    /// list is loaded, the way NoteSummary keeps the same answer about a note.
+    /// </summary>
+    private bool _isReadOnly;
+
+    /// <summary>Whether a tick is in flight, so a second press cannot send a second save.</summary>
+    private bool _isTicking;
+
+    /// <summary>Why the last tick saved nothing. Null until one fails - see TaskItemCompletion.</summary>
+    private string? _tickMessage;
+
+    /// <summary>What finishing a round of restocking did to the shelf - see TaskItemCompletion.Note.</summary>
+    private string? _restockMessage;
+
+    /// <summary>
+    /// The lists this entry stands for, as they are named on /tasks. Loaded only for an entry that
+    /// stands for any: every other entry would pay for a second request to learn nothing.
+    /// </summary>
+    private IReadOnlyList<TaskDto> _listsBehindTheEntry = [];
+
     /// <summary>Where this happens, in words - the event's address when one is linked, the entry's own otherwise.</summary>
     private string _place = string.Empty;
 
@@ -140,8 +193,115 @@ else
         }
 
         _item = _taskList?.Items.FirstOrDefault(candidate => candidate.Id == ItemId);
+        _isReadOnly = _taskList is null || !TaskItemCompletion.CanBeTicked(_taskList);
+        await NameTheListsBehindTheEntryAsync();
         await ResolveThePlaceAsync();
         _isLoading = false;
+    }
+
+    /// <summary>
+    /// Reads the list again after a tick, so what the row says is what the server holds - and, for an
+    /// entry on a group list, so a completion worked out from other lists arrives with it. The place is
+    /// left alone: a tick moves nothing, and looking the address up again would be a second request for
+    /// an answer already on screen.
+    /// </summary>
+    private async Task RefreshTheEntryAsync()
+    {
+        try
+        {
+            _taskList = await TasksApiClient.GetTaskListByIdAsync(TaskListId);
+        }
+        catch (HttpRequestException exception) when (exception.StatusCode == HttpStatusCode.Unauthorized)
+        {
+            NavigationManager.NavigateTo("/login");
+            return;
+        }
+        catch (HttpRequestException exception)
+        {
+            Logger.LogError(exception, "Failed to re-read task list {TaskListId} after ticking an entry off", TaskListId);
+            return;
+        }
+
+        _item = _taskList?.Items.FirstOrDefault(candidate => candidate.Id == ItemId);
+        _isReadOnly = _taskList is null || !TaskItemCompletion.CanBeTicked(_taskList);
+    }
+
+    /// <summary>
+    /// Crosses this entry off, or takes the tick back. Saved the moment it is made, as the checklist
+    /// saves it - see TaskItemCompletion, which both screens tick through.
+    /// </summary>
+    private async Task TickAsync(bool isCompleted)
+    {
+        if (_taskList is null || _item is null || _isTicking)
+        {
+            return;
+        }
+
+        _isTicking = true;
+        _tickMessage = null;
+        try
+        {
+            if (await TaskItemCompletion.TickAsync(_taskList, _item, isCompleted) == TaskItemTickOutcome.SignedOut)
+            {
+                return;
+            }
+
+            _tickMessage = TaskItemCompletion.FailureMessage;
+            _restockMessage = TaskItemCompletion.Note ?? _restockMessage;
+            // Re-read even after a failure, so a box that did not save goes back to what the server
+            // actually holds rather than standing ticked on a page that saved nothing.
+            await RefreshTheEntryAsync();
+        }
+        finally
+        {
+            _isTicking = false;
+        }
+    }
+
+    /// <summary>
+    /// What the lists this entry stands for are called. Read from /tasks rather than from the entry,
+    /// which carries only their ids - the checklist names them the same way, and for the same reason.
+    /// </summary>
+    private async Task NameTheListsBehindTheEntryAsync()
+    {
+        _listsBehindTheEntry = [];
+        if (_item is null || !TaskItemCompletion.IsTickedElsewhere(_item))
+        {
+            return;
+        }
+
+        try
+        {
+            var taskLists = await TasksApiClient.GetTaskListsAsync();
+            _listsBehindTheEntry =
+                [.. taskLists.Where(candidate => _item.AllLinkedTaskListIds.Contains(candidate.Id))];
+        }
+        catch (HttpRequestException exception)
+        {
+            // Named as "another list" below, which is what the checklist calls one it cannot name
+            // either. The sentence is still worth saying: where the tick belongs is the point of it.
+            Logger.LogWarning(exception, "Couldn't name the lists task item {ItemId} stands for", ItemId);
+        }
+    }
+
+    /// <summary>
+    /// The lists an entry stands for, named and joined - an entry naming three of them is one step, and
+    /// saying so takes naming all three.
+    /// </summary>
+    private string LinkedTaskListTitles()
+        => _item is null
+            ? string.Empty
+            : string.Join(
+                ", ",
+                _item.AllLinkedTaskListIds.Select(linkedTaskListId =>
+                    _listsBehindTheEntry.FirstOrDefault(linked => linked.Id == linkedTaskListId) is { } named
+                        ? Written(named.Title)
+                        : T["another list"]));
+
+    private void GoToLinkedList(Guid linkedTaskListId)
+    {
+        Logger.LogInformation("User opened linked task list {LinkedTaskListId} from a task entry", linkedTaskListId);
+        NavigationManager.NavigateTo($"/tasks/{linkedTaskListId}");
     }
 
     /// <summary>
