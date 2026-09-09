@@ -1,21 +1,75 @@
 using Orbit.Mobile.Localization;
 using System.Windows.Input;
+using Orbit.Maui.Controls;
+using Orbit.Mobile.Screens;
 using Orbit.Mobile.Screens.Inventory;
 
 namespace Orbit.Maui.Features.Inventory;
 
-public partial class InventoryDetailPage : ContentPage
+public partial class InventoryDetailPage : ContentPage, ITitleMenu
 {
 	private readonly InventoryDetailViewModel _viewModel;
 	private readonly Translations _translations;
 
 	public InventoryDetailPage(InventoryDetailViewModel viewModel, Translations translations)
 	{
-		InitializeComponent();
+		// Before InitializeComponent, not after: the menu is bound from the static part of the tree,
+		// which is built there and reads a page's plain property exactly once - see CalendarEventDetailPage.
 		_translations = translations;
+		ShowTitleMenuCommand = new Command(ShowShelfMenu);
+
+		InitializeComponent();
 		_viewModel = viewModel;
 		BindingContext = viewModel;
 		ShowItemMenuCommand = new Command<InventoryItemRow>(item => _ = ShowItemMenuAsync(item));
+		AddButton.Command = NewItemForm.Toggling(AddRow, AddField);
+	}
+
+	/// <inheritdoc cref="ITitleMenu.ShowTitleMenuCommand"/>
+	public ICommand ShowTitleMenuCommand { get; }
+
+	/// <summary>The panel it draws - one per screen, above everything else on it.</summary>
+	public ScreenMenu Menu { get; } = new();
+
+	/// <summary>
+	/// What can be done to the shelf rather than to what is on it. Its name, what it is, whether it is
+	/// private and how its restock list behaves all stood above and below the shelf itself; the screen
+	/// is the shelf now, and this is where they went.
+	/// </summary>
+	private void ShowShelfMenu()
+	{
+		List<ScreenMenuEntry> entries = [];
+
+		if (_viewModel.CanEdit)
+		{
+			entries.Add(new ScreenMenuEntry(
+				_translations["Edit"],
+				() => ShelfFields.IsVisible = ShelfSettings.IsVisible = ShelfExtras.IsVisible = !ShelfSettings.IsVisible,
+				ShelfSettings.IsVisible));
+		}
+
+		entries.Add(new ScreenMenuEntry(
+			_translations["Share"],
+			() => Sharing.IsVisible = !Sharing.IsVisible,
+			Sharing.IsVisible,
+			canBeChosen: !_viewModel.IsPrivate));
+
+		if (_viewModel.CanEdit)
+		{
+			entries.Add(new ScreenMenuEntry(
+				_translations["Delete inventory"], () => _viewModel.DeleteCommand.Execute(null)));
+		}
+
+		// Where this thing's own copies are found again - see CopyHistoryViewModel. Only once there is
+		// one, and here rather than in the account's menu: a history belongs to the thing it is the
+		// history of.
+		if (_viewModel.HasHistory)
+		{
+			entries.Add(new ScreenMenuEntry(
+				_translations["History"], () => _viewModel.GoToHistoryCommand.Execute(null)));
+		}
+
+		Menu.Show(entries);
 	}
 
 	/// <summary>
