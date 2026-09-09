@@ -65,7 +65,12 @@ public partial class NavigationBar : ContentView
 		TitleChevron.IsVisible = true;
 		TitlePress.IsVisible = true;
 		TitlePress.Command = withMenu.ShowTitleMenuCommand;
-		SemanticProperties.SetDescription(TitlePress, page.Title ?? string.Empty);
+		// Bound for the same reason the label above is: read once, it says whatever the page was called
+		// when the bar was built, so the calendar went on being announced as the month it opened on
+		// however far the reader had moved from it.
+		TitlePress.SetBinding(
+			SemanticProperties.DescriptionProperty,
+			new Binding(nameof(Page.Title), source: page));
 	}
 
 	/// <summary>
