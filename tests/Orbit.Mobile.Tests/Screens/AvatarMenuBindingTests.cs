@@ -5,7 +5,8 @@ using Xunit;
 namespace Orbit.Mobile.Tests.Screens;
 
 /// <summary>
-/// That every command the avatar's menu and the bar around it bind to actually exists.
+/// That every command the app's shell binds to actually exists - the bar, the drawer under its three
+/// lines, and the menu behind the avatar.
 ///
 /// This is not pedantry: a binding to a name nothing answers to fails silently in MAUI. The About row
 /// asked for "ToggleAboutAsyncCommand" while the toolkit generates "ToggleAboutCommand" - it strips the
@@ -19,7 +20,8 @@ public sealed class AvatarMenuBindingTests
     [Fact]
     public void Every_command_the_avatar_menu_binds_to_exists_on_the_bar()
     {
-        var commands = Regex.Matches(ReadTheMenu() + ReadTheBar(), @"Binding (\w+Command)\}")
+        var markup = string.Concat(new[] { "NavigationBar.xaml", "AvatarMenu.xaml", "Drawer.xaml" }.Select(Read));
+        var commands = Regex.Matches(markup, @"Binding (\w+Command)\}")
             .Select(match => match.Groups[1].Value)
             .Distinct();
 
@@ -31,15 +33,14 @@ public sealed class AvatarMenuBindingTests
     }
 
     /// <summary>
-    /// The bar itself, which binds to the same view model - the notifications button moved out of the
-    /// menu and into it, and a binding that stops matching is exactly as silent there.
+    /// All three bind to the same shared view model, and a binding that stops matching is exactly as
+    /// silent in any of them. The drawer joined the list when the sections moved into it, taking the
+    /// notification count and the About row with them.
     /// </summary>
-    private static string ReadTheBar() => File.ReadAllText(Path.Combine(MarkupDirectory(), "NavigationBar.xaml"));
-
-    private static string ReadTheMenu() => File.ReadAllText(Path.Combine(MarkupDirectory(), "AvatarMenu.xaml"));
+    private static string Read(string file) => File.ReadAllText(Path.Combine(MarkupDirectory(), file));
 
     /// <summary>
-    /// Where both files live. Found by walking up from the test binary rather than by a path relative to
+    /// Where the three files live. Found by walking up from the test binary rather than by a path relative to
     /// the working directory, which differs between a run from the IDE and one from the command line.
     /// </summary>
     private static string MarkupDirectory()

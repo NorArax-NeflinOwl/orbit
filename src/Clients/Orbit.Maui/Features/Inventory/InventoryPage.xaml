@@ -13,16 +13,10 @@
     <Grid RowDefinitions="Auto,*,Auto">
 
 
-    <Grid Grid.Row="1" RowDefinitions="Auto,Auto,Auto,*,Auto" Padding="16,16,16,28" RowSpacing="10">
+    <Grid Grid.Row="1" RowDefinitions="Auto,Auto,Auto,*,Auto" Padding="20,14,20,0" RowSpacing="10">
 
 
         <!-- The plus left of the name, as Orbit.Web's Inventory header has it. -->
-        <controls:PageHeader Grid.Row="0" Title="{controls:Translate 'Inventory'}">
-            <controls:PageHeader.LeadingAction>
-                <controls:IconButton x:Name="AddButton" Variant="Add" Data="M10,4 V16 M4,10 H16"
-                                     Description="{controls:Translate 'Add inventory'}" />
-            </controls:PageHeader.LeadingAction>
-        </controls:PageHeader>
 
         <Grid x:Name="AddRow" IsVisible="False" Grid.Row="1" ColumnDefinitions="*,Auto" ColumnSpacing="8">
             <Entry x:Name="AddField" Grid.Column="0" Placeholder="{controls:Translate 'New inventory'}"
@@ -50,8 +44,9 @@
 
                 <CollectionView.ItemTemplate>
                     <DataTemplate x:DataType="screens:InventoryRow">
-                        <!-- The same card every list of things is drawn with - see ItemCard. -->
-                        <controls:ItemCard Name="{Binding DisplayName}">
+                        <!-- A row rather than a card, as every list in this design is - see
+                             ItemCard.IsBordered. -->
+                        <controls:ItemCard IsBordered="False" Name="{Binding DisplayName}">
                             <controls:ItemCard.Menu>
                                 <!-- What can be done to the inventory without opening it, in the
                                      corner every card keeps its menu in - see Orbit.Web's own
@@ -140,10 +135,13 @@
         <!-- Across the foot, under everything the page itself draws - see AdBanner, and .ad-banner
              in Orbit.Web's app.css, which is the same bar on a narrow window. -->
         <controls:AdBanner Grid.Row="2" />
+        <controls:Fab x:Name="AddButton" Grid.Row="1" IsAboveAdBar="True"
+                      Description="{controls:Translate 'Add inventory'}" />
         <controls:NavigationBar Grid.Row="0" />
         <controls:MenuOverlay Grid.Row="0" Grid.RowSpan="3"
                               BindingContext="{Binding Menu, Source={x:Reference Page}, x:DataType=inventory:InventoryPage}" />
         <controls:AvatarMenu Grid.Row="0" Grid.RowSpan="3" />
+        <controls:Drawer Grid.Row="0" Grid.RowSpan="3" />
     </Grid>
 
 </ContentPage>

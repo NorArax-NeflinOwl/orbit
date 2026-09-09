@@ -7,14 +7,14 @@
     xmlns:copies="clr-namespace:Orbit.Maui.Features.Copies"
     xmlns:screens="clr-namespace:Orbit.Mobile.Screens.Copies;assembly=Orbit.Mobile"
     x:DataType="screens:CopyHistoryViewModel"
-    Title="{controls:Translate 'History'}">
+    Title="{Binding SubjectTitle}">
 
     <Grid RowDefinitions="Auto,*,Auto">
 
         <Grid Grid.Row="1" RowDefinitions="Auto,*" Padding="16,16,16,28" RowSpacing="12">
 
             <VerticalStackLayout Grid.Row="0" Spacing="10">
-                <controls:PageHeader Title="{Binding SubjectTitle}">
+                <controls:PageHeader>
                     <controls:PageHeader.Subtitle>
                         <controls:Translate Text="Copies of this, and what each came from." />
                     </controls:PageHeader.Subtitle>
@@ -66,5 +66,6 @@
 
         <controls:NavigationBar Grid.Row="0" />
         <controls:AvatarMenu Grid.Row="0" Grid.RowSpan="3" />
+        <controls:Drawer Grid.Row="0" Grid.RowSpan="3" />
     </Grid>
 </ContentPage>

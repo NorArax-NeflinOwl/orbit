@@ -127,11 +127,15 @@
 	</ItemGroup>
 
 	<ItemGroup>
-		<!-- App Icon -->
-		<MauiIcon Include="Resources\AppIcon\appicon.svg" ForegroundFile="Resources\AppIcon\appiconfg.svg" Color="#512BD4" />
+		<!-- App Icon: the tile behind the white mark. Orbit's accent rather than the MAUI template's
+		     indigo, which was a colour the app used nowhere. A launcher tile is the brand, so this is the
+		     one place the accent is still a fill. -->
+		<MauiIcon Include="Resources\AppIcon\appicon.svg" ForegroundFile="Resources\AppIcon\appiconfg.svg" Color="#7260CB" />
 
-		<!-- Splash Screen -->
-		<MauiSplashScreen Include="Resources\Splash\splash.svg" Color="#512BD4" BaseSize="128,128" />
+		<!-- Splash Screen: the page ground, because that is what the first screen is - see splash.svg,
+		     whose mark is drawn in the accent to suit. Both colours are build-time attributes and are not
+		     read from Resources/Styles/Colors.xaml, so they and the palette move together by hand. -->
+		<MauiSplashScreen Include="Resources\Splash\splash.svg" Color="#F3F2F2" BaseSize="128,128" />
 
 		<!-- Images -->
 		<MauiImage Include="Resources\Images\*" />

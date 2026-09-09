@@ -79,6 +79,52 @@ XAML and the platform code, which is the part no unit test would reach anyway.
 
 That split is why `tests/Orbit.Mobile.Tests` exists and `tests/Orbit.Maui.Tests` does not.
 
+### The phone's shell
+
+One bar sits on every signed-in page, and three panels hang off it. All four resolve the same
+`NavigationBarViewModel` from the container - it is registered as a singleton precisely so they cannot
+disagree about which of them is open.
+
+```mermaid
+flowchart LR
+    subgraph maui["Orbit.Maui (Controls)"]
+        bar["NavigationBar<br/><i>[≡ or ‹] · the page's Title · avatar</i>"]
+        drawer["Drawer + DrawerEntry<br/><i>the eight sections, About</i>"]
+        avatar["AvatarMenu<br/><i>status, language, settings, sign out</i>"]
+        overlay["MenuOverlay<br/><i>draws whichever ScreenMenu is open</i>"]
+        fab["Fab<br/><i>makes another of what the screen lists</i>"]
+        tick["CheckCircle<br/><i>ticking an errand or a line off</i>"]
+        title["ITitleMenu<br/><i>a page's own menu, under its name</i>"]
+    end
+    subgraph mobile["Orbit.Mobile (Screens.Navigation)"]
+        vm["NavigationBarViewModel<br/><i>singleton</i>"]
+        history["ScreenHistory<br/><i>where back leads</i>"]
+        sections["Sections<br/><i>which entry is marked</i>"]
+        menu["ScreenMenu + MenuPlacement"]
+    end
+    nav["AppNavigator<br/><i>IScreenNavigator</i>"]
+    back["MainActivity<br/><i>the phone's back gesture</i>"]
+
+    bar --> vm
+    drawer --> vm
+    avatar --> vm
+    bar -. "asks the page it was pasted into" .-> title
+    title --> menu
+    overlay --> menu
+    vm --> history
+    vm --> sections
+    nav --> history
+    back --> history
+```
+
+`AppNavigator` replaces the window's page outright - there is no `NavigationPage` and no `Shell`,
+because Orbit draws its own bar and a second set of platform chrome would have to be fought rather than
+used. What there *is* is a history: every navigation tells `ScreenHistory` how it arrived (a root
+clears, a drawer destination resets to the dashboard and itself, anything else pushes), and both the
+bar's back arrow and Android's gesture pop the same stack. This replaced `UpNavigation`, which answered
+back from a fixed map of parents - right while every editing screen had a rail saying "Back to notes",
+and wrong once that rail was taken away.
+
 ## Test projects
 
 Left out of the diagram above to keep it about the shipped code:

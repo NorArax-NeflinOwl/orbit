@@ -24,9 +24,16 @@
                             TakeCommand="{Binding CopyForEditingCommand}"
                             DeclineCommand="{Binding DeclineCopyCommand}" />
 
-        <Label Grid.Row="2" Text="{Binding Status}" IsVisible="{Binding HasStatus}"
-               FontSize="12" LineBreakMode="WordWrap"
-               TextColor="{DynamicResource Accent}" />
+        <VerticalStackLayout Grid.Row="2" Spacing="4">
+            <Label Text="{Binding Status}" IsVisible="{Binding HasStatus}"
+                   FontSize="12" LineBreakMode="WordWrap"
+                   TextColor="{DynamicResource Accent}" />
+            <!-- Why this note cannot be changed, which is the answer to every press that does nothing.
+                 It was kept in view by the rail; with the rail gone it belongs at the head of the note,
+                 where the reader is before they try. -->
+            <Label Text="{Binding ReadOnlyReason}" IsVisible="{Binding IsReadOnly}"
+                   LineBreakMode="WordWrap" Style="{StaticResource ItemCardFooter}" />
+        </VerticalStackLayout>
 
         <VerticalStackLayout Grid.Row="3" Spacing="8" IsVisible="{Binding CanEdit}">
             <!-- How much this note matters. The phone's own dashboard filters by it and there was no
@@ -78,14 +85,17 @@
                          written once and never corrected. Everything else a line can have done to it is
                          behind one "⋯", the way a chat message's options are. -->
                     <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="4" Padding="0,4">
-                        <Button Grid.Column="0" Text="{Binding CompletionMark}" WidthRequest="36" FontSize="17"
-                                Padding="0" BackgroundColor="Transparent" BorderWidth="0" IsVisible="{Binding IsChecklistItem}"
-                                TextColor="{DynamicResource Accent}"
-                                Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=ViewModel.ToggleCheckedCommand, x:DataType=notes:NoteDetailPage}"
-                                CommandParameter="{Binding .}" />
+                        <controls:CheckCircle Grid.Column="0" Diameter="20" Margin="0,3,6,0"
+                                              VerticalOptions="Start" IsVisible="{Binding IsChecklistItem}"
+                                              IsChecked="{Binding IsChecked}"
+                                              Description="{Binding Text}"
+                                              Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=ViewModel.ToggleCheckedCommand, x:DataType=notes:NoteDetailPage}"
+                                              CommandParameter="{Binding .}" />
 
+                        <!-- A line of the note, not a field on a form - so it is drawn bare, with neither
+                             Orbit's hairline box nor Android's own line under it. See BareField. -->
                         <Entry Grid.Column="1" Text="{Binding Text}" VerticalOptions="Center"
-                               BackgroundColor="Transparent" ReturnType="Done"
+                               controls:BareField.IsBare="True" ReturnType="Done"
                                IsReadOnly="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=ViewModel.IsReadOnly, x:DataType=notes:NoteDetailPage}"
                                ReturnCommand="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=ViewModel.SaveLinesCommand, x:DataType=notes:NoteDetailPage}" />
 
@@ -105,26 +115,16 @@
 
     </Grid>
 
-        <!-- No Save: a note is written down as it is written, line by line, so the bar carries what
-             leaves the screen and what else can be done to the note - deleting it, and where its own
-             copies are found again. -->
-        <controls:EditorRail Grid.Row="2" CancelCommand="{Binding GoBackCommand}">
-            <controls:EditorRail.Extras>
-                <!-- Kept in view however far the note is scrolled, which is what the slot is for: why
-                     this note cannot be changed is the answer to every press that does nothing, and it
-                     used to sit above a screenful of lines. -->
-                <Label Text="{Binding ReadOnlyReason}" IsVisible="{Binding IsReadOnly}"
-                       LineBreakMode="WordWrap" Style="{StaticResource ItemCardFooter}" />
-            </controls:EditorRail.Extras>
-            <controls:EditorRail.Child>
-                <controls:OverflowMenu Command="{Binding ShowNoteMenuCommand, Source={x:Reference Page}, x:DataType=notes:NoteDetailPage}" />
-            </controls:EditorRail.Child>
-        </controls:EditorRail>
+        <!-- No rail along the foot any more: the way out is the back arrow in the bar, and what else
+             can be done to the note - deleting it, where its copies are found - hangs under the note's
+             own name up there. See ITitleMenu. Still no Save: a note is written down as it is written,
+             line by line. -->
 
         <controls:NavigationBar Grid.Row="0" />
         <controls:MenuOverlay Grid.Row="0" Grid.RowSpan="3"
                               BindingContext="{Binding Menu, Source={x:Reference Page}, x:DataType=notes:NoteDetailPage}" />
         <controls:AvatarMenu Grid.Row="0" Grid.RowSpan="3" />
+        <controls:Drawer Grid.Row="0" Grid.RowSpan="3" />
     </Grid>
 
 </ContentPage>

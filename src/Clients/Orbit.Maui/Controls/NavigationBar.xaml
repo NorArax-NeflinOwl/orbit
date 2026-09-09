@@ -9,43 +9,34 @@
 
     <ContentView.Resources>
         <controls:PresenceColorConverter x:Key="PresenceColor" />
-
-        <!-- The same drawings Orbit.Web uses in its sidebar, as path data rather than SVG elements.
-             Each is on a 20x20 canvas, so one size fits all of them. Rectangles and circles are written
-             out as arcs because Path.Data takes path syntax only. -->
-        <x:String x:Key="NotesIcon">M5,2.5 H12 L15,5.5 V17.5 A1,1 0 0 1 14,18.5 H5 A1,1 0 0 1 4,17.5 V3.5 A1,1 0 0 1 5,2.5 Z M12,2.5 V5.5 H15 M6.5,11 H13.5 M6.5,14 H13.5 M6.5,8 H9.5</x:String>
-        <x:String x:Key="TasksIcon">M6,3 H14 A3,3 0 0 1 17,6 V14 A3,3 0 0 1 14,17 H6 A3,3 0 0 1 3,14 V6 A3,3 0 0 1 6,3 Z M6.5,10.2 L8.8,12.5 L13.5,7.8</x:String>
-        <x:String x:Key="CalendarIcon">M5,4 H15 A2.5,2.5 0 0 1 17.5,6.5 V15 A2.5,2.5 0 0 1 15,17.5 H5 A2.5,2.5 0 0 1 2.5,15 V6.5 A2.5,2.5 0 0 1 5,4 Z M2.5,8 H17.5 M6.5,2 V5.5 M13.5,2 V5.5</x:String>
-        <x:String x:Key="InventoryIcon">M3,6.2 L10,2.8 L17,6.2 V13.8 L10,17.2 L3,13.8 Z M3,6.2 L10,9.6 M10,9.6 L17,6.2 M10,9.6 V17.2</x:String>
-        <x:String x:Key="MapIcon">M10,17.5 C10,17.5 15.5,12.5 15.5,8.5 A5.5,5.5 0 1 0 4.5,8.5 C4.5,12.5 10,17.5 10,17.5 Z M8,8.5 A2,2 0 1 1 12,8.5 A2,2 0 1 1 8,8.5 Z</x:String>
-        <x:String x:Key="NotificationsIcon">M10,2.5 C7.5,2.5 6,4.5 6,7 V10 L4.5,12.5 H15.5 L14,10 V7 C14,4.5 12.5,2.5 10,2.5 Z M8.3,15.5 A1.8,1.8 0 0 0 11.7,15.5</x:String>
-        <x:String x:Key="ContactsIcon">M4,6.5 A3,3 0 1 1 10,6.5 A3,3 0 1 1 4,6.5 Z M1.5,17 C1.5,14 4,12 7,12 C10,12 12.5,14 12.5,17 M12.7,7.5 A2.3,2.3 0 1 1 17.3,7.5 A2.3,2.3 0 1 1 12.7,7.5 Z M13.7,12.2 C16.1,12.5 17.8,14.2 17.8,16.8</x:String>
     </ContentView.Resources>
 
-    <!-- The same shape Orbit.Web takes on a narrow window: logo, then the section icons without their
-         labels, then the avatar pushed to the far right. See app.css's 680px breakpoint. -->
+    <!-- Three things wide, and no more: a way out, where you are, who you are.
+             [≡ or ‹]            Notes ▾                              [AK]
+         The six section icons that used to sit between them are in the drawer now, where their names
+         fit beside them - eight targets in a 412px row is a row nobody can hit, and it left the screen
+         with no name on it at all. -->
     <Grid RowDefinitions="Auto,Auto">
 
     <!-- A push that arrived while somebody was looking at the app. Under the bar rather than over it,
          so it pushes the page down for the few seconds it is up instead of covering what somebody is
          reading - see ForegroundNotices for why a banner and not a second tray notification. -->
-    <Border Grid.Row="1" IsVisible="{Binding HasBanner}" Margin="8,0,8,6" Padding="12,8" StrokeThickness="0"
-            BackgroundColor="{AppThemeBinding Light={StaticResource SurfaceLight}, Dark={StaticResource SurfaceDark}}">
+    <Border Grid.Row="1" IsVisible="{Binding HasBanner}" Margin="8,0,8,6" Padding="12,8" StrokeThickness="1"
+            Stroke="{AppThemeBinding Light={StaticResource CardStrokeLight}, Dark={StaticResource CardStrokeDark}}"
+            BackgroundColor="{AppThemeBinding Light={StaticResource PageBackgroundLight}, Dark={StaticResource PageBackgroundDark}}">
         <Border.StrokeShape>
-            <RoundRectangle CornerRadius="10" />
+            <RoundRectangle CornerRadius="4" />
         </Border.StrokeShape>
         <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
             <VerticalStackLayout Grid.Column="0" Spacing="1">
-                <Label Text="{Binding BannerTitle}" FontAttributes="Bold" FontSize="13"
+                <Label Text="{Binding BannerTitle}" FontFamily="OrbitDisplay" FontAttributes="Bold" FontSize="15"
                        LineBreakMode="TailTruncation" />
                 <Label Text="{Binding BannerBody}" FontSize="12" LineBreakMode="TailTruncation"
                        Style="{StaticResource SubtleLabel}" />
             </VerticalStackLayout>
-
             <!-- The banner is the button, as a notification row is: tapping it opens what it names. -->
             <Button Grid.Column="0" BackgroundColor="Transparent" BorderWidth="0" Command="{Binding OpenBannerCommand}"
                     SemanticProperties.Description="{Binding BannerTitle}" />
-
             <Button Grid.Column="1" Text="✕" FontSize="13" Padding="8,0" BackgroundColor="Transparent" BorderWidth="0"
                     TextColor="{AppThemeBinding Light={StaticResource SubtleTextLight}, Dark={StaticResource SubtleTextDark}}"
                     Command="{Binding DismissBannerCommand}"
@@ -53,100 +44,67 @@
         </Grid>
     </Border>
 
-    <Grid Grid.Row="0" ColumnDefinitions="Auto,*,Auto,Auto" Padding="12,10" ColumnSpacing="6"
-          BackgroundColor="{AppThemeBinding Light={StaticResource SurfaceLight}, Dark={StaticResource SurfaceDark}}">
+    <Grid Grid.Row="0" ColumnDefinitions="Auto,*,Auto" Padding="6" ColumnSpacing="4">
+        <!-- A hairline under the bar, and no fill: the bar is on the page rather than above it. -->
+        <BoxView Grid.Column="0" Grid.ColumnSpan="3" Style="{StaticResource Hairline}"
+                 VerticalOptions="End" Margin="-6,0,-6,-6" />
 
-        <!-- The logo is the way back to the dashboard, exactly as it is on the web at this width. -->
+        <!-- One control, two jobs, never both at once. The drawer's three lines where this is a screen
+             in its own right; the back arrow where the reader stepped into something and has somewhere
+             to come back out to - see ScreenHistory, which Android's own gesture pops as well, so the
+             two are one behaviour rather than two answers. -->
         <Grid Grid.Column="0" WidthRequest="44" HeightRequest="44" VerticalOptions="Center">
-            <controls:OrbitMark MarkSize="26" HorizontalOptions="Center" VerticalOptions="Center" InputTransparent="True" />
-            <Button Command="{Binding GoToDashboardCommand}" BackgroundColor="Transparent" BorderWidth="0"
-                    SemanticProperties.Description="{controls:Translate 'Dashboard'}" />
+            <Path Data="M4,6 H20 M4,12 H20 M4,18 H20" Style="{StaticResource NavigationBarIconPath}"
+                  InputTransparent="True" IsVisible="{Binding CanOpenDrawer}" />
+            <Button Command="{Binding ToggleDrawerCommand}" IsVisible="{Binding CanOpenDrawer}"
+                    BackgroundColor="Transparent" BorderWidth="0"
+                    SemanticProperties.Description="{controls:Translate 'Menu'}" />
+
+            <Path Data="M15,18 L9,12 L15,6" Style="{StaticResource NavigationBarIconPath}"
+                  InputTransparent="True" IsVisible="{Binding CanGoBack}" />
+            <Button Command="{Binding GoBackCommand}" IsVisible="{Binding CanGoBack}"
+                    BackgroundColor="Transparent" BorderWidth="0"
+                    SemanticProperties.Description="{controls:Translate 'Back'}" />
         </Grid>
 
-        <ScrollView Grid.Column="1" Orientation="Horizontal" HorizontalScrollBarVisibility="Never"
-                    VerticalOptions="Center">
-            <HorizontalStackLayout Spacing="2">
-                <Grid Style="{StaticResource NavigationBarIcon}">
-                    <Path Data="{StaticResource NotesIcon}" Style="{StaticResource NavigationBarIconPath}" InputTransparent="True" />
-                    <Button Command="{Binding GoToNotesCommand}" BackgroundColor="Transparent" BorderWidth="0"
-                            SemanticProperties.Description="{controls:Translate 'Notes'}" />
-                </Grid>
-                <Grid Style="{StaticResource NavigationBarIcon}">
-                    <Path Data="{StaticResource TasksIcon}" Style="{StaticResource NavigationBarIconPath}" InputTransparent="True" />
-                    <Button Command="{Binding GoToTasksCommand}" BackgroundColor="Transparent" BorderWidth="0"
-                            SemanticProperties.Description="{controls:Translate 'Tasks'}" />
-                </Grid>
-                <Grid Style="{StaticResource NavigationBarIcon}">
-                    <Path Data="{StaticResource CalendarIcon}" Style="{StaticResource NavigationBarIconPath}" InputTransparent="True" />
-                    <Button Command="{Binding GoToCalendarCommand}" BackgroundColor="Transparent" BorderWidth="0"
-                            SemanticProperties.Description="{controls:Translate 'Calendar'}" />
-                </Grid>
-                <Grid Style="{StaticResource NavigationBarIcon}">
-                    <Path Data="{StaticResource InventoryIcon}" Style="{StaticResource NavigationBarIconPath}" InputTransparent="True" />
-                    <Button Command="{Binding GoToInventoryCommand}" BackgroundColor="Transparent" BorderWidth="0"
-                            SemanticProperties.Description="{controls:Translate 'Inventory'}" />
-                </Grid>
-                <!-- Hidden rather than shown-and-refused, as the web's sidebar does it: a link that
-                     only ever leads to "not unlocked" is not a link. -->
-                <Grid Style="{StaticResource NavigationBarIcon}" IsVisible="{Binding CanUseLocation}">
-                    <Path Data="{StaticResource MapIcon}" Style="{StaticResource NavigationBarIconPath}" InputTransparent="True" />
-                    <Button Command="{Binding GoToMapCommand}" BackgroundColor="Transparent" BorderWidth="0"
-                            SemanticProperties.Description="{controls:Translate 'Map'}" />
-                </Grid>
-                <Grid Style="{StaticResource NavigationBarIcon}" IsVisible="{Binding CanUseConversations}">
-                    <Path Data="{StaticResource ContactsIcon}" Style="{StaticResource NavigationBarIconPath}" InputTransparent="True" />
-                    <Button Command="{Binding GoToContactsCommand}" BackgroundColor="Transparent" BorderWidth="0"
-                            SemanticProperties.Description="{controls:Translate 'Contacts'}" />
-                </Grid>
+        <!-- The screen's name, and its own menu hanging off it where it has one. The text is bound in
+             the code-behind to the page's Title, so a screen named after what it is showing - a
+             conversation, a chosen day - says that rather than a fixed word. -->
+        <Grid Grid.Column="1" HorizontalOptions="Center" VerticalOptions="Center">
+            <HorizontalStackLayout Spacing="6" InputTransparent="True" VerticalOptions="Center">
+                <Label x:Name="TitleLabel" FontFamily="OrbitDisplay" FontSize="22" FontAttributes="Bold"
+                       LineBreakMode="TailTruncation" VerticalOptions="Center" />
+                <Path x:Name="TitleChevron" Data="M6,9 L12,15 L18,9" IsVisible="False"
+                      Style="{StaticResource IconPathAccent}" WidthRequest="14" HeightRequest="14"
+                      VerticalOptions="Center" />
             </HorizontalStackLayout>
-        </ScrollView>
-
-        <!-- Its own button beside the avatar rather than a badge on it, which is where Orbit.Web moved
-             it: a count on a face says "you", not "unread", and reaching it meant opening a menu first -
-             two steps for the one thing people check most. -->
-        <Grid Grid.Column="2" WidthRequest="44" HeightRequest="44" VerticalOptions="Center">
-            <Path Data="{StaticResource NotificationsIcon}" Style="{StaticResource NavigationBarIconPath}"
-                  InputTransparent="True" HorizontalOptions="Center" VerticalOptions="Center" />
-
-            <Border IsVisible="{Binding HasUnread}" StrokeThickness="0"
-                    BackgroundColor="{AppThemeBinding Light={StaticResource DangerLight}, Dark={StaticResource DangerDark}}"
-                    HeightRequest="18" MinimumWidthRequest="18" Padding="4,0"
-                    HorizontalOptions="End" VerticalOptions="Start">
-                <Border.StrokeShape>
-                    <RoundRectangle CornerRadius="9" />
-                </Border.StrokeShape>
-                <Label Text="{Binding UnreadLabel}" TextColor="{AppThemeBinding Light={StaticResource White}, Dark={StaticResource PrimaryDarkText}}"
-                       FontSize="10" FontAttributes="Bold" HorizontalOptions="Center" VerticalOptions="Center" />
-            </Border>
-
-            <Button Command="{Binding GoToNotificationsCommand}" BackgroundColor="Transparent" BorderWidth="0"
-                    SemanticProperties.Description="{controls:Translate 'Notifications'}" />
+            <Button x:Name="TitlePress" IsVisible="False" BackgroundColor="Transparent" BorderWidth="0"
+                    MinimumHeightRequest="44" />
         </Grid>
 
-        <!-- Initials rather than a picture: Orbit has no avatars to show, and the web does the same. -->
-        <Grid Grid.Column="3" WidthRequest="44" HeightRequest="44" VerticalOptions="Center">
-
-            <Border StrokeThickness="0" BackgroundColor="{DynamicResource Accent}"
-                    HeightRequest="34" WidthRequest="34" HorizontalOptions="Center" VerticalOptions="Center">
+        <!-- Initials rather than a picture: Orbit has no avatars to show. Outlined in the accent, like
+             everything else the design colours. -->
+        <Grid Grid.Column="2" WidthRequest="44" HeightRequest="44" VerticalOptions="Center">
+            <Border StrokeThickness="1" Stroke="{DynamicResource Accent}" BackgroundColor="Transparent"
+                    HeightRequest="32" WidthRequest="32" HorizontalOptions="Center" VerticalOptions="Center">
                 <Border.StrokeShape>
-                    <RoundRectangle CornerRadius="17" />
+                    <RoundRectangle CornerRadius="16" />
                 </Border.StrokeShape>
-                <Label Text="{Binding Initials}" TextColor="{AppThemeBinding Light={StaticResource White}, Dark={StaticResource PrimaryDarkText}}" FontSize="13" FontAttributes="Bold"
+                <Label Text="{Binding Initials}" TextColor="{DynamicResource Accent}" FontFamily="OrbitDisplay"
+                       FontSize="13" FontAttributes="Bold"
                        HorizontalOptions="Center" VerticalOptions="Center" />
             </Border>
-
             <Border HeightRequest="13" WidthRequest="13" StrokeThickness="2"
-                    Stroke="{AppThemeBinding Light={StaticResource SurfaceLight}, Dark={StaticResource SurfaceDark}}"
+                    Stroke="{AppThemeBinding Light={StaticResource PageBackgroundLight}, Dark={StaticResource PageBackgroundDark}}"
                     BackgroundColor="{Binding Appearance, Converter={StaticResource PresenceColor}}"
                     HorizontalOptions="End" VerticalOptions="Start">
                 <Border.StrokeShape>
                     <RoundRectangle CornerRadius="7" />
                 </Border.StrokeShape>
             </Border>
-
-            <!-- Over the initials, the badge and the presence dot rather than around them: a Grid with a
-                 gesture on it is focusable to a screen reader but not clickable, so the double tap that
-                 activates a control does nothing to it. A Button is both. -->
+            <!-- Over the initials and the presence dot rather than around them: a Grid with a gesture on
+                 it is focusable to a screen reader but not clickable, so the double tap that activates a
+                 control does nothing to it. A Button is both. -->
             <Button Command="{Binding ToggleMenuCommand}" BackgroundColor="Transparent" BorderWidth="0"
                     SemanticProperties.Description="{controls:Translate 'Account menu'}" />
         </Grid>

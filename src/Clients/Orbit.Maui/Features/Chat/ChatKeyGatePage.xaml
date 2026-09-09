@@ -86,6 +86,7 @@
     </ScrollView>
         <controls:NavigationBar Grid.Row="0" />
         <controls:AvatarMenu Grid.Row="0" Grid.RowSpan="3" />
+        <controls:Drawer Grid.Row="0" Grid.RowSpan="3" />
     </Grid>
 
 </ContentPage>

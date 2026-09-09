@@ -84,7 +84,12 @@ public partial class AvatarCircle : ContentView
 		// The hue the browser picks for this person, in the colour space this client draws in. Not the
 		// same numbers as its oklch, but the same person is the same colour on the same screen, which
 		// is what the colour is for.
-		avatar.Circle.BackgroundColor = Color.FromHsla(who.Hue / 360.0, 0.5, 0.55);
+		// One colour for the ring and the letters, since neither is drawn on the other now. A shade
+		// deeper than the old fill: it was chosen to be dark enough to carry white initials, and as a
+		// line and a word on the page it has to carry itself.
+		var hue = Color.FromHsla(who.Hue / 360.0, 0.55, 0.45);
+		avatar.Circle.Stroke = hue;
+		avatar.InitialsLabel.TextColor = hue;
 	}
 
 	private static void OnSizeChanged(BindableObject bindable, object oldValue, object newValue)

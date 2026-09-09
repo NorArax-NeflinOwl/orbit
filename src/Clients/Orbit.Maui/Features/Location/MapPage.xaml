@@ -10,7 +10,7 @@
     xmlns:screens="clr-namespace:Orbit.Mobile.Screens.Location;assembly=Orbit.Mobile"
     xmlns:maps="clr-namespace:Microsoft.Maui.Controls.Maps;assembly=Microsoft.Maui.Controls.Maps"
     x:DataType="screens:MapViewModel"
-    Title="{controls:Translate 'Location'}">
+    Title="{controls:Translate 'Map'}">
 
     <Grid RowDefinitions="Auto,*,Auto">
 
@@ -24,7 +24,7 @@
     <ScrollView Grid.Row="1" IsVisible="{Binding IsUnlocked}">
         <VerticalStackLayout Padding="16,16,16,28" Spacing="12">
 
-            <controls:PageHeader Title="{controls:Translate 'Map'}">
+            <controls:PageHeader>
                 <controls:PageHeader.Subtitle>
                     <controls:Translate Text="The one location you've recorded for yourself, and where it is." />
                 </controls:PageHeader.Subtitle>
@@ -184,6 +184,7 @@
         <controls:AdBanner Grid.Row="2" />
         <controls:NavigationBar Grid.Row="0" />
         <controls:AvatarMenu Grid.Row="0" Grid.RowSpan="3" />
+        <controls:Drawer Grid.Row="0" Grid.RowSpan="3" />
     </Grid>
 
 </ContentPage>

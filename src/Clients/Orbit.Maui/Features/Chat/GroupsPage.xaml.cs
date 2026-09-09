@@ -59,7 +59,7 @@ public partial class GroupsPage : ContentPage
 		// anybody but the reader, and leaving is seen by the whole group.
 		entries.Add(new ScreenMenuEntry(_translations["Leave group"], () => _ = LeaveAsync(group)));
 
-		Menu.Show(entries, group.Name, opensUpwards: true);
+		Menu.Show(entries, group.Name, placement: MenuPlacement.FromTheFoot);
 	}
 
 	/// <summary>Asked before it happens, because the whole group sees the answer.</summary>

@@ -551,6 +551,14 @@ rather than redefining anything the server already declares.
 
 - **UI:** MAUI with XAML, MVVM, and `CommunityToolkit.Mvvm` for the boilerplate. Handlers rather than
   custom renderers where platform behaviour has to differ.
+- **Navigation: the window's page is replaced outright, and a history is kept beside it.** No `Shell`
+  and no `NavigationPage` — Orbit draws its own bar over every screen, and a second set of platform
+  chrome would have to be fought rather than used. `AppNavigator` swaps `Window.Page` and tells
+  `ScreenHistory` how the screen arrived: a *root* (signing in, registering) clears everything behind
+  it, a *drawer destination* resets to the dashboard and itself so hopping sections cannot pile up, and
+  anything else pushes. The bar's back arrow and Android's own gesture pop that one stack, so they
+  cannot give two answers. This replaced `UpNavigation`'s fixed map of parents, which was the right
+  model only while every editing screen carried a rail with "Back to notes" written on it.
 - **Networking:** the typed clients (§4.4) behind a `DelegatingHandler` that attaches the access token
   and refreshes on 401 — the same shape as `Orbit.Web`'s `AuthorizationMessageHandler`, and reusable
   if the clients move to a shared project. **Refresh must be single-flight** — the server rotates
@@ -838,13 +846,15 @@ developer account and signing key of §12, and no longer the hardware.
 
 ## 14. Where the phone is meant to differ from the web
 
-Most of the time the web client is the answer and the phone follows it — see
-[Orbit.Web is the model](../.claude/CLAUDE.md) in spirit, and the parity notes above. These are the places
-where following it would be the wrong call.
+On **behaviour**, the web client is usually the answer and the phone follows it — see
+[Orbit.Web is the model](../.claude/CLAUDE.md) in spirit, and the parity notes above. This section is
+the places where following it would be the wrong call.
 
-For the *look* rather than the behaviour, that following is written down separately:
-[`android-ui-parity.md`](android-ui-parity.md) says which of app.css's tokens and shared components the
-Android head carries, where each one lives, and the three places the platform will not allow a copy.
+On **looks**, that stopped being true on 2026-09-08: the phone was given a design of its own and no
+longer copies `app.css` at all. What the two clients still share — the colour roles, the copy, the
+behaviour — and what the phone now decides for itself is written down in
+[`android-ui-parity.md`](android-ui-parity.md), along with the places the platform will not allow what
+the design draws.
 
 ### 14.1 The calendar shrinks as you scroll
 

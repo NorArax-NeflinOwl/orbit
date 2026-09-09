@@ -1,11 +1,12 @@
 using System.Windows.Input;
 using Orbit.Mobile.Localization;
+using Orbit.Maui.Controls;
 using Orbit.Mobile.Screens;
 using Orbit.Mobile.Screens.Calendar;
 
 namespace Orbit.Maui.Features.Calendar;
 
-public partial class CalendarEventDetailPage : ContentPage
+public partial class CalendarEventDetailPage : ContentPage, ITitleMenu
 {
 	private readonly CalendarEventDetailViewModel _viewModel;
 	private readonly Translations _translations;
@@ -19,7 +20,7 @@ public partial class CalendarEventDetailPage : ContentPage
 		// which is not built until a row exists.)
 		_viewModel = viewModel;
 		_translations = translations;
-		ShowEventMenuCommand = new Command(ShowEventMenu);
+		ShowTitleMenuCommand = new Command(ShowEventMenu);
 		ChooseReminderCommand = new Command(() => _ = ChooseReminderAsync());
 		ChooseReminderChannelCommand = new Command(() => _ = ChooseChannelAsync(
 			_translations["Notification as the event approaches"],
@@ -33,7 +34,7 @@ public partial class CalendarEventDetailPage : ContentPage
 	public CalendarEventDetailViewModel ViewModel => _viewModel;
 
 	/// <summary>What the rail's three dots open.</summary>
-	public ICommand ShowEventMenuCommand { get; }
+	public ICommand ShowTitleMenuCommand { get; }
 
 	/// <summary>The panel they draw - one per screen, above everything else on it.</summary>
 	public ScreenMenu Menu { get; } = new();
@@ -61,7 +62,7 @@ public partial class CalendarEventDetailPage : ContentPage
 			entries.Add(new ScreenMenuEntry(_translations["History"], () => _viewModel.GoToHistoryCommand.Execute(null)));
 		}
 
-		Menu.Show(entries, opensUpwards: true);
+		Menu.Show(entries);
 	}
 
 	/// <summary>

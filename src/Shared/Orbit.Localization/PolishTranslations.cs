@@ -17,6 +17,8 @@ public static class PolishTranslations
     {
         // ---- Navigation and the app shell ----
         ["Nothing here matches the filter. Change it above to see the rest."] = "Nic tutaj nie pasuje do filtra. Zmień go powyżej, aby zobaczyć resztę.",
+        // What the three lines in the top bar open - see Drawer.
+        ["Menu"] = "Menu",
         ["Dashboard"] = "Pulpit",
         ["Notes"] = "Notatki",
         ["Tasks"] = "Zadania",

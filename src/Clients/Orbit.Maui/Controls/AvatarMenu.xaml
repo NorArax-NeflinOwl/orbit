@@ -29,9 +29,9 @@
 
         <Border Style="{StaticResource CardBorder}" Margin="0,58,12,0" Padding="0"
                 WidthRequest="250" HorizontalOptions="End" VerticalOptions="Start"
-                BackgroundColor="{AppThemeBinding Light={StaticResource SurfaceLight}, Dark={StaticResource SurfaceDark}}">
+                BackgroundColor="{AppThemeBinding Light={StaticResource PageBackgroundLight}, Dark={StaticResource PageBackgroundDark}}">
             <Border.StrokeShape>
-                <RoundRectangle CornerRadius="12" />
+                <RoundRectangle CornerRadius="4" />
             </Border.StrokeShape>
 
             <VerticalStackLayout Padding="14" Spacing="10">
@@ -152,41 +152,6 @@
                     <Button BackgroundColor="Transparent" BorderWidth="0" Command="{Binding GoToAccountCommand}"
                             SemanticProperties.Description="{controls:Translate 'Settings'}" />
                 </Grid>
-
-                <!-- What Orbit.Web says in its footer, said here instead: a phone has no footer, and
-                     this is the menu everything about the account already hangs off. Folded by
-                     default, like Status and Language above. -->
-                <Grid>
-                    <Label Text="{controls:Translate 'About'}" />
-                    <Button BackgroundColor="Transparent" BorderWidth="0" Command="{Binding ToggleAboutCommand}"
-                            SemanticProperties.Description="{controls:Translate 'About'}" />
-                </Grid>
-
-                <VerticalStackLayout Spacing="2" IsVisible="{Binding IsAboutExpanded}">
-                    <Label Text="{Binding AboutCopyright}" FontSize="12" Style="{StaticResource SubtleLabel}" />
-                    <!-- Tapped, it grows the rest of the commit hash - the same thing the web footer
-                         does, and for the same reason: the short form is what anybody reads, the whole
-                         one is what a checkout takes. -->
-                    <Label Text="{Binding AboutVersion}" FontSize="12" LineBreakMode="CharacterWrap"
-                           Style="{StaticResource SubtleLabel}">
-                        <Label.GestureRecognizers>
-                            <TapGestureRecognizer Command="{Binding ShowTheWholeCommitCommand}" />
-                        </Label.GestureRecognizers>
-                    </Label>
-                    <!-- Tapped rather than shown as a URL: the licence is a document to read, and the
-                         address of it is not the information anybody came for. -->
-                    <!-- The server's own build, beside the app's. The two drift by design here: the
-                         phone is updated whenever its owner chooses. Hidden while the server has not
-                         answered - an offline About row should say nothing about it rather than guess. -->
-                    <Label Text="{Binding AboutServerVersion}" IsVisible="{Binding HasServerVersion}"
-                           FontSize="12" LineBreakMode="CharacterWrap" Style="{StaticResource SubtleLabel}" />
-                    <Label x:Name="LicenseLink" Text="{Binding LicenseName}" FontSize="12"
-                           TextDecorations="Underline" Style="{StaticResource SubtleLabel}">
-                        <Label.GestureRecognizers>
-                            <TapGestureRecognizer Tapped="OnLicenseTapped" />
-                        </Label.GestureRecognizers>
-                    </Label>
-                </VerticalStackLayout>
 
                 <Grid>
                     <Label Text="{controls:Translate 'Sign out'}"

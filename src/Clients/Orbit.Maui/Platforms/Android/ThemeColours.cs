@@ -18,6 +18,14 @@ internal static class ThemeColours
 	/// <summary>The lifted surface a card, a field and a menu panel all sit on.</summary>
 	public static Color Surface => Look(IsDark ? "SurfaceDark" : "SurfaceLight");
 
+	/// <summary>
+	/// What the whole page sits on, which is also what the status bar takes: Orbit's own bar sits
+	/// directly beneath it on the same ground, and a band of a different colour above it reads as a
+	/// second bar. Asked for here rather than written into MainActivity, which is how three copies of
+	/// this colour came to disagree with Colors.xaml in the first place.
+	/// </summary>
+	public static Color PageBackground => Look(IsDark ? "PageBackgroundDark" : "PageBackgroundLight");
+
 	/// <summary>The line under a title - what a control's own words are written in.</summary>
 	public static Color SubtleText => Look(IsDark ? "SubtleTextDark" : "SubtleTextLight");
 

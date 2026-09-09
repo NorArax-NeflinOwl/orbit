@@ -78,29 +78,28 @@
                                            MaxLines="2" Style="{StaticResource SubtleLabel}" />
                                 </Border>
 
-                                <Border Padding="13,9" StrokeThickness="0" HorizontalOptions="Start"
-                                        BackgroundColor="{AppThemeBinding Light={StaticResource SurfaceSubtleLight}, Dark={StaticResource SurfaceSubtleDark}}">
+                                <!-- Outlined, not filled - see ConversationPage for the same bubble
+                                     and why the accent is an edge here rather than a block. -->
+                                <Border Padding="13,9" StrokeThickness="1" HorizontalOptions="Start"
+                                        BackgroundColor="Transparent"
+                                        Stroke="{AppThemeBinding Light={StaticResource CardStrokeLight}, Dark={StaticResource CardStrokeDark}}">
                                     <Border.StrokeShape>
-                                        <RoundRectangle CornerRadius="14,14,4,14" />
+                                        <RoundRectangle CornerRadius="10,10,2,10" />
                                     </Border.StrokeShape>
                                     <Border.Triggers>
                                         <DataTrigger TargetType="Border" Binding="{Binding IsMine}" Value="True">
                                             <Setter Property="HorizontalOptions" Value="End" />
-                                            <Setter Property="BackgroundColor" Value="{DynamicResource Accent}" />
+                                            <Setter Property="Stroke" Value="{DynamicResource Accent}" />
+                                            <Setter Property="BackgroundColor" Value="{DynamicResource AccentSubtle}" />
                                             <Setter Property="StrokeShape">
-                                                <RoundRectangle CornerRadius="14,14,14,4" />
+                                                <RoundRectangle CornerRadius="10,10,10,2" />
                                             </Setter>
                                         </DataTrigger>
                                     </Border.Triggers>
 
                                     <VerticalStackLayout Spacing="4">
-                                        <Label Text="{Binding Text}" FontSize="13.5" LineBreakMode="WordWrap">
-                                            <Label.Triggers>
-                                                <DataTrigger TargetType="Label" Binding="{Binding IsMine}" Value="True">
-                                                    <Setter Property="TextColor" Value="{DynamicResource AccentOn}" />
-                                                </DataTrigger>
-                                            </Label.Triggers>
-                                        </Label>
+                                        <!-- One ink for both sides - see ConversationPage. -->
+                                        <Label Text="{Binding Text}" FontSize="14" LineBreakMode="WordWrap" />
 
                                         <Label IsVisible="{Binding CannotBeOpened}" FontSize="12"
                                                Style="{StaticResource SubtleLabel}">
@@ -173,6 +172,7 @@
         <controls:MenuOverlay Grid.Row="0" Grid.RowSpan="3"
                               BindingContext="{Binding Menu, Source={x:Reference Page}, x:DataType=chat:GroupConversationPage}" />
         <controls:AvatarMenu Grid.Row="0" Grid.RowSpan="3" />
+        <controls:Drawer Grid.Row="0" Grid.RowSpan="3" />
     </Grid>
 
 </ContentPage>

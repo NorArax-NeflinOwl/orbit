@@ -1,0 +1,152 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<ContentView
+    x:Class="Orbit.Maui.Controls.Drawer"
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    xmlns:controls="clr-namespace:Orbit.Maui.Controls"
+    xmlns:screens="clr-namespace:Orbit.Mobile.Screens.Navigation;assembly=Orbit.Mobile"
+    x:DataType="screens:NavigationBarViewModel"
+    IsVisible="{Binding IsDrawerOpen}">
+
+    <ContentView.Resources>
+        <!-- The section drawings, on a 24x24 canvas. Path data rather than SVG elements, so they take
+             the accent and the theme with them; Path.Data understands path syntax only, which is why
+             the rectangles and circles below are written as lines and arcs. -->
+        <x:String x:Key="DashboardIcon">M4,4 H10 V13 H4 Z M14,4 H20 V9 H14 Z M14,13 H20 V20 H14 Z M4,17 H10 V20 H4 Z</x:String>
+        <x:String x:Key="NotesIcon">M6,3 H14 L20,9 V19 A2,2 0 0 1 18,21 H6 A2,2 0 0 1 4,19 V5 A2,2 0 0 1 6,3 Z M14,3 V9 H20 M8,13 H16 M8,17 H16 M8,9 H10</x:String>
+        <x:String x:Key="TasksIcon">M6,3 H18 A3,3 0 0 1 21,6 V18 A3,3 0 0 1 18,21 H6 A3,3 0 0 1 3,18 V6 A3,3 0 0 1 6,3 Z M8,12 L11,15 L16,9</x:String>
+        <x:String x:Key="CalendarIcon">M5,4 H19 A2,2 0 0 1 21,6 V20 A2,2 0 0 1 19,22 H5 A2,2 0 0 1 3,20 V6 A2,2 0 0 1 5,4 Z M3,10 H21 M8,2 V6 M16,2 V6</x:String>
+        <x:String x:Key="InventoryIcon">M3,8 L12,3 L21,8 V16 L12,21 L3,16 Z M3,8 L12,13 M12,13 L21,8 M12,13 V21</x:String>
+        <x:String x:Key="MapIcon">M20,10 C20,16 12,22 12,22 C12,22 4,16 4,10 A8,8 0 0 1 20,10 Z M9,10 A3,3 0 1 1 15,10 A3,3 0 1 1 9,10 Z</x:String>
+        <x:String x:Key="ContactsIcon">M16,21 V19 A4,4 0 0 0 12,15 H6 A4,4 0 0 0 2,19 V21 M5,7 A4,4 0 1 1 13,7 A4,4 0 1 1 5,7 Z M22,21 V19 A4,4 0 0 0 19,15.1 M16,3.1 A4,4 0 0 1 16,10.9</x:String>
+        <x:String x:Key="NotificationsIcon">M6,8 A6,6 0 0 1 18,8 C18,15 21,17 21,17 H3 C3,17 6,15 6,8 Z M10.3,21 A1.9,1.9 0 0 0 13.7,21</x:String>
+    </ContentView.Resources>
+
+    <!-- Every section, with its name back beside it. These were six unlabelled icons in the top bar
+         until the redesign - which fitted, but only just, and only by leaving the screen's own name off
+         the bar entirely. A drawer costs one press and buys the labels, the notification count and room
+         to grow.
+
+         Drawn by every page, like the avatar's menu and for the same reason: it has to cover the page,
+         and a panel inside the page's own layout is clipped by whatever row it sits in. Invisible when
+         closed, which keeps it out of the layout rather than squeezing the page beside it. -->
+    <Grid>
+
+        <!-- Pressing the page closes it, which is what a drawer does everywhere. -->
+        <BoxView Color="Black" Opacity="0.35">
+            <BoxView.GestureRecognizers>
+                <TapGestureRecognizer Command="{Binding CloseDrawerCommand}" />
+            </BoxView.GestureRecognizers>
+        </BoxView>
+
+        <Border WidthRequest="280" HorizontalOptions="Start" Padding="0" StrokeThickness="0"
+                BackgroundColor="{AppThemeBinding Light={StaticResource PageBackgroundLight}, Dark={StaticResource PageBackgroundDark}}">
+            <Border.StrokeShape>
+                <Rectangle />
+            </Border.StrokeShape>
+
+            <Grid RowDefinitions="Auto,*,Auto" Padding="0,22,0,16">
+
+                <!-- Who this is and whether the phone is in step, which used to be the first two lines of
+                     the avatar's menu. The mark is the way to the dashboard, as the logo in the old bar
+                     was. -->
+                <Grid Grid.Row="0" ColumnDefinitions="Auto,*,Auto" ColumnSpacing="10" Padding="20,0,20,18">
+                    <BoxView Grid.Column="0" Grid.ColumnSpan="3" Style="{StaticResource Hairline}"
+                             VerticalOptions="End" Margin="0,0,0,-1" />
+                    <controls:OrbitMark Grid.Column="0" MarkSize="26" VerticalOptions="Center"
+                                        InputTransparent="True" />
+                    <Label Grid.Column="1" Text="Orbit" FontFamily="OrbitDisplay" FontSize="22"
+                           FontAttributes="Bold" VerticalOptions="Center" />
+                    <Label Grid.Column="2" Text="{Binding SyncLabel}" Style="{StaticResource RowMeta}"
+                           FontSize="10" VerticalOptions="Center" LineBreakMode="TailTruncation" />
+                    <Button Grid.Column="0" Grid.ColumnSpan="2" BackgroundColor="Transparent" BorderWidth="0"
+                            Command="{Binding GoToDashboardCommand}"
+                            SemanticProperties.Description="{controls:Translate 'Dashboard'}" />
+                </Grid>
+
+                <VerticalStackLayout Grid.Row="1" Padding="12,10" Spacing="0">
+                    <controls:DrawerEntry Icon="{StaticResource DashboardIcon}"
+                                          Text="{controls:Translate 'Dashboard'}"
+                                          IsChosen="{Binding IsOnDashboard}"
+                                          Command="{Binding GoToDashboardCommand}" />
+                    <controls:DrawerEntry Icon="{StaticResource NotesIcon}"
+                                          Text="{controls:Translate 'Notes'}"
+                                          IsChosen="{Binding IsOnNotes}"
+                                          Command="{Binding GoToNotesCommand}" />
+                    <controls:DrawerEntry Icon="{StaticResource TasksIcon}"
+                                          Text="{controls:Translate 'Tasks'}"
+                                          IsChosen="{Binding IsOnTasks}"
+                                          Command="{Binding GoToTasksCommand}" />
+                    <controls:DrawerEntry Icon="{StaticResource CalendarIcon}"
+                                          Text="{controls:Translate 'Calendar'}"
+                                          IsChosen="{Binding IsOnCalendar}"
+                                          Command="{Binding GoToCalendarCommand}" />
+                    <controls:DrawerEntry Icon="{StaticResource InventoryIcon}"
+                                          Text="{controls:Translate 'Inventory'}"
+                                          IsChosen="{Binding IsOnInventory}"
+                                          Command="{Binding GoToInventoryCommand}" />
+                    <!-- Hidden rather than shown-and-refused, as the old bar had it: a way in that only
+                         ever leads to "not unlocked" is not a way in. -->
+                    <controls:DrawerEntry Icon="{StaticResource MapIcon}"
+                                          Text="{controls:Translate 'Map'}"
+                                          IsVisible="{Binding CanUseLocation}"
+                                          IsChosen="{Binding IsOnMap}"
+                                          Command="{Binding GoToMapCommand}" />
+                    <controls:DrawerEntry Icon="{StaticResource ContactsIcon}"
+                                          Text="{controls:Translate 'Contacts'}"
+                                          IsVisible="{Binding CanUseConversations}"
+                                          IsChosen="{Binding IsOnContacts}"
+                                          Command="{Binding GoToContactsCommand}" />
+                    <!-- At the foot of the list with its count beside it, where the design puts it. It
+                         had a button of its own in the old bar; a drawer entry carrying the number says
+                         the same thing and gives back the space. -->
+                    <controls:DrawerEntry Icon="{StaticResource NotificationsIcon}"
+                                          Text="{controls:Translate 'Notifications'}"
+                                          IsChosen="{Binding IsOnNotifications}"
+                                          Badge="{Binding UnreadLabel}"
+                                          Command="{Binding GoToNotificationsCommand}" />
+                </VerticalStackLayout>
+
+                <!-- What Orbit.Web says in its footer, said in the drawer's footer: the two are the
+                     same place on the page. It used to be a row in the avatar's menu, which is where a
+                     phone's version number ended up for want of anywhere better - the menu behind the
+                     avatar is about the account, and which build this is has nothing to do with who is
+                     signed in. Settings is still there, where the account's own things are.
+
+                     Folded by default: most visits to the drawer are on the way to a section. -->
+                <VerticalStackLayout Grid.Row="2" Padding="22,14,22,0" Spacing="6">
+                    <BoxView Style="{StaticResource Hairline}" Margin="0,0,0,8" />
+                    <Button Text="{controls:Translate 'About'}" Style="{StaticResource LinkButton}"
+                            FontSize="13" Padding="0" HorizontalOptions="Start" MinimumHeightRequest="0"
+                            Command="{Binding ToggleAboutCommand}" />
+
+                    <VerticalStackLayout Spacing="2" IsVisible="{Binding IsAboutExpanded}">
+                        <Label Text="{Binding AboutCopyright}" FontSize="12" Style="{StaticResource SubtleLabel}" />
+                        <!-- Tapped, it grows the rest of the commit hash - the same thing the web footer
+                             does, and for the same reason: the short form is what anybody reads, the
+                             whole one is what a checkout takes. -->
+                        <Label Text="{Binding AboutVersion}" FontSize="12" LineBreakMode="CharacterWrap"
+                               Style="{StaticResource SubtleLabel}">
+                            <Label.GestureRecognizers>
+                                <TapGestureRecognizer Command="{Binding ShowTheWholeCommitCommand}" />
+                            </Label.GestureRecognizers>
+                        </Label>
+                        <!-- The server's own build, beside the app's. The two drift by design here: the
+                             phone is updated whenever its owner chooses. Hidden while the server has not
+                             answered - an offline About row should say nothing rather than guess. -->
+                        <Label Text="{Binding AboutServerVersion}" IsVisible="{Binding HasServerVersion}"
+                               FontSize="12" LineBreakMode="CharacterWrap" Style="{StaticResource SubtleLabel}" />
+                        <!-- Tapped rather than shown as a URL: the licence is a document to read, and
+                             the address of it is not the information anybody came for. -->
+                        <Label x:Name="LicenseLink" Text="{Binding LicenseName}" FontSize="12"
+                               TextDecorations="Underline" Style="{StaticResource SubtleLabel}">
+                            <Label.GestureRecognizers>
+                                <TapGestureRecognizer Tapped="OnLicenseTapped" />
+                            </Label.GestureRecognizers>
+                        </Label>
+                    </VerticalStackLayout>
+                </VerticalStackLayout>
+            </Grid>
+        </Border>
+    </Grid>
+</ContentView>

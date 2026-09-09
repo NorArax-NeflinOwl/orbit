@@ -1,14 +1,15 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <color name="colorPrimary">#512BD4</color>
+    <color name="colorPrimary">#7260CB</color>
     <!-- What Android paints the status bar with, through MAUI's theme. Not a darker shade of the
-         primary, despite the Material name: the bar sits directly above Orbit's navigation bar, and the
-         web puts the same surface colour there (app.css gives the sidebar its elevated background, and
-         below 680px that sidebar becomes the top bar). Left as the template's indigo it read as a band
-         of a colour nothing else on the screen uses. Matches SurfaceLight in
+         primary, despite the Material name: the bar sits directly above Orbit's own top bar, which the
+         redesign draws on the page's ground rather than on a lifted surface - so a band of anything
+         else above it reads as a second bar. Matches PageBackgroundLight in
          Resources/Styles/Colors.xaml; see values-night for the other half. Only visible up to API 34 -
-         from 35 Android draws the app behind the bar instead. -->
-    <color name="colorPrimaryDark">#FFFFFF</color>
+         from 35 Android draws the app behind the bar instead, and MainActivity paints it below that by
+         asking Colors.xaml directly. This file is the one copy that cannot ask: a theme colour is
+         resolved when the activity inflates, before there is an Application to read. -->
+    <color name="colorPrimaryDark">#F3F2F2</color>
     <!-- What Android tints its own controls with: the line under a focused text field, a checkbox tick,
          a text selection handle. Orbit's default accent, not the MAUI template's indigo, which was a
          colour the app used nowhere on the one mark that says "you are typing here".
@@ -24,7 +25,9 @@
          system's night mode. These are Orbit's own surface and text colours, so it matches the app for
          the reader whose phone and app agree - see values-night for the other half, and
          OrbitTodayWidget for what is drawn with them. -->
-    <color name="orbitWidgetBackground">#FFFFFF</color>
-    <color name="orbitWidgetText">#1C1C1E</color>
-    <color name="orbitWidgetSubtleText">#6C6C70</color>
+    <color name="orbitWidgetBackground">#F3F2F2</color>
+    <color name="orbitWidgetText">#201F1D</color>
+    <!-- The ink at 45%, flattened against the background above: a launcher may draw the widget over
+         wallpaper, so the one place in Orbit that cannot use an alpha ink is this one. -->
+    <color name="orbitWidgetSubtleText">#949392</color>
 </resources>

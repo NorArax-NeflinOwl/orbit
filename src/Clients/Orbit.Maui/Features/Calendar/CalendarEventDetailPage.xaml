@@ -283,16 +283,18 @@
         <!-- What leaves the screen and what else can be done to the event, on the bar along its foot -
              where Orbit.Web puts them on a narrow window. No Save: the event is written down as it is
              changed. -->
-        <controls:EditorRail Grid.Row="2" CancelCommand="{Binding GoBackCommand}">
-            <controls:EditorRail.Child>
-                <controls:OverflowMenu Command="{Binding ShowEventMenuCommand, Source={x:Reference Page}, x:DataType=calendar:CalendarEventDetailPage}" />
-            </controls:EditorRail.Child>
-        </controls:EditorRail>
+        <!-- No rail. What the event can have done to it hangs under its name; the way out is the
+             bar's back arrow; and saving is the one floating button the design gives this screen,
+             because it is the only screen in the app that writes on a Save rather than as it goes. -->
+        <controls:Fab Grid.Row="1" IsAboveAdBar="False" Data="M5,12 L10,17 L19,7"
+                      Description="{controls:Translate 'Save'}"
+                      Command="{Binding SaveCommand}" />
 
         <controls:NavigationBar Grid.Row="0" />
         <controls:MenuOverlay Grid.Row="0" Grid.RowSpan="3"
                               BindingContext="{Binding Menu, Source={x:Reference Page}, x:DataType=calendar:CalendarEventDetailPage}" />
         <controls:AvatarMenu Grid.Row="0" Grid.RowSpan="3" />
+        <controls:Drawer Grid.Row="0" Grid.RowSpan="3" />
     </Grid>
 
 </ContentPage>
