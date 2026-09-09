@@ -5,7 +5,7 @@ Date: 2026-09-09
 
 ## Branch and PR
 
-- Branch: `feat/folders-per-page`, nine commits ahead of `origin/Coding`, all pushed.
+- Branch: `feat/folders-per-page`, ten commits ahead of `origin/Coding`, all pushed.
 - Open PR: **#266 — "[Web] Folders per page, duplicates, task completion and the map"**
   (`Coding` from `feat/folders-per-page`). The new session inherits it rather than opening its own;
   extend its description as work lands. The only other open PR is the integration one (#264), so one
@@ -48,9 +48,16 @@ Nine commits, oldest first:
 9. **`Let the chat fill the height it is given rather than guess it`** -
    `.main-content-page:has(.chat-layout)`.
 
+A tenth commit followed the user's closing answers: the two decisions written into
+`info/future-plan.md`, and **a defect the third commit had introduced on the phone**. The Android
+client's `TaskListView.Describe` ended in `_ => translations["Completed"]`, so the new `Incomplete`
+status - every entry ticked off and the list still open - would have been drawn there as *done*, the
+one thing it is most costly to be wrong about. Every status is named now and the catch-all is New,
+which is the rule the web already followed.
+
 Verified:
 
-- `dotnet test Orbit.CI.slnf` — **3457 passed, 0 failed** (1270 API, 990 Web, 1197 Mobile).
+- `dotnet test Orbit.CI.slnf` — **3463 passed, 0 failed** (1270 API, 990 Web, 1203 Mobile).
 - `dotnet build Orbit.CI.slnf -c Release` — clean, warnings-as-errors included.
 - New tests: `MakingASecondOneTests` (duplicating, all four modules),
   `NothingIsAnnouncedAboutFinishedWorkTests` (the three notification queries, against real repositories
@@ -94,17 +101,21 @@ Verified:
 
 ## Next step
 
-Nothing is outstanding. Wait for the user: either they merge #266 into `Coding`, or they come back on
-one of the two open questions below. If they ask for more work, it goes on this same branch and PR.
+Nothing is outstanding, and the two questions that were open have been answered - see below. Wait for
+the user to merge #266 into `Coding`. If they ask for more work, it goes on this same branch and PR.
 
-Two things they were told and may answer:
+## Decisions the user confirmed at the end of the session
 
-- **"Weekend view"** was on their list and does not exist - the calendar has Day / Week / Month / Year.
-  It was done for **Week**; Month and Year deliberately stay filtered, being read to find something
-  rather than to account for a stretch. If they meant those too, the change is one line in
-  `Calendar.IsAStretchToAccountFor`.
-- The **Finished folder for events**, which they said was "not needed today". Events have no folder
-  column at all, so this is a schema change, not a UI one.
+Both were open questions when the work landed; neither is any longer, and neither needs revisiting.
+
+- **"Weekend view" meant the week view.** What was built is what was wanted:
+  `Calendar.IsAStretchToAccountFor` covers Day and Week. **Month and year stay filtered on purpose** -
+  they are read to find something rather than to account for a stretch. Do not "finish the job" by
+  adding them.
+- **Calendar events will not get folders.** The Finished tab's old wording said it concerned tasks and
+  events; it concerns task lists. `OP_EVENTS` has no folder column and is not getting one. Both are
+  written down in `info/future-plan.md` under "Known scope cuts and rough edges", where they will be
+  found by somebody who mistakes them for omissions.
 
 ## Environment facts confirmed this session
 

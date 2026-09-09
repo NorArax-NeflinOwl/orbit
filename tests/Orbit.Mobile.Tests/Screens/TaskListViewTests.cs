@@ -1,3 +1,5 @@
+using Orbit.Mobile.Localization;
+using Orbit.Mobile.Tests.TestDoubles;
 using Orbit.Mobile.Data;
 using Orbit.Mobile.Screens.Tasks;
 using Xunit;
@@ -11,6 +13,22 @@ namespace Orbit.Mobile.Tests.Screens;
 /// </summary>
 public sealed class TaskListViewTests
 {
+    /// <summary>
+    /// What is left over reads as New, not as Completed. The catch-all used to be Completed, so a
+    /// status this build had never heard of was labelled the one thing it is most costly to be wrong
+    /// about - and the server then learned to say "Incomplete" (every entry ticked off and the list
+    /// still open), which the phone would have drawn as done.
+    /// </summary>
+    [Theory]
+    [InlineData("New", "New")]
+    [InlineData("Pending", "Pending")]
+    [InlineData("Overdue", "Overdue")]
+    [InlineData("Completed", "Completed")]
+    [InlineData("Incomplete", "Not finished")]
+    [InlineData("SomethingThisBuildHasNeverHeardOf", "New")]
+    public void A_status_is_named_for_what_it_is_and_never_guessed_as_done(string status, string expected)
+        => Assert.Equal(expected, TaskListView.Describe(status, new Translations(new InMemoryLanguageStore())));
+
     [Fact]
     public void With_no_filter_everything_is_shown()
     {

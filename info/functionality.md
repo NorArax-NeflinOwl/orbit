@@ -261,7 +261,7 @@ something is in is decided from what it already is, and the first that applies w
 2. **Finished** - a task list that is done and that nobody filed anywhere. Two ways to be done, and both
    put it here: every entry ticked off, which happens on its own and comes back out the moment something
    is reopened, or **its owner saying so** with the Completed box in the list's form
-   (`TaskList.IsMarkedCompleted`, `OP_T_ISMARKEDCOMPLETED`). A note is never in it, having nothing to
+   (`TaskList.Completion`, `OP_T_COMPLETION` - see below). A note is never in it, having nothing to
    finish - so **the notes page has no Finished tab at all**, and neither does the dashboard, which
    stops showing a finished list rather than filing it somewhere (`FolderPages.HasAFinishedTab`). A page
    without the tab does not merely hide it: it never asks whether something is finished, so a finished
@@ -269,6 +269,11 @@ something is in is decided from what it already is, and the first that applies w
 3. **Private** - a sealed item nobody filed anywhere (see [Private notes and task
    lists](#private-notes-and-task-lists)).
 4. **Public** - everything else, and where a page opens.
+
+**Only notes and task lists are filed at all.** A calendar event is not, and is not going to be
+(decided 2026-09-09) - an event is found by when it happens, which is what the calendar is for. It is
+written down in [the scope cuts](future-plan.md#known-scope-cuts-and-rough-edges) because it reads like
+an omission rather than a decision, and because undoing it would be a migration rather than a checkbox.
 
 **A closed list stops being owed.** Filing it under Finished is not all that saying so does: an entry
 on it is done whatever its own tick says, so its deadlines leave the calendar's list and its grid marks
