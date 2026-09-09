@@ -88,6 +88,9 @@ public static class MauiProgram
 		Orbit.Maui.Platform.SwitchTrack.DrawOnEverySwitch();
 		// And a stepper's two buttons, which MAUI offers no colours for at all - see StepperButtons.
 		Orbit.Maui.Platform.StepperButtons.DrawOnEveryStepper();
+		// And backspace at the head of one of the note editor's lines, which MAUI has no key events for
+		// - see NoteLineBackspace, and NoteLineKeys, which is what a field asks with.
+		Orbit.Maui.Platform.NoteLineBackspace.JoinLinesOnEveryNoteField();
 #endif
 
 		RegisterPlatformServices(builder.Services);
@@ -217,6 +220,7 @@ public static class MauiProgram
 		services.AddSingleton<IDashboardCardPreferenceStore, PreferencesDashboardCardPreferenceStore>();
 		services.AddSingleton<IChecklistReadingStore, PreferencesChecklistReadingStore>();
 		services.AddSingleton<ICalendarListOrderStore, PreferencesCalendarListOrderStore>();
+		services.AddSingleton<IListArrangementStore, PreferencesListArrangementStore>();
 		services.AddSingleton<IThemeStore, PreferencesThemeStore>();
 		services.AddSingleton<IAccentColorStore, PreferencesAccentColorStore>();
 		services.AddSingleton<ILanguageStore, PreferencesLanguageStore>();

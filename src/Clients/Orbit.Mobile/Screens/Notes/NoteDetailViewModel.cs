@@ -68,6 +68,14 @@ public sealed partial class NoteDetailViewModel : ObservableObject
     [ObservableProperty]
     private bool _isPrivate;
 
+    /// <summary>
+    /// Somebody else's note, on this reader's list. What "delete" means changes with it: theirs is not
+    /// this reader's to destroy, so the same press takes it off their own list and leaves the owner's
+    /// alone - which is what the server does, and what the menu should therefore say.
+    /// </summary>
+    [ObservableProperty]
+    private bool _isSharedWithMe;
+
     public NoteDetailViewModel(
         LocalNoteRepository notes, NoteSynchronizer synchronizer, NotesClient notesClient, EditLock editLock,
         Translations translations, PrivateContentSealer privateContent, SharePanel share, IScreenNavigator navigator)
@@ -112,69 +120,105 @@ public sealed partial class NoteDetailViewModel : ObservableObject
     [RelayCommand]
     private Task LoadAsync(CancellationToken cancellationToken) => ShowStoredNoteAsync(cancellationToken);
 
-    [RelayCommand(CanExecute = nameof(CanAddLine))]
-    private Task AddLineAsync(CancellationToken cancellationToken)
-    {
-        var text = NewLine.Trim();
-        NewLine = string.Empty;
-
-        return SaveAsync([.. Lines.Select(line => line.ToDto()), new NoteContentLineDto(text, false, false)], cancellationToken);
-    }
-
-    private bool CanAddLine => NewLine.Trim().Length > 0 && CanEdit;
-
     /// <summary>
-    /// A new line that starts out tickable, which is what Orbit.Web's "Checklist item" toolbar button
-    /// does. Without it the only way to get one here was to add prose and then convert it.
-    /// </summary>
-    [RelayCommand(CanExecute = nameof(CanAddLine))]
-    private Task AddChecklistItemAsync(CancellationToken cancellationToken)
-    {
-        var text = NewLine.Trim();
-        NewLine = string.Empty;
-
-        return SaveAsync([.. Lines.Select(line => line.ToDto()), new NoteContentLineDto(text, true, false)], cancellationToken);
-    }
-
-    /// <summary>
-    /// Writes down what the lines say now. Every other action here saves the whole note anyway, so this
-    /// is for the one case that would otherwise be lost: a line edited and then left alone.
+    /// Writes down what the note says now. The one thing the button over the foot of the screen does -
+    /// the design gives this editor a Save, where every other screen in Orbit writes as it goes, because
+    /// this one is a page of prose being typed rather than a form of answers being chosen.
+    ///
+    /// Saving does not redraw the note from the store. It used to, and doing that here would take the
+    /// caret out of whatever line was being written in the moment it was written.
     /// </summary>
     [RelayCommand]
     private Task SaveLinesAsync(CancellationToken cancellationToken)
-        => CanEdit ? SaveAsync([.. Lines.Select(line => line.ToDto())], cancellationToken) : Task.CompletedTask;
+        => CanEdit ? WriteAsync(cancellationToken) : Task.CompletedTask;
+
+    /// <summary>
+    /// A new line under the one being written in, which is what Enter does on a surface like this.
+    ///
+    /// It inherits the indentation of the line above - a list stays a list when a line is added to the
+    /// middle of it, which is what an editor doing anything else gets wrong first - and it starts out
+    /// tickable when the checklist button is on, which is what that button is for.
+    /// </summary>
+    public NoteLineRow AddLineAfter(NoteLineRow? row)
+    {
+        var above = row ?? Lines.LastOrDefault();
+        var fresh = new NoteLineRow
+        {
+            Text = above is null ? string.Empty : IndentationOf(above.Text),
+            IsChecklistItem = IsWritingAChecklist
+        };
+
+        Lines.Insert(above is null ? Lines.Count : Lines.IndexOf(above) + 1, fresh);
+        Watch(fresh);
+        return fresh;
+    }
+
+    /// <summary>
+    /// The leading whitespace of a line, which the next one starts with. Tabs and spaces both: a note
+    /// written on a keyboard indents with one, a note written in a browser with the other, and the
+    /// editor should not have an opinion about which of them counts.
+    /// </summary>
+    private static string IndentationOf(string text)
+        => text[..(text.Length - text.TrimStart('\t', ' ').Length)];
+
+    /// <summary>
+    /// Backspace at the very start of a line: the line joins the one above it, exactly as it would in
+    /// any text field, and the caret lands where the two meet. Returns where that is, or null when
+    /// there is no line above and the press means nothing.
+    /// </summary>
+    public (NoteLineRow Line, int Caret)? MergeIntoTheLineAbove(NoteLineRow? row)
+    {
+        if (row is null || Lines.IndexOf(row) is var index && index <= 0)
+        {
+            return null;
+        }
+
+        var above = Lines[index - 1];
+        var caret = above.Text.Length;
+        above.Text += row.Text;
+        Lines.RemoveAt(index);
+        return (above, caret);
+    }
+
+    /// <summary>
+    /// Whether the next line started will be a tickable one. The button in the bottom-left corner of
+    /// the editor turns this on and puts a box on the line being written in; pressing it again takes
+    /// that box off again and turns it back off - which is what the design asks of one control.
+    /// </summary>
+    [ObservableProperty]
+    private bool _isWritingAChecklist;
 
     /// <summary>Turns a line into a checklist item, or back into an ordinary one.</summary>
     [RelayCommand]
-    private Task ToggleChecklistAsync(NoteLineRow? row, CancellationToken cancellationToken)
-        => row is null
-            ? Task.CompletedTask
-            : SaveAsync(
-                [.. Lines.Select(line => ReferenceEquals(line, row)
-                    ? line.ToDto() with { IsChecklistItem = !line.IsChecklistItem, IsChecked = false }
-                    : line.ToDto())],
-                cancellationToken);
+    private void ToggleChecklist(NoteLineRow? row)
+    {
+        if (row is null || IsReadOnly)
+        {
+            return;
+        }
+
+        row.IsChecklistItem = !row.IsChecklistItem;
+        row.IsChecked = false;
+        IsWritingAChecklist = row.IsChecklistItem;
+    }
 
     [RelayCommand]
     private Task ToggleCheckedAsync(NoteLineRow? row, CancellationToken cancellationToken)
-        => row is not { IsChecklistItem: true }
-            ? Task.CompletedTask
-            : SaveAsync(
-                [.. Lines.Select(line => ReferenceEquals(line, row)
-                    ? line.ToDto() with { IsChecked = !line.IsChecked }
-                    : line.ToDto())],
-                cancellationToken);
+    {
+        if (row is not { IsChecklistItem: true } || IsReadOnly)
+        {
+            return Task.CompletedTask;
+        }
 
-    [RelayCommand]
-    private Task RemoveLineAsync(NoteLineRow? row, CancellationToken cancellationToken)
-        => row is null
-            ? Task.CompletedTask
-            : SaveAsync([.. Lines.Where(line => !ReferenceEquals(line, row)).Select(line => line.ToDto())], cancellationToken);
+        // Ticked in place and written down, rather than saved and read back: reading it back rebuilds
+        // every line, which on this screen means dropping whatever was being typed elsewhere.
+        row.IsChecked = !row.IsChecked;
+        return WriteAsync(cancellationToken);
+    }
 
     /// <summary>Renaming saves the whole note, because the API's update takes the whole note.</summary>
     [RelayCommand]
-    private Task RenameAsync(CancellationToken cancellationToken)
-        => SaveAsync([.. Lines.Select(line => line.ToDto())], cancellationToken);
+    private Task RenameAsync(CancellationToken cancellationToken) => SaveAsync(cancellationToken);
 
     [RelayCommand]
     private async Task DeleteAsync(CancellationToken cancellationToken)
@@ -213,16 +257,23 @@ public sealed partial class NoteDetailViewModel : ObservableObject
     [RelayCommand]
     private void DeclineCopy() => IsCopyOffered = false;
 
-    private async Task SaveAsync(IReadOnlyList<NoteContentLineDto> lines, CancellationToken cancellationToken)
+    /// <summary>
+    /// Writes the note down as the screen has it, and says whether it went. Nothing is read back, so
+    /// whatever line is being written in stays where it is with the caret in it - which is why this and
+    /// <see cref="SaveAsync"/> are two methods rather than one with a flag.
+    /// </summary>
+    private async Task<bool> WriteAsync(CancellationToken cancellationToken)
     {
         try
         {
             var outcome = await _notes.UpdateAsync(
-                _localId, new NoteContent(Title.Trim(), lines, _priority, IsPrivate), cancellationToken);
+                _localId,
+                new NoteContent(Title.Trim(), [.. Lines.Select(line => line.ToDto())], _priority, IsPrivate),
+                cancellationToken);
             if (outcome.WasRefused())
             {
                 Status = outcome.Explain(RefusalMessage, _translations);
-                return;
+                return false;
             }
         }
         catch (EncryptionKeyLockedException)
@@ -230,11 +281,24 @@ public sealed partial class NoteDetailViewModel : ObservableObject
             // Sealing needs the account's own key, and this device has not got it. The key gate is where
             // that is fixed, and it is where chat sends people for the same reason.
             _navigator.ShowChatKeyGate();
-            return;
+            return false;
         }
 
-        await ShowStoredNoteAsync(cancellationToken);
         await SynchroniseAsync(cancellationToken);
+        return true;
+    }
+
+    /// <summary>
+    /// Writes the note down and then reads it back, which is what a change to what the note *is* -
+    /// its name, how much it matters, whether it is private - needs: the answer decides whether it can
+    /// still be shared and whether it can still be edited at all.
+    /// </summary>
+    private async Task SaveAsync(CancellationToken cancellationToken)
+    {
+        if (await WriteAsync(cancellationToken))
+        {
+            await ShowStoredNoteAsync(cancellationToken);
+        }
     }
 
     private async Task ShowStoredNoteAsync(CancellationToken cancellationToken)
@@ -246,6 +310,7 @@ public sealed partial class NoteDetailViewModel : ObservableObject
         }
 
         Title = note.Title;
+        IsSharedWithMe = note.IsShared;
         _isShowingWhatIsStored = true;
         ChosenPriority = Tasks.PriorityChoice.For(note.Priority, _translations);
         IsPrivate = note.IsPrivate;
@@ -266,12 +331,79 @@ public sealed partial class NoteDetailViewModel : ObservableObject
         HasHistory = (await _notes.GetHistoryOfAsync(_localId, cancellationToken)).Count > 0;
         await ShowWhetherItCanBeChangedAsync(note, cancellationToken);
 
-        Lines.Clear();
-        foreach (var line in note.Content)
+        ShowTheLines(note.Content);
+    }
+
+    /// <summary>
+    /// Puts the stored lines on the screen and starts listening to each of them - see
+    /// <see cref="Watch"/>, which is what turns a typed "[]" into a real tick box.
+    /// </summary>
+    private void ShowTheLines(IReadOnlyList<NoteContentLineDto> content)
+    {
+        foreach (var line in Lines)
         {
-            Lines.Add(NoteLineRow.From(line));
+            line.PropertyChanged -= WhenALineChanges;
+        }
+
+        Lines.Clear();
+        foreach (var line in content)
+        {
+            var row = NoteLineRow.From(line);
+            Lines.Add(row);
+            Watch(row);
+        }
+
+        // A note with nothing in it still needs somewhere to put the caret. The store keeps one empty
+        // line for exactly this - see NoteListItem.EmptyContent - but a note whose last line was
+        // deleted has none, and a surface with no lines at all cannot be written in.
+        if (Lines.Count == 0)
+        {
+            AddLineAfter(null);
         }
     }
+
+    /// <summary>
+    /// Watches one line for the mark that makes it tickable.
+    ///
+    /// The design gives this editor no toolbar to speak of: the reader types "[]" where they want a box
+    /// and gets one. The mark is taken back out of the text as it is recognised, because what it means
+    /// is now carried by the line itself - see NoteContentLineDto, which is the same shape Orbit.Web's
+    /// editor writes and reads.
+    /// </summary>
+    private void Watch(NoteLineRow row) => row.PropertyChanged += WhenALineChanges;
+
+    private void WhenALineChanges(object? sender, System.ComponentModel.PropertyChangedEventArgs args)
+    {
+        if (args.PropertyName != nameof(NoteLineRow.Text) || sender is not NoteLineRow row)
+        {
+            return;
+        }
+
+        var indentation = IndentationOf(row.Text);
+        var rest = row.Text[indentation.Length..];
+
+        foreach (var mark in ChecklistMarks)
+        {
+            if (!rest.StartsWith(mark, StringComparison.Ordinal))
+            {
+                continue;
+            }
+
+            row.IsChecklistItem = true;
+            // TrimStart of one space only: "[] " and "[]" both mean the same thing, and anything the
+            // reader typed beyond that is theirs.
+            var written = rest[mark.Length..];
+            row.Text = indentation + (written.StartsWith(' ') ? written[1..] : written);
+            IsWritingAChecklist = true;
+            return;
+        }
+    }
+
+    /// <summary>
+    /// What the reader can type to ask for a tick box. Both spellings, because a phone keyboard puts a
+    /// space inside the brackets as readily as not.
+    /// </summary>
+    private static readonly string[] ChecklistMarks = ["[]", "[ ]"];
 
     private async Task ShowWhetherItCanBeChangedAsync(LocalNote note, CancellationToken cancellationToken)
     {
@@ -372,7 +504,7 @@ public sealed partial class NoteDetailViewModel : ObservableObject
         _priority = value.Value;
         if (!_isShowingWhatIsStored && CanEdit)
         {
-            SaveLinesCommand.Execute(null);
+            SaveAndReadBackCommand.Execute(null);
         }
     }
 
@@ -381,27 +513,23 @@ public sealed partial class NoteDetailViewModel : ObservableObject
     {
         if (!_isShowingWhatIsStored && CanEdit)
         {
-            SaveLinesCommand.Execute(null);
+            SaveAndReadBackCommand.Execute(null);
         }
     }
+
+    /// <summary>
+    /// What a change to the note itself does - see <see cref="SaveAsync"/>. Sealing a note takes it out
+    /// of everybody else's reach, so what the screen may still offer has to be asked again.
+    /// </summary>
+    [RelayCommand]
+    private Task SaveAndReadBackAsync(CancellationToken cancellationToken) => SaveAsync(cancellationToken);
 
     /// <summary>True while the screen fills itself in, so loading does not look like a person choosing.</summary>
     private bool _isShowingWhatIsStored;
 
     partial void OnStatusChanged(string value) => OnPropertyChanged(nameof(HasStatus));
 
-    partial void OnIsReadOnlyChanged(bool value)
-    {
-        OnPropertyChanged(nameof(CanEdit));
-        AddLineCommand.NotifyCanExecuteChanged();
-        AddChecklistItemCommand.NotifyCanExecuteChanged();
-    }
-
-    partial void OnNewLineChanged(string value)
-    {
-        AddLineCommand.NotifyCanExecuteChanged();
-        AddChecklistItemCommand.NotifyCanExecuteChanged();
-    }
+    partial void OnIsReadOnlyChanged(bool value) => OnPropertyChanged(nameof(CanEdit));
 
     /// <summary>
     /// Whether anything was ever copied from this - what puts its history within reach. Hidden until

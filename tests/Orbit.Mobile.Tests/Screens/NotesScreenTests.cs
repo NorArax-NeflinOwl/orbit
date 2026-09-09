@@ -89,7 +89,8 @@ public sealed class NotesScreenTests
                 Notes, _synchronizer, new NotesClient(_server.ToHttpClient()), FixedNetworkStatus.Online,
                 new Translations(new InMemoryLanguageStore()),
                 new PrivateItemGate(new FixedDeviceAuthentication()),
-                new SyncState(FixedNetworkStatus.Online, _clock), new RecordingScreenNavigator(), _clock);
+                new SyncState(FixedNetworkStatus.Online, _clock), new RecordingScreenNavigator(), _clock,
+                new InMemoryListArrangementStore());
 
             await screen.LoadCommand.ExecuteAsync(null);
             return screen;

@@ -13,7 +13,7 @@
          with a hairline above it and nothing else - which is what the lists are now, because a screenful
          of boxes inside boxes is what the redesign set out to be rid of. See IsBordered.
 
-             [handle][pin][action][name ....................][collapse][menu]
+             [handle][pin][action][name ..........][trailing][collapse][menu]
              [tags .................................................]
              [body, or what is on it]
              [.........................extras.......................]
@@ -71,6 +71,12 @@
                 </Grid>
 
                 <HorizontalStackLayout Grid.Column="2" Spacing="0" VerticalOptions="Center">
+                    <!-- The one short fact that belongs beside the name rather than under it - a note's
+                         priority, an entry's tag. The design puts it at the right-hand end of the name's
+                         own line, which is where a reader scanning a column of names finds it without
+                         reading any of them. Its own slot rather than Tags, which is the line below. -->
+                    <ContentView x:Name="TrailingHost" IsVisible="False" VerticalOptions="Center"
+                                 Margin="8,0,0,0" />
                     <!-- Folding a card to its heading, where there is something underneath to fold. -->
                     <ContentView x:Name="CollapseHost" IsVisible="False" VerticalOptions="Center" />
                     <ContentView x:Name="MenuHost" IsVisible="False" VerticalOptions="Center" />
