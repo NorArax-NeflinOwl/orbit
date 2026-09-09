@@ -4181,14 +4181,55 @@ input.note-editor-title {
     }
 }
 
-/* On a phone there is no map at all - the same width at which the bar drops its wordmark. A map is the
-   one thing on this page that needs room to be worth anything: at this width it is a postage stamp
-   somebody has to pinch at, and it pushes the lists it is supposed to illustrate off the screen. The
-   search goes with it, because what a search answers with is a pin on that map. Everything the page is
-   for - who is sharing, with whom, and how - is in the panel, and the panel is the whole page here. */
+/* On a phone the map is above the lists rather than below them or, as it was for a while, not there at
+   all. It was taken away because at this width it is small and pushes the lists it illustrates off the
+   screen - but a map page with no map on it is a list of names, and the pinching is a price somebody
+   opening a map has already agreed to pay. Above, because the map is what the page is called.
+
+   Doing it needs the panel out of the way as a box: display:contents drops the wrapper and leaves its
+   children as items of the page's own column, which is what lets the map sit between the heading and
+   the lists that were both inside it. */
 @media (max-width: 680px) {
+    .map-panel {
+        display: contents;
+    }
+
+    .map-panel > * {
+        order: 1;
+    }
+
     .map-canvas {
+        order: 0;
+    }
+
+    /* What the page is called stays at the top of it. */
+    .map-panel-head {
+        order: -1;
+    }
+
+    /* Squarer than wide costs the lists most of the screen; this leaves both readable without scrolling
+       past one to reach the other. */
+    .map-canvas-frame {
+        aspect-ratio: 4 / 3;
+    }
+
+    /* Neither of these does anything on a phone - see MapPage.razor, and the note in
+       info/future-plan.md about finding out why rather than leaving them hidden forever. */
+    .map-panel-start,
+    .map-panel-share {
         display: none;
+    }
+}
+
+/* The line that stands in for them, which is nothing at all on a screen where they work. */
+.map-phone-note {
+    display: none;
+}
+
+@media (max-width: 680px) {
+    .map-phone-note {
+        display: block;
+        margin: 0;
     }
 }
 

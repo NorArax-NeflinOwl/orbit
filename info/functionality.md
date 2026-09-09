@@ -772,6 +772,19 @@ Coordinates are validated the same way a calendar event's are (±90 / ±180), an
 refused with a message rather than stored — see [Refusing a request](#refusing-a-request). The address is
 best-effort: a point Nominatim has nothing for is still worth keeping.
 
+**On a phone the map sits above the lists**, between the page's own heading and everything the page
+says about who is sharing what. For a while there was no map there at all — at that width it is small,
+and it pushed the lists it illustrates off the screen — but a map page with no map on it is a list of
+names, and the pinching is a price somebody opening a map has already agreed to pay. It is done by
+taking the panel out of the way as a box (`display: contents`), which leaves its heading and its
+sections as items of the page's own column with the map free to sit between them.
+
+**Start and the share picker are hidden there**, on a report that neither does anything on a phone, and
+one line stands in for them. That is a cover rather than a fix and is written down as one in
+`info/future-plan.md`: the code path is the one a desktop browser runs, and every way it can fail
+already puts a message on the screen, so the cause is worth finding and the hiding is worth taking off
+again.
+
 The map waits for its container to have a height before Leaflet measures it. Blazor adds the element in
 the same render pass that draws into it, so measuring immediately measures a box the browser hasn't laid
 out yet — which leaves the tiles covering one corner and the marker outside them. Correcting afterwards

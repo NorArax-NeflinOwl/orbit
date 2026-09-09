@@ -682,6 +682,8 @@ public static class PolishTranslations
         // ---- Map ----
         ["Where you are, who you are sharing it with, and who is sharing theirs."] =
             "Gdzie jesteś, komu to udostępniasz i kto udostępnia swoje położenie Tobie.",
+        ["Recording where you are, and sharing it, don't work on a phone yet - open Orbit on a computer for those."] =
+            "Zapisywanie położenia i udostępnianie go nie działają jeszcze na telefonie - otwórz Orbit na komputerze.",
         ["Start recording"] = "Zacznij zapisywać",
         ["Stop recording"] = "Przestań zapisywać",
         ["Share where you are"] = "Udostępnij swoje położenie",

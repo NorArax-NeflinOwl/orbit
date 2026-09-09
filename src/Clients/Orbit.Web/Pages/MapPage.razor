@@ -72,8 +72,16 @@ else
         <div class="map-panel-actions">
             @if (_location is null)
             {
-                <button type="button" class="btn-primary" disabled="@_isBusy"
+                @* Not on a phone: neither this nor the picker below it does anything there, so the page
+                   says so once instead of offering two controls that answer nothing - see
+                   .map-phone-note, and the note in info/future-plan.md about finding out why. Stop is
+                   left alone: a recording started elsewhere has to be endable from wherever somebody
+                   is. *@
+                <button type="button" class="btn-primary map-panel-start" disabled="@_isBusy"
                         @onclick="RecordCurrentLocationAsync">@T["Start"]</button>
+                <p class="empty-hint map-phone-note">
+                    @T["Recording where you are, and sharing it, don't work on a phone yet - open Orbit on a computer for those."]
+                </p>
             }
             else
             {
@@ -93,7 +101,7 @@ else
         }
         else
         {
-        <section class="map-panel-section">
+        <section class="map-panel-section map-panel-share">
             <h2 class="map-panel-heading">@T["Share where you are"]</h2>
             @if (_contacts.Count == 0)
             {
