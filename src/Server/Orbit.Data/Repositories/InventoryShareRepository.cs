@@ -94,6 +94,27 @@ public sealed class InventoryShareRepository : IInventoryShareRepository
             CreatedAtUtc = share.CreatedAtUtc,
             AcceptedAtUtc = share.AcceptedAtUtc
         };
+
+    public async Task<IReadOnlyList<InventoryShare>> GetSharesToAsync(Guid ownerUserId, Guid recipientUserId, CancellationToken cancellationToken)
+    {
+        var entities = await _dbContext.InventoryShares
+            .AsNoTracking()
+            .Where(share => share.OwnerUserId == ownerUserId && share.RecipientUserId == recipientUserId)
+            .OrderBy(share => share.CreatedAtUtc)
+            .ToListAsync(cancellationToken);
+
+        return entities.Select(ToDomain).ToList();
+    }
+
+    public async Task<bool> RemoveAsync(Guid ownerUserId, Guid shareId, CancellationToken cancellationToken)
+    {
+        var removed = await _dbContext.InventoryShares
+            .Where(share => share.Id == shareId && share.OwnerUserId == ownerUserId)
+            .ExecuteDeleteAsync(cancellationToken);
+
+        return removed > 0;
+    }
+
     public async Task RemoveAcceptedGrantAsync(Guid sourceId, Guid recipientUserId, CancellationToken cancellationToken)
     {
         await _dbContext.InventoryShares

@@ -374,6 +374,9 @@ public sealed class OrbitDbContext : DbContext
             // copy up by the id they share.
             entity.HasIndex(message => message.GroupId);
             entity.HasIndex(message => message.GroupMessageId);
+            // Withdrawing a share looks its announcement up by the share it announced - see
+            // RevokeShareCommandHandler. Rare, but it runs over every message anybody ever sent.
+            entity.HasIndex(message => message.AnnouncesShareId);
         });
 
         modelBuilder.Entity<SharedLocationEntity>(entity =>

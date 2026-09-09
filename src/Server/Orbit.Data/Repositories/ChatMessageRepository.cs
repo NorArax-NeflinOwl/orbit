@@ -97,6 +97,36 @@ public sealed class ChatMessageRepository : IChatMessageRepository
             .ExecuteDeleteAsync(cancellationToken);
     }
 
+    /// <summary>
+    /// Read first, then written: ExecuteUpdateAsync says how many rows it changed but not which, and
+    /// who was in those conversations is the answer the caller needs. The read is by the same predicate,
+    /// so a message that arrives between the two is simply not part of this withdrawal.
+    /// </summary>
+    public async Task<IReadOnlyList<Guid>> MarkShareAnnouncementsDeletedAsync(
+        Guid shareId, Guid deletedByUserId, DateTimeOffset deletedAtUtc, CancellationToken cancellationToken)
+    {
+        var announcements = _dbContext.ChatMessages
+            .Where(message => message.AnnouncesShareId == shareId && message.DeletedAtUtc == null);
+
+        var everybodyInvolved = await announcements
+            .AsNoTracking()
+            .Select(message => new { message.SenderUserId, message.RecipientUserId })
+            .ToListAsync(cancellationToken);
+
+        await announcements.ExecuteUpdateAsync(
+            message => message
+                .SetProperty(stored => stored.CiphertextBase64, string.Empty)
+                .SetProperty(stored => stored.NonceBase64, string.Empty)
+                .SetProperty(stored => stored.DeletedAtUtc, deletedAtUtc)
+                .SetProperty(stored => stored.DeletedByUserId, deletedByUserId),
+            cancellationToken);
+
+        return everybodyInvolved
+            .SelectMany(conversation => new[] { conversation.SenderUserId, conversation.RecipientUserId })
+            .Distinct()
+            .ToList();
+    }
+
     /// <inheritdoc cref="MarkDeletedAsync"/>
     public async Task MarkGroupMessageDeletedAsync(
         Guid groupMessageId, Guid deletedByUserId, DateTimeOffset deletedAtUtc, CancellationToken cancellationToken)
@@ -175,7 +205,7 @@ public sealed class ChatMessageRepository : IChatMessageRepository
         => ChatMessage.FromPersistence(
             entity.Id, entity.SenderUserId, entity.RecipientUserId, entity.CiphertextBase64, entity.NonceBase64, entity.SentAtUtc,
             entity.IsEdited, entity.EditedAtUtc, entity.GroupId, entity.GroupMessageId, entity.IsSharedHistory,
-            entity.DeletedAtUtc, entity.DeletedByUserId);
+            entity.DeletedAtUtc, entity.DeletedByUserId, entity.AnnouncesShareId);
 
     private static ChatMessageEntity ToEntity(ChatMessage message)
         => new()
@@ -190,7 +220,8 @@ public sealed class ChatMessageRepository : IChatMessageRepository
             SentAtUtc = message.SentAtUtc,
             IsEdited = message.IsEdited,
             EditedAtUtc = message.EditedAtUtc,
-            IsSharedHistory = message.IsSharedHistory
+            IsSharedHistory = message.IsSharedHistory,
+            AnnouncesShareId = message.AnnouncesShareId
         };
     public async Task<IReadOnlyDictionary<Guid, int>> GetUnreadCountsBySenderAsync(
         Guid readerUserId, CancellationToken cancellationToken)

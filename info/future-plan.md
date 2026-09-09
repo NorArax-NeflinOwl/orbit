@@ -556,6 +556,27 @@ inventory lists, the contacts tabs, the chat menus - is built and needs no schem
 
 ## Noticed while working
 
+- **Nobody has found out why the map's Start and Share do nothing on a phone.** Both are hidden below
+  680px as of 2026-09-09 (`.map-panel-start`, `.map-panel-share`), on a report that pressing them
+  achieves nothing there, and the page says so in one line instead. That is a cover, not a fix: the
+  code path is the same one a desktop browser runs, and every way it can fail already puts a message on
+  the screen - `RecordCurrentLocationAsync` refuses outright when `DevicePreferences.AllowLocation` is
+  off, and shows `BrowserPosition.Error` verbatim otherwise. So the likeliest causes are worth ruling
+  out in order: the Options switch never turned on for that device, a browser that refuses geolocation
+  to a self-signed certificate on `https://localhost:8443`, and a permission the phone's browser denied
+  once and now denies silently. What it needs is somebody watching the console on the actual device;
+  until then the hiding stays, and it should come off the moment the cause is known.
+
+- **The phone does not say which share its invitations announce.** Withdrawing a share now takes its
+  chat invitation down with it (`SendMessageRequest.AnnouncesShareId`, `OP_C_ANNOUNCESSHAREID`), but
+  only invitations sent from Orbit.Web carry the field. `SharedItemSharing` on the phone sends the same
+  announcement through the queued sender and sets neither `AnnouncesShareId` nor the older
+  `IsShareInvitation`, so a share offered from a phone and withdrawn from anywhere leaves its invitation
+  in the conversation, still offering an "Accept" that answers "no such share". Nothing regressed - this
+  is the new capability not reaching the phone yet. What it would take: both fields on
+  `OutgoingChatMessage` and the queue row behind it, since the phone sends by enqueueing rather than by
+  calling the API where the share id is still in hand.
+
 - **The phone cannot mark a list finished.** A task list can be closed with work still on it since
   2026-09-08 (`TaskList.IsMarkedCompleted`), and the phone neither shows the box nor sends the field.
   Nothing is lost by it: `UpdateTaskRequest.IsMarkedCompleted` is null-means-not-provided, so a save

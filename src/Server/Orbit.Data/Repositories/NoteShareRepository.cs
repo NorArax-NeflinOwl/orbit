@@ -95,6 +95,27 @@ public sealed class NoteShareRepository : INoteShareRepository
             AcceptedAtUtc = share.AcceptedAtUtc,
             IsPinnedByRecipient = share.IsPinnedByRecipient
         };
+
+    public async Task<IReadOnlyList<NoteShare>> GetSharesToAsync(Guid ownerUserId, Guid recipientUserId, CancellationToken cancellationToken)
+    {
+        var entities = await _dbContext.NoteShares
+            .AsNoTracking()
+            .Where(share => share.OwnerUserId == ownerUserId && share.RecipientUserId == recipientUserId)
+            .OrderBy(share => share.CreatedAtUtc)
+            .ToListAsync(cancellationToken);
+
+        return entities.Select(ToDomain).ToList();
+    }
+
+    public async Task<bool> RemoveAsync(Guid ownerUserId, Guid shareId, CancellationToken cancellationToken)
+    {
+        var removed = await _dbContext.NoteShares
+            .Where(share => share.Id == shareId && share.OwnerUserId == ownerUserId)
+            .ExecuteDeleteAsync(cancellationToken);
+
+        return removed > 0;
+    }
+
     public async Task RemoveAcceptedGrantAsync(Guid sourceId, Guid recipientUserId, CancellationToken cancellationToken)
     {
         await _dbContext.NoteShares

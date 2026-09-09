@@ -85,8 +85,11 @@ else
 
     @* The same row of tabs the notes and the task lists carry, above the two cards it narrows: notes
        and lists are the things that live in folders. Everything else on this page - the day, what is
-       coming up, the people - is not filed anywhere and is left alone by it. *@
-    <FolderTabs />
+       coming up, the people - is not filed anywhere and is left alone by it. On a phone it folds into
+       one Menu button - see PhoneToolbar, which is nothing at all on a wider screen. *@
+    <PhoneToolbar>
+        <FolderTabs />
+    </PhoneToolbar>
 
     <div class="card-grid">
         @if (_notes.Count > 0 && CardPreferences.IsVisible("notes"))
@@ -475,7 +478,8 @@ else
     /// A deadline is filtered where it is built - see UpcomingDeadlines.
     /// </summary>
     private bool IsStillToDo(CalendarEventDto calendarEvent)
-        => CalendarEventDestination.RaisedBy(calendarEvent.Id, _taskLists) is not { Entry.IsCompleted: true };
+        => CalendarEventDestination.RaisedBy(calendarEvent.Id, _taskLists) is not ({ Entry.IsCompleted: true }
+            or { List.IsCompleted: true });
 
     /// <summary>
     /// How far ahead a repeat is looked for. A year covers what the calendar's own year view shows, and
@@ -526,6 +530,10 @@ else
     private IEnumerable<UpcomingEntry> UpcomingDeadlines(DateTimeOffset nowUtc)
         => (_taskLists ?? [])
             .SelectMany(taskList => taskList.Items.Select(item => (taskList, item)))
+            // A list somebody closed is closed, whatever is still unticked on it. Marking one finished
+            // with work still on it is a way of saying "no more of this" (TaskList.IsMarkedCompleted),
+            // and a card headed "what is coming up" that kept listing its deadlines would be arguing.
+            .Where(pair => !pair.taskList.IsCompleted)
             .Where(pair => !pair.item.IsCompleted
                 && pair.item.AllLinkedTaskListIds.Count == 0
                 && pair.item.DueDateUtc is { } dueDate && dueDate >= nowUtc)
@@ -620,7 +628,12 @@ else
         .Where(contact => contact is { RequiresApprovalFromCurrentUser: false, IsPendingApprovalFromOtherParty: false })
         .OrderBy(contact => contact.DisplayName, StringComparer.CurrentCultureIgnoreCase);
 
+    /// <summary>
+    /// What is still owed today. A list its owner has closed owes nothing, whatever is unticked on it -
+    /// the same answer the Upcoming card gives, and for the same reason.
+    /// </summary>
     private int TasksDueTodayCount => (_taskLists ?? [])
+        .Where(taskList => !taskList.IsCompleted)
         .SelectMany(taskList => taskList.Items)
         .Count(item => !item.IsCompleted && item.DueDateUtc is { } due && due.ToLocalTime().Date == DateTime.Today);
 
@@ -911,10 +924,16 @@ else
         NavigationManager.NavigateTo(ReturnTo.Link($"/tasks/{taskListId}", "/"));
     }
 
+    /// <summary>
+    /// Straight to today, not to the month today is in. The strip is a count of one day - two tasks
+    /// due, one event - and the month view answers a different question than the one that was pressed:
+    /// somebody who wanted to know which of the four weeks had them would not have pressed a summary of
+    /// today.
+    /// </summary>
     private void GoToCalendar()
     {
         Logger.LogInformation("User clicked today's summary on the dashboard");
-        NavigationManager.NavigateTo("/calendar");
+        NavigationManager.NavigateTo($"/calendar?view=day&on={DateTime.Today:yyyy-MM-dd}");
     }
 
     /// <summary>

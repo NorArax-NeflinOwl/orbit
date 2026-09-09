@@ -110,6 +110,10 @@ public abstract class OrbitTestContext : TestContext
         Services.AddSingleton(authenticationStateProvider);
 
         var usersApiClient = new UsersApiClient(httpClient);
+        // Answers "nothing shared with them", which is what a test that has shared nothing should see -
+        // the same reason the rest of this method registers empty. A test about the list registers its
+        // own over this. It is here because the contact card reads it on every load now.
+        Services.AddSingleton(new SharesApiClient(httpClient));
         Services.AddSingleton(new ChatApiClient(httpClient));
         Services.AddSingleton(new EncryptedChatMessageSender(
             JSInterop.JSRuntime,

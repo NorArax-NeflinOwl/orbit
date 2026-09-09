@@ -1,0 +1,44 @@
+@using Orbit.Web.Services
+@inject Translations T
+
+@* What narrows a page - which folder is open, and which chips are pressed - folded into one button on
+   a phone. Three rows of controls above the cards is most of a phone screen spent on the question
+   rather than the answer, and the folder tabs alone wrapped onto three lines.
+
+   On anything wider this is not there at all: the wrapper and the panel are display:contents, so the
+   controls lay out exactly where they always did and only the button is hidden. Nothing is drawn
+   twice, which is the trap a CSS-only version falls into - the tabs would be two sets of tabs, and
+   pressing the hidden one would still work. *@
+<div class="phone-toolbar @(_isOpen ? "open" : "")">
+    <button type="button" class="btn-secondary phone-toolbar-trigger" aria-haspopup="true"
+            aria-expanded="@(_isOpen ? "true" : "false")" @onclick="Toggle">
+        <svg viewBox="0 0 20 20" width="16" height="16" aria-hidden="true" fill="none"
+             stroke="currentColor" stroke-width="1.8" stroke-linecap="round">
+            <path d="M3 6h14M3 10h14M3 14h9" />
+        </svg>
+        @T["Menu"]
+    </button>
+
+    @* Shut by pressing anywhere else, the way every panel that covers a page is. Inside it nothing
+       closes anything: these are settings, not actions, and choosing a folder and then two chips is
+       one visit rather than three. *@
+    @if (_isOpen)
+    {
+        <div class="phone-toolbar-backdrop" @onclick="Close"></div>
+    }
+
+    <div class="phone-toolbar-panel">
+        @ChildContent
+    </div>
+</div>
+
+@code {
+    /// <summary>The page's own controls - the folder tabs, the search box, the chips.</summary>
+    [Parameter, EditorRequired] public RenderFragment? ChildContent { get; set; }
+
+    private bool _isOpen;
+
+    private void Toggle() => _isOpen = !_isOpen;
+
+    private void Close() => _isOpen = false;
+}

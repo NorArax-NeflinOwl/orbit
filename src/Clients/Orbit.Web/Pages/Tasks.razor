@@ -67,72 +67,89 @@
     <p class="error">@_errorMessage</p>
 }
 
-@* The folder being read, and the same row of tabs the notes and the dashboard carry - see FolderTabs.
-   Above the search and the chips, because those narrow what is in a folder rather than choosing one. *@
-<FolderTabs CountIn="CountIn" />
+@* Everything this page is narrowed by, in the order the questions are asked: which folder is open,
+   then a word from an entry, then the chips that say which lists are on offer at all - see FolderTabs.
+   The folder comes first because the rest narrow what is in a folder rather than choosing one.
 
-<ObjectList IsLoading="_taskLists is null" IsEmpty="_taskLists is { Count: 0 }" EmptyMessage="@T["No task lists yet."]">
-    @* What the reader is looking for, above the chips that say which lists are on offer at all: a word
-       from an entry, and the categories entries are filed under. Both narrow to lists that still hold
-       something worth reading, and the cards then show what matched rather than their first few rows -
-       a list shown for a match nobody can see reads as a bug. *@
-    <div class="task-search">
-        <input type="search" value="@_itemFilter.Search"
-               @oninput="changeArgs => _itemFilter.Search = changeArgs.Value?.ToString() ?? string.Empty"
-               placeholder="@(T["Find an entry on any list"])" aria-label="@(T["Find an entry on any list"])" />
-        @if (_itemFilter.IsActive)
-        {
-            <button type="button" class="btn-secondary" @onclick="_itemFilter.Clear">@T["Clear"]</button>
-        }
-    </div>
+   On a phone the lot folds into one Menu button - see PhoneToolbar, which is nothing at all on a wider
+   screen. *@
+<PhoneToolbar>
+    <FolderTabs CountIn="CountIn" />
 
-    @if (KnownCategories.Count > 0)
+    @* Only once there is something to narrow, and only about the folder that is open: a search box
+       over an empty tab offers to find something on a list that is not there, and the chips would be
+       counting lists filed somewhere else. *@
+    @if (TaskListsInTheOpenFolder.Count > 0)
     {
+        @* Both narrow to lists that still hold something worth reading, and the cards then show what
+           matched rather than their first few rows - a list shown for a match nobody can see reads as
+           a bug. *@
+        <div class="task-search">
+            <input type="search" value="@_itemFilter.Search"
+                   @oninput="changeArgs => _itemFilter.Search = changeArgs.Value?.ToString() ?? string.Empty"
+                   placeholder="@(T["Find an entry on any list"])" aria-label="@(T["Find an entry on any list"])" />
+            @if (_itemFilter.IsActive)
+            {
+                <button type="button" class="btn-secondary" @onclick="_itemFilter.Clear">@T["Clear"]</button>
+            }
+        </div>
+
+        @if (KnownCategories.Count > 0)
+        {
+            <div class="list-controls">
+                <div class="list-filters">
+                    @foreach (var category in KnownCategories)
+                    {
+                        <button type="button" class="filter-chip @(_itemFilter.IsChosen(category) ? "on" : "")"
+                                @onclick="() => _itemFilter.Toggle(category)">
+                            @category <span class="filter-chip-count">@CountEntriesIn(category)</span>
+                        </button>
+                    }
+                </div>
+                @* Only worth asking once two are chosen: with one, "any of them" and "all of them" are
+                   the same question. *@
+                @if (_itemFilter.Categories.Count > 1)
+                {
+                    <label class="task-category-rule">
+                        <input type="checkbox" checked="@_itemFilter.MatchesEveryCategory"
+                               @onchange="changeArgs => _itemFilter.MatchesEveryCategory = changeArgs.Value is true" />
+                        @T["Entries in every chosen category"]
+                    </label>
+                }
+            </div>
+        }
+
         <div class="list-controls">
             <div class="list-filters">
-                @foreach (var category in KnownCategories)
+                @* "All" is a filter like the rest rather than a way of clearing them, so there is
+                   always exactly one answer to "what am I looking at". *@
+                <button type="button" class="filter-chip @(_filter == TaskListFilter.All ? "on" : "")"
+                        @onclick="() => SetFilter(TaskListFilter.All)">@T["All"]<span class="filter-chip-count">@TaskListsInTheOpenFolder.Count</span>
+                </button>
+                @foreach (var filter in SelectableFilters)
                 {
-                    <button type="button" class="filter-chip @(_itemFilter.IsChosen(category) ? "on" : "")"
-                            @onclick="() => _itemFilter.Toggle(category)">
-                        @category <span class="filter-chip-count">@CountEntriesIn(category)</span>
+                    <button type="button" class="filter-chip @(_filter == filter ? "on" : "")"
+                            @onclick="() => SetFilter(filter)">
+                        @DescribeFilter(filter) <span class="filter-chip-count">@CountMatching(filter)</span>
                     </button>
                 }
             </div>
-            @* Only worth asking once two are chosen: with one, "any of them" and "all of them" are the
-               same question. *@
-            @if (_itemFilter.Categories.Count > 1)
-            {
-                <label class="task-category-rule">
-                    <input type="checkbox" checked="@_itemFilter.MatchesEveryCategory"
-                           @onchange="changeArgs => _itemFilter.MatchesEveryCategory = changeArgs.Value is true" />
-                    @T["Entries in every chosen category"]
-                </label>
-            }
         </div>
     }
+</PhoneToolbar>
 
-    <div class="list-controls">
-        <div class="list-filters">
-            @* "All" is a filter like the rest rather than a way of clearing them, so there is always
-               exactly one answer to "what am I looking at". *@
-            <button type="button" class="filter-chip @(_filter == TaskListFilter.All ? "on" : "")"
-                    @onclick="() => SetFilter(TaskListFilter.All)">@T["All"]<span class="filter-chip-count">@_taskLists!.Count</span>
-            </button>
-            @foreach (var filter in SelectableFilters)
-            {
-                <button type="button" class="filter-chip @(_filter == filter ? "on" : "")"
-                        @onclick="() => SetFilter(filter)">
-                    @DescribeFilter(filter) <span class="filter-chip-count">@CountMatching(filter)</span>
-                </button>
-            }
-        </div>
-    </div>
-
+<ObjectList IsLoading="_taskLists is null" IsEmpty="_taskLists is { Count: 0 }" EmptyMessage="@T["No task lists yet."]">
     @if (VisibleTaskLists.Count == 0)
     {
-        @* Which of the two narrowed everything away, since they say different things about what to do
-           next: a chip is changed by pressing another one, a search by typing something else. *@
-        @if (_itemFilter.IsActive)
+        @* Which of the three narrowed everything away, since they say different things about what to do
+           next: a folder is left by pressing another tab, a chip is changed by pressing another one,
+           and a search by typing something else. The folder comes first because it is the widest, and
+           "no lists are new" in a tab holding no lists at all blames a chip nobody pressed. *@
+        @if (TaskListsInTheOpenFolder.Count == 0)
+        {
+            <p class="empty-hint">@T["Nothing is in this folder yet."]</p>
+        }
+        else if (_itemFilter.IsActive)
         {
             <p class="empty-hint">@T["Nothing on any list matches that."]</p>
         }
@@ -348,14 +365,14 @@
 
     /// <summary>Every category anything on this page is filed under, in the order a reader reads them.</summary>
     private IReadOnlyList<string> KnownCategories
-        => [.. (_taskLists ?? [])
+        => [.. TaskListsInTheOpenFolder
             .SelectMany(taskList => taskList.Items.SelectMany(item => item.AllCategories))
             .Distinct(StringComparer.CurrentCultureIgnoreCase)
             .OrderBy(category => category, StringComparer.CurrentCultureIgnoreCase)];
 
     /// <summary>How many entries carry a category, which is what makes a chip worth pressing or not.</summary>
     private int CountEntriesIn(string category)
-        => (_taskLists ?? [])
+        => TaskListsInTheOpenFolder
             .SelectMany(taskList => taskList.Items)
             .Count(item => item.AllCategories.Contains(category, StringComparer.CurrentCultureIgnoreCase));
 
@@ -393,13 +410,24 @@
     {
         get
         {
-            var visible = (_taskLists ?? [])
-                .Where(InTheOpenFolder)
+            var visible = TaskListsInTheOpenFolder
                 .Where(taskList => Matches(taskList, _filter) && _itemFilter.HasAMatch(taskList))
                 .ToList();
             return Sort(visible, Arrangement);
         }
     }
+
+    /// <summary>
+    /// The lists under the open tab, before any chip has narrowed them. Everything the chips are built
+    /// from and counted over: a folder is a place rather than one more filter, so a chip is about what
+    /// is in the place somebody is standing in.
+    ///
+    /// Counting the whole account instead is what this page used to do, and it showed: in a folder
+    /// holding two lists the "All" chip said twelve, a category chip offered a word that appears only
+    /// on a list filed somewhere else, and pressing that chip found nothing - the page describing a
+    /// page other than the one in front of the reader.
+    /// </summary>
+    private IReadOnlyList<TaskDto> TaskListsInTheOpenFolder => [.. (_taskLists ?? []).Where(InTheOpenFolder)];
 
     /// <summary>
     /// Whether this list is in the folder that is open. A finished list gathers under Finished wherever its owner
@@ -469,7 +497,7 @@
     };
 
     private int CountMatching(TaskListFilter filter)
-        => (_taskLists ?? []).Count(taskList => Matches(taskList, filter));
+        => TaskListsInTheOpenFolder.Count(taskList => Matches(taskList, filter));
 
     /// <summary>
     /// Re-reads the lists afterwards rather than editing the one in hand: the server decides what a list

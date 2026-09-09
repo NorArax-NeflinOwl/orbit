@@ -41,4 +41,11 @@ public sealed class ChatMessageEntity
 
     /// <summary>Who deleted it, which is not always its sender - see the domain property.</summary>
     public Guid? DeletedByUserId { get; set; }
+
+    /// <summary>
+    /// The share this message is the invitation to, or null - see
+    /// Orbit.Core.Chat.ChatMessage.AnnouncesShareId. Not a foreign key: the four kinds of share live in
+    /// four tables, and which of them this points at is only knowable from the sealed payload.
+    /// </summary>
+    public Guid? AnnouncesShareId { get; set; }
 }

@@ -197,6 +197,13 @@ Orbit advertises **itself**, in three places:
 - a **bar across the foot** of a narrower one, and of every main screen in the Android app;
 - one **dialog**, shown once a visit.
 
+**The bar gives way to an editor's own bar.** Below 680px the editing screens' panel becomes a bar
+across the foot too (see `EditorRail`), and both are fixed to the bottom edge - so the advert sat over
+Save, Back and the menu, on a phone, on the screens whose whole purpose is those buttons. The banner is
+left out where a panel is on screen. Not stacked: two bars is most of a phone's height, on the screen
+somebody is typing into. Between 681px and 1199px the panel is a column beside the page instead, so
+nothing overlaps and the slot is kept.
+
 What they show comes from `Orbit.Core.Advertising.HouseAds` - Orbit's own pages, written in English
 there and translated like every other string. Every advert leads to a path on this Orbit, never to
 another site, and **nothing is fetched from a third party**. That is deliberate rather than a stage on
@@ -229,6 +236,14 @@ tabs**, and the tabs are the same three everywhere plus whatever the reader has 
 place rather than one page's filter, so the tab stays open when they step from the notes to the task
 lists (`FolderState`, one scoped state shared by the three pages).
 
+**On a phone the tabs fold into one Menu button**, and so does everything else a page is narrowed by:
+on the task lists that is the search box and both rows of chips as well (`PhoneToolbar`). Three rows of
+controls above the cards was most of a phone screen spent on the question rather than the answer, and
+the tabs alone wrapped onto three lines once somebody had made a folder or two. Nothing is drawn twice
+to do it — on anything wider the wrapper is `display: contents`, so the controls sit exactly where they
+always did and only the button is hidden. The obvious alternative, one copy for each width hidden by a
+media query, gives a page two sets of folder tabs, and the hidden set still answers a press.
+
 **Three folders exist without a row of their own** (`Orbit.Core.Folders.BuiltInFolder`). Which one
 something is in is decided from what it already is, and the first that applies wins:
 
@@ -240,6 +255,14 @@ something is in is decided from what it already is, and the first that applies w
 2. **Private** - a sealed item nobody filed anywhere (see [Private notes and task
    lists](#private-notes-and-task-lists)).
 3. **Public** - everything else, and where a page opens.
+
+**A closed list stops being owed.** Filing it under Finished is not all that saying so does: an entry
+on it is done whatever its own tick says, so its deadlines leave the calendar's list and its grid marks
+(`Calendar.LoadDueTasksAsync`, `Calendar.IsTickedOff`), the dashboard's "Upcoming" card and the count of
+what is due today (`Dashboard.UpcomingDeadlines`, `TasksDueTodayCount`), and the same two places on the
+phone (`CalendarDeadline`, `DashboardViewModel`). Saying "no more of this" and then being reminded of it
+every morning would be the app arguing with the reader. A list finished the other way — every entry
+ticked off — was already answered by the entries themselves; this is only ever about the box.
 
 Deciding it rather than storing it is what let folders arrive with **no migration of existing rows and
 nothing to repair**: every note and list that existed before them was already in the right one. There is
@@ -471,6 +494,15 @@ Info is never greyed: who somebody is needs no standing. A greyed entry is also 
 (`.avatar-dropdown-item:disabled`), which it was not — `ObjectMenu`'s disabled Delete had looked exactly
 like a working one all along.
 
+**The card says when they were last here**, beside the status rather than instead of it. "Away" answers
+"can I reach them now", which is a question about this second and ages the moment it arrives; **Last
+active** answers "when were they last here", which stays true — and it is the difference between
+somebody who stepped out for coffee and somebody who has not opened Orbit since spring. It is shown, and
+sent, **to the minute**: `UserPresence.LastSeenToTheMinuteUtc` is what reaches `ContactDto`, while the
+stored instant keeps its seconds because the away and offline thresholds are measured against it —
+rounded down, somebody last seen at 10:00:59 would turn "away" five seconds later. An account nobody has
+ever seen reads "Never" rather than blank, since an empty row reads as a value that failed to load.
+
 **A card for somebody who has gone unfindable says so, and says what it cannot know.** An account that
 has not unlocked `Contacts` is invisible in both directions, and a lookup for it answers exactly as a
 lookup for nobody does — "found, but hidden" would be finding them (`UserVisibility`). So the card
@@ -611,6 +643,45 @@ an admin may take back anybody's message in a group, and "the sender deleted thi
 clients name them from the roster they already hold — a one-to-one conversation has only two people in
 it, and a group has its members — so nothing is asked of the server for the name. Nothing on a deleted
 message can be edited, forwarded or replied to: there is no longer anything there to act on.
+### What you have given somebody, and taking it back
+
+A contact's own card lists **everything this reader has shared with that person** — notes, task lists,
+events and shelves together, newest first (`GET /api/shares/with/{userId}`). Until it did, the only way
+to answer "what have I given them" was to open every one of those in turn and read its sharing panel,
+and there was no way at all to withdraw one from the owner's end: a share could be dropped by its
+*recipient*, taking it off their list, and by nobody else.
+
+Pressing a row opens the thing where its own section reads it. The cross beside it stops the sharing
+(`DELETE /api/shares/{kind}/{shareId}`), and the row leaves the list — what the card lists is what they
+currently have, and a row for something they no longer have would be a fourth state to explain.
+
+Three things are worth knowing about what it shows:
+
+- **An offer nobody has taken up is listed**, and says so. It is still access somebody has been given,
+  and withdrawing it before it is accepted is the likeliest reason to be here at all.
+- **Something private, or deleted since it was shared, is named by its kind** rather than drawn blank:
+  the server holds no readable title for either, so "Note" is the whole of what it can honestly say.
+- **A shared position is not here.** It is not a share row - it lives in its own table and is withdrawn
+  from the map, where it was offered. `RevokeShareCommandHandler` names that case rather than letting it
+  fall into a default, so a fifth kind that *does* have a row cannot be quietly answered "nothing to do".
+
+Both ends are scoped to the owner, so this can only ever list or withdraw what the caller themselves
+gave. A share that belongs to somebody else answers exactly as one that has already gone — telling those
+apart would say whether a share id exists.
+
+**The invitation goes with the access.** What the recipient pressed "Accept" on is a chat message, and
+withdrawing the grant while leaving that message in the conversation leaves an offer that now leads
+nowhere. So the message is taken back the same way its sender taking it back would: the words go, the
+line stays, and it reads "{name} deleted the message". The recipient's screen is told at once, or the
+withdrawn invitation sits there still offering an "Accept" until the slow poll comes round.
+
+The server cannot work out which message that is by reading it — the message is sealed and the share id
+is inside the sealed payload — so the sender says it in the clear when sending: `SendMessageRequest`
+carries `AnnouncesShareId` alongside the ciphertext, stored as `OP_C_ANNOUNCESSHAREID`. Usually one
+message matches; more when the same share was offered again as a reminder, which reuses the share rather
+than making a second one, and all of them go. A share offered before this existed matches nothing, and
+the access is still withdrawn — which is what was asked for.
+
 ## Private notes and task lists
 
 A note or task list can be marked **private**, which means exactly one thing: only its creator can ever
@@ -708,6 +779,19 @@ recorded it.**
 Coordinates are validated the same way a calendar event's are (±90 / ±180), and a point off the globe is
 refused with a message rather than stored — see [Refusing a request](#refusing-a-request). The address is
 best-effort: a point Nominatim has nothing for is still worth keeping.
+
+**On a phone the map sits above the lists**, between the page's own heading and everything the page
+says about who is sharing what. For a while there was no map there at all — at that width it is small,
+and it pushed the lists it illustrates off the screen — but a map page with no map on it is a list of
+names, and the pinching is a price somebody opening a map has already agreed to pay. It is done by
+taking the panel out of the way as a box (`display: contents`), which leaves its heading and its
+sections as items of the page's own column with the map free to sit between them.
+
+**Start and the share picker are hidden there**, on a report that neither does anything on a phone, and
+one line stands in for them. That is a cover rather than a fix and is written down as one in
+`info/future-plan.md`: the code path is the one a desktop browser runs, and every way it can fail
+already puts a message on the screen, so the cause is worth finding and the hiding is worth taking off
+again.
 
 The map waits for its container to have a height before Leaflet measures it. Blazor adds the element in
 the same render pass that draws into it, so measuring immediately measures a box the browser hasn't laid
@@ -873,6 +957,29 @@ fields themselves is a named press further in (`/inventory/{id}/edit`) - the sam
 has, for the same reason: opening an inventory to see what is in it is a different thing from opening it
 to change it, and a page of editable fields is the wrong answer to "what have we got".
 
+### The four views, and the week among them
+
+**Day, week, month and year.** The week is the month grid with one row in it
+(`CalendarGridBuilder.BuildWeekGrid`), which is the point of it: a week reads as a row of a month rather
+than as a fourth thing to learn, the same chips in the same cells, and pressing a day opens that day.
+The one thing it does differently is use the room a single row has — taller cells, and ten chips before
+a day says how many more there are rather than four. Nothing in a week is dimmed: the flag that dims a
+cell means "this day belongs to the month either side of the one you asked for", and in a week nobody
+asked for a month, so a week straddling the 1st would otherwise arrive half greyed.
+
+**The list beside the grid covers whatever the grid is showing** — that day, that week, that month, that
+year. The day view used to list the whole month around the day instead, on the grounds that one day's
+worth is too little to be worth a panel; it is not, now that a day shows everything that fell on it.
+
+**A link can name the view and the day**: `/calendar?view=day&on=2026-09-09`. It is obeyed once rather
+than on every render, or pressing **Month** on a page reached that way would put the view straight back.
+A view name this version of Orbit does not know opens the month, the way a link with no view opens it —
+a link is a thing somebody may have kept.
+
+That is how **the dashboard's summary of today** arrives at today rather than at the month today is in.
+The strip is a count of one day — two tasks due, one event — and the month view answers a different
+question from the one that was pressed.
+
 ### What the calendar's list leaves out
 
 The list beside the grid answers "what is coming", so it leaves out what is over: a deadline already
@@ -893,7 +1000,7 @@ as they leave the list, and the same menu brings them back - struck through and 
 (`.calendar-chip-done`). A finished deadline has read that way there all along; an appointment had no
 mark at all, for the same reason the list did not leave it out either: an event of its own has nothing
 to tick, only the entry behind it does, so the page has to tell the grids which
-(`Calendar.EventsOnTheGrid`, `Calendar.TickedOffEventIds`). Day, month and year views all read from it.
+(`Calendar.EventsOnTheGrid`, `Calendar.TickedOffEventIds`). All four views read from it.
 
 **What is merely *over* stays on the grid.** That is the one place the two part company, and it is
 deliberate: the list answers "what is coming", so an event that has ended stops being its subject, while
@@ -907,6 +1014,12 @@ device (`CalendarListReading`). Its grid keeps everything too.
 **Show → "Everything, including what is over"** in the page's menu puts them back, and is remembered by
 the device the way the list's order is (`CalendarListOrder`, localStorage - it describes one page for
 one reader on one screen).
+
+**The day view shows everything whatever that says** (`Calendar.ShowsEverythingInThisView`). Opening one
+particular day is asking what happened on it, and half an answer to that is worse than none: a day
+showing three of the five things on it looks like a day with three things on it, with nothing saying
+otherwise. The menu entry is ticked and greyed there, with the reason on it — an unticked box over a
+screen full of finished work would be the control lying about what is in front of somebody.
 
 ## Refusing a request
 
@@ -1157,6 +1270,15 @@ by commas, the way a shelf item's category is written, with every category alrea
 underneath it (`TaskItem.Categories`, `CategoryText`). One errand is often two subjects at once, so
 being made to pick the single truest one is how a category stops being written at all. Every kind of
 entry carries them: an appointment is about something the same way an errand is.
+
+**All of it is about the folder that is open** (`Tasks.TaskListsInTheOpenFolder`) — which chips exist,
+the number on each of them, the number on "All", and what the search looks through. A folder is a place
+rather than one more filter, so a chip is about what is in the place somebody is standing in. Counting
+the whole account instead is what this page used to do, and it showed: a tab holding two lists had an
+"All" chip saying twelve, and a category chip could offer a word that appears only on a list filed
+somewhere else — pressing it emptied the page, leaving the reader to work out that the word belonged to
+a tab they were not on. An empty tab now says it is empty, rather than "no lists are all", which blames
+a chip nobody pressed.
 
 The search matches a word anywhere in an entry's own words. The chips are built from what entries are
 actually filed under, each with how many carry it. Several can be chosen: **any of them** by default,

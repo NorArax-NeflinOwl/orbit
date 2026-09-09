@@ -55,4 +55,19 @@ internal sealed class InMemoryTaskListShareRepository : ITaskListShareRepository
             share.SourceTaskListId == sourceId && share.RecipientUserId == recipientUserId && share.IsAccepted);
         return Task.CompletedTask;
     }
+
+    /// <summary>Everything this owner handed that recipient, oldest first - the real one orders the same way.</summary>
+    public Task<IReadOnlyList<TaskListShare>> GetSharesToAsync(Guid ownerUserId, Guid recipientUserId, CancellationToken cancellationToken)
+    {
+        IReadOnlyList<TaskListShare> shares = _shares
+            .Where(share => share.OwnerUserId == ownerUserId && share.RecipientUserId == recipientUserId)
+            .OrderBy(share => share.CreatedAtUtc)
+            .ToList();
+
+        return Task.FromResult(shares);
+    }
+
+    /// <summary>Scoped to the owner, exactly as the real one is: a share that is not theirs does not go.</summary>
+    public Task<bool> RemoveAsync(Guid ownerUserId, Guid shareId, CancellationToken cancellationToken)
+        => Task.FromResult(_shares.RemoveAll(share => share.Id == shareId && share.OwnerUserId == ownerUserId) > 0);
 }

@@ -43,6 +43,18 @@ public sealed record UserPresence(PresenceAvailability Availability, DateTimeOff
     /// </summary>
     public static readonly TimeSpan OfflineAfter = TimeSpan.FromMinutes(5);
 
+    /// <summary>
+    /// When this person was last here, cut down to the minute it fell in - what a contact's card shows,
+    /// and all of it that ever leaves the server.
+    ///
+    /// <see cref="LastSeenAtUtc"/> itself stays exact, because <see cref="StatusAt"/> measures the away
+    /// and offline thresholds against it: rounding there would put somebody last seen at 10:00:59
+    /// "away" five seconds later, having been at the keyboard the whole time.
+    /// </summary>
+    public DateTimeOffset? LastSeenToTheMinuteUtc => LastSeenAtUtc is not { } seen
+        ? null
+        : new DateTimeOffset(seen.Year, seen.Month, seen.Day, seen.Hour, seen.Minute, 0, seen.Offset);
+
     public UserPresence SeenAt(DateTimeOffset nowUtc) => this with { LastSeenAtUtc = nowUtc };
 
     public UserPresence WithAvailability(PresenceAvailability availability) => this with { Availability = availability };

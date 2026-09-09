@@ -32,6 +32,41 @@ public sealed class CalendarGridBuilderTests
     }
 
     [Fact]
+    public void A_week_grid_is_the_one_Monday_to_Sunday_week_the_date_falls_in()
+    {
+        // A Thursday.
+        var week = Assert.Single(CalendarGridBuilder.BuildWeekGrid(new DateOnly(2026, 9, 10), [], []));
+
+        Assert.Equal(new DateOnly(2026, 9, 7), week.Days[0].Date);
+        Assert.Equal(new DateOnly(2026, 9, 13), week.Days[6].Date);
+    }
+
+    /// <summary>
+    /// Nothing in a week is dimmed. The flag says "this day belongs to the month either side of the one
+    /// you asked for", and in a week nobody asked for a month - a week straddling the 1st would
+    /// otherwise arrive half greyed.
+    /// </summary>
+    [Fact]
+    public void No_day_of_a_week_is_borrowed_from_anywhere()
+    {
+        // The week of the 31st of August 2026, which is four days of September.
+        var week = Assert.Single(CalendarGridBuilder.BuildWeekGrid(new DateOnly(2026, 8, 31), [], []));
+
+        Assert.All(week.Days, day => Assert.True(day.IsInDisplayedMonth));
+    }
+
+    [Fact]
+    public void A_week_grid_places_an_event_on_its_own_day()
+    {
+        var calendarEvent = CreateTimedEvent(new DateTime(2026, 9, 9, 10, 0, 0), new DateTime(2026, 9, 9, 11, 0, 0));
+
+        var week = Assert.Single(CalendarGridBuilder.BuildWeekGrid(new DateOnly(2026, 9, 10), [calendarEvent], []));
+
+        var dayWithEvent = Assert.Single(week.Days, day => day.Events.Count > 0);
+        Assert.Equal(new DateOnly(2026, 9, 9), dayWithEvent.Date);
+    }
+
+    [Fact]
     public void An_event_is_placed_only_on_its_own_day_cell()
     {
         var calendarEvent = CreateTimedEvent(new DateTime(2026, 8, 21, 10, 0, 0), new DateTime(2026, 8, 21, 11, 0, 0));
