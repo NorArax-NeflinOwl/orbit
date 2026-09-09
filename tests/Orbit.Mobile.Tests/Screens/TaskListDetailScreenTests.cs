@@ -104,6 +104,37 @@ public sealed class TaskListDetailScreenTests
     }
 
     /// <summary>
+    /// Building a storage out of a list is only offered where there is something on it a shelf could be
+    /// about - see GeneratedInventorySource, which Orbit.Web's own menu asks the same question of.
+    /// </summary>
+    [Fact]
+    public async Task A_list_of_plain_errands_has_nothing_to_build_a_storage_from()
+    {
+        using var context = new ScreenContext();
+        var screen = context.OpenTaskList("Chores");
+        screen.NewItemDescription = "Post the parcel";
+        await screen.AddItemCommand.ExecuteAsync(null);
+
+        Assert.False(screen.HasSomethingToBuildAStorageFrom);
+    }
+
+    [Fact]
+    public async Task A_product_on_the_list_is_something_to_build_a_storage_from()
+    {
+        using var context = new ScreenContext();
+        var screen = context.OpenTaskList("Shopping");
+        screen.NewItemDescription = "Milk";
+        await screen.AddItemCommand.ExecuteAsync(null);
+
+        // The entry becomes an inventory errand the way the screen makes one: through its own editor.
+        screen.EditItemCommand.Execute(Assert.Single(screen.Items));
+        screen.BeingEdited!.ChosenKind = screen.BeingEdited.Kinds.Single(kind => kind.Value == nameof(TaskItemKind.Inventory));
+        await screen.SaveItemCommand.ExecuteAsync(null);
+
+        Assert.True(screen.HasSomethingToBuildAStorageFrom);
+    }
+
+    /// <summary>
     /// The third answer: an entry that is not going to happen is crossed out rather than left sitting
     /// there or lied about with a tick. One press further round than done - see TickState - and it
     /// travels to the server as its own flag, so nothing counts it as work that was done.

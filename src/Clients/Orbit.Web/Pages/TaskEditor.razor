@@ -15,6 +15,7 @@
 @using Orbit.Contracts.Inventories
 @using Orbit.Contracts.Notifications
 @using Orbit.Contracts.Tasks
+@using Orbit.Core.Inventories
 @using Orbit.Core.Abstractions
 @using Orbit.Core.Tasks
 @using Orbit.Core.Suggestions
@@ -564,16 +565,26 @@ else
             @if (!IsNewTaskList && Id is { } menuTaskListId)
             {
                 <OverflowMenu>
-                    @* A list already measured against a storage has nowhere to put a second one: this
-                       would build it and quietly move the list onto it, leaving the first behind with
-                       nothing pointing at it. What such a list wants instead is a product on the shelf
-                       it already has - which is what an inventory entry offers there. *@
-                    <button type="button" class="avatar-dropdown-item"
-                            disabled="@(_isWorkingOnInventory || _linkedInventoryId is not null)"
-                            title="@(_linkedInventoryId is null ? null : T["This list already has a storage."])"
-                            @onclick="OpenTheGenerateForm">
-                        @T["Generate inventory…"]
-                    </button>
+                    @* Only for a list with something on it a shelf could be about - an entry describing
+                       a product, or one standing for a list that has one, however deep that goes. See
+                       GeneratedInventorySource: on a list of plain errands this was an offer to build an
+                       empty storage and quietly point the list at it.
+
+                       A list already measured against a storage has nowhere to put a second one either:
+                       this would build it and move the list onto it, leaving the first behind with
+                       nothing pointing at it. That one is drawn and refused rather than left out, since
+                       the list plainly has products on it and a missing entry would read as a bug. What
+                       such a list wants instead is a product on the shelf it already has - which is what
+                       an inventory entry offers there. *@
+                    @if (HasSomethingToBuildAStorageFrom)
+                    {
+                        <button type="button" class="avatar-dropdown-item"
+                                disabled="@(_isWorkingOnInventory || _linkedInventoryId is not null)"
+                                title="@(_linkedInventoryId is null ? null : T["This list already has a storage."])"
+                                @onclick="OpenTheGenerateForm">
+                            @T["Generate inventory…"]
+                        </button>
+                    }
                     @* Nothing to recalculate until there is an inventory to recalculate against. *@
                     <button type="button" class="avatar-dropdown-item"
                             disabled="@(_isWorkingOnInventory || _linkedInventoryId is null)"
@@ -771,6 +782,30 @@ else
     private TaskItemFormModel? _expandedItem;
     /// <summary>The lists an item may link to - see TaskListLinkCycle for what is left out and why.</summary>
     private IReadOnlyList<TaskDto> _linkableTaskLists = [];
+
+    /// <summary>Every list this account has, for looking one up by the id an entry stands for.</summary>
+    private IReadOnlyList<TaskDto> _allTaskLists = [];
+
+    /// <summary>
+    /// Whether building a storage out of this list is worth offering - see GeneratedInventorySource.
+    /// A list of plain errands has nothing a shelf would be about, and the entry in the menu was an
+    /// offer to build an empty one and quietly point the list at it.
+    ///
+    /// Asked of the form rather than of the list as it was loaded, like every other question this
+    /// screen asks about what is on it: adding a product entry offers it in the same keystroke.
+    /// </summary>
+    private bool HasSomethingToBuildAStorageFrom
+        => GeneratedInventorySource.HasSomethingToBuildFrom(
+            [.. _formModel.Items.Select(Summarise)],
+            taskListId => _allTaskLists.FirstOrDefault(taskList => taskList.Id == taskListId) is { } linked
+                ? [.. linked.Items.Select(Summarise)]
+                : null);
+
+    private static TaskEntrySummary Summarise(TaskItemFormModel item)
+        => new(item.Kind == nameof(TaskItemKind.Inventory), item.LinkedTaskListIds);
+
+    private static TaskEntrySummary Summarise(TaskItemDto item)
+        => new(item.Kind == nameof(TaskItemKind.Inventory), item.AllLinkedTaskListIds);
 
     /// <summary>
     /// The lists this entry could still be pointed at: every linkable one it does not already name.
@@ -972,6 +1007,9 @@ else
             // Populates the "link to another list" dropdown - excludes the list being edited itself, since
             // an item can't link to the list it belongs to (see TaskListLinkValidator on the API side).
             var allTaskLists = await TasksApiClient.GetTaskListsAsync();
+            // Kept whole as well as narrowed below: an entry standing for another list is looked up here
+            // by id, and a list left out of the link dropdown is still a list one of these points at.
+            _allTaskLists = allTaskLists;
             // Best-effort: an entry can be tied to an event, but a calendar that will not load is no
             // reason for the task editor not to.
             try

@@ -41,6 +41,12 @@ public sealed class TaskEditorItemFormTests : OrbitTestContext
 
     /// <summary>The storage this list is measured against, for a test that wants one. Null for most.</summary>
     private InventoryDto? _linkedInventory;
+
+    /// <summary>
+    /// What is on the other list an entry can stand for. Empty unless a test puts something there -
+    /// see A_list_standing_for_one_with_products_on_it_is_offered_a_storage.
+    /// </summary>
+    private IReadOnlyList<TaskItemDto> _entriesOnTheOtherList = [];
     private static readonly Guid ItemId = Guid.NewGuid();
 
     public TaskEditorItemFormTests()
@@ -832,6 +838,42 @@ public sealed class TaskEditorItemFormTests : OrbitTestContext
     }
 
     /// <summary>
+    /// Only a list with something on it a shelf could be about is offered one - see
+    /// GeneratedInventorySource. On a list of plain errands the entry was an offer to build an empty
+    /// storage and quietly point the list at it.
+    /// </summary>
+    [Fact]
+    public void A_list_of_plain_errands_is_not_offered_a_storage()
+    {
+        RegisterApiClients(AnItem());
+        var cut = Render();
+
+        OpenTheRailMenu(cut);
+
+        Assert.DoesNotContain(
+            cut.FindAll(".editor-rail .avatar-dropdown-item"),
+            entry => entry.TextContent.Contains("Generate inventory", StringComparison.Ordinal));
+    }
+
+    /// <summary>
+    /// And a group list is offered one on the strength of what it gathers: it holds no work of its own,
+    /// and a shelf built from it comes from the lists it stands for.
+    /// </summary>
+    [Fact]
+    public void A_list_standing_for_one_with_products_on_it_is_offered_a_storage()
+    {
+        _entriesOnTheOtherList = [AnItem(kind: nameof(TaskItemKind.Inventory))];
+        RegisterApiClients(AnItem() with { LinkedTaskListIds = [OtherTaskListId] });
+        var cut = Render();
+
+        OpenTheRailMenu(cut);
+
+        Assert.Contains(
+            cut.FindAll(".editor-rail .avatar-dropdown-item"),
+            entry => entry.TextContent.Contains("Generate inventory", StringComparison.Ordinal));
+    }
+
+    /// <summary>
     /// Generating a storage asks what to build first: what it is called, and how the "Restock supplies"
     /// list it keeps should behave. It used to be one click with no questions, and both answers then had
     /// to be found and corrected on another screen.
@@ -1156,7 +1198,12 @@ public sealed class TaskEditorItemFormTests : OrbitTestContext
             // it never offers the list being edited, which would be a link to itself.
             return path.EndsWith($"/{TaskListId}", StringComparison.Ordinal)
                 ? JsonOf(taskList)
-                : JsonOf(new[] { taskList, AnotherTaskList("Kitchen", OtherTaskListId), AnotherTaskList("Bathroom") });
+                : JsonOf(new[]
+                {
+                    taskList,
+                    AnotherTaskList("Kitchen", OtherTaskListId, _entriesOnTheOtherList),
+                    AnotherTaskList("Bathroom")
+                });
         }))
         {
             BaseAddress = new Uri("https://example.test/")
@@ -1170,9 +1217,9 @@ public sealed class TaskEditorItemFormTests : OrbitTestContext
         Services.AddSingleton(new InventoryApiClient(httpClient));
     }
 
-    private static TaskDto AnotherTaskList(string title, Guid? id = null)
+    private static TaskDto AnotherTaskList(string title, Guid? id = null, IReadOnlyList<TaskItemDto>? items = null)
         => new(
-            id ?? Guid.NewGuid(), title, [], IsCompleted: false, IsGroup: false, IsPrivate: false,
+            id ?? Guid.NewGuid(), title, items ?? [], IsCompleted: false, IsGroup: false, IsPrivate: false,
             EncryptedContent: null, DateTimeOffset.UtcNow, DateTimeOffset.UtcNow,
             IsShared: false, SharedByUserName: null, AccessLevel: "CanEdit", OriginalOwnerUserId: null);
 

@@ -1870,6 +1870,13 @@ an inventory's editor carries a checklist of the lists measured against it. "Gen
 refused to a list that already has one: it would build a second and quietly move the list onto it,
 leaving the first with nothing pointing at it.
 
+**And it is only offered where there is something on the list a shelf could be about** (2026-09-09,
+`GeneratedInventorySource`, asked by both clients): an entry describing a product, or one standing for a
+list that has one, however deep that goes. On a list of plain errands the menu entry was an offer to
+build an empty storage and quietly point the list at it. The rule lives on the clients rather than in the
+endpoint, which still builds a shelf out of whatever the work names - so a list of errands can still be
+turned into one by anything that calls it, it is simply not *offered* any more.
+
 `POST /api/tasks/{id}/inventory` goes the other way: it builds the shelf the work needs - one entry per
 distinct thing, **each carrying how many the job needs as its minimum**, and starting with whatever the
 list has already crossed off, since a ticked line is something somebody has fetched - and points the list

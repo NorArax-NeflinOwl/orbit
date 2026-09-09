@@ -459,6 +459,22 @@ public sealed partial class TaskListDetailViewModel : ObservableObject
         new Dictionary<Guid, TaskItemReference>();
 
     /// <summary>
+    /// Whether building a storage out of this list is worth offering at all - see
+    /// GeneratedInventorySource, which Orbit.Web's own menu asks the same question of. A list of plain
+    /// errands has nothing a shelf would be about, and offering it there was an offer to build an empty
+    /// storage and quietly point the list at it.
+    /// </summary>
+    public bool HasSomethingToBuildAStorageFrom
+        => GeneratedInventorySource.HasSomethingToBuildFrom(
+            [.. _items.Select(Summarise)],
+            serverId => _linkedTaskLists.TryGetValue(serverId, out var linked)
+                ? [.. linked.Items.Select(Summarise)]
+                : null);
+
+    private static TaskEntrySummary Summarise(TaskItemDto item)
+        => new(item.Kind == nameof(TaskItemKind.Inventory), item.AllLinkedTaskListIds);
+
+    /// <summary>
     /// Read with the list rather than when an entry is opened, for the reason Orbit.Web's editor gives:
     /// the picker offering them has to be filled before anybody opens an entry, not after. The local
     /// store rather than the API, so it is there with no connection like everything else on this screen.
