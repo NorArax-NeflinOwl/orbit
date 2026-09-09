@@ -280,6 +280,25 @@ Nothing else changed, because `MauiProgram` registers faces under **role** names
   problem went with the faces. The box glyphs `☐ ☑` are still missing from both faces, which is why
   `CheckCircle` draws its circle rather than writing one.
 
+**Walking every screen after the swap found three things, all of them the new faces being wider.**
+Cormorant Garamond is narrow and small on the body; Space Grotesk is wide with a large x-height, so the
+same point size is much bigger text. What that broke:
+
+- **The bar came apart on a long screen name.** "Restock supplies - Workshop" pushed the menu button
+  against the left edge and clipped the avatar off the right. The name sits in an `Auto` column inside
+  a cluster that is centred by being sized to its contents, and an `Auto` column grows to whatever is
+  in it - so the label never truncated, it just shoved its neighbours out of the bar. Capped at 200,
+  which is what a 411-wide bar has left once the menu, the avatar, their padding, both optional arrows
+  and the chevron have taken theirs.
+- **The dashboard's date wrapped.** 34 was drawn in Cormorant; it is 28 now, and
+  "Wednesday, 9 September" is one line again.
+- **One menu was still a character.** `TaskListDetailPage`'s stock-check card wrote `⋯`, and **neither
+  face carries U+22EF** - it is the drawn three dots (`OverflowMenu`) like every other menu now.
+
+Everything else read correctly: the calendar grid's digits, the inventory stepper at three digits, the
+settings tabs, both sign-in screens, the note editor, the menus and the drawer. A list of long names
+wraps more often than it did, which is the face and not a fault.
+
 **The question every irreversible press asks is Orbit's own panel now**, not Android's alert - see
 `Controls/ConfirmationDialog.xaml`. The platform alert was a grey slab in the system font with two blue
 words in it, the one thing left in the app that looked like somebody else's product, and it turned up at

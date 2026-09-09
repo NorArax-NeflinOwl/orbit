@@ -78,8 +78,18 @@
 
             <Grid Grid.Column="1">
                 <HorizontalStackLayout Spacing="6" InputTransparent="True" VerticalOptions="Center">
+                    <!-- Capped, or a long name pushes the bar apart instead of being cut: this cluster
+                         is sized to its contents so that it can sit centred, and an Auto column grows
+                         to whatever is in it. A screen called "Restock supplies - Workshop" shoved the
+                         menu button against the edge and clipped the avatar off the other side.
+
+                         200 is what is left of a 411-wide bar once the menu, the avatar, their padding,
+                         both optional arrows and this label's own chevron have taken theirs - the worst
+                         case, so a screen that shows the arrows truncates at the same width as one that
+                         does not, rather than at a width that depends on what else is in the bar. -->
                     <Label x:Name="TitleLabel" FontFamily="OrbitDisplay" FontSize="22" FontAttributes="Bold"
-                           LineBreakMode="TailTruncation" VerticalOptions="Center" />
+                           LineBreakMode="TailTruncation" MaximumWidthRequest="200"
+                           VerticalOptions="Center" />
                     <Path x:Name="TitleChevron" Data="M6,9 L12,15 L18,9" IsVisible="False"
                           Style="{StaticResource IconPathAccent}" WidthRequest="14" HeightRequest="14"
                           VerticalOptions="Center" />

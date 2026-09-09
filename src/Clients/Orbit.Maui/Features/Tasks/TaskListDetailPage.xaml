@@ -400,9 +400,15 @@
 
                 <controls:ItemCard.Menu>
                     <!-- What order the rows are read in, as Orbit.Web keeps it behind this card's own
-                         menu. An action sheet rather than a panel - one choice, then done. -->
-                    <Button Text="⋯" SemanticProperties.Description="{controls:Translate 'Sort'}" FontSize="18" Padding="8,0"
-                            HeightRequest="32" WidthRequest="36" Style="{StaticResource LinkButton}"
+                         menu. An action sheet rather than a panel - one choice, then done.
+
+                         The drawn three dots, like every other menu in the app. It used to write the
+                         character "⋯", which neither text face carries - IBM Plex Sans and Space
+                         Grotesk both lack U+22EF - so Android was substituting a system font for it,
+                         and this was the last place in the app a menu was a character rather than a
+                         drawing. -->
+                    <controls:OverflowMenu VerticalOptions="Center"
+                            SemanticProperties.Description="{controls:Translate 'Sort'}"
                             Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=ChooseStockOrderCommand, x:DataType=tasks:TaskListDetailPage}" />
                 </controls:ItemCard.Menu>
 
