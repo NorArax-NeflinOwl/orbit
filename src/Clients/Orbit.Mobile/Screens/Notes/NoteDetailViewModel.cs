@@ -135,18 +135,41 @@ public sealed partial class NoteDetailViewModel : ObservableObject
     /// <summary>
     /// A new line under the one being written in, which is what Enter does on a surface like this.
     ///
-    /// It inherits the indentation of the line above - a list stays a list when a line is added to the
-    /// middle of it, which is what an editor doing anything else gets wrong first - and it starts out
-    /// tickable when the checklist button is on, which is what that button is for.
+    /// <paramref name="caret"/> is where in that line the press happened, and **whatever follows it
+    /// moves down onto the new line** - Enter in the middle of a sentence breaks the sentence, which is
+    /// what it does in every text field there is. Pass the length of the line (or leave it out) for a
+    /// press at the end, where there is nothing to carry down.
+    ///
+    /// The new line inherits the indentation of the line above - a list stays a list when a line is
+    /// added to the middle of it, which is what an editor doing anything else gets wrong first. It is
+    /// tickable when the checklist button is on, and also when it is carrying the tail of a line that
+    /// was itself tickable: a checklist continues as a checklist until a line is left empty.
     /// </summary>
-    public NoteLineRow AddLineAfter(NoteLineRow? row)
+    public NoteLineRow AddLineAfter(NoteLineRow? row, int caret = int.MaxValue)
     {
         var above = row ?? Lines.LastOrDefault();
-        var fresh = new NoteLineRow
+        var fresh = new NoteLineRow();
+
+        if (above is not null)
         {
-            Text = above is null ? string.Empty : IndentationOf(above.Text),
-            IsChecklistItem = IsWritingAChecklist
-        };
+            // Read before the line is cut: a press at the very start leaves nothing above to take the
+            // indentation from, and the new line is still the same line's continuation.
+            var indentation = IndentationOf(above.Text);
+            var at = Math.Clamp(caret, 0, above.Text.Length);
+            var carried = above.Text[at..];
+
+            above.Text = above.Text[..at];
+            fresh.Text = indentation + carried;
+
+            // A checklist goes on being a checklist - but an empty line ends it, which is how a reader
+            // stops one without reaching for the button in the corner.
+            fresh.IsChecklistItem = IsWritingAChecklist
+                || (above.IsChecklistItem && (above.Text.Length > 0 || carried.Length > 0));
+        }
+        else
+        {
+            fresh.IsChecklistItem = IsWritingAChecklist;
+        }
 
         Lines.Insert(above is null ? Lines.Count : Lines.IndexOf(above) + 1, fresh);
         Watch(fresh);
@@ -163,12 +186,29 @@ public sealed partial class NoteDetailViewModel : ObservableObject
 
     /// <summary>
     /// Backspace at the very start of a line: the line joins the one above it, exactly as it would in
-    /// any text field, and the caret lands where the two meet. Returns where that is, or null when
-    /// there is no line above and the press means nothing.
+    /// any text field, and the caret lands where the two meet. Returns where that is, or null when the
+    /// press means nothing - or when it meant something other than a merge, which is the tick box.
+    ///
+    /// **A line with a tick box loses the box first.** Backspace at the head of one takes it off and
+    /// leaves the words where they are; only a second press joins what is left to the line above. It is
+    /// the one way to undo a box from the keyboard, and it stops a reader who typed "[]" by accident
+    /// from having to reach for the button in the corner to undo it - which is what the design does.
     /// </summary>
     public (NoteLineRow Line, int Caret)? MergeIntoTheLineAbove(NoteLineRow? row)
     {
-        if (row is null || Lines.IndexOf(row) is var index && index <= 0)
+        if (row is null || Lines.IndexOf(row) is var index && index < 0)
+        {
+            return null;
+        }
+
+        if (row.IsChecklistItem)
+        {
+            row.IsChecklistItem = false;
+            row.IsChecked = false;
+            return null;
+        }
+
+        if (index == 0)
         {
             return null;
         }

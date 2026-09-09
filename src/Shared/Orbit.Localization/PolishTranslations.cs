@@ -1566,6 +1566,8 @@ public static class PolishTranslations
         ["Updated {0}"] = "Zmieniono {0}",
         ["{0} · all day"] = "{0} · cały dzień",
         ["{0} – {1}"] = "{0} – {1}",
+        // The one place the note editor says where a tick box comes from - see NoteDetailPage's foot.
+        ["Type [] for a checkbox"] = "Wpisz [], aby dodać pole",
         ["Untitled"] = "Bez tytułu",
         ["Someone"] = "Ktoś",
         ["Live · updated {0}"] = "Na żywo · zaktualizowano {0}",

@@ -121,17 +121,20 @@ about them is under "Screens already built" below.
 
 ### A note
 
-- **Enter splits the line at the caret.** The design moves whatever is after the caret down onto the
-  new line. `AddLineAfter` inserts an empty line and leaves the text where it was, so pressing Enter in
-  the middle of a sentence loses nothing but does nothing either.
-- **Backspace at the head of a checklist line takes the box off first.** The design's `lineKeyDown`
-  strips the checkbox and leaves the text as a plain line; only a second backspace merges it upward.
-  `MergeIntoTheLineAbove` merges straight away, so there is no way to un-tick-box a line from the
-  keyboard.
-- **Arrow up and arrow down move between lines**, keeping the column. Nothing does this today.
-- **The editor has a foot.** A quiet line under the writing: who it is shared with and when it was last
-  edited on the left, a hairline, and "Type [] for a checkbox" on the right - which is where the reader
-  is told the trick at all.
+- ~~**Enter splits the line at the caret.**~~ ***Done 2026-09-09.*** `AddLineAfter` takes the caret now
+  and carries whatever follows it down onto the new line. A checklist goes on being a checklist without
+  the button in the corner being touched, and an empty line ends it - which is the design's own rule and
+  is how a reader stops one.
+- ~~**Backspace at the head of a checklist line takes the box off first.**~~ ***Done 2026-09-09.***
+  `MergeIntoTheLineAbove` answers null for that press and takes the box off instead; only a second
+  press joins the line upwards. It is the one way to undo a box from the keyboard.
+- **Arrow up and arrow down move between lines**, keeping the column. Nothing does this today, and it
+  wants the Android key hook that `NoteLineBackspace` already owns - the same place, one more key.
+- **The editor has a foot.** *Half done 2026-09-09*: the hairline and "Type [] for a checkbox" are
+  there, which is the only place the trick is written down at all. The design's left half - who the note
+  is shared with and when it was last edited - is **not** built, and would need state the view model does
+  not keep: there is no "edited N ago" on `NoteDetailViewModel` and no summary of who a note is shared
+  with. It was left rather than invented.
 
 ### Tasks, and a task list
 

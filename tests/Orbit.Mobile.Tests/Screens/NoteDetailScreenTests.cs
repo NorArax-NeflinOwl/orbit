@@ -207,6 +207,68 @@ public sealed class NoteDetailScreenTests
         Assert.Equal(4, landing!.Value.Caret);
     }
 
+    /// <summary>
+    /// A line with a tick box loses the box first, and only a second press joins it upwards. It is the
+    /// one way to undo a box from the keyboard - a reader who typed "[]" by accident would otherwise
+    /// have to reach for the button in the corner.
+    /// </summary>
+    [Fact]
+    public async Task Backspace_at_the_head_of_a_tickable_line_takes_the_box_off_before_it_joins_anything()
+    {
+        using var context = new ScreenContext();
+        var note = await context.AddNoteAsync("Shopping", "milk", "bread");
+        var screen = await context.OpenAsync(note.LocalId);
+        screen.Lines[1].IsChecklistItem = true;
+        screen.Lines[1].IsChecked = true;
+
+        Assert.Null(screen.MergeIntoTheLineAbove(screen.Lines[1]));
+
+        Assert.False(screen.Lines[1].IsChecklistItem);
+        Assert.False(screen.Lines[1].IsChecked);
+        Assert.Equal(["milk", "bread"], screen.Lines.Select(line => line.Text));
+
+        // And now it joins, as any plain line does.
+        Assert.NotNull(screen.MergeIntoTheLineAbove(screen.Lines[1]));
+        Assert.Equal(["milkbread"], screen.Lines.Select(line => line.Text));
+    }
+
+    /// <summary>
+    /// Enter in the middle of a line breaks the line: what follows the caret moves down onto the new
+    /// one, which is what a text field does everywhere.
+    /// </summary>
+    [Fact]
+    public async Task Enter_carries_whatever_follows_the_caret_down_onto_the_new_line()
+    {
+        using var context = new ScreenContext();
+        var note = await context.AddNoteAsync("Shopping", "milk and bread");
+        var screen = await context.OpenAsync(note.LocalId);
+
+        var fresh = screen.AddLineAfter(screen.Lines[0], "milk".Length);
+
+        Assert.Equal(["milk", " and bread"], screen.Lines.Select(line => line.Text));
+        Assert.Same(screen.Lines[1], fresh);
+    }
+
+    /// <summary>
+    /// A checklist goes on being a checklist without the button in the corner being touched - and an
+    /// empty line ends it, which is how a reader stops one.
+    /// </summary>
+    [Fact]
+    public async Task A_tickable_line_starts_another_until_one_is_left_empty()
+    {
+        using var context = new ScreenContext();
+        var note = await context.AddNoteAsync("Shopping", "milk");
+        var screen = await context.OpenAsync(note.LocalId);
+        screen.Lines[0].IsChecklistItem = true;
+
+        var second = screen.AddLineAfter(screen.Lines[0]);
+        Assert.True(second.IsChecklistItem);
+
+        // Enter on the empty one it just made: nothing on either side of the caret, so the list ends.
+        var third = screen.AddLineAfter(second);
+        Assert.False(third.IsChecklistItem);
+    }
+
     /// <summary>And it means nothing on the first line, which has nothing above it to join.</summary>
     [Fact]
     public async Task Backspace_on_the_first_line_does_nothing()

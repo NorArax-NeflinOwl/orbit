@@ -90,17 +90,20 @@ public partial class NoteDetailPage : ContentPage, ITitleMenu
 	/// </summary>
 	private void OnLineCompleted(object? sender, EventArgs eventArgs)
 	{
-		if (!_viewModel.CanEdit || (sender as Entry)?.BindingContext is not NoteLineRow row)
+		if (!_viewModel.CanEdit || sender is not Entry field || field.BindingContext is not NoteLineRow row)
 		{
 			return;
 		}
 
+		// Where the press happened, so whatever follows it moves down onto the new line - Enter in the
+		// middle of a sentence breaks the sentence, as it does in every text field there is.
+		//
 		// The caret is asked for here as well as in Loaded, because the field is usually built while
 		// AddLineAfter is still running - a BindableLayout answers a row being added straight away -
 		// and so it has already loaded by the time there is a row to compare it against. Left to Loaded
 		// alone the ask arrived too late every time, and the only thing that moved the caret was
 		// Android's own answer to the key, which takes it out of the writing altogether.
-		PutTheCaretIn(_viewModel.AddLineAfter(row));
+		PutTheCaretIn(_viewModel.AddLineAfter(row, field.CursorPosition));
 	}
 
 	/// <summary>
@@ -169,6 +172,10 @@ public partial class NoteDetailPage : ContentPage, ITitleMenu
 	/// <summary>
 	/// Backspace with the caret at the head of a line: the line joins the one above it and the caret
 	/// lands where the two met, which is what a text field does everywhere.
+	///
+	/// Nothing to do here when the press took a tick box off instead - see MergeIntoTheLineAbove, which
+	/// answers null for that. The field keeps the caret it already had, which is where the reader left
+	/// it, and the box simply goes.
 	/// </summary>
 	private void JoinTheLineAbove(Entry? field)
 	{
