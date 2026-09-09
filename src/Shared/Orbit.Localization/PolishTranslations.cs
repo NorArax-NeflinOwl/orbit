@@ -1975,6 +1975,9 @@ public static class PolishTranslations
         ["Open in Maps"] = "Otwórz w Mapach",
         ["The map can't be shown in this build. A shared position still opens in your phone's map app."] =
             "Ta wersja aplikacji nie potrafi pokazać mapy. Udostępnione położenie i tak otworzysz w aplikacji map na telefonie.",
+        // And the same on the screen where a place is pointed at, which can still be searched for.
+        ["The map can't be shown in this build. Search for the address instead."] =
+            "Ta wersja aplikacji nie potrafi pokazać mapy. Zamiast tego wyszukaj adres.",
 
         // The last of the web left in English: the restock-list settings, the two suggestion panels,
         // and a handful of lines nobody had swept up. See the coverage test that now keeps this closed.

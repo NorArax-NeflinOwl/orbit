@@ -710,10 +710,16 @@ Every screen the design covers has now been redrawn. The passes were:
 8. ~~The notification feed~~ (its three actions moved under the title), ~~sign-in~~ and ~~the account
    screen's accent swatches~~.
 
-What the design does not cover, and what therefore still has its old layout under the new palette and
-type: **copies** (the review and history screens), **diagnostics**, **the update screen**, **the
-shared-link page**, and **the place picker**. Each is a single-purpose screen the prototype never drew,
-and none of them looks wrong - they simply have not been reconsidered.
+9. ~~The five screens the design never drew~~ - copies (the review and history screens), diagnostics,
+   the update screen, the shared-link page and the place picker. The prototype covers none of them, so
+   they were redrawn by applying its rules rather than by copying a picture: no page heading where the
+   bar already says the name, one quiet line of context where the screen needs one, hairline rows with
+   the rule above rather than below, the accent outline on the one thing a screen is for and the danger
+   outline on what cannot be undone, and a bordered group where three answers are one choice.
+
+   Six leftover "Back" buttons went with them. They were right while screens replaced each other; the
+   navigation stack gave every detail screen an arrow in the bar, and drawing a second way out under
+   the content had become a duplicate that also contradicted its own comment.
 
 Two things the design showed up that are not fixed:
 

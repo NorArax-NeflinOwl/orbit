@@ -135,9 +135,39 @@ covers — the dashboard, both list-and-detail pairs for notes and tasks, the ca
 inventory and a shelf, the chat screens, the notification feed, sign-in and the account screen. The
 `EditorRail` is gone from the codebase, not only from the screens: nothing drew one any more.
 
-What is left is the screens the design does not cover — copies, diagnostics, the update screen, the
-shared-link page, the place picker. They carry the new palette, type and shapes, because the tokens are
-global, and their layout is unchanged.
+The five screens the design does not cover — the two copy screens, diagnostics, the update screen, the
+shared-link page and the place picker — were redrawn by applying its rules rather than by copying a
+picture. There was no picture: the prototype never drew them. What that meant in practice:
+
+- **No page heading where the bar already carries the name.** Diagnostics was the last screen still
+  writing its own name at 26pt under a bar that had just said it.
+- **One quiet line of context** (12px, secondary) where a screen needs one, which is what the design
+  gives the settings screen. Everything else was a `PageHeader`, and that control no longer draws a
+  title.
+- **Hairlines above a row, and one more under the last** — the shape `ItemCard` draws for every list.
+  The copy-history rows drew theirs underneath, which leaves a rule hanging under a list that has
+  ended.
+- **The accent outline on the one thing a screen is for**, and the danger outline on what cannot be
+  undone: "Send to Orbit" against "Clear", "Save to my account", "Download for Android".
+- **A bordered group where several answers are one choice** — the same idiom as the calendar's
+  Day/Month/Year and the shelf's stepper. Keep mine / Keep theirs / Keep both is one decision, and
+  three separate link buttons read as three separate things to press.
+- **Orbit's own tick rather than the platform's.** The shared-link screen was the last `CheckBox` in
+  the app; it draws a `CheckCircle` now, with no command, so it is read as a state rather than
+  offered as a control.
+
+**The place picker was crashing, and nobody had opened it.** `MapPage` and the task entry both take
+their map out of the page when the build has no Google Maps key - on Android a map built without one
+throws from inside Play Services and ends the process. The place picker never did, so opening it on
+such a build took the app down. It guards now like the other two, and what is left still answers the
+question the screen exists for: an address can be searched for and confirmed; only pointing at the map
+is gone, because there is no map to point at. Found by trying to screenshot the redrawn screen.
+
+Eight "Back" ways out went at the same time - six buttons under the content, and two entries at the
+head of a title menu - and this was a defect rather than a preference: they were
+right while screens replaced each other, and the navigation stack gave every detail screen an arrow in
+the bar. `ConversationPage`'s even carried a comment explaining that there was no bar to go back
+through - which had stopped being true.
 
 Deliberately not copied from the design:
 
