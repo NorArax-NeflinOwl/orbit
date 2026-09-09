@@ -48,6 +48,7 @@ whatever Orbit draws under it.
 | A message | filled - the accent for yours, a grey for everybody else's | outlined - the accent over a wash of it, or a hairline over nothing |
 | An avatar | a disc filled with the person's hue | a ring in it, with the initials written in it |
 | A tick | the characters `○ ✓` and `☐ ☑` | one drawn circle - see `Controls/CheckCircle.xaml` |
+| Writing a note | saved as it is typed | **written by Save and by nothing else** - leaving the screen abandons the edit, ticks included, which is what makes the button in the corner mean anything. See below. |
 | A list | cards | **rows**, separated by hairlines |
 
 ### The vocabulary, and where each part lives
@@ -259,6 +260,32 @@ logo, which may not be covered at all. This is a deliberate departure from the d
 button bottom-right - the design's map is a placeholder tile with no furniture of its own, so it never
 had to share the corner. The card that says where you were last read to be gives the button room
 (`Margin="12,10,80,10"`), or a long address runs underneath it.
+
+## The note editor: what a press does, and when the note is written
+
+Three things the user found by using it, on 2026-09-09, all fixed:
+
+- **Enter on the note's name went nowhere.** A single-line field says "Done" to Android, so the
+  keyboard's own key was a tick and pressing it closed the keyboard. The name is the note's first line,
+  so the key goes on into the writing - `ReturnType="Next"` and `OnTitleCompleted`, which makes a line
+  if the note has none yet.
+- **A ticked line could not be reached by the keyboard at all.** It is drawn as a struck-through Label,
+  because MAUI puts `TextDecorations` on a Label and nowhere else, and its field is hidden - so there
+  was nothing to put a caret in and backspace on one did nothing. Pressing it opens the field in the
+  Label's place (`NoteLineRow.IsBeingWrittenIn`), which is what the design has: there every line is a
+  field, ticked or not, and only its decoration changes. **Anything that asks for the caret opens the
+  line first** - `PutTheCaretIn` - because the same hidden-field trap caught Enter on the name and
+  backspace merging up into a ticked line.
+- **The note saved itself, so Save meant nothing.** Leaving the screen wrote whatever had been typed,
+  and there was no way to try a change and decide against it. `CloseAsync` releases the edit lock and
+  writes nothing, which is what every other detail screen already did. Ticking a line no longer writes
+  either: a tick is a change to the note like any other, and it used to survive leaving while the words
+  typed beside it did not.
+
+What still writes on its own is the note's **menu** - priority, private, share - because each of those
+is a command somebody chose, and sealing needs a server round-trip and a read-back rather than a pending
+edit. Nothing warns a reader that leaving will lose what they typed; a "discard changes?" question is
+the usual guard and is not built.
 
 ## How to check it
 

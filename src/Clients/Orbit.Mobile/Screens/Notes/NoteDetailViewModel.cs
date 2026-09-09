@@ -242,18 +242,21 @@ public sealed partial class NoteDetailViewModel : ObservableObject
         IsWritingAChecklist = row.IsChecklistItem;
     }
 
+    /// <summary>
+    /// Ticks a line off, or puts it back. Ticked in place and **not** written down: a tick is a change
+    /// to the note like any other on this screen, and the note is written by Save and by nothing else -
+    /// see <see cref="CloseAsync"/>. It used to write immediately, which meant a tick survived leaving
+    /// the screen while the words typed beside it did not.
+    /// </summary>
     [RelayCommand]
-    private Task ToggleCheckedAsync(NoteLineRow? row, CancellationToken cancellationToken)
+    private void ToggleChecked(NoteLineRow? row)
     {
         if (row is not { IsChecklistItem: true } || IsReadOnly)
         {
-            return Task.CompletedTask;
+            return;
         }
 
-        // Ticked in place and written down, rather than saved and read back: reading it back rebuilds
-        // every line, which on this screen means dropping whatever was being typed elsewhere.
         row.IsChecked = !row.IsChecked;
-        return WriteAsync(cancellationToken);
     }
 
     /// <summary>Renaming saves the whole note, because the API's update takes the whole note.</summary>
@@ -495,14 +498,16 @@ public sealed partial class NoteDetailViewModel : ObservableObject
     }
 
     /// <summary>
-    /// Lets the note go when the screen does, rather than leaving it claimed for a minute - and writes
-    /// down anything typed into a line and not otherwise saved before letting go of it.
+    /// Lets the note go when the screen does, rather than leaving it claimed for a minute.
+    ///
+    /// It does **not** write anything down. Leaving used to save whatever had been typed, which made the
+    /// button in the corner mean nothing: the note was already written by the time anybody could press
+    /// it, and there was no way to try a change and then decide against it. The writing is committed by
+    /// Save and by nothing else, so leaving is how a reader abandons an edit. Every other detail screen
+    /// in the app already closes this way - see TaskListDetailViewModel, CalendarEventDetailViewModel
+    /// and InventoryDetailViewModel, whose CloseAsync releases the lock and stops.
     /// </summary>
-    public async Task CloseAsync()
-    {
-        await SaveLinesAsync(CancellationToken.None);
-        await _editLock.ReleaseAsync();
-    }
+    public Task CloseAsync() => _editLock.ReleaseAsync();
 
     /// <summary>
     /// Pushes what was just queued, and says so if it could not go. Nothing is lost either way - the

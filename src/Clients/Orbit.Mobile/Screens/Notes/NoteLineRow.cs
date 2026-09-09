@@ -35,21 +35,38 @@ public sealed partial class NoteLineRow : ObservableObject
     public bool IsCompleted => IsChecklistItem && IsChecked;
 
     /// <summary>
-    /// Whether the editor shows this line as something to write in rather than as something already
-    /// done. A ticked line is drawn struck through, which a text box cannot do - MAUI puts
-    /// TextDecorations on a Label and nowhere else - so the two are separate controls and this is which
-    /// of them is showing. Untick it to write in it again, which is also what it means.
+    /// Set while the reader has the caret in this line, and only ever true for a ticked one.
+    ///
+    /// A ticked line is drawn struck through, which a text box cannot do - MAUI puts TextDecorations on
+    /// a Label and nowhere else - so the two are separate controls. Drawn as a Label and nothing else, a
+    /// ticked line cannot be reached by the keyboard at all: there is no field to put a caret in, so
+    /// backspace on it did nothing and the only way to get rid of one was to untick it first. Pressing
+    /// it opens the field in the Label's place, which is what the design has - there every line is a
+    /// field, ticked or not, and only its decoration changes.
     /// </summary>
-    public bool IsOpenForWriting => !IsCompleted;
+    [ObservableProperty]
+    private bool _isBeingWrittenIn;
+
+    /// <summary>
+    /// Whether the editor shows this line as something to write in rather than as something already
+    /// done - which of the two controls is showing. A ticked line opens while it is being written in.
+    /// </summary>
+    public bool IsOpenForWriting => !IsCompleted || IsBeingWrittenIn;
+
+    /// <summary>Struck through: done, and not currently being written in.</summary>
+    public bool IsStruckThrough => IsCompleted && !IsBeingWrittenIn;
 
     partial void OnIsChecklistItemChanged(bool value) => SayHowItIsDrawn();
 
     partial void OnIsCheckedChanged(bool value) => SayHowItIsDrawn();
+
+    partial void OnIsBeingWrittenInChanged(bool value) => SayHowItIsDrawn();
 
     private void SayHowItIsDrawn()
     {
         OnPropertyChanged(nameof(CompletionMark));
         OnPropertyChanged(nameof(IsCompleted));
         OnPropertyChanged(nameof(IsOpenForWriting));
+        OnPropertyChanged(nameof(IsStruckThrough));
     }
 }
