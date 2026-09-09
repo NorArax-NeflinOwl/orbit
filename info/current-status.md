@@ -169,10 +169,10 @@ Conversations can be pinned here now, as they always could in the browser: peopl
 set, kept on the device that pinned them, lifted to the top of the list without being taken out of its
 order and without touching the archive.
 
-On Android the calendar now gets out of the way as the list under it is read: it minimises to the week
-the reader is standing on, the month they are reading in the year view, or one hour of the day, and
-comes back whole at the top of the list. Decided for the phone and not for the browser - a desktop
-window has room for the grid and the list at once, and a phone has one column and a thumb.
+On Android the calendar offers four views rather than three: Day, Week, Month and Year, in a row across
+the top of the page with the period's own arrows and Today at the other end. The week used to arrive by
+accident - the grid shrank to it as the list beneath was scrolled past - and is something the reader
+asks for now; nothing shrinks by itself. The period being read is the screen's name in the bar.
 
 The shelf itself answers two more questions. An inventory opened from an errand naming a product, or from
 the search across every shelf, marks that row and scrolls to it rather than landing on a list with no

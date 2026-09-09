@@ -498,34 +498,21 @@ of that change rather than missed.
 Scaling `orbit-api` past one replica needs a backplane before any of this survives it - see
 [Azure setup](azure-setup.md#5-confirm-ingress).
 
-## The calendar that shrinks as you scroll - Android, not the web
+## The calendar that shrank as you scrolled - withdrawn 2026-09-09
 
-Decided 2026-09-01, while the web calendar was being reshaped. **The web keeps what it has**: side by
-side on a wide screen, and stacked - calendar above, list below - once there is no room for that. It
-does not shrink as the page scrolls, and it is not meant to.
+Decided 2026-09-01, shipped 2026-09-02, taken out again on 2026-09-09. On Android the calendar stayed
+pinned while the list under it was read and minimised to a single row as soon as the reader scrolled
+past it - one hour of the day, one week of the month, one month of the year - and came back whole at
+the top. The web never did this and was never going to.
 
-**The phone does, as of 2026-09-02.** On Android the calendar stays pinned while the list under it is
-read, and minimises to a single row as soon as the reader scrolls past it:
+**Why it is gone.** The week is one of four views the reader now asks for by name (Day, Week, Month,
+Year, in a row across the top of the page), so a grid that shrank on its own was a second and silent
+answer to the same question - one nobody could ask for, and one nobody could refuse. `MinimisedCalendar`
+became `CalendarWeek`, which still picks the week out of the month grid that was already built; the
+year's month and the day's hour went with the gesture that caused them.
 
-| view | what is left when it is minimised |
-|---|---|
-| Day | one hour row |
-| Month | one week row |
-| Year | the month's name, and nothing else |
-
-Why there and not here: a phone has one column and a thumb, so the calendar is either taking the
-screen or getting out of the way, and the row that survives is the one the reader is standing on.
-A desktop window has room for both at once, so nothing has to move - and a grid that resized itself
-while somebody scrolled a list beside it would be motion answering a question nobody asked.
-
-Not attempted on the web deliberately. It is scroll-and-viewport behaviour, which no test in this
-project can cover, and the web has no problem for it to solve.
-
-What is testable was kept out of the page: which row survives is a rule (`MinimisedCalendar`,
-`CalendarViewModel.IsMinimised`, `HoursOnShow`) and is covered; the page owns only the scroll offset
-that turns it on and the redraw that follows. The hour rule is the one worth restating: today keeps the
-hour it is now, held inside the stretch there is to draw, and any other day keeps the hour its first
-thing starts in - an empty row above everything the day holds would be the wrong answer.
+What is worth keeping from the reasoning: a phone has one column and a thumb, so the row worth reading
+is the one the reader is standing on. That is what the week view is for. Nothing about scrolling.
 
 ## What the UI pass still needs a migration for
 
@@ -555,6 +542,18 @@ Everything else on the pass - the top bar, the shared card and its footer, the c
 inventory lists, the contacts tabs, the chat menus - is built and needs no schema change.
 
 ## Noticed while working
+
+- **Folders are a web feature the phone has never had.** The design's menu under Notes, Tasks and the
+  dashboard names three things: sorting, filtering and *folders*. The first two shipped on 2026-09-09;
+  the third could not, because the mobile client has no folders at all - `grep -rn FolderId
+  src/Clients/Orbit.Mobile` finds nothing. The web has `FolderState`, a `FolderTabs` row on three
+  pages, and `BuiltInFolder`'s three derived tabs; the contracts already carry `FolderId` on a note and
+  on a task (`NoteDto`, `TaskDto`, and `MoveToFolderRequest`), so the wire is ready and the phone is
+  not. What it would take: `FolderId` on `LocalNote` and `LocalTaskList` with a migration, the folder
+  list itself synchronised, `FolderPlacement`'s rule ported so the three built-ins are derived the same
+  way on both clients, and the tabs drawn - which on a phone is a menu entry rather than a row of tabs,
+  beside Sort and Filter where the design puts it. Recorded rather than attempted: it is a feature port
+  with a migration in it, not a piece of the UI pass it was asked for inside.
 
 - **The phone cannot mark a list finished.** A task list can be closed with work still on it since
   2026-09-08 (`TaskList.IsMarkedCompleted`), and the phone neither shows the box nor sends the field.
@@ -721,11 +720,16 @@ Every screen the design covers has now been redrawn. The passes were:
    navigation stack gave every detail screen an arrow in the bar, and drawing a second way out under
    the content had become a duplicate that also contradicted its own comment.
 
-Two things the design showed up that are not fixed:
+10. ~~The written spec, 2026-09-09~~ - the design was rejected as built, and the answer was a
+    screen-by-screen description in the user's own words. What it changed: the bar lost its back arrow
+    and gained an optional pair of arrows beside a screen's name; About became a screen; every list
+    screen's settings moved under its name and left the page to its rows; the note editor became one
+    surface; the calendar gained a week view and lost the grid that shrank on its own; the map took the
+    whole screen. What it did **not** cover, and is still owed a description: see the list at the foot
+    of [`android-ui-parity.md`](android-ui-parity.md).
 
-- **A note in the list has no preview line.** The design shows one under the title;
-  `NoteListItem` carries no preview and nothing on the phone derives one, so the rows are airier than
-  the design's. It needs a sentence off the note's first lines, not a control.
+One thing the design showed up that is not fixed:
+
 - **The tick in a menu is a character, not a drawing.** `ScreenMenuEntry.Mark` is `"✓"`, and neither
   Lora nor Cormorant Garamond has that glyph - Android substitutes a system face for it, where IBM Plex
   used to carry it. The same problem on the task and note screens was solved by drawing the tick
