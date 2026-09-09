@@ -126,11 +126,48 @@ function interpretMarker(line) {
 }
 
 function onClick(event, container, dotNetHelper) {
-    if (event.target instanceof HTMLInputElement && event.target.type === 'checkbox') {
-        const line = event.target.closest('.note-line');
-        line.classList.toggle('note-line-done', event.target.checked);
-        notifyChanged(container, dotNetHelper);
+    const tick = event.target.closest ? event.target.closest('.note-line-tick') : null;
+    if (!tick) {
+        return;
     }
+
+    // Three answers, one press at a time: nothing, done, given up on - the same cycle the browser's
+    // own TickBox and the phone's CheckCircle follow, see Orbit.Core.Abstractions.TickState.
+    event.preventDefault();
+    setTick(tick.closest('.note-line'), nextState(stateOf(tick)));
+    notifyChanged(container, dotNetHelper);
+}
+
+const TICK_NONE = 'none';
+const TICK_DONE = 'done';
+const TICK_FAILED = 'failed';
+
+function stateOf(tick) {
+    return tick.dataset.state || TICK_NONE;
+}
+
+function nextState(state) {
+    return state === TICK_NONE ? TICK_DONE : state === TICK_DONE ? TICK_FAILED : TICK_NONE;
+}
+
+/// Draws one of the three answers on a line's box. The mark is an SVG rather than a character for the
+/// reason the phone's own circle gives: the faces this app is set in carry neither a tick nor a cross.
+function setTick(line, state) {
+    const tick = line.querySelector('.note-line-tick');
+    if (!tick) {
+        return;
+    }
+
+    tick.dataset.state = state;
+    tick.className = `tick-box note-line-tick${state === TICK_DONE ? ' tick-box-done' : state === TICK_FAILED ? ' tick-box-failed' : ''}`;
+    tick.setAttribute('aria-checked', state === TICK_DONE ? 'true' : state === TICK_FAILED ? 'mixed' : 'false');
+    tick.innerHTML = state === TICK_DONE
+        ? '<svg viewBox="0 0 20 20" width="13" height="13" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="m4 10.5 4 4 8-9"/></svg>'
+        : state === TICK_FAILED
+            ? '<svg viewBox="0 0 20 20" width="13" height="13" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 5l10 10M15 5 5 15"/></svg>'
+            : '';
+    line.classList.toggle('note-line-done', state === TICK_DONE);
+    line.classList.toggle('note-line-failed', state === TICK_FAILED);
 }
 
 function onKeyDown(event, container, dotNetHelper) {
@@ -237,22 +274,25 @@ function createLineElement(line) {
 
     if (line.isChecklistItem) {
         div.classList.add('note-line-checklist');
-        if (line.isChecked) {
-            div.classList.add('note-line-done');
-        }
 
-        const checkbox = document.createElement('input');
-        checkbox.type = 'checkbox';
-        checkbox.checked = !!line.isChecked;
-        checkbox.contentEditable = 'false';
-        checkbox.className = 'note-line-checkbox';
-        div.appendChild(checkbox);
+        // A button rather than <input type="checkbox">: a checkbox has two states and cannot carry the
+        // cross a line somebody gave up on is drawn with. contenteditable="false" keeps it out of the
+        // text run, exactly as the checkbox before it was kept out.
+        const tick = document.createElement('button');
+        tick.type = 'button';
+        tick.contentEditable = 'false';
+        tick.setAttribute('role', 'checkbox');
+        tick.className = 'tick-box note-line-tick';
+        div.appendChild(tick);
     }
 
     const text = document.createElement('span');
     text.className = 'note-line-text';
     div.appendChild(text);
     setLineText(div, line.text || '');
+    if (line.isChecklistItem) {
+        setTick(div, line.isChecked ? TICK_DONE : line.isFailed ? TICK_FAILED : TICK_NONE);
+    }
 
     return div;
 }
@@ -287,11 +327,13 @@ function setLineText(line, text) {
 
 function extractLines(container) {
     return Array.from(container.children).map((line) => {
-        const checkbox = line.querySelector('input[type=checkbox]');
+        const tick = line.querySelector('.note-line-tick');
+        const state = tick ? stateOf(tick) : TICK_NONE;
         return {
             text: lineText(line) || '',
-            isChecklistItem: !!checkbox,
-            isChecked: checkbox ? checkbox.checked : false
+            isChecklistItem: !!tick,
+            isChecked: state === TICK_DONE,
+            isFailed: state === TICK_FAILED
         };
     });
 }
@@ -325,7 +367,7 @@ function repairStrayText(container) {
 }
 
 function repairLineDom(line) {
-    const checkbox = line.querySelector('input[type=checkbox]');
+    const tick = line.querySelector('.note-line-tick');
     let span = line.querySelector('.note-line-text');
     if (!span) {
         span = document.createElement('span');
@@ -333,7 +375,7 @@ function repairLineDom(line) {
         line.appendChild(span);
     }
 
-    const strayNodes = Array.from(line.childNodes).filter((node) => node !== checkbox && node !== span);
+    const strayNodes = Array.from(line.childNodes).filter((node) => node !== tick && node !== span);
     if (strayNodes.length === 0) {
         if (span.childNodes.length === 0) {
             span.appendChild(document.createTextNode(''));

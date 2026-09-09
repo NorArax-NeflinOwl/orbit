@@ -3,6 +3,7 @@
 @using Orbit.Contracts.Calendar
 @using Orbit.Contracts.Chat
 @using Orbit.Contracts.Tasks
+@using Orbit.Core.Abstractions
 @using Orbit.Core.Tasks
 @using Orbit.Web.Services
 @inject TasksApiClient TasksApiClient
@@ -86,10 +87,10 @@ else
         }
         else
         {
-            <CheckRow Title="@T["Done"]" IsTicked="@_item.IsCompleted"
+            <CheckRow Title="@T["Done"]" State="@Ticks.Read(_item.IsCompleted, _item.IsFailed)"
                       IsDisabled="@(_isTicking || _isReadOnly)"
                       AriaLabel="@T.Format("Done: {0}", Written(_item.Description))"
-                      OnTicked="TickAsync" />
+                      OnCycled="TickAsync" />
         }
     </div>
 
@@ -230,7 +231,7 @@ else
     /// Crosses this entry off, or takes the tick back. Saved the moment it is made, as the checklist
     /// saves it - see TaskItemCompletion, which both screens tick through.
     /// </summary>
-    private async Task TickAsync(bool isCompleted)
+    private async Task TickAsync(TickState state)
     {
         if (_taskList is null || _item is null || _isTicking)
         {
@@ -241,7 +242,7 @@ else
         _tickMessage = null;
         try
         {
-            if (await TaskItemCompletion.TickAsync(_taskList, _item, isCompleted) == TaskItemTickOutcome.SignedOut)
+            if (await TaskItemCompletion.TickAsync(_taskList, _item, state) == TaskItemTickOutcome.SignedOut)
             {
                 return;
             }

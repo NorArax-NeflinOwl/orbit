@@ -290,8 +290,9 @@ public sealed class TaskEditorItemFormTests : OrbitTestContext
         => cut.FindAll(".field label").First(label => label.TextContent.Contains("Completed", StringComparison.Ordinal))
             .QuerySelector("input[type=checkbox]")!;
 
+    /// <summary>One press: an entry's box gives three answers now, and the first of them is "done".</summary>
     private static void TickTheOnlyItem(IRenderedFragment cut)
-        => cut.FindAll(".editor-item input[type=checkbox]").First().Change(true);
+        => cut.FindAll(".editor-item .tick-box").First().Click();
 
     [Fact]
     public void A_daily_reminder_with_no_hour_is_refused_rather_than_sent_at_midnight()

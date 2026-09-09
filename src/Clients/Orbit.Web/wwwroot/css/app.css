@@ -364,9 +364,9 @@ input.note-editor-title {
 }
 
 /* A note nobody may write to. contenteditable="false" stops the typing; the tick boxes in it are real
-   <input>s, which a non-editable surface does not disable, so they are stopped here. Text stays
+   buttons, which a non-editable surface does not disable, so they are stopped here. Text stays
    selectable on purpose - a note that can be read should be one that can be copied. */
-.note-editor-content-readonly .note-line-checkbox {
+.note-editor-content-readonly .note-line-tick {
     pointer-events: none;
 }
 
@@ -562,10 +562,50 @@ input.note-editor-title {
     gap: 8px;
 }
 
-.note-line-checkbox {
+/* TickBox.razor - the box an errand or a note's line is answered in. A drawn box rather than a native
+   checkbox, because a checkbox has two states and cannot carry the cross: done fills it in the app's
+   own accent, given up on in the colour everything else that went wrong is drawn in. */
+.tick-box {
     flex: 0 0 auto;
-    margin-top: 0.35em;
-    accent-color: var(--accent);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 17px;
+    height: 17px;
+    padding: 0;
+    border: 1.5px solid var(--text-tertiary);
+    border-radius: 5px;
+    background: transparent;
+    color: var(--accent-on);
+    cursor: pointer;
+}
+
+.tick-box:disabled {
+    cursor: default;
+    opacity: 0.6;
+}
+
+.tick-box-done {
+    background: var(--accent);
+    border-color: var(--accent);
+}
+
+.tick-box-failed {
+    background: var(--danger);
+    border-color: var(--danger);
+}
+
+/* A row somebody gave up on: struck through like a finished one - both are finished with - and told
+   apart by the colour of its box. .completed carries the strike; this quiets the words further, so a
+   column of crosses does not read as work that was done. */
+.check-row.failed .check-row-text {
+    color: var(--text-tertiary);
+}
+
+/* The same box inside the note's own writing surface, where it sits at the head of a line - see
+   checklistTextEditor.js, which builds it by hand rather than through the component. */
+.note-line-tick {
+    margin-top: 0.3em;
 }
 
 .note-line-text {
@@ -575,7 +615,10 @@ input.note-editor-title {
     overflow-wrap: break-word;
 }
 
-.note-line-done .note-line-text {
+/* Finished with, either way - a line somebody gave up on is struck through like a done one, and told
+   apart by the colour of its box rather than by its text. */
+.note-line-done .note-line-text,
+.note-line-failed .note-line-text {
     color: var(--text-tertiary);
     text-decoration: line-through;
 }

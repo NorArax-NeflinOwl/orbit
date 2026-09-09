@@ -101,14 +101,18 @@ else
                 <ReorderControls OnDragStart="() => _itemOrder.Start(item)" OnDragEnd="_itemOrder.Finish"
                                  OnMoveUp="() => MoveItem(item, -1)" OnMoveDown="() => MoveItem(item, 1)"
                                  CanMoveUp="CanMoveItem(item, -1)" CanMoveDown="CanMoveItem(item, 1)" />
+                    @* Three answers, as everywhere else an entry is ticked: nothing, done, given up on
+                       - see TickBox. A linked entry's box is drawn and refuses the press: its answer
+                       follows the lists it stands for. *@
                     @if (!item.IsALinkToOtherLists)
                     {
-                        <InputCheckbox @bind-Value="item.IsCompleted" title="@(T["Completed"])" />
+                        <TickBox State="@item.Tick" AriaLabel="@(T["Completed"])"
+                                 StateChanged="state => item.Tick = state" />
                     }
                     else
                     {
-                        <input type="checkbox" checked="@item.IsCompleted" disabled
-                               title="@(T["Completed - follows the linked list, can't be set by hand"])" />
+                        <TickBox State="@item.Tick" IsDisabled="true"
+                                 AriaLabel="@(T["Completed - follows the linked list, can't be set by hand"])" />
                     }
                     @* Reassigned on every row, so it holds the last one by the time the loop ends - which
                        is the row Add item just appended, and the one the cursor belongs in. *@
@@ -1031,6 +1035,7 @@ else
                                 DueDate = item.DueDateUtc is { } dueDateUtc ? DateOnly.FromDateTime(dueDateUtc.LocalDateTime) : null,
                                 DueTime = item.DueDateUtc is { } dueTimeUtc ? TimeOnly.FromDateTime(dueTimeUtc.LocalDateTime) : null,
                                 IsCompleted = item.IsCompleted,
+                                IsFailed = item.IsFailed,
                                 Kind = item.Kind,
                                 Location = item.Location,
                                 LinkedInventoryItemId = item.LinkedInventoryItemId,
@@ -1997,7 +2002,8 @@ else
                 item.LinkedTaskListIds,
                 item.Categories,
                 ProductAsked(item),
-                item.Notes))
+                item.Notes,
+                item.IsFailed))
             .ToList();
 
     /// <summary>
@@ -2327,13 +2333,14 @@ else
             : null;
 
     /// <summary>
-    /// Whether every entry on the form is ticked off. Read off the form rather than off the list that
-    /// was loaded, so the box answers what is on screen: ticking the last entry ticks the box in the
-    /// same keystroke, which is what "automatically" has to mean on a form nobody has saved yet.
+    /// Whether every entry on the form is finished with - ticked off or crossed out, which is the same
+    /// question TaskList.IsCompleted asks of the stored list. Read off the form rather than off the list
+    /// that was loaded, so the box answers what is on screen: ticking the last entry ticks the box in
+    /// the same keystroke, which is what "automatically" has to mean on a form nobody has saved yet.
     /// An empty list has nothing ticked and nothing to tick, so it is not finished by its entries.
     /// </summary>
     private bool EveryEntryIsTickedOff
-        => _formModel.Items.Count > 0 && _formModel.Items.All(item => item.IsCompleted);
+        => _formModel.Items.Count > 0 && _formModel.Items.All(item => item.Tick.IsResolved());
 
     /// <summary>
     /// Whether the Completed box is drawn ticked - the list's own answer where the reader has given
@@ -2398,6 +2405,23 @@ else
         public DateOnly? DueDate { get; set; }
         public TimeOnly? DueTime { get; set; }
         public bool IsCompleted { get; set; }
+
+        /// <summary>Crossed out rather than ticked off - see Orbit.Core.Tasks.TaskItem.IsFailed.</summary>
+        public bool IsFailed { get; set; }
+
+        /// <summary>
+        /// The two above as the one answer the box gives, which is how the form reads and writes them -
+        /// see TickState. Kept as two fields underneath because that is how they are stored and sent.
+        /// </summary>
+        public TickState Tick
+        {
+            get => Ticks.Read(IsCompleted, IsFailed);
+            set
+            {
+                IsCompleted = value.IsCompleted();
+                IsFailed = value.IsFailed();
+            }
+        }
 
         /// <summary>"Checklist" or "Calendar", kept as the wire's own string so the form binds straight to it.</summary>
         public string Kind { get; set; } = nameof(TaskItemKind.Checklist);

@@ -15,27 +15,79 @@
    NoteSummary, whose whole card opens the editor - and ticking a line there means ticking that line,
    not opening the note to write in. Nothing is lost where there is nothing above to reach: the other
    three sit in plain cards. *@
+@using Orbit.Core.Abstractions
+@using Microsoft.AspNetCore.Components.Rendering
+
 @if (OnTitlePressed.HasDelegate)
 {
     <div class="check-row @AdditionalClass" @onclick="() => { }" @onclick:stopPropagation="true">
-        <input type="checkbox" checked="@IsTicked" disabled="@IsDisabled" aria-label="@AriaLabel"
-               @onchange="args => OnTicked.InvokeAsync((bool)args.Value!)" />
+        @Box
         <button type="button" class="check-row-text check-row-text-opens" @onclick="OnTitlePressed">@Title</button>
+        @Trailing
+    </div>
+}
+else if (State is not null)
+{
+    @* A tick box is a <button>, and a button may not sit inside a <label> any more than the title's own
+       one may - so a row whose box has three answers is a <div> whichever way it is read. *@
+    <div class="check-row @AdditionalClass" @onclick="() => { }" @onclick:stopPropagation="true">
+        @Box
+        <span class="check-row-text">@Title</span>
         @Trailing
     </div>
 }
 else
 {
     <label class="check-row @AdditionalClass" @onclick="() => { }" @onclick:stopPropagation="true">
-        <input type="checkbox" checked="@IsTicked" disabled="@IsDisabled" aria-label="@AriaLabel"
-               @onchange="args => OnTicked.InvokeAsync((bool)args.Value!)" />
+        @Box
         <span class="check-row-text">@Title</span>
         @Trailing
     </label>
 }
 
+@* Two kinds of box, because two kinds of question are asked in these rows. A thing that can be done -
+   an errand, a line of a note - is answered by TickBox, which has the third state something given up on
+   needs. A thing that is merely chosen - a contact for a new group, a list to measure against a shelf -
+   is a plain checkbox: "given up on" would mean nothing there. Which one is drawn follows from whether
+   the caller hands in a State, so neither can be asked the wrong question. *@
+@code {
+    private RenderFragment Box => builder =>
+    {
+        if (State is { } state)
+        {
+            builder.OpenComponent<TickBox>(0);
+            builder.AddComponentParameter(1, nameof(TickBox.State), state);
+            builder.AddComponentParameter(2, nameof(TickBox.StateChanged),
+                EventCallback.Factory.Create<TickState>(this, OnCycled));
+            builder.AddComponentParameter(3, nameof(TickBox.IsDisabled), IsDisabled);
+            builder.AddComponentParameter(4, nameof(TickBox.AriaLabel), AriaLabel);
+            builder.CloseComponent();
+            return;
+        }
+
+        builder.OpenElement(5, "input");
+        builder.AddAttribute(6, "type", "checkbox");
+        builder.AddAttribute(7, "checked", IsTicked);
+        builder.AddAttribute(8, "disabled", IsDisabled);
+        builder.AddAttribute(9, "aria-label", AriaLabel);
+        builder.AddAttribute(10, "onchange",
+            EventCallback.Factory.Create<ChangeEventArgs>(this, args => OnTicked.InvokeAsync((bool)args.Value!)));
+        builder.CloseElement();
+    };
+}
+
 @code {
     [Parameter, EditorRequired] public string Title { get; set; } = string.Empty;
+
+    /// <summary>
+    /// What this row's box says, where the thing in it can be done or given up on - see TickBox. Left
+    /// null by a row that merely selects something, which then draws a plain checkbox and reads
+    /// <see cref="IsTicked"/> instead.
+    /// </summary>
+    [Parameter] public TickState? State { get; set; }
+
+    /// <summary>What the box now says, after a press. Only meaningful alongside <see cref="State"/>.</summary>
+    [Parameter] public EventCallback<TickState> OnCycled { get; set; }
 
     [Parameter] public bool IsTicked { get; set; }
 

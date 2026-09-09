@@ -66,23 +66,30 @@ public sealed class TaskItemCompletion(
     public static bool CanBeTicked(TaskDto taskList)
         => taskList.AccessLevel == nameof(ShareAccessLevel.CanEdit);
 
+    /// <param name="state">
+    /// What the box now says - see <see cref="TickState"/>. Three answers rather than two: an entry can
+    /// be crossed out as well as ticked off, and both mean it is finished with.
+    /// </param>
     public async Task<TaskItemTickOutcome> TickAsync(
-        TaskDto taskList, TaskItemDto item, bool isCompleted, CancellationToken cancellationToken = default)
+        TaskDto taskList, TaskItemDto item, TickState state, CancellationToken cancellationToken = default)
     {
         FailureMessage = null;
         Note = null;
-        if (isCompleted && await FinishedTheWholeRestockAsync(taskList, item, cancellationToken))
+        // Only a tick claims the whole round is done. Crossing the reminder out says the opposite, and
+        // topping every shelf up over it would be acting on the answer it was not given.
+        if (state == TickState.Completed && await FinishedTheWholeRestockAsync(taskList, item, cancellationToken))
         {
             return FailureMessage is null ? TaskItemTickOutcome.Ticked : TaskItemTickOutcome.Failed;
         }
 
         var toggledIndex = taskList.Items.ToList().IndexOf(item);
-        // Everything as it already is, with one entry's completion changed - see TaskItemRequest.From
-        // on why the fields are not listed here.
+        // Everything as it already is, with one entry's answer changed - see TaskItemRequest.From on
+        // why the fields are not listed here.
         var items = taskList.Items
             .Select((existingItem, index) => TaskItemRequest.From(existingItem) with
             {
-                IsCompleted = index == toggledIndex ? isCompleted : existingItem.IsCompleted
+                IsCompleted = index == toggledIndex ? state.IsCompleted() : existingItem.IsCompleted,
+                IsFailed = index == toggledIndex ? state.IsFailed() : existingItem.IsFailed
             })
             .ToList();
 

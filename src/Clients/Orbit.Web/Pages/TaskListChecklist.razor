@@ -194,12 +194,12 @@ else
                 @* The words open the entry and the box ticks it, which is what the grouped view below
                    has always done. Reading this list flat used to mean the opposite: pressing what an
                    entry said crossed it off, because the row was a label. *@
-                <CheckRow Title="@Written(entry.Item.Description)" IsTicked="@entry.Item.IsCompleted"
+                <CheckRow Title="@Written(entry.Item.Description)" State="@TickOf(entry.Item)"
                           IsDisabled="@IsItemLocked(entry.Section, entry.Item)"
                           AriaLabel="@T.Format("Done: {0}", Written(entry.Item.Description))"
-                          AdditionalClass="@(entry.Item.IsCompleted ? "completed" : null)"
+                          AdditionalClass="@RowMark(entry.Item)"
                           OnTitlePressed="() => GoToEntry(entry.Section.TaskList.Id, entry.Item.Id)"
-                          OnTicked="ticked => ToggleItemAsync(entry.Section.TaskList, entry.Item, ticked)">
+                          OnCycled="state => ToggleItemAsync(entry.Section.TaskList, entry.Item, state)">
                     <Trailing>
                         @* What it is about, the same marks the cards on /tasks carry - see TaskItem.Categories. *@
                         @foreach (var category in entry.Item.AllCategories)
@@ -238,17 +238,15 @@ else
             {
                 @foreach (var item in ItemsToShow(section.TaskList))
                 {
-                    <div class="check-row @(item.IsCompleted ? "completed" : "") @(Highlight == item.Id ? "highlighted" : "")">
+                    <div class="check-row @RowMark(item) @(Highlight == item.Id ? "highlighted" : "")">
                         @* An entry standing for other lists is not ticked here - it is done when they
                            are. Pressed rather than refused: the box takes the press, says which list
-                           the answer is on, and offers to go there. Prevented rather than disabled,
-                           because a disabled box takes no press at all and had nothing to say. *@
-                        <input type="checkbox" checked="@item.IsCompleted"
-                               aria-label="@T.Format("Done: {0}", Written(item.Description))"
-                               disabled="@IsItemLocked(section, item)"
-                               @onclick="() => AskAboutTheListsBehind(item)"
-                               @onclick:preventDefault="item.AllLinkedTaskListIds.Count > 0"
-                               @onchange="args => ToggleItemAsync(section.TaskList, item, (bool)args.Value!)" />
+                           the answer is on, and offers to go there. That is why such an entry's box is
+                           not disabled - a disabled box takes no press at all and had nothing to say. *@
+                        <TickBox State="@TickOf(item)"
+                                 AriaLabel="@T.Format("Done: {0}", Written(item.Description))"
+                                 IsDisabled="@IsItemLocked(section, item)"
+                                 StateChanged="state => PressAsync(section.TaskList, item, state)" />
                         @* Opens the entry to be read rather than ticking it off. Ticking is the
                            checkbox's job, and it was doing both: the row was a <label>, so reading a
                            line by tapping it completed it. *@
@@ -754,10 +752,36 @@ else
     /// Ticks one entry off, through the same service the entry's own page ticks it off with - see
     /// TaskItemCompletion, which holds the save, the restock question and the wording of both refusals.
     /// </summary>
-    private async Task ToggleItemAsync(TaskDto taskList, TaskItemDto item, bool isCompleted)
+    /// <summary>What an entry's box says right now - see TickState.</summary>
+    private static TickState TickOf(TaskItemDto item) => Ticks.Read(item.IsCompleted, item.IsFailed);
+
+    /// <summary>
+    /// What a row is marked with: struck through when it is finished with, either way, and told apart
+    /// so the two do not read alike - see .check-row.failed.
+    /// </summary>
+    private static string RowMark(TaskItemDto item)
+        => item.IsCompleted ? "completed" : item.IsFailed ? "completed failed" : string.Empty;
+
+    /// <summary>
+    /// A press on the grouped view's box, which takes it even where the entry cannot be ticked here:
+    /// an entry standing for other lists answers with where the tick belongs instead - see
+    /// AskAboutTheListsBehind.
+    /// </summary>
+    private Task PressAsync(TaskDto taskList, TaskItemDto item, TickState state)
+    {
+        if (item.AllLinkedTaskListIds.Count > 0)
+        {
+            AskAboutTheListsBehind(item);
+            return Task.CompletedTask;
+        }
+
+        return ToggleItemAsync(taskList, item, state);
+    }
+
+    private async Task ToggleItemAsync(TaskDto taskList, TaskItemDto item, TickState state)
     {
         _errorMessage = null;
-        if (await TaskItemCompletion.TickAsync(taskList, item, isCompleted) == TaskItemTickOutcome.SignedOut)
+        if (await TaskItemCompletion.TickAsync(taskList, item, state) == TaskItemTickOutcome.SignedOut)
         {
             return;
         }

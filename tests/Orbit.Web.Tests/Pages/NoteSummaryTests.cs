@@ -52,7 +52,29 @@ public sealed class NoteSummaryTests : OrbitTestContext
 
         // Prose stays prose; the list in it is a list.
         Assert.Contains("Before the weekend", cut.Find(".card").TextContent);
-        Assert.Equal(2, cut.FindAll(".check-row input[type=checkbox]").Count);
+        Assert.Equal(2, cut.FindAll(".check-row .tick-box").Count);
+    }
+
+
+    /// <summary>
+    /// The third answer a line gives: crossed out rather than ticked off - a line somebody gave up on
+    /// is finished with and not done. One press further round than done, see TickState.
+    /// </summary>
+    [Fact]
+    public void A_line_can_be_crossed_out_rather_than_ticked_off()
+    {
+        var cut = RenderComponent<NoteSummary>(parameters => parameters.Add(page => page.Id, NoteId));
+        var line = cut.FindAll(".check-row .tick-box").First();
+
+        // Once for done, twice for given up on.
+        line.Click();
+        cut.FindAll(".check-row .tick-box").First().Click();
+
+        Assert.Contains("tick-box-failed", cut.FindAll(".check-row .tick-box").First().ClassList);
+
+        cut.FindAll("button").First(button => button.GetAttribute("aria-label") == "Save").Click();
+
+        Assert.Contains("\"isFailed\":true", _saved[^1]);
     }
 
     [Fact]
@@ -62,7 +84,7 @@ public sealed class NoteSummaryTests : OrbitTestContext
         var save = cut.FindAll("button").First(button => button.GetAttribute("aria-label") == "Save");
         Assert.True(save.HasAttribute("disabled"));
 
-        cut.FindAll(".check-row input[type=checkbox]").First().Change(true);
+        cut.FindAll(".check-row .tick-box").First().Click();
 
         // A note is read by scrolling: a page that saved on every press would be writing while somebody
         // is only passing through.
@@ -141,7 +163,7 @@ public sealed class NoteSummaryTests : OrbitTestContext
         var cut = RenderComponent<NoteSummary>(parameters => parameters.Add(page => page.Id, NoteId));
 
         Assert.All(
-            cut.FindAll(".check-row input[type=checkbox]"),
+            cut.FindAll(".check-row .tick-box"),
             checkbox => Assert.True(checkbox.HasAttribute("disabled")));
     }
 

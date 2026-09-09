@@ -161,7 +161,7 @@ public sealed class TaskListChecklistTests : OrbitTestContext
         ChooseInMenu(cut, "Show single items");
 
         Assert.Contains(
-            cut.FindAll(".check-row input[type=checkbox]"),
+            cut.FindAll(".check-row .tick-box"),
             box => box.GetAttribute("aria-label") == "Done: Grout");
     }
 
@@ -242,7 +242,7 @@ public sealed class TaskListChecklistTests : OrbitTestContext
         var cut = RenderComponent<TaskListChecklist>(parameters => parameters.Add(page => page.Id, group.Id));
         Assert.Contains("follows Kitchen", cut.Markup);
 
-        cut.FindAll(".check-row input[type=checkbox]").First().Click();
+        cut.FindAll(".check-row .tick-box").First().Click();
 
         Assert.Contains("This is done when Kitchen is.", cut.Markup);
         // And nothing was saved: the box says the same thing it did before.
@@ -261,7 +261,7 @@ public sealed class TaskListChecklistTests : OrbitTestContext
 
         var cut = RenderComponent<TaskListChecklist>(parameters => parameters.Add(page => page.Id, taskList.Id));
 
-        Assert.True(cut.Find(".check-row input[type=checkbox]").HasAttribute("disabled"));
+        Assert.True(cut.Find(".check-row .tick-box").HasAttribute("disabled"));
     }
 
     /// <summary>
@@ -287,7 +287,7 @@ public sealed class TaskListChecklistTests : OrbitTestContext
         RegisterTasksApiClient([taskList]);
         var cut = RenderComponent<TaskListChecklist>(parameters => parameters.Add(page => page.Id, taskList.Id));
 
-        cut.FindAll(".check-row input[type=checkbox]").ToArray()[0].Change(true);
+        cut.FindAll(".check-row .tick-box").ToArray()[0].Click();
 
         var update = _requests.Single(request => request.Method == HttpMethod.Put);
         var items = JsonDocument.Parse(_requestBodies[_requests.IndexOf(update)]).RootElement.GetProperty("items");
@@ -306,7 +306,7 @@ public sealed class TaskListChecklistTests : OrbitTestContext
         RegisterTasksApiClient([taskList]);
         var cut = RenderComponent<TaskListChecklist>(parameters => parameters.Add(page => page.Id, taskList.Id));
 
-        cut.FindAll(".check-row input[type=checkbox]").ToArray()[1].Change(true);
+        cut.FindAll(".check-row .tick-box").ToArray()[1].Click();
 
         var update = _requests.Single(request => request.Method == HttpMethod.Put);
         Assert.Equal($"https://example.test/api/tasks/{taskList.Id}", update.RequestUri!.ToString());
@@ -327,6 +327,26 @@ public sealed class TaskListChecklistTests : OrbitTestContext
         Assert.Equal(taskList.Items[1].Id, items[1].GetProperty("id").GetGuid());
     }
 
+    /// <summary>
+    /// The third answer: an entry that is not going to happen is crossed out rather than left sitting
+    /// there or lied about with a tick. One press further round than done - see TickState - and it is
+    /// saved as its own flag, so what a list still needs does not count it and no reminder goes out.
+    /// </summary>
+    [Fact]
+    public void An_entry_can_be_crossed_out_rather_than_ticked_off()
+    {
+        var taskList = TaskList("Errands", Item("Buy milk", isCompleted: true));
+        RegisterTasksApiClient([taskList]);
+        var cut = RenderComponent<TaskListChecklist>(parameters => parameters.Add(page => page.Id, taskList.Id));
+
+        cut.Find(".check-row .tick-box").Click();
+
+        var update = _requests.Single(request => request.Method == HttpMethod.Put);
+        var item = JsonDocument.Parse(_requestBodies[_requests.IndexOf(update)]).RootElement.GetProperty("items")[0];
+        Assert.False(item.GetProperty("isCompleted").GetBoolean());
+        Assert.True(item.GetProperty("isFailed").GetBoolean());
+    }
+
     [Fact]
     public void Ticking_an_item_on_a_member_list_saves_that_list_rather_than_the_group()
     {
@@ -336,7 +356,7 @@ public sealed class TaskListChecklistTests : OrbitTestContext
         var cut = RenderComponent<TaskListChecklist>(parameters => parameters.Add(page => page.Id, group.Id));
 
         // Index 1: the group's own linked row is index 0 and is disabled.
-        cut.FindAll(".check-row input[type=checkbox]").ToArray()[1].Change(true);
+        cut.FindAll(".check-row .tick-box").ToArray()[1].Click();
 
         var update = _requests.Single(request => request.Method == HttpMethod.Put);
         Assert.Equal($"https://example.test/api/tasks/{kitchen.Id}", update.RequestUri!.ToString());

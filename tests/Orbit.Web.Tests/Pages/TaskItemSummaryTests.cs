@@ -297,27 +297,40 @@ public sealed class TaskItemSummaryTests : OrbitTestContext
         RegisterClients(Item("Pay the rent", DateTimeOffset.UtcNow, ""));
         var cut = Render();
 
-        cut.Find(".check-row input[type=checkbox]").Change(true);
+        cut.Find(".check-row .tick-box").Click();
 
         var saved = JsonDocument.Parse(Assert.Single(_savedLists)).RootElement;
         Assert.Equal("Errands", saved.GetProperty("title").GetString());
         Assert.True(saved.GetProperty("items")[0].GetProperty("isCompleted").GetBoolean());
         // And the box says so afterwards, because the page re-read the list it had just written.
-        Assert.True(cut.Find(".check-row input[type=checkbox]").HasAttribute("checked"));
+        Assert.Contains("tick-box-done", cut.Find(".check-row .tick-box").ClassList);
     }
 
-    /// <summary>A tick is a tick either way round - a box that only fills in is a trap for a misread row.</summary>
+    /// <summary>
+    /// The box gives three answers, one press at a time: done, given up on, and nothing again - see
+    /// TickState. Taking a tick back is the third press, which is the price of the cross being reachable
+    /// without a menu.
+    /// </summary>
     [Fact]
-    public void A_tick_can_be_taken_back_here_too()
+    public void The_box_goes_round_done_then_given_up_on_then_back()
     {
         RegisterClients(Item("Pay the rent", DateTimeOffset.UtcNow, "") with { IsCompleted = true });
         var cut = Render();
 
-        cut.Find(".check-row input[type=checkbox]").Change(false);
+        cut.Find(".check-row .tick-box").Click();
 
-        var saved = JsonDocument.Parse(Assert.Single(_savedLists)).RootElement;
-        Assert.False(saved.GetProperty("items")[0].GetProperty("isCompleted").GetBoolean());
-        Assert.False(cut.Find(".check-row input[type=checkbox]").HasAttribute("checked"));
+        var crossedOut = JsonDocument.Parse(_savedLists[^1]).RootElement.GetProperty("items")[0];
+        Assert.False(crossedOut.GetProperty("isCompleted").GetBoolean());
+        Assert.True(crossedOut.GetProperty("isFailed").GetBoolean());
+        Assert.Contains("tick-box-failed", cut.Find(".check-row .tick-box").ClassList);
+
+        cut.Find(".check-row .tick-box").Click();
+
+        var cleared = JsonDocument.Parse(_savedLists[^1]).RootElement.GetProperty("items")[0];
+        Assert.False(cleared.GetProperty("isCompleted").GetBoolean());
+        Assert.False(cleared.GetProperty("isFailed").GetBoolean());
+        Assert.DoesNotContain("tick-box-done", cut.Find(".check-row .tick-box").ClassList);
+        Assert.DoesNotContain("tick-box-failed", cut.Find(".check-row .tick-box").ClassList);
     }
 
     /// <summary>
@@ -331,7 +344,7 @@ public sealed class TaskItemSummaryTests : OrbitTestContext
 
         var cut = Render();
 
-        Assert.True(cut.Find(".check-row input[type=checkbox]").HasAttribute("disabled"));
+        Assert.True(cut.Find(".check-row .tick-box").HasAttribute("disabled"));
     }
 
     /// <summary>
@@ -351,7 +364,7 @@ public sealed class TaskItemSummaryTests : OrbitTestContext
         var navigationManager = Services.GetRequiredService<NavigationManager>();
         var cut = Render();
 
-        Assert.Empty(cut.FindAll(".check-row input[type=checkbox]"));
+        Assert.Empty(cut.FindAll(".check-row .tick-box"));
         Assert.Contains("This is done when Kitchen is.", cut.Markup);
 
         cut.FindAll("button").First(button => button.TextContent.Trim() == "Kitchen").Click();
@@ -374,11 +387,11 @@ public sealed class TaskItemSummaryTests : OrbitTestContext
         };
         var cut = Render();
 
-        cut.Find(".check-row input[type=checkbox]").Change(true);
+        cut.Find(".check-row .tick-box").Click();
 
         Assert.Contains("anna is currently editing", cut.Find(".error").TextContent);
         // And the box is back to what the server holds rather than left standing ticked.
-        Assert.False(cut.Find(".check-row input[type=checkbox]").HasAttribute("checked"));
+        Assert.DoesNotContain("tick-box-done", cut.Find(".check-row .tick-box").ClassList);
     }
 
     /// <summary>Every address this page asked the server to mark read.</summary>
@@ -496,8 +509,8 @@ public sealed class TaskItemSummaryTests : OrbitTestContext
     }
 
     /// <summary>
-    /// The list as a save left it: what was sent back is what the server would now hold. Only the
-    /// completion is taken from the request, which is the one thing a tick changes.
+    /// The list as a save left it: what was sent back is what the server would now hold. Only the two
+    /// completion flags are taken from the request, which is all a tick changes.
     /// </summary>
     private static TaskDto Ticked(TaskDto taskList, string saved)
     {
@@ -506,8 +519,11 @@ public sealed class TaskItemSummaryTests : OrbitTestContext
         {
             Items =
             [
-                .. taskList.Items.Select((item, index) =>
-                    item with { IsCompleted = items[index].GetProperty("isCompleted").GetBoolean() })
+                .. taskList.Items.Select((item, index) => item with
+                {
+                    IsCompleted = items[index].GetProperty("isCompleted").GetBoolean(),
+                    IsFailed = items[index].GetProperty("isFailed").GetBoolean()
+                })
             ]
         };
     }
