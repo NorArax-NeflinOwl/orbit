@@ -366,7 +366,8 @@ public static class ChatEndpoints
     private static ChatMessageDto ToDto(ChatMessage message)
         => new(
             message.Id, message.SenderUserId, message.RecipientUserId, message.CiphertextBase64, message.NonceBase64, message.SentAtUtc,
-            message.IsEdited, message.EditedAtUtc, message.GroupMessageId);
+            message.IsEdited, message.EditedAtUtc, message.GroupMessageId,
+            DeletedByUserId: message.DeletedByUserId);
 
     private static ChatConversationAccessDto ToDto(ChatConversationAccess access)
         => new(access.InitiatedByUserId, access.IsApproved);

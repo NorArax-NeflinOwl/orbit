@@ -232,17 +232,25 @@ lists (`FolderState`, one scoped state shared by the three pages).
 **Three folders exist without a row of their own** (`Orbit.Core.Folders.BuiltInFolder`). Which one
 something is in is decided from what it already is, and the first that applies wins:
 
-1. **Finished** - a task list with every entry ticked off, even when its owner filed it somewhere else.
-   It goes there on its own and comes back out the moment something on it is reopened. A note is never
-   in it, having nothing to finish.
+1. **Finished** - a task list that is done, even when its owner filed it somewhere else. Two ways to be
+   done, and both put it here: every entry ticked off, which happens on its own and comes back out the
+   moment something is reopened, or **its owner saying so** with the Completed box in the list's form
+   (`TaskList.IsMarkedCompleted`, `OP_T_ISMARKEDCOMPLETED`). A note is never in it, having nothing to
+   finish.
 2. **Private** - a sealed item nobody filed anywhere (see [Private notes and task
    lists](#private-notes-and-task-lists)).
 3. **Public** - everything else, and where a page opens.
 
 Deciding it rather than storing it is what let folders arrive with **no migration of existing rows and
-nothing to repair**: every note and list that existed before them was already in the right one. It also
-means the two can never disagree - there is no way to be filed as private without being sealed, or to
-sit in Finished with work left on it.
+nothing to repair**: every note and list that existed before them was already in the right one. There is
+still no way to be filed as private without being sealed.
+
+**A list can sit in Finished with work left on it**, which is the one thing that changed. That was the
+ordinary case the old rule could not say: a list whose last two entries stopped mattering, or were done
+somewhere else. The only way to close it used to be ticking those entries off, which is a claim about
+the entries rather than about the list. Marking it survives an edit - adding an entry to a list somebody
+closed does not quietly reopen it - and unticking the box hands the question back to the entries rather
+than forcing "not done", so a list whose entries are all ticked stays finished either way.
 
 **A folder somebody made is none of the three** and holds whatever they put in it, private things
 included: filing something is not the same decision as sealing it. Only these are rows
@@ -590,6 +598,19 @@ Deleting a message removes it **for everyone**, not just for the person asking: 
 recipient, and removing only your own copy would leave the message standing for everybody else. The same
 endpoint covers one-to-one messages, where only the sender may delete — being sent something doesn't
 give you the right to erase it from the sender's own history.
+
+**A deleted message leaves a line saying so**, rather than a hole: *"Anna deleted the message"*, in
+place of the words it no longer has. The row stays and its ciphertext and nonce are emptied in the same
+statement (`ChatMessage.Delete`, `ChatMessageRepository.MarkDeletedAsync`), so what "deleted" means is
+unchanged — there is nothing left to read whatever a client chooses to draw. Before this, the row went
+and the other person's screen simply had one fewer line than a moment ago, with nothing saying why,
+which reads as a bug or as never having been sent.
+
+Who deleted it is stored beside when (`OP_C_DELETEDBYUSERID`), because **it is not always the sender**:
+an admin may take back anybody's message in a group, and "the sender deleted this" would be untrue. The
+clients name them from the roster they already hold — a one-to-one conversation has only two people in
+it, and a group has its members — so nothing is asked of the server for the name. Nothing on a deleted
+message can be edited, forwarded or replied to: there is no longer anything there to act on.
 ## Private notes and task lists
 
 A note or task list can be marked **private**, which means exactly one thing: only its creator can ever

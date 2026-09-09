@@ -24,13 +24,13 @@
                                 Explanation="{Binding LockedExplanation}"
                                 OpenAccountCommand="{Binding OpenAccountCommand}" />
 
-    <Grid Grid.Row="1" RowDefinitions="Auto,Auto,Auto,*,Auto,Auto" Padding="16,16,16,28" RowSpacing="12"
+    <Grid Grid.Row="1" RowDefinitions="Auto,Auto,Auto,*,Auto,Auto" Padding="20,14,20,0" RowSpacing="12"
           IsVisible="{Binding IsUnlocked}">
 
         <!-- The plus left of the name, where every other list screen keeps it and where Orbit.Web's
              chat list keeps its own "new group". It opens the picker below rather than a screen: a
              group is who is in it, and that is chosen from the same list this page already draws. -->
-        <controls:PageHeader Grid.Row="0" Title="{controls:Translate 'Groups'}">
+        <controls:PageHeader Grid.Row="0">
             <controls:PageHeader.LeadingAction>
                 <controls:IconButton Variant="Add" Data="M10,4 V16 M4,10 H16"
                                      IsVisible="{Binding IsNotCreating}"
@@ -126,6 +126,7 @@
         <controls:MenuOverlay Grid.Row="0" Grid.RowSpan="3"
                               BindingContext="{Binding Menu, Source={x:Reference Page}, x:DataType=chat:GroupsPage}" />
         <controls:AvatarMenu Grid.Row="0" Grid.RowSpan="3" />
+        <controls:Drawer Grid.Row="0" Grid.RowSpan="3" />
     </Grid>
 
 </ContentPage>

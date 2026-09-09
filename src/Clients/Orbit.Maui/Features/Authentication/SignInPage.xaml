@@ -32,7 +32,9 @@
                    TextColor="{AppThemeBinding Light={StaticResource WarningLight}, Dark={StaticResource WarningDark}}"
                    LineBreakMode="WordWrap" />
 
-            <Button Text="{controls:Translate 'Sign in'}" Command="{Binding SignInCommand}" />
+            <!-- The one thing this screen is for, so it is the one button outlined in the accent. -->
+            <Button Text="{controls:Translate 'Sign in'}" Style="{StaticResource PrimaryButton}"
+                    Command="{Binding SignInCommand}" />
 
             <!-- Absent rather than disabled where the deployment has no Google client id for this app:
                  there is nothing behind the button then, and offering one would only ever waste a tap.

@@ -7,7 +7,7 @@ using Orbit.Mobile.Screens.Tasks;
 
 namespace Orbit.Maui.Features.Tasks;
 
-public partial class TaskListDetailPage : ContentPage
+public partial class TaskListDetailPage : ContentPage, ITitleMenu
 {
 	/// <summary>
 	/// Typed so the item template's bindings back up to the page can be compiled - see the comment in
@@ -26,7 +26,7 @@ public partial class TaskListDetailPage : ContentPage
 		_translations = translations;
 		_viewModel = viewModel;
 		ShowItemMenuCommand = new Command<TaskItemRow>(item => _ = ShowItemMenuAsync(item));
-		ShowListMenuCommand = new Command(ShowListMenu);
+		ShowTitleMenuCommand = new Command(ShowListMenu);
 		ChooseInventoryCommand = new Command(() => _ = ChooseInventoryAsync());
 		ChooseStockOrderCommand = new Command(() => _ = ChooseStockOrderAsync());
 
@@ -38,7 +38,7 @@ public partial class TaskListDetailPage : ContentPage
 	/// What the rail's "⋯" opens: how to read the list, and what can be done to the list as a whole -
 	/// one menu holding both, which is where Orbit.Web's checklist keeps them too.
 	/// </summary>
-	public ICommand ShowListMenuCommand { get; }
+	public ICommand ShowTitleMenuCommand { get; }
 
 	/// <summary>The panel it draws - one per screen, above everything else on it.</summary>
 	public ScreenMenu Menu { get; } = new();
@@ -124,7 +124,7 @@ public partial class TaskListDetailPage : ContentPage
 				_translations["History"], () => _viewModel.GoToHistoryCommand.Execute(null)));
 		}
 
-		Menu.Show(entries, _translations["List options"], opensUpwards: true);
+		Menu.Show(entries, _translations["List options"]);
 	}
 
 	/// <summary>Asked first, as every delete in Orbit is - and named, so the question says which list.</summary>

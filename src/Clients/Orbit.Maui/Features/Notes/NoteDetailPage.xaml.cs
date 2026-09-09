@@ -1,11 +1,12 @@
 using System.Windows.Input;
 using Orbit.Mobile.Localization;
+using Orbit.Maui.Controls;
 using Orbit.Mobile.Screens;
 using Orbit.Mobile.Screens.Notes;
 
 namespace Orbit.Maui.Features.Notes;
 
-public partial class NoteDetailPage : ContentPage
+public partial class NoteDetailPage : ContentPage, ITitleMenu
 {
 	private readonly NoteDetailViewModel _viewModel;
 	private readonly Translations _translations;
@@ -16,7 +17,7 @@ public partial class NoteDetailPage : ContentPage
 		// tree, which is built there and reads a page's plain property exactly once - see
 		// CalendarEventDetailPage, where the same order matters for the same reason.
 		ShowLineMenuCommand = new Command<NoteLineRow>(ShowLineMenu);
-		ShowNoteMenuCommand = new Command(ShowNoteMenu);
+		ShowTitleMenuCommand = new Command(ShowNoteMenu);
 
 		InitializeComponent();
 		BindingContext = _viewModel = viewModel;
@@ -40,7 +41,7 @@ public partial class NoteDetailPage : ContentPage
 	public ICommand ShowLineMenuCommand { get; }
 
 	/// <summary>The same, for the note itself: what the rail's "⋯" opens.</summary>
-	public ICommand ShowNoteMenuCommand { get; }
+	public ICommand ShowTitleMenuCommand { get; }
 
 	protected override void OnAppearing()
 	{
@@ -72,7 +73,7 @@ public partial class NoteDetailPage : ContentPage
 				new ScreenMenuEntry(_translations["Delete line"], () => _viewModel.RemoveLineCommand.Execute(line))
 			],
 			_translations["Line options"],
-			opensUpwards: true);
+			placement: MenuPlacement.FromTheFoot);
 	}
 
 	/// <summary>
@@ -98,6 +99,6 @@ public partial class NoteDetailPage : ContentPage
 			entries.Add(new ScreenMenuEntry(_translations["History"], () => _viewModel.GoToHistoryCommand.Execute(null)));
 		}
 
-		Menu.Show(entries, opensUpwards: true);
+		Menu.Show(entries);
 	}
 }

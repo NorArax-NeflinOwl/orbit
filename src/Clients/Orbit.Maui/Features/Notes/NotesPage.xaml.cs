@@ -57,7 +57,7 @@ public partial class NotesPage : ContentPage
 					row.IsSharedWithMe ? _translations["Remove from my list"] : _translations["Delete"],
 					() => _ = DeleteAsync(row))
 			],
-			opensUpwards: true);
+			placement: MenuPlacement.FromTheFoot);
 	}
 
 	/// <summary>

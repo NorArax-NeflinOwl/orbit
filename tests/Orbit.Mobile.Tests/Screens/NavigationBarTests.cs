@@ -564,6 +564,7 @@ public sealed class NavigationBarTests
                 // nobody answers, which is the ordinary case on a phone.
                 new ServerVersionClient(StubHttpMessageHandler.Unreachable().ToHttpClient()),
                 Navigator,
+                History,
                 Synchronizers.AgainstNobody(
                     LocalStore, new ChatRepository(LocalStore, TimeProvider.System),
                     UnlockedPermissions.For(LocalStore), _sessionStore),
@@ -572,6 +573,12 @@ public sealed class NavigationBarTests
                 LiveUpdates,
                 Banners,
                 Openers.AgainstNobody(LocalStore, Navigator));
+
+        /// <summary>
+        /// Where the reader has been, which the bar reads to decide between the drawer and the back
+        /// arrow. Nothing has navigated in these tests unless a case says so, so it starts empty.
+        /// </summary>
+        public ScreenHistory History { get; } = new();
 
         public Orbit.Mobile.Presence.Presence Presence { get; } = new(
             FixedNetworkStatus.Online, new InMemoryPresenceStore(),

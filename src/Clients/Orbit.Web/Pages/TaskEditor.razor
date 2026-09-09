@@ -424,6 +424,17 @@ else
             </small>
         </div>
 
+        @* Finishing a list without finishing its entries, which is the ordinary case for a list whose
+           last two things stopped mattering. Ticking every entry still finishes a list nobody marked -
+           this is a second way to the same state, not a replacement for the first. *@
+        <div class="field">
+            <label>
+                <InputCheckbox @bind-Value="_formModel.IsMarkedCompleted" />@T["Completed"]</label>
+            <small>
+                @T["Marks the whole list done even with entries still open, and moves it to Finished. Untick it and the entries decide again."]
+            </small>
+        </div>
+
         @* Which storage this list is measured against. Here rather than only on the checklist, and for
            any list rather than only a group: an entry of the inventory kind describes a product, and
            the only way to say which shelf it goes on is to say which shelf this list is about. A list
@@ -1004,6 +1015,7 @@ else
                         Title = taskList.Title,
                         Description = taskList.Description,
                         IsGroup = taskList.IsGroup,
+                        IsMarkedCompleted = taskList.IsMarkedCompleted,
                         IsPrivate = taskList.IsPrivate,
                         Priority = taskList.Priority,
                         FolderId = taskList.FolderId,
@@ -2045,7 +2057,8 @@ else
             {
                 var outcome = await TasksApiClient.UpdateTaskListAsync(Id!.Value, new UpdateTaskRequest(
                     _formModel.Title, items, _formModel.IsGroup, _formModel.IsPrivate,
-                    Priority: _formModel.Priority, Description: _formModel.Description));
+                    Priority: _formModel.Priority, Description: _formModel.Description,
+                    IsMarkedCompleted: _formModel.IsMarkedCompleted));
                 if (outcome.Kind == EditOutcomeKind.Locked)
                 {
                     _lockedByUserName = outcome.LockedByUserName;
@@ -2071,10 +2084,27 @@ else
 
                 // Filing travels separately from the list itself - see MoveToFolderRequest - so it is
                 // sent only when it actually changed.
+                //
+                // The answer is read, and that is the whole point of this block. It used to be thrown
+                // away and _savedFolderId stamped as though the move had happened, so a refusal - a
+                // folder that is not this account's, one deleted in another tab - left the list exactly
+                // where it was, said nothing, and made the *next* Save skip the move entirely because
+                // the page now believed it was already filed there. "Save does not save the folder"
+                // with nothing on screen is what that looks like from the outside.
                 if (_formModel.FolderId != _savedFolderId)
                 {
-                    await TasksApiClient.MoveToFolderAsync(Id.Value, _formModel.FolderId);
-                    _savedFolderId = _formModel.FolderId;
+                    if (await TasksApiClient.MoveToFolderAsync(Id.Value, _formModel.FolderId))
+                    {
+                        _savedFolderId = _formModel.FolderId;
+                    }
+                    else
+                    {
+                        Logger.LogWarning(
+                            "Task list {TaskListId} was saved but could not be filed under folder {FolderId}",
+                            Id, _formModel.FolderId);
+                        _saveErrorMessage = T["The list was saved, but it couldn't be filed under that folder. Choose it again."];
+                        return;
+                    }
                 }
 
                 // The shelf second, and the list's own rebuild with it: editing a product from here is
@@ -2298,6 +2328,9 @@ else
         public string Description { get; set; } = string.Empty;
 
         public bool IsGroup { get; set; }
+
+        /// <summary>The reader saying the list is finished, whatever is still on it - see TaskList.IsMarkedCompleted.</summary>
+        public bool IsMarkedCompleted { get; set; }
 
         /// <summary>One of "Low", "Normal", "High" - kept as the wire's own string so the form binds straight to it.</summary>
         public string Priority { get; set; } = "Normal";

@@ -200,9 +200,12 @@ else
                         {
                             var isShareNotice = _shareNoticeByMessageId.ContainsKey(message.Id);
                             var hasContent = _decryptedContentByMessageId.ContainsKey(message.Id);
-                            var canEdit = message.SenderUserId == _ownUserId && !isShareNotice
+                            // A message somebody took back. Nothing on it can be edited, forwarded or
+                            // replied to - there is no longer anything there to act on.
+                            var isDeleted = message.DeletedByUserId is not null;
+                            var canEdit = message.SenderUserId == _ownUserId && !isShareNotice && !isDeleted
                                 && !_forwardedFromByMessageId.ContainsKey(message.Id) && hasContent;
-                            var canForward = !isShareNotice && hasContent;
+                            var canForward = !isShareNotice && !isDeleted && hasContent;
                             var messageDate = message.SentAtUtc.ToLocalTime().Date;
                             var showDaySeparator = previousMessageDate != messageDate;
                             previousMessageDate = messageDate;
@@ -243,7 +246,21 @@ else
                                                     @quoted.Preview
                                                 </button>
                                             }
-                                            @(_decryptedContentByMessageId.GetValueOrDefault(message.Id) ?? T["[couldn't decrypt]"])
+                                            @* A message somebody took back says so, in place of the words
+                                               it no longer has. Distinct from "[couldn't decrypt]",
+                                               which is this browser failing to open something that is
+                                               still there - two different facts that used to look the
+                                               same, because a deleted message simply vanished and left
+                                               the conversation one line shorter with nothing saying
+                                               why. *@
+                                            @if (message.DeletedByUserId is { } deletedBy)
+                                            {
+                                                <span class="chat-bubble-deleted">@T.Format("{0} deleted the message", WhoDeleted(deletedBy))</span>
+                                            }
+                                            else
+                                            {
+                                                @(_decryptedContentByMessageId.GetValueOrDefault(message.Id) ?? T["[couldn't decrypt]"])
+                                            }
                                         </p>
                                         @if (canEdit || canForward)
                                         {
@@ -1029,6 +1046,18 @@ else
 
     private static string MessageElementId(Guid messageId) => $"chat-message-{messageId}";
 
+    /// <summary>
+    /// What to call whoever took a message back. Named from what this page already holds - this reader
+    /// and the person they are talking to - rather than asked of the server: in a one-to-one
+    /// conversation those are the only two it can be. A group's own view answers the same question from
+    /// its roster (see GroupConversation), and anybody this page cannot name reads as "Somebody", which
+    /// is honest rather than blank.
+    /// </summary>
+    private string WhoDeleted(Guid deletedByUserId)
+        => deletedByUserId == _ownUserId ? T["You"]
+            : _otherUser?.DisplayName is { Length: > 0 } theirName ? theirName
+            : T["Somebody"];
+
     private void StartForward(ChatMessageDto message)
     {
         _openMessageMenuId = null;
@@ -1368,6 +1397,14 @@ else
 
     private async Task DecryptAndCacheAsync(ChatMessageDto message)
     {
+        // Nothing to open: a deleted message arrives with its ciphertext emptied, and the line saying so
+        // is drawn from DeletedByUserId instead - see WhoDeleted. Asked here rather than at the call
+        // site so every path into this one gets it.
+        if (message.DeletedByUserId is not null)
+        {
+            return;
+        }
+
         if (_otherUser?.PublicKeyBase64 is null || _cryptoModule is null)
         {
             return;

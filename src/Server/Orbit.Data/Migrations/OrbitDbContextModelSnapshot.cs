@@ -339,6 +339,14 @@ namespace Orbit.Data.Migrations
                         .HasColumnType("text")
                         .HasColumnName("OP_C_CIPHERTEXTBASE64");
 
+                    b.Property<DateTimeOffset?>("DeletedAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("OP_C_DELETEDATUTC");
+
+                    b.Property<Guid?>("DeletedByUserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("OP_C_DELETEDBYUSERID");
+
                     b.Property<DateTimeOffset?>("EditedAtUtc")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("OP_C_EDITEDATUTC");
@@ -1445,6 +1453,10 @@ namespace Orbit.Data.Migrations
                     b.Property<bool>("IsGroup")
                         .HasColumnType("boolean")
                         .HasColumnName("OP_T_ISGROUP");
+
+                    b.Property<bool>("IsMarkedCompleted")
+                        .HasColumnType("boolean")
+                        .HasColumnName("OP_T_ISMARKEDCOMPLETED");
 
                     b.Property<bool>("IsPinned")
                         .HasColumnType("boolean")

@@ -4,13 +4,14 @@ using Microsoft.Maui.Controls.Maps;
 using Microsoft.Maui.Maps;
 using Orbit.Maui.Platform;
 using Orbit.Mobile.Localization;
+using Orbit.Maui.Controls;
 using Orbit.Mobile.Screens;
 using Orbit.Mobile.Screens.Tasks;
 using SensorLocation = Microsoft.Maui.Devices.Sensors.Location;
 
 namespace Orbit.Maui.Features.Tasks;
 
-public partial class TaskItemSummaryPage : ContentPage
+public partial class TaskItemSummaryPage : ContentPage, ITitleMenu
 {
 	/// <summary>
 	/// How much ground the map shows. Closer in than the positions map: this is one place somebody has
@@ -29,7 +30,7 @@ public partial class TaskItemSummaryPage : ContentPage
 		// Before InitializeComponent, not after: the rail's menu is bound from the static part of the
 		// tree, which reads a page's plain property exactly once - see CalendarEventDetailPage.
 		_translations = translations;
-		ShowEntryMenuCommand = new Command(ShowEntryMenu);
+		ShowTitleMenuCommand = new Command(ShowEntryMenu);
 
 		InitializeComponent();
 		BindingContext = _viewModel = viewModel;
@@ -41,7 +42,7 @@ public partial class TaskItemSummaryPage : ContentPage
 	}
 
 	/// <summary>What the rail's three dots open.</summary>
-	public ICommand ShowEntryMenuCommand { get; }
+	public ICommand ShowTitleMenuCommand { get; }
 
 	/// <summary>The panel they draw - one per screen, above everything else on it.</summary>
 	public ScreenMenu Menu { get; } = new();
@@ -52,8 +53,7 @@ public partial class TaskItemSummaryPage : ContentPage
 	/// entry belongs to a list rather than standing on its own.
 	/// </summary>
 	private void ShowEntryMenu() => Menu.Show(
-		[new ScreenMenuEntry(_translations["Show Tasks"], () => _viewModel.ShowTaskListCommand.Execute(null))],
-		opensUpwards: true);
+		[new ScreenMenuEntry(_translations["Show Tasks"], () => _viewModel.ShowTaskListCommand.Execute(null))]);
 
 	/// <summary>
 	/// Takes the map out before anything renders it, for the reason MapPage gives: on Android a map

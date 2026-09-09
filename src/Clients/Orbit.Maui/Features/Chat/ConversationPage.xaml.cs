@@ -71,7 +71,7 @@ public partial class ConversationPage : ContentPage
 				_translations["Reply"], () => _viewModel.StartReplyingCommand.Execute(message)));
 		}
 
-		Menu.Show(entries, _translations["Message options"], opensUpwards: true);
+		Menu.Show(entries, _translations["Message options"], placement: MenuPlacement.FromTheFoot);
 	}
 
 	/// <summary>

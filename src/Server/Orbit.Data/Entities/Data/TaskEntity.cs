@@ -22,7 +22,18 @@ public sealed class TaskEntity
 
     /// <summary>Base64 nonce the ciphertext above was sealed with; null otherwise.</summary>
     public string? EncryptedNonce { get; set; }
+    /// <summary>
+    /// Whether the list is done, either way it can be - see Orbit.Core.Tasks.TaskList.IsCompleted.
+    /// Derived there and stored here, so a query can ask without loading every item.
+    /// </summary>
     public bool IsCompleted { get; set; }
+
+    /// <summary>
+    /// The half of the above the reader set themselves - see Orbit.Core.Tasks.TaskList.IsMarkedCompleted.
+    /// Stored separately because it cannot be derived back out of IsCompleted: a list with everything
+    /// ticked off reads as completed whether or not anybody said so.
+    /// </summary>
+    public bool IsMarkedCompleted { get; set; }
 
     /// <summary>Whether this list gathers other lists - see Orbit.Core.Tasks.TaskList.IsGroup.</summary>
     public bool IsGroup { get; set; }

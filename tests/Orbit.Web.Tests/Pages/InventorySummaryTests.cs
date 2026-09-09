@@ -96,8 +96,7 @@ public sealed class InventorySummaryTests : OrbitTestContext
         var navigationManager = Services.GetRequiredService<NavigationManager>();
         var cut = RenderComponent<InventorySummary>(parameters => parameters.Add(page => page.InventoryId, InventoryId));
 
-        cut.Find(".editor-rail .overflow-menu-trigger").Click();
-        cut.FindAll(".avatar-dropdown-item").First(entry => entry.TextContent.Trim() == "Edit").Click();
+        cut.FindAll(".editor-rail button").First(button => button.GetAttribute("aria-label") == "Edit").Click();
 
         Assert.EndsWith($"/inventory/{InventoryId}/edit", new Uri(navigationManager.Uri).AbsolutePath);
     }
@@ -114,11 +113,14 @@ public sealed class InventorySummaryTests : OrbitTestContext
         _accessLevel = "ReadOnly";
         var cut = RenderComponent<InventorySummary>(parameters => parameters.Add(page => page.InventoryId, InventoryId));
 
+        // The form is reached from the panel now rather than from the menu, so what it is called is
+        // read off the button; the menu still says what may be done besides.
+        Assert.Single(cut.FindAll(".editor-rail button[aria-label=View]"));
+        Assert.Empty(cut.FindAll(".editor-rail button[aria-label=Edit]"));
+
         cut.Find(".editor-rail .overflow-menu-trigger").Click();
         var entries = cut.FindAll(".avatar-dropdown-item").Select(entry => entry.TextContent.Trim()).ToList();
 
-        Assert.Contains("View", entries);
-        Assert.DoesNotContain("Edit", entries);
         Assert.DoesNotContain("Delete", entries);
     }
 

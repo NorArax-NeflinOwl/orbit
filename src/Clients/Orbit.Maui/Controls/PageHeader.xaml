@@ -19,11 +19,7 @@
     <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12" Margin="0,0,0,16">
 
         <VerticalStackLayout Grid.Column="0" Spacing="2">
-            <HorizontalStackLayout Spacing="10">
-                <ContentView x:Name="LeadingHost" IsVisible="False" VerticalOptions="Center" />
-                <Label Text="{Binding Title, Source={x:Reference Root}, x:DataType=controls:PageHeader}"
-                       Style="{StaticResource PageTitle}" VerticalOptions="Center" />
-            </HorizontalStackLayout>
+            <ContentView x:Name="LeadingHost" IsVisible="False" HorizontalOptions="Start" />
 
             <Label x:Name="SubtitleLabel" IsVisible="False"
                    Text="{Binding Subtitle, Source={x:Reference Root}, x:DataType=controls:PageHeader}"

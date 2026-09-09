@@ -7,6 +7,7 @@ using Android.Views;
 using AndroidX.Activity;
 using AndroidX.Core.View;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Maui.Platform;
 using Orbit.Mobile.Notifications;
 using Orbit.Mobile.Screens.Navigation;
 
@@ -125,9 +126,11 @@ public class MainActivity : MauiAppCompatActivity
 
 		if (!OperatingSystem.IsAndroidVersionAtLeast(35))
 		{
-			// The two surface colours from Resources/Styles/Colors.xaml, which the values/colors.xml pair
-			// mirrors - see the comments there.
-			window.SetStatusBarColor(isDark ? Android.Graphics.Color.ParseColor("#1C1C1E") : Android.Graphics.Color.White);
+			// Read off Colors.xaml rather than written out here. It used to be two literals, and they had
+			// drifted from the palette they claimed to mirror - as had the values/colors.xml pair, which
+			// is the one copy that cannot be read this way (a theme colour is resolved when the activity
+			// inflates, before there is an Application to ask).
+			window.SetStatusBarColor(Orbit.Maui.Platform.ThemeColours.PageBackground.ToPlatform());
 		}
 	}
 
@@ -192,9 +195,11 @@ public class MainActivity : MauiAppCompatActivity
 	}
 
 	/// <summary>
-	/// Answers the phone's back gesture with the screen hierarchy, because there is no stack to pop -
-	/// see <see cref="UpNavigation"/>. Without this, back leaves the app from every screen, including
-	/// the ones a reader opened from a list and expects to come back out of.
+	/// Answers the phone's back gesture with the screen the reader came from - see
+	/// <see cref="ScreenHistory"/>, which the top bar's own back arrow pops too, so the gesture and the
+	/// button are one behaviour rather than two answers to the same question. Without this, back leaves
+	/// the app from every screen, including the ones a reader opened from a list and expects to come
+	/// back out of.
 	///
 	/// Through OnBackPressedDispatcher rather than by overriding OnBackPressed, which Android deprecated
 	/// in favour of it, and which the predictive back gesture does not call at all.
@@ -207,7 +212,7 @@ public class MainActivity : MauiAppCompatActivity
 
 		public override void HandleOnBackPressed()
 		{
-			if (IPlatformApplication.Current?.Services.GetService<UpNavigation>()?.GoUp() == true)
+			if (IPlatformApplication.Current?.Services.GetService<ScreenHistory>()?.GoBack() == true)
 			{
 				return;
 			}

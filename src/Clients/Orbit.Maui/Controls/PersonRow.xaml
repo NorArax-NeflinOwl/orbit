@@ -13,7 +13,13 @@
              [pin][action][avatar with status][name ...................][menu]
 
          A group has no status on its avatar - a group is not somewhere anybody is or is not. -->
-    <Grid ColumnDefinitions="Auto,Auto,*,Auto" Padding="0,6">
+    <Grid ColumnDefinitions="Auto,Auto,*,Auto" Padding="0,8">
+
+        <!-- The hairline above it, which is what separates one row from the next everywhere in this
+             design - see ItemCard's row shape, which draws the same rule for the lists that hold
+             things rather than people. -->
+        <BoxView Grid.ColumnSpan="4" Style="{StaticResource Hairline}" VerticalOptions="Start"
+                 Margin="0,-8,0,0" />
 
         <!-- No column spacing: what comes before the face is optional, and an empty column must cost
              nothing at all. They carry their own margins instead. -->
@@ -33,7 +39,7 @@
         <controls:AvatarCircle x:Name="Face" Grid.Column="1" VerticalOptions="Center" Margin="0,0,10,0" />
 
         <VerticalStackLayout Grid.Column="2" Spacing="1" VerticalOptions="Center">
-            <Label x:Name="NameLabel" FontSize="16" FontAttributes="Bold" LineBreakMode="TailTruncation" />
+            <Label x:Name="NameLabel" FontSize="15" LineBreakMode="TailTruncation" />
             <Label x:Name="SubtitleLabel" FontSize="12" IsVisible="False" LineBreakMode="TailTruncation"
                    TextColor="{AppThemeBinding Light={StaticResource SubtleTextLight}, Dark={StaticResource SubtleTextDark}}" />
         </VerticalStackLayout>

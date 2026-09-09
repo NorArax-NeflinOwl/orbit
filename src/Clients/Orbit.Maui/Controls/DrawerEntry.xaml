@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<ContentView
+    x:Class="Orbit.Maui.Controls.DrawerEntry"
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    x:Name="Root">
+
+    <!-- One way into a section:
+             [icon]  Notifications                                              (3)
+         The chosen one is written in the accent over a wash of it. Both, rather than the wash alone -
+         a tint at 11% is hard to see against a near-white page in daylight, and colour alone is one
+         signal where the design has two everywhere else. -->
+    <Border x:Name="Surface" StrokeThickness="0" BackgroundColor="Transparent" Padding="10,12" Margin="0,1">
+        <Border.StrokeShape>
+            <RoundRectangle CornerRadius="4" />
+        </Border.StrokeShape>
+
+        <Grid ColumnDefinitions="22,*,Auto" ColumnSpacing="14">
+            <Path x:Name="Glyph" Grid.Column="0" Style="{StaticResource IconPathAccent}"
+                  WidthRequest="22" HeightRequest="22" InputTransparent="True" />
+
+            <Label x:Name="Name" Grid.Column="1" FontFamily="OrbitDisplay" FontSize="17"
+                   FontAttributes="Bold" VerticalOptions="Center" LineBreakMode="TailTruncation"
+                   TextColor="{AppThemeBinding Light={StaticResource TextPrimaryLight}, Dark={StaticResource TextPrimaryDark}}" />
+
+            <!-- How much is waiting, outlined in the danger colour rather than filled with it - the one
+                 rule the whole design is built on. -->
+            <Border x:Name="Count" Grid.Column="2" IsVisible="False" StrokeThickness="1" Padding="6,0"
+                    HeightRequest="18" MinimumWidthRequest="18" VerticalOptions="Center"
+                    BackgroundColor="Transparent"
+                    Stroke="{AppThemeBinding Light={StaticResource DangerLight}, Dark={StaticResource DangerDark}}">
+                <Border.StrokeShape>
+                    <RoundRectangle CornerRadius="9" />
+                </Border.StrokeShape>
+                <Label x:Name="CountLabel" FontSize="11" FontAttributes="Bold"
+                       HorizontalOptions="Center" VerticalOptions="Center"
+                       TextColor="{AppThemeBinding Light={StaticResource DangerLight}, Dark={StaticResource DangerDark}}" />
+            </Border>
+
+            <!-- MinimumHeightRequest of 0 against the implicit Button style's 44: the row clears that
+                 on its own padding, and letting the button set the height made every entry 68 tall. -->
+            <Button x:Name="Press" Grid.Column="0" Grid.ColumnSpan="3" Padding="0"
+                    BackgroundColor="Transparent" BorderWidth="0"
+                    MinimumWidthRequest="0" MinimumHeightRequest="0" />
+        </Grid>
+    </Border>
+</ContentView>

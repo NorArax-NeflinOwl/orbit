@@ -59,7 +59,7 @@ public partial class GroupConversationPage : ContentPage
 				_translations["Reply"], () => _viewModel.StartReplyingCommand.Execute(message)));
 		}
 
-		Menu.Show(entries, _translations["Message options"], opensUpwards: true);
+		Menu.Show(entries, _translations["Message options"], placement: MenuPlacement.FromTheFoot);
 	}
 
 	private async Task ShowReceiptsAsync(ReadableChatMessage message)

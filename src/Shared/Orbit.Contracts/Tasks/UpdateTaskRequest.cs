@@ -16,4 +16,11 @@ namespace Orbit.Contracts.Tasks;
     /// </param>
 public sealed record UpdateTaskRequest(
     string Title, IReadOnlyList<TaskItemRequest> Items, bool IsGroup = false, bool IsPrivate = false,
-    EncryptedContentDto? EncryptedContent = null, string Priority = "Normal", string? Description = null);
+    EncryptedContentDto? EncryptedContent = null, string Priority = "Normal", string? Description = null,
+    /// <summary>
+    /// Whether the reader says this list is finished, whatever is still on it. <b>Null means "not
+    /// provided"</b> and leaves the stored answer alone, the same rule Description above follows and for
+    /// the same reason: the phone does not know about this field yet, and a save from it must not
+    /// quietly reopen a list somebody closed in a browser.
+    /// </summary>
+    bool? IsMarkedCompleted = null);

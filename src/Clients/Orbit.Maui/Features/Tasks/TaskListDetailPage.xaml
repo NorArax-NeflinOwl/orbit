@@ -15,7 +15,7 @@
     <Grid RowDefinitions="Auto,*,Auto">
 
 
-    <Grid Grid.Row="1" RowDefinitions="Auto,Auto,Auto,*,Auto" Padding="16,16,16,12" RowSpacing="10">
+    <Grid Grid.Row="1" RowDefinitions="Auto,Auto,Auto,*,Auto" Padding="20,14,20,0" RowSpacing="10">
 
         <!-- The list's own name, and the things it can do that are not "tick something off" - the two
              Orbit.Web keeps in its overflow menu. -->
@@ -71,11 +71,16 @@
                  compiles and then silently binds to nothing. -->
             <CollectionView.ItemTemplate>
                 <DataTemplate x:DataType="screens:TaskItemRow">
-                    <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="10" Padding="0,10">
-                        <Button Grid.Column="0" Text="{Binding CompletionMark}" WidthRequest="44"
-                                Style="{StaticResource LinkButton}"
-                                Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=ViewModel.ToggleItemCommand, x:DataType=tasks:TaskListDetailPage}"
-                                CommandParameter="{Binding .}" />
+                    <!-- A hairline above every row, as every list in this design has - see ItemCard's
+                         row shape, which is the same rule drawn by a different control. -->
+                    <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="12" Padding="0,8" RowDefinitions="Auto">
+                        <BoxView Grid.ColumnSpan="3" Style="{StaticResource Hairline}" VerticalOptions="Start"
+                                 Margin="0,-8,0,0" />
+                        <controls:CheckCircle Grid.Column="0" Diameter="22" VerticalOptions="Center"
+                                              IsChecked="{Binding IsCompleted}"
+                                              Description="{Binding Description}"
+                                              Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=ViewModel.ToggleItemCommand, x:DataType=tasks:TaskListDetailPage}"
+                                              CommandParameter="{Binding .}" />
                         <!-- Tapping the line opens the rest of the entry: when it is due, what it
                              says when it is late, whether it repeats daily. -->
                         <VerticalStackLayout Grid.Column="1" Spacing="2" VerticalOptions="Center">
@@ -84,7 +89,18 @@
                                     Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=ViewModel.EditItemCommand, x:DataType=tasks:TaskListDetailPage}"
                                     CommandParameter="{Binding .}" />
                             </VerticalStackLayout.GestureRecognizers>
-                            <Label Text="{Binding Description}" LineBreakMode="WordWrap" />
+                            <Label Text="{Binding Description}" LineBreakMode="WordWrap">
+                                <Label.Triggers>
+                                    <!-- Struck through and quietened once it is done, which is what the
+                                         design does and what a paper list does. The circle says the
+                                         same thing; a reader scanning a long list reads the line. -->
+                                    <DataTrigger TargetType="Label" Binding="{Binding IsCompleted}" Value="True">
+                                        <Setter Property="TextDecorations" Value="Strikethrough" />
+                                        <Setter Property="TextColor"
+                                                Value="{AppThemeBinding Light={StaticResource TertiaryTextLight}, Dark={StaticResource TertiaryTextDark}}" />
+                                    </DataTrigger>
+                                </Label.Triggers>
+                            </Label>
 
                             <!-- What it is filed under, under what it says: the tasks page narrows by
                                  these, and a row that does not carry them leaves the reader to take
@@ -138,9 +154,7 @@
                                 </BindableLayout.ItemTemplate>
                             </FlexLayout>
                         </VerticalStackLayout>
-                        <Button Grid.Column="2" Text="⋯" SemanticProperties.Description="{controls:Translate 'More'}" FontSize="18" WidthRequest="44" Padding="0"
-                                BackgroundColor="Transparent" BorderWidth="0"
-                                TextColor="{AppThemeBinding Light={StaticResource SubtleTextLight}, Dark={StaticResource SubtleTextDark}}"
+                        <controls:OverflowMenu Grid.Column="2" VerticalOptions="Center"
                                 Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=ShowItemMenuCommand, x:DataType=tasks:TaskListDetailPage}"
                                 CommandParameter="{Binding .}" />
                     </Grid>
@@ -463,23 +477,14 @@
         <!-- No Save: a tick is written the moment it is made, which is what a checklist is for. So the
              bar carries the way out, whatever this list has to say for itself, and one menu holding
              both how to read it and what can be done to it - the same rail Orbit.Web's checklist has. -->
-        <controls:EditorRail Grid.Row="2" CancelCommand="{Binding GoBackCommand}">
-            <controls:EditorRail.Extras>
-                <!-- Kept in view however far the list is scrolled, which is the whole point of the
-                     slot: why this list cannot be changed is the answer to every press that does
-                     nothing, and it used to sit above a screenful of entries. -->
-                <Label Text="{Binding ReadOnlyReason}" IsVisible="{Binding HasReadOnlyReason}"
-                       LineBreakMode="WordWrap" Style="{StaticResource ItemCardFooter}" />
-            </controls:EditorRail.Extras>
-            <controls:EditorRail.Child>
-                <controls:OverflowMenu Command="{Binding ShowListMenuCommand, Source={x:Reference Page}, x:DataType=tasks:TaskListDetailPage}" />
-            </controls:EditorRail.Child>
-        </controls:EditorRail>
+        <!-- No rail: the way out is the bar's back arrow, and what else can be done to this list -
+             its order, generating an inventory, deleting it - hangs under its name. See ITitleMenu. -->
 
         <controls:NavigationBar Grid.Row="0" />
         <controls:MenuOverlay Grid.Row="0" Grid.RowSpan="3"
                               BindingContext="{Binding Menu, Source={x:Reference Page}, x:DataType=tasks:TaskListDetailPage}" />
         <controls:AvatarMenu Grid.Row="0" Grid.RowSpan="3" />
+        <controls:Drawer Grid.Row="0" Grid.RowSpan="3" />
     </Grid>
 
 </ContentPage>

@@ -16,22 +16,11 @@
     <Grid RowDefinitions="Auto,*,Auto">
 
 
-    <Grid Grid.Row="1" RowDefinitions="Auto,Auto,Auto,Auto,Auto,*" Padding="16,16,16,28" RowSpacing="10">
+    <!-- The screen at rest is the search field and the lists under it. Its name is in the bar and the
+         reading order hangs under that name (see ShowTitleMenuCommand); the plus is the button over the
+         foot of the list. -->
+    <Grid Grid.Row="1" RowDefinitions="Auto,Auto,Auto,Auto,Auto,*" Padding="20,14,20,0" RowSpacing="10">
 
-
-        <!-- The plus left of the name and the reading order behind the three dots at the other end,
-             exactly where Orbit.Web's own Tasks header keeps them. The order is something a reader sets
-             once and then reads by, so it lives behind the menu rather than in a control taking up the
-             top of every visit. -->
-        <controls:PageHeader Grid.Row="0" Title="{controls:Translate 'Tasks'}">
-            <controls:PageHeader.LeadingAction>
-                <controls:IconButton x:Name="AddButton" Variant="Add" Data="M10,4 V16 M4,10 H16"
-                                     Description="{controls:Translate 'Add task list'}" />
-            </controls:PageHeader.LeadingAction>
-            <controls:PageHeader.Actions>
-                <controls:OverflowMenu Command="{Binding ShowSortMenuCommand, Source={x:Reference Page}, x:DataType=tasks:TasksPage}" />
-            </controls:PageHeader.Actions>
-        </controls:PageHeader>
 
         <!-- What the reader is looking for, above the chips that say which lists are on offer at all: a
              word from an entry, and the categories entries are filed under. Both narrow to lists that
@@ -55,7 +44,6 @@
                                 <Border Style="{StaticResource FilterChip}">
                                     <Border.Triggers>
                                         <DataTrigger TargetType="Border" Binding="{Binding IsChosen}" Value="True">
-                                            <Setter Property="BackgroundColor" Value="{DynamicResource Accent}" />
                                             <Setter Property="Stroke" Value="{DynamicResource Accent}" />
                                         </DataTrigger>
                                     </Border.Triggers>
@@ -70,7 +58,7 @@
                                         </Label.FormattedText>
                                         <Label.Triggers>
                                             <DataTrigger TargetType="Label" Binding="{Binding IsChosen}" Value="True">
-                                                <Setter Property="TextColor" Value="{DynamicResource AccentOn}" />
+                                                <Setter Property="TextColor" Value="{DynamicResource Accent}" />
                                             </DataTrigger>
                                         </Label.Triggers>
                                     </Label>
@@ -110,10 +98,7 @@
                                 <Border Style="{StaticResource FilterChip}">
                                     <Border.Triggers>
                                         <DataTrigger TargetType="Border" Binding="{Binding IsChosen}" Value="True">
-                                            <Setter Property="BackgroundColor"
-                                                    Value="{DynamicResource Accent}" />
-                                            <Setter Property="Stroke"
-                                                    Value="{DynamicResource Accent}" />
+                                            <Setter Property="Stroke" Value="{DynamicResource Accent}" />
                                         </DataTrigger>
                                     </Border.Triggers>
 
@@ -171,7 +156,8 @@
                 <CollectionView.ItemTemplate>
                     <DataTemplate x:DataType="screens:TaskListRow">
                         <!-- The same card every list of things is drawn with - see ItemCard. -->
-                        <controls:ItemCard Name="{Binding DisplayTitle}" IsPinned="{Binding IsPinned}"
+                        <controls:ItemCard IsBordered="False"
+                                           Name="{Binding DisplayTitle}" IsPinned="{Binding IsPinned}"
                                            HasUnseenAction="{Binding HasUnseenAction}">
                             <!-- Only where the reader is sorting by the order they put the cards in:
                                  moving one under any other order would be undone by the sort. The web
@@ -285,10 +271,13 @@
         <!-- Across the foot, under everything the page itself draws - see AdBanner, and .ad-banner
              in Orbit.Web's app.css, which is the same bar on a narrow window. -->
         <controls:AdBanner Grid.Row="2" />
+        <controls:Fab x:Name="AddButton" Grid.Row="1" IsAboveAdBar="True"
+                      Description="{controls:Translate 'Add task list'}" />
         <controls:NavigationBar Grid.Row="0" />
         <controls:MenuOverlay Grid.Row="0" Grid.RowSpan="3"
                               BindingContext="{Binding Menu, Source={x:Reference Page}, x:DataType=tasks:TasksPage}" />
         <controls:AvatarMenu Grid.Row="0" Grid.RowSpan="3" />
+        <controls:Drawer Grid.Row="0" Grid.RowSpan="3" />
     </Grid>
 
 </ContentPage>

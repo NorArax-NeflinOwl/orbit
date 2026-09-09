@@ -9,6 +9,12 @@ namespace Orbit.Core.Chat.DeleteMessage;
 /// removing only your own copy would leave the message standing for everybody else, which is not what
 /// "delete" is taken to mean anywhere in this app.
 ///
+/// The row stays and its words go (see ChatMessage.Delete), so the conversation says a message was here
+/// and was taken back. Removing the row outright left a hole: the other person's screen simply had one
+/// fewer line than a moment ago, with nothing saying why, which reads as a bug or as never having been
+/// sent. What "deleted" means is unchanged - the ciphertext is emptied, so there is nothing left to
+/// read whatever any client chooses to draw.
+///
 /// Who may: the sender, always. In a group, an admin as well, for anyone's message (see
 /// ChatGroup.CanDeleteMessageFrom). Nobody else, including a recipient of a one-to-one message - being
 /// sent something doesn't give you the right to erase it from the sender's own history.
@@ -44,7 +50,8 @@ public sealed class DeleteChatMessageCommandHandler : IRequestHandler<DeleteChat
                 return false;
             }
 
-            await _chatMessageRepository.DeleteAsync(message.Id, cancellationToken);
+            await _chatMessageRepository.MarkDeletedAsync(
+                message.Id, request.ActorUserId, DateTimeOffset.UtcNow, cancellationToken);
 
             // A message that vanishes is news for whoever was looking at it, which is the recipient
             // first of all - a deletion nobody hears about stays on their screen until the slow poll.
@@ -61,7 +68,8 @@ public sealed class DeleteChatMessageCommandHandler : IRequestHandler<DeleteChat
 
         // Every copy of the same posting goes, so the message leaves the group rather than one member's
         // view of it - see ChatMessage.GroupMessageId.
-        await _chatMessageRepository.DeleteGroupMessageAsync(message.GroupMessageId!.Value, cancellationToken);
+        await _chatMessageRepository.MarkGroupMessageDeletedAsync(
+            message.GroupMessageId!.Value, request.ActorUserId, DateTimeOffset.UtcNow, cancellationToken);
         await _liveUpdatePublisher.ChatChangedAsync(
             [.. group.Members.Select(member => member.UserId)], cancellationToken);
         return true;

@@ -17,6 +17,8 @@ public static class PolishTranslations
     {
         // ---- Navigation and the app shell ----
         ["Nothing here matches the filter. Change it above to see the rest."] = "Nic tutaj nie pasuje do filtra. Zmień go powyżej, aby zobaczyć resztę.",
+        // What the three lines in the top bar open - see Drawer.
+        ["Menu"] = "Menu",
         ["Dashboard"] = "Pulpit",
         ["Notes"] = "Notatki",
         ["Tasks"] = "Zadania",
@@ -1066,6 +1068,12 @@ public static class PolishTranslations
         ["Failed to save the event. Try again."] = "Nie udało się zapisać wydarzenia. Spróbuj ponownie.",
         ["Failed to save the note. Try again."] = "Nie udało się zapisać notatki. Spróbuj ponownie.",
         ["Failed to save the task list. Try again."] = "Nie udało się zapisać listy zadań. Spróbuj ponownie.",
+        ["Marks the whole list done even with entries still open, and moves it to Finished. Untick it and the entries decide again."] =
+            "Oznacza całą listę jako zrobioną, nawet z otwartymi pozycjami, i przenosi ją do Zakończonych. Odznacz, a znów zdecydują pozycje.",
+        ["The list was saved, but it couldn't be filed under that folder. Choose it again."] =
+            "Lista została zapisana, ale nie udało się umieścić jej w tym folderze. Wybierz go ponownie.",
+        ["The note was saved, but it couldn't be filed under that folder. Choose it again."] =
+            "Notatka została zapisana, ale nie udało się umieścić jej w tym folderze. Wybierz go ponownie.",
         ["Failed to save the inventory. Try again."] = "Nie udało się zapisać magazynu. Spróbuj ponownie.",
         ["Couldn't save that change. Try again."] = "Nie udało się zapisać tej zmiany. Spróbuj ponownie.",
         ["Couldn't save your profile. Try again."] = "Nie udało się zapisać profilu. Spróbuj ponownie.",
@@ -1689,6 +1697,7 @@ public static class PolishTranslations
         ["{0} joined {1}"] = "{0} dołączył(a) do grupy {1}",
         ["{0} shared the conversation so far"] = "{0} udostępnił(a) dotychczasową rozmowę",
         ["Somebody"] = "Ktoś",
+        ["{0} deleted the message"] = "{0} usunął wiadomość",
         ["A daily reminder needs a time to arrive at."] =
             "Codzienne przypomnienie potrzebuje godziny, o której ma przyjść.",
         ["Choose a time"] = "Wybierz godzinę",

@@ -108,6 +108,7 @@ public sealed class TaskRepository : ITaskRepository
         entity.Title = taskList.Title;
         entity.Description = taskList.Description;
         entity.IsCompleted = taskList.IsCompleted;
+        entity.IsMarkedCompleted = taskList.IsMarkedCompleted;
         entity.IsGroup = taskList.IsGroup;
         entity.Priority = taskList.Priority.ToString();
         entity.IsPinned = taskList.IsPinned;
@@ -197,7 +198,8 @@ public sealed class TaskRepository : ITaskRepository
             entity.LockedByUserName,
             entity.LockExpiresAtUtc,
             Enum.TryParse<ItemPriority>(entity.Priority, out var priority) ? priority : ItemPriority.Normal,
-            entity.IsPinned, entity.LinkedInventoryId, entity.Description, entity.FolderId);
+            entity.IsPinned, entity.LinkedInventoryId, entity.Description, entity.FolderId,
+            entity.IsMarkedCompleted);
 
     private static TaskItem ToItemDomain(TaskItemEntity entity)
         => TaskItem.FromPersistence(
@@ -246,6 +248,7 @@ public sealed class TaskRepository : ITaskRepository
             Title = taskList.Title,
             Description = taskList.Description,
             IsCompleted = taskList.IsCompleted,
+            IsMarkedCompleted = taskList.IsMarkedCompleted,
             IsGroup = taskList.IsGroup,
             Priority = taskList.Priority.ToString(),
             IsPinned = taskList.IsPinned,

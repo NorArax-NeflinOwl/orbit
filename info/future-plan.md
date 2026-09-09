@@ -556,6 +556,14 @@ inventory lists, the contacts tabs, the chat menus - is built and needs no schem
 
 ## Noticed while working
 
+- **The phone cannot mark a list finished.** A task list can be closed with work still on it since
+  2026-09-08 (`TaskList.IsMarkedCompleted`), and the phone neither shows the box nor sends the field.
+  Nothing is lost by it: `UpdateTaskRequest.IsMarkedCompleted` is null-means-not-provided, so a save
+  from the phone leaves a list somebody closed in a browser closed - `MarkingAListFinishedTests` and
+  the field's own comment both say so. The phone does read the *result*: `IsCompleted` arrives already
+  answered, so a marked list sorts and files as finished there. This is parity, not a defect. What it
+  would take: the box on the list's own screen, and the field on the phone's update request.
+
 - **The invitation page treats "any other kind" as an inventory.** `ShareInvitation.AcceptAsync` and
   `DescribeKind` both end in a `_` that means Inventory, and `SharedItemKind` has a fifth member -
   `Location`. Nothing is broken today and this is written down rather than fixed for exactly that
@@ -681,11 +689,47 @@ beside a task belongs here, not in that task's diff. A defect is the exception a
   pull requests, but a direct push to `main` deploys before any workflow can run. Real branch
   protection needs GitHub Pro on a private repository.
 
-## What the Android head's look still owes Orbit.Web
+## Redrawing the rest of the phone
 
-The phone was walked against `app.css` on 2026-09-06 and now shares its type scale, its button roles
-and its shared controls - see [`android-ui-parity.md`](android-ui-parity.md), which is the map of what
-matches and what does not. What that pass left:
+**Superseded 2026-09-08.** The section below was about pulling the Android head to `app.css`; the
+phone now has a look of its own - the Classical system, designed in Claude Design and handed over as a
+prototype of nineteen screens. See [`android-ui-parity.md`](android-ui-parity.md), which is now the map
+of what the two clients still share (the roles, the copy, the behaviour) and what the phone decides for
+itself (the type, the ground, the shapes, the shell).
+
+Every screen the design covers has now been redrawn. The passes were:
+
+1. ~~Foundations - fonts, palette, styles, the Android colour resources.~~
+2. ~~The shell - the bar, the drawer, the title menu, the floating button, the navigation stack.~~
+3. ~~Dashboard, notes list, note, tasks list.~~
+4. ~~Tasks detail and a task entry~~, plus `CheckCircle`, which both they and the note screen tick with.
+5. ~~Calendar and an event.~~ The month grid is open now; the event screen saves from a floating button.
+6. ~~Inventory and a shelf~~, whose rows carry the design's stepper.
+7. ~~Chat~~ - the bubbles are outlined, the person rows are hairline rows, the avatar is a ring in the
+   person's own hue, and the two bare rails are gone. `EditorRail` itself is deleted: nothing drew one.
+8. ~~The notification feed~~ (its three actions moved under the title), ~~sign-in~~ and ~~the account
+   screen's accent swatches~~.
+
+What the design does not cover, and what therefore still has its old layout under the new palette and
+type: **copies** (the review and history screens), **diagnostics**, **the update screen**, **the
+shared-link page**, and **the place picker**. Each is a single-purpose screen the prototype never drew,
+and none of them looks wrong - they simply have not been reconsidered.
+
+Two things the design showed up that are not fixed:
+
+- **A note in the list has no preview line.** The design shows one under the title;
+  `NoteListItem` carries no preview and nothing on the phone derives one, so the rows are airier than
+  the design's. It needs a sentence off the note's first lines, not a control.
+- **The tick in a menu is a character, not a drawing.** `ScreenMenuEntry.Mark` is `"✓"`, and neither
+  Lora nor Cormorant Garamond has that glyph - Android substitutes a system face for it, where IBM Plex
+  used to carry it. The same problem on the task and note screens was solved by drawing the tick
+  (`Controls/CheckCircle.xaml`); a menu's own tick is one `Mark` string in Orbit.Mobile and would need
+  the entry to carry a bool instead, so it was left.
+
+### The pass this replaced
+
+The phone was walked against `app.css` on 2026-09-06 and shared its type scale, its button roles and
+its shared controls. What that pass left, all of it now overtaken:
 
 - ~~**A card has no overflow menu.**~~ Done: Notes, Tasks and Inventory cards each carry one, with the
   actions lifted onto the list view models and the same refusals the browser applies - somebody else's

@@ -57,9 +57,18 @@ public sealed partial class NotesViewModel : ObservableObject
         _privateItems = privateItems;
         _syncState = syncState;
         _navigator = navigator;
+        Notes.CollectionChanged += (_, _) => OnPropertyChanged(nameof(HasNotes));
     }
 
     public ObservableCollection<NoteListItem> Notes { get; } = [];
+
+    /// <summary>
+    /// Whether the list has anything in it. The screen draws a hairline above every row and one more
+    /// below the last, so that the column closes rather than stopping mid-air - and that closing line
+    /// is the one thing that must not be drawn under an empty list, where it would be a rule under the
+    /// words "No notes."
+    /// </summary>
+    public bool HasNotes => Notes.Count > 0;
 
     /// <inheritdoc cref="Tasks.TasksViewModel.HasMessage"/>
     public bool HasMessage => Message.Length > 0;

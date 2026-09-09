@@ -82,8 +82,7 @@ public sealed class NoteSummaryTests : OrbitTestContext
         var navigationManager = Services.GetRequiredService<NavigationManager>();
         var cut = RenderComponent<NoteSummary>(parameters => parameters.Add(page => page.Id, NoteId));
 
-        cut.Find(".editor-rail .overflow-menu-trigger").Click();
-        cut.FindAll(".avatar-dropdown-item").First(entry => entry.TextContent.Trim() == "Edit").Click();
+        cut.FindAll(".editor-rail button").First(button => button.GetAttribute("aria-label") == "Edit").Click();
 
         Assert.EndsWith($"/notes/{NoteId}/edit", new Uri(navigationManager.Uri).AbsolutePath);
     }

@@ -81,8 +81,7 @@ public sealed class CalendarEventSummaryTests : OrbitTestContext
         var navigationManager = Services.GetRequiredService<NavigationManager>();
         var cut = RenderComponent<CalendarEventSummary>(parameters => parameters.Add(page => page.Id, EventId));
 
-        cut.Find(".editor-rail .overflow-menu-trigger").Click();
-        cut.FindAll(".avatar-dropdown-item").First(entry => entry.TextContent.Trim() == "Edit").Click();
+        cut.FindAll(".editor-rail button").First(button => button.GetAttribute("aria-label") == "Edit").Click();
 
         Assert.EndsWith($"/calendar/{EventId}/edit", new Uri(navigationManager.Uri).AbsolutePath);
     }
@@ -109,10 +108,13 @@ public sealed class CalendarEventSummaryTests : OrbitTestContext
         _event = AnEvent() with { IsShared = true, SharedByUserName = "Anna", AccessLevel = "ReadOnly" };
 
         var cut = RenderComponent<CalendarEventSummary>(parameters => parameters.Add(page => page.Id, EventId));
-        cut.Find(".editor-rail .overflow-menu-trigger").Click();
 
+        // The form is reached from the panel now rather than from the menu, so what it is called is
+        // read off the button; the menu still says what may be done besides.
+        Assert.Single(cut.FindAll(".editor-rail button[aria-label=View]"));
+
+        cut.Find(".editor-rail .overflow-menu-trigger").Click();
         var offered = cut.FindAll(".avatar-dropdown-item").Select(entry => entry.TextContent.Trim()).ToList();
-        Assert.Contains("View", offered);
         Assert.DoesNotContain("Delete", offered);
     }
 

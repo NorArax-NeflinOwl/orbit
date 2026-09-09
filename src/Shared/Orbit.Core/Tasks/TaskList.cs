@@ -39,10 +39,23 @@ public sealed class TaskList
     public EncryptedPayload? EncryptedContent { get; private set; }
 
     /// <summary>
-    /// Derived, not settable directly: a task list is done exactly when every item on it is checked
-    /// off, and an empty list is never considered done.
+    /// Whether this list is done. Two ways for it to be, and the second is why this is derived rather
+    /// than stored: every item ticked off, which is what it always meant, or the reader saying so - see
+    /// <see cref="IsMarkedCompleted"/>. An empty list nobody has marked is never done.
     /// </summary>
-    public bool IsCompleted { get; private set; }
+    public bool IsCompleted => IsMarkedCompleted || ComputeIsCompleted(Items);
+
+    /// <summary>
+    /// The reader's own answer, kept apart from the derived one so the two cannot be confused. A list is
+    /// often finished with work still on it - the last two things stopped mattering, or were done
+    /// somewhere else - and until this existed the only way to say so was to tick entries off as though
+    /// they had been done, which is a different claim.
+    ///
+    /// It survives everything else: adding an entry to a list somebody has marked finished does not
+    /// quietly reopen it, because they said the list was done rather than that its entries were.
+    /// Unmarking it hands the question back to the entries.
+    /// </summary>
+    public bool IsMarkedCompleted { get; private set; }
 
     /// <summary>How much this list matters, for sorting and for the reader's own sense of it. See <see cref="ItemPriority"/>.</summary>
     public ItemPriority Priority { get; private set; }
@@ -122,7 +135,7 @@ public sealed class TaskList
         UserId = userId;
         (Title, Items, IsPrivate, EncryptedContent) = ReadableOrSealed(title, items, isPrivate, encryptedContent);
         IsGroup = isGroup;
-        IsCompleted = ComputeIsCompleted(Items);
+        // Nothing to assign: IsCompleted asks the items itself now - see the property.
         Priority = priority;
         IsPinned = isPinned;
         LockedByUserId = lockedByUserId;
@@ -161,13 +174,14 @@ public sealed class TaskList
         DateTimeOffset createdAtUtc, DateTimeOffset updatedAtUtc,
         Guid? lockedByUserId, string? lockedByUserName, DateTimeOffset? lockExpiresAtUtc,
         ItemPriority priority, bool isPinned, Guid? linkedInventoryId = null, string description = "",
-        Guid? folderId = null)
+        Guid? folderId = null, bool isMarkedCompleted = false)
     {
         var taskList = new TaskList(id, userId, title, items, isGroup, isPrivate, encryptedContent, priority, isPinned,
             createdAtUtc, updatedAtUtc, lockedByUserId, lockedByUserName, lockExpiresAtUtc);
         taskList.LinkedInventoryId = linkedInventoryId;
         taskList.Description = description;
         taskList.FolderId = folderId;
+        taskList.IsMarkedCompleted = isMarkedCompleted;
         return taskList;
     }
 
@@ -207,7 +221,7 @@ public sealed class TaskList
         // Sealed alongside the title, so a private list keeps nothing readable here either.
         Description = isPrivate ? string.Empty : description;
         IsGroup = isGroup;
-        IsCompleted = ComputeIsCompleted(Items);
+        // Nothing to assign: IsCompleted asks the items itself now - see the property.
         Priority = priority;
         UpdatedAtUtc = DateTimeOffset.UtcNow;
     }
@@ -254,7 +268,7 @@ public sealed class TaskList
             return false;
         }
 
-        IsCompleted = ComputeIsCompleted(Items);
+        // Nothing to assign: IsCompleted asks the items itself now - see the property.
         UpdatedAtUtc = DateTimeOffset.UtcNow;
         return true;
     }
@@ -270,7 +284,7 @@ public sealed class TaskList
     /// </summary>
     public void RecountWhatIsDone()
     {
-        IsCompleted = ComputeIsCompleted(Items);
+        // Nothing to assign: IsCompleted asks the items itself now - see the property.
         UpdatedAtUtc = DateTimeOffset.UtcNow;
     }
 
@@ -314,6 +328,23 @@ public sealed class TaskList
         UpdatedAtUtc = DateTimeOffset.UtcNow;
     }
 
+    /// <summary>
+    /// The reader saying this list is finished, or taking that back - see
+    /// <see cref="IsMarkedCompleted"/>. Says whether anything changed, so a save that repeats what is
+    /// already there does not stamp the list as touched.
+    /// </summary>
+    public bool SetMarkedCompleted(bool isMarkedCompleted)
+    {
+        if (IsMarkedCompleted == isMarkedCompleted)
+        {
+            return false;
+        }
+
+        IsMarkedCompleted = isMarkedCompleted;
+        UpdatedAtUtc = DateTimeOffset.UtcNow;
+        return true;
+    }
+
     public void SetPinned(bool isPinned)
     {
         if (IsPinned == isPinned)
@@ -341,8 +372,15 @@ public sealed class TaskList
     /// </summary>
     public TaskListStatus Status => ComputeStatus(Items, DateTimeOffset.UtcNow);
 
-    private static TaskListStatus ComputeStatus(IReadOnlyList<TaskItem> items, DateTimeOffset nowUtc)
+    private TaskListStatus ComputeStatus(IReadOnlyList<TaskItem> items, DateTimeOffset nowUtc)
     {
+        // The reader's own answer outranks the entries, the same way IsCompleted reads it - a list
+        // somebody has marked finished is finished, whatever is still written on it.
+        if (IsMarkedCompleted)
+        {
+            return TaskListStatus.Completed;
+        }
+
         if (items.Count == 0)
         {
             return TaskListStatus.New;

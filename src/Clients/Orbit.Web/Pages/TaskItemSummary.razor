@@ -88,14 +88,12 @@ else
 @* The way out is the list this entry is on, which is where it gets ticked off; everywhere else it
    leads is behind the menu. This screen had no way to change the entry at all until now - the form is
    the list's, opened on this one entry. *@
-<EditorRail OnCancel="GoToTaskList">
+@* Edit is a button of its own on the panel - see EditorRail.OnEdit - and only once there is an entry
+   for it to open. The menu keeps the two places this screen leads to. *@
+<EditorRail OnCancel="GoToTaskList" OnEdit="@(_item is null ? default : EventCallback.Factory.Create(this, GoToEditor))">
     <OverflowMenu>
         <button type="button" class="avatar-dropdown-item" @onclick="GoToTaskList">@T["Show Tasks"]</button>
         <button type="button" class="avatar-dropdown-item" @onclick="GoToCalendar">@T["Back to Calendar"]</button>
-        @if (_item is not null)
-        {
-            <button type="button" class="avatar-dropdown-item" @onclick="GoToEditor">@T["Edit"]</button>
-        }
     </OverflowMenu>
 </EditorRail>
 </div>

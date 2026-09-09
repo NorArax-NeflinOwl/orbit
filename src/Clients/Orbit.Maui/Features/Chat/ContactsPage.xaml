@@ -9,7 +9,7 @@
     xmlns:screens="clr-namespace:Orbit.Mobile.Screens.Chat;assembly=Orbit.Mobile"
     x:DataType="screens:ContactsViewModel"
     x:Name="Page"
-    Title="{controls:Translate 'Chat'}">
+    Title="{controls:Translate 'Contacts'}">
 
     <ContentPage.Resources>
         <controls:PresenceColorConverter x:Key="PresenceColor" />
@@ -24,10 +24,10 @@
                                 Explanation="{Binding LockedExplanation}"
                                 OpenAccountCommand="{Binding OpenAccountCommand}" />
 
-    <Grid Grid.Row="1" RowDefinitions="Auto,Auto,Auto,Auto,*,Auto,Auto" Padding="16,16,16,28" RowSpacing="12"
+    <Grid Grid.Row="1" RowDefinitions="Auto,Auto,Auto,Auto,*,Auto,Auto" Padding="20,14,20,0" RowSpacing="12"
           IsVisible="{Binding IsUnlocked}">
 
-        <controls:PageHeader Grid.Row="0" Title="{controls:Translate 'Contacts'}">
+        <controls:PageHeader Grid.Row="0">
             <controls:PageHeader.Subtitle>
                 <controls:Translate Text="Search for someone and start a conversation." />
             </controls:PageHeader.Subtitle>
@@ -141,6 +141,7 @@
         <controls:MenuOverlay Grid.Row="0" Grid.RowSpan="3"
                               BindingContext="{Binding Menu, Source={x:Reference Page}, x:DataType=chat:ContactsPage}" />
         <controls:AvatarMenu Grid.Row="0" Grid.RowSpan="3" />
+        <controls:Drawer Grid.Row="0" Grid.RowSpan="3" />
     </Grid>
 
 </ContentPage>
