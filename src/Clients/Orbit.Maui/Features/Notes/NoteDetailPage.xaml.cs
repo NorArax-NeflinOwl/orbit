@@ -28,9 +28,9 @@ public partial class NoteDetailPage : ContentPage, ITitleMenu
 	private NoteLineRow? _beingWrittenIn;
 
 	/// <summary>
-	/// A line just started, waiting for its field to exist so the caret can be put in it. A new row's
-	/// Entry is built after the command that made the row has returned, so the focus is asked for here
-	/// and taken when the field reports itself loaded.
+	/// A line just started whose field does not exist yet, waiting for one so the caret can be put in
+	/// it. Only for the lines where that is actually true: a line started by Enter has its field before
+	/// the command that made it has even returned - see PutTheCaretIn, which is where both cases meet.
 	/// </summary>
 	private NoteLineRow? _toFocus;
 
@@ -40,6 +40,7 @@ public partial class NoteDetailPage : ContentPage, ITitleMenu
 		// which is built there and reads a page's plain property exactly once - see
 		// CalendarEventDetailPage, where the same order matters for the same reason.
 		ShowTitleMenuCommand = new Command(ShowNoteMenu);
+		JoinTheLineAboveCommand = new Command<Entry>(JoinTheLineAbove);
 
 		InitializeComponent();
 		BindingContext = _viewModel = viewModel;
@@ -58,6 +59,16 @@ public partial class NoteDetailPage : ContentPage, ITitleMenu
 
 	/// <inheritdoc cref="ITitleMenu.ShowTitleMenuCommand"/>
 	public ICommand ShowTitleMenuCommand { get; }
+
+	/// <summary>
+	/// What backspace at the head of a line means, handed to every line's field by the template - see
+	/// NoteLineKeys. It is bound in the markup rather than attached when the field loads, because the
+	/// Android half reads it while the field's handler is being built, which is before Loaded: attached
+	/// any later, the key is never listened for at all and backspace silently does nothing.
+	///
+	/// One command for every line, so it is told which field the press came from.
+	/// </summary>
+	public ICommand JoinTheLineAboveCommand { get; }
 
 	protected override void OnAppearing()
 	{
@@ -84,7 +95,39 @@ public partial class NoteDetailPage : ContentPage, ITitleMenu
 			return;
 		}
 
-		_toFocus = _viewModel.AddLineAfter(row);
+		// The caret is asked for here as well as in Loaded, because the field is usually built while
+		// AddLineAfter is still running - a BindableLayout answers a row being added straight away -
+		// and so it has already loaded by the time there is a row to compare it against. Left to Loaded
+		// alone the ask arrived too late every time, and the only thing that moved the caret was
+		// Android's own answer to the key, which takes it out of the writing altogether.
+		PutTheCaretIn(_viewModel.AddLineAfter(row));
+	}
+
+	/// <summary>
+	/// Puts the caret in a line, if its field is there to take it - and if it is not, leaves the ask for
+	/// <see cref="OnLineLoaded"/> to honour when the field arrives.
+	///
+	/// Asked for on the next turn of the loop rather than now, because the press that made the line is
+	/// still being dealt with: the field says ReturnType="Next", so Android answers the key by moving
+	/// focus on to the next control it can find - the button in the corner - and it does that after
+	/// this runs. Asked for now, the caret would land in the new line and be taken straight out of it
+	/// again, which reads as Enter having done nothing but lose your place.
+	/// </summary>
+	private void PutTheCaretIn(NoteLineRow? line)
+	{
+		if (line is null)
+		{
+			return;
+		}
+
+		if (!_fields.TryGetValue(line, out var field))
+		{
+			_toFocus = line;
+			return;
+		}
+
+		_toFocus = null;
+		Dispatcher.Dispatch(() => field.Focus());
 	}
 
 	private void OnLineFocused(object? sender, FocusEventArgs eventArgs)
@@ -96,8 +139,8 @@ public partial class NoteDetailPage : ContentPage, ITitleMenu
 	}
 
 	/// <summary>
-	/// Where a line just added gets the caret, and where every line is told what to do with a backspace
-	/// pressed at its very start - see NoteLineKeys, which is the Android half of that.
+	/// Where a line whose field did not exist yet gets the caret - a line added from anywhere other than
+	/// the key that made it, where the field really is built afterwards.
 	/// </summary>
 	private void OnLineLoaded(object? sender, EventArgs eventArgs)
 	{
@@ -107,12 +150,10 @@ public partial class NoteDetailPage : ContentPage, ITitleMenu
 		}
 
 		_fields[row] = field;
-		NoteLineKeys.SetJoinsTheLineAbove(field, new Command(() => JoinTheLineAbove(field)));
 
 		if (ReferenceEquals(row, _toFocus))
 		{
-			_toFocus = null;
-			field.Focus();
+			PutTheCaretIn(row);
 		}
 	}
 
@@ -129,9 +170,9 @@ public partial class NoteDetailPage : ContentPage, ITitleMenu
 	/// Backspace with the caret at the head of a line: the line joins the one above it and the caret
 	/// lands where the two met, which is what a text field does everywhere.
 	/// </summary>
-	private void JoinTheLineAbove(Entry field)
+	private void JoinTheLineAbove(Entry? field)
 	{
-		if (!_viewModel.CanEdit || field.BindingContext is not NoteLineRow row)
+		if (!_viewModel.CanEdit || field?.BindingContext is not NoteLineRow row)
 		{
 			return;
 		}

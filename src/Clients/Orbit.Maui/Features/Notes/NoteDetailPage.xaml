@@ -64,6 +64,7 @@
                                        IsVisible="{Binding IsOpenForWriting}"
                                        controls:BareField.IsBare="True" ReturnType="Next"
                                        IsReadOnly="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=ViewModel.IsReadOnly, x:DataType=notes:NoteDetailPage}"
+                                       controls:NoteLineKeys.JoinsTheLineAbove="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=JoinTheLineAboveCommand, x:DataType=notes:NoteDetailPage}"
                                        Completed="OnLineCompleted" Focused="OnLineFocused" Loaded="OnLineLoaded" />
 
                                 <!-- A ticked line is struck through, from its box rightwards - which on

@@ -68,7 +68,9 @@ internal static class NoteLineBackspace
 				return;
 			}
 
-			join.Execute(null);
+			// The field itself, because one command serves every line - it is the page's, bound by the
+			// template, and this is the only thing that says which line the press came from.
+			join.Execute(element);
 			args.Handled = true;
 		}
 
