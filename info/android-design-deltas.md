@@ -24,8 +24,24 @@ disagreements are listed first precisely so that nobody working from the design 
 | a drawer foot of "Settings" + "Orbit 1.4.2 · Offline changes queue and sync later" | an **About** entry and the version on the last line | the spec makes About a screen; the design has no About at all |
 | a bottom-right "locate me" button on the map | the crosshair top-right | the design's map is a placeholder tile with no furniture; the real one has Android's zoom buttons bottom-right and Google's logo bottom-left. See `android-ui-parity.md` |
 | Day, Month, Year on the calendar | Day, **Week**, Month, Year | the spec asked for the week view |
-| a back link inside the conversation header | no back arrow anywhere | the spec removed it from the bar and the phone's own gesture replaced it |
+| a back link on any screen | no back control anywhere, ever | see below - this one is not a preference |
 | a "chat request" counter always on the dashboard | the counter only when somebody is waiting | Orbit.Web's own rule; a standing "0" is not news |
+
+### Every back control the design draws is a mistake
+
+Said by the user on 2026-09-09, and it is a rule rather than a screen-by-screen judgement: **the Android
+head goes back through the navigation stack and Android's own back gesture, and nothing else.** The
+design draws three that must not be built - a `‹` in the conversation's header, and a "‹ Map" link at
+the top of each of the map's two lists. They are an artefact of the prototype being a web page with no
+system back of its own.
+
+Six leftover "Back" buttons were already taken out of the app when the navigation stack arrived (see
+`future-plan.md`, "Redrawing the rest of the phone"), so nothing has to be undone - this is here to stop
+them coming back in with the screens above.
+
+One "Back" is left in the app and is **not** one of these: `ChatKeyGatePage` has a link that backs out
+of the password-reset form to the password form on the same screen. It navigates nowhere and the stack
+never sees it. Its label is the misleading part, not its existence.
 
 ## The screens the design draws that the written spec never reached
 
@@ -51,7 +67,7 @@ list*. Its title menu: Mark as done/open, Move to another list…, Duplicate, De
 page", and the design has them after all - so they are worth checking against it rather than keeping.
 Both are hairline rows with a 34px ring avatar. "Locations I share": name, the sharing mode underneath,
 and a **"Stop" link** on the right. "Shared with me": name, where they are underneath, and a chevron.
-Both carry a "‹ Map" link at the top, which is the one thing to drop - the spec has no back links.
+Both carry a "‹ Map" link at the top, which must **not** be built - see the rule above.
 
 **A conversation** and **Settings** are also drawn, and both are built already; what the design changes
 about them is under "Screens already built" below.
@@ -60,14 +76,27 @@ about them is under "Screens already built" below.
 
 ### The shell
 
-- **A title menu is groups, not a list.** The design's menu is a stack of groups, each with its own
-  heading in uppercase accent with a hairline above it, and each entry is *tick column, label, optional
-  count*. `ScreenMenu` has **one** optional heading for the whole panel and a flat `Entries` list with
-  no count, so a menu that is two things at once - "Show" *and* "Sort" on the dashboard, "Sharing"
-  *and* "Locations" on the map - cannot be drawn. This is the single largest structural correction the
-  design asks for, because nine of the twelve menus it specifies are grouped.
+- **A title menu is groups, not a list.** ***Done 2026-09-09.*** The design's menu is a stack of groups,
+  each with its own heading in uppercase accent with a hairline above it, and each entry is *tick
+  column, label, optional count*. `ScreenMenu` had **one** optional heading for the whole panel and a
+  flat `Entries` list with no count, so a menu that is two things at once - "Show" *and* "Sort" on the
+  dashboard, "Sharing" *and* "Locations" on the map - could not be drawn, and four screens worked around
+  it by opening a second panel.
+
+  `ScreenMenu.Groups` and `ShowGroups` now carry it (named rather than overloaded: an empty collection
+  expression fits both signatures, so `Show([])` would not compile), an empty group is left out rather
+  than drawn as a heading over nothing, and `Entries` stays as the flattened list of everything in the
+  menu. **Converted so far**: notes, tasks, the map and a note - each of which lost a second press.
+  **Still flat, and named in the design as grouped**: the dashboard ("Show" and "Sort") and the calendar
+  ("Show" and "Calendar").
 - **The counts on folder entries.** Notes and Tasks list their folders in the menu with the number of
-  things in each. Nothing in `ScreenMenuEntry` can carry that.
+  things in each. Nothing in `ScreenMenuEntry` can carry that. *(Done 2026-09-09: `ScreenMenuEntry.Count`
+  is its own quiet column at the end of the line. Folders themselves are still not built on the phone.)*
+- **The task list's own filters still write their count into their label** - "All 4", "Pending 0",
+  "Overdue 3" are one string from `TaskListFilter.Label`, so the number is the same size and weight as
+  the words and a filter with nothing behind it says "0" rather than saying nothing. The categories
+  beside them were moved to the new column; these were left because the label is built in the view model
+  and its own tests read it.
 - The tick is still the character `✓` (`ScreenMenuEntry.Mark`), which neither Lora nor Cormorant has -
   already written up under "Redrawing the rest of the phone" in `future-plan.md`.
 

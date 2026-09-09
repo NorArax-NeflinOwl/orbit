@@ -210,11 +210,20 @@ public partial class NoteDetailPage : ContentPage, ITitleMenu
 	/// </summary>
 	private void ShowNoteMenu()
 	{
+		List<ScreenMenuGroup> groups = [];
 		List<ScreenMenuEntry> entries = [];
 
 		if (_viewModel.CanEdit)
 		{
-			entries.Add(new ScreenMenuEntry(_translations["Priority"], ShowPriorityMenu));
+			// Its own group above everything else, three values on screen rather than a second panel to
+			// open - which is how the design draws it, and it is one press instead of two.
+			groups.Add(new ScreenMenuGroup(
+				_translations["Priority"],
+				_viewModel.Priorities.Select(priority => new ScreenMenuEntry(
+					priority.Name,
+					() => _viewModel.ChosenPriority = priority,
+					priority.Value == _viewModel.ChosenPriority.Value))));
+
 			entries.Add(new ScreenMenuEntry(
 				_translations["Private"],
 				() => _viewModel.IsPrivate = !_viewModel.IsPrivate,
@@ -241,15 +250,11 @@ public partial class NoteDetailPage : ContentPage, ITitleMenu
 			entries.Add(new ScreenMenuEntry(_translations["History"], () => _viewModel.GoToHistoryCommand.Execute(null)));
 		}
 
-		Menu.Show(entries);
+		// Under the note's own name, because the group above it is called something else and a heading
+		// over each half is what tells the reader the two are different questions.
+		groups.Add(new ScreenMenuGroup(_translations["Note"], entries));
+		Menu.ShowGroups(groups);
 	}
-
-	private void ShowPriorityMenu() => Menu.Show(
-		_viewModel.Priorities.Select(priority => new ScreenMenuEntry(
-			priority.Name,
-			() => _viewModel.ChosenPriority = priority,
-			priority.Value == _viewModel.ChosenPriority.Value)),
-		_translations["Priority"]);
 
 	/// <summary>Asked first, as every delete in Orbit is - and named, so the question says which note.</summary>
 	private async Task DeleteAsync()

@@ -1487,6 +1487,8 @@ public static class PolishTranslations
             "W przeciwnym razie tylko ostrzeżenia i błędy. Po następnym uruchomieniu wraca do tego ustawienia.",
         ["When something is shared with me"] = "Gdy ktoś mi coś udostępni",
         ["Where you are"] = "Gdzie jesteś",
+        // The heading over the map menu's two lists - who can see you, and who is sharing with you.
+        ["Locations"] = "Lokalizacje",
         ["Who can see you"] = "Kto Cię widzi",
         ["Who is in it"] = "Kto należy do grupy",
         ["Couldn't sync"] = "Nie udało się zsynchronizować",

@@ -62,31 +62,57 @@ public partial class MapPage : ContentPage, Orbit.Maui.Controls.ITitleMenu
 	/// </summary>
 	private void ShowTheMapMenu()
 	{
-		List<Orbit.Mobile.Screens.ScreenMenuEntry> entries =
+		List<Orbit.Mobile.Screens.ScreenMenuGroup> groups =
 		[
 			// Two ways to share, as Orbit.Web offers: the point read a moment ago, or that point and
 			// every one after it while this screen is open. A phone is the thing that moves, so the
 			// second is the one worth having here. Neither means anything until a position has been read.
-			new(_translations["Send once"],
-				() => _viewModel.ShareOnceCommand.Execute(null),
-				canBeChosen: _viewModel.HasOwnPosition),
-			new(_translations["Keep sharing"],
-				() => _viewModel.KeepSharingCommand.Execute(null),
-				canBeChosen: _viewModel.HasOwnPosition),
-			new(_translations["Who can see you"], () => _viewModel.OpenSharingWithCommand.Execute(null)),
-			new(_translations["Shared with you"], () => _viewModel.OpenSharedWithMeCommand.Execute(null))
+			//
+			// The design offers a third, "Off", above these two. There is nothing here for it to mean:
+			// sharing is not a state this screen is in but a set of people it is shared with, and
+			// stopping is per person, on the list screen - which is where the design puts it too.
+			new(_translations["Sharing"],
+			[
+				new(_translations["Send once"],
+					() => _viewModel.ShareOnceCommand.Execute(null),
+					canBeChosen: _viewModel.HasOwnPosition),
+				new(_translations["Keep sharing"],
+					() => _viewModel.KeepSharingCommand.Execute(null),
+					canBeChosen: _viewModel.HasOwnPosition)
+			]),
+
+			// How many, where there are any: a standing "0" beside a list nobody is on is not news, the
+			// same rule the dashboard's chat-request counter follows.
+			new(_translations["Locations"],
+			[
+				new(_translations["Who can see you"],
+					() => _viewModel.OpenSharingWithCommand.Execute(null),
+					count: CountOrNothing(_viewModel.SharingWith.Count)),
+				new(_translations["Shared with you"],
+					() => _viewModel.OpenSharedWithMeCommand.Execute(null),
+					count: CountOrNothing(_viewModel.SharedWithMe.Count))
+			])
 		];
 
 		// Hidden unless the account qualifies - see GoogleIntegrationAccess. Orbit.Web turns the address
 		// itself into this link; here it is an entry, because there is no address written on the screen.
+		// Under no heading of its own: it belongs to neither of the two above, and one loose action at
+		// the foot of a menu is what a row's menu looks like anyway.
 		if (_viewModel.CanOpenOwnPositionInGoogleMaps)
 		{
-			entries.Add(new Orbit.Mobile.Screens.ScreenMenuEntry(
-				_translations["Open in Google Maps"], () => _ = OpenInGoogleMapsAsync()));
+			groups.Add(new Orbit.Mobile.Screens.ScreenMenuGroup(
+				null,
+				[
+					new(_translations["Open in Google Maps"], () => _ = OpenInGoogleMapsAsync())
+				]));
 		}
 
-		Menu.Show(entries);
+		Menu.ShowGroups(groups);
 	}
+
+	/// <summary>How many, or nothing at all where there are none - see the menu above.</summary>
+	private static string? CountOrNothing(int howMany)
+		=> howMany == 0 ? null : howMany.ToString(System.Globalization.CultureInfo.CurrentCulture);
 
 	/// <summary>
 	/// Takes the map out of the page before anything renders it, which is the only moment that helps:

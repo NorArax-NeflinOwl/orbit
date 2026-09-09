@@ -40,33 +40,29 @@ public partial class NotesPage : ContentPage, ITitleMenu
 	}
 
 	/// <summary>
-	/// What hangs under the screen's name: how the list is read. Two entries that open the two sets
-	/// rather than one panel holding both - a menu of eight choices under two silent headings is a
-	/// menu nobody reads, and the design's own dropdown names the groups.
+	/// What hangs under the screen's name: how the list is read, in one panel of two named groups.
+	///
+	/// It used to be two entries that opened the two sets in turn, on the reasoning that eight choices
+	/// under two silent headings is a menu nobody reads. The headings are not silent any more - a menu
+	/// is groups now, each under its own, which is what the design draws - so the second press is gone
+	/// and both halves are on screen at once. The sort heading still says the pins stay on top
+	/// whatever is chosen, rather than leaving the reader to notice.
 	/// </summary>
-	private void ShowTheListMenu() => Menu.Show(
+	private void ShowTheListMenu() => Menu.ShowGroups(
 		[
-			new ScreenMenuEntry(_translations["Sort"], ShowTheSortMenu),
-			new ScreenMenuEntry(_translations["Filter"], ShowTheFilterMenu)
+			new ScreenMenuGroup(
+				_translations["Sort - pinned stay on top"],
+				ListMenus.SortOrders(_translations).Select(order => new ScreenMenuEntry(
+					order.Name,
+					() => Arrange(_viewModel.Arrangement with { SortOrder = order.Value }),
+					order.Value == _viewModel.Arrangement.SortOrder))),
+			new ScreenMenuGroup(
+				_translations["Show"],
+				ListMenus.Filters(_translations).Select(filter => new ScreenMenuEntry(
+					filter.Name,
+					() => Arrange(_viewModel.Arrangement with { Filter = filter.Value }),
+					filter.Value == _viewModel.Arrangement.Filter)))
 		]);
-
-	/// <summary>
-	/// What the list is ordered by, under the pins - which stay at the top whatever is chosen, so the
-	/// heading says so rather than leaving the reader to notice.
-	/// </summary>
-	private void ShowTheSortMenu() => Menu.Show(
-		ListMenus.SortOrders(_translations).Select(order => new ScreenMenuEntry(
-			order.Name,
-			() => Arrange(_viewModel.Arrangement with { SortOrder = order.Value }),
-			order.Value == _viewModel.Arrangement.SortOrder)),
-		_translations["Sort - pinned stay on top"]);
-
-	private void ShowTheFilterMenu() => Menu.Show(
-		ListMenus.Filters(_translations).Select(filter => new ScreenMenuEntry(
-			filter.Name,
-			() => Arrange(_viewModel.Arrangement with { Filter = filter.Value }),
-			filter.Value == _viewModel.Arrangement.Filter)),
-		_translations["Show"]);
 
 	private void Arrange(ListArrangement arrangement) => _viewModel.ArrangeCommand.Execute(arrangement);
 }
