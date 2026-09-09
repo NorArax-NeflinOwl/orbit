@@ -77,16 +77,35 @@ foot. Not built, and not invented: the note field, the tick being pressable, "Mo
 "Duplicate", "Delete item", and the position in the list - **nothing hands this screen the list to
 count within**, so "2 of 5" has no source.
 
-**It is the one thing this session did not walk on the device.** `TaskItemSummaryPage` opens from the
-calendar only for a deadline that `IsSomewhere` (see `CalendarViewModel.OpenDeadline`); every other tap
-lands on the task list instead. Giving an entry a place did not bring it into reach in the time
-available. The XAML compiles, which is the only automated guard `Orbit.Maui` has.
+***Walked on the device on 2026-09-09***, and it reads as drawn. Getting to it is the awkward part and
+worth writing down: it opens from the calendar only for a deadline that `IsSomewhere`, which is
+`LinkedCalendarEventId is not null || Location.Length > 0` - and a deadline whose event falls on the
+same day is dropped from the list and drawn as that event instead, so a linked event cannot get you
+there. What can is **a Calendar-kind entry with an address and no event yet**, because
+`TaskItemSubject` keeps a location only for `kind == Calendar && LinkedCalendarEventId is null` - every
+other kind has it blanked on the way in, which is why typing an address on a Checklist entry looks like
+it saves and does not. That state is real (a calendar entry made offline, before its event exists) but
+the phone's own form cannot produce it, because choosing Calendar and saving creates the event. It was
+seeded in the local database.
+
+The walk found one defect, now fixed: **the map did not centre on the place.** The pin arriving is also
+what makes the map visible - `MapArea` is bound to `HasPin` - so `MoveToRegion` was called on a view
+that had not been laid out yet, and Google's own map dropped it without a word. The screen showed the
+whole Atlantic, which reads as a map that failed to find the address rather than one told where to go
+too early. It moves on the next turn of the loop now.
 
 **The map's two lists.** These were invented on 9 September to satisfy "the lists open as their own
 page", and the design has them after all - so they are worth checking against it rather than keeping.
 Both are hairline rows with a 34px ring avatar. "Locations I share": name, the sharing mode underneath,
 and a **"Stop" link** on the right. "Shared with me": name, where they are underneath, and a chevron.
 Both carry a "‹ Map" link at the top, which must **not** be built - see the rule above.
+
+*Half verified on 2026-09-09.* Both screens open, each carries its own name in the bar, neither has a
+back link, and each has an empty state of its own ("Nobody." / "Nobody is sharing their position with
+you."). **The rows themselves are still unseen**, and cannot be seen cheaply: a row needs a live
+location share, whose position is stored encrypted (`OP_LOCATIONS.OP_L_CIPHERTEXTBASE64`) and so cannot
+be seeded, and the app offers somebody as a candidate to share with only once there is a **conversation**
+with them - which needs that person to have set up chat on a device of their own.
 
 **A conversation** and **Settings** are also drawn, and both are built already; what the design changes
 about them is under "Screens already built" below.
@@ -117,11 +136,12 @@ about them is under "Screens already built" below.
 - **The counts on folder entries.** Notes and Tasks list their folders in the menu with the number of
   things in each. Nothing in `ScreenMenuEntry` can carry that. *(Done 2026-09-09: `ScreenMenuEntry.Count`
   is its own quiet column at the end of the line. Folders themselves are still not built on the phone.)*
-- **The task list's own filters still write their count into their label** - "All 4", "Pending 0",
-  "Overdue 3" are one string from `TaskListFilter.Label`, so the number is the same size and weight as
-  the words and a filter with nothing behind it says "0" rather than saying nothing. The categories
-  beside them were moved to the new column; these were left because the label is built in the view model
-  and its own tests read it.
+- ~~**The task list's own filters write their count into their label**~~ ***Done 2026-09-09.***
+  "All 4", "Pending 0" were one string from `TaskListFilter.Label`, so the number was the same size and
+  weight as the words and a filter with nothing behind it said "0". `Label` is gone; the count is the
+  entry's own column, and `ScreenMenuEntry.CountOf` carries the rule that a zero shows nothing - the map
+  and the categories use it too, so it lives in one place. (No test read `Label`; an earlier note here
+  said otherwise and was wrong.)
 - The tick is still the character `✓` (`ScreenMenuEntry.Mark`), which neither Lora nor Cormorant has -
   already written up under "Redrawing the rest of the phone" in `future-plan.md`.
 
