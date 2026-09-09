@@ -275,8 +275,18 @@ on it is done whatever its own tick says, so its deadlines leave the calendar's 
 (`Calendar.LoadDueTasksAsync`, `Calendar.IsTickedOff`), the dashboard's "Upcoming" card and the count of
 what is due today (`Dashboard.UpcomingDeadlines`, `TasksDueTodayCount`), and the same two places on the
 phone (`CalendarDeadline`, `DashboardViewModel`). Saying "no more of this" and then being reminded of it
-every morning would be the app arguing with the reader. A list finished the other way — every entry
-ticked off — was already answered by the entries themselves; this is only ever about the box.
+every morning would be the app arguing with the reader.
+
+**And nothing announces itself about it either.** The three background services that say what is owed
+ask their repositories, and each of them now leaves finished work out
+(`OverdueTaskNotificationRepository`, `DailyTaskReminderRepository`, `EventReminderRepository`): no
+overdue notice for an entry on a closed list, no daily reminder from one, and **no reminder for an
+appointment whose entry has been ticked off** - the shopping was done on Tuesday for a slot booked on
+Friday, and reminding about Friday is reminding somebody of work they have already reported doing. A
+daily errand's own tick is still ignored, being done today and due again tomorrow; the list's is a
+different question. The rule lives in the query rather than in the scheduler, so the tests for it use
+the real repositories (`NothingIsAnnouncedAboutFinishedWorkTests`) - an in-memory double hands back
+whatever it was seeded with, and a filter that was never written passes there.
 
 Deciding the built-in ones rather than storing them is what let folders arrive with **no migration of
 existing rows and nothing to repair**: every note and list that existed before them was already in the
