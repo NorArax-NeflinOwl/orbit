@@ -928,7 +928,6 @@ public static class PolishTranslations
         ["{0} shared their location with you"] = "{0} udostępnił(a) Ci swoje położenie",
         ["All day"] = "Cały dzień",
         ["Shared by"] = "Udostępnił",
-        ["Messages"] = "Wiadomości",
         ["Conversations"] = "Rozmowy",
         ["Daily"] = "Codziennie",
         ["Weekly"] = "Co tydzień",
@@ -985,7 +984,6 @@ public static class PolishTranslations
         ["No contacts to share with yet - start a conversation first."] =
             "Nie masz jeszcze komu udostępnić — zacznij od rozmowy.",
         ["Allow chatting"] = "Zezwól na rozmowę",
-        ["End-to-end encrypted conversations."] = "Rozmowy szyfrowane end-to-end.",
         ["Jump to newest message"] = "Przejdź do najnowszej wiadomości",
         ["Write to the group"] = "Napisz do grupy",
         ["New group"] = "Nowa grupa",

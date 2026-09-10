@@ -39,10 +39,14 @@
 
 <PageTitle>@T["Orbit — Chat"]</PageTitle>
 
-<PageHeader>
-    <Title>@T["Messages"]</Title>
-    <Subtitle>@T["End-to-end encrypted conversations."]</Subtitle>
-</PageHeader>
+@* No page heading. Every other page carries one and this one carried "Messages / End-to-end encrypted
+   conversations." - a name the bar above already gives, over a sentence that is true of every message
+   ever sent here and so tells a returning reader nothing. What it cost was the top of a conversation:
+   the page is capped at the window now (see .main-content-page:has(.chat-layout)), so a heading is not
+   space above the chat, it is space taken *from* it - and on a phone it was most of the first screen.
+
+   The conversation names who it is with in its own header, which is the answer somebody opening this
+   page is actually after. *@
 
 @if (!Permissions.Has(ApplicationPermission.Chat))
 {
