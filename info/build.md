@@ -164,3 +164,14 @@ same request against a Production-configured run before believing a 500.
 - `docker compose build orbit-web --no-cache` (or `orbit-api`) forces a full rebuild of one service
   without using Docker's build cache, useful after changing a file that a cached layer might not
   have picked up.
+- A page that was open across an `orbit-web` rebuild can show Blazor's "An unhandled error has
+  occurred" bar with `The value 'x' is not a function` in the console. The browser kept an old copy of
+  a hand-written module (`js/*.js`, `css/app.css`, `index.html` - the files whose names do not change
+  between builds) and is running it against the new assemblies. nginx now answers those paths with
+  `Cache-Control: no-cache`, so a browser asks before reusing them; a copy cached *before* that header
+  existed still needs one hard reload (Ctrl+Shift+R) to be replaced.
+- The stack's images are built from wherever `docker compose` runs, so a container built from the
+  shared checkout at the repository root serves *that* checkout's code - which can be far behind the
+  branch a worktree is on (113 commits, on 2026-09-10). A phone reporting "Couldn't sync" while the
+  API answers 404 to a `/changes` endpoint the client expects is this, not a client bug: rebuild from
+  the worktree with `docker compose -p orbit up -d --no-deps --build orbit-api orbit-web`.
