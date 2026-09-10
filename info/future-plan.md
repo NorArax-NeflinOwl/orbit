@@ -147,10 +147,17 @@ of it:
 - **What the slots would then be worth measuring.** Nothing here counts an impression or a press. That
   is fine while Orbit is advertising itself, and it is the first thing a network asks for.
 
-Two smaller things are owed even without a network: the Android bar is **not tappable** (the adverts
-point at web pages the app does not have, and the app is told the API's address but never the web
-client's - see `OrbitApiSettings`), and there is **no interrupting advert on the phone** at all, only
-the bar.
+One smaller thing is owed even without a network: there is **no interrupting advert on the phone** at
+all, only the bar.
+
+~~The Android bar is **not tappable**.~~ Done 2026-09-10, and the reason it was not had stopped being
+true: the app is told the API's address and never the web client's (`OrbitApiSettings`), but the
+*server* tells it the web client's, and has since public share links needed exactly that
+(`ClientFlagsDto.WebAddress`). So a press builds the page's address out of that answer and opens the
+browser - see `HouseAdLink`, which is also what says there is nowhere to go, for a deployment that has
+not set a web address and for a phone that could not reach the server to ask. It is asked at the press
+rather than when the bar is drawn: every screen carries one, and that would be a request per screen for
+something nobody may ever press.
 
 ## What real Google Calendar sync would take
 

@@ -293,9 +293,12 @@ than none ever again.
 Which advert a visit shows is picked once, from a number the layout keeps (`HouseAds.ForSlot`), so it
 cannot change under the reader's eye as pages re-render. The Android bar shows only adverts worth
 showing inside the app (`HouseAd.ShowsOnAPhone`) - "get Orbit on your phone", read on a phone that
-already has it, is the one advert that makes its reader trust the rest of them less - and it is not
-tappable: the adverts point at pages the app does not have, and the app is told the API's address but
-never the web client's.
+already has it, is the one advert that makes its reader trust the rest of them less. Pressing it opens
+the page it names in the browser: the adverts point at pages the app does not have - the docs, the
+security page - so the address is built out of the web client's, which the server tells the phone
+(`ClientFlagsDto.WebAddress`, the same answer public share links are built from). A deployment that has
+not said where its web client is, and a phone that cannot reach the server to ask, both leave the bar
+something to read rather than press - see `HouseAdLink`.
 
 ## Folders
 
