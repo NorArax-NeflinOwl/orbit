@@ -3402,8 +3402,8 @@ random, which is worse than saying less.
 **The storage list says it too.** `/inventory` marks the card of the storage a warning is about
 (`Inventories.HasNewsAbout`). That warning named only the section until 2026-09-07 - so every page that
 read it could say something was about to go off and none of them could say where - and it names the
-storage now (`InventoryExpiryPushContent`). The phone reads the same path and still opens its list of
-storages, which is where it landed before: it opens one by its own local id, which a server id is not
+inventory now (`InventoryExpiryPushContent`). The phone reads the same path and still opens its list of
+inventories, which is where it landed before: it opens one by its own local id, which a server id is not
 (`NotificationDestination`, `NotificationOpener`).
 
 **The calendar's own list says it too.** Every card on `/calendar` - appointments and deadlines alike -
