@@ -86,6 +86,24 @@ address, see above - but a VNet-integrated environment with a stable egress that
 could name; this environment has none (`staticIp` is inbound only). `--type internal` reverses the
 switch, with the phone losing its direct route.
 
+**Which orbit-api nginx proxies to is the container's to say, not the image's.** Since 2026-09-10
+`nginx.azure.conf` carries the placeholder `__ORBIT_API_HOST__` where the FQDN used to be written, and
+[point-nginx-at-the-api.sh](../src/Clients/Orbit.Web/point-nginx-at-the-api.sh) fills it in when the
+container starts, from `ORBIT_API_HOST`. Unset means this environment's
+`orbit-api.internal.victorioustree-36ad82ca.polandcentral.azurecontainerapps.io`, so nothing here had to
+change; a second environment - the production one planned beside this test one - runs the same image
+and sets its own:
+
+```bash
+az containerapp update -n orbit-web -g <that group> --set-env-vars \
+  ORBIT_API_HOST=$(az containerapp show -n orbit-api -g <that group> --query properties.configuration.ingress.fqdn -o tsv | sed 's/^orbit-api\./orbit-api.internal./')
+```
+
+It has to be the `.internal` name, for the reason just above, and the script refuses anything that is
+not a bare hostname. What it chose is the first line `orbit-web` logs
+(`az containerapp logs show -n orbit-web -g Orbit`: "Proxying /api/ to …"), which is where to look when
+`/api/` answers 502 after a deploy to a new environment.
+
 ## First-time setup from zero
 
 Assumes the resource group, `orbit-environment`, `orbitcontainerregistry`, `identity-orbit` (with
@@ -531,8 +549,9 @@ internal FQDN. Three specific things about that proxy shipped broken at least on
 2. **`Host` header pointing at the wrong app.** `proxy_set_header Host $host;` forwards the *browser's*
    original host (`orbit-web...`), not orbit-api's. Once SNI got the TLS handshake working, the wrong
    Host header made Container Apps' internal ingress route the request back to `orbit-web` by that
-   header, which re-entered the same `/api/` location and looped forever. Fix: hardcode the `Host`
-   header to orbit-api's own hostname.
+   header, which re-entered the same `/api/` location and looped forever. Fix: set the `Host`
+   header to orbit-api's own hostname - the same `ORBIT_API_HOST` the `proxy_pass` uses, never
+   `$host`.
 3. **`proxy_pass` with a variable truncating the path.** Once `proxy_pass`'s target contains a
    variable (which a `resolver`-based DNS-refresh approach requires), nginx stops doing its usual
    "replace the matched location prefix" rewrite - the URI part becomes the literal, final path. A
