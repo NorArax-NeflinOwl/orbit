@@ -72,6 +72,26 @@ public sealed class CalendarTests : OrbitTestContext
         Assert.Equal("true", FindViewSwitchButton(cut, "Day").GetAttribute("aria-pressed"));
     }
 
+    /// <summary>
+    /// A week inside one month names the month once, at the end - "7 - 13 September 2026". The start
+    /// used to come out as "9/7/2026", because a single-letter format string is read as a *standard*
+    /// specifier and "d" standing alone is the short-date pattern rather than the day number.
+    /// </summary>
+    [Fact]
+    public void A_week_within_one_month_is_headed_with_two_day_numbers_and_one_month()
+    {
+        RegisterCalendarApiClient([]);
+        var cut = RenderComponent<Calendar>();
+
+        FindViewSwitchButton(cut, "Week").Click();
+
+        var label = cut.Find(".calendar-period-label").TextContent.Trim();
+        Assert.DoesNotContain("/", label, StringComparison.Ordinal);
+        // Two ends and one month name, whichever week today happens to fall in - a week straddling a
+        // month says both names and still carries no short date.
+        Assert.Contains(" - ", label, StringComparison.Ordinal);
+    }
+
     [Fact]
     public void Clicking_Year_switches_the_visualization_to_a_year_grid_with_all_12_months()
     {
