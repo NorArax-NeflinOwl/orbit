@@ -240,8 +240,23 @@ about them is under "Screens already built" below.
   a short event laid out in a row rather than a column so its title and time sit side by side.
 - Under it, an **"All day"** group with hairline rows and, when there is nothing, "Nothing all day." in
   italic.
-- The month and year views share one list under the grid: a 58-wide date column (weekday and day over
-  the time), a 3px colour bar, then title over place.
+- ~~The month and year views share one list under the grid: a 58-wide date column (weekday and day over
+  the time), a 3px colour bar, then title over place.~~ ***Done 2026-09-10, walked on the device***
+  ("Thu 10" over "9:00 AM", the accent bar, then "Dentist" over "Marszałkowska, Warszawa, Poland").
+  The date column is what makes a list of a whole period readable at a glance; before it, every row
+  carried the entire timestamp at its foot.
+
+  It is not an `ItemCard` any more - a card's anatomy has nowhere to put a leading column of two lines,
+  and this list leads with when. The redraw also took out a duplication the design happened to fix: a
+  deadline read *"Weekend errands: Flour, rice, olive oil"* with a `WEEKEND ERRANDS` chip under it, and
+  now says the list once, on the line the design keeps for where a thing is - a list being the nearest
+  thing a deadline has to somewhere, since it is where you would go to tick it off. `Name` still
+  carries both, because that is what the list is sorted and searched by.
+
+  The `EVENT` chip went with it: an appointment is what a calendar is for, and a chip on every second
+  row saying so is not news. The `TASK` chip stays. *The deadline half of the row is covered by
+  `CalendarScreenTests` but **not** walked - the account signed in on the emulator has no deadline the
+  calendar will draw, and the chip itself is device-verified on the notes and inventory lists.*
 
 ### An event
 

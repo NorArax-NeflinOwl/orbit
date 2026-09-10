@@ -64,9 +64,23 @@ public sealed record CalendarDeadline(
                     // otherwise keep the deadlines it was closed to be rid of. The same rule Orbit.Web
                     // applies - see its Calendar.LoadDueTasksAsync.
                     // Finished with either way: a deadline somebody gave up on has stopped being owed.
-                    item.IsCompleted || item.IsFailed || taskList.IsCompleted, IsSomewhereAsWellAsAtSomeTime(item))))
+                    item.IsCompleted || item.IsFailed || taskList.IsCompleted, IsSomewhereAsWellAsAtSomeTime(item))
+                {
+                    Day = item.DueDateUtc!.Value.ToLocalTime().ToString("ddd d", translations.DisplayCulture),
+                    Time = item.DueDateUtc!.Value.ToLocalTime().ToString("t", translations.DisplayCulture)
+                }))
             .OrderBy(deadline => deadline.DueLocalDate)];
     }
+
+    /// <inheritdoc cref="CalendarEventRow.Day"/>
+    public string Day { get; init; } = string.Empty;
+
+    /// <summary>
+    /// What time it falls due, under the day. A deadline is *sorted* by its date alone - see
+    /// <see cref="CalendarListEntry"/>, which explains why - but it has a time all the same, and the
+    /// column that says when things happen would be half empty without it.
+    /// </summary>
+    public string Time { get; init; } = string.Empty;
 
     /// <summary>Tied to an event, or carrying an address of its own - the rule Orbit.Web's Calendar applies.</summary>
     private static bool IsSomewhereAsWellAsAtSomeTime(TaskItemDto item)

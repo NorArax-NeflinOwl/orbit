@@ -1606,6 +1606,8 @@ public static class PolishTranslations
 
         ["Updated {0}"] = "Zmieniono {0}",
         ["{0} · all day"] = "{0} · cały dzień",
+        // On its own, under the day, in the calendar list's date column - see CalendarEventRow.Time.
+        ["all day"] = "cały dzień",
         ["{0} – {1}"] = "{0} – {1}",
         // Asked as back takes the note editor away with something typed and not saved - see
         // NoteDetailPage.MayLeaveAsync. Both buttons say what they do rather than "OK" and "Cancel".

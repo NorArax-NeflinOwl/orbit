@@ -28,6 +28,46 @@ public sealed class CalendarScreenTests
     private static IEnumerable<CalendarDeadline> Deadlines(CalendarViewModel screen)
         => screen.Listed.Where(entry => entry.Deadline is not null).Select(entry => entry.Deadline!);
 
+    /// <summary>
+    /// A deadline's row says the list it is on once, under its own words, rather than twice - as the
+    /// head of its name and again in a chip beside it. The list is the nearest thing a deadline has to
+    /// somewhere, which is the line the design keeps for where something is.
+    /// </summary>
+    [Fact]
+    public async Task A_deadline_says_what_it_is_and_which_list_it_is_on_separately()
+    {
+        using var context = new ScreenContext();
+        await context.AddDeadlineAsync("Groceries", "Buy milk", new DateTime(2026, 8, 20, 17, 0, 0));
+        var screen = await context.OpenAsync();
+
+        var entry = Assert.Single(screen.Listed);
+
+        Assert.Equal("Buy milk", entry.Headline);
+        Assert.Equal("Groceries", entry.Where);
+        Assert.True(entry.HasWhere);
+        // Still both together where the list is sorted and searched by it.
+        Assert.Equal("Groceries: Buy milk", entry.Name);
+    }
+
+    /// <summary>
+    /// The date column down the left of the list: the day over the time, which is what makes a period
+    /// of a dozen things readable at a glance rather than a column of full timestamps.
+    /// </summary>
+    [Fact]
+    public async Task A_row_carries_its_day_and_its_time_apart()
+    {
+        using var context = new ScreenContext();
+        await context.AddEventAsync("Dentist", new DateTime(2026, 8, 20, 9, 0, 0));
+        var screen = await context.OpenAsync();
+
+        var entry = Assert.Single(screen.Listed);
+
+        Assert.NotEmpty(entry.Day);
+        Assert.NotEmpty(entry.Time);
+        // The day is short - the column is 58 points wide - so it is not the whole timestamp again.
+        Assert.DoesNotContain("2026", entry.Day);
+    }
+
     [Fact]
     public async Task The_month_is_what_opens()
     {
