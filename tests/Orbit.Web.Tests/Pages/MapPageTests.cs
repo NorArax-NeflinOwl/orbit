@@ -987,6 +987,8 @@ public sealed class MapPageTests : OrbitTestContext
         Services.AddSingleton(usersApiClient);
         Services.AddSingleton(chatApiClient);
         Services.AddSingleton(new PlacesApiClient(httpClient));
+        // The place's sharing panel offers a public link beside the offer to a contact - see MapPage.
+        Services.AddSingleton(new PublicShareApiClient(httpClient));
         Services.AddSingleton(new GeocodingApiClient(httpClient));
         Services.AddSingleton(new CalendarApiClient(httpClient));
         Services.AddSingleton(new TasksApiClient(httpClient));

@@ -3,6 +3,7 @@ using Orbit.Core.Calendar;
 using Orbit.Core.Inventories;
 using Orbit.Core.Notes;
 using Orbit.Core.Notifications;
+using Orbit.Core.Places;
 using Orbit.Core.Tasks;
 
 namespace Orbit.Core.Sharing.ClaimPublicShareLink;
@@ -21,6 +22,7 @@ public sealed class ClaimPublicShareLinkCommandHandler : IRequestHandler<ClaimPu
     private readonly ITaskListShareRepository _taskListShareRepository;
     private readonly ICalendarEventShareRepository _calendarEventShareRepository;
     private readonly IInventoryShareRepository _inventoryShareRepository;
+    private readonly IPlaceShareRepository _placeShareRepository;
     private readonly TaskListShareCascade _taskListShareCascade;
     private readonly ISharedItemNotifier _sharedItemNotifier;
 
@@ -31,6 +33,7 @@ public sealed class ClaimPublicShareLinkCommandHandler : IRequestHandler<ClaimPu
         ITaskListShareRepository taskListShareRepository,
         ICalendarEventShareRepository calendarEventShareRepository,
         IInventoryShareRepository inventoryShareRepository,
+        IPlaceShareRepository placeShareRepository,
         TaskListShareCascade taskListShareCascade,
         ISharedItemNotifier sharedItemNotifier)
     {
@@ -40,6 +43,7 @@ public sealed class ClaimPublicShareLinkCommandHandler : IRequestHandler<ClaimPu
         _taskListShareRepository = taskListShareRepository;
         _calendarEventShareRepository = calendarEventShareRepository;
         _inventoryShareRepository = inventoryShareRepository;
+        _placeShareRepository = placeShareRepository;
         _taskListShareCascade = taskListShareCascade;
         _sharedItemNotifier = sharedItemNotifier;
     }
@@ -130,6 +134,19 @@ public sealed class ClaimPublicShareLinkCommandHandler : IRequestHandler<ClaimPu
                 return false;
             }
 
+            case SharedItemType.Place:
+            {
+                if (await _placeShareRepository.FindExistingAsync(link.ItemId, claimingUserId, cancellationToken) is not null)
+                {
+                    return true;
+                }
+
+                var share = PlaceShare.Create(link.ItemId, link.OwnerUserId, claimingUserId);
+                share.MarkAccepted();
+                await _placeShareRepository.AddAsync(share, cancellationToken);
+                return false;
+            }
+
             default:
             {
                 if (await _inventoryShareRepository.FindExistingAsync(link.ItemId, claimingUserId, cancellationToken) is not null)
@@ -150,6 +167,7 @@ public sealed class ClaimPublicShareLinkCommandHandler : IRequestHandler<ClaimPu
         SharedItemType.Note => SharedItemKind.Note,
         SharedItemType.TaskList => SharedItemKind.TaskList,
         SharedItemType.CalendarEvent => SharedItemKind.CalendarEvent,
+        SharedItemType.Place => SharedItemKind.Place,
         _ => SharedItemKind.Inventory
     };
 }

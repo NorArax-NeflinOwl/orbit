@@ -2,7 +2,9 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Orbit.Mobile.Data;
 using Orbit.Mobile.Localization;
+using Orbit.Mobile.Chat;
 using Orbit.Mobile.Location;
+using Orbit.Mobile.Screens.Sharing;
 using Orbit.Mobile.Sync;
 
 namespace Orbit.Mobile.Screens.Places;
@@ -29,7 +31,8 @@ public sealed partial class PlaceDetailViewModel : ObservableObject
 
     public PlaceDetailViewModel(
         LocalPlaceRepository places, PlaceSynchronizer synchronizer, IPlacePicker placePicker,
-        IMapHandoff maps, Translations translations, INetworkStatus networkStatus, IScreenNavigator navigator)
+        IMapHandoff maps, Translations translations, INetworkStatus networkStatus, IScreenNavigator navigator,
+        SharePanel share)
     {
         _places = places;
         _synchronizer = synchronizer;
@@ -38,8 +41,12 @@ public sealed partial class PlaceDetailViewModel : ObservableObject
         _translations = translations;
         _networkStatus = networkStatus;
         _navigator = navigator;
+        Share = share;
         Priorities = Tasks.PriorityChoice.All(translations);
     }
+
+    /// <summary>Offering this place to somebody else - see SharePanel, which every editor here holds.</summary>
+    public SharePanel Share { get; }
 
     [ObservableProperty]
     private string _name = string.Empty;
@@ -132,6 +139,18 @@ public sealed partial class PlaceDetailViewModel : ObservableObject
         _latitude = place.Latitude;
         _longitude = place.Longitude;
         SharedBy = place.IsShared ? place.SharedByUserName ?? string.Empty : string.Empty;
+        IsSharedWithMe = place.IsShared;
+
+        // Only a place the server knows about can be offered: a share names it by its server id, and
+        // one still waiting in the outbox has none.
+        if (place.ServerId is { } serverId)
+        {
+            Share.Describes(SharedItemKind.Place, serverId, place.Name, OwnerToAsk(place));
+        }
+        else
+        {
+            Share.OffersNothing();
+        }
 
         CanEdit = SharedItemAccess.AllowsEditing(place) && OfflineEditPolicy.IsAllowed(place, _networkStatus);
         WhyItIsReadOnly = CanEdit
@@ -235,6 +254,32 @@ public sealed partial class PlaceDetailViewModel : ObservableObject
             // The change is written here and queued; the next run sends it. Nothing to say.
         }
     }
+
+    /// <summary>
+    /// Whether this arrived through somebody else's share, which decides what deleting it is called and
+    /// what it does - see LocalPlaceRepository.DeleteAsync.
+    /// </summary>
+    [ObservableProperty]
+    private bool _isSharedWithMe;
+
+    /// <inheritdoc cref="PlacesViewModel.DeleteAsync"/>
+    [RelayCommand]
+    private async Task DeleteAsync(CancellationToken cancellationToken)
+    {
+        var deletion = await _places.DeleteAsync(_localId, cancellationToken);
+        if (deletion.WasRefused())
+        {
+            Message = deletion.Explain(RefusalMessage, _translations);
+            return;
+        }
+
+        await SynchroniseAsync(cancellationToken);
+        _navigator.ShowPlaces();
+    }
+
+    /// <inheritdoc cref="Notes.NoteDetailViewModel.OwnerToAsk"/>
+    private static Guid? OwnerToAsk(LocalPlace place)
+        => place.AccessLevel == "CanEdit" ? null : place.OwnerUserId;
 
     /// <inheritdoc cref="PlacesViewModel.RefusalMessage"/>
     private const string RefusalMessage =

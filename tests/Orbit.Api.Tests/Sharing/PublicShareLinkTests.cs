@@ -34,6 +34,47 @@ public sealed class PublicShareLinkTests
         Assert.Equal("Anna Kowalska", item.OwnerDisplayName);
     }
 
+    /// <summary>
+    /// A place is the shortest thing a link can point at: what it is called, where it is, and whatever
+    /// was written about it. The point itself is deliberately absent - a link is read by anybody who
+    /// has it, and coordinates are the one thing on a place worth being careful with.
+    /// </summary>
+    [Fact]
+    public async Task A_link_to_a_place_shows_its_address_and_not_its_point()
+    {
+        var context = new PublicShareTestContext();
+        var placeId = await context.AddPlaceAsync("The good bakery", "Sourdough on Thursdays");
+
+        var link = await context.CreateLinkAsync(SharedItemType.Place, placeId);
+
+        var item = await context.ReadAsync(link!.Token);
+        Assert.NotNull(item);
+        Assert.Equal("The good bakery", item!.Title);
+        Assert.Equal("Rynek 1, Lublin", item.Subtitle);
+        Assert.Equal(["Sourdough on Thursdays"], item.Lines.Select(line => line.Text));
+        Assert.DoesNotContain("51.2465", string.Join(" ", item.Lines.Select(line => line.Text)));
+    }
+
+    /// <summary>
+    /// And somebody signed in can keep what the link showed them, the way they can with the other
+    /// kinds - the share it makes is ReadOnly and accepted on the spot.
+    /// </summary>
+    [Fact]
+    public async Task A_place_behind_a_link_can_be_kept_by_whoever_opened_it()
+    {
+        var context = new PublicShareTestContext();
+        var placeId = await context.AddPlaceAsync("The good bakery");
+        var link = await context.CreateLinkAsync(SharedItemType.Place, placeId);
+
+        var claim = await context.ClaimAsync(link!.Token, context.ReaderId);
+
+        Assert.True(claim.Claimed);
+        var grant = await context.PlaceShareRepository.FindAcceptedGrantAsync(
+            placeId, context.ReaderId, CancellationToken.None);
+        Assert.NotNull(grant);
+        Assert.Equal(ShareAccessLevel.ReadOnly, grant!.AccessLevel);
+    }
+
     [Fact]
     public async Task Asking_twice_hands_back_the_same_link()
     {
@@ -235,6 +276,8 @@ public sealed class PublicShareLinkTests
         public InMemoryInventoryRepository InventoryRepository { get; } = new();
         public InMemoryTaskListShareRepository TaskListShareRepository { get; } = new();
         public InMemoryInventoryShareRepository InventoryShareRepository { get; } = new();
+        public InMemoryPlaceShareRepository PlaceShareRepository { get; } = new();
+        public InMemoryPlaceRepository PlaceRepository { get; } = new();
         public RecordingSharedItemNotifier SharedItemNotifier { get; } = new();
         public Guid OwnerId { get; }
         public Guid ReaderId { get; } = Guid.NewGuid();
@@ -248,7 +291,8 @@ public sealed class PublicShareLinkTests
 
             _reader = new PublicSharedItemReader(
                 _noteRepository, TaskRepository, new InMemoryCalendarEventRepository(),
-                InventoryRepository, new InMemoryInventoryItemRepository(), userRepository);
+                InventoryRepository, new InMemoryInventoryItemRepository(), PlaceRepository,
+                userRepository);
         }
 
         public async Task<Guid> AddNoteAsync(string title, params string[] lines)
@@ -256,6 +300,15 @@ public sealed class PublicShareLinkTests
             var note = Note.Create(OwnerId, title, lines.Select(NoteContentLine.PlainText).ToList());
             await _noteRepository.AddAsync(note, CancellationToken.None);
             return note.Id;
+        }
+
+        /// <summary>Somewhere kept on the map - the shortest thing a link can point at.</summary>
+        public async Task<Guid> AddPlaceAsync(string name, string description = "", string address = "Rynek 1, Lublin")
+        {
+            var place = Orbit.Core.Places.Place.Create(
+                OwnerId, name, description, new Orbit.Core.Calendar.EventLocation(address, 51.2465, 22.5684));
+            await PlaceRepository.AddAsync(place, CancellationToken.None);
+            return place.Id;
         }
 
         public async Task<Guid> AddPrivateNoteAsync()
@@ -289,7 +342,7 @@ public sealed class PublicShareLinkTests
         public Task<ClaimPublicShareLinkResult> ClaimAsync(string token, Guid claimingUserId)
             => new ClaimPublicShareLinkCommandHandler(
                     _linkRepository, _reader, NoteShareRepository, TaskListShareRepository,
-                    new InMemoryCalendarEventShareRepository(), InventoryShareRepository,
+                    new InMemoryCalendarEventShareRepository(), InventoryShareRepository, PlaceShareRepository,
                     new TaskListShareCascade(
                         TaskRepository, InventoryRepository, TaskListShareRepository, InventoryShareRepository),
                     SharedItemNotifier)

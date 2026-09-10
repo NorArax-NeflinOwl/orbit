@@ -320,7 +320,14 @@ media query, gives a page two sets of folder tabs, and the hidden set still answ
 
 **The button itself sits in the page's own header row**, beside whatever else is at that end
 (`PageToolbarTrigger`, a named section the toolbar writes into and `PageHeader` draws). It had a row to
-itself between the title and the first card, which on a phone is a whole row spent on one button. The
+itself between the title and the first card, which on a phone is a whole row spent on one button.
+
+**It says which folder is open** rather than the word "Menu". The row of tabs is what a wide screen
+answers that question with, and folding it away took the answer with it — so a reader on a phone could
+not tell what they were looking at without opening the thing that tells them, and "Menu" said only that
+pressing it opens something, which the three lines beside it already say. A page whose controls are not
+about folders passes no `FolderPage` and keeps the old word, which is the honest answer where there is no
+folder to name. The
 panel it opens still hangs where the toolbar stands, just under the header — drawn a shade away from a
 card's own colour and over a dimmed page, because it opens straight across the first card and the same
 colour on both made its tabs read as that card's heading rather than as something in front of it.
@@ -1076,6 +1083,14 @@ private one, because nothing about a place is ever sealed.
   the map. The notification, the invitation page and the contact's card all address it that way.
 - The row on the panel says **who it came from** where somebody handed it over, and **Shared** where this
   reader gave it away — two different facts that would otherwise read as one word.
+- **A public link works too** (`SharedItemType.Place`). What it shows is the name, the address and
+  whatever was written about the place — and **not the point**: a link is read by anybody who has it, and
+  coordinates are the one thing on a place worth being careful with. The address is what its owner wrote
+  down to be read. Somebody signed in can keep what the link showed them, the way they can with the other
+  kinds; the grant that makes is ReadOnly and accepted on the spot.
+- **The phone can hand one over as well as take one** (`SharedItemSharing`, and the place's own menu).
+  Both halves of the offer are the same as the browser's: the server records it, and the invitation is a
+  chat message the phone seals itself.
 
 The lists a place belongs to are **not a foreign key**: a list deleted afterwards leaves an id pointing
 at nothing, and a reader treats that as "a list nobody here can see", the same way a task entry's own

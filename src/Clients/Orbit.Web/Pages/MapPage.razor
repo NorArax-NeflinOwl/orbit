@@ -557,6 +557,13 @@ else
             <p class="map-overlay-hint">@beingShared.Name</p>
             <SharePlacePanel Place="beingShared" Contacts="_contacts" OwnUserId="_ownUserId"
                              OnShared="TheseSharesChangedAsync" />
+            @* The other kind of sharing: a link anybody can read without an account. Only for a place
+               this reader keeps - a link made from somebody else's would outlive the share it came from
+               and would not be theirs to revoke (see PublicSharedItemReader.CanPublishAsync). *@
+            @if (!beingShared.IsShared)
+            {
+                <ShareLinkButton ItemType="Place" ItemId="beingShared.Id" />
+            }
         </div>
     </div>
 }

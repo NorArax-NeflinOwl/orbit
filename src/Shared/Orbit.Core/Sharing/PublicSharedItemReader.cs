@@ -2,15 +2,16 @@ using System.Globalization;
 using Orbit.Core.Calendar;
 using Orbit.Core.Inventories;
 using Orbit.Core.Notes;
+using Orbit.Core.Places;
 using Orbit.Core.Tasks;
 using Orbit.Core.Users;
 
 namespace Orbit.Core.Sharing;
 
 /// <summary>
-/// Turns any of the four shareable kinds into the one flat shape a public link shows, and answers
-/// whether a given user may make a link for it at all. The four repositories meet here rather than in
-/// each command, so "what a link may show" is decided in one place instead of four.
+/// Turns any of the shareable kinds into the one flat shape a public link shows, and answers whether a
+/// given user may make a link for it at all. The repositories meet here rather than in each command, so
+/// "what a link may show" is decided in one place instead of one per kind.
 /// </summary>
 public sealed class PublicSharedItemReader
 {
@@ -21,6 +22,7 @@ public sealed class PublicSharedItemReader
     private readonly ICalendarEventRepository _calendarEventRepository;
     private readonly IInventoryRepository _inventoryRepository;
     private readonly IInventoryItemRepository _inventoryItemRepository;
+    private readonly IPlaceRepository _placeRepository;
     private readonly IUserRepository _userRepository;
 
     public PublicSharedItemReader(
@@ -29,6 +31,7 @@ public sealed class PublicSharedItemReader
         ICalendarEventRepository calendarEventRepository,
         IInventoryRepository inventoryRepository,
         IInventoryItemRepository inventoryItemRepository,
+        IPlaceRepository placeRepository,
         IUserRepository userRepository)
     {
         _noteRepository = noteRepository;
@@ -36,6 +39,7 @@ public sealed class PublicSharedItemReader
         _calendarEventRepository = calendarEventRepository;
         _inventoryRepository = inventoryRepository;
         _inventoryItemRepository = inventoryItemRepository;
+        _placeRepository = placeRepository;
         _userRepository = userRepository;
     }
 
@@ -63,6 +67,13 @@ public sealed class PublicSharedItemReader
                     ? (calendarEvent.UserId, false)
                     : null,
                 ownerUserId),
+            SharedItemType.Place => IsOwnedAndPublishable(
+                // Nothing about a place is ever sealed, so the second half is always false - the only
+                // question is whether this reader is the one who keeps it.
+                await _placeRepository.GetByIdAsync(ownerUserId, itemId, cancellationToken) is { } place
+                    ? (place.UserId, false)
+                    : null,
+                ownerUserId),
             _ => IsOwnedAndPublishable(
                 await _inventoryRepository.GetByIdAsync(ownerUserId, itemId, cancellationToken) is { } inventory
                     ? (inventory.UserId, inventory.IsPrivate)
@@ -85,6 +96,7 @@ public sealed class PublicSharedItemReader
             SharedItemType.Note => await ReadNoteAsync(link, ownerDisplayName, cancellationToken),
             SharedItemType.TaskList => await ReadTaskListAsync(link, ownerDisplayName, cancellationToken),
             SharedItemType.CalendarEvent => await ReadCalendarEventAsync(link, ownerDisplayName, cancellationToken),
+            SharedItemType.Place => await ReadPlaceAsync(link, ownerDisplayName, cancellationToken),
             _ => await ReadInventoryAsync(link, ownerDisplayName, cancellationToken)
         };
     }
@@ -175,6 +187,31 @@ public sealed class PublicSharedItemReader
 
         return new PublicSharedItem(
             SharedItemType.Inventory, inventory.Name, subtitle, lines, ownerDisplayName, inventory.UpdatedAtUtc);
+    }
+
+    /// <summary>
+    /// A place, which is the shortest of these: what it is called, where it is, and whatever the reader
+    /// wrote about it. The point itself is not shown - a public link is read by anybody who has it, and
+    /// coordinates are the one thing on a place that is worth being careful with. The address is what
+    /// the owner wrote down to be read.
+    /// </summary>
+    private async Task<PublicSharedItem?> ReadPlaceAsync(
+        PublicShareLink link, string ownerDisplayName, CancellationToken cancellationToken)
+    {
+        var place = await _placeRepository.GetByIdAsync(link.OwnerUserId, link.ItemId, cancellationToken);
+        if (place is null || place.UserId != link.OwnerUserId)
+        {
+            return null;
+        }
+
+        var lines = new List<PublicSharedItemLine>();
+        if (!string.IsNullOrWhiteSpace(place.Description))
+        {
+            lines.Add(new PublicSharedItemLine(place.Description, IsChecklistItem: false, IsChecked: false, Detail: null));
+        }
+
+        return new PublicSharedItem(
+            SharedItemType.Place, place.Name, place.Where.Address, lines, ownerDisplayName, place.UpdatedAtUtc);
     }
 
     private static bool IsOwnedAndPublishable((Guid OwnerUserId, bool IsPrivate)? item, Guid ownerUserId)

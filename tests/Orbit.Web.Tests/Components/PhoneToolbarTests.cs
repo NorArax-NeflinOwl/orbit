@@ -2,6 +2,7 @@ using Bunit;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Sections;
 using Orbit.Web.Components;
+using Orbit.Web.Services;
 using Xunit;
 
 namespace Orbit.Web.Tests.Components;
@@ -93,10 +94,35 @@ public sealed class PhoneToolbarTests : OrbitTestContext
     }
 
     /// <summary>
+    /// The button says which folder is open rather than "Menu". The row of tabs is what a wide screen
+    /// answers that question with, and folding it away took the answer with it - so a reader on a phone
+    /// could not tell what they were looking at without opening the thing that tells them.
+    /// </summary>
+    [Fact]
+    public void The_button_says_which_folder_is_open()
+    {
+        var cut = RenderToolbarWithItsHeader(FolderPage.Notes);
+
+        Assert.Equal("Public", cut.Find(".phone-toolbar-trigger").TextContent.Trim());
+    }
+
+    /// <summary>
+    /// And "Menu" where there is no folder to name - a page whose controls are not about folders is the
+    /// honest case for the old word.
+    /// </summary>
+    [Fact]
+    public void With_no_folders_behind_it_the_button_still_says_Menu()
+    {
+        var cut = RenderToolbarWithItsHeader();
+
+        Assert.Equal("Menu", cut.Find(".phone-toolbar-trigger").TextContent.Trim());
+    }
+
+    /// <summary>
     /// The toolbar and the outlet its button goes to, which on a real page are the page's own header and
     /// the toolbar under it. Rendered together so both halves are in one tree to search.
     /// </summary>
-    private IRenderedFragment RenderToolbarWithItsHeader()
+    private IRenderedFragment RenderToolbarWithItsHeader(FolderPage? page = null)
         => Render(builder =>
         {
             builder.OpenComponent<SectionOutlet>(0);
@@ -104,8 +130,9 @@ public sealed class PhoneToolbarTests : OrbitTestContext
             builder.CloseComponent();
 
             builder.OpenComponent<PhoneToolbar>(2);
+            builder.AddComponentParameter(3, nameof(PhoneToolbar.Page), page);
             builder.AddComponentParameter(
-                3,
+                4,
                 nameof(PhoneToolbar.ChildContent),
                 (RenderFragment)(content => content.AddMarkupContent(0, "<button type=\"button\" class=\"chip\">All</button>")));
             builder.CloseComponent();

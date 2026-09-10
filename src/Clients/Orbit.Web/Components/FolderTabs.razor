@@ -150,14 +150,7 @@
         }
     }
 
-    private string NameOf(FolderKey tab) => Folders.NameOf(tab, DescribeBuiltIn);
-
-    private string DescribeBuiltIn(BuiltInFolder builtIn) => builtIn switch
-    {
-        BuiltInFolder.Private => T["Private"],
-        BuiltInFolder.Finished => T["Finished"],
-        _ => T["Public"]
-    };
+    private string NameOf(FolderKey tab) => Folders.NameOf(tab, builtIn => BuiltInFolderNames.Of(builtIn, T));
 
     private void Choose(FolderKey tab)
     {

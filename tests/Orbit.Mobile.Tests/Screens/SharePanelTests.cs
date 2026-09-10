@@ -356,7 +356,7 @@ public sealed class SharePanelTests
             context.Synchronizer,
             new SharedItemSharing(
                 new NotesClient(http), new TasksClient(http), new CalendarClient(http), new InventoryClient(http),
-                context.Sender),
+                new PlacesClient(http), context.Sender),
             new PublicShareClient((links ?? new FakePublicShareServer()).ToHttpClient()),
             permissions ?? UnlockedPermissions.For(new LocalStore()),
             new Translations(new InMemoryLanguageStore()),

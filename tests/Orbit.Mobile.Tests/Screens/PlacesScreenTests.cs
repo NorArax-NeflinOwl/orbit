@@ -232,7 +232,9 @@ public sealed class PlacesScreenTests
         public PlaceDetailViewModel OpenDetail(Guid localId)
         {
             var screen = new PlaceDetailViewModel(
-                Places, Synchronizer, Picker, Maps, _translations, Network, Navigator);
+                Places, Synchronizer, Picker, Maps, _translations, Network, Navigator,
+                // Sharing is not what these are about; the panel is here because the screen holds one.
+                ShareTestPanel.For(_localStore, new ChatRepository(_localStore, TimeProvider.System)));
             screen.Open(localId);
             return screen;
         }

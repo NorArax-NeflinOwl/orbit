@@ -30,7 +30,7 @@ internal static class ShareTestPanel
                 sender, Microsoft.Extensions.Logging.Abstractions.NullLogger<ChatSynchronizer>.Instance),
             new SharedItemSharing(
                 new NotesClient(shares), new TasksClient(shares), new CalendarClient(shares),
-                new InventoryClient(shares), sender),
+                new InventoryClient(shares), new PlacesClient(shares), sender),
             new PublicShareClient((linkServer ?? new FakePublicShareServer()).ToHttpClient()),
             UnlockedPermissions.For(localStore),
             new Translations(new InMemoryLanguageStore()),
