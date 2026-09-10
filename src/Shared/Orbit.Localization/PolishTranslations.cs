@@ -633,6 +633,8 @@ public static class PolishTranslations
         ["Year"] = "Rok",
         ["Today"] = "Dziś",
         ["Yesterday"] = "Wczoraj",
+        // Under the name at the head of a conversation, after where they are - see ConversationViewModel.
+        ["end-to-end encrypted"] = "szyfrowane end-to-end",
         ["Tasks with a due date"] = "Zadania z terminem",
         ["No tasks with a due date."] = "Brak zadań z terminem.",
         ["Delete event"] = "Usuń wydarzenie",

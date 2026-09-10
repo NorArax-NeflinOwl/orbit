@@ -21,13 +21,29 @@
 
     <Grid Grid.Row="1" RowDefinitions="Auto,Auto,*,Auto,Auto" Padding="16,16,16,28" RowSpacing="10">
 
-        <Grid Grid.Row="0" ColumnDefinitions="*,Auto" ColumnSpacing="12">
-            <Label Grid.Column="0" Text="{Binding Title}" FontFamily="OrbitDisplay" FontSize="15"
-                   FontAttributes="Bold" LineBreakMode="TailTruncation" VerticalOptions="Center" />
+        <!-- Who this is, at the head of the conversation as the design draws it: their circle with the
+             dot saying where they are, their name, and under it where they are in words followed by the
+             one thing this screen has to promise - that nothing here is readable by anything but the two
+             devices at its ends. The bar above already says their name, but the bar says it about the
+             screen; this says it about the person, which is what the dot and the line are attached to.
 
-            <!-- Who this is, apart from what they have said - the conversation's own menu, in the
-                 corner Orbit.Web's thread header keeps it in. -->
-            <controls:OverflowMenu Grid.Column="1"
+             No "‹" beside the circle, whatever the design draws: back on this phone is the navigation
+             stack and Android's own gesture, and nothing else. -->
+        <Grid Grid.Row="0" ColumnDefinitions="Auto,*,Auto" ColumnSpacing="12">
+            <controls:AvatarCircle Grid.Column="0" Diameter="34" VerticalOptions="Center"
+                                   Id="{Binding ContactId}" Name="{Binding Title}"
+                                   Status="{Binding PresenceStatus}" />
+
+            <VerticalStackLayout Grid.Column="1" Spacing="1" VerticalOptions="Center">
+                <Label Text="{Binding Title}" FontFamily="OrbitDisplay" FontSize="17"
+                       FontAttributes="Bold" LineBreakMode="TailTruncation" />
+                <Label Text="{Binding Standing}" IsVisible="{Binding HasStanding}" FontSize="11"
+                       LineBreakMode="TailTruncation" Style="{StaticResource ItemCardFooter}" />
+            </VerticalStackLayout>
+
+            <!-- What can be done with this conversation, in the corner Orbit.Web's thread header keeps
+                 its menu in. -->
+            <controls:OverflowMenu Grid.Column="2" VerticalOptions="Center"
                                    Command="{Binding ShowThreadMenuCommand, Source={x:Reference Page}, x:DataType=chat:ConversationPage}" />
         </Grid>
         <VerticalStackLayout Grid.Row="1" Spacing="8">
@@ -58,14 +74,14 @@
                     <DataTemplate x:DataType="mobile:ReadableChatMessage">
                         <!-- One message, drawn as Orbit.Web draws it: a bubble on the side of the thread
                              it belongs to - the reader's own at the right in the accent, everybody
-                             else's at the left on the quiet fill - at most 70% of the thread's width,
+                             else's at the left on the quiet fill - at most 78% of the thread's width,
                              with what the message says about itself in small print underneath.
 
                              The phone used to stack every message flat down the left, which reads as a
                              transcript rather than as a conversation: nothing but the small print said
                              who had written which line. -->
                         <VerticalStackLayout Spacing="3" Margin="0,0,0,10" HorizontalOptions="Start"
-                                             MaximumWidthRequest="{Binding Width, Source={x:Reference Thread}, Converter={StaticResource WidthFraction}, ConverterParameter=0.7, x:DataType=CollectionView}">
+                                             MaximumWidthRequest="{Binding Width, Source={x:Reference Thread}, Converter={StaticResource WidthFraction}, ConverterParameter=0.78, x:DataType=CollectionView}">
                             <VerticalStackLayout.Triggers>
                                 <DataTrigger TargetType="VerticalStackLayout" Binding="{Binding IsMine}" Value="True">
                                     <Setter Property="HorizontalOptions" Value="End" />

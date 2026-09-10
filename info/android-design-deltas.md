@@ -261,10 +261,22 @@ about them is under "Screens already built" below.
 
 - A contact row: 38px ring avatar with a presence dot bottom-right, the name with a **danger dot** when
   there is a request waiting, the last message underneath, and when on the right.
-- The conversation's own header inside the content: avatar, name, and **"Available · end-to-end
-  encrypted"** under it - the app says who but not that the conversation is sealed.
-- Bubbles are capped at **78%** of the width and outlined, with the meta line (time · read) *outside*
-  the bubble underneath, aligned to the bubble's side.
+- ~~The conversation's own header inside the content: avatar, name, and **"Available · end-to-end
+  encrypted"** under it - the app says who but not that the conversation is sealed.~~ ***Done
+  2026-09-10, walked on the device*** ("Chat Partner", "Offline · end-to-end encrypted"). The two halves
+  belong together: what a reader wants to know before typing is whether it will be seen and who else
+  could see it. The encryption half is left off for somebody who has not set up chat - there is no key
+  to seal anything with, so saying so would be a promise about an empty screen. No `‹` beside the
+  circle, whatever the design draws.
+
+  The dot on that circle stays **top right**, where `AvatarCircle` has always put it because app.css
+  does; the design puts it bottom right. One dot in one place across every screen beats matching the
+  design on one of them.
+- ~~Bubbles are capped at **78%** of the width~~ ***(done 2026-09-10 - `WidthFractionConverter`, both
+  conversation screens and its own default; Orbit.Web's `.chat-bubble-row` says 70% and the phone
+  follows the design here)*** ~~and outlined, with the meta line (time · read) *outside* the bubble
+  underneath, aligned to the bubble's side~~ **- already so.** The cap is not walked: it takes a message
+  long enough to reach it, and there is nobody on the emulator to exchange one with.
 - A centred small-caps day divider ("Today") between runs of messages.
 
 ### Settings
