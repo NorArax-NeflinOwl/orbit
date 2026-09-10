@@ -360,6 +360,21 @@ public sealed partial class TasksViewModel : ObservableObject
         NewFolderName = string.Empty;
     }
 
+    /// <inheritdoc cref="Notes.NotesViewModel.IsChosenFolderHiddenOnTheDashboard"/>
+    public bool IsChosenFolderHiddenOnTheDashboard
+        => Folders.Chosen.FolderId is { } folderId && Folders.IsHiddenOnTheDashboard(folderId);
+
+    /// <inheritdoc cref="Notes.NotesViewModel.ToggleShownOnTheDashboard"/>
+    [RelayCommand]
+    private void ToggleShownOnTheDashboard()
+    {
+        if (Folders.Chosen.FolderId is { } folderId)
+        {
+            Folders.HideOnTheDashboard(folderId, !Folders.IsHiddenOnTheDashboard(folderId));
+            OnPropertyChanged(nameof(IsChosenFolderHiddenOnTheDashboard));
+        }
+    }
+
     /// <inheritdoc cref="Notes.NotesViewModel.DeleteFolderAsync"/>
     [RelayCommand]
     private async Task DeleteFolderAsync(CancellationToken cancellationToken)

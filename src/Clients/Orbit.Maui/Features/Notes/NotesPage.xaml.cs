@@ -110,6 +110,11 @@ public partial class NotesPage : ContentPage, ITitleMenu
 				_viewModel.StartRenamingTheOpenFolder();
 				UnfoldTheFolderRow();
 			}));
+			// Marked while it is hidden, as the browser's own entry is - the tick says what is true now.
+			entries.Add(new ScreenMenuEntry(
+				_translations["Hide on the dashboard"],
+				() => _viewModel.ToggleShownOnTheDashboardCommand.Execute(null),
+				_viewModel.IsChosenFolderHiddenOnTheDashboard));
 			entries.Add(new ScreenMenuEntry(_translations["Delete folder"], () => _ = DeleteTheFolderAsync()));
 		}
 

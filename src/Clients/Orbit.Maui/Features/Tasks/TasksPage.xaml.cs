@@ -190,6 +190,10 @@ public partial class TasksPage : ContentPage, ITitleMenu
 				_viewModel.StartRenamingTheOpenFolder();
 				UnfoldTheFolderRow();
 			}));
+			entries.Add(new ScreenMenuEntry(
+				_translations["Hide on the dashboard"],
+				() => _viewModel.ToggleShownOnTheDashboardCommand.Execute(null),
+				_viewModel.IsChosenFolderHiddenOnTheDashboard));
 			entries.Add(new ScreenMenuEntry(_translations["Delete folder"], () => _ = DeleteTheFolderAsync()));
 		}
 

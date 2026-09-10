@@ -10,8 +10,13 @@ namespace Orbit.Mobile.Tests.TestDoubles;
 public sealed class InMemoryChosenFolderStore : IChosenFolderStore
 {
     private readonly Dictionary<FolderPage, FolderKey> _chosen = [];
+    private IReadOnlySet<Guid> _hiddenOnTheDashboard = new HashSet<Guid>();
 
     public FolderKey Read(FolderPage page) => _chosen.TryGetValue(page, out var key) ? key : FolderKey.Default;
 
     public void Write(FolderPage page, FolderKey chosen) => _chosen[page] = chosen;
+
+    public IReadOnlySet<Guid> ReadHiddenOnTheDashboard() => _hiddenOnTheDashboard;
+
+    public void WriteHiddenOnTheDashboard(IReadOnlySet<Guid> hidden) => _hiddenOnTheDashboard = hidden;
 }

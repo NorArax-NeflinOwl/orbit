@@ -567,7 +567,10 @@ is how a folder for recipes ends up between Public and Private on the page someb
 on their plate. It hides the tab there and nothing else - the folder is still on its own page with
 everything in it - and it is kept on the device, beside the cards that are put away the same way, since
 it says nothing about what the folders hold. A tab that goes while it is open falls back to Public, so a
-page can never be filtered to a folder nobody can see.
+page can never be filtered to a folder nobody can see. **The phone offers it in the same place since
+2026-09-10** - "Hide on the dashboard" in the folder menu of the page the folder was made on, marked
+while it is hidden, kept in the device preferences beside which folder each screen was left under
+(`IChosenFolderStore.ReadHiddenOnTheDashboard`) - and falls back the same way.
 
 **A folder somebody made is none of the three** and holds whatever they put in it, private things
 included: filing something is not the same decision as sealing it. Only these are rows

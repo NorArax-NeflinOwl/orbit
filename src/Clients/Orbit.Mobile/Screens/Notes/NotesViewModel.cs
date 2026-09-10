@@ -345,6 +345,25 @@ public sealed partial class NotesViewModel : ObservableObject
         NewFolderName = string.Empty;
     }
 
+    /// <summary>Whether the open folder is kept off the dashboard - the mark on the menu entry below.</summary>
+    public bool IsChosenFolderHiddenOnTheDashboard
+        => Folders.Chosen.FolderId is { } folderId && Folders.IsHiddenOnTheDashboard(folderId);
+
+    /// <summary>
+    /// Takes the open folder off the dashboard's menu, or puts it back - see FolderTabs.HideOnTheDashboard.
+    /// Offered here, on the page the folder belongs to, as the browser offers it: a folder is hidden from
+    /// where it does not belong, not from where it does.
+    /// </summary>
+    [RelayCommand]
+    private void ToggleShownOnTheDashboard()
+    {
+        if (Folders.Chosen.FolderId is { } folderId)
+        {
+            Folders.HideOnTheDashboard(folderId, !Folders.IsHiddenOnTheDashboard(folderId));
+            OnPropertyChanged(nameof(IsChosenFolderHiddenOnTheDashboard));
+        }
+    }
+
     /// <summary>
     /// Takes the folder being read away and leaves everything that was in it, which is what the server
     /// does too: a folder is a place to put things, and getting rid of the place is not a decision to

@@ -59,11 +59,40 @@ public sealed class FolderTabs
         var scopes = Page.ScopesOn().Select(scope => scope.ToString()).ToHashSet();
         _made = [.. (await _folders.GetAllAsync(cancellationToken)).Where(folder => scopes.Contains(folder.Scope))];
 
+        // Only the dashboard leaves a hidden folder out: the page the folder belongs to keeps it, with
+        // everything in it, and "hide on the dashboard" means exactly that much. What was filed under
+        // it is then placed as though the folder were not there - back under a built-in one, which is
+        // what FolderPlacement does with an id it is not given - so nothing disappears from the screen.
+        if (Page == FolderPage.Dashboard)
+        {
+            var hidden = _chosen.ReadHiddenOnTheDashboard();
+            _made = [.. _made.Where(folder => !hidden.Contains(folder.LocalId))];
+        }
+
         // A folder chosen and then deleted - here or in the browser - would leave the screen narrowed to
-        // a tab that no longer exists, which reads as everything having been lost.
+        // a tab that no longer exists, which reads as everything having been lost. A folder hidden while
+        // it was open falls back the same way, so a page can never be filtered to a folder nobody can see.
         if (Chosen.FolderId is { } id && _made.All(folder => folder.LocalId != id))
         {
             Choose(FolderKey.Default);
+        }
+    }
+
+    /// <summary>Whether this folder is kept off the dashboard's menu - see <see cref="HideOnTheDashboard"/>.</summary>
+    public bool IsHiddenOnTheDashboard(Guid folderId) => _chosen.ReadHiddenOnTheDashboard().Contains(folderId);
+
+    /// <summary>
+    /// Takes a folder's entry off the dashboard, or puts it back. The dashboard borrows both pages'
+    /// folders, which is how one for recipes ends up between Public and Private on the screen somebody
+    /// opens to see what is on their plate; this hides it there and nothing else. Kept on the device,
+    /// the way the browser keeps its own (`DashboardCardPreferences.IsFolderShown`).
+    /// </summary>
+    public void HideOnTheDashboard(Guid folderId, bool hidden)
+    {
+        var current = _chosen.ReadHiddenOnTheDashboard().ToHashSet();
+        if (hidden ? current.Add(folderId) : current.Remove(folderId))
+        {
+            _chosen.WriteHiddenOnTheDashboard(current);
         }
     }
 
@@ -141,4 +170,14 @@ public interface IChosenFolderStore
     FolderKey Read(FolderPage page);
 
     void Write(FolderPage page, FolderKey chosen);
+
+    /// <summary>
+    /// The folders somebody made that are kept off the dashboard's menu - see
+    /// <see cref="FolderTabs.HideOnTheDashboard"/>. Here rather than in a store of its own because it
+    /// is the same kind of answer: how one person reads one screen on one phone, and nothing about the
+    /// folders themselves. The browser keeps its own beside its put-away cards, for the same reason.
+    /// </summary>
+    IReadOnlySet<Guid> ReadHiddenOnTheDashboard();
+
+    void WriteHiddenOnTheDashboard(IReadOnlySet<Guid> hidden);
 }

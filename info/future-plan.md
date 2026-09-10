@@ -566,6 +566,15 @@ inventory lists, the contacts tabs, the chat menus - is built and needs no schem
 
 ## Noticed while working
 
+- **A response the phone cannot parse escapes the sync's own catch.** `EverythingSynchronizer.TryAsync`
+  catches `HttpRequestException` and nothing else, so a body that is not the shape the client expects
+  throws `JsonException` out of `SynchroniseAsync` and past every screen that calls it. Found on
+  2026-09-10 by a test double answering a folder create with the wrong shape - a real server does not,
+  but a gateway serving an HTML error page or a stale proxy would, and the phone's answer to that
+  should be "couldn't sync" rather than an exception nobody catches. What it would take: reading it the
+  way `SyncFailure` reads the rest, so a malformed answer counts as an answer. Not fixed here because
+  the fix belongs beside the other failure rules and this change was about folders.
+
 - **A create the outbox has given up on leaves a row that never syncs.** When a queued create is
   dropped - after five answered refusals, which since 2026-09-10 includes a 4xx and not only a
   persistent 500 (`SyncFailure.StaysInTheOutbox`) - the phone says so in its feed and deletes the queue
