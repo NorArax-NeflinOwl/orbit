@@ -24,6 +24,10 @@
     --success: oklch(58% 0.13 150);
     --danger: oklch(58% 0.16 25);
     --away: oklch(75% 0.15 85);
+    /* What the page keeps free at the bottom for the advert bar that is fixed there below 1200px - see
+       .ad-banner and .main-content. A token rather than a number written twice: it was written twice,
+       and the second one silently took the room away again. */
+    --ad-banner-room: 96px;
     --font-display: 'Space Grotesk', 'Segoe UI', system-ui, sans-serif;
     --font-body: 'IBM Plex Sans', -apple-system, 'Segoe UI', Roboto, sans-serif;
 }
@@ -802,7 +806,7 @@ input.note-editor-title {
    media query does not win on its own. */
 @media (max-width: 1199px) {
     .main-content {
-        padding-bottom: 96px;
+        padding-bottom: var(--ad-banner-room);
     }
 }
 
@@ -1629,8 +1633,11 @@ input.note-editor-title {
         display: none;
     }
 
+    /* The room for the bar across the foot is kept, not overwritten. Written as the shorthand, this
+       rule used to reset padding-bottom to 28px and undo the rule above it - so on a phone, which is
+       every screen this rule is for, the advert sat on top of the footer's own row. */
     .main-content {
-        padding: 16px 16px 28px 16px;
+        padding: 16px 16px var(--ad-banner-room) 16px;
     }
 
     .page-header {
@@ -3758,6 +3765,21 @@ input.note-editor-title {
     display: flex;
     gap: 8px;
     align-items: center;
+}
+
+/* Where a phone's Menu button lands - see PageToolbarTrigger. The auto margin eats the free space the
+   header's space-between would otherwise put here, so this and the page's own actions sit together at
+   the far end instead of one of them floating into the middle. */
+.page-header-toolbar {
+    display: flex;
+    align-items: center;
+    margin-left: auto;
+}
+
+/* On every page and every screen where nothing is hoisted here, which is most of them: an empty flex
+   child still draws the row's gap beside it. */
+.page-header-toolbar:empty {
+    display: none;
 }
 
 /* Chat.razor's per-contact unread badge sits on the small avatar, so .notif-badge (sized for the big
@@ -6532,13 +6554,6 @@ input.note-editor-title {
         margin-left: auto;
     }
 
-    /* The bar sits on the bottom edge, so a menu hanging off it would open into the ground. It opens
-       upwards instead - the same distance, the other way. */
-    .editor-rail .overflow-menu-dropdown {
-        top: auto;
-        bottom: calc(100% + 4px);
-    }
-
     /* On its own line above the buttons rather than beside them, and only once the arrow has been
        pressed: a bar tall enough to hold fields as well would be most of a phone. */
     .editor-rail-extras {
@@ -7020,16 +7035,20 @@ span.calendar-task-chip {
 }
 
 @media (max-width: 680px) {
+    /* Nothing but an anchor for the panel: the button itself is drawn in the page's header row now (see
+       PageToolbarTrigger), so this holds no space of its own and the first card moves up a row. */
     .phone-toolbar {
         display: block;
         position: relative;
-        margin-bottom: 14px;
     }
 
     .phone-toolbar-trigger {
         display: inline-flex;
         align-items: center;
         gap: 8px;
+        /* Beside a title rather than under it, so it takes the smaller of the two sizes a button has. */
+        padding: 6px 10px;
+        font-size: 13px;
     }
 
     /* Closed, the controls are not merely invisible: display:none takes them out of the tab order too,
@@ -7038,19 +7057,23 @@ span.calendar-task-chip {
         display: none;
     }
 
+    /* --bg-subtle rather than --bg-elevated, which is what a card is drawn in: the panel opens straight
+       over the first card, and the same colour on both made the folder tabs read as that card's own
+       header rather than as something in front of it. A heavier shadow and a full-width border say the
+       rest. */
     .phone-toolbar.open .phone-toolbar-panel {
         display: block;
         position: absolute;
-        top: calc(100% + 6px);
+        top: 0;
         left: 0;
         right: 0;
         max-height: 70vh;
         overflow-y: auto;
         padding: 10px 12px;
-        background: var(--bg-elevated);
+        background: var(--bg-subtle);
         border: 1px solid var(--border);
         border-radius: 10px;
-        box-shadow: 0 8px 24px oklch(20% 0.02 60 / 0.15);
+        box-shadow: 0 12px 32px oklch(20% 0.02 60 / 0.45);
         z-index: 30;
     }
 
@@ -7061,11 +7084,14 @@ span.calendar-task-chip {
         margin-bottom: 8px;
     }
 
+    /* Under the panel and over everything else. Faintly drawn as well as pressable: the panel opens
+       over the cards, and without something dimming them the two layers were one picture - which is
+       what made the folder tabs unreadable rather than merely on top. */
     .phone-toolbar-backdrop {
         display: block;
         position: fixed;
         inset: 0;
-        /* Under the panel and over everything else: it is there to be pressed, not to be seen. */
+        background: oklch(20% 0.02 60 / 0.45);
         z-index: 29;
     }
 }

@@ -264,6 +264,17 @@ to do it — on anything wider the wrapper is `display: contents`, so the contro
 always did and only the button is hidden. The obvious alternative, one copy for each width hidden by a
 media query, gives a page two sets of folder tabs, and the hidden set still answers a press.
 
+**The button itself sits in the page's own header row**, beside whatever else is at that end
+(`PageToolbarTrigger`, a named section the toolbar writes into and `PageHeader` draws). It had a row to
+itself between the title and the first card, which on a phone is a whole row spent on one button. The
+panel it opens still hangs where the toolbar stands, just under the header — drawn a shade away from a
+card's own colour and over a dimmed page, because it opens straight across the first card and the same
+colour on both made its tabs read as that card's heading rather than as something in front of it.
+
+One consequence worth knowing: a page may hold **one `PageHeader` at a time**, since two would be two
+subscribers to the same section. That is one per page in practice; it shows up in tests, where rendering
+the same page twice without disposing the first now throws.
+
 **Built-in folders exist without a row of their own** (`Orbit.Core.Folders.BuiltInFolder`). Which one
 something is in is decided from what it already is, and the first that applies wins:
 
