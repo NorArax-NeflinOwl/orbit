@@ -28,6 +28,18 @@ public sealed partial class RestockListSettingsPanel : ObservableObject
 
     private Guid? _inventoryServerId;
 
+    /// <summary>
+    /// The settings as they were read, so a save from here changes the two this panel draws and carries
+    /// the rest back untouched.
+    ///
+    /// Sending a fresh DTO of the two was silent loss: every other field has a real default rather than
+    /// null - deliberately, so a client that has not learned about one cannot switch it off by omission
+    /// (see RestockListSettingsDto) - so a save from the phone turned a list somebody had switched off
+    /// back on, and put its channel, its priority and what it asks about back to the defaults. Nothing
+    /// said so; the phone does not draw any of the four.
+    /// </summary>
+    private RestockListSettingsDto? _asRead;
+
     public RestockListSettingsPanel(
         InventoryClient inventory, Translations translations, ConnectionRequirement connection)
     {
@@ -88,6 +100,7 @@ public sealed partial class RestockListSettingsPanel : ObservableObject
                 return;
             }
 
+            _asRead = settings;
             OnlyLinkedWithDueDate = settings.OnlyLinkedWithDueDate;
             RefreshTime = settings.RefreshTimeOfDay.ToTimeSpan();
             IsOffered = true;
@@ -106,7 +119,14 @@ public sealed partial class RestockListSettingsPanel : ObservableObject
         => ReportAsync(
             serverId => _inventory.SaveRestockListSettingsAsync(
                 serverId,
-                new RestockListSettingsDto(OnlyLinkedWithDueDate, TimeOnly.FromTimeSpan(RefreshTime)),
+                // What was read, with the two answers this panel asks written over it - see _asRead for
+                // what building a fresh one cost. Nothing to write over means nothing was read, which is
+                // a panel that is not offered at all.
+                (_asRead ?? new RestockListSettingsDto(OnlyLinkedWithDueDate, TimeOnly.FromTimeSpan(RefreshTime))) with
+                {
+                    OnlyLinkedWithDueDate = OnlyLinkedWithDueDate,
+                    RefreshTimeOfDay = TimeOnly.FromTimeSpan(RefreshTime)
+                },
                 cancellationToken),
             cancellationToken);
 

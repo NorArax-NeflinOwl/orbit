@@ -3104,6 +3104,13 @@ moment they are first decided - see "Can this list be done?" above. They used
 to have a "Save settings" and a "Refresh" of their own, which is what made pressing the page's Save leave
 a moved switch behind.
 
+**The phone draws two of them - what the list asks about, and when it comes round - and carries the rest
+back untouched** (`RestockListSettingsPanel`, fixed 2026-09-10). It used to send a fresh answer of just
+those two, and every other field here has a real default rather than null - deliberately, so a client
+that has not learned about one cannot switch it off by omission - so a save from the phone switched a
+list somebody had turned off back on and reset its channel, its priority and what it asks about, with
+nothing on either screen saying so.
+
 ## Calendar event reminders
 
 Two independent notification emails can go to the event's owner and to every guest who has accepted a
