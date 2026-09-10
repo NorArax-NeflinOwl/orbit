@@ -586,6 +586,70 @@ public sealed class DashboardTests : OrbitTestContext
         Assert.Equal(["Tasks"], CardNames(cut));
     }
 
+    /// <summary>
+    /// Private is about one thing - what is sealed - and only three kinds of card can hold anything that
+    /// is. An appointment, a person and a group are none of them sealed, so the tab used to answer "show
+    /// me what is private" with a page mostly made of things that are not.
+    /// </summary>
+    [Fact]
+    public void Private_leaves_only_the_cards_that_can_hold_something_sealed()
+    {
+        RegisterChatApiClient([Contact("Anna Kowalska")]);
+        RegisterNotesApiClient([Note("Passport", "Normal") with { IsPrivate = true }, Note("Shopping", "Normal")]);
+        RegisterTasksApiClient([TaskList("Errands")]);
+        var cut = RenderComponent<Dashboard>();
+        Assert.Contains("Recent chats", CardNames(cut));
+
+        OpenTheTab(cut, "Private");
+
+        Assert.Equal(["Notes"], CardNames(cut));
+        Assert.Equal(["Passport"], RowTitlesIn(cut, "Notes"));
+    }
+
+    /// <summary>
+    /// A shelf is not filed into a folder - there is no tab for one on the inventory page - but it can
+    /// be sealed, so the two built-in tabs tell shelves apart the same way they tell notes apart. The
+    /// sealed one is checked by counting rather than by name: its name travels encrypted, and what the
+    /// card draws for one this browser holds no key for is the standing "unreadable" line.
+    /// </summary>
+    [Fact]
+    public void A_sealed_shelf_is_under_private_and_an_open_one_is_not()
+    {
+        RegisterChatApiClient([]);
+        RegisterInventoryApiClient([Inventory("Pantry"), Inventory("Safe") with { IsPrivate = true }]);
+        var cut = RenderComponent<Dashboard>();
+        Assert.Equal(["Pantry"], RowTitlesIn(cut, "Inventory"));
+
+        OpenTheTab(cut, "Private");
+
+        Assert.Single(RowTitlesIn(cut, "Inventory"));
+        Assert.DoesNotContain("Pantry", RowTitlesIn(cut, "Inventory"));
+    }
+
+    /// <summary>
+    /// Every card is now drawn only where it has something under the open tab, so a Private tab on an
+    /// account that has sealed nothing would otherwise be a row of tabs above a blank page.
+    /// </summary>
+    [Fact]
+    public void Private_with_nothing_sealed_says_so()
+    {
+        RegisterChatApiClient([Contact("Anna Kowalska")]);
+        RegisterNotesApiClient([Note("Shopping", "Normal")]);
+        var cut = RenderComponent<Dashboard>();
+
+        OpenTheTab(cut, "Private");
+
+        Assert.Empty(CardNames(cut));
+        Assert.Contains(
+            "Nothing here is private yet.",
+            cut.FindAll(".empty-hint").Select(hint => hint.TextContent.Trim()));
+    }
+
+    private static void OpenTheTab(IRenderedComponent<Dashboard> cut, string name)
+        => cut.FindAll(".folder-tab")
+            .First(tab => tab.TextContent.Contains(name, StringComparison.Ordinal))
+            .Click();
+
     /// <summary>The names of the cards on the page, in the order they are drawn.</summary>
     private static IReadOnlyList<string> CardNames(IRenderedFragment cut)
         => [.. cut.FindAll(".item-card .item-card-name").Select(name => name.TextContent.Trim())];

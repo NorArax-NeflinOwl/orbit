@@ -97,7 +97,7 @@ else
     </PhoneToolbar>
 
     <div class="card-grid">
-        @if (_notes.Count > 0 && ShowsCard("notes"))
+        @if (NotesUnderTheOpenTab.Count > 0 && ShowsCard("notes"))
         {
             <ItemCard Name="@(T["Notes"])" OnNameSelected='() => NavigationManager.NavigateTo("/notes")'
                       ExtraClass="@(DashboardPins.IsPinned("notes") ? "item-card-pinned" : null)">
@@ -128,7 +128,7 @@ else
             </ItemCard>
         }
 
-        @if (_taskLists.Count > 0 && ShowsCard("tasks"))
+        @if (TaskListsUnderTheOpenTab.Count > 0 && ShowsCard("tasks"))
         {
                         <ItemCard Name="@(T["Tasks"])" OnNameSelected='() => NavigationManager.NavigateTo("/tasks")'
                       HasUnseenAction="@TaskListsToShow.Any(taskList => HasNewsAbout(taskList.Id, "/tasks"))"
@@ -220,7 +220,7 @@ else
            reachable from it and this was not, so the one part of Orbit that answers "have we run out"
            could only be found through the side navigation. Nothing here is pinned or prioritised - an
            inventory carries neither - so it has no filter menu, like the locations card below. *@
-        @if (_inventories.Count > 0 && ShowsCard("inventories"))
+        @if (InventoriesUnderTheOpenTab.Count > 0 && ShowsCard("inventories"))
         {
             @* The row as well as the card: something about to go off names the storage it is on now
                (InventoryExpiryPushContent), so this says which shelf rather than leaving the reader to
@@ -232,10 +232,10 @@ else
                     <PinButton IsPinned='DashboardPins.IsPinned("inventories")' OnPinnedChanged='pinned => SetCardPinnedAsync("inventories", pinned)' />
                 </Pin>
                 <Extras>
-                    <span class="card-count">@(_inventories.Count)</span>
+                    <span class="card-count">@(InventoriesUnderTheOpenTab.Count)</span>
                 </Extras>
                 <Body>
-                @foreach (var inventory in _inventories)
+                @foreach (var inventory in InventoriesUnderTheOpenTab)
                 {
                     <Row Title="@inventory.Name" OnPressed="() => GoToInventory(inventory.Id)"
                          AdditionalClass="@RowClasses(null, HasNewsAbout(inventory.Id, "/inventory"))">
@@ -361,6 +361,16 @@ else
         }
     </div>
 
+    @* A tab that narrows the page down to nothing. Every card is now drawn only where it has something
+       under the open tab, so without this an empty folder - or Private on an account that has sealed
+       nothing - is a row of tabs above a blank page. *@
+    @if (HasNothingUnderTheOpenTab)
+    {
+        <p class="empty-hint">
+            @(IsReadingWhatIsPrivate ? T["Nothing here is private yet."] : T["This folder is empty."])
+        </p>
+    }
+
     @if (!CardPreferences.IsAnythingVisible(DashboardParts.Select(part => part.Key)))
     {
         <p class="empty-hint">@T["Everything here is hidden. The menu at the top right brings it back."]</p>
@@ -411,10 +421,17 @@ else
         DashboardCardFilter.LowPriority
     ];
 
-    private IReadOnlyList<NoteDto> NotesToShow =>
+    /// <summary>
+    /// The notes under the open tab, before the card's own filter has narrowed them. What decides
+    /// whether the card is drawn at all: a card with nothing under this tab is not "nothing matches the
+    /// filter", it is a card about somewhere the reader is not standing.
+    /// </summary>
+    private IReadOnlyList<NoteDto> NotesUnderTheOpenTab =>
         [.. (_notes ?? [])
-            .Where(note => Folders.ShowsUnderTheChosenTab(FolderPage.Dashboard, note.FolderId, note.IsPrivate))
-            .Where(note => Matches("notes", note.IsPinned, note.Priority))];
+            .Where(note => Folders.ShowsUnderTheChosenTab(FolderPage.Dashboard, note.FolderId, note.IsPrivate))];
+
+    private IReadOnlyList<NoteDto> NotesToShow =>
+        [.. NotesUnderTheOpenTab.Where(note => Matches("notes", note.IsPinned, note.Priority))];
 
     /// <summary>
     /// A finished list is off this card unless it has been pinned. The dashboard is what is still on
@@ -427,11 +444,23 @@ else
     /// means a finished list is placed by its folder, its privacy and nothing else, so a pinned one
     /// stays under the tab its owner filed it under instead of falling out of every tab this page draws.
     /// </summary>
-    private IReadOnlyList<TaskDto> TaskListsToShow =>
+    /// <inheritdoc cref="NotesUnderTheOpenTab"/>
+    private IReadOnlyList<TaskDto> TaskListsUnderTheOpenTab =>
         [.. (_taskLists ?? [])
             .Where(taskList => Folders.ShowsUnderTheChosenTab(FolderPage.Dashboard, taskList.FolderId, taskList.IsPrivate))
-            .Where(taskList => !taskList.IsCompleted || taskList.IsPinned)
-            .Where(taskList => Matches("tasks", taskList.IsPinned, taskList.Priority))];
+            .Where(taskList => !taskList.IsCompleted || taskList.IsPinned)];
+
+    private IReadOnlyList<TaskDto> TaskListsToShow =>
+        [.. TaskListsUnderTheOpenTab.Where(taskList => Matches("tasks", taskList.IsPinned, taskList.Priority))];
+
+    /// <summary>
+    /// The shelves under the open tab. An inventory is not filed into a folder somebody made - there is
+    /// no tab for one on the inventory page - but it can be sealed, so Public and Private tell them
+    /// apart here the same way they tell notes and lists apart. Without this the Private tab drew every
+    /// shelf the account has, which is the opposite of what the tab says.
+    /// </summary>
+    private IReadOnlyList<InventoryDto> InventoriesUnderTheOpenTab =>
+        [.. (_inventories ?? []).Where(inventory => inventory.IsPrivate == IsReadingWhatIsPrivate)];
 
     private IReadOnlyList<UpcomingEntry> UpcomingToShow =>
         [.. Upcoming().Where(entry => Matches("upcoming", isPinned: false, entry.Priority))];
@@ -641,17 +670,43 @@ else
     /// other card is about something the folder cannot hold, and a page that kept drawing them answered
     /// "show me this folder" with the whole dashboard and one card narrowed inside it.
     ///
-    /// The built-in tabs are not about one kind and change nothing here: Public and Private are what
-    /// everything is in unless it was filed somewhere.
+    /// Private is about one thing too - what is sealed - and only three kinds of card can hold anything
+    /// that is: notes, task lists and shelves. An appointment, a person, a group and a shared position
+    /// are none of them sealed, so a page that kept drawing those answered "show me what is private"
+    /// with a screen mostly made of things that are not. Public is the other half of the same rule and
+    /// is left alone: it is where everything is unless it was filed or sealed, which is the whole page.
     /// </summary>
     private bool ShowsCard(string cardKey)
         => CardPreferences.IsVisible(cardKey) && IsAboutTheOpenTab(cardKey);
+
+    /// <summary>Whether the reader is standing in the built-in Private tab - see PrivateCards.</summary>
+    private bool IsReadingWhatIsPrivate
+        => Folders.ChosenOn(FolderPage.Dashboard) == FolderKey.Of(BuiltInFolder.Private);
+
+    /// <summary>
+    /// The only cards that can hold something sealed. Named rather than worked out from the data,
+    /// because it is a fact about what Orbit can seal rather than about what this account happens to
+    /// have: an empty Private tab must still hide the appointments, not merely draw no notes.
+    /// </summary>
+    private static readonly IReadOnlySet<string> PrivateCards =
+        new HashSet<string>(StringComparer.Ordinal) { "notes", "tasks", "inventories" };
+
+    /// <summary>
+    /// Whether the tab that is open narrows the page to nothing at all. Only asked of the tabs that
+    /// narrow it - Private, and a folder somebody made - because Public is the whole page, and an
+    /// account with nothing in it is answered further up by "Nothing to show".
+    /// </summary>
+    private bool HasNothingUnderTheOpenTab
+        => (IsReadingWhatIsPrivate || Folders.ChosenOn(FolderPage.Dashboard).FolderId is not null)
+        && !(NotesUnderTheOpenTab.Count > 0 && IsAboutTheOpenTab("notes"))
+        && !(TaskListsUnderTheOpenTab.Count > 0 && IsAboutTheOpenTab("tasks"))
+        && !(InventoriesUnderTheOpenTab.Count > 0 && IsAboutTheOpenTab("inventories"));
 
     private bool IsAboutTheOpenTab(string cardKey)
     {
         if (Folders.ChosenOn(FolderPage.Dashboard).FolderId is not { } folderId)
         {
-            return true;
+            return !IsReadingWhatIsPrivate || PrivateCards.Contains(cardKey);
         }
 
         // A stale id - a folder deleted on its own page while the dashboard held it open - narrows to

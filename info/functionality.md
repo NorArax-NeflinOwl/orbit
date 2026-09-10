@@ -374,9 +374,22 @@ that. Pressing it records an answer of the reader's own instead:
 kind of thing - recipes are task lists, receipts are notes - so pressing its tab leaves that card
 standing and takes the rest of the page away: everything else on it is about something the folder cannot
 hold, and the page used to answer "show me this folder" with the whole dashboard and one card narrowed
-inside it. The built-in tabs change nothing, being what everything is in unless it was filed somewhere.
-The strip of counts above the tabs stays either way - it is about the day rather than about what is
-filed.
+inside it. Public changes nothing, being what everything is in unless it was filed or sealed. The strip
+of counts above the tabs stays whatever is open - it is about the day rather than about what is filed.
+
+**Private narrows it the same way** (2026-09-10). Private is about one thing too - what is sealed - and
+only three kinds of card can hold anything that is: notes, task lists and shelves. An appointment, a
+person, a group and a shared position are none of them sealed, so the tab used to answer "show me what
+is private" with a page mostly made of things that are not. The shelves are the part that needed more
+than hiding: an inventory is not filed into a folder - there is no tab for one on the inventory page -
+but it can be sealed, so the two built-in tabs now tell shelves apart by that (`Dashboard`'s
+`InventoriesUnderTheOpenTab`), where before the Private tab drew every shelf the account had.
+
+**A card is drawn only where it has something under the open tab.** It used to be drawn whenever the
+account had one of that kind anywhere, and then said "Nothing here matches the filter" - which named the
+wrong reason, the filter having narrowed nothing. A tab that comes to nothing at all says so instead
+("Nothing here is private yet.", "This folder is empty."), rather than being a row of tabs over a blank
+page.
 
 **And a folder can be taken off the dashboard**, from its own menu on the page it was made on ("Hide on
 the dashboard", `DashboardCardPreferences.IsFolderShown`). The dashboard borrows both pages' tabs, which

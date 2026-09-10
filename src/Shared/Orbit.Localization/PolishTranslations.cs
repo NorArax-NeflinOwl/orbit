@@ -267,6 +267,8 @@ public static class PolishTranslations
         ["Group chat"] = "Czat grupowy",
         ["Everything here is hidden. The menu at the top right brings it back."] =
             "Wszystko jest ukryte. Menu w prawym górnym rogu przywraca elementy.",
+        ["Nothing here is private yet."] = "Nic tutaj nie jest jeszcze prywatne.",
+        ["This folder is empty."] = "Ten folder jest pusty.",
         ["Drag to reorder"] = "Przeciągnij, aby zmienić kolejność",
         ["Minimise"] = "Zminimalizuj",
         ["Open the calendar"] = "Otwórz kalendarz",
