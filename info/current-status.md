@@ -197,7 +197,12 @@ its give-up limit, and "there is no network" is retryable - so five launches wit
 queued change for good. Only an answer from the server counts now, and when a change really is given up
 on, the phone writes that into its own notification feed rather than only into a log. That feed is now
 something the phone can write to at all: it also carries a copy waiting to be reviewed, named and by
-kind, and takes the notice away once the review is answered.
+kind, and takes the notice away once the review is answered. Since 2026-09-10 a *create* the server
+refuses outright - a 400, 403, 404 or 409, which an update would have come back from as a `WriteOutcome`
+- is inside those rules too: it counts against the limit and is given up on after five answers, where
+before it escaped the outbox's catch, stayed queued uncounted, went out again on every sync, and stopped
+the pull behind it, so the corner said "Couldn't sync" and nothing else (`SyncFailure.StaysInTheOutbox`).
+A 401 still surfaces, because it is about the session and the reader can act on it.
 
 Phase 7 is built: the in-app feed, notification settings, deep links from a notification, uploadable
 diagnostic logs, and **push delivered on Android** — the app obtains an FCM registration token,

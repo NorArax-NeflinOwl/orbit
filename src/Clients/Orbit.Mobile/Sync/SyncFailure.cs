@@ -31,6 +31,24 @@ public static class SyncFailure
     }
 
     /// <summary>
+    /// Whether a failed send is the outbox's to deal with - kept for another attempt, or counted against
+    /// the give-up limit - rather than something that leaves its rules altogether.
+    ///
+    /// Everything worth retrying is. So is an answer the server will only repeat: a 400, 403, 404 or
+    /// 409 to a <i>create</i>. The API clients turn those same answers to an update into a
+    /// <see cref="Orbit.Mobile.Api.WriteOutcome"/>, but a create has an id to hand back and throws
+    /// instead - and before this, that throw left the outbox's catch. The entry stayed queued with
+    /// nothing counted, went to the server again on every sync, the corner said "Couldn't sync" and no
+    /// more, and the pull behind it never ran, so the phone stopped receiving as well as sending. Seen
+    /// on 2026-09-10 against an <c>orbit-api</c> old enough to answer 404 to <c>POST /api/folders</c>.
+    ///
+    /// A 401 still escapes. It is not about this change, and it is the one answer the reader can act on.
+    /// </summary>
+    public static bool StaysInTheOutbox(Exception exception, CancellationToken cancellationToken)
+        => IsWorthRetrying(exception, cancellationToken)
+           || exception is HttpRequestException { StatusCode: { } status } && status is not HttpStatusCode.Unauthorized;
+
+    /// <summary>
     /// Whether the server actually answered, as opposed to there being nothing to answer.
     ///
     /// The difference decides whether a failed send counts against the outbox's give-up limit. A server

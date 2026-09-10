@@ -555,6 +555,17 @@ inventory lists, the contacts tabs, the chat menus - is built and needs no schem
 
 ## Noticed while working
 
+- **A create the outbox has given up on leaves a row that never syncs.** When a queued create is
+  dropped - after five answered refusals, which since 2026-09-10 includes a 4xx and not only a
+  persistent 500 (`SyncFailure.StaysInTheOutbox`) - the phone says so in its feed and deletes the queue
+  entry, but the local row stays with no `ServerId`. It reads like any other note; every later edit
+  queues an update, and an update on a row the server has never seen is `Abandoned` quietly
+  (`NoteSynchronizer.SendUpdateAsync`), so it is local-only for good with nothing on it saying so. The
+  same is true of every entity type, and was true before the 4xx change - it is only more reachable now.
+  What it would take: a repository that queues a *create* rather than an update when the row has no
+  server id, so the next edit is a second try; or a mark on the row the list can draw, with "send again"
+  under its menu. Neither is small enough to fold into the fix that made this visible.
+
 - **Options still calls an inventory a "storage".** The export and import half of `Options.razor`
   says "notes, task lists, events and storages", the tick-box is labelled `T["Storages"]`, and the
   two result lines count "{3} storages" - with the Polish strings in `PolishTranslations.cs` to

@@ -68,10 +68,13 @@ public static class OutboxReplay
             {
                 result = await send(entry, cancellationToken);
             }
-            catch (Exception exception) when (SyncFailure.IsWorthRetrying(exception, cancellationToken))
+            catch (Exception exception) when (SyncFailure.StaysInTheOutbox(exception, cancellationToken))
             {
-                // Offline again, or the server faltered. Stop here and keep this change and everything
-                // queued behind it - sending the rest out of order is worse than sending none.
+                // Offline again, the server faltered, or it answered a create with a refusal. Stop here
+                // and keep this change and everything queued behind it - sending the rest out of order
+                // is worse than sending none. A refusal counts against the limit below, so a create the
+                // server will never take is dropped after five of them and said out loud, the same way a
+                // persistent 500 is; a server that was merely behind has five syncs to catch up first.
                 givenUp += await RecordFailureAsync(
                     dbContext, entry, SyncFailure.WasAnswered(exception), timeProvider, logger, cancellationToken);
 
