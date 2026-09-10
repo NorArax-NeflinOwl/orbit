@@ -727,6 +727,10 @@ public static class PolishTranslations
         ["Orbit isn't allowed to use your location. Turn it on in Options first."] =
             "Orbit nie ma zgody na korzystanie z Twojego położenia. Włącz ją najpierw w Opcjach.",
         ["Where your plans are"] = "Gdzie są Twoje plany",
+        // The places kept for their own sake - see Orbit.Core.Places.Place.
+        ["Places you keep"] = "Twoje miejsca",
+        ["Nothing kept yet. The + on the map is where one starts."] =
+            "Nic tu jeszcze nie ma. Zacznij od + na mapie.",
         ["Nothing coming up says where it happens. Past ones are in the menu above."] =
             "Nic z tego, co przed Tobą, nie mówi, gdzie się odbywa. Minione znajdziesz w menu powyżej.",
         ["Nothing in your calendar or your lists says where it happens."] =

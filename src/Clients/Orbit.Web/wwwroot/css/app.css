@@ -4457,11 +4457,18 @@ input.note-editor-title {
 /* A panel's name with its own control at the far edge - the eye that takes that list's pins off the
    map. Same shape as every other heading-plus-action row in the app: the name leads, the control sits
    against the right margin. */
+/* Pin, name, eye - the order every card in Orbit puts them in, so a panel on the map reads like a card
+   anywhere else. The name takes the room between, which is what pushes the eye to the far edge without
+   space-between having to guess which child is last. */
 .map-panel-heading-row {
     display: flex;
     align-items: center;
-    justify-content: space-between;
     gap: 8px;
+}
+
+.map-panel-heading-row .map-panel-heading {
+    flex: 1 1 auto;
+    min-width: 0;
 }
 
 /* Struck through while the pins are hidden, so the button says which state the map is in rather than

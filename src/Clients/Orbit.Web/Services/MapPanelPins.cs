@@ -5,11 +5,11 @@ namespace Orbit.Web.Services;
 /// <summary>
 /// Which of the map panel's lists this reader keeps at the top of it.
 ///
-/// The panel holds three: who they are sharing their position with, who is sharing one with them, and
-/// everything in their calendar and lists that says where it happens. Which of those matters is a
-/// question about the day rather than about Orbit - somebody meeting a person wants the names, somebody
-/// on their way somewhere wants the plans - and the panel is tall enough on a phone that the third one
-/// is a scroll away.
+/// The panel holds four: who they are sharing their position with, who is sharing one with them,
+/// everything in their calendar and lists that says where it happens, and the places they keep for their
+/// own sake. Which of those matters is a question about the day rather than about Orbit - somebody
+/// meeting a person wants the names, somebody on their way somewhere wants the plans - and the panel is
+/// tall enough on a phone that the last of them is a scroll away.
 ///
 /// Kept on the device, like MapPinVisibility beside it and for the same reason: it is how one person
 /// reads one map on one screen, not something an account carries between them. Several may be pinned at
@@ -31,7 +31,10 @@ public sealed class MapPanelPins
         SharingWithYou,
 
         /// <summary>Everything in their calendar and on their lists that says where it happens.</summary>
-        YourPlans
+        YourPlans,
+
+        /// <summary>The places they keep for their own sake - see Orbit.Core.Places.Place.</summary>
+        YourPlaces
     }
 
     private readonly IJSRuntime _jsRuntime;

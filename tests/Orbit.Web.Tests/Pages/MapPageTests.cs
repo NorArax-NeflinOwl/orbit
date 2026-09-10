@@ -608,6 +608,76 @@ public sealed class MapPageTests : OrbitTestContext
     }
 
     /// <summary>
+    /// The places kept for their own sake get a list of their own, not a share of the plans: a plan is
+    /// something happening at a time, and these have no time at all - which is the whole point of them.
+    /// </summary>
+    [Fact]
+    public void A_kept_place_is_listed_under_its_own_heading()
+    {
+        GrantLocations();
+        _placesJson = OneKeptPlace("The good bakery");
+        var cut = RenderComponent<MapPage>();
+
+        var section = SectionNamed(cut, "Places you keep");
+        Assert.Contains("The good bakery", section.TextContent, StringComparison.Ordinal);
+    }
+
+    /// <summary>And it says so rather than drawing an empty box on an account that has kept none.</summary>
+    [Fact]
+    public void With_nothing_kept_the_list_says_where_one_starts()
+    {
+        GrantLocations();
+        var cut = RenderComponent<MapPage>();
+
+        Assert.Contains(
+            "Nothing kept yet",
+            SectionNamed(cut, "Places you keep").TextContent,
+            StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// The eye works the way every other one on this page does: it takes the list's pins off the map
+    /// without taking the list off the page.
+    /// </summary>
+    [Fact]
+    public void The_eye_on_the_places_takes_their_pins_off_the_map_and_leaves_the_list()
+    {
+        GrantLocations();
+        _placesJson = OneKeptPlace("The good bakery");
+        var cut = RenderComponent<MapPage>();
+
+        PinToggleFor(cut, "Places you keep").Click();
+
+        Assert.Contains("off", PinToggleFor(cut, "Places you keep").ClassName);
+        Assert.Contains(
+            "The good bakery", SectionNamed(cut, "Places you keep").TextContent, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// Pin, name, eye - the order every card in Orbit puts them in, so a panel on the map reads like a
+    /// card anywhere else. It was pin-then-eye at the right-hand end for a day, which read as two
+    /// answers to one question.
+    /// </summary>
+    [Fact]
+    public void A_panel_heading_reads_pin_then_name_then_eye()
+    {
+        GrantLocations();
+        var heading = SectionNamed(cut: RenderComponent<MapPage>(), heading: "Where your plans are")
+            .QuerySelector(".map-panel-heading-row")!;
+
+        var order = heading.Children.Select(child => child.ClassList.Contains("pin-button") ? "pin"
+            : child.ClassList.Contains("map-pin-toggle") ? "eye"
+            : "name").ToList();
+
+        Assert.Equal(["pin", "name", "eye"], order);
+    }
+
+    /// <summary>The section whose heading says this.</summary>
+    private static AngleSharp.Dom.IElement SectionNamed(IRenderedFragment cut, string heading)
+        => cut.FindAll(".map-panel-section")
+            .First(section => section.QuerySelector(".map-panel-heading")?.TextContent.Contains(heading, StringComparison.Ordinal) == true);
+
+    /// <summary>
     /// The panel holds three lists and the one that matters is a question about the day rather than
     /// about Orbit - somebody meeting a person wants the names, somebody on their way somewhere wants
     /// the plans, and on a phone the third of them is a scroll away. Pinning brings one to the top.
@@ -659,6 +729,19 @@ public sealed class MapPageTests : OrbitTestContext
 
         Assert.Equal("true", PinToggleFor(cut, "Sharing with you").GetAttribute("aria-pressed"));
     }
+
+    /// <summary>
+    /// The places this account keeps - see Orbit.Core.Places.Place. Empty unless a test sets it, which
+    /// is what a reader who has never kept one looks like.
+    /// </summary>
+    private string _placesJson = "[]";
+
+    /// <summary>One kept place, as the server sends it.</summary>
+    private static string OneKeptPlace(string name, string colour = "", string priority = "Normal")
+        => "[{\"id\":\"" + Guid.NewGuid() + "\",\"name\":\"" + name + "\",\"description\":\"\","
+        + "\"where\":{\"address\":\"Piękna 1\",\"latitude\":52.2,\"longitude\":21.0},"
+        + "\"colour\":\"" + colour + "\",\"priority\":\"" + priority + "\",\"taskListIds\":[],"
+        + "\"createdAtUtc\":\"2026-09-10T10:00:00+00:00\",\"updatedAtUtc\":\"2026-09-10T10:00:00+00:00\"}]";
 
     /// <summary>The pin on the heading of the section named this - see MapPanelPins.</summary>
     private static AngleSharp.Dom.IElement PanelPinFor(IRenderedFragment cut, string heading)
@@ -740,6 +823,13 @@ public sealed class MapPageTests : OrbitTestContext
                 return Text(_taskListsJson);
             }
 
+            // The places this account keeps. None unless a test says otherwise, which is what a reader
+            // who has never kept one looks like.
+            if (path.EndsWith("/places", StringComparison.Ordinal))
+            {
+                return Text(_placesJson);
+            }
+
             // The account itself, with whatever location a test has set up for it.
             return Text(
                 "{\"id\":\"" + OwnUserId + "\",\"email\":\"owner@example.com\",\"userName\":\"owner\","
@@ -758,6 +848,7 @@ public sealed class MapPageTests : OrbitTestContext
 
         Services.AddSingleton(usersApiClient);
         Services.AddSingleton(chatApiClient);
+        Services.AddSingleton(new PlacesApiClient(httpClient));
         Services.AddSingleton(new GeocodingApiClient(httpClient));
         Services.AddSingleton(new CalendarApiClient(httpClient));
         Services.AddSingleton(new TasksApiClient(httpClient));

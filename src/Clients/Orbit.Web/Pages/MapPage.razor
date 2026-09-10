@@ -5,6 +5,7 @@
 @using System.Text.Json
 @using Orbit.Contracts.Calendar
 @using Orbit.Contracts.Chat
+@using Orbit.Contracts.Places
 @using Orbit.Contracts.Tasks
 @using Orbit.Contracts.Users
 @using Orbit.Core.Location
@@ -25,6 +26,7 @@
 @inject DevicePreferences DevicePreferences
 @inject MapPinVisibility MapPins
 @inject MapPanelPins PanelPins
+@inject PlacesApiClient PlacesApiClient
 @inject NavigationManager NavigationManager
 @inject ILogger<MapPage> Logger
 @inject UserPermissionState Permissions
@@ -137,8 +139,8 @@ else
 
         <section class="map-panel-section @PinnedClass(MapPanelPins.PanelList.YouAreSharingWith)">
             <div class="map-panel-heading-row">
-                <h2 class="map-panel-heading">@T["You are sharing with"]</h2>
                 @RenderPanelPin(MapPanelPins.PanelList.YouAreSharingWith)
+                <h2 class="map-panel-heading">@T["You are sharing with"]</h2>
             </div>
             @if (_ownShares.Count == 0)
             {
@@ -181,13 +183,13 @@ else
         </section>
 
         <section class="map-panel-section @PinnedClass(MapPanelPins.PanelList.SharingWithYou)">
-            @* The heading, the eye that takes this list's pins off the map without taking the list off
-               the page (see MapPinVisibility), and the pin that brings the list itself to the top of
-               the panel (see MapPanelPins). Two different questions about one list, which is why they
-               are two controls: what the map draws, and what the reader wants in front of them. *@
+            @* The pin, the name, and the eye - in the order every card in Orbit puts them: what keeps
+               this list in front of the reader on the left (see MapPanelPins), what it is called in the
+               middle, and what the map does with it at the far edge (see MapPinVisibility). Two
+               different questions about one list, which is why they are two controls. *@
             <div class="map-panel-heading-row">
-                <h2 class="map-panel-heading">@T["Sharing with you"]</h2>
                 @RenderPanelPin(MapPanelPins.PanelList.SharingWithYou)
+                <h2 class="map-panel-heading">@T["Sharing with you"]</h2>
                 @RenderPinToggle(MapPinVisibility.PinGroup.SharedWithYou, T["Show these on the map"], T["Hide these from the map"])
             </div>
             @if (_receivedPositions.Count == 0)
@@ -228,13 +230,51 @@ else
             }
         </section>
 
+        @* The places kept for their own sake - see Orbit.Core.Places.Place. Their own list rather than
+           part of the plans below: a plan is something happening at a time, and these have no time at
+           all, which is the whole point of them. Same row, same two presses: the name centres the map,
+           the arrow hands the point to a map app. *@
+        <section class="map-panel-section @PinnedClass(MapPanelPins.PanelList.YourPlaces)">
+            <div class="map-panel-heading-row">
+                @RenderPanelPin(MapPanelPins.PanelList.YourPlaces)
+                <h2 class="map-panel-heading">@T["Places you keep"]</h2>
+                @RenderPinToggle(MapPinVisibility.PinGroup.YourPlaces, T["Show these on the map"], T["Hide these from the map"])
+            </div>
+            @if (_places.Count == 0)
+            {
+                <p class="empty-hint">@T["Nothing kept yet. The + on the map is where one starts."]</p>
+            }
+            @foreach (var place in _places)
+            {
+                <div class="map-share-row map-share-row-opens" role="button" tabindex="0"
+                     @onclick="() => FocusOnPlaceOnTheMapAsync(place)"
+                     @onkeydown="args => FocusOnPlaceOnTheMapOnEnterOrSpaceAsync(args, place)">
+                    @* The same colour as its pin, which is what says which pin is which without pressing
+                       any of them - the sharers' names above are coloured for the same reason. *@
+                    <span class="map-place-dot" style="background:@ColourOf(place)" aria-hidden="true"></span>
+                    <span class="row-title">@place.Name</span>
+                    @if (PriorityOf(place) is { } priority)
+                    {
+                        <span class="card-badge card-badge-priority-@priority.ToLowerInvariant()">@DescribePriority(priority)</span>
+                    }
+                    <button type="button" class="icon-btn map-share-open" title="@(T["Take me there"])"
+                            aria-label="@(T["Take me there"])"
+                            @onclick="() => AskHowToGetTo(TargetFor(place))" @onclick:stopPropagation="true">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 20 20" fill="none"
+                             stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"
+                             aria-hidden="true"><path d="M17 3 3 9l6 2.2L11.2 17 17 3Z" /></svg>
+                    </button>
+                </div>
+            }
+        </section>
+
         @* Everything with an address on it, which until now the map knew nothing about: a page showing
            where people are and nothing about where the reader is going. Pressing a row centres the map
            on its pin, the same press a name in the list above answers to. *@
         <section class="map-panel-section @PinnedClass(MapPanelPins.PanelList.YourPlans)">
             <div class="map-panel-heading-row">
-                <h2 class="map-panel-heading">@T["Where your plans are"]</h2>
                 @RenderPanelPin(MapPanelPins.PanelList.YourPlans)
+                <h2 class="map-panel-heading">@T["Where your plans are"]</h2>
                 @RenderPinToggle(MapPinVisibility.PinGroup.YourPlans, T["Show these on the map"], T["Hide these from the map"])
             </div>
             @* Only while the past is being shown at all, because it is a question about the past: how
@@ -639,6 +679,13 @@ else
     private IReadOnlyList<PlacedPlan> _placed = [];
 
     /// <summary>
+    /// The places this reader keeps for their own sake - see Orbit.Core.Places.Place. Their own list
+    /// rather than part of the plans above: a plan is something happening at a time, and these have no
+    /// time at all, which is the whole point of them.
+    /// </summary>
+    private IReadOnlyList<PlaceDto> _places = [];
+
+    /// <summary>
     /// Whether what is already behind the reader is drawn as well - what has been and gone, and what
     /// has been done (see PlacedPlan.IsDone). Off, because a map is mostly about where somebody is
     /// going - and the last thing a page about that should be is a screen full of pins for places nobody
@@ -828,6 +875,22 @@ else
             }));
         }
 
+        // The places kept for their own sake, in whatever colour each was given - see MapPinVisibility,
+        // and the eye on this list's own heading.
+        if (MapPins.IsShown(MapPinVisibility.PinGroup.YourPlaces))
+        {
+            points.AddRange(_places.Select(place => (object)new
+            {
+                key = PlaceMapKey(place.Id),
+                latitude = place.Where.Latitude,
+                longitude = place.Where.Longitude,
+                label = place.Where.Address is { Length: > 0 } address ? $"{place.Name} · {address}" : place.Name,
+                color = ColourOf(place),
+                canNavigate = true,
+                navigateLabel = T["Take me there"]
+            }));
+        }
+
         if (_foundPlace is { } found)
         {
             // Its own colour, and not anybody's: this pin is a question rather than a person.
@@ -860,6 +923,40 @@ else
         }
 
         return points;
+    }
+
+    /// <summary>
+    /// What colour a kept place is drawn in: the reader's own choice where they made one, and otherwise
+    /// the colour a place is drawn in - the accent, so a list of them reads as one kind of thing.
+    /// </summary>
+    private static string ColourOf(PlaceDto place)
+        => place.Colour.Length > 0 ? place.Colour : "var(--accent)";
+
+    /// <summary>
+    /// How much it matters, when that is worth saying. Normal is what everything is unless somebody said
+    /// otherwise, so it is drawn as nothing rather than as a badge on every row - the same rule the
+    /// dashboard's own badges follow.
+    /// </summary>
+    private static string? PriorityOf(PlaceDto place)
+        => place.Priority is "Low" or "High" ? place.Priority : null;
+
+    private string DescribePriority(string priority) => priority == "High" ? T["High"] : T["Low"];
+
+    private static NavigationTarget TargetFor(PlaceDto place)
+        => new(place.Name, place.Where.Latitude, place.Where.Longitude);
+
+    /// <summary>The key its pin is drawn under - see MapPoints, and FocusOnPlaceOnTheMapAsync.</summary>
+    private static string PlaceMapKey(Guid placeId) => $"place:{placeId}";
+
+    private Task FocusOnPlaceOnTheMapAsync(PlaceDto place)
+        => FocusTheMapOnAsync(PlaceMapKey(place.Id), "a kept place");
+
+    private async Task FocusOnPlaceOnTheMapOnEnterOrSpaceAsync(KeyboardEventArgs args, PlaceDto place)
+    {
+        if (args.Key is "Enter" or " ")
+        {
+            await FocusOnPlaceOnTheMapAsync(place);
+        }
     }
 
     /// <summary>
@@ -946,6 +1043,7 @@ else
             _receivedPositions = await OpenReceivedPositionsAsync();
             await NameTheSharersAsync();
             await ReadWhatHasAPlaceAsync();
+            _places = await PlacesApiClient.GetPlacesAsync();
         }
         catch (HttpRequestException exception) when (exception.StatusCode == HttpStatusCode.Unauthorized)
         {
@@ -1511,6 +1609,14 @@ else
             if (plan.Key == key)
             {
                 return TargetFor(plan);
+            }
+        }
+
+        foreach (var place in _places)
+        {
+            if (PlaceMapKey(place.Id) == key)
+            {
+                return TargetFor(place);
             }
         }
 
