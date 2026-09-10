@@ -962,9 +962,18 @@ its shared controls. What that pass left, all of it now overtaken:
 
 - ~~**Only the task pages carry "come back where you came from".**~~ Done: the note, the event and the
   storage forms read `ReturnTo` too, their summaries pass it on, and the dashboard names itself so an
-  edit begun there ends there. What is still not wired is every caller that could name itself - a
-  notification opening a note, chat opening a shared thing - which each finish on their own section as
-  before. Adding one is a single `ReturnTo.Link` at the call site.
+  edit begun there ends there. **Notifications name themselves as well since 2026-09-10**: the bell
+  panel names the page it was pressed on - it is on every page, so that page is where the reader was
+  interrupted - and the notifications page names itself, since somebody working down a list of them is
+  still on that list afterwards. Fixing `ReturnTo.Link` was part of it: it assumed the path it was given
+  had no query, and a notification about a shared place carries `/map?place={id}`, so the place id would
+  have arrived as `{id}?returnTo=…` and opened the map on no pin.
+
+  **Chat opening a shared thing is the one left, and it is not a call site.** A share notice in a
+  conversation carries the *share's* id and nothing else (`NoteShareMessagePayload` and its four
+  siblings), and accepting answers `bool` - so after "Accepted - added to your account." the chat has no
+  address to offer. Giving it one means the five accept endpoints answering with the item's id, which is
+  a server change and a contract change rather than one line.
 
 - ~~**Two of the five screens that send a share notice are covered; three are not.**~~ Done, all five.
   Sharing something is two halves: the server records the share and raises a notification, and the

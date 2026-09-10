@@ -42,10 +42,17 @@ public static class ReturnTo
     /// <paramref name="path"/> with "come back here afterwards" attached - what a page building a link
     /// into an editor uses. Nothing is attached when there is nowhere worth naming, so an ordinary link
     /// stays an ordinary link.
+    ///
+    /// The separator is chosen rather than assumed to be "?": most callers build the path themselves
+    /// and know it has no query, but a notification's address comes off a row the server wrote, and a
+    /// shared place is one - "/map?place={id}", since a place is met on the map rather than on a page of
+    /// its own (see SharedItemNotifier.AddressOf). A second "?" is not a query at all: the browser reads
+    /// everything after the first one as the query string, so the place id would arrive as
+    /// "{id}?returnTo=/notifications" and the map would open on no pin.
     /// </summary>
     public static string Link(string path, string? comeBackTo)
         => Safe(comeBackTo) is { } destination
-            ? $"{path}?{QueryName}={Uri.EscapeDataString(destination)}"
+            ? $"{path}{(path.Contains('?', StringComparison.Ordinal) ? '&' : '?')}{QueryName}={Uri.EscapeDataString(destination)}"
             : path;
 
     /// <summary>
