@@ -1,6 +1,7 @@
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Time.Testing;
 using Orbit.Contracts.Calendar;
+using Orbit.Contracts.Folders;
 using Orbit.Contracts.Notes;
 using Orbit.Contracts.Tasks;
 using Orbit.Mobile.Api;
@@ -1104,6 +1105,13 @@ public sealed class DashboardScreenTests
                 sessionStore, NullLogger<OwnEncryptionKeyProvider>.Instance);
 
             return new EverythingSynchronizer(
+                // Nothing here is about folders, but this account has none rather than being unable to
+                // reach them: an unreachable one would say the sync failed, which is what half these
+                // tests are checking the dashboard does *not* say.
+                new FolderSynchronizer(
+                    _localStore,
+                    new FoldersClient(StubHttpMessageHandler.RespondingWith(Array.Empty<FolderDto>()).ToHttpClient()),
+                    _clock, gate, NullLogger<FolderSynchronizer>.Instance),
                 new NoteSynchronizer(
                     _localStore, new NotesClient(NotesServer.ToHttpClient()), _clock, gate,
                     NullLogger<NoteSynchronizer>.Instance),

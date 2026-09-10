@@ -1,6 +1,7 @@
 using System.Net;
 using System.Net.Http.Json;
 using Orbit.Contracts.Sync;
+using Orbit.Contracts.Folders;
 using Orbit.Contracts.Tasks;
 using Orbit.Contracts.Sharing;
 
@@ -39,6 +40,21 @@ public sealed class TasksClient : ILockableItems
         Guid taskListId, UpdateTaskRequest request, CancellationToken cancellationToken = default)
     {
         var response = await _httpClient.PutAsJsonAsync($"api/tasks/{taskListId}", request, cancellationToken);
+        return ReadOutcome(response);
+    }
+
+    /// <summary>
+    /// Puts this list in a folder, or takes it out of one when <paramref name="folderId"/> is null.
+    ///
+    /// Its own request to its own endpoint rather than a field on the update above, and deliberately:
+    /// an update carries the whole list, so a client that had never heard of folders would empty this
+    /// every time somebody ticked something off - see Orbit.Contracts.Folders.MoveToFolderRequest.
+    /// </summary>
+    public async Task<WriteOutcome> FileAsync(
+        Guid taskListId, Guid? folderId, CancellationToken cancellationToken = default)
+    {
+        var response = await _httpClient.PutAsJsonAsync(
+            $"api/tasks/{taskListId}/folder", new MoveToFolderRequest(folderId), cancellationToken);
         return ReadOutcome(response);
     }
 

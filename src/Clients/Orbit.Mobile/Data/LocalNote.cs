@@ -58,6 +58,16 @@ public sealed class LocalNote : Orbit.Mobile.Sync.ISharedState, ICopyableForEdit
 
     public DateTimeOffset UpdatedAtUtc { get; set; }
 
+    /// <summary>
+    /// The folder its owner filed it under, or null for one filed nowhere - which puts it under
+    /// whichever built-in folder it belongs to, see Orbit.Core.Folders.FolderPlacement.
+    ///
+    /// Filing travels on its own endpoint rather than on the save, which is why it is queued as its own
+    /// outbox operation - see OutboxOperation.File. A save carries the whole note, so a client that had
+    /// never heard of folders would empty this every time somebody corrected a line.
+    /// </summary>
+    public Guid? FolderId { get; set; }
+
     /// <summary>True when this note reached the phone through somebody else's share.</summary>
     public bool IsShared { get; set; }
 

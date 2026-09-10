@@ -150,6 +150,7 @@ public static class MauiProgram
 		// One instance: it reads the key this device already holds and nothing else - no network, no state
 		// of its own - so the repositories that seal with it can stay singletons too.
 		services.AddSingleton<PrivateContentSealer>();
+		services.AddSingleton<LocalFolderRepository>();
 		services.AddSingleton<LocalNoteRepository>();
 		services.AddSingleton<LocalTaskListRepository>();
 		services.AddSingleton<LocalCalendarEventRepository>();
@@ -158,6 +159,7 @@ public static class MauiProgram
 		// Transient, not singleton: both take a typed HttpClient, and holding one for the life of the app
 		// pins the handler underneath it forever - which is the thing IHttpClientFactory exists to rotate.
 		services.AddTransient<OwnEncryptionKeyProvider>();
+		services.AddTransient<FolderSynchronizer>();
 		services.AddTransient<NoteSynchronizer>();
 		services.AddTransient<TaskListSynchronizer>();
 		services.AddTransient<CalendarEventSynchronizer>();
@@ -296,6 +298,8 @@ public static class MauiProgram
 	{
 		services.AddTransient<AuthorizationMessageHandler>();
 
+		services.AddHttpClient<FoldersClient>(client => client.BaseAddress = apiSettings.BaseAddress)
+			.AddHttpMessageHandler<AuthorizationMessageHandler>();
 		services.AddHttpClient<NotesClient>(client => client.BaseAddress = apiSettings.BaseAddress)
 			.AddHttpMessageHandler<AuthorizationMessageHandler>();
 		services.AddHttpClient<TasksClient>(client => client.BaseAddress = apiSettings.BaseAddress)

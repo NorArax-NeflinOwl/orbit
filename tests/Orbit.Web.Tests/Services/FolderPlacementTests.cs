@@ -1,12 +1,12 @@
 using Orbit.Core.Folders;
-using Orbit.Web.Services;
 using Xunit;
 
 namespace Orbit.Web.Tests.Services;
 
 /// <summary>
-/// Which tab a card is read under. One rule for four pages, and the only place the order of the
-/// built-in folders is decided - see FolderPlacement.
+/// Which tab a card is read under. One rule for every page made of cards - the browser's and the
+/// phone's, since FolderPlacement moved into Orbit.Core - and the only place the order of the built-in
+/// folders is decided.
 /// </summary>
 public sealed class FolderPlacementTests
 {
