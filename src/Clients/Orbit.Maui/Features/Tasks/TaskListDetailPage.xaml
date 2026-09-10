@@ -185,6 +185,13 @@
                        Text="{Binding Categories}"
                        SemanticProperties.Description="{controls:Translate 'Categories'}" />
 
+                <!-- What this entry is about, in as many words as it takes - the browser's own box, for
+                     every kind. For a Calendar entry it is the appointment's description as well, which
+                     is why the event's form below has no box of its own - see TaskItemEditor.Notes. -->
+                <Editor Placeholder="{controls:Translate 'What this is about'}" Text="{Binding Notes}"
+                        AutoSize="TextChanges" MinimumHeightRequest="60"
+                        SemanticProperties.Description="{controls:Translate 'Description'}" />
+
                 <!-- What this entry is. On the entry rather than on the list, because a day's plan holds
                      two errands and an appointment - see TaskItemKind. -->
                 <Label Text="{controls:Translate 'Type'}" FontSize="12" Style="{StaticResource SubtleLabel}" />
@@ -211,9 +218,7 @@
                 <VerticalStackLayout Spacing="10" IsVisible="{Binding IsCalendarEntry}">
                     <VerticalStackLayout Spacing="10" BindingContext="{Binding Event}"
                                          x:DataType="screens:TaskItemEventForm">
-                        <Editor Placeholder="{controls:Translate 'Description'}" Text="{Binding Description}"
-                                AutoSize="TextChanges" MinimumHeightRequest="60" />
-
+                        <!-- No description box here: the entry's own, above, is the appointment's too. -->
                         <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
                             <Label Grid.Column="0" Text="{controls:Translate 'All-day event'}" VerticalOptions="Center" />
                             <Switch Grid.Column="1" IsToggled="{Binding IsAllDay}" VerticalOptions="Center"

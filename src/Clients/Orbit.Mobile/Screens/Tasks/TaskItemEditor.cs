@@ -306,6 +306,15 @@ public sealed partial class TaskItemEditor : ObservableObject
     private string _description = string.Empty;
 
     /// <summary>
+    /// What this entry is about, in as many words as it takes - see TaskItemDto.Notes. One box for every
+    /// kind, and for a Calendar entry it is the appointment's description too: the event's own form
+    /// leaves its copy out, and this is written onto it when the entry is saved - see
+    /// TaskListDetailViewModel.SaveItemAsync, which draws the line where Orbit.Web's EventDetailsFor does.
+    /// </summary>
+    [ObservableProperty]
+    private string _notes = string.Empty;
+
+    /// <summary>
     /// What the entry is about, as many as apply, on one line and separated by commas - the same box
     /// the browser offers and the same rule behind it, see CategoryText. The tasks screen looks for an
     /// entry among every list by these.
@@ -398,6 +407,10 @@ public sealed partial class TaskItemEditor : ObservableObject
             LocationLatitude = linkedEvent?.Location?.Latitude,
             LocationLongitude = linkedEvent?.Location?.Longitude,
             Description = item.Description,
+            // An appointment made before the entry had a description of its own carries the answer on
+            // the event. The one box opens showing it rather than blank, or the next save would write
+            // the blank back over it - the same line Orbit.Web's editor draws.
+            Notes = item.AllNotes.Length > 0 ? item.AllNotes : linkedEvent?.Description ?? string.Empty,
             Categories = CategoryText.Join(item.AllCategories),
             HasDueDate = item.DueDateUtc is not null,
             DueDate = item.DueDateUtc?.LocalDateTime.Date ?? DateTime.Today,
@@ -484,6 +497,9 @@ public sealed partial class TaskItemEditor : ObservableObject
             LinkedTaskListId = null,
             LinkedTaskListIds = [.. LinkedTaskLists.Select(linked => linked.ServerId!.Value)],
             Description = Description.Trim(),
+            // Always a string, never null, now that there is a box: an empty one means "cleared", which
+            // is what emptying it has to mean - null would leave whatever the server holds.
+            Notes = Notes.Trim(),
             Categories = CategoryText.Split(Categories),
             // Converted rather than sent with the local offset the picker works in: Npgsql refuses a
             // DateTimeOffset with a non-zero offset for a "timestamp with time zone" column outright,

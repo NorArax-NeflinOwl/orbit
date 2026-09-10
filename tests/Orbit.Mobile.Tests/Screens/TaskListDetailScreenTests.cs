@@ -220,6 +220,58 @@ public sealed class TaskListDetailScreenTests
     }
 
     /// <summary>
+    /// Every entry can say what it is about in more words than its name (TaskItem.Notes, 2026-09-06),
+    /// and the phone had no box for it - a description written in a browser survived a push from here
+    /// only because the push said nothing. Now it has the box, and what is typed in it is sent.
+    /// </summary>
+    [Fact]
+    public async Task An_entry_can_say_what_it_is_about_in_more_words()
+    {
+        using var context = new ScreenContext();
+        var screen = context.OpenTaskList("Errands");
+        await AddAsync(screen, "Renew the car insurance");
+
+        screen.EditItemCommand.Execute(screen.Items[0]);
+        screen.BeingEdited!.Notes = "The policy number is in the glovebox.";
+        await screen.SaveItemCommand.ExecuteAsync(null);
+
+        Assert.Equal("The policy number is in the glovebox.", Assert.Single(screen.Items).Item.AllNotes);
+        var sent = Assert.Single(Assert.Single(context.Server.TaskLists).Items);
+        Assert.Equal("The policy number is in the glovebox.", sent.AllNotes);
+    }
+
+    /// <summary>
+    /// For a calendar entry the one box is the appointment's description as well: the event's form has
+    /// no box of its own, and what the entry says is written onto the event when it is saved - the same
+    /// line Orbit.Web's editor draws, so the two clients cannot hold two answers.
+    /// </summary>
+    [Fact]
+    public async Task A_calendar_entrys_description_is_its_appointments()
+    {
+        using var context = new ScreenContext();
+        var screen = context.OpenTaskList("Saturday");
+        await AddAsync(screen, "dentist");
+
+        screen.EditItemCommand.Execute(screen.Items[0]);
+        screen.BeingEdited!.Kind = nameof(TaskItemKind.Calendar);
+        screen.BeingEdited.Notes = "Bring the referral letter.";
+        screen.BeingEdited.Event.StartDate = new DateTime(2026, 9, 3);
+        screen.BeingEdited.Event.StartTime = new TimeSpan(14, 30, 0);
+        screen.BeingEdited.Event.EndDate = new DateTime(2026, 9, 3);
+        screen.BeingEdited.Event.EndTime = new TimeSpan(15, 0, 0);
+        await screen.SaveItemCommand.ExecuteAsync(null);
+
+        var appointment = Assert.Single(context.CalendarServer.Events);
+        Assert.Equal("Bring the referral letter.", appointment.Details.Description);
+        Assert.Equal("Bring the referral letter.", Assert.Single(screen.Items).Item.AllNotes);
+
+        // And opened again, the box shows what the appointment says rather than a blank - so a save
+        // cannot write a blank back over it.
+        screen.EditItemCommand.Execute(screen.Items[0]);
+        Assert.Equal("Bring the referral letter.", screen.BeingEdited!.Notes);
+    }
+
+    /// <summary>
     /// The phone can now say what an entry waits for, rather than only carry what a browser arranged.
     /// The picker offers the other entries of the same list - "hang the door" after "fit the hinges" -
     /// and the choice is sent, so an entry queued here is queued everywhere. See TaskListSteps.
@@ -811,14 +863,15 @@ public sealed class TaskListDetailScreenTests
         screen.BeingEdited!.Kind = nameof(TaskItemKind.Calendar);
         screen.BeingEdited.Event.StartDate = new DateTime(2026, 9, 3);
         screen.BeingEdited.Event.EndDate = new DateTime(2026, 9, 3);
-        screen.BeingEdited.Event.Description = "Bring the letter";
+        // The entry's one description box, which is the appointment's too - see TaskItemEditor.Notes.
+        screen.BeingEdited.Notes = "Bring the letter";
         await screen.SaveItemCommand.ExecuteAsync(null);
 
         screen.EditItemCommand.Execute(screen.Items[0]);
-        Assert.Equal("Bring the letter", screen.BeingEdited!.Event.Description);
+        Assert.Equal("Bring the letter", screen.BeingEdited!.Notes);
         Assert.Equal(new DateTime(2026, 9, 3), screen.BeingEdited.Event.StartDate);
 
-        screen.BeingEdited.Event.Description = "Bring both letters";
+        screen.BeingEdited.Notes = "Bring both letters";
         await screen.SaveItemCommand.ExecuteAsync(null);
 
         // One appointment, corrected - not two.

@@ -979,13 +979,10 @@ its shared controls. What that pass left, all of it now overtaken:
   note's own lines - those are `Entry` boxes being written in, and a text box cannot hold a link at all.
   What it would take: swapping the labels, one screen at a time; there is nothing left to design.
 
-- **The phone has no box for an entry's description.** Every task entry can carry one now
-  (`TaskItem.Notes`, 2026-09-06) and the phone neither shows nor writes it. Nothing is lost - its push
-  says nothing about the field and the server therefore keeps what is stored, which
-  `TaskListSyncTests.A_description_written_elsewhere_survives_a_push_from_the_phone` pins down - so this
-  is parity, not a defect. What it would take: a field on `TaskItemEditor` bound to `TaskItemDto.Notes`,
-  a box on the entry's sheet in `TaskListDetailPage.xaml`, and the same rule the web follows for a
-  calendar entry, whose description is its event's.
+- ~~**The phone has no box for an entry's description.**~~ Done on 2026-09-10, as this said:
+  `TaskItemEditor.Notes`, a box on the entry's sheet under its categories, and the calendar rule - the
+  entry's description is its appointment's, written onto the event at save, and the event's own box on
+  the phone is gone. An entry never opened on the phone still passes through what the server sent.
 
 - **The phone still asks twice what a shelf entry is filed under.** On the web an Inventory entry has one
   categories box, and what it says is what the row it stands for is filed under

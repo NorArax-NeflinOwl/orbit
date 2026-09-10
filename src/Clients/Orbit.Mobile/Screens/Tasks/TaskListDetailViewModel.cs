@@ -756,6 +756,11 @@ public sealed partial class TaskListDetailViewModel : ObservableObject
         string? saidAboutTheAppointment = null;
         if (edited.Kind == nameof(TaskItemKind.Calendar))
         {
+            // The entry's own description is the appointment's: one box asks for it, on the entry, and
+            // the event's form leaves its copy out. Written here rather than kept in step as the box is
+            // typed in, so the answer on screen is the answer that is sent whatever order things happen
+            // in - where Orbit.Web's EventDetailsFor draws the same line.
+            editor.Event.Description = edited.AllNotes;
             var appointment = await _entryAppointment.SaveAsync(editor, edited, _localId, cancellationToken);
 
             // Nothing made the appointment, so the entry must not be saved pointing at one.

@@ -2212,7 +2212,10 @@ showing it, so a save cannot write a blank over it.
 
 A request that says nothing about it leaves what is stored alone (`UpdateTaskListCommand.EntriesKeepingTheirNotes`)
 — the third field to follow that rule, after the categories and the product, and for the third time the
-same reason: the phone has no box for it yet and must not erase what was typed on the web.
+same reason: a phone built before it had a box for this must not erase what was typed on the web. Since
+2026-09-10 the phone has the box (`TaskItemEditor.Notes`, on the entry's sheet under its categories),
+follows the same calendar rule - the event's form on the phone lost its own description box the same
+day - and sends what it says, an emptied box included.
 
 **An entry describes a product whether or not a shelf exists yet.** On the web, an Inventory entry opens
 the same fields the inventory editor uses (`InventoryFields`) on any list: on one measured against a
