@@ -2164,5 +2164,25 @@ public static class PolishTranslations
         ["{0} (all day)"] = "{0} (cały dzień)",
         ["{0} couldn't be invited to \"{1}\"."] = "Nie udało się zaprosić {0} do „{1}”.",
         ["{0} things kept"] = "Zapamiętane rzeczy: {0}",
+
+        // ---- The phone's own invitation screen: something offered to this reader, before they have
+        // taken it up. See Orbit.Mobile's InvitationViewModel. "Accept", "You already have this.",
+        // "Shared by {0}", "Shared with you" and the kind names are already above - the same words the
+        // conversation's own offer and the public-link screen use. ----
+        ["Place"] = "Miejsce",
+        ["Open where it landed"] = "Otwórz tam, gdzie trafiło",
+        ["Who shared it"] = "Kto udostępnił",
+        ["Accepting puts a copy in your account. It appears once Orbit next syncs."] =
+            "Akceptacja umieszcza kopię na Twoim koncie. Pojawi się przy następnej synchronizacji Orbita.",
+        ["This offer is no longer there. Whoever made it may have taken it back."] =
+            "Tej propozycji już nie ma. Osoba, która ją złożyła, mogła ją wycofać.",
+        ["This couldn't be added to your account. Try again."] =
+            "Nie udało się dodać tego do Twojego konta. Spróbuj ponownie.",
+        ["This invitation couldn't be opened. Try again."] =
+            "Nie udało się otworzyć tego zaproszenia. Spróbuj ponownie.",
+        ["An invitation can only be opened online. Try again when you are back."] =
+            "Zaproszenie można otworzyć tylko online. Spróbuj ponownie, gdy wrócisz do sieci.",
+        ["An invitation can only be accepted online. Try again when you are back."] =
+            "Zaproszenie można zaakceptować tylko online. Spróbuj ponownie, gdy wrócisz do sieci.",
     };
 }

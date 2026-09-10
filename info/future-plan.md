@@ -119,10 +119,13 @@ rather than to the conversation - see [In-app notifications](functionality.md#in
   the offer - the item, its name and whether it has been taken up - so the page says which note, and
   accepting lands on the thing itself rather than on the list it appears in. One endpoint for all four
   kinds; accepting stayed on each section's own, where that kind's rules are.
-- **The phone still has no invitation screen.** It reads the same path, takes the sharer's id off the
-  end and opens the conversation, which is where its own Accept sits (`SharedItemAcceptance`) - so
-  nothing is lost there, but a phone cannot take up an offer whose chat message it cannot read, which is
-  exactly the case the web page now covers.
+- ~~**The phone still has no invitation screen.**~~ Done 2026-09-10: `InvitationViewModel` and
+  `InvitationPage` read the same path and the same `GET /api/shares/{kind}/{shareId}`, and accept
+  through the one place that already knew which endpoint each kind uses (`SharedItemAcceptance`). Two
+  differences from the browser, both because the phone stores things under its own ids: what is accepted
+  appears when the section next syncs, so "open where it landed" is the section rather than the thing. A
+  shared position, and a kind newer than the build, still open the conversation - which is what every
+  kind did before, kept for the cases with no offer to show.
 
 ## What a real advertising network would take
 
@@ -906,9 +909,9 @@ its shared controls. What that pass left, all of it now overtaken:
   read mark per conversation that survives a restart, which is a chat feature rather than a look, and
   the phone already says the smaller thing in the row's own mark: something unread points at that
   person.
-- **`ContactsPage.xaml` declares a `PresenceColor` converter it never uses.** One dead line, noticed
-  while chasing the event dot; harmless, and it is here rather than done because the Contacts screen
-  was not otherwise being touched.
+- ~~**`ContactsPage.xaml` declares a `PresenceColor` converter it never uses.**~~ Gone: the row that
+  needed it became `AvatarCircle`, which holds the converter itself, and the declaration went with the
+  markup it belonged to.
 - ~~**A card's footnote says the whole timestamp.**~~ Done: `LastChanged` gives the four answers
   `Notes.razor`'s `WhenLastChanged` gives - today, yesterday, the weekday within the week, a date past
   it - against the injected clock rather than the machine's, so a test about the wording is a test

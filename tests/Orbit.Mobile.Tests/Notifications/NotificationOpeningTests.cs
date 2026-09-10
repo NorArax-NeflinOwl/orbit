@@ -169,17 +169,37 @@ public sealed class NotificationOpeningTests
     }
 
     /// <summary>
-    /// An invitation opens the conversation with whoever sent it. The browser has a page for taking one
-    /// up; this app has not, and its own Accept sits on the offer in the conversation - which is also
-    /// where this notification landed before its path said which offer it was about.
+    /// An invitation opens the screen for that offer, which the app has had since 2026-09-10 - see
+    /// InvitationScreenTests, where the rest of it is covered. Nothing is looked up first: what was
+    /// offered is not in this account yet, and may never be.
     /// </summary>
     [Fact]
-    public async Task An_invitation_opens_the_conversation_with_whoever_sent_it()
+    public async Task An_invitation_opens_the_offer_it_names()
+    {
+        using var context = new OpeningContext();
+        var sharerId = await context.AddKnownContactAsync("Anna");
+        var shareId = Guid.NewGuid();
+
+        var outcome = await context.Opener.OpenAsync($"/invitation/note/{shareId}/{sharerId}");
+
+        Assert.Equal(NotificationOpenOutcome.Opened, outcome);
+        Assert.Equal("ShowInvitation", context.Navigator.LastDestination);
+        Assert.Equal(shareId, context.Navigator.LastInvitation!.ShareId);
+        Assert.Equal(sharerId, context.Navigator.LastInvitation.SharerUserId);
+    }
+
+    /// <summary>
+    /// A shared position is not a thing an account can be given, so there is no offer to show - and it
+    /// still opens the conversation with whoever sent it, which is where this notification landed for
+    /// every kind before that screen existed.
+    /// </summary>
+    [Fact]
+    public async Task A_shared_position_still_opens_the_conversation_with_whoever_sent_it()
     {
         using var context = new OpeningContext();
         var sharerId = await context.AddKnownContactAsync("Anna");
 
-        var outcome = await context.Opener.OpenAsync($"/invitation/note/{Guid.NewGuid()}/{sharerId}");
+        var outcome = await context.Opener.OpenAsync($"/invitation/location/{Guid.NewGuid()}/{sharerId}");
 
         Assert.Equal(NotificationOpenOutcome.Opened, outcome);
         Assert.Equal("ShowConversation", context.Navigator.LastDestination);

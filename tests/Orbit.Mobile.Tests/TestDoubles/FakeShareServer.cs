@@ -15,6 +15,7 @@ namespace Orbit.Mobile.Tests.TestDoubles;
 internal sealed class FakeShareServer : HttpMessageHandler
 {
     private readonly List<string> _accepted = [];
+    private readonly List<string> _offersRead = [];
 
     public bool IsUnreachable { get; set; }
 
@@ -33,6 +34,19 @@ internal sealed class FakeShareServer : HttpMessageHandler
     /// <summary>Offers this server says have already been taken up - see the /status endpoints.</summary>
     public HashSet<Guid> AlreadyTakenUp { get; } = [];
 
+    /// <summary>
+    /// The offers this server will read back, by share id - what GET api/shares/{kind}/{shareId}
+    /// answers. Anything not here is 404, which is what the server says for an offer withdrawn, never
+    /// made, or made to somebody else: it does not distinguish them, so neither does this.
+    /// </summary>
+    public Dictionary<Guid, ShareOfferDto> Offers { get; } = [];
+
+    /// <summary>
+    /// The kind segments read, in order - "note", "tasklist" and their siblings. A screen that read an
+    /// offer under the wrong kind would find nothing on the real server, and this is what says so.
+    /// </summary>
+    public IReadOnlyList<string> OffersRead => _offersRead;
+
     protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
     {
         if (IsUnreachable)
@@ -46,6 +60,18 @@ internal sealed class FakeShareServer : HttpMessageHandler
         if (RefusesEverything)
         {
             return Task.FromResult(new HttpResponseMessage(HttpStatusCode.NotFound));
+        }
+
+        // api/shares/{kind}/{shareId} - one offer, read by whoever it was made to. Its own group rather
+        // than a fifth endpoint per section, which is why it is the one path here not under a section.
+        if (path.StartsWith("api/shares/", StringComparison.Ordinal))
+        {
+            var segments = path.Split('/');
+            _offersRead.Add(segments[2]);
+
+            return Task.FromResult(Offers.TryGetValue(Guid.Parse(segments[3]), out var offer)
+                ? new HttpResponseMessage(HttpStatusCode.OK) { Content = JsonContent.Create(offer) }
+                : new HttpResponseMessage(HttpStatusCode.NotFound));
         }
 
         // api/{kind}/shares/{id}/status

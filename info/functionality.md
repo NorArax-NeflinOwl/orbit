@@ -3345,10 +3345,21 @@ The last covers a withdrawn offer and one that was never this reader's, which th
 does not tell apart - answering differently would say whether a share id exists.
 
 The **sharer's id is in the path** as well as the share's. The page names them without a second lookup,
-and the phone - which reads a closed set of notification paths and has no invitation screen - takes that
-last segment and opens the conversation, which is where its own Accept sits and where this notification
-landed before. Claiming a **public link** is the exception on both counts: the grant is immediate, so
-there is nothing to accept and its notification opens the thing itself.
+and the phone names them without one either. Claiming a **public link** is the exception on both counts:
+the grant is immediate, so there is nothing to accept and its notification opens the thing itself.
+
+**The phone has the same screen since 2026-09-10** (`InvitationViewModel`, `InvitationPage`). Until then
+it read the closed set of notification paths, took the last segment - who offered it - and opened the
+conversation, where the offer's own chat message sits. That is enough only while the message can be
+read, and the case it cannot is exactly what an invitation screen is for: a message sealed to a key this
+device does not hold, a conversation whose history was never pulled down, a sharing screen whose chat
+half failed. The share row is on the server whatever became of the message, so the phone reads the offer
+(`ShareOfferClient`, the same `GET /api/shares/{kind}/{shareId}`) and takes it up through the same one
+place that knows which endpoint each kind is accepted at (`SharedItemAcceptance`). Two differences from
+the browser, both because the phone stores things under **its own** ids: what is accepted appears when
+the section next syncs rather than immediately, so "open where it landed" is the section rather than the
+thing. A **shared position** and a kind newer than the build still open the conversation, which is the
+old behaviour kept for the cases with no offer to show - nothing accepts a position.
 
 Inviting a guest to a **calendar entry on a task list** sent only the first half until 2026-09-06, so the
 invitation arrived, said somebody had shared an event, and led to a conversation with nothing in it and

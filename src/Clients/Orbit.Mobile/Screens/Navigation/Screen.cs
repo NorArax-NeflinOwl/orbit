@@ -55,6 +55,9 @@ public enum Screen
 
     /// <summary>Something somebody sent a link to, read without being in the account - see SharedLinkViewModel.</summary>
     SharedLink,
+
+    /// <summary>Something offered to this reader and not yet taken up - see InvitationViewModel.</summary>
+    Invitation,
     Account,
     Update,
     Diagnostics,
