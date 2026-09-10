@@ -1,0 +1,304 @@
+@using Orbit.Contracts.Calendar
+@using Orbit.Contracts.Places
+@using Orbit.Contracts.Tasks
+@using Orbit.Web.Services
+@inject PlacesApiClient PlacesApiClient
+@inject ILogger<PlaceForm> Logger
+@inject Translations T
+
+@* A place, as a form. Over the map rather than on a page of its own: a place is small - a name, a point
+   and three answers about how it is drawn - and sending somebody to another screen to write four lines
+   is how a note nobody keeps gets kept nowhere.
+
+   The same form for a new one and for changing one, because a place says exactly the same thing either
+   way (see SavePlaceRequest, which is one request for both). What differs is the heading and the word on
+   the button, so that is all that is asked about. *@
+<div class="map-overlay" @onclick="CancelAsync">
+    <div class="map-overlay-panel place-form" @onclick:stopPropagation="true">
+        <div class="map-overlay-header">
+            <h2>@(IsNew ? T["A place worth keeping"] : T["This place"])</h2>
+            <button type="button" class="icon-btn" title="@(T["Cancel"])" aria-label="@(T["Cancel"])"
+                    @onclick="CancelAsync">✕</button>
+        </div>
+
+        <div class="field">
+            <label for="placeFormName">@T["Title"]</label>
+            <input id="placeFormName" type="text" value="@_name" placeholder="@(T["What this place is"])"
+                   @oninput="args => _name = args.Value?.ToString() ?? string.Empty" />
+        </div>
+
+        <div class="field">
+            <label for="placeFormDescription">@T["Description"]</label>
+            <textarea id="placeFormDescription" rows="2" placeholder="@(T["Anything worth remembering about it"])"
+                      @oninput="args => _description = args.Value?.ToString() ?? string.Empty">@_description</textarea>
+        </div>
+
+        @* The address is the one field somebody may not be able to type: the whole reason for pressing a
+           map is not knowing what the street is called. So the box takes words when there are words, and
+           the button beside it takes a pin when there are none - the same pair the task editor and the
+           calendar's event form offer, for the same reason. *@
+        <div class="field">
+            <label for="placeFormWhere">@T["Location"]</label>
+            <div class="field-row">
+                <input id="placeFormWhere" type="text" class="event-fields-location" value="@_address"
+                       placeholder="@(T["Where this happens"])"
+                       @oninput="args => _address = args.Value?.ToString() ?? string.Empty" />
+                <button type="button" class="icon-btn" title="@(T["Pick on map"])" aria-label="@(T["Pick on map"])"
+                        @onclick="() => _isPickingOnTheMap = true">
+                    <svg viewBox="0 0 20 20" width="18" height="18" aria-hidden="true" fill="none"
+                         stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M10 17s5-4.6 5-8a5 5 0 1 0-10 0c0 3.4 5 8 5 8Z" />
+                        <circle cx="10" cy="9" r="1.8" />
+                    </svg>
+                </button>
+            </div>
+            @* A place is a point before it is a name: without one there is nothing to draw on the map and
+               nothing to hand a map app, so this is said before the save is refused rather than after. *@
+            @if (!HasAPoint)
+            {
+                <small>@T["Pick it on the map - a place with no point cannot be drawn on one."]</small>
+            }
+        </div>
+
+        @* Side by side, because they are two short answers about how the same row is drawn - one a
+           three-item picker and the other a swatch - and a line of the form each left most of two lines
+           empty. The colour keeps the same well, and the same way out of it, an entry and an appointment
+           are given (see TaskEditor): a place nobody chose a colour for is drawn in whatever places are
+           drawn in, and a default would quietly overrule that. *@
+        <div class="place-form-look">
+            <div class="field">
+                <label for="placeFormPriority">@T["Priority"]</label>
+                <select id="placeFormPriority" value="@_priority"
+                        @onchange="args => _priority = args.Value?.ToString() ?? _priority">
+                    <option value="Low">@T["Low"]</option>
+                    <option value="Normal">@T["Normal"]</option>
+                    <option value="High">@T["High"]</option>
+                </select>
+            </div>
+
+            <div class="field">
+                <label for="placeFormColour">@T["Colour"]</label>
+                <span class="field-with-note">
+                    <input id="placeFormColour" type="color" value="@(_colour.Length > 0 ? _colour : DefaultColour)"
+                           @onchange="args => _colour = args.Value?.ToString() ?? _colour" />
+                    @if (_colour.Length > 0)
+                    {
+                        <button type="button" class="btn-secondary" @onclick="() => _colour = string.Empty">
+                            @T["No colour of its own"]
+                        </button>
+                    }
+                </span>
+            </div>
+        </div>
+
+        @* What the place is for. A bakery on its own is a pin; a bakery on the shopping list is where the
+           bread comes from - see Place.TaskListIds. As many as apply, because one place often serves
+           several. *@
+        @if (LinkableLists.Count > 0)
+        {
+            <div class="field">
+                <label for="placeFormList">@T["Belongs to"]</label>
+                <select id="placeFormList" value="" @onchange="LinkToTheList">
+                    <option value="">@T["Choose a list…"]</option>
+                    @foreach (var list in LinkableLists)
+                    {
+                        <option value="@list.Id">@list.Title</option>
+                    }
+                </select>
+            </div>
+        }
+        @if (_taskListIds.Count > 0)
+        {
+            <ul class="linked-list-chips">
+                @foreach (var listId in _taskListIds)
+                {
+                    <li>
+                        <span>@TitleOf(listId)</span>
+                        <button type="button" class="icon-btn" title="@(T["Remove"])" aria-label="@(T["Remove"])"
+                                @onclick="() => _taskListIds.Remove(listId)">✕</button>
+                    </li>
+                }
+            </ul>
+        }
+
+        @if (_error is { } error)
+        {
+            <p class="error">@error</p>
+        }
+
+        <div class="map-overlay-confirm">
+            <button type="button" class="btn-primary" disabled="@(!CanSave)" @onclick="SaveAsync">
+                @(IsNew ? T["Create"] : T["Save"])
+            </button>
+            <button type="button" class="btn-secondary" @onclick="CancelAsync">@T["Cancel"]</button>
+        </div>
+    </div>
+</div>
+
+@* Over the form, for the half of the address nobody can type. The form stays where it is underneath, so
+   confirming a pin comes back to a form that is otherwise exactly as it was left. *@
+@if (_isPickingOnTheMap)
+{
+    <LocationPickerOverlay Address="@_address" OnPicked="UseThePickedPlace"
+                           OnCancelled="() => _isPickingOnTheMap = false" />
+}
+
+@code {
+    /// <summary>The same blue every screen opens a colour well on when there is nothing to open it on.</summary>
+    private const string DefaultColour = "#4a90d9";
+
+    /// <summary>The place being changed, or null when this is a new one.</summary>
+    [Parameter] public PlaceDto? Place { get; set; }
+
+    /// <summary>
+    /// Where a new place starts, when the map already knows - the pin somebody pressed. Ignored for a
+    /// place that exists, which carries its own.
+    /// </summary>
+    [Parameter] public PickedPlace? StartsAt { get; set; }
+
+    /// <summary>The lists a place can be said to belong to - loaded by the page, which has them already.</summary>
+    [Parameter] public IReadOnlyList<TaskDto> TaskLists { get; set; } = [];
+
+    /// <summary>The place that was written, so the page can put it on the map without reading everything back.</summary>
+    [Parameter] public EventCallback OnSaved { get; set; }
+
+    [Parameter] public EventCallback OnCancelled { get; set; }
+
+    private string _name = string.Empty;
+    private string _description = string.Empty;
+    private string _address = string.Empty;
+    private double? _latitude;
+    private double? _longitude;
+    private string _colour = string.Empty;
+    private string _priority = "Normal";
+    private readonly List<Guid> _taskListIds = [];
+
+    private bool _isPickingOnTheMap;
+    private bool _isSaving;
+    private string? _error;
+
+    private bool IsNew => Place is null;
+
+    private bool HasAPoint => _latitude is not null && _longitude is not null;
+
+    /// <summary>
+    /// A name and a point. The name because a row on the panel with nothing in it is a row nobody can
+    /// tell from the next one; the point because without it there is nothing to draw and nothing to
+    /// hand a map app - see Orbit.Core.Places.Place.Refuse, which says the same thing on the server.
+    /// </summary>
+    private bool CanSave => !_isSaving && _name.Trim().Length > 0 && HasAPoint;
+
+    private IReadOnlyList<TaskDto> LinkableLists
+        => [.. TaskLists.Where(list => !_taskListIds.Contains(list.Id))];
+
+    private string TitleOf(Guid taskListId)
+        => TaskLists.FirstOrDefault(list => list.Id == taskListId)?.Title ?? T["A list that is no longer here"];
+
+    protected override void OnParametersSet()
+    {
+        if (Place is { } place)
+        {
+            _name = place.Name;
+            _description = place.Description;
+            _address = place.Where.Address ?? string.Empty;
+            _latitude = place.Where.Latitude;
+            _longitude = place.Where.Longitude;
+            _colour = place.Colour;
+            _priority = place.Priority;
+            _taskListIds.Clear();
+            _taskListIds.AddRange(place.TaskListIds);
+            return;
+        }
+
+        if (StartsAt is { } pin && !HasAPoint)
+        {
+            _address = pin.Address;
+            _latitude = pin.Latitude;
+            _longitude = pin.Longitude;
+            // The address doubles as the name for a place pressed on the map, because a pin already
+            // carries the only words there are. It is a suggestion, not an answer: the box is a normal
+            // one and "the bakery" is what most of them end up saying.
+            _name = pin.Address;
+        }
+    }
+
+    private void LinkToTheList(ChangeEventArgs args)
+    {
+        if (Guid.TryParse(args.Value?.ToString(), out var taskListId) && !_taskListIds.Contains(taskListId))
+        {
+            _taskListIds.Add(taskListId);
+        }
+    }
+
+    /// <inheritdoc cref="LocationPickerOverlay" />
+    private void UseThePickedPlace(PickedPlace picked)
+    {
+        _latitude = picked.Latitude;
+        _longitude = picked.Longitude;
+
+        // The words are the reader's; the point is the pin's. Replacing a typed "the back entrance" with
+        // a street every time a pin is confirmed is what made correcting one feel impossible - the same
+        // rule the task editor's own map follows.
+        if (_address.Trim().Length == 0)
+        {
+            _address = picked.Address;
+        }
+
+        if (_name.Trim().Length == 0)
+        {
+            _name = picked.Address;
+        }
+
+        _isPickingOnTheMap = false;
+    }
+
+    private async Task SaveAsync()
+    {
+        if (!CanSave)
+        {
+            return;
+        }
+
+        _isSaving = true;
+        _error = null;
+        try
+        {
+            var request = new SavePlaceRequest(
+                _name.Trim(),
+                new EventLocationDto(_address.Trim(), _latitude!.Value, _longitude!.Value),
+                _description.Trim(),
+                _colour,
+                _priority,
+                [.. _taskListIds]);
+
+            if (Place is { } place)
+            {
+                if (!await PlacesApiClient.UpdatePlaceAsync(place.Id, request))
+                {
+                    // Gone while the form was open, which is the one failure a retry cannot help with.
+                    _error = T["That place is not here any more."];
+                    return;
+                }
+            }
+            else
+            {
+                await PlacesApiClient.CreatePlaceAsync(request);
+            }
+
+            await OnSaved.InvokeAsync();
+        }
+        catch (HttpRequestException exception)
+        {
+            // Said on screen rather than only in the log: a Create that appears to do nothing is a Create
+            // somebody presses again.
+            Logger.LogError(exception, "Could not save a place");
+            _error = T["That could not be saved. Try again in a moment."];
+        }
+        finally
+        {
+            _isSaving = false;
+        }
+    }
+
+    private Task CancelAsync() => OnCancelled.InvokeAsync();
+}

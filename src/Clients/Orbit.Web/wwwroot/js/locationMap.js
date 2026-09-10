@@ -42,7 +42,12 @@ export async function showLocations(elementId, points, dotNetHelper) {
     // An empty map is still a map: the map page keeps one on screen from the moment it opens, so
     // somebody who has recorded nothing has somewhere to search rather than a blank panel.
     const start = drawn.length > 0 ? [drawn[0].latitude, drawn[0].longitude] : defaultCenter;
-    const map = L.map(elementId).setView(start, drawn.length > 0 ? 14 : 6);
+    // Zoom moved out of the top left, which is where Leaflet puts it and where the page now keeps its
+    // own "+" for keeping a place. Two plus signs touching, one of them meaning "closer" and the other
+    // "remember this spot", is a corner nobody can read - and of the two the zoom is the one that has
+    // another way in, since a wheel and a pinch both do it already.
+    const map = L.map(elementId, { zoomControl: false }).setView(start, drawn.length > 0 ? 14 : 6);
+    L.control.zoom({ position: 'bottomleft' }).addTo(map);
     // Asked rather than added: the tiles are the one third-party request Orbit cannot serve itself,
     // so they are the one thing "do not share my personal information" turns off - see mapTiles.js.
     window.OrbitMapTiles.addTo(map);

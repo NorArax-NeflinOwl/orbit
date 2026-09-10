@@ -264,6 +264,22 @@ else
                              stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"
                              aria-hidden="true"><path d="M17 3 3 9l6 2.2L11.2 17 17 3Z" /></svg>
                     </button>
+                    @* Everything else a place can be asked, behind the same three dots every other object
+                       in Orbit keeps them behind. A place is small enough that all of it fits in one
+                       form, so changing one opens the form it was made in. *@
+                    <span @onclick:stopPropagation="true">
+                        <OverflowMenu>
+                            <button type="button" class="avatar-dropdown-item" @onclick="() => ChangeThePlace(place)">
+                                @T["Edit"]
+                            </button>
+                            <button type="button" class="avatar-dropdown-item" @onclick="() => DuplicateThePlaceAsync(place)">
+                                @T["Duplicate"]
+                            </button>
+                            <button type="button" class="avatar-dropdown-item danger" @onclick="() => AskToForgetThePlace(place)">
+                                @T["Delete"]
+                            </button>
+                        </OverflowMenu>
+                    </span>
                 </div>
             }
         </section>
@@ -384,6 +400,13 @@ else
                 <span class="map-fullscreen-enter" title="@(T["Full screen"])" aria-label="@(T["Full screen"])">⤢</span>
                 <span class="map-fullscreen-exit" title="@(T["Leave full screen"])" aria-label="@(T["Leave full screen"])">✕</span>
             </button>
+            @* The other corner, and the other way to keep a place: an empty form, for somewhere whose
+               address is known and whose spot on the map is not obvious - a shop by name rather than a
+               pin somebody has to find first. Pressing the map is still the quicker way when the place
+               is on screen; this is the way in when it is not. Over the map for the same reason the
+               fullscreen button is: Leaflet owns its container's children. *@
+            <button type="button" class="map-add-place-button" title="@(T["Keep a place"])"
+                    aria-label="@(T["Keep a place"])" @onclick="StartANewPlace">+</button>
         </div>
 
         @* A press on the map, waiting to be allowed. Above the bar about the pin itself, because it is
@@ -445,9 +468,14 @@ else
     </div>
 }
 
-@* Asked rather than guessed: an appointment and an errand at the same address are different things, and
-   only the person who pointed at it knows which they meant. Over the map, because the map is the page
-   and the question is about the pin on it. *@
+@* Asked rather than guessed: a place, an appointment and an errand at the same address are different
+   things, and only the person who pointed at it knows which they meant. Over the map, because the map is
+   the page and the question is about the pin on it.
+
+   Three answers on one picker rather than a row of three buttons, because they are three answers to one
+   question and a row of buttons reads as three different ones. A place is the default because it is the
+   least somebody can mean by pressing a map: it says where and nothing else, and the other two are that
+   plus a time or plus a job. *@
 @if (_placeToPlanFor is { } chosen)
 {
     <div class="map-overlay" @onclick="ForgetTheChosenPlace">
@@ -456,10 +484,57 @@ else
                 <h2>@T["What happens here?"]</h2>
             </div>
             <p class="map-overlay-hint">@chosen.Address</p>
+            <div class="field">
+                <label for="mapWhatHappensHere">@T["Make it"]</label>
+                <select id="mapWhatHappensHere" value="@_whatHappensHere"
+                        @onchange="args => _whatHappensHere = args.Value?.ToString() ?? _whatHappensHere">
+                    <option value="@nameof(PlanForAPlace.Place)">@T["A place worth keeping"]</option>
+                    <option value="@nameof(PlanForAPlace.Event)">@T["An event in the calendar"]</option>
+                    <option value="@nameof(PlanForAPlace.TaskList)">@T["A task list starting here"]</option>
+                </select>
+            </div>
             <div class="map-overlay-confirm">
-                <button type="button" class="btn-primary" @onclick="PlanAnEventHere">@T["An event in the calendar"]</button>
-                <button type="button" class="btn-secondary" @onclick="PlanATaskHere">@T["A task list starting here"]</button>
-                <button type="button" class="btn-secondary" @onclick="ForgetTheChosenPlace">@T["Cancel"]</button>
+                <button type="button" class="btn-primary icon-labelled" @onclick="MakeWhatWasChosen">
+                    <span aria-hidden="true">✓</span> @T["Create"]
+                </button>
+                <button type="button" class="btn-secondary icon-labelled" @onclick="ForgetTheChosenPlace">
+                    <span aria-hidden="true">✕</span> @T["Cancel"]
+                </button>
+            </div>
+        </div>
+    </div>
+}
+
+@* The form itself, opened either by the + on the map or by choosing "a place worth keeping" above. The
+   pin it starts at is whichever of those two put it there - see StartANewPlace. *@
+@if (_isKeepingAPlace)
+{
+    <PlaceForm StartsAt="_placeBeingKept" TaskLists="_taskLists"
+               OnSaved="TheNewPlaceWasKeptAsync" OnCancelled="ForgetTheNewPlace" />
+}
+
+@* The same form again, on a place that already exists - see PlaceForm, which is one form for both
+   because a place says the same thing whether it is being made or corrected. *@
+@if (_placeBeingChanged is { } beingChanged)
+{
+    <PlaceForm Place="beingChanged" TaskLists="_taskLists"
+               OnSaved="TheNewPlaceWasKeptAsync" OnCancelled="() => _placeBeingChanged = null" />
+}
+
+@* Asked before it happens, because forgetting a place is the one thing on this panel that cannot be
+   undone - a share can be started again and a pin can be redrawn. *@
+@if (_placeBeingForgotten is { } beingForgotten)
+{
+    <div class="map-overlay" @onclick="() => _placeBeingForgotten = null">
+        <div class="map-overlay-panel" @onclick:stopPropagation="true">
+            <div class="map-overlay-header">
+                <h2>@T["Forget this place?"]</h2>
+            </div>
+            <p class="map-overlay-hint">@beingForgotten.Name</p>
+            <div class="map-overlay-confirm">
+                <button type="button" class="btn-danger" disabled="@_isBusy"
+                        @onclick="() => ForgetThePlaceAsync(beingForgotten)">@T["Delete"]</button>
+                <button type="button" class="btn-secondary" @onclick="() => _placeBeingForgotten = null">@T["Cancel"]</button>
             </div>
         </div>
     </div>
@@ -618,9 +693,150 @@ else
 
     private void ForgetTheChosenPlace() => _placeToPlanFor = null;
 
-    private void PlanAnEventHere() => HandOverThePlaceTo("/calendar/new");
+    /// <summary>
+    /// What a pressed place can become. Named rather than passed as loose strings, so a typo is a
+    /// compiler error instead of a Create that quietly does nothing.
+    /// </summary>
+    private enum PlanForAPlace
+    {
+        /// <summary>Somewhere kept for its own sake - see Orbit.Core.Places.Place.</summary>
+        Place,
 
-    private void PlanATaskHere() => HandOverThePlaceTo("/tasks/new");
+        /// <summary>An appointment there, which is a place and a time.</summary>
+        Event,
+
+        /// <summary>A list of work starting there, whose first entry is that place - see TaskItemKind.Location.</summary>
+        TaskList
+    }
+
+    /// <summary>
+    /// Which of the three the picker is on. A place by default: it is the least somebody can mean by
+    /// pressing a map, and the other two ask for a time or a job that nobody has mentioned yet.
+    /// </summary>
+    private string _whatHappensHere = nameof(PlanForAPlace.Place);
+
+    private void MakeWhatWasChosen()
+    {
+        switch (_whatHappensHere)
+        {
+            case nameof(PlanForAPlace.Event):
+                HandOverThePlaceTo("/calendar/new");
+                break;
+            case nameof(PlanForAPlace.TaskList):
+                HandOverThePlaceTo("/tasks/new");
+                break;
+            default:
+                KeepThisPlace();
+                break;
+        }
+    }
+
+    /// <summary>Whether the place form is open, whichever of the two ways opened it.</summary>
+    private bool _isKeepingAPlace;
+
+    /// <summary>The pin the form starts on, or null for the empty form the + opens.</summary>
+    private PickedPlace? _placeBeingKept;
+
+    /// <summary>
+    /// The + in the corner: a form with nothing in it. Deliberately not seeded with whatever pin happens
+    /// to be on the map - somebody who meant that pin has the question about it in front of them
+    /// already, and starting from a place nobody asked for is how a place gets kept at the wrong one.
+    /// </summary>
+    private void StartANewPlace()
+    {
+        _placeBeingKept = null;
+        _isKeepingAPlace = true;
+    }
+
+    /// <summary>The picker's own answer: the same form, opened on the pin the question was about.</summary>
+    private void KeepThisPlace()
+    {
+        _placeBeingKept = _placeToPlanFor;
+        _placeToPlanFor = null;
+        _isKeepingAPlace = true;
+    }
+
+    private void ForgetTheNewPlace()
+    {
+        _isKeepingAPlace = false;
+        _placeBeingKept = null;
+    }
+
+    /// <summary>
+    /// Read back rather than added to the list here: the server decides the id and the order, and a page
+    /// that guesses either would disagree with the next refresh. The map is redrawn with it, which is
+    /// the whole reason somebody kept it.
+    /// </summary>
+    private async Task TheNewPlaceWasKeptAsync()
+    {
+        ForgetTheNewPlace();
+        _placeBeingChanged = null;
+        _places = await PlacesApiClient.GetPlacesAsync();
+        await RefreshMapMarkersAsync();
+    }
+
+    /// <summary>The place whose form is open for changing, or null when none is - see PlaceForm.</summary>
+    private PlaceDto? _placeBeingChanged;
+
+    private void ChangeThePlace(PlaceDto place) => _placeBeingChanged = place;
+
+    /// <summary>
+    /// A second one of the same, which is what a place that comes in pairs needs: two entrances to the
+    /// same building, the near and far ends of one street. Named by the server, which is where the "copy"
+    /// wording lives - see DuplicatePlaceCommand.
+    /// </summary>
+    private async Task DuplicateThePlaceAsync(PlaceDto place)
+    {
+        _isBusy = true;
+        try
+        {
+            if (await PlacesApiClient.DuplicatePlaceAsync(place.Id) is null)
+            {
+                // Gone since the panel was drawn, which a refresh says better than an error does.
+                _message = T["That place is not here any more."];
+            }
+
+            _places = await PlacesApiClient.GetPlacesAsync();
+            await RefreshMapMarkersAsync();
+        }
+        catch (HttpRequestException exception)
+        {
+            Logger.LogError(exception, "Could not duplicate a place");
+            _hasFailed = true;
+            _message = T["That could not be saved. Try again in a moment."];
+        }
+        finally
+        {
+            _isBusy = false;
+        }
+    }
+
+    /// <summary>The place the question about forgetting is about - see the overlay.</summary>
+    private PlaceDto? _placeBeingForgotten;
+
+    private void AskToForgetThePlace(PlaceDto place) => _placeBeingForgotten = place;
+
+    private async Task ForgetThePlaceAsync(PlaceDto place)
+    {
+        _isBusy = true;
+        try
+        {
+            await PlacesApiClient.DeletePlaceAsync(place.Id);
+            _placeBeingForgotten = null;
+            _places = await PlacesApiClient.GetPlacesAsync();
+            await RefreshMapMarkersAsync();
+        }
+        catch (HttpRequestException exception)
+        {
+            Logger.LogError(exception, "Could not delete a place");
+            _hasFailed = true;
+            _message = T["That could not be saved. Try again in a moment."];
+        }
+        finally
+        {
+            _isBusy = false;
+        }
+    }
 
     /// <summary>
     /// Hands the place to the editor that makes something of it - neither an event nor a list is
@@ -684,6 +900,13 @@ else
     /// time at all, which is the whole point of them.
     /// </summary>
     private IReadOnlyList<PlaceDto> _places = [];
+
+    /// <summary>
+    /// Every list this account has, as the place form's "belongs to" picker needs them. Read as part of
+    /// ReadWhatHasAPlaceAsync rather than on its own: that read wants them anyway, and a second request
+    /// for the same answer is a second request.
+    /// </summary>
+    private IReadOnlyList<TaskDto> _taskLists = [];
 
     /// <summary>
     /// Whether what is already behind the reader is drawn as well - what has been and gone, and what
@@ -1726,6 +1949,9 @@ else
     {
         var nowUtc = DateTimeOffset.UtcNow;
         var taskLists = await TasksApiClient.GetTaskListsAsync();
+        // Kept, because the place form asks which lists a place belongs to and this is the one read that
+        // already fetches them - see PlaceForm.TaskLists.
+        _taskLists = taskLists;
         var placed = new List<PlacedPlan>();
 
         foreach (var calendarEvent in await CalendarApiClient.GetCalendarEventsAsync())

@@ -731,6 +731,24 @@ public static class PolishTranslations
         ["Places you keep"] = "Twoje miejsca",
         ["Nothing kept yet. The + on the map is where one starts."] =
             "Nic tu jeszcze nie ma. Zacznij od + na mapie.",
+        // The place form - see Orbit.Web's PlaceForm, opened by the + on the map and by the picker that
+        // asks what a pressed pin is for.
+        ["Keep a place"] = "Zapisz miejsce",
+        ["Forget this place?"] = "Zapomnieć to miejsce?",
+        ["A place worth keeping"] = "Miejsce warte zapisania",
+        ["This place"] = "To miejsce",
+        ["What this place is"] = "Czym jest to miejsce",
+        ["Anything worth remembering about it"] = "Co warto o nim pamiętać",
+        ["Pick it on the map - a place with no point cannot be drawn on one."] =
+            "Wskaż je na mapie - miejsca bez punktu nie da się na niej narysować.",
+        ["Colour"] = "Kolor",
+        ["Belongs to"] = "Należy do",
+        ["Choose a list…"] = "Wybierz listę…",
+        ["A list that is no longer here"] = "Lista, której już nie ma",
+        ["That place is not here any more."] = "Tego miejsca już tu nie ma.",
+        ["That could not be saved. Try again in a moment."] = "Nie udało się zapisać. Spróbuj za chwilę.",
+        // What a pressed pin becomes: a place, an appointment, or a list of work starting there.
+        ["Make it"] = "Utwórz jako",
         ["Nothing coming up says where it happens. Past ones are in the menu above."] =
             "Nic z tego, co przed Tobą, nie mówi, gdzie się odbywa. Minione znajdziesz w menu powyżej.",
         ["Nothing in your calendar or your lists says where it happens."] =

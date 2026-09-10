@@ -1001,6 +1001,22 @@ every one of them, so a missing field is a client that meant to clear it. That i
 rule a task entry's newer fields follow, and deliberately so — those exist because two clients disagree
 about what an entry carries, and nothing but this form has ever written a place.
 
+**On the web the map page is where a place is met** (`PlaceForm.razor`, opened by the `+` in the map's
+top-left and by the picker that asks what a pressed pin is for — see
+[the map](#the-map-and-the-location-behind-it)). One form makes a place and changes one, because a place
+says the same thing either way; what differs is the heading and the word on the button. **Title and a
+point are both required** — the name because a row on the panel with nothing in it is a row nobody can
+tell from the next one, the point because without it there is nothing to draw and nothing to hand a map
+app, which is the same pair `Place.Refuse` enforces on the server. The address box takes typed words and
+the pin beside it opens the same picker overlay the task editor uses; a confirmed pin replaces the words
+only when the box is empty, so "the back entrance" survives.
+
+**Places you keep** is the map panel's own list of them, pinnable and hideable like every other list on
+that page. A row shows the place's colour, its name, its priority when that is not Normal, and a button
+that hands the point to a map app. Behind the three dots: **Edit**, **Duplicate** — a second one of the
+same, for two entrances to one building — and **Delete**, which asks first, because forgetting a place is
+the one thing on that panel that cannot be undone.
+
 ## Private notes and task lists
 
 A note or task list can be marked **private**, which means exactly one thing: only its creator can ever
@@ -1195,21 +1211,34 @@ not to have the whole lot come back.
 
 The map is where people already go to point at somewhere, so it is also where pointing at somewhere and
 making something of it belongs. **Plan something here** opens the same `LocationPickerOverlay` the task
-editor uses - a pin, or an address search - and confirming one asks a single question: is this an event,
-or a task list?
+editor uses - a pin, or an address search - and confirming one asks a single question: what happens here?
 
-The question is asked rather than guessed. An appointment and an errand at the same address are
-different things, and only the person pointing at it knows which they meant. Answering takes them to the
-form they chose with the place already filled in:
+The question is asked rather than guessed. A place, an appointment and an errand at the same address are
+different things, and only the person pointing at it knows which they meant. It is one picker with three
+answers rather than a row of three buttons, because they are three answers to one question, and
+**Create** and **Cancel** finish it:
 
+- **A place worth keeping** (the default) opens the place form on that pin, with the address already in
+  it - see [Places](#places). It is the default because it is the least somebody can mean by pressing a
+  map: it says where and nothing else, and the other two are that plus a time or plus a job.
 - **An event in the calendar** opens `/calendar/new` with the address and its pin set.
 - **A task list starting here** opens `/tasks/new` with one entry already standing at that place - a
-  calendar entry, because it is the only kind that has anywhere to be, and open, because an entry whose
-  place is filled in and whose day is not is not finished.
+  `Location` entry, and open, because an entry whose place is filled in and whose words are not is not
+  finished. It used to be a calendar entry, which meant pressing a shop on the map produced an
+  appointment that would not save until an hour nobody had in mind had been chosen.
 
 Either way the **pin** travels, not only the address: the calendar keeps places as coordinates with a
 label (see "A confirmed pin keeps its position, not only its name" under [Tasks](#tasks)), so an address
-on its own could not be shown on a map or turned into a Google Maps link.
+on its own could not be shown on a map or turned into a Google Maps link. It travels even for the
+`Location` entry, which stores only the name, so that changing the type to `Calendar` on the spot puts
+the event at the point that was pressed rather than at a second lookup of the name.
+
+**The `+` in the map's top-left keeps a place directly**, with an empty form - the way in for somewhere
+whose address is known and whose spot on the map is not obvious. It is deliberately not seeded with
+whatever pin happens to be on the map: somebody who meant that pin has the question above in front of
+them already. Leaflet's zoom control moved to the bottom-left to make room (`locationMap.js`), since two
+plus signs side by side - one meaning "closer" and the other "remember this spot" - is a corner nobody
+can read, and zoom has a wheel and a pinch besides.
 
 The place travels in a scoped `ChosenPlace` rather than in the address bar. `/calendar/new?lat=52.2&lon=21.0`
 would write where somebody is going into their browser history and into anything that later reads a URL,

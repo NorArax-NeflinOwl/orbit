@@ -138,8 +138,61 @@ public sealed class MapPageTests : OrbitTestContext
 
         var asked = cut.Find(".map-overlay-panel").TextContent;
         Assert.Contains("What happens here?", asked);
+        Assert.Contains("A place worth keeping", asked);
         Assert.Contains("An event in the calendar", asked);
         Assert.Contains("A task list starting here", asked);
+    }
+
+    /// <summary>
+    /// And a place is what the picker opens on. It is the least somebody can mean by pressing a map -
+    /// the other two ask for a time or a job nobody has mentioned - and it is the answer that was not
+    /// possible at all until places existed.
+    /// </summary>
+    [Fact]
+    public void A_place_is_what_the_question_opens_on()
+    {
+        GrantLocations();
+        var cut = RenderComponent<MapPage>();
+        Search(cut, "Długa 4");
+
+        UseThePlace(cut);
+
+        Assert.Equal("Place", cut.Find("#mapWhatHappensHere").GetAttribute("value"));
+    }
+
+    /// <summary>
+    /// Answering "a place worth keeping" opens the form on the pin, with the address already in it -
+    /// the whole point of having pressed the map rather than the + in its corner.
+    /// </summary>
+    [Fact]
+    public void Keeping_the_place_opens_the_form_on_that_pin()
+    {
+        GrantLocations();
+        var cut = RenderComponent<MapPage>();
+        Search(cut, "Długa 4");
+        UseThePlace(cut);
+
+        MakeItA(cut, "Place");
+
+        Assert.Equal("Długa 4, Warszawa", cut.Find("#placeFormWhere").GetAttribute("value"));
+    }
+
+    /// <summary>
+    /// The + in the map's corner opens the same form with nothing in it - deliberately not seeded with
+    /// whatever pin happens to be on the map, since somebody who meant that pin has the question about
+    /// it in front of them already.
+    /// </summary>
+    [Fact]
+    public void The_plus_on_the_map_opens_an_empty_form()
+    {
+        GrantLocations();
+        var cut = RenderComponent<MapPage>();
+        Search(cut, "Długa 4");
+
+        cut.Find(".map-add-place-button").Click();
+
+        Assert.Equal(string.Empty, cut.Find("#placeFormWhere").GetAttribute("value"));
+        Assert.Equal(string.Empty, cut.Find("#placeFormName").GetAttribute("value"));
     }
 
     /// <summary>
@@ -147,8 +200,8 @@ public sealed class MapPageTests : OrbitTestContext
     /// rather than writing an event nobody has said when is - see ChosenPlace.
     /// </summary>
     [Theory]
-    [InlineData("An event in the calendar", "/calendar/new")]
-    [InlineData("A task list starting here", "/tasks/new")]
+    [InlineData("Event", "/calendar/new")]
+    [InlineData("TaskList", "/tasks/new")]
     public void The_answer_hands_the_pin_to_the_editor_that_makes_it(string answer, string url)
     {
         GrantLocations();
@@ -158,7 +211,7 @@ public sealed class MapPageTests : OrbitTestContext
         Search(cut, "Długa 4");
         UseThePlace(cut);
 
-        cut.FindAll(".map-overlay-confirm button").First(button => button.TextContent.Contains(answer)).Click();
+        MakeItA(cut, answer);
 
         Assert.EndsWith(url, navigationManager.Uri);
         var handedOver = chosenPlace.Take();
@@ -254,8 +307,7 @@ public sealed class MapPageTests : OrbitTestContext
         YesTo(cut, ".map-press-asks");
 
         UseThePlace(cut);
-        cut.FindAll(".map-overlay-confirm button")
-            .First(button => button.TextContent.Contains("An event in the calendar")).Click();
+        MakeItA(cut, "Event");
 
         var handedOver = chosenPlace.Take();
         Assert.NotNull(handedOver);
@@ -265,6 +317,17 @@ public sealed class MapPageTests : OrbitTestContext
 
     private static void UseThePlace(IRenderedFragment cut)
         => cut.FindAll(".map-create-event button").First(button => button.TextContent.Contains("Yes, use it")).Click();
+
+    /// <summary>
+    /// Answers "what happens here?" the way somebody does: choose on the picker, then press Create. The
+    /// value is the kind's own name rather than its label, because that is what the option carries -
+    /// see MapPage's PlanForAPlace.
+    /// </summary>
+    private static void MakeItA(IRenderedFragment cut, string kind)
+    {
+        cut.Find("#mapWhatHappensHere").Change(kind);
+        cut.FindAll(".map-overlay-confirm button").First(button => button.TextContent.Contains("Create")).Click();
+    }
 
     /// <summary>
     /// A share ends from the row it is on, rather than from behind the menu that says how it is made -
