@@ -248,12 +248,30 @@ about them is under "Screens already built" below.
 
 ### Settings
 
-- The tabs are a **horizontally scrolling row with a 2px underline** on the chosen one, sitting on a
-  hairline that runs the width of the screen.
-- Accent swatches are a 36px ring with a smaller filled circle inside it, and the chosen one is filled
-  further - the ring is always the colour, the fill says which.
-- The Account tab ends with a **danger-outlined "Delete account"** block, set apart from the rows above
-  it: "Everything goes, on every device."
+***Walked on the device on 2026-09-10***, against the design side by side. Three of the four things
+listed here were already built; the fourth was the one nobody had looked at.
+
+- ~~The tabs are a **horizontally scrolling row with a 2px underline** on the chosen one, sitting on a
+  hairline that runs the width of the screen.~~ **Already so**, and device-verified: the row scrolls
+  ("Debugger" is half off the right edge), the chosen tab is named in the accent and underlined in it,
+  and the hairline runs the width under all four.
+- ~~Accent swatches are a 36px ring with a smaller filled circle inside it, and the chosen one is filled
+  further - the ring is always the colour, the fill says which.~~ **This entry was wrong about the
+  design.** The prototype's swatches are `fill: '0px'` for every colour but the chosen one, which gets
+  `22px` - so an unchosen swatch is a bare ring, which is exactly what the app draws. Nothing to do.
+- ~~The Account tab ends with a **danger-outlined "Delete account"** block, set apart from the rows above
+  it: "Everything goes, on every device."~~ **Already so**: a `DangerCard` at the foot of the Account
+  tab and nowhere else. The app says more than the design's one line, and asks for the password on its
+  own row - which the design has no notion of, and which is the difference between a mock-up and a
+  screen that really deletes an account.
+- ~~**The theme is a strip of three, not a list to open.**~~ ***Done 2026-09-10, walked on the device.***
+  This is what was actually missing here, and it was not in this document. The design's Appearance
+  section is a bordered strip - System | Light | Dark, divided by hairlines, the one in force named in
+  the accent and ringed in it - and so is Orbit.Web's own theme picker. The phone had a MAUI `Picker`,
+  which shows only the answer already in force: a reader had to open it to discover there was a choice,
+  and choosing was two presses. `SegmentedStrip` and `SegmentButton` carry it, and the hairlines between
+  the segments are the strip's own background showing through a one-point gap, because a separator
+  inside a bound layout has nowhere else to live.
 
 ## What the design is not evidence about
 
