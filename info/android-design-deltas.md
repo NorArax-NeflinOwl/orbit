@@ -248,9 +248,11 @@ about them is under "Screens already built" below.
 
 ### Calendar
 
-- The month grid's cell is 44 tall, the number with a **4px dot underneath** for a day that has
+- ~~The month grid's cell is 44 tall, the number with a **4px dot underneath** for a day that has
   something on it; today is a tint wash, the chosen day an inset accent ring. Two different marks for
-  two different things.
+  two different things.~~ **Already so**, and device-verified on 2026-09-10: the cell is 44, the dot is
+  5 rather than 4 (`Ellipse` under the number, only where `HasEvents`), today takes `AccentSubtle` as a
+  wash and the chosen day an accent stroke. This entry was stale when it was written.
 - ~~The day view is an **hour rail**: 07:00 to 21:00 at 52px an hour, labels 44 wide right-aligned with a
   hairline running off them, events absolutely placed with a 3px left border in the event's colour, and
   a short event laid out in a row rather than a column so its title and time sit side by side.~~
