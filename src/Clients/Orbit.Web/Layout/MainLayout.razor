@@ -22,6 +22,7 @@
 @inject ThemeService ThemeService
 @inject AccentColorService AccentColorService
 @inject DevicePreferences DevicePreferences
+@inject LastAdInterruption LastAdInterruption
 @inject PresenceService Presence
 @inject LiveUpdatesConnection LiveUpdates
 @inject UserPermissionState Permissions
@@ -363,23 +364,44 @@
     private readonly int _adSlot = Random.Shared.Next();
 
     /// <summary>
-    /// The interrupting advert, and whether this visit has had it. Once, because an advert that comes
-    /// back on every navigation is the thing that makes people leave - and never at all for an account
-    /// holding the Debugger permission, which is the one that says somebody is working on Orbit rather
-    /// than using it.
+    /// The interrupting advert, and when this browser last had it. Paced rather than counted: at most
+    /// once every AdInterruption.MinimumGap, and never at all for an account holding the Debugger
+    /// permission, which is the one that says somebody is working on Orbit rather than using it.
+    ///
+    /// It used to be a flag saying "this visit has had it", which sounds like the same thing and is
+    /// not: a visit ends at the next refresh, so reloading a page was a way of asking for the advert
+    /// again, and refreshing is what people do. The clock is on the device now - see
+    /// LastAdInterruption.
     /// </summary>
     private bool _isAdDialogOpen;
-    private bool _hasShownTheInterruption;
 
-    private void ShowTheAdvertOnceThisVisit()
+    /// <summary>
+    /// The answer read from the device, kept so the gap holds for a browser that could not write it
+    /// back - see LastAdInterruption.RecordShownAsync.
+    /// </summary>
+    private DateTimeOffset? _lastAdInterruptionAtUtc;
+
+    /// <summary>
+    /// Offered at the moments a reader is between things rather than in the middle of one: arriving,
+    /// signing in, and moving from one page to another. A timer would fire over somebody typing a note,
+    /// which is the one interruption an advert has no excuse for.
+    /// </summary>
+    private async Task ShowTheAdvertIfItIsTimeAsync()
     {
-        if (!AdInterruption.ShouldShow(Permissions, _hasShownTheInterruption))
+        // Only ever read from the device once per page. What is stored is written by this same layout,
+        // so the field is never behind - and a read on every navigation is a JS call for an answer this
+        // page already has.
+        _lastAdInterruptionAtUtc ??= await LastAdInterruption.ReadAsync();
+
+        var nowUtc = DateTimeOffset.UtcNow;
+        if (_isAdDialogOpen || !AdInterruption.ShouldShow(Permissions, _lastAdInterruptionAtUtc, nowUtc))
         {
             return;
         }
 
-        _hasShownTheInterruption = true;
+        _lastAdInterruptionAtUtc = nowUtc;
         _isAdDialogOpen = true;
+        await LastAdInterruption.RecordShownAsync(nowUtc);
     }
 
     private void CloseTheAdDialog() => _isAdDialogOpen = false;
@@ -698,7 +720,7 @@
 
         await Presence.StartAsync();
         await Permissions.RefreshAsync();
-        ShowTheAdvertOnceThisVisit();
+        await ShowTheAdvertIfItIsTimeAsync();
         await MirrorThePrivacyChoiceAsync();
         // Forgotten now that there is somebody to ask as: how much of its version the server answers
         // with depends on what this account may see (see ConfigEndpoints), so the answer cached while
@@ -721,6 +743,17 @@
         }
 
         InvokeAsync(() => MarkNotificationsForCurrentPageReadAsync(e.Location));
+        // Moving from one page to another is a break between two things rather than the middle of one,
+        // which is where an interruption belongs. It refuses itself until the gap has passed, so this is
+        // not "an advert on every navigation" - see ShowTheAdvertIfItIsTimeAsync.
+        if (_isAuthenticated)
+        {
+            InvokeAsync(async () =>
+            {
+                await ShowTheAdvertIfItIsTimeAsync();
+                StateHasChanged();
+            });
+        }
     }
 
     /// <summary>

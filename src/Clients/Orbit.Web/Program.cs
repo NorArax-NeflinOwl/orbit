@@ -154,6 +154,9 @@ builder.Services.AddScoped<PanelPreferences>();
 // Which groups of pins the map draws, remembered by this browser - see MapPinVisibility.
 builder.Services.AddScoped<MapPinVisibility>();
 builder.Services.AddScoped<CalendarListOrder>();
+// When this browser was last interrupted by the advert that covers the page - the clock behind
+// AdInterruption's minimum gap. On the device, so a refresh is not a way of asking for it again.
+builder.Services.AddScoped<LastAdInterruption>();
 // Singleton rather than scoped: PersistentLoggerProvider is registered as a singleton and reads the log
 // level from this on every line it considers.
 builder.Services.AddSingleton<DevicePreferences>();

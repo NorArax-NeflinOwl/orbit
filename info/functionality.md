@@ -195,7 +195,7 @@ Orbit advertises **itself**, in three places:
 
 - a **rail down the right** of a browser window wide enough to have room beside the page (≥1200px);
 - a **bar across the foot** of a narrower one, and of every main screen in the Android app;
-- one **dialog**, shown once a visit.
+- one **dialog**, shown at most once every five minutes.
 
 **The bar gives way to an editor's own bar.** Below 680px the editing screens' panel becomes a bar
 across the foot too (see `EditorRail`), and both are fixed to the bottom edge - so the advert sat over
@@ -219,8 +219,22 @@ objecting to.
 
 **The dialog is the only one that interrupts, and it is not shown to an account holding the Debugger
 permission** (`AdInterruption`). Whoever holds that is looking at Orbit's own internals, which means
-they are working on Orbit rather than reading it. It is shown once a visit; the rail and the bar are
-shown to everybody and simply sit there.
+they are working on Orbit rather than reading it. The rail and the bar are shown to everybody and simply
+sit there.
+
+**It is paced rather than counted: at most once every `AdInterruption.MinimumGap`, five minutes**
+(2026-09-10). It used to be "once a visit", held in a field on the layout - which sounds like the same
+thing and is not, because a visit ends at the next refresh: reloading a page was a way of asking for the
+advert again, and reloading is what people do. The clock is kept on the device instead
+(`LastAdInterruption`, `orbit-last-advert`, a Preferences key), so a refresh remembers.
+
+**Offered where a reader is between things**: arriving, signing in, and moving from one page to another.
+Not on a timer - that would fire over somebody typing a note, which is the one interruption an advert
+has no excuse for. Navigation is not "an advert on every navigation" either: the gap refuses it, and
+five minutes of reading is several pages. A browser that has not been allowed to remember (Preferences
+declined, a private window) reads back nothing, which means "nobody has been interrupted yet" - the
+honest answer for a device that cannot remember, and the failure that shows one advert too many rather
+than none ever again.
 
 Which advert a visit shows is picked once, from a number the layout keeps (`HouseAds.ForSlot`), so it
 cannot change under the reader's eye as pages re-render. The Android bar shows only adverts worth
@@ -2445,7 +2459,9 @@ Orbit uses **local storage, never cookies**, so "Manage cookies" manages that. T
   `orbit-allow-*` keys, which are records of consent in their own right. Shown ticked and unpressable
   rather than hidden: a reader deciding what to allow should see everything being kept.
 - **Preferences** - theme, accent hue, dashboard pins/hidden cards/filters, checklist views, the
-  calendar and task-list and inventory orderings, conversation pins, panel states.
+  calendar and task-list and inventory orderings, conversation pins, panel states, and
+  `orbit-last-advert` (when the interrupting advert last went up - not something anybody arranged, but
+  the same kind of thing, and declining it costs nothing but seeing that advert more often).
 - **Diagnostics** - `orbit.clientLogs` and `orbit-diagnostics-mode`.
 
 The gate is `wwwroot/js/storageConsent.js`, and **where** it sits is the point: it wraps
