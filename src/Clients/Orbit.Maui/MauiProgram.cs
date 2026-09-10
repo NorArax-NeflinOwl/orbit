@@ -14,6 +14,7 @@ using Orbit.Mobile.Location;
 using Orbit.Mobile.Screens.Dashboard;
 using Orbit.Mobile.Screens.Diagnostics;
 using Orbit.Mobile.Screens.Navigation;
+using Orbit.Mobile.Screens.Folders;
 using Orbit.Mobile.Screens.Notes;
 using Orbit.Mobile.Screens.Sharing;
 using Orbit.Mobile.Screens.Suggestions;
@@ -232,6 +233,7 @@ public static class MauiProgram
 		services.AddSingleton<IChecklistReadingStore, PreferencesChecklistReadingStore>();
 		services.AddSingleton<ICalendarListOrderStore, PreferencesCalendarListOrderStore>();
 		services.AddSingleton<IListArrangementStore, PreferencesListArrangementStore>();
+		services.AddSingleton<IChosenFolderStore, PreferencesChosenFolderStore>();
 		services.AddSingleton<IThemeStore, PreferencesThemeStore>();
 		services.AddSingleton<IAccentColorStore, PreferencesAccentColorStore>();
 		services.AddSingleton<ILanguageStore, PreferencesLanguageStore>();

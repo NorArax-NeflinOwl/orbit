@@ -738,6 +738,15 @@ public static class PolishTranslations
         // The tabs every page made of cards is read under - see Orbit.Core.Folders.BuiltInFolder. The
         // finished one is keyed "Finished" rather than "Done", which already means "Gotowe" elsewhere.
         ["Folders"] = "Foldery",
+        // When filing is refused because the thing is somebody else's and there is no connection to ask.
+        ["This one can't be moved while you're offline."] = "Tego nie da się przenieść bez połączenia.",
+        // The menu entry that unfolds the row a folder is named in - see NotesPage.
+        ["Move to folder"] = "Przenieś do folderu",
+        ["No folder"] = "Bez folderu",
+        // Said before a folder goes, because "delete folder" reads as though its notes go too.
+        ["Delete the folder \"{0}\"? Nothing in it is deleted - it goes back to Public, or to Private if it is sealed."]
+            = "Usunąć folder \"{0}\"? Nic z niego nie ginie - wraca do Publicznych, a jeśli jest zapieczętowane, do Prywatnych.",
+        // Also the heading over what can be done to the folders themselves, beside the list of them.
         ["Folder"] = "Folder",
         ["Folder name"] = "Nazwa folderu",
         ["Public"] = "Publiczne",

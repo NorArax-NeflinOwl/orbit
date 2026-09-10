@@ -23,6 +23,7 @@ public partial class TasksPage : ContentPage, ITitleMenu
 		BindingContext = _viewModel = viewModel;
 		_translations = translations;
 		AddButton.Command = NewItemForm.Toggling(AddRow, AddField);
+		_nameAFolder = NewItemForm.Toggling(FolderRow, FolderField);
 	}
 
 	/// <summary>
@@ -36,6 +37,9 @@ public partial class TasksPage : ContentPage, ITitleMenu
 
 	/// <summary>The panel those dots draw - one per screen, above everything else on it.</summary>
 	public ScreenMenu Menu { get; } = new();
+
+	/// <inheritdoc cref="Notes.NotesPage._nameAFolder"/>
+	private readonly ICommand _nameAFolder;
 
 	/// <summary>
 	/// The row template's pin needs a command that lives on the screen rather than on the row, and a
@@ -94,6 +98,17 @@ public partial class TasksPage : ContentPage, ITitleMenu
 	{
 		List<ScreenMenuGroup> groups =
 		[
+			// Which folder is being read, with how many lists are in each - see NotesPage, which draws
+			// the same group for the same reason. A finished list nobody filed gathers under Finished;
+			// one its owner put in a folder of their own stays there, finished or not.
+			new(_translations["Folders"], _viewModel.FolderChoices.Select(choice => new ScreenMenuEntry(
+				choice.Name,
+				() => _viewModel.ChooseFolderCommand.Execute(choice.Key),
+				choice.IsChosen,
+				count: ScreenMenuEntry.CountOf(choice.Count)))),
+
+			new(_translations["Folder"], FolderActions()),
+
 			// The one in force is marked, as the dashboard's card filters mark theirs: the menu covers
 			// the list it is about, so it has to say for itself which order that list is in.
 			new(_translations["Sort"], _viewModel.SortChoices.Select(choice => new ScreenMenuEntry(
@@ -154,5 +169,31 @@ public partial class TasksPage : ContentPage, ITitleMenu
 		}
 
 		Menu.ShowGroups(groups);
+	}
+
+	/// <inheritdoc cref="Notes.NotesPage.FolderActions"/>
+	private List<ScreenMenuEntry> FolderActions()
+	{
+		List<ScreenMenuEntry> entries = [new ScreenMenuEntry(_translations["New folder"], () => _nameAFolder.Execute(null))];
+
+		if (_viewModel.Folders.Chosen.FolderId is not null)
+		{
+			entries.Add(new ScreenMenuEntry(_translations["Delete folder"], () => _ = DeleteTheFolderAsync()));
+		}
+
+		return entries;
+	}
+
+	/// <inheritdoc cref="Notes.NotesPage.DeleteTheFolderAsync"/>
+	private async Task DeleteTheFolderAsync()
+	{
+		var question = _translations.Format(
+			"Delete the folder \"{0}\"? Nothing in it is deleted - it goes back to Public, or to Private if it is sealed.",
+			_viewModel.ChosenFolderName);
+
+		if (await Confirmation.AskAsync(this, question, _translations["Delete folder"], _translations["Cancel"]))
+		{
+			_viewModel.DeleteFolderCommand.Execute(null);
+		}
 	}
 }

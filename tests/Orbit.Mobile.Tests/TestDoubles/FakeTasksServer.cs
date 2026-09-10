@@ -3,6 +3,7 @@ using System.Net.Http.Json;
 using System.Text.Json;
 using System.Web;
 using Orbit.Contracts.Sync;
+using Orbit.Contracts.Folders;
 using Orbit.Contracts.Tasks;
 using Orbit.Core.Tasks;
 
@@ -171,6 +172,10 @@ internal sealed class FakeTasksServer : HttpMessageHandler
         return request.Method.Method switch
         {
             "POST" => await CreateAsync(request, cancellationToken),
+            // Filing has its own endpoint, and this fake has to have it too - see FakeNotesServer,
+            // which says why the real one keeps it off the save.
+            "PUT" when path.EndsWith("/folder", StringComparison.Ordinal)
+                => await FileAsync(request, path, cancellationToken),
             "PUT" => await UpdateAsync(request, path, cancellationToken),
             "DELETE" => Delete(path),
             _ => Json(_taskLists.Values.ToList())
@@ -235,6 +240,21 @@ internal sealed class FakeTasksServer : HttpMessageHandler
             Description = body.IsPrivate ? string.Empty : body.Description ?? string.Empty
         };
         return Json(created.Id, HttpStatusCode.Created);
+    }
+
+    /// <inheritdoc cref="FakeNotesServer.FileAsync"/>
+    private async Task<HttpResponseMessage> FileAsync(
+        HttpRequestMessage request, string path, CancellationToken cancellationToken)
+    {
+        var id = Guid.Parse(path.Split('/')[^2]);
+        if (!_taskLists.TryGetValue(id, out var existing))
+        {
+            return new HttpResponseMessage(HttpStatusCode.NotFound);
+        }
+
+        var body = await ReadAsync<MoveToFolderRequest>(request, cancellationToken);
+        _taskLists[id] = existing with { FolderId = body!.FolderId, UpdatedAtUtc = _timeProvider.GetUtcNow() };
+        return new HttpResponseMessage(HttpStatusCode.NoContent);
     }
 
     private async Task<HttpResponseMessage> UpdateAsync(HttpRequestMessage request, string path, CancellationToken cancellationToken)

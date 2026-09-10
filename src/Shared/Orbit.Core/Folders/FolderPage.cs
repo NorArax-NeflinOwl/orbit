@@ -1,12 +1,14 @@
-using Orbit.Core.Folders;
-
-namespace Orbit.Web.Services;
+namespace Orbit.Core.Folders;
 
 /// <summary>
-/// A page made of cards, as far as the tabs above them are concerned. Three of them, and they are not
+/// A page made of cards, as far as the folders on it are concerned. Three of them, and they are not
 /// interchangeable: what a page offers as tabs, whether it can make one, and whether it has a Finished
 /// tab at all are three answers that differ page by page, and every one of them used to be the same
 /// answer given three times.
+///
+/// "Page" is the browser's word for it; on the phone the same three are screens and the tabs are
+/// entries in a menu. The rules are the same either way, which is why this lives in Orbit.Core beside
+/// FolderPlacement rather than next to one client's drawing of them.
 /// </summary>
 public enum FolderPage
 {

@@ -794,7 +794,8 @@ public sealed class NoteDetailScreenTests
             var screen = new NoteDetailViewModel(
                 Notes, _synchronizer, new NotesClient(Server.ToHttpClient()), NothingIsBeingEdited(_clock),
                 new Translations(new InMemoryLanguageStore()), _privateContent,
-                ShareTestPanel.For(_localStore, new ChatRepository(_localStore, _clock)), Navigator);
+                ShareTestPanel.For(_localStore, new ChatRepository(_localStore, _clock)), Navigator,
+                new LocalFolderRepository(_localStore, _clock));
 
             screen.Open(localId);
             await screen.LoadCommand.ExecuteAsync(null);

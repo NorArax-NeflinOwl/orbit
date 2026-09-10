@@ -135,9 +135,16 @@ about them is under "Screens already built" below.
   *Calendar* (go to today, share this day…): the layers do not exist, "go to today" is already a button
   on the page, and sharing a day is not built. What was taken from the design there is the shape - it
   had always asked two different questions under one heading.
-- **The counts on folder entries.** Notes and Tasks list their folders in the menu with the number of
-  things in each. Nothing in `ScreenMenuEntry` can carry that. *(Done 2026-09-09: `ScreenMenuEntry.Count`
-  is its own quiet column at the end of the line. Folders themselves are still not built on the phone.)*
+- ~~**The counts on folder entries.** Notes and Tasks list their folders in the menu with the number of
+  things in each. Nothing in `ScreenMenuEntry` can carry that.~~ ***Done - the column on 2026-09-09
+  (`ScreenMenuEntry.Count`), the folders themselves on 2026-09-10, walked on the device.*** A *Folders*
+  group on both screens, built-in ones first and then the reader's own, each with how many of the
+  screen's rows are in it and a tick on the one being read; a folder holding nothing shows no number at
+  all, because a standing "0" is not news. Beside it a *Folder* group - **New folder**, which unfolds
+  the same kind of naming row the plus unfolds for a new note, and **Delete folder** while one somebody
+  made is open. Filing is under the note's or the list's own name once it is open, the lists having
+  given up their per-row menus. See `info/functionality.md` for the rest, including what the phone does
+  that the browser cannot: all of it offline.
 - ~~**The task list's own filters write their count into their label**~~ ***Done 2026-09-09.***
   "All 4", "Pending 0" were one string from `TaskListFilter.Label`, so the number was the same size and
   weight as the words and a filter with nothing behind it said "0". `Label` is gone; the count is the

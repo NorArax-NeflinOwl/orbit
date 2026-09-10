@@ -408,6 +408,28 @@ public partial class NoteDetailPage : ContentPage, ITitleMenu
 			entries.Add(new ScreenMenuEntry(_translations["History"], () => _viewModel.GoToHistoryCommand.Execute(null)));
 		}
 
+		// Where it is filed, which is a question about the note rather than about its words - and the
+		// only place it can be asked, since the notes list gave up its per-row menu. "No folder" is one
+		// of the answers rather than a way of undoing the others: a note in none is in a built-in
+		// folder, which is not nothing - see FolderPlacement.
+		if (_viewModel.CanEdit)
+		{
+			List<ScreenMenuEntry> folders =
+			[
+				new ScreenMenuEntry(
+					_translations["No folder"],
+					() => _viewModel.FileCommand.Execute(null),
+					_viewModel.FolderId is null)
+			];
+
+			folders.AddRange(_viewModel.Folders.Select(folder => new ScreenMenuEntry(
+				folder.Name,
+				() => _viewModel.FileCommand.Execute(folder.LocalId),
+				folder.LocalId == _viewModel.FolderId)));
+
+			groups.Add(new ScreenMenuGroup(_translations["Folder"], folders));
+		}
+
 		// Under the note's own name, because the group above it is called something else and a heading
 		// over each half is what tells the reader the two are different questions.
 		groups.Add(new ScreenMenuGroup(_translations["Note"], entries));

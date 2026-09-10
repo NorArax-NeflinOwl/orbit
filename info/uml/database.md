@@ -348,6 +348,24 @@ about it from its cursor like any other change.
 **`OS_RATE_LIMITS`** is keyed on caller and window together, which is what lets taking a permit be one
 `INSERT ... ON CONFLICT DO UPDATE` and therefore safe between replicas.
 
+## The phone's own store, which is a different database
+
+Everything above is PostgreSQL. The phone keeps a second store of its own in SQLite (`orbit.db3`) with a
+shape of its own, because a phone has to answer while offline and a server never does — see
+[components](components.md#what-shared-does-and-does-not-mean). It is not drawn table by table here; two
+rules about it are worth having beside the schema above:
+
+**Everything the phone holds has two ids.** A `LocalId` it generated, which never changes and is what
+other local rows point at, and a nullable `ServerId`, which is null until a create has been accepted.
+`LocalFolder` is no exception, and that is what lets a note be filed into a folder made with no
+connection: the note points at this device's id for it, and the send resolves the server's at replay
+time.
+
+**`FolderId` on a local note or list is a *local* folder id**, never the server's. A pull translates on
+the way in, and an id this phone has no folder for leaves the row unfiled rather than pointing at
+nothing — which is the same answer `FolderPlacement` gives for an unknown id, and puts the note back
+under whichever built-in folder it belongs to instead of losing it from every tab.
+
 ## Migrations
 
 EF Core generates them and they are reviewed by hand before they are kept — see

@@ -166,8 +166,27 @@ public partial class TaskListDetailPage : ContentPage, ITitleMenu, ITitleSteps
 				_translations["History"], () => _viewModel.GoToHistoryCommand.Execute(null)));
 		}
 
+		// Where it is filed, which is a question about the list rather than about the work on it. Only
+		// where this reader may change the list at all - filing is the owner's decision about their own
+		// page. "No folder" is one of the answers rather than a way of undoing the others: a list in
+		// none is in a built-in folder, which is not nothing - see FolderPlacement.
+		List<ScreenMenuEntry> folders = [];
+
+		if (_viewModel.CanEdit)
+		{
+			folders.Add(new ScreenMenuEntry(
+				_translations["No folder"],
+				() => _viewModel.FileCommand.Execute(null),
+				_viewModel.FolderId is null));
+
+			folders.AddRange(_viewModel.Folders.Select(folder => new ScreenMenuEntry(
+				folder.Name,
+				() => _viewModel.FileCommand.Execute(folder.LocalId),
+				folder.LocalId == _viewModel.FolderId)));
+		}
+
 		// An empty group is left out rather than drawn as a heading over nothing, which is what lets the
-		// shelf's two be offered only sometimes - see ScreenMenu.ShowGroups.
+		// shelf's two and the folders be offered only sometimes - see ScreenMenu.ShowGroups.
 		Menu.ShowGroups(
 		[
 			new ScreenMenuGroup(_translations["Sort"],
@@ -176,6 +195,7 @@ public partial class TaskListDetailPage : ContentPage, ITitleMenu, ITitleSteps
 				Order(_translations["A to Z"], ChecklistOrder.Alphabetical),
 				Order(_translations["Left to do first"], ChecklistOrder.UndoneFirst)
 			]),
+			new ScreenMenuGroup(_translations["Folder"], folders),
 			new ScreenMenuGroup(_translations["Inventory"], shelf),
 			new ScreenMenuGroup(_translations["List"], list)
 		]);

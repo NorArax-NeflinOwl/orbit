@@ -60,12 +60,20 @@ shared *application* layer with two hosts; it is a shared *vocabulary and rulebo
 
 What the clients actually take from it is rules that must not be re-decided differently on each side —
 `Orbit.Core.Sync`, `Orbit.Core.Permissions`, `Orbit.Core.Tasks`, `Orbit.Core.Inventories`,
-`Orbit.Core.Suggestions`, `Orbit.Core.Notifications`. A permission the phone read differently from the
-server, or a sync state it named differently, would be a disagreement no compiler could catch.
+`Orbit.Core.Suggestions`, `Orbit.Core.Notifications`, `Orbit.Core.Folders`. A permission the phone read
+differently from the server, or a sync state it named differently, would be a disagreement no compiler
+could catch.
+
+`Orbit.Core.Folders` is the clearest case of the rule, because two of its types went there *after* being
+written for one client. `FolderKey`, `FolderPlacement` and `FolderPages` began in `Orbit.Web.Services`
+and moved when the phone grew folders: which folder something is in is not a drawing, it is the
+definition of where the thing is, and two clients working it out separately is two clients that can
+disagree about which tab a note is under. The browser draws them as tabs and the phone as entries in a
+menu; that part stays each client's own.
 
 **The phone keeps its own model.** `Orbit.Mobile.Data` holds `LocalNote`, `LocalTaskList`,
-`LocalCalendarEvent`, `LocalInventory`, `LocalChatMessage` and repositories over a local SQLite
-database. Those are not implementations of `Orbit.Core`'s repository ports — they are a second store
+`LocalCalendarEvent`, `LocalInventory`, `LocalChatMessage`, `LocalFolder` and repositories over a local
+SQLite database. Those are not implementations of `Orbit.Core`'s repository ports — they are a second store
 with a shape of its own, because a phone has to answer while offline and a server never does. The two
 are reconciled by the synchronisers rather than by sharing an interface (see [flows](flows.md)).
 

@@ -37,6 +37,21 @@
                 <Button Grid.Column="1" Text="{controls:Translate 'Add'}" Style="{StaticResource PrimaryButton}"
                         Command="{Binding AddNoteCommand}" />
             </Grid>
+
+            <!-- Naming a new folder, unfolded from the menu rather than standing on the screen: making
+                 one is something somebody does once, and the same row the plus unfolds for a new note -
+                 see NewItemForm, which both are toggled by. -->
+            <Grid x:Name="FolderRow" IsVisible="False" ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                <Entry x:Name="FolderField" Grid.Column="0"
+                       Placeholder="{controls:Translate 'Folder name'}"
+                       Text="{Binding NewFolderName}"
+                       ReturnType="Done"
+                       ReturnCommand="{Binding MakeFolderCommand}"
+                       ReturnCommandParameter="{Binding NewFolderName}" />
+                <Button Grid.Column="1" Text="{controls:Translate 'Add'}" Style="{StaticResource PrimaryButton}"
+                        Command="{Binding MakeFolderCommand}"
+                        CommandParameter="{Binding NewFolderName}" />
+            </Grid>
         </VerticalStackLayout>
 
         <RefreshView Grid.Row="1"

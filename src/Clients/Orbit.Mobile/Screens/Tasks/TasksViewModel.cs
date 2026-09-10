@@ -3,10 +3,12 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Orbit.Contracts.Sync;
 using Orbit.Mobile.Api;
+using Orbit.Core.Folders;
 using Orbit.Mobile.Data;
 using Orbit.Mobile.Localization;
 using Orbit.Mobile.Screens.Notes;
 using Orbit.Mobile.Security;
+using Orbit.Mobile.Screens.Folders;
 using Orbit.Mobile.Sync;
 
 namespace Orbit.Mobile.Screens.Tasks;
@@ -121,8 +123,12 @@ public sealed partial class TasksViewModel : ObservableObject
         LocalTaskListRepository taskLists, TaskListSynchronizer synchronizer, TasksClient tasksClient,
         INetworkStatus networkStatus, ITaskListArrangementStore arrangements, PrivateItemGate privateItems,
         SyncState syncState, IScreenNavigator navigator, Translations translations,
-        LocalNotificationRepository notifications)
+        LocalNotificationRepository notifications, LocalFolderRepository folders, IChosenFolderStore chosenFolder,
+        FolderSynchronizer folderSynchronizer)
     {
+        _folderSynchronizer = folderSynchronizer;
+        _folders = folders;
+        Folders = new FolderTabs(folders, chosenFolder, translations, FolderPage.Tasks);
         _notifications = notifications;
         _taskLists = taskLists;
         _synchronizer = synchronizer;
@@ -137,7 +143,22 @@ public sealed partial class TasksViewModel : ObservableObject
         _collapsed = [.. arrangements.ReadCollapsed()];
     }
 
+    private readonly LocalFolderRepository _folders;
+
+    /// <inheritdoc cref="Notes.NotesViewModel._folderSynchronizer"/>
+    private readonly FolderSynchronizer _folderSynchronizer;
+
     public ObservableCollection<TaskListRow> TaskLists { get; } = [];
+
+    /// <inheritdoc cref="Notes.NotesViewModel.Folders"/>
+    public FolderTabs Folders { get; }
+
+    /// <inheritdoc cref="Notes.NotesViewModel.FolderChoices"/>
+    public ObservableCollection<FolderChoice> FolderChoices { get; } = [];
+
+    /// <inheritdoc cref="Notes.NotesViewModel.ChosenFolderName"/>
+    public string ChosenFolderName
+        => FolderChoices.FirstOrDefault(choice => choice.IsChosen)?.Name ?? string.Empty;
 
     /// <summary>What the cards are sorted by - the half of the arrangement a reader chooses directly.</summary>
     public TaskListSortOrder SortOrder => _arrangement.SortOrder;
@@ -267,8 +288,58 @@ public sealed partial class TasksViewModel : ObservableObject
         // unread answers it for every card, and a card asking the database for itself would be one
         // round trip per list on a screen that exists to be scrolled.
         _unreadUrls = UnreadNews.AddressesIn(await _notifications.GetUnreadAsync(cancellationToken));
+        await Folders.ReadAsync(cancellationToken);
 
         ShowArrangedLists();
+    }
+
+    /// <summary>Which folder one list is under - see FolderTabs.Where, and FolderPlacement.</summary>
+    private FolderKey Where(LocalTaskList taskList)
+        => Folders.Where(taskList.FolderId, taskList.IsPrivate, taskList.IsCompleted);
+
+    /// <inheritdoc cref="Notes.NotesViewModel.ChooseFolderAsync"/>
+    [RelayCommand]
+    private async Task ChooseFolderAsync(FolderKey key, CancellationToken cancellationToken)
+    {
+        Folders.Choose(key);
+        await ShowStoredListsAsync(cancellationToken);
+    }
+
+    /// <inheritdoc cref="Notes.NotesViewModel.MakeFolderAsync"/>
+    [RelayCommand]
+    private async Task MakeFolderAsync(string? name, CancellationToken cancellationToken)
+    {
+        if (name?.Trim() is not { Length: > 0 } wanted)
+        {
+            return;
+        }
+
+        var folder = await _folders.CreateAsync(wanted, FolderScope.Tasks, cancellationToken);
+        NewFolderName = string.Empty;
+        Folders.Choose(FolderKey.Of(folder.LocalId));
+
+        await ShowStoredListsAsync(cancellationToken);
+        await SynchroniseAsync(cancellationToken);
+    }
+
+    /// <inheritdoc cref="Notes.NotesViewModel.NewFolderName"/>
+    [ObservableProperty]
+    private string _newFolderName = string.Empty;
+
+    /// <inheritdoc cref="Notes.NotesViewModel.DeleteFolderAsync"/>
+    [RelayCommand]
+    private async Task DeleteFolderAsync(CancellationToken cancellationToken)
+    {
+        if (Folders.Chosen.FolderId is not { } folderId)
+        {
+            return;
+        }
+
+        await _folders.DeleteAsync(folderId, cancellationToken);
+        Folders.Choose(FolderKey.Default);
+
+        await ShowStoredListsAsync(cancellationToken);
+        await SynchroniseAsync(cancellationToken);
     }
 
     private IReadOnlyList<LocalTaskList> _stored = [];
@@ -294,9 +365,21 @@ public sealed partial class TasksViewModel : ObservableObject
     {
         ShowCategoriesInUse();
 
+        // Where each list is, by the rule both clients share. A finished list nobody filed gathers under
+        // Finished; one its owner put in a folder of their own stays there, finished or not - see
+        // FolderPlacement, which says why filing beats finishing.
+        FolderChoices.Clear();
+        foreach (var choice in Folders.Describe(_stored.Select(Where)))
+        {
+            FolderChoices.Add(choice);
+        }
+
+        OnPropertyChanged(nameof(ChosenFolderName));
+
         TaskLists.Clear();
         foreach (var taskList in TaskListView.Arrange(_stored, StatusFilter, _arrangement)
-            .Where(_itemFilter.HasAMatch))
+            .Where(_itemFilter.HasAMatch)
+            .Where(taskList => Folders.Holds(Where(taskList))))
         {
             // Every list, not just the visible ones: a group's row looks up what its links stand for,
             // and a member filtered off the screen is still where that work sits.
@@ -516,6 +599,11 @@ public sealed partial class TasksViewModel : ObservableObject
         _syncState.RecordStarted();
         try
         {
+            // The folders first, and always - see _folderSynchronizer. This screen shows them, so it
+            // keeps them current the same way it keeps the lists current; and a folder made here with no
+            // connection would otherwise sit in the queue until somebody happened to make another one.
+            await _folderSynchronizer.SynchroniseAsync(cancellationToken);
+
             var result = await _synchronizer.SynchroniseAsync(cancellationToken);
             RecordSync(result);
 

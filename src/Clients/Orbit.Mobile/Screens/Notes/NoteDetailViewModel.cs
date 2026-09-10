@@ -2,6 +2,7 @@ using System.Collections.ObjectModel;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Orbit.Contracts.Notes;
+using Orbit.Core.Folders;
 using Orbit.Mobile.Api;
 using Orbit.Mobile.Data;
 using Orbit.Mobile.Localization;
@@ -26,6 +27,7 @@ namespace Orbit.Mobile.Screens.Notes;
 public sealed partial class NoteDetailViewModel : ObservableObject
 {
     private readonly LocalNoteRepository _notes;
+    private readonly LocalFolderRepository _folders;
     private readonly NoteSynchronizer _synchronizer;
     private readonly NotesClient _notesClient;
     private readonly EditLock _editLock;
@@ -78,8 +80,10 @@ public sealed partial class NoteDetailViewModel : ObservableObject
 
     public NoteDetailViewModel(
         LocalNoteRepository notes, NoteSynchronizer synchronizer, NotesClient notesClient, EditLock editLock,
-        Translations translations, PrivateContentSealer privateContent, SharePanel share, IScreenNavigator navigator)
+        Translations translations, PrivateContentSealer privateContent, SharePanel share, IScreenNavigator navigator,
+        LocalFolderRepository folders)
     {
+        _folders = folders;
         _notes = notes;
         _synchronizer = synchronizer;
         _notesClient = notesClient;
@@ -99,6 +103,37 @@ public sealed partial class NoteDetailViewModel : ObservableObject
     /// and the phone's own dashboard filters by them without ever being able to set one.
     /// </summary>
     public IReadOnlyList<Tasks.PriorityChoice> Priorities { get; }
+
+    /// <summary>
+    /// The folders this note could be filed under - the ones somebody made on the notes screen. Offered
+    /// here rather than from the list, because everything that can be done to a note is under its own
+    /// name once it is open: the list gave up its per-row menu for that.
+    /// </summary>
+    public IReadOnlyList<LocalFolder> Folders { get; private set; } = [];
+
+    /// <summary>Which of them it is in, or null for one in none - see FolderPlacement.</summary>
+    [ObservableProperty]
+    private Guid? _folderId;
+
+    /// <summary>
+    /// Puts it in a folder, or takes it out of one. Written down at once and queued behind whatever
+    /// else is waiting, like every other change made here - see LocalNoteRepository.FileAsync, which
+    /// explains why filing is its own kind of change rather than part of the save.
+    /// </summary>
+    [RelayCommand]
+    private async Task FileAsync(Guid? folderId, CancellationToken cancellationToken)
+    {
+        var outcome = await _notes.FileAsync(_localId, folderId, cancellationToken);
+
+        if (outcome is LocalWriteOutcome.RefusedWhileOffline)
+        {
+            Status = _translations["This one can't be moved while you're offline."];
+            return;
+        }
+
+        FolderId = folderId;
+        Status = string.Empty;
+    }
 
     [ObservableProperty]
     private Tasks.PriorityChoice _chosenPriority;
@@ -386,6 +421,8 @@ public sealed partial class NoteDetailViewModel : ObservableObject
 
         Title = note.Title;
         IsSharedWithMe = note.IsShared;
+        FolderId = note.FolderId;
+        Folders = [.. (await _folders.GetAllAsync(FolderScope.Notes, cancellationToken))];
         _isShowingWhatIsStored = true;
         ChosenPriority = Tasks.PriorityChoice.For(note.Priority, _translations);
         IsPrivate = note.IsPrivate;
