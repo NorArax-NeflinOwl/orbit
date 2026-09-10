@@ -555,6 +555,13 @@ inventory lists, the contacts tabs, the chat menus - is built and needs no schem
 
 ## Noticed while working
 
+- **Options still calls an inventory a "storage".** The export and import half of `Options.razor`
+  says "notes, task lists, events and storages", the tick-box is labelled `T["Storages"]`, and the
+  two result lines count "{3} storages" - with the Polish strings in `PolishTranslations.cs` to
+  match ("Magazyny"). Everywhere else the word has been Inventory since PR #196, including the tab
+  the same page sits beside. Noticed on 2026-09-10 while walking the web on Windows; a rename of
+  four strings and their translations, kept off that day's change because it was about nginx.
+
 - **A Location entry says where in words, and cannot be drawn.** `TaskItemKind.Location` was added on
   2026-09-10 so an entry can say where without saying when, and what it carries is `TaskItem.Location` -
   a line of text, the same one every other kind has had. A point lives on `Place` instead, which is its
