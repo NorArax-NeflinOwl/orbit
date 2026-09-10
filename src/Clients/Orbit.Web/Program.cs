@@ -153,6 +153,8 @@ builder.Services.AddScoped<TaskItemCompletion>();
 builder.Services.AddScoped<PanelPreferences>();
 // Which groups of pins the map draws, remembered by this browser - see MapPinVisibility.
 builder.Services.AddScoped<MapPinVisibility>();
+// And which of the map panel's lists this browser keeps at the top of it - see MapPanelPins.
+builder.Services.AddScoped<MapPanelPins>();
 builder.Services.AddScoped<CalendarListOrder>();
 // When this browser was last interrupted by the advert that covers the page - the clock behind
 // AdInterruption's minimum gap. On the device, so a refresh is not a way of asking for it again.

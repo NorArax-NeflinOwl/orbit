@@ -4312,6 +4312,23 @@ input.note-editor-title {
     margin-top: -4px;
 }
 
+/* The panel's boxes, in a column of their own. Their own wrapper because a pinned one is lifted by
+   `order`, and .map-panel's own children are already ordered on a phone to put the map above the lists
+   - two order schemes on one set of items is one of them silently losing. */
+.map-panel-lists {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    min-width: 0;
+}
+
+/* Brought to the top of the panel - see MapPanelPins. Several pinned at once keep the order the page
+   writes them in, so pinning says "bring this up" rather than "make this first", which is the promise
+   a pinned note or card makes everywhere else. */
+.map-panel-section-pinned {
+    order: -1;
+}
+
 .map-panel-section {
     display: flex;
     flex-direction: column;

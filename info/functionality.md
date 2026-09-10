@@ -1976,6 +1976,21 @@ screen that has to work when Orbit cannot draw a map itself: an Android build wi
 reader who never gave Orbit their location. A share with no position in it offers no button - it still
 says it cannot be opened.
 
+**A panel list can be pinned to the top of the panel** (2026-09-10, `MapPanelPins`,
+`orbit-map-panel-pin-*`, a Preferences key). The panel holds three - who you are sharing your position
+with, who is sharing one with you, and everything in your calendar and lists that says where it happens
+- and which of them matters is a question about the day rather than about Orbit: somebody meeting a
+person wants the names, somebody on their way somewhere wants the plans, and on a phone the third of
+them is a scroll away. The same pin every other list in Orbit uses, so the gesture means one thing
+everywhere, and **a different question from the eye beside it**: the eye is about what the map draws,
+the pin about what the reader wants in front of them. Several may be pinned at once and they keep the
+order the page writes them in, so pinning says "bring this up" rather than "make this first". Kept on
+the device, like the eyes.
+
+It is done with `order` inside a wrapper of the panel's own (`.map-panel-lists`) rather than by
+reordering the markup: `.map-panel`'s children are already ordered on a phone to put the map above the
+lists, and two order schemes over one set of items is one of them silently losing.
+
 **The web asks which app should take you there** (2026-09-10). Every "Sharing with you" row and every
 "Where your plans are" row on `/map` carries a **Take me there** button, and so does each pin's own popup
 - one press inside the callout rather than hunting the matching row. It opens a short list of map apps
@@ -2524,7 +2539,8 @@ Orbit uses **local storage, never cookies**, so "Manage cookies" manages that. T
 - **Preferences** - theme, accent hue, dashboard pins/hidden cards/filters, checklist views, the
   calendar and task-list and inventory orderings, conversation pins, panel states, and
   `orbit-last-advert` (when the interrupting advert last went up - not something anybody arranged, but
-  the same kind of thing, and declining it costs nothing but seeing that advert more often).
+  the same kind of thing, and declining it costs nothing but seeing that advert more often), and
+  `orbit-map-panel-pin-*` (which of the map panel's lists is kept at the top of it).
 - **Diagnostics** - `orbit.clientLogs` and `orbit-diagnostics-mode`.
 
 The gate is `wwwroot/js/storageConsent.js`, and **where** it sits is the point: it wraps

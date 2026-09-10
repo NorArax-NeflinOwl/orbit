@@ -607,6 +607,65 @@ public sealed class MapPageTests : OrbitTestContext
         ButtonSaying(cut, "Show places already past").Click();
     }
 
+    /// <summary>
+    /// The panel holds three lists and the one that matters is a question about the day rather than
+    /// about Orbit - somebody meeting a person wants the names, somebody on their way somewhere wants
+    /// the plans, and on a phone the third of them is a scroll away. Pinning brings one to the top.
+    ///
+    /// Checked as the class that lifts it rather than as a position in the document: the lift is
+    /// `order`, so the boxes are drawn where they were written and the browser puts them elsewhere -
+    /// which is a thing bUnit's own tree cannot see.
+    /// </summary>
+    [Fact]
+    public void A_panel_list_can_be_pinned_to_the_top_of_the_panel()
+    {
+        GrantLocations();
+        var cut = RenderComponent<MapPage>();
+        Assert.Empty(cut.FindAll(".map-panel-section-pinned"));
+
+        PanelPinFor(cut, "Where your plans are").Click();
+
+        var pinned = Assert.Single(cut.FindAll(".map-panel-section-pinned"));
+        Assert.Contains("Where your plans are", pinned.TextContent, StringComparison.Ordinal);
+    }
+
+    /// <summary>Several may be pinned at once, and pressing one again puts it back.</summary>
+    [Fact]
+    public void Pinning_a_second_list_leaves_the_first_pinned_and_unpinning_puts_it_back()
+    {
+        GrantLocations();
+        var cut = RenderComponent<MapPage>();
+        PanelPinFor(cut, "Where your plans are").Click();
+        PanelPinFor(cut, "Sharing with you").Click();
+        Assert.Equal(2, cut.FindAll(".map-panel-section-pinned").Count);
+
+        PanelPinFor(cut, "Where your plans are").Click();
+
+        var pinned = Assert.Single(cut.FindAll(".map-panel-section-pinned"));
+        Assert.Contains("Sharing with you", pinned.TextContent, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// The eye and the pin are two questions about one list - what the map draws, and what the reader
+    /// wants in front of them - so pressing one must not answer the other.
+    /// </summary>
+    [Fact]
+    public void Pinning_a_list_does_not_take_its_pins_off_the_map()
+    {
+        GrantLocations();
+        var cut = RenderComponent<MapPage>();
+
+        PanelPinFor(cut, "Sharing with you").Click();
+
+        Assert.Equal("true", PinToggleFor(cut, "Sharing with you").GetAttribute("aria-pressed"));
+    }
+
+    /// <summary>The pin on the heading of the section named this - see MapPanelPins.</summary>
+    private static AngleSharp.Dom.IElement PanelPinFor(IRenderedFragment cut, string heading)
+        => cut.FindAll(".map-panel-section")
+            .First(section => section.QuerySelector(".map-panel-heading")?.TextContent.Contains(heading, StringComparison.Ordinal) == true)
+            .QuerySelector(".pin-button")!;
+
     /// <summary>The eye on the heading of the section named this - see MapPinVisibility.</summary>
     private static AngleSharp.Dom.IElement PinToggleFor(IRenderedFragment cut, string heading)
         => cut.FindAll(".map-panel-section")
@@ -710,6 +769,9 @@ public sealed class MapPageTests : OrbitTestContext
         // Which groups of pins the map draws. The stub runtime answers localStorage with null, so both
         // groups are shown - which is what a browser nobody has hidden anything on looks like.
         Services.AddSingleton(new MapPinVisibility(jsRuntime));
+        // And which of the panel's lists is kept at the top of it. Same stub, same answer: nothing is
+        // pinned, which leaves the panel in the order the page writes it.
+        Services.AddSingleton(new MapPanelPins(jsRuntime));
         Services.AddSingleton(new GoogleIntegrationAccess(
             usersApiClient, new DevicePreferences(jsRuntime), NullLogger<GoogleIntegrationAccess>.Instance));
         Services.AddSingleton(new UserPermissionState(usersApiClient));

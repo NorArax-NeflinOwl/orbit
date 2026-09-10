@@ -24,6 +24,7 @@
 @inject ChosenPlace ChosenPlace
 @inject DevicePreferences DevicePreferences
 @inject MapPinVisibility MapPins
+@inject MapPanelPins PanelPins
 @inject NavigationManager NavigationManager
 @inject ILogger<MapPage> Logger
 @inject UserPermissionState Permissions
@@ -103,6 +104,10 @@ else
         }
         else
         {
+        @* The four boxes, in a wrapper of their own so a pinned one can rise past the others without
+           fighting the order the whole page is laid out in on a phone - see .map-panel-lists, and the
+           order rules under @media (max-width: 680px), which are about .map-panel's own children. *@
+        <div class="map-panel-lists">
         <section class="map-panel-section map-panel-share">
             <h2 class="map-panel-heading">@T["Share where you are"]</h2>
             @if (_contacts.Count == 0)
@@ -130,8 +135,11 @@ else
             }
         </section>
 
-        <section class="map-panel-section">
-            <h2 class="map-panel-heading">@T["You are sharing with"]</h2>
+        <section class="map-panel-section @PinnedClass(MapPanelPins.PanelList.YouAreSharingWith)">
+            <div class="map-panel-heading-row">
+                <h2 class="map-panel-heading">@T["You are sharing with"]</h2>
+                @RenderPanelPin(MapPanelPins.PanelList.YouAreSharingWith)
+            </div>
             @if (_ownShares.Count == 0)
             {
                 <p class="empty-hint">@T["Nobody yet."]</p>
@@ -172,11 +180,14 @@ else
             }
         </section>
 
-        <section class="map-panel-section">
-            @* The heading, and the eye that takes this list's pins off the map without taking the list
-               off the page - see MapPinVisibility. *@
+        <section class="map-panel-section @PinnedClass(MapPanelPins.PanelList.SharingWithYou)">
+            @* The heading, the eye that takes this list's pins off the map without taking the list off
+               the page (see MapPinVisibility), and the pin that brings the list itself to the top of
+               the panel (see MapPanelPins). Two different questions about one list, which is why they
+               are two controls: what the map draws, and what the reader wants in front of them. *@
             <div class="map-panel-heading-row">
                 <h2 class="map-panel-heading">@T["Sharing with you"]</h2>
+                @RenderPanelPin(MapPanelPins.PanelList.SharingWithYou)
                 @RenderPinToggle(MapPinVisibility.PinGroup.SharedWithYou, T["Show these on the map"], T["Hide these from the map"])
             </div>
             @if (_receivedPositions.Count == 0)
@@ -220,9 +231,10 @@ else
         @* Everything with an address on it, which until now the map knew nothing about: a page showing
            where people are and nothing about where the reader is going. Pressing a row centres the map
            on its pin, the same press a name in the list above answers to. *@
-        <section class="map-panel-section">
+        <section class="map-panel-section @PinnedClass(MapPanelPins.PanelList.YourPlans)">
             <div class="map-panel-heading-row">
                 <h2 class="map-panel-heading">@T["Where your plans are"]</h2>
+                @RenderPanelPin(MapPanelPins.PanelList.YourPlans)
                 @RenderPinToggle(MapPinVisibility.PinGroup.YourPlans, T["Show these on the map"], T["Hide these from the map"])
             </div>
             @* Only while the past is being shown at all, because it is a question about the past: how
@@ -278,6 +290,7 @@ else
                 </div>
             }
         </section>
+        </div>
         }
     </div>
 
@@ -678,6 +691,7 @@ else
         // both were forgotten the moment the page was left, so the option had to be found and pressed
         // again on every visit.
         await MapPins.InitializeAsync();
+        await PanelPins.InitializeAsync();
         _showsPastPlaces = MapPins.ShowsPastPlaces;
         _showsPastPlacesFrom = MapPins.PastPlacesFrom;
         await LoadAsync();
@@ -846,6 +860,26 @@ else
         }
 
         return points;
+    }
+
+    /// <summary>
+    /// The pin on a panel's heading: whether this list is kept at the top of the panel. The same
+    /// control every other list in Orbit pins with, so the gesture means one thing everywhere - and a
+    /// different question from the eye beside it, which is about the map rather than about the panel.
+    /// </summary>
+    private RenderFragment RenderPanelPin(MapPanelPins.PanelList list)
+        => @<PinButton IsPinned="PanelPins.IsPinned(list)"
+                       OnPinnedChanged="pinned => SetPanelPinnedAsync(list, pinned)" />;
+
+    /// <summary>What lifts a pinned box past the others - see .map-panel-lists, where the order lives.</summary>
+    private string? PinnedClass(MapPanelPins.PanelList list)
+        => PanelPins.IsPinned(list) ? "map-panel-section-pinned" : null;
+
+    private async Task SetPanelPinnedAsync(MapPanelPins.PanelList list, bool isPinned)
+    {
+        Logger.LogInformation(
+            "User {Action} the {List} list on the map panel", isPinned ? "pinned" : "unpinned", list);
+        await PanelPins.SetPinnedAsync(list, isPinned);
     }
 
     /// <summary>

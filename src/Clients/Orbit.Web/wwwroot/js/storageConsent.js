@@ -47,7 +47,7 @@ window.OrbitStorageConsent = (function () {
         // costs nothing but seeing that advert more often - see AdInterruption.
         'orbit-last-advert'
     ];
-    const preferencePrefixes = ['orbit-panel-', 'orbit-task-list-'];
+    const preferencePrefixes = ['orbit-panel-', 'orbit-task-list-', 'orbit-map-panel-pin-'];
 
     // What Orbit noticed going wrong on this device. Never leaves it on its own - see the Privacy page -
     // but it is still a record of what somebody was doing when it broke, so it is declinable.
