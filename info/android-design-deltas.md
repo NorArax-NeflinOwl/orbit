@@ -149,9 +149,13 @@ about them is under "Screens already built" below.
 
 ### Dashboard
 
-- **The counter strip is one baseline, not three columns.** The design puts a coloured dot, the number
-  in Cormorant 20, and the label in 12px on a single row, three of them side by side under a hairline.
-  The app stacks number over label with no dot.
+- ~~**The counter strip is one baseline, not three columns.**~~ ***Done 2026-09-10, walked on the
+  device.*** A coloured dot, the number, and what it counts, side by side under the hairline - which is
+  Orbit.Web's own strip as well as the design's. The colour moved from the number to the dot, so the
+  three numbers read as three of the same thing and the dot says which; stacked, each label sat under
+  its number in small caps and read as a heading over the next counter along. The labels are shorter
+  than the browser's ("tasks due", "events", "chat requests"): three of "tasks due today" side by side
+  do not fit in 412 points, and the heading over them already says *Today*.
 - **A card's rows can carry more than they do.** The design's row is: optional colour dot, optional
   26px initials ring with a presence dot on it, the title, an optional priority chip, an optional
   48×3 progress bar, and the detail. Contacts rows on the dashboard therefore show who is online, and
@@ -159,10 +163,17 @@ about them is under "Screens already built" below.
 
 ### Notes
 
-- **The tag chip belongs on the title's line, at the right.** The app puts it on its own line under the
-  title - visible on any note tagged "copy".
+- ~~**The tag chip belongs on the title's line, at the right.**~~ ***Done 2026-09-10.*** The "copy" tag
+  moved out of `ItemCard.Tags`, which is the line below, into `Trailing` beside the priority chip, and
+  it is drawn as a chip rather than as a bare word - a word beside a chip reads as the end of the title
+  instead of as a fact about it. **Not walked**: a note is a copy only after somebody else's note has
+  been taken for offline editing, and there is none on the emulator. The priority chip beside it is
+  device-verified in the same slot, and `CardBadge` is the calendar's own chip.
 - The preview line is **justified** (`text-align:justify`), which is the design's habit for running
-  prose and is why the notes list reads as a column of paragraphs rather than a list.
+  prose and is why the notes list reads as a column of paragraphs rather than a list. **MAUI cannot do
+  this**: `TextAlignment` is Start, Center or End, with no Justify, so it would take a platform handler
+  on every Label - and the app's preview is one truncated line rather than a paragraph anyway, which
+  was a deliberate departure the day the list was drawn.
 - The notes list has **no search box**. Tasks, Inventory and Contacts each have one; Notes does not.
   The app matches this today - worth not "fixing".
 
