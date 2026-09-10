@@ -11,10 +11,6 @@
     x:Name="Page"
     Title="{controls:Translate 'Contacts'}">
 
-    <ContentPage.Resources>
-        <controls:PresenceColorConverter x:Key="PresenceColor" />
-    </ContentPage.Resources>
-
     <Grid RowDefinitions="Auto,*,Auto">
 
 

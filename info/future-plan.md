@@ -640,13 +640,12 @@ inventory lists, the contacts tabs, the chat menus - is built and needs no schem
   doesn't know about" path instead of posting a share id to the *inventory* accept endpoint and being
   told it is no longer there. `location` is the case that used to be wrong and is covered by a test.
 
-- **The checklist matches entries by position when it no longer has to.** `ToggleItemAsync` saves the
-  whole list back and finds the entry it changed by its index, on the grounds that "a save regenerates
-  item ids". That stopped being true when `TaskItemRequest.Id` was added - `TaskEndpoints.ToDomainItem`
-  keeps the id it is sent - and the comment saying otherwise stood for as long as it had been wrong.
-  Position still works and nothing is broken by it, so this is a tidy-up rather than a defect: matching
-  by id is what somebody in there anyway should switch it to. Found while fixing the ids private lists
-  seal (2026-09-07).
+- ~~**The checklist matches entries by position when it no longer has to.**~~ Done on 2026-09-10, and it
+  turned out to be a defect rather than the tidy-up this entry called it. `TaskItemCompletion` found the
+  entry with `IndexOf`, which compares a record by every field - so it worked until the caller held a
+  copy that was no longer equal to the stored one, which a second reader's save is enough to produce.
+  `IndexOf` then answers -1, nothing matches, and the list is saved back **with nothing ticked at all**,
+  reporting success. It matches on the id now, and by position only for an entry that has none.
 
 Written down rather than fixed on the spot, per rule 14 in `.claude/CLAUDE.md`: work that turns up
 beside a task belongs here, not in that task's diff. A defect is the exception and is fixed when found.

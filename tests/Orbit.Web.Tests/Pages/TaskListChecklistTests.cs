@@ -8,6 +8,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Orbit.Contracts.Inventories;
 using Orbit.Contracts.Tasks;
+using Orbit.Core.Abstractions;
 using Orbit.Contracts.Users;
 using Orbit.Web.Pages;
 using Orbit.Web.Services;
@@ -383,6 +384,35 @@ public sealed class TaskListChecklistTests : OrbitTestContext
         var item = JsonDocument.Parse(_requestBodies[_requests.IndexOf(update)]).RootElement.GetProperty("items")[0];
         Assert.False(item.GetProperty("isCompleted").GetBoolean());
         Assert.True(item.GetProperty("isFailed").GetBoolean());
+    }
+
+    /// <summary>
+    /// The entry that was pressed is found by its id, not by where it sits.
+    ///
+    /// Position was the rule until 2026-09-10, on the strength of a comment saying a save regenerates
+    /// ids - which stopped being true when `TaskItemRequest.Id` was added. It worked because `IndexOf`
+    /// compares a record by every field, id included; what it could not survive is a caller holding a
+    /// copy of the entry that is no longer equal to the stored one, which answers -1 and **ticks
+    /// nothing at all**, silently. That is what this drives: the same entry with one other field
+    /// changed under it, as a second reader's save would leave it.
+    /// </summary>
+    [Fact]
+    public async Task An_entry_is_ticked_by_its_id_even_when_the_copy_in_hand_is_stale()
+    {
+        var stored = Item("Buy milk");
+        var taskList = TaskList("Errands", stored, Item("Post the parcel"));
+        RegisterTasksApiClient([taskList]);
+        var completion = Services.GetRequiredService<TaskItemCompletion>();
+
+        // The same entry as the list holds, but carrying a description somebody else has since changed.
+        var stale = stored with { Description = "Buy oat milk" };
+        var outcome = await completion.TickAsync(taskList, stale, TickState.Completed);
+
+        Assert.Equal(TaskItemTickOutcome.Ticked, outcome);
+        var update = _requests.Single(request => request.Method == HttpMethod.Put);
+        var items = JsonDocument.Parse(_requestBodies[_requests.IndexOf(update)]).RootElement.GetProperty("items");
+        Assert.True(items[0].GetProperty("isCompleted").GetBoolean());
+        Assert.False(items[1].GetProperty("isCompleted").GetBoolean());
     }
 
     [Fact]
