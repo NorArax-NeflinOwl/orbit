@@ -46,6 +46,8 @@ public partial class NoteDetailPage : ContentPage, ITitleMenu
 		// CalendarEventDetailPage, where the same order matters for the same reason.
 		ShowTitleMenuCommand = new Command(ShowNoteMenu);
 		JoinTheLineAboveCommand = new Command<Entry>(JoinTheLineAbove);
+		GoToTheLineAboveCommand = new Command<Entry>(field => WalkToAnotherLine(field, upwards: true));
+		GoToTheLineBelowCommand = new Command<Entry>(field => WalkToAnotherLine(field, upwards: false));
 		OpenForWritingCommand = new Command<NoteLineRow>(OpenForWriting);
 
 		InitializeComponent();
@@ -75,6 +77,19 @@ public partial class NoteDetailPage : ContentPage, ITitleMenu
 	/// One command for every line, so it is told which field the press came from.
 	/// </summary>
 	public ICommand JoinTheLineAboveCommand { get; }
+
+	/// <summary>
+	/// What arrow up means, and arrow down beside it: the caret leaves this line for the next one along,
+	/// keeping the column it was in. Bound from the template for the same reason as the command above,
+	/// and told which field the press came from the same way.
+	///
+	/// Arrow up in the first line goes to the note's name, because the name is the first line of the
+	/// writing - the same rule Enter at the end of the name follows in the other direction.
+	/// </summary>
+	public ICommand GoToTheLineAboveCommand { get; }
+
+	/// <inheritdoc cref="GoToTheLineAboveCommand"/>
+	public ICommand GoToTheLineBelowCommand { get; }
 
 	/// <summary>
 	/// What pressing a ticked line does: opens the field in the struck-through Label's place and puts
@@ -282,14 +297,61 @@ public partial class NoteDetailPage : ContentPage, ITitleMenu
 			return;
 		}
 
-		Dispatcher.Dispatch(() =>
-		{
-			above.Focus();
-			// Where the two lines met, so carrying on typing carries on where the reader left off rather
-			// than at the end of what they have just pulled up.
-			above.CursorPosition = Math.Min(landing.Caret, above.Text?.Length ?? 0);
-		});
+		// Where the two lines met, so carrying on typing carries on where the reader left off rather
+		// than at the end of what they have just pulled up.
+		PutTheCaretIn(above, landing.Caret);
 	}
+
+	/// <inheritdoc cref="GoToTheLineAboveCommand"/>
+	private void WalkToAnotherLine(Entry? field, bool upwards)
+	{
+		if (field?.BindingContext is not NoteLineRow row)
+		{
+			return;
+		}
+
+		// Read before anything is focused: the column the reader was in is what the caret keeps, and it
+		// is a fact about the field being left rather than the one being arrived at.
+		var column = field.CursorPosition;
+		var landing = upwards ? _viewModel.TheLineAbove(row) : _viewModel.TheLineBelow(row);
+
+		if (landing is null)
+		{
+			// Nothing over the first line but the note's name, and nothing at all under the last: the
+			// arrow walks the writing that is there rather than starting a line, which is Enter's job.
+			if (upwards)
+			{
+				PutTheCaretIn(TitleField, column);
+			}
+
+			return;
+		}
+
+		// The line it lands in may be ticked, and a ticked line is drawn as a struck-through Label whose
+		// field is hidden - so the caret would have nowhere to go. See OnLineUnfocused, which closes it
+		// again as the caret walks on.
+		landing.IsBeingWrittenIn = true;
+
+		if (_fields.TryGetValue(landing, out var target))
+		{
+			PutTheCaretIn(target, column);
+		}
+	}
+
+	/// <summary>
+	/// Puts the caret in a field at a given column, or at the end of it when the line it lands in is
+	/// shorter than the one it came from - which is what every editor does with a column it cannot keep.
+	///
+	/// On the next turn of the loop rather than now, for the reason given on the other
+	/// <see cref="PutTheCaretIn(NoteLineRow?)"/>: the press that got us here has not finished being
+	/// dealt with, and Android moves the focus itself once it has.
+	/// </summary>
+	private void PutTheCaretIn(Entry field, int column)
+		=> Dispatcher.Dispatch(() =>
+		{
+			field.Focus();
+			field.CursorPosition = Math.Min(column, field.Text?.Length ?? 0);
+		});
 
 	/// <summary>
 	/// The button in the bottom-left corner. It does two things at once because the design gives it

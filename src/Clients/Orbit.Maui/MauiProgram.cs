@@ -96,9 +96,10 @@ public static class MauiProgram
 		Orbit.Maui.Platform.SwitchTrack.DrawOnEverySwitch();
 		// And a stepper's two buttons, which MAUI offers no colours for at all - see StepperButtons.
 		Orbit.Maui.Platform.StepperButtons.DrawOnEveryStepper();
-		// And backspace at the head of one of the note editor's lines, which MAUI has no key events for
-		// - see NoteLineBackspace, and NoteLineKeys, which is what a field asks with.
-		Orbit.Maui.Platform.NoteLineBackspace.JoinLinesOnEveryNoteField();
+		// And the keys that mean something to a whole note - backspace at the head of a line, and the
+		// arrows between lines - which MAUI has no key events for at all. See NoteLineKeyPresses, and
+		// NoteLineKeys, which is what a field asks with.
+		Orbit.Maui.Platform.NoteLineKeyPresses.ReadTheNoteKeysOnEveryNoteField();
 #endif
 
 		RegisterPlatformServices(builder.Services);

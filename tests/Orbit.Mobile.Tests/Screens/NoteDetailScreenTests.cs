@@ -330,6 +330,39 @@ public sealed class NoteDetailScreenTests
     }
 
     /// <summary>
+    /// The arrows walk the caret from one line to the next. The editor is a column of one-line fields,
+    /// so left to Android the key stopped at the ends of the one it was in and the only way from a line
+    /// to its neighbour was to reach up and press it.
+    /// </summary>
+    [Fact]
+    public async Task The_arrows_reach_the_line_above_and_the_line_below()
+    {
+        using var context = new ScreenContext();
+        var note = await context.AddNoteAsync("Shopping", "milk", "bread", "eggs");
+        var screen = await context.OpenAsync(note.LocalId);
+
+        Assert.Same(screen.Lines[0], screen.TheLineAbove(screen.Lines[1]));
+        Assert.Same(screen.Lines[2], screen.TheLineBelow(screen.Lines[1]));
+    }
+
+    /// <summary>
+    /// Nothing over the first line - the page takes the caret to the note's name, which is the writing's
+    /// own first line - and nothing at all under the last: the arrow walks the writing that is there and
+    /// does not start a line, which is Enter's job and nothing else's.
+    /// </summary>
+    [Fact]
+    public async Task An_arrow_off_either_end_of_the_writing_reaches_no_line()
+    {
+        using var context = new ScreenContext();
+        var note = await context.AddNoteAsync("Shopping", "milk", "bread");
+        var screen = await context.OpenAsync(note.LocalId);
+
+        Assert.Null(screen.TheLineAbove(screen.Lines[0]));
+        Assert.Null(screen.TheLineBelow(screen.Lines[^1]));
+        Assert.Equal(2, screen.Lines.Count);
+    }
+
+    /// <summary>
     /// Enter in the middle of a line breaks the line: what follows the caret moves down onto the new
     /// one, which is what a text field does everywhere.
     /// </summary>

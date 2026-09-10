@@ -221,6 +221,32 @@ public sealed partial class NoteDetailViewModel : ObservableObject
     }
 
     /// <summary>
+    /// Where the caret goes when the reader presses arrow up in <paramref name="row"/>: the line over
+    /// it, or null when there is none - the writing starts at the note's name, and the page takes the
+    /// caret there rather than leaving the press to do nothing.
+    ///
+    /// The editor is a column of one-line fields, so a line never wraps and an arrow always means the
+    /// line beside this one rather than the row above the caret inside it. Left to Android, the key
+    /// stopped at the ends of the field it was in, so the only way from one line to the next was to reach
+    /// up and press it.
+    /// </summary>
+    public NoteLineRow? TheLineAbove(NoteLineRow? row)
+    {
+        var index = row is null ? -1 : Lines.IndexOf(row);
+        return index <= 0 ? null : Lines[index - 1];
+    }
+
+    /// <summary>
+    /// The same downwards, for arrow down. Null at the last line: the arrow walks the writing that is
+    /// there and does not start a line, which is Enter's job and nothing else's.
+    /// </summary>
+    public NoteLineRow? TheLineBelow(NoteLineRow? row)
+    {
+        var index = row is null ? -1 : Lines.IndexOf(row);
+        return index < 0 || index >= Lines.Count - 1 ? null : Lines[index + 1];
+    }
+
+    /// <summary>
     /// Whether the next line started will be a tickable one. The button in the bottom-left corner of
     /// the editor turns this on and puts a box on the line being written in; pressing it again takes
     /// that box off again and turns it back off - which is what the design asks of one control.
