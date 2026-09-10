@@ -1438,15 +1438,25 @@ less obvious what had gone wrong: A links to B, B to C, and the row offering C a
 like any other. The "move to list" dropdown is not narrowed this way - moving a row is not linking, and
 carries none of linking's rules.
 
-Each **item** also says what it is: `kind` is `Checklist` (the default) or `Calendar`. A calendar entry
-is somewhere to be rather than something to fetch, so it also carries a `location`, and can name the
-`linkedCalendarEventId` of the calendar event it is the same appointment as. The kind sits on the item
-rather than on the list because a list is rarely all one or all the other — a day's plan holds two
+Each **item** also says what it is: `kind` is `Checklist` (the default), `Calendar`, `Location` or
+`Inventory`. Two of them have somewhere to be and so carry a `location`: a `Calendar` entry, which is
+somewhere to be at an hour and can name the `linkedCalendarEventId` of the calendar event it is the same
+appointment as, and a `Location` entry, which is somewhere to be and nothing more. The kind sits on the
+item rather than on the list because a list is rarely all one or all the other — a day's plan holds two
 errands and an appointment, and asking somebody to keep those on separate lists is asking them to keep
 the list that matches their day in two places.
 
+**A `Location` entry says where without saying when.** "Pick the keys up from the agent, here" is not a
+meeting, and an address used to be `Calendar`'s alone to carry — so writing one down put an appointment
+in the calendar that nobody was going to, and the list would not save until an hour nobody had in mind
+had been chosen. It is the kind the map hands over now: pressing a place on the map and choosing to make
+a list opens one entry standing at that place, as a `Location`. The pin's coordinates travel with it, so
+somebody who did mean an appointment changes the type on the spot and the event lands at the point they
+pressed rather than at a re-lookup of its name.
+
 **The place is stored once.** An entry tied to an event keeps no location of its own: the event already
-holds one, and a second copy is how the two come to disagree. Every other kind of entry has nowhere to
+holds one, and a second copy is how the two come to disagree. A `Location` entry is tied to no event, so
+its own field is the only copy there is and it always keeps it. Every other kind of entry has nowhere to
 be and stores nothing for it, including one changed back from a calendar entry. The link itself is not
 validated — an event deleted afterwards leaves it pointing at nothing, which reads as "no event", the
 same way a link to a deleted task list reads as "not completed".
@@ -2487,6 +2497,7 @@ that depend on the type:
 | --- | --- |
 | Checklist | Link to list, overdue notification, remind daily and its channel and hour |
 | Inventory | The shelf item itself - see above |
+| Location | Where it is, and nothing else - the same box and the same map the appointment below uses |
 | Calendar | The event's own form - see below |
 
 **A Calendar entry is the appointment, not a pointer at one.** It carries the event's own fields -

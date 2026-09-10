@@ -192,17 +192,23 @@
                         ItemDisplayBinding="{Binding Name, x:DataType=screens:TaskItemKindChoice}"
                         SemanticProperties.Description="{controls:Translate 'Type'}" />
 
-                <!-- A Calendar entry is the appointment rather than a pointer at one, so this is the
-                     event's own form - the same fields Orbit.Web's task editor shows. Saving the entry
-                     is what puts it in the calendar. -->
-                <VerticalStackLayout Spacing="10" IsVisible="{Binding IsCalendarEntry}">
+                <!-- Where the entry is, shown for the two kinds that have anywhere to be: an appointment,
+                     and a Location entry, which is a place and nothing more - see CanSayWhereItHappens.
+                     Outside the event form below, because a Location entry has one of these and none of
+                     the rest. -->
+                <VerticalStackLayout Spacing="10" IsVisible="{Binding CanSayWhereItHappens}">
                     <Entry Placeholder="{controls:Translate 'Where this happens'}" Text="{Binding Location}" />
                     <!-- Typing an address is one way; pointing at it is the other, and the one that
                          works when nobody knows what the street is called. -->
                     <Button Text="{controls:Translate 'Show map'}" FontSize="13" HorizontalOptions="Start"
                             Style="{StaticResource LinkButton}"
                             Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=ViewModel.ShowMapCommand, x:DataType=tasks:TaskListDetailPage}" />
+                </VerticalStackLayout>
 
+                <!-- A Calendar entry is the appointment rather than a pointer at one, so this is the
+                     event's own form - the same fields Orbit.Web's task editor shows. Saving the entry
+                     is what puts it in the calendar. -->
+                <VerticalStackLayout Spacing="10" IsVisible="{Binding IsCalendarEntry}">
                     <VerticalStackLayout Spacing="10" BindingContext="{Binding Event}"
                                          x:DataType="screens:TaskItemEventForm">
                         <Editor Placeholder="{controls:Translate 'Description'}" Text="{Binding Description}"

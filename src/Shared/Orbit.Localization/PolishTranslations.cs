@@ -839,7 +839,11 @@ public static class PolishTranslations
         ["Light"] = "Jasny",
         ["Dark"] = "Ciemny",
         ["Language"] = "Język",
-        ["Location"] = "Położenie",
+        // "Lokalizacja" rather than "Położenie", which this was until the word had a third job. It names
+        // the permission here, an appointment's address in EventFields, and now a task entry that is a
+        // place and nothing else (Orbit.Core.Tasks.TaskItemKind.Location) - and "Położenie" reads as a
+        // coordinate, which is the one of the three it fits worst.
+        ["Location"] = "Lokalizacja",
         ["Use my location"] = "Korzystaj z mojego położenia",
         ["Debugger"] = "Debugger",
         ["Debug logs"] = "Logi diagnostyczne",

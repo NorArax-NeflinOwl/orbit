@@ -698,6 +698,48 @@ public sealed class TaskListDetailScreenTests
     }
 
     /// <summary>
+    /// A Location entry is a place and nothing else, and the phone has to be able to make one - not only
+    /// to be tidy, but because the type must round-trip. An entry saved on the web as a Location and
+    /// opened here would otherwise fall back to Checklist, and saving it would write that back - at
+    /// which point Orbit.Core drops the place for a kind that does not carry one, and the address is
+    /// gone. The same trap TaskItemKindChoice names for Inventory.
+    /// </summary>
+    [Fact]
+    public async Task A_location_entry_keeps_its_place_and_puts_nothing_in_the_calendar()
+    {
+        using var context = new ScreenContext();
+        var screen = context.OpenTaskList("Saturday");
+        screen.NewItemDescription = "pick the keys up";
+        await screen.AddItemCommand.ExecuteAsync(null);
+
+        screen.EditItemCommand.Execute(screen.Items[0]);
+        screen.BeingEdited!.Kind = nameof(TaskItemKind.Location);
+        Assert.True(screen.BeingEdited.CanSayWhereItHappens);
+        Assert.False(screen.BeingEdited.IsCalendarEntry);
+        screen.BeingEdited.Location = "12 Mill Lane";
+        await screen.SaveItemCommand.ExecuteAsync(null);
+
+        var row = Assert.Single(screen.Items);
+        Assert.Equal(nameof(TaskItemKind.Location), row.Item.Kind);
+        Assert.Equal("12 Mill Lane", row.Item.Location);
+        // Writing an address down is not an appointment - which is the whole reason this kind exists.
+        Assert.Empty(context.CalendarServer.Events);
+    }
+
+    /// <summary>The picker offers it, or nothing above could be chosen in the first place.</summary>
+    [Fact]
+    public async Task The_type_picker_offers_a_place_of_its_own()
+    {
+        using var context = new ScreenContext();
+        var screen = context.OpenTaskList("Saturday");
+        screen.NewItemDescription = "pick the keys up";
+        await screen.AddItemCommand.ExecuteAsync(null);
+        screen.EditItemCommand.Execute(screen.Items[0]);
+
+        Assert.Contains(screen.BeingEdited!.Kinds, kind => kind.Value == nameof(TaskItemKind.Location));
+    }
+
+    /// <summary>
     /// The bug this stands for: with no route a request does not fail quickly, it hangs until the client
     /// gives up - which arrives as a timeout rather than an HttpRequestException. A save written to
     /// catch only the latter wrote the appointment nowhere and called the entry "online". Found on a

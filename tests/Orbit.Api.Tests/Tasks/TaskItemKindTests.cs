@@ -36,6 +36,35 @@ public sealed class TaskItemKindTests
         Assert.Equal("Przychodnia, ul. Długa 4", entry.Location);
     }
 
+    /// <summary>
+    /// An entry that is a place and nothing else - "pick the keys up from the agent, here". It exists
+    /// because an address used to be Calendar's alone to carry, so writing one down put a meeting in
+    /// the calendar that nobody was going to.
+    /// </summary>
+    [Fact]
+    public void A_location_entry_is_the_place_and_nothing_else()
+    {
+        var entry = Entry(TaskItemKind.Location, "  Przychodnia, ul. Długa 4  ");
+
+        Assert.Equal(TaskItemKind.Location, entry.Kind);
+        Assert.Equal("Przychodnia, ul. Długa 4", entry.Location);
+        Assert.Null(entry.LinkedCalendarEventId);
+    }
+
+    /// <summary>
+    /// And it keeps that place whatever it is handed beside it. Unlike a calendar entry, there is no
+    /// event to defer to: an event id on a Location entry is dropped, so the place here is the only
+    /// copy there is and losing it would leave the entry saying nothing at all.
+    /// </summary>
+    [Fact]
+    public void A_location_entry_keeps_its_place_even_when_it_is_handed_an_event()
+    {
+        var entry = Entry(TaskItemKind.Location, "Przychodnia", Guid.NewGuid());
+
+        Assert.Null(entry.LinkedCalendarEventId);
+        Assert.Equal("Przychodnia", entry.Location);
+    }
+
     [Fact]
     public void An_ordinary_entry_has_nowhere_to_be_even_if_it_is_told_one()
     {

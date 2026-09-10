@@ -270,11 +270,17 @@ public sealed partial class TaskItemEditor : ObservableObject
     public bool IsCalendarEntry => Kind == nameof(TaskItemKind.Calendar);
 
     /// <summary>
-    /// Where a calendar entry happens, asked on the entry rather than on its appointment. The calendar's
+    /// An entry that is a place and nothing else: "pick the keys up from the agent, here". It keeps a
+    /// place without keeping an hour, which is what separates it from a calendar entry.
+    /// </summary>
+    public bool IsPlaceEntry => Kind == nameof(TaskItemKind.Location);
+
+    /// <summary>
+    /// Where an entry happens, asked on the entry rather than on its appointment. The calendar's
     /// own location is coordinates first and an entry carries only a name, so the two are not the same
     /// field - which is why Orbit.Web leaves the name here and sends the event none.
     /// </summary>
-    public bool CanSayWhereItHappens => IsCalendarEntry;
+    public bool CanSayWhereItHappens => IsCalendarEntry || IsPlaceEntry;
 
     private readonly Translations _translations;
 
@@ -567,6 +573,7 @@ public sealed partial class TaskItemEditor : ObservableObject
     private void SayWhatTheFormShows()
     {
         OnPropertyChanged(nameof(IsCalendarEntry));
+        OnPropertyChanged(nameof(IsPlaceEntry));
         OnPropertyChanged(nameof(CanSayWhereItHappens));
         OnPropertyChanged(nameof(IsShelfEntry));
         OnPropertyChanged(nameof(HasNoProductToEdit));
