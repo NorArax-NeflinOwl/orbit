@@ -103,6 +103,19 @@ unread, so the two never have to agree on what a cursor *means*.
 **Deletes travel as tombstones.** A row that is simply gone looks exactly like a row this device has not
 fetched yet, so a deletion leaves `OS_SYNC_TOMBSTONES` behind and arrives like any other change.
 
+**Folders are the one exception to both halves, and deliberately.** They have no change feed and no
+tombstones: an account has a handful of them and each is a name and a page, so `FolderSynchronizer`
+pulls all of them and reconciles against what it holds — which makes a folder missing from the answer a
+folder that has gone, with nothing to carry it. And they are pushed **first**, ahead of the notes and
+the lists, because a note filed into a folder made offline names a folder the server has not been told
+about yet. That filing does not fail and it is not lost: `FolderNotOnTheServerYet` stops the send with
+no status, which the rules above read as "nothing was asked", so it stays queued and goes out once the
+folder ahead of it has.
+
+Filing itself is queued as its own kind of change (`OutboxOperation.File`) and travels to its own
+endpoint, because a save carries the whole note — an update that also carried the folder would empty it
+for any client that had not heard of folders.
+
 ## Chat that the server cannot read
 
 ```mermaid

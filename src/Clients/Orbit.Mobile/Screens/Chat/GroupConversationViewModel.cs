@@ -28,6 +28,9 @@ public sealed partial class GroupConversationViewModel : ObservableObject, IDisp
     private readonly Translations _translations;
     private readonly IScreenNavigator _navigator;
 
+    /// <summary>What "today" is, for the dividers between one day's messages and the next - see ChatDays.</summary>
+    private readonly TimeProvider _clock;
+
     /// <summary>
     /// Slower than a one-to-one conversation's, deliberately: the group endpoint has no "since" and
     /// returns the whole history each time, so each tick costs more than it does there.
@@ -82,10 +85,12 @@ public sealed partial class GroupConversationViewModel : ObservableObject, IDisp
     public GroupConversationViewModel(
         EncryptedChatMessageReader reader, EncryptedChatMessageSender sender, EncryptedChatMessageEditor editor,
         ChatRepository chatRepository, ChatSynchronizer synchronizer, ChatClient chatClient,
-        Translations translations, IScreenNavigator navigator, Live.ILiveUpdates liveUpdates)
+        Translations translations, IScreenNavigator navigator, Live.ILiveUpdates liveUpdates,
+        TimeProvider clock)
     {
         _liveUpdates = liveUpdates;
         _liveUpdates.ChatChanged += OnSomethingChanged;
+        _clock = clock;
         _reader = reader;
         _sender = sender;
         _editor = editor;
@@ -465,7 +470,12 @@ public sealed partial class GroupConversationViewModel : ObservableObject, IDisp
         {
             var conversation = await _reader.ReadGroupAsync(_group.Id, cancellationToken);
             Messages.Clear();
-            foreach (var line in await WithAnnouncementsAsync(conversation, cancellationToken))
+            // Divided after the announcements are woven in, not before: somebody joining is a line in
+            // the thread like any other, and a day whose only line is an announcement still needs
+            // saying which day it was.
+            var lines = ChatDays.Divide(
+                await WithAnnouncementsAsync(conversation, cancellationToken), _clock.GetUtcNow(), _translations);
+            foreach (var line in lines)
             {
                 Messages.Add(line);
             }

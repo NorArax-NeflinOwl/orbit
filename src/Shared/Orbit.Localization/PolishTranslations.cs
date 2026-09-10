@@ -633,6 +633,8 @@ public static class PolishTranslations
         ["Year"] = "Rok",
         ["Today"] = "Dziś",
         ["Yesterday"] = "Wczoraj",
+        // Under the name at the head of a conversation, after where they are - see ConversationViewModel.
+        ["end-to-end encrypted"] = "szyfrowane end-to-end",
         ["Tasks with a due date"] = "Zadania z terminem",
         ["No tasks with a due date."] = "Brak zadań z terminem.",
         ["Delete event"] = "Usuń wydarzenie",
@@ -736,6 +738,15 @@ public static class PolishTranslations
         // The tabs every page made of cards is read under - see Orbit.Core.Folders.BuiltInFolder. The
         // finished one is keyed "Finished" rather than "Done", which already means "Gotowe" elsewhere.
         ["Folders"] = "Foldery",
+        // When filing is refused because the thing is somebody else's and there is no connection to ask.
+        ["This one can't be moved while you're offline."] = "Tego nie da się przenieść bez połączenia.",
+        // The menu entry that unfolds the row a folder is named in - see NotesPage.
+        ["Move to folder"] = "Przenieś do folderu",
+        ["No folder"] = "Bez folderu",
+        // Said before a folder goes, because "delete folder" reads as though its notes go too.
+        ["Delete the folder \"{0}\"? Nothing in it is deleted - it goes back to Public, or to Private if it is sealed."]
+            = "Usunąć folder \"{0}\"? Nic z niego nie ginie - wraca do Publicznych, a jeśli jest zapieczętowane, do Prywatnych.",
+        // Also the heading over what can be done to the folders themselves, beside the list of them.
         ["Folder"] = "Folder",
         ["Folder name"] = "Nazwa folderu",
         ["Public"] = "Publiczne",
@@ -925,6 +936,8 @@ public static class PolishTranslations
         ["{0} shared an inventory with you"] = "{0} udostępnił(a) Ci magazyn",
         ["{0} shared their location with you"] = "{0} udostępnił(a) Ci swoje położenie",
         ["All day"] = "Cały dzień",
+        // Under the day's clock, where what has no hour goes - see CalendarViewModel.WithoutAnHour.
+        ["Nothing all day."] = "Nic na cały dzień.",
         ["Shared by"] = "Udostępnił",
         ["Messages"] = "Wiadomości",
         ["Conversations"] = "Rozmowy",
@@ -1234,6 +1247,11 @@ public static class PolishTranslations
         ["tasks due today"] = "zadań na dziś",
         ["events today"] = "wydarzeń dziś",
         ["new chat requests"] = "nowych próśb o rozmowę",
+        // The phone's own three, shorter than the browser's because they sit side by side on one
+        // baseline in 412 points - see DashboardPage.
+        ["tasks due"] = "zadań",
+        ["events"] = "wydarzeń",
+        ["chat requests"] = "próśb o rozmowę",
         ["-- select a contact --"] = "— wybierz kontakt —",
         ["Pick a contact…"] = "Wybierz kontakt…",
         ["Add someone…"] = "Dodaj osobę…",
@@ -1549,7 +1567,9 @@ public static class PolishTranslations
         ["Already accepted"] = "Już przyjęto",
         ["Item options"] = "Opcje pozycji",
         ["{0} minutes before"] = "{0} min przed",
-        ["List options"] = "Opcje listy",
+        // The heading over what can be done to a task list, in its own menu - the group beside "Sort"
+        // and "Inventory". It replaced "List options", which was the heading over all three at once.
+        ["List"] = "Lista",
         ["Built an inventory from what this list needs."] = "Zbudowano magazyn z tego, czego potrzebuje ta lista.",
         ["There was nothing on this list to build an inventory from."]
             = "Na tej liście nie było nic, z czego można zbudować magazyn.",
@@ -1584,6 +1604,9 @@ public static class PolishTranslations
         // after a numeral - one, two and five each take a different form - so "{0} items" has no
         // single correct translation, while "Pozycji: {0}" is right for every count.
         ["Items: {0}"] = "Pozycji: {0}",
+        // The chip on an inventory's row saying how much of it has run out - short, because it sits at
+        // the end of the name's line.
+        ["{0} low"] = "brakuje: {0}",
         ["Done: {0} of {1}"] = "Ukończone: {0} z {1}",
         ["No items yet"] = "Nie ma jeszcze pozycji",
         ["People"] = "Osób",
@@ -1594,6 +1617,8 @@ public static class PolishTranslations
 
         ["Updated {0}"] = "Zmieniono {0}",
         ["{0} · all day"] = "{0} · cały dzień",
+        // On its own, under the day, in the calendar list's date column - see CalendarEventRow.Time.
+        ["all day"] = "cały dzień",
         ["{0} – {1}"] = "{0} – {1}",
         // Asked as back takes the note editor away with something typed and not saved - see
         // NoteDetailPage.MayLeaveAsync. Both buttons say what they do rather than "OK" and "Cancel".

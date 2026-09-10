@@ -53,6 +53,9 @@ public sealed class OrbitLocalDbContext : DbContext
     /// <summary>Appointments made here that the server has not named yet - see PendingCalendarLink.</summary>
     public DbSet<PendingCalendarLink> PendingCalendarLinks => Set<PendingCalendarLink>();
 
+    /// <summary>The tabs somebody made - see LocalFolder. The three built-in ones are not rows.</summary>
+    public DbSet<LocalFolder> Folders => Set<LocalFolder>();
+
     /// <summary>
     /// SQLite has no date type, and EF's default mapping for <see cref="DateTimeOffset"/> cannot be
     /// sorted or compared in SQL - "ORDER BY UpdatedAtUtc" fails outright. Since sync is decided almost
@@ -135,6 +138,14 @@ public sealed class OrbitLocalDbContext : DbContext
             // Replay reads one entity type's changes in queue order, which is the only order that
             // reconstructs what happened.
             entry.HasIndex(entity => new { entity.EntityType, entity.Id });
+        });
+
+        modelBuilder.Entity<LocalFolder>(folder =>
+        {
+            folder.HasKey(entity => entity.LocalId);
+            // The same filtered-unique rule the other four have: a folder made offline has no server id
+            // yet, and they would otherwise all collide with each other.
+            folder.HasIndex(entity => entity.ServerId).IsUnique().HasFilter("\"ServerId\" IS NOT NULL");
         });
 
         modelBuilder.Entity<SyncCursor>(cursor => cursor.HasKey(entity => entity.EntityType));

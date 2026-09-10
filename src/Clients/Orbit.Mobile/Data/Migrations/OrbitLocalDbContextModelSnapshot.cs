@@ -202,6 +202,38 @@ namespace Orbit.Mobile.Data.Migrations
                     b.ToTable("Contacts");
                 });
 
+            modelBuilder.Entity("Orbit.Mobile.Data.LocalFolder", b =>
+                {
+                    b.Property<Guid>("LocalId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("TEXT");
+
+                    b.Property<long>("CreatedAtUtc")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Scope")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid?>("ServerId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<long>("UpdatedAtUtc")
+                        .HasColumnType("INTEGER");
+
+                    b.HasKey("LocalId");
+
+                    b.HasIndex("ServerId")
+                        .IsUnique()
+                        .HasFilter("\"ServerId\" IS NOT NULL");
+
+                    b.ToTable("Folders");
+                });
+
             modelBuilder.Entity("Orbit.Mobile.Data.LocalInventory", b =>
                 {
                     b.Property<Guid>("LocalId")
@@ -322,6 +354,9 @@ namespace Orbit.Mobile.Data.Migrations
                         .HasColumnType("TEXT");
 
                     b.Property<string>("EncryptedNonce")
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid?>("FolderId")
                         .HasColumnType("TEXT");
 
                     b.Property<bool>("IsKeptCopy")
@@ -476,6 +511,9 @@ namespace Orbit.Mobile.Data.Migrations
                         .HasColumnType("TEXT");
 
                     b.Property<string>("EncryptedNonce")
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid?>("FolderId")
                         .HasColumnType("TEXT");
 
                     b.Property<bool>("IsCompleted")

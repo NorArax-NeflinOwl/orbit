@@ -10,6 +10,12 @@
     x:Name="Page"
     Title="{Binding PeriodLabel}">
 
+    <ContentPage.Resources>
+        <!-- The bar down the left of a row in the list - see EventColourConverter, which hands over a
+             brush rather than a colour because a Shape's Fill takes one. -->
+        <controls:EventColourConverter x:Key="EventColour" />
+    </ContentPage.Resources>
+
     <Grid RowDefinitions="Auto,*,Auto">
 
 
@@ -200,33 +206,88 @@
                         SemanticProperties.Description="{controls:Translate 'Starts'}" />
         </Grid>
 
-        <!-- The chosen day on the clock, under the grid that chose it. Orbit.Web swaps its grid for this
-             because it has a sidebar to pick the next day from; a phone has only the grid, so the two
-             stack. Built in code-behind for the reason MapPage gives about its pins: where a block goes
-             is a layout measurement, and keeping that out of the view model is what leaves the
-             placement testable - see CalendarDayTimeline. -->
-        <VerticalStackLayout Grid.Row="3" Spacing="6" IsVisible="{Binding HasDayTimeline}">
+        <Label Grid.Row="3" Text="{Binding Message}" IsVisible="{Binding HasMessage}"
+               LineBreakMode="WordWrap" VerticalOptions="End" Style="{StaticResource ErrorLabel}" />
+
+        <!-- The chosen day: the whole clock, midnight to midnight, and under it the things that have no
+             hour to be drawn at. Nothing else - the list of the period every other view draws would be
+             the same things again, one under the other.
+
+             The clock is always twenty-four hours. It used to be cropped to the hours something was in,
+             and a clock whose length changes with what is on it cannot be read at a glance, because
+             nine o'clock is somewhere different on every day of the week. The screen opens scrolled to
+             the day's first thing instead, which answers the same objection without moving the hours.
+
+             Built in code-behind for the reason MapPage gives about its pins: where a block goes is a
+             layout measurement, and keeping that out of the view model is what leaves the placement
+             testable - see CalendarDayTimeline. -->
+        <ScrollView x:Name="DayScroll" Grid.Row="4" IsVisible="{Binding HasDayTimeline}">
+            <VerticalStackLayout Spacing="6" Padding="0,0,0,24">
                 <!-- The hours down the left, the day itself beside them. Blocks are placed with
                      proportional widths, because how wide a lane is depends on a measurement this page
-                     does not have until it is laid out. As tall as the day needs and no taller - see
-                     CalendarDayTimeline.HoursWorthDrawing. -->
+                     does not have until it is laid out. -->
                 <Grid x:Name="DayClock" ColumnDefinitions="42,*">
                     <Grid x:Name="HourLabels" Grid.Column="0" />
                     <AbsoluteLayout x:Name="DayBlocks" Grid.Column="1" />
                 </Grid>
-                <!-- What has no hour, under the clock rather than over it: the clock is what the day
-                     view is, and a row of all-day things above it pushed the morning off the screen. -->
-                <FlexLayout x:Name="AllDayRow" Wrap="Wrap" Direction="Row" />
-        </VerticalStackLayout>
 
-        <Label Grid.Row="3" Text="{Binding Message}" IsVisible="{Binding HasMessage}"
-               LineBreakMode="WordWrap" VerticalOptions="End" Style="{StaticResource ErrorLabel}" />
+                <!-- What is on this day and not at a time: an all-day event, and anything falling due,
+                     which the calendar files by its date alone. Hairline rows under a small-caps
+                     heading, which is what the design draws under its own day. -->
+                <VerticalStackLayout Spacing="0" Margin="0,10,0,0">
+                    <Label Text="{controls:Translate 'All day'}" Style="{StaticResource FieldLabel}"
+                           Margin="0,0,0,8" />
+
+                    <Label Text="{controls:Translate 'Nothing all day.'}" Padding="0,10"
+                           IsVisible="{Binding HasNothingWithoutAnHour}" Style="{StaticResource EmptyHint}" />
+
+                    <VerticalStackLayout Spacing="0" BindableLayout.ItemsSource="{Binding WithoutAnHour}">
+                        <BindableLayout.ItemTemplate>
+                            <DataTemplate x:DataType="screens:CalendarListEntry">
+                                <Grid ColumnDefinitions="8,*,Auto" ColumnSpacing="12" Padding="0,11">
+                                    <Grid.GestureRecognizers>
+                                        <TapGestureRecognizer
+                                            Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=ViewModel.OpenListedCommand, x:DataType=calendar:CalendarPage}"
+                                            CommandParameter="{Binding .}" />
+                                    </Grid.GestureRecognizers>
+
+                                    <BoxView Grid.ColumnSpan="3" Style="{StaticResource Hairline}"
+                                             VerticalOptions="Start" Margin="0,-11,0,0" />
+
+                                    <!-- A dot rather than the list's own bar: there is no date column
+                                         here for it to stand beside, and a day is one day. -->
+                                    <Ellipse Grid.Column="0" WidthRequest="8" HeightRequest="8"
+                                             VerticalOptions="Center"
+                                             Fill="{Binding Colour, Converter={StaticResource EventColour}}" />
+
+                                    <Label Grid.Column="1" Text="{Binding Headline}" FontSize="14"
+                                           VerticalOptions="Center" LineBreakMode="TailTruncation">
+                                        <Label.Triggers>
+                                            <DataTrigger TargetType="Label" Binding="{Binding IsDone}" Value="True">
+                                                <Setter Property="TextDecorations" Value="Strikethrough" />
+                                                <Setter Property="TextColor"
+                                                        Value="{AppThemeBinding Light={StaticResource TertiaryTextLight}, Dark={StaticResource TertiaryTextDark}}" />
+                                            </DataTrigger>
+                                        </Label.Triggers>
+                                    </Label>
+
+                                    <Label Grid.Column="2" Text="{Binding Where}" IsVisible="{Binding HasWhere}"
+                                           FontSize="12" VerticalOptions="Center"
+                                           LineBreakMode="TailTruncation" Style="{StaticResource ItemCardFooter}" />
+                                </Grid>
+                            </DataTemplate>
+                        </BindableLayout.ItemTemplate>
+                    </VerticalStackLayout>
+                </VerticalStackLayout>
+            </VerticalStackLayout>
+        </ScrollView>
 
         <!-- One list, whatever kind of thing is on it. Appointments and deadlines answer the same
              question - what is happening in this period - and two lists one under the other made the
              reader merge them by eye, in a period where they interleave by definition. Orbit.Web's
              calendar draws them together for the same reason - see CalendarListEntry. -->
-        <RefreshView Grid.Row="4" IsRefreshing="{Binding IsRefreshing}" Command="{Binding LoadCommand}">
+        <RefreshView Grid.Row="4" IsVisible="{Binding IsNotShowingOneDay}"
+                     IsRefreshing="{Binding IsRefreshing}" Command="{Binding LoadCommand}">
             <CollectionView ItemsSource="{Binding Listed}"
                             SelectionMode="Single"
                             SelectionChangedCommand="{Binding OpenListedCommand}"
@@ -238,57 +299,81 @@
 
                 <CollectionView.ItemTemplate>
                     <DataTemplate x:DataType="screens:CalendarListEntry">
-                        <!-- A row rather than a card, as every list in this design is - see
-                             ItemCard.IsBordered. The event's own colour still runs down its left edge,
-                             which is the one thing a row keeps from the card. -->
-                        <controls:ItemCard IsBordered="False" Name="{Binding Name}" AccentColour="{Binding Colour}">
-                            <controls:ItemCard.Menu>
-                                <!-- What can be done to it without opening it, in the corner every card
+                        <!-- [ Fri 5 ] | [ what it is called      ] [Task] [⋯]
+                             [ 12:00 ] | [ and where, or the list ]
+
+                             The design's own row, and a real improvement on what it replaced: the date
+                             column down the left is what makes a list of a period readable at all, and
+                             the deadline that used to read "Weekend errands: Flour, rice, olive oil"
+                             with a WEEKEND ERRANDS badge under it now says the list once, in the line
+                             the design keeps for where something is. A list is where you would go to
+                             tick a deadline off, which is the nearest thing it has to somewhere.
+
+                             Not an ItemCard: a card's anatomy has nowhere to put a leading column of
+                             two lines, and this list leads with when. -->
+                        <Grid ColumnDefinitions="58,3,*,Auto" ColumnSpacing="12" Padding="0,10">
+                            <!-- The hairline above it, which is what separates one row from the next
+                                 everywhere in this design - see ItemCard's row shape. -->
+                            <BoxView Grid.ColumnSpan="4" Style="{StaticResource Hairline}"
+                                     VerticalOptions="Start" Margin="0,-10,0,0" />
+
+                            <VerticalStackLayout Grid.Column="0" Spacing="1">
+                                <Label Text="{Binding Day}" FontSize="13" LineBreakMode="TailTruncation" />
+                                <Label Text="{Binding Time}" FontSize="11" LineBreakMode="TailTruncation"
+                                       Style="{StaticResource ItemCardFooter}" />
+                            </VerticalStackLayout>
+
+                            <!-- The event's own colour, which is what a card used to paint down its
+                                 edge. An entry falling due has none of its own and takes the accent -
+                                 see EventColourConverter, and Orbit.Web's dot, which falls back the
+                                 same way; the chip on the right is what says which kind it is. -->
+                            <Rectangle Grid.Column="1" RadiusX="2" RadiusY="2"
+                                       Fill="{Binding Colour, Converter={StaticResource EventColour}}" />
+
+                            <VerticalStackLayout Grid.Column="2" Spacing="2" VerticalOptions="Center">
+                                <Label Text="{Binding Headline}" FontSize="14" LineBreakMode="TailTruncation">
+                                    <Label.Triggers>
+                                        <!-- Struck through rather than hidden: a day whose errands are
+                                             all ticked reads differently from an empty one. -->
+                                        <DataTrigger TargetType="Label" Binding="{Binding IsDone}" Value="True">
+                                            <Setter Property="TextDecorations" Value="Strikethrough" />
+                                            <Setter Property="TextColor"
+                                                    Value="{AppThemeBinding Light={StaticResource TertiaryTextLight}, Dark={StaticResource TertiaryTextDark}}" />
+                                        </DataTrigger>
+                                    </Label.Triggers>
+                                </Label>
+
+                                <Label Text="{Binding Where}" IsVisible="{Binding HasWhere}" FontSize="12"
+                                       LineBreakMode="TailTruncation" Style="{StaticResource ItemCardFooter}" />
+
+                                <!-- Why it cannot be changed from here just now, and whether it is a
+                                     copy taken while offline - two things about this row's own state
+                                     rather than about the thing it stands for. -->
+                                <Label Text="{Binding Status}" IsVisible="{Binding HasStatus}"
+                                       LineBreakMode="WordWrap" Style="{StaticResource ItemCardFooter}"
+                                       TextColor="{DynamicResource Accent}" />
+                            </VerticalStackLayout>
+
+                            <HorizontalStackLayout Grid.Column="3" Spacing="6" VerticalOptions="Center">
+                                <!-- Two rows with the same words are otherwise indistinguishable, and
+                                     the reader has no way of telling which one they wrote in. -->
+                                <Border Style="{StaticResource CardBadge}" IsVisible="{Binding IsCopy}">
+                                    <Label Text="{controls:Translate 'copy'}" Style="{StaticResource CardBadgeLabel}" />
+                                </Border>
+                                <!-- Which kind of thing this is, now that both kinds share one list.
+                                     Only on a deadline: an appointment is what a calendar is for, and
+                                     an EVENT chip on every second row says nothing. -->
+                                <Border Style="{StaticResource CardBadge}" IsVisible="{Binding IsDeadline}">
+                                    <Label Text="{controls:Translate 'Task'}" Style="{StaticResource CardBadgeLabel}" />
+                                </Border>
+
+                                <!-- What can be done to it without opening it, in the corner every row
                                      keeps its menu in - see Orbit.Web's calendar cards. -->
                                 <controls:OverflowMenu
                                     Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=ShowCardMenuCommand, x:DataType=calendar:CalendarPage}"
                                     CommandParameter="{Binding .}" />
-                            </controls:ItemCard.Menu>
-
-                            <controls:ItemCard.Tags>
-                                <HorizontalStackLayout Spacing="6">
-                                    <!-- Which kind of thing this is, now that both kinds share one list. -->
-                                    <Border Style="{StaticResource CardBadge}" IsVisible="{Binding IsEvent}">
-                                        <Label Text="{controls:Translate 'Event'}" Style="{StaticResource CardBadgeLabel}" />
-                                    </Border>
-                                    <Border Style="{StaticResource CardBadge}" IsVisible="{Binding IsDeadline}">
-                                        <Label Text="{controls:Translate 'Task'}" Style="{StaticResource CardBadgeLabel}" />
-                                    </Border>
-                                    <!-- And which list a deadline came off, which is most of what tells
-                                         two entries with the same words apart. -->
-                                    <Border Style="{StaticResource CardBadge}" IsVisible="{Binding HasListTitle}">
-                                        <Label Text="{Binding ListTitle}" Style="{StaticResource CardBadgeLabel}" />
-                                    </Border>
-                                    <!-- Two cards with the same title are otherwise indistinguishable, and
-                                         the reader has no way of telling which one they wrote in. -->
-                                    <Label Text="{controls:Translate 'copy'}" IsVisible="{Binding IsCopy}"
-                                           Style="{StaticResource RowMeta}" />
-                                </HorizontalStackLayout>
-                            </controls:ItemCard.Tags>
-
-                            <controls:ItemCard.Body>
-                                <Label Text="{Binding When}" Style="{StaticResource ItemCardBody}">
-                                    <Label.Triggers>
-                                        <!-- Struck through rather than hidden: a day whose errands are all
-                                             ticked reads differently from an empty one. -->
-                                        <DataTrigger TargetType="Label" Binding="{Binding IsDone}" Value="True">
-                                            <Setter Property="TextDecorations" Value="Strikethrough" />
-                                        </DataTrigger>
-                                    </Label.Triggers>
-                                </Label>
-                            </controls:ItemCard.Body>
-
-                            <controls:ItemCard.Extras>
-                                <Label Text="{Binding Status}" IsVisible="{Binding HasStatus}"
-                                       LineBreakMode="WordWrap" Style="{StaticResource ItemCardFooter}"
-                                       TextColor="{DynamicResource Accent}" />
-                            </controls:ItemCard.Extras>
-                        </controls:ItemCard>
+                            </HorizontalStackLayout>
+                        </Grid>
                     </DataTemplate>
                 </CollectionView.ItemTemplate>
 

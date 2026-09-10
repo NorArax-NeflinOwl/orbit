@@ -29,6 +29,9 @@ public sealed partial class ConversationViewModel : ObservableObject, IDisposabl
     private readonly Translations _translations;
     private readonly IScreenNavigator _navigator;
 
+    /// <summary>What "today" is, for the dividers between one day's messages and the next - see ChatDays.</summary>
+    private readonly TimeProvider _clock;
+
     /// <summary>
     /// How often an open conversation checks for new messages. Orbit.Web polls chat once a second, which
     /// info/orbit-maui-plan.md §11 singles out as the thing not to copy literally: on a phone that costs
@@ -106,10 +109,12 @@ public sealed partial class ConversationViewModel : ObservableObject, IDisposabl
         EncryptedChatMessageReader reader, EncryptedChatMessageSender sender, EncryptedChatMessageEditor editor,
         MessageForwarder forwarder, SharedItemAcceptance acceptance, ChatRepository chatRepository,
         ChatSynchronizer synchronizer, ChatClient chatClient,
-        Translations translations, IScreenNavigator navigator, Live.ILiveUpdates liveUpdates)
+        Translations translations, IScreenNavigator navigator, Live.ILiveUpdates liveUpdates,
+        TimeProvider clock)
     {
         _liveUpdates = liveUpdates;
         _liveUpdates.ChatChanged += OnSomethingChanged;
+        _clock = clock;
         _reader = reader;
         _sender = sender;
         _editor = editor;
@@ -123,6 +128,46 @@ public sealed partial class ConversationViewModel : ObservableObject, IDisposabl
     }
 
     public ObservableCollection<ReadableChatMessage> Messages { get; } = [];
+
+    /// <summary>Whose conversation this is, which is what gives the circle beside their name its colour.</summary>
+    [ObservableProperty]
+    private Guid _contactId;
+
+    /// <summary>The server's own name for where they are, for the dot on that circle.</summary>
+    [ObservableProperty]
+    private string _presenceStatus = string.Empty;
+
+    /// <summary>Where they are, in words - see PresenceWords.</summary>
+    [ObservableProperty]
+    private string _presence = string.Empty;
+
+    /// <summary>
+    /// The line under their name: where they are, and that nothing in this conversation is readable by
+    /// anything but the two devices at its ends.
+    ///
+    /// The design puts the two together, and they belong together: what a reader wants to know before
+    /// typing is whether it will be seen and who else could see it. The second half is left off when
+    /// this person has not set up chat, because then there is no key to encrypt for and nothing has
+    /// been sealed - saying so would be a promise about an empty screen.
+    /// </summary>
+    public string Standing
+        => CanWrite ? $"{Presence} · {_translations["end-to-end encrypted"]}" : Presence;
+
+    public bool HasStanding => Standing.Length > 0;
+
+    /// <summary>
+    /// Both halves of the line, whenever either half could have changed. Not only <see cref="Standing"/>
+    /// - the label's own IsVisible reads <see cref="HasStanding"/>, and a computed property nothing
+    /// announces is read exactly once, while the screen is still being built and before it has been
+    /// told who the conversation is with. The line was hidden for the whole life of the screen.
+    /// </summary>
+    private void SayHowTheyStand()
+    {
+        OnPropertyChanged(nameof(Standing));
+        OnPropertyChanged(nameof(HasStanding));
+    }
+
+    partial void OnPresenceChanged(string value) => SayHowTheyStand();
 
     /// <summary>Where a message can be passed on to: every conversation but this one.</summary>
     public ObservableCollection<LocalContact> ForwardTargets { get; } = [];
@@ -157,6 +202,10 @@ public sealed partial class ConversationViewModel : ObservableObject, IDisposabl
     {
         _contact = contact;
         Title = contact.DisplayName;
+        ContactId = contact.UserId;
+        PresenceStatus = contact.PresenceStatus;
+        Presence = PresenceWords.Describe(contact.PresenceStatus, _translations);
+        SayHowTheyStand();
         OnPropertyChanged(nameof(CanWrite));
         OnPropertyChanged(nameof(CanCompose));
         OnPropertyChanged(nameof(CannotWrite));
@@ -595,7 +644,10 @@ public sealed partial class ConversationViewModel : ObservableObject, IDisposabl
 
         try
         {
-            var conversation = await _reader.ReadAsync(_contact.UserId, otherPublicKey, _theyReadUpToUtc, cancellationToken);
+            var conversation = ChatDays.Divide(
+                await _reader.ReadAsync(_contact.UserId, otherPublicKey, _theyReadUpToUtc, cancellationToken),
+                _clock.GetUtcNow(),
+                _translations);
             Messages.Clear();
             foreach (var message in conversation)
             {

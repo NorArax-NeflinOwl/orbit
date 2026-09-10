@@ -130,35 +130,31 @@ public sealed class CalendarDayTimelineTests
     }
 
     /// <summary>
-    /// All twenty-four hours would be mostly empty: a day with one meeting at nine would open on
-    /// midnight and ask the reader to scroll past eight hours of nothing to find it.
+    /// The clock is the whole day, so the screen opens where the day starts instead. A column of
+    /// twenty-four hours is long, and most days begin somewhere in the middle of it.
     /// </summary>
     [Fact]
-    public void Only_the_hours_the_day_uses_are_worth_drawing()
+    public void The_day_opens_on_the_hour_its_first_thing_is_in()
     {
-        var hours = CalendarDayTimeline.HoursWorthDrawing(Build(At(9, 0, 10, 30, "Standup")));
+        var opensAt = CalendarDayTimeline.FirstHourWorthLookingAt(Build(At(9, 0, 10, 30, "Standup")));
 
-        Assert.Equal(9, hours.FirstHour);
-        Assert.Equal(10, hours.LastHour);
+        Assert.Equal(9, opensAt);
     }
 
-    /// <summary>An hour with something in it is drawn whole, so an event ending at 10:30 keeps its hour.</summary>
+    /// <summary>
+    /// A day with nothing on it opens at midnight, there being nothing to look at either way - and an
+    /// empty clock is the answer to "what is on today" rather than a screen that failed to load.
+    /// </summary>
     [Fact]
-    public void The_last_hour_is_drawn_whole()
-    {
-        var hours = CalendarDayTimeline.HoursWorthDrawing(Build(At(9, 0, 10, 1, "Standup")));
+    public void A_day_with_nothing_on_it_opens_at_midnight()
+        => Assert.Equal(0, CalendarDayTimeline.FirstHourWorthLookingAt([]));
 
-        Assert.Equal(10, hours.LastHour);
-    }
-
-    /// <summary>Something running to midnight belongs to the last hour there is, not the first of a day nobody asked for.</summary>
+    /// <summary>Whatever is on it, the clock itself is midnight to midnight.</summary>
     [Fact]
-    public void An_evening_that_runs_to_midnight_stops_at_the_last_hour()
+    public void The_clock_is_always_the_whole_day()
     {
-        var hours = CalendarDayTimeline.HoursWorthDrawing(Build(At(22, 0, 23, 59, "Night shift")));
-
-        Assert.Equal(22, hours.FirstHour);
-        Assert.Equal(23, hours.LastHour);
+        Assert.Equal(0, CalendarDayTimeline.FirstHour);
+        Assert.Equal(23, CalendarDayTimeline.LastHour);
     }
 
     private static IReadOnlyList<DayBlock> Build(params LocalCalendarEvent[] events)

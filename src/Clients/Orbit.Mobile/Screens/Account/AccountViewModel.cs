@@ -352,16 +352,14 @@ public sealed partial class AccountViewModel : ObservableObject
     [ObservableProperty]
     private ChosenTheme _theme;
 
+    /// <summary>
+    /// The three of them, in the order the enum declares - System first, because it is what Orbit did
+    /// before there was a choice at all. All three are on screen at once, which is why this is a strip
+    /// and not a list to open: choosing is one press, and the two not chosen are part of the answer.
+    /// </summary>
     public IReadOnlyList<ThemeChoice> Themes
         => [.. Enum.GetValues<ChosenTheme>()
-            .Select(theme => new ThemeChoice(theme, ThemeChoice.Describe(theme, _translations)))];
-
-    /// <summary>What the picker has selected. Its own property because a picker names objects, not enums.</summary>
-    public ThemeChoice ChosenThemeOption
-    {
-        get => Themes.Single(choice => choice.Value == Theme);
-        set => Theme = value.Value;
-    }
+            .Select(theme => new ThemeChoice(theme, ThemeChoice.Describe(theme, _translations), theme == Theme))];
 
     /// <summary>The colour Orbit highlights things in - kept on this device, like the theme.</summary>
     [ObservableProperty]
@@ -704,6 +702,16 @@ public sealed partial class AccountViewModel : ObservableObject
     /// <inheritdoc cref="ThemeChanged"/>
     public event EventHandler<AccentColor>? AccentChanged;
 
+    /// <summary>Picking one from the strip of three - see Themes.</summary>
+    [RelayCommand]
+    private void ChooseTheme(ThemeChoice? choice)
+    {
+        if (choice is not null)
+        {
+            Theme = choice.Value;
+        }
+    }
+
     /// <summary>Picking one from the row of swatches.</summary>
     [RelayCommand]
     private void ChooseAccent(AccentChoice? choice)
@@ -718,7 +726,7 @@ public sealed partial class AccountViewModel : ObservableObject
     partial void OnThemeChanged(ChosenTheme value)
     {
         _themes.Write(value);
-        OnPropertyChanged(nameof(ChosenThemeOption));
+        OnPropertyChanged(nameof(Themes));
         ThemeChanged?.Invoke(this, value);
     }
 

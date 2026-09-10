@@ -45,6 +45,14 @@
                     <DataTemplate x:DataType="mobile:ReadableChatMessage">
                         <VerticalStackLayout Spacing="2">
 
+                            <!-- Where one day's messages end and the next day's begin - see
+                                 ConversationPage, which draws the same divider for the same reason. It
+                                 sits above an announcement as readily as above a message: a day whose
+                                 only line is somebody joining still needs saying which day it was. -->
+                            <Label Text="{Binding DayHeading}" IsVisible="{Binding StartsANewDay}"
+                                   HorizontalOptions="Center" Margin="0,6,0,12"
+                                   Style="{StaticResource PanelHeading}" />
+
                             <!-- A line nobody wrote: somebody joined, and whether the past came with
                                  them. Centred and quiet so it reads as the thread saying something
                                  rather than as a message - the same shape Orbit.Web gives it. -->
@@ -56,7 +64,7 @@
                                  ConversationPage, which draws the same one for the same reasons. -->
                             <VerticalStackLayout Spacing="3" Margin="0,0,0,10" HorizontalOptions="Start"
                                                  IsVisible="{Binding IsNotAnnouncement}"
-                                                 MaximumWidthRequest="{Binding Width, Source={x:Reference Thread}, Converter={StaticResource WidthFraction}, ConverterParameter=0.7, x:DataType=CollectionView}">
+                                                 MaximumWidthRequest="{Binding Width, Source={x:Reference Thread}, Converter={StaticResource WidthFraction}, ConverterParameter=0.78, x:DataType=CollectionView}">
                                 <VerticalStackLayout.Triggers>
                                     <DataTrigger TargetType="VerticalStackLayout" Binding="{Binding IsMine}" Value="True">
                                         <Setter Property="HorizontalOptions" Value="End" />

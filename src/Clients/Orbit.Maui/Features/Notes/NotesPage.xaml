@@ -37,6 +37,21 @@
                 <Button Grid.Column="1" Text="{controls:Translate 'Add'}" Style="{StaticResource PrimaryButton}"
                         Command="{Binding AddNoteCommand}" />
             </Grid>
+
+            <!-- Naming a new folder, unfolded from the menu rather than standing on the screen: making
+                 one is something somebody does once, and the same row the plus unfolds for a new note -
+                 see NewItemForm, which both are toggled by. -->
+            <Grid x:Name="FolderRow" IsVisible="False" ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                <Entry x:Name="FolderField" Grid.Column="0"
+                       Placeholder="{controls:Translate 'Folder name'}"
+                       Text="{Binding NewFolderName}"
+                       ReturnType="Done"
+                       ReturnCommand="{Binding MakeFolderCommand}"
+                       ReturnCommandParameter="{Binding NewFolderName}" />
+                <Button Grid.Column="1" Text="{controls:Translate 'Add'}" Style="{StaticResource PrimaryButton}"
+                        Command="{Binding MakeFolderCommand}"
+                        CommandParameter="{Binding NewFolderName}" />
+            </Grid>
         </VerticalStackLayout>
 
         <RefreshView Grid.Row="1"
@@ -78,20 +93,26 @@
                             </controls:ItemCard.Pin>
 
                             <controls:ItemCard.Trailing>
-                                <!-- The one tag the design puts at the end of the name's line. Only
-                                     where it says something - see PriorityChoice.IsWorthSaying. -->
-                                <Border Style="{StaticResource FilterChip}" Padding="7,2"
-                                        IsVisible="{Binding HasPriority}">
-                                    <Label Text="{Binding Priority}" Style="{StaticResource FilterChipLabel}" />
-                                </Border>
-                            </controls:ItemCard.Trailing>
+                                <!-- The tags the design puts at the end of the name's line, both of them
+                                     as chips: a bare word beside a chip reads as the end of the title
+                                     rather than as a fact about it. On the line, not under it - Tags is
+                                     the line below, and a note tagged "copy" was giving up a whole row
+                                     of the list to one word. -->
+                                <HorizontalStackLayout Spacing="6">
+                                    <!-- Only where it says something - see PriorityChoice.IsWorthSaying. -->
+                                    <Border Style="{StaticResource FilterChip}" Padding="7,2"
+                                            VerticalOptions="Center" IsVisible="{Binding HasPriority}">
+                                        <Label Text="{Binding Priority}" Style="{StaticResource FilterChipLabel}" />
+                                    </Border>
 
-                            <controls:ItemCard.Tags>
-                                <!-- Two cards with the same title are otherwise indistinguishable, and
-                                     the reader has no way of telling which one they wrote in. -->
-                                <Label Text="{controls:Translate 'copy'}" IsVisible="{Binding IsCopy}"
-                                       Style="{StaticResource RowMeta}" />
-                            </controls:ItemCard.Tags>
+                                    <!-- Two cards with the same title are otherwise indistinguishable,
+                                         and the reader has no way of telling which one they wrote in. -->
+                                    <Border Style="{StaticResource CardBadge}" IsVisible="{Binding IsCopy}">
+                                        <Label Text="{controls:Translate 'copy'}"
+                                               Style="{StaticResource CardBadgeLabel}" />
+                                    </Border>
+                                </HorizontalStackLayout>
+                            </controls:ItemCard.Trailing>
 
                             <controls:ItemCard.Body>
                                 <VerticalStackLayout Spacing="6">

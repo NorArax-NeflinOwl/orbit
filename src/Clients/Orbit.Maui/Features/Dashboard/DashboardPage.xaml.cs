@@ -61,6 +61,17 @@ public partial class DashboardPage : ContentPage, ITitleMenu
 	/// </summary>
 	private void ShowTheDashboardMenu() => Menu.ShowGroups(
 		[
+			// Both pages' folders at once, because this screen shows both kinds of card - and no way to
+			// make one, there being no dashboard card to file into it. Opening one somebody made leaves
+			// only the card of that kind standing; see DashboardViewModel.IsAboutTheOpenFolder.
+			new ScreenMenuGroup(
+				_translations["Folders"],
+				_viewModel.FolderChoices.Select(choice => new ScreenMenuEntry(
+					choice.Name,
+					() => _viewModel.ChooseFolderCommand.Execute(choice.Key),
+					choice.IsChosen,
+					count: ScreenMenuEntry.CountOf(choice.Count)))),
+
 			// Which parts of the dashboard are wanted at all. Settings rather than actions, so they stay
 			// open while several are changed - the exception Orbit.Web's OverflowMenu.StaysOpen makes
 			// for exactly this menu.

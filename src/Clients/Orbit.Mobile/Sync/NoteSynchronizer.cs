@@ -109,12 +109,60 @@ public sealed class NoteSynchronizer
             return SendResult.Abandoned;
         }
 
-        return entry.Operation is OutboxOperation.Create
-            ? await SendCreateAsync(note, cancellationToken)
-            : await SendUpdateAsync(note, cancellationToken);
+        return entry.Operation switch
+        {
+            OutboxOperation.Create => await SendCreateAsync(dbContext, note, cancellationToken),
+            OutboxOperation.File => await SendFilingAsync(dbContext, note, cancellationToken),
+            _ => await SendUpdateAsync(note, cancellationToken)
+        };
     }
 
-    private async Task<SendResult> SendCreateAsync(LocalNote note, CancellationToken cancellationToken)
+    /// <summary>
+    /// Which folder the server should be told, for a note filed into one of this phone's. Null both for
+    /// a note in no folder and for one whose folder has since gone - and a folder the server has not
+    /// been told about yet stops the send instead, so the filing waits for it rather than being lost.
+    /// </summary>
+    private static async Task<Guid?> ServerFolderIdAsync(
+        OrbitLocalDbContext dbContext, Guid? folderLocalId, CancellationToken cancellationToken)
+    {
+        if (folderLocalId is not { } localId)
+        {
+            return null;
+        }
+
+        var folder = await dbContext.Folders.FirstOrDefaultAsync(
+            candidate => candidate.LocalId == localId, cancellationToken);
+
+        return folder is null ? null : folder.ServerId ?? throw new FolderNotOnTheServerYet(localId);
+    }
+
+    /// <summary>
+    /// Puts the note in its folder, or takes it out of one. Its own request to its own endpoint - see
+    /// NotesClient.FileAsync, and MoveToFolderRequest, which says why a save must not carry this.
+    /// </summary>
+    private async Task<SendResult> SendFilingAsync(
+        OrbitLocalDbContext dbContext, LocalNote note, CancellationToken cancellationToken)
+    {
+        if (note.ServerId is not { } serverId)
+        {
+            // Its create is still queued ahead of this, and that create carries the folder itself.
+            return SendResult.Abandoned;
+        }
+
+        var outcome = await _notesClient.FileAsync(
+            serverId, await ServerFolderIdAsync(dbContext, note.FolderId, cancellationToken), cancellationToken);
+
+        if (outcome is not WriteOutcome.Applied)
+        {
+            _logger.LogInformation("The server refused a filing of note {ServerId}: {Outcome}", serverId, outcome);
+            return SendResult.Refused;
+        }
+
+        return SendResult.Sent;
+    }
+
+    private async Task<SendResult> SendCreateAsync(
+        OrbitLocalDbContext dbContext, LocalNote note, CancellationToken cancellationToken)
     {
         if (note.ServerId is not null)
         {
@@ -125,7 +173,13 @@ public sealed class NoteSynchronizer
         note.ServerId = await _notesClient.CreateAsync(
             // A private note's words are in EncryptedContent and its readable fields are empty, which is
             // how the row is already stored - see LocalNoteRepository.WriteContentAsync.
-            new CreateNoteRequest(note.Title, note.Content, note.IsPrivate, note.EncryptedContent, note.Priority),
+            //
+            // The folder travels on the create and only on the create: a note the server has never seen
+            // has nothing to file, so LocalNoteRepository queues no filing for one and this is where it
+            // would otherwise be lost.
+            new CreateNoteRequest(
+                note.Title, note.Content, note.IsPrivate, note.EncryptedContent, note.Priority,
+                await ServerFolderIdAsync(dbContext, note.FolderId, cancellationToken)),
             cancellationToken);
         note.LastSyncedAtUtc = _timeProvider.GetUtcNow();
         return SendResult.Sent;
@@ -170,6 +224,12 @@ public sealed class NoteSynchronizer
             .Distinct()
             .ToListAsync(cancellationToken);
 
+        // A folder is known here by an id of this phone's own, and arrives named by the server's - see
+        // LocalFolder.LocalId. Read once for the run rather than per note.
+        var foldersByServerId = await dbContext.Folders
+            .Where(folder => folder.ServerId != null)
+            .ToDictionaryAsync(folder => folder.ServerId!.Value, folder => folder.LocalId, cancellationToken);
+
         var received = 0;
         foreach (var incoming in feed.Changed)
         {
@@ -181,7 +241,7 @@ public sealed class NoteSynchronizer
                 continue;
             }
 
-            CopyInto(existing ?? NewLocalNote(dbContext, incoming.Id), incoming);
+            CopyInto(existing ?? NewLocalNote(dbContext, incoming.Id), incoming, foldersByServerId);
             received++;
         }
 
@@ -212,8 +272,15 @@ public sealed class NoteSynchronizer
         return note;
     }
 
-    private void CopyInto(LocalNote note, NoteDto incoming)
+    private void CopyInto(LocalNote note, NoteDto incoming, IReadOnlyDictionary<Guid, Guid> foldersByServerId)
     {
+        // A folder this phone has not heard of leaves the note unfiled rather than pointing at nothing,
+        // which is the same answer FolderPlacement gives for an id it does not know: back under whichever
+        // built-in folder the note belongs to, rather than gone from every tab.
+        note.FolderId = incoming.FolderId is { } folderServerId
+            && foldersByServerId.TryGetValue(folderServerId, out var folderLocalId)
+                ? folderLocalId
+                : null;
         note.Title = incoming.Title;
         note.Content = incoming.Content;
         note.IsPrivate = incoming.IsPrivate;

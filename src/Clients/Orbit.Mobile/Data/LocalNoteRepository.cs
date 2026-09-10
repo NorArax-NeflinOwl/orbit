@@ -472,6 +472,50 @@ public sealed class LocalNoteRepository : ICopyReviewStore
         await dbContext.SaveChangesAsync(cancellationToken);
     }
 
+    /// <summary>
+    /// Puts this note in a folder, or takes it out of one. Queued as its own kind of change, because
+    /// filing travels on its own endpoint - see OutboxOperation.File, and MoveToFolderRequest, which
+    /// says why the server keeps it off the save.
+    ///
+    /// UpdatedAtUtc is left alone on purpose, for the same reason pinning leaves it alone: filing
+    /// changes where a note is kept, not what it says, and a note that jumped to the top of the list
+    /// for having been tidied away would read as having been edited.
+    ///
+    /// A note nobody may change here is not filed either: filing is the owner's decision about their
+    /// own page, and offline it is refused exactly as an edit is - see OfflineEditPolicy.
+    /// </summary>
+    public async Task<LocalWriteOutcome> FileAsync(
+        Guid localId, Guid? folderId, CancellationToken cancellationToken = default)
+    {
+        await using var dbContext = await _dbContextFactory.CreateDbContextAsync(cancellationToken);
+        if (await dbContext.Notes.FirstOrDefaultAsync(candidate => candidate.LocalId == localId, cancellationToken) is not { } note)
+        {
+            return LocalWriteOutcome.NotFound;
+        }
+
+        if (!OfflineEditPolicy.IsAllowed(note, _networkStatus))
+        {
+            return LocalWriteOutcome.RefusedWhileOffline;
+        }
+
+        if (note.FolderId == folderId)
+        {
+            return LocalWriteOutcome.Applied;
+        }
+
+        note.FolderId = folderId;
+
+        // A note the server has never seen carries its folder on the create instead - there is nothing
+        // to send a filing against yet, and the create is already queued in front of it.
+        if (note.ServerId is not null)
+        {
+            Enqueue(dbContext, localId, OutboxOperation.File, _timeProvider.GetUtcNow(), note.ServerId);
+        }
+
+        await dbContext.SaveChangesAsync(cancellationToken);
+        return LocalWriteOutcome.Applied;
+    }
+
     public async Task<LocalWriteOutcome> DeleteAsync(Guid localId, CancellationToken cancellationToken = default)
     {
         await using var dbContext = await _dbContextFactory.CreateDbContextAsync(cancellationToken);
