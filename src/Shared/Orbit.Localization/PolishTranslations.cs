@@ -1234,6 +1234,11 @@ public static class PolishTranslations
         ["tasks due today"] = "zadań na dziś",
         ["events today"] = "wydarzeń dziś",
         ["new chat requests"] = "nowych próśb o rozmowę",
+        // The phone's own three, shorter than the browser's because they sit side by side on one
+        // baseline in 412 points - see DashboardPage.
+        ["tasks due"] = "zadań",
+        ["events"] = "wydarzeń",
+        ["chat requests"] = "próśb o rozmowę",
         ["-- select a contact --"] = "— wybierz kontakt —",
         ["Pick a contact…"] = "Wybierz kontakt…",
         ["Add someone…"] = "Dodaj osobę…",
