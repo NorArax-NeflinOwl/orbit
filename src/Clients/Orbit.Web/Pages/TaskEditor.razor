@@ -556,22 +556,12 @@ else
 @if (!_isLoading)
 {
     <EditorRail OnSave="SaveAsync" OnCancel="CancelAsync"
+                Notice="@(_lockedByUserName is null ? null : T.Format("{0} is currently editing this task list - you can't edit it right now.", _lockedByUserName))"
+                ErrorMessage="@_saveErrorMessage"
                 SaveDisabled="@(_isSharedReadOnly || _lockedByUserName is not null || _isSaving)">
         @* Beside the button that failed, rather than at the end of a form that is taller than the
            screen: a save that did not happen and a list somebody else is holding are both answers to
            "why has Save done nothing", and an answer nobody scrolls to is not one. *@
-        <Extras>
-            @if (_lockedByUserName is not null)
-            {
-                <p class="lock-banner">
-                    @T.Format("{0} is currently editing this task list - you can't edit it right now.", _lockedByUserName)
-                </p>
-            }
-            @if (_saveErrorMessage is not null)
-            {
-                <p class="error">@_saveErrorMessage</p>
-            }
-        </Extras>
         <ChildContent>
             @* Everything that is about the list rather than on it - who may read it, how it is shown,
                whether it is finished, which shelf it is measured against, where it is filed and how much
@@ -595,20 +585,14 @@ else
                     <div class="field">
                         <label>
                             <input type="checkbox" checked="@_formModel.IsPrivate"
-                               @onchange="args => _formModel.IsPrivate = args.Value is true" />@T["Private"]</label>
-                        <small>
-                            @T["Encrypted in this browser, so Orbit can't read it. It can't be shared, gets no reminders, and losing your password loses it."]
-                        </small>
+                               @onchange="args => _formModel.IsPrivate = args.Value is true" />@T["Private"]<FieldHint>@T["Encrypted in this browser, so Orbit can't read it. It can't be shared, gets no reminders, and losing your password loses it."]</FieldHint></label>
                     </div>
                 }
 
                 <div class="field">
                     <label>
                         <input type="checkbox" checked="@_formModel.IsGroup"
-                               @onchange="args => _formModel.IsGroup = args.Value is true" />@T["Group View"]</label>
-                    <small>
-                        @T["A group list's checklist also shows every list it gathers, so the whole group fits on one screen."]
-                    </small>
+                               @onchange="args => _formModel.IsGroup = args.Value is true" />@T["Group View"]<FieldHint>@T["A group list's checklist also shows every list it gathers, so the whole group fits on one screen."]</FieldHint></label>
                 </div>
 
                 @* Whether the list is finished, asked once for both ways of being it. The box ticks itself once
@@ -618,12 +602,11 @@ else
                 <div class="field">
                     <label>
                         <input type="checkbox" checked="@IsMarkedCompleted"
-                               @onchange="args => SetCompleted(args.Value is true)" />@T["Completed"]</label>
-                    <small>
+                               @onchange="args => SetCompleted(args.Value is true)" />@T["Completed"]<FieldHint>
                         @(EveryEntryIsTickedOff
                             ? T["Ticked on its own because every entry is. Untick it to say the list itself is not done yet - it reads as \"not finished\" then."]
                             : T["Marks the whole list done even with entries still open, and moves it to Finished. It ticks itself once every entry is."])
-                    </small>
+                    </FieldHint></label>
                 </div>
 
                 @* Which storage this list is measured against. Here rather than only on the checklist, and for
@@ -633,7 +616,7 @@ else
                 @if (!IsNewTaskList)
                 {
                     <div class="field">
-                        <label for="taskListInventorySelect">@T["Storage this list is measured against"]</label>
+                        <label for="taskListInventorySelect">@T["Storage this list is measured against"]<FieldHint>@T["An inventory entry then describes a product to put on that shelf."]</FieldHint></label>
                         <select id="taskListInventorySelect" value="@(_linkedInventoryId?.ToString() ?? string.Empty)"
                                 disabled="@_isWorkingOnInventory" @onchange="OnInventoryChangedAsync">
                             <option value="">@T["Not measured against an inventory"]</option>
@@ -650,7 +633,6 @@ else
                                 </option>
                             }
                         </select>
-                        <small>@T["An inventory entry then describes a product to put on that shelf."]</small>
                     </div>
                 }
 
@@ -662,14 +644,13 @@ else
                 }
 
                 <div class="field">
-                    <label for="taskListPrioritySelect">@T["Priority"]</label>
+                    <label for="taskListPrioritySelect">@T["Priority"]<FieldHint>@T["Sorts this list against the others. Its progress is worked out from its items."]</FieldHint></label>
                     <select id="taskListPrioritySelect" value="@_formModel.Priority"
                             @onchange="args => _formModel.Priority = args.Value?.ToString() ?? _formModel.Priority">
                         <option value="Low">@T["Low"]</option>
                         <option value="Normal">@T["Normal"]</option>
                         <option value="High">@T["High"]</option>
                     </select>
-                    <small>@T["Sorts this list against the others. Its progress is worked out from its items."]</small>
                 </div>
                 </div>
 

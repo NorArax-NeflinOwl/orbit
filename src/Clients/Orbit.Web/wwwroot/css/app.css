@@ -3767,6 +3767,92 @@ input.note-editor-title {
     align-items: center;
 }
 
+/* ---- What a field is for, behind a "?" beside its label (FieldHint.razor) ---- */
+
+/* Inline, so the mark sits on the label's own line rather than starting a new one, and relative so the
+   bubble can be hung off it. */
+.field-hint-holder {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    vertical-align: middle;
+    margin-left: 4px;
+}
+
+/* Small and quiet: a form of eight fields carries eight of these, and eight bright circles would be a
+   pattern the eye reads before it reads the labels. */
+.field-hint-mark {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 16px;
+    height: 16px;
+    padding: 0;
+    font-size: 11px;
+    font-weight: 600;
+    line-height: 1;
+    cursor: help;
+    color: var(--text-tertiary);
+    background: transparent;
+    border: 1px solid var(--border);
+    border-radius: 999px;
+}
+
+.field-hint-mark:hover,
+.field-hint-mark:focus-visible,
+.field-hint-mark.on {
+    color: var(--accent);
+    border-color: var(--accent);
+}
+
+/* Out of the page's flow entirely rather than merely invisible: given display:none it would be
+   unreachable to a screen reader, and given visibility:hidden it would still hold its own width in the
+   label's line and push the label's own words along. */
+.field-hint-bubble {
+    /* Fixed, and put where it goes by fieldHint.js: these sit inside menus and rails near the edges of
+       the window, and CSS cannot say "and stay inside it". The offsets here are only what it looks like
+       before the first measurement. */
+    position: fixed;
+    left: 0;
+    top: 0;
+    z-index: 60;
+    width: max-content;
+    max-width: min(280px, 70vw);
+    padding: 8px 10px;
+    /* The label it stands in is drawn as a small-caps heading on most forms, and a sentence inherited
+       that was a sentence in capitals with the letters pushed apart. */
+    font-size: 12px;
+    font-weight: 400;
+    font-family: var(--font-body);
+    letter-spacing: normal;
+    text-transform: none;
+    line-height: 1.4;
+    text-align: left;
+    white-space: normal;
+    color: var(--text-secondary);
+    background: var(--bg-subtle);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    box-shadow: 0 8px 24px oklch(20% 0.02 60 / 0.35);
+    /* Faded rather than removed, so it is still read out. opacity keeps it out of the picture and
+       pointer-events keeps it from swallowing a press aimed at what is underneath. */
+    opacity: 0;
+    pointer-events: none;
+}
+
+.field-hint-holder:hover .field-hint-bubble,
+.field-hint-mark:focus-visible + .field-hint-bubble,
+.field-hint-mark.on + .field-hint-bubble {
+    opacity: 1;
+    pointer-events: auto;
+}
+
+@media (max-width: 480px) {
+    .field-hint-bubble {
+        max-width: min(280px, 86vw);
+    }
+}
+
 /* Where a phone's Menu button lands - see PageToolbarTrigger. The auto margin eats the free space the
    header's space-between would otherwise put here, so this and the page's own actions sit together at
    the far end instead of one of them floating into the middle. */

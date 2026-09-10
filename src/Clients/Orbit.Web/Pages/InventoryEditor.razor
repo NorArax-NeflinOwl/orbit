@@ -162,12 +162,12 @@ else
                                         </svg>
                                     </span>
                                 }
-                                <label title="@(T["How much of it there is"])">
-                                    @T["Amount"]
+                                <label>
+                                    @T["Amount"]<FieldHint>@T["How much of it there is"]</FieldHint>
                                     <InputNumber TValue="decimal" @bind-Value="item.Quantity" step="0.01" />
                                 </label>
-                                <label title="@(T["Restock once the amount drops below this"])">
-                                    @T["Min"]
+                                <label>
+                                    @T["Min"]<FieldHint>@T["Restock once the amount drops below this"]</FieldHint>
                                     <InputNumber TValue="decimal?" @bind-Value="item.MinimumQuantity" step="0.01" />
                                 </label>
                                 @* The unit reads on the row it qualifies - "2" and "2 kg" are different
@@ -219,10 +219,7 @@ else
                 {
                     <div class="field">
                         <label>
-                                <InputCheckbox @bind-Value="_formModel.IsPrivate" />@T["Private"]</label>
-                        <small>
-                                @T["Encrypted in this browser, so Orbit can't read it. It can't be shared, raises no restock or expiry reminders, and losing your password loses it."]
-                        </small>
+                                <InputCheckbox @bind-Value="_formModel.IsPrivate" />@T["Private"]<FieldHint>@T["Encrypted in this browser, so Orbit can't read it. It can't be shared, raises no restock or expiry reminders, and losing your password loses it."]</FieldHint></label>
                     </div>
                 }
             </fieldset>
@@ -340,13 +337,12 @@ else
             </p>
 
             <div class="field">
-                <label for="restockPrioritySelect">@T["Priority of the restock list"]</label>
+                <label for="restockPrioritySelect">@T["Priority of the restock list"]<FieldHint>@T["How much the generated \"Restock supplies\" list matters, next to your own lists."]</FieldHint></label>
                 <select id="restockPrioritySelect" @bind="_restockSettings.ListPriority">
                     <option value="@ItemPriority.Low">@T["Low"]</option>
                     <option value="@ItemPriority.Normal">@T["Normal"]</option>
                     <option value="@ItemPriority.High">@T["High"]</option>
                 </select>
-                <small>@T["How much the generated \"Restock supplies\" list matters, next to your own lists."]</small>
             </div>
 
             @* The reminder and the hour it arrives at are one decision, so the switch sits beside the
@@ -356,6 +352,11 @@ else
                 <label class="field-checkbox" for="restockRemindDailyInput">
                     <input id="restockRemindDailyInput" type="checkbox" @bind="_restockSettings.RemindDaily" />
                     <span>@T["Remind me to update stock levels"]</span>
+                    <FieldHint>
+                        @(_restockSettings.RemindDaily
+                            ? T["The standing \"Update stock levels\" entry comes back every day at this hour, and shows on the calendar for that day."]
+                            : T["Nothing arrives each day. Products dropping below their minimum still raise their own errands."])
+                    </FieldHint>
                 </label>
                 <fieldset class="restock-reminder-time" disabled="@(!_restockSettings.RemindDaily)">
                     <label for="restockRefreshTimeInput">@T["Comes round at"]</label>
@@ -372,11 +373,6 @@ else
                         }
                     </select>
                 </fieldset>
-                <small>
-                    @(_restockSettings.RemindDaily
-                        ? T["The standing \"Update stock levels\" entry comes back every day at this hour, and shows on the calendar for that day."]
-                        : T["Nothing arrives each day. Products dropping below their minimum still raise their own errands."])
-                </small>
             </div>
         </fieldset>
     </div>
@@ -384,22 +380,12 @@ else
 
 </div>
 <EditorRail OnSave="SaveAsync" OnCancel="GoBack"
+            Notice="@(_lockedByUserName is null ? null : T.Format("{0} is currently editing this inventory - you can't edit it right now.", _lockedByUserName))"
+            ErrorMessage="@_saveErrorMessage"
             SaveDisabled="@(_isReadOnly || _lockedByUserName is not null || _isSaving || _formModel.Name.Trim().Length == 0)">
     @* Beside the button that failed rather than at the end of a shelf that is taller than the screen:
        a save that did not happen and an inventory somebody else is holding are both answers to "why has
        Save done nothing", and an answer nobody scrolls to is not one. *@
-    <Extras>
-        @if (_lockedByUserName is not null)
-        {
-            <p class="lock-banner">
-                @T.Format("{0} is currently editing this inventory - you can't edit it right now.", _lockedByUserName)
-            </p>
-        }
-        @if (_saveErrorMessage is not null)
-        {
-            <p class="error">@_saveErrorMessage</p>
-        }
-    </Extras>
 </EditorRail>
 </div>
 }

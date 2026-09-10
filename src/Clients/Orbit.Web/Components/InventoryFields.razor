@@ -17,14 +17,14 @@
 }
 @if (ShowsAmounts)
 {
-    <label title="@(T["How much of it there is"])">@T["Amount"]
+    <label>@T["Amount"]<FieldHint>@T["How much of it there is"]</FieldHint>
         <InputNumber TValue="decimal" @bind-Value="Model.Quantity" step="0.01" />
     </label>
-    <label title="@(T["Restock once the amount drops below this"])">@T["Min"]
+    <label>@T["Min"]<FieldHint>@T["Restock once the amount drops below this"]</FieldHint>
         <InputNumber TValue="decimal?" @bind-Value="Model.MinimumQuantity" step="0.01" />
     </label>
 }
-<label title="@(T["What this is counted in"])">@T["Unit"]
+<label>@T["Unit"]<FieldHint>@T["What this is counted in"]</FieldHint>
     <select class="editor-item-unit" @bind="Model.Unit" aria-label="@(T["Unit"])">
         @foreach (var option in InventoryUnitOption.All)
         {
@@ -64,8 +64,8 @@
     </select>
 </label>
 @* Asked for every round, whatever the count says - see InventoryItem.BelongsOnTheRestockList. *@
-<label class="field-checkbox" title="@(T["Always on the restock list, however much there is"])">
-    <InputCheckbox @bind-Value="Model.IsCheckedRegularly" />@T["Check every round"]
+<label class="field-checkbox">
+    <InputCheckbox @bind-Value="Model.IsCheckedRegularly" />@T["Check every round"]<FieldHint>@T["Always on the restock list, however much there is"]</FieldHint>
 </label>
 
 @code {

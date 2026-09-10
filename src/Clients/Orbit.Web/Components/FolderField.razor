@@ -9,7 +9,7 @@
    Orbit.Core.Folders.BuiltInFolder - and a note filed under a task-list folder would be filed under a
    tab the notes page does not draw. *@
 <div class="field">
-    <label for="folderSelect">@T["Folder"]</label>
+    <label for="folderSelect">@T["Folder"]<FieldHint>@Hint</FieldHint></label>
     <select id="folderSelect" value="@(Value?.ToString() ?? string.Empty)"
             @onchange="OnChosenAsync" aria-label="@(T["Folder"])">
         <option value="">@T["None"]</option>
@@ -18,7 +18,6 @@
             <option value="@folder.Id">@folder.Name</option>
         }
     </select>
-    <small>@Hint</small>
 </div>
 
 @code {

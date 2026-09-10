@@ -299,10 +299,9 @@ else
             @if (_showsPastPlaces)
             {
                 <div class="field">
-                    <label for="mapPastFrom">@T["Show from"]</label>
+                    <label for="mapPastFrom">@T["Show from"]<FieldHint>@T["Leave it empty for everything that has been and gone."]</FieldHint></label>
                     <input type="date" id="mapPastFrom" value="@(_showsPastPlacesFrom?.ToString("yyyy-MM-dd"))"
                            @onchange="OnShowPastFromChangedAsync" aria-label="@(T["Show from"])" />
-                    <small>@T["Leave it empty for everything that has been and gone."]</small>
                 </div>
             }
             @if (_placed.Count == 0)

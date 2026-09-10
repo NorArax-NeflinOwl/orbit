@@ -189,6 +189,33 @@ same thing on the wire, in the database and in a log line. It sorts the task lis
 a badge, and is what the dashboard's per-card filter reads. Rows written before the column existed read
 as `Normal`, so nothing has to be revisited.
 
+## What a field is for
+
+**Every field's description is behind a "?" beside its label** (`FieldHint.razor`, web). It used to be a
+line of small print under the field. A form of eight fields was then eight sentences nobody reads twice,
+and on a phone that is most of the screen given to explaining a form rather than to the form — the same
+complaint the folder tabs answered by folding into one button. The words are unchanged and none of them
+are gone: they are one press or one hover away instead of permanently in the way.
+
+**Hover is not the only way in.** A phone has no hover, so the mark is a real button — pressing it opens
+the bubble and pressing it again shuts it — and a keyboard reaches it like any other button, which opens
+it on focus. That is also why it is not a `title` attribute, which is what four of these used to be: a
+`title` is unreachable by touch and appears after a delay nobody can predict. The bubble is in the page
+whether or not it is showing, so a screen reader announces it; what CSS does is fade it in and out.
+
+Pressing the mark **never toggles the field it stands beside**, though several of them sit inside a
+`<label>` whose control a press would otherwise activate, and it never submits the form it stands in.
+
+Where the bubble goes is measured (`fieldHint.js`): these sit inside menus and rails near the edges of
+the window, and CSS cannot say "and stay inside it". It opens above the mark where there is room and
+below it where there is not, and is pulled back inside both edges.
+
+**Two kinds of small print stay where they are**: what is true of a screen right now ("this entry has an
+event in the calendar", "somebody else is editing this") and why a save is being refused. Those are
+answers to a question the reader is already asking, and an answer behind a "?" is an answer nobody finds.
+The **Options page** keeps its descriptions too: it is a screen that is read rather than filled in, and
+each row's sentence is the point of the row.
+
 ## Advertising
 
 Orbit advertises **itself**, in three places:
@@ -196,6 +223,13 @@ Orbit advertises **itself**, in three places:
 - a **rail down the right** of a browser window wide enough to have room beside the page (≥1200px);
 - a **bar across the foot** of a narrower one, and of every main screen in the Android app;
 - one **dialog**, shown at most once every five minutes.
+
+**The editor's panel says what it holds.** Above Save and Back it can carry a notice — "somebody else is
+editing this" — and what went wrong the last time Save was pressed, and on a narrow screen those fold
+away behind an arrow. Both are given to `EditorRail` as text rather than as markup, and the arrow is
+drawn only when there is something behind it. As a fragment they could not be counted: every editing
+screen passed one holding two conditionals, so a fragment existed whether or not either was true, and
+every screen where nothing was wrong carried an arrow that opened onto nothing.
 
 **The bar gives way to an editor's own bar.** Below 680px the editing screens' panel becomes a bar
 across the foot too (see `EditorRail`), and both are fixed to the bottom edge - so the advert sat over
