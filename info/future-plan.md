@@ -555,6 +555,18 @@ inventory lists, the contacts tabs, the chat menus - is built and needs no schem
 
 ## Noticed while working
 
+- **A Location entry says where in words, and cannot be drawn.** `TaskItemKind.Location` was added on
+  2026-09-10 so an entry can say where without saying when, and what it carries is `TaskItem.Location` -
+  a line of text, the same one every other kind has had. A point lives on `Place` instead, which is its
+  own row with its own sharing and, since the same day, its own encryption. So a Location entry cannot
+  become a pin: the map draws places and things in the calendar, and an entry that only names a street
+  is not either. This is written down rather than decided because the obvious fix is the wrong shape -
+  a latitude and a longitude on every task item would put a point in a second place, against the rule
+  that a place is stored once, and would make two rows that disagree about where something is a thing
+  Orbit can hold. The alternatives worth weighing when somebody wants this: an optional link from an
+  entry to a `Place` (one point, one owner, and the entry borrows it), or leaving Location as prose and
+  letting the entry offer "keep this as a place" once. Needs a decision before any of it is built.
+
 - **Nobody has found out why the map's Start and Share do nothing on a phone.** Both are hidden below
   680px as of 2026-09-09 (`.map-panel-start`, `.map-panel-share`), on a report that pressing them
   achieves nothing there, and the page says so in one line instead. That is a cover, not a fix: the
