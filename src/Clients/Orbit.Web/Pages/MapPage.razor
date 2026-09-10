@@ -1253,13 +1253,21 @@ else
     /// </summary>
     private async Task GoToThePlaceAskedForAsync()
     {
-        if (Place is not { } placeId || _places.All(place => place.Id != placeId))
+        if (_hasGoneToThePlaceAskedFor
+            || Place is not { } placeId
+            || _places.All(place => place.Id != placeId))
         {
             return;
         }
 
+        // Once, however many renders follow - otherwise every redraw would drag the map back to it and
+        // the reader could never look anywhere else.
+        _hasGoneToThePlaceAskedFor = true;
         await FocusTheMapOnAsync(PlaceMapKey(placeId), "a kept place asked for by link");
     }
+
+    /// <inheritdoc cref="GoToThePlaceAskedForAsync"/>
+    private bool _hasGoneToThePlaceAskedFor;
 
     private Task FocusOnPlaceOnTheMapAsync(PlaceDto place)
         => FocusTheMapOnAsync(PlaceMapKey(place.Id), "a kept place");

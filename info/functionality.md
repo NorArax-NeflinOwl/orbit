@@ -1120,6 +1120,10 @@ the way it leaves out the appointments and the people, and a folder tab does too
 of a place's own, and an id this account has no place under still arrives at the map rather than at an
 error — which is the right answer for a link to one since forgotten.
 
+**The dashboard on the phone carries the same card**, between Inventory and Groups, behind the same
+permission. A row shows the place's name and its address — the address rather than the point, because a
+list of coordinates is a list nobody reads — and pressing one opens that place.
+
 **The phone keeps them too** (2026-09-10, `LocalPlace`, `PlaceSynchronizer`, `PlacesPage`). It reads its
 own database and never the API, like every other list there, so a place written on a train is written and
 queued rather than refused. Behind the same permission the map is: a place is a point, and an account

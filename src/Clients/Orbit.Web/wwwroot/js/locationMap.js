@@ -59,7 +59,11 @@ export async function showLocations(elementId, points, dotNetHelper) {
         // than letting fitBounds pick an arbitrary zoom for a one-point box.
         map.setView([drawn[0].latitude, drawn[0].longitude], 14);
     } else if (drawn.length > 1) {
-        map.fitBounds(drawn.map(point => [point.latitude, point.longitude]), { padding: [40, 40] });
+        // Not animated. Nobody is watching a map appear, and an animation still running when the page
+        // asks to be taken to one particular pin lands afterwards and drags the map back to the whole
+        // set - which is how a place opened by link came out with its popup clipped by the frame.
+        map.fitBounds(
+            drawn.map(point => [point.latitude, point.longitude]), { padding: [40, 40], animate: false });
     }
 
     if (dotNetHelper) {
@@ -88,7 +92,9 @@ function drawMarkers(map, points, dotNetHelper) {
         const marker = L.marker([point.latitude, point.longitude], iconFor(point.color)).addTo(map);
         const popup = popupFor(point, dotNetHelper);
         if (popup) {
-            marker.bindPopup(popup);
+            // Room to pan into rather than the 5px Leaflet defaults to: a popup flush with the top of
+            // the frame reads as one that is still cut off, and the top edge is the one it opens against.
+            marker.bindPopup(popup, { autoPanPadding: [24, 24] });
         }
         markersByKey.set(point.key ?? `${point.latitude},${point.longitude}`, marker);
     }
@@ -188,7 +194,12 @@ export function focusOn(elementId, key) {
         return;
     }
 
-    instance.map.setView(marker.getLatLng(), Math.max(instance.map.getZoom(), 14));
+    // Neither the move nor the fit that drew this map is animated - see showLocations, which says why.
+    // A popup opens *above* its pin, so a pin centred in the frame leaves its popup hanging over the
+    // top edge; Leaflet pans a popup it opens into view itself, and it can only do that against a view
+    // that has already arrived. An animated setView still running was what undid it, and a place opened
+    // by link came out with its name and its "Take me there" clipped by the map's own edge.
+    instance.map.setView(marker.getLatLng(), Math.max(instance.map.getZoom(), 14), { animate: false });
     marker.openPopup();
 }
 
