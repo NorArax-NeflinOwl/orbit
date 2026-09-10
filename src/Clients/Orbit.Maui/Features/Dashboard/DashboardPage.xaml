@@ -36,35 +36,50 @@
                             <Label Text="{Binding Date}" FontFamily="OrbitDisplayLight" FontSize="28" />
                             <BoxView Style="{StaticResource Hairline}" Margin="0,2,0,4" />
 
-                            <!-- One row across, not a column: the counts are a glance, and three lines
-                                 of "1 tasks due today" is a paragraph. The number is set in the display
-                                 face at 20 with what it counts small underneath it, which is the shape
-                                 the design draws and which fits three of them in 412 points. -->
-                            <HorizontalStackLayout Spacing="18">
-                                <VerticalStackLayout Spacing="0">
-                                    <Label Text="{Binding TasksDueTodayReads}" FontFamily="OrbitDisplay" FontSize="20"
-                                           FontAttributes="Bold"
-                                           TextColor="{AppThemeBinding Light={StaticResource TaskLight}, Dark={StaticResource TaskDark}}" />
-                                    <Label Text="{controls:Translate 'tasks due today'}"
-                                           Style="{StaticResource PanelHeading}" />
-                                </VerticalStackLayout>
+                            <!-- One baseline, not three columns: a coloured dot, the number, and what
+                                 it counts beside it - which is the design's shape, and Orbit.Web's own.
+                                 Stacked, the label sat under its number in small caps and read as a
+                                 heading over the next one along rather than as part of its own.
 
-                                <VerticalStackLayout Spacing="0">
-                                    <Label Text="{Binding EventsTodayReads}" FontFamily="OrbitDisplay" FontSize="20"
-                                           FontAttributes="Bold" TextColor="{DynamicResource Accent}" />
-                                    <Label Text="{controls:Translate 'events today'}"
-                                           Style="{StaticResource PanelHeading}" />
-                                </VerticalStackLayout>
+                                 The colour is the dot's, so the numbers are all one colour and it is the
+                                 dot that says which of the three a glance has landed on - a number in
+                                 the task colour beside a number in the accent reads as two kinds of
+                                 emphasis rather than as two subjects.
+
+                                 The labels are shorter than the web's for the width: three of "tasks due
+                                 today" side by side do not fit in 412 points, and the heading over them
+                                 already says "Today". -->
+                            <HorizontalStackLayout Spacing="16">
+                                <HorizontalStackLayout Spacing="7">
+                                    <BoxView WidthRequest="8" HeightRequest="8" CornerRadius="4"
+                                             VerticalOptions="Center"
+                                             Color="{AppThemeBinding Light={StaticResource TaskLight}, Dark={StaticResource TaskDark}}" />
+                                    <Label Text="{Binding TasksDueTodayReads}" FontFamily="OrbitDisplay"
+                                           FontSize="20" FontAttributes="Bold" VerticalOptions="Center" />
+                                    <Label Text="{controls:Translate 'tasks due'}" FontSize="12"
+                                           VerticalOptions="Center" Style="{StaticResource ItemCardBody}" />
+                                </HorizontalStackLayout>
+
+                                <HorizontalStackLayout Spacing="7">
+                                    <BoxView WidthRequest="8" HeightRequest="8" CornerRadius="4"
+                                             VerticalOptions="Center" Color="{DynamicResource Accent}" />
+                                    <Label Text="{Binding EventsTodayReads}" FontFamily="OrbitDisplay"
+                                           FontSize="20" FontAttributes="Bold" VerticalOptions="Center" />
+                                    <Label Text="{controls:Translate 'events'}" FontSize="12"
+                                           VerticalOptions="Center" Style="{StaticResource ItemCardBody}" />
+                                </HorizontalStackLayout>
 
                                 <!-- Only when somebody is actually waiting to be answered, as Orbit.Web
                                      has it: a standing "0 new chat requests" is not news. -->
-                                <VerticalStackLayout Spacing="0" IsVisible="{Binding HasChatRequests}">
-                                    <Label Text="{Binding PendingChatRequests}" FontFamily="OrbitDisplay" FontSize="20"
-                                           FontAttributes="Bold"
-                                           TextColor="{AppThemeBinding Light={StaticResource SuccessLight}, Dark={StaticResource SuccessDark}}" />
-                                    <Label Text="{controls:Translate 'new chat requests'}"
-                                           Style="{StaticResource PanelHeading}" />
-                                </VerticalStackLayout>
+                                <HorizontalStackLayout Spacing="7" IsVisible="{Binding HasChatRequests}">
+                                    <BoxView WidthRequest="8" HeightRequest="8" CornerRadius="4"
+                                             VerticalOptions="Center"
+                                             Color="{AppThemeBinding Light={StaticResource SuccessLight}, Dark={StaticResource SuccessDark}}" />
+                                    <Label Text="{Binding PendingChatRequests}" FontFamily="OrbitDisplay"
+                                           FontSize="20" FontAttributes="Bold" VerticalOptions="Center" />
+                                    <Label Text="{controls:Translate 'chat requests'}" FontSize="12"
+                                           VerticalOptions="Center" Style="{StaticResource ItemCardBody}" />
+                                </HorizontalStackLayout>
                             </HorizontalStackLayout>
                         </VerticalStackLayout>
                     </Border>
@@ -131,13 +146,18 @@
                                                     <!-- The row every list of facts is drawn with - see
                                                          Row, and Orbit.Web's .list-row, which draws
                                                          these rows there too. -->
-                                                    <!-- [name .......... tag] [when]. The design gives a
-                                                         dashboard row three things and no more: what it
-                                                         is called, the one tag worth saying about it, and
-                                                         when it last mattered. The leading dot, the
-                                                         avatar and the progress bar are gone - a card
-                                                         here holds six rows to be glanced down, and the
-                                                         section itself is one press away for the rest. -->
+                                                    <!-- [name .......... tag] [when]: what it is called,
+                                                         the one tag worth saying about it, and when it
+                                                         last mattered.
+
+                                                         The design gives this row three more - a colour
+                                                         dot, an initials ring with a presence dot on it,
+                                                         and a 48x3 progress bar - and they are left off
+                                                         deliberately. A card here holds six rows to be
+                                                         glanced down and the section itself is one press
+                                                         away for the rest, so three ornaments on every
+                                                         row of five cards is most of the first screen
+                                                         given over to furniture. -->
                                                     <controls:Row Title="{Binding Title}"
                                                                   HasNews="{Binding HasNews}"
                                                                   HasDivider="False"

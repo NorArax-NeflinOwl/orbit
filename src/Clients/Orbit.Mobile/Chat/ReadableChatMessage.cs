@@ -64,6 +64,18 @@ public sealed record ReadableChatMessage(
     /// </summary>
     public string SentAt { get; init; } = string.Empty;
 
+    /// <summary>
+    /// The day this message was sent, named the way somebody would name it - "Today", "Yesterday", a
+    /// weekday within the week, a date past that. Set only on the **first** message of each day, so the
+    /// thread can draw a divider above it and nothing at all above the rest; every other message
+    /// carries nothing. See ChatDays, which is what fills it, and LastChanged, which is where the four
+    /// answers come from - a note's list gives the same four.
+    /// </summary>
+    public string DayHeading { get; init; } = string.Empty;
+
+    /// <summary>Whether a divider belongs over this message - see <see cref="DayHeading"/>.</summary>
+    public bool StartsANewDay => DayHeading.Length > 0;
+
     /// <summary>Whether this message is an offer to share something - see SharedItemInvitation.</summary>
     public bool IsInvitation => Invitation is not null;
 

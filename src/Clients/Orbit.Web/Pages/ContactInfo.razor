@@ -26,7 +26,7 @@
 
 @if (_isLoading)
 {
-    <p>@T["Loading…"]</p>
+    <Loading />
 }
 else
 {
@@ -291,6 +291,7 @@ else
         "tasklist" => T["Task list"],
         "event" => T["Event"],
         "inventory" => T["Inventory"],
+        "place" => T["Location"],
         _ => T["Shared"]
     };
 
@@ -302,22 +303,25 @@ else
     /// </summary>
     private void OpenShared(SharedWithContactDto share)
     {
-        var section = share.Kind switch
+        // A place is met on the map, which has no page per place - its id says which pin to open on
+        // instead of which page to load. See MapPage.Place.
+        var address = share.Kind switch
         {
-            "note" => "/notes",
-            "tasklist" => "/tasks",
-            "event" => "/calendar",
-            "inventory" => "/inventory",
+            "note" => $"/notes/{share.ItemId}",
+            "tasklist" => $"/tasks/{share.ItemId}",
+            "event" => $"/calendar/{share.ItemId}",
+            "inventory" => $"/inventory/{share.ItemId}",
+            "place" => $"/map?place={share.ItemId}",
             _ => null
         };
 
-        if (section is null)
+        if (address is null)
         {
             return;
         }
 
         Logger.LogInformation("User opened a shared {Kind} from a contact's card", share.Kind);
-        NavigationManager.NavigateTo(ReturnTo.Link($"{section}/{share.ItemId}", $"/contacts/{UserId}"));
+        NavigationManager.NavigateTo(ReturnTo.Link(address, $"/contacts/{UserId}"));
     }
 
     /// <summary>

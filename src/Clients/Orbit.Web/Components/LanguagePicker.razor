@@ -1,0 +1,39 @@
+@using Orbit.Localization
+@using Orbit.Web.Services
+@inject Translations T
+@inject ILogger<LanguagePicker> Logger
+
+@* Which language Orbit is read in, in the footer beside everything else that is about Orbit rather than
+   about what is on the page. It used to be a row under Options, which is behind the avatar menu and
+   therefore behind signing in - so somebody who reads no English met an English sign-in screen with no
+   way out of it. The footer is on every page including that one, which is the whole point of moving it.
+
+   Two codes rather than a dropdown: there are two languages, and a list with two entries costs a press
+   to open before it can be read. Each is written the way that language writes itself. *@
+<span class="app-footer-language" role="group" aria-label="@(T["Language"])">
+    <button type="button" class="app-footer-link app-footer-language-choice @(T.Language == AppLanguage.English ? "chosen" : null)"
+            aria-pressed="@(T.Language == AppLanguage.English ? "true" : "false")" lang="en"
+            title="English" @onclick="() => ChooseAsync(AppLanguage.English)">EN</button>
+    <span class="app-footer-language-divider" aria-hidden="true">/</span>
+    <button type="button" class="app-footer-link app-footer-language-choice @(T.Language == AppLanguage.Polish ? "chosen" : null)"
+            aria-pressed="@(T.Language == AppLanguage.Polish ? "true" : "false")" lang="pl"
+            title="Polski" @onclick="() => ChooseAsync(AppLanguage.Polish)">PL</button>
+</span>
+
+@code {
+    /// <summary>
+    /// Nothing re-renders from here: <see cref="Translations.Changed"/> is what the layout listens to,
+    /// and this sits inside that layout - so the whole page is redrawn in the new language, this row
+    /// included.
+    /// </summary>
+    private async Task ChooseAsync(AppLanguage language)
+    {
+        if (T.Language == language)
+        {
+            return;
+        }
+
+        Logger.LogInformation("User switched the interface language to {Language}", language);
+        await T.SetLanguageAsync(language);
+    }
+}

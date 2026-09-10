@@ -297,6 +297,7 @@ public sealed class ChatThreadTests : OrbitTestContext
         Services.AddSingleton(new NotesApiClient(httpClient));
         Services.AddSingleton(new TasksApiClient(httpClient));
         Services.AddSingleton(new InventoryApiClient(httpClient));
+        Services.AddSingleton(new PlacesApiClient(httpClient));
         Services.AddSingleton(new AuthApiClient(httpClient, new TokenStore(new StubJSRuntime())));
 
         // Never connected, which is the shape every one of these tests wants: the loop then runs at its

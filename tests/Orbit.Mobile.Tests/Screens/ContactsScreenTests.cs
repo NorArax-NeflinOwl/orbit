@@ -423,7 +423,8 @@ public sealed class ContactsScreenTests
         /// <summary>Taking up an offer to share something - see SharedItemAcceptance.</summary>
         public SharedItemAcceptance Acceptance => new(
             new NotesClient(_shareServer.ToHttpClient()), new TasksClient(_shareServer.ToHttpClient()),
-            new CalendarClient(_shareServer.ToHttpClient()), new InventoryClient(_shareServer.ToHttpClient()));
+            new CalendarClient(_shareServer.ToHttpClient()), new InventoryClient(_shareServer.ToHttpClient()),
+            new PlacesClient(_shareServer.ToHttpClient()));
 
         private readonly FakeShareServer _shareServer = new();
         public Guid StrangerUserId { get; }
@@ -443,7 +444,7 @@ public sealed class ContactsScreenTests
                     Repository, _chatClient, directoryReader, _encryptionKeyProvider,
                     NullLogger<EncryptedChatMessageEditor>.Instance),
                 new MessageForwarder(sender), Acceptance, Repository, _synchronizer, _chatClient,
-                new Translations(new InMemoryLanguageStore()), Navigator, new AnnouncedLiveUpdates());
+                new Translations(new InMemoryLanguageStore()), Navigator, new AnnouncedLiveUpdates(), _clock);
             screen.Open(contact);
             return screen;
         }

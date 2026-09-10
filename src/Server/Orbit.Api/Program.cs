@@ -22,6 +22,7 @@ using Orbit.Api.Sharing;
 using Orbit.Api.Inventories;
 using Orbit.Api.Folders;
 using Orbit.Api.Notes;
+using Orbit.Api.Places;
 using Orbit.Api.Notifications;
 using Orbit.Api.PushNotifications;
 using Orbit.Api.RateLimiting;
@@ -396,6 +397,7 @@ try
     app.MapChatEndpoints();
     app.MapNoteEndpoints();
     app.MapFolderEndpoints();
+    app.MapPlaceEndpoints();
     app.MapTaskEndpoints();
     app.MapCalendarEndpoints();
     app.MapInventoryEndpoints();

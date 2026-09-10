@@ -21,6 +21,17 @@ public enum TaskItemKind
     Calendar,
 
     /// <summary>
+    /// Somewhere the work happens, with no appointment behind it. It carries a place like a Calendar
+    /// entry does (see <see cref="TaskItem.Location"/>) and nothing else: no start, no end, nothing in
+    /// the calendar.
+    ///
+    /// Its own kind because "the address is the point" is a real thing to write on a list and Calendar
+    /// was the only way to say it - which put an appointment in the calendar for every address somebody
+    /// wrote down. "Pick the keys up from the agent, here" is not a meeting.
+    /// </summary>
+    Location,
+
+    /// <summary>
     /// An errand about one product on a shelf: bring this back up to the level the inventory is meant to
     /// hold. Carries <see cref="TaskItem.LinkedInventoryItemId"/>, which is what makes it that product's
     /// errand rather than a line of text that happens to mention it.

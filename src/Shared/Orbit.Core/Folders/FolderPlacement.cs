@@ -1,11 +1,13 @@
-using Orbit.Core.Folders;
-
-namespace Orbit.Web.Services;
+namespace Orbit.Core.Folders;
 
 /// <summary>
-/// Which folder a card is in - the one rule, in one place, because four pages ask it: the dashboard's
-/// two cards, the notes, the task lists, and the editors that say where the thing they are saving will
-/// end up.
+/// Which folder a card is in - the one rule, in one place, because every page made of cards asks it:
+/// the browser's dashboard, notes and task lists, the editors that say where the thing they are saving
+/// will end up, and the phone's notes and tasks screens.
+///
+/// It lives in Orbit.Core rather than beside one client because it is the *definition* of where
+/// something is, not a drawing of it - two clients working that out separately is two clients that can
+/// disagree about which tab a note is under.
 ///
 /// Nothing is stored about the built-in folders (see Orbit.Core.Folders.BuiltInFolder); which one
 /// something is in follows from what it already is, and the first that applies wins:

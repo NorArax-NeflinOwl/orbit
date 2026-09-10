@@ -42,6 +42,12 @@ public enum Screen
     GroupDetail,
     ChatKeyGate,
     Map,
+
+    /// <summary>The places kept on the map, as a list - see PlacesViewModel.</summary>
+    Places,
+
+    /// <summary>One of them - see PlaceDetailViewModel.</summary>
+    Place,
     Notifications,
 
     /// <summary>Who can see where the reader is, or who is letting them see - see MapViewModel.</summary>

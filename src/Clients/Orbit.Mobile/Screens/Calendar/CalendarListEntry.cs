@@ -78,6 +78,30 @@ public sealed record CalendarListEntry
     /// <summary>When it happens, as the row says it - both kinds have one, which is why they share a list.</summary>
     public string When => Event?.When ?? Deadline?.When ?? string.Empty;
 
+    /// <inheritdoc cref="CalendarEventRow.Day"/>
+    public string Day => Event?.Day ?? Deadline?.Day ?? string.Empty;
+
+    /// <inheritdoc cref="CalendarEventRow.Time"/>
+    public string Time => Event?.Time ?? Deadline?.Time ?? string.Empty;
+
+    /// <summary>
+    /// The row's own first line: what the thing is called and nothing else. A deadline's
+    /// <see cref="Name"/> carries the list it is on as well ("Groceries: Buy milk"), because that is
+    /// what the list is sorted and searched by - but the row says the list underneath now, where the
+    /// design puts where a thing is, and printing it twice on one row is what it did before.
+    /// </summary>
+    public string Headline => Event?.Title ?? Deadline?.Description ?? string.Empty;
+
+    /// <summary>
+    /// The line under the name. An appointment is somewhere - the place, as the reader wrote it - and
+    /// a deadline is on a list, which is the nearest thing it has to somewhere: it is where you would
+    /// go to tick it off. Empty for an appointment with no place, and the row draws nothing rather
+    /// than an empty line.
+    /// </summary>
+    public string Where => Event?.Where ?? Deadline?.ListTitle ?? string.Empty;
+
+    public bool HasWhere => Where.Length > 0;
+
     /// <summary>Which list a deadline sits on. Empty for an appointment, which sits on no list.</summary>
     public string ListTitle => Deadline?.ListTitle ?? string.Empty;
 

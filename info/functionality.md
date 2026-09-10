@@ -189,13 +189,67 @@ same thing on the wire, in the database and in a log line. It sorts the task lis
 a badge, and is what the dashboard's per-card filter reads. Rows written before the column existed read
 as `Normal`, so nothing has to be revisited.
 
+## What a field is for
+
+**Every field's description is behind a "?" beside its label** (`FieldHint.razor`, web). It used to be a
+line of small print under the field. A form of eight fields was then eight sentences nobody reads twice,
+and on a phone that is most of the screen given to explaining a form rather than to the form — the same
+complaint the folder tabs answered by folding into one button. The words are unchanged and none of them
+are gone: they are one press or one hover away instead of permanently in the way.
+
+**Hover is not the only way in.** A phone has no hover, so the mark is a real button — pressing it opens
+the bubble and pressing it again shuts it — and a keyboard reaches it like any other button, which opens
+it on focus. That is also why it is not a `title` attribute, which is what four of these used to be: a
+`title` is unreachable by touch and appears after a delay nobody can predict. The bubble is in the page
+whether or not it is showing, so a screen reader announces it; what CSS does is fade it in and out.
+
+Pressing the mark **never toggles the field it stands beside**, though several of them sit inside a
+`<label>` whose control a press would otherwise activate, and it never submits the form it stands in.
+
+Where the bubble goes is measured (`fieldHint.js`): these sit inside menus and rails near the edges of
+the window, and CSS cannot say "and stay inside it". It opens above the mark where there is room and
+below it where there is not, and is pulled back inside both edges.
+
+**News gets its own mark.** Something true of the screen *right now* — an entry that has an appointment
+behind it, a place with no point yet, a name that will not become a pin — folds away behind a **"!"** in
+the warning colour rather than a "?" (`FieldHint`'s `Warns`). Same behaviour, different weight: a "?" is
+quiet because most readers already know what a field is for, and a "!" is not, because news is worth
+noticing even folded away. The reason for folding it is the same either way — a form carried three of
+these permanently, and the reader who needed one could not find it among the ones they did not.
+
+**The Options page folds them too.** Every setting there was a title with a sentence under it, which is a
+page of prose with switches in it; now each row is its name and a "?". Two things stay in the flow because
+they are not descriptions: **where the verification code will be sent** (the address is the decision being
+made, and it has to be read before the button is pressed) and **"Not supported in this browser"**, which
+replaces the switch rather than explaining it.
+
+**What is still said out loud** is a refusal that has already happened: an error under Save, a message
+after an action. Those answer a question the reader is asking at that moment, and an answer behind a mark
+is an answer nobody finds.
+
+**The phone does the same thing its own way** (`Orbit.Maui/Controls/FieldHint.xaml`). There is no hover
+on a phone, so the mark is tapped; and what it opens is the sentence itself, in place under the name,
+rather than a bubble over the page — a phone has no room for a layer, and text that appears where it
+belongs needs no arrow pointing at what it is about. Tapping again folds it back. The control carries the
+field's name as well as the sentence, which is what lets the two lay out as one thing; `IsHeading` picks
+between a section's heading and a field's label, and `Warns` draws the same "!" the browser does. What
+stays visible there is what the browser keeps too: a page's own subtitle, and anything that reports a
+state rather than describing a control.
+
 ## Advertising
 
 Orbit advertises **itself**, in three places:
 
 - a **rail down the right** of a browser window wide enough to have room beside the page (≥1200px);
 - a **bar across the foot** of a narrower one, and of every main screen in the Android app;
-- one **dialog**, shown once a visit.
+- one **dialog**, shown at most once every five minutes.
+
+**The editor's panel says what it holds.** Above Save and Back it can carry a notice — "somebody else is
+editing this" — and what went wrong the last time Save was pressed, and on a narrow screen those fold
+away behind an arrow. Both are given to `EditorRail` as text rather than as markup, and the arrow is
+drawn only when there is something behind it. As a fragment they could not be counted: every editing
+screen passed one holding two conditionals, so a fragment existed whether or not either was true, and
+every screen where nothing was wrong carried an arrow that opened onto nothing.
 
 **The bar gives way to an editor's own bar.** Below 680px the editing screens' panel becomes a bar
 across the foot too (see `EditorRail`), and both are fixed to the bottom edge - so the advert sat over
@@ -219,8 +273,22 @@ objecting to.
 
 **The dialog is the only one that interrupts, and it is not shown to an account holding the Debugger
 permission** (`AdInterruption`). Whoever holds that is looking at Orbit's own internals, which means
-they are working on Orbit rather than reading it. It is shown once a visit; the rail and the bar are
-shown to everybody and simply sit there.
+they are working on Orbit rather than reading it. The rail and the bar are shown to everybody and simply
+sit there.
+
+**It is paced rather than counted: at most once every `AdInterruption.MinimumGap`, five minutes**
+(2026-09-10). It used to be "once a visit", held in a field on the layout - which sounds like the same
+thing and is not, because a visit ends at the next refresh: reloading a page was a way of asking for the
+advert again, and reloading is what people do. The clock is kept on the device instead
+(`LastAdInterruption`, `orbit-last-advert`, a Preferences key), so a refresh remembers.
+
+**Offered where a reader is between things**: arriving, signing in, and moving from one page to another.
+Not on a timer - that would fire over somebody typing a note, which is the one interruption an advert
+has no excuse for. Navigation is not "an advert on every navigation" either: the gap refuses it, and
+five minutes of reading is several pages. A browser that has not been allowed to remember (Preferences
+declined, a private window) reads back nothing, which means "nobody has been interrupted yet" - the
+honest answer for a device that cannot remember, and the failure that shows one advert too many rather
+than none ever again.
 
 Which advert a visit shows is picked once, from a number the layout keeps (`HouseAds.ForSlot`), so it
 cannot change under the reader's eye as pages re-render. The Android bar shows only adverts worth
@@ -250,6 +318,24 @@ to do it — on anything wider the wrapper is `display: contents`, so the contro
 always did and only the button is hidden. The obvious alternative, one copy for each width hidden by a
 media query, gives a page two sets of folder tabs, and the hidden set still answers a press.
 
+**The button itself sits in the page's own header row**, beside whatever else is at that end
+(`PageToolbarTrigger`, a named section the toolbar writes into and `PageHeader` draws). It had a row to
+itself between the title and the first card, which on a phone is a whole row spent on one button.
+
+**It says which folder is open** rather than the word "Menu". The row of tabs is what a wide screen
+answers that question with, and folding it away took the answer with it — so a reader on a phone could
+not tell what they were looking at without opening the thing that tells them, and "Menu" said only that
+pressing it opens something, which the three lines beside it already say. A page whose controls are not
+about folders passes no `FolderPage` and keeps the old word, which is the honest answer where there is no
+folder to name. The
+panel it opens still hangs where the toolbar stands, just under the header — drawn a shade away from a
+card's own colour and over a dimmed page, because it opens straight across the first card and the same
+colour on both made its tabs read as that card's heading rather than as something in front of it.
+
+One consequence worth knowing: a page may hold **one `PageHeader` at a time**, since two would be two
+subscribers to the same section. That is one per page in practice; it shows up in tests, where rendering
+the same page twice without disposing the first now throws.
+
 **Built-in folders exist without a row of their own** (`Orbit.Core.Folders.BuiltInFolder`). Which one
 something is in is decided from what it already is, and the first that applies wins:
 
@@ -274,6 +360,30 @@ something is in is decided from what it already is, and the first that applies w
 (decided 2026-09-09) - an event is found by when it happens, which is what the calendar is for. It is
 written down in [the scope cuts](future-plan.md#known-scope-cuts-and-rough-edges) because it reads like
 an omission rather than a decision, and because undoing it would be a migration rather than a checkbox.
+
+**An entry has a priority and a colour of its own** (2026-09-10, `OP_TI_PRIORITY`, `OP_TI_COLOUR`,
+`TaskItem.Priority`/`Colour`). The list has a priority and this is not it: a list of ten errands usually
+has one that has to happen and nine that can wait, and until now saying so meant splitting the list in
+two. The colour is the same shape a calendar event's is, chosen in the same colour well, and **empty
+means "no colour of its own"** - such an entry is drawn in whatever its kind is drawn in, so the form
+offers a way back out of a colour once one has been picked rather than pretending a default is an answer.
+
+Both are offered on **every kind of entry**, beside Move to list and Waits for, and both follow the
+**null-means-not-provided** rule (`UpdateTaskListCommand.EntriesKeepingTheirLook`) - the fifth field to.
+They travel together because a client either knows about both or about neither: an entry sending one of
+the two is taken at its word about that one and keeps nothing. The phone has no boxes for them yet and
+passes them through exactly as they arrived, which makes that rule unnecessary rather than relied upon.
+
+**A list holding only a daily chore is "Due again", not "Overdue"** (`TaskListStatus.DueAgain`,
+2026-09-10). A chore that repeats every day keeps one due date that never moves, so the moment it passed
+the list read *late* for as long as the chore existed - and it is not late, it is due again, which is
+what a daily chore is for. The restock round every shelf raises (`RestockTaskNaming`) is the one every
+account has, so this was the first thing an inventory did to the tasks page. A **missed deadline still
+wins** where a list carries both: that is the one worth saying. Both clients name the new status and the
+task page offers it as a chip of its own; a client that has not learned it reads it as "Not started",
+which is the safe end to be wrong at (`TaskListView.Describe`, `Tasks.DescribeStatus`). The badge takes
+the accent colour rather than the danger one the overdue badge takes - the whole point of the status is
+that nothing has gone wrong.
 
 **A closed list stops being owed.** Filing it under Finished is not all that saying so does: an entry
 on it is done whatever its own tick says, so its deadlines leave the calendar's list and its grid marks
@@ -302,6 +412,26 @@ different question. The rule lives in the query rather than in the scheduler, so
 the real repositories (`NothingIsAnnouncedAboutFinishedWorkTests`) - an in-memory double hands back
 whatever it was seeded with, and a filter that was never written passes there.
 
+**The phone has folders too, since 2026-09-10.** It has no room for a row of tabs, so the folders are a
+group in the menu under the screen's name - each with the count of what is in it, which is what the
+Classical design draws. On all three screens the browser has them on: the notes, the task lists, and
+the **dashboard**, which draws both pages' folders at once, offers no way to make one, and narrows to
+the card the open folder is about - a folder called "Receipts" holds notes, so opening it leaves the
+notes card standing and nothing else, exactly as the browser's dashboard does. Everything about *where* something is is the same rule on both clients:
+`FolderKey`, `FolderPlacement` and `FolderPages` moved out of `Orbit.Web.Services` into
+`Orbit.Core.Folders` when the phone grew them, because which folder something is in is the definition of
+where it is rather than a drawing of it, and two clients working that out separately is two clients that
+can disagree about which tab a note is under.
+
+What is the phone's own is that it can do all of it **offline**. A folder is a name, so it exists on the
+handset the moment it is asked for and the outbox carries it after; a note filed into one that has not
+reached the server yet holds its filing back rather than losing it (`FolderNotOnTheServerYet`), and
+folders are pushed ahead of the notes and lists so that resolves on the same pass. Filing is its own
+kind of queued change and its own endpoint for the reason the server keeps it off the save: an update
+carries the whole note, so a client that had never heard of folders would empty it every time somebody
+corrected a line. Filing a note is offered under the note's own name once it is open, not from the list
+- the phone's lists gave up their per-row menus for exactly that.
+
 Deciding the built-in ones rather than storing them is what let folders arrive with **no migration of
 existing rows and nothing to repair**: every note and list that existed before them was already in the
 right one. There is still no way to be filed as private without being sealed. Giving a folder a page did
@@ -312,8 +442,16 @@ copy, so nothing that was filed somewhere falls back to Public.
 **An entry can wait for other entries of the same list** (2026-09-09, `OL_TASKS_STEPS`,
 `TaskItem.WaitsForTaskItemIds`, the rule in `TaskListSteps`): "hang the door" after "fit the hinges".
 Chosen in the entry's own panel in the list's editor, from a picker offering the other entries on that
-list - a different field from **Stands for these lists** above it, which is one entry meaning whole other
-lists rather than the order the work here has to be done in.
+list - a different field from **Stands for these lists**, which is one entry meaning whole other lists
+rather than the order the work here has to be done in.
+
+**On every kind of entry** since 2026-09-10. The picker used to sit among the checklist fields, so an
+entry describing a product or raising an appointment could not be put in order behind another - although
+`TaskListSteps` reads the field off every entry whatever its kind, and the column has always held it for
+all of them; "buy milk after going to the shop" is an ordinary thing to want. It sits beside **Move to
+list** now, which is the other question about where an entry stands among the others and is likewise
+offered whatever the kind, and above the long kind-specific forms: after a whole event form it would be
+a field nobody scrolls to.
 
 **An entry waiting on unfinished work cannot be ticked.** Not refused with an error: the tick is taken
 back wherever a list is built or saved, the same way a linked entry's completion is ignored rather than
@@ -326,9 +464,17 @@ blocks, since what a cross says is that the work was not done.
 Two rules keep it honest: a step that is not an entry on this list is dropped (ids outlive the entries
 they name - a step deleted in the same save, an id from another list), and an entry cannot wait for
 itself. A request that says nothing about an entry's steps leaves the stored ones alone
-(`UpdateTaskListCommand.EntriesKeepingTheirSteps`) - the fourth field to follow that rule, and for the
-same reason as the first three: the phone has no picker for it yet and must not undo what was arranged
-on the web.
+(`UpdateTaskListCommand.EntriesKeepingTheirSteps`) - the fourth field to follow that rule, and the one
+whose original reason has since gone: it was there because the phone could not set steps and must not
+undo what was arranged on the web. **An entry sending an empty list means "none" and clears them**,
+which is what taking a step off in either client has to mean.
+
+**Both clients set them** since 2026-09-10. The phone's picker mirrors the one it already had for the
+lists an entry stands for (`TaskItemEditor.WaitableEntries`/`WaitsFor`, `TaskEntryChoice`, and the
+settle-after-the-picker dance in `TaskListDetailPage.OnStepPicked` that keeps a picker from rebuilding
+its own source mid-selection). It offers the other entries of the open list - never itself, and never
+one that has not been saved, a step being named by id - and its saves now write the field rather than
+passing through whatever arrived.
 
 **An entry's own box has three answers too** (`OP_TI_ISFAILED`, `Orbit.Core.Tasks.TaskItem.IsFailed`,
 2026-09-09): nothing, **done**, and **given up on** - one press moves to the next, and the third press
@@ -370,13 +516,41 @@ that. Pressing it records an answer of the reader's own instead:
   neither of the two true things about it. With work still left the status is whatever the work says;
   Incomplete is only ever about the gap between the entries and the list.
 
+**What a list is, rather than what is on it, lives in the editor's own menu** (2026-09-10): who may
+read it, whether it is drawn as a group, whether it is finished, which shelf it is measured against,
+where it is filed and how much it matters. They sat under the entries as "About this list", which is a
+form somebody had to scroll past to reach the end of the list they were writing; before that they were
+above it, so a page opened to write a list on began with questions about a list that did not exist yet.
+The note's editor has kept its own settings there since 2026-09-09 and this is the same move.
+
+**One menu, not two.** Two three-dot buttons side by side are two questions where the reader has one, so
+the settings sit above a divider and the three things that *act* on the list - generate a storage,
+recalculate against it, delete it - below. The menu stays open, because settings are what most of it is
+and closing after each one would make changing two a chore; the three actions close it behind them
+(`OverflowMenu.Close`). The controls there are plain `<input>`/`<select>` rather than Blazor's
+`InputCheckbox`/`InputSelect`: the panel is outside the `EditForm`, and those need its `EditContext` to
+exist at all - the same reason the note's own settings are written that way.
+
 **The dashboard narrows to one card when a made folder is open** (2026-09-09). A folder belongs to one
 kind of thing - recipes are task lists, receipts are notes - so pressing its tab leaves that card
 standing and takes the rest of the page away: everything else on it is about something the folder cannot
 hold, and the page used to answer "show me this folder" with the whole dashboard and one card narrowed
-inside it. The built-in tabs change nothing, being what everything is in unless it was filed somewhere.
-The strip of counts above the tabs stays either way - it is about the day rather than about what is
-filed.
+inside it. Public changes nothing, being what everything is in unless it was filed or sealed. The strip
+of counts above the tabs stays whatever is open - it is about the day rather than about what is filed.
+
+**Private narrows it the same way** (2026-09-10). Private is about one thing too - what is sealed - and
+only three kinds of card can hold anything that is: notes, task lists and shelves. An appointment, a
+person, a group and a shared position are none of them sealed, so the tab used to answer "show me what
+is private" with a page mostly made of things that are not. The shelves are the part that needed more
+than hiding: an inventory is not filed into a folder - there is no tab for one on the inventory page -
+but it can be sealed, so the two built-in tabs now tell shelves apart by that (`Dashboard`'s
+`InventoriesUnderTheOpenTab`), where before the Private tab drew every shelf the account had.
+
+**A card is drawn only where it has something under the open tab.** It used to be drawn whenever the
+account had one of that kind anywhere, and then said "Nothing here matches the filter" - which named the
+wrong reason, the filter having narrowed nothing. A tab that comes to nothing at all says so instead
+("Nothing here is private yet.", "This folder is empty."), rather than being a row of tabs over a blank
+page.
 
 **And a folder can be taken off the dashboard**, from its own menu on the page it was made on ("Hide on
 the dashboard", `DashboardCardPreferences.IsFolderShown`). The dashboard borrows both pages' tabs, which
@@ -409,9 +583,9 @@ Three consequences worth stating, because they changed how a page behaves:
 - The task list page no longer offers a **Completed** chip. A finished list nobody filed is in Finished
   now, so the chip would be the tab above asked a second time.
 - Under **Finished** that page offers only **All**, **Shared** and **Group**. How far along a list is no
-  longer varies there, so "Not started", "In progress" and "Overdue" could read nothing but zero; a chip
-  the new tab does not draw is dropped when the tab changes, or the reader would sit on an empty page
-  with nothing on screen to press to get out of it.
+  longer varies there, so "Not started", "In progress", "Overdue" and "Due again" could read nothing but
+  zero; a chip the new tab does not draw is dropped when the tab changes, or the reader would sit on an
+  empty page with nothing on screen to press to get out of it.
 - The dashboard's task card keeps a finished list only when it is **pinned**, and reads it under the tab
   it was filed under - this page has no Finished tab to ask for the rest back.
 
@@ -865,6 +1039,157 @@ message matches; more when the same share was offered again as a reminder, which
 than making a second one, and all of them go. A share offered before this existed matches nothing, and
 the access is still withdrawn — which is what was asked for.
 
+**A phone's keyboard is given the room it takes** (2026-09-10). An on-screen keyboard covers the bottom
+of the window without changing `innerHeight`, and on iOS it does not shrink `100dvh` either - so a
+conversation sized to the window put the box being typed into underneath the keyboard, which is the one
+row on that screen that must not be. `viewport.js` publishes what the window is actually showing
+(`--visual-viewport-height`, from `window.visualViewport`) and marks the root `data-keyboard="open"`
+once more than 140px is covered - a threshold rather than any shrink at all, because a browser's own
+address bar sliding away is a visual-viewport change too and is not worth rearranging a page for.
+
+The chat's cap then reads that height instead of the window's, and while the keyboard is up the two
+things that are neither the conversation nor the way into it - **the footer and the advertising bar** -
+are given up, along with the room the page had reserved for the bar. What is left is the navigation, the
+conversation's own header, the messages and the composer, in that order, above the keyboard. The reader
+gets all of it back the moment the keyboard goes. A browser without `visualViewport` leaves the variable
+unset and every rule reading it falls back to the window, which is what a desktop wants anyway.
+
+**Both clients say it** since 2026-09-10. The phone sends by enqueueing rather than by calling the API
+with the share id still in hand, so the id had nowhere to wait: `OutgoingChatMessage` carries
+`IsShareInvitation` and `AnnouncesShareId` now (migration `SayWhichShareAnInvitationOffers`) and the
+flush puts both on the request. Before that, a share offered from a phone and withdrawn from anywhere
+left its invitation in the conversation, still offering an "Accept" that answered "no such share" — the
+grant was gone, and only the message about it stayed.
+
+## Places
+
+**A place is somewhere on the map worth keeping, on its own account** (2026-09-10,
+`Orbit.Core.Places.Place`, `OP_PLACES`, `/api/places`). Orbit knew two kinds of place before this and
+neither was one: an appointment's, which exists because the appointment does and goes when it goes, and
+a person's shared position, which is where somebody is this minute. Neither answers "the good bakery",
+"where we park", "the flat we are viewing on Saturday" — somewhere a reader wants to keep and be taken
+back to, with no date on it and nobody standing there.
+
+It carries **what it is called, what was written about it, where it is, what colour its pin takes, how
+much it matters, and the task lists it belongs to**. The last is how a place joins the work it is about
+— the bakery belongs to the shopping list — and is what makes it more than a pin. The address and the
+point are the calendar's own shape (`EventLocation`) rather than a second one: a place is a place, and
+two records of what one is would be two ways for a pin to end up somewhere else.
+
+**One owner for the row's whole life.** Handing a place over grants access to that same row rather than
+making a copy, so the owner never changes and `PlaceShare` is the recipient's whole relationship to it —
+the shape `NoteShare` already had. A request for a place that is neither yours nor shared with you
+answers exactly as one for an id that never existed; telling the two apart would say whether an id
+exists. Deleting one writes a `SyncTombstone` like every other module's delete, so a client holding its
+own copy learns it is gone, and `GET /api/places/changes?since=` is the delta that carries both halves.
+
+**Sharing one is the "share a single entry" answer** (2026-09-10, `OP_PLACES_SHARED`,
+`POST /api/places/{id}/shares`). It works the way the other four kinds do — an offer that does nothing
+until it is taken up, announced by an encrypted chat message the recipient presses Accept on, listed on
+the contact's own card and withdrawable from there. The differences are all subtractions: there is no
+per-recipient pin, because a place has no list of its own to sit at the top of, and no refusal for a
+private one, because nothing about a place is ever sealed.
+
+- A **read-only** grant means read-only: `UpdatePlaceCommandHandler` refuses a save from anybody whose
+  grant is not `CanEdit`, and the menu says **View** rather than Edit so the form does not offer a button
+  that would only fail.
+- **Delete** on a place somebody handed over reads **"Take it off my map"** and drops the grant. Getting
+  rid of what you were shown is not destroying what somebody else keeps — the same rule a shared note
+  follows. The tombstone it leaves is that reader's alone.
+- **Duplicate** works on a place you were shown, and the copy is *yours*: keeping one for yourself is
+  what a reader does with a place somebody pointed at, and it must not appear as a second place on the
+  sharer's map.
+- Accepting one lands on **`/map?place={id}`** rather than a page of its own, because a place is met on
+  the map. The notification, the invitation page and the contact's card all address it that way.
+- The row on the panel says **who it came from** where somebody handed it over, and **Shared** where this
+  reader gave it away — two different facts that would otherwise read as one word.
+- **A public link works too** (`SharedItemType.Place`). What it shows is the name, the address and
+  whatever was written about the place — and **not the point**: a link is read by anybody who has it, and
+  coordinates are the one thing on a place worth being careful with. The address is what its owner wrote
+  down to be read. Somebody signed in can keep what the link showed them, the way they can with the other
+  kinds; the grant that makes is ReadOnly and accepted on the spot.
+- **The phone can hand one over as well as take one** (`SharedItemSharing`, and the place's own menu).
+  Both halves of the offer are the same as the browser's: the server records it, and the invitation is a
+  chat message the phone seals itself.
+
+The lists a place belongs to are **not a foreign key**: a list deleted afterwards leaves an id pointing
+at nothing, and a reader treats that as "a list nobody here can see", the same way a task entry's own
+links are treated. Saving replaces those rows wholesale rather than diffing them — the shape that
+produced "0 rows affected" on the task lists when it was left to the change tracker.
+
+**A place is sealed unless its owner says otherwise** (2026-09-10) — the opposite default from every
+other kind of thing in Orbit, which is readable until somebody asks for privacy. A note says what
+somebody thought; a place says where they are when they are not at home, where the spare key is, which
+door the flat they are viewing is behind. That is worth less to a server and worth more to whoever
+should not have it.
+
+Sealed means here what it means everywhere else: the client encrypts before saving, and the readable
+columns go **empty** rather than merely unread — the name, the description **and the point**, because a
+place whose coordinates were still readable would be sealed in name only (`SealedPlace`). What stays
+readable is what a map needs in order to draw nothing in particular: the colour, the priority, the lists
+it belongs to and the two timestamps. `Place` enforces the pairing the way `Note` does: privacy claimed
+with nothing sealed is refused, and an open place still needs a name.
+
+Everything that needs a readable copy is therefore refused for a sealed one, and said on the server as
+well as hidden on screen: it **cannot be shared**, **cannot be given a public link** (and sealing one
+that already had a link closes the link with it), and **cannot be duplicated by the server** — sealing is
+the client's work and the server has no key, so a copy it made would be an empty place wearing the name
+of a full one. Somebody who wants to hand a place over turns sealing off for that place first.
+
+**It takes no `null`-means-not-provided fields**: one form writes every one of them, so a missing field is
+a client that meant to clear it. That is the opposite of the rule a task entry's newer fields follow, and
+deliberately so — those exist because two clients disagree about what an entry carries, and nothing but
+this form has ever written a place. `SavePlaceRequest.IsPrivate` defaults to **true** for the same reason
+the domain does: a client that has not been taught about sealing cannot make an open place by leaving a
+field out.
+
+**On the web the map page is where a place is met** (`PlaceForm.razor`, opened by the `+` in the map's
+top-left and by the picker that asks what a pressed pin is for — see
+[the map](#the-map-and-the-location-behind-it)). One form makes a place and changes one, because a place
+says the same thing either way; what differs is the heading and the word on the button. **Title and a
+point are both required** — the name because a row on the panel with nothing in it is a row nobody can
+tell from the next one, the point because without it there is nothing to draw and nothing to hand a map
+app, which is the same pair `Place.Refuse` enforces on the server. The address box takes typed words and
+the pin beside it opens the same picker overlay the task editor uses; a confirmed pin replaces the words
+only when the box is empty, so "the back entrance" survives.
+
+**The dashboard gives them a card of their own**, keyed `places`, between Inventory and Groups: its own
+card rather than a corner of Upcoming, which is a list of things happening at a time — a place has none,
+which is the whole point of one. Nothing about a place is ever sealed, so the Private tab leaves it out
+the way it leaves out the appointments and the people, and a folder tab does too. Pressing a row goes to
+`/map?place={id}` and the map opens centred on that pin: a place is met on the map, there being no page
+of a place's own, and an id this account has no place under still arrives at the map rather than at an
+error — which is the right answer for a link to one since forgotten.
+
+**The dashboard on the phone carries the same card**, between Inventory and Groups, behind the same
+permission. A row shows the place's name and its address — the address rather than the point, because a
+list of coordinates is a list nobody reads — and pressing one opens that place.
+
+**The phone keeps them too** (2026-09-10, `LocalPlace`, `PlaceSynchronizer`, `PlacesPage`). It reads its
+own database and never the API, like every other list there, so a place written on a train is written and
+queued rather than refused. Behind the same permission the map is: a place is a point, and an account
+that may not be shown a map has nowhere to put one.
+
+The phone's screen is a **list, not a map**. That is the honest shape rather than a gap: a place is a
+name, a point and three answers about how it is drawn, and getting from one to directions is the single
+thing a list of places is for — which every phone already has an app for. Pressing the arrow on a row
+hands the point to it (`IMapHandoff`); the browser asks the same question differently only because a
+browser has no default to hand off to (`NavigationApps`). Where a place *is* can still be pointed at
+rather than typed: the place's own screen opens the same map picker the task editor uses, and a confirmed
+pin replaces the words only when the box is empty.
+
+The two refusals travel with it. A place handed over read-only opens as a form with no Save, and one
+somebody else can change is read-only while the phone is offline — the rule `OfflineEditPolicy` holds for
+every kind of thing on that device, because a phone cannot take the server's edit lock and would only
+discover the conflict at replay time. What it does not carry is a copy-for-editing: a note refused
+offline costs somebody an afternoon's writing, and a place costs them four lines.
+
+**Places you keep** is the map panel's own list of them, pinnable and hideable like every other list on
+that page. A row shows the place's colour, its name, its priority when that is not Normal, and a button
+that hands the point to a map app. Behind the three dots: **Edit**, **Duplicate** — a second one of the
+same, for two entrances to one building — and **Delete**, which asks first, because forgetting a place is
+the one thing on that panel that cannot be undone.
+
 ## Private notes and task lists
 
 A note or task list can be marked **private**, which means exactly one thing: only its creator can ever
@@ -884,6 +1209,13 @@ Sealing and opening happen in `NotesApiClient`/`TasksApiClient`, not in the page
 dashboard, the checklist view and the calendar all receive a readable DTO without knowing any of this
 happened. Content that can no longer be opened renders with an "Unreadable — encrypted with an older
 key" title rather than throwing, so one lost item doesn't take a whole list down.
+
+**Which is why a private note is listed under its own title** (2026-09-10). The notes page and the
+editor's column printed "Private note" for every one of them, on the belief that the page held no key -
+it does not need one, the API client has already opened the note by then. A column of identical rows is
+a list nobody can read; the dashboard and the phone have both always shown the real title (`NoteListItem`
+hides it only while private items are *locked*). "Private note" is still what a note with no title at
+all is called.
 
 **A private list's entries carry ids of their own, and until 2026-09-07 they did not.** Everything
 inside the payload was sealed with `Guid.Empty` for its id, which cost nothing while nothing addressed
@@ -1052,21 +1384,34 @@ not to have the whole lot come back.
 
 The map is where people already go to point at somewhere, so it is also where pointing at somewhere and
 making something of it belongs. **Plan something here** opens the same `LocationPickerOverlay` the task
-editor uses - a pin, or an address search - and confirming one asks a single question: is this an event,
-or a task list?
+editor uses - a pin, or an address search - and confirming one asks a single question: what happens here?
 
-The question is asked rather than guessed. An appointment and an errand at the same address are
-different things, and only the person pointing at it knows which they meant. Answering takes them to the
-form they chose with the place already filled in:
+The question is asked rather than guessed. A place, an appointment and an errand at the same address are
+different things, and only the person pointing at it knows which they meant. It is one picker with three
+answers rather than a row of three buttons, because they are three answers to one question, and
+**Create** and **Cancel** finish it:
 
+- **A place worth keeping** (the default) opens the place form on that pin, with the address already in
+  it - see [Places](#places). It is the default because it is the least somebody can mean by pressing a
+  map: it says where and nothing else, and the other two are that plus a time or plus a job.
 - **An event in the calendar** opens `/calendar/new` with the address and its pin set.
 - **A task list starting here** opens `/tasks/new` with one entry already standing at that place - a
-  calendar entry, because it is the only kind that has anywhere to be, and open, because an entry whose
-  place is filled in and whose day is not is not finished.
+  `Location` entry, and open, because an entry whose place is filled in and whose words are not is not
+  finished. It used to be a calendar entry, which meant pressing a shop on the map produced an
+  appointment that would not save until an hour nobody had in mind had been chosen.
 
 Either way the **pin** travels, not only the address: the calendar keeps places as coordinates with a
 label (see "A confirmed pin keeps its position, not only its name" under [Tasks](#tasks)), so an address
-on its own could not be shown on a map or turned into a Google Maps link.
+on its own could not be shown on a map or turned into a Google Maps link. It travels even for the
+`Location` entry, which stores only the name, so that changing the type to `Calendar` on the spot puts
+the event at the point that was pressed rather than at a second lookup of the name.
+
+**The `+` in the map's top-left keeps a place directly**, with an empty form - the way in for somewhere
+whose address is known and whose spot on the map is not obvious. It is deliberately not seeded with
+whatever pin happens to be on the map: somebody who meant that pin has the question above in front of
+them already. Leaflet's zoom control moved to the bottom-left to make room (`locationMap.js`), since two
+plus signs side by side - one meaning "closer" and the other "remember this spot" - is a corner nobody
+can read, and zoom has a wheel and a pinch besides.
 
 The place travels in a scoped `ChosenPlace` rather than in the address bar. `/calendar/new?lat=52.2&lon=21.0`
 would write where somebody is going into their browser history and into anything that later reads a URL,
@@ -1158,13 +1503,23 @@ to change it, and a page of editable fields is the wrong answer to "what have we
 
 ### The four views, and the week among them
 
-**Day, week, month and year.** The week is the month grid with one row in it
-(`CalendarGridBuilder.BuildWeekGrid`), which is the point of it: a week reads as a row of a month rather
-than as a fourth thing to learn, the same chips in the same cells, and pressing a day opens that day.
-The one thing it does differently is use the room a single row has — taller cells, and ten chips before
-a day says how many more there are rather than four. Nothing in a week is dimmed: the flag that dims a
-cell means "this day belongs to the month either side of the one you asked for", and in a week nobody
-asked for a month, so a week straddling the 1st would otherwise arrive half greyed.
+**Day, week, month and year.** The week is **seven of the day view's timelines side by side**
+(`CalendarGridBuilder.BuildWeekTimeline`, `CalendarWeekGrid`, 2026-09-10): one hour gutter, seven
+columns, and every appointment and deadline at the height of the minute it happens at. It was the month
+grid with one row in it until then, on the reasoning that a week should read as a row of a month rather
+than as a fourth thing to learn — which held right up to the point somebody asked *when* something was.
+A cell could say what was on a Tuesday and nothing about the order of it, and a week is read for exactly
+that. Pressing a day's name still opens that day.
+
+**Half-hour lines under the hour ones**, because placing something to the half hour by eye needs a line
+at the half hour; the hour ones are drawn solid so the hours can still be counted down the column.
+**Whole-day things go in a band across the top**, above the hours — they have no hour to be drawn at, and
+giving them one would put them at midnight, which is a lie about when they are. The band is left out
+entirely on a week with nothing in it.
+
+It is built from seven day grids rather than from a week-shaped pass of its own: what "which column does
+this overlap into" means is a question about one day, and answering it twice in two places is how the two
+answers come to differ.
 
 **The list beside the grid covers whatever the grid is showing** — that day, that week, that month, that
 year. The day view used to list the whole month around the day instead, on the grounds that one day's
@@ -1285,15 +1640,25 @@ less obvious what had gone wrong: A links to B, B to C, and the row offering C a
 like any other. The "move to list" dropdown is not narrowed this way - moving a row is not linking, and
 carries none of linking's rules.
 
-Each **item** also says what it is: `kind` is `Checklist` (the default) or `Calendar`. A calendar entry
-is somewhere to be rather than something to fetch, so it also carries a `location`, and can name the
-`linkedCalendarEventId` of the calendar event it is the same appointment as. The kind sits on the item
-rather than on the list because a list is rarely all one or all the other — a day's plan holds two
+Each **item** also says what it is: `kind` is `Checklist` (the default), `Calendar`, `Location` or
+`Inventory`. Two of them have somewhere to be and so carry a `location`: a `Calendar` entry, which is
+somewhere to be at an hour and can name the `linkedCalendarEventId` of the calendar event it is the same
+appointment as, and a `Location` entry, which is somewhere to be and nothing more. The kind sits on the
+item rather than on the list because a list is rarely all one or all the other — a day's plan holds two
 errands and an appointment, and asking somebody to keep those on separate lists is asking them to keep
 the list that matches their day in two places.
 
+**A `Location` entry says where without saying when.** "Pick the keys up from the agent, here" is not a
+meeting, and an address used to be `Calendar`'s alone to carry — so writing one down put an appointment
+in the calendar that nobody was going to, and the list would not save until an hour nobody had in mind
+had been chosen. It is the kind the map hands over now: pressing a place on the map and choosing to make
+a list opens one entry standing at that place, as a `Location`. The pin's coordinates travel with it, so
+somebody who did mean an appointment changes the type on the spot and the event lands at the point they
+pressed rather than at a re-lookup of its name.
+
 **The place is stored once.** An entry tied to an event keeps no location of its own: the event already
-holds one, and a second copy is how the two come to disagree. Every other kind of entry has nowhere to
+holds one, and a second copy is how the two come to disagree. A `Location` entry is tied to no event, so
+its own field is the only copy there is and it always keeps it. Every other kind of entry has nowhere to
 be and stores nothing for it, including one changed back from a calendar entry. The link itself is not
 validated — an event deleted afterwards leaves it pointing at nothing, which reads as "no event", the
 same way a link to a deleted task list reads as "not completed".
@@ -1878,11 +2243,46 @@ screen that has to work when Orbit cannot draw a map itself: an Android build wi
 reader who never gave Orbit their location. A share with no position in it offers no button - it still
 says it cannot be opened.
 
-**The web does the same on a phone.** Every "Sharing with you" row on `/map` carries the same Open in
-Maps, which hands the position to whatever map app the device has - `geo:` everywhere, `maps://` on iOS,
-which does not answer `geo:` (`wwwroot/js/mapApp.js`). A scheme rather than a Google Maps URL for the
-reason the phone chose one: this is the screen that must not add a third-party request, and the map app
-is already on the device.
+**A panel list can be pinned to the top of the panel** (2026-09-10, `MapPanelPins`,
+`orbit-map-panel-pin-*`, a Preferences key). The panel holds three - who you are sharing your position
+with, who is sharing one with you, and everything in your calendar and lists that says where it happens
+- and which of them matters is a question about the day rather than about Orbit: somebody meeting a
+person wants the names, somebody on their way somewhere wants the plans, and on a phone the third of
+them is a scroll away. The same pin every other list in Orbit uses, so the gesture means one thing
+everywhere, and **a different question from the eye beside it**: the eye is about what the map draws,
+the pin about what the reader wants in front of them. Several may be pinned at once and they keep the
+order the page writes them in, so pinning says "bring this up" rather than "make this first". Kept on
+the device, like the eyes.
+
+It is done with `order` inside a wrapper of the panel's own (`.map-panel-lists`) rather than by
+reordering the markup: `.map-panel`'s children are already ordered on a phone to put the map above the
+lists, and two order schemes over one set of items is one of them silently losing.
+
+**The web asks which app should take you there** (2026-09-10). Every "Sharing with you" row and every
+"Where your plans are" row on `/map` carries a **Take me there** button, and so does each pin's own popup
+- one press inside the callout rather than hunting the matching row. It opens a short list of map apps
+and hands the chosen one **directions** rather than a dropped pin, which is the question somebody looking
+at a map of where they have to be is actually asking.
+
+Which apps, and the address that asks each of them, is `Orbit.Core.Location.NavigationApps` - in .NET
+rather than in JavaScript so it can be read back in a test, since every one of these is a third party's
+own syntax and a wrong parameter opens the app on nothing at all. It is **asked every time rather than
+remembered**, because there is no right answer to remember: one reader has Google Maps and nothing else,
+one drives with Waze, one keeps third parties off their phone entirely. **The device's own app is first
+and is the only one that reaches nobody** - `maps://?daddr=` on an Apple device, `google.navigation:q=`
+elsewhere (`geo:` only drops a pin, which is the one thing this is not). Apple Maps is offered only on an
+Apple device, where it is certainly installed. The panel says out loud that the rest open somebody else's
+service - this is the screen that withholds its own background rather than fetch it unasked
+(`mapTiles.js`), so a row of buttons that quietly handed an address to four companies would be the one
+part of the page that did not ask.
+
+Only which platform this is comes from the browser (`mapApp.js`'s `isApple`, read once per visit):
+nothing in .NET running in a browser can tell an iPad from a Mac.
+
+A pin's popup is built as **elements rather than as a string of HTML**. Leaflet's `bindPopup` treats a
+string as markup, and every label on that map is somebody's own writing - a contact's name, an
+appointment's title, an address somebody typed - so `textContent` is what makes those text rather than
+markup, and it is also what lets the button carry a real handler.
 
 The hand-over is a **link that gets clicked**, never the page being moved. Setting `location.href` to
 `maps://...` opens the app but leaves a navigation that can never finish, and the browser reports that as
@@ -1897,7 +2297,7 @@ and nothing about where it is from here, which is the question being asked. On a
 whose map can answer, pressing the row still centres the map: there is usually no map app to open, and a
 press that navigated away from the page would be a surprise.
 
-Which storage a list is measured against is set in its editor, under **About this list**, for any list
+Which storage a list is measured against is set in its editor, in the panel's menu, for any list
 rather than only a group one - an entry describing a product has to be able to say which shelf it goes
 on. The picker offers every storage, the ones other lists already measure included - a store serves as many
 jobs as it holds things for - and marks those as shared. A shelf several lists ask for is split between
@@ -2299,6 +2699,7 @@ that depend on the type:
 | --- | --- |
 | Checklist | Link to list, overdue notification, remind daily and its channel and hour |
 | Inventory | The shelf item itself - see above |
+| Location | Where it is, and nothing else - the same box and the same map the appointment below uses |
 | Calendar | The event's own form - see below |
 
 **A Calendar entry is the appointment, not a pointer at one.** It carries the event's own fields -
@@ -2349,10 +2750,16 @@ the position always, the words only into a box nobody has written in.
 
 The line along the foot of every page used to be the version numbers and the licence. It answered
 "which build is this" for the few people who ask that, and nothing at all for everybody else - so it now
-reads `© 2026 Orbit · About · Privacy · Security · Docs · Status · All Rights Reserved · Manage cookies`, modelled on
-GitHub's own. Two of those open a dialog rather than a page and are drawn exactly like the links beside
-them: which of the two a reader is pressing is not a distinction they should have to make.
+reads `© 2026 Orbit · EN / PL · About · Privacy · Security · Docs · Status · All Rights Reserved · Manage cookies`,
+modelled on GitHub's own. Two of those open a dialog rather than a page and are drawn exactly like the
+links beside them: which of the two a reader is pressing is not a distinction they should have to make.
 
+- **EN / PL** (`LanguagePicker`) - which language Orbit is read in, kept in this browser under
+  `orbit-language` (see `Translations`). It was a row under Options until 2026-09-10, which is behind the
+  avatar menu and therefore behind signing in - so a reader who has no English met an English sign-in
+  screen with no way out of it. The footer is on every page including that one, which is the whole point
+  of moving it. Two codes rather than a dropdown: there are two languages, and a list of two costs a
+  press to open before it can be read.
 - **About** (`AboutDialog`) - what Orbit is in one sentence, then the build numbers described below. A
   dialog because there is no address worth sharing for "which build is this", and it is read in the
   middle of doing something else. This is where the version line went.
@@ -2398,7 +2805,10 @@ Orbit uses **local storage, never cookies**, so "Manage cookies" manages that. T
   `orbit-allow-*` keys, which are records of consent in their own right. Shown ticked and unpressable
   rather than hidden: a reader deciding what to allow should see everything being kept.
 - **Preferences** - theme, accent hue, dashboard pins/hidden cards/filters, checklist views, the
-  calendar and task-list and inventory orderings, conversation pins, panel states.
+  calendar and task-list and inventory orderings, conversation pins, panel states, and
+  `orbit-last-advert` (when the interrupting advert last went up - not something anybody arranged, but
+  the same kind of thing, and declining it costs nothing but seeing that advert more often), and
+  `orbit-map-panel-pin-*` (which of the map panel's lists is kept at the top of it).
 - **Diagnostics** - `orbit.clientLogs` and `orbit-diagnostics-mode`.
 
 The gate is `wwwroot/js/storageConsent.js`, and **where** it sits is the point: it wraps
@@ -2884,12 +3294,13 @@ lived only there. The thing itself is still not the recipient's to open until it
 the address it leads to is the *offer*, and taking it up on that page puts them where the thing now is.
 The offer is the server's own record, so this page needs **no key**: an invitation can be taken up on a
 device that has never unlocked chat, which the conversation's own Accept cannot do. Both ways of
-accepting call the same four endpoints, and either one leaves the other reading "already accepted".
+accepting call the same endpoints — one per kind, five of them since a place became shareable — and
+either one leaves the other reading "already accepted".
 
 It **names what was offered** and lands on it. `GET /api/shares/{kind}/{shareId}` answers with the
 offer - what was offered, what it is called, and whether it has been taken up (`GetShareOfferQuery`,
 scoped to the reader, so an offer made to somebody else reads exactly like one that was withdrawn). One
-endpoint for all four kinds rather than a fifth on each section, and accepting stays where it already
+endpoint for every kind rather than one more on each section, and accepting stays where it already
 is: each section's own `shares/{id}/accept`, which is where that kind's rules live - a task list's
 share, for one, drags the lists it gathers along with it. Something deleted between the offer and the
 reading of it comes back with an empty name and the offer still standing, so the page falls back to
@@ -3351,8 +3762,9 @@ Notifications are their own button in the bar on both clients as of 2026-09-01, 
 carrying the unread count - 0 draws nothing, 1 to 9 draw themselves, anything above draws "9+". It was
 a badge on the avatar before, and a menu entry behind it: **a count on a face says "you", not "unread"**,
 and reaching the panel meant opening a menu first, which is two steps for the one thing people check
-most. What is left in the avatar menu are the places somebody goes once - status, the language, the
-app's own settings, signing out.
+most. What is left in the avatar menu are the places somebody goes once - status, the app on a phone,
+the app's own settings, signing out. The language left it for the footer in 2026-09-10, for a reason the
+footer section gives.
 
 ### A link opened on a phone
 

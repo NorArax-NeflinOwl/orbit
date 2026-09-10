@@ -4,8 +4,9 @@ namespace Orbit.Maui.Controls;
 
 /// <summary>
 /// A fraction of something else's width, for the one place CSS has a unit and MAUI has not: a chat
-/// bubble is at most 70% of the thread it is in (see app.css's .chat-bubble-row), and a layout
-/// property takes a number of units rather than a proportion.
+/// bubble is at most 78% of the thread it is in (the design's own cap; Orbit.Web's .chat-bubble-row
+/// says 70%, and the phone follows the design here), and a layout property takes a number of units
+/// rather than a proportion.
 ///
 /// Bound to the thread's own Width, which is a bindable property, so the cap follows a rotation or a
 /// window resize rather than being worked out once.
@@ -23,7 +24,7 @@ public sealed class WidthFractionConverter : IValueConverter
 
 		var fraction = parameter is string written && double.TryParse(written, NumberStyles.Float, CultureInfo.InvariantCulture, out var parsed)
 			? parsed
-			: 0.7;
+			: 0.78;
 
 		return width * fraction;
 	}

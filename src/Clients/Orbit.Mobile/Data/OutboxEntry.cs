@@ -5,7 +5,19 @@ public enum OutboxOperation
 {
     Create,
     Update,
-    Delete
+    Delete,
+
+    /// <summary>
+    /// Putting a note or a task list in a folder, or taking it out of one. Its own operation rather
+    /// than an update because filing travels on its own endpoint - a save carries the whole item, so an
+    /// update that also carried the folder would empty it for any client that did not know about
+    /// folders. See Orbit.Contracts.Folders.MoveToFolderRequest, which says the same from the server's
+    /// side.
+    ///
+    /// Last in the enum on purpose: the value is stored as a number, so an existing queue on somebody's
+    /// phone keeps meaning what it meant.
+    /// </summary>
+    File
 }
 
 /// <summary>

@@ -1,3 +1,5 @@
+@using Microsoft.AspNetCore.Components.Sections
+
 @* The block every screen opens with: what the page is called, what stands under that, and whatever
    sits at the header's other end. The same divs used to be redrawn on every page - which is why the
    "shared by" line above a note read differently from the one above an event, and why a subtitle sat
@@ -21,6 +23,11 @@
             <span class="form-hint">@Hint</span>
         }
     </div>
+    @* Its own slot rather than a share of the one below: a phone's Menu button arrives through a section
+       rather than through a parameter (see PageToolbarTrigger), so this has to be here whether or not the
+       page has actions of its own - and the promise that a page with no actions draws no empty row there
+       is about that row, not this one. Empty, this collapses to nothing and is hidden outright. *@
+    <div class="page-header-toolbar"><SectionOutlet SectionName="@PageToolbarTrigger.SectionName" /></div>
     @if (Actions is not null)
     {
         <div class="page-header-actions">@Actions</div>

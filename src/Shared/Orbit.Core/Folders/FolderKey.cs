@@ -1,11 +1,10 @@
-using Orbit.Core.Folders;
-
-namespace Orbit.Web.Services;
+namespace Orbit.Core.Folders;
 
 /// <summary>
 /// Which folder something is in, said in one value: either one of the three built-in folders or a
-/// folder somebody made. Both are tabs on the same row, so both have to be the same kind of thing -
-/// otherwise every page would carry two answers to "what am I looking at" and a rule about which wins.
+/// folder somebody made. Both are tabs on the same row - entries in the same menu, on the phone - so
+/// both have to be the same kind of thing; otherwise every page would carry two answers to "what am I
+/// looking at" and a rule about which wins.
 ///
 /// A record struct so equality is free and cheap: comparing the chosen tab against each card's own
 /// folder is the innermost thing every page made of cards now does.

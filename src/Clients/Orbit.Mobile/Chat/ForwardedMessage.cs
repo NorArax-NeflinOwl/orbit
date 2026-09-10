@@ -15,6 +15,7 @@ namespace Orbit.Mobile.Chat;
 [JsonSerializable(typeof(TaskListShareMessagePayload))]
 [JsonSerializable(typeof(EventShareMessagePayload))]
 [JsonSerializable(typeof(InventoryShareMessagePayload))]
+[JsonSerializable(typeof(PlaceShareMessagePayload))]
 [JsonSerializable(typeof(EditAccessRequestPayload))]
 internal sealed partial class ChatPayloadSerializerContext : JsonSerializerContext;
 

@@ -33,6 +33,11 @@ public sealed class SharedItemInvitationTests
         Assert.Equal(
             SharedItemKind.Inventory,
             SharedItemInvitation.TryRead(Serialize(new InventoryShareMessagePayload(shareId, "Kitchen")))!.Kind);
+        // A place, which this phone has no screen for yet - recognising it is still the point: an offer
+        // nobody can answer arrives as a blob of JSON, which is what notes looked like before this class.
+        Assert.Equal(
+            SharedItemKind.Place,
+            SharedItemInvitation.TryRead(Serialize(new PlaceShareMessagePayload(shareId, "The good bakery")))!.Kind);
     }
 
     [Fact]
@@ -74,13 +79,15 @@ public sealed class SharedItemInvitationTests
         await acceptance.AcceptAsync(new SharedItemInvitation(SharedItemKind.TaskList, shareId, "Trip"));
         await acceptance.AcceptAsync(new SharedItemInvitation(SharedItemKind.CalendarEvent, shareId, "Standup"));
         await acceptance.AcceptAsync(new SharedItemInvitation(SharedItemKind.Inventory, shareId, "Kitchen"));
+        await acceptance.AcceptAsync(new SharedItemInvitation(SharedItemKind.Place, shareId, "The good bakery"));
 
         Assert.Equal(
             [
                 $"api/notes/shares/{shareId}/accept",
                 $"api/tasks/shares/{shareId}/accept",
                 $"api/calendar-events/shares/{shareId}/accept",
-                $"api/inventories/shares/{shareId}/accept"
+                $"api/inventories/shares/{shareId}/accept",
+                $"api/places/shares/{shareId}/accept"
             ],
             server.Accepted);
     }
@@ -191,7 +198,8 @@ public sealed class SharedItemInvitationTests
     private static SharedItemAcceptance Build(FakeShareServer server)
         => new(
             new NotesClient(server.ToHttpClient()), new TasksClient(server.ToHttpClient()),
-            new CalendarClient(server.ToHttpClient()), new InventoryClient(server.ToHttpClient()));
+            new CalendarClient(server.ToHttpClient()), new InventoryClient(server.ToHttpClient()),
+            new PlacesClient(server.ToHttpClient()));
 
     private static string Serialize<TPayload>(TPayload payload) => JsonSerializer.Serialize(payload);
 }

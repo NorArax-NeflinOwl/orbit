@@ -90,6 +90,12 @@ public interface IScreenNavigator
 
     void ShowMap();
 
+    /// <summary>The places kept on the map - see PlacesViewModel.</summary>
+    void ShowPlaces();
+
+    /// <summary>One of them, opened from that list - see PlaceDetailViewModel.</summary>
+    void ShowPlace(Guid localId);
+
     /// <param name="productId">
     /// Which product this was opened for, when it was opened from something that meant one - an errand
     /// naming the shelf it is about, or a search that found the thing on it. The shelf marks that row

@@ -7,31 +7,37 @@ namespace Orbit.Mobile.Sync;
 /// <summary>
 /// Brings every feature's local data up to date in one call.
 ///
-/// The dashboard needs this and nothing else does: it summarises all five features at once, so without
-/// it the landing screen shows whatever the last-visited screen happened to synchronise. On a phone
-/// signed into fresh - or one whose cache was just emptied - that is an empty dashboard until the
-/// reader visits Notes, then Tasks, then the calendar, each of which fills in its own row.
+/// The dashboard needs this and nothing else does: it summarises every feature at once, so without it
+/// the landing screen shows whatever the last-visited screen happened to synchronise. On a phone signed
+/// into fresh - or one whose cache was just emptied - that is an empty dashboard until the reader visits
+/// Notes, then Tasks, then the calendar, each of which fills in its own row.
 ///
 /// Failures are counted rather than thrown: one feature being unreachable is no reason to leave the
-/// other four unsynchronised, and the reader is told by the corner indicator either way.
+/// rest unsynchronised, and the reader is told by the corner indicator either way.
 /// </summary>
 public sealed class EverythingSynchronizer
 {
+    private readonly FolderSynchronizer _folders;
     private readonly NoteSynchronizer _notes;
     private readonly TaskListSynchronizer _taskLists;
     private readonly CalendarEventSynchronizer _calendarEvents;
     private readonly InventorySynchronizer _inventories;
+    private readonly PlaceSynchronizer _places;
     private readonly ChatSynchronizer _chat;
     private readonly UserPermissions _permissions;
 
     public EverythingSynchronizer(
-        NoteSynchronizer notes, TaskListSynchronizer taskLists, CalendarEventSynchronizer calendarEvents,
-        InventorySynchronizer inventories, ChatSynchronizer chat, UserPermissions permissions)
+        FolderSynchronizer folders, NoteSynchronizer notes, TaskListSynchronizer taskLists,
+        CalendarEventSynchronizer calendarEvents, InventorySynchronizer inventories,
+        PlaceSynchronizer places, ChatSynchronizer chat,
+        UserPermissions permissions)
     {
+        _folders = folders;
         _notes = notes;
         _taskLists = taskLists;
         _calendarEvents = calendarEvents;
         _inventories = inventories;
+        _places = places;
         _chat = chat;
         _permissions = permissions;
     }
@@ -40,10 +46,22 @@ public sealed class EverythingSynchronizer
     {
         var everything = SyncTally.Nothing;
 
+        // Folders first, and it matters: a note filed into a folder made offline names that folder,
+        // and nothing can be filed into a folder the server has not been told about yet - see
+        // FolderNotOnTheServerYet, which is what stops the filing rather than losing it.
+        everything = everything.And(await TryAsync(() => _folders.SynchroniseAsync(cancellationToken)));
         everything = everything.And(await TryAsync(() => _notes.SynchroniseAsync(cancellationToken)));
         everything = everything.And(await TryAsync(() => _taskLists.SynchroniseAsync(cancellationToken)));
         everything = everything.And(await TryAsync(() => _calendarEvents.SynchroniseAsync(cancellationToken)));
         everything = everything.And(await TryAsync(() => _inventories.SynchroniseAsync(cancellationToken)));
+
+        // Behind the permission that draws a map at all: a place is a point, and an account that may not
+        // be shown a map has nowhere to put one. Refused rather than skipped silently, for the reason
+        // the two chat reads below give - the corner would otherwise say "couldn't sync" to a phone that
+        // is perfectly in step with everything it is allowed to have.
+        everything = everything.And(_permissions.Has(ApplicationPermission.Location)
+            ? await TryAsync(() => _places.SynchroniseAsync(cancellationToken))
+            : Refused);
 
         // Chat reports only whether it worked, so it contributes reachability rather than counts. The
         // dashboard shows contacts and groups, which is exactly what these two fill in.

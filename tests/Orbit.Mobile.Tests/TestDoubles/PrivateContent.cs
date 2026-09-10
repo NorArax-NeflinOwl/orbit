@@ -23,6 +23,13 @@ internal static class PrivateContent
         return new PrivateContentSealer(storage, SignedInAs(userId));
     }
 
+    /// <summary>
+    /// A device holding a key for somebody - which account is nobody's business here. What a repository
+    /// under test needs when the thing being stored is sealed whether the test is about sealing or not,
+    /// which is every place: see Orbit.Core.Places.Place.IsPrivate.
+    /// </summary>
+    public static PrivateContentSealer WithAKey() => HoldingAKeyFor(Guid.NewGuid());
+
     /// <summary>Signed in, but with no key on this device - the case a sealed note cannot be read in.</summary>
     public static PrivateContentSealer SignedInWithoutAKey(Guid userId)
         => new(new InMemoryChatKeyStorage(), SignedInAs(userId));

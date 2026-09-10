@@ -1,9 +1,9 @@
 namespace Orbit.Core.Sharing;
 
 /// <summary>
-/// What a public link actually shows: one flat, readable shape covering all four kinds of item, so the
-/// page behind a link renders a note, a task list, an event and an inventory without four separate
-/// views of four separate models.
+/// What a public link actually shows: one flat, readable shape covering every kind of item, so the page
+/// behind a link renders a note, a task list, an event, an inventory and a place without a separate view
+/// of a separate model for each.
 ///
 /// Deliberately a projection rather than the item itself. A reader with a link is not a user of this
 /// account, so they see what the owner meant to show and nothing incidental - no ids, no share history,

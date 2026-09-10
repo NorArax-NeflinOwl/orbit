@@ -193,6 +193,8 @@ erDiagram
         bool OP_TI_ISCOMPLETED
         bool OP_TI_ISFAILED "crossed out rather than ticked - never both"
         text OP_TI_KIND
+        text OP_TI_PRIORITY "the entry's own, beside the list's"
+        text OP_TI_COLOUR "empty means: drawn in whatever its kind is"
         uuid OP_TI_LINKEDCALENDAREVENTID
         uuid OP_TI_LINKEDINVENTORYITEMID
         bool OP_TI_REMINDDAILY
@@ -236,6 +238,69 @@ should this shopping list contain", the other "has this been bought yet" — and
 
 `OL_TASKS_ITEMS` is the item-to-list link, and is why a task item can stand for work tracked on other
 lists. `TaskListLinkValidator` is what stops one being made into a cycle of its own.
+
+## Places, which belong to nothing but the map
+
+```mermaid
+erDiagram
+    OS_USERS ||--o{ OP_PLACES : keeps
+    OP_PLACES ||--o{ OL_PLACES_TASKS : "belongs to lists"
+    OP_TASKS ||--o{ OL_PLACES_TASKS : "has places"
+    OP_PLACES ||--o{ OP_PLACES_SHARED : "handed over as"
+
+    OP_PLACES {
+        uuid OP_P_ID PK
+        uuid OP_P_USERID FK
+        boolean OP_P_ISPRIVATE "true unless its owner said otherwise"
+        text OP_P_ENCRYPTEDCIPHERTEXT "the name, description and point when sealed"
+        text OP_P_ENCRYPTEDNONCE
+        text OP_P_NAME "empty when sealed"
+        text OP_P_DESCRIPTION "empty when sealed"
+        text OP_P_ADDRESS "empty = only a point, or sealed"
+        float OP_P_LATITUDE "0 when sealed"
+        float OP_P_LONGITUDE "0 when sealed"
+        text OP_P_COLOUR "empty = whatever a place is drawn in"
+        text OP_P_PRIORITY "ItemPriority by name"
+    }
+    OL_PLACES_TASKS {
+        uuid OL_PT_PLACEID PK
+        uuid OL_PT_TASKLISTID PK "no FK - a list deleted since reads as one nobody can see"
+        int OL_PT_POSITION
+    }
+    OP_PLACES_SHARED {
+        uuid OP_PLS_ID PK
+        uuid OP_PLS_SOURCEPLACEID FK
+        uuid OP_PLS_OWNERUSERID FK
+        uuid OP_PLS_RECIPIENTUSERID FK
+        text OP_PLS_ACCESSLEVEL
+        timestamptz OP_PLS_ACCEPTEDATUTC "null until accepted"
+    }
+```
+
+**A place is somewhere worth keeping on its own account** (`Orbit.Core.Places.Place`). Orbit knew two
+kinds of place before it and neither was one: an appointment's, which exists because the appointment does
+and goes when it goes, and a person's shared position, which is where somebody is this minute. Neither
+answers "the good bakery" or "where we park".
+
+It has **one owner for the row's whole life**: handing one over grants access to that same row rather
+than making a copy, so `OP_P_USERID` always names the person who keeps it and `OP_PLACES_SHARED` is the
+recipient's whole relationship to it (`PlaceAccessResolver`, mirroring `NoteShare`). A request for a
+place that is neither yours nor shared with you answers exactly as one for an id that never existed.
+Deleting one writes a `SyncTombstone`, so a client holding its own copy learns it is gone - and a
+recipient's "delete" drops their grant rather than the place, which leaves a tombstone for them alone.
+
+`OP_PLACES_SHARED` carries no per-recipient pin, unlike `OP_NOTES_SHARED`: a place has no list of its
+own to sit at the top of.
+
+**A place is sealed unless its owner said otherwise**, which is the opposite default from every other
+table here. The point is sealed with the words: a place whose coordinates were still readable would be
+sealed in name only. What is left readable is what a map needs to draw nothing in particular - the
+colour, the priority, the lists and the timestamps.
+
+`OL_PLACES_TASKS` is how a place joins the work it is about - the bakery belongs to the shopping list.
+**No foreign key to `OP_TASKS`**, deliberately: a list deleted afterwards leaves an id pointing at
+nothing, and a reader treats that as "a list nobody here can see", the same way a task entry's own links
+are treated (`OL_TASKS_ITEMS`).
 
 ## Chat, which the server stores but cannot read
 
@@ -295,8 +360,9 @@ the server can open it — see [flows](flows.md#chat-that-the-server-cannot-read
 `OP_C_ANNOUNCESSHAREID` is the one thing a share invitation says in the clear. The share id it points at
 is inside the sealed payload too, where only the recipient can read it — which is no use to the server
 when the owner withdraws the share and its invitation has to be taken down with it. It matches no single
-table on purpose: which of `OP_NOTES_SHARED`, `OP_TASKS_SHARED`, `OP_EVENTS_SHARED` and
-`OP_INVENTORIES_SHARED` the id belongs to is only knowable from the payload, so there is no foreign key.
+table on purpose: which of `OP_NOTES_SHARED`, `OP_TASKS_SHARED`, `OP_EVENTS_SHARED`,
+`OP_INVENTORIES_SHARED` and `OP_PLACES_SHARED` the id belongs to is only knowable from the payload, so
+there is no foreign key.
 
 `OL_CHATS_ACCESS` is the row that makes a conversation a conversation: until
 `OL_CA_APPROVEDATUTC` is set, one person has asked and the other has not agreed.
@@ -347,6 +413,24 @@ about it from its cursor like any other change.
 
 **`OS_RATE_LIMITS`** is keyed on caller and window together, which is what lets taking a permit be one
 `INSERT ... ON CONFLICT DO UPDATE` and therefore safe between replicas.
+
+## The phone's own store, which is a different database
+
+Everything above is PostgreSQL. The phone keeps a second store of its own in SQLite (`orbit.db3`) with a
+shape of its own, because a phone has to answer while offline and a server never does — see
+[components](components.md#what-shared-does-and-does-not-mean). It is not drawn table by table here; two
+rules about it are worth having beside the schema above:
+
+**Everything the phone holds has two ids.** A `LocalId` it generated, which never changes and is what
+other local rows point at, and a nullable `ServerId`, which is null until a create has been accepted.
+`LocalFolder` is no exception, and that is what lets a note be filed into a folder made with no
+connection: the note points at this device's id for it, and the send resolves the server's at replay
+time.
+
+**`FolderId` on a local note or list is a *local* folder id**, never the server's. A pull translates on
+the way in, and an id this phone has no folder for leaves the row unfiled rather than pointing at
+nothing — which is the same answer `FolderPlacement` gives for an unknown id, and puts the note back
+under whichever built-in folder it belongs to instead of losing it from every tab.
 
 ## Migrations
 

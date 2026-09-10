@@ -1,0 +1,86 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<ContentPage
+    x:Class="Orbit.Maui.Features.Places.PlaceDetailPage"
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    xmlns:controls="clr-namespace:Orbit.Maui.Controls"
+    xmlns:places="clr-namespace:Orbit.Maui.Features.Places"
+    xmlns:tasks="clr-namespace:Orbit.Mobile.Screens.Tasks;assembly=Orbit.Mobile"
+    xmlns:screens="clr-namespace:Orbit.Mobile.Screens.Places;assembly=Orbit.Mobile"
+    x:DataType="screens:PlaceDetailViewModel"
+    x:Name="Page"
+    Title="{Binding Name}">
+
+    <Grid RowDefinitions="Auto,*,Auto">
+
+    <ScrollView Grid.Row="1" Padding="20,10,20,0">
+        <VerticalStackLayout Spacing="12">
+
+            <Label Text="{Binding Message}" IsVisible="{Binding HasMessage}"
+                   LineBreakMode="WordWrap" Style="{StaticResource InfoLabel}" />
+
+            <!-- Opened from the place's own menu rather than standing at the foot of every place:
+                 sharing is something somebody does once - see NoteDetailPage, which says the same. -->
+            <controls:SharePanel x:Name="Sharing" IsVisible="False" BindingContext="{Binding Share}" />
+
+            <!-- Who handed it over, when somebody did. A place on this screen is either one the reader
+                 kept or one they were shown, and those are different things. -->
+            <Label Text="{Binding SharedBy, StringFormat='{0}'}" IsVisible="{Binding HasSharedBy}"
+                   Style="{StaticResource RowMeta}" />
+
+            <!-- Why it cannot be changed, which is the answer to every press that does nothing. -->
+            <Label Text="{Binding WhyItIsReadOnly}" IsVisible="{Binding IsReadOnly}"
+                   LineBreakMode="WordWrap" Style="{StaticResource ItemCardFooter}" />
+
+            <Label Text="{controls:Translate 'Title'}" Style="{StaticResource FieldLabel}" />
+            <Entry Text="{Binding Name}" IsReadOnly="{Binding IsReadOnly}"
+                   Placeholder="{controls:Translate 'What this place is'}" />
+
+            <Label Text="{controls:Translate 'Description'}" Style="{StaticResource FieldLabel}" />
+            <Editor Text="{Binding Description}" IsReadOnly="{Binding IsReadOnly}"
+                    Placeholder="{controls:Translate 'Anything worth remembering about it'}"
+                    AutoSize="TextChanges" MinimumHeightRequest="60" />
+
+            <!-- Typing an address is one way; pointing at it is the other, and the one that works when
+                 nobody knows what the street is called - see IPlacePicker. -->
+            <Label Text="{controls:Translate 'Location'}" Style="{StaticResource FieldLabel}" />
+            <Entry Text="{Binding Address}" IsReadOnly="{Binding IsReadOnly}"
+                   Placeholder="{controls:Translate 'Where this happens'}" />
+            <HorizontalStackLayout Spacing="12">
+                <Button Text="{controls:Translate 'Pick on map'}" FontSize="13"
+                        Style="{StaticResource LinkButton}" IsVisible="{Binding CanEdit}"
+                        Command="{Binding PickOnMapCommand}" />
+                <!-- The one thing a place is actually for. Handed to whatever this phone uses for
+                     directions rather than drawn here - see IMapHandoff. -->
+                <Button Text="{controls:Translate 'Take me there'}" FontSize="13"
+                        Style="{StaticResource LinkButton}" IsVisible="{Binding HasAPoint}"
+                        Command="{Binding OpenInMapsCommand}" />
+            </HorizontalStackLayout>
+            <!-- Said before the save is refused rather than after: a place with no point cannot be drawn
+                 on a map and cannot be handed to one. -->
+            <Label Text="{controls:Translate 'Pick it on the map - a place with no point cannot be drawn on one.'}"
+                   IsVisible="{Binding NeedsAPoint}"
+                   LineBreakMode="WordWrap" Style="{StaticResource ItemCardFooter}" />
+
+            <Label Text="{controls:Translate 'Priority'}" Style="{StaticResource FieldLabel}" />
+            <Picker ItemsSource="{Binding Priorities}" SelectedItem="{Binding ChosenPriority}"
+                    IsEnabled="{Binding CanEdit}"
+                    ItemDisplayBinding="{Binding Name, x:DataType=tasks:PriorityChoice}"
+                    SemanticProperties.Description="{controls:Translate 'Priority'}" />
+
+            <Button Text="{controls:Translate 'Save'}" Style="{StaticResource PrimaryButton}"
+                    IsVisible="{Binding CanEdit}" Command="{Binding SaveCommand}"
+                    Margin="0,8,0,96" />
+
+        </VerticalStackLayout>
+    </ScrollView>
+
+        <controls:AdBanner Grid.Row="2" />
+        <controls:NavigationBar Grid.Row="0" />
+        <controls:MenuOverlay Grid.Row="0" Grid.RowSpan="3"
+                              BindingContext="{Binding Menu, Source={x:Reference Page}, x:DataType=places:PlaceDetailPage}" />
+        <controls:AvatarMenu Grid.Row="0" Grid.RowSpan="3" />
+        <controls:Drawer Grid.Row="0" Grid.RowSpan="3" />
+    </Grid>
+
+</ContentPage>

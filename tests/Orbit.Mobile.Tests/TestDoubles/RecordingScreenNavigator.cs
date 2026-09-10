@@ -135,6 +135,17 @@ internal sealed class RecordingScreenNavigator : IScreenNavigator
 
     public void ShowMap() => _destinations.Add(nameof(ShowMap));
 
+    public void ShowPlaces() => _destinations.Add(nameof(ShowPlaces));
+
+    /// <summary>Which place was opened, so a test can say the screen went to the right one.</summary>
+    public Guid? LastPlaceId { get; private set; }
+
+    public void ShowPlace(Guid localId)
+    {
+        LastPlaceId = localId;
+        _destinations.Add(nameof(ShowPlace));
+    }
+
     public void ShowInventory(Guid localId, Guid? productId = null)
     {
         LastInventoryId = localId;

@@ -1168,6 +1168,150 @@ namespace Orbit.Data.Migrations
                     b.ToTable("OS_PERMISSIONS_CODES");
                 });
 
+            modelBuilder.Entity("Orbit.Data.Entities.PlaceEntity", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("OP_P_ID");
+
+                    b.Property<string>("Address")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(300)
+                        .HasColumnType("character varying(300)")
+                        .HasDefaultValue("")
+                        .HasColumnName("OP_P_ADDRESS");
+
+                    b.Property<string>("Colour")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasDefaultValue("")
+                        .HasColumnName("OP_P_COLOUR");
+
+                    b.Property<DateTimeOffset>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("OP_P_CREATEDATUTC");
+
+                    b.Property<string>("Description")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)")
+                        .HasDefaultValue("")
+                        .HasColumnName("OP_P_DESCRIPTION");
+
+                    b.Property<string>("EncryptedCiphertext")
+                        .HasColumnType("text")
+                        .HasColumnName("OP_P_ENCRYPTEDCIPHERTEXT");
+
+                    b.Property<string>("EncryptedNonce")
+                        .HasColumnType("text")
+                        .HasColumnName("OP_P_ENCRYPTEDNONCE");
+
+                    b.Property<bool>("IsPrivate")
+                        .HasColumnType("boolean")
+                        .HasColumnName("OP_P_ISPRIVATE");
+
+                    b.Property<double>("Latitude")
+                        .HasColumnType("double precision")
+                        .HasColumnName("OP_P_LATITUDE");
+
+                    b.Property<double>("Longitude")
+                        .HasColumnType("double precision")
+                        .HasColumnName("OP_P_LONGITUDE");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasDefaultValue("")
+                        .HasColumnName("OP_P_NAME");
+
+                    b.Property<string>("Priority")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasDefaultValue("Normal")
+                        .HasColumnName("OP_P_PRIORITY");
+
+                    b.Property<DateTimeOffset>("UpdatedAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("OP_P_UPDATEDATUTC");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("OP_P_USERID");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UserId", "UpdatedAtUtc");
+
+                    b.ToTable("OP_PLACES");
+                });
+
+            modelBuilder.Entity("Orbit.Data.Entities.PlaceShareEntity", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("OP_PLS_ID");
+
+                    b.Property<DateTimeOffset?>("AcceptedAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("OP_PLS_ACCEPTEDATUTC");
+
+                    b.Property<string>("AccessLevel")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("OP_PLS_ACCESSLEVEL");
+
+                    b.Property<DateTimeOffset>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("OP_PLS_CREATEDATUTC");
+
+                    b.Property<Guid>("OwnerUserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("OP_PLS_OWNERUSERID");
+
+                    b.Property<Guid>("RecipientUserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("OP_PLS_RECIPIENTUSERID");
+
+                    b.Property<Guid>("SourcePlaceId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("OP_PLS_SOURCEPLACEID");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("SourcePlaceId", "RecipientUserId");
+
+                    b.ToTable("OP_PLACES_SHARED");
+                });
+
+            modelBuilder.Entity("Orbit.Data.Entities.PlaceTaskListLinkEntity", b =>
+                {
+                    b.Property<Guid>("PlaceId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("OL_PT_PLACEID");
+
+                    b.Property<Guid>("TaskListId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("OL_PT_TASKLISTID");
+
+                    b.Property<int>("Position")
+                        .HasColumnType("integer")
+                        .HasColumnName("OL_PT_POSITION");
+
+                    b.HasKey("PlaceId", "TaskListId");
+
+                    b.ToTable("OL_PLACES_TASKS");
+                });
+
             modelBuilder.Entity("Orbit.Data.Entities.PublicShareLinkEntity", b =>
                 {
                     b.Property<Guid>("Id")
@@ -1565,6 +1709,14 @@ namespace Orbit.Data.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("OP_TI_ID");
 
+                    b.Property<string>("Colour")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasDefaultValue("")
+                        .HasColumnName("OP_TI_COLOUR");
+
                     b.Property<string>("DailyReminderNotificationChannel")
                         .IsRequired()
                         .HasMaxLength(20)
@@ -1634,6 +1786,14 @@ namespace Orbit.Data.Migrations
                     b.Property<int>("Position")
                         .HasColumnType("integer")
                         .HasColumnName("OP_TI_POSITION");
+
+                    b.Property<string>("Priority")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasDefaultValue("Normal")
+                        .HasColumnName("OP_TI_PRIORITY");
 
                     b.Property<DateTimeOffset?>("ProductExpiryDate")
                         .HasColumnType("timestamp with time zone")
@@ -2021,6 +2181,15 @@ namespace Orbit.Data.Migrations
                         .IsRequired();
                 });
 
+            modelBuilder.Entity("Orbit.Data.Entities.PlaceTaskListLinkEntity", b =>
+                {
+                    b.HasOne("Orbit.Data.Entities.PlaceEntity", null)
+                        .WithMany("TaskLists")
+                        .HasForeignKey("PlaceId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("Orbit.Data.Entities.TaskItemCategoryEntity", b =>
                 {
                     b.HasOne("Orbit.Data.Entities.TaskItemEntity", null)
@@ -2074,6 +2243,11 @@ namespace Orbit.Data.Migrations
             modelBuilder.Entity("Orbit.Data.Entities.InventoryItemEntity", b =>
                 {
                     b.Navigation("Categories");
+                });
+
+            modelBuilder.Entity("Orbit.Data.Entities.PlaceEntity", b =>
+                {
+                    b.Navigation("TaskLists");
                 });
 
             modelBuilder.Entity("Orbit.Data.Entities.TaskEntity", b =>

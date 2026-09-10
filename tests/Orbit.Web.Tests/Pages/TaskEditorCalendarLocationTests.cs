@@ -473,9 +473,9 @@ public sealed class TaskEditorCalendarLocationTests : OrbitTestContext
             IsShared: false, SharedByUserName: null, AccessLevel: "CanEdit", OriginalOwnerUserId: null);
 
     /// <summary>
-    /// Opened from the map: a new list starts on one calendar entry already standing at the place that
-    /// was pointed at. The place is why they came, so it is filled in and the entry is open - what is
-    /// missing is the day, which the map cannot know.
+    /// Opened from the map: a new list starts on one entry already standing at the place that was
+    /// pointed at. The place is why they came, so it is filled in and the entry is open - what is
+    /// missing is the words, which the map cannot know.
     /// </summary>
     [Fact]
     public void A_new_list_opened_from_the_map_starts_at_that_place()
@@ -487,15 +487,17 @@ public sealed class TaskEditorCalendarLocationTests : OrbitTestContext
 
         var entry = Assert.Single(cut.FindAll(".editor-item-details"));
         Assert.Equal("Długa 4, Warszawa", LocationBoxIn(entry).GetAttribute("value"));
-        // A calendar entry, because it is the only kind that has anywhere to be.
+        // A Location entry, not a Calendar one: pressing a shop on the map says where, not when, and
+        // the list would not save until an hour nobody had in mind had been chosen.
         Assert.Equal(
-            nameof(Orbit.Core.Tasks.TaskItemKind.Calendar),
+            nameof(Orbit.Core.Tasks.TaskItemKind.Location),
             entry.QuerySelector("select")!.GetAttribute("value") ?? SelectedOptionIn(entry));
     }
 
     /// <summary>
-    /// And the pin travels with it, so saving makes an event at that place rather than one labelled
-    /// with its name - which is the whole reason the map handed over coordinates at all.
+    /// And the pin travels with it, so somebody who does mean an appointment can say so on the spot and
+    /// the event lands at that place rather than at a name - which is the whole reason the map handed
+    /// over coordinates at all.
     /// </summary>
     [Fact]
     public void The_pin_from_the_map_reaches_the_event_that_list_creates()
@@ -503,6 +505,8 @@ public sealed class TaskEditorCalendarLocationTests : OrbitTestContext
         RegisterApiClients(Item("unused"));
         Services.GetRequiredService<ChosenPlace>().Hold(new PickedPlace("Długa 4, Warszawa", 52.2497, 21.0122));
         var cut = RenderComponent<TaskEditor>();
+        // The entry arrives as a Location one; this reader did mean a meeting, and says so here.
+        cut.Find(".editor-item-details select").Change(nameof(Orbit.Core.Tasks.TaskItemKind.Calendar));
         // The first box in the details block, which is what this entry is filed under - see TagField.
         // Incidental to what is being held here, but it was what this line always wrote to.
         cut.Find(".tag-field-input").Input("Dentist");

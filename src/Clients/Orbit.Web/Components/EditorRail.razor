@@ -16,9 +16,9 @@
    Save in it - what leaves the screen and what else it can do belong in the same place whether or not
    there is anything to write. *@
 <div class="editor-rail @(_isOpen ? "editor-rail-open" : null)">
-    @* Only where a page has something to keep beside the buttons. The arrow that opens it is drawn on
-       narrow screens only, where the panel is a bar and the fields are folded into it. *@
-    @if (Extras is not null)
+    @* Only where there is actually something up here. The arrow that opens it is drawn on narrow
+       screens only, where the panel is a bar and whatever is above the buttons is folded into it. *@
+    @if (HasAnythingElse)
     {
         <button type="button" class="icon-btn editor-rail-toggle"
                 title="@(_isOpen ? T["Minimise"] : T["Expand"])" aria-label="@(_isOpen ? T["Minimise"] : T["Expand"])"
@@ -28,7 +28,17 @@
                 <path d="@(_isOpen ? "m6 12 4-4 4 4" : "m6 8 4 4 4-4")" />
             </svg>
         </button>
-        <div class="editor-rail-extras">@Extras</div>
+        <div class="editor-rail-extras">
+            @if (Notice is not null)
+            {
+                <p class="lock-banner">@Notice</p>
+            }
+            @if (ErrorMessage is not null)
+            {
+                <p class="error">@ErrorMessage</p>
+            }
+            @Extras
+        </div>
     }
     <div class="editor-rail-actions">
         @* Only where the page has something to write. A screen that is read rather than filled in - an
@@ -103,8 +113,29 @@
     /// <summary>
     /// What this page keeps in view whatever the form is scrolled to, above the buttons. Left out by
     /// most pages, which have nothing that has to be readable from everywhere.
+    ///
+    /// A fragment that is *there but draws nothing* is what this cannot see, which is why the two things
+    /// every editor kept here are asked for as text instead - see Notice and ErrorMessage. Every editor
+    /// passed a fragment holding two conditionals, so on a screen where nothing was wrong the panel
+    /// carried an arrow that opened onto nothing.
     /// </summary>
     [Parameter] public RenderFragment? Extras { get; set; }
+
+    /// <summary>
+    /// Something true of the whole screen that has to stay readable from anywhere on it - in practice
+    /// "somebody else is editing this". Null when there is nothing to say.
+    /// </summary>
+    [Parameter] public string? Notice { get; set; }
+
+    /// <summary>What went wrong last time Save was pressed, or null. Drawn under the notice.</summary>
+    [Parameter] public string? ErrorMessage { get; set; }
+
+    /// <summary>
+    /// Whether there is anything above the buttons at all, and so whether the arrow that opens it is
+    /// worth drawing. A page that passes a fragment is taken at its word - a fragment is written
+    /// because there is something to put in it - and the two the panel draws itself are known exactly.
+    /// </summary>
+    private bool HasAnythingElse => Extras is not null || Notice is not null || ErrorMessage is not null;
 
     /// <summary>
     /// Whether the folded-away half of the bar is open. Only means anything on a narrow screen, where

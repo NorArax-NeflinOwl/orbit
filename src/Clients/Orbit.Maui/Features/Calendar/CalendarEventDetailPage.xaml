@@ -15,10 +15,25 @@
     <Grid RowDefinitions="Auto,*,Auto">
 
     <ScrollView Grid.Row="1">
-        <VerticalStackLayout Padding="16,16,16,28" Spacing="12">
+        <!-- Room at the foot for the two floating buttons, which stand over the page rather than in it -
+             the same 96 the note editor leaves for its pair. Scrolled all the way down, the last thing
+             on this form was underneath them: the switch that says whether to be told as the event
+             starts sat exactly under Save, so pressing it saved the event instead of setting it, and
+             there was nowhere further to scroll to get it out from under. -->
+        <VerticalStackLayout Padding="16,16,16,96" Spacing="12">
 
-            <Entry Text="{Binding Title}" FontSize="20" FontAttributes="Bold" IsReadOnly="{Binding IsReadOnly}"
-                   Placeholder="{controls:Translate 'Untitled event'}" />
+            <!-- The event's own colour down the left of its name, which is what the design gives this
+                 screen and what a calendar row already carries - so an event opened from the list is
+                 recognisably the same thing that was pressed. The bar is the whole of the heading's
+                 decoration: no box around the name, because the name is the screen. -->
+            <Grid ColumnDefinitions="Auto,*" ColumnSpacing="12">
+                <BoxView Grid.Column="0" WidthRequest="3" CornerRadius="2"
+                         Color="{DynamicResource Accent}" />
+                <Entry Grid.Column="1" Text="{Binding Title}" FontFamily="OrbitDisplay" FontSize="24"
+                       FontAttributes="Bold" IsReadOnly="{Binding IsReadOnly}"
+                       controls:BareField.IsBare="True"
+                       Placeholder="{controls:Translate 'Untitled event'}" />
+            </Grid>
 
             <Label Text="{Binding Status}" IsVisible="{Binding HasStatus}" FontSize="12" LineBreakMode="WordWrap"
                    TextColor="{DynamicResource Accent}" />
@@ -44,34 +59,74 @@
             <Label Text="{controls:Translate 'The name is yours to write - the point is kept either way.'}"
                    IsVisible="{Binding CanEdit}" FontSize="12" LineBreakMode="WordWrap"
                    Style="{StaticResource SubtleLabel}" />
-            <HorizontalStackLayout Spacing="10" IsVisible="{Binding CanEdit}">
-                <Button Text="{controls:Translate 'Use my location'}" FontSize="12" Padding="12,6"
-                        Style="{StaticResource SecondaryButton}" Command="{Binding UseMyLocationCommand}" />
-                <Button Text="{controls:Translate 'Remove location'}" FontSize="12" Padding="12,6"
-                        IsVisible="{Binding HasLocation}" Style="{StaticResource SecondaryButton}"
-                        Command="{Binding RemoveLocationCommand}" />
-            </HorizontalStackLayout>
+            <!-- Everything that can be done about the place, on one line of links under the box it is
+                 typed in - which is the design's own arrangement, and takes a row off a screen that is
+                 already six fields long. They were two outlined buttons over two links before, so the
+                 same four things read as two kinds of control and filled two rows doing it.
 
-            <!-- The same two hand-offs Orbit.Web puts beside the address in its list: the place, and the
-                 way there. Hidden unless the account qualifies - see GoogleIntegrationAccess. -->
-            <HorizontalStackLayout Spacing="10" IsVisible="{Binding CanOpenLocationInGoogleMaps}">
-                <Button Text="{controls:Translate 'Open in Google Maps'}" FontSize="14"
+                 The last two are the hand-offs Orbit.Web puts beside the address in its list: the place,
+                 and the way there. Hidden unless the account qualifies - see GoogleIntegrationAccess. -->
+            <FlexLayout Wrap="Wrap" Direction="Row" AlignItems="Center">
+                <Button Text="{controls:Translate 'Use my location'}" FontSize="13" Margin="0,0,16,0"
+                        IsVisible="{Binding CanEdit}"
+                        Style="{StaticResource LinkButton}" Command="{Binding UseMyLocationCommand}" />
+                <Button Text="{controls:Translate 'Remove location'}" FontSize="13" Margin="0,0,16,0"
+                        IsVisible="{Binding CanRemoveLocation}"
+                        Style="{StaticResource LinkButton}" Command="{Binding RemoveLocationCommand}" />
+                <Button Text="{controls:Translate 'Open in Google Maps'}" FontSize="13" Margin="0,0,16,0"
+                        IsVisible="{Binding CanOpenLocationInGoogleMaps}"
                         Style="{StaticResource LinkButton}" Clicked="OnOpenLocationInGoogleMapsClicked" />
-                <Button Text="{controls:Translate 'Directions'}" FontSize="14"
+                <Button Text="{controls:Translate 'Directions'}" FontSize="13"
+                        IsVisible="{Binding CanOpenLocationInGoogleMaps}"
                         Style="{StaticResource LinkButton}" Clicked="OnOpenDirectionsClicked" />
-            </HorizontalStackLayout>
+            </FlexLayout>
 
             <Label Text="{controls:Translate 'When'}" Style="{StaticResource FieldLabel}" />
+
+            <!-- Two boxes side by side, Starts and Ends, each holding its own day and its own time -
+                 which is what the design draws and is the right pairing. The four pickers used to be
+                 two rows of two: the start's day beside the end's day, then the start's time beside the
+                 end's time. That reads as two ranges rather than as two moments, and it is why an event
+                 spanning days looks like a mistake on the screen that is meant to show it.
+
+                 The day and the time are stacked inside a box rather than on one line as the design has
+                 them ("Tue 8 Sep · 14:30"): the design's is a label and these are two things to press,
+                 and two pickers side by side in half of 412 points do not fit.
+
+                 Both are bare - see BareField. A picker draws Orbit's own hairline box, and a box
+                 inside a box is two edges saying the same thing; the design's "When" has one, with the
+                 values plain inside it. -->
 
             <!-- Two dates, not one: the end used to be taken from the start, so an event spanning days
                  was quietly shortened the first time anybody edited it. -->
             <Grid ColumnDefinitions="*,*" ColumnSpacing="8">
-                <!-- Which is which. Two date pickers both announcing "When" leave a reader who cannot
-                     see them no way to tell the start from the end. -->
-                <DatePicker Grid.Column="0" Date="{Binding StartDate}" IsEnabled="{Binding CanEdit}" Format="{controls:DatePattern}"
-                            SemanticProperties.Description="{controls:Translate 'Starts'}" />
-                <DatePicker Grid.Column="1" Date="{Binding EndDate}" IsEnabled="{Binding CanEdit}" Format="{controls:DatePattern}"
-                            SemanticProperties.Description="{controls:Translate 'Ends'}" />
+                <Border Grid.Column="0" Style="{StaticResource CardBorder}" Padding="12,8">
+                    <VerticalStackLayout Spacing="2">
+                        <Label Text="{controls:Translate 'Starts'}" Style="{StaticResource CardBadgeLabel}" />
+                        <!-- Which is which. Two date pickers both announcing "When" leave a reader who
+                             cannot see them no way to tell the start from the end. -->
+                        <DatePicker Date="{Binding StartDate}" IsEnabled="{Binding CanEdit}" Format="{controls:DatePattern}"
+                                    controls:BareField.IsBare="True"
+                                    SemanticProperties.Description="{controls:Translate 'Starts'}" />
+                        <!-- Hidden rather than disabled for an all-day event: there is no time to show,
+                             and a greyed time reads as something that could be set and simply is not. -->
+                        <TimePicker Time="{Binding StartTime}" IsEnabled="{Binding CanEdit}" Format="{controls:TimePattern}"
+                                    IsVisible="{Binding IsNotAllDay}" controls:BareField.IsBare="True"
+                                    SemanticProperties.Description="{controls:Translate 'Starts'}" />
+                    </VerticalStackLayout>
+                </Border>
+
+                <Border Grid.Column="1" Style="{StaticResource CardBorder}" Padding="12,8">
+                    <VerticalStackLayout Spacing="2">
+                        <Label Text="{controls:Translate 'Ends'}" Style="{StaticResource CardBadgeLabel}" />
+                        <DatePicker Date="{Binding EndDate}" IsEnabled="{Binding CanEdit}" Format="{controls:DatePattern}"
+                                    controls:BareField.IsBare="True"
+                                    SemanticProperties.Description="{controls:Translate 'Ends'}" />
+                        <TimePicker Time="{Binding EndTime}" IsEnabled="{Binding CanEdit}" Format="{controls:TimePattern}"
+                                    IsVisible="{Binding IsNotAllDay}" controls:BareField.IsBare="True"
+                                    SemanticProperties.Description="{controls:Translate 'Ends'}" />
+                    </VerticalStackLayout>
+                </Border>
             </Grid>
 
             <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
@@ -79,20 +134,6 @@
                 <Switch Grid.Column="1" IsToggled="{Binding IsAllDay}" IsEnabled="{Binding CanEdit}"
                         VerticalOptions="Center"
                         SemanticProperties.Description="{controls:Translate 'All day'}" />
-            </Grid>
-
-            <!-- Hidden rather than disabled for an all-day event: there is no time to show, and a greyed
-                 pair of times reads as something that could be set and simply is not. -->
-            <Grid ColumnDefinitions="*,*" ColumnSpacing="8">
-                <Grid.Triggers>
-                    <DataTrigger TargetType="Grid" Binding="{Binding IsAllDay}" Value="True">
-                        <Setter Property="IsVisible" Value="False" />
-                    </DataTrigger>
-                </Grid.Triggers>
-                <TimePicker Grid.Column="0" Time="{Binding StartTime}" IsEnabled="{Binding CanEdit}" Format="{controls:TimePattern}"
-                            SemanticProperties.Description="{controls:Translate 'Starts'}" />
-                <TimePicker Grid.Column="1" Time="{Binding EndTime}" IsEnabled="{Binding CanEdit}" Format="{controls:TimePattern}"
-                            SemanticProperties.Description="{controls:Translate 'Ends'}" />
             </Grid>
 
             <!-- Whether it repeats, and how. The three frequencies are Orbit.Core's own. -->

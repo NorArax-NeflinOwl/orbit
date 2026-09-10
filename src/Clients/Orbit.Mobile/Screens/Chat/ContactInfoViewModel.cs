@@ -135,13 +135,7 @@ public sealed partial class ContactInfoViewModel : ObservableObject
         UserName = contact.UserName.Length > 0 ? $"@{contact.UserName}" : string.Empty;
         Email = contact.Email;
         PresenceStatus = contact.PresenceStatus;
-        Presence = _translations[contact.PresenceStatus switch
-        {
-            nameof(Core.Users.PresenceStatus.Available) => "Available",
-            nameof(Core.Users.PresenceStatus.Away) => "Away",
-            nameof(Core.Users.PresenceStatus.DoNotDisturb) => "Do not disturb",
-            _ => "Offline"
-        }];
+        Presence = PresenceWords.Describe(contact.PresenceStatus, _translations);
 
         LastMessage = contact.LastMessageAtUtc == default
             ? string.Empty

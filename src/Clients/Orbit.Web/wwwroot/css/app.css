@@ -24,6 +24,10 @@
     --success: oklch(58% 0.13 150);
     --danger: oklch(58% 0.16 25);
     --away: oklch(75% 0.15 85);
+    /* What the page keeps free at the bottom for the advert bar that is fixed there below 1200px - see
+       .ad-banner and .main-content. A token rather than a number written twice: it was written twice,
+       and the second one silently took the room away again. */
+    --ad-banner-room: 96px;
     --font-display: 'Space Grotesk', 'Segoe UI', system-ui, sans-serif;
     --font-body: 'IBM Plex Sans', -apple-system, 'Segoe UI', Roboto, sans-serif;
 }
@@ -544,12 +548,22 @@ input.note-editor-title {
 /* What the note is rather than what is in it, in the panel's menu - see NoteEditor.razor. Wider than
    a menu of actions because these are fields: a select squeezed to the width of "Priority" is a
    control nobody can read the chosen value in. */
-.note-settings-menu {
+/* The settings a form keeps in its panel's menu rather than in the form itself - see NoteEditor and
+   TaskEditor, which both do it now. Named for the shape rather than for the note, which had it first. */
+.editor-settings-menu {
     display: flex;
     flex-direction: column;
     gap: 12px;
-    min-width: 250px;
+    min-width: 260px;
     padding: 4px 2px;
+}
+
+/* Between the settings and the actions under them: one menu, two kinds of entry, and a line is what
+   says the press below it does something rather than sets something. */
+.editor-settings-divider {
+    height: 1px;
+    margin: 4px 0;
+    background: var(--border);
 }
 
 .note-line {
@@ -792,7 +806,7 @@ input.note-editor-title {
    media query does not win on its own. */
 @media (max-width: 1199px) {
     .main-content {
-        padding-bottom: 96px;
+        padding-bottom: var(--ad-banner-room);
     }
 }
 
@@ -1619,8 +1633,11 @@ input.note-editor-title {
         display: none;
     }
 
+    /* The room for the bar across the foot is kept, not overwritten. Written as the shorthand, this
+       rule used to reset padding-bottom to 28px and undo the rule above it - so on a phone, which is
+       every screen this rule is for, the advert sat on top of the footer's own row. */
     .main-content {
-        padding: 16px 16px 28px 16px;
+        padding: 16px 16px var(--ad-banner-room) 16px;
     }
 
     .page-header {
@@ -1916,11 +1933,19 @@ input.note-editor-title {
     position: relative;
 }
 
-/* Nothing is guessed here. The page box is already exactly what the window left after the bar and the
-   footer (see .main-content-page), so making it a column and letting the conversation take whatever
-   the heading above it does not is the same answer measured rather than estimated - which the guess
-   above got wrong in the direction that hurts: it was short, so the composer sat below the fold and
-   the whole page had to be scrolled to reach it.
+/* The page box is a column here, and the conversation takes whatever the heading above it does not.
+
+   It is also capped at the window, which it was not: the box grows with its content and never shrinks
+   below it (flex: 1 0 auto), so a long conversation made the box as tall as every message in it - a
+   thread of sixty lines drew a page 3400px tall, the whole window scrolled, and the list that was
+   supposed to scroll never did. "min-height: 0 and let flex sort it out" cannot fix that on its own:
+   nothing above this has a definite height for the shrinking to be measured against, so the content
+   wins every time. A cap is what makes the height definite.
+
+   The number is the window this page never gets: the bar along the top, the padding around the content
+   and the footer under it. Measured off the rendered page rather than added up from the rules, and a
+   little out either way costs a little conversation height or a little scroll - the same trade the map
+   makes for the same reason, see .map-page's --map-page-chrome.
 
    Said by what the page renders rather than by which route it is, the way the map's own exception is -
    see .main-content:has(.map-page). */
@@ -1930,6 +1955,9 @@ input.note-editor-title {
     /* A flex item does not shrink past its content unless told it may, and this one holds a panel that
        is allowed to get small and scroll inside itself. */
     min-height: 0;
+    flex: 1 1 auto;
+    max-height: calc(100vh - var(--chat-page-chrome));
+    --chat-page-chrome: 164px;
 }
 
 .main-content-page:has(.chat-layout) .chat-layout {
@@ -1938,6 +1966,14 @@ input.note-editor-title {
     /* Below this a conversation stops being one, so a window too short for it scrolls the page rather
        than squashing the messages into a strip. */
     min-height: 320px;
+}
+
+/* The two links in the chain that were letting the messages set the height. A flex item's floor is its
+   own content unless it is told otherwise, so the column holding the list, and the list itself, both
+   grew to fit every message - and .chat-messages' overflow-y never had anything to overflow. */
+.main-content-page:has(.chat-layout) .chat-thread,
+.main-content-page:has(.chat-layout) .chat-messages {
+    min-height: 0;
 }
 
 .chat-list {
@@ -2324,6 +2360,35 @@ input.note-editor-title {
 .app-footer a,
 .app-footer-link {
     margin-left: 8px;
+}
+
+/* The two language codes, as one entry of the row rather than two - see Components/LanguagePicker.razor.
+   The pair takes the gap, and the slash between them takes none, so "EN / PL" reads as one control
+   standing where a dropdown would have. */
+.app-footer-language {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    margin-left: 8px;
+}
+
+.app-footer-language .app-footer-link {
+    margin-left: 0;
+}
+
+/* Not a link: which one you are reading in is a state, and underlining both said neither. */
+.app-footer-language-choice {
+    text-decoration: none;
+    letter-spacing: 0.04em;
+}
+
+.app-footer-language-choice.chosen {
+    color: var(--text-primary);
+    font-weight: 700;
+}
+
+.app-footer-language-divider {
+    color: var(--border);
 }
 
 /* A panel over the page, from the footer or from anywhere else - see Components/Dialog.razor. The map
@@ -2728,10 +2793,40 @@ input.note-editor-title {
 
 @media (max-width: 680px) {
     /* The same fallback as above, for a browser without :has(): less chrome above the page on a phone,
-       so less of the window is already spent. A browser that has :has() measures instead - see
+       so less of the window is already spent. A browser that has :has() caps instead - see
        .main-content-page:has(.chat-layout). */
     .chat-layout {
         height: calc(100dvh - 170px);
+    }
+
+    /* And the cap itself, in the units a phone needs: 100vh there is the window with the browser's own
+       bars pretending not to be, which is a screenful of chat hidden under them. The advertising bar
+       across the foot is spent too - see .main-content's own padding below 1199px.
+
+       --visual-viewport-height is what the window is actually showing (see viewport.js) and it wins
+       where it is known, because 100dvh does not account for an on-screen keyboard: on iOS it does not
+       shrink for one at all. Without it the box someone is typing into ends up under the keyboard,
+       which is the one row on this screen that must not be. */
+    .main-content-page:has(.chat-layout) {
+        max-height: calc(var(--visual-viewport-height, 100dvh) - var(--chat-page-chrome));
+        --chat-page-chrome: 210px;
+    }
+
+    /* With a keyboard up, the page is worth less than the conversation on it. What is left has to hold
+       the bar, the conversation's own header, the messages and the box being typed into - so the two
+       things that are neither are given up, and the chrome the page has already spent comes back with
+       them. The reader gets that room back the moment the keyboard goes. */
+    :root[data-keyboard="open"] .main-content-page:has(.chat-layout) {
+        --chat-page-chrome: 96px;
+    }
+
+    :root[data-keyboard="open"] .main-content {
+        padding-bottom: 0;
+    }
+
+    :root[data-keyboard="open"] .app-footer,
+    :root[data-keyboard="open"] .ad-banner {
+        display: none;
     }
 
     .chat-list-toggle {
@@ -3081,7 +3176,13 @@ input.note-editor-title {
     cursor: not-allowed;
 }
 
+/* An inline row, so the mark that carries what the setting does sits on the same line as its name -
+   see FieldHint, and Options.razor, where every one of these descriptions now lives behind one. */
 .options-row-title {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 6px;
     font-size: 13.5px;
     font-weight: 600;
     color: var(--text-primary);
@@ -3444,6 +3545,121 @@ input.note-editor-title {
     right: 0;
 }
 
+/* CalendarWeekGrid.razor: seven of the day view's timelines side by side, under one row of day names
+   and one band of whole-day things. The gutter that holds the hour labels is the same width in all
+   three rows, which is what keeps the columns lined up with the names above them. */
+.calendar-week-grid {
+    display: flex;
+    flex-direction: column;
+    overflow-x: auto;
+}
+
+.calendar-week-grid-head,
+.calendar-week-grid-all-day,
+.calendar-week-grid-timeline {
+    display: flex;
+    min-width: 40rem;
+}
+
+.calendar-week-grid-gutter {
+    flex: 0 0 3.5rem;
+}
+
+.calendar-week-grid-head {
+    align-items: stretch;
+    border-bottom: 1px solid var(--border);
+}
+
+.calendar-week-grid-day-name {
+    display: flex;
+    flex: 1 1 0;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+    padding: 6px 2px;
+    border: none;
+    background: none;
+    color: var(--text-secondary);
+    font: inherit;
+    cursor: pointer;
+}
+
+.calendar-week-grid-day-name:hover {
+    background: var(--bg-subtle);
+}
+
+.calendar-week-grid-weekday {
+    font-size: 0.72em;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+}
+
+.calendar-week-grid-daynumber {
+    font-family: var(--font-display);
+    font-size: 1.05em;
+    color: var(--text-primary);
+}
+
+/* The day the reader is on, marked the way the month grid marks it. */
+.calendar-week-grid-day-name.today .calendar-week-grid-daynumber {
+    color: var(--accent);
+    font-weight: 700;
+}
+
+/* Across the top, above the hours: a whole-day thing has no hour to be drawn at, and giving it one
+   would put it at midnight, which is a lie about when it is. */
+.calendar-week-grid-all-day {
+    align-items: stretch;
+    border-bottom: 1px solid var(--border);
+}
+
+.calendar-week-grid-all-day-label {
+    display: flex;
+    align-items: center;
+    padding-left: 2px;
+    color: var(--text-tertiary);
+    font-size: 0.72em;
+}
+
+.calendar-week-grid-all-day-cell {
+    display: flex;
+    flex: 1 1 0;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+    padding: 3px 2px;
+    border-left: 1px solid var(--border);
+}
+
+.calendar-week-grid-timeline {
+    height: 60rem;
+    position: relative;
+}
+
+.calendar-week-grid-hours {
+    position: relative;
+}
+
+.calendar-week-grid-day {
+    flex: 1 1 0;
+    min-width: 0;
+    position: relative;
+    border-left: 1px solid var(--border);
+}
+
+/* Every half hour, because placing something to the half hour by eye needs a line at the half hour -
+   and the ones on the hour drawn solid, so the reader can still count hours down the column. */
+.calendar-week-grid-half-line {
+    position: absolute;
+    left: 0;
+    right: 0;
+    border-top: 1px dotted var(--border);
+}
+
+.calendar-week-grid-half-line.on-the-hour {
+    border-top-style: solid;
+}
+
 .calendar-event-block {
     background: var(--bg-subtle);
     border: none;
@@ -3555,6 +3771,122 @@ input.note-editor-title {
     display: flex;
     gap: 8px;
     align-items: center;
+}
+
+/* ---- What a field is for, behind a "?" beside its label (FieldHint.razor) ---- */
+
+/* Inline, so the mark sits on the label's own line rather than starting a new one, and relative so the
+   bubble can be hung off it. */
+.field-hint-holder {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    vertical-align: middle;
+    margin-left: 4px;
+}
+
+/* Small and quiet: a form of eight fields carries eight of these, and eight bright circles would be a
+   pattern the eye reads before it reads the labels. */
+.field-hint-mark {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 16px;
+    height: 16px;
+    padding: 0;
+    font-size: 11px;
+    font-weight: 600;
+    line-height: 1;
+    cursor: help;
+    color: var(--text-tertiary);
+    background: transparent;
+    border: 1px solid var(--border);
+    border-radius: 999px;
+}
+
+.field-hint-mark:hover,
+.field-hint-mark:focus-visible,
+.field-hint-mark.on {
+    color: var(--accent);
+    border-color: var(--accent);
+}
+
+/* News rather than reference - see FieldHint.razor. Drawn in the warning colour at rest, because
+   something true of the screen right now is worth noticing even while it is folded away. */
+.field-hint-mark.warns {
+    color: var(--away);
+    border-color: var(--away);
+}
+
+.field-hint-mark.warns:hover,
+.field-hint-mark.warns:focus-visible,
+.field-hint-mark.warns.on {
+    color: var(--away);
+    border-color: var(--away);
+    background: color-mix(in oklch, var(--away) 14%, transparent);
+}
+
+/* Out of the page's flow entirely rather than merely invisible: given display:none it would be
+   unreachable to a screen reader, and given visibility:hidden it would still hold its own width in the
+   label's line and push the label's own words along. */
+.field-hint-bubble {
+    /* Fixed, and put where it goes by fieldHint.js: these sit inside menus and rails near the edges of
+       the window, and CSS cannot say "and stay inside it". The offsets here are only what it looks like
+       before the first measurement. */
+    position: fixed;
+    left: 0;
+    top: 0;
+    z-index: 60;
+    width: max-content;
+    max-width: min(280px, 70vw);
+    padding: 8px 10px;
+    /* The label it stands in is drawn as a small-caps heading on most forms, and a sentence inherited
+       that was a sentence in capitals with the letters pushed apart. */
+    font-size: 12px;
+    font-weight: 400;
+    font-family: var(--font-body);
+    letter-spacing: normal;
+    text-transform: none;
+    line-height: 1.4;
+    text-align: left;
+    white-space: normal;
+    color: var(--text-secondary);
+    background: var(--bg-subtle);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    box-shadow: 0 8px 24px oklch(20% 0.02 60 / 0.35);
+    /* Faded rather than removed, so it is still read out. opacity keeps it out of the picture and
+       pointer-events keeps it from swallowing a press aimed at what is underneath. */
+    opacity: 0;
+    pointer-events: none;
+}
+
+.field-hint-holder:hover .field-hint-bubble,
+.field-hint-mark:focus-visible + .field-hint-bubble,
+.field-hint-mark.on + .field-hint-bubble {
+    opacity: 1;
+    pointer-events: auto;
+}
+
+@media (max-width: 480px) {
+    .field-hint-bubble {
+        max-width: min(280px, 86vw);
+    }
+}
+
+/* Where a phone's Menu button lands - see PageToolbarTrigger. The auto margin eats the free space the
+   header's space-between would otherwise put here, so this and the page's own actions sit together at
+   the far end instead of one of them floating into the middle. */
+.page-header-toolbar {
+    display: flex;
+    align-items: center;
+    margin-left: auto;
+}
+
+/* On every page and every screen where nothing is hoisted here, which is most of them: an empty flex
+   child still draws the row's gap beside it. */
+.page-header-toolbar:empty {
+    display: none;
 }
 
 /* Chat.razor's per-contact unread badge sits on the small avatar, so .notif-badge (sized for the big
@@ -4224,6 +4556,23 @@ input.note-editor-title {
     margin-top: -4px;
 }
 
+/* The panel's boxes, in a column of their own. Their own wrapper because a pinned one is lifted by
+   `order`, and .map-panel's own children are already ordered on a phone to put the map above the lists
+   - two order schemes on one set of items is one of them silently losing. */
+.map-panel-lists {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    min-width: 0;
+}
+
+/* Brought to the top of the panel - see MapPanelPins. Several pinned at once keep the order the page
+   writes them in, so pinning says "bring this up" rather than "make this first", which is the promise
+   a pinned note or card makes everywhere else. */
+.map-panel-section-pinned {
+    order: -1;
+}
+
 .map-panel-section {
     display: flex;
     flex-direction: column;
@@ -4237,11 +4586,18 @@ input.note-editor-title {
 /* A panel's name with its own control at the far edge - the eye that takes that list's pins off the
    map. Same shape as every other heading-plus-action row in the app: the name leads, the control sits
    against the right margin. */
+/* Pin, name, eye - the order every card in Orbit puts them in, so a panel on the map reads like a card
+   anywhere else. The name takes the room between, which is what pushes the eye to the far edge without
+   space-between having to guess which child is last. */
 .map-panel-heading-row {
     display: flex;
     align-items: center;
-    justify-content: space-between;
     gap: 8px;
+}
+
+.map-panel-heading-row .map-panel-heading {
+    flex: 1 1 auto;
+    min-width: 0;
 }
 
 /* Struck through while the pins are hidden, so the button says which state the map is in rather than
@@ -4515,6 +4871,66 @@ input.note-editor-title {
 .location-map {
     width: 100%;
     height: 100%;
+}
+
+/* The other corner of the map: what keeps a place. The corner Leaflet's zoom used to hold - see
+   locationMap.js, which moves the zoom to the bottom rather than let two plus signs sit side by side. */
+.map-add-place-button {
+    position: absolute;
+    top: 10px;
+    left: 10px;
+    z-index: 1001;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 30px;
+    height: 30px;
+    padding: 0;
+    font-size: 20px;
+    line-height: 1;
+    cursor: pointer;
+    color: var(--text-primary);
+    background: var(--bg-elevated);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    box-shadow: 0 1px 4px oklch(20% 0.02 60 / 0.25);
+}
+
+.map-add-place-button:hover {
+    background: var(--bg-subtle);
+}
+
+/* A form rather than a question, so it is given the room a form needs and its fields are allowed to
+   scroll - the panel is capped by .map-overlay-panel and a place with six lists on it would otherwise
+   push its own Create button off the bottom of the screen. */
+.place-form {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    width: min(520px, 100%);
+    overflow-y: auto;
+}
+
+/* How the place is drawn, on one line: a three-item picker and a swatch, neither of which needs a line
+   of its own. Wraps on a narrow screen rather than squeezing, since the picker holds real words. */
+.place-form-look {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    align-items: flex-start;
+}
+
+.place-form-look > .field {
+    flex: 1 1 160px;
+    min-width: 0;
+}
+
+/* A tick or a cross in front of the word, for the two buttons that finish something. The glyph is
+   decorative - the word is the label - so it is spaced off the text and nothing else. */
+.icon-labelled {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
 }
 
 .map-fullscreen-button {
@@ -4845,6 +5261,14 @@ input.note-editor-title {
     color: var(--danger);
 }
 
+/* Nothing late on it, but a chore that comes round every day is waiting - see
+   Orbit.Core.Tasks.TaskListStatus.DueAgain. Deliberately not the danger colour the overdue badge takes:
+   the whole point of the status is that nothing has gone wrong. */
+.card-badge-status-dueagain {
+    background: color-mix(in oklch, var(--accent) 16%, transparent);
+    color: var(--accent);
+}
+
 .card-badge-status-completed {
     background: color-mix(in oklch, var(--success) 16%, transparent);
     color: var(--success);
@@ -5066,6 +5490,80 @@ input.note-editor-title {
     .app-boot-spinner {
         animation-duration: 3s;
     }
+}
+
+/* The same wait, inside the app - see Components/Loading.razor. The mark, then the ring the boot screen
+   turns, so a page fetching its own contents looks like the screen that was standing in for it a moment
+   ago rather than like a page that has stopped. */
+.loading-orbit {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 14px;
+    padding: 48px 16px;
+}
+
+/* Mark and word together, the same pairing the boot screen and the top bar carry - see .app-boot-lockup. */
+.loading-orbit-lockup {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.loading-orbit-mark {
+    width: 40px;
+    height: 40px;
+}
+
+.loading-orbit-name {
+    color: var(--text-primary);
+    font-family: var(--font-display);
+    font-size: 30px;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    line-height: 1;
+}
+
+/* What is being waited for, under the ring. The least of the three things on the screen, and drawn as
+   the least. */
+.loading-orbit-says {
+    color: var(--text-secondary);
+    font-size: 13px;
+}
+
+.loading-orbit-spinner {
+    width: 18px;
+    height: 18px;
+    border: 2px solid var(--border);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: app-boot-turn 0.9s linear infinite;
+}
+
+/* Slowed rather than stopped, for the reason .app-boot-spinner gives. */
+@media (prefers-reduced-motion: reduce) {
+    .loading-orbit-spinner {
+        animation-duration: 3s;
+    }
+}
+
+/* A corner of a screen rather than the whole of one: a row, and small enough not to push what it is
+   waiting for out of view. */
+.loading-orbit-inline {
+    flex-direction: row;
+    gap: 10px;
+    padding: 16px 12px;
+}
+
+.loading-orbit-inline .loading-orbit-mark {
+    width: 24px;
+    height: 24px;
+}
+
+.loading-orbit-inline .loading-orbit-spinner {
+    width: 14px;
+    height: 14px;
 }
 
 .visually-hidden {
@@ -5478,6 +5976,39 @@ input.note-editor-title {
     flex-wrap: wrap;
     align-items: center;
     gap: 10px;
+}
+
+/* The row of map apps, on a panel narrower than the picker's. One button per app, each as wide as its
+   own name, wrapping onto a second line rather than being squeezed - four product names abbreviated to
+   fit is four buttons nobody can tell apart. */
+.map-overlay-apps {
+    gap: 8px;
+}
+
+/* Inside a pin's own popup: what the pin is, and the way to be taken there - see locationMap.js, which
+   builds both as elements rather than as markup. */
+.map-popup {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 6px;
+}
+
+.map-popup-label {
+    color: var(--text-primary);
+}
+
+/* Drawn as a link rather than as a button: a popup is two lines wide, and a filled button in it is
+   most of the popup. */
+.map-popup-navigate {
+    padding: 0;
+    border: 0;
+    background: none;
+    color: var(--accent);
+    font: inherit;
+    font-weight: 600;
+    text-decoration: underline;
+    cursor: pointer;
 }
 
 .map-overlay-address {
@@ -6130,13 +6661,6 @@ input.note-editor-title {
         margin-left: auto;
     }
 
-    /* The bar sits on the bottom edge, so a menu hanging off it would open into the ground. It opens
-       upwards instead - the same distance, the other way. */
-    .editor-rail .overflow-menu-dropdown {
-        top: auto;
-        bottom: calc(100% + 4px);
-    }
-
     /* On its own line above the buttons rather than beside them, and only once the arrow has been
        pressed: a bar tall enough to hold fields as well would be most of a phone. */
     .editor-rail-extras {
@@ -6618,16 +7142,20 @@ span.calendar-task-chip {
 }
 
 @media (max-width: 680px) {
+    /* Nothing but an anchor for the panel: the button itself is drawn in the page's header row now (see
+       PageToolbarTrigger), so this holds no space of its own and the first card moves up a row. */
     .phone-toolbar {
         display: block;
         position: relative;
-        margin-bottom: 14px;
     }
 
     .phone-toolbar-trigger {
         display: inline-flex;
         align-items: center;
         gap: 8px;
+        /* Beside a title rather than under it, so it takes the smaller of the two sizes a button has. */
+        padding: 6px 10px;
+        font-size: 13px;
     }
 
     /* Closed, the controls are not merely invisible: display:none takes them out of the tab order too,
@@ -6636,19 +7164,23 @@ span.calendar-task-chip {
         display: none;
     }
 
+    /* --bg-subtle rather than --bg-elevated, which is what a card is drawn in: the panel opens straight
+       over the first card, and the same colour on both made the folder tabs read as that card's own
+       header rather than as something in front of it. A heavier shadow and a full-width border say the
+       rest. */
     .phone-toolbar.open .phone-toolbar-panel {
         display: block;
         position: absolute;
-        top: calc(100% + 6px);
+        top: 0;
         left: 0;
         right: 0;
         max-height: 70vh;
         overflow-y: auto;
         padding: 10px 12px;
-        background: var(--bg-elevated);
+        background: var(--bg-subtle);
         border: 1px solid var(--border);
         border-radius: 10px;
-        box-shadow: 0 8px 24px oklch(20% 0.02 60 / 0.15);
+        box-shadow: 0 12px 32px oklch(20% 0.02 60 / 0.45);
         z-index: 30;
     }
 
@@ -6659,11 +7191,14 @@ span.calendar-task-chip {
         margin-bottom: 8px;
     }
 
+    /* Under the panel and over everything else. Faintly drawn as well as pressable: the panel opens
+       over the cards, and without something dimming them the two layers were one picture - which is
+       what made the folder tabs unreadable rather than merely on top. */
     .phone-toolbar-backdrop {
         display: block;
         position: fixed;
         inset: 0;
-        /* Under the panel and over everything else: it is there to be pressed, not to be seen. */
+        background: oklch(20% 0.02 60 / 0.45);
         z-index: 29;
     }
 }

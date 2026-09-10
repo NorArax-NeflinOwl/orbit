@@ -96,34 +96,36 @@ public partial class TaskListDetailPage : ContentPage, ITitleMenu, ITitleSteps
 	}
 
 	/// <summary>
-	/// What order to read the entries in, then what can be done to the list - one menu holding both, as
-	/// Orbit.Web's checklist keeps them. The order in force is marked, because a menu of three with no
-	/// answer among them leaves the reader guessing what they are looking at, and the order stays open
-	/// while somebody tries one and then another.
+	/// What order to read the entries in, what to do about the shelf behind the list, and what can be
+	/// done to the list itself - three questions under three headings rather than one run of nine
+	/// words, which is the design's own menu and the shape every other menu in the app took on
+	/// 2026-09-09. "In list order" and "Delete list" sitting in the same column, one under the other,
+	/// is two different kinds of press a thumb's width apart.
+	///
+	/// The order in force is marked, because a menu of three with no answer among them leaves the
+	/// reader guessing what they are looking at, and the order stays open while somebody tries one and
+	/// then another.
 	/// </summary>
 	private void ShowListMenu()
 	{
-		List<ScreenMenuEntry> entries =
-		[
-			Order(_translations["In list order"], ChecklistOrder.AsArranged),
-			Order(_translations["A to Z"], ChecklistOrder.Alphabetical),
-			Order(_translations["Left to do first"], ChecklistOrder.UndoneFirst)
-		];
+		List<ScreenMenuEntry> shelf = [];
+		List<ScreenMenuEntry> list = [];
 
 		// The two that price a list against a shelf are only worth offering where there is a shelf to
-		// price it against - the panel below appears by the same rule.
+		// price it against - the panel below appears by the same rule. Their own group: they are about
+		// the inventory behind the list rather than about the list.
 		if (_viewModel.StockCheck.IsOffered)
 		{
 			// And building one is only worth offering where there is something on the list a shelf
 			// would be about - see GeneratedInventorySource, which the browser's own menu asks too.
 			if (_viewModel.HasSomethingToBuildAStorageFrom)
 			{
-				entries.Add(new ScreenMenuEntry(
+				shelf.Add(new ScreenMenuEntry(
 					_translations["Generate inventory"],
 					() => _viewModel.StockCheck.GenerateInventoryCommand.Execute(null)));
 			}
 
-			entries.Add(new ScreenMenuEntry(
+			shelf.Add(new ScreenMenuEntry(
 				_translations["Refresh the restock list"],
 				() => _viewModel.StockCheck.RefreshFromTheInventoryCommand.Execute(null)));
 		}
@@ -133,7 +135,7 @@ public partial class TaskListDetailPage : ContentPage, ITitleMenu, ITitleSteps
 		// reader in a hundred who came to change the list rather than to tick something off it.
 		if (_viewModel.CanEdit)
 		{
-			entries.Add(new ScreenMenuEntry(
+			list.Add(new ScreenMenuEntry(
 				_translations["Edit"],
 				() => ListFields.IsVisible = ListSettings.IsVisible = !ListSettings.IsVisible,
 				ListSettings.IsVisible));
@@ -141,7 +143,7 @@ public partial class TaskListDetailPage : ContentPage, ITitleMenu, ITitleSteps
 
 		// The same, for offering it to somebody else. Absent for a private list, which has no readable
 		// copy on the server to hand anybody - see SharePanel.CanShare.
-		entries.Add(new ScreenMenuEntry(
+		list.Add(new ScreenMenuEntry(
 			_translations["Share"],
 			() => Sharing.IsVisible = !Sharing.IsVisible,
 			Sharing.IsVisible,
@@ -151,7 +153,7 @@ public partial class TaskListDetailPage : ContentPage, ITitleMenu, ITitleSteps
 		// thumb. Deleting is offered only where this reader may change the list at all.
 		if (_viewModel.CanEdit)
 		{
-			entries.Add(new ScreenMenuEntry(
+			list.Add(new ScreenMenuEntry(
 				_translations["Delete list"], () => _ = DeleteAsync()));
 		}
 
@@ -160,11 +162,43 @@ public partial class TaskListDetailPage : ContentPage, ITitleMenu, ITitleSteps
 		// history of.
 		if (_viewModel.HasHistory)
 		{
-			entries.Add(new ScreenMenuEntry(
+			list.Add(new ScreenMenuEntry(
 				_translations["History"], () => _viewModel.GoToHistoryCommand.Execute(null)));
 		}
 
-		Menu.Show(entries, _translations["List options"]);
+		// Where it is filed, which is a question about the list rather than about the work on it. Only
+		// where this reader may change the list at all - filing is the owner's decision about their own
+		// page. "No folder" is one of the answers rather than a way of undoing the others: a list in
+		// none is in a built-in folder, which is not nothing - see FolderPlacement.
+		List<ScreenMenuEntry> folders = [];
+
+		if (_viewModel.CanEdit)
+		{
+			folders.Add(new ScreenMenuEntry(
+				_translations["No folder"],
+				() => _viewModel.FileCommand.Execute(null),
+				_viewModel.FolderId is null));
+
+			folders.AddRange(_viewModel.Folders.Select(folder => new ScreenMenuEntry(
+				folder.Name,
+				() => _viewModel.FileCommand.Execute(folder.LocalId),
+				folder.LocalId == _viewModel.FolderId)));
+		}
+
+		// An empty group is left out rather than drawn as a heading over nothing, which is what lets the
+		// shelf's two and the folders be offered only sometimes - see ScreenMenu.ShowGroups.
+		Menu.ShowGroups(
+		[
+			new ScreenMenuGroup(_translations["Sort"],
+			[
+				Order(_translations["In list order"], ChecklistOrder.AsArranged),
+				Order(_translations["A to Z"], ChecklistOrder.Alphabetical),
+				Order(_translations["Left to do first"], ChecklistOrder.UndoneFirst)
+			]),
+			new ScreenMenuGroup(_translations["Folder"], folders),
+			new ScreenMenuGroup(_translations["Inventory"], shelf),
+			new ScreenMenuGroup(_translations["List"], list)
+		]);
 	}
 
 	/// <summary>Asked first, as every delete in Orbit is - and named, so the question says which list.</summary>
@@ -227,6 +261,25 @@ public partial class TaskListDetailPage : ContentPage, ITitleMenu, ITitleSteps
 		{
 			picker.SelectedIndex = -1;
 			_viewModel.BeingEdited?.LinkToCommand.Execute(chosen);
+		});
+	}
+
+	/// <summary>
+	/// The same two rules as the link picker above, for the same two reasons: the choice is let go of
+	/// before the step is added, and both happen after the picker's own selection has finished. See
+	/// OnLinkedTaskListPicked, which explains what each of them is avoiding.
+	/// </summary>
+	private void OnStepPicked(object? sender, EventArgs eventArgs)
+	{
+		if (sender is not Picker picker || picker.SelectedItem is not TaskEntryChoice chosen)
+		{
+			return;
+		}
+
+		Dispatcher.Dispatch(() =>
+		{
+			picker.SelectedIndex = -1;
+			_viewModel.BeingEdited?.WaitForCommand.Execute(chosen);
 		});
 	}
 

@@ -7,8 +7,12 @@
             <NotAuthorized>
                 <RedirectToLogin />
             </NotAuthorized>
+            @* The boot screen's own lockup, because this is the same wait seen a moment later: Blazor
+               has started and is asking what this account may do, and until it answers there is no page
+               to put a line of text on. It used to be that line on its own, in the top-left corner of an
+               otherwise empty window - which reads as a page that has gone wrong. *@
             <Authorizing>
-                <p>@T["Checking permissions…"]</p>
+                <Loading ShowsName="true" Says="@T["Checking permissions…"]" />
             </Authorizing>
         </AuthorizeRouteView>
     </Found>

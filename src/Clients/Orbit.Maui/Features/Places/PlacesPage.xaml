@@ -1,0 +1,117 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<ContentPage
+    x:Class="Orbit.Maui.Features.Places.PlacesPage"
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    xmlns:controls="clr-namespace:Orbit.Maui.Controls"
+    xmlns:places="clr-namespace:Orbit.Maui.Features.Places"
+    xmlns:screens="clr-namespace:Orbit.Mobile.Screens.Places;assembly=Orbit.Mobile"
+    x:DataType="screens:PlacesViewModel"
+    x:Name="Page"
+    Title="{controls:Translate 'Places you keep'}">
+
+    <Grid RowDefinitions="Auto,*,Auto">
+
+    <!-- The same screen at rest every list here shows: a column of rows and nothing above them. The
+         name is in the bar, the plus is the button over the foot of the list, and the field that plus
+         unfolds is the only thing that ever sits between the two - see NotesPage. -->
+    <Grid Grid.Row="1" RowDefinitions="Auto,*,Auto" Padding="20,6,20,0" RowSpacing="10">
+
+        <VerticalStackLayout Grid.Row="0" Spacing="10">
+            <Label Text="{Binding Message}" IsVisible="{Binding HasMessage}"
+                   LineBreakMode="WordWrap" Style="{StaticResource InfoLabel}" />
+
+            <!-- A name and nothing else. Where it is comes next, on the place's own screen, because it
+                 needs a map or an address and neither of those fits on a row. -->
+            <Grid x:Name="AddRow" IsVisible="False" ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                <Entry x:Name="AddField" Grid.Column="0"
+                       Placeholder="{controls:Translate 'What this place is'}"
+                       Text="{Binding NewPlaceName}"
+                       ReturnType="Done"
+                       ReturnCommand="{Binding AddPlaceCommand}" />
+                <Button Grid.Column="1" Text="{controls:Translate 'Add'}" Style="{StaticResource PrimaryButton}"
+                        Command="{Binding AddPlaceCommand}" />
+            </Grid>
+        </VerticalStackLayout>
+
+        <RefreshView Grid.Row="1"
+                     IsRefreshing="{Binding IsRefreshing}"
+                     Command="{Binding LoadCommand}">
+            <CollectionView ItemsSource="{Binding Places}"
+                            SelectionMode="Single"
+                            SelectionChangedCommand="{Binding OpenCommand}"
+                            SelectionChangedCommandParameter="{Binding SelectedItem, Source={RelativeSource Self}, x:DataType=CollectionView}">
+
+                <CollectionView.EmptyView>
+                    <Label Text="{controls:Translate 'Nothing kept yet.'}" Padding="0,12" Style="{StaticResource EmptyHint}" />
+                </CollectionView.EmptyView>
+
+                <CollectionView.ItemTemplate>
+                    <DataTemplate x:DataType="screens:PlaceListItem">
+                        <!-- The row the design draws:
+                                 The good bakery                             HIGH
+                                 Rynek 1, Lublin
+                                 yesterday
+                             The arrow at the end is the one thing a list of places is actually for -
+                             it hands the point to whatever this phone uses for directions, which is
+                             something Orbit should not try to do itself (see IMapHandoff). -->
+                        <controls:ItemCard IsBordered="False" Name="{Binding Name}">
+                            <controls:ItemCard.Trailing>
+                                <HorizontalStackLayout Spacing="6">
+                                    <Border Style="{StaticResource FilterChip}" Padding="7,2"
+                                            IsVisible="{Binding HasPriority}">
+                                        <Label Text="{Binding Priority}" Style="{StaticResource FilterChipLabel}" />
+                                    </Border>
+                                    <Button Text="➤" FontSize="15" Padding="10,2"
+                                            Style="{StaticResource LinkButton}"
+                                            SemanticProperties.Description="{controls:Translate 'Take me there'}"
+                                            Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=ViewModel.OpenInMapsCommand, x:DataType=places:PlacesPage}"
+                                            CommandParameter="{Binding .}" />
+                                </HorizontalStackLayout>
+                            </controls:ItemCard.Trailing>
+
+                            <controls:ItemCard.Tags>
+                                <!-- Which of the two kinds of row this is. A place somebody handed over
+                                     and one the reader kept are different things, and both sit here. -->
+                                <Label Text="{Binding SharedBy, StringFormat='{0}'}" IsVisible="{Binding HasSharedBy}"
+                                       Style="{StaticResource RowMeta}" />
+                            </controls:ItemCard.Tags>
+
+                            <controls:ItemCard.Body>
+                                <Label Text="{Binding Address}" IsVisible="{Binding HasAddress}"
+                                       FontSize="13" MaxLines="1" LineBreakMode="TailTruncation"
+                                       Style="{StaticResource SubtleLabel}" />
+                            </controls:ItemCard.Body>
+
+                            <controls:ItemCard.Extras>
+                                <VerticalStackLayout Spacing="2">
+                                    <Label Text="{Binding Updated}" Style="{StaticResource ItemCardFooter}" />
+                                    <Label Text="{Binding Status}" IsVisible="{Binding HasStatus}"
+                                           LineBreakMode="WordWrap" Style="{StaticResource ItemCardFooter}"
+                                           TextColor="{DynamicResource Accent}" />
+                                </VerticalStackLayout>
+                            </controls:ItemCard.Extras>
+                        </controls:ItemCard>
+                    </DataTemplate>
+                </CollectionView.ItemTemplate>
+
+                <!-- The rule under the last row - see NotesPage on why it is a footer. -->
+                <CollectionView.Footer>
+                    <BoxView Style="{StaticResource Hairline}" IsVisible="{Binding HasPlaces}" />
+                </CollectionView.Footer>
+
+            </CollectionView>
+        </RefreshView>
+
+    </Grid>
+        <controls:AdBanner Grid.Row="2" />
+        <controls:Fab x:Name="AddButton" Grid.Row="1" IsAboveAdBar="True"
+                      Description="{controls:Translate 'Keep a place'}" />
+        <controls:NavigationBar Grid.Row="0" />
+        <controls:MenuOverlay Grid.Row="0" Grid.RowSpan="3"
+                              BindingContext="{Binding Menu, Source={x:Reference Page}, x:DataType=places:PlacesPage}" />
+        <controls:AvatarMenu Grid.Row="0" Grid.RowSpan="3" />
+        <controls:Drawer Grid.Row="0" Grid.RowSpan="3" />
+    </Grid>
+
+</ContentPage>

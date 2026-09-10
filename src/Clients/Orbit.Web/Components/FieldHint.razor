@@ -1,0 +1,48 @@
+@using Orbit.Web.Services
+@inject Translations T
+
+@* What a field is for, folded into a mark beside its label and shown when somebody asks.
+
+   It used to be a line of small print under every field. A form of eight fields was then eight
+   sentences nobody reads twice, and on a phone that is most of the screen given to explaining a form
+   rather than to the form - the same complaint the folder tabs answered by folding into one button.
+   The words are unchanged and none of them are gone: they are one press or one hover away instead of
+   permanently in the way.
+
+   Hover is not the only way in, deliberately. A phone has no hover, so pressing the mark opens the
+   bubble and pressing it again shuts it; a keyboard reaches the mark like any other button and the
+   bubble opens on focus. It is a button rather than a bare glyph with a title attribute for exactly
+   that reason - a title is unreachable by touch, and appears after a delay nobody can predict.
+
+   Two marks, one behaviour. A "?" says what a field is for, and is quiet because most readers already
+   know. A "!" says something true of this screen *right now* - an entry that has an appointment behind
+   it, somebody else holding the thing open, a save that is being refused - and is drawn in the warning
+   colour, because that is news rather than reference. Folding those away is the same decision for the
+   same reason: a form of eight fields carried three of them permanently, and the reader who needed one
+   could not find it among the ones they did not. *@
+<span class="field-hint-holder">
+    <button type="button" class="field-hint-mark @(Warns ? "warns" : null) @(_isShown ? "on" : null)"
+            aria-expanded="@(_isShown ? "true" : "false")"
+            aria-label="@(Warns ? T["What to know about this"] : T["What this is for"])"
+            @onclick="Toggle" @onclick:stopPropagation="true">@(Warns ? "!" : "?")</button>
+    @* Always in the markup rather than drawn only while open: a screen reader reads it through the
+       button's own description, and a bubble that exists only after a press is a bubble that is never
+       announced. What CSS does with it is a separate question - see .field-hint-bubble. *@
+    <span class="field-hint-bubble" role="tooltip">@ChildContent</span>
+</span>
+
+@code {
+    /// <summary>The sentence that used to sit under the field.</summary>
+    [Parameter, EditorRequired] public RenderFragment? ChildContent { get; set; }
+
+    /// <summary>
+    /// Whether this is news rather than reference - see the markup. A warning is drawn as "!" in the
+    /// warning colour and is not quiet: something true of the screen right now is worth noticing, even
+    /// folded away.
+    /// </summary>
+    [Parameter] public bool Warns { get; set; }
+
+    private bool _isShown;
+
+    private void Toggle() => _isShown = !_isShown;
+}

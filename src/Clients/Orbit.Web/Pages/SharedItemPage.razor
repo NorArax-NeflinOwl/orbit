@@ -15,7 +15,7 @@
 <div class="shared-item-page">
     @if (_isLoading)
     {
-        <p class="page-subtitle">@T["Loading…"]</p>
+        <Loading />
     }
     else if (_item is null)
     {
@@ -150,6 +150,7 @@
         "Note" => T["Note"],
         "TaskList" => T["Task list"],
         "CalendarEvent" => T["Event"],
+        "Place" => T["Location"],
         _ => T["Storage"]
     };
 }

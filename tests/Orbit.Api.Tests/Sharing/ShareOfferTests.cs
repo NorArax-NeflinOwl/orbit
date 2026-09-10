@@ -29,10 +29,12 @@ public sealed class ShareOfferTests
     private readonly InMemoryCalendarEventShareRepository _eventShares = new();
     private readonly InMemoryInventoryRepository _inventories = new();
     private readonly InMemoryInventoryShareRepository _inventoryShares = new();
+    private readonly InMemoryPlaceRepository _places = new();
+    private readonly InMemoryPlaceShareRepository _placeShares = new();
 
     private GetShareOfferQueryHandler Handler => new(
-        _noteShares, _taskListShares, _eventShares, _inventoryShares,
-        new SharedItemName(_notes, _taskLists, _events, _inventories));
+        _noteShares, _taskListShares, _eventShares, _inventoryShares, _placeShares,
+        new SharedItemName(_notes, _taskLists, _events, _inventories, _places));
 
     [Fact]
     public async Task An_offered_note_is_named_and_says_it_is_not_taken_up_yet()

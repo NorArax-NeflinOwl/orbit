@@ -29,6 +29,9 @@ public sealed class OrbitLocalDbContext : DbContext
 
     public DbSet<LocalInventory> Inventories => Set<LocalInventory>();
 
+    /// <summary>Somewhere on the map worth keeping - see LocalPlace.</summary>
+    public DbSet<LocalPlace> Places => Set<LocalPlace>();
+
     public DbSet<OutboxEntry> Outbox => Set<OutboxEntry>();
 
     public DbSet<SyncCursor> SyncCursors => Set<SyncCursor>();
@@ -52,6 +55,9 @@ public sealed class OrbitLocalDbContext : DbContext
 
     /// <summary>Appointments made here that the server has not named yet - see PendingCalendarLink.</summary>
     public DbSet<PendingCalendarLink> PendingCalendarLinks => Set<PendingCalendarLink>();
+
+    /// <summary>The tabs somebody made - see LocalFolder. The three built-in ones are not rows.</summary>
+    public DbSet<LocalFolder> Folders => Set<LocalFolder>();
 
     /// <summary>
     /// SQLite has no date type, and EF's default mapping for <see cref="DateTimeOffset"/> cannot be
@@ -129,12 +135,29 @@ public sealed class OrbitLocalDbContext : DbContext
                 .Metadata.SetValueComparer(LinesComparer);
         });
 
+        modelBuilder.Entity<LocalPlace>(place =>
+        {
+            place.HasKey(entity => entity.LocalId);
+            place.HasIndex(entity => entity.ServerId).IsUnique().HasFilter("\"ServerId\" IS NOT NULL");
+            place.Property(entity => entity.TaskListIds)
+                .HasConversion(TaskListIdsConverter)
+                .Metadata.SetValueComparer(TaskListIdsComparer);
+        });
+
         modelBuilder.Entity<OutboxEntry>(entry =>
         {
             entry.HasKey(entity => entity.Id);
             // Replay reads one entity type's changes in queue order, which is the only order that
             // reconstructs what happened.
             entry.HasIndex(entity => new { entity.EntityType, entity.Id });
+        });
+
+        modelBuilder.Entity<LocalFolder>(folder =>
+        {
+            folder.HasKey(entity => entity.LocalId);
+            // The same filtered-unique rule the other four have: a folder made offline has no server id
+            // yet, and they would otherwise all collide with each other.
+            folder.HasIndex(entity => entity.ServerId).IsUnique().HasFilter("\"ServerId\" IS NOT NULL");
         });
 
         modelBuilder.Entity<SyncCursor>(cursor => cursor.HasKey(entity => entity.EntityType));
@@ -213,6 +236,17 @@ public sealed class OrbitLocalDbContext : DbContext
         (left, right) => left!.SequenceEqual(right!),
         lines => lines.Aggregate(0, (hash, line) => HashCode.Combine(hash, line.GetHashCode())),
         lines => lines.ToList());
+
+    /// <summary>The lists a place belongs to, in one column - nothing ever queries a single one.</summary>
+    private static readonly ValueConverter<IReadOnlyList<Guid>, string> TaskListIdsConverter = new(
+        ids => JsonSerializer.Serialize(ids, LocalStoreSerializerContext.Default.IReadOnlyListGuid),
+        stored => ReadList(stored, LocalStoreSerializerContext.Default.IReadOnlyListGuid));
+
+    /// <summary>Without this a changed list is compared by reference and saved unchanged.</summary>
+    private static readonly ValueComparer<IReadOnlyList<Guid>> TaskListIdsComparer = new(
+        (left, right) => left!.SequenceEqual(right!),
+        ids => ids.Aggregate(0, (hash, id) => HashCode.Combine(hash, id.GetHashCode())),
+        ids => ids.ToList());
 
     /// <summary>A group's membership, in one column - nothing ever queries a single member.</summary>
     private static readonly ValueConverter<IReadOnlyList<LocalChatGroupMember>, string> MembersConverter = new(

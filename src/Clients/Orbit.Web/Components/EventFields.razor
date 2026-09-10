@@ -124,7 +124,7 @@
             @if (Model.LocationLatitude is not null)
             {
                 <div class="field-row">
-                    <small>@T["The name is yours to write - the pin keeps its exact position either way."]</small>
+                    <FieldHint Warns="true">@T["The name is yours to write - the pin keeps its exact position either way."]</FieldHint>
                     @* Somewhere that turned out to be somewhere else has to be removable, name and pin
                        together - clearing only the words would leave the event pinned to the old place. *@
                     <button type="button" class="btn-secondary" @onclick="ClearLocation">@T["Remove location"]</button>
@@ -132,7 +132,7 @@
             }
             else if (Model.LocationAddress.Trim().Length > 0)
             {
-                <small>@T["Point at this place on the map so the calendar knows where it is - a name on its own stays as words."]</small>
+                <FieldHint Warns="true">@T["Point at this place on the map so the calendar knows where it is - a name on its own stays as words."]</FieldHint>
             }
         </div>
     </section>

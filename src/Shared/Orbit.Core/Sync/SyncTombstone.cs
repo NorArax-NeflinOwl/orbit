@@ -25,10 +25,22 @@ public static class SyncEntityType
     public const string CalendarEvent = "CalendarEvent";
     public const string Inventory = "Inventory";
 
+    /// <summary>Somewhere on the map worth keeping - see Orbit.Core.Places.Place.</summary>
+    public const string Place = "Place";
+
     /// <summary>
     /// One entry in the in-app notification feed. Unlike the four above, nothing ever writes a tombstone
     /// for one - an entry leaves only by outliving its retention window, which a client works out from
     /// the age of what it holds. The constant exists so the feed can use the same delta shape.
     /// </summary>
     public const string NotificationEntry = "NotificationEntry";
+
+    /// <summary>
+    /// A folder somebody made. Like <see cref="NotificationEntry"/> nothing writes a tombstone for one:
+    /// there is no change feed for folders and there does not need to be one, since an account has a
+    /// handful of them and a client asks for all of them at once. The constant exists so a client's own
+    /// queue of unsent changes can name them - see Orbit.Mobile's OutboxEntry, which is one queue for
+    /// every kind of thing.
+    /// </summary>
+    public const string Folder = "Folder";
 }

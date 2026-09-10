@@ -202,6 +202,38 @@ namespace Orbit.Mobile.Data.Migrations
                     b.ToTable("Contacts");
                 });
 
+            modelBuilder.Entity("Orbit.Mobile.Data.LocalFolder", b =>
+                {
+                    b.Property<Guid>("LocalId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("TEXT");
+
+                    b.Property<long>("CreatedAtUtc")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Scope")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid?>("ServerId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<long>("UpdatedAtUtc")
+                        .HasColumnType("INTEGER");
+
+                    b.HasKey("LocalId");
+
+                    b.HasIndex("ServerId")
+                        .IsUnique()
+                        .HasFilter("\"ServerId\" IS NOT NULL");
+
+                    b.ToTable("Folders");
+                });
+
             modelBuilder.Entity("Orbit.Mobile.Data.LocalInventory", b =>
                 {
                     b.Property<Guid>("LocalId")
@@ -324,6 +356,9 @@ namespace Orbit.Mobile.Data.Migrations
                     b.Property<string>("EncryptedNonce")
                         .HasColumnType("TEXT");
 
+                    b.Property<Guid?>("FolderId")
+                        .HasColumnType("TEXT");
+
                     b.Property<bool>("IsKeptCopy")
                         .HasColumnType("INTEGER");
 
@@ -427,6 +462,88 @@ namespace Orbit.Mobile.Data.Migrations
                     b.ToTable("Permissions");
                 });
 
+            modelBuilder.Entity("Orbit.Mobile.Data.LocalPlace", b =>
+                {
+                    b.Property<Guid>("LocalId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("AccessLevel")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Address")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Colour")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<long>("CreatedAtUtc")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Description")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("EncryptedCiphertext")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("EncryptedNonce")
+                        .HasColumnType("TEXT");
+
+                    b.Property<bool>("IsPrivate")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<bool>("IsShared")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<bool>("IsSharedWithOthers")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<long?>("LastSyncedAtUtc")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<double>("Latitude")
+                        .HasColumnType("REAL");
+
+                    b.Property<double>("Longitude")
+                        .HasColumnType("REAL");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid?>("OwnerUserId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Priority")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid?>("ServerId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("SharedByUserName")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("TaskListIds")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<long>("UpdatedAtUtc")
+                        .HasColumnType("INTEGER");
+
+                    b.HasKey("LocalId");
+
+                    b.HasIndex("ServerId")
+                        .IsUnique()
+                        .HasFilter("\"ServerId\" IS NOT NULL");
+
+                    b.ToTable("Places");
+                });
+
             modelBuilder.Entity("Orbit.Mobile.Data.LocalStoreOwner", b =>
                 {
                     b.Property<int>("Id")
@@ -476,6 +593,9 @@ namespace Orbit.Mobile.Data.Migrations
                         .HasColumnType("TEXT");
 
                     b.Property<string>("EncryptedNonce")
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid?>("FolderId")
                         .HasColumnType("TEXT");
 
                     b.Property<bool>("IsCompleted")
@@ -580,11 +700,17 @@ namespace Orbit.Mobile.Data.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("INTEGER");
 
+                    b.Property<Guid?>("AnnouncesShareId")
+                        .HasColumnType("TEXT");
+
                     b.Property<int>("FailedAttempts")
                         .HasColumnType("INTEGER");
 
                     b.Property<Guid?>("GroupId")
                         .HasColumnType("TEXT");
+
+                    b.Property<bool>("IsShareInvitation")
+                        .HasColumnType("INTEGER");
 
                     b.Property<long>("QueuedAtUtc")
                         .HasColumnType("INTEGER");

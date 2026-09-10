@@ -9,7 +9,10 @@ public enum SharedItemKind
     Note,
     TaskList,
     CalendarEvent,
-    Inventory
+    Inventory,
+
+    /// <summary>Somewhere kept on the map - see Orbit.Core.Places.Place, and PlacesClient on what this phone can do with one.</summary>
+    Place
 }
 
 /// <summary>
@@ -39,7 +42,8 @@ public sealed record SharedItemInvitation(SharedItemKind Kind, Guid ShareId, str
             return ReadNote(plainText)
                 ?? ReadTaskList(plainText)
                 ?? ReadEvent(plainText)
-                ?? ReadInventory(plainText);
+                ?? ReadInventory(plainText)
+                ?? ReadPlace(plainText);
         }
         catch (JsonException)
         {
@@ -69,5 +73,11 @@ public sealed record SharedItemInvitation(SharedItemKind Kind, Guid ShareId, str
         => JsonSerializer.Deserialize(plainText, ChatPayloadSerializerContext.Default.InventoryShareMessagePayload)
             is { Type: InventoryShareMessagePayload.MessageType } payload
             ? new SharedItemInvitation(SharedItemKind.Inventory, payload.ShareId, payload.InventoryName)
+            : null;
+
+    private static SharedItemInvitation? ReadPlace(string plainText)
+        => JsonSerializer.Deserialize(plainText, ChatPayloadSerializerContext.Default.PlaceShareMessagePayload)
+            is { Type: PlaceShareMessagePayload.MessageType } payload
+            ? new SharedItemInvitation(SharedItemKind.Place, payload.ShareId, payload.PlaceName)
             : null;
 }

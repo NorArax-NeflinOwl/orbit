@@ -121,6 +121,13 @@ public enum DashboardCardKind
     /// one part of Orbit that answers "have we run out" could only be found through the navigation bar.
     /// </summary>
     Inventories,
+
+    /// <summary>
+    /// The places kept on the map - see Orbit.Mobile.Data.LocalPlace, and Orbit.Web's card of the same
+    /// name. Its own card rather than a corner of Upcoming: everything on that one is happening at a
+    /// time, and a place has none, which is the whole point of one.
+    /// </summary>
+    Places,
     Groups,
     RecentChats,
     Contacts,

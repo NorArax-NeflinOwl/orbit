@@ -8,6 +8,7 @@
 @using Orbit.Contracts.Chat
 @using Orbit.Contracts.Notes
 @using Orbit.Core.Abstractions
+@using Orbit.Core.Folders
 @using Orbit.Web.Services
 @inject NotesApiClient NotesApiClient
 @inject FolderState Folders
@@ -62,7 +63,7 @@
 
 @if (_isLoading)
 {
-    <p>@T["Loading…"]</p>
+    <Loading />
 }
 else
 {
@@ -190,22 +191,12 @@ else
 @if (!_isLoading)
 {
     <EditorRail OnSave="SaveAsync" OnCancel="CancelAsync"
+                Notice="@(_lockedByUserName is null ? null : T.Format("{0} is currently editing this note - you can't edit it right now.", _lockedByUserName))"
+                ErrorMessage="@_saveErrorMessage"
                 SaveDisabled="@(_isSharedReadOnly || _lockedByUserName is not null || !HasSomethingToSave || _isSaving)">
         @* Beside the button that failed rather than at the end of a form that is taller than the
            screen: a save that did not happen and a note somebody else is holding are both answers to
            "why has Save done nothing", and an answer nobody scrolls to is not one. *@
-        <Extras>
-            @if (_lockedByUserName is not null)
-            {
-                <p class="lock-banner">
-                    @T.Format("{0} is currently editing this note - you can't edit it right now.", _lockedByUserName)
-                </p>
-            }
-            @if (_saveErrorMessage is not null)
-            {
-                <p class="error">@_saveErrorMessage</p>
-            }
-        </Extras>
         <ChildContent>
             @* Everything that is about the note rather than in it: how much it matters, where it will
                be found, and who may read it. They used to sit under the writing, which is a form
@@ -215,18 +206,17 @@ else
                then. Stays open, because it is a menu of settings rather than of actions: closing after
                each one would make changing two a chore. *@
             <OverflowMenu StaysOpen="true">
-                <div class="note-settings-menu">
+                <div class="editor-settings-menu">
                     @* Plain controls rather than the EditForm's own: this panel sits outside the form,
                        and InputSelect/InputCheckbox need its EditContext to exist at all. *@
                     <div class="field">
-                        <label for="notePrioritySelect">@T["Priority"]</label>
+                        <label for="notePrioritySelect">@T["Priority"]<FieldHint>@T["Sorts this note against the others, and is what the dashboard's filter reads."]</FieldHint></label>
                         <select id="notePrioritySelect" value="@_formModel.Priority" disabled="@IsSettingsDisabled"
                                 @onchange="OnPriorityChosen">
                             <option value="Low">@T["Low"]</option>
                             <option value="Normal">@T["Normal"]</option>
                             <option value="High">@T["High"]</option>
                         </select>
-                        <small>@T["Sorts this note against the others, and is what the dashboard's filter reads."]</small>
                     </div>
 
                     @* Where it will be found. Only the owner files a note: one reached through a share
@@ -244,10 +234,7 @@ else
                         <div class="field">
                             <label>
                                 <input type="checkbox" checked="@_formModel.IsPrivate" disabled="@IsSettingsDisabled"
-                                       @onchange="args => _formModel.IsPrivate = args.Value is true" />@T["Private"]</label>
-                            <small>
-                                @T["Encrypted in this browser, so Orbit can't read it. It can't be shared, and losing your password loses it."]
-                            </small>
+                                       @onchange="args => _formModel.IsPrivate = args.Value is true" />@T["Private"]<FieldHint>@T["Encrypted in this browser, so Orbit can't read it. It can't be shared, and losing your password loses it."]</FieldHint></label>
                         </div>
                     }
                 </div>
@@ -502,12 +489,19 @@ else
     private IReadOnlyList<NoteDto> _notesBeside = [];
 
     /// <summary>
-    /// What to call a note in the column. A private one travels with its title empty - the real one is
-    /// sealed inside its payload - so it is named for what it is rather than shown as a blank row, the
-    /// same way the notes page names it.
+    /// What to call a note in the column. A private one is named by its own title like any other: it
+    /// travels sealed, and this browser opens it on the way in (see NotesApiClient.OpenIfPrivateAsync),
+    /// so the title is here to show. It used to read "Private note" for every one of them, on the belief
+    /// that the page held no key - which left a column of identical rows nobody could tell apart, and
+    /// the phone has never done it (see NoteListItem, which hides a title only while private items are
+    /// locked).
+    ///
+    /// The fallback is still there for the two cases that have no title to show: a note nobody has named
+    /// yet, and one sealed under a key pair that has since been replaced - that one arrives already
+    /// saying so, and says it here.
     /// </summary>
     private string NameOf(NoteDto note)
-        => note.IsPrivate || string.IsNullOrWhiteSpace(note.Title) ? T["Private note"] : note.Title;
+        => string.IsNullOrWhiteSpace(note.Title) ? T["Private note"] : note.Title;
 
     /// <summary>
     /// Opens another note from the column. An ordinary navigation, so it means exactly what pressing

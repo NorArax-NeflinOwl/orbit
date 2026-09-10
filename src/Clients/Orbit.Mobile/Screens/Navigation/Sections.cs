@@ -24,7 +24,8 @@ public static class Sections
         [Screen.Groups] = Screen.Contacts,
         [Screen.GroupConversation] = Screen.Contacts,
         [Screen.GroupDetail] = Screen.Contacts,
-        [Screen.ChatKeyGate] = Screen.Contacts
+        [Screen.ChatKeyGate] = Screen.Contacts,
+        [Screen.Place] = Screen.Places
     };
 
     public static Screen For(Screen screen) => Of.TryGetValue(screen, out var section) ? section : screen;
@@ -37,6 +38,6 @@ public static class Sections
     public static IReadOnlyList<Screen> InTheDrawer { get; } =
     [
         Screen.Dashboard, Screen.Notes, Screen.Tasks, Screen.Calendar,
-        Screen.Inventories, Screen.Contacts, Screen.Map, Screen.Notifications, Screen.About
+        Screen.Inventories, Screen.Contacts, Screen.Map, Screen.Places, Screen.Notifications, Screen.About
     ];
 }

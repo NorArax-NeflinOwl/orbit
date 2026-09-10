@@ -1,6 +1,7 @@
 using System.Collections.ObjectModel;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using Orbit.Core.Folders;
 using Orbit.Mobile.Data;
 using Orbit.Mobile.Localization;
 using Orbit.Core.Permissions;
@@ -8,6 +9,7 @@ using Orbit.Mobile.Crypto;
 using Orbit.Mobile.Location;
 using Orbit.Mobile.Permissions;
 using Orbit.Mobile.Security;
+using Orbit.Mobile.Screens.Folders;
 using Orbit.Mobile.Sync;
 
 namespace Orbit.Mobile.Screens.Dashboard;
@@ -33,6 +35,7 @@ public sealed partial class DashboardViewModel : ObservableObject
     private readonly LocalTaskListRepository _taskLists;
     private readonly LocalCalendarEventRepository _calendarEvents;
     private readonly LocalInventoryRepository _inventories;
+    private readonly LocalPlaceRepository _places;
     private readonly ChatRepository _chat;
     private readonly TimeProvider _timeProvider;
     private readonly Translations _translations;
@@ -63,16 +66,20 @@ public sealed partial class DashboardViewModel : ObservableObject
     public DashboardViewModel(
         LocalNoteRepository notes, LocalTaskListRepository taskLists,
         LocalCalendarEventRepository calendarEvents, LocalInventoryRepository inventories,
+        LocalPlaceRepository places,
         ChatRepository chat, TimeProvider timeProvider,
         Translations translations, PrivateItemGate privateItems, EverythingSynchronizer synchronizer,
         SyncState syncState, UserPermissions permissions, IDashboardPinStore pins,
         IDashboardCardPreferenceStore visibility, SharedLocations sharedLocations,
-        LocalNotificationRepository notifications, IScreenNavigator navigator)
+        LocalNotificationRepository notifications, IScreenNavigator navigator,
+        LocalFolderRepository folders, IChosenFolderStore chosenFolder)
     {
+        Folders = new FolderTabs(folders, chosenFolder, translations, FolderPage.Dashboard);
         _notes = notes;
         _taskLists = taskLists;
         _calendarEvents = calendarEvents;
         _inventories = inventories;
+        _places = places;
         _chat = chat;
         _timeProvider = timeProvider;
         _translations = translations;
@@ -91,6 +98,17 @@ public sealed partial class DashboardViewModel : ObservableObject
     }
 
     public ObservableCollection<DashboardCard> Cards { get; } = [];
+
+    /// <summary>
+    /// The folders this screen offers and which of them is being read - see FolderTabs. The dashboard
+    /// draws **both** pages' tabs, because it shows both kinds of card, and offers no way to make one:
+    /// there is no dashboard card to file into a folder, so a folder made here would be a tab nothing
+    /// could ever go in. See FolderPages.
+    /// </summary>
+    public FolderTabs Folders { get; }
+
+    /// <inheritdoc cref="Notes.NotesViewModel.FolderChoices"/>
+    public ObservableCollection<FolderChoice> FolderChoices { get; } = [];
 
     [RelayCommand]
     private async Task LoadAsync(CancellationToken cancellationToken)
@@ -135,6 +153,11 @@ public sealed partial class DashboardViewModel : ObservableObject
         var taskLists = await _taskLists.GetAllAsync(cancellationToken);
         var events = await _calendarEvents.GetAllAsync(cancellationToken);
         var inventories = await _inventories.GetAllAsync(cancellationToken);
+        // Behind the permission that draws a map at all, the way the shared positions below are: a place
+        // is a point, and an account that may not be shown a map has nowhere to put one.
+        var places = _permissions.Has(ApplicationPermission.Location)
+            ? await _places.GetAllAsync(cancellationToken)
+            : [];
         // Nothing conversational is shown to an account that cannot hold a conversation, as the web's
         // dashboard does it - a card whose every row leads to "not unlocked" is worse than no card.
         var contacts = _permissions.Has(ApplicationPermission.Contacts)
@@ -169,6 +192,23 @@ public sealed partial class DashboardViewModel : ObservableObject
         // Filtered before both the rows and the count, so a card that says "3" is showing three - the
         // same as Orbit.Web, whose count is of what it is about to draw rather than of everything. What
         // the filter itself empties is the exception - see AddCardIfAnything.
+        // Which folder each of the two kinds is in, and how many are in each - counted over both, since
+        // the tabs here are both pages' at once. No Finished among them: this screen has no such tab,
+        // so a finished list is placed by its folder and its privacy like anything else rather than
+        // falling out of every tab the screen draws - see FolderPages.HasAFinishedTab.
+        await Folders.ReadAsync(cancellationToken);
+
+        FolderChoices.Clear();
+        foreach (var choice in Folders.Describe(
+            notes.Select(note => Folders.Where(note.FolderId, note.IsPrivate, isFinished: false))
+                .Concat(taskLists.Select(list => Folders.Where(list.FolderId, list.IsPrivate, list.IsCompleted)))))
+        {
+            FolderChoices.Add(choice);
+        }
+
+        notes = [.. notes.Where(note => Folders.Holds(Folders.Where(note.FolderId, note.IsPrivate, isFinished: false)))];
+        taskLists = [.. taskLists.Where(list => Folders.Holds(Folders.Where(list.FolderId, list.IsPrivate, list.IsCompleted)))];
+
         var shownNotes = notes.Where(note => Passes(DashboardCardKind.Notes, note.IsPinned)).ToList();
         var shownTaskLists = taskLists.Where(list => Passes(DashboardCardKind.Tasks, list.IsPinned)).ToList();
         var shownEvents = events.Where(PassesPriority).ToList();
@@ -192,6 +232,8 @@ public sealed partial class DashboardViewModel : ObservableObject
         AddCardIfAnything(
             DashboardCardKind.Inventories, _translations["Inventory"], DescribeInventories(inventories),
             inventories.Count(CanBeShown), ownNews: UnreadNews.About(_unreadUrls, "/inventory"));
+        AddCardIfAnything(
+            DashboardCardKind.Places, _translations["Places you keep"], DescribePlaces(places), places.Count);
         AddCardIfAnything(DashboardCardKind.Groups, _translations["Groups"], DescribeGroups(groups), groups.Count);
         // The one card whose news no row can carry: a position points at "/map" and names nobody
         // (SharedItemNotifier.UrlFor), so the card says it over the lot - which is Orbit.Web's answer
@@ -252,6 +294,10 @@ public sealed partial class DashboardViewModel : ObservableObject
 
             case DashboardCardKind.Inventories:
                 _navigator.ShowInventory(row.LocalId);
+                break;
+
+            case DashboardCardKind.Places:
+                _navigator.ShowPlace(row.LocalId);
                 break;
 
             // A position is a pin, and the map is the only place one can be looked at.
@@ -327,6 +373,35 @@ public sealed partial class DashboardViewModel : ObservableObject
     /// Whether a pinnable thing survives its card's filter. "Pinned" is the only filter these cards
     /// offer, so anything else lets everything through.
     /// </summary>
+    /// <summary>
+    /// Whether this card is about the folder being read. Opening one somebody made is asking to see one
+    /// kind of thing - a folder called "Receipts" holds notes, so opening it leaves the notes card
+    /// standing and nothing else. Every other card is about something the folder cannot hold, and a
+    /// screen that kept drawing them would answer "show me this folder" with the whole dashboard and
+    /// one card narrowed inside it.
+    ///
+    /// The built-in tabs are not about one kind and change nothing here: Public and Private are what
+    /// everything is in unless it was filed somewhere. And a folder whose scope this screen cannot read
+    /// - one deleted on its own screen while the dashboard held it open - narrows to nothing rather
+    /// than quietly to the task lists; FolderTabs.ReadAsync drops it on the next pass.
+    /// </summary>
+    private bool IsAboutTheOpenFolder(DashboardCardKind kind)
+        => Folders.Chosen.FolderId is null
+            || Folders.ChosenScope switch
+            {
+                FolderScope.Notes => kind is DashboardCardKind.Notes,
+                FolderScope.Tasks => kind is DashboardCardKind.Tasks,
+                _ => false
+            };
+
+    /// <inheritdoc cref="Notes.NotesViewModel.ChooseFolderAsync"/>
+    [RelayCommand]
+    private async Task ChooseFolderAsync(FolderKey key, CancellationToken cancellationToken)
+    {
+        Folders.Choose(key);
+        await ShowStoredSummaryAsync(cancellationToken);
+    }
+
     private bool Passes(DashboardCardKind kind, bool isPinned)
         => FilterFor(kind) is not DashboardCardFilter.Pinned || isPinned;
 
@@ -458,6 +533,7 @@ public sealed partial class DashboardViewModel : ObservableObject
         DashboardCardKind.Tasks => _translations["Tasks"],
         DashboardCardKind.Upcoming => _translations["Upcoming"],
         DashboardCardKind.Inventories => _translations["Inventory"],
+        DashboardCardKind.Places => _translations["Places you keep"],
         DashboardCardKind.Groups => _translations["Groups"],
         DashboardCardKind.RecentChats => _translations["Recent chats"],
         DashboardCardKind.SharedLocations => _translations["Shared with you"],
@@ -474,7 +550,7 @@ public sealed partial class DashboardViewModel : ObservableObject
         Cards.Clear();
         // Put-away parts are dropped here rather than never built: the menu has to be able to bring one
         // back without reloading everything from the store.
-        var shown = _built.Where(card => !_hidden.Contains(card.Kind));
+        var shown = _built.Where(card => !_hidden.Contains(card.Kind)).Where(card => IsAboutTheOpenFolder(card.Kind));
 
         // Pinned first, always - a pin is the reader saying "this one, above the rest", and an order
         // that moved it back down would be answering a question they did not ask. The same rule the
@@ -531,6 +607,9 @@ public sealed partial class DashboardViewModel : ObservableObject
                 break;
             case DashboardCardKind.Inventories:
                 _navigator.ShowInventory();
+                break;
+            case DashboardCardKind.Places:
+                _navigator.ShowPlaces();
                 break;
             case DashboardCardKind.Groups:
                 _navigator.ShowGroups();
@@ -733,6 +812,26 @@ public sealed partial class DashboardViewModel : ObservableObject
             _ => count
         };
     }
+
+    /// <summary>
+    /// The places kept, newest change first, each saying where it is and - where somebody handed it over
+    /// - who from. The address rather than the point: a list of coordinates is a list nobody reads.
+    /// </summary>
+    private IReadOnlyList<DashboardRow> DescribePlaces(IReadOnlyList<LocalPlace> places)
+        => places
+            .OrderByDescending(place => place.UpdatedAtUtc)
+            .Take(RowsPerCard)
+            .Select(place => new DashboardRow(place.LocalId, place.Name, DescribePlace(place)))
+            .ToList();
+
+    private string DescribePlace(LocalPlace place)
+        => place switch
+        {
+            { IsShared: true, SharedByUserName: { Length: > 0 } sharer } => place.Address.Length > 0
+                ? $"{place.Address} · {_translations.Format("From {0}", sharer)}"
+                : _translations.Format("From {0}", sharer),
+            _ => place.Address
+        };
 
     /// <summary>Who was last talking, most recent first, with anybody waiting on an answer at the top.</summary>
     /// <summary>

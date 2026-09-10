@@ -25,6 +25,21 @@ public enum TaskListStatus
     Overdue,
 
     /// <summary>
+    /// The only thing still owed on it is a chore that comes round every day, and today's round has not
+    /// been done - see <see cref="TaskItem.RemindDaily"/>.
+    ///
+    /// Its own status because <see cref="Overdue"/> was a lie about it. A daily chore keeps one due date
+    /// that never moves, so the moment it passes the list reads "late" for as long as the chore exists -
+    /// and it is not late, it is due again, which is what a daily chore is *for*. A restock round is the
+    /// one every account has (see RestockTaskNaming), so this was the first thing a shelf did to a page.
+    ///
+    /// Below <see cref="Overdue"/>: a list carrying a missed deadline and a daily chore is late, and the
+    /// deadline is the one worth saying. Above Pending and New for the same reason Overdue is - there is
+    /// something waiting today.
+    /// </summary>
+    DueAgain,
+
+    /// <summary>
     /// Every item ticked off and the list still open, because its owner said so - see
     /// TaskListCompletion.Unfinished. Its own status rather than Pending: the work really is all done,
     /// and a list reading "in progress" over a column of ticks describes neither of the two true things

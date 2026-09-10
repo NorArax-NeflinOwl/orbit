@@ -42,19 +42,28 @@ export async function showLocations(elementId, points, dotNetHelper) {
     // An empty map is still a map: the map page keeps one on screen from the moment it opens, so
     // somebody who has recorded nothing has somewhere to search rather than a blank panel.
     const start = drawn.length > 0 ? [drawn[0].latitude, drawn[0].longitude] : defaultCenter;
-    const map = L.map(elementId).setView(start, drawn.length > 0 ? 14 : 6);
+    // Zoom moved out of the top left, which is where Leaflet puts it and where the page now keeps its
+    // own "+" for keeping a place. Two plus signs touching, one of them meaning "closer" and the other
+    // "remember this spot", is a corner nobody can read - and of the two the zoom is the one that has
+    // another way in, since a wheel and a pinch both do it already.
+    const map = L.map(elementId, { zoomControl: false }).setView(start, drawn.length > 0 ? 14 : 6);
+    L.control.zoom({ position: 'bottomleft' }).addTo(map);
     // Asked rather than added: the tiles are the one third-party request Orbit cannot serve itself,
     // so they are the one thing "do not share my personal information" turns off - see mapTiles.js.
     window.OrbitMapTiles.addTo(map);
 
-    const markersByKey = drawMarkers(map, drawn);
+    const markersByKey = drawMarkers(map, drawn, dotNetHelper);
 
     if (drawn.length === 1) {
         // A single point is what the viewer asked to look at, so keep it centred and readable rather
         // than letting fitBounds pick an arbitrary zoom for a one-point box.
         map.setView([drawn[0].latitude, drawn[0].longitude], 14);
     } else if (drawn.length > 1) {
-        map.fitBounds(drawn.map(point => [point.latitude, point.longitude]), { padding: [40, 40] });
+        // Not animated. Nobody is watching a map appear, and an animation still running when the page
+        // asks to be taken to one particular pin lands afterwards and drags the map back to the whole
+        // set - which is how a place opened by link came out with its popup clipped by the frame.
+        map.fitBounds(
+            drawn.map(point => [point.latitude, point.longitude]), { padding: [40, 40], animate: false });
     }
 
     if (dotNetHelper) {
@@ -71,23 +80,64 @@ export async function showLocations(elementId, points, dotNetHelper) {
     const resizeObserver = new ResizeObserver(() => map.invalidateSize({ animate: false }));
     resizeObserver.observe(element);
 
-    mapInstancesByElementId.set(elementId, { map, resizeObserver, markersByKey });
+    mapInstancesByElementId.set(elementId, { map, resizeObserver, markersByKey, dotNetHelper });
 }
 
 /// Draws each point's marker and returns them keyed by point.key (falling back to its coordinates, for
 /// showLocation's single-point callers, which never carry one) - the identity updateLocations matches
 /// an old marker against a new point by, and focusOn looks a marker up by.
-function drawMarkers(map, points) {
+function drawMarkers(map, points, dotNetHelper) {
     const markersByKey = new Map();
     for (const point of points) {
         const marker = L.marker([point.latitude, point.longitude], iconFor(point.color)).addTo(map);
-        if (point.label) {
-            marker.bindPopup(point.label);
+        const popup = popupFor(point, dotNetHelper);
+        if (popup) {
+            // Room to pan into rather than the 5px Leaflet defaults to: a popup flush with the top of
+            // the frame reads as one that is still cut off, and the top edge is the one it opens against.
+            marker.bindPopup(popup, { autoPanPadding: [24, 24] });
         }
         markersByKey.set(point.key ?? `${point.latitude},${point.longitude}`, marker);
     }
 
     return markersByKey;
+}
+
+/// What opens when a pin is pressed: what the pin is, and - where the caller says the point can be
+/// navigated to - the way to be taken there.
+///
+/// Built as elements rather than as a string of HTML. Leaflet's bindPopup treats a string as markup, and
+/// every label here is somebody's own writing: a contact's name, an appointment's title, an address
+/// somebody typed. textContent is what makes those text rather than markup, and it is also what lets the
+/// button carry a real click handler instead of an inline one.
+function popupFor(point, dotNetHelper) {
+    if (!point.label && !point.canNavigate) {
+        return null;
+    }
+
+    const panel = document.createElement('div');
+    panel.className = 'map-popup';
+
+    if (point.label) {
+        const label = document.createElement('span');
+        label.className = 'map-popup-label';
+        label.textContent = point.label;
+        panel.appendChild(label);
+    }
+
+    // Only where there is somebody to tell. Without a .NET reference the map is read-only - see
+    // showLocations - and a button that reported a press to nothing would be a button that does nothing.
+    if (point.canNavigate && dotNetHelper) {
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'map-popup-navigate';
+        button.textContent = point.navigateLabel ?? 'Take me there';
+        button.addEventListener('click', () => {
+            dotNetHelper.invokeMethodAsync('OnPinNavigate', point.key ?? '');
+        });
+        panel.appendChild(button);
+    }
+
+    return panel;
 }
 
 /// Moves the markers on a map that is already there to wherever the given points now are, without
@@ -115,13 +165,14 @@ export function updateLocations(elementId, points) {
         const existing = instance.markersByKey.get(key);
         if (existing) {
             existing.setLatLng([point.latitude, point.longitude]);
-            if (point.label) {
-                existing.setPopupContent(point.label);
+            const popup = popupFor(point, instance.dotNetHelper);
+            if (popup) {
+                existing.setPopupContent(popup);
             }
 
             next.set(key, existing);
         } else {
-            next.set(key, drawMarkers(instance.map, [point]).get(key));
+            next.set(key, drawMarkers(instance.map, [point], instance.dotNetHelper).get(key));
         }
     }
 
@@ -143,7 +194,12 @@ export function focusOn(elementId, key) {
         return;
     }
 
-    instance.map.setView(marker.getLatLng(), Math.max(instance.map.getZoom(), 14));
+    // Neither the move nor the fit that drew this map is animated - see showLocations, which says why.
+    // A popup opens *above* its pin, so a pin centred in the frame leaves its popup hanging over the
+    // top edge; Leaflet pans a popup it opens into view itself, and it can only do that against a view
+    // that has already arrived. An animated setView still running was what undid it, and a place opened
+    // by link came out with its name and its "Take me there" clipped by the map's own edge.
+    instance.map.setView(marker.getLatLng(), Math.max(instance.map.getZoom(), 14), { animate: false });
     marker.openPopup();
 }
 

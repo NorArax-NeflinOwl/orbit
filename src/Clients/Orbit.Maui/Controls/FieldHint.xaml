@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<ContentView
+    x:Class="Orbit.Maui.Controls.FieldHint"
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    xmlns:controls="clr-namespace:Orbit.Maui.Controls"
+    x:DataType="controls:FieldHint"
+    x:Name="Root">
+
+    <!-- What a field or a setting is for, folded away behind a mark beside its name - the same thing
+         Orbit.Web's FieldHint does, and for the same reason: a screen of eight fields was eight
+         sentences nobody reads twice, which on a phone is most of the screen given to explaining a form
+         rather than to the form.
+
+         The phone's way in is a tap, because there is no hover here. What it opens is the sentence
+         itself, in place under the name, rather than a bubble floating over the page: a phone has no
+         room for a layer, and text that appears where it belongs needs no arrow pointing at what it is
+         about. Tapping again folds it back.
+
+         The sentence is in the tree whether or not it is showing, so a screen reader announces it. -->
+    <VerticalStackLayout Spacing="4">
+        <HorizontalStackLayout Spacing="6">
+            <Label x:Name="NameLabel" VerticalOptions="Center"
+                   Text="{Binding Label, Source={x:Reference Root}}" />
+
+            <!-- A drawn ring rather than a character in a circle, for the reason CheckCircle gives: the
+                 text faces this app uses carry almost none of the glyphs that would do it, so Android
+                 substitutes a system face and the same mark comes out differently on two screens. -->
+            <Grid WidthRequest="18" HeightRequest="18" VerticalOptions="Center">
+                <Ellipse x:Name="Ring" StrokeThickness="1.2" />
+                <Label x:Name="Mark" Text="?" FontSize="11" FontAttributes="Bold"
+                       HorizontalOptions="Center" VerticalOptions="Center" />
+                <Button x:Name="Press" BackgroundColor="Transparent" BorderWidth="0" Padding="0"
+                        MinimumHeightRequest="0" MinimumWidthRequest="0"
+                        SemanticProperties.Description="{Binding AskedAs, Source={x:Reference Root}}"
+                        Clicked="OnPressed" />
+            </Grid>
+        </HorizontalStackLayout>
+
+        <Label x:Name="Sentence" IsVisible="False" LineBreakMode="WordWrap"
+               Style="{StaticResource SectionSubtext}"
+               Text="{Binding Text, Source={x:Reference Root}}" />
+    </VerticalStackLayout>
+
+</ContentView>

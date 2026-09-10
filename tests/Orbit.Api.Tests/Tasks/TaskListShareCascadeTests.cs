@@ -164,7 +164,8 @@ public sealed class TaskListShareCascadeTests
             _userRepository.AddAsync(owner, CancellationToken.None).GetAwaiter().GetResult();
             _publicSharedItemReader = new PublicSharedItemReader(
                 new InMemoryNoteRepository(), _taskRepository, new InMemoryCalendarEventRepository(),
-                _inventoryRepository, new InMemoryInventoryItemRepository(), _userRepository);
+                _inventoryRepository, new InMemoryInventoryItemRepository(), new InMemoryPlaceRepository(),
+                _userRepository);
         }
 
         private TaskListShareCascade Cascade => new(
@@ -231,7 +232,7 @@ public sealed class TaskListShareCascadeTests
             await new ClaimPublicShareLinkCommandHandler(
                     _publicShareLinkRepository, _publicSharedItemReader, new InMemoryNoteShareRepository(),
                     TaskListShareRepository, new InMemoryCalendarEventShareRepository(), InventoryShareRepository,
-                    Cascade, new RecordingSharedItemNotifier())
+                    new InMemoryPlaceShareRepository(), Cascade, new RecordingSharedItemNotifier())
                 .HandleAsync(new ClaimPublicShareLinkCommand(link!.Token, RecipientId), CancellationToken.None);
         }
     }

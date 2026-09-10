@@ -515,7 +515,9 @@ public sealed class TasksScreenTests : IDisposable
             new TasksClient(_server.ToHttpClient()), FixedNetworkStatus.Online, Arrangement,
             new PrivateItemGate(new FixedDeviceAuthentication()),
             new SyncState(FixedNetworkStatus.Online, _clock), new RecordingScreenNavigator(),
-            new Translations(new InMemoryLanguageStore()), Notifications);
+            new Translations(new InMemoryLanguageStore()), Notifications,
+            new LocalFolderRepository(_localStore, _clock), new InMemoryChosenFolderStore(),
+            Folders.SynchronizerAgainstNobody(_localStore, _clock));
 
         await screen.LoadCommand.ExecuteAsync(null);
         return screen;

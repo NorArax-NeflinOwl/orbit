@@ -11,6 +11,8 @@
     Title="{controls:Translate 'Tasks'}">
 
     <ContentPage.Resources>
+        <!-- How much of the bar under a list's row is filled - see ProgressColumnsConverter. -->
+        <controls:ProgressColumnsConverter x:Key="ProgressColumns" />
     </ContentPage.Resources>
 
     <Grid RowDefinitions="Auto,*,Auto">
@@ -39,13 +41,27 @@
         <Label Grid.Row="1" Text="{Binding Message}" IsVisible="{Binding HasMessage}"
                LineBreakMode="WordWrap" Style="{StaticResource InfoLabel}" />
 
-        <Grid x:Name="AddRow" IsVisible="False" Grid.Row="2" ColumnDefinitions="*,Auto" ColumnSpacing="8">
-            <Entry x:Name="AddField" Grid.Column="0" Placeholder="{controls:Translate 'New list'}"
-                   Text="{Binding NewListTitle}"
-                   ReturnType="Done" ReturnCommand="{Binding AddListCommand}" />
-            <Button Grid.Column="1" Text="{controls:Translate 'Add'}" Style="{StaticResource PrimaryButton}"
-                    Command="{Binding AddListCommand}" />
-        </Grid>
+        <VerticalStackLayout Grid.Row="2" Spacing="8">
+            <Grid x:Name="AddRow" IsVisible="False" ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                <Entry x:Name="AddField" Grid.Column="0" Placeholder="{controls:Translate 'New list'}"
+                       Text="{Binding NewListTitle}"
+                       ReturnType="Done" ReturnCommand="{Binding AddListCommand}" />
+                <Button Grid.Column="1" Text="{controls:Translate 'Add'}" Style="{StaticResource PrimaryButton}"
+                        Command="{Binding AddListCommand}" />
+            </Grid>
+
+            <!-- Naming a new folder, unfolded from the menu - see NotesPage, which has the same row for
+                 the same reason. -->
+            <Grid x:Name="FolderRow" IsVisible="False" ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                <Entry x:Name="FolderField" Grid.Column="0" Placeholder="{controls:Translate 'Folder name'}"
+                       Text="{Binding NewFolderName}"
+                       ReturnType="Done" ReturnCommand="{Binding MakeFolderCommand}"
+                       ReturnCommandParameter="{Binding NewFolderName}" />
+                <Button Grid.Column="1" Text="{controls:Translate 'Add'}" Style="{StaticResource PrimaryButton}"
+                        Command="{Binding MakeFolderCommand}"
+                        CommandParameter="{Binding NewFolderName}" />
+            </Grid>
+        </VerticalStackLayout>
 
         <RefreshView Grid.Row="3" IsRefreshing="{Binding IsRefreshing}" Command="{Binding LoadCommand}">
             <CollectionView ItemsSource="{Binding TaskLists}"
@@ -157,6 +173,20 @@
                                         </Grid>
                                         <Label Text="{controls:Translate 'Nothing left to do.'}" FontSize="13" Margin="0,4,0,0"
                                                IsVisible="{Binding HasNothingLeftToDo}" Style="{StaticResource SubtleLabel}" />
+
+                                        <!-- Across the foot of the row, which is where the design puts
+                                             it: "Done: 2 of 5" is the exact answer and this is the one
+                                             a column of lists is read at - which of them is nearly
+                                             finished is a glance down the bars, not four sums. -->
+                                        <Grid HeightRequest="3" Margin="0,6,0,0"
+                                              IsVisible="{Binding HasProgress}"
+                                              SemanticProperties.Description="{Binding Progress}">
+                                            <BoxView Color="{AppThemeBinding Light={StaticResource CardStrokeLight}, Dark={StaticResource CardStrokeDark}}"
+                                                     CornerRadius="2" />
+                                            <Grid ColumnDefinitions="{Binding CompletedFraction, Converter={StaticResource ProgressColumns}}">
+                                                <BoxView Grid.Column="0" Color="{DynamicResource Accent}" CornerRadius="2" />
+                                            </Grid>
+                                        </Grid>
                                     </VerticalStackLayout>
                                 </VerticalStackLayout>
                             </controls:ItemCard.Body>

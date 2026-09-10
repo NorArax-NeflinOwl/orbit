@@ -272,9 +272,23 @@ public sealed class ChatRepository
     }
 
     /// <summary>Queues text to send. Not encrypted here - see <see cref="OutgoingChatMessage"/>.</summary>
+    /// <param name="announcesShareId">
+    /// The share this message offers, for one that offers a share - see
+    /// <see cref="OutgoingChatMessage.AnnouncesShareId"/>. It has to be kept on the row: the message is
+    /// encrypted and posted at flush time, and nothing there could work it out from the ciphertext.
+    /// </param>
     public Task<OutgoingChatMessage> QueueAsync(
-        Guid recipientUserId, string text, CancellationToken cancellationToken = default)
-        => QueueAsync(new OutgoingChatMessage { RecipientUserId = recipientUserId, Text = text }, cancellationToken);
+        Guid recipientUserId, string text, Guid? announcesShareId = null,
+        CancellationToken cancellationToken = default)
+        => QueueAsync(
+            new OutgoingChatMessage
+            {
+                RecipientUserId = recipientUserId,
+                Text = text,
+                IsShareInvitation = announcesShareId is not null,
+                AnnouncesShareId = announcesShareId
+            },
+            cancellationToken);
 
     /// <inheritdoc cref="QueueAsync(Guid, string, CancellationToken)"/>
     public Task<OutgoingChatMessage> QueueForGroupAsync(

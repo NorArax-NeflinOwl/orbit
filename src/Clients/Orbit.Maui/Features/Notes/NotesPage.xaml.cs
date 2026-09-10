@@ -25,10 +25,18 @@ public partial class NotesPage : ContentPage, ITitleMenu
 		InitializeComponent();
 		BindingContext = _viewModel = viewModel;
 		AddButton.Command = NewItemForm.Toggling(AddRow, AddField);
+		_nameAFolder = NewItemForm.Toggling(FolderRow, FolderField);
 	}
 
 	/// <inheritdoc cref="ITitleMenu.ShowTitleMenuCommand"/>
 	public ICommand ShowTitleMenuCommand { get; }
+
+	/// <summary>
+	/// Unfolds the row a folder is named in, the same way the plus unfolds the row a note is named in -
+	/// see NewItemForm. Chosen from the menu rather than standing on the screen: making a folder is
+	/// something somebody does once, and the screen at rest is a column of notes.
+	/// </summary>
+	private readonly ICommand _nameAFolder;
 
 	/// <summary>The panel it draws - one per screen, above everything else on it.</summary>
 	public ScreenMenu Menu { get; } = new();
@@ -50,6 +58,18 @@ public partial class NotesPage : ContentPage, ITitleMenu
 	/// </summary>
 	private void ShowTheListMenu() => Menu.ShowGroups(
 		[
+			// Which folder is being read, with how many notes are in each - the row of tabs the browser
+			// draws above its cards, as entries here because a phone has no room for a row of them. The
+			// count is the entry's own quiet column, and a folder holding nothing still shows: a tab
+			// that appeared only once something was in it could never be filed into.
+			new ScreenMenuGroup(
+				_translations["Folders"],
+				_viewModel.FolderChoices.Select(choice => new ScreenMenuEntry(
+					choice.Name,
+					() => _viewModel.ChooseFolderCommand.Execute(choice.Key),
+					choice.IsChosen,
+					count: ScreenMenuEntry.CountOf(choice.Count)))),
+			new ScreenMenuGroup(_translations["Folder"], FolderActions()),
 			new ScreenMenuGroup(
 				_translations["Sort - pinned stay on top"],
 				ListMenus.SortOrders(_translations).Select(order => new ScreenMenuEntry(
@@ -63,6 +83,39 @@ public partial class NotesPage : ContentPage, ITitleMenu
 					() => Arrange(_viewModel.Arrangement with { Filter = filter.Value }),
 					filter.Value == _viewModel.Arrangement.Filter)))
 		]);
+
+	/// <summary>
+	/// What can be done to the folders themselves. Deleting is offered only while one somebody made is
+	/// the one being read - the three built-in folders are not rows and cannot be got rid of, and an
+	/// entry that is grey on three tabs out of five is worse than one that is not there.
+	/// </summary>
+	private List<ScreenMenuEntry> FolderActions()
+	{
+		List<ScreenMenuEntry> entries = [new ScreenMenuEntry(_translations["New folder"], () => _nameAFolder.Execute(null))];
+
+		if (_viewModel.Folders.Chosen.FolderId is not null)
+		{
+			entries.Add(new ScreenMenuEntry(_translations["Delete folder"], () => _ = DeleteTheFolderAsync()));
+		}
+
+		return entries;
+	}
+
+	/// <summary>
+	/// Asked first, as every delete in Orbit is - and the question says what it does *not* do, because
+	/// "delete folder" reads like the notes go with it and they do not.
+	/// </summary>
+	private async Task DeleteTheFolderAsync()
+	{
+		var question = _translations.Format(
+			"Delete the folder \"{0}\"? Nothing in it is deleted - it goes back to Public, or to Private if it is sealed.",
+			_viewModel.ChosenFolderName);
+
+		if (await Confirmation.AskAsync(this, question, _translations["Delete folder"], _translations["Cancel"]))
+		{
+			_viewModel.DeleteFolderCommand.Execute(null);
+		}
+	}
 
 	private void Arrange(ListArrangement arrangement) => _viewModel.ArrangeCommand.Execute(arrangement);
 }

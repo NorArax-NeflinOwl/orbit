@@ -28,7 +28,10 @@ public sealed class MapPinVisibility
         SharedWithYou,
 
         /// <summary>Everything in this reader's calendar and lists that says where it happens.</summary>
-        YourPlans
+        YourPlans,
+
+        /// <summary>The places this reader keeps for their own sake - see Orbit.Core.Places.Place.</summary>
+        YourPlaces
     }
 
     private readonly IJSRuntime _jsRuntime;

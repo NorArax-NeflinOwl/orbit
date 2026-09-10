@@ -78,11 +78,9 @@
                             {
                                 <span class="unverified-badge">@T["Not verified"]</span>
                             }
+                            <FieldHint>@T["Saving a different address doesn't move the account to it on its own - that only happens once you confirm the code sent to the new address."]</FieldHint>
                         </label>
                         <input id="emailInput" type="email" @bind="_profileForm.EmailAddress" />
-                        <div class="options-row-desc">
-                            @T["Saving a different address doesn't move the account to it on its own - that only happens once you confirm the code sent to the new address."]
-                        </div>
                     </div>
                     <div class="form-actions">
                         <button type="button" class="btn-primary" disabled="@_isSavingProfile" @onclick="SaveProfileAsync">@T["Save profile"]</button>
@@ -100,8 +98,7 @@
                 {
                 <div class="options-row options-row-stacked">
                     <div>
-                        <div class="options-row-title">@T["Email verification"]</div>
-                        <div class="options-row-desc">@T["A verified address is what a password reset is sent to, so it has to be one you can read."]</div>
+                        <div class="options-row-title">@T["Email verification"]<FieldHint>@T["A verified address is what a password reset is sent to, so it has to be one you can read."]</FieldHint></div>
                     </div>
                     @if (_emailForm.IsCodePending)
                     {
@@ -144,9 +141,10 @@
                             {
                                 <span class="unverified-badge">@T["Off"]</span>
                             }
-                        </div>
-                        <div class="options-row-desc">
-                            @T["Adds links that open Google Calendar or Google Maps with the details filled in. Orbit never writes to your calendar."]
+                            <FieldHint>
+                                @T["Adds links that open Google Calendar or Google Maps with the details filled in. Orbit never writes to your calendar."]
+                                @T["Kept on this device."]
+                            </FieldHint>
                         </div>
                     </div>
                     @* Offered only where the account qualifies: a switch for something that is not
@@ -155,7 +153,6 @@
                        turning it off leaves the Google account below connected. *@
                     @if (_account is not null && GoogleIntegrationAccess.Qualifies(_account))
                     {
-                        <div class="options-row-desc">@T["Kept on this device."]</div>
                         <button type="button" class="switch @(DevicePreferences.AllowGoogleExtras ? "on" : "")" role="switch"
                                 aria-checked="@DevicePreferences.AllowGoogleExtras" aria-label="@(T["Google extras"])"
                                 @onclick="ToggleGoogleExtrasAsync">
@@ -172,14 +169,13 @@
                             {
                                 <span class="verified-badge">@T["Connected"]</span>
                             }
-                        </div>
-                        <div class="options-row-desc">
+                        <FieldHint>
                             @T["Connecting Google lets you sign in with it as well as with your password."]
                             @if (_account?.HasPassword == false)
                             {
-                                <text>@T["Your account has no password yet, so Google is currently the only way in - set one below before disconnecting."]</text>
+                            <text>@T["Your account has no password yet, so Google is currently the only way in - set one below before disconnecting."]</text>
                             }
-                        </div>
+                        </FieldHint></div>
                     </div>
                     @if (_account?.IsGoogleLinked == true)
                     {
@@ -199,8 +195,7 @@
 
                 <div class="options-row options-row-stacked">
                     <div>
-                        <div class="options-row-title">@T["Password"]</div>
-                        <div class="options-row-desc">@T["Changing it also re-encrypts your chat key backup, so your messages stay readable when you next sign in elsewhere."]</div>
+                        <div class="options-row-title">@T["Password"]<FieldHint>@T["Changing it also re-encrypts your chat key backup, so your messages stay readable when you next sign in elsewhere."]</FieldHint></div>
                     </div>
                     <div class="field">
                         <label for="currentPasswordInput">@T["Current password"]</label>
@@ -231,10 +226,7 @@
             <div class="options-card">
                 <div class="options-row options-row-stacked">
                     <div>
-                        <div class="options-row-title">@T["Export"]</div>
-                        <div class="options-row-desc">
-                            @T["Downloads what you tick below as one file. Things shared with you are left out, and a private item travels sealed."]
-                        </div>
+                        <div class="options-row-title">@T["Export"]<FieldHint>@T["Downloads what you tick below as one file. Things shared with you are left out, and a private item travels sealed."]</FieldHint></div>
                     </div>
                     @* What goes in the file. All four to begin with, which is what this used to do
                        without asking - somebody exporting their notes to read elsewhere had no way of
@@ -255,10 +247,7 @@
                 </div>
                 <div class="options-row options-row-stacked">
                     <div>
-                        <div class="options-row-title">@T["Import"]</div>
-                        <div class="options-row-desc">
-                            @T["Adds everything in a file to this account. Nothing is replaced, so importing the same file twice leaves two copies."]
-                        </div>
+                        <div class="options-row-title">@T["Import"]<FieldHint>@T["Adds everything in a file to this account. Nothing is replaced, so importing the same file twice leaves two copies."]</FieldHint></div>
                     </div>
                     <InputFile OnChange="ImportAsync" accept=".json,application/json" disabled="@_isImporting" />
                 </div>
@@ -279,10 +268,7 @@
             <div class="options-card options-card-danger">
                 <div class="options-row options-row-stacked">
                     <div>
-                        <div class="options-row-title">@T["Delete account"]</div>
-                        <div class="options-row-desc">
-                            @T["Permanently deletes your account and everything in it - notes, tasks, calendar events, inventory, and chat history. This cannot be undone."]
-                        </div>
+                        <div class="options-row-title">@T["Delete account"]<FieldHint>@T["Permanently deletes your account and everything in it - notes, tasks, calendar events, inventory, and chat history. This cannot be undone."]</FieldHint></div>
                     </div>
                     @if (_account?.HasPassword == true)
                     {
@@ -343,31 +329,11 @@
         </div>
 
         <div class="options-section">
-            <h2 class="options-heading">@T["Language"]</h2>
-            <p class="options-subtext">@T["The language Orbit's own interface is written in. Kept on this device."]</p>
-            <div class="options-card">
-                <div class="options-row">
-                    <div>
-                        <div class="options-row-title">@T["Language"]</div>
-                    </div>
-                    <select id="languageSelect" class="options-select" value="@T.Language" @onchange="OnLanguageChangedAsync">
-                        @* Each language named in its own language, the way a language picker is read: the
-                           list means the same thing whichever one you are currently in. Translating only
-                           one of the two gave "angielski" beside "Polski". *@
-                        <option value="@AppLanguage.English">English</option>
-                        <option value="@AppLanguage.Polish">Polski</option>
-                    </select>
-                </div>
-            </div>
-        </div>
-
-        <div class="options-section">
             <h2 class="options-heading">@T["Notifications"]</h2>
             <div class="options-card">
                 <div class="options-row">
                     <div>
-                        <div class="options-row-title">@T["Push notifications"]</div>
-                        <div class="options-row-desc">@T["Instant alerts for new messages, event reminders and overdue tasks, even while Orbit isn't open."]</div>
+                        <div class="options-row-title">@T["Push notifications"]<FieldHint>@T["Instant alerts for new messages, event reminders and overdue tasks, even while Orbit isn't open."]</FieldHint></div>
                     </div>
                     @if (_pushNotificationsSupported == false)
                     {
@@ -384,8 +350,7 @@
                 </div>
                 <div class="options-row">
                     <div>
-                        <div class="options-row-title">@T["Allow notifications"]</div>
-                        <div class="options-row-desc">@T["Master switch for everything below, and for the notifications panel itself."]</div>
+                        <div class="options-row-title">@T["Allow notifications"]<FieldHint>@T["Master switch for everything below, and for the notifications panel itself."]</FieldHint></div>
                     </div>
                     <button type="button" class="switch @(_notificationSettings.AllowNotifications ? "on" : "")" role="switch"
                             aria-checked="@_notificationSettings.AllowNotifications" disabled="@_isSavingNotificationSettings"
@@ -395,8 +360,7 @@
                 </div>
                 <div class="options-row options-row-child">
                     <div>
-                        <div class="options-row-title">@T["Allow push"]</div>
-                        <div class="options-row-desc">@T["Lets any calendar event, task, or inventory item's own push setting actually send a push notification."]</div>
+                        <div class="options-row-title">@T["Allow push"]<FieldHint>@T["Lets any calendar event, task, or inventory item's own push setting actually send a push notification."]</FieldHint></div>
                     </div>
                     <button type="button" class="switch @(_notificationSettings.AllowPush ? "on" : "")" role="switch"
                             aria-checked="@_notificationSettings.AllowPush"
@@ -407,10 +371,7 @@
                 </div>
                 <div class="options-row options-row-child">
                     <div>
-                        <div class="options-row-title">@T["Tell me when something is shared with me"]</div>
-                        <div class="options-row-desc">
-                            @T["The invitation always reaches your notifications. This adds a push or email on top, so you hear about it straight away."]
-                        </div>
+                        <div class="options-row-title">@T["Tell me when something is shared with me"]<FieldHint>@T["The invitation always reaches your notifications. This adds a push or email on top, so you hear about it straight away."]</FieldHint></div>
                     </div>
                     <button type="button" class="switch @(_notificationSettings.AllowShareNotifications ? "on" : "")" role="switch"
                             aria-checked="@_notificationSettings.AllowShareNotifications"
@@ -421,8 +382,7 @@
                 </div>
                 <div class="options-row options-row-child">
                     <div>
-                        <div class="options-row-title">@T["Allow email"]</div>
-                        <div class="options-row-desc">@T["Lets any calendar event, task, or inventory item's own email setting actually send an email."]</div>
+                        <div class="options-row-title">@T["Allow email"]<FieldHint>@T["Lets any calendar event, task, or inventory item's own email setting actually send an email."]</FieldHint></div>
                     </div>
                     <button type="button" class="switch @(_notificationSettings.AllowEmail ? "on" : "")" role="switch"
                             aria-checked="@_notificationSettings.AllowEmail"
@@ -433,8 +393,7 @@
                 </div>
                 <div class="options-row options-row-child">
                     <div>
-                        <div class="options-row-title">@T["Allow mobile notification"]</div>
-                        <div class="options-row-desc">@T["Shows a short banner at the top of the page when a new notification arrives while Orbit is open."]</div>
+                        <div class="options-row-title">@T["Allow mobile notification"]<FieldHint>@T["Shows a short banner at the top of the page when a new notification arrives while Orbit is open."]</FieldHint></div>
                     </div>
                     <button type="button" class="switch @(_notificationSettings.AllowMobileBanner ? "on" : "")" role="switch"
                             aria-checked="@_notificationSettings.AllowMobileBanner"
@@ -445,8 +404,7 @@
                 </div>
                 <div class="options-row options-row-child">
                     <div>
-                        <div class="options-row-title">@T["Banner duration (seconds)"]</div>
-                        <div class="options-row-desc">@T["How long a notification banner stays on screen (1-30)."]</div>
+                        <div class="options-row-title">@T["Banner duration (seconds)"]<FieldHint>@T["How long a notification banner stays on screen (1-30)."]</FieldHint></div>
                     </div>
                     <input type="number" id="bannerVisibleSecondsInput" class="options-number-input" min="1" max="30"
                            value="@_notificationSettings.BannerVisibleSeconds"
@@ -455,8 +413,7 @@
                 </div>
                 <div class="options-row options-row-child">
                     <div>
-                        <div class="options-row-title">@T["Banner interval (seconds)"]</div>
-                        <div class="options-row-desc">@T["Minimum quiet time before the next banner may appear (1-300)."]</div>
+                        <div class="options-row-title">@T["Banner interval (seconds)"]<FieldHint>@T["Minimum quiet time before the next banner may appear (1-300)."]</FieldHint></div>
                     </div>
                     <input type="number" id="bannerMinimumGapSecondsInput" class="options-number-input" min="1" max="300"
                            value="@_notificationSettings.BannerMinimumGapSeconds"
@@ -465,9 +422,7 @@
                 </div>
                 <div class="options-row options-row-child">
                     <div>
-                        <div class="options-row-title">@T["Keep notifications for (days)"]</div>
-                        <div class="options-row-desc">@T["How long a notification stays on the"]@Space<a href="/notifications">@T["notifications page"]</a> @T["before it is deleted for good (1-90). Clearing the panel only tidies them out of the way; this is what actually removes them."]
-                        </div>
+                        <div class="options-row-title">@T["Keep notifications for (days)"]<FieldHint>@T["How long a notification stays on the"]@Space<a href="/notifications">@T["notifications page"]</a> @T["before it is deleted for good (1-90). Clearing the panel only tidies them out of the way; this is what actually removes them."]</FieldHint></div>
                     </div>
                     <input type="number" id="retentionDaysInput" class="options-number-input" min="1" max="90"
                            value="@_notificationSettings.RetentionDays"
@@ -504,8 +459,7 @@
                         {
                             <tr>
                                 <td>
-                                    <div class="options-row-title">@DescribePermission(permission)</div>
-                                    <div class="options-row-desc">@ExplainPermission(permission)</div>
+                                    <div class="options-row-title">@DescribePermission(permission)<FieldHint>@ExplainPermission(permission)</FieldHint></div>
                                 </td>
                                 <td>
                                     @if (Permissions.Has(permission))
@@ -565,10 +519,7 @@
             <div class="options-card">
                 <div class="options-row options-row-stacked">
                     <div>
-                        <div class="options-row-title">@T["Use my location"]</div>
-                        <div class="options-row-desc">
-                            @T["Lets Orbit ask this browser where you are. Until you turn it on nothing asks, and turning it on sends nothing anywhere."]
-                        </div>
+                        <div class="options-row-title">@T["Use my location"]<FieldHint>@T["Lets Orbit ask this browser where you are. Until you turn it on nothing asks, and turning it on sends nothing anywhere."]</FieldHint></div>
                     </div>
                     <button type="button" class="switch @(DevicePreferences.AllowLocation ? "on" : "")" role="switch"
                             aria-checked="@DevicePreferences.AllowLocation"
@@ -588,10 +539,7 @@
             <div class="options-card">
                 <div class="options-row options-row-stacked">
                     <div>
-                        <div class="options-row-title">@T["Mode"]</div>
-                        <div class="options-row-desc">
-                            @T["Debug shows the captured log and the detail behind an error. Release hides both."]
-                        </div>
+                        <div class="options-row-title">@T["Mode"]<FieldHint>@T["Debug shows the captured log and the detail behind an error. Release hides both."]</FieldHint></div>
                     </div>
                     <select id="diagnosticsModeSelect" class="options-select"
                             value="@DevicePreferences.DiagnosticsMode"
@@ -602,10 +550,7 @@
                 </div>
                 <div class="options-row options-row-stacked">
                     <div>
-                        <div class="options-row-title">@T["Frontend log level"]</div>
-                        <div class="options-row-desc">
-                            @T["The least severe line this browser keeps. Warning by default, so routine noise doesn't crowd out a real failure."]
-                        </div>
+                        <div class="options-row-title">@T["Frontend log level"]<FieldHint>@T["The least severe line this browser keeps. Warning by default, so routine noise doesn't crowd out a real failure."]</FieldHint></div>
                     </div>
                     <select id="frontendLogLevelSelect" class="options-select"
                             value="@DevicePreferences.MinimumLogLevel"
@@ -627,8 +572,7 @@
                 <div class="options-card">
                     <div class="options-row">
                         <div>
-                            <div class="options-row-title">@T["Show exceptions"]</div>
-                            <div class="options-row-desc">@T["Lets the Notifications panel list this browser's own recent errors, each with a \"Copy\" button for reporting a bug."]</div>
+                            <div class="options-row-title">@T["Show exceptions"]<FieldHint>@T["Lets the Notifications panel list this browser's own recent errors, each with a \"Copy\" button for reporting a bug."]</FieldHint></div>
                         </div>
                         <button type="button" class="switch @(_notificationSettings.ShowExceptionDetails ? "on" : "")" role="switch"
                                 aria-checked="@_notificationSettings.ShowExceptionDetails" disabled="@_isSavingNotificationSettings"
@@ -781,14 +725,6 @@
         => Enum.TryParse<LogLevel>(args.Value?.ToString(), out var level)
             ? DevicePreferences.SetMinimumLogLevelAsync(level)
             : Task.CompletedTask;
-
-    private async Task OnLanguageChangedAsync(ChangeEventArgs args)
-    {
-        if (Enum.TryParse<AppLanguage>(args.Value?.ToString(), out var language))
-        {
-            await T.SetLanguageAsync(language);
-        }
-    }
 
     /// <summary>An export of a whole account is not large by file standards, but a hand-made file could be - this is where a nonsense one stops.</summary>
     private const long MaximumImportSizeBytes = 32 * 1024 * 1024;

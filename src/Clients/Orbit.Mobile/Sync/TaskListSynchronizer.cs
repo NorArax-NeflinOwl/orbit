@@ -81,12 +81,56 @@ public sealed class TaskListSynchronizer
             return SendResult.Abandoned;
         }
 
-        return entry.Operation is OutboxOperation.Create
-            ? await SendCreateAsync(taskList, cancellationToken)
-            : await SendUpdateAsync(taskList, cancellationToken);
+        return entry.Operation switch
+        {
+            OutboxOperation.Create => await SendCreateAsync(dbContext, taskList, cancellationToken),
+            OutboxOperation.File => await SendFilingAsync(dbContext, taskList, cancellationToken),
+            _ => await SendUpdateAsync(taskList, cancellationToken)
+        };
     }
 
-    private async Task<SendResult> SendCreateAsync(LocalTaskList taskList, CancellationToken cancellationToken)
+    /// <inheritdoc cref="NoteSynchronizer.ServerFolderIdAsync"/>
+    private static async Task<Guid?> ServerFolderIdAsync(
+        OrbitLocalDbContext dbContext, Guid? folderLocalId, CancellationToken cancellationToken)
+    {
+        if (folderLocalId is not { } localId)
+        {
+            return null;
+        }
+
+        var folder = await dbContext.Folders.FirstOrDefaultAsync(
+            candidate => candidate.LocalId == localId, cancellationToken);
+
+        return folder is null ? null : folder.ServerId ?? throw new FolderNotOnTheServerYet(localId);
+    }
+
+    /// <summary>
+    /// Puts the list in its folder, or takes it out of one. Its own request to its own endpoint - see
+    /// TasksClient.FileAsync, and MoveToFolderRequest, which says why a save must not carry this.
+    /// </summary>
+    private async Task<SendResult> SendFilingAsync(
+        OrbitLocalDbContext dbContext, LocalTaskList taskList, CancellationToken cancellationToken)
+    {
+        if (taskList.ServerId is not { } serverId)
+        {
+            // Its create is still queued ahead of this, and that create carries the folder itself.
+            return SendResult.Abandoned;
+        }
+
+        var outcome = await _tasksClient.FileAsync(
+            serverId, await ServerFolderIdAsync(dbContext, taskList.FolderId, cancellationToken), cancellationToken);
+
+        if (outcome is not WriteOutcome.Applied)
+        {
+            _logger.LogInformation("The server refused a filing of list {ServerId}: {Outcome}", serverId, outcome);
+            return SendResult.Refused;
+        }
+
+        return SendResult.Sent;
+    }
+
+    private async Task<SendResult> SendCreateAsync(
+        OrbitLocalDbContext dbContext, LocalTaskList taskList, CancellationToken cancellationToken)
     {
         if (taskList.ServerId is not null)
         {
@@ -97,8 +141,13 @@ public sealed class TaskListSynchronizer
         taskList.ServerId = await _tasksClient.CreateAsync(
             // A private list's title and entries are in EncryptedContent and its readable fields are
             // empty, which is how the row is already stored - see LocalTaskListRepository.
+            //
+            // The folder travels on the create and only on the create: a list the server has never seen
+            // has nothing to file, so LocalTaskListRepository queues no filing for one and this is where
+            // it would otherwise be lost.
             new CreateTaskRequest(taskList.Title, ToRequests(taskList.Items), taskList.IsGroup, taskList.IsPrivate,
-                taskList.EncryptedContent, taskList.Priority, taskList.Description),
+                taskList.EncryptedContent, taskList.Priority, taskList.Description,
+                await ServerFolderIdAsync(dbContext, taskList.FolderId, cancellationToken)),
             cancellationToken);
         taskList.LastSyncedAtUtc = _timeProvider.GetUtcNow();
         return SendResult.Sent;
@@ -143,6 +192,12 @@ public sealed class TaskListSynchronizer
             .Distinct()
             .ToListAsync(cancellationToken);
 
+        // A folder is known here by an id of this phone's own and arrives named by the server's - see
+        // LocalFolder.LocalId. Read once for the run rather than per list.
+        var foldersByServerId = await dbContext.Folders
+            .Where(folder => folder.ServerId != null)
+            .ToDictionaryAsync(folder => folder.ServerId!.Value, folder => folder.LocalId, cancellationToken);
+
         var received = 0;
         foreach (var incoming in feed.Changed)
         {
@@ -154,7 +209,7 @@ public sealed class TaskListSynchronizer
                 continue;
             }
 
-            CopyInto(existing ?? NewLocalTaskList(dbContext, incoming.Id), incoming);
+            CopyInto(existing ?? NewLocalTaskList(dbContext, incoming.Id), incoming, foldersByServerId);
             received++;
         }
 
@@ -185,8 +240,15 @@ public sealed class TaskListSynchronizer
         return taskList;
     }
 
-    private void CopyInto(LocalTaskList taskList, TaskDto incoming)
+    private void CopyInto(
+        LocalTaskList taskList, TaskDto incoming, IReadOnlyDictionary<Guid, Guid> foldersByServerId)
     {
+        // A folder this phone has not heard of leaves the list unfiled rather than pointing at nothing -
+        // see NoteSynchronizer.CopyInto, which says the same about a note.
+        taskList.FolderId = incoming.FolderId is { } folderServerId
+            && foldersByServerId.TryGetValue(folderServerId, out var folderLocalId)
+                ? folderLocalId
+                : null;
         taskList.Title = incoming.Title;
         taskList.Description = incoming.Description;
         taskList.Items = incoming.Items;
@@ -253,8 +315,15 @@ public sealed class TaskListSynchronizer
             item.Notes,
             // The cross, which this phone can now set - see TickState.
             item.IsFailed,
-            // The order the work has to be done in, sent as it came. This phone has no picker for it
-            // yet, and passing it through is what keeps a push from undoing what was arranged on the
-            // web - the same reason the product above travels untouched.
-            item.AllWaitsForTaskItemIds)).ToList();
+            // The order the work has to be done in, sent as the local copy holds it - which this phone
+            // now writes as well as reads (see TaskItemEditor.WaitsFor). Always a list rather than null:
+            // an entry sending none means "none" and clears its steps, which is what taking one off in
+            // the form has to mean.
+            item.AllWaitsForTaskItemIds,
+            // How the entry is drawn and how much it matters, passed through as they came - this phone
+            // has no boxes for either yet, and null is what tells the server to leave the stored answers
+            // alone. Sending them as they arrived is what makes that rule unnecessary rather than
+            // relied upon, the same way the product above travels untouched.
+            item.Priority,
+            item.Colour)).ToList();
 }

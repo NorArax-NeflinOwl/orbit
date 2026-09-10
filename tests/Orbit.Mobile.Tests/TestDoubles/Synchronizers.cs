@@ -20,7 +20,7 @@ namespace Orbit.Mobile.Tests.TestDoubles;
 internal static class Synchronizers
 {
     /// <summary>
-    /// One that really does talk to the four fake servers handed in - what a test about a review needs,
+    /// One that really does talk to the fake servers handed in - what a test about a review needs,
     /// since answering a review queues a write and the point is whether it arrives.
     ///
     /// Chat and permissions still talk to nobody: they are not what any of those tests are about.
@@ -36,6 +36,9 @@ internal static class Synchronizers
         var usersClient = new UsersClient(nobody);
 
         return new EverythingSynchronizer(
+            // Folders talk to nobody here for the same reason chat does: no test in this file is about
+            // them, and a folder that cannot be reached leaves everything filed exactly where it was.
+            new FolderSynchronizer(localStore, new FoldersClient(nobody), clock, gate, NullLogger<FolderSynchronizer>.Instance),
             new NoteSynchronizer(
                 localStore, new NotesClient(notes), clock, gate,
                 NullLogger<NoteSynchronizer>.Instance),
@@ -49,6 +52,11 @@ internal static class Synchronizers
             new InventorySynchronizer(
                 localStore, new InventoryClient(inventory), clock, gate,
                 NullLogger<InventorySynchronizer>.Instance),
+            // Places talk to nobody here: no test about a review is about one, and the synchroniser
+            // answers "could not reach the server", which is what an unreachable client means.
+            new PlaceSynchronizer(
+                localStore, new PlacesClient(nobody), clock, gate,
+                NullLogger<PlaceSynchronizer>.Instance),
             new ChatSynchronizer(
                 chat, chatClient, usersClient,
                 new EncryptedChatMessageSender(
@@ -71,6 +79,7 @@ internal static class Synchronizers
         var usersClient = new UsersClient(nobody);
 
         return new EverythingSynchronizer(
+            new FolderSynchronizer(localStore, new FoldersClient(nobody), clock, gate, NullLogger<FolderSynchronizer>.Instance),
             new NoteSynchronizer(localStore, new NotesClient(nobody), clock, gate, NullLogger<NoteSynchronizer>.Instance),
             new TaskListSynchronizer(localStore, new TasksClient(nobody), clock, gate, NullLogger<TaskListSynchronizer>.Instance),
             new CalendarEventSynchronizer(
@@ -78,6 +87,7 @@ internal static class Synchronizers
                 new PendingCalendarLinkResolver(clock, NullLogger<PendingCalendarLinkResolver>.Instance),
                 NullLogger<CalendarEventSynchronizer>.Instance),
             new InventorySynchronizer(localStore, new InventoryClient(nobody), clock, gate, NullLogger<InventorySynchronizer>.Instance),
+            new PlaceSynchronizer(localStore, new PlacesClient(nobody), clock, gate, NullLogger<PlaceSynchronizer>.Instance),
             new ChatSynchronizer(
                 chat, chatClient, usersClient,
                 new EncryptedChatMessageSender(

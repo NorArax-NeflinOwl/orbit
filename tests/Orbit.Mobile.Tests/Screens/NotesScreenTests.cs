@@ -90,7 +90,9 @@ public sealed class NotesScreenTests
                 new Translations(new InMemoryLanguageStore()),
                 new PrivateItemGate(new FixedDeviceAuthentication()),
                 new SyncState(FixedNetworkStatus.Online, _clock), new RecordingScreenNavigator(), _clock,
-                new InMemoryListArrangementStore());
+                new InMemoryListArrangementStore(),
+                new LocalFolderRepository(_localStore, _clock), new InMemoryChosenFolderStore(),
+                Folders.SynchronizerAgainstNobody(_localStore, _clock));
 
             await screen.LoadCommand.ExecuteAsync(null);
             return screen;

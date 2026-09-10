@@ -20,4 +20,6 @@ namespace Orbit.Mobile.Data;
 [JsonSerializable(typeof(IReadOnlyList<LocalChatGroupMember>))]
 // What a copy was taken from, already rendered as lines - see ICopyableForEditing.CopyBaseLines.
 [JsonSerializable(typeof(IReadOnlyList<string>))]
+/// <summary>The lists a place belongs to - see LocalPlace.TaskListIds.</summary>
+[JsonSerializable(typeof(IReadOnlyList<Guid>))]
 internal sealed partial class LocalStoreSerializerContext : JsonSerializerContext;

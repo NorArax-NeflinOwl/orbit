@@ -714,6 +714,39 @@
         <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource SubtleTextLight}, Dark={StaticResource SubtleTextDark}}" />
     </Style>
 
+    <!-- A strip of two or three answers side by side, all of them on screen: the design's own segmented
+         control, which is a bordered box with the choices divided by hairlines and the one in force
+         named in the accent and ringed in it. Used where a list to open would hide the fact that there
+         is a choice at all - see the theme on the settings screen.
+
+         The strip clips its content, so the segments' square corners do not stand outside its rounded
+         ones, and it carries no padding: a segment's own edge is the strip's edge. -->
+    <Style x:Key="SegmentedStrip" TargetType="Border">
+        <Setter Property="StrokeThickness" Value="1" />
+        <Setter Property="Stroke" Value="{AppThemeBinding Light={StaticResource CardStrokeLight}, Dark={StaticResource CardStrokeDark}}" />
+        <Setter Property="BackgroundColor" Value="Transparent" />
+        <Setter Property="Padding" Value="0" />
+        <Setter Property="StrokeShape">
+            <RoundRectangle CornerRadius="4" />
+        </Setter>
+    </Style>
+
+    <!-- One answer in that strip. It paints the page's own colour rather than nothing, because the
+         hairlines between the segments are the strip's background showing through a one-point gap -
+         a transparent segment would let the whole strip go that colour. -->
+    <Style x:Key="SegmentButton" TargetType="Button">
+        <Setter Property="BackgroundColor" Value="{AppThemeBinding Light={StaticResource PageBackgroundLight}, Dark={StaticResource PageBackgroundDark}}" />
+        <Setter Property="BorderWidth" Value="0" />
+        <Setter Property="CornerRadius" Value="0" />
+        <Setter Property="Padding" Value="16,7" />
+        <Setter Property="MinimumHeightRequest" Value="0" />
+        <Setter Property="MinimumWidthRequest" Value="0" />
+        <Setter Property="FontFamily" Value="OrbitDisplay" />
+        <Setter Property="FontSize" Value="13" />
+        <Setter Property="FontAttributes" Value="Bold" />
+        <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource SubtleTextLight}, Dark={StaticResource SubtleTextDark}}" />
+    </Style>
+
     <!-- .map-panel-section: one group on the map screen, which is a card of its own rather than a
          heading with things loose underneath it. -->
     <Style x:Key="PanelSection" TargetType="Border">

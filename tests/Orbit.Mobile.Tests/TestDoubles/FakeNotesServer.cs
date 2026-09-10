@@ -2,6 +2,7 @@ using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
 using System.Web;
+using Orbit.Contracts.Folders;
 using Orbit.Contracts.Notes;
 using Orbit.Contracts.Sync;
 
@@ -95,6 +96,11 @@ internal sealed class FakeNotesServer : HttpMessageHandler
         return request.Method.Method switch
         {
             "POST" => await CreateAsync(request, cancellationToken),
+            // Filing has its own endpoint, and this fake has to have it too - the real one keeps it off
+            // the save so that a client which had never heard of folders cannot empty it. See
+            // Orbit.Contracts.Folders.MoveToFolderRequest.
+            "PUT" when path.EndsWith("/folder", StringComparison.Ordinal)
+                => await FileAsync(request, path, cancellationToken),
             "PUT" => await UpdateAsync(request, path, cancellationToken),
             "DELETE" => Delete(path),
             _ => Json(_notes.Values.ToList())
@@ -146,6 +152,25 @@ internal sealed class FakeNotesServer : HttpMessageHandler
             UpdatedAtUtc = _timeProvider.GetUtcNow()
         };
 
+        return new HttpResponseMessage(HttpStatusCode.NoContent);
+    }
+
+    /// <summary>
+    /// Where a note is filed. Applied to the stored note rather than swallowed, so a test can tell the
+    /// phone actually sent it - a fake that answered 204 and kept nothing would let a filing that never
+    /// left the handset pass for one that did.
+    /// </summary>
+    private async Task<HttpResponseMessage> FileAsync(
+        HttpRequestMessage request, string path, CancellationToken cancellationToken)
+    {
+        var id = Guid.Parse(path.Split('/')[^2]);
+        if (!_notes.TryGetValue(id, out var existing))
+        {
+            return new HttpResponseMessage(HttpStatusCode.NotFound);
+        }
+
+        var body = await ReadAsync<MoveToFolderRequest>(request, cancellationToken);
+        _notes[id] = existing with { FolderId = body!.FolderId, UpdatedAtUtc = _timeProvider.GetUtcNow() };
         return new HttpResponseMessage(HttpStatusCode.NoContent);
     }
 

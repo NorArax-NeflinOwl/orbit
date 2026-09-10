@@ -11,9 +11,14 @@ export function anchorToTrigger(dropdown, triggerSelector) {
     }
 
     // Cleared first so the measurement below reads the dropdown's natural size rather than the size a
-    // previous anchoring left it at.
+    // previous anchoring left it at. Both edges of both axes, not only the ones this sets: a stylesheet
+    // that anchored the panel to the *other* edge still applied, and a fixed box told where its top and
+    // its bottom go is given a height rather than asked for one. That is what happened on the editor
+    // rail, where a rule opened the menu upwards with `bottom` while this set `top` - the panel was
+    // crushed to nothing and its contents spilled onto the page with no background behind them.
     dropdown.style.position = 'fixed';
     dropdown.style.right = 'auto';
+    dropdown.style.bottom = 'auto';
     const triggerBox = trigger.getBoundingClientRect();
     const dropdownBox = dropdown.getBoundingClientRect();
 
@@ -45,6 +50,7 @@ export function anchorToField(panel, fieldSelector) {
 
     panel.style.position = 'fixed';
     panel.style.right = 'auto';
+    panel.style.bottom = 'auto';
     // Width first, then measure: the height depends on how many suggestions fit across that width, and
     // reading it before the width is set measures a panel of the wrong shape.
     const fieldBox = field.getBoundingClientRect();

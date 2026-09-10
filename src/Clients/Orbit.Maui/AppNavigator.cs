@@ -9,6 +9,7 @@ using Orbit.Maui.Features.Diagnostics;
 using Orbit.Maui.Features.Inventory;
 using Orbit.Maui.Features.Location;
 using Orbit.Maui.Features.Notes;
+using Orbit.Maui.Features.Places;
 using Orbit.Maui.Features.Notifications;
 using Orbit.Maui.Features.Sharing;
 using Orbit.Maui.Features.Tasks;
@@ -75,6 +76,12 @@ public sealed class AppNavigator : IScreenNavigator
 	public void ShowInventory() => Show<InventoryPage>(Screen.Inventories, ScreenHistory.Arrival.Section, ShowInventory);
 
 	public void ShowMap() => Show<MapPage>(Screen.Map, ScreenHistory.Arrival.Section, ShowMap);
+
+	public void ShowPlaces() => Show<PlacesPage>(Screen.Places, ScreenHistory.Arrival.Section, ShowPlaces);
+
+	public void ShowPlace(Guid localId)
+		=> Show<PlaceDetailPage>(Screen.Place, ScreenHistory.Arrival.Detail,
+			() => ShowPlace(localId), page => page.ViewModel.Open(localId));
 
 	public void ShowLocationShares(bool theirs)
 		=> Show<LocationSharesPage>(Screen.LocationShares, ScreenHistory.Arrival.Detail,

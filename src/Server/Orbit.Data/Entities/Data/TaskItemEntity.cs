@@ -27,6 +27,20 @@ public sealed class TaskItemEntity
     public bool IsCompleted { get; set; }
 
     /// <summary>
+    /// How much this entry matters, stored by name like every other enum here - see
+    /// Orbit.Core.Abstractions.ItemPriority. The list has one of its own; this is the entry's, because a
+    /// list of ten errands usually has one that has to happen and nine that can wait.
+    /// </summary>
+    public string Priority { get; set; } = nameof(Orbit.Core.Abstractions.ItemPriority.Normal);
+
+    /// <summary>
+    /// What colour this entry is drawn in, as a CSS colour the client wrote - the same shape a calendar
+    /// event's own colour takes (see CalendarEventEntity.Color). Empty for an entry nobody chose one
+    /// for, which is most of them, and which every screen reads as "the colour this kind is drawn in".
+    /// </summary>
+    public string Colour { get; set; } = string.Empty;
+
+    /// <summary>
     /// Closed without being done - see Orbit.Core.Tasks.TaskItem.IsFailed. Its own column beside the
     /// tick rather than a status replacing it: every query that asks whether an entry is ticked still
     /// means the same thing by it, and an existing row reads as "not failed" without being rewritten.

@@ -555,6 +555,18 @@ inventory lists, the contacts tabs, the chat menus - is built and needs no schem
 
 ## Noticed while working
 
+- **A Location entry says where in words, and cannot be drawn.** `TaskItemKind.Location` was added on
+  2026-09-10 so an entry can say where without saying when, and what it carries is `TaskItem.Location` -
+  a line of text, the same one every other kind has had. A point lives on `Place` instead, which is its
+  own row with its own sharing and, since the same day, its own encryption. So a Location entry cannot
+  become a pin: the map draws places and things in the calendar, and an entry that only names a street
+  is not either. This is written down rather than decided because the obvious fix is the wrong shape -
+  a latitude and a longitude on every task item would put a point in a second place, against the rule
+  that a place is stored once, and would make two rows that disagree about where something is a thing
+  Orbit can hold. The alternatives worth weighing when somebody wants this: an optional link from an
+  entry to a `Place` (one point, one owner, and the entry borrows it), or leaving Location as prose and
+  letting the entry offer "keep this as a place" once. Needs a decision before any of it is built.
+
 - **Nobody has found out why the map's Start and Share do nothing on a phone.** Both are hidden below
   680px as of 2026-09-09 (`.map-panel-start`, `.map-panel-share`), on a report that pressing them
   achieves nothing there, and the page says so in one line instead. That is a cover, not a fix: the
@@ -565,16 +577,6 @@ inventory lists, the contacts tabs, the chat menus - is built and needs no schem
   to a self-signed certificate on `https://localhost:8443`, and a permission the phone's browser denied
   once and now denies silently. What it needs is somebody watching the console on the actual device;
   until then the hiding stays, and it should come off the moment the cause is known.
-
-- **The phone does not say which share its invitations announce.** Withdrawing a share now takes its
-  chat invitation down with it (`SendMessageRequest.AnnouncesShareId`, `OP_C_ANNOUNCESSHAREID`), but
-  only invitations sent from Orbit.Web carry the field. `SharedItemSharing` on the phone sends the same
-  announcement through the queued sender and sets neither `AnnouncesShareId` nor the older
-  `IsShareInvitation`, so a share offered from a phone and withdrawn from anywhere leaves its invitation
-  in the conversation, still offering an "Accept" that answers "no such share". Nothing regressed - this
-  is the new capability not reaching the phone yet. What it would take: both fields on
-  `OutgoingChatMessage` and the queue row behind it, since the phone sends by enqueueing rather than by
-  calling the API where the share id is still in hand.
 
 - **The phone cannot answer whether a list is finished.** A task list can be closed with work still on
   it since 2026-09-08, and said to be *unfinished* with every entry ticked off since 2026-09-09
@@ -762,6 +764,21 @@ Every screen the design covers has now been redrawn. The passes were:
     the rest. The one structural piece everything else waits on: a title menu is *groups* with headings
     and counts, and `ScreenMenu` can only draw a flat list with one heading.
 
+One thing the design asks for that belongs to **both clients** rather than to the phone:
+
+- **A person's row says nothing about how recent the conversation is.** The design's contact row carries
+  the last message under the name and when it was on the right; `PersonRow` - the phone's and the
+  browser's, which are the same shape on purpose - carries the name and a subtitle, and the subtitle is
+  the username. So a list ordered by recency has nothing on it that says so.
+
+  Not done on the phone alone, deliberately: the looks follow the design, but *what a row says about a
+  person* is a feature, and a feature the browser has not got would make the two clients answer
+  different questions. The preview is the harder half - a message is sealed, so drawing a list of
+  twenty contacts would mean opening twenty messages - and "when" on its own, over a subtitle that is
+  still a username, is half a row. If it is wanted, it is wanted on `Orbit.Web/Components/PersonRow.razor`
+  and `Orbit.Maui/Controls/PersonRow.xaml` together, with `LocalContact.LastMessageAtUtc` (already
+  synced and already what the list is ordered by) carrying the easy half.
+
 One thing the design showed up that is not fixed:
 
 - ~~**The tick in a menu is a character, not a drawing.**~~ **Went on 2026-09-09 without being fixed.**
@@ -927,13 +944,6 @@ its shared controls. What that pass left, all of it now overtaken:
   `./js/e2eeChat.js` answering `hasOwnPrivateKey` / `ensureOwnPublicKey` / `encryptMessage`, and a stub
   answering `/api/users/{id}` with a contact who has a public key. `ShareInventoryPanelTests` is the
   smallest of the five to copy.
-
-- **The phone cannot choose what an entry waits for.** An entry can wait for other entries of the same
-  list since 2026-09-09 (`TaskListSteps`), and the phone honours it in full - it refuses the tick and
-  names what is still outstanding, and its pushes carry the steps through untouched - but the picker
-  that *sets* them is only in the browser's editor. What it would take: the shape `TaskItemEditor`
-  already has for the lists an entry stands for, offering the other entries of this list instead, and
-  the same settle-after-the-picker dance `TaskListDetailPage.OnLinkedTaskListPicked` does.
 
 - **The phone shows links in some of what it draws, not all of it** (2026-09-09). The splitter moved to
   `Orbit.Core.Text.LinksInText`, so both clients share one rule about what counts as an address, and

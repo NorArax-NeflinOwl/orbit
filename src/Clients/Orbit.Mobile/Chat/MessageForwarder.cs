@@ -30,5 +30,5 @@ public sealed class MessageForwarder
                 // still credits whoever wrote it rather than the last person to touch it.
                 message.ForwardedFromDisplayName ?? authorDisplayName,
                 message.Text ?? string.Empty),
-            cancellationToken);
+            cancellationToken: cancellationToken);
 }
