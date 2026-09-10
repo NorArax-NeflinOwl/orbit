@@ -576,14 +576,12 @@ inventory lists, the contacts tabs, the chat menus - is built and needs no schem
   (`FakeTimeProvider` in every screen test), and it is the only way a page whose answer changes at
   midnight can be tested at all.
 
-- **A response the phone cannot parse escapes the sync's own catch.** `EverythingSynchronizer.TryAsync`
-  catches `HttpRequestException` and nothing else, so a body that is not the shape the client expects
-  throws `JsonException` out of `SynchroniseAsync` and past every screen that calls it. Found on
-  2026-09-10 by a test double answering a folder create with the wrong shape - a real server does not,
-  but a gateway serving an HTML error page or a stale proxy would, and the phone's answer to that
-  should be "couldn't sync" rather than an exception nobody catches. What it would take: reading it the
-  way `SyncFailure` reads the rest, so a malformed answer counts as an answer. Not fixed here because
-  the fix belongs beside the other failure rules and this change was about folders.
+- ~~**A response the phone cannot parse escapes the sync's own catch.**~~ Fixed the same day it was
+  found (2026-09-10): `EverythingSynchronizer.TryAsync` catches `JsonException` too, and answers it the
+  way it answers a server it could not reach - "couldn't sync", with everything still queued - rather
+  than throwing out of a method every screen calls on a timer and on resume. It reads as unreachable
+  rather than refused: nothing about a body this build cannot parse says the reader may not have what
+  they asked for.
 
 - **A create the outbox has given up on leaves a row that never syncs.** When a queued create is
   dropped - after five answered refusals, which since 2026-09-10 includes a 4xx and not only a
