@@ -219,6 +219,87 @@ public sealed class TaskListDetailScreenTests
         Assert.Equal(["car", "money"], sent.AllCategories);
     }
 
+    /// <summary>
+    /// The phone can now say what an entry waits for, rather than only carry what a browser arranged.
+    /// The picker offers the other entries of the same list - "hang the door" after "fit the hinges" -
+    /// and the choice is sent, so an entry queued here is queued everywhere. See TaskListSteps.
+    /// </summary>
+    [Fact]
+    public async Task An_entry_can_be_told_here_what_it_waits_for()
+    {
+        using var context = new ScreenContext();
+        var screen = context.OpenTaskList("Errands");
+        await AddAsync(screen, "Fit the hinges");
+        await AddAsync(screen, "Hang the door");
+        var hinges = screen.Items.Single(row => row.Description == "Fit the hinges");
+        var door = screen.Items.Single(row => row.Description == "Hang the door");
+
+        screen.EditItemCommand.Execute(door);
+        // Itself is not on offer, and neither is anything else: the list holds two entries.
+        var step = Assert.Single(screen.BeingEdited!.WaitableEntriesLeft);
+        Assert.Equal("Fit the hinges", step.Description);
+        screen.BeingEdited.WaitForCommand.Execute(step);
+        await screen.SaveItemCommand.ExecuteAsync(null);
+
+        Assert.Equal(
+            [hinges.Id],
+            screen.Items.Single(row => row.Description == "Hang the door").WaitsForTaskItemIds);
+        var sent = Assert.Single(context.Server.TaskLists).Items
+            .Single(item => item.Description == "Hang the door");
+        Assert.Equal([hinges.Id], sent.AllWaitsForTaskItemIds);
+    }
+
+    /// <summary>
+    /// And take it back off. The picker offers it again afterwards, which is what says the entry is no
+    /// longer behind it.
+    /// </summary>
+    [Fact]
+    public async Task A_step_can_be_taken_back_off_an_entry()
+    {
+        using var context = new ScreenContext();
+        var screen = context.OpenTaskList("Errands");
+        await AddAsync(screen, "Fit the hinges");
+        await AddAsync(screen, "Hang the door");
+        var door = screen.Items.Single(row => row.Description == "Hang the door");
+        screen.EditItemCommand.Execute(door);
+        screen.BeingEdited!.WaitForCommand.Execute(Assert.Single(screen.BeingEdited.WaitableEntriesLeft));
+        await screen.SaveItemCommand.ExecuteAsync(null);
+
+        screen.EditItemCommand.Execute(screen.Items.Single(row => row.Description == "Hang the door"));
+        screen.BeingEdited!.StopWaitingForCommand.Execute(Assert.Single(screen.BeingEdited.WaitsFor));
+        await screen.SaveItemCommand.ExecuteAsync(null);
+
+        Assert.Empty(screen.Items.Single(row => row.Description == "Hang the door").WaitsForTaskItemIds);
+        Assert.Empty(Assert.Single(context.Server.TaskLists).Items
+            .Single(item => item.Description == "Hang the door").AllWaitsForTaskItemIds);
+    }
+
+    /// <summary>
+    /// Whatever the entry is. The rule reads the field off every kind, and the browser offers the
+    /// picker on all three since 2026-09-10 - "buy milk after going to the shop" is an ordinary thing
+    /// to want of an entry that describes a product.
+    /// </summary>
+    [Theory]
+    [InlineData("Checklist")]
+    [InlineData("Inventory")]
+    [InlineData("Calendar")]
+    public async Task Any_kind_of_entry_can_be_told_what_it_waits_for(string kind)
+    {
+        using var context = new ScreenContext();
+        var screen = context.OpenTaskList("Errands");
+        await AddAsync(screen, "Go to the shop");
+        await AddAsync(screen, "Buy milk");
+        var shop = screen.Items.Single(row => row.Description == "Go to the shop");
+
+        screen.EditItemCommand.Execute(screen.Items.Single(row => row.Description == "Buy milk"));
+        screen.BeingEdited!.Kind = kind;
+
+        Assert.True(screen.BeingEdited.CanWaitForAnything);
+        screen.BeingEdited.WaitForCommand.Execute(Assert.Single(screen.BeingEdited.WaitableEntriesLeft));
+
+        Assert.Equal([shop.Id], screen.BeingEdited.ToDto().AllWaitsForTaskItemIds);
+    }
+
     /// <summary>Clearing the box clears them, which "not provided" would not do.</summary>
     [Fact]
     public async Task Clearing_what_it_is_filed_under_clears_it_everywhere()
@@ -2086,8 +2167,10 @@ public sealed class TaskListDetailScreenTests
                     stored.Priority));
         }
         /// <summary>
-        /// Makes one entry wait for another, the way the browser's editor does - the phone has no picker
-        /// for it yet, so it is written onto the stored list here. See TaskListSteps.
+        /// Makes one entry wait for another by writing it onto the stored list, which is what a list
+        /// arriving from the server looks like - the tests about what waiting *does* start from an
+        /// arrangement rather than making one. Arranging it through the form has its own tests above.
+        /// See TaskListSteps.
         /// </summary>
         public async Task WaitForAsync(Guid waitingItemId, Guid stepItemId)
         {

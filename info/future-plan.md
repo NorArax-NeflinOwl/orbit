@@ -928,13 +928,6 @@ its shared controls. What that pass left, all of it now overtaken:
   answering `/api/users/{id}` with a contact who has a public key. `ShareInventoryPanelTests` is the
   smallest of the five to copy.
 
-- **The phone cannot choose what an entry waits for.** An entry can wait for other entries of the same
-  list since 2026-09-09 (`TaskListSteps`), and the phone honours it in full - it refuses the tick and
-  names what is still outstanding, and its pushes carry the steps through untouched - but the picker
-  that *sets* them is only in the browser's editor. What it would take: the shape `TaskItemEditor`
-  already has for the lists an entry stands for, offering the other entries of this list instead, and
-  the same settle-after-the-picker dance `TaskListDetailPage.OnLinkedTaskListPicked` does.
-
 - **The phone shows links in some of what it draws, not all of it** (2026-09-09). The splitter moved to
   `Orbit.Core.Text.LinksInText`, so both clients share one rule about what counts as an address, and
   `LinkedLabel` is the phone's half of `TextWithLinks` - a `Label` that writes `FormattedText`, since a

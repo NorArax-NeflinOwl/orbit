@@ -348,9 +348,17 @@ blocks, since what a cross says is that the work was not done.
 Two rules keep it honest: a step that is not an entry on this list is dropped (ids outlive the entries
 they name - a step deleted in the same save, an id from another list), and an entry cannot wait for
 itself. A request that says nothing about an entry's steps leaves the stored ones alone
-(`UpdateTaskListCommand.EntriesKeepingTheirSteps`) - the fourth field to follow that rule, and for the
-same reason as the first three: the phone has no picker for it yet and must not undo what was arranged
-on the web.
+(`UpdateTaskListCommand.EntriesKeepingTheirSteps`) - the fourth field to follow that rule, and the one
+whose original reason has since gone: it was there because the phone could not set steps and must not
+undo what was arranged on the web. **An entry sending an empty list means "none" and clears them**,
+which is what taking a step off in either client has to mean.
+
+**Both clients set them** since 2026-09-10. The phone's picker mirrors the one it already had for the
+lists an entry stands for (`TaskItemEditor.WaitableEntries`/`WaitsFor`, `TaskEntryChoice`, and the
+settle-after-the-picker dance in `TaskListDetailPage.OnStepPicked` that keeps a picker from rebuilding
+its own source mid-selection). It offers the other entries of the open list - never itself, and never
+one that has not been saved, a step being named by id - and its saves now write the field rather than
+passing through whatever arrived.
 
 **An entry's own box has three answers too** (`OP_TI_ISFAILED`, `Orbit.Core.Tasks.TaskItem.IsFailed`,
 2026-09-09): nothing, **done**, and **given up on** - one press moves to the next, and the third press

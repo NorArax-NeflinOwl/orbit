@@ -313,7 +313,10 @@ public sealed partial class TaskListDetailViewModel : ObservableObject
                 ShelfProductFor(row.Item),
                 // For an entry that becomes an errand while the form is open: the fields for a product
                 // this shelf has not got appear with the choice rather than after a save.
-                ShelfForSomethingNew);
+                ShelfForSomethingNew,
+                // What this entry can be made to wait for: everything else on the list it is on. See
+                // TaskItemEditor.WaitableEntries, and TaskListSteps for what waiting then means.
+                _items);
 
             // Where the entry can go depends on what it stands for, and that changes while the form is
             // open - see MoveTargetsForTheEntry.

@@ -333,6 +333,40 @@
                 </VerticalStackLayout>
             </VerticalStackLayout>
 
+            <!-- The order the work on this list has to be done in - "hang the door" after "fit the
+                 hinges". A different thing from the lists above: that is one entry meaning whole other
+                 lists, this is where this entry stands among the others here. Offered whatever the
+                 entry's kind, because the rule reads it off every one of them - see TaskListSteps, and
+                 Orbit.Web's editor, which draws the same pair in the same order. -->
+            <VerticalStackLayout Spacing="4" IsVisible="{Binding BeingEdited.CanWaitForAnything}">
+                <Label Text="{controls:Translate 'Waits for'}" FontSize="12" Style="{StaticResource SubtleLabel}" />
+                <!-- Says what to add next rather than what is already there, like the link picker: one
+                     entry may wait for several, and choosing adds one and clears the picker. -->
+                <Picker x:Name="StepPicker" ItemsSource="{Binding BeingEdited.WaitableEntriesLeft}"
+                        ItemDisplayBinding="{Binding Description, x:DataType=screens:TaskEntryChoice}"
+                        SelectedIndexChanged="OnStepPicked"
+                        SemanticProperties.Description="{controls:Translate 'Waits for'}" />
+
+                <!-- What it waits for now, each with a way off. -->
+                <VerticalStackLayout BindableLayout.ItemsSource="{Binding BeingEdited.WaitsFor}"
+                                     IsVisible="{Binding BeingEdited.WaitsForAnything}" Spacing="2">
+                    <BindableLayout.ItemTemplate>
+                        <DataTemplate x:DataType="screens:TaskEntryChoice">
+                            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                                <Label Grid.Column="0" Text="{Binding Description}" VerticalOptions="Center"
+                                       LineBreakMode="TailTruncation" />
+                                <Button Grid.Column="1" Text="✕" FontSize="14" WidthRequest="44" Padding="0"
+                                        BackgroundColor="Transparent" BorderWidth="0"
+                                        SemanticProperties.Description="{controls:Translate 'Remove'}"
+                                        TextColor="{AppThemeBinding Light={StaticResource SubtleTextLight}, Dark={StaticResource SubtleTextDark}}"
+                                        Command="{Binding ViewModel.BeingEdited.StopWaitingForCommand, Source={RelativeSource AncestorType={x:Type ContentPage}}, x:DataType=tasks:TaskListDetailPage}"
+                                        CommandParameter="{Binding .}" />
+                            </Grid>
+                        </DataTemplate>
+                    </BindableLayout.ItemTemplate>
+                </VerticalStackLayout>
+            </VerticalStackLayout>
+
             <!-- Outside the entry's own form, because moving is a change to two lists rather than to
                  the entry: choosing a list does it there and then, and this form's Save is not involved. -->
             <VerticalStackLayout Spacing="4" IsVisible="{Binding CanMoveItem}">

@@ -253,8 +253,9 @@ public sealed class TaskListSynchronizer
             item.Notes,
             // The cross, which this phone can now set - see TickState.
             item.IsFailed,
-            // The order the work has to be done in, sent as it came. This phone has no picker for it
-            // yet, and passing it through is what keeps a push from undoing what was arranged on the
-            // web - the same reason the product above travels untouched.
+            // The order the work has to be done in, sent as the local copy holds it - which this phone
+            // now writes as well as reads (see TaskItemEditor.WaitsFor). Always a list rather than null:
+            // an entry sending none means "none" and clears its steps, which is what taking one off in
+            // the form has to mean.
             item.AllWaitsForTaskItemIds)).ToList();
 }
