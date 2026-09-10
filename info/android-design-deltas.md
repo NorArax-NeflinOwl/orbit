@@ -204,7 +204,17 @@ about them is under "Screens already built" below.
 
 ### Tasks, and a task list
 
-- A task list's row in the index carries a **full-width 3px progress bar** under its next-entry line.
+- ~~A task list's row in the index carries a **full-width 3px progress bar** under its next-entry line.~~
+  ***Done 2026-09-10, walked on the device*** ("Weekend errands", 1 of 4, measured 244 of 975 points
+  filled - a quarter exactly). Beside "Done: 1 of 4" rather than instead of it: the words are the exact
+  answer and the bar is the one a column of lists is read at.
+
+  **Not MAUI's `ProgressBar`.** That draws Android's, whose track is a mid-grey the platform picks and
+  offers no way to change - `BackgroundColor` does not reach it - and three points of `#686565` across a
+  card reads as a rule between two things rather than as an empty bar. It is two `BoxView`s, the second
+  in a Grid whose columns are the fraction in star units (`ProgressColumnsConverter`). A `MultiBinding`
+  of the track's measured `Width` and the fraction was tried first and never drew the filled half at
+  all; star units need no measurement, so nothing has to be laid out before the bar is right.
 - An entry's row is: circle, text, category chip, and its own **⋯ menu** - the app has no per-row menu
   on a task list.
 - The list's title menu: Generate inventory, Refresh inventory, Edit, Share…, Delete list.
@@ -238,8 +248,14 @@ about them is under "Screens already built" below.
   shelf's own rows make - and is blank on a locked private inventory, because what it holds is exactly
   what being private keeps back. The "copy" tag moved onto the name's line beside it while the row was
   open, as the notes list's did.
-- A shelf row's note under the name is **coloured by what it says** - "Out — on Weekend errands" reads
-  differently from "Running low".
+- ~~A shelf row's note under the name is **coloured by what it says** - "Out — on Weekend errands" reads
+  differently from "Running low".~~ **Deliberately not built.** The design's note is a status it makes
+  up from the quantity ("Out of stock" / "Running low" / "In stock", coloured when the last is not
+  true), and it is the only place its shelf says so. The app's shelf says it on the number itself - the
+  amount goes bold and warning-coloured when it is under its minimum - and what sits under the name
+  there is facts the design has no notion of: what kind of thing it is, its minimum, when it expires,
+  when the batch arrived. A "Running low" line under a number already coloured for being low is the
+  same fact twice.
 
 ### Contacts and a conversation
 

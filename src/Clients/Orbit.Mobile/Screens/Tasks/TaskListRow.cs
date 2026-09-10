@@ -46,6 +46,19 @@ public sealed record TaskListRow(
     /// </summary>
     public bool HasCardMenu => !IsSharedWithMe;
 
+    /// <summary>
+    /// How much of the list is done, as the bar across the foot of its row draws it. Beside
+    /// <see cref="Progress"/> rather than instead of it: the words are the exact answer and the bar is
+    /// the one a column of lists is read at, which is why the design has both.
+    /// </summary>
+    public double CompletedFraction => ItemCount == 0 ? 0 : (double)CompletedCount / ItemCount;
+
+    /// <summary>
+    /// Whether that bar is worth drawing. A list with nothing on it yet gets none: an empty track over
+    /// an empty list says "none of this is done", which is not what having no work means.
+    /// </summary>
+    public bool HasProgress => ItemCount > 0;
+
     /// <param name="everyList">
     /// What else the phone holds, so a row that only points at another list can be looked up on the list
     /// it points at rather than skipped.
