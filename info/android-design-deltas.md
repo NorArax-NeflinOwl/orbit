@@ -242,11 +242,22 @@ about them is under "Screens already built" below.
 - The month grid's cell is 44 tall, the number with a **4px dot underneath** for a day that has
   something on it; today is a tint wash, the chosen day an inset accent ring. Two different marks for
   two different things.
-- The day view is an **hour rail**: 07:00 to 21:00 at 52px an hour, labels 44 wide right-aligned with a
+- ~~The day view is an **hour rail**: 07:00 to 21:00 at 52px an hour, labels 44 wide right-aligned with a
   hairline running off them, events absolutely placed with a 3px left border in the event's colour, and
-  a short event laid out in a row rather than a column so its title and time sit side by side.
-- Under it, an **"All day"** group with hairline rows and, when there is nothing, "Nothing all day." in
-  italic.
+  a short event laid out in a row rather than a column so its title and time sit side by side.~~
+  ***Done, and the hours are the user's own decision rather than the design's*** (2026-09-10, walked on
+  the device). **Midnight to midnight, all twenty-four, every day** - not the design's 07:00 to 21:00
+  and not the hours the day happens to use, which is what it drew before. A clock whose length changes
+  with what is on it cannot be read at a glance, because nine o'clock is somewhere different on every
+  day of the week. The screen opens scrolled to the day's first thing instead, which answers the
+  objection the cropping existed for without moving the hours about.
+- ~~Under it, an **"All day"** group with hairline rows and, when there is nothing, "Nothing all day." in
+  italic.~~ ***Done 2026-09-10, walked on the device.*** And it holds more than the design's: **anything
+  on the day with no hour to be drawn at**, which on this app means all-day events *and* deadlines - the
+  calendar files a deadline by its date alone (see `CalendarListEntry.For(CalendarDeadline)`), so it has
+  no place on a clock either. Without that they would have vanished from the day view entirely, because
+  the day view now shows the clock and this list **and nothing else**: the list of the whole period that
+  every other view draws under the grid would be the same things a second time.
 - ~~The month and year views share one list under the grid: a 58-wide date column (weekday and day over
   the time), a 3px colour bar, then title over place.~~ ***Done 2026-09-10, walked on the device***
   ("Thu 10" over "9:00 AM", the accent bar, then "Dentist" over "Marszałkowska, Warszawa, Poland").

@@ -206,33 +206,88 @@
                         SemanticProperties.Description="{controls:Translate 'Starts'}" />
         </Grid>
 
-        <!-- The chosen day on the clock, under the grid that chose it. Orbit.Web swaps its grid for this
-             because it has a sidebar to pick the next day from; a phone has only the grid, so the two
-             stack. Built in code-behind for the reason MapPage gives about its pins: where a block goes
-             is a layout measurement, and keeping that out of the view model is what leaves the
-             placement testable - see CalendarDayTimeline. -->
-        <VerticalStackLayout Grid.Row="3" Spacing="6" IsVisible="{Binding HasDayTimeline}">
+        <Label Grid.Row="3" Text="{Binding Message}" IsVisible="{Binding HasMessage}"
+               LineBreakMode="WordWrap" VerticalOptions="End" Style="{StaticResource ErrorLabel}" />
+
+        <!-- The chosen day: the whole clock, midnight to midnight, and under it the things that have no
+             hour to be drawn at. Nothing else - the list of the period every other view draws would be
+             the same things again, one under the other.
+
+             The clock is always twenty-four hours. It used to be cropped to the hours something was in,
+             and a clock whose length changes with what is on it cannot be read at a glance, because
+             nine o'clock is somewhere different on every day of the week. The screen opens scrolled to
+             the day's first thing instead, which answers the same objection without moving the hours.
+
+             Built in code-behind for the reason MapPage gives about its pins: where a block goes is a
+             layout measurement, and keeping that out of the view model is what leaves the placement
+             testable - see CalendarDayTimeline. -->
+        <ScrollView x:Name="DayScroll" Grid.Row="4" IsVisible="{Binding HasDayTimeline}">
+            <VerticalStackLayout Spacing="6" Padding="0,0,0,24">
                 <!-- The hours down the left, the day itself beside them. Blocks are placed with
                      proportional widths, because how wide a lane is depends on a measurement this page
-                     does not have until it is laid out. As tall as the day needs and no taller - see
-                     CalendarDayTimeline.HoursWorthDrawing. -->
+                     does not have until it is laid out. -->
                 <Grid x:Name="DayClock" ColumnDefinitions="42,*">
                     <Grid x:Name="HourLabels" Grid.Column="0" />
                     <AbsoluteLayout x:Name="DayBlocks" Grid.Column="1" />
                 </Grid>
-                <!-- What has no hour, under the clock rather than over it: the clock is what the day
-                     view is, and a row of all-day things above it pushed the morning off the screen. -->
-                <FlexLayout x:Name="AllDayRow" Wrap="Wrap" Direction="Row" />
-        </VerticalStackLayout>
 
-        <Label Grid.Row="3" Text="{Binding Message}" IsVisible="{Binding HasMessage}"
-               LineBreakMode="WordWrap" VerticalOptions="End" Style="{StaticResource ErrorLabel}" />
+                <!-- What is on this day and not at a time: an all-day event, and anything falling due,
+                     which the calendar files by its date alone. Hairline rows under a small-caps
+                     heading, which is what the design draws under its own day. -->
+                <VerticalStackLayout Spacing="0" Margin="0,10,0,0">
+                    <Label Text="{controls:Translate 'All day'}" Style="{StaticResource FieldLabel}"
+                           Margin="0,0,0,8" />
+
+                    <Label Text="{controls:Translate 'Nothing all day.'}" Padding="0,10"
+                           IsVisible="{Binding HasNothingWithoutAnHour}" Style="{StaticResource EmptyHint}" />
+
+                    <VerticalStackLayout Spacing="0" BindableLayout.ItemsSource="{Binding WithoutAnHour}">
+                        <BindableLayout.ItemTemplate>
+                            <DataTemplate x:DataType="screens:CalendarListEntry">
+                                <Grid ColumnDefinitions="8,*,Auto" ColumnSpacing="12" Padding="0,11">
+                                    <Grid.GestureRecognizers>
+                                        <TapGestureRecognizer
+                                            Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=ViewModel.OpenListedCommand, x:DataType=calendar:CalendarPage}"
+                                            CommandParameter="{Binding .}" />
+                                    </Grid.GestureRecognizers>
+
+                                    <BoxView Grid.ColumnSpan="3" Style="{StaticResource Hairline}"
+                                             VerticalOptions="Start" Margin="0,-11,0,0" />
+
+                                    <!-- A dot rather than the list's own bar: there is no date column
+                                         here for it to stand beside, and a day is one day. -->
+                                    <Ellipse Grid.Column="0" WidthRequest="8" HeightRequest="8"
+                                             VerticalOptions="Center"
+                                             Fill="{Binding Colour, Converter={StaticResource EventColour}}" />
+
+                                    <Label Grid.Column="1" Text="{Binding Headline}" FontSize="14"
+                                           VerticalOptions="Center" LineBreakMode="TailTruncation">
+                                        <Label.Triggers>
+                                            <DataTrigger TargetType="Label" Binding="{Binding IsDone}" Value="True">
+                                                <Setter Property="TextDecorations" Value="Strikethrough" />
+                                                <Setter Property="TextColor"
+                                                        Value="{AppThemeBinding Light={StaticResource TertiaryTextLight}, Dark={StaticResource TertiaryTextDark}}" />
+                                            </DataTrigger>
+                                        </Label.Triggers>
+                                    </Label>
+
+                                    <Label Grid.Column="2" Text="{Binding Where}" IsVisible="{Binding HasWhere}"
+                                           FontSize="12" VerticalOptions="Center"
+                                           LineBreakMode="TailTruncation" Style="{StaticResource ItemCardFooter}" />
+                                </Grid>
+                            </DataTemplate>
+                        </BindableLayout.ItemTemplate>
+                    </VerticalStackLayout>
+                </VerticalStackLayout>
+            </VerticalStackLayout>
+        </ScrollView>
 
         <!-- One list, whatever kind of thing is on it. Appointments and deadlines answer the same
              question - what is happening in this period - and two lists one under the other made the
              reader merge them by eye, in a period where they interleave by definition. Orbit.Web's
              calendar draws them together for the same reason - see CalendarListEntry. -->
-        <RefreshView Grid.Row="4" IsRefreshing="{Binding IsRefreshing}" Command="{Binding LoadCommand}">
+        <RefreshView Grid.Row="4" IsVisible="{Binding IsNotShowingOneDay}"
+                     IsRefreshing="{Binding IsRefreshing}" Command="{Binding LoadCommand}">
             <CollectionView ItemsSource="{Binding Listed}"
                             SelectionMode="Single"
                             SelectionChangedCommand="{Binding OpenListedCommand}"

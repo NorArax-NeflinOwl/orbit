@@ -927,6 +927,8 @@ public static class PolishTranslations
         ["{0} shared an inventory with you"] = "{0} udostępnił(a) Ci magazyn",
         ["{0} shared their location with you"] = "{0} udostępnił(a) Ci swoje położenie",
         ["All day"] = "Cały dzień",
+        // Under the day's clock, where what has no hour goes - see CalendarViewModel.WithoutAnHour.
+        ["Nothing all day."] = "Nic na cały dzień.",
         ["Shared by"] = "Udostępnił",
         ["Messages"] = "Wiadomości",
         ["Conversations"] = "Rozmowy",

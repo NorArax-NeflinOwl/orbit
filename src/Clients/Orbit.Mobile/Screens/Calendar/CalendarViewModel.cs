@@ -110,19 +110,36 @@ public sealed partial class CalendarViewModel : ObservableObject
     /// </summary>
     public ObservableCollection<DayBlock> DayBlocks { get; } = [];
 
-    /// <summary>What has no hour to be drawn at, in a row of its own under the clock.</summary>
-    public ObservableCollection<DayBlock> AllDayBlocks { get; } = [];
+    /// <summary>
+    /// Whether the clock is what this screen is showing. The whole day, every time, empty or not - a
+    /// day with nothing on it is an answer, and an empty clock says it more plainly than a line of
+    /// text would.
+    /// </summary>
+    public bool HasDayTimeline => IsShowingOneDay;
 
-    /// <summary>Nothing on a day is worth an empty clock: the list beneath already says so.</summary>
-    public bool HasDayTimeline => IsShowingOneDay && (DayBlocks.Count > 0 || AllDayBlocks.Count > 0);
+    /// <summary>
+    /// What is on the chosen day with no hour to be drawn at: an all-day event, and anything falling
+    /// due, which the calendar files by its date alone - see CalendarListEntry.For(CalendarDeadline).
+    /// They go in a list under the clock rather than on it, because there is nowhere on a clock to put
+    /// a thing that is not at a time.
+    ///
+    /// The day view shows this and the clock and nothing else. The list of the whole period, which every
+    /// other view draws beneath the grid, would be the same things again a second time.
+    /// </summary>
+    public ObservableCollection<CalendarListEntry> WithoutAnHour { get; } = [];
+
+    public bool HasNothingWithoutAnHour => WithoutAnHour.Count == 0;
+
+    /// <summary>Which of the two lists under the grid is showing - see WithoutAnHour.</summary>
+    public bool IsNotShowingOneDay => !IsShowingOneDay;
 
     /// <summary>The twelve months of the year being shown, for the year overview. See CalendarYear.</summary>
     public ObservableCollection<CalendarYearMonth> Months { get; } = [];
 
     public IReadOnlyList<string> WeekdayNames => CalendarMonth.WeekdayNames(_translations);
 
-    /// <summary>The stretch of the clock the day view draws - see CalendarDayTimeline.</summary>
-    public (int FirstHour, int LastHour) HoursOnShow => CalendarDayTimeline.HoursWorthDrawing(DayBlocks);
+    /// <summary>Where the day should open, so the reader is not looking at the small hours.</summary>
+    public int FirstHourWorthLookingAt => CalendarDayTimeline.FirstHourWorthLookingAt(DayBlocks);
 
     /// <summary>
     /// Fills the grid from what was last read - so switching between the week and the month is a redraw
@@ -539,6 +556,7 @@ public sealed partial class CalendarViewModel : ObservableObject
 
         OnPropertyChanged(nameof(PeriodLabel));
         OnPropertyChanged(nameof(IsShowingOneDay));
+        OnPropertyChanged(nameof(IsNotShowingOneDay));
         OnPropertyChanged(nameof(HasDayTimeline));
     }
 
@@ -567,6 +585,16 @@ public sealed partial class CalendarViewModel : ObservableObject
         {
             Listed.Add(entry);
         }
+
+        // The half of the day that has no hour - see WithoutAnHour. Taken from the same list rather
+        // than gathered separately, so it obeys the same order and the same "what is over" rule.
+        WithoutAnHour.Clear();
+        foreach (var entry in Listed.Where(entry => entry.Event is not { IsAllDay: false }))
+        {
+            WithoutAnHour.Add(entry);
+        }
+
+        OnPropertyChanged(nameof(HasNothingWithoutAnHour));
     }
 
     partial void OnSortOrderChanged(CalendarListSortOrder value)
@@ -605,17 +633,14 @@ public sealed partial class CalendarViewModel : ObservableObject
     private void ShowTheChosenDay(IReadOnlyList<LocalCalendarEvent> events)
     {
         DayBlocks.Clear();
-        AllDayBlocks.Clear();
         if (SelectedDay is not { } day)
         {
             return;
         }
 
-        foreach (var block in CalendarDayTimeline.AllDayOn(day, events, _translations))
-        {
-            AllDayBlocks.Add(block);
-        }
-
+        // Only what has an hour. What has not is under the clock rather than on it - see WithoutAnHour,
+        // which takes it off the day's own list so that a deadline, which has no hour either, is there
+        // beside the all-day events instead of being left off the day view altogether.
         foreach (var block in CalendarDayTimeline.Build(day, events, _translations))
         {
             DayBlocks.Add(block);
