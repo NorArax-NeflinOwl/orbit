@@ -98,7 +98,10 @@ every entity type, not just folders.
 
 ## Environment facts confirmed this session
 
-Everything in `orbit-mobile-5.md` still holds. Plus:
+The handovers this one used to chain to (orbit-mobile-2 to -5) were deleted on 2026-09-10 once their
+work was merged; what was reusable in them is in
+[testing-and-running-locally.md](../testing-and-running-locally.md#driving-the-android-app-by-hand),
+[android-ui-parity.md](../android-ui-parity.md) and `.claude/skills/`. What this session added:
 
 - **`dotnet build -t:Install` does not re-push assemblies on a second run with unchanged sources.**
   Delete `obj/Debug/net10.0-android/upload.flag` and `.../devices.cache` first, or the emulator keeps

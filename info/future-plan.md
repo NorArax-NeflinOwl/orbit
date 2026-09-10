@@ -392,8 +392,8 @@ since been closed; what is left is recorded below with the same honesty about wh
   now: `WebClientBaseUrl` on `orbit-api` holds `orbit-web`'s own address, set 2026-09-04 so a
   shared-item email carries a link. What is still open is recording it somewhere a reader of this
   repository can find, rather than having to ask Azure for it.
-- **A production environment beside the test one.** Agreed on 2026-09-04 (see
-  `info/sessions/orbit-ops-2.md`): the environment running today becomes *test* and keeps its
+- **A production environment beside the test one.** Agreed with the user on 2026-09-04: the
+  environment running today becomes *test* and keeps its
   auto-deploy, a new resource group with a custom domain becomes *production*, and production installs
   the same `sha-<commit>` image that ran on test, from a release queue (a `workflow_dispatch` that
   writes the tag and the time to `deploy/production-schedule.json`, and a cron that applies it when
