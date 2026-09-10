@@ -100,16 +100,16 @@ public static class PolishTranslations
         ["What"] = "Co",
         ["{0} of what this needs is short."] = "Brakuje pozycji: {0}.",
         ["Everything this list needs is on the shelf."] = "Wszystko, czego ta lista potrzebuje, jest na stanie.",
-        ["That storage is already measured against another list."] =
+        ["That inventory is already measured against another list."] =
             "Ten magazyn jest już mierzony względem innej listy.",
-        ["Couldn't measure this list against that storage. Try again."] =
+        ["Couldn't measure this list against that inventory. Try again."] =
             "Nie udało się zmierzyć tej listy względem tego magazynu. Spróbuj ponownie.",
         ["Not measured against an inventory"] = "Bez porównania z magazynem",
         ["Try again"] = "Spróbuj ponownie",
-        ["Storage this list is measured against"] = "Magazyn, względem którego mierzona jest ta lista",
+        ["Inventory this list is measured against"] = "Magazyn, względem którego mierzona jest ta lista",
         ["An inventory entry then describes a product to put on that shelf."] =
             "Pozycja typu inwentarz opisuje wtedy produkt, który ma trafić na tę półkę.",
-        ["This list already has a storage."] = "Ta lista ma już magazyn.",
+        ["This list already has an inventory."] = "Ta lista ma już magazyn.",
         ["Goes on the shelf in {0} when this list is saved, named after this entry."] =
             "Trafi na półkę w: {0} przy zapisie tej listy, pod nazwą tej pozycji.",
         // The phone saves one entry at a time, so its moment is the entry's save rather than the list's.
@@ -304,7 +304,7 @@ public static class PolishTranslations
         ["Code"] = "Kod",
         ["One code per part of Orbit. Whoever deployed this Orbit has them - they are generated when it is built, and change every time it is."] = "Jeden kod na każdą część Orbita. Ma je ten, kto wdrożył tego Orbita — powstają przy budowaniu i zmieniają się z każdą kolejną.",
         ["Unlock code"] = "Kod odblokowujący",
-        ["Handing a note, task list, event or storage to somebody else."] = "Przekazanie komuś notatki, listy zadań, wydarzenia lub magazynu.",
+        ["Handing a note, task list, event or inventory to somebody else."] = "Przekazanie komuś notatki, listy zadań, wydarzenia lub magazynu.",
         ["Conversations with more than one other person."] = "Rozmowy z więcej niż jedną osobą.",
         ["Conversations with one other person."] = "Rozmowy z jedną osobą.",
         ["Recording where you are, sharing it, and seeing where others are."] = "Zapisywanie swojej pozycji, udostępnianie jej i podgląd cudzych.",
@@ -908,7 +908,7 @@ public static class PolishTranslations
         ["Export everything"] = "Wyeksportuj wszystko",
         ["Task lists"] = "Listy zadań",
         ["Calendar events"] = "Wydarzenia w kalendarzu",
-        ["Storages"] = "Magazyny",
+        ["Inventories"] = "Magazyny",
         ["Export"] = "Eksport",
         ["Import"] = "Import",
         ["Danger zone"] = "Strefa niebezpieczna",
@@ -1112,7 +1112,7 @@ public static class PolishTranslations
         ["What this browser reports about Orbit itself. Kept on this device."] =
             "Co ta przeglądarka raportuje o samym Orbicie. Zapamiętywane na tym urządzeniu.",
         ["Kept on this device, because a browser grants location per device."] = "Zapamiętywane na tym urządzeniu, bo przeglądarka przyznaje dostęp do położenia osobno na każdym.",
-        ["Everything you own — notes, task lists, events and storages — as one JSON file, and back again."] =
+        ["Everything you own — notes, task lists, events and inventories — as one JSON file, and back again."] =
             "Wszystko, co masz — notatki, listy zadań, wydarzenia i magazyny — w jednym pliku JSON i z powrotem.",
         ["Master switch for everything below, and for the notifications panel itself."] = "Główny przełącznik dla wszystkiego poniżej i dla samego panelu powiadomień.",
         ["Instant alerts for new messages, event reminders and overdue tasks, even while Orbit isn't open."] =
@@ -1148,7 +1148,6 @@ public static class PolishTranslations
         ["Note"] = "Notatka",
         ["Task list"] = "Lista zadań",
         ["Event"] = "Wydarzenie",
-        ["Storage"] = "Magazyn",
         // "Inventory" is not repeated here: it is already among the section names above, and it is the
         // same word in Polish either way.
         ["Checklist"] = "Lista kontrolna",
@@ -1252,9 +1251,9 @@ public static class PolishTranslations
         ["That file didn't contain an Orbit export."] = "Ten plik nie zawiera eksportu z Orbita.",
         ["Orbit couldn't read that file. It may have been written by a different version."] =
             "Orbit nie potrafi odczytać tego pliku. Mógł go zapisać inna wersja aplikacji.",
-        ["Exported {0} notes, {1} task lists, {2} events and {3} storages."] =
+        ["Exported {0} notes, {1} task lists, {2} events and {3} inventories."] =
             "Wyeksportowano: notatki ({0}), listy zadań ({1}), wydarzenia ({2}), magazyny ({3}).",
-        ["Imported {0} notes, {1} task lists, {2} events and {3} storages."] =
+        ["Imported {0} notes, {1} task lists, {2} events and {3} inventories."] =
             "Zaimportowano: notatki ({0}), listy zadań ({1}), wydarzenia ({2}), magazyny ({3}).",
         ["That didn't work. Reload the group and try again."] = "Nie udało się. Odśwież grupę i spróbuj ponownie.",
         ["That message is no longer yours to delete."] = "Tej wiadomości nie możesz już usunąć.",

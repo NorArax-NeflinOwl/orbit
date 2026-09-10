@@ -995,7 +995,7 @@ else
                 // The picker leaves out what is already spoken for, so this is a shelf that was taken
                 // between the page loading and the choice being made. Said out loud rather than left as
                 // a select that snaps back for no visible reason.
-                _inventoryMessage = T["That storage is already measured against another list."];
+                _inventoryMessage = T["That inventory is already measured against another list."];
                 _linkedInventoryId = _sections.Count > 0
                     ? _sections[0].TaskList.LinkedInventoryId?.ToString() ?? string.Empty
                     : string.Empty;
@@ -1007,7 +1007,7 @@ else
         catch (HttpRequestException exception)
         {
             Logger.LogError(exception, "Failed to measure task list {TaskListId} against an inventory", Id);
-            _inventoryMessage = T["Couldn't measure this list against that storage. Try again."];
+            _inventoryMessage = T["Couldn't measure this list against that inventory. Try again."];
         }
     }
 

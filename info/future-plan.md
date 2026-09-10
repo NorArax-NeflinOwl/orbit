@@ -596,12 +596,12 @@ inventory lists, the contacts tabs, the chat menus - is built and needs no schem
   server id, so the next edit is a second try; or a mark on the row the list can draw, with "send again"
   under its menu. Neither is small enough to fold into the fix that made this visible.
 
-- **Options still calls an inventory a "storage".** The export and import half of `Options.razor`
-  says "notes, task lists, events and storages", the tick-box is labelled `T["Storages"]`, and the
-  two result lines count "{3} storages" - with the Polish strings in `PolishTranslations.cs` to
-  match ("Magazyny"). Everywhere else the word has been Inventory since PR #196, including the tab
-  the same page sits beside. Noticed on 2026-09-10 while walking the web on Windows; a rename of
-  four strings and their translations, kept off that day's change because it was about nginx.
+- ~~**Options still calls an inventory a "storage".**~~ Done on 2026-09-10, and it was wider than the
+  export section: eleven English strings across both clients still said storage - the task editor's
+  picker and its two refusals, the checklist's, the shared-link page's kind label, the account screen's
+  export tick-box and its two result lines, and the locked-feature message. Renamed with their Polish
+  keys in the same change, since a key renamed on one side alone falls back to English on a Polish
+  screen. The two that talk about a *browser's* local storage were left alone: that is what they mean.
 
 - **A Location entry says where in words, and cannot be drawn.** `TaskItemKind.Location` was added on
   2026-09-10 so an entry can say where without saying when, and what it carries is `TaskItem.Location` -

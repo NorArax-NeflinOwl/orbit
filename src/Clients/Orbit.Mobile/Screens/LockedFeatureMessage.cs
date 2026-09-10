@@ -23,7 +23,7 @@ public static class LockedFeatureMessage
             => translations["Recording where you are. Sharing it, or seeing somebody else's, also needs contacts."],
         ApplicationPermission.Debug
             => translations["What Orbit reports about itself - the Debugger settings, the captured log, and the detail behind an error."],
-        _ => translations["Handing a note, task list, event or storage to somebody else."]
+        _ => translations["Handing a note, task list, event or inventory to somebody else."]
     };
 
     /// <summary>The permission's own name, for a list that has to distinguish them.</summary>
