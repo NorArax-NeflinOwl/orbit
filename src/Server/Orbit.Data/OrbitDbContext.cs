@@ -13,6 +13,9 @@ public sealed class OrbitDbContext : DbContext
     public DbSet<NoteEntity> Notes => Set<NoteEntity>();
     public DbSet<NoteShareEntity> NoteShares => Set<NoteShareEntity>();
     public DbSet<FolderEntity> Folders => Set<FolderEntity>();
+
+    /// <summary>Somewhere on the map worth keeping - see Orbit.Core.Places.Place.</summary>
+    public DbSet<PlaceEntity> Places => Set<PlaceEntity>();
     public DbSet<TaskEntity> Tasks => Set<TaskEntity>();
     public DbSet<TaskShareEntity> TaskShares => Set<TaskShareEntity>();
     public DbSet<CalendarEventEntity> CalendarEvents => Set<CalendarEventEntity>();
@@ -107,6 +110,38 @@ public sealed class OrbitDbContext : DbContext
                 .HasDefaultValue(nameof(Orbit.Core.Folders.FolderScope.Tasks));
             // Folders are only ever read one account at a time - the tabs on that account's own pages.
             entity.HasIndex(folder => folder.UserId);
+        });
+
+        modelBuilder.Entity<PlaceEntity>(entity =>
+        {
+            entity.HasKey(place => place.Id);
+            entity.Property(place => place.Name).IsRequired().HasMaxLength(StoredTextLimits.Title);
+            entity.Property(place => place.Description).IsRequired().HasMaxLength(StoredTextLimits.EventDescription)
+                .HasDefaultValue(string.Empty);
+            // Matches CalendarEventEntity.LocationAddress, since it holds the same sort of thing.
+            entity.Property(place => place.Address).IsRequired().HasMaxLength(StoredTextLimits.Address)
+                .HasDefaultValue(string.Empty);
+            entity.Property(place => place.Colour).IsRequired().HasMaxLength(StoredTextLimits.Color)
+                .HasDefaultValue(string.Empty);
+            entity.Property(place => place.Priority).IsRequired().HasMaxLength(20)
+                .HasDefaultValue(nameof(Orbit.Core.Abstractions.ItemPriority.Normal));
+
+            // The lists it belongs to, owned by the place and deleted with it - the same shape a task
+            // entry's own links take.
+            entity.HasMany(place => place.TaskLists)
+                .WithOne()
+                .HasForeignKey(link => link.PlaceId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            // Places are only ever read one account at a time, most recently changed first - which is
+            // also what the delta cursor asks for.
+            entity.HasIndex(place => new { place.UserId, place.UpdatedAtUtc });
+        });
+
+        modelBuilder.Entity<PlaceTaskListLinkEntity>(entity =>
+        {
+            // One row per place-and-list pair; the position orders them within a place.
+            entity.HasKey(link => new { link.PlaceId, link.TaskListId });
         });
 
         modelBuilder.Entity<NoteShareEntity>(entity =>

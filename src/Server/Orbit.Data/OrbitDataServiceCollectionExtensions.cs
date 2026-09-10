@@ -12,6 +12,7 @@ using Orbit.Core.Location;
 using Orbit.Core.Inventories;
 using Orbit.Core.Inventories.ExpiryReminders;
 using Orbit.Core.Notes;
+using Orbit.Core.Places;
 using Orbit.Core.Permissions;
 using Orbit.Core.Notifications;
 using Orbit.Core.Sharing;
@@ -51,6 +52,7 @@ public static class OrbitDataServiceCollectionExtensions
         services.AddScoped<IUserPermissionRepository, UserPermissionRepository>();
         services.AddScoped<IPermissionCodeRepository, PermissionCodeRepository>();
         services.AddScoped<INoteRepository, NoteRepository>();
+        services.AddScoped<IPlaceRepository, PlaceRepository>();
         services.AddScoped<IFolderRepository, FolderRepository>();
         services.AddScoped<INoteShareRepository, NoteShareRepository>();
         services.AddScoped<ITaskRepository, TaskRepository>();

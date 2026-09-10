@@ -64,6 +64,14 @@ classDiagram
         +Guid UserId
         +string Name
     }
+    class Place {
+        +Guid Id
+        +Guid UserId
+        +string Name
+        +EventLocation Where
+        +ItemPriority Priority
+        +IReadOnlyList~Guid~ TaskListIds
+    }
     class Note {
         +Guid Id
         +Guid UserId

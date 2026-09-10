@@ -969,6 +969,38 @@ flush puts both on the request. Before that, a share offered from a phone and wi
 left its invitation in the conversation, still offering an "Accept" that answered "no such share" — the
 grant was gone, and only the message about it stayed.
 
+## Places
+
+**A place is somewhere on the map worth keeping, on its own account** (2026-09-10,
+`Orbit.Core.Places.Place`, `OP_PLACES`, `/api/places`). Orbit knew two kinds of place before this and
+neither was one: an appointment's, which exists because the appointment does and goes when it goes, and
+a person's shared position, which is where somebody is this minute. Neither answers "the good bakery",
+"where we park", "the flat we are viewing on Saturday" — somewhere a reader wants to keep and be taken
+back to, with no date on it and nobody standing there.
+
+It carries **what it is called, what was written about it, where it is, what colour its pin takes, how
+much it matters, and the task lists it belongs to**. The last is how a place joins the work it is about
+— the bakery belongs to the shopping list — and is what makes it more than a pin. The address and the
+point are the calendar's own shape (`EventLocation`) rather than a second one: a place is a place, and
+two records of what one is would be two ways for a pin to end up somewhere else.
+
+**One owner for the row's whole life, shared with nobody**, so "yours" is the whole of its access
+control: every handler scopes its read by the caller, and a request for somebody else's place answers
+exactly as one for an id that never existed — telling the two apart would say whether an id exists.
+Deleting one writes a `SyncTombstone` like every other module's delete, so a client holding its own copy
+learns it is gone rather than keeping it forever, and `GET /api/places/changes?since=` is the delta that
+carries both halves.
+
+The lists a place belongs to are **not a foreign key**: a list deleted afterwards leaves an id pointing
+at nothing, and a reader treats that as "a list nobody here can see", the same way a task entry's own
+links are treated. Saving replaces those rows wholesale rather than diffing them — the shape that
+produced "0 rows affected" on the task lists when it was left to the change tracker.
+
+**Nothing about a place is sealed**, and it takes no `null`-means-not-provided fields: one form writes
+every one of them, so a missing field is a client that meant to clear it. That is the opposite of the
+rule a task entry's newer fields follow, and deliberately so — those exist because two clients disagree
+about what an entry carries, and nothing but this form has ever written a place.
+
 ## Private notes and task lists
 
 A note or task list can be marked **private**, which means exactly one thing: only its creator can ever

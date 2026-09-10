@@ -40,6 +40,9 @@ public sealed class AccountDeletionRepository : IAccountDeletionRepository
         // After the notes and before nothing in particular: a folder holds no rows of its own, so
         // whatever was filed in it is already gone by the time this runs.
         await _dbContext.Folders.Where(folder => folder.UserId == userId).ExecuteDeleteAsync(cancellationToken);
+        // The lists a place belonged to go with it through the cascade on that relationship, the same
+        // way a task list's entries do - see OrbitDbContext.
+        await _dbContext.Places.Where(place => place.UserId == userId).ExecuteDeleteAsync(cancellationToken);
         await _dbContext.Tasks.Where(task => task.UserId == userId).ExecuteDeleteAsync(cancellationToken);
         await _dbContext.CalendarEvents.Where(calendarEvent => calendarEvent.UserId == userId).ExecuteDeleteAsync(cancellationToken);
         await _dbContext.RefreshTokens.Where(refreshToken => refreshToken.UserId == userId).ExecuteDeleteAsync(cancellationToken);

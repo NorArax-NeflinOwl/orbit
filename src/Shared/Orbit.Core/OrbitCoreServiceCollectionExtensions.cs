@@ -76,6 +76,13 @@ using Orbit.Core.Notes.GetNoteById;
 using Orbit.Core.Notes.GetNoteShareStatus;
 using Orbit.Core.Notes.GetNotes;
 using Orbit.Core.Notes.MoveNoteToFolder;
+using Orbit.Core.Places;
+using Orbit.Core.Places.CreatePlace;
+using Orbit.Core.Places.DeletePlace;
+using Orbit.Core.Places.DuplicatePlace;
+using Orbit.Core.Places.GetPlaceById;
+using Orbit.Core.Places.GetPlaces;
+using Orbit.Core.Places.UpdatePlace;
 using Orbit.Core.Notes.ReleaseNoteLock;
 using Orbit.Core.Notes.SetNotePinned;
 using Orbit.Core.Notes.ShareNote;
@@ -186,6 +193,14 @@ public static class OrbitCoreServiceCollectionExtensions
         services.AddScoped<IRequestHandler<AcquireNoteLockCommand, EditOutcome>, AcquireNoteLockCommandHandler>();
         services.AddScoped<IRequestHandler<ReleaseNoteLockCommand, bool>, ReleaseNoteLockCommandHandler>();
         services.AddScoped<IRequestHandler<MoveNoteToFolderCommand, bool>, MoveNoteToFolderCommandHandler>();
+
+        // Somewhere on the map worth keeping, on its own account - see Orbit.Core.Places.Place.
+        services.AddScoped<IRequestHandler<CreatePlaceCommand, Guid>, CreatePlaceCommandHandler>();
+        services.AddScoped<IRequestHandler<UpdatePlaceCommand, bool>, UpdatePlaceCommandHandler>();
+        services.AddScoped<IRequestHandler<DeletePlaceCommand, bool>, DeletePlaceCommandHandler>();
+        services.AddScoped<IRequestHandler<DuplicatePlaceCommand, Guid?>, DuplicatePlaceCommandHandler>();
+        services.AddScoped<IRequestHandler<GetPlacesQuery, IReadOnlyList<Place>>, GetPlacesQueryHandler>();
+        services.AddScoped<IRequestHandler<GetPlaceByIdQuery, Place?>, GetPlaceByIdQueryHandler>();
 
         // The tabs every page made of cards is drawn under - see Orbit.Core.Folders.Folder.
         services.AddScoped<IRequestHandler<GetFoldersQuery, IReadOnlyList<Folder>>, GetFoldersQueryHandler>();

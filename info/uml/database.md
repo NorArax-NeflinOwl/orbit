@@ -239,6 +239,47 @@ should this shopping list contain", the other "has this been bought yet" — and
 `OL_TASKS_ITEMS` is the item-to-list link, and is why a task item can stand for work tracked on other
 lists. `TaskListLinkValidator` is what stops one being made into a cycle of its own.
 
+## Places, which belong to nothing but the map
+
+```mermaid
+erDiagram
+    OS_USERS ||--o{ OP_PLACES : keeps
+    OP_PLACES ||--o{ OL_PLACES_TASKS : "belongs to lists"
+    OP_TASKS ||--o{ OL_PLACES_TASKS : "has places"
+
+    OP_PLACES {
+        uuid OP_P_ID PK
+        uuid OP_P_USERID FK
+        text OP_P_NAME
+        text OP_P_DESCRIPTION
+        text OP_P_ADDRESS "empty = only a point"
+        float OP_P_LATITUDE
+        float OP_P_LONGITUDE
+        text OP_P_COLOUR "empty = whatever a place is drawn in"
+        text OP_P_PRIORITY "ItemPriority by name"
+    }
+    OL_PLACES_TASKS {
+        uuid OL_PT_PLACEID PK
+        uuid OL_PT_TASKLISTID PK "no FK - a list deleted since reads as one nobody can see"
+        int OL_PT_POSITION
+    }
+```
+
+**A place is somewhere worth keeping on its own account** (`Orbit.Core.Places.Place`). Orbit knew two
+kinds of place before it and neither was one: an appointment's, which exists because the appointment does
+and goes when it goes, and a person's shared position, which is where somebody is this minute. Neither
+answers "the good bakery" or "where we park".
+
+It has **one owner for the row's whole life and is shared with nobody**, which makes "yours" the whole of
+its access control - every handler scopes its read by `UserId` and a request for somebody else's answers
+exactly as one for an id that never existed. Deleting one writes a `SyncTombstone`, so a client holding
+its own copy learns it is gone.
+
+`OL_PLACES_TASKS` is how a place joins the work it is about - the bakery belongs to the shopping list.
+**No foreign key to `OP_TASKS`**, deliberately: a list deleted afterwards leaves an id pointing at
+nothing, and a reader treats that as "a list nobody here can see", the same way a task entry's own links
+are treated (`OL_TASKS_ITEMS`).
+
 ## Chat, which the server stores but cannot read
 
 ```mermaid

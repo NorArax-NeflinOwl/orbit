@@ -25,6 +25,9 @@ public static class SyncEntityType
     public const string CalendarEvent = "CalendarEvent";
     public const string Inventory = "Inventory";
 
+    /// <summary>Somewhere on the map worth keeping - see Orbit.Core.Places.Place.</summary>
+    public const string Place = "Place";
+
     /// <summary>
     /// One entry in the in-app notification feed. Unlike the four above, nothing ever writes a tombstone
     /// for one - an entry leaves only by outliving its retention window, which a client works out from
