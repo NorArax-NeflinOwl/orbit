@@ -2041,6 +2041,7 @@ public static class PolishTranslations
             "Zapisano. Nic na Twój temat nie trafi z Orbita do innej witryny.",
 
         // The phone's map screen: opening somebody else's shared position in the phone's own map app.
+        ["Open in Maps"] = "Otwórz w Mapach",
         ["Take me there"] = "Zaprowadź mnie tam",
         ["The app on this device"] = "Aplikacja na tym urządzeniu",
         ["Only the first stays on this device. The rest open somebody else's service."] =
