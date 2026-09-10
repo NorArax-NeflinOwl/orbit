@@ -939,6 +939,13 @@ dashboard, the checklist view and the calendar all receive a readable DTO withou
 happened. Content that can no longer be opened renders with an "Unreadable — encrypted with an older
 key" title rather than throwing, so one lost item doesn't take a whole list down.
 
+**Which is why a private note is listed under its own title** (2026-09-10). The notes page and the
+editor's column printed "Private note" for every one of them, on the belief that the page held no key -
+it does not need one, the API client has already opened the note by then. A column of identical rows is
+a list nobody can read; the dashboard and the phone have both always shown the real title (`NoteListItem`
+hides it only while private items are *locked*). "Private note" is still what a note with no title at
+all is called.
+
 **A private list's entries carry ids of their own, and until 2026-09-07 they did not.** Everything
 inside the payload was sealed with `Guid.Empty` for its id, which cost nothing while nothing addressed
 an entry: the server keeps no item rows for a private list, so there was nothing for an id to point at.

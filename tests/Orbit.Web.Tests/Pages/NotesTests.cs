@@ -280,6 +280,40 @@ public sealed class NotesTests : OrbitTestContext
         Services.AddSingleton(new NotesApiClient(new HttpClient(handler) { BaseAddress = new Uri("https://example.test/") }));
     }
 
+    /// <summary>
+    /// A private note is named by its own title like any other. It travels sealed and this browser opens
+    /// it on the way in (NotesApiClient.OpenIfPrivateAsync), so by the time the page has it the title is
+    /// there to show - the page used to print "Private note" for every one of them, which left a column
+    /// of identical rows nobody could tell apart.
+    /// </summary>
+    [Fact]
+    public void A_private_note_is_listed_under_its_own_title()
+    {
+        RegisterNotesApiClient([Note("Passport") with { IsPrivate = true }, Note("Shopping")]);
+        // A sealed note is in Private, which is where somebody looking for it goes - see BuiltInFolder.
+        Services.GetRequiredService<FolderState>().Choose(FolderPage.Notes, FolderKey.Of(BuiltInFolder.Private));
+
+        var cut = RenderComponent<Web.Pages.Notes>();
+
+        Assert.Contains("Passport", cut.Markup);
+        Assert.DoesNotContain("Private note", cut.Markup);
+    }
+
+    /// <summary>
+    /// The fallback is still there for a note with no title at all - and for one sealed under a key pair
+    /// that has since been replaced, which arrives already saying so and says it here.
+    /// </summary>
+    [Fact]
+    public void A_note_with_no_title_is_still_named_for_what_it_is()
+    {
+        RegisterNotesApiClient([Note(string.Empty) with { IsPrivate = true }]);
+        Services.GetRequiredService<FolderState>().Choose(FolderPage.Notes, FolderKey.Of(BuiltInFolder.Private));
+
+        var cut = RenderComponent<Web.Pages.Notes>();
+
+        Assert.Contains("Private note", cut.Markup);
+    }
+
     private static NoteDto Note(string title, params string[] lines)
         => new(
             Guid.NewGuid(), title,

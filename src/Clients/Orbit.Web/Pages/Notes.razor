@@ -136,12 +136,19 @@
         => note.Content.FirstOrDefault(line => !string.IsNullOrWhiteSpace(line.Text));
 
     /// <summary>
-    /// What to call a note in the list. A private one travels with its title empty - the real one is
-    /// sealed inside its payload, which this page holds no key for - so it is named for what it is
-    /// rather than shown as a blank row.
+    /// What to call a note in the list. A private one is named by its own title like any other: it
+    /// travels sealed, and this browser opens it on the way in (see NotesApiClient.OpenIfPrivateAsync),
+    /// so the title is here to show. It used to read "Private note" for every one of them, on the belief
+    /// that the page held no key - which left a column of identical rows nobody could tell apart, and
+    /// the phone has never done it (see NoteListItem, which hides a title only while private items are
+    /// locked).
+    ///
+    /// The fallback is still there for the two cases that have no title to show: a note nobody has named
+    /// yet, and one sealed under a key pair that has since been replaced - that one arrives already
+    /// saying so, and says it here.
     /// </summary>
     private string NameOf(NoteDto note)
-        => note.IsPrivate || string.IsNullOrWhiteSpace(note.Title) ? T["Private note"] : note.Title;
+        => string.IsNullOrWhiteSpace(note.Title) ? T["Private note"] : note.Title;
 
     /// <summary>
     /// When it last changed, said the way somebody would say it. Within the last week the weekday is
