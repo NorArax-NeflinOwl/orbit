@@ -193,6 +193,8 @@ erDiagram
         bool OP_TI_ISCOMPLETED
         bool OP_TI_ISFAILED "crossed out rather than ticked - never both"
         text OP_TI_KIND
+        text OP_TI_PRIORITY "the entry's own, beside the list's"
+        text OP_TI_COLOUR "empty means: drawn in whatever its kind is"
         uuid OP_TI_LINKEDCALENDAREVENTID
         uuid OP_TI_LINKEDINVENTORYITEMID
         bool OP_TI_REMINDDAILY

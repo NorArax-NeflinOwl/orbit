@@ -257,5 +257,11 @@ public sealed class TaskListSynchronizer
             // now writes as well as reads (see TaskItemEditor.WaitsFor). Always a list rather than null:
             // an entry sending none means "none" and clears its steps, which is what taking one off in
             // the form has to mean.
-            item.AllWaitsForTaskItemIds)).ToList();
+            item.AllWaitsForTaskItemIds,
+            // How the entry is drawn and how much it matters, passed through as they came - this phone
+            // has no boxes for either yet, and null is what tells the server to leave the stored answers
+            // alone. Sending them as they arrived is what makes that rule unnecessary rather than
+            // relied upon, the same way the product above travels untouched.
+            item.Priority,
+            item.Colour)).ToList();
 }

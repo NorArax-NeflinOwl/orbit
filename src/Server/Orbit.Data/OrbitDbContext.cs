@@ -160,6 +160,12 @@ public sealed class OrbitDbContext : DbContext
                 .HasDefaultValue(nameof(Orbit.Core.Tasks.TaskItemKind.Checklist));
             // Matches CalendarEventEntity.LocationAddress, since it holds the same sort of thing.
             entity.Property(item => item.Location).IsRequired().HasMaxLength(StoredTextLimits.Address).HasDefaultValue(string.Empty);
+            // How much the entry matters and what colour it is drawn in. Both defaulted so every row
+            // written before they existed reads as "nobody said" rather than null - see TaskEntity's own
+            // Priority, and CalendarEventEntity.Color for the shape a colour takes.
+            entity.Property(item => item.Priority).IsRequired().HasMaxLength(20)
+                .HasDefaultValue(nameof(Orbit.Core.Abstractions.ItemPriority.Normal));
+            entity.Property(item => item.Colour).IsRequired().HasMaxLength(StoredTextLimits.Color).HasDefaultValue(string.Empty);
 
             // The lists this entry stands for. Owned by the entry and deleted with it, like the entries
             // themselves are owned by their list.

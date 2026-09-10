@@ -74,7 +74,11 @@ public sealed record TaskItemRequest(
     /// is stored alone, which is what a client written before steps existed sends; an empty list means
     /// "none", and clears them. The same rule the categories and the description follow.
     /// </summary>
-    IReadOnlyList<Guid>? WaitsForTaskItemIds = null)
+    IReadOnlyList<Guid>? WaitsForTaskItemIds = null,
+    /// <inheritdoc cref="TaskItemDto.Priority"/>
+    string? Priority = null,
+    /// <inheritdoc cref="TaskItemDto.Colour"/>
+    string? Colour = null)
 {
     /// <summary>Whichever shape the sender used, read as one - see <see cref="LinkedTaskListIds"/>.</summary>
     public IReadOnlyList<Guid> AllLinkedTaskListIds
@@ -116,5 +120,8 @@ public sealed record TaskItemRequest(
             // is how "unchanged" is said for this field.
             item.Notes,
             item.IsFailed,
-            item.AllWaitsForTaskItemIds);
+            item.AllWaitsForTaskItemIds,
+            // As they came, null included, for the reason Notes above gives.
+            item.Priority,
+            item.Colour);
 }

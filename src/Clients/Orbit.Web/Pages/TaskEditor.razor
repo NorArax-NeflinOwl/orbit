@@ -218,6 +218,38 @@ else
                                 </select>
                             </label>
                         }
+                        @* How much this one matters and what colour it is drawn in. The list has a
+                           priority of its own and this is not it: a list of ten errands usually has one
+                           that has to happen and nine that can wait, and until now saying so meant
+                           splitting the list in two. Beside Move to list and Waits for, because all
+                           three are true of every kind of entry - see TaskItem.Priority. *@
+                        <label>@T["Entry priority"]
+                            <select value="@item.Priority"
+                                    @onchange="args => item.Priority = args.Value?.ToString() ?? item.Priority"
+                                    aria-label="@(T["Entry priority"])">
+                                <option value="Low">@T["Low"]</option>
+                                <option value="Normal">@T["Normal"]</option>
+                                <option value="High">@T["High"]</option>
+                            </select>
+                        </label>
+                        @* The same colour well an appointment is given (see EventFields), and beside it
+                           the way back out of it: a colour input always holds a colour, and "no colour
+                           of its own" is a real answer here - an entry nobody chose one for is drawn in
+                           whatever its kind is drawn in, and a default would quietly overrule that. The
+                           way out is only offered once there is something to undo. *@
+                        <label>@T["Entry colour"]
+                            <span class="field-with-note">
+                                <input type="color" value="@(item.Colour.Length > 0 ? item.Colour : DefaultEntryColour)"
+                                       aria-label="@(T["Entry colour"])"
+                                       @onchange="args => item.Colour = args.Value?.ToString() ?? item.Colour" />
+                                @if (item.Colour.Length > 0)
+                                {
+                                    <button type="button" class="btn-secondary" @onclick="() => item.Colour = string.Empty">
+                                        @T["No colour of its own"]
+                                    </button>
+                                }
+                            </span>
+                        </label>
                         @* The order the work on this list has to be done in - "hang the door" after "fit
                            the hinges". The entry cannot be ticked until every step it names is; crossing
                            it out is still allowed, because giving up on something blocked by a step that
@@ -902,6 +934,13 @@ else
         => item.LinkedTaskListIds.Remove(taskListId);
 
     /// <summary>
+    /// What the colour well opens on for an entry that has no colour of its own - the same blue every
+    /// other screen falls back to for one (see CalendarDayGrid.EventColor). Only what the control shows:
+    /// nothing is stored until somebody actually picks.
+    /// </summary>
+    private const string DefaultEntryColour = "#4a90d9";
+
+    /// <summary>
     /// The entries this one could wait for: the others on this list, minus the ones it already waits
     /// for and minus itself. Nothing is checked for a chain that comes back round - an entry waiting on
     /// something that waits on it can never be ticked, and neither can be ticked to begin with, so the
@@ -1193,6 +1232,10 @@ else
                                 LinkedTaskListIds = [.. item.AllLinkedTaskListIds],
                                 Categories = [.. CategoriesOf(item)],
                                 Notes = item.AllNotes,
+                                // Both may be absent from an entry stored before they existed, and both
+                                // then read as "nobody said" rather than as a hole - see TaskItemDto.
+                                Priority = item.Priority ?? nameof(ItemPriority.Normal),
+                                Colour = item.Colour ?? string.Empty,
                                 OverdueNotificationChannel = item.OverdueNotificationChannel,
                                 RemindDaily = item.RemindDaily,
                                 DailyReminderNotificationChannel = item.DailyReminderNotificationChannel,
@@ -2154,7 +2197,12 @@ else
                 ProductAsked(item),
                 item.Notes,
                 item.IsFailed,
-                item.WaitsForTaskItemIds))
+                item.WaitsForTaskItemIds,
+                // This client speaks both, so it always says them: null would mean "leave what is
+                // stored", which is the answer for a client that has no box for them - see
+                // TaskItemDto.Priority.
+                item.Priority,
+                item.Colour))
             .ToList();
 
     /// <summary>
@@ -2556,6 +2604,12 @@ else
         public DateOnly? DueDate { get; set; }
         public TimeOnly? DueTime { get; set; }
         public bool IsCompleted { get; set; }
+
+        /// <summary>How much this entry matters, which is its own answer rather than the list's - see TaskItem.Priority.</summary>
+        public string Priority { get; set; } = nameof(ItemPriority.Normal);
+
+        /// <summary>What colour it is drawn in, or empty for "whatever this kind is drawn in" - see TaskItem.Colour.</summary>
+        public string Colour { get; set; } = string.Empty;
 
         /// <summary>Crossed out rather than ticked off - see Orbit.Core.Tasks.TaskItem.IsFailed.</summary>
         public bool IsFailed { get; set; }

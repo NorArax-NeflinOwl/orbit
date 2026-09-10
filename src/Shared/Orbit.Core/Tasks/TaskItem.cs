@@ -1,3 +1,4 @@
+using Orbit.Core.Abstractions;
 using Orbit.Core;
 using Orbit.Core.Notifications;
 
@@ -132,6 +133,20 @@ public sealed class TaskItem
     /// </summary>
     public TaskItemProduct? Product { get; private set; }
 
+    /// <summary>
+    /// How much this entry matters. The list it is on has one of its own and this is not it: a list of
+    /// ten errands usually has one that has to happen and nine that can wait, and until now the only way
+    /// to say so was to split the list in two.
+    /// </summary>
+    public ItemPriority Priority { get; private set; }
+
+    /// <summary>
+    /// What colour this entry is drawn in, as the reader chose it - the same shape a calendar event's
+    /// colour takes (see CalendarEventDetails.Color), and empty for an entry nobody chose one for, which
+    /// every screen reads as "whatever this kind is drawn in".
+    /// </summary>
+    public string Colour { get; private set; }
+
     /// <summary>When this entry speaks up and where - see <see cref="TaskItemReminders"/>.</summary>
     public TaskItemReminders Reminders { get; private set; }
 
@@ -156,11 +171,14 @@ public sealed class TaskItem
         Guid id, string description, DateTimeOffset? dueDateUtc, bool isCompleted, IReadOnlyList<Guid>? linkedTaskListIds,
         TaskItemReminders? reminders, TaskItemSubject? subject, IReadOnlyList<string>? categories,
         TaskItemProduct? product, string? notes, bool isFailed = false,
-        IReadOnlyList<Guid>? waitsForTaskItemIds = null)
+        IReadOnlyList<Guid>? waitsForTaskItemIds = null,
+        ItemPriority priority = ItemPriority.Normal, string? colour = null)
     {
         Id = id;
         Description = description;
         Notes = notes ?? string.Empty;
+        Priority = priority;
+        Colour = (colour ?? string.Empty).Trim();
         DueDateUtc = dueDateUtc;
         IsCompleted = isCompleted;
         // Three states out of two flags, settled in the one place every entry is built: a tick wins over
@@ -262,6 +280,17 @@ public sealed class TaskItem
     public void KeepNotesOf(TaskItem stored) => Notes = stored.Notes;
 
     /// <summary>
+    /// The same for how an entry is drawn and how much it matters, when a request said nothing about
+    /// either - see UpdateTaskListCommand.EntriesKeepingTheirLook. One method for the two because no
+    /// client sends one without the other: a client either knows about them or does not.
+    /// </summary>
+    public void KeepLookOf(TaskItem stored)
+    {
+        Priority = stored.Priority;
+        Colour = stored.Colour;
+    }
+
+    /// <summary>
     /// Points this entry at the shelf item it turned out to be about - what generating a storage from a
     /// list does to the entries it built that storage from (see
     /// GenerateInventoryFromTaskListCommandHandler). The description it carried is dropped in the same
@@ -292,7 +321,8 @@ public sealed class TaskItem
         string description, DateTimeOffset? dueDateUtc, bool isCompleted, IReadOnlyList<Guid>? linkedTaskListIds = null,
         TaskItemReminders? reminders = null, TaskItemSubject? subject = null, IReadOnlyList<string>? categories = null,
         TaskItemProduct? product = null, string? notes = null, bool isFailed = false,
-        IReadOnlyList<Guid>? waitsForTaskItemIds = null)
+        IReadOnlyList<Guid>? waitsForTaskItemIds = null,
+        ItemPriority priority = ItemPriority.Normal, string? colour = null)
     {
         // Here rather than in the constructor, which FromPersistence also uses: a row already stored
         // fits by definition, and rejecting one on the way back out would make an old entry unreadable
@@ -315,10 +345,13 @@ public sealed class TaskItem
             StoredTextLimits.OrRefuse(category, StoredTextLimits.Category, "product's category");
         }
 
+        StoredTextLimits.OrRefuse(colour ?? string.Empty, StoredTextLimits.Color, "task entry's colour");
+
         var standsOnItsOwn = linkedTaskListIds is null || linkedTaskListIds.Count == 0;
         return new TaskItem(
             Guid.NewGuid(), description, dueDateUtc, standsOnItsOwn && isCompleted, linkedTaskListIds,
-            reminders, subject, categories, product, notes, standsOnItsOwn && isFailed, waitsForTaskItemIds);
+            reminders, subject, categories, product, notes, standsOnItsOwn && isFailed, waitsForTaskItemIds,
+            priority, colour);
     }
 
     /// <summary>
@@ -329,7 +362,7 @@ public sealed class TaskItem
     public TaskItem WithNewId()
         => new(
             Guid.NewGuid(), Description, DueDateUtc, IsCompleted, LinkedTaskListIds,
-            Reminders, Subject, Categories, Product, Notes, IsFailed, WaitsForTaskItemIds);
+            Reminders, Subject, Categories, Product, Notes, IsFailed, WaitsForTaskItemIds, Priority, Colour);
 
     /// <summary>
     /// Rebuilds a checklist entry from already-known values, bypassing the completion override above -
@@ -340,10 +373,11 @@ public sealed class TaskItem
         Guid id, string description, DateTimeOffset? dueDateUtc, bool isCompleted, IReadOnlyList<Guid>? linkedTaskListIds,
         TaskItemReminders? reminders, TaskItemSubject? subject = null, IReadOnlyList<string>? categories = null,
         TaskItemProduct? product = null, string? notes = null, bool isFailed = false,
-        IReadOnlyList<Guid>? waitsForTaskItemIds = null)
+        IReadOnlyList<Guid>? waitsForTaskItemIds = null,
+        ItemPriority priority = ItemPriority.Normal, string? colour = null)
         => new(
             id, description, dueDateUtc, isCompleted, linkedTaskListIds, reminders, subject, categories, product,
-            notes, isFailed, waitsForTaskItemIds);
+            notes, isFailed, waitsForTaskItemIds, priority, colour);
 
     /// <summary>
     /// Takes the tick back off an entry that may not carry one yet, because something it waits for is

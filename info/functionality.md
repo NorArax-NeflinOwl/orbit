@@ -289,6 +289,19 @@ something is in is decided from what it already is, and the first that applies w
 written down in [the scope cuts](future-plan.md#known-scope-cuts-and-rough-edges) because it reads like
 an omission rather than a decision, and because undoing it would be a migration rather than a checkbox.
 
+**An entry has a priority and a colour of its own** (2026-09-10, `OP_TI_PRIORITY`, `OP_TI_COLOUR`,
+`TaskItem.Priority`/`Colour`). The list has a priority and this is not it: a list of ten errands usually
+has one that has to happen and nine that can wait, and until now saying so meant splitting the list in
+two. The colour is the same shape a calendar event's is, chosen in the same colour well, and **empty
+means "no colour of its own"** - such an entry is drawn in whatever its kind is drawn in, so the form
+offers a way back out of a colour once one has been picked rather than pretending a default is an answer.
+
+Both are offered on **every kind of entry**, beside Move to list and Waits for, and both follow the
+**null-means-not-provided** rule (`UpdateTaskListCommand.EntriesKeepingTheirLook`) - the fifth field to.
+They travel together because a client either knows about both or about neither: an entry sending one of
+the two is taken at its word about that one and keeps nothing. The phone has no boxes for them yet and
+passes them through exactly as they arrived, which makes that rule unnecessary rather than relied upon.
+
 **A list holding only a daily chore is "Due again", not "Overdue"** (`TaskListStatus.DueAgain`,
 2026-09-10). A chore that repeats every day keeps one due date that never moves, so the moment it passed
 the list read *late* for as long as the chore existed - and it is not late, it is due again, which is

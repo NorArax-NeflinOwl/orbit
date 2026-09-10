@@ -916,6 +916,61 @@ public sealed class TaskEditorItemFormTests : OrbitTestContext
     }
 
     /// <summary>
+    /// An entry has a priority of its own now. The list has one and this is not it: a list of ten
+    /// errands usually has one that has to happen and nine that can wait, and until now saying so meant
+    /// splitting the list in two.
+    /// </summary>
+    [Fact]
+    public void An_entry_carries_a_priority_of_its_own()
+    {
+        RegisterApiClients(AnItem());
+        var cut = Render();
+        ExpandTheOnlyItem(cut);
+
+        cut.Find(".editor-item select[aria-label=\"Entry priority\"]").Change("High");
+        ClickButtonSaying(cut, "Save");
+
+        var items = JsonDocument.Parse(_lastSavedJson!).RootElement.GetProperty("items");
+        Assert.Equal("High", items[0].GetProperty("priority").GetString());
+    }
+
+    /// <summary>And a colour of its own, which travels as the reader chose it.</summary>
+    [Fact]
+    public void An_entry_carries_a_colour_of_its_own()
+    {
+        RegisterApiClients(AnItem());
+        var cut = Render();
+        ExpandTheOnlyItem(cut);
+
+        cut.Find(".editor-item input[type=color]").Change("#cc4a3f");
+        ClickButtonSaying(cut, "Save");
+
+        var items = JsonDocument.Parse(_lastSavedJson!).RootElement.GetProperty("items");
+        Assert.Equal("#cc4a3f", items[0].GetProperty("colour").GetString());
+    }
+
+    /// <summary>
+    /// With a way back out of it, offered only once there is something to undo: a colour input always
+    /// holds a colour, and "no colour of its own" is a real answer - such an entry is drawn in whatever
+    /// its kind is drawn in, and a default here would quietly overrule that.
+    /// </summary>
+    [Fact]
+    public void A_colour_can_be_taken_off_an_entry_again()
+    {
+        RegisterApiClients(AnItem());
+        var cut = Render();
+        ExpandTheOnlyItem(cut);
+        Assert.DoesNotContain("No colour of its own", cut.Markup, StringComparison.Ordinal);
+
+        cut.Find(".editor-item input[type=color]").Change("#cc4a3f");
+        ClickButtonSaying(cut, "No colour of its own");
+        ClickButtonSaying(cut, "Save");
+
+        var items = JsonDocument.Parse(_lastSavedJson!).RootElement.GetProperty("items");
+        Assert.Equal(string.Empty, items[0].GetProperty("colour").GetString());
+    }
+
+    /// <summary>
     /// Only a list with something on it a shelf could be about is offered one - see
     /// GeneratedInventorySource. On a list of plain errands the entry was an offer to build an empty
     /// storage and quietly point the list at it.

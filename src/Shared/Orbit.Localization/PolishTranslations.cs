@@ -324,6 +324,10 @@ public static class PolishTranslations
         ["Amount"] = "Ilość",
         ["Min"] = "Min",
         ["Priority"] = "Priorytet",
+        // The entry's own, beside the list's - see Orbit.Core.Tasks.TaskItem.Priority.
+        ["Entry priority"] = "Ważność wpisu",
+        ["Entry colour"] = "Kolor wpisu",
+        ["No colour of its own"] = "Bez własnego koloru",
         ["Low"] = "Niski",
         ["Normal"] = "Zwykły",
         ["High"] = "Wysoki",
