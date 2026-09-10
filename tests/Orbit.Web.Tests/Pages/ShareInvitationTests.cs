@@ -159,6 +159,27 @@ public sealed class ShareInvitationTests : OrbitTestContext
         Assert.Contains("doesn't know about", cut.Markup);
     }
 
+    /// <summary>
+    /// A kind this page has no branch for is the same answer, and this is the one that used to be
+    /// wrong: `location` parses to a real SharedItemKind, so the page drew an offer and its Accept
+    /// posted this share's id to the *inventory* endpoint - the accept switch ended in a catch-all that
+    /// meant Inventory. The server answers "no such share", and the reader is told the invitation is no
+    /// longer there: a wrong answer that reads like a plausible one. Somebody's shared position never
+    /// reaches this page today (its notification goes to /map, carrying no pending share id), which is
+    /// why nothing was broken - a sixth kind would be.
+    /// </summary>
+    [Fact]
+    public void A_kind_this_page_cannot_take_up_says_so_rather_than_accepting_something_else()
+    {
+        _isAccepted = false;
+
+        var cut = Render("location");
+
+        Assert.Contains("doesn't know about", cut.Markup);
+        Assert.DoesNotContain(cut.FindAll("button"), button => button.TextContent.Contains("Accept"));
+        Assert.Empty(_postedTo);
+    }
+
     private IRenderedComponent<ShareInvitation> Render(string kind)
         => RenderComponent<ShareInvitation>(parameters => parameters
             .Add(page => page.Kind, kind)

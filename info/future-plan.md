@@ -634,17 +634,11 @@ inventory lists, the contacts tabs, the chat menus - is built and needs no schem
   finished" for the status it produces, and that status is still not among `TaskListView.Statuses`, so
   no chip finds one; it is reachable under "all", the same as on the web.
 
-- **The invitation page treats "any other kind" as an inventory.** `ShareInvitation.AcceptAsync` and
-  `DescribeKind` both end in a `_` that means Inventory, and `SharedItemKind` has a fifth member -
-  `Location`. Nothing is broken today and this is written down rather than fixed for exactly that
-  reason: a location share passes `SharedItemLink.TheMap`, which carries no pending share id, so
-  `SharedItemNotifier.UrlFor` sends it to `/map` and it never reaches this page. What makes it worth
-  recording is what happens if that ever changes, or if a sixth kind arrives: pressing **Accept** would
-  post the share's id to the *inventory* accept endpoint, which answers "no such share", and the page
-  would say the invitation is no longer there - a wrong answer that reads like a plausible one. The page
-  already has the right branch for this ("something this version of Orbit doesn't know about"); the fix
-  whenever somebody is in there is to name Inventory explicitly and send everything else down it.
-  Noticed 2026-09-07 while reviewing what the invitation page does with each kind.
+- ~~**The invitation page treats "any other kind" as an inventory.**~~ Fixed on 2026-09-10, the way this
+  said: `ShareInvitation.CanBeTakenUpHere` names the five kinds the page can act on and answers null for
+  anything else, so a kind with no branch of its own goes down the "something this version of Orbit
+  doesn't know about" path instead of posting a share id to the *inventory* accept endpoint and being
+  told it is no longer there. `location` is the case that used to be wrong and is covered by a test.
 
 - **The checklist matches entries by position when it no longer has to.** `ToggleItemAsync` saves the
   whole list back and finds the entry it changed by its index, on the grounds that "a save regenerates

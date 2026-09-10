@@ -96,10 +96,26 @@
     private string _sharedByName = string.Empty;
     private string? _errorMessage;
 
+    /// <summary>
+    /// The kinds this page can actually take up, and null for anything else - which the card above then
+    /// says out loud, exactly as it does for a path this build cannot read at all.
+    ///
+    /// Written as a list rather than left to the accept switch's catch-all, which used to mean Inventory:
+    /// a kind with no branch of its own would have posted this share's id to the *inventory* accept
+    /// endpoint, been answered "no such share", and told the reader the invitation was no longer there -
+    /// a wrong answer that reads like a plausible one. `Location` is the fifth kind today and never
+    /// arrives here (its notification goes to `/map`, carrying no pending share id); a sixth would.
+    /// </summary>
+    private static SharedItemKind? CanBeTakenUpHere(SharedItemKind? kind)
+        => kind is SharedItemKind.Note or SharedItemKind.TaskList or SharedItemKind.CalendarEvent
+            or SharedItemKind.Inventory or SharedItemKind.Place
+            ? kind
+            : null;
+
     protected override async Task OnParametersSetAsync()
     {
         _isLoading = true;
-        _kind = SharedItemPath.KindOf(Kind);
+        _kind = CanBeTakenUpHere(SharedItemPath.KindOf(Kind));
         if (_kind is not { } kind)
         {
             _isLoading = false;
@@ -177,7 +193,10 @@
                 SharedItemKind.TaskList => await TasksApiClient.AcceptTaskListShareAsync(ShareId),
                 SharedItemKind.CalendarEvent => await CalendarApiClient.AcceptCalendarEventShareAsync(ShareId),
                 SharedItemKind.Place => await PlacesApiClient.AcceptPlaceShareAsync(ShareId),
-                _ => await InventoryApiClient.AcceptInventoryShareAsync(ShareId)
+                // Named rather than a catch-all: see CanBeTakenUpHere, which is what stops any other
+                // kind reaching this switch at all.
+                SharedItemKind.Inventory => await InventoryApiClient.AcceptInventoryShareAsync(ShareId),
+                _ => false
             };
 
             if (!accepted)
@@ -218,6 +237,7 @@
         SharedItemKind.TaskList => T["a task list"],
         SharedItemKind.CalendarEvent => T["an event"],
         SharedItemKind.Place => T["a place"],
+        // As above: only the kinds CanBeTakenUpHere lets through ever reach this.
         _ => T["an inventory"]
     };
 }
