@@ -555,16 +555,6 @@ inventory lists, the contacts tabs, the chat menus - is built and needs no schem
 
 ## Noticed while working
 
-- **Only a checklist entry can be told to wait for another.** The picker sits inside the
-  `item.Kind == Checklist` branch of `TaskEditor.razor`, beside "Stands for these lists" - so an entry
-  that describes a product or raises an appointment cannot be put in order behind another, even though
-  the rule that enforces it (`Orbit.Core.Tasks.TaskListSteps`) reads `WaitsForTaskItemIds` off every
-  entry whatever its kind, and the column holds it for all of them. "Buy milk after going to the shop"
-  is an ordinary thing to want. What it would take: the picker and its chips lifted out of that branch
-  into the part of the form every kind draws - which is not simply a move, because the two notification
-  fields under it are inside the same branch and the other kinds have their own. Noticed 2026-09-10
-  while walking the browser; nothing is broken, the field is simply offered on one kind out of three.
-
 - **Nobody has found out why the map's Start and Share do nothing on a phone.** Both are hidden below
   680px as of 2026-09-09 (`.map-panel-start`, `.map-panel-share`), on a report that pressing them
   achieves nothing there, and the page says so in one line instead. That is a cover, not a fix: the

@@ -862,6 +862,42 @@ public sealed class TaskEditorItemFormTests : OrbitTestContext
     }
 
     /// <summary>
+    /// Whatever the entry is. The picker used to sit among the checklist fields, so an entry that
+    /// describes a product or raises an appointment could not be put in order behind another - although
+    /// TaskListSteps reads the field off every entry whatever its kind, and the column holds it for all
+    /// of them. "Buy milk after going to the shop" is an ordinary thing to want.
+    /// </summary>
+    [Theory]
+    [InlineData(nameof(TaskItemKind.Checklist))]
+    [InlineData(nameof(TaskItemKind.Inventory))]
+    [InlineData(nameof(TaskItemKind.Calendar))]
+    public void Any_kind_of_entry_can_be_made_to_wait_for_another(string kind)
+    {
+        RegisterApiClients(AnItem());
+        var cut = Render();
+
+        // A second entry, which the form unfolds as it adds - see AddItem - turned into the kind under
+        // test. The kind picker is the one select on an entry with no label of its own.
+        ClickButtonSaying(cut, "Add item");
+        cut.FindAll(".editor-item select").First(select => select.GetAttribute("aria-label") is null)
+            .Change(kind);
+
+        // Asked of the second entry's own form rather than of the page. Looking for the last "Waits
+        // for" on the page would find the first entry's - which is a checklist one and has always had
+        // it - so the test would pass with the field still missing from the entry it is about.
+        var theNewEntry = cut.FindAll(".editor-item").Skip(1).First();
+        theNewEntry.QuerySelectorAll("select")
+            .Single(select => select.GetAttribute("aria-label") == "Waits for")
+            .Change(ItemId.ToString());
+
+        // Read off the form rather than off a save: an appointment with no event details written is
+        // refused before it is sent, and what this is about is the field being offered at all.
+        Assert.Contains(
+            cut.FindAll(".editor-item").Skip(1).First().QuerySelectorAll(".linked-list-chips li span"),
+            chip => chip.TextContent.Contains("Buy milk", StringComparison.Ordinal));
+    }
+
+    /// <summary>
     /// Only a list with something on it a shelf could be about is offered one - see
     /// GeneratedInventorySource. On a list of plain errands the entry was an offer to build an empty
     /// storage and quietly point the list at it.

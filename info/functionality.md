@@ -312,8 +312,16 @@ copy, so nothing that was filed somewhere falls back to Public.
 **An entry can wait for other entries of the same list** (2026-09-09, `OL_TASKS_STEPS`,
 `TaskItem.WaitsForTaskItemIds`, the rule in `TaskListSteps`): "hang the door" after "fit the hinges".
 Chosen in the entry's own panel in the list's editor, from a picker offering the other entries on that
-list - a different field from **Stands for these lists** above it, which is one entry meaning whole other
-lists rather than the order the work here has to be done in.
+list - a different field from **Stands for these lists**, which is one entry meaning whole other lists
+rather than the order the work here has to be done in.
+
+**On every kind of entry** since 2026-09-10. The picker used to sit among the checklist fields, so an
+entry describing a product or raising an appointment could not be put in order behind another - although
+`TaskListSteps` reads the field off every entry whatever its kind, and the column has always held it for
+all of them; "buy milk after going to the shop" is an ordinary thing to want. It sits beside **Move to
+list** now, which is the other question about where an entry stands among the others and is likewise
+offered whatever the kind, and above the long kind-specific forms: after a whole event form it would be
+a field nobody scrolls to.
 
 **An entry waiting on unfinished work cannot be ticked.** Not refused with an error: the tick is taken
 back wherever a list is built or saved, the same way a linked entry's completion is ignored rather than

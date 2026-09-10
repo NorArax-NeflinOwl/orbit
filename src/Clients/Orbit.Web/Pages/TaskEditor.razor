@@ -218,6 +218,44 @@ else
                                 </select>
                             </label>
                         }
+                        @* The order the work on this list has to be done in - "hang the door" after "fit
+                           the hinges". The entry cannot be ticked until every step it names is; crossing
+                           it out is still allowed, because giving up on something blocked by a step that
+                           will never happen is exactly what somebody in that position needs. See
+                           TaskListSteps, which is where the rule is kept.
+
+                           Here rather than among the checklist fields below, where it used to be: the
+                           rule reads this off every entry whatever its kind, and "buy milk after going
+                           to the shop" is an ordinary thing to want of an entry that describes a
+                           product. Beside Move to list, which is the other question about where this
+                           entry stands among the others, and above the long kind-specific forms - after
+                           a whole event form it would be a field nobody scrolls to. *@
+                        <span class="field-break"></span>
+                        <label>@T["Waits for"]
+                            <select value="" @onchange="args => WaitForTheEntry(item, args.Value)"
+                                    aria-label="@(T["Waits for"])">
+                                <option value="">@(item.WaitsForTaskItemIds.Count > 0 ? T["Add another…"] : T["None"])</option>
+                                @foreach (var step in StepsAvailableTo(item))
+                                {
+                                    <option value="@step.Id">@Written(DescriptionOfEntry(step))</option>
+                                }
+                            </select>
+                        </label>
+                        @if (item.WaitsForTaskItemIds.Count > 0)
+                        {
+                            <span class="field-break"></span>
+                            <ul class="linked-list-chips">
+                                @foreach (var stepId in item.WaitsForTaskItemIds)
+                                {
+                                    <li>
+                                        <span>@Written(DescriptionOfEntry(stepId))</span>
+                                        <button type="button" class="icon-btn" title="@(T["Remove"])"
+                                                aria-label="@(T["Remove"])"
+                                                @onclick="() => StopWaitingForTheEntry(item, stepId)">✕</button>
+                                    </li>
+                                }
+                            </ul>
+                        }
                         @* A Calendar entry is an appointment rather than a pointer at one. Its fields are
                            the event's own, and saving the list is what makes the event - nothing has to
                            be linked by hand. See SaveTheCalendarAsync. *@
@@ -330,37 +368,6 @@ else
                                             <button type="button" class="icon-btn" title="@(T["Remove"])"
                                                     aria-label="@(T["Remove"])"
                                                     @onclick="() => UnlinkFromTheList(item, linkedId)">✕</button>
-                                        </li>
-                                    }
-                                </ul>
-                            }
-                            @* And an entry can wait for other entries of this same list - "hang the
-                               door" after "fit the hinges". A different thing from standing for other
-                               lists above it: that is one entry meaning whole lists, this is the order
-                               the work here has to be done in. It cannot be ticked until every step it
-                               names is - see TaskListSteps, which is where the rule is kept. *@
-                            <span class="field-break"></span>
-                            <label>@T["Waits for"]
-                                <select value="" @onchange="args => WaitForTheEntry(item, args.Value)"
-                                        aria-label="@(T["Waits for"])">
-                                    <option value="">@(item.WaitsForTaskItemIds.Count > 0 ? T["Add another…"] : T["None"])</option>
-                                    @foreach (var step in StepsAvailableTo(item))
-                                    {
-                                        <option value="@step.Id">@Written(DescriptionOfEntry(step))</option>
-                                    }
-                                </select>
-                            </label>
-                            @if (item.WaitsForTaskItemIds.Count > 0)
-                            {
-                                <span class="field-break"></span>
-                                <ul class="linked-list-chips">
-                                    @foreach (var stepId in item.WaitsForTaskItemIds)
-                                    {
-                                        <li>
-                                            <span>@Written(DescriptionOfEntry(stepId))</span>
-                                            <button type="button" class="icon-btn" title="@(T["Remove"])"
-                                                    aria-label="@(T["Remove"])"
-                                                    @onclick="() => StopWaitingForTheEntry(item, stepId)">✕</button>
                                         </li>
                                     }
                                 </ul>
