@@ -12,7 +12,11 @@ public sealed class OrbitDbContext : DbContext
 
     public DbSet<NoteEntity> Notes => Set<NoteEntity>();
     public DbSet<NoteShareEntity> NoteShares => Set<NoteShareEntity>();
+    public DbSet<PlaceShareEntity> PlaceShares => Set<PlaceShareEntity>();
     public DbSet<FolderEntity> Folders => Set<FolderEntity>();
+
+    /// <summary>Somewhere on the map worth keeping - see Orbit.Core.Places.Place.</summary>
+    public DbSet<PlaceEntity> Places => Set<PlaceEntity>();
     public DbSet<TaskEntity> Tasks => Set<TaskEntity>();
     public DbSet<TaskShareEntity> TaskShares => Set<TaskShareEntity>();
     public DbSet<CalendarEventEntity> CalendarEvents => Set<CalendarEventEntity>();
@@ -109,6 +113,49 @@ public sealed class OrbitDbContext : DbContext
             entity.HasIndex(folder => folder.UserId);
         });
 
+        modelBuilder.Entity<PlaceEntity>(entity =>
+        {
+            entity.HasKey(place => place.Id);
+            // Not required, unlike a note's title: a sealed place's readable name is empty by design, and
+            // the column that must be there instead is the ciphertext beside it.
+            entity.Property(place => place.Name).IsRequired().HasMaxLength(StoredTextLimits.Title)
+                .HasDefaultValue(string.Empty);
+            entity.Property(place => place.Description).IsRequired().HasMaxLength(StoredTextLimits.EventDescription)
+                .HasDefaultValue(string.Empty);
+            // Matches CalendarEventEntity.LocationAddress, since it holds the same sort of thing.
+            entity.Property(place => place.Address).IsRequired().HasMaxLength(StoredTextLimits.Address)
+                .HasDefaultValue(string.Empty);
+            entity.Property(place => place.Colour).IsRequired().HasMaxLength(StoredTextLimits.Color)
+                .HasDefaultValue(string.Empty);
+            entity.Property(place => place.Priority).IsRequired().HasMaxLength(20)
+                .HasDefaultValue(nameof(Orbit.Core.Abstractions.ItemPriority.Normal));
+
+            // The lists it belongs to, owned by the place and deleted with it - the same shape a task
+            // entry's own links take.
+            entity.HasMany(place => place.TaskLists)
+                .WithOne()
+                .HasForeignKey(link => link.PlaceId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            // Places are only ever read one account at a time, most recently changed first - which is
+            // also what the delta cursor asks for.
+            entity.HasIndex(place => new { place.UserId, place.UpdatedAtUtc });
+        });
+
+        modelBuilder.Entity<PlaceTaskListLinkEntity>(entity =>
+        {
+            // One row per place-and-list pair; the position orders them within a place.
+            entity.HasKey(link => new { link.PlaceId, link.TaskListId });
+        });
+
+        modelBuilder.Entity<PlaceShareEntity>(entity =>
+        {
+            entity.HasKey(share => share.Id);
+            // SharePlaceCommandHandler's duplicate check (PlaceShareRepository.FindExistingAsync) looks
+            // this pair up on every attempt - the same index NoteShareEntity carries below.
+            entity.HasIndex(share => new { share.SourcePlaceId, share.RecipientUserId });
+        });
+
         modelBuilder.Entity<NoteShareEntity>(entity =>
         {
             entity.HasKey(share => share.Id);
@@ -160,6 +207,12 @@ public sealed class OrbitDbContext : DbContext
                 .HasDefaultValue(nameof(Orbit.Core.Tasks.TaskItemKind.Checklist));
             // Matches CalendarEventEntity.LocationAddress, since it holds the same sort of thing.
             entity.Property(item => item.Location).IsRequired().HasMaxLength(StoredTextLimits.Address).HasDefaultValue(string.Empty);
+            // How much the entry matters and what colour it is drawn in. Both defaulted so every row
+            // written before they existed reads as "nobody said" rather than null - see TaskEntity's own
+            // Priority, and CalendarEventEntity.Color for the shape a colour takes.
+            entity.Property(item => item.Priority).IsRequired().HasMaxLength(20)
+                .HasDefaultValue(nameof(Orbit.Core.Abstractions.ItemPriority.Normal));
+            entity.Property(item => item.Colour).IsRequired().HasMaxLength(StoredTextLimits.Color).HasDefaultValue(string.Empty);
 
             // The lists this entry stands for. Owned by the entry and deleted with it, like the entries
             // themselves are owned by their list.

@@ -72,7 +72,7 @@ disagree about which tab a note is under. The browser draws them as tabs and the
 menu; that part stays each client's own.
 
 **The phone keeps its own model.** `Orbit.Mobile.Data` holds `LocalNote`, `LocalTaskList`,
-`LocalCalendarEvent`, `LocalInventory`, `LocalChatMessage`, `LocalFolder` and repositories over a local
+`LocalCalendarEvent`, `LocalInventory`, `LocalPlace`, `LocalChatMessage`, `LocalFolder` and repositories over a local
 SQLite database. Those are not implementations of `Orbit.Core`'s repository ports — they are a second store
 with a shape of its own, because a phone has to answer while offline and a server never does. The two
 are reconciled by the synchronisers rather than by sharing an interface (see [flows](flows.md)).

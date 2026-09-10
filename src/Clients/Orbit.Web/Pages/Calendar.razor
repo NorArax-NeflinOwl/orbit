@@ -73,7 +73,7 @@
            reader merge them by eye, in a period where they interleave by definition. *@
         @if (_events is null || _dueTasks is null)
         {
-            <p>@T["Loading…"]</p>
+            <Loading />
         }
         else if (ListedThings.Count == 0)
         {
@@ -215,10 +215,14 @@
             case CalendarViewMode.Day:
                 <CalendarDayGrid Grid="CalendarGridBuilder.BuildDayGrid(_viewState.ReferenceDate, EventsOnTheGrid, DueTasksOnTheGrid)" OnEventSelected="OpenTheEvent" OnTaskSelected="GoToDueTask" TickedOffEventIds="TickedOffEventIds" />
                 break;
-            @* The month grid with one row in it, so a week reads as a row of a month rather than as a
-               fourth thing to learn - see CalendarGridBuilder.BuildWeekGrid. *@
+            @* Seven timelines side by side - the day view's own layout, once per day - so a week says
+               when things are and not only that they are. It used to be a month grid with one row in
+               it, which put everything happening on a Tuesday into a list ordered by nothing a reader
+               could see. See CalendarGridBuilder.BuildWeekTimeline. *@
             case CalendarViewMode.Week:
-                <CalendarMonthGrid Weeks="CalendarGridBuilder.BuildWeekGrid(_viewState.ReferenceDate, EventsOnTheGrid, DueTasksOnTheGrid)" OnDaySelected="GoToDay" TickedOffEventIds="TickedOffEventIds" IsRoomy="true" />
+                <CalendarWeekGrid Timeline="CalendarGridBuilder.BuildWeekTimeline(_viewState.ReferenceDate, EventsOnTheGrid, DueTasksOnTheGrid)"
+                                  OnDaySelected="GoToDay" OnEventSelected="OpenTheEvent" OnTaskSelected="GoToDueTask"
+                                  TickedOffEventIds="TickedOffEventIds" />
                 break;
             case CalendarViewMode.Year:
                 <CalendarYearGrid Months="CalendarGridBuilder.BuildYearGrid(_viewState.ReferenceDate.Year, EventsOnTheGrid, _viewState.ShowDueTasksInYearView ? DueTasksOnTheGrid : [])" OnDaySelected="GoToDay" TickedOffEventIds="TickedOffEventIds" />
@@ -946,7 +950,10 @@
         {
             var start = CalendarGridBuilder.StartOfWeek(ReferenceDate);
             var end = start.AddDays(6);
-            var startFormat = start.Year != end.Year ? "d MMMM yyyy" : start.Month != end.Month ? "d MMMM" : "d";
+            // "%d" rather than "d" for the bare day number. A single-letter format string is read as a
+            // *standard* specifier, and "d" standing alone is the short-date pattern - so a week inside
+            // one month was headed "9/7/2026 - 13 September 2026" instead of "7 - 13 September 2026".
+            var startFormat = start.Year != end.Year ? "d MMMM yyyy" : start.Month != end.Month ? "d MMMM" : "%d";
             return $"{start.ToDateTime(TimeOnly.MinValue).ToString(startFormat, displayCulture)} - "
                 + $"{end.ToDateTime(TimeOnly.MinValue).ToString("d MMMM yyyy", displayCulture)}";
         }

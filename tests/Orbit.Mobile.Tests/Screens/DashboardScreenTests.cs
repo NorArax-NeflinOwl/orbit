@@ -653,6 +653,59 @@ public sealed class DashboardScreenTests
         Assert.All(shelves.Rows, row => Assert.False(row.HasNews));
     }
 
+    /// <summary>
+    /// The places kept, on a card of their own. Not a corner of Upcoming: everything on that one is
+    /// happening at a time, and a place has none, which is the whole point of one.
+    /// </summary>
+    [Fact]
+    public async Task The_places_kept_get_a_card_of_their_own()
+    {
+        using var context = new DashboardContext();
+        await context.AddPlaceAsync("The good bakery");
+        var screen = context.Open();
+
+        await screen.LoadCommand.ExecuteAsync(null);
+
+        var places = screen.Cards.Single(card => card.Kind == DashboardCardKind.Places);
+        var row = Assert.Single(places.Rows);
+        Assert.Equal("The good bakery", row.Title);
+        // The address rather than the point: a list of coordinates is a list nobody reads.
+        Assert.Equal("Rynek 1, Lublin", row.Detail);
+    }
+
+    /// <summary>And pressing one opens that place, as pressing a shelf opens that shelf.</summary>
+    [Fact]
+    public async Task Opening_a_place_goes_to_that_place()
+    {
+        using var context = new DashboardContext();
+        var localId = await context.AddPlaceAsync("The good bakery");
+        var screen = context.Open();
+        await screen.LoadCommand.ExecuteAsync(null);
+
+        var places = screen.Cards.Single(card => card.Kind == DashboardCardKind.Places);
+        await screen.OpenCommand.ExecuteAsync(Assert.Single(places.Rows));
+
+        Assert.Equal("ShowPlace", context.Navigator.LastDestination);
+        Assert.Equal(localId, context.Navigator.LastPlaceId);
+    }
+
+    /// <summary>
+    /// An account that may not be shown a map is shown no places either: a place is a point, and there
+    /// would be nowhere to put one - the same rule the shared positions below follow.
+    /// </summary>
+    [Fact]
+    public async Task An_account_without_the_map_is_shown_no_places()
+    {
+        using var context = new DashboardContext();
+        await context.AddPlaceAsync("The good bakery");
+        await context.LockToAsync(ApplicationPermission.Contacts);
+        var screen = context.Open();
+
+        await screen.LoadCommand.ExecuteAsync(null);
+
+        Assert.DoesNotContain(screen.Cards, card => card.Kind == DashboardCardKind.Places);
+    }
+
     /// <summary>Pressing a shelf opens that shelf, as pressing the card's name opens the section.</summary>
     [Fact]
     public async Task Opening_a_shelf_goes_to_that_shelf()
@@ -1081,6 +1134,7 @@ public sealed class DashboardScreenTests
         private readonly LocalTaskListRepository _taskLists;
         private readonly LocalCalendarEventRepository _calendarEvents;
         private readonly LocalInventoryRepository _inventories;
+        private readonly LocalPlaceRepository _places;
         private readonly ChatRepository _chat;
         private readonly EverythingSynchronizer _synchronizer;
         private readonly SyncState _syncState;
@@ -1095,6 +1149,7 @@ public sealed class DashboardScreenTests
             _taskLists = new LocalTaskListRepository(_localStore, _clock, network, PrivateContent.WithoutAKey());
             _calendarEvents = new LocalCalendarEventRepository(_localStore, _clock, network);
             _inventories = new LocalInventoryRepository(_localStore, _clock, network, PrivateContent.WithoutAKey());
+            _places = new LocalPlaceRepository(_localStore, _clock, network, PrivateContent.WithAKey());
             _chat = new ChatRepository(_localStore, _clock);
             _syncState = new SyncState(network, _clock);
             NotesServer = new FakeNotesServer(_clock);
@@ -1180,6 +1235,12 @@ public sealed class DashboardScreenTests
                 new InventorySynchronizer(
                     _localStore, new InventoryClient(new FakeInventoryServer(_clock).ToHttpClient()), _clock, gate,
                     NullLogger<InventorySynchronizer>.Instance),
+                // Reachable and empty: the dashboard does not summarise places, but an account allowed
+                // to use the map now synchronises them, and an unreachable one would put "couldn't
+                // sync" in the corner of every test here.
+                new PlaceSynchronizer(
+                    _localStore, new PlacesClient(new FakePlacesServer(_clock).ToHttpClient()), _clock, gate,
+                    NullLogger<PlaceSynchronizer>.Instance),
                 new ChatSynchronizer(
                     _chat, chatClient, usersClient,
                     new EncryptedChatMessageSender(
@@ -1244,7 +1305,7 @@ public sealed class DashboardScreenTests
         public LocalFolderRepository Folders => new(_localStore, _clock);
 
         public DashboardViewModel Open()
-            => new(_notes, _taskLists, _calendarEvents, _inventories, _chat, _clock, new Translations(new InMemoryLanguageStore()),
+            => new(_notes, _taskLists, _calendarEvents, _inventories, _places, _chat, _clock, new Translations(new InMemoryLanguageStore()),
                 PrivateItems, _synchronizer, _syncState, _permissions,
                 Pins, Visibility, SharedPositions(), Notifications, Navigator,
                 Folders, new InMemoryChosenFolderStore());
@@ -1255,6 +1316,11 @@ public sealed class DashboardScreenTests
         /// </summary>
         public Task NoteAsUnreadAsync(string url)
             => Notifications.RaiseAsync("Test", "Something happened", "About {0}", url, Now, [url]);
+
+        /// <summary>Somewhere kept on the map - see LocalPlace, and the card the dashboard draws of them.</summary>
+        public async Task<Guid> AddPlaceAsync(string name, string address = "Rynek 1, Lublin")
+            => (await _places.CreateAsync(
+                new PlaceContent(name, string.Empty, address, 51.2465, 22.5684), CancellationToken.None)).LocalId;
 
         public async Task<Guid> AddNoteAsync(string title)
             => (await _notes.CreateAsync(title, [new NoteContentLineDto("Body", false, false)])).LocalId;

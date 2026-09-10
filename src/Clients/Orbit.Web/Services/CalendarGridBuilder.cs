@@ -38,23 +38,23 @@ public static class CalendarGridBuilder
     }
 
     /// <summary>
-    /// The Monday-to-Sunday week containing weekReferenceDate, shaped as a month grid of exactly one
-    /// row - which is what makes a week read as a row of a month rather than as a fourth thing to
-    /// learn. CalendarMonthGrid draws it unchanged.
+    /// The same week as a timeline rather than as a row of cells: seven days side by side, each placed
+    /// on the minute-precision line the day view already uses (see <see cref="BuildDayGrid"/>), so an
+    /// appointment sits at the height it happens at rather than in a list of chips ordered by nothing a
+    /// reader can see.
     ///
-    /// Every day is marked as in the displayed month, whatever month it is actually in: the dimming
-    /// that flag drives says "this day belongs to the month either side of the one you asked for", and
-    /// in a week nobody asked for a month. A week straddling the 1st would otherwise arrive half greyed.
+    /// Built from seven day grids rather than from a week-shaped pass of its own: what "which column
+    /// does this overlap into" means is a question about one day, and answering it twice in two places
+    /// is how the two answers come to differ. An event spanning midnight is on both days here, exactly
+    /// as it is when each of them is opened on its own.
     /// </summary>
-    public static IReadOnlyList<MonthGridWeek> BuildWeekGrid(
+    public static WeekTimeline BuildWeekTimeline(
         DateOnly weekReferenceDate, IReadOnlyList<CalendarEventDto> events, IReadOnlyList<DueTaskDto> dueTasks)
     {
         var weekStart = StartOfWeek(weekReferenceDate);
-        var expandedEvents = ExpandRecurringEvents(events, weekStart, weekStart.AddDays(6));
-        var days = Enumerable.Range(0, 7)
-            .Select(dayOffset => BuildWeekGridDay(weekStart.AddDays(dayOffset), expandedEvents, dueTasks))
-            .ToList();
-        return [new MonthGridWeek(days)];
+        return new WeekTimeline(
+            weekStart,
+            [.. Enumerable.Range(0, 7).Select(dayOffset => BuildDayGrid(weekStart.AddDays(dayOffset), events, dueTasks))]);
     }
 
     /// <summary>The Monday on or before date - the day every grid here starts its weeks on.</summary>
@@ -119,18 +119,6 @@ public static class CalendarGridBuilder
             .ToList();
         return new MonthGridDay(
             date, date.Month == displayedMonth, eventsOnDay, DueTasksOnDate(dueTasks, date, eventsOnDay));
-    }
-
-    /// <inheritdoc cref="BuildMonthGridDay"/>
-    private static MonthGridDay BuildWeekGridDay(
-        DateOnly date, IReadOnlyList<CalendarEventDto> events, IReadOnlyList<DueTaskDto> dueTasks)
-    {
-        var eventsOnDay = events
-            .Where(calendarEvent => OccursOnDate(calendarEvent.Details, date))
-            .OrderBy(calendarEvent => calendarEvent.Details.IsAllDay)
-            .ThenBy(calendarEvent => calendarEvent.Details.StartUtc.LocalDateTime.TimeOfDay)
-            .ToList();
-        return new MonthGridDay(date, IsInDisplayedMonth: true, eventsOnDay, DueTasksOnDate(dueTasks, date, eventsOnDay));
     }
 
     /// <summary>Whether details' [StartUtc, EndUtc] range - compared by local calendar date - covers date.</summary>
@@ -345,6 +333,12 @@ public sealed record MonthGridDay(DateOnly Date, bool IsInDisplayedMonth, IReadO
 
 /// <summary>One month within a year grid, alongside its own month number (1-12) for the month name heading.</summary>
 public sealed record YearGridMonth(int Month, IReadOnlyList<MonthGridWeek> Weeks);
+
+/// <summary>
+/// One week as seven day timelines - see CalendarGridBuilder.BuildWeekTimeline. The days are in the
+/// order they are read, Monday first, and each is exactly what the day view would draw for it.
+/// </summary>
+public sealed record WeekTimeline(DateOnly WeekStart, IReadOnlyList<DayGrid> Days);
 
 /// <summary>
 /// A single day's events, split into the all-day strip and the minute-precision timed timeline, plus that

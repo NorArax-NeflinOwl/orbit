@@ -41,6 +41,8 @@ internal static class OrbitStorageNames
         [typeof(InventoryShareEntity)] = new("OP_INVENTORIES_SHARED", "OP_IS_"),
         [typeof(NotificationEntryEntity)] = new("OP_NOTIFICATIONS", "OP_NTF_"),
         [typeof(FolderEntity)] = new("OP_FOLDERS", "OP_F_"),
+        [typeof(PlaceEntity)] = new("OP_PLACES", "OP_P_"),
+        [typeof(PlaceShareEntity)] = new("OP_PLACES_SHARED", "OP_PLS_"),
 
         // OL_ - rows that exist to join two of the tables above.
         [typeof(TaskItemTaskListLinkEntity)] = new("OL_TASKS_ITEMS", "OL_TI_"),
@@ -50,6 +52,7 @@ internal static class OrbitStorageNames
         [typeof(ChatConversationAccessEntity)] = new("OL_CHATS_ACCESS", "OL_CA_"),
         [typeof(ContactEntity)] = new("OL_CONTACTS", "OL_C_"),
         [typeof(PublicShareLinkEntity)] = new("OL_PUBLIC_SHARES", "OL_PS_"),
+        [typeof(PlaceTaskListLinkEntity)] = new("OL_PLACES_TASKS", "OL_PT_"),
 
         // OS_ - accounts, permissions, settings and the bookkeeping the system keeps for itself.
         [typeof(UserEntity)] = new("OS_USERS", "OS_U_"),

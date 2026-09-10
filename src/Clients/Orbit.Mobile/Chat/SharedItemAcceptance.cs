@@ -5,7 +5,7 @@ namespace Orbit.Mobile.Chat;
 /// <summary>
 /// Takes somebody up on an offer to share something. One place rather than a branch in each screen that
 /// can show an offer: which endpoint accepts it follows from the kind of thing offered, and that is one
-/// fact, not four.
+/// fact rather than one per kind.
 ///
 /// Accepting does not fetch the item. It creates the copy on the server; the feature's own synchroniser
 /// brings it down on its next run, which is also how a share accepted in the browser reaches the phone.
@@ -16,14 +16,17 @@ public sealed class SharedItemAcceptance
     private readonly TasksClient _tasks;
     private readonly CalendarClient _calendar;
     private readonly InventoryClient _inventory;
+    private readonly PlacesClient _places;
 
     public SharedItemAcceptance(
-        NotesClient notes, TasksClient tasks, CalendarClient calendar, InventoryClient inventory)
+        NotesClient notes, TasksClient tasks, CalendarClient calendar, InventoryClient inventory,
+        PlacesClient places)
     {
         _notes = notes;
         _tasks = tasks;
         _calendar = calendar;
         _inventory = inventory;
+        _places = places;
     }
 
     public Task<bool> AcceptAsync(SharedItemInvitation invitation, CancellationToken cancellationToken = default)
@@ -32,6 +35,7 @@ public sealed class SharedItemAcceptance
             SharedItemKind.Note => _notes.AcceptShareAsync(invitation.ShareId, cancellationToken),
             SharedItemKind.TaskList => _tasks.AcceptShareAsync(invitation.ShareId, cancellationToken),
             SharedItemKind.CalendarEvent => _calendar.AcceptShareAsync(invitation.ShareId, cancellationToken),
+            SharedItemKind.Place => _places.AcceptShareAsync(invitation.ShareId, cancellationToken),
             _ => _inventory.AcceptShareAsync(invitation.ShareId, cancellationToken)
         };
 
@@ -50,6 +54,7 @@ public sealed class SharedItemAcceptance
                 SharedItemKind.Note => await _notes.IsShareAcceptedAsync(invitation.ShareId, cancellationToken),
                 SharedItemKind.TaskList => await _tasks.IsShareAcceptedAsync(invitation.ShareId, cancellationToken),
                 SharedItemKind.CalendarEvent => await _calendar.IsShareAcceptedAsync(invitation.ShareId, cancellationToken),
+                SharedItemKind.Place => await _places.IsShareAcceptedAsync(invitation.ShareId, cancellationToken),
                 _ => await _inventory.IsShareAcceptedAsync(invitation.ShareId, cancellationToken)
             };
 

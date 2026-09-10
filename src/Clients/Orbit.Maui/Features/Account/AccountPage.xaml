@@ -102,10 +102,10 @@
                 <!-- The colour Orbit highlights things in, as swatches rather than a list of names:
                      what the reader is choosing is how it looks, and eight words would say less than
                      eight colours do. Orbit.Web offers the same eight the same way. -->
-                <Label Text="{controls:Translate 'Accent colour'}" Style="{StaticResource SectionHeading}"
-                       Margin="0,6,0,0" />
-                <Label Text="{controls:Translate 'The colour Orbit highlights things in. Kept on this device, like the theme.'}"
-                       LineBreakMode="WordWrap" Style="{StaticResource SectionSubtext}" />
+                <controls:FieldHint IsHeading="True"
+                       Margin="0,6,0,0"
+                                    Label="{controls:Translate 'Accent colour'}"
+                                    Text="{controls:Translate 'The colour Orbit highlights things in. Kept on this device, like the theme.'}" />
                 <FlexLayout Wrap="Wrap" JustifyContent="Start" BindableLayout.ItemsSource="{Binding Accents}">
                     <BindableLayout.ItemTemplate>
                         <DataTemplate x:DataType="screens:AccentChoice">
@@ -284,15 +284,12 @@
                  where the account may use them at all - see GoogleIntegrationAccess. -->
             <VerticalStackLayout Spacing="4" IsVisible="{Binding CanChooseGoogleExtras}">
                 <Grid ColumnDefinitions="*,Auto">
-                    <Label Grid.Column="0" Text="{controls:Translate 'Google extras'}"
-                           Style="{StaticResource SectionHeading}" VerticalOptions="Center" />
-                    <Switch Grid.Column="1" IsToggled="{Binding AllowsGoogleExtras}"
+                    <controls:FieldHint Grid.Column="0" IsHeading="True" VerticalOptions="Center"
+                                        Label="{controls:Translate 'Google extras'}"
+                                        Text="{controls:Translate 'Adds links that open Google Calendar or Google Maps with the details filled in. Orbit never writes to your calendar. Kept on this device.'}" />
+                    <Switch Grid.Column="1" IsToggled="{Binding AllowsGoogleExtras}" VerticalOptions="Start"
                             SemanticProperties.Description="{controls:Translate 'Google extras'}" />
                 </Grid>
-                <Label Text="{controls:Translate 'Adds links that open Google Calendar or Google Maps with the details filled in. Orbit never writes to your calendar.'}"
-                       LineBreakMode="WordWrap" Style="{StaticResource SectionSubtext}" />
-                <Label Text="{controls:Translate 'Kept on this device.'}"
-                       FontSize="12" Style="{StaticResource SubtleLabel}" />
             </VerticalStackLayout>
 
             <!-- Directly above the password form, as Orbit.Web has it: the warning below says "set one
@@ -302,9 +299,8 @@
                 <VerticalStackLayout Spacing="8"
                                      BindingContext="{Binding GoogleLink}" x:DataType="screens:GoogleAccountLink"
                                      IsVisible="{Binding IsOffered}">
-                    <Label Text="Google" Style="{StaticResource SectionHeading}" />
-                    <Label Text="{controls:Translate 'Connecting Google lets you sign in with it as well as with your password.'}"
-                           LineBreakMode="WordWrap" Style="{StaticResource SectionSubtext}" />
+                    <controls:FieldHint IsHeading="True" Label="Google"
+                                        Text="{controls:Translate 'Connecting Google lets you sign in with it as well as with your password.'}" />
                     <Label Text="{controls:Translate 'Your account has no password yet, so Google is currently the only way in - set one below before disconnecting.'}"
                            IsVisible="{Binding IsOnlyWayIn}" FontSize="12" LineBreakMode="WordWrap"
                            TextColor="{AppThemeBinding Light={StaticResource WarningLight}, Dark={StaticResource WarningDark}}" />
@@ -319,15 +315,14 @@
             </VerticalStackLayout>
 
             <VerticalStackLayout Spacing="8" IsEnabled="{Binding Connection.IsMet}" IsVisible="{Binding IsShowingAccount}">
-                <Label Text="{controls:Translate 'Password'}" Style="{StaticResource SectionHeading}" />
+                <controls:FieldHint IsHeading="True" Label="{controls:Translate 'Password'}"
+                                    Text="{controls:Translate 'Changing it also re-encrypts your chat key backup, so your messages stay readable when you next sign in elsewhere.'}" />
                 <Entry Placeholder="{controls:Translate 'Current password'}" Text="{Binding CurrentPassword}" IsPassword="True" />
                 <Entry Placeholder="{controls:Translate 'New password'}" Text="{Binding NewPassword}" IsPassword="True" />
                 <!-- <inheritdoc cref="RegisterPage" /> - the same second answer, for the same reason. -->
                 <Entry Placeholder="{controls:Translate 'Repeat new password'}" Text="{Binding RepeatedNewPassword}"
                        IsPassword="True" />
                 <Button Text="{controls:Translate 'Change password'}" Command="{Binding ChangePasswordCommand}" />
-                <Label Text="{controls:Translate 'Changing it also re-encrypts your chat key backup, so your messages stay readable when you next sign in elsewhere.'}"
-                       LineBreakMode="WordWrap" Style="{StaticResource SectionSubtext}" />
                 <Button Text="{controls:Translate 'Chat key'}" Command="{Binding GoToChatKeyCommand}"
                         HorizontalOptions="Start" Style="{StaticResource LinkButton}" />
             </VerticalStackLayout>
@@ -335,9 +330,9 @@
             <!-- A file somebody keeps, not a copy the app maintains. Importing creates new things
                  rather than restoring old ones, so it never puts what is already here at risk. -->
             <VerticalStackLayout Spacing="8" IsVisible="{Binding IsShowingAccount}">
-                <Label Text="{controls:Translate 'Export'}" Style="{StaticResource SectionHeading}" />
-                <Label Text="{controls:Translate 'Downloads what you choose below as one file. Things shared with you are left out, and a private item travels sealed.'}"
-                       LineBreakMode="WordWrap" Style="{StaticResource SectionSubtext}" />
+                <controls:FieldHint IsHeading="True"
+                                    Label="{controls:Translate 'Export'}"
+                                    Text="{controls:Translate 'Downloads what you choose below as one file. Things shared with you are left out, and a private item travels sealed.'}" />
 
                 <!-- All four to begin with, which is what an export meant before there was anything to
                      choose - see ExportChoice. -->
@@ -374,9 +369,9 @@
                         Style="{StaticResource PrimaryButton}"
                         IsEnabled="{Binding CanExport}" Command="{Binding ExportCommand}" />
 
-                <Label Text="{controls:Translate 'Import'}" Style="{StaticResource SectionHeading}" Margin="0,8,0,0" />
-                <Label Text="{controls:Translate 'Adds everything in a file to this account. Nothing is replaced, so importing the same file twice leaves two copies.'}"
-                       LineBreakMode="WordWrap" Style="{StaticResource SectionSubtext}" />
+                <controls:FieldHint IsHeading="True" Margin="0,8,0,0"
+                                    Label="{controls:Translate 'Import'}"
+                                    Text="{controls:Translate 'Adds everything in a file to this account. Nothing is replaced, so importing the same file twice leaves two copies.'}" />
                 <Button x:Name="ImportButton" Text="{controls:Translate 'Import'}" HorizontalOptions="Start"
                         IsEnabled="{Binding Connection.IsMet}" Clicked="OnImportClicked" />
 
@@ -392,9 +387,9 @@
             <Border Style="{StaticResource DangerCard}" Padding="18,16" Margin="0,8,0,0"
                     IsEnabled="{Binding Connection.IsMet}" IsVisible="{Binding IsShowingAccount}">
                 <VerticalStackLayout Spacing="8">
-                    <Label Text="{controls:Translate 'Delete account'}" Style="{StaticResource SectionHeading}" />
-                    <Label Text="{controls:Translate 'Permanently deletes your account and everything in it - notes, tasks, calendar events, inventory, and chat history. This cannot be undone.'}"
-                           LineBreakMode="WordWrap" Style="{StaticResource SectionSubtext}" />
+                    <controls:FieldHint IsHeading="True"
+                                        Label="{controls:Translate 'Delete account'}"
+                                        Text="{controls:Translate 'Permanently deletes your account and everything in it - notes, tasks, calendar events, inventory, and chat history. This cannot be undone.'}" />
                     <Entry Placeholder="{controls:Translate 'Password'}" Text="{Binding DeleteAccountPassword}" IsPassword="True"
                            IsVisible="{Binding RequiresPasswordToDelete}" />
                     <Button x:Name="DeleteAccountButton" Text="{controls:Translate 'Delete account'}" HorizontalOptions="Start"

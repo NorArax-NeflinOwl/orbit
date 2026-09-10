@@ -72,6 +72,26 @@ public sealed class CalendarTests : OrbitTestContext
         Assert.Equal("true", FindViewSwitchButton(cut, "Day").GetAttribute("aria-pressed"));
     }
 
+    /// <summary>
+    /// A week inside one month names the month once, at the end - "7 - 13 September 2026". The start
+    /// used to come out as "9/7/2026", because a single-letter format string is read as a *standard*
+    /// specifier and "d" standing alone is the short-date pattern rather than the day number.
+    /// </summary>
+    [Fact]
+    public void A_week_within_one_month_is_headed_with_two_day_numbers_and_one_month()
+    {
+        RegisterCalendarApiClient([]);
+        var cut = RenderComponent<Calendar>();
+
+        FindViewSwitchButton(cut, "Week").Click();
+
+        var label = cut.Find(".calendar-period-label").TextContent.Trim();
+        Assert.DoesNotContain("/", label, StringComparison.Ordinal);
+        // Two ends and one month name, whichever week today happens to fall in - a week straddling a
+        // month says both names and still carries no short date.
+        Assert.Contains(" - ", label, StringComparison.Ordinal);
+    }
+
     [Fact]
     public void Clicking_Year_switches_the_visualization_to_a_year_grid_with_all_12_months()
     {
@@ -184,6 +204,12 @@ public sealed class CalendarTests : OrbitTestContext
                 new DateTimeOffset(DateTime.SpecifyKind(localEnd, DateTimeKind.Local)),
                 IsAllDay: false, null, [], [], "None", "None"),
             DateTimeOffset.UtcNow, DateTimeOffset.UtcNow, IsShared: false, SharedByUserName: null, AccessLevel: "ReadOnly", OriginalOwnerUserId: null);
+
+    /// <summary>Something that takes the whole of a day and so has no hour of its own.</summary>
+    private static CalendarEventDto CreateAllDayEvent(DateTime localDay, string title)
+        => CreateTimedEvent(localDay.Date, localDay.Date.AddDays(1), title) is var timed
+            ? timed with { Details = timed.Details with { IsAllDay = true } }
+            : throw new InvalidOperationException();
 
     private static TaskDto CreateTaskListWithDueItem(DateTime localDueDate, string description)
     {
@@ -751,8 +777,8 @@ public sealed class CalendarTests : OrbitTestContext
     }
 
     /// <summary>
-    /// A week is the month grid with one row in it, so what it draws is the same chips in the same
-    /// cells - what is its own is which seven days those are.
+    /// A week is seven of the day view's timelines side by side, so what it draws is placed by when it
+    /// happens - what is its own is which seven days those are.
     /// </summary>
     [Fact]
     public void The_week_view_lists_its_own_week_and_not_the_month_around_it()
@@ -768,9 +794,63 @@ public sealed class CalendarTests : OrbitTestContext
 
         FindViewSwitchButton(cut, "Week").Click();
 
-        // One row of seven, drawn by the same grid the month is - see CalendarGridBuilder.BuildWeekGrid.
-        Assert.Single(cut.FindAll(".calendar-month-grid-week"));
+        // Seven columns, one per day - see CalendarGridBuilder.BuildWeekTimeline.
+        Assert.Equal(7, cut.FindAll(".calendar-week-grid-day").Count);
         Assert.Equal(["This week"], ListedNames(cut));
+    }
+
+    /// <summary>
+    /// And placed by when it happens rather than listed. A block's top is the percentage of the day its
+    /// start falls at, which is what lets a reader put it at the half hour by eye - 10:30 is 43.75% of
+    /// the way down a 24-hour column.
+    /// </summary>
+    [Fact]
+    public void An_appointment_sits_at_the_height_of_the_hour_it_starts_at()
+    {
+        var monday = CalendarGridBuilder.StartOfWeek(DateOnly.FromDateTime(DateTime.Today));
+        var halfPastTen = monday.AddDays(2).ToDateTime(new TimeOnly(10, 30));
+        RegisterCalendarApiClient([CreateTimedEvent(halfPastTen, halfPastTen.AddHours(1), "Dentist")]);
+        RegisterTasksApiClient([]);
+        var cut = RenderComponent<Calendar>();
+
+        FindViewSwitchButton(cut, "Week").Click();
+
+        var block = cut.FindAll(".calendar-week-grid-day .calendar-event-block")
+            .Single(drawn => drawn.TextContent.Contains("Dentist", StringComparison.Ordinal));
+        Assert.Contains("top:43.75%", block.GetAttribute("style"), StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// A whole-day thing has no hour to be drawn at, so it goes in a band across the top rather than
+    /// being given midnight, which is a lie about when it is.
+    /// </summary>
+    [Fact]
+    public void A_whole_day_appointment_sits_in_the_band_above_the_hours()
+    {
+        var monday = CalendarGridBuilder.StartOfWeek(DateOnly.FromDateTime(DateTime.Today));
+        RegisterCalendarApiClient([CreateAllDayEvent(monday.AddDays(1).ToDateTime(TimeOnly.MinValue), "Bank holiday")]);
+        RegisterTasksApiClient([]);
+        var cut = RenderComponent<Calendar>();
+
+        FindViewSwitchButton(cut, "Week").Click();
+
+        var band = cut.Find(".calendar-week-grid-all-day");
+        Assert.Contains("Bank holiday", band.TextContent, StringComparison.Ordinal);
+        Assert.Empty(cut.FindAll(".calendar-week-grid-day .calendar-event-block"));
+    }
+
+    /// <summary>Pressing a day's name opens that day, the way pressing a cell of the month grid does.</summary>
+    [Fact]
+    public void Pressing_a_day_name_in_the_week_opens_that_day()
+    {
+        RegisterCalendarApiClient([]);
+        RegisterTasksApiClient([]);
+        var cut = RenderComponent<Calendar>();
+        FindViewSwitchButton(cut, "Week").Click();
+
+        cut.FindAll(".calendar-week-grid-day-name").Skip(3).First().Click();
+
+        Assert.NotEmpty(cut.FindAll(".calendar-day-grid"));
     }
 
     /// <summary>

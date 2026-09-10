@@ -86,6 +86,10 @@ public static class PolishTranslations
         ["The list asks about everything it would otherwise ask about, marked or not."] =
             "Lista pyta o wszystko, o co pytałaby normalnie - oznaczone czy nie.",
         ["More"] = "Więcej",
+        // The "?" beside a field's label - see Orbit.Web's FieldHint.razor.
+        ["What this is for"] = "Do czego to służy",
+        // The "!" beside it, for something true of the screen right now - see FieldHint.Warns.
+        ["What to know about this"] = "Co warto tu wiedzieć",
         ["Couldn't add those to the restock list."] = "Nie udało się dodać ich do listy uzupełnień.",
         ["{0} added to the restock list."] = "Dodano do listy uzupełnień: {0}.",
         ["Everything short was already on the restock list."] = "Wszystkie braki już były na liście uzupełnień.",
@@ -167,7 +171,6 @@ public static class PolishTranslations
         ["Write something in it."] = "Napisz w niej coś.",
         ["Related inventory"] = "Powiązany magazyn",
         ["Done: {0}"] = "Zrobione: {0}",
-        ["About this list"] = "O tej liście",
         ["About this inventory"] = "O tym magazynie",
         ["No contacts yet."] = "Brak kontaktów.",
         ["Banner only"] = "Tylko baner",
@@ -267,6 +270,8 @@ public static class PolishTranslations
         ["Group chat"] = "Czat grupowy",
         ["Everything here is hidden. The menu at the top right brings it back."] =
             "Wszystko jest ukryte. Menu w prawym górnym rogu przywraca elementy.",
+        ["Nothing here is private yet."] = "Nic tutaj nie jest jeszcze prywatne.",
+        ["This folder is empty."] = "Ten folder jest pusty.",
         ["Drag to reorder"] = "Przeciągnij, aby zmienić kolejność",
         ["Minimise"] = "Zminimalizuj",
         ["Open the calendar"] = "Otwórz kalendarz",
@@ -323,6 +328,10 @@ public static class PolishTranslations
         ["Amount"] = "Ilość",
         ["Min"] = "Min",
         ["Priority"] = "Priorytet",
+        // The entry's own, beside the list's - see Orbit.Core.Tasks.TaskItem.Priority.
+        ["Entry priority"] = "Ważność wpisu",
+        ["Entry colour"] = "Kolor wpisu",
+        ["No colour of its own"] = "Bez własnego koloru",
         ["Low"] = "Niski",
         ["Normal"] = "Zwykły",
         ["High"] = "Wysoki",
@@ -529,6 +538,8 @@ public static class PolishTranslations
         ["Not started"] = "Nierozpoczęte",
         ["In progress"] = "W trakcie",
         ["Overdue"] = "Po terminie",
+        // A chore that comes round every day, waiting for today - see TaskListStatus.DueAgain.
+        ["Due again"] = "Znów do zrobienia",
         ["Items"] = "Pozycje",
         ["Group View"] = "Widok grupowy",
         ["Type"] = "Typ",
@@ -722,6 +733,40 @@ public static class PolishTranslations
         ["Orbit isn't allowed to use your location. Turn it on in Options first."] =
             "Orbit nie ma zgody na korzystanie z Twojego położenia. Włącz ją najpierw w Opcjach.",
         ["Where your plans are"] = "Gdzie są Twoje plany",
+        // The places kept for their own sake - see Orbit.Core.Places.Place.
+        ["Places you keep"] = "Twoje miejsca",
+        ["Nothing kept yet. The + on the map is where one starts."] =
+            "Nic tu jeszcze nie ma. Zacznij od + na mapie.",
+        // The place form - see Orbit.Web's PlaceForm, opened by the + on the map and by the picker that
+        // asks what a pressed pin is for.
+        ["Keep a place"] = "Zapisz miejsce",
+        // A place is sealed unless its owner says otherwise, which no other kind of thing here is - so
+        // this sentence names what sealing costs as well as what it gives.
+        ["Encrypted in this browser, so Orbit can't read it. It can't be shared or linked to, and losing your password loses it."] =
+            "Zaszyfrowane w tej przeglądarce, więc Orbit tego nie odczyta. Nie da się tego udostępnić ani podlinkować, a utrata hasła oznacza utratę treści.",
+        // The places list on the phone, which has no "+ on the map" to point at - see PlacesPage.
+        ["Nothing kept yet."] = "Nic tu jeszcze nie ma.",
+        ["Forget this place?"] = "Zapomnieć to miejsce?",
+        ["A place worth keeping"] = "Miejsce warte zapisania",
+        ["This place"] = "To miejsce",
+        ["What this place is"] = "Czym jest to miejsce",
+        ["Anything worth remembering about it"] = "Co warto o nim pamiętać",
+        ["Pick it on the map - a place with no point cannot be drawn on one."] =
+            "Wskaż je na mapie - miejsca bez punktu nie da się na niej narysować.",
+        ["Colour"] = "Kolor",
+        ["Belongs to"] = "Należy do",
+        ["Choose a list…"] = "Wybierz listę…",
+        ["A list that is no longer here"] = "Lista, której już nie ma",
+        ["That place is not here any more."] = "Tego miejsca już tu nie ma.",
+        ["That place could not be shared."] = "Nie udało się udostępnić tego miejsca.",
+        // What "Delete" says on a place somebody else keeps: the row goes from this map and from
+        // nowhere else - see DeletePlaceCommandHandler.
+        ["Take it off my map"] = "Usuń z mojej mapy",
+        // Who handed it over, on the row and above the form.
+        ["From {0}"] = "Od {0}",
+        ["That could not be saved. Try again in a moment."] = "Nie udało się zapisać. Spróbuj za chwilę.",
+        // What a pressed pin becomes: a place, an appointment, or a list of work starting there.
+        ["Make it"] = "Utwórz jako",
         ["Nothing coming up says where it happens. Past ones are in the menu above."] =
             "Nic z tego, co przed Tobą, nie mówi, gdzie się odbywa. Minione znajdziesz w menu powyżej.",
         ["Nothing in your calendar or your lists says where it happens."] =
@@ -839,9 +884,11 @@ public static class PolishTranslations
         ["Light"] = "Jasny",
         ["Dark"] = "Ciemny",
         ["Language"] = "Język",
-        ["The language Orbit's own interface is written in. Kept on this device."] =
-            "Język, w którym napisany jest interfejs Orbita. Zapamiętywany na tym urządzeniu.",
-        ["Location"] = "Położenie",
+        // "Lokalizacja" rather than "Położenie", which this was until the word had a third job. It names
+        // the permission here, an appointment's address in EventFields, and now a task entry that is a
+        // place and nothing else (Orbit.Core.Tasks.TaskItemKind.Location) - and "Położenie" reads as a
+        // coordinate, which is the one of the three it fits worst.
+        ["Location"] = "Lokalizacja",
         ["Use my location"] = "Korzystaj z mojego położenia",
         ["Debugger"] = "Debugger",
         ["Debug logs"] = "Logi diagnostyczne",
@@ -934,12 +981,13 @@ public static class PolishTranslations
         ["{0} shared a task list with you"] = "{0} udostępnił(a) Ci listę zadań",
         ["{0} shared an event with you"] = "{0} udostępnił(a) Ci wydarzenie",
         ["{0} shared an inventory with you"] = "{0} udostępnił(a) Ci magazyn",
+        // A place kept on the map, not somebody's position - the line below is that one.
+        ["{0} shared a place with you"] = "{0} udostępnił(a) Ci miejsce",
         ["{0} shared their location with you"] = "{0} udostępnił(a) Ci swoje położenie",
         ["All day"] = "Cały dzień",
         // Under the day's clock, where what has no hour goes - see CalendarViewModel.WithoutAnHour.
         ["Nothing all day."] = "Nic na cały dzień.",
         ["Shared by"] = "Udostępnił",
-        ["Messages"] = "Wiadomości",
         ["Conversations"] = "Rozmowy",
         ["Daily"] = "Codziennie",
         ["Weekly"] = "Co tydzień",
@@ -996,7 +1044,6 @@ public static class PolishTranslations
         ["No contacts to share with yet - start a conversation first."] =
             "Nie masz jeszcze komu udostępnić — zacznij od rozmowy.",
         ["Allow chatting"] = "Zezwól na rozmowę",
-        ["End-to-end encrypted conversations."] = "Rozmowy szyfrowane end-to-end.",
         ["Jump to newest message"] = "Przejdź do najnowszej wiadomości",
         ["Write to the group"] = "Napisz do grupy",
         ["New group"] = "Nowa grupa",
@@ -1259,6 +1306,8 @@ public static class PolishTranslations
         ["a note"] = "notatkę",
         ["a task list"] = "listę zadań",
         ["an event"] = "wydarzenie",
+        // The kinds a share notice names, in the accusative the sentence around them needs.
+        ["a place"] = "miejsce",
         ["an inventory"] = "magazyn",
         ["An error occurred while logging in. Try again."] = "Wystąpił błąd podczas logowania. Spróbuj ponownie.",
         ["An error occurred while registering. Try again."] = "Wystąpił błąd podczas rejestracji. Spróbuj ponownie.",
@@ -1294,6 +1343,10 @@ public static class PolishTranslations
         ["Saving a different address doesn't move the account to it on its own - that only happens once you confirm the code sent to the new address."] =
             "Zapisanie innego adresu samo w sobie nie przenosi na niego konta — dzieje się to dopiero po potwierdzeniu kodu wysłanego na nowy adres.",
         ["Adds links that open Google Calendar or Google Maps with the details filled in. Orbit never writes to your calendar."] = "Dodaje linki otwierające Kalendarz Google lub Mapy Google z wypełnionymi danymi. Orbit sam nic nie zapisuje w Twoim kalendarzu.",
+        // Both sentences at once, which is what the phone's own mark holds - the two used to be two
+        // lines under the switch, and folding them away made them one thing to open. See FieldHint.
+        ["Adds links that open Google Calendar or Google Maps with the details filled in. Orbit never writes to your calendar. Kept on this device."] =
+            "Dodaje linki otwierające Kalendarz Google lub Mapy Google z wypełnionymi danymi. Orbit sam nic nie zapisuje w Twoim kalendarzu. Zapamiętane na tym urządzeniu.",
 
         // Composed in code: option labels, confirmations, and the stand-ins shown when
         // something can't be read or named.
@@ -1773,6 +1826,8 @@ public static class PolishTranslations
             "Ktoś inny może zmieniać tę notatkę, a Orbit jest poza zasięgiem i nie da się tego sprawdzić. Zostaje tylko do odczytu, dopóki nie wrócisz online.",
         ["Somebody else can change this list, and Orbit can't be reached to check. It stays read-only until you're back online."] =
             "Ktoś inny może zmieniać tę listę, a Orbit jest poza zasięgiem i nie da się tego sprawdzić. Zostaje tylko do odczytu, dopóki nie wrócisz online.",
+        ["Somebody else can change this place, and Orbit can't be reached to check. It stays read-only until you're back online."] =
+            "Ktoś inny może zmieniać to miejsce, a Orbit jest poza zasięgiem i nie da się tego sprawdzić. Zostaje tylko do odczytu, dopóki nie wrócisz online.",
         ["This note is private, and its words are sealed with a key this phone doesn't have."] =
             "Ta notatka jest prywatna, a jej treść jest zapieczętowana kluczem, którego ten telefon nie ma.",
         ["No earlier messages could be passed on - this device can't open any of them."] =
@@ -2067,6 +2122,10 @@ public static class PolishTranslations
 
         // The phone's map screen: opening somebody else's shared position in the phone's own map app.
         ["Open in Maps"] = "Otwórz w Mapach",
+        ["Take me there"] = "Zaprowadź mnie tam",
+        ["The app on this device"] = "Aplikacja na tym urządzeniu",
+        ["Only the first stays on this device. The rest open somebody else's service."] =
+            "Tylko pierwsza pozostaje na tym urządzeniu. Pozostałe otwierają cudzy serwis.",
         ["The map can't be shown in this build. A shared position still opens in your phone's map app."] =
             "Ta wersja aplikacji nie potrafi pokazać mapy. Udostępnione położenie i tak otworzysz w aplikacji map na telefonie.",
         // And the same on the screen where a place is pointed at, which can still be searched for.

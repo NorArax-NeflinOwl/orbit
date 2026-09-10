@@ -41,9 +41,13 @@ window.OrbitStorageConsent = (function () {
         'orbit-calendar-list-sort-order',
         'orbit-calendar-list-shows-everything',
         'orbit-conversation-pins',
-        'orbit-warehouse-order'
+        'orbit-warehouse-order',
+        // Not something anybody arranged, but the same kind of thing: when this browser last had the
+        // advert that covers the page, so it can be left alone for a while afterwards. Declining it
+        // costs nothing but seeing that advert more often - see AdInterruption.
+        'orbit-last-advert'
     ];
-    const preferencePrefixes = ['orbit-panel-', 'orbit-task-list-'];
+    const preferencePrefixes = ['orbit-panel-', 'orbit-task-list-', 'orbit-map-panel-pin-'];
 
     // What Orbit noticed going wrong on this device. Never leaves it on its own - see the Privacy page -
     // but it is still a record of what somebody was doing when it broke, so it is declinable.

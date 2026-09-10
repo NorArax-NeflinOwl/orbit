@@ -5,8 +5,10 @@
 @using System.Text.Json
 @using Orbit.Contracts.Calendar
 @using Orbit.Contracts.Chat
+@using Orbit.Contracts.Places
 @using Orbit.Contracts.Tasks
 @using Orbit.Contracts.Users
+@using Orbit.Core.Location
 @using Orbit.Core.Permissions
 @using Orbit.Web.Services
 @inject UsersApiClient UsersApiClient
@@ -23,6 +25,8 @@
 @inject ChosenPlace ChosenPlace
 @inject DevicePreferences DevicePreferences
 @inject MapPinVisibility MapPins
+@inject MapPanelPins PanelPins
+@inject PlacesApiClient PlacesApiClient
 @inject NavigationManager NavigationManager
 @inject ILogger<MapPage> Logger
 @inject UserPermissionState Permissions
@@ -98,10 +102,14 @@ else
 
         @if (_isLoading)
         {
-            <p>@T["Loading…"]</p>
+            <Loading />
         }
         else
         {
+        @* The four boxes, in a wrapper of their own so a pinned one can rise past the others without
+           fighting the order the whole page is laid out in on a phone - see .map-panel-lists, and the
+           order rules under @media (max-width: 680px), which are about .map-panel's own children. *@
+        <div class="map-panel-lists">
         <section class="map-panel-section map-panel-share">
             <h2 class="map-panel-heading">@T["Share where you are"]</h2>
             @if (_contacts.Count == 0)
@@ -129,8 +137,11 @@ else
             }
         </section>
 
-        <section class="map-panel-section">
-            <h2 class="map-panel-heading">@T["You are sharing with"]</h2>
+        <section class="map-panel-section @PinnedClass(MapPanelPins.PanelList.YouAreSharingWith)">
+            <div class="map-panel-heading-row">
+                @RenderPanelPin(MapPanelPins.PanelList.YouAreSharingWith)
+                <h2 class="map-panel-heading">@T["You are sharing with"]</h2>
+            </div>
             @if (_ownShares.Count == 0)
             {
                 <p class="empty-hint">@T["Nobody yet."]</p>
@@ -171,10 +182,13 @@ else
             }
         </section>
 
-        <section class="map-panel-section">
-            @* The heading, and the eye that takes this list's pins off the map without taking the list
-               off the page - see MapPinVisibility. *@
+        <section class="map-panel-section @PinnedClass(MapPanelPins.PanelList.SharingWithYou)">
+            @* The pin, the name, and the eye - in the order every card in Orbit puts them: what keeps
+               this list in front of the reader on the left (see MapPanelPins), what it is called in the
+               middle, and what the map does with it at the far edge (see MapPinVisibility). Two
+               different questions about one list, which is why they are two controls. *@
             <div class="map-panel-heading-row">
+                @RenderPanelPin(MapPanelPins.PanelList.SharingWithYou)
                 <h2 class="map-panel-heading">@T["Sharing with you"]</h2>
                 @RenderPinToggle(MapPinVisibility.PinGroup.SharedWithYou, T["Show these on the map"], T["Hide these from the map"])
             </div>
@@ -196,10 +210,11 @@ else
                     @* Where a shared pin becomes directions. Always offered rather than only when
                        Orbit's own map cannot help - somebody who wants to be taken there wants it
                        whatever this page can draw - and its own press, kept from the row around it.
-                       See mapApp.js, and MapAppHandoff for when the row itself does this too. *@
-                    <button type="button" class="icon-btn map-share-open" title="@(T["Open in Maps"])"
-                            aria-label="@(T["Open in Maps"])"
-                            @onclick="() => OpenInTheMapAppAsync(received)" @onclick:stopPropagation="true">
+                       Which app takes them is asked rather than guessed: see NavigationApps, and
+                       MapAppHandoff for when the row itself hands the position over instead. *@
+                    <button type="button" class="icon-btn map-share-open" title="@(T["Take me there"])"
+                            aria-label="@(T["Take me there"])"
+                            @onclick="() => AskHowToGetTo(TargetFor(received))" @onclick:stopPropagation="true">
                         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 20 20" fill="none"
                              stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"
                              aria-hidden="true"><path d="M10 17.5s5.5-5 5.5-9a5.5 5.5 0 1 0-11 0c0 4 5.5 9 5.5 9Z" /><circle cx="10" cy="8.5" r="2" /></svg>
@@ -215,11 +230,95 @@ else
             }
         </section>
 
+        @* The places kept for their own sake - see Orbit.Core.Places.Place. Their own list rather than
+           part of the plans below: a plan is something happening at a time, and these have no time at
+           all, which is the whole point of them. Same row, same two presses: the name centres the map,
+           the arrow hands the point to a map app. *@
+        <section class="map-panel-section @PinnedClass(MapPanelPins.PanelList.YourPlaces)">
+            <div class="map-panel-heading-row">
+                @RenderPanelPin(MapPanelPins.PanelList.YourPlaces)
+                <h2 class="map-panel-heading">@T["Places you keep"]</h2>
+                @RenderPinToggle(MapPinVisibility.PinGroup.YourPlaces, T["Show these on the map"], T["Hide these from the map"])
+            </div>
+            @if (_places.Count == 0)
+            {
+                <p class="empty-hint">@T["Nothing kept yet. The + on the map is where one starts."]</p>
+            }
+            @foreach (var place in _places)
+            {
+                <div class="map-share-row map-share-row-opens" role="button" tabindex="0"
+                     @onclick="() => FocusOnPlaceOnTheMapAsync(place)"
+                     @onkeydown="args => FocusOnPlaceOnTheMapOnEnterOrSpaceAsync(args, place)">
+                    @* The same colour as its pin, which is what says which pin is which without pressing
+                       any of them - the sharers' names above are coloured for the same reason. *@
+                    <span class="map-place-dot" style="background:@ColourOf(place)" aria-hidden="true"></span>
+                    <span class="row-title">@place.Name</span>
+                    @* Which of the two it is matters: one is a place somebody gave this reader, the other
+                       is one this reader gave away. Named apart rather than both drawn as "Shared". *@
+                    @if (place.IsShared)
+                    {
+                        <span class="card-badge">@(place.SharedByUserName is { Length: > 0 } sharer
+                            ? T.Format("From {0}", sharer)
+                            : T["Shared"])</span>
+                    }
+                    else if (place.IsSharedWithOthers)
+                    {
+                        <span class="card-badge">@T["Shared"]</span>
+                    }
+                    @if (PriorityOf(place) is { } priority)
+                    {
+                        <span class="card-badge card-badge-priority-@priority.ToLowerInvariant()">@DescribePriority(priority)</span>
+                    }
+                    <button type="button" class="icon-btn map-share-open" title="@(T["Take me there"])"
+                            aria-label="@(T["Take me there"])"
+                            @onclick="() => AskHowToGetTo(TargetFor(place))" @onclick:stopPropagation="true">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 20 20" fill="none"
+                             stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"
+                             aria-hidden="true"><path d="M17 3 3 9l6 2.2L11.2 17 17 3Z" /></svg>
+                    </button>
+                    @* Everything else a place can be asked, behind the same three dots every other object
+                       in Orbit keeps them behind. A place is small enough that all of it fits in one
+                       form, so changing one opens the form it was made in. *@
+                    <span @onclick:stopPropagation="true">
+                        <OverflowMenu>
+                            @* "View" rather than "Edit" where this reader was given it to read: the same
+                               form either way, and the word says which of the two it will be. *@
+                            <button type="button" class="avatar-dropdown-item" @onclick="() => ChangeThePlace(place)">
+                                @(place.AccessLevel == "CanEdit" ? T["Edit"] : T["View"])
+                            </button>
+                            @* Only where this reader may pass it on: a place handed over to read is not
+                               theirs to hand on further - see SharedItemAccess, which the panel below
+                               reads again for what level it may offer. *@
+                            @* Nothing to offer for a sealed place: the server holds no readable copy to
+                               hand anybody, which is what makes it sealed - and nothing to copy either,
+                               because sealing is this browser's work and the server cannot do it. *@
+                            @if (!place.IsPrivate && SharedItemAccess.For(place.IsShared, place.AccessLevel).CanShare)
+                            {
+                                <button type="button" class="avatar-dropdown-item" @onclick="() => ShareThePlace(place)">
+                                    @T["Share"]
+                                </button>
+                            }
+                            @if (!place.IsPrivate)
+                            {
+                                <button type="button" class="avatar-dropdown-item" @onclick="() => DuplicateThePlaceAsync(place)">
+                                    @T["Duplicate"]
+                                </button>
+                            }
+                            <button type="button" class="avatar-dropdown-item danger" @onclick="() => AskToForgetThePlace(place)">
+                                @(place.IsShared ? T["Take it off my map"] : T["Delete"])
+                            </button>
+                        </OverflowMenu>
+                    </span>
+                </div>
+            }
+        </section>
+
         @* Everything with an address on it, which until now the map knew nothing about: a page showing
            where people are and nothing about where the reader is going. Pressing a row centres the map
            on its pin, the same press a name in the list above answers to. *@
-        <section class="map-panel-section">
+        <section class="map-panel-section @PinnedClass(MapPanelPins.PanelList.YourPlans)">
             <div class="map-panel-heading-row">
+                @RenderPanelPin(MapPanelPins.PanelList.YourPlans)
                 <h2 class="map-panel-heading">@T["Where your plans are"]</h2>
                 @RenderPinToggle(MapPinVisibility.PinGroup.YourPlans, T["Show these on the map"], T["Hide these from the map"])
             </div>
@@ -229,10 +328,9 @@ else
             @if (_showsPastPlaces)
             {
                 <div class="field">
-                    <label for="mapPastFrom">@T["Show from"]</label>
+                    <label for="mapPastFrom">@T["Show from"]<FieldHint>@T["Leave it empty for everything that has been and gone."]</FieldHint></label>
                     <input type="date" id="mapPastFrom" value="@(_showsPastPlacesFrom?.ToString("yyyy-MM-dd"))"
                            @onchange="OnShowPastFromChangedAsync" aria-label="@(T["Show from"])" />
-                    <small>@T["Leave it empty for everything that has been and gone."]</small>
                 </div>
             }
             @if (_placed.Count == 0)
@@ -257,6 +355,15 @@ else
                     <span class="map-place-dot" style="background:@placed.Color" aria-hidden="true"></span>
                     <span class="row-title @(placed.IsBehindYou ? "map-place-past" : "")">@placed.Title</span>
                     <span class="row-meta">@placed.When</span>
+                    @* The same offer the shared positions carry, on the plans that are most of what
+                       somebody has to get to. *@
+                    <button type="button" class="icon-btn map-share-open" title="@(T["Take me there"])"
+                            aria-label="@(T["Take me there"])"
+                            @onclick="() => AskHowToGetTo(TargetFor(placed))" @onclick:stopPropagation="true">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 20 20" fill="none"
+                             stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"
+                             aria-hidden="true"><path d="M17 3 3 9l6 2.2L11.2 17 17 3Z" /></svg>
+                    </button>
                     @* Where the thing itself is opened, and it comes back here afterwards - see ReturnTo. *@
                     <a class="icon-btn map-share-open" href="@placed.OpenUrl" title="@(T["Open"])"
                        aria-label="@(T["Open"])" @onclick:stopPropagation="true">
@@ -267,6 +374,7 @@ else
                 </div>
             }
         </section>
+        </div>
         }
     </div>
 
@@ -320,6 +428,13 @@ else
                 <span class="map-fullscreen-enter" title="@(T["Full screen"])" aria-label="@(T["Full screen"])">⤢</span>
                 <span class="map-fullscreen-exit" title="@(T["Leave full screen"])" aria-label="@(T["Leave full screen"])">✕</span>
             </button>
+            @* The other corner, and the other way to keep a place: an empty form, for somewhere whose
+               address is known and whose spot on the map is not obvious - a shop by name rather than a
+               pin somebody has to find first. Pressing the map is still the quicker way when the place
+               is on screen; this is the way in when it is not. Over the map for the same reason the
+               fullscreen button is: Leaflet owns its container's children. *@
+            <button type="button" class="map-add-place-button" title="@(T["Keep a place"])"
+                    aria-label="@(T["Keep a place"])" @onclick="StartANewPlace">+</button>
         </div>
 
         @* A press on the map, waiting to be allowed. Above the bar about the pin itself, because it is
@@ -351,9 +466,44 @@ else
 </div>
 }
 
-@* Asked rather than guessed: an appointment and an errand at the same address are different things, and
-   only the person who pointed at it knows which they meant. Over the map, because the map is the page
-   and the question is about the pin on it. *@
+@* Which app takes somebody to the pin. Asked every time rather than remembered, because there is no
+   right answer to remember: see NavigationApps. Over the map, like the question about what happens at a
+   place, because both are about the pin under it. *@
+@if (_takeMeTo is { } destination)
+{
+    <div class="map-overlay" @onclick="ForgetTheNavigation">
+        <div class="map-overlay-panel" @onclick:stopPropagation="true">
+            <div class="map-overlay-header">
+                <h2>@T["Take me there"]</h2>
+            </div>
+            <p class="map-overlay-hint">@destination.Label</p>
+            <div class="map-overlay-confirm map-overlay-apps">
+                @foreach (var app in NavigationApps.Offered(_isApplePlatform))
+                {
+                    <button type="button" class="@(app == NavigationApp.ThisDevice ? "btn-primary" : "btn-secondary")"
+                            @onclick="() => TakeMeThereWithAsync(app)">@T[NavigationApps.NameOf(app)]</button>
+                }
+            </div>
+            @* Said out loud, on the screen that is most careful about it: the map withholds its own
+               background rather than fetch it from somebody else without being asked (see mapTiles.js),
+               so a row of buttons that quietly hand an address to four companies would be the one place
+               on the page that did not ask. *@
+            <p class="map-overlay-hint">@T["Only the first stays on this device. The rest open somebody else's service."]</p>
+            <div class="map-overlay-confirm">
+                <button type="button" class="btn-secondary" @onclick="ForgetTheNavigation">@T["Cancel"]</button>
+            </div>
+        </div>
+    </div>
+}
+
+@* Asked rather than guessed: a place, an appointment and an errand at the same address are different
+   things, and only the person who pointed at it knows which they meant. Over the map, because the map is
+   the page and the question is about the pin on it.
+
+   Three answers on one picker rather than a row of three buttons, because they are three answers to one
+   question and a row of buttons reads as three different ones. A place is the default because it is the
+   least somebody can mean by pressing a map: it says where and nothing else, and the other two are that
+   plus a time or plus a job. *@
 @if (_placeToPlanFor is { } chosen)
 {
     <div class="map-overlay" @onclick="ForgetTheChosenPlace">
@@ -362,10 +512,82 @@ else
                 <h2>@T["What happens here?"]</h2>
             </div>
             <p class="map-overlay-hint">@chosen.Address</p>
+            <div class="field">
+                <label for="mapWhatHappensHere">@T["Make it"]</label>
+                <select id="mapWhatHappensHere" value="@_whatHappensHere"
+                        @onchange="args => _whatHappensHere = args.Value?.ToString() ?? _whatHappensHere">
+                    <option value="@nameof(PlanForAPlace.Place)">@T["A place worth keeping"]</option>
+                    <option value="@nameof(PlanForAPlace.Event)">@T["An event in the calendar"]</option>
+                    <option value="@nameof(PlanForAPlace.TaskList)">@T["A task list starting here"]</option>
+                </select>
+            </div>
             <div class="map-overlay-confirm">
-                <button type="button" class="btn-primary" @onclick="PlanAnEventHere">@T["An event in the calendar"]</button>
-                <button type="button" class="btn-secondary" @onclick="PlanATaskHere">@T["A task list starting here"]</button>
-                <button type="button" class="btn-secondary" @onclick="ForgetTheChosenPlace">@T["Cancel"]</button>
+                <button type="button" class="btn-primary icon-labelled" @onclick="MakeWhatWasChosen">
+                    <span aria-hidden="true">✓</span> @T["Create"]
+                </button>
+                <button type="button" class="btn-secondary icon-labelled" @onclick="ForgetTheChosenPlace">
+                    <span aria-hidden="true">✕</span> @T["Cancel"]
+                </button>
+            </div>
+        </div>
+    </div>
+}
+
+@* The form itself, opened either by the + on the map or by choosing "a place worth keeping" above. The
+   pin it starts at is whichever of those two put it there - see StartANewPlace. *@
+@if (_isKeepingAPlace)
+{
+    <PlaceForm StartsAt="_placeBeingKept" TaskLists="_taskLists"
+               OnSaved="TheNewPlaceWasKeptAsync" OnCancelled="ForgetTheNewPlace" />
+}
+
+@* The same form again, on a place that already exists - see PlaceForm, which is one form for both
+   because a place says the same thing whether it is being made or corrected. *@
+@if (_placeBeingChanged is { } beingChanged)
+{
+    <PlaceForm Place="beingChanged" TaskLists="_taskLists"
+               OnSaved="TheNewPlaceWasKeptAsync" OnCancelled="() => _placeBeingChanged = null" />
+}
+
+@* Handing a place to somebody, from the row it is on. Over the map like everything else this page asks,
+   because the panel is a quarter of a phone and this is three questions and a message. *@
+@if (_placeBeingShared is { } beingShared)
+{
+    <div class="map-overlay" @onclick="() => _placeBeingShared = null">
+        <div class="map-overlay-panel" @onclick:stopPropagation="true">
+            <div class="map-overlay-header">
+                <h2>@T["Share"]</h2>
+                <button type="button" class="icon-btn" title="@(T["Close"])" aria-label="@(T["Close"])"
+                        @onclick="() => _placeBeingShared = null">✕</button>
+            </div>
+            <p class="map-overlay-hint">@beingShared.Name</p>
+            <SharePlacePanel Place="beingShared" Contacts="_contacts" OwnUserId="_ownUserId"
+                             OnShared="TheseSharesChangedAsync" />
+            @* The other kind of sharing: a link anybody can read without an account. Only for a place
+               this reader keeps - a link made from somebody else's would outlive the share it came from
+               and would not be theirs to revoke (see PublicSharedItemReader.CanPublishAsync). *@
+            @if (!beingShared.IsShared)
+            {
+                <ShareLinkButton ItemType="Place" ItemId="beingShared.Id" />
+            }
+        </div>
+    </div>
+}
+
+@* Asked before it happens, because forgetting a place is the one thing on this panel that cannot be
+   undone - a share can be started again and a pin can be redrawn. *@
+@if (_placeBeingForgotten is { } beingForgotten)
+{
+    <div class="map-overlay" @onclick="() => _placeBeingForgotten = null">
+        <div class="map-overlay-panel" @onclick:stopPropagation="true">
+            <div class="map-overlay-header">
+                <h2>@T["Forget this place?"]</h2>
+            </div>
+            <p class="map-overlay-hint">@beingForgotten.Name</p>
+            <div class="map-overlay-confirm">
+                <button type="button" class="btn-danger" disabled="@_isBusy"
+                        @onclick="() => ForgetThePlaceAsync(beingForgotten)">@T["Delete"]</button>
+                <button type="button" class="btn-secondary" @onclick="() => _placeBeingForgotten = null">@T["Cancel"]</button>
             </div>
         </div>
     </div>
@@ -524,9 +746,165 @@ else
 
     private void ForgetTheChosenPlace() => _placeToPlanFor = null;
 
-    private void PlanAnEventHere() => HandOverThePlaceTo("/calendar/new");
+    /// <summary>
+    /// What a pressed place can become. Named rather than passed as loose strings, so a typo is a
+    /// compiler error instead of a Create that quietly does nothing.
+    /// </summary>
+    private enum PlanForAPlace
+    {
+        /// <summary>Somewhere kept for its own sake - see Orbit.Core.Places.Place.</summary>
+        Place,
 
-    private void PlanATaskHere() => HandOverThePlaceTo("/tasks/new");
+        /// <summary>An appointment there, which is a place and a time.</summary>
+        Event,
+
+        /// <summary>A list of work starting there, whose first entry is that place - see TaskItemKind.Location.</summary>
+        TaskList
+    }
+
+    /// <summary>
+    /// Which of the three the picker is on. A place by default: it is the least somebody can mean by
+    /// pressing a map, and the other two ask for a time or a job that nobody has mentioned yet.
+    /// </summary>
+    private string _whatHappensHere = nameof(PlanForAPlace.Place);
+
+    private void MakeWhatWasChosen()
+    {
+        switch (_whatHappensHere)
+        {
+            case nameof(PlanForAPlace.Event):
+                HandOverThePlaceTo("/calendar/new");
+                break;
+            case nameof(PlanForAPlace.TaskList):
+                HandOverThePlaceTo("/tasks/new");
+                break;
+            default:
+                KeepThisPlace();
+                break;
+        }
+    }
+
+    /// <summary>Whether the place form is open, whichever of the two ways opened it.</summary>
+    private bool _isKeepingAPlace;
+
+    /// <summary>The pin the form starts on, or null for the empty form the + opens.</summary>
+    private PickedPlace? _placeBeingKept;
+
+    /// <summary>
+    /// The + in the corner: a form with nothing in it. Deliberately not seeded with whatever pin happens
+    /// to be on the map - somebody who meant that pin has the question about it in front of them
+    /// already, and starting from a place nobody asked for is how a place gets kept at the wrong one.
+    /// </summary>
+    private void StartANewPlace()
+    {
+        _placeBeingKept = null;
+        _isKeepingAPlace = true;
+    }
+
+    /// <summary>The picker's own answer: the same form, opened on the pin the question was about.</summary>
+    private void KeepThisPlace()
+    {
+        _placeBeingKept = _placeToPlanFor;
+        _placeToPlanFor = null;
+        _isKeepingAPlace = true;
+    }
+
+    private void ForgetTheNewPlace()
+    {
+        _isKeepingAPlace = false;
+        _placeBeingKept = null;
+    }
+
+    /// <summary>
+    /// Read back rather than added to the list here: the server decides the id and the order, and a page
+    /// that guesses either would disagree with the next refresh. The map is redrawn with it, which is
+    /// the whole reason somebody kept it.
+    /// </summary>
+    private async Task TheNewPlaceWasKeptAsync()
+    {
+        ForgetTheNewPlace();
+        _placeBeingChanged = null;
+        _places = await PlacesApiClient.GetPlacesAsync();
+        await RefreshMapMarkersAsync();
+    }
+
+    /// <summary>The place whose form is open for changing, or null when none is - see PlaceForm.</summary>
+    private PlaceDto? _placeBeingChanged;
+
+    private void ChangeThePlace(PlaceDto place) => _placeBeingChanged = place;
+
+    /// <summary>The place whose sharing panel is open, or null when none is.</summary>
+    private PlaceDto? _placeBeingShared;
+
+    private void ShareThePlace(PlaceDto place) => _placeBeingShared = place;
+
+    /// <summary>
+    /// Read back after a share so the row can say it is in somebody else's hands too. The panel stays
+    /// open: sharing with a second person is an ordinary next thing to want.
+    /// </summary>
+    private async Task TheseSharesChangedAsync()
+    {
+        _places = await PlacesApiClient.GetPlacesAsync();
+        _placeBeingShared = _places.FirstOrDefault(place => place.Id == _placeBeingShared?.Id);
+    }
+
+    /// <summary>
+    /// A second one of the same, which is what a place that comes in pairs needs: two entrances to the
+    /// same building, the near and far ends of one street. Named by the server, which is where the "copy"
+    /// wording lives - see DuplicatePlaceCommand.
+    /// </summary>
+    private async Task DuplicateThePlaceAsync(PlaceDto place)
+    {
+        _isBusy = true;
+        try
+        {
+            if (await PlacesApiClient.DuplicatePlaceAsync(place.Id) is null)
+            {
+                // Gone since the panel was drawn, which a refresh says better than an error does.
+                _message = T["That place is not here any more."];
+            }
+
+            _places = await PlacesApiClient.GetPlacesAsync();
+            await RefreshMapMarkersAsync();
+        }
+        catch (HttpRequestException exception)
+        {
+            Logger.LogError(exception, "Could not duplicate a place");
+            _hasFailed = true;
+            _message = T["That could not be saved. Try again in a moment."];
+        }
+        finally
+        {
+            _isBusy = false;
+        }
+    }
+
+    /// <summary>The place the question about forgetting is about - see the overlay.</summary>
+    private PlaceDto? _placeBeingForgotten;
+
+    private void AskToForgetThePlace(PlaceDto place) => _placeBeingForgotten = place;
+
+    private async Task ForgetThePlaceAsync(PlaceDto place)
+    {
+        _isBusy = true;
+        try
+        {
+            await PlacesApiClient.DeletePlaceAsync(place.Id);
+            _placeBeingForgotten = null;
+            _places = await PlacesApiClient.GetPlacesAsync();
+            await RefreshMapMarkersAsync();
+        }
+        catch (HttpRequestException exception)
+        {
+            Logger.LogError(exception, "Could not delete a place");
+            _hasFailed = true;
+            _message = T["That could not be saved. Try again in a moment."];
+        }
+        finally
+        {
+            _isBusy = false;
+        }
+    }
 
     /// <summary>
     /// Hands the place to the editor that makes something of it - neither an event nor a list is
@@ -585,6 +963,20 @@ else
     private IReadOnlyList<PlacedPlan> _placed = [];
 
     /// <summary>
+    /// The places this reader keeps for their own sake - see Orbit.Core.Places.Place. Their own list
+    /// rather than part of the plans above: a plan is something happening at a time, and these have no
+    /// time at all, which is the whole point of them.
+    /// </summary>
+    private IReadOnlyList<PlaceDto> _places = [];
+
+    /// <summary>
+    /// Every list this account has, as the place form's "belongs to" picker needs them. Read as part of
+    /// ReadWhatHasAPlaceAsync rather than on its own: that read wants them anyway, and a second request
+    /// for the same answer is a second request.
+    /// </summary>
+    private IReadOnlyList<TaskDto> _taskLists = [];
+
+    /// <summary>
     /// Whether what is already behind the reader is drawn as well - what has been and gone, and what
     /// has been done (see PlacedPlan.IsDone). Off, because a map is mostly about where somebody is
     /// going - and the last thing a page about that should be is a screen full of pins for places nobody
@@ -637,6 +1029,7 @@ else
         // both were forgotten the moment the page was left, so the option had to be found and pressed
         // again on every visit.
         await MapPins.InitializeAsync();
+        await PanelPins.InitializeAsync();
         _showsPastPlaces = MapPins.ShowsPastPlaces;
         _showsPastPlacesFrom = MapPins.PastPlacesFrom;
         await LoadAsync();
@@ -683,6 +1076,7 @@ else
             _mapModule ??= await JSRuntime.InvokeAsync<IJSObjectReference>("import", "./js/locationMap.js");
             _pageReference ??= DotNetObjectReference.Create(this);
             await _mapModule.InvokeVoidAsync("showLocations", MapElementId, MapPoints(), _pageReference);
+            await GoToThePlaceAskedForAsync();
         }
         catch (JSException exception)
         {
@@ -703,6 +1097,10 @@ else
         {
             _isPhone = await JSRuntime.InvokeAsync<bool>("OrbitViewport.isMobile");
             _mapTilesAllowed = await JSRuntime.InvokeAsync<bool>("OrbitMapTiles.areAllowed");
+            // Which map app can be asked for directions, and what address asks it - see NavigationApps,
+            // which decides both and needs only this one fact from the browser.
+            await using var mapApp = await JSRuntime.InvokeAsync<IJSObjectReference>("import", "./js/mapApp.js");
+            _isApplePlatform = await mapApp.InvokeAsync<bool>("isApple");
         }
         catch (JSException exception)
         {
@@ -724,6 +1122,8 @@ else
         {
             points.Add(new
             {
+                // The one pin with no way to be taken to it: directions to where you are standing are
+                // an app opening on a blank route.
                 key = "own",
                 latitude = own.Latitude,
                 longitude = own.Longitude,
@@ -744,7 +1144,9 @@ else
                 latitude = received.Position.Latitude,
                 longitude = received.Position.Longitude,
                 label = $"{DisplayNameFor(received.SharerUserId)} · {received.Position.Address ?? T["shared a position"]}",
-                color = AvatarHelper.AvatarColor(received.SharerUserId)
+                color = AvatarHelper.AvatarColor(received.SharerUserId),
+                canNavigate = true,
+                navigateLabel = T["Take me there"]
             }));
         }
 
@@ -759,7 +1161,25 @@ else
                 latitude = plan.Latitude,
                 longitude = plan.Longitude,
                 label = $"{plan.Title} · {plan.When} · {plan.Address}",
-                color = plan.Color
+                color = plan.Color,
+                canNavigate = true,
+                navigateLabel = T["Take me there"]
+            }));
+        }
+
+        // The places kept for their own sake, in whatever colour each was given - see MapPinVisibility,
+        // and the eye on this list's own heading.
+        if (MapPins.IsShown(MapPinVisibility.PinGroup.YourPlaces))
+        {
+            points.AddRange(_places.Select(place => (object)new
+            {
+                key = PlaceMapKey(place.Id),
+                latitude = place.Where.Latitude,
+                longitude = place.Where.Longitude,
+                label = place.Where.Address is { Length: > 0 } address ? $"{place.Name} · {address}" : place.Name,
+                color = ColourOf(place),
+                canNavigate = true,
+                navigateLabel = T["Take me there"]
             }));
         }
 
@@ -772,7 +1192,9 @@ else
                 latitude = found.Latitude,
                 longitude = found.Longitude,
                 label = found.Name,
-                color = "var(--danger)"
+                color = "var(--danger)",
+                canNavigate = true,
+                navigateLabel = T["Take me there"]
             });
         }
 
@@ -786,11 +1208,102 @@ else
                 latitude = pressed.Latitude,
                 longitude = pressed.Longitude,
                 label = pressed.Name,
-                color = "var(--danger)"
+                color = "var(--danger)",
+                canNavigate = true,
+                navigateLabel = T["Take me there"]
             });
         }
 
         return points;
+    }
+
+    /// <summary>
+    /// What colour a kept place is drawn in: the reader's own choice where they made one, and otherwise
+    /// the colour a place is drawn in - the accent, so a list of them reads as one kind of thing.
+    /// </summary>
+    private static string ColourOf(PlaceDto place)
+        => place.Colour.Length > 0 ? place.Colour : "var(--accent)";
+
+    /// <summary>
+    /// How much it matters, when that is worth saying. Normal is what everything is unless somebody said
+    /// otherwise, so it is drawn as nothing rather than as a badge on every row - the same rule the
+    /// dashboard's own badges follow.
+    /// </summary>
+    private static string? PriorityOf(PlaceDto place)
+        => place.Priority is "Low" or "High" ? place.Priority : null;
+
+    private string DescribePriority(string priority) => priority == "High" ? T["High"] : T["Low"];
+
+    private static NavigationTarget TargetFor(PlaceDto place)
+        => new(place.Name, place.Where.Latitude, place.Where.Longitude);
+
+    /// <summary>The key its pin is drawn under - see MapPoints, and FocusOnPlaceOnTheMapAsync.</summary>
+    private static string PlaceMapKey(Guid placeId) => $"place:{placeId}";
+
+    /// <summary>
+    /// A place this page was sent to look at - the dashboard's own card, where pressing a row means
+    /// "show me this one" and there is no page of a place's own to send anybody to.
+    ///
+    /// In the address bar rather than in a scoped hand-over like ChosenPlace, and the difference is what
+    /// it names: an id of this reader's own place, which is already what the link they might bookmark
+    /// would say. ChosenPlace carries coordinates, which is the thing that must not sit in a URL.
+    /// </summary>
+    [Parameter]
+    [SupplyParameterFromQuery(Name = "place")]
+    public Guid? Place { get; set; }
+
+    /// <summary>
+    /// Centres on it once the map is actually drawn. Silent for an id this account has no place under -
+    /// a link to one that has since been forgotten still arrives at the map, which is the right answer,
+    /// and an error about a row nobody chose to open is noise.
+    /// </summary>
+    private async Task GoToThePlaceAskedForAsync()
+    {
+        if (_hasGoneToThePlaceAskedFor
+            || Place is not { } placeId
+            || _places.All(place => place.Id != placeId))
+        {
+            return;
+        }
+
+        // Once, however many renders follow - otherwise every redraw would drag the map back to it and
+        // the reader could never look anywhere else.
+        _hasGoneToThePlaceAskedFor = true;
+        await FocusTheMapOnAsync(PlaceMapKey(placeId), "a kept place asked for by link");
+    }
+
+    /// <inheritdoc cref="GoToThePlaceAskedForAsync"/>
+    private bool _hasGoneToThePlaceAskedFor;
+
+    private Task FocusOnPlaceOnTheMapAsync(PlaceDto place)
+        => FocusTheMapOnAsync(PlaceMapKey(place.Id), "a kept place");
+
+    private async Task FocusOnPlaceOnTheMapOnEnterOrSpaceAsync(KeyboardEventArgs args, PlaceDto place)
+    {
+        if (args.Key is "Enter" or " ")
+        {
+            await FocusOnPlaceOnTheMapAsync(place);
+        }
+    }
+
+    /// <summary>
+    /// The pin on a panel's heading: whether this list is kept at the top of the panel. The same
+    /// control every other list in Orbit pins with, so the gesture means one thing everywhere - and a
+    /// different question from the eye beside it, which is about the map rather than about the panel.
+    /// </summary>
+    private RenderFragment RenderPanelPin(MapPanelPins.PanelList list)
+        => @<PinButton IsPinned="PanelPins.IsPinned(list)"
+                       OnPinnedChanged="pinned => SetPanelPinnedAsync(list, pinned)" />;
+
+    /// <summary>What lifts a pinned box past the others - see .map-panel-lists, where the order lives.</summary>
+    private string? PinnedClass(MapPanelPins.PanelList list)
+        => PanelPins.IsPinned(list) ? "map-panel-section-pinned" : null;
+
+    private async Task SetPanelPinnedAsync(MapPanelPins.PanelList list, bool isPinned)
+    {
+        Logger.LogInformation(
+            "User {Action} the {List} list on the map panel", isPinned ? "pinned" : "unpinned", list);
+        await PanelPins.SetPinnedAsync(list, isPinned);
     }
 
     /// <summary>
@@ -857,6 +1370,7 @@ else
             _receivedPositions = await OpenReceivedPositionsAsync();
             await NameTheSharersAsync();
             await ReadWhatHasAPlaceAsync();
+            _places = await PlacesApiClient.GetPlacesAsync();
         }
         catch (HttpRequestException exception) when (exception.StatusCode == HttpStatusCode.Unauthorized)
         {
@@ -1359,6 +1873,115 @@ else
             : FocusOnAsync(received);
 
     /// <summary>
+    /// Somewhere on the map the reader has asked to be taken to, while the question of which app should
+    /// take them is open. Null the rest of the time, which is what draws no overlay.
+    /// </summary>
+    private NavigationTarget? _takeMeTo;
+
+    /// <summary>Whether this is an iPhone, an iPad or a Mac - read once, from mapApp.js. See NavigationApps.</summary>
+    private bool _isApplePlatform;
+
+    /// <summary>One pin, as far as being taken to it is concerned - a name to show and a point to aim at.</summary>
+    private sealed record NavigationTarget(string Label, double Latitude, double Longitude);
+
+    private NavigationTarget TargetFor(ReceivedPosition received)
+        => new(
+            DisplayNameFor(received.SharerUserId),
+            received.Position.Latitude, received.Position.Longitude);
+
+    private static NavigationTarget TargetFor(PlacedPlan plan)
+        => new(plan.Title, plan.Latitude, plan.Longitude);
+
+    private void AskHowToGetTo(NavigationTarget target)
+    {
+        Logger.LogInformation("User asked how to get to a pin on the map");
+        _takeMeTo = target;
+    }
+
+    private void ForgetTheNavigation() => _takeMeTo = null;
+
+    /// <summary>
+    /// The pin's own way of asking - the button inside its popup, which reports the press by the key the
+    /// marker was drawn under (see locationMap.js). Everything that carries one is looked up here rather
+    /// than the coordinates being handed back through JavaScript: a key is an identity this page already
+    /// keeps, and a pair of numbers arriving from the browser would be a position nothing had checked.
+    ///
+    /// A key nothing answers to - a marker left over from a list that has since changed - opens nothing,
+    /// which is the same thing a press on a pin that is no longer there should do.
+    /// </summary>
+    [JSInvokable]
+    public Task OnPinNavigate(string key)
+    {
+        if (TargetForKey(key) is { } target)
+        {
+            AskHowToGetTo(target);
+            StateHasChanged();
+        }
+
+        return Task.CompletedTask;
+    }
+
+    private NavigationTarget? TargetForKey(string key)
+    {
+        foreach (var received in _receivedPositions)
+        {
+            if (SharerMapKey(received.SharerUserId) == key)
+            {
+                return TargetFor(received);
+            }
+        }
+
+        foreach (var plan in _placed)
+        {
+            if (plan.Key == key)
+            {
+                return TargetFor(plan);
+            }
+        }
+
+        foreach (var place in _places)
+        {
+            if (PlaceMapKey(place.Id) == key)
+            {
+                return TargetFor(place);
+            }
+        }
+
+        return (key, _foundPlace, _pressedPlace) switch
+        {
+            ("found", { } found, _) => new NavigationTarget(found.Name, found.Latitude, found.Longitude),
+            ("pressed", _, { } pressed) => new NavigationTarget(pressed.Name, pressed.Latitude, pressed.Longitude),
+            _ => null
+        };
+    }
+
+    /// <summary>
+    /// Opens the directions in the app that was chosen. The overlay closes either way: a device with no
+    /// app registered for the scheme does nothing at all, and leaving the question open over a map app
+    /// that has just taken the whole screen is a panel to come back to and dismiss.
+    /// </summary>
+    private async Task TakeMeThereWithAsync(NavigationApp app)
+    {
+        if (_takeMeTo is not { } target)
+        {
+            return;
+        }
+
+        _takeMeTo = null;
+        Logger.LogInformation("User asked {App} for directions to a pin on the map", app);
+        try
+        {
+            await using var mapApp = await JSRuntime.InvokeAsync<IJSObjectReference>("import", "./js/mapApp.js");
+            await mapApp.InvokeVoidAsync(
+                "openUrl", NavigationApps.RouteTo(app, _isApplePlatform, target.Latitude, target.Longitude));
+        }
+        catch (JSException exception)
+        {
+            Logger.LogWarning(exception, "Could not open directions to a pin in {App}", app);
+        }
+    }
+
+    /// <summary>
     /// Hands the position to whatever map app the device has - see mapApp.js for why that rather than a
     /// Google Maps URL. The name is what the pin is called once it arrives.
     /// </summary>
@@ -1430,6 +2053,9 @@ else
     {
         var nowUtc = DateTimeOffset.UtcNow;
         var taskLists = await TasksApiClient.GetTaskListsAsync();
+        // Kept, because the place form asks which lists a place belongs to and this is the one read that
+        // already fetches them - see PlaceForm.TaskLists.
+        _taskLists = taskLists;
         var placed = new List<PlacedPlan>();
 
         foreach (var calendarEvent in await CalendarApiClient.GetCalendarEventsAsync())

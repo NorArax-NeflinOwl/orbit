@@ -505,9 +505,13 @@ public sealed class CalendarEventEditorTests : OrbitTestContext
         var chosen = Services.GetRequiredService<ChosenPlace>();
         chosen.Hold(new PickedPlace("Długa 4, Warszawa", 52.2497, 21.0122));
 
+        // Disposed before the second is opened, which is what actually happens when somebody leaves the
+        // page and comes back: two live editors would be two page headers, and two of those cannot both
+        // hold the outlet a phone's Menu button is drawn into - see PageToolbarTrigger.
         RenderComponent<CalendarEventEditor>();
-
         Assert.False(chosen.IsWaiting);
+        DisposeComponents();
+
         Assert.Empty(LocationBoxOf(RenderComponent<CalendarEventEditor>()).GetAttribute("value")!);
     }
 

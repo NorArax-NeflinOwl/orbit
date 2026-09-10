@@ -22,10 +22,9 @@
         </div>
 
         <div class="field">
-            <label for="generatedInventoryName">@T["Name"]</label>
+            <label for="generatedInventoryName">@T["Name"]<FieldHint>@T["The list's own title unless you say otherwise. One product per distinct thing the list names goes on the shelf."]</FieldHint></label>
             <input id="generatedInventoryName" class="form-control" @bind="_name" @bind:event="oninput"
                    placeholder="@DefaultName" aria-label="@(T["Name"])" />
-            <small>@T["The list's own title unless you say otherwise. One product per distinct thing the list names goes on the shelf."]</small>
         </div>
 
         <h3 class="form-overlay-section">@T["Restock supplies task"]</h3>
@@ -69,18 +68,19 @@
                of two rather than a checkbox, because both answers are answers: one shelf is counted and
                reports what ran out, another is walked past and looked at. *@
             <div class="field">
-                <label for="generatedRestockScope">@T["The list asks about"]</label>
+                @* The two answers are described where they are chosen between, so what changes when the
+                   picker changes is one press away rather than a paragraph under it. *@
+                <label for="generatedRestockScope">@T["The list asks about"]<FieldHint>
+                    @(_onlyCheckedRegularly
+                        ? T["The list asks only about the products marked to look at every round. What is running low but not marked is left off."]
+                        : T["The list asks for everything on this shelf that has dropped below its own minimum."])
+                </FieldHint></label>
                 @* Read and written by hand rather than through @bind: a select's value is a string, and
                    binding one straight onto a bool quietly kept the default whatever was chosen. *@
                 <select id="generatedRestockScope" value="@ScopeChosen" @onchange="ChooseScope">
                     <option value="false">@T["Everything running low"]</option>
                     <option value="true">@T["Only the products marked \"Check every round\""]</option>
                 </select>
-                <small>
-                    @(_onlyCheckedRegularly
-                        ? T["The list asks only about the products marked to look at every round. What is running low but not marked is left off."]
-                        : T["The list asks for everything on this shelf that has dropped below its own minimum."])
-                </small>
             </div>
         </fieldset>
 

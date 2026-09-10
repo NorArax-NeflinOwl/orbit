@@ -74,7 +74,7 @@
 
    On a phone the lot folds into one Menu button - see PhoneToolbar, which is nothing at all on a wider
    screen. *@
-<PhoneToolbar>
+<PhoneToolbar Page="FolderPage.Tasks">
     <FolderTabs Page="FolderPage.Tasks" CountIn="CountIn" />
 
     @* Only once there is something to narrow, and only about the folder that is open: a search box
@@ -400,7 +400,7 @@
     /// </summary>
     private static readonly TaskListFilter[] EverySelectableFilter =
     [
-        TaskListFilter.New, TaskListFilter.Pending, TaskListFilter.Overdue,
+        TaskListFilter.New, TaskListFilter.Pending, TaskListFilter.Overdue, TaskListFilter.DueAgain,
         TaskListFilter.Shared, TaskListFilter.Group
     ];
 
@@ -717,6 +717,7 @@
         TaskListFilter.Pending => T["In progress"],
         TaskListFilter.Completed => T["Done"],
         TaskListFilter.Overdue => T["Overdue"],
+        TaskListFilter.DueAgain => T["Due again"],
         TaskListFilter.Shared => T["Shared"],
         TaskListFilter.Group => T["Group"],
         TaskListFilter.All => T["All"],
@@ -728,6 +729,9 @@
         TaskListStatus.Pending => T["In progress"],
         TaskListStatus.Completed => T["Done"],
         TaskListStatus.Overdue => T["Overdue"],
+        // Not "Overdue": a chore that comes round every day keeps one due date that never moves, so a
+        // list holding one read "late" for as long as the chore existed - see TaskListStatus.DueAgain.
+        TaskListStatus.DueAgain => T["Due again"],
         // Everything on it is ticked and its owner says the list itself is not - see
         // TaskListCompletion.Unfinished. Named for the list rather than for its work, which is the whole
         // distinction: "in progress" over a column of ticks describes neither of the two true things.
@@ -756,6 +760,9 @@
         New,
         Pending,
         Overdue,
+
+        /// <summary>Nothing late on it, but a daily chore is waiting - see TaskListStatus.DueAgain.</summary>
+        DueAgain,
         Completed,
         Shared,
 

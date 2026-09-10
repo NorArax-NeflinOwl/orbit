@@ -30,8 +30,8 @@ public enum SharingOutcome
 /// and only a client holds the key. That is why the server's own endpoint says nothing to anybody - see
 /// the comment on NoteEndpoints' share route.
 ///
-/// One place rather than four, for the same reason as <see cref="SharedItemAcceptance"/>: which endpoint
-/// offers a thing follows from what kind of thing it is, and so does which payload announces it.
+/// One place rather than one per kind, for the same reason as <see cref="SharedItemAcceptance"/>: which
+/// endpoint offers a thing follows from what kind of thing it is, and so does which payload announces it.
 /// </summary>
 public sealed class SharedItemSharing
 {
@@ -39,16 +39,18 @@ public sealed class SharedItemSharing
     private readonly TasksClient _tasks;
     private readonly CalendarClient _calendar;
     private readonly InventoryClient _inventory;
+    private readonly PlacesClient _places;
     private readonly EncryptedChatMessageSender _sender;
 
     public SharedItemSharing(
         NotesClient notes, TasksClient tasks, CalendarClient calendar, InventoryClient inventory,
-        EncryptedChatMessageSender sender)
+        PlacesClient places, EncryptedChatMessageSender sender)
     {
         _notes = notes;
         _tasks = tasks;
         _calendar = calendar;
         _inventory = inventory;
+        _places = places;
         _sender = sender;
     }
 
@@ -63,7 +65,11 @@ public sealed class SharedItemSharing
                 return SharingOutcome.Refused;
             }
 
-            await _sender.SendAsync(recipientUserId, Announce(kind, result.ShareId, name), cancellationToken);
+            // The share id travels beside the message as well as inside it. Inside is the payload the
+            // recipient reads to know what is being offered; beside is what lets the server take this
+            // invitation down when the share is withdrawn - it can never read the payload.
+            await _sender.SendAsync(
+                recipientUserId, Announce(kind, result.ShareId, name), result.ShareId, cancellationToken);
             return result.AlreadyShared ? SharingOutcome.AlreadyShared : SharingOutcome.Offered;
         }
         catch (HttpRequestException)
@@ -79,6 +85,7 @@ public sealed class SharedItemSharing
             SharedItemKind.Note => _notes.ShareAsync(itemId, recipientUserId, accessLevel, cancellationToken),
             SharedItemKind.TaskList => _tasks.ShareAsync(itemId, recipientUserId, accessLevel, cancellationToken),
             SharedItemKind.CalendarEvent => _calendar.ShareAsync(itemId, recipientUserId, accessLevel, cancellationToken),
+            SharedItemKind.Place => _places.ShareAsync(itemId, recipientUserId, accessLevel, cancellationToken),
             _ => _inventory.ShareAsync(itemId, recipientUserId, accessLevel, cancellationToken)
         };
 
@@ -91,7 +98,8 @@ public sealed class SharedItemSharing
     {
         try
         {
-            var result = await _sender.SendAsync(ownerUserId, request.ToMessage(), cancellationToken);
+            var result = await _sender.SendAsync(
+                ownerUserId, request.ToMessage(), cancellationToken: cancellationToken);
             return result is { ReachedTheServer: true, GivenUp: 0 };
         }
         catch (HttpRequestException)
@@ -109,6 +117,8 @@ public sealed class SharedItemSharing
             new TaskListShareMessagePayload(shareId, name), ChatPayloadSerializerContext.Default.TaskListShareMessagePayload),
         SharedItemKind.CalendarEvent => JsonSerializer.Serialize(
             new EventShareMessagePayload(shareId, name), ChatPayloadSerializerContext.Default.EventShareMessagePayload),
+        SharedItemKind.Place => JsonSerializer.Serialize(
+            new PlaceShareMessagePayload(shareId, name), ChatPayloadSerializerContext.Default.PlaceShareMessagePayload),
         _ => JsonSerializer.Serialize(
             new InventoryShareMessagePayload(shareId, name), ChatPayloadSerializerContext.Default.InventoryShareMessagePayload)
     };

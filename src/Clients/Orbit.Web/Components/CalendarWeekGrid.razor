@@ -1,0 +1,161 @@
+@using System.Globalization
+@using Orbit.Contracts.Calendar
+@using Orbit.Web.Services
+@inject Translations T
+
+@* A week as seven timelines rather than seven boxes of chips. It used to be a month grid with one row
+   in it, which put everything happening on a Tuesday in a list ordered by nothing a reader can see - so
+   a week could say what was on and never when, which is the one thing a week is read for.
+
+   The day view's own layout, seven times over: the same hour gutter, the same minute-precision blocks,
+   the same all-day strip - drawn as a band across the top so a whole-day thing sits above the hours
+   rather than being given an hour it does not have. Half-hour lines under the hour ones, because
+   placing something to the half hour by eye needs a line at the half hour. *@
+<div class="calendar-week-grid">
+    <div class="calendar-week-grid-head">
+        <span class="calendar-week-grid-gutter"></span>
+        @foreach (var day in Timeline.Days)
+        {
+            <button type="button" class="calendar-week-grid-day-name @(day.Date == DateOnly.FromDateTime(DateTime.Today) ? "today" : null)"
+                    @onclick="() => DaySelectedAsync(day.Date)">
+                <span class="calendar-week-grid-weekday">@day.Date.ToString("ddd", T.DisplayCulture)</span>
+                <span class="calendar-week-grid-daynumber">@day.Date.Day</span>
+            </button>
+        }
+    </div>
+
+    @* Only when there is something in it: an empty band across the top of every week is a strip of the
+       screen given to nothing. *@
+    @if (Timeline.Days.Any(day => day.AllDayEvents.Count > 0))
+    {
+        <div class="calendar-week-grid-all-day">
+            <span class="calendar-week-grid-gutter calendar-week-grid-all-day-label">@T["All day"]</span>
+            @foreach (var day in Timeline.Days)
+            {
+                <div class="calendar-week-grid-all-day-cell">
+                    @foreach (var calendarEvent in day.AllDayEvents)
+                    {
+                        <button type="button" class="calendar-event-chip @DoneClass(calendarEvent.Id)"
+                                style="border-left-color:@EventColor(calendarEvent);"
+                                @onclick="() => EventSelectedAsync(calendarEvent.Id)">
+                            <span class="calendar-event-chip-title">@RecurringPrefix(calendarEvent)@calendarEvent.Details.Title</span>
+                        </button>
+                    }
+                </div>
+            }
+        </div>
+    }
+
+    <div class="calendar-week-grid-timeline">
+        <div class="calendar-week-grid-gutter calendar-week-grid-hours">
+            @foreach (var hour in Hours)
+            {
+                <div class="calendar-day-grid-hour-label" style="top:@Percent(hour * 60);">@hour.ToString("00"):00</div>
+            }
+        </div>
+        @foreach (var day in Timeline.Days)
+        {
+            <div class="calendar-week-grid-day">
+                @* Every half hour, and the hour ones drawn heavier - see .calendar-week-grid-half-line. *@
+                @foreach (var halfHour in HalfHours)
+                {
+                    <div class="calendar-week-grid-half-line @(halfHour % 60 == 0 ? "on-the-hour" : null)"
+                         style="top:@Percent(halfHour);"></div>
+                }
+
+                @foreach (var placedEvent in day.TimedEvents)
+                {
+                    <button type="button" class="calendar-event-block @DoneClass(placedEvent.Event.Id)"
+                            style="@PositionStyle(placedEvent) border-left-color:@EventColor(placedEvent.Event);"
+                            @onclick="() => EventSelectedAsync(placedEvent.Event.Id)">
+                        <span class="calendar-event-block-time">@FormatTimeRange(placedEvent.Event.Details)</span>
+                        <span class="calendar-event-block-title">@RecurringPrefix(placedEvent.Event)@placedEvent.Event.Details.Title</span>
+                    </button>
+                }
+
+                @foreach (var placedDueTask in day.DueTasks)
+                {
+                    <button type="button" class="calendar-task-block @(placedDueTask.Task.IsCompleted ? "calendar-chip-done" : "")"
+                            style="@DueTaskPositionStyle(placedDueTask)"
+                            @onclick="() => TaskSelectedAsync(placedDueTask.Task)">
+                        <span class="calendar-event-block-time">@FormatDueTime(placedDueTask.Task)</span>
+                        <span class="calendar-event-block-title" title="@placedDueTask.Task.Label">@placedDueTask.Task.Label</span>
+                    </button>
+                }
+            </div>
+        }
+    </div>
+</div>
+
+@code {
+    /// <summary>The same floor the day view gives a block, so a five-minute thing is still readable.</summary>
+    private const int MinimumVisibleMinutes = 15;
+
+    private static readonly int[] Hours = [.. Enumerable.Range(0, 24)];
+
+    /// <summary>Minutes since midnight for every half hour of the day, which is what the lines are drawn at.</summary>
+    private static readonly int[] HalfHours = [.. Enumerable.Range(0, 48).Select(half => half * 30)];
+
+    [Parameter, EditorRequired] public WeekTimeline Timeline { get; set; } = null!;
+
+    /// <inheritdoc cref="CalendarDayGrid.TickedOffEventIds"/>
+    [Parameter] public IReadOnlySet<Guid> TickedOffEventIds { get; set; } = new HashSet<Guid>();
+
+    [Parameter] public EventCallback<Guid> OnEventSelected { get; set; }
+
+    [Parameter] public EventCallback<DueTaskDto> OnTaskSelected { get; set; }
+
+    /// <summary>Pressing a day's name opens that day, the way pressing a cell of the month grid does.</summary>
+    [Parameter] public EventCallback<DateOnly> OnDaySelected { get; set; }
+
+    private string DoneClass(Guid eventId) => TickedOffEventIds.Contains(eventId) ? "calendar-chip-done" : string.Empty;
+
+    private Task EventSelectedAsync(Guid eventId) => OnEventSelected.InvokeAsync(eventId);
+
+    private Task TaskSelectedAsync(DueTaskDto dueTask) => OnTaskSelected.InvokeAsync(dueTask);
+
+    private Task DaySelectedAsync(DateOnly day) => OnDaySelected.InvokeAsync(day);
+
+    /// <summary>How far down the day something is, as the percentage a style attribute wants.</summary>
+    private static string Percent(int minuteOfDay)
+        => string.Create(CultureInfo.InvariantCulture, $"{minuteOfDay * 100.0 / CalendarGridBuilder.MinutesPerDay}%");
+
+    private static string EventColor(CalendarEventDto calendarEvent)
+        => string.IsNullOrWhiteSpace(calendarEvent.Details.Color) ? "#4a90d9" : calendarEvent.Details.Color;
+
+    /// <inheritdoc cref="CalendarDayGrid"/>
+    private static string RecurringPrefix(CalendarEventDto calendarEvent)
+        => calendarEvent.Details.Recurrence is not null ? "↻ " : "";
+
+    private static string FormatTimeRange(CalendarEventDetailsDto details)
+        => $"{details.StartUtc.LocalDateTime:HH:mm}–{details.EndUtc.LocalDateTime:HH:mm}";
+
+    private static string FormatDueTime(DueTaskDto dueTask) => dueTask.DueDateUtc.LocalDateTime.ToString("HH:mm");
+
+    /// <summary>
+    /// The same placement the day view makes, inside one seventh of the width instead of all of it -
+    /// see CalendarDayGrid.PositionStyle, which this mirrors deliberately: two views of the same
+    /// timeline disagreeing about where noon is would be worse than the duplication.
+    /// </summary>
+    private static string PositionStyle(DayGridPlacedEvent placedEvent)
+    {
+        var top = placedEvent.StartMinute * 100.0 / CalendarGridBuilder.MinutesPerDay;
+        var visibleEndMinute = Math.Max(placedEvent.EndMinute, placedEvent.StartMinute + MinimumVisibleMinutes);
+        var height = (visibleEndMinute - placedEvent.StartMinute) * 100.0 / CalendarGridBuilder.MinutesPerDay;
+        var width = 100.0 / placedEvent.ColumnCount;
+        var left = placedEvent.ColumnIndex * width;
+
+        return string.Create(CultureInfo.InvariantCulture, $"top:{top}%;height:{height}%;left:{left}%;width:{width}%;");
+    }
+
+    /// <inheritdoc cref="PositionStyle"/>
+    private static string DueTaskPositionStyle(DayGridPlacedDueTask placedDueTask)
+    {
+        var top = placedDueTask.DueMinute * 100.0 / CalendarGridBuilder.MinutesPerDay;
+        var height = MinimumVisibleMinutes * 100.0 / CalendarGridBuilder.MinutesPerDay;
+        var width = 100.0 / placedDueTask.ColumnCount;
+        var left = placedDueTask.ColumnIndex * width;
+
+        return string.Create(CultureInfo.InvariantCulture, $"top:{top}%;height:{height}%;left:{left}%;width:{width}%;");
+    }
+}

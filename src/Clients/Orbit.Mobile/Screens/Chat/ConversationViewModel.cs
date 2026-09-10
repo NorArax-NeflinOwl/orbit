@@ -312,7 +312,8 @@ public sealed partial class ConversationViewModel : ObservableObject, IDisposabl
 
         try
         {
-            var result = await _sender.SendAsync(_contact.UserId, Compose(text), cancellationToken);
+            var result = await _sender.SendAsync(
+                _contact.UserId, Compose(text), cancellationToken: cancellationToken);
             StopAnswering();
             SayWhatHappened(Describe(result));
         }

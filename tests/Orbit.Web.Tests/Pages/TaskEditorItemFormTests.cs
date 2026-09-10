@@ -292,9 +292,27 @@ public sealed class TaskEditorItemFormTests : OrbitTestContext
     }
 
     /// <summary>The box the list's own form carries, which is not one of the boxes its entries carry.</summary>
+    /// <summary>
+    /// What the list says about itself lives in the panel's menu now, the way the note's editor has
+    /// always kept its own - so the menu is opened first. Idempotent: the menu stays open once it is
+    /// (see OverflowMenu.StaysOpen), and pressing the trigger again would shut it.
+    /// </summary>
     private static IElement CompletedBox(IRenderedFragment cut)
-        => cut.FindAll(".field label").First(label => label.TextContent.Contains("Completed", StringComparison.Ordinal))
+    {
+        OpenTheSettings(cut);
+        return cut.FindAll(".editor-settings-menu .field label")
+            .First(label => label.TextContent.Contains("Completed", StringComparison.Ordinal))
             .QuerySelector("input[type=checkbox]")!;
+    }
+
+    /// <inheritdoc cref="CompletedBox"/>
+    private static void OpenTheSettings(IRenderedFragment cut)
+    {
+        if (cut.FindAll(".editor-settings-menu").Count == 0)
+        {
+            OpenTheRailMenu(cut);
+        }
+    }
 
     /// <summary>One press: an entry's box gives three answers now, and the first of them is "done".</summary>
     private static void TickTheOnlyItem(IRenderedFragment cut)
@@ -859,6 +877,97 @@ public sealed class TaskEditorItemFormTests : OrbitTestContext
         Assert.Equal(
             ItemId,
             items[1].GetProperty("waitsForTaskItemIds")[0].GetGuid());
+    }
+
+    /// <summary>
+    /// Whatever the entry is. The picker used to sit among the checklist fields, so an entry that
+    /// describes a product or raises an appointment could not be put in order behind another - although
+    /// TaskListSteps reads the field off every entry whatever its kind, and the column holds it for all
+    /// of them. "Buy milk after going to the shop" is an ordinary thing to want.
+    /// </summary>
+    [Theory]
+    [InlineData(nameof(TaskItemKind.Checklist))]
+    [InlineData(nameof(TaskItemKind.Inventory))]
+    [InlineData(nameof(TaskItemKind.Calendar))]
+    public void Any_kind_of_entry_can_be_made_to_wait_for_another(string kind)
+    {
+        RegisterApiClients(AnItem());
+        var cut = Render();
+
+        // A second entry, which the form unfolds as it adds - see AddItem - turned into the kind under
+        // test. The kind picker is the one select on an entry with no label of its own.
+        ClickButtonSaying(cut, "Add item");
+        cut.FindAll(".editor-item select").First(select => select.GetAttribute("aria-label") is null)
+            .Change(kind);
+
+        // Asked of the second entry's own form rather than of the page. Looking for the last "Waits
+        // for" on the page would find the first entry's - which is a checklist one and has always had
+        // it - so the test would pass with the field still missing from the entry it is about.
+        var theNewEntry = cut.FindAll(".editor-item").Skip(1).First();
+        theNewEntry.QuerySelectorAll("select")
+            .Single(select => select.GetAttribute("aria-label") == "Waits for")
+            .Change(ItemId.ToString());
+
+        // Read off the form rather than off a save: an appointment with no event details written is
+        // refused before it is sent, and what this is about is the field being offered at all.
+        Assert.Contains(
+            cut.FindAll(".editor-item").Skip(1).First().QuerySelectorAll(".linked-list-chips li span"),
+            chip => chip.TextContent.Contains("Buy milk", StringComparison.Ordinal));
+    }
+
+    /// <summary>
+    /// An entry has a priority of its own now. The list has one and this is not it: a list of ten
+    /// errands usually has one that has to happen and nine that can wait, and until now saying so meant
+    /// splitting the list in two.
+    /// </summary>
+    [Fact]
+    public void An_entry_carries_a_priority_of_its_own()
+    {
+        RegisterApiClients(AnItem());
+        var cut = Render();
+        ExpandTheOnlyItem(cut);
+
+        cut.Find(".editor-item select[aria-label=\"Entry priority\"]").Change("High");
+        ClickButtonSaying(cut, "Save");
+
+        var items = JsonDocument.Parse(_lastSavedJson!).RootElement.GetProperty("items");
+        Assert.Equal("High", items[0].GetProperty("priority").GetString());
+    }
+
+    /// <summary>And a colour of its own, which travels as the reader chose it.</summary>
+    [Fact]
+    public void An_entry_carries_a_colour_of_its_own()
+    {
+        RegisterApiClients(AnItem());
+        var cut = Render();
+        ExpandTheOnlyItem(cut);
+
+        cut.Find(".editor-item input[type=color]").Change("#cc4a3f");
+        ClickButtonSaying(cut, "Save");
+
+        var items = JsonDocument.Parse(_lastSavedJson!).RootElement.GetProperty("items");
+        Assert.Equal("#cc4a3f", items[0].GetProperty("colour").GetString());
+    }
+
+    /// <summary>
+    /// With a way back out of it, offered only once there is something to undo: a colour input always
+    /// holds a colour, and "no colour of its own" is a real answer - such an entry is drawn in whatever
+    /// its kind is drawn in, and a default here would quietly overrule that.
+    /// </summary>
+    [Fact]
+    public void A_colour_can_be_taken_off_an_entry_again()
+    {
+        RegisterApiClients(AnItem());
+        var cut = Render();
+        ExpandTheOnlyItem(cut);
+        Assert.DoesNotContain("No colour of its own", cut.Markup, StringComparison.Ordinal);
+
+        cut.Find(".editor-item input[type=color]").Change("#cc4a3f");
+        ClickButtonSaying(cut, "No colour of its own");
+        ClickButtonSaying(cut, "Save");
+
+        var items = JsonDocument.Parse(_lastSavedJson!).RootElement.GetProperty("items");
+        Assert.Equal(string.Empty, items[0].GetProperty("colour").GetString());
     }
 
     /// <summary>

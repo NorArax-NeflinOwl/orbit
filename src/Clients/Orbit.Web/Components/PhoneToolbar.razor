@@ -1,4 +1,8 @@
+@using Microsoft.AspNetCore.Components.Sections
+@using Orbit.Core.Folders
 @using Orbit.Web.Services
+@implements IDisposable
+@inject FolderState Folders
 @inject Translations T
 
 @* What narrows a page - which folder is open, and which chips are pressed - folded into one button on
@@ -9,16 +13,26 @@
    controls lay out exactly where they always did and only the button is hidden. Nothing is drawn
    twice, which is the trap a CSS-only version falls into - the tabs would be two sets of tabs, and
    pressing the hidden one would still work. *@
-<div class="phone-toolbar @(_isOpen ? "open" : "")">
+@* The button goes up into the page's own header row rather than standing on a row of its own - see
+   PageToolbarTrigger, which is the only thing the two components share. A phone screen is short enough
+   that a row holding one button is a row of the answer nobody gets to see.
+
+   It says which folder is open rather than "Menu". The row of tabs is what a wide screen answers that
+   question with, and folding it away took the answer with it - so a reader on a phone could not tell
+   what they were looking at without opening the thing that tells them. "Menu" said only that pressing
+   it opens something, which the three lines beside it already say. *@
+<SectionContent SectionName="@PageToolbarTrigger.SectionName">
     <button type="button" class="btn-secondary phone-toolbar-trigger" aria-haspopup="true"
             aria-expanded="@(_isOpen ? "true" : "false")" @onclick="Toggle">
         <svg viewBox="0 0 20 20" width="16" height="16" aria-hidden="true" fill="none"
              stroke="currentColor" stroke-width="1.8" stroke-linecap="round">
             <path d="M3 6h14M3 10h14M3 14h9" />
         </svg>
-        @T["Menu"]
+        @Says
     </button>
+</SectionContent>
 
+<div class="phone-toolbar @(_isOpen ? "open" : "")">
     @* Shut by pressing anywhere else, the way every panel that covers a page is. Inside it nothing
        closes anything: these are settings, not actions, and choosing a folder and then two chips is
        one visit rather than three. *@
@@ -36,7 +50,27 @@
     /// <summary>The page's own controls - the folder tabs, the search box, the chips.</summary>
     [Parameter, EditorRequired] public RenderFragment? ChildContent { get; set; }
 
+    /// <summary>
+    /// Which page's folders are inside, when the panel holds any. Left unset by a page whose controls
+    /// are not about folders at all, and the button then says "Menu" - which is the honest answer where
+    /// there is no folder to name.
+    /// </summary>
+    [Parameter] public FolderPage? Page { get; set; }
+
+    /// <summary>What the button says: the open folder's name, or "Menu" where there is none to give.</summary>
+    private string Says => Page is { } page ? BuiltInFolderNames.Open(Folders, page, T) : T["Menu"];
+
     private bool _isOpen;
+
+    protected override void OnInitialized() => Folders.Changed += OnFoldersChanged;
+
+    /// <summary>
+    /// Redrawn when the open folder changes, which happens inside the panel this button opens - without
+    /// this, choosing a folder left the button still naming the one before it.
+    /// </summary>
+    private void OnFoldersChanged() => InvokeAsync(StateHasChanged);
+
+    public void Dispose() => Folders.Changed -= OnFoldersChanged;
 
     private void Toggle() => _isOpen = !_isOpen;
 

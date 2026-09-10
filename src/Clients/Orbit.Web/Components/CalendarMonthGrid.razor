@@ -149,9 +149,11 @@
     public bool IsCompact { get; set; }
 
     /// <summary>
-    /// Taller cells showing more of what is on each day - for the week view, which is this same grid
-    /// with one row in it (see CalendarGridBuilder.BuildWeekGrid). A week reads as a row of a month on
-    /// purpose; the only thing it does differently is use the room a single row has.
+    /// Taller cells showing more of what is on each day. It was the week view's, back when a week was
+    /// this same grid with one row in it; a week is seven timelines now (see CalendarWeekGrid), because
+    /// a row of cells could say what was on a Tuesday and never when. <b>Nothing sets it today</b> - it
+    /// is left because "one row of this grid, given the room" is still a shape somebody may want, and
+    /// the behaviour is three lines.
     /// </summary>
     [Parameter]
     public bool IsRoomy { get; set; }

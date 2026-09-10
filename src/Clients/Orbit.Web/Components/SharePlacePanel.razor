@@ -1,0 +1,128 @@
+@using System.Net
+@using System.Text.Json
+@using Orbit.Contracts.Chat
+@using Orbit.Contracts.Places
+@using Orbit.Web.Services
+@inject PlacesApiClient PlacesApiClient
+@inject EncryptedChatMessageSender EncryptedChatMessageSender
+@inject NavigationManager NavigationManager
+@inject ILogger<SharePlacePanel> Logger
+@inject Translations T
+
+@* Handing a place to somebody: who, at what level, and the message that tells them. The same three
+   questions ShareInventoryPanel asks, and the same answer to each - what may be granted is the reader's
+   own access minus what it cannot pass on (see SharedItemAccess, which mirrors the rule the server
+   enforces, so nothing is offered here that the save would refuse). *@
+<div class="inventory-share-panel">
+    @if (Shareable.Count == 0)
+    {
+        <p>@T["No contacts to share with yet - start a conversation first."]</p>
+    }
+    else
+    {
+        <select id="sharePlaceContactSelect" @bind="_selectedContactUserId" aria-label="@(T["Share with"])">
+            <option value="">@T["-- select a contact --"]</option>
+            @foreach (var contact in Shareable)
+            {
+                <option value="@contact.UserId">@contact.DisplayName (@contact.Email)</option>
+            }
+        </select>
+        <select id="sharePlaceAccessLevelSelect" @bind="_selectedAccessLevel" aria-label="@(T["What they may do"])">
+            <option value="ReadOnly">@T["Read-only"]</option>
+            <option value="Share">@T["Can share"]</option>
+            @if (Access.CanGrantEditOnly)
+            {
+                <option value="EditOnly">@T["Can edit, but not share editing"]</option>
+            }
+            @if (Access.CanGrantCanEdit)
+            {
+                <option value="CanEdit">@T["Can edit"]</option>
+            }
+        </select>
+        <button id="sharePlaceButton" class="btn-primary" disabled="@_isSharing" @onclick="ShareAsync">@T["Share"]</button>
+    }
+    @if (_errorMessage is not null)
+    {
+        <p class="error">@_errorMessage</p>
+    }
+    @if (_infoMessage is not null)
+    {
+        <p class="info">@_infoMessage</p>
+    }
+</div>
+
+@code {
+    [Parameter, EditorRequired] public PlaceDto Place { get; set; } = default!;
+
+    /// <summary>Everybody this reader could hand it to - see <see cref="Shareable"/> for who is left out.</summary>
+    [Parameter, EditorRequired] public IReadOnlyList<ContactDto> Contacts { get; set; } = [];
+
+    /// <summary>Whose chat the invitation is sent from - the message is sealed between the two of them.</summary>
+    [Parameter, EditorRequired] public Guid OwnUserId { get; set; }
+
+    /// <summary>Raised once a share has actually been made, so the page can say so on the row.</summary>
+    [Parameter] public EventCallback OnShared { get; set; }
+
+    private string _selectedContactUserId = string.Empty;
+    private string _selectedAccessLevel = "ReadOnly";
+    private bool _isSharing;
+    private string? _errorMessage;
+    private string? _infoMessage;
+
+    private SharedItemAccess Access => SharedItemAccess.For(Place.IsShared, Place.AccessLevel);
+
+    /// <summary>
+    /// Everybody but the person who keeps it: handing something back to where it came from is the one
+    /// share that means nothing, and offering it only invites the refusal.
+    /// </summary>
+    private IReadOnlyList<ContactDto> Shareable
+        => Place.OriginalOwnerUserId is { } ownerUserId
+            ? [.. Contacts.Where(contact => contact.UserId != ownerUserId)]
+            : Contacts;
+
+    private async Task ShareAsync()
+    {
+        if (!Guid.TryParse(_selectedContactUserId, out var recipientUserId))
+        {
+            return;
+        }
+
+        _errorMessage = null;
+        _infoMessage = null;
+        _isSharing = true;
+        try
+        {
+            var result = await PlacesApiClient.SharePlaceAsync(Place.Id, recipientUserId, _selectedAccessLevel);
+            if (result is null)
+            {
+                _errorMessage = T["That place could not be shared."];
+                return;
+            }
+
+            // The invitation itself, sealed between the two of them like any other message - and marked
+            // as announcing this share, so withdrawing it later takes the message back too (see
+            // RevokeShareCommandHandler).
+            var payloadJson = JsonSerializer.Serialize(new PlaceShareMessagePayload(result.ShareId, Place.Name));
+            await EncryptedChatMessageSender.SendAsync(
+                OwnUserId, recipientUserId, payloadJson, isShareInvitation: true, announcesShareId: result.ShareId);
+            _infoMessage = result.AlreadyShared
+                ? T["Already shared with that contact - sent a reminder."]
+                : T["Shared - they'll see it in your chat."];
+            _selectedContactUserId = string.Empty;
+            await OnShared.InvokeAsync();
+        }
+        catch (HttpRequestException exception) when (exception.StatusCode == HttpStatusCode.Unauthorized)
+        {
+            NavigationManager.NavigateTo("/login");
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            Logger.LogWarning(exception, "Failed to share place {PlaceId}", Place.Id);
+            _errorMessage = T["That place could not be shared."];
+        }
+        finally
+        {
+            _isSharing = false;
+        }
+    }
+}

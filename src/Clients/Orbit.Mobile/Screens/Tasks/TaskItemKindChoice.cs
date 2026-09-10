@@ -16,6 +16,11 @@ public sealed record TaskItemKindChoice(string Value, string Name)
         [
             new(nameof(TaskItemKind.Checklist), translations["Checklist"]),
             new(nameof(TaskItemKind.Calendar), translations["Calendar"]),
+            // Offered for the same reason Inventory below is: an entry that is a place and nothing else
+            // would otherwise fall back to Checklist when it was opened here, and saving it would write
+            // that back - at which point TaskItemSubject drops the place for any kind that does not
+            // carry one, and the address is gone.
+            new(nameof(TaskItemKind.Location), translations["Location"]),
             // Offered because it has to round-trip, not only because it can be chosen. Left out, an
             // errand about a shelf item opened here fell back to Checklist, and saving it wrote that
             // back - at which point TaskItem drops LinkedInventoryItemId for any kind but Inventory and

@@ -66,7 +66,21 @@ public sealed record TaskItemDto(
     /// Orbit.Core.Tasks.TaskItem.WaitsForTaskItemIds. Empty for nearly every entry. An entry waiting on
     /// something unfinished cannot be ticked off, which the server enforces however it is asked.
     /// </summary>
-    IReadOnlyList<Guid>? WaitsForTaskItemIds = null)
+    IReadOnlyList<Guid>? WaitsForTaskItemIds = null,
+    /// <summary>
+    /// How much this entry matters - one of "Low", "Normal", "High", see
+    /// Orbit.Core.Abstractions.ItemPriority. The list it is on has one of its own and this is not it: a
+    /// list of ten errands usually has one that has to happen and nine that can wait. <b>Null means "not
+    /// provided"</b>, which leaves the stored answer alone - the rule every field added since the phone
+    /// stopped knowing about all of them follows.
+    /// </summary>
+    string? Priority = null,
+    /// <summary>
+    /// What colour the entry is drawn in, as a CSS colour - the same shape a calendar event's own colour
+    /// takes. Null means "not provided" like Priority above; an empty string means "no colour of its
+    /// own", which every screen reads as "whatever this kind is drawn in".
+    /// </summary>
+    string? Colour = null)
 {
     /// <summary>
     /// Whichever shape the sender used, read as one. Needed on the way in as well as the way out: a

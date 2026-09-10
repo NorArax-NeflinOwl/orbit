@@ -456,11 +456,13 @@ public sealed class TasksTests : OrbitTestContext
         var cut = RenderComponent<Web.Pages.Tasks>();
 
         Assert.Contains("Overdue", cut.Markup);
-        // All, the three statuses a list can still be working through, and the two chips about what a
-        // list is rather than how far along it is: where it came from, and whether it gathers other
-        // lists. Finished is not among them - it is the folder tab above now (see BuiltInFolder), and
-        // asking the same question twice on one page is how the two answers come to disagree.
-        Assert.Equal(6, cut.FindAll(".filter-chip").Count);
+        // All, the four statuses a list can still be working through - the fourth being "Due again",
+        // where the only thing owed is a chore that comes round every day (see TaskListStatus.DueAgain)
+        // - and the two chips about what a list is rather than how far along it is: where it came from,
+        // and whether it gathers other lists. Finished is not among them: it is the folder tab above now
+        // (see BuiltInFolder), and asking the same question twice on one page is how the two answers
+        // come to disagree.
+        Assert.Equal(7, cut.FindAll(".filter-chip").Count);
     }
 
     [Fact]

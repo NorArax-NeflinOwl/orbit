@@ -2,15 +2,16 @@ using Orbit.Core.Calendar;
 using Orbit.Core.Inventories;
 using Orbit.Core.Notes;
 using Orbit.Core.Notifications;
+using Orbit.Core.Places;
 using Orbit.Core.Tasks;
 
 namespace Orbit.Core.Sharing;
 
 /// <summary>
-/// What one of the four shareable kinds is called, read as its owner. Only the name: everything else
+/// What one of the shareable kinds is called, read as its owner. Only the name: everything else
 /// about an item is its own screen's business.
 ///
-/// Not PublicSharedItemReader's job even though that also reads four kinds. That one projects a whole
+/// Not PublicSharedItemReader's job even though it also reads several kinds. That one projects a whole
 /// item for a page anybody with a link can open, and refuses anything private for exactly that reason;
 /// this answers "what was I offered" for somebody who has already been offered it - a question the chat
 /// invitation has always answered, since the sharer's own browser writes the title into it.
@@ -21,17 +22,20 @@ public sealed class SharedItemName
     private readonly ITaskRepository _taskRepository;
     private readonly ICalendarEventRepository _calendarEventRepository;
     private readonly IInventoryRepository _inventoryRepository;
+    private readonly IPlaceRepository _placeRepository;
 
     public SharedItemName(
         INoteRepository noteRepository,
         ITaskRepository taskRepository,
         ICalendarEventRepository calendarEventRepository,
-        IInventoryRepository inventoryRepository)
+        IInventoryRepository inventoryRepository,
+        IPlaceRepository placeRepository)
     {
         _noteRepository = noteRepository;
         _taskRepository = taskRepository;
         _calendarEventRepository = calendarEventRepository;
         _inventoryRepository = inventoryRepository;
+        _placeRepository = placeRepository;
     }
 
     /// <summary>
@@ -51,6 +55,8 @@ public sealed class SharedItemName
                 (await _calendarEventRepository.GetByIdAsync(ownerUserId, itemId, cancellationToken))?.Details.Title,
             SharedItemKind.Inventory =>
                 (await _inventoryRepository.GetByIdAsync(ownerUserId, itemId, cancellationToken))?.Name,
+            SharedItemKind.Place =>
+                (await _placeRepository.GetByIdAsync(ownerUserId, itemId, cancellationToken))?.Name,
             _ => null
         };
 }

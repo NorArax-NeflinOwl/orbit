@@ -32,4 +32,18 @@ public sealed class OutgoingChatMessage
 
     /// <summary>How many times sending this has failed - see NoteSynchronizer for why that is bounded.</summary>
     public int FailedAttempts { get; set; }
+
+    /// <summary>
+    /// Whether this message is an offer of something shared - see Orbit.Core.Chat.ChatMessage.IsShareInvitation.
+    /// Kept on the queue row because the message is encrypted and posted at flush time, an hour after it
+    /// was written if that is when a connection turns up, and nothing else at that point knows.
+    /// </summary>
+    public bool IsShareInvitation { get; set; }
+
+    /// <summary>
+    /// Which share it offers, when it offers one - see Orbit.Core.Chat.ChatMessage.AnnouncesShareId.
+    /// This is what lets withdrawing the share take its invitation down with it: the payload naming the
+    /// share is inside the ciphertext, which the server can never read.
+    /// </summary>
+    public Guid? AnnouncesShareId { get; set; }
 }

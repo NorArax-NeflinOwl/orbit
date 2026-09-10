@@ -20,16 +20,25 @@ public sealed record TaskItemSubject
         // switching an entry's kind drops what no longer applies instead of failing the save.
         LinkedCalendarEventId = kind == TaskItemKind.Calendar ? linkedCalendarEventId : null;
         LinkedInventoryItemId = kind == TaskItemKind.Inventory ? linkedInventoryItemId : null;
-        // Only an appointment has a place at all, and one tied to an event keeps none: the event holds
-        // the place, and storing it twice is how the two come to disagree - which is the whole reason
-        // the link exists.
-        Location = kind == TaskItemKind.Calendar && LinkedCalendarEventId is null ? location.Trim() : string.Empty;
+        // Two kinds have a place: an appointment, and an entry that *is* a place (TaskItemKind.Location).
+        // An appointment tied to an event keeps none - the event holds the place, and storing it twice is
+        // how the two come to disagree, which is the whole reason the link exists. A Location entry has
+        // no event to hold it, so it always keeps its own.
+        Location = kind switch
+        {
+            TaskItemKind.Location => location.Trim(),
+            TaskItemKind.Calendar when LinkedCalendarEventId is null => location.Trim(),
+            _ => string.Empty
+        };
     }
 
-    /// <summary>Which of the three an entry is - see <see cref="TaskItemKind"/>.</summary>
+    /// <summary>Which of the four an entry is - see <see cref="TaskItemKind"/>.</summary>
     public TaskItemKind Kind { get; }
 
-    /// <summary>Where an appointment happens, as the reader wrote it. Empty for everything else.</summary>
+    /// <summary>
+    /// Where the entry happens, as the reader wrote it - an appointment's, or the whole of what a
+    /// Location entry is. Empty for the other two kinds.
+    /// </summary>
     public string Location { get; }
 
     /// <summary>The calendar event this entry is the same appointment as, when it is one.</summary>

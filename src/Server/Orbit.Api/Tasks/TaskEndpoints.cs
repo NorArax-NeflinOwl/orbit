@@ -97,6 +97,7 @@ public static class TaskEndpoints
                     EntriesSayingNothingAboutTheirProduct(request.Items),
                     EntriesSayingNothingAboutTheirNotes(request.Items),
                     EntriesSayingNothingAboutTheirSteps(request.Items),
+                    EntriesSayingNothingAboutTheirLook(request.Items),
                     request.Completion is null ? null : RequestEnum.Parse<TaskListCompletion>(request.Completion, "completion")),
                 cancellationToken);
             return ToApiResult(outcome);
@@ -368,6 +369,18 @@ public static class TaskEndpoints
             .Select(item => item.Id!.Value)
             .ToHashSet();
 
+    /// <summary>
+    /// The entries that said nothing about how they are drawn or how much they matter - the fifth field
+    /// to follow this rule. Both or neither: a client either knows about them or does not, so an entry
+    /// sending one of the two is taken at its word about that one and keeps nothing.
+    /// See UpdateTaskListCommand.EntriesKeepingTheirLook.
+    /// </summary>
+    private static IReadOnlySet<Guid> EntriesSayingNothingAboutTheirLook(IReadOnlyList<TaskItemRequest> items)
+        => items
+            .Where(item => item is { Priority: null, Colour: null, Id: not null })
+            .Select(item => item.Id!.Value)
+            .ToHashSet();
+
     private static TaskItemProduct? ToDomainProduct(TaskItemProductDto? product)
         => product is null
             ? null
@@ -418,12 +431,17 @@ public static class TaskEndpoints
             item.Location, item.LinkedCalendarEventId, item.LinkedInventoryItemId);
 
         var product = ToDomainProduct(item.Product);
+        // Both stored-by-name, and both read the way every request enum here is: a word this build does
+        // not know is refused rather than quietly meaning Normal.
+        var priority = item.Priority is null
+            ? ItemPriority.Normal
+            : RequestEnum.Parse<ItemPriority>(item.Priority, "priority");
         if (item.Id is not { } existingId)
         {
             return TaskItem.Create(
                 item.Description, item.DueDateUtc, item.IsCompleted, item.AllLinkedTaskListIds,
                 reminders, subject, item.AllCategories, product, item.Notes, item.IsFailed,
-                item.WaitsForTaskItemIds);
+                item.WaitsForTaskItemIds, priority, item.Colour);
         }
 
         // Same override Create applies: a linked entry's completion follows the list it links to, so a
@@ -433,7 +451,7 @@ public static class TaskEndpoints
             item.AllLinkedTaskListIds.Count == 0 && item.IsCompleted, item.AllLinkedTaskListIds,
             reminders, subject, item.AllCategories, product, item.Notes,
             item.AllLinkedTaskListIds.Count == 0 && item.IsFailed,
-            item.WaitsForTaskItemIds);
+            item.WaitsForTaskItemIds, priority, item.Colour);
     }
 
 
@@ -483,7 +501,9 @@ public static class TaskEndpoints
                     ToDto(item.Product),
                     item.Notes,
                     item.IsFailed,
-                    item.WaitsForTaskItemIds))
+                    item.WaitsForTaskItemIds,
+                    item.Priority.ToString(),
+                    item.Colour))
                 .ToList(),
             taskList.IsCompleted,
             taskList.IsGroup,

@@ -83,10 +83,16 @@ public sealed class EncryptedChatMessageSender
     /// Accepts the message and tries to send it. Queuing first means a message typed with no connection
     /// is kept rather than refused, and the screen can show it as waiting.
     /// </summary>
+    /// <param name="announcesShareId">
+    /// The share this message offers, for one that offers a share. Carried on the queue row and sent
+    /// with the message, which is what lets withdrawing the share take its invitation down with it -
+    /// see RevokeShareCommandHandler. Left null by an ordinary message.
+    /// </param>
     public async Task<ChatSendResult> SendAsync(
-        Guid recipientUserId, string text, CancellationToken cancellationToken = default)
+        Guid recipientUserId, string text, Guid? announcesShareId = null,
+        CancellationToken cancellationToken = default)
     {
-        await _chatRepository.QueueAsync(recipientUserId, text, cancellationToken);
+        await _chatRepository.QueueAsync(recipientUserId, text, announcesShareId, cancellationToken);
         return await FlushAsync(cancellationToken);
     }
 
@@ -204,7 +210,12 @@ public sealed class EncryptedChatMessageSender
 
         var sealedText = identity.Encrypt(recipientPublicKey, message.Text);
         var result = await _chatClient.SendAsync(
-            new SendMessageRequest(recipientUserId, sealedText.CiphertextBase64, sealedText.NonceBase64),
+            new SendMessageRequest(
+                recipientUserId, sealedText.CiphertextBase64, sealedText.NonceBase64,
+                // What the message is, as well as what it says. The share it offers is the half the
+                // server has to be told: the payload naming it is inside the ciphertext, and without it
+                // withdrawing the share leaves an "Accept" in the conversation that answers nothing.
+                message.IsShareInvitation, message.AnnouncesShareId),
             cancellationToken);
 
         if (result.Outcome is not SendMessageOutcome.Sent)

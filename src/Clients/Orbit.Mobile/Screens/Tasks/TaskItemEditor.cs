@@ -200,6 +200,67 @@ public sealed partial class TaskItemEditor : ObservableObject
         OnPropertyChanged(nameof(LinkableTaskListsLeft));
     }
 
+    /// <summary>
+    /// The other entries of this same list, which this one can be made to wait for - "hang the door"
+    /// after "fit the hinges". Handed in by the screen, the way the linkable lists are: which entries
+    /// are on the list is the screen's knowledge, not this form's.
+    ///
+    /// A different thing from the lists above: that is one entry meaning whole other lists, this is the
+    /// order the work on this one has to be done in. See Orbit.Core.Tasks.TaskListSteps, which is where
+    /// the rule lives - and which reads it off every entry whatever its kind, so this is offered on all
+    /// three the way the browser now offers it.
+    /// </summary>
+    public IReadOnlyList<TaskEntryChoice> WaitableEntries { get; private init; } = [];
+
+    /// <summary>Every entry this one waits for, in the order they were added.</summary>
+    public ObservableCollection<TaskEntryChoice> WaitsFor { get; } = [];
+
+    /// <summary>What the picker offers: the entries this one does not already wait for.</summary>
+    public IReadOnlyList<TaskEntryChoice> WaitableEntriesLeft
+        => [.. WaitableEntries.Where(choice => WaitsFor.All(step => step.Id != choice.Id))];
+
+    /// <summary>Whether anything is named at all, which is what the row of names hangs off.</summary>
+    public bool WaitsForAnything => WaitsFor.Count > 0;
+
+    /// <summary>
+    /// Nothing to wait for is nothing to offer - a list with one entry on it, and an entry that has not
+    /// been saved yet, both have nobody to queue behind.
+    /// </summary>
+    public bool CanWaitForAnything => WaitableEntries.Count > 0;
+
+    /// <summary>
+    /// Puts this entry behind one more. A command rather than the picker's own bound value, and for the
+    /// reason LinkTo above gives: rebuilding what a picker offers from inside its own change hung the
+    /// app on Android. See TaskListDetailPage.OnStepPicked.
+    /// </summary>
+    [RelayCommand]
+    private void WaitFor(TaskEntryChoice? chosen)
+    {
+        if (chosen is null || WaitsFor.Any(step => step.Id == chosen.Id))
+        {
+            return;
+        }
+
+        WaitsFor.Add(chosen);
+        SayWhatItWaitsFor();
+    }
+
+    /// <summary>Takes one step off the entry. The others stay: it may wait for several.</summary>
+    [RelayCommand]
+    private void StopWaitingFor(TaskEntryChoice? step)
+    {
+        if (step is not null && WaitsFor.Remove(step))
+        {
+            SayWhatItWaitsFor();
+        }
+    }
+
+    private void SayWhatItWaitsFor()
+    {
+        OnPropertyChanged(nameof(WaitsForAnything));
+        OnPropertyChanged(nameof(WaitableEntriesLeft));
+    }
+
     private readonly TaskItemDto _item;
 
     /// <summary>
@@ -209,11 +270,17 @@ public sealed partial class TaskItemEditor : ObservableObject
     public bool IsCalendarEntry => Kind == nameof(TaskItemKind.Calendar);
 
     /// <summary>
-    /// Where a calendar entry happens, asked on the entry rather than on its appointment. The calendar's
+    /// An entry that is a place and nothing else: "pick the keys up from the agent, here". It keeps a
+    /// place without keeping an hour, which is what separates it from a calendar entry.
+    /// </summary>
+    public bool IsPlaceEntry => Kind == nameof(TaskItemKind.Location);
+
+    /// <summary>
+    /// Where an entry happens, asked on the entry rather than on its appointment. The calendar's
     /// own location is coordinates first and an entry carries only a name, so the two are not the same
     /// field - which is why Orbit.Web leaves the name here and sends the event none.
     /// </summary>
-    public bool CanSayWhereItHappens => IsCalendarEntry;
+    public bool CanSayWhereItHappens => IsCalendarEntry || IsPlaceEntry;
 
     private readonly Translations _translations;
 
@@ -277,12 +344,20 @@ public sealed partial class TaskItemEditor : ObservableObject
     /// <inheritdoc cref="Inventory.InventoryItemEditor.Suggestions"/>
     public NameSuggestions? Suggestions { get; private init; }
 
+    /// <param name="entriesOnTheList">
+    /// Everything else on the list this entry is on, which is what it can be made to wait for. Handed in
+    /// like the lists above it: which entries are on the list is the screen's knowledge. Left empty by a
+    /// caller with nothing to offer, and the picker is then not drawn at all.
+    /// </param>
     public static TaskItemEditor For(
         TaskItemDto item, Translations translations, CalendarEventDetailsDto? linkedEvent,
         IReadOnlyList<TaskListChoice> lists, NameSuggestions? suggestions = null,
-        TaskItemShelfProduct? shelf = null, Func<TaskItemShelfProduct?>? shelfForSomethingNew = null)
+        TaskItemShelfProduct? shelf = null, Func<TaskItemShelfProduct?>? shelfForSomethingNew = null,
+        IReadOnlyList<TaskItemDto>? entriesOnTheList = null)
     {
-        var editor = Build(item, translations, linkedEvent, lists, suggestions, shelf, shelfForSomethingNew);
+        var editor = Build(
+            item, translations, linkedEvent, lists, suggestions, shelf, shelfForSomethingNew,
+            entriesOnTheList ?? []);
         if (suggestions is not null)
         {
             suggestions.Offers(NameSuggestionKind.TaskItemDescription);
@@ -296,7 +371,7 @@ public sealed partial class TaskItemEditor : ObservableObject
     private static TaskItemEditor Build(
         TaskItemDto item, Translations translations, CalendarEventDetailsDto? linkedEvent,
         IReadOnlyList<TaskListChoice> lists, NameSuggestions? suggestions, TaskItemShelfProduct? shelf,
-        Func<TaskItemShelfProduct?>? shelfForSomethingNew)
+        Func<TaskItemShelfProduct?>? shelfForSomethingNew, IReadOnlyList<TaskItemDto> entriesOnTheList)
     {
         var editor = new TaskItemEditor(item, translations)
         {
@@ -308,6 +383,14 @@ public sealed partial class TaskItemEditor : ObservableObject
             Shelf = shelf,
             LinkedCalendarEventId = item.LinkedCalendarEventId,
             LinkableTaskLists = lists,
+            // Everything but itself, and nothing that has never been saved: a step is named by id, and
+            // an entry with none cannot be named. The browser's own picker draws the same two lines.
+            WaitableEntries =
+            [
+                .. entriesOnTheList
+                    .Where(candidate => candidate.Id != Guid.Empty && candidate.Id != item.Id)
+                    .Select(candidate => TaskEntryChoice.For(candidate.Id, candidate.Description))
+            ],
             Kind = item.Kind,
             // From the appointment when there is one, because that is where the place lives once the two
             // are linked - and from the entry when there is not, which is how an unlinked one holds it.
@@ -338,6 +421,16 @@ public sealed partial class TaskItemEditor : ObservableObject
             .OfType<TaskListChoice>())
         {
             editor.LinkedTaskLists.Add(linked);
+        }
+
+        // And what it already waits for, in the order the entry names them. A step naming an entry that
+        // is no longer on the list is dropped rather than drawn as a blank - which is what the server
+        // does with it on the next save anyway. See TaskListSteps.
+        foreach (var step in item.AllWaitsForTaskItemIds
+            .Select(stepId => editor.WaitableEntries.FirstOrDefault(choice => choice.Id == stepId))
+            .OfType<TaskEntryChoice>())
+        {
+            editor.WaitsFor.Add(step);
         }
 
         // The Save button answers to the appointment as well as to the entry - see TaskItemEventForm.
@@ -409,7 +502,12 @@ public sealed partial class TaskItemEditor : ObservableObject
             // before. The same rule Orbit.Web's ToLinkedCalendarEventId applies. The id itself is
             // filled in by the screen when it puts the appointment in the calendar - see
             // TaskListDetailViewModel.PutAppointmentsInTheCalendarAsync.
-            LinkedCalendarEventId = IsCalendarEntry ? LinkedCalendarEventId : null
+            LinkedCalendarEventId = IsCalendarEntry ? LinkedCalendarEventId : null,
+            // The order the work has to be done in, as this form now says it. Read off the picker rather
+            // than passed through: the phone can show every step there is, because a step is always an
+            // entry of the list this form was opened from. A step whose entry has gone is already absent
+            // from WaitsFor - see Build - and the server drops such an id anyway (TaskListSteps).
+            WaitsForTaskItemIds = [.. WaitsFor.Select(step => step.Id)]
         };
 
     partial void OnDescriptionChanged(string value)
@@ -475,6 +573,7 @@ public sealed partial class TaskItemEditor : ObservableObject
     private void SayWhatTheFormShows()
     {
         OnPropertyChanged(nameof(IsCalendarEntry));
+        OnPropertyChanged(nameof(IsPlaceEntry));
         OnPropertyChanged(nameof(CanSayWhereItHappens));
         OnPropertyChanged(nameof(IsShelfEntry));
         OnPropertyChanged(nameof(HasNoProductToEdit));

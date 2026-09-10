@@ -138,4 +138,44 @@ public sealed class EditorRailTests : OrbitTestContext
         Assert.Contains("editor-rail-open", cut.Find(".editor-rail").ClassName);
         Assert.Equal("true", cut.Find(".editor-rail-toggle").GetAttribute("aria-expanded"));
     }
+
+    /// <summary>
+    /// The two things every editor keeps here are asked for as text rather than as a fragment, and this
+    /// is why: a fragment holding two conditionals is a fragment whether or not either of them is true,
+    /// so every editing screen carried an arrow that opened onto nothing until something went wrong.
+    /// </summary>
+    [Fact]
+    public void A_screen_where_nothing_is_wrong_has_no_arrow()
+    {
+        var cut = RenderComponent<EditorRail>(parameters => parameters
+            .Add(rail => rail.Notice, null)
+            .Add(rail => rail.ErrorMessage, null));
+
+        Assert.Empty(cut.FindAll(".editor-rail-toggle"));
+    }
+
+    [Fact]
+    public void Somebody_else_holding_the_screen_is_said_up_here()
+    {
+        var cut = RenderComponent<EditorRail>(parameters => parameters
+            .Add(rail => rail.Notice, "Ada is currently editing this note - you can't edit it right now."));
+
+        Assert.Single(cut.FindAll(".editor-rail-toggle"));
+        Assert.Contains("Ada is currently editing", cut.Find(".editor-rail-extras .lock-banner").TextContent);
+    }
+
+    /// <summary>
+    /// Beside the button that failed rather than at the end of a form taller than the screen: a save
+    /// that did not happen is answered where Save is, and an answer nobody scrolls to is not one.
+    /// </summary>
+    [Fact]
+    public void A_save_that_did_not_happen_is_said_beside_Save()
+    {
+        var cut = RenderComponent<EditorRail>(parameters => parameters
+            .Add(rail => rail.OnSave, EventCallback.Factory.Create(this, () => { }))
+            .Add(rail => rail.ErrorMessage, "That could not be saved."));
+
+        Assert.Single(cut.FindAll(".editor-rail-toggle"));
+        Assert.Equal("That could not be saved.", cut.Find(".editor-rail-extras .error").TextContent);
+    }
 }

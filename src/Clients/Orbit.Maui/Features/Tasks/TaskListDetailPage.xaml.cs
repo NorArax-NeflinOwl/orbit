@@ -265,6 +265,25 @@ public partial class TaskListDetailPage : ContentPage, ITitleMenu, ITitleSteps
 	}
 
 	/// <summary>
+	/// The same two rules as the link picker above, for the same two reasons: the choice is let go of
+	/// before the step is added, and both happen after the picker's own selection has finished. See
+	/// OnLinkedTaskListPicked, which explains what each of them is avoiding.
+	/// </summary>
+	private void OnStepPicked(object? sender, EventArgs eventArgs)
+	{
+		if (sender is not Picker picker || picker.SelectedItem is not TaskEntryChoice chosen)
+		{
+			return;
+		}
+
+		Dispatcher.Dispatch(() =>
+		{
+			picker.SelectedIndex = -1;
+			_viewModel.BeingEdited?.WaitForCommand.Execute(chosen);
+		});
+	}
+
+	/// <summary>
 	/// Choosing a list moves the entry, which closes the editor the picker lives in - and iOS leaves its
 	/// wheel on screen when the view under it disappears. Dismissing it first is the view's own business.
 	///

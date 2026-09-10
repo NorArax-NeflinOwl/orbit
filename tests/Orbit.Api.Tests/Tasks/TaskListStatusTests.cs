@@ -57,6 +57,43 @@ public sealed class TaskListStatusTests
     public void A_due_date_still_ahead_is_not_overdue()
         => Assert.Equal(TaskListStatus.New, ListWith(Item("File the return", dueDaysAgo: -3)).Status);
 
+    /// <summary>
+    /// A chore that comes round every day keeps one due date that never moves, so the moment it passes
+    /// the list would read "late" for as long as the chore exists - and it is not late, it is due again.
+    /// A restock round is the one every account has, so this was the first thing a shelf did to a page.
+    /// </summary>
+    [Fact]
+    public void A_daily_chore_left_undone_makes_the_list_due_again_rather_than_overdue()
+        => Assert.Equal(
+            TaskListStatus.DueAgain,
+            ListWith(Item("Update stock levels", dueDaysAgo: 1, remindDaily: true)).Status);
+
+    /// <summary>
+    /// A missed deadline still wins where a list carries both. Being told about the chore instead would
+    /// be the page choosing the smaller of two things to say.
+    /// </summary>
+    [Fact]
+    public void A_missed_deadline_outranks_a_daily_chore()
+        => Assert.Equal(
+            TaskListStatus.Overdue,
+            ListWith(
+                Item("Update stock levels", dueDaysAgo: 1, remindDaily: true),
+                Item("File the return", dueDaysAgo: 3)).Status);
+
+    /// <summary>And a daily chore whose date is still ahead says nothing at all, like any other entry.</summary>
+    [Fact]
+    public void A_daily_chore_still_ahead_leaves_the_list_alone()
+        => Assert.Equal(
+            TaskListStatus.New,
+            ListWith(Item("Update stock levels", dueDaysAgo: -1, remindDaily: true)).Status);
+
+    /// <summary>Done for today is done: the reminder reopens it tomorrow, and until then nothing is owed.</summary>
+    [Fact]
+    public void A_daily_chore_already_done_leaves_the_list_finished()
+        => Assert.Equal(
+            TaskListStatus.Completed,
+            ListWith(Item("Update stock levels", isCompleted: true, dueDaysAgo: 1, remindDaily: true)).Status);
+
     [Fact]
     public void A_private_list_reads_as_not_started()
     {
@@ -102,11 +139,12 @@ public sealed class TaskListStatusTests
 
     private static TaskList ListWith(params TaskItem[] items) => TaskList.Create(Guid.NewGuid(), "Errands", items);
 
-    private static TaskItem Item(string description, bool isCompleted = false, int? dueDaysAgo = null)
+    private static TaskItem Item(
+        string description, bool isCompleted = false, int? dueDaysAgo = null, bool remindDaily = false)
         => TaskItem.Create(
             description,
             dueDaysAgo is null ? null : DateTimeOffset.UtcNow.AddDays(-dueDaysAgo.Value),
             isCompleted,
             linkedTaskListIds: null,
-            new TaskItemReminders(NotificationChannel.None, Daily: false, NotificationChannel.None, new TimeOnly(9, 0)));
+            new TaskItemReminders(NotificationChannel.None, remindDaily, NotificationChannel.None, new TimeOnly(9, 0)));
 }

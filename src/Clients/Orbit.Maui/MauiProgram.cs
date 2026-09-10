@@ -10,6 +10,7 @@ using Orbit.Mobile.Google;
 using Orbit.Mobile.Screens.Chat;
 using Orbit.Mobile.Screens.Inventory;
 using Orbit.Mobile.Screens.Location;
+using Orbit.Mobile.Screens.Places;
 using Orbit.Mobile.Location;
 using Orbit.Mobile.Screens.Dashboard;
 using Orbit.Mobile.Screens.Diagnostics;
@@ -36,6 +37,7 @@ using Orbit.Mobile.Screens.Copies;
 using Orbit.Maui.Features.Chat;
 using Orbit.Maui.Features.Inventory;
 using Orbit.Maui.Features.Location;
+using Orbit.Maui.Features.Places;
 using Orbit.Maui.Features.Dashboard;
 using Orbit.Maui.Features.Diagnostics;
 using Orbit.Maui.Features.Notes;
@@ -156,6 +158,8 @@ public static class MauiProgram
 		services.AddSingleton<LocalTaskListRepository>();
 		services.AddSingleton<LocalCalendarEventRepository>();
 		services.AddSingleton<LocalInventoryRepository>();
+		// Nothing to seal, so this one needs no key - see LocalPlaceRepository.
+		services.AddSingleton<LocalPlaceRepository>();
 
 		// Transient, not singleton: both take a typed HttpClient, and holding one for the life of the app
 		// pins the handler underneath it forever - which is the thing IHttpClientFactory exists to rotate.
@@ -168,6 +172,7 @@ public static class MauiProgram
 		services.AddTransient<LocalNotificationRepository>();
 		services.AddTransient<PendingCalendarLinkResolver>();
 		services.AddTransient<InventorySynchronizer>();
+		services.AddTransient<PlaceSynchronizer>();
 		services.AddSingleton<ChatRepository>();
 		services.AddTransient<LocalStoreReset>();
 		// The steps every way in shares once the server has accepted somebody - see SignInCompletion.
@@ -222,6 +227,9 @@ public static class MauiProgram
 		services.AddTransient<PushRegistration>();
 		services.AddSingleton<IDeviceLocation, PhoneLocation>();
 		services.AddSingleton<IPlacePicker, PhonePlacePicker>();
+		// Hands a point to whatever this phone uses for directions - see IMapHandoff on why Orbit does
+		// not draw a map of the reader's own places here.
+		services.AddSingleton<IMapHandoff, PhoneMapHandoff>();
 		services.AddSingleton<IDevicePushNotifications, PhonePushNotifications>();
 		services.AddSingleton<IPresenceStore, PreferencesPresenceStore>();
 		services.AddSingleton<IDashboardPinStore, PreferencesDashboardPinStore>();
@@ -309,6 +317,9 @@ public static class MauiProgram
 		services.AddHttpClient<CalendarClient>(client => client.BaseAddress = apiSettings.BaseAddress)
 			.AddHttpMessageHandler<AuthorizationMessageHandler>();
 		services.AddHttpClient<InventoryClient>(client => client.BaseAddress = apiSettings.BaseAddress)
+			.AddHttpMessageHandler<AuthorizationMessageHandler>();
+		// Only for taking up an offer of a place - there is no places screen here yet. See PlacesClient.
+		services.AddHttpClient<PlacesClient>(client => client.BaseAddress = apiSettings.BaseAddress)
 			.AddHttpMessageHandler<AuthorizationMessageHandler>();
 		services.AddHttpClient<SuggestionsClient>(client => client.BaseAddress = apiSettings.BaseAddress)
 			.AddHttpMessageHandler<AuthorizationMessageHandler>();
@@ -424,8 +435,12 @@ public static class MauiProgram
 		services.AddTransient<CalendarPage>();
 		services.AddTransient<CalendarViewModel>();
 		services.AddTransient<MapPage>();
+		services.AddTransient<PlacesPage>();
+		services.AddTransient<PlaceDetailPage>();
 		services.AddTransient<PlacePickerPage>();
 		services.AddTransient<MapViewModel>();
+		services.AddTransient<PlacesViewModel>();
+		services.AddTransient<PlaceDetailViewModel>();
 		services.AddTransient<InventoryPage>();
 		services.AddTransient<InventoryViewModel>();
 		services.AddTransient<InventoryDetailPage>();

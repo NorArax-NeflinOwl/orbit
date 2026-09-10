@@ -224,7 +224,11 @@ public sealed class TaskRepository : ITaskRepository
             ToProductDomain(entity),
             entity.Notes,
             entity.IsFailed,
-            [.. entity.Steps.OrderBy(step => step.Position).Select(step => step.WaitsForTaskItemId)]);
+            [.. entity.Steps.OrderBy(step => step.Position).Select(step => step.WaitsForTaskItemId)],
+            // Anything unreadable falls back to Normal, the way every other stored-by-name enum here
+            // does: a row must not throw while being read.
+            Enum.TryParse<ItemPriority>(entity.Priority, out var priority) ? priority : ItemPriority.Normal,
+            entity.Colour);
 
     /// <summary>
     /// What the entry asks for, when it asks for anything - see TaskItemEntity.ProductType for why the
@@ -302,6 +306,8 @@ public sealed class TaskRepository : ITaskRepository
             DailyReminderTimeOfDayMinutes = item.DailyReminderTimeOfDay.Hour * 60 + item.DailyReminderTimeOfDay.Minute,
             Kind = item.Kind.ToString(),
             Location = item.Location,
+            Priority = item.Priority.ToString(),
+            Colour = item.Colour,
             LinkedCalendarEventId = item.LinkedCalendarEventId,
             LinkedInventoryItemId = item.LinkedInventoryItemId,
             // All of them or none of them - see TaskItemEntity.ProductType. An entry that describes

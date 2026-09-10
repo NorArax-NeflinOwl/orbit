@@ -22,6 +22,7 @@
 @inject ThemeService ThemeService
 @inject AccentColorService AccentColorService
 @inject DevicePreferences DevicePreferences
+@inject LastAdInterruption LastAdInterruption
 @inject PresenceService Presence
 @inject LiveUpdatesConnection LiveUpdates
 @inject UserPermissionState Permissions
@@ -239,8 +240,16 @@
     <div class="app-body">
     <main class="main-content" @onclick="CloseAvatarMenu">
         @* The page in a box of its own, so the footer under it can be given the height nobody else
-           wanted - see .main-content-page. *@
-        <div class="main-content-page">
+           wanted - see .main-content-page.
+
+           Keyed on the language, which is what makes changing it change the page under this layout.
+           StateHasChanged here re-renders the layout, and the page inside @Body is an ordinary child
+           component with no parameters - so Blazor had nothing to diff and left it exactly as it was:
+           pressing PL in the footer translated the footer and nothing above it. A key that changes
+           discards the subtree and builds it again, in the language now in force. It costs the page its
+           own state and one reload of whatever it fetches, which is the price of an explicit press that
+           somebody makes once. *@
+        <div class="main-content-page" @key="T.Language">
             @Body
         </div>
         @* What this Orbit is and what it does with what you give it. In the layout rather than on each
@@ -264,6 +273,10 @@
                          stroke-width="1.6" transform="rotate(-28 13 13)" />
             </svg>
             <span>@OrbitRelease.Copyright</span>
+            @* First of the row's own controls, and the only one that changes the rest of the row as it
+               is pressed. On every page, signed in or not - see LanguagePicker, which is why it is here
+               rather than under Options. *@
+            <LanguagePicker />
             @* A dialog rather than a page: what build this is has no address worth sharing, and it is
                read in the middle of doing something else. See AboutDialog. *@
             <button type="button" class="app-footer-link" @onclick="() => _isAboutOpen = true">@T["About"]</button>
@@ -351,23 +364,44 @@
     private readonly int _adSlot = Random.Shared.Next();
 
     /// <summary>
-    /// The interrupting advert, and whether this visit has had it. Once, because an advert that comes
-    /// back on every navigation is the thing that makes people leave - and never at all for an account
-    /// holding the Debugger permission, which is the one that says somebody is working on Orbit rather
-    /// than using it.
+    /// The interrupting advert, and when this browser last had it. Paced rather than counted: at most
+    /// once every AdInterruption.MinimumGap, and never at all for an account holding the Debugger
+    /// permission, which is the one that says somebody is working on Orbit rather than using it.
+    ///
+    /// It used to be a flag saying "this visit has had it", which sounds like the same thing and is
+    /// not: a visit ends at the next refresh, so reloading a page was a way of asking for the advert
+    /// again, and refreshing is what people do. The clock is on the device now - see
+    /// LastAdInterruption.
     /// </summary>
     private bool _isAdDialogOpen;
-    private bool _hasShownTheInterruption;
 
-    private void ShowTheAdvertOnceThisVisit()
+    /// <summary>
+    /// The answer read from the device, kept so the gap holds for a browser that could not write it
+    /// back - see LastAdInterruption.RecordShownAsync.
+    /// </summary>
+    private DateTimeOffset? _lastAdInterruptionAtUtc;
+
+    /// <summary>
+    /// Offered at the moments a reader is between things rather than in the middle of one: arriving,
+    /// signing in, and moving from one page to another. A timer would fire over somebody typing a note,
+    /// which is the one interruption an advert has no excuse for.
+    /// </summary>
+    private async Task ShowTheAdvertIfItIsTimeAsync()
     {
-        if (!AdInterruption.ShouldShow(Permissions, _hasShownTheInterruption))
+        // Only ever read from the device once per page. What is stored is written by this same layout,
+        // so the field is never behind - and a read on every navigation is a JS call for an answer this
+        // page already has.
+        _lastAdInterruptionAtUtc ??= await LastAdInterruption.ReadAsync();
+
+        var nowUtc = DateTimeOffset.UtcNow;
+        if (_isAdDialogOpen || !AdInterruption.ShouldShow(Permissions, _lastAdInterruptionAtUtc, nowUtc))
         {
             return;
         }
 
-        _hasShownTheInterruption = true;
+        _lastAdInterruptionAtUtc = nowUtc;
         _isAdDialogOpen = true;
+        await LastAdInterruption.RecordShownAsync(nowUtc);
     }
 
     private void CloseTheAdDialog() => _isAdDialogOpen = false;
@@ -686,7 +720,7 @@
 
         await Presence.StartAsync();
         await Permissions.RefreshAsync();
-        ShowTheAdvertOnceThisVisit();
+        await ShowTheAdvertIfItIsTimeAsync();
         await MirrorThePrivacyChoiceAsync();
         // Forgotten now that there is somebody to ask as: how much of its version the server answers
         // with depends on what this account may see (see ConfigEndpoints), so the answer cached while
@@ -709,6 +743,17 @@
         }
 
         InvokeAsync(() => MarkNotificationsForCurrentPageReadAsync(e.Location));
+        // Moving from one page to another is a break between two things rather than the middle of one,
+        // which is where an interruption belongs. It refuses itself until the gap has passed, so this is
+        // not "an advert on every navigation" - see ShowTheAdvertIfItIsTimeAsync.
+        if (_isAuthenticated)
+        {
+            InvokeAsync(async () =>
+            {
+                await ShowTheAdvertIfItIsTimeAsync();
+                StateHasChanged();
+            });
+        }
     }
 
     /// <summary>

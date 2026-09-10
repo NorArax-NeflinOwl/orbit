@@ -18,4 +18,13 @@ public static class SharedItemInvitation
         SharedItemKind.Inventory => "/inventory",
         _ => "/map"
     };
+
+    /// <summary>
+    /// The thing itself, once it is the reader's. A path segment for four of the five kinds and a query
+    /// for a place: a place is met on the map rather than on a page of its own, so its id says which pin
+    /// to open on - see MapPage.Place, and SharedItemNotifier.AddressOf, which says the same on the
+    /// server for the notification's own link.
+    /// </summary>
+    public static string AddressOf(SharedItemKind kind, Guid itemId)
+        => kind == SharedItemKind.Place ? $"/map?place={itemId}" : $"{SectionFor(kind)}/{itemId}";
 }

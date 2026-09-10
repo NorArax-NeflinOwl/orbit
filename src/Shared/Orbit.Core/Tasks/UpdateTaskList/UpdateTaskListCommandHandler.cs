@@ -60,6 +60,7 @@ public sealed class UpdateTaskListCommandHandler : IRequestHandler<UpdateTaskLis
         KeepWhatEntriesThatSaidNothingAlreadyAskFor(identity.Items, taskList, request.EntriesKeepingTheirProduct);
         KeepTheDescriptionOfEntriesThatSaidNothing(identity.Items, taskList, request.EntriesKeepingTheirNotes);
         KeepTheStepsOfEntriesThatSaidNothing(identity.Items, taskList, request.EntriesKeepingTheirSteps);
+        KeepTheLookOfEntriesThatSaidNothing(identity.Items, taskList, request.EntriesKeepingTheirLook);
 
         // An entry the shelf already answers is crossed off before the list is written, so it takes one
         // save rather than two - see StockedEntryCompletion, which reads nothing for the ordinary lists
@@ -127,6 +128,28 @@ public sealed class UpdateTaskListCommandHandler : IRequestHandler<UpdateTaskLis
             if (storedById.TryGetValue(item.Id, out var storedItem))
             {
                 item.KeepStepsOf(storedItem);
+            }
+        }
+    }
+
+    /// <summary>
+    /// An entry that said nothing about how it is drawn or how much it matters keeps both - see
+    /// UpdateTaskListCommand.EntriesKeepingTheirLook.
+    /// </summary>
+    private static void KeepTheLookOfEntriesThatSaidNothing(
+        IReadOnlyList<TaskItem> incoming, TaskList stored, IReadOnlySet<Guid>? entriesKeepingTheirLook)
+    {
+        if (entriesKeepingTheirLook is not { Count: > 0 })
+        {
+            return;
+        }
+
+        var storedById = stored.Items.ToDictionary(item => item.Id);
+        foreach (var item in incoming.Where(item => entriesKeepingTheirLook.Contains(item.Id)))
+        {
+            if (storedById.TryGetValue(item.Id, out var storedItem))
+            {
+                item.KeepLookOf(storedItem);
             }
         }
     }

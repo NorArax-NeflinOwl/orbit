@@ -84,12 +84,13 @@ public sealed class ShareInvitationTests : OrbitTestContext
         Assert.EndsWith($"/tasks/{ItemId}", navigationManager.Uri);
     }
 
-    /// <summary>Each kind is taken up at its own endpoint - the four the conversation's Accept already uses.</summary>
+    /// <summary>Each kind is taken up at its own endpoint - the ones the conversation's Accept already uses.</summary>
     [Theory]
     [InlineData("note", "/api/notes/shares/")]
     [InlineData("tasklist", "/api/tasks/shares/")]
     [InlineData("event", "/api/calendar-events/shares/")]
     [InlineData("inventory", "/api/inventories/shares/")]
+    [InlineData("place", "/api/places/shares/")]
     public void Every_kind_is_accepted_where_that_kind_is_accepted(string kind, string expectedPath)
     {
         _isAccepted = false;
@@ -98,6 +99,22 @@ public sealed class ShareInvitationTests : OrbitTestContext
         cut.FindAll("button").First(button => button.TextContent.Contains("Accept")).Click();
 
         Assert.Contains(_postedTo, path => path.StartsWith(expectedPath, StringComparison.Ordinal));
+    }
+
+    /// <summary>
+    /// A place is met on the map, which has no page of a place's own - so accepting one lands on the map
+    /// opened at that pin rather than on a path that does not exist. See MapPage.Place.
+    /// </summary>
+    [Fact]
+    public void Accepting_a_place_lands_on_the_map_at_that_pin()
+    {
+        _isAccepted = false;
+        var navigationManager = Services.GetRequiredService<NavigationManager>();
+        var cut = Render("place");
+
+        cut.FindAll("button").First(button => button.TextContent.Contains("Accept")).Click();
+
+        Assert.EndsWith($"/map?place={ItemId}", navigationManager.Uri);
     }
 
     /// <summary>
@@ -187,6 +204,7 @@ public sealed class ShareInvitationTests : OrbitTestContext
         Services.AddSingleton(new TasksApiClient(httpClient));
         Services.AddSingleton(new CalendarApiClient(httpClient));
         Services.AddSingleton(new InventoryApiClient(httpClient));
+        Services.AddSingleton(new PlacesApiClient(httpClient));
         Services.AddSingleton(new UsersApiClient(httpClient));
     }
 }
