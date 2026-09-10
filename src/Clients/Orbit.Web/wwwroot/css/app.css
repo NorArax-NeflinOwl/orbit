@@ -3532,6 +3532,121 @@ input.note-editor-title {
     right: 0;
 }
 
+/* CalendarWeekGrid.razor: seven of the day view's timelines side by side, under one row of day names
+   and one band of whole-day things. The gutter that holds the hour labels is the same width in all
+   three rows, which is what keeps the columns lined up with the names above them. */
+.calendar-week-grid {
+    display: flex;
+    flex-direction: column;
+    overflow-x: auto;
+}
+
+.calendar-week-grid-head,
+.calendar-week-grid-all-day,
+.calendar-week-grid-timeline {
+    display: flex;
+    min-width: 40rem;
+}
+
+.calendar-week-grid-gutter {
+    flex: 0 0 3.5rem;
+}
+
+.calendar-week-grid-head {
+    align-items: stretch;
+    border-bottom: 1px solid var(--border);
+}
+
+.calendar-week-grid-day-name {
+    display: flex;
+    flex: 1 1 0;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+    padding: 6px 2px;
+    border: none;
+    background: none;
+    color: var(--text-secondary);
+    font: inherit;
+    cursor: pointer;
+}
+
+.calendar-week-grid-day-name:hover {
+    background: var(--bg-subtle);
+}
+
+.calendar-week-grid-weekday {
+    font-size: 0.72em;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+}
+
+.calendar-week-grid-daynumber {
+    font-family: var(--font-display);
+    font-size: 1.05em;
+    color: var(--text-primary);
+}
+
+/* The day the reader is on, marked the way the month grid marks it. */
+.calendar-week-grid-day-name.today .calendar-week-grid-daynumber {
+    color: var(--accent);
+    font-weight: 700;
+}
+
+/* Across the top, above the hours: a whole-day thing has no hour to be drawn at, and giving it one
+   would put it at midnight, which is a lie about when it is. */
+.calendar-week-grid-all-day {
+    align-items: stretch;
+    border-bottom: 1px solid var(--border);
+}
+
+.calendar-week-grid-all-day-label {
+    display: flex;
+    align-items: center;
+    padding-left: 2px;
+    color: var(--text-tertiary);
+    font-size: 0.72em;
+}
+
+.calendar-week-grid-all-day-cell {
+    display: flex;
+    flex: 1 1 0;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+    padding: 3px 2px;
+    border-left: 1px solid var(--border);
+}
+
+.calendar-week-grid-timeline {
+    height: 60rem;
+    position: relative;
+}
+
+.calendar-week-grid-hours {
+    position: relative;
+}
+
+.calendar-week-grid-day {
+    flex: 1 1 0;
+    min-width: 0;
+    position: relative;
+    border-left: 1px solid var(--border);
+}
+
+/* Every half hour, because placing something to the half hour by eye needs a line at the half hour -
+   and the ones on the hour drawn solid, so the reader can still count hours down the column. */
+.calendar-week-grid-half-line {
+    position: absolute;
+    left: 0;
+    right: 0;
+    border-top: 1px dotted var(--border);
+}
+
+.calendar-week-grid-half-line.on-the-hour {
+    border-top-style: solid;
+}
+
 .calendar-event-block {
     background: var(--bg-subtle);
     border: none;

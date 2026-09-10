@@ -32,38 +32,58 @@ public sealed class CalendarGridBuilderTests
     }
 
     [Fact]
-    public void A_week_grid_is_the_one_Monday_to_Sunday_week_the_date_falls_in()
+    public void A_week_timeline_is_the_one_Monday_to_Sunday_week_the_date_falls_in()
     {
         // A Thursday.
-        var week = Assert.Single(CalendarGridBuilder.BuildWeekGrid(new DateOnly(2026, 9, 10), [], []));
+        var week = CalendarGridBuilder.BuildWeekTimeline(new DateOnly(2026, 9, 10), [], []);
 
+        Assert.Equal(new DateOnly(2026, 9, 7), week.WeekStart);
         Assert.Equal(new DateOnly(2026, 9, 7), week.Days[0].Date);
         Assert.Equal(new DateOnly(2026, 9, 13), week.Days[6].Date);
     }
 
     /// <summary>
-    /// Nothing in a week is dimmed. The flag says "this day belongs to the month either side of the one
-    /// you asked for", and in a week nobody asked for a month - a week straddling the 1st would
-    /// otherwise arrive half greyed.
+    /// A week straddling the 1st is seven days like any other. There is no borrowing to do here - the
+    /// idea belongs to a month grid, which dims the days either side of the month it is about.
     /// </summary>
     [Fact]
-    public void No_day_of_a_week_is_borrowed_from_anywhere()
+    public void A_week_across_the_turn_of_a_month_is_still_seven_days()
     {
         // The week of the 31st of August 2026, which is four days of September.
-        var week = Assert.Single(CalendarGridBuilder.BuildWeekGrid(new DateOnly(2026, 8, 31), [], []));
+        var week = CalendarGridBuilder.BuildWeekTimeline(new DateOnly(2026, 8, 31), [], []);
 
-        Assert.All(week.Days, day => Assert.True(day.IsInDisplayedMonth));
+        Assert.Equal(7, week.Days.Count);
+        Assert.Equal(new DateOnly(2026, 8, 31), week.Days[0].Date);
     }
 
+    /// <summary>
+    /// And an appointment is placed on its own day, at the minute it starts - which is the whole reason
+    /// a week stopped being a row of cells: a cell could say what was on a Tuesday and never when.
+    /// </summary>
     [Fact]
-    public void A_week_grid_places_an_event_on_its_own_day()
+    public void A_week_timeline_places_an_event_on_its_own_day_at_its_own_minute()
     {
-        var calendarEvent = CreateTimedEvent(new DateTime(2026, 9, 9, 10, 0, 0), new DateTime(2026, 9, 9, 11, 0, 0));
+        var calendarEvent = CreateTimedEvent(new DateTime(2026, 9, 9, 10, 30, 0), new DateTime(2026, 9, 9, 11, 0, 0));
 
-        var week = Assert.Single(CalendarGridBuilder.BuildWeekGrid(new DateOnly(2026, 9, 10), [calendarEvent], []));
+        var week = CalendarGridBuilder.BuildWeekTimeline(new DateOnly(2026, 9, 10), [calendarEvent], []);
 
-        var dayWithEvent = Assert.Single(week.Days, day => day.Events.Count > 0);
+        var dayWithEvent = Assert.Single(week.Days, day => day.TimedEvents.Count > 0);
         Assert.Equal(new DateOnly(2026, 9, 9), dayWithEvent.Date);
+        Assert.Equal((10 * 60) + 30, Assert.Single(dayWithEvent.TimedEvents).StartMinute);
+    }
+
+    /// <summary>A whole-day thing has no minute, so it is in the day's own all-day strip instead.</summary>
+    [Fact]
+    public void A_whole_day_event_is_in_the_days_all_day_strip_rather_than_on_its_timeline()
+    {
+        var wholeDay = CreateTimedEvent(new DateTime(2026, 9, 9, 0, 0, 0), new DateTime(2026, 9, 10, 0, 0, 0));
+        wholeDay = wholeDay with { Details = wholeDay.Details with { IsAllDay = true } };
+
+        var week = CalendarGridBuilder.BuildWeekTimeline(new DateOnly(2026, 9, 10), [wholeDay], []);
+
+        var wednesday = week.Days.Single(day => day.Date == new DateOnly(2026, 9, 9));
+        Assert.Single(wednesday.AllDayEvents);
+        Assert.Empty(wednesday.TimedEvents);
     }
 
     [Fact]

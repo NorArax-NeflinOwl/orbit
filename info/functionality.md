@@ -1256,13 +1256,23 @@ to change it, and a page of editable fields is the wrong answer to "what have we
 
 ### The four views, and the week among them
 
-**Day, week, month and year.** The week is the month grid with one row in it
-(`CalendarGridBuilder.BuildWeekGrid`), which is the point of it: a week reads as a row of a month rather
-than as a fourth thing to learn, the same chips in the same cells, and pressing a day opens that day.
-The one thing it does differently is use the room a single row has — taller cells, and ten chips before
-a day says how many more there are rather than four. Nothing in a week is dimmed: the flag that dims a
-cell means "this day belongs to the month either side of the one you asked for", and in a week nobody
-asked for a month, so a week straddling the 1st would otherwise arrive half greyed.
+**Day, week, month and year.** The week is **seven of the day view's timelines side by side**
+(`CalendarGridBuilder.BuildWeekTimeline`, `CalendarWeekGrid`, 2026-09-10): one hour gutter, seven
+columns, and every appointment and deadline at the height of the minute it happens at. It was the month
+grid with one row in it until then, on the reasoning that a week should read as a row of a month rather
+than as a fourth thing to learn — which held right up to the point somebody asked *when* something was.
+A cell could say what was on a Tuesday and nothing about the order of it, and a week is read for exactly
+that. Pressing a day's name still opens that day.
+
+**Half-hour lines under the hour ones**, because placing something to the half hour by eye needs a line
+at the half hour; the hour ones are drawn solid so the hours can still be counted down the column.
+**Whole-day things go in a band across the top**, above the hours — they have no hour to be drawn at, and
+giving them one would put them at midnight, which is a lie about when they are. The band is left out
+entirely on a week with nothing in it.
+
+It is built from seven day grids rather than from a week-shaped pass of its own: what "which column does
+this overlap into" means is a question about one day, and answering it twice in two places is how the two
+answers come to differ.
 
 **The list beside the grid covers whatever the grid is showing** — that day, that week, that month, that
 year. The day view used to list the whole month around the day instead, on the grounds that one day's

@@ -215,10 +215,14 @@
             case CalendarViewMode.Day:
                 <CalendarDayGrid Grid="CalendarGridBuilder.BuildDayGrid(_viewState.ReferenceDate, EventsOnTheGrid, DueTasksOnTheGrid)" OnEventSelected="OpenTheEvent" OnTaskSelected="GoToDueTask" TickedOffEventIds="TickedOffEventIds" />
                 break;
-            @* The month grid with one row in it, so a week reads as a row of a month rather than as a
-               fourth thing to learn - see CalendarGridBuilder.BuildWeekGrid. *@
+            @* Seven timelines side by side - the day view's own layout, once per day - so a week says
+               when things are and not only that they are. It used to be a month grid with one row in
+               it, which put everything happening on a Tuesday into a list ordered by nothing a reader
+               could see. See CalendarGridBuilder.BuildWeekTimeline. *@
             case CalendarViewMode.Week:
-                <CalendarMonthGrid Weeks="CalendarGridBuilder.BuildWeekGrid(_viewState.ReferenceDate, EventsOnTheGrid, DueTasksOnTheGrid)" OnDaySelected="GoToDay" TickedOffEventIds="TickedOffEventIds" IsRoomy="true" />
+                <CalendarWeekGrid Timeline="CalendarGridBuilder.BuildWeekTimeline(_viewState.ReferenceDate, EventsOnTheGrid, DueTasksOnTheGrid)"
+                                  OnDaySelected="GoToDay" OnEventSelected="OpenTheEvent" OnTaskSelected="GoToDueTask"
+                                  TickedOffEventIds="TickedOffEventIds" />
                 break;
             case CalendarViewMode.Year:
                 <CalendarYearGrid Months="CalendarGridBuilder.BuildYearGrid(_viewState.ReferenceDate.Year, EventsOnTheGrid, _viewState.ShowDueTasksInYearView ? DueTasksOnTheGrid : [])" OnDaySelected="GoToDay" TickedOffEventIds="TickedOffEventIds" />
