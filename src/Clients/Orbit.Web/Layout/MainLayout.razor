@@ -239,8 +239,16 @@
     <div class="app-body">
     <main class="main-content" @onclick="CloseAvatarMenu">
         @* The page in a box of its own, so the footer under it can be given the height nobody else
-           wanted - see .main-content-page. *@
-        <div class="main-content-page">
+           wanted - see .main-content-page.
+
+           Keyed on the language, which is what makes changing it change the page under this layout.
+           StateHasChanged here re-renders the layout, and the page inside @Body is an ordinary child
+           component with no parameters - so Blazor had nothing to diff and left it exactly as it was:
+           pressing PL in the footer translated the footer and nothing above it. A key that changes
+           discards the subtree and builds it again, in the language now in force. It costs the page its
+           own state and one reload of whatever it fetches, which is the price of an explicit press that
+           somebody makes once. *@
+        <div class="main-content-page" @key="T.Language">
             @Body
         </div>
         @* What this Orbit is and what it does with what you give it. In the layout rather than on each
