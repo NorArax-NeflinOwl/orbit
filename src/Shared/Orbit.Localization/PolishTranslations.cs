@@ -88,6 +88,8 @@ public static class PolishTranslations
         ["More"] = "Więcej",
         // The "?" beside a field's label - see Orbit.Web's FieldHint.razor.
         ["What this is for"] = "Do czego to służy",
+        // The "!" beside it, for something true of the screen right now - see FieldHint.Warns.
+        ["What to know about this"] = "Co warto tu wiedzieć",
         ["Couldn't add those to the restock list."] = "Nie udało się dodać ich do listy uzupełnień.",
         ["{0} added to the restock list."] = "Dodano do listy uzupełnień: {0}.",
         ["Everything short was already on the restock list."] = "Wszystkie braki już były na liście uzupełnień.",

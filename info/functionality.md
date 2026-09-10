@@ -210,11 +210,22 @@ Where the bubble goes is measured (`fieldHint.js`): these sit inside menus and r
 the window, and CSS cannot say "and stay inside it". It opens above the mark where there is room and
 below it where there is not, and is pulled back inside both edges.
 
-**Two kinds of small print stay where they are**: what is true of a screen right now ("this entry has an
-event in the calendar", "somebody else is editing this") and why a save is being refused. Those are
-answers to a question the reader is already asking, and an answer behind a "?" is an answer nobody finds.
-The **Options page** keeps its descriptions too: it is a screen that is read rather than filled in, and
-each row's sentence is the point of the row.
+**News gets its own mark.** Something true of the screen *right now* — an entry that has an appointment
+behind it, a place with no point yet, a name that will not become a pin — folds away behind a **"!"** in
+the warning colour rather than a "?" (`FieldHint`'s `Warns`). Same behaviour, different weight: a "?" is
+quiet because most readers already know what a field is for, and a "!" is not, because news is worth
+noticing even folded away. The reason for folding it is the same either way — a form carried three of
+these permanently, and the reader who needed one could not find it among the ones they did not.
+
+**The Options page folds them too.** Every setting there was a title with a sentence under it, which is a
+page of prose with switches in it; now each row is its name and a "?". Two things stay in the flow because
+they are not descriptions: **where the verification code will be sent** (the address is the decision being
+made, and it has to be read before the button is pressed) and **"Not supported in this browser"**, which
+replaces the switch rather than explaining it.
+
+**What is still said out loud** is a refusal that has already happened: an error under Save, a message
+after an action. Those answer a question the reader is asking at that moment, and an answer behind a mark
+is an answer nobody finds.
 
 ## Advertising
 

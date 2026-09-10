@@ -3176,7 +3176,13 @@ input.note-editor-title {
     cursor: not-allowed;
 }
 
+/* An inline row, so the mark that carries what the setting does sits on the same line as its name -
+   see FieldHint, and Options.razor, where every one of these descriptions now lives behind one. */
 .options-row-title {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 6px;
     font-size: 13.5px;
     font-weight: 600;
     color: var(--text-primary);
@@ -3803,6 +3809,21 @@ input.note-editor-title {
 .field-hint-mark.on {
     color: var(--accent);
     border-color: var(--accent);
+}
+
+/* News rather than reference - see FieldHint.razor. Drawn in the warning colour at rest, because
+   something true of the screen right now is worth noticing even while it is folded away. */
+.field-hint-mark.warns {
+    color: var(--away);
+    border-color: var(--away);
+}
+
+.field-hint-mark.warns:hover,
+.field-hint-mark.warns:focus-visible,
+.field-hint-mark.warns.on {
+    color: var(--away);
+    border-color: var(--away);
+    background: color-mix(in oklch, var(--away) 14%, transparent);
 }
 
 /* Out of the page's flow entirely rather than merely invisible: given display:none it would be

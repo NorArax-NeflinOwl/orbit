@@ -60,7 +60,7 @@
                nothing to hand a map app, so this is said before the save is refused rather than after. *@
             @if (!HasAPoint)
             {
-                <small>@T["Pick it on the map - a place with no point cannot be drawn on one."]</small>
+                <FieldHint Warns="true">@T["Pick it on the map - a place with no point cannot be drawn on one."]</FieldHint>
             }
         </div>
 

@@ -344,13 +344,12 @@ else
                                 <span class="field-break"></span>
                                 @* The way out of the refusal below: an entry can stop being an event
                                    without the event being destroyed. Whoever made it decides what
-                                   happens to it, in the calendar, where they can see it. The sentence
-                                   goes under the button rather than beside it, so the two read in the
-                                   order they are meant to: what this does, then what it means. *@
-                                <div class="field-with-note">
+                                   happens to it, in the calendar, where they can see it. What that means
+                                   is behind the mark beside the button - see FieldHint.Warns. *@
+                                <span class="field-with-note">
                                     <button type="button" class="btn-secondary" @onclick="() => DetachFromTheEvent(item)">@T["Detach from the event"]</button>
-                                    <small>@T["This entry has an event in the calendar. Saving keeps the two in step."]</small>
-                                </div>
+                                    <FieldHint Warns="true">@T["This entry has an event in the calendar. Saving keeps the two in step."]</FieldHint>
+                                </span>
                             }
                         }
                         @* A restock errand edits the shelf it is about, right here. That is the point of
@@ -381,11 +380,14 @@ else
                                                  ShowsCategories="false"
                                                  KnownProductTypes="_knownProductTypes" />
                                 <span class="field-break"></span>
-                                <small>
-                                    @(product.Product.Id is null
-                                        ? T.Format("Goes on the shelf in {0} when this list is saved, named after this entry.", product.InventoryName)
-                                        : T.Format("On the shelf in {0}. Saving this list saves the change there too.", product.InventoryName))
-                                </small>
+                                <span class="field-with-note">
+                                    <span class="editor-item-tags-label">@T["Inventory"]</span>
+                                    <FieldHint Warns="true">
+                                        @(product.Product.Id is null
+                                            ? T.Format("Goes on the shelf in {0} when this list is saved, named after this entry.", product.InventoryName)
+                                            : T.Format("On the shelf in {0}. Saving this list saves the change there too.", product.InventoryName))
+                                    </FieldHint>
+                                </span>
                             }
                             else
                             {
@@ -400,7 +402,10 @@ else
                                                  ShowsCategories="false"
                                                  KnownProductTypes="_knownProductTypes" />
                                 <span class="field-break"></span>
-                                <small>@T["Goes on the shelf when \"Generate inventory\" builds one, named after this entry. Leave the minimum empty to have it counted instead: the same name twice asks for two of it."]</small>
+                                <span class="field-with-note">
+                                    <span class="editor-item-tags-label">@T["Inventory"]</span>
+                                    <FieldHint Warns="true">@T["Goes on the shelf when \"Generate inventory\" builds one, named after this entry. Leave the minimum empty to have it counted instead: the same name twice asks for two of it."]</FieldHint>
+                                </span>
                             }
                         }
                         else if (item.Kind == nameof(TaskItemKind.Checklist))
@@ -462,7 +467,10 @@ else
                             @if (item.IsALinkToOtherLists)
                             {
                                 <span class="field-break"></span>
-                                <small>@T["Completion follows the linked lists, so it can't be ticked by hand."]</small>
+                                <span class="field-with-note">
+                                    <span class="editor-item-tags-label">@T["Completed"]</span>
+                                    <FieldHint Warns="true">@T["Completion follows the linked lists, so it can't be ticked by hand."]</FieldHint>
+                                </span>
                             }
                         }
                         @if (_moveErrorMessage is not null && item.Id is { } movedItemId && _moveErrorMessageForItemId == movedItemId)
