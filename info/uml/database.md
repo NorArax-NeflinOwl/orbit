@@ -251,11 +251,14 @@ erDiagram
     OP_PLACES {
         uuid OP_P_ID PK
         uuid OP_P_USERID FK
-        text OP_P_NAME
-        text OP_P_DESCRIPTION
-        text OP_P_ADDRESS "empty = only a point"
-        float OP_P_LATITUDE
-        float OP_P_LONGITUDE
+        boolean OP_P_ISPRIVATE "true unless its owner said otherwise"
+        text OP_P_ENCRYPTEDCIPHERTEXT "the name, description and point when sealed"
+        text OP_P_ENCRYPTEDNONCE
+        text OP_P_NAME "empty when sealed"
+        text OP_P_DESCRIPTION "empty when sealed"
+        text OP_P_ADDRESS "empty = only a point, or sealed"
+        float OP_P_LATITUDE "0 when sealed"
+        float OP_P_LONGITUDE "0 when sealed"
         text OP_P_COLOUR "empty = whatever a place is drawn in"
         text OP_P_PRIORITY "ItemPriority by name"
     }
@@ -288,6 +291,11 @@ recipient's "delete" drops their grant rather than the place, which leaves a tom
 
 `OP_PLACES_SHARED` carries no per-recipient pin, unlike `OP_NOTES_SHARED`: a place has no list of its
 own to sit at the top of.
+
+**A place is sealed unless its owner said otherwise**, which is the opposite default from every other
+table here. The point is sealed with the words: a place whose coordinates were still readable would be
+sealed in name only. What is left readable is what a map needs to draw nothing in particular - the
+colour, the priority, the lists and the timestamps.
 
 `OL_PLACES_TASKS` is how a place joins the work it is about - the bakery belongs to the shopping list.
 **No foreign key to `OP_TASKS`**, deliberately: a list deleted afterwards leaves an id pointing at

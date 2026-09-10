@@ -99,7 +99,11 @@ public sealed class PlaceRepository : IPlaceRepository
             Enum.TryParse<ItemPriority>(entity.Priority, out var priority) ? priority : ItemPriority.Normal,
             [.. entity.TaskLists.OrderBy(link => link.Position).Select(link => link.TaskListId)],
             entity.CreatedAtUtc,
-            entity.UpdatedAtUtc);
+            entity.UpdatedAtUtc,
+            entity.IsPrivate,
+            entity.EncryptedCiphertext is { } ciphertext && entity.EncryptedNonce is { } nonce
+                ? new EncryptedPayload(ciphertext, nonce)
+                : null);
 
     private static PlaceEntity ToEntity(Place place)
         => new()
@@ -113,6 +117,9 @@ public sealed class PlaceRepository : IPlaceRepository
             Longitude = place.Where.Longitude,
             Colour = place.Colour,
             Priority = place.Priority.ToString(),
+            IsPrivate = place.IsPrivate,
+            EncryptedCiphertext = place.EncryptedContent?.Ciphertext,
+            EncryptedNonce = place.EncryptedContent?.Nonce,
             TaskLists = [.. LinksOf(place)],
             CreatedAtUtc = place.CreatedAtUtc,
             UpdatedAtUtc = place.UpdatedAtUtc

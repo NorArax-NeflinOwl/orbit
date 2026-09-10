@@ -68,10 +68,8 @@ public sealed class PublicSharedItemReader
                     : null,
                 ownerUserId),
             SharedItemType.Place => IsOwnedAndPublishable(
-                // Nothing about a place is ever sealed, so the second half is always false - the only
-                // question is whether this reader is the one who keeps it.
                 await _placeRepository.GetByIdAsync(ownerUserId, itemId, cancellationToken) is { } place
-                    ? (place.UserId, false)
+                    ? (place.UserId, place.IsPrivate)
                     : null,
                 ownerUserId),
             _ => IsOwnedAndPublishable(
@@ -199,8 +197,10 @@ public sealed class PublicSharedItemReader
         PublicShareLink link, string ownerDisplayName, CancellationToken cancellationToken)
     {
         var place = await _placeRepository.GetByIdAsync(link.OwnerUserId, link.ItemId, cancellationToken);
-        if (place is null || place.UserId != link.OwnerUserId)
+        if (place is null || place.UserId != link.OwnerUserId || place.IsPrivate)
         {
+            // Sealing a place that already had a link closes the link with it, rather than merely
+            // stopping new ones being made - the same rule a note follows.
             return null;
         }
 

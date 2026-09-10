@@ -86,9 +86,13 @@ public sealed class PlacesScreenTests
         Assert.Equal("The good bakery", shown.Label);
     }
 
-    /// <summary>What the reader writes here reaches the server, which is the other half of the round trip.</summary>
+    /// <summary>
+    /// What the reader writes here reaches the server, which is the other half of the round trip - and
+    /// for a place it reaches it <b>sealed</b>, because a place is private unless its owner said
+    /// otherwise. What the server ends up holding is ciphertext and three empty fields.
+    /// </summary>
     [Fact]
-    public async Task What_the_phone_writes_reaches_the_server()
+    public async Task What_the_phone_writes_reaches_the_server_sealed()
     {
         using var context = new PlacesContext();
         var stored = await context.Places.CreateAsync(
@@ -99,7 +103,56 @@ public sealed class PlacesScreenTests
         screen.Name = "The good bakery";
         await screen.SaveCommand.ExecuteAsync(null);
 
-        Assert.Equal("The good bakery", Assert.Single(context.Server.Places).Name);
+        var onTheServer = Assert.Single(context.Server.Places);
+        Assert.True(onTheServer.IsPrivate);
+        Assert.NotNull(onTheServer.EncryptedContent);
+        // Not the name, not the address, and not the point: a place whose coordinates travelled in the
+        // clear would be sealed in name only.
+        Assert.Equal(string.Empty, onTheServer.Name);
+        Assert.Equal(string.Empty, onTheServer.Where.Address);
+        Assert.Equal(0, onTheServer.Where.Latitude);
+    }
+
+    /// <summary>
+    /// And it comes back readable on this phone, which is the point of sealing rather than of hiding:
+    /// the words are here, and only here.
+    /// </summary>
+    [Fact]
+    public async Task A_sealed_place_is_still_readable_on_the_phone_that_sealed_it()
+    {
+        using var context = new PlacesContext();
+        await context.Places.CreateAsync(
+            new PlaceContent("The good bakery", "Sourdough", "Rynek 1", 51.24, 22.56), CancellationToken.None);
+
+        var screen = context.OpenList();
+        await screen.LoadCommand.ExecuteAsync(null);
+
+        var row = Assert.Single(screen.Places);
+        Assert.Equal("The good bakery", row.Name);
+        Assert.Equal("Rynek 1", row.Address);
+    }
+
+    /// <summary>
+    /// A place is sealed unless somebody says otherwise, which is the opposite default from every other
+    /// kind of thing here - see Orbit.Core.Places.Place.IsPrivate. Left open, it is stored open.
+    /// </summary>
+    [Fact]
+    public async Task A_place_is_sealed_unless_it_is_told_not_to_be()
+    {
+        using var context = new PlacesContext();
+
+        var sealedByDefault = await context.Places.CreateAsync(
+            new PlaceContent("The good bakery", "", "Rynek 1", 51.24, 22.56), CancellationToken.None);
+        var left0pen = await context.Places.CreateAsync(
+            new PlaceContent("The open bakery", "", "Rynek 2", 51.25, 22.57, IsPrivate: false),
+            CancellationToken.None);
+
+        Assert.True(sealedByDefault.IsPrivate);
+        Assert.Equal(string.Empty, sealedByDefault.Name);
+        Assert.NotNull(sealedByDefault.EncryptedContent);
+        Assert.False(left0pen.IsPrivate);
+        Assert.Equal("The open bakery", left0pen.Name);
+        Assert.Null(left0pen.EncryptedContent);
     }
 
     /// <summary>
@@ -206,7 +259,9 @@ public sealed class PlacesScreenTests
         public PlacesContext()
         {
             Server = new FakePlacesServer(TimeProvider.System);
-            Places = new LocalPlaceRepository(_localStore, TimeProvider.System, Network);
+            // With a key, because a place is sealed unless its owner says otherwise - a store that
+            // cannot unlock one would leave every place in these tests unreadable.
+            Places = new LocalPlaceRepository(_localStore, TimeProvider.System, Network, PrivateContent.WithAKey());
         }
 
         public FakePlacesServer Server { get; }

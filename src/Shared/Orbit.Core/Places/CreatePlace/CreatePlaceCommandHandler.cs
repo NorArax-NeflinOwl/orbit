@@ -15,7 +15,7 @@ public sealed class CreatePlaceCommandHandler : IRequestHandler<CreatePlaceComma
     {
         var place = Place.Create(
             request.UserId, request.Name, request.Description, request.Where, request.Colour,
-            request.Priority, request.TaskListIds);
+            request.Priority, request.TaskListIds, request.IsPrivate, request.EncryptedContent);
         await _placeRepository.AddAsync(place, cancellationToken);
         return place.Id;
     }

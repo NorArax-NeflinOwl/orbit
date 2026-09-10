@@ -9,4 +9,7 @@ public sealed record CreatePlaceCommand(
     Guid UserId, string Name, string Description, EventLocation Where, string Colour = "",
     ItemPriority Priority = ItemPriority.Normal,
     /// <summary>The task lists this place belongs to - see Place.TaskListIds.</summary>
-    IReadOnlyList<Guid>? TaskListIds = null) : IRequest<Guid>;
+    IReadOnlyList<Guid>? TaskListIds = null,
+    /// <summary>Sealed unless the caller says otherwise - see Place.IsPrivate.</summary>
+    bool IsPrivate = true,
+    EncryptedPayload? EncryptedContent = null) : IRequest<Guid>;

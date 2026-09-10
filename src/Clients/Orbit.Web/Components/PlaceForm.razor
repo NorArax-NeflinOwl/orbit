@@ -69,6 +69,17 @@
            empty. The colour keeps the same well, and the same way out of it, an entry and an appointment
            are given (see TaskEditor): a place nobody chose a colour for is drawn in whatever places are
            drawn in, and a default would quietly overrule that. *@
+        @* Sealed unless the reader says otherwise, which is this one form's answer running the other way
+           from every other form in Orbit - see Orbit.Core.Places.Place.IsPrivate on why a place earns
+           that. Turning it off is what makes a place shareable at all, so the mark beside it says so. *@
+        <div class="field">
+            <label class="field-checkbox">
+                <input type="checkbox" checked="@_isPrivate"
+                       @onchange="args => _isPrivate = args.Value is true" />@T["Private"]
+                <FieldHint>@T["Encrypted in this browser, so Orbit can't read it. It can't be shared or linked to, and losing your password loses it."]</FieldHint>
+            </label>
+        </div>
+
         <div class="place-form-look">
             <div class="field">
                 <label for="placeFormPriority">@T["Priority"]</label>
@@ -180,6 +191,9 @@
     private double? _longitude;
     private string _colour = string.Empty;
     private string _priority = "Normal";
+
+    /// <inheritdoc cref="Orbit.Core.Places.Place.IsPrivate"/>
+    private bool _isPrivate = true;
     private readonly List<Guid> _taskListIds = [];
 
     private bool _isPickingOnTheMap;
@@ -220,6 +234,7 @@
             _longitude = place.Where.Longitude;
             _colour = place.Colour;
             _priority = place.Priority;
+            _isPrivate = place.IsPrivate;
             _taskListIds.Clear();
             _taskListIds.AddRange(place.TaskListIds);
             return;
@@ -284,7 +299,8 @@
                 _description.Trim(),
                 _colour,
                 _priority,
-                [.. _taskListIds]);
+                [.. _taskListIds],
+                _isPrivate);
 
             if (Place is { } place)
             {

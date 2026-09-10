@@ -740,6 +740,10 @@ public static class PolishTranslations
         // The place form - see Orbit.Web's PlaceForm, opened by the + on the map and by the picker that
         // asks what a pressed pin is for.
         ["Keep a place"] = "Zapisz miejsce",
+        // A place is sealed unless its owner says otherwise, which no other kind of thing here is - so
+        // this sentence names what sealing costs as well as what it gives.
+        ["Encrypted in this browser, so Orbit can't read it. It can't be shared or linked to, and losing your password loses it."] =
+            "Zaszyfrowane w tej przeglądarce, więc Orbit tego nie odczyta. Nie da się tego udostępnić ani podlinkować, a utrata hasła oznacza utratę treści.",
         // The places list on the phone, which has no "+ on the map" to point at - see PlacesPage.
         ["Nothing kept yet."] = "Nic tu jeszcze nie ma.",
         ["Forget this place?"] = "Zapomnieć to miejsce?",

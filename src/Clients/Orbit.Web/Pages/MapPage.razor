@@ -289,15 +289,21 @@ else
                             @* Only where this reader may pass it on: a place handed over to read is not
                                theirs to hand on further - see SharedItemAccess, which the panel below
                                reads again for what level it may offer. *@
-                            @if (SharedItemAccess.For(place.IsShared, place.AccessLevel).CanShare)
+                            @* Nothing to offer for a sealed place: the server holds no readable copy to
+                               hand anybody, which is what makes it sealed - and nothing to copy either,
+                               because sealing is this browser's work and the server cannot do it. *@
+                            @if (!place.IsPrivate && SharedItemAccess.For(place.IsShared, place.AccessLevel).CanShare)
                             {
                                 <button type="button" class="avatar-dropdown-item" @onclick="() => ShareThePlace(place)">
                                     @T["Share"]
                                 </button>
                             }
-                            <button type="button" class="avatar-dropdown-item" @onclick="() => DuplicateThePlaceAsync(place)">
-                                @T["Duplicate"]
-                            </button>
+                            @if (!place.IsPrivate)
+                            {
+                                <button type="button" class="avatar-dropdown-item" @onclick="() => DuplicateThePlaceAsync(place)">
+                                    @T["Duplicate"]
+                                </button>
+                            }
                             <button type="button" class="avatar-dropdown-item danger" @onclick="() => AskToForgetThePlace(place)">
                                 @(place.IsShared ? T["Take it off my map"] : T["Delete"])
                             </button>

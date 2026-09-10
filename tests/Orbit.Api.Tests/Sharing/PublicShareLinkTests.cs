@@ -306,7 +306,7 @@ public sealed class PublicShareLinkTests
         public async Task<Guid> AddPlaceAsync(string name, string description = "", string address = "Rynek 1, Lublin")
         {
             var place = Orbit.Core.Places.Place.Create(
-                OwnerId, name, description, new Orbit.Core.Calendar.EventLocation(address, 51.2465, 22.5684));
+                OwnerId, name, description, new Orbit.Core.Calendar.EventLocation(address, 51.2465, 22.5684), isPrivate: false);
             await PlaceRepository.AddAsync(place, CancellationToken.None);
             return place.Id;
         }

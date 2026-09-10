@@ -12,4 +12,7 @@ namespace Orbit.Core.Places.UpdatePlace;
 public sealed record UpdatePlaceCommand(
     Guid UserId, Guid Id, string Name, string Description, EventLocation Where, string Colour = "",
     ItemPriority Priority = ItemPriority.Normal,
-    IReadOnlyList<Guid>? TaskListIds = null) : IRequest<bool>;
+    IReadOnlyList<Guid>? TaskListIds = null,
+    /// <inheritdoc cref="CreatePlace.CreatePlaceCommand.IsPrivate"/>
+    bool IsPrivate = true,
+    EncryptedPayload? EncryptedContent = null) : IRequest<bool>;

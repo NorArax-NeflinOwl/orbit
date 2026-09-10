@@ -1,6 +1,7 @@
 using Bunit;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Sections;
+using Orbit.Core.Folders;
 using Orbit.Web.Components;
 using Orbit.Web.Services;
 using Xunit;

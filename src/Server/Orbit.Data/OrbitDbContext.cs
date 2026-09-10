@@ -116,7 +116,10 @@ public sealed class OrbitDbContext : DbContext
         modelBuilder.Entity<PlaceEntity>(entity =>
         {
             entity.HasKey(place => place.Id);
-            entity.Property(place => place.Name).IsRequired().HasMaxLength(StoredTextLimits.Title);
+            // Not required, unlike a note's title: a sealed place's readable name is empty by design, and
+            // the column that must be there instead is the ciphertext beside it.
+            entity.Property(place => place.Name).IsRequired().HasMaxLength(StoredTextLimits.Title)
+                .HasDefaultValue(string.Empty);
             entity.Property(place => place.Description).IsRequired().HasMaxLength(StoredTextLimits.EventDescription)
                 .HasDefaultValue(string.Empty);
             // Matches CalendarEventEntity.LocationAddress, since it holds the same sort of thing.

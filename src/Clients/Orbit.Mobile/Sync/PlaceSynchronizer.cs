@@ -129,12 +129,16 @@ public sealed class PlaceSynchronizer
     /// </summary>
     private static SavePlaceRequest Saving(LocalPlace place)
         => new(
+            // A sealed place's words are in EncryptedContent and its readable fields are empty, which is
+            // how the row is already stored - see LocalPlaceRepository.WriteAsync.
             place.Name,
             new EventLocationDto(place.Address, place.Latitude, place.Longitude),
             place.Description,
             place.Colour,
             place.Priority,
-            place.TaskListIds);
+            place.TaskListIds,
+            place.IsPrivate,
+            place.EncryptedContent);
 
     private async Task<(int Received, int RemovedLocally)> PullChangesAsync(
         OrbitLocalDbContext dbContext, CancellationToken cancellationToken)
@@ -199,6 +203,9 @@ public sealed class PlaceSynchronizer
         place.Address = incoming.Where.Address ?? string.Empty;
         place.Latitude = incoming.Where.Latitude;
         place.Longitude = incoming.Where.Longitude;
+        place.IsPrivate = incoming.IsPrivate;
+        place.EncryptedCiphertext = incoming.EncryptedContent?.Ciphertext;
+        place.EncryptedNonce = incoming.EncryptedContent?.Nonce;
         place.Colour = incoming.Colour;
         place.Priority = incoming.Priority;
         place.TaskListIds = incoming.TaskListIds;

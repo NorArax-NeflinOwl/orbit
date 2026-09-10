@@ -39,7 +39,7 @@ public sealed class PlaceRepositoryTests : IDisposable
         var onTheList = Guid.NewGuid();
         var place = Place.Create(
             OwnerUserId, "The good bakery", "Sourdough on Thursdays", Somewhere(), "#cc4a3f",
-            ItemPriority.High, [onTheList]);
+            ItemPriority.High, [onTheList], isPrivate: false);
 
         await repository.AddAsync(place, CancellationToken.None);
 
@@ -64,10 +64,10 @@ public sealed class PlaceRepositoryTests : IDisposable
         var repository = new PlaceRepository(_dbContext);
         var first = Guid.NewGuid();
         var second = Guid.NewGuid();
-        var place = Place.Create(OwnerUserId, "Bakery", "", Somewhere(), taskListIds: [first]);
+        var place = Place.Create(OwnerUserId, "Bakery", "", Somewhere(), taskListIds: [first], isPrivate: false);
         await repository.AddAsync(place, CancellationToken.None);
 
-        place.Update("Bakery", "", Somewhere(), "", ItemPriority.Normal, [second]);
+        place.Update("Bakery", "", Somewhere(), "", ItemPriority.Normal, [second], isPrivate: false);
         await repository.UpdateAsync(place, CancellationToken.None);
 
         var stored = await repository.GetByIdAsync(OwnerUserId, place.Id, CancellationToken.None);
@@ -79,7 +79,7 @@ public sealed class PlaceRepositoryTests : IDisposable
     public async Task A_place_with_no_address_says_so_rather_than_saying_nothing()
     {
         var repository = new PlaceRepository(_dbContext);
-        var place = Place.Create(OwnerUserId, "Where we park", "", new EventLocation(null, 52.1, 21.1));
+        var place = Place.Create(OwnerUserId, "Where we park", "", new EventLocation(null, 52.1, 21.1), isPrivate: false);
 
         await repository.AddAsync(place, CancellationToken.None);
 
@@ -91,7 +91,7 @@ public sealed class PlaceRepositoryTests : IDisposable
     public async Task Somebody_elses_place_is_neither_read_nor_deleted()
     {
         var repository = new PlaceRepository(_dbContext);
-        var place = Place.Create(OwnerUserId, "Bakery", "", Somewhere());
+        var place = Place.Create(OwnerUserId, "Bakery", "", Somewhere(), isPrivate: false);
         await repository.AddAsync(place, CancellationToken.None);
 
         var otherUserId = Guid.NewGuid();
@@ -105,7 +105,7 @@ public sealed class PlaceRepositoryTests : IDisposable
     public async Task Deleting_a_place_takes_the_lists_it_belonged_to_with_it()
     {
         var repository = new PlaceRepository(_dbContext);
-        var place = Place.Create(OwnerUserId, "Bakery", "", Somewhere(), taskListIds: [Guid.NewGuid()]);
+        var place = Place.Create(OwnerUserId, "Bakery", "", Somewhere(), taskListIds: [Guid.NewGuid()], isPrivate: false);
         await repository.AddAsync(place, CancellationToken.None);
 
         Assert.True(await repository.DeleteAsync(OwnerUserId, place.Id, CancellationToken.None));

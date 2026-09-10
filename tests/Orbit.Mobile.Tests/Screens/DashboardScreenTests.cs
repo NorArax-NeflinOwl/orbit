@@ -1149,7 +1149,7 @@ public sealed class DashboardScreenTests
             _taskLists = new LocalTaskListRepository(_localStore, _clock, network, PrivateContent.WithoutAKey());
             _calendarEvents = new LocalCalendarEventRepository(_localStore, _clock, network);
             _inventories = new LocalInventoryRepository(_localStore, _clock, network, PrivateContent.WithoutAKey());
-            _places = new LocalPlaceRepository(_localStore, _clock, network);
+            _places = new LocalPlaceRepository(_localStore, _clock, network, PrivateContent.WithAKey());
             _chat = new ChatRepository(_localStore, _clock);
             _syncState = new SyncState(network, _clock);
             NotesServer = new FakeNotesServer(_clock);

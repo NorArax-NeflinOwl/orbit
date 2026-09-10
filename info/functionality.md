@@ -1117,10 +1117,31 @@ at nothing, and a reader treats that as "a list nobody here can see", the same w
 links are treated. Saving replaces those rows wholesale rather than diffing them — the shape that
 produced "0 rows affected" on the task lists when it was left to the change tracker.
 
-**Nothing about a place is sealed**, and it takes no `null`-means-not-provided fields: one form writes
-every one of them, so a missing field is a client that meant to clear it. That is the opposite of the
-rule a task entry's newer fields follow, and deliberately so — those exist because two clients disagree
-about what an entry carries, and nothing but this form has ever written a place.
+**A place is sealed unless its owner says otherwise** (2026-09-10) — the opposite default from every
+other kind of thing in Orbit, which is readable until somebody asks for privacy. A note says what
+somebody thought; a place says where they are when they are not at home, where the spare key is, which
+door the flat they are viewing is behind. That is worth less to a server and worth more to whoever
+should not have it.
+
+Sealed means here what it means everywhere else: the client encrypts before saving, and the readable
+columns go **empty** rather than merely unread — the name, the description **and the point**, because a
+place whose coordinates were still readable would be sealed in name only (`SealedPlace`). What stays
+readable is what a map needs in order to draw nothing in particular: the colour, the priority, the lists
+it belongs to and the two timestamps. `Place` enforces the pairing the way `Note` does: privacy claimed
+with nothing sealed is refused, and an open place still needs a name.
+
+Everything that needs a readable copy is therefore refused for a sealed one, and said on the server as
+well as hidden on screen: it **cannot be shared**, **cannot be given a public link** (and sealing one
+that already had a link closes the link with it), and **cannot be duplicated by the server** — sealing is
+the client's work and the server has no key, so a copy it made would be an empty place wearing the name
+of a full one. Somebody who wants to hand a place over turns sealing off for that place first.
+
+**It takes no `null`-means-not-provided fields**: one form writes every one of them, so a missing field is
+a client that meant to clear it. That is the opposite of the rule a task entry's newer fields follow, and
+deliberately so — those exist because two clients disagree about what an entry carries, and nothing but
+this form has ever written a place. `SavePlaceRequest.IsPrivate` defaults to **true** for the same reason
+the domain does: a client that has not been taught about sealing cannot make an open place by leaving a
+field out.
 
 **On the web the map page is where a place is met** (`PlaceForm.razor`, opened by the `+` in the map's
 top-left and by the picker that asks what a pressed pin is for — see

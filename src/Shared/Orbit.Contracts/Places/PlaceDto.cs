@@ -1,3 +1,4 @@
+using Orbit.Contracts;
 using Orbit.Contracts.Calendar;
 
 namespace Orbit.Contracts.Places;
@@ -30,6 +31,14 @@ namespace Orbit.Contracts.Places;
 /// The other side of <paramref name="IsShared"/>: somebody else holds access to this place. Only ever
 /// meaningful to the person who keeps it.
 /// </param>
+/// <param name="IsPrivate">
+/// Whether this place is sealed - and it is unless its owner said otherwise, which is the opposite
+/// default from everything else here. See Orbit.Core.Places.Place.IsPrivate for why.
+/// </param>
+/// <param name="EncryptedContent">
+/// The sealed name, description and point of a private place - see SealedPlace. Null for an open one,
+/// whose three readable fields above carry the same thing in the clear.
+/// </param>
 public sealed record PlaceDto(
     Guid Id,
     string Name,
@@ -44,4 +53,6 @@ public sealed record PlaceDto(
     string? SharedByUserName = null,
     string AccessLevel = "CanEdit",
     Guid? OriginalOwnerUserId = null,
-    bool IsSharedWithOthers = false);
+    bool IsSharedWithOthers = false,
+    bool IsPrivate = false,
+    EncryptedContentDto? EncryptedContent = null);

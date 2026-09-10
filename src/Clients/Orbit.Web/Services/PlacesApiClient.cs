@@ -1,6 +1,7 @@
 using System.Net;
 using System.Net.Http.Json;
 using Orbit.Contracts;
+using Orbit.Contracts.Calendar;
 using Orbit.Contracts.Places;
 using Orbit.Contracts.Sharing;
 
@@ -8,20 +9,39 @@ namespace Orbit.Web.Services;
 
 /// <summary>
 /// The places this account keeps, and the ones somebody handed over - see Orbit.Core.Places.Place.
-/// Nothing about a place is ever sealed, so this stays the plainest client in the app: what the server
-/// holds is what comes back.
+///
+/// A place is sealed unless its owner said otherwise, so unlike the other clients here this one seals on
+/// nearly every save and opens on nearly every read. What the server holds for a sealed place is
+/// ciphertext and three empty fields; what a screen gets back from here is the place itself.
 /// </summary>
 public sealed class PlacesApiClient
 {
-    private readonly HttpClient _httpClient;
+    /// <summary>Shown in place of a sealed place nobody can open any more - see PrivateContentSealer.OpenAsync.</summary>
+    private const string UnreadablePlaceName = "Unreadable - encrypted with an older key";
 
-    public PlacesApiClient(HttpClient httpClient)
+    private readonly HttpClient _httpClient;
+    private readonly PrivateContentSealer? _privateContentSealer;
+    private readonly Translations? _translations;
+
+    public PlacesApiClient(
+        HttpClient httpClient, PrivateContentSealer? privateContentSealer = null, Translations? translations = null)
     {
         _httpClient = httpClient;
+        _privateContentSealer = privateContentSealer;
+        _translations = translations;
     }
 
     public async Task<IReadOnlyList<PlaceDto>> GetPlacesAsync(CancellationToken cancellationToken = default)
-        => await _httpClient.GetFromJsonAsync<List<PlaceDto>>("api/places", cancellationToken) ?? [];
+    {
+        var places = await _httpClient.GetFromJsonAsync<List<PlaceDto>>("api/places", cancellationToken) ?? [];
+        var opened = new List<PlaceDto>(places.Count);
+        foreach (var place in places)
+        {
+            opened.Add(await OpenIfSealedAsync(place, cancellationToken));
+        }
+
+        return opened;
+    }
 
     /// <summary>Null for an id this account has no place under, which is what a stale link reads as.</summary>
     public async Task<PlaceDto?> GetPlaceAsync(Guid id, CancellationToken cancellationToken = default)
@@ -33,13 +53,66 @@ public sealed class PlacesApiClient
         }
 
         response.EnsureSuccessStatusCode();
-        return await response.Content.ReadFromJsonAsync<PlaceDto>(cancellationToken: cancellationToken);
+        var place = await response.Content.ReadFromJsonAsync<PlaceDto>(cancellationToken: cancellationToken);
+        return place is null ? null : await OpenIfSealedAsync(place, cancellationToken);
     }
+
+    /// <summary>
+    /// Hands back an open place unchanged, and a sealed one with its name, description and point put
+    /// back. One this browser holds no key for keeps its empty fields and says so in the name rather
+    /// than throwing, so a single unreadable place does not take the whole map down with it.
+    /// </summary>
+    private async Task<PlaceDto> OpenIfSealedAsync(PlaceDto place, CancellationToken cancellationToken)
+    {
+        if (!place.IsPrivate || place.EncryptedContent is not { } sealedContent || _privateContentSealer is null)
+        {
+            return place;
+        }
+
+        var opened = await _privateContentSealer.OpenAsync<SealedPlace>(sealedContent, cancellationToken);
+        return opened is null
+            ? place with { Name = Translated(UnreadablePlaceName) }
+            : place with { Name = opened.Name, Description = opened.Description, Where = opened.Where };
+    }
+
+    /// <summary>
+    /// Seals a place's name, description and point and empties the readable fields, so what leaves this
+    /// browser matches what the server is allowed to hold. Left alone for a place its owner chose to
+    /// leave open.
+    /// </summary>
+    private async Task<SavePlaceRequest> SealIfPrivateAsync(
+        SavePlaceRequest request, CancellationToken cancellationToken)
+    {
+        if (!request.IsPrivate)
+        {
+            return request with { EncryptedContent = null };
+        }
+
+        if (_privateContentSealer is null)
+        {
+            throw new InvalidOperationException(
+                "This PlacesApiClient was built without a PrivateContentSealer, so it can't save a private place.");
+        }
+
+        var sealedContent = await _privateContentSealer.SealAsync(
+            new SealedPlace(request.Name, request.Description, request.Where), cancellationToken);
+
+        return request with
+        {
+            Name = string.Empty,
+            Description = string.Empty,
+            Where = new EventLocationDto(string.Empty, 0, 0),
+            EncryptedContent = sealedContent
+        };
+    }
+
+    private string Translated(string text) => _translations is null ? text : _translations[text];
 
     /// <summary>The new place's id.</summary>
     public async Task<Guid> CreatePlaceAsync(SavePlaceRequest request, CancellationToken cancellationToken = default)
     {
-        var response = await _httpClient.PostAsJsonAsync("api/places", request, cancellationToken);
+        var response = await _httpClient.PostAsJsonAsync(
+            "api/places", await SealIfPrivateAsync(request, cancellationToken), cancellationToken);
         response.EnsureSuccessStatusCode();
         return await response.Content.ReadFromJsonAsync<Guid>(cancellationToken: cancellationToken);
     }
@@ -48,7 +121,8 @@ public sealed class PlacesApiClient
     public async Task<bool> UpdatePlaceAsync(
         Guid id, SavePlaceRequest request, CancellationToken cancellationToken = default)
     {
-        var response = await _httpClient.PutAsJsonAsync($"api/places/{id}", request, cancellationToken);
+        var response = await _httpClient.PutAsJsonAsync(
+            $"api/places/{id}", await SealIfPrivateAsync(request, cancellationToken), cancellationToken);
         return response.IsSuccessStatusCode;
     }
 

@@ -8,9 +8,10 @@ using Orbit.Contracts.Sync;
 namespace Orbit.Mobile.Tests.TestDoubles;
 
 /// <summary>
-/// Orbit's places endpoints, in memory. The plainest of these fakes, because a place is the plainest
-/// thing Orbit syncs: nothing is sealed, nothing is served separately, and the change feed describes the
-/// whole of one.
+/// Orbit's places endpoints, in memory. It carries the sealed half exactly as the real server does -
+/// which for a place is nearly always there, since one is private unless its owner said otherwise. A
+/// fake that quietly dropped it would answer every read with an empty place and prove the phone wrong
+/// about work it had done correctly.
 /// </summary>
 internal sealed class FakePlacesServer : HttpMessageHandler
 {
@@ -26,6 +27,11 @@ internal sealed class FakePlacesServer : HttpMessageHandler
 
     public IReadOnlyCollection<PlaceDto> Places => _places.Values;
 
+    /// <summary>
+    /// A place already on the server, and an <em>open</em> one: a sealed place's words are ciphertext
+    /// this fake has no key to make, and a test that wants one seals it through the phone's own
+    /// repository instead.
+    /// </summary>
     public PlaceDto AddPlace(
         string name, string address = "Piękna 1, Warszawa", double latitude = 52.2297, double longitude = 21.0122,
         bool isShared = false, string? sharedBy = null, string accessLevel = "CanEdit",
@@ -83,7 +89,8 @@ internal sealed class FakePlacesServer : HttpMessageHandler
         var now = _timeProvider.GetUtcNow();
         var place = new PlaceDto(
             Guid.NewGuid(), asked!.Name, asked.Description, asked.Where, asked.Colour, asked.Priority,
-            asked.TaskListIds ?? [], now, now);
+            asked.TaskListIds ?? [], now, now,
+            IsPrivate: asked.IsPrivate, EncryptedContent: asked.EncryptedContent);
 
         _places[place.Id] = place;
         return Json(place.Id);
@@ -107,6 +114,8 @@ internal sealed class FakePlacesServer : HttpMessageHandler
             Colour = asked.Colour,
             Priority = asked.Priority,
             TaskListIds = asked.TaskListIds ?? [],
+            IsPrivate = asked.IsPrivate,
+            EncryptedContent = asked.EncryptedContent,
             UpdatedAtUtc = _timeProvider.GetUtcNow()
         };
 

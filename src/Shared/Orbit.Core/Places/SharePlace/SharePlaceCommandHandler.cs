@@ -9,8 +9,10 @@ namespace Orbit.Core.Places.SharePlace;
 /// the owner may share at any level, a recipient only within what their own grant permits, and nobody
 /// may share a place back to the person who keeps it.
 ///
-/// Nothing about a place is ever sealed, so the refusal a note carries for a private one has no
-/// counterpart here - there is no place whose contents the server holds only as ciphertext.
+/// A sealed place is offered to nobody, exactly as a private note is: the server holds no readable copy
+/// to hand over, which is what makes it sealed. That refusal matters more here than anywhere else,
+/// because a place is sealed unless its owner said otherwise - so the ordinary case is the refused one,
+/// and somebody who wants to hand a place over says so about that place first.
 /// </summary>
 public sealed class SharePlaceCommandHandler : IRequestHandler<SharePlaceCommand, ShareOutcome?>
 {
@@ -34,6 +36,13 @@ public sealed class SharePlaceCommandHandler : IRequestHandler<SharePlaceCommand
         if (place is null || request.RecipientUserId == place.UserId)
         {
             return null;
+        }
+
+        if (place.IsPrivate)
+        {
+            // Refused here as well as hidden in the client, so a hand-made request cannot create a share
+            // that would only ever hand somebody ciphertext they cannot open.
+            throw new InvalidRequestException("A private place can't be shared.");
         }
 
         if (place.IsShared && !place.AccessLevel.CanGrant(request.AccessLevel))

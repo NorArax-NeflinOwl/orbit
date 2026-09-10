@@ -35,7 +35,7 @@ public sealed class PlaceSharingTests
 
     private async Task<Place> APlaceAsync(string name = "The good bakery")
     {
-        var place = Place.Create(OwnerUserId, name, "Sourdough on Thursdays", Somewhere());
+        var place = Place.Create(OwnerUserId, name, "Sourdough on Thursdays", Somewhere(), isPrivate: false);
         await _places.AddAsync(place, CancellationToken.None);
         return place;
     }
@@ -115,7 +115,7 @@ public sealed class PlaceSharingTests
         await Assert.ThrowsAsync<InvalidRequestException>(() =>
             new UpdatePlaceCommandHandler(Access, _places).HandleAsync(
                 new UpdatePlaceCommand(
-                    RecipientUserId, place.Id, "Not the bakery", "", Somewhere(), "", ItemPriority.Normal, null),
+                    RecipientUserId, place.Id, "Not the bakery", "", Somewhere(), "", ItemPriority.Normal, null, IsPrivate: false),
                 CancellationToken.None));
     }
 
@@ -127,7 +127,7 @@ public sealed class PlaceSharingTests
 
         var saved = await new UpdatePlaceCommandHandler(Access, _places).HandleAsync(
             new UpdatePlaceCommand(
-                RecipientUserId, place.Id, "The very good bakery", "", Somewhere(), "", ItemPriority.Normal, null),
+                RecipientUserId, place.Id, "The very good bakery", "", Somewhere(), "", ItemPriority.Normal, null, IsPrivate: false),
             CancellationToken.None);
 
         Assert.True(saved);

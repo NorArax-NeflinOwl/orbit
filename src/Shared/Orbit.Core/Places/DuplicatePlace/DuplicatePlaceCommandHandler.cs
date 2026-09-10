@@ -29,6 +29,14 @@ public sealed class DuplicatePlaceCommandHandler : IRequestHandler<DuplicatePlac
             return null;
         }
 
+        if (place.IsPrivate)
+        {
+            // The server holds this place only as ciphertext, so it cannot make a copy of it: sealing
+            // is the client's work, and a copy it made here would be an empty place wearing the name of
+            // a full one. The client duplicates a sealed place by making a new one of its own.
+            throw new InvalidRequestException("A private place can't be copied here - make a new one instead.");
+        }
+
         var copy = place.CopyFor(request.UserId, request.Name ?? place.Name);
         await _placeRepository.AddAsync(copy, cancellationToken);
         return copy.Id;

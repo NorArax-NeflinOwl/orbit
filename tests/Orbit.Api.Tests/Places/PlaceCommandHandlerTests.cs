@@ -38,7 +38,7 @@ public sealed class PlaceCommandHandlerTests
         var id = await new CreatePlaceCommandHandler(repository).HandleAsync(
             new CreatePlaceCommand(
                 userId, "The good bakery", "Sourdough on Thursdays", Somewhere(), "#cc4a3f",
-                ItemPriority.High, [onTheList]),
+                ItemPriority.High, [onTheList], IsPrivate: false),
             CancellationToken.None);
 
         var stored = await repository.GetByIdAsync(userId, id, CancellationToken.None);
@@ -60,7 +60,8 @@ public sealed class PlaceCommandHandlerTests
         var onTheList = Guid.NewGuid();
 
         var id = await new CreatePlaceCommandHandler(repository).HandleAsync(
-            new CreatePlaceCommand(userId, "Bakery", "", Somewhere(), TaskListIds: [onTheList, onTheList]),
+            new CreatePlaceCommand(
+                userId, "Bakery", "", Somewhere(), TaskListIds: [onTheList, onTheList], IsPrivate: false),
             CancellationToken.None);
 
         var stored = await repository.GetByIdAsync(userId, id, CancellationToken.None);
@@ -72,13 +73,13 @@ public sealed class PlaceCommandHandlerTests
     {
         var repository = _places;
         var userId = Guid.NewGuid();
-        var place = Place.Create(userId, "Bakery", "", Somewhere());
+        var place = Place.Create(userId, "Bakery", "", Somewhere(), isPrivate: false);
         await repository.AddAsync(place, CancellationToken.None);
 
         var saved = await new UpdatePlaceCommandHandler(Access, repository).HandleAsync(
             new UpdatePlaceCommand(
                 userId, place.Id, "The good bakery", "Sourdough on Thursdays", Somewhere(), "#3f9a56",
-                ItemPriority.Low, null),
+                ItemPriority.Low, null, IsPrivate: false),
             CancellationToken.None);
 
         Assert.True(saved);
@@ -93,11 +94,11 @@ public sealed class PlaceCommandHandlerTests
     {
         var repository = _places;
         var ownerId = Guid.NewGuid();
-        var place = Place.Create(ownerId, "Bakery", "", Somewhere());
+        var place = Place.Create(ownerId, "Bakery", "", Somewhere(), isPrivate: false);
         await repository.AddAsync(place, CancellationToken.None);
 
         var saved = await new UpdatePlaceCommandHandler(Access, repository).HandleAsync(
-            new UpdatePlaceCommand(Guid.NewGuid(), place.Id, "Mine now", "", Somewhere()),
+            new UpdatePlaceCommand(Guid.NewGuid(), place.Id, "Mine now", "", Somewhere(), IsPrivate: false),
             CancellationToken.None);
 
         Assert.False(saved);
@@ -114,7 +115,7 @@ public sealed class PlaceCommandHandlerTests
         var repository = _places;
         var tombstones = new InMemorySyncTombstoneRepository();
         var userId = Guid.NewGuid();
-        var place = Place.Create(userId, "Bakery", "", Somewhere());
+        var place = Place.Create(userId, "Bakery", "", Somewhere(), isPrivate: false);
         await repository.AddAsync(place, CancellationToken.None);
 
         var deleted = await new DeletePlaceCommandHandler(repository, _shares, tombstones).HandleAsync(
@@ -133,7 +134,7 @@ public sealed class PlaceCommandHandlerTests
     {
         var repository = _places;
         var tombstones = new InMemorySyncTombstoneRepository();
-        var place = Place.Create(Guid.NewGuid(), "Bakery", "", Somewhere());
+        var place = Place.Create(Guid.NewGuid(), "Bakery", "", Somewhere(), isPrivate: false);
         await repository.AddAsync(place, CancellationToken.None);
 
         var deleted = await new DeletePlaceCommandHandler(repository, _shares, tombstones).HandleAsync(
@@ -153,7 +154,7 @@ public sealed class PlaceCommandHandlerTests
         var repository = _places;
         var userId = Guid.NewGuid();
         var onTheList = Guid.NewGuid();
-        var place = Place.Create(userId, "Bakery", "Sourdough", Somewhere(), "#cc4a3f", ItemPriority.High, [onTheList]);
+        var place = Place.Create(userId, "Bakery", "Sourdough", Somewhere(), "#cc4a3f", ItemPriority.High, [onTheList], isPrivate: false);
         await repository.AddAsync(place, CancellationToken.None);
 
         var copyId = await new DuplicatePlaceCommandHandler(Access, repository).HandleAsync(
@@ -172,7 +173,7 @@ public sealed class PlaceCommandHandlerTests
     public async Task Somebody_elses_place_cannot_be_copied()
     {
         var repository = _places;
-        var place = Place.Create(Guid.NewGuid(), "Bakery", "", Somewhere());
+        var place = Place.Create(Guid.NewGuid(), "Bakery", "", Somewhere(), isPrivate: false);
         await repository.AddAsync(place, CancellationToken.None);
 
         var copyId = await new DuplicatePlaceCommandHandler(Access, repository).HandleAsync(
@@ -187,8 +188,8 @@ public sealed class PlaceCommandHandlerTests
     {
         var repository = _places;
         var userId = Guid.NewGuid();
-        await repository.AddAsync(Place.Create(userId, "Mine", "", Somewhere()), CancellationToken.None);
-        await repository.AddAsync(Place.Create(Guid.NewGuid(), "Theirs", "", Somewhere()), CancellationToken.None);
+        await repository.AddAsync(Place.Create(userId, "Mine", "", Somewhere(), isPrivate: false), CancellationToken.None);
+        await repository.AddAsync(Place.Create(Guid.NewGuid(), "Theirs", "", Somewhere(), isPrivate: false), CancellationToken.None);
 
         var mine = await new GetPlacesQueryHandler(Access).HandleAsync(
             new GetPlacesQuery(userId), CancellationToken.None);

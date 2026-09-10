@@ -258,7 +258,7 @@ public sealed class WhatSomebodyHasBeenGivenTests
         /// <summary>Hands over a place and says it was taken up, the way the others here do.</summary>
         public async Task<Guid> SharePlaceAsync(string name)
         {
-            var place = Place.Create(OwnerId, name, "", new EventLocation("Piękna 1, Warszawa", 52.2297, 21.0122));
+            var place = Place.Create(OwnerId, name, "", new EventLocation("Piękna 1, Warszawa", 52.2297, 21.0122), isPrivate: false);
             await _places.AddAsync(place, CancellationToken.None);
             var share = PlaceShare.Create(place.Id, OwnerId, RecipientId);
             share.MarkAccepted();

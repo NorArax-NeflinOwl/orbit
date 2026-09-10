@@ -69,7 +69,7 @@ public static class PlaceEndpoints
                 new CreatePlaceCommand(
                     GetUserId(user), request.Name, request.Description, ToDomain(request.Where),
                     request.Colour, RequestEnum.Parse<ItemPriority>(request.Priority, "priority"),
-                    request.TaskListIds),
+                    request.TaskListIds, request.IsPrivate, ToDomain(request.EncryptedContent)),
                 cancellationToken);
             return Results.Created($"/api/places/{id}", id);
         });
@@ -82,7 +82,7 @@ public static class PlaceEndpoints
                 new UpdatePlaceCommand(
                     GetUserId(user), id, request.Name, request.Description, ToDomain(request.Where),
                     request.Colour, RequestEnum.Parse<ItemPriority>(request.Priority, "priority"),
-                    request.TaskListIds),
+                    request.TaskListIds, request.IsPrivate, ToDomain(request.EncryptedContent)),
                 cancellationToken);
             return saved ? Results.NoContent() : Results.NotFound();
         });
@@ -152,10 +152,18 @@ public static class PlaceEndpoints
             // The owner's id only where this reader is not the owner, which is how "mine" reads on the
             // wire - the same shape NoteEndpoints sends.
             place.IsShared, place.SharedByUserName, place.AccessLevel.ToString(),
-            place.IsShared ? place.UserId : null, place.IsSharedWithOthers);
+            place.IsShared ? place.UserId : null, place.IsSharedWithOthers,
+            // The sealed half travels exactly as it is stored: the server has no key and never did.
+            place.IsPrivate,
+            place.EncryptedContent is { } sealedContent
+                ? new EncryptedContentDto(sealedContent.Ciphertext, sealedContent.Nonce)
+                : null);
 
     private static EventLocation ToDomain(EventLocationDto where)
         => new(where.Address, where.Latitude, where.Longitude);
+
+    private static EncryptedPayload? ToDomain(EncryptedContentDto? sealedContent)
+        => sealedContent is null ? null : new EncryptedPayload(sealedContent.Ciphertext, sealedContent.Nonce);
 
     /// <inheritdoc cref="Orbit.Api.Notes.NoteEndpoints"/>
     private static Guid GetUserId(ClaimsPrincipal user)

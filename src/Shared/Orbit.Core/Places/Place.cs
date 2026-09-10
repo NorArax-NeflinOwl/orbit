@@ -16,6 +16,9 @@ namespace Orbit.Core.Places;
 /// reader wrote about it, where it is, what colour its pin takes, how much it matters, and the lists it
 /// belongs to - the last being how a place joins the work it is about: the bakery belongs to the
 /// shopping list, the site belongs to the renovation.
+///
+/// <b>Sealed unless somebody says otherwise</b>, which is the opposite default from everything else here
+/// - see <see cref="IsPrivate"/>.
 /// </summary>
 public sealed class Place
 {
@@ -43,6 +46,26 @@ public sealed class Place
 
     /// <summary>How much it matters - see <see cref="ItemPriority"/>. What sorts a list of them.</summary>
     public ItemPriority Priority { get; private set; }
+
+    /// <summary>
+    /// Whether this place is sealed - and <b>it is, unless the reader says otherwise</b>. Every other
+    /// kind of thing in Orbit is readable by default and private on request; a place is the other way
+    /// round, because of what one is. A note says what somebody thought; a place says where they are
+    /// when they are not at home, where the spare key is, which door the flat they are viewing is
+    /// behind. That is worth less to a server and worth more to whoever should not have it.
+    ///
+    /// Sealed means what it means everywhere else: the client encrypts before saving, and the readable
+    /// columns go <em>empty</em> rather than merely unread - the name, the description and the point are
+    /// all inside <see cref="EncryptedContent"/>. What stays readable is what a map needs to draw
+    /// nothing in particular: the colour, the priority, the lists it belongs to and the two timestamps.
+    /// </summary>
+    public bool IsPrivate { get; private set; }
+
+    /// <summary>
+    /// The sealed half of a private place - its name, what was written about it, and where it is. Null
+    /// for one the reader chose to leave readable. See PrivateContentSealer, which is what opens it.
+    /// </summary>
+    public EncryptedPayload? EncryptedContent { get; private set; }
 
     /// <summary>
     /// The task lists this place belongs to, in the order they were added. How a place joins the work it
@@ -92,13 +115,13 @@ public sealed class Place
     private Place(
         Guid id, Guid userId, string name, string description, EventLocation where, string colour,
         ItemPriority priority, IReadOnlyList<Guid>? taskListIds,
-        DateTimeOffset createdAtUtc, DateTimeOffset updatedAtUtc)
+        DateTimeOffset createdAtUtc, DateTimeOffset updatedAtUtc,
+        bool isPrivate, EncryptedPayload? encryptedContent)
     {
         Id = id;
         UserId = userId;
-        Name = name.Trim();
-        Description = description.Trim();
-        Where = where;
+        (Name, Description, Where, IsPrivate, EncryptedContent) =
+            ReadableOrSealed(name, description, where, isPrivate, encryptedContent);
         Colour = colour.Trim();
         Priority = priority;
         // Distinct and in order: naming the same list twice is one belonging written twice.
@@ -113,22 +136,35 @@ public sealed class Place
     /// on the way back out would make it unreadable rather than telling anybody anything - the rule every
     /// other aggregate here follows.
     /// </summary>
+    /// <param name="isPrivate">
+    /// Sealed unless the caller says otherwise - see <see cref="IsPrivate"/> for why this one default
+    /// runs the other way from every other kind of thing here. A caller that says nothing gets a sealed
+    /// place, which means a caller that has not been taught about sealing cannot make an open one by
+    /// accident.
+    /// </param>
     public static Place Create(
         Guid userId, string name, string description, EventLocation where, string colour = "",
-        ItemPriority priority = ItemPriority.Normal, IReadOnlyList<Guid>? taskListIds = null)
+        ItemPriority priority = ItemPriority.Normal, IReadOnlyList<Guid>? taskListIds = null,
+        bool isPrivate = true, EncryptedPayload? encryptedContent = null)
     {
+        EnsureSealedWhenPrivate(isPrivate, encryptedContent);
+        EnsureSomethingToRead(name, isPrivate);
         Refuse(name, description, where, colour);
         var nowUtc = DateTimeOffset.UtcNow;
         return new Place(
-            Guid.NewGuid(), userId, name, description, where, colour, priority, taskListIds, nowUtc, nowUtc);
+            Guid.NewGuid(), userId, name, description, where, colour, priority, taskListIds, nowUtc, nowUtc,
+            isPrivate, encryptedContent);
     }
 
     /// <summary>Rebuilds one from a stored row, with none of the checks above - see <see cref="Create"/>.</summary>
     public static Place FromPersistence(
         Guid id, Guid userId, string name, string description, EventLocation where, string colour,
         ItemPriority priority, IReadOnlyList<Guid>? taskListIds,
-        DateTimeOffset createdAtUtc, DateTimeOffset updatedAtUtc)
-        => new(id, userId, name, description, where, colour, priority, taskListIds, createdAtUtc, updatedAtUtc);
+        DateTimeOffset createdAtUtc, DateTimeOffset updatedAtUtc,
+        bool isPrivate = false, EncryptedPayload? encryptedContent = null)
+        => new(
+            id, userId, name, description, where, colour, priority, taskListIds, createdAtUtc, updatedAtUtc,
+            isPrivate, encryptedContent);
 
     /// <summary>
     /// Everything a reader can change about a place. One method rather than one per field, because the
@@ -137,12 +173,13 @@ public sealed class Place
     /// </summary>
     public void Update(
         string name, string description, EventLocation where, string colour, ItemPriority priority,
-        IReadOnlyList<Guid>? taskListIds)
+        IReadOnlyList<Guid>? taskListIds, bool isPrivate = true, EncryptedPayload? encryptedContent = null)
     {
+        EnsureSealedWhenPrivate(isPrivate, encryptedContent);
+        EnsureSomethingToRead(name, isPrivate);
         Refuse(name, description, where, colour);
-        Name = name.Trim();
-        Description = description.Trim();
-        Where = where;
+        (Name, Description, Where, IsPrivate, EncryptedContent) =
+            ReadableOrSealed(name, description, where, isPrivate, encryptedContent);
         Colour = colour.Trim();
         Priority = priority;
         TaskListIds = taskListIds is null ? [] : [.. taskListIds.Distinct()];
@@ -154,8 +191,46 @@ public sealed class Place
     /// from the moment it exists, which is why this takes the owner rather than reading it: duplicating
     /// is only ever done by somebody who may already read it.
     /// </summary>
-    public Place CopyFor(Guid userId, string name)
-        => Create(userId, name, Description, Where, Colour, Priority, TaskListIds);
+    /// <param name="encryptedContent">
+    /// The copy's own sealed half, where the original is sealed. Not the original's: what a copy says is
+    /// re-sealed by whoever is making it, and a caller with no key to do that copies an open place only.
+    /// </param>
+    public Place CopyFor(Guid userId, string name, EncryptedPayload? encryptedContent = null)
+        => Create(
+            userId, name, Description, Where, Colour, Priority, TaskListIds,
+            isPrivate: encryptedContent is not null, encryptedContent);
+
+    /// <inheritdoc cref="Orbit.Core.Notes.Note.EnsureSealedWhenPrivate"/>
+    private static void EnsureSealedWhenPrivate(bool isPrivate, EncryptedPayload? encryptedContent)
+    {
+        if (isPrivate && encryptedContent is null)
+        {
+            throw new InvalidRequestException("A private place must arrive already encrypted.");
+        }
+    }
+
+    /// <summary>
+    /// A place that is not sealed needs a name, for the reason a note needs a title or a line: a row on
+    /// the panel with nothing in it is a row nobody can tell from the next one. A sealed one is exempt,
+    /// because its name is inside the payload and the readable column is empty by design.
+    /// </summary>
+    private static void EnsureSomethingToRead(string name, bool isPrivate)
+    {
+        if (!isPrivate && string.IsNullOrWhiteSpace(name))
+        {
+            throw new InvalidRequestException("A place needs a name.");
+        }
+    }
+
+    /// <inheritdoc cref="Orbit.Core.Notes.Note.ReadableOrSealed"/>
+    private static (string Name, string Description, EventLocation Where, bool IsPrivate, EncryptedPayload? EncryptedContent)
+        ReadableOrSealed(
+            string name, string description, EventLocation where, bool isPrivate, EncryptedPayload? encryptedContent)
+        => isPrivate
+            // Empty rather than merely unread, and the point emptied with the words: a place whose
+            // coordinates were still readable would be sealed in name only.
+            ? (string.Empty, string.Empty, new EventLocation(string.Empty, 0, 0), true, encryptedContent)
+            : (name.Trim(), description.Trim(), where, false, null);
 
     private static void Refuse(string name, string description, EventLocation where, string colour)
     {
