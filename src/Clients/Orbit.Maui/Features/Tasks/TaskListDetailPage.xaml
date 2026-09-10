@@ -260,6 +260,16 @@
                     <controls:ShelfProductFields BindingContext="{Binding Shelf.Product}" />
                 </VerticalStackLayout>
 
+                <!-- An errand on a list no shelf stands behind yet. The same form all the same: what
+                     this entry asks for is worth writing down while it is being written, not after a
+                     storage exists to write it on - it is kept on the entry until "Generate inventory"
+                     builds one. Orbit.Web's editor offers the same two forms in the same order. -->
+                <VerticalStackLayout Spacing="10" IsVisible="{Binding IsAskingForSomethingNoShelfHasYet}">
+                    <Label Text="{Binding WhatBecomesOfWhatItAsksFor}" FontSize="12" LineBreakMode="WordWrap"
+                           Style="{StaticResource SubtleLabel}" />
+                    <controls:ShelfProductFields BindingContext="{Binding ProductWanted}" />
+                </VerticalStackLayout>
+
                 <!-- An errand whose product this phone has not got - an inventory no longer shared, or
                      one not synced yet. Said, rather than left as an empty form that looks broken. -->
                 <Label Text="{Binding NoProductMessage}"

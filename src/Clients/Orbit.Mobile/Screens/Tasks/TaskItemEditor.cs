@@ -8,6 +8,7 @@ using Orbit.Contracts.Tasks;
 using Orbit.Core.Tasks;
 using Orbit.Core.Notifications;
 using Orbit.Core.Suggestions;
+using Orbit.Mobile.Screens.Inventory;
 using Orbit.Mobile.Screens.Suggestions;
 
 namespace Orbit.Mobile.Screens.Tasks;
@@ -108,6 +109,29 @@ public sealed partial class TaskItemEditor : ObservableObject
     public bool IsShelfEntry => Kind == nameof(TaskItemKind.Inventory) && Shelf is not null;
 
     /// <summary>
+    /// What this entry asks for while no shelf holds it - the same product form, kept on the entry
+    /// itself (<see cref="TaskItemDto.Product"/>) until "Generate inventory" turns each of these into a
+    /// row. Built once, whatever the kind, so switching kinds back and forth does not lose what was
+    /// typed - the same reason <see cref="Event"/> is always there.
+    ///
+    /// Null only for an entry that already stands for a real shelf row: the row is then the answer, and
+    /// the server ignores anything the entry says about a product beside it (see TaskItem.Product).
+    /// </summary>
+    public InventoryItemEditor? ProductWanted { get; private init; }
+
+    /// <summary>
+    /// Whether that form is what this entry shows. An errand on a list measured against a shelf shows
+    /// <see cref="Shelf"/> instead - the product goes there when the list is saved rather than waiting
+    /// for a storage to be generated - and every other kind shows neither.
+    /// </summary>
+    public bool IsAskingForSomethingNoShelfHasYet
+        => Kind == nameof(TaskItemKind.Inventory) && Shelf is null && ProductWanted is not null;
+
+    /// <inheritdoc cref="IsAskingForSomethingNoShelfHasYet"/>
+    public string WhatBecomesOfWhatItAsksFor
+        => _translations["Goes on the shelf when \"Generate inventory\" builds one, named after this entry. Leave the minimum empty to have it counted instead: the same name twice asks for two of it."];
+
+    /// <summary>
     /// Said before anything is changed: this form writes to an inventory, not only to the list. Empty
     /// when there is no product behind the entry.
     /// </summary>
@@ -129,10 +153,13 @@ public sealed partial class TaskItemEditor : ObservableObject
     public bool IsDescribingSomethingNew => Shelf is { Product.IsSomethingNew: true };
 
     /// <summary>
-    /// An Inventory entry with nothing behind it - one whose inventory is gone, or not synced yet. Said
-    /// rather than left as an empty form that looks broken, which is the line Orbit.Web draws too.
+    /// An Inventory entry with nothing behind it - one that names a row on a shelf this phone has not
+    /// got, because the inventory is gone or has not synced. Said rather than left as an empty form
+    /// that looks broken, which is the line Orbit.Web draws too. An entry naming no row at all is not
+    /// this case: it describes what it wants instead - see <see cref="IsAskingForSomethingNoShelfHasYet"/>.
     /// </summary>
-    public bool HasNoProductToEdit => Kind == nameof(TaskItemKind.Inventory) && Shelf is null;
+    public bool HasNoProductToEdit
+        => Kind == nameof(TaskItemKind.Inventory) && Shelf is null && ProductWanted is null;
 
     /// <inheritdoc cref="HasNoProductToEdit"/>
     public string NoProductMessage
@@ -390,6 +417,11 @@ public sealed partial class TaskItemEditor : ObservableObject
             Kinds = TaskItemKindChoice.All(translations),
             Event = TaskItemEventForm.For(linkedEvent, translations),
             Shelf = shelf,
+            // What the entry asks for when no shelf holds it. Not for one that already names a row:
+            // that row is the answer, and the server keeps no product beside it.
+            ProductWanted = item.LinkedInventoryItemId is null
+                ? InventoryItemEditor.ForSomethingAListWillAskFor(item.Product, translations)
+                : null,
             LinkedCalendarEventId = item.LinkedCalendarEventId,
             LinkableTaskLists = lists,
             // Everything but itself, and nothing that has never been saved: a step is named by id, and
@@ -501,6 +533,14 @@ public sealed partial class TaskItemEditor : ObservableObject
             // is what emptying it has to mean - null would leave whatever the server holds.
             Notes = Notes.Trim(),
             Categories = CategoryText.Split(Categories),
+            // What this entry asks for, where nothing on a shelf answers it yet. Null for every other
+            // case, which is what tells the server to leave a stored one alone - an entry of another
+            // kind must not empty a description by being saved beside it, and one that names a shelf
+            // row has that row as its answer. Orbit.Web's ProductAsked draws the same two lines, and
+            // its categories rule too: the entry's own box is what the product is filed under.
+            Product = IsAskingForSomethingNoShelfHasYet
+                ? ProductWanted!.ToTaskItemProduct() with { Categories = CategoryText.Split(Categories) }
+                : null,
             // Converted rather than sent with the local offset the picker works in: Npgsql refuses a
             // DateTimeOffset with a non-zero offset for a "timestamp with time zone" column outright,
             // so a due date set here answered 500 and the queued save was given up on after five
@@ -592,6 +632,7 @@ public sealed partial class TaskItemEditor : ObservableObject
         OnPropertyChanged(nameof(IsPlaceEntry));
         OnPropertyChanged(nameof(CanSayWhereItHappens));
         OnPropertyChanged(nameof(IsShelfEntry));
+        OnPropertyChanged(nameof(IsAskingForSomethingNoShelfHasYet));
         OnPropertyChanged(nameof(HasNoProductToEdit));
         OnPropertyChanged(nameof(WhereTheProductLives));
         OnPropertyChanged(nameof(WhatIsMissing));

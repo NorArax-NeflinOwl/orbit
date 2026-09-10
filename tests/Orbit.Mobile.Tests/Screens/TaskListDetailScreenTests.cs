@@ -1039,6 +1039,71 @@ public sealed class TaskListDetailScreenTests
     }
 
     /// <summary>
+    /// A list with no storage behind it can still say what it wants, which the phone could not: an
+    /// Inventory entry there named a thing and nothing else, so an amount or a unit somebody meant was
+    /// lost to the shelf "Generate inventory" would later build. The entry keeps it (TaskItem.Product)
+    /// until then, exactly as it does in a browser.
+    /// </summary>
+    [Fact]
+    public async Task An_errand_on_a_list_with_no_shelf_says_what_it_asks_for()
+    {
+        using var context = new ScreenContext();
+        var screen = context.OpenTaskList("Shopping");
+        await AddAsync(screen, "Coffee");
+
+        screen.EditItemCommand.Execute(screen.Items[0]);
+        var editor = screen.BeingEdited!;
+        editor.Kind = nameof(TaskItemKind.Inventory);
+
+        // Not "this entry isn't tied to a product yet" - the form for what it wants.
+        Assert.True(editor.IsAskingForSomethingNoShelfHasYet);
+        Assert.False(editor.HasNoProductToEdit);
+
+        editor.Categories = "food";
+        editor.ProductWanted!.Quantity = "0";
+        editor.ProductWanted.MinimumQuantity = "3";
+        editor.ProductWanted.ProductType = "ground";
+        await screen.SaveItemCommand.ExecuteAsync(null);
+
+        var product = Assert.Single(screen.Items).Item.Product;
+        Assert.NotNull(product);
+        Assert.Equal(3, product.MinimumQuantity);
+        Assert.Equal("ground", product.ProductType);
+        // Filed where the entry is - one categories box, as on the shelf form beside it.
+        Assert.Equal(["food"], product.AllCategories);
+
+        // Sent rather than kept on the phone: a client that says nothing leaves the stored one alone.
+        var sent = Assert.Single(Assert.Single(context.Server.TaskLists).Items);
+        Assert.NotNull(sent.Product);
+        Assert.Equal(3, sent.Product.MinimumQuantity);
+
+        // And read back into the form when the entry is opened again, rather than starting blank.
+        screen.EditItemCommand.Execute(screen.Items[0]);
+        Assert.Equal("3", screen.BeingEdited!.ProductWanted!.MinimumQuantity);
+        Assert.Equal("ground", screen.BeingEdited.ProductWanted.ProductType);
+    }
+
+    /// <summary>
+    /// An entry of another kind says nothing about a product, which is what leaves a stored one alone -
+    /// the null-means-not-provided rule TaskItemProductDto keeps for every client.
+    /// </summary>
+    [Fact]
+    public async Task An_entry_that_is_not_an_errand_says_nothing_about_a_product()
+    {
+        using var context = new ScreenContext();
+        var screen = context.OpenTaskList("Shopping");
+        await AddAsync(screen, "Coffee");
+
+        screen.EditItemCommand.Execute(screen.Items[0]);
+        screen.BeingEdited!.Kind = nameof(TaskItemKind.Inventory);
+        screen.BeingEdited.ProductWanted!.MinimumQuantity = "3";
+        screen.BeingEdited.Kind = nameof(TaskItemKind.Checklist);
+        await screen.SaveItemCommand.ExecuteAsync(null);
+
+        Assert.Null(Assert.Single(screen.Items).Item.Product);
+    }
+
+    /// <summary>
     /// One categories box, not two. The entry's editor had its own and showed the product's form with a
     /// second one directly under it, so the two could disagree and what somebody typed on the entry never
     /// reached the shelf. The product's box is gone on a task entry, and the entry's answer is the

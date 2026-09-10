@@ -344,7 +344,17 @@ internal sealed class FakeTasksServer : HttpMessageHandler
             // Answered as sent. A fake that dropped them would let a client that never sends them pass,
             // and the reader would find their entries unfiled the next time the list was pulled.
             item.AllCategories,
-            Product: null,
+            // Kept for an Inventory entry that names no shelf row - the row is the answer when it does,
+            // and every other kind carries none: TaskItem's own rule (see Product and KeepProductOf).
+            // Null means "not provided" and keeps what is stored, the way the notes below do; a fake
+            // that answered null outright made a client which sends a product look like one that does
+            // not, since the pull wrote the null straight back over it.
+            Product: item.Kind == nameof(TaskItemKind.Inventory) && item.LinkedInventoryItemId is null
+                ? item.Product
+                    ?? (item.Id is { } askedBy && storedById.TryGetValue(askedBy, out var asking)
+                        ? asking.Product
+                        : null)
+                : null,
             // Null means "nothing to say about it", and the real endpoint then keeps what is stored. A
             // fake that wrote the null through would let a client that erases a description on every
             // push look correct here - see fakes must refuse what the server refuses.
