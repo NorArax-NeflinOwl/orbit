@@ -264,6 +264,10 @@
                          stroke-width="1.6" transform="rotate(-28 13 13)" />
             </svg>
             <span>@OrbitRelease.Copyright</span>
+            @* First of the row's own controls, and the only one that changes the rest of the row as it
+               is pressed. On every page, signed in or not - see LanguagePicker, which is why it is here
+               rather than under Options. *@
+            <LanguagePicker />
             @* A dialog rather than a page: what build this is has no address worth sharing, and it is
                read in the middle of doing something else. See AboutDialog. *@
             <button type="button" class="app-footer-link" @onclick="() => _isAboutOpen = true">@T["About"]</button>

@@ -2349,10 +2349,16 @@ the position always, the words only into a box nobody has written in.
 
 The line along the foot of every page used to be the version numbers and the licence. It answered
 "which build is this" for the few people who ask that, and nothing at all for everybody else - so it now
-reads `© 2026 Orbit · About · Privacy · Security · Docs · Status · All Rights Reserved · Manage cookies`, modelled on
-GitHub's own. Two of those open a dialog rather than a page and are drawn exactly like the links beside
-them: which of the two a reader is pressing is not a distinction they should have to make.
+reads `© 2026 Orbit · EN / PL · About · Privacy · Security · Docs · Status · All Rights Reserved · Manage cookies`,
+modelled on GitHub's own. Two of those open a dialog rather than a page and are drawn exactly like the
+links beside them: which of the two a reader is pressing is not a distinction they should have to make.
 
+- **EN / PL** (`LanguagePicker`) - which language Orbit is read in, kept in this browser under
+  `orbit-language` (see `Translations`). It was a row under Options until 2026-09-10, which is behind the
+  avatar menu and therefore behind signing in - so a reader who has no English met an English sign-in
+  screen with no way out of it. The footer is on every page including that one, which is the whole point
+  of moving it. Two codes rather than a dropdown: there are two languages, and a list of two costs a
+  press to open before it can be read.
 - **About** (`AboutDialog`) - what Orbit is in one sentence, then the build numbers described below. A
   dialog because there is no address worth sharing for "which build is this", and it is read in the
   middle of doing something else. This is where the version line went.
@@ -3351,8 +3357,9 @@ Notifications are their own button in the bar on both clients as of 2026-09-01, 
 carrying the unread count - 0 draws nothing, 1 to 9 draw themselves, anything above draws "9+". It was
 a badge on the avatar before, and a menu entry behind it: **a count on a face says "you", not "unread"**,
 and reaching the panel meant opening a menu first, which is two steps for the one thing people check
-most. What is left in the avatar menu are the places somebody goes once - status, the language, the
-app's own settings, signing out.
+most. What is left in the avatar menu are the places somebody goes once - status, the app on a phone,
+the app's own settings, signing out. The language left it for the footer in 2026-09-10, for a reason the
+footer section gives.
 
 ### A link opened on a phone
 

@@ -343,25 +343,6 @@
         </div>
 
         <div class="options-section">
-            <h2 class="options-heading">@T["Language"]</h2>
-            <p class="options-subtext">@T["The language Orbit's own interface is written in. Kept on this device."]</p>
-            <div class="options-card">
-                <div class="options-row">
-                    <div>
-                        <div class="options-row-title">@T["Language"]</div>
-                    </div>
-                    <select id="languageSelect" class="options-select" value="@T.Language" @onchange="OnLanguageChangedAsync">
-                        @* Each language named in its own language, the way a language picker is read: the
-                           list means the same thing whichever one you are currently in. Translating only
-                           one of the two gave "angielski" beside "Polski". *@
-                        <option value="@AppLanguage.English">English</option>
-                        <option value="@AppLanguage.Polish">Polski</option>
-                    </select>
-                </div>
-            </div>
-        </div>
-
-        <div class="options-section">
             <h2 class="options-heading">@T["Notifications"]</h2>
             <div class="options-card">
                 <div class="options-row">
@@ -781,14 +762,6 @@
         => Enum.TryParse<LogLevel>(args.Value?.ToString(), out var level)
             ? DevicePreferences.SetMinimumLogLevelAsync(level)
             : Task.CompletedTask;
-
-    private async Task OnLanguageChangedAsync(ChangeEventArgs args)
-    {
-        if (Enum.TryParse<AppLanguage>(args.Value?.ToString(), out var language))
-        {
-            await T.SetLanguageAsync(language);
-        }
-    }
 
     /// <summary>An export of a whole account is not large by file standards, but a hand-made file could be - this is where a nonsense one stops.</summary>
     private const long MaximumImportSizeBytes = 32 * 1024 * 1024;

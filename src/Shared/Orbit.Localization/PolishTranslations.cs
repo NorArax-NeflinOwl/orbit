@@ -828,8 +828,6 @@ public static class PolishTranslations
         ["Light"] = "Jasny",
         ["Dark"] = "Ciemny",
         ["Language"] = "Język",
-        ["The language Orbit's own interface is written in. Kept on this device."] =
-            "Język, w którym napisany jest interfejs Orbita. Zapamiętywany na tym urządzeniu.",
         ["Location"] = "Położenie",
         ["Use my location"] = "Korzystaj z mojego położenia",
         ["Debugger"] = "Debugger",

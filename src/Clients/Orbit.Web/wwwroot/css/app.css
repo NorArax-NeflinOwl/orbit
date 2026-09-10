@@ -2326,6 +2326,35 @@ input.note-editor-title {
     margin-left: 8px;
 }
 
+/* The two language codes, as one entry of the row rather than two - see Components/LanguagePicker.razor.
+   The pair takes the gap, and the slash between them takes none, so "EN / PL" reads as one control
+   standing where a dropdown would have. */
+.app-footer-language {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    margin-left: 8px;
+}
+
+.app-footer-language .app-footer-link {
+    margin-left: 0;
+}
+
+/* Not a link: which one you are reading in is a state, and underlining both said neither. */
+.app-footer-language-choice {
+    text-decoration: none;
+    letter-spacing: 0.04em;
+}
+
+.app-footer-language-choice.chosen {
+    color: var(--text-primary);
+    font-weight: 700;
+}
+
+.app-footer-language-divider {
+    color: var(--border);
+}
+
 /* A panel over the page, from the footer or from anywhere else - see Components/Dialog.razor. The map
    picker had the only overlay in Orbit and kept its own; these are the general ones. */
 .dialog-overlay {
