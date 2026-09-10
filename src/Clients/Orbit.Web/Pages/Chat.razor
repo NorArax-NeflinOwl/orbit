@@ -70,7 +70,7 @@ else
     }
     else if (!IsGroupMode && _otherUser is null)
     {
-        <p>@T["Loading…"]</p>
+        <Loading />
     }
     else
     {
@@ -161,7 +161,7 @@ else
                     {
                         @* Opening a group's own address directly: the list it is looked up in is still
                            on its way, and "pick one" would be answering a question nobody asked. *@
-                        <p>@T["Loading…"]</p>
+                        <Loading />
                     }
                     else
                     {
@@ -170,7 +170,7 @@ else
                 }
                 else if (_otherUser is null)
                 {
-                    <p>@T["Loading…"]</p>
+                    <Loading />
                 }
                 else
                 {

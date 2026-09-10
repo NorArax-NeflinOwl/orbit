@@ -1,0 +1,28 @@
+@using Orbit.Web.Services
+@inject Translations T
+
+@* What a page shows while it is waiting for its own contents. The same mark and the same turning ring
+   the screen before Blazor started carries (see the .app-boot markup in wwwroot/index.html), so waiting
+   for the app and waiting inside it look like one thing rather than two.
+
+   It used to be the word "Loading…" alone, on twenty-three screens - which reads as a page that has
+   stopped rather than one that is coming, and is exactly the reading the boot screen was rewritten to
+   avoid. The word is kept for a screen reader, which has nothing to read in a spinning ring. *@
+<div class="loading-orbit @(IsInline ? "loading-orbit-inline" : null)" role="status">
+    <svg class="loading-orbit-mark" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 26 26" aria-hidden="true">
+        <circle cx="13" cy="13" r="3" fill="var(--accent)" />
+        <ellipse cx="13" cy="13" rx="11" ry="5.5" fill="none" stroke="var(--accent)"
+                 stroke-width="1.6" transform="rotate(-28 13 13)" />
+    </svg>
+    <span class="loading-orbit-spinner" aria-hidden="true"></span>
+    <span class="visually-hidden">@T["Loading…"]</span>
+</div>
+
+@code {
+    /// <summary>
+    /// Smaller and in a row, for somewhere that is a corner of a screen rather than the whole of one -
+    /// the notifications panel, the column of messages in a conversation. The page-sized version stacks
+    /// and takes room of its own, which is what a screen with nothing else on it yet wants.
+    /// </summary>
+    [Parameter] public bool IsInline { get; set; }
+}

@@ -7,7 +7,7 @@
 @* Shared by MainLayout's desktop popup and the mobile Notifications page, so the two can never drift. *@
 @if (IsLoading)
 {
-    <p class="notifications-panel-empty">@T["Loading…"]</p>
+    <Loading IsInline="true" />
 }
 else if (Entries.Count == 0 && ExceptionEntries.Count == 0)
 {

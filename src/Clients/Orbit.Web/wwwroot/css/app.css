@@ -5068,6 +5068,57 @@ input.note-editor-title {
     }
 }
 
+/* The same wait, inside the app - see Components/Loading.razor. The mark, then the ring the boot screen
+   turns, so a page fetching its own contents looks like the screen that was standing in for it a moment
+   ago rather than like a page that has stopped. */
+.loading-orbit {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 14px;
+    padding: 48px 16px;
+}
+
+.loading-orbit-mark {
+    width: 40px;
+    height: 40px;
+}
+
+.loading-orbit-spinner {
+    width: 18px;
+    height: 18px;
+    border: 2px solid var(--border);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: app-boot-turn 0.9s linear infinite;
+}
+
+/* Slowed rather than stopped, for the reason .app-boot-spinner gives. */
+@media (prefers-reduced-motion: reduce) {
+    .loading-orbit-spinner {
+        animation-duration: 3s;
+    }
+}
+
+/* A corner of a screen rather than the whole of one: a row, and small enough not to push what it is
+   waiting for out of view. */
+.loading-orbit-inline {
+    flex-direction: row;
+    gap: 10px;
+    padding: 16px 12px;
+}
+
+.loading-orbit-inline .loading-orbit-mark {
+    width: 24px;
+    height: 24px;
+}
+
+.loading-orbit-inline .loading-orbit-spinner {
+    width: 14px;
+    height: 14px;
+}
+
 .visually-hidden {
     position: absolute;
     width: 1px;
