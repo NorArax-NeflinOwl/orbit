@@ -1556,7 +1556,9 @@ public static class PolishTranslations
         ["Already accepted"] = "Już przyjęto",
         ["Item options"] = "Opcje pozycji",
         ["{0} minutes before"] = "{0} min przed",
-        ["List options"] = "Opcje listy",
+        // The heading over what can be done to a task list, in its own menu - the group beside "Sort"
+        // and "Inventory". It replaced "List options", which was the heading over all three at once.
+        ["List"] = "Lista",
         ["Built an inventory from what this list needs."] = "Zbudowano magazyn z tego, czego potrzebuje ta lista.",
         ["There was nothing on this list to build an inventory from."]
             = "Na tej liście nie było nic, z czego można zbudować magazyn.",

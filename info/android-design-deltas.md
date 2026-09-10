@@ -144,8 +144,12 @@ about them is under "Screens already built" below.
   entry's own column, and `ScreenMenuEntry.CountOf` carries the rule that a zero shows nothing - the map
   and the categories use it too, so it lives in one place. (No test read `Label`; an earlier note here
   said otherwise and was wrong.)
-- The tick is still the character `✓` (`ScreenMenuEntry.Mark`), which neither Lora nor Cormorant has -
-  already written up under "Redrawing the rest of the phone" in `future-plan.md`.
+- ~~The tick is still the character `✓` (`ScreenMenuEntry.Mark`), which neither Lora nor Cormorant
+  has~~ - **and that stopped mattering when the faces went back to IBM Plex Sans over Space Grotesk,
+  which carries it.** Device-verified in the task list's own menu on 2026-09-10. It is worth
+  remembering that the string is still a glyph and not a drawing: a third change of face would bring
+  the problem back. See `future-plan.md`, which says the same about `☐ ☑` - neither face has those,
+  which is why `CheckCircle` draws its circle.
 
 ### Dashboard
 
@@ -215,9 +219,16 @@ about them is under "Screens already built" below.
   in a Grid whose columns are the fraction in star units (`ProgressColumnsConverter`). A `MultiBinding`
   of the track's measured `Width` and the fraction was tried first and never drew the filled half at
   all; star units need no measurement, so nothing has to be laid out before the bar is right.
-- An entry's row is: circle, text, category chip, and its own **⋯ menu** - the app has no per-row menu
-  on a task list.
-- The list's title menu: Generate inventory, Refresh inventory, Edit, Share…, Delete list.
+- ~~An entry's row is: circle, text, category chip, and its own **⋯ menu** - the app has no per-row menu
+  on a task list.~~ **Already so**, and device-verified: circle, the line, its categories as chips, and
+  an `OverflowMenu` at the right of every row. This entry was stale when it was written.
+- ~~The list's title menu: Generate inventory, Refresh inventory, Edit, Share…, Delete list.~~ ***Done
+  2026-09-10, walked on the device.*** All five were there; what was not is that they were **one flat
+  run** under a single "List options" heading, so "In list order" and "Delete list" sat one under the
+  other a thumb's width apart. It is three groups now - *Sort*, *Inventory*, *List* - which is the
+  design's own menu and the shape every other menu took on 2026-09-09. The shelf's two are their own
+  group because they are about the inventory behind the list rather than about the list, and the group
+  disappears rather than showing a heading over nothing when there is no shelf to price against.
 
 ### Calendar
 
