@@ -1056,6 +1056,14 @@ app, which is the same pair `Place.Refuse` enforces on the server. The address b
 the pin beside it opens the same picker overlay the task editor uses; a confirmed pin replaces the words
 only when the box is empty, so "the back entrance" survives.
 
+**The dashboard gives them a card of their own**, keyed `places`, between Inventory and Groups: its own
+card rather than a corner of Upcoming, which is a list of things happening at a time — a place has none,
+which is the whole point of one. Nothing about a place is ever sealed, so the Private tab leaves it out
+the way it leaves out the appointments and the people, and a folder tab does too. Pressing a row goes to
+`/map?place={id}` and the map opens centred on that pin: a place is met on the map, there being no page
+of a place's own, and an id this account has no place under still arrives at the map rather than at an
+error — which is the right answer for a link to one since forgotten.
+
 **Places you keep** is the map panel's own list of them, pinnable and hideable like every other list on
 that page. A row shows the place's colour, its name, its priority when that is not Normal, and a button
 that hands the point to a map app. Behind the three dots: **Edit**, **Duplicate** — a second one of the

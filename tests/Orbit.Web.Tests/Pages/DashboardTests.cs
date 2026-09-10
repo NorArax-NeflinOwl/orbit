@@ -15,6 +15,7 @@ using Orbit.Contracts.Users;
 using Orbit.Contracts.Folders;
 using Orbit.Contracts.Notes;
 using Orbit.Contracts.Notifications;
+using Orbit.Contracts.Places;
 using Orbit.Contracts.Tasks;
 using Orbit.Core.Tasks;
 using Orbit.Web.Pages;
@@ -38,6 +39,7 @@ public sealed class DashboardTests : OrbitTestContext
         RegisterEmptyTasksApiClient();
         RegisterEmptyCalendarApiClient();
         RegisterEmptyInventoryApiClient();
+        RegisterPlacesApiClient([]);
         RegisterDashboardPins();
         RegisterDashboardCardPreferences();
         RegisterPermissions();
@@ -412,7 +414,7 @@ public sealed class DashboardTests : OrbitTestContext
         OpenTheMenu(cut);
 
         Assert.Equal(
-            ["Today", "Notes", "Tasks", "Upcoming", "Inventory", "Groups", "Shared with you", "Recent chats", "Contacts"],
+            ["Today", "Notes", "Tasks", "Upcoming", "Inventory", "Places you keep", "Groups", "Shared with you", "Recent chats", "Contacts"],
             MenuEntries(cut).Select(entry => entry.TextContent.Trim()));
     }
 
@@ -474,7 +476,7 @@ public sealed class DashboardTests : OrbitTestContext
     {
         // Otherwise it reads as a dashboard that failed to load, with nothing saying where its contents went.
         RegisterDashboardCardPreferences(
-            null, "today", "notes", "tasks", "upcoming", "inventories", "groups", "locations", "chats", "contacts");
+            null, "today", "notes", "tasks", "upcoming", "inventories", "places", "groups", "locations", "chats", "contacts");
         RegisterChatApiClient([Contact("Anna Kowalska")]);
 
         var cut = RenderComponent<Dashboard>();
@@ -881,6 +883,54 @@ public sealed class DashboardTests : OrbitTestContext
         Assert.Contains("/inventory/", Services.GetRequiredService<NavigationManager>().Uri);
     }
 
+    /// <summary>
+    /// A place is met on the map - there is no page of a place's own - so the row takes its pin with it
+    /// and the map opens on that place rather than wherever it usually opens.
+    /// </summary>
+    [Fact]
+    public void A_kept_place_is_shown_on_the_dashboard_and_opens_the_map_on_it()
+    {
+        var bakery = Place("The good bakery");
+        RegisterPlacesApiClient([bakery]);
+
+        var cut = RenderComponent<Web.Pages.Dashboard>();
+
+        cut.FindAll("button.list-row-button").Single(button => button.TextContent.Contains("The good bakery")).Click();
+
+        Assert.Contains($"/map?place={bakery.Id}", Services.GetRequiredService<NavigationManager>().Uri);
+    }
+
+    /// <summary>
+    /// Its own card rather than a corner of Upcoming, which is a list of things happening at a time - a
+    /// place has none, which is the whole point of one.
+    /// </summary>
+    [Fact]
+    public void Keeping_no_places_means_no_card_for_them()
+    {
+        var cut = RenderComponent<Web.Pages.Dashboard>();
+
+        Assert.DoesNotContain(
+            cut.FindAll("button.item-card-name"), name => name.TextContent.Trim() == "Places you keep");
+    }
+
+    /// <summary>
+    /// Nothing about a place is ever sealed, so the Private tab - which is about what is - leaves the
+    /// card out rather than drawing it with everything in it. The same rule the appointments and the
+    /// people follow; see PrivateCards.
+    /// </summary>
+    [Fact]
+    public void The_private_tab_leaves_the_places_out()
+    {
+        RegisterChatApiClient([]);
+        RegisterPlacesApiClient([Place("The good bakery")]);
+        var cut = RenderComponent<Web.Pages.Dashboard>();
+        Assert.Contains("Places you keep", CardNames(cut));
+
+        OpenTheTab(cut, "Private");
+
+        Assert.DoesNotContain("Places you keep", CardNames(cut));
+    }
+
     [Fact]
     public void No_inventories_means_no_inventory_card()
     {
@@ -891,6 +941,22 @@ public sealed class DashboardTests : OrbitTestContext
     }
 
     private void RegisterEmptyInventoryApiClient() => RegisterInventoryApiClient([]);
+
+    /// <summary>
+    /// The places kept for their own sake, which the dashboard now draws a card of. Registered for every
+    /// test rather than only the ones about it: an unregistered client is a page that cannot be built at
+    /// all, which fails every test here with the same message about something none of them are about.
+    /// </summary>
+    private void RegisterPlacesApiClient(IReadOnlyList<PlaceDto> places)
+    {
+        var httpClient = new HttpClient(new StubHttpMessageHandler(_ => JsonResponse(places))) { BaseAddress = new Uri("https://example.test/") };
+        Services.AddSingleton(new PlacesApiClient(httpClient));
+    }
+
+    private static PlaceDto Place(string name, string priority = "Normal")
+        => new(
+            Guid.NewGuid(), name, Description: "", new Orbit.Contracts.Calendar.EventLocationDto("Somewhere", 52.2, 21.0),
+            Colour: "", priority, TaskListIds: [], DateTimeOffset.UtcNow, DateTimeOffset.UtcNow);
 
     private void RegisterInventoryApiClient(IReadOnlyList<InventoryDto> inventories)
     {

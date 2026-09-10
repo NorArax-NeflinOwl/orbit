@@ -8,6 +8,7 @@
 @using Orbit.Core.Users
 @using Orbit.Contracts.Inventories
 @using Orbit.Contracts.Notes
+@using Orbit.Contracts.Places
 @using Orbit.Contracts.Tasks
 @using Orbit.Core.Folders
 @using Orbit.Core.Permissions
@@ -15,6 +16,7 @@
 @inject NotesApiClient NotesApiClient
 @inject FolderState Folders
 @inject InventoryApiClient InventoryApiClient
+@inject PlacesApiClient PlacesApiClient
 @inject TasksApiClient TasksApiClient
 @inject CalendarApiClient CalendarApiClient
 @inject ChatApiClient ChatApiClient
@@ -54,12 +56,12 @@
     <p>@_loadErrorMessage</p>
 }
 else if (_notes is null || _taskLists is null || _events is null || _contacts is null || _groups is null
-    || _sharedLocations is null || _inventories is null)
+    || _sharedLocations is null || _inventories is null || _places is null)
 {
     <Loading />
 }
 else if (_notes.Count == 0 && _taskLists.Count == 0 && _events.Count == 0 && _contacts.Count == 0 && _groups.Count == 0
-    && _inventories.Count == 0)
+    && _inventories.Count == 0 && _places.Count == 0)
 {
     <p>@T["Nothing to show."]</p>
 }
@@ -255,6 +257,39 @@ else
             </ItemCard>
         }
 
+        @* Somewhere kept for its own sake, with no date on it and nobody standing there - see
+           Orbit.Core.Places.Place. Its own card rather than a row of Upcoming, which is a list of things
+           happening at a time. The card and every row go to the map, which is where a place is met: the
+           row takes its own pin with it, so pressing one arrives at that place rather than at the map's
+           usual view. *@
+        @if (_places!.Count > 0 && ShowsCard("places"))
+        {
+            <ItemCard Name="@(T["Places you keep"])" OnNameSelected='() => NavigationManager.NavigateTo("/map")'
+                      ExtraClass="@(DashboardPins.IsPinned("places") ? "item-card-pinned" : null)">
+                <Pin>
+                    <PinButton IsPinned='DashboardPins.IsPinned("places")' OnPinnedChanged='pinned => SetCardPinnedAsync("places", pinned)' />
+                </Pin>
+                <Extras>
+                    <span class="card-count">@(_places.Count)</span>
+                </Extras>
+                <Body>
+                @foreach (var place in _places)
+                {
+                    <Row Title="@place.Name" OnPressed="() => GoToPlace(place.Id)">
+                        @* The same colour as its pin on the map, which is what says which row is which
+                           without opening any of them - the map panel's own rows are marked the same. *@
+                        <Leading>
+                            <span class="map-place-dot" style="background:@PlaceColour(place)" aria-hidden="true"></span>
+                        </Leading>
+                        <Trailing>
+                            @RenderPriorityBadge(place.Priority)
+                        </Trailing>
+                    </Row>
+                }
+                </Body>
+            </ItemCard>
+        }
+
         @if (_groups.Count > 0 && ShowsCard("groups"))
         {
                         <ItemCard Name="@(T["Groups"])" OnNameSelected='() => NavigationManager.NavigateTo("/chat/groups")'
@@ -387,6 +422,13 @@ else
     private IReadOnlyList<SharedLocationDto>? _sharedLocations;
     private IReadOnlyList<InventoryDto>? _inventories;
 
+    /// <summary>
+    /// Somewhere kept for its own sake - see Orbit.Core.Places.Place. Its own card rather than a corner
+    /// of Upcoming: everything on that one is happening at a time, and a place has none, which is the
+    /// whole point of it.
+    /// </summary>
+    private IReadOnlyList<PlaceDto>? _places;
+
     /// <summary>One part of the dashboard that can be put away, and what the menu calls it.</summary>
     private sealed record DashboardPart(string Key, string Name);
 
@@ -401,6 +443,7 @@ else
         new("tasks", "Tasks"),
         new("upcoming", "Upcoming"),
         new("inventories", "Inventory"),
+        new("places", "Places you keep"),
         new("groups", "Groups"),
         new("locations", "Shared with you"),
         new("chats", "Recent chats"),
@@ -791,7 +834,7 @@ else
             // slowest single call instead of the sum of all of them.
             await Task.WhenAll(
                 LoadNotesAsync(), LoadTaskListsAsync(), LoadEventsAsync(), LoadContactsAsync(), LoadGroupsAsync(),
-                LoadSharedLocationsAsync(), LoadInventoriesAsync());
+                LoadSharedLocationsAsync(), LoadInventoriesAsync(), LoadPlacesAsync());
         }
         catch (HttpRequestException exception) when (exception.StatusCode == HttpStatusCode.Unauthorized)
         {
@@ -884,6 +927,13 @@ else
     // shelf changes when somebody edits it, not by itself, and a private one costs a decryption per
     // inventory to read at all.
     private async Task LoadInventoriesAsync() => _inventories = await InventoryApiClient.GetInventoriesAsync();
+
+    /// <summary>
+    /// Only behind the permission that draws the map at all: a place is a point, and an account that may
+    /// not be shown a map has nowhere to be sent when one is pressed.
+    /// </summary>
+    private async Task LoadPlacesAsync()
+        => _places = Permissions.Has(ApplicationPermission.Location) ? await PlacesApiClient.GetPlacesAsync() : [];
 
     /// <summary>
     /// Only who is sharing, not where they are. Opening a position means decrypting it, which is the
@@ -1059,6 +1109,20 @@ else
     /// Opens what is on the shelf, not the form for changing it - the same choice GoToTaskList makes
     /// above, for the same reason: from here the question is what is in there.
     /// </summary>
+    /// <summary>
+    /// A place is met on the map - there is no page of its own for one - so the row takes its pin with
+    /// it and the map opens on that place rather than on wherever it usually opens. See MapPage.Place.
+    /// </summary>
+    private void GoToPlace(Guid placeId)
+    {
+        Logger.LogInformation("User clicked a kept place on the dashboard ({PlaceId})", placeId);
+        NavigationManager.NavigateTo($"/map?place={placeId}");
+    }
+
+    /// <summary>The colour its pin is drawn in, or the one places take when nobody chose - see MapPage.</summary>
+    private static string PlaceColour(PlaceDto place)
+        => place.Colour.Length > 0 ? place.Colour : "var(--accent)";
+
     private void GoToInventory(Guid inventoryId)
     {
         Logger.LogInformation("User clicked an inventory on the dashboard ({InventoryId})", inventoryId);

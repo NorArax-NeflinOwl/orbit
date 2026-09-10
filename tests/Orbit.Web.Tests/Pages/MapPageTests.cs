@@ -178,6 +178,24 @@ public sealed class MapPageTests : OrbitTestContext
     }
 
     /// <summary>
+    /// Sent here to look at one place - the dashboard's own card, where a row means "show me this one"
+    /// and there is no page of a place's own to send anybody to. An id this account has no place under
+    /// still arrives at the map, which is the right answer for a link to one since forgotten.
+    /// </summary>
+    [Fact]
+    public void A_link_naming_a_place_that_is_gone_still_opens_the_map()
+    {
+        GrantLocations();
+        // Through the address bar, because that is where the parameter comes from - bUnit refuses to
+        // hand a value straight to a [SupplyParameterFromQuery] one, and it is right to.
+        Services.GetRequiredService<NavigationManager>().NavigateTo($"/map?place={Guid.NewGuid()}");
+
+        var cut = RenderComponent<MapPage>();
+
+        Assert.NotEmpty(cut.FindAll(".map-panel-section"));
+    }
+
+    /// <summary>
     /// The + in the map's corner opens the same form with nothing in it - deliberately not seeded with
     /// whatever pin happens to be on the map, since somebody who meant that pin has the question about
     /// it in front of them already.

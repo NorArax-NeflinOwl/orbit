@@ -1007,6 +1007,7 @@ else
             _mapModule ??= await JSRuntime.InvokeAsync<IJSObjectReference>("import", "./js/locationMap.js");
             _pageReference ??= DotNetObjectReference.Create(this);
             await _mapModule.InvokeVoidAsync("showLocations", MapElementId, MapPoints(), _pageReference);
+            await GoToThePlaceAskedForAsync();
         }
         catch (JSException exception)
         {
@@ -1169,6 +1170,33 @@ else
 
     /// <summary>The key its pin is drawn under - see MapPoints, and FocusOnPlaceOnTheMapAsync.</summary>
     private static string PlaceMapKey(Guid placeId) => $"place:{placeId}";
+
+    /// <summary>
+    /// A place this page was sent to look at - the dashboard's own card, where pressing a row means
+    /// "show me this one" and there is no page of a place's own to send anybody to.
+    ///
+    /// In the address bar rather than in a scoped hand-over like ChosenPlace, and the difference is what
+    /// it names: an id of this reader's own place, which is already what the link they might bookmark
+    /// would say. ChosenPlace carries coordinates, which is the thing that must not sit in a URL.
+    /// </summary>
+    [Parameter]
+    [SupplyParameterFromQuery(Name = "place")]
+    public Guid? Place { get; set; }
+
+    /// <summary>
+    /// Centres on it once the map is actually drawn. Silent for an id this account has no place under -
+    /// a link to one that has since been forgotten still arrives at the map, which is the right answer,
+    /// and an error about a row nobody chose to open is noise.
+    /// </summary>
+    private async Task GoToThePlaceAskedForAsync()
+    {
+        if (Place is not { } placeId || _places.All(place => place.Id != placeId))
+        {
+            return;
+        }
+
+        await FocusTheMapOnAsync(PlaceMapKey(placeId), "a kept place asked for by link");
+    }
 
     private Task FocusOnPlaceOnTheMapAsync(PlaceDto place)
         => FocusTheMapOnAsync(PlaceMapKey(place.Id), "a kept place");
