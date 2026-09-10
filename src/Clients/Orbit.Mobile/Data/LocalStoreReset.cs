@@ -34,6 +34,7 @@ public sealed class LocalStoreReset
         await dbContext.TaskLists.ExecuteDeleteAsync(cancellationToken);
         await dbContext.CalendarEvents.ExecuteDeleteAsync(cancellationToken);
         await dbContext.Inventories.ExecuteDeleteAsync(cancellationToken);
+        await dbContext.Places.ExecuteDeleteAsync(cancellationToken);
         await dbContext.Outbox.ExecuteDeleteAsync(cancellationToken);
         await dbContext.SyncCursors.ExecuteDeleteAsync(cancellationToken);
         await dbContext.ChatMessages.ExecuteDeleteAsync(cancellationToken);

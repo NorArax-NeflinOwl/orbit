@@ -364,6 +364,9 @@ public sealed partial class NavigationBarViewModel : ObservableObject
     private void GoToMap() => _navigator.ShowMap();
 
     [RelayCommand]
+    private void GoToPlaces() => _navigator.ShowPlaces();
+
+    [RelayCommand]
     private void GoToContacts() => _navigator.ShowContacts();
 
     /// <summary>Which drawer entry is marked - see <see cref="Sections"/> for why it is not just the screen.</summary>
@@ -380,6 +383,8 @@ public sealed partial class NavigationBarViewModel : ObservableObject
     public bool IsOnInventory => Section is Screen.Inventories;
 
     public bool IsOnMap => Section is Screen.Map;
+
+    public bool IsOnPlaces => Section is Screen.Places;
 
     public bool IsOnContacts => Section is Screen.Contacts;
 

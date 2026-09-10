@@ -736,6 +736,8 @@ public static class PolishTranslations
         // The place form - see Orbit.Web's PlaceForm, opened by the + on the map and by the picker that
         // asks what a pressed pin is for.
         ["Keep a place"] = "Zapisz miejsce",
+        // The places list on the phone, which has no "+ on the map" to point at - see PlacesPage.
+        ["Nothing kept yet."] = "Nic tu jeszcze nie ma.",
         ["Forget this place?"] = "Zapomnieć to miejsce?",
         ["A place worth keeping"] = "Miejsce warte zapisania",
         ["This place"] = "To miejsce",
@@ -1789,6 +1791,8 @@ public static class PolishTranslations
             "Ktoś inny może zmieniać tę notatkę, a Orbit jest poza zasięgiem i nie da się tego sprawdzić. Zostaje tylko do odczytu, dopóki nie wrócisz online.",
         ["Somebody else can change this list, and Orbit can't be reached to check. It stays read-only until you're back online."] =
             "Ktoś inny może zmieniać tę listę, a Orbit jest poza zasięgiem i nie da się tego sprawdzić. Zostaje tylko do odczytu, dopóki nie wrócisz online.",
+        ["Somebody else can change this place, and Orbit can't be reached to check. It stays read-only until you're back online."] =
+            "Ktoś inny może zmieniać to miejsce, a Orbit jest poza zasięgiem i nie da się tego sprawdzić. Zostaje tylko do odczytu, dopóki nie wrócisz online.",
         ["This note is private, and its words are sealed with a key this phone doesn't have."] =
             "Ta notatka jest prywatna, a jej treść jest zapieczętowana kluczem, którego ten telefon nie ma.",
         ["No earlier messages could be passed on - this device can't open any of them."] =

@@ -1117,6 +1117,12 @@ public sealed class DashboardScreenTests
                 new InventorySynchronizer(
                     _localStore, new InventoryClient(new FakeInventoryServer(_clock).ToHttpClient()), _clock, gate,
                     NullLogger<InventorySynchronizer>.Instance),
+                // Reachable and empty: the dashboard does not summarise places, but an account allowed
+                // to use the map now synchronises them, and an unreachable one would put "couldn't
+                // sync" in the corner of every test here.
+                new PlaceSynchronizer(
+                    _localStore, new PlacesClient(new FakePlacesServer(_clock).ToHttpClient()), _clock, gate,
+                    NullLogger<PlaceSynchronizer>.Instance),
                 new ChatSynchronizer(
                     _chat, chatClient, usersClient,
                     new EncryptedChatMessageSender(

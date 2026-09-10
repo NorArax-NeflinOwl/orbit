@@ -29,6 +29,9 @@ public sealed class OrbitLocalDbContext : DbContext
 
     public DbSet<LocalInventory> Inventories => Set<LocalInventory>();
 
+    /// <summary>Somewhere on the map worth keeping - see LocalPlace.</summary>
+    public DbSet<LocalPlace> Places => Set<LocalPlace>();
+
     public DbSet<OutboxEntry> Outbox => Set<OutboxEntry>();
 
     public DbSet<SyncCursor> SyncCursors => Set<SyncCursor>();
@@ -129,6 +132,15 @@ public sealed class OrbitLocalDbContext : DbContext
                 .Metadata.SetValueComparer(LinesComparer);
         });
 
+        modelBuilder.Entity<LocalPlace>(place =>
+        {
+            place.HasKey(entity => entity.LocalId);
+            place.HasIndex(entity => entity.ServerId).IsUnique().HasFilter("\"ServerId\" IS NOT NULL");
+            place.Property(entity => entity.TaskListIds)
+                .HasConversion(TaskListIdsConverter)
+                .Metadata.SetValueComparer(TaskListIdsComparer);
+        });
+
         modelBuilder.Entity<OutboxEntry>(entry =>
         {
             entry.HasKey(entity => entity.Id);
@@ -213,6 +225,17 @@ public sealed class OrbitLocalDbContext : DbContext
         (left, right) => left!.SequenceEqual(right!),
         lines => lines.Aggregate(0, (hash, line) => HashCode.Combine(hash, line.GetHashCode())),
         lines => lines.ToList());
+
+    /// <summary>The lists a place belongs to, in one column - nothing ever queries a single one.</summary>
+    private static readonly ValueConverter<IReadOnlyList<Guid>, string> TaskListIdsConverter = new(
+        ids => JsonSerializer.Serialize(ids, LocalStoreSerializerContext.Default.IReadOnlyListGuid),
+        stored => ReadList(stored, LocalStoreSerializerContext.Default.IReadOnlyListGuid));
+
+    /// <summary>Without this a changed list is compared by reference and saved unchanged.</summary>
+    private static readonly ValueComparer<IReadOnlyList<Guid>> TaskListIdsComparer = new(
+        (left, right) => left!.SequenceEqual(right!),
+        ids => ids.Aggregate(0, (hash, id) => HashCode.Combine(hash, id.GetHashCode())),
+        ids => ids.ToList());
 
     /// <summary>A group's membership, in one column - nothing ever queries a single member.</summary>
     private static readonly ValueConverter<IReadOnlyList<LocalChatGroupMember>, string> MembersConverter = new(

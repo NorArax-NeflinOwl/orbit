@@ -1085,6 +1085,25 @@ the way it leaves out the appointments and the people, and a folder tab does too
 of a place's own, and an id this account has no place under still arrives at the map rather than at an
 error — which is the right answer for a link to one since forgotten.
 
+**The phone keeps them too** (2026-09-10, `LocalPlace`, `PlaceSynchronizer`, `PlacesPage`). It reads its
+own database and never the API, like every other list there, so a place written on a train is written and
+queued rather than refused. Behind the same permission the map is: a place is a point, and an account
+that may not be shown a map has nowhere to put one.
+
+The phone's screen is a **list, not a map**. That is the honest shape rather than a gap: a place is a
+name, a point and three answers about how it is drawn, and getting from one to directions is the single
+thing a list of places is for — which every phone already has an app for. Pressing the arrow on a row
+hands the point to it (`IMapHandoff`); the browser asks the same question differently only because a
+browser has no default to hand off to (`NavigationApps`). Where a place *is* can still be pointed at
+rather than typed: the place's own screen opens the same map picker the task editor uses, and a confirmed
+pin replaces the words only when the box is empty.
+
+The two refusals travel with it. A place handed over read-only opens as a form with no Save, and one
+somebody else can change is read-only while the phone is offline — the rule `OfflineEditPolicy` holds for
+every kind of thing on that device, because a phone cannot take the server's edit lock and would only
+discover the conflict at replay time. What it does not carry is a copy-for-editing: a note refused
+offline costs somebody an afternoon's writing, and a place costs them four lines.
+
 **Places you keep** is the map panel's own list of them, pinnable and hideable like every other list on
 that page. A row shows the place's colour, its name, its priority when that is not Normal, and a button
 that hands the point to a map app. Behind the three dots: **Edit**, **Duplicate** — a second one of the

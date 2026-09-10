@@ -11,7 +11,10 @@ namespace Orbit.Mobile.Screens;
 public enum ListSection
 {
     Notes,
-    Tasks
+    Tasks,
+
+    /// <summary>Somewhere on the map worth keeping - see Screens.Places.</summary>
+    Places
 }
 
 /// <summary>

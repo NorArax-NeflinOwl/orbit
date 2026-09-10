@@ -64,8 +64,8 @@ What the clients actually take from it is rules that must not be re-decided diff
 server, or a sync state it named differently, would be a disagreement no compiler could catch.
 
 **The phone keeps its own model.** `Orbit.Mobile.Data` holds `LocalNote`, `LocalTaskList`,
-`LocalCalendarEvent`, `LocalInventory`, `LocalChatMessage` and repositories over a local SQLite
-database. Those are not implementations of `Orbit.Core`'s repository ports — they are a second store
+`LocalCalendarEvent`, `LocalInventory`, `LocalPlace`, `LocalChatMessage` and repositories over a local
+SQLite database. Those are not implementations of `Orbit.Core`'s repository ports — they are a second store
 with a shape of its own, because a phone has to answer while offline and a server never does. The two
 are reconciled by the synchronisers rather than by sharing an interface (see [flows](flows.md)).
 

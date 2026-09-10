@@ -98,6 +98,14 @@
                                           IsVisible="{Binding CanUseLocation}"
                                           IsChosen="{Binding IsOnMap}"
                                           Command="{Binding GoToMapCommand}" />
+                    <!-- The places kept on the map, as a list. Under the map because that is where one
+                         comes from, and behind the same permission: a place is a point, and an account
+                         that may not be shown a map has nowhere to put one. -->
+                    <controls:DrawerEntry Icon="{StaticResource MapIcon}"
+                                          Text="{controls:Translate 'Places you keep'}"
+                                          IsVisible="{Binding CanUseLocation}"
+                                          IsChosen="{Binding IsOnPlaces}"
+                                          Command="{Binding GoToPlacesCommand}" />
                     <!-- At the foot of the list with its count beside it, where the design puts it. It
                          had a button of its own in the old bar; a drawer entry carrying the number says
                          the same thing and gives back the space. -->
