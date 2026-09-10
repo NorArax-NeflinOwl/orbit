@@ -255,13 +255,20 @@ about them is under "Screens already built" below.
   design has them ("Tue 8 Sep · 14:30"): the design's is a label and these are two things to press, and
   two pickers side by side in half of 412 points do not fit. And both are **bare** (`BareField`),
   because a picker draws Orbit's own hairline box and a box inside a box is two edges saying the same
-  thing. *The bare half is built and tested but **not** walked - the emulator signed itself out before
-  the screen could be opened again.*
+  thing - a bare picker still opens its dialog when pressed, which was the thing worth checking. All
+  day empties both boxes down to their dates and the page closes up around them.
 - ~~**Two floating buttons, not one**: cancel (✕, outlined in the line colour) and save (✓, accent).~~
   **Already so**, and device-verified: `Save` on the right and `Cancel` on the left, the second at 44
   across and carrying `GoBackCommand`. It is the one ✕ in the app that is *not* a back control by the
   rule at the top of this document - it is a form's cancel, and it leaves the screen the same way the
   note editor's back does.
+
+**The walk found one defect, now fixed: the foot of this form was underneath those two buttons.** The
+page left 28 points of padding under its last row and the buttons stand over the page rather than in
+it, so scrolled all the way down the switch that says whether to be told as the event starts sat
+exactly under Save - pressing it saved the event instead of setting it, and there was nowhere further
+to scroll to get it out from under. It leaves the note editor's 96 now. The colour swatches were half
+under the ✕ for the same reason.
 
 ### Inventory
 

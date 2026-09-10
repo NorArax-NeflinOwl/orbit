@@ -15,7 +15,12 @@
     <Grid RowDefinitions="Auto,*,Auto">
 
     <ScrollView Grid.Row="1">
-        <VerticalStackLayout Padding="16,16,16,28" Spacing="12">
+        <!-- Room at the foot for the two floating buttons, which stand over the page rather than in it -
+             the same 96 the note editor leaves for its pair. Scrolled all the way down, the last thing
+             on this form was underneath them: the switch that says whether to be told as the event
+             starts sat exactly under Save, so pressing it saved the event instead of setting it, and
+             there was nowhere further to scroll to get it out from under. -->
+        <VerticalStackLayout Padding="16,16,16,96" Spacing="12">
 
             <!-- The event's own colour down the left of its name, which is what the design gives this
                  screen and what a calendar row already carries - so an event opened from the list is
