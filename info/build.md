@@ -114,7 +114,7 @@ folder for the three ways to resolve that.
 
 The stack above is self-contained, but debugging the server - and running either mobile head, which
 talks to a server on the host rather than one inside Compose - means starting `Orbit.Api` from the
-IDE against the `orbit-postgres` container. Three things about that come with neither the repository
+IDE against the `orbit-postgres` container. Four things about that come with neither the repository
 nor `.env`, so they have to be redone on every machine.
 
 **`ConnectionStrings:Orbit` lives in user secrets.** `docker-compose.yml` builds it from
@@ -145,6 +145,17 @@ starting the executable:
 ```
 ASPNETCORE_URLS=http://localhost:5080
 ```
+
+**The Android debug keystore is machine-local too, and Google knows it by fingerprint.** Debug builds
+of `Orbit.Maui` are signed with the keystore .NET Android generates on first build -
+`~/Library/Application Support/Xamarin/Mono for Android/debug.keystore` on macOS,
+`%LOCALAPPDATA%\Xamarin\Mono for Android\debug.keystore` on Windows (password `android`). Its SHA-1
+is what the Maps SDK key restriction and the Android OAuth client list for debug builds, alongside the
+release keystore's. A new machine that is allowed to generate its own therefore signs with a
+fingerprint Google has never seen: the map comes up grey and Google sign-in is refused, with nothing
+else wrong. Either carry the keystore over *before* the first Android build (a copy is kept in
+`secrets/`, see `secrets/README.md`), or read the new fingerprint with `keytool -list -v -keystore
+<path> -storepass android` and add it to both restrictions in the Google Cloud console.
 
 **A request the server cannot even read answers 500 here and 400 in production, and that is ASP.NET
 rather than Orbit.** Minimal APIs rethrow a body they could not bind when the environment is Development
