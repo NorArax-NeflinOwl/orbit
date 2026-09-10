@@ -566,6 +566,16 @@ inventory lists, the contacts tabs, the chat menus - is built and needs no schem
 
 ## Noticed while working
 
+- **Orbit.Web's pages read the machine's clock directly** - `DateTime.Today` and `DateTime.Now`, in
+  eighteen places across the pages and components, with no `TimeProvider` injected anywhere in that
+  client. It is why `DashboardTests.An_appointment_that_has_ended_counts_as_one_that_is_behind_the_reader`
+  failed for the last three hours of every day until 2026-09-10 (an event "three hours from now" is
+  tomorrow's after nine in the evening); the test was anchored to the ends of today instead, which is a
+  patch on one test rather than an answer. What it would take: registering a `TimeProvider` in
+  `Program.cs` and injecting it where a page asks what day it is - the phone has done this all along
+  (`FakeTimeProvider` in every screen test), and it is the only way a page whose answer changes at
+  midnight can be tested at all.
+
 - **A response the phone cannot parse escapes the sync's own catch.** `EverythingSynchronizer.TryAsync`
   catches `HttpRequestException` and nothing else, so a body that is not the shape the client expects
   throws `JsonException` out of `SynchroniseAsync` and past every screen that calls it. Found on
