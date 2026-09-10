@@ -100,6 +100,46 @@ public sealed class CalendarEventDetailScreenTests
         Assert.Null((await context.FindAsync(stored.LocalId)).Details.Location);
     }
 
+    /// <summary>
+    /// The link that takes the place off the event appears only when there is one and this reader may.
+    /// The four things that can be done about a place sit on one line now, and a line has nowhere to
+    /// hang the "and this reader may edit" half the row around them used to carry - so the link carries
+    /// it itself.
+    /// </summary>
+    [Fact]
+    public async Task Taking_the_place_off_is_offered_only_once_there_is_one()
+    {
+        using var context = new ScreenContext();
+        var stored = await context.AddEventAsync(new DateTime(2026, 8, 20, 9, 0, 0), new DateTime(2026, 8, 20, 10, 0, 0));
+        var screen = await context.OpenAsync(stored.LocalId);
+
+        Assert.False(screen.CanRemoveLocation);
+
+        await screen.UseMyLocationCommand.ExecuteAsync(null);
+        Assert.True(screen.CanRemoveLocation);
+
+        await screen.RemoveLocationCommand.ExecuteAsync(null);
+        Assert.False(screen.CanRemoveLocation);
+    }
+
+    /// <summary>
+    /// An all-day event has no time to show, so the two time pickers go rather than grey over: a
+    /// disabled time reads as something that could be set and simply is not.
+    /// </summary>
+    [Fact]
+    public async Task An_all_day_event_shows_no_times()
+    {
+        using var context = new ScreenContext();
+        var stored = await context.AddEventAsync(new DateTime(2026, 8, 20, 9, 0, 0), new DateTime(2026, 8, 20, 10, 0, 0));
+        var screen = await context.OpenAsync(stored.LocalId);
+
+        Assert.True(screen.IsNotAllDay);
+
+        screen.IsAllDay = true;
+
+        Assert.False(screen.IsNotAllDay);
+    }
+
     /// <summary>A refusal and an empty reading read the same to somebody standing there: no place.</summary>
     [Fact]
     public async Task A_position_the_phone_cannot_give_is_said_rather_than_guessed()

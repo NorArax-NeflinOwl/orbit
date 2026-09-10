@@ -116,8 +116,22 @@ public sealed partial class CalendarEventDetailViewModel : ObservableObject
     /// <summary>A place to point at, and an account allowed to point at it - see GoogleIntegrationAccess.</summary>
     public bool CanOpenLocationInGoogleMaps => HasGoogleExtras && HasLocation;
 
+    /// <summary>
+    /// Whether there is a place to take off this event, and this reader may. Its own property because
+    /// the four things that can be done about a place now sit on one line of links, and a line has
+    /// nowhere to hang the "and this reader may edit" half that the row around them used to carry.
+    /// </summary>
+    public bool CanRemoveLocation => CanEdit && HasLocation;
+
     [ObservableProperty]
     private bool _isAllDay;
+
+    /// <summary>
+    /// Whether there is a time to show at all. An all-day event has none, and the two time pickers are
+    /// left out rather than greyed: a disabled time reads as something that could be set and simply
+    /// is not.
+    /// </summary>
+    public bool IsNotAllDay => !IsAllDay;
 
     /// <summary>
     /// Whether it repeats, and how. The three frequencies are Orbit.Core's own - see RecurrenceDto -
@@ -325,6 +339,7 @@ public sealed partial class CalendarEventDetailViewModel : ObservableObject
         }
 
         OnPropertyChanged(nameof(HasLocation));
+        OnPropertyChanged(nameof(CanRemoveLocation));
         OnPropertyChanged(nameof(LocationInGoogleMapsUrl));
         OnPropertyChanged(nameof(LocationDirectionsUrl));
         OnPropertyChanged(nameof(CanOpenLocationInGoogleMaps));
@@ -338,6 +353,7 @@ public sealed partial class CalendarEventDetailViewModel : ObservableObject
         _locationLongitude = null;
         LocationAddress = string.Empty;
         OnPropertyChanged(nameof(HasLocation));
+        OnPropertyChanged(nameof(CanRemoveLocation));
         OnPropertyChanged(nameof(LocationInGoogleMapsUrl));
         OnPropertyChanged(nameof(LocationDirectionsUrl));
         OnPropertyChanged(nameof(CanOpenLocationInGoogleMaps));
@@ -498,6 +514,7 @@ public sealed partial class CalendarEventDetailViewModel : ObservableObject
             _locationLatitude = found.Latitude;
             _locationLongitude = found.Longitude;
             OnPropertyChanged(nameof(HasLocation));
+        OnPropertyChanged(nameof(CanRemoveLocation));
             OnPropertyChanged(nameof(LocationInGoogleMapsUrl));
             OnPropertyChanged(nameof(LocationDirectionsUrl));
             OnPropertyChanged(nameof(CanOpenLocationInGoogleMaps));
@@ -647,6 +664,7 @@ public sealed partial class CalendarEventDetailViewModel : ObservableObject
         _locationLatitude = calendarEvent.Details.Location?.Latitude;
         _locationLongitude = calendarEvent.Details.Location?.Longitude;
         OnPropertyChanged(nameof(HasLocation));
+        OnPropertyChanged(nameof(CanRemoveLocation));
         OnPropertyChanged(nameof(LocationInGoogleMapsUrl));
         OnPropertyChanged(nameof(LocationDirectionsUrl));
         OnPropertyChanged(nameof(CanOpenLocationInGoogleMaps));
@@ -707,11 +725,14 @@ public sealed partial class CalendarEventDetailViewModel : ObservableObject
         OnPropertyChanged(nameof(CanOpenLocationInGoogleMaps));
     }
 
+    partial void OnIsAllDayChanged(bool value) => OnPropertyChanged(nameof(IsNotAllDay));
+
     partial void OnRecurrenceFrequencyChanged(string value) => OnPropertyChanged(nameof(ChosenFrequency));
 
     partial void OnIsReadOnlyChanged(bool value)
     {
         OnPropertyChanged(nameof(CanEdit));
+        OnPropertyChanged(nameof(CanRemoveLocation));
         SaveCommand.NotifyCanExecuteChanged();
     }
 

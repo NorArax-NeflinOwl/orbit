@@ -234,11 +234,34 @@ about them is under "Screens already built" below.
 
 ### An event
 
-- The title carries a **3px accent bar** down its left side.
-- Location is a group: the field, then two links under it - "Use my location" and "Open in Google Maps".
-- When is **two bordered boxes side by side**, Starts and Ends, each with a small-caps label over the
-  value in tabular figures.
-- **Two floating buttons, not one**: cancel (✕, outlined in the line colour) and save (✓, accent).
+***Walked on the device on 2026-09-10***, on a "Dentist check-up" made from the calendar's own Add box.
+
+- ~~The title carries a **3px accent bar** down its left side.~~ ***Done.*** The name is bare beside it
+  and set in the display face at 24 - the bar is the whole of the heading's decoration, because the name
+  is the screen. It is what a calendar row already carries, so an event opened from the list is
+  recognisably the thing that was pressed.
+- ~~Location is a group: the field, then two links under it - "Use my location" and "Open in Google
+  Maps".~~ ***Done.*** All four hand-offs are links on one line under the box now - the app has two the
+  design has not, "Remove location" and "Directions". They were two outlined buttons over two links
+  before, so the same four things read as two kinds of control and took two rows doing it.
+  `CanRemoveLocation` is its own property because a line has nowhere to hang the "and this reader may
+  edit" half the row around them used to carry.
+- ~~When is **two bordered boxes side by side**, Starts and Ends, each with a small-caps label over the
+  value in tabular figures.~~ ***Done.*** The four pickers were two rows of two - the start's day beside
+  the end's day, then the start's time beside the end's time - which reads as two ranges rather than as
+  two moments, and is why an event spanning days looked like a mistake on the screen meant to show it.
+
+  Two departures. The day and the time are **stacked** inside each box rather than on one line as the
+  design has them ("Tue 8 Sep · 14:30"): the design's is a label and these are two things to press, and
+  two pickers side by side in half of 412 points do not fit. And both are **bare** (`BareField`),
+  because a picker draws Orbit's own hairline box and a box inside a box is two edges saying the same
+  thing. *The bare half is built and tested but **not** walked - the emulator signed itself out before
+  the screen could be opened again.*
+- ~~**Two floating buttons, not one**: cancel (✕, outlined in the line colour) and save (✓, accent).~~
+  **Already so**, and device-verified: `Save` on the right and `Cancel` on the left, the second at 44
+  across and carrying `GoBackCommand`. It is the one ✕ in the app that is *not* a back control by the
+  rule at the top of this document - it is a form's cancel, and it leaves the screen the same way the
+  note editor's back does.
 
 ### Inventory
 
