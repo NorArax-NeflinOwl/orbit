@@ -117,6 +117,12 @@ public sealed class NotificationOpener
                 _navigator.ShowSharedLink(destination.Token);
                 return NotificationOpenOutcome.Opened;
 
+            // Nothing is looked up first for the same reason: what was offered is not in this account
+            // yet, and may never be. The screen is what asks - see InvitationViewModel.
+            case NotificationTarget.Invitation when destination.Offer is { } offer:
+                _navigator.ShowInvitation(offer);
+                return NotificationOpenOutcome.Opened;
+
             default:
                 return NotificationOpenOutcome.NowhereToGo;
         }

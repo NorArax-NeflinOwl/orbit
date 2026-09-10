@@ -183,7 +183,10 @@ internal sealed class FakeInventoryServer : HttpMessageHandler
             // As the server does: null on the way in means "not provided" and keeps what was stored -
             // see InventoryItemRequest. A fake that read it as false would have called a client that says
             // nothing a client that turns it off.
-            item.IsCheckedRegularly ?? Stored(id, item.Id))).ToList();
+            item.IsCheckedRegularly ?? Stored(id, item.Id),
+            // Every category, as the server keeps them. A fake that kept only the first answered the
+            // next pull with one, and a client that had sent three read as a client that sends one.
+            item.AllCategories)).ToList();
 
         return new HttpResponseMessage(HttpStatusCode.NoContent);
     }

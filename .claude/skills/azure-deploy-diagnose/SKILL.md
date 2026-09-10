@@ -79,7 +79,7 @@ run, every env var the app requires is present, and the registry entry uses
 | `ImagePullBackOff` / `unauthorized` | Container App has no pull permission on ACR | Registry config on the app (`AcrPull` for `identity-orbit`) |
 | Revision failed, console log empty | Wrong target port (app listens on 8080, ingress says 80) | Ingress `targetPort` |
 | Console shows exception on startup | Missing env var / secret, or exporter misconfigured | Secrets + env on the app, `Program.cs` conditional |
-| `orbit-api` healthy, `orbit-web` returns 502 on `/api/` | nginx `proxy_pass` points at wrong FQDN | `nginx.conf` — internal FQDN is `orbit-api.internal.victorioustree-36ad82ca.polandcentral.azurecontainerapps.io` (verify with `az containerapp show --query properties.configuration.ingress.fqdn`) |
+| `orbit-api` healthy, `orbit-web` returns 502 on `/api/` | nginx `proxy_pass` points at wrong FQDN | `nginx.azure.conf` takes the name from `ORBIT_API_HOST` at startup (unset = the test environment's `orbit-api.internal.victorioustree-36ad82ca.polandcentral.azurecontainerapps.io`); read what it chose with `az containerapp logs show -n orbit-web -g Orbit` ("Proxying /api/ to …") and compare with `az containerapp show -n orbit-api --query properties.configuration.ingress.fqdn` |
 | Pipeline green, old code still running | New revision not activated (single-revision mode expected) | Check revision mode and active revision |
 
 ## Reporting the result

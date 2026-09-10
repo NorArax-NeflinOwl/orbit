@@ -31,9 +31,16 @@ public enum TaskItemTickOutcome
 /// not ticked by hand at all, and crossing off "Update stock levels" is a claim about a whole shelf.
 ///
 /// The update endpoint replaces the list wholesale, so a tick sends every entry back with one of them
-/// changed. The entry to change is found by position in the list it was read from, which is what both
-/// screens hand in - matching by id would be the tidier answer, and is left for whoever is in here
-/// anyway, since an entry written before ids survived a save carries none.
+/// changed. The entry to change is found **by its id**, and by position only for one that has none -
+/// an entry nobody has saved yet, since `TaskItemRequest.Id` has been kept through a save since
+/// 2026-09-06.
+///
+/// Position was the rule until 2026-09-10, on the strength of a comment saying a save regenerates ids,
+/// which had stopped being true. It mostly worked - `IndexOf` compares a record by every field, ids
+/// included - and failed in the one case nobody would look at: a caller holding a copy of the entry
+/// that is no longer equal to the stored one, because a second reader changed another of its fields.
+/// `IndexOf` then answers -1, no entry matches, and the list is saved back **with nothing ticked**,
+/// reporting success.
 /// </summary>
 public sealed class TaskItemCompletion(
     TasksApiClient tasksApiClient,
@@ -82,14 +89,22 @@ public sealed class TaskItemCompletion(
             return FailureMessage is null ? TaskItemTickOutcome.Ticked : TaskItemTickOutcome.Failed;
         }
 
-        var toggledIndex = taskList.Items.ToList().IndexOf(item);
+        // By id, and by position only for an entry that has none - see the class comment.
+        var toggledIndex = item.Id == Guid.Empty ? taskList.Items.ToList().IndexOf(item) : -1;
         // Everything as it already is, with one entry's answer changed - see TaskItemRequest.From on
         // why the fields are not listed here.
         var items = taskList.Items
-            .Select((existingItem, index) => TaskItemRequest.From(existingItem) with
+            .Select((existingItem, index) =>
             {
-                IsCompleted = index == toggledIndex ? state.IsCompleted() : existingItem.IsCompleted,
-                IsFailed = index == toggledIndex ? state.IsFailed() : existingItem.IsFailed
+                var isTheOneBeingTicked = item.Id == Guid.Empty
+                    ? index == toggledIndex
+                    : existingItem.Id == item.Id;
+
+                return TaskItemRequest.From(existingItem) with
+                {
+                    IsCompleted = isTheOneBeingTicked ? state.IsCompleted() : existingItem.IsCompleted,
+                    IsFailed = isTheOneBeingTicked ? state.IsFailed() : existingItem.IsFailed
+                };
             })
             .ToList();
 

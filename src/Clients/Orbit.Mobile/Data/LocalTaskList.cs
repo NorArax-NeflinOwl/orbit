@@ -33,6 +33,16 @@ public sealed class LocalTaskList : Orbit.Mobile.Sync.ISharedState, ICopyableFor
 
     public bool IsCompleted { get; set; }
 
+    /// <summary>
+    /// What the reader said about whether the list is finished, as opposed to what its entries say -
+    /// "FromTheEntries", "Finished" or "Unfinished", by name, see Orbit.Core.Tasks.TaskListCompletion
+    /// and TaskDto.Completion. <see cref="IsCompleted"/> is the answer either way; this is the half the
+    /// Completed entry in the list's menu is bound to, and the half that travels on a save - a save
+    /// that said nothing about it would leave a list closed in a browser closed, which is the rule
+    /// UpdateTaskRequest.Completion keeps for clients that have not learned the field, but this one has.
+    /// </summary>
+    public string Completion { get; set; } = nameof(Orbit.Core.Tasks.TaskListCompletion.FromTheEntries);
+
     /// <summary>A list that gathers the lists its items link to, rather than holding work of its own.</summary>
     public bool IsGroup { get; set; }
 

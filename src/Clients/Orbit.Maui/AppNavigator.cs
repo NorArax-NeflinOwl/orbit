@@ -97,6 +97,10 @@ public sealed class AppNavigator : IScreenNavigator
 		=> Show<SharedLinkPage>(Screen.SharedLink, ScreenHistory.Arrival.Detail,
 			() => ShowSharedLink(token), page => page.ViewModel.Open(token));
 
+	public void ShowInvitation(Orbit.Mobile.Notifications.InvitationOffer offer)
+		=> Show<InvitationPage>(Screen.Invitation, ScreenHistory.Arrival.Detail,
+			() => ShowInvitation(offer), page => page.ViewModel.Open(offer));
+
 	public void ShowUpdate() => Show<UpdatePage>(Screen.Update, ScreenHistory.Arrival.Section, ShowUpdate);
 
 	// A drawer destination like the sections above it, so arriving resets the stack to [Dashboard, About]

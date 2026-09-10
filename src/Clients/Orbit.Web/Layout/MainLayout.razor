@@ -1042,15 +1042,20 @@
         };
     }
 
-    /// <summary>
-    /// Every feed entry carries the same in-app Url its push notification would deep-link to (see
-    /// PushNotificationPayload) - clicking the panel row navigates there and closes the panel, so the
-    /// panel isn't a dead end compared to the push path. Entries without a Url stay inert.
-    /// </summary>
     private void OnLanguageChanged() => InvokeAsync(StateHasChanged);
 
     private void CloseNotificationsMenu() => _notificationsMenuOpen = false;
 
+    /// <summary>
+    /// Every feed entry carries the same in-app Url its push notification would deep-link to (see
+    /// PushNotificationPayload) - clicking the panel row navigates there and closes the panel, so the
+    /// panel isn't a dead end compared to the push path. Entries without a Url stay inert.
+    ///
+    /// The bell is on every page, so the page it was pressed on is where the reader was interrupted -
+    /// and that is what is named as the way back (see ReturnTo). Without it, answering a notification
+    /// while halfway through something ended on whichever section the thing belongs to, and the reader
+    /// had to navigate back to what they were doing.
+    /// </summary>
     private void OpenNotificationEntry(NotificationEntryDto entry)
     {
         if (entry.Url is null)
@@ -1059,8 +1064,16 @@
         }
 
         _notificationsMenuOpen = false;
-        NavigationManager.NavigateTo(entry.Url);
+        NavigationManager.NavigateTo(ReturnTo.Link(entry.Url, WhereTheReaderWasInterrupted()));
     }
+
+    /// <summary>
+    /// The page under the panel, as a path this site may be sent back to. Read off the address bar
+    /// rather than remembered, so it carries whatever the page was showing - which pin the map was open
+    /// on, which conversation was being read.
+    /// </summary>
+    private string WhereTheReaderWasInterrupted()
+        => "/" + NavigationManager.ToBaseRelativePath(NavigationManager.Uri);
 
     /// <summary>
     /// Reads this browser's own captured Warning+/Error client-side log (see clientLogging.js's

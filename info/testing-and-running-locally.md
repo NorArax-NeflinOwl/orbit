@@ -240,6 +240,54 @@ ORBIT_TEST_POSTGRES="Host=localhost;Port=5432;Database=orbit;Username=orbit;Pass
 Run it when touching `Orbit.Api.Instances`, `Orbit.Api.RateLimiting`, or the live update fan-out. The
 database needs the migrations applied first (see [Database migrations](#database-migrations)).
 
+### Driving the Android app by hand
+
+Nothing in the suite can see a screen: `Orbit.Maui` is not in `Orbit.CI.slnf` at all, a local
+`dotnet build -c Release -f net10.0-android` is the only thing that compiles its XAML, and four tests
+read the markup off disk (`SpokenNameTests`, `TranslationCoverageTests`, `AvatarMenuBindingTests`,
+`CalendarMonthLayoutTests`). Everything else about the phone is checked by walking it on an emulator.
+This is what a walk needs, gathered from the sessions that did them so a new one does not rediscover it:
+
+```bash
+# The app talks to the compose stack's API on 8081; built without this it looks for 5080 and finds nothing.
+dotnet build src/Clients/Orbit.Maui/Orbit.Maui.csproj -f net10.0-android -c Debug -t:Install \
+  -p:OrbitDevelopmentApiPort=8081
+adb shell am start -n "com.orbitmaui.android/crc64a05c27c563ec9e41.MainActivity"
+```
+
+- **Ask which activity rather than guessing:** `adb shell cmd package resolve-activity --brief
+  com.orbitmaui.android`. `monkey -c LAUNCHER` does not start this package, and logcat prints a second,
+  different hash that is not the launcher.
+- **Give a fast-deployed launch 25-30 seconds before touching the screen.** Taps aimed at the splash
+  queue up and Android raises "Orbit isn't responding", which reads exactly like a crash caused by the
+  change under test.
+- **Read the screen, do not guess at it.** `uiautomator dump` writes the view hierarchy; match on
+  `content-desc` for a control (its `SemanticProperties.Description`) and on `text` for a label - on a
+  checklist row the circle carries the description and the words carry the text, so matching the wrong
+  one ticks the entry instead of opening it. **`rm -f /sdcard/ui.xml` before every dump**: on a screen it
+  cannot read the command returns without writing, and the previous dump is handed back as though the
+  app had navigated somewhere it never left.
+- **A screenshot is 1080 wide and comes back at 900** - multiply a coordinate read off the image by 1.2
+  before `adb input tap`.
+- **`adb shell input text` turns `%s` into a space** and decodes nothing else: `[` and `]` need
+  `input keyevent KEYCODE_LEFT_BRACKET KEYCODE_RIGHT_BRACKET`. Seed test accounts with alphanumeric
+  passwords, since `!` and `%` cannot be typed this way at all.
+- **`dumpsys input_method | grep mServedView` is the truth about focus.** `uiautomator`'s
+  `focused="true"` has sat on a button while typing went somewhere else entirely.
+- **A worktree needs four gitignored files**, not three: `.env` and `docker-compose.override.yml` from
+  the main checkout, and `Platforms/Android/google-services.json` plus
+  `Platforms/Android/AndroidManifestOverlay.xml` from `secrets/` - see `secrets/README.md`. Without the
+  overlay the map draws a label instead of tiles, which reads as an unfinished screen.
+- **Reaching the awkward screens.** A *shared link* needs the build to know the host the intent filter
+  matches (`-p:OrbitShareLinkHost=10.0.2.2`), then
+  `adb shell am start -a android.intent.action.VIEW -d "https://10.0.2.2/s/<token>"`. A *copy review*
+  needs a share that permits editing while editing is impossible: accept a share, then take the phone
+  offline (`adb shell svc wifi disable; adb shell svc data disable`) and open it. The *About* screen
+  lists documents only when built with `-p:OrbitWebBaseAddress=https://…/`.
+- **Anything that moves, or is thinner than a few pixels, is read off the pixels** rather than looked
+  at - see [android-ui-parity.md](android-ui-parity.md)'s "How to check it" for the method and the
+  numbers it produced.
+
 ### The browser-side encryption, in a real browser
 
 `ci/verify-browser-crypto.mjs` runs `Orbit.Web/wwwroot/js/e2eeChat.js` itself in headless Chromium. It

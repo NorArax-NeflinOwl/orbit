@@ -568,6 +568,10 @@ namespace Orbit.Mobile.Data.Migrations
                         .IsRequired()
                         .HasColumnType("TEXT");
 
+                    b.Property<string>("Completion")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
                     b.Property<long?>("CopiedAtUtc")
                         .HasColumnType("INTEGER");
 

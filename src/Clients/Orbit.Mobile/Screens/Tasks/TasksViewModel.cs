@@ -314,10 +314,18 @@ public sealed partial class TasksViewModel : ObservableObject
             return;
         }
 
-        var folder = await _folders.CreateAsync(wanted, FolderScope.Tasks, cancellationToken);
-        NewFolderName = string.Empty;
-        Folders.Choose(FolderKey.Of(folder.LocalId));
+        if (FolderBeingRenamed is { } renamed)
+        {
+            await _folders.RenameAsync(renamed, wanted, cancellationToken);
+            FolderBeingRenamed = null;
+        }
+        else
+        {
+            var folder = await _folders.CreateAsync(wanted, FolderScope.Tasks, cancellationToken);
+            Folders.Choose(FolderKey.Of(folder.LocalId));
+        }
 
+        NewFolderName = string.Empty;
         await ShowStoredListsAsync(cancellationToken);
         await SynchroniseAsync(cancellationToken);
     }
@@ -325,6 +333,47 @@ public sealed partial class TasksViewModel : ObservableObject
     /// <inheritdoc cref="Notes.NotesViewModel.NewFolderName"/>
     [ObservableProperty]
     private string _newFolderName = string.Empty;
+
+    /// <inheritdoc cref="Notes.NotesViewModel.FolderBeingRenamed"/>
+    [ObservableProperty]
+    private Guid? _folderBeingRenamed;
+
+    /// <inheritdoc cref="Notes.NotesViewModel.FolderRowAction"/>
+    public string FolderRowAction => FolderBeingRenamed is null ? _translations["Add"] : _translations["Rename"];
+
+    partial void OnFolderBeingRenamedChanged(Guid? value) => OnPropertyChanged(nameof(FolderRowAction));
+
+    /// <inheritdoc cref="Notes.NotesViewModel.StartRenamingTheOpenFolder"/>
+    public void StartRenamingTheOpenFolder()
+    {
+        if (Folders.Chosen.FolderId is { } folderId)
+        {
+            FolderBeingRenamed = folderId;
+            NewFolderName = ChosenFolderName;
+        }
+    }
+
+    /// <inheritdoc cref="Notes.NotesViewModel.StartNamingANewFolder"/>
+    public void StartNamingANewFolder()
+    {
+        FolderBeingRenamed = null;
+        NewFolderName = string.Empty;
+    }
+
+    /// <inheritdoc cref="Notes.NotesViewModel.IsChosenFolderHiddenOnTheDashboard"/>
+    public bool IsChosenFolderHiddenOnTheDashboard
+        => Folders.Chosen.FolderId is { } folderId && Folders.IsHiddenOnTheDashboard(folderId);
+
+    /// <inheritdoc cref="Notes.NotesViewModel.ToggleShownOnTheDashboard"/>
+    [RelayCommand]
+    private void ToggleShownOnTheDashboard()
+    {
+        if (Folders.Chosen.FolderId is { } folderId)
+        {
+            Folders.HideOnTheDashboard(folderId, !Folders.IsHiddenOnTheDashboard(folderId));
+            OnPropertyChanged(nameof(IsChosenFolderHiddenOnTheDashboard));
+        }
+    }
 
     /// <inheritdoc cref="Notes.NotesViewModel.DeleteFolderAsync"/>
     [RelayCommand]

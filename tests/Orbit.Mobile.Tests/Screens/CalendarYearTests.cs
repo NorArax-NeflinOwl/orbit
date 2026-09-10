@@ -57,7 +57,7 @@ public sealed class CalendarYearTests
     private static CalendarDeadline DueOn(DateTime localDue)
         => new(
             Guid.NewGuid(), Guid.NewGuid(), "Groceries", "Buy milk", localDue.Date, localDue.ToString("g"),
-            IsCompleted: false, IsSomewhere: false);
+            IsCompleted: false);
 
     /// <summary>
     /// The same date in a neighbouring year must not be counted here, which is the mistake a grouping

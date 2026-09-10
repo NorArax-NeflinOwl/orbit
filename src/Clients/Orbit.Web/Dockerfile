@@ -66,6 +66,12 @@ RUN apk add --no-cache openssl
 
 # The base image's own docker-entrypoint.sh runs every executable script under /docker-entrypoint.d/
 # before starting nginx - no need to override the image's ENTRYPOINT/CMD to hook this in.
+#
+# Which orbit-api nginx.azure.conf proxies to is answered here from ORBIT_API_HOST rather than written
+# into the config, so a second environment runs this same image - see the script.
+COPY src/Clients/Orbit.Web/point-nginx-at-the-api.sh /docker-entrypoint.d/05-point-nginx-at-the-api.sh
+RUN chmod +x /docker-entrypoint.d/05-point-nginx-at-the-api.sh
+
 COPY src/Clients/Orbit.Web/generate-certificate.sh /docker-entrypoint.d/10-generate-certificate.sh
 RUN chmod +x /docker-entrypoint.d/10-generate-certificate.sh
 

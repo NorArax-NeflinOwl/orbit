@@ -222,7 +222,7 @@
 
         <div class="options-section">
             <h2 class="options-heading">@T["Your data"]</h2>
-            <p class="options-subtext">@T["Everything you own — notes, task lists, events and storages — as one JSON file, and back again."]</p>
+            <p class="options-subtext">@T["Everything you own — notes, task lists, events and inventories — as one JSON file, and back again."]</p>
             <div class="options-card">
                 <div class="options-row options-row-stacked">
                     <div>
@@ -651,7 +651,7 @@
         ApplicationPermission.Chat => T["Conversations, with one person or with several."],
         ApplicationPermission.Location => T["Recording where you are. Sharing it, or seeing somebody else's, also needs contacts."],
         ApplicationPermission.Debug => T["What Orbit reports about itself - the Debugger settings, the captured log, and the detail behind an error."],
-        _ => T["Handing a note, task list, event or storage to somebody else."]
+        _ => T["Handing a note, task list, event or inventory to somebody else."]
     };
 
     /// <summary>
@@ -767,7 +767,7 @@
                 "downloadText", $"orbit-export-{DateTimeOffset.Now:yyyy-MM-dd}.json", "application/json", json);
 
             _transferMessage = T.Format(
-                "Exported {0} notes, {1} task lists, {2} events and {3} storages.",
+                "Exported {0} notes, {1} task lists, {2} events and {3} inventories.",
                 archive.Notes.Count, archive.TaskLists.Count, archive.CalendarEvents.Count, archive.Inventories.Count);
         }
         catch (Exception exception) when (exception is not OperationCanceledException)
@@ -805,7 +805,7 @@
             }
 
             _transferMessage = T.Format(
-                "Imported {0} notes, {1} task lists, {2} events and {3} storages.",
+                "Imported {0} notes, {1} task lists, {2} events and {3} inventories.",
                 result.Notes, result.TaskLists, result.CalendarEvents, result.Inventories);
         }
         catch (JsonException)
@@ -1346,7 +1346,7 @@
         ExportPart.Notes => T["Notes"],
         ExportPart.TaskLists => T["Task lists"],
         ExportPart.CalendarEvents => T["Calendar events"],
-        _ => T["Storages"]
+        _ => T["Inventories"]
     };
 
     /// <summary>

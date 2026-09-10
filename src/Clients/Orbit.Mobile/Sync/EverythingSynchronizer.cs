@@ -1,4 +1,5 @@
 using System.Net;
+using System.Text.Json;
 using Orbit.Core.Permissions;
 using Orbit.Mobile.Permissions;
 
@@ -100,6 +101,11 @@ public sealed class EverythingSynchronizer
         {
             return exception.StatusCode is HttpStatusCode.Forbidden ? Refused : Unreachable;
         }
+        catch (JsonException)
+        {
+            // An answer this build cannot read - see the comment on the overload below.
+            return Unreachable;
+        }
     }
 
     private static async Task<SyncResult> TryAsync(Func<Task<bool>> synchronise)
@@ -111,6 +117,16 @@ public sealed class EverythingSynchronizer
         catch (HttpRequestException exception)
         {
             return exception.StatusCode is HttpStatusCode.Forbidden ? Refused : Unreachable;
+        }
+        catch (JsonException)
+        {
+            // Something answered, and it was not this API: a gateway's HTML error page, a captive
+            // portal, a proxy that swallowed the body. The phone's answer to that is the one it gives
+            // for a server it could not reach - "couldn't sync", with everything still queued - rather
+            // than an exception out of a method every screen calls on a timer and on resume, which is
+            // what a JsonException was until 2026-09-10. It is a *reachability* answer rather than a
+            // refusal: nothing about it says this reader may not have what they asked for.
+            return Unreachable;
         }
     }
 

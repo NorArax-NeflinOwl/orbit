@@ -273,7 +273,7 @@ public sealed partial class AccountViewModel : ObservableObject
             // Said rather than left to the file: what was asked for and what came back are two different
             // things, and a file nobody opens is where that difference would otherwise be found.
             TransferMessage = _translations.Format(
-                "Exported {0} notes, {1} task lists, {2} events and {3} storages.",
+                "Exported {0} notes, {1} task lists, {2} events and {3} inventories.",
                 archive.Notes.Count, archive.TaskLists.Count, archive.CalendarEvents.Count,
                 archive.Inventories.Count);
 
@@ -335,7 +335,7 @@ public sealed partial class AccountViewModel : ObservableObject
             TransferMessage = result is null
                 ? _translations["That file didn't contain an Orbit export."]
                 : _translations.Format(
-                    "Imported {0} notes, {1} task lists, {2} events and {3} storages.",
+                    "Imported {0} notes, {1} task lists, {2} events and {3} inventories.",
                     result.Notes, result.TaskLists, result.CalendarEvents, result.Inventories);
         }
         catch (Exception exception) when (exception is HttpRequestException or OperationCanceledException)

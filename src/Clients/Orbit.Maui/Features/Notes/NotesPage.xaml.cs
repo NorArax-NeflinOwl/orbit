@@ -91,14 +91,46 @@ public partial class NotesPage : ContentPage, ITitleMenu
 	/// </summary>
 	private List<ScreenMenuEntry> FolderActions()
 	{
-		List<ScreenMenuEntry> entries = [new ScreenMenuEntry(_translations["New folder"], () => _nameAFolder.Execute(null))];
+		List<ScreenMenuEntry> entries =
+		[
+			new ScreenMenuEntry(_translations["New folder"], () =>
+			{
+				_viewModel.StartNamingANewFolder();
+				_nameAFolder.Execute(null);
+			})
+		];
 
 		if (_viewModel.Folders.Chosen.FolderId is not null)
 		{
+			// The same row, opened on the folder's present name - a folder is a name, so changing it is
+			// the question "New folder" asks with an answer already in the box. See
+			// NotesViewModel.FolderBeingRenamed.
+			entries.Add(new ScreenMenuEntry(_translations["Rename folder"], () =>
+			{
+				_viewModel.StartRenamingTheOpenFolder();
+				UnfoldTheFolderRow();
+			}));
+			// Marked while it is hidden, as the browser's own entry is - the tick says what is true now.
+			entries.Add(new ScreenMenuEntry(
+				_translations["Hide on the dashboard"],
+				() => _viewModel.ToggleShownOnTheDashboardCommand.Execute(null),
+				_viewModel.IsChosenFolderHiddenOnTheDashboard));
 			entries.Add(new ScreenMenuEntry(_translations["Delete folder"], () => _ = DeleteTheFolderAsync()));
 		}
 
 		return entries;
+	}
+
+	/// <summary>Opens the folder row if it is shut, and only puts the cursor in it if it is already open.</summary>
+	private void UnfoldTheFolderRow()
+	{
+		if (FolderRow.IsVisible)
+		{
+			FolderField.Focus();
+			return;
+		}
+
+		_nameAFolder.Execute(null);
 	}
 
 	/// <summary>

@@ -464,9 +464,9 @@ public sealed class CalendarScreenTests
         Assert.Equal(CalendarListSortOrder.Alphabetical, (await context.OpenAsync()).SortOrder);
     }
 
-    /// <summary>Whichever kind was pressed opens its own thing - see OpenListed.</summary>
+    /// <summary>Whichever kind was pressed opens its own thing - see OpenListed. A deadline is an entry.</summary>
     [Fact]
-    public async Task Pressing_a_deadline_opens_the_list_it_sits_on()
+    public async Task Pressing_a_deadline_opens_the_entry_it_is()
     {
         using var context = new ScreenContext();
         var taskListId = await context.AddDeadlineAsync("Groceries", "Buy milk", new DateTime(2026, 8, 20, 17, 0, 0));
@@ -474,8 +474,8 @@ public sealed class CalendarScreenTests
 
         screen.OpenListedCommand.Execute(Assert.Single(screen.Listed));
 
-        Assert.Equal("ShowTaskList", context.Navigator.LastDestination);
-        Assert.Equal(taskListId, context.Navigator.LastTaskListId);
+        Assert.Equal("ShowTaskItem", context.Navigator.LastDestination);
+        Assert.Equal(taskListId, Assert.NotNull(context.Navigator.LastTaskItem).TaskListLocalId);
     }
 
     /// <summary>The list beneath the grid follows the grid, deadlines as much as events.</summary>
@@ -541,11 +541,13 @@ public sealed class CalendarScreenTests
     }
 
     /// <summary>
-    /// Something to tick off opens the list it sits on, which is where it gets ticked. A checklist is
-    /// the wrong landing for somewhere to get to, which is the other case below.
+    /// A press opens the thing that was pressed: the entry itself, where it is read and where it can be
+    /// ticked off since 2026-09-09. It used to open the list instead unless the entry had somewhere to
+    /// be - a fork decided by a field no row mentions, and the last place on the phone where pressing an
+    /// entry could open something else. The list is one press further, from the entry.
     /// </summary>
     [Fact]
-    public async Task Opening_a_deadline_opens_the_list_it_sits_on()
+    public async Task Opening_a_deadline_opens_the_entry_itself()
     {
         using var context = new ScreenContext();
         var listId = await context.AddDeadlineAsync("Groceries", "Buy milk", new DateTime(2026, 8, 20, 17, 0, 0));
@@ -553,13 +555,14 @@ public sealed class CalendarScreenTests
 
         screen.OpenDeadlineCommand.Execute(Assert.Single(Deadlines(screen)));
 
-        Assert.Equal(listId, context.Navigator.LastTaskListId);
+        var opened = Assert.NotNull(context.Navigator.LastTaskItem);
+        Assert.Equal(listId, opened.TaskListLocalId);
+        Assert.Null(context.Navigator.LastTaskListId);
     }
 
     /// <summary>
-    /// Somewhere to get to opens on its own, with what it is, when it is and where - the split
-    /// Orbit.Web's calendar makes. The phone sent both to the checklist, which answers "where is it?"
-    /// with a row of text and a tick box.
+    /// Somewhere to get to opens on its own, with what it is, when it is and where - which is what every
+    /// deadline does now, so this pins down that a place changes nothing about where a press lands.
     /// </summary>
     [Fact]
     public async Task A_deadline_that_is_somewhere_opens_on_its_own()

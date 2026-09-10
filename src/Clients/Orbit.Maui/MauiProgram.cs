@@ -353,6 +353,8 @@ public static class MauiProgram
 			.AddHttpMessageHandler<AuthorizationMessageHandler>();
 		services.AddHttpClient<PublicShareClient>(client => client.BaseAddress = apiSettings.BaseAddress)
 			.AddHttpMessageHandler<AuthorizationMessageHandler>();
+		services.AddHttpClient<ShareOfferClient>(client => client.BaseAddress = apiSettings.BaseAddress)
+			.AddHttpMessageHandler<AuthorizationMessageHandler>();
 		services.AddHttpClient<TransferClient>(client => client.BaseAddress = apiSettings.BaseAddress)
 			.AddHttpMessageHandler<AuthorizationMessageHandler>();
 		services.AddHttpClient<NotificationsClient>(client => client.BaseAddress = apiSettings.BaseAddress)
@@ -387,6 +389,8 @@ public static class MauiProgram
 		services.AddTransient<PasswordResetViewModel>();
 		services.AddTransient<Orbit.Maui.Features.Sharing.SharedLinkPage>();
 		services.AddTransient<Orbit.Mobile.Screens.Sharing.SharedLinkViewModel>();
+		services.AddTransient<Orbit.Maui.Features.Sharing.InvitationPage>();
+		services.AddTransient<Orbit.Mobile.Screens.Sharing.InvitationViewModel>();
 		services.AddTransient<AccountPage>();
 		services.AddTransient<AccountViewModel>();
 		services.AddTransient<ChatKeyGatePage>();

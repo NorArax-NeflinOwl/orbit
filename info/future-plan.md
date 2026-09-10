@@ -119,10 +119,13 @@ rather than to the conversation - see [In-app notifications](functionality.md#in
   the offer - the item, its name and whether it has been taken up - so the page says which note, and
   accepting lands on the thing itself rather than on the list it appears in. One endpoint for all four
   kinds; accepting stayed on each section's own, where that kind's rules are.
-- **The phone still has no invitation screen.** It reads the same path, takes the sharer's id off the
-  end and opens the conversation, which is where its own Accept sits (`SharedItemAcceptance`) - so
-  nothing is lost there, but a phone cannot take up an offer whose chat message it cannot read, which is
-  exactly the case the web page now covers.
+- ~~**The phone still has no invitation screen.**~~ Done 2026-09-10: `InvitationViewModel` and
+  `InvitationPage` read the same path and the same `GET /api/shares/{kind}/{shareId}`, and accept
+  through the one place that already knew which endpoint each kind uses (`SharedItemAcceptance`). Two
+  differences from the browser, both because the phone stores things under its own ids: what is accepted
+  appears when the section next syncs, so "open where it landed" is the section rather than the thing. A
+  shared position, and a kind newer than the build, still open the conversation - which is what every
+  kind did before, kept for the cases with no offer to show.
 
 ## What a real advertising network would take
 
@@ -147,10 +150,17 @@ of it:
 - **What the slots would then be worth measuring.** Nothing here counts an impression or a press. That
   is fine while Orbit is advertising itself, and it is the first thing a network asks for.
 
-Two smaller things are owed even without a network: the Android bar is **not tappable** (the adverts
-point at web pages the app does not have, and the app is told the API's address but never the web
-client's - see `OrbitApiSettings`), and there is **no interrupting advert on the phone** at all, only
-the bar.
+One smaller thing is owed even without a network: there is **no interrupting advert on the phone** at
+all, only the bar.
+
+~~The Android bar is **not tappable**.~~ Done 2026-09-10, and the reason it was not had stopped being
+true: the app is told the API's address and never the web client's (`OrbitApiSettings`), but the
+*server* tells it the web client's, and has since public share links needed exactly that
+(`ClientFlagsDto.WebAddress`). So a press builds the page's address out of that answer and opens the
+browser - see `HouseAdLink`, which is also what says there is nowhere to go, for a deployment that has
+not set a web address and for a phone that could not reach the server to ask. It is asked at the press
+rather than when the bar is drawn: every screen carries one, and that would be a request per screen for
+something nobody may ever press.
 
 ## What real Google Calendar sync would take
 
@@ -392,6 +402,17 @@ since been closed; what is left is recorded below with the same honesty about wh
   now: `WebClientBaseUrl` on `orbit-api` holds `orbit-web`'s own address, set 2026-09-04 so a
   shared-item email carries a link. What is still open is recording it somewhere a reader of this
   repository can find, rather than having to ask Azure for it.
+- **A production environment beside the test one.** Agreed with the user on 2026-09-04: the
+  environment running today becomes *test* and keeps its
+  auto-deploy, a new resource group with a custom domain becomes *production*, and production installs
+  the same `sha-<commit>` image that ran on test, from a release queue (a `workflow_dispatch` that
+  writes the tag and the time to `deploy/production-schedule.json`, and a cron that applies it when
+  due, reusing the health gate and rollback). Waiting on three decisions before any resource is made:
+  which domain, the production Postgres SKU (B1ms proposed), and whether production starts empty.
+  **What did not have to wait is done**: `orbit-web` no longer carries the test environment's
+  `orbit-api` name in its image - `ORBIT_API_HOST` names it at startup (2026-09-10,
+  `point-nginx-at-the-api.sh`), so the second environment runs the same image with one variable set.
+  The domain is also what [Google Calendar sync](#what-real-google-calendar-sync-would-take) waits on.
 - **Manage the Azure infrastructure itself as code (Bicep or Terraform), instead of one-off `az cli`
   commands typed into Cloud Shell.** Not started. Every Azure resource this project depends on today
   - `orbit-api`/`orbit-web` Container Apps, `orbit-environment`, the container registry, the
@@ -555,6 +576,41 @@ inventory lists, the contacts tabs, the chat menus - is built and needs no schem
 
 ## Noticed while working
 
+- **Orbit.Web's pages read the machine's clock directly** - `DateTime.Today` and `DateTime.Now`, in
+  eighteen places across the pages and components, with no `TimeProvider` injected anywhere in that
+  client. It is why `DashboardTests.An_appointment_that_has_ended_counts_as_one_that_is_behind_the_reader`
+  failed for the last three hours of every day until 2026-09-10 (an event "three hours from now" is
+  tomorrow's after nine in the evening); the test was anchored to the ends of today instead, which is a
+  patch on one test rather than an answer. What it would take: registering a `TimeProvider` in
+  `Program.cs` and injecting it where a page asks what day it is - the phone has done this all along
+  (`FakeTimeProvider` in every screen test), and it is the only way a page whose answer changes at
+  midnight can be tested at all.
+
+- ~~**A response the phone cannot parse escapes the sync's own catch.**~~ Fixed the same day it was
+  found (2026-09-10): `EverythingSynchronizer.TryAsync` catches `JsonException` too, and answers it the
+  way it answers a server it could not reach - "couldn't sync", with everything still queued - rather
+  than throwing out of a method every screen calls on a timer and on resume. It reads as unreachable
+  rather than refused: nothing about a body this build cannot parse says the reader may not have what
+  they asked for.
+
+- **A create the outbox has given up on leaves a row that never syncs.** When a queued create is
+  dropped - after five answered refusals, which since 2026-09-10 includes a 4xx and not only a
+  persistent 500 (`SyncFailure.StaysInTheOutbox`) - the phone says so in its feed and deletes the queue
+  entry, but the local row stays with no `ServerId`. It reads like any other note; every later edit
+  queues an update, and an update on a row the server has never seen is `Abandoned` quietly
+  (`NoteSynchronizer.SendUpdateAsync`), so it is local-only for good with nothing on it saying so. The
+  same is true of every entity type, and was true before the 4xx change - it is only more reachable now.
+  What it would take: a repository that queues a *create* rather than an update when the row has no
+  server id, so the next edit is a second try; or a mark on the row the list can draw, with "send again"
+  under its menu. Neither is small enough to fold into the fix that made this visible.
+
+- ~~**Options still calls an inventory a "storage".**~~ Done on 2026-09-10, and it was wider than the
+  export section: eleven English strings across both clients still said storage - the task editor's
+  picker and its two refusals, the checklist's, the shared-link page's kind label, the account screen's
+  export tick-box and its two result lines, and the locked-feature message. Renamed with their Polish
+  keys in the same change, since a key renamed on one side alone falls back to English on a Polish
+  screen. The two that talk about a *browser's* local storage were left alone: that is what they mean.
+
 - **A Location entry says where in words, and cannot be drawn.** `TaskItemKind.Location` was added on
   2026-09-10 so an entry can say where without saying when, and what it carries is `TaskItem.Location` -
   a line of text, the same one every other kind has had. A point lives on `Place` instead, which is its
@@ -567,48 +623,47 @@ inventory lists, the contacts tabs, the chat menus - is built and needs no schem
   entry to a `Place` (one point, one owner, and the entry borrows it), or leaving Location as prose and
   letting the entry offer "keep this as a place" once. Needs a decision before any of it is built.
 
-- **Nobody has found out why the map's Start and Share do nothing on a phone.** Both are hidden below
-  680px as of 2026-09-09 (`.map-panel-start`, `.map-panel-share`), on a report that pressing them
-  achieves nothing there, and the page says so in one line instead. That is a cover, not a fix: the
-  code path is the same one a desktop browser runs, and every way it can fail already puts a message on
-  the screen - `RecordCurrentLocationAsync` refuses outright when `DevicePreferences.AllowLocation` is
-  off, and shows `BrowserPosition.Error` verbatim otherwise. So the likeliest causes are worth ruling
-  out in order: the Options switch never turned on for that device, a browser that refuses geolocation
-  to a self-signed certificate on `https://localhost:8443`, and a permission the phone's browser denied
-  once and now denies silently. What it needs is somebody watching the console on the actual device;
-  until then the hiding stays, and it should come off the moment the cause is known.
+- **Why the map's Start and Share do nothing on a phone: two of the three causes are ruled out.** Both
+  are hidden below 680px as of 2026-09-09 (`.map-panel-start`, `.map-panel-share`), on a report that
+  pressing them achieves nothing there, and the page says so in one line instead. That is a cover, not
+  a fix.
 
-- **The phone cannot answer whether a list is finished.** A task list can be closed with work still on
-  it since 2026-09-08, and said to be *unfinished* with every entry ticked off since 2026-09-09
-  (`TaskList.Completion`, `TaskListCompletion`, `OP_T_COMPLETION`) - the phone neither shows the box nor
-  sends the field. Nothing is lost by it: `UpdateTaskRequest.Completion` is null-means-not-provided, so
-  a save from the phone leaves whatever was answered in a browser alone - `MarkingAListFinishedTests`
-  and the field's own comment both say so. The phone does read the *result*: `IsCompleted` arrives
-  already answered, so a closed list sorts and files as finished there. This is parity, not a defect.
-  What it would take: the box on the list's own screen (ticking itself once every entry is ticked, the
-  way the web's does) and the field on the phone's update request. The phone already *names* the new
-  status - `TaskListView.Describe` says "Not finished" - but it is not among `TaskListView.Statuses`, so
-  no status chip finds one; it is reachable under "all", the same as on the web.
+  **Measured on 2026-09-10** in a browser emulating 375×812, with the hiding rule lifted from the live
+  page: the button is **not covered and not disabled** - `document.elementFromPoint` at its own centre
+  answers the button itself - a press runs the handler, and the page answers *"Orbit isn't allowed to
+  use your location. Turn it on in Options first."* 72px below it, both on screen without scrolling.
+  So neither "the press never lands" nor "the failure is silent" is what happens: the third cause on
+  the original list, **the Options switch never turned on for that device**, is what this reproduces,
+  and the page does say so. `DevicePreferences.AllowLocation` is per device and per browser, so a
+  laptop with it on says nothing about the phone.
 
-- **The invitation page treats "any other kind" as an inventory.** `ShareInvitation.AcceptAsync` and
-  `DescribeKind` both end in a `_` that means Inventory, and `SharedItemKind` has a fifth member -
-  `Location`. Nothing is broken today and this is written down rather than fixed for exactly that
-  reason: a location share passes `SharedItemLink.TheMap`, which carries no pending share id, so
-  `SharedItemNotifier.UrlFor` sends it to `/map` and it never reaches this page. What makes it worth
-  recording is what happens if that ever changes, or if a sixth kind arrives: pressing **Accept** would
-  post the share's id to the *inventory* accept endpoint, which answers "no such share", and the page
-  would say the invitation is no longer there - a wrong answer that reads like a plausible one. The page
-  already has the right branch for this ("something this version of Orbit doesn't know about"); the fix
-  whenever somebody is in there is to name Inventory explicitly and send everything else down it.
-  Noticed 2026-09-07 while reviewing what the invitation page does with each kind.
+  What is left to rule out needs the phone itself, and is one press now rather than an investigation:
+  turn **Options → Location** on there, then press Start and read the line under it. If it says the
+  location could not be read, the remaining cause is the certificate - a phone reaching
+  `https://<LAN IP>:8443` does not trust this machine's mkcert CA, proceeds past an interstitial, and
+  Chrome refuses geolocation to an origin with a certificate error. The cover comes off the moment that
+  answer is in.
 
-- **The checklist matches entries by position when it no longer has to.** `ToggleItemAsync` saves the
-  whole list back and finds the entry it changed by its index, on the grounds that "a save regenerates
-  item ids". That stopped being true when `TaskItemRequest.Id` was added - `TaskEndpoints.ToDomainItem`
-  keeps the id it is sent - and the comment saying otherwise stood for as long as it had been wrong.
-  Position still works and nothing is broken by it, so this is a tidy-up rather than a defect: matching
-  by id is what somebody in there anyway should switch it to. Found while fixing the ids private lists
-  seal (2026-09-07).
+- ~~**The phone cannot answer whether a list is finished.**~~ Done on 2026-09-10, the way this said:
+  **Completed** in the list's menu (`TaskListDetailViewModel.IsFinished`, ticking itself once every
+  entry is, recording the reader's own answer when pressed), `LocalTaskList.Completion` with a local
+  migration, and the field on every save from the phone - which `UpdateTaskRequest.Completion`'s
+  null-means-not-provided rule was holding the door open for. `TaskListView.Describe` still says "Not
+  finished" for the status it produces, and that status is still not among `TaskListView.Statuses`, so
+  no chip finds one; it is reachable under "all", the same as on the web.
+
+- ~~**The invitation page treats "any other kind" as an inventory.**~~ Fixed on 2026-09-10, the way this
+  said: `ShareInvitation.CanBeTakenUpHere` names the five kinds the page can act on and answers null for
+  anything else, so a kind with no branch of its own goes down the "something this version of Orbit
+  doesn't know about" path instead of posting a share id to the *inventory* accept endpoint and being
+  told it is no longer there. `location` is the case that used to be wrong and is covered by a test.
+
+- ~~**The checklist matches entries by position when it no longer has to.**~~ Done on 2026-09-10, and it
+  turned out to be a defect rather than the tidy-up this entry called it. `TaskItemCompletion` found the
+  entry with `IndexOf`, which compares a record by every field - so it worked until the caller held a
+  copy that was no longer equal to the stored one, which a second reader's save is enough to produce.
+  `IndexOf` then answers -1, nothing matches, and the list is saved back **with nothing ticked at all**,
+  reporting success. It matches on the id now, and by position only for an entry that has none.
 
 Written down rather than fixed on the spot, per rule 14 in `.claude/CLAUDE.md`: work that turns up
 beside a task belongs here, not in that task's diff. A defect is the exception and is fixed when found.
@@ -648,9 +703,12 @@ beside a task belongs here, not in that task's diff. A defect is the exception a
   the approve flow re-renders anything. `FloodStopPerCaller` (600 a minute) would have cut it off after
   ten seconds had it existed then, and a burst of 429s on those four paths is still how a recurrence
   would announce itself.
-- **`setup-dotnet@v4`, `setup-java@v4` and `upload-artifact@v4`** carry the same Node 20 deprecation
-  `actions/checkout` did. `dependency-submission.yml` already pins `setup-dotnet@v5`, so the bump is
-  available whenever somebody wants it.
+- ~~**`setup-dotnet@v4`, `setup-java@v4` and `upload-artifact@v4`** carry the same Node 20 deprecation
+  `actions/checkout` did.~~ Bumped on 2026-09-10 to the current major of each - `setup-dotnet@v6`,
+  `setup-java@v6`, `upload-artifact@v7` - which is the rule `checkout@v7` already followed. Every input
+  these steps pass was checked against the new major's own `action.yml` first; none of them moved.
+  **Unrun**: nothing here starts a workflow, so the first proof is the next push to `main` and the next
+  Android release.
 - ~~**`info/azure-setup.md` and `info/architecture.md` still call the subscription an Azure Free Trial**~~
   Done. `azure-setup.md` had already stopped saying it by the time this was looked at - only
   `architecture.md` still did, in the step explaining why the pipeline builds images on the runner. It
@@ -851,9 +909,9 @@ its shared controls. What that pass left, all of it now overtaken:
   read mark per conversation that survives a restart, which is a chat feature rather than a look, and
   the phone already says the smaller thing in the row's own mark: something unread points at that
   person.
-- **`ContactsPage.xaml` declares a `PresenceColor` converter it never uses.** One dead line, noticed
-  while chasing the event dot; harmless, and it is here rather than done because the Contacts screen
-  was not otherwise being touched.
+- ~~**`ContactsPage.xaml` declares a `PresenceColor` converter it never uses.**~~ Gone: the row that
+  needed it became `AvatarCircle`, which holds the converter itself, and the declaration went with the
+  markup it belonged to.
 - ~~**A card's footnote says the whole timestamp.**~~ Done: `LastChanged` gives the four answers
   `Notes.razor`'s `WhenLastChanged` gives - today, yesterday, the weekday within the week, a date past
   it - against the injected clock rather than the machine's, so a test about the wording is a test
@@ -874,19 +932,15 @@ its shared controls. What that pass left, all of it now overtaken:
 
 ## Smaller identified follow-ups
 
-- **The phone does not yet describe a product before the shelf exists, and does not ask what to build.**
-  Both halves of the 2026-09-04 change to inventory entries are web-only. On the phone, an Inventory entry
-  still opens the product's fields only on a list already measured against a storage
-  (`ShelfProductFor`, `InventoryItemEditor.ForSomethingNotOnTheShelfYet`); on a list with no storage it
-  names a thing and nothing else, so what a phone writes there is lost to the shelf the web would have
-  built from it. And "Generate inventory" on the phone still posts an empty body: it takes the list's
-  title and the default restock list rather than asking, which the server deliberately still accepts
-  (`GenerateInventoryRequest`, every field optional). Nothing is broken by either - the phone passes
-  `TaskItemDto.Product` back untouched (`TaskListSynchronizer.ToRequests`), so a description written on
-  the web survives a push from the phone - it is parity that is missing. What it would take: the entry
-  editor's inventory fields shown for an unmeasured list too, bound to the entry's own product, and a
-  sheet in front of `StockCheckPanel.GenerateInventoryAsync` asking the same six questions
-  `GenerateInventoryOverlay` asks.
+- ~~**The phone does not yet describe a product before the shelf exists, and does not ask what to build.**~~
+  Both halves done on 2026-09-10, as this said. An Inventory entry on a list with no storage behind it
+  now shows the product form bound to the entry's own `TaskItemDto.Product`
+  (`TaskItemEditor.ProductWanted`, `InventoryItemEditor.ForSomethingAListWillAskFor`), with the entry's
+  words as the name and its categories box as what the product is filed under; and "Generate inventory"
+  asks the six questions `GenerateInventoryOverlay` asks before it builds anything
+  (`GenerateInventoryForm`, unfolded in the stock-check card). Two fakes were made to answer like the
+  server on the way: `FakeTasksServer` dropped an entry's product on every save and now keeps it,
+  null-means-not-provided included.
 
 - ~~**The pin on a shared list or note stays on the browser that set it.**~~ Done on 2026-09-07, the way
   this predicted except for the DTO: a per-recipient flag on the share row
@@ -918,9 +972,18 @@ its shared controls. What that pass left, all of it now overtaken:
 
 - ~~**Only the task pages carry "come back where you came from".**~~ Done: the note, the event and the
   storage forms read `ReturnTo` too, their summaries pass it on, and the dashboard names itself so an
-  edit begun there ends there. What is still not wired is every caller that could name itself - a
-  notification opening a note, chat opening a shared thing - which each finish on their own section as
-  before. Adding one is a single `ReturnTo.Link` at the call site.
+  edit begun there ends there. **Notifications name themselves as well since 2026-09-10**: the bell
+  panel names the page it was pressed on - it is on every page, so that page is where the reader was
+  interrupted - and the notifications page names itself, since somebody working down a list of them is
+  still on that list afterwards. Fixing `ReturnTo.Link` was part of it: it assumed the path it was given
+  had no query, and a notification about a shared place carries `/map?place={id}`, so the place id would
+  have arrived as `{id}?returnTo=…` and opened the map on no pin.
+
+  **Chat opening a shared thing is the one left, and it is not a call site.** A share notice in a
+  conversation carries the *share's* id and nothing else (`NoteShareMessagePayload` and its four
+  siblings), and accepting answers `bool` - so after "Accepted - added to your account." the chat has no
+  address to offer. Giving it one means the five accept endpoints answering with the item's id, which is
+  a server change and a contract change rather than one line.
 
 - ~~**Two of the five screens that send a share notice are covered; three are not.**~~ Done, all five.
   Sharing something is two halves: the server records the share and raises a notification, and the
@@ -945,32 +1008,30 @@ its shared controls. What that pass left, all of it now overtaken:
   answering `/api/users/{id}` with a contact who has a public key. `ShareInventoryPanelTests` is the
   smallest of the five to copy.
 
-- **The phone shows links in some of what it draws, not all of it** (2026-09-09). The splitter moved to
-  `Orbit.Core.Text.LinksInText`, so both clients share one rule about what counts as an address, and
-  `LinkedLabel` is the phone's half of `TextWithLinks` - a `Label` that writes `FormattedText`, since a
-  Span is the only thing in MAUI that can carry a gesture of its own. It is drawn in **chat messages**,
-  in both a conversation and a group, and on **a task entry's appointment description**. Still plain
-  labels: every other read-only description the phone shows (a list's, a shelf's, an event's), and a
-  note's own lines - those are `Entry` boxes being written in, and a text box cannot hold a link at all.
-  What it would take: swapping the labels, one screen at a time; there is nothing left to design.
+- **The phone shows links in nearly all of what it draws** (2026-09-09, extended 2026-09-10). The
+  splitter moved to `Orbit.Core.Text.LinksInText`, so both clients share one rule about what counts as
+  an address, and `LinkedLabel` is the phone's half of `TextWithLinks` - a `Label` that writes
+  `FormattedText`, since a Span is the only thing in MAUI that can carry a gesture of its own. It is
+  drawn in **chat messages**, in both a conversation and a group, on **a task entry's appointment
+  description**, and - since 2026-09-10 - on every description the reader cannot write in: a list's and
+  a shelf's, which share `TitledDescription` (`ReadsAsWords`), and an appointment's on the event screen.
+  A box is drawn instead wherever it can be typed into, which is the whole rule: **a text box cannot
+  hold a link at all**, so this is about read-only screens rather than about labels.
 
-- **The phone has no box for an entry's description.** Every task entry can carry one now
-  (`TaskItem.Notes`, 2026-09-06) and the phone neither shows nor writes it. Nothing is lost - its push
-  says nothing about the field and the server therefore keeps what is stored, which
-  `TaskListSyncTests.A_description_written_elsewhere_survives_a_push_from_the_phone` pins down - so this
-  is parity, not a defect. What it would take: a field on `TaskItemEditor` bound to `TaskItemDto.Notes`,
-  a box on the entry's sheet in `TaskListDetailPage.xaml`, and the same rule the web follows for a
-  calendar entry, whose description is its event's.
+  What is left is a note's own lines, and they are the case that cannot be swapped: every line is a
+  field being written in, on a screen whose whole point is that it is one writing surface. An address in
+  a note is still selectable text and nothing more.
 
-- **The phone still asks twice what a shelf entry is filed under.** On the web an Inventory entry has one
-  categories box, and what it says is what the row it stands for is filed under
-  (`InventoryFields.ShowsCategories`, `TaskEditor.ProductAsked`, 2026-09-06). The phone's entry editor
-  still has its own categories field *and* shows `ShelfProductFields` with a second one directly under it
-  (`TaskListDetailPage.xaml`, `IsShelfEntry`), so the two answers can disagree and the one somebody
-  typed on the entry never reaches the shelf. Nothing is lost either way - each field still saves what it
-  has always saved - so this is parity, not a defect. What it would take: hiding the categories row
-  inside `ShelfProductFields` when it is drawn on a task entry, and writing the entry's `Categories` onto
-  `Shelf.Product` where the entry is saved.
+- ~~**The phone has no box for an entry's description.**~~ Done on 2026-09-10, as this said:
+  `TaskItemEditor.Notes`, a box on the entry's sheet under its categories, and the calendar rule - the
+  entry's description is its appointment's, written onto the event at save, and the event's own box on
+  the phone is gone. An entry never opened on the phone still passes through what the server sent.
+
+- ~~**The phone still asks twice what a shelf entry is filed under.**~~ Done on 2026-09-10, as this
+  said: `InventoryItemEditor.ShowsCategories` hides the product's row on a task entry
+  (`AskedFromATaskEntry`, set by both `TaskItemShelfProduct` factories), and the entry's `Categories`
+  are written onto a product being described when the entry is saved. A product already on the shelf
+  keeps its own, which is what Orbit.Web's `ProductAsked` does for a linked entry too.
 
 - **Done, kept here as the map of it.** Orbit has two depths for the same thing: a shallow view for
   reading and doing, and a full form for changing what it is. Every object that can have both now does,
@@ -1020,12 +1081,10 @@ its shared controls. What that pass left, all of it now overtaken:
   crossed off *while reading the list*, and the entry's page is where it is crossed off while reading
   the entry.
 
-  **The phone still forks the way the calendar used to** (`CalendarViewModel.OpenDeadline`,
-  `CalendarDeadline.IsSomewhere`): a deadline with somewhere to be opens its own screen, one without
-  opens the list. Nothing is broken by it - both screens exist and both are reachable - so it is parity
-  rather than a defect, and it is the only place left where pressing an entry can open something else.
-  What it would take: dropping the `if` in `OpenDeadline`, then `IsSomewhere` and
-  `IsSomewhereAsWellAsAtSomeTime` with it, since nothing else reads either.
+  ~~**The phone still forks the way the calendar used to**~~ (`CalendarViewModel.OpenDeadline`,
+  `CalendarDeadline.IsSomewhere`). Gone on 2026-09-10, exactly as this said: the `if` dropped, and
+  `IsSomewhere` and `IsSomewhereAsWellAsAtSomeTime` with it. Every deadline on the phone's calendar
+  opens the entry itself now, and nowhere on either client does pressing an entry open something else.
 
 
 - ~~**Reordering by hand needs a mouse.**~~ Done: each handle now carries a pair of move-up/move-down

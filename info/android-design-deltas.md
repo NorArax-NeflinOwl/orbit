@@ -79,11 +79,13 @@ to go out. Still not built, and still not invented: the note field, "Move to ano
 "Duplicate", "Delete item", and the position in the list - **nothing hands this screen the list to
 count within**, so "2 of 5" has no source.
 
-***Walked on the device on 2026-09-09***, and it reads as drawn. Getting to it is the awkward part and
-worth writing down: it opens from the calendar only for a deadline that `IsSomewhere`, which is
-`LinkedCalendarEventId is not null || Location.Length > 0` - and a deadline whose event falls on the
-same day is dropped from the list and drawn as that event instead, so a linked event cannot get you
-there. What can is **a Calendar-kind entry with an address and no event yet**, because
+***Walked on the device on 2026-09-09***, and it reads as drawn. Getting to it used to be the awkward
+part: it opened from the calendar only for a deadline that `IsSomewhere`
+(`LinkedCalendarEventId is not null || Location.Length > 0`). **Since 2026-09-10 every deadline on
+the calendar opens it** - the fork is gone, see `CalendarViewModel.OpenDeadline` - so the rest of this
+paragraph is history rather than instructions. A deadline whose event falls on the same day is still
+dropped from the list and drawn as that event instead. What used to get you there was **a
+Calendar-kind entry with an address and no event yet**, because
 `TaskItemSubject` keeps a location only for `kind == Calendar && LinkedCalendarEventId is null` - every
 other kind has it blanked on the way in, which is why typing an address on a Checklist entry looks like
 it saves and does not. That state is real (a calendar entry made offline, before its event exists) but

@@ -220,6 +220,81 @@ public sealed class NoteSynchronizerTests
     }
 
     /// <summary>
+    /// The same escape, for a create. An update the server refuses comes back as a WriteOutcome; a
+    /// create has an id to hand back and throws instead, and a 404 is not a status worth retrying - so
+    /// it left the outbox's catch altogether. The entry stayed queued with nothing counted, went to the
+    /// server on every sync, the corner said "Couldn't sync", and the pull never ran either. Found on
+    /// 2026-09-10 against an orbit-api old enough to have no POST /api/folders; the same shape for every
+    /// entity type.
+    /// </summary>
+    [Fact]
+    public async Task A_create_the_server_will_not_take_is_counted_rather_than_sent_again_forever()
+    {
+        using var context = new SyncContext();
+        await context.Notes.CreateAsync("Written for a server that is behind", SomeContent);
+        context.Server.ForcedWriteFailure = HttpStatusCode.NotFound;
+        context.Server.AddNote("Written on the web meanwhile");
+
+        var result = await context.SynchroniseAsync();
+
+        // Kept, and counted: this is an answer, not a dropped connection.
+        var queued = Assert.Single(await context.DbContext.Outbox.ToListAsync());
+        Assert.Equal(1, queued.FailedAttempts);
+        // And the run went on to receive, which the escaping exception used to prevent.
+        Assert.True(result.ReachedTheServer);
+        Assert.Contains(await context.DbContext.Notes.ToListAsync(), note => note.Title == "Written on the web meanwhile");
+
+        for (var attempt = 0; attempt < 4; attempt++)
+        {
+            await context.SynchroniseAsync();
+        }
+
+        // Five answers, and it is given up on the way a persistent 500 is - and said out loud.
+        Assert.Empty(await context.DbContext.Outbox.ToListAsync());
+        Assert.Contains(
+            await context.DbContext.Notifications.ToListAsync(),
+            notification => notification.Kind == "ChangeDropped");
+    }
+
+    /// <summary>
+    /// A server that was merely behind gets its five syncs: the create is still there to send once the
+    /// endpoint exists.
+    /// </summary>
+    [Fact]
+    public async Task A_create_refused_by_a_server_that_catches_up_is_sent_when_it_has()
+    {
+        using var context = new SyncContext();
+        await context.Notes.CreateAsync("Patient", SomeContent);
+        context.Server.ForcedWriteFailure = HttpStatusCode.NotFound;
+        await context.SynchroniseAsync();
+        await context.SynchroniseAsync();
+
+        context.Server.ForcedWriteFailure = null;
+        await context.SynchroniseAsync();
+
+        Assert.Single(context.Server.Notes, note => note.Title == "Patient");
+        Assert.Empty(await context.DbContext.Outbox.ToListAsync());
+    }
+
+    /// <summary>
+    /// The one answer that still leaves the outbox: a 401 is about the session, not the change, and it is
+    /// the one thing here the reader can act on - see SyncFailure.
+    /// </summary>
+    [Fact]
+    public async Task A_create_answered_with_an_expired_session_still_surfaces()
+    {
+        using var context = new SyncContext();
+        await context.Notes.CreateAsync("Not yet", SomeContent);
+        context.Server.ForcedWriteFailure = HttpStatusCode.Unauthorized;
+
+        var failure = await Assert.ThrowsAsync<HttpRequestException>(() => context.SynchroniseAsync());
+
+        Assert.Equal(HttpStatusCode.Unauthorized, failure.StatusCode);
+        var queued = Assert.Single(await context.DbContext.Outbox.ToListAsync());
+        Assert.Equal(0, queued.FailedAttempts);
+    }
+
+    /// <summary>
     /// And what was queued behind it goes on its way: one change the server will never accept must not
     /// take the rest of the queue with it.
     /// </summary>

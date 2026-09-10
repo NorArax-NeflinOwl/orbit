@@ -216,6 +216,34 @@ public sealed class TaskListSyncTests
         Assert.Equal("Written elsewhere", (await context.TaskLists.GetAllAsync()).Single().Title);
     }
 
+    /// <summary>
+    /// A list closed in a browser with work still on it arrives closed, and stays closed after this phone
+    /// saves it: the phone sends the answer back rather than nothing, now that it has a box for one.
+    /// </summary>
+    [Fact]
+    public async Task A_lists_finished_answer_comes_down_with_it_and_survives_a_push()
+    {
+        using var context = new TaskContext();
+        var remote = context.Server.AddTaskList("Closed early");
+        context.Server.ReplaceForTest(remote with
+        {
+            Items = SomeItems, Completion = nameof(TaskListCompletion.Finished), IsCompleted = true
+        });
+        await context.SynchroniseAsync();
+
+        var local = (await context.TaskLists.GetAllAsync()).Single();
+        Assert.Equal(nameof(TaskListCompletion.Finished), local.Completion);
+        Assert.True(local.IsCompleted);
+
+        await context.TaskLists.UpdateAsync(local.LocalId, new TaskListContent(
+            "Closed early, renamed", SomeItems, IsGroup: false, "Normal", Completion: local.Completion));
+        await context.SynchroniseAsync();
+
+        var stored = Assert.Single(context.Server.TaskLists);
+        Assert.Equal(nameof(TaskListCompletion.Finished), stored.Completion);
+        Assert.True(stored.IsCompleted);
+    }
+
     [Fact]
     public async Task A_list_deleted_elsewhere_leaves_the_phone_too()
     {

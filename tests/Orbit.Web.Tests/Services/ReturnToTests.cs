@@ -43,6 +43,18 @@ public sealed class ReturnToTests
             "/tasks/1/edit?returnTo=%2Fcalendar",
             ReturnTo.Link("/tasks/1/edit", "/calendar"));
 
+    /// <summary>
+    /// A path that already carries a query gets "&amp;" rather than a second "?". Reachable through a
+    /// notification about a shared place, whose address is "/map?place={id}" - a place is met on the map
+    /// rather than on a page of its own. With a second "?" the browser reads the place id as
+    /// "{id}?returnTo=..." and the map opens on no pin.
+    /// </summary>
+    [Fact]
+    public void A_path_that_already_has_a_query_keeps_it()
+        => Assert.Equal(
+            "/map?place=1&returnTo=%2Fnotifications",
+            ReturnTo.Link("/map?place=1", "/notifications"));
+
     /// <summary>Nothing to say means an ordinary link, not one with an empty parameter hanging off it.</summary>
     [Theory]
     [InlineData(null)]

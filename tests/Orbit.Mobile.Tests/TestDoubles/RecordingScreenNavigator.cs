@@ -44,6 +44,15 @@ internal sealed class RecordingScreenNavigator : IScreenNavigator
     /// <summary>The token out of the link that was followed - see NotificationDestination.</summary>
     public string? LastSharedLinkToken { get; private set; }
 
+    public void ShowInvitation(Orbit.Mobile.Notifications.InvitationOffer offer)
+    {
+        LastInvitation = offer;
+        _destinations.Add(nameof(ShowInvitation));
+    }
+
+    /// <summary>Which offer it was sent to - not just that it was sent to an invitation screen.</summary>
+    public Orbit.Mobile.Notifications.InvitationOffer? LastInvitation { get; private set; }
+
     public void ShowAccount() => _destinations.Add(nameof(ShowAccount));
 
     public void ShowChatKeyGate() => _destinations.Add(nameof(ShowChatKeyGate));

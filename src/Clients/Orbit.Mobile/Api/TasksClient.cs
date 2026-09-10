@@ -134,9 +134,18 @@ public sealed class TasksClient : ILockableItems
     /// Builds the shelf this list's work needs - one entry per distinct thing it calls for, each
     /// starting at nothing - and points the list at it. Null when there was nothing to build.
     /// </summary>
-    public async Task<Guid?> GenerateInventoryAsync(Guid taskListId, CancellationToken cancellationToken = default)
+    /// <param name="request">
+    /// What to call the storage and how its restock list should behave. Null asks for the defaults -
+    /// the list's own title and the list every inventory starts with - which the server accepts as a
+    /// body-less request, and which is all the phone could ask for until it had a form of its own.
+    /// </param>
+    public async Task<Guid?> GenerateInventoryAsync(
+        Guid taskListId, GenerateInventoryRequest? request = null, CancellationToken cancellationToken = default)
     {
-        using var response = await _httpClient.PostAsync($"api/tasks/{taskListId}/inventory", content: null, cancellationToken);
+        using var response = request is null
+            ? await _httpClient.PostAsync($"api/tasks/{taskListId}/inventory", content: null, cancellationToken)
+            : await _httpClient.PostAsJsonAsync($"api/tasks/{taskListId}/inventory", request, cancellationToken);
+
         return response.IsSuccessStatusCode
             ? await response.Content.ReadFromJsonAsync<Guid>(cancellationToken)
             : null;

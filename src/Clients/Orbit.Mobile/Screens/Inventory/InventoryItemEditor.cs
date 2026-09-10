@@ -2,6 +2,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using Orbit.Mobile.Localization;
 using Orbit.Mobile.Screens;
 using Orbit.Contracts.Inventories;
+using Orbit.Contracts.Tasks;
 using Orbit.Core.Tasks;
 using Orbit.Core.Inventories;
 using Orbit.Core.Notifications;
@@ -163,6 +164,61 @@ public sealed partial class InventoryItemEditor : ObservableObject
         return editor;
     }
 
+    /// <summary>
+    /// What a task entry asks for while no shelf holds it yet - the same form, kept on the entry until
+    /// "Generate inventory" turns it into a row. <paramref name="product"/> is what the entry already
+    /// asks for, or null for one nobody has described.
+    ///
+    /// The same defaults as a product being put on a shelf, and for the same reason: two ways of saying
+    /// "I want one of these" should not start from different amounts.
+    /// </summary>
+    public static InventoryItemEditor ForSomethingAListWillAskFor(
+        TaskItemProductDto? product, Translations translations)
+        => ForSomethingNotOnTheShelfYet(translations)
+            .Describing(product)
+            .AskedFromATaskEntry();
+
+    /// <summary>Fills the form in from what the entry already asks for, leaving the defaults where it says nothing.</summary>
+    private InventoryItemEditor Describing(TaskItemProductDto? product)
+    {
+        if (product is null)
+        {
+            return this;
+        }
+
+        ProductType = product.ProductType;
+        Categories = CategoryText.Join(product.AllCategories);
+        Quantity = product.Quantity.ToString(System.Globalization.CultureInfo.InvariantCulture);
+        MinimumQuantity = product.MinimumQuantity?.ToString(System.Globalization.CultureInfo.InvariantCulture) ?? string.Empty;
+        // Through the picker, which is what sets the unit itself - see ChosenUnit.
+        ChosenUnit = InventoryUnitChoice.For(Units, product.Unit);
+        // The date is not stored: it is an amount and a unit, as the two boxes ask it - see ExpiryDate,
+        // which is worked out from them, and Build, which reads a stored date back the same way.
+        var expiry = ExpiryPeriod.For(product.ExpiryDate, DateTime.Today);
+        ExpiresIn = expiry.Amount.ToString(System.Globalization.CultureInfo.InvariantCulture);
+        ChosenExpiryUnit = ExpiryUnitChoice.For(ExpiryUnits, expiry.Unit);
+        ExpiryNotificationChannel = product.ExpiryNotificationChannel;
+        IsCheckedRegularly = product.IsCheckedRegularly;
+        return this;
+    }
+
+    /// <summary>
+    /// What this form asks for, as an entry carries it - see TaskItemProductDto. The same fields a
+    /// shelf row is kept in, because that is what it becomes: an entry describing something and a row
+    /// already on a shelf are the same questions asked at different moments. Orbit.Web's own form maps
+    /// it the same way (InventoryItemFormModel.ToTaskItemProduct).
+    /// </summary>
+    public TaskItemProductDto ToTaskItemProduct()
+        => new(
+            ProductType.Trim(),
+            CategoryText.Split(Categories),
+            ParseQuantity() ?? 0,
+            ParseMinimum(),
+            Unit,
+            ExpiryDate?.ToUniversalTime(),
+            ExpiryNotificationChannel,
+            IsCheckedRegularly);
+
     public static InventoryItemEditor For(
         InventoryItemRequest item, Translations translations, NameSuggestions? suggestions = null)
     {
@@ -226,6 +282,25 @@ public sealed partial class InventoryItemEditor : ObservableObject
     /// describing, where the entry's own words are the name - see TaskItemShelfProduct.
     /// </summary>
     public bool ShowsName { get; private set; } = true;
+
+    /// <summary>
+    /// Whether the form asks what the product is filed under. It does everywhere but on a task entry,
+    /// which has a categories box of its own, and two boxes for one answer can disagree - the one
+    /// somebody typed on the entry then never reaching the shelf. Orbit.Web's editor hides the same
+    /// row (`InventoryFields.ShowsCategories`); see <see cref="AskedFromATaskEntry"/>.
+    /// </summary>
+    public bool ShowsCategories { get; private set; } = true;
+
+    /// <summary>
+    /// The form as a task entry opens it: the entry's own categories box stands in for this one, and
+    /// what it says is written onto a product being described here when the entry is saved - see
+    /// TaskListDetailViewModel.SaveItemAsync, which draws the line where Orbit.Web's ProductAsked does.
+    /// </summary>
+    public InventoryItemEditor AskedFromATaskEntry()
+    {
+        ShowsCategories = false;
+        return this;
+    }
 
     public InventoryItemRequest ToDto()
         => new(

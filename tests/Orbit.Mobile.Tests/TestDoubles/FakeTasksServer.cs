@@ -36,6 +36,9 @@ internal sealed class FakeTasksServer : HttpMessageHandler
     /// <summary>What generating an inventory hands back, or null when there was nothing to build.</summary>
     public Guid? GeneratedInventoryId { get; set; } = Guid.NewGuid();
 
+    /// <summary>What the last "generate an inventory" asked for, or null when it asked for the defaults.</summary>
+    public GenerateInventoryRequest? GenerationAsked { get; private set; }
+
     public int RaisedShortfallCount { get; set; }
 
     /// <summary>How many products bringing the whole inventory up to its minimum moved.</summary>
@@ -139,6 +142,13 @@ internal sealed class FakeTasksServer : HttpMessageHandler
         // api/tasks/{id}/inventory, POST: build a shelf out of what the list calls for.
         if (path.EndsWith("/inventory", StringComparison.Ordinal) && request.Method == HttpMethod.Post)
         {
+            // What was asked for, kept so a test can check the questions the form asked actually
+            // travelled. A body-less request is the defaults, which is what the endpoint accepts and
+            // what a client with no form of its own sends.
+            GenerationAsked = request.Content is null
+                ? null
+                : await ReadAsync<GenerateInventoryRequest>(request, cancellationToken);
+
             return GeneratedInventoryId is { } generated
                 ? Json(generated)
                 : new HttpResponseMessage(HttpStatusCode.NotFound);
@@ -283,11 +293,25 @@ internal sealed class FakeTasksServer : HttpMessageHandler
             Description = body.IsPrivate
                 ? string.Empty
                 : body.Description ?? existing.Description,
+            // Null keeps what was stored, as the real endpoint keeps it - a fake that answered
+            // "FromTheEntries" to a client that said nothing would quietly reopen every list the
+            // browser had closed. What the answer *means* is worked out below, the way TaskList does.
+            Completion = body.Completion ?? existing.Completion,
             UpdatedAtUtc = _timeProvider.GetUtcNow()
         };
+        _taskLists[id] = _taskLists[id] with { IsCompleted = IsFinished(_taskLists[id]) };
 
         return new HttpResponseMessage(HttpStatusCode.NoContent);
     }
+
+    /// <summary>The three answers Orbit.Core.Tasks.TaskList.IsCompleted gives, kept here so a pull reads what a save meant.</summary>
+    private static bool IsFinished(TaskDto taskList)
+        => taskList.Completion switch
+        {
+            nameof(TaskListCompletion.Finished) => true,
+            nameof(TaskListCompletion.Unfinished) => false,
+            _ => taskList.Items.Count > 0 && taskList.Items.All(item => item.IsCompleted || item.IsFailed)
+        };
 
     private HttpResponseMessage Delete(string path)
     {
@@ -330,7 +354,17 @@ internal sealed class FakeTasksServer : HttpMessageHandler
             // Answered as sent. A fake that dropped them would let a client that never sends them pass,
             // and the reader would find their entries unfiled the next time the list was pulled.
             item.AllCategories,
-            Product: null,
+            // Kept for an Inventory entry that names no shelf row - the row is the answer when it does,
+            // and every other kind carries none: TaskItem's own rule (see Product and KeepProductOf).
+            // Null means "not provided" and keeps what is stored, the way the notes below do; a fake
+            // that answered null outright made a client which sends a product look like one that does
+            // not, since the pull wrote the null straight back over it.
+            Product: item.Kind == nameof(TaskItemKind.Inventory) && item.LinkedInventoryItemId is null
+                ? item.Product
+                    ?? (item.Id is { } askedBy && storedById.TryGetValue(askedBy, out var asking)
+                        ? asking.Product
+                        : null)
+                : null,
             // Null means "nothing to say about it", and the real endpoint then keeps what is stored. A
             // fake that wrote the null through would let a client that erases a description on every
             // push look correct here - see fakes must refuse what the server refuses.

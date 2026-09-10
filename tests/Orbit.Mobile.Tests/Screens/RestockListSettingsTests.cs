@@ -45,6 +45,34 @@ public sealed class RestockListSettingsTests
         Assert.NotEqual(whenEverything, panel.RuleDescription);
     }
 
+    /// <summary>
+    /// The four answers this panel does not draw survive a save from it. They are not nullable - every
+    /// one has a real default, so a client that has not learned about one cannot switch it off by
+    /// omission (see RestockListSettingsDto) - which meant a fresh DTO of the two fields the phone shows
+    /// switched a list somebody had turned off back on, and put its channel, its priority and what it
+    /// asks about back to the defaults, with nothing on screen saying so.
+    /// </summary>
+    [Fact]
+    public async Task Saving_from_the_phone_keeps_what_a_browser_set_and_the_phone_never_shows()
+    {
+        using var context = new PanelContext();
+        context.Server.RestockSettings = new RestockListSettingsDto(
+            OnlyLinkedWithDueDate: false, new TimeOnly(9, 0), IsEnabled: false, RemindDaily: false,
+            ListPriority: "High", OnlyCheckedRegularly: true, ReminderChannel: "Email");
+        var panel = await context.OpenAsync(context.InventoryId);
+
+        panel.RefreshTime = new TimeSpan(6, 15, 0);
+        await panel.SaveCommand.ExecuteAsync(null);
+
+        var saved = Assert.IsType<RestockListSettingsDto>(context.Server.RestockSettings);
+        Assert.Equal(new TimeOnly(6, 15), saved.RefreshTimeOfDay);
+        Assert.False(saved.IsEnabled);
+        Assert.False(saved.RemindDaily);
+        Assert.Equal("High", saved.ListPriority);
+        Assert.True(saved.OnlyCheckedRegularly);
+        Assert.Equal("Email", saved.ReminderChannel);
+    }
+
     [Fact]
     public async Task Saving_sends_the_settings_and_says_what_that_moved()
     {

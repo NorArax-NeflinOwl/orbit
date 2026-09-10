@@ -9,17 +9,12 @@ namespace Orbit.Mobile.Screens.Calendar;
 /// thing happening on a day as an appointment is, and the phone's calendar showed only the appointments
 /// - so a week with three things due looked empty. Orbit.Web's calendar has shown both all along.
 /// </summary>
-/// <param name="TaskListLocalId">Which list this sits on, since a deadline is ticked off on its list.</param>
-/// <param name="ItemId">Which entry it is, for the entries that open on their own - see <see cref="IsSomewhere"/>.</param>
+/// <param name="TaskListLocalId">Which list this sits on, which is what the entry's own screen is opened by.</param>
+/// <param name="ItemId">Which entry it is - a press opens the entry itself, see CalendarViewModel.OpenDeadline.</param>
 /// <param name="When">Already in the reader's calendar, so the row itself needs no dictionary.</param>
-/// <param name="IsSomewhere">
-/// Whether this is somewhere as well as at some time. It changes what opening it leads to: somewhere to
-/// get to opens as its own summary, with a map, and everything else opens as the list to tick it off on.
-/// The same rule Orbit.Web applies - see its DueTaskDto.HasPlace.
-/// </param>
 public sealed record CalendarDeadline(
     Guid TaskListLocalId, Guid ItemId, string ListTitle, string Description, DateTime DueLocalDate, string When,
-    bool IsCompleted, bool IsSomewhere)
+    bool IsCompleted)
 {
     /// <summary>How it reads on the calendar: the list it is on, then what it says.</summary>
     public string Label => ListTitle.Length == 0 ? Description : $"{ListTitle}: {Description}";
@@ -64,7 +59,7 @@ public sealed record CalendarDeadline(
                     // otherwise keep the deadlines it was closed to be rid of. The same rule Orbit.Web
                     // applies - see its Calendar.LoadDueTasksAsync.
                     // Finished with either way: a deadline somebody gave up on has stopped being owed.
-                    item.IsCompleted || item.IsFailed || taskList.IsCompleted, IsSomewhereAsWellAsAtSomeTime(item))
+                    item.IsCompleted || item.IsFailed || taskList.IsCompleted)
                 {
                     Day = item.DueDateUtc!.Value.ToLocalTime().ToString("ddd d", translations.DisplayCulture),
                     Time = item.DueDateUtc!.Value.ToLocalTime().ToString("t", translations.DisplayCulture)
@@ -81,10 +76,6 @@ public sealed record CalendarDeadline(
     /// column that says when things happen would be half empty without it.
     /// </summary>
     public string Time { get; init; } = string.Empty;
-
-    /// <summary>Tied to an event, or carrying an address of its own - the rule Orbit.Web's Calendar applies.</summary>
-    private static bool IsSomewhereAsWellAsAtSomeTime(TaskItemDto item)
-        => item.LinkedCalendarEventId is not null || item.Location.Length > 0;
 
     private static bool IsAlreadyDrawnAsItsEvent(
         TaskItemDto item, IReadOnlyDictionary<Guid, HashSet<DateTime>> daysTheirEventIsOn)

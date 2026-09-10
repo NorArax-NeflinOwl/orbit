@@ -1208,6 +1208,12 @@ public sealed class DashboardTests : OrbitTestContext
     /// <summary>
     /// An appointment carries no tick of its own, so "done" is the clock's answer - one that has ended
     /// is one nobody has to get to any more.
+    ///
+    /// Both appointments are anchored to the ends of today rather than to "three hours either side of
+    /// now", which is what this used to say: the page reads the machine's own clock (DateTime.Today,
+    /// DateTime.Now - it takes no TimeProvider), so after nine in the evening the later one fell on
+    /// tomorrow and the count read 1/1. A test that fails for the last three hours of every day is a
+    /// broken build somebody has to be told to ignore.
     /// </summary>
     [Fact]
     public void An_appointment_that_has_ended_counts_as_one_that_is_behind_the_reader()
@@ -1215,8 +1221,10 @@ public sealed class DashboardTests : OrbitTestContext
         RegisterChatApiClient([]);
         RegisterEmptyNotesApiClient();
         RegisterCalendarApiClient([
-            Event("Standup", DateTimeOffset.Now.AddHours(-3)),
-            Event("Retro", DateTimeOffset.Now.AddHours(3))]);
+            // Started and ended at the very top of today, so it is behind the reader at every hour.
+            Event("Standup", new DateTimeOffset(DateTime.Today), lengthHours: 0),
+            // Starts today and ends as today does, so it is still ahead at every hour.
+            Event("Retro", new DateTimeOffset(DateTime.Today.AddHours(23)))]);
         RegisterTasksApiClient([]);
 
         var cut = RenderComponent<Dashboard>();

@@ -293,9 +293,12 @@ than none ever again.
 Which advert a visit shows is picked once, from a number the layout keeps (`HouseAds.ForSlot`), so it
 cannot change under the reader's eye as pages re-render. The Android bar shows only adverts worth
 showing inside the app (`HouseAd.ShowsOnAPhone`) - "get Orbit on your phone", read on a phone that
-already has it, is the one advert that makes its reader trust the rest of them less - and it is not
-tappable: the adverts point at pages the app does not have, and the app is told the API's address but
-never the web client's.
+already has it, is the one advert that makes its reader trust the rest of them less. Pressing it opens
+the page it names in the browser: the adverts point at pages the app does not have - the docs, the
+security page - so the address is built out of the web client's, which the server tells the phone
+(`ClientFlagsDto.WebAddress`, the same answer public share links are built from). A deployment that has
+not said where its web client is, and a phone that cannot reach the server to ask, both leave the bar
+something to read rather than press - see `HouseAdLink`.
 
 ## Folders
 
@@ -430,7 +433,10 @@ folders are pushed ahead of the notes and lists so that resolves on the same pas
 kind of queued change and its own endpoint for the reason the server keeps it off the save: an update
 carries the whole note, so a client that had never heard of folders would empty it every time somebody
 corrected a line. Filing a note is offered under the note's own name once it is open, not from the list
-- the phone's lists gave up their per-row menus for exactly that.
+- the phone's lists gave up their per-row menus for exactly that. A folder is **renamed** where it was
+named (2026-09-10): "Rename folder" in the same menu opens the same row on the folder's present name,
+with the button reading Rename rather than Add (`NotesViewModel.FolderBeingRenamed`), because the app
+has no text prompt of its own and Android's would sit badly beside Orbit's panel.
 
 Deciding the built-in ones rather than storing them is what let folders arrive with **no migration of
 existing rows and nothing to repair**: every note and list that existed before them was already in the
@@ -516,6 +522,12 @@ that. Pressing it records an answer of the reader's own instead:
   neither of the two true things about it. With work still left the status is whatever the work says;
   Incomplete is only ever about the gap between the entries and the list.
 
+The phone asks the same question the same way since 2026-09-10: **Completed** in the list's own menu,
+ticked on its own once every entry is and recording the reader's own answer when pressed
+(`LocalTaskList.Completion`, `TaskListDetailViewModel.IsFinished`). The answer travels with every save
+from the phone, which is what `UpdateTaskRequest.Completion`'s null-means-not-provided rule was holding
+the door open for; a phone built before this still sends nothing and still changes nothing.
+
 **What a list is, rather than what is on it, lives in the editor's own menu** (2026-09-10): who may
 read it, whether it is drawn as a group, whether it is finished, which shelf it is measured against,
 where it is filed and how much it matters. They sat under the entries as "About this list", which is a
@@ -558,7 +570,10 @@ is how a folder for recipes ends up between Public and Private on the page someb
 on their plate. It hides the tab there and nothing else - the folder is still on its own page with
 everything in it - and it is kept on the device, beside the cards that are put away the same way, since
 it says nothing about what the folders hold. A tab that goes while it is open falls back to Public, so a
-page can never be filtered to a folder nobody can see.
+page can never be filtered to a folder nobody can see. **The phone offers it in the same place since
+2026-09-10** - "Hide on the dashboard" in the folder menu of the page the folder was made on, marked
+while it is hidden, kept in the device preferences beside which folder each screen was left under
+(`IChosenFolderStore.ReadHiddenOnTheDashboard`) - and falls back the same way.
 
 **A folder somebody made is none of the three** and holds whatever they put in it, private things
 included: filing something is not the same decision as sealing it. Only these are rows
@@ -2206,7 +2221,10 @@ showing it, so a save cannot write a blank over it.
 
 A request that says nothing about it leaves what is stored alone (`UpdateTaskListCommand.EntriesKeepingTheirNotes`)
 — the third field to follow that rule, after the categories and the product, and for the third time the
-same reason: the phone has no box for it yet and must not erase what was typed on the web.
+same reason: a phone built before it had a box for this must not erase what was typed on the web. Since
+2026-09-10 the phone has the box (`TaskItemEditor.Notes`, on the entry's sheet under its categories),
+follows the same calendar rule - the event's form on the phone lost its own description box the same
+day - and sends what it says, an emptied box included.
 
 **An entry describes a product whether or not a shelf exists yet.** On the web, an Inventory entry opens
 the same fields the inventory editor uses (`InventoryFields`) on any list: on one measured against a
@@ -3085,9 +3103,18 @@ since the list may not exist yet):
 
 All of them are saved by the inventory editor's own Save, alongside everything else on that form. The
 same settings are asked for once more where a storage is generated from a task list, since that is the
-moment they are first decided - see "Can this list be done?" above. They used
+moment they are first decided - see "Can this list be done?" above; **the phone asks them there too**
+since 2026-09-10 (`GenerateInventoryForm`, in the stock-check card), where generating one used to take
+the list's name and the defaults with no questions at all. They used
 to have a "Save settings" and a "Refresh" of their own, which is what made pressing the page's Save leave
 a moved switch behind.
+
+**The phone draws two of them - what the list asks about, and when it comes round - and carries the rest
+back untouched** (`RestockListSettingsPanel`, fixed 2026-09-10). It used to send a fresh answer of just
+those two, and every other field here has a real default rather than null - deliberately, so a client
+that has not learned about one cannot switch it off by omission - so a save from the phone switched a
+list somebody had turned off back on and reset its channel, its priority and what it asks about, with
+nothing on either screen saying so.
 
 ## Calendar event reminders
 
@@ -3318,10 +3345,21 @@ The last covers a withdrawn offer and one that was never this reader's, which th
 does not tell apart - answering differently would say whether a share id exists.
 
 The **sharer's id is in the path** as well as the share's. The page names them without a second lookup,
-and the phone - which reads a closed set of notification paths and has no invitation screen - takes that
-last segment and opens the conversation, which is where its own Accept sits and where this notification
-landed before. Claiming a **public link** is the exception on both counts: the grant is immediate, so
-there is nothing to accept and its notification opens the thing itself.
+and the phone names them without one either. Claiming a **public link** is the exception on both counts:
+the grant is immediate, so there is nothing to accept and its notification opens the thing itself.
+
+**The phone has the same screen since 2026-09-10** (`InvitationViewModel`, `InvitationPage`). Until then
+it read the closed set of notification paths, took the last segment - who offered it - and opened the
+conversation, where the offer's own chat message sits. That is enough only while the message can be
+read, and the case it cannot is exactly what an invitation screen is for: a message sealed to a key this
+device does not hold, a conversation whose history was never pulled down, a sharing screen whose chat
+half failed. The share row is on the server whatever became of the message, so the phone reads the offer
+(`ShareOfferClient`, the same `GET /api/shares/{kind}/{shareId}`) and takes it up through the same one
+place that knows which endpoint each kind is accepted at (`SharedItemAcceptance`). Two differences from
+the browser, both because the phone stores things under **its own** ids: what is accepted appears when
+the section next syncs rather than immediately, so "open where it landed" is the section rather than the
+thing. A **shared position** and a kind newer than the build still open the conversation, which is the
+old behaviour kept for the cases with no offer to show - nothing accepts a position.
 
 Inviting a guest to a **calendar entry on a task list** sent only the first half until 2026-09-06, so the
 invitation arrived, said somebody had shared an event, and led to a conversation with nothing in it and
@@ -3378,8 +3416,8 @@ random, which is worse than saying less.
 **The storage list says it too.** `/inventory` marks the card of the storage a warning is about
 (`Inventories.HasNewsAbout`). That warning named only the section until 2026-09-07 - so every page that
 read it could say something was about to go off and none of them could say where - and it names the
-storage now (`InventoryExpiryPushContent`). The phone reads the same path and still opens its list of
-storages, which is where it landed before: it opens one by its own local id, which a server id is not
+inventory now (`InventoryExpiryPushContent`). The phone reads the same path and still opens its list of
+inventories, which is where it landed before: it opens one by its own local id, which a server id is not
 (`NotificationDestination`, `NotificationOpener`).
 
 **The calendar's own list says it too.** Every card on `/calendar` - appointments and deadlines alike -
