@@ -625,7 +625,7 @@ else
                 @if (!IsNewTaskList)
                 {
                     <div class="field">
-                        <label for="taskListInventorySelect">@T["Storage this list is measured against"]<FieldHint>@T["An inventory entry then describes a product to put on that shelf."]</FieldHint></label>
+                        <label for="taskListInventorySelect">@T["Inventory this list is measured against"]<FieldHint>@T["An inventory entry then describes a product to put on that shelf."]</FieldHint></label>
                         <select id="taskListInventorySelect" value="@(_linkedInventoryId?.ToString() ?? string.Empty)"
                                 disabled="@_isWorkingOnInventory" @onchange="OnInventoryChangedAsync">
                             <option value="">@T["Not measured against an inventory"]</option>
@@ -683,7 +683,7 @@ else
                     {
                         <button type="button" class="avatar-dropdown-item"
                                 disabled="@(_isWorkingOnInventory || _linkedInventoryId is not null)"
-                                title="@(_linkedInventoryId is null ? null : T["This list already has a storage."])"
+                                title="@(_linkedInventoryId is null ? null : T["This list already has an inventory."])"
                                 @onclick="OpenTheGenerateFormFromTheMenu">
                             @T["Generate inventory…"]
                         </button>
@@ -1422,7 +1422,7 @@ else
                 // The picker leaves out what is already spoken for, so this is a shelf that was taken
                 // between the page loading and the choice being made. Said out loud rather than left as
                 // a select that snaps back for no visible reason.
-                _inventoryMessage = T["That storage is already measured against another list."];
+                _inventoryMessage = T["That inventory is already measured against another list."];
                 return;
             }
 

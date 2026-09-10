@@ -35,5 +35,19 @@ public sealed class PreferencesChosenFolderStore : IChosenFolderStore
 			Key(page),
 			chosen.BuiltIn is { } builtIn ? builtIn.ToString() : chosen.FolderId?.ToString());
 
+	/// <summary>Ids, comma-separated - the shape <see cref="PreferencesDashboardPinStore"/> keeps the cards in. A value that is not an id is dropped rather than thrown at.</summary>
+	public IReadOnlySet<Guid> ReadHiddenOnTheDashboard()
+		=> (_preferences.Get<string?>(HiddenKey, null) ?? string.Empty)
+			.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+			.Select(value => Guid.TryParse(value, out var id) ? id : (Guid?)null)
+			.Where(id => id is not null)
+			.Select(id => id!.Value)
+			.ToHashSet();
+
+	public void WriteHiddenOnTheDashboard(IReadOnlySet<Guid> hidden)
+		=> _preferences.Set(HiddenKey, string.Join(',', hidden));
+
+	private const string HiddenKey = "orbit.dashboard.hiddenFolders";
+
 	private static string Key(FolderPage page) => $"orbit.list.{page}.folder";
 }

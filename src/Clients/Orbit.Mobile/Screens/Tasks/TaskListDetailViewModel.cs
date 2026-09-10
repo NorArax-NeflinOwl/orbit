@@ -219,6 +219,23 @@ public sealed partial class TaskListDetailViewModel : ObservableObject
     /// </summary>
     private string _priority = nameof(Orbit.Core.Abstractions.ItemPriority.Normal);
 
+    /// <summary>
+    /// The reader's own answer about whether the list is finished, by name - see
+    /// LocalTaskList.Completion. Sent with every save, so a save from this screen never quietly reopens
+    /// a list somebody closed in a browser.
+    /// </summary>
+    private string _completion = nameof(Orbit.Core.Tasks.TaskListCompletion.FromTheEntries);
+
+    /// <summary>
+    /// Whether the list is drawn as finished - the Completed entry in its menu. Ticked by the reader, or
+    /// on its own once every entry is, which is the same box Orbit.Web's editor draws with the same three
+    /// answers behind it (see Orbit.Core.Tasks.TaskListCompletion). Pressing it always records an answer
+    /// of the reader's own, never "the entries decide": unticking a box that only the entries had ticked
+    /// has to mean the list is not done even though its work is, which reads as "Not finished".
+    /// </summary>
+    [ObservableProperty]
+    private bool _isFinished;
+
     /// <summary>"Can this be done?" - see StockCheckPanel. Only a group list is asked.</summary>
     public StockCheckPanel StockCheck { get; }
 
@@ -739,6 +756,11 @@ public sealed partial class TaskListDetailViewModel : ObservableObject
         string? saidAboutTheAppointment = null;
         if (edited.Kind == nameof(TaskItemKind.Calendar))
         {
+            // The entry's own description is the appointment's: one box asks for it, on the entry, and
+            // the event's form leaves its copy out. Written here rather than kept in step as the box is
+            // typed in, so the answer on screen is the answer that is sent whatever order things happen
+            // in - where Orbit.Web's EventDetailsFor draws the same line.
+            editor.Event.Description = edited.AllNotes;
             var appointment = await _entryAppointment.SaveAsync(editor, edited, _localId, cancellationToken);
 
             // Nothing made the appointment, so the entry must not be saved pointing at one.
@@ -764,6 +786,10 @@ public sealed partial class TaskListDetailViewModel : ObservableObject
             // this is where the two are put together. Taken from what is being saved rather than from
             // what was opened, so renaming the entry in the same sitting names the product.
             shelf.Product.Name = edited.Description;
+            // And the entry's categories are the product's, because there is only one box for them
+            // now - see InventoryItemEditor.ShowsCategories. A product already on the shelf keeps its
+            // own, as it does on Orbit.Web (ProductAsked answers null for a linked entry).
+            shelf.Product.Categories = editor.Categories;
         }
 
         BeingEdited = null;
@@ -1037,7 +1063,7 @@ public sealed partial class TaskListDetailViewModel : ObservableObject
         try
         {
             outcome = await _taskLists.UpdateAsync(
-                _localId, new TaskListContent(Title, items, IsGroup, _priority, IsPrivate, Description),
+                _localId, new TaskListContent(Title, items, IsGroup, _priority, IsPrivate, Description, _completion),
                 cancellationToken);
         }
         catch (EncryptionKeyLockedException)
@@ -1121,6 +1147,10 @@ public sealed partial class TaskListDetailViewModel : ObservableObject
         IsGroup = taskList.IsGroup;
         IsPrivate = taskList.IsPrivate;
         ChosenPriority = PriorityChoice.For(taskList.Priority, _translations);
+        _completion = taskList.Completion;
+        // The row's answer rather than one worked out here again: the store settles it on every save
+        // and the server on every pull, so the box and the row agree by construction.
+        IsFinished = taskList.IsCompleted;
         _isShowingWhatIsStored = false;
         await ShowWhereItCanGoAsync(cancellationToken);
         await ShowWhatItCanBeTiedToAsync(cancellationToken);
@@ -1266,6 +1296,23 @@ public sealed partial class TaskListDetailViewModel : ObservableObject
         {
             SaveListCommand.Execute(null);
         }
+    }
+
+    /// <summary>
+    /// A press on the box, as opposed to the screen filling itself in: always the reader's own answer,
+    /// for the reason <see cref="IsFinished"/> gives.
+    /// </summary>
+    partial void OnIsFinishedChanged(bool value)
+    {
+        if (_isShowingWhatIsStored)
+        {
+            return;
+        }
+
+        _completion = value
+            ? nameof(Orbit.Core.Tasks.TaskListCompletion.Finished)
+            : nameof(Orbit.Core.Tasks.TaskListCompletion.Unfinished);
+        SaveListCommand.Execute(null);
     }
 
     /// <inheritdoc cref="OnIsGroupChanged"/>

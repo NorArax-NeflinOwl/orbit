@@ -78,11 +78,16 @@
             : [];
     }
 
+    /// <summary>
+    /// Opens what a row names, saying this page is where to come back to - somebody working through a
+    /// list of notifications is still on that list after answering one of them. See ReturnTo, and
+    /// MainLayout.OpenNotificationEntry, which does the same for the bell panel.
+    /// </summary>
     private void OpenEntry(NotificationEntryDto entry)
     {
         if (entry.Url is not null)
         {
-            NavigationManager.NavigateTo(entry.Url);
+            NavigationManager.NavigateTo(ReturnTo.Link(entry.Url, "/notifications"));
         }
     }
 

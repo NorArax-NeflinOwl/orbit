@@ -22,7 +22,10 @@
              suggestions exist for: the same thing gets typed twenty ways onto one shelf. -->
         <controls:NameSuggestionChips BindingContext="{Binding Suggestions}" IsVisible="{Binding ShowsName}" />
         <Entry Placeholder="{controls:Translate 'Product type'}" Text="{Binding ProductType}" />
-        <Entry Placeholder="{controls:Translate 'Categories, separated by commas'}" Text="{Binding Categories}" />
+        <!-- Left out on a task entry as well, which has a categories box of its own that stands for this
+             one - see InventoryItemEditor.ShowsCategories. -->
+        <Entry Placeholder="{controls:Translate 'Categories, separated by commas'}" Text="{Binding Categories}"
+               IsVisible="{Binding ShowsCategories}" />
 
         <!-- The unit sits beside the numbers it qualifies rather than below with the rest of the
              settings, for the reason Orbit.Web's editor gives: "2" and "2 kg" are different

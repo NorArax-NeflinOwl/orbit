@@ -57,7 +57,7 @@
                        Text="{Binding NewFolderName}"
                        ReturnType="Done" ReturnCommand="{Binding MakeFolderCommand}"
                        ReturnCommandParameter="{Binding NewFolderName}" />
-                <Button Grid.Column="1" Text="{controls:Translate 'Add'}" Style="{StaticResource PrimaryButton}"
+                <Button Grid.Column="1" Text="{Binding FolderRowAction}" Style="{StaticResource PrimaryButton}"
                         Command="{Binding MakeFolderCommand}"
                         CommandParameter="{Binding NewFolderName}" />
             </Grid>

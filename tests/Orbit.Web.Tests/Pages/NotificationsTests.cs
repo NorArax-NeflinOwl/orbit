@@ -1,6 +1,7 @@
 using System.Net;
 using System.Net.Http.Json;
 using Bunit;
+using Microsoft.AspNetCore.Components;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -76,6 +77,43 @@ public sealed class NotificationsTests : OrbitTestContext
         Assert.Contains("last 1 day,", cut.Markup);
     }
 
+    /// <summary>
+    /// Somebody working through a list of notifications is still on that list after answering one of
+    /// them, so the page names itself as the way back - see ReturnTo. Until 2026-09-10 an entry opened
+    /// here finished on whichever section the thing belongs to, and the rest of the list had to be found
+    /// again.
+    /// </summary>
+    [Fact]
+    public void Opening_an_entry_says_to_come_back_to_this_page()
+    {
+        RegisterApiClients([Entry("A task is overdue")]);
+
+        var cut = RenderComponent<Web.Pages.Notifications>();
+        cut.Find(".notifications-panel-item-link").Click();
+
+        Assert.EndsWith(
+            "/tasks/1?returnTo=%2Fnotifications",
+            Services.GetRequiredService<NavigationManager>().Uri);
+    }
+
+    /// <summary>
+    /// A shared place is met on the map rather than on a page of its own, so its address already carries
+    /// a query - and a second "?" would have made the place id read as "{id}?returnTo=..." and opened
+    /// the map on no pin.
+    /// </summary>
+    [Fact]
+    public void An_entry_whose_address_already_has_a_query_keeps_it()
+    {
+        RegisterApiClients([Entry("A place was shared with you", url: "/map?place=7")]);
+
+        var cut = RenderComponent<Web.Pages.Notifications>();
+        cut.Find(".notifications-panel-item-link").Click();
+
+        Assert.EndsWith(
+            "/map?place=7&returnTo=%2Fnotifications",
+            Services.GetRequiredService<NavigationManager>().Uri);
+    }
+
     private void RegisterApiClients(IReadOnlyList<NotificationEntryDto> entries, int retentionDays = 3)
     {
         var handler = new StubHttpMessageHandler(request =>
@@ -114,8 +152,8 @@ public sealed class NotificationsTests : OrbitTestContext
         Services.AddSingleton(new ClientExceptionLog(new StubJSRuntime(), NullLogger<ClientExceptionLog>.Instance));
     }
 
-    private static NotificationEntryDto Entry(string title, bool isDismissed = false)
+    private static NotificationEntryDto Entry(string title, bool isDismissed = false, string url = "/tasks/1")
         => new(
-            Guid.NewGuid(), "PushReminder", title, "Body", "/tasks/1", DateTimeOffset.UtcNow,
+            Guid.NewGuid(), "PushReminder", title, "Body", url, DateTimeOffset.UtcNow,
             IsRead: isDismissed, IsDismissed: isDismissed);
 }

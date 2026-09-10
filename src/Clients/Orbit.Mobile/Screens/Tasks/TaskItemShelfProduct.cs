@@ -25,7 +25,8 @@ public sealed record TaskItemShelfProduct(
         Guid inventoryLocalId, string inventoryName, InventoryItemRequest product, Translations translations)
         // No name suggestions here, and Orbit.Web offers none on this form either: the box is a
         // correction to a product that already exists, not somewhere a new name is being invented.
-        => new(inventoryLocalId, inventoryName, InventoryItemEditor.For(product, translations));
+        // And no categories box: the entry has one - see InventoryItemEditor.AskedFromATaskEntry.
+        => new(inventoryLocalId, inventoryName, InventoryItemEditor.For(product, translations).AskedFromATaskEntry());
 
     /// <summary>
     /// A product this shelf has not got yet, described by an entry on a list measured against it. No id:
@@ -41,5 +42,5 @@ public sealed record TaskItemShelfProduct(
         => new(
             inventoryLocalId,
             inventoryName,
-            InventoryItemEditor.ForSomethingNotOnTheShelfYet(translations));
+            InventoryItemEditor.ForSomethingNotOnTheShelfYet(translations).AskedFromATaskEntry());
 }

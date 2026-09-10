@@ -1,4 +1,5 @@
 using Orbit.Mobile.Data;
+using Orbit.Mobile.Notifications;
 
 namespace Orbit.Mobile.Screens;
 
@@ -112,6 +113,12 @@ public interface IScreenNavigator
     /// SharedLinkViewModel.
     /// </summary>
     void ShowSharedLink(string token);
+
+    /// <summary>
+    /// Something offered to this reader and not yet taken up, named by the offer a notification's path
+    /// carries - see InvitationViewModel, and NotificationDestination for where the offer comes from.
+    /// </summary>
+    void ShowInvitation(InvitationOffer offer);
 
     /// <summary>Where a newer Orbit comes from - see UpdateViewModel.</summary>
     void ShowUpdate();

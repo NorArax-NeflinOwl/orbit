@@ -32,10 +32,17 @@
              third sentence should be able to see the first two. -->
         <Editor x:Name="DescriptionEditor" AutoSize="TextChanges" FontSize="14" MinimumHeightRequest="0"
                 Text="{Binding Description, Source={x:Reference Root}, Mode=TwoWay, x:DataType=controls:TitledDescription}"
-                IsReadOnly="{Binding IsReadOnly, Source={x:Reference Root}, x:DataType=controls:TitledDescription}"
-                IsVisible="{Binding ShowsDescription, Source={x:Reference Root}, x:DataType=controls:TitledDescription}"
+                IsVisible="{Binding ReadsAsABox, Source={x:Reference Root}, x:DataType=controls:TitledDescription}"
                 Placeholder="{controls:Translate 'What is it for?'}"
                 SemanticProperties.Description="{controls:Translate 'Description'}" />
+
+        <!-- The same words where they cannot be written in - because a text box cannot hold a link, so
+             an address in something shared read-only was there to be retyped rather than pressed. See
+             LinkedLabel, and ReadsAsWords. -->
+        <controls:LinkedLabel FontSize="14" LineBreakMode="WordWrap"
+                              Words="{Binding Description, Source={x:Reference Root}, x:DataType=controls:TitledDescription}"
+                              IsVisible="{Binding ReadsAsWords, Source={x:Reference Root}, x:DataType=controls:TitledDescription}"
+                              SemanticProperties.Description="{controls:Translate 'Description'}" />
 
     </VerticalStackLayout>
 

@@ -35,14 +35,26 @@ public partial class TitledDescription : ContentView
 		nameof(CommitDescriptionCommand), typeof(ICommand), typeof(TitledDescription));
 
 	public static readonly BindableProperty IsReadOnlyProperty = BindableProperty.Create(
-		nameof(IsReadOnly), typeof(bool), typeof(TitledDescription), false);
+		nameof(IsReadOnly), typeof(bool), typeof(TitledDescription), false,
+		propertyChanged: (field, _, _) => ((TitledDescription)field).SayHowTheDescriptionIsDrawn());
 
 	/// <summary>
 	/// False where there is nothing to describe to anybody: a private list is kept by nobody but its
 	/// owner, and the server holds no description for one.
 	/// </summary>
 	public static readonly BindableProperty ShowsDescriptionProperty = BindableProperty.Create(
-		nameof(ShowsDescription), typeof(bool), typeof(TitledDescription), true);
+		nameof(ShowsDescription), typeof(bool), typeof(TitledDescription), true,
+		propertyChanged: (field, _, _) => ((TitledDescription)field).SayHowTheDescriptionIsDrawn());
+
+	/// <summary>
+	/// Both answers follow both properties, and neither is a bindable property of its own - so a screen
+	/// that becomes read-only after it has loaded (which every shared one does) is told to redraw.
+	/// </summary>
+	private void SayHowTheDescriptionIsDrawn()
+	{
+		OnPropertyChanged(nameof(ReadsAsWords));
+		OnPropertyChanged(nameof(ReadsAsABox));
+	}
 
 	/// <summary>Names already in use, offered as this one is typed.</summary>
 	public static readonly BindableProperty SuggestionsProperty = BindableProperty.Create(
@@ -101,6 +113,17 @@ public partial class TitledDescription : ContentView
 		get => (bool)GetValue(IsReadOnlyProperty);
 		set => SetValue(IsReadOnlyProperty, value);
 	}
+
+	/// <summary>
+	/// Whether the description is drawn as words rather than as a box. A text box cannot hold a link at
+	/// all, so an address in something shared read-only was there to be retyped rather than pressed -
+	/// see the markup, and LinkedLabel. Both halves also answer to ShowsDescription, since a private
+	/// item keeps no description to draw either way.
+	/// </summary>
+	public bool ReadsAsWords => IsReadOnly && ShowsDescription;
+
+	/// <inheritdoc cref="ReadsAsWords"/>
+	public bool ReadsAsABox => !IsReadOnly && ShowsDescription;
 
 	public bool ShowsDescription
 	{

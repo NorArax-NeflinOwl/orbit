@@ -185,6 +185,13 @@
                        Text="{Binding Categories}"
                        SemanticProperties.Description="{controls:Translate 'Categories'}" />
 
+                <!-- What this entry is about, in as many words as it takes - the browser's own box, for
+                     every kind. For a Calendar entry it is the appointment's description as well, which
+                     is why the event's form below has no box of its own - see TaskItemEditor.Notes. -->
+                <Editor Placeholder="{controls:Translate 'What this is about'}" Text="{Binding Notes}"
+                        AutoSize="TextChanges" MinimumHeightRequest="60"
+                        SemanticProperties.Description="{controls:Translate 'Description'}" />
+
                 <!-- What this entry is. On the entry rather than on the list, because a day's plan holds
                      two errands and an appointment - see TaskItemKind. -->
                 <Label Text="{controls:Translate 'Type'}" FontSize="12" Style="{StaticResource SubtleLabel}" />
@@ -211,9 +218,7 @@
                 <VerticalStackLayout Spacing="10" IsVisible="{Binding IsCalendarEntry}">
                     <VerticalStackLayout Spacing="10" BindingContext="{Binding Event}"
                                          x:DataType="screens:TaskItemEventForm">
-                        <Editor Placeholder="{controls:Translate 'Description'}" Text="{Binding Description}"
-                                AutoSize="TextChanges" MinimumHeightRequest="60" />
-
+                        <!-- No description box here: the entry's own, above, is the appointment's too. -->
                         <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
                             <Label Grid.Column="0" Text="{controls:Translate 'All-day event'}" VerticalOptions="Center" />
                             <Switch Grid.Column="1" IsToggled="{Binding IsAllDay}" VerticalOptions="Center"
@@ -253,6 +258,16 @@
                     <Label Text="{Binding WhereTheProductLives}" FontSize="12" LineBreakMode="WordWrap"
                            Style="{StaticResource SubtleLabel}" />
                     <controls:ShelfProductFields BindingContext="{Binding Shelf.Product}" />
+                </VerticalStackLayout>
+
+                <!-- An errand on a list no shelf stands behind yet. The same form all the same: what
+                     this entry asks for is worth writing down while it is being written, not after a
+                     storage exists to write it on - it is kept on the entry until "Generate inventory"
+                     builds one. Orbit.Web's editor offers the same two forms in the same order. -->
+                <VerticalStackLayout Spacing="10" IsVisible="{Binding IsAskingForSomethingNoShelfHasYet}">
+                    <Label Text="{Binding WhatBecomesOfWhatItAsksFor}" FontSize="12" LineBreakMode="WordWrap"
+                           Style="{StaticResource SubtleLabel}" />
+                    <controls:ShelfProductFields BindingContext="{Binding ProductWanted}" />
                 </VerticalStackLayout>
 
                 <!-- An errand whose product this phone has not got - an inventory no longer shared, or
@@ -506,8 +521,11 @@
 
                 <!-- Which shelf this is counted against, at the foot rather than inside the body: it is
                      how the panel gets linked in the first place, and unreachable while folded would
-                     mean unreachable before it has anything to fold. -->
+                     mean unreachable before it has anything to fold. The form for building one sits
+                     beside it, for the same reason - it is opened from the screen's menu, which does not
+                     first unfold the card. -->
                 <controls:ItemCard.Extras>
+                    <VerticalStackLayout Spacing="10">
                     <!-- A sheet rather than a picker, for the reason the event editor's three are:
                          iOS docks a picker's wheel at the bottom of the screen, which here covers the
                          sharing links and the way back. -->
@@ -515,6 +533,72 @@
                             FontSize="13" Padding="12,6" Style="{StaticResource SecondaryButton}"
                             IsEnabled="{Binding Connection.IsMet}"
                             Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=ChooseInventoryCommand, x:DataType=tasks:TaskListDetailPage}" />
+
+                    <!-- What to build, asked before anything is built - the same six answers Orbit.Web's
+                         overlay asks, and at the same moment: a storage generated with no questions took
+                         the list's name and the default restock list, and both had to be corrected
+                         afterwards in a browser. -->
+                    <VerticalStackLayout Spacing="10" IsVisible="{Binding IsAskingWhatToBuild}"
+                                         BindingContext="{Binding BeingGenerated}"
+                                         x:DataType="screens:GenerateInventoryForm">
+                        <Label Text="{controls:Translate 'Generate inventory'}" Style="{StaticResource FieldLabel}" />
+
+                        <!-- Empty rather than filled in with the list's title: an untouched box means
+                             "the same as the list", which is what a blank name asks the server for. -->
+                        <Entry Text="{Binding Name}" Placeholder="{Binding DefaultName}"
+                               SemanticProperties.Description="{controls:Translate 'Name'}" />
+
+                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                            <Label Grid.Column="0" Text="{controls:Translate 'Keep a restock list for this inventory'}"
+                                   LineBreakMode="WordWrap" VerticalOptions="Center" />
+                            <Switch Grid.Column="1" IsToggled="{Binding IsEnabled}" VerticalOptions="Center"
+                                    SemanticProperties.Description="{controls:Translate 'Keep a restock list for this inventory'}" />
+                        </Grid>
+
+                        <!-- Everything below the switch hangs off it, and everything below the reminder
+                             hangs off that: a time and a channel mean nothing while nothing arrives. -->
+                        <VerticalStackLayout Spacing="10" IsVisible="{Binding KeepsAList}">
+                            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                                <Label Grid.Column="0" Text="{controls:Translate 'Remind me to update stock levels'}"
+                                       LineBreakMode="WordWrap" VerticalOptions="Center" />
+                                <Switch Grid.Column="1" IsToggled="{Binding RemindDaily}" VerticalOptions="Center"
+                                        SemanticProperties.Description="{controls:Translate 'Remind me to update stock levels'}" />
+                            </Grid>
+
+                            <VerticalStackLayout Spacing="10" IsVisible="{Binding IsReminded}">
+                                <Label Text="{controls:Translate 'Comes round at'}" Style="{StaticResource FieldLabel}" />
+                                <TimePicker Time="{Binding RefreshTime}" Format="{controls:TimePattern}"
+                                            SemanticProperties.Description="{controls:Translate 'Comes round at'}" />
+
+                                <Label Text="{controls:Translate 'Said on'}" Style="{StaticResource FieldLabel}" />
+                                <Picker ItemsSource="{Binding Channels}" SelectedItem="{Binding ChosenChannel}"
+                                        ItemDisplayBinding="{Binding Name, x:DataType=screens:NotificationChannelChoice}"
+                                        SemanticProperties.Description="{controls:Translate 'Said on'}" />
+                            </VerticalStackLayout>
+
+                            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                                <Label Grid.Column="0" Text="{controls:Translate 'Only the products marked &quot;Check every round&quot;'}"
+                                       LineBreakMode="WordWrap" VerticalOptions="Center" />
+                                <Switch Grid.Column="1" IsToggled="{Binding OnlyCheckedRegularly}" VerticalOptions="Center"
+                                        SemanticProperties.Description="{controls:Translate 'Only the products marked &quot;Check every round&quot;'}" />
+                            </Grid>
+
+                            <!-- What that answer means, said where it is chosen rather than in a
+                                 paragraph under the form. -->
+                            <Label Text="{Binding WhatTheListWillAskAbout}" FontSize="12" LineBreakMode="WordWrap"
+                                   Style="{StaticResource SubtleLabel}" />
+                        </VerticalStackLayout>
+
+                        <Grid ColumnDefinitions="Auto,Auto" ColumnSpacing="8">
+                            <Button Grid.Column="0" Text="{controls:Translate 'Generate'}"
+                                    FontSize="13" Padding="12,6" Style="{StaticResource PrimaryButton}"
+                                    Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=ViewModel.StockCheck.GenerateInventoryCommand, x:DataType=tasks:TaskListDetailPage}" />
+                            <Button Grid.Column="1" Text="{controls:Translate 'Cancel'}"
+                                    FontSize="13" Padding="12,6" Style="{StaticResource SecondaryButton}"
+                                    Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=ViewModel.StockCheck.CancelGeneratingCommand, x:DataType=tasks:TaskListDetailPage}" />
+                        </Grid>
+                    </VerticalStackLayout>
+                    </VerticalStackLayout>
                 </controls:ItemCard.Extras>
             </controls:ItemCard>
 

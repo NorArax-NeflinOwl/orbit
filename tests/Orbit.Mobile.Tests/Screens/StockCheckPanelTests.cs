@@ -287,6 +287,55 @@ public sealed class StockCheckPanelTests
         Assert.NotEmpty(panel.Message);
     }
 
+    /// <summary>
+    /// What to build is asked before anything is built, as it is in a browser: the storage took the
+    /// list's name whether or not that was what the shelf should be called, and its "Restock supplies"
+    /// list was created with the defaults and had to be found and corrected afterwards - which on the
+    /// phone meant in a browser, since two of those settings are all it draws and only once the shelf
+    /// exists.
+    /// </summary>
+    [Fact]
+    public async Task What_to_build_is_asked_before_anything_is_built()
+    {
+        using var context = new PanelContext();
+        var panel = await context.ShowAsync(isGroup: true);
+
+        panel.AskWhatToBuildCommand.Execute(null);
+
+        Assert.True(panel.IsAskingWhatToBuild);
+        var form = Assert.IsType<GenerateInventoryForm>(panel.BeingGenerated);
+        // The list's own title, as the box's placeholder: an untouched box means "the same as the list".
+        Assert.Equal(context.TaskListTitle, form.DefaultName);
+        Assert.Empty(form.Name);
+
+        form.Name = "Kitchen";
+        form.RemindDaily = false;
+        form.OnlyCheckedRegularly = true;
+        await panel.GenerateInventoryCommand.ExecuteAsync(null);
+
+        var asked = Assert.IsType<GenerateInventoryRequest>(context.Server.GenerationAsked);
+        Assert.Equal("Kitchen", asked.Name);
+        var settings = Assert.IsType<RestockListSettingsDto>(asked.RestockList);
+        Assert.False(settings.RemindDaily);
+        Assert.True(settings.OnlyCheckedRegularly);
+        // Answered and put away, so the card is not left holding a form nobody is filling in.
+        Assert.False(panel.IsAskingWhatToBuild);
+    }
+
+    /// <summary>Answering nothing builds nothing - the storage is only made by the Generate beside it.</summary>
+    [Fact]
+    public async Task Cancelling_the_form_builds_nothing()
+    {
+        using var context = new PanelContext();
+        var panel = await context.ShowAsync(isGroup: true);
+
+        panel.AskWhatToBuildCommand.Execute(null);
+        panel.CancelGeneratingCommand.Execute(null);
+
+        Assert.False(panel.IsAskingWhatToBuild);
+        Assert.Null(context.Server.GenerationAsked);
+    }
+
     [Fact]
     public async Task A_list_with_nothing_to_build_from_says_so()
     {
@@ -368,6 +417,9 @@ public sealed class StockCheckPanelTests
 
         public FakeTasksServer Server { get; }
 
+        /// <summary>What the list is called - and so what a storage generated from it is called by default.</summary>
+        public string TaskListTitle => "Saturday";
+
         /// <summary>The shelves themselves, which is where a refresh is asked for - see StockCheckPanel.</summary>
         public FakeInventoryServer Inventories { get; } = new(TimeProvider.System);
 
@@ -402,6 +454,7 @@ public sealed class StockCheckPanelTests
             {
                 LocalId = _taskListLocalId,
                 ServerId = hasReachedTheServer ? Guid.NewGuid() : null,
+                Title = TaskListTitle,
                 IsGroup = isGroup,
                 LinkedInventoryId = linkedInventoryId
             });

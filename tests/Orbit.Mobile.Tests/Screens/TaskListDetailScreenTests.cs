@@ -220,6 +220,58 @@ public sealed class TaskListDetailScreenTests
     }
 
     /// <summary>
+    /// Every entry can say what it is about in more words than its name (TaskItem.Notes, 2026-09-06),
+    /// and the phone had no box for it - a description written in a browser survived a push from here
+    /// only because the push said nothing. Now it has the box, and what is typed in it is sent.
+    /// </summary>
+    [Fact]
+    public async Task An_entry_can_say_what_it_is_about_in_more_words()
+    {
+        using var context = new ScreenContext();
+        var screen = context.OpenTaskList("Errands");
+        await AddAsync(screen, "Renew the car insurance");
+
+        screen.EditItemCommand.Execute(screen.Items[0]);
+        screen.BeingEdited!.Notes = "The policy number is in the glovebox.";
+        await screen.SaveItemCommand.ExecuteAsync(null);
+
+        Assert.Equal("The policy number is in the glovebox.", Assert.Single(screen.Items).Item.AllNotes);
+        var sent = Assert.Single(Assert.Single(context.Server.TaskLists).Items);
+        Assert.Equal("The policy number is in the glovebox.", sent.AllNotes);
+    }
+
+    /// <summary>
+    /// For a calendar entry the one box is the appointment's description as well: the event's form has
+    /// no box of its own, and what the entry says is written onto the event when it is saved - the same
+    /// line Orbit.Web's editor draws, so the two clients cannot hold two answers.
+    /// </summary>
+    [Fact]
+    public async Task A_calendar_entrys_description_is_its_appointments()
+    {
+        using var context = new ScreenContext();
+        var screen = context.OpenTaskList("Saturday");
+        await AddAsync(screen, "dentist");
+
+        screen.EditItemCommand.Execute(screen.Items[0]);
+        screen.BeingEdited!.Kind = nameof(TaskItemKind.Calendar);
+        screen.BeingEdited.Notes = "Bring the referral letter.";
+        screen.BeingEdited.Event.StartDate = new DateTime(2026, 9, 3);
+        screen.BeingEdited.Event.StartTime = new TimeSpan(14, 30, 0);
+        screen.BeingEdited.Event.EndDate = new DateTime(2026, 9, 3);
+        screen.BeingEdited.Event.EndTime = new TimeSpan(15, 0, 0);
+        await screen.SaveItemCommand.ExecuteAsync(null);
+
+        var appointment = Assert.Single(context.CalendarServer.Events);
+        Assert.Equal("Bring the referral letter.", appointment.Details.Description);
+        Assert.Equal("Bring the referral letter.", Assert.Single(screen.Items).Item.AllNotes);
+
+        // And opened again, the box shows what the appointment says rather than a blank - so a save
+        // cannot write a blank back over it.
+        screen.EditItemCommand.Execute(screen.Items[0]);
+        Assert.Equal("Bring the referral letter.", screen.BeingEdited!.Notes);
+    }
+
+    /// <summary>
     /// The phone can now say what an entry waits for, rather than only carry what a browser arranged.
     /// The picker offers the other entries of the same list - "hang the door" after "fit the hinges" -
     /// and the choice is sent, so an entry queued here is queued everywhere. See TaskListSteps.
@@ -811,14 +863,15 @@ public sealed class TaskListDetailScreenTests
         screen.BeingEdited!.Kind = nameof(TaskItemKind.Calendar);
         screen.BeingEdited.Event.StartDate = new DateTime(2026, 9, 3);
         screen.BeingEdited.Event.EndDate = new DateTime(2026, 9, 3);
-        screen.BeingEdited.Event.Description = "Bring the letter";
+        // The entry's one description box, which is the appointment's too - see TaskItemEditor.Notes.
+        screen.BeingEdited.Notes = "Bring the letter";
         await screen.SaveItemCommand.ExecuteAsync(null);
 
         screen.EditItemCommand.Execute(screen.Items[0]);
-        Assert.Equal("Bring the letter", screen.BeingEdited!.Event.Description);
+        Assert.Equal("Bring the letter", screen.BeingEdited!.Notes);
         Assert.Equal(new DateTime(2026, 9, 3), screen.BeingEdited.Event.StartDate);
 
-        screen.BeingEdited.Event.Description = "Bring both letters";
+        screen.BeingEdited.Notes = "Bring both letters";
         await screen.SaveItemCommand.ExecuteAsync(null);
 
         // One appointment, corrected - not two.
@@ -983,6 +1036,97 @@ public sealed class TaskListDetailScreenTests
         var product = Assert.Single(stored!.Items);
         Assert.Equal("Coffee", product.Name);
         Assert.Equal(2, product.MinimumQuantity);
+    }
+
+    /// <summary>
+    /// A list with no storage behind it can still say what it wants, which the phone could not: an
+    /// Inventory entry there named a thing and nothing else, so an amount or a unit somebody meant was
+    /// lost to the shelf "Generate inventory" would later build. The entry keeps it (TaskItem.Product)
+    /// until then, exactly as it does in a browser.
+    /// </summary>
+    [Fact]
+    public async Task An_errand_on_a_list_with_no_shelf_says_what_it_asks_for()
+    {
+        using var context = new ScreenContext();
+        var screen = context.OpenTaskList("Shopping");
+        await AddAsync(screen, "Coffee");
+
+        screen.EditItemCommand.Execute(screen.Items[0]);
+        var editor = screen.BeingEdited!;
+        editor.Kind = nameof(TaskItemKind.Inventory);
+
+        // Not "this entry isn't tied to a product yet" - the form for what it wants.
+        Assert.True(editor.IsAskingForSomethingNoShelfHasYet);
+        Assert.False(editor.HasNoProductToEdit);
+
+        editor.Categories = "food";
+        editor.ProductWanted!.Quantity = "0";
+        editor.ProductWanted.MinimumQuantity = "3";
+        editor.ProductWanted.ProductType = "ground";
+        await screen.SaveItemCommand.ExecuteAsync(null);
+
+        var product = Assert.Single(screen.Items).Item.Product;
+        Assert.NotNull(product);
+        Assert.Equal(3, product.MinimumQuantity);
+        Assert.Equal("ground", product.ProductType);
+        // Filed where the entry is - one categories box, as on the shelf form beside it.
+        Assert.Equal(["food"], product.AllCategories);
+
+        // Sent rather than kept on the phone: a client that says nothing leaves the stored one alone.
+        var sent = Assert.Single(Assert.Single(context.Server.TaskLists).Items);
+        Assert.NotNull(sent.Product);
+        Assert.Equal(3, sent.Product.MinimumQuantity);
+
+        // And read back into the form when the entry is opened again, rather than starting blank.
+        screen.EditItemCommand.Execute(screen.Items[0]);
+        Assert.Equal("3", screen.BeingEdited!.ProductWanted!.MinimumQuantity);
+        Assert.Equal("ground", screen.BeingEdited.ProductWanted.ProductType);
+    }
+
+    /// <summary>
+    /// An entry of another kind says nothing about a product, which is what leaves a stored one alone -
+    /// the null-means-not-provided rule TaskItemProductDto keeps for every client.
+    /// </summary>
+    [Fact]
+    public async Task An_entry_that_is_not_an_errand_says_nothing_about_a_product()
+    {
+        using var context = new ScreenContext();
+        var screen = context.OpenTaskList("Shopping");
+        await AddAsync(screen, "Coffee");
+
+        screen.EditItemCommand.Execute(screen.Items[0]);
+        screen.BeingEdited!.Kind = nameof(TaskItemKind.Inventory);
+        screen.BeingEdited.ProductWanted!.MinimumQuantity = "3";
+        screen.BeingEdited.Kind = nameof(TaskItemKind.Checklist);
+        await screen.SaveItemCommand.ExecuteAsync(null);
+
+        Assert.Null(Assert.Single(screen.Items).Item.Product);
+    }
+
+    /// <summary>
+    /// One categories box, not two. The entry's editor had its own and showed the product's form with a
+    /// second one directly under it, so the two could disagree and what somebody typed on the entry never
+    /// reached the shelf. The product's box is gone on a task entry, and the entry's answer is the
+    /// product's - the rule Orbit.Web's editor keeps (InventoryFields.ShowsCategories, ProductAsked).
+    /// </summary>
+    [Fact]
+    public async Task A_product_described_by_an_entry_is_filed_where_the_entry_is()
+    {
+        using var context = new ScreenContext();
+        var screen = context.OpenTaskList("Saturday");
+        var shelfLocalId = await context.MeasureAgainstAnEmptyShelfAsync(screen, "Kitchen");
+        await context.AddErrandForSomethingNotOnTheShelfAsync(screen, "Coffee");
+
+        screen.EditItemCommand.Execute(screen.Items[0]);
+        var editor = screen.BeingEdited!;
+        Assert.False(editor.Shelf!.Product.ShowsCategories);
+        editor.Categories = "food, drinks";
+        editor.Shelf.Product.Quantity = "0";
+        await screen.SaveItemCommand.ExecuteAsync(null);
+
+        var product = Assert.Single((await context.Shelves.FindAsync(shelfLocalId))!.Items);
+        Assert.Equal(["food", "drinks"], product.AllCategories);
+        Assert.Equal(["food", "drinks"], Assert.Single(screen.Items).Item.AllCategories);
     }
 
     /// <summary>
@@ -1370,6 +1514,55 @@ public sealed class TaskListDetailScreenTests
         await context.SynchroniseAsync();
 
         Assert.Contains(context.Server.TaskLists, list => list.Title == "Trip" && list.IsGroup);
+    }
+
+    /// <summary>
+    /// Orbit.Web's editor has a Completed box with three answers behind it; the phone had no way to give
+    /// one, so a list could not be closed here with work still on it, and a save from here said nothing
+    /// about the answer given elsewhere. Pressing the box is the reader's own answer, and it travels.
+    /// </summary>
+    [Fact]
+    public async Task A_list_can_be_said_to_be_finished_with_work_still_on_it()
+    {
+        using var context = new ScreenContext();
+        var screen = context.OpenTaskList("Trip");
+        screen.NewItemDescription = "Pack";
+        await screen.AddItemCommand.ExecuteAsync(null);
+
+        Assert.False(screen.IsFinished);
+        screen.IsFinished = true;
+        await screen.SaveListCommand.ExecutionTask!;
+        await context.SynchroniseAsync();
+
+        var stored = Assert.Single(context.Server.TaskLists, list => list.Title == "Trip");
+        Assert.Equal(nameof(TaskListCompletion.Finished), stored.Completion);
+        Assert.True(stored.IsCompleted);
+    }
+
+    /// <summary>
+    /// The other half the old yes/no box could not say: every entry ticked off and the list itself not
+    /// done. The box ticks itself once the entries are, and unticking it then records "Unfinished" rather
+    /// than handing the question back to the entries, which would only tick it again.
+    /// </summary>
+    [Fact]
+    public async Task A_list_with_everything_ticked_can_be_said_to_be_unfinished()
+    {
+        using var context = new ScreenContext();
+        var screen = context.OpenTaskList("Trip");
+        screen.NewItemDescription = "Pack";
+        await screen.AddItemCommand.ExecuteAsync(null);
+
+        await screen.ToggleItemCommand.ExecuteAsync(screen.Items[0]);
+        // Ticked on its own, because every entry is.
+        Assert.True(screen.IsFinished);
+
+        screen.IsFinished = false;
+        await screen.SaveListCommand.ExecutionTask!;
+        await context.SynchroniseAsync();
+
+        var stored = Assert.Single(context.Server.TaskLists, list => list.Title == "Trip");
+        Assert.Equal(nameof(TaskListCompletion.Unfinished), stored.Completion);
+        Assert.False(stored.IsCompleted);
     }
 
     /// <summary>

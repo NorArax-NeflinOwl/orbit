@@ -334,6 +334,53 @@ public sealed class DashboardScreenTests
     }
 
     /// <summary>
+    /// A folder hidden from the page it belongs to is not among the dashboard's tabs, which borrows both
+    /// pages' - that is how a folder for recipes ends up between Public and Private on the screen
+    /// somebody opens to see what is on their plate. What was in it stays on the dashboard, under a
+    /// built-in folder, because hiding the tab is not hiding the notes.
+    /// </summary>
+    [Fact]
+    public async Task A_folder_hidden_on_the_dashboard_is_not_among_its_tabs()
+    {
+        using var context = new DashboardContext();
+        var note = await context.AddNoteAsync("Milk, eggs");
+        var receipts = await context.Folders.CreateAsync("Receipts", FolderScope.Notes);
+        await context.FileNoteAsync(note, receipts.LocalId);
+        var screen = context.Open();
+        await screen.LoadCommand.ExecuteAsync(null);
+
+        Assert.Contains(screen.FolderChoices, choice => choice.Name == "Receipts");
+
+        // As the notes page's own menu writes it - see NotesViewModel.ToggleShownOnTheDashboard.
+        context.ChosenFolders.WriteHiddenOnTheDashboard(new HashSet<Guid> { receipts.LocalId });
+        await screen.LoadCommand.ExecuteAsync(null);
+
+        Assert.DoesNotContain(screen.FolderChoices, choice => choice.Name == "Receipts");
+        // And the note is where it would be if the folder were not there, rather than off the page.
+        Assert.Equal(1, screen.FolderChoices.Single(choice => choice.Name == "Public").Count);
+    }
+
+    /// <summary>
+    /// Hidden while it was open, the screen falls back to Public - a page filtered to a folder nobody can
+    /// see would look like everything had gone.
+    /// </summary>
+    [Fact]
+    public async Task Hiding_the_folder_being_read_falls_back_to_public()
+    {
+        using var context = new DashboardContext();
+        await context.AddNoteAsync("Milk, eggs");
+        var receipts = await context.Folders.CreateAsync("Receipts", FolderScope.Notes);
+        var screen = context.Open();
+        await screen.LoadCommand.ExecuteAsync(null);
+        await screen.ChooseFolderCommand.ExecuteAsync(FolderKey.Of(receipts.LocalId));
+
+        context.ChosenFolders.WriteHiddenOnTheDashboard(new HashSet<Guid> { receipts.LocalId });
+        await screen.LoadCommand.ExecuteAsync(null);
+
+        Assert.Equal(FolderKey.Of(BuiltInFolder.Public), screen.Folders.Chosen);
+    }
+
+    /// <summary>
     /// The three built-in folders on the dashboard, and what they hold. A sealed note is in Private
     /// whatever else is true of it, so a screen opened on Public does not draw it - which is the whole
     /// point of the tab, and the same answer the browser's dashboard gives.
@@ -1159,6 +1206,7 @@ public sealed class DashboardScreenTests
             _permissions = UnlockedPermissions.For(_localStore, _permissionServer);
             LocationServer = new FakeLocationServer(_clock) { CallerUserId = _ownUserId };
             TasksServer = new FakeTasksServer(_clock);
+            FoldersServer = new FakeFoldersServer(_clock);
             _synchronizer = AssembleSynchronizer();
         }
 
@@ -1179,6 +1227,13 @@ public sealed class DashboardScreenTests
 
         /// <summary>Which parts this reader has put away - see IDashboardCardPreferenceStore.</summary>
         public InMemoryDashboardCardPreferenceStore Visibility { get; } = new();
+
+        /// <summary>
+        /// Which folder each screen was left under, and which folders are kept off this one. One for
+        /// the whole context, as the app keeps one for the device: a folder hidden from the notes page's
+        /// menu has to be hidden when the dashboard is opened next - see IChosenFolderStore.
+        /// </summary>
+        public InMemoryChosenFolderStore ChosenFolders { get; } = new();
 
         /// <summary>
         /// Narrows this account to what it has actually unlocked, and makes the chat server refuse the
@@ -1217,11 +1272,10 @@ public sealed class DashboardScreenTests
             return new EverythingSynchronizer(
                 // Nothing here is about folders, but this account has none rather than being unable to
                 // reach them: an unreachable one would say the sync failed, which is what half these
-                // tests are checking the dashboard does *not* say.
-                new FolderSynchronizer(
-                    _localStore,
-                    new FoldersClient(StubHttpMessageHandler.RespondingWith(Array.Empty<FolderDto>()).ToHttpClient()),
-                    _clock, gate, NullLogger<FolderSynchronizer>.Instance),
+                // tests are checking the dashboard does *not* say. It answers a create properly too -
+                // see Folders.SynchronizerAnsweringLikeTheServer for what a one-body stub did to one.
+                // Named in full: this context's own Folders property is the repository, not the double.
+                TestDoubles.Folders.SynchronizerAnsweringLikeTheServer(_localStore, _clock, gate, FoldersServer),
                 new NoteSynchronizer(
                     _localStore, new NotesClient(NotesServer.ToHttpClient()), _clock, gate,
                     NullLogger<NoteSynchronizer>.Instance),
@@ -1304,11 +1358,18 @@ public sealed class DashboardScreenTests
         /// <summary>The tabs this screen draws both pages' of - see FolderTabs.</summary>
         public LocalFolderRepository Folders => new(_localStore, _clock);
 
+        /// <summary>
+        /// Where a folder made on this phone goes when it syncs. It has to keep them: folders have no
+        /// change feed, so a server that answered "none" would delete every folder a test made - see
+        /// FakeFoldersServer.
+        /// </summary>
+        public FakeFoldersServer FoldersServer { get; }
+
         public DashboardViewModel Open()
             => new(_notes, _taskLists, _calendarEvents, _inventories, _places, _chat, _clock, new Translations(new InMemoryLanguageStore()),
                 PrivateItems, _synchronizer, _syncState, _permissions,
                 Pins, Visibility, SharedPositions(), Notifications, Navigator,
-                Folders, new InMemoryChosenFolderStore());
+                Folders, ChosenFolders);
 
         /// <summary>
         /// An unread notification pointing somewhere, which is how everything on this page learns that
@@ -1324,6 +1385,10 @@ public sealed class DashboardScreenTests
 
         public async Task<Guid> AddNoteAsync(string title)
             => (await _notes.CreateAsync(title, [new NoteContentLineDto("Body", false, false)])).LocalId;
+
+        /// <summary>Puts a note in a folder, as the note's own screen does - see LocalNoteRepository.FileAsync.</summary>
+        public Task FileNoteAsync(Guid noteLocalId, Guid folderLocalId)
+            => _notes.FileAsync(noteLocalId, folderLocalId);
 
         /// <summary>A note this device cannot open, as the sync would bring one down - see LocalNote.IsSealed.</summary>
         public async Task<Guid> AddSealedNoteAsync()

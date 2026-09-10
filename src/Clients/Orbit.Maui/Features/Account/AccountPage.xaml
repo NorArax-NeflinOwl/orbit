@@ -356,10 +356,10 @@
                                         SemanticProperties.Description="{controls:Translate 'Calendar events'}" />
                             </controls:SettingRow.Trailing>
                         </controls:SettingRow>
-                        <controls:SettingRow Title="{controls:Translate 'Storages'}" HasDivider="False">
+                        <controls:SettingRow Title="{controls:Translate 'Inventories'}" HasDivider="False">
                             <controls:SettingRow.Trailing>
                                 <Switch IsToggled="{Binding IncludesInventories}"
-                                        SemanticProperties.Description="{controls:Translate 'Storages'}" />
+                                        SemanticProperties.Description="{controls:Translate 'Inventories'}" />
                             </controls:SettingRow.Trailing>
                         </controls:SettingRow>
                     </VerticalStackLayout>
