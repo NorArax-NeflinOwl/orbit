@@ -166,7 +166,10 @@ public sealed class TaskListSynchronizer
             // Said rather than left out: null would mean "not provided" and keep whatever is stored, so
             // a description cleared on this phone would come back at the next pull - see CreateTaskRequest.
             new UpdateTaskRequest(taskList.Title, ToRequests(taskList.Items), taskList.IsGroup, taskList.IsPrivate,
-                taskList.EncryptedContent, taskList.Priority, taskList.Description),
+                taskList.EncryptedContent, taskList.Priority, taskList.Description,
+                // Said for the same reason: null keeps what is stored, which was right while this phone
+                // had no box for it and would now keep an answer the reader has changed here.
+                taskList.Completion),
             cancellationToken);
 
         if (outcome is not WriteOutcome.Applied)
@@ -253,6 +256,7 @@ public sealed class TaskListSynchronizer
         taskList.Description = incoming.Description;
         taskList.Items = incoming.Items;
         taskList.IsCompleted = incoming.IsCompleted;
+        taskList.Completion = incoming.Completion;
         taskList.IsGroup = incoming.IsGroup;
         taskList.LinkedInventoryId = incoming.LinkedInventoryId;
         taskList.IsPrivate = incoming.IsPrivate;

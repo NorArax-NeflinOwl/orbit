@@ -139,6 +139,15 @@ public partial class TaskListDetailPage : ContentPage, ITitleMenu, ITitleSteps
 				_translations["Edit"],
 				() => ListFields.IsVisible = ListSettings.IsVisible = !ListSettings.IsVisible,
 				ListSettings.IsVisible));
+
+			// Whether the list is finished - the box the browser's editor draws, with the same three
+			// answers behind it: it ticks itself once every entry is, and pressing it says so about the
+			// list rather than about its entries, so a list can sit in Finished with work still on it
+			// and be not finished with none - see TaskListCompletion, and the view model's IsFinished.
+			list.Add(new ScreenMenuEntry(
+				_translations["Completed"],
+				() => _viewModel.IsFinished = !_viewModel.IsFinished,
+				_viewModel.IsFinished));
 		}
 
 		// The same, for offering it to somebody else. Absent for a private list, which has no readable

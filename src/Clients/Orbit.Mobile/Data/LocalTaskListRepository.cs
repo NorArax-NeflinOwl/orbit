@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Orbit.Contracts.Tasks;
 using Orbit.Core.Sync;
+using Orbit.Core.Tasks;
 using Orbit.Mobile.Crypto;
 using Orbit.Mobile.Sync;
 
@@ -21,9 +22,13 @@ namespace Orbit.Mobile.Data;
 /// What the list is about, under its title. Blanked for a private list, as the server blanks it - see
 /// LocalTaskList.Description.
 /// </param>
+/// <param name="Completion">
+/// The reader's own answer about whether the list is finished, by name - see LocalTaskList.Completion.
+/// "FromTheEntries" hands the question to the entries, which is where every list starts.
+/// </param>
 public sealed record TaskListContent(
     string Title, IReadOnlyList<TaskItemDto> Items, bool IsGroup, string Priority, bool IsPrivate = false,
-    string Description = "");
+    string Description = "", string Completion = nameof(TaskListCompletion.FromTheEntries));
 
 /// <summary>
 /// Every read and write a screen performs on task lists. The same shape as
@@ -202,10 +207,13 @@ public sealed class LocalTaskListRepository : ICopyReviewStore
         await WriteContentAsync(taskList, content, cancellationToken);
         taskList.IsGroup = content.IsGroup;
         taskList.Priority = content.Priority;
+        taskList.Completion = content.Completion;
         taskList.UpdatedAtUtc = now;
-        // A list is done when every item is - the same rule the server applies. Worked out from what
-        // was handed in rather than from the row, which holds no items at all when the list is private.
-        taskList.IsCompleted = content.Items.Count > 0 && content.Items.All(item => item.IsCompleted);
+        // The reader's own answer where they gave one, and the entries' otherwise - the same three
+        // cases Orbit.Core.Tasks.TaskList.IsCompleted asks, with an entry crossed out counting as
+        // finished with there too. Worked out from what was handed in rather than from the row, which
+        // holds no items at all when the list is private.
+        taskList.IsCompleted = IsFinished(content.Completion, content.Items);
 
         // A copy still awaiting review is written to this phone and queued for nobody: what it is has
         // not been decided yet, and the review is what sends it - see LocalNoteRepository.UpdateAsync.
@@ -216,6 +224,19 @@ public sealed class LocalTaskListRepository : ICopyReviewStore
         await dbContext.SaveChangesAsync(cancellationToken);
         return LocalWriteOutcome.Applied;
     }
+
+    /// <summary>
+    /// Whether a list is finished: the answer its reader gave, or the entries' when they gave none. The
+    /// screen asks this too, to draw the Completed entry in the list's menu, so the box and the row
+    /// agree by construction. An empty list nobody has answered for is never done.
+    /// </summary>
+    public static bool IsFinished(string completion, IReadOnlyList<TaskItemDto> items)
+        => completion switch
+        {
+            nameof(TaskListCompletion.Finished) => true,
+            nameof(TaskListCompletion.Unfinished) => false,
+            _ => items.Count > 0 && items.All(item => item.IsCompleted || item.IsFailed)
+        };
 
     /// <inheritdoc cref="LocalNoteRepository.WriteContentAsync"/>
     private async Task WriteContentAsync(LocalTaskList taskList, TaskListContent content, CancellationToken cancellationToken)

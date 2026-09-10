@@ -516,6 +516,12 @@ that. Pressing it records an answer of the reader's own instead:
   neither of the two true things about it. With work still left the status is whatever the work says;
   Incomplete is only ever about the gap between the entries and the list.
 
+The phone asks the same question the same way since 2026-09-10: **Completed** in the list's own menu,
+ticked on its own once every entry is and recording the reader's own answer when pressed
+(`LocalTaskList.Completion`, `TaskListDetailViewModel.IsFinished`). The answer travels with every save
+from the phone, which is what `UpdateTaskRequest.Completion`'s null-means-not-provided rule was holding
+the door open for; a phone built before this still sends nothing and still changes nothing.
+
 **What a list is, rather than what is on it, lives in the editor's own menu** (2026-09-10): who may
 read it, whether it is drawn as a group, whether it is finished, which shelf it is measured against,
 where it is filed and how much it matters. They sat under the entries as "About this list", which is a

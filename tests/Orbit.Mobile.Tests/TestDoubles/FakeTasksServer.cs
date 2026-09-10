@@ -283,11 +283,25 @@ internal sealed class FakeTasksServer : HttpMessageHandler
             Description = body.IsPrivate
                 ? string.Empty
                 : body.Description ?? existing.Description,
+            // Null keeps what was stored, as the real endpoint keeps it - a fake that answered
+            // "FromTheEntries" to a client that said nothing would quietly reopen every list the
+            // browser had closed. What the answer *means* is worked out below, the way TaskList does.
+            Completion = body.Completion ?? existing.Completion,
             UpdatedAtUtc = _timeProvider.GetUtcNow()
         };
+        _taskLists[id] = _taskLists[id] with { IsCompleted = IsFinished(_taskLists[id]) };
 
         return new HttpResponseMessage(HttpStatusCode.NoContent);
     }
+
+    /// <summary>The three answers Orbit.Core.Tasks.TaskList.IsCompleted gives, kept here so a pull reads what a save meant.</summary>
+    private static bool IsFinished(TaskDto taskList)
+        => taskList.Completion switch
+        {
+            nameof(TaskListCompletion.Finished) => true,
+            nameof(TaskListCompletion.Unfinished) => false,
+            _ => taskList.Items.Count > 0 && taskList.Items.All(item => item.IsCompleted || item.IsFailed)
+        };
 
     private HttpResponseMessage Delete(string path)
     {

@@ -607,17 +607,13 @@ inventory lists, the contacts tabs, the chat menus - is built and needs no schem
   once and now denies silently. What it needs is somebody watching the console on the actual device;
   until then the hiding stays, and it should come off the moment the cause is known.
 
-- **The phone cannot answer whether a list is finished.** A task list can be closed with work still on
-  it since 2026-09-08, and said to be *unfinished* with every entry ticked off since 2026-09-09
-  (`TaskList.Completion`, `TaskListCompletion`, `OP_T_COMPLETION`) - the phone neither shows the box nor
-  sends the field. Nothing is lost by it: `UpdateTaskRequest.Completion` is null-means-not-provided, so
-  a save from the phone leaves whatever was answered in a browser alone - `MarkingAListFinishedTests`
-  and the field's own comment both say so. The phone does read the *result*: `IsCompleted` arrives
-  already answered, so a closed list sorts and files as finished there. This is parity, not a defect.
-  What it would take: the box on the list's own screen (ticking itself once every entry is ticked, the
-  way the web's does) and the field on the phone's update request. The phone already *names* the new
-  status - `TaskListView.Describe` says "Not finished" - but it is not among `TaskListView.Statuses`, so
-  no status chip finds one; it is reachable under "all", the same as on the web.
+- ~~**The phone cannot answer whether a list is finished.**~~ Done on 2026-09-10, the way this said:
+  **Completed** in the list's menu (`TaskListDetailViewModel.IsFinished`, ticking itself once every
+  entry is, recording the reader's own answer when pressed), `LocalTaskList.Completion` with a local
+  migration, and the field on every save from the phone - which `UpdateTaskRequest.Completion`'s
+  null-means-not-provided rule was holding the door open for. `TaskListView.Describe` still says "Not
+  finished" for the status it produces, and that status is still not among `TaskListView.Statuses`, so
+  no chip finds one; it is reachable under "all", the same as on the web.
 
 - **The invitation page treats "any other kind" as an inventory.** `ShareInvitation.AcceptAsync` and
   `DescribeKind` both end in a `_` that means Inventory, and `SharedItemKind` has a fifth member -

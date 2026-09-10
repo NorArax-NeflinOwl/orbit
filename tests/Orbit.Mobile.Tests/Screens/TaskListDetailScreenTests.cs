@@ -1373,6 +1373,55 @@ public sealed class TaskListDetailScreenTests
     }
 
     /// <summary>
+    /// Orbit.Web's editor has a Completed box with three answers behind it; the phone had no way to give
+    /// one, so a list could not be closed here with work still on it, and a save from here said nothing
+    /// about the answer given elsewhere. Pressing the box is the reader's own answer, and it travels.
+    /// </summary>
+    [Fact]
+    public async Task A_list_can_be_said_to_be_finished_with_work_still_on_it()
+    {
+        using var context = new ScreenContext();
+        var screen = context.OpenTaskList("Trip");
+        screen.NewItemDescription = "Pack";
+        await screen.AddItemCommand.ExecuteAsync(null);
+
+        Assert.False(screen.IsFinished);
+        screen.IsFinished = true;
+        await screen.SaveListCommand.ExecutionTask!;
+        await context.SynchroniseAsync();
+
+        var stored = Assert.Single(context.Server.TaskLists, list => list.Title == "Trip");
+        Assert.Equal(nameof(TaskListCompletion.Finished), stored.Completion);
+        Assert.True(stored.IsCompleted);
+    }
+
+    /// <summary>
+    /// The other half the old yes/no box could not say: every entry ticked off and the list itself not
+    /// done. The box ticks itself once the entries are, and unticking it then records "Unfinished" rather
+    /// than handing the question back to the entries, which would only tick it again.
+    /// </summary>
+    [Fact]
+    public async Task A_list_with_everything_ticked_can_be_said_to_be_unfinished()
+    {
+        using var context = new ScreenContext();
+        var screen = context.OpenTaskList("Trip");
+        screen.NewItemDescription = "Pack";
+        await screen.AddItemCommand.ExecuteAsync(null);
+
+        await screen.ToggleItemCommand.ExecuteAsync(screen.Items[0]);
+        // Ticked on its own, because every entry is.
+        Assert.True(screen.IsFinished);
+
+        screen.IsFinished = false;
+        await screen.SaveListCommand.ExecutionTask!;
+        await context.SynchroniseAsync();
+
+        var stored = Assert.Single(context.Server.TaskLists, list => list.Title == "Trip");
+        Assert.Equal(nameof(TaskListCompletion.Unfinished), stored.Completion);
+        Assert.False(stored.IsCompleted);
+    }
+
+    /// <summary>
     /// Orbit.Web's task editor has a Title field. This screen showed the title and would not let
     /// anybody change it - so a list named wrongly stayed named wrongly.
     /// </summary>
