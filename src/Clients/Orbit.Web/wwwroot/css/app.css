@@ -5308,9 +5308,32 @@ input.note-editor-title {
     padding: 48px 16px;
 }
 
+/* Mark and word together, the same pairing the boot screen and the top bar carry - see .app-boot-lockup. */
+.loading-orbit-lockup {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
 .loading-orbit-mark {
     width: 40px;
     height: 40px;
+}
+
+.loading-orbit-name {
+    color: var(--text-primary);
+    font-family: var(--font-display);
+    font-size: 30px;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    line-height: 1;
+}
+
+/* What is being waited for, under the ring. The least of the three things on the screen, and drawn as
+   the least. */
+.loading-orbit-says {
+    color: var(--text-secondary);
+    font-size: 13px;
 }
 
 .loading-orbit-spinner {

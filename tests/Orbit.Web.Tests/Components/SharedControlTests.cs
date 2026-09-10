@@ -12,6 +12,42 @@ namespace Orbit.Web.Tests.Components;
 /// </summary>
 public sealed class SharedControlTests : OrbitTestContext
 {
+    /// <summary>
+    /// A wait shows the mark and the turning ring, and the word only for a screen reader: "Loading…"
+    /// alone in a corner reads as a page that has gone wrong rather than one that is coming, which is
+    /// the reading the boot screen was written to avoid.
+    /// </summary>
+    [Fact]
+    public void A_wait_draws_the_mark_and_keeps_the_word_for_a_screen_reader()
+    {
+        var cut = RenderComponent<Loading>();
+
+        Assert.NotEmpty(cut.FindAll(".loading-orbit-mark"));
+        Assert.NotEmpty(cut.FindAll(".loading-orbit-spinner"));
+        Assert.Equal("Loading…", cut.Find(".visually-hidden").TextContent);
+        // No wordmark and no line: this is a wait inside a page that already says Orbit at the top.
+        Assert.Empty(cut.FindAll(".loading-orbit-name"));
+        Assert.Empty(cut.FindAll(".loading-orbit-says"));
+    }
+
+    /// <summary>
+    /// A wait that has the whole window says whose window it is and what it is waiting for - the boot
+    /// screen's own lockup, so a wait that starts before Blazor and one that starts after it look the
+    /// same. The line replaces the hidden word rather than joining it: two of them is the same sentence
+    /// read out twice.
+    /// </summary>
+    [Fact]
+    public void A_wait_with_the_whole_window_names_itself_and_what_it_is_waiting_for()
+    {
+        var cut = RenderComponent<Loading>(parameters => parameters
+            .Add(loading => loading.ShowsName, true)
+            .Add(loading => loading.Says, "Checking permissions…"));
+
+        Assert.Equal("Orbit", cut.Find(".loading-orbit-name").TextContent);
+        Assert.Equal("Checking permissions…", cut.Find(".loading-orbit-says").TextContent);
+        Assert.Empty(cut.FindAll(".visually-hidden"));
+    }
+
     [Fact]
     public void The_pin_offers_the_opposite_of_what_is_already_true()
     {
