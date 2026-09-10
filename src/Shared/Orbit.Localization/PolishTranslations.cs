@@ -1321,6 +1321,10 @@ public static class PolishTranslations
         ["Saving a different address doesn't move the account to it on its own - that only happens once you confirm the code sent to the new address."] =
             "Zapisanie innego adresu samo w sobie nie przenosi na niego konta — dzieje się to dopiero po potwierdzeniu kodu wysłanego na nowy adres.",
         ["Adds links that open Google Calendar or Google Maps with the details filled in. Orbit never writes to your calendar."] = "Dodaje linki otwierające Kalendarz Google lub Mapy Google z wypełnionymi danymi. Orbit sam nic nie zapisuje w Twoim kalendarzu.",
+        // Both sentences at once, which is what the phone's own mark holds - the two used to be two
+        // lines under the switch, and folding them away made them one thing to open. See FieldHint.
+        ["Adds links that open Google Calendar or Google Maps with the details filled in. Orbit never writes to your calendar. Kept on this device."] =
+            "Dodaje linki otwierające Kalendarz Google lub Mapy Google z wypełnionymi danymi. Orbit sam nic nie zapisuje w Twoim kalendarzu. Zapamiętane na tym urządzeniu.",
 
         // Composed in code: option labels, confirmations, and the stand-ins shown when
         // something can't be read or named.

@@ -227,6 +227,15 @@ replaces the switch rather than explaining it.
 after an action. Those answer a question the reader is asking at that moment, and an answer behind a mark
 is an answer nobody finds.
 
+**The phone does the same thing its own way** (`Orbit.Maui/Controls/FieldHint.xaml`). There is no hover
+on a phone, so the mark is tapped; and what it opens is the sentence itself, in place under the name,
+rather than a bubble over the page — a phone has no room for a layer, and text that appears where it
+belongs needs no arrow pointing at what it is about. Tapping again folds it back. The control carries the
+field's name as well as the sentence, which is what lets the two lay out as one thing; `IsHeading` picks
+between a section's heading and a field's label, and `Warns` draws the same "!" the browser does. What
+stays visible there is what the browser keeps too: a page's own subtitle, and anything that reports a
+state rather than describing a control.
+
 ## Advertising
 
 Orbit advertises **itself**, in three places:

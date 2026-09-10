@@ -407,11 +407,9 @@
             <!-- The same checkbox Orbit.Web's task editor has: what it turns on is real encryption, so
                  the row says what it costs rather than only what it is. -->
             <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8" IsVisible="{Binding CanEdit}">
-                <VerticalStackLayout Grid.Column="0">
-                    <Label Text="{controls:Translate 'Private'}" />
-                    <Label Text="{controls:Translate 'Only you can read it, and it cannot be shared.'}"
-                           FontSize="12" LineBreakMode="WordWrap" Style="{StaticResource SubtleLabel}" />
-                </VerticalStackLayout>
+                <controls:FieldHint Grid.Column="0"
+                                    Label="{controls:Translate 'Private'}"
+                                    Text="{controls:Translate 'Only you can read it, and it cannot be shared.'}" />
                 <Switch Grid.Column="1" IsToggled="{Binding IsPrivate}" VerticalOptions="Center"
                         SemanticProperties.Description="{controls:Translate 'Private'}" />
             </Grid>

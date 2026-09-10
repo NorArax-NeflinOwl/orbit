@@ -67,11 +67,9 @@
             <!-- The same question Orbit.Web asks beside its own "add" button. Off unless asked for: the
                  past of a group is not obviously the newcomer's, and handing it over is not undoable. -->
             <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
-                <VerticalStackLayout Grid.Column="0">
-                    <Label Text="{controls:Translate 'Share the conversation so far'}" />
-                    <Label Text="{controls:Translate 'They will be able to read what was said before they joined.'}"
-                           FontSize="12" LineBreakMode="WordWrap" Style="{StaticResource SubtleLabel}" />
-                </VerticalStackLayout>
+                <controls:FieldHint Grid.Column="0"
+                                    Label="{controls:Translate 'Share the conversation so far'}"
+                                    Text="{controls:Translate 'They will be able to read what was said before they joined.'}" />
                 <Switch Grid.Column="1" IsToggled="{Binding ShareHistoryWithNewMembers}" VerticalOptions="Center"
                         SemanticProperties.Description="{controls:Translate 'Share the conversation so far'}" />
             </Grid>
