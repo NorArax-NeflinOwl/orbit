@@ -430,7 +430,10 @@ folders are pushed ahead of the notes and lists so that resolves on the same pas
 kind of queued change and its own endpoint for the reason the server keeps it off the save: an update
 carries the whole note, so a client that had never heard of folders would empty it every time somebody
 corrected a line. Filing a note is offered under the note's own name once it is open, not from the list
-- the phone's lists gave up their per-row menus for exactly that.
+- the phone's lists gave up their per-row menus for exactly that. A folder is **renamed** where it was
+named (2026-09-10): "Rename folder" in the same menu opens the same row on the folder's present name,
+with the button reading Rename rather than Add (`NotesViewModel.FolderBeingRenamed`), because the app
+has no text prompt of its own and Android's would sit badly beside Orbit's panel.
 
 Deciding the built-in ones rather than storing them is what let folders arrive with **no migration of
 existing rows and nothing to repair**: every note and list that existed before them was already in the

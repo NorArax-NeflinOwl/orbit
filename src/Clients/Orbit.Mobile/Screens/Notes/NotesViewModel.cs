@@ -293,10 +293,20 @@ public sealed partial class NotesViewModel : ObservableObject
             return;
         }
 
-        var folder = await _folders.CreateAsync(wanted, FolderScope.Notes, cancellationToken);
-        NewFolderName = string.Empty;
-        Folders.Choose(FolderKey.Of(folder.LocalId));
+        if (FolderBeingRenamed is { } renamed)
+        {
+            // The same row, answering the other question - see FolderBeingRenamed. The screen stays
+            // where it is: the folder being read has a new name, not a new place.
+            await _folders.RenameAsync(renamed, wanted, cancellationToken);
+            FolderBeingRenamed = null;
+        }
+        else
+        {
+            var folder = await _folders.CreateAsync(wanted, FolderScope.Notes, cancellationToken);
+            Folders.Choose(FolderKey.Of(folder.LocalId));
+        }
 
+        NewFolderName = string.Empty;
         await ShowLocalNotesAsync(cancellationToken);
         await SynchroniseAsync(cancellationToken);
     }
@@ -304,6 +314,36 @@ public sealed partial class NotesViewModel : ObservableObject
     /// <summary>The name being typed into the folder row - see NotesPage, which unfolds it.</summary>
     [ObservableProperty]
     private string _newFolderName = string.Empty;
+
+    /// <summary>
+    /// The folder whose name the row is changing, or null while the row names a new one. One row for
+    /// both questions rather than a dialog for the second: a folder is a name, and Android's own prompt
+    /// would sit badly beside Orbit's panel. What the row's button says follows it.
+    /// </summary>
+    [ObservableProperty]
+    private Guid? _folderBeingRenamed;
+
+    /// <summary>What the folder row's button says - Add for a new folder, Rename for one being renamed.</summary>
+    public string FolderRowAction => FolderBeingRenamed is null ? _translations["Add"] : _translations["Rename"];
+
+    partial void OnFolderBeingRenamedChanged(Guid? value) => OnPropertyChanged(nameof(FolderRowAction));
+
+    /// <summary>Puts the open folder's name in the row so it can be changed - see NotesPage.FolderActions.</summary>
+    public void StartRenamingTheOpenFolder()
+    {
+        if (Folders.Chosen.FolderId is { } folderId)
+        {
+            FolderBeingRenamed = folderId;
+            NewFolderName = ChosenFolderName;
+        }
+    }
+
+    /// <summary>Empties the row for a new folder, whatever it was doing before.</summary>
+    public void StartNamingANewFolder()
+    {
+        FolderBeingRenamed = null;
+        NewFolderName = string.Empty;
+    }
 
     /// <summary>
     /// Takes the folder being read away and leaves everything that was in it, which is what the server

@@ -174,14 +174,38 @@ public partial class TasksPage : ContentPage, ITitleMenu
 	/// <inheritdoc cref="Notes.NotesPage.FolderActions"/>
 	private List<ScreenMenuEntry> FolderActions()
 	{
-		List<ScreenMenuEntry> entries = [new ScreenMenuEntry(_translations["New folder"], () => _nameAFolder.Execute(null))];
+		List<ScreenMenuEntry> entries =
+		[
+			new ScreenMenuEntry(_translations["New folder"], () =>
+			{
+				_viewModel.StartNamingANewFolder();
+				_nameAFolder.Execute(null);
+			})
+		];
 
 		if (_viewModel.Folders.Chosen.FolderId is not null)
 		{
+			entries.Add(new ScreenMenuEntry(_translations["Rename folder"], () =>
+			{
+				_viewModel.StartRenamingTheOpenFolder();
+				UnfoldTheFolderRow();
+			}));
 			entries.Add(new ScreenMenuEntry(_translations["Delete folder"], () => _ = DeleteTheFolderAsync()));
 		}
 
 		return entries;
+	}
+
+	/// <inheritdoc cref="Notes.NotesPage.UnfoldTheFolderRow"/>
+	private void UnfoldTheFolderRow()
+	{
+		if (FolderRow.IsVisible)
+		{
+			FolderField.Focus();
+			return;
+		}
+
+		_nameAFolder.Execute(null);
 	}
 
 	/// <inheritdoc cref="Notes.NotesPage.DeleteTheFolderAsync"/>

@@ -798,6 +798,8 @@ public static class PolishTranslations
         ["Finished"] = "Ukończone",
         ["New folder"] = "Nowy folder",
         ["Rename folder"] = "Zmień nazwę folderu",
+        // The folder row's button on the phone while a folder is being renamed rather than made.
+        ["Rename"] = "Zmień nazwę",
         // Takes the folder's tab off the dashboard and nothing else - see FolderTabs.
         ["Hide on the dashboard"] = "Ukryj na pulpicie",
         ["Delete folder"] = "Usuń folder",

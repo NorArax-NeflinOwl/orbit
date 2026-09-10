@@ -96,6 +96,33 @@ public sealed class NoteFoldersTests
     }
 
     /// <summary>
+    /// A folder is renamed where it was named: the same row, opened on its present name, with the
+    /// button reading Rename. The server, the client and the store could all rename one and no screen
+    /// asked - the app has no text prompt of its own and Android's would sit badly beside Orbit's panel.
+    /// </summary>
+    [Fact]
+    public async Task A_folder_is_renamed_in_the_row_it_was_named_in()
+    {
+        using var context = new ScreenContext();
+        var screen = await context.OpenAsync();
+        await screen.MakeFolderCommand.ExecuteAsync("Wrok");
+        var folderId = screen.Folders.Chosen.FolderId!.Value;
+
+        screen.StartRenamingTheOpenFolder();
+        Assert.Equal("Wrok", screen.NewFolderName);
+        Assert.Equal("Rename", screen.FolderRowAction);
+
+        await screen.MakeFolderCommand.ExecuteAsync("Work");
+
+        Assert.Equal("Work", (await context.Folders.GetAllAsync(FolderScope.Notes)).Single(folder => folder.LocalId == folderId).Name);
+        // Still on it, under its new name, and the row back to naming new ones.
+        Assert.Equal("Work", screen.ChosenFolderName);
+        Assert.Null(screen.FolderBeingRenamed);
+        Assert.Equal("Add", screen.FolderRowAction);
+        Assert.Single(screen.FolderChoices, choice => choice.Name == "Work");
+    }
+
+    /// <summary>
     /// Deleting a folder empties it rather than taking what is in it - which is what the server does
     /// too. A folder is a place to put things, and getting rid of the place is not a decision to get
     /// rid of them.
