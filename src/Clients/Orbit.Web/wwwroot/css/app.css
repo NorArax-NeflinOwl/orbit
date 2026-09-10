@@ -4874,6 +4874,14 @@ input.note-editor-title {
     color: var(--danger);
 }
 
+/* Nothing late on it, but a chore that comes round every day is waiting - see
+   Orbit.Core.Tasks.TaskListStatus.DueAgain. Deliberately not the danger colour the overdue badge takes:
+   the whole point of the status is that nothing has gone wrong. */
+.card-badge-status-dueagain {
+    background: color-mix(in oklch, var(--accent) 16%, transparent);
+    color: var(--accent);
+}
+
 .card-badge-status-completed {
     background: color-mix(in oklch, var(--success) 16%, transparent);
     color: var(--success);

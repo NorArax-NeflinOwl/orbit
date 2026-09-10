@@ -113,6 +113,8 @@ public static class TaskListView
     {
         "Pending" => translations["Pending"],
         "Overdue" => translations["Overdue"],
+        // Not "Overdue": a daily chore keeps one due date that never moves - see TaskListStatus.DueAgain.
+        "DueAgain" => translations["Due again"],
         "Completed" => translations["Completed"],
         "Incomplete" => translations["Not finished"],
         _ => translations["New"]

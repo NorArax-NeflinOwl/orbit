@@ -400,9 +400,19 @@ public sealed class TaskList
                 : TaskListStatus.Completed;
         }
 
-        if (items.Any(item => !item.IsResolved && item.DueDateUtc is { } dueDateUtc && dueDateUtc < nowUtc))
+        // Split, because the two mean different things to a reader. A chore that comes round every day
+        // keeps one due date that never moves, so once it passes the list would read "late" for as long
+        // as the chore exists - and it is not late, it is due again. See TaskListStatus.DueAgain. A
+        // missed deadline still wins where a list carries both: that is the one worth saying.
+        var stillOwed = items.Where(item => !item.IsResolved && item.DueDateUtc is { } due && due < nowUtc).ToList();
+        if (stillOwed.Any(item => !item.RemindDaily))
         {
             return TaskListStatus.Overdue;
+        }
+
+        if (stillOwed.Count > 0)
+        {
+            return TaskListStatus.DueAgain;
         }
 
         return items.Any(item => item.IsResolved) ? TaskListStatus.Pending : TaskListStatus.New;

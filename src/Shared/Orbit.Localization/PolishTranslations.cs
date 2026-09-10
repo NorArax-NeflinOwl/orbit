@@ -531,6 +531,8 @@ public static class PolishTranslations
         ["Not started"] = "Nierozpoczęte",
         ["In progress"] = "W trakcie",
         ["Overdue"] = "Po terminie",
+        // A chore that comes round every day, waiting for today - see TaskListStatus.DueAgain.
+        ["Due again"] = "Znów do zrobienia",
         ["Items"] = "Pozycje",
         ["Group View"] = "Widok grupowy",
         ["Type"] = "Typ",

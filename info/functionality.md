@@ -289,6 +289,17 @@ something is in is decided from what it already is, and the first that applies w
 written down in [the scope cuts](future-plan.md#known-scope-cuts-and-rough-edges) because it reads like
 an omission rather than a decision, and because undoing it would be a migration rather than a checkbox.
 
+**A list holding only a daily chore is "Due again", not "Overdue"** (`TaskListStatus.DueAgain`,
+2026-09-10). A chore that repeats every day keeps one due date that never moves, so the moment it passed
+the list read *late* for as long as the chore existed - and it is not late, it is due again, which is
+what a daily chore is for. The restock round every shelf raises (`RestockTaskNaming`) is the one every
+account has, so this was the first thing an inventory did to the tasks page. A **missed deadline still
+wins** where a list carries both: that is the one worth saying. Both clients name the new status and the
+task page offers it as a chip of its own; a client that has not learned it reads it as "Not started",
+which is the safe end to be wrong at (`TaskListView.Describe`, `Tasks.DescribeStatus`). The badge takes
+the accent colour rather than the danger one the overdue badge takes - the whole point of the status is
+that nothing has gone wrong.
+
 **A closed list stops being owed.** Filing it under Finished is not all that saying so does: an entry
 on it is done whatever its own tick says, so its deadlines leave the calendar's list and its grid marks
 (`Calendar.LoadDueTasksAsync`, `Calendar.IsTickedOff`), the dashboard's "Upcoming" card and the count of
@@ -452,9 +463,9 @@ Three consequences worth stating, because they changed how a page behaves:
 - The task list page no longer offers a **Completed** chip. A finished list nobody filed is in Finished
   now, so the chip would be the tab above asked a second time.
 - Under **Finished** that page offers only **All**, **Shared** and **Group**. How far along a list is no
-  longer varies there, so "Not started", "In progress" and "Overdue" could read nothing but zero; a chip
-  the new tab does not draw is dropped when the tab changes, or the reader would sit on an empty page
-  with nothing on screen to press to get out of it.
+  longer varies there, so "Not started", "In progress", "Overdue" and "Due again" could read nothing but
+  zero; a chip the new tab does not draw is dropped when the tab changes, or the reader would sit on an
+  empty page with nothing on screen to press to get out of it.
 - The dashboard's task card keeps a finished list only when it is **pinned**, and reads it under the tab
   it was filed under - this page has no Finished tab to ask for the rest back.
 
