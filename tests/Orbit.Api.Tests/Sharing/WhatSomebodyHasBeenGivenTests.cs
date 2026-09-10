@@ -5,6 +5,7 @@ using Orbit.Core.Chat;
 using Orbit.Core.Inventories;
 using Orbit.Core.Notes;
 using Orbit.Core.Notifications;
+using Orbit.Core.Places;
 using Orbit.Core.Sharing;
 using Orbit.Core.Sharing.GetSharesWith;
 using Orbit.Core.Sharing.RevokeShare;
@@ -250,10 +251,25 @@ public sealed class WhatSomebodyHasBeenGivenTests
             await _inventoryShares.AddAsync(share, CancellationToken.None);
         }
 
+        /// <summary>The places this owner keeps, and the grants they have handed out over them.</summary>
+        private readonly InMemoryPlaceRepository _places = new();
+        internal InMemoryPlaceShareRepository PlaceShares { get; } = new();
+
+        /// <summary>Hands over a place and says it was taken up, the way the others here do.</summary>
+        public async Task<Guid> SharePlaceAsync(string name)
+        {
+            var place = Place.Create(OwnerId, name, "", new EventLocation("Piękna 1, Warszawa", 52.2297, 21.0122));
+            await _places.AddAsync(place, CancellationToken.None);
+            var share = PlaceShare.Create(place.Id, OwnerId, RecipientId);
+            share.MarkAccepted();
+            await PlaceShares.AddAsync(share, CancellationToken.None);
+            return share.Id;
+        }
+
         public Task<IReadOnlyList<SharedWithSomebody>> ListAsync()
             => new GetSharesWithQueryHandler(
-                    NoteShares, _taskListShares, _calendarEventShares, _inventoryShares,
-                    new SharedItemName(_notes, _taskLists, _events, _inventories))
+                    NoteShares, _taskListShares, _calendarEventShares, _inventoryShares, PlaceShares,
+                    new SharedItemName(_notes, _taskLists, _events, _inventories, _places))
                 .HandleAsync(new GetSharesWithQuery(OwnerId, RecipientId), CancellationToken.None);
 
         /// <summary>The message the editors send right after sharing - see EncryptedChatMessageSender.</summary>
@@ -273,7 +289,8 @@ public sealed class WhatSomebodyHasBeenGivenTests
 
         public Task<bool> RevokeAsync(SharedItemKind kind, Guid shareId)
             => new RevokeShareCommandHandler(
-                    NoteShares, _taskListShares, _calendarEventShares, _inventoryShares, Messages, LiveUpdates)
+                    NoteShares, _taskListShares, _calendarEventShares, _inventoryShares, PlaceShares,
+                    Messages, LiveUpdates)
                 .HandleAsync(new RevokeShareCommand(OwnerId, kind, shareId), CancellationToken.None);
     }
 }

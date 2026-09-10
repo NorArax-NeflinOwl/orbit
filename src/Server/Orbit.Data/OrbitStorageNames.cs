@@ -42,6 +42,7 @@ internal static class OrbitStorageNames
         [typeof(NotificationEntryEntity)] = new("OP_NOTIFICATIONS", "OP_NTF_"),
         [typeof(FolderEntity)] = new("OP_FOLDERS", "OP_F_"),
         [typeof(PlaceEntity)] = new("OP_PLACES", "OP_P_"),
+        [typeof(PlaceShareEntity)] = new("OP_PLACES_SHARED", "OP_PLS_"),
 
         // OL_ - rows that exist to join two of the tables above.
         [typeof(TaskItemTaskListLinkEntity)] = new("OL_TASKS_ITEMS", "OL_TI_"),

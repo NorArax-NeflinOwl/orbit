@@ -818,11 +818,68 @@ public sealed class MapPageTests : OrbitTestContext
     private string _placesJson = "[]";
 
     /// <summary>One kept place, as the server sends it.</summary>
-    private static string OneKeptPlace(string name, string colour = "", string priority = "Normal")
+    private static string OneKeptPlace(
+        string name, string colour = "", string priority = "Normal",
+        bool isShared = false, string? sharedBy = null, string accessLevel = "CanEdit")
         => "[{\"id\":\"" + Guid.NewGuid() + "\",\"name\":\"" + name + "\",\"description\":\"\","
         + "\"where\":{\"address\":\"Piękna 1\",\"latitude\":52.2,\"longitude\":21.0},"
         + "\"colour\":\"" + colour + "\",\"priority\":\"" + priority + "\",\"taskListIds\":[],"
-        + "\"createdAtUtc\":\"2026-09-10T10:00:00+00:00\",\"updatedAtUtc\":\"2026-09-10T10:00:00+00:00\"}]";
+        + "\"createdAtUtc\":\"2026-09-10T10:00:00+00:00\",\"updatedAtUtc\":\"2026-09-10T10:00:00+00:00\","
+        + "\"isShared\":" + (isShared ? "true" : "false") + ","
+        + "\"sharedByUserName\":" + (sharedBy is null ? "null" : "\"" + sharedBy + "\"") + ","
+        + "\"accessLevel\":\"" + accessLevel + "\",\"isSharedWithOthers\":false}]";
+
+    /// <summary>
+    /// A place somebody handed over says who from, so a row on this list is not read as one the reader
+    /// kept themselves - which matters most on the one list where both kinds sit together.
+    /// </summary>
+    [Fact]
+    public void A_place_somebody_handed_over_says_who_it_came_from()
+    {
+        GrantLocations();
+        _placesJson = OneKeptPlace("Their bakery", isShared: true, sharedBy: "Anna", accessLevel: "ReadOnly");
+
+        var cut = RenderComponent<MapPage>();
+
+        Assert.Contains("From Anna", SectionNamed(cut, "Places you keep").TextContent, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// And its menu says "View" rather than "Edit", because that is what the form will be - the save is
+    /// refused by the server for a grant that only reads.
+    /// </summary>
+    [Fact]
+    public void A_place_handed_over_to_read_offers_to_be_viewed_rather_than_edited()
+    {
+        GrantLocations();
+        _placesJson = OneKeptPlace("Their bakery", isShared: true, sharedBy: "Anna", accessLevel: "ReadOnly");
+        var cut = RenderComponent<MapPage>();
+
+        SectionNamed(cut, "Places you keep").QuerySelector(".overflow-menu-trigger")!.Click();
+
+        var entries = cut.FindAll(".overflow-menu-dropdown button").Select(button => button.TextContent.Trim());
+        Assert.Contains("View", entries);
+        Assert.DoesNotContain("Edit", entries);
+        // Nor is it theirs to destroy: getting rid of it takes it off their own map and nobody else's.
+        Assert.Contains("Take it off my map", entries);
+    }
+
+    /// <summary>A place the reader keeps is theirs to hand on, and the menu offers it.</summary>
+    [Fact]
+    public void A_place_the_reader_keeps_can_be_handed_to_somebody()
+    {
+        GrantLocations();
+        _placesJson = OneKeptPlace("The good bakery");
+        var cut = RenderComponent<MapPage>();
+
+        SectionNamed(cut, "Places you keep").QuerySelector(".overflow-menu-trigger")!.Click();
+        cut.FindAll(".overflow-menu-dropdown button").First(button => button.TextContent.Trim() == "Share").Click();
+
+        // The panel itself, on the place that was pressed. Which contacts it offers is its own test -
+        // this account has none stubbed, and the panel says so rather than drawing an empty picker.
+        Assert.Contains("The good bakery", cut.Find(".map-overlay-panel").TextContent, StringComparison.Ordinal);
+        Assert.NotEmpty(cut.FindAll(".inventory-share-panel"));
+    }
 
     /// <summary>The pin on the heading of the section named this - see MapPanelPins.</summary>
     private static AngleSharp.Dom.IElement PanelPinFor(IRenderedFragment cut, string heading)

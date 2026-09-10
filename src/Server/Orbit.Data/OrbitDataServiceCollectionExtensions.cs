@@ -53,6 +53,7 @@ public static class OrbitDataServiceCollectionExtensions
         services.AddScoped<IPermissionCodeRepository, PermissionCodeRepository>();
         services.AddScoped<INoteRepository, NoteRepository>();
         services.AddScoped<IPlaceRepository, PlaceRepository>();
+        services.AddScoped<IPlaceShareRepository, PlaceShareRepository>();
         services.AddScoped<IFolderRepository, FolderRepository>();
         services.AddScoped<INoteShareRepository, NoteShareRepository>();
         services.AddScoped<ITaskRepository, TaskRepository>();

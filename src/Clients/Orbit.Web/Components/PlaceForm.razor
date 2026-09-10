@@ -17,6 +17,10 @@
     <div class="map-overlay-panel place-form" @onclick:stopPropagation="true">
         <div class="map-overlay-header">
             <h2>@(IsNew ? T["A place worth keeping"] : T["This place"])</h2>
+            @if (Place is { IsShared: true, SharedByUserName: { Length: > 0 } sharedBy })
+            {
+                <span class="card-badge">@T.Format("From {0}", sharedBy)</span>
+            }
             <button type="button" class="icon-btn" title="@(T["Cancel"])" aria-label="@(T["Cancel"])"
                     @onclick="CancelAsync">✕</button>
         </div>
@@ -127,9 +131,14 @@
         }
 
         <div class="map-overlay-confirm">
-            <button type="button" class="btn-primary" disabled="@(!CanSave)" @onclick="SaveAsync">
-                @(IsNew ? T["Create"] : T["Save"])
-            </button>
+            @* A place given to this reader to read has nothing to press: the save would be refused by
+               the server, and a button that only ever fails is worse than none. *@
+            @if (CanWrite)
+            {
+                <button type="button" class="btn-primary" disabled="@(!CanSave)" @onclick="SaveAsync">
+                    @(IsNew ? T["Create"] : T["Save"])
+                </button>
+            }
             <button type="button" class="btn-secondary" @onclick="CancelAsync">@T["Cancel"]</button>
         </div>
     </div>
@@ -186,7 +195,13 @@
     /// tell from the next one; the point because without it there is nothing to draw and nothing to
     /// hand a map app - see Orbit.Core.Places.Place.Refuse, which says the same thing on the server.
     /// </summary>
-    private bool CanSave => !_isSaving && _name.Trim().Length > 0 && HasAPoint;
+    private bool CanSave => CanWrite && !_isSaving && _name.Trim().Length > 0 && HasAPoint;
+
+    /// <summary>
+    /// Whether this reader may rewrite it. Always for a place they keep and for a new one; for one
+    /// handed to them, only where the grant says so - the same rule UpdatePlaceCommandHandler enforces.
+    /// </summary>
+    private bool CanWrite => Place is not { } place || place.AccessLevel == "CanEdit";
 
     private IReadOnlyList<TaskDto> LinkableLists
         => [.. TaskLists.Where(list => !_taskListIds.Contains(list.Id))];

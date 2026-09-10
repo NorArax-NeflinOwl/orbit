@@ -20,6 +20,7 @@
 @inject NotesApiClient NotesApiClient
 @inject TasksApiClient TasksApiClient
 @inject InventoryApiClient InventoryApiClient
+@inject PlacesApiClient PlacesApiClient
 @inject NotificationFeedState NotificationFeedState
 @inject NewsSettler NewsSettler
 @inject PageVisibility PageVisibility
@@ -1514,6 +1515,14 @@ else
                 inventoryShare.ShareId, SharedItemKind.Inventory, $"Shared an inventory: {inventoryShare.InventoryName}",
                 () => InventoryApiClient.GetInventoryShareStatusAsync(inventoryShare.ShareId),
                 () => InventoryApiClient.AcceptInventoryShareAsync(inventoryShare.ShareId));
+        }
+
+        if (TryDeserialize<PlaceShareMessagePayload>(plainText) is { Type: PlaceShareMessagePayload.MessageType } placeShare)
+        {
+            return new ShareNotice(
+                placeShare.ShareId, SharedItemKind.Place, $"Shared a place: {placeShare.PlaceName}",
+                () => PlacesApiClient.GetPlaceShareStatusAsync(placeShare.ShareId),
+                () => PlacesApiClient.AcceptPlaceShareAsync(placeShare.ShareId));
         }
 
         return null;

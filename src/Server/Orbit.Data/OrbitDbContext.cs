@@ -12,6 +12,7 @@ public sealed class OrbitDbContext : DbContext
 
     public DbSet<NoteEntity> Notes => Set<NoteEntity>();
     public DbSet<NoteShareEntity> NoteShares => Set<NoteShareEntity>();
+    public DbSet<PlaceShareEntity> PlaceShares => Set<PlaceShareEntity>();
     public DbSet<FolderEntity> Folders => Set<FolderEntity>();
 
     /// <summary>Somewhere on the map worth keeping - see Orbit.Core.Places.Place.</summary>
@@ -142,6 +143,14 @@ public sealed class OrbitDbContext : DbContext
         {
             // One row per place-and-list pair; the position orders them within a place.
             entity.HasKey(link => new { link.PlaceId, link.TaskListId });
+        });
+
+        modelBuilder.Entity<PlaceShareEntity>(entity =>
+        {
+            entity.HasKey(share => share.Id);
+            // SharePlaceCommandHandler's duplicate check (PlaceShareRepository.FindExistingAsync) looks
+            // this pair up on every attempt - the same index NoteShareEntity carries below.
+            entity.HasIndex(share => new { share.SourcePlaceId, share.RecipientUserId });
         });
 
         modelBuilder.Entity<NoteShareEntity>(entity =>

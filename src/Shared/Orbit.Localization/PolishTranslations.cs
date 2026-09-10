@@ -748,6 +748,12 @@ public static class PolishTranslations
         ["Choose a list…"] = "Wybierz listę…",
         ["A list that is no longer here"] = "Lista, której już nie ma",
         ["That place is not here any more."] = "Tego miejsca już tu nie ma.",
+        ["That place could not be shared."] = "Nie udało się udostępnić tego miejsca.",
+        // What "Delete" says on a place somebody else keeps: the row goes from this map and from
+        // nowhere else - see DeletePlaceCommandHandler.
+        ["Take it off my map"] = "Usuń z mojej mapy",
+        // Who handed it over, on the row and above the form.
+        ["From {0}"] = "Od {0}",
         ["That could not be saved. Try again in a moment."] = "Nie udało się zapisać. Spróbuj za chwilę.",
         // What a pressed pin becomes: a place, an appointment, or a list of work starting there.
         ["Make it"] = "Utwórz jako",
@@ -956,6 +962,8 @@ public static class PolishTranslations
         ["{0} shared a task list with you"] = "{0} udostępnił(a) Ci listę zadań",
         ["{0} shared an event with you"] = "{0} udostępnił(a) Ci wydarzenie",
         ["{0} shared an inventory with you"] = "{0} udostępnił(a) Ci magazyn",
+        // A place kept on the map, not somebody's position - the line below is that one.
+        ["{0} shared a place with you"] = "{0} udostępnił(a) Ci miejsce",
         ["{0} shared their location with you"] = "{0} udostępnił(a) Ci swoje położenie",
         ["All day"] = "Cały dzień",
         ["Shared by"] = "Udostępnił",
@@ -1272,6 +1280,8 @@ public static class PolishTranslations
         ["a note"] = "notatkę",
         ["a task list"] = "listę zadań",
         ["an event"] = "wydarzenie",
+        // The kinds a share notice names, in the accusative the sentence around them needs.
+        ["a place"] = "miejsce",
         ["an inventory"] = "magazyn",
         ["An error occurred while logging in. Try again."] = "Wystąpił błąd podczas logowania. Spróbuj ponownie.",
         ["An error occurred while registering. Try again."] = "Wystąpił błąd podczas rejestracji. Spróbuj ponownie.",

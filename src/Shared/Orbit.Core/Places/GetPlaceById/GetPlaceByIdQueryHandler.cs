@@ -4,13 +4,14 @@ namespace Orbit.Core.Places.GetPlaceById;
 
 public sealed class GetPlaceByIdQueryHandler : IRequestHandler<GetPlaceByIdQuery, Place?>
 {
-    private readonly IPlaceRepository _placeRepository;
+    private readonly PlaceAccessResolver _placeAccessResolver;
 
-    public GetPlaceByIdQueryHandler(IPlaceRepository placeRepository)
+    public GetPlaceByIdQueryHandler(PlaceAccessResolver placeAccessResolver)
     {
-        _placeRepository = placeRepository;
+        _placeAccessResolver = placeAccessResolver;
     }
 
+    /// <summary>Null when the caller neither keeps this place nor holds an accepted share of it.</summary>
     public Task<Place?> HandleAsync(GetPlaceByIdQuery request, CancellationToken cancellationToken)
-        => _placeRepository.GetByIdAsync(request.UserId, request.Id, cancellationToken);
+        => _placeAccessResolver.ResolveAsync(request.UserId, request.Id, cancellationToken);
 }

@@ -133,11 +133,13 @@ internal sealed class ChatContext : IDisposable
     {
         var screen = new ConversationViewModel(
             Reader, Sender, Editor, Forwarder,
-            // Accepting a shared item needs four clients this screen never reaches in these tests: what
-            // is under test is the compose box, not what a share offer does when it is taken up.
+            // Accepting a shared item needs a client per kind, and this screen reaches none of them in
+            // these tests: what is under test is the compose box, not what a share offer does when it is
+            // taken up.
             new SharedItemAcceptance(
                 new NotesClient(Server.ToHttpClient()), new TasksClient(Server.ToHttpClient()),
-                new CalendarClient(Server.ToHttpClient()), new InventoryClient(Server.ToHttpClient())),
+                new CalendarClient(Server.ToHttpClient()), new InventoryClient(Server.ToHttpClient()),
+                new PlacesClient(Server.ToHttpClient())),
             Repository, Synchronizer, ChatClient,
             new Translations(new InMemoryLanguageStore()), new RecordingScreenNavigator(), LiveUpdates);
 

@@ -124,6 +124,7 @@ public sealed class SharedItemNotifier : ISharedItemNotifier
         SharedItemKind.TaskList => "{0} shared a task list with you",
         SharedItemKind.CalendarEvent => "{0} shared an event with you",
         SharedItemKind.Inventory => "{0} shared an inventory with you",
+        SharedItemKind.Place => "{0} shared a place with you",
         _ => "{0} shared their location with you"
     };
 
@@ -141,8 +142,16 @@ public sealed class SharedItemNotifier : ISharedItemNotifier
         => link.PendingShareId is { } shareId
             ? $"/invitation/{SharedItemPath.For(kind)}/{shareId}/{sharerUserId}"
             : link.ItemId is { } itemId
-                ? $"{SectionFor(kind)}/{itemId}"
+                ? AddressOf(kind, itemId)
                 : "/map";
+
+    /// <summary>
+    /// Where one of these is read once it is the recipient's. A path segment for four of the five, and a
+    /// query for a place: a place is met on the map rather than on a page of its own, so its id says
+    /// which pin to open on rather than which page to load - see MapPage.Place.
+    /// </summary>
+    private static string AddressOf(SharedItemKind kind, Guid itemId)
+        => kind == SharedItemKind.Place ? $"/map?place={itemId}" : $"{SectionFor(kind)}/{itemId}";
 
     /// <summary>Where one of these is read once it is the recipient's - the client's own routes.</summary>
     private static string SectionFor(SharedItemKind kind) => kind switch
@@ -162,5 +171,14 @@ public enum SharedItemKind
     TaskList,
     CalendarEvent,
     Inventory,
-    Location
+
+    /// <summary>Somebody's position, shared with this reader - not a place kept on the map, which is Place.</summary>
+    Location,
+
+    /// <summary>
+    /// Somewhere kept on the map - see Orbit.Core.Places.Place. Last rather than beside Inventory, where
+    /// it reads better: the values travel as numbers in stored payloads, and inserting one in the middle
+    /// would turn every "Location" already written into a "Place".
+    /// </summary>
+    Place
 }

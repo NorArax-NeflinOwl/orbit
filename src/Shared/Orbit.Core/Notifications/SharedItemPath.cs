@@ -21,6 +21,7 @@ public static class SharedItemPath
         SharedItemKind.TaskList => "tasklist",
         SharedItemKind.CalendarEvent => "event",
         SharedItemKind.Inventory => "inventory",
+        SharedItemKind.Place => "place",
         _ => "location"
     };
 
@@ -35,6 +36,7 @@ public static class SharedItemPath
         "event" => SharedItemKind.CalendarEvent,
         "inventory" => SharedItemKind.Inventory,
         "location" => SharedItemKind.Location,
+        "place" => SharedItemKind.Place,
         _ => null
     };
 }

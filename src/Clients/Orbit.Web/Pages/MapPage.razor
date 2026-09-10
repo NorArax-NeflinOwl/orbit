@@ -253,6 +253,18 @@ else
                        any of them - the sharers' names above are coloured for the same reason. *@
                     <span class="map-place-dot" style="background:@ColourOf(place)" aria-hidden="true"></span>
                     <span class="row-title">@place.Name</span>
+                    @* Which of the two it is matters: one is a place somebody gave this reader, the other
+                       is one this reader gave away. Named apart rather than both drawn as "Shared". *@
+                    @if (place.IsShared)
+                    {
+                        <span class="card-badge">@(place.SharedByUserName is { Length: > 0 } sharer
+                            ? T.Format("From {0}", sharer)
+                            : T["Shared"])</span>
+                    }
+                    else if (place.IsSharedWithOthers)
+                    {
+                        <span class="card-badge">@T["Shared"]</span>
+                    }
                     @if (PriorityOf(place) is { } priority)
                     {
                         <span class="card-badge card-badge-priority-@priority.ToLowerInvariant()">@DescribePriority(priority)</span>
@@ -269,14 +281,25 @@ else
                        form, so changing one opens the form it was made in. *@
                     <span @onclick:stopPropagation="true">
                         <OverflowMenu>
+                            @* "View" rather than "Edit" where this reader was given it to read: the same
+                               form either way, and the word says which of the two it will be. *@
                             <button type="button" class="avatar-dropdown-item" @onclick="() => ChangeThePlace(place)">
-                                @T["Edit"]
+                                @(place.AccessLevel == "CanEdit" ? T["Edit"] : T["View"])
                             </button>
+                            @* Only where this reader may pass it on: a place handed over to read is not
+                               theirs to hand on further - see SharedItemAccess, which the panel below
+                               reads again for what level it may offer. *@
+                            @if (SharedItemAccess.For(place.IsShared, place.AccessLevel).CanShare)
+                            {
+                                <button type="button" class="avatar-dropdown-item" @onclick="() => ShareThePlace(place)">
+                                    @T["Share"]
+                                </button>
+                            }
                             <button type="button" class="avatar-dropdown-item" @onclick="() => DuplicateThePlaceAsync(place)">
                                 @T["Duplicate"]
                             </button>
                             <button type="button" class="avatar-dropdown-item danger" @onclick="() => AskToForgetThePlace(place)">
-                                @T["Delete"]
+                                @(place.IsShared ? T["Take it off my map"] : T["Delete"])
                             </button>
                         </OverflowMenu>
                     </span>
@@ -518,6 +541,24 @@ else
 {
     <PlaceForm Place="beingChanged" TaskLists="_taskLists"
                OnSaved="TheNewPlaceWasKeptAsync" OnCancelled="() => _placeBeingChanged = null" />
+}
+
+@* Handing a place to somebody, from the row it is on. Over the map like everything else this page asks,
+   because the panel is a quarter of a phone and this is three questions and a message. *@
+@if (_placeBeingShared is { } beingShared)
+{
+    <div class="map-overlay" @onclick="() => _placeBeingShared = null">
+        <div class="map-overlay-panel" @onclick:stopPropagation="true">
+            <div class="map-overlay-header">
+                <h2>@T["Share"]</h2>
+                <button type="button" class="icon-btn" title="@(T["Close"])" aria-label="@(T["Close"])"
+                        @onclick="() => _placeBeingShared = null">✕</button>
+            </div>
+            <p class="map-overlay-hint">@beingShared.Name</p>
+            <SharePlacePanel Place="beingShared" Contacts="_contacts" OwnUserId="_ownUserId"
+                             OnShared="TheseSharesChangedAsync" />
+        </div>
+    </div>
 }
 
 @* Asked before it happens, because forgetting a place is the one thing on this panel that cannot be
@@ -778,6 +819,21 @@ else
     private PlaceDto? _placeBeingChanged;
 
     private void ChangeThePlace(PlaceDto place) => _placeBeingChanged = place;
+
+    /// <summary>The place whose sharing panel is open, or null when none is.</summary>
+    private PlaceDto? _placeBeingShared;
+
+    private void ShareThePlace(PlaceDto place) => _placeBeingShared = place;
+
+    /// <summary>
+    /// Read back after a share so the row can say it is in somebody else's hands too. The panel stays
+    /// open: sharing with a second person is an ordinary next thing to want.
+    /// </summary>
+    private async Task TheseSharesChangedAsync()
+    {
+        _places = await PlacesApiClient.GetPlacesAsync();
+        _placeBeingShared = _places.FirstOrDefault(place => place.Id == _placeBeingShared?.Id);
+    }
 
     /// <summary>
     /// A second one of the same, which is what a place that comes in pairs needs: two entrances to the

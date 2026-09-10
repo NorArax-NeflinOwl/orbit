@@ -79,9 +79,12 @@ using Orbit.Core.Notes.MoveNoteToFolder;
 using Orbit.Core.Places;
 using Orbit.Core.Places.CreatePlace;
 using Orbit.Core.Places.DeletePlace;
+using Orbit.Core.Places.AcceptPlaceShare;
 using Orbit.Core.Places.DuplicatePlace;
 using Orbit.Core.Places.GetPlaceById;
+using Orbit.Core.Places.GetPlaceShareStatus;
 using Orbit.Core.Places.GetPlaces;
+using Orbit.Core.Places.SharePlace;
 using Orbit.Core.Places.UpdatePlace;
 using Orbit.Core.Notes.ReleaseNoteLock;
 using Orbit.Core.Notes.SetNotePinned;
@@ -201,6 +204,10 @@ public static class OrbitCoreServiceCollectionExtensions
         services.AddScoped<IRequestHandler<DuplicatePlaceCommand, Guid?>, DuplicatePlaceCommandHandler>();
         services.AddScoped<IRequestHandler<GetPlacesQuery, IReadOnlyList<Place>>, GetPlacesQueryHandler>();
         services.AddScoped<IRequestHandler<GetPlaceByIdQuery, Place?>, GetPlaceByIdQueryHandler>();
+        services.AddScoped<IRequestHandler<SharePlaceCommand, ShareOutcome?>, SharePlaceCommandHandler>();
+        services.AddScoped<IRequestHandler<AcceptPlaceShareCommand, bool>, AcceptPlaceShareCommandHandler>();
+        services.AddScoped<IRequestHandler<GetPlaceShareStatusQuery, bool?>, GetPlaceShareStatusQueryHandler>();
+        services.AddScoped<PlaceAccessResolver>();
 
         // The tabs every page made of cards is drawn under - see Orbit.Core.Folders.Folder.
         services.AddScoped<IRequestHandler<GetFoldersQuery, IReadOnlyList<Folder>>, GetFoldersQueryHandler>();

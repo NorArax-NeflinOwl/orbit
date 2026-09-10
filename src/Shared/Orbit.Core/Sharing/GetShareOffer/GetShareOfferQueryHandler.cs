@@ -3,14 +3,15 @@ using Orbit.Core.Calendar;
 using Orbit.Core.Inventories;
 using Orbit.Core.Notes;
 using Orbit.Core.Notifications;
+using Orbit.Core.Places;
 using Orbit.Core.Tasks;
 
 namespace Orbit.Core.Sharing.GetShareOffer;
 
 /// <summary>
-/// Reads one offer, whatever kind it is about. The four share repositories meet here rather than in the
-/// page, for the reason PublicSharedItemReader gives about its own four: which repository answers
-/// follows from the kind, and that is one fact rather than four.
+/// Reads one offer, whatever kind it is about. The share repositories meet here rather than in the
+/// page, for the reason PublicSharedItemReader gives about its own: which repository answers follows
+/// from the kind, and that is one fact rather than several.
 ///
 /// Every lookup is scoped to the reader (<c>GetByIdAsync(recipientUserId, shareId)</c>), so an offer
 /// made to somebody else is not there to be read - the same "not found" a withdrawn one gets.
@@ -21,6 +22,7 @@ public sealed class GetShareOfferQueryHandler : IRequestHandler<GetShareOfferQue
     private readonly ITaskListShareRepository _taskListShareRepository;
     private readonly ICalendarEventShareRepository _calendarEventShareRepository;
     private readonly IInventoryShareRepository _inventoryShareRepository;
+    private readonly IPlaceShareRepository _placeShareRepository;
     private readonly SharedItemName _sharedItemName;
 
     public GetShareOfferQueryHandler(
@@ -28,12 +30,14 @@ public sealed class GetShareOfferQueryHandler : IRequestHandler<GetShareOfferQue
         ITaskListShareRepository taskListShareRepository,
         ICalendarEventShareRepository calendarEventShareRepository,
         IInventoryShareRepository inventoryShareRepository,
+        IPlaceShareRepository placeShareRepository,
         SharedItemName sharedItemName)
     {
         _noteShareRepository = noteShareRepository;
         _taskListShareRepository = taskListShareRepository;
         _calendarEventShareRepository = calendarEventShareRepository;
         _inventoryShareRepository = inventoryShareRepository;
+        _placeShareRepository = placeShareRepository;
         _sharedItemName = sharedItemName;
     }
 
@@ -71,6 +75,10 @@ public sealed class GetShareOfferQueryHandler : IRequestHandler<GetShareOfferQue
             case SharedItemKind.Inventory:
                 var inventory = await _inventoryShareRepository.GetByIdAsync(request.RecipientUserId, request.ShareId, cancellationToken);
                 return inventory is null ? null : (inventory.SourceInventoryId, inventory.OwnerUserId, inventory.IsAccepted);
+
+            case SharedItemKind.Place:
+                var place = await _placeShareRepository.GetByIdAsync(request.RecipientUserId, request.ShareId, cancellationToken);
+                return place is null ? null : (place.SourcePlaceId, place.OwnerUserId, place.IsAccepted);
 
             // A position is not offered and has nothing to accept - see SharedItemLink.TheMap.
             default:

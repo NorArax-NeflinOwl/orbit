@@ -246,6 +246,7 @@ erDiagram
     OS_USERS ||--o{ OP_PLACES : keeps
     OP_PLACES ||--o{ OL_PLACES_TASKS : "belongs to lists"
     OP_TASKS ||--o{ OL_PLACES_TASKS : "has places"
+    OP_PLACES ||--o{ OP_PLACES_SHARED : "handed over as"
 
     OP_PLACES {
         uuid OP_P_ID PK
@@ -263,6 +264,14 @@ erDiagram
         uuid OL_PT_TASKLISTID PK "no FK - a list deleted since reads as one nobody can see"
         int OL_PT_POSITION
     }
+    OP_PLACES_SHARED {
+        uuid OP_PLS_ID PK
+        uuid OP_PLS_SOURCEPLACEID FK
+        uuid OP_PLS_OWNERUSERID FK
+        uuid OP_PLS_RECIPIENTUSERID FK
+        text OP_PLS_ACCESSLEVEL
+        timestamptz OP_PLS_ACCEPTEDATUTC "null until accepted"
+    }
 ```
 
 **A place is somewhere worth keeping on its own account** (`Orbit.Core.Places.Place`). Orbit knew two
@@ -270,10 +279,15 @@ kinds of place before it and neither was one: an appointment's, which exists bec
 and goes when it goes, and a person's shared position, which is where somebody is this minute. Neither
 answers "the good bakery" or "where we park".
 
-It has **one owner for the row's whole life and is shared with nobody**, which makes "yours" the whole of
-its access control - every handler scopes its read by `UserId` and a request for somebody else's answers
-exactly as one for an id that never existed. Deleting one writes a `SyncTombstone`, so a client holding
-its own copy learns it is gone.
+It has **one owner for the row's whole life**: handing one over grants access to that same row rather
+than making a copy, so `OP_P_USERID` always names the person who keeps it and `OP_PLACES_SHARED` is the
+recipient's whole relationship to it (`PlaceAccessResolver`, mirroring `NoteShare`). A request for a
+place that is neither yours nor shared with you answers exactly as one for an id that never existed.
+Deleting one writes a `SyncTombstone`, so a client holding its own copy learns it is gone - and a
+recipient's "delete" drops their grant rather than the place, which leaves a tombstone for them alone.
+
+`OP_PLACES_SHARED` carries no per-recipient pin, unlike `OP_NOTES_SHARED`: a place has no list of its
+own to sit at the top of.
 
 `OL_PLACES_TASKS` is how a place joins the work it is about - the bakery belongs to the shopping list.
 **No foreign key to `OP_TASKS`**, deliberately: a list deleted afterwards leaves an id pointing at
@@ -338,8 +352,9 @@ the server can open it — see [flows](flows.md#chat-that-the-server-cannot-read
 `OP_C_ANNOUNCESSHAREID` is the one thing a share invitation says in the clear. The share id it points at
 is inside the sealed payload too, where only the recipient can read it — which is no use to the server
 when the owner withdraws the share and its invitation has to be taken down with it. It matches no single
-table on purpose: which of `OP_NOTES_SHARED`, `OP_TASKS_SHARED`, `OP_EVENTS_SHARED` and
-`OP_INVENTORIES_SHARED` the id belongs to is only knowable from the payload, so there is no foreign key.
+table on purpose: which of `OP_NOTES_SHARED`, `OP_TASKS_SHARED`, `OP_EVENTS_SHARED`,
+`OP_INVENTORIES_SHARED` and `OP_PLACES_SHARED` the id belongs to is only knowable from the payload, so
+there is no foreign key.
 
 `OL_CHATS_ACCESS` is the row that makes a conversation a conversation: until
 `OL_CA_APPROVEDATUTC` is set, one person has asked and the other has not agreed.

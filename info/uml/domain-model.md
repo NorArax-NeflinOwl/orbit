@@ -71,6 +71,8 @@ classDiagram
         +EventLocation Where
         +ItemPriority Priority
         +IReadOnlyList~Guid~ TaskListIds
+        +bool IsShared
+        +ShareAccessLevel AccessLevel
     }
     class Note {
         +Guid Id
@@ -197,6 +199,10 @@ Public, Private, Finished), chosen from what the item already is.
 `Note`, `TaskList`, `CalendarEvent` and `Inventory` each carry the `Shareable`, `Lockable` and
 `Sealable` facets above in full. They are left off this diagram only so the relationships stay
 readable.
+
+`Place` carries `Shareable` and neither of the other two. Nothing about a place is ever sealed - it is a
+name and a point, and there is no ciphertext for one - and it has no lock, because a place is small
+enough that its whole form is four lines and nobody holds it open.
 
 ## What `ChatMessage` does not have
 

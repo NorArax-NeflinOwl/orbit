@@ -16,6 +16,20 @@ namespace Orbit.Contracts.Places;
 /// </param>
 /// <param name="Priority">One of "Low", "Normal", "High" - see Orbit.Core.Abstractions.ItemPriority.</param>
 /// <param name="TaskListIds">The lists it belongs to, in order - see Place.TaskListIds.</param>
+/// <param name="IsShared">
+/// False for the person who keeps it, true for anybody reading it through a share. None of the four
+/// below are stored: they say how *this* caller relates to the place, worked out on every read - see
+/// PlaceAccessResolver, and NoteDto, which carries the same four for the same reason.
+/// </param>
+/// <param name="SharedByUserName">Who handed it over, when <paramref name="IsShared"/> is true.</param>
+/// <param name="AccessLevel">"ReadOnly" or "CanEdit" - always CanEdit for the person who keeps it.</param>
+/// <param name="OriginalOwnerUserId">
+/// Who keeps it, when this reader is not them. Null otherwise, which is what "mine" looks like.
+/// </param>
+/// <param name="IsSharedWithOthers">
+/// The other side of <paramref name="IsShared"/>: somebody else holds access to this place. Only ever
+/// meaningful to the person who keeps it.
+/// </param>
 public sealed record PlaceDto(
     Guid Id,
     string Name,
@@ -25,4 +39,9 @@ public sealed record PlaceDto(
     string Priority,
     IReadOnlyList<Guid> TaskListIds,
     DateTimeOffset CreatedAtUtc,
-    DateTimeOffset UpdatedAtUtc);
+    DateTimeOffset UpdatedAtUtc,
+    bool IsShared = false,
+    string? SharedByUserName = null,
+    string AccessLevel = "CanEdit",
+    Guid? OriginalOwnerUserId = null,
+    bool IsSharedWithOthers = false);

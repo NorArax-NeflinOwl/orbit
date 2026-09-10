@@ -1029,12 +1029,33 @@ much it matters, and the task lists it belongs to**. The last is how a place joi
 point are the calendar's own shape (`EventLocation`) rather than a second one: a place is a place, and
 two records of what one is would be two ways for a pin to end up somewhere else.
 
-**One owner for the row's whole life, shared with nobody**, so "yours" is the whole of its access
-control: every handler scopes its read by the caller, and a request for somebody else's place answers
-exactly as one for an id that never existed — telling the two apart would say whether an id exists.
-Deleting one writes a `SyncTombstone` like every other module's delete, so a client holding its own copy
-learns it is gone rather than keeping it forever, and `GET /api/places/changes?since=` is the delta that
-carries both halves.
+**One owner for the row's whole life.** Handing a place over grants access to that same row rather than
+making a copy, so the owner never changes and `PlaceShare` is the recipient's whole relationship to it —
+the shape `NoteShare` already had. A request for a place that is neither yours nor shared with you
+answers exactly as one for an id that never existed; telling the two apart would say whether an id
+exists. Deleting one writes a `SyncTombstone` like every other module's delete, so a client holding its
+own copy learns it is gone, and `GET /api/places/changes?since=` is the delta that carries both halves.
+
+**Sharing one is the "share a single entry" answer** (2026-09-10, `OP_PLACES_SHARED`,
+`POST /api/places/{id}/shares`). It works the way the other four kinds do — an offer that does nothing
+until it is taken up, announced by an encrypted chat message the recipient presses Accept on, listed on
+the contact's own card and withdrawable from there. The differences are all subtractions: there is no
+per-recipient pin, because a place has no list of its own to sit at the top of, and no refusal for a
+private one, because nothing about a place is ever sealed.
+
+- A **read-only** grant means read-only: `UpdatePlaceCommandHandler` refuses a save from anybody whose
+  grant is not `CanEdit`, and the menu says **View** rather than Edit so the form does not offer a button
+  that would only fail.
+- **Delete** on a place somebody handed over reads **"Take it off my map"** and drops the grant. Getting
+  rid of what you were shown is not destroying what somebody else keeps — the same rule a shared note
+  follows. The tombstone it leaves is that reader's alone.
+- **Duplicate** works on a place you were shown, and the copy is *yours*: keeping one for yourself is
+  what a reader does with a place somebody pointed at, and it must not appear as a second place on the
+  sharer's map.
+- Accepting one lands on **`/map?place={id}`** rather than a page of its own, because a place is met on
+  the map. The notification, the invitation page and the contact's card all address it that way.
+- The row on the panel says **who it came from** where somebody handed it over, and **Shared** where this
+  reader gave it away — two different facts that would otherwise read as one word.
 
 The lists a place belongs to are **not a foreign key**: a list deleted afterwards leaves an id pointing
 at nothing, and a reader treats that as "a list nobody here can see", the same way a task entry's own
@@ -3174,12 +3195,13 @@ lived only there. The thing itself is still not the recipient's to open until it
 the address it leads to is the *offer*, and taking it up on that page puts them where the thing now is.
 The offer is the server's own record, so this page needs **no key**: an invitation can be taken up on a
 device that has never unlocked chat, which the conversation's own Accept cannot do. Both ways of
-accepting call the same four endpoints, and either one leaves the other reading "already accepted".
+accepting call the same endpoints — one per kind, five of them since a place became shareable — and
+either one leaves the other reading "already accepted".
 
 It **names what was offered** and lands on it. `GET /api/shares/{kind}/{shareId}` answers with the
 offer - what was offered, what it is called, and whether it has been taken up (`GetShareOfferQuery`,
 scoped to the reader, so an offer made to somebody else reads exactly like one that was withdrawn). One
-endpoint for all four kinds rather than a fifth on each section, and accepting stays where it already
+endpoint for every kind rather than one more on each section, and accepting stays where it already
 is: each section's own `shares/{id}/accept`, which is where that kind's rules live - a task list's
 share, for one, drags the lists it gathers along with it. Something deleted between the offer and the
 reading of it comes back with an empty name and the offer still standing, so the page falls back to

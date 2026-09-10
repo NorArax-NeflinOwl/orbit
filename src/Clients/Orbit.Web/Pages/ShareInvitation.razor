@@ -8,6 +8,7 @@
 @inject TasksApiClient TasksApiClient
 @inject CalendarApiClient CalendarApiClient
 @inject InventoryApiClient InventoryApiClient
+@inject PlacesApiClient PlacesApiClient
 @inject UsersApiClient UsersApiClient
 @inject NavigationManager NavigationManager
 @inject ILogger<ShareInvitation> Logger
@@ -152,12 +153,12 @@
     /// </summary>
     private string WhereItIs(SharedItemKind kind)
         => _offer is { } offer
-            ? $"{SharedItemInvitation.SectionFor(kind)}/{offer.ItemId}"
+            ? SharedItemInvitation.AddressOf(kind, offer.ItemId)
             : SharedItemInvitation.SectionFor(kind);
 
     /// <summary>
-    /// Takes it up, and goes where it now is. The same four endpoints the conversation's own Accept
-    /// calls - what differs is only that this one needs no key to have read the offer.
+    /// Takes it up, and goes where it now is. The same endpoints the conversation's own Accept calls -
+    /// what differs is only that this one needs no key to have read the offer.
     /// </summary>
     private async Task AcceptAsync()
     {
@@ -175,6 +176,7 @@
                 SharedItemKind.Note => await NotesApiClient.AcceptNoteShareAsync(ShareId),
                 SharedItemKind.TaskList => await TasksApiClient.AcceptTaskListShareAsync(ShareId),
                 SharedItemKind.CalendarEvent => await CalendarApiClient.AcceptCalendarEventShareAsync(ShareId),
+                SharedItemKind.Place => await PlacesApiClient.AcceptPlaceShareAsync(ShareId),
                 _ => await InventoryApiClient.AcceptInventoryShareAsync(ShareId)
             };
 
@@ -215,6 +217,7 @@
         SharedItemKind.Note => T["a note"],
         SharedItemKind.TaskList => T["a task list"],
         SharedItemKind.CalendarEvent => T["an event"],
+        SharedItemKind.Place => T["a place"],
         _ => T["an inventory"]
     };
 }

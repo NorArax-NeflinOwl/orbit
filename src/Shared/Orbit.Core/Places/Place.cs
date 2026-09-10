@@ -57,6 +57,38 @@ public sealed class Place
     public DateTimeOffset CreatedAtUtc { get; private set; }
     public DateTimeOffset UpdatedAtUtc { get; private set; }
 
+    /// <summary>
+    /// False for the owner, true for anybody reading this place through a share - see PlaceAccessResolver.
+    ///
+    /// Not stored, like a note's: sharing grants access to this row rather than making a copy, so what
+    /// these three say is how the *caller* relates to it, worked out fresh on every read. The same row
+    /// reads differently for the person who kept it than for the person they handed it to.
+    /// </summary>
+    public bool IsShared { get; private set; }
+
+    /// <summary>The owner's login, whenever <see cref="IsShared"/> is true. Null otherwise.</summary>
+    public string? SharedByUserName { get; private set; }
+
+    /// <summary>
+    /// True when somebody else holds accepted access to this place. Only ever meaningful to its owner -
+    /// the other side of the same relationship is <see cref="IsShared"/>.
+    /// </summary>
+    public bool IsSharedWithOthers { get; private set; }
+
+    /// <summary>The caller's access - always CanEdit for the owner, and whatever their share grants otherwise.</summary>
+    public ShareAccessLevel AccessLevel { get; private set; } = ShareAccessLevel.CanEdit;
+
+    /// <summary>Stamps how the caller relates to this place. Called by PlaceAccessResolver; never stored.</summary>
+    public void SetAccessContext(bool isShared, string? sharedByUserName, ShareAccessLevel accessLevel)
+    {
+        IsShared = isShared;
+        SharedByUserName = sharedByUserName;
+        AccessLevel = accessLevel;
+    }
+
+    /// <inheritdoc cref="IsSharedWithOthers"/>
+    public void SetSharedWithOthers(bool isSharedWithOthers) => IsSharedWithOthers = isSharedWithOthers;
+
     private Place(
         Guid id, Guid userId, string name, string description, EventLocation where, string colour,
         ItemPriority priority, IReadOnlyList<Guid>? taskListIds,
