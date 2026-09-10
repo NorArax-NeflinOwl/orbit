@@ -613,16 +613,26 @@ inventory lists, the contacts tabs, the chat menus - is built and needs no schem
   entry to a `Place` (one point, one owner, and the entry borrows it), or leaving Location as prose and
   letting the entry offer "keep this as a place" once. Needs a decision before any of it is built.
 
-- **Nobody has found out why the map's Start and Share do nothing on a phone.** Both are hidden below
-  680px as of 2026-09-09 (`.map-panel-start`, `.map-panel-share`), on a report that pressing them
-  achieves nothing there, and the page says so in one line instead. That is a cover, not a fix: the
-  code path is the same one a desktop browser runs, and every way it can fail already puts a message on
-  the screen - `RecordCurrentLocationAsync` refuses outright when `DevicePreferences.AllowLocation` is
-  off, and shows `BrowserPosition.Error` verbatim otherwise. So the likeliest causes are worth ruling
-  out in order: the Options switch never turned on for that device, a browser that refuses geolocation
-  to a self-signed certificate on `https://localhost:8443`, and a permission the phone's browser denied
-  once and now denies silently. What it needs is somebody watching the console on the actual device;
-  until then the hiding stays, and it should come off the moment the cause is known.
+- **Why the map's Start and Share do nothing on a phone: two of the three causes are ruled out.** Both
+  are hidden below 680px as of 2026-09-09 (`.map-panel-start`, `.map-panel-share`), on a report that
+  pressing them achieves nothing there, and the page says so in one line instead. That is a cover, not
+  a fix.
+
+  **Measured on 2026-09-10** in a browser emulating 375×812, with the hiding rule lifted from the live
+  page: the button is **not covered and not disabled** - `document.elementFromPoint` at its own centre
+  answers the button itself - a press runs the handler, and the page answers *"Orbit isn't allowed to
+  use your location. Turn it on in Options first."* 72px below it, both on screen without scrolling.
+  So neither "the press never lands" nor "the failure is silent" is what happens: the third cause on
+  the original list, **the Options switch never turned on for that device**, is what this reproduces,
+  and the page does say so. `DevicePreferences.AllowLocation` is per device and per browser, so a
+  laptop with it on says nothing about the phone.
+
+  What is left to rule out needs the phone itself, and is one press now rather than an investigation:
+  turn **Options → Location** on there, then press Start and read the line under it. If it says the
+  location could not be read, the remaining cause is the certificate - a phone reaching
+  `https://<LAN IP>:8443` does not trust this machine's mkcert CA, proceeds past an interstitial, and
+  Chrome refuses geolocation to an origin with a certificate error. The cover comes off the moment that
+  answer is in.
 
 - ~~**The phone cannot answer whether a list is finished.**~~ Done on 2026-09-10, the way this said:
   **Completed** in the list's menu (`TaskListDetailViewModel.IsFinished`, ticking itself once every
