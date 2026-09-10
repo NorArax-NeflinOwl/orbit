@@ -1042,12 +1042,10 @@ its shared controls. What that pass left, all of it now overtaken:
   crossed off *while reading the list*, and the entry's page is where it is crossed off while reading
   the entry.
 
-  **The phone still forks the way the calendar used to** (`CalendarViewModel.OpenDeadline`,
-  `CalendarDeadline.IsSomewhere`): a deadline with somewhere to be opens its own screen, one without
-  opens the list. Nothing is broken by it - both screens exist and both are reachable - so it is parity
-  rather than a defect, and it is the only place left where pressing an entry can open something else.
-  What it would take: dropping the `if` in `OpenDeadline`, then `IsSomewhere` and
-  `IsSomewhereAsWellAsAtSomeTime` with it, since nothing else reads either.
+  ~~**The phone still forks the way the calendar used to**~~ (`CalendarViewModel.OpenDeadline`,
+  `CalendarDeadline.IsSomewhere`). Gone on 2026-09-10, exactly as this said: the `if` dropped, and
+  `IsSomewhere` and `IsSomewhereAsWellAsAtSomeTime` with it. Every deadline on the phone's calendar
+  opens the entry itself now, and nowhere on either client does pressing an entry open something else.
 
 
 - ~~**Reordering by hand needs a mouse.**~~ Done: each handle now carries a pair of move-up/move-down

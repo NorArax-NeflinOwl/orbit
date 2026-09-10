@@ -508,25 +508,19 @@ public sealed partial class CalendarViewModel : ObservableObject
     }
 
     /// <summary>
-    /// Somewhere to get to opens on its own, with what it is, when it is and where; everything else
-    /// opens the list it sits on, which is where it gets ticked off. Orbit.Web's calendar splits them
-    /// the same way and for the same reason - see CalendarDeadline.IsSomewhere.
+    /// A press opens the thing that was pressed, at its reading depth - the entry's own screen, with
+    /// what it is, when it is, where, and the tick that crosses it off. It used to fork: somewhere to
+    /// get to opened on its own and everything else opened the list, decided by a field no row
+    /// mentions, which is the fork Orbit.Web's calendar gave up on 2026-09-07 (see "Two editing levels"
+    /// in info/functionality.md). The list is one press further, from the entry itself.
     /// </summary>
     [RelayCommand]
     private void OpenDeadline(CalendarDeadline? deadline)
     {
-        if (deadline is null)
-        {
-            return;
-        }
-
-        if (deadline.IsSomewhere)
+        if (deadline is not null)
         {
             _navigator.ShowTaskItem(deadline.TaskListLocalId, deadline.ItemId);
-            return;
         }
-
-        _navigator.ShowTaskList(deadline.TaskListLocalId);
     }
 
     private async Task ShowStoredEventsAsync(CancellationToken cancellationToken)
