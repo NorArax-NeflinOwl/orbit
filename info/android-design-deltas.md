@@ -186,12 +186,16 @@ about them is under "Screens already built" below.
 - ~~**Backspace at the head of a checklist line takes the box off first.**~~ ***Done 2026-09-09.***
   `MergeIntoTheLineAbove` answers null for that press and takes the box off instead; only a second
   press joins the line upwards. It is the one way to undo a box from the keyboard.
-- ~~**Arrow up and arrow down move between lines**, keeping the column.~~ ***Done 2026-09-10.*** The
+- ~~**Arrow up and arrow down move between lines**, keeping the column.~~ ***Done 2026-09-10, walked on
+  the device.*** The
   same Android key hook backspace already owned, which is named `NoteLineKeyPresses` now that it reads
   three keys rather than one. The caret keeps its column and lands at the end of a line too short to
   keep it; arrow up in the first line goes to the note's name, because the name is the note's first
   line and Enter at the end of it already goes the other way; and arrow down at the last line does
-  nothing, because starting a line is Enter's job.
+  nothing, because starting a line is Enter's job. Walked with `adb shell input keyevent
+  KEYCODE_DPAD_UP`/`_DOWN` and a character typed after each press to see which line took it: the caret
+  crosses a ticked line (which opens as it arrives and closes again as it leaves) and lands in the
+  note's name from the first line, at the column it left.
 - **The editor has a foot.** *Half done 2026-09-09*: the hairline and "Type [] for a checkbox" are
   there, which is the only place the trick is written down at all. The design's left half - who the note
   is shared with and when it was last edited - is **not** built, and would need state the view model does
