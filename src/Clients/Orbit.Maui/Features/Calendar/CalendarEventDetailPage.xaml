@@ -45,8 +45,15 @@
                                 TakeCommand="{Binding CopyForEditingCommand}"
                                 DeclineCommand="{Binding DeclineCopyCommand}" />
 
-            <Editor Text="{Binding Description}" IsReadOnly="{Binding IsReadOnly}" HeightRequest="110"
+            <!-- A box while it can be written in, and words while it cannot: a text box cannot hold a
+                 link at all, so an address in an appointment somebody shared read-only was there to be
+                 retyped rather than pressed. See LinkedLabel, which shares the browser's own rule about
+                 what counts as an address. -->
+            <Editor Text="{Binding Description}" HeightRequest="110" IsVisible="{Binding CanEdit}"
                     Placeholder="{controls:Translate 'Description'}" />
+            <controls:LinkedLabel Words="{Binding Description}" LineBreakMode="WordWrap"
+                                  IsVisible="{Binding IsReadOnly}"
+                                  SemanticProperties.Description="{controls:Translate 'Description'}" />
 
             <!-- Where it is. Orbit.Web picks the point off a map; a phone already knows where it is,
                  and a place is a point with an optional label - so the name alone is not a location. -->

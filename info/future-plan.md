@@ -979,14 +979,19 @@ its shared controls. What that pass left, all of it now overtaken:
   answering `/api/users/{id}` with a contact who has a public key. `ShareInventoryPanelTests` is the
   smallest of the five to copy.
 
-- **The phone shows links in some of what it draws, not all of it** (2026-09-09). The splitter moved to
-  `Orbit.Core.Text.LinksInText`, so both clients share one rule about what counts as an address, and
-  `LinkedLabel` is the phone's half of `TextWithLinks` - a `Label` that writes `FormattedText`, since a
-  Span is the only thing in MAUI that can carry a gesture of its own. It is drawn in **chat messages**,
-  in both a conversation and a group, and on **a task entry's appointment description**. Still plain
-  labels: every other read-only description the phone shows (a list's, a shelf's, an event's), and a
-  note's own lines - those are `Entry` boxes being written in, and a text box cannot hold a link at all.
-  What it would take: swapping the labels, one screen at a time; there is nothing left to design.
+- **The phone shows links in nearly all of what it draws** (2026-09-09, extended 2026-09-10). The
+  splitter moved to `Orbit.Core.Text.LinksInText`, so both clients share one rule about what counts as
+  an address, and `LinkedLabel` is the phone's half of `TextWithLinks` - a `Label` that writes
+  `FormattedText`, since a Span is the only thing in MAUI that can carry a gesture of its own. It is
+  drawn in **chat messages**, in both a conversation and a group, on **a task entry's appointment
+  description**, and - since 2026-09-10 - on every description the reader cannot write in: a list's and
+  a shelf's, which share `TitledDescription` (`ReadsAsWords`), and an appointment's on the event screen.
+  A box is drawn instead wherever it can be typed into, which is the whole rule: **a text box cannot
+  hold a link at all**, so this is about read-only screens rather than about labels.
+
+  What is left is a note's own lines, and they are the case that cannot be swapped: every line is a
+  field being written in, on a screen whose whole point is that it is one writing surface. An address in
+  a note is still selectable text and nothing more.
 
 - ~~**The phone has no box for an entry's description.**~~ Done on 2026-09-10, as this said:
   `TaskItemEditor.Notes`, a box on the entry's sheet under its categories, and the calendar rule - the
