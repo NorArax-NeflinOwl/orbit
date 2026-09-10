@@ -29,6 +29,9 @@ public sealed partial class ConversationViewModel : ObservableObject, IDisposabl
     private readonly Translations _translations;
     private readonly IScreenNavigator _navigator;
 
+    /// <summary>What "today" is, for the dividers between one day's messages and the next - see ChatDays.</summary>
+    private readonly TimeProvider _clock;
+
     /// <summary>
     /// How often an open conversation checks for new messages. Orbit.Web polls chat once a second, which
     /// info/orbit-maui-plan.md §11 singles out as the thing not to copy literally: on a phone that costs
@@ -106,10 +109,12 @@ public sealed partial class ConversationViewModel : ObservableObject, IDisposabl
         EncryptedChatMessageReader reader, EncryptedChatMessageSender sender, EncryptedChatMessageEditor editor,
         MessageForwarder forwarder, SharedItemAcceptance acceptance, ChatRepository chatRepository,
         ChatSynchronizer synchronizer, ChatClient chatClient,
-        Translations translations, IScreenNavigator navigator, Live.ILiveUpdates liveUpdates)
+        Translations translations, IScreenNavigator navigator, Live.ILiveUpdates liveUpdates,
+        TimeProvider clock)
     {
         _liveUpdates = liveUpdates;
         _liveUpdates.ChatChanged += OnSomethingChanged;
+        _clock = clock;
         _reader = reader;
         _sender = sender;
         _editor = editor;
@@ -639,7 +644,10 @@ public sealed partial class ConversationViewModel : ObservableObject, IDisposabl
 
         try
         {
-            var conversation = await _reader.ReadAsync(_contact.UserId, otherPublicKey, _theyReadUpToUtc, cancellationToken);
+            var conversation = ChatDays.Divide(
+                await _reader.ReadAsync(_contact.UserId, otherPublicKey, _theyReadUpToUtc, cancellationToken),
+                _clock.GetUtcNow(),
+                _translations);
             Messages.Clear();
             foreach (var message in conversation)
             {

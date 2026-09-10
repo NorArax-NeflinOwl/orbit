@@ -72,133 +72,144 @@
 
                 <CollectionView.ItemTemplate>
                     <DataTemplate x:DataType="mobile:ReadableChatMessage">
-                        <!-- One message, drawn as Orbit.Web draws it: a bubble on the side of the thread
-                             it belongs to - the reader's own at the right in the accent, everybody
-                             else's at the left on the quiet fill - at most 78% of the thread's width,
-                             with what the message says about itself in small print underneath.
+                        <VerticalStackLayout Spacing="0">
+                            <!-- Where one day's messages end and the next day's begin. A thread read
+                                 straight down is a column of times with no dates in it: "09:12" over
+                                 "23:40" over "08:03" is three days or one, and nothing else on the screen
+                                 says which. Only over the first message of each day - see
+                                 ReadableChatMessage.DayHeading, which is empty on every other. -->
+                            <Label Text="{Binding DayHeading}" IsVisible="{Binding StartsANewDay}"
+                                   HorizontalOptions="Center" Margin="0,6,0,12"
+                                   Style="{StaticResource PanelHeading}" />
 
-                             The phone used to stack every message flat down the left, which reads as a
-                             transcript rather than as a conversation: nothing but the small print said
-                             who had written which line. -->
-                        <VerticalStackLayout Spacing="3" Margin="0,0,0,10" HorizontalOptions="Start"
-                                             MaximumWidthRequest="{Binding Width, Source={x:Reference Thread}, Converter={StaticResource WidthFraction}, ConverterParameter=0.78, x:DataType=CollectionView}">
-                            <VerticalStackLayout.Triggers>
-                                <DataTrigger TargetType="VerticalStackLayout" Binding="{Binding IsMine}" Value="True">
-                                    <Setter Property="HorizontalOptions" Value="End" />
-                                </DataTrigger>
-                            </VerticalStackLayout.Triggers>
+                            <!-- One message, drawn as Orbit.Web draws it: a bubble on the side of the thread
+                                 it belongs to - the reader's own at the right in the accent, everybody
+                                 else's at the left on the quiet fill - at most 78% of the thread's width,
+                                 with what the message says about itself in small print underneath.
 
-                            <Label IsVisible="{Binding WasForwarded}" Style="{StaticResource RowMeta}">
-                                <Label.FormattedText>
-                                    <FormattedString>
-                                        <Span Text="{controls:Translate 'Forwarded from'}" />
-                                        <Span Text=" " />
-                                        <Span Text="{Binding ForwardedFromDisplayName}" />
-                                    </FormattedString>
-                                </Label.FormattedText>
-                            </Label>
-
-                            <!-- What this message is answering. The quote travels with the reply rather
-                                 than being looked up, so it still reads right after the original was
-                                 edited or deleted - see ReplyMessagePayload. -->
-                            <Border IsVisible="{Binding IsReply}" Padding="8,4" StrokeThickness="0"
-                                    BackgroundColor="{DynamicResource AccentSubtle}">
-                                <Border.StrokeShape>
-                                    <RoundRectangle CornerRadius="8" />
-                                </Border.StrokeShape>
-                                <Label Text="{Binding QuotedPreview}" FontSize="12" LineBreakMode="TailTruncation"
-                                       MaxLines="2" Style="{StaticResource SubtleLabel}" />
-                            </Border>
-
-                            <!-- The bubble itself. One corner is squared off on the side it was written
-                                 from, which is the whole of what says which way a message is going -
-                                 see .chat-bubble's border-bottom-*-radius. -->
-                            <!-- Outlined, not filled, like everything else this design colours: a
-                                 message of yours is edged in the accent over a wash of it, and
-                                 everybody else's is edged in the hairline over nothing. A filled
-                                 accent bubble was the one solid block of colour left in the app, and
-                                 on a screen that is nothing but bubbles it was most of the screen. -->
-                            <Border Padding="13,9" StrokeThickness="1"
-                                    HorizontalOptions="Start" BackgroundColor="Transparent"
-                                    Stroke="{AppThemeBinding Light={StaticResource CardStrokeLight}, Dark={StaticResource CardStrokeDark}}">
-                                <Border.StrokeShape>
-                                    <RoundRectangle CornerRadius="10,10,2,10" />
-                                </Border.StrokeShape>
-                                <Border.Triggers>
-                                    <DataTrigger TargetType="Border" Binding="{Binding IsMine}" Value="True">
-                                        <Setter Property="HorizontalOptions" Value="End" />
-                                        <Setter Property="Stroke" Value="{DynamicResource Accent}" />
-                                        <Setter Property="BackgroundColor" Value="{DynamicResource AccentSubtle}" />
-                                        <Setter Property="StrokeShape">
-                                            <RoundRectangle CornerRadius="10,10,10,2" />
-                                        </Setter>
-                                    </DataTrigger>
-                                </Border.Triggers>
-
-                                <VerticalStackLayout Spacing="4">
-                                    <!-- One ink for both sides now. The reader's own messages used to
-                                         be written in "what is legible on the accent", which was right
-                                         while the bubble was filled with it and is wrong on a tint. -->
-                                    <!-- The addresses in a message are pressed rather than copied out
-                                         by hand - see LinkedLabel, which shares the browser's own rule
-                                         about what counts as one. -->
-                                    <controls:LinkedLabel Words="{Binding Text}" FontSize="14" LineBreakMode="WordWrap" />
-
-                                    <!-- Somebody asking to be allowed to change something of yours. Nothing to
-                                         accept in one tap: widening access means sharing it again. -->
-                                    <VerticalStackLayout Spacing="4" IsVisible="{Binding IsEditAccessRequest}">
-                                        <Label Text="{controls:Translate 'Asked to edit'}" FontSize="12"
-                                               Style="{StaticResource SubtleLabel}" />
-                                        <Label Text="{Binding EditAccessRequestName}" FontAttributes="Bold"
-                                               LineBreakMode="WordWrap" />
-                                    </VerticalStackLayout>
-
-                                    <!-- An offer to share something, which arrives as an ordinary message whose
-                                         plaintext is structured. Before this the phone showed the JSON. -->
-                                    <VerticalStackLayout Spacing="4" IsVisible="{Binding IsInvitation}">
-                                        <Label Text="{controls:Translate 'Shared something with you'}" FontSize="12"
-                                               Style="{StaticResource SubtleLabel}" />
-                                        <Label Text="{Binding InvitationName}" FontAttributes="Bold" LineBreakMode="WordWrap" />
-                                        <Button Text="{controls:Translate 'Accept'}" FontSize="12" Padding="12,4"
-                                                HorizontalOptions="Start" IsVisible="{Binding CanBeAccepted}"
-                                                Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=ViewModel.AcceptShareCommand, x:DataType=chat:ConversationPage}"
-                                                CommandParameter="{Binding .}" />
-                                        <Label Text="{controls:Translate 'Already accepted'}" FontSize="12"
-                                               IsVisible="{Binding WasAccepted}" Style="{StaticResource SubtleLabel}" />
-                                    </VerticalStackLayout>
-
-                                    <!-- A message sealed under a key pair since replaced can never be opened. -->
-                                    <Label IsVisible="{Binding CannotBeOpened}" FontSize="12"
-                                           Style="{StaticResource SubtleLabel}">
-                                        <Label.Text>
-                                            <controls:Translate Text="This message can't be opened on this device." />
-                                        </Label.Text>
-                                    </Label>
-                                </VerticalStackLayout>
-                            </Border>
-
-                            <!-- .chat-bubble-meta: when it was sent, whether it has landed, and the one
-                                 trigger for everything else that can be done to it. -->
-                            <HorizontalStackLayout Spacing="8">
-                                <HorizontalStackLayout.Triggers>
-                                    <DataTrigger TargetType="HorizontalStackLayout" Binding="{Binding IsMine}" Value="True">
+                                 The phone used to stack every message flat down the left, which reads as a
+                                 transcript rather than as a conversation: nothing but the small print said
+                                 who had written which line. -->
+                            <VerticalStackLayout Spacing="3" Margin="0,0,0,10" HorizontalOptions="Start"
+                                                 MaximumWidthRequest="{Binding Width, Source={x:Reference Thread}, Converter={StaticResource WidthFraction}, ConverterParameter=0.78, x:DataType=CollectionView}">
+                                <VerticalStackLayout.Triggers>
+                                    <DataTrigger TargetType="VerticalStackLayout" Binding="{Binding IsMine}" Value="True">
                                         <Setter Property="HorizontalOptions" Value="End" />
                                     </DataTrigger>
-                                </HorizontalStackLayout.Triggers>
+                                </VerticalStackLayout.Triggers>
 
-                                <Label Text="{Binding SentAt}" FontSize="10.5" VerticalOptions="Center"
-                                       TextColor="{AppThemeBinding Light={StaticResource TertiaryTextLight}, Dark={StaticResource TertiaryTextDark}}" />
-                                <Label Text="{controls:Translate 'Waiting to send'}" IsVisible="{Binding IsWaitingToSend}"
-                                       FontSize="10.5" VerticalOptions="Center" TextColor="{DynamicResource Accent}" />
-                                <!-- Only ever on the reader's own messages - see ReadableChatMessage. -->
-                                <Label Text="{controls:Translate 'Read'}" IsVisible="{Binding IsReadByThem}"
-                                       FontSize="10.5" VerticalOptions="Center" TextColor="{DynamicResource Accent}" />
+                                <Label IsVisible="{Binding WasForwarded}" Style="{StaticResource RowMeta}">
+                                    <Label.FormattedText>
+                                        <FormattedString>
+                                            <Span Text="{controls:Translate 'Forwarded from'}" />
+                                            <Span Text=" " />
+                                            <Span Text="{Binding ForwardedFromDisplayName}" />
+                                        </FormattedString>
+                                    </Label.FormattedText>
+                                </Label>
 
-                                <!-- One trigger rather than three buttons, as Orbit.Web's bubbles have. -->
-                                <controls:OverflowMenu IsVisible="{Binding HasActions}"
-                                                       Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=ShowMessageMenuCommand, x:DataType=chat:ConversationPage}"
-                                                       CommandParameter="{Binding .}" />
-                            </HorizontalStackLayout>
+                                <!-- What this message is answering. The quote travels with the reply rather
+                                     than being looked up, so it still reads right after the original was
+                                     edited or deleted - see ReplyMessagePayload. -->
+                                <Border IsVisible="{Binding IsReply}" Padding="8,4" StrokeThickness="0"
+                                        BackgroundColor="{DynamicResource AccentSubtle}">
+                                    <Border.StrokeShape>
+                                        <RoundRectangle CornerRadius="8" />
+                                    </Border.StrokeShape>
+                                    <Label Text="{Binding QuotedPreview}" FontSize="12" LineBreakMode="TailTruncation"
+                                           MaxLines="2" Style="{StaticResource SubtleLabel}" />
+                                </Border>
+
+                                <!-- The bubble itself. One corner is squared off on the side it was written
+                                     from, which is the whole of what says which way a message is going -
+                                     see .chat-bubble's border-bottom-*-radius. -->
+                                <!-- Outlined, not filled, like everything else this design colours: a
+                                     message of yours is edged in the accent over a wash of it, and
+                                     everybody else's is edged in the hairline over nothing. A filled
+                                     accent bubble was the one solid block of colour left in the app, and
+                                     on a screen that is nothing but bubbles it was most of the screen. -->
+                                <Border Padding="13,9" StrokeThickness="1"
+                                        HorizontalOptions="Start" BackgroundColor="Transparent"
+                                        Stroke="{AppThemeBinding Light={StaticResource CardStrokeLight}, Dark={StaticResource CardStrokeDark}}">
+                                    <Border.StrokeShape>
+                                        <RoundRectangle CornerRadius="10,10,2,10" />
+                                    </Border.StrokeShape>
+                                    <Border.Triggers>
+                                        <DataTrigger TargetType="Border" Binding="{Binding IsMine}" Value="True">
+                                            <Setter Property="HorizontalOptions" Value="End" />
+                                            <Setter Property="Stroke" Value="{DynamicResource Accent}" />
+                                            <Setter Property="BackgroundColor" Value="{DynamicResource AccentSubtle}" />
+                                            <Setter Property="StrokeShape">
+                                                <RoundRectangle CornerRadius="10,10,10,2" />
+                                            </Setter>
+                                        </DataTrigger>
+                                    </Border.Triggers>
+
+                                    <VerticalStackLayout Spacing="4">
+                                        <!-- One ink for both sides now. The reader's own messages used to
+                                             be written in "what is legible on the accent", which was right
+                                             while the bubble was filled with it and is wrong on a tint. -->
+                                        <!-- The addresses in a message are pressed rather than copied out
+                                             by hand - see LinkedLabel, which shares the browser's own rule
+                                             about what counts as one. -->
+                                        <controls:LinkedLabel Words="{Binding Text}" FontSize="14" LineBreakMode="WordWrap" />
+
+                                        <!-- Somebody asking to be allowed to change something of yours. Nothing to
+                                             accept in one tap: widening access means sharing it again. -->
+                                        <VerticalStackLayout Spacing="4" IsVisible="{Binding IsEditAccessRequest}">
+                                            <Label Text="{controls:Translate 'Asked to edit'}" FontSize="12"
+                                                   Style="{StaticResource SubtleLabel}" />
+                                            <Label Text="{Binding EditAccessRequestName}" FontAttributes="Bold"
+                                                   LineBreakMode="WordWrap" />
+                                        </VerticalStackLayout>
+
+                                        <!-- An offer to share something, which arrives as an ordinary message whose
+                                             plaintext is structured. Before this the phone showed the JSON. -->
+                                        <VerticalStackLayout Spacing="4" IsVisible="{Binding IsInvitation}">
+                                            <Label Text="{controls:Translate 'Shared something with you'}" FontSize="12"
+                                                   Style="{StaticResource SubtleLabel}" />
+                                            <Label Text="{Binding InvitationName}" FontAttributes="Bold" LineBreakMode="WordWrap" />
+                                            <Button Text="{controls:Translate 'Accept'}" FontSize="12" Padding="12,4"
+                                                    HorizontalOptions="Start" IsVisible="{Binding CanBeAccepted}"
+                                                    Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=ViewModel.AcceptShareCommand, x:DataType=chat:ConversationPage}"
+                                                    CommandParameter="{Binding .}" />
+                                            <Label Text="{controls:Translate 'Already accepted'}" FontSize="12"
+                                                   IsVisible="{Binding WasAccepted}" Style="{StaticResource SubtleLabel}" />
+                                        </VerticalStackLayout>
+
+                                        <!-- A message sealed under a key pair since replaced can never be opened. -->
+                                        <Label IsVisible="{Binding CannotBeOpened}" FontSize="12"
+                                               Style="{StaticResource SubtleLabel}">
+                                            <Label.Text>
+                                                <controls:Translate Text="This message can't be opened on this device." />
+                                            </Label.Text>
+                                        </Label>
+                                    </VerticalStackLayout>
+                                </Border>
+
+                                <!-- .chat-bubble-meta: when it was sent, whether it has landed, and the one
+                                     trigger for everything else that can be done to it. -->
+                                <HorizontalStackLayout Spacing="8">
+                                    <HorizontalStackLayout.Triggers>
+                                        <DataTrigger TargetType="HorizontalStackLayout" Binding="{Binding IsMine}" Value="True">
+                                            <Setter Property="HorizontalOptions" Value="End" />
+                                        </DataTrigger>
+                                    </HorizontalStackLayout.Triggers>
+
+                                    <Label Text="{Binding SentAt}" FontSize="10.5" VerticalOptions="Center"
+                                           TextColor="{AppThemeBinding Light={StaticResource TertiaryTextLight}, Dark={StaticResource TertiaryTextDark}}" />
+                                    <Label Text="{controls:Translate 'Waiting to send'}" IsVisible="{Binding IsWaitingToSend}"
+                                           FontSize="10.5" VerticalOptions="Center" TextColor="{DynamicResource Accent}" />
+                                    <!-- Only ever on the reader's own messages - see ReadableChatMessage. -->
+                                    <Label Text="{controls:Translate 'Read'}" IsVisible="{Binding IsReadByThem}"
+                                           FontSize="10.5" VerticalOptions="Center" TextColor="{DynamicResource Accent}" />
+
+                                    <!-- One trigger rather than three buttons, as Orbit.Web's bubbles have. -->
+                                    <controls:OverflowMenu IsVisible="{Binding HasActions}"
+                                                           Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=ShowMessageMenuCommand, x:DataType=chat:ConversationPage}"
+                                                           CommandParameter="{Binding .}" />
+                                </HorizontalStackLayout>
+                            </VerticalStackLayout>
                         </VerticalStackLayout>
                     </DataTemplate>
                 </CollectionView.ItemTemplate>

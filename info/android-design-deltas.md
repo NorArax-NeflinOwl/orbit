@@ -277,7 +277,14 @@ about them is under "Screens already built" below.
   follows the design here)*** ~~and outlined, with the meta line (time · read) *outside* the bubble
   underneath, aligned to the bubble's side~~ **- already so.** The cap is not walked: it takes a message
   long enough to reach it, and there is nobody on the emulator to exchange one with.
-- A centred small-caps day divider ("Today") between runs of messages.
+- ~~A centred small-caps day divider ("Today") between runs of messages.~~ ***Done 2026-09-10, walked on
+  the device*** (two messages, one of them backdated in both databases, drew "TUESDAY" and "TODAY").
+  `ChatDays.Divide` names the **first** message of each day and leaves the rest blank, so the thread
+  needs no grouping and the row template needs no notion of what came before it. Days are the reader's
+  own local ones: grouped by UTC, a message sent at 23:40 in London belongs to the day before in
+  Warsaw, and the divider would name a day nobody was having. The group thread gets the same divider,
+  applied after the announcements are woven in - a day whose only line is somebody joining still needs
+  saying which day it was. The four words come from `LastChanged`, which a note's list already uses.
 
 ### Settings
 
