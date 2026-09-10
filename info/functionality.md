@@ -3100,7 +3100,9 @@ since the list may not exist yet):
 
 All of them are saved by the inventory editor's own Save, alongside everything else on that form. The
 same settings are asked for once more where a storage is generated from a task list, since that is the
-moment they are first decided - see "Can this list be done?" above. They used
+moment they are first decided - see "Can this list be done?" above; **the phone asks them there too**
+since 2026-09-10 (`GenerateInventoryForm`, in the stock-check card), where generating one used to take
+the list's name and the defaults with no questions at all. They used
 to have a "Save settings" and a "Refresh" of their own, which is what made pressing the page's Save leave
 a moved switch behind.
 

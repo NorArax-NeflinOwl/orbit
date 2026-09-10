@@ -120,9 +120,11 @@ public partial class TaskListDetailPage : ContentPage, ITitleMenu, ITitleSteps
 			// would be about - see GeneratedInventorySource, which the browser's own menu asks too.
 			if (_viewModel.HasSomethingToBuildAStorageFrom)
 			{
+				// Asks what to build rather than building it - see GenerateInventoryForm, and the
+				// browser's own overlay, which asks the same six things at the same moment.
 				shelf.Add(new ScreenMenuEntry(
 					_translations["Generate inventory"],
-					() => _viewModel.StockCheck.GenerateInventoryCommand.Execute(null)));
+					() => _viewModel.StockCheck.AskWhatToBuildCommand.Execute(null)));
 			}
 
 			shelf.Add(new ScreenMenuEntry(

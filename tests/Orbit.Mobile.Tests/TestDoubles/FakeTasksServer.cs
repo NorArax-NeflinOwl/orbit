@@ -36,6 +36,9 @@ internal sealed class FakeTasksServer : HttpMessageHandler
     /// <summary>What generating an inventory hands back, or null when there was nothing to build.</summary>
     public Guid? GeneratedInventoryId { get; set; } = Guid.NewGuid();
 
+    /// <summary>What the last "generate an inventory" asked for, or null when it asked for the defaults.</summary>
+    public GenerateInventoryRequest? GenerationAsked { get; private set; }
+
     public int RaisedShortfallCount { get; set; }
 
     /// <summary>How many products bringing the whole inventory up to its minimum moved.</summary>
@@ -139,6 +142,13 @@ internal sealed class FakeTasksServer : HttpMessageHandler
         // api/tasks/{id}/inventory, POST: build a shelf out of what the list calls for.
         if (path.EndsWith("/inventory", StringComparison.Ordinal) && request.Method == HttpMethod.Post)
         {
+            // What was asked for, kept so a test can check the questions the form asked actually
+            // travelled. A body-less request is the defaults, which is what the endpoint accepts and
+            // what a client with no form of its own sends.
+            GenerationAsked = request.Content is null
+                ? null
+                : await ReadAsync<GenerateInventoryRequest>(request, cancellationToken);
+
             return GeneratedInventoryId is { } generated
                 ? Json(generated)
                 : new HttpResponseMessage(HttpStatusCode.NotFound);

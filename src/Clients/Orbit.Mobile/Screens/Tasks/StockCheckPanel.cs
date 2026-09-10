@@ -44,6 +44,9 @@ public sealed partial class StockCheckPanel : ObservableObject
     private Guid? _taskListServerId;
     private Guid _taskListLocalId;
 
+    /// <summary>What the list is called, which is what a storage generated from it is called by default.</summary>
+    private string _taskListTitle = string.Empty;
+
     /// <summary>What the last answer said, before it was put in the reader's chosen order.</summary>
     private readonly List<StockRequirementRow> _asCounted = [];
 
@@ -137,7 +140,10 @@ public sealed partial class StockCheckPanel : ObservableObject
         IsOffered = taskList.ServerId is not null;
         _taskListServerId = taskList.ServerId;
         _taskListLocalId = taskList.LocalId;
+        _taskListTitle = taskList.Title;
         Message = string.Empty;
+        // Whatever was being asked belongs to the list that was open, not to this one.
+        BeingGenerated = null;
 
         // Read before anything is drawn, and assigned without saving it back - this is what was already
         // chosen, not somebody choosing it again.
@@ -160,6 +166,34 @@ public sealed partial class StockCheckPanel : ObservableObject
     /// Builds a shelf from the work and points the list at it. The screen re-reads afterwards, because
     /// the list now has an inventory it did not have.
     /// </summary>
+    /// <summary>
+    /// What is being built, while somebody is being asked - null when nothing is. Both answers a new
+    /// storage needs are wanted at this moment: what to call it, and how its restock list should behave.
+    /// See <see cref="GenerateInventoryForm"/>, and Orbit.Web's overlay, which asks the same six things.
+    /// </summary>
+    [ObservableProperty]
+    private GenerateInventoryForm? _beingGenerated;
+
+    public bool IsAskingWhatToBuild => BeingGenerated is not null;
+
+    partial void OnBeingGeneratedChanged(GenerateInventoryForm? value)
+        => OnPropertyChanged(nameof(IsAskingWhatToBuild));
+
+    /// <summary>Opens that form. The list's own title is what the storage is called unless somebody says otherwise.</summary>
+    [RelayCommand]
+    private void AskWhatToBuild()
+    {
+        if (_taskListServerId is not null)
+        {
+            Message = string.Empty;
+            BeingGenerated = new GenerateInventoryForm(_translations, _taskListTitle);
+        }
+    }
+
+    /// <summary>Puts the form away without building anything.</summary>
+    [RelayCommand]
+    private void CancelGenerating() => BeingGenerated = null;
+
     [RelayCommand]
     private async Task GenerateInventoryAsync(CancellationToken cancellationToken)
     {
@@ -168,9 +202,14 @@ public sealed partial class StockCheckPanel : ObservableObject
             return;
         }
 
+        // What the form asked for, or the defaults where nothing asked - a caller that generates
+        // without opening the form is asking for exactly what this used to send.
+        var asked = BeingGenerated?.ToRequest();
+        BeingGenerated = null;
+
         try
         {
-            Message = await _tasks.GenerateInventoryAsync(serverId, cancellationToken) is not null
+            Message = await _tasks.GenerateInventoryAsync(serverId, asked, cancellationToken) is not null
                 ? _translations["Built an inventory from what this list needs."]
                 : _translations["There was nothing on this list to build an inventory from."];
 

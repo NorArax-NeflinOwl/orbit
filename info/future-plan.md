@@ -908,19 +908,15 @@ its shared controls. What that pass left, all of it now overtaken:
 
 ## Smaller identified follow-ups
 
-- **The phone does not yet describe a product before the shelf exists, and does not ask what to build.**
-  Both halves of the 2026-09-04 change to inventory entries are web-only. On the phone, an Inventory entry
-  still opens the product's fields only on a list already measured against a storage
-  (`ShelfProductFor`, `InventoryItemEditor.ForSomethingNotOnTheShelfYet`); on a list with no storage it
-  names a thing and nothing else, so what a phone writes there is lost to the shelf the web would have
-  built from it. And "Generate inventory" on the phone still posts an empty body: it takes the list's
-  title and the default restock list rather than asking, which the server deliberately still accepts
-  (`GenerateInventoryRequest`, every field optional). Nothing is broken by either - the phone passes
-  `TaskItemDto.Product` back untouched (`TaskListSynchronizer.ToRequests`), so a description written on
-  the web survives a push from the phone - it is parity that is missing. What it would take: the entry
-  editor's inventory fields shown for an unmeasured list too, bound to the entry's own product, and a
-  sheet in front of `StockCheckPanel.GenerateInventoryAsync` asking the same six questions
-  `GenerateInventoryOverlay` asks.
+- ~~**The phone does not yet describe a product before the shelf exists, and does not ask what to build.**~~
+  Both halves done on 2026-09-10, as this said. An Inventory entry on a list with no storage behind it
+  now shows the product form bound to the entry's own `TaskItemDto.Product`
+  (`TaskItemEditor.ProductWanted`, `InventoryItemEditor.ForSomethingAListWillAskFor`), with the entry's
+  words as the name and its categories box as what the product is filed under; and "Generate inventory"
+  asks the six questions `GenerateInventoryOverlay` asks before it builds anything
+  (`GenerateInventoryForm`, unfolded in the stock-check card). Two fakes were made to answer like the
+  server on the way: `FakeTasksServer` dropped an entry's product on every save and now keeps it,
+  null-means-not-provided included.
 
 - ~~**The pin on a shared list or note stays on the browser that set it.**~~ Done on 2026-09-07, the way
   this predicted except for the DTO: a per-recipient flag on the share row
