@@ -70,6 +70,27 @@ public sealed class SharePanelTests
         var invitation = SharedItemInvitation.TryRead(context.OpenAsTheOtherParty(sent)!);
         Assert.Equal(SharedItemKind.Note, invitation!.Kind);
         Assert.Equal("Shopping", invitation.Name);
+
+        // And the share id travels beside the message as well as inside it. Inside is what the recipient
+        // reads; beside is what lets the server take this invitation down when the share is withdrawn -
+        // it can never read the payload. See RevokeShareCommandHandler.
+        var request = Assert.Single(context.Server.Requests);
+        Assert.True(request.IsShareInvitation);
+        Assert.Equal(invitation.ShareId, request.AnnouncesShareId);
+    }
+
+    /// <summary>An ordinary message says neither, which is what stops a revocation matching one.</summary>
+    [Fact]
+    public async Task An_ordinary_message_announces_no_share()
+    {
+        using var context = new ChatContext();
+        await GiveAContactAsync(context, "Anna");
+
+        await context.Sender.SendAsync(context.OtherUserId, "Hello");
+
+        var request = Assert.Single(context.Server.Requests);
+        Assert.False(request.IsShareInvitation);
+        Assert.Null(request.AnnouncesShareId);
     }
 
     [Fact]

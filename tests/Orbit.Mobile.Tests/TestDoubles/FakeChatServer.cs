@@ -31,6 +31,11 @@ internal sealed class FakeChatServer : HttpMessageHandler
     /// <summary>Every message the server accepted, in the order it accepted them.</summary>
     public IReadOnlyList<ChatMessageDto> Messages => _messages;
 
+    /// <summary>Every one-to-one send, as it arrived - see AcceptAsync for why the request is kept too.</summary>
+    public IReadOnlyList<SendMessageRequest> Requests => _requests;
+
+    private readonly List<SendMessageRequest> _requests = [];
+
     /// <summary>Every copy of every group message, which is what the fan-out is judged by.</summary>
     public IReadOnlyList<ChatMessageDto> GroupMessageCopies => _groupMessages.Select(stored => stored.Message).ToList();
 
@@ -519,6 +524,11 @@ internal sealed class FakeChatServer : HttpMessageHandler
             _timeProvider.GetUtcNow(), false, null);
 
         _messages.Add(message);
+        // Kept beside the message rather than in it: what a message *is* does not come back on the DTO,
+        // and the real server reads both fields off the request - one of them is how withdrawing a share
+        // finds the invitation that offered it. A fake that dropped them would let a client which sends
+        // neither look correct here.
+        _requests.Add(sent);
         return Json(message);
     }
 

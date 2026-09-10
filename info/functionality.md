@@ -919,6 +919,13 @@ message matches; more when the same share was offered again as a reminder, which
 than making a second one, and all of them go. A share offered before this existed matches nothing, and
 the access is still withdrawn — which is what was asked for.
 
+**Both clients say it** since 2026-09-10. The phone sends by enqueueing rather than by calling the API
+with the share id still in hand, so the id had nowhere to wait: `OutgoingChatMessage` carries
+`IsShareInvitation` and `AnnouncesShareId` now (migration `SayWhichShareAnInvitationOffers`) and the
+flush puts both on the request. Before that, a share offered from a phone and withdrawn from anywhere
+left its invitation in the conversation, still offering an "Accept" that answered "no such share" — the
+grant was gone, and only the message about it stayed.
+
 ## Private notes and task lists
 
 A note or task list can be marked **private**, which means exactly one thing: only its creator can ever

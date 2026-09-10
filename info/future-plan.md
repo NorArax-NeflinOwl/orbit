@@ -566,16 +566,6 @@ inventory lists, the contacts tabs, the chat menus - is built and needs no schem
   once and now denies silently. What it needs is somebody watching the console on the actual device;
   until then the hiding stays, and it should come off the moment the cause is known.
 
-- **The phone does not say which share its invitations announce.** Withdrawing a share now takes its
-  chat invitation down with it (`SendMessageRequest.AnnouncesShareId`, `OP_C_ANNOUNCESSHAREID`), but
-  only invitations sent from Orbit.Web carry the field. `SharedItemSharing` on the phone sends the same
-  announcement through the queued sender and sets neither `AnnouncesShareId` nor the older
-  `IsShareInvitation`, so a share offered from a phone and withdrawn from anywhere leaves its invitation
-  in the conversation, still offering an "Accept" that answers "no such share". Nothing regressed - this
-  is the new capability not reaching the phone yet. What it would take: both fields on
-  `OutgoingChatMessage` and the queue row behind it, since the phone sends by enqueueing rather than by
-  calling the API where the share id is still in hand.
-
 - **The phone cannot answer whether a list is finished.** A task list can be closed with work still on
   it since 2026-09-08, and said to be *unfinished* with every entry ticked off since 2026-09-09
   (`TaskList.Completion`, `TaskListCompletion`, `OP_T_COMPLETION`) - the phone neither shows the box nor

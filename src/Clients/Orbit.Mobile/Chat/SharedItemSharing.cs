@@ -63,7 +63,11 @@ public sealed class SharedItemSharing
                 return SharingOutcome.Refused;
             }
 
-            await _sender.SendAsync(recipientUserId, Announce(kind, result.ShareId, name), cancellationToken);
+            // The share id travels beside the message as well as inside it. Inside is the payload the
+            // recipient reads to know what is being offered; beside is what lets the server take this
+            // invitation down when the share is withdrawn - it can never read the payload.
+            await _sender.SendAsync(
+                recipientUserId, Announce(kind, result.ShareId, name), result.ShareId, cancellationToken);
             return result.AlreadyShared ? SharingOutcome.AlreadyShared : SharingOutcome.Offered;
         }
         catch (HttpRequestException)
@@ -91,7 +95,8 @@ public sealed class SharedItemSharing
     {
         try
         {
-            var result = await _sender.SendAsync(ownerUserId, request.ToMessage(), cancellationToken);
+            var result = await _sender.SendAsync(
+                ownerUserId, request.ToMessage(), cancellationToken: cancellationToken);
             return result is { ReachedTheServer: true, GivenUp: 0 };
         }
         catch (HttpRequestException)
