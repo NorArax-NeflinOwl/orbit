@@ -146,13 +146,18 @@
                                                     <!-- The row every list of facts is drawn with - see
                                                          Row, and Orbit.Web's .list-row, which draws
                                                          these rows there too. -->
-                                                    <!-- [name .......... tag] [when]. The design gives a
-                                                         dashboard row three things and no more: what it
-                                                         is called, the one tag worth saying about it, and
-                                                         when it last mattered. The leading dot, the
-                                                         avatar and the progress bar are gone - a card
-                                                         here holds six rows to be glanced down, and the
-                                                         section itself is one press away for the rest. -->
+                                                    <!-- [name .......... tag] [when]: what it is called,
+                                                         the one tag worth saying about it, and when it
+                                                         last mattered.
+
+                                                         The design gives this row three more - a colour
+                                                         dot, an initials ring with a presence dot on it,
+                                                         and a 48x3 progress bar - and they are left off
+                                                         deliberately. A card here holds six rows to be
+                                                         glanced down and the section itself is one press
+                                                         away for the rest, so three ornaments on every
+                                                         row of five cards is most of the first screen
+                                                         given over to furniture. -->
                                                     <controls:Row Title="{Binding Title}"
                                                                   HasNews="{Binding HasNews}"
                                                                   HasDivider="False"

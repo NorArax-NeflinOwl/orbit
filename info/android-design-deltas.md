@@ -165,6 +165,13 @@ about them is under "Screens already built" below.
   48×3 progress bar, and the detail. Contacts rows on the dashboard therefore show who is online, and
   task-list rows show how far along they are.
 
+  **Standing decision: the app draws three of the six** - the title, the priority chip and the detail.
+  A dashboard card holds six rows to be glanced down and the section itself is one press away for the
+  rest, so a dot, a face and a bar on every row of every card is five cards' worth of furniture on the
+  first screen. The row's own comment in `DashboardPage.xaml` used to justify this by saying the design
+  gives a row three things and no more, which is simply wrong about the design; it says what it is
+  now - a departure, and why.
+
 ### Notes
 
 - ~~**The tag chip belongs on the title's line, at the right.**~~ ***Done 2026-09-10.*** The "copy" tag
@@ -316,7 +323,19 @@ under the ✕ for the same reason.
 ### Contacts and a conversation
 
 - A contact row: 38px ring avatar with a presence dot bottom-right, the name with a **danger dot** when
-  there is a request waiting, the last message underneath, and when on the right.
+  there is a request waiting, the last message underneath, and when on the right. **Half already so,
+  and the other half deliberately not.** The ring, the presence dot (top right, as `AvatarCircle` has
+  always drawn it and as app.css does) and the mark for a waiting request are all there - the mark is
+  an accent dot *before* the face rather than on the name, because a mark drawn on an avatar reads as
+  being about the person rather than about what is waiting.
+
+  What is not there is the **last message and when**. Both are about how recent the conversation is,
+  and Orbit.Web's own `PersonRow` shows neither - it carries the name and a subtitle, and the phone
+  carries the same. Adding recency here and not there would make the two clients differ in *what they
+  say about a person*, which is the line this project draws: the looks follow the design, what a
+  feature does follows the browser. The preview is the harder half of the two - a message is sealed, so
+  a list of twenty contacts would decrypt twenty messages to draw itself. If it is wanted it is wanted
+  on both clients, and it is written up in `future-plan.md` as that.
 - ~~The conversation's own header inside the content: avatar, name, and **"Available · end-to-end
   encrypted"** under it - the app says who but not that the conversation is sealed.~~ ***Done
   2026-09-10, walked on the device*** ("Chat Partner", "Offline · end-to-end encrypted"). The two halves
