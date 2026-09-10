@@ -1589,6 +1589,9 @@ public static class PolishTranslations
         // after a numeral - one, two and five each take a different form - so "{0} items" has no
         // single correct translation, while "Pozycji: {0}" is right for every count.
         ["Items: {0}"] = "Pozycji: {0}",
+        // The chip on an inventory's row saying how much of it has run out - short, because it sits at
+        // the end of the name's line.
+        ["{0} low"] = "brakuje: {0}",
         ["Done: {0} of {1}"] = "Ukończone: {0} z {1}",
         ["No items yet"] = "Nie ma jeszcze pozycji",
         ["People"] = "Osób",

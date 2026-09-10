@@ -232,7 +232,12 @@ about them is under "Screens already built" below.
 
 ### Inventory
 
-- An inventory's row carries a **"low" chip outlined in the task colour** when something is short.
+- ~~An inventory's row carries a **"low" chip outlined in the task colour** when something is short.~~
+  ***Done 2026-09-10, walked on the device*** ("Pantry" reads "3 LOW", "Workshop" carries nothing).
+  `InventoryRow.RunningLow` counts the items whose minimum is set and not met - the same test the
+  shelf's own rows make - and is blank on a locked private inventory, because what it holds is exactly
+  what being private keeps back. The "copy" tag moved onto the name's line beside it while the row was
+  open, as the notes list's did.
 - A shelf row's note under the name is **coloured by what it says** - "Out — on Weekend errands" reads
   differently from "Running low".
 
