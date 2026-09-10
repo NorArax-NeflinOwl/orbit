@@ -786,6 +786,10 @@ public sealed partial class TaskListDetailViewModel : ObservableObject
             // this is where the two are put together. Taken from what is being saved rather than from
             // what was opened, so renaming the entry in the same sitting names the product.
             shelf.Product.Name = edited.Description;
+            // And the entry's categories are the product's, because there is only one box for them
+            // now - see InventoryItemEditor.ShowsCategories. A product already on the shelf keeps its
+            // own, as it does on Orbit.Web (ProductAsked answers null for a linked entry).
+            shelf.Product.Categories = editor.Categories;
         }
 
         BeingEdited = null;

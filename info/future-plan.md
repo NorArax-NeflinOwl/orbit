@@ -984,15 +984,11 @@ its shared controls. What that pass left, all of it now overtaken:
   entry's description is its appointment's, written onto the event at save, and the event's own box on
   the phone is gone. An entry never opened on the phone still passes through what the server sent.
 
-- **The phone still asks twice what a shelf entry is filed under.** On the web an Inventory entry has one
-  categories box, and what it says is what the row it stands for is filed under
-  (`InventoryFields.ShowsCategories`, `TaskEditor.ProductAsked`, 2026-09-06). The phone's entry editor
-  still has its own categories field *and* shows `ShelfProductFields` with a second one directly under it
-  (`TaskListDetailPage.xaml`, `IsShelfEntry`), so the two answers can disagree and the one somebody
-  typed on the entry never reaches the shelf. Nothing is lost either way - each field still saves what it
-  has always saved - so this is parity, not a defect. What it would take: hiding the categories row
-  inside `ShelfProductFields` when it is drawn on a task entry, and writing the entry's `Categories` onto
-  `Shelf.Product` where the entry is saved.
+- ~~**The phone still asks twice what a shelf entry is filed under.**~~ Done on 2026-09-10, as this
+  said: `InventoryItemEditor.ShowsCategories` hides the product's row on a task entry
+  (`AskedFromATaskEntry`, set by both `TaskItemShelfProduct` factories), and the entry's `Categories`
+  are written onto a product being described when the entry is saved. A product already on the shelf
+  keeps its own, which is what Orbit.Web's `ProductAsked` does for a linked entry too.
 
 - **Done, kept here as the map of it.** Orbit has two depths for the same thing: a shallow view for
   reading and doing, and a full form for changing what it is. Every object that can have both now does,

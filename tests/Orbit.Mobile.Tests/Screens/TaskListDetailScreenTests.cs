@@ -1039,6 +1039,32 @@ public sealed class TaskListDetailScreenTests
     }
 
     /// <summary>
+    /// One categories box, not two. The entry's editor had its own and showed the product's form with a
+    /// second one directly under it, so the two could disagree and what somebody typed on the entry never
+    /// reached the shelf. The product's box is gone on a task entry, and the entry's answer is the
+    /// product's - the rule Orbit.Web's editor keeps (InventoryFields.ShowsCategories, ProductAsked).
+    /// </summary>
+    [Fact]
+    public async Task A_product_described_by_an_entry_is_filed_where_the_entry_is()
+    {
+        using var context = new ScreenContext();
+        var screen = context.OpenTaskList("Saturday");
+        var shelfLocalId = await context.MeasureAgainstAnEmptyShelfAsync(screen, "Kitchen");
+        await context.AddErrandForSomethingNotOnTheShelfAsync(screen, "Coffee");
+
+        screen.EditItemCommand.Execute(screen.Items[0]);
+        var editor = screen.BeingEdited!;
+        Assert.False(editor.Shelf!.Product.ShowsCategories);
+        editor.Categories = "food, drinks";
+        editor.Shelf.Product.Quantity = "0";
+        await screen.SaveItemCommand.ExecuteAsync(null);
+
+        var product = Assert.Single((await context.Shelves.FindAsync(shelfLocalId))!.Items);
+        Assert.Equal(["food", "drinks"], product.AllCategories);
+        Assert.Equal(["food", "drinks"], Assert.Single(screen.Items).Item.AllCategories);
+    }
+
+    /// <summary>
     /// The stock check matches an errand to a product by name, so a second row of the same name would be
     /// two answers to "is there enough". The shelf already holding it is what the entry was asking for.
     /// Orbit.Web's own save skips it the same way.

@@ -227,6 +227,25 @@ public sealed partial class InventoryItemEditor : ObservableObject
     /// </summary>
     public bool ShowsName { get; private set; } = true;
 
+    /// <summary>
+    /// Whether the form asks what the product is filed under. It does everywhere but on a task entry,
+    /// which has a categories box of its own, and two boxes for one answer can disagree - the one
+    /// somebody typed on the entry then never reaching the shelf. Orbit.Web's editor hides the same
+    /// row (`InventoryFields.ShowsCategories`); see <see cref="AskedFromATaskEntry"/>.
+    /// </summary>
+    public bool ShowsCategories { get; private set; } = true;
+
+    /// <summary>
+    /// The form as a task entry opens it: the entry's own categories box stands in for this one, and
+    /// what it says is written onto a product being described here when the entry is saved - see
+    /// TaskListDetailViewModel.SaveItemAsync, which draws the line where Orbit.Web's ProductAsked does.
+    /// </summary>
+    public InventoryItemEditor AskedFromATaskEntry()
+    {
+        ShowsCategories = false;
+        return this;
+    }
+
     public InventoryItemRequest ToDto()
         => new(
             _id,
