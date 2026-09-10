@@ -68,6 +68,14 @@ split is the reason the flood stop exists at all, and why it is in the API rathe
 A deploy is still validated end to end through the proxy, because that is the path the browser takes and
 the one with a hop that can break on its own.
 
+**Which `orbit-api` that arrow points at is the container's to say, not the image's** (2026-09-10). The
+FQDN used to be written into `nginx.azure.conf` in three places, so one image served exactly one
+environment; it is `__ORBIT_API_HOST__` now, filled in at container start from `ORBIT_API_HOST` by
+`point-nginx-at-the-api.sh`. Unset means the environment drawn above, so nothing here changed - it is
+what lets the planned production environment run this same image with one variable set. It must stay the
+`.internal` name: the public one sends the request out of the environment and back, and every browser
+caller then arrives as the egress NAT address.
+
 **`orbit-api` runs at `max-replicas 1` today.** Nothing in the code assumes that any more — live
 updates, the privacy choice cache and the rate limiter each count across instances — but the number has
 not been raised, and doing so is a cost decision rather than a technical one.
