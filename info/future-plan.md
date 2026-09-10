@@ -683,9 +683,12 @@ beside a task belongs here, not in that task's diff. A defect is the exception a
   the approve flow re-renders anything. `FloodStopPerCaller` (600 a minute) would have cut it off after
   ten seconds had it existed then, and a burst of 429s on those four paths is still how a recurrence
   would announce itself.
-- **`setup-dotnet@v4`, `setup-java@v4` and `upload-artifact@v4`** carry the same Node 20 deprecation
-  `actions/checkout` did. `dependency-submission.yml` already pins `setup-dotnet@v5`, so the bump is
-  available whenever somebody wants it.
+- ~~**`setup-dotnet@v4`, `setup-java@v4` and `upload-artifact@v4`** carry the same Node 20 deprecation
+  `actions/checkout` did.~~ Bumped on 2026-09-10 to the current major of each - `setup-dotnet@v6`,
+  `setup-java@v6`, `upload-artifact@v7` - which is the rule `checkout@v7` already followed. Every input
+  these steps pass was checked against the new major's own `action.yml` first; none of them moved.
+  **Unrun**: nothing here starts a workflow, so the first proof is the next push to `main` and the next
+  Android release.
 - ~~**`info/azure-setup.md` and `info/architecture.md` still call the subscription an Azure Free Trial**~~
   Done. `azure-setup.md` had already stopped saying it by the time this was looked at - only
   `architecture.md` still did, in the step explaining why the pipeline builds images on the runner. It
