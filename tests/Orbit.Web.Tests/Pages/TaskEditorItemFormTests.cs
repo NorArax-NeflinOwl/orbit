@@ -292,9 +292,27 @@ public sealed class TaskEditorItemFormTests : OrbitTestContext
     }
 
     /// <summary>The box the list's own form carries, which is not one of the boxes its entries carry.</summary>
+    /// <summary>
+    /// What the list says about itself lives in the panel's menu now, the way the note's editor has
+    /// always kept its own - so the menu is opened first. Idempotent: the menu stays open once it is
+    /// (see OverflowMenu.StaysOpen), and pressing the trigger again would shut it.
+    /// </summary>
     private static IElement CompletedBox(IRenderedFragment cut)
-        => cut.FindAll(".field label").First(label => label.TextContent.Contains("Completed", StringComparison.Ordinal))
+    {
+        OpenTheSettings(cut);
+        return cut.FindAll(".editor-settings-menu .field label")
+            .First(label => label.TextContent.Contains("Completed", StringComparison.Ordinal))
             .QuerySelector("input[type=checkbox]")!;
+    }
+
+    /// <inheritdoc cref="CompletedBox"/>
+    private static void OpenTheSettings(IRenderedFragment cut)
+    {
+        if (cut.FindAll(".editor-settings-menu").Count == 0)
+        {
+            OpenTheRailMenu(cut);
+        }
+    }
 
     /// <summary>One press: an entry's box gives three answers now, and the first of them is "done".</summary>
     private static void TickTheOnlyItem(IRenderedFragment cut)

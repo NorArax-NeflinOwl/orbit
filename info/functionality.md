@@ -411,6 +411,21 @@ that. Pressing it records an answer of the reader's own instead:
   neither of the two true things about it. With work still left the status is whatever the work says;
   Incomplete is only ever about the gap between the entries and the list.
 
+**What a list is, rather than what is on it, lives in the editor's own menu** (2026-09-10): who may
+read it, whether it is drawn as a group, whether it is finished, which shelf it is measured against,
+where it is filed and how much it matters. They sat under the entries as "About this list", which is a
+form somebody had to scroll past to reach the end of the list they were writing; before that they were
+above it, so a page opened to write a list on began with questions about a list that did not exist yet.
+The note's editor has kept its own settings there since 2026-09-09 and this is the same move.
+
+**One menu, not two.** Two three-dot buttons side by side are two questions where the reader has one, so
+the settings sit above a divider and the three things that *act* on the list - generate a storage,
+recalculate against it, delete it - below. The menu stays open, because settings are what most of it is
+and closing after each one would make changing two a chore; the three actions close it behind them
+(`OverflowMenu.Close`). The controls there are plain `<input>`/`<select>` rather than Blazor's
+`InputCheckbox`/`InputSelect`: the panel is outside the `EditForm`, and those need its `EditContext` to
+exist at all - the same reason the note's own settings are written that way.
+
 **The dashboard narrows to one card when a made folder is open** (2026-09-09). A folder belongs to one
 kind of thing - recipes are task lists, receipts are notes - so pressing its tab leaves that card
 standing and takes the rest of the page away: everything else on it is about something the folder cannot
@@ -1985,7 +2000,7 @@ and nothing about where it is from here, which is the question being asked. On a
 whose map can answer, pressing the row still centres the map: there is usually no map app to open, and a
 press that navigated away from the page would be a surprise.
 
-Which storage a list is measured against is set in its editor, under **About this list**, for any list
+Which storage a list is measured against is set in its editor, in the panel's menu, for any list
 rather than only a group one - an entry describing a product has to be able to say which shelf it goes
 on. The picker offers every storage, the ones other lists already measure included - a store serves as many
 jobs as it holds things for - and marks those as shared. A shelf several lists ask for is split between

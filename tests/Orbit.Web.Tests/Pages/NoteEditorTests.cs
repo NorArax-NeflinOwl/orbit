@@ -175,7 +175,7 @@ public sealed class NoteEditorTests : OrbitTestContext
 
         // What the note is rather than what is in it lives in the panel's menu now - see NoteEditor.
         cut.Find(".editor-rail .overflow-menu-trigger").Click();
-        cut.Find(".note-settings-menu input[type=checkbox]").Change(true);
+        cut.Find(".editor-settings-menu input[type=checkbox]").Change(true);
 
         // Before saving, not after: the point is that the two are mutually exclusive, and the page says
         // so as soon as the choice is made rather than once the server has been told.
@@ -355,11 +355,11 @@ public sealed class NoteEditorTests : OrbitTestContext
         RegisterApiClients(note);
         var cut = RenderComponent<NoteEditor>(parameters => parameters.Add(editor => editor.Id, note.Id));
 
-        Assert.Empty(cut.FindAll(".note-settings-menu"));
+        Assert.Empty(cut.FindAll(".editor-settings-menu"));
 
         cut.Find(".editor-rail .overflow-menu-trigger").Click();
 
-        var menu = cut.Find(".editor-rail .note-settings-menu");
+        var menu = cut.Find(".editor-rail .editor-settings-menu");
         Assert.Contains("Priority", menu.TextContent);
         Assert.Contains("Folder", menu.TextContent);
         Assert.Contains("Private", menu.TextContent);

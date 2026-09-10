@@ -167,7 +167,6 @@ public static class PolishTranslations
         ["Write something in it."] = "Napisz w niej coś.",
         ["Related inventory"] = "Powiązany magazyn",
         ["Done: {0}"] = "Zrobione: {0}",
-        ["About this list"] = "O tej liście",
         ["About this inventory"] = "O tym magazynie",
         ["No contacts yet."] = "Brak kontaktów.",
         ["Banner only"] = "Tylko baner",

@@ -544,12 +544,22 @@ input.note-editor-title {
 /* What the note is rather than what is in it, in the panel's menu - see NoteEditor.razor. Wider than
    a menu of actions because these are fields: a select squeezed to the width of "Priority" is a
    control nobody can read the chosen value in. */
-.note-settings-menu {
+/* The settings a form keeps in its panel's menu rather than in the form itself - see NoteEditor and
+   TaskEditor, which both do it now. Named for the shape rather than for the note, which had it first. */
+.editor-settings-menu {
     display: flex;
     flex-direction: column;
     gap: 12px;
-    min-width: 250px;
+    min-width: 260px;
     padding: 4px 2px;
+}
+
+/* Between the settings and the actions under them: one menu, two kinds of entry, and a line is what
+   says the press below it does something rather than sets something. */
+.editor-settings-divider {
+    height: 1px;
+    margin: 4px 0;
+    background: var(--border);
 }
 
 .note-line {

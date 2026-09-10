@@ -441,94 +441,6 @@ else
     </fieldset>
     </EditForm>
 
-    @* What the list is rather than what is on it - who may read it, how it is shown, how much it
-       matters, and how it is reached. Together under the items instead of above them: a page opened
-       to write a list on began with three questions about a list that did not exist yet. *@
-    <h2>@T["About this list"]</h2>
-    <div class="task-editor-settings">
-        @* Only the owner may turn this on: a list reached through a share belongs to someone else,
-           and "private" means private to its creator. *@
-        @if (!_isShared)
-        {
-            <div class="field">
-                <label>
-                    <InputCheckbox @bind-Value="_formModel.IsPrivate" />@T["Private"]</label>
-                <small>
-                    @T["Encrypted in this browser, so Orbit can't read it. It can't be shared, gets no reminders, and losing your password loses it."]
-                </small>
-            </div>
-        }
-
-        <div class="field">
-            <label>
-                <InputCheckbox @bind-Value="_formModel.IsGroup" />@T["Group View"]</label>
-            <small>
-                @T["A group list's checklist also shows every list it gathers, so the whole group fits on one screen."]
-            </small>
-        </div>
-
-        @* Whether the list is finished, asked once for both ways of being it. The box ticks itself once
-           every entry is ticked, which is what the reader already means by that; pressing it says so
-           about the list rather than about its entries, and unticking it with everything done is the
-           answer the box could not give before - see TaskListCompletion. *@
-        <div class="field">
-            <label>
-                <input type="checkbox" checked="@IsMarkedCompleted"
-                       @onchange="args => SetCompleted(args.Value is true)" />@T["Completed"]</label>
-            <small>
-                @(EveryEntryIsTickedOff
-                    ? T["Ticked on its own because every entry is. Untick it to say the list itself is not done yet - it reads as \"not finished\" then."]
-                    : T["Marks the whole list done even with entries still open, and moves it to Finished. It ticks itself once every entry is."])
-            </small>
-        </div>
-
-        @* Which storage this list is measured against. Here rather than only on the checklist, and for
-           any list rather than only a group: an entry of the inventory kind describes a product, and
-           the only way to say which shelf it goes on is to say which shelf this list is about. A list
-           that has never been saved has nothing to link yet - the same rule the menu above follows. *@
-        @if (!IsNewTaskList)
-        {
-            <div class="field">
-                <label for="taskListInventorySelect">@T["Storage this list is measured against"]</label>
-                <select id="taskListInventorySelect" value="@(_linkedInventoryId?.ToString() ?? string.Empty)"
-                        disabled="@_isWorkingOnInventory" @onchange="OnInventoryChangedAsync">
-                    <option value="">@T["Not measured against an inventory"]</option>
-                    @* Every storage, including the ones other lists already measure: a store serves as
-                       many jobs as it holds things for. What that costs is said under the picker rather
-                       than hidden by leaving them out - the shelf is split between the lists asking for
-                       it, and each is told its own share. *@
-                    @foreach (var inventory in _inventories)
-                    {
-                        <option value="@inventory.Id">
-                            @(_inventoriesMeasuredByAnotherList.Contains(inventory.Id)
-                                ? T.Format("{0} (shared with another list)", inventory.Name)
-                                : inventory.Name)
-                        </option>
-                    }
-                </select>
-                <small>@T["An inventory entry then describes a product to put on that shelf."]</small>
-            </div>
-        }
-
-        @* Where it will be found. Only the owner files a list - see NoteEditor, which says the same. *@
-        @if (!_isShared)
-        {
-            <FolderField Page="FolderPage.Tasks" Value="_formModel.FolderId" ValueChanged="folderId => _formModel.FolderId = folderId"
-                         Hint="@(T["Without one it is in Public, or in Private when it is sealed - and it moves to Finished on its own once everything is ticked off. A list you file somewhere stays in that folder, finished or not."])" />
-        }
-
-        <div class="field">
-            <label for="taskListPrioritySelect">@T["Priority"]</label>
-            <InputSelect id="taskListPrioritySelect" @bind-Value="_formModel.Priority">
-                <option value="Low">@T["Low"]</option>
-                <option value="Normal">@T["Normal"]</option>
-                <option value="High">@T["High"]</option>
-            </InputSelect>
-            <small>@T["Sorts this list against the others. Its progress is worked out from its items."]</small>
-        </div>
-
-    </div>
-
     @if (!IsNewTaskList && !_formModel.IsPrivate && Id is { } taskListId)
     {
         <h2>@T["Link"]</h2>
@@ -599,10 +511,111 @@ else
             }
         </Extras>
         <ChildContent>
-            @* Only for a list that exists: nothing in the menu can act on one that has never been saved. *@
-            @if (!IsNewTaskList && Id is { } menuTaskListId)
-            {
-                <OverflowMenu>
+            @* Everything that is about the list rather than on it - who may read it, how it is shown,
+               whether it is finished, which shelf it is measured against, where it is filed and how much
+               it matters - and, under a line, the things that can be done to it.
+
+               The settings used to sit under the entries as "About this list", which is a form somebody
+               had to scroll past to reach the end of the list they were writing; before that they were
+               above it, so a page opened to write a list on began with questions about a list that did
+               not exist yet. In the panel they are one press from anywhere in the form and out of the
+               way until then - which is where the note's editor has kept its own since 2026-09-09.
+
+               One menu rather than two: two three-dot buttons side by side are two questions where the
+               reader has one. It stays open, because settings are what most of it is, and the actions
+               below close it themselves - see OverflowMenu.Close, written for exactly this. *@
+            <OverflowMenu StaysOpen="true" @ref="_menu">
+                <div class="editor-settings-menu">
+                @* Only the owner may turn this on: a list reached through a share belongs to someone else,
+                   and "private" means private to its creator. *@
+                @if (!_isShared)
+                {
+                    <div class="field">
+                        <label>
+                            <input type="checkbox" checked="@_formModel.IsPrivate"
+                               @onchange="args => _formModel.IsPrivate = args.Value is true" />@T["Private"]</label>
+                        <small>
+                            @T["Encrypted in this browser, so Orbit can't read it. It can't be shared, gets no reminders, and losing your password loses it."]
+                        </small>
+                    </div>
+                }
+
+                <div class="field">
+                    <label>
+                        <input type="checkbox" checked="@_formModel.IsGroup"
+                               @onchange="args => _formModel.IsGroup = args.Value is true" />@T["Group View"]</label>
+                    <small>
+                        @T["A group list's checklist also shows every list it gathers, so the whole group fits on one screen."]
+                    </small>
+                </div>
+
+                @* Whether the list is finished, asked once for both ways of being it. The box ticks itself once
+                   every entry is ticked, which is what the reader already means by that; pressing it says so
+                   about the list rather than about its entries, and unticking it with everything done is the
+                   answer the box could not give before - see TaskListCompletion. *@
+                <div class="field">
+                    <label>
+                        <input type="checkbox" checked="@IsMarkedCompleted"
+                               @onchange="args => SetCompleted(args.Value is true)" />@T["Completed"]</label>
+                    <small>
+                        @(EveryEntryIsTickedOff
+                            ? T["Ticked on its own because every entry is. Untick it to say the list itself is not done yet - it reads as \"not finished\" then."]
+                            : T["Marks the whole list done even with entries still open, and moves it to Finished. It ticks itself once every entry is."])
+                    </small>
+                </div>
+
+                @* Which storage this list is measured against. Here rather than only on the checklist, and for
+                   any list rather than only a group: an entry of the inventory kind describes a product, and
+                   the only way to say which shelf it goes on is to say which shelf this list is about. A list
+                   that has never been saved has nothing to link yet - the same rule the menu above follows. *@
+                @if (!IsNewTaskList)
+                {
+                    <div class="field">
+                        <label for="taskListInventorySelect">@T["Storage this list is measured against"]</label>
+                        <select id="taskListInventorySelect" value="@(_linkedInventoryId?.ToString() ?? string.Empty)"
+                                disabled="@_isWorkingOnInventory" @onchange="OnInventoryChangedAsync">
+                            <option value="">@T["Not measured against an inventory"]</option>
+                            @* Every storage, including the ones other lists already measure: a store serves as
+                               many jobs as it holds things for. What that costs is said under the picker rather
+                               than hidden by leaving them out - the shelf is split between the lists asking for
+                               it, and each is told its own share. *@
+                            @foreach (var inventory in _inventories)
+                            {
+                                <option value="@inventory.Id">
+                                    @(_inventoriesMeasuredByAnotherList.Contains(inventory.Id)
+                                        ? T.Format("{0} (shared with another list)", inventory.Name)
+                                        : inventory.Name)
+                                </option>
+                            }
+                        </select>
+                        <small>@T["An inventory entry then describes a product to put on that shelf."]</small>
+                    </div>
+                }
+
+                @* Where it will be found. Only the owner files a list - see NoteEditor, which says the same. *@
+                @if (!_isShared)
+                {
+                    <FolderField Page="FolderPage.Tasks" Value="_formModel.FolderId" ValueChanged="folderId => _formModel.FolderId = folderId"
+                                 Hint="@(T["Without one it is in Public, or in Private when it is sealed - and it moves to Finished on its own once everything is ticked off. A list you file somewhere stays in that folder, finished or not."])" />
+                }
+
+                <div class="field">
+                    <label for="taskListPrioritySelect">@T["Priority"]</label>
+                    <select id="taskListPrioritySelect" value="@_formModel.Priority"
+                            @onchange="args => _formModel.Priority = args.Value?.ToString() ?? _formModel.Priority">
+                        <option value="Low">@T["Low"]</option>
+                        <option value="Normal">@T["Normal"]</option>
+                        <option value="High">@T["High"]</option>
+                    </select>
+                    <small>@T["Sorts this list against the others. Its progress is worked out from its items."]</small>
+                </div>
+                </div>
+
+                @* Only for a list that exists: nothing below the line can act on one that has never
+                   been saved, and a divider over nothing is a line for its own sake. *@
+                @if (!IsNewTaskList && Id is { } menuTaskListId)
+                {
+                    <div class="editor-settings-divider"></div>
                     @* Only for a list with something on it a shelf could be about - an entry describing
                        a product, or one standing for a list that has one, however deep that goes. See
                        GeneratedInventorySource: on a list of plain errands this was an offer to build an
@@ -619,14 +632,14 @@ else
                         <button type="button" class="avatar-dropdown-item"
                                 disabled="@(_isWorkingOnInventory || _linkedInventoryId is not null)"
                                 title="@(_linkedInventoryId is null ? null : T["This list already has a storage."])"
-                                @onclick="OpenTheGenerateForm">
+                                @onclick="OpenTheGenerateFormFromTheMenu">
                             @T["Generate inventory…"]
                         </button>
                     }
                     @* Nothing to recalculate until there is an inventory to recalculate against. *@
                     <button type="button" class="avatar-dropdown-item"
                             disabled="@(_isWorkingOnInventory || _linkedInventoryId is null)"
-                            @onclick="() => RecalculateAsync(menuTaskListId)">
+                            @onclick="() => RecalculateFromTheMenuAsync(menuTaskListId)">
                         @T["Recalculate against the inventory"]
                     </button>
                     @* Where a calendar event's editor has had "Delete event" all along. A task list was
@@ -635,12 +648,12 @@ else
                     @if (!_isShared)
                     {
                         <button type="button" class="avatar-dropdown-item" disabled="@_isDeleting"
-                                @onclick="DeleteAsync">
+                                @onclick="DeleteTheListAsync">
                             @T["Delete task list"]
                         </button>
                     }
-                </OverflowMenu>
-            }
+                }
+            </OverflowMenu>
         </ChildContent>
     </EditorRail>
 }
@@ -695,6 +708,31 @@ else
     {
         _inventoryMessage = null;
         _isNamingTheInventory = true;
+    }
+
+    /// <summary>
+    /// The panel's menu, so the three things in it that *do* something can shut it behind them. It
+    /// stays open otherwise, because most of what is in it is settings and closing after each one would
+    /// make changing two a chore - see OverflowMenu, where both halves of that rule live.
+    /// </summary>
+    private OverflowMenu? _menu;
+
+    private void OpenTheGenerateFormFromTheMenu()
+    {
+        _menu?.Close();
+        OpenTheGenerateForm();
+    }
+
+    private Task RecalculateFromTheMenuAsync(Guid taskListId)
+    {
+        _menu?.Close();
+        return RecalculateAsync(taskListId);
+    }
+
+    private Task DeleteTheListAsync()
+    {
+        _menu?.Close();
+        return DeleteAsync();
     }
 
     /// <summary>
