@@ -36,24 +36,24 @@ public static class CalendarDayTimeline
     public const int MinutesInADay = 24 * 60;
 
     /// <summary>
-    /// The stretch of the clock worth drawing: the hour the day's first thing starts in, to the hour
-    /// its last thing ends in. All twenty-four would be mostly empty - a day with one meeting at nine
-    /// would open on midnight and ask the reader to scroll past eight hours of nothing to find it.
+    /// The clock is the whole day, midnight to midnight, every time. It used to be cropped to the hours
+    /// something was in, on the argument that a day with one meeting at nine should not open on midnight
+    /// - but a clock whose length changes with what is on it is a clock you cannot read at a glance,
+    /// because nine o'clock is somewhere different on every day of the week. Twenty-four hours always,
+    /// and the screen opens scrolled to the day's first thing, which answers the same objection without
+    /// moving the hours about.
     /// </summary>
-    /// <returns>Inclusive at both ends, so an hour with something in it is always drawn whole.</returns>
-    public static (int FirstHour, int LastHour) HoursWorthDrawing(IReadOnlyList<DayBlock> blocks)
-    {
-        if (blocks.Count == 0)
-        {
-            return (0, 0);
-        }
+    public const int FirstHour = 0;
 
-        var first = blocks.Min(block => block.StartMinute) / 60;
-        // The hour the last thing ends in, held inside the day: something running to midnight belongs
-        // to the last hour there is rather than to the first hour of a day nobody asked for.
-        var last = Math.Min(blocks.Max(block => block.StartMinute + block.Minutes) / 60, 23);
-        return (first, Math.Max(first, last));
-    }
+    /// <inheritdoc cref="FirstHour"/>
+    public const int LastHour = 23;
+
+    /// <summary>
+    /// Where the day should open: the hour its first thing is in, so the reader is not looking at the
+    /// small hours. Midnight for a day with nothing on it, there being nothing to look at either way.
+    /// </summary>
+    public static int FirstHourWorthLookingAt(IReadOnlyList<DayBlock> blocks)
+        => blocks.Count == 0 ? 0 : blocks.Min(block => block.StartMinute) / 60;
 
     /// <summary>
     /// Everything happening on <paramref name="day"/> that has a time, placed. All-day events are not

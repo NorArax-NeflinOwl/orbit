@@ -112,6 +112,36 @@ public sealed class TaskListRowTests
         Assert.True(Show(mine, [mine]).CanBePinned);
     }
 
+    /// <summary>
+    /// The bar across the foot of a row, which is how a column of lists says which of them is nearly
+    /// finished without four sums being done by eye.
+    /// </summary>
+    [Fact]
+    public void A_list_says_how_far_along_it_is_as_a_fraction()
+    {
+        var list = List("Groceries", Done("Buy milk"), Done("Buy eggs"), Open("Buy bread"), Open("Buy jam"));
+
+        var row = Show(list, [list]);
+
+        Assert.True(row.HasProgress);
+        Assert.Equal(0.5, row.CompletedFraction);
+    }
+
+    /// <summary>
+    /// An empty track over an empty list says "none of this is done", which is not what having no work
+    /// means - so a list with nothing on it yet is given no bar at all.
+    /// </summary>
+    [Fact]
+    public void A_list_with_nothing_on_it_gets_no_bar()
+    {
+        var empty = List("Someday");
+
+        var row = Show(empty, [empty]);
+
+        Assert.False(row.HasProgress);
+        Assert.Equal(0, row.CompletedFraction);
+    }
+
     private static TaskListRow Show(LocalTaskList taskList, IReadOnlyList<LocalTaskList> everyList)
         => TaskListRow.From(
             taskList, everyList, hasUnsentChanges: false, FixedNetworkStatus.Online,

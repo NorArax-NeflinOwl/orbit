@@ -444,7 +444,7 @@ public sealed class ContactsScreenTests
                     Repository, _chatClient, directoryReader, _encryptionKeyProvider,
                     NullLogger<EncryptedChatMessageEditor>.Instance),
                 new MessageForwarder(sender), Acceptance, Repository, _synchronizer, _chatClient,
-                new Translations(new InMemoryLanguageStore()), Navigator, new AnnouncedLiveUpdates());
+                new Translations(new InMemoryLanguageStore()), Navigator, new AnnouncedLiveUpdates(), _clock);
             screen.Open(contact);
             return screen;
         }

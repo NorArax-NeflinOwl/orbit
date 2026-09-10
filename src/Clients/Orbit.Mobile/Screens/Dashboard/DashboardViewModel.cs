@@ -1,6 +1,7 @@
 using System.Collections.ObjectModel;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using Orbit.Core.Folders;
 using Orbit.Mobile.Data;
 using Orbit.Mobile.Localization;
 using Orbit.Core.Permissions;
@@ -8,6 +9,7 @@ using Orbit.Mobile.Crypto;
 using Orbit.Mobile.Location;
 using Orbit.Mobile.Permissions;
 using Orbit.Mobile.Security;
+using Orbit.Mobile.Screens.Folders;
 using Orbit.Mobile.Sync;
 
 namespace Orbit.Mobile.Screens.Dashboard;
@@ -69,8 +71,10 @@ public sealed partial class DashboardViewModel : ObservableObject
         Translations translations, PrivateItemGate privateItems, EverythingSynchronizer synchronizer,
         SyncState syncState, UserPermissions permissions, IDashboardPinStore pins,
         IDashboardCardPreferenceStore visibility, SharedLocations sharedLocations,
-        LocalNotificationRepository notifications, IScreenNavigator navigator)
+        LocalNotificationRepository notifications, IScreenNavigator navigator,
+        LocalFolderRepository folders, IChosenFolderStore chosenFolder)
     {
+        Folders = new FolderTabs(folders, chosenFolder, translations, FolderPage.Dashboard);
         _notes = notes;
         _taskLists = taskLists;
         _calendarEvents = calendarEvents;
@@ -94,6 +98,17 @@ public sealed partial class DashboardViewModel : ObservableObject
     }
 
     public ObservableCollection<DashboardCard> Cards { get; } = [];
+
+    /// <summary>
+    /// The folders this screen offers and which of them is being read - see FolderTabs. The dashboard
+    /// draws **both** pages' tabs, because it shows both kinds of card, and offers no way to make one:
+    /// there is no dashboard card to file into a folder, so a folder made here would be a tab nothing
+    /// could ever go in. See FolderPages.
+    /// </summary>
+    public FolderTabs Folders { get; }
+
+    /// <inheritdoc cref="Notes.NotesViewModel.FolderChoices"/>
+    public ObservableCollection<FolderChoice> FolderChoices { get; } = [];
 
     [RelayCommand]
     private async Task LoadAsync(CancellationToken cancellationToken)
@@ -177,6 +192,23 @@ public sealed partial class DashboardViewModel : ObservableObject
         // Filtered before both the rows and the count, so a card that says "3" is showing three - the
         // same as Orbit.Web, whose count is of what it is about to draw rather than of everything. What
         // the filter itself empties is the exception - see AddCardIfAnything.
+        // Which folder each of the two kinds is in, and how many are in each - counted over both, since
+        // the tabs here are both pages' at once. No Finished among them: this screen has no such tab,
+        // so a finished list is placed by its folder and its privacy like anything else rather than
+        // falling out of every tab the screen draws - see FolderPages.HasAFinishedTab.
+        await Folders.ReadAsync(cancellationToken);
+
+        FolderChoices.Clear();
+        foreach (var choice in Folders.Describe(
+            notes.Select(note => Folders.Where(note.FolderId, note.IsPrivate, isFinished: false))
+                .Concat(taskLists.Select(list => Folders.Where(list.FolderId, list.IsPrivate, list.IsCompleted)))))
+        {
+            FolderChoices.Add(choice);
+        }
+
+        notes = [.. notes.Where(note => Folders.Holds(Folders.Where(note.FolderId, note.IsPrivate, isFinished: false)))];
+        taskLists = [.. taskLists.Where(list => Folders.Holds(Folders.Where(list.FolderId, list.IsPrivate, list.IsCompleted)))];
+
         var shownNotes = notes.Where(note => Passes(DashboardCardKind.Notes, note.IsPinned)).ToList();
         var shownTaskLists = taskLists.Where(list => Passes(DashboardCardKind.Tasks, list.IsPinned)).ToList();
         var shownEvents = events.Where(PassesPriority).ToList();
@@ -341,6 +373,35 @@ public sealed partial class DashboardViewModel : ObservableObject
     /// Whether a pinnable thing survives its card's filter. "Pinned" is the only filter these cards
     /// offer, so anything else lets everything through.
     /// </summary>
+    /// <summary>
+    /// Whether this card is about the folder being read. Opening one somebody made is asking to see one
+    /// kind of thing - a folder called "Receipts" holds notes, so opening it leaves the notes card
+    /// standing and nothing else. Every other card is about something the folder cannot hold, and a
+    /// screen that kept drawing them would answer "show me this folder" with the whole dashboard and
+    /// one card narrowed inside it.
+    ///
+    /// The built-in tabs are not about one kind and change nothing here: Public and Private are what
+    /// everything is in unless it was filed somewhere. And a folder whose scope this screen cannot read
+    /// - one deleted on its own screen while the dashboard held it open - narrows to nothing rather
+    /// than quietly to the task lists; FolderTabs.ReadAsync drops it on the next pass.
+    /// </summary>
+    private bool IsAboutTheOpenFolder(DashboardCardKind kind)
+        => Folders.Chosen.FolderId is null
+            || Folders.ChosenScope switch
+            {
+                FolderScope.Notes => kind is DashboardCardKind.Notes,
+                FolderScope.Tasks => kind is DashboardCardKind.Tasks,
+                _ => false
+            };
+
+    /// <inheritdoc cref="Notes.NotesViewModel.ChooseFolderAsync"/>
+    [RelayCommand]
+    private async Task ChooseFolderAsync(FolderKey key, CancellationToken cancellationToken)
+    {
+        Folders.Choose(key);
+        await ShowStoredSummaryAsync(cancellationToken);
+    }
+
     private bool Passes(DashboardCardKind kind, bool isPinned)
         => FilterFor(kind) is not DashboardCardFilter.Pinned || isPinned;
 
@@ -489,7 +550,7 @@ public sealed partial class DashboardViewModel : ObservableObject
         Cards.Clear();
         // Put-away parts are dropped here rather than never built: the menu has to be able to bring one
         // back without reloading everything from the store.
-        var shown = _built.Where(card => !_hidden.Contains(card.Kind));
+        var shown = _built.Where(card => !_hidden.Contains(card.Kind)).Where(card => IsAboutTheOpenFolder(card.Kind));
 
         // Pinned first, always - a pin is the reader saying "this one, above the rest", and an order
         // that moved it back down would be answering a question they did not ask. The same rule the

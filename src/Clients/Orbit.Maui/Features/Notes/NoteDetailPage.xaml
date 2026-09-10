@@ -39,7 +39,8 @@
              read as a list - no rules, no spacing, no boxes.
 
              Enter starts the next line, keeping the indentation of the one above; backspace at the very
-             start of a line joins it to the one above, as it would anywhere else - see NoteLineKeys.
+             start of a line joins it to the one above, and the arrows walk the caret from one line to
+             the next keeping the column - all three as they would anywhere else, see NoteLineKeys.
              Typing "[]" at the head of a line turns it into a tick box, which is the design's own way in
              and the reason there is no toolbar. -->
         <ScrollView Grid.Row="2">
@@ -71,6 +72,8 @@
                                        controls:BareField.IsBare="True" ReturnType="Next"
                                        IsReadOnly="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=ViewModel.IsReadOnly, x:DataType=notes:NoteDetailPage}"
                                        controls:NoteLineKeys.JoinsTheLineAbove="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=JoinTheLineAboveCommand, x:DataType=notes:NoteDetailPage}"
+                                       controls:NoteLineKeys.GoesToTheLineAbove="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=GoToTheLineAboveCommand, x:DataType=notes:NoteDetailPage}"
+                                       controls:NoteLineKeys.GoesToTheLineBelow="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=GoToTheLineBelowCommand, x:DataType=notes:NoteDetailPage}"
                                        Completed="OnLineCompleted" Focused="OnLineFocused"
                                        Unfocused="OnLineUnfocused" Loaded="OnLineLoaded" />
 

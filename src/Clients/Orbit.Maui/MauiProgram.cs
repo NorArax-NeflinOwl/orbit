@@ -15,6 +15,7 @@ using Orbit.Mobile.Location;
 using Orbit.Mobile.Screens.Dashboard;
 using Orbit.Mobile.Screens.Diagnostics;
 using Orbit.Mobile.Screens.Navigation;
+using Orbit.Mobile.Screens.Folders;
 using Orbit.Mobile.Screens.Notes;
 using Orbit.Mobile.Screens.Sharing;
 using Orbit.Mobile.Screens.Suggestions;
@@ -98,9 +99,10 @@ public static class MauiProgram
 		Orbit.Maui.Platform.SwitchTrack.DrawOnEverySwitch();
 		// And a stepper's two buttons, which MAUI offers no colours for at all - see StepperButtons.
 		Orbit.Maui.Platform.StepperButtons.DrawOnEveryStepper();
-		// And backspace at the head of one of the note editor's lines, which MAUI has no key events for
-		// - see NoteLineBackspace, and NoteLineKeys, which is what a field asks with.
-		Orbit.Maui.Platform.NoteLineBackspace.JoinLinesOnEveryNoteField();
+		// And the keys that mean something to a whole note - backspace at the head of a line, and the
+		// arrows between lines - which MAUI has no key events for at all. See NoteLineKeyPresses, and
+		// NoteLineKeys, which is what a field asks with.
+		Orbit.Maui.Platform.NoteLineKeyPresses.ReadTheNoteKeysOnEveryNoteField();
 #endif
 
 		RegisterPlatformServices(builder.Services);
@@ -151,6 +153,7 @@ public static class MauiProgram
 		// One instance: it reads the key this device already holds and nothing else - no network, no state
 		// of its own - so the repositories that seal with it can stay singletons too.
 		services.AddSingleton<PrivateContentSealer>();
+		services.AddSingleton<LocalFolderRepository>();
 		services.AddSingleton<LocalNoteRepository>();
 		services.AddSingleton<LocalTaskListRepository>();
 		services.AddSingleton<LocalCalendarEventRepository>();
@@ -161,6 +164,7 @@ public static class MauiProgram
 		// Transient, not singleton: both take a typed HttpClient, and holding one for the life of the app
 		// pins the handler underneath it forever - which is the thing IHttpClientFactory exists to rotate.
 		services.AddTransient<OwnEncryptionKeyProvider>();
+		services.AddTransient<FolderSynchronizer>();
 		services.AddTransient<NoteSynchronizer>();
 		services.AddTransient<TaskListSynchronizer>();
 		services.AddTransient<CalendarEventSynchronizer>();
@@ -237,6 +241,7 @@ public static class MauiProgram
 		services.AddSingleton<IChecklistReadingStore, PreferencesChecklistReadingStore>();
 		services.AddSingleton<ICalendarListOrderStore, PreferencesCalendarListOrderStore>();
 		services.AddSingleton<IListArrangementStore, PreferencesListArrangementStore>();
+		services.AddSingleton<IChosenFolderStore, PreferencesChosenFolderStore>();
 		services.AddSingleton<IThemeStore, PreferencesThemeStore>();
 		services.AddSingleton<IAccentColorStore, PreferencesAccentColorStore>();
 		services.AddSingleton<ILanguageStore, PreferencesLanguageStore>();
@@ -303,6 +308,8 @@ public static class MauiProgram
 	{
 		services.AddTransient<AuthorizationMessageHandler>();
 
+		services.AddHttpClient<FoldersClient>(client => client.BaseAddress = apiSettings.BaseAddress)
+			.AddHttpMessageHandler<AuthorizationMessageHandler>();
 		services.AddHttpClient<NotesClient>(client => client.BaseAddress = apiSettings.BaseAddress)
 			.AddHttpMessageHandler<AuthorizationMessageHandler>();
 		services.AddHttpClient<TasksClient>(client => client.BaseAddress = apiSettings.BaseAddress)

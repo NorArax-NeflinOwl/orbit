@@ -1,5 +1,6 @@
 using System.Net;
 using System.Net.Http.Json;
+using Orbit.Contracts.Folders;
 using Orbit.Contracts.Notes;
 using Orbit.Contracts.Sync;
 using Orbit.Contracts.Sharing;
@@ -42,6 +43,21 @@ public sealed class NotesClient : ILockableItems
     public async Task<WriteOutcome> UpdateAsync(Guid noteId, UpdateNoteRequest request, CancellationToken cancellationToken = default)
     {
         var response = await _httpClient.PutAsJsonAsync($"api/notes/{noteId}", request, cancellationToken);
+        return ReadOutcome(response);
+    }
+
+    /// <summary>
+    /// Puts this note in a folder, or takes it out of one when <paramref name="folderId"/> is null.
+    ///
+    /// Its own request to its own endpoint rather than a field on the update above, and deliberately:
+    /// an update carries the whole note, so a client that had never heard of folders would empty this
+    /// every time somebody corrected a line - see Orbit.Contracts.Folders.MoveToFolderRequest.
+    /// </summary>
+    public async Task<WriteOutcome> FileAsync(
+        Guid noteId, Guid? folderId, CancellationToken cancellationToken = default)
+    {
+        var response = await _httpClient.PutAsJsonAsync(
+            $"api/notes/{noteId}/folder", new MoveToFolderRequest(folderId), cancellationToken);
         return ReadOutcome(response);
     }
 

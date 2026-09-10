@@ -57,12 +57,30 @@
                                                        CommandParameter="{Binding .}" />
                             </controls:ItemCard.Menu>
 
-                            <controls:ItemCard.Tags>
-                                <!-- Two cards with the same name are otherwise indistinguishable, and
-                                     the reader has no way of telling which one they wrote in. -->
-                                <Label Text="{controls:Translate 'copy'}" IsVisible="{Binding IsCopy}"
-                                       Style="{StaticResource RowMeta}" />
-                            </controls:ItemCard.Tags>
+                            <controls:ItemCard.Trailing>
+                                <!-- At the right-hand end of the name's line, which is where the design
+                                     puts what a row has to say about itself - and on the line rather
+                                     than under it, as the notes list does with the same two. -->
+                                <HorizontalStackLayout Spacing="6">
+                                    <!-- How much on this shelf has run out, outlined in the task colour
+                                         because running out is what raises a restock errand. The reason
+                                         for opening an inventory is usually to find out whether
+                                         anything on it is short, and until now that took opening every
+                                         one of them. -->
+                                    <Border Style="{StaticResource CardBadge}" IsVisible="{Binding HasRunningLow}"
+                                            Stroke="{AppThemeBinding Light={StaticResource TaskLight}, Dark={StaticResource TaskDark}}">
+                                        <Label Text="{Binding RunningLow}" Style="{StaticResource CardBadgeLabel}"
+                                               TextColor="{AppThemeBinding Light={StaticResource TaskLight}, Dark={StaticResource TaskDark}}" />
+                                    </Border>
+
+                                    <!-- Two cards with the same name are otherwise indistinguishable,
+                                         and the reader has no way of telling which one they wrote in. -->
+                                    <Border Style="{StaticResource CardBadge}" IsVisible="{Binding IsCopy}">
+                                        <Label Text="{controls:Translate 'copy'}"
+                                               Style="{StaticResource CardBadgeLabel}" />
+                                    </Border>
+                                </HorizontalStackLayout>
+                            </controls:ItemCard.Trailing>
 
                             <controls:ItemCard.Body>
                                 <VerticalStackLayout Spacing="2">

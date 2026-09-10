@@ -141,7 +141,7 @@ internal sealed class ChatContext : IDisposable
                 new CalendarClient(Server.ToHttpClient()), new InventoryClient(Server.ToHttpClient()),
                 new PlacesClient(Server.ToHttpClient())),
             Repository, Synchronizer, ChatClient,
-            new Translations(new InMemoryLanguageStore()), new RecordingScreenNavigator(), LiveUpdates);
+            new Translations(new InMemoryLanguageStore()), new RecordingScreenNavigator(), LiveUpdates, Clock);
 
         screen.Open(LocalContact.ForSomebodyNotYetSpokenTo(
             OtherUserId, "bob", "Bob", OtherPublicKeyBase64));

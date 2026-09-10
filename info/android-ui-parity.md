@@ -226,7 +226,7 @@ whether a screen behaves. Walked on `Orbit_Pixel_8_API_36` against a local API, 
 and **no test could have caught any of them** - two were platform ordering, one was a value copied
 where a binding was meant, and one was two controls fighting over the same corner.
 
-- **Backspace at the head of a line never joined it to the line above.** `NoteLineBackspace` decides
+- **Backspace at the head of a line never joined it to the line above.** `NoteLineKeyPresses` decides
   whether to listen for the key while the field's handler is being built; `NoteDetailPage` attached the
   command in the field's `Loaded`, which is later. It read null every time and listened to nothing.
   The command is bound in the template now - see `NoteLineKeys`, which says so out loud.

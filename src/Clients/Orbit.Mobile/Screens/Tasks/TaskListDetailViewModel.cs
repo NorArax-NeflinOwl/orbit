@@ -8,6 +8,7 @@ using Orbit.Core.Abstractions;
 using Orbit.Core.Tasks;
 using Orbit.Core.Inventories;
 using Orbit.Mobile.Api;
+using Orbit.Core.Folders;
 using Orbit.Mobile.Data;
 using Orbit.Mobile.Localization;
 using Orbit.Mobile.Location;
@@ -151,8 +152,9 @@ public sealed partial class TaskListDetailViewModel : ObservableObject
         INetworkStatus networkStatus, StockCheckPanel stockCheck,
         EntryAppointment appointments, ShelfCorrection shelfCorrection, IPlacePicker placePicker,
         PrivateContentSealer privateContent, NameSuggestions nameSuggestions,
-        NameSuggestions titleSuggestions, IChecklistReadingStore reading)
+        NameSuggestions titleSuggestions, IChecklistReadingStore reading, LocalFolderRepository folders)
     {
+        _folders = folders;
         _reading = reading;
         _taskLists = taskLists;
         _entryAppointment = appointments;
@@ -1056,6 +1058,31 @@ public sealed partial class TaskListDetailViewModel : ObservableObject
         await SynchroniseAsync(cancellationToken);
     }
 
+    private readonly LocalFolderRepository _folders;
+
+    /// <inheritdoc cref="Notes.NoteDetailViewModel.Folders"/>
+    public IReadOnlyList<LocalFolder> Folders { get; private set; } = [];
+
+    /// <inheritdoc cref="Notes.NoteDetailViewModel.FolderId"/>
+    [ObservableProperty]
+    private Guid? _folderId;
+
+    /// <inheritdoc cref="Notes.NoteDetailViewModel.FileAsync"/>
+    [RelayCommand]
+    private async Task FileAsync(Guid? folderId, CancellationToken cancellationToken)
+    {
+        var outcome = await _taskLists.FileAsync(_localId, folderId, cancellationToken);
+
+        if (outcome is LocalWriteOutcome.RefusedWhileOffline)
+        {
+            Status = _translations["This one can't be moved while you're offline."];
+            return;
+        }
+
+        FolderId = folderId;
+        Status = string.Empty;
+    }
+
     private async Task ShowStoredListAsync(CancellationToken cancellationToken)
     {
         if (await _taskLists.FindAsync(_localId, cancellationToken) is not { } taskList)
@@ -1065,6 +1092,8 @@ public sealed partial class TaskListDetailViewModel : ObservableObject
         }
 
         Title = taskList.Title;
+        FolderId = taskList.FolderId;
+        Folders = [.. (await _folders.GetAllAsync(FolderScope.Tasks, cancellationToken))];
         Description = taskList.Description;
         _savedDescription = taskList.Description;
         // Taken as already looked up, so opening a list does not offer completions of its own title and

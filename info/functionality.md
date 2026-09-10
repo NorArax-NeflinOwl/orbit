@@ -412,6 +412,26 @@ different question. The rule lives in the query rather than in the scheduler, so
 the real repositories (`NothingIsAnnouncedAboutFinishedWorkTests`) - an in-memory double hands back
 whatever it was seeded with, and a filter that was never written passes there.
 
+**The phone has folders too, since 2026-09-10.** It has no room for a row of tabs, so the folders are a
+group in the menu under the screen's name - each with the count of what is in it, which is what the
+Classical design draws. On all three screens the browser has them on: the notes, the task lists, and
+the **dashboard**, which draws both pages' folders at once, offers no way to make one, and narrows to
+the card the open folder is about - a folder called "Receipts" holds notes, so opening it leaves the
+notes card standing and nothing else, exactly as the browser's dashboard does. Everything about *where* something is is the same rule on both clients:
+`FolderKey`, `FolderPlacement` and `FolderPages` moved out of `Orbit.Web.Services` into
+`Orbit.Core.Folders` when the phone grew them, because which folder something is in is the definition of
+where it is rather than a drawing of it, and two clients working that out separately is two clients that
+can disagree about which tab a note is under.
+
+What is the phone's own is that it can do all of it **offline**. A folder is a name, so it exists on the
+handset the moment it is asked for and the outbox carries it after; a note filed into one that has not
+reached the server yet holds its filing back rather than losing it (`FolderNotOnTheServerYet`), and
+folders are pushed ahead of the notes and lists so that resolves on the same pass. Filing is its own
+kind of queued change and its own endpoint for the reason the server keeps it off the save: an update
+carries the whole note, so a client that had never heard of folders would empty it every time somebody
+corrected a line. Filing a note is offered under the note's own name once it is open, not from the list
+- the phone's lists gave up their per-row menus for exactly that.
+
 Deciding the built-in ones rather than storing them is what let folders arrive with **no migration of
 existing rows and nothing to repair**: every note and list that existed before them was already in the
 right one. There is still no way to be filed as private without being sealed. Giving a folder a page did

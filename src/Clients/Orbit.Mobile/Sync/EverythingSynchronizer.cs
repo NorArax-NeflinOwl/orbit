@@ -17,6 +17,7 @@ namespace Orbit.Mobile.Sync;
 /// </summary>
 public sealed class EverythingSynchronizer
 {
+    private readonly FolderSynchronizer _folders;
     private readonly NoteSynchronizer _notes;
     private readonly TaskListSynchronizer _taskLists;
     private readonly CalendarEventSynchronizer _calendarEvents;
@@ -26,10 +27,12 @@ public sealed class EverythingSynchronizer
     private readonly UserPermissions _permissions;
 
     public EverythingSynchronizer(
-        NoteSynchronizer notes, TaskListSynchronizer taskLists, CalendarEventSynchronizer calendarEvents,
-        InventorySynchronizer inventories, PlaceSynchronizer places, ChatSynchronizer chat,
+        FolderSynchronizer folders, NoteSynchronizer notes, TaskListSynchronizer taskLists,
+        CalendarEventSynchronizer calendarEvents, InventorySynchronizer inventories,
+        PlaceSynchronizer places, ChatSynchronizer chat,
         UserPermissions permissions)
     {
+        _folders = folders;
         _notes = notes;
         _taskLists = taskLists;
         _calendarEvents = calendarEvents;
@@ -43,6 +46,10 @@ public sealed class EverythingSynchronizer
     {
         var everything = SyncTally.Nothing;
 
+        // Folders first, and it matters: a note filed into a folder made offline names that folder,
+        // and nothing can be filed into a folder the server has not been told about yet - see
+        // FolderNotOnTheServerYet, which is what stops the filing rather than losing it.
+        everything = everything.And(await TryAsync(() => _folders.SynchroniseAsync(cancellationToken)));
         everything = everything.And(await TryAsync(() => _notes.SynchroniseAsync(cancellationToken)));
         everything = everything.And(await TryAsync(() => _taskLists.SynchroniseAsync(cancellationToken)));
         everything = everything.And(await TryAsync(() => _calendarEvents.SynchroniseAsync(cancellationToken)));

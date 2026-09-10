@@ -20,7 +20,8 @@ namespace Orbit.Mobile.Screens.Inventory;
 public sealed record InventoryRow(
     Guid LocalId, string Name, int ItemCount, bool HasUnsentChanges, OfflineEditRefusal Refusal,
     string Contents, string Status, bool IsHidden = false, string HiddenName = "Private",
-    bool IsCopy = false, bool IsSharedWithMe = false, bool CanBeShared = false)
+    bool IsCopy = false, bool IsSharedWithMe = false, bool CanBeShared = false,
+    string RunningLow = "")
 {
     public static InventoryRow From(
         LocalInventory inventory, bool hasUnsentChanges, INetworkStatus networkStatus, Translations translations,
@@ -36,7 +37,25 @@ public sealed record InventoryRow(
             IsHidden: inventory.IsPrivate && !privateItemsAreUnlocked, HiddenName: hiddenName,
             IsCopy: inventory.CopyOfLocalId is not null, IsSharedWithMe: inventory.IsShared,
             CanBeShared: inventory is { ServerId: not null, IsPrivate: false }
-                && SharedItemAccess.AllowsSharing(inventory));
+                && SharedItemAccess.AllowsSharing(inventory),
+            RunningLow: RunningLowOn(inventory, translations));
+    }
+
+    /// <summary>
+    /// How many things on this shelf are below the minimum somebody set for them, ready to be read -
+    /// or nothing at all when none are, because a shelf that is stocked has nothing to say about it.
+    ///
+    /// The same test the shelf's own rows make (see <see cref="InventoryItemRow"/>) and the same test
+    /// Orbit.Web's editor makes: a minimum that is set and not met. It is worth saying on the list
+    /// rather than only inside, because the reason for opening an inventory is usually to find out
+    /// whether anything on it has run out - and until now that took opening every one of them.
+    /// </summary>
+    private static string RunningLowOn(LocalInventory inventory, Translations translations)
+    {
+        var low = inventory.Items.Count(
+            item => item.MinimumQuantity is { } minimum && item.Quantity < minimum);
+
+        return low == 0 ? string.Empty : translations.Format("{0} low", low);
     }
 
     /// <inheritdoc cref="Notes.NoteListItem.DisplayTitle"/>
@@ -52,4 +71,10 @@ public sealed record InventoryRow(
     public bool HasCardMenu => CanBeShared || !IsSharedWithMe;
 
     public bool HasStatus => Status.Length > 0 && !IsHidden;
+
+    /// <summary>
+    /// Whether the chip saying how much has run out belongs on this row. Nothing on a locked one: what
+    /// a private inventory holds is exactly what being private keeps back, and a count is part of it.
+    /// </summary>
+    public bool HasRunningLow => RunningLow.Length > 0 && !IsHidden;
 }

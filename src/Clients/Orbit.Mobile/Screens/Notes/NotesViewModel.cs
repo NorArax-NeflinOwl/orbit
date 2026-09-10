@@ -2,10 +2,12 @@ using System.Collections.ObjectModel;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Orbit.Contracts.Sync;
+using Orbit.Core.Folders;
 using Orbit.Mobile.Api;
 using Orbit.Mobile.Authentication;
 using Orbit.Mobile.Data;
 using Orbit.Mobile.Localization;
+using Orbit.Mobile.Screens.Folders;
 using Orbit.Mobile.Security;
 using Orbit.Mobile.Sync;
 
@@ -27,6 +29,14 @@ public sealed partial class NotesViewModel : ObservableObject
     private readonly SyncState _syncState;
     private readonly IScreenNavigator _navigator;
     private readonly IListArrangementStore _arrangements;
+    private readonly LocalFolderRepository _folders;
+
+    /// <summary>
+    /// Sends the folders themselves. Its own run rather than part of the note sync, and before it: a
+    /// note filed into a folder made a moment ago names a folder the server has not been told about,
+    /// and nothing can be filed into one of those - see FolderNotOnTheServerYet.
+    /// </summary>
+    private readonly FolderSynchronizer _folderSynchronizer;
 
     /// <summary>What "today" is, so a card's footnote says it against the clock the tests hand over.</summary>
     private readonly TimeProvider _clock;
@@ -48,9 +58,13 @@ public sealed partial class NotesViewModel : ObservableObject
         INetworkStatus networkStatus,
         Translations translations, PrivateItemGate privateItems,
         SyncState syncState, IScreenNavigator navigator, TimeProvider clock,
-        IListArrangementStore arrangements)
+        IListArrangementStore arrangements, LocalFolderRepository folders, IChosenFolderStore chosenFolder,
+        FolderSynchronizer folderSynchronizer)
     {
+        _folderSynchronizer = folderSynchronizer;
+        Folders = new FolderTabs(folders, chosenFolder, translations, FolderPage.Notes);
         _clock = clock;
+        _folders = folders;
         _arrangements = arrangements;
         _arrangement = arrangements.Read(ListSection.Notes);
         _notes = notes;
@@ -65,6 +79,20 @@ public sealed partial class NotesViewModel : ObservableObject
     }
 
     public ObservableCollection<NoteListItem> Notes { get; } = [];
+
+    /// <summary>
+    /// The folders this screen offers and which of them is being read - see FolderTabs. The browser
+    /// draws them as a row of tabs above the cards; here they are entries in the menu under the
+    /// screen's name, which is what the design draws.
+    /// </summary>
+    public FolderTabs Folders { get; }
+
+    /// <summary>Those folders as the menu draws them, with how many notes are in each.</summary>
+    public ObservableCollection<FolderChoice> FolderChoices { get; } = [];
+
+    /// <summary>What the screen is narrowed to, for the empty list to say so rather than look broken.</summary>
+    public string ChosenFolderName
+        => FolderChoices.FirstOrDefault(choice => choice.IsChosen)?.Name ?? string.Empty;
 
     /// <summary>
     /// Whether the list has anything in it. The screen draws a hairline above every row and one more
@@ -196,10 +224,27 @@ public sealed partial class NotesViewModel : ObservableObject
     {
         var stored = await _notes.GetAllAsync(cancellationToken);
         var pending = await _notes.GetPendingNoteLocalIdsAsync(cancellationToken);
+        await Folders.ReadAsync(cancellationToken);
 
-        var rows = stored.Select(note => NoteListItem.From(
-            note, pending.Contains(note.LocalId), _networkStatus, _privateItems.IsUnlocked,
-            _translations, _clock.GetUtcNow(), _translations["Private"]));
+        // Where each note is, by the rule both clients share - a note has nothing to finish, so the
+        // question a task list is asked here is not asked of it. See FolderPlacement.
+        var placements = stored.ToDictionary(
+            note => note.LocalId,
+            note => Folders.Where(note.FolderId, note.IsPrivate, isFinished: false));
+
+        FolderChoices.Clear();
+        foreach (var choice in Folders.Describe(placements.Values))
+        {
+            FolderChoices.Add(choice);
+        }
+
+        OnPropertyChanged(nameof(ChosenFolderName));
+
+        var rows = stored
+            .Where(note => Folders.Holds(placements[note.LocalId]))
+            .Select(note => NoteListItem.From(
+                note, pending.Contains(note.LocalId), _networkStatus, _privateItems.IsUnlocked,
+                _translations, _clock.GetUtcNow(), _translations["Private"]));
 
         Notes.Clear();
         foreach (var row in ListArrangements.Apply(rows, Arrangement, Describe))
@@ -207,6 +252,79 @@ public sealed partial class NotesViewModel : ObservableObject
             Notes.Add(row);
         }
     }
+
+    /// <summary>Reading the screen under another folder - chosen from the menu under its name.</summary>
+    [RelayCommand]
+    private async Task ChooseFolderAsync(FolderKey key, CancellationToken cancellationToken)
+    {
+        Folders.Choose(key);
+        await ShowLocalNotesAsync(cancellationToken);
+    }
+
+    /// <summary>
+    /// Puts one note in a folder, or takes it out of one. Refused offline for a note somebody else can
+    /// change, exactly as an edit is - filing is a decision about the owner's own page, and the same
+    /// rule that stops an edit being lost stops this one - see LocalNoteRepository.FileAsync.
+    /// </summary>
+    [RelayCommand]
+    private async Task FileAsync((NoteListItem Note, Guid? FolderId) filing, CancellationToken cancellationToken)
+    {
+        var outcome = await _notes.FileAsync(filing.Note.LocalId, filing.FolderId, cancellationToken);
+
+        Message = outcome is LocalWriteOutcome.RefusedWhileOffline
+            ? _translations["This one can't be moved while you're offline."]
+            : string.Empty;
+
+        await ShowLocalNotesAsync(cancellationToken);
+        await SynchroniseAsync(cancellationToken);
+    }
+
+    /// <summary>
+    /// A new folder, made and shown at once whether or not there is a connection - a folder is a name,
+    /// so nothing about it waits on a server, and a reader who cannot make a tab until they have signal
+    /// cannot tidy up on a train. The screen moves to it, because making one is how somebody says where
+    /// the next thing goes.
+    /// </summary>
+    [RelayCommand]
+    private async Task MakeFolderAsync(string? name, CancellationToken cancellationToken)
+    {
+        if (name?.Trim() is not { Length: > 0 } wanted)
+        {
+            return;
+        }
+
+        var folder = await _folders.CreateAsync(wanted, FolderScope.Notes, cancellationToken);
+        NewFolderName = string.Empty;
+        Folders.Choose(FolderKey.Of(folder.LocalId));
+
+        await ShowLocalNotesAsync(cancellationToken);
+        await SynchroniseAsync(cancellationToken);
+    }
+
+    /// <summary>The name being typed into the folder row - see NotesPage, which unfolds it.</summary>
+    [ObservableProperty]
+    private string _newFolderName = string.Empty;
+
+    /// <summary>
+    /// Takes the folder being read away and leaves everything that was in it, which is what the server
+    /// does too: a folder is a place to put things, and getting rid of the place is not a decision to
+    /// get rid of them. They fall back to a built-in folder on their own.
+    /// </summary>
+    [RelayCommand]
+    private async Task DeleteFolderAsync(CancellationToken cancellationToken)
+    {
+        if (Folders.Chosen.FolderId is not { } folderId)
+        {
+            return;
+        }
+
+        await _folders.DeleteAsync(folderId, cancellationToken);
+        Folders.Choose(FolderKey.Default);
+
+        await ShowLocalNotesAsync(cancellationToken);
+        await SynchroniseAsync(cancellationToken);
+    }
+
 
     /// <summary>
     /// How this screen is being read - what order, and what it is narrowed to. Held on the device, so
@@ -242,6 +360,11 @@ public sealed partial class NotesViewModel : ObservableObject
         _syncState.RecordStarted();
         try
         {
+            // The folders first, and always - see _folderSynchronizer. This screen shows them, so it
+            // keeps them current the same way it keeps the notes current; and a folder made here with no
+            // connection would otherwise sit in the queue until somebody happened to make another one.
+            await _folderSynchronizer.SynchroniseAsync(cancellationToken);
+
             var result = await _synchronizer.SynchroniseAsync(cancellationToken);
             RecordSync(result);
 

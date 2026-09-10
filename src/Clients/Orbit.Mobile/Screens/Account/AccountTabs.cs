@@ -32,10 +32,11 @@ public interface IThemeStore
 }
 
 /// <summary>
-/// One choice in the theme picker. A named object rather than the bare enum, because the picker shows
-/// what it is given and the enum's own name is English.
+/// One of the three ways Orbit can look on this device, as the strip of them shows it: a named object
+/// rather than the bare enum, because the strip shows what it is given and the enum's own name is
+/// English, and it says whether it is the one in force so the strip can mark it.
 /// </summary>
-public sealed record ThemeChoice(ChosenTheme Value, string Name)
+public sealed record ThemeChoice(ChosenTheme Value, string Name, bool IsChosen)
 {
     public static string Describe(ChosenTheme theme, Translations translations) => theme switch
     {

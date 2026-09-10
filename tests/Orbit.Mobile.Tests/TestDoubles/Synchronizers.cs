@@ -36,6 +36,9 @@ internal static class Synchronizers
         var usersClient = new UsersClient(nobody);
 
         return new EverythingSynchronizer(
+            // Folders talk to nobody here for the same reason chat does: no test in this file is about
+            // them, and a folder that cannot be reached leaves everything filed exactly where it was.
+            new FolderSynchronizer(localStore, new FoldersClient(nobody), clock, gate, NullLogger<FolderSynchronizer>.Instance),
             new NoteSynchronizer(
                 localStore, new NotesClient(notes), clock, gate,
                 NullLogger<NoteSynchronizer>.Instance),
@@ -76,6 +79,7 @@ internal static class Synchronizers
         var usersClient = new UsersClient(nobody);
 
         return new EverythingSynchronizer(
+            new FolderSynchronizer(localStore, new FoldersClient(nobody), clock, gate, NullLogger<FolderSynchronizer>.Instance),
             new NoteSynchronizer(localStore, new NotesClient(nobody), clock, gate, NullLogger<NoteSynchronizer>.Instance),
             new TaskListSynchronizer(localStore, new TasksClient(nobody), clock, gate, NullLogger<TaskListSynchronizer>.Instance),
             new CalendarEventSynchronizer(

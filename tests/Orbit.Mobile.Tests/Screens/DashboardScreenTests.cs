@@ -1,6 +1,8 @@
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Time.Testing;
 using Orbit.Contracts.Calendar;
+using Orbit.Contracts.Folders;
+using Orbit.Core.Folders;
 using Orbit.Contracts.Notes;
 using Orbit.Contracts.Tasks;
 using Orbit.Mobile.Api;
@@ -288,6 +290,9 @@ public sealed class DashboardScreenTests
     /// A note this device cannot open has no title to show - it is sealed with the rest of it - so
     /// "Untitled" would claim it has none, which is a different thing. The row is still there, and its
     /// own screen says which of the two reasons it is.
+    ///
+    /// Under the Private folder, since folders arrived: a sealed note is in Private and the screen
+    /// opens on Public, which is the same answer Orbit.Web's dashboard gives - see FolderPlacement.
     /// </summary>
     [Fact]
     public async Task A_note_this_device_cannot_open_is_named_as_private_rather_than_untitled()
@@ -298,8 +303,59 @@ public sealed class DashboardScreenTests
         var screen = context.Open();
 
         await screen.LoadCommand.ExecuteAsync(null);
+        await screen.ChooseFolderCommand.ExecuteAsync(FolderKey.Of(BuiltInFolder.Private));
 
         Assert.Equal("Private", Assert.Single(Assert.Single(screen.Cards).Rows).Title);
+    }
+
+    /// <summary>
+    /// Opening a folder somebody made is asking to see one kind of thing, so it leaves the card of that
+    /// kind standing and nothing else. A screen that kept drawing the rest would answer "show me this
+    /// folder" with the whole dashboard and one card narrowed inside it.
+    /// </summary>
+    [Fact]
+    public async Task Opening_a_folder_somebody_made_leaves_only_the_card_it_is_about()
+    {
+        using var context = new DashboardContext();
+        await context.AddNoteAsync("Shopping");
+        await context.AddTaskListAsync("Weekend errands");
+        var screen = context.Open();
+        await screen.LoadCommand.ExecuteAsync(null);
+
+        Assert.Contains(screen.Cards, card => card.Kind is DashboardCardKind.Notes);
+        Assert.Contains(screen.Cards, card => card.Kind is DashboardCardKind.Tasks);
+
+        var receipts = await context.Folders.CreateAsync("Receipts", FolderScope.Notes);
+        await screen.ChooseFolderCommand.ExecuteAsync(FolderKey.Of(receipts.LocalId));
+
+        // Empty, but it is the only card the question is about - and the menu that chose it is still
+        // on the screen, so the choice can be undone from the page that made it.
+        Assert.DoesNotContain(screen.Cards, card => card.Kind is DashboardCardKind.Tasks);
+    }
+
+    /// <summary>
+    /// The three built-in folders on the dashboard, and what they hold. A sealed note is in Private
+    /// whatever else is true of it, so a screen opened on Public does not draw it - which is the whole
+    /// point of the tab, and the same answer the browser's dashboard gives.
+    /// </summary>
+    [Fact]
+    public async Task A_private_note_is_not_on_the_dashboard_until_the_private_folder_is_open()
+    {
+        using var context = new DashboardContext();
+        await context.AddSealedNoteAsync();
+        await context.PrivateItems.TryUnlockAsync();
+        var screen = context.Open();
+
+        await screen.LoadCommand.ExecuteAsync(null);
+
+        Assert.DoesNotContain(screen.Cards, card => card.Kind is DashboardCardKind.Notes);
+
+        var choices = screen.FolderChoices.ToDictionary(choice => choice.Name, choice => choice.Count);
+        Assert.Equal(0, choices["Public"]);
+        Assert.Equal(1, choices["Private"]);
+        // The dashboard has no Finished tab: a finished list is placed by its folder and its privacy
+        // like anything else there - see FolderPages.HasAFinishedTab.
+        Assert.DoesNotContain("Finished", choices.Keys);
     }
 
     /// <summary>
@@ -1159,6 +1215,13 @@ public sealed class DashboardScreenTests
                 sessionStore, NullLogger<OwnEncryptionKeyProvider>.Instance);
 
             return new EverythingSynchronizer(
+                // Nothing here is about folders, but this account has none rather than being unable to
+                // reach them: an unreachable one would say the sync failed, which is what half these
+                // tests are checking the dashboard does *not* say.
+                new FolderSynchronizer(
+                    _localStore,
+                    new FoldersClient(StubHttpMessageHandler.RespondingWith(Array.Empty<FolderDto>()).ToHttpClient()),
+                    _clock, gate, NullLogger<FolderSynchronizer>.Instance),
                 new NoteSynchronizer(
                     _localStore, new NotesClient(NotesServer.ToHttpClient()), _clock, gate,
                     NullLogger<NoteSynchronizer>.Instance),
@@ -1238,10 +1301,14 @@ public sealed class DashboardScreenTests
         /// <summary>What the bell is holding - see NoteAsUnreadAsync, which is how a test puts one here.</summary>
         public LocalNotificationRepository Notifications => new(_localStore);
 
+        /// <summary>The tabs this screen draws both pages' of - see FolderTabs.</summary>
+        public LocalFolderRepository Folders => new(_localStore, _clock);
+
         public DashboardViewModel Open()
             => new(_notes, _taskLists, _calendarEvents, _inventories, _places, _chat, _clock, new Translations(new InMemoryLanguageStore()),
                 PrivateItems, _synchronizer, _syncState, _permissions,
-                Pins, Visibility, SharedPositions(), Notifications, Navigator);
+                Pins, Visibility, SharedPositions(), Notifications, Navigator,
+                Folders, new InMemoryChosenFolderStore());
 
         /// <summary>
         /// An unread notification pointing somewhere, which is how everything on this page learns that

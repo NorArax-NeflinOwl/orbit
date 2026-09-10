@@ -68,9 +68,36 @@
                 <Label Text="{controls:Translate 'Appearance'}" Style="{StaticResource SectionHeading}" />
                 <Label Text="{controls:Translate 'Choose how Orbit looks on this device.'}" FontSize="12"
                        LineBreakMode="WordWrap" Style="{StaticResource SubtleLabel}" />
-                <Picker ItemsSource="{Binding Themes}" SelectedItem="{Binding ChosenThemeOption}"
-                        ItemDisplayBinding="{Binding Name, x:DataType=screens:ThemeChoice}"
-                        SemanticProperties.Description="{controls:Translate 'Appearance'}" />
+                <!-- One strip of three rather than a list to open, which is what the design draws and
+                     what Orbit.Web's own theme picker is: there are three answers, they all fit, and
+                     choosing is one press instead of two. A Picker also showed only the answer already
+                     in force, so the reader had to open it to find out there were others.
+
+                     The hairlines between the segments are the strip's own background showing through a
+                     one-point gap - the segments paint the page's colour over it. A separator inside a
+                     bound layout has nowhere else to live. -->
+                <Border Style="{StaticResource SegmentedStrip}" HorizontalOptions="Start">
+                    <HorizontalStackLayout Spacing="1" BindableLayout.ItemsSource="{Binding Themes}"
+                                           BackgroundColor="{AppThemeBinding Light={StaticResource CardStrokeLight}, Dark={StaticResource CardStrokeDark}}">
+                        <BindableLayout.ItemTemplate>
+                            <DataTemplate x:DataType="screens:ThemeChoice">
+                                <!-- The one in force is named in the accent and ringed in it - colour
+                                     alone is one signal, and the same rule the tabs above follow. -->
+                                <Button Text="{Binding Name}" Style="{StaticResource SegmentButton}"
+                                        Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=ViewModel.ChooseThemeCommand, x:DataType=account:AccountPage}"
+                                        CommandParameter="{Binding .}">
+                                    <Button.Triggers>
+                                        <DataTrigger TargetType="Button" Binding="{Binding IsChosen}" Value="True">
+                                            <Setter Property="TextColor" Value="{DynamicResource Accent}" />
+                                            <Setter Property="BorderColor" Value="{DynamicResource Accent}" />
+                                            <Setter Property="BorderWidth" Value="1" />
+                                        </DataTrigger>
+                                    </Button.Triggers>
+                                </Button>
+                            </DataTemplate>
+                        </BindableLayout.ItemTemplate>
+                    </HorizontalStackLayout>
+                </Border>
 
                 <!-- The colour Orbit highlights things in, as swatches rather than a list of names:
                      what the reader is choosing is how it looks, and eight words would say less than

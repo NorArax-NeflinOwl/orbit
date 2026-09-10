@@ -752,6 +752,21 @@ Every screen the design covers has now been redrawn. The passes were:
     the rest. The one structural piece everything else waits on: a title menu is *groups* with headings
     and counts, and `ScreenMenu` can only draw a flat list with one heading.
 
+One thing the design asks for that belongs to **both clients** rather than to the phone:
+
+- **A person's row says nothing about how recent the conversation is.** The design's contact row carries
+  the last message under the name and when it was on the right; `PersonRow` - the phone's and the
+  browser's, which are the same shape on purpose - carries the name and a subtitle, and the subtitle is
+  the username. So a list ordered by recency has nothing on it that says so.
+
+  Not done on the phone alone, deliberately: the looks follow the design, but *what a row says about a
+  person* is a feature, and a feature the browser has not got would make the two clients answer
+  different questions. The preview is the harder half - a message is sealed, so drawing a list of
+  twenty contacts would mean opening twenty messages - and "when" on its own, over a subtitle that is
+  still a username, is half a row. If it is wanted, it is wanted on `Orbit.Web/Components/PersonRow.razor`
+  and `Orbit.Maui/Controls/PersonRow.xaml` together, with `LocalContact.LastMessageAtUtc` (already
+  synced and already what the list is ordered by) carrying the easy half.
+
 One thing the design showed up that is not fixed:
 
 - ~~**The tick in a menu is a character, not a drawing.**~~ **Went on 2026-09-09 without being fixed.**

@@ -2388,7 +2388,8 @@ public sealed class TaskListDetailScreenTests
                     CalendarEvents, new CalendarClient(CalendarServer.ToHttpClient()), Network, Places),
                 new ShelfCorrection(Shelves, ShelfSynchronizer, new InventoryClient(Inventories.ToHttpClient())),
                 PlacePicker, _privateContent,
-                Suggestions.Offering(SuggestionsServer), Suggestions.Offering(SuggestionsServer), Reading);
+                Suggestions.Offering(SuggestionsServer), Suggestions.Offering(SuggestionsServer), Reading,
+                new LocalFolderRepository(_localStore, _clock));
             screen.Open(created.LocalId);
             screen.LoadCommand.ExecuteAsync(null).GetAwaiter().GetResult();
             _openedListId = created.LocalId;
