@@ -2794,10 +2794,32 @@ input.note-editor-title {
 
     /* And the cap itself, in the units a phone needs: 100vh there is the window with the browser's own
        bars pretending not to be, which is a screenful of chat hidden under them. The advertising bar
-       across the foot is spent too - see .main-content's own padding below 1199px. */
+       across the foot is spent too - see .main-content's own padding below 1199px.
+
+       --visual-viewport-height is what the window is actually showing (see viewport.js) and it wins
+       where it is known, because 100dvh does not account for an on-screen keyboard: on iOS it does not
+       shrink for one at all. Without it the box someone is typing into ends up under the keyboard,
+       which is the one row on this screen that must not be. */
     .main-content-page:has(.chat-layout) {
-        max-height: calc(100dvh - var(--chat-page-chrome));
+        max-height: calc(var(--visual-viewport-height, 100dvh) - var(--chat-page-chrome));
         --chat-page-chrome: 210px;
+    }
+
+    /* With a keyboard up, the page is worth less than the conversation on it. What is left has to hold
+       the bar, the conversation's own header, the messages and the box being typed into - so the two
+       things that are neither are given up, and the chrome the page has already spent comes back with
+       them. The reader gets that room back the moment the keyboard goes. */
+    :root[data-keyboard="open"] .main-content-page:has(.chat-layout) {
+        --chat-page-chrome: 96px;
+    }
+
+    :root[data-keyboard="open"] .main-content {
+        padding-bottom: 0;
+    }
+
+    :root[data-keyboard="open"] .app-footer,
+    :root[data-keyboard="open"] .ad-banner {
+        display: none;
     }
 
     .chat-list-toggle {

@@ -934,6 +934,21 @@ message matches; more when the same share was offered again as a reminder, which
 than making a second one, and all of them go. A share offered before this existed matches nothing, and
 the access is still withdrawn — which is what was asked for.
 
+**A phone's keyboard is given the room it takes** (2026-09-10). An on-screen keyboard covers the bottom
+of the window without changing `innerHeight`, and on iOS it does not shrink `100dvh` either - so a
+conversation sized to the window put the box being typed into underneath the keyboard, which is the one
+row on that screen that must not be. `viewport.js` publishes what the window is actually showing
+(`--visual-viewport-height`, from `window.visualViewport`) and marks the root `data-keyboard="open"`
+once more than 140px is covered - a threshold rather than any shrink at all, because a browser's own
+address bar sliding away is a visual-viewport change too and is not worth rearranging a page for.
+
+The chat's cap then reads that height instead of the window's, and while the keyboard is up the two
+things that are neither the conversation nor the way into it - **the footer and the advertising bar** -
+are given up, along with the room the page had reserved for the bar. What is left is the navigation, the
+conversation's own header, the messages and the composer, in that order, above the keyboard. The reader
+gets all of it back the moment the keyboard goes. A browser without `visualViewport` leaves the variable
+unset and every rule reading it falls back to the window, which is what a desktop wants anyway.
+
 **Both clients say it** since 2026-09-10. The phone sends by enqueueing rather than by calling the API
 with the share id still in hand, so the id had nowhere to wait: `OutgoingChatMessage` carries
 `IsShareInvitation` and `AnnouncesShareId` now (migration `SayWhichShareAnInvitationOffers`) and the
