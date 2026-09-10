@@ -1916,11 +1916,19 @@ input.note-editor-title {
     position: relative;
 }
 
-/* Nothing is guessed here. The page box is already exactly what the window left after the bar and the
-   footer (see .main-content-page), so making it a column and letting the conversation take whatever
-   the heading above it does not is the same answer measured rather than estimated - which the guess
-   above got wrong in the direction that hurts: it was short, so the composer sat below the fold and
-   the whole page had to be scrolled to reach it.
+/* The page box is a column here, and the conversation takes whatever the heading above it does not.
+
+   It is also capped at the window, which it was not: the box grows with its content and never shrinks
+   below it (flex: 1 0 auto), so a long conversation made the box as tall as every message in it - a
+   thread of sixty lines drew a page 3400px tall, the whole window scrolled, and the list that was
+   supposed to scroll never did. "min-height: 0 and let flex sort it out" cannot fix that on its own:
+   nothing above this has a definite height for the shrinking to be measured against, so the content
+   wins every time. A cap is what makes the height definite.
+
+   The number is the window this page never gets: the bar along the top, the padding around the content
+   and the footer under it. Measured off the rendered page rather than added up from the rules, and a
+   little out either way costs a little conversation height or a little scroll - the same trade the map
+   makes for the same reason, see .map-page's --map-page-chrome.
 
    Said by what the page renders rather than by which route it is, the way the map's own exception is -
    see .main-content:has(.map-page). */
@@ -1930,6 +1938,9 @@ input.note-editor-title {
     /* A flex item does not shrink past its content unless told it may, and this one holds a panel that
        is allowed to get small and scroll inside itself. */
     min-height: 0;
+    flex: 1 1 auto;
+    max-height: calc(100vh - var(--chat-page-chrome));
+    --chat-page-chrome: 164px;
 }
 
 .main-content-page:has(.chat-layout) .chat-layout {
@@ -1938,6 +1949,14 @@ input.note-editor-title {
     /* Below this a conversation stops being one, so a window too short for it scrolls the page rather
        than squashing the messages into a strip. */
     min-height: 320px;
+}
+
+/* The two links in the chain that were letting the messages set the height. A flex item's floor is its
+   own content unless it is told otherwise, so the column holding the list, and the list itself, both
+   grew to fit every message - and .chat-messages' overflow-y never had anything to overflow. */
+.main-content-page:has(.chat-layout) .chat-thread,
+.main-content-page:has(.chat-layout) .chat-messages {
+    min-height: 0;
 }
 
 .chat-list {
@@ -2757,10 +2776,18 @@ input.note-editor-title {
 
 @media (max-width: 680px) {
     /* The same fallback as above, for a browser without :has(): less chrome above the page on a phone,
-       so less of the window is already spent. A browser that has :has() measures instead - see
+       so less of the window is already spent. A browser that has :has() caps instead - see
        .main-content-page:has(.chat-layout). */
     .chat-layout {
         height: calc(100dvh - 170px);
+    }
+
+    /* And the cap itself, in the units a phone needs: 100vh there is the window with the browser's own
+       bars pretending not to be, which is a screenful of chat hidden under them. The advertising bar
+       across the foot is spent too - see .main-content's own padding below 1199px. */
+    .main-content-page:has(.chat-layout) {
+        max-height: calc(100dvh - var(--chat-page-chrome));
+        --chat-page-chrome: 210px;
     }
 
     .chat-list-toggle {
