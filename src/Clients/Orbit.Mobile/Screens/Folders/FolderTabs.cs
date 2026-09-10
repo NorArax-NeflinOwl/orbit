@@ -79,6 +79,20 @@ public sealed class FolderTabs
     /// <summary>Whether a row in <paramref name="where"/> belongs on the screen as it is being read.</summary>
     public bool Holds(FolderKey where) => where == Chosen;
 
+    /// <summary>
+    /// Which kind of thing the folder being read holds - null while a built-in one is open, since those
+    /// are not about one kind, and null too for an id this screen has no folder for.
+    ///
+    /// Only the dashboard asks: it draws both pages' tabs, so opening one somebody made is a question
+    /// about one kind of card and leaves every other card answering something nobody asked.
+    /// </summary>
+    public FolderScope? ChosenScope
+        => Chosen.FolderId is { } id
+            && _made.FirstOrDefault(folder => folder.LocalId == id) is { } folder
+            && Enum.TryParse<FolderScope>(folder.Scope, out var scope)
+                ? scope
+                : null;
+
     /// <summary>Written down as it is chosen, the way every other setting on this phone is.</summary>
     public void Choose(FolderKey key)
     {

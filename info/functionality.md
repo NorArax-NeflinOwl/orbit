@@ -304,7 +304,10 @@ whatever it was seeded with, and a filter that was never written passes there.
 
 **The phone has folders too, since 2026-09-10.** It has no room for a row of tabs, so the folders are a
 group in the menu under the screen's name - each with the count of what is in it, which is what the
-Classical design draws. Everything about *where* something is is the same rule on both clients:
+Classical design draws. On all three screens the browser has them on: the notes, the task lists, and
+the **dashboard**, which draws both pages' folders at once, offers no way to make one, and narrows to
+the card the open folder is about - a folder called "Receipts" holds notes, so opening it leaves the
+notes card standing and nothing else, exactly as the browser's dashboard does. Everything about *where* something is is the same rule on both clients:
 `FolderKey`, `FolderPlacement` and `FolderPages` moved out of `Orbit.Web.Services` into
 `Orbit.Core.Folders` when the phone grew them, because which folder something is in is the definition of
 where it is rather than a drawing of it, and two clients working that out separately is two clients that

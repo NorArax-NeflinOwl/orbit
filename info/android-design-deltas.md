@@ -143,8 +143,10 @@ about them is under "Screens already built" below.
   all, because a standing "0" is not news. Beside it a *Folder* group - **New folder**, which unfolds
   the same kind of naming row the plus unfolds for a new note, and **Delete folder** while one somebody
   made is open. Filing is under the note's or the list's own name once it is open, the lists having
-  given up their per-row menus. See `info/functionality.md` for the rest, including what the phone does
-  that the browser cannot: all of it offline.
+  given up their per-row menus. The **dashboard** has the group too, drawing both pages' folders at once
+  and narrowing to the card the open one is about - it offers no way to make a folder, there being no
+  dashboard card to file into one. See `info/functionality.md` for the rest, including what the phone
+  does that the browser cannot: all of it offline.
 - ~~**The task list's own filters write their count into their label**~~ ***Done 2026-09-09.***
   "All 4", "Pending 0" were one string from `TaskListFilter.Label`, so the number was the same size and
   weight as the words and a filter with nothing behind it said "0". `Label` is gone; the count is the
