@@ -1891,11 +1891,31 @@ screen that has to work when Orbit cannot draw a map itself: an Android build wi
 reader who never gave Orbit their location. A share with no position in it offers no button - it still
 says it cannot be opened.
 
-**The web does the same on a phone.** Every "Sharing with you" row on `/map` carries the same Open in
-Maps, which hands the position to whatever map app the device has - `geo:` everywhere, `maps://` on iOS,
-which does not answer `geo:` (`wwwroot/js/mapApp.js`). A scheme rather than a Google Maps URL for the
-reason the phone chose one: this is the screen that must not add a third-party request, and the map app
-is already on the device.
+**The web asks which app should take you there** (2026-09-10). Every "Sharing with you" row and every
+"Where your plans are" row on `/map` carries a **Take me there** button, and so does each pin's own popup
+- one press inside the callout rather than hunting the matching row. It opens a short list of map apps
+and hands the chosen one **directions** rather than a dropped pin, which is the question somebody looking
+at a map of where they have to be is actually asking.
+
+Which apps, and the address that asks each of them, is `Orbit.Core.Location.NavigationApps` - in .NET
+rather than in JavaScript so it can be read back in a test, since every one of these is a third party's
+own syntax and a wrong parameter opens the app on nothing at all. It is **asked every time rather than
+remembered**, because there is no right answer to remember: one reader has Google Maps and nothing else,
+one drives with Waze, one keeps third parties off their phone entirely. **The device's own app is first
+and is the only one that reaches nobody** - `maps://?daddr=` on an Apple device, `google.navigation:q=`
+elsewhere (`geo:` only drops a pin, which is the one thing this is not). Apple Maps is offered only on an
+Apple device, where it is certainly installed. The panel says out loud that the rest open somebody else's
+service - this is the screen that withholds its own background rather than fetch it unasked
+(`mapTiles.js`), so a row of buttons that quietly handed an address to four companies would be the one
+part of the page that did not ask.
+
+Only which platform this is comes from the browser (`mapApp.js`'s `isApple`, read once per visit):
+nothing in .NET running in a browser can tell an iPad from a Mac.
+
+A pin's popup is built as **elements rather than as a string of HTML**. Leaflet's `bindPopup` treats a
+string as markup, and every label on that map is somebody's own writing - a contact's name, an
+appointment's title, an address somebody typed - so `textContent` is what makes those text rather than
+markup, and it is also what lets the button carry a real handler.
 
 The hand-over is a **link that gets clicked**, never the page being moved. Setting `location.href` to
 `maps://...` opens the app but leaves a navigation that can never finish, and the browser reports that as

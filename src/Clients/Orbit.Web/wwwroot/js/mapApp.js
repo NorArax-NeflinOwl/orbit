@@ -11,7 +11,11 @@
 
 // iOS does not handle geo:. Everything else - Android, and a desktop with a map app registered - does.
 // The iPad reports itself as a Mac with a touch screen, which is the second half of this.
-function isApple() {
+//
+// Exported because .NET asks it too: which app can take somebody to a pin, and what address asks it to,
+// is decided in Orbit.Core's NavigationApps so it can be read back in a test - and this is the one part
+// of that answer nothing in a browser-hosted .NET can work out for itself.
+export function isApple() {
     return /iPad|iPhone|iPod/.test(navigator.userAgent)
         || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
 }
@@ -38,8 +42,15 @@ export function urlFor(apple, latitude, longitude, label) {
 /// The link is made, clicked and thrown away rather than kept in the markup, so nothing about the
 /// screen depends on it and the pin can be handed over from anywhere.
 export function openPosition(latitude, longitude, label) {
+    openUrl(urlFor(isApple(), latitude, longitude, label));
+}
+
+/// Hands over an address somebody else built - see Orbit.Core's NavigationApps, which is where the
+/// directions to a pin are written. Same link-click for the same reason: half of these are app schemes
+/// the browser can never finish loading, and half are ordinary web addresses.
+export function openUrl(url) {
     const link = document.createElement('a');
-    link.href = urlFor(isApple(), latitude, longitude, label);
+    link.href = url;
     link.rel = 'noreferrer';
     link.hidden = true;
     document.body.appendChild(link);

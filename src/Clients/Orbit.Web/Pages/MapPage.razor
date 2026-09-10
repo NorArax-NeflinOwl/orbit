@@ -7,6 +7,7 @@
 @using Orbit.Contracts.Chat
 @using Orbit.Contracts.Tasks
 @using Orbit.Contracts.Users
+@using Orbit.Core.Location
 @using Orbit.Core.Permissions
 @using Orbit.Web.Services
 @inject UsersApiClient UsersApiClient
@@ -196,10 +197,11 @@ else
                     @* Where a shared pin becomes directions. Always offered rather than only when
                        Orbit's own map cannot help - somebody who wants to be taken there wants it
                        whatever this page can draw - and its own press, kept from the row around it.
-                       See mapApp.js, and MapAppHandoff for when the row itself does this too. *@
-                    <button type="button" class="icon-btn map-share-open" title="@(T["Open in Maps"])"
-                            aria-label="@(T["Open in Maps"])"
-                            @onclick="() => OpenInTheMapAppAsync(received)" @onclick:stopPropagation="true">
+                       Which app takes them is asked rather than guessed: see NavigationApps, and
+                       MapAppHandoff for when the row itself hands the position over instead. *@
+                    <button type="button" class="icon-btn map-share-open" title="@(T["Take me there"])"
+                            aria-label="@(T["Take me there"])"
+                            @onclick="() => AskHowToGetTo(TargetFor(received))" @onclick:stopPropagation="true">
                         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 20 20" fill="none"
                              stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"
                              aria-hidden="true"><path d="M10 17.5s5.5-5 5.5-9a5.5 5.5 0 1 0-11 0c0 4 5.5 9 5.5 9Z" /><circle cx="10" cy="8.5" r="2" /></svg>
@@ -257,6 +259,15 @@ else
                     <span class="map-place-dot" style="background:@placed.Color" aria-hidden="true"></span>
                     <span class="row-title @(placed.IsBehindYou ? "map-place-past" : "")">@placed.Title</span>
                     <span class="row-meta">@placed.When</span>
+                    @* The same offer the shared positions carry, on the plans that are most of what
+                       somebody has to get to. *@
+                    <button type="button" class="icon-btn map-share-open" title="@(T["Take me there"])"
+                            aria-label="@(T["Take me there"])"
+                            @onclick="() => AskHowToGetTo(TargetFor(placed))" @onclick:stopPropagation="true">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 20 20" fill="none"
+                             stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"
+                             aria-hidden="true"><path d="M17 3 3 9l6 2.2L11.2 17 17 3Z" /></svg>
+                    </button>
                     @* Where the thing itself is opened, and it comes back here afterwards - see ReturnTo. *@
                     <a class="icon-btn map-share-open" href="@placed.OpenUrl" title="@(T["Open"])"
                        aria-label="@(T["Open"])" @onclick:stopPropagation="true">
@@ -349,6 +360,36 @@ else
         }
     </div>
 </div>
+}
+
+@* Which app takes somebody to the pin. Asked every time rather than remembered, because there is no
+   right answer to remember: see NavigationApps. Over the map, like the question about what happens at a
+   place, because both are about the pin under it. *@
+@if (_takeMeTo is { } destination)
+{
+    <div class="map-overlay" @onclick="ForgetTheNavigation">
+        <div class="map-overlay-panel" @onclick:stopPropagation="true">
+            <div class="map-overlay-header">
+                <h2>@T["Take me there"]</h2>
+            </div>
+            <p class="map-overlay-hint">@destination.Label</p>
+            <div class="map-overlay-confirm map-overlay-apps">
+                @foreach (var app in NavigationApps.Offered(_isApplePlatform))
+                {
+                    <button type="button" class="@(app == NavigationApp.ThisDevice ? "btn-primary" : "btn-secondary")"
+                            @onclick="() => TakeMeThereWithAsync(app)">@T[NavigationApps.NameOf(app)]</button>
+                }
+            </div>
+            @* Said out loud, on the screen that is most careful about it: the map withholds its own
+               background rather than fetch it from somebody else without being asked (see mapTiles.js),
+               so a row of buttons that quietly hand an address to four companies would be the one place
+               on the page that did not ask. *@
+            <p class="map-overlay-hint">@T["Only the first stays on this device. The rest open somebody else's service."]</p>
+            <div class="map-overlay-confirm">
+                <button type="button" class="btn-secondary" @onclick="ForgetTheNavigation">@T["Cancel"]</button>
+            </div>
+        </div>
+    </div>
 }
 
 @* Asked rather than guessed: an appointment and an errand at the same address are different things, and
@@ -703,6 +744,10 @@ else
         {
             _isPhone = await JSRuntime.InvokeAsync<bool>("OrbitViewport.isMobile");
             _mapTilesAllowed = await JSRuntime.InvokeAsync<bool>("OrbitMapTiles.areAllowed");
+            // Which map app can be asked for directions, and what address asks it - see NavigationApps,
+            // which decides both and needs only this one fact from the browser.
+            await using var mapApp = await JSRuntime.InvokeAsync<IJSObjectReference>("import", "./js/mapApp.js");
+            _isApplePlatform = await mapApp.InvokeAsync<bool>("isApple");
         }
         catch (JSException exception)
         {
@@ -724,6 +769,8 @@ else
         {
             points.Add(new
             {
+                // The one pin with no way to be taken to it: directions to where you are standing are
+                // an app opening on a blank route.
                 key = "own",
                 latitude = own.Latitude,
                 longitude = own.Longitude,
@@ -744,7 +791,9 @@ else
                 latitude = received.Position.Latitude,
                 longitude = received.Position.Longitude,
                 label = $"{DisplayNameFor(received.SharerUserId)} · {received.Position.Address ?? T["shared a position"]}",
-                color = AvatarHelper.AvatarColor(received.SharerUserId)
+                color = AvatarHelper.AvatarColor(received.SharerUserId),
+                canNavigate = true,
+                navigateLabel = T["Take me there"]
             }));
         }
 
@@ -759,7 +808,9 @@ else
                 latitude = plan.Latitude,
                 longitude = plan.Longitude,
                 label = $"{plan.Title} · {plan.When} · {plan.Address}",
-                color = plan.Color
+                color = plan.Color,
+                canNavigate = true,
+                navigateLabel = T["Take me there"]
             }));
         }
 
@@ -772,7 +823,9 @@ else
                 latitude = found.Latitude,
                 longitude = found.Longitude,
                 label = found.Name,
-                color = "var(--danger)"
+                color = "var(--danger)",
+                canNavigate = true,
+                navigateLabel = T["Take me there"]
             });
         }
 
@@ -786,7 +839,9 @@ else
                 latitude = pressed.Latitude,
                 longitude = pressed.Longitude,
                 label = pressed.Name,
-                color = "var(--danger)"
+                color = "var(--danger)",
+                canNavigate = true,
+                navigateLabel = T["Take me there"]
             });
         }
 
@@ -1357,6 +1412,107 @@ else
         => MapAppHandoff.ShouldOpenTheMapApp(_isPhone, _mapTilesAllowed, _location is not null)
             ? OpenInTheMapAppAsync(received)
             : FocusOnAsync(received);
+
+    /// <summary>
+    /// Somewhere on the map the reader has asked to be taken to, while the question of which app should
+    /// take them is open. Null the rest of the time, which is what draws no overlay.
+    /// </summary>
+    private NavigationTarget? _takeMeTo;
+
+    /// <summary>Whether this is an iPhone, an iPad or a Mac - read once, from mapApp.js. See NavigationApps.</summary>
+    private bool _isApplePlatform;
+
+    /// <summary>One pin, as far as being taken to it is concerned - a name to show and a point to aim at.</summary>
+    private sealed record NavigationTarget(string Label, double Latitude, double Longitude);
+
+    private NavigationTarget TargetFor(ReceivedPosition received)
+        => new(
+            DisplayNameFor(received.SharerUserId),
+            received.Position.Latitude, received.Position.Longitude);
+
+    private static NavigationTarget TargetFor(PlacedPlan plan)
+        => new(plan.Title, plan.Latitude, plan.Longitude);
+
+    private void AskHowToGetTo(NavigationTarget target)
+    {
+        Logger.LogInformation("User asked how to get to a pin on the map");
+        _takeMeTo = target;
+    }
+
+    private void ForgetTheNavigation() => _takeMeTo = null;
+
+    /// <summary>
+    /// The pin's own way of asking - the button inside its popup, which reports the press by the key the
+    /// marker was drawn under (see locationMap.js). Everything that carries one is looked up here rather
+    /// than the coordinates being handed back through JavaScript: a key is an identity this page already
+    /// keeps, and a pair of numbers arriving from the browser would be a position nothing had checked.
+    ///
+    /// A key nothing answers to - a marker left over from a list that has since changed - opens nothing,
+    /// which is the same thing a press on a pin that is no longer there should do.
+    /// </summary>
+    [JSInvokable]
+    public Task OnPinNavigate(string key)
+    {
+        if (TargetForKey(key) is { } target)
+        {
+            AskHowToGetTo(target);
+            StateHasChanged();
+        }
+
+        return Task.CompletedTask;
+    }
+
+    private NavigationTarget? TargetForKey(string key)
+    {
+        foreach (var received in _receivedPositions)
+        {
+            if (SharerMapKey(received.SharerUserId) == key)
+            {
+                return TargetFor(received);
+            }
+        }
+
+        foreach (var plan in _placed)
+        {
+            if (plan.Key == key)
+            {
+                return TargetFor(plan);
+            }
+        }
+
+        return (key, _foundPlace, _pressedPlace) switch
+        {
+            ("found", { } found, _) => new NavigationTarget(found.Name, found.Latitude, found.Longitude),
+            ("pressed", _, { } pressed) => new NavigationTarget(pressed.Name, pressed.Latitude, pressed.Longitude),
+            _ => null
+        };
+    }
+
+    /// <summary>
+    /// Opens the directions in the app that was chosen. The overlay closes either way: a device with no
+    /// app registered for the scheme does nothing at all, and leaving the question open over a map app
+    /// that has just taken the whole screen is a panel to come back to and dismiss.
+    /// </summary>
+    private async Task TakeMeThereWithAsync(NavigationApp app)
+    {
+        if (_takeMeTo is not { } target)
+        {
+            return;
+        }
+
+        _takeMeTo = null;
+        Logger.LogInformation("User asked {App} for directions to a pin on the map", app);
+        try
+        {
+            await using var mapApp = await JSRuntime.InvokeAsync<IJSObjectReference>("import", "./js/mapApp.js");
+            await mapApp.InvokeVoidAsync(
+                "openUrl", NavigationApps.RouteTo(app, _isApplePlatform, target.Latitude, target.Longitude));
+        }
+        catch (JSException exception)
+        {
+            Logger.LogWarning(exception, "Could not open directions to a pin in {App}", app);
+        }
+    }
 
     /// <summary>
     /// Hands the position to whatever map app the device has - see mapApp.js for why that rather than a

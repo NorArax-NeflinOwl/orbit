@@ -2041,7 +2041,10 @@ public static class PolishTranslations
             "Zapisano. Nic na Twój temat nie trafi z Orbita do innej witryny.",
 
         // The phone's map screen: opening somebody else's shared position in the phone's own map app.
-        ["Open in Maps"] = "Otwórz w Mapach",
+        ["Take me there"] = "Zaprowadź mnie tam",
+        ["The app on this device"] = "Aplikacja na tym urządzeniu",
+        ["Only the first stays on this device. The rest open somebody else's service."] =
+            "Tylko pierwsza pozostaje na tym urządzeniu. Pozostałe otwierają cudzy serwis.",
         ["The map can't be shown in this build. A shared position still opens in your phone's map app."] =
             "Ta wersja aplikacji nie potrafi pokazać mapy. Udostępnione położenie i tak otworzysz w aplikacji map na telefonie.",
         // And the same on the screen where a place is pointed at, which can still be searched for.

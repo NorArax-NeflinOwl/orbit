@@ -5560,6 +5560,39 @@ input.note-editor-title {
     gap: 10px;
 }
 
+/* The row of map apps, on a panel narrower than the picker's. One button per app, each as wide as its
+   own name, wrapping onto a second line rather than being squeezed - four product names abbreviated to
+   fit is four buttons nobody can tell apart. */
+.map-overlay-apps {
+    gap: 8px;
+}
+
+/* Inside a pin's own popup: what the pin is, and the way to be taken there - see locationMap.js, which
+   builds both as elements rather than as markup. */
+.map-popup {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 6px;
+}
+
+.map-popup-label {
+    color: var(--text-primary);
+}
+
+/* Drawn as a link rather than as a button: a popup is two lines wide, and a filled button in it is
+   most of the popup. */
+.map-popup-navigate {
+    padding: 0;
+    border: 0;
+    background: none;
+    color: var(--accent);
+    font: inherit;
+    font-weight: 600;
+    text-decoration: underline;
+    cursor: pointer;
+}
+
 .map-overlay-address {
     flex: 1 1 260px;
     min-width: 0;

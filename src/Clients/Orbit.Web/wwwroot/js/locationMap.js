@@ -47,7 +47,7 @@ export async function showLocations(elementId, points, dotNetHelper) {
     // so they are the one thing "do not share my personal information" turns off - see mapTiles.js.
     window.OrbitMapTiles.addTo(map);
 
-    const markersByKey = drawMarkers(map, drawn);
+    const markersByKey = drawMarkers(map, drawn, dotNetHelper);
 
     if (drawn.length === 1) {
         // A single point is what the viewer asked to look at, so keep it centred and readable rather
@@ -71,23 +71,62 @@ export async function showLocations(elementId, points, dotNetHelper) {
     const resizeObserver = new ResizeObserver(() => map.invalidateSize({ animate: false }));
     resizeObserver.observe(element);
 
-    mapInstancesByElementId.set(elementId, { map, resizeObserver, markersByKey });
+    mapInstancesByElementId.set(elementId, { map, resizeObserver, markersByKey, dotNetHelper });
 }
 
 /// Draws each point's marker and returns them keyed by point.key (falling back to its coordinates, for
 /// showLocation's single-point callers, which never carry one) - the identity updateLocations matches
 /// an old marker against a new point by, and focusOn looks a marker up by.
-function drawMarkers(map, points) {
+function drawMarkers(map, points, dotNetHelper) {
     const markersByKey = new Map();
     for (const point of points) {
         const marker = L.marker([point.latitude, point.longitude], iconFor(point.color)).addTo(map);
-        if (point.label) {
-            marker.bindPopup(point.label);
+        const popup = popupFor(point, dotNetHelper);
+        if (popup) {
+            marker.bindPopup(popup);
         }
         markersByKey.set(point.key ?? `${point.latitude},${point.longitude}`, marker);
     }
 
     return markersByKey;
+}
+
+/// What opens when a pin is pressed: what the pin is, and - where the caller says the point can be
+/// navigated to - the way to be taken there.
+///
+/// Built as elements rather than as a string of HTML. Leaflet's bindPopup treats a string as markup, and
+/// every label here is somebody's own writing: a contact's name, an appointment's title, an address
+/// somebody typed. textContent is what makes those text rather than markup, and it is also what lets the
+/// button carry a real click handler instead of an inline one.
+function popupFor(point, dotNetHelper) {
+    if (!point.label && !point.canNavigate) {
+        return null;
+    }
+
+    const panel = document.createElement('div');
+    panel.className = 'map-popup';
+
+    if (point.label) {
+        const label = document.createElement('span');
+        label.className = 'map-popup-label';
+        label.textContent = point.label;
+        panel.appendChild(label);
+    }
+
+    // Only where there is somebody to tell. Without a .NET reference the map is read-only - see
+    // showLocations - and a button that reported a press to nothing would be a button that does nothing.
+    if (point.canNavigate && dotNetHelper) {
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'map-popup-navigate';
+        button.textContent = point.navigateLabel ?? 'Take me there';
+        button.addEventListener('click', () => {
+            dotNetHelper.invokeMethodAsync('OnPinNavigate', point.key ?? '');
+        });
+        panel.appendChild(button);
+    }
+
+    return panel;
 }
 
 /// Moves the markers on a map that is already there to wherever the given points now are, without
@@ -115,13 +154,14 @@ export function updateLocations(elementId, points) {
         const existing = instance.markersByKey.get(key);
         if (existing) {
             existing.setLatLng([point.latitude, point.longitude]);
-            if (point.label) {
-                existing.setPopupContent(point.label);
+            const popup = popupFor(point, instance.dotNetHelper);
+            if (popup) {
+                existing.setPopupContent(popup);
             }
 
             next.set(key, existing);
         } else {
-            next.set(key, drawMarkers(instance.map, [point]).get(key));
+            next.set(key, drawMarkers(instance.map, [point], instance.dotNetHelper).get(key));
         }
     }
 
