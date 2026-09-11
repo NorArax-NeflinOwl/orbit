@@ -275,6 +275,29 @@ public sealed partial class TaskItemSummaryViewModel : ObservableObject
                 : candidate)
             .ToList();
 
+        if (!await SaveItemsAsync(taskList, items, cancellationToken))
+        {
+            return;
+        }
+
+        IsCompleted = next.IsCompleted();
+        IsFailed = next.IsFailed();
+        await SynchroniseAsync(cancellationToken);
+    }
+
+    /// <summary>
+    /// Writes the list back with these entries, and says whether it went. Every other field of the list
+    /// goes back as it stands - the reader's own answer about whether it is finished included, which was
+    /// left out once, so every tick made on this screen quietly handed that answer back to the entries
+    /// (see TaskListContent.Completion) while the list screen kept it.
+    ///
+    /// Whether it may be written at all is the store's answer - see LocalWriteOutcome - and a refusal is
+    /// said in the status line, under the entry, where the press was made.
+    /// </summary>
+    private async Task<bool> SaveItemsAsync(
+        LocalTaskList taskList, IReadOnlyList<Orbit.Contracts.Tasks.TaskItemDto> items,
+        CancellationToken cancellationToken)
+    {
         LocalWriteOutcome outcome;
         try
         {
@@ -282,7 +305,7 @@ public sealed partial class TaskItemSummaryViewModel : ObservableObject
                 _taskListLocalId,
                 new TaskListContent(
                     taskList.Title, items, taskList.IsGroup, taskList.Priority, taskList.IsPrivate,
-                    taskList.Description),
+                    taskList.Description, taskList.Completion),
                 cancellationToken);
         }
         catch (EncryptionKeyLockedException)
@@ -290,18 +313,16 @@ public sealed partial class TaskItemSummaryViewModel : ObservableObject
             // Sealing needs the account's own key, and this device has not got it - the same gate the
             // list screen sends the reader to for the same reason.
             _navigator.ShowChatKeyGate();
-            return;
+            return false;
         }
 
         if (outcome.WasRefused())
         {
             Status = outcome.Explain(RefusalMessage, _translations);
-            return;
+            return false;
         }
 
-        IsCompleted = next.IsCompleted();
-        IsFailed = next.IsFailed();
-        await SynchroniseAsync(cancellationToken);
+        return true;
     }
 
     /// <summary>

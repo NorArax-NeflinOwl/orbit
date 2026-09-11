@@ -233,6 +233,24 @@ public sealed class TaskItemSummaryScreenTests
         Assert.Empty(screen.Status);
     }
 
+    /// <summary>
+    /// A tick made here writes the whole list back, and it used to write it back without the reader's
+    /// own answer about whether the list is finished - so that answer went back to "from the entries" on
+    /// every tick made from this screen, while the list screen kept it. See TaskListContent.Completion.
+    /// </summary>
+    [Fact]
+    public async Task A_tick_here_keeps_the_readers_answer_about_whether_the_list_is_finished()
+    {
+        using var context = new ScreenContext();
+        var opened = await context.AddEntryAsync("Collect the parcel");
+        await context.AnswerWhetherTheListIsFinishedAsync(opened.TaskListLocalId, "Unfinished");
+        var screen = await context.OpenAsync(opened);
+
+        await screen.TickCommand.ExecuteAsync(null);
+
+        Assert.Equal("Unfinished", (await context.StoredListAsync(opened.TaskListLocalId)).Completion);
+    }
+
     /// <summary>A tick is a tick either way round - a box that only fills in is a trap for a misread row.</summary>
     [Fact]
     public async Task A_tick_can_be_taken_back_here_too()
@@ -408,6 +426,18 @@ public sealed class TaskItemSummaryScreenTests
             stored.AccessLevel = "ReadOnly";
             await dbContext.SaveChangesAsync();
         }
+
+        /// <summary>The reader's own answer about whether the list is finished - see LocalTaskList.Completion.</summary>
+        public async Task AnswerWhetherTheListIsFinishedAsync(Guid taskListLocalId, string completion)
+        {
+            await using var dbContext = _localStore.CreateDbContext();
+            dbContext.TaskLists.Single(candidate => candidate.LocalId == taskListLocalId).Completion = completion;
+            await dbContext.SaveChangesAsync();
+        }
+
+        /// <summary>The list as this phone now holds it.</summary>
+        public async Task<LocalTaskList> StoredListAsync(Guid taskListLocalId)
+            => (await _taskLists.FindAsync(taskListLocalId))!;
 
         /// <summary>The entry as this phone now holds it - what a tick has to have changed.</summary>
         public async Task<TaskItemDto> StoredEntryAsync((Guid TaskListLocalId, Guid ItemId) opened)
