@@ -185,7 +185,8 @@ Deliberately not copied from the design:
   control, pinchable, on the one device that actually has a location.
 - ~~**A conversation shows no count of what is waiting.**~~ It does since 2026-09-11: the server had
   counted all along (`ContactDto.UnreadCount`), and the phone now keeps the count on `LocalContact` and
-  draws it on the avatar where Orbit.Web's `UnreadBadge` sits. A group carries no count, on either client.
+  draws it on the avatar where Orbit.Web's `UnreadBadge` sits. A group carries its own count too since
+  the same day, on both clients (`ChatGroupDto.UnreadCount`, `LocalChatGroup.UnreadCount`).
 
 ## The screens the written spec does not describe yet
 

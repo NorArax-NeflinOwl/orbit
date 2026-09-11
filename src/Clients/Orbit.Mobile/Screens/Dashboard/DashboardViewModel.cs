@@ -861,10 +861,9 @@ public sealed partial class DashboardViewModel : ObservableObject
                 contact.DisplayName,
                 contact.RequiresApprovalFromCurrentUser ? _translations["Wants to chat"] : Ago(contact.LastMessageAtUtc))
             {
-                // Orbit.Web marks this row from the unread count it keeps per conversation; the phone's
-                // contact row carries no such count, and a message notification points at whoever sent
-                // it (ChatMessagePushContent), which is the same fact read off what the phone has.
-                HasNews = UnreadNews.About(_unreadUrls, $"/chat/{contact.UserId}"),
+                // Messages waiting from this person (LocalContact.UnreadCount, as Orbit.Web marks the
+                // row), or a notification that points at them (ChatMessagePushContent) - either is news.
+                HasNews = contact.UnreadCount > 0 || UnreadNews.About(_unreadUrls, $"/chat/{contact.UserId}"),
                 HasAvatar = true,
                 Presence = contact.PresenceStatus
             })
@@ -896,8 +895,9 @@ public sealed partial class DashboardViewModel : ObservableObject
             .Take(RowsPerCard)
             .Select(group => new DashboardRow(group.Id, group.Name, string.Empty)
             {
-                // An invitation points at the group it is to - see ChatGroupInvitationPushContent.
-                HasNews = UnreadNews.About(_unreadUrls, $"/chat/groups/{group.Id}"),
+                // Messages waiting in it (LocalChatGroup.UnreadCount), or an invitation, which points at
+                // the group it is to - see ChatGroupInvitationPushContent.
+                HasNews = group.UnreadCount > 0 || UnreadNews.About(_unreadUrls, $"/chat/groups/{group.Id}"),
                 // The circle, but never a presence dot on it: a group is not somewhere anybody is.
                 HasAvatar = true
             })

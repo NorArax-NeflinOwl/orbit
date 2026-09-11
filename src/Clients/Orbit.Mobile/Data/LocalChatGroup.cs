@@ -25,6 +25,18 @@ public sealed class LocalChatGroup
     public DateTimeOffset CreatedAtUtc { get; set; }
 
     /// <summary>
+    /// How many of its messages arrived since this reader last had the group open - ChatGroupDto.
+    /// UnreadCount, counted by the server off the reader's own copies. Kept with the row for the reason
+    /// <see cref="LocalContact.UnreadCount"/> is, and taken to nought the moment the server has been told
+    /// the group was read (ChatRepository.MarkGroupReadAsync).
+    /// </summary>
+    public int UnreadCount { get; set; }
+
+    /// <summary>Messages are waiting here - what the row's mark says, as it does for a person.</summary>
+    [NotMapped]
+    public bool HasSomethingWaiting => UnreadCount > 0;
+
+    /// <summary>
     /// Everyone in the group, the signed-in user included. Stored as one JSON column rather than a child
     /// table because membership is only ever read and written whole, with the group.
     /// </summary>

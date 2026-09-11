@@ -320,7 +320,7 @@ public static class OrbitCoreServiceCollectionExtensions
         // Group chat: the group itself, its membership, and the fan-out that keeps group messages
         // encrypted under the same pairwise keys one-to-one chat uses.
         services.AddScoped<IRequestHandler<CreateChatGroupCommand, Guid>, CreateChatGroupCommandHandler>();
-        services.AddScoped<IRequestHandler<GetChatGroupsQuery, IReadOnlyList<ChatGroup>>, GetChatGroupsQueryHandler>();
+        services.AddScoped<IRequestHandler<GetChatGroupsQuery, IReadOnlyList<ChatGroupListing>>, GetChatGroupsQueryHandler>();
         services.AddScoped<IRequestHandler<AddChatGroupMemberCommand, bool>, AddChatGroupMemberCommandHandler>();
         services.AddScoped<IRequestHandler<RemoveChatGroupMemberCommand, bool>, RemoveChatGroupMemberCommandHandler>();
         services.AddScoped<IRequestHandler<ChangeChatGroupMemberRoleCommand, bool>, ChangeChatGroupMemberRoleCommandHandler>();

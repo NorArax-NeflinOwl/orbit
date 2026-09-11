@@ -37,8 +37,8 @@ public partial class PersonRow : ContentView
 		propertyChanged: (row, _, value) => ((PersonRow)row).ActionMark.IsVisible = value is true);
 
 	/// <summary>
-	/// How many messages are waiting from this person, drawn on their avatar - see
-	/// AvatarCircle.UnreadCount. Nought for a group, which has no count on either client.
+	/// How many messages are waiting from this person or in this group, drawn on the avatar - see
+	/// AvatarCircle.UnreadCount.
 	/// </summary>
 	public static readonly BindableProperty UnreadCountProperty = BindableProperty.Create(
 		nameof(UnreadCount), typeof(int), typeof(PersonRow), 0,
