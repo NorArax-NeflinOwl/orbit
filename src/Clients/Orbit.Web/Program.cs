@@ -129,6 +129,9 @@ builder.Services.AddScoped<BrowserStorageConsent>();
 // query string. Scoped, which in WebAssembly means one for the life of the app, so the page that picks
 // it up is the same one the map handed it to.
 builder.Services.AddScoped<ChosenPlace>();
+// How a screen is finished without leaving it in the browser's history - see NavigationTrail. Scoped
+// for the same reason: one for the life of the app, watching every navigation from App.razor on.
+builder.Services.AddScoped<NavigationTrail>();
 builder.Services.AddScoped<DashboardPinService>();
 builder.Services.AddScoped<DashboardCardPreferences>();
 // Scoped for the same reason PresenceService below is: in WebAssembly there is one scope for the life

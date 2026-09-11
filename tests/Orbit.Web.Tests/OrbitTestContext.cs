@@ -93,6 +93,13 @@ public abstract class OrbitTestContext : TestContext
         // nothing; without it any test that opens a menu fails on the interop call rather than on
         // whatever it was about.
         JSInterop.SetupModule("./js/menuAnchor.js").SetupVoid("anchorToTrigger", _ => true).SetVoidResult();
+        // How every editor and summary finishes - see NavigationTrail. Made when the page asks for it,
+        // so its trail starts wherever the test has navigated to by then: a test about where a screen
+        // ends navigates first. Stepping back is a call into the browser, answered here and read back
+        // with JSInterop.VerifyInvoke("history.go"); the address does not move, since there is no
+        // browser here to move it.
+        Services.AddScoped<NavigationTrail>();
+        JSInterop.SetupVoid("history.go", _ => true).SetVoidResult();
         // The one field a task list and an inventory are named in draws itself through a module too - see
         // ChecklistTextEditor, which the note editor and TitledDescription both use. Same reason as the
         // menu above: without this, every editor test fails on an interop call rather than on whatever
