@@ -86,7 +86,11 @@ row menu does, and lands on the list. **"Move to another list…" is in the menu
 day**: a second menu of the other lists, by the rule the list's own entry form has always kept for its
 picker (any other list the server knows, except one the entry stands for), and the same move - what the
 phone holds goes out first, the server moves the entry, both lists come back - after which the entry opens
-on the list it went to. Still not built: the note field.
+on the list it went to. Still not built: the note field. **An entry done by ways (2026-09-11) is answered
+here with its ways named rather than offered** ("Done as soon as any one of these is: …"), the way an
+entry standing for lists names them. Orbit.Web's entry page lets the reader take a way, while this screen
+leaves that to the list screen's sheet, since the circle on this screen is a single press and the design
+draws no row for a choice.
 
 ***Walked on the device on 2026-09-09***, and it reads as drawn. Getting to it used to be the awkward
 part: it opened from the calendar only for a deadline that `IsSomewhere`
