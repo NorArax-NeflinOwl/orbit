@@ -355,7 +355,13 @@ version, so they aren't mistaken for oversights:
   row per member, and sharing history adds one more row per message per newcomer. Nobody who was never
   given the history can read it, which is the point - this is a member's decision to make, not something
   joining a group grants.
-- **Chat delivery is polling-based** (once a second while a conversation is open), not real-time - no
+- ~~**Chat delivery is polling-based**~~ Stale by 2026-09-11, and struck then. Both clients hold a live
+  connection (SignalR over a WebSocket, `LiveUpdatesConnection`) and hear "your chat changed" the moment
+  a message, an edit, a deletion, a receipt or a group change happens. The page reads straight away.
+  The poll is only a net under it now: 20 seconds while the connection is up, back to 1 second when it
+  drops. See [Live updates](functionality.md#live-updates). What made it look open was that the answer
+  to an announcement had no test. `ChatThreadTests` now drives it through
+  `LiveUpdatesConnection.Announce`, the method the hub's own handlers call. As noticed: (once a second while a conversation is open), not real-time - no
   SignalR or WebSockets. The polling itself has since been made to cost what it should: a group
   conversation polls at all, nothing is polled while the tab is behind others, and the conversation list
   is read every tenth tick rather than every one. Replacing it with a push transport is still open.
@@ -448,9 +454,11 @@ since been closed; what is left is recorded below with the same honesty about wh
   `WaitForAssertion` is no use for it: it re-checks on a render, and a tick behind a hidden tab renders
   nothing.
 
-  Still out of reach, and named in the class: `OnChatAnnounced`, since `LiveUpdatesConnection` raises
-  its events from inside itself and nothing outside can, so the live-connection half of the pace
-  (`ConnectedPollInterval`) is reasoned about rather than driven.
+  ~~Still out of reach, and named in the class: `OnChatAnnounced`~~ Reached 2026-09-11. The hub's
+  handlers now go through `LiveUpdatesConnection.Announce`, and a test calls it the same way, so the
+  answer to an announcement is driven rather than reasoned about. The slower pace while connected
+  (`ConnectedPollInterval`) still is not: it needs a connection that is really up. As first written:
+  `LiveUpdatesConnection` raised its events from inside itself and nothing outside could.
 - ~~**Nothing runs on a pull request.**~~ Put back, cheaply. The trigger was removed because every
   billed minute counted and a day of ordinary work exhausted the allowance; what changed is that a run
   now costs a fraction of what it did. The android job looks before it builds and does nothing when

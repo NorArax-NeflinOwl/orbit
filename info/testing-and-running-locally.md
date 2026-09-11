@@ -180,9 +180,12 @@ each; leaving the page and opening a group each stop the loop; and an account th
 is explained rather than opened as an empty thread. Each was checked by removing the behaviour from
 `Chat.razor` and watching its own test go red.
 
-What it deliberately leaves out: `OnChatAnnounced`, because `LiveUpdatesConnection` raises its events
-from inside itself and nothing outside can; and the encryption, which is checked in a real browser by
-`ci/verify-browser-crypto.mjs`.
+An announcement over the live connection is delivered with `LiveUpdatesConnection.Announce`, the same
+method the hub's handlers call. The page must read at once on hearing one, without waiting for a tick,
+and must read nothing while the tab is behind others.
+
+What it deliberately leaves out: the slower pace while connected, which needs a connection that is
+really up, and the encryption, which is checked in a real browser by `ci/verify-browser-crypto.mjs`.
 
 ### The diagrams
 

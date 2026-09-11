@@ -11,6 +11,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.JSInterop;
 using Orbit.Contracts.Chat;
+using Orbit.Core.LiveUpdates;
 using Orbit.Core.Permissions;
 using Orbit.Web.Pages;
 using Orbit.Web.Services;
@@ -30,9 +31,10 @@ namespace Orbit.Web.Tests.Pages;
 /// than pretending. There is no seam to shorten it and inventing one for the tests would be testing the
 /// seam - what is asserted here is what the deployed page does.
 ///
-/// What is deliberately not covered: <c>OnChatAnnounced</c>, since <c>LiveUpdatesConnection</c> raises
-/// its events from inside itself and nothing outside can, and the encryption, which is checked in a
-/// real browser by ci/verify-browser-crypto.mjs.
+/// An announcement over the live connection is delivered through <c>LiveUpdatesConnection.Announce</c>,
+/// the method the hub's own handlers call, so the page's answer to one is driven rather than assumed.
+/// What is deliberately not covered: the slower pace behind a connection that is really up, and the
+/// encryption, which is checked in a real browser by ci/verify-browser-crypto.mjs.
 /// </summary>
 public sealed class ChatThreadTests : OrbitTestContext
 {
@@ -55,6 +57,9 @@ public sealed class ChatThreadTests : OrbitTestContext
     private readonly Dictionary<string, int> _requestsByPath = [];
 
     private readonly object _countingLock = new();
+
+    /// <summary>The live connection the page subscribes to - never connected, and announced into by hand.</summary>
+    private LiveUpdatesConnection _liveUpdates = null!;
 
     /// <summary>Whether this tab is in front of somebody - what ./js/presence.js answers.</summary>
     private bool _isPageVisible = true;
@@ -345,6 +350,48 @@ public sealed class ChatThreadTests : OrbitTestContext
         }
     }
 
+    /// <summary>
+    /// What the live connection is for: an announcement is answered by reading the conversation at once,
+    /// not at the next tick. Announced straight after the first load and looked for well inside the
+    /// second the loop waits before its first tick, so a read that shows up can only be the answer.
+    /// </summary>
+    [Fact]
+    public async Task An_announcement_reads_the_conversation_at_once()
+    {
+        RenderTheConversation();
+        var afterTheFirstLoad = TimesAsked("api/chat/messages");
+
+        _liveUpdates.Announce(LiveUpdateMessages.ChatChanged);
+
+        var deadline = DateTime.UtcNow + TimeSpan.FromMilliseconds(700);
+        while (TimesAsked("api/chat/messages") == afterTheFirstLoad)
+        {
+            Assert.True(
+                DateTime.UtcNow < deadline,
+                "The announcement was not answered before the loop's first tick could have come.");
+            await Task.Delay(TimeSpan.FromMilliseconds(20));
+        }
+    }
+
+    /// <summary>
+    /// The rule the timer follows holds for an announcement too: nothing is read behind other tabs. The
+    /// page still hears it - it asks whether it is in front of somebody - and then fetches nothing.
+    /// </summary>
+    [Fact]
+    public async Task An_announcement_reads_nothing_while_the_tab_is_behind_other_tabs()
+    {
+        _isPageVisible = false;
+        RenderTheConversation();
+        var afterTheFirstLoad = TimesAsked("api/chat/messages");
+        var askedBefore = TicksSoFar();
+
+        _liveUpdates.Announce(LiveUpdateMessages.ChatChanged);
+        await Task.Delay(TimeSpan.FromMilliseconds(500));
+
+        Assert.True(TicksSoFar() > askedBefore, "The page never heard the announcement.");
+        Assert.Equal(afterTheFirstLoad, TimesAsked("api/chat/messages"));
+    }
+
     private IRenderedComponent<Chat> RenderTheConversation()
     {
         // Set here rather than in the constructor: a planned invocation answers with one result, and
@@ -435,11 +482,12 @@ public sealed class ChatThreadTests : OrbitTestContext
 
         // Never connected, which is the shape every one of these tests wants: the loop then runs at its
         // one-second pace rather than the twenty-second one it drops to behind a live connection.
-        Services.AddSingleton(new LiveUpdatesConnection(
+        _liveUpdates = new LiveUpdatesConnection(
             new TokenStore(new StubJSRuntime()),
             new TokenRefreshService(new TokenStore(new StubJSRuntime()), httpClient),
             "https://example.test/",
-            NullLogger<LiveUpdatesConnection>.Instance));
+            NullLogger<LiveUpdatesConnection>.Instance);
+        Services.AddSingleton(_liveUpdates);
 
         Services.AddSingleton(new PanelPreferences(new StubJSRuntime()));
         Services.AddSingleton(new PageVisibility(JSInterop.JSRuntime));
