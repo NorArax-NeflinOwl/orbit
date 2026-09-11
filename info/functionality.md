@@ -326,6 +326,13 @@ shows both kinds of card, so it draws both pages' tabs and offers no way to make
 (`FolderPage`, `FolderPages` on the client). Which tab is open is the page's own answer as well
 (`FolderState.ChosenOn`), for the same reason.
 
+**Something new is made where the reader is standing.** A note or list made while a folder of the
+reader's own is open is filed in it; made on **Private** it starts sealed, since being sealed is what
+puts it there; and a list made on **Finished** starts marked finished (`CreateTaskRequest.Completion`,
+null for every client that says nothing) - unless an entry on it stands for a list that is not finished
+yet, in which case the Finished tab's tick falls back to "the entries decide", because a list is not done
+while something it is made of is not. Pressing the Completed box makes the answer the reader's own.
+
 **On a phone the tabs fold into one Menu button**, and so does everything else a page is narrowed by:
 on the task lists that is the search box and both rows of chips as well (`PhoneToolbar`). Three rows of
 controls above the cards was most of a phone screen spent on the question rather than the answer, and
@@ -678,6 +685,12 @@ disagree in.
   draws: text style, checklist, table, attachment. **Only the checklist one does anything**; the other
   three answer a press with "*Text style*: not implemented yet." rather than being greyed out, because a
   dead button explains nothing and a row of them explains less.
+- **The writing keeps room under its last line** for the tools and three lines more, and the caret's
+  line scrolls clear of them (`.note-editor-page`'s padding and `scroll-padding`): the text used to run
+  on underneath the tools.
+- **Copying lines copies tick boxes as `- ` bullets** (`checklistTextEditor.js`, `onCopy`; a cut the
+  same). A tick box is a button with no text, so a checklist pasted into a message arrived as bare lines.
+  A selection inside one line is left to the browser - there is no box in it to speak for.
 - **The checklist tool types `[]`**, which the surface then turns into a tick box
   (`checklistTextEditor.js`, `CHECKLIST_MARKER`). Typing the same two characters at the head of a line
   does the same thing, so the button is a shortcut into the rule rather than a second way in - which is
@@ -1424,6 +1437,15 @@ press to get the pins back and the reader can still read what they hid. **The ey
 past filter**: somebody who hid their plans and then asked to see past ones meant to be shown nothing,
 not to have the whole lot come back.
 
+**A list with nothing in it is left off the panel** (2026-09-11), the way an empty card is left off the
+dashboard: four headings each saying "Nobody yet" were most of the panel spent on what is not there.
+"Share where you are" stays, because it is how any of the others comes to have something in it, and
+"Where your plans are" stays while the past is being shown, because it then holds the field that can
+change the answer. **A refresh button sits beside full screen** on the map: it reads everything again
+and moves the pins in place (`RefreshMapMarkersAsync`), so the pan and zoom it was pressed from are kept.
+**A pin's popup takes the theme** - Leaflet paints it white, and in the dark theme its label was light
+text on a white card.
+
 ### Planning something at a place
 
 The map is where people already go to point at somewhere, so it is also where pointing at somewhere and
@@ -1463,6 +1485,29 @@ and a place is exactly the kind of thing that should not be sitting in a link so
 Nothing about it needs to survive a reload - it is a handover between two screens, a second apart - and
 it is **taken** rather than read, so coming back to a new event or a new list later starts empty instead
 of at somewhere the reader looked at once and has no memory of choosing.
+
+**A pin's own popup starts an event or a list too** (2026-09-11): "An event here" and "A task list here"
+under "Take me there", on every pin but the question one. They hand the pin over the same way the
+question's answers do (`MapPage.OnPinPlan`), carrying the pin's address where it has one, so somebody
+looking at a kept place or a friend's position need not pin the same spot a second time to plan something
+there. **Once a place has been kept, the red question pin goes**: it has been answered, and left beside
+the new place's own pin it read as a second place still waiting.
+
+### A route between two pins
+
+**"Start a route here" in one pin's popup, then "Route to here" in another's** (2026-09-11,
+`MapPage.OnPinRoute`, `locationMap.js`'s `showRoute`). One button that changes its words rather than two
+side by side. Any spot can be an end: press the map there, and the pin that press draws carries the same
+button. A bar under the map names both ends and says how far and how long, with **Clear the route**.
+
+The road route comes from the **public OSRM demo server** (FOSSGIS, OpenStreetMap's routing machine),
+driving only - that is what the demo serves reliably. It is a third party, so it is asked **only where the
+reader lets Orbit reach other sites** - the same `KeepsThirdPartiesOut` answer that decides whether the map
+has a background (`mapTiles.js`). Otherwise, and whenever the service does not answer, the two ends are
+joined by a **dashed straight line** and the bar says "in a straight line", so a distance as the crow
+flies is never mistaken for the road. The route is drawn again after the map is rebuilt from scratch, and
+goes when the reader clears it or starts another. Light use only, by the demo's own policy - the same
+bargain the geocoding makes with Nominatim; a deployment with real traffic should run its own.
 
 ## Handing something off to Google
 
@@ -1560,6 +1605,11 @@ at the half hour; the hour ones are drawn solid so the hours can still be counte
 **Whole-day things go in a band across the top**, above the hours — they have no hour to be drawn at, and
 giving them one would put them at midnight, which is a lie about when they are. The band is left out
 entirely on a week with nothing in it.
+
+**Every entry says which it is** (2026-09-11): a small calendar mark before an event's name and a tick
+box before a task's, in the day, week and month views alike - a CSS mask, so it takes the text's colour,
+a done entry's greyed one included. The dashed edge a task already had said so only to somebody who had
+learned what the dash meant.
 
 It is built from seven day grids rather than from a week-shaped pass of its own: what "which column does
 this overlap into" means is a question about one day, and answering it twice in two places is how the two
@@ -1791,7 +1841,9 @@ away, not to the default, which may be a choice nobody made in months.
 ### The page of lists
 
 `/tasks` is one card per list, showing enough to recognise it: its badges, how far through it is, and a
-few of its rows. A row that only points at another list is followed — the first few items of the list it
+few of its rows. Each row carries its entry's categories and, when it is not Normal, its own priority -
+the rows of a gathered list included (2026-09-11). The notes page's cards carry the same marks a list's
+do: Private, Shared, a priority that is not Normal, and Pinned. A row that only points at another list is followed — the first few items of the list it
 points at are drawn under it — so a group list's card says something about the work rather than being a
 stack of titles.
 
@@ -3467,7 +3519,9 @@ load.
 Each card that has something to filter by carries its own menu in its top right: everything, what is
 pinned, or one priority. The count beside a card's title counts what the card is showing rather than
 what it holds, so a filtered card cannot look like one that lost something. A calendar event offers no
-"pinned" - it has a priority but nothing to pin it to.
+"pinned" - it has a priority but nothing to pin it to. **Each folder tab keeps its own filter**
+(2026-09-11): "only what is pinned" is something wanted of one folder and not of every other. Public keeps
+the card's bare key, so a filter chosen before tabs had their own still applies where it was chosen.
 
 Both live on the device (`DashboardCardPreferences`, localStorage), like the pins beside them: they
 describe one page for one reader and say nothing about what the cards hold. What is stored is what is
