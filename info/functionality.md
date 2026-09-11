@@ -965,6 +965,13 @@ from `Orbit.Core/Notes` - the note is handed to them as a `SurfaceState` whose l
   pressed box's next answer, as in the browser; they need not be next to each other. A press on a box
   that is not chosen, or with one chosen, is a single press. The chosen boxes stay chosen after a press;
   finishing lets them go. One undo step; the choosing itself is not in the history or the note.
+- **Enter puts the caret at the start of the new line's words**, after the indentation it takes from the
+  line above (`AddLineAfter` raises `CaretPlaced`; the page used to focus the new field without a column).
+  Not while a note is being read in, so the line an empty note is given does not open the keyboard. The
+  browser's other caret defects of 2026-09-11 - the caret landing on the line after a new box, arrows
+  stepping over empty lines, a letter jumping to the next line - came from an empty `<span>` having no
+  line box, and a column of one field per line has no such thing; a ticked line's hidden field is opened
+  before the caret is put in it.
 
 ### Sharing notes and task lists
 

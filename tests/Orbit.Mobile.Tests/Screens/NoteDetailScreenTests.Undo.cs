@@ -82,6 +82,9 @@ public sealed partial class NoteDetailScreenTests
 
         screen.AddLineAfter(screen.Lines[0], caret: 4);
         Assert.Equal(["milk", "bread"], screen.Lines.Select(line => line.Text));
+        // Enter puts the caret in the new line itself - see NoteDetailScreenTests.Caret. This is about
+        // where the undo puts it.
+        carets.Clear();
 
         screen.UndoCommand.Execute(null);
 

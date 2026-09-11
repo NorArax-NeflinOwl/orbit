@@ -187,12 +187,13 @@ public partial class NoteDetailPage : ContentPage, ITitleMenu
 		// Where the press happened, so whatever follows it moves down onto the new line - Enter in the
 		// middle of a sentence breaks the sentence, as it does in every text field there is.
 		//
-		// The caret is asked for here as well as in Loaded, because the field is usually built while
-		// AddLineAfter is still running - a BindableLayout answers a row being added straight away -
-		// and so it has already loaded by the time there is a row to compare it against. Left to Loaded
-		// alone the ask arrived too late every time, and the only thing that moved the caret was
-		// Android's own answer to the key, which takes it out of the writing altogether.
-		PutTheCaretIn(_viewModel.AddLineAfter(row, field.CursorPosition));
+		// The view model says where the caret goes - the start of the new line's words, after the
+		// indentation it inherits - through CaretPlaced, and OnCaretPlaced honours it at once when the
+		// field is already built and from Loaded when it is not. It is usually built already: a
+		// BindableLayout answers a row being added straight away, while AddLineAfter is still running.
+		// Left to Loaded alone the ask arrived too late every time, and the only thing that moved the
+		// caret was Android's own answer to the key, which takes it out of the writing altogether.
+		_viewModel.AddLineAfter(row, field.CursorPosition);
 	}
 
 	/// <summary>
@@ -272,7 +273,14 @@ public partial class NoteDetailPage : ContentPage, ITitleMenu
 			return;
 		}
 
-		PutTheCaretIn(_viewModel.Lines.FirstOrDefault() ?? _viewModel.AddLineAfter(null));
+		if (_viewModel.Lines.FirstOrDefault() is { } first)
+		{
+			PutTheCaretIn(first);
+			return;
+		}
+
+		// A line just made puts the caret in itself - see OnLineCompleted.
+		_viewModel.AddLineAfter(null);
 	}
 
 	/// <summary>

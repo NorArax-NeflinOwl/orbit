@@ -657,6 +657,40 @@ inventory lists, the contacts tabs, the chat menus - is built and needs no schem
 
 ## Noticed while working
 
+- **The phone's note screen has no way to indent.** The browser's Tab and Shift+Tab (2026-09-11) have no
+  phone counterpart: a soft keyboard has no Tab key, and a hardware keyboard's Tab moves the focus on.
+  Indentation typed as spaces, or written by the browser as tabs, is shown and carried on by Enter, but
+  cannot be added or taken away as a level. What it would take: an indent and an outdent button beside
+  undo/redo over the note's foot, using `NoteSurfaceEdits.Indent`/`Outdent` on the surface
+  `NoteDetailViewModel` already builds - and, for a hardware keyboard, `Keycode.Tab` in
+  `NoteLineKeyPresses` beside the arrows.
+
+- **Enter and Backspace on an empty box follow different rules on the two clients.** In the browser
+  (`NoteSurfaceEdits.Enter`/`Backspace`) Enter on an empty box turns it into a plain line in place, and
+  Backspace at the head of an empty box takes the whole line in one press. On the phone
+  (`NoteDetailViewModel.AddLineAfter`/`MergeIntoTheLineAbove`) Enter there leaves the empty box and adds a
+  plain line under it, and Backspace takes the box off first and joins the line on a second press - both
+  written as deliberate there. Neither is broken, but a note behaves differently depending on where it is
+  written. Deciding which rule both follow, and moving the phone's two edits onto `NoteSurfaceEdits` if it
+  is the browser's, would finish what the paste, undo and several-boxes work started.
+
+- **Choosing several boxes on the phone is only in the note's menu.** A long press on a box would be the
+  faster way in, and the one a phone user tries first, but MAUI has no long-press gesture of its own - it
+  needs a platform handler or CommunityToolkit.Maui's `TouchBehavior`, which Orbit.Maui does not
+  reference. The menu entry, the marks and the hint line (`NoteDetailViewModel.IsPickingLines`) stay as
+  they are; only the way in would be added.
+
+- **The phone's multi-line paste rests on an unverified Android detail.** `NoteDetailViewModel.Paste`
+  finds a pasted checklist's lines by the line breaks a one-line `Entry` keeps in its text. Android's
+  single-line `EditText` is believed to keep them (it only draws them as spaces), but no device has
+  confirmed it; if it drops them, a pasted checklist arrives as one line with the marks inside it, as it
+  did before. Check on a device by pasting two lines into a note; if they arrive joined, the paste has to
+  be caught before the field flattens it (a custom `EditText` overriding `onTextContextMenuItem`).
+
+- **The phone's undo and redo buttons are small targets.** They are `IconButton`s, 30 across like every
+  icon button in the app, beside the 44 tick-box button - under the 44-48 a thumb is usually given. Worth
+  looking at on a device with the rest of the note's foot rather than on its own.
+
 - **Dragging words across lines in a note is still the browser's own.** Since 2026-09-11 every other edit
   that changes the shape of a note's lines goes through `NoteSurfaceEdits` (see the note editor in
   `functionality.md`), but `checklistTextEditor.js` lets `insertFromDrop`/`deleteByDrag` through: where a

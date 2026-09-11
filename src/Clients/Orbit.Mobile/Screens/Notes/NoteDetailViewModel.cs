@@ -234,6 +234,7 @@ public sealed partial class NoteDetailViewModel : ObservableObject
     {
         var above = row ?? Lines.LastOrDefault();
         var fresh = new NoteLineRow();
+        var isBeingReadIn = _applying > 0;
         var pressedAt = above is null
             ? new SurfacePoint(0, Title.Length)
             : new SurfacePoint(Lines.IndexOf(above) + 1, Math.Clamp(caret, 0, above.Text.Length));
@@ -265,6 +266,15 @@ public sealed partial class NoteDetailViewModel : ObservableObject
             Watch(fresh);
             return new SurfacePoint(Lines.IndexOf(fresh) + 1, IndentationOf(fresh.Text).Length);
         });
+
+        // The caret goes into the new line at the start of its words - after the indentation it took
+        // from the line above, so the next character typed lands where the line's writing starts rather
+        // than wherever focusing the field leaves it. Not while a note is being read in: the line made
+        // for an empty note must not open the keyboard over a note somebody only opened.
+        if (!isBeingReadIn)
+        {
+            PlaceCaret(new SurfacePoint(Lines.IndexOf(fresh) + 1, IndentationOf(fresh.Text).Length));
+        }
 
         return fresh;
     }
