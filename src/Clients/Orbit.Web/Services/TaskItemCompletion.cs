@@ -5,6 +5,7 @@ using Microsoft.JSInterop;
 using Orbit.Contracts.Tasks;
 using Orbit.Core.Abstractions;
 using Orbit.Core.Inventories;
+using Orbit.Core.Tasks;
 
 namespace Orbit.Web.Services;
 
@@ -139,6 +140,26 @@ public sealed class TaskItemCompletion(
         return await SaveAsync(taskList, items, cancellationToken) == TaskItemTickOutcome.Ticked ? copyId : null;
     }
 
+    /// <summary>
+    /// Corrects when a finished entry was done - the entry page's date and time, which are offered only
+    /// once the entry is ticked. The same whole-list save a tick is, with that one entry's time changed;
+    /// an entry that is not done has no time to correct, and asking changes nothing.
+    /// </summary>
+    public Task<TaskItemTickOutcome> SetCompletedAtAsync(
+        TaskDto taskList, TaskItemDto item, DateTimeOffset completedAtUtc, CancellationToken cancellationToken = default)
+    {
+        FailureMessage = null;
+        Note = null;
+        return SaveAsync(
+            taskList,
+            [
+                .. taskList.Items.Select(existingItem => existingItem.Id == item.Id && existingItem.IsCompleted
+                    ? TaskItemRequest.From(existingItem) with { CompletedAtUtc = completedAtUtc.ToUniversalTime() }
+                    : TaskItemRequest.From(existingItem))
+            ],
+            cancellationToken);
+    }
+
     /// <summary>Every entry as it already is, with one entry's answer changed.</summary>
     private static List<TaskItemRequest> TicksChanged(
         TaskDto taskList, TaskItemDto item, TickState state, int toggledIndex)
@@ -152,11 +173,18 @@ public sealed class TaskItemCompletion(
                     ? index == toggledIndex
                     : existingItem.Id == item.Id;
 
-                return TaskItemRequest.From(existingItem) with
-                {
-                    IsCompleted = isTheOneBeingTicked ? state.IsCompleted() : existingItem.IsCompleted,
-                    IsFailed = isTheOneBeingTicked ? state.IsFailed() : existingItem.IsFailed
-                };
+                return isTheOneBeingTicked
+                    ? TaskItemRequest.From(existingItem) with
+                    {
+                        IsCompleted = state.IsCompleted(),
+                        IsFailed = state.IsFailed(),
+                        // Recorded here rather than left to the server, which never sees a private
+                        // list's entries - see TaskItemCompletionTime.
+                        CompletedAtUtc = TaskItemCompletionTime.After(
+                            existingItem.IsCompleted, existingItem.CompletedAtUtc, state.IsCompleted(),
+                            DateTimeOffset.UtcNow)
+                    }
+                    : TaskItemRequest.From(existingItem);
             })
             .ToList();
     }

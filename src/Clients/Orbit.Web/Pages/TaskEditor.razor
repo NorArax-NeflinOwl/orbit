@@ -205,6 +205,18 @@ else
                             <label>@T["Due time"]<TimeField @bind-Value="item.DueTime" AriaLabel="@(T["Due time"])" />
                             </label>
                         }
+                        @* When it was done, offered only once it is: a day for something not done yet is
+                           not a fact about it, and unticking clears it (see TaskItemFormModel.Tick). Every
+                           kind has one - an appointment or an errand is done at some moment the same as a
+                           checklist line. Editable, because "did it yesterday, ticked it today" is the usual
+                           case. *@
+                        @if (item.IsCompleted)
+                        {
+                            <label>@T["Completed on"]<DateField @bind-Value="item.CompletedDate" AriaLabel="@(T["Completed on"])" />
+                            </label>
+                            <label>@T["Time completed"]<TimeField @bind-Value="item.CompletedTime" AriaLabel="@(T["Time completed"])" />
+                            </label>
+                        }
                         @* Offered for every saved entry, including one this account has nowhere to move -
                            the control saying so is an answer, where leaving it out looked like a setting
                            that had gone missing. *@
@@ -1299,6 +1311,12 @@ else
                                 DueTime = item.DueDateUtc is { } dueTimeUtc ? TimeOnly.FromDateTime(dueTimeUtc.LocalDateTime) : null,
                                 IsCompleted = item.IsCompleted,
                                 IsFailed = item.IsFailed,
+                                CompletedDate = item.IsCompleted && item.CompletedAtUtc is { } doneUtc
+                                    ? DateOnly.FromDateTime(doneUtc.LocalDateTime)
+                                    : null,
+                                CompletedTime = item.IsCompleted && item.CompletedAtUtc is { } doneAtUtc
+                                    ? TimeOnly.FromDateTime(doneAtUtc.LocalDateTime)
+                                    : null,
                                 WaitsForTaskItemIds = [.. item.AllWaitsForTaskItemIds],
                                 Kind = item.Kind,
                                 Location = item.Location,
@@ -2309,8 +2327,20 @@ else
                 // stored", which is the answer for a client that has no box for them - see
                 // TaskItemDto.Priority.
                 item.Priority,
-                item.Colour))
+                item.Colour,
+                ToCompletedAtUtc(item)))
             .ToList();
+
+    /// <summary>
+    /// When the entry was done, as its two boxes say. Null for one that is not done, and for a done one
+    /// whose day nobody knows - which the server reads as "keep what is stored" rather than as a time to
+    /// invent (see TaskItemRequest.CompletedAtUtc).
+    /// </summary>
+    private static DateTimeOffset? ToCompletedAtUtc(TaskItemFormModel item)
+        => item.IsCompleted && item.CompletedDate is { } day
+            ? new DateTimeOffset(day.ToDateTime(item.CompletedTime ?? TimeOnly.MinValue, DateTimeKind.Local))
+                .ToUniversalTime()
+            : null;
 
     /// <summary>
     /// What an entry asks for, as the save sends it - only for an inventory entry that does not already
@@ -2740,6 +2770,16 @@ else
         public TimeOnly? DueTime { get; set; }
         public bool IsCompleted { get; set; }
 
+        /// <summary>
+        /// When it was done, as the reader sees and corrects it - see TaskItem.CompletedAtUtc. A day and
+        /// an hour, like the due date above; both empty for an entry that is not done, and for one done
+        /// before the time was kept. Filled in and emptied by <see cref="Tick"/>.
+        /// </summary>
+        public DateOnly? CompletedDate { get; set; }
+
+        /// <inheritdoc cref="CompletedDate"/>
+        public TimeOnly? CompletedTime { get; set; }
+
         /// <summary>How much this entry matters, which is its own answer rather than the list's - see TaskItem.Priority.</summary>
         public string Priority { get; set; } = nameof(ItemPriority.Normal);
 
@@ -2765,8 +2805,23 @@ else
             get => Ticks.Read(IsCompleted, IsFailed);
             set
             {
+                var wasCompleted = IsCompleted;
                 IsCompleted = value.IsCompleted();
                 IsFailed = value.IsFailed();
+                // Recorded as the box is ticked and cleared as it is unticked - the rule
+                // TaskItemCompletionTime keeps for every other tick. Recorded here rather than left to the
+                // server, which never sees a private list's entries.
+                if (!IsCompleted)
+                {
+                    CompletedDate = null;
+                    CompletedTime = null;
+                }
+                else if (!wasCompleted)
+                {
+                    var now = DateTime.Now;
+                    CompletedDate = DateOnly.FromDateTime(now);
+                    CompletedTime = new TimeOnly(now.Hour, now.Minute);
+                }
             }
         }
 

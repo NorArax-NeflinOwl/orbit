@@ -178,6 +178,54 @@ public sealed class TaskEditorItemFormTests : OrbitTestContext
     }
 
     /// <summary>
+    /// When an entry was done is asked only once it is: ticking it records now, puts the day and hour
+    /// among its details to correct, and sends them with the save - which is what carries the time for a
+    /// private list, whose entries the server never sees.
+    /// </summary>
+    [Fact]
+    public void A_ticked_entry_says_when_it_was_done_and_sends_it()
+    {
+        RegisterApiClients(AnItem());
+        var cut = Render();
+        ExpandTheOnlyItem(cut);
+        Assert.DoesNotContain("Completed on", cut.Find(".editor-item-details").TextContent);
+
+        TickTheOnlyItem(cut);
+
+        Assert.Contains("Completed on", cut.Find(".editor-item-details").TextContent);
+        ClickButtonSaying(cut, "Save");
+        using var saved = JsonDocument.Parse(_lastSavedJson!);
+        Assert.Equal(
+            JsonValueKind.String,
+            saved.RootElement.GetProperty("items")[0].GetProperty("completedAtUtc").ValueKind);
+    }
+
+    /// <summary>
+    /// And the next press, which crosses it out, takes the time away again: a cross is not a completion,
+    /// and nothing shown before an entry is done may linger after it stops being.
+    /// </summary>
+    [Fact]
+    public void An_entry_that_stops_being_done_loses_its_time()
+    {
+        RegisterApiClients(AnItem(isCompleted: true) with
+        {
+            CompletedAtUtc = new DateTimeOffset(2026, 9, 1, 8, 30, 0, TimeSpan.Zero)
+        });
+        var cut = Render();
+        ExpandTheOnlyItem(cut);
+        Assert.Contains("Completed on", cut.Find(".editor-item-details").TextContent);
+
+        TickTheOnlyItem(cut);
+
+        Assert.DoesNotContain("Completed on", cut.Find(".editor-item-details").TextContent);
+        ClickButtonSaying(cut, "Save");
+        using var saved = JsonDocument.Parse(_lastSavedJson!);
+        Assert.Equal(
+            JsonValueKind.Null,
+            saved.RootElement.GetProperty("items")[0].GetProperty("completedAtUtc").ValueKind);
+    }
+
+    /// <summary>
     /// What kind of thing the entry asks for is picked from the kinds this account already uses, the way
     /// its categories are - and those include what entries say, not only what shelves say. The box used
     /// to be fed from the shelves alone, so on an account whose products were still written on lists it
