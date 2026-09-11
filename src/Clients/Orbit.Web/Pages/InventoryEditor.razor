@@ -290,36 +290,28 @@ else
            what they would be turning on. Saved with the rest of the form - see SaveAsync. *@
         <label class="field-checkbox" for="restockEnabledInput">
             <input id="restockEnabledInput" type="checkbox" @bind="_restockSettings.IsEnabled" />
-            <span>@T["Keep a restock list for this inventory"]</span>
-        </label>
-        <p class="field-hint">
-            @(_restockSettings.IsEnabled
+            @* A "!" while off: that sentence is what turning it off costs, not what the switch is for. *@
+            <span>@T["Keep a restock list for this inventory"]<FieldHint Warns="@(!_restockSettings.IsEnabled)">@(_restockSettings.IsEnabled
                 ? T["Orbit keeps a \"Restock supplies\" list for this shelf and puts what is running low on it."]
-                : T["Turning this off deletes the restock list and everything on it. Turning it back on builds a new one."])
-        </p>
+                : T["Turning this off deletes the restock list and everything on it. Turning it back on builds a new one."])</FieldHint></span>
+        </label>
 
         <fieldset class="restock-settings-fields" disabled="@(!_restockSettings.IsEnabled)">
             <label class="field-checkbox" for="onlyLinkedWithDueDateInput">
                 <input id="onlyLinkedWithDueDateInput" type="checkbox" @bind="_restockSettings.OnlyLinkedWithDueDate" />
-                <span>@T["Only what a dated task is waiting on"]</span>
-            </label>
-            <p class="field-hint">
-                @(_restockSettings.OnlyLinkedWithDueDate
+                <span>@T["Only what a dated task is waiting on"]<FieldHint>@(_restockSettings.OnlyLinkedWithDueDate
                     ? T["The list asks for products some task with a due date needs. What is running low but nothing is waiting on is left off."]
-                    : T["The list asks for everything on this shelf that has dropped below its own minimum."])
-            </p>
+                    : T["The list asks for everything on this shelf that has dropped below its own minimum."])</FieldHint></span>
+            </label>
 
             @* The blunter narrowing of the two, and the one for a shelf nobody counts: the list becomes
                a round rather than a report - see RestockListSettings.OnlyCheckedRegularly. *@
             <label class="field-checkbox" for="onlyCheckedRegularlyInput">
                 <input id="onlyCheckedRegularlyInput" type="checkbox" @bind="_restockSettings.OnlyCheckedRegularly" />
-                <span>@T["Only the products marked \"Check every round\""]</span>
-            </label>
-            <p class="field-hint">
-                @(_restockSettings.OnlyCheckedRegularly
+                <span>@T["Only the products marked \"Check every round\""]<FieldHint>@(_restockSettings.OnlyCheckedRegularly
                     ? T["The list asks only about the products marked to look at every round. What is running low but not marked is left off."]
-                    : T["The list asks about everything it would otherwise ask about, marked or not."])
-            </p>
+                    : T["The list asks about everything it would otherwise ask about, marked or not."])</FieldHint></span>
+            </label>
 
             <div class="field">
                 <label for="restockPrioritySelect">@T["Priority of the restock list"]<FieldHint>@T["How much the generated \"Restock supplies\" list matters, next to your own lists."]</FieldHint></label>

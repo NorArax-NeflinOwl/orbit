@@ -43,7 +43,20 @@
 
             <!-- Typing an address is one way; pointing at it is the other, and the one that works when
                  nobody knows what the street is called - see IPlacePicker. -->
-            <Label Text="{controls:Translate 'Location'}" Style="{StaticResource FieldLabel}" />
+            <!-- The field's name carries a "!" while the place has no point - said before the save is
+                 refused rather than after, since a place with no point cannot be drawn on a map and cannot
+                 be handed to one. News about this screen rather than what the field is for, so it is the
+                 warning mark, as Orbit.Web's PlaceForm has it; the plain name stands in otherwise. -->
+            <Label Text="{controls:Translate 'Location'}" Style="{StaticResource FieldLabel}">
+                <Label.Triggers>
+                    <DataTrigger TargetType="Label" Binding="{Binding NeedsAPoint}" Value="True">
+                        <Setter Property="IsVisible" Value="False" />
+                    </DataTrigger>
+                </Label.Triggers>
+            </Label>
+            <controls:FieldHint Warns="True" IsVisible="{Binding NeedsAPoint}"
+                                Label="{controls:Translate 'Location'}"
+                                Text="{controls:Translate 'Pick it on the map - a place with no point cannot be drawn on one.'}" />
             <Entry Text="{Binding Address}" IsReadOnly="{Binding IsReadOnly}"
                    Placeholder="{controls:Translate 'Where this happens'}" />
             <HorizontalStackLayout Spacing="12">
@@ -56,11 +69,6 @@
                         Style="{StaticResource LinkButton}" IsVisible="{Binding HasAPoint}"
                         Command="{Binding OpenInMapsCommand}" />
             </HorizontalStackLayout>
-            <!-- Said before the save is refused rather than after: a place with no point cannot be drawn
-                 on a map and cannot be handed to one. -->
-            <Label Text="{controls:Translate 'Pick it on the map - a place with no point cannot be drawn on one.'}"
-                   IsVisible="{Binding NeedsAPoint}"
-                   LineBreakMode="WordWrap" Style="{StaticResource ItemCardFooter}" />
 
             <Label Text="{controls:Translate 'Priority'}" Style="{StaticResource FieldLabel}" />
             <Picker ItemsSource="{Binding Priorities}" SelectedItem="{Binding ChosenPriority}"

@@ -12,7 +12,7 @@
          A Border holding a Path, with a transparent Button over the pair, rather than a Button with an
          image: the drawings are path data on the same 20x20 canvas the navigation bar uses, so they take
          the theme and the reader's accent with them. -->
-    <Border x:Name="Frame" Style="{StaticResource IconButtonFrame}" Padding="0"
+    <Border x:Name="ButtonFrame" Style="{StaticResource IconButtonFrame}" Padding="0"
             HorizontalOptions="Start" VerticalOptions="Center">
         <Grid>
             <Path x:Name="Glyph" Style="{StaticResource IconPath}" InputTransparent="True"

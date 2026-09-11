@@ -813,6 +813,54 @@ public sealed class TaskEditorItemFormTests : OrbitTestContext
     }
 
     /// <summary>A storage for the two tests that watch what a save writes back to a shelf.</summary>
+    /// <summary>
+    /// A product this entry describes goes onto the list's shelf when the list is saved - unless a row
+    /// there already has the entry's name. Then the entry is matched to it and the row is left alone, so
+    /// what is typed in the form never reaches it; that used to happen with nothing said at all.
+    /// </summary>
+    [Fact]
+    public void A_product_already_on_the_shelf_is_said_to_be_matched_rather_than_added()
+    {
+        MeasuredAgainstAStorage();
+        _shelf = [AShelfRow("Buy milk", "Dairy")];
+        RegisterApiClients(AnItem(kind: nameof(TaskItemKind.Inventory)));
+        var cut = Render();
+
+        ExpandTheOnlyItem(cut);
+
+        var details = cut.Find(".editor-item-details").TextContent;
+        Assert.Contains("Already on the shelf in Pantry", details);
+        Assert.DoesNotContain("Goes on the shelf in Pantry", details);
+    }
+
+    /// <summary>With two rows of the name, the server matches neither - and the form says so.</summary>
+    [Fact]
+    public void Two_rows_of_the_same_name_are_said_to_leave_the_entry_unmatched()
+    {
+        MeasuredAgainstAStorage();
+        _shelf = [AShelfRow("Buy milk", "Dairy"), AShelfRow(" buy MILK ", "Dairy")];
+        RegisterApiClients(AnItem(kind: nameof(TaskItemKind.Inventory)));
+        var cut = Render();
+
+        ExpandTheOnlyItem(cut);
+
+        Assert.Contains("More than one row in Pantry has this name", cut.Find(".editor-item-details").TextContent);
+    }
+
+    /// <summary>A name the shelf does not hold is still a new row, as it always was.</summary>
+    [Fact]
+    public void A_product_the_shelf_does_not_hold_is_said_to_go_onto_it()
+    {
+        MeasuredAgainstAStorage();
+        _shelf = [AShelfRow("Flour", "Baking")];
+        RegisterApiClients(AnItem(kind: nameof(TaskItemKind.Inventory)));
+        var cut = Render();
+
+        ExpandTheOnlyItem(cut);
+
+        Assert.Contains("Goes on the shelf in Pantry when this list is saved", cut.Find(".editor-item-details").TextContent);
+    }
+
     private void MeasuredAgainstAStorage()
         => _linkedInventory = new InventoryDto(
             Guid.NewGuid(), "Pantry", DateTimeOffset.UtcNow, DateTimeOffset.UtcNow,

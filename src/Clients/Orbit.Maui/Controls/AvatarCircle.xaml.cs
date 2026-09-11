@@ -13,8 +13,8 @@ public partial class AvatarCircle : ContentView
 	/// Whose circle this is. Decides the colour, which is theirs and stays theirs however the list
 	/// around it is sorted or filtered.
 	/// </summary>
-	public static readonly BindableProperty IdProperty = BindableProperty.Create(
-		nameof(Id), typeof(Guid), typeof(AvatarCircle), Guid.Empty, propertyChanged: OnWhoChanged);
+	public static readonly BindableProperty SubjectIdProperty = BindableProperty.Create(
+		nameof(SubjectId), typeof(Guid), typeof(AvatarCircle), Guid.Empty, propertyChanged: OnWhoChanged);
 
 	/// <summary>What they are called, which is where the initials come from.</summary>
 	public static readonly BindableProperty NameProperty = BindableProperty.Create(
@@ -50,11 +50,11 @@ public partial class AvatarCircle : ContentView
 		Resize();
 	}
 
-	/// <inheritdoc cref="IdProperty"/>
-	public Guid Id
+	/// <inheritdoc cref="SubjectIdProperty"/>
+	public Guid SubjectId
 	{
-		get => (Guid)GetValue(IdProperty);
-		set => SetValue(IdProperty, value);
+		get => (Guid)GetValue(SubjectIdProperty);
+		set => SetValue(SubjectIdProperty, value);
 	}
 
 	public string Name
@@ -84,7 +84,7 @@ public partial class AvatarCircle : ContentView
 	private static void OnWhoChanged(BindableObject bindable, object oldValue, object newValue)
 	{
 		var avatar = (AvatarCircle)bindable;
-		var who = Avatar.Of(avatar.Id, avatar.Name);
+		var who = Avatar.Of(avatar.SubjectId, avatar.Name);
 
 		avatar.InitialsLabel.Text = who.Initials;
 
@@ -109,8 +109,8 @@ public partial class AvatarCircle : ContentView
 	/// </summary>
 	private void Resize()
 	{
-		Frame.WidthRequest = Diameter;
-		Frame.HeightRequest = Diameter;
+		AvatarFrame.WidthRequest = Diameter;
+		AvatarFrame.HeightRequest = Diameter;
 		Circle.WidthRequest = Diameter;
 		Circle.HeightRequest = Diameter;
 		Round.CornerRadius = Diameter / 2;

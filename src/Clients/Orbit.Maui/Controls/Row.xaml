@@ -23,7 +23,7 @@
     <Grid RowDefinitions="Auto,Auto">
         <!-- The frame is always drawn and always a pixel thick, so a row that gains its mark does not
              shove the rest of the list sideways - which is what app.css buys with outline-offset. -->
-        <Border x:Name="Frame" Grid.Row="0" StrokeThickness="1" Stroke="Transparent" BackgroundColor="Transparent"
+        <Border x:Name="RowFrame" Grid.Row="0" StrokeThickness="1" Stroke="Transparent" BackgroundColor="Transparent"
                 Padding="0">
             <Border.StrokeShape>
                 <RoundRectangle CornerRadius="6" />

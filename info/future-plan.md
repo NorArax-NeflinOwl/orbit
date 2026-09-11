@@ -638,8 +638,10 @@ inventory lists, the contacts tabs, the chat menus - is built and needs no schem
   (`ChatGroup.Leave`). The roster offered the picker; the archive (`Contacts.razor`) and the phone (group
   detail and group list) left without asking, so they always got the automatic choice.
 
-- **The phone's old leave sentence is a dead translation, and four pages still call the obsolete action
-  sheet.** Since the phone asks the web's leave question (2026-09-11), "You stop receiving what is posted,
+- ~~**The phone's old leave sentence is a dead translation, and four pages still call the obsolete action
+  sheet.**~~ Fixed 2026-09-11: the dictionary entry is gone and the seven calls are
+  `DisplayActionSheetAsync`, with the same arguments; the Android head's CS0618s went with them. As
+  noticed: since the phone asks the web's leave question (2026-09-11), "You stop receiving what is posted,
   and the group sees you go." in `PolishTranslations.cs` is no longer asked for anywhere; nothing fails
   on an unused key, so it will sit there until somebody removes it. And the Android head builds with
   CS0618 on `Page.DisplayActionSheet` in `TaskListDetailPage` (four calls), `CalendarEventDetailPage`
@@ -663,8 +665,10 @@ inventory lists, the contacts tabs, the chat menus - is built and needs no schem
   what was left in view is in `info/functionality.md`, "What a field is for"; `FoldedDescriptionTests`
   pins where each sentence lives now. The account screen was a separate pass.
 
-- **Two sentences under a place field are a "!" on the web and still a line on the phone.** Noticed
-  while folding the page descriptions: "Pick it on the map - a place with no point cannot be drawn on
+- ~~**Two sentences under a place field are a "!" on the web and still a line on the phone.**~~ Fixed
+  2026-09-11: each is a `FieldHint Warns="True"` labelled "Location", shown under the same condition, with
+  the plain label standing in otherwise; the calendar one uses the web's key, and the phone's own wording
+  left the Polish dictionary with it (needs the rebuilt APK). As noticed while folding the page descriptions: "Pick it on the map - a place with no point cannot be drawn on
   one." (`PlaceDetailPage.xaml`, shown while `NeedsAPoint`) and "The name is yours to write - the point
   is kept either way." (`CalendarEventDetailPage.xaml`) are `FieldHint Warns="true"` on the browser
   (`PlaceForm.razor`, `EventFields.razor`). They are under a field rather than under a title, which is why
@@ -672,12 +676,19 @@ inventory lists, the contacts tabs, the chat menus - is built and needs no schem
   ("Location"), with the same `IsVisible` - and the calendar sentence is worded differently on the two
   clients ("the pin keeps its exact position"), so one of them moves to the other's key.
 
-- **`PageHeader.Subtitle` on the phone has no user left.** After the page descriptions moved into the
+- ~~**`PageHeader.Subtitle` on the phone has no user left.**~~ Removed 2026-09-11, with the
+  `PageSubtitle` style; `PageHeader` keeps its leading action and its far end. As noticed: after the page
+  descriptions moved into the
   bar, `AccountPage.xaml` was the last to set it, and since 2026-09-11 its sentence is behind the bar's
   "?" too (`NavigationBar.Description`). The property and the `PageSubtitle` style draw nothing now and
   can go; `PageHeader` itself stays, for the Groups page's leading "+".
 
-- **A few sentences under a control, rather than under a title, were left in view on the web.** The
+- ~~**A few sentences under a control, rather than under a title, were left in view on the web.**~~ Folded
+  2026-09-11 at the user's request. Each is now a `FieldHint` beside the control it follows: a "?" on
+  the restock switches (a "!" on the first one while it is off, since that sentence says what turning it
+  off costs), the claim buttons and the Android download. A "!" on the share link's note, on
+  `FeatureLocked`, and on the chat password gate's two warnings. `ForgotPassword.razor` still carries
+  its own copy of the reset warning in view, because it was not on this list. As noticed: The
   restock switches' three `<p class="field-hint">` lines in `InventoryEditor.razor` and the one in
   `GenerateInventoryOverlay.razor` change with the switch they follow. They had no CSS rule at all and
   rendered as body-size paragraphs until 2026-09-11, when `p.field-hint` was given the small print's style. Also kept: the two lines under the
@@ -698,7 +709,12 @@ inventory lists, the contacts tabs, the chat menus - is built and needs no schem
   (`SealedContentSerializerContext.Default.SealedPlace`) before `TransferClient.Write`. Import already
   sends places closed, so that half is done.
 
-- **An exported place loses its link to a private list.** A private task list's title is empty on the
+- ~~**An exported place loses its link to a private list.**~~ Fixed 2026-09-11, on the server alone: a
+  link to a private list travels as the nonce of that list's sealed half (`ArchivedPlace.SealedTaskLists`,
+  `ArchivedTaskItem.LinkedSealedTaskLists`), which the list carries in the same file, and import finds
+  it by that. Doing it this way also fixed a defect nobody had noticed. An entry linking to a private
+  list used to be written with the empty title, and import sent that link to whichever private list it
+  made first. A private list is no longer found by title at all. As noticed: A private task list's title is empty on the
   server, and the archive carries links by title, so `ExportArchiveQueryHandler` drops such a link rather
   than writing a title that would match whichever untitled list came first. A task entry linking to a
   private list has always had the same gap. What it would take: the browser opening the private lists'
@@ -732,7 +748,10 @@ inventory lists, the contacts tabs, the chat menus - is built and needs no schem
   2026-09-11 - it deletes on the platform prompt alone. Also the phone's own to build: a field bound in
   `AccountViewModel` beside `RequiresPasswordToDelete`, checked against the account it loaded.
 
-- **The phone account screen's other forms answer at the top** (noticed 2026-09-11, while folding that
+- ~~**The phone account screen's other forms answer at the top**~~ Fixed 2026-09-11: each form says what
+  became of it under its own button (`AccountViewModel.UserNameMessage`, `EmailMessage`,
+  `PasswordMessage`, each a `FormMessage`), in the accent colour or the danger colour on a refusal, and the
+  shared `Message` line is gone (needs the rebuilt APK). As noticed (2026-09-11, while folding that
   screen's section sentences). Its own subtitle, the other leftover noticed then, is behind the bar's "?"
   since the same day (`NavigationBar.Description` in `AccountPage.xaml`). The
   username, email and password forms still report into the one `Message` line at the top of the screen,
@@ -843,7 +862,10 @@ inventory lists, the contacts tabs, the chat menus - is built and needs no schem
   fresh shelf read finds it and the branch does nothing; a save the server declines is one the
   inventory request is refused for too. The branch can go.
 
-- **An entry matched to an existing row keeps nothing of what it described.** Matching leaves the row as
+- ~~**An entry matched to an existing row keeps nothing of what it described.**~~ Said before it happens
+  since 2026-09-11: the web's entry form tells an entry whose name a row on the list's shelf already has
+  that it will be matched and the row left as it is - and one whose name two rows share that it will be
+  matched to neither (`TaskEditor.WhereANewProductGoes`). As noticed: matching leaves the row as
   it is on purpose (see `ProductEntryPlacement`), so a minimum typed on the entry is dropped with its
   description. A line on the entry's form saying "already on the shelf in X" before it is saved would
   keep that from being a surprise.
@@ -855,13 +877,41 @@ inventory lists, the contacts tabs, the chat menus - is built and needs no schem
   once per list (`StockRequirementCounter.RequiredBy`). Rare - generation points only its own list's
   entries at the rows it builds - but a hand-made errand on a second list makes both look short.
 
-- **The phone reopens an entry saved offline on a blank product form** until the server has placed it:
+- ~~**The phone reopens an entry saved offline on a blank product form**~~ Fixed 2026-09-11:
+  `ShelfForSomethingNew` hands the entry's own product to `TaskItemShelfProduct.ForSomethingNotOnTheShelfYet`,
+  which fills the form from it (needs the rebuilt APK). As noticed: until the server has placed it,
   `TaskListDetailViewModel.ShelfForSomethingNew` does not fill the form from `TaskItemDto.Product`, which
   such an entry now carries. Not new - the form was blank before too - but the answer is on the entry now.
 
-- **The phone's `FakeTasksServer` does not place product entries** the way the real server does since
+- ~~**The phone's `FakeTasksServer` does not place product entries**~~ Fixed 2026-09-11: given the
+  screen tests' `FakeInventoryServer`, it places them on a list's save and on its link
+  (`PlaceProductEntries`, mirroring `ProductEntryPlacement` - matched by name, a new row counted as
+  `StockRequirementCounter` counts, the entry's own product dropped, declined for a private list or a
+  shelf that may not be changed), and
+  `An_errand_for_something_not_on_the_shelf_yet_comes_back_standing_for_its_row` is the screen test it
+  allowed. A fake built without an inventory server still places nothing. As noticed: it did not, the way the real server does since
   2026-09-11, so a screen test can only assert what was sent. A fake that placed them would need to know
   the fake inventory server; until then the placement itself is covered by `ProductEntryPlacementTests`.
+  Left unmodelled on purpose (decided 2026-09-11): the restock list the server settles after a placement
+  (`SettleTheRestockListAsync`). No phone screen or test leans on that errand appearing - the restock
+  list reaches the phone as an ordinary task list on its next pull - and the fakes rebuild no restock
+  list even for the explicit `restock-list/refresh`, which answers a canned count; modelling the settle
+  alone would mean a managed list per inventory, its settings and its errand naming in the fakes, for no
+  screen test that needs them.
+
+- ~~**The Android head still builds with twelve warnings**~~ Fixed 2026-09-11: it builds with none. The
+  swatch's `AutomationProperties.Name` went, `AvatarCircle`/`PersonRow.Id` became `SubjectId`, the four
+  `Frame` elements became `AvatarFrame`, `ButtonFrame`, `CardFrame` and `RowFrame`, `ItemCard`'s cleared
+  shadows are `null!`, `MainActivity` checks the insets controller for null, and the two crefs name
+  `Orbit.Mobile.Screens.Startup.StartupViewModel` and `Platform.WebSignInBrowser`. As noticed: (noticed 2026-09-11, after the seven
+  `DisplayActionSheet` CS0618s went). None fails anything, and the head is not in `Orbit.CI.slnf`, so
+  nothing gates them: one more CS0618, `AutomationProperties.Name` on the accent swatches in
+  `AccountPage.xaml` (MAUI wants `SemanticProperties.Description`, which the swatch's button already
+  carries); five CS0108 where `AvatarCircle`/`PersonRow` declare `Id` and four controls name an element
+  `Frame`, hiding the base members; two CS8625 in `ItemCard.xaml.cs`, a CS8602 in `MainActivity.cs`, and
+  two CS1574 crefs (`StartupViewModel` in `App.xaml.cs`, `WebSignInBrowser` in
+  `WebAuthenticationCallbackActivity.cs`) that no longer resolve. What it would take: the swatch attribute
+  dropped, the two `Id`s and four `Frame`s renamed, and the rest a line each.
 
 - ~~**Options still calls an inventory a "storage".**~~ Done on 2026-09-10, and it was wider than the
   export section: eleven English strings across both clients still said storage - the task editor's
@@ -1240,7 +1290,12 @@ its shared controls. What that pass left, all of it now overtaken:
   had no query, and a notification about a shared place carries `/map?place={id}`, so the place id would
   have arrived as `{id}?returnTo=…` and opened the map on no pin.
 
-  **Chat opening a shared thing is the one left, and it is not a call site.** A share notice in a
+  ~~**Chat opening a shared thing is the one left, and it is not a call site.**~~ Done 2026-09-11, with no
+  contract change. After "Accepted - added to your account." the chat offers "Open it". It asks the
+  offer endpoint the invitation page already uses (`GET /api/shares/{kind}/{shareId}`, which answers
+  with the item's id) for where the thing is, through `SharesApiClient.WhereItLandsAsync`. An offer
+  accepted in an earlier visit links to its section, because only its status was read then. The phone is
+  unchanged: what it accepts lands under its own ids at the next sync. As noticed: A share notice in a
   conversation carries the *share's* id and nothing else (`NoteShareMessagePayload` and its four
   siblings), and accepting answers `bool` - so after "Accepted - added to your account." the chat has no
   address to offer. Giving it one means the five accept endpoints answering with the item's id, which is

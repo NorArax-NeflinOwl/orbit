@@ -127,14 +127,14 @@ public partial class Row : ContentView
 	{
 		if (!HasNews)
 		{
-			Frame.Stroke = Brush.Transparent;
-			Frame.BackgroundColor = Colors.Transparent;
+			RowFrame.Stroke = Brush.Transparent;
+			RowFrame.BackgroundColor = Colors.Transparent;
 			return;
 		}
 
 		var danger = Danger();
-		Frame.Stroke = new SolidColorBrush(danger);
-		Frame.BackgroundColor = danger.WithAlpha(0.07f);
+		RowFrame.Stroke = new SolidColorBrush(danger);
+		RowFrame.BackgroundColor = danger.WithAlpha(0.07f);
 	}
 
 	private static Color Danger()

@@ -57,15 +57,23 @@
 
             <!-- Where it is. Orbit.Web picks the point off a map; a phone already knows where it is,
                  and a place is a point with an optional label - so the name alone is not a location. -->
-            <Label Text="{controls:Translate 'Location'}" Style="{StaticResource FieldLabel}" />
+            <!-- While it can be written in, the field's name carries a "!": the name is the reader's, and
+                 taking the point keeps it - said rather than left to be discovered, as Orbit.Web's
+                 EventFields says it, in the web's own words so the two clients read the same. The plain
+                 name stands in while the event is read-only. -->
+            <Label Text="{controls:Translate 'Location'}" Style="{StaticResource FieldLabel}">
+                <Label.Triggers>
+                    <DataTrigger TargetType="Label" Binding="{Binding CanEdit}" Value="True">
+                        <Setter Property="IsVisible" Value="False" />
+                    </DataTrigger>
+                </Label.Triggers>
+            </Label>
+            <controls:FieldHint Warns="True" IsVisible="{Binding CanEdit}"
+                                Label="{controls:Translate 'Location'}"
+                                Text="{controls:Translate 'The name is yours to write - the pin keeps its exact position either way.'}" />
             <Entry Text="{Binding LocationAddress}" IsReadOnly="{Binding IsReadOnly}"
                    Placeholder="{controls:Translate 'Name of the place'}"
                    ReturnType="Done" ReturnCommand="{Binding SaveCommand}" />
-            <!-- Said rather than left to be discovered, which is what Orbit.Web's rebuild added beside
-                 its own box: the name is the reader's, and taking the point keeps it. -->
-            <Label Text="{controls:Translate 'The name is yours to write - the point is kept either way.'}"
-                   IsVisible="{Binding CanEdit}" FontSize="12" LineBreakMode="WordWrap"
-                   Style="{StaticResource SubtleLabel}" />
             <!-- Everything that can be done about the place, on one line of links under the box it is
                  typed in - which is the design's own arrangement, and takes a row off a screen that is
                  already six fields long. They were two outlined buttons over two links before, so the

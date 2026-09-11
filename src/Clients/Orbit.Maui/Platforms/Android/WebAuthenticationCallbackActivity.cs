@@ -10,7 +10,7 @@ namespace Orbit.Maui;
 /// exists only so the scheme can be declared to Android.
 ///
 /// The scheme has to be written out here because an intent filter is an attribute and takes a constant,
-/// where <see cref="WebSignInBrowser"/> builds the same address from AppInfo.PackageName. Keep the two
+/// where <see cref="Platform.WebSignInBrowser"/> builds the same address from AppInfo.PackageName. Keep the two
 /// in step with ApplicationId in Orbit.Maui.csproj: a mismatch means Google's redirect reaches nothing
 /// and the flow simply never comes back.
 ///

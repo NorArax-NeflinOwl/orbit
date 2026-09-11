@@ -13,7 +13,7 @@
          the chat list, the contact list and the dashboard, and an avatar that is one colour on one
          screen and another elsewhere is not an avatar. What the initials and the hue are is settled
          further in still - see Orbit.Mobile's Avatar, which Orbit.Web's AvatarHelper agrees with. -->
-    <Grid x:Name="Frame">
+    <Grid x:Name="AvatarFrame">
         <!-- Outlined in this person's hue with the initials written in it, rather than filled with it
              and the initials in white. Colour is stroke everywhere else in this design, and an avatar
              is the one place it was still a solid disc - a list of six conversations was six coloured

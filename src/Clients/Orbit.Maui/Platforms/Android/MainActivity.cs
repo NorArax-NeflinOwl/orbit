@@ -122,7 +122,10 @@ public class MainActivity : MauiAppCompatActivity
 		}
 
 		var isDark = Microsoft.Maui.Controls.Application.Current?.RequestedTheme == AppTheme.Dark;
-		WindowCompat.GetInsetsController(window, decorView).AppearanceLightStatusBars = !isDark;
+		if (WindowCompat.GetInsetsController(window, decorView) is { } insetsController)
+		{
+			insetsController.AppearanceLightStatusBars = !isDark;
+		}
 
 		if (!OperatingSystem.IsAndroidVersionAtLeast(35))
 		{

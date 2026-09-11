@@ -17,7 +17,7 @@
                      as in the list this was opened from - see PersonRow. -->
                 <Border Style="{StaticResource CardBorder}" Padding="18,14">
                     <VerticalStackLayout Spacing="10">
-                        <controls:PersonRow Id="{Binding UserIdShown}" Name="{Binding DisplayName}"
+                        <controls:PersonRow SubjectId="{Binding UserIdShown}" Name="{Binding DisplayName}"
                                             Subtitle="{Binding UserName}" Status="{Binding PresenceStatus}" />
 
                         <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10" RowSpacing="6"

@@ -136,6 +136,25 @@ public sealed class InventoryEditorTests : OrbitTestContext
     }
 
     /// <summary>What each row's name box holds, in the order the rows are rendered.</summary>
+    /// <summary>
+    /// The first restock switch's sentence says what the switch is for while it is on, and what turning
+    /// it off costs while it is off - so it is a "?" in one state and a "!" in the other.
+    /// </summary>
+    [Fact]
+    public void The_restock_switch_warns_only_while_it_is_off()
+    {
+        RegisterApiClients([Item("Flour", quantity: 3)]);
+        var cut = RenderComponent<InventoryEditor>(parameters => parameters.Add(editor => editor.InventoryId, InventoryId));
+
+        cut.Find("#restockEnabledInput").Change(false);
+        Assert.Equal("!", cut.Find("label[for=restockEnabledInput] .field-hint-mark").TextContent);
+        Assert.Contains("Turning this off deletes the restock list", cut.Find("label[for=restockEnabledInput] .field-hint-bubble").TextContent);
+
+        cut.Find("#restockEnabledInput").Change(true);
+        Assert.Equal("?", cut.Find("label[for=restockEnabledInput] .field-hint-mark").TextContent);
+        Assert.Contains("Restock supplies", cut.Find("label[for=restockEnabledInput] .field-hint-bubble").TextContent);
+    }
+
     private static IReadOnlyList<string> ItemNamesIn(IRenderedComponent<InventoryEditor> cut)
         => [.. cut.FindAll(".editor-item-main").Select(box => box.GetAttribute("value") ?? "")];
 

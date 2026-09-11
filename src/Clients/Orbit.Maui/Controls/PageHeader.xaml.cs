@@ -1,13 +1,14 @@
 namespace Orbit.Maui.Controls;
 
 /// <summary>
-/// What a screen says about itself before its content starts: a line on what it holds, the control
-/// that makes another of them, and whatever belongs at the other end.
+/// What a screen puts before its content starts: the control that makes another of what it lists, and
+/// whatever belongs at the other end.
 ///
 /// The name is not here any more - the top bar draws it, from the page's own Title, so that every
-/// screen names itself in exactly one place and the bar is never blank. What is left is the rest of
-/// the old header, and it is on the way out too: the design has no header at all, and each screen
-/// loses this as it is redrawn.
+/// screen names itself in exactly one place and the bar is never blank - and neither is the line on
+/// what the screen holds, which went behind the bar's "?" (NavigationBar.Description). What is left is
+/// the rest of the old header, and it is on the way out too: the design has no header at all, and each
+/// screen loses this as it is redrawn.
 ///
 /// Taken as properties rather than read from a view model, so a screen can have one without every view
 /// model having to expose the same members under the same names - the same reason FeatureLocked takes
@@ -15,10 +16,6 @@ namespace Orbit.Maui.Controls;
 /// </summary>
 public partial class PageHeader : ContentView
 {
-	public static readonly BindableProperty SubtitleProperty =
-		BindableProperty.Create(nameof(Subtitle), typeof(string), typeof(PageHeader), string.Empty,
-			propertyChanged: OnSubtitleChanged);
-
 	/// <summary>
 	/// The one control that makes another of whatever the screen lists, left of its name - see
 	/// Orbit.Web's PageHeader.LeadingAction and the four list screens that carry one.
@@ -34,13 +31,6 @@ public partial class PageHeader : ContentView
 
 	public PageHeader() => InitializeComponent();
 
-	/// <summary>One line on what the screen holds. Empty leaves the screen with just its name.</summary>
-	public string Subtitle
-	{
-		get => (string)GetValue(SubtitleProperty);
-		set => SetValue(SubtitleProperty, value);
-	}
-
 	/// <inheritdoc cref="LeadingActionProperty"/>
 	public View? LeadingAction
 	{
@@ -54,10 +44,6 @@ public partial class PageHeader : ContentView
 		get => (View?)GetValue(ActionsProperty);
 		set => SetValue(ActionsProperty, value);
 	}
-
-	/// <summary>An empty subtitle is left out rather than drawn as a blank line.</summary>
-	private static void OnSubtitleChanged(BindableObject bindable, object oldValue, object newValue)
-		=> ((PageHeader)bindable).SubtitleLabel.IsVisible = !string.IsNullOrWhiteSpace(newValue as string);
 
 	private static void Fill(BindableObject bindable, string host, object? content)
 		=> Slot.Fill((ContentView)((PageHeader)bindable).FindByName(host), content);

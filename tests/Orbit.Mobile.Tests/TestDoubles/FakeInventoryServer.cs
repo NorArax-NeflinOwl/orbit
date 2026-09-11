@@ -41,6 +41,29 @@ internal sealed class FakeInventoryServer : HttpMessageHandler
         return inventory;
     }
 
+    /// <summary>
+    /// Whether a list's product entries may be put on this inventory - the questions
+    /// ProductEntryPlacement.MayPutThingsOnAsync asks: one this server has, that this account may change,
+    /// and that keeps rows the server can read. Nobody else ever holds one open here.
+    /// </summary>
+    public bool MayPutThingsOn(Guid inventoryId)
+        => _inventories.TryGetValue(inventoryId, out var inventory)
+            && inventory.AccessLevel == "CanEdit"
+            && !inventory.IsPrivate;
+
+    /// <summary>
+    /// A row put on the shelf by something other than a save of the inventory - a list's product entry,
+    /// placed by <see cref="FakeTasksServer"/> as ProductEntryPlacement places it. Moves the inventory's
+    /// UpdatedAtUtc, as the real row's arrival does: that is what tells a phone's pull to fetch the items
+    /// again, and a fake that left it alone would hide the row from a phone that reads it correctly.
+    /// </summary>
+    public InventoryItemDto Place(Guid inventoryId, InventoryItemDto row)
+    {
+        _items[inventoryId].Add(row);
+        _inventories[inventoryId] = _inventories[inventoryId] with { UpdatedAtUtc = _timeProvider.GetUtcNow() };
+        return row;
+    }
+
     public void AddItem(Guid inventoryId, string name, decimal quantity, bool isCheckedRegularly = false)
     {
         var now = _timeProvider.GetUtcNow();

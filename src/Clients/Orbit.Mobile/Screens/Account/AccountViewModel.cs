@@ -142,11 +142,19 @@ public sealed partial class AccountViewModel : ObservableObject
     public string EmailVerificationLabel
         => _translations[IsEmailVerified ? "Verified" : "Not verified"];
 
-    [ObservableProperty]
-    private string _message = string.Empty;
+    /// <summary>
+    /// What the username form last said, under its own button - and the email and password forms each
+    /// have theirs below. The three shared one line at the top of the screen, out of sight of a reader
+    /// who had scrolled down to the form they pressed, which is the reason <see cref="DeletionMessage"/>
+    /// has a line of its own too; and an answer about one form stood over the next form's until replaced.
+    /// </summary>
+    public FormMessage UserNameMessage { get; } = new();
 
-    [ObservableProperty]
-    private bool _messageIsFailure;
+    /// <inheritdoc cref="UserNameMessage"/>
+    public FormMessage EmailMessage { get; } = new();
+
+    /// <inheritdoc cref="UserNameMessage"/>
+    public FormMessage PasswordMessage { get; } = new();
 
     [ObservableProperty]
     private string _permissionCode = string.Empty;
@@ -489,8 +497,6 @@ public sealed partial class AccountViewModel : ObservableObject
     /// </summary>
     public ConnectionRequirement Connection { get; }
 
-    public bool HasMessage => Message.Length > 0;
-
     [RelayCommand]
     private async Task LoadAsync()
     {
@@ -627,19 +633,22 @@ public sealed partial class AccountViewModel : ObservableObject
     private Task ChangeUserNameAsync(CancellationToken cancellationToken)
         => RunAsync(
             () => _accountClient.ChangeUserNameAsync(UserName.Trim(), DisplayName.Trim(), cancellationToken),
-            "Username updated.");
+            "Username updated.",
+            UserNameMessage);
 
     [RelayCommand]
     private Task RequestEmailChangeAsync(CancellationToken cancellationToken)
         => RunAsync(
             () => _accountClient.RequestEmailAddressChangeAsync(NewEmailAddress.Trim(), cancellationToken),
-            "Check the new address for a confirmation code - the change isn't done until you enter it.");
+            "Check the new address for a confirmation code - the change isn't done until you enter it.",
+            EmailMessage);
 
     [RelayCommand]
     private Task ConfirmEmailChangeAsync(CancellationToken cancellationToken)
         => RunAsync(
             () => _accountClient.ConfirmEmailAddressAsync(EmailConfirmationCode.Trim(), cancellationToken),
-            "Email address confirmed.");
+            "Email address confirmed.",
+            EmailMessage);
 
     /// <summary>
     /// Changes the password, then re-wraps the chat key backup under it. Skipping the second half is not
@@ -651,8 +660,7 @@ public sealed partial class AccountViewModel : ObservableObject
     {
         if (NewPassword != RepeatedNewPassword)
         {
-            MessageIsFailure = true;
-            Message = _translations["The two new passwords don't match."];
+            PasswordMessage.Say(_translations["The two new passwords don't match."], isFailure: true);
             return;
         }
 
@@ -661,9 +669,10 @@ public sealed partial class AccountViewModel : ObservableObject
 
         await RunAsync(
             () => _accountClient.ChangePasswordAsync(currentPassword, newPassword, cancellationToken),
-            "Password changed.");
+            "Password changed.",
+            PasswordMessage);
 
-        if (MessageIsFailure)
+        if (PasswordMessage.IsFailure)
         {
             return;
         }
@@ -686,17 +695,21 @@ public sealed partial class AccountViewModel : ObservableObject
             var outcome = await _encryptionKeyProvider.RewrapAsync(currentPassword, newPassword, cancellationToken);
             if (outcome is EncryptionKeyOutcome.StillLocked)
             {
-                Message = _translations[
-                    "Password changed, but your chat key backup couldn't be updated. "
-                    + "Open \"Chat key\" to fix it, or older messages may not open on a new device."];
+                // Not a failure: the password did change, and the chat key gate is where this is put right.
+                PasswordMessage.Say(
+                    _translations[
+                        "Password changed, but your chat key backup couldn't be updated. "
+                        + "Open \"Chat key\" to fix it, or older messages may not open on a new device."],
+                    isFailure: false);
             }
         }
         catch (Exception exception) when (exception is not OperationCanceledException)
         {
-            MessageIsFailure = true;
-            Message = _translations[
-                "Password changed, but your chat key backup couldn't be updated. "
-                + "Sign in again while online to fix it."];
+            PasswordMessage.Say(
+                _translations[
+                    "Password changed, but your chat key backup couldn't be updated. "
+                    + "Sign in again while online to fix it."],
+                isFailure: true);
             System.Diagnostics.Debug.WriteLine($"Could not re-wrap the chat key backup: {exception}");
         }
     }
@@ -887,18 +900,20 @@ public sealed partial class AccountViewModel : ObservableObject
     /// A dictionary key rather than the text itself, so every caller gets translated without each one
     /// having to remember to ask - see <see cref="Translations"/>.
     /// </param>
-    private async Task RunAsync(Func<Task<AccountOperationResult>> operation, string successMessage)
+    /// <param name="said">The line under the button that was pressed, which is where the answer goes.</param>
+    private async Task RunAsync(
+        Func<Task<AccountOperationResult>> operation, string successMessage, FormMessage said)
     {
         try
         {
             var result = await operation();
-            MessageIsFailure = !result.Succeeded;
-            Message = result.Succeeded ? _translations[successMessage] : result.Message ?? _translations["That didn't work."];
+            said.Say(
+                result.Succeeded ? _translations[successMessage] : result.Message ?? _translations["That didn't work."],
+                isFailure: !result.Succeeded);
         }
         catch (HttpRequestException)
         {
-            MessageIsFailure = true;
-            Message = _translations["Couldn't reach Orbit. Check your connection and try again."];
+            said.Say(_translations["Couldn't reach Orbit. Check your connection and try again."], isFailure: true);
         }
         catch (OperationCanceledException)
         {
@@ -973,6 +988,4 @@ public sealed partial class AccountViewModel : ObservableObject
     partial void OnIsRedeemingCodeChanged(bool value) => RedeemCodeCommand.NotifyCanExecuteChanged();
 
     partial void OnPermissionMessageChanged(string value) => OnPropertyChanged(nameof(HasPermissionMessage));
-
-    partial void OnMessageChanged(string value) => OnPropertyChanged(nameof(HasMessage));
 }

@@ -1034,11 +1034,85 @@ public sealed class TaskListDetailScreenTests
         editor.Shelf.Product.MinimumQuantity = "2";
         await screen.SaveItemCommand.ExecuteAsync(null);
 
+        // Placed by the server: the product it described is a row on the shelf, and the entry stands for it.
         var sent = Assert.Single(context.Server.ItemsIn(context.Stored().ServerId!.Value));
         Assert.Equal("Coffee", sent.Description);
-        Assert.Equal(2, sent.Product!.MinimumQuantity);
-        // Nothing written to this phone's copy of the shelf, so there is no stale copy to push over it.
-        Assert.Empty((await context.Shelves.FindAsync(shelfLocalId))!.Items);
+        var placed = Assert.Single(context.Inventories.ItemsIn(Assert.Single(context.Inventories.Inventories).Id));
+        Assert.Equal(placed.Id, sent.LinkedInventoryItemId);
+        Assert.Equal(2, placed.MinimumQuantity);
+        // Nothing written to this phone's copy of the shelf by the phone: the one row it holds is the
+        // server's, pulled back, so there is no stale copy to push over it.
+        Assert.Equal(placed.Id, Assert.Single((await context.Shelves.FindAsync(shelfLocalId))!.Items).Id);
+    }
+
+    /// <summary>
+    /// Until the server has placed it, an entry saved for the shelf carries its own product
+    /// (TaskItemDto.Product) - and opened again meanwhile, the form showed the defaults instead, which
+    /// the next save would have sent over what had been typed. Saved here with the server out of reach,
+    /// which is what leaves it unplaced on a phone.
+    /// </summary>
+    [Fact]
+    public async Task An_errand_the_server_has_not_placed_yet_reopens_on_what_it_describes()
+    {
+        using var context = new ScreenContext();
+        var screen = context.OpenTaskList("Saturday");
+        await context.MeasureAgainstAnEmptyShelfAsync(screen, "Kitchen");
+        await context.AddErrandForSomethingNotOnTheShelfAsync(screen, "Coffee");
+        context.Server.IsUnreachable = true;
+
+        screen.EditItemCommand.Execute(screen.Items[0]);
+        screen.BeingEdited!.Shelf!.Product.Quantity = "1";
+        screen.BeingEdited.Shelf.Product.MinimumQuantity = "4";
+        screen.BeingEdited.Shelf.Product.ProductType = "ground";
+        await screen.SaveItemCommand.ExecuteAsync(null);
+
+        screen.EditItemCommand.Execute(screen.Items[0]);
+        var reopened = screen.BeingEdited!;
+        Assert.True(reopened.IsDescribingSomethingNew);
+        Assert.Equal("1", reopened.Shelf!.Product.Quantity);
+        Assert.Equal("4", reopened.Shelf.Product.MinimumQuantity);
+        Assert.Equal("ground", reopened.Shelf.Product.ProductType);
+    }
+
+    /// <summary>
+    /// What the server makes of such an errand, now that the fake server does it too: the product goes
+    /// onto the list's shelf, the entry comes back standing for the row it became, and opened again it
+    /// corrects that row rather than describing something new. Until the fake placed entries, a screen
+    /// test could only assert what was sent.
+    /// </summary>
+    [Fact]
+    public async Task An_errand_for_something_not_on_the_shelf_yet_comes_back_standing_for_its_row()
+    {
+        using var context = new ScreenContext();
+        var screen = context.OpenTaskList("Saturday");
+        var shelfLocalId = await context.MeasureAgainstAnEmptyShelfAsync(screen, "Kitchen");
+        await context.AddErrandForSomethingNotOnTheShelfAsync(screen, "Coffee");
+
+        screen.EditItemCommand.Execute(screen.Items[0]);
+        screen.BeingEdited!.Shelf!.Product.Quantity = "0";
+        screen.BeingEdited.Shelf.Product.MinimumQuantity = "2";
+        await screen.SaveItemCommand.ExecuteAsync(null);
+
+        var onTheServer = Assert.Single(context.Inventories.Inventories);
+        var row = Assert.Single(context.Inventories.ItemsIn(onTheServer.Id));
+        Assert.Equal("Coffee", row.Name);
+        Assert.Equal(2, row.MinimumQuantity);
+
+        var entry = Assert.Single(context.Server.ItemsIn(context.Stored().ServerId!.Value));
+        Assert.Equal(row.Id, entry.LinkedInventoryItemId);
+        Assert.Null(entry.Product);
+
+        // The phone holds that row once - the server's, not a copy of its own beside it.
+        var held = Assert.Single((await context.Shelves.FindAsync(shelfLocalId))!.Items);
+        Assert.Equal(row.Id, held.Id);
+
+        // And the entry opens on it: a product with an id, corrected in place.
+        await screen.LoadCommand.ExecuteAsync(null);
+        screen.EditItemCommand.Execute(Assert.Single(screen.Items));
+        var reopened = screen.BeingEdited!;
+        Assert.False(reopened.IsDescribingSomethingNew);
+        Assert.False(reopened.Shelf!.Product.IsSomethingNew);
+        Assert.Equal("2", reopened.Shelf.Product.MinimumQuantity);
     }
 
     /// <summary>
@@ -1127,10 +1201,10 @@ public sealed class TaskListDetailScreenTests
         editor.Shelf.Product.Quantity = "0";
         await screen.SaveItemCommand.ExecuteAsync(null);
 
-        // Filed where the entry is on the product the save sends: the server files the new row under
-        // it (ProductEntryPlacement) rather than this phone writing a row of its own.
-        var sent = Assert.Single(context.Server.ItemsIn(context.Stored().ServerId!.Value));
-        Assert.Equal(["food", "drinks"], sent.Product!.AllCategories);
+        // Filed where the entry is on the product the save sends, which the server files the new row
+        // under (ProductEntryPlacement) rather than this phone writing a row of its own.
+        var placed = Assert.Single(context.Inventories.ItemsIn(Assert.Single(context.Inventories.Inventories).Id));
+        Assert.Equal(["food", "drinks"], placed.AllCategories);
         Assert.Equal(["food", "drinks"], Assert.Single(screen.Items).Item.AllCategories);
     }
 
@@ -1151,6 +1225,8 @@ public sealed class TaskListDetailScreenTests
                 "Kitchen",
                 [new InventoryItemRequest(
                     Guid.NewGuid(), "coffee", "", "", 5, null, nameof(InventoryUnit.Piece), null, "None")]));
+        // Up to the server, which is where the name is matched now - see ProductEntryPlacement.
+        await context.ShelfSynchronizer.SynchroniseAsync();
         await context.AddErrandForSomethingNotOnTheShelfAsync(screen, "Coffee");
 
         screen.EditItemCommand.Execute(screen.Items[0]);
@@ -1160,6 +1236,10 @@ public sealed class TaskListDetailScreenTests
         var stored = await context.Shelves.FindAsync(shelfLocalId);
         var product = Assert.Single(stored!.Items);
         Assert.Equal(5, product.Quantity);
+        // Matched rather than added on the server too, and the entry stands for the row already there.
+        var onTheServer = Assert.Single(context.Inventories.ItemsIn(Assert.Single(context.Inventories.Inventories).Id));
+        Assert.Equal(product.Id, onTheServer.Id);
+        Assert.Equal(product.Id, Assert.Single(context.Server.ItemsIn(context.Stored().ServerId!.Value)).LinkedInventoryItemId);
     }
 
     /// <summary>
@@ -2434,7 +2514,8 @@ public sealed class TaskListDetailScreenTests
         public ScreenContext(PrivateContentSealer? privateContent = null)
         {
             _privateContent = privateContent ?? PrivateContent.WithoutAKey();
-            Server = new FakeTasksServer(_clock);
+            // Given the shelves, so a product entry is placed on save the way the real server places it.
+            Server = new FakeTasksServer(_clock, Inventories);
             CalendarServer = new FakeCalendarServer(_clock);
             _taskLists = new LocalTaskListRepository(_localStore, _clock, FixedNetworkStatus.Online, _privateContent);
             Shelves = new LocalInventoryRepository(

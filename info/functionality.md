@@ -71,7 +71,9 @@ the page before its platform prompt and again by `DeleteAccountCommand`): the Go
 where the deployment offers Google to the app (`ConfirmsWithGoogle`: Delete asks Google again after the
 prompt and sends the fresh token; backing out sends nothing), the typed address or login where it does
 not - checked against the account the screen read, never its own login box - and no request before the
-account has loaded. A refusal is said inside the danger card, where the button is.
+account has loaded. A refusal is said inside the danger card, where the button is - and so is every
+other form's answer on that screen: the username, email and password forms each have their own line
+under their button (`FormMessage`), rather than the one line at the top of the screen they shared.
 One the server gives an account that had no password when the screen read it makes the screen read the
 account again, so the password field appears.
 
@@ -253,6 +255,16 @@ quiet because most readers already know what a field is for, and a "!" is not, b
 noticing even folded away. The reason for folding it is the same either way — a form carried three of
 these permanently, and the reader who needed one could not find it among the ones they did not.
 
+**Sentences under a control fold too, since 2026-09-11.** A mark sits beside the control each sentence
+follows:
+- the restock switches on a storage's form and in "Generate inventory" have a "?", except the first one
+  while it is off, which has a "!" because its sentence says what turning it off costs;
+- the two claim buttons on a shared link's page and the Android download button have a "?";
+- a live share link's note, a locked feature's explanation and the chat password gate's two warnings
+  have a "!".
+
+The forgotten-password page still shows its warning about chat starting over in full.
+
 **The Options page folds them too.** Every setting there was a title with a sentence under it, which is a
 page of prose with switches in it; now each row is its name and a "?". Two things stay in the flow because
 they are not descriptions: **where the verification code will be sent** (the address is the decision being
@@ -281,7 +293,11 @@ rather than a bubble over the page — a phone has no room for a layer, and text
 belongs needs no arrow pointing at what it is about. Tapping again folds it back. The control carries the
 field's name as well as the sentence, which is what lets the two lay out as one thing; `IsHeading` picks
 between a section's heading and a field's label, `LabelStyle` covers a heading a screen draws for itself,
-and `Warns` draws the same "!" the browser does.
+and `Warns` draws the same "!" the browser does. Two lines under a place field became that "!" on
+2026-09-11, shown when they were before: "Location" on a place carries it while the place has no point
+(`PlaceDetailPage`, `NeedsAPoint`), and on an appointment while it can be edited
+(`CalendarEventDetailPage`, `CanEdit`) - the plain name stands in otherwise. The appointment's sentence
+is the browser's own key now ("the pin keeps its exact position"), where the phone had worded it apart.
 
 **The phone folds its page descriptions too** (since 2026-09-11). Most screens have no heading of their
 own - the name is in the top bar - so a screen hands its sentence to the bar (`NavigationBar.Description`),
@@ -1358,7 +1374,9 @@ stays in the file beside the opened words.
   with nothing sealed is left out and not counted: the server cannot seal it, and storing it readable
   would publish what the file says is private.
 - **Lists travel by title**, as a task entry's links do, and are found again among the lists the same
-  import made. A link to a private list is dropped, because that list's title is empty on the server.
+  import made. A link to a private list travels as the nonce of that list's sealed half instead, because
+  its title is empty on the server; the list carries the same nonce in the file, so the link comes back
+  to it (`SealedTaskLists`, and `LinkedSealedTaskLists` on an entry).
 - **Older files still open.** `Places` is defaulted and last, so the archive's version stays 1: a file
   without it reads as an account that kept no places, and one with it imports into an older Orbit, which
   reads past the field.
@@ -2347,7 +2365,11 @@ row** (2026-09-11, `ProductEntryPlacement`, run on the server by every save of t
 each client): a new row holds what the entry describes, entries naming the same thing in one save counted
 by the rule above; a shelf already holding exactly one thing by that name is what the entry was asking
 for, so nothing is added twice and that row is left as it was - a reused shopping list would otherwise
-raise a pantry's minimum every trip. The entry's own description is dropped in the same breath, as
+raise a pantry's minimum every trip. **The web's entry form says which of these will happen before the
+list is saved** (2026-09-11, `TaskEditor.WhereANewProductGoes`, against the list's shelf read when the
+editor opens): a new row, a row already there that the entry will be matched to and that keeps its own
+minimum - so what is typed in the form is not kept - or, with two rows of the name, no match at all.
+The entry's own description is dropped in the same breath, as
 generating does, and the storage's restock list is brought up to date. It happens only for somebody who
 may edit that storage, never on a private one, and not while somebody else holds its edit lock, whose
 whole-shelf save would delete the row; a list measured against no storage keeps the description on the
@@ -2373,8 +2395,12 @@ and clearing the filter again finds the row still marked.
 **The phone describes one the same way, one entry at a time.** An Inventory entry on a list measured
 against a storage opens the product's fields with no name box (`ShelfProductFor`,
 `InventoryItemEditor.ForSomethingNotOnTheShelfYet`), says above them which shelf it will go on, and
-saving the entry puts it there - a shelf already holding something by that name is what the entry was
-asking for, so nothing is added twice (`ShelfCorrection.ApplyAsync`). The same fields correct a product
+saving the entry sends what it describes for the server to put there (`ProductEntryPlacement`) - a shelf
+already holding something by that name is what the entry was asking for, so nothing is added twice;
+`ShelfCorrection.ApplyAsync` then pulls the shelf to show the row. Until the server has placed it - saved
+offline, or with the shelf declined - the entry carries its product (`TaskItemDto.Product`), and opened
+again it shows that rather than the defaults (`TaskItemShelfProduct.ForSomethingNotOnTheShelfYet`'s
+`described`). The same fields correct a product
 the entry is already linked to, which is all the phone could do before: the difference is whether the
 form is filling in something that has an id yet, and the entry's own words are the name either way. It
 happens on the entry's save rather than the list's, because that is the moment this screen has. The
@@ -3574,7 +3600,9 @@ differently.
 server and raises a notification; what the recipient presses **Accept** on in the conversation is a
 separate encrypted chat message carrying the share's id, posted by the sharer's own browser because the
 server has no key to seal one with (`EncryptedChatMessageSender`, read back by `Chat.razor`'s
-`TryParseShare`).
+`TryParseShare`). Once it is accepted there, the line says so with an **"Open it"** beside it. The link
+goes to the thing itself, found through the offer (`SharesApiClient.WhereItLandsAsync`), or to its
+section when the offer cannot be read or was accepted in an earlier visit.
 
 **The notification leads to what was shared** (`/invitation/{kind}/{shareId}/{sharerUserId}`,
 `ShareInvitation.razor`) rather than to the conversation, which is where it used to lead because Accept

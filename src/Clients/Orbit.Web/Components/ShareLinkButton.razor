@@ -23,13 +23,12 @@
         @if (_token is not null)
         {
             <button type="button" class="btn-secondary share-link-revoke" disabled="@_isWorking" @onclick="RevokeAsync">@T["Stop sharing"]</button>
+            @* A "!": it is true of this item right now, for as long as the link stands. *@
+            <FieldHint Warns="true">@T["Anyone with this link can read it without an account. They can't change it, and they can save their own read-only copy by signing in."]</FieldHint>
         }
     </div>
     @if (_token is not null)
     {
-        <p class="share-link-note">
-            @T["Anyone with this link can read it without an account. They can't change it, and they can save their own read-only copy by signing in."]
-        </p>
         @* Shown as well as copied: the clipboard is denied outright in some mobile browsers and
            webviews, and a link nobody can read is no link at all. *@
         <input type="text" class="share-link-url" readonly value="@LinkUrl" />

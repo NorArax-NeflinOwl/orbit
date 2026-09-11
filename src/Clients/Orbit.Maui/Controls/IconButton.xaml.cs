@@ -101,7 +101,7 @@ public partial class IconButton : ContentView
 	{
 		var isAccented = Variant is IconButtonVariant.Add && IsEnabledForPress;
 
-		Frame.Style = Look<Style>(isAccented ? "PageAddBorder" : "IconButtonFrame");
+		ButtonFrame.Style = Look<Style>(isAccented ? "PageAddBorder" : "IconButtonFrame");
 		Glyph.Style = Look<Style>(isAccented ? "IconPathAccent" : "IconPath");
 
 		Press.IsEnabled = IsEnabledForPress;

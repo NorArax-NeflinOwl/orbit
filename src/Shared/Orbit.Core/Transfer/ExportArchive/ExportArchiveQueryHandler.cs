@@ -47,37 +47,33 @@ public sealed class ExportArchiveQueryHandler : IRequestHandler<ExportArchiveQue
         var places = await _placeRepository.GetAllAsync(request.UserId, updatedSinceUtc: null, cancellationToken);
 
         var ownTaskLists = taskLists.Where(taskList => taskList.UserId == request.UserId).ToList();
-        var taskListTitlesById = ownTaskLists.ToDictionary(taskList => taskList.Id, taskList => taskList.Title);
+        var links = new TaskListLinks(ownTaskLists);
 
         return new OrbitArchive(
             OrbitArchive.CurrentVersion,
             DateTimeOffset.UtcNow,
             notes.Where(note => note.UserId == request.UserId).Select(ToArchived).ToList(),
-            ownTaskLists.Select(taskList => ToArchived(taskList, taskListTitlesById)).ToList(),
+            ownTaskLists.Select(taskList => ToArchived(taskList, links)).ToList(),
             calendarEvents.Where(calendarEvent => calendarEvent.UserId == request.UserId).Select(ToArchived).ToList(),
             await ToArchivedInventoriesAsync(inventories, request.UserId, cancellationToken),
-            places.Where(place => place.UserId == request.UserId).Select(place => ToArchived(place, taskListTitlesById)).ToList());
+            places.Where(place => place.UserId == request.UserId).Select(place => ToArchived(place, links)).ToList());
     }
 
     /// <summary>
     /// A private place goes out as the server holds it - empty words beside the sealed half - because
     /// the server has no key to do anything else. Opening it is the browser's part; see ArchivedPlace.
     /// </summary>
-    private static ArchivedPlace ToArchived(Place place, IReadOnlyDictionary<Guid, string> taskListTitlesById)
+    private static ArchivedPlace ToArchived(Place place, TaskListLinks links)
         => new(
             place.Name,
             place.Description,
             new ArchivedEventLocation(place.Where.Address ?? string.Empty, place.Where.Latitude, place.Where.Longitude),
             place.Colour,
             place.Priority.ToString(),
-            // A private list's title is empty on the server, and an empty title would resolve on import
-            // to whichever untitled list happened to come first - so a link to one is left out instead.
-            [.. place.TaskListIds
-                .Select(taskListId => taskListTitlesById.TryGetValue(taskListId, out var title) ? title : null)
-                .Where(title => !string.IsNullOrEmpty(title))
-                .OfType<string>()],
+            links.TitlesOf(place.TaskListIds),
             place.IsPrivate,
-            ToArchived(place.EncryptedContent));
+            ToArchived(place.EncryptedContent),
+            links.SealedOnesOf(place.TaskListIds));
 
     private async Task<IReadOnlyList<ArchivedInventory>> ToArchivedInventoriesAsync(
         IReadOnlyList<Inventory> inventories, Guid userId, CancellationToken cancellationToken)
@@ -111,7 +107,7 @@ public sealed class ExportArchiveQueryHandler : IRequestHandler<ExportArchiveQue
             note.IsPrivate,
             ToArchived(note.EncryptedContent));
 
-    private static ArchivedTaskList ToArchived(TaskList taskList, IReadOnlyDictionary<Guid, string> taskListTitlesById)
+    private static ArchivedTaskList ToArchived(TaskList taskList, TaskListLinks links)
         => new(
             taskList.Title,
             taskList.Items.Select(item => new ArchivedTaskItem(
@@ -120,28 +116,49 @@ public sealed class ExportArchiveQueryHandler : IRequestHandler<ExportArchiveQue
                 item.IsCompleted,
                 // Both shapes: the first title on its own for a reader that only knows the old field,
                 // and all of them for one that knows the new.
-                TitlesOf(item, taskListTitlesById).FirstOrDefault(),
+                links.TitlesOf(item.LinkedTaskListIds).FirstOrDefault(),
                 item.OverdueNotificationChannel.ToString(),
                 item.RemindDaily,
                 item.DailyReminderNotificationChannel.ToString(),
                 item.DailyReminderTimeOfDay,
-                TitlesOf(item, taskListTitlesById),
+                links.TitlesOf(item.LinkedTaskListIds),
                 item.Categories,
-                item.IsFailed)).ToList(),
+                item.IsFailed,
+                links.SealedOnesOf(item.LinkedTaskListIds))).ToList(),
             taskList.IsGroup,
             taskList.IsPrivate,
             ToArchived(taskList.EncryptedContent),
             taskList.Priority.ToString());
 
     /// <summary>
-    /// The lists an entry stands for, by title, because a file has no ids worth keeping - it is read
-    /// into a different account with different ones. A link to a list that is not in the export is
-    /// dropped rather than written as a title nothing will match.
+    /// How a link to one of the exported lists is written, because a file has no ids worth keeping - it
+    /// is read into a different account with different ones. An open list goes by its title. A private
+    /// one goes by the nonce of its sealed half, since its title is empty on the server and an empty
+    /// title would resolve on import to whichever private list came first (see
+    /// ArchivedTaskItem.LinkedSealedTaskLists). A link to a list that is not in the export is written
+    /// neither way, and dropped rather than written as something nothing will match.
     /// </summary>
-    private static IReadOnlyList<string> TitlesOf(TaskItem item, IReadOnlyDictionary<Guid, string> taskListTitlesById)
-        => [.. item.LinkedTaskListIds
-            .Select(linkedId => taskListTitlesById.TryGetValue(linkedId, out var title) ? title : null)
-            .OfType<string>()];
+    private sealed class TaskListLinks
+    {
+        private readonly Dictionary<Guid, string> _titlesById;
+        private readonly Dictionary<Guid, string> _noncesById;
+
+        public TaskListLinks(IReadOnlyList<TaskList> exported)
+        {
+            _titlesById = exported
+                .Where(taskList => !taskList.IsPrivate && taskList.Title.Length > 0)
+                .ToDictionary(taskList => taskList.Id, taskList => taskList.Title);
+            _noncesById = exported
+                .Where(taskList => taskList.IsPrivate && taskList.EncryptedContent is not null)
+                .ToDictionary(taskList => taskList.Id, taskList => taskList.EncryptedContent!.Nonce);
+        }
+
+        public IReadOnlyList<string> TitlesOf(IEnumerable<Guid> taskListIds)
+            => [.. taskListIds.Select(id => _titlesById.GetValueOrDefault(id)).OfType<string>()];
+
+        public IReadOnlyList<string> SealedOnesOf(IEnumerable<Guid> taskListIds)
+            => [.. taskListIds.Select(id => _noncesById.GetValueOrDefault(id)).OfType<string>()];
+    }
 
     private static ArchivedCalendarEvent ToArchived(CalendarEvent calendarEvent)
     {

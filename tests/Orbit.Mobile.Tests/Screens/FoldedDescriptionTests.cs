@@ -34,6 +34,10 @@ public sealed partial class FoldedDescriptionTests
         { "RegisterPage.xaml", "One account for the browser and this phone." },
         { "PasswordResetPage.xaml", "Enter the account, and Orbit emails a code to the address it was registered with." },
         { "ShelfProductFields.xaml", "Always on the restock list, however much there is" },
+        // A "!" beside the field's name rather than a line under the field, as on the web - see
+        // FieldHint.Warns. The calendar one in the web's words, so both clients read the same.
+        { "PlaceDetailPage.xaml", "Pick it on the map - a place with no point cannot be drawn on one." },
+        { "CalendarEventDetailPage.xaml", "The name is yours to write - the pin keeps its exact position either way." },
     };
 
     [Theory]
