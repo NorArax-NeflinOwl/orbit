@@ -31,7 +31,7 @@
 
 <PageHeader>
     <Title>@T["Options"]</Title>
-    <Subtitle>@T["Your account, appearance, and notification preferences."]</Subtitle>
+    <Description>@T["Your account, appearance, and notification preferences."]</Description>
 </PageHeader>
 
 <div class="options-page">
@@ -51,8 +51,10 @@
     @if (_activeTab == OptionsTab.Account)
     {
         <div class="options-section">
-            <h2 class="options-heading">@T["Account"]</h2>
-            <p class="options-subtext">@T["Your profile, sign-in address, and password."]</p>
+            @* Each section's own sentence sits behind its heading's mark, as each row's does beside its
+               name - see FieldHint.razor. A page of titles each with a sentence under it read as prose
+               with switches in it. *@
+            <h2 class="options-heading">@T["Account"]<FieldHint>@T["Your profile, sign-in address, and password."]</FieldHint></h2>
             <div class="options-card">
                 <div class="options-row options-row-stacked">
                     <div class="field">
@@ -221,8 +223,7 @@
         </div>
 
         <div class="options-section">
-            <h2 class="options-heading">@T["Your data"]</h2>
-            <p class="options-subtext">@T["Everything you own — notes, task lists, events and inventories — as one JSON file, and back again."]</p>
+            <h2 class="options-heading">@T["Your data"]<FieldHint>@T["Everything you own — notes, task lists, events and inventories — as one JSON file, and back again."]</FieldHint></h2>
             <div class="options-card">
                 <div class="options-row options-row-stacked">
                     <div>
@@ -263,8 +264,7 @@
         </div>
 
         <div class="options-section">
-            <h2 class="options-heading">@T["Danger zone"]</h2>
-            <p class="options-subtext">@T["Deleting your account is permanent and cannot be undone."]</p>
+            <h2 class="options-heading">@T["Danger zone"]<FieldHint>@T["Deleting your account is permanent and cannot be undone."]</FieldHint></h2>
             <div class="options-card options-card-danger">
                 <div class="options-row options-row-stacked">
                     <div>
@@ -292,8 +292,7 @@
     @if (_activeTab == OptionsTab.Appearance)
     {
         <div class="options-section">
-            <h2 class="options-heading">@T["Appearance"]</h2>
-            <p class="options-subtext">@T["Choose how Orbit looks on this device."]</p>
+            <h2 class="options-heading">@T["Appearance"]<FieldHint>@T["Choose how Orbit looks on this device."]</FieldHint></h2>
             <div class="theme-picker">
                 <button type="button" class="theme-option @(ThemeService.Current == ThemePreference.Light ? "active" : "")"
                         @onclick="() => SetThemeAsync(ThemePreference.Light)">
@@ -314,8 +313,7 @@
         </div>
 
         <div class="options-section">
-            <h2 class="options-heading">@T["Accent colour"]</h2>
-            <p class="options-subtext">@T["The colour Orbit highlights things in. Kept on this device, like the theme."]</p>
+            <h2 class="options-heading">@T["Accent colour"]<FieldHint>@T["The colour Orbit highlights things in. Kept on this device, like the theme."]</FieldHint></h2>
             <div class="accent-picker">
                 @foreach (var accentColor in AccentColor.All)
                 {
@@ -444,8 +442,7 @@
     @if (_activeTab == OptionsTab.Permissions)
     {
         <div class="options-section">
-            <h2 class="options-heading">@T["In Orbit"]</h2>
-            <p class="options-subtext">@T["Parts of Orbit this account can use. Each is unlocked separately, with its own code."]</p>
+            <h2 class="options-heading">@T["In Orbit"]<FieldHint>@T["Parts of Orbit this account can use. Each is unlocked separately, with its own code."]</FieldHint></h2>
             <div class="options-card">
                 <table class="permissions-table">
                     <thead>
@@ -487,8 +484,7 @@
         @if (!HasEverythingUnlocked)
         {
         <div class="options-section">
-            <h2 class="options-heading">@T["Unlock code"]</h2>
-            <p class="options-subtext">@T["One code per part of Orbit. Whoever deployed this Orbit has them - they are generated when it is built, and change every time it is."]</p>
+            <h2 class="options-heading">@T["Unlock code"]<FieldHint>@T["One code per part of Orbit. Whoever deployed this Orbit has them - they are generated when it is built, and change every time it is."]</FieldHint></h2>
             <div class="options-card">
                 <div class="options-row options-row-stacked">
                     <div class="field">
@@ -514,8 +510,7 @@
         }
 
         <div class="options-section">
-            <h2 class="options-heading">@T["Location"]</h2>
-            <p class="options-subtext">@T["Kept on this device, because a browser grants location per device."]</p>
+            <h2 class="options-heading">@T["Location"]<FieldHint>@T["Kept on this device, because a browser grants location per device."]</FieldHint></h2>
             <div class="options-card">
                 <div class="options-row options-row-stacked">
                     <div>
@@ -534,8 +529,7 @@
     @if (_activeTab == OptionsTab.Debug)
     {
         <div class="options-section">
-            <h2 class="options-heading">@T["Debugger"]</h2>
-            <p class="options-subtext">@T["What this browser reports about Orbit itself. Kept on this device."]</p>
+            <h2 class="options-heading">@T["Debugger"]<FieldHint>@T["What this browser reports about Orbit itself. Kept on this device."]</FieldHint></h2>
             <div class="options-card">
                 <div class="options-row options-row-stacked">
                     <div>
@@ -567,8 +561,7 @@
         @if (_exceptionDetailsAllowedByServer)
         {
             <div class="options-section">
-                <h2 class="options-heading">@T["Diagnostics"]</h2>
-                <p class="options-subtext">@T["Only shown in non-production environments."]</p>
+                <h2 class="options-heading">@T["Diagnostics"]<FieldHint>@T["Only shown in non-production environments."]</FieldHint></h2>
                 <div class="options-card">
                     <div class="options-row">
                         <div>
