@@ -12,7 +12,7 @@ flowchart TB
     subgraph azure["Azure — resource group Orbit, region polandcentral"]
         subgraph env["Container Apps environment: orbit-environment"]
             web["<b>orbit-web</b><br/>nginx, :80<br/>serves wwwroot, proxies /api/<br/><i>scales to zero when idle</i>"]
-            api["<b>orbit-api</b><br/>ASP.NET Core, :8080<br/><b>external ingress</b><br/><i>max-replicas 1</i>"]
+            api["<b>orbit-api</b><br/>ASP.NET Core, :8080<br/><b>external ingress</b><br/><i>max-replicas 1, or 3 with autoscaling on</i>"]
         end
         pg[("<b>PostgreSQL Flexible Server</b><br/>orbit-postgres-*")]
         acr["<b>orbitcontainerregistry</b><br/>images tagged by commit SHA"]
@@ -76,9 +76,11 @@ what lets the planned production environment run this same image with one variab
 `.internal` name: the public one sends the request out of the environment and back, and every browser
 caller then arrives as the egress NAT address.
 
-**`orbit-api` runs at `max-replicas 1` today.** Nothing in the code assumes that any more — live
-updates, the privacy choice cache and the rate limiter each count across instances — but the number has
-not been raised, and doing so is a cost decision rather than a technical one.
+**`orbit-api` runs at `max-replicas 1` unless autoscaling is on.** Nothing in the code assumes one
+replica any more — live updates, the privacy choice cache and the rate limiter each count across
+instances. Autoscaling is off by default and switched by hand from the Actions tab
+(`.github/workflows/autoscale.yml`): on, both apps may grow to three replicas under an HTTP concurrency
+rule; off, they are back to one. See [azure-setup.md, Scaling](../azure-setup.md#scaling).
 
 **`orbit-web` scales to zero when idle, and will stop.** A client holding a live-update connection open
 is not idle. Whoever raises replicas should expect that bill to change shape.
