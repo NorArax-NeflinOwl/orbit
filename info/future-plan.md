@@ -734,7 +734,11 @@ inventory lists, the contacts tabs, the chat menus - is built and needs no schem
   would take: a `ChecklistTextEditor` parameter that turns marker reading off, passed by
   `TitledDescription`, and honoured in `NoteSurfaceEdits.ReadTypedMarker`.
 
-- **The phone's dashboard does not draw tags yet.** Since 2026-09-11 notes and task lists carry tags with
+- ~~**The phone's dashboard does not draw tags yet.**~~ Fixed 2026-09-11: `DashboardRow.Tags` carries a
+  note's or list's tags in the account's colours (`DashboardViewModel` reads
+  `LocalTagColourRepository.ColoursAsync` once per build), drawn by `TagChipsView` before the priority on
+  the Notes and Tasks cards' rows, as Orbit.Web's dashboard draws `TagChips`; nothing for something sealed.
+  As noticed: since 2026-09-11 notes and task lists carry tags with
   an account-wide colour, drawn on the browser's `/notes` and `/tasks` cards and dashboard rows and on the
   phone's notes and task lists screens (`TagChipsView`, fed by `NoteListItem.Tags` / `TaskListRow.Tags`).
   The phone's dashboard builds its own rows (`DashboardViewModel`) and was left as it was; handing those rows

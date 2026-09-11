@@ -59,6 +59,13 @@ public sealed record DashboardRow(Guid LocalId, string Title, string Detail)
     public bool HasPriority => Priority.Length > 0;
 
     /// <summary>
+    /// The note's or list's tags, in the colours the account gave them - Orbit.Web draws TagChips on the
+    /// same two cards' rows. None on every other card, and none for something sealed: its tags are sealed
+    /// with the rest of it.
+    /// </summary>
+    public Screens.Tags.TagChips Tags { get; init; } = Screens.Tags.TagChips.None;
+
+    /// <summary>
     /// Whether this row carries the coloured dot Orbit.Web draws beside an event. True only on the
     /// calendar card: the other cards' rows have no dot there either.
     /// </summary>

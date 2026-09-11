@@ -435,7 +435,8 @@ colour, so any colour reads in either theme; a colour that is not "#rrggbb" is n
 like the phone's categories box - with the tags already in use as chips to tap and a palette of eight
 colours (plus "no colour") per tag; the note screen has it under the writing, a list's screen behind the
 same "Edit" as its name and description. The notes and task lists screens draw a row's tags with
-`TagChipsView`. Tags travel on the note or list (`LocalNote.Tags`, `LocalTaskList.Tags` - JSON columns,
+`TagChipsView`, and so do the dashboard's Notes and Tasks cards (`DashboardRow.Tags`, before the priority,
+as on the web's dashboard). Tags travel on the note or list (`LocalNote.Tags`, `LocalTaskList.Tags` - JSON columns,
 **nullable**: a row held since before tags reads NULL, "not known", and is pushed as null so a queued edit
 cannot empty tags written in a browser since), sealed with a private one. Colours live in `LocalTagColour`
 (local migration `NotesAndListsCarryTagsOnThePhone`): one set here is written here first and marked
