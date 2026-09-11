@@ -51,10 +51,10 @@ public sealed class ImportArchiveCommandHandler : IRequestHandler<ImportArchiveC
         }
 
         var noteCount = await ImportNotesAsync(archive, request.UserId, cancellationToken);
-        var createdTaskListIdsByTitle = await ImportTaskListsAsync(archive, request.UserId, cancellationToken);
+        var createdTaskLists = await ImportTaskListsAsync(archive, request.UserId, cancellationToken);
         var calendarEventCount = await ImportCalendarEventsAsync(archive, request.UserId, cancellationToken);
         var inventoryCount = await ImportInventoriesAsync(archive, request.UserId, cancellationToken);
-        var placeCount = await ImportPlacesAsync(archive, request.UserId, createdTaskListIdsByTitle, cancellationToken);
+        var placeCount = await ImportPlacesAsync(archive, request.UserId, createdTaskLists, cancellationToken);
 
         return new ImportArchiveResult(noteCount, archive.TaskLists.Count, calendarEventCount, inventoryCount, placeCount);
     }
@@ -75,15 +75,15 @@ public sealed class ImportArchiveCommandHandler : IRequestHandler<ImportArchiveC
 
     /// <summary>
     /// Two passes, because a task item can link to another list: the lists have to exist before anything
-    /// can point at them, and the archive carries links by title (see ArchivedTaskItem). A link whose
-    /// list didn't come along in the same file is dropped rather than guessed at.
+    /// can point at them, and the archive carries links by title or sealed half (see ArchivedTaskItem). A
+    /// link whose list didn't come along in the same file is dropped rather than guessed at.
     ///
-    /// Hands back the lists it made by title, which is how the places imported after it find theirs.
+    /// Hands back the lists it made, which is how the places imported after it find theirs.
     /// </summary>
-    private async Task<IReadOnlyDictionary<string, Guid>> ImportTaskListsAsync(
+    private async Task<CreatedTaskLists> ImportTaskListsAsync(
         OrbitArchive archive, Guid userId, CancellationToken cancellationToken)
     {
-        var createdIdsByTitle = new Dictionary<string, Guid>(StringComparer.Ordinal);
+        var createdTaskLists = new CreatedTaskLists();
         var created = new List<TaskList>();
 
         foreach (var archived in archive.TaskLists)
@@ -93,7 +93,7 @@ public sealed class ImportArchiveCommandHandler : IRequestHandler<ImportArchiveC
                 ParsePriority(archived.Priority));
             await _taskRepository.AddAsync(taskList, cancellationToken);
             created.Add(taskList);
-            createdIdsByTitle.TryAdd(archived.Title, taskList.Id);
+            createdTaskLists.Add(archived, taskList.Id);
         }
 
         for (var index = 0; index < created.Count; index++)
@@ -109,13 +109,13 @@ public sealed class ImportArchiveCommandHandler : IRequestHandler<ImportArchiveC
             var taskList = created[index];
             taskList.Update(
                 archived.Title,
-                archived.Items.Select(item => ToTaskItem(item, createdIdsByTitle)).ToList(),
+                archived.Items.Select(item => ToTaskItem(item, createdTaskLists)).ToList(),
                 archived.IsGroup, archived.IsPrivate, ToPayload(archived.EncryptedContent),
                 ParsePriority(archived.Priority));
             await _taskRepository.UpdateAsync(taskList, cancellationToken);
         }
 
-        return createdIdsByTitle;
+        return createdTaskLists;
     }
 
     private async Task<int> ImportCalendarEventsAsync(OrbitArchive archive, Guid userId, CancellationToken cancellationToken)
@@ -181,8 +181,7 @@ public sealed class ImportArchiveCommandHandler : IRequestHandler<ImportArchiveC
     /// Place refuses exactly that pairing, and the importer does not look for a way round it.
     /// </summary>
     private async Task<int> ImportPlacesAsync(
-        OrbitArchive archive, Guid userId, IReadOnlyDictionary<string, Guid> createdTaskListIdsByTitle,
-        CancellationToken cancellationToken)
+        OrbitArchive archive, Guid userId, CreatedTaskLists createdTaskLists, CancellationToken cancellationToken)
     {
         var imported = 0;
         foreach (var archived in archive.AllPlaces)
@@ -197,9 +196,7 @@ public sealed class ImportArchiveCommandHandler : IRequestHandler<ImportArchiveC
                 userId, archived.Name, archived.Description,
                 new EventLocation(archived.Where.Address, archived.Where.Latitude ?? 0, archived.Where.Longitude ?? 0),
                 archived.Colour, ParsePriority(archived.Priority),
-                [.. archived.TaskListTitles
-                    .Select(title => createdTaskListIdsByTitle.TryGetValue(title, out var taskListId) ? taskListId : (Guid?)null)
-                    .OfType<Guid>()],
+                createdTaskLists.IdsOf(archived.TaskListTitles, archived.SealedTaskLists),
                 archived.IsPrivate, sealedContent);
             await _placeRepository.AddAsync(place, cancellationToken);
             imported++;
@@ -208,14 +205,12 @@ public sealed class ImportArchiveCommandHandler : IRequestHandler<ImportArchiveC
         return imported;
     }
 
-    private static TaskItem ToTaskItem(ArchivedTaskItem item, IReadOnlyDictionary<string, Guid> createdIdsByTitle)
+    private static TaskItem ToTaskItem(ArchivedTaskItem item, CreatedTaskLists createdTaskLists)
         => TaskItem.Create(
             item.Description,
             item.DueDateUtc,
             item.IsCompleted,
-            [.. item.AllLinkedTaskListTitles
-                .Select(title => createdIdsByTitle.TryGetValue(title, out var linkedId) ? linkedId : (Guid?)null)
-                .OfType<Guid>()],
+            createdTaskLists.IdsOf(item.AllLinkedTaskListTitles, item.LinkedSealedTaskLists),
             new TaskItemReminders(
                 ParseChannel(item.OverdueNotificationChannel),
                 item.RemindDaily,
@@ -241,4 +236,37 @@ public sealed class ImportArchiveCommandHandler : IRequestHandler<ImportArchiveC
             || string.IsNullOrWhiteSpace(encryptedContent.Nonce)
                 ? null
                 : new EncryptedPayload(encryptedContent.Ciphertext, encryptedContent.Nonce);
+
+    /// <summary>
+    /// The lists this import made, found again the two ways a file names them: an open list by its title,
+    /// a private one by the nonce of its sealed half (see ArchivedTaskItem.LinkedSealedTaskLists). A
+    /// private list is never found by title - its title is empty, and an older file that wrote that empty
+    /// title for a link would otherwise land it on whichever private list came first.
+    /// </summary>
+    private sealed class CreatedTaskLists
+    {
+        private readonly Dictionary<string, Guid> _idsByTitle = new(StringComparer.Ordinal);
+        private readonly Dictionary<string, Guid> _idsBySealedHalf = new(StringComparer.Ordinal);
+
+        public void Add(ArchivedTaskList archived, Guid id)
+        {
+            if (archived.IsPrivate)
+            {
+                if (archived.EncryptedContent is { } sealedContent)
+                {
+                    _idsBySealedHalf.TryAdd(sealedContent.Nonce, id);
+                }
+            }
+            else if (archived.Title.Length > 0)
+            {
+                _idsByTitle.TryAdd(archived.Title, id);
+            }
+        }
+
+        public IReadOnlyList<Guid> IdsOf(IEnumerable<string> titles, IEnumerable<string>? sealedHalves)
+            => [.. titles.Select(title => _idsByTitle.TryGetValue(title, out var id) ? id : (Guid?)null)
+                .Concat((sealedHalves ?? []).Select(nonce => _idsBySealedHalf.TryGetValue(nonce, out var id) ? id : (Guid?)null))
+                .OfType<Guid>()
+                .Distinct()];
+    }
 }

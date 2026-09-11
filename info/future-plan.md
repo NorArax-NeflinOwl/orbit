@@ -704,7 +704,12 @@ inventory lists, the contacts tabs, the chat menus - is built and needs no schem
   (`SealedContentSerializerContext.Default.SealedPlace`) before `TransferClient.Write`. Import already
   sends places closed, so that half is done.
 
-- **An exported place loses its link to a private list.** A private task list's title is empty on the
+- ~~**An exported place loses its link to a private list.**~~ Fixed 2026-09-11, on the server alone: a
+  link to a private list travels as the nonce of that list's sealed half (`ArchivedPlace.SealedTaskLists`,
+  `ArchivedTaskItem.LinkedSealedTaskLists`), which the list carries in the same file, and import finds
+  it by that. Doing it this way also fixed a defect nobody had noticed. An entry linking to a private
+  list used to be written with the empty title, and import sent that link to whichever private list it
+  made first. A private list is no longer found by title at all. As noticed: A private task list's title is empty on the
   server, and the archive carries links by title, so `ExportArchiveQueryHandler` drops such a link rather
   than writing a title that would match whichever untitled list came first. A task entry linking to a
   private list has always had the same gap. What it would take: the browser opening the private lists'

@@ -133,6 +133,70 @@ public sealed class ArchiveRoundTripTests
         Assert.Empty(Assert.Single(weekend.Items).LinkedTaskListIds);
     }
 
+    /// <summary>
+    /// A private list's title is empty on the server, so the link goes by its sealed half - and lands on
+    /// that list, not on whichever private list the import happened to make first.
+    /// </summary>
+    [Fact]
+    public async Task A_link_to_a_private_list_comes_back_to_that_list()
+    {
+        var source = new ArchiveTestContext();
+        await source.AddPrivateTaskListAsync("Zm9yZ2V0", "bm9uY2UtYQ==");
+        var targetId = await source.AddPrivateTaskListAsync("c2VhbGVk", "bm9uY2UtYg==");
+        await source.AddLinkedTaskListAsync("Weekend", targetId);
+        var archive = await source.ExportAsync();
+
+        var destination = new ArchiveTestContext();
+        await destination.ImportAsync(archive);
+
+        var imported = await destination.OwnTaskListsAsync();
+        var target = imported.Single(taskList => taskList.EncryptedContent?.Ciphertext == "c2VhbGVk");
+        Assert.Equal([target.Id], Assert.Single(imported.Single(taskList => taskList.Title == "Weekend").Items).LinkedTaskListIds);
+    }
+
+    [Fact]
+    public async Task A_place_on_a_private_list_comes_back_on_it()
+    {
+        var source = new ArchiveTestContext();
+        await source.AddPrivateTaskListAsync("Zm9yZ2V0", "bm9uY2UtYQ==");
+        var targetId = await source.AddPrivateTaskListAsync("c2VhbGVk", "bm9uY2UtYg==");
+        await source.AddOpenPlaceAsync("The good bakery", targetId);
+        var archive = await source.ExportAsync();
+
+        Assert.Empty(Assert.Single(archive.AllPlaces).TaskListTitles);
+
+        var destination = new ArchiveTestContext();
+        await destination.ImportAsync(archive);
+
+        var target = (await destination.OwnTaskListsAsync()).Single(taskList => taskList.EncryptedContent?.Ciphertext == "c2VhbGVk");
+        Assert.Equal([target.Id], Assert.Single(await destination.OwnPlacesAsync()).TaskListIds);
+    }
+
+    /// <summary>
+    /// A file written before links to private lists travelled by their sealed half wrote the empty title
+    /// instead. That names no list, so it is dropped rather than landed on the first private one.
+    /// </summary>
+    [Fact]
+    public async Task An_older_files_empty_title_links_to_no_private_list()
+    {
+        var archive = new OrbitArchive(
+            OrbitArchive.CurrentVersion, DateTimeOffset.UtcNow, [],
+            [
+                new ArchivedTaskList("", [], false, IsPrivate: true, new ArchivedEncryptedContent("c2VhbGVk", "bm9uY2U="), "Normal"),
+                new ArchivedTaskList(
+                    "Weekend",
+                    [new ArchivedTaskItem("Follows another list", null, false, "", "None", false, "None", new TimeOnly(9, 0), [""])],
+                    false, IsPrivate: false, EncryptedContent: null, "Normal")
+            ],
+            [], []);
+
+        var destination = new ArchiveTestContext();
+        await destination.ImportAsync(archive);
+
+        var weekend = (await destination.OwnTaskListsAsync()).Single(taskList => taskList.Title == "Weekend");
+        Assert.Empty(Assert.Single(weekend.Items).LinkedTaskListIds);
+    }
+
     [Fact]
     public async Task A_private_note_travels_sealed()
     {
@@ -379,6 +443,14 @@ public sealed class ArchiveRoundTripTests
         public async Task<Guid> AddTaskListAsync(string title, params string[] descriptions)
         {
             var taskList = TaskList.Create(UserId, title, descriptions.Select(description => Item(description)).ToList());
+            await _taskRepository.AddAsync(taskList, CancellationToken.None);
+            return taskList.Id;
+        }
+
+        public async Task<Guid> AddPrivateTaskListAsync(string ciphertext, string nonce)
+        {
+            var taskList = TaskList.Create(
+                UserId, string.Empty, [], isPrivate: true, encryptedContent: new EncryptedPayload(ciphertext, nonce));
             await _taskRepository.AddAsync(taskList, CancellationToken.None);
             return taskList.Id;
         }

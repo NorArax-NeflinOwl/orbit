@@ -1364,7 +1364,9 @@ stays in the file beside the opened words.
   with nothing sealed is left out and not counted: the server cannot seal it, and storing it readable
   would publish what the file says is private.
 - **Lists travel by title**, as a task entry's links do, and are found again among the lists the same
-  import made. A link to a private list is dropped, because that list's title is empty on the server.
+  import made. A link to a private list travels as the nonce of that list's sealed half instead, because
+  its title is empty on the server; the list carries the same nonce in the file, so the link comes back
+  to it (`SealedTaskLists`, and `LinkedSealedTaskLists` on an entry).
 - **Older files still open.** `Places` is defaulted and last, so the archive's version stays 1: a file
   without it reads as an account that kept no places, and one with it imports into an older Orbit, which
   reads past the field.

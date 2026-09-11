@@ -90,7 +90,15 @@ public sealed record ArchivedTaskItem(
     /// same reason everything above it is: a file written before the cross existed says nothing here,
     /// and reads as an entry that was simply not done.
     /// </summary>
-    bool IsFailed = false)
+    bool IsFailed = false,
+    /// <summary>
+    /// The private lists it stands for, each by the nonce of its sealed half rather than by title: a
+    /// private list's title is empty outside the key, so a title would name whichever private list came
+    /// first. AES-GCM never repeats a nonce under one key, so it names that one sealing, and the list
+    /// carries it in the same file. Defaulted and last for the reason everything above is; an older
+    /// reader drops these links, as it drops any link it cannot resolve.
+    /// </summary>
+    IReadOnlyList<string>? LinkedSealedTaskLists = null)
 {
     /// <summary>The categories as something to read without a null check.</summary>
     public IReadOnlyList<string> AllCategories => Categories ?? [];
@@ -160,9 +168,15 @@ public sealed record ArchivedInventoryItem(
 /// way a private note is restored: the server can store a sealed half it is handed, but it cannot make
 /// one out of words.
 /// </param>
+/// <param name="SealedTaskLists">
+/// The private lists it belongs to, by the nonce of each one's sealed half - see
+/// <see cref="ArchivedTaskItem.LinkedSealedTaskLists"/>. Defaulted and last, so a file written before
+/// these links travelled still reads, as a place that belongs to no private list.
+/// </param>
 public sealed record ArchivedPlace(
     string Name, string Description, ArchivedEventLocation Where, string Colour, string Priority,
-    IReadOnlyList<string> TaskListTitles, bool IsPrivate, ArchivedEncryptedContent? EncryptedContent)
+    IReadOnlyList<string> TaskListTitles, bool IsPrivate, ArchivedEncryptedContent? EncryptedContent,
+    IReadOnlyList<string>? SealedTaskLists = null)
 {
     /// <summary>This place with its readable half emptied - what the server holds for a sealed one.</summary>
     public ArchivedPlace Closed()
