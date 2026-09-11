@@ -156,13 +156,31 @@ function onKeyDown(event, container, state) {
     }
 
     const answer = ask(container, state, command);
-    if (answer) {
+    // Undo and redo are this surface's own even with nothing left to undo: the browser's would reach
+    // into a history of a document the page has since rebuilt, and undo something nobody can see.
+    if (answer || command === 'undo' || command === 'redo') {
         event.preventDefault();
+    }
+    if (answer) {
         show(container, state, answer);
     }
 }
 
 function commandFor(event, state) {
+    // Ctrl+Z undoes; Ctrl+Y and Ctrl+Shift+Z redo (Cmd on a Mac). The letter is read from the key where
+    // the layout has Latin letters, and from the physical key where it does not, so the shortcut still
+    // works while typing in another alphabet.
+    if ((event.ctrlKey || event.metaKey) && !event.altKey) {
+        const key = event.key || '';
+        const letter = /^[a-z]$/i.test(key) ? key.toLowerCase() : event.code === 'KeyZ' ? 'z' : event.code === 'KeyY' ? 'y' : '';
+        if (letter === 'z') {
+            return event.shiftKey ? 'redo' : 'undo';
+        }
+        if (letter === 'y') {
+            return 'redo';
+        }
+    }
+
     switch (event.key) {
         case 'Enter':
             return 'enter';
@@ -189,6 +207,17 @@ function commandFor(event, state) {
 /// is not where the selection is.
 function onBeforeInput(event, container, state) {
     if (!isWritable(container)) {
+        return;
+    }
+
+    // Undo and redo that did not come from the keys - the browser's Edit menu, its context menu, a
+    // gesture - reach the same history Ctrl+Z does, for the same reason (see onKeyDown).
+    if (event.inputType === 'historyUndo' || event.inputType === 'historyRedo') {
+        event.preventDefault();
+        const answer = ask(container, state, event.inputType === 'historyUndo' ? 'undo' : 'redo');
+        if (answer) {
+            show(container, state, answer);
+        }
         return;
     }
 

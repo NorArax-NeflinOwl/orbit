@@ -49,6 +49,13 @@
     private IJSObjectReference? _module;
     private DotNetObjectReference<ChecklistTextEditor>? _dotNetRef;
 
+    /// <summary>
+    /// Undo and redo for this surface - see NoteSurfaceHistory for why the browser's own cannot be used.
+    /// Every edit is recorded here: the ones made in C# as they are made, and the browser's own typing
+    /// as it reports it (see AfterTyping).
+    /// </summary>
+    private readonly NoteSurfaceHistory _history = new(SurfaceState.CaretAt([SurfaceState.EmptyLine], new SurfacePoint(0, 0)));
+
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         if (!firstRender)
@@ -58,6 +65,7 @@
 
         _module = await JSRuntime.InvokeAsync<IJSObjectReference>("import", "./js/checklistTextEditor.js");
         _dotNetRef = DotNetObjectReference.Create(this);
+        _history.Reset(SurfaceState.CaretAt(Lines, new SurfacePoint(0, 0)).Normalized());
         var initialLinesJson = JsonSerializer.Serialize(Lines, JsonOptions);
         await _module.InvokeVoidAsync("initialize", _containerRef, _dotNetRef, initialLinesJson, new { takesTab = TakesTab });
     }
@@ -69,6 +77,9 @@
     /// one that knows whether a new value is something the reader just wrote or something set for them.
     /// Guessing that from the parameter is what quietly ate an empty line - see TitledDescription, which
     /// reports one line for a title with a blank description and is handed two back.
+    ///
+    /// Undo starts again from here: what was on the surface before is another note, or a value the
+    /// page has just replaced, and Ctrl+Z reaching back into it would be undoing somebody else's edit.
     /// </summary>
     public async Task SetLinesAsync(IReadOnlyList<NoteContentLineDto> lines)
     {
@@ -78,13 +89,16 @@
         }
 
         Lines = lines;
+        var placed = SurfaceState.CaretAt(lines, new SurfacePoint(int.MaxValue, int.MaxValue)).Normalized();
+        _history.Reset(placed);
         await _module.InvokeVoidAsync("setLines", _containerRef, JsonSerializer.Serialize(lines, JsonOptions));
     }
 
     /// <summary>
     /// Makes one edit that changes the shape of the lines - see NoteSurfaceEdits - on the surface as the
     /// browser reports it, and answers what the surface should hold afterwards, caret included. Null
-    /// means the edit is the browser's own to make, and it is let through.
+    /// means the edit is the browser's own to make, and it is let through. Undo and redo come here too,
+    /// and answer the state they put back.
     ///
     /// Synchronous on purpose, and called with invokeMethod rather than invokeMethodAsync: a key has to
     /// be stopped or let through before its handler returns, which is only possible when the answer is
@@ -99,21 +113,12 @@
             return null;
         }
 
-        var before = request.State();
         var after = request.Command switch
         {
-            "enter" => NoteSurfaceEdits.Enter(before),
-            "backspace" => NoteSurfaceEdits.Backspace(before),
-            "delete" => NoteSurfaceEdits.Delete(before),
-            "cut" => NoteSurfaceEdits.DeleteSelection(before),
-            "replace" => NoteSurfaceEdits.Replace(before, request.Text ?? string.Empty, readsMarkers: false),
-            "paste" => NoteSurfaceEdits.Replace(before, request.Text ?? string.Empty, readsMarkers: true),
-            "indent" when TakesTab => NoteSurfaceEdits.Indent(before),
-            "outdent" when TakesTab => NoteSurfaceEdits.Outdent(before),
-            "tick" => NoteSurfaceEdits.Cycle(before, request.Line ?? -1),
-            "checklistItem" => NoteSurfaceEdits.StartChecklistItem(before),
-            "typed" => AfterTyping(request, before),
-            _ => null
+            "undo" => _history.Undo(),
+            "redo" => _history.Redo(),
+            "typed" => AfterTyping(request),
+            _ => Apply(request)
         };
 
         if (after is null)
@@ -125,31 +130,94 @@
         return JsonSerializer.Serialize(after, JsonOptions);
     }
 
-    /// <summary>
-    /// After the browser has put typing in: the only thing to decide is whether it made a "[]" at the
-    /// head of a line. Not while an input method is still composing a character - the line is not what
-    /// the reader means yet.
-    /// </summary>
-    private SurfaceState? AfterTyping(SurfaceRequest request, SurfaceState typed)
+    /// <summary>An edit C# makes, recorded as a step of the kind it is - see SurfaceEditKind.</summary>
+    private SurfaceState? Apply(SurfaceRequest request)
     {
+        var before = request.State();
+        (SurfaceState? After, SurfaceEditKind Kind) edit = request.Command switch
+        {
+            "enter" => (NoteSurfaceEdits.Enter(before), SurfaceEditKind.Reshaping),
+            "backspace" => (NoteSurfaceEdits.Backspace(before), SurfaceEditKind.Reshaping),
+            "delete" => (NoteSurfaceEdits.Delete(before), SurfaceEditKind.Reshaping),
+            "cut" => (NoteSurfaceEdits.DeleteSelection(before), SurfaceEditKind.Reshaping),
+            "replace" => (NoteSurfaceEdits.Replace(before, request.Text ?? string.Empty, readsMarkers: false), SurfaceEditKind.Reshaping),
+            "paste" => (NoteSurfaceEdits.Replace(before, request.Text ?? string.Empty, readsMarkers: true), SurfaceEditKind.Pasting),
+            "indent" when TakesTab => (NoteSurfaceEdits.Indent(before), SurfaceEditKind.Reshaping),
+            "outdent" when TakesTab => (NoteSurfaceEdits.Outdent(before), SurfaceEditKind.Reshaping),
+            "tick" => (NoteSurfaceEdits.Cycle(before, request.Line ?? -1), SurfaceEditKind.Ticking),
+            "checklistItem" => (NoteSurfaceEdits.StartChecklistItem(before), SurfaceEditKind.Reshaping),
+            _ => (null, SurfaceEditKind.Reshaping)
+        };
+
+        if (edit.After is not null)
+        {
+            _history.Record(before, edit.After, edit.Kind, request.At);
+        }
+
+        return edit.After;
+    }
+
+    /// <summary>
+    /// After the browser has put typing in - or taken some out - inside a line. It is recorded, joining
+    /// the typing before it where NoteSurfaceHistory says it does; then the only thing to decide is
+    /// whether it made a "[]" at the head of a line. That turn into a box is a step of its own, so the
+    /// first Ctrl+Z after it gives back the brackets rather than the whole word. Not while an input
+    /// method is still composing a character - the line is not what the reader means yet.
+    /// </summary>
+    private SurfaceState? AfterTyping(SurfaceRequest request)
+    {
+        var typed = request.State();
+        var kind = request.InputType?.StartsWith("delete", StringComparison.Ordinal) == true
+            ? SurfaceEditKind.Erasing
+            : SurfaceEditKind.Typing;
+        _history.Record(SurfaceBeforeTyping(request), typed, kind, request.At, request.Text);
         Lines = typed.Lines;
-        return request.Composing || request.InputType != "insertText" ? null : NoteSurfaceEdits.ReadTypedMarker(typed);
+
+        if (request.Composing || request.InputType != "insertText")
+        {
+            return null;
+        }
+
+        var marked = NoteSurfaceEdits.ReadTypedMarker(typed);
+        if (marked is null)
+        {
+            return null;
+        }
+
+        _history.Record(typed, marked, SurfaceEditKind.Reshaping, request.At);
+        return marked;
+    }
+
+    /// <summary>
+    /// The surface before the browser typed: the lines this history last knew - the browser has already
+    /// changed its own - and the selection it had when the key went down, which is where undoing the
+    /// typing puts the caret back.
+    /// </summary>
+    private SurfaceState SurfaceBeforeTyping(SurfaceRequest request)
+    {
+        var current = _history.Current;
+        var focus = request.BeforeFocus ?? request.BeforeAnchor ?? current.Focus;
+        return new SurfaceState(current.Lines, request.BeforeAnchor ?? focus, focus).Normalized();
     }
 
     /// <summary>
     /// What checklistTextEditor.js sends with every edit: the command, the lines and selection as they
-    /// are on the surface (see its readSurface), and whatever that command needs - the text typed or
-    /// pasted, the line whose box was pressed.
+    /// are on the surface (see its readSurface), when it happened (the browser's clock, which only goes
+    /// forward - see NoteSurfaceHistory), and whatever that command needs: the text typed or pasted, the
+    /// selection before typing, the line whose box was pressed.
     /// </summary>
     private sealed record SurfaceRequest(
         string Command,
         IReadOnlyList<NoteContentLineDto>? Lines,
         SurfacePoint? Anchor,
         SurfacePoint? Focus,
+        SurfacePoint? BeforeAnchor,
+        SurfacePoint? BeforeFocus,
         string? Text,
         string? InputType,
         bool Composing,
-        int? Line)
+        int? Line,
+        double At)
     {
         /// <summary>
         /// The surface this edit is made on. A selection outside the surface - the toolbar button has the

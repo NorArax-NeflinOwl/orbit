@@ -766,6 +766,16 @@ disagree in.
 - **The writing keeps room under its last line** for the tools and three lines more, and the caret's
   line scrolls clear of them (`.note-editor-page`'s padding and `scroll-padding`): the text used to run
   on underneath the tools.
+- **Undo and redo are the surface's own** (`NoteSurfaceHistory`, kept by `ChecklistTextEditor`):
+  Ctrl+Z undoes, Ctrl+Y and Ctrl+Shift+Z redo (Cmd on a Mac), and the browser's own Undo/Redo menu
+  entries (`historyUndo`/`historyRedo`) reach the same history. The browser's history is lost here - the
+  page rebuilds the line elements under it - so Ctrl+Z used to do nothing, or undo something invisible.
+  The history keeps whole states, caret included: undo puts the caret back where the step began, redo
+  where it ended. Typed characters on one line join one step until a pause of a second, a space that ends
+  a word, a move to another line, or an edit of another kind; deleting inside a line is its own kind of
+  step. Every change of shape - Enter, a line joined or taken away, a tick, a paste, an indent, a typed
+  `[]` becoming a box (undone back to the brackets first) - is a step of its own. Opening another note
+  or a value set by the page (`SetLinesAsync`) starts the history again. At most 500 steps are kept.
 - **Tab indents, Shift+Tab takes a level away** (`NoteSurfaceEdits.Indent`/`Outdent`; the note sets
   `ChecklistTextEditor.TakesTab` - the same surface as a form field elsewhere, `TitledDescription`, still
   lets Tab move on). **One level is a tab character**, stored in the line's text: no separate field, so

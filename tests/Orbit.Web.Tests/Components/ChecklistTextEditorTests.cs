@@ -106,6 +106,66 @@ public sealed class ChecklistTextEditorTests : OrbitTestContext
         Assert.Equal([Text("\tabc")], page.Instance.Lines);
     }
 
+    private static SurfacePointAnswer FocusOf(string answer)
+    {
+        using var document = JsonDocument.Parse(answer);
+        var focus = document.RootElement.GetProperty("focus");
+        return new SurfacePointAnswer(focus.GetProperty("line").GetInt32(), focus.GetProperty("offset").GetInt32());
+    }
+
+    private sealed record SurfacePointAnswer(int Line, int Offset);
+
+    [Fact]
+    public void Undo_takes_the_last_step_back_with_the_caret_where_it_began_and_redo_puts_it_again()
+    {
+        var lines = new[] { Text("Shopping"), Box("milk") };
+        var cut = Surface(lines);
+        Send(cut, new { command = "enter", lines, anchor = Caret(1, 4), focus = Caret(1, 4), at = 0 });
+
+        var undone = Send(cut, new { command = "undo" });
+
+        Assert.Equal(lines, cut.Instance.Lines);
+        Assert.Equal(new SurfacePointAnswer(1, 4), FocusOf(undone!));
+
+        var redone = Send(cut, new { command = "redo" });
+
+        Assert.Equal([Text("Shopping"), Box("milk"), Box("")], cut.Instance.Lines);
+        Assert.Equal(new SurfacePointAnswer(2, 0), FocusOf(redone!));
+    }
+
+    [Fact]
+    public void Typing_the_browser_reports_is_undone_a_word_at_a_time()
+    {
+        var cut = Surface(Text(""));
+        var typed = string.Empty;
+        foreach (var (character, at) in "ab c".Select((character, index) => (character, index * 100.0)))
+        {
+            var before = typed.Length;
+            typed += character;
+            Send(cut, new
+            {
+                command = "typed", lines = new[] { Text(typed) }, anchor = Caret(0, typed.Length), focus = Caret(0, typed.Length),
+                beforeAnchor = Caret(0, before), beforeFocus = Caret(0, before), inputType = "insertText", text = character.ToString(), at
+            });
+        }
+
+        Send(cut, new { command = "undo" });
+        Assert.Equal([Text("ab ")], cut.Instance.Lines);
+
+        var toTheStart = Send(cut, new { command = "undo" });
+        Assert.Equal([Text("")], cut.Instance.Lines);
+        Assert.Equal(new SurfacePointAnswer(0, 0), FocusOf(toTheStart!));
+    }
+
+    [Fact]
+    public void Undo_with_nothing_to_undo_answers_nothing()
+    {
+        var cut = Surface(Text("abc"));
+
+        Assert.Null(Send(cut, new { command = "undo" }));
+        Assert.Null(Send(cut, new { command = "redo" }));
+    }
+
     [Fact]
     public void A_press_from_the_toolbar_with_no_caret_on_the_surface_starts_a_box_under_the_last_line()
     {
