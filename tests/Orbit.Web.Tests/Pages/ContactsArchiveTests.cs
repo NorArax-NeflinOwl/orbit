@@ -120,22 +120,98 @@ public sealed class ContactsArchiveTests : OrbitTestContext
         Assert.Contains(_requestedPaths, path => path.EndsWith("/messages", StringComparison.Ordinal));
     }
 
+    /// <summary>
+    /// Leaving is asked about first, as it is on the roster - it used to go on the click, which for a
+    /// group's only admin handed the group to whoever the server chose. Only the confirmation tells the
+    /// server.
+    /// </summary>
     [Fact]
-    public void Leaving_a_group_tells_the_server()
+    public void Leaving_a_group_asks_first_and_then_tells_the_server()
     {
         Register(contacts: [], groups: [Group("Wyjazd", isArchived: true)]);
 
         var cut = RenderComponent<Web.Pages.Contacts>();
         OpenTheArchiveTab(cut);
-        cut.Find(".person-row .overflow-menu-trigger").Click();
-        cut.FindAll(".avatar-dropdown-item")
-            .Single(item => item.TextContent.Contains("Leave and delete chat history")).Click();
+        ChooseToLeave(cut);
+
+        Assert.DoesNotContain(_requestedPaths, path => path.EndsWith("/membership", StringComparison.Ordinal));
+        cut.Find(".group-leave-confirmation .btn-danger").Click();
 
         Assert.Contains(_requestedPaths, path => path.EndsWith("/membership", StringComparison.Ordinal));
     }
 
+    /// <summary>
+    /// The same question the roster asks, not a lesser copy: the only admin leaving people behind is asked
+    /// who takes over, with the longest-standing member already chosen - listed second here, so a picker
+    /// that defaulted to the first row would fail - and the choice is what is sent.
+    /// </summary>
+    [Fact]
+    public void The_only_admin_leaving_from_the_archive_is_asked_who_takes_over()
+    {
+        var ownUserId = Guid.NewGuid();
+        var newerUserId = Guid.NewGuid();
+        var longestStandingUserId = Guid.NewGuid();
+        SignIn(ownUserId);
+        Register(contacts: [], groups: [Group("Wyjazd", isArchived: true, ownRole: "Admin", members:
+        [
+            (ownUserId, "Admin", "2026-07-01T10:00:00+00:00"),
+            (newerUserId, "Member", "2026-07-20T10:00:00+00:00"),
+            (longestStandingUserId, "Member", "2026-07-05T10:00:00+00:00")
+        ])]);
+
+        var cut = RenderComponent<Web.Pages.Contacts>();
+        OpenTheArchiveTab(cut);
+        ChooseToLeave(cut);
+
+        Assert.Equal(longestStandingUserId.ToString(), cut.Find("#successorInput").GetAttribute("value"));
+        cut.Find(".group-leave-confirmation .btn-danger").Click();
+
+        Assert.Contains(_requestedQueries, query => query == $"?successorUserId={longestStandingUserId}");
+    }
+
+    [Fact]
+    public void Cancelling_the_question_leaves_nobody()
+    {
+        Register(contacts: [], groups: [Group("Wyjazd", isArchived: true)]);
+
+        var cut = RenderComponent<Web.Pages.Contacts>();
+        OpenTheArchiveTab(cut);
+        ChooseToLeave(cut);
+        cut.Find(".group-leave-confirmation .btn-secondary").Click();
+
+        Assert.Empty(cut.FindAll(".group-leave-confirmation"));
+        Assert.DoesNotContain(_requestedPaths, path => path.EndsWith("/membership", StringComparison.Ordinal));
+    }
+
     private void OpenTheArchiveTab(IRenderedComponent<Web.Pages.Contacts> cut)
         => cut.FindAll(".contacts-tab").Single(tab => tab.TextContent.Contains("Archive")).Click();
+
+    private static void ChooseToLeave(IRenderedComponent<Web.Pages.Contacts> cut)
+    {
+        cut.Find(".person-row .overflow-menu-trigger").Click();
+        cut.FindAll(".avatar-dropdown-item")
+            .Single(item => item.TextContent.Contains("Leave and delete chat history")).Click();
+    }
+
+    /// <summary>The query string of every request, beside the paths - which is where a successor travels.</summary>
+    private readonly List<string> _requestedQueries = [];
+
+    /// <summary>
+    /// Registered over the base's signed-out provider, so the leave question knows which member is the
+    /// reader. The later registration is the one that resolves.
+    /// </summary>
+    private void SignIn(Guid userId)
+    {
+        var tokenStore = new TokenStore(new StubJSRuntime());
+        tokenStore.SetTokenAsync(Components.GroupLeaveConfirmationTests.SignedInAs(userId)).GetAwaiter().GetResult();
+        var refreshHttpClient = new HttpClient(
+            new StubHttpMessageHandler(_ => new HttpResponseMessage(HttpStatusCode.Unauthorized)))
+        {
+            BaseAddress = new Uri("https://example.test/")
+        };
+        Services.AddSingleton(new OrbitAuthenticationStateProvider(
+            tokenStore, new TokenRefreshService(tokenStore, refreshHttpClient)));
+    }
 
     private static string Contact(string displayName, bool isArchived)
         => $$"""
@@ -146,12 +222,19 @@ public sealed class ContactsArchiveTests : OrbitTestContext
          "isArchived":{{(isArchived ? "true" : "false")}}}
         """;
 
-    private static string Group(string name, bool isArchived)
-        => $$"""
-        {"id":"{{Guid.NewGuid()}}","name":"{{name}}","members":[],
+    private static string Group(
+        string name, bool isArchived, string ownRole = "Member",
+        (Guid UserId, string Role, string JoinedAtUtc)[]? members = null)
+    {
+        var membersJson = string.Join(",", (members ?? []).Select(member =>
+            $$"""{"userId":"{{member.UserId}}","role":"{{member.Role}}","joinedAtUtc":"{{member.JoinedAtUtc}}"}"""));
+
+        return $$"""
+        {"id":"{{Guid.NewGuid()}}","name":"{{name}}","ownRole":"{{ownRole}}","members":[{{membersJson}}],
          "lastMessageAtUtc":"2026-08-01T10:00:00+00:00","unreadCount":0,
          "isArchived":{{(isArchived ? "true" : "false")}}}
         """;
+    }
 
     /// <summary>
     /// Answers the contact list, the group list, and the archive call itself, recording every path so a
@@ -163,6 +246,7 @@ public sealed class ContactsArchiveTests : OrbitTestContext
         {
             var path = request.RequestUri!.AbsolutePath;
             _requestedPaths.Add(path);
+            _requestedQueries.Add(request.RequestUri.Query);
             var body = path.Contains("/groups", StringComparison.Ordinal)
                 ? $"[{string.Join(",", groups ?? [])}]"
                 : $"[{string.Join(",", contacts)}]";
