@@ -213,6 +213,9 @@ public sealed class OrbitDbContext : DbContext
             entity.Property(item => item.Priority).IsRequired().HasMaxLength(20)
                 .HasDefaultValue(nameof(Orbit.Core.Abstractions.ItemPriority.Normal));
             entity.Property(item => item.Colour).IsRequired().HasMaxLength(StoredTextLimits.Color).HasDefaultValue(string.Empty);
+            // Asked of a whole account whenever a group's source goes and an heir is looked for - see
+            // Orbit.Core.Tasks.TaskItemReferences.
+            entity.HasIndex(item => item.ReferencesTaskItemId);
 
             // The lists this entry stands for. Owned by the entry and deleted with it, like the entries
             // themselves are owned by their list.

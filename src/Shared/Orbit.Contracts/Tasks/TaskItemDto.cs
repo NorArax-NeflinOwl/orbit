@@ -86,7 +86,14 @@ public sealed record TaskItemDto(
     /// Orbit.Core.Tasks.TaskItem.Alternatives. Null or empty for an ordinary entry. While it holds any,
     /// <see cref="IsCompleted"/> is theirs rather than the entry's own: true exactly when one is done.
     /// </summary>
-    IReadOnlyList<TaskItemAlternativeDto>? Alternatives = null)
+    IReadOnlyList<TaskItemAlternativeDto>? Alternatives = null,
+    /// <summary>
+    /// The entry this one is the same thing as - see Orbit.Core.Tasks.TaskItem.ReferencesTaskItemId.
+    /// Always the group's source. Null for an entry of its own.
+    /// </summary>
+    Guid? ReferencesTaskItemId = null,
+    /// <summary>How much of its product this entry needs - see Orbit.Core.Tasks.TaskItem.RequiredQuantity.</summary>
+    decimal? RequiredQuantity = null)
 {
     /// <summary>The ways as something to read without a null check - see <see cref="Alternatives"/>.</summary>
     public IReadOnlyList<TaskItemAlternativeDto> AllAlternatives => Alternatives ?? [];

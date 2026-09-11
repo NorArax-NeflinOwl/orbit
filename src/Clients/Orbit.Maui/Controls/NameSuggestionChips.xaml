@@ -28,5 +28,20 @@
                 </DataTemplate>
             </BindableLayout.ItemTemplate>
         </FlexLayout>
+
+        <!-- A name that is the name of something - an entry on another list, a product on a shelf - once
+             per thing, saying where it is. Tapped, the entry becomes that thing rather than a new one with
+             the same words; see NameSuggestions.Picks. -->
+        <FlexLayout Wrap="Wrap" Direction="Row" BindableLayout.ItemsSource="{Binding Picks}">
+            <BindableLayout.ItemTemplate>
+                <DataTemplate x:DataType="suggestions:NameSuggestionOffer">
+                    <Button Text="{Binding Label}" FontSize="12" Padding="12,4" Margin="0,0,8,4"
+                            Style="{StaticResource SecondaryButton}"
+                            SemanticProperties.Description="{controls:Translate 'Use this one'}"
+                            Command="{Binding Source={RelativeSource AncestorType={x:Type controls:NameSuggestionChips}}, Path=BindingContext.ChooseSourceCommand, x:DataType=controls:NameSuggestionChips}"
+                            CommandParameter="{Binding .}" />
+                </DataTemplate>
+            </BindableLayout.ItemTemplate>
+        </FlexLayout>
     </VerticalStackLayout>
 </ContentView>

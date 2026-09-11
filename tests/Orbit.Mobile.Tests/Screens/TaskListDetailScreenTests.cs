@@ -1923,6 +1923,33 @@ public sealed class TaskListDetailScreenTests
         Assert.True(screen.Items.Single().IsCompleted);
     }
 
+    /// <summary>
+    /// A name picked for what it names makes the entry the same thing: the form says so, and the save
+    /// carries the pointer - the server fills in what its group shares. See TaskItemEditor.TakeOn.
+    /// </summary>
+    [Fact]
+    public async Task A_name_picked_for_what_it_names_makes_the_entry_the_same_thing()
+    {
+        using var context = new ScreenContext();
+        var screen = await ABurgerWithASauceAsync(context);
+        var sourceId = Guid.NewGuid();
+        screen.EditItemCommand.Execute(screen.Items.Single());
+        var editor = screen.BeingEdited!;
+
+        editor.TakeOn(new Orbit.Mobile.Screens.Suggestions.NameSuggestionOffer(
+            "Sauce",
+            new Orbit.Contracts.Suggestions.NameSuggestionSourceDto("TaskItem", sourceId, sourceId, Guid.NewGuid(), "Pasta", "Checklist"),
+            "Sauce · in Pasta"));
+
+        Assert.True(editor.IsAReference);
+        Assert.Contains("Pasta", editor.ReferenceNote);
+        await screen.SaveItemCommand.ExecuteAsync(null);
+        await context.SynchroniseAsync();
+
+        Assert.Equal(
+            sourceId, Assert.Single(context.Server.TaskLists.Single(list => list.Title == "Burger").Items).ReferencesTaskItemId);
+    }
+
     /// <summary>A list called Burger with one entry, Sauce, that has reached the server.</summary>
     private static async Task<TaskListDetailViewModel> ABurgerWithASauceAsync(ScreenContext context)
     {

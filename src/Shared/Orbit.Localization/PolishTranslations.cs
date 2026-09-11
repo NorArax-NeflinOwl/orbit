@@ -208,6 +208,21 @@ public static class PolishTranslations
         ["Completed - done when any one of its ways is"] = "Zrobione - gdy zrobiony jest dowolny ze sposobów",
         ["Done as soon as any one of these is:"] = "Zrobione, gdy zrobione jest dowolne z:",
         ["Done as soon as any one of these is: {0}."] = "Zrobione, gdy zrobione jest dowolne z: {0}.",
+        // A name picked for what it is the name of - see TaskItem.ReferencesTaskItemId and the Preferences tab.
+        ["Filled in from a name you already use"] = "Uzupełnianie z nazwy, której już używasz",
+        ["Picking a name you already use for a task entry fills in everything that thing says, and makes the entry the same thing rather than a new one. Choose which kinds of entry this is done for on this device."] =
+            "Wybranie nazwy, której już używasz, dla pozycji zadania uzupełnia wszystko, co mówi ta rzecz, i robi z pozycji tę samą rzecz zamiast nowej. Wybierz, dla jakich rodzajów pozycji ma się to dziać na tym urządzeniu.",
+        ["The same thing as \"{0}\" in {1}: changing what it is changes it there too. Its date, tick and amount stay its own."] =
+            "To samo co „{0}” w: {1}. Zmiana tego, czym jest, zmienia to także tam. Termin, odhaczenie i ilość zostają jej własne.",
+        ["The same thing as entries on other lists: changing what it is changes it there too. Its date, tick and amount stay its own."] =
+            "To samo co pozycje na innych listach. Zmiana tego, czym jest, zmienia to także tam. Termin, odhaczenie i ilość zostają jej własne.",
+        ["Make it separate"] = "Rozdziel",
+        ["Use this one"] = "Użyj tego",
+        ["This entry needs"] = "Ta pozycja potrzebuje",
+        ["How much of it this entry asks for. The shelf's minimum never drops below what all your lists ask for together."] =
+            "Ile tego potrzebuje ta pozycja. Minimum w magazynie nigdy nie spada poniżej tego, czego potrzebują razem wszystkie Twoje listy.",
+        ["Your lists ask for {0} of this, so it is never kept below that."] =
+            "Twoje listy potrzebują tego {0}, więc stan nigdy nie jest utrzymywany poniżej tej wartości.",
         ["Open {0}"] = "Otwórz: {0}",
         ["done: {0}"] = "zrobione: {0}",
         ["any one of: {0}"] = "dowolne z: {0}",

@@ -568,6 +568,29 @@ public sealed class TaskEditorItemFormTests : OrbitTestContext
         Assert.True(entry.GetProperty("isCompleted").GetBoolean());
     }
 
+    /// <summary>
+    /// A name picked for what it is the name of makes the entry the same thing - the save says so, and the
+    /// '!' beside the row tells the reader. See TaskItem.ReferencesTaskItemId.
+    /// </summary>
+    [Fact]
+    public async Task A_name_picked_for_what_it_names_makes_the_entry_the_same_thing()
+    {
+        RegisterApiClients(AnItem());
+        var cut = Render();
+        var sourceId = Guid.NewGuid();
+        var suggestions = cut.FindComponents<Web.Components.NameSuggestions>()
+            .First(field => field.Instance.Kind == Orbit.Core.Suggestions.NameSuggestionKind.TaskItemDescription);
+
+        await cut.InvokeAsync(() => suggestions.Instance.OnSourceChosen.InvokeAsync(new NameSuggestionPick(
+            "Sauce",
+            new Orbit.Contracts.Suggestions.NameSuggestionSourceDto(
+                "TaskItem", sourceId, ItemId, TaskListId, "Errands", "Checklist"))));
+
+        Assert.Contains("The same thing as \"Sauce\" in Errands", cut.Markup, StringComparison.Ordinal);
+        ClickButtonSaying(cut, "Save");
+        Assert.Contains($"\"referencesTaskItemId\":\"{sourceId}\"", _lastSavedJson, StringComparison.Ordinal);
+    }
+
     /// <summary>One or the other: while an entry has ways it is not offered lists to stand for.</summary>
     [Fact]
     public void An_entry_with_ways_is_not_offered_lists_to_stand_for()

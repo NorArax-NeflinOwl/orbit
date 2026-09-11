@@ -38,6 +38,7 @@
 @inject TimeProvider TimeProvider
 @inject ChosenPlace ChosenPlace
 @inject TaskEntryPlaces EntryPlaces
+@inject DevicePreferences DevicePreferences
 
 <PageTitle>@(IsNewTaskList ? T["New task list"] : T["Edit task list"])</PageTitle>
 
@@ -136,7 +137,20 @@ else
                            placeholder="@(T["Item description"])" value="@item.Description"
                            @oninput="args => item.Description = args.Value?.ToString() ?? string.Empty" />
                     <NameSuggestions Kind="NameSuggestionKind.TaskItemDescription" Value="@item.Description"
-                                     OnChosen="chosen => item.Description = chosen" />
+                                     OnChosen="chosen => item.Description = chosen"
+                                     OnSourceChosen="pick => TakeOnWhatItNamesAsync(item, pick)"
+                                     SourceKinds="DevicePreferences.KindsFilledFromSuggestions" />
+                    @* Said beside the entry rather than left to be noticed: this entry is not a new thing
+                       with the same words but the same thing as another - see TaskItem.ReferencesTaskItemId. *@
+                    @if (item.IsAReference)
+                    {
+                        <FieldHint Warns="true">
+                            @(item.ReferenceContainer is { } container
+                                ? T.Format("The same thing as \"{0}\" in {1}: changing what it is changes it there too. Its date, tick and amount stay its own.", item.ReferenceName ?? item.Description, container)
+                                : T["The same thing as entries on other lists: changing what it is changes it there too. Its date, tick and amount stay its own."])
+                            <button type="button" class="btn-secondary" @onclick="item.MakeItsOwn">@T["Make it separate"]</button>
+                        </FieldHint>
+                    }
                     <span class="editor-item-aside">
                         @* What the row reports rather than what it sets: when this is due, if anything,
                            and what kind of entry it is. Everything editable now waits behind the toggle,
@@ -387,6 +401,15 @@ else
                                                  ShowsName="@(product.Product.Id is not null)" ShowsAmounts="true"
                                                  ShowsCategories="false"
                                                  KnownProductTypes="_knownProductTypes" />
+                                @* The shelf's minimum is the shelf's; how much this entry needs is the
+                                   entry's own - see TaskItem.RequiredQuantity - and what every list
+                                   asks for together is the floor the shelf's minimum never drops below. *@
+                                @if (product.Product.Id is not null)
+                                {
+                                    <label>@T["This entry needs"]<FieldHint>@T["How much of it this entry asks for. The shelf's minimum never drops below what all your lists ask for together."]</FieldHint>
+                                        <InputNumber TValue="decimal?" @bind-Value="item.RequiredQuantity" step="0.01" />
+                                    </label>
+                                }
                                 <span class="field-break"></span>
                                 <span class="field-with-note">
                                     <span class="editor-item-tags-label">@T["Inventory"]</span>
@@ -1051,6 +1074,81 @@ else
         => item.LinkedTaskListIds.Remove(taskListId);
 
     /// <summary>
+    /// A name picked for what it is the name of: the entry takes on everything that thing says and becomes
+    /// the same thing, rather than a new one with the same words - see TaskItem.ReferencesTaskItemId. A
+    /// product on a shelf makes the entry that product's errand, the link a shelf already knows; an entry
+    /// on a list makes this one a member of that entry's group. Its own date, tick and amount stay its own.
+    /// </summary>
+    private async Task TakeOnWhatItNamesAsync(TaskItemFormModel item, NameSuggestionPick pick)
+    {
+        item.Description = pick.Name;
+        item.ReferenceName = pick.Name;
+        item.ReferenceContainer = pick.Source.ContainerName;
+        if (pick.Source.Kind == nameof(NameSuggestionSourceKind.InventoryItem))
+        {
+            item.Kind = nameof(TaskItemKind.Inventory);
+            item.LinkedInventoryItemId = pick.Source.Id;
+            await ShowTheShelfItemAsync(item, pick.Source);
+            return;
+        }
+
+        item.ReferencesTaskItemId = pick.Source.Id;
+        try
+        {
+            if ((await TasksApiClient.GetTaskListByIdAsync(pick.Source.ContainerId))?.Items
+                    .FirstOrDefault(entry => entry.Id == pick.Source.ItemId) is { } found)
+            {
+                TakeOnWhatItSays(item, found);
+            }
+        }
+        catch (Exception exception) when (exception is HttpRequestException or JsonException)
+        {
+            // Still the same thing: the server passes the details on when this is saved.
+            Logger.LogWarning(exception, "Couldn't read the entry a picked name was the name of ({TaskItemId})", pick.Source.ItemId);
+        }
+    }
+
+    /// <summary>The details a reference group shares, copied off one of its members - see TaskItem.TakeSharedDetailsFrom.</summary>
+    private static void TakeOnWhatItSays(TaskItemFormModel item, TaskItemDto found)
+    {
+        item.Kind = found.Kind;
+        item.Location = found.Location;
+        item.Categories = [.. found.AllCategories];
+        item.Notes = found.AllNotes;
+        item.Priority = found.Priority ?? nameof(ItemPriority.Normal);
+        item.Colour = found.Colour ?? string.Empty;
+        item.LinkedInventoryItemId = found.LinkedInventoryItemId;
+        if (found.Product is { } product)
+        {
+            // Everything about the product but how much of it this entry needs, which is its own.
+            var needs = item.Product.MinimumQuantity;
+            item.Product = InventoryItemFormModel.FromTaskItemProduct(product);
+            item.Product.MinimumQuantity = needs;
+        }
+    }
+
+    /// <summary>
+    /// The shelf item a picked name is the name of, read into the form the way a linked errand's is - see
+    /// ShelfPicker.ChooseProduct - so what it says is on screen at once rather than after the save.
+    /// </summary>
+    private async Task ShowTheShelfItemAsync(TaskItemFormModel item, Orbit.Contracts.Suggestions.NameSuggestionSourceDto source)
+    {
+        try
+        {
+            var shelf = await InventoryApiClient.GetInventoryItemsAsync(source.ContainerId) ?? [];
+            _shelves.RememberShelf(source.ContainerId, shelf);
+            if (shelf.FirstOrDefault(product => product.Id == source.Id) is { } onTheShelf)
+            {
+                _shelves.ChooseProduct(item, source.ContainerId, onTheShelf, source.ContainerName);
+            }
+        }
+        catch (Exception exception) when (exception is HttpRequestException or JsonException)
+        {
+            Logger.LogWarning(exception, "Couldn't read the shelf a picked name was on ({InventoryId})", source.ContainerId);
+        }
+    }
+
+    /// <summary>
     /// The lists that could still be one of this entry's ways: the lists it could stand for, less the
     /// ones already a way - the same universe, since a way that is a list is checked the way a link is.
     /// </summary>
@@ -1383,6 +1481,8 @@ else
                                     LinkedTaskListId = way.LinkedTaskListId,
                                     IsDone = way.IsDone
                                 })],
+                                ReferencesTaskItemId = item.ReferencesTaskItemId,
+                                RequiredQuantity = item.RequiredQuantity,
                                 Categories = [.. CategoriesOf(item)],
                                 Notes = item.AllNotes,
                                 // Both may be absent from an entry stored before they existed, and both
@@ -2392,8 +2492,20 @@ else
                 // TaskItemDto.Priority.
                 item.Priority,
                 item.Colour,
-                AlternativesAsSaved(item)))
+                AlternativesAsSaved(item),
+                item.ReferencesTaskItemId,
+                RequiredQuantityAsSaved(item)))
             .ToList();
+
+    /// <summary>
+    /// How much of its product the entry needs, as a save sends it: what its own product form says while
+    /// no shelf item answers it, and the box beside the shelf's fields once one does - see
+    /// TaskItem.RequiredQuantity, which the server keeps as one answer.
+    /// </summary>
+    private static decimal? RequiredQuantityAsSaved(TaskItemFormModel item)
+        => item.Kind == nameof(TaskItemKind.Inventory) && item.LinkedInventoryItemId is null
+            ? item.Product.MinimumQuantity
+            : item.RequiredQuantity;
 
     /// <summary>
     /// The ways an entry is saved with. Only a checklist entry that stands for no list offers them (see
@@ -2980,6 +3092,31 @@ else
 
         /// <summary>Whether this entry is done by one of its ways rather than by a tick of its own.</summary>
         public bool HasAlternatives => Alternatives.Count > 0;
+
+        /// <summary>
+        /// The entry this one is the same thing as - see TaskItem.ReferencesTaskItemId. The empty id once
+        /// somebody asked for it to be separate, which is how the wire says "none" (null keeps what is stored).
+        /// </summary>
+        public Guid? ReferencesTaskItemId { get; set; }
+
+        /// <summary>What it was made the same thing as in this sitting, named in the '!' beside it. Null for one read back.</summary>
+        public string? ReferenceName { get; set; }
+
+        /// <summary>The list or inventory that thing is on, named in the same '!'.</summary>
+        public string? ReferenceContainer { get; set; }
+
+        public bool IsAReference => ReferencesTaskItemId is { } referenced && referenced != Guid.Empty;
+
+        /// <summary>How much of its product this entry needs - see TaskItem.RequiredQuantity.</summary>
+        public decimal? RequiredQuantity { get; set; }
+
+        /// <summary>"Make it separate": the entry stops being the same thing as the others and keeps what it says.</summary>
+        public void MakeItsOwn()
+        {
+            ReferencesTaskItemId = Guid.Empty;
+            ReferenceName = null;
+            ReferenceContainer = null;
+        }
 
         /// <summary>
         /// What this entry is about, as many as apply - see TaskItem.Categories. Held for every kind:

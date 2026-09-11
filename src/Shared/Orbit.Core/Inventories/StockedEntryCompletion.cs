@@ -39,7 +39,7 @@ public sealed class StockedEntryCompletion
     /// asks this directly rather than reading them back.
     /// </summary>
     public static bool Covers(InventoryItem shelfItem)
-        => shelfItem.MinimumQuantity is not null && !shelfItem.BelongsOnTheRestockList;
+        => shelfItem.EffectiveMinimum is not null && !shelfItem.BelongsOnTheRestockList;
 
     /// <summary>
     /// Crosses off every entry in <paramref name="items"/> whose shelf row covers it, and answers

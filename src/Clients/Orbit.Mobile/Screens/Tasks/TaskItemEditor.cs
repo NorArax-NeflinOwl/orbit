@@ -304,6 +304,62 @@ public sealed partial class TaskItemEditor : ObservableObject
         => WaysAsSaved() is { Count: > 0 } ways ? ways.Any(way => way.IsDone) : _item.IsCompleted;
 
     /// <summary>
+    /// What this entry is the same thing as, when a name picked in this sitting made it so - see
+    /// TaskItem.ReferencesTaskItemId. The empty id is "Make it separate". Null leaves what it already was.
+    /// </summary>
+    private Guid? _pickedReference;
+
+    /// <summary>The shelf item a picked name was the name of, which makes this entry that product's errand.</summary>
+    private Guid? _pickedShelfItemId;
+
+    /// <summary>
+    /// Said under the entry while it is the same thing as another - the phone's '!', beside the web's.
+    /// Empty for an entry of its own.
+    /// </summary>
+    [ObservableProperty]
+    private string _referenceNote = string.Empty;
+
+    public bool HasReferenceNote => ReferenceNote.Length > 0;
+
+    public bool IsAReference => (_pickedReference ?? _item.ReferencesTaskItemId) is { } referenced && referenced != Guid.Empty;
+
+    /// <summary>
+    /// A name picked for what it is the name of: the entry takes the name and becomes the same thing. Only
+    /// the words and the pointer are set here - the server fills in everything the group shares when this
+    /// is saved (see Orbit.Core.Tasks.TaskItemReferences), and the list comes back carrying it. A product
+    /// on a shelf makes the entry that product's errand, the link a shelf already knows.
+    /// </summary>
+    public void TakeOn(NameSuggestionOffer offer)
+    {
+        Description = offer.Name;
+        if (offer.Source.Kind == nameof(NameSuggestionSourceKind.InventoryItem))
+        {
+            Kind = nameof(TaskItemKind.Inventory);
+            _pickedShelfItemId = offer.Source.Id;
+        }
+        else
+        {
+            _pickedReference = offer.Source.Id;
+        }
+
+        ReferenceNote = _translations.Format(
+            "The same thing as \"{0}\" in {1}: changing what it is changes it there too. Its date, tick and amount stay its own.",
+            offer.Name, offer.Source.ContainerName);
+        OnPropertyChanged(nameof(IsAReference));
+    }
+
+    /// <summary>"Make it separate": the entry stops being the same thing as the others and keeps what it says.</summary>
+    [RelayCommand]
+    private void MakeItsOwn()
+    {
+        _pickedReference = Guid.Empty;
+        ReferenceNote = string.Empty;
+        OnPropertyChanged(nameof(IsAReference));
+    }
+
+    partial void OnReferenceNoteChanged(string value) => OnPropertyChanged(nameof(HasReferenceNote));
+
+    /// <summary>
     /// The other entries of this same list, which this one can be made to wait for - "hang the door"
     /// after "fit the hinges". Handed in by the screen, the way the linkable lists are: which entries
     /// are on the list is the screen's knowledge, not this form's.
@@ -475,6 +531,8 @@ public sealed partial class TaskItemEditor : ObservableObject
             suggestions.Offers(NameSuggestionKind.TaskItemDescription);
             suggestions.StartsAt(editor.Description);
             suggestions.Takes = description => editor.Description = description;
+            // A name picked for what it names - see TakeOn, and the Preferences tab for which kinds.
+            suggestions.TakesSource = editor.TakeOn;
         }
 
         return editor;
@@ -557,6 +615,14 @@ public sealed partial class TaskItemEditor : ObservableObject
                 way.IsDone));
         }
 
+        // An entry read back as the same thing as another says so, though not which - that is on the
+        // server's side of the pointer, and the words say enough to recognise it.
+        if (item.ReferencesTaskItemId is not null)
+        {
+            editor.ReferenceNote = translations[
+                "The same thing as entries on other lists: changing what it is changes it there too. Its date, tick and amount stay its own."];
+        }
+
         // And what it already waits for, in the order the entry names them. A step naming an entry that
         // is no longer on the list is dropped rather than drawn as a blank - which is what the server
         // does with it on the next save anyway. See TaskListSteps.
@@ -620,6 +686,13 @@ public sealed partial class TaskItemEditor : ObservableObject
             // The ways as this form now says them, and the tick they give the entry - see WaysAsSaved.
             Alternatives = WaysAsSaved(),
             IsCompleted = IsCompletedAsSaved(),
+            // What it is the same thing as, when a name picked here said so - see TakeOn - and otherwise
+            // what it already was.
+            ReferencesTaskItemId = _pickedReference ?? _item.ReferencesTaskItemId,
+            LinkedInventoryItemId = _pickedShelfItemId ?? _item.LinkedInventoryItemId,
+            // Left to the product while one is sent - the server takes the entry's minimum off it, one
+            // answer rather than two - and otherwise as the entry already had it.
+            RequiredQuantity = IsAskingForSomethingNoShelfHasYet || IsDescribingSomethingNew ? null : _item.RequiredQuantity,
             Description = Description.Trim(),
             // Always a string, never null, now that there is a box: an empty one means "cleared", which
             // is what emptying it has to mean - null would leave whatever the server holds.

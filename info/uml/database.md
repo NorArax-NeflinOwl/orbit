@@ -199,6 +199,9 @@ erDiagram
         uuid OP_TI_LINKEDCALENDAREVENTID
         uuid OP_TI_LINKEDINVENTORYITEMID
         bool OP_TI_REMINDDAILY
+        timestamptz OP_TI_CREATEDATUTC "kept by id across saves; decides a reference group's heir"
+        uuid OP_TI_REFERENCESTASKITEMID "the group's source entry, on any list; no FK"
+        numeric OP_TI_REQUIREDQUANTITY "the entry's own minimum - the one detail a group does not share"
     }
     OP_TASKS_ALTERNATIVES {
         uuid OP_TA_TASKITEMID PK
@@ -218,6 +221,7 @@ erDiagram
         text OP_II_NAME
         numeric OP_II_QUANTITY
         numeric OP_II_MINIMUMQUANTITY
+        numeric OP_II_USAGE "what the lists ask for, recounted by ShelfUsage; the minimum is never read below it"
         text OP_II_UNIT
         date OP_II_EXPIRYDATE
         bool OP_II_ISCHECKEDREGULARLY

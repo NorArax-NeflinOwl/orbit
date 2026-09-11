@@ -65,6 +65,19 @@ public sealed class TaskItemEntity
     /// </summary>
     public List<TaskItemAlternativeEntity> Alternatives { get; set; } = [];
 
+    /// <summary>When this entry was first stored - see Orbit.Core.Tasks.TaskItem.CreatedAtUtc. Null for rows written before it was kept.</summary>
+    public DateTimeOffset? CreatedAtUtc { get; set; }
+
+    /// <summary>
+    /// The entry this one is the same thing as - see Orbit.Core.Tasks.TaskItem.ReferencesTaskItemId. No
+    /// foreign key: the source may be on another list, and when it goes, TaskItemReferences hands its
+    /// role on before the row does.
+    /// </summary>
+    public Guid? ReferencesTaskItemId { get; set; }
+
+    /// <summary>How much of its product this entry needs - see Orbit.Core.Tasks.TaskItem.RequiredQuantity.</summary>
+    public decimal? RequiredQuantity { get; set; }
+
     /// <summary>What this entry is filed under - see Orbit.Core.Tasks.TaskItem.Categories. Empty for one nobody has filed.</summary>
     public List<TaskItemCategoryEntity> Categories { get; set; } = [];
 

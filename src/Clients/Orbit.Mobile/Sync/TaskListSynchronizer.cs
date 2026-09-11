@@ -332,5 +332,9 @@ public sealed class TaskListSynchronizer
             item.Colour,
             // The ways it is done by, as the local copy holds them - which this phone now writes as well
             // as reads (see TaskItemEditor.Ways). Always a list, for the reason the steps above are one.
-            item.AllAlternatives)).ToList();
+            item.AllAlternatives,
+            // What it is the same thing as, and how much it needs, as the local copy holds them - which
+            // this phone now writes when a name is picked for what it names (see TaskItemEditor.TakeOn).
+            item.ReferencesTaskItemId,
+            item.RequiredQuantity)).ToList();
 }

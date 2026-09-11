@@ -105,6 +105,9 @@ classDiagram
         +IReadOnlyList~TaskItemAlternative~ Alternatives
         +IReadOnlyList~Guid~ WaitsForTaskItemIds
         +IReadOnlyList~string~ Categories
+        +Guid? ReferencesTaskItemId
+        +decimal? RequiredQuantity
+        +DateTimeOffset? CreatedAtUtc
     }
     class TaskItemAlternative {
         +string Description
@@ -141,6 +144,8 @@ classDiagram
         +string Name
         +decimal Quantity
         +decimal? MinimumQuantity
+        +decimal Usage
+        +decimal? EffectiveMinimum
         +InventoryUnit Unit
         +DateTimeOffset? ExpiryDate
         +bool IsCheckedRegularly
@@ -180,6 +185,7 @@ classDiagram
     TaskItem "0..*" --> "0..*" TaskList : links to
     TaskItem "1" *-- "0..*" TaskItemAlternative : done any one way
     TaskItemAlternative "0..*" --> "0..1" TaskList : is
+    TaskItem "0..*" --> "0..1" TaskItem : references its group's source
     TaskList "0..1" --> "0..1" Inventory : measured against
     CalendarEvent "1" *-- "1" CalendarEventDetails
     CalendarEventDetails "1" *-- "0..1" EventRecurrence

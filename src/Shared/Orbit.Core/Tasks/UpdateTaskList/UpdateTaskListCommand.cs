@@ -58,5 +58,11 @@ public sealed record UpdateTaskListCommand(
     /// phone builds already installed save lists without knowing ways exist, and such a save must not
     /// wipe the ways written on the web. An entry that sends an empty list is clearing them.
     /// </summary>
-    IReadOnlySet<Guid>? EntriesKeepingTheirAlternatives = null)
+    IReadOnlySet<Guid>? EntriesKeepingTheirAlternatives = null,
+    /// <summary>
+    /// The entries that said nothing about what they are the same thing as, nor how much of it they
+    /// need - see TaskItem.ReferencesTaskItemId and TaskItem.RequiredQuantity. The seventh field to follow
+    /// this rule, for the phone builds already installed.
+    /// </summary>
+    IReadOnlySet<Guid>? EntriesKeepingTheirReference = null)
     : IRequest<EditOutcome>;

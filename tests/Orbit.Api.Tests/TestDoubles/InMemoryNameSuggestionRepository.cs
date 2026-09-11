@@ -44,6 +44,16 @@ internal sealed class InMemoryNameSuggestionRepository : INameSuggestionReposito
         return Task.FromResult(found);
     }
 
+    private readonly List<NameSuggestionSource> _sources = [];
+
+    /// <summary>Something a name is the name of - see NameSuggestion.Sources.</summary>
+    public void AddSource(NameSuggestionSource source) => _sources.Add(source);
+
+    public Task<IReadOnlyList<NameSuggestionSource>> FindSourcesAsync(
+        Guid userId, IReadOnlyList<string> names, CancellationToken cancellationToken)
+        => Task.FromResult<IReadOnlyList<NameSuggestionSource>>(
+            [.. _sources.Where(source => names.Contains(source.Name, StringComparer.CurrentCultureIgnoreCase))]);
+
     private static double Similarity(string name, string typed)
     {
         var left = name.Trim().ToLowerInvariant();

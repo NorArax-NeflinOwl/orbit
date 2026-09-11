@@ -102,7 +102,8 @@ public static class TaskEndpoints
                     EntriesSayingNothingAboutTheirSteps(request.Items),
                     EntriesSayingNothingAboutTheirLook(request.Items),
                     request.Completion is null ? null : RequestEnum.Parse<TaskListCompletion>(request.Completion, "completion"),
-                    EntriesKeepingTheirAlternatives: EntriesSayingNothingAboutTheirAlternatives(request.Items)),
+                    EntriesKeepingTheirAlternatives: EntriesSayingNothingAboutTheirAlternatives(request.Items),
+                    EntriesKeepingTheirReference: EntriesSayingNothingAboutTheirReference(request.Items)),
                 cancellationToken);
             return ToApiResult(outcome);
         });
@@ -397,6 +398,21 @@ public static class TaskEndpoints
             .ToHashSet();
 
     /// <summary>
+    /// The entries that said nothing about what they are the same thing as, nor how much they need - the
+    /// seventh rule of its kind. A client knows about both or neither, so both have to be silent. See
+    /// UpdateTaskListCommand.EntriesKeepingTheirReference.
+    /// </summary>
+    private static IReadOnlySet<Guid> EntriesSayingNothingAboutTheirReference(IReadOnlyList<TaskItemRequest> items)
+        => items
+            .Where(item => item is { ReferencesTaskItemId: null, RequiredQuantity: null, Id: not null })
+            .Select(item => item.Id!.Value)
+            .ToHashSet();
+
+    /// <summary>What an entry says it is the same thing as. The empty id is "none" on the wire - see TaskItemRequest.</summary>
+    private static Guid? ToDomainReference(Guid? referencesTaskItemId)
+        => referencesTaskItemId is { } id && id != Guid.Empty ? id : null;
+
+    /// <summary>
     /// The ways an entry was sent with, as the domain holds them. A way that is a list is never taken on
     /// a client's word - see TaskItemAlternative - and a way's words are held to an entry's own limit
     /// here as well as in TaskItem.Create, because an entry that already has an id is rebuilt past it.
@@ -473,7 +489,8 @@ public static class TaskEndpoints
             return TaskItem.Create(
                 item.Description, item.DueDateUtc, item.IsCompleted, item.AllLinkedTaskListIds,
                 reminders, subject, item.AllCategories, product, item.Notes, item.IsFailed,
-                item.WaitsForTaskItemIds, priority, item.Colour, alternatives);
+                item.WaitsForTaskItemIds, priority, item.Colour, alternatives,
+                ToDomainReference(item.ReferencesTaskItemId), item.RequiredQuantity);
         }
 
         // Same override Create applies: a linked entry's completion follows the list it links to, so a
@@ -484,7 +501,8 @@ public static class TaskEndpoints
             item.AllLinkedTaskListIds.Count == 0 && item.IsCompleted, item.AllLinkedTaskListIds,
             reminders, subject, item.AllCategories, product, item.Notes,
             item.AllLinkedTaskListIds.Count == 0 && item.IsFailed,
-            item.WaitsForTaskItemIds, priority, item.Colour, alternatives);
+            item.WaitsForTaskItemIds, priority, item.Colour, alternatives,
+            referencesTaskItemId: ToDomainReference(item.ReferencesTaskItemId), requiredQuantity: item.RequiredQuantity);
     }
 
 
@@ -538,7 +556,9 @@ public static class TaskEndpoints
                     item.Priority.ToString(),
                     item.Colour,
                     [.. item.Alternatives.Select(way => new TaskItemAlternativeDto(
-                        way.Description, way.LinkedTaskListId, way.IsDone))]))
+                        way.Description, way.LinkedTaskListId, way.IsDone))],
+                    item.ReferencesTaskItemId,
+                    item.RequiredQuantity))
                 .ToList(),
             taskList.IsCompleted,
             taskList.IsGroup,

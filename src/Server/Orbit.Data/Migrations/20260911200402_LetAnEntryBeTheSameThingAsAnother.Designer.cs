@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using Orbit.Data;
@@ -11,9 +12,11 @@ using Orbit.Data;
 namespace Orbit.Data.Migrations
 {
     [DbContext(typeof(OrbitDbContext))]
-    partial class OrbitDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260911200402_LetAnEntryBeTheSameThingAsAnother")]
+    partial class LetAnEntryBeTheSameThingAsAnother
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -775,10 +778,6 @@ namespace Orbit.Data.Migrations
                     b.Property<DateTimeOffset>("UpdatedAtUtc")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("OP_II_UPDATEDATUTC");
-
-                    b.Property<decimal>("Usage")
-                        .HasColumnType("numeric")
-                        .HasColumnName("OP_II_USAGE");
 
                     b.HasKey("Id");
 

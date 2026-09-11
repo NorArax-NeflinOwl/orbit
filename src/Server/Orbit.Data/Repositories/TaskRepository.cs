@@ -234,7 +234,10 @@ public sealed class TaskRepository : ITaskRepository
             Enum.TryParse<ItemPriority>(entity.Priority, out var priority) ? priority : ItemPriority.Normal,
             entity.Colour,
             [.. entity.Alternatives.OrderBy(way => way.Position)
-                .Select(way => new TaskItemAlternative(way.Description, way.LinkedTaskListId, way.IsDone))]);
+                .Select(way => new TaskItemAlternative(way.Description, way.LinkedTaskListId, way.IsDone))],
+            entity.CreatedAtUtc,
+            entity.ReferencesTaskItemId,
+            entity.RequiredQuantity);
 
     /// <summary>
     /// What the entry asks for, when it asks for anything - see TaskItemEntity.ProductType for why the
@@ -292,6 +295,9 @@ public sealed class TaskRepository : ITaskRepository
             DueDateUtc = item.DueDateUtc,
             IsCompleted = item.IsCompleted,
             IsFailed = item.IsFailed,
+            CreatedAtUtc = item.CreatedAtUtc,
+            ReferencesTaskItemId = item.ReferencesTaskItemId,
+            RequiredQuantity = item.RequiredQuantity,
             LinkedTaskLists = [.. item.LinkedTaskListIds.Select((linkedId, linkPosition) =>
                 new TaskItemTaskListLinkEntity
                 {

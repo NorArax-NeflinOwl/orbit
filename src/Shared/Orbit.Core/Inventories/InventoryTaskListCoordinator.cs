@@ -222,7 +222,7 @@ public sealed class InventoryTaskListCoordinator
         // it came from without parsing a product name back out of its own description - see
         // TaskItemKind.Inventory and RestockReconciliation.
         var restockItem = TaskItem.Create(
-            RestockTaskNaming.EntryFor(item.Name, item.MinimumQuantity, item.Unit), dueDateUtc: null, isCompleted: false,
+            RestockTaskNaming.EntryFor(item.Name, item.EffectiveMinimum, item.Unit), dueDateUtc: null, isCompleted: false,
             subject: new TaskItemSubject(TaskItemKind.Inventory, linkedInventoryItemId: item.Id));
         taskList.Update(
             taskList.Title, [.. taskList.Items, restockItem], taskList.IsGroup, taskList.IsPrivate,

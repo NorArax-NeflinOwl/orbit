@@ -390,6 +390,8 @@ public static class OrbitCoreServiceCollectionExtensions
         services.AddScoped<StockedEntryCompletion>();
         services.AddScoped<RestockListRefresh>();
         services.AddScoped<ProductEntryPlacement>();
+        // What the task lists ask of each shelf item, recounted as lists are saved - see ShelfUsage.
+        services.AddScoped<ShelfUsage>();
 
         // How an inventory's restock list is built and when it comes round, plus the manual rebuild.
         services.AddScoped<IRequestHandler<GetRestockListSettingsQuery, RestockListSettings?>, GetRestockListSettingsQueryHandler>();

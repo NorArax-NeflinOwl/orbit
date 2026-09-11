@@ -270,7 +270,7 @@ public static class InventoryEndpoints
             item.MinimumQuantity,
             item.Unit.ToString(), item.ExpiryDate, item.ExpiryNotificationChannel.ToString(), item.IsBelowMinimum,
             item.PendingRestockTaskItemId is not null, item.CreatedAtUtc, item.UpdatedAtUtc,
-            item.IsCheckedRegularly, item.Categories);
+            item.IsCheckedRegularly, item.Categories, item.Usage);
 
     private static IResult ToApiResult(EditOutcome outcome)
         => outcome.Kind switch

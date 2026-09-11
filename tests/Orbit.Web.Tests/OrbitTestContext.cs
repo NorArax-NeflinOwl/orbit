@@ -30,6 +30,9 @@ public abstract class OrbitTestContext : TestContext
         // The machine's own clock, because most tests build their data from the real "now". A test about
         // a page whose answer changes with the hour registers a FakeTimeProvider over this one.
         Services.AddSingleton(TimeProvider.System);
+        // What this browser keeps about itself - the task editor asks which kinds of entry a picked name
+        // fills in. Nothing stored, so every kind: a fresh browser. A test about a setting registers its own.
+        Services.AddSingleton(new DevicePreferences(new StubJSRuntime()));
         // The places a task list's Location entries keep, which every task editor save now asks about.
         // Nobody keeps any here and nothing is found for any address, so a save makes none - a test that
         // is about those places registers its own over this.

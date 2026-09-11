@@ -176,6 +176,16 @@
                 <Entry Placeholder="{controls:Translate 'Checklist item'}" Text="{Binding Description}" />
                 <!-- Errands this account has already written, offered as this one is typed. -->
                 <controls:NameSuggestionChips BindingContext="{Binding Suggestions}" />
+                <!-- The phone's '!': this entry is the same thing as another rather than a new one with the
+                     same words - see TaskItemEditor.TakeOn. What its group shares arrives with the next
+                     sync, once the server has filled it in. -->
+                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8" IsVisible="{Binding HasReferenceNote}">
+                    <Label Grid.Column="0" Text="{Binding ReferenceNote}" FontSize="12" LineBreakMode="WordWrap"
+                           TextColor="{DynamicResource Accent}" VerticalOptions="Center" />
+                    <Button Grid.Column="1" Text="{controls:Translate 'Make it separate'}" FontSize="12" Padding="12,4"
+                            Style="{StaticResource SecondaryButton}" IsVisible="{Binding IsAReference}"
+                            Command="{Binding MakeItsOwnCommand}" />
+                </Grid>
 
                 <!-- What the entry is about, as many as apply, on one line - the same box the browser
                      offers and the same rule behind it, see CategoryText. Kept for every kind: an

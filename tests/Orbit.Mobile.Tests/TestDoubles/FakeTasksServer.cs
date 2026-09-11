@@ -509,7 +509,13 @@ internal sealed class FakeTasksServer : HttpMessageHandler
                 ?? (item.Id is { } waiting && storedById.TryGetValue(waiting, out var asStored)
                     ? asStored.AllWaitsForTaskItemIds
                     : []),
-            Alternatives: WaysOf(item, storedById))).ToList());
+            Alternatives: WaysOf(item, storedById),
+            // Null keeps what is stored, the empty id says "none" - the real endpoint's rule for both.
+            ReferencesTaskItemId: item.ReferencesTaskItemId is { } referenced
+                ? referenced == Guid.Empty ? null : referenced
+                : item.Id is { } holder && storedById.TryGetValue(holder, out var held) ? held.ReferencesTaskItemId : null,
+            RequiredQuantity: item.RequiredQuantity
+                ?? (item.Id is { } needer && storedById.TryGetValue(needer, out var needs) ? needs.RequiredQuantity : null))).ToList());
     }
 
     /// <summary>

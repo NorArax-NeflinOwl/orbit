@@ -610,6 +610,51 @@ alternative needs no list made for it, which is what "Stands for these lists" wo
 - **Reminders.** An entry whose ways include a list gets no daily or overdue reminder, the same as a
   linked entry, because its stored tick cannot know that list is finished.
 
+**A name picked from the suggestions makes the entry the same thing, not a new one** (2026-09-11,
+`TaskItem.ReferencesTaskItemId`, `TaskItemReferences`, `NameSuggestion.Sources`). The name is typed first
+and the type chosen second, so a name the reader already uses says what it is the name of. An entry on
+another list or a product on a shelf is offered once per thing, with where it is ("Sauce · in Burger").
+Picking one fills in everything that thing says, and it creates only a reference to it. The row says so
+with a '!' and a bubble, which has **Make it separate**. It works for every kind of entry, and with no
+storage at all.
+
+- **What a reference group shares.** Kind, place, categories, notes, priority, colour, and the product
+  it asks for or the shelf item it stands for. Each entry keeps its own date, tick, ways, reminders,
+  appointment, and **how much it needs** (`TaskItem.RequiredQuantity`). A recipe may need two of what
+  another needs five of.
+- **How the group stays in step.** Every member stores the shared details itself, so reading, syncing
+  and drawing a list are unchanged. A save of any member passes them on to the rest of its group, on
+  every list. One exception: a member that has only just joined takes on what the group says. A phone
+  that picked the name knows only its words until the list comes back, and must not empty the group.
+- **The pointer.** It always names the group's **source**, never a member that points further on, and
+  one naming nothing is an entry of its own again. When the source is deleted, the member **created
+  first** takes its place (`TaskItem.CreatedAtUtc`, kept by id across saves) and the rest point at it.
+- **Shelf items.** Picking a shelf item makes the entry that product's errand, through the link a shelf
+  already knew (`LinkedInventoryItemId`).
+- **What is left out.** Private lists take no part, because the server holds none of their entries.
+  Notes and events are still offered as words only.
+- **Old phones.** A request that says nothing about the reference or the amount keeps what is stored
+  (`EntriesKeepingTheirReference`), so phone builds already installed do not cut entries loose.
+
+**Preferences** is a new tab in Options, and on the phone's account screen. Its first setting,
+**Filled in from a name you already use**, has one switch per kind of entry. It says which kinds a
+picked name fills in. Every kind is on until somebody switches one off. A kind switched off takes the
+name's words and nothing more. The setting is kept per device (`DevicePreferences.KindsFilledFromSuggestions`,
+`EntryFilling`).
+
+**A shelf item's minimum is never lower than what the lists ask for** (`InventoryItem.Usage`,
+`ShelfUsage`, `OP_II_USAGE`). Usage is the sum of every entry's own amount on every list that stands
+for the item, one for an entry that says nothing. Every occurrence counts, ticked or not, as the user
+asked. It is a stored count, recounted from scratch for the items a list's save, creation or deletion
+may have moved. The minimum someone typed stays as typed. The level the shelf is kept at is the higher
+of that and Usage (`InventoryItem.EffectiveMinimum`), which is what every restock reads. The inventory
+editor shows the count beside **Min**, as a warning while the typed minimum is below it. Usage is not
+shown as a number of its own anywhere else.
+
+**The phone** offers the same picks under the entry's name as chips. After a pick it shows the '!' note
+and **Make it separate**. It sets only the words and the pointer; the group's details arrive with the
+next sync, once the server has filled them in. The web fills them in on screen at once.
+
 **An entry's own box has three answers too** (`OP_TI_ISFAILED`, `Orbit.Core.Tasks.TaskItem.IsFailed`,
 2026-09-09): nothing, **done**, and **given up on** - one press moves to the next, and the third press
 clears it (`Orbit.Core.Abstractions.TickState`, which both clients cycle through so a box means the same

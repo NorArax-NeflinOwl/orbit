@@ -10,6 +10,13 @@ public interface IInventoryItemRepository
 
     Task<InventoryItem?> GetByIdAsync(Guid inventoryId, Guid id, CancellationToken cancellationToken);
 
+    /// <summary>
+    /// The items with these ids, whichever inventories they are on - for ShelfUsage, which starts from
+    /// what task entries stand for and so knows the items but not their inventories. The one lookup here
+    /// that is not scoped by inventory; its caller reaches the ids only through the owner's own entries.
+    /// </summary>
+    Task<IReadOnlyList<InventoryItem>> GetByIdsAsync(IReadOnlyCollection<Guid> ids, CancellationToken cancellationToken);
+
     Task AddAsync(InventoryItem item, CancellationToken cancellationToken);
 
     Task UpdateAsync(InventoryItem item, CancellationToken cancellationToken);

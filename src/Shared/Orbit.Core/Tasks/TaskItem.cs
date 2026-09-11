@@ -109,6 +109,32 @@ public sealed class TaskItem
             .Concat(Alternatives.Where(way => way.IsAList).Select(way => way.LinkedTaskListId!.Value))
             .Distinct();
 
+    /// <summary>
+    /// When this entry was first stored - what decides which member of a reference group takes over when
+    /// the entry the others point at is deleted (see <see cref="TaskItemReferences"/>). Kept by id across
+    /// every save, since a save replaces the rows wholesale. Null for an entry stored before it was
+    /// recorded, which then counts as the newest.
+    /// </summary>
+    public DateTimeOffset? CreatedAtUtc { get; private set; }
+
+    /// <summary>
+    /// The entry this one is the same thing as, when it is one - picked from the name suggestions, so
+    /// "Sauce" on the burger list and "Sauce" on the pasta list are one object rather than two. The entry
+    /// pointed at is the group's source. Every member keeps the shared details itself, and a save of any
+    /// member passes them on to the rest - see <see cref="TaskItemReferences"/>. Always the source, never a
+    /// member that points further on. Null for an entry of its own.
+    /// </summary>
+    public Guid? ReferencesTaskItemId { get; private set; }
+
+    /// <summary>
+    /// How much of its product this entry needs - its own minimum, and the one product detail a reference
+    /// group does not share: two recipes asking for the same sauce may need different amounts. Kept when
+    /// the entry comes to stand for a shelf item and <see cref="Product"/> is dropped; a shelf item's
+    /// minimum can never fall below these added up (see Orbit.Core.Inventories.InventoryItem.Usage). Null
+    /// reads as one, the counting rule's answer for a line that says nothing.
+    /// </summary>
+    public decimal? RequiredQuantity { get; private set; }
+
     /// <summary>What this entry is and what it stands for - see <see cref="TaskItemSubject"/>.</summary>
     public TaskItemSubject Subject { get; private set; }
 
@@ -200,7 +226,8 @@ public sealed class TaskItem
         TaskItemProduct? product, string? notes, bool isFailed = false,
         IReadOnlyList<Guid>? waitsForTaskItemIds = null,
         ItemPriority priority = ItemPriority.Normal, string? colour = null,
-        IReadOnlyList<TaskItemAlternative>? alternatives = null)
+        IReadOnlyList<TaskItemAlternative>? alternatives = null,
+        DateTimeOffset? createdAtUtc = null, Guid? referencesTaskItemId = null, decimal? requiredQuantity = null)
     {
         Id = id;
         Description = description;
@@ -244,6 +271,16 @@ public sealed class TaskItem
             // show two chips meaning the same thing.
             ? product is null ? null : product with { Categories = TidyCategories(product.Categories) }
             : null;
+        CreatedAtUtc = createdAtUtc;
+        // Never itself: an entry pointing at its own id is an entry of its own.
+        ReferencesTaskItemId = referencesTaskItemId == id ? null : referencesTaskItemId;
+        // The entry's own minimum, which the product it describes also says while there is one - one
+        // answer in two places, so the explicit one wins and the product is told.
+        RequiredQuantity = requiredQuantity ?? product?.MinimumQuantity;
+        if (Product is not null && Product.MinimumQuantity != RequiredQuantity)
+        {
+            Product = Product with { MinimumQuantity = RequiredQuantity };
+        }
     }
 
     /// <summary>
@@ -322,6 +359,57 @@ public sealed class TaskItem
     }
 
     /// <summary>
+    /// Keeps what this entry is the same thing as, and how much of it it needs, for a caller that said
+    /// nothing about either - the seventh field to follow this rule (see
+    /// UpdateTaskListCommand.EntriesKeepingTheirReference). A minimum the product it describes still
+    /// carries is taken at its word, since that is the one an older client can say.
+    /// </summary>
+    public void KeepReferenceOf(TaskItem stored)
+    {
+        ReferencesTaskItemId = stored.ReferencesTaskItemId;
+        RequiredQuantity ??= stored.RequiredQuantity;
+        if (Product is not null)
+        {
+            Product = Product with { MinimumQuantity = RequiredQuantity };
+        }
+    }
+
+    /// <summary>When this entry was first stored - see <see cref="CreatedAtUtc"/> and TaskItemReferences.StampCreationTimes.</summary>
+    internal void StampCreation(DateTimeOffset? createdAtUtc) => CreatedAtUtc = createdAtUtc;
+
+    /// <summary>Points this entry at its group's source, or at nothing - see TaskItemReferences.</summary>
+    internal void PointReferenceAt(Guid? sourceId) => ReferencesTaskItemId = sourceId == Id ? null : sourceId;
+
+    /// <summary>
+    /// Takes on the details a reference group shares from another member of it: what kind of entry it is
+    /// and where, what it is filed under, what it says, how much it matters, what colour it is drawn in,
+    /// and the shelf item or the product it asks for. Its own date, tick, ways, reminders, appointment and
+    /// minimum stay its own. Answers whether anything changed, so a list nobody touched is not saved again.
+    /// See TaskItemReferences.
+    /// </summary>
+    internal bool TakeSharedDetailsFrom(TaskItem other)
+    {
+        var subject = new TaskItemSubject(other.Kind, other.Location, LinkedCalendarEventId, other.LinkedInventoryItemId);
+        var product = subject.Kind == TaskItemKind.Inventory && subject.LinkedInventoryItemId is null && other.Product is not null
+            ? other.Product with { MinimumQuantity = RequiredQuantity }
+            : null;
+        var changed = subject != Subject
+            || !Categories.SequenceEqual(other.Categories)
+            || Notes != other.Notes
+            || Priority != other.Priority
+            || Colour != other.Colour
+            || !Equals(product, Product);
+
+        Subject = subject;
+        Categories = other.Categories;
+        Notes = other.Notes;
+        Priority = other.Priority;
+        Colour = other.Colour;
+        Product = product;
+        return changed;
+    }
+
+    /// <summary>
     /// Keeps what this entry is already filed under, for a caller that said nothing about it - see
     /// UpdateTaskListCommand.EntriesKeepingTheirCategories.
     /// </summary>
@@ -387,7 +475,8 @@ public sealed class TaskItem
         TaskItemProduct? product = null, string? notes = null, bool isFailed = false,
         IReadOnlyList<Guid>? waitsForTaskItemIds = null,
         ItemPriority priority = ItemPriority.Normal, string? colour = null,
-        IReadOnlyList<TaskItemAlternative>? alternatives = null)
+        IReadOnlyList<TaskItemAlternative>? alternatives = null,
+        Guid? referencesTaskItemId = null, decimal? requiredQuantity = null)
     {
         // Here rather than in the constructor, which FromPersistence also uses: a row already stored
         // fits by definition, and rejecting one on the way back out would make an old entry unreadable
@@ -423,7 +512,7 @@ public sealed class TaskItem
         return new TaskItem(
             Guid.NewGuid(), description, dueDateUtc, standsOnItsOwn && isCompleted, linkedTaskListIds,
             reminders, subject, categories, product, notes, standsOnItsOwn && isFailed, waitsForTaskItemIds,
-            priority, colour, ways);
+            priority, colour, ways, DateTimeOffset.UtcNow, referencesTaskItemId, requiredQuantity);
     }
 
     /// <summary>
@@ -435,7 +524,7 @@ public sealed class TaskItem
         => new(
             Guid.NewGuid(), Description, DueDateUtc, IsCompleted, LinkedTaskListIds,
             Reminders, Subject, Categories, Product, Notes, IsFailed, WaitsForTaskItemIds, Priority, Colour,
-            Alternatives);
+            Alternatives, CreatedAtUtc, ReferencesTaskItemId, RequiredQuantity);
 
     /// <summary>
     /// This entry with its completion worked out from the lists it points at: every one of them for an
@@ -449,7 +538,8 @@ public sealed class TaskItem
             IsALinkToOtherLists ? LinkedTaskListIds.All(isListDone) : IsCompleted,
             LinkedTaskListIds, Reminders, Subject, Categories, Product, Notes, IsFailed, WaitsForTaskItemIds,
             Priority, Colour,
-            [.. Alternatives.Select(way => way.IsAList ? way with { IsDone = isListDone(way.LinkedTaskListId!.Value) } : way)]);
+            [.. Alternatives.Select(way => way.IsAList ? way with { IsDone = isListDone(way.LinkedTaskListId!.Value) } : way)],
+            CreatedAtUtc, ReferencesTaskItemId, RequiredQuantity);
 
     /// <summary>
     /// Rebuilds a checklist entry from already-known values, bypassing the completion override above -
@@ -462,10 +552,12 @@ public sealed class TaskItem
         TaskItemProduct? product = null, string? notes = null, bool isFailed = false,
         IReadOnlyList<Guid>? waitsForTaskItemIds = null,
         ItemPriority priority = ItemPriority.Normal, string? colour = null,
-        IReadOnlyList<TaskItemAlternative>? alternatives = null)
+        IReadOnlyList<TaskItemAlternative>? alternatives = null,
+        DateTimeOffset? createdAtUtc = null, Guid? referencesTaskItemId = null, decimal? requiredQuantity = null)
         => new(
             id, description, dueDateUtc, isCompleted, linkedTaskListIds, reminders, subject, categories, product,
-            notes, isFailed, waitsForTaskItemIds, priority, colour, alternatives);
+            notes, isFailed, waitsForTaskItemIds, priority, colour, alternatives,
+            createdAtUtc, referencesTaskItemId, requiredQuantity);
 
     /// <summary>
     /// Takes the tick back off an entry that may not carry one yet, because something it waits for is

@@ -84,7 +84,18 @@ public sealed record TaskItemRequest(
     /// "not provided"</b> and leaves the stored ways alone, which is what a client written before ways
     /// existed sends; an empty list means "none", and clears them.
     /// </summary>
-    IReadOnlyList<TaskItemAlternativeDto>? Alternatives = null)
+    IReadOnlyList<TaskItemAlternativeDto>? Alternatives = null,
+    /// <summary>
+    /// The entry this one is the same thing as - see <see cref="TaskItemDto.ReferencesTaskItemId"/>.
+    /// <b>Null means "not provided"</b> and keeps what is stored, which is what a client written before
+    /// references existed sends; <see cref="Guid.Empty"/> means "none", and makes the entry one of its own.
+    /// </summary>
+    Guid? ReferencesTaskItemId = null,
+    /// <summary>
+    /// How much of its product this entry needs - see <see cref="TaskItemDto.RequiredQuantity"/>. Null
+    /// together with a null <see cref="ReferencesTaskItemId"/> keeps what is stored, for the same client.
+    /// </summary>
+    decimal? RequiredQuantity = null)
 {
     /// <summary>Whichever shape the sender used, read as one - see <see cref="LinkedTaskListIds"/>.</summary>
     public IReadOnlyList<Guid> AllLinkedTaskListIds
@@ -130,5 +141,7 @@ public sealed record TaskItemRequest(
             // As they came, null included, for the reason Notes above gives.
             item.Priority,
             item.Colour,
-            item.Alternatives);
+            item.Alternatives,
+            item.ReferencesTaskItemId,
+            item.RequiredQuantity);
 }
