@@ -6,6 +6,7 @@
 @using Orbit.Web.Services
 @inject InventoryApiClient InventoryApiClient
 @inject NavigationManager NavigationManager
+@inject NavigationTrail NavigationTrail
 @inject IJSRuntime JSRuntime
 @inject ILogger<InventorySummary> Logger
 @inject Translations T
@@ -83,7 +84,7 @@ else
    - see EditorRail. This page changes what is on a shelf now, so it needs a save. *@
 @if (_inventory is not null)
 {
-    <EditorRail OnSave="SaveAsync" OnCancel="GoToInventories" SaveDisabled="@(!_hasChanges || _isSaving)"
+    <EditorRail OnSave="SaveAsync" OnCancel="LeaveAsync" SaveDisabled="@(!_hasChanges || _isSaving)"
                 ErrorMessage="@_message"
                 OnEdit="GoToEditor" EditLabel="@(_isReadOnly ? T["View"] : T["Edit"])">
         @* Beside the button that failed: a save that did not happen and a shelf somebody else is
@@ -102,9 +103,9 @@ else
     [Parameter] public Guid InventoryId { get; set; }
 
     /// <summary>
-    /// The page that sent the reader here, passed on to the form rather than replaced with this one:
-    /// this page is a stop on the way, and somebody who arrived from elsewhere means elsewhere when they
-    /// say "back". See ReturnTo.
+    /// The page that sent the reader here, which is where this page's Back returns. The form is not
+    /// handed it: the form ends back on this page, and this page still knows the way on from here because
+    /// its own address carries this. See ReturnTo, and NoteSummary, which does the same.
     /// </summary>
     [Parameter, SupplyParameterFromQuery(Name = ReturnTo.QueryName)]
     public string? ComeBackTo { get; set; }
@@ -251,7 +252,8 @@ else
         try
         {
             await InventoryApiClient.DeleteInventoryAsync(InventoryId);
-            NavigationManager.NavigateTo("/inventory");
+            // To the inventories, without this page left behind to open on nothing - see NavigationTrail.
+            await NavigationTrail.FinishAfterDeletingAsync($"/inventory/{InventoryId}", "/inventory", "/inventory");
         }
         catch (HttpRequestException exception)
         {
@@ -262,10 +264,13 @@ else
 
     private void GoToInventories() => NavigationManager.NavigateTo("/inventory");
 
+    /// <summary>Back: where this page was opened from, without leaving it behind - see NavigationTrail.</summary>
+    private Task LeaveAsync() => NavigationTrail.FinishAsync(ReturnTo.Or(ComeBackTo, "/inventory"));
+
+    /// <summary>The form, told to come back to this page so the saved shelf is what it ends on - see NoteSummary.GoToEditor.</summary>
     private void GoToEditor()
     {
         Logger.LogInformation("User opened the editor for inventory {InventoryId}", InventoryId);
-        NavigationManager.NavigateTo(
-            ReturnTo.Link($"/inventory/{InventoryId}/edit", ReturnTo.Or(ComeBackTo, "/inventory")));
+        NavigationManager.NavigateTo(ReturnTo.Link($"/inventory/{InventoryId}/edit", NavigationTrail.Here));
     }
 }

@@ -19,6 +19,7 @@
 @inject OrbitAuthenticationStateProvider AuthenticationStateProvider
 @inject NameSuggestionsApiClient NameSuggestionsApiClient
 @inject NavigationManager NavigationManager
+@inject NavigationTrail NavigationTrail
 @inject ILogger<InventoryEditor> Logger
 @inject Translations T
 
@@ -513,7 +514,7 @@ else
             var inventory = await InventoryApiClient.GetInventoryByIdAsync(InventoryId!.Value);
             if (inventory is null)
             {
-                NavigationManager.NavigateTo(WhenFinished);
+                await NavigationTrail.FinishAsync(WhenFinished);
                 return;
             }
 
@@ -878,8 +879,11 @@ else
         _formModel.Items.Remove(item);
     }
 
-    /// <summary>Cancel, and every other way this form ends - see WhenFinished for where that is.</summary>
-    private void GoBack() => NavigationManager.NavigateTo(WhenFinished);
+    /// <summary>
+    /// Cancel, and every other way this form ends - see WhenFinished for where that is, and
+    /// NavigationTrail for why the form is not left behind it in the history.
+    /// </summary>
+    private Task GoBack() => NavigationTrail.FinishAsync(WhenFinished);
 
     private async Task SaveAsync()
     {
@@ -937,7 +941,7 @@ else
             _isSaving = false;
         }
 
-        NavigationManager.NavigateTo(WhenFinished);
+        await GoBack();
     }
 
     private async Task AcquireLockAsync()
