@@ -885,7 +885,9 @@ disagree in.
   same). A tick box is a button with no text, so a checklist pasted into a message arrived as bare lines.
   A selection inside one line is left to the browser - there is no box in it to speak for.
 - **Every edit that changes the shape of the lines is decided in C#** (`NoteSurfaceEdits`, reached through
-  `ChecklistTextEditor.Edit`, a synchronous `invokeMethod` from `checklistTextEditor.js`): Enter, Backspace
+  `ChecklistTextEditor.Edit`, a synchronous `invokeMethod` from `checklistTextEditor.js`; it and
+  `SurfaceState`/`NoteSurfaceHistory` live in `Orbit.Core/Notes` on Core's `NoteContentLine`, because the
+  phone's note screen uses the same rules - the web converts at its edge with `NoteSurfaceLines`): Enter, Backspace
   at the head of a line, Delete at its end, typing over a selection that spans lines, a cut, a press on a
   box, the toolbar's box. The browser reports the lines and the selection as `{ line, offset }` points, and
   draws the lines and the caret that come back; typing inside one line is still the browser's own. That is

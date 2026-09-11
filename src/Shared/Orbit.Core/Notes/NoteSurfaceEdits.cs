@@ -1,8 +1,7 @@
 using System.Text.RegularExpressions;
-using Orbit.Contracts.Notes;
 using Orbit.Core.Abstractions;
 
-namespace Orbit.Web.Services;
+namespace Orbit.Core.Notes;
 
 /// <summary>
 /// What each edit that changes the shape of a note's writing does to it - a new line, a merged one, a
@@ -207,7 +206,7 @@ public static partial class NoteSurfaceEdits
             return SurfaceState.CaretAt(lines, new SurfacePoint(caret.Line, caret.Offset + written[0].Length));
         }
 
-        var replacement = new List<NoteContentLineDto>
+        var replacement = new List<NoteContentLine>
         {
             startsALine ? Read(written[0]) : line with { Text = before + written[0] }
         };
@@ -221,18 +220,18 @@ public static partial class NoteSurfaceEdits
     }
 
     /// <summary>A pasted line read the way <see cref="Replace"/> describes.</summary>
-    private static NoteContentLineDto Read(string pasted)
+    private static NoteContentLine Read(string pasted)
     {
         var tick = PastedTick().Match(pasted);
         if (tick.Success)
         {
             var isTicked = tick.Groups["mark"].Value is "x" or "X";
-            return new NoteContentLineDto(pasted[tick.Length..], IsChecklistItem: true, IsChecked: isTicked);
+            return new NoteContentLine(pasted[tick.Length..], IsChecklistItem: true, IsChecked: isTicked);
         }
 
         var bullet = PastedBullet().Match(pasted);
         return bullet.Success
-            ? new NoteContentLineDto(pasted[bullet.Length..], IsChecklistItem: true, IsChecked: false)
+            ? new NoteContentLine(pasted[bullet.Length..], IsChecklistItem: true, IsChecked: false)
             : Plain(pasted);
     }
 
@@ -267,7 +266,7 @@ public static partial class NoteSurfaceEdits
         }
 
         var lines = state.Lines.ToList();
-        lines[caret.Line] = new NoteContentLineDto(line.Text[marker.Length..], IsChecklistItem: true, IsChecked: false);
+        lines[caret.Line] = new NoteContentLine(line.Text[marker.Length..], IsChecklistItem: true, IsChecked: false);
         return SurfaceState.CaretAt(lines, new SurfacePoint(caret.Line, Math.Max(0, caret.Offset - marker.Length)));
     }
 
@@ -281,7 +280,7 @@ public static partial class NoteSurfaceEdits
         var caret = state.Caret;
         var lines = state.Lines.ToList();
         var line = lines[caret.Line];
-        var unticked = new NoteContentLineDto(string.Empty, IsChecklistItem: true, IsChecked: false);
+        var unticked = new NoteContentLine(string.Empty, IsChecklistItem: true, IsChecked: false);
 
         if (!line.IsChecklistItem && line.Text.Length == 0)
         {
@@ -451,14 +450,14 @@ public static partial class NoteSurfaceEdits
         return end.Offset == state.Lines[end.Line].Text.Length ? end.Line : null;
     }
 
-    private static SurfaceState RemoveLine(List<NoteContentLineDto> lines, int index)
+    private static SurfaceState RemoveLine(List<NoteContentLine> lines, int index)
     {
         lines.RemoveAt(index);
         return CaretAfterRemoval(lines, index);
     }
 
     /// <summary>The end of the line above what went, or the start of the first line when nothing was above it.</summary>
-    private static SurfaceState CaretAfterRemoval(List<NoteContentLineDto> lines, int removedAt)
+    private static SurfaceState CaretAfterRemoval(List<NoteContentLine> lines, int removedAt)
     {
         if (lines.Count == 0)
         {
@@ -473,9 +472,9 @@ public static partial class NoteSurfaceEdits
     private static IReadOnlyList<string> LinesOf(string text)
         => text.Replace("\r\n", "\n", StringComparison.Ordinal).Replace('\r', '\n').Split('\n');
 
-    private static NoteContentLineDto Plain(string text) => new(text, IsChecklistItem: false, IsChecked: false);
+    private static NoteContentLine Plain(string text) => new(text, IsChecklistItem: false, IsChecked: false);
 
-    private static NoteContentLineDto Unticked(NoteContentLineDto line) => line with { IsChecked = false, IsFailed = false };
+    private static NoteContentLine Unticked(NoteContentLine line) => line with { IsChecked = false, IsFailed = false };
 
     /// <summary>What typing at the head of a line turns into a box - the rule the phone has always had.</summary>
     [GeneratedRegex(@"^\[[ \t]?\][ \t]?")]

@@ -1,7 +1,6 @@
 using System.Text.Json.Serialization;
-using Orbit.Contracts.Notes;
 
-namespace Orbit.Web.Services;
+namespace Orbit.Core.Notes;
 
 /// <summary>
 /// A place in the writing: which line, and how many characters into its text. Counted in UTF-16 units,
@@ -22,12 +21,17 @@ public sealed record SurfacePoint(int Line, int Offset) : IComparable<SurfacePoi
 /// This is what every edit that changes the shape of the writing is worked out on (see NoteSurfaceEdits),
 /// and what the undo history keeps a copy of (see NoteSurfaceHistory). The browser only reports it and
 /// draws what comes back - see checklistTextEditor.js.
+///
+/// Here in Orbit.Core rather than in either client because both write notes with it: Orbit.Web's
+/// ChecklistTextEditor and the phone's NoteDetailViewModel, which reads pastes, answers a press on several
+/// boxes and keeps its undo history with the same rules. The lines are the domain's NoteContentLine, the
+/// same shape as the wire's NoteContentLineDto, so each client converts at its own edge.
 /// </summary>
 /// <remarks>
 /// Only the three positional members travel to the browser; the rest are worked out from them and are
 /// kept out of the JSON.
 /// </remarks>
-public sealed record SurfaceState(IReadOnlyList<NoteContentLineDto> Lines, SurfacePoint Anchor, SurfacePoint Focus)
+public sealed record SurfaceState(IReadOnlyList<NoteContentLine> Lines, SurfacePoint Anchor, SurfacePoint Focus)
 {
     [JsonIgnore]
     public SurfacePoint Start => Anchor.CompareTo(Focus) <= 0 ? Anchor : Focus;
@@ -42,7 +46,7 @@ public sealed record SurfaceState(IReadOnlyList<NoteContentLineDto> Lines, Surfa
     [JsonIgnore]
     public SurfacePoint Caret => Focus;
 
-    public static SurfaceState CaretAt(IReadOnlyList<NoteContentLineDto> lines, SurfacePoint caret)
+    public static SurfaceState CaretAt(IReadOnlyList<NoteContentLine> lines, SurfacePoint caret)
         => new(lines, caret, caret);
 
     /// <summary>
@@ -61,13 +65,13 @@ public sealed record SurfaceState(IReadOnlyList<NoteContentLineDto> Lines, Surfa
     /// </summary>
     public SurfaceState Normalized()
     {
-        IReadOnlyList<NoteContentLineDto> lines = Lines.Count > 0 ? Lines : [EmptyLine];
+        IReadOnlyList<NoteContentLine> lines = Lines.Count > 0 ? Lines : [EmptyLine];
         return new SurfaceState(lines, Clamp(Anchor, lines), Clamp(Focus, lines));
     }
 
-    public static readonly NoteContentLineDto EmptyLine = new(string.Empty, IsChecklistItem: false, IsChecked: false);
+    public static readonly NoteContentLine EmptyLine = new(string.Empty, IsChecklistItem: false, IsChecked: false);
 
-    private static SurfacePoint Clamp(SurfacePoint point, IReadOnlyList<NoteContentLineDto> lines)
+    private static SurfacePoint Clamp(SurfacePoint point, IReadOnlyList<NoteContentLine> lines)
     {
         var line = Math.Clamp(point.Line, 0, lines.Count - 1);
         return new SurfacePoint(line, Math.Clamp(point.Offset, 0, lines[line].Text.Length));

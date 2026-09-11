@@ -1,5 +1,4 @@
-using Orbit.Contracts.Notes;
-using Orbit.Web.Services;
+using Orbit.Core.Notes;
 using Xunit;
 
 namespace Orbit.Web.Tests.Services;
@@ -11,15 +10,15 @@ namespace Orbit.Web.Tests.Services;
 /// </summary>
 public sealed class NoteSurfaceEditsTests
 {
-    private static NoteContentLineDto Text(string text) => new(text, IsChecklistItem: false, IsChecked: false);
+    private static NoteContentLine Text(string text) => new(text, IsChecklistItem: false, IsChecked: false);
 
-    private static NoteContentLineDto Box(string text, bool isChecked = false, bool isFailed = false)
+    private static NoteContentLine Box(string text, bool isChecked = false, bool isFailed = false)
         => new(text, IsChecklistItem: true, IsChecked: isChecked, IsFailed: isFailed);
 
-    private static SurfaceState At(int line, int offset, params NoteContentLineDto[] lines)
+    private static SurfaceState At(int line, int offset, params NoteContentLine[] lines)
         => SurfaceState.CaretAt(lines, new SurfacePoint(line, offset));
 
-    private static SurfaceState Selecting(SurfacePoint anchor, SurfacePoint focus, params NoteContentLineDto[] lines)
+    private static SurfaceState Selecting(SurfacePoint anchor, SurfacePoint focus, params NoteContentLine[] lines)
         => new(lines, anchor, focus);
 
     [Fact]

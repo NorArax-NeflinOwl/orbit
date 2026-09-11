@@ -5,6 +5,7 @@
    element in its text). Used by NoteEditor.razor for a note's Content. *@
 @using System.Text.Json
 @using Orbit.Contracts.Notes
+@using Orbit.Core.Notes
 @using Orbit.Web.Services
 @implements IAsyncDisposable
 @inject IJSRuntime JSRuntime
@@ -74,7 +75,7 @@
 
         _module = await JSRuntime.InvokeAsync<IJSObjectReference>("import", "./js/checklistTextEditor.js");
         _dotNetRef = DotNetObjectReference.Create(this);
-        _history.Reset(SurfaceState.CaretAt(Lines, new SurfacePoint(0, 0)).Normalized());
+        _history.Reset(SurfaceState.CaretAt(Lines.ToSurfaceLines(), new SurfacePoint(0, 0)).Normalized());
         var initialLinesJson = JsonSerializer.Serialize(Lines, JsonOptions);
         // Each box's tooltip: how several of them are made to answer together, which nothing else on
         // the surface would suggest - see NoteSurfaceEdits.Cycle.
@@ -105,7 +106,7 @@
         }
 
         Lines = lines;
-        var placed = SurfaceState.CaretAt(lines, new SurfacePoint(int.MaxValue, int.MaxValue)).Normalized();
+        var placed = SurfaceState.CaretAt(lines.ToSurfaceLines(), new SurfacePoint(int.MaxValue, int.MaxValue)).Normalized();
         _history.Reset(placed);
         await _module.InvokeVoidAsync("setLines", _containerRef, JsonSerializer.Serialize(lines, JsonOptions));
     }
@@ -142,7 +143,7 @@
             return null;
         }
 
-        Lines = after.Lines;
+        Lines = after.Lines.ToDtos();
         return JsonSerializer.Serialize(after, JsonOptions);
     }
 
@@ -203,7 +204,7 @@
             ? SurfaceEditKind.Erasing
             : SurfaceEditKind.Typing;
         _history.Record(SurfaceBeforeTyping(request), typed, kind, request.At, request.Text);
-        Lines = typed.Lines;
+        Lines = typed.Lines.ToDtos();
 
         if (request.Composing || request.InputType != "insertText")
         {
@@ -240,7 +241,7 @@
     /// </summary>
     private sealed record SurfaceRequest(
         string Command,
-        IReadOnlyList<NoteContentLineDto>? Lines,
+        IReadOnlyList<NoteContentLine>? Lines,
         SurfacePoint? Anchor,
         SurfacePoint? Focus,
         SurfacePoint? BeforeAnchor,
@@ -257,7 +258,7 @@
         /// </summary>
         public SurfaceState State()
         {
-            IReadOnlyList<NoteContentLineDto> lines = Lines is { Count: > 0 } ? Lines : [SurfaceState.EmptyLine];
+            IReadOnlyList<NoteContentLine> lines = Lines is { Count: > 0 } ? Lines : [SurfaceState.EmptyLine];
             var focus = Focus ?? Anchor ?? new SurfacePoint(lines.Count - 1, lines[^1].Text.Length);
             return new SurfaceState(lines, Anchor ?? focus, focus).Normalized();
         }

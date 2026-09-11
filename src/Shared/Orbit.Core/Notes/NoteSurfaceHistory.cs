@@ -1,4 +1,4 @@
-namespace Orbit.Web.Services;
+namespace Orbit.Core.Notes;
 
 /// <summary>What sort of edit a step in <see cref="NoteSurfaceHistory"/> was - which decides whether the next one joins it.</summary>
 public enum SurfaceEditKind
