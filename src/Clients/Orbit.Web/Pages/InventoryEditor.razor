@@ -37,7 +37,7 @@ else
 
     <PageHeader>
         <Title>@PageHeading</Title>
-        <Subtitle>@T["Everything in this inventory, edited together - a low item still raises a restock task."]</Subtitle>
+        <Description>@T["Everything in this inventory, edited together - a low item still raises a restock task."]</Description>
     </PageHeader>
 
     @if (_isShared)
@@ -250,10 +250,10 @@ else
        its end - said from here as well because a store is opened as often as a list is, and somebody
        standing in the pantry is thinking about which jobs it serves rather than the other way round.
 
-       Several lists may share it. What that costs is said above the boxes rather than discovered later:
-       the shelf is split between everything asking for it, so a second list asking for the same flour
-       leaves both of them short. *@
-    <h2>@T["Lists measured against this inventory"]</h2>
+       Several lists may share it. What that costs is behind the heading's mark rather than discovered
+       later: the shelf is split between everything asking for it, so a second list asking for the same
+       flour leaves both of them short. *@
+    <h2>@T["Lists measured against this inventory"]<FieldHint>@T["A shelf several lists ask for is split between them, so each is told its own share."]</FieldHint></h2>
     <div class="card">
         @if (_taskLists.Count == 0)
         {
@@ -261,7 +261,6 @@ else
         }
         else
         {
-            <p class="field-hint">@T["A shelf several lists ask for is split between them, so each is told its own share."]</p>
             @foreach (var taskList in _taskLists)
             {
                 @* A list reached because a group list above it is measured here. Ticked, because it is

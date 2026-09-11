@@ -101,8 +101,7 @@ else
        GoogleCalendarEventLink for why this is a link and not an API call. *@
     @if (!IsNewEvent && _hasGoogleExtras && _savedDetails is { } savedDetails)
     {
-        <h2>@T["Google Calendar"]</h2>
-        <p class="options-subtext">@T["Opens Google's own form with this event filled in. Nothing is saved there until you save it."]</p>
+        <h2>@T["Google Calendar"]<FieldHint>@T["Opens Google's own form with this event filled in. Nothing is saved there until you save it."]</FieldHint></h2>
         <a class="btn-secondary" href="@GoogleCalendarLinkFor(savedDetails)" target="_blank" rel="noopener">
             @T["Add to Google Calendar"]
         </a>

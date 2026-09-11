@@ -174,7 +174,8 @@ public sealed class GroupConversationPagesTests : OrbitTestContext
         // a decision somebody makes rather than what happens if they don't look.
         var shareHistory = cut.Find("#shareHistoryInput");
         Assert.False(shareHistory.HasAttribute("checked"));
-        Assert.Contains("re-encrypts each message", cut.Markup);
+        // What handing it over does sits behind the checkbox's own "?" - see FieldHint.
+        Assert.Contains("re-encrypts each message", cut.Find("label[for=shareHistoryInput] .field-hint-bubble").TextContent);
     }
 
     [Fact]

@@ -47,30 +47,13 @@ else
 <div class="editor-page">
 <div class="editor-page-body">
 
-    <PageHeader>
+    @* Under the name, what this list says about itself - see ListSubtitle. Beside it, behind the mark,
+       what the page is for: a signpost rather than anything about this list, so it is folded away like
+       every other page's (see PageHeader.Description), and folded it no longer competes with the
+       list's own words for the line under the name - which is why it is there on every list now. *@
+    <PageHeader Subtitle="@ListSubtitle">
         <Title>@Written(_sections[0].TaskList.Title)</Title>
-        @* What the list is for, in the words of whoever wrote it. Until now the editor asked for a
-           description and no page anywhere showed it - the one field in Orbit that could be written and
-           never read. It goes where a storage's goes, under the name, so the two read the same way.
-
-           It takes the place of the sentences below rather than sitting beside them. Those are a
-           signpost ("use Edit to change the list itself") and a count of sections that are drawn
-           directly underneath; somebody's own words about their list beat both. See TextWithLinks -
-           an address written in there can be pressed, like every other description. *@
-        <Subtitle>
-            @if (_sections[0].TaskList.Description is { Length: > 0 } description)
-            {
-                <TextWithLinks Text="@description" />
-            }
-            else if (_sections[0].TaskList.IsGroup)
-            {
-                <text>@T.Format("Group list - {0} linked {1} shown below.", _sections.Count - 1, _sections.Count == 2 ? T["list"] : T["lists"])</text>
-            }
-            else
-            {
-                <text>@T["Tick items off; use Edit to change the list itself."]</text>
-            }
-        </Subtitle>
+        <Description>@T["Tick items off; use Edit to change the list itself."]</Description>
     </PageHeader>
 
     @if (_errorMessage is not null)
@@ -393,6 +376,23 @@ else
 }
 
 @code {
+    /// <summary>
+    /// What the list is for, in the words of whoever wrote it. Until now the editor asked for a
+    /// description and no page anywhere showed it - the one field in Orbit that could be written and
+    /// never read. It goes where a storage's goes, under the name, so the two read the same way; an
+    /// address written in there can be pressed, like every other description (see TextWithLinks).
+    ///
+    /// A group list nobody described says how many lists it gathers instead - a count of sections drawn
+    /// directly underneath, which is about this list. Anything else has nothing to say here, and null
+    /// draws no empty line - see Markup.Optional.
+    /// </summary>
+    private RenderFragment? ListSubtitle
+        => _sections[0].TaskList.Description is { Length: > 0 } description
+            ? OptionalWithLinks(description)
+            : _sections[0].TaskList.IsGroup
+                ? Optional(T.Format("Group list - {0} linked {1} shown below.", _sections.Count - 1, _sections.Count == 2 ? T["list"] : T["lists"]))
+                : null;
+
     [Parameter]
     public Guid Id { get; set; }
 

@@ -593,6 +593,21 @@ inventory lists, the contacts tabs, the chat menus - is built and needs no schem
   take: calling `ChatClient.LeaveGroupAsync` for the self row, and a rebuilt APK; the server keeps
   accepting the old route for installed builds either way.
 
+- **Page and section descriptions are folded on the web, not yet on the phone.** Since 2026-09-11 a
+  sentence under a page's or a section's title that says what it is for sits behind a "?" beside the
+  heading (`PageHeader.Description`, see `info/functionality.md`, "What a field is for"). The phone's
+  screens still show theirs as a subtitle; `Orbit.Maui/Controls/FieldHint.xaml` with `IsHeading` is
+  already the control that would carry them.
+
+- **A few sentences under a control, rather than under a title, were left in view on the web.** The
+  restock switches' three `<p class="field-hint">` lines in `InventoryEditor.razor` and the one in
+  `GenerateInventoryOverlay.razor` change with the switch they follow, and have no CSS rule at all - the
+  class was never styled, so they render as body-size paragraphs. Also kept: the two lines under the
+  claim buttons on `SharedItemPage.razor`, `ShareLinkButton`'s note once a link exists, the unknown-sources
+  note on `Download.razor`, `FeatureLocked`'s explanation and `ChatPasswordGate`'s. Each either describes
+  a live state or is the only thing on its screen; folding them is a judgement a later pass may still
+  want to make, with a `Warns` "!" for the ones about a state.
+
 - **Orbit.Web's pages read the machine's clock directly** - `DateTime.Today` and `DateTime.Now`, in
   eighteen places across the pages and components, with no `TimeProvider` injected anywhere in that
   client. It is why `DashboardTests.An_appointment_that_has_ended_counts_as_one_that_is_behind_the_reader`

@@ -103,9 +103,8 @@ else if (_errorMessage is not null)
                in it, and handing it on is a decision, not a default. *@
             <label class="field-checkbox" for="shareHistoryInput">
                 <input id="shareHistoryInput" type="checkbox" @bind="_shareHistoryWithNewMember" />
-                <span>@T["Also give them what was said before they joined"]</span>
+                <span>@T["Also give them what was said before they joined"]<FieldHint>@T["Your device re-encrypts each message for them, so only messages it can open are passed on."]</FieldHint></span>
             </label>
-            <p class="field-hint">@T["Your device re-encrypts each message for them, so only messages it can open are passed on."]</p>
             @if (_historyShareMessage is not null)
             {
                 <p class="field-hint">@_historyShareMessage</p>

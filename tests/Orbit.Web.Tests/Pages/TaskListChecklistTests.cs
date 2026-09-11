@@ -58,19 +58,33 @@ public sealed class TaskListChecklistTests : OrbitTestContext
     }
 
     /// <summary>
-    /// It takes the place of the sentence that used to be there, which was a signpost rather than
-    /// anything about this particular list - somebody's own words beat it. A list nobody described
-    /// still gets the signpost.
+    /// What the page is for is a signpost rather than anything about this particular list, so it sits
+    /// behind the title's "?" - and a list nobody described draws no empty line under its name.
     /// </summary>
     [Fact]
-    public void A_list_nobody_described_still_says_what_the_page_is_for()
+    public void A_list_nobody_described_says_what_the_page_is_for_behind_the_mark()
     {
         var taskList = TaskList("Errands", Item("Buy milk"));
         RegisterTasksApiClient([taskList]);
 
         var cut = RenderComponent<TaskListChecklist>(parameters => parameters.Add(page => page.Id, taskList.Id));
 
-        Assert.Contains("Tick items off", cut.Find(".page-subtitle").TextContent);
+        Assert.Contains("Tick items off", cut.Find("h1 .field-hint-bubble").TextContent);
+        Assert.Empty(cut.FindAll(".page-subtitle"));
+    }
+
+    /// <summary>Folded away, the signpost no longer competes with somebody's own words for the line under
+    /// the name, so a described list carries both - its words in view, the signpost behind the mark.</summary>
+    [Fact]
+    public void A_described_list_keeps_the_signpost_behind_the_mark()
+    {
+        var taskList = TaskList("Errands", Item("Buy milk")) with { Description = "For the weekend trip." };
+        RegisterTasksApiClient([taskList]);
+
+        var cut = RenderComponent<TaskListChecklist>(parameters => parameters.Add(page => page.Id, taskList.Id));
+
+        Assert.Contains("Tick items off", cut.Find("h1 .field-hint-bubble").TextContent);
+        Assert.DoesNotContain("Tick items off", cut.Find(".page-subtitle").TextContent);
     }
 
     /// <summary>An address written in it is pressable, like every other description - see TextWithLinks.</summary>

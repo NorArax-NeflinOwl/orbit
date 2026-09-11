@@ -48,7 +48,10 @@ else
     <div class="map-panel">
         <div class="map-panel-head">
             <div class="map-panel-head-row">
-                <h1>@T["Map"]</h1>
+                @* What the page is for, behind the same mark every other page's title carries - see
+                   PageHeader.Description. This page draws its own heading because the name shares a row
+                   with the menu, but the sentence under it was the same kind of sentence. *@
+                <h1>@T["Map"]<FieldHint>@T["Where you are, who you are sharing it with, and who is sharing theirs."]</FieldHint></h1>
                 @* Everything that can only be done to a recording that already exists, at the far edge
                    of the name's own row - the same place every other page keeps its menu. Offered
                    rather than hidden while there is nothing to update or stop: what the page can do is
@@ -66,7 +69,6 @@ else
                     </button>
                 </OverflowMenu>
             </div>
-            <p class="page-subtitle">@T["Where you are, who you are sharing it with, and who is sharing theirs."]</p>
         </div>
 
         @* The one thing this page is opened to do, as a button rather than an entry in a menu, and
@@ -145,7 +147,13 @@ else
         <section class="map-panel-section @PinnedClass(MapPanelPins.PanelList.YouAreSharingWith)">
             <div class="map-panel-heading-row">
                 @RenderPanelPin(MapPanelPins.PanelList.YouAreSharingWith)
-                <h2 class="map-panel-heading">@T["You are sharing with"]</h2>
+                @* What a live share does, behind a "!" rather than as a line under the rows: it is true
+                   only while one of them is live, which makes it news about this screen rather than a
+                   description of it - see FieldHint's Warns. *@
+                <h2 class="map-panel-heading">@T["You are sharing with"]@if (_isLiveSharing)
+                    {
+                        <FieldHint Warns="true">@T["Your position goes out every minute while this page is open. Ending a share deletes it from Orbit."]</FieldHint>
+                    }</h2>
             </div>
             @foreach (var share in _ownShares)
             {
@@ -174,12 +182,6 @@ else
                             title="@(T["Stop sharing"])" aria-label="@(T["Stop sharing"])"
                             @onclick="() => StopSharingAsync(recipientUserId)">✕</button>
                 </div>
-            }
-            @if (_isLiveSharing)
-            {
-                <p class="empty-hint">
-                    @T["Your position goes out every minute while this page is open. Ending a share deletes it from Orbit."]
-                </p>
             }
         </section>
         }
@@ -506,8 +508,14 @@ else
 {
     <div class="map-overlay" @onclick="ForgetTheNavigation">
         <div class="map-overlay-panel" @onclick:stopPropagation="true">
+            @* Said beside the heading, on the screen that is most careful about it: the map withholds its
+               own background rather than fetch it from somebody else without being asked (see
+               mapTiles.js), so a row of buttons that quietly hand an address to four companies would be
+               the one place on the page that did not say so. Behind the mark rather than under the
+               buttons, like every other section's own sentence; each button already names whose
+               service it opens. *@
             <div class="map-overlay-header">
-                <h2>@T["Take me there"]</h2>
+                <h2>@T["Take me there"]<FieldHint>@T["Only the first stays on this device. The rest open somebody else's service."]</FieldHint></h2>
             </div>
             <p class="map-overlay-hint">@destination.Label</p>
             <div class="map-overlay-confirm map-overlay-apps">
@@ -517,11 +525,6 @@ else
                             @onclick="() => TakeMeThereWithAsync(app)">@T[NavigationApps.NameOf(app)]</button>
                 }
             </div>
-            @* Said out loud, on the screen that is most careful about it: the map withholds its own
-               background rather than fetch it from somebody else without being asked (see mapTiles.js),
-               so a row of buttons that quietly hand an address to four companies would be the one place
-               on the page that did not ask. *@
-            <p class="map-overlay-hint">@T["Only the first stays on this device. The rest open somebody else's service."]</p>
             <div class="map-overlay-confirm">
                 <button type="button" class="btn-secondary" @onclick="ForgetTheNavigation">@T["Cancel"]</button>
             </div>
