@@ -5,6 +5,7 @@
    element in its text). Used by NoteEditor.razor for a note's Content. *@
 @using System.Text.Json
 @using Orbit.Contracts.Notes
+@using Orbit.Web.Services
 @implements IAsyncDisposable
 @inject IJSRuntime JSRuntime
 
@@ -69,6 +70,85 @@
 
         Lines = lines;
         await _module.InvokeVoidAsync("setLines", _containerRef, JsonSerializer.Serialize(lines, JsonOptions));
+    }
+
+    /// <summary>
+    /// Makes one edit that changes the shape of the lines - see NoteSurfaceEdits - on the surface as the
+    /// browser reports it, and answers what the surface should hold afterwards, caret included. Null
+    /// means the edit is the browser's own to make, and it is let through.
+    ///
+    /// Synchronous on purpose, and called with invokeMethod rather than invokeMethodAsync: a key has to
+    /// be stopped or let through before its handler returns, which is only possible when the answer is
+    /// back by then. Blazor WebAssembly allows a synchronous call from JS; nothing else hosts this.
+    /// </summary>
+    [JSInvokable]
+    public string? Edit(string requestJson)
+    {
+        var request = JsonSerializer.Deserialize<SurfaceRequest>(requestJson, JsonOptions);
+        if (request is null)
+        {
+            return null;
+        }
+
+        var before = request.State();
+        var after = request.Command switch
+        {
+            "enter" => NoteSurfaceEdits.Enter(before),
+            "backspace" => NoteSurfaceEdits.Backspace(before),
+            "delete" => NoteSurfaceEdits.Delete(before),
+            "cut" => NoteSurfaceEdits.DeleteSelection(before),
+            "replace" => NoteSurfaceEdits.Replace(before, request.Text ?? string.Empty),
+            "tick" => NoteSurfaceEdits.Cycle(before, request.Line ?? -1),
+            "checklistItem" => NoteSurfaceEdits.StartChecklistItem(before),
+            "typed" => AfterTyping(request, before),
+            _ => null
+        };
+
+        if (after is null)
+        {
+            return null;
+        }
+
+        Lines = after.Lines;
+        return JsonSerializer.Serialize(after, JsonOptions);
+    }
+
+    /// <summary>
+    /// After the browser has put typing in: the only thing to decide is whether it made a "[]" at the
+    /// head of a line. Not while an input method is still composing a character - the line is not what
+    /// the reader means yet.
+    /// </summary>
+    private SurfaceState? AfterTyping(SurfaceRequest request, SurfaceState typed)
+    {
+        Lines = typed.Lines;
+        return request.Composing || request.InputType != "insertText" ? null : NoteSurfaceEdits.ReadTypedMarker(typed);
+    }
+
+    /// <summary>
+    /// What checklistTextEditor.js sends with every edit: the command, the lines and selection as they
+    /// are on the surface (see its readSurface), and whatever that command needs - the text typed or
+    /// pasted, the line whose box was pressed.
+    /// </summary>
+    private sealed record SurfaceRequest(
+        string Command,
+        IReadOnlyList<NoteContentLineDto>? Lines,
+        SurfacePoint? Anchor,
+        SurfacePoint? Focus,
+        string? Text,
+        string? InputType,
+        bool Composing,
+        int? Line)
+    {
+        /// <summary>
+        /// The surface this edit is made on. A selection outside the surface - the toolbar button has the
+        /// focus - is read as the end of the last line, which is where a press there means.
+        /// </summary>
+        public SurfaceState State()
+        {
+            IReadOnlyList<NoteContentLineDto> lines = Lines is { Count: > 0 } ? Lines : [SurfaceState.EmptyLine];
+            var focus = Focus ?? Anchor ?? new SurfacePoint(lines.Count - 1, lines[^1].Text.Length);
+            return new SurfaceState(lines, Anchor ?? focus, focus).Normalized();
+        }
     }
 
     /// <summary>Called from checklistTextEditor.js on every edit (typing, checkbox toggle, Enter/Backspace line changes).</summary>

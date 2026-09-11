@@ -1,40 +1,39 @@
 // Backs ChecklistTextEditor.razor - a single contenteditable surface that looks and behaves like a
 // plain multi-line textarea (free typing, Enter for a new line, Backspace to merge lines, native
-// cursor/selection), except some lines can carry a real, clickable <input type="checkbox"> at their
-// start. A plain HTML <textarea> can't embed an interactive child element inside its text, so this is
-// the only way to get an actually-clickable checkbox living inside the same editing surface as free
-// text, rather than a second, separate list below it.
+// cursor/selection), except some lines can carry a real, clickable box at their start. A plain HTML
+// <textarea> can't embed an interactive child element inside its text, so this is the only way to get an
+// actually-clickable box living inside the same editing surface as free text, rather than a second,
+// separate list below it.
 //
 // Each line is one child <div class="note-line"> of the container. A checklist line additionally has
-// class "note-line-checklist" (and "note-line-done" when checked) and a first child
-// <input type="checkbox" contenteditable="false">; the rest of the line's text lives in a
-// <span class="note-line-text"> so the checkbox itself is never part of the editable text run.
+// class "note-line-checklist" (and "note-line-done"/"note-line-failed" when answered) and a first child
+// <button class="note-line-tick" contenteditable="false">; the line's text lives in a
+// <span class="note-line-text"> so the box itself is never part of the editable text run. An empty
+// line's span holds a <br> and nothing else - see setLineText.
+//
+// Who decides what: typing inside one line is the browser's, as in any text field. Every edit that
+// changes the shape of the lines - Enter, Backspace at the head of a line, Delete at its end, typing over
+// a selection that spans lines, a cut, a tick - is decided in C# (NoteSurfaceEdits, through the
+// component's Edit method): this module reports the lines and the selection, and draws what comes back,
+// caret included. The call is synchronous (invokeMethod, which Blazor WebAssembly allows), because a key
+// has to be let through or stopped before its handler returns.
 
 const instances = new Map();
 
 export function initialize(container, dotNetHelper, initialLinesJson) {
-    const lines = normalizeLines(JSON.parse(initialLinesJson));
-    render(container, lines);
+    render(container, normalizeLines(JSON.parse(initialLinesJson)));
 
-    const state = { dotNetHelper };
+    const state = { dotNetHelper, selectionBefore: null };
     instances.set(container, state);
 
-    state.onInput = () => {
-        repairStrayText(container);
-        // Typing "[]" at the head of a line is the way to a tick box that needs no toolbar at all.
-        const selection = window.getSelection();
-        const line = selection && selection.anchorNode ? closestLine(selection.anchorNode, container) : null;
-        interpretMarker(line);
-        notifyChanged(container, dotNetHelper);
-    };
-    state.onKeyDown = (event) => {
-        repairStrayText(container);
-        onKeyDown(event, container, dotNetHelper);
-    };
-    state.onClick = (event) => onClick(event, container, dotNetHelper);
-    state.onCopy = (event) => onCopy(event, container, /* isCut */ false);
-    state.onCut = (event) => onCopy(event, container, /* isCut */ true);
+    state.onBeforeInput = (event) => onBeforeInput(event, container, state);
+    state.onInput = (event) => onInput(event, container, state);
+    state.onKeyDown = (event) => onKeyDown(event, container, state);
+    state.onClick = (event) => onClick(event, container, state);
+    state.onCopy = (event) => onCopy(event, container, state, /* isCut */ false);
+    state.onCut = (event) => onCopy(event, container, state, /* isCut */ true);
 
+    container.addEventListener('beforeinput', state.onBeforeInput);
     container.addEventListener('input', state.onInput);
     container.addEventListener('keydown', state.onKeyDown);
     container.addEventListener('click', state.onClick);
@@ -47,43 +46,13 @@ export function dispose(container) {
     if (!state) {
         return;
     }
+    container.removeEventListener('beforeinput', state.onBeforeInput);
     container.removeEventListener('input', state.onInput);
     container.removeEventListener('keydown', state.onKeyDown);
     container.removeEventListener('click', state.onClick);
     container.removeEventListener('copy', state.onCopy);
     container.removeEventListener('cut', state.onCut);
     instances.delete(container);
-}
-
-/// Copies what is selected as text somebody can paste anywhere: one line per line, and a tick-box line
-/// as a "- " bullet. Left to the browser, a tick box is a button with no text, so a checklist pasted
-/// into a message or another app arrived as a column of bare lines with nothing saying they were items.
-///
-/// Only a selection spanning lines is rewritten. Inside one line there is no box in the selection to
-/// speak for - it is a run of words, and the browser already copies a run of words correctly.
-function onCopy(event, container, isCut) {
-    const selection = window.getSelection();
-    if (!selection || selection.rangeCount === 0 || selection.isCollapsed || !event.clipboardData) {
-        return;
-    }
-
-    const lines = Array.from(selection.getRangeAt(0).cloneContents().children)
-        .filter((element) => element.classList.contains('note-line'));
-    if (lines.length === 0) {
-        return;
-    }
-
-    const text = lines
-        .map((line) => (line.classList.contains('note-line-checklist') ? '- ' : '') + lineText(line))
-        .join('\n');
-    event.clipboardData.setData('text/plain', text);
-    event.preventDefault();
-
-    // A cut still has to take the words away. The browser's own delete does it, and fires the input
-    // event every other edit here goes through, so Blazor hears about it the ordinary way.
-    if (isCut && container.getAttribute('contenteditable') === 'true') {
-        document.execCommand('delete');
-    }
 }
 
 export function getLinesAsJson(container) {
@@ -105,64 +74,129 @@ export function setLines(container, linesJson) {
     // The caret goes to the end of what was just put there, so somebody who took a suggested name can
     // carry on typing after it. Only on a surface that takes writing: moving the caret into a read-only
     // one would be taking the focus to a place nothing can be done.
-    const lastLine = container.lastElementChild;
-    if (lastLine && container.getAttribute('contenteditable') === 'true') {
-        focusLine(lastLine);
+    if (isWritable(container)) {
+        const last = lines.length - 1;
+        select(container, { line: last, offset: (lines[last].text || '').length });
     }
 }
 
-/// Called from the toolbar button - ends the current line (if not already empty) and starts a new
-/// checklist line, with focus moved into it.
-// A line that starts "[]" (or "[ ]") is a tick box, and the marker itself is eaten. The phone's note
-// screen has had exactly this rule and no toolbar at all - see NoteDetailPage - and it is why the
-// button in the corner types the marker rather than reaching past it: one way in, whether it was
-// pressed or typed.
-const CHECKLIST_MARKER = /^\[[ \t]?\][ \t]?/;
+/// Called from the toolbar button: an empty line becomes a checklist line, anything else gets a new one
+/// under it - see NoteSurfaceEdits.StartChecklistItem. Waits a turn first so the component's call into
+/// here has returned before this calls back into it.
+export async function insertChecklistItem(container) {
+    await Promise.resolve();
+    const state = instances.get(container);
+    if (!state || !isWritable(container)) {
+        return;
+    }
 
-export function insertChecklistItem(container) {
-    const selection = window.getSelection();
-    let currentLine = selection && selection.anchorNode ? closestLine(selection.anchorNode, container) : null;
-    currentLine ??= container.lastElementChild;
-
-    if (currentLine && lineText(currentLine).length === 0 && !currentLine.classList.contains('note-line-checklist')) {
-        // The current line is already empty plain text (e.g. a brand new note) - the marker goes on it
-        // rather than leaving a blank line behind it.
-        setLineText(currentLine, '[]');
-        interpretMarker(currentLine);
-    } else {
-        const newLine = createLineElement({ text: '[]', isChecklistItem: false, isChecked: false });
-        if (currentLine && currentLine.parentElement === container) {
-            currentLine.after(newLine);
-        } else {
-            container.appendChild(newLine);
-        }
-        interpretMarker(newLine);
+    const answer = ask(container, state, 'checklistItem');
+    if (answer) {
+        draw(container, answer.lines);
+        select(container, answer.anchor, answer.focus);
     }
 }
 
-/// Turns a line that begins with the marker into a tick box, and puts the caret where the marker was.
-/// Answers whether it did anything, so the caller can tell an edit that changed the shape of a line
-/// from one that only changed its text.
-function interpretMarker(line) {
-    if (!line || line.classList.contains('note-line-checklist')) {
-        return false;
-    }
-
-    const text = lineText(line);
-    const marker = text.match(CHECKLIST_MARKER);
-    if (!marker) {
-        return false;
-    }
-
-    const rest = text.slice(marker[0].length);
-    // replaceWithChecklistLine detaches the line from the document, so focus has to move to the
-    // replacement it returns rather than to the now-detached original.
-    const replacement = replaceWithChecklistLine(line, rest);
-    focusLine(replacement, /* atStart */ rest.length === 0);
-    return true;
+function isWritable(container) {
+    return container.getAttribute('contenteditable') === 'true';
 }
 
-function onClick(event, container, dotNetHelper) {
+/// Hands C# the surface as it is now and one edit to make on it; answers what the surface should hold
+/// afterwards, or null when the edit is the browser's to make.
+function ask(container, state, command, extra = {}) {
+    const surface = readSurface(container);
+    const request = { command, ...surface, at: performance.now(), ...extra };
+    const answer = state.dotNetHelper.invokeMethod('Edit', JSON.stringify(request));
+    return answer ? JSON.parse(answer) : null;
+}
+
+/// Draws an answer, puts the caret where it says, and tells Blazor - the way every edit ends.
+function show(container, state, answer, placeSelection = true) {
+    draw(container, answer.lines);
+    if (placeSelection) {
+        select(container, answer.anchor, answer.focus);
+    }
+    notifyChanged(container, state.dotNetHelper);
+}
+
+function onKeyDown(event, container, state) {
+    if (!isWritable(container) || event.isComposing) {
+        return;
+    }
+
+    repairStrayText(container);
+    const command = commandFor(event);
+    if (!command) {
+        return;
+    }
+
+    const answer = ask(container, state, command);
+    if (answer) {
+        event.preventDefault();
+        show(container, state, answer);
+    }
+}
+
+function commandFor(event) {
+    switch (event.key) {
+        case 'Enter':
+            return 'enter';
+        case 'Backspace':
+            return 'backspace';
+        case 'Delete':
+            return 'delete';
+        default:
+            return null;
+    }
+}
+
+/// Typing over a selection that spans lines. Left to the browser, it glues the lines' elements together
+/// - a box ends up in the middle of a sentence, or the words land outside any line - so the words go
+/// through the same C# every other change of shape does. A drag and drop is left alone: where it drops
+/// is not where the selection is.
+function onBeforeInput(event, container, state) {
+    if (!isWritable(container)) {
+        return;
+    }
+
+    const selection = readSelection(container);
+    state.selectionBefore = selection;
+    const spansLines = selection.anchor && selection.focus && selection.anchor.line !== selection.focus.line;
+    const type = event.inputType || '';
+    if (!spansLines || type === 'insertFromDrop' || type === 'deleteByDrag' || type.startsWith('history') || type === 'insertCompositionText') {
+        return;
+    }
+
+    const text = type.startsWith('delete')
+        ? ''
+        : (event.data ?? (event.dataTransfer ? event.dataTransfer.getData('text/plain') : ''));
+    const answer = ask(container, state, 'replace', { text });
+    if (answer) {
+        event.preventDefault();
+        show(container, state, answer);
+    }
+}
+
+function onInput(event, container, state) {
+    repairStrayText(container);
+    const before = state.selectionBefore || {};
+    state.selectionBefore = null;
+    const answer = ask(container, state, 'typed', {
+        beforeAnchor: before.anchor || null,
+        beforeFocus: before.focus || null,
+        text: event.data ?? null,
+        inputType: event.inputType || null,
+        composing: !!event.isComposing
+    });
+
+    if (answer) {
+        draw(container, answer.lines);
+        select(container, answer.anchor, answer.focus);
+    }
+    notifyChanged(container, state.dotNetHelper);
+}
+
+function onClick(event, container, state) {
     const tick = event.target.closest ? event.target.closest('.note-line-tick') : null;
     if (!tick) {
         return;
@@ -171,122 +205,50 @@ function onClick(event, container, dotNetHelper) {
     // Three answers, one press at a time: nothing, done, given up on - the same cycle the browser's
     // own TickBox and the phone's CheckCircle follow, see Orbit.Core.Abstractions.TickState.
     event.preventDefault();
-    setTick(tick.closest('.note-line'), nextState(stateOf(tick)));
-    notifyChanged(container, dotNetHelper);
-}
-
-const TICK_NONE = 'none';
-const TICK_DONE = 'done';
-const TICK_FAILED = 'failed';
-
-function stateOf(tick) {
-    return tick.dataset.state || TICK_NONE;
-}
-
-function nextState(state) {
-    return state === TICK_NONE ? TICK_DONE : state === TICK_DONE ? TICK_FAILED : TICK_NONE;
-}
-
-/// Draws one of the three answers on a line's box. The mark is an SVG rather than a character for the
-/// reason the phone's own circle gives: the faces this app is set in carry neither a tick nor a cross.
-function setTick(line, state) {
-    const tick = line.querySelector('.note-line-tick');
-    if (!tick) {
+    if (!isWritable(container)) {
         return;
     }
 
-    tick.dataset.state = state;
-    tick.className = `tick-box note-line-tick${state === TICK_DONE ? ' tick-box-done' : state === TICK_FAILED ? ' tick-box-failed' : ''}`;
-    tick.setAttribute('aria-checked', state === TICK_DONE ? 'true' : state === TICK_FAILED ? 'mixed' : 'false');
-    tick.innerHTML = state === TICK_DONE
-        ? '<svg viewBox="0 0 20 20" width="13" height="13" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="m4 10.5 4 4 8-9"/></svg>'
-        : state === TICK_FAILED
-            ? '<svg viewBox="0 0 20 20" width="13" height="13" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 5l10 10M15 5 5 15"/></svg>'
-            : '';
-    line.classList.toggle('note-line-done', state === TICK_DONE);
-    line.classList.toggle('note-line-failed', state === TICK_FAILED);
-}
-
-function onKeyDown(event, container, dotNetHelper) {
-    if (event.key === 'Enter') {
-        event.preventDefault();
-        handleEnter(container);
-        notifyChanged(container, dotNetHelper);
-        return;
-    }
-
-    if (event.key === 'Backspace') {
-        const selection = window.getSelection();
-        if (!selection || !selection.isCollapsed) {
-            return;
-        }
-        var atLineStart = selection.anchorOffset === 0 && isFirstTextNodeOfLine(selection.anchorNode, container);
-        if (!atLineStart) {
-            return;
-        }
-
-        var line = closestLine(selection.anchorNode, container);
-        if (!line) {
-            return;
-        }
-
-        if (line.classList.contains('note-line-checklist')) {
-            // First Backspace at the start of a checklist line just drops the checkbox, matching the
-            // familiar "outdent before delete" behavior of note apps - only a second Backspace (now
-            // that it's a plain line) merges into the previous line via the browser's own handling.
-            event.preventDefault();
-            replaceWithChecklistLine(line, lineText(line), /* toChecklist */ false);
-            focusLine(line, /* atStart */ true);
-            notifyChanged(container, dotNetHelper);
-            return;
-        }
-
-        var previous = line.previousElementSibling;
-        if (previous) {
-            event.preventDefault();
-            mergeIntoPrevious(line, previous);
-            notifyChanged(container, dotNetHelper);
-        }
-        // Otherwise (first line, plain text): let the browser's default Backspace happen.
+    const line = tick.closest('.note-line');
+    const answer = ask(container, state, 'tick', { line: Array.prototype.indexOf.call(container.children, line) });
+    if (answer) {
+        // Only the box changed, and the caret is wherever the reader left it.
+        show(container, state, answer, /* placeSelection */ false);
     }
 }
 
-function handleEnter(container) {
+/// Copies what is selected as text somebody can paste anywhere: one line per line, and a tick-box line
+/// as a "- " bullet. Left to the browser, a tick box is a button with no text, so a checklist pasted
+/// into a message or another app arrived as a column of bare lines with nothing saying they were items.
+///
+/// Only a selection spanning lines is rewritten. Inside one line there is no box in the selection to
+/// speak for - it is a run of words, and the browser already copies a run of words correctly.
+function onCopy(event, container, state, isCut) {
     const selection = window.getSelection();
-    let line = selection && selection.anchorNode ? closestLine(selection.anchorNode, container) : null;
-    // A click in the blank space under the writing - most of a new note - leaves the caret on the
-    // container rather than inside a line, and Enter then did nothing at all: the default was already
-    // prevented, and there was no line to split. The last line is where such a click means, which is
-    // also what insertChecklistItem falls back to. splitAtCaret treats a caret outside the line as its
-    // end, so this starts a fresh line under the writing rather than cutting one in half.
-    line ??= container.lastElementChild;
-    if (!line) {
+    if (!selection || selection.rangeCount === 0 || selection.isCollapsed || !event.clipboardData) {
         return;
     }
 
-    const isChecklist = line.classList.contains('note-line-checklist');
-    const wasEmpty = lineText(line).length === 0;
-
-    if (isChecklist && wasEmpty) {
-        // Enter on an empty checklist item exits the list, turning this line back into plain text,
-        // instead of piling up empty checkboxes.
-        replaceWithChecklistLine(line, '', false);
-        focusLine(line);
+    const lines = Array.from(selection.getRangeAt(0).cloneContents().children)
+        .filter((element) => element.classList.contains('note-line'));
+    if (lines.length === 0) {
         return;
     }
 
-    const [beforeText, afterText] = splitAtCaret(line);
-    setLineText(line, beforeText);
-    const newLine = createLineElement({ text: afterText, isChecklistItem: isChecklist, isChecked: false });
-    line.after(newLine);
-    focusLine(newLine, /* atStart */ true);
-}
+    const text = lines
+        .map((line) => (line.classList.contains('note-line-checklist') ? '- ' : '') + lineText(line))
+        .join('\n');
+    event.clipboardData.setData('text/plain', text);
+    event.preventDefault();
 
-function mergeIntoPrevious(line, previous) {
-    const previousLength = lineText(previous).length;
-    setLineText(previous, lineText(previous) + lineText(line));
-    line.remove();
-    focusLine(previous, false, previousLength);
+    // A cut still has to take the lines away, and it is a change of shape like any other - the browser's
+    // own delete would glue the lines' elements together.
+    if (isCut && isWritable(container)) {
+        const answer = ask(container, state, 'cut');
+        if (answer) {
+            show(container, state, answer);
+        }
+    }
 }
 
 function notifyChanged(container, dotNetHelper) {
@@ -298,6 +260,44 @@ function render(container, lines) {
     container.innerHTML = '';
     for (const line of lines) {
         container.appendChild(createLineElement(line));
+    }
+}
+
+/// Brings the surface to lines C# decided on, touching only the lines that differ - a line left alone
+/// keeps whatever the browser was doing in it, and a box that only changed its answer is redrawn in
+/// place rather than replaced.
+function draw(container, lines) {
+    lines = normalizeLines(lines);
+    for (const node of Array.from(container.childNodes)) {
+        if (node.nodeType !== Node.ELEMENT_NODE || !node.classList.contains('note-line')) {
+            node.remove();
+        }
+    }
+
+    const existing = Array.from(container.children);
+    lines.forEach((line, index) => {
+        const element = existing[index];
+        if (!element) {
+            container.appendChild(createLineElement(line));
+            return;
+        }
+
+        const tick = element.querySelector('.note-line-tick');
+        if (!!tick !== !!line.isChecklistItem || !element.querySelector('.note-line-text')) {
+            element.replaceWith(createLineElement(line));
+            return;
+        }
+
+        if (lineText(element) !== (line.text || '')) {
+            setLineText(element, line.text || '');
+        }
+        if (tick && stateOf(tick) !== tickStateOf(line)) {
+            setTick(element, tickStateOf(line));
+        }
+    });
+
+    for (let index = lines.length; index < existing.length; index++) {
+        existing[index].remove();
     }
 }
 
@@ -328,17 +328,42 @@ function createLineElement(line) {
     div.appendChild(text);
     setLineText(div, line.text || '');
     if (line.isChecklistItem) {
-        setTick(div, line.isChecked ? TICK_DONE : line.isFailed ? TICK_FAILED : TICK_NONE);
+        setTick(div, tickStateOf(line));
     }
 
     return div;
 }
 
-/// Rebuilds line as a checklist (or plain, when toChecklist is false) line carrying text, in place.
-function replaceWithChecklistLine(line, text, toChecklist = true) {
-    const replacement = createLineElement({ text, isChecklistItem: toChecklist, isChecked: false });
-    line.replaceWith(replacement);
-    return replacement;
+const TICK_NONE = 'none';
+const TICK_DONE = 'done';
+const TICK_FAILED = 'failed';
+
+function stateOf(tick) {
+    return tick.dataset.state || TICK_NONE;
+}
+
+function tickStateOf(line) {
+    return line.isChecked ? TICK_DONE : line.isFailed ? TICK_FAILED : TICK_NONE;
+}
+
+/// Draws one of the three answers on a line's box. The mark is an SVG rather than a character for the
+/// reason the phone's own circle gives: the faces this app is set in carry neither a tick nor a cross.
+function setTick(line, state) {
+    const tick = line.querySelector('.note-line-tick');
+    if (!tick) {
+        return;
+    }
+
+    tick.dataset.state = state;
+    tick.className = `tick-box note-line-tick${state === TICK_DONE ? ' tick-box-done' : state === TICK_FAILED ? ' tick-box-failed' : ''}`;
+    tick.setAttribute('aria-checked', state === TICK_DONE ? 'true' : state === TICK_FAILED ? 'mixed' : 'false');
+    tick.innerHTML = state === TICK_DONE
+        ? '<svg viewBox="0 0 20 20" width="13" height="13" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="m4 10.5 4 4 8-9"/></svg>'
+        : state === TICK_FAILED
+            ? '<svg viewBox="0 0 20 20" width="13" height="13" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 5l10 10M15 5 5 15"/></svg>'
+            : '';
+    line.classList.toggle('note-line-done', state === TICK_DONE);
+    line.classList.toggle('note-line-failed', state === TICK_FAILED);
 }
 
 function lineText(line) {
@@ -346,19 +371,22 @@ function lineText(line) {
     return span ? span.textContent : line.textContent;
 }
 
+/// An empty line's span holds a <br> and nothing else. An empty span has no line box, so the browser has
+/// nowhere to stand a caret in it: the caret put there was drawn - and typed into - at the nearest place
+/// that did have one, which is the start of the next line. That was the caret landing on the line after a
+/// new box, the arrow keys stepping over empty lines and boxes, and a letter typed on a new line jumping
+/// to the line below. The <br> is the placeholder every contenteditable editor uses for exactly this; it
+/// has no text, so lineText does not see it.
 function setLineText(line, text) {
     const span = line.querySelector('.note-line-text');
-    if (span) {
-        span.textContent = text;
-        if (span.childNodes.length === 0) {
-            // A completely childless inline element is an unreliable caret target in contenteditable -
-            // Chromium can place the caret as a sibling text node of the div instead of inside the span,
-            // silently detaching typed text from the line-tracking logic below. An empty text node keeps
-            // the span a valid target even when there's nothing to show yet.
-            span.appendChild(document.createTextNode(''));
-        }
-    } else {
+    if (!span) {
         line.textContent = text;
+        return;
+    }
+
+    span.textContent = text;
+    if (text.length === 0) {
+        span.appendChild(document.createElement('br'));
     }
 }
 
@@ -375,12 +403,10 @@ function extractLines(container) {
     });
 }
 
-/// An empty <span class="note-line-text"> has zero rendered width, so a click into an otherwise-empty
-/// line can't actually hit-test inside it - Chromium instead drops the caret (and whatever gets typed)
-/// as a plain text node sitting directly under .note-line, next to the span. This repairs any such
-/// stray text back into the span after every keystroke, before the rest of this module reads line
-/// state, and re-homes the caret to where it visually already appears to be (the end of the merged
-/// text) so continued typing doesn't notice the fix-up happened.
+/// Text the browser put outside a line's span - typed into a line whose span it could not find, or left
+/// behind by one of its own deletes - is moved back into the span after every keystroke, before the rest
+/// of this module reads line state, and the caret re-homed to the end of the merged text, which is where
+/// it visually already appears to be.
 function repairStrayText(container) {
     const selection = window.getSelection();
     let caretLine = null;
@@ -394,15 +420,18 @@ function repairStrayText(container) {
         }
     }
 
+    let repaired = false;
     for (const line of Array.from(container.children)) {
-        repairLineDom(line);
+        repaired = repairLineDom(line) || repaired;
     }
 
-    if (caretLine && caretWasStray) {
-        focusLine(caretLine);
+    if (caretLine && caretWasStray && repaired) {
+        const index = Array.prototype.indexOf.call(container.children, caretLine);
+        select(container, { line: index, offset: lineText(caretLine).length });
     }
 }
 
+/// Answers whether anything had to be moved.
 function repairLineDom(line) {
     const tick = line.querySelector('.note-line-tick');
     let span = line.querySelector('.note-line-text');
@@ -414,20 +443,32 @@ function repairLineDom(line) {
 
     const strayNodes = Array.from(line.childNodes).filter((node) => node !== tick && node !== span);
     if (strayNodes.length === 0) {
-        if (span.childNodes.length === 0) {
-            span.appendChild(document.createTextNode(''));
-        }
-        return;
+        tidyPlaceholder(span);
+        return false;
     }
 
-    // Chromium drops stray text immediately before the span, at the point the (zero-width) empty span
-    // sat when the caret landed - so it belongs at the start of whatever the span already holds.
+    // Chromium drops stray text immediately before the span, at the point the span sat when the caret
+    // landed - so it belongs at the start of whatever the span already holds.
     let strayText = '';
     for (const node of strayNodes) {
         strayText += node.textContent;
         node.remove();
     }
     setLineText(line, strayText + lineText(line));
+    return true;
+}
+
+/// A span with words in it needs no placeholder, and one left empty by the browser's own delete needs it
+/// back - see setLineText.
+function tidyPlaceholder(span) {
+    const hasText = span.textContent.length > 0;
+    const breaks = span.querySelectorAll('br');
+    if (hasText) {
+        breaks.forEach((element) => element.remove());
+    } else if (breaks.length !== 1 || span.childNodes.length !== 1) {
+        span.textContent = '';
+        span.appendChild(document.createElement('br'));
+    }
 }
 
 function closestLine(node, container) {
@@ -449,54 +490,96 @@ function closestLine(node, container) {
     return null;
 }
 
-function isFirstTextNodeOfLine(node, container) {
+/// The lines and the selection, the way C# reads them: see SurfaceState.
+function readSurface(container) {
+    return { lines: extractLines(container), ...readSelection(container) };
+}
+
+function readSelection(container) {
+    const selection = window.getSelection();
+    if (!selection || selection.rangeCount === 0
+        || !container.contains(selection.anchorNode) || !container.contains(selection.focusNode)) {
+        return { anchor: null, focus: null };
+    }
+
+    return {
+        anchor: pointOf(container, selection.anchorNode, selection.anchorOffset),
+        focus: pointOf(container, selection.focusNode, selection.focusOffset)
+    };
+}
+
+/// A place in the document as a line and a number of characters into its text.
+function pointOf(container, node, offset) {
+    const lines = container.children;
+    if (lines.length === 0) {
+        return null;
+    }
+
+    if (node === container) {
+        if (offset >= lines.length) {
+            const last = lines.length - 1;
+            return { line: last, offset: lineText(lines[last]).length };
+        }
+        return { line: offset, offset: 0 };
+    }
+
     const line = closestLine(node, container);
     if (!line) {
-        return false;
+        return null;
     }
+
+    const index = Array.prototype.indexOf.call(lines, line);
     const span = line.querySelector('.note-line-text');
-    if (!span) {
-        return true;
+    if (span && (node === span || span.contains(node))) {
+        const range = document.createRange();
+        range.setStart(span, 0);
+        range.setEnd(node, offset);
+        return { line: index, offset: range.toString().length };
     }
-    // True when the caret's text node is the span's own first (and, for a single-line span, only) child.
-    return node === span || (node === span.firstChild);
+
+    // On the line itself, beside its span, or on its box: before the words or after them.
+    if (node === line && span) {
+        const spanIndex = Array.prototype.indexOf.call(line.childNodes, span);
+        return { line: index, offset: offset <= spanIndex ? 0 : lineText(line).length };
+    }
+    return { line: index, offset: 0 };
 }
 
-/// Splits line's text at the current caret position, returning [beforeCaret, afterCaret].
-function splitAtCaret(line) {
-    const selection = window.getSelection();
-    const span = line.querySelector('.note-line-text');
-    const fullText = lineText(line);
-    if (!selection || !span || selection.rangeCount === 0) {
-        return [fullText, ''];
+/// The document position for a place C# named: inside the line's text, or - on an empty line - in its
+/// span, before the placeholder.
+function domPoint(container, point) {
+    const lines = container.children;
+    const line = lines[Math.max(0, Math.min(point.line, lines.length - 1))];
+    const span = line.querySelector('.note-line-text') || line;
+    let remaining = point.offset;
+    let lastText = null;
+    const walker = document.createTreeWalker(span, NodeFilter.SHOW_TEXT);
+    for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+        lastText = node;
+        if (remaining <= node.textContent.length) {
+            return { node, offset: remaining };
+        }
+        remaining -= node.textContent.length;
     }
 
-    const range = selection.getRangeAt(0);
-    if (!span.contains(range.startContainer)) {
-        return [fullText, ''];
-    }
-
-    const preCaretRange = range.cloneRange();
-    preCaretRange.selectNodeContents(span);
-    preCaretRange.setEnd(range.startContainer, range.startOffset);
-    const beforeText = preCaretRange.toString();
-    return [beforeText, fullText.slice(beforeText.length)];
+    return lastText
+        ? { node: lastText, offset: lastText.textContent.length }
+        : { node: span, offset: 0 };
 }
 
-function focusLine(line, atStart = false, offset = null) {
-    const span = line.querySelector('.note-line-text');
-    const target = span || line;
-    if (target.childNodes.length === 0) {
-        target.appendChild(document.createTextNode(''));
+function select(container, anchor, focus = anchor) {
+    if (!anchor || container.children.length === 0) {
+        return;
     }
 
-    const textNode = target.firstChild;
-    const selection = window.getSelection();
-    const range = document.createRange();
-    const caretOffset = offset !== null ? offset : (atStart ? 0 : textNode.textContent.length);
-    range.setStart(textNode, Math.min(caretOffset, textNode.textContent.length));
-    range.collapse(true);
-    selection.removeAllRanges();
-    selection.addRange(range);
-    line.scrollIntoView({ block: 'nearest' });
+    if (document.activeElement !== container) {
+        container.focus({ preventScroll: true });
+    }
+
+    const start = domPoint(container, anchor);
+    const end = domPoint(container, focus || anchor);
+    window.getSelection().setBaseAndExtent(start.node, start.offset, end.node, end.offset);
+
+    const focusLine = container.children[Math.min((focus || anchor).line, container.children.length - 1)];
+    focusLine.scrollIntoView({ block: 'nearest' });
 }

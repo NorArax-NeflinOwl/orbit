@@ -769,6 +769,24 @@ disagree in.
 - **Copying lines copies tick boxes as `- ` bullets** (`checklistTextEditor.js`, `onCopy`; a cut the
   same). A tick box is a button with no text, so a checklist pasted into a message arrived as bare lines.
   A selection inside one line is left to the browser - there is no box in it to speak for.
+- **Every edit that changes the shape of the lines is decided in C#** (`NoteSurfaceEdits`, reached through
+  `ChecklistTextEditor.Edit`, a synchronous `invokeMethod` from `checklistTextEditor.js`): Enter, Backspace
+  at the head of a line, Delete at its end, typing over a selection that spans lines, a cut, a press on a
+  box, the toolbar's box. The browser reports the lines and the selection as `{ line, offset }` points, and
+  draws the lines and the caret that come back; typing inside one line is still the browser's own. That is
+  where the caret goes, and it is unit-tested there:
+  - **Enter** splits the line and puts the caret at the start of the new one (a checklist line continues
+    as an unticked box; an empty box leaves the list). At the head of a line with words on it the new line
+    opens above, so a tick stays with its words.
+  - **Backspace at the head of a box with words** takes the box and keeps the words; on an **empty box** it
+    takes the whole line and the caret goes to the end of the line above (the start of the next when it
+    was the first). A plain line joins the one above. **Delete** at the end of a line is the mirror.
+  - **Whole lines selected and deleted** go box and all, with the caret where an empty box's deletion puts
+    it; typed over, they leave one plain line for the words.
+  - **An empty line holds a `<br>`**. An empty `<span>` has no line box, so the browser stood the caret -
+    and typed - at the nearest place that had one, the start of the next line. That was the caret landing
+    on the line after a new box, the arrow keys stepping over empty lines and boxes, and a letter typed on
+    a new line jumping to the line below.
 - **The checklist tool types `[]`**, which the surface then turns into a tick box
   (`checklistTextEditor.js`, `CHECKLIST_MARKER`). Typing the same two characters at the head of a line
   does the same thing, so the button is a shortcut into the rule rather than a second way in - which is

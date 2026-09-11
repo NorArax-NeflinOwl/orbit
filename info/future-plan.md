@@ -657,6 +657,22 @@ inventory lists, the contacts tabs, the chat menus - is built and needs no schem
 
 ## Noticed while working
 
+- **Dragging words across lines in a note is still the browser's own.** Since 2026-09-11 every other edit
+  that changes the shape of a note's lines goes through `NoteSurfaceEdits` (see the note editor in
+  `functionality.md`), but `checklistTextEditor.js` lets `insertFromDrop`/`deleteByDrag` through: where a
+  drop lands is not where the selection is, so the selection-based `Replace` would put the words in the
+  wrong place. A drag that spans lines can still glue two lines' elements together, which the next
+  keystroke's `repairStrayText` only partly tidies. What it would take: reading the drop point from the
+  `drop` event (`document.caretPositionFromPoint`), and sending a delete of the dragged selection and an
+  insert at that point to C# as one step.
+
+- **The name-and-description field turns "[]" into a box it cannot keep.** `TitledDescription` is the
+  note's surface (`ChecklistTextEditor`) reused for a task list's or an inventory's name and description,
+  and it stores only text - so a line typed as "[] milk" there loses the "[] " to a box, and the box is
+  dropped on save. Older than the 2026-09-11 note-editor work, which made it no worse for typing. What it
+  would take: a `ChecklistTextEditor` parameter that turns marker reading off, passed by
+  `TitledDescription`, and honoured in `NoteSurfaceEdits.ReadTypedMarker`.
+
 - ~~**Only the web's members page asks who takes over a group.**~~ Fixed 2026-09-11: the roster's
   question is `GroupLeaveConfirmation`, which the archive's "Leave and delete chat history" opens too, and
   the phone asks the same question (`GroupLeaveQuestion`, `GroupLeaveDialog`) from the group's own screen
