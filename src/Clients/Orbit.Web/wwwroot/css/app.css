@@ -6089,14 +6089,16 @@ input.note-editor-title {
 /* Leaflet paints its popup white whatever the theme is, and the label above takes the theme's text
    colour - so in the dark theme a pin opened on light text on a white card, which was barely readable.
    The card now takes the theme too, which keeps the two in step rather than fixing one colour to match
-   the other. */
-.leaflet-popup-content-wrapper,
-.leaflet-popup-tip {
+   the other. Prefixed with the container, because leaflet.css loads after this file (see index.html)
+   and its own rules name the same classes: at equal weight the later file wins, and the card stayed
+   white. */
+.leaflet-container .leaflet-popup-content-wrapper,
+.leaflet-container .leaflet-popup-tip {
     background: var(--bg-elevated);
     color: var(--text-primary);
 }
 
-.leaflet-container a.leaflet-popup-close-button {
+.leaflet-container .leaflet-popup a.leaflet-popup-close-button {
     color: var(--text-secondary);
 }
 
