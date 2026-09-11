@@ -756,7 +756,8 @@ inventory lists, the contacts tabs, the chat menus - is built and needs no schem
   server id, so the next edit is a second try; or a mark on the row the list can draw, with "send again"
   under its menu. Neither is small enough to fold into the fix that made this visible.
 
-- **Linking a list to a storage places nothing by itself** (noticed 2026-09-11, with
+- ~~**Linking a list to a storage places nothing by itself**~~ Fixed 2026-09-11: the link handler places
+  the list's product entries and settles the restock list, as a save does. As noticed (2026-09-11, with
   `ProductEntryPlacement`). `LinkTaskListToInventoryCommandHandler` only sets the link, so product
   entries already on the list reach the shelf on the list's next save rather than at the moment it is
   linked. What it would take: calling the placement from the link handler, and settling the restock list
@@ -772,7 +773,9 @@ inventory lists, the contacts tabs, the chat menus - is built and needs no schem
   description. A line on the entry's form saying "already on the shelf in X" before it is saved would
   keep that from being a surprise.
 
-- **Two lists pointing entries at one shelf row each ask for its whole minimum** in the shared-shelf
+- ~~**Two lists pointing entries at one shelf row each ask for its whole minimum**~~ Fixed 2026-09-11: one
+  set of counted shelf rows is shared across every list in the split
+  (`StockRequirementCounter.DemandOf`'s `shelfItemsAlreadyCounted`). As noticed: in the shared-shelf
   split (`GetTaskListStockCheckQueryHandler.AskedForByTheOtherLists`), because a row's minimum is counted
   once per list (`StockRequirementCounter.RequiredBy`). Rare - generation points only its own list's
   entries at the rows it builds - but a hand-made errand on a second list makes both look short.
