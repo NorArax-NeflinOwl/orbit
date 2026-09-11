@@ -198,8 +198,17 @@ public sealed class TaskItemCompletion(
     {
         try
         {
+            // Everything about the list that is not its entries goes back as it is. The endpoint replaces
+            // a list wholesale, and a request carrying only the title, the entries and the group flag was
+            // read as "not private, Normal priority": a tick put a private list back in the clear, entries
+            // and all, and a High one back to Normal. The description and the reader's answer about
+            // completion are left null, which keeps them.
             var outcome = await tasksApiClient.UpdateTaskListAsync(
-                taskList.Id, new UpdateTaskRequest(taskList.Title, items, taskList.IsGroup), cancellationToken);
+                taskList.Id,
+                new UpdateTaskRequest(
+                    taskList.Title, items, taskList.IsGroup, taskList.IsPrivate,
+                    Priority: taskList.Priority, Tags: taskList.AllTags),
+                cancellationToken);
             if (outcome.Kind == EditOutcomeKind.Locked)
             {
                 FailureMessage = translations.Format(
