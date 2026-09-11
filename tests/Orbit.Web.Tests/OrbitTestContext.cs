@@ -27,6 +27,9 @@ public abstract class OrbitTestContext : TestContext
     protected OrbitTestContext()
     {
         Services.AddSingleton(new Translations(new StubJSRuntime()));
+        // The machine's own clock, because most tests build their data from the real "now". A test about
+        // a page whose answer changes with the hour registers a FakeTimeProvider over this one.
+        Services.AddSingleton(TimeProvider.System);
         Services.AddSingleton(SuggestingNothing());
         // Empty, which is what every page sees unless the map sent somebody to it - the same reason
         // Translations is here. A test about the handover puts a place in it first.

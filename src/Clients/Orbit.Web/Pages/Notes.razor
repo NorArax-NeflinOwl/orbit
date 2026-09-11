@@ -11,6 +11,7 @@
 @inject IJSRuntime JSRuntime
 @inject ILogger<Notes> Logger
 @inject NotificationFeedState NotificationFeedState
+@inject TimeProvider TimeProvider
 @inject Translations T
 
 <PageTitle>@T["Orbit — Notes"]</PageTitle>
@@ -184,7 +185,7 @@
     private string WhenLastChanged(DateTimeOffset updatedAtUtc)
     {
         var when = updatedAtUtc.LocalDateTime;
-        var daysAgo = (DateTime.Now.Date - when.Date).Days;
+        var daysAgo = (TimeProvider.GetLocalNow().Date - when.Date).Days;
         return daysAgo switch
         {
             0 => T["Today"],

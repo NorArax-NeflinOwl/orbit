@@ -1,6 +1,7 @@
 @using Orbit.Contracts.Calendar
 @using Orbit.Web.Services
 @inject Translations T
+@inject TimeProvider TimeProvider
 
 <div class="calendar-month-grid @(IsCompact ? "calendar-month-grid-compact" : "") @(IsRoomy ? "calendar-month-grid-one-week" : "")">
     <div class="calendar-month-grid-weekday-row">
@@ -163,7 +164,7 @@
 
 
 
-    private static string DayCssClass(MonthGridDay day)
+    private string DayCssClass(MonthGridDay day)
     {
         var classes = new List<string>();
         if (!day.IsInDisplayedMonth)
@@ -171,7 +172,7 @@
             classes.Add("calendar-month-grid-day-outside");
         }
 
-        if (day.Date == DateOnly.FromDateTime(DateTime.Today))
+        if (day.Date == DateOnly.FromDateTime(TimeProvider.GetLocalNow().Date))
         {
             classes.Add("calendar-month-grid-day-today");
         }

@@ -27,6 +27,7 @@
 @inject PresenceService Presence
 @inject LiveUpdatesConnection LiveUpdates
 @inject UserPermissionState Permissions
+@inject TimeProvider TimeProvider
 @inject Translations T
 @inject NavigationManager NavigationManager
 @inject DiagnosticsDashboard DiagnosticsDashboard
@@ -393,7 +394,7 @@
         // page already has.
         _lastAdInterruptionAtUtc ??= await LastAdInterruption.ReadAsync();
 
-        var nowUtc = DateTimeOffset.UtcNow;
+        var nowUtc = TimeProvider.GetUtcNow();
         if (_isAdDialogOpen || !AdInterruption.ShouldShow(AdAudience, _lastAdInterruptionAtUtc, nowUtc))
         {
             return;
@@ -918,7 +919,7 @@
         }
     }
 
-    private bool CanShowBannerNow() => _lastBannerShownAtUtc is null || DateTimeOffset.UtcNow - _lastBannerShownAtUtc >= BannerMinimumGap;
+    private bool CanShowBannerNow() => _lastBannerShownAtUtc is null || TimeProvider.GetUtcNow() - _lastBannerShownAtUtc >= BannerMinimumGap;
 
     private async Task ShowBannerForNewestEntryAsync()
     {
@@ -932,7 +933,7 @@
 
             _bannerEntry = recent[0];
             _isBannerVisible = true;
-            _lastBannerShownAtUtc = DateTimeOffset.UtcNow;
+            _lastBannerShownAtUtc = TimeProvider.GetUtcNow();
             StateHasChanged();
 
             await Task.Delay(BannerVisibleDuration);

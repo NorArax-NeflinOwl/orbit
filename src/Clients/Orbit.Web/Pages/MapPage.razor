@@ -31,6 +31,7 @@
 @inject ILogger<MapPage> Logger
 @inject UserPermissionState Permissions
 @inject NotificationFeedState NotificationFeed
+@inject TimeProvider TimeProvider
 @inject Translations T
 
 <PageTitle>@T["Orbit — Map"]</PageTitle>
@@ -2329,7 +2330,7 @@ else
     /// </summary>
     private async Task ReadWhatHasAPlaceAsync()
     {
-        var nowUtc = DateTimeOffset.UtcNow;
+        var nowUtc = TimeProvider.GetUtcNow();
         var taskLists = await TasksApiClient.GetTaskListsAsync();
         // Kept, because the place form asks which lists a place belongs to and this is the one read that
         // already fetches them - see PlaceForm.TaskLists.
@@ -2397,7 +2398,7 @@ else
     private string WhenItHappens(CalendarEventDetailsDto details)
     {
         var start = details.StartUtc.ToLocalTime();
-        var today = DateTime.Today;
+        var today = TimeProvider.GetLocalNow().Date;
         var day = start.Date == today ? T["Today"]
             : start.Date == today.AddDays(1) ? T["Tomorrow"]
             : start.ToString("ddd d MMM", T.DisplayCulture);

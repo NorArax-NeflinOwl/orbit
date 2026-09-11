@@ -1,6 +1,7 @@
 @using System.Globalization
 @using Orbit.Web.Services
 @inject Translations T
+@inject TimeProvider TimeProvider
 
 @* A date box whose calendar starts on Monday.
 
@@ -80,9 +81,12 @@
     private bool _isOpen;
 
     /// <summary>Which month the popup is showing. Follows the chosen date when there is one, and today otherwise.</summary>
-    private DateOnly _shownMonth = FirstOf(Today);
+    private DateOnly _shownMonth;
 
-    private static DateOnly Today => DateOnly.FromDateTime(DateTime.Today);
+    private DateOnly Today => DateOnly.FromDateTime(TimeProvider.GetLocalNow().Date);
+
+    /// <summary>Set here rather than where the field is declared: the clock is not injected until now.</summary>
+    protected override void OnInitialized() => _shownMonth = FirstOf(Today);
 
     protected override void OnParametersSet()
     {
