@@ -888,7 +888,11 @@ inventory lists, the contacts tabs, the chat menus - is built and needs no schem
   alone would mean a managed list per inventory, its settings and its errand naming in the fakes, for no
   screen test that needs them.
 
-- **The Android head still builds with twelve warnings** (noticed 2026-09-11, after the seven
+- ~~**The Android head still builds with twelve warnings**~~ Fixed 2026-09-11: it builds with none. The
+  swatch's `AutomationProperties.Name` went, `AvatarCircle`/`PersonRow.Id` became `SubjectId`, the four
+  `Frame` elements became `AvatarFrame`, `ButtonFrame`, `CardFrame` and `RowFrame`, `ItemCard`'s cleared
+  shadows are `null!`, `MainActivity` checks the insets controller for null, and the two crefs name
+  `Orbit.Mobile.Screens.Startup.StartupViewModel` and `Platform.WebSignInBrowser`. As noticed: (noticed 2026-09-11, after the seven
   `DisplayActionSheet` CS0618s went). None fails anything, and the head is not in `Orbit.CI.slnf`, so
   nothing gates them: one more CS0618, `AutomationProperties.Name` on the accent swatches in
   `AccountPage.xaml` (MAUI wants `SemanticProperties.Description`, which the swatch's button already
