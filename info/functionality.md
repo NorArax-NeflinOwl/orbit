@@ -52,14 +52,18 @@ sign-in that matched an existing address keeps that account's password. Options 
 password it means, and every account with a password gets the "Forgot your password?" link beside the
 field - a reset is the way to delete an account whose password is gone.
 
-An account with **no** password used to delete itself with nothing but a `confirm()`. Options now asks it
-to type its email address or login first (any case, spaces ignored) and sends nothing until it matches;
-the confirm() still follows. The check is the browser's, against the account it loaded, because the
-server asks such an account for nothing - so it makes the press deliberate rather than proving anything,
-and the request is unchanged. Options also refuses to delete while the account has not loaded, rather
-than guessing it needs no password. Proving the account with Google itself is the stronger answer,
-written up as a proposal in [Future Plan](future-plan.md), since it changes the request installed
-phones send. The phone has neither the typing nor the hint yet - see the same page.
+An account with **no** password used to delete itself with nothing but a `confirm()`. **It now confirms
+with Google** (2026-09-11, the user's choice): where the deployment has a Google client id, Options shows
+Google's own button in the danger zone, and pressing it - then the confirm() - sends the fresh ID token
+with the request, `DeleteAccountRequest(Password, GoogleIdToken)`. The server deletes only when the token
+is a genuine sign-in for this account's Google identity issued within the last ten minutes, so a session
+left open somewhere cannot end the account the way it could type an address; a token that proves nothing
+is refused, and says so. A Google-linked account whose password is forgotten may confirm with Google too.
+Where Google is not configured, Options falls back to asking for the email address or login (any case,
+spaces ignored), checked in the browser, which makes the press deliberate rather than proving anything.
+The server still accepts the empty password from a passwordless account that sends no token, because
+installed phones send exactly that - requiring the token is the last step, in [Future Plan](future-plan.md).
+Options also refuses to delete while the account has not loaded, rather than guessing it needs nothing.
 
 Both sign-in forms listen for `input` as well as `change`, and neither uses `@bind`, which can only be
 told about one of the two. A password manager fills a box without anybody typing in it: some raise one

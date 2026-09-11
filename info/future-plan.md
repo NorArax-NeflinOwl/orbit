@@ -232,6 +232,18 @@ rather than meets, and what has to be decided before any of it starts - is in
 
 ## Proving it is you before an account without a password is deleted
 
+**Decided by the user on 2026-09-11: ask Google again. Steps one and two are built; step three waits.**
+The server accepts `DeleteAccountRequest(Password, GoogleIdToken)` and, when a token is sent, deletes
+only if it is a genuine sign-in for this account's `GoogleSubjectId` issued within ten minutes
+(`GoogleIdentity.IssuedAtUtc`, `DeleteAccountCommandHandler.FreshGoogleSignIn`) - a token that proves
+nothing is a refusal, and a Google-linked account whose password is forgotten may confirm with Google
+instead. The web's Options shows Google's button to a passwordless linked account where Google is
+configured, and keeps the typed address only where it is not. **Still to do:** the phone sending the
+token (its `GoogleSignIn` beside the delete form, then a rebuilt APK), and only after those builds are
+the ones in use, step three - refusing a passwordless account that sends no token, with the emailed-code
+fallback below for a deployment without Google. Until then the empty password is still accepted from
+such an account, exactly as installed phones send it. What was written before building it:
+
 Since 2026-09-11 an account with no password - made with Google and never given one - types its email
 address or login before Options deletes it. That makes the press deliberate and proves nothing: the
 server still accepts `DeleteAccountRequest("")` from it (`DeleteAccountCommandHandler`), and whoever holds
@@ -706,7 +718,8 @@ inventory lists, the contacts tabs, the chat menus - is built and needs no schem
   right after, so all it costs is an error in the log - but an update of a row that may have gone should
   be a conditional update, not a read and a blind write.
 
-- **Handing an appointment to a contact still happens in its form.** The note, task list and inventory
+- **Handing an appointment to a contact still happens in its form - decided to stay so** (the user,
+  2026-09-11: guests stay in the form, and only the share link is in the panel's menu). The note, task list and inventory
   forms moved Share and Share link into the panel's menu on 2026-09-11; the calendar event's form moved
   only its link, because giving an appointment to somebody is adding them as a guest (`EventFields`), and
   that is part of what Save writes - the invitation goes out once the event is saved
