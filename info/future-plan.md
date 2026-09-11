@@ -862,7 +862,13 @@ inventory lists, the contacts tabs, the chat menus - is built and needs no schem
   `TaskListDetailViewModel.ShelfForSomethingNew` does not fill the form from `TaskItemDto.Product`, which
   such an entry now carries. Not new - the form was blank before too - but the answer is on the entry now.
 
-- **The phone's `FakeTasksServer` does not place product entries** the way the real server does since
+- ~~**The phone's `FakeTasksServer` does not place product entries**~~ Fixed 2026-09-11: given the
+  screen tests' `FakeInventoryServer`, it places them on a list's save and on its link
+  (`PlaceProductEntries`, mirroring `ProductEntryPlacement` - matched by name, a new row counted as
+  `StockRequirementCounter` counts, the entry's own product dropped, declined for a private list or a
+  shelf that may not be changed), and
+  `An_errand_for_something_not_on_the_shelf_yet_comes_back_standing_for_its_row` is the screen test it
+  allowed. A fake built without an inventory server still places nothing. As noticed: it did not, the way the real server does since
   2026-09-11, so a screen test can only assert what was sent. A fake that placed them would need to know
   the fake inventory server; until then the placement itself is covered by `ProductEntryPlacementTests`.
 
