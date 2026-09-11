@@ -16,6 +16,7 @@
 @using Orbit.Core.Permissions
 @using Orbit.Web.Services
 @inject ChatApiClient ChatApiClient
+@inject TimeProvider TimeProvider
 @inject CalendarApiClient CalendarApiClient
 @inject NotesApiClient NotesApiClient
 @inject TasksApiClient TasksApiClient
@@ -1362,7 +1363,7 @@ else
     /// <summary>The label shown on a day-separator row between messages sent on different calendar days - "Today" / "Yesterday" / a weekday name within the last week / a full date otherwise.</summary>
     private string FormatDaySeparatorLabel(DateTime localDate)
     {
-        var today = DateTime.Today;
+        var today = TimeProvider.GetLocalNow().Date;
         if (localDate == today)
         {
             return T["Today"];

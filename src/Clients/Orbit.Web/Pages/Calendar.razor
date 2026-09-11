@@ -18,6 +18,7 @@
 @inject IJSRuntime JSRuntime
 @inject ILogger<Calendar> Logger
 @inject NotificationFeedState NotificationFeedState
+@inject TimeProvider TimeProvider
 @inject Translations T
 
 <PageTitle>@T["Orbit — Calendar"]</PageTitle>
@@ -325,7 +326,7 @@
             var (from, toExclusive) = _viewState.ListedPeriod();
             // An event that starts before the period and runs into it belongs to it as much as one that
             // starts inside it.
-            var nowUtc = DateTimeOffset.UtcNow;
+            var nowUtc = TimeProvider.GetUtcNow();
             return [.. (_events ?? [])
                 .Where(calendarEvent => DateOnly.FromDateTime(calendarEvent.Details.StartUtc.LocalDateTime) < toExclusive
                     && DateOnly.FromDateTime(calendarEvent.Details.EndUtc.LocalDateTime) >= from)
@@ -370,6 +371,15 @@
     /// ResolveMissingGuestDisplayNamesAsync.
     /// </summary>
     private readonly Dictionary<Guid, string> _resolvedGuestUserNames = [];
+
+    /// <summary>Today, by the page's clock rather than the machine's - see Program.cs's TimeProvider.</summary>
+    private DateOnly Today => DateOnly.FromDateTime(TimeProvider.GetLocalNow().Date);
+
+    /// <summary>
+    /// The calendar opens on today. Set here rather than where the view state is made, because the clock
+    /// is not injected until now; before OnParametersSet, so a day named in the address still wins.
+    /// </summary>
+    protected override void OnInitialized() => _viewState.ReferenceDate = Today;
 
     /// <summary>
     /// Obeys the query string, once per thing it asks for - see <see cref="_openedAs"/>. Before the
@@ -775,7 +785,7 @@
 
     private void GoToNextPeriod() => _viewState.StepForward();
 
-    private void GoToToday() => _viewState.GoToToday();
+    private void GoToToday() => _viewState.GoToToday(Today);
 
     /// <summary>
     /// aria-pressed needs a lowercase "true"/"false" string - Blazor's bool-attribute shorthand (which
@@ -920,7 +930,12 @@
     private sealed class CalendarViewState
     {
         public CalendarViewMode ViewMode { get; private set; } = CalendarViewMode.Month;
-        public DateOnly ReferenceDate { get; set; } = DateOnly.FromDateTime(DateTime.Today);
+        /// <summary>
+        /// The day the period on screen is built around. Starts as today, set by the page when it opens -
+        /// see Calendar.OnInitialized - because what today is is the page's clock's answer, not this
+        /// object's.
+        /// </summary>
+        public DateOnly ReferenceDate { get; set; }
         /// <summary>
         /// Whether due-task dots are mixed in with event dots on the compact year view - each day cell
         /// there is tiny, so this lets the user opt back out if the combined dots feel too cluttered.
@@ -991,7 +1006,7 @@
 
         public void SwitchView(CalendarViewMode viewMode) => ViewMode = viewMode;
 
-        public void GoToToday() => ReferenceDate = DateOnly.FromDateTime(DateTime.Today);
+        public void GoToToday(DateOnly today) => ReferenceDate = today;
 
         public void StepBackward() => ReferenceDate = Step(-1);
 

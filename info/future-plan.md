@@ -781,7 +781,18 @@ inventory lists, the contacts tabs, the chat menus - is built and needs no schem
   `ReturnTo.Link(..., "/tasks")`, as every other page that opens something now does - would make it step
   back.
 
-- **Orbit.Web's pages read the machine's clock directly** - `DateTime.Today` and `DateTime.Now`, in
+- ~~**Orbit.Web's pages read the machine's clock directly**~~ Done on 2026-09-11, after PR #279 merged:
+  `Program.cs` registers `TimeProvider.System`, and every page and component that asked the machine what
+  day or time it is asks that instead - the calendar and its two grids, the date box, the expiry box,
+  chat's day dividers, the dashboard, the map, the notes list, the export's file name, the layout's
+  banner and advert pacing. `EventFormModel` and `OrbitAuthenticationStateProvider` take one as an
+  optional parameter (the editors and DI hand theirs over; the many tests that build the latter by hand
+  need not), and `Calendar.razor` sets its opening day from it in `OnInitialized`. `OrbitTestContext`
+  registers the system clock, so existing tests are unchanged, and a test that needs the hour registers
+  a `FakeTimeProvider` over it - `DashboardTests.Late_in_the_evening_an_appointment_still_to_come_counts_as_today`
+  is the evening the old test used to fail in, pinned. What follows is the entry as it stood.
+
+  `DateTime.Today` and `DateTime.Now`, in
   eighteen places across the pages and components, with no `TimeProvider` injected anywhere in that
   client. It is why `DashboardTests.An_appointment_that_has_ended_counts_as_one_that_is_behind_the_reader`
   failed for the last three hours of every day until 2026-09-10 (an event "three hours from now" is

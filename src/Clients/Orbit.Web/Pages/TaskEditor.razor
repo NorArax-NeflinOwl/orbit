@@ -35,6 +35,7 @@
 @inject NavigationTrail NavigationTrail
 @inject ILogger<TaskEditor> Logger
 @inject Translations T
+@inject TimeProvider TimeProvider
 @inject ChosenPlace ChosenPlace
 
 <PageTitle>@(IsNewTaskList ? T["New task list"] : T["Edit task list"])</PageTitle>
@@ -1280,6 +1281,7 @@ else
                         Items = taskList.Items
                             .Select(item => new TaskItemFormModel
                             {
+                                Event = new EventFormModel(TimeProvider) { Color = TaskItemFormModel.AppointmentColor },
                                 Id = item.Id,
                                 Description = item.Description,
                                 DueDate = item.DueDateUtc is { } dueDateUtc ? DateOnly.FromDateTime(dueDateUtc.LocalDateTime) : null,
@@ -1396,6 +1398,7 @@ else
 
         var entry = new TaskItemFormModel
         {
+            Event = new EventFormModel(TimeProvider) { Color = TaskItemFormModel.AppointmentColor },
             Kind = nameof(TaskItemKind.Location),
             Location = place.Address,
             // Kept even though a Location entry stores only the name: changing the type to Calendar
@@ -1598,7 +1601,7 @@ else
             // how the place went missing once already: each save then sent whatever the incomplete
             // copy held, and an entry whose event had a place had it erased by somebody editing
             // something else entirely.
-            item.Event = EventFormModel.FromDto(details);
+            item.Event = EventFormModel.FromDto(details, TimeProvider);
 
             // An appointment made before the entry had a description of its own carries the answer on
             // the event. The one box has to open showing it rather than blank, or the next save would
@@ -2101,7 +2104,11 @@ else
 
     private void AddItem()
     {
-        var item = new TaskItemFormModel();
+        // Its appointment, should it become one, starts now by the page's clock - see EventFormModel.
+        var item = new TaskItemFormModel
+        {
+            Event = new EventFormModel(TimeProvider) { Color = TaskItemFormModel.AppointmentColor }
+        };
         _formModel.Items.Add(item);
         _expandedItem = item;
         _isWaitingToFocusTheNewItem = true;
@@ -2812,7 +2819,13 @@ else
         /// different things; kept even while the kind says otherwise, so switching back and forth in
         /// one sitting does not lose what was typed.
         /// </summary>
-        public EventFormModel Event { get; set; } = new() { Color = "#7c6cf0" };
+        public EventFormModel Event { get; set; } = new() { Color = AppointmentColor };
+
+        /// <summary>
+        /// The colour an entry's appointment starts in. Named because the page replaces the model above
+        /// with one on its own clock wherever it makes an entry, and must start it in the same colour.
+        /// </summary>
+        public const string AppointmentColor = "#7c6cf0";
 
         /// <summary>
         /// What this entry is about, in as many words as it takes - see Orbit.Core.Tasks.TaskItem.Notes

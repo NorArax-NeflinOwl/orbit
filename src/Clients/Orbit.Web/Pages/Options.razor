@@ -11,6 +11,7 @@
 @using Orbit.Web.Services
 @inject ThemeService ThemeService
 @inject AccentColorService AccentColorService
+@inject TimeProvider TimeProvider
 @inject Translations T
 @inject PushNotificationManager PushNotificationManager
 @inject NotificationsApiClient NotificationsApiClient
@@ -830,7 +831,7 @@
             var json = JsonSerializer.Serialize(archive, new JsonSerializerOptions { WriteIndented = true });
             await using var downloadModule = await JSRuntime.InvokeAsync<IJSObjectReference>("import", "./js/fileDownload.js");
             await downloadModule.InvokeVoidAsync(
-                "downloadText", $"orbit-export-{DateTimeOffset.Now:yyyy-MM-dd}.json", "application/json", json);
+                "downloadText", $"orbit-export-{TimeProvider.GetLocalNow():yyyy-MM-dd}.json", "application/json", json);
 
             _transferMessage = T.Format(
                 "Exported {0} notes, {1} task lists, {2} events, {3} inventories and {4} places.",
