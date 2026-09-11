@@ -99,10 +99,17 @@ public sealed class ChatApiClient
         }
     }
 
-    /// <summary>Marks every message otherUserId sent to the caller as read as of now.</summary>
-    public async Task MarkConversationAsReadAsync(Guid otherUserId, CancellationToken cancellationToken = default)
+    /// <summary>
+    /// Marks the messages otherUserId sent to the caller as read, up to and including the one sent at
+    /// readUpToUtc - the newest one the reader has actually seen (see ChatReadState). Always given: the
+    /// server's "everything" without it is for builds that predate it.
+    /// </summary>
+    public async Task MarkConversationAsReadAsync(
+        Guid otherUserId, DateTimeOffset readUpToUtc, CancellationToken cancellationToken = default)
     {
-        var response = await _httpClient.PutAsync($"api/chat/messages/{otherUserId}/read", content: null, cancellationToken);
+        var response = await _httpClient.PutAsync(
+            $"api/chat/messages/{otherUserId}/read?readUpToUtc={Uri.EscapeDataString(readUpToUtc.ToString("O"))}",
+            content: null, cancellationToken);
         response.EnsureSuccessStatusCode();
     }
 
@@ -224,12 +231,15 @@ public sealed class ChatApiClient
             $"api/chat/groups/{groupId}/messages/{groupMessageId}/receipts", cancellationToken) ?? [];
 
     /// <summary>
-    /// Marks everything addressed to this reader in the group as read. Called while the group is open,
-    /// the same coarse stand-in the one-to-one conversation uses.
+    /// Marks what is addressed to this reader in the group as read, up to the newest message they have
+    /// actually seen - the group counterpart of MarkConversationAsReadAsync, decided the same way.
     /// </summary>
-    public async Task MarkGroupConversationAsReadAsync(Guid groupId, CancellationToken cancellationToken = default)
+    public async Task MarkGroupConversationAsReadAsync(
+        Guid groupId, DateTimeOffset readUpToUtc, CancellationToken cancellationToken = default)
     {
-        var response = await _httpClient.PutAsync($"api/chat/groups/{groupId}/read", content: null, cancellationToken);
+        var response = await _httpClient.PutAsync(
+            $"api/chat/groups/{groupId}/read?readUpToUtc={Uri.EscapeDataString(readUpToUtc.ToString("O"))}",
+            content: null, cancellationToken);
         response.EnsureSuccessStatusCode();
     }
 

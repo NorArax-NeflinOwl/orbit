@@ -1,4 +1,4 @@
-@implements IDisposable
+@implements IAsyncDisposable
 @using System.Net
 @using System.Text.Json
 @using Orbit.Contracts.Chat
@@ -7,6 +7,7 @@
 @inject EncryptedChatMessageSender EncryptedChatMessageSender
 @inject EncryptedChatMessageReader EncryptedChatMessageReader
 @inject PageVisibility PageVisibility
+@inject ChatSeenProbe ChatSeen
 @inject NavigationManager NavigationManager
 @inject ILogger<GroupConversation> Logger
 @inject Translations T
@@ -21,7 +22,7 @@
     <p class="error">@_errorMessage</p>
 }
 
-<div class="chat-messages" @onclick="CloseMessageMenu">
+<div class="chat-messages" @ref="_messageListElement" @onclick="CloseMessageMenu">
     @if (_messages.Count == 0 && _announcements.Count == 0)
     {
         <p class="empty-hint empty-list">@T["Nothing here yet. Anything sent before you joined is only readable if somebody passed it on to you."]</p>
@@ -38,7 +39,7 @@
         {
             var isOwn = message.SenderUserId == OwnUserId;
 
-            <div class="chat-bubble-row @(isOwn ? "own" : "theirs")">
+            <div class="chat-bubble-row @(isOwn ? "own" : "theirs")" data-message-id="@message.Id">
                 @if (_editingMessageId == message.Id)
                 {
                     <div class="chat-bubble-edit" @onclick:stopPropagation="true">
@@ -217,6 +218,24 @@
     private PeriodicTimer? _pollTimer;
     private CancellationTokenSource? _pollCancellation;
 
+    /// <summary>The scrollable thread, which chatSeen.js is asked about - see ChatSeenProbe.</summary>
+    private ElementReference _messageListElement;
+
+    /// <summary>What this group has told the server its reader has seen - replaced whenever another group opens.</summary>
+    private ChatReadState _readState = new();
+
+    /// <summary>This component's own key for the listeners chatSeen.js keeps.</summary>
+    private readonly string _seenObserverKey = Guid.NewGuid().ToString("N");
+
+    private DotNetObjectReference<GroupConversation>? _seenObserverReference;
+    private bool _isSeenObserverAttached;
+
+    /// <summary>
+    /// Set when the thread changed and the next render will draw it. A message cannot be seen before it
+    /// is drawn, so asking straight after loading would always answer with the thread as it was.
+    /// </summary>
+    private bool _markAfterNextRender;
+
     private bool IsOwnAdmin => Group.OwnRole == AdminRole;
 
     /// <summary>
@@ -282,11 +301,29 @@
         _messages = [];
         _announcements = [];
         _draft = string.Empty;
+        _readState = new ChatReadState();
         CloseInfo();
         CancelEditing();
         CancelForwarding();
         await LoadAsync();
+        _markAfterNextRender = true;
         StartPolling();
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!_isSeenObserverAttached)
+        {
+            _isSeenObserverAttached = true;
+            _seenObserverReference ??= DotNetObjectReference.Create(this);
+            await ChatSeen.ObserveAsync(_seenObserverKey, _messageListElement, _seenObserverReference);
+        }
+
+        if (_markAfterNextRender)
+        {
+            _markAfterNextRender = false;
+            await MarkWhatHasBeenSeenQuietlyAsync();
+        }
     }
 
     /// <summary>
@@ -378,6 +415,7 @@
         if (_messages.Count != before || AnnouncementSummary() != announcementsBefore
             || (_messages.Count > 0 ? _messages[^1].Id : null) != newestBefore)
         {
+            _markAfterNextRender = true;
             StateHasChanged();
         }
     }
@@ -397,9 +435,9 @@
             _messages = await ChatApiClient.GetGroupConversationAsync(Group.Id);
             _announcements = await ChatApiClient.GetGroupAnnouncementsAsync(Group.Id);
             await DecryptMessagesAsync();
-            // Having the group open is what counts as reading it - the same coarse stand-in the
-            // one-to-one conversation uses, and what the senders' ticks are drawn from.
-            await ChatApiClient.MarkGroupConversationAsReadAsync(Group.Id);
+            // What the senders' ticks are drawn from - and only for what has actually been seen, the same
+            // rule as the one-to-one conversation (see ChatReadState).
+            await MarkWhatHasBeenSeenAsync();
         }
         catch (HttpRequestException exception) when (exception.StatusCode == HttpStatusCode.Unauthorized)
         {
@@ -411,6 +449,44 @@
             _errorMessage = T["Couldn't load this conversation. Check your connection and try again."];
         }
     }
+
+    /// <summary>
+    /// Marks read what has been on screen while the window was in front of somebody, and nothing after
+    /// it - see ChatReadState, and Chat.razor's own MarkWhatHasBeenSeenAsync, which this mirrors. The
+    /// group is captured first so an answer that arrives after switching groups is not applied to the
+    /// new one.
+    /// </summary>
+    private async Task MarkWhatHasBeenSeenAsync()
+    {
+        var groupId = Group.Id;
+        var readState = _readState;
+        var newestSeen = await ChatSeen.NewestMessageSeenAsync(_messageListElement);
+        var readUpToUtc = readState.ReadUpToToTell(newestSeen, _messages, OwnUserId);
+        if (readUpToUtc is null || groupId != _loadedGroupId)
+        {
+            return;
+        }
+
+        await ChatApiClient.MarkGroupConversationAsReadAsync(groupId, readUpToUtc.Value);
+        readState.Told(readUpToUtc.Value);
+    }
+
+    /// <summary>From a render or a browser event, where a failure has nobody to report to: logged, and tried again on the next chance.</summary>
+    private async Task MarkWhatHasBeenSeenQuietlyAsync()
+    {
+        try
+        {
+            await MarkWhatHasBeenSeenAsync();
+        }
+        catch (HttpRequestException exception)
+        {
+            Logger.LogWarning(exception, "Couldn't mark group {GroupId} as read", Group.Id);
+        }
+    }
+
+    /// <summary>Called from chatSeen.js when the list scrolls, the window gets focus or the tab comes to the front.</summary>
+    [JSInvokable]
+    public Task OnThreadSeenMayHaveChanged() => InvokeAsync(MarkWhatHasBeenSeenQuietlyAsync);
 
     /// <summary>
     /// Each copy is encrypted between its sender and its recipient, so the key to open it is the pairwise
@@ -595,10 +671,16 @@
         }
     }
 
-    public void Dispose()
+    public async ValueTask DisposeAsync()
     {
         LiveUpdates.ChatChanged -= OnChatAnnounced;
         LiveUpdates.ConnectionStateChanged -= OnLiveConnectionStateChanged;
         StopPolling();
+        if (_isSeenObserverAttached)
+        {
+            await ChatSeen.UnobserveAsync(_seenObserverKey);
+        }
+
+        _seenObserverReference?.Dispose();
     }
 }

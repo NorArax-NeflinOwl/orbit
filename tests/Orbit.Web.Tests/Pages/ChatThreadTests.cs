@@ -1,6 +1,8 @@
+using System.Globalization;
 using System.Net;
 using System.Text;
 using System.Text.Json;
+using System.Web;
 using Bunit;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Authorization;
@@ -8,6 +10,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.JSInterop;
+using Orbit.Contracts.Chat;
 using Orbit.Core.Permissions;
 using Orbit.Web.Pages;
 using Orbit.Web.Services;
@@ -61,6 +64,22 @@ public sealed class ChatThreadTests : OrbitTestContext
     /// say something about rather than open an empty thread for.
     /// </summary>
     private bool _theOtherAccountResolves = true;
+
+    /// <summary>Whether the tab is visible and the window has focus - what ./js/chatSeen.js answers to isInFront.</summary>
+    private bool _isInFront = true;
+
+    /// <summary>The newest message whose end is on screen - what ./js/chatSeen.js answers to newestInView.</summary>
+    private Guid? _newestInView;
+
+    /// <summary>What the conversation read answers with. Empty unless a test put something in it.</summary>
+    private readonly List<ChatMessageDto> _conversation = [];
+
+    /// <summary>Every "read up to" the page sent, in order; null for a mark sent without one.</summary>
+    private readonly List<DateTimeOffset?> _readsSent = [];
+
+    private BunitJSModuleInterop _seenModule = null!;
+
+    private static readonly DateTimeOffset TheStartOfTheTest = new(2026, 9, 11, 10, 0, 0, TimeSpan.Zero);
 
     public ChatThreadTests()
     {
@@ -212,6 +231,120 @@ public sealed class ChatThreadTests : OrbitTestContext
         Assert.Equal(0, TicksSoFar());
     }
 
+    /// <summary>
+    /// "Read" is something somebody did, not something an open window claims. A window that is visible
+    /// but not focused - a second screen, a chat left open behind the editor - and a tab behind others
+    /// both mark nothing, however long they poll and whatever is on screen in them. The seen-state
+    /// callback is fired too, as a scroll or a focus event would, so neither path can mark on its own.
+    /// </summary>
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task A_window_nobody_is_at_marks_nothing_read(bool isPageVisible)
+    {
+        _isPageVisible = isPageVisible;
+        _isInFront = false;
+        var message = Receive(minutesAgo: 1);
+        _newestInView = message.Id;
+        var cut = RenderTheConversation();
+
+        await WaitUntilTheLoopHasTickedAsync(times: 3);
+        await cut.InvokeAsync(() => cut.Instance.OnThreadSeenMayHaveChanged());
+
+        Assert.Empty(ReadsSent());
+    }
+
+    /// <summary>
+    /// Only up to the newest message that has been on screen. One that arrived below the bottom of the
+    /// list has not been read because the conversation was open.
+    /// </summary>
+    [Fact]
+    public async Task A_message_not_yet_in_view_is_not_marked_read()
+    {
+        var inView = Receive(minutesAgo: 2);
+        Receive(minutesAgo: 1);
+        _newestInView = inView.Id;
+        RenderTheConversation();
+
+        await WaitUntilAReadHasBeenSentAsync();
+        await WaitUntilTheLoopHasTickedAsync(times: 3);
+
+        Assert.All(ReadsSent(), readUpTo => Assert.Equal(inView.SentAtUtc, readUpTo));
+    }
+
+    /// <summary>
+    /// Scrolling down to it is what marks it - straight away, from the scroll, rather than on whichever
+    /// poll comes next, which behind a live connection is twenty seconds off.
+    /// </summary>
+    [Fact]
+    public async Task Scrolling_a_message_into_view_marks_up_to_it()
+    {
+        var first = Receive(minutesAgo: 2);
+        var second = Receive(minutesAgo: 1);
+        _newestInView = first.Id;
+        var cut = RenderTheConversation();
+        await WaitUntilAReadHasBeenSentAsync();
+
+        _newestInView = second.Id;
+        await cut.InvokeAsync(() => cut.Instance.OnThreadSeenMayHaveChanged());
+
+        Assert.Equal(second.SentAtUtc, ReadsSent()[^1]);
+    }
+
+    /// <summary>The other way in: coming back to a window that already has the message on screen.</summary>
+    [Fact]
+    public async Task Focusing_the_window_marks_what_is_already_in_view()
+    {
+        _isInFront = false;
+        var message = Receive(minutesAgo: 1);
+        _newestInView = message.Id;
+        var cut = RenderTheConversation();
+        await WaitUntilTheLoopHasTickedAsync(times: 1);
+        Assert.Empty(ReadsSent());
+
+        _isInFront = true;
+        await cut.InvokeAsync(() => cut.Instance.OnThreadSeenMayHaveChanged());
+
+        Assert.NotEmpty(ReadsSent());
+        Assert.All(ReadsSent(), readUpTo => Assert.Equal(message.SentAtUtc, readUpTo));
+    }
+
+    /// <summary>
+    /// A message from the other party, answered by the conversation read from now on and answerable by
+    /// chatSeen.js as the one in view once a test says it is.
+    /// </summary>
+    private ChatMessageDto Receive(int minutesAgo)
+    {
+        var message = new ChatMessageDto(
+            Guid.NewGuid(), OtherUserId, OwnUserId, "sealed", "nonce", TheStartOfTheTest.AddMinutes(-minutesAgo),
+            IsEdited: false, EditedAtUtc: null);
+        lock (_countingLock)
+        {
+            _conversation.Add(message);
+        }
+
+        _seenModule.Setup<string?>("newestInView", _ => _newestInView == message.Id).SetResult(message.Id.ToString());
+        return message;
+    }
+
+    private IReadOnlyList<DateTimeOffset?> ReadsSent()
+    {
+        lock (_countingLock)
+        {
+            return [.. _readsSent];
+        }
+    }
+
+    private async Task WaitUntilAReadHasBeenSentAsync()
+    {
+        var deadline = DateTime.UtcNow + EnoughForAFewTicks;
+        while (ReadsSent().Count == 0)
+        {
+            Assert.True(DateTime.UtcNow < deadline, "The page never marked anything read.");
+            await Task.Delay(TimeSpan.FromMilliseconds(50));
+        }
+    }
+
     private IRenderedComponent<Chat> RenderTheConversation()
     {
         // Set here rather than in the constructor: a planned invocation answers with one result, and
@@ -310,6 +443,7 @@ public sealed class ChatThreadTests : OrbitTestContext
 
         Services.AddSingleton(new PanelPreferences(new StubJSRuntime()));
         Services.AddSingleton(new PageVisibility(JSInterop.JSRuntime));
+        Services.AddSingleton(new ChatSeenProbe(JSInterop.JSRuntime));
     }
 
     private HttpResponseMessage Answer(HttpRequestMessage request)
@@ -341,9 +475,33 @@ public sealed class ChatThreadTests : OrbitTestContext
                 => new HttpResponseMessage(HttpStatusCode.NoContent),
             var receipt when receipt.EndsWith("/read-receipt", StringComparison.Ordinal)
                 => Json("{\"readUpToUtc\":null}"),
+            var read when read.EndsWith("/read", StringComparison.Ordinal) => RecordTheRead(request),
+            var conversation when conversation == $"api/chat/messages/{OtherUserId}"
+                => Json(JsonSerializer.Serialize(TheConversation(), new JsonSerializerOptions(JsonSerializerDefaults.Web))),
             var messages when messages.StartsWith("api/chat/messages", StringComparison.Ordinal) => Json("[]"),
             _ => Json("[]")
         };
+    }
+
+    private HttpResponseMessage RecordTheRead(HttpRequestMessage request)
+    {
+        var readUpToUtc = HttpUtility.ParseQueryString(request.RequestUri!.Query)["readUpToUtc"];
+        lock (_countingLock)
+        {
+            _readsSent.Add(readUpToUtc is null
+                ? null
+                : DateTimeOffset.Parse(readUpToUtc, CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind));
+        }
+
+        return new HttpResponseMessage(HttpStatusCode.NoContent);
+    }
+
+    private IReadOnlyList<ChatMessageDto> TheConversation()
+    {
+        lock (_countingLock)
+        {
+            return [.. _conversation];
+        }
     }
 
     /// <summary>
@@ -379,6 +537,15 @@ public sealed class ChatThreadTests : OrbitTestContext
         JSInterop.SetupVoid("OrbitChatScroll.scrollToBottom", _ => true).SetVoidResult();
         JSInterop.SetupVoid("OrbitChatScroll.scrollToMessage", _ => true).SetVoidResult();
         JSInterop.Setup<bool>("OrbitChatScroll.isScrolledNearBottom", _ => true).SetResult(true);
+
+        // What is in front of the reader. Answered by matchers over the test's own fields rather than by
+        // one result each, so a test can change its answer part-way - scroll, or give the window focus.
+        _seenModule = JSInterop.SetupModule("./js/chatSeen.js");
+        _seenModule.Setup<bool>("isInFront", _ => _isInFront).SetResult(true);
+        _seenModule.Setup<bool>("isInFront", _ => !_isInFront).SetResult(false);
+        _seenModule.Setup<string?>("newestInView", _ => _newestInView is null).SetResult((string?)null);
+        _seenModule.SetupVoid("observe", _ => true).SetVoidResult();
+        _seenModule.SetupVoid("unobserve", _ => true).SetVoidResult();
     }
 
     private OrbitAuthenticationStateProvider RegisterAuthentication()
