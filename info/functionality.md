@@ -2522,7 +2522,11 @@ rather than only a group one - an entry describing a product has to be able to s
 on. The picker offers every storage, the ones other lists already measure included - a store serves as many
 jobs as it holds things for - and marks those as shared. A shelf several lists ask for is split between
 them in proportion to what each asks for, so each list is told its own share rather than being told the
-last bag is theirs (see `StockRequirementCounter.ShareOfTheShelf`). The tie can be made from either end:
+last bag is theirs (see `StockRequirementCounter.ShareOfTheShelf`). A row that entries on several lists
+stand for is asked for **once** across them (2026-09-11): its minimum is what those entries handed over
+together, so counting it per list made a shelf holding exactly that look short to every one of them.
+**Linking a list puts its product entries on the shelf there and then** (same day), as saving it does -
+it used to set the link and nothing else, so they waited for the list's next save. The tie can be made from either end:
 an inventory's editor carries a checklist of the lists measured against it. "Generate inventory" is still
 refused to a list that already has one: it would build a second and quietly move the list onto it,
 leaving the first with nothing pointing at it.
