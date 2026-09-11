@@ -84,11 +84,27 @@ public partial class ConversationPage : ContentPage
 	/// <summary>Typed so the navigator can hand the page its contact without casting the binding context.</summary>
 	public ConversationViewModel ViewModel => _viewModel;
 
+	/// <summary>
+	/// The window this page is showing in, held for as long as it is showing so its Stopped and Resumed
+	/// can be let go of again - see OnDisappearing.
+	/// </summary>
+	private Window? _window;
+
 	protected override void OnAppearing()
 	{
 		base.OnAppearing();
 		_viewModel.LoadCommand.Execute(null);
 		_viewModel.StartPolling();
+
+		// Going to the background does not make a page disappear, so the window is what says it.
+		_window = Window;
+		if (_window is not null)
+		{
+			_window.Stopped += OnAppStopped;
+			_window.Resumed += OnAppResumed;
+		}
+
+		_ = _viewModel.ScreenShownAsync();
 	}
 
 	/// <summary>
@@ -98,6 +114,25 @@ public partial class ConversationPage : ContentPage
 	protected override void OnDisappearing()
 	{
 		base.OnDisappearing();
+		_viewModel.ScreenHidden();
+		if (_window is not null)
+		{
+			_window.Stopped -= OnAppStopped;
+			_window.Resumed -= OnAppResumed;
+			_window = null;
+		}
+
 		_viewModel.StopPolling();
 	}
+
+	private void OnAppStopped(object? sender, EventArgs e) => _viewModel.AppWentToBackground();
+
+	private void OnAppResumed(object? sender, EventArgs e) => _ = _viewModel.AppCameToForegroundAsync();
+
+	/// <summary>
+	/// The last line on screen, which is what "read" is measured by - see ConversationReadState. Raised
+	/// as the reader scrolls and as new lines are laid out at the bottom.
+	/// </summary>
+	private void OnThreadScrolled(object? sender, ItemsViewScrolledEventArgs e)
+		=> _ = _viewModel.ShowedUpToAsync(e.LastVisibleItemIndex);
 }

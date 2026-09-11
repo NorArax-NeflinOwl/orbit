@@ -9,8 +9,9 @@ namespace Orbit.Mobile.Tests.Chat;
 /// always drawn the count; the phone dropped it on the way into its own store, so a list ordered by
 /// recency had nothing on it saying which conversations held something new.
 ///
-/// Kept with the row so it survives a restart and reads offline, and taken to nought the moment the
-/// server has been told the conversation was read - not left standing until the next refresh.
+/// Kept with the row so it survives a restart and reads offline, and taken down the moment the server
+/// has been told what was read - not left standing until the next refresh. How far down is
+/// ConversationReadTests' question: to what has not been on screen yet.
 /// </summary>
 public sealed class UnreadCountTests
 {
@@ -27,12 +28,12 @@ public sealed class UnreadCountTests
     }
 
     [Fact]
-    public async Task Opening_the_conversation_takes_the_count_to_nought()
+    public async Task Seeing_everything_takes_the_count_to_nought()
     {
         using var context = new ChatContext();
         await context.Repository.StoreContactsAsync([Contact(context, unreadCount: 3)]);
 
-        await context.Synchronizer.SynchroniseConversationAsync(context.OtherUserId);
+        await context.Synchronizer.MarkConversationReadAsync(context.OtherUserId, context.Clock.GetUtcNow());
 
         var stored = Assert.Single(await context.Repository.GetContactsAsync());
         Assert.Equal(0, stored.UnreadCount);
@@ -40,18 +41,34 @@ public sealed class UnreadCountTests
     }
 
     /// <summary>
+    /// Pulling the conversation is not reading it - a sync runs on a timer, in the background too - so
+    /// the count stands until something has actually been on screen.
+    /// </summary>
+    [Fact]
+    public async Task Pulling_the_conversation_leaves_the_count_alone()
+    {
+        using var context = new ChatContext();
+        await context.Repository.StoreContactsAsync([Contact(context, unreadCount: 3)]);
+
+        await context.Synchronizer.SynchroniseConversationAsync(context.OtherUserId);
+
+        Assert.Equal(3, Assert.Single(await context.Repository.GetContactsAsync()).UnreadCount);
+    }
+
+    /// <summary>
     /// Read with no connection, nothing reached the server - so the count stays, as the server's own will
     /// at the next refresh. Taking it away here would say the conversation was read somewhere it was not.
     /// </summary>
     [Fact]
-    public async Task A_conversation_opened_offline_keeps_its_count()
+    public async Task A_conversation_read_offline_keeps_its_count()
     {
         using var context = new ChatContext();
         await context.Repository.StoreContactsAsync([Contact(context, unreadCount: 3)]);
         context.Server.IsUnreachable = true;
 
-        await context.Synchronizer.SynchroniseConversationAsync(context.OtherUserId);
+        var reached = await context.Synchronizer.MarkConversationReadAsync(context.OtherUserId, context.Clock.GetUtcNow());
 
+        Assert.False(reached);
         Assert.Equal(3, Assert.Single(await context.Repository.GetContactsAsync()).UnreadCount);
     }
 

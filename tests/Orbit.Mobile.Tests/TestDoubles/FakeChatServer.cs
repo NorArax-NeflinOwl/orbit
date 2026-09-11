@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
@@ -229,7 +230,9 @@ internal sealed class FakeChatServer : HttpMessageHandler
         if (segments.Length == 5 && segments[2] == "messages" && segments[4] is "read" or "read-receipt")
         {
             var otherUserId = Guid.Parse(segments[3]);
-            return segments[4] == "read" ? MarkAsRead(otherUserId) : Json(new ReadReceiptDto(ReadUpToUtcFor(otherUserId)));
+            return segments[4] == "read"
+                ? MarkAsRead(otherUserId, ReadUpToUtcIn(request))
+                : Json(new ReadReceiptDto(ReadUpToUtcFor(otherUserId)));
         }
 
         if (segments.Length == 4 && segments[2] == "messages" && Guid.TryParse(segments[3], out var messageId))
@@ -272,6 +275,18 @@ internal sealed class FakeChatServer : HttpMessageHandler
 
     /// <summary>Which groups the caller said they had read - one entry per time they said it.</summary>
     public List<Guid> GroupsMarkedRead { get; } = [];
+
+    /// <summary>And how far each time, beside GroupsMarkedRead - null for a mark sent without a "read up to".</summary>
+    public List<(Guid GroupId, DateTimeOffset? ReadUpToUtc)> GroupReadsUpTo { get; } = [];
+
+    /// <summary>Every "read up to" a one-to-one mark carried, in order - null for one sent without it.</summary>
+    public List<DateTimeOffset?> ConversationReadsUpTo { get; } = [];
+
+    /// <summary>The optional readUpToUtc both mark-read routes take - see MarkConversationAsReadCommand.</summary>
+    private static DateTimeOffset? ReadUpToUtcIn(HttpRequestMessage request)
+        => HttpUtility.ParseQueryString(request.RequestUri!.Query)["readUpToUtc"] is { } value
+            ? DateTimeOffset.Parse(value, CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind)
+            : null;
 
     /// <summary>Every hand-off of a group's past, in the order they were offered - see GroupHistorySharing.</summary>
     public List<ShareGroupHistoryRequest> HistoryHandedOver { get; } = [];
@@ -333,6 +348,7 @@ internal sealed class FakeChatServer : HttpMessageHandler
         if (segments.Length == 5 && segments[4] == "read")
         {
             GroupsMarkedRead.Add(groupId);
+            GroupReadsUpTo.Add((groupId, ReadUpToUtcIn(request)));
             return new HttpResponseMessage(HttpStatusCode.NoContent);
         }
 
@@ -602,16 +618,19 @@ internal sealed class FakeChatServer : HttpMessageHandler
     }
 
     /// <summary>
-    /// Everything the other party sent the caller counts as read from now on - reading is per
-    /// conversation, stamped at the moment somebody looks, exactly as MarkConversationAsReadCommandHandler
-    /// does it.
+    /// What the other party sent the caller counts as read from now on, up to and including readUpToUtc -
+    /// and everything when it is absent, the shape installed builds still send. Exactly the cut
+    /// MarkConversationAsReadCommandHandler makes: a fake that marked everything regardless would let a
+    /// client that sent the wrong "read up to" look correct here.
     /// </summary>
-    private HttpResponseMessage MarkAsRead(Guid otherUserId)
+    private HttpResponseMessage MarkAsRead(Guid otherUserId, DateTimeOffset? readUpToUtc)
     {
+        ConversationReadsUpTo.Add(readUpToUtc);
         for (var index = 0; index < _messages.Count; index++)
         {
             if (_messages[index] is { } message
-                && message.SenderUserId == otherUserId && message.RecipientUserId == CallerUserId)
+                && message.SenderUserId == otherUserId && message.RecipientUserId == CallerUserId
+                && (readUpToUtc is null || message.SentAtUtc <= readUpToUtc))
             {
                 _readMessageIds.Add(message.Id);
             }
