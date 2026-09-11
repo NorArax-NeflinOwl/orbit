@@ -1,4 +1,5 @@
 using Microsoft.JSInterop;
+using Orbit.Core.Folders;
 
 namespace Orbit.Web.Services;
 
@@ -91,26 +92,42 @@ public sealed class DashboardCardPreferences(IJSRuntime jsRuntime)
         await module.InvokeVoidAsync("setHiddenFolders", _hiddenFolderIds.Select(id => id.ToString()));
     }
 
-    /// <summary>What this card is filtered to - everything, unless the reader has said otherwise.</summary>
-    public DashboardCardFilter FilterFor(string cardKey)
-        => _filterByCardKey.GetValueOrDefault(cardKey, DashboardCardFilter.All);
+    /// <summary>
+    /// What this card is filtered to under the folder tab that is open - everything, unless the reader
+    /// has said otherwise there. One answer per tab rather than one per card: "only what is pinned" is
+    /// a thing somebody wants of their Work folder and not of Public, and a single filter made choosing
+    /// it for one tab choose it for all of them.
+    /// </summary>
+    public DashboardCardFilter FilterFor(string cardKey, FolderKey folder)
+        => _filterByCardKey.GetValueOrDefault(StoredKeyOf(cardKey, folder), DashboardCardFilter.All);
 
-    public async Task SetFilterAsync(string cardKey, DashboardCardFilter filter)
+    public async Task SetFilterAsync(string cardKey, FolderKey folder, DashboardCardFilter filter)
     {
+        var storedKey = StoredKeyOf(cardKey, folder);
         if (filter == DashboardCardFilter.All)
         {
             // Nothing to remember about a card showing everything, which is what a card does by default.
-            _filterByCardKey.Remove(cardKey);
+            _filterByCardKey.Remove(storedKey);
         }
         else
         {
-            _filterByCardKey[cardKey] = filter;
+            _filterByCardKey[storedKey] = filter;
         }
 
         await using var module = await ImportModuleAsync();
         await module.InvokeVoidAsync(
             "setCardFilters", _filterByCardKey.ToDictionary(entry => entry.Key, entry => entry.Value.ToString()));
     }
+
+    /// <summary>
+    /// The key a card's filter is stored under for one tab. Public keeps the card's bare key, which is
+    /// what every filter was stored under before tabs had their own - so a filter somebody chose then
+    /// still applies where they chose it, on the tab the dashboard opens on.
+    /// </summary>
+    private static string StoredKeyOf(string cardKey, FolderKey folder)
+        => folder == FolderKey.Default
+            ? cardKey
+            : $"{cardKey}@{(folder.BuiltIn is { } builtIn ? builtIn.ToString() : folder.FolderId.ToString())}";
 
     private async Task<IJSObjectReference> ImportModuleAsync()
         => await jsRuntime.InvokeAsync<IJSObjectReference>("import", "./js/dashboardCards.js");
