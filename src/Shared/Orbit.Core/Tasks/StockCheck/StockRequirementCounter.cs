@@ -37,10 +37,16 @@ public static class StockRequirementCounter
     /// What <paramref name="items"/> call for, by name. This is one list's half of a shelf several lists
     /// share - see <see cref="Count"/>'s alsoAskedFor. The shelf is passed only so an entry standing for
     /// one of its items is counted the way <see cref="Count"/> counts it; nothing is measured against it.
+    ///
+    /// <paramref name="shelfItemsAlreadyCounted"/> is shared across every list measured against the one
+    /// shelf, and filled as it goes: a shelf item's minimum is what all of its entries handed over
+    /// together, so it is asked for once however many lists point at it. Counted per list, two lists
+    /// standing for one row each asked for its whole minimum and both were told they were short.
     /// </summary>
     public static IReadOnlyDictionary<string, decimal> DemandOf(
-        IEnumerable<TaskItem> items, IEnumerable<InventoryItem> stock, DateTimeOffset nowUtc)
-        => Measure(items.Where(item => !IsNotDueYet(item, nowUtc)), stock, alsoAskedFor: null).Requirements
+        IEnumerable<TaskItem> items, IEnumerable<InventoryItem> stock, DateTimeOffset nowUtc,
+        ISet<Guid>? shelfItemsAlreadyCounted = null)
+        => Measure(items.Where(item => !IsNotDueYet(item, nowUtc)), stock, alsoAskedFor: null, shelfItemsAlreadyCounted).Requirements
             .ToDictionary(requirement => Normalize(requirement.Name), requirement => requirement.Required);
 
     /// <summary>
@@ -53,7 +59,7 @@ public static class StockRequirementCounter
 
     private static TaskListStockCheck Measure(
         IEnumerable<TaskItem> items, IEnumerable<InventoryItem> stock,
-        IReadOnlyDictionary<string, decimal>? alsoAskedFor)
+        IReadOnlyDictionary<string, decimal>? alsoAskedFor, ISet<Guid>? shelfItemsAlreadyCounted = null)
     {
         var shelf = stock.ToList();
         var available = shelf
@@ -62,7 +68,7 @@ public static class StockRequirementCounter
         var minimumsByShelfItemId = shelf
             .Where(item => item.MinimumQuantity is not null)
             .ToDictionary(item => item.Id, item => item.MinimumQuantity!.Value);
-        var shelfItemsCounted = new HashSet<Guid>();
+        var shelfItemsCounted = shelfItemsAlreadyCounted ?? new HashSet<Guid>();
 
         var required = new Dictionary<string, decimal>();
         var done = new Dictionary<string, decimal>();
@@ -133,7 +139,7 @@ public static class StockRequirementCounter
     /// counting rule, and its entries are counted one by one as they always were.
     /// </summary>
     private static decimal RequiredBy(
-        TaskItem item, IReadOnlyDictionary<Guid, decimal> minimumsByShelfItemId, HashSet<Guid> shelfItemsCounted)
+        TaskItem item, IReadOnlyDictionary<Guid, decimal> minimumsByShelfItemId, ISet<Guid> shelfItemsCounted)
     {
         if (item.LinkedInventoryItemId is { } shelfItemId
             && minimumsByShelfItemId.TryGetValue(shelfItemId, out var minimum))

@@ -46,19 +46,27 @@ public sealed class GetTaskListStockCheckQueryHandler : IRequestHandler<GetTaskL
     /// another's tree is not counted twice - what a group list stands for is already in it. The shelf
     /// goes along so an entry standing for one of its items is counted the same way here as on this
     /// list - see StockRequirementCounter.RequiredBy.
+    ///
+    /// A shelf item this list's own work already stands for is not asked for again by another list
+    /// standing for it too: its minimum is the demand of all of them together, and counting it once per
+    /// list made both look short of a shelf that held exactly what was asked.
     /// </summary>
     private static IReadOnlyDictionary<string, decimal> AskedForByTheOtherLists(
         TaskList taskList, IReadOnlyList<TaskList> reachable, Guid inventoryId, IReadOnlyList<InventoryItem> stock,
         DateTimeOffset nowUtc)
     {
         var alreadyCounted = LinkedTaskListTree.Flatten(taskList, reachable).Select(list => list.Id).ToHashSet();
+        var shelfItemsCounted = LinkedTaskListTree.WorkIn(taskList, reachable)
+            .Where(item => item.LinkedInventoryItemId is not null)
+            .Select(item => item.LinkedInventoryItemId!.Value)
+            .ToHashSet();
         var elsewhere = new Dictionary<string, decimal>();
 
         foreach (var other in reachable.Where(candidate =>
             candidate.LinkedInventoryId == inventoryId && !alreadyCounted.Contains(candidate.Id)))
         {
             foreach (var (name, quantity) in StockRequirementCounter.DemandOf(
-                LinkedTaskListTree.WorkIn(other, reachable), stock, nowUtc))
+                LinkedTaskListTree.WorkIn(other, reachable), stock, nowUtc, shelfItemsCounted))
             {
                 elsewhere[name] = elsewhere.GetValueOrDefault(name) + quantity;
             }

@@ -79,6 +79,29 @@ public sealed class StockCheckSharedInventoryTests
         Assert.Equal(0, flour.Missing);
     }
 
+    /// <summary>
+    /// Two lists each standing for the same shelf row: the row's minimum is what their entries handed over
+    /// together, so it is asked for once, and a shelf holding exactly that is enough for both. Counted once
+    /// per list, each was told the other wanted the whole minimum too and both looked short.
+    /// </summary>
+    [Fact]
+    public async Task Two_lists_standing_for_one_row_ask_for_its_minimum_once()
+    {
+        var context = new SharedShelfContext();
+        var flour = await context.PutOnTheShelfAsync("Flour", quantity: 4, minimum: 4);
+        var baking = await context.AListStandingForAsync("Baking", "Flour", flour.Id);
+        var bread = await context.AListStandingForAsync("Bread", "Flour", flour.Id);
+
+        var forBaking = Assert.Single((await context.CheckAsync(baking))!.Requirements);
+        var forBread = Assert.Single((await context.CheckAsync(bread))!.Requirements);
+
+        Assert.Equal(4, forBaking.Required);
+        Assert.Equal(4, forBaking.Available);
+        Assert.Equal(0, forBaking.Missing);
+        Assert.Equal(4, forBread.Available);
+        Assert.Equal(0, forBread.Missing);
+    }
+
     private sealed class SharedShelfContext
     {
         private readonly InMemoryTaskRepository _taskRepository = new();
@@ -109,6 +132,28 @@ public sealed class StockCheckSharedInventoryTests
                     _inventoryId, name, productType: "", categories: [], quantity, minimumQuantity: null,
                     InventoryUnit.Piece, expiryDate: null, NotificationChannel.None),
                 CancellationToken.None);
+
+        /// <summary>A row with a minimum of its own - what a shelf generated from a list carries.</summary>
+        public async Task<InventoryItem> PutOnTheShelfAsync(string name, decimal quantity, decimal minimum)
+        {
+            var row = InventoryItem.Create(
+                _inventoryId, name, productType: "", categories: [], quantity, minimum,
+                InventoryUnit.Piece, expiryDate: null, NotificationChannel.None);
+            await _inventoryItemRepository.AddAsync(row, CancellationToken.None);
+            return row;
+        }
+
+        /// <summary>A list with one product entry standing for a row already on the shelf.</summary>
+        public async Task<TaskList> AListStandingForAsync(string title, string entry, Guid shelfItemId)
+        {
+            var standing = TaskItem.Create(
+                entry, dueDateUtc: null, isCompleted: false, subject: new TaskItemSubject(TaskItemKind.Inventory));
+            standing.PointAtShelfItem(shelfItemId);
+            var taskList = TaskList.Create(_userId, title, [standing]);
+            taskList.LinkToInventory(_inventoryId);
+            await _taskRepository.AddAsync(taskList, CancellationToken.None);
+            return taskList;
+        }
 
         public Task<Orbit.Core.Tasks.StockCheck.TaskListStockCheck?> CheckAsync(TaskList taskList)
             => new GetTaskListStockCheckQueryHandler(_taskRepository, _inventoryItemRepository)
