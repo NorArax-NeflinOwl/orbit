@@ -881,8 +881,12 @@ inventory lists, the contacts tabs, the chat menus - is built and needs no schem
   allowed. A fake built without an inventory server still places nothing. As noticed: it did not, the way the real server does since
   2026-09-11, so a screen test can only assert what was sent. A fake that placed them would need to know
   the fake inventory server; until then the placement itself is covered by `ProductEntryPlacementTests`.
-  Still not modelled: the restock list the server settles after a placement
-  (`SettleTheRestockListAsync`) - the fakes keep no restock lists at all.
+  Left unmodelled on purpose (decided 2026-09-11): the restock list the server settles after a placement
+  (`SettleTheRestockListAsync`). No phone screen or test leans on that errand appearing - the restock
+  list reaches the phone as an ordinary task list on its next pull - and the fakes rebuild no restock
+  list even for the explicit `restock-list/refresh`, which answers a canned count; modelling the settle
+  alone would mean a managed list per inventory, its settings and its errand naming in the fakes, for no
+  screen test that needs them.
 
 - **The Android head still builds with twelve warnings** (noticed 2026-09-11, after the seven
   `DisplayActionSheet` CS0618s went). None fails anything, and the head is not in `Orbit.CI.slnf`, so
