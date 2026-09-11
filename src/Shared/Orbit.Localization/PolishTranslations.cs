@@ -450,8 +450,6 @@ public static class PolishTranslations
         ["Orbit has no such group any more."] = "Orbit nie ma już takiej grupy.",
         ["Everything in this conversation goes, on your side only. This cannot be undone."] =
             "Cała ta rozmowa zniknie, tylko po Twojej stronie. Tego nie da się cofnąć.",
-        ["You stop receiving what is posted, and the group sees you go."] =
-            "Przestaniesz dostawać to, co tam trafia, a grupa zobaczy, że wychodzisz.",
         // ---- Shared without permission to edit - see SharedItemAccess. ----
         ["Shared with you to read. Ask whoever shared it if you need to change it."] =
             "Udostępnione Ci do odczytu. Poproś osobę, która udostępniła, jeśli musisz to zmienić.",

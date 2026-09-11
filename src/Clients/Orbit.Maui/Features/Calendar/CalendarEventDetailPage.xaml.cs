@@ -97,7 +97,7 @@ public partial class CalendarEventDetailPage : ContentPage, ITitleMenu
 	private async Task ChooseReminderAsync()
 	{
 		var names = _viewModel.ReminderChoices.Select(choice => choice.Name).ToArray();
-		var chosen = await DisplayActionSheet(
+		var chosen = await DisplayActionSheetAsync(
 			_translations["Add reminder"], _translations["Cancel"], destruction: null, names);
 
 		if (_viewModel.ReminderChoices.FirstOrDefault(choice => choice.Name == chosen) is { } reminder)
@@ -109,7 +109,7 @@ public partial class CalendarEventDetailPage : ContentPage, ITitleMenu
 	private async Task ChooseChannelAsync(string title, Action<NotificationChannelChoice> chose)
 	{
 		var names = _viewModel.Channels.Select(channel => channel.Name).ToArray();
-		var chosen = await DisplayActionSheet(title, _translations["Cancel"], destruction: null, names);
+		var chosen = await DisplayActionSheetAsync(title, _translations["Cancel"], destruction: null, names);
 
 		if (_viewModel.Channels.FirstOrDefault(channel => channel.Name == chosen) is { } channel)
 		{

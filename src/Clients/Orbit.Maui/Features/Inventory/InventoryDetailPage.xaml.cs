@@ -124,7 +124,7 @@ public partial class InventoryDetailPage : ContentPage, ITitleMenu
 		var remove = _translations["Delete item"];
 		var moveUp = _translations["Move up"];
 		var moveDown = _translations["Move down"];
-		var chosen = await DisplayActionSheet(
+		var chosen = await DisplayActionSheetAsync(
 			_translations["Item options"], _translations["Cancel"], remove,
 			_translations["Edit"], moveUp, moveDown);
 

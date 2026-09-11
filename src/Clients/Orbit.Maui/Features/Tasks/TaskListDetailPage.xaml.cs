@@ -74,7 +74,7 @@ public partial class TaskListDetailPage : ContentPage, ITitleMenu, ITitleSteps
 			[MarkStock(_translations["Short first"], StockCheckOrder.ShortFirst)] = StockCheckOrder.ShortFirst
 		};
 
-		var chosen = await DisplayActionSheet(
+		var chosen = await DisplayActionSheetAsync(
 			_translations["Sort"], _translations["Cancel"], destruction: null, [.. names.Keys]);
 
 		if (chosen is not null && names.TryGetValue(chosen, out var order))
@@ -86,7 +86,7 @@ public partial class TaskListDetailPage : ContentPage, ITitleMenu, ITitleSteps
 	private async Task ChooseInventoryAsync()
 	{
 		var names = _viewModel.StockCheck.Inventories.Select(inventory => inventory.Name).ToArray();
-		var chosen = await DisplayActionSheet(
+		var chosen = await DisplayActionSheetAsync(
 			_translations["Can this be done?"], _translations["Cancel"], destruction: null, names);
 
 		if (_viewModel.StockCheck.Inventories.FirstOrDefault(inventory => inventory.Name == chosen) is { } picked)
@@ -405,7 +405,7 @@ public partial class TaskListDetailPage : ContentPage, ITitleMenu, ITitleSteps
 			return;
 		}
 
-		var chosen = await DisplayActionSheet(
+		var chosen = await DisplayActionSheetAsync(
 			_viewModel.ListsBehindTheEntryQuestion, _translations["No"], null,
 			[.. lists.Select(list => list.Label)]);
 
@@ -429,7 +429,7 @@ public partial class TaskListDetailPage : ContentPage, ITitleMenu, ITitleSteps
 		string[] choices = _viewModel.CanBeRearranged
 			? [_translations["Edit"], moveUp, moveDown]
 			: [_translations["Edit"]];
-		var chosen = await DisplayActionSheet(
+		var chosen = await DisplayActionSheetAsync(
 			_translations["Item options"], _translations["Cancel"], remove, choices);
 
 		if (chosen == remove)

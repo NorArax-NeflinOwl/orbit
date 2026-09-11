@@ -638,8 +638,10 @@ inventory lists, the contacts tabs, the chat menus - is built and needs no schem
   (`ChatGroup.Leave`). The roster offered the picker; the archive (`Contacts.razor`) and the phone (group
   detail and group list) left without asking, so they always got the automatic choice.
 
-- **The phone's old leave sentence is a dead translation, and four pages still call the obsolete action
-  sheet.** Since the phone asks the web's leave question (2026-09-11), "You stop receiving what is posted,
+- ~~**The phone's old leave sentence is a dead translation, and four pages still call the obsolete action
+  sheet.**~~ Fixed 2026-09-11: the dictionary entry is gone and the seven calls are
+  `DisplayActionSheetAsync`, with the same arguments; the Android head's CS0618s went with them. As
+  noticed: since the phone asks the web's leave question (2026-09-11), "You stop receiving what is posted,
   and the group sees you go." in `PolishTranslations.cs` is no longer asked for anywhere; nothing fails
   on an unused key, so it will sit there until somebody removes it. And the Android head builds with
   CS0618 on `Page.DisplayActionSheet` in `TaskListDetailPage` (four calls), `CalendarEventDetailPage`
@@ -674,7 +676,9 @@ inventory lists, the contacts tabs, the chat menus - is built and needs no schem
   ("Location"), with the same `IsVisible` - and the calendar sentence is worded differently on the two
   clients ("the pin keeps its exact position"), so one of them moves to the other's key.
 
-- **`PageHeader.Subtitle` on the phone has no user left.** After the page descriptions moved into the
+- ~~**`PageHeader.Subtitle` on the phone has no user left.**~~ Removed 2026-09-11, with the
+  `PageSubtitle` style; `PageHeader` keeps its leading action and its far end. As noticed: after the page
+  descriptions moved into the
   bar, `AccountPage.xaml` was the last to set it, and since 2026-09-11 its sentence is behind the bar's
   "?" too (`NavigationBar.Description`). The property and the `PageSubtitle` style draw nothing now and
   can go; `PageHeader` itself stays, for the Groups page's leading "+".
