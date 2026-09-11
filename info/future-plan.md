@@ -586,6 +586,15 @@ inventory lists, the contacts tabs, the chat menus - is built and needs no schem
   (`FakeTimeProvider` in every screen test), and it is the only way a page whose answer changes at
   midnight can be tested at all.
 
+  **Measured on 2026-09-11, and held back on purpose.** It is 28 reads across 13 files, wider than the
+  pages: `EventFormModel` reads the clock in its constructor and is made with `new()` from `TaskEditor`
+  and `CalendarEventEditor`, `Calendar.razor`'s `ReferenceDate` lives on a nested state class, and
+  `OrbitAuthenticationStateProvider` is constructed by hand in `Program.cs` and in `OrbitTestContext`
+  (which is also where bUnit tests would get the `TimeProvider`). Seven of those files - `Program.cs`,
+  `MainLayout`, `Dashboard`, `MapPage`, `Notes`, `Options`, and the two editors through the form model -
+  are also changed by PR #279, so it waits for that to merge and is then done whole on a fresh branch,
+  rather than half now and half after with a conflict in the middle. The session behind #279 was told.
+
 - ~~**A response the phone cannot parse escapes the sync's own catch.**~~ Fixed the same day it was
   found (2026-09-10): `EverythingSynchronizer.TryAsync` catches `JsonException` too, and answers it the
   way it answers a server it could not reach - "couldn't sync", with everything still queued - rather
@@ -593,16 +602,18 @@ inventory lists, the contacts tabs, the chat menus - is built and needs no schem
   rather than refused: nothing about a body this build cannot parse says the reader may not have what
   they asked for.
 
-- **A create the outbox has given up on leaves a row that never syncs.** When a queued create is
-  dropped - after five answered refusals, which since 2026-09-10 includes a 4xx and not only a
-  persistent 500 (`SyncFailure.StaysInTheOutbox`) - the phone says so in its feed and deletes the queue
-  entry, but the local row stays with no `ServerId`. It reads like any other note; every later edit
-  queues an update, and an update on a row the server has never seen is `Abandoned` quietly
-  (`NoteSynchronizer.SendUpdateAsync`), so it is local-only for good with nothing on it saying so. The
-  same is true of every entity type, and was true before the 4xx change - it is only more reachable now.
-  What it would take: a repository that queues a *create* rather than an update when the row has no
-  server id, so the next edit is a second try; or a mark on the row the list can draw, with "send again"
-  under its menu. Neither is small enough to fold into the fix that made this visible.
+- ~~**A create the outbox has given up on leaves a row that never syncs.**~~ Done on 2026-09-11, with
+  the first of the two designs this entry named. When a queued create is dropped - after five answered
+  refusals (`SyncFailure.StaysInTheOutbox`) - the local row stays with no `ServerId`, and every later
+  edit used to queue an update that is `Abandoned` quietly on a row the server has never seen. Now the
+  next edit of such a row - a save, a filing, a folder rename, a review's "keep mine", a calendar link
+  resolved onto a list - queues the *create* again instead, and the create carries what the edit
+  changed (`LostCreates`, used by all six repositories and `PendingCalendarLinkResolver`). A copy
+  awaiting review is left alone: it has no create on purpose.
+  - **Not done, and chosen not to be:** the other design, a mark on the row the list can draw with
+    "send again" under its menu. The retry is silent, so a row nobody edits again stays on the phone
+    alone, and a server that keeps refusing it says so in the feed once per five tries - worded as
+    "Kept on this phone only", and naming editing (renaming, for a folder) as the way to try again.
 
 - ~~**Options still calls an inventory a "storage".**~~ Done on 2026-09-10, and it was wider than the
   export section: eleven English strings across both clients still said storage - the task editor's
@@ -902,13 +913,15 @@ its shared controls. What that pass left, all of it now overtaken:
   card carries the news because a shelf about to go off names no shelf. Two smaller things came with
   it: putting every part away now says so instead of telling a full account to add a note, and pressing
   a shelf opens that shelf.
-- **A conversation still shows no count of what is waiting.** The one part of Orbit.Web's avatar the
-  phone does not draw, and it is missing for want of a number rather than a control: `UnreadBadge`
-  reads a per-conversation unread count, `LocalContact` has none, and nothing on the device derives one
-  - `LocalChatMessage.IsReadByEveryone` is about messages this reader *sent*. What it would take is a
-  read mark per conversation that survives a restart, which is a chat feature rather than a look, and
-  the phone already says the smaller thing in the row's own mark: something unread points at that
-  person.
+- ~~**A conversation still shows no count of what is waiting.**~~ Done on 2026-09-11, and it needed no
+  read mark of the phone's own after all: the server keeps one per conversation and already sends the
+  count on every contact (`ContactDto.UnreadCount`) - the phone simply dropped it on the way into its
+  store. `LocalContact.UnreadCount` keeps it (local migration `KeepHowManyMessagesAreWaiting`), so it
+  survives a restart and reads offline; `ChatRepository.MarkReadAsync` takes it to nought the moment the
+  server has been told a conversation was read; and `AvatarCircle` draws it where `UnreadBadge` sits on
+  the web - bottom left, "9+" above nine, nothing at nought. The row's own mark now lights for unread
+  messages as well as for a request to answer, as Orbit.Web's does. A group has no count on either
+  client, and the dashboard's rows still draw no face to put one on (see android-design-deltas.md).
 - ~~**`ContactsPage.xaml` declares a `PresenceColor` converter it never uses.**~~ Gone: the row that
   needed it became `AvatarCircle`, which holds the converter itself, and the declaration went with the
   markup it belonged to.

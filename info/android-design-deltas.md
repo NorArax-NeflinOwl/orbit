@@ -75,9 +75,15 @@ is pressable as of 2026-09-09**, on this screen and on Orbit.Web's own entry pag
 kept it read-only ("the list it is on is where it can be ticked off") is gone, because the one screen
 about an entry was the one place the entry could not be finished. It writes to this phone and queues
 from there, and says under the entry when a list shared to read refuses it or the save is still waiting
-to go out. Still not built, and still not invented: the note field, "Move to another list…",
-"Duplicate", "Delete item", and the position in the list - **nothing hands this screen the list to
-count within**, so "2 of 5" has no source.
+to go out. **The position in the list is on the foot line as of 2026-09-11** ("2 of 5", on the right of
+the list's name): the screen reads the whole list to find the entry in, so the count was there all
+along. **"Duplicate" and "Delete item" are in the menu as of 2026-09-11**, on this screen and on
+Orbit.Web's entry page together - the user's decision, since adding them to one client alone would have
+made the two answer different questions. A copy goes straight under the entry, made the way
+`DuplicateTaskListCommandHandler` copies entries (everything but the appointment, which one entry
+raises), and opens; a removal asks first, leaves the appointment in the calendar as the list's own
+row menu does, and lands on the list. Still not built: the note field, and "Move to another list…",
+which needs a list picker the design does not draw.
 
 ***Walked on the device on 2026-09-09***, and it reads as drawn. Getting to it used to be the awkward
 part: it opened from the calendar only for a deadline that `IsSomewhere`
@@ -218,11 +224,13 @@ about them is under "Screens already built" below.
   KEYCODE_DPAD_UP`/`_DOWN` and a character typed after each press to see which line took it: the caret
   crosses a ticked line (which opens as it arrives and closes again as it leaves) and lands in the
   note's name from the first line, at the column it left.
-- **The editor has a foot.** *Half done 2026-09-09*: the hairline and "Type [] for a checkbox" are
-  there, which is the only place the trick is written down at all. The design's left half - who the note
-  is shared with and when it was last edited - is **not** built, and would need state the view model does
-  not keep: there is no "edited N ago" on `NoteDetailViewModel` and no summary of who a note is shared
-  with. It was left rather than invented.
+- ~~**The editor has a foot.**~~ ***Done 2026-09-11.*** The hairline and "Type [] for a checkbox" came
+  on 2026-09-09; the design's left half - who the note is shared with and when it was last edited - is
+  `NoteDetailViewModel.Footnote` now, in the words the note's card on the list already uses: "Shared by
+  ala · Yesterday" for a note shared in, the day alone for the reader's own (`LastChanged`). The state was
+  on the row all along. One part is not drawn: **who the reader shared a note *with***, because this
+  phone keeps only that a note is shared out (`IsSharedWithOthers`), not with whom. The foot stays on a
+  note nobody can edit, without the checkbox hint.
 
 ### Tasks, and a task list
 

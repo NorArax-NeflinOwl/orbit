@@ -706,6 +706,38 @@ public sealed class NoteDetailScreenTests
         Assert.False((await context.OpenAsync(copy.LocalId)).IsCopyOffered);
     }
 
+    /// <summary>
+    /// The left half of the editor's foot: when the note last changed, in the words its card on the list
+    /// uses - see LastChanged. It was left out because the screen kept no such state; the row had it.
+    /// </summary>
+    [Fact]
+    public async Task The_foot_says_when_the_note_last_changed()
+    {
+        using var context = new ScreenContext();
+        var note = await context.AddNoteAsync("Groceries", "Milk");
+
+        var screen = await context.OpenAsync(note.LocalId);
+
+        Assert.Equal("Today", screen.Footnote);
+    }
+
+    /// <summary>And whose it is, when it is not the reader's own - the same words the list's card says.</summary>
+    [Fact]
+    public async Task The_foot_of_a_note_shared_in_says_who_shared_it()
+    {
+        using var context = new ScreenContext();
+        var note = await context.AddSharedNoteAsync("Groceries", "Milk");
+        await using (var dbContext = context.Store.CreateDbContext())
+        {
+            dbContext.Notes.Single(candidate => candidate.LocalId == note.LocalId).SharedByUserName = "ala";
+            await dbContext.SaveChangesAsync();
+        }
+
+        var screen = await context.OpenAsync(note.LocalId);
+
+        Assert.Equal("Shared by ala · Today", screen.Footnote);
+    }
+
     private sealed class ScreenContext : IDisposable
     {
         private readonly LocalStore _localStore = new();
@@ -795,7 +827,7 @@ public sealed class NoteDetailScreenTests
                 Notes, _synchronizer, new NotesClient(Server.ToHttpClient()), NothingIsBeingEdited(_clock),
                 new Translations(new InMemoryLanguageStore()), _privateContent,
                 ShareTestPanel.For(_localStore, new ChatRepository(_localStore, _clock)), Navigator,
-                new LocalFolderRepository(_localStore, _clock));
+                new LocalFolderRepository(_localStore, _clock), _clock);
 
             screen.Open(localId);
             await screen.LoadCommand.ExecuteAsync(null);

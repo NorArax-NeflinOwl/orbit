@@ -87,10 +87,16 @@ public sealed class LocalFolderRepository
         stored.UpdatedAtUtc = _timeProvider.GetUtcNow();
 
         // Nothing to send about a folder the server has never seen: the create still queued in front of
-        // this one carries whatever the name has become by the time it goes out.
+        // this one carries whatever the name has become by the time it goes out - or, when the outbox
+        // gave up on that create, the one queued again here (see LostCreates).
         if (stored.ServerId is not null)
         {
             Enqueue(dbContext, localId, OutboxOperation.Update, stored.UpdatedAtUtc, stored.ServerId);
+        }
+        else
+        {
+            await LostCreates.QueueAgainAsync(
+                dbContext, SyncEntityType.Folder, localId, serverId: null, stored.UpdatedAtUtc, cancellationToken);
         }
 
         await dbContext.SaveChangesAsync(cancellationToken);

@@ -36,6 +36,14 @@ public partial class PersonRow : ContentView
 		nameof(HasUnseenAction), typeof(bool), typeof(PersonRow), false,
 		propertyChanged: (row, _, value) => ((PersonRow)row).ActionMark.IsVisible = value is true);
 
+	/// <summary>
+	/// How many messages are waiting from this person, drawn on their avatar - see
+	/// AvatarCircle.UnreadCount. Nought for a group, which has no count on either client.
+	/// </summary>
+	public static readonly BindableProperty UnreadCountProperty = BindableProperty.Create(
+		nameof(UnreadCount), typeof(int), typeof(PersonRow), 0,
+		propertyChanged: (row, _, value) => ((PersonRow)row).Face.UnreadCount = value is int count ? count : 0);
+
 	/// <summary>Keeping this row at the top of its list, where that is the reader's to decide.</summary>
 	public static readonly BindableProperty PinProperty = BindableProperty.Create(
 		nameof(Pin), typeof(View), typeof(PersonRow),
@@ -76,6 +84,12 @@ public partial class PersonRow : ContentView
 	{
 		get => (bool)GetValue(HasUnseenActionProperty);
 		set => SetValue(HasUnseenActionProperty, value);
+	}
+
+	public int UnreadCount
+	{
+		get => (int)GetValue(UnreadCountProperty);
+		set => SetValue(UnreadCountProperty, value);
 	}
 
 	public View? Pin

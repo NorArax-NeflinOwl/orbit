@@ -217,7 +217,10 @@ public sealed class LocalTaskListRepository : ICopyReviewStore
 
         // A copy still awaiting review is written to this phone and queued for nobody: what it is has
         // not been decided yet, and the review is what sends it - see LocalNoteRepository.UpdateAsync.
-        if (!CopiesForEditing.IsAwaitingReview(taskList))
+        // A list whose create the outbox gave up on is created again rather than updated - see LostCreates.
+        if (!CopiesForEditing.IsAwaitingReview(taskList)
+            && !await LostCreates.QueueAgainAsync(
+                dbContext, SyncEntityType.TaskList, localId, taskList.ServerId, now, cancellationToken))
         {
             Enqueue(dbContext, localId, OutboxOperation.Update, now);
         }
@@ -335,11 +338,17 @@ public sealed class LocalTaskListRepository : ICopyReviewStore
 
         taskList.FolderId = folderId;
 
-        // A note the server has never seen carries its folder on the create instead - there is nothing
-        // to send a filing against yet, and the create is already queued in front of it.
+        // A list the server has never seen carries its folder on the create instead - there is nothing
+        // to send a filing against yet. The create is queued in front of this, or is queued again here
+        // when the outbox gave up on it (see LostCreates); a copy awaiting review is sent by its review.
         if (taskList.ServerId is not null)
         {
             Enqueue(dbContext, localId, OutboxOperation.File, _timeProvider.GetUtcNow(), taskList.ServerId);
+        }
+        else if (!CopiesForEditing.IsAwaitingReview(taskList))
+        {
+            await LostCreates.QueueAgainAsync(
+                dbContext, SyncEntityType.TaskList, localId, serverId: null, _timeProvider.GetUtcNow(), cancellationToken);
         }
 
         await dbContext.SaveChangesAsync(cancellationToken);
@@ -476,7 +485,11 @@ public sealed class LocalTaskListRepository : ICopyReviewStore
         original.Priority = copy.Priority;
         original.IsCompleted = copy.Items.Count > 0 && copy.Items.All(item => item.IsCompleted);
         original.UpdatedAtUtc = now;
-        Enqueue(dbContext, original.LocalId, OutboxOperation.Update, now, original.ServerId);
+        if (!await LostCreates.QueueAgainAsync(
+                dbContext, SyncEntityType.TaskList, original.LocalId, original.ServerId, now, cancellationToken))
+        {
+            Enqueue(dbContext, original.LocalId, OutboxOperation.Update, now, original.ServerId);
+        }
 
         CopiesForEditing.Remove(dbContext, copy, SyncEntityType.TaskList);
         await dbContext.SaveChangesAsync(cancellationToken);

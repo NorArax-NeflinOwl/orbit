@@ -48,12 +48,31 @@ public partial class TaskItemSummaryPage : ContentPage, ITitleMenu
 	public ScreenMenu Menu { get; } = new();
 
 	/// <summary>
-	/// The other place this entry can be met. Orbit.Web's own menu here is the same shape - two ways
-	/// out rather than the "all of these · edit · delete" every other object's menu carries, because an
-	/// entry belongs to a list rather than standing on its own.
+	/// The other place this entry can be met, and the two things the design's menu does to the entry
+	/// itself - a copy of it, and taking it off its list. Orbit.Web's own entry page offers the same
+	/// since 2026-09-11. Moving it to another list is not here: that needs a list picker the design
+	/// does not draw.
 	/// </summary>
 	private void ShowEntryMenu() => Menu.Show(
-		[new ScreenMenuEntry(_translations["Show Tasks"], () => _viewModel.ShowTaskListCommand.Execute(null))]);
+	[
+		new ScreenMenuEntry(_translations["Show Tasks"], () => _viewModel.ShowTaskListCommand.Execute(null)),
+		new ScreenMenuEntry(_translations["Duplicate"], () => _viewModel.DuplicateCommand.Execute(null)),
+		new ScreenMenuEntry(_translations["Delete item"], () => _ = DeleteAfterAskingAsync())
+	]);
+
+	/// <summary>
+	/// Asked first, as every irreversible press is - see Confirmation - and in the words Orbit.Web's
+	/// entry page asks it in.
+	/// </summary>
+	private async Task DeleteAfterAskingAsync()
+	{
+		if (await Confirmation.AskAsync(
+				this, _translations.Format("Delete \"{0}\"?", _viewModel.Description),
+				_translations["Delete"], _translations["Cancel"]))
+		{
+			await _viewModel.DeleteCommand.ExecuteAsync(null);
+		}
+	}
 
 	/// <summary>
 	/// Takes the map out before anything renders it, for the reason MapPage gives: on Android a map

@@ -202,7 +202,12 @@ refuses outright - a 400, 403, 404 or 409, which an update would have come back 
 - is inside those rules too: it counts against the limit and is given up on after five answers, where
 before it escaped the outbox's catch, stayed queued uncounted, went out again on every sync, and stopped
 the pull behind it, so the corner said "Couldn't sync" and nothing else (`SyncFailure.StaysInTheOutbox`).
-A 401 still surfaces, because it is about the session and the reader can act on it.
+A 401 still surfaces, because it is about the session and the reader can act on it. Since 2026-09-11 a
+create given up on no longer strands its row: the next edit of that row - a save, a filing, a folder
+rename, a review's "keep mine" - queues the create again rather than an update the server has no row
+for, for every kind of thing (`LostCreates`). A row nobody edits again stays on the phone alone, and
+the feed says exactly that - "Kept on this phone only", with editing named as the way to try again -
+rather than the "no longer waiting to be sent" a dropped edit gets, which read as the thing being gone.
 
 Phase 7 is built: the in-app feed, notification settings, deep links from a notification, uploadable
 diagnostic logs, and **push delivered on Android** — the app obtains an FCM registration token,
