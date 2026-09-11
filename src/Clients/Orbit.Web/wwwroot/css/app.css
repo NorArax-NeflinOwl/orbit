@@ -5547,9 +5547,19 @@ p.field-hint {
     gap: 12px;
 }
 
+/* The ring and the icon inside it - see .loading-orbit-ring, which is the same thing a size down. */
+.app-boot-ring {
+    position: relative;
+    display: grid;
+    place-items: center;
+    flex: none;
+    width: 84px;
+    height: 84px;
+}
+
 .app-boot-mark {
-    width: 56px;
-    height: 56px;
+    width: 46px;
+    height: 46px;
 }
 
 .app-boot-name {
@@ -5561,12 +5571,13 @@ p.field-hint {
     line-height: 1;
 }
 
-/* A ring with one lit quarter, turning. The same shape as the mark's own orbit, which is why it is a
-   ring rather than the three bouncing dots every other app uses. */
+/* A ring with one lit quarter, turning round the icon. The same shape as the mark's own orbit, which is
+   why it is a ring rather than the three bouncing dots every other app uses. Laid over the ring's box
+   rather than around the icon's, so it turns without moving the icon. */
 .app-boot-spinner {
-    width: 22px;
-    height: 22px;
-    border: 2px solid var(--border);
+    position: absolute;
+    inset: 0;
+    border: 3px solid var(--border);
     border-top-color: var(--accent);
     border-radius: 50%;
     animation: app-boot-turn 0.9s linear infinite;
@@ -5586,7 +5597,7 @@ p.field-hint {
     }
 }
 
-/* The same wait, inside the app - see Components/Loading.razor. The mark, then the ring the boot screen
+/* The same wait, inside the app - see Components/Loading.razor. The icon inside the ring the boot screen
    turns, so a page fetching its own contents looks like the screen that was standing in for it a moment
    ago rather than like a page that has stopped. */
 .loading-orbit {
@@ -5598,16 +5609,26 @@ p.field-hint {
     padding: 48px 16px;
 }
 
-/* Mark and word together, the same pairing the boot screen and the top bar carry - see .app-boot-lockup. */
+/* Ring and word together, the same pairing the boot screen and the top bar carry - see .app-boot-lockup. */
 .loading-orbit-lockup {
     display: flex;
     align-items: center;
-    gap: 12px;
+    gap: 14px;
 }
 
-.loading-orbit-mark {
-    width: 40px;
-    height: 40px;
+/* A box the size of the ring, with the icon centred in it and the turning ring laid over its edge. */
+.loading-orbit-ring {
+    position: relative;
+    display: grid;
+    place-items: center;
+    flex: none;
+    width: 64px;
+    height: 64px;
+}
+
+.loading-orbit-icon {
+    width: 34px;
+    height: 34px;
 }
 
 .loading-orbit-name {
@@ -5627,9 +5648,9 @@ p.field-hint {
 }
 
 .loading-orbit-spinner {
-    width: 18px;
-    height: 18px;
-    border: 2px solid var(--border);
+    position: absolute;
+    inset: 0;
+    border: 3px solid var(--border);
     border-top-color: var(--accent);
     border-radius: 50%;
     animation: app-boot-turn 0.9s linear infinite;
@@ -5650,14 +5671,18 @@ p.field-hint {
     padding: 16px 12px;
 }
 
-.loading-orbit-inline .loading-orbit-mark {
-    width: 24px;
-    height: 24px;
+.loading-orbit-inline .loading-orbit-ring {
+    width: 30px;
+    height: 30px;
+}
+
+.loading-orbit-inline .loading-orbit-icon {
+    width: 16px;
+    height: 16px;
 }
 
 .loading-orbit-inline .loading-orbit-spinner {
-    width: 14px;
-    height: 14px;
+    border-width: 2px;
 }
 
 .visually-hidden {

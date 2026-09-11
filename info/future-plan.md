@@ -1232,6 +1232,14 @@ its shared controls. What that pass left, all of it now overtaken:
 
 ## Smaller identified follow-ups
 
+- **The phone's wait does not look like the web's yet.** Since 2026-09-11 the web waits with Orbit's icon
+  inside a turning ring (`Components/Loading.razor`, and the boot screen in `wwwroot/index.html`); the
+  phone still draws MAUI's own `ActivityIndicator` wherever it waits (the startup screen, sign-in,
+  register, password reset, the map, the notification feed, an inventory, an invitation, a shared link,
+  Diagnostics - and its style in `Resources/Styles/Styles.xaml`). A matching control would be one
+  `ContentView` holding the app icon with a rotating arc round it, slowed rather than stopped when the
+  system asks for less animation, as the web's is.
+
 - ~~**The phone does not yet describe a product before the shelf exists, and does not ask what to build.**~~
   Both halves done on 2026-09-10, as this said. An Inventory entry on a list with no storage behind it
   now shows the product form bound to the entry's own `TaskItemDto.Product`
