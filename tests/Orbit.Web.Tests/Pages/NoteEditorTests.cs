@@ -91,6 +91,35 @@ public sealed class NoteEditorTests : OrbitTestContext
         Assert.DoesNotContain("Sharing", cut.Markup);
     }
 
+    /// <summary>
+    /// A note made while the Private tab is open starts sealed: being sealed is what puts a note under
+    /// that tab, so one written there in the open would land under Public instead.
+    /// </summary>
+    [Fact]
+    public void A_note_made_on_the_Private_tab_starts_sealed()
+    {
+        RegisterApiClients(note: null);
+        Services.GetRequiredService<FolderState>().Choose(
+            Orbit.Core.Folders.FolderPage.Notes, Orbit.Core.Folders.FolderKey.Of(Orbit.Core.Folders.BuiltInFolder.Private));
+
+        var cut = RenderComponent<NoteEditor>();
+
+        cut.Find(".editor-rail .overflow-menu-trigger").Click();
+        Assert.True(cut.Find(".editor-settings-menu input[type=checkbox]").HasAttribute("checked"));
+    }
+
+    /// <summary>And one made under Public starts in the open, as every note did before.</summary>
+    [Fact]
+    public void A_note_made_on_the_Public_tab_starts_in_the_open()
+    {
+        RegisterApiClients(note: null);
+
+        var cut = RenderComponent<NoteEditor>();
+
+        cut.Find(".editor-rail .overflow-menu-trigger").Click();
+        Assert.False(cut.Find(".editor-settings-menu input[type=checkbox]").HasAttribute("checked"));
+    }
+
     [Fact]
     public void An_existing_note_opens_with_its_title_in_place()
     {

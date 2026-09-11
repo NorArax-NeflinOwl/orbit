@@ -1301,9 +1301,19 @@ else
             else
             {
                 Logger.LogInformation("Task list editor opened for a new task list");
-                // Made where the reader is standing - see NoteEditor, which does the same and says why.
+                // Made where the reader is standing - see NoteEditor, which does the same and says why,
+                // and carries Private over as a sealed list. From Finished the list starts marked done,
+                // which is what gathers a list there - see IsFinishedOnlyByTheTab for the one case that
+                // takes it back.
                 await Folders.EnsureLoadedAsync();
-                _formModel.FolderId = Folders.ChosenOn(FolderPage.Tasks).FolderId;
+                var chosen = Folders.ChosenOn(FolderPage.Tasks);
+                _formModel.FolderId = chosen.FolderId;
+                _formModel.IsPrivate = chosen == FolderKey.Of(BuiltInFolder.Private);
+                if (chosen == FolderKey.Of(BuiltInFolder.Finished))
+                {
+                    _formModel.Completion = TaskListCompletion.Finished;
+                    _isFinishedOnlyByTheTab = true;
+                }
                 StartFromTheChosenPlaceIfThereIsOne();
             }
         }
@@ -2289,7 +2299,7 @@ else
                 var newTaskListId = await TasksApiClient.CreateTaskListAsync(new CreateTaskRequest(
                     _formModel.Title, items, _formModel.IsGroup, _formModel.IsPrivate,
                     Priority: _formModel.Priority, Description: _formModel.Description,
-                    FolderId: _formModel.FolderId));
+                    FolderId: _formModel.FolderId, Completion: CompletionToSave.ToString()));
                 Logger.LogInformation("Task list {TaskListId} created", newTaskListId);
             }
             else
@@ -2297,7 +2307,7 @@ else
                 var outcome = await TasksApiClient.UpdateTaskListAsync(Id!.Value, new UpdateTaskRequest(
                     _formModel.Title, items, _formModel.IsGroup, _formModel.IsPrivate,
                     Priority: _formModel.Priority, Description: _formModel.Description,
-                    Completion: _formModel.Completion.ToString()));
+                    Completion: CompletionToSave.ToString()));
                 if (outcome.Kind == EditOutcomeKind.Locked)
                 {
                     _lockedByUserName = outcome.LockedByUserName;
@@ -2574,12 +2584,35 @@ else
     /// Whether the Completed box is drawn ticked - the list's own answer where the reader has given
     /// one, and the entries' otherwise. Mirrors TaskList.IsCompleted, which is the same three cases.
     /// </summary>
-    private bool IsMarkedCompleted => _formModel.Completion switch
+    private bool IsMarkedCompleted => CompletionToSave switch
     {
         TaskListCompletion.Finished => true,
         TaskListCompletion.Unfinished => false,
         _ => EveryEntryIsTickedOff
     };
+
+    /// <summary>
+    /// Whether the Completed box was ticked by the Finished tab the list was made on rather than by the
+    /// reader - see the new-list branch of OnInitializedAsync. Pressing the box clears it: from then on
+    /// the answer is theirs.
+    /// </summary>
+    private bool _isFinishedOnlyByTheTab;
+
+    /// <summary>
+    /// Whether an entry on the form stands for a list that is not finished yet. Such a list is a
+    /// condition this one waits on, so the Finished tab's tick cannot stand for it: a list is not done
+    /// while something it is made of is not.
+    /// </summary>
+    private bool WaitsOnAnUnfinishedList
+        => _formModel.Items.Any(item => item.LinkedTaskListIds.Any(linkedId =>
+            _allTaskLists.FirstOrDefault(candidate => candidate.Id == linkedId) is { IsCompleted: false }));
+
+    /// <summary>
+    /// The answer a save sends: the reader's own, except that a tick only the Finished tab gave falls
+    /// back to "the entries decide" once the list waits on one that is not finished.
+    /// </summary>
+    private TaskListCompletion CompletionToSave
+        => _isFinishedOnlyByTheTab && WaitsOnAnUnfinishedList ? TaskListCompletion.FromTheEntries : _formModel.Completion;
 
     /// <summary>
     /// Pressing the box. It always records an answer of the reader's own, never "the entries decide":
@@ -2588,6 +2621,7 @@ else
     /// </summary>
     private void SetCompleted(bool isCompleted)
     {
+        _isFinishedOnlyByTheTab = false;
         _formModel.Completion = isCompleted ? TaskListCompletion.Finished : TaskListCompletion.Unfinished;
         Logger.LogInformation(
             "User set task list completion to {Completion}", _formModel.Completion);

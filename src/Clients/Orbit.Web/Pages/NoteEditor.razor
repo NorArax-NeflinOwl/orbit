@@ -450,9 +450,12 @@ else
             // Made where the reader is standing: somebody who pressed the plus while reading their
             // "Work" tab means this note to be in Work, and having to file it afterwards is a step that
             // only ever gets skipped. The built-in tabs file nothing - which one a note is in follows
-            // from what it is, so there is nothing to carry over from them.
+            // from what it is - so from Private what carries over is the thing that puts a note there:
+            // it starts sealed, rather than being written in the open and landing under Public.
             await Folders.EnsureLoadedAsync();
-            _formModel.FolderId = Folders.ChosenOn(FolderPage.Notes).FolderId;
+            var chosen = Folders.ChosenOn(FolderPage.Notes);
+            _formModel.FolderId = chosen.FolderId;
+            _formModel.IsPrivate = chosen == FolderKey.Of(BuiltInFolder.Private);
         }
 
         _isLoading = false;

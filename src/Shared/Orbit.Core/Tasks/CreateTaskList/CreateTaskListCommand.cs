@@ -8,5 +8,7 @@ public sealed record CreateTaskListCommand(
     ItemPriority Priority = ItemPriority.Normal,
     string? Description = null,
     /// <summary>Where to file it, or null for the built-in folder - see Orbit.Core.Folders.BuiltInFolder.</summary>
-    Guid? FolderId = null)
+    Guid? FolderId = null,
+    /// <summary>What the reader has said about it being finished - see TaskListCompletion.</summary>
+    TaskListCompletion Completion = TaskListCompletion.FromTheEntries)
     : IRequest<Guid>;

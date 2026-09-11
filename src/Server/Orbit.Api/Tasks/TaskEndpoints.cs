@@ -81,7 +81,10 @@ public static class TaskEndpoints
                 new CreateTaskListCommand(
                     GetUserId(user), request.Title, ToDomainItems(request.Items), request.IsGroup, request.IsPrivate,
                     ToDomainPayload(request.EncryptedContent), RequestEnum.Parse<ItemPriority>(request.Priority, "priority"),
-                    request.Description, request.FolderId),
+                    request.Description, request.FolderId,
+                    request.Completion is null
+                        ? TaskListCompletion.FromTheEntries
+                        : RequestEnum.Parse<TaskListCompletion>(request.Completion, "completion")),
                 cancellationToken);
             return Results.Created($"/api/tasks/{id}", id);
         });
