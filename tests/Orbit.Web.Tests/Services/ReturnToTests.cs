@@ -37,6 +37,21 @@ public sealed class ReturnToTests
     public void A_control_character_is_refused()
         => Assert.Null(ReturnTo.Safe("/calendar\n/evil"));
 
+    /// <summary>
+    /// Moving on from one note to the next: a way back that names another page is handed on as it is,
+    /// and one that names the page being left is replaced by that page's own way back.
+    /// </summary>
+    [Theory]
+    [InlineData("/notes", "/notes/1", "/notes")]
+    [InlineData("/notes/1?returnTo=%2F", "/notes/1", "/")]
+    [InlineData("/notes/1?returnTo=%2Fcalendar%3Fview%3Dday", "/notes/1", "/calendar?view=day")]
+    [InlineData("/notes/1", "/notes/1", null)]
+    [InlineData("/notes/1?returnTo=https%3A%2F%2Fexample.com", "/notes/1", null)]
+    [InlineData("/notes/2?returnTo=%2F", "/notes/1", "/notes/2?returnTo=%2F")]
+    [InlineData(null, "/notes/1", null)]
+    public void Moving_on_from_a_page_hands_on_its_own_way_back(string? comeBackTo, string pagePath, string? expected)
+        => Assert.Equal(expected, ReturnTo.PastThePageOf(comeBackTo, pagePath));
+
     [Fact]
     public void A_link_carries_where_to_come_back_to()
         => Assert.Equal(

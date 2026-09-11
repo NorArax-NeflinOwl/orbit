@@ -562,7 +562,14 @@ else
     /// still ends where this one was opened from, and Back from there does not walk through every note
     /// looked at on the way - see NavigationTrail.
     /// </summary>
-    private Task GoToNote(Guid noteId) => NavigationTrail.FinishAsync(ReturnTo.Link($"/notes/{noteId}/edit", ComeBackTo));
+    ///
+    /// The way back it hands on is this note's own, except when that is this note's page - then it is
+    /// that page's way back instead, or finishing the next note would end on this one's page. See
+    /// ReturnTo.PastThePageOf.
+    private Task GoToNote(Guid noteId)
+        => NavigationTrail.FinishAsync(ReturnTo.Link(
+            $"/notes/{noteId}/edit",
+            Id is { } leaving ? ReturnTo.PastThePageOf(ComeBackTo, $"/notes/{leaving}") : ComeBackTo));
 
     /// <summary>
     /// Hands the note to the writing surface after a swap. It cannot be done where the note is loaded:

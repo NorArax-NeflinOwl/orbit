@@ -61,4 +61,43 @@ public static class ReturnTo
     /// a page reached by typing its address still finishes somewhere sensible.
     /// </summary>
     public static string Or(string? returnTo, string fallback) => Safe(returnTo) ?? fallback;
+
+    /// <summary>
+    /// Where to come back to once the reader moves on from the page at <paramref name="pagePath"/> to
+    /// another of its kind: <paramref name="comeBackTo"/> as it is, unless it *is* that page - then that
+    /// page's own way back, which it carries on its address. Moving from one note to the next in the note
+    /// editor's column is the case: a note opened from its own page names that page, and handing the name
+    /// on made finishing the second note end on the first one's page. Null when there is nowhere worth
+    /// naming, which leaves the next screen its own section to fall back on.
+    /// </summary>
+    public static string? PastThePageOf(string? comeBackTo, string pagePath)
+    {
+        if (Safe(comeBackTo) is not { } destination)
+        {
+            return null;
+        }
+
+        var queryStart = destination.IndexOf('?', StringComparison.Ordinal);
+        var path = queryStart < 0 ? destination : destination[..queryStart];
+        if (!string.Equals(path, pagePath, StringComparison.OrdinalIgnoreCase))
+        {
+            return destination;
+        }
+
+        if (queryStart < 0)
+        {
+            return null;
+        }
+
+        foreach (var pair in destination[(queryStart + 1)..].Split('&'))
+        {
+            var separator = pair.IndexOf('=', StringComparison.Ordinal);
+            if (separator > 0 && pair[..separator] == QueryName)
+            {
+                return Safe(Uri.UnescapeDataString(pair[(separator + 1)..]));
+            }
+        }
+
+        return null;
+    }
 }
