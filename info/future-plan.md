@@ -359,13 +359,33 @@ version, so they aren't mistaken for oversights:
   SignalR or WebSockets. The polling itself has since been made to cost what it should: a group
   conversation polls at all, nothing is polled while the tab is behind others, and the conversation list
   is read every tenth tick rather than every one. Replacing it with a push transport is still open.
-- **"Read" means "the chat was open", not "somebody looked at it".** A message is marked read by the
-  thread that is polling for it (`Chat.razor`), which is a stand-in for the other party actually seeing
-  it. Narrowing the poll so it stops while the tab is behind others made the stand-in closer to the
-  truth than it was, but not equal to it: a thread open in a visible window nobody is sitting at still
-  reports everything as read. A real signal - tab focus and scroll position, pushed to the server rather
-  than inferred from a poll - is still open, and is worth having before read receipts are shown to the
-  *sender* as a promise rather than kept as an unread count for the reader.
+- ~~**"Read" means "the chat was open", not "somebody looked at it".**~~ Done on both clients
+  (2026-09-11): the mark-read routes take an optional `readUpToUtc` - the newest message actually seen -
+  and mark nothing past it, while absent still marks everything for installed phone builds. The web marks
+  only with the tab visible and the window focused, up to the newest message in view; the phone only
+  with the page showing and the app in the foreground, up to the last line the thread shows. See
+  [Functionality — What counts as read](functionality.md#what-counts-as-read).
+
+  What this said before: A message is marked read by the thread that is polling for it (`Chat.razor`),
+  which is a stand-in for the other party actually seeing it. Narrowing the poll so it stops while the
+  tab is behind others made the stand-in closer to the truth than it was, but not equal to it: a thread
+  open in a visible window nobody is sitting at still reports everything as read. A real signal - tab
+  focus and scroll position, pushed to the server rather than inferred from a poll - is still open, and
+  is worth having before read receipts are shown to the *sender* as a promise rather than kept as an
+  unread count for the reader.
+- **The phone's "seen" rests on `CollectionView.Scrolled`, which is not device-verified.** The Android
+  head builds and the decision is covered by view-model tests, but nobody has yet watched a mark leave a
+  real phone. Android's `RecyclerView` reports a scroll after every layout that changes what is visible,
+  so a thread that opens at its newest line should report it; iOS's `UICollectionView` reports only
+  actual offset changes, so a short thread that fits the screen without scrolling may never say what is
+  on it and so never be marked read there. Check on a device before relying on it; if iOS is silent, the
+  page needs a second source for the visible range once it has laid out.
+- **Notifications about a web conversation are still cleared by the open window.**
+  `Chat.razor`'s `ClearNotificationsForThisConversationAsync` marks the conversation's entries in the
+  notification feed read on load and on every poll, whether or not the new message has been seen. The
+  feed is "tidying, not reading" (the unread badge comes from the conversation, not from the feed), so it
+  is not wrong in the way read receipts were, but a notification can disappear for a message nobody has
+  looked at yet. The same seen signal (`ChatReadState`) could drive it.
 - ~~**Task list cycle validation is server-side only.**~~ Done: the editor's "link to list" dropdown now
   leaves out every list that links back to the one being edited, however long the chain
   (`TaskListLinkCycle`), so a link the save would refuse is never offered. `TaskListLinkValidator` stays

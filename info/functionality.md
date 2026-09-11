@@ -3491,6 +3491,47 @@ key (`deriveSharedKey`), and that key encrypts/decrypts the message text with a 
 message. `OwnEncryptionKeyProvider` (Blazor) makes sure this key pair exists and is published before
 `Chat.razor` tries to send or receive anything.
 
+### What counts as read
+
+**A message is read once it has been on screen in front of somebody, and only up to the newest such
+message.** Until 2026-09-11 "read" meant "the conversation was open": every poll of an open thread marked
+everything in it, so a window on a second screen, or a phone in a pocket still showing the conversation,
+reported every message as read. Now both clients tell the server how far the reader actually got, and
+the server marks nothing past it.
+
+- **The contract.** `PUT /api/chat/messages/{otherUserId}/read` and `PUT /api/chat/groups/{groupId}/read`
+  take an optional `readUpToUtc` query parameter: the `SentAtUtc` of the newest message seen. Only the
+  other party's messages (a group's copies addressed to the reader) sent at or before it are marked
+  (`MarkConversationAsReadCommand.ReadUpToUtc`, `MarkGroupConversationAsReadCommand.ReadUpToUtc`).
+  **Absent means everything**, which is what the route always did - installed phone builds keep sending
+  the old shape until a rebuilt APK replaces them, and a handler test pins it.
+- **Why a timestamp and not a message id.** "Up to" is an order, and `SentAtUtc` is the order a
+  conversation is kept in, so the repository applies it as one comparison in the statement that marks,
+  with no lookup first. It is exact because it is the server's own value handed back untouched (full
+  precision, `ToString("O")`). And every copy of one group message carries the same `SentAtUtc`, so the
+  cut can never fall between two copies of one message, whichever copy's id a client was holding.
+- **The web** (`Chat.razor`, `GroupConversation.razor`) marks only while the tab is visible **and** the
+  window has focus, up to the newest message whose end is inside the message list. `wwwroot/js/chatSeen.js`
+  only answers those two questions and calls back on scroll, window focus and visibility changes;
+  `ChatReadState` decides - the other party's newest message at or before the one in view, never twice,
+  and again after a mark the server did not accept. `ChatSeenProbe` counts a question it cannot ask as
+  "nothing seen", the opposite of `PageVisibility`: there a wrong answer stops a chat updating, here it
+  would be a read receipt for something nobody saw. Scrolling down to new messages, or focusing a window
+  that already shows them, is what marks them; the poll is only the net under those.
+- **The phone** (`ConversationViewModel`, `GroupConversationViewModel`) marks only while the page is
+  showing (`OnAppearing`/`OnDisappearing`) and the app is in the foreground (the window's
+  `Stopped`/`Resumed` - going to the background does not make a page disappear), up to the other
+  party's newest message at or before the last line the thread shows (`CollectionView.Scrolled`,
+  `LastVisibleItemIndex`). `ConversationReadState` (`Orbit.Mobile.Chat`, no MAUI) decides it the same way
+  `ChatReadState` does on the web. **A sync no longer marks anything** - it runs on a timer and in the
+  background, and pulling a message is not seeing it. `ChatSynchronizer.MarkConversationReadAsync` sends
+  the mark; it is not queued, and one that cannot reach the server is not remembered as told, so it goes
+  again at the next chance (the next sync, scroll, or return to the app).
+- **What follows from it.** The unread count on a contact (`ContactDto.UnreadCount`) and the sender's
+  ticks (`GET .../read-receipt`, `ReadByEveryone` in a group) are computed from the same `ReadAtUtc`
+  rows as before, so they now say what was seen rather than what was open. A mark that changes no row
+  is still announced to nobody - see [Live updates](#live-updates).
+
 ### Message forwarding
 
 Any message in a conversation can be forwarded into a different conversation via the "..." menu next to
@@ -3877,9 +3918,9 @@ reader already knows they read it. A **removal from a group** goes to the person
 the people left, because otherwise the group stays in their list and they will write to it.
 
 **An announcement is only made when something actually changed** - which is not a saving but what keeps
-the exchange finite. A window answers an announcement by polling, and a poll marks the conversation read;
-so a read that changed nothing, announced anyway, is news the other window answers by marking read and
-announcing back. Two open windows did exactly that on 2026-09-05 at sixteen requests a second - four
+the exchange finite. A window answers an announcement by polling, and a poll marks read whatever has come
+into view (see [What counts as read](#what-counts-as-read)); so a read that changed nothing, announced
+anyway, is news the other window answers by marking read and announcing back. Two open windows did exactly that on 2026-09-05 at sixteen requests a second - four
 calls each way, 4,332 from one caller in a minute - and the fix is that
 `MarkConversationAsReadCommandHandler` (and its group counterpart) publish only when a row was actually
 marked. A read receipt still travels the moment it exists; a re-read of an already-read conversation says
@@ -4069,9 +4110,11 @@ mark, and a mark means something.
 **The phone draws the same count** since 2026-09-11, on its contact list: `AvatarCircle` puts it at the
 avatar's bottom-left edge by the web's rules (nothing at nought, "9+" above nine), and the row's mark
 lights for it as well as for a request to answer. It is the same `ContactDto.UnreadCount`, kept on
-`LocalContact` so it survives a restart and reads offline, and taken to nought the moment the server has
-been told a conversation was read rather than at the next refresh; a conversation opened with no
-connection keeps its count, because nothing was told. Groups carry no count on either client, and the
+`LocalContact` so it survives a restart and reads offline, and taken down the moment the server has
+been told what was read rather than at the next refresh - to the number of their messages stored on the
+phone that were sent after what was seen, never above the count it held (`ChatRepository.MarkReadAsync`;
+see [What counts as read](#what-counts-as-read)). A conversation read with no connection keeps its
+count, because nothing was told. Groups carry no count on either client, and the
 phone's dashboard rows draw no face to put one on.
 
 How long that toast stays up, and the minimum quiet gap before the next one, are per-user settings
