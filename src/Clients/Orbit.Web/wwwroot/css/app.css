@@ -488,6 +488,12 @@ input.note-editor-title {
    which is what keeps the tools in the corner where they were put. */
 .note-editor-page {
     min-height: calc(100vh - 230px);
+    /* Room under the last line for the tools in the corner and three lines more: the writing used to
+       run on underneath the tools, so whatever was typed at the foot of a long note was hidden behind
+       them. The padding is part of what scrolls, and scroll-padding keeps the caret's own line clear
+       of them too when the surface scrolls to follow it. */
+    padding-bottom: calc(14px + 40px + 4.8em);
+    scroll-padding-bottom: calc(14px + 40px + 3.2em);
 }
 
 /* Over the corner of the writing rather than above it: a toolbar at the top of a note is a strip of
