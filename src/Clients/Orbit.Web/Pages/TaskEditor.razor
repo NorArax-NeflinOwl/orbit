@@ -1246,6 +1246,18 @@ else
                 .Distinct(StringComparer.CurrentCultureIgnoreCase)
                 .OrderBy(category => category, StringComparer.CurrentCultureIgnoreCase)];
 
+            // The same for what kind of thing a product is: the shelves' answers and every entry's own,
+            // since an entry describing a product not on a shelf yet carries its type itself and the
+            // server's list only knows what is already on a shelf. Without the entries' half the box
+            // offered nothing on an account whose products were all still written on lists.
+            _knownProductTypes = [.. _knownProductTypes
+                .Concat(allTaskLists.SelectMany(taskList => taskList.Items)
+                    .Select(item => item.Product?.ProductType ?? string.Empty))
+                .Select(productType => productType.Trim())
+                .Where(productType => productType.Length > 0)
+                .Distinct(StringComparer.CurrentCultureIgnoreCase)
+                .OrderBy(productType => productType, StringComparer.CurrentCultureIgnoreCase)];
+
             // Linking is narrower: a list that links back here, however long the chain, would close a
             // loop and the save would refuse it - see TaskListLinkCycle. Left out of the dropdown rather
             // than offered and then rejected, which is how every other rule the server enforces is

@@ -178,6 +178,33 @@ public sealed class TaskEditorItemFormTests : OrbitTestContext
     }
 
     /// <summary>
+    /// What kind of thing the entry asks for is picked from the kinds this account already uses, the way
+    /// its categories are - and those include what entries say, not only what shelves say. The box used
+    /// to be fed from the shelves alone, so on an account whose products were still written on lists it
+    /// offered nothing and was a plain box.
+    /// </summary>
+    [Fact]
+    public void An_inventory_entrys_product_type_offers_the_types_entries_already_use()
+    {
+        // The panel places itself under its box by measurement (see UsedValueBrowser), which is a call
+        // into the page this fixture has nothing to answer with.
+        JSInterop.Mode = JSRuntimeMode.Loose;
+        RegisterApiClients(AnItem(kind: nameof(TaskItemKind.Inventory)) with
+        {
+            Product = new TaskItemProductDto(
+                "Dry goods", null, Quantity: 0, MinimumQuantity: 1, "Piece", ExpiryDate: null, "None",
+                IsCheckedRegularly: false)
+        });
+        var cut = Render();
+        ExpandTheOnlyItem(cut);
+
+        cut.Find(".suggested-text-input").Input(string.Empty);
+
+        Assert.Contains(
+            cut.FindAll(".name-suggestion-option"), option => option.TextContent.Trim() == "Dry goods");
+    }
+
+    /// <summary>
     /// A calendar entry can invite people whether the list it is on has been saved yet or not. The
     /// contacts used to be read only alongside an existing list, so a Calendar entry on a brand new one
     /// said there was nobody to invite - which is not the same thing as having no contacts.
