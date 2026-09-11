@@ -115,8 +115,7 @@
                                  to a colour string hands the string straight over - the shape is then
                                  left unpainted and says nothing about it. That is exactly how the
                                  first draft of this swatch came out as an empty gap on the screen. -->
-                            <Grid Margin="0,0,10,10" WidthRequest="40" HeightRequest="40"
-                                  AutomationProperties.Name="{Binding Name}">
+                            <Grid Margin="0,0,10,10" WidthRequest="40" HeightRequest="40">
                                 <Ellipse StrokeThickness="1.5" Fill="Transparent"
                                          Stroke="{Binding Swatch, Converter={StaticResource EventColour}}" />
                                 <Ellipse WidthRequest="24" HeightRequest="24" IsVisible="{Binding IsChosen}"

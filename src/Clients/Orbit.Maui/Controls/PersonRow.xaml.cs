@@ -14,8 +14,8 @@ public partial class PersonRow : ContentView
 	/// Whose row this is - the person or the group. Decides the avatar's colour, which is theirs and
 	/// stays theirs however the list is sorted or filtered.
 	/// </summary>
-	public static readonly BindableProperty IdProperty = BindableProperty.Create(
-		nameof(Id), typeof(Guid), typeof(PersonRow), Guid.Empty, propertyChanged: OnWhoChanged);
+	public static readonly BindableProperty SubjectIdProperty = BindableProperty.Create(
+		nameof(SubjectId), typeof(Guid), typeof(PersonRow), Guid.Empty, propertyChanged: OnWhoChanged);
 
 	public static readonly BindableProperty NameProperty = BindableProperty.Create(
 		nameof(Name), typeof(string), typeof(PersonRow), string.Empty, propertyChanged: OnWhoChanged);
@@ -56,10 +56,10 @@ public partial class PersonRow : ContentView
 
 	public PersonRow() => InitializeComponent();
 
-	public Guid Id
+	public Guid SubjectId
 	{
-		get => (Guid)GetValue(IdProperty);
-		set => SetValue(IdProperty, value);
+		get => (Guid)GetValue(SubjectIdProperty);
+		set => SetValue(SubjectIdProperty, value);
 	}
 
 	public string Name
@@ -110,7 +110,7 @@ public partial class PersonRow : ContentView
 		var row = (PersonRow)bindable;
 
 		row.NameLabel.Text = row.Name;
-		row.Face.Id = row.Id;
+		row.Face.SubjectId = row.SubjectId;
 		row.Face.Name = row.Name;
 	}
 

@@ -61,7 +61,7 @@
                     <DataTemplate x:DataType="data:LocalChatGroup">
                         <!-- The same row every list of people is drawn with - see PersonRow. A group
                              carries no presence dot: a group is not somewhere anybody is or is not. -->
-                        <controls:PersonRow Id="{Binding Id}" Name="{Binding Name}"
+                        <controls:PersonRow SubjectId="{Binding Id}" Name="{Binding Name}"
                                             Subtitle="{Binding Members.Count, Converter={StaticResource GroupSize}}">
                             <!-- <inheritdoc cref="ContactsPage" /> - the same mark, in the same slot. -->
                             <controls:PersonRow.Pin>

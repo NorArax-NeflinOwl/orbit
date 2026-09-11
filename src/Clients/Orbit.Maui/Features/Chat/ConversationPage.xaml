@@ -31,7 +31,7 @@
              stack and Android's own gesture, and nothing else. -->
         <Grid Grid.Row="0" ColumnDefinitions="Auto,*,Auto" ColumnSpacing="12">
             <controls:AvatarCircle Grid.Column="0" Diameter="34" VerticalOptions="Center"
-                                   Id="{Binding ContactId}" Name="{Binding Title}"
+                                   SubjectId="{Binding ContactId}" Name="{Binding Title}"
                                    Status="{Binding PresenceStatus}" />
 
             <VerticalStackLayout Grid.Column="1" Spacing="1" VerticalOptions="Center">

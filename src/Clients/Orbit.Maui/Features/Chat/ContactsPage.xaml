@@ -67,7 +67,7 @@
                     <DataTemplate x:DataType="data:LocalContact">
                         <VerticalStackLayout Padding="0,6" Spacing="2">
                             <!-- The same row every list of people is drawn with - see PersonRow. -->
-                            <controls:PersonRow Id="{Binding UserId}" Name="{Binding DisplayName}"
+                            <controls:PersonRow SubjectId="{Binding UserId}" Name="{Binding DisplayName}"
                                                 Subtitle="{Binding UserName, StringFormat='@{0}'}"
                                                 Status="{Binding PresenceStatus}"
                                                 UnreadCount="{Binding UnreadCount}"
@@ -125,7 +125,7 @@
                                      clickable, so the double tap that activates a control does nothing
                                      to it. See ItemCard, which does the same over its whole card. -->
                                 <Grid>
-                                    <controls:PersonRow Id="{Binding Id}" Name="{Binding Name}" />
+                                    <controls:PersonRow SubjectId="{Binding Id}" Name="{Binding Name}" />
                                     <Button BackgroundColor="Transparent" BorderWidth="0" Padding="0"
                                             MinimumHeightRequest="0" MinimumWidthRequest="0"
                                             SemanticProperties.Description="{Binding Name}"
