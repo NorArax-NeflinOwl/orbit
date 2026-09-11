@@ -307,6 +307,12 @@
                             {
                                 <span class="row-category @(_itemFilter.IsChosen(category) ? "on" : "")">@category</span>
                             }
+                            @* An entry's own priority, the mark the list's card carries for the list -
+                               see TaskItemDto.Priority. Normal says nothing, so it draws nothing. *@
+                            @if (ItemPriorityOf(item) is not ItemPriority.Normal and var itemPriority)
+                            {
+                                <span class="card-badge card-badge-priority-@itemPriority.ToString().ToLowerInvariant()">@DescribePriority(itemPriority)</span>
+                            }
                             @if (item.AllLinkedTaskListIds.Count > 0)
                             {
                                 <span class="row-meta">@T["follows another list"]</span>
@@ -338,6 +344,18 @@
                                         <span class="stat-dot" style="background:@linkedColour" title="@(T["Appointment"])"></span>
                                     }
                                 </Leading>
+                                @* The same marks as a row of the list's own - a group's card was the one
+                                   place an entry lost what it is filed under. *@
+                                <Trailing>
+                                    @foreach (var category in linkedItem.AllCategories)
+                                    {
+                                        <span class="row-category @(_itemFilter.IsChosen(category) ? "on" : "")">@category</span>
+                                    }
+                                    @if (ItemPriorityOf(linkedItem) is not ItemPriority.Normal and var linkedPriority)
+                                    {
+                                        <span class="card-badge card-badge-priority-@linkedPriority.ToString().ToLowerInvariant()">@DescribePriority(linkedPriority)</span>
+                                    }
+                                </Trailing>
                             </Row>
                         }
                         @if (LinkedItemCount(linkedTaskListId) > RowsToShow(LinkedItemCount(linkedTaskListId), LinkedPreviewItemCount))
@@ -703,6 +721,9 @@
 
     private static ItemPriority ParsePriority(TaskDto taskList)
         => Enum.TryParse<ItemPriority>(taskList.Priority, out var priority) ? priority : ItemPriority.Normal;
+
+    private static ItemPriority ItemPriorityOf(TaskItemDto item)
+        => Enum.TryParse<ItemPriority>(item.Priority, out var priority) ? priority : ItemPriority.Normal;
 
     /// <summary>Mirrors TaskEditor's own priority dropdown, so a list reads the same in both places.</summary>
     private string DescribePriority(ItemPriority priority) => priority switch
