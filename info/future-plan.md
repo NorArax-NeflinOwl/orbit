@@ -576,6 +576,23 @@ inventory lists, the contacts tabs, the chat menus - is built and needs no schem
 
 ## Noticed while working
 
+- **Only the web's members page asks who takes over a group.** Since 2026-09-11 a group's last admin
+  may leave, naming a successor (`successorUserId` on `DELETE /api/chat/groups/{id}/membership`) or
+  letting the server promote the longest-standing member (`ChatGroup.Leave`). The roster offers the
+  picker; the archive's "Leave and delete chat history" (`Contacts.razor`) and the phone (group detail
+  and group list) leave without asking, so they always get the automatic choice. What it would take: the
+  roster's confirmation panel pulled out into a component the archive can open too, and on the phone a
+  second step after "Leave group" when `GroupMemberRow.IsSelf` is the only admin - then a rebuilt APK,
+  since the phone updates on its own schedule.
+
+- **The phone's group detail screen leaves through the wrong route.** `GroupDetailViewModel.RemoveAsync`
+  leaves by removing itself (`DELETE .../members/{ownId}`, `RemoveChatGroupMemberCommandHandler`), which
+  takes the account out but leaves its copies of the group's messages in `OP_CHATS` for nobody
+  to read - the leave route (`LeaveChatGroupCommandHandler`, which the phone's group list and both web
+  pages use) deletes them. Harmless to anyone but untidy, and it grows with every leave. What it would
+  take: calling `ChatClient.LeaveGroupAsync` for the self row, and a rebuilt APK; the server keeps
+  accepting the old route for installed builds either way.
+
 - **Orbit.Web's pages read the machine's clock directly** - `DateTime.Today` and `DateTime.Now`, in
   eighteen places across the pages and components, with no `TimeProvider` injected anywhere in that
   client. It is why `DashboardTests.An_appointment_that_has_ended_counts_as_one_that_is_behind_the_reader`

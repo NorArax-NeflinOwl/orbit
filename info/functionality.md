@@ -857,6 +857,21 @@ made the names the narrowest thing on it. It offers three things: **Make admin**
 contact too), and **Remove** — or **Leave group** on your own row, since showing yourself out is not the
 same act as removing somebody and needs no admin standing.
 
+**Anybody may leave, whatever their role and whoever else is in the group.** Leaving from the roster
+asks first — it goes through the same `DELETE /api/chat/groups/{id}/membership` route as the archive's
+"Leave and delete chat history", so your copies of the group's messages go with you. When you are the
+group's **only admin and other people remain**, the question also asks **who takes over**, with the
+longest-standing member already chosen: the person the server would pick anyway, by the same
+`ChatGroup.ChooseSuccessor` rule, so confirming without looking is never worse than not being asked. The
+choice travels as an optional `successorUserId` query value; left out — by the archive, and by every
+phone build — the server promotes the longest-standing member itself, the rule an account deletion has
+always used. A named successor who is no longer in the group, or is the leaver, is **refused rather than
+swapped** for the automatic choice: the leaver asked for a particular person and could not undo somebody
+else being handed the group once out, whereas a refusal costs one more look at the roster, which the page
+re-reads and says the refusal on screen. The last person out empties the group and it is deleted.
+Removing yourself through the older `members/{yourId}` route — what installed phones do — follows the
+same rules (`ChatGroup.RemoveMember` hands itself to `ChatGroup.Leave`).
+
 **What the reader may not do is greyed, not left out**, and says why on itself. An option that
 disappears looks like an option that does not exist, and "you are not an admin here" is worth saying;
 the reason sits on the control's own `title`, where the pointer already is. Two rules decide it: only an
@@ -992,9 +1007,10 @@ line, and a permission matrix nobody varies is machinery to keep correct for not
 | Promote and demote | no | yes |
 | Rename the group | no | yes |
 
-The creator is the first admin. **The last admin can't be removed or demoted** — that would leave a
-group nobody can manage and no way to fix it from inside; an admin can step down once someone else can
-take over. Adding someone requires an existing one-to-one chat with them, so a group can't be used to
+The creator is the first admin. **The last admin can't be demoted, and a group is never left with people
+in it and no admin** — that would leave a group nobody can manage and no way to fix it from inside. The
+last admin may still leave: whoever they name takes over, or the longest-standing member if they name
+nobody (see the members page above). Adding someone requires an existing one-to-one chat with them, so a group can't be used to
 reach a stranger who never agreed to hear from you; re-adding an existing member skips that check, being
 a no-op.
 
