@@ -183,6 +183,22 @@ public sealed class GroupDetailScreenTests
     }
 
     /// <summary>
+    /// Through the leave route, not by removing yourself: only leaving deletes this reader's copies of
+    /// what was said in the group, and the removal left them on the server for nobody to read.
+    /// </summary>
+    [Fact]
+    public async Task Leaving_from_the_groups_own_screen_goes_through_the_leave_route()
+    {
+        using var context = new GroupContext();
+        var celina = context.AddContact("Celina");
+        var screen = await context.OpenGroupAsync("Trip", withMembers: [celina], ownRole: "Member");
+
+        await screen.RemoveCommand.ExecuteAsync(screen.Members.Single(member => member.IsSelf));
+
+        Assert.Single(context.Server.GroupsLeft);
+    }
+
+    /// <summary>
     /// The button on your own row says what it does. "Remove" is what you do to somebody else, and on
     /// the one row where the somebody is you it read as removing a person rather than leaving.
     /// </summary>

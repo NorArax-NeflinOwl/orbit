@@ -120,6 +120,12 @@ internal sealed class FakeChatServer : HttpMessageHandler
     /// </summary>
     public Action? WhenAGroupMessageArrives { get; set; }
 
+    /// <summary>
+    /// Every group this reader left through the leave route - the one that also deletes their copies of
+    /// what was said there, which removing yourself from the member list does not.
+    /// </summary>
+    public List<Guid> GroupsLeft { get; } = [];
+
     /// <summary>A message arriving from the other side, as a poll would find it.</summary>
     public ChatMessageDto AddIncoming(Guid senderUserId, Guid recipientUserId, string ciphertextBase64, string nonceBase64)
     {
@@ -320,6 +326,7 @@ internal sealed class FakeChatServer : HttpMessageHandler
         // api/chat/groups/{id}/membership - leaving, which the rest of the group sees.
         if (segments.Length == 5 && segments[4] == "membership" && request.Method == HttpMethod.Delete)
         {
+            GroupsLeft.Add(group.Id);
             Groups[Groups.IndexOf(group)] = Without(group, CallerUserId);
             return new HttpResponseMessage(HttpStatusCode.NoContent);
         }

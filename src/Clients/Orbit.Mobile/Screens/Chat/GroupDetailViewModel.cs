@@ -217,12 +217,19 @@ public sealed partial class GroupDetailViewModel : ObservableObject
             return;
         }
 
-        if (!await ApplyAsync(group => _chatClient.RemoveGroupMemberAsync(group, member.UserId, cancellationToken), cancellationToken))
+        // Your own row leaves through the leave route rather than by removing yourself: the server takes the
+        // account out either way, but only leaving also deletes this reader's copies of what was said in the
+        // group, which removing left behind for nobody to read - see LeaveChatGroupCommand.
+        if (!await ApplyAsync(
+                group => member.IsSelf
+                    ? LeaveAsync(group, cancellationToken)
+                    : _chatClient.RemoveGroupMemberAsync(group, member.UserId, cancellationToken),
+                cancellationToken))
         {
             return;
         }
 
-        // Removing yourself is how leaving works, and there is nothing left to look at afterwards.
+        // There is nothing left to look at once you have left.
         if (member.IsSelf)
         {
             await _synchronizer.SynchroniseGroupsAsync(cancellationToken);
@@ -251,6 +258,15 @@ public sealed partial class GroupDetailViewModel : ObservableObject
             await LoadAsync(cancellationToken);
         }
     }
+
+    /// <summary>
+    /// Leaving, answered the way ApplyAsync reads every other change: a group the server no longer has is
+    /// the same "no longer available" a removal that found nobody would be.
+    /// </summary>
+    private async Task<GroupMemberChangeResult> LeaveAsync(Guid groupId, CancellationToken cancellationToken)
+        => await _chatClient.LeaveGroupAsync(groupId, cancellationToken)
+            ? GroupMemberChangeResult.Applied
+            : new GroupMemberChangeResult(Done: false);
 
     /// <summary>
     /// Runs one membership change and turns whatever came back into something to read. False means the
