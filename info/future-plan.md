@@ -672,9 +672,10 @@ inventory lists, the contacts tabs, the chat menus - is built and needs no schem
   ("Location"), with the same `IsVisible` - and the calendar sentence is worded differently on the two
   clients ("the pin keeps its exact position"), so one of them moves to the other's key.
 
-- **`PageHeader.Subtitle` on the phone is down to one user.** After the page descriptions moved into the
-  bar, only `AccountPage.xaml` sets it; if the account screen's pass folds that one too, the property and
-  the `PageSubtitle` style have nothing left to draw and can go.
+- **`PageHeader.Subtitle` on the phone has no user left.** After the page descriptions moved into the
+  bar, `AccountPage.xaml` was the last to set it, and since 2026-09-11 its sentence is behind the bar's
+  "?" too (`NavigationBar.Description`). The property and the `PageSubtitle` style draw nothing now and
+  can go; `PageHeader` itself stays, for the Groups page's leading "+".
 
 - **A few sentences under a control, rather than under a title, were left in view on the web.** The
   restock switches' three `<p class="field-hint">` lines in `InventoryEditor.razor` and the one in
@@ -731,12 +732,9 @@ inventory lists, the contacts tabs, the chat menus - is built and needs no schem
   2026-09-11 - it deletes on the platform prompt alone. Also the phone's own to build: a field bound in
   `AccountViewModel` beside `RequiresPasswordToDelete`, checked against the account it loaded.
 
-- **The phone's account screen still shows its own subtitle, and its other forms answer at the top**
-  (noticed 2026-09-11, while folding that screen's section sentences). Two leftovers. The page's sentence
-  ("Who you are to Orbit, and what this device is allowed to do.", `PageHeader.Subtitle` in
-  `AccountPage.xaml`) stays in view: on the web it went behind a "?" on the page's title, but on the phone
-  the title is drawn by `Controls/NavigationBar.xaml`, which has no mark of its own - so it belongs with the
-  phone-wide pass in "Page and section descriptions are folded on the web, not yet on the phone". And the
+- **The phone account screen's other forms answer at the top** (noticed 2026-09-11, while folding that
+  screen's section sentences). Its own subtitle, the other leftover noticed then, is behind the bar's "?"
+  since the same day (`NavigationBar.Description` in `AccountPage.xaml`). The
   username, email and password forms still report into the one `Message` line at the top of the screen,
   which the deletion no longer uses for the reason it stopped: the reader is further down when they
   press. What it would take: a message line per form, as `DeletionMessage` is.

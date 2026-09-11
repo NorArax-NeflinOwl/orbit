@@ -20,12 +20,6 @@
     <ScrollView Grid.Row="1">
         <VerticalStackLayout Padding="16,16,16,28" Spacing="18">
 
-            <controls:PageHeader>
-                <controls:PageHeader.Subtitle>
-                    <controls:Translate Text="Who you are to Orbit, and what this device is allowed to do." />
-                </controls:PageHeader.Subtitle>
-            </controls:PageHeader>
-
             <!-- Tabs rather than one long scroll, as Orbit.Web's Options page has: changing a password
                  and unlocking a feature are different errands. -->
             <Grid RowDefinitions="Auto,Auto">
@@ -495,7 +489,10 @@
 
         </VerticalStackLayout>
     </ScrollView>
-        <controls:NavigationBar Grid.Row="0" />
+        <!-- What the screen is for, behind the "?" beside its name - see NavigationBar.Description. It
+             was the one screen still saying it as a subtitle under the bar. -->
+        <controls:NavigationBar Grid.Row="0"
+                                Description="{controls:Translate 'Who you are to Orbit, and what this device is allowed to do.'}" />
         <controls:AvatarMenu Grid.Row="0" Grid.RowSpan="3" />
         <controls:Drawer Grid.Row="0" Grid.RowSpan="3" />
     </Grid>
