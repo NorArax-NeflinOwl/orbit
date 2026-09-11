@@ -35,13 +35,16 @@ public sealed partial class TaskItemSummaryViewModel : ObservableObject
     private readonly Translations _translations;
     private readonly IScreenNavigator _navigator;
 
+    /// <summary>What a tick is stamped with - see Orbit.Core.Tasks.TaskItemCompletionTime.</summary>
+    private readonly TimeProvider _timeProvider;
+
     private Guid _taskListLocalId;
     private Guid _itemId;
 
     public TaskItemSummaryViewModel(
         LocalTaskListRepository taskLists, LocalCalendarEventRepository calendarEvents, PlaceSearch places,
         Translations translations, IScreenNavigator navigator, ChatRepository contacts,
-        TaskListSynchronizer synchronizer)
+        TaskListSynchronizer synchronizer, TimeProvider timeProvider)
     {
         _taskLists = taskLists;
         _calendarEvents = calendarEvents;
@@ -50,7 +53,15 @@ public sealed partial class TaskItemSummaryViewModel : ObservableObject
         _synchronizer = synchronizer;
         _translations = translations;
         _navigator = navigator;
+        _timeProvider = timeProvider;
     }
+
+    /// <summary>
+    /// When the entry was done, in the reader's own format - shown only once it is done (see
+    /// <see cref="IsCompleted"/>), and "not recorded" for one ticked before Orbit kept the time.
+    /// </summary>
+    [ObservableProperty]
+    private string _completedOn = string.Empty;
 
     /// <summary>What the entry says, which is the screen's own title.</summary>
     [ObservableProperty]
@@ -145,6 +156,7 @@ public sealed partial class TaskItemSummaryViewModel : ObservableObject
         Description = item.Description;
         IsCompleted = item.IsCompleted;
         IsFailed = item.IsFailed;
+        CompletedOn = DescribeCompletion(item.CompletedAtUtc);
         When = item.DueDateUtc is { } due
             ? due.LocalDateTime.ToString("g", _translations.DisplayCulture)
             : _translations["No date set"];
@@ -221,6 +233,11 @@ public sealed partial class TaskItemSummaryViewModel : ObservableObject
                     ?? _translations["Somebody else"]));
     }
 
+    private string DescribeCompletion(DateTimeOffset? completedAtUtc)
+        => completedAtUtc is { } doneUtc
+            ? doneUtc.LocalDateTime.ToString("g", _translations.DisplayCulture)
+            : _translations["Not recorded"];
+
     partial void OnAppointmentDescriptionChanged(string value) => OnPropertyChanged(nameof(HasAppointmentDescription));
 
     partial void OnGuestsChanged(string value) => OnPropertyChanged(nameof(HasGuests));
@@ -269,9 +286,17 @@ public sealed partial class TaskItemSummaryViewModel : ObservableObject
             return;
         }
 
+        var completedAtUtc = Orbit.Core.Tasks.TaskItemCompletionTime.After(
+            item.IsCompleted, item.CompletedAtUtc, next.IsCompleted(), _timeProvider.GetUtcNow());
         var items = taskList.Items
             .Select(candidate => candidate.Id == _itemId
-                ? candidate with { IsCompleted = next.IsCompleted(), IsFailed = next.IsFailed() }
+                ? candidate with
+                {
+                    IsCompleted = next.IsCompleted(),
+                    IsFailed = next.IsFailed(),
+                    // Stamped here, offline included - see TaskItemCompletionTime.
+                    CompletedAtUtc = completedAtUtc
+                }
                 : candidate)
             .ToList();
 
@@ -282,6 +307,7 @@ public sealed partial class TaskItemSummaryViewModel : ObservableObject
 
         IsCompleted = next.IsCompleted();
         IsFailed = next.IsFailed();
+        CompletedOn = DescribeCompletion(completedAtUtc);
         await SynchroniseAsync(cancellationToken);
     }
 

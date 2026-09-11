@@ -285,6 +285,21 @@
                 <DatePicker Date="{Binding DueDate}" IsVisible="{Binding HasDueDate}" Format="{controls:DatePattern}"
                         SemanticProperties.Description="{controls:Translate 'Due date'}" />
 
+                <!-- When it was done, for a done entry only - a day for something not done yet is not a
+                     fact about it, and unticking clears it. Editable, because "did it yesterday, ticked it
+                     today" is the usual case. See TaskItemEditor.IsDone. -->
+                <VerticalStackLayout Spacing="6" IsVisible="{Binding IsDone}">
+                    <Label Text="{controls:Translate 'Completed on'}" FontSize="12" Style="{StaticResource SubtleLabel}" />
+                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                        <DatePicker Date="{Binding CompletedOn}" Format="{controls:DatePattern}"
+                                    SemanticProperties.Description="{controls:Translate 'Completed on'}" />
+                        <TimePicker Grid.Column="1" Time="{Binding CompletedAt}"
+                                    SemanticProperties.Description="{controls:Translate 'Time completed'}" />
+                    </Grid>
+                    <Label Text="{controls:Translate 'Not recorded'}" IsVisible="{Binding IsCompletionTimeUnknown}"
+                           FontSize="12" Style="{StaticResource SubtleLabel}" />
+                </VerticalStackLayout>
+
                 <Label Text="{controls:Translate 'When it is overdue'}" FontSize="12" Style="{StaticResource SubtleLabel}" />
                 <Picker ItemsSource="{Binding Channels}"
                         SelectedItem="{Binding ChosenOverdueNotificationChannel}"

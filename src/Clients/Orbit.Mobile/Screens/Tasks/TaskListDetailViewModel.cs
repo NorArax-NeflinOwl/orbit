@@ -954,7 +954,15 @@ public sealed partial class TaskListDetailViewModel : ObservableObject
         return SaveAsync(
             _items
                 .Select(item => item.Id == row.Id
-                    ? item with { IsCompleted = next.IsCompleted(), IsFailed = next.IsFailed() }
+                    ? item with
+                    {
+                        IsCompleted = next.IsCompleted(),
+                        IsFailed = next.IsFailed(),
+                        // Recorded on the phone, as the tick happens and whether or not there is a
+                        // connection - see TaskItemCompletionTime.
+                        CompletedAtUtc = TaskItemCompletionTime.After(
+                            item.IsCompleted, item.CompletedAtUtc, next.IsCompleted(), _timeProvider.GetUtcNow())
+                    }
                     : item)
                 .ToList(),
             cancellationToken);

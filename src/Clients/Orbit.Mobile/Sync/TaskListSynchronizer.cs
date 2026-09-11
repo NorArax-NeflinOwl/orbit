@@ -329,5 +329,8 @@ public sealed class TaskListSynchronizer
             // alone. Sending them as they arrived is what makes that rule unnecessary rather than
             // relied upon, the same way the product above travels untouched.
             item.Priority,
-            item.Colour)).ToList();
+            item.Colour,
+            // When it was done, as this phone recorded it at the tick - offline included. The server
+            // keeps a time it is sent, and records one itself only for a tick that arrives without.
+            item.CompletedAtUtc)).ToList();
 }

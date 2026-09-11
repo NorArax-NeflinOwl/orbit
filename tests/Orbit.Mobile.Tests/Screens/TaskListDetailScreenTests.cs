@@ -1122,6 +1122,55 @@ public sealed class TaskListDetailScreenTests
     /// until then, exactly as it does in a browser.
     /// </summary>
     /// <summary>
+    /// A tick records when, on the phone and as it happens - the server never sees a private list's
+    /// entries, and a phone ticks offline. The next press crosses the entry out, and a cross is not a
+    /// completion: the time goes.
+    /// </summary>
+    [Fact]
+    public async Task A_tick_records_when_and_a_cross_clears_it()
+    {
+        using var context = new ScreenContext();
+        var screen = context.OpenTaskList("Groceries");
+        await AddAsync(screen, "Bread");
+
+        await screen.ToggleItemCommand.ExecuteAsync(screen.Items[0]);
+        Assert.NotNull(screen.Items[0].Item.CompletedAtUtc);
+
+        await screen.ToggleItemCommand.ExecuteAsync(screen.Items[0]);
+        Assert.True(screen.Items[0].Item.IsFailed);
+        Assert.Null(screen.Items[0].Item.CompletedAtUtc);
+    }
+
+    /// <summary>
+    /// The entry's sheet shows the time only once the entry is done, and correcting it there is what the
+    /// save sends - "did it yesterday, ticked it today".
+    /// </summary>
+    [Fact]
+    public async Task When_a_done_entry_was_done_is_corrected_in_its_sheet()
+    {
+        using var context = new ScreenContext();
+        var screen = context.OpenTaskList("Groceries");
+        await AddAsync(screen, "Bread");
+        screen.EditItemCommand.Execute(screen.Items[0]);
+        Assert.False(screen.BeingEdited!.IsDone);
+        screen.CancelItemEditCommand.Execute(null);
+
+        await screen.ToggleItemCommand.ExecuteAsync(screen.Items[0]);
+        screen.EditItemCommand.Execute(screen.Items[0]);
+        var editor = screen.BeingEdited!;
+        Assert.True(editor.IsDone);
+        Assert.False(editor.IsCompletionTimeUnknown);
+        editor.CompletedOn = new DateTime(2026, 9, 1);
+        editor.CompletedAt = new TimeSpan(8, 30, 0);
+        await screen.SaveItemCommand.ExecuteAsync(null);
+
+        var chosen = new DateTime(2026, 9, 1, 8, 30, 0);
+        Assert.Equal(
+            new DateTimeOffset(chosen, TimeZoneInfo.Local.GetUtcOffset(chosen)),
+            screen.Items[0].Item.CompletedAtUtc);
+    }
+
+    /// <summary>
     /// What kind of thing an errand asks for is picked from the kinds this account already uses rather
     /// than typed afresh every time - the phone's half of the web's panel of used values. Another list's
     /// entry counts: an account whose products are still written on lists has no shelf to learn them

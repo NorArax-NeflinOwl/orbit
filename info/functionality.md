@@ -586,6 +586,29 @@ clears it (`Orbit.Core.Abstractions.TickState`, which both clients cycle through
 thing in a browser and on a phone). A cross rather than a tick, drawn in the colour everything that went
 wrong is drawn in; a note's checklist line carries the same three (`NoteContentLine.IsFailed`).
 
+**A ticked entry remembers when it was ticked** (`OP_TI_COMPLETEDATUTC`, `TaskItem.CompletedAtUtc`,
+2026-09-11) - per entry, not per list: a list is finished when its last entry is, which says nothing
+about when each of the others was. The time is **not shown before** the entry is done, and after it is
+shown and can be corrected - "did it yesterday, ticked it today" is the usual case. In the browser it is
+a day and an hour among the entry's details in the list form (`TaskEditor`) and on the entry's own page
+(`TaskItemSummary`, saved the moment it changes, as the tick is); on the phone it is a pair of pickers in
+the entry's sheet and a line on the entry's screen. Unticking clears it, and so does a cross - a cross is
+not a completion.
+
+Who records it: **the client, at the tick** (`Orbit.Core.Tasks.TaskItemCompletionTime`), because a
+private list's entries never reach the server and a phone ticks offline. The time rides in the entry
+itself - `TaskItemDto.CompletedAtUtc`, so in a private list's sealed payload too, and in the phone's local
+copy (its entries are a JSON column, so the local store needed no migration). **The server records it
+only for a tick that arrives without one** (`TaskItem.RecordWhenItWasDone`, from both save handlers): a
+time sent is kept; none sent keeps the time an already-done entry had; a fresh tick with none is stamped
+with the moment of the save. That is how an installed phone that has never heard of the field behaves
+correctly - its save sends null, and null means "not provided" - so it neither wipes a recorded time nor
+moves it. An entry ticked before this existed has none, and says "not recorded" rather than guessing; the
+migration leaves those rows empty. Orbit crossing an entry off itself (a shelf that already holds what an
+errand asks for, a finished restock round) stamps it as it happens (`TaskItem.Complete`). A copy of an
+entry, a duplicated list and the export archive (`ArchivedTaskItem.CompletedAtUtc`, defaulted and last)
+all carry the time the original had.
+
 Why a third state at all: a list with something on it that is never going to happen could only be closed
 by lying about it with a tick or by leaving it open for ever. So **given up on means finished with, and
 not done** (`TaskItem.IsResolved`) - the two are different questions and each place asks the one it

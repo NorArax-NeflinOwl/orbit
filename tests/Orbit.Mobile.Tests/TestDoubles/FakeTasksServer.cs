@@ -259,7 +259,7 @@ internal sealed class FakeTasksServer : HttpMessageHandler
         var created = AddTaskList(body!.Title);
         _taskLists[created.Id] = created with
         {
-            Items = ToDtos(body.Items), IsGroup = body.IsGroup, IsPrivate = body.IsPrivate,
+            Items = ToDtos(body.Items, stored: null, _timeProvider.GetUtcNow()), IsGroup = body.IsGroup, IsPrivate = body.IsPrivate,
             // Stored as the real endpoint stores it: a private list's title and entries are only here,
             // so a fake that dropped it would answer the next pull with an empty list.
             EncryptedContent = body.EncryptedContent,
@@ -299,7 +299,7 @@ internal sealed class FakeTasksServer : HttpMessageHandler
         {
             Title = body!.Title,
             // Placed before the list is written, as UpdateTaskListCommandHandler places them.
-            Items = PlaceProductEntries(existing, ToDtos(body.Items, existing.Items), body.IsPrivate),
+            Items = PlaceProductEntries(existing, ToDtos(body.Items, existing.Items, _timeProvider.GetUtcNow()), body.IsPrivate),
             // Sent on every update and stored by the real endpoint - a fake that dropped it made
             // "this list is now a group list" look like a client that had not sent it. The priority
             // went the same way afterwards: the push carried it, the pull brought back the fake's own
@@ -460,7 +460,7 @@ internal sealed class FakeTasksServer : HttpMessageHandler
     /// nothing stored to keep.
     /// </param>
     private static IReadOnlyList<TaskItemDto> ToDtos(
-        IReadOnlyList<TaskItemRequest> items, IReadOnlyList<TaskItemDto>? stored = null)
+        IReadOnlyList<TaskItemRequest> items, IReadOnlyList<TaskItemDto>? stored, DateTimeOffset nowUtc)
     {
         var storedById = (stored ?? []).Where(item => item.Id != Guid.Empty).ToDictionary(item => item.Id);
         return InTheOrderTheyCanBeDone(items.Select(item => new TaskItemDto(
@@ -505,7 +505,26 @@ internal sealed class FakeTasksServer : HttpMessageHandler
             WaitsForTaskItemIds: item.WaitsForTaskItemIds
                 ?? (item.Id is { } waiting && storedById.TryGetValue(waiting, out var asStored)
                     ? asStored.AllWaitsForTaskItemIds
-                    : []))).ToList());
+                    : []),
+            // How the entry is drawn and how much it matters, both or neither - see
+            // TaskEndpoints.EntriesSayingNothingAboutTheirLook. This fake dropped them, so every pull
+            // answered with an entry nobody had coloured over whatever the phone had sent.
+            Priority: item is { Priority: null, Colour: null }
+                ? storedById.GetValueOrDefault(item.Id ?? Guid.Empty)?.Priority
+                : item.Priority ?? "Normal",
+            Colour: item is { Priority: null, Colour: null }
+                ? storedById.GetValueOrDefault(item.Id ?? Guid.Empty)?.Colour
+                : item.Colour ?? string.Empty,
+            // When it was done, by TaskItem.RecordWhenItWasDone's rule: a time sent is kept, none sent
+            // keeps what an already-done entry had, a fresh tick is recorded as now, and an entry that is
+            // not done has none. A fake that wrote the null through would let a phone that never records
+            // the time pass here, and the real server would answer it with one.
+            CompletedAtUtc: !item.IsCompleted
+                ? null
+                : item.CompletedAtUtc
+                    ?? (storedById.GetValueOrDefault(item.Id ?? Guid.Empty) is { IsCompleted: true } wasDone
+                        ? wasDone.CompletedAtUtc
+                        : nowUtc))).ToList());
     }
 
     /// <summary>
@@ -526,7 +545,9 @@ internal sealed class FakeTasksServer : HttpMessageHandler
                 return item with
                 {
                     WaitsForTaskItemIds = steps,
-                    IsCompleted = item.IsCompleted && isClearToStart
+                    IsCompleted = item.IsCompleted && isClearToStart,
+                    // A tick refused takes its time with it - see TaskItem.CannotBeDoneYet.
+                    CompletedAtUtc = item.IsCompleted && isClearToStart ? item.CompletedAtUtc : null
                 };
             })
         ];
