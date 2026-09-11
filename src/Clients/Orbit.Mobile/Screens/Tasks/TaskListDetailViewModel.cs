@@ -779,18 +779,10 @@ public sealed partial class TaskListDetailViewModel : ObservableObject
             };
         }
 
+        // A product the shelf has not got yet travels on the entry itself, filed under the entry's own
+        // categories (see TaskItemEditor.ToDto), and the server puts it on the shelf, named after the
+        // entry, as the list is saved. What is left for the shelf afterwards is ShelfCorrection's.
         var shelf = editor.IsShelfEntry ? editor.Shelf : null;
-        if (shelf is { Product.IsSomethingNew: true })
-        {
-            // The entry's own words are the product's name - the form asks everything except that, and
-            // this is where the two are put together. Taken from what is being saved rather than from
-            // what was opened, so renaming the entry in the same sitting names the product.
-            shelf.Product.Name = edited.Description;
-            // And the entry's categories are the product's, because there is only one box for them
-            // now - see InventoryItemEditor.ShowsCategories. A product already on the shelf keeps its
-            // own, as it does on Orbit.Web (ProductAsked answers null for a linked entry).
-            shelf.Product.Categories = editor.Categories;
-        }
 
         BeingEdited = null;
         await SaveAsync([.. _items.Select(item => item.Id == edited.Id ? edited : item)], cancellationToken);

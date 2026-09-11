@@ -651,6 +651,35 @@ inventory lists, the contacts tabs, the chat menus - is built and needs no schem
   server id, so the next edit is a second try; or a mark on the row the list can draw, with "send again"
   under its menu. Neither is small enough to fold into the fix that made this visible.
 
+- **Linking a list to a storage places nothing by itself** (noticed 2026-09-11, with
+  `ProductEntryPlacement`). `LinkTaskListToInventoryCommandHandler` only sets the link, so product
+  entries already on the list reach the shelf on the list's next save rather than at the moment it is
+  linked. What it would take: calling the placement from the link handler, and settling the restock list
+  after it, the way the list's save does.
+
+- **Orbit.Web still writes a new product onto the shelf itself** (`TaskEditor.SaveTheShelfAsync`, the
+  `ShelfPicker.NewProductsIn` branch). Since 2026-09-11 the server has placed it before this runs, so the
+  fresh shelf read finds it and the branch does nothing; a save the server declines is one the
+  inventory request is refused for too. The branch can go.
+
+- **An entry matched to an existing row keeps nothing of what it described.** Matching leaves the row as
+  it is on purpose (see `ProductEntryPlacement`), so a minimum typed on the entry is dropped with its
+  description. A line on the entry's form saying "already on the shelf in X" before it is saved would
+  keep that from being a surprise.
+
+- **Two lists pointing entries at one shelf row each ask for its whole minimum** in the shared-shelf
+  split (`GetTaskListStockCheckQueryHandler.AskedForByTheOtherLists`), because a row's minimum is counted
+  once per list (`StockRequirementCounter.RequiredBy`). Rare - generation points only its own list's
+  entries at the rows it builds - but a hand-made errand on a second list makes both look short.
+
+- **The phone reopens an entry saved offline on a blank product form** until the server has placed it:
+  `TaskListDetailViewModel.ShelfForSomethingNew` does not fill the form from `TaskItemDto.Product`, which
+  such an entry now carries. Not new - the form was blank before too - but the answer is on the entry now.
+
+- **The phone's `FakeTasksServer` does not place product entries** the way the real server does since
+  2026-09-11, so a screen test can only assert what was sent. A fake that placed them would need to know
+  the fake inventory server; until then the placement itself is covered by `ProductEntryPlacementTests`.
+
 - ~~**Options still calls an inventory a "storage".**~~ Done on 2026-09-10, and it was wider than the
   export section: eleven English strings across both clients still said storage - the task editor's
   picker and its two refusals, the checklist's, the shared-link page's kind label, the account screen's

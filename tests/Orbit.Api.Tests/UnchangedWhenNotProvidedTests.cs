@@ -35,7 +35,8 @@ public sealed class UnchangedWhenNotProvidedTests
                 new InMemoryInventoryManagedTaskListRepository(), new InMemoryInventoryItemRepository(),
                 new InMemoryInventoryRepository(), new InMemoryTaskRepository()),
             new StockedEntryCompletion(
-                new InMemoryInventoryRepository(), new InMemoryInventoryItemRepository()));
+                new InMemoryInventoryRepository(), new InMemoryInventoryItemRepository()),
+            new InventoryTestContext().ProductEntryPlacement);
 
     private static async Task<(InMemoryTaskRepository Tasks, Guid Id)> ADescribedListAsync()
     {

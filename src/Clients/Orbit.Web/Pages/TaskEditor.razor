@@ -1785,7 +1785,10 @@ else
                 // A product reached from a restock errand is already on the shelf and has an id. One
                 // an entry describes on a list measured against this storage has none yet - it is
                 // being put there by this save, and its name is the entry's own words, which is what
-                // the stock check matches the two by.
+                // the stock check matches the two by. The server has already placed it and pointed
+                // the entry at it by now (ProductEntryPlacement), so the shelf read above holds it and
+                // it is skipped below - what is left for this branch is a save the server declined,
+                // which this request is refused for too. See info/future-plan.md.
                 //
                 // Each one is filed under what its entry says: the product form on this screen has no
                 // categories box of its own any more, and the entry's is the answer for both.

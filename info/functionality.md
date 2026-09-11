@@ -2244,8 +2244,19 @@ in.
 product's fields - how much, how little is too little, the unit, what it is, how long it keeps - and
 everything except the name, because the entry's own words are the name. That is the same rule the
 generation above follows and the same one the check matches by, so the two cannot come to disagree about
-which product an errand is about. Saving the list puts it on the shelf; a shelf already holding
-something by that name is what the entry was asking for, so nothing is added twice.
+which product an errand is about. Saving the list puts it on the shelf **and points the entry at the
+row** (2026-09-11, `ProductEntryPlacement`, run on the server by every save of the list rather than by
+each client): a new row holds what the entry describes, entries naming the same thing in one save counted
+by the rule above; a shelf already holding exactly one thing by that name is what the entry was asking
+for, so nothing is added twice and that row is left as it was - a reused shopping list would otherwise
+raise a pantry's minimum every trip. The entry's own description is dropped in the same breath, as
+generating does, and the storage's restock list is brought up to date. It happens only for somebody who
+may edit that storage, never on a private one, and not while somebody else holds its edit lock, whose
+whole-shelf save would delete the row; a list measured against no storage keeps the description on the
+entry until one is generated. Before this the browser and the phone each wrote the product onto the shelf
+and left the entry pointing at nothing, so no errand was ever about it and nothing crossed it off. The
+phone now sends the product on the entry and pulls the row back (`ShelfCorrection`) instead of writing its
+own copy of the shelf, which raced the server's row and deleted it.
 
 **And says when each batch arrived**, which is the fourth thing a shelf answers and the one the phone
 left out. The date comes down with the items and is kept beside them (`LocalInventory.ItemArrivals`)

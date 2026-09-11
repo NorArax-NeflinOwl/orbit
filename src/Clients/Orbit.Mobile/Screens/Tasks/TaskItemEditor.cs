@@ -533,14 +533,19 @@ public sealed partial class TaskItemEditor : ObservableObject
             // is what emptying it has to mean - null would leave whatever the server holds.
             Notes = Notes.Trim(),
             Categories = CategoryText.Split(Categories),
-            // What this entry asks for, where nothing on a shelf answers it yet. Null for every other
+            // What this entry asks for, where nothing on a shelf answers it yet - kept on the entry until
+            // a storage is generated, or, on a list measured against one, handed to the server to put on
+            // that shelf as the list is saved (Orbit.Core.Inventories.ProductEntryPlacement; see
+            // ShelfCorrection for why this phone no longer writes it there itself). Null for every other
             // case, which is what tells the server to leave a stored one alone - an entry of another
             // kind must not empty a description by being saved beside it, and one that names a shelf
             // row has that row as its answer. Orbit.Web's ProductAsked draws the same two lines, and
             // its categories rule too: the entry's own box is what the product is filed under.
             Product = IsAskingForSomethingNoShelfHasYet
                 ? ProductWanted!.ToTaskItemProduct() with { Categories = CategoryText.Split(Categories) }
-                : null,
+                : IsDescribingSomethingNew
+                    ? Shelf!.Product.ToTaskItemProduct() with { Categories = CategoryText.Split(Categories) }
+                    : null,
             // Converted rather than sent with the local offset the picker works in: Npgsql refuses a
             // DateTimeOffset with a non-zero offset for a "timestamp with time zone" column outright,
             // so a due date set here answered 500 and the queued save was given up on after five
