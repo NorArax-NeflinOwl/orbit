@@ -378,7 +378,7 @@ public static class PolishTranslations
         ["Groups"] = "Grupy",
         ["Upcoming"] = "Nadchodzące",
         ["Nothing to show."] = "Nie ma nic do pokazania.",
-        ["Done"] = "Gotowe",
+        ["Done"] = "Ukończone",
         ["Admin"] = "Administrator",
 
         // ---- Notes ----
@@ -781,7 +781,8 @@ public static class PolishTranslations
 
         // ---- Folders ----
         // The tabs every page made of cards is read under - see Orbit.Core.Folders.BuiltInFolder. The
-        // finished one is keyed "Finished" rather than "Done", which already means "Gotowe" elsewhere.
+        // finished one is keyed "Finished" rather than "Done", which is a list's status elsewhere - both
+        // read "Ukończone", so a tab and the status it gathers say the same word.
         ["Folders"] = "Foldery",
         // When filing is refused because the thing is somebody else's and there is no connection to ask.
         ["This one can't be moved while you're offline."] = "Tego nie da się przenieść bez połączenia.",
