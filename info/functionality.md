@@ -270,10 +270,22 @@ on a phone, so the mark is tapped; and what it opens is the sentence itself, in 
 rather than a bubble over the page — a phone has no room for a layer, and text that appears where it
 belongs needs no arrow pointing at what it is about. Tapping again folds it back. The control carries the
 field's name as well as the sentence, which is what lets the two lay out as one thing; `IsHeading` picks
-between a section's heading and a field's label, and `Warns` draws the same "!" the browser does. What
-stays visible there is a page's own subtitle - which the browser now folds too wherever it only says what
-the page is for (see above; the phone has not followed yet, see `info/future-plan.md`) - and anything
-that reports a state rather than describing a control.
+between a section's heading and a field's label, `LabelStyle` covers a heading a screen draws for itself,
+and `Warns` draws the same "!" the browser does.
+
+**The phone folds its page descriptions too** (since 2026-09-11). Most screens have no heading of their
+own - the name is in the top bar - so a screen hands its sentence to the bar (`NavigationBar.Description`),
+which draws the same mark beside the name (`Controls/HintMark.xaml`, the one FieldHint uses) and opens
+the sentence centred under the bar; the mark also gives the sentence to a screen reader as its hint.
+Folded that way: contact info, Groups, Update, both copy screens, Diagnostics. Folded beside a heading the
+screen draws itself, because sign-in's neighbours have no bar: Create an account, and Forgotten password
+only until the password is set, as on the web. A setting row joined them: "Check every round" on the shelf
+form, which the browser folds too. What stays in view is what stays in the browser - statuses, empty
+lists, errors, the chat key gate's and a locked feature's explanations, the claim screens' lines, a shared
+item's own subtitle, About's body, and the restock rule that changes with its switch. One deliberate
+difference: the Update screen's closing line ("The phone apps sign in to this same Orbit...") is the web
+Download page's folded description, but on the phone it is body text at the foot of the page rather than a
+sentence under a name, so it stays.
 
 ## Advertising
 

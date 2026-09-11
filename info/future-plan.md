@@ -646,11 +646,25 @@ inventory lists, the contacts tabs, the chat menus - is built and needs no schem
   take: calling `ChatClient.LeaveGroupAsync` for the self row, and a rebuilt APK; the server keeps
   accepting the old route for installed builds either way.
 
-- **Page and section descriptions are folded on the web, not yet on the phone.** Since 2026-09-11 a
-  sentence under a page's or a section's title that says what it is for sits behind a "?" beside the
-  heading (`PageHeader.Description`, see `info/functionality.md`, "What a field is for"). The phone's
-  screens still show theirs as a subtitle; `Orbit.Maui/Controls/FieldHint.xaml` with `IsHeading` is
-  already the control that would carry them.
+- ~~**Page and section descriptions are folded on the web, not yet on the phone.**~~ Fixed 2026-09-11:
+  a screen whose name is in the bar hands its sentence to `NavigationBar.Description`, which draws the
+  same "?" (`Controls/HintMark.xaml`, now shared with `FieldHint`) beside the name; the two sign-in
+  neighbours fold theirs into a `FieldHint` beside their own heading (`LabelStyle`). What was folded and
+  what was left in view is in `info/functionality.md`, "What a field is for"; `FoldedDescriptionTests`
+  pins where each sentence lives now. The account screen was a separate pass.
+
+- **Two sentences under a place field are a "!" on the web and still a line on the phone.** Noticed
+  while folding the page descriptions: "Pick it on the map - a place with no point cannot be drawn on
+  one." (`PlaceDetailPage.xaml`, shown while `NeedsAPoint`) and "The name is yours to write - the point
+  is kept either way." (`CalendarEventDetailPage.xaml`) are `FieldHint Warns="true"` on the browser
+  (`PlaceForm.razor`, `EventFields.razor`). They are under a field rather than under a title, which is why
+  that pass left them. What it would take: a `FieldHint Warns="True"` whose `Label` is the field's own
+  ("Location"), with the same `IsVisible` - and the calendar sentence is worded differently on the two
+  clients ("the pin keeps its exact position"), so one of them moves to the other's key.
+
+- **`PageHeader.Subtitle` on the phone is down to one user.** After the page descriptions moved into the
+  bar, only `AccountPage.xaml` sets it; if the account screen's pass folds that one too, the property and
+  the `PageSubtitle` style have nothing left to draw and can go.
 
 - **A few sentences under a control, rather than under a title, were left in view on the web.** The
   restock switches' three `<p class="field-hint">` lines in `InventoryEditor.razor` and the one in
