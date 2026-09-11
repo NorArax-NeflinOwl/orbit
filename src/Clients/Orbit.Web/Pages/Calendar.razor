@@ -693,7 +693,10 @@
         try
         {
             await TasksApiClient.UpdateTaskListAsync(
-                taskList.Id, new UpdateTaskRequest(taskList.Title, items, taskList.IsGroup, taskList.IsPrivate));
+                // The list's own priority sent back with it: left out, a tick here put the list back to
+                // Normal - see TaskItemCompletion.SaveAsync, which had the same hole.
+                taskList.Id, new UpdateTaskRequest(
+                    taskList.Title, items, taskList.IsGroup, taskList.IsPrivate, Priority: taskList.Priority));
         }
         catch (HttpRequestException exception) when (exception.StatusCode == HttpStatusCode.Unauthorized)
         {

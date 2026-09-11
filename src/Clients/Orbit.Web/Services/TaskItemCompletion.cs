@@ -195,7 +195,15 @@ public sealed class TaskItemCompletion(
         try
         {
             var outcome = await tasksApiClient.UpdateTaskListAsync(
-                taskList.Id, new UpdateTaskRequest(taskList.Title, items, taskList.IsGroup), cancellationToken);
+                taskList.Id,
+                // Everything about the list as it already is, not only its entries: the endpoint replaces a
+                // list wholesale, and a request that left IsPrivate out saved a private list back in the
+                // clear - its title and every entry readable on the server - while one that left Priority
+                // out put every list back to Normal on a tick. The description and the reader's answer
+                // about whether it is finished say "not provided" by being null, and keep what is stored.
+                new UpdateTaskRequest(
+                    taskList.Title, items, taskList.IsGroup, taskList.IsPrivate, Priority: taskList.Priority),
+                cancellationToken);
             if (outcome.Kind == EditOutcomeKind.Locked)
             {
                 FailureMessage = translations.Format(

@@ -1519,6 +1519,23 @@ those), and anything sealed before that is given an id derived from the list and
 as it is opened, so an address stays the same across reads and reloads rather than being invented
 afresh each time.
 
+**A private list saved in a browser keeps every field of every entry** (2026-09-11). Until now it
+kept only some. `SealIfPrivateAsync` listed the fields by hand: the id, the words, the date, the tick,
+the reminders and the lists an entry stands for. Every field added after that list was written was
+dropped from every private list saved on the web, because the server keeps nothing readable for such a
+list. The lost fields were the kind (an appointment came back as a checklist line), the place, the
+calendar and shelf links, the categories, the product, the description, the cross, the steps, the
+priority and the colour. The phone seals the whole entry and always kept them. The browser now seals
+through `TaskItemDto.From`, the one mapping that names every field. It is the other half of
+`TaskItemRequest.From`, so a field added later is carried by both.
+
+**Ticking an entry no longer unseals the list it is on** (2026-09-11). `TaskItemCompletion`, which the
+checklist and the entry's own page both tick through, saved the list back without saying it was
+private. The server took that at its word and stored the title and every entry in the clear. The same
+save left out the list's priority, so a tick put any list back to Normal; the calendar's tick of a
+deadline had that second fault too. Both now send the list back as it is (private, priority), and
+leave the description and the reader's own answer about whether it is finished to "not provided".
+
 **Both clients do all of this**, and to the same bytes: what goes inside the ciphertext is JSON, so the
 payload shapes (`SealedNote`, `SealedTaskList`, `SealedInventory`) live in `Orbit.Contracts` and are
 serialized with the same property names on either side — `SealedContentTests` pins the phone's

@@ -99,6 +99,45 @@ public sealed record TaskItemDto(
     public IReadOnlyList<TaskItemAlternativeDto> AllAlternatives => Alternatives ?? [];
 
     /// <summary>
+    /// An entry as a save sends it, kept where no server reads it - inside a private list's sealed payload
+    /// (see Orbit.Web's TasksApiClient.SealIfPrivateAsync), where every field has to travel or it is gone.
+    ///
+    /// The other half of <see cref="TaskItemRequest.From"/>, and here for the same reason: the sealing used
+    /// to list the fields by hand, and every one added after it was written - the kind, the place, both
+    /// links, the categories, the product, the description, the cross, the steps, the look - was silently
+    /// dropped from every private list saved in a browser. One mapping means a field added later is carried.
+    /// </summary>
+    /// <param name="id">The entry's id - its own, or one minted for an entry that has never been saved.</param>
+    public static TaskItemDto From(TaskItemRequest item, Guid id)
+        => new(
+            id,
+            item.Description,
+            item.DueDateUtc,
+            item.IsCompleted,
+            // Written into the new field only: the single one carries just the first list, and a private
+            // list would quietly lose the rest.
+            LinkedTaskListId: null,
+            item.OverdueNotificationChannel,
+            item.RemindDaily,
+            item.DailyReminderNotificationChannel,
+            item.DailyReminderTimeOfDay,
+            item.Kind,
+            item.Location,
+            item.LinkedCalendarEventId,
+            item.LinkedInventoryItemId,
+            item.AllLinkedTaskListIds,
+            item.Categories,
+            item.Product,
+            item.Notes,
+            item.IsFailed,
+            item.WaitsForTaskItemIds,
+            item.Priority,
+            item.Colour,
+            item.Alternatives,
+            item.ReferencesTaskItemId,
+            item.RequiredQuantity);
+
+    /// <summary>
     /// Whichever shape the sender used, read as one. Needed on the way in as well as the way out: a
     /// client written before an entry could name several lists sends only the single field.
     /// </summary>
