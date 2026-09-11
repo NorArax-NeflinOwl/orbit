@@ -386,7 +386,7 @@ else
                                     <span class="editor-item-tags-label">@T["Inventory"]</span>
                                     <FieldHint Warns="true">
                                         @(product.Product.Id is null
-                                            ? T.Format("Goes on the shelf in {0} when this list is saved, named after this entry.", product.InventoryName)
+                                            ? WhereANewProductGoes(item, product)
                                             : T.Format("On the shelf in {0}. Saving this list saves the change there too.", product.InventoryName))
                                     </FieldHint>
                                 </span>
@@ -863,6 +863,7 @@ else
 
             _linkedInventoryId = inventoryId;
             _linkedInventoryName = await NameOfTheLinkedInventoryAsync();
+            await LoadTheShelfAsync(inventoryId);
             _inventoryMessage = T["Inventory generated from this list."];
             _isNamingTheInventory = false;
         }
@@ -1480,6 +1481,10 @@ else
 
             _linkedInventoryId = chosen;
             _linkedInventoryName = await NameOfTheLinkedInventoryAsync();
+            if (chosen is { } chosenInventoryId)
+            {
+                await LoadTheShelfAsync(chosenInventoryId);
+            }
         }
         catch (HttpRequestException exception)
         {
@@ -1502,6 +1507,29 @@ else
     /// it on the way past is what keeps "what kind is this" and "what does it need" in step without a
     /// handler watching for the change.
     /// </summary>
+    /// <summary>
+    /// What saving will do with a product this entry describes, said before it is saved. The server
+    /// puts it on the shelf unless a row there already has the entry's name (ProductEntryPlacement, the
+    /// same trimmed, case-blind match): then the entry is pointed at that row and the row is left as it
+    /// is, so what is typed in this form never reaches it - and with two rows of that name it matches
+    /// neither. Both used to happen silently, the minimum somebody typed simply vanishing on save.
+    /// </summary>
+    private string WhereANewProductGoes(TaskItemFormModel item, InventoryFieldsFormModel product)
+    {
+        var name = item.Description.Trim();
+        var rowsCalledThis = name.Length == 0
+            ? 0
+            : _shelves.ShelfOf(product.InventoryId)
+                .Count(row => string.Equals(row.Name.Trim(), name, StringComparison.CurrentCultureIgnoreCase));
+
+        return rowsCalledThis switch
+        {
+            1 => T.Format("Already on the shelf in {0}. Saving this list points this entry at that row and leaves the row as it is, so what is typed here is not kept.", product.InventoryName),
+            > 1 => T.Format("More than one row in {0} has this name, so saving leaves this entry unmatched until one of them is renamed.", product.InventoryName),
+            _ => T.Format("Goes on the shelf in {0} when this list is saved, named after this entry.", product.InventoryName)
+        };
+    }
+
     private InventoryFieldsFormModel? ShelfFieldsFor(TaskItemFormModel item)
     {
         if (_shelves.FieldsFor(item) is { } known)
@@ -1525,6 +1553,14 @@ else
     private async Task LoadTheShelvesAsync()
     {
         _shelves.Clear();
+        // The shelf this list is measured against, whatever its entries point at: a product entry that
+        // points at nothing yet is matched to it by name when the list is saved, and the form says so
+        // beforehand only if it can see what is there - see WhereANewProductGoes.
+        if (_linkedInventoryId is { } linkedInventoryId)
+        {
+            await LoadTheShelfAsync(linkedInventoryId);
+        }
+
         if (Id is not { } taskListId)
         {
             return;

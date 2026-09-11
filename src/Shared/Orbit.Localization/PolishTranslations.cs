@@ -112,6 +112,11 @@ public static class PolishTranslations
         ["This list already has an inventory."] = "Ta lista ma już magazyn.",
         ["Goes on the shelf in {0} when this list is saved, named after this entry."] =
             "Trafi na półkę w: {0} przy zapisie tej listy, pod nazwą tej pozycji.",
+        // A product entry whose name a row on the shelf already has - see TaskEditor.WhereANewProductGoes.
+        ["Already on the shelf in {0}. Saving this list points this entry at that row and leaves the row as it is, so what is typed here is not kept."] =
+            "Już jest na półce w: {0}. Zapis tej listy powiąże tę pozycję z tamtym wierszem i zostawi go bez zmian, więc to, co tu wpiszesz, nie zostanie zachowane.",
+        ["More than one row in {0} has this name, so saving leaves this entry unmatched until one of them is renamed."] =
+            "Więcej niż jeden wiersz w: {0} ma tę nazwę, więc zapis zostawi tę pozycję bez powiązania, dopóki jednemu z nich nie zmienisz nazwy.",
         // The phone saves one entry at a time, so its moment is the entry's save rather than the list's.
         ["Goes on the shelf in {0} when this entry is saved, named after this entry."] =
             "Trafi na półkę w: {0} przy zapisie tej pozycji, pod nazwą tej pozycji.",

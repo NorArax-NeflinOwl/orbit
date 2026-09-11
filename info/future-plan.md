@@ -832,7 +832,10 @@ inventory lists, the contacts tabs, the chat menus - is built and needs no schem
   fresh shelf read finds it and the branch does nothing; a save the server declines is one the
   inventory request is refused for too. The branch can go.
 
-- **An entry matched to an existing row keeps nothing of what it described.** Matching leaves the row as
+- ~~**An entry matched to an existing row keeps nothing of what it described.**~~ Said before it happens
+  since 2026-09-11: the web's entry form tells an entry whose name a row on the list's shelf already has
+  that it will be matched and the row left as it is - and one whose name two rows share that it will be
+  matched to neither (`TaskEditor.WhereANewProductGoes`). As noticed: matching leaves the row as
   it is on purpose (see `ProductEntryPlacement`), so a minimum typed on the entry is dropped with its
   description. A line on the entry's form saying "already on the shelf in X" before it is saved would
   keep that from being a surprise.
