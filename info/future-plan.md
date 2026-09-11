@@ -603,7 +603,8 @@ inventory lists, the contacts tabs, the chat menus - is built and needs no schem
   awaiting review is left alone: it has no create on purpose.
   - **Not done, and chosen not to be:** the other design, a mark on the row the list can draw with
     "send again" under its menu. The retry is silent, so a row nobody edits again stays on the phone
-    alone, and a server that keeps refusing it says so in the feed once per five tries.
+    alone, and a server that keeps refusing it says so in the feed once per five tries - worded as
+    "Kept on this phone only", and naming editing (renaming, for a folder) as the way to try again.
 
 - ~~**Options still calls an inventory a "storage".**~~ Done on 2026-09-10, and it was wider than the
   export section: eleven English strings across both clients still said storage - the task editor's

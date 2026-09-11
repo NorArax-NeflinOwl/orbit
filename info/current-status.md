@@ -205,7 +205,9 @@ the pull behind it, so the corner said "Couldn't sync" and nothing else (`SyncFa
 A 401 still surfaces, because it is about the session and the reader can act on it. Since 2026-09-11 a
 create given up on no longer strands its row: the next edit of that row - a save, a filing, a folder
 rename, a review's "keep mine" - queues the create again rather than an update the server has no row
-for, for every kind of thing (`LostCreates`). A row nobody edits again stays on the phone alone.
+for, for every kind of thing (`LostCreates`). A row nobody edits again stays on the phone alone, and
+the feed says exactly that - "Kept on this phone only", with editing named as the way to try again -
+rather than the "no longer waiting to be sent" a dropped edit gets, which read as the thing being gone.
 
 Phase 7 is built: the in-app feed, notification settings, deep links from a notification, uploadable
 diagnostic logs, and **push delivered on Android** — the app obtains an FCM registration token,

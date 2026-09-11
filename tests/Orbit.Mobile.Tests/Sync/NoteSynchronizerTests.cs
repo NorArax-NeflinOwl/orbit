@@ -273,6 +273,15 @@ public sealed class NoteSynchronizerTests
             await context.SynchroniseAsync();
         }
 
+        // Said as what it is: nothing was lost, the note is here alone, and changing it tries again.
+        var notice = Assert.Single(
+            await context.DbContext.Notifications.ToListAsync(),
+            notification => notification.Kind == "ChangeDropped");
+        Assert.Equal("Kept on this phone only", notice.Title);
+        Assert.Equal(
+            "Orbit couldn't send a new note to the server. It is kept on this phone, and editing it will try again.",
+            notice.Body);
+
         context.Server.ForcedWriteFailure = null;
         await context.Notes.UpdateAsync(note.LocalId, new NoteContent("Sent at last", SomeContent, "Normal"));
         await context.SynchroniseAsync();

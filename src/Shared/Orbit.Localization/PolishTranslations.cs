@@ -505,6 +505,22 @@ public static class PolishTranslations
             "Orbitowi nie udało się zapisać zmiany w magazynie, więc nie czeka już na wysłanie.",
         ["Orbit couldn't save a change, so it is no longer waiting to be sent."] =
             "Orbitowi nie udało się zapisać zmiany, więc nie czeka już na wysłanie.",
+        // A create given up on keeps its row, and the next edit tries again - see LostCreates.
+        ["Kept on this phone only"] = "Zapisano tylko na tym telefonie",
+        ["Orbit couldn't send a new note to the server. It is kept on this phone, and editing it will try again."] =
+            "Orbitowi nie udało się wysłać nowej notatki na serwer. Została na tym telefonie, a jej edycja spróbuje ponownie.",
+        ["Orbit couldn't send a new task list to the server. It is kept on this phone, and editing it will try again."] =
+            "Orbitowi nie udało się wysłać nowej listy zadań na serwer. Została na tym telefonie, a jej edycja spróbuje ponownie.",
+        ["Orbit couldn't send a new appointment to the server. It is kept on this phone, and editing it will try again."] =
+            "Orbitowi nie udało się wysłać nowego spotkania na serwer. Zostało na tym telefonie, a jego edycja spróbuje ponownie.",
+        ["Orbit couldn't send a new inventory to the server. It is kept on this phone, and editing it will try again."] =
+            "Orbitowi nie udało się wysłać nowego magazynu na serwer. Został na tym telefonie, a jego edycja spróbuje ponownie.",
+        ["Orbit couldn't send a new place to the server. It is kept on this phone, and editing it will try again."] =
+            "Orbitowi nie udało się wysłać nowego miejsca na serwer. Zostało na tym telefonie, a jego edycja spróbuje ponownie.",
+        ["Orbit couldn't send a new folder to the server. It is kept on this phone, and renaming it will try again."] =
+            "Orbitowi nie udało się wysłać nowego folderu na serwer. Został na tym telefonie, a zmiana jego nazwy spróbuje ponownie.",
+        ["Orbit couldn't send something new to the server. It is kept on this phone, and editing it will try again."] =
+            "Orbitowi nie udało się wysłać nowej rzeczy na serwer. Została na tym telefonie, a jej edycja spróbuje ponownie.",
         ["A copy is waiting to be reviewed"] = "Kopia czeka na przejrzenie",
         ["You wrote in a copy of the note “{0}” while you were offline."] =
             "Bez połączenia pisałeś w kopii notatki „{0}”.",
