@@ -925,6 +925,28 @@ disagree in.
   hands the new lines to the writing surface itself (`ChecklistTextEditor.SetLinesAsync`), which owns its
   own content and hears nothing about a changed parameter.
 
+### Writing a note on the phone
+
+`NoteDetailPage` (view) over `NoteDetailViewModel` (decisions, in `Orbit.Mobile`) is a column of one-line
+fields, one per line, because a line can carry a real tick box and no text box can hold a control. The
+name is the first field. Enter starts the next line keeping the indentation, backspace at the head of a
+line takes its box off and then joins it to the line above, and a hardware keyboard's arrows walk between
+lines (`NoteLineKeys`, read on Android by `NoteLineKeyPresses`). Nothing is written until Save; leaving
+asks first when something would be lost. Where it follows the browser's editor, it uses the same rules
+from `Orbit.Core/Notes` - the note is handed to them as a `SurfaceState` whose line 0 is the name:
+
+- **Undo and redo are two buttons beside the tick-box button** over the note's foot (a phone has no
+  Ctrl+Z), dimmed while there is nothing to undo or redo (`CanUndo`/`CanRedo`), absent on a note that
+  cannot be changed. The history is `NoteSurfaceHistory`, so steps are the browser's: characters typed one
+  after another on one line join until a second's pause, a space, another line or another kind of edit;
+  Enter, a joined line, a box put on or taken off, a tick and a typed `[]` becoming a box are each a step.
+  The name is undone like any line. A field reports only what it now says, so what was typed or deleted is
+  worked out from the text before and after (`NoteTextChange`, `NoteLineRow.TextBefore`). An undo changes
+  lines in place where it can (`Show`), so fields keep their place, and tells the page where the caret
+  goes (`CaretPlaced`, a `NoteCaret`) - unless all it put back was a tick, which never moved the caret.
+  Saving keeps the history; reading the note back after changing its priority or privacy keeps it too
+  when nothing on the screen changed; opening a note starts a new one.
+
 ### Sharing notes and task lists
 
 Notes and task lists can be shared with another user, on the same offer/accept mechanism as calendar

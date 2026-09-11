@@ -18,7 +18,7 @@ namespace Orbit.Mobile.Tests.Screens;
 /// The screen a note opens into, which until now did not exist: tapping a note on the list did nothing
 /// at all, so the phone could list notes and never read one.
 /// </summary>
-public sealed class NoteDetailScreenTests
+public sealed partial class NoteDetailScreenTests
 {
     [Fact]
     public async Task A_note_opens_showing_what_it_says()
@@ -757,6 +757,9 @@ public sealed class NoteDetailScreenTests
 
         /// <summary>Whether the phone has a connection, which is what the offline refusal turns on.</summary>
         public FixedNetworkStatus Network { get; } = FixedNetworkStatus.Online;
+
+        /// <summary>The screen's clock - moved on by the tests about which typing joins one undo step.</summary>
+        public FakeTimeProvider Clock => _clock;
 
         /// <summary>
         /// A note somebody else shared in, which is the one kind the offline policy refuses - see

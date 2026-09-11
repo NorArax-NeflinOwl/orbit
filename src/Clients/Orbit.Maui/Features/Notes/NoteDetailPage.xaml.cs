@@ -54,6 +54,41 @@ public partial class NoteDetailPage : ContentPage, ITitleMenu
 		BindingContext = _viewModel = viewModel;
 		_translations = translations;
 		ChecklistButton.Command = new Command(PutABoxOnThisLine);
+		_viewModel.CaretPlaced += OnCaretPlaced;
+	}
+
+	/// <summary>
+	/// Where to put the caret once a line waiting in <see cref="_toFocus"/> has its field, or null to
+	/// leave it wherever focusing the field puts it.
+	/// </summary>
+	private int? _toFocusAt;
+
+	/// <summary>
+	/// The view model's word on where the caret goes after an edit it made itself - an undo, a typed "[]"
+	/// taken out of a line. The line may be one the edit has only just made, whose field is not built yet;
+	/// that waits for <see cref="OnLineLoaded"/> as a line started by Enter does.
+	/// </summary>
+	private void OnCaretPlaced(object? sender, NoteCaret caret)
+	{
+		if (caret.Line is null)
+		{
+			PutTheCaretIn(TitleField, caret.Offset);
+			return;
+		}
+
+		// A ticked line's field is hidden until it is opened - see PutTheCaretIn.
+		caret.Line.IsBeingWrittenIn = true;
+
+		if (_fields.TryGetValue(caret.Line, out var field))
+		{
+			_toFocus = null;
+			_toFocusAt = null;
+			PutTheCaretIn(field, caret.Offset);
+			return;
+		}
+
+		_toFocus = caret.Line;
+		_toFocusAt = caret.Offset;
 	}
 
 	/// <summary>Typed so the navigator can hand the page its note without casting the binding context.</summary>
@@ -187,10 +222,12 @@ public partial class NoteDetailPage : ContentPage, ITitleMenu
 		if (!_fields.TryGetValue(line, out var field))
 		{
 			_toFocus = line;
+			_toFocusAt = null;
 			return;
 		}
 
 		_toFocus = null;
+		_toFocusAt = null;
 		Dispatcher.Dispatch(() => field.Focus());
 	}
 
@@ -251,10 +288,20 @@ public partial class NoteDetailPage : ContentPage, ITitleMenu
 
 		_fields[row] = field;
 
-		if (ReferenceEquals(row, _toFocus))
+		if (!ReferenceEquals(row, _toFocus))
 		{
-			PutTheCaretIn(row);
+			return;
 		}
+
+		if (_toFocusAt is { } offset)
+		{
+			_toFocus = null;
+			_toFocusAt = null;
+			PutTheCaretIn(field, offset);
+			return;
+		}
+
+		PutTheCaretIn(row);
 	}
 
 	/// <summary>

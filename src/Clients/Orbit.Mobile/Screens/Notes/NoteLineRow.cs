@@ -1,6 +1,7 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using Orbit.Contracts.Notes;
 using Orbit.Core.Abstractions;
+using Orbit.Core.Notes;
 
 namespace Orbit.Mobile.Screens.Notes;
 
@@ -39,6 +40,39 @@ public sealed partial class NoteLineRow : ObservableObject
         };
 
     public NoteContentLineDto ToDto() => new(Text, IsChecklistItem, IsChecked, IsFailed);
+
+    /// <summary>The same line as the surface Orbit.Core decides edits on - see Orbit.Core.Notes.SurfaceState.</summary>
+    public static NoteLineRow From(NoteContentLine line)
+        => new()
+        {
+            Text = line.Text,
+            IsChecklistItem = line.IsChecklistItem,
+            IsChecked = line.IsChecked,
+            IsFailed = line.IsFailed
+        };
+
+    /// <inheritdoc cref="From(NoteContentLine)"/>
+    public NoteContentLine ToLine() => new(Text, IsChecklistItem, IsChecked, IsFailed);
+
+    /// <summary>
+    /// Becomes <paramref name="line"/> in place - what an undo does to a line that is still there, so the
+    /// field drawing it stays the same field and nothing on the screen is rebuilt.
+    /// </summary>
+    public void Take(NoteContentLine line)
+    {
+        Text = line.Text;
+        IsChecklistItem = line.IsChecklistItem;
+        IsChecked = line.IsChecked;
+        IsFailed = line.IsFailed;
+    }
+
+    /// <summary>
+    /// What the line said before its last change. A field on the phone reports only what it says now, so
+    /// this is how the note screen tells what was typed, deleted or pasted - see NoteTextChange.
+    /// </summary>
+    public string TextBefore { get; private set; } = string.Empty;
+
+    partial void OnTextChanged(string? oldValue, string newValue) => TextBefore = oldValue ?? string.Empty;
 
     /// <summary>What the box says, as the three answers there are - see TickState.</summary>
     public TickState Tick => Ticks.Read(IsChecked, IsFailed);

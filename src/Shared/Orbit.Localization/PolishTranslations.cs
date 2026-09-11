@@ -1068,6 +1068,9 @@ public static class PolishTranslations
         // bubble over the tools while they are selected, the second each box's own tooltip.
         ["{0} selected items - ticking one ticks them all."] = "Zaznaczone pozycje: {0} - odhaczenie jednej odhacza wszystkie.",
         ["Shift+click to select several lines - ticking one selected box then ticks them all."] = "Shift+klik zaznacza kilka linii - odhaczenie jednego zaznaczonego pola odhacza wtedy wszystkie.",
+        // The phone's note screen has no Ctrl+Z, so undo and redo are two buttons beside its tick box.
+        ["Undo"] = "Cofnij",
+        ["Redo"] = "Ponów",
         ["This note was shared by"] = "Tę notatkę udostępnił",
         ["Add item"] = "Dodaj pozycję",
         ["Item description"] = "Opis pozycji",
