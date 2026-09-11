@@ -299,7 +299,7 @@ else
                         @if (item.Kind == nameof(TaskItemKind.Location))
                         {
                             <span class="field-break"></span>
-                            <div class="field">
+                            <div class="field editor-item-place">
                                 <label for="@($"item{_formModel.Items.IndexOf(item)}Place")">@T["Location"]</label>
                                 <div class="field-row">
                                     <input id="@($"item{_formModel.Items.IndexOf(item)}Place")" type="text"
@@ -2068,6 +2068,7 @@ else
     private string DescribeKind(string kind) => kind switch
     {
         nameof(TaskItemKind.Calendar) => T["Calendar"],
+        nameof(TaskItemKind.Location) => T["Location"],
         nameof(TaskItemKind.Inventory) => T["Inventory"],
         _ => T["Checklist"]
     };

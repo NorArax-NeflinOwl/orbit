@@ -525,6 +525,43 @@ public sealed class TaskEditorCalendarLocationTests : OrbitTestContext
         Assert.Equal(52.2497, location.Latitude, precision: 4);
     }
 
+    /// <summary>
+    /// A Location entry's row says it is one. The label on the row fell through to "Checklist" for any
+    /// kind it did not name, and Location was the one it did not name - so an address on a list was
+    /// labelled as the one kind it is not.
+    /// </summary>
+    [Fact]
+    public void A_location_entry_is_labelled_as_a_location()
+    {
+        RegisterApiClients(Item("Keys from the agent", location: "Długa 4") with
+        {
+            Kind = nameof(Orbit.Core.Tasks.TaskItemKind.Location)
+        });
+
+        var cut = Render();
+
+        Assert.Equal("Location", cut.Find(".editor-item-aside .card-badge").TextContent.Trim());
+    }
+
+    /// <summary>
+    /// And its pin is part of its box: the two sit in one row that takes the whole line and never wraps,
+    /// rather than in a block only as wide as the box, which put the pin on a line of its own under it.
+    /// </summary>
+    [Fact]
+    public void A_location_entrys_pin_sits_in_the_row_with_its_box()
+    {
+        RegisterApiClients(Item("Keys from the agent", location: "Długa 4") with
+        {
+            Kind = nameof(Orbit.Core.Tasks.TaskItemKind.Location)
+        });
+        var cut = Render();
+        ExpandTheOnlyItem(cut);
+
+        var row = cut.Find(".editor-item-place > .field-row");
+        Assert.NotNull(row.QuerySelector("input.event-fields-location"));
+        Assert.NotNull(row.QuerySelector("button[aria-label='Pick on map']"));
+    }
+
     /// <summary>A new list opened the ordinary way is still empty.</summary>
     [Fact]
     public void A_new_list_opened_without_the_map_starts_empty()

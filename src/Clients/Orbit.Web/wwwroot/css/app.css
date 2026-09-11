@@ -4277,6 +4277,19 @@ input.note-editor-title {
    entry it is that box (see .event-fields-description). Its label sits above rather than beside it:
    every other field here is one short value on a line, and a two-line box beside a label would hang
    under the wrong thing. */
+/* A Location entry's address and the pin beside it. The whole row, like the description below: left to
+   size itself among the other fields, the block was only as wide as its content, the box claimed all of
+   that, and the pin was pushed onto a line of its own under the box it belongs to. Never wrapped, for
+   the same reason - the pin is part of the box, not the next field. */
+.editor-item-place {
+    flex: 1 1 100%;
+    min-width: 0;
+}
+
+.editor-item-place > .field-row {
+    flex-wrap: nowrap;
+}
+
 .editor-item-notes {
     flex: 1 1 100%;
     min-width: 0;

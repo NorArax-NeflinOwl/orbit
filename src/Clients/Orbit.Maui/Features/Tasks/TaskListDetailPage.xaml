@@ -202,15 +202,16 @@
                 <!-- Where the entry is, shown for the two kinds that have anywhere to be: an appointment,
                      and a Location entry, which is a place and nothing more - see CanSayWhereItHappens.
                      Outside the event form below, because a Location entry has one of these and none of
-                     the rest. -->
-                <VerticalStackLayout Spacing="10" IsVisible="{Binding CanSayWhereItHappens}">
+                     the rest. The way to the map sits on the box's own line, as the web's pin does: on a
+                     line of its own under the box it read as the next field rather than part of this one. -->
+                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8" IsVisible="{Binding CanSayWhereItHappens}">
                     <Entry Placeholder="{controls:Translate 'Where this happens'}" Text="{Binding Location}" />
                     <!-- Typing an address is one way; pointing at it is the other, and the one that
                          works when nobody knows what the street is called. -->
-                    <Button Text="{controls:Translate 'Show map'}" FontSize="13" HorizontalOptions="Start"
-                            Style="{StaticResource LinkButton}"
+                    <Button Grid.Column="1" Text="{controls:Translate 'Show map'}" FontSize="13"
+                            VerticalOptions="Center" Style="{StaticResource LinkButton}"
                             Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=ViewModel.ShowMapCommand, x:DataType=tasks:TaskListDetailPage}" />
-                </VerticalStackLayout>
+                </Grid>
 
                 <!-- A Calendar entry is the appointment rather than a pointer at one, so this is the
                      event's own form - the same fields Orbit.Web's task editor shows. Saving the entry
