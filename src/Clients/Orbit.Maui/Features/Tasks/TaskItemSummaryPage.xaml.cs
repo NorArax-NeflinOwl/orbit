@@ -48,17 +48,30 @@ public partial class TaskItemSummaryPage : ContentPage, ITitleMenu
 	public ScreenMenu Menu { get; } = new();
 
 	/// <summary>
-	/// The other place this entry can be met, and the two things the design's menu does to the entry
-	/// itself - a copy of it, and taking it off its list. Orbit.Web's own entry page offers the same
-	/// since 2026-09-11. Moving it to another list is not here: that needs a list picker the design
-	/// does not draw.
+	/// The other place this entry can be met, and what the design's menu does to the entry itself - a
+	/// copy of it, moving it to another list, and taking it off its list. Orbit.Web's own entry page
+	/// offers the copy and the removal; moving is the list form's picker on both clients, here as a menu.
 	/// </summary>
 	private void ShowEntryMenu() => Menu.Show(
 	[
 		new ScreenMenuEntry(_translations["Show Tasks"], () => _viewModel.ShowTaskListCommand.Execute(null)),
 		new ScreenMenuEntry(_translations["Duplicate"], () => _viewModel.DuplicateCommand.Execute(null)),
+		// Opened on the next turn of the loop, so this menu has finished closing before the next one opens.
+		new ScreenMenuEntry(_translations["Move to…"], () => Dispatcher.Dispatch(() => _ = ShowMoveTargetsAsync())),
 		new ScreenMenuEntry(_translations["Delete item"], () => _ = DeleteAfterAskingAsync())
 	]);
+
+	/// <summary>
+	/// Where this entry can go, as a second menu in the same place - the list's own entry form offers the
+	/// same choice as a picker. With nowhere to go it says so, rather than opening a menu with nothing in it.
+	/// </summary>
+	private async Task ShowMoveTargetsAsync()
+	{
+		var targets = await _viewModel.MoveTargetsAsync();
+		Menu.Show(targets.Count == 0
+			? [new ScreenMenuEntry(_translations["No other list yet"], () => { }, canBeChosen: false)]
+			: [.. targets.Select(target => new ScreenMenuEntry(target.Name, () => _viewModel.MoveCommand.Execute(target)))]);
+	}
 
 	/// <summary>
 	/// Asked first, as every irreversible press is - see Confirmation - and in the words Orbit.Web's

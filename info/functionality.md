@@ -2199,8 +2199,10 @@ item** asks first, takes the entry off its list and lands on that list; the appo
 stays in the calendar, as it does when the entry is removed in the list's own form. Both are the same
 whole-list save a tick is (`TaskItemCompletion` on the web, `TaskItemSummaryViewModel.SaveItemsAsync` on
 the phone), and neither is offered on the web for a list shared to read; the phone offers them and says
-the store's refusal under the entry, as it does for a tick. Moving an entry to another list is still
-done in the list's own form.
+the store's refusal under the entry, as it does for a tick. Moving an entry to another list is done in
+the list's own form on both clients, and on the phone from the entry's own screen as well ("Move to", a
+second menu of the other lists): only the server can make that change to two lists, so it needs a
+connection and says so without one.
 
 **When it happens is read off the appointment, not off the entry.** A calendar entry's day and hour live
 on the event the editor writes them into, so the entry's own `DueDateUtc` is empty for exactly the

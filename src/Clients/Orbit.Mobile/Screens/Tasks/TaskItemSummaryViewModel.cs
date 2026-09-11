@@ -1,6 +1,7 @@
 using System.Collections.ObjectModel;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using Orbit.Mobile.Api;
 using Orbit.Mobile.Data;
 using Orbit.Mobile.Localization;
 using Orbit.Mobile.Location;
@@ -34,6 +35,7 @@ public sealed partial class TaskItemSummaryViewModel : ObservableObject
     private readonly TaskListSynchronizer _synchronizer;
     private readonly Translations _translations;
     private readonly IScreenNavigator _navigator;
+    private readonly TasksClient _tasksClient;
 
     private Guid _taskListLocalId;
     private Guid _itemId;
@@ -41,7 +43,7 @@ public sealed partial class TaskItemSummaryViewModel : ObservableObject
     public TaskItemSummaryViewModel(
         LocalTaskListRepository taskLists, LocalCalendarEventRepository calendarEvents, PlaceSearch places,
         Translations translations, IScreenNavigator navigator, ChatRepository contacts,
-        TaskListSynchronizer synchronizer)
+        TaskListSynchronizer synchronizer, TasksClient tasksClient)
     {
         _taskLists = taskLists;
         _calendarEvents = calendarEvents;
@@ -50,6 +52,7 @@ public sealed partial class TaskItemSummaryViewModel : ObservableObject
         _synchronizer = synchronizer;
         _translations = translations;
         _navigator = navigator;
+        _tasksClient = tasksClient;
     }
 
     /// <summary>What the entry says, which is the screen's own title.</summary>
@@ -357,6 +360,85 @@ public sealed partial class TaskItemSummaryViewModel : ObservableObject
         await SynchroniseAsync(cancellationToken);
         _navigator.ShowTaskItem(_taskListLocalId, copy.Id);
     }
+
+    /// <summary>
+    /// The other lists this entry could be moved to, by the rule the list's own entry form keeps (see
+    /// TaskListDetailViewModel.MoveTargetsForTheEntry): any other list the server knows about, except one
+    /// the entry stands for - an entry cannot link to the list it belongs to, and the server refuses that
+    /// move, so it is left out rather than offered and then refused.
+    /// </summary>
+    public async Task<IReadOnlyList<TaskListChoice>> MoveTargetsAsync(CancellationToken cancellationToken = default)
+    {
+        if (await _taskLists.FindAsync(_taskListLocalId, cancellationToken) is not { } taskList
+            || taskList.Items.FirstOrDefault(candidate => candidate.Id == _itemId) is not { } item)
+        {
+            return [];
+        }
+
+        return [.. (await _taskLists.GetAllAsync(cancellationToken))
+            .Where(other => other.LocalId != _taskListLocalId
+                && other.ServerId is { } serverId
+                && !item.AllLinkedTaskListIds.Contains(serverId))
+            .Select(other => new TaskListChoice(other.ServerId, other.Title))];
+    }
+
+    /// <summary>
+    /// Moves this entry to another list and opens it there - "Move to" in this screen's menu, and the
+    /// same move the list's own entry form makes (TaskListDetailViewModel.MoveItemAsync). Moving is a
+    /// change to two lists, which only the server can make: whatever this phone still holds goes out
+    /// first, so the server rearranges what the phone last said, then the move is asked for, then both
+    /// lists come back as the server now has them.
+    /// </summary>
+    [RelayCommand]
+    private async Task MoveAsync(TaskListChoice? target, CancellationToken cancellationToken)
+    {
+        Status = string.Empty;
+        if (target?.ServerId is not { } targetServerId)
+        {
+            return;
+        }
+
+        WriteOutcome outcome;
+        try
+        {
+            // A list the server has not been told about yet has no id to move anything out of.
+            if (!(await _synchronizer.SynchroniseAsync(cancellationToken)).ReachedTheServer
+                || await _taskLists.FindAsync(_taskListLocalId, cancellationToken) is not { ServerId: { } sourceServerId })
+            {
+                Status = _translations[NeedsAConnection];
+                return;
+            }
+
+            outcome = await _tasksClient.MoveItemAsync(sourceServerId, _itemId, targetServerId, cancellationToken);
+        }
+        catch (Exception exception) when (exception is HttpRequestException or OperationCanceledException)
+        {
+            Status = _translations[NeedsAConnection];
+            return;
+        }
+
+        if (outcome is not WriteOutcome.Applied)
+        {
+            // A rule about the entry itself is not worth trying again - see WriteOutcome.Rejected.
+            Status = outcome is WriteOutcome.Rejected
+                ? _translations["That move isn't allowed."]
+                : _translations["Couldn't move it. Try again."];
+            return;
+        }
+
+        await SynchroniseAsync(cancellationToken);
+        if ((await _taskLists.GetAllAsync(cancellationToken)).FirstOrDefault(list => list.ServerId == targetServerId)
+            is not { } arrivedOn)
+        {
+            _navigator.ShowCalendar();
+            return;
+        }
+
+        _navigator.ShowTaskItem(arrivedOn.LocalId, _itemId);
+    }
+
+    /// <summary>The dictionary key, not the text itself - see <see cref="Translations"/>.</summary>
+    private const string NeedsAConnection = "Moving an entry needs a connection.";
 
     /// <summary>
     /// Takes this entry off its list - the entry menu's "Delete item", and the same removal the list's
