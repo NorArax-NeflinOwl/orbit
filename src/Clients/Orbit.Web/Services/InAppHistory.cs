@@ -7,12 +7,17 @@ namespace Orbit.Web.Services;
 ///
 /// The browser does not say which kind of move a navigation was - a new page pushed, the current one
 /// replaced, or Back and Forward walking the entries already there. So this remembers what it asked for
-/// itself (<see cref="Leave"/>), and reads anything else by one rule: <b>arriving at the entry just
-/// before the current one is Back</b>, and every other arrival is a new page. That rule can be wrong -
-/// following a link to the page one step back looks exactly like Back - and it is wrong in the safe
-/// direction: this then believes there is less history than there is, and a screen that finishes with
-/// less history behind it replaces itself rather than stepping back. Stepping back is the only move that
-/// could leave the app, and it is only made onto an entry this has seen.
+/// itself (<see cref="Leave"/>), and reads anything else by one rule: <b>arriving at an address still on
+/// the trail, below the page on screen, is going back to it</b> - one entry with Back, or several through
+/// the browser's history menu - and every other arrival is a new page.
+///
+/// That rule can be wrong: following a link to a page still on the trail looks exactly like going back
+/// to it. The trail then holds less than the browser does, and only a screen reached that way and then
+/// finished onto the entry the trail believes is behind it is affected - it steps back onto another of
+/// Orbit's pages. The opposite mistake is the one that matters and the one this avoids: reading a jump
+/// back as a new page would leave the trail believing in entries the browser has already gone below, and
+/// stepping back onto one of those could leave the app. Stepping back is the only move that can, and it
+/// is only made onto an entry this has seen.
 ///
 /// Starts with the one address the app was opened on. A page reached by typing its address, a reload, or
 /// a link from another site has nothing of Orbit's behind it, so finishing there replaces rather than
@@ -59,9 +64,11 @@ public sealed class InAppHistory
             return next;
         }
 
-        if (_entries.Count >= 2 && _entries[^2] == location)
+        // Below the page on screen only: the same address again is a second entry for it, which is what
+        // navigating to the page already open does.
+        if (_entries.Count >= 2 && _entries.LastIndexOf(location, _entries.Count - 2) is var goneBackTo and >= 0)
         {
-            _entries.RemoveAt(_entries.Count - 1);
+            _entries.RemoveRange(goneBackTo + 1, _entries.Count - goneBackTo - 1);
             return null;
         }
 

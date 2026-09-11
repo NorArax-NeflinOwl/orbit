@@ -2353,9 +2353,11 @@ The browser's Back afterwards therefore never reopens a form that was just finis
 note, used to be one press from saving it twice. The same page with more on its address counts as the
 entry behind, so leaving an appointment for "/calendar" steps back onto the day the calendar was showing.
 The trail is only what the app has seen itself (`InAppHistory`), and the browser does not say whether a
-move was Back, so arriving at the previous entry is *read* as Back. That guess can only make the trail
-believe there is less history than there is, which turns a step back into a replacement and never into
-leaving Orbit; a page reached by its address or a reload has nothing of Orbit's behind it and is replaced.
+move was Back, so arriving at an address still on the trail is *read* as going back to it - one entry
+with Back, or several through the browser's history menu. A link to such a page is read the same way,
+and the most that costs is a screen reached like that stepping back onto the wrong one of Orbit's pages
+when it is finished; reading a jump back as a new page instead is the mistake that could step out of
+Orbit. A page reached by its address or a reload has nothing of Orbit's behind it and is replaced.
 **Deleting takes the deleted thing's pages with it**: a summary under the form opened from it would now
 say "no longer exists", so every such entry on top of the history is left too, and the delete ends on the
 thing's section (`/notes`, `/calendar`, `/inventory`, `/tasks`) rather than on a page of what is gone.

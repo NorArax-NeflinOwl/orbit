@@ -37,6 +37,35 @@ public sealed class InAppHistoryTests
         Assert.Equal(["/notes"], history.Entries);
     }
 
+    /// <summary>
+    /// Several entries at once, through the browser's history menu. Read as a new page, the trail would
+    /// keep the entries the browser has gone below, and a finish stepping back onto one of them would
+    /// step out of Orbit instead - the page jumped to is the first thing the browser has.
+    /// </summary>
+    [Fact]
+    public void A_jump_several_entries_back_is_read_as_going_back_that_far()
+    {
+        var history = new InAppHistory("/notes/1/edit");
+        history.Arrived("/calendar");
+        history.Arrived("/calendar/1");
+
+        history.Arrived("/notes/1/edit");
+
+        Assert.Equal(["/notes/1/edit"], history.Entries);
+        Assert.Equal(new FinishStep(0, "/calendar/1"), history.Leave("/calendar/1"));
+    }
+
+    /// <summary>The page already on screen, navigated to again, is a second entry for it - not a step back.</summary>
+    [Fact]
+    public void The_page_on_screen_arrived_at_again_is_a_new_entry()
+    {
+        var history = new InAppHistory("/notes");
+
+        history.Arrived("/notes");
+
+        Assert.Equal(["/notes", "/notes"], history.Entries);
+    }
+
     [Fact]
     public void Finishing_onto_the_entry_just_before_steps_back_to_it()
     {
