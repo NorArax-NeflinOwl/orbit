@@ -1718,6 +1718,12 @@ else
     private int UnreadFrom(ContactDto contact) => contact.UserId == UserId ? 0 : contact.UnreadCount;
 
     /// <summary>
+    /// The same for a group: how many of its messages arrived since this reader last had it open - see
+    /// ChatGroupDto.UnreadCount. The group on screen is nought, for the reason UnreadFrom gives.
+    /// </summary>
+    private int UnreadIn(ChatGroupDto group) => group.Id == GroupId ? 0 : group.UnreadCount;
+
+    /// <summary>
     /// Everything this reader can open, as one list - see ConversationList. Sorted by when something
     /// last happened, people and groups against each other: that is the order somebody scanning for a
     /// conversation looks in, and it is what they expect of a list that holds both. Groups used to
@@ -1736,8 +1742,10 @@ else
             .Concat(_matchingGroups.Select(group => (
                 When: group.LastMessageAtUtc,
                 Conversation: new Conversation(
-                    group.Id, group.Name, IsGroup: true, UnreadCount: 0, Presence: null,
-                    T.Format("{0} members", group.Members.Count)))))
+                    group.Id, group.Name, IsGroup: true, UnreadIn(group), Presence: null,
+                    UnreadIn(group) > 0
+                        ? T.Format("{0} new", UnreadIn(group))
+                        : T.Format("{0} members", group.Members.Count)))))
             .OrderByDescending(row => row.When)
             .Select(row => row.Conversation)
     ];

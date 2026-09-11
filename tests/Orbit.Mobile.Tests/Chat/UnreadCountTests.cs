@@ -68,6 +68,43 @@ public sealed class UnreadCountTests
         Assert.True(stored.HasSomethingWaiting);
     }
 
+    /// <summary>
+    /// A group says exactly how many of its messages arrived since the reader last had it open - the
+    /// server counts it (ChatGroupDto.UnreadCount) and the phone keeps it with the row.
+    /// </summary>
+    [Fact]
+    public async Task A_groups_count_is_kept_with_the_group()
+    {
+        using var context = new ChatContext();
+        WaitingIn(context, context.Server.AddGroup("Weekend trip", context.OtherUserId), unreadCount: 4);
+
+        await context.Synchronizer.SynchroniseGroupsAsync();
+
+        var stored = Assert.Single(await context.Repository.GetGroupsAsync());
+        Assert.Equal(4, stored.UnreadCount);
+        Assert.True(stored.HasSomethingWaiting);
+    }
+
+    [Fact]
+    public async Task Opening_the_group_takes_its_count_to_nought()
+    {
+        using var context = new ChatContext();
+        var group = context.Server.AddGroup("Weekend trip", context.OtherUserId);
+        WaitingIn(context, group, unreadCount: 4);
+        await context.Synchronizer.SynchroniseGroupsAsync();
+
+        await context.Synchronizer.SynchroniseGroupConversationAsync(group.Id);
+
+        Assert.Equal(0, Assert.Single(await context.Repository.GetGroupsAsync()).UnreadCount);
+    }
+
+    /// <summary>The server's answer about this group, as the list of groups would carry it.</summary>
+    private static void WaitingIn(ChatContext context, ChatGroupDto group, int unreadCount)
+    {
+        var index = context.Server.Groups.FindIndex(candidate => candidate.Id == group.Id);
+        context.Server.Groups[index] = group with { UnreadCount = unreadCount };
+    }
+
     private static ContactDto Contact(ChatContext context, int unreadCount, bool requiresApproval = false)
         => new(
             context.OtherUserId, "bob", "Bob", "bob@example.com", context.OtherPublicKeyBase64,

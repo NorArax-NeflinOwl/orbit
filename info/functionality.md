@@ -4041,8 +4041,19 @@ avatar's bottom-left edge by the web's rules (nothing at nought, "9+" above nine
 lights for it as well as for a request to answer. It is the same `ContactDto.UnreadCount`, kept on
 `LocalContact` so it survives a restart and reads offline, and taken to nought the moment the server has
 been told a conversation was read rather than at the next refresh; a conversation opened with no
-connection keeps its count, because nothing was told. Groups carry no count on either client, and the
-phone's dashboard rows draw no face to put one on.
+connection keeps its count, because nothing was told. The phone's dashboard rows draw no face to put
+one on, so there the count lights the row's mark instead.
+
+**A group says exactly how many of its messages arrived since the reader last had it open**, since
+2026-09-11, on both clients. The server counts it off the reader's own copies - a group message is one
+sealed copy per member, each with its own read mark, and the sender gets none of their own - in one query
+for every group at once (`IChatMessageRepository.GetGroupUnreadCountsAsync`), and sends it on the list of
+groups as `ChatGroupDto.UnreadCount`. History re-sealed for somebody who joined later does not count, or a
+new member would open the group to its whole backlog marked unread; nor does a message since deleted. The
+browser draws it where a person's count goes - on the conversation list with "{0} new" in place of the
+member count, on the dashboard's Groups card, and as the row's mark on the contacts page; the phone keeps it
+on `LocalChatGroup` and draws it on the group's avatar, taking it to nought once the server has been told
+the group was read.
 
 How long that toast stays up, and the minimum quiet gap before the next one, are per-user settings
 (`BannerTiming`, defaulting to 5 seconds each) editable from Options — the poll interval only bounds how
