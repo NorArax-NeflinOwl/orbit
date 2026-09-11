@@ -1824,13 +1824,10 @@ else
                     continue;
                 }
 
-                // A product reached from a restock errand is already on the shelf and has an id. One
-                // an entry describes on a list measured against this storage has none yet - it is
-                // being put there by this save, and its name is the entry's own words, which is what
-                // the stock check matches the two by. The server has already placed it and pointed
-                // the entry at it by now (ProductEntryPlacement), so the shelf read above holds it and
-                // it is skipped below - what is left for this branch is a save the server declined,
-                // which this request is refused for too. See info/future-plan.md.
+                // Only products that are already on the shelf, reached from a restock errand. One an entry
+                // describes and the shelf does not hold yet is not written from here: the list's own save
+                // has put it on the shelf and pointed the entry at it (ProductEntryPlacement), and a
+                // second write from this page was one that could only ever find it already there.
                 //
                 // Each one is filed under what its entry says: the product form on this screen has no
                 // categories box of its own any more, and the entry's is the answer for both.
@@ -1850,23 +1847,6 @@ else
                             product.MinimumQuantity, product.Unit, product.ExpiryDate, product.ExpiryNotificationChannel,
                             product.IsCheckedRegularly, product.AllCategories))
                     .ToList();
-
-                var alreadyThere = shelf.Select(product => product.Name.Trim()).ToHashSet(StringComparer.CurrentCultureIgnoreCase);
-                foreach (var (entry, fields) in _shelves.NewProductsIn(byInventory.Key))
-                {
-                    var name = entry.Description.Trim();
-                    // Nothing to add for an entry that has stopped being an inventory one - its fields
-                    // stay behind so switching back and forth does not lose what was typed - nor for one
-                    // nobody has named yet, nor twice: a shelf already holding the thing is what the
-                    // entry was asking for.
-                    if (entry.Kind != nameof(TaskItemKind.Inventory) || name.Length == 0 || !alreadyThere.Add(name))
-                    {
-                        continue;
-                    }
-
-                    fields.Product.Name = name;
-                    items.Add(FiledUnderItsEntry((entry, fields)).ToDto());
-                }
 
                 await InventoryApiClient.UpdateInventoryAsync(
                     byInventory.Key, new SaveInventoryRequest(inventory.Name, items, inventory.IsPrivate));
@@ -1948,8 +1928,8 @@ else
         /// <summary>
         /// Fields for a product this entry describes and the shelf does not hold yet. No id, because
         /// there is nothing there to have one - saving the list is what puts it on the shelf, under the
-        /// entry's own name (see TaskEditor.SaveTheShelfAsync). Remembered against the entry like any
-        /// other, so what is typed survives a redraw.
+        /// entry's own name: the server places it (see Orbit.Core.Inventories.ProductEntryPlacement).
+        /// Remembered against the entry like any other, so what is typed survives a redraw.
         /// </summary>
         public InventoryFieldsFormModel DescribeNewProduct(
             TaskItemFormModel item, Guid inventoryId, string inventoryName)
@@ -1962,12 +1942,6 @@ else
             _fieldsByItem[item] = fields;
             return fields;
         }
-
-        /// <summary>The entries on one storage that describe something not on its shelf yet, with their fields.</summary>
-        public IEnumerable<(TaskItemFormModel Entry, InventoryFieldsFormModel Fields)> NewProductsIn(Guid inventoryId)
-            => _fieldsByItem
-                .Where(pair => pair.Value.InventoryId == inventoryId && pair.Value.Product.Id is null)
-                .Select(pair => (pair.Key, pair.Value));
 
         public void Clear()
         {
