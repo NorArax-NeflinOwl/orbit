@@ -68,5 +68,7 @@ public sealed class DuplicateTaskListCommandHandler : IRequestHandler<DuplicateT
             item.Categories,
             item.Product,
             item.Notes,
-            item.IsFailed);
+            item.IsFailed,
+            // The ways it is done by, for the reason the links are kept: they are what the entry is.
+            alternatives: item.Alternatives);
 }

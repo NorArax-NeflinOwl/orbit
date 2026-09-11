@@ -84,6 +84,26 @@ public sealed class PrivateTaskListItemIdTests : OrbitTestContext
         Assert.Equal(ids, secondRead!.Items.Select(item => item.Id));
     }
 
+    /// <summary>
+    /// The ways an entry is done by are sealed with it. A private list keeps nothing readable on the
+    /// server, so a field left out of the sealed payload is simply gone on the next read - which is what
+    /// happens to every field this client does not name there.
+    /// </summary>
+    [Fact]
+    public async Task An_entrys_ways_survive_being_sealed()
+    {
+        var client = ClientThatSealsAndOpens();
+
+        await client.CreateTaskListAsync(
+            new CreateTaskRequest("Burger", [Entry("Sauce") with { Alternatives = [new("Buy a ready one", IsDone: true)] }],
+                IsGroup: false, IsPrivate: true, EncryptedContent: null));
+        var opened = await client.GetTaskListByIdAsync(TaskListId);
+
+        var way = Assert.Single(Assert.Single(opened!.Items).AllAlternatives);
+        Assert.Equal("Buy a ready one", way.Description);
+        Assert.True(way.IsDone);
+    }
+
     private static TaskItemRequest Entry(string description)
         => new(description, Id: null, DueDateUtc: null, IsCompleted: false, LinkedTaskListId: null,
             OverdueNotificationChannel: "None", RemindDaily: false, DailyReminderNotificationChannel: "None",

@@ -80,8 +80,17 @@ public sealed record TaskItemDto(
     /// takes. Null means "not provided" like Priority above; an empty string means "no colour of its
     /// own", which every screen reads as "whatever this kind is drawn in".
     /// </summary>
-    string? Colour = null)
+    string? Colour = null,
+    /// <summary>
+    /// The ways this entry can be got done, any one of which is enough - see
+    /// Orbit.Core.Tasks.TaskItem.Alternatives. Null or empty for an ordinary entry. While it holds any,
+    /// <see cref="IsCompleted"/> is theirs rather than the entry's own: true exactly when one is done.
+    /// </summary>
+    IReadOnlyList<TaskItemAlternativeDto>? Alternatives = null)
 {
+    /// <summary>The ways as something to read without a null check - see <see cref="Alternatives"/>.</summary>
+    public IReadOnlyList<TaskItemAlternativeDto> AllAlternatives => Alternatives ?? [];
+
     /// <summary>
     /// Whichever shape the sender used, read as one. Needed on the way in as well as the way out: a
     /// client written before an entry could name several lists sends only the single field.

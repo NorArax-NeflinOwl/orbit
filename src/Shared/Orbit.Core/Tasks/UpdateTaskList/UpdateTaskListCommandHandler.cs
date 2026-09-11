@@ -63,6 +63,7 @@ public sealed class UpdateTaskListCommandHandler : IRequestHandler<UpdateTaskLis
         KeepTheDescriptionOfEntriesThatSaidNothing(identity.Items, taskList, request.EntriesKeepingTheirNotes);
         KeepTheStepsOfEntriesThatSaidNothing(identity.Items, taskList, request.EntriesKeepingTheirSteps);
         KeepTheLookOfEntriesThatSaidNothing(identity.Items, taskList, request.EntriesKeepingTheirLook);
+        KeepTheAlternativesOfEntriesThatSaidNothing(identity.Items, taskList, request.EntriesKeepingTheirAlternatives);
 
         // A product entry on a list measured against a shelf goes onto that shelf and stands for its row
         // from this save on - see ProductEntryPlacement. After the product has been kept for entries
@@ -165,6 +166,28 @@ public sealed class UpdateTaskListCommandHandler : IRequestHandler<UpdateTaskLis
             if (storedById.TryGetValue(item.Id, out var storedItem))
             {
                 item.KeepLookOf(storedItem);
+            }
+        }
+    }
+
+    /// <summary>
+    /// An entry that said nothing about the ways it is done by keeps them - see
+    /// UpdateTaskListCommand.EntriesKeepingTheirAlternatives.
+    /// </summary>
+    private static void KeepTheAlternativesOfEntriesThatSaidNothing(
+        IReadOnlyList<TaskItem> incoming, TaskList stored, IReadOnlySet<Guid>? entriesKeepingTheirAlternatives)
+    {
+        if (entriesKeepingTheirAlternatives is not { Count: > 0 })
+        {
+            return;
+        }
+
+        var storedById = stored.Items.ToDictionary(item => item.Id);
+        foreach (var item in incoming.Where(item => entriesKeepingTheirAlternatives.Contains(item.Id)))
+        {
+            if (storedById.TryGetValue(item.Id, out var storedItem))
+            {
+                item.KeepAlternativesOf(storedItem);
             }
         }
     }

@@ -225,7 +225,83 @@ public sealed partial class TaskItemEditor : ObservableObject
     {
         OnPropertyChanged(nameof(IsALinkToOtherLists));
         OnPropertyChanged(nameof(LinkableTaskListsLeft));
+        OnPropertyChanged(nameof(CanHaveWays));
     }
+
+    /// <summary>
+    /// The ways this entry can be got done, any one of which is enough - see TaskItem.Alternatives and
+    /// TaskItemWay. Offered while it stands for no list, and the lists only while it has no ways: "any one
+    /// of these" and "every one of these" are two different entries. Orbit.Web draws the same pair.
+    /// </summary>
+    public ObservableCollection<TaskItemWay> Ways { get; } = [];
+
+    public bool HasWays => Ways.Count > 0;
+
+    /// <summary>Whether the ways are offered at all - not on an entry that stands for lists.</summary>
+    public bool CanHaveWays => !IsALinkToOtherLists;
+
+    /// <summary>Whether lists to stand for are offered: not while the entry has ways, nor with nothing to point at.</summary>
+    public bool CanStandForLists => CanBeLinked && !HasWays;
+
+    /// <summary>What the "or a list" picker offers: the lists this entry could point at that are not a way already.</summary>
+    public IReadOnlyList<TaskListChoice> WayListsLeft
+        => [.. LinkableTaskLists.Where(choice =>
+            choice.ServerId is not null && Ways.All(way => way.ListServerId != choice.ServerId))];
+
+    /// <summary>A new line of its own, blank, for the reader to type into. One left blank is not saved.</summary>
+    [RelayCommand]
+    private void AddAWay()
+    {
+        Ways.Add(new TaskItemWay(string.Empty, listServerId: null, listName: null, isDone: false));
+        SayWhatItIsDoneBy();
+    }
+
+    /// <summary>
+    /// A list as one of the ways. A command rather than the picker's bound value, for the reason LinkTo is
+    /// one - see TaskListDetailPage.OnWayListPicked.
+    /// </summary>
+    [RelayCommand]
+    private void AddAListWay(TaskListChoice? chosen)
+    {
+        if (chosen?.ServerId is not { } listServerId || Ways.Any(way => way.ListServerId == listServerId))
+        {
+            return;
+        }
+
+        Ways.Add(new TaskItemWay(string.Empty, listServerId, chosen.Name, isDone: false));
+        SayWhatItIsDoneBy();
+    }
+
+    [RelayCommand]
+    private void RemoveWay(TaskItemWay? way)
+    {
+        if (way is not null && Ways.Remove(way))
+        {
+            SayWhatItIsDoneBy();
+        }
+    }
+
+    private void SayWhatItIsDoneBy()
+    {
+        OnPropertyChanged(nameof(HasWays));
+        OnPropertyChanged(nameof(CanStandForLists));
+        OnPropertyChanged(nameof(WayListsLeft));
+    }
+
+    /// <summary>The ways as they are saved: none on an entry standing for lists, and none left blank.</summary>
+    private IReadOnlyList<TaskItemAlternativeDto> WaysAsSaved()
+        => IsALinkToOtherLists
+            ? []
+            : [.. Ways
+                .Where(way => way.IsAList || way.Description.Trim().Length > 0)
+                .Select(way => new TaskItemAlternativeDto(way.Description.Trim(), way.ListServerId, way.IsDone))];
+
+    /// <summary>
+    /// An entry done by ways is done when one is. Said here as well as on the server, because a private
+    /// list is sealed on this phone and nothing works it out for it afterwards.
+    /// </summary>
+    private bool IsCompletedAsSaved()
+        => WaysAsSaved() is { Count: > 0 } ways ? ways.Any(way => way.IsDone) : _item.IsCompleted;
 
     /// <summary>
     /// The other entries of this same list, which this one can be made to wait for - "hang the door"
@@ -468,6 +544,19 @@ public sealed partial class TaskItemEditor : ObservableObject
             editor.LinkedTaskLists.Add(linked);
         }
 
+        // And the ways it is done by, in the order the entry names them. A way whose list this phone has
+        // not got keeps its place and is named "another list": it is still one of the ways.
+        foreach (var way in item.AllAlternatives)
+        {
+            editor.Ways.Add(new TaskItemWay(
+                way.Description,
+                way.LinkedTaskListId,
+                way.LinkedTaskListId is { } wayListId
+                    ? lists.FirstOrDefault(choice => choice.ServerId == wayListId)?.Name ?? editor._translations["another list"]
+                    : null,
+                way.IsDone));
+        }
+
         // And what it already waits for, in the order the entry names them. A step naming an entry that
         // is no longer on the list is dropped rather than drawn as a blank - which is what the server
         // does with it on the next save anyway. See TaskListSteps.
@@ -528,6 +617,9 @@ public sealed partial class TaskItemEditor : ObservableObject
             // phone would quietly drop the rest of an entry standing for several.
             LinkedTaskListId = null,
             LinkedTaskListIds = [.. LinkedTaskLists.Select(linked => linked.ServerId!.Value)],
+            // The ways as this form now says them, and the tick they give the entry - see WaysAsSaved.
+            Alternatives = WaysAsSaved(),
+            IsCompleted = IsCompletedAsSaved(),
             Description = Description.Trim(),
             // Always a string, never null, now that there is a box: an empty one means "cleared", which
             // is what emptying it has to mean - null would leave whatever the server holds.

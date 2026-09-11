@@ -1866,6 +1866,75 @@ public sealed class TaskListDetailScreenTests
     }
 
     /// <summary>
+    /// An entry can be done any one of several ways, set in its form: a line of its own and another list
+    /// both reach the server. While it has ways it is not offered lists to stand for - "any one of these"
+    /// and "every one of these" are two different entries. See TaskItem.Alternatives.
+    /// </summary>
+    [Fact]
+    public async Task An_entry_can_be_given_ways_in_its_form_and_they_reach_the_server()
+    {
+        using var context = new ScreenContext();
+        context.OpenTaskList("Homemade sauce");
+        var screen = await ABurgerWithASauceAsync(context);
+
+        screen.EditItemCommand.Execute(screen.Items.Single());
+        var editor = screen.BeingEdited!;
+        editor.AddAWayCommand.Execute(null);
+        editor.Ways[0].Description = "Buy a ready one";
+        editor.AddAListWayCommand.Execute(editor.WayListsLeft.Single(choice => choice.Name == "Homemade sauce"));
+
+        Assert.False(editor.CanStandForLists);
+
+        await screen.SaveItemCommand.ExecuteAsync(null);
+        await context.SynchroniseAsync();
+
+        var ways = Assert.Single(context.Server.TaskLists.Single(list => list.Title == "Burger").Items).AllAlternatives;
+        Assert.Equal(2, ways.Count);
+        Assert.Equal("Buy a ready one", ways[0].Description);
+        Assert.NotNull(ways[1].LinkedTaskListId);
+    }
+
+    /// <summary>
+    /// Pressing such an entry's box offers its ways rather than ticking it, and taking a line of its own is
+    /// what makes the entry done - the question Orbit.Web asks under the same row.
+    /// </summary>
+    [Fact]
+    public async Task Pressing_an_entry_done_by_ways_offers_them_and_taking_a_line_ticks_it()
+    {
+        using var context = new ScreenContext();
+        context.OpenTaskList("Homemade sauce");
+        var screen = await ABurgerWithASauceAsync(context);
+        screen.EditItemCommand.Execute(screen.Items.Single());
+        var editor = screen.BeingEdited!;
+        editor.AddAWayCommand.Execute(null);
+        editor.Ways[0].Description = "Buy a ready one";
+        editor.AddAListWayCommand.Execute(editor.WayListsLeft.Single(choice => choice.Name == "Homemade sauce"));
+        await screen.SaveItemCommand.ExecuteAsync(null);
+
+        await screen.ToggleItemCommand.ExecuteAsync(screen.Items.Single());
+
+        Assert.True(screen.IsAskingAboutTheWays);
+        Assert.Equal(["Buy a ready one", "Open Homemade sauce"], screen.WaysOffered);
+        Assert.False(screen.Items.Single().IsCompleted);
+
+        await screen.AnswerTheWaysCommand.ExecuteAsync(0);
+
+        Assert.False(screen.IsAskingAboutTheWays);
+        Assert.True(screen.Items.Single().IsCompleted);
+    }
+
+    /// <summary>A list called Burger with one entry, Sauce, that has reached the server.</summary>
+    private static async Task<TaskListDetailViewModel> ABurgerWithASauceAsync(ScreenContext context)
+    {
+        var screen = context.OpenTaskList("Burger");
+        screen.NewItemDescription = "Sauce";
+        await screen.AddItemCommand.ExecuteAsync(null);
+        await context.SynchroniseAsync();
+        await screen.LoadCommand.ExecuteAsync(null);
+        return screen;
+    }
+
+    /// <summary>
     /// An entry standing for another list is done when that list is, so its box cannot be ticked here.
     /// The press is taken rather than refused: it names the list and offers to go there, which is the
     /// question Orbit.Web asks under the same row. Pressed and silently ignored, the phone looked broken.

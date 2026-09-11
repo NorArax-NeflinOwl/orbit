@@ -537,6 +537,50 @@ public sealed class TaskEditorItemFormTests : OrbitTestContext
         Assert.Contains(choices[1]!, _lastSavedJson);
     }
 
+    /// <summary>
+    /// An entry can instead be done any one of several ways - a line of its own, or another list - and
+    /// both reach the save, the line with its tick and the entry done because of it. See
+    /// TaskItem.Alternatives.
+    /// </summary>
+    [Fact]
+    public void An_entry_can_be_given_a_line_and_a_list_as_ways_and_both_are_saved()
+    {
+        RegisterApiClients(AnItem());
+        var cut = Render();
+        ExpandTheOnlyItem(cut);
+
+        ClickButtonSaying(cut, "Add a way");
+        cut.Find(".entry-way-text").Input("Buy a ready one");
+        cut.Find(".entry-way input[type=checkbox]").Change(true);
+        var listPicker = cut.FindAll("select").Single(box => box.GetAttribute("aria-label") == "Or a list");
+        var list = listPicker.QuerySelectorAll("option")
+            .Select(option => option.GetAttribute("value"))
+            .First(value => !string.IsNullOrEmpty(value));
+        listPicker.Change(list);
+        ClickButtonSaying(cut, "Save");
+
+        var entry = JsonDocument.Parse(_lastSavedJson!).RootElement.GetProperty("items")[0];
+        var ways = entry.GetProperty("alternatives");
+        Assert.Equal(2, ways.GetArrayLength());
+        Assert.Equal("Buy a ready one", ways[0].GetProperty("description").GetString());
+        Assert.True(ways[0].GetProperty("isDone").GetBoolean());
+        Assert.Equal(list, ways[1].GetProperty("linkedTaskListId").GetString());
+        Assert.True(entry.GetProperty("isCompleted").GetBoolean());
+    }
+
+    /// <summary>One or the other: while an entry has ways it is not offered lists to stand for.</summary>
+    [Fact]
+    public void An_entry_with_ways_is_not_offered_lists_to_stand_for()
+    {
+        RegisterApiClients(AnItem());
+        var cut = Render();
+        ExpandTheOnlyItem(cut);
+
+        ClickButtonSaying(cut, "Add a way");
+
+        Assert.DoesNotContain(cut.FindAll("select"), box => box.GetAttribute("aria-label") == "Stands for these lists");
+    }
+
     /// <summary>A list already named is not offered again - that would be offering to say it twice.</summary>
     [Fact]
     public void A_list_it_already_stands_for_is_not_offered_again()

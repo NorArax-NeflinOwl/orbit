@@ -169,6 +169,7 @@ erDiagram
     OP_TASKS_ITEMS ||--o{ OP_TASKS_PRODUCT_CATEGORIES : "product tagged"
     OP_TASKS_ITEMS ||--o{ OL_TASKS_ITEMS : "links to lists"
     OP_TASKS_ITEMS ||--o{ OL_TASKS_STEPS : "waits for entries"
+    OP_TASKS_ITEMS ||--o{ OP_TASKS_ALTERNATIVES : "done any one of these ways"
     OP_TASKS ||--o{ OL_TASKS_ITEMS : "linked from items"
     OP_INVENTORIES ||--o{ OP_INVENTORIES_ITEMS : contains
     OP_INVENTORIES_ITEMS ||--o{ OP_INVENTORIES_CATEGORIES : "tagged"
@@ -198,6 +199,13 @@ erDiagram
         uuid OP_TI_LINKEDCALENDAREVENTID
         uuid OP_TI_LINKEDINVENTORYITEMID
         bool OP_TI_REMINDDAILY
+    }
+    OP_TASKS_ALTERNATIVES {
+        uuid OP_TA_TASKITEMID PK
+        int OP_TA_POSITION PK "two ways may say the same words"
+        text OP_TA_DESCRIPTION
+        uuid OP_TA_LINKEDTASKLISTID "null = a line ticked by hand; no FK"
+        bool OP_TA_ISDONE "a line's own tick; always false for a list, which is read from the list"
     }
     OL_TASKS_STEPS {
         uuid OL_TS_TASKITEMID PK "the entry that waits"

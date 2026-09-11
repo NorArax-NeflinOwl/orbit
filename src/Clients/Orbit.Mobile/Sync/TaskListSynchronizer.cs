@@ -329,5 +329,8 @@ public sealed class TaskListSynchronizer
             // alone. Sending them as they arrived is what makes that rule unnecessary rather than
             // relied upon, the same way the product above travels untouched.
             item.Priority,
-            item.Colour)).ToList();
+            item.Colour,
+            // The ways it is done by, as the local copy holds them - which this phone now writes as well
+            // as reads (see TaskItemEditor.Ways). Always a list, for the reason the steps above are one.
+            item.AllAlternatives)).ToList();
 }

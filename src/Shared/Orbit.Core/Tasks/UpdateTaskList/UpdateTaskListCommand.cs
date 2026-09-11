@@ -51,5 +51,12 @@ public sealed record UpdateTaskListCommand(
     /// caller said nothing and the stored answer stands - the same rule the three fields above follow,
     /// and the reason is the same: the phone saves lists without knowing this exists.
     /// </summary>
-    TaskListCompletion? Completion = null)
+    TaskListCompletion? Completion = null,
+    /// <summary>
+    /// The entries that said nothing about the ways they are done by, which keep the ways they already
+    /// have - see TaskItem.Alternatives. The sixth field to follow this rule, for the usual reason: the
+    /// phone builds already installed save lists without knowing ways exist, and such a save must not
+    /// wipe the ways written on the web. An entry that sends an empty list is clearing them.
+    /// </summary>
+    IReadOnlySet<Guid>? EntriesKeepingTheirAlternatives = null)
     : IRequest<EditOutcome>;

@@ -256,6 +256,16 @@ public sealed partial class TaskItemSummaryViewModel : ObservableObject
             return;
         }
 
+        // An entry done by ways (see TaskItem.Alternatives) has no tick of its own either: it is done
+        // when one way is, and a way is taken on the list's screen, which offers them. Named here the
+        // way a linked entry names its lists.
+        if (item.AllAlternatives.Count > 0)
+        {
+            Status = _translations.Format(
+                "Done as soon as any one of these is: {0}.", await NameTheWaysAsync(item, cancellationToken));
+            return;
+        }
+
         // One press moves to the next of the three answers - nothing, done, given up on. See TickState,
         // which is the same cycle the list screen and the browser follow.
         var next = Ticks.Read(item.IsCompleted, item.IsFailed).Next();
@@ -414,6 +424,22 @@ public sealed partial class TaskItemSummaryViewModel : ObservableObject
                 taskLists.FirstOrDefault(candidate => candidate.ServerId == linkedServerId) is { } named
                     ? named.Title
                     : _translations["another list"]));
+    }
+
+    /// <summary>
+    /// The ways this entry is done by, named and joined: a way's own words, or its list's title when it
+    /// says nothing else - "another list" for one this phone has not got, as above.
+    /// </summary>
+    private async Task<string> NameTheWaysAsync(
+        Orbit.Contracts.Tasks.TaskItemDto item, CancellationToken cancellationToken)
+    {
+        var taskLists = await _taskLists.GetAllAsync(cancellationToken);
+        return string.Join(
+            ", ",
+            item.AllAlternatives.Select(way =>
+                way.Description.Length > 0 ? _translations.Written(way.Description)
+                : taskLists.FirstOrDefault(candidate => candidate.ServerId == way.LinkedTaskListId) is { } named ? named.Title
+                : _translations["another list"]));
     }
 
     /// <summary>

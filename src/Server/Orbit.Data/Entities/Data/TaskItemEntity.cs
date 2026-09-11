@@ -59,6 +59,12 @@ public sealed class TaskItemEntity
     /// </summary>
     public List<TaskItemStepEntity> Steps { get; set; } = [];
 
+    /// <summary>
+    /// The ways this entry can be got done, any one of which is enough - see
+    /// Orbit.Core.Tasks.TaskItem.Alternatives. Empty for an ordinary entry, which is nearly all of them.
+    /// </summary>
+    public List<TaskItemAlternativeEntity> Alternatives { get; set; } = [];
+
     /// <summary>What this entry is filed under - see Orbit.Core.Tasks.TaskItem.Categories. Empty for one nobody has filed.</summary>
     public List<TaskItemCategoryEntity> Categories { get; set; } = [];
 

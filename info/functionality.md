@@ -580,6 +580,36 @@ its own source mid-selection). It offers the other entries of the open list - ne
 one that has not been saved, a step being named by id - and its saves now write the field rather than
 passing through whatever arrived.
 
+**An entry can be done any one of several ways** (2026-09-11, `OP_TASKS_ALTERNATIVES`,
+`TaskItem.Alternatives`, `TaskItemAlternative`). The example that asked for it: a burger recipe whose
+sauce can be bought ready or made from a list of its own. **Ways to get it done** lists the choices. Each
+way is either a line of its own, ticked by hand ("Buy a ready one"), or another list ("Homemade sauce"),
+which is done when that list is. The entry is **done as soon as any one way is**. So a one-errand
+alternative needs no list made for it, which is what "Stands for these lists" would have needed.
+
+- **The opposite of Stands for these lists.** That field is "every one of these", and this is "any one
+  of these". An entry has one or the other, so each form hides whichever the entry is not using. If both
+  arrive, the links win and the ways are dropped, in `TaskItem`'s constructor.
+- **Its tick belongs to its ways.** A tick sent for the entry itself is ignored while it has ways. A way
+  that is a list is never taken on a client's word: `LinkedTaskCompletionResolver` works it out on every
+  read, and it is stored as not done. `TaskListLinkValidator` checks a way's list the way it checks a link:
+  it must exist, must not be the entry's own list, and must not close a loop.
+- **Rebuilds keep everything.** Resolving an entry now keeps every field it carries. The resolver used
+  to rebuild a linked entry from its id, words, date and reminders alone, so a read handed it back
+  without its notes, kind, colour or priority.
+- **Pressing its box offers the ways.** The checklist's rows (web) and the list screen's sheet (phone)
+  let the reader take a line or take it back, or go to a way's list. The web entry page offers the same.
+  The phone's entry screen names the ways and sends the reader to the list screen to take one. The row
+  says which way it was done, or which ways it can be.
+- **Both forms edit them**, the web editor in the entry's checklist panel and the phone's entry form. On
+  the web only a checklist entry offers them; a way left blank is not saved. A private list seals them
+  with its entries (`TasksApiClient.SealIfPrivateAsync`).
+- **Not sending them keeps them.** A request that says nothing about an entry's ways leaves the stored
+  ones alone (`UpdateTaskListCommand.EntriesKeepingTheirAlternatives`, the sixth field to follow that
+  rule). Phone builds already installed save lists without knowing ways exist.
+- **Reminders.** An entry whose ways include a list gets no daily or overdue reminder, the same as a
+  linked entry, because its stored tick cannot know that list is finished.
+
 **An entry's own box has three answers too** (`OP_TI_ISFAILED`, `Orbit.Core.Tasks.TaskItem.IsFailed`,
 2026-09-09): nothing, **done**, and **given up on** - one press moves to the next, and the third press
 clears it (`Orbit.Core.Abstractions.TickState`, which both clients cycle through so a box means the same

@@ -7179,6 +7179,48 @@ span.calendar-task-chip {
     font-size: 13px;
 }
 
+/* An entry's ways, one to a line under their label - see TaskEditor's "Ways to get it done". */
+.entry-ways {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    width: 100%;
+}
+
+.entry-way {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.entry-way-text {
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+/* A way that is a list reads as the list chips above do, since it is the same kind of thing. */
+.entry-way-list {
+    flex: 1 1 auto;
+    padding: 3px 10px;
+    background: var(--bg-subtle);
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    font-size: 13px;
+}
+
+.entry-way-add {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
+}
+
+/* The way that was taken, among the ones offered - see TaskListChecklist.WaysAsked and the entry's page. */
+.btn-secondary.chosen {
+    border-color: var(--accent);
+    color: var(--accent);
+}
+
 /* The restock section's two switches each govern what sits under them: the first the whole section, the
    second only the hour its reminder arrives at. Greyed out rather than hidden, because somebody deciding
    whether to switch one back on should be able to read what they would be switching on. The controls

@@ -325,7 +325,7 @@
             <!-- What this entry stands for. A group list gathers other lists through entries pointing
                  at them, so without this a group made on the phone gathered nothing. Inside the form,
                  unlike moving: it is a fact about the entry, and it is saved with it. -->
-            <VerticalStackLayout Spacing="4" IsVisible="{Binding BeingEdited.CanBeLinked}">
+            <VerticalStackLayout Spacing="4" IsVisible="{Binding BeingEdited.CanStandForLists}">
                 <Label Text="{controls:Translate 'Link to list'}" FontSize="12" Style="{StaticResource SubtleLabel}" />
                 <!-- The picker says what to add next rather than what is already there: one entry may
                      stand for several lists, and choosing adds one and clears the picker. -->
@@ -352,6 +352,41 @@
                         </DataTemplate>
                     </BindableLayout.ItemTemplate>
                 </VerticalStackLayout>
+            </VerticalStackLayout>
+
+            <!-- The ways this entry can be got done, any one of which is enough - "the sauce": buy a
+                 ready one, or make it from a list of its own. Offered while it stands for no list, and
+                 the lists above hide while it has ways; Orbit.Web draws the same pair. -->
+            <VerticalStackLayout Spacing="4" IsVisible="{Binding BeingEdited.CanHaveWays}">
+                <Label Text="{controls:Translate 'Ways to get it done'}" FontSize="12" Style="{StaticResource SubtleLabel}" />
+                <VerticalStackLayout BindableLayout.ItemsSource="{Binding BeingEdited.Ways}" Spacing="2">
+                    <BindableLayout.ItemTemplate>
+                        <DataTemplate x:DataType="screens:TaskItemWay">
+                            <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="8">
+                                <CheckBox Grid.Column="0" IsChecked="{Binding IsDone}" IsVisible="{Binding IsALine}"
+                                          SemanticProperties.Description="{controls:Translate 'Done this way'}" />
+                                <Entry Grid.Column="1" Text="{Binding Description}" IsVisible="{Binding IsALine}"
+                                       Placeholder="{controls:Translate 'A way of doing it'}" />
+                                <Label Grid.Column="1" Text="{Binding ListName}" IsVisible="{Binding IsAList}"
+                                       VerticalOptions="Center" LineBreakMode="TailTruncation" />
+                                <Button Grid.Column="2" Text="✕" FontSize="14" WidthRequest="44" Padding="0"
+                                        BackgroundColor="Transparent" BorderWidth="0"
+                                        SemanticProperties.Description="{controls:Translate 'Remove'}"
+                                        TextColor="{AppThemeBinding Light={StaticResource SubtleTextLight}, Dark={StaticResource SubtleTextDark}}"
+                                        Command="{Binding ViewModel.BeingEdited.RemoveWayCommand, Source={RelativeSource AncestorType={x:Type ContentPage}}, x:DataType=tasks:TaskListDetailPage}"
+                                        CommandParameter="{Binding .}" />
+                            </Grid>
+                        </DataTemplate>
+                    </BindableLayout.ItemTemplate>
+                </VerticalStackLayout>
+                <Button Text="{controls:Translate 'Add a way'}" HorizontalOptions="Start"
+                        FontSize="12" Padding="12,6" Style="{StaticResource SecondaryButton}"
+                        Command="{Binding BeingEdited.AddAWayCommand}" />
+                <!-- The same picker the lists above use, and settled the same way - see OnWayListPicked. -->
+                <Picker Title="{controls:Translate 'Or a list…'}" ItemsSource="{Binding BeingEdited.WayListsLeft}"
+                        ItemDisplayBinding="{Binding Name, x:DataType=screens:TaskListChoice}"
+                        SelectedIndexChanged="OnWayListPicked"
+                        SemanticProperties.Description="{controls:Translate 'Or a list'}" />
             </VerticalStackLayout>
 
             <!-- The order the work on this list has to be done in - "hang the door" after "fit the

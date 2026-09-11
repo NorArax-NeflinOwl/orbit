@@ -277,6 +277,25 @@ public partial class TaskListDetailPage : ContentPage, ITitleMenu, ITitleSteps
 
 	/// <summary>
 	/// The same two rules as the link picker above, for the same two reasons: the choice is let go of
+	/// before the way is added, and both after the picker's own selection has finished. See
+	/// OnLinkedTaskListPicked.
+	/// </summary>
+	private void OnWayListPicked(object? sender, EventArgs eventArgs)
+	{
+		if (sender is not Picker picker || picker.SelectedItem is not TaskListChoice chosen)
+		{
+			return;
+		}
+
+		Dispatcher.Dispatch(() =>
+		{
+			picker.SelectedIndex = -1;
+			_viewModel.BeingEdited?.AddAListWayCommand.Execute(chosen);
+		});
+	}
+
+	/// <summary>
+	/// The same two rules as the link picker above, for the same two reasons: the choice is let go of
 	/// before the step is added, and both happen after the picker's own selection has finished. See
 	/// OnLinkedTaskListPicked, which explains what each of them is avoiding.
 	/// </summary>
@@ -356,6 +375,13 @@ public partial class TaskListDetailPage : ContentPage, ITitleMenu, ITitleSteps
 			return;
 		}
 
+		if (eventArgs.PropertyName == nameof(TaskListDetailViewModel.IsAskingAboutTheWays)
+			&& _viewModel.IsAskingAboutTheWays)
+		{
+			await AskAboutTheWaysAsync();
+			return;
+		}
+
 		if (eventArgs.PropertyName != nameof(TaskListDetailViewModel.IsAskingToFinishRestocking)
 			|| !_viewModel.IsAskingToFinishRestocking)
 		{
@@ -411,6 +437,20 @@ public partial class TaskListDetailPage : ContentPage, ITitleMenu, ITitleSteps
 
 		_viewModel.OpenTheListBehindCommand.Execute(
 			lists.FirstOrDefault(list => list.Label == chosen));
+	}
+
+	/// <summary>
+	/// The question raised by pressing the box of an entry done by ways - see
+	/// TaskListDetailViewModel.AskAboutTheWays. Always a sheet: the reader picks the way they took, or a
+	/// list to go and finish. The answer goes back by position, since two ways may say the same words.
+	/// </summary>
+	private async Task AskAboutTheWaysAsync()
+	{
+		var offered = _viewModel.WaysOffered.ToList();
+		var chosen = await DisplayActionSheetAsync(
+			_translations["Done as soon as any one of these is:"], _translations["Cancel"], null, [.. offered]);
+		var index = chosen is null ? -1 : offered.IndexOf(chosen);
+		await _viewModel.AnswerTheWaysCommand.ExecuteAsync(index < 0 ? null : index);
 	}
 
 	private async Task ShowItemMenuAsync(TaskItemRow? item)

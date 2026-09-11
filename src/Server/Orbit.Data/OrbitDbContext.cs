@@ -240,6 +240,21 @@ public sealed class OrbitDbContext : DbContext
                 .WithOne()
                 .HasForeignKey(step => step.TaskItemId)
                 .OnDelete(DeleteBehavior.Cascade);
+
+            // The ways it can be got done, owned the same way.
+            entity.HasMany(item => item.Alternatives)
+                .WithOne()
+                .HasForeignKey(way => way.TaskItemId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<TaskItemAlternativeEntity>(entity =>
+        {
+            // Position rather than the words as half the key: two ways may say the same thing.
+            entity.HasKey(way => new { way.TaskItemId, way.Position });
+            entity.Property(way => way.Description).IsRequired().HasMaxLength(StoredTextLimits.TaskDescription);
+            // No foreign key to the list a way is, for the reason the links below have none.
+            entity.HasIndex(way => way.LinkedTaskListId);
         });
 
         modelBuilder.Entity<TaskItemCategoryEntity>(entity =>

@@ -78,7 +78,13 @@ public sealed record TaskItemRequest(
     /// <inheritdoc cref="TaskItemDto.Priority"/>
     string? Priority = null,
     /// <inheritdoc cref="TaskItemDto.Colour"/>
-    string? Colour = null)
+    string? Colour = null,
+    /// <summary>
+    /// The ways this entry can be got done - see <see cref="TaskItemDto.Alternatives"/>. <b>Null means
+    /// "not provided"</b> and leaves the stored ways alone, which is what a client written before ways
+    /// existed sends; an empty list means "none", and clears them.
+    /// </summary>
+    IReadOnlyList<TaskItemAlternativeDto>? Alternatives = null)
 {
     /// <summary>Whichever shape the sender used, read as one - see <see cref="LinkedTaskListIds"/>.</summary>
     public IReadOnlyList<Guid> AllLinkedTaskListIds
@@ -123,5 +129,6 @@ public sealed record TaskItemRequest(
             item.AllWaitsForTaskItemIds,
             // As they came, null included, for the reason Notes above gives.
             item.Priority,
-            item.Colour);
+            item.Colour,
+            item.Alternatives);
 }

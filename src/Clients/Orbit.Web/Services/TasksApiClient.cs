@@ -256,7 +256,10 @@ public sealed class TasksApiClient
                 LinkedTaskListId: null,
                 item.OverdueNotificationChannel, item.RemindDaily, item.DailyReminderNotificationChannel,
                 item.DailyReminderTimeOfDay,
-                LinkedTaskListIds: item.AllLinkedTaskListIds))
+                LinkedTaskListIds: item.AllLinkedTaskListIds,
+                // The ways it is done by travel sealed with it: a private list keeps nothing readable on
+                // the server, so anything left out here is simply gone on the next read.
+                Alternatives: item.Alternatives))
             .ToList();
         var encryptedContent = await _privateContentSealer.SealAsync(new SealedTaskList(title, sealedItems), cancellationToken);
         return (string.Empty, [], encryptedContent);

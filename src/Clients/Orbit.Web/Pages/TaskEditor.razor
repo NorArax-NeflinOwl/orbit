@@ -109,15 +109,19 @@ else
                     @* Three answers, as everywhere else an entry is ticked: nothing, done, given up on
                        - see TickBox. A linked entry's box is drawn and refuses the press: its answer
                        follows the lists it stands for. *@
-                    @if (!item.IsALinkToOtherLists)
+                    @if (!item.IsALinkToOtherLists && !item.HasAlternatives)
                     {
                         <TickBox State="@item.Tick" AriaLabel="@(T["Completed"])"
                                  StateChanged="state => item.Tick = state" />
                     }
                     else
                     {
+                        @* An entry done by ways refuses it the same way: its answer is whichever way
+                           was taken - see the ways below. *@
                         <TickBox State="@item.Tick" IsDisabled="true"
-                                 AriaLabel="@(T["Completed - follows the linked list, can't be set by hand"])" />
+                                 AriaLabel="@(item.HasAlternatives
+                                     ? T["Completed - done when any one of its ways is"]
+                                     : T["Completed - follows the linked list, can't be set by hand"])" />
                     }
                     @* Reassigned on every row, so it holds the last one by the time the loop ends - which
                        is the row Add item just appended, and the one the cursor belongs in. *@
@@ -417,17 +421,20 @@ else
                             @* An entry can stand for several lists - "the flat is ready" is the kitchen
                                and the bathroom and the hall. Written as one step rather than three
                                entries saying the same thing, and done only when all of them are. *@
-                            <span class="field-break"></span>
-                            <label>@T["Stands for these lists"]
-                                <select value="" @onchange="args => LinkToTheList(item, args.Value)"
-                                        aria-label="@(T["Stands for these lists"])">
-                                    <option value="">@(item.IsALinkToOtherLists ? T["Add another…"] : T["None"])</option>
-                                    @foreach (var linkableTaskList in LinkableListsFor(item))
-                                    {
-                                        <option value="@linkableTaskList.Id">@Written(linkableTaskList.Title)</option>
-                                    }
-                                </select>
-                            </label>
+                            @if (!item.HasAlternatives)
+                            {
+                                <span class="field-break"></span>
+                                <label>@T["Stands for these lists"]
+                                    <select value="" @onchange="args => LinkToTheList(item, args.Value)"
+                                            aria-label="@(T["Stands for these lists"])">
+                                        <option value="">@(item.IsALinkToOtherLists ? T["Add another…"] : T["None"])</option>
+                                        @foreach (var linkableTaskList in LinkableListsFor(item))
+                                        {
+                                            <option value="@linkableTaskList.Id">@Written(linkableTaskList.Title)</option>
+                                        }
+                                    </select>
+                                </label>
+                            }
                             @if (item.IsALinkToOtherLists)
                             {
                                 <span class="field-break"></span>
@@ -442,6 +449,51 @@ else
                                         </li>
                                     }
                                 </ul>
+                            }
+                            @* Or done any one of several ways - "the sauce": buy a ready one, or make it
+                               from a list of its own. The other half of the lists above, so an entry has
+                               one or the other: ways are offered while it stands for no list, and the
+                               lists while it has no ways. A way is a line ticked here, or another list. *@
+                            @if (!item.IsALinkToOtherLists)
+                            {
+                                <span class="field-break"></span>
+                                <div class="entry-ways">
+                                    <span class="field-with-note">
+                                        <span class="editor-item-tags-label">@T["Ways to get it done"]</span>
+                                        <FieldHint>@T["Any one of them is enough: a line ticked here, or a list finished."]</FieldHint>
+                                    </span>
+                                    @foreach (var way in item.Alternatives)
+                                    {
+                                        <div class="entry-way">
+                                            @if (way.LinkedTaskListId is { } wayListId)
+                                            {
+                                                <span class="entry-way-list">@Written(TitleOfTaskList(wayListId))</span>
+                                            }
+                                            else
+                                            {
+                                                <input type="checkbox" checked="@way.IsDone" aria-label="@(T["Done this way"])"
+                                                       @onchange="args => TakeWay(item, way, args.Value is true)" />
+                                                <input type="text" class="entry-way-text" value="@way.Description"
+                                                       placeholder="@(T["A way of doing it"])" aria-label="@(T["A way of doing it"])"
+                                                       @oninput="args => way.Description = args.Value?.ToString() ?? string.Empty" />
+                                            }
+                                            <button type="button" class="icon-btn" title="@(T["Remove"])" aria-label="@(T["Remove"])"
+                                                    @onclick="() => RemoveWay(item, way)">✕</button>
+                                        </div>
+                                    }
+                                    <div class="entry-way-add">
+                                        <button type="button" class="btn-secondary"
+                                                @onclick="() => item.Alternatives.Add(new TaskItemAlternativeFormModel())">@T["Add a way"]</button>
+                                        <select value="" @onchange="args => AddAListWay(item, args.Value)"
+                                                aria-label="@(T["Or a list"])">
+                                            <option value="">@T["Or a list…"]</option>
+                                            @foreach (var wayList in WayListsFor(item))
+                                            {
+                                                <option value="@wayList.Id">@Written(wayList.Title)</option>
+                                            }
+                                        </select>
+                                    </div>
+                                </div>
                             }
                             <label>@T["Overdue notification"]<select @bind="item.OverdueNotificationChannel">
                                     @foreach (var option in NotificationChannelOption.All)
@@ -999,6 +1051,35 @@ else
         => item.LinkedTaskListIds.Remove(taskListId);
 
     /// <summary>
+    /// The lists that could still be one of this entry's ways: the lists it could stand for, less the
+    /// ones already a way - the same universe, since a way that is a list is checked the way a link is.
+    /// </summary>
+    private IReadOnlyList<TaskDto> WayListsFor(TaskItemFormModel item)
+        => [.. _linkableTaskLists.Where(candidate => item.Alternatives.All(way => way.LinkedTaskListId != candidate.Id))];
+
+    private static void AddAListWay(TaskItemFormModel item, object? chosenValue)
+    {
+        if (Guid.TryParse(chosenValue?.ToString(), out var taskListId)
+            && item.Alternatives.All(way => way.LinkedTaskListId != taskListId))
+        {
+            item.Alternatives.Add(new TaskItemAlternativeFormModel { LinkedTaskListId = taskListId });
+        }
+    }
+
+    /// <summary>Takes a way or takes it back, and the entry's box follows - it is theirs while it has any.</summary>
+    private static void TakeWay(TaskItemFormModel item, TaskItemAlternativeFormModel way, bool isDone)
+    {
+        way.IsDone = isDone;
+        item.IsCompleted = item.Alternatives.Any(candidate => candidate.IsDone);
+    }
+
+    private static void RemoveWay(TaskItemFormModel item, TaskItemAlternativeFormModel way)
+    {
+        item.Alternatives.Remove(way);
+        item.IsCompleted = item.HasAlternatives ? item.Alternatives.Any(candidate => candidate.IsDone) : item.IsCompleted;
+    }
+
+    /// <summary>
     /// What the colour well opens on for an entry that has no colour of its own - the same blue every
     /// other screen falls back to for one (see CalendarDayGrid.EventColor). Only what the control shows:
     /// nothing is stored until somebody actually picks.
@@ -1296,6 +1377,12 @@ else
                                 LinkedInventoryItemId = item.LinkedInventoryItemId,
                                 LinkedCalendarEventId = item.LinkedCalendarEventId?.ToString() ?? string.Empty,
                                 LinkedTaskListIds = [.. item.AllLinkedTaskListIds],
+                                Alternatives = [.. item.AllAlternatives.Select(way => new TaskItemAlternativeFormModel
+                                {
+                                    Description = way.Description,
+                                    LinkedTaskListId = way.LinkedTaskListId,
+                                    IsDone = way.IsDone
+                                })],
                                 Categories = [.. CategoriesOf(item)],
                                 Notes = item.AllNotes,
                                 // Both may be absent from an entry stored before they existed, and both
@@ -2282,7 +2369,7 @@ else
                 item.Description,
                 item.Id,
                 ToDueDateUtc(item),
-                item.IsCompleted,
+                IsCompletedAsSaved(item),
                 // The old single field goes out empty: this client speaks the new one, and sending both
                 // would make the server pick between two answers.
                 LinkedTaskListId: null,
@@ -2304,8 +2391,28 @@ else
                 // stored", which is the answer for a client that has no box for them - see
                 // TaskItemDto.Priority.
                 item.Priority,
-                item.Colour))
+                item.Colour,
+                AlternativesAsSaved(item)))
             .ToList();
+
+    /// <summary>
+    /// The ways an entry is saved with. Only a checklist entry that stands for no list offers them (see
+    /// the form), so any other sends none and loses what it had once its kind changes - the way a kind
+    /// drops every field it no longer has. A way left blank is not a way.
+    /// </summary>
+    private static IReadOnlyList<TaskItemAlternativeDto> AlternativesAsSaved(TaskItemFormModel item)
+        => item.Kind != nameof(TaskItemKind.Checklist) || item.IsALinkToOtherLists
+            ? []
+            : [.. item.Alternatives
+                .Where(way => way.LinkedTaskListId is not null || way.Description.Trim().Length > 0)
+                .Select(way => new TaskItemAlternativeDto(way.Description.Trim(), way.LinkedTaskListId, way.IsDone))];
+
+    /// <summary>
+    /// An entry done by ways is done when one is. Said here as well as on the server, because a private
+    /// list is sealed as it is sent and nothing works it out for it afterwards.
+    /// </summary>
+    private static bool IsCompletedAsSaved(TaskItemFormModel item)
+        => AlternativesAsSaved(item) is { Count: > 0 } ways ? ways.Any(way => way.IsDone) : item.IsCompleted;
 
     /// <summary>
     /// What an entry asks for, as the save sends it - only for an inventory entry that does not already
@@ -2760,6 +2867,17 @@ else
         public List<TaskItemFormModel> Items { get; set; } = [];
     }
 
+    /// <summary>One way of getting an entry done, as the form edits it - see TaskItemFormModel.Alternatives.</summary>
+    private sealed class TaskItemAlternativeFormModel
+    {
+        public string Description { get; set; } = string.Empty;
+
+        /// <summary>The list this way is, or null for a line ticked in the form.</summary>
+        public Guid? LinkedTaskListId { get; set; }
+
+        public bool IsDone { get; set; }
+    }
+
     private sealed class TaskItemFormModel
     {
         /// <summary>Null for an item added in this editing session that hasn't been saved yet - "Move to another list" only applies once an item actually has a persisted id to move.</summary>
@@ -2852,6 +2970,16 @@ else
 
         /// <summary>Whether this entry points at other lists rather than being work of its own.</summary>
         public bool IsALinkToOtherLists => LinkedTaskListIds.Count > 0;
+
+        /// <summary>
+        /// The ways this entry can be got done, any one of which is enough - see TaskItem.Alternatives.
+        /// Empty for ordinary work. Offered only on a checklist entry that stands for no list: "any one
+        /// of these" and "every one of these" are two different entries.
+        /// </summary>
+        public List<TaskItemAlternativeFormModel> Alternatives { get; set; } = [];
+
+        /// <summary>Whether this entry is done by one of its ways rather than by a tick of its own.</summary>
+        public bool HasAlternatives => Alternatives.Count > 0;
 
         /// <summary>
         /// What this entry is about, as many as apply - see TaskItem.Categories. Held for every kind:
