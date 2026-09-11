@@ -3722,7 +3722,13 @@ the server marks nothing past it.
   and again after a mark the server did not accept. `ChatSeenProbe` counts a question it cannot ask as
   "nothing seen", the opposite of `PageVisibility`: there a wrong answer stops a chat updating, here it
   would be a read receipt for something nobody saw. Scrolling down to new messages, or focusing a window
-  that already shows them, is what marks them; the poll is only the net under those.
+  that already shows them, is what marks them; the poll is only the net under those. **The bell's
+  entries about a one-to-one conversation follow the same signal**: `Chat.razor` clears them
+  (`POST /api/notifications/read-at` for `/chat/{otherUserId}`) only once the other party's newest
+  message has been in view while the window was in front (`ChatReadState.HasSeenTheirNewest`) - an entry
+  does not say which message it was for, so it stays while one of theirs is still below the list.
+  Opening the conversation still settles what was waiting on arrival (`MainLayout`, `NewsSettler`). Group
+  messages record no feed entries, so a group thread has nothing to clear.
 - **The phone** (`ConversationViewModel`, `GroupConversationViewModel`) marks only while the page is
   showing (`OnAppearing`/`OnDisappearing`) and the app is in the foreground (the window's
   `Stopped`/`Resumed` - going to the background does not make a page disappear), up to the other

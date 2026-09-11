@@ -53,6 +53,30 @@ public sealed class ChatReadState
     }
 
     /// <summary>
+    /// Whether the newest message somebody else wrote has been seen: it is the message in view, or came
+    /// before it. What clears the bell's entries about the conversation. Each entry only says "a message
+    /// arrived" - nothing says which message it was for - so they go once nothing the other party wrote
+    /// is still below what has been seen, and not on the strength of the window being open.
+    ///
+    /// Nothing is remembered here, unlike <see cref="ReadUpToToTell"/>: the page asks the server only when
+    /// the feed has something unread for the conversation (NotificationFeedState.HasUnreadFor), so asking
+    /// this on every poll costs nothing.
+    /// </summary>
+    /// <param name="newestSeenMessageId">The newest message on screen while the window is in front, or null.</param>
+    /// <param name="messages">What the thread holds.</param>
+    public static bool HasSeenTheirNewest(
+        Guid? newestSeenMessageId, IReadOnlyList<ChatMessageDto> messages, Guid ownUserId)
+    {
+        if (newestSeenMessageId is not { } seenId
+            || messages.FirstOrDefault(message => message.Id == seenId) is not { } seen)
+        {
+            return false;
+        }
+
+        return !messages.Any(message => message.SenderUserId != ownUserId && message.SentAtUtc > seen.SentAtUtc);
+    }
+
+    /// <summary>
     /// Records that the server took it. Only after it did: a mark that failed on the way is sent again
     /// on the next chance rather than believed.
     /// </summary>

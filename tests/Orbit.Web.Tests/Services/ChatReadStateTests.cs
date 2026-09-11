@@ -104,6 +104,44 @@ public sealed class ChatReadStateTests
         Assert.Equal(message.SentAtUtc, state.ReadUpToToTell(message.Id, [message], OwnUserId));
     }
 
+    /// <summary>What clears the bell's entries about a conversation: nothing of theirs left below what was seen.</summary>
+    [Fact]
+    public void Their_newest_in_view_is_their_newest_seen()
+    {
+        var older = Theirs(minutesAgo: 2);
+        var newer = Theirs(minutesAgo: 1);
+
+        Assert.True(ChatReadState.HasSeenTheirNewest(newer.Id, [older, newer], OwnUserId));
+    }
+
+    [Fact]
+    public void A_message_of_theirs_below_the_one_in_view_is_not_seen()
+    {
+        var older = Theirs(minutesAgo: 2);
+        var newer = Theirs(minutesAgo: 1);
+
+        Assert.False(ChatReadState.HasSeenTheirNewest(older.Id, [older, newer], OwnUserId));
+    }
+
+    /// <summary>The reader's own reply under their last message is past it, so theirs has been seen.</summary>
+    [Fact]
+    public void An_own_message_in_view_below_theirs_means_theirs_was_seen()
+    {
+        var theirs = Theirs(minutesAgo: 3);
+        var own = Own(minutesAgo: 1);
+
+        Assert.True(ChatReadState.HasSeenTheirNewest(own.Id, [theirs, own], OwnUserId));
+    }
+
+    [Fact]
+    public void Nothing_in_view_is_nothing_seen()
+    {
+        var messages = new[] { Theirs(minutesAgo: 1) };
+
+        Assert.False(ChatReadState.HasSeenTheirNewest(null, messages, OwnUserId));
+        Assert.False(ChatReadState.HasSeenTheirNewest(Guid.NewGuid(), messages, OwnUserId));
+    }
+
     private static ChatMessageDto Theirs(int minutesAgo)
         => new(Guid.NewGuid(), OtherUserId, OwnUserId, "sealed", "nonce", Noon.AddMinutes(-minutesAgo), false, null);
 

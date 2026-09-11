@@ -11,6 +11,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.JSInterop;
 using Orbit.Contracts.Chat;
+using Orbit.Contracts.Notifications;
 using Orbit.Core.LiveUpdates;
 using Orbit.Core.Permissions;
 using Orbit.Web.Pages;
@@ -312,6 +313,79 @@ public sealed class ChatThreadTests : OrbitTestContext
 
         Assert.NotEmpty(ReadsSent());
         Assert.All(ReadsSent(), readUpTo => Assert.Equal(message.SentAtUtc, readUpTo));
+    }
+
+    /// <summary>
+    /// The bell's entries about the conversation follow what was seen, not the open window. They used to
+    /// be cleared as the conversation loaded - before anything in it was drawn - so a window on a second
+    /// screen took the notification away from somebody who had not looked at the message yet.
+    /// </summary>
+    [Fact]
+    public async Task A_window_nobody_is_at_leaves_the_conversations_notifications_alone()
+    {
+        _isInFront = false;
+        var message = Receive(minutesAgo: 1);
+        _newestInView = message.Id;
+        var feed = TheBellHasNewsAboutThisConversation();
+        var cut = RenderTheConversation();
+
+        await WaitUntilTheLoopHasTickedAsync(times: 3);
+        await cut.InvokeAsync(() => cut.Instance.OnThreadSeenMayHaveChanged());
+
+        Assert.Equal(0, TimesAsked("api/notifications/read-at"));
+        Assert.True(feed.HasUnreadFor($"/chat/{OtherUserId}"));
+    }
+
+    /// <summary>
+    /// An entry says only that a message arrived, not which one - so while one of theirs is still below
+    /// the bottom of the list, the entry stays, even though what is above it has been marked read.
+    /// </summary>
+    [Fact]
+    public async Task A_notification_stays_while_their_newest_message_is_not_yet_in_view()
+    {
+        var inView = Receive(minutesAgo: 2);
+        Receive(minutesAgo: 1);
+        _newestInView = inView.Id;
+        var feed = TheBellHasNewsAboutThisConversation();
+        RenderTheConversation();
+
+        await WaitUntilAReadHasBeenSentAsync();
+        await WaitUntilTheLoopHasTickedAsync(times: 3);
+
+        Assert.Equal(0, TimesAsked("api/notifications/read-at"));
+        Assert.True(feed.HasUnreadFor($"/chat/{OtherUserId}"));
+    }
+
+    /// <summary>Scrolling their newest message into view is what clears it - from the scroll, not the next poll.</summary>
+    [Fact]
+    public async Task Scrolling_their_newest_message_into_view_clears_its_notification()
+    {
+        var first = Receive(minutesAgo: 2);
+        var second = Receive(minutesAgo: 1);
+        _newestInView = first.Id;
+        var feed = TheBellHasNewsAboutThisConversation();
+        var cut = RenderTheConversation();
+        await WaitUntilAReadHasBeenSentAsync();
+        Assert.True(feed.HasUnreadFor($"/chat/{OtherUserId}"));
+
+        _newestInView = second.Id;
+        await cut.InvokeAsync(() => cut.Instance.OnThreadSeenMayHaveChanged());
+
+        Assert.True(TimesAsked("api/notifications/read-at") >= 1);
+        Assert.False(feed.HasUnreadFor($"/chat/{OtherUserId}"));
+    }
+
+    /// <summary>An unread entry in the bell about this conversation, as a message from the other party records one.</summary>
+    private NotificationFeedState TheBellHasNewsAboutThisConversation()
+    {
+        var feed = Services.GetRequiredService<NotificationFeedState>();
+        feed.Set(
+        [
+            new NotificationEntryDto(
+                Guid.NewGuid(), "ChatMessage", "New message", "New message from {0}", $"/chat/{OtherUserId}",
+                TheStartOfTheTest, IsRead: false)
+        ]);
+        return feed;
     }
 
     /// <summary>

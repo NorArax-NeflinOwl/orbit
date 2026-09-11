@@ -774,7 +774,6 @@ else
             await LoadConversationAccessAsync();
             await LoadNewMessagesAsync();
             await SyncReadStateAsync();
-            await ClearNotificationsForThisConversationAsync();
         }
         catch (HttpRequestException exception) when (exception.StatusCode == HttpStatusCode.Unauthorized)
         {
@@ -1352,6 +1351,8 @@ else
     /// Marks read what has actually been seen - on screen while the window is in front of somebody -
     /// and nothing after it. See ChatReadState, which makes the decision; this only gathers what it
     /// needs and passes the answer on. Most calls send nothing at all, because nothing new was seen.
+    /// The bell's entries about the conversation follow the same signal - see
+    /// ClearNotificationsForThisConversationAsync.
     ///
     /// The conversation and its read state are captured first: a reader who switches conversations
     /// while the question is out must not have the answer applied to the one they switched to.
@@ -1361,14 +1362,21 @@ else
         var otherUserId = UserId;
         var readState = _readState;
         var newestSeen = await ChatSeen.NewestMessageSeenAsync(_messageListElement);
-        var readUpToUtc = readState.ReadUpToToTell(newestSeen, _messages, _ownUserId);
-        if (readUpToUtc is null || otherUserId != _loadedUserId)
+        if (otherUserId != _loadedUserId)
         {
             return;
         }
 
-        await ChatApiClient.MarkConversationAsReadAsync(otherUserId, readUpToUtc.Value);
-        readState.Told(readUpToUtc.Value);
+        if (readState.ReadUpToToTell(newestSeen, _messages, _ownUserId) is { } readUpToUtc)
+        {
+            await ChatApiClient.MarkConversationAsReadAsync(otherUserId, readUpToUtc);
+            readState.Told(readUpToUtc);
+        }
+
+        if (ChatReadState.HasSeenTheirNewest(newestSeen, _messages, _ownUserId))
+        {
+            await ClearNotificationsForThisConversationAsync(otherUserId);
+        }
     }
 
     /// <summary>
@@ -1397,17 +1405,20 @@ else
     public Task OnThreadSeenMayHaveChanged() => InvokeAsync(MarkWhatHasBeenSeenQuietlyAsync);
 
     /// <summary>
-    /// Clears the notifications about this conversation while its window is open. Arriving here already
-    /// clears whatever was waiting (see MainLayout's own navigation handling), but a message that lands
-    /// while the reader is sitting in the window records a fresh entry that nothing would clear - so the
-    /// badge counts up beside a conversation being read as it happens.
+    /// Clears the notifications about this conversation once the other party's newest message has been
+    /// seen (ChatReadState.HasSeenTheirNewest) - the signal that marks messages read, rather than the
+    /// window being open. Arriving here already clears whatever was waiting (see MainLayout's own
+    /// navigation handling), but a message that lands while the reader is sitting in the window records a
+    /// fresh entry that nothing else would clear - so the badge counted up beside a conversation being
+    /// read as it happened. Until 2026-09-11 this ran once as the conversation loaded, before anything in
+    /// it had been drawn, let alone seen.
     ///
     /// Skipped unless something is actually unread for this route, so a poll every second doesn't become
     /// a request every second.
     /// </summary>
-    private async Task ClearNotificationsForThisConversationAsync()
+    private async Task ClearNotificationsForThisConversationAsync(Guid otherUserId)
     {
-        var conversationUrl = $"/chat/{UserId}";
+        var conversationUrl = $"/chat/{otherUserId}";
         if (!NotificationFeedState.HasUnreadFor(conversationUrl))
         {
             return;

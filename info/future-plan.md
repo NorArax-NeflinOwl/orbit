@@ -386,7 +386,14 @@ version, so they aren't mistaken for oversights:
   actual offset changes, so a short thread that fits the screen without scrolling may never say what is
   on it and so never be marked read there. Check on a device before relying on it; if iOS is silent, the
   page needs a second source for the visible range once it has laid out.
-- **Notifications about a web conversation are still cleared by the open window.**
+- ~~**Notifications about a web conversation are still cleared by the open window.**~~ Fixed 2026-09-11:
+  `Chat.razor` now clears them from `MarkWhatHasBeenSeenAsync`, on the signal that marks messages read -
+  tab visible, window focused - and only once the other party's newest message is in view
+  (`ChatReadState.HasSeenTheirNewest`), since an entry does not say which message it was for. The call
+  as the conversation loaded is gone: it ran before the thread was drawn, and (despite this entry) it was
+  the only one, so an entry recorded while the reader sat in the window was never cleared there at all.
+  `GroupConversation.razor` has nothing to change - group messages record no feed entries; the group
+  invitation's `/chat/groups/{id}` entry is settled on arrival by `MainLayout`. As noticed:
   `Chat.razor`'s `ClearNotificationsForThisConversationAsync` marks the conversation's entries in the
   notification feed read on load and on every poll, whether or not the new message has been seen. The
   feed is "tidying, not reading" (the unread badge comes from the conversation, not from the feed), so it
