@@ -13,7 +13,12 @@
 <div class="page-header">
     <div class="@(LeadingAction is null ? null : "page-heading")">
         @LeadingAction
-        <h1>@Title</h1>
+        @* Inside the heading rather than after it, so the mark reads as part of the title's own line -
+           the same place a field's "?" takes beside its label. *@
+        <h1>@Title@if (Description is not null)
+            {
+                <FieldHint>@Description</FieldHint>
+            }</h1>
         @if (Subtitle is not null)
         {
             <p class="page-subtitle">@Subtitle</p>
@@ -45,9 +50,19 @@
     [Parameter, EditorRequired] public RenderFragment? Title { get; set; }
 
     /// <summary>
-    /// Whatever a page states under its title - a description, a "Shared by" line, a count of what a
-    /// group list gathers. Left as the page's own markup rather than fixed text, since what it says
-    /// differs by object; wrapped here so every page's version reads the same.
+    /// What the page is for, folded behind a "?" beside the title rather than stated under it - see
+    /// FieldHint.razor. Every screen used to open with a sentence explaining itself, and a sentence read
+    /// once and then scrolled past on every visit after is the same small print a form's fields gave up.
+    /// The words are unchanged; they are one press or one hover away.
+    /// </summary>
+    [Parameter] public RenderFragment? Description { get; set; }
+
+    /// <summary>
+    /// Whatever a page states under its title about the thing it shows - a "Shared by" line, a count of
+    /// what a group list gathers, a storage's own description. Not what the page is for: that is
+    /// <see cref="Description"/>, and this is what stays in view because it changes with the object.
+    /// Left as the page's own markup rather than fixed text, since what it says differs by object;
+    /// wrapped here so every page's version reads the same.
     /// </summary>
     [Parameter] public RenderFragment? Subtitle { get; set; }
 

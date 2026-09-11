@@ -2900,11 +2900,13 @@ input.note-editor-title {
     margin-bottom: 32px;
 }
 
+/* The sentence that used to stand under each of these carried the gap to the card below it, and is
+   behind the heading's "?" now - so the heading keeps a little of that room itself. */
 .options-heading {
     font-family: var(--font-display);
     font-weight: 600;
     font-size: 16px;
-    margin: 0 0 4px 0;
+    margin: 0 0 12px 0;
 }
 
 .options-subtext {
@@ -3909,6 +3911,18 @@ input.note-editor-title {
     .field-hint-bubble {
         max-width: min(280px, 86vw);
     }
+}
+
+/* The same mark beside a page's or a section's heading - see PageHeader.Description. A heading is
+   larger and set in the display face, so the mark is given more room from the words and put back in the
+   body face it has beside a label; its own size is fixed already and does not grow with the heading. */
+:is(h1, h2, h3) > .field-hint-holder {
+    margin-left: 8px;
+}
+
+:is(h1, h2, h3) .field-hint-mark {
+    font-family: var(--font-body);
+    letter-spacing: normal;
 }
 
 /* Where a phone's Menu button lands - see PageToolbarTrigger. The auto margin eats the free space the

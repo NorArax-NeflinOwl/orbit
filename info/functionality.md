@@ -223,9 +223,21 @@ they are not descriptions: **where the verification code will be sent** (the add
 made, and it has to be read before the button is pressed) and **"Not supported in this browser"**, which
 replaces the switch rather than explaining it.
 
+**Pages and sections fold theirs the same way.** A page's title used to carry a sentence under it saying
+what the page is for ("Everything on your plate, in one place.") and so did most section headings - the
+Options sections, an event's Google Calendar section, the lists measured against a storage, the map's
+overlays. Those are behind a "?" beside the heading now: `PageHeader`'s `Description` for a page, a
+`FieldHint` inside the `<h1>`/`<h2>` where a page draws its own heading (the map, the password reset).
+What stays under a title is what is *about the thing shown* - a "Shared by" line, a storage's or a list's
+own description, the count of lists a group gathers, a copyright line (`PageHeader`'s `Subtitle`). The
+map's note about a live share becomes a **"!"** on "You are sharing with", since it is true only while one
+is live. A document's own body - Docs, Privacy, Security - is content, not a description, and stays.
+
 **What is still said out loud** is a refusal that has already happened: an error under Save, a message
 after an action. Those answer a question the reader is asking at that moment, and an answer behind a mark
-is an answer nobody finds.
+is an answer nobody finds. So is a list that is empty right now ("No contacts yet."), and an instruction
+that exists only while the screen is waiting for it (the map's "Click the map to drop a pin." until one
+is dropped).
 
 **The phone does the same thing its own way** (`Orbit.Maui/Controls/FieldHint.xaml`). There is no hover
 on a phone, so the mark is tapped; and what it opens is the sentence itself, in place under the name,
@@ -233,8 +245,9 @@ rather than a bubble over the page — a phone has no room for a layer, and text
 belongs needs no arrow pointing at what it is about. Tapping again folds it back. The control carries the
 field's name as well as the sentence, which is what lets the two lay out as one thing; `IsHeading` picks
 between a section's heading and a field's label, and `Warns` draws the same "!" the browser does. What
-stays visible there is what the browser keeps too: a page's own subtitle, and anything that reports a
-state rather than describing a control.
+stays visible there is a page's own subtitle - which the browser now folds too wherever it only says what
+the page is for (see above; the phone has not followed yet, see `info/future-plan.md`) - and anything
+that reports a state rather than describing a control.
 
 ## Advertising
 
@@ -2184,10 +2197,10 @@ took them, which is the ordinary shape of an open redirect.
 
 **A list says what it is for, under its name.** The editor has always asked a task list for a description
 and no page showed it - the one field in Orbit that could be written and never read. It is the checklist's
-subtitle now, where a storage's description already sat, and it takes the place of the sentence that used
-to be there ("Tick items off; use Edit to change the list itself.", or the count of a group's linked
-lists): those are a signpost about the page and a pointer at sections drawn directly below it, and
-somebody's own words about their list beat both. A list nobody described still gets the signpost.
+subtitle now, where a storage's description already sat, and it takes the place of the count of a group's
+linked lists, a pointer at sections drawn directly below it that somebody's own words about their list
+beat. The signpost that used to share that line ("Tick items off; use Edit to change the list itself.")
+is behind the title's "?" on every list instead: folded away, it no longer competes with anybody's words.
 
 **A web address written in a description can be pressed.** Wherever a description is *read* - a task
 list's, a calendar event's, a task entry's, a note's own lines, a storage's - the addresses in it are links
