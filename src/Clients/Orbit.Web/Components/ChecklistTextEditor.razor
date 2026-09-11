@@ -33,6 +33,15 @@
     [Parameter]
     public bool IsReadOnly { get; set; }
 
+    /// <summary>
+    /// Whether Tab indents the writing (Shift+Tab takes a level away) rather than moving to the next
+    /// control. Only for a surface that is a page to write on - the note itself. False by default: the
+    /// same surface is a form field elsewhere (see TitledDescription), and a form field that swallowed
+    /// Tab would leave a keyboard with no way out of it.
+    /// </summary>
+    [Parameter]
+    public bool TakesTab { get; set; }
+
     [Parameter(CaptureUnmatchedValues = true)]
     public IReadOnlyDictionary<string, object>? AdditionalAttributes { get; set; }
 
@@ -50,7 +59,7 @@
         _module = await JSRuntime.InvokeAsync<IJSObjectReference>("import", "./js/checklistTextEditor.js");
         _dotNetRef = DotNetObjectReference.Create(this);
         var initialLinesJson = JsonSerializer.Serialize(Lines, JsonOptions);
-        await _module.InvokeVoidAsync("initialize", _containerRef, _dotNetRef, initialLinesJson);
+        await _module.InvokeVoidAsync("initialize", _containerRef, _dotNetRef, initialLinesJson, new { takesTab = TakesTab });
     }
 
     /// <summary>
@@ -99,6 +108,8 @@
             "cut" => NoteSurfaceEdits.DeleteSelection(before),
             "replace" => NoteSurfaceEdits.Replace(before, request.Text ?? string.Empty, readsMarkers: false),
             "paste" => NoteSurfaceEdits.Replace(before, request.Text ?? string.Empty, readsMarkers: true),
+            "indent" when TakesTab => NoteSurfaceEdits.Indent(before),
+            "outdent" when TakesTab => NoteSurfaceEdits.Outdent(before),
             "tick" => NoteSurfaceEdits.Cycle(before, request.Line ?? -1),
             "checklistItem" => NoteSurfaceEdits.StartChecklistItem(before),
             "typed" => AfterTyping(request, before),

@@ -20,10 +20,11 @@
 
 const instances = new Map();
 
-export function initialize(container, dotNetHelper, initialLinesJson) {
+/// options: { takesTab } - see ChecklistTextEditor.TakesTab.
+export function initialize(container, dotNetHelper, initialLinesJson, options) {
     render(container, normalizeLines(JSON.parse(initialLinesJson)));
 
-    const state = { dotNetHelper, selectionBefore: null };
+    const state = { dotNetHelper, options: options || {}, selectionBefore: null };
     instances.set(container, state);
 
     state.onBeforeInput = (event) => onBeforeInput(event, container, state);
@@ -149,7 +150,7 @@ function onKeyDown(event, container, state) {
     }
 
     repairStrayText(container);
-    const command = commandFor(event);
+    const command = commandFor(event, state);
     if (!command) {
         return;
     }
@@ -161,7 +162,7 @@ function onKeyDown(event, container, state) {
     }
 }
 
-function commandFor(event) {
+function commandFor(event, state) {
     switch (event.key) {
         case 'Enter':
             return 'enter';
@@ -169,6 +170,14 @@ function commandFor(event) {
             return 'backspace';
         case 'Delete':
             return 'delete';
+        case 'Tab':
+            // Only on a surface that takes Tab, and never with a modifier that means something to the
+            // browser or the system (Ctrl+Tab changes tabs). Answered either way once asked, so the focus
+            // stays in the writing even when Shift+Tab finds no indentation to take.
+            if (!state.options.takesTab || event.ctrlKey || event.altKey || event.metaKey) {
+                return null;
+            }
+            return event.shiftKey ? 'outdent' : 'indent';
         default:
             return null;
     }

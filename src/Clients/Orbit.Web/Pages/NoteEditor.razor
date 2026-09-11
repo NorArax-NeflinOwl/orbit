@@ -89,6 +89,7 @@ else
             <div class="note-editor-surface">
                 <ChecklistTextEditor @ref="_checklistEditorRef" CssClass="note-editor-content note-editor-titled note-editor-page"
                                      IsReadOnly="@(_isSharedReadOnly || _lockedByUserName is not null)"
+                                     TakesTab="true"
                                      @bind-Lines="_formModel.Lines" />
 
                 @* Over the corner of the writing rather than above it: a toolbar at the top of a note

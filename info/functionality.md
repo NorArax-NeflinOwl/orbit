@@ -766,6 +766,15 @@ disagree in.
 - **The writing keeps room under its last line** for the tools and three lines more, and the caret's
   line scrolls clear of them (`.note-editor-page`'s padding and `scroll-padding`): the text used to run
   on underneath the tools.
+- **Tab indents, Shift+Tab takes a level away** (`NoteSurfaceEdits.Indent`/`Outdent`; the note sets
+  `ChecklistTextEditor.TakesTab` - the same surface as a form field elsewhere, `TitledDescription`, still
+  lets Tab move on). **One level is a tab character**, stored in the line's text: no separate field, so
+  it survives every place a note's text goes. Both the writing (`.note-line-text`) and the note's own page
+  (`.note-summary-line`, and its checklist rows) keep whitespace (`white-space: pre-wrap`) and draw a tab
+  four characters wide (`tab-size: 4`). Tab puts a level in at the caret, in place of a selection inside
+  one line; over lines, it indents each at its start and keeps them selected. Shift+Tab takes one level
+  from the start of the caret's line - a tab, or up to four spaces for text indented elsewhere - or of
+  each selected line. On a box line the indentation is part of the words, after the box.
 - **A paste goes in at the caret**, in place of a selection, as plain text (`onPaste`, then
   `NoteSurfaceEdits.Replace` with `readsMarkers`): the browser used to put it at the start of the line.
   Pasted text with line breaks becomes that many lines. A pasted line starting `[]`/`[ ]` comes in as a

@@ -92,6 +92,21 @@ public sealed class ChecklistTextEditorTests : OrbitTestContext
     }
 
     [Fact]
+    public void Tab_is_taken_only_by_a_surface_that_asks_for_it()
+    {
+        var lines = new[] { Text("abc") };
+        var field = Surface(lines);
+        var page = RenderComponent<ChecklistTextEditor>(parameters => parameters
+            .Add(editor => editor.Lines, lines)
+            .Add(editor => editor.TakesTab, true));
+        var request = new { command = "indent", lines, anchor = Caret(0, 0), focus = Caret(0, 0) };
+
+        Assert.Null(Send(field, request));
+        Assert.NotNull(Send(page, request));
+        Assert.Equal([Text("\tabc")], page.Instance.Lines);
+    }
+
+    [Fact]
     public void A_press_from_the_toolbar_with_no_caret_on_the_surface_starts_a_box_under_the_last_line()
     {
         var cut = Surface(Text("Shopping"), Text("milk"));

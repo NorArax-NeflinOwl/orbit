@@ -628,11 +628,17 @@ input.note-editor-title {
     margin-top: 0.3em;
 }
 
+/* pre-wrap, so what is typed is what is stored and what is drawn: without it a run of spaces and a tab
+   collapse to one space on the screen, and the browser types a no-break space to keep a second space
+   visible - which is then saved as that. A tab is a level of indentation (see
+   NoteSurfaceEdits.Indentation) and is drawn four characters wide, as the note's own page draws it. */
 .note-line-text {
     flex: 1;
     min-width: 0;
     outline: none;
     overflow-wrap: break-word;
+    white-space: pre-wrap;
+    tab-size: 4;
 }
 
 /* Finished with, either way - a line somebody gave up on is struck through like a done one, and told
@@ -6598,6 +6604,16 @@ p.field-hint {
     /* pre-wrap keeps the note's own spacing and wraps between words; this is for the run that has no
        spaces to wrap between - a web address, which is now pressable and was going over the edge. */
     overflow-wrap: anywhere;
+    /* A tab is a level of indentation - see NoteSurfaceEdits.Indentation - drawn as wide as the writing
+       surface draws it. */
+    tab-size: 4;
+}
+
+/* The same for a checklist line on the note's page: its words are a CheckRow, which elsewhere is a
+   name and has no spacing of its own worth keeping, so this is narrowed to the note. */
+.note-summary-opens .check-row-text {
+    white-space: pre-wrap;
+    tab-size: 4;
 }
 
 .note-summary-break {

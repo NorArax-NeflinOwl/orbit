@@ -294,6 +294,90 @@ public static partial class NoteSurfaceEdits
     }
 
     /// <summary>
+    /// One level of indentation: a tab character, not spaces. It is stored in the line's text as it is -
+    /// there is no separate indentation field - so it reads the same wherever the text goes: the writing
+    /// surface and the note's own page both keep whitespace (white-space: pre-wrap) and draw a tab four
+    /// characters wide (tab-size), and a note copied out carries a tab any editor reads as one level.
+    /// On a checklist line it is part of the words, so it indents them after the box.
+    /// </summary>
+    public const string Indentation = "\t";
+
+    /// <summary>
+    /// How many leading spaces Shift+Tab takes away when a line was indented with spaces rather than a
+    /// tab - text pasted from elsewhere usually is.
+    /// </summary>
+    public const int SpacesPerIndentation = 4;
+
+    /// <summary>
+    /// Tab: a level of indentation at the caret, in place of a selection inside one line. Over a
+    /// selection that spans lines, every line it covers is indented at its start instead - what a code
+    /// editor does, and the only reading of "indent these" that does not throw the lines away. The lines
+    /// stay selected, so a second Tab indents them again.
+    /// </summary>
+    public static SurfaceState Indent(SurfaceState state)
+    {
+        state = state.Normalized();
+        if (!SpansLines(state))
+        {
+            return Replace(state, Indentation, readsMarkers: false);
+        }
+
+        var (first, last) = state.SelectedLines;
+        var lines = state.Lines.ToList();
+        for (var index = first; index <= last; index++)
+        {
+            lines[index] = lines[index] with { Text = Indentation + lines[index].Text };
+        }
+
+        // A point at the head of a line stays there, so the new level is inside the selection.
+        SurfacePoint Shifted(SurfacePoint point)
+            => point.Line >= first && point.Line <= last && point.Offset > 0
+                ? point with { Offset = point.Offset + Indentation.Length }
+                : point;
+
+        return new SurfaceState(lines, Shifted(state.Anchor), Shifted(state.Focus));
+    }
+
+    /// <summary>
+    /// Shift+Tab: one level less at the start of the caret's line - wherever in the line the caret is -
+    /// or of every line a selection covers. A level is a tab, or up to <see cref="SpacesPerIndentation"/>
+    /// spaces; a line with neither is left alone.
+    /// </summary>
+    public static SurfaceState Outdent(SurfaceState state)
+    {
+        state = state.Normalized();
+        var (first, last) = state.SelectedLines;
+        var lines = state.Lines.ToList();
+        var removed = new int[lines.Count];
+        for (var index = first; index <= last; index++)
+        {
+            removed[index] = LeadingIndentationLength(lines[index].Text);
+            lines[index] = lines[index] with { Text = lines[index].Text[removed[index]..] };
+        }
+
+        SurfacePoint Shifted(SurfacePoint point)
+            => point with { Offset = Math.Max(0, point.Offset - removed[point.Line]) };
+
+        return new SurfaceState(lines, Shifted(state.Anchor), Shifted(state.Focus));
+    }
+
+    private static int LeadingIndentationLength(string text)
+    {
+        if (text.StartsWith(Indentation, StringComparison.Ordinal))
+        {
+            return Indentation.Length;
+        }
+
+        var spaces = 0;
+        while (spaces < SpacesPerIndentation && spaces < text.Length && text[spaces] == ' ')
+        {
+            spaces++;
+        }
+
+        return spaces;
+    }
+
+    /// <summary>
     /// A press on a line's box: the next of its three answers (see <see cref="Ticks.Next"/>). The
     /// selection stays as it was - pressing a box is not moving the caret.
     /// </summary>
