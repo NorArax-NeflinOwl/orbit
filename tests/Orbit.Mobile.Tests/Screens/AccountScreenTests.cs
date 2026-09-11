@@ -356,6 +356,59 @@ public sealed class AccountScreenTests
         Assert.Equal(OrbitArchive.CurrentVersion, written.Version);
     }
 
+    /// <summary>
+    /// The server writes places into every export now, sealed ones as empty rows. The browser opens
+    /// them behind a warning; this screen offers neither yet, so it writes none rather than a part
+    /// nobody chose.
+    /// </summary>
+    [Fact]
+    public async Task The_phone_leaves_places_out_of_its_export()
+    {
+        using var context = new ScreenContext();
+        context.Transfer.Archive = context.Transfer.Archive with { Notes = [ANote()], Places = [ASealedPlace()] };
+
+        var screen = context.Open();
+        (string FileName, string Json)? offered = null;
+        screen.ExportReady += (_, export) => offered = export;
+
+        await screen.ExportCommand.ExecuteAsync(null);
+
+        var written = JsonSerializer.Deserialize<OrbitArchive>(
+            offered!.Value.Json, new JsonSerializerOptions { PropertyNameCaseInsensitive = true })!;
+        Assert.Single(written.Notes);
+        Assert.Empty(written.AllPlaces);
+    }
+
+    /// <summary>
+    /// A file the browser wrote carries its private places opened. Importing it here still sends them up
+    /// closed: the server was never meant to read one, and it restores them from the sealed half.
+    /// </summary>
+    [Fact]
+    public async Task An_imported_files_private_places_reach_the_server_closed()
+    {
+        using var context = new ScreenContext();
+        var screen = context.Open();
+        var file = new OrbitArchive(
+            OrbitArchive.CurrentVersion, DateTimeOffset.UtcNow, [], [], [], [],
+            [ASealedPlace() with
+            {
+                Name = "The spare key",
+                Where = new ArchivedEventLocation("Piękna 1, Warszawa", 52.2297, 21.0122)
+            }]);
+
+        await screen.ImportAsync(JsonSerializer.Serialize(file));
+
+        var sent = Assert.Single(context.Transfer.Imported!.AllPlaces);
+        Assert.Equal(string.Empty, sent.Name);
+        Assert.Equal(0, sent.Where.Latitude);
+        Assert.Equal("c2VhbGVk", sent.EncryptedContent!.Ciphertext);
+    }
+
+    /// <summary>A private place as the server writes one into an export: empty words beside its sealed half.</summary>
+    private static ArchivedPlace ASealedPlace()
+        => new(string.Empty, string.Empty, new ArchivedEventLocation(string.Empty, 0, 0), "", "Normal", [],
+            IsPrivate: true, new ArchivedEncryptedContent("c2VhbGVk", "bm9uY2U="));
+
     /// <summary>Nothing chosen is not an export of nothing - the button has no reason to be pressed.</summary>
     [Fact]
     public void An_export_of_nothing_is_not_offered()

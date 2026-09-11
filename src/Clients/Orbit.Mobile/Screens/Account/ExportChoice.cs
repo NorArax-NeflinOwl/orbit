@@ -36,6 +36,10 @@ public sealed partial class ExportChoice : ObservableObject
     /// <summary>
     /// The archive with the parts nobody asked for emptied. Emptied rather than left out: the file's
     /// shape is what an importer reads, and one missing a list is a file an older Orbit would refuse.
+    ///
+    /// Places are always emptied: the browser offers them, opened, behind a warning, and this screen
+    /// offers neither yet. Passing through what the server sent would write a part nobody chose, as
+    /// rows of sealed places with nothing readable in them.
     /// </summary>
     public OrbitArchive Narrow(OrbitArchive archive)
         => archive with
@@ -43,7 +47,8 @@ public sealed partial class ExportChoice : ObservableObject
             Notes = IncludesNotes ? archive.Notes : [],
             TaskLists = IncludesTaskLists ? archive.TaskLists : [],
             CalendarEvents = IncludesCalendarEvents ? archive.CalendarEvents : [],
-            Inventories = IncludesInventories ? archive.Inventories : []
+            Inventories = IncludesInventories ? archive.Inventories : [],
+            Places = []
         };
 
     partial void OnIncludesNotesChanged(bool value) => OnPropertyChanged(nameof(IsEmpty));

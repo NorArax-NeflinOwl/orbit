@@ -59,7 +59,10 @@ public sealed class TransferClient
             return null;
         }
 
-        using var response = await _httpClient.PostAsJsonAsync("api/transfer/import", archive, cancellationToken);
+        // A file the browser wrote may carry private places opened; they go up closed - see
+        // OrbitArchive.WithPrivatePlacesClosed.
+        using var response = await _httpClient.PostAsJsonAsync(
+            "api/transfer/import", archive.WithPrivatePlacesClosed(), cancellationToken);
 
         return response.IsSuccessStatusCode
             ? await response.Content.ReadFromJsonAsync<ImportArchiveResult>(cancellationToken)
