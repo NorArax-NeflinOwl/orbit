@@ -651,6 +651,18 @@ public sealed partial class NoteDetailViewModel : ObservableObject
         // The surface's line: the note's name is line 0, so the first line of writing is line 1.
         var line = index + 1;
         var change = NoteTextChange.Between(row.TextBefore, row.Text);
+
+        if (IsSeveralLines(change.Inserted))
+        {
+            Paste(line, change);
+            return;
+        }
+
+        if (ReadPastedMarker(row, line, change))
+        {
+            return;
+        }
+
         RecordTyping(line, change);
         ReadTypedMarker(row, line, change);
     }
@@ -666,14 +678,15 @@ public sealed partial class NoteDetailViewModel : ObservableObject
     {
         var indentation = IndentationOf(row.Text);
         var rest = row.Text[indentation.Length..];
-        if (ChecklistMarks.FirstOrDefault(mark => rest.StartsWith(mark, StringComparison.Ordinal)) is not { } mark)
+
+        // The browser's rule, from Orbit.Core: "[]" or "[ ]" - a phone keyboard puts a space inside the
+        // brackets as readily as not - and one space after either, since "[] " and "[]" mean the same
+        // thing and anything the reader typed beyond that is theirs.
+        var eaten = NoteSurfaceEdits.TypedMarkerLength(rest);
+        if (eaten == 0)
         {
             return;
         }
-
-        // One space after the mark goes with it: "[] " and "[]" both mean the same thing, and anything
-        // the reader typed beyond that is theirs.
-        var eaten = mark.Length + (rest[mark.Length..].StartsWith(' ') ? 1 : 0);
         var typedTo = change.Start + change.Inserted.Length;
         var caret = new SurfacePoint(line, Math.Max(indentation.Length, typedTo - eaten));
 
@@ -688,10 +701,115 @@ public sealed partial class NoteDetailViewModel : ObservableObject
     }
 
     /// <summary>
-    /// What the reader can type to ask for a tick box. Both spellings, because a phone keyboard puts a
-    /// space inside the brackets as readily as not.
+    /// Whether text that came into a field at once has a line break in it - a paste, since a one-line
+    /// field's own Enter never puts one there (it raises Completed instead - see NoteDetailPage).
     /// </summary>
-    private static readonly string[] ChecklistMarks = ["[]", "[ ]"];
+    private static bool IsSeveralLines(string inserted) => inserted.AsSpan().IndexOfAny('\n', '\r') >= 0;
+
+    private static bool IsBlank(string text) => text.All(character => character is ' ' or '\t');
+
+    /// <summary>
+    /// A paste of several lines into one field: it becomes that many lines, at the caret, read the way
+    /// the browser reads a paste (NoteSurfaceEdits.Replace with readsMarkers) - a line starting "[]",
+    /// "[ ]" or "- " comes in as a box and "[x]" as a ticked one, the caret goes to the end of what was
+    /// pasted, and all of it is one step of the history. A one-line field keeps a paste's line breaks in
+    /// its text rather than acting on them, so this is where they are found and taken out.
+    ///
+    /// Two differences from the browser, both about what the phone has and the browser has not. A paste
+    /// into the blank start of an indented line - where Enter leaves the caret on a line of a list -
+    /// counts as starting that line, and the line keeps its indentation. And the note's name never
+    /// becomes a box: it is the surface's first line, and there is no box beside it to draw.
+    /// </summary>
+    private void Paste(int line, NoteTextChange change)
+    {
+        var current = _history.Current;
+        if (line >= current.Lines.Count)
+        {
+            RecordTyping(line, change);
+            return;
+        }
+
+        var at = new SurfacePoint(line, change.Start + change.Removed);
+        var before = current with { Anchor = at, Focus = at };
+
+        var old = current.Lines[line];
+        var lead = old.Text[..change.Start];
+        var indented = line > 0 && lead.Length > 0 && IsBlank(lead);
+        var lines = current.Lines.ToList();
+        if (indented)
+        {
+            lines[line] = old with { Text = old.Text[change.Start..] };
+        }
+
+        var replacedFrom = new SurfacePoint(line, indented ? 0 : change.Start);
+        var replacedTo = replacedFrom with { Offset = replacedFrom.Offset + change.Removed };
+        var pasted = NoteSurfaceEdits.Replace(new SurfaceState(lines, replacedFrom, replacedTo), change.Inserted, readsMarkers: true);
+
+        var result = pasted.Lines.ToList();
+        if (indented)
+        {
+            result[line] = result[line] with { Text = lead + result[line].Text };
+        }
+
+        if (result[0].IsChecklistItem)
+        {
+            result[0] = NoteContentLine.PlainText(result[0].Text);
+        }
+
+        var after = pasted with { Lines = result };
+        Show(after);
+        Record(before, after.Caret, SurfaceEditKind.Pasting);
+        PlaceCaret(after.Caret);
+    }
+
+    /// <summary>
+    /// One line pasted at the head of a line that starts the way a box is written - "[]", "[ ]", "- ",
+    /// or "[x]" for a ticked one - becomes that box, as a pasted line does in the browser, in one step of
+    /// the history.
+    ///
+    /// More than one character arriving at once is what tells a paste from typing: a keyboard types one
+    /// at a time. A word taken from the keyboard's suggestions arrives whole too, but no word starts with
+    /// a mark. So typing "- " a key at a time stays words, as it does in the browser - a dash starts a
+    /// line of prose as often as a list - and only the typed "[]" makes a box as it is typed (see
+    /// <see cref="ReadTypedMarker"/>). Pasted after other words, or onto a line that is already a box, a
+    /// mark is words.
+    /// </summary>
+    private bool ReadPastedMarker(NoteLineRow row, int line, NoteTextChange change)
+    {
+        if (change.Inserted.Length < 2 || row.IsChecklistItem || !IsBlank(row.Text[..change.Start]))
+        {
+            return false;
+        }
+
+        var indentation = IndentationOf(row.Text);
+        var rest = row.Text[indentation.Length..];
+        if (NoteSurfaceEdits.ReadPastedLine(rest) is not { IsChecklistItem: true } box)
+        {
+            return false;
+        }
+
+        var at = new SurfacePoint(line, change.Start + change.Removed);
+        var before = _history.Current with { Anchor = at, Focus = at };
+        var eaten = rest.Length - box.Text.Length;
+        var caret = new SurfacePoint(line, Math.Max(indentation.Length, change.Start + change.Inserted.Length - eaten));
+
+        _applying++;
+        try
+        {
+            row.IsChecklistItem = true;
+            row.IsChecked = box.IsChecked;
+            row.Text = indentation + box.Text;
+        }
+        finally
+        {
+            _applying--;
+        }
+
+        Record(before, caret, SurfaceEditKind.Pasting);
+        IsWritingAChecklist = true;
+        PlaceCaret(caret);
+        return true;
+    }
 
     private async Task ShowWhetherItCanBeChangedAsync(LocalNote note, CancellationToken cancellationToken)
     {
@@ -976,13 +1094,25 @@ public sealed partial class NoteDetailViewModel : ObservableObject
         Record(before, new SurfacePoint(line, change.Start + change.Inserted.Length), kind, change.Inserted);
     }
 
-    /// <summary>The note's name is the first line of the writing, so typing in it is typing like any other.</summary>
+    /// <summary>
+    /// The note's name is the first line of the writing, so typing in it is typing like any other - and
+    /// several lines pasted into it leave the first as the name and the rest as the note's first lines.
+    /// </summary>
     partial void OnTitleChanged(string? oldValue, string newValue)
     {
-        if (_applying == 0)
+        if (_applying > 0)
         {
-            RecordTyping(0, NoteTextChange.Between(oldValue ?? string.Empty, newValue));
+            return;
         }
+
+        var change = NoteTextChange.Between(oldValue ?? string.Empty, newValue);
+        if (IsSeveralLines(change.Inserted))
+        {
+            Paste(0, change);
+            return;
+        }
+
+        RecordTyping(0, change);
     }
 
     /// <summary>A clock that only goes forward, in milliseconds - which is all the history asks of one.</summary>

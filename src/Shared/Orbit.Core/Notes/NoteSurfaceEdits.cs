@@ -244,6 +244,24 @@ public static partial class NoteSurfaceEdits
     private static partial Regex PastedBullet();
 
     /// <summary>
+    /// One line of pasted text read the way <see cref="Replace"/> reads a line a paste starts: "[]",
+    /// "[ ]" and "- " make a box, "[x]" a ticked one, anything else is words. For the phone, whose fields
+    /// report only the text a paste left behind rather than the paste itself - see NoteDetailViewModel.
+    /// </summary>
+    public static NoteContentLine ReadPastedLine(string pasted) => Read(pasted);
+
+    /// <summary>
+    /// How many characters of <paramref name="text"/> are the typed checklist mark it starts with - "[]"
+    /// or "[ ]" and one space after either, the rule <see cref="ReadTypedMarker"/> follows - or 0 when it
+    /// starts with none. For the phone, which reads the mark after a line's indentation.
+    /// </summary>
+    public static int TypedMarkerLength(string text)
+    {
+        var marker = TypedTick().Match(text);
+        return marker.Success ? marker.Length : 0;
+    }
+
+    /// <summary>
     /// After something was typed: a plain line that now starts "[]" (or "[ ]") becomes a tick box, and
     /// the marker is eaten. The phone's note screen has had exactly this rule and no toolbar at all -
     /// see NoteDetailPage. The caret stays where it was in the words, which is two characters further

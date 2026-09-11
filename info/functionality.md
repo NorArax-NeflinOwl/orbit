@@ -946,6 +946,16 @@ from `Orbit.Core/Notes` - the note is handed to them as a `SurfaceState` whose l
   goes (`CaretPlaced`, a `NoteCaret`) - unless all it put back was a tick, which never moved the caret.
   Saving keeps the history; reading the note back after changing its priority or privacy keeps it too
   when nothing on the screen changed; opening a note starts a new one.
+- **A paste is read with the browser's rules** (`NoteSurfaceEdits.Replace` with `readsMarkers`,
+  `ReadPastedLine`). A one-line field keeps a paste's line breaks in its text, so several lines pasted
+  into a line become that many lines at the caret, with the caret at the end of what was pasted - into
+  the name too, which keeps the first line and hands the rest to the note. A pasted line starting
+  `[]`/`[ ]`/`- ` comes in as a box, `[x]`/`[X]` as a ticked one; only a line the paste starts, and not
+  onto a box already there. A paste into the blank start of an indented line counts as starting it and
+  keeps the indentation (the browser's lines carry none). The name never becomes a box. More than one
+  character arriving at once is what marks a single-line paste - a keyboard types one at a time - so
+  `- ` typed key by key stays words, as in the browser; typing `[]`/`[ ]` after a line's indentation
+  still makes a box (`TypedMarkerLength`, the browser's rule). A paste is one undo step.
 
 ### Sharing notes and task lists
 
