@@ -586,6 +586,15 @@ inventory lists, the contacts tabs, the chat menus - is built and needs no schem
   (`FakeTimeProvider` in every screen test), and it is the only way a page whose answer changes at
   midnight can be tested at all.
 
+  **Measured on 2026-09-11, and held back on purpose.** It is 28 reads across 13 files, wider than the
+  pages: `EventFormModel` reads the clock in its constructor and is made with `new()` from `TaskEditor`
+  and `CalendarEventEditor`, `Calendar.razor`'s `ReferenceDate` lives on a nested state class, and
+  `OrbitAuthenticationStateProvider` is constructed by hand in `Program.cs` and in `OrbitTestContext`
+  (which is also where bUnit tests would get the `TimeProvider`). Seven of those files - `Program.cs`,
+  `MainLayout`, `Dashboard`, `MapPage`, `Notes`, `Options`, and the two editors through the form model -
+  are also changed by PR #279, so it waits for that to merge and is then done whole on a fresh branch,
+  rather than half now and half after with a conflict in the middle. The session behind #279 was told.
+
 - ~~**A response the phone cannot parse escapes the sync's own catch.**~~ Fixed the same day it was
   found (2026-09-10): `EverythingSynchronizer.TryAsync` catches `JsonException` too, and answers it the
   way it answers a server it could not reach - "couldn't sync", with everything still queued - rather
