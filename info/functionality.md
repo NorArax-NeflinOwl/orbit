@@ -1347,6 +1347,24 @@ that hands the point to a map app. Behind the three dots: **Edit**, **Duplicate*
 same, for two entrances to one building — and **Delete**, which asks first, because forgetting a place is
 the one thing on that panel that cannot be undone.
 
+**A task list's Location entry keeps a place of its own** (2026-09-11, web, `TaskEntryPlaces`,
+`Place.SourceTaskItemId`). Saving a list in the web editor makes a place for every Location entry that
+says where. The place is named for the entry and belongs to that list. Its point is the one picked on
+the map; failing that, the point it already had if the address has not changed; failing that, the
+address looked up in Nominatim. An address Nominatim cannot find makes no place until a later save
+does. The next save changes the place rather than making a second, and an entry that is removed, or no
+longer a Location entry, takes its place away with it. The place is sealed when the list is and open
+when it is not: an open list's address already sits readable on the server, and sealing a place needs a
+key the browser may not hold. All of this is best effort after the list is saved, so a place that could
+not be made never turns a save that worked into an error. The phone does not make these places yet; it
+shows and edits them like any other place, and an edit there leaves the link to the entry alone, because
+a save that does not name an entry keeps the one it had.
+
+On the map, **Places you keep** lists the places kept by hand first, then these, under the name of the
+list each came from. The list's own menu has **Hide places from tasks** (✓ while on, remembered by the
+browser), which leaves them out of the list and off the map together. Their pins' popups add **Go to
+the task**, which opens the list.
+
 ### Taking places out in a file
 
 **Places can be exported, and they are the one part of the file written out decrypted** (2026-09-11,

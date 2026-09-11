@@ -12,4 +12,6 @@ public sealed record CreatePlaceCommand(
     IReadOnlyList<Guid>? TaskListIds = null,
     /// <summary>Sealed unless the caller says otherwise - see Place.IsPrivate.</summary>
     bool IsPrivate = true,
-    EncryptedPayload? EncryptedContent = null) : IRequest<Guid>;
+    EncryptedPayload? EncryptedContent = null,
+    /// <summary>The task entry this place is made from - see Place.SourceTaskItemId.</summary>
+    Guid? SourceTaskItemId = null) : IRequest<Guid>;

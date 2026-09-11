@@ -71,6 +71,7 @@ classDiagram
         +EventLocation Where
         +ItemPriority Priority
         +IReadOnlyList~Guid~ TaskListIds
+        +Guid? SourceTaskItemId
         +bool IsShared
         +ShareAccessLevel AccessLevel
     }

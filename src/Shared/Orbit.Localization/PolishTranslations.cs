@@ -804,6 +804,10 @@ public static class PolishTranslations
         ["Show places already past"] = "Pokaż miejsca już minione",
         // The eye on a map panel's heading, and the day to show the past from - see MapPinVisibility.
         ["Show these on the map"] = "Pokaż je na mapie",
+        // The places task lists' Location entries keep - see TaskEntryPlaces and the map's own list.
+        ["Hide places from tasks"] = "Ukryj miejsca z zadań",
+        ["Go to the task"] = "Przejdź do zadania",
+        ["Another list"] = "Inna lista",
         ["Hide these from the map"] = "Ukryj je z mapy",
         ["Show from"] = "Pokazuj od",
         ["Leave it empty for everything that has been and gone."] = "Zostaw puste, aby pokazać wszystko, co już minęło.",

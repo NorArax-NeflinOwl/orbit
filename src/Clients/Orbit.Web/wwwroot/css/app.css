@@ -4667,6 +4667,15 @@ input.note-editor-title {
     color: var(--text-tertiary);
 }
 
+/* The name of the task list a run of kept places came from - one step quieter than the panel's own
+   heading, since it sits inside it. See MapPage.PlacesAsListed. */
+.map-panel-subheading {
+    margin: 10px 0 2px;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-secondary);
+}
+
 /* Outlined the way the page's own plus is - it is the same kind of control, one row down. */
 .map-panel-add {
     border: 1px solid var(--accent);
