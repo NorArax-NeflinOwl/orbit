@@ -82,6 +82,7 @@ classDiagram
         +bool IsPinned
         +ItemPriority Priority
         +Guid? FolderId
+        +IReadOnlyList~string~ Tags
     }
     class TaskList {
         +Guid Id
@@ -92,6 +93,7 @@ classDiagram
         +bool IsGroup
         +Guid? LinkedInventoryId
         +Guid? FolderId
+        +IReadOnlyList~string~ Tags
     }
     class TaskItem {
         +Guid Id
@@ -99,6 +101,7 @@ classDiagram
         +DateTimeOffset? DueDateUtc
         +bool IsCompleted
         +bool IsFailed
+        +DateTimeOffset? CompletedAtUtc
         +bool IsResolved
         +IReadOnlyList~Guid~ LinkedTaskListIds
         +IReadOnlyList~Guid~ WaitsForTaskItemIds
