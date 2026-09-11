@@ -34,8 +34,18 @@ public sealed partial class NoteDetailViewModel : ObservableObject
     private readonly Translations _translations;
     private readonly PrivateContentSealer _privateContent;
     private readonly IScreenNavigator _navigator;
+    private readonly TimeProvider _timeProvider;
 
     private Guid _localId;
+
+    /// <summary>
+    /// The left half of the editor's foot, as the design draws it: whose note this is when it is not the
+    /// reader's own, and when it last changed - in the words the note's card on the list uses, so the two
+    /// say the same thing (see LastChanged). Somebody the reader shared it *with* is not named: this
+    /// phone keeps only that it is shared, not with whom.
+    /// </summary>
+    [ObservableProperty]
+    private string _footnote = string.Empty;
 
     [ObservableProperty]
     private string _title = string.Empty;
@@ -81,8 +91,9 @@ public sealed partial class NoteDetailViewModel : ObservableObject
     public NoteDetailViewModel(
         LocalNoteRepository notes, NoteSynchronizer synchronizer, NotesClient notesClient, EditLock editLock,
         Translations translations, PrivateContentSealer privateContent, SharePanel share, IScreenNavigator navigator,
-        LocalFolderRepository folders)
+        LocalFolderRepository folders, TimeProvider timeProvider)
     {
+        _timeProvider = timeProvider;
         _folders = folders;
         _notes = notes;
         _synchronizer = synchronizer;
@@ -421,6 +432,10 @@ public sealed partial class NoteDetailViewModel : ObservableObject
 
         Title = note.Title;
         IsSharedWithMe = note.IsShared;
+        var lastChanged = LastChanged.Describe(note.UpdatedAtUtc, _timeProvider.GetUtcNow(), _translations);
+        Footnote = note is { IsShared: true, SharedByUserName: { Length: > 0 } sharedBy }
+            ? _translations.Format("Shared by {0} · {1}", sharedBy, lastChanged)
+            : lastChanged;
         FolderId = note.FolderId;
         Folders = [.. (await _folders.GetAllAsync(FolderScope.Notes, cancellationToken))];
         _isShowingWhatIsStored = true;

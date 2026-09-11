@@ -220,11 +220,13 @@ about them is under "Screens already built" below.
   KEYCODE_DPAD_UP`/`_DOWN` and a character typed after each press to see which line took it: the caret
   crosses a ticked line (which opens as it arrives and closes again as it leaves) and lands in the
   note's name from the first line, at the column it left.
-- **The editor has a foot.** *Half done 2026-09-09*: the hairline and "Type [] for a checkbox" are
-  there, which is the only place the trick is written down at all. The design's left half - who the note
-  is shared with and when it was last edited - is **not** built, and would need state the view model does
-  not keep: there is no "edited N ago" on `NoteDetailViewModel` and no summary of who a note is shared
-  with. It was left rather than invented.
+- ~~**The editor has a foot.**~~ ***Done 2026-09-11.*** The hairline and "Type [] for a checkbox" came
+  on 2026-09-09; the design's left half - who the note is shared with and when it was last edited - is
+  `NoteDetailViewModel.Footnote` now, in the words the note's card on the list already uses: "Shared by
+  ala · Yesterday" for a note shared in, the day alone for the reader's own (`LastChanged`). The state was
+  on the row all along. One part is not drawn: **who the reader shared a note *with***, because this
+  phone keeps only that a note is shared out (`IsSharedWithOthers`), not with whom. The foot stays on a
+  note nobody can edit, without the checkbox hint.
 
 ### Tasks, and a task list
 
