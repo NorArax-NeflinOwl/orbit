@@ -50,9 +50,16 @@ of itself as having one** - chat makes a Google account set one before it can be
 sign-in that matched an existing address keeps that account's password. Options then asked for a bare
 "Password" and offered nothing when it was not recognised. For a Google-linked account it now says which
 password it means, and every account with a password gets the "Forgot your password?" link beside the
-field - a reset is the way to delete an account whose password is gone. Proving the account with Google
-itself instead is written up as a proposal in [Future Plan](future-plan.md), since it changes the
-request installed phones send.
+field - a reset is the way to delete an account whose password is gone.
+
+An account with **no** password used to delete itself with nothing but a `confirm()`. Options now asks it
+to type its email address or login first (any case, spaces ignored) and sends nothing until it matches;
+the confirm() still follows. The check is the browser's, against the account it loaded, because the
+server asks such an account for nothing - so it makes the press deliberate rather than proving anything,
+and the request is unchanged. Options also refuses to delete while the account has not loaded, rather
+than guessing it needs no password. Proving the account with Google itself is the stronger answer,
+written up as a proposal in [Future Plan](future-plan.md), since it changes the request installed
+phones send. The phone has neither the typing nor the hint yet - see the same page.
 
 Both sign-in forms listen for `input` as well as `change`, and neither uses `@bind`, which can only be
 told about one of the two. A password manager fills a box without anybody typing in it: some raise one

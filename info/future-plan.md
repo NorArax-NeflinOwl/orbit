@@ -230,6 +230,38 @@ The task-by-task version of it - what maps onto what, which of Orbit's expectati
 rather than meets, and what has to be decided before any of it starts - is in
 [google-calendar-api-plan.md](google-calendar-api-plan.md).
 
+## Proving it is you before an account without a password is deleted
+
+Since 2026-09-11 an account with no password - made with Google and never given one - types its email
+address or login before Options deletes it. That makes the press deliberate and proves nothing: the
+server still accepts `DeleteAccountRequest("")` from it (`DeleteAccountCommandHandler`), and whoever holds
+the session can read the address off the same page. The stronger answer is to ask Google again.
+
+- **What it would be.** The client runs Google sign-in once more (the web's `GoogleSignInButton`, the
+  phone's `GoogleSignIn`) and sends the fresh ID token with the request -
+  `DeleteAccountRequest(string Password, string? GoogleIdToken = null)`. The server checks it with the
+  `IGoogleIdentityVerifier` sign-in already uses, and deletes only when its subject is this account's
+  `GoogleSubjectId` and it was issued moments ago, so a token kept from an earlier sign-in is no use -
+  which means the verified identity has to carry the token's issue time, and today it does not.
+- **What it buys.** A stolen session - a browser left signed in, a leaked refresh token - can no longer
+  end the account, which today it can for exactly the accounts that have nothing else to prove
+  themselves with. If the rule becomes "the password, or Google", it also lets a Google-linked account
+  whose password is forgotten delete itself without a reset first.
+- **The contract, and the order it has to change in.** Installed phone builds send `{ "password": "" }`
+  and nothing else. The new field has to be optional with a default so their request still binds (see
+  `RequestBindingTests`), and the server has to keep accepting the empty password until those builds are
+  gone - requiring the token at once would make deletion fail on every phone already installed, and store
+  review expects deletion to work inside the app (see [the mobile plan](orbit-maui-plan.md)). So: accept
+  the token when it is sent; ship both clients sending it; only then require it. Every deployment in
+  between is no weaker than today.
+- **The cost.** Google's prompt can be declined, blocked by the browser, or missing - a deployment whose
+  `GoogleClientId` is unset cannot show it at all, and an account made with Google there would have no way
+  left to delete itself. That needs an answer before the token is required; an emailed code to the
+  verified address, which password reset already knows how to send (`VerificationCodePurpose`), is the
+  obvious fallback. It is also one more round trip to Google in the middle of the one flow nobody wants to
+  fail.
+- **What it does not change.** An account with a password keeps proving itself with the password.
+
 ## Known scope cuts and rough edges
 
 Explicitly called out in the functionality documentation as deliberate limitations of this first
@@ -647,7 +679,10 @@ inventory lists, the contacts tabs, the chat menus - is built and needs no schem
   account with a password it shows an Entry whose placeholder is "Password" and nothing else: no word
   about which password a Google account holds, and no way to the forgotten-password screen, which the
   phone only offers from sign-in. The fix is the phone's own (`AccountPage.xaml`, `AccountViewModel`),
-  not shared with the web's; the same hint and a way to the reset screen would do it.
+  not shared with the web's; the same hint and a way to the reset screen would do it. Nor does it ask an
+  account **without** a password to type its address or login before deleting, as the web has since
+  2026-09-11 - it deletes on the platform prompt alone. Also the phone's own to build: a field bound in
+  `AccountViewModel` beside `RequiresPasswordToDelete`, checked against the account it loaded.
 
 - **Account deletion leaves the account's own rows keyed on anything but `UserId`.** The sweep test
   finds entities by a property called `UserId` (`AccountDeletionSweepTests.Every_entity_owning_a_user_is_covered_by_this_test`),

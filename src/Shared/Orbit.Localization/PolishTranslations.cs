@@ -1235,6 +1235,14 @@ public static class PolishTranslations
         ["Enter your password to confirm."] = "Wpisz hasło, aby potwierdzić.",
         ["The password this account has besides Google - the one you set to use chat, or the one it had before Google was connected."] =
             "Hasło, które to konto ma oprócz Google — ustawione, żeby korzystać z czatu, albo to, które miało, zanim połączono Google.",
+        ["Type your email address or login to confirm"] = "Wpisz swój adres e-mail albo login, aby potwierdzić",
+        ["An account without a password has nothing else to confirm it with, so typing this is what makes deleting it deliberate."] =
+            "Konto bez hasła nie ma czym innym tego potwierdzić, więc to wpisanie sprawia, że usunięcie jest zamierzone.",
+        ["That isn't this account's email address or login."] = "To nie jest adres e-mail ani login tego konta.",
+        ["Your account hasn't loaded yet. Reload the page and try again."] =
+            "Twoje konto jeszcze się nie wczytało. Odśwież stronę i spróbuj ponownie.",
+        ["This account has a password now - reload the page and enter it."] =
+            "To konto ma teraz hasło — odśwież stronę i je wpisz.",
         ["Couldn't change your password. Try again."] = "Nie udało się zmienić hasła. Spróbuj ponownie.",
         ["That code isn't valid any more. Request a new one."] = "Ten kod stracił ważność. Poproś o nowy.",
         ["Couldn't send the code. Try again."] = "Nie udało się wysłać kodu. Spróbuj ponownie.",

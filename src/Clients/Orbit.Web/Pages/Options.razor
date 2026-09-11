@@ -296,6 +296,21 @@
                             <a class="options-row-desc" id="deleteAccountForgotPassword" href="/forgot-password">@T["Forgot your password?"]</a>
                         </div>
                     }
+                    else if (_account is not null)
+                    {
+                        @* An account without a password has nothing to prove itself with, and the server asks
+                           it for nothing - so typing the address or the login is what stands between one stray
+                           press on a confirm() and everything it holds. Checked here, against the account
+                           already loaded - see DeleteAccountFormModel.ConfirmsAccount. *@
+                        <div class="field">
+                            <label for="deleteAccountConfirmationInput">
+                                @T["Type your email address or login to confirm"]
+                                <FieldHint>@T["An account without a password has nothing else to confirm it with, so typing this is what makes deleting it deliberate."]</FieldHint>
+                            </label>
+                            <input id="deleteAccountConfirmationInput" autocomplete="off" spellcheck="false"
+                                   @bind="_deleteAccountForm.Confirmation" @bind:event="oninput" />
+                        </div>
+                    }
                     <div class="form-actions">
                         <button type="button" class="btn-danger" disabled="@_isDeletingAccount" @onclick="DeleteAccountAsync">@T["Delete account"]</button>
                     </div>
@@ -1261,19 +1276,38 @@
     }
 
     /// <summary>
-    /// Asks for an explicit confirm() on top of the password already required for an account that has one
-    /// (see DeleteAccountRequest) - the one truly irreversible action on this page gets a stronger guard
-    /// than the rest. A Google-only account (see SetPasswordCommand) has no password to ask for at all -
-    /// being signed in is the proof, same as everywhere else that rule applies. On success the account and
-    /// everything it owns is already gone server-side; this only drops the local session and sends the
-    /// browser to /login, mirroring MainLayout.LogoutAsync.
+    /// Asks for an explicit confirm() on top of what the account confirms itself with first - the one truly
+    /// irreversible action on this page gets a stronger guard than the rest. An account with a password
+    /// gives it (see DeleteAccountRequest). A Google-only account (see SetPasswordCommand) has none, and
+    /// the server asks it for nothing - being signed in is the proof there - so it types its email address
+    /// or login instead, checked here against the account already loaded. That makes the press deliberate
+    /// rather than proving anything to the server; proving it with Google again is the stronger answer,
+    /// written up in info/future-plan.md. On success the account and everything it owns is already gone
+    /// server-side; this only drops the local session and sends the browser to /login, mirroring
+    /// MainLayout.LogoutAsync.
     /// </summary>
     private async Task DeleteAccountAsync()
     {
-        if (_account?.HasPassword == true && string.IsNullOrEmpty(_deleteAccountForm.Password))
+        // Without the account there is no telling what to ask for, and guessing "nothing" is the one
+        // wrong guess that deletes something.
+        if (_account is null)
+        {
+            _deleteAccountFailed = true;
+            _deleteAccountMessage = T["Your account hasn't loaded yet. Reload the page and try again."];
+            return;
+        }
+
+        if (_account.HasPassword && string.IsNullOrEmpty(_deleteAccountForm.Password))
         {
             _deleteAccountFailed = true;
             _deleteAccountMessage = T["Enter your password to confirm."];
+            return;
+        }
+
+        if (!_account.HasPassword && !_deleteAccountForm.ConfirmsAccount(_account))
+        {
+            _deleteAccountFailed = true;
+            _deleteAccountMessage = T["That isn't this account's email address or login."];
             return;
         }
 
@@ -1292,8 +1326,12 @@
             var deleted = await UsersApiClient.DeleteAccountAsync(_deleteAccountForm.Password);
             if (!deleted)
             {
+                // Refused although no password was asked for means one was set since this page loaded -
+                // on another device, or at the chat gate in another tab.
                 _deleteAccountFailed = true;
-                _deleteAccountMessage = T["That password isn't right."];
+                _deleteAccountMessage = _account.HasPassword
+                    ? T["That password isn't right."]
+                    : T["This account has a password now - reload the page and enter it."];
                 return;
             }
 
@@ -1373,6 +1411,22 @@
     private sealed class DeleteAccountFormModel
     {
         public string Password { get; set; } = string.Empty;
+
+        /// <summary>What an account without a password types before it is deleted - see <see cref="ConfirmsAccount"/>.</summary>
+        public string Confirmation { get; set; } = string.Empty;
+
+        /// <summary>
+        /// The address or the login, in any case and with stray spaces ignored: both are what the reader
+        /// signs in with, so either is something they know without looking it up. Not a secret - the
+        /// address is on this page - because what this checks is that the deletion was meant.
+        /// </summary>
+        public bool ConfirmsAccount(AccountDto account)
+        {
+            var typed = Confirmation.Trim();
+            return typed.Length > 0
+                && (string.Equals(typed, account.Email, StringComparison.OrdinalIgnoreCase)
+                    || string.Equals(typed, account.UserName, StringComparison.OrdinalIgnoreCase));
+        }
     }
 
     /// <summary>The five things an account holds, as the export offers them - see OrbitArchive.</summary>

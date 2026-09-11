@@ -88,6 +88,85 @@ public sealed class OptionsTests : OrbitTestContext
         Assert.Equal("/forgot-password", cut.Find("#deleteAccountForgotPassword").GetAttribute("href"));
     }
 
+    /// <summary>
+    /// An account without a password has nothing the server checks, so the press has to be deliberate
+    /// some other way: nothing is sent until the address or the login has been typed.
+    /// </summary>
+    [Fact]
+    public void A_passwordless_account_is_not_deleted_without_typing_its_address()
+    {
+        JSInterop.Setup<bool>("confirm", _ => true).SetResult(true);
+        var cut = RenderComponent<Options>();
+        cut.WaitForAssertion(() => cut.Find("#deleteAccountConfirmationInput"));
+
+        cut.Find(".btn-danger").Click();
+
+        Assert.Contains("That isn't this account's email address or login.", cut.Markup);
+        Assert.Empty(_deletionRequests);
+        Assert.Empty(cut.FindAll("#deleteAccountPasswordInput"));
+    }
+
+    [Fact]
+    public void Typing_something_else_is_refused_before_anything_is_sent()
+    {
+        JSInterop.Setup<bool>("confirm", _ => true).SetResult(true);
+        var cut = RenderComponent<Options>();
+        cut.WaitForAssertion(() => cut.Find("#deleteAccountConfirmationInput"));
+
+        cut.Find("#deleteAccountConfirmationInput").Input("somebody@example.com");
+        cut.Find(".btn-danger").Click();
+
+        Assert.Contains("That isn't this account's email address or login.", cut.Markup);
+        Assert.Empty(_deletionRequests);
+    }
+
+    /// <summary>
+    /// The address in any case, which is how people type one. What is sent is still the empty password -
+    /// the typing is checked here, and the request installed phones share is unchanged.
+    /// </summary>
+    [Fact]
+    public void Typing_the_address_deletes_the_passwordless_account()
+    {
+        JSInterop.Setup<bool>("confirm", _ => true).SetResult(true);
+        var cut = RenderComponent<Options>();
+        cut.WaitForAssertion(() => cut.Find("#deleteAccountConfirmationInput"));
+
+        cut.Find("#deleteAccountConfirmationInput").Input("  GINA@example.com ");
+        cut.Find(".btn-danger").Click();
+
+        cut.WaitForAssertion(() => Assert.True(_accountDeleted));
+        Assert.Equal(string.Empty, Assert.Single(_deletionRequests).Password);
+        Assert.EndsWith("/login", Services.GetRequiredService<NavigationManager>().Uri);
+    }
+
+    [Fact]
+    public void The_login_confirms_as_well_as_the_address()
+    {
+        JSInterop.Setup<bool>("confirm", _ => true).SetResult(true);
+        var cut = RenderComponent<Options>();
+        cut.WaitForAssertion(() => cut.Find("#deleteAccountConfirmationInput"));
+
+        cut.Find("#deleteAccountConfirmationInput").Input("gina");
+        cut.Find(".btn-danger").Click();
+
+        cut.WaitForAssertion(() => Assert.True(_accountDeleted));
+    }
+
+    /// <summary>The typing comes before the confirm(), not instead of it: saying no there still stops it.</summary>
+    [Fact]
+    public void Declining_the_confirmation_still_stops_it()
+    {
+        JSInterop.Setup<bool>("confirm", _ => true).SetResult(false);
+        var cut = RenderComponent<Options>();
+        cut.WaitForAssertion(() => cut.Find("#deleteAccountConfirmationInput"));
+
+        cut.Find("#deleteAccountConfirmationInput").Input("gina@example.com");
+        cut.Find(".btn-danger").Click();
+
+        Assert.Empty(_deletionRequests);
+        Assert.False(_accountDeleted);
+    }
+
     /// <summary>The server refuses a wrong password, and the page says so rather than claiming it worked.</summary>
     [Fact]
     public void A_wrong_password_leaves_the_account_where_it_was()
