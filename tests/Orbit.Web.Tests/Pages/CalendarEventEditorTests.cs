@@ -362,6 +362,53 @@ public sealed class CalendarEventEditorTests : OrbitTestContext
     }
 
     /// <summary>
+    /// A form opened from the appointment's own page ends on that page, and by stepping back onto it -
+    /// so the browser's Back afterwards is the calendar, not the form again.
+    /// </summary>
+    [Fact]
+    public void Saving_an_event_opened_from_its_own_page_steps_back_onto_it()
+    {
+        var eventId = Guid.NewGuid();
+        _existingEvent = AnEventCalled(eventId, "Dentist");
+        RegisterChatApiClient([]);
+        Services.GetRequiredService<NavigationTrail>();
+        var navigationManager = Services.GetRequiredService<NavigationManager>();
+        var summary = $"/calendar/{eventId}?returnTo=%2Fcalendar";
+        navigationManager.NavigateTo(summary);
+        navigationManager.NavigateTo(ReturnTo.Link($"/calendar/{eventId}/edit", summary));
+        var cut = RenderComponent<CalendarEventEditor>(parameters => parameters.Add(editor => editor.Id, eventId));
+
+        ClickSave(cut);
+
+        Assert.Equal(-1, JSInterop.VerifyInvoke("history.go").Arguments[0]);
+    }
+
+    /// <summary>
+    /// Deleted from a form opened on its own page: that page would now open on nothing, so it is left
+    /// too - two steps back, onto the calendar it was opened from - rather than being where the form ends.
+    /// </summary>
+    [Fact]
+    public void Deleting_an_event_opened_from_its_own_page_leaves_both_for_the_calendar()
+    {
+        var eventId = Guid.NewGuid();
+        _existingEvent = AnEventCalled(eventId, "Dentist");
+        RegisterChatApiClient([]);
+        JSInterop.Setup<bool>("confirm", _ => true).SetResult(true);
+        Services.GetRequiredService<NavigationTrail>();
+        var navigationManager = Services.GetRequiredService<NavigationManager>();
+        var summary = $"/calendar/{eventId}?returnTo=%2Fcalendar";
+        navigationManager.NavigateTo("/calendar");
+        navigationManager.NavigateTo(summary);
+        navigationManager.NavigateTo(ReturnTo.Link($"/calendar/{eventId}/edit", summary));
+        var cut = RenderComponent<CalendarEventEditor>(parameters => parameters.Add(editor => editor.Id, eventId));
+
+        cut.Find(".editor-rail .overflow-menu-trigger").Click();
+        cut.FindAll(".avatar-dropdown-item").First(entry => entry.TextContent.Trim() == "Delete event").Click();
+
+        Assert.Equal(-2, JSInterop.VerifyInvoke("history.go").Arguments[0]);
+    }
+
+    /// <summary>
     /// Both halves of inviting somebody: the share the server records, and the sealed message that
     /// carries its id - the only thing a guest can press "Accept" on (see Chat.razor's TryParseShare).
     /// The server cannot send the second, holding no key to seal it with, so a screen that forgets it

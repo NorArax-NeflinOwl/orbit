@@ -23,6 +23,7 @@
 @inject OrbitAuthenticationStateProvider AuthenticationStateProvider
 @inject IJSRuntime JSRuntime
 @inject NavigationManager NavigationManager
+@inject NavigationTrail NavigationTrail
 @inject ChosenPlace ChosenPlace
 @inject ILogger<CalendarEventEditor> Logger
 @inject Translations T
@@ -598,7 +599,8 @@ else
                 }
             }
 
-            NavigationManager.NavigateTo(WhenFinished);
+            // Without this form left behind it - see NavigationTrail.
+            await NavigationTrail.FinishAsync(WhenFinished);
         }
         finally
         {
@@ -652,8 +654,10 @@ else
     }
 
     /// <summary>
-    /// Asks first, like the calendar page's own delete does, then goes back to the calendar - staying on
-    /// the editor of something that no longer exists would only offer a Save that could not work.
+    /// Asks first, like the calendar page's own delete does, then leaves - staying on the editor of
+    /// something that no longer exists would only offer a Save that could not work. For where the form
+    /// was opened from, unless that was the event's own page, which has nothing left to show: then the
+    /// calendar, with that page taken out of the history as well. See NavigationTrail.
     /// </summary>
     private async Task DeleteAsync()
     {
@@ -667,7 +671,7 @@ else
         try
         {
             await CalendarApiClient.DeleteCalendarEventAsync(Id!.Value);
-            NavigationManager.NavigateTo(WhenFinished);
+            await NavigationTrail.FinishAfterDeletingAsync($"/calendar/{Id}", WhenFinished, "/calendar");
         }
         catch (HttpRequestException exception)
         {
@@ -688,7 +692,7 @@ else
             await ReleaseLockAsync(eventId);
         }
 
-        NavigationManager.NavigateTo(WhenFinished);
+        await NavigationTrail.FinishAsync(WhenFinished);
     }
 
     /// <summary>Mirrors NoteEditor's method of the same name - see its comment.</summary>
