@@ -34,6 +34,11 @@ internal sealed class InMemoryUserRepository : IUserRepository
         // there is nothing to replace here - this mirrors InMemoryNoteRepository.UpdateAsync.
         return Task.CompletedTask;
     }
+
+    /// <summary>False for an account no longer held - the same answer the real repository gives when the row has gone.</summary>
+    public Task<bool> TryUpdateAsync(User user, CancellationToken cancellationToken)
+        => Task.FromResult(_users.Contains(user));
+
     public Task<IReadOnlyList<User>> GetByIdsAsync(IReadOnlyCollection<Guid> ids, CancellationToken cancellationToken)
         => Task.FromResult<IReadOnlyList<User>>(_users.Where(user => ids.Contains(user.Id)).ToList());
 }

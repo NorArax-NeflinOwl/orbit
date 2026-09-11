@@ -52,6 +52,23 @@ public sealed class UserRepository : IUserRepository
         await _dbContext.SaveChangesAsync(cancellationToken);
     }
 
+    public async Task<bool> TryUpdateAsync(User user, CancellationToken cancellationToken)
+    {
+        _dbContext.Users.Update(ToEntity(user));
+        try
+        {
+            await _dbContext.SaveChangesAsync(cancellationToken);
+            return true;
+        }
+        catch (DbUpdateConcurrencyException)
+        {
+            // Nothing matched the key: the account is gone. The entity is let go of as well, or the
+            // context would try to write it again on this request's next save and fail the same way.
+            _dbContext.ChangeTracker.Clear();
+            return false;
+        }
+    }
+
     public async Task<User?> GetByGoogleSubjectIdAsync(string googleSubjectId, CancellationToken cancellationToken)
     {
         var entity = await _dbContext.Users
