@@ -805,9 +805,20 @@ item's actual owner (`Note.UserId`/`TaskList.UserId`/`CalendarEvent.UserId`): si
 underlying row now, its owner already has full access, so offering it back to them would be meaningless
 at best and a way to bypass the level cap above at worst. All of these are "not found" responses rather
 than a distinct "forbidden," so a caller can't tell "doesn't exist" apart from "exists but you can't
-share it" by probing ids. The Blazor editor pages mirror this: the sharing section is hidden entirely for
+share it" by probing ids. The Blazor editor pages mirror this: the sharing entry is left out entirely for
 a `ReadOnly` grantee, the access-level dropdown only offers levels the current user is allowed to grant,
 and the contact picker excludes the owner.
+
+**On the web, handing something on is in the editor panel's menu.** The note, task list and inventory
+forms carry **Share** (a contact and an access level, and the chat invitation that goes with it) and
+**Share link** (the public link, `ShareLinkButton`) as entries in the menu on the right-hand panel
+(`EditorRail`), each opening a `Dialog` over the page; the calendar event's form carries **Share link**
+there, since handing an appointment to a contact is inviting them as a guest and stays in the form. They
+used to be sections under the form - below everything else on a long list or shelf. The entries follow
+the old sections' rules: nothing before the first save, nothing for a sealed item (the server refuses to
+share one and cannot publish what it cannot read), and Share only where the reader's own access allows
+passing it on. Ticking Private withdraws both at once, with the menu still open. On a narrow screen the
+panel is a bar along the foot of the window and the menu stays in it, so both are reached the same way.
 
 **Duplicate offers.** Sharing something that was already offered to the same recipient — accepted or
 still pending — doesn't create a second `NoteShare`/`TaskListShare`/`CalendarEventShare` row.

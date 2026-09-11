@@ -91,12 +91,6 @@ else
 
     </EditForm>
 
-    @if (!IsNewEvent && Id is { } calendarEventId)
-    {
-        <h2>@T["Link"]</h2>
-        <ShareLinkButton ItemType="CalendarEvent" ItemId="calendarEventId" />
-    }
-
     @* An event is worth having in the calendar somebody actually lives out of. The link hands Google
        what this event says and opens its own form, so what lands there is still their decision - see
        GoogleCalendarEventLink for why this is a link and not an API call. *@
@@ -120,22 +114,41 @@ else
            screen: a save that did not happen and an event somebody else is holding are both answers to
            "why has Save done nothing", and an answer nobody scrolls to is not one. *@
         <ChildContent>
-            @* Deleting from here, not only from the calendar page: opening an event to look at it and
-               deciding it should go is the moment the wish arrives. In a menu rather than as a third
-               button, because it is not one of the two things this page is for - and only for an event
-               that is actually yours to change, the same gate the content fieldset uses. *@
-            @if (!IsNewEvent && _canEditContent)
+            @* What can be done to an event that exists, in a menu rather than as more buttons, because
+               none of it is one of the two things this page is for.
+
+               The public link opens over the page; it used to be a section under the form. Handing the
+               event to a contact is not in here: for an appointment that is inviting them, which is a
+               guest on the event itself and so stays in the form (see EventFields).
+
+               Deleting from here, not only from the calendar page: opening an event to look at it and
+               deciding it should go is the moment the wish arrives - and only for an event that is
+               actually yours to change, the same gate the content fieldset uses. *@
+            @if (!IsNewEvent)
             {
                 <OverflowMenu>
-                    <button type="button" class="avatar-dropdown-item" disabled="@_isDeleting" @onclick="DeleteAsync">
-                        @T["Delete event"]
+                    <button type="button" class="avatar-dropdown-item" @onclick="() => _isShareLinkOpen = true">
+                        @T["Share link"]
                     </button>
+                    @if (_canEditContent)
+                    {
+                        <button type="button" class="avatar-dropdown-item" disabled="@_isDeleting" @onclick="DeleteAsync">
+                            @T["Delete event"]
+                        </button>
+                    }
                 </OverflowMenu>
             }
         </ChildContent>
     </EditorRail>
 }
 </div>
+
+@if (_isShareLinkOpen && !IsNewEvent && Id is { } calendarEventId)
+{
+    <Dialog Title="@T["Share link"]" OnClosed="() => _isShareLinkOpen = false">
+        <ShareLinkButton ItemType="CalendarEvent" ItemId="calendarEventId" />
+    </Dialog>
+}
 
 @if (_isMapVisible)
 {
@@ -242,6 +255,9 @@ else
     private string? _sharedByUserName;
     private bool _isSaving;
     private bool _isDeleting;
+
+    /// <summary>Whether the public link's panel is open over the page - see the menu in the panel.</summary>
+    private bool _isShareLinkOpen;
 
     /// <summary>
     /// The event as it is stored, kept for the Google Calendar link. The form model would export what is

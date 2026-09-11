@@ -512,54 +512,6 @@ else
 
     </fieldset>
     </EditForm>
-
-    @if (!IsNewTaskList && !_formModel.IsPrivate && Id is { } taskListId)
-    {
-        <h2>@T["Link"]</h2>
-        <ShareLinkButton ItemType="TaskList" ItemId="taskListId" />
-    }
-
-    @if (!IsNewTaskList && _canShare && !_formModel.IsPrivate)
-    {
-        <h2>@T["Sharing"]</h2>
-        @if (_shareableContacts.Count == 0)
-        {
-            <p>@T["No contacts. A contact will appear here once you start a chat with someone."]</p>
-        }
-        else
-        {
-            <div class="field-row">
-                <select id="shareContactSelect" @bind="_selectedContactUserId">
-                    <option value="">@T["-- select a contact --"]</option>
-                    @foreach (var contact in _shareableContacts)
-                    {
-                        <option value="@contact.UserId">@contact.DisplayName (@contact.Email)</option>
-                    }
-                </select>
-                <select id="shareAccessLevelSelect" @bind="_selectedAccessLevel">
-                    <option value="ReadOnly">@T["Read-only"]</option>
-                    <option value="Share">@T["Can share"]</option>
-                    @if (_canGrantEditOnly)
-                    {
-                        <option value="EditOnly">@T["Can edit, but not share editing"]</option>
-                    }
-                    @if (_canGrantCanEdit)
-                    {
-                        <option value="CanEdit">@T["Can edit"]</option>
-                    }
-                </select>
-                <button type="button" id="shareTaskListButton" class="btn-primary" disabled="@_isSharing" @onclick="ShareAsync">@T["Share"]</button>
-            </div>
-        }
-        @if (_shareErrorMessage is not null)
-        {
-            <p class="error">@_shareErrorMessage</p>
-        }
-        @if (_shareInfoMessage is not null)
-        {
-            <p class="info">@_shareInfoMessage</p>
-        }
-    }
 }
 
 </div>
@@ -669,6 +621,19 @@ else
                 @if (!IsNewTaskList && Id is { } menuTaskListId)
                 {
                     <div class="editor-settings-divider"></div>
+                    @* Handing the list on - to a contact, or as a link anybody can read - first among the
+                       actions, and each opens over the page. They used to be two sections under the
+                       entries, a form below a form. Offered on the same terms as then: never for a sealed
+                       list, which Orbit cannot read, and sharing only where this reader's own access
+                       allows passing it on. *@
+                    @if (CanOfferSharing)
+                    {
+                        <button type="button" class="avatar-dropdown-item" @onclick="OpenSharing">@T["Share"]</button>
+                    }
+                    @if (CanOfferALink)
+                    {
+                        <button type="button" class="avatar-dropdown-item" @onclick="OpenTheShareLink">@T["Share link"]</button>
+                    }
                     @* Only for a list with something on it a shelf could be about - an entry describing
                        a product, or one standing for a list that has one, however deep that goes. See
                        GeneratedInventorySource: on a list of plain errands this was an offer to build an
@@ -711,6 +676,58 @@ else
     </EditorRail>
 }
 </div>
+
+@* Handing the list to a contact, over the page - see the menu entry in the panel. Kept to the same rule
+   as the entry, so ticking Private while it is open takes it away too. *@
+@if (_isSharingOpen && CanOfferSharing)
+{
+    <Dialog Title="@T["Share"]" OnClosed="() => _isSharingOpen = false">
+        @if (_shareableContacts.Count == 0)
+        {
+            <p>@T["No contacts. A contact will appear here once you start a chat with someone."]</p>
+        }
+        else
+        {
+            <div class="field-row">
+                <select id="shareContactSelect" @bind="_selectedContactUserId">
+                    <option value="">@T["-- select a contact --"]</option>
+                    @foreach (var contact in _shareableContacts)
+                    {
+                        <option value="@contact.UserId">@contact.DisplayName (@contact.Email)</option>
+                    }
+                </select>
+                <select id="shareAccessLevelSelect" @bind="_selectedAccessLevel">
+                    <option value="ReadOnly">@T["Read-only"]</option>
+                    <option value="Share">@T["Can share"]</option>
+                    @if (_canGrantEditOnly)
+                    {
+                        <option value="EditOnly">@T["Can edit, but not share editing"]</option>
+                    }
+                    @if (_canGrantCanEdit)
+                    {
+                        <option value="CanEdit">@T["Can edit"]</option>
+                    }
+                </select>
+                <button type="button" id="shareTaskListButton" class="btn-primary" disabled="@_isSharing" @onclick="ShareAsync">@T["Share"]</button>
+            </div>
+        }
+        @if (_shareErrorMessage is not null)
+        {
+            <p class="error">@_shareErrorMessage</p>
+        }
+        @if (_shareInfoMessage is not null)
+        {
+            <p class="info">@_shareInfoMessage</p>
+        }
+    </Dialog>
+}
+
+@if (_isShareLinkOpen && CanOfferALink && Id is { } taskListId)
+{
+    <Dialog Title="@T["Share link"]" OnClosed="() => _isShareLinkOpen = false">
+        <ShareLinkButton ItemType="TaskList" ItemId="taskListId" />
+    </Dialog>
+}
 
 @if (_itemBeingPlacedOnTheMap is { } itemOnTheMap)
 {
@@ -769,6 +786,30 @@ else
     /// make changing two a chore - see OverflowMenu, where both halves of that rule live.
     /// </summary>
     private OverflowMenu? _menu;
+
+    /// <summary>
+    /// Whether this reader may hand the list to a contact: a saved list, a share that allows passing it
+    /// on, and not sealed - the server refuses to share a private list, so it is not offered.
+    /// </summary>
+    private bool CanOfferSharing => !IsNewTaskList && _canShare && !_formModel.IsPrivate;
+
+    /// <summary>Whether a public link may be made: a saved list that is not sealed. Who may publish is the server's answer - see ShareLinkButton.</summary>
+    private bool CanOfferALink => !IsNewTaskList && !_formModel.IsPrivate;
+
+    private bool _isSharingOpen;
+    private bool _isShareLinkOpen;
+
+    private void OpenSharing()
+    {
+        _menu?.Close();
+        _isSharingOpen = true;
+    }
+
+    private void OpenTheShareLink()
+    {
+        _menu?.Close();
+        _isShareLinkOpen = true;
+    }
 
     private void OpenTheGenerateFormFromTheMenu()
     {

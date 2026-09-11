@@ -755,6 +755,7 @@ public sealed class TaskEditorItemFormTests : OrbitTestContext
         TheBrowserCanSeal();
         RegisterApiClients(AnItem());
         var cut = Render();
+        OpenSharingFromThePanelsMenu(cut);
 
         cut.Find("#shareContactSelect").Change(GuestUserId.ToString());
         cut.Find("#shareTaskListButton").Click();
@@ -770,10 +771,35 @@ public sealed class TaskEditorItemFormTests : OrbitTestContext
         TheBrowserCanSeal();
         RegisterApiClients(AnItem());
         var cut = Render();
+        OpenSharingFromThePanelsMenu(cut);
 
         cut.Find("#shareTaskListButton").Click();
 
         Assert.Null(_lastChatMessageJson);
+    }
+
+    /// <summary>
+    /// The list's sharing is reached from the panel's menu and opens over the page - it used to be a
+    /// section under the entries. Nothing of it is on the page until then.
+    /// </summary>
+    [Fact]
+    public void Sharing_the_list_is_in_the_panels_menu_and_opens_over_the_page()
+    {
+        RegisterApiClients(AnItem());
+        var cut = Render();
+
+        Assert.Empty(cut.FindAll("#shareContactSelect"));
+        Assert.Empty(cut.FindAll(".editor-page-body .share-link"));
+
+        OpenSharingFromThePanelsMenu(cut);
+
+        Assert.NotEmpty(cut.FindAll(".dialog-panel #shareContactSelect"));
+    }
+
+    private static void OpenSharingFromThePanelsMenu(IRenderedFragment cut)
+    {
+        cut.Find(".editor-rail .overflow-menu-trigger").Click();
+        cut.FindAll(".editor-rail .avatar-dropdown-item").First(entry => entry.TextContent.Trim() == "Share").Click();
     }
 
     private void TheBrowserCanSeal()

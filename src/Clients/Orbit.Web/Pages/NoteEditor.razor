@@ -135,16 +135,92 @@ else
 
         </fieldset>
     </EditForm>
+}
 
-    @if (!IsNewNote && !_formModel.IsPrivate && Id is { } noteId)
-    {
-        <h2>@T["Link"]</h2>
-        <ShareLinkButton ItemType="Note" ItemId="noteId" />
-    }
+</div>
+@* Drawn for a note nobody can write to as well, with Save greyed - the same rule the other editors
+   follow. It is where the reason lives: a panel that vanished along with the form's buttons took the
+   sentence saying why they were gone with it. *@
+@if (!_isLoading)
+{
+    <EditorRail OnSave="SaveAsync" OnCancel="CancelAsync"
+                Notice="@(_lockedByUserName is null ? null : T.Format("{0} is currently editing this note - you can't edit it right now.", _lockedByUserName))"
+                ErrorMessage="@_saveErrorMessage"
+                SaveDisabled="@(_isSharedReadOnly || _lockedByUserName is not null || !HasSomethingToSave || _isSaving)">
+        @* Beside the button that failed rather than at the end of a form that is taller than the
+           screen: a save that did not happen and a note somebody else is holding are both answers to
+           "why has Save done nothing", and an answer nobody scrolls to is not one. *@
+        <ChildContent>
+            @* Everything that is about the note rather than in it: how much it matters, where it will
+               be found, and who may read it. They used to sit under the writing, which is a form
+               somebody had to scroll past to reach the end of what they were writing - and before that
+               above it, so a page opened to write on began with three questions nobody had an answer to
+               yet. In the panel they are one press from anywhere in the note and out of the way until
+               then. Stays open, because it is a menu of settings rather than of actions: closing after
+               each one would make changing two a chore. *@
+            <OverflowMenu StaysOpen="true" @ref="_menu">
+                <div class="editor-settings-menu">
+                    @* Plain controls rather than the EditForm's own: this panel sits outside the form,
+                       and InputSelect/InputCheckbox need its EditContext to exist at all. *@
+                    <div class="field">
+                        <label for="notePrioritySelect">@T["Priority"]<FieldHint>@T["Sorts this note against the others, and is what the dashboard's filter reads."]</FieldHint></label>
+                        <select id="notePrioritySelect" value="@_formModel.Priority" disabled="@IsSettingsDisabled"
+                                @onchange="OnPriorityChosen">
+                            <option value="Low">@T["Low"]</option>
+                            <option value="Normal">@T["Normal"]</option>
+                            <option value="High">@T["High"]</option>
+                        </select>
+                    </div>
 
-    @if (!IsNewNote && _canShare && !_formModel.IsPrivate)
-    {
-        <h2>@T["Sharing"]</h2>
+                    @* Where it will be found. Only the owner files a note: one reached through a share
+                       sits in its owner's folder on their page, and this reader's tabs are their own. *@
+                    @if (!_isShared)
+                    {
+                        <FolderField Page="FolderPage.Notes" Value="_formModel.FolderId" ValueChanged="folderId => _formModel.FolderId = folderId"
+                                     Hint="@(T["Without one it is in Public, or in Private when it is sealed."])" />
+                    }
+
+                    @* Only the owner may turn this on: a note reached through a share belongs to someone
+                       else, and "private" means private to its creator. *@
+                    @if (!_isShared)
+                    {
+                        <div class="field">
+                            <label>
+                                <input type="checkbox" checked="@_formModel.IsPrivate" disabled="@IsSettingsDisabled"
+                                       @onchange="args => _formModel.IsPrivate = args.Value is true" />@T["Private"]<FieldHint>@T["Encrypted in this browser, so Orbit can't read it. It can't be shared, and losing your password loses it."]</FieldHint></label>
+                        </div>
+                    }
+                </div>
+
+                @* The two ways of handing the note on, under a line because they are actions rather than
+                   settings: each closes the menu and opens its panel over the page. They used to be two
+                   more sections under the writing, a form below a form. Offered on the same terms as
+                   then - only for a note that has been saved, since there is nothing to hand on before,
+                   and never for a sealed one, which Orbit cannot read and so cannot give anybody. *@
+                @if (CanOfferSharing || CanOfferALink)
+                {
+                    <div class="editor-settings-divider"></div>
+                    @if (CanOfferSharing)
+                    {
+                        <button type="button" class="avatar-dropdown-item" @onclick="OpenSharing">@T["Share"]</button>
+                    }
+                    @if (CanOfferALink)
+                    {
+                        <button type="button" class="avatar-dropdown-item" @onclick="OpenTheShareLink">@T["Share link"]</button>
+                    }
+                }
+            </OverflowMenu>
+        </ChildContent>
+    </EditorRail>
+}
+</div>
+</div>
+
+@* Handing the note to a contact, over the page rather than in it - see the menu entry above. Kept to
+   the same rule as the entry, so ticking Private while it is open takes it away too. *@
+@if (_isSharingOpen && CanOfferSharing)
+{
+    <Dialog Title="@T["Share"]" OnClosed="() => _isSharingOpen = false">
         @if (_shareableContacts.Count == 0)
         {
             <p>@T["No contacts. A contact will appear here once you start a chat with someone."]</p>
@@ -182,69 +258,15 @@ else
         {
             <p class="info">@_shareInfoMessage</p>
         }
-    }
+    </Dialog>
 }
 
-</div>
-@* Drawn for a note nobody can write to as well, with Save greyed - the same rule the other editors
-   follow. It is where the reason lives: a panel that vanished along with the form's buttons took the
-   sentence saying why they were gone with it. *@
-@if (!_isLoading)
+@if (_isShareLinkOpen && CanOfferALink && Id is { } noteId)
 {
-    <EditorRail OnSave="SaveAsync" OnCancel="CancelAsync"
-                Notice="@(_lockedByUserName is null ? null : T.Format("{0} is currently editing this note - you can't edit it right now.", _lockedByUserName))"
-                ErrorMessage="@_saveErrorMessage"
-                SaveDisabled="@(_isSharedReadOnly || _lockedByUserName is not null || !HasSomethingToSave || _isSaving)">
-        @* Beside the button that failed rather than at the end of a form that is taller than the
-           screen: a save that did not happen and a note somebody else is holding are both answers to
-           "why has Save done nothing", and an answer nobody scrolls to is not one. *@
-        <ChildContent>
-            @* Everything that is about the note rather than in it: how much it matters, where it will
-               be found, and who may read it. They used to sit under the writing, which is a form
-               somebody had to scroll past to reach the end of what they were writing - and before that
-               above it, so a page opened to write on began with three questions nobody had an answer to
-               yet. In the panel they are one press from anywhere in the note and out of the way until
-               then. Stays open, because it is a menu of settings rather than of actions: closing after
-               each one would make changing two a chore. *@
-            <OverflowMenu StaysOpen="true">
-                <div class="editor-settings-menu">
-                    @* Plain controls rather than the EditForm's own: this panel sits outside the form,
-                       and InputSelect/InputCheckbox need its EditContext to exist at all. *@
-                    <div class="field">
-                        <label for="notePrioritySelect">@T["Priority"]<FieldHint>@T["Sorts this note against the others, and is what the dashboard's filter reads."]</FieldHint></label>
-                        <select id="notePrioritySelect" value="@_formModel.Priority" disabled="@IsSettingsDisabled"
-                                @onchange="OnPriorityChosen">
-                            <option value="Low">@T["Low"]</option>
-                            <option value="Normal">@T["Normal"]</option>
-                            <option value="High">@T["High"]</option>
-                        </select>
-                    </div>
-
-                    @* Where it will be found. Only the owner files a note: one reached through a share
-                       sits in its owner's folder on their page, and this reader's tabs are their own. *@
-                    @if (!_isShared)
-                    {
-                        <FolderField Page="FolderPage.Notes" Value="_formModel.FolderId" ValueChanged="folderId => _formModel.FolderId = folderId"
-                                     Hint="@(T["Without one it is in Public, or in Private when it is sealed."])" />
-                    }
-
-                    @* Only the owner may turn this on: a note reached through a share belongs to someone
-                       else, and "private" means private to its creator. *@
-                    @if (!_isShared)
-                    {
-                        <div class="field">
-                            <label>
-                                <input type="checkbox" checked="@_formModel.IsPrivate" disabled="@IsSettingsDisabled"
-                                       @onchange="args => _formModel.IsPrivate = args.Value is true" />@T["Private"]<FieldHint>@T["Encrypted in this browser, so Orbit can't read it. It can't be shared, and losing your password loses it."]</FieldHint></label>
-                        </div>
-                    }
-                </div>
-            </OverflowMenu>
-        </ChildContent>
-    </EditorRail>
+    <Dialog Title="@T["Share link"]" OnClosed="() => _isShareLinkOpen = false">
+        <ShareLinkButton ItemType="Note" ItemId="noteId" />
+    </Dialog>
 }
-</div>
-</div>
 
 @code {
     [Parameter]
@@ -288,6 +310,33 @@ else
 
     /// <summary>Whether the note's own settings may be changed - the same answer the writing surface gets.</summary>
     private bool IsSettingsDisabled => _isSharedReadOnly || _lockedByUserName is not null || _isSaving;
+
+    /// <summary>The panel's menu, so the two entries that open something over the page can close it behind them.</summary>
+    private OverflowMenu? _menu;
+
+    /// <summary>
+    /// Whether this reader may hand the note to a contact: a saved note, a share that allows passing it
+    /// on, and not sealed - the server refuses to share a private note, so it is not offered.
+    /// </summary>
+    private bool CanOfferSharing => !IsNewNote && _canShare && !_formModel.IsPrivate;
+
+    /// <summary>Whether a public link may be made: a saved note that is not sealed. Who may publish is the server's answer - see ShareLinkButton.</summary>
+    private bool CanOfferALink => !IsNewNote && !_formModel.IsPrivate;
+
+    private bool _isSharingOpen;
+    private bool _isShareLinkOpen;
+
+    private void OpenSharing()
+    {
+        _menu?.Close();
+        _isSharingOpen = true;
+    }
+
+    private void OpenTheShareLink()
+    {
+        _menu?.Close();
+        _isShareLinkOpen = true;
+    }
 
     /// <summary>
     /// What the last press of a tool that does not exist yet was about, in the reader's language. Null

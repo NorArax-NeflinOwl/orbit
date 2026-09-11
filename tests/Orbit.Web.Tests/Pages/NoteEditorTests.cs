@@ -87,8 +87,10 @@ public sealed class NoteEditorTests : OrbitTestContext
         var cut = RenderComponent<NoteEditor>();
 
         Assert.Empty(FirstWrittenLine(cut));
-        // Nothing exists to share until it has been saved once.
-        Assert.DoesNotContain("Sharing", cut.Markup);
+        // Nothing exists to share until it has been saved once - neither with a contact nor as a link.
+        var offered = OpenTheMenu(cut);
+        Assert.DoesNotContain("Share", offered);
+        Assert.DoesNotContain("Share link", offered);
     }
 
     /// <summary>
@@ -131,16 +133,55 @@ public sealed class NoteEditorTests : OrbitTestContext
         Assert.Equal("Shopping", FirstWrittenLine(cut));
     }
 
+    /// <summary>
+    /// Both ways of handing a note on are in the panel's menu and open over the page - they used to be
+    /// two sections under the writing, a form below a form.
+    /// </summary>
     [Fact]
-    public void A_note_you_own_offers_sharing()
+    public void A_note_you_own_offers_sharing_from_the_panels_menu()
     {
         var note = Note("Shopping");
         RegisterApiClients(note, [Contact]);
 
         var cut = RenderComponent<NoteEditor>(parameters => parameters.Add(editor => editor.Id, note.Id));
 
-        Assert.Contains("Sharing", cut.Markup);
-        Assert.Contains("Anna Kowalska", cut.Markup);
+        Assert.Empty(cut.FindAll(".editor-page-body #shareContactSelect"));
+        Assert.Empty(cut.FindAll(".editor-page-body .share-link"));
+        var offered = OpenTheMenu(cut);
+        Assert.Contains("Share", offered);
+        Assert.Contains("Share link", offered);
+
+        // The menu is open already, so the entry is pressed where it is rather than through the trigger.
+        cut.FindAll(".editor-rail .avatar-dropdown-item").First(entry => entry.TextContent.Trim() == "Share").Click();
+
+        Assert.Contains("Anna Kowalska", cut.Find(".dialog-panel #shareContactSelect").TextContent);
+    }
+
+    [Fact]
+    public void The_share_link_opens_over_the_page()
+    {
+        var note = Note("Shopping");
+        RegisterApiClients(note);
+        var cut = RenderComponent<NoteEditor>(parameters => parameters.Add(editor => editor.Id, note.Id));
+
+        ChooseFromTheMenu(cut, "Share link");
+
+        Assert.NotEmpty(cut.FindAll(".dialog-panel .share-link"));
+    }
+
+    /// <summary>
+    /// Held read-only: not this reader's to pass on, so no sharing - the link is still offered, as it
+    /// was, and whether they may publish one is the server's answer (see ShareLinkButton).
+    /// </summary>
+    [Fact]
+    public void A_note_held_read_only_offers_no_sharing()
+    {
+        var note = Note("Their note") with { IsShared = true, SharedByUserName = "anna", AccessLevel = "ReadOnly" };
+        RegisterApiClients(note, [Contact]);
+
+        var cut = RenderComponent<NoteEditor>(parameters => parameters.Add(editor => editor.Id, note.Id));
+
+        Assert.DoesNotContain("Share", OpenTheMenu(cut));
     }
 
     /// <summary>
@@ -157,6 +198,7 @@ public sealed class NoteEditorTests : OrbitTestContext
         var note = Note("Shopping");
         RegisterApiClients(note, [Contact]);
         var cut = RenderComponent<NoteEditor>(parameters => parameters.Add(editor => editor.Id, note.Id));
+        ChooseFromTheMenu(cut, "Share");
 
         cut.Find("#shareContactSelect").Change(ContactUserId.ToString());
         cut.Find("#shareNoteButton").Click();
@@ -175,6 +217,7 @@ public sealed class NoteEditorTests : OrbitTestContext
         var note = Note("Shopping");
         RegisterApiClients(note, [Contact]);
         var cut = RenderComponent<NoteEditor>(parameters => parameters.Add(editor => editor.Id, note.Id));
+        ChooseFromTheMenu(cut, "Share");
 
         cut.Find("#shareNoteButton").Click();
 
@@ -191,24 +234,43 @@ public sealed class NoteEditorTests : OrbitTestContext
 
         var cut = RenderComponent<NoteEditor>(parameters => parameters.Add(editor => editor.Id, note.Id));
 
-        Assert.DoesNotContain("Sharing", cut.Markup);
+        // Nor a link: a sealed note is one Orbit cannot read, so there is nothing to publish either.
+        var offered = OpenTheMenu(cut);
+        Assert.DoesNotContain("Share", offered);
+        Assert.DoesNotContain("Share link", offered);
     }
 
     [Fact]
-    public void Ticking_Private_withdraws_the_sharing_form_there_and_then()
+    public void Ticking_Private_withdraws_sharing_there_and_then()
     {
         var note = Note("Shopping");
         RegisterApiClients(note, [Contact]);
         var cut = RenderComponent<NoteEditor>(parameters => parameters.Add(editor => editor.Id, note.Id));
-        Assert.Contains("Sharing", cut.Markup);
+        Assert.Contains("Share", OpenTheMenu(cut));
 
-        // What the note is rather than what is in it lives in the panel's menu now - see NoteEditor.
-        cut.Find(".editor-rail .overflow-menu-trigger").Click();
+        // The same menu holds the note's settings, and stays open while they are changed.
         cut.Find(".editor-settings-menu input[type=checkbox]").Change(true);
 
         // Before saving, not after: the point is that the two are mutually exclusive, and the page says
         // so as soon as the choice is made rather than once the server has been told.
-        Assert.DoesNotContain("Sharing", cut.Markup);
+        Assert.DoesNotContain("Share", MenuEntries(cut));
+        Assert.DoesNotContain("Share link", MenuEntries(cut));
+    }
+
+    /// <summary>Opens the panel's menu and reads what it offers besides the note's settings.</summary>
+    private static IReadOnlyList<string> OpenTheMenu(IRenderedComponent<NoteEditor> cut)
+    {
+        cut.Find(".editor-rail .overflow-menu-trigger").Click();
+        return MenuEntries(cut);
+    }
+
+    private static IReadOnlyList<string> MenuEntries(IRenderedComponent<NoteEditor> cut)
+        => [.. cut.FindAll(".editor-rail .avatar-dropdown-item").Select(entry => entry.TextContent.Trim())];
+
+    private static void ChooseFromTheMenu(IRenderedComponent<NoteEditor> cut, string entry)
+    {
+        cut.Find(".editor-rail .overflow-menu-trigger").Click();
+        cut.FindAll(".editor-rail .avatar-dropdown-item").First(offered => offered.TextContent.Trim() == entry).Click();
     }
 
     [Fact]
