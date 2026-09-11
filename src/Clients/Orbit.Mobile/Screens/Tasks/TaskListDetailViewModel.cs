@@ -335,7 +335,8 @@ public sealed partial class TaskListDetailViewModel : ObservableObject
                 () => ShelfForSomethingNew(row.Item.Product),
                 // What this entry can be made to wait for: everything else on the list it is on. See
                 // TaskItemEditor.WaitableEntries, and TaskListSteps for what waiting then means.
-                _items);
+                _items)
+                .KnowingProductTypes(_knownProductTypes);
 
             // Where the entry can go depends on what it stands for, and that changes while the form is
             // open - see MoveTargetsForTheEntry.
@@ -537,6 +538,19 @@ public sealed partial class TaskListDetailViewModel : ObservableObject
         }
 
         _shelfProducts = byProductId;
+
+        // What this account calls kinds of product, for the box on an errand's product form: every
+        // shelf's answers and every entry's own - the same two halves Orbit.Web's editor offers, since an
+        // entry describing something no shelf has yet carries its type itself.
+        var lists = await _taskLists.GetAllAsync(cancellationToken);
+        _knownProductTypes = [.. shelves
+            .SelectMany(inventory => inventory.Items.Select(product => product.ProductType))
+            .Concat(lists.SelectMany(list => list.Items).Select(item => item.Product?.ProductType ?? string.Empty))
+            .Select(productType => productType.Trim())
+            .Where(productType => productType.Length > 0)
+            .Distinct(StringComparer.CurrentCultureIgnoreCase)
+            .OrderBy(productType => productType, StringComparer.CurrentCultureIgnoreCase)];
+
         _theListsOwnShelf = _linkedInventoryId is { } inventoryId
             ? shelves.FirstOrDefault(inventory => inventory.ServerId == inventoryId)
             : null;
@@ -578,6 +592,9 @@ public sealed partial class TaskListDetailViewModel : ObservableObject
 
     /// <summary>The server's id for that inventory, as the list carries it.</summary>
     private Guid? _linkedInventoryId;
+
+    /// <summary>What this account calls kinds of product - see ShowWhatItsErrandsAreAboutAsync.</summary>
+    private IReadOnlyList<string> _knownProductTypes = [];
 
     /// <summary>
     /// Every list other than this one that is asking for the same product, by that product's id. Worked

@@ -3026,6 +3026,17 @@ expiry and its notification channel - in the task editor, behind the entry's own
 the kind and the link were for: the row already knows which product it means, so correcting the amount
 should not mean opening the inventory in another tab and finding it again.
 
+**The product type is picked, not only typed.** One answer per product, so it is a single box rather than
+the categories' row of words - but it offers what the account already calls kinds of product the way the
+categories box offers categories: every shelf's product types (`GET /api/suggestions/used-values`, kind
+`InventoryItemProductType`) together with every task entry's own (`TaskItemProduct.ProductType`, read off
+the lists the editor already loads). The entries' half matters because an entry describing something no
+shelf holds yet carries its type itself, and an account whose products were all still written on lists
+was offered nothing. The browser draws it as `SuggestedTextField`; the phone puts the same list as chips
+under its box (`InventoryItemEditor.OfferedProductTypes`, filled by the list screen from its own copies
+of the shelves and lists, so it works offline). Taking one replaces what is in the box; typing a new
+one is as good an answer.
+
 Saving the list writes the change back to the inventory and then rebuilds that inventory's restock list,
 because a corrected amount can settle an errand or raise one. The list is saved first and the shelf
 second: if the shelf write fails the list is still saved, and the screen says so.

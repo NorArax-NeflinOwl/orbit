@@ -380,6 +380,21 @@ public sealed partial class TaskItemEditor : ObservableObject
     /// <inheritdoc cref="Inventory.InventoryItemEditor.Suggestions"/>
     public NameSuggestions? Suggestions { get; private init; }
 
+    private IReadOnlyList<string> _knownProductTypes = [];
+
+    /// <summary>
+    /// Hands the product forms this entry can show what the account already calls kinds of product - see
+    /// InventoryItemEditor.OfferedProductTypes. Remembered as well as passed on, because the form for a
+    /// product the shelf has not got yet can appear later, when the kind is changed to Inventory.
+    /// </summary>
+    public TaskItemEditor KnowingProductTypes(IReadOnlyList<string> productTypes)
+    {
+        _knownProductTypes = productTypes;
+        ProductWanted?.Knowing(productTypes);
+        Shelf?.Product.Knowing(productTypes);
+        return this;
+    }
+
     /// <param name="entriesOnTheList">
     /// Everything else on the list this entry is on, which is what it can be made to wait for. Handed in
     /// like the lists above it: which entries are on the list is the screen's knowledge. Left empty by a
@@ -616,6 +631,7 @@ public sealed partial class TaskItemEditor : ObservableObject
         if (value == nameof(TaskItemKind.Inventory))
         {
             Shelf ??= ShelfForSomethingNew?.Invoke();
+            Shelf?.Product.Knowing(_knownProductTypes);
         }
         else if (Shelf is { Product.IsSomethingNew: true })
         {

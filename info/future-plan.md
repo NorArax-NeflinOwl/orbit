@@ -673,6 +673,14 @@ inventory lists, the contacts tabs, the chat menus - is built and needs no schem
   would take: a `ChecklistTextEditor` parameter that turns marker reading off, passed by
   `TitledDescription`, and honoured in `NoteSurfaceEdits.ReadTypedMarker`.
 
+- **The phone's inventory screen still asks for a product type in a plain box.** Since 2026-09-11 a task
+  entry's product form offers the account's known product types as chips under the box
+  (`InventoryItemEditor.OfferedProductTypes`, handed over by `TaskListDetailViewModel` through
+  `TaskItemEditor.KnowingProductTypes`). The same form opened from the inventory itself
+  (`InventoryDetailViewModel`) is never handed the list, so there it offers nothing - while the browser's
+  shelf editor offers the shelves' types (`InventoryEditor.razor`). Passing the shelves' and entries'
+  types to `Knowing` when that screen opens an item is all it takes.
+
 - ~~**Only the web's members page asks who takes over a group.**~~ Fixed 2026-09-11: the roster's
   question is `GroupLeaveConfirmation`, which the archive's "Leave and delete chat history" opens too, and
   the phone asks the same question (`GroupLeaveQuestion`, `GroupLeaveDialog`) from the group's own screen

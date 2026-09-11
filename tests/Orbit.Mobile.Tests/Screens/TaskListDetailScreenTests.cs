@@ -1121,6 +1121,42 @@ public sealed class TaskListDetailScreenTests
     /// lost to the shelf "Generate inventory" would later build. The entry keeps it (TaskItem.Product)
     /// until then, exactly as it does in a browser.
     /// </summary>
+    /// <summary>
+    /// What kind of thing an errand asks for is picked from the kinds this account already uses rather
+    /// than typed afresh every time - the phone's half of the web's panel of used values. Another list's
+    /// entry counts: an account whose products are still written on lists has no shelf to learn them
+    /// from. Picking one replaces what is in the box - a product has one type.
+    /// </summary>
+    [Fact]
+    public async Task An_errands_product_type_offers_the_types_other_entries_already_use()
+    {
+        using var context = new ScreenContext();
+        var shopping = context.OpenTaskList("Shopping");
+        await AddAsync(shopping, "Coffee");
+        shopping.EditItemCommand.Execute(shopping.Items[0]);
+        shopping.BeingEdited!.Kind = nameof(TaskItemKind.Inventory);
+        shopping.BeingEdited.ProductWanted!.ProductType = "Ground coffee";
+        await shopping.SaveItemCommand.ExecuteAsync(null);
+
+        var pantry = context.OpenTaskList("Pantry");
+        await AddAsync(pantry, "Tea");
+        pantry.EditItemCommand.Execute(pantry.Items[0]);
+        pantry.BeingEdited!.Kind = nameof(TaskItemKind.Inventory);
+        var wanted = pantry.BeingEdited.ProductWanted!;
+
+        Assert.Contains("Ground coffee", wanted.OfferedProductTypes);
+
+        wanted.ProductType = "leaves";
+        Assert.False(wanted.HasOfferedProductTypes);
+
+        wanted.ProductType = "gro";
+        Assert.Equal(["Ground coffee"], wanted.OfferedProductTypes);
+
+        wanted.ChooseProductTypeCommand.Execute("Ground coffee");
+        Assert.Equal("Ground coffee", wanted.ProductType);
+        Assert.False(wanted.HasOfferedProductTypes);
+    }
+
     [Fact]
     public async Task An_errand_on_a_list_with_no_shelf_says_what_it_asks_for()
     {
