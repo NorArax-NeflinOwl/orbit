@@ -923,7 +923,8 @@ inventory lists, the contacts tabs, the chat menus - is built and needs no schem
 
 - **Why the map's Start and Share do nothing on a phone: two of the three causes are ruled out.** Both
   are hidden below 680px as of 2026-09-09 (`.map-panel-start`, `.map-panel-share`), on a report that
-  pressing them achieves nothing there, and the page says so in one line instead. That is a cover, not
+  pressing them achieves nothing there, and the page says so instead - since 2026-09-11 in a "!" beside
+  its name rather than a line under the button. That is a cover, not
   a fix.
 
   **Measured on 2026-09-10** in a browser emulating 375×812, with the hiding rule lifted from the live

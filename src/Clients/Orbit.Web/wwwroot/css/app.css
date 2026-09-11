@@ -4902,15 +4902,17 @@ input.note-editor-title {
     }
 }
 
-/* The line that stands in for them, which is nothing at all on a screen where they work. */
+/* The "!" beside the page's name that stands in for them, which is nothing at all on a screen where
+   they work. */
 .map-phone-note {
     display: none;
 }
 
 @media (max-width: 680px) {
     .map-phone-note {
-        display: block;
-        margin: 0;
+        display: inline-flex;
+        margin-left: 6px;
+        vertical-align: middle;
     }
 }
 
