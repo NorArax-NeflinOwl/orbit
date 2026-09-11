@@ -949,8 +949,8 @@ asks first when something would be lost. Where it follows the browser's editor, 
 from `Orbit.Core/Notes` - the note is handed to them as a `SurfaceState` whose line 0 is the name:
 
 - **Undo and redo are two buttons beside the tick-box button** over the note's foot (a phone has no
-  Ctrl+Z), dimmed while there is nothing to undo or redo (`CanUndo`/`CanRedo`), absent on a note that
-  cannot be changed. The history is `NoteSurfaceHistory`, so steps are the browser's: characters typed one
+  Ctrl+Z), 44 across like it (`IconButton.TouchSize`; other icon buttons stay 30), dimmed while there is
+  nothing to undo or redo (`CanUndo`/`CanRedo`), absent on a note that cannot be changed. The history is `NoteSurfaceHistory`, so steps are the browser's: characters typed one
   after another on one line join until a second's pause, a space, another line or another kind of edit;
   Enter, a joined line, a box put on or taken off, a tick and a typed `[]` becoming a box are each a step.
   The name is undone like any line. A field reports only what it now says, so what was typed or deleted is

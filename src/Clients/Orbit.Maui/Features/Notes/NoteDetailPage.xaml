@@ -168,14 +168,18 @@
 
         <!-- Undo and redo, beside the tick-box button: a phone has no Ctrl+Z, and these are the writing's
              own tools as the tick box is. Dimmed while there is nothing to undo or redo - see
-             NoteDetailViewModel.CanUndo. Centred on the 44 button beside them (72 up, 22 to its middle,
-             less half of their own 30). -->
-        <HorizontalStackLayout Grid.Row="1" Spacing="6" HorizontalOptions="Start" VerticalOptions="End"
-                               Margin="70,0,0,79" IsVisible="{Binding CanEdit}">
-            <controls:IconButton Data="M7,4 L3,8 L7,12 M3,8 H12 A4.5,4.5 0 0 1 12,17 H8"
+             NoteDetailViewModel.CanUndo. 44 across, the tick-box button's own size and the thumb target
+             the phone's style gives every other control (see IconButton.TouchSize) - they were 30, the
+             icon buttons' size in a card's head, which is a target for a pointer rather than a thumb.
+             Level with the tick-box button (the same 72 up), 8 to its right, and touching each other
+             rather than spaced: the drawings stay 18, so two 44 targets side by side still read as two
+             glyphs a little apart, and the row ends well short of Save in the other corner. -->
+        <HorizontalStackLayout Grid.Row="1" Spacing="0" HorizontalOptions="Start" VerticalOptions="End"
+                               Margin="70,0,0,72" IsVisible="{Binding CanEdit}">
+            <controls:IconButton Data="M7,4 L3,8 L7,12 M3,8 H12 A4.5,4.5 0 0 1 12,17 H8" TouchSize="44"
                                  Command="{Binding UndoCommand}" IsEnabledForPress="{Binding CanUndo}"
                                  Description="{controls:Translate 'Undo'}" />
-            <controls:IconButton Data="M13,4 L17,8 L13,12 M17,8 H8 A4.5,4.5 0 0 0 8,17 H12"
+            <controls:IconButton Data="M13,4 L17,8 L13,12 M17,8 H8 A4.5,4.5 0 0 0 8,17 H12" TouchSize="44"
                                  Command="{Binding RedoCommand}" IsEnabledForPress="{Binding CanRedo}"
                                  Description="{controls:Translate 'Redo'}" />
         </HorizontalStackLayout>

@@ -703,7 +703,10 @@ inventory lists, the contacts tabs, the chat menus - is built and needs no schem
   did before. Check on a device by pasting two lines into a note; if they arrive joined, the paste has to
   be caught before the field flattens it (a custom `EditText` overriding `onTextContextMenuItem`).
 
-- **The phone's undo and redo buttons are small targets.** They are `IconButton`s, 30 across like every
+- ~~**The phone's undo and redo buttons are small targets.**~~ Fixed 2026-09-11: they are 44 across
+  (`IconButton.TouchSize`, which leaves every other icon button at 30), level with the 44 tick-box button
+  and touching each other; the drawings stay 18, and the row ends well short of Save. Not yet looked at on
+  a device. As noticed: they are `IconButton`s, 30 across like every
   icon button in the app, beside the 44 tick-box button - under the 44-48 a thumb is usually given. Worth
   looking at on a device with the rest of the note's foot rather than on its own.
 
