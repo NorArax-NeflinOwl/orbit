@@ -3447,6 +3447,37 @@ input.note-editor-title {
     margin-right: 0.25rem;
 }
 
+/* Which of the two an entry on the calendar is, said by a mark before its name: a calendar for an
+   event, a tick box for a task. The dashed edge a task's chip already had said it too, but only to
+   somebody who had learned what the dash meant - and next to an event drawn in a pale colour the two
+   edges were hard to tell apart at all. Drawn in the text's secondary colour, small, so a day full of
+   entries still reads as names rather than as a column of icons. A mask rather than an image, so the
+   mark takes whatever colour the text around it has - a done entry's greyed one included. */
+.calendar-event-chip .calendar-event-chip-title::before,
+.calendar-event-block .calendar-event-block-title::before,
+.calendar-task-chip .calendar-event-chip-title::before,
+.calendar-task-block .calendar-event-block-title::before {
+    content: "";
+    display: inline-block;
+    width: 0.9em;
+    height: 0.9em;
+    margin-right: 0.25em;
+    vertical-align: -0.12em;
+    background-color: var(--text-secondary);
+    -webkit-mask: var(--calendar-entry-mark) center / contain no-repeat;
+    mask: var(--calendar-entry-mark) center / contain no-repeat;
+}
+
+.calendar-event-chip,
+.calendar-event-block {
+    --calendar-entry-mark: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='black' stroke-width='1.6' stroke-linecap='round'%3E%3Crect x='2' y='3' width='12' height='11' rx='2'/%3E%3Cpath d='M2 7h12M5.5 1.5v3M10.5 1.5v3'/%3E%3C/svg%3E");
+}
+
+.calendar-task-chip,
+.calendar-task-block {
+    --calendar-entry-mark: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='black' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='2' y='2' width='12' height='12' rx='3'/%3E%3Cpath d='m5 8.2 2 2 4-4.4'/%3E%3C/svg%3E");
+}
+
 /* Calendar.razor / CalendarMonthGrid.razor / CalendarDayGrid.razor: a due task's chip, laid out like
    .calendar-event-chip but with a fixed dashed accent color instead of the event's own Color, so a task
    with a deadline reads as a different kind of entry even though it's placed on the calendar the same way. */
