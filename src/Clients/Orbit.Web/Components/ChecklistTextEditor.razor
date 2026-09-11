@@ -182,6 +182,8 @@
             "backspace" => (NoteSurfaceEdits.Backspace(before), SurfaceEditKind.Reshaping),
             "delete" => (NoteSurfaceEdits.Delete(before), SurfaceEditKind.Reshaping),
             "cut" => (NoteSurfaceEdits.DeleteSelection(before), SurfaceEditKind.Reshaping),
+            "drag" when request.To is { } dragTo => (NoteSurfaceEdits.Drag(before, dragTo, request.Copies), SurfaceEditKind.Reshaping),
+            "drop" when request.To is { } dropAt => (NoteSurfaceEdits.Drop(before, dropAt, request.Text ?? string.Empty, ReadsMarkers), SurfaceEditKind.Reshaping),
             "replace" => (NoteSurfaceEdits.Replace(before, request.Text ?? string.Empty, readsMarkers: false), SurfaceEditKind.Reshaping),
             "paste" => (NoteSurfaceEdits.Replace(before, request.Text ?? string.Empty, readsMarkers: ReadsMarkers), SurfaceEditKind.Pasting),
             "indent" when TakesTab => (NoteSurfaceEdits.Indent(before), SurfaceEditKind.Reshaping),
@@ -246,8 +248,9 @@
     /// <summary>
     /// What checklistTextEditor.js sends with every edit: the command, the lines and selection as they
     /// are on the surface (see its readSurface), when it happened (the browser's clock, which only goes
-    /// forward - see NoteSurfaceHistory), and whatever that command needs: the text typed or pasted, the
-    /// selection before typing, the line whose box was pressed.
+    /// forward - see NoteSurfaceHistory), and whatever that command needs: the text typed, pasted or
+    /// dropped, the selection before typing, the line whose box was pressed, where a drag was dropped and
+    /// whether it copies rather than moves.
     /// </summary>
     private sealed record SurfaceRequest(
         string Command,
@@ -260,7 +263,9 @@
         string? InputType,
         bool Composing,
         int? Line,
-        double At)
+        double At,
+        SurfacePoint? To,
+        bool Copies)
     {
         /// <summary>
         /// The surface this edit is made on. A selection outside the surface - the toolbar button has the

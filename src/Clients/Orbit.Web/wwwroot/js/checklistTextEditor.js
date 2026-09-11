@@ -13,7 +13,7 @@
 //
 // Who decides what: typing inside one line is the browser's, as in any text field. Every edit that
 // changes the shape of the lines - Enter, Backspace at the head of a line, Delete at its end, typing over
-// a selection that spans lines, a cut, a tick - is decided in C# (NoteSurfaceEdits, through the
+// a selection that spans lines, a cut, a drag and drop, a tick - is decided in C# (NoteSurfaceEdits, through the
 // component's Edit method): this module reports the lines and the selection, and draws what comes back,
 // caret included. The call is synchronous (invokeMethod, which Blazor WebAssembly allows), because a key
 // has to be let through or stopped before its handler returns.
@@ -22,7 +22,7 @@ const instances = new Map();
 
 /// options: { takesTab, tickHint } - see ChecklistTextEditor.TakesTab, and the tooltip each box carries.
 export function initialize(container, dotNetHelper, initialLinesJson, options) {
-    const state = { dotNetHelper, options: options || {}, selectionBefore: null, pickedCount: 0 };
+    const state = { dotNetHelper, options: options || {}, selectionBefore: null, pickedCount: 0, dragged: null };
     instances.set(container, state);
     render(container, normalizeLines(JSON.parse(initialLinesJson)));
 
@@ -34,6 +34,9 @@ export function initialize(container, dotNetHelper, initialLinesJson, options) {
     state.onCopy = (event) => onCopy(event, container, state, /* isCut */ false);
     state.onCut = (event) => onCopy(event, container, state, /* isCut */ true);
     state.onPaste = (event) => onPaste(event, container, state);
+    state.onDragStart = () => onDragStart(container, state);
+    state.onDragEnd = () => { state.dragged = null; };
+    state.onDrop = (event) => onDrop(event, container, state);
     state.onSelectionChange = () => onSelectionChange(container, state);
 
     container.addEventListener('beforeinput', state.onBeforeInput);
@@ -44,6 +47,9 @@ export function initialize(container, dotNetHelper, initialLinesJson, options) {
     container.addEventListener('copy', state.onCopy);
     container.addEventListener('cut', state.onCut);
     container.addEventListener('paste', state.onPaste);
+    container.addEventListener('dragstart', state.onDragStart);
+    container.addEventListener('dragend', state.onDragEnd);
+    container.addEventListener('drop', state.onDrop);
     document.addEventListener('selectionchange', state.onSelectionChange);
 }
 
@@ -60,8 +66,68 @@ export function dispose(container) {
     container.removeEventListener('copy', state.onCopy);
     container.removeEventListener('cut', state.onCut);
     container.removeEventListener('paste', state.onPaste);
+    container.removeEventListener('dragstart', state.onDragStart);
+    container.removeEventListener('dragend', state.onDragEnd);
+    container.removeEventListener('drop', state.onDrop);
     document.removeEventListener('selectionchange', state.onSelectionChange);
     instances.delete(container);
+}
+
+/// A drag that starts here remembers the selection it carries: a drop is only a move when the words
+/// came from this surface, and by then the selection is not something to rely on.
+function onDragStart(container, state) {
+    const selection = readSelection(container);
+    state.dragged = selection.anchor && selection.focus ? selection : null;
+}
+
+/// A drop is made here rather than by the browser, whose own drag glued two lines' elements together
+/// when the words spanned lines - a box in the middle of a sentence, words outside any line. Where it
+/// landed is read from the point under the pointer, since a drop does not move the selection there
+/// first; what it does is NoteSurfaceEdits.Drag's to say for words dragged from this surface (a move,
+/// or a copy with Ctrl - Alt on a Mac), and NoteSurfaceEdits.Drop's for text from anywhere else. Either
+/// way it is one step for undo. A drop that lands nowhere readable does nothing rather than let the
+/// browser guess.
+function onDrop(event, container, state) {
+    const dragged = state.dragged;
+    state.dragged = null;
+    if (!isWritable(container)) {
+        return;
+    }
+
+    event.preventDefault();
+    const to = dropPoint(container, event);
+    if (!to) {
+        return;
+    }
+
+    const answer = dragged
+        ? ask(container, state, 'drag', { anchor: dragged.anchor, focus: dragged.focus, to, copies: event.ctrlKey || event.altKey })
+        : ask(container, state, 'drop', { to, text: event.dataTransfer ? event.dataTransfer.getData('text/plain') : '' });
+    if (answer) {
+        show(container, state, answer);
+    }
+}
+
+/// The line and offset under a drop. caretPositionFromPoint is the standard; Chromium before 128 and
+/// Safari only have caretRangeFromPoint.
+function dropPoint(container, event) {
+    let node = null;
+    let offset = 0;
+    if (document.caretPositionFromPoint) {
+        const position = document.caretPositionFromPoint(event.clientX, event.clientY);
+        if (position) {
+            node = position.offsetNode;
+            offset = position.offset;
+        }
+    } else if (document.caretRangeFromPoint) {
+        const range = document.caretRangeFromPoint(event.clientX, event.clientY);
+        if (range) {
+            node = range.startContainer;
+            offset = range.startOffset;
+        }
+    }
+
+    return node && container.contains(node) ? pointOf(container, node, offset) : null;
 }
 
 /// A paste goes in at the caret, in place of what is selected, as plain text - the browser put it at
@@ -208,8 +274,7 @@ function commandFor(event, state) {
 
 /// Typing over a selection that spans lines. Left to the browser, it glues the lines' elements together
 /// - a box ends up in the middle of a sentence, or the words land outside any line - so the words go
-/// through the same C# every other change of shape does. A drag and drop is left alone: where it drops
-/// is not where the selection is.
+/// through the same C# every other change of shape does. A drag and drop is onDrop's.
 function onBeforeInput(event, container, state) {
     if (!isWritable(container)) {
         return;
@@ -226,11 +291,26 @@ function onBeforeInput(event, container, state) {
         return;
     }
 
+    // The browser's two halves of a drag never run here. A drop on this surface is stopped before them
+    // (see onDrop), so a deleteByDrag is words dragged from here to somewhere else - taken away the way
+    // a cut takes them, so the lines they leave stay lines.
+    const type = event.inputType || '';
+    if (type === 'insertFromDrop' || type === 'deleteByDrag') {
+        event.preventDefault();
+        const dragged = state.dragged;
+        if (type === 'deleteByDrag' && dragged) {
+            const answer = ask(container, state, 'cut', { anchor: dragged.anchor, focus: dragged.focus });
+            if (answer) {
+                show(container, state, answer);
+            }
+        }
+        return;
+    }
+
     const selection = readSelection(container);
     state.selectionBefore = selection;
     const spansLines = selection.anchor && selection.focus && selection.anchor.line !== selection.focus.line;
-    const type = event.inputType || '';
-    if (!spansLines || type === 'insertFromDrop' || type === 'deleteByDrag' || type.startsWith('history') || type === 'insertCompositionText') {
+    if (!spansLines || type.startsWith('history') || type === 'insertCompositionText') {
         return;
     }
 

@@ -127,6 +127,43 @@ public sealed class ChecklistTextEditorTests : OrbitTestContext
         Assert.Equal([Text(""), Text("[] milk"), Text("- eggs"), Text("[x] bread")], cut.Instance.Lines);
     }
 
+    /// <summary>
+    /// A drag is one step: the words leaving one line and arriving on another come back together on a
+    /// single Ctrl+Z, with the selection that was dragged.
+    /// </summary>
+    [Fact]
+    public void A_drag_is_one_step_that_undo_takes_back_whole()
+    {
+        var lines = new[] { Text("buy milk today"), Box("eggs") };
+        var cut = Surface(lines);
+
+        var dragged = Send(cut, new { command = "drag", lines, anchor = Caret(0, 4), focus = Caret(0, 9), to = Caret(1, 4), at = 0 });
+        Assert.NotNull(dragged);
+        Assert.Equal([Text("buy today"), Box("eggsmilk ")], cut.Instance.Lines);
+
+        var undone = Send(cut, new { command = "undo" });
+
+        Assert.Equal(lines, cut.Instance.Lines);
+        Assert.Equal(new SurfacePointAnswer(0, 9), FocusOf(undone!));
+    }
+
+    [Fact]
+    public void Text_dropped_from_elsewhere_reads_markers_only_where_the_surface_does()
+    {
+        var lines = new[] { Text("") };
+        var note = Surface(lines);
+        var field = RenderComponent<ChecklistTextEditor>(parameters => parameters
+            .Add(editor => editor.Lines, lines)
+            .Add(editor => editor.ReadsMarkers, false));
+        var request = new { command = "drop", lines, anchor = Caret(0, 0), focus = Caret(0, 0), to = Caret(0, 0), text = "[] milk" };
+
+        Send(note, request);
+        Send(field, request);
+
+        Assert.Equal([Box("milk")], note.Instance.Lines);
+        Assert.Equal([Text("[] milk")], field.Instance.Lines);
+    }
+
     private static SurfacePointAnswer FocusOf(string answer)
     {
         using var document = JsonDocument.Parse(answer);

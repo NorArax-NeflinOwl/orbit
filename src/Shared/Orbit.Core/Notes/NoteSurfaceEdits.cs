@@ -460,6 +460,136 @@ public static partial class NoteSurfaceEdits
         return checklist.Count >= 2 ? checklist : [];
     }
 
+    /// <summary>
+    /// A drag of the selection, dropped at <paramref name="to"/>: the selected writing is taken away and
+    /// put in there - or, with <paramref name="copies"/>, put in there and left where it was too - as one
+    /// edit, so one Ctrl+Z puts it all back. The browser's own drag glued two lines' elements together
+    /// when the selection spanned lines; this keeps every line a line.
+    ///
+    /// Whole lines (the rule <see cref="DeleteSelection"/> takes whole) go whole, box and tick and all,
+    /// and land between lines: before the line dropped on when the drop is at its head, after it
+    /// otherwise - a line dropped into the middle of a sentence has no better place to go. Anything
+    /// else goes in at the point as writing does: the first line joins the words before the point and
+    /// the words after the point join the last. A line of the selection keeps its box when its head was
+    /// selected. The moved writing is selected afterwards, which is what the browser does with a drop.
+    ///
+    /// Null when there is nothing to move, or the drop is inside the selection itself - there is
+    /// nowhere for it to go.
+    /// </summary>
+    public static SurfaceState? Drag(SurfaceState state, SurfacePoint to, bool copies)
+    {
+        state = state.Normalized();
+        to = SurfaceState.CaretAt(state.Lines, to).Normalized().Caret;
+        var (start, end) = (state.Start, state.End);
+        if (state.IsCollapsed || (to.CompareTo(start) >= 0 && to.CompareTo(end) <= 0))
+        {
+            return null;
+        }
+
+        var wholeLinesTo = CoversWholeLines(state);
+        var moved = wholeLinesTo is { } last
+            ? state.Lines.Skip(start.Line).Take(last - start.Line + 1).ToList()
+            : SelectedFragment(state);
+
+        var lines = copies ? state.Lines.ToList() : DeleteSelection(state).Lines.ToList();
+        var at = copies ? to : WhereAfterRemoval(state, to, wholeLinesTo);
+        return wholeLinesTo is null ? InsertFragment(lines, at, moved) : InsertLines(lines, at, moved);
+    }
+
+    /// <summary>
+    /// Text dragged in from somewhere else - another page, another program - dropped at
+    /// <paramref name="to"/>. Read the way a paste is (see <see cref="Replace"/>), and selected afterwards
+    /// the way a drop is.
+    /// </summary>
+    public static SurfaceState Drop(SurfaceState state, SurfacePoint to, string text, bool readsMarkers)
+    {
+        var at = SurfaceState.CaretAt(state.Normalized().Lines, to).Normalized();
+        var after = Replace(at, text, readsMarkers);
+        return new SurfaceState(after.Lines, at.Caret, after.Caret);
+    }
+
+    /// <summary>
+    /// The selection as lines of its own, for a selection that does not take whole lines: the tail of the
+    /// first line, every line between, and the head of the last. The first keeps its box only when it was
+    /// selected from its head; the others always were. A selection ending at the head of a line brings
+    /// the line break and nothing of that line.
+    /// </summary>
+    private static List<NoteContentLine> SelectedFragment(SurfaceState state)
+    {
+        var (start, end) = (state.Start, state.End);
+        var first = state.Lines[start.Line];
+        if (start.Line == end.Line)
+        {
+            return [Plain(first.Text[start.Offset..end.Offset])];
+        }
+
+        var fragment = new List<NoteContentLine>
+        {
+            start.Offset == 0 ? first : Plain(first.Text[start.Offset..])
+        };
+        fragment.AddRange(state.Lines.Skip(start.Line + 1).Take(end.Line - start.Line - 1));
+        var lastLine = state.Lines[end.Line];
+        fragment.Add(end.Offset == 0 ? SurfaceState.EmptyLine : lastLine with { Text = lastLine.Text[..end.Offset] });
+        return fragment;
+    }
+
+    /// <summary>
+    /// Where a point after the selection stands once <see cref="DeleteSelection"/> has taken the selection
+    /// away. A point before it does not move.
+    /// </summary>
+    private static SurfacePoint WhereAfterRemoval(SurfaceState state, SurfacePoint point, int? wholeLinesTo)
+    {
+        var (start, end) = (state.Start, state.End);
+        if (point.CompareTo(start) < 0)
+        {
+            return point;
+        }
+
+        if (wholeLinesTo is { } last)
+        {
+            return point with { Line = point.Line - (last - start.Line + 1) };
+        }
+
+        return point.Line == end.Line
+            ? new SurfacePoint(start.Line, start.Offset + point.Offset - end.Offset)
+            : point with { Line = point.Line - (end.Line - start.Line) };
+    }
+
+    /// <summary>Whole lines put in between lines - see <see cref="Drag"/> for which side of the line dropped on.</summary>
+    private static SurfaceState InsertLines(List<NoteContentLine> lines, SurfacePoint at, List<NoteContentLine> moved)
+    {
+        var index = at.Offset == 0 ? at.Line : at.Line + 1;
+        lines.InsertRange(index, moved);
+        return new SurfaceState(lines, new SurfacePoint(index, 0), new SurfacePoint(index + moved.Count - 1, moved[^1].Text.Length));
+    }
+
+    /// <summary>
+    /// Part-lines put in at a point as writing is. At the head of a plain line the first of them brings
+    /// its own box; anywhere else it joins the line it lands in and takes that line's box.
+    /// </summary>
+    private static SurfaceState InsertFragment(List<NoteContentLine> lines, SurfacePoint at, List<NoteContentLine> moved)
+    {
+        var line = lines[at.Line];
+        var before = line.Text[..at.Offset];
+        var after = line.Text[at.Offset..];
+        if (moved.Count == 1)
+        {
+            lines[at.Line] = line with { Text = before + moved[0].Text + after };
+            return new SurfaceState(lines, at, at with { Offset = at.Offset + moved[0].Text.Length });
+        }
+
+        var replacement = new List<NoteContentLine>
+        {
+            at.Offset == 0 && !line.IsChecklistItem ? moved[0] : line with { Text = before + moved[0].Text }
+        };
+        replacement.AddRange(moved.Skip(1).SkipLast(1));
+        replacement.Add(moved[^1] with { Text = moved[^1].Text + after });
+
+        lines.RemoveAt(at.Line);
+        lines.InsertRange(at.Line, replacement);
+        return new SurfaceState(lines, at, new SurfacePoint(at.Line + moved.Count - 1, moved[^1].Text.Length));
+    }
+
     private static bool SpansLines(SurfaceState state) => state.Start.Line != state.End.Line;
 
     /// <summary>

@@ -698,7 +698,14 @@ inventory lists, the contacts tabs, the chat menus - is built and needs no schem
   icon button in the app, beside the 44 tick-box button - under the 44-48 a thumb is usually given. Worth
   looking at on a device with the rest of the note's foot rather than on its own.
 
-- **Dragging words across lines in a note is still the browser's own.** Since 2026-09-11 every other edit
+- ~~**Dragging words across lines in a note is still the browser's own.**~~ Fixed 2026-09-11: a drop on
+  the surface is stopped (`onDrop` in `checklistTextEditor.js`), its point read with
+  `caretPositionFromPoint` (`caretRangeFromPoint` where that is missing), and made in C# as one step:
+  `NoteSurfaceEdits.Drag` for words dragged from the surface itself (a move, a copy with Ctrl/Alt) and
+  `NoteSurfaceEdits.Drop` for text from elsewhere, read like a paste. Whole lines move whole and land
+  between lines; part-lines go in as writing does. Words dragged out to somewhere else are taken away
+  as a cut (`deleteByDrag`). Unit-tested; only a synthetic drop was checked in a browser, not a real
+  mouse drag. As noticed: Since 2026-09-11 every other edit
   that changes the shape of a note's lines goes through `NoteSurfaceEdits` (see the note editor in
   `functionality.md`), but `checklistTextEditor.js` lets `insertFromDrop`/`deleteByDrag` through: where a
   drop lands is not where the selection is, so the selection-based `Replace` would put the words in the

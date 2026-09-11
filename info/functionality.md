@@ -884,6 +884,15 @@ disagree in.
 - **Copying lines copies tick boxes as `- ` bullets** (`checklistTextEditor.js`, `onCopy`; a cut the
   same). A tick box is a button with no text, so a checklist pasted into a message arrived as bare lines.
   A selection inside one line is left to the browser - there is no box in it to speak for.
+- **Dragging writing is the surface's own** (`onDrop`, then `NoteSurfaceEdits.Drag`/`Drop`), and one
+  step for undo. The browser's own drag glued two lines' elements together when the words spanned
+  lines. The drop is stopped and its point read from under the pointer (`caretPositionFromPoint`, or
+  `caretRangeFromPoint`). Words dragged within the surface move - or copy, with Ctrl (Alt on a Mac).
+  **Whole lines go whole**, box and tick with them, landing before the line dropped at the head of and
+  after it otherwise; part-lines go in the way typing would, a line keeping its box when its head was
+  dragged. Text dragged in from elsewhere is read the way a paste is. Words dragged out of the surface
+  are taken away the way a cut takes them (`deleteByDrag`). A drop inside the dragged selection, or
+  somewhere no point can be read, does nothing.
 - **Every edit that changes the shape of the lines is decided in C#** (`NoteSurfaceEdits`, reached through
   `ChecklistTextEditor.Edit`, a synchronous `invokeMethod` from `checklistTextEditor.js`; it and
   `SurfaceState`/`NoteSurfaceHistory` live in `Orbit.Core/Notes` on Core's `NoteContentLine`, because the
