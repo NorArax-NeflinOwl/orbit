@@ -24,8 +24,9 @@
 <PageTitle>@(_item is null ? T["Task"] : Written(_item.Description))</PageTitle>
 
 @* Two panels, as every screen that reads one object has: the entry on the left, and the panel that
-   does not scroll on the right - see EditorRail. No Save: the one thing this screen changes is the tick,
-   and a tick is written the moment it is made - the same rule the checklist follows. *@
+   does not scroll on the right - see EditorRail. No Save: what this screen changes - the tick, and from
+   the menu a copy of the entry or its removal - is written the moment it is asked for, the same rule the
+   checklist follows. *@
 <div class="editor-page">
 <div class="editor-page-body">
 
@@ -136,6 +137,14 @@ else
     <OverflowMenu>
         <button type="button" class="avatar-dropdown-item" @onclick="GoToTaskList">@T["Show Tasks"]</button>
         <button type="button" class="avatar-dropdown-item" @onclick="GoToCalendar">@T["Back to Calendar"]</button>
+        @* The two things done to the entry itself, as the phone's design draws its menu. Offered only
+           where the list is the reader's to change - the server refuses the save otherwise, and an entry
+           that answers a press with a refusal is worse than one that never offered. *@
+        @if (_item is not null && !_isReadOnly)
+        {
+            <button type="button" class="avatar-dropdown-item" @onclick="DuplicateAsync">@T["Duplicate"]</button>
+            <button type="button" class="avatar-dropdown-item" @onclick="DeleteAsync">@T["Delete item"]</button>
+        }
     </OverflowMenu>
 </EditorRail>
 </div>
@@ -163,7 +172,7 @@ else
     /// </summary>
     private bool _isReadOnly;
 
-    /// <summary>Whether a tick is in flight, so a second press cannot send a second save.</summary>
+    /// <summary>Whether a save is in flight - a tick, a copy or a removal - so a second press cannot send a second one.</summary>
     private bool _isTicking;
 
     /// <summary>Why the last tick saved nothing. Null until one fails - see TaskItemCompletion.</summary>
@@ -285,6 +294,65 @@ else
             // Re-read even after a failure, so a box that did not save goes back to what the server
             // actually holds rather than standing ticked on a page that saved nothing.
             await RefreshTheEntryAsync();
+        }
+        finally
+        {
+            _isTicking = false;
+        }
+    }
+
+    /// <summary>
+    /// A second entry saying the same, straight under this one - see TaskItemCompletion.DuplicateAsync -
+    /// and then that entry's own page, so the reader is looking at what they just made.
+    /// </summary>
+    private async Task DuplicateAsync()
+    {
+        if (_taskList is null || _item is null || _isTicking)
+        {
+            return;
+        }
+
+        _isTicking = true;
+        _tickMessage = null;
+        try
+        {
+            if (await TaskItemCompletion.DuplicateAsync(_taskList, _item) is { } copyId)
+            {
+                NavigationManager.NavigateTo($"/tasks/{TaskListId}/items/{copyId}");
+                return;
+            }
+
+            _tickMessage = TaskItemCompletion.FailureMessage;
+        }
+        finally
+        {
+            _isTicking = false;
+        }
+    }
+
+    /// <summary>
+    /// Takes this entry off its list once the reader has said yes, and goes to the list it was on -
+    /// nothing is left here to read. See TaskItemCompletion.RemoveAsync for what stays behind.
+    /// </summary>
+    private async Task DeleteAsync()
+    {
+        if (_taskList is null || _item is null || _isTicking
+            || !await JSRuntime.InvokeAsync<bool>("confirm", T.Format("Delete \"{0}\"?", Written(_item.Description))))
+        {
+            return;
+        }
+
+        _isTicking = true;
+        _tickMessage = null;
+        try
+        {
+            if (await TaskItemCompletion.RemoveAsync(_taskList, _item) == TaskItemTickOutcome.Ticked)
+            {
+                NavigationManager.NavigateTo($"/tasks/{TaskListId}");
+                return;
+            }
+
+            _tickMessage = TaskItemCompletion.FailureMessage;
         }
         finally
         {
