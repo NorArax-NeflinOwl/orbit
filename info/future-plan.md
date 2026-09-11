@@ -663,8 +663,10 @@ inventory lists, the contacts tabs, the chat menus - is built and needs no schem
   private list has always had the same gap. What it would take: the browser opening the private lists'
   titles while it opens the places, and writing those in - which only helps when lists are exported too.
 
-- **A wrong password on a signed-in endpoint is retried as if the session had expired** (noticed
-  2026-09-11, while looking at account deletion). `DELETE /api/users/me` and `PUT /api/users/me/password`
+- ~~**A wrong password on a signed-in endpoint is retried as if the session had expired**~~ Fixed the
+  same day (2026-09-11): both clients' `AuthorizationMessageHandler` return a 401 from these two requests
+  untouched unless it carries a bearer challenge, which only an expired token's refusal does. As first
+  noticed, while looking at account deletion: `DELETE /api/users/me` and `PUT /api/users/me/password`
   answer 401 for a wrong password, and `AuthorizationMessageHandler` reads every 401 outside the sign-in
   paths as an expired access token: it spends the refresh token, rotates the pair and sends the request
   again. The answer is still right, but each wrong try costs two of the five a minute the `Auth` rate

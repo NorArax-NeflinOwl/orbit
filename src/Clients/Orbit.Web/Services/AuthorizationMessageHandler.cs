@@ -33,7 +33,7 @@ public sealed class AuthorizationMessageHandler(
     {
         await AttachAccessTokenAsync(request);
         var response = await base.SendAsync(request, cancellationToken);
-        if (response.StatusCode != HttpStatusCode.Unauthorized || IsSigningIn(request))
+        if (response.StatusCode != HttpStatusCode.Unauthorized || IsSigningIn(request) || RefusesThePassword(request, response))
         {
             return response;
         }
@@ -76,6 +76,30 @@ public sealed class AuthorizationMessageHandler(
     private static bool IsSigningIn(HttpRequestMessage request)
         => request.RequestUri is { } uri
             && SignInPaths.Contains(uri.AbsolutePath, StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>
+    /// The two signed-in requests that prove a password again - deleting the account and changing the
+    /// password - answer a wrong one with 401 as well (see UserEndpoints). That is the same mistake the
+    /// sign-in paths above were: the refresh-and-retry ran on it, so every mistyped password was sent
+    /// twice, spent two of the five tries a minute, and the third mistake came back as the rate limit's
+    /// refusal - "couldn't delete your account" - with nothing saying the password was the problem.
+    ///
+    /// Unlike a sign-in, these are made with a session that may really have expired, so the path alone
+    /// cannot decide it. What does is the challenge: the bearer authentication that turns away an expired
+    /// token says so in a WWW-Authenticate header, and an endpoint refusing what was typed sends none.
+    /// </summary>
+    private static readonly (HttpMethod Method, string Path)[] PasswordProvingRequests =
+    [
+        (HttpMethod.Delete, "/api/users/me"),
+        (HttpMethod.Put, "/api/users/me/password")
+    ];
+
+    private static bool RefusesThePassword(HttpRequestMessage request, HttpResponseMessage response)
+        => request.RequestUri is { } uri
+            && PasswordProvingRequests.Any(proving => proving.Method == request.Method
+                && string.Equals(proving.Path, uri.AbsolutePath, StringComparison.OrdinalIgnoreCase))
+            && !response.Headers.WwwAuthenticate.Any(challenge =>
+                string.Equals(challenge.Scheme, "Bearer", StringComparison.OrdinalIgnoreCase));
 
     private async Task AttachAccessTokenAsync(HttpRequestMessage request)
     {
