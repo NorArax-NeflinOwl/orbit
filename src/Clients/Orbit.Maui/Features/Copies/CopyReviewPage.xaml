@@ -14,12 +14,6 @@
         <Grid Grid.Row="1" RowDefinitions="Auto,*" Padding="20,14,20,0" RowSpacing="12">
 
             <VerticalStackLayout Grid.Row="0" Spacing="10">
-                <!-- One line about what the screen holds, in the voice the settings screen uses for the
-                     same job. The screen's name is in the bar, and the way out is its back arrow - this
-                     page used to draw both again for itself. -->
-                <Label Text="{controls:Translate 'What you wrote while you were offline, beside what it came from.'}"
-                       FontSize="12" LineBreakMode="WordWrap" Style="{StaticResource SubtleLabel}" />
-
                 <Label Text="{Binding Message}" IsVisible="{Binding HasMessage}" FontSize="12"
                        LineBreakMode="WordWrap" TextColor="{DynamicResource Accent}" />
 
@@ -129,7 +123,9 @@
             </CollectionView>
         </Grid>
 
-        <controls:NavigationBar Grid.Row="0" />
+        <!-- What the screen holds, behind the "?" beside its name - see NavigationBar.Description. -->
+        <controls:NavigationBar Grid.Row="0"
+                                Description="{controls:Translate 'What you wrote while you were offline, beside what it came from.'}" />
         <controls:AvatarMenu Grid.Row="0" Grid.RowSpan="3" />
         <controls:Drawer Grid.Row="0" Grid.RowSpan="3" />
     </Grid>
