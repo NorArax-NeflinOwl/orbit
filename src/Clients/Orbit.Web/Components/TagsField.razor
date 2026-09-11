@@ -1,0 +1,86 @@
+@using Orbit.Web.Services
+@implements IDisposable
+@inject TagColourBook TagColourBook
+@inject Translations T
+
+@* A note's or a task list's tags: the control a task entry's categories use (TagField) - a word at a
+   time, with every tag this account already uses offered under the box - and under it one colour well per
+   tag. The colour belongs to the tag for the whole account (see TagColourBook), so it is saved the moment it
+   is picked rather than with the item: colouring "work" here colours it on every card, and cancelling the
+   item's form is not a way of taking it back. *@
+<div class="editor-item-tags">
+    <span class="editor-item-tags-label">@T["Tags"]</span>
+    <TagField Values="Values" ValuesChanged="ValuesChanged" Known="KnownTags" Placeholder="@(T["Add a tag"])"
+              AriaLabel="@(T["Tags"])" IsReadOnly="IsReadOnly" />
+</div>
+@if (Values.Count > 0 && !IsReadOnly)
+{
+    <div class="tags-field-colours">
+        @foreach (var tag in Values)
+        {
+            var colour = TagColourBook.ColourOf(tag);
+            <span class="tags-field-colour">
+                <span class="card-badge card-badge-tag @(colour is null ? null : "card-badge-tag-coloured")"
+                      style="@(colour is null ? null : $"--tag-colour: {colour}")">@tag</span>
+                <input type="color" value="@(colour ?? PlainColour)" aria-label="@T.Format("Colour of {0}", tag)"
+                       @onchange="args => SetColourAsync(tag, args.Value?.ToString() ?? string.Empty)" />
+                @if (colour is not null)
+                {
+                    <button type="button" class="btn-secondary" @onclick="() => SetColourAsync(tag, string.Empty)">@T["No colour"]</button>
+                }
+            </span>
+        }
+        @* Said where the colour is chosen, because it is the one part of a private item's tags that is not
+           sealed - see info/functionality.md, "Tags and their colours". *@
+        <FieldHint>@T["A tag's colour is kept for your whole account, readable on the server - even for a tag only private notes and lists carry."]</FieldHint>
+    </div>
+}
+@if (_error is not null)
+{
+    <p class="error">@_error</p>
+}
+
+@code {
+    /// <summary>What the well shows for a tag drawn plain: a colour input always holds one, so it holds a quiet grey.</summary>
+    private const string PlainColour = "#8a8580";
+
+    [Parameter] public IReadOnlyList<string> Values { get; set; } = [];
+
+    [Parameter] public EventCallback<IReadOnlyList<string>> ValuesChanged { get; set; }
+
+    /// <summary>Every tag the caller has already seen on this account's items. The coloured ones are added here.</summary>
+    [Parameter] public IReadOnlyList<string> Known { get; set; } = [];
+
+    [Parameter] public bool IsReadOnly { get; set; }
+
+    private string? _error;
+
+    private IReadOnlyList<string> KnownTags
+        => [.. Known.Concat(TagColourBook.ColouredTags)
+            .Distinct(StringComparer.CurrentCultureIgnoreCase)
+            .OrderBy(tag => tag, StringComparer.CurrentCultureIgnoreCase)];
+
+    protected override async Task OnInitializedAsync()
+    {
+        TagColourBook.Changed += Redraw;
+        await TagColourBook.LoadAsync();
+    }
+
+    /// <summary>Saved at once, for the whole account - and said beside the wells when it did not save.</summary>
+    private async Task SetColourAsync(string tag, string colour)
+    {
+        _error = null;
+        try
+        {
+            await TagColourBook.SetAsync(tag, colour);
+        }
+        catch (HttpRequestException)
+        {
+            _error = T["That colour could not be saved."];
+        }
+    }
+
+    private void Redraw() => _ = InvokeAsync(StateHasChanged);
+
+    public void Dispose() => TagColourBook.Changed -= Redraw;
+}

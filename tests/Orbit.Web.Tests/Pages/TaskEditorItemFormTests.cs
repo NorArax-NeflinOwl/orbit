@@ -178,6 +178,23 @@ public sealed class TaskEditorItemFormTests : OrbitTestContext
     }
 
     /// <summary>
+    /// A list's tags sit under its title and description, in the same word-at-a-time box an entry's
+    /// categories use, and go with the save - always said, since this form has a box for them.
+    /// </summary>
+    [Fact]
+    public void A_lists_tags_are_saved_with_it()
+    {
+        RegisterApiClients(AnItem());
+        var cut = Render();
+
+        // The list's own box: no entry is open, so it is the only one on the page.
+        cut.Find(".tag-field-input").Input("work");
+        ClickButtonSaying(cut, "Save");
+
+        Assert.Contains("\"tags\":[\"work\"]", _lastSavedJson);
+    }
+
+    /// <summary>
     /// When an entry was done is asked only once it is: ticking it records now, puts the day and hour
     /// among its details to correct, and sends them with the save - which is what carries the time for a
     /// private list, whose entries the server never sees.
@@ -429,9 +446,9 @@ public sealed class TaskEditorItemFormTests : OrbitTestContext
         var cut = Render();
         ExpandTheOnlyItem(cut);
 
-        cut.Find(".tag-field-input").Input("shopping");
-        cut.Find(".tag-field-add").Click();
-        cut.Find(".tag-field-input").Input("Car");
+        cut.Find(".editor-item-details .tag-field-input").Input("shopping");
+        cut.Find(".editor-item-details .tag-field-add").Click();
+        cut.Find(".editor-item-details .tag-field-input").Input("Car");
         ClickButtonSaying(cut, "Save");
 
         // The second was never added, and is saved all the same.
@@ -445,9 +462,9 @@ public sealed class TaskEditorItemFormTests : OrbitTestContext
         var cut = Render();
         ExpandTheOnlyItem(cut);
 
-        cut.Find(".tag-field-input").Input("shopping");
-        cut.Find(".tag-field-add").Click();
-        cut.Find(".tag-field-input").Input("Shopping");
+        cut.Find(".editor-item-details .tag-field-input").Input("shopping");
+        cut.Find(".editor-item-details .tag-field-add").Click();
+        cut.Find(".editor-item-details .tag-field-input").Input("Shopping");
         ClickButtonSaying(cut, "Save");
 
         Assert.Contains("\"categories\":[\"shopping\"]", _lastSavedJson);
@@ -463,7 +480,7 @@ public sealed class TaskEditorItemFormTests : OrbitTestContext
         // Chips rather than a line of text: what is already filed is a set of things, and the box below
         // them is empty and ready for the next one.
         Assert.Equal(["shopping", "car"], cut.FindAll(".tag-chip").Select(chip => chip.TextContent.Replace("✕", string.Empty).Trim()));
-        Assert.Equal(string.Empty, cut.Find(".tag-field-input").GetAttribute("value"));
+        Assert.Equal(string.Empty, cut.Find(".editor-item-details .tag-field-input").GetAttribute("value"));
     }
 
     /// <summary>
@@ -685,8 +702,8 @@ public sealed class TaskEditorItemFormTests : OrbitTestContext
         var cut = Render();
         ExpandTheOnlyItem(cut);
 
-        cut.Find(".tag-field-input").Input("Dry goods");
-        cut.Find(".tag-field-add").Click();
+        cut.Find(".editor-item-details .tag-field-input").Input("Dry goods");
+        cut.Find(".editor-item-details .tag-field-add").Click();
         ClickButtonSaying(cut, "Save");
 
         Assert.Contains("\"categories\":[\"Dry goods\"]", _lastSavedJson);
@@ -964,8 +981,8 @@ public sealed class TaskEditorItemFormTests : OrbitTestContext
         var cut = Render();
         ExpandTheOnlyItem(cut);
 
-        cut.Find(".tag-field-input").Input("Dry goods");
-        cut.Find(".tag-field-add").Click();
+        cut.Find(".editor-item-details .tag-field-input").Input("Dry goods");
+        cut.Find(".editor-item-details .tag-field-add").Click();
         ClickButtonSaying(cut, "Save");
 
         Assert.Contains("\"description\":\"Buy milk\"", _lastSavedJson);

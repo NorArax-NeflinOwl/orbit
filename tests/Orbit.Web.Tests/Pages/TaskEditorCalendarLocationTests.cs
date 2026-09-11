@@ -515,7 +515,7 @@ public sealed class TaskEditorCalendarLocationTests : OrbitTestContext
         cut.Find(".editor-item-details select").Change(nameof(Orbit.Core.Tasks.TaskItemKind.Calendar));
         // The first box in the details block, which is what this entry is filed under - see TagField.
         // Incidental to what is being held here, but it was what this line always wrote to.
-        cut.Find(".tag-field-input").Input("Dentist");
+        cut.Find(".editor-item-details .tag-field-input").Input("Dentist");
         SayWhenItHappens(cut);
 
         Save(cut);

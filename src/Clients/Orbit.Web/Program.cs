@@ -80,6 +80,10 @@ builder.Services.AddHttpClient<InventoryApiClient>(httpClient => httpClient.Base
     .AddHttpMessageHandler<AuthorizationMessageHandler>();
 builder.Services.AddHttpClient<NameSuggestionsApiClient>(httpClient => httpClient.BaseAddress = new Uri(apiBaseAddress))
     .AddHttpMessageHandler<AuthorizationMessageHandler>();
+// The colours the account gives its tags, and the one copy of them a page draws from - see TagColourBook.
+builder.Services.AddHttpClient<TagsApiClient>(httpClient => httpClient.BaseAddress = new Uri(apiBaseAddress))
+    .AddHttpMessageHandler<AuthorizationMessageHandler>();
+builder.Services.AddScoped<TagColourBook>();
 builder.Services.AddHttpClient<FoldersApiClient>(httpClient => httpClient.BaseAddress = new Uri(apiBaseAddress))
     .AddHttpMessageHandler<AuthorizationMessageHandler>();
 builder.Services.AddHttpClient<SharesApiClient>(httpClient => httpClient.BaseAddress = new Uri(apiBaseAddress))

@@ -193,6 +193,8 @@ public sealed class TasksApiClient
         {
             Title = content.Title,
             Items = items,
+            // The tags too: a private list keeps them nowhere else - see SealedTaskList.Tags.
+            Tags = content.Tags ?? [],
             // Recomputed here for the same reason the domain derives it: the server saw no items to
             // derive it from, so what it sent back is meaningless for a private list.
             IsCompleted = items.Count > 0 && items.All(item => item.IsCompleted)
@@ -229,12 +231,13 @@ public sealed class TasksApiClient
     }
 
     /// <summary>Mirrors NotesApiClient.SealIfPrivateAsync - see its comment.</summary>
-    private async Task<(string Title, IReadOnlyList<TaskItemRequest> Items, EncryptedContentDto? EncryptedContent)> SealIfPrivateAsync(
-        string title, IReadOnlyList<TaskItemRequest> items, bool isPrivate, CancellationToken cancellationToken)
+    private async Task<(string Title, IReadOnlyList<TaskItemRequest> Items, IReadOnlyList<string>? Tags, EncryptedContentDto? EncryptedContent)> SealIfPrivateAsync(
+        string title, IReadOnlyList<TaskItemRequest> items, IReadOnlyList<string>? tags, bool isPrivate,
+        CancellationToken cancellationToken)
     {
         if (!isPrivate)
         {
-            return (title, items, null);
+            return (title, items, tags, null);
         }
 
         if (_privateContentSealer is null)
@@ -253,15 +256,16 @@ public sealed class TasksApiClient
             // has never been saved. See TaskItemRequest.Id.
             .Select(item => item.AsEntry(item.Id ?? Guid.NewGuid()))
             .ToList();
-        var encryptedContent = await _privateContentSealer.SealAsync(new SealedTaskList(title, sealedItems), cancellationToken);
-        return (string.Empty, [], encryptedContent);
+        // The tags are sealed with the rest and sent as none - see NotesApiClient.SealIfPrivateAsync.
+        var encryptedContent = await _privateContentSealer.SealAsync(new SealedTaskList(title, sealedItems, tags), cancellationToken);
+        return (string.Empty, [], [], encryptedContent);
     }
 
     public async Task<Guid> CreateTaskListAsync(CreateTaskRequest request, CancellationToken cancellationToken = default)
     {
-        var (title, items, encryptedContent) = await SealIfPrivateAsync(
-            request.Title, request.Items, request.IsPrivate, cancellationToken);
-        request = request with { Title = title, Items = items, EncryptedContent = encryptedContent };
+        var (title, items, tags, encryptedContent) = await SealIfPrivateAsync(
+            request.Title, request.Items, request.Tags, request.IsPrivate, cancellationToken);
+        request = request with { Title = title, Items = items, Tags = tags, EncryptedContent = encryptedContent };
 
         try
         {
@@ -281,9 +285,9 @@ public sealed class TasksApiClient
     /// <summary>Mirrors NotesApiClient.UpdateNoteAsync - see its comment for what NotFound/Locked mean here.</summary>
     public async Task<EditOutcome> UpdateTaskListAsync(Guid id, UpdateTaskRequest request, CancellationToken cancellationToken = default)
     {
-        var (title, items, encryptedContent) = await SealIfPrivateAsync(
-            request.Title, request.Items, request.IsPrivate, cancellationToken);
-        request = request with { Title = title, Items = items, EncryptedContent = encryptedContent };
+        var (title, items, tags, encryptedContent) = await SealIfPrivateAsync(
+            request.Title, request.Items, request.Tags, request.IsPrivate, cancellationToken);
+        request = request with { Title = title, Items = items, Tags = tags, EncryptedContent = encryptedContent };
 
         try
         {

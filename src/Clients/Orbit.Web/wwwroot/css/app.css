@@ -5417,6 +5417,54 @@ input.note-editor-title {
     color: var(--accent);
 }
 
+/* A tag on a card or in the tags field - see TagChips and TagsField. Plain until the account gives the
+   word a colour, and then tinted with it the way the status marks are tinted with theirs: a wash of the
+   colour behind and the colour as the outline, with the page's own text colour on top rather than the tag
+   colour itself - any colour somebody picks, a pale yellow or a near-black, then stays readable in the
+   light theme and the dark one alike. */
+/* The colour itself arrives on the element, from the account's choice (style="--tag-colour: ..."); this is
+   what a tag chip holds until then, so the variable is always defined and a declaration using it is never
+   dropped for want of it. */
+.card-badge-tag {
+    --tag-colour: var(--border);
+}
+
+.card-badge-tag-coloured {
+    background: color-mix(in oklch, var(--tag-colour) 22%, transparent);
+    border-color: color-mix(in oklch, var(--tag-colour) 75%, transparent);
+    color: var(--text-primary, inherit);
+}
+
+/* Under the tags field: each tag with its colour well, a line of their own under the words. */
+.tags-field-colours {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px 14px;
+    margin-top: 8px;
+    font-size: 12.5px;
+    color: var(--text-secondary);
+}
+
+.tags-field-colour {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.tags-field-colour .card-badge {
+    margin-left: 0;
+}
+
+.tags-field-colour input[type="color"] {
+    width: 28px;
+    height: 22px;
+    padding: 0;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: none;
+}
+
 /* Says what is missing beside a disabled Save (NoteEditor.razor). */
 .form-hint {
     align-self: center;

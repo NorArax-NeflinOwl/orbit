@@ -90,6 +90,11 @@ else
                 </Suggestions>
             </TitledDescription>
         </div>
+        @* What the list is about in a word or two, under what it says about itself - see TagsField. *@
+        <div class="field">
+            <TagsField Values="_formModel.Tags" ValuesChanged="values => _formModel.Tags = [.. values]"
+                       Known="_knownListTags" IsReadOnly="@(_isSharedReadOnly || _lockedByUserName is not null)" />
+        </div>
 
         <h2>@T["Items"]</h2>
         @foreach (var item in _formModel.Items)
@@ -898,7 +903,7 @@ else
     {
         var outcome = await TasksApiClient.UpdateTaskListAsync(taskListId, new UpdateTaskRequest(
             _formModel.Title, ItemsAsSaved(), _formModel.IsGroup, _formModel.IsPrivate,
-            Priority: _formModel.Priority, Description: _formModel.Description));
+            Priority: _formModel.Priority, Description: _formModel.Description, Tags: _formModel.Tags));
         if (outcome.Kind == EditOutcomeKind.Success)
         {
             return true;
@@ -1158,6 +1163,9 @@ else
     /// <summary>Every category this account already uses, offered as suggestions under each entry's box.</summary>
     private IReadOnlyList<string> _knownCategories = [];
 
+    /// <summary>Every tag already on one of this account's lists, for the tags field - see TagsField.</summary>
+    private IReadOnlyList<string> _knownListTags = [];
+
     /// <summary>
     /// What shelf items on this account are filed under. Once its own box on the product fields an
     /// Inventory entry opens; now one half of what the entry's box offers, because an inventory entry
@@ -1270,6 +1278,13 @@ else
                 .Distinct(StringComparer.CurrentCultureIgnoreCase)
                 .OrderBy(productType => productType, StringComparer.CurrentCultureIgnoreCase)];
 
+            // And the tags already on a list, so tagging this one is picking a word already in use - the
+            // field adds the ones only a colour names. A private list's come too: it was opened above.
+            _knownListTags = [.. allTaskLists
+                .SelectMany(taskList => taskList.AllTags)
+                .Distinct(StringComparer.CurrentCultureIgnoreCase)
+                .OrderBy(tag => tag, StringComparer.CurrentCultureIgnoreCase)];
+
             // Linking is narrower: a list that links back here, however long the chain, would close a
             // loop and the save would refuse it - see TaskListLinkCycle. Left out of the dropdown rather
             // than offered and then rejected, which is how every other rule the server enforces is
@@ -1297,6 +1312,7 @@ else
                     {
                         Title = taskList.Title,
                         Description = taskList.Description,
+                        Tags = [.. taskList.AllTags],
                         IsGroup = taskList.IsGroup,
                         Completion = ParseCompletion(taskList.Completion),
                         IsPrivate = taskList.IsPrivate,
@@ -2397,7 +2413,7 @@ else
                 var newTaskListId = await TasksApiClient.CreateTaskListAsync(new CreateTaskRequest(
                     _formModel.Title, items, _formModel.IsGroup, _formModel.IsPrivate,
                     Priority: _formModel.Priority, Description: _formModel.Description,
-                    FolderId: _formModel.FolderId, Completion: CompletionToSave.ToString()));
+                    FolderId: _formModel.FolderId, Completion: CompletionToSave.ToString(), Tags: _formModel.Tags));
                 Logger.LogInformation("Task list {TaskListId} created", newTaskListId);
             }
             else
@@ -2405,7 +2421,7 @@ else
                 var outcome = await TasksApiClient.UpdateTaskListAsync(Id!.Value, new UpdateTaskRequest(
                     _formModel.Title, items, _formModel.IsGroup, _formModel.IsPrivate,
                     Priority: _formModel.Priority, Description: _formModel.Description,
-                    Completion: CompletionToSave.ToString()));
+                    Completion: CompletionToSave.ToString(), Tags: _formModel.Tags));
                 if (outcome.Kind == EditOutcomeKind.Locked)
                 {
                     _lockedByUserName = outcome.LockedByUserName;
@@ -2759,6 +2775,9 @@ else
         public Guid? FolderId { get; set; }
 
         public List<TaskItemFormModel> Items { get; set; } = [];
+
+        /// <summary>The words it is tagged with - see TaskDto.Tags. Always sent, since this form has a box for them.</summary>
+        public List<string> Tags { get; set; } = [];
     }
 
     private sealed class TaskItemFormModel

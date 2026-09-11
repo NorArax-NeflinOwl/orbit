@@ -121,6 +121,7 @@ else
                 {
                     <Row Title="@note.Title" OnPressed="() => GoToNote(note.Id)">
                         <Trailing>
+                            <TagChips Tags="note.AllTags" />
                             @RenderPriorityBadge(note.Priority)
                             <span class="row-meta">@FormatRelative(note.UpdatedAtUtc)</span>
                         </Trailing>
@@ -156,6 +157,7 @@ else
                     <Row Title="@Written(taskList.Title)" OnPressed="() => GoToTaskList(taskList.Id)"
                          AdditionalClass="@RowClasses(taskList.IsCompleted ? "completed" : null, HasNewsAbout(taskList.Id, "/tasks"))">
                         <Trailing>
+                            <TagChips Tags="taskList.AllTags" />
                             @RenderPriorityBadge(taskList.Priority)
                             @if (taskList.Items.Count > 0)
                             {

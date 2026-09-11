@@ -900,6 +900,13 @@ public static class PolishTranslations
         ["The colour Orbit highlights things in. Kept on this device, like the theme."] =
             "Kolor, którym Orbit wyróżnia elementy. Zapamiętywany na tym urządzeniu, tak jak motyw.",
         ["No colour"] = "Bez koloru",
+        ["Tags"] = "Tagi",
+        ["Add a tag"] = "Dodaj tag",
+        ["Tags, separated by commas"] = "Tagi, rozdzielone przecinkami",
+        ["Colour of {0}"] = "Kolor tagu {0}",
+        ["That colour could not be saved."] = "Nie udało się zapisać tego koloru.",
+        ["A tag's colour is kept for your whole account, readable on the server - even for a tag only private notes and lists carry."] =
+            "Kolor tagu obowiązuje na całym koncie i jest zapisany na serwerze w czytelnej postaci - także dla tagu, który noszą tylko prywatne notatki i listy.",
         ["Brown"] = "Brązowy",
         ["Violet"] = "Fioletowy",
         // For a colour an event carries that the palette does not offer - set in a browser, or left

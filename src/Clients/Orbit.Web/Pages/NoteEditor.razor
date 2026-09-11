@@ -137,6 +137,13 @@ else
                 }
             </div>
 
+            @* What the note is about in a word or two, under the writing rather than in it - see
+               TagsField. Inside the fieldset, so a note this reader cannot change offers nothing to add. *@
+            <div class="field note-editor-tags">
+                <TagsField Values="_formModel.Tags" ValuesChanged="values => _formModel.Tags = [.. values]"
+                           Known="_knownNoteTags" IsReadOnly="@(_isSharedReadOnly || _lockedByUserName is not null)" />
+            </div>
+
         </fieldset>
     </EditForm>
 }
@@ -295,6 +302,9 @@ else
     private bool _isSaving;
     private bool _isSharing;
     private NoteFormModel _formModel = new();
+
+    /// <summary>Every tag already on one of this account's notes, for the tags field - see TagsField.</summary>
+    private IReadOnlyList<string> _knownNoteTags = [];
     private bool _isShared;
     private bool _isSharedReadOnly;
     private bool _canShare;
@@ -454,6 +464,29 @@ else
         _surfaceNeedsTheNote = true;
     }
 
+    /// <summary>
+    /// The tags this account's notes already carry, so tagging this one is picking a word already in use.
+    /// Private notes' come too: the list is opened in this browser. Empty rather than failing when it cannot
+    /// be read - a tags box with no suggestions still takes tags, and a note that would not open over a
+    /// suggestion list would be a note lost for nothing.
+    /// </summary>
+    private async Task<IReadOnlyList<string>> KnownNoteTagsAsync()
+    {
+        try
+        {
+            return [.. (await NotesApiClient.GetNotesAsync())
+                .SelectMany(note => note.AllTags)
+                .Distinct(StringComparer.CurrentCultureIgnoreCase)
+                .OrderBy(tag => tag, StringComparer.CurrentCultureIgnoreCase)];
+        }
+        catch (Exception exception) when (exception is HttpRequestException or System.Text.Json.JsonException
+            or NotSupportedException or InvalidOperationException)
+        {
+            Logger.LogWarning(exception, "Failed to read the tags this account's notes already carry");
+            return [];
+        }
+    }
+
     private async Task LoadTheNoteAsync()
     {
         var currentUserId = await AuthenticationStateProvider.TryGetCurrentUserIdAsync();
@@ -463,6 +496,7 @@ else
             return;
         }
         _ownUserId = currentUserId.Value;
+        _knownNoteTags = await KnownNoteTagsAsync();
 
         if (Id is { } noteId)
         {
@@ -479,7 +513,8 @@ else
                         Lines = [new NoteContentLineDto(note.Title, false, false), .. note.Content],
                         IsPrivate = note.IsPrivate,
                         Priority = note.Priority,
-                        FolderId = note.FolderId
+                        FolderId = note.FolderId,
+                        Tags = [.. note.AllTags]
                     };
                     _savedFolderId = note.FolderId;
                     _isShared = note.IsShared;
@@ -631,12 +666,12 @@ else
             {
                 var newNoteId = await NotesApiClient.CreateNoteAsync(new CreateNoteRequest(
                     _formModel.Title, _formModel.Content, _formModel.IsPrivate, Priority: _formModel.Priority,
-                    FolderId: _formModel.FolderId));
+                    FolderId: _formModel.FolderId, Tags: _formModel.Tags));
                 Logger.LogInformation("Note {NoteId} created", newNoteId);
             }
             else
             {
-                var outcome = await NotesApiClient.UpdateNoteAsync(Id!.Value, new UpdateNoteRequest(_formModel.Title, _formModel.Content, _formModel.IsPrivate, Priority: _formModel.Priority));
+                var outcome = await NotesApiClient.UpdateNoteAsync(Id!.Value, new UpdateNoteRequest(_formModel.Title, _formModel.Content, _formModel.IsPrivate, Priority: _formModel.Priority, Tags: _formModel.Tags));
                 if (outcome.Kind == EditOutcomeKind.Locked)
                 {
                     _lockedByUserName = outcome.LockedByUserName;
@@ -887,5 +922,8 @@ else
 
         /// <summary>The folder it is filed under, or null for none - see NoteDto.FolderId.</summary>
         public Guid? FolderId { get; set; }
+
+        /// <summary>The words it is tagged with - see NoteDto.Tags. Always sent, since this form has a box for them.</summary>
+        public List<string> Tags { get; set; } = [];
     }
 }
