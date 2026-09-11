@@ -700,7 +700,11 @@ inventory lists, the contacts tabs, the chat menus - is built and needs no schem
   `drop` event (`document.caretPositionFromPoint`), and sending a delete of the dragged selection and an
   insert at that point to C# as one step.
 
-- **The name-and-description field turns "[]" into a box it cannot keep.** `TitledDescription` is the
+- ~~**The name-and-description field turns "[]" into a box it cannot keep.**~~ Fixed 2026-09-11:
+  `ChecklistTextEditor.ReadsMarkers` (true by default) says whether typed and pasted markers become
+  boxes; `TitledDescription` passes false, so "[] milk" typed or pasted into a list's or an inventory's
+  name and description stays words - both the typed-marker read and the paste's `readsMarkers` honour it.
+  As noticed: `TitledDescription` is the
   note's surface (`ChecklistTextEditor`) reused for a task list's or an inventory's name and description,
   and it stores only text - so a line typed as "[] milk" there loses the "[] " to a box, and the box is
   dropped on save. Older than the 2026-09-11 note-editor work, which made it no worse for typing. What it

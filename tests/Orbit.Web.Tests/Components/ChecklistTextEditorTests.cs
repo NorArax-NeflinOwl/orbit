@@ -106,6 +106,27 @@ public sealed class ChecklistTextEditorTests : OrbitTestContext
         Assert.Equal([Text("\tabc")], page.Instance.Lines);
     }
 
+    /// <summary>
+    /// A surface stored as text alone (TitledDescription) keeps "[]" as words, typed or pasted - a box
+    /// there would be dropped on save and take the brackets with it. The note, which does read them, is
+    /// the case above.
+    /// </summary>
+    [Fact]
+    public void A_surface_that_does_not_read_markers_keeps_brackets_as_words()
+    {
+        var cut = RenderComponent<ChecklistTextEditor>(parameters => parameters
+            .Add(editor => editor.Lines, new[] { Text("") })
+            .Add(editor => editor.ReadsMarkers, false));
+
+        var typed = Send(cut, new { command = "typed", lines = new[] { Text("[] ") }, anchor = Caret(0, 3), focus = Caret(0, 3), inputType = "insertText", text = " " });
+        Assert.Null(typed);
+        Assert.Equal([Text("[] ")], cut.Instance.Lines);
+
+        var pasted = Send(cut, new { command = "paste", lines = new[] { Text(""), Text("") }, anchor = Caret(1, 0), focus = Caret(1, 0), text = "[] milk\n- eggs\n[x] bread" });
+        Assert.NotNull(pasted);
+        Assert.Equal([Text(""), Text("[] milk"), Text("- eggs"), Text("[x] bread")], cut.Instance.Lines);
+    }
+
     private static SurfacePointAnswer FocusOf(string answer)
     {
         using var document = JsonDocument.Parse(answer);

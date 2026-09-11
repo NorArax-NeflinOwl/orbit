@@ -907,7 +907,10 @@ disagree in.
 - **The checklist tool types `[]`**, which the surface then turns into a tick box
   (`checklistTextEditor.js`, `CHECKLIST_MARKER`). Typing the same two characters at the head of a line
   does the same thing, so the button is a shortcut into the rule rather than a second way in - which is
-  how the phone has always done it (`NoteDetailPage`, "Type [] for a checkbox").
+  how the phone has always done it (`NoteDetailPage`, "Type [] for a checkbox"). **Not in a list's or an
+  inventory's name and description** (`TitledDescription`, the same surface with
+  `ChecklistTextEditor.ReadsMarkers` off): those store only text, so `[]` typed or pasted there stays
+  words rather than becoming a box the save would drop.
 - **How much it matters, where it is filed and whether it is sealed live in the panel's menu**, above
   Save and Back (`EditorRail`'s `ChildContent`, an `OverflowMenu` that stays open because these are
   settings rather than actions). They used to sit under the writing, which is a form somebody had to

@@ -12,12 +12,14 @@
    The note editor is that surface, and this is the same one - see ChecklistTextEditor and
    .note-editor-titled. Reused rather than written again, because "one field whose first line is its
    title" is a thing this app has already solved, and two of them would drift. The checklist half of it
-   never comes up here: nothing offers the button that makes a checkbox line. *@
+   is switched off here: nothing offers the button that makes a checkbox line, and "[]" typed or pasted
+   stays words (ReadsMarkers) - the pages store only text, so a box would be dropped on save and take
+   the brackets with it. *@
 <div class="titled-description">
     <ChecklistTextEditor @ref="_editor"
                          CssClass="note-editor-content note-editor-titled titled-description-editor"
                          Lines="Lines" LinesChanged="OnLinesChangedAsync" IsReadOnly="IsReadOnly"
-                         aria-label="@TitleLabel" />
+                         ReadsMarkers="false" aria-label="@TitleLabel" />
     @Suggestions
 </div>
 

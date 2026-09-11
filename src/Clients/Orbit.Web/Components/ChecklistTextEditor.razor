@@ -45,6 +45,15 @@
     public bool TakesTab { get; set; }
 
     /// <summary>
+    /// Whether "[]" typed at the head of a line, and a pasted line starting "[]", "[x]" or "- ", become a
+    /// tick box. True by default: the note is a checklist too. False for a surface whose writing is stored
+    /// as text alone (see TitledDescription) - a box there has nowhere to be kept, so "[] milk" lost its
+    /// brackets to a box that the save then dropped, and the words were all that came back.
+    /// </summary>
+    [Parameter]
+    public bool ReadsMarkers { get; set; } = true;
+
+    /// <summary>
     /// How many boxes the selection covers while a press on one of them would answer for all of them -
     /// two or more - and zero once it does not; see NoteSurfaceEdits.SelectedChecklistLines. For a page
     /// that says what that press will do.
@@ -174,7 +183,7 @@
             "delete" => (NoteSurfaceEdits.Delete(before), SurfaceEditKind.Reshaping),
             "cut" => (NoteSurfaceEdits.DeleteSelection(before), SurfaceEditKind.Reshaping),
             "replace" => (NoteSurfaceEdits.Replace(before, request.Text ?? string.Empty, readsMarkers: false), SurfaceEditKind.Reshaping),
-            "paste" => (NoteSurfaceEdits.Replace(before, request.Text ?? string.Empty, readsMarkers: true), SurfaceEditKind.Pasting),
+            "paste" => (NoteSurfaceEdits.Replace(before, request.Text ?? string.Empty, readsMarkers: ReadsMarkers), SurfaceEditKind.Pasting),
             "indent" when TakesTab => (NoteSurfaceEdits.Indent(before), SurfaceEditKind.Reshaping),
             "outdent" when TakesTab => (NoteSurfaceEdits.Outdent(before), SurfaceEditKind.Reshaping),
             "tick" => (NoteSurfaceEdits.Cycle(before, request.Line ?? -1), SurfaceEditKind.Ticking),
@@ -195,7 +204,8 @@
     /// the typing before it where NoteSurfaceHistory says it does; then the only thing to decide is
     /// whether it made a "[]" at the head of a line. That turn into a box is a step of its own, so the
     /// first Ctrl+Z after it gives back the brackets rather than the whole word. Not while an input
-    /// method is still composing a character - the line is not what the reader means yet.
+    /// method is still composing a character - the line is not what the reader means yet - and never on
+    /// a surface that does not read markers (see <see cref="ReadsMarkers"/>).
     /// </summary>
     private SurfaceState? AfterTyping(SurfaceRequest request)
     {
@@ -206,7 +216,7 @@
         _history.Record(SurfaceBeforeTyping(request), typed, kind, request.At, request.Text);
         Lines = typed.Lines.ToDtos();
 
-        if (request.Composing || request.InputType != "insertText")
+        if (!ReadsMarkers || request.Composing || request.InputType != "insertText")
         {
             return null;
         }
