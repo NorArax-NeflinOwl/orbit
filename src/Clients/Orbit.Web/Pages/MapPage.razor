@@ -484,7 +484,7 @@ else
             <div class="map-create-event map-route">
                 @if (_routeEnd is { } routeEnd)
                 {
-                    <span class="map-create-event-place">@T.Format("{0} → {1}", routeStart.Address, routeEnd.Address)</span>
+                    <span class="map-create-event-place">@($"{routeStart.Address} → {routeEnd.Address}")</span>
                     @if (_route is { } route)
                     {
                         <span class="map-create-event-question">@DescribeRoute(route)</span>
